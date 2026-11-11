@@ -1,4 +1,36 @@
-# Handoff – Epic 01 QA fix batch
+# Handoff – Epic 01 QA fix batch 2
+
+2026-11-11. Kodcommit **a84e48a32a874a4392c13bb4f32437d06b317c45**, bas b000481, branch epic-01-foundation-hardening. Arbetskopian var ren före arbetet. Beställaren godkände punkterna 1–5 och 7–11, undantog punkt 6 och tillät bara lokala commits. Ingen push, deploy, publik MCP eller Epic 02. Repo ska förbli privat.
+
+## Ändringar och tekniska beslut
+
+- scripts/server.mjs + client-address.mjs: Node-wrapper runt samma Next-app ger verklig socketadress. Standardläget ignorerar forwarding, proxyläge kräver socketmatch mot IP/CIDR-lista. Interna signerade adressheaders skrivs över; rått next start är inte längre en stödd startväg. npm run dev/start är dokumenterad väg. Inga nya npm-paket.
+- rate-limit.ts och login-rutten: fem fel/adress/15 min med progressiv 100–500 ms fördröjning, korrekt lösenord får passera, äldsta bucket evikteras vid 10 000. Bokningsreplays räknas inte mot försök/dagstak.
+- domain.ts och ny migration 20261111020000_sessions_client_caps: fem bokningar per verifierad klient/Stockholmsdag, tre per normaliserad e-postnyckel; transaktionslås. Plus-taggen behålls i kontaktadressen men tas bort i taknyckeln. clientKey är HMAC av IP. Båda gamla migrationer och exclusion constraint är oförändrade.
+- auth.ts: hashat slumpmässigt sessionstoken i AdminSession, revoke-on-logout, global version kvar. Kopierade cookies avvisas; DB-fel nekar åtkomst med statisk logg. Gamla cookies är avsiktligt inkompatibla. Inga individuella konton eller gallringsjobb.
+- Admin: felaktiga datumfilter ger statiskt meddelande/standardintervall, logout i header och YYYY-MM-DD. Punkt 6 inte byggd; e-postmaskering kvar.
+- BookingForm: UUID per payload återanvänds efter tappat svar och dubbelsubmit. Textdatum med servervalidering; ingen ny UI-dependency. Nyckeln bevaras inte efter sidomladdning.
+- Kampanjvalidering har två skilda säkra felmeddelanden. 100 % tillåts uttryckligen som informationsrabatt i POC, utan betalning. Max 90 dagar/strict/DB CHECK består.
+- mcp/environment.ts: explicit whitelist och förälderns DATABASE_URL till subprocesser. Automatisk regression bevisar att annan env-fil inte styr bort kampanjen.
+- Playwright: verkliga socketklienter, full dev/prod × direkt/proxy-matris, auto-fixture med egen teardown-budget, separat avsiktlig timeout-probe och UI-retrytest. run-production-e2e.mjs bygger och kör hela sviten.
+
+Exakt fillista: `git diff --name-status b000481 HEAD`. Läs README/ARCHITECTURE för ändrat startavtal och DATA_FLOWS/PRIVACY_SECURITY för nya lagrade nycklar/sessioner. Låsfilen och licensinventeringen är oförändrade; inga nya beroenden eller Prisma-major.
+
+## Faktisk verifiering och demo
+
+[VERIFICATION](VERIFICATION.md) innehåller aktuell resultattabell, riktig output, rättade fel och ej körda kontroller. Ren npm ci och tre migrationer/seed på nya PostgreSQL 18.6-databaser PASS; 20 unit, 16 integration, lint/tsc/build PASS. Alla åtta E2E PASS i vardera av fyra lägen. Timeout-probe: förväntad child exit 1 och noll syntetiska bokningar/kampanjer. Audit oförändrat FAIL: 3 höga/7 måttliga, runtime 3 höga.
+
+[Ny produktionsdemo](../demo-artifacts/2026-11-11T21-04-56-806Z/index.html) och [manifest](../demo-artifacts/2026-11-11T21-04-56-806Z/manifest.json): 2/2 PASS, 12 PNG/2 WebM, **a84e48a och dirty=false**. Inspelat efter kodcommit. Två bilder visuellt granskade; videometadata verifierade, ingen full genomtittning. Artefakterna är endast lokala; de har inte skickats till QA eller GitHub. [Reproduktion](DEMO.md).
+
+## Begränsningar och nästa steg
+
+NO-GO för riktiga kunder: delat adminlösenord, ingen GDPR-export/radering/gallring eller sessionsgallring, kvarvarande audit, ej verifierad drift. Processlokal räknare är inte distribuerat skydd; IP/NAT är inte personidentitet och olika IP kan kringgå dagstak. CSP unsafe-inline och obegränsad kampanjlista består. Fixture-städning garanterar inte processkill, DB-avbrott eller strömavbrott. Verklig TLS/reverse proxy, Docker/PG16 och extern CI har inte körts i denna batch.
+
+Tre nästa mål: oberoende QA av a84e48a, separat audit-/driftverifiering, därefter individuell adminåtkomst och beslutad datalivscykel före pilot. Punkt 6 kräver nytt produktbeslut. Ingen push förrän beställaren ber om det.
+
+## Bilaga – tidigare handoff (historik)
+
+# Handoff – Epic 01 QA fix batch 1
 
 Senaste kodrevision: `3b3309d` (endast återstående formatering efter funktionellt testade `26ea617`); lint/tsc/build/Prettier omkörda PASS.
 

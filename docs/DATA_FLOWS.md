@@ -1,5 +1,18 @@
 # Datakarta för Booking Lab SE POC
 
+## Uppdatering efter QA batch 2 — 2026-11-11, a84e48a
+
+Detta tillägg ersätter nedanstående äldre uppgifter om gemensam IP-bucket och logout utan serveråterkallelse.
+
+- Riktig socketadress är standard. X-Real-IP används endast när socketen matchar TRUSTED_PROXY_IPS i aktiverat proxyläge. IP/rutt/räknare ligger i processminne i 15 minuter, rensas vid nästa anrop efter utgång eller processavslut; äldsta post evikteras vid kapacitet. Rå IP skrivs inte av appen till Booking eller applogg.
+- Booking lagrar nu clientKey (HMAC av IP med SESSION_SECRET) för fem skapade bokningar per klient/Stockholmsdag, och emailCapKey (gemener utan +tagg) för e-posttaket. Kontaktadressen behåller taggen. HMAC/hash är pseudonymisering, inte anonymisering. NAT delar tak; ingen e-postverifiering eller leverantörsspecifik punkt-normalisering.
+- AdminSession lagrar hash av slumpmässigt token och createdAt/expiresAt/revokedAt. Cookien innehåller token, utgångstid och signatur. Logout återkallar DB-raden innan browsercookie raderas, så kopierad cookie nekas. Global version finns kvar. Inga individuella adminkonton och ingen automatisk gallring av sessioner.
+- Punkt 6 är undantagen: admin får ingen ny möjlighet att avmaskera e-post. Inga nya utlämnings-/auditflöden. MCP utelämnar fortfarande namn/e-post.
+- MCP-subprocesser får uttryckligen exporterad DATABASE_URL och en liten lista nödvändiga operativmiljövariabler. Adminlösenord och sessionshemlighet vidarebefordras inte. Exporterad databas vinner över env-filens databas; detta är integrationstestat.
+- Fixtures tar bort egna syntetiska bokningar/kampanjer efter test-timeout när DB finns tillgänglig. Sessionsrader består i isolerade testkluster. Processkill, strömavbrott och DB-avbrott omfattas inte av städgarantin.
+
+Nya nycklar och sessionsrader måste ingå i framtida gallrings-/rättighetsbeslut. Inga nya externa tjänster eller dependencies har tillkommit. Ingen ny egressfångst eller juridisk bedömning har gjorts. Underliggande klassificering och driftosäkerheter nedan består.
+
 Granskad 2026-11-11 mot lokal arbetskopia. Kartan beskriver kodens möjliga behandling och verifierbar konfiguration, inte en godkänd behandling av riktiga kunduppgifter. Endast syntetiska uppgifter får användas. Ingen befintlig kunddatabas eller trafik med riktiga personer granskades. Dokumentet är ett underlag för en faktisk registerförteckning, inte en komplett sådan.
 
 ## Klassificering och ändamål

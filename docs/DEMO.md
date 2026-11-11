@@ -1,5 +1,13 @@
 # Prova Booking Lab SE lokalt
 
+## Aktuell inspelning efter QA batch 2
+
+[Galleri](../demo-artifacts/2026-11-11T21-04-56-806Z/index.html) och [manifest](../demo-artifacts/2026-11-11T21-04-56-806Z/manifest.json): 2/2 PASS, 12 PNG, 2 WebM. Inspelat från ren kodcommit a84e48a, dirty=false och build=production. Start 2026-11-11 kl. 22:04:56 svensk tid (21:04:56Z).
+
+Mobilens adminvy och desktopens bekräftelse är visuellt granskade: YYYY-MM-DD, logout i sidhuvud, maskerad e-post, inga N-badges eller observerat layoutöverflöd. Videorna kan läsas i Chromium: 10,68 s (800×450) och 10,72 s (392×800). De är inte genomtittade i sin helhet; visuella slutsatser bygger på bilderna. Artefakter är lokala och ignorerade. Extern QA kan reproducera demon från revisionen men får inte dessa filer genom Git. Inget har laddats upp.
+
+Startpunkten har ändrats: `npm run start` använder socket-wrappern med kompilerad Next och dev:false, inte rått next start. `npm run test:e2e:production` kör hela produktionssviten. Datumfält är textfält med format YYYY-MM-DD. Kör bara en QA-omgång mot samma databas/port. Sessionsrader består; fixture-städning avser bokningar/kampanjer. Den äldre inspelningen längst ned är historik.
+
 En syntetisk demo visar kundbokning → administrationsagenda → kampanjutkast från lokal MCP → manuell publicering → erbjudande på bokningssidan. Ingen betalning, social publicering eller extern AI-tjänst används. MCP-anropet sker i testklienten; videon visar dess resultat i adminvyn, inte en chatt med en AI-modell.
 
 ## Spela in igen

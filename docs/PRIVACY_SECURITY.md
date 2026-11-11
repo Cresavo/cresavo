@@ -1,5 +1,13 @@
 # Integritets- och säkerhetsprinciper
 
+## Aktuellt efter QA batch 2 — a84e48a
+
+Den globala standardbucketen är borttagen. Riktig socketadress används, och forwarding kräver att socketen matchar konfigurerad proxy-IP/CIDR. Korrekt lösenord spärras inte av andra klienters fel. Separata sockets, förfalskade headers, klient-/e-posttak och eviction är testade. Verklig TLS-/reverse-proxydrift är fortfarande inte verifierad; en proxy måste överskriva klientens header och listan måste vara snäv. IP/NAT är inte individuell identitet och räknaren är processlokal.
+
+Logout återkallar nu serverraden, även kopierade cookies nekas. Global versionshöjning kvarstår. Databasfel i sessionskontrollen nekar åtkomst med statisk fellogg. Konton/roller och automatisk sessionsgallring saknas. Detta ersätter tidigare beskrivningar av gemensam bucket och browserlogout längre ned.
+
+Datakartan omfattar clientKey, emailCapKey och sessionshashar. Ingen GDPR-export, radering eller retention införs. Punkt 6 (Visa e-post) är uttryckligen undantagen. Audit, CSP unsafe-inline och obegränsad kampanjlista kvarstår. Testad POC innebär inte godkänd pilot; P0/P1-grindarna nedan består. Aktuella resultat: [VERIFICATION](VERIFICATION.md).
+
 Senast granskad 2026-11-11. **POC:n är endast för syntetiska uppgifter och är inte klar för riktiga kunder eller kommersiell drift.** Detta är ett tekniskt underlag, inte ett bevis på GDPR-efterlevnad eller ett färdigt juridiskt beslut. Faktisk behandling måste bedömas med verksamhetens personuppgiftsansvariga och vid behov juridisk/dataskyddskompetens. Se [datakartan](DATA_FLOWS.md) för observerade flöden och osäkerheter.
 
 ## Principer för utveckling och drift

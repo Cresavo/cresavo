@@ -1,4 +1,83 @@
-# Verifiering – Epic 01 QA fix batch
+# Verifiering – Epic 01 QA fix batch 2
+
+## Aktuella resultat 2026-11-11
+
+Kodrevision **a84e48a32a874a4392c13bb4f32437d06b317c45**, bas b000481, branch epic-01-foundation-hardening. Dokumentationscommit följer kodcommiten. Punkterna 1–5 och 7–11 godkända av beställaren; punkt 6 uttryckligen undantagen. Endast lokala commits, ingen push/deploy. Windows x64, Node 24.16.0, npm 11.13.0, Prisma 6.19.3, Next 16.4.6 och ny isolerad PostgreSQL 18.6. Detta är en testad POC, inte pilotgodkännande.
+
+| Kommando/kontroll | Faktiskt slutresultat |
+|---|---|
+| `npm ci` | PASS, exit 0: `added 461 packages, and audited 462 packages in 1m`; `10 vulnerabilities (7 moderate, 3 high)`. |
+| `npx prisma generate` | PASS: `Generated Prisma Client (v6.19.3)`. |
+| `npm run db:migrate` | PASS på nya `_test` och `_demo`: `3 migrations found`; `All migrations have been successfully applied.` |
+| `npm run db:seed` | PASS, exit 0 på båda nya databaserna. Även separat decoy-databas migrerad/seedad för miljötest. |
+| `npm run lint` | PASS, exit 0 utan diagnostik. |
+| `npx tsc --noEmit` | PASS, exit 0; även efter sista produktions-E2E. |
+| `npm test` | PASS: `Test Files 4 passed (4)` / `Tests 20 passed (20)`, 1.97 s. |
+| `npm run test:integration` | PASS: `Test Files 4 passed (4)` / `Tests 16 passed (16)`, 9.85 s. |
+| `npm run test:e2e`, dev, TRUST_PROXY_IP=0 | PASS: `8 passed (1.2m)`. |
+| `npm run test:e2e`, dev, TRUST_PROXY_IP=1 | PASS: `8 passed (27.0s)`. |
+| `npm run build` | PASS: `Compiled successfully in 961ms`; statiska sidor `8/8` på 153 ms. |
+| `npm run test:e2e`, E2E_PRODUCTION=1, TRUST_PROXY_IP=0 | PASS: `8 passed (19.5s)`. |
+| `npm run test:e2e`, E2E_PRODUCTION=1, TRUST_PROXY_IP=1 | PASS: `8 passed (19.1s)`. |
+| `node --env-file=.env scripts/test-cleanup.mjs` | PASS: `CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0; PASS`. Den avsiktliga timeout-processen ska avslutas med 1; kontrollskriptet avslutades med 0. |
+| `npm run demo:record`, ny `_demo` | PASS: produktionsbygge + `2 passed (24.2s)`, 12 PNG och 2 WebM. Manifest a84e48a, dirty=false. |
+| `npm audit --json` | FAIL, exit 1: 3 high, 7 moderate, 10 total. |
+| `npm audit --omit=dev --json` | FAIL, exit 1: 3 high, 0 moderate, 3 total. |
+| Proxyläge utan TRUSTED_PROXY_IPS, `node scripts/server.mjs` | PASS negativ startkontroll: `BOOKING_SERVER_CONFIG_FAILED`, exit 1 före lyssning. |
+| Extern Prettier 3.6.2 `--check` | PASS: `All matched files use Prettier code style!` på src/tests/scripts/config/seed. Inget nytt projektberoende. |
+| Git-diff och skyddade filer | PASS: diff-check utan fel; package-lock och båda tidigare migrationer oförändrade mot b000481. `.env`, artefakter, resultat och dependencies ignorerade. |
+
+## Vad som faktiskt ändrades och bevisades
+
+1. **Klientgräns och rate limit:** egen liten Node-startpunkt läser socketadress. Separata riktiga källadresser används i HTTP-tester, inte bara godtyckliga headers. Standardläge har ingen global bucket; korrekt lösenord fungerar efter fem fel, annan klient får inte 429 efter 30 anrop. Felaktiga login fördröjs progressivt och sjätte nekas. 20 samtidiga retries plus ytterligare 35 retries lämnar plats för nya bokningar och återger samma ID.
+2. **Betrodd proxy:** IP/CIDR-lista valideras före start; header accepteras bara från matchande socket. Roterad X-Real-IP och förfalskade interna headers från olistad adress når fortfarande 429. Kapacitetstest fyller mer än 10 000 buckets och ny klient släpps in. CIDR/IPv6-normalisering är unit-testad; HTTP-matrisen använder IPv4-loopback.
+3. **Dagstak:** sex samtidiga nya bokningar från samma klient med olika adresser ger fem framgångar; ytterligare bokning nekas. Tre plus-taggar delar samma e-posttak, även basadressen nekas efteråt. Kontaktadressen ändras inte utöver befintlig gemenisering.
+4. **Serverlogout:** E2E kopierar cookie, loggar ut och provar publicering/admin med kopian: 403 respektive loginform. Global version/signatur/utgång och DB-fel som stänger åtkomst täcks också. Endast hash av sessionstoken lagras.
+5. **Adminfilter:** garbage, över 31 dagar och omvända datum ger 200 med statiskt meddelande/standardintervall. Valideringshjälparen skriver ingen fellogg; inga serverfel observerades i flödet.
+6. **Visa e-post:** inte byggt, enligt beställarens uttryckliga undantag. Maskeringen kvarstår.
+7. **Kampanj:** separata säkra meddelanden för omvända datum och längre än 90 dagar. 100 % tillåts uttryckligen som informationsrabatt i POC:n; unit-test verifierar beslutet. Gamla DB CHECK är orörd.
+8. **Full produktions-E2E:** alla åtta flöden i både direkt/proxyläge. Produktionsservern är nu `npm run start` med kompilerad Next dev:false via socket-wrappern, inte rått `next start`. Detta avsteg behövs för verklig socketadress. `npm run test:e2e:production` erbjuder bygge+hela sviten och provades också under arbetet; slutmatrisen ovan kördes med explicit build och E2E_PRODUCTION.
+9. **MCP-miljö:** ett nytt integrationstest skapar en separat env-fil med oanvändbar annan databas och verifierar utkast i den exporterade testdatabasen. Dessutom kördes integration/E2E/demo med exporterad DATABASE_URL som skilde sig från projektets tillfälliga .env. Decoy-databasen hade noll bokningar/kampanjer/sessioner efteråt.
+10. **Timeout/retry:** riktig avsiktlig Playwright-timeout lämnar noll egna bokningar/kampanjer via fixture med separat teardown-tid. UI-test tappar första svaret efter serverns commit, skickar sedan två submit-events och ser tre 201 med samma UUID/ID, en DB-rad och lyckad bekräftelse.
+11. **UX/demo:** YYYY-MM-DD i kund/admin, logout i sidhuvudet. Mobil-admin och desktop-bekräftelse visuellt granskade utan observerat överflöd eller N-badge. Hela produktionsdemon passerade.
+
+## Miljö, körordning och output
+
+Ny portabel PostgreSQL-instans skapades med UTF-8 på 127.0.0.1:55445, kluster `C:\Users\<user>\booking-lab-pg-test\qa-batch2-20261111`. Separata nya databaser: booking_qa2_test, booking_qa2_demo och booking_mcp_decoy_test. Befintligt externt testverktyg embedded-postgres användes; inget npm-beroende lades till i projektet. Varje gransknings-/testkommando kördes sekventiellt, Playwright workers=1. Ingen annan arbetskopia eller databas återanvändes.
+
+Efter migration/seed kördes lint, tsc, unit, integration, timeout-probe och fyra E2E-lägen enligt README. NEXT_TELEMETRY_DISABLED=1 och CHECKPOINT_DISABLE=1 sattes före bygg-/Prisma-/testprocesserna. Projektets tillfälliga .env pekade efter första körningen på decoy medan exporterad DATABASE_URL pekade på aktuell test-/demodatabas. Ingen nätverksfångst gjordes.
+
+Sista databaskontroll (läsning): test 0 bokningar/0 kampanjer/36 syntetiska sessionsrader; demo 0/0/2; decoy 0/0/0. Sessionsrader har ingen automatisk gallring i denna batch. Testklusterfiler bevaras lokalt.
+
+Efter verifieringen stoppades det egna klustret (`server stopped`, därefter `pg_ctl: no server running`) och den identifierade egna hjälpprocessen avslutades. Den tillfälliga syntetiska .env-filen togs bort efter kontroll av dess testadress. Ingen webbserver lyssnade längre på port 3000. Kluster och demoartefakter behölls lokalt; ingen extern överföring gjordes.
+
+Audit-output sparades lokalt utanför repot i `C:\Users\<user>\booking-lab-pg-test\qa2-audit.json` och `qa2-audit-runtime.json`. Full audits faktiska metadata:
+
+```json
+{"info":0,"low":0,"moderate":7,"high":3,"critical":0,"total":10}
+```
+
+Inga nya dependencies, overrides eller major-uppgraderingar. Advisoryanalys och licensbegränsningar från tidigare granskning består. Se [Prisma 7-plan](PRISMA_7_PLAN.md) och [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md).
+
+## Rättade fel under denna arbetsomgång
+
+- Första tsc upptäckte dubbelt env-fält i det befintliga MCP-feltestet efter ändringen; rättat till en explicit whitelist plus avsiktlig test-override.
+- ESLint tolkade Playwright-fixturens parameter `use` som React-hook i try/finally; den heter nu `provide`.
+- Första E2E: 4/6 PASS, två tester misslyckades eftersom en bred alert-locator också träffade Nexts route announcer. Produktens filter gav redan 200; testet avgränsades till formulärets p[role=alert]. Senare slutmatris 8/8 i samtliga lägen.
+- Ett unit-test antog att DATABASE_URL saknades. När sviten kördes med exporterad testdatabas föll just missing-env-fallet. Testet nollställer nu uttryckligen miljön i det fallet; grinden ändrades inte. Slutresultat 20/20.
+- Befintliga ESLint-versions-, Vite-loader- och NO_COLOR/FORCE_COLOR-varningar kvarstår. Inga retries eller längre test-timeouter lades till för att dölja fel.
+
+## Demo och ej körda kontroller
+
+[Galleri](../demo-artifacts/2026-11-11T21-04-56-806Z/index.html), [manifest](../demo-artifacts/2026-11-11T21-04-56-806Z/manifest.json), start kl. 22:04:56 svensk tid. Kodcommiten gjordes före inspelning: a84e48a/dirty=false. Tolv PNG och två WebM. Chromium kunde läsa videorna: 10,68 s, 800×450 och 10,72 s, 392×800. Två representativa bilder granskades; videorna är inte genomtittade i sin helhet. Artefakterna finns lokalt, inte i Git eller uppladdade till QA.
+
+**Ej kört/inte infört:** Docker/PG16, extern CI, verklig TLS/reverse proxy, andra webbläsare än Chromium, flerprocess-/serverlessdrift, penetration/load/backup-restore, full egressmätning, GDPR export/radering/gallring, individuella adminkonton, Prisma 7, nonce-CSP och punkt 6. Rått next start är avsiktligt ersatt av dokumenterad socket-startpunkt. En emulerad betrodd socket är inte verifierad driftinfrastruktur. Ingen push eller extern publicering. POC:n är fortfarande NO-GO för riktiga kunder.
+
+## Bilaga – tidigare QA-batch och verifieringar (historik)
+
+Allt nedan gäller tidigare revisioner. Äldre resultat och begränsningar är inte dagens status.
+
+# Verifiering – Epic 01 QA fix batch 1
 
 ## Aktuellt resultat, 2026-11-11
 

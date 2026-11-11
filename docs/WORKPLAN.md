@@ -1,5 +1,11 @@
 # Epic 01 – arbetsplan
 
+## Slutförd QA batch 2, bas b000481
+
+Beställaren godkände punkterna 1–5 och 7–11, undantog punkt 6. Kod a84e48a, lokala commits utan push. En QA-omgång i taget mot ny isolerad PostgreSQL; inga subagenter eller parallella testserverkörningar.
+
+Socket-/proxygräns, dagstak, sessionsåterkallelse, adminfilter, kampanjmeddelanden, full produktions-E2E, MCP-miljö, timeout-städning, UI-idempotens och datum/header-UX levererade. Gamla migrationer/exclusion och låsfil bevarade. 20 unit, 16 integration, åtta E2E i fyra lägen, lint/tsc/build och ren produktionsdemo PASS. Audit kvar röd. Ingen Epic 02. Aktuell output och kvarstående grindar finns överst i VERIFICATION/HANDOFF/PROJECT_STATUS; nedan är tidigare arbetsomgångar.
+
 ## Slutförd QA-fixbatch (inte ny Epic), bas ed1658a
 
 1. Bevara historisk migration; ny migration för idempotens, skapandetid och kampanjdatumkontroll.

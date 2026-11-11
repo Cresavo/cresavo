@@ -35,5 +35,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 - Tester får bara använda separat loopback-databas med suffix `_test`/`_demo`; kringgå aldrig `scripts/test-db-guard.mjs`.
 - Bevara rate limit, dagstak, idempotenslås och databasens exclusion constraint. Gå via `createBooking`, inte lagringshjälparen.
-- `TRUST_PROXY_IP=1` kräver betrodd överskrivande proxy; lokal `--admin` är ingen fjärrbehörighet. Sessionsåterkallelse och nya datafält beskrivs i README/DATA_FLOWS.
+- Starta HTTP via `npm run dev/start` och socket-wrappern. `TRUST_PROXY_IP=1` kräver matchande socket i TRUSTED_PROXY_IPS och överskrivande proxy; lokal `--admin` är ingen fjärrbehörighet.
 - Aktuell resultatlista finns överst i VERIFICATION; historik i bilagan. Licensbegränsningar: `THIRD_PARTY_NOTICES.md`. Prisma 7 är separat framtida arbete enligt `docs/PRISMA_7_PLAN.md`.
+- QA batch 2 omfattar inte punkt 6 (Visa e-post) eller Epic 02. Logout måste återkalla serverraden; idempotenta replays förbrukar ingen budget. Bevara samtliga tre migrationer.
+- MCP-subprocesser får samma exporterade DATABASE_URL via mcpEnvironment, inte alla förälderns hemligheter. Kör bara en QA-omgång per miljö; bevara fixture-städningens egen teardown-tid.
+- Repot ska förbli privat. Denna batch får lokala commits, ingen push utan nytt uppdrag.

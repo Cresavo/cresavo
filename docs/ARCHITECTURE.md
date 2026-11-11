@@ -1,5 +1,24 @@
 # Arkitektur
 
+## Aktuellt beslut efter QA batch 2 — a84e48a
+
+Följande ersätter äldre beskrivningar av global bucket och browserlogout nedan. Historiska resonemang bevaras som bakgrund.
+
+- `npm run dev/start` använder `scripts/server.mjs`, en liten Node-startpunkt runt samma Next-app. Den läser socket.remoteAddress och skriver över signerade interna adressheaders; routes verifierar dem. Rått `next dev/start` är inte en stödd startväg. Produktionsläget använder kompilerad Next med dev:false. Nexts route-objekt saknar socketadressen; ingen extra tjänst eller dependency tillkommer. Standalone/serverless kan inte antas fungera med denna startpunkt.
+- Standardläget ignorerar forwarding. Proxyläge kräver TRUSTED_PROXY_IPS (IP/CIDR) och kontrollerar verklig socket innan X-Real-IP används. Saknad/ogiltig lista stoppar starten. Implementationen använder Node net.BlockList. Se [Next custom server](https://nextjs.org/docs/app/guides/custom-server) och [Node BlockList](https://nodejs.org/api/net.html#class-netblocklist).
+- Misslyckade login får progressiv asynkron fördröjning 100–500 ms och sjätte felet ger 429. Korrekt lösenord nekas inte på grund av andras fel. Vid 10 000 buckets evikteras äldsta posten. Ingen tvärprocessgaranti eller verifierad driftsproxy/TLS påstås.
+- Nya bokningar har transaktionssäkrat tak: fem per klientadress/Stockholmsdag och tre per e-postnyckel/dag. Låsordning är idempotensnyckel, klient/dag, e-post/dag. Lyckad idempotent replay förbrukar ingen budget. clientKey är HMAC av IP med SESSION_SECRET; emailCapKey är gemener utan +tagg. Kontaktadressen behåller taggen. NAT delar taket; ny signeringsnyckel ändrar även adressnycklar. Detta är heuristiker, inte identitetsverifiering eller anonymisering.
+- HTTP skickar verifierad klientadress till createBooking. Betrodda direkta domäntester kan sakna nätklient; framtida externa adaptrar måste skicka verifierad klientkontext. Ingen alternativ publik bokningsväg tillkommer. Exclusion constraint är oförändrad.
+- Ny migration 20261111020000_sessions_client_caps tillför klient-/e-postnycklar, index, e-postbackfill och AdminSession. Båda tidigare migrationerna är orörda. Historiska rader utan clientKey räknas inte retroaktivt mot IP-taket.
+- AdminSession lagrar tokenhash samt createdAt/expiresAt/revokedAt. Varje kontroll kräver aktiv rad och signerad cookie. Logout återkallar raden innan cookien raderas; kopierade cookies nekas. ADMIN_SESSION_VERSION fungerar fortsatt globalt. Gamla cookies är inkompatibla. Databasfel stänger åtkomst med statisk fellogg. Individuella konton och sessionsgallring saknas.
+- UI återanvänder UUID för samma payload vid retry/dubbelsubmit, men inte efter sidomladdning. Datumfält är validerade textfält YYYY-MM-DD och logout ligger i sidhuvudet. Ogiltiga datumfilter ger statisk text och standardintervall utan fellogg. Punkt 6 är undantagen: e-post förblir maskerad.
+- Kampanjer har olika meddelanden för omvända datum och mer än 90 dagar. 100 % rabatt tillåts uttryckligen som information i POC:n; ingen debitering sker.
+- MCP-klienter skickar en liten explicit miljölista med DATABASE_URL, utan adminlösenord/sessionshemlighet. Endast lokal stdio, inga nya fjärrbehörigheter.
+
+Aktuella verifieringar finns överst i [VERIFICATION](VERIFICATION.md). POC:n är inte kundklar: audit, konton, datalivscykel, TLS/proxy, backup och tenant-isolering återstår. CSP unsafe-inline och obegränsad kampanjlista är oförändrade.
+
+## Bakgrund före QA batch 2
+
 En Next.js-process exponerar publika HTTP-endpoints och ett separat administrativt gränssnitt. MCP körs lokalt över stdio som en egen process, aldrig som publik nätverksserver. Båda anropar samma serverdomän. PostgreSQL är den gemensamma sanningen. En verksamhetsnyckel finns i domänens data och frågor, men en enda demosalong är konfigurerad: detta är inte tenant-isolering eller en flerföretagslösning.
 
 Tider lagras som UTC-instanter; öppettider och datum tolkas i Europe/Stockholm. Halvöppna tidsintervall och PostgreSQL exclusion constraint (`btree_gist`) förhindrar överlapp för samma anställd även vid samtidiga transaktioner. Domänen kontrollerar tjänst, öppettider, tidssteg och indata på servern; databasen är sista skyddet. Priser lagras som heltal i ören. Kampanjer är utkast tills en administratör publicerar dem.
