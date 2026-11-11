@@ -23,8 +23,16 @@ describe("Socketbaserad klientidentitet", () => {
       "2001:db8::/31",
       "127.0.0.1/33",
       "::1/129",
+      "::/32",
+      "::/64",
+      "::/80",
     ])
       expect(() => proxyPolicy("1", cidr)).toThrow("PROXY_CONFIG_INVALID");
+    const trusted = proxyPolicy("1", "127.0.0.10,2001:db8::/32,::1");
+    expect(trusted("127.0.0.10")).toBe(true);
+    expect(trusted("2001:db8::5")).toBe(true);
+    expect(trusted("::1")).toBe(true);
+    expect(trusted("192.0.2.5")).toBe(false);
   });
   it("varnar en gång utan adresser vid sammanfallen proxyidentitet", () => {
     for (const mode of ["0", "1"]) {

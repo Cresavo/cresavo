@@ -1,5 +1,11 @@
 # booking-lab-se
 
+## Uppföljning M2/L8 efter fixomgång 3
+
+Samtidiga bokningar för samma anställd/dag serialiseras nu före tillgänglighetskontroll. Databasens överlappsskydd är kvar; lås-/serialiseringskonflikter från insert ger det befintliga svenska konfliktfelet. Proxykonfiguration avvisar även IPv6-subnät som annars skulle lita på IPv4-klienter (exempel ::/32).
+
+CI är konfigurerat för fyra E2E-jobb: dev/production × TRUST_PROXY_IP=0/1. Ny extern CI-körning kräver senare godkänd push. Aktuell testning och undantag finns i [VERIFICATION](docs/VERIFICATION.md). Vanliga fixomgångar kräver ingen ny demo; senaste inspelning är märkt med sin äldre revision.
+
 En liten lokal, svensk boknings-POC för en fiktiv salong. Next.js, TypeScript, PostgreSQL/Prisma och lokal MCP över stdio. Endast syntetiska uppgifter. **Inte för produktion eller riktiga kunder.**
 
 För produktägaren: [projektstatus och acceptanskriterier](docs/PROJECT_STATUS.md), [prova/spela in demo](docs/DEMO.md) och [senaste produktägarrapport](docs/PRODUCT_OWNER_REPORT.md). `npm run demo:record` skapar lokala bilder och video med befintliga Playwright-verktyg; ingen extern publicering.

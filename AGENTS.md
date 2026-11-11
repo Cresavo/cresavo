@@ -28,7 +28,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Produktägarleverans efter varje Epic
 
 - Uppdatera `docs/PROJECT_STATUS.md` med observerbara acceptanskriterier, datum/revision, faktisk testning, delvis/planerat och pilotblockerare. Använd inga uppskattade procenttal.
-- Kör relevant demo enligt `docs/DEMO.md` på separat syntetisk databas. Länka lokal bild/video och manifest, håll genererade artefakter utanför Git och ange om bilderna är äldre än koden.
+- Spela in full demo enligt `docs/DEMO.md` när en Epic är klar, inför en överenskommen viktig avstämning eller på uttrycklig begäran. Vanliga QA-/fixomgångar kräver tester och en kort resultatrapport, inte ny inspelning. Ta riktade skärmbilder när en synlig ändring behöver granskas. Detta ändrar inte kraven på automatiska tester.
+- Återanvänd senaste relevanta demo med tydlig revision och ange om bilderna är äldre än koden. Nya inspelningar använder separat syntetisk databas; länka lokala artefakter/manifest och håll dem utanför Git.
 - Lägg kort svensk rapport i `docs/PRODUCT_OWNER_REPORT.md`: byggt, prova nu, förbättrat, kvarstår och tre nästa mål. Skilj alltid POC/PASS från produktionsklarhet; bevara tidigare Epic-bevis i HANDOFF/VERIFICATION.
 
 ## QA-skydd
@@ -42,3 +43,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Repot ska förbli privat. Denna batch får lokala commits, ingen push utan nytt uppdrag.
 
 - Loginspärren måste kontrolleras före lösenordet, även rätt lösenord nekas från spärrad klient. Behåll testet att ingen lösenordskontroll anropas efter spärr. ADMIN_SESSION_VERSION får endast höjas.
+
+- Uppföljning efter 8b83a40: M2/L8 och fyrfältsmatris i CI. Bevara låsordningen idempotens → klient/dag → e-post/dag → anställd/bokningsdag; ta anställdslåset före tillgänglighetskontroll. Nya CI-jobb är inte verifierade på GitHub förrän en godkänd push har körts.

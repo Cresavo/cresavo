@@ -118,7 +118,7 @@ export async function insertBooking(
     if (
       e instanceof Prisma.PrismaClientKnownRequestError &&
       e.code === "P2010" &&
-      e.meta?.code === "23P01"
+      ["23P01", "40P01", "40001"].includes(String(e.meta?.code))
     )
       throw new DomainError("Tiden är inte tillgänglig");
     throw e;
@@ -218,6 +218,9 @@ export async function createBooking(
           Math.max(1, Math.ceil((tomorrow.toMillis() - Date.now()) / 1000)),
         );
       const service = await serviceById(v.serviceId, tx);
+      // Lock order: idempotency, client/day, email/day, staff/booking day.
+      // Serialise competing inserts before reading availability; exclusion remains the final guard.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:staff:${staffId}:${localDay(start)}`}))`;
       if (
         !(await getAvailability(service.id, localDay(start), tx)).includes(
           start.toISOString(),

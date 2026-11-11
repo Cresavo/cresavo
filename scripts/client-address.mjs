@@ -37,6 +37,17 @@ export function proxyPolicy(enabled, addresses = "") {
         Number(prefix) > (family === "ipv4" ? 32 : 128)
       )
         throw new Error("PROXY_CONFIG_INVALID");
+      // Node matches IPv4 peers against IPv6 subnets containing mapped IPv4 space.
+      // Validate each candidate separately so legitimate IPv4 entries do not interfere.
+      if (family === "ipv6") {
+        const candidate = new BlockList();
+        candidate.addSubnet(ip, Number(prefix), family);
+        if (
+          candidate.check("0.0.0.0", "ipv4") ||
+          candidate.check("255.255.255.255", "ipv4")
+        )
+          throw new Error("PROXY_CONFIG_INVALID");
+      }
       list.addSubnet(ip, Number(prefix), family);
     }
   }

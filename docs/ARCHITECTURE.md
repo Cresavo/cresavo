@@ -1,5 +1,15 @@
 # Arkitektur
 
+## Uppföljning M2/L8 efter 8b83a40
+
+createBooking tar nu ett transaktionsbundet advisory lock per verksamhet/anställd/bokningsdag före tillgänglighetsläsning och insert. Fast ordning: idempotensnyckel → klient/skapandedag → e-post/skapandedag → anställd/bokningsdag. Samma anställds bokningsförsök för en dag serialiseras även om tiderna inte överlappar; andra dagar får andra nycklar. Befintlig exclusion constraint och alla tre migrationer är orörda. Bokningsdag tolkas i Europe/Stockholm. Dagens öppettider tillåter inte behandlingar över midnatt; sådant framtida stöd kräver en ny bedömning av låsningen. Direkta interna DB-writes måste fortfarande följa skrivkontraktet eller hantera databasfel själva.
+
+insertBooking mappar strukturerade P2010/meta.code 23P01 (exclusion), 40P01 (deadlock) och 40001 (serialiseringskonflikt) till det befintliga domänfelet ”Tiden är inte tillgänglig”. Övriga fel förblir oväntade fel. Ingen automatisk retry eller ny API-status införs. [PostgreSQL om lås och deadlocks](https://www.postgresql.org/docs/current/explicit-locking.html).
+
+Varje IPv6-proxysubnät provas i en separat Node BlockList. Subnät som även matchar IPv4-ändpunkterna nekas; en tidigare tillåten IPv4-proxy får inte påverka kandidatkontrollen. Därmed avvisas bland annat ::/32, ::/64 och ::/80. [Node BlockList](https://nodejs.org/api/net.html#class-netblocklist).
+
+CI använder fyra isolerade jobb via mode=dev/production × proxy=0/1. Varje jobb bygger och kör E2E mot egen runner/databas. Lint/unit/integration körs i dev/0, audit är separat. [GitHub matrix](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/run-job-variations). Konfiguration är inte bevis för grön extern körning; ingen push görs i denna uppföljning.
+
 ## Aktuellt beslut efter QA batch 3
 
 Detta ersätter batch 2:s felaktiga beslut att kontrollera lösenord före spärren. Login reserverar ett försök synkront före lösenordsjämförelse. Efter fem fel nekas även rätt lösenord tills fönstret löpt ut; andra klientnycklar påverkas inte. Fel och spärrade svar väntar minst 100 ms asynkront. Lyckade försök återför sin reservation. Detta stoppar även samtidiga försök från att passera kontrollen innan räknaren uppdaterats. Räknaren är fortsatt processlokal och kapacitetsbegränsad, inte ett pilotsäkert distribuerat skydd.

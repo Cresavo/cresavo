@@ -1,5 +1,13 @@
 # Demo – aktuell inspelning efter QA batch 3
 
+## När vi spelar in
+
+Full demo spelas in när en Epic är klar, inför en överenskommen viktig avstämning eller på uttrycklig begäran. Vanliga QA-/fixomgångar får automatiska tester och en kort resultatrapport; ingen ny video eller full bildsekvens behövs. Vid synliga ändringar tas riktade skärmbilder om de behövs för granskningen. Testkraven är oförändrade.
+
+Återanvänd senaste relevanta demo och ange dess revision samt eventuella senare ändringar. En äldre demo är inte bevis för att ny kod har verifierats. Policyn gäller kommande arbete; tidigare inspelningar nedan är historik.
+
+## Senaste inspelning
+
 `npm run demo:record` PASS från ren **a364bda73850c2983212684e94e9690d100d1d9b**, 2026-11-11 kl. 22:53 Europe/Stockholm. Produktionsbygge, dirty=false, 2/2 tester (25.4 s), 12 PNG och 2 WebM.
 
 - [Lokalt galleri](../demo-artifacts/2026-11-11T21-53-01-311Z/index.html)
