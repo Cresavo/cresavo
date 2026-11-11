@@ -195,7 +195,14 @@ describe("Verklig lokal MCP-bokning", () => {
           serviceId: i % 2 ? "fotvard" : "massage",
           start: i % 2 ? starts[0] : starts[1],
         };
-        if (i % 3) return !(await call(client, v)).isError;
+        if (i % 3) {
+          const result = await call(client, v);
+          if (result.isError)
+            expect(result.content).toEqual([
+              { type: "text", text: "Tiden är inte tillgänglig" },
+            ]);
+          return !result.isError;
+        }
         try {
           await createBooking(v, v.clientRequestId);
           return true;

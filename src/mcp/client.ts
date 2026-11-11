@@ -5,6 +5,7 @@ import { DateTime } from "luxon";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline";
 import { ZONE } from "../lib/time";
+import { formatBookingTime } from "../lib/format";
 async function main() {
   const admin = process.argv.includes("--admin");
   const book = process.argv.includes("--book");
@@ -70,9 +71,7 @@ async function main() {
       const start = available[0];
       const key = randomUUID();
       console.log("Testbokning: Fotvård");
-      console.log(
-        `Tid: ${DateTime.fromISO(start).setZone(ZONE).toFormat("yyyy-MM-dd HH:mm")} (${ZONE})`,
-      );
+      console.log(`Tid: ${formatBookingTime(start)} (${ZONE})`);
       console.log("Kund: Syntetisk MCP-testkund (example.test)");
       console.log(`Bokningsnyckel: ${key}`);
       const readline = createInterface({
