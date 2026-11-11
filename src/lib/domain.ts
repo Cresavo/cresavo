@@ -1,10 +1,13 @@
 import { z } from "zod";
+import { createHash, randomUUID } from "node:crypto";
+import { Prisma, type Booking } from "@prisma/client";
 import { db } from "./db";
 import { DomainError } from "./errors";
 import { localDay, parseDay, slotsForDay } from "./time";
 
-const businessId = "demo", staffId = "staff-demo";
-const date = z.string().refine(v => {
+const businessId = "demo",
+  staffId = "staff-demo";
+const date = z.string().refine((v) => {
   try {
     parseDay(v);
     return true;
@@ -13,104 +16,284 @@ const date = z.string().refine(v => {
   }
 }, "Ogiltigt datum");
 
-export const campaignSchema = z.object({
-  serviceId: z.string().min(1),
-  title: z.string().trim().min(1).max(100),
-  discountPercent: z.number().int().min(1).max(100),
-  validFrom: date,
-  validUntil: date
-}).refine(v => v.validFrom <= v.validUntil, "Slutdatum före startdatum");
+export const campaignSchema = z
+  .object({
+    serviceId: z.string().min(1),
+    title: z.string().trim().min(1).max(100),
+    discountPercent: z.number().int().min(1).max(100),
+    validFrom: date,
+    validUntil: date,
+  })
+  .strict()
+  .refine((v) => {
+    try {
+      return (
+        v.validFrom <= v.validUntil &&
+        parseDay(v.validUntil) <= parseDay(v.validFrom).plus({ days: 89 })
+      );
+    } catch {
+      return false;
+    }
+  }, "Ogiltigt intervall; högst 90 kalenderdagar");
 
 const bookingSchema = z.object({
   serviceId: z.string().min(1),
   start: z.iso.datetime({ offset: true }),
   customerName: z.string().trim().min(2).max(80),
-  customerEmail: z.email().max(254)
+  customerEmail: z
+    .email()
+    .max(254)
+    .transform((v) => v.toLowerCase()),
 });
 
 export async function listServices() {
-  return db.service.findMany({ where: { businessId }, orderBy: { name: "asc" } });
+  return db.service.findMany({
+    where: { businessId },
+    orderBy: { name: "asc" },
+  });
 }
 
-async function serviceById(id: string) {
-  const service = await db.service.findFirst({ where: { id, businessId } });
+async function serviceById(id: string, client: Prisma.TransactionClient = db) {
+  const service = await client.service.findFirst({ where: { id, businessId } });
   if (!service) throw new DomainError("Tjänsten finns inte");
   return service;
 }
 
-export async function getAvailability(serviceId: string, day: string) {
+export async function getAvailability(
+  serviceId: string,
+  day: string,
+  client: Prisma.TransactionClient = db,
+) {
   date.parse(day);
-  const service = await serviceById(serviceId);
+  const service = await serviceById(serviceId, client);
   const candidates = slotsForDay(day, service.duration);
   if (!candidates.length) return [];
 
-  const start = parseDay(day).toUTC().toJSDate(), end = parseDay(day).plus({ days: 1 }).toUTC().toJSDate();
-  const bookings = await db.booking.findMany({
-    where: { businessId, staffId, startsAt: { lt: end }, endsAt: { gt: start } },
-    select: { startsAt: true, endsAt: true }
+  const start = parseDay(day).toUTC().toJSDate(),
+    end = parseDay(day).plus({ days: 1 }).toUTC().toJSDate();
+  const bookings = await client.booking.findMany({
+    where: {
+      businessId,
+      staffId,
+      startsAt: { lt: end },
+      endsAt: { gt: start },
+    },
+    select: { startsAt: true, endsAt: true },
   });
-  return candidates.filter(s => !bookings.some(b =>
-    s.getTime() < b.endsAt.getTime() && s.getTime() + service.duration * 60000 > b.startsAt.getTime()
-  )).map(s => s.toISOString());
+  return candidates
+    .filter(
+      (s) =>
+        !bookings.some(
+          (b) =>
+            s.getTime() < b.endsAt.getTime() &&
+            s.getTime() + service.duration * 60000 > b.startsAt.getTime(),
+        ),
+    )
+    .map((s) => s.toISOString());
 }
 
-export async function createBooking(input: unknown) {
-  const v = bookingSchema.parse(input), service = await serviceById(v.serviceId), start = new Date(v.start);
-  if (!Number.isFinite(start.getTime()) || !(await getAvailability(service.id, localDay(start))).includes(start.toISOString()))
-    throw new DomainError("Tiden är inte tillgänglig");
+// Prisma 6's ORM create exposes exclusion failures as UnknownRequestError.
+// A parameterized INSERT exposes PostgreSQL SQLSTATE in P2010.meta.code instead.
+export async function insertBooking(
+  client: Prisma.TransactionClient,
+  data: Omit<Booking, "createdAt">,
+) {
   try {
-    return await db.booking.create({
-      data: { businessId, staffId, serviceId: service.id, startsAt: start, endsAt: new Date(start.getTime() + service.duration * 60000), customerName: v.customerName, customerEmail: v.customerEmail }
-    });
+    const rows = await client.$queryRaw<Booking[]>`INSERT INTO "Booking"
+      ("id", "businessId", "staffId", "serviceId", "startsAt", "endsAt", "customerName", "customerEmail", "idempotencyKey", "requestHash")
+      VALUES (${data.id}, ${data.businessId}, ${data.staffId}, ${data.serviceId}, ${data.startsAt}, ${data.endsAt},
+        ${data.customerName}, ${data.customerEmail}, ${data.idempotencyKey}, ${data.requestHash}) RETURNING *`;
+    return rows[0];
   } catch (e) {
-    if (String(e).includes("booking_no_overlap") || String(e).includes("23P01")) throw new DomainError("Tiden är inte tillgänglig");
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === "P2010" &&
+      e.meta?.code === "23P01"
+    )
+      throw new DomainError("Tiden är inte tillgänglig");
     throw e;
   }
 }
 
-export async function listBookings() {
-  return db.booking.findMany({ where: { businessId }, include: { service: true }, orderBy: { startsAt: "asc" } });
+export async function createBooking(input: unknown, key?: string) {
+  const v = bookingSchema.parse(input);
+  const idempotencyKey = z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]+$/)
+    .optional()
+    .parse(key);
+  const start = new Date(v.start);
+  const requestHash = createHash("sha256")
+    .update(JSON.stringify({ ...v, start: start.toISOString() }))
+    .digest("hex");
+  return db.$transaction(
+    async (tx) => {
+      if (idempotencyKey) {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:key:${idempotencyKey}`}))`;
+        const existing = await tx.booking.findUnique({
+          where: { businessId_idempotencyKey: { businessId, idempotencyKey } },
+        });
+        if (existing) {
+          if (existing.requestHash !== requestHash)
+            throw new DomainError(
+              "Bokningsnyckeln har redan använts med andra uppgifter.",
+              409,
+            );
+          return existing;
+        }
+      }
+      const today = parseDay(localDay(new Date()));
+      const tomorrow = today.plus({ days: 1 });
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:email:${v.customerEmail}:${today.toISODate()}`}))`;
+      const count = await tx.booking.count({
+        where: {
+          businessId,
+          customerEmail: v.customerEmail,
+          createdAt: { gte: today.toJSDate(), lt: tomorrow.toJSDate() },
+        },
+      });
+      if (count >= 3)
+        throw new DomainError(
+          "För många försök. Försök igen senare.",
+          429,
+          Math.max(1, Math.ceil((tomorrow.toMillis() - Date.now()) / 1000)),
+        );
+      const service = await serviceById(v.serviceId, tx);
+      if (
+        !(await getAvailability(service.id, localDay(start), tx)).includes(
+          start.toISOString(),
+        )
+      )
+        throw new DomainError("Tiden är inte tillgänglig");
+      return insertBooking(tx, {
+        id: randomUUID(),
+        businessId,
+        staffId,
+        serviceId: service.id,
+        startsAt: start,
+        endsAt: new Date(start.getTime() + service.duration * 60000),
+        customerName: v.customerName,
+        customerEmail: v.customerEmail,
+        idempotencyKey: idempotencyKey ?? null,
+        requestHash: idempotencyKey ? requestHash : null,
+      });
+    },
+    { maxWait: 30000, timeout: 30000 },
+  );
 }
 
 // End dates are inclusive Stockholm calendar dates; the database range is half-open.
-export const bookingListSchema = z.object({
-  from: date.describe("Första datum YYYY-MM-DD i Europe/Stockholm, inklusive"),
-  to: date.describe("Sista datum YYYY-MM-DD i Europe/Stockholm, inklusive; högst 31 dagar"),
-  limit: z.number().int().min(1).max(100).default(20).describe("Antal per sida, 1–100; standard 20"),
-  cursor: z.string().min(1).max(128).optional().describe("nextCursor från föregående sida för samma datumintervall")
-}).strict().refine(v => {
-  try {
-    const from = parseDay(v.from), to = parseDay(v.to);
-    return to >= from && to <= from.plus({ days: 30 });
-  } catch {
-    return false;
-  }
-}, "Ogiltigt datumintervall; ange högst 31 dagar");
+export const bookingListSchema = z
+  .object({
+    from: date.describe(
+      "Första datum YYYY-MM-DD i Europe/Stockholm, inklusive",
+    ),
+    to: date.describe(
+      "Sista datum YYYY-MM-DD i Europe/Stockholm, inklusive; högst 31 dagar",
+    ),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .default(20)
+      .describe("Antal per sida, 1–100; standard 20"),
+    cursor: z
+      .string()
+      .min(1)
+      .max(128)
+      .optional()
+      .describe("nextCursor från föregående sida för samma datumintervall"),
+  })
+  .strict()
+  .refine((v) => {
+    try {
+      const from = parseDay(v.from),
+        to = parseDay(v.to);
+      return to >= from && to <= from.plus({ days: 30 });
+    } catch {
+      return false;
+    }
+  }, "Ogiltigt datumintervall; ange högst 31 dagar");
 
-export async function listBookingsForMcp(input: unknown) {
+async function bookingListQuery(input: unknown) {
   const { from, to, limit, cursor } = bookingListSchema.parse(input);
   const startsAt = {
     gte: parseDay(from).toUTC().toJSDate(),
-    lt: parseDay(to).plus({ days: 1 }).toUTC().toJSDate()
+    lt: parseDay(to).plus({ days: 1 }).toUTC().toJSDate(),
   };
 
   if (cursor) {
     const previous = await db.booking.findFirst({
       where: { id: cursor, businessId, startsAt },
-      select: { id: true }
+      select: { id: true },
     });
-    if (!previous) throw new DomainError("Ogiltig sidmarkör för datumintervallet");
+    if (!previous)
+      throw new DomainError("Ogiltig sidmarkör för datumintervallet");
   }
 
-  const rows = await db.booking.findMany({
+  return {
     where: { businessId, startsAt },
-    select: { id: true, startsAt: true, endsAt: true, service: { select: { id: true, name: true } } },
-    orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+    orderBy: [{ startsAt: "asc" as const }, { id: "asc" as const }],
     take: limit + 1,
-    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {})
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+  };
+}
+
+export async function listBookingsForMcp(input: unknown) {
+  const query = await bookingListQuery(input);
+  const rows = await db.booking.findMany({
+    ...query,
+    select: {
+      id: true,
+      startsAt: true,
+      endsAt: true,
+      service: { select: { id: true, name: true } },
+    },
   });
+  const limit = query.take - 1;
   const bookings = rows.slice(0, limit);
-  return { bookings, nextCursor: rows.length > limit ? bookings[bookings.length - 1].id : null };
+  return {
+    bookings,
+    nextCursor: rows.length > limit ? bookings[bookings.length - 1].id : null,
+  };
+}
+
+export function defaultBookingRange() {
+  const today = parseDay(localDay(new Date()));
+  return {
+    from: today.toISODate()!,
+    to: today.plus({ days: 14 }).toISODate()!,
+  };
+}
+
+export async function listBookings(
+  input: { from?: string; to?: string; limit?: number; cursor?: string } = {},
+) {
+  const range = { ...defaultBookingRange(), ...input };
+  const query = await bookingListQuery(range);
+  const rows = await db.booking.findMany({
+    ...query,
+    select: {
+      id: true,
+      startsAt: true,
+      endsAt: true,
+      customerName: true,
+      customerEmail: true,
+      service: { select: { id: true, name: true } },
+    },
+  });
+  const limit = query.take - 1;
+  const bookings = rows
+    .slice(0, limit)
+    .map((b) => ({ ...b, customerEmail: "***@***" }));
+  return {
+    ...range,
+    bookings,
+    nextCursor: rows.length > limit ? bookings[bookings.length - 1].id : null,
+  };
 }
 
 export async function createCampaign(input: unknown) {
@@ -120,15 +303,30 @@ export async function createCampaign(input: unknown) {
 }
 
 export async function listCampaigns() {
-  return db.campaign.findMany({ where: { businessId }, include: { service: true }, orderBy: { validFrom: "desc" } });
+  return db.campaign.findMany({
+    where: { businessId },
+    include: { service: true },
+    orderBy: { validFrom: "desc" },
+  });
 }
 
 export async function publicCampaigns(day: string) {
   date.parse(day);
-  return db.campaign.findMany({ where: { businessId, published: true, validUntil: { gte: day } }, include: { service: true } });
+  return db.campaign.findMany({
+    where: {
+      businessId,
+      published: true,
+      validFrom: { lte: day },
+      validUntil: { gte: day },
+    },
+    include: { service: true },
+  });
 }
 
 export async function publishCampaign(id: string) {
-  const result = await db.campaign.updateMany({ where: { id, businessId }, data: { published: true } });
+  const result = await db.campaign.updateMany({
+    where: { id, businessId },
+    data: { published: true },
+  });
   if (!result.count) throw new DomainError("Utkastet finns inte");
 }

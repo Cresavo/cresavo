@@ -1,3 +1,14 @@
 import "./style.css";
-export const metadata = { title: "Salong Eko – boka tid", description: "Boka en behandling hos vår demosalong." };
-export default function Layout({children}: Readonly<{children: React.ReactNode}>) { return <html lang="sv"><body>{children}</body></html>; }
+export const metadata = {
+  title: "Salong Eko – boka tid",
+  description: "Boka en behandling hos vår demosalong.",
+};
+export default function Layout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="sv">
+      <body>{children}</body>
+    </html>
+  );
+}

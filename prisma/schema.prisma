@@ -24,6 +24,11 @@ model Booking {
   endsAt DateTime @db.Timestamptz(3)
   customerName String
   customerEmail String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  idempotencyKey String?
+  requestHash String?
+  @@unique([businessId, idempotencyKey])
+  @@index([businessId, customerEmail, createdAt])
 }
 model Campaign {
   id String @id @default(cuid())

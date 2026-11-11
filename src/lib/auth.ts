@@ -3,22 +3,27 @@ import { cookies, headers } from "next/headers";
 
 function secret() {
   const s = process.env.SESSION_SECRET;
-  if (!s || s.length < 32) throw new Error("SESSION_SECRET måste vara minst 32 tecken");
+  if (!s || s.length < 32)
+    throw new Error("SESSION_SECRET måste vara minst 32 tecken");
   return s;
 }
 
 function sign(s: string) {
-  return createHmac("sha256", secret()).update(s).digest("hex");
+  return createHmac("sha256", secret())
+    .update(`${process.env.ADMIN_SESSION_VERSION ?? "1"}:${s}`)
+    .digest("hex");
 }
 
 function equal(a: string, b: string) {
-  const x = Buffer.from(a), y = Buffer.from(b);
+  const x = Buffer.from(a),
+    y = Buffer.from(b);
   return x.length === y.length && timingSafeEqual(x, y);
 }
 
 export function checkPassword(password: string) {
   const expected = process.env.ADMIN_PASSWORD;
-  if (!expected || expected.length < 12) throw new Error("ADMIN_PASSWORD måste vara minst 12 tecken");
+  if (!expected || expected.length < 12)
+    throw new Error("ADMIN_PASSWORD måste vara minst 12 tecken");
   return password.length <= 1024 && equal(password, expected);
 }
 
@@ -29,7 +34,7 @@ export async function login() {
     sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 8 * 3600
+    maxAge: 8 * 3600,
   });
 }
 
@@ -37,12 +42,27 @@ export async function isAdmin() {
   const value = (await cookies()).get("booking_admin")?.value;
   if (!value || !/^\d{13}\.[a-f0-9]{64}$/.test(value)) return false;
   const [expiry, signature] = value.split(".");
-  return Number(expiry) > Date.now() && Number(expiry) <= Date.now() + 8 * 3600_000 && equal(sign(expiry), signature);
+  return (
+    Number(expiry) > Date.now() &&
+    Number(expiry) <= Date.now() + 8 * 3600_000 &&
+    equal(sign(expiry), signature)
+  );
+}
+
+export async function logout() {
+  (await cookies()).set("booking_admin", "", {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
+  });
 }
 
 export async function sameOrigin() {
   const h = await headers();
-  const origin = h.get("origin"), host = h.get("host");
+  const origin = h.get("origin"),
+    host = h.get("host");
   try {
     return !!origin && new URL(origin).host === host;
   } catch {

@@ -1,17 +1,36 @@
 import { ZodError } from "zod";
 
 // Only literal messages owned by this codebase may cross a trust boundary.
-const publicMessages = ["Tjänsten finns inte", "Tiden är inte tillgänglig",
-  "Ogiltig sidmarkör för datumintervallet", "Utkastet finns inte"] as const;
-type PublicMessage = typeof publicMessages[number];
+const publicMessages = [
+  "Tjänsten finns inte",
+  "Tiden är inte tillgänglig",
+  "Ogiltig sidmarkör för datumintervallet",
+  "Utkastet finns inte",
+  "För många försök. Försök igen senare.",
+  "Bokningsnyckeln har redan använts med andra uppgifter.",
+] as const;
+type PublicMessage = (typeof publicMessages)[number];
 
 export class DomainError extends Error {
-  constructor(message: PublicMessage) { super(message); }
+  constructor(
+    message: PublicMessage,
+    readonly status: 400 | 409 | 429 = 400,
+    readonly retryAfter?: number,
+  ) {
+    super(message);
+  }
 }
 
 export function safeFailure(error: unknown) {
-  if (error instanceof DomainError && publicMessages.includes(error.message as PublicMessage))
-    return { status: 400, message: error.message };
+  if (
+    error instanceof DomainError &&
+    publicMessages.includes(error.message as PublicMessage)
+  )
+    return {
+      status: error.status,
+      message: error.message,
+      retryAfter: error.retryAfter,
+    };
   if (error instanceof ZodError || error instanceof SyntaxError)
     return { status: 400, message: "Kontrollera uppgifterna" };
   // Never log the error, message, stack, cause, SQL, request or credentials.
