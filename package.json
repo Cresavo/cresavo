@@ -4,6 +4,7 @@
   "private": true,
   "license": "AGPL-3.0-only",
   "scripts": {
+    "demo:record": "node --env-file=.env scripts/record-demo.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

@@ -38,6 +38,7 @@ build/
 coverage/
 test-results/
 playwright-report/
+demo-artifacts/
 *.tsbuildinfo
 *.log
 

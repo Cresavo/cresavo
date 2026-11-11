@@ -78,3 +78,27 @@ Aktuell kommandotabell, fel och omkörningar finns i [WORKPLAN.md](WORKPLAN.md).
 Registry anger BSD-3-Clause för deepmerge-ts 8 och BlueOak-1.0.0 för minimatch 11.0.1. Metadata är inte klarering av faktiska artefakter. Ingen av versionerna infördes och projektlicensen ändrades inte. Kör endast verktygen på betrodd kod/konfiguration; använd inte POC:n publikt eller med riktiga uppgifter. Följ upp upstream-backport eller planera testad Prisma-/lintmigrering före pilot. Risken är dokumenterad, inte eliminerad eller accepterad för produktion.
 
 CI använder officiella [checkout](https://github.com/actions/checkout) och [setup-node](https://github.com/actions/setup-node), båda MIT enligt projekten, låsta till kontrollerade v6-revisioner. Syftet är reproducerbar installation/Compose/testning utan nya npm-paket. GitHub-körning, runnerkompatibilitet och Compose måste verifieras när publicering senare tillåts. Audit är ett felande slutsteg, inte dolt med continue-on-error.
+
+## Visual Progress & Demo Delivery – 2026-11-11
+
+Basrevision `6535b596c4a7be56f091d0d20e88390238dc8caf`, med ocommittad demo-/dokumentationsinstrumentering under körningen (redovisas i manifest). Ingen produktkod eller beroendeversion ändrades. Startläget var rent. Ny lokal PostgreSQL 18.6, databas booking_visual_demo på 127.0.0.1:55443, skapades med tidigare befintligt separat testverktyg. Migration/seed PASS. Docker/Compose är fortfarande ej testat.
+
+| Kommando/kontroll | Resultat |
+|---|---|
+| npm run demo:record | Slutlig PASS 2/2, desktop/mobil, 26,6 s |
+| npm test | PASS 8/8 |
+| npm run test:integration | PASS 8/8 |
+| npm run test:e2e | PASS 4/4, 10,6 s |
+| npm run lint | PASS |
+| npm run build | PASS |
+| npx tsc --noEmit | PASS |
+| git diff --check | PASS |
+| Demons preflight | PASS: fjärrvärd, fel databasnamn och befintligt syntetiskt utkast avvisades |
+| Bild/video | 12 PNG och 2 WebM; Chromium läste videometadata: 10,00 s/800×450 och 10,16 s/392×800. Admin desktop och publicerat erbjudande mobil granskades visuellt |
+| npm ci / npm audit | Ej omkörda: paketversioner/låsfil oförändrade; tidigare Epic-resultat gäller som historik |
+
+Försök 1: FAIL, grep var felaktigt förankrat och hittade inga tester. Rättat. Försök 2: desktop PASS, mobil FAIL; Playwrights tillfälliga caret-stil för screenshot observerades i React hydration-varning, och en icke-exakt textsökning matchade även dev-overlay. Åtgärd: screenshot med caret initial och exakt bekräftelsetext. Försök 3: PASS på båda enheterna utan observerad hydration-varning. Produktkoden ändrades inte. Misslyckade artefakter är märkta FAIL och ska inte förväxlas med slutleveransen.
+
+Slutlig [lokal demo](../demo-artifacts/2026-11-11T17-17-11-326Z/index.html) och [manifest](../demo-artifacts/2026-11-11T17-17-11-326Z/manifest.json). Endast syntetiska uppgifter; inspelningarna saknar ljud. Trace är avstängt i demo för att undvika request-/sessionsdata i artefakter. Bilder/video är Git-ignorerade och har inte publicerats. Manuell reproduktion finns i DEMO.md. Observerad UX-begränsning: datumfältets placeholder är mm/dd/yyyy även med sv-SE; admin är en enkel agenda. Verifierad demo innebär inte produktionsberedskap.
+
+Efter körningen stoppades testdatabasen (pg_ctl: no server running) och hjälpprocessen. Den egen skapade tillfälliga .env togs bort. Kluster och demoartefakter finns kvar lokalt; ingen automatisk gallring görs.

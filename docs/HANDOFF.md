@@ -1,5 +1,7 @@
 # Booking Lab SE – Epic 01 handoff
 
+Efterföljande visuell leverans: [produktägarrapport](PRODUCT_OWNER_REPORT.md), [aktuell projektstatus](PROJECT_STATUS.md) och [lokal demo/instruktioner](DEMO.md). Denna tekniska Epic 01-rapport bevaras som historik.
+
 2026-11-11. Epicen är färdig lokalt med dokumenterade beroenderisker och externa verifieringsluckor. Ingen ny produktfunktion, npm-dependency, licensändring, remote, publicering eller fjärr-MCP. Endast syntetiska uppgifter.
 
 ## Levererat

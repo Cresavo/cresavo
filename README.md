@@ -2,6 +2,8 @@
 
 En liten lokal, svensk boknings-POC för en fiktiv salong. Next.js, TypeScript, PostgreSQL/Prisma och lokal MCP över stdio. Endast syntetiska uppgifter. **Inte för produktion eller riktiga kunder.**
 
+För produktägaren: [projektstatus och acceptanskriterier](docs/PROJECT_STATUS.md), [prova/spela in demo](docs/DEMO.md) och [senaste produktägarrapport](docs/PRODUCT_OWNER_REPORT.md). `npm run demo:record` skapar lokala bilder och video med befintliga Playwright-verktyg; ingen extern publicering.
+
 ## Starta lokalt
 
 Förutsättningar: Node.js 22.12 eller senare (alternativt 24 eller senare), npm och Docker med Compose. Port 5432 och 3000 måste vara lediga. I projektkatalogen:

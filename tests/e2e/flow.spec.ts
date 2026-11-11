@@ -20,13 +20,21 @@ test("HTTP avvisar obehöriga anrop och ogiltig JSON utan feldetaljer", async ({
     const publish = await request.post("/api/admin/publish", { data: { id: "synthetic" }, headers: origin });
     expect(publish.status()).toBe(403);
 });
-test("bokning, skyddad administration och MCP-utkast som publiceras", async ({ page, request }) => {
+test("bokning, skyddad administration och MCP-utkast som publiceras", async ({ page, request }, testInfo) => {
     const marker = `e2e-${Date.now()}`, email = `${marker}@example.test`;
+    const title = process.env.BOOKING_DEMO ? "Demoerbjudande – 20 % på fotvård" : marker;
+    async function capture(name: string) {
+        if (!process.env.BOOKING_DEMO) return;
+        // Avoid Playwright's temporary caret style changing DOM before hydration.
+        await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true, caret: "initial" });
+        // Only the recording pauses, to make each verified state readable on video.
+        await page.waitForTimeout(1200);
+    }
     const client = new Client({ name: "e2e", version: "1.0.0" });
     try {
         await client.connect(new StdioClientTransport({ command: process.execPath, args: ["--env-file=.env", "--import", "tsx", "src/mcp/server.ts", "--admin"] }));
         const today = DateTime.now().setZone("Europe/Stockholm").toISODate()!;
-        const draft = await client.callTool({ name: "create_campaign_draft", arguments: { serviceId: "fotvard", title: marker, discountPercent: 20, validFrom: today, validUntil: today } });
+        const draft = await client.callTool({ name: "create_campaign_draft", arguments: { serviceId: "fotvard", title, discountPercent: 20, validFrom: today, validUntil: today } });
         expect(draft.isError).not.toBeTruthy();
         let day = DateTime.now().setZone("Europe/Stockholm").plus({ days: 5 }).startOf("day");
         while (day.weekday > 5)
@@ -36,7 +44,8 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({ p
         const forbidden = await request.post("/api/admin/publish", { data: { id: "fake" }, headers: { origin: "http://localhost:3000" } });
         expect(forbidden.status()).toBe(403);
         await page.goto("/");
-        await expect(page.getByText(marker)).toHaveCount(0);
+        await expect(page.getByText(title)).toHaveCount(0);
+        await capture("01-bokningssida");
         await page.locator("#service").selectOption("fotvard");
         await page.locator("#date").fill(day.toISODate()!);
         await page.getByRole("button", { name: "Visa lediga tider" }).click();
@@ -45,22 +54,27 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({ p
         await page.locator("#slot").selectOption(slot!);
         await page.locator("#name").fill("Testkund");
         await page.locator("#email").fill(email);
+        await capture("02-vald-tid");
         await page.getByRole("button", { name: "Bekräfta testbokning" }).click();
-        await expect(page.getByText("Din testbokning är registrerad.")).toBeVisible();
+        await expect(page.getByText("Din testbokning är registrerad.", { exact: true })).toBeVisible();
+        await capture("03-bekraftelse");
         await page.goto("/admin");
         await page.locator("#password").fill(process.env.ADMIN_PASSWORD!);
         await page.getByRole("button", { name: "Logga in" }).click();
         await expect(page.getByText(email)).toBeVisible();
-        const campaign = page.locator("div", { has: page.getByText(marker, { exact: true }) }).filter({ has: page.getByRole("button", { name: "Publicera" }) }).last();
+        await capture("04-admin-och-utkast");
+        const campaign = page.locator("div", { has: page.getByText(title, { exact: true }) }).filter({ has: page.getByRole("button", { name: "Publicera" }) }).last();
         await campaign.getByRole("button", { name: "Publicera" }).click();
         await expect(page.getByText("Publicerad")).toBeVisible();
+        await capture("05-publicerad-i-admin");
         await page.goto("/");
-        await expect(page.getByText(marker)).toBeVisible();
+        await expect(page.getByText(title)).toBeVisible();
+        await capture("06-publikt-erbjudande");
     }
     finally {
         await client.close();
         await db.booking.deleteMany({ where: { customerEmail: email } });
-        await db.campaign.deleteMany({ where: { title: marker } });
+        await db.campaign.deleteMany({ where: { title } });
         await db.$disconnect();
     }
 });
