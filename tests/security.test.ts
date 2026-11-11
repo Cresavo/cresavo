@@ -17,6 +17,18 @@ const state = vi.hoisted(() => ({
 vi.mock("../src/lib/db", () => ({
   db: {
     adminSession: {
+      findMany: vi.fn(async () =>
+        [...state.sessions.values()]
+          .filter((s) => s.expiresAt <= new Date() || s.revokedAt)
+          .slice(0, 100)
+          .map(({ id }) => ({ id })),
+      ),
+      deleteMany: vi.fn(
+        async ({ where }: { where: { id: { in: string[] } } }) => {
+          for (const id of where.id.in) state.sessions.delete(id);
+          return { count: where.id.in.length };
+        },
+      ),
       create: async ({ data }: { data: { id: string; expiresAt: Date } }) => {
         state.sessions.set(data.id, data);
         return data;
@@ -58,7 +70,7 @@ import {
 import {
   checkRateLimit,
   clientIp,
-  recordFailedLogin,
+  checkLoginAttempt,
 } from "../src/lib/rate-limit";
 import { assertTestDatabase } from "../scripts/test-db-guard.mjs";
 import { demoRevision } from "../scripts/demo-revision.mjs";
@@ -196,6 +208,44 @@ describe("Lokal admins session", () => {
     state.headers.set("origin", "http://localhost:3000");
     expect(await sameOrigin()).toBe(true);
   });
+  it("gallrar högst 100 utgångna/återkallade sessioner vid login och bevarar aktiva", async () => {
+    vi.stubEnv("SESSION_SECRET", secret);
+    for (let i = 0; i < 105; i++)
+      state.sessions.set(`old-${i}`, {
+        id: `old-${i}`,
+        expiresAt: new Date(0),
+      });
+    state.sessions.set("revoked", {
+      id: "revoked",
+      expiresAt: new Date(Date.now() + 60000),
+      revokedAt: new Date(),
+    });
+    state.sessions.set("active", {
+      id: "active",
+      expiresAt: new Date(Date.now() + 60000),
+    });
+    await login();
+    expect(state.sessions.size).toBe(8);
+    expect(state.sessions.has("active")).toBe(true);
+    expect(db.adminSession.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        take: 100,
+        where: {
+          OR: [
+            { expiresAt: { lte: expect.any(Date) } },
+            { revokedAt: { not: null } },
+          ],
+        },
+      }),
+    );
+    await login();
+    expect(
+      [...state.sessions.keys()].some(
+        (id) => id.startsWith("old-") || id === "revoked",
+      ),
+    ).toBe(false);
+    expect(state.sessions.has("active")).toBe(true);
+  });
 });
 
 describe("Missbruksskydd och testgrind", () => {
@@ -240,26 +290,19 @@ describe("Missbruksskydd och testgrind", () => {
       ),
     ).toThrow();
   });
-  it("fördröjer misslyckade login progressivt utan att blockera eventloopen", async () => {
-    vi.useFakeTimers();
-    let finished = false;
-    const first = recordFailedLogin("delay-test").then(() => {
-      finished = true;
-    });
-    await vi.advanceTimersByTimeAsync(99);
-    expect(finished).toBe(false);
-    await vi.advanceTimersByTimeAsync(1);
-    await first;
-    expect(finished).toBe(true);
-    finished = false;
-    const second = recordFailedLogin("delay-test").then(() => {
-      finished = true;
-    });
-    await vi.advanceTimersByTimeAsync(100);
-    expect(finished).toBe(false);
-    await vi.advanceTimersByTimeAsync(100);
-    await second;
-    expect(finished).toBe(true);
+  it("kontrollerar aldrig lösenord från spärrad klient, även vid samtidighet", async () => {
+    const wrong = vi.fn(() => false);
+    const attempts = await Promise.allSettled(
+      Array.from({ length: 20 }, () => checkLoginAttempt("locked-unit", wrong)),
+    );
+    expect(wrong).toHaveBeenCalledTimes(5);
+    expect(attempts.filter((a) => a.status === "rejected")).toHaveLength(15);
+    const correct = vi.fn(() => true);
+    await expect(
+      checkLoginAttempt("locked-unit", correct),
+    ).rejects.toMatchObject({ status: 429 });
+    expect(correct).not.toHaveBeenCalled();
+    expect(await checkLoginAttempt("other-unit", correct)).toBe(true);
   });
   it("evikterar äldsta bucket vid kapacitet utan att neka ny klient", () => {
     const now = Date.now() + 1800000;
@@ -277,6 +320,9 @@ describe("Missbruksskydd och testgrind", () => {
       "postgresql://user@remote.test/db_test",
       "postgresql://user@localhost/production",
       "postgresql://user@127.0.0.1/db_test%2Fprod",
+      "postgresql://u@localhost/x_test?host=/tmp",
+      "postgresql://u@localhost/x_test?hostaddr=192.0.2.1",
+      "postgresql://u@localhost/x_test?%68ost=/tmp",
     ])
       expect(() => assertTestDatabase(value)).toThrow("TEST_DATABASE_REFUSED");
     for (const host of ["localhost", "127.0.0.1", "[::1]"])

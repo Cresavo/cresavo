@@ -5,6 +5,7 @@ import { DateTime } from "luxon";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { PrismaClient } from "@prisma/client";
+import { LOGIN_FAILURE_DELAY_MS } from "../../src/lib/rate-limit";
 const db = new PrismaClient();
 test("HTTP avvisar obehöriga anrop och ogiltig JSON utan feldetaljer", async ({}, testInfo) => {
   const request = socketClient(
@@ -75,7 +76,9 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
   }
   const marker = synthetic.marker,
     email = `${marker}@example.test`;
-  const customerName = `Testkund ${marker}`;
+  const customerName = process.env.BOOKING_DEMO
+    ? `Testkund ${testInfo.project.name === "desktop" ? "Anna" : "Erik"}`
+    : `Testkund ${marker}`;
   const title = synthetic.title;
   async function capture(name: string) {
     if (!process.env.BOOKING_DEMO) return;
@@ -246,10 +249,35 @@ test("QA HTTP: limiter, idempotens och daglig gräns", async ({
       error: "För många försök. Försök igen senare.",
     });
   }
-  const validLogin = await request.post("/api/admin/login", {
+  const lockedLogin = await request.post("/api/admin/login", {
     headers,
     data: { password: process.env.ADMIN_PASSWORD },
   });
+  expect(lockedLogin.status()).toBe(429);
+  expect(lockedLogin.headers()["set-cookie"]).toBeUndefined();
+  // Concurrent probes keep this test short; every blocked response must be delayed.
+  await Promise.all(
+    Array.from({ length: 50 }, async (_, i) => {
+      const started = performance.now();
+      const response = await request.post("/api/admin/login", {
+        headers,
+        data: { password: i % 2 ? "wrong" : process.env.ADMIN_PASSWORD },
+      });
+      expect(performance.now() - started).toBeGreaterThanOrEqual(
+        LOGIN_FAILURE_DELAY_MS,
+      );
+      expect(response.status()).toBe(429);
+      expect(response.headers()["set-cookie"]).toBeUndefined();
+    }),
+  );
+  const otherClient = socketClient(
+    testInfo.project.name === "desktop" ? "127.0.0.71" : "127.0.0.72",
+  );
+  const validLogin = await otherClient.post("/api/admin/login", {
+    headers,
+    data: { password: process.env.ADMIN_PASSWORD },
+  });
+  synthetic.trackSession(validLogin.headers()["set-cookie"]);
   expect(validLogin.status()).toBe(200);
   let day = DateTime.now().setZone("Europe/Stockholm").plus({ days: 28 });
   while (day.weekday > 5) day = day.plus({ days: 1 });

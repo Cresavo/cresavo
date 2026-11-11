@@ -37,6 +37,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Bevara rate limit, dagstak, idempotenslås och databasens exclusion constraint. Gå via `createBooking`, inte lagringshjälparen.
 - Starta HTTP via `npm run dev/start` och socket-wrappern. `TRUST_PROXY_IP=1` kräver matchande socket i TRUSTED_PROXY_IPS och överskrivande proxy; lokal `--admin` är ingen fjärrbehörighet.
 - Aktuell resultatlista finns överst i VERIFICATION; historik i bilagan. Licensbegränsningar: `THIRD_PARTY_NOTICES.md`. Prisma 7 är separat framtida arbete enligt `docs/PRISMA_7_PLAN.md`.
-- QA batch 2 omfattar inte punkt 6 (Visa e-post) eller Epic 02. Logout måste återkalla serverraden; idempotenta replays förbrukar ingen budget. Bevara samtliga tre migrationer.
-- MCP-subprocesser får samma exporterade DATABASE_URL via mcpEnvironment, inte alla förälderns hemligheter. Kör bara en QA-omgång per miljö; bevara fixture-städningens egen teardown-tid.
+- QA batch 3 omfattar punkterna 1–6 i beställningen för 056d0c2. Tidigare punkt 6 (Visa e-post) och Epic 02 är fortsatt utanför scope. Logout måste återkalla serverraden; idempotenta replays förbrukar ingen budget. Bevara samtliga tre migrationer.
+- MCP-subprocesser får samma exporterade DATABASE_URL via mcpEnvironment, inte alla förälderns hemligheter. Kör bara en QA-omgång per miljö; bevara fixture-städningens egen teardown-tid och spårning av egna sessionshashar.
 - Repot ska förbli privat. Denna batch får lokala commits, ingen push utan nytt uppdrag.
+
+- Loginspärren måste kontrolleras före lösenordet, även rätt lösenord nekas från spärrad klient. Behåll testet att ingen lösenordskontroll anropas efter spärr. ADMIN_SESSION_VERSION får endast höjas.

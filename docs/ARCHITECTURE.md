@@ -1,5 +1,13 @@
 # Arkitektur
 
+## Aktuellt beslut efter QA batch 3
+
+Detta ersätter batch 2:s felaktiga beslut att kontrollera lösenord före spärren. Login reserverar ett försök synkront före lösenordsjämförelse. Efter fem fel nekas även rätt lösenord tills fönstret löpt ut; andra klientnycklar påverkas inte. Fel och spärrade svar väntar minst 100 ms asynkront. Lyckade försök återför sin reservation. Detta stoppar även samtidiga försök från att passera kontrollen innan räknaren uppdaterats. Räknaren är fortsatt processlokal och kapacitetsbegränsad, inte ett pilotsäkert distribuerat skydd.
+
+Betrodd proxy kontrolleras mot rå normaliserad socketadress; gränsernas klientnyckel är IPv4 eller IPv6-/64. Identiteten härleds först efter att intern HMAC verifierats. Bokningens befintliga HMAC använder samma nyckel. Ingen migration eller omskrivning av historiska IPv6-nycklar görs. Felkonfigurerad forwarding ger en enda statisk varning per process. /0 och för breda proxy-CIDR avvisas. README beskriver driftmatrisen.
+
+Lyckad login gallrar högst 100 utgångna/återkallade sessionsrader via begränsad select och delete med samma kriterier. Ingen tidsstyrd bakgrundsgallring finns. Versionsnumret får endast höjas; sänkning kan återaktivera äldre giltiga rader/cookies. E2E-fixturer spårar sina egna sessionshashar och städar dem med separat teardown-budget, även vid avsiktlig timeout. Test-/demovakten avvisar host/hostaddr-parametrar före dataåtkomst.
+
 ## Aktuellt beslut efter QA batch 2 — a84e48a
 
 Följande ersätter äldre beskrivningar av global bucket och browserlogout nedan. Historiska resonemang bevaras som bakgrund.

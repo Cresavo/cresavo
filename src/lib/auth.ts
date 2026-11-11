@@ -35,6 +35,7 @@ export function checkPassword(password: string) {
 }
 
 export async function login() {
+  await pruneSessions();
   const expiry = String(Date.now() + 8 * 3600_000);
   const token = randomBytes(32).toString("hex");
   await db.adminSession.create({
@@ -48,6 +49,22 @@ export async function login() {
     path: "/",
     maxAge: 8 * 3600,
   });
+}
+
+export async function pruneSessions(now = new Date()) {
+  const obsolete = {
+    OR: [{ expiresAt: { lte: now } }, { revokedAt: { not: null } }],
+  };
+  const rows = await db.adminSession.findMany({
+    where: obsolete,
+    select: { id: true },
+    orderBy: { id: "asc" },
+    take: 100,
+  });
+  if (rows.length)
+    await db.adminSession.deleteMany({
+      where: { ...obsolete, id: { in: rows.map((row) => row.id) } },
+    });
 }
 
 function sessionId(token: string) {

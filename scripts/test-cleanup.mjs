@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { assertTestDatabase } from "./test-db-guard.mjs";
 assertTestDatabase();
@@ -23,7 +23,15 @@ try {
   const rows =
     (await db.booking.count({
       where: { customerEmail: { startsWith: marker } },
-    })) + (await db.campaign.count({ where: { title: marker } }));
+    })) +
+    (await db.campaign.count({ where: { title: marker } })) +
+    (await db.adminSession.count({
+      where: {
+        id: createHash("sha256")
+          .update(createHash("sha256").update(marker).digest("hex"))
+          .digest("hex"),
+      },
+    }));
   const passed =
     run.status === 1 &&
     /Test timeout of 1000ms exceeded/.test(run.stdout) &&

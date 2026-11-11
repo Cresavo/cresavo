@@ -3,10 +3,12 @@ import { spawnSync } from "node:child_process";
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { demoRevision } from "./demo-revision.mjs";
+import { assertTestDatabase } from "./test-db-guard.mjs";
 let step = "DEMO_CONFIG_INVALID";
 
 // No existing data is deleted to prepare a recording. Use a dedicated database.
 async function main() {
+  assertTestDatabase();
   const url = new URL(process.env.DATABASE_URL ?? "");
   if (
     !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) ||

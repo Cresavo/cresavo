@@ -1,7 +1,16 @@
 import { test } from "./fixtures";
 import { PrismaClient } from "@prisma/client";
+import { createHash } from "node:crypto";
 test("forced timeout exercises fixture teardown", async ({ synthetic }) => {
   const db = new PrismaClient();
+  const token = createHash("sha256").update(synthetic.marker).digest("hex");
+  await db.adminSession.create({
+    data: {
+      id: createHash("sha256").update(token).digest("hex"),
+      expiresAt: new Date(Date.now() + 60000),
+    },
+  });
+  synthetic.trackSession(`booking_admin=${token}.`);
   await db.booking.create({
     data: {
       businessId: "demo",

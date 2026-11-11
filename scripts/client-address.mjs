@@ -5,9 +5,17 @@ export function normalizeIp(value) {
   if (!value || !isIP(value)) throw new Error("CLIENT_ADDRESS_INVALID");
   if (value.startsWith("::ffff:") && isIP(value.slice(7)) === 4)
     return value.slice(7);
-  return isIP(value) === 6
-    ? new URL(`http://[${value}]/`).hostname.slice(1, -1)
-    : value;
+  const normalized =
+    isIP(value) === 6
+      ? new URL(`http://[${value}]/`).hostname.slice(1, -1)
+      : value;
+  const mapped = normalized.match(/^::ffff:([a-f0-9]+):([a-f0-9]+)$/);
+  if (mapped) {
+    const high = parseInt(mapped[1], 16),
+      low = parseInt(mapped[2], 16);
+    return [high >> 8, high & 255, low >> 8, low & 255].join(".");
+  }
+  return normalized;
 }
 
 export function proxyPolicy(enabled, addresses = "") {
@@ -24,6 +32,11 @@ export function proxyPolicy(enabled, addresses = "") {
     if (prefix === undefined) list.addAddress(ip, family);
     else {
       if (!/^\d+$/.test(prefix)) throw new Error("PROXY_CONFIG_INVALID");
+      if (
+        Number(prefix) < (family === "ipv4" ? 8 : 32) ||
+        Number(prefix) > (family === "ipv4" ? 32 : 128)
+      )
+        throw new Error("PROXY_CONFIG_INVALID");
       list.addSubnet(ip, Number(prefix), family);
     }
   }
@@ -36,6 +49,40 @@ export function resolveClientAddress(remote, forwarded, trusted) {
   return trusted(peer) && typeof forwarded === "string" && isIP(forwarded)
     ? normalizeIp(forwarded)
     : peer;
+}
+
+// One warning per HTTP process, never log addresses or incoming header values.
+export function proxyWarning(enabled, trusted, log = console.warn) {
+  let warned = false;
+  return (remote, headers) => {
+    const real = headers["x-real-ip"];
+    const forwarding =
+      real !== undefined || headers["x-forwarded-for"] !== undefined;
+    const missingIdentity =
+      trusted(normalizeIp(remote)) && !(typeof real === "string" && isIP(real));
+    if (!warned && ((enabled !== "1" && forwarding) || missingIdentity)) {
+      warned = true;
+      log("PROXY_CLIENT_IDENTITY_COLLAPSED");
+    }
+  };
+}
+
+export function clientLimitKey(value) {
+  const ip = normalizeIp(value);
+  if (isIP(ip) === 4) return ip;
+  const [left, right] = ip.split("::");
+  const start = left ? left.split(":") : [];
+  const end = right ? right.split(":") : [];
+  const groups =
+    right === undefined
+      ? start
+      : [...start, ...Array(8 - start.length - end.length).fill("0"), ...end];
+  return (
+    groups
+      .slice(0, 4)
+      .map((group) => parseInt(group, 16).toString(16))
+      .join(":") + "::/64"
+  );
 }
 
 export function addressProof(ip, secret) {
@@ -52,5 +99,5 @@ export function verifiedClientAddress(headers, secret) {
     !timingSafeEqual(Buffer.from(proof), Buffer.from(expected))
   )
     throw new Error("CLIENT_ADDRESS_UNVERIFIED");
-  return ip;
+  return clientLimitKey(ip);
 }

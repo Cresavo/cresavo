@@ -1,5 +1,11 @@
 # Integritets- och säkerhetsprinciper
 
+## Aktuellt efter QA batch 3
+
+Fem fel från samma klient spärrar fortsatta lösenordskontroller, även för rätt lösenord. Samtidiga försök reserveras före jämförelsen; spärrade/felaktiga svar fördröjs minst 100 ms. Den tidigare beskrivningen om att rätt lösenord alltid släpps igenom är ett rättat säkerhetsfel, inte avsedd policy. NAT och IPv6-/64 delar skyddet; andra klienter påverkas inte. Processomstart, kapacitetseviktering och roterade nät är kvarvarande begränsningar.
+
+Proxyfel ger en statisk engångsvarning utan personuppgifter. Korta proxy-prefix avvisas, men operatören måste fortfarande välja endast betrodda proxyadresser och verifiera faktisk TLS/proxy. Vid lyckad login gallras högst 100 utgångna/återkallade sessioner. ADMIN_SESSION_VERSION får bara höjas; sänkning kan återvalidera äldre cookies. Detta ersätter äldre påståenden om helt utebliven sessionsgallring. GDPR-livscykel, individuella konton, audit-fynd och maskerad e-post kvarstår som pilotfrågor. Ingen pilotgodkänd funktionalitet påstås.
+
 ## Aktuellt efter QA batch 2 — a84e48a
 
 Den globala standardbucketen är borttagen. Riktig socketadress används, och forwarding kräver att socketen matchar konfigurerad proxy-IP/CIDR. Korrekt lösenord spärras inte av andra klienters fel. Separata sockets, förfalskade headers, klient-/e-posttak och eviction är testade. Verklig TLS-/reverse-proxydrift är fortfarande inte verifierad; en proxy måste överskriva klientens header och listan måste vara snäv. IP/NAT är inte individuell identitet och räknaren är processlokal.

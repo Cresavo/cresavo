@@ -1,5 +1,11 @@
 # Datakarta för Booking Lab SE POC
 
+## Uppdatering efter QA batch 3
+
+Klientidentiteten i processräknaren och bokningens HMAC är nu IPv4 eller IPv6-/64; proxykontrollen använder full socketadress. Pseudonymiseringen och övriga lagrade fält är oförändrade. Varningen PROXY_CLIENT_IDENTITY_COLLAPSED innehåller inga adresser eller headeruppgifter och skrivs högst en gång per serverprocess.
+
+Vid lyckad login tas högst 100 utgångna/återkallade sessionsrader bort. Utan inloggningar sker ingen gallring; detta är inte en generell retentionpolicy. E2E-fixturer städar sina egna sessioner utifrån tokenhash, även i timeout-proben. Övrig kunddata har fortsatt ingen GDPR-livscykel. Ingen ny extern mottagare, dependency eller telemetri införs; nätverksfångst har inte gjorts i denna omgång. Detta ersätter batch 2:s uppgifter om bestående testsessioner och utebliven sessionsgallring.
+
 ## Uppdatering efter QA batch 2 — 2026-11-11, a84e48a
 
 Detta tillägg ersätter nedanstående äldre uppgifter om gemensam IP-bucket och logout utan serveråterkallelse.

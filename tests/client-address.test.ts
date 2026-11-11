@@ -4,6 +4,8 @@ import {
   resolveClientAddress,
   addressProof,
   verifiedClientAddress,
+  proxyWarning,
+  clientLimitKey,
 } from "../scripts/client-address.mjs";
 import {
   adminBookingFilter,
@@ -13,6 +15,52 @@ import {
 import { safeFailure } from "../src/lib/errors";
 
 describe("Socketbaserad klientidentitet", () => {
+  it("avvisar för breda och ogiltiga proxy-prefix", () => {
+    for (const cidr of [
+      "0.0.0.0/0",
+      "::/0",
+      "10.0.0.0/7",
+      "2001:db8::/31",
+      "127.0.0.1/33",
+      "::1/129",
+    ])
+      expect(() => proxyPolicy("1", cidr)).toThrow("PROXY_CONFIG_INVALID");
+  });
+  it("varnar en gång utan adresser vid sammanfallen proxyidentitet", () => {
+    for (const mode of ["0", "1"]) {
+      const log = vi.fn();
+      const warn = proxyWarning(mode, proxyPolicy(mode, "127.0.0.10/32"), log);
+      if (mode === "0") warn("127.0.0.10", {});
+      else warn("127.0.0.10", { "x-real-ip": "192.0.2.1" });
+      expect(log).not.toHaveBeenCalled();
+      for (let i = 0; i < 3; i++)
+        warn("127.0.0.10", { "x-forwarded-for": "192.0.2.99" });
+      expect(log.mock.calls).toEqual([["PROXY_CLIENT_IDENTITY_COLLAPSED"]]);
+    }
+  });
+  it("grupperar IPv6 per /64 men behåller separata nät och IPv4", () => {
+    expect(clientLimitKey("2001:db8:1:2::1")).toBe("2001:db8:1:2::/64");
+    expect(clientLimitKey("2001:0db8:0001:0002:ffff:abcd:1234:ffff")).toBe(
+      clientLimitKey("2001:db8:1:2::1"),
+    );
+    expect(clientLimitKey("2001:db8:1:3::1")).not.toBe(
+      clientLimitKey("2001:db8:1:2::1"),
+    );
+    expect(clientLimitKey("::1")).toBe("0:0:0:0::/64");
+    expect(clientLimitKey("::ffff:192.0.2.1")).toBe("192.0.2.1");
+    expect(clientLimitKey("::ffff:c000:201")).toBe("192.0.2.1");
+    const ip = "2001:db8:1:2::5",
+      secret = "synthetic";
+    expect(
+      verifiedClientAddress(
+        new Headers({
+          "x-booking-client-ip": ip,
+          "x-booking-client-proof": addressProof(ip, secret),
+        }),
+        secret,
+      ),
+    ).toBe("2001:db8:1:2::/64");
+  });
   it("använder socket i standardläge och accepterar forwarding endast från listad proxy/CIDR", () => {
     expect(
       resolveClientAddress("::ffff:127.0.0.2", "192.0.2.1", proxyPolicy("0")),

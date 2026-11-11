@@ -35,7 +35,18 @@ export function checkRateLimit(
   return bucket.count;
 }
 
-export async function recordFailedLogin(ip: string) {
-  const failures = checkRateLimit("login", ip);
-  await delay(Math.min(failures * 100, 500));
+export const LOGIN_FAILURE_DELAY_MS = 100;
+
+// Reserve synchronously before checking credentials, including concurrent requests.
+export async function checkLoginAttempt(ip: string, verify: () => boolean) {
+  let accepted = false;
+  try {
+    checkRateLimit("login", ip);
+    accepted = verify();
+    if (accepted) buckets.get(`login:${ip}`)!.count--;
+    return accepted;
+  } finally {
+    // Locked requests never evaluate verify(), and get the same minimum delay.
+    if (!accepted) await delay(LOGIN_FAILURE_DELAY_MS);
+  }
 }

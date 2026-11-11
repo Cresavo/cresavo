@@ -5,6 +5,7 @@ import {
   proxyPolicy,
   resolveClientAddress,
   addressProof,
+  proxyWarning,
 } from "./client-address.mjs";
 
 // The only supported HTTP entry point: Next routes do not expose socket.remoteAddress.
@@ -21,10 +22,12 @@ try {
     process.env.TRUSTED_PROXY_IPS,
   );
   const app = next({ dev, hostname, port });
+  const warnProxy = proxyWarning(process.env.TRUST_PROXY_IP, trusted);
   const handle = app.getRequestHandler();
   await app.prepare();
   const server = createServer((req, res) => {
     try {
+      warnProxy(req.socket.remoteAddress, req.headers);
       const ip = resolveClientAddress(
         req.socket.remoteAddress,
         req.headers["x-real-ip"],

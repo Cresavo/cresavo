@@ -65,26 +65,25 @@ Admininloggningen är en minimal lokal lösning med socketbaserad processlokal s
 
 Projektets egen kod är AGPL-3.0-only, se [LICENSE](LICENSE). Paket och tillgångar har egna licenser. Före distribution eller nätverksdrift måste licensuppfyllelse och ett fungerande erbjudande om motsvarande källkod för den körda versionen ordnas; se granskningen.
 
-## Aktuell verifiering – Epic 01 QA batch 2, 2026-11-11
+## Aktuell verifiering – Epic 01 QA batch 3
 
-Kod `a84e48a`, bas `b000481`, branch `epic-01-foundation-hardening`. Punkterna 1–5 och 7–11 genomförda; punkt 6 (Visa e-post) uttryckligen undantagen. Ingen Epic 02 eller push. Ren installation, Prisma på nya databaser, lint/tsc/build, 20 unit och 16 integration PASS. Åtta E2E passerar i fyra kombinationer: dev/prod × direkt/betrodd proxy. Produktionsdemo 2/2 PASS från ren commit. [Kommandon och felhistorik](docs/VERIFICATION.md).
+Bas `056d0c2`, branch `epic-01-foundation-hardening`. Fixpunkter 1–5 samt små förbättringar i punkt 6; Visa e-post är fortsatt undantagen. Inga nya beroenden eller migrationer. Endast lokala commits i denna omgång, ingen push eller merge. Aktuella kommandon, resultat och felhistorik: [VERIFICATION](docs/VERIFICATION.md).
 
-Audit kvar FAIL: tre höga i Prisma/config/deepmerge-ts, sju måttliga i ESLint-kedjan. Inga nya paket eller major-uppgraderingar; låsfilen är oförändrad. [Separat Prisma 7-plan](docs/PRISMA_7_PLAN.md). Docker, extern CI och verklig TLS/proxydrift har inte körts/verifierats i denna batch.
-
+Audit-fynden kvarstår i Prisma/config/deepmerge-ts och ESLint-kedjan. [Separat Prisma 7-plan](docs/PRISMA_7_PLAN.md). GitHub Actions test-/byggjobb för föregående `056d0c2` har verifierats grönt, dess audit-jobb rött. Den lokala batch 3-revisionen har inte körts i extern CI. Verklig TLS/proxydrift återstår.
 ## HTTP-start och betrodda proxyadresser
 
 `npm run dev` och `npm run start` använder `scripts/server.mjs`, en liten Node-startpunkt runt samma Next-app. Den läser socketens remoteAddress och skriver över interna, signerade adressheaders. Nexts route-objekt exponerar inte socketadressen. **Använd dessa npm-kommandon, inte direkt next dev/next start.** Utan verifierad intern adress nekas bokning/login; ingen global reservbucket finns. Produktionsläget använder kompilerad Next med dev:false. Ingen extra tjänst eller npm-dependency.
 
 TRUST_PROXY_IP=0 är standard: verklig socketadress används och X-Real-IP ignoreras. TRUST_PROXY_IP=1 kräver TRUSTED_PROXY_IPS, en kommaseparerad IP/CIDR-lista. Saknad/ogiltig lista stoppar starten. X-Real-IP används bara när anslutande socket matchar listan. Proxyn måste själv skriva över headern med faktisk klientadress. Lista aldrig hela internet eller vanliga klientnät som betrodda. Testerna simulerar proxy med en separat verklig loopback-källadress, 127.0.0.10/32; detta är ingen driftskonfiguration. BOOKING_ADDRESS_SECRET genereras internt vid start och ska inte konfigureras eller delas.
 
-Fem felaktiga login per adress/15 minuter, med 100–500 ms progressiv asynkron fördröjning; sjätte misslyckandet ger 429. Korrekt lösenord får logga in även efter andras fel från samma NAT-adress. Bokningsförsök begränsas till 30 per adress/15 minuter. Vid 10 000 buckets evikteras äldsta posten i stället för att spärra nya klienter. Räknarna är processlokala; omstart och flera processer kräver andra driftkontroller.
+Fem felaktiga login per klient/15 minuter. Därefter nekas alla försök med 429 innan lösenordet kontrolleras, även korrekt lösenord. Felaktiga och spärrade svar fördröjs minst 100 ms asynkront. Andra klienter kan fortfarande logga in; delad NAT delar spärren. Bokningsförsök begränsas till 30 per adress/15 minuter. Vid 10 000 buckets evikteras äldsta posten i stället för att spärra nya klienter. Räknarna är processlokala; omstart och flera processer kräver andra driftkontroller.
 
 ## Bokning, sessioner och kampanjer
 
 - Tre nya bokningar per e-postnyckel och skapandedag i Stockholm. Nyckeln använder gemener utan +tagg; kontaktadressen behåller taggen. Detta är en POC-regel, inte universell e-postidentitet. Inga leverantörsspecifika punktregler eller e-postverifiering.
-- Fem nya bokningar per verifierad klientadress och skapandedag, även med olika e-postadresser. HMAC lagras som clientKey, inte rå IP. Transaktionslås säkrar båda taken. Användare bakom samma NAT delar taket; olika IP kan kringgå det. Det är inte pilotsäkert identitetsskydd.
+- Fem nya bokningar per verifierad klientidentitet (IPv4-adress eller IPv6-/64) och skapandedag, även med olika e-postadresser. HMAC lagras som clientKey, inte rå IP. Transaktionslås säkrar båda taken. Användare bakom samma NAT delar taket; olika IP kan kringgå det. Det är inte pilotsäkert identitetsskydd.
 - Valfri Idempotency-Key, 1–64 tecken [A-Za-z0-9_-]. Samma nyckel/payload ger ursprunglig 201/ID utan att förbruka försöksbudget eller dagstak. Annan payload ger 409 och räknas som försök. UI återanvänder UUID vid retry/dubbelsubmit för samma payload, men nyckeln överlever inte sidomladdning. Servernycklar lever med bokningen.
-- Logout sätter revokedAt i AdminSession innan cookien raderas. Kopierad cookie nekas efter logout. DB lagrar tokenhash och skapande/utgång/återkallelsetid. Gamla cookies slutar fungera. ADMIN_SESSION_VERSION är global kill switch: höj och starta om alla instanser; återanvänd inte gamla värden. Konton och sessionsgallring saknas.
+- Logout sätter revokedAt i AdminSession innan cookien raderas. Kopierad cookie nekas efter logout. DB lagrar tokenhash och skapande/utgång/återkallelsetid. Gamla cookies slutar fungera. ADMIN_SESSION_VERSION är global kill switch: höj och starta om alla instanser; återanvänd inte gamla värden. Vid lyckad inloggning gallras högst 100 utgångna eller återkallade sessioner. Utan nya inloggningar körs ingen gallring. ADMIN_SESSION_VERSION får bara höjas: sänkning kan återaktivera äldre, ännu aktiva sessioner. Individuella konton saknas.
 - Admin visar idag till idag+14 inklusive, max 31 dagar/100 rader per sida. Felaktiga datumfilter ger svensk text och standardintervall, inte 500. E-post förblir maskerad. Datum anges YYYY-MM-DD i textfält med validering; kalenderpopupen är ersatt.
 - Kampanjer visas endast inom giltiga Stockholmsdatum, högst 90 inkluderande kalenderdagar. Omvända datum och för lång period har olika meddelanden. **100 % rabatt tillåts** i informations-POC:n; ingen betalning/debitering görs. Kommersiella regler måste beslutas före pilot.
 
@@ -120,3 +119,16 @@ Alternativt `npm run test:e2e:production` bygger och kör hela produktionssviten
 MCP-klienter skickar explicit förälderns DATABASE_URL; exporterad miljö vinner över env-filen. Ett integrationstest pekar env-filen på en annan oanvändbar databas och bevisar att utkastet hamnar i exporterad testdatabas.
 
 [Tredjepartsnotiser](THIRD_PARTY_NOTICES.md) · [Datakarta](docs/DATA_FLOWS.md) · [Handoff](docs/HANDOFF.md)
+
+
+### Driftmatris och varning efter QA batch 3
+
+| Anslutning | Konfiguration | Identitet och krav |
+| --- | --- | --- |
+| Direkt till Node | `TRUST_PROXY_IP=0` | Verklig socket; inkommande forwarding ignoreras och ger en statisk varning en gång. |
+| Betrodd proxy | `TRUST_PROXY_IP=1`, snäv `TRUSTED_PROXY_IPS` | Proxyn måste skriva över `X-Real-IP` med faktisk klientadress. Begränsa även nätåtkomsten till Node. |
+| Proxy med standardläge eller bara X-Forwarded-For | Felkonfiguration | Alla delar proxyns identitet, spärr och bokningstak. `PROXY_CLIENT_IDENTITY_COLLAPSED` varnar en gång, utan IP eller headerinnehåll. Åtgärda före drift. |
+
+Proxylistan avvisar IPv4-prefix kortare än /8 och IPv6-prefix kortare än /32. Dessa gränser innebär inte att stora tillåtna nät är lämpliga; lista endast de verkliga proxyadresserna. IPv6-klienters /64 används för både inloggningsspärr och bokningstak; rå adress används fortfarande för att kontrollera betrodd proxy. IPv4-mappad IPv6 normaliseras till IPv4. Gammal IPv6-/128-bokningshistorik räknas inte retroaktivt mot /64-taket. Inga historiska migrationer ändras.
+
+Test- och demovakten avvisar även `host`/`hostaddr` i URL-parametrar före databasåtkomst. E2E-fixturer tar bort sina egna sessionshashar, även efter timeout, men är inte en generell datagallring.
