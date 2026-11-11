@@ -3,7 +3,7 @@ import base from "./playwright.config";
 
 export default defineConfig({
   ...base,
-  grep: /bokning, skyddad administration och MCP-utkast/,
+  grep: /bokning, skyddad administration och MCP-utkast|lokal MCP-bokning/,
   outputDir: process.env.BOOKING_DEMO_OUTPUT,
   webServer: {
     ...base.webServer,

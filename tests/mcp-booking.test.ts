@@ -14,7 +14,12 @@ const valid = {
 describe("Lokalt MCP-bokningskontrakt", () => {
   it("återanvänder domänfält utan att begränsa befintlig HTTP-e-post", () => {
     expect(mcpBookingSchema.parse(valid)).toEqual(valid);
-    expect(bookingSchema.safeParse({ ...valid, customerEmail: "syntetisk@example.com" }).success).toBe(true);
+    expect(
+      bookingSchema.safeParse({
+        ...valid,
+        customerEmail: "syntetisk@example.com",
+      }).success,
+    ).toBe(true);
     expect(idempotencyKeySchema.safeParse("a".repeat(64)).success).toBe(true);
   });
   it.each([
@@ -35,9 +40,17 @@ describe("Lokalt MCP-bokningskontrakt", () => {
     const secret = "synthetic-test-secret-at-least-32-chars";
     expect(bookingModeAllowed([], undefined)).toBe(false);
     expect(bookingModeAllowed(["--admin"], undefined)).toBe(false);
-    expect(() => bookingModeAllowed(["--allow-bookings"], secret)).toThrow("MCP_BOOKING_CONFIG_INVALID");
-    expect(() => bookingModeAllowed(["--admin", "--allow-bookings"], undefined)).toThrow("MCP_BOOKING_CONFIG_INVALID");
-    expect(() => bookingModeAllowed(["--admin", "--allow-bookings"], "short")).toThrow("MCP_BOOKING_CONFIG_INVALID");
-    expect(bookingModeAllowed(["--admin", "--allow-bookings"], secret)).toBe(true);
+    expect(() => bookingModeAllowed(["--allow-bookings"], secret)).toThrow(
+      "MCP_BOOKING_CONFIG_INVALID",
+    );
+    expect(() =>
+      bookingModeAllowed(["--admin", "--allow-bookings"], undefined),
+    ).toThrow("MCP_BOOKING_CONFIG_INVALID");
+    expect(() =>
+      bookingModeAllowed(["--admin", "--allow-bookings"], "short"),
+    ).toThrow("MCP_BOOKING_CONFIG_INVALID");
+    expect(bookingModeAllowed(["--admin", "--allow-bookings"], secret)).toBe(
+      true,
+    );
   });
 });

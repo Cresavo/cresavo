@@ -38,6 +38,20 @@ npm run mcp:client
 npm run mcp:client -- --admin
 ```
 
+### Lokal syntetisk agentbokning (Epic 02)
+
+```powershell
+npm run mcp:client -- --admin --book
+```
+
+Detta separata opt-in-läge visar Fotvård, en ledig tid i Europe/Stockholm och en syntetisk testkund. Skriv `ja` för att skapa bokningen; `nej` eller stängd standardindata avbryter utan skrivning. Bokningen syns sedan i `/admin`. Standardklienten bokar aldrig; enbart `--admin` behåller kampanjutkastflödet. Inget externt AI-API krävs.
+
+MCP-serverns nya `create_booking` exponeras endast med **både** `--admin --allow-bookings`. Starten kräver en lokal SESSION_SECRET om minst 32 tecken för den befintliga HMAC-kvoten. Saknad adminflagga eller hemlighet stoppar skrivläget med statisk felkod. Endast betrodda lokala processer får dessa flaggor; detta är inte fjärrautentisering eller pilotstöd.
+
+Verktyget kräver `serviceId`, `start` (ISO-instant med offset), `customerName`, `customerEmail` (endast `example.test`), `clientRequestId` (1–64 tecken, samma regel som HTTP:s idempotensnyckel) och `confirmed: true`. Okända fält nekas. `confirmed` är klientens försäkran, inte tekniskt bevis på en människas godkännande. Använd samma nyckel och uppgifter vid retry; ändrade uppgifter kräver ny nyckel. Nycklar delar samma befintliga namnrymd som HTTP inom demosalongen.
+
+Svaret innehåller endast `id`, `serviceId`, `startsAt`, `endsAt` i UTC. Samma domänmotor, överlappsskydd, idempotens och dagstak används som i webben. Den lokala MCP-kanalen har **ett gemensamt tak på fem nya bokningar per skapandedag i Stockholm**, även efter processomstart, samt tre per e-postnyckel. Det är ett avsiktligt begränsat testläge, inte individuella agentkvoter. Replays förbrukar ingen ny kvot. Ingen klientstyrd IP/kvotidentitet accepteras.
+
 `list_bookings` i adminläge kräver nu `from` och `to` som inkluderande datum `YYYY-MM-DD` i Europe/Stockholm, högst 31 kalenderdagar. `limit` är valfri (standard 20, max 100) och `cursor` är valfri. Exempel på argument:
 
 ```json

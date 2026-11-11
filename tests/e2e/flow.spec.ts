@@ -7,6 +7,85 @@ import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { PrismaClient } from "@prisma/client";
 import { LOGIN_FAILURE_DELAY_MS } from "../../src/lib/rate-limit";
 const db = new PrismaClient();
+test("lokal MCP-bokning visas i skyddad admin med Stockholmstid", async ({
+  page,
+  synthetic,
+}, testInfo) => {
+  const client = new Client({ name: "synthetic-mcp-admin-flow", version: "1" });
+  try {
+    await client.connect(
+      new StdioClientTransport({
+        command: process.execPath,
+        env: mcpEnvironment({ booking: true }),
+        args: [
+          "--env-file=.env",
+          "--import",
+          "tsx",
+          "src/mcp/server.ts",
+          "--admin",
+          "--allow-bookings",
+        ],
+      }),
+    );
+    let day = DateTime.now().setZone("Europe/Stockholm").plus({ days: 2 });
+    while (day.weekday > 5) day = day.plus({ days: 1 });
+    const available = await client.callTool({
+      name: "get_availability",
+      arguments: { serviceId: "fotvard", date: day.toISODate() },
+    });
+    expect(available.isError).not.toBeTruthy();
+    const block = available.content[0];
+    if (block.type !== "text") throw new Error("Expected text");
+    const start = (JSON.parse(block.text) as string[])[0];
+    const email = `${synthetic.marker}-mcp@example.test`;
+    const name = process.env.BOOKING_DEMO
+      ? `Syntetisk agentkund ${testInfo.project.name === "desktop" ? "Anna" : "Erik"}`
+      : `Syntetisk MCP ${synthetic.marker}`;
+    const created = await client.callTool({
+      name: "create_booking",
+      arguments: {
+        serviceId: "fotvard",
+        start,
+        customerName: name,
+        customerEmail: email,
+        clientRequestId: synthetic.marker,
+        confirmed: true,
+      },
+    });
+    expect(created.isError).not.toBeTruthy();
+    expect(JSON.stringify(created)).not.toContain(email);
+    expect(JSON.stringify(created)).not.toContain(name);
+    await page.goto("/admin");
+    await expect(page.locator("#password")).toBeVisible();
+    // UI login is covered by the existing full flow; this test focuses on MCP → admin.
+    const login = await page.request.post("/api/admin/login", {
+      headers: { origin: "http://localhost:3000" },
+      data: { password: process.env.ADMIN_PASSWORD },
+    });
+    expect(login.status()).toBe(200);
+    synthetic.trackSession(login.headers()["set-cookie"] ?? "");
+    await page.goto("/admin");
+    await expect(page.getByText(name, { exact: false })).toBeVisible();
+    await expect(page.getByText(email, { exact: false })).toHaveCount(0);
+    const displayedTime = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Europe/Stockholm",
+      dateStyle: "full",
+      timeStyle: "short",
+    }).format(new Date(start));
+    await expect(page.getByText(displayedTime, { exact: true })).toBeVisible();
+    if (process.env.BOOKING_DEMO) {
+      await page.screenshot({
+        path: testInfo.outputPath("07-agentbokning-i-admin.png"),
+        fullPage: true,
+        caret: "initial",
+      });
+      await page.waitForTimeout(1200);
+    }
+  } finally {
+    await client.close();
+    await db.$disconnect();
+  }
+});
 test("HTTP avvisar obehöriga anrop och ogiltig JSON utan feldetaljer", async ({}, testInfo) => {
   const request = socketClient(
     testInfo.project.name === "desktop" ? "127.0.0.21" : "127.0.0.22",

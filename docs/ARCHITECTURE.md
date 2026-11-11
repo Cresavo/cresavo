@@ -1,5 +1,13 @@
 # Arkitektur
 
+## Epic 02: lokal MCP-skrivning
+
+create_booking är ett separat opt-in-verktyg: --admin och --allow-bookings krävs tillsammans med kvotens befintliga SESSION_SECRET. Det strikta schemat återanvänder bokningens fält och idempotensnyckelregel; confirmed=true och example.test är extra POC-begränsningar. Bekräftelsefältet bevisar inte mänskligt samtycke. Endast betrodda lokala processer får starta läget.
+
+Verktyget går via createBooking med den fasta serverägda kanalkontexten mcp:local-booking-channel:v1. Det använder samma HMAC, 5/kanal/skapandedag, 3/e-post/skapandedag, låsordning, idempotensnamnrymd och exclusion som HTTP. Ingen klientstyrd identitet tillåts; processomstart återställer inte DB-taket. HTTP:s statuskoder och payload är oförändrade. Svar projiceras uttryckligen till id/serviceId/startsAt/endsAt; inga kundfält eller lagringshashar skickas tillbaka.
+
+Testklientens separata --admin --book-läge visar en syntetisk sammanfattning och kräver ja; nej/EOF gör ingen skrivning. mcpEnvironment skickar SESSION_SECRET endast för uttryckligt bokningsläge och kopierar aldrig ADMIN_PASSWORD eller hela processmiljön. Ingen publik MCP, ny tabell, migration eller dependency har införts. Ingen garanti om pilot, tenant-isolering eller externa agentmottagare följer av detta.
+
 ## Uppföljning M2/L8 efter 8b83a40
 
 createBooking tar nu ett transaktionsbundet advisory lock per verksamhet/anställd/bokningsdag före tillgänglighetsläsning och insert. Fast ordning: idempotensnyckel → klient/skapandedag → e-post/skapandedag → anställd/bokningsdag. Samma anställds bokningsförsök för en dag serialiseras även om tiderna inte överlappar; andra dagar får andra nycklar. Befintlig exclusion constraint och alla tre migrationer är orörda. Bokningsdag tolkas i Europe/Stockholm. Dagens öppettider tillåter inte behandlingar över midnatt; sådant framtida stöd kräver en ny bedömning av låsningen. Direkta interna DB-writes måste fortfarande följa skrivkontraktet eller hantera databasfel själva.

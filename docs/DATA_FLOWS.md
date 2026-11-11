@@ -1,5 +1,13 @@
 # Datakarta för Booking Lab SE POC
 
+## Epic 02: syntetisk MCP-bokning
+
+I separat lokalt skrivläge tar create_booking emot syntetiskt namn och example.test-e-post samt tjänst, tid, clientRequestId och confirmed=true. En anslutande AI-klient ser därmed sin egen indata; minimerade svar gör inte indata anonym. Riktiga uppgifter och hälsodata är fortsatt förbjudna i denna POC.
+
+createBooking lagrar samma bokningsfält, idempotenshash och e-postkvotnyckel som webben. clientKey är HMAC av en fast serverägd MCP-kanalsträng, inte operatörens IP eller individuell agentidentitet. Samma lokala databas och dagstak används; ingen ny mottagare, tabell eller extern modellanslutning läggs till. Verktygssvar innehåller endast id, serviceId, startsAt och endsAt. Administrationsvyn har fortsatt maskerad e-post. Ingen kundlivscykel/gallring tillkommer.
+
+Testklienten visar syntetiskt kundnamn och tid före ja, skriver ett minimerat resultat och lämnar inte e-post eller sessionshemlighet i resultatloggen. SESSION_SECRET lämnas bara till den betrodda lokala bokningssubprocessen för HMAC; ADMIN_PASSWORD skickas inte via mcpEnvironment. En operatörs --env-file kan själv innehålla fler hemligheter; använd separat minimal lokal konfiguration. SDK:s valideringsfel kan fortfarande spegla klientens egen felaktiga indata.
+
 ## Uppdatering efter QA batch 3
 
 Klientidentiteten i processräknaren och bokningens HMAC är nu IPv4 eller IPv6-/64; proxykontrollen använder full socketadress. Pseudonymiseringen och övriga lagrade fält är oförändrade. Varningen PROXY_CLIENT_IDENTITY_COLLAPSED innehåller inga adresser eller headeruppgifter och skrivs högst en gång per serverprocess.
