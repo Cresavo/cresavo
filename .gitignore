@@ -1,0 +1,30 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local databases and backups
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.dump
+*.backup
+
+# Dependencies, build and test output
+node_modules/
+.next/
+.turbo/
+dist/
+build/
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+*.log

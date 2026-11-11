@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+model Service {
+  id String @id
+  businessId String
+  name String
+  duration Int
+  priceOre Int
+  bookings Booking[]
+  campaigns Campaign[]
+}
+model Booking {
+  id String @id @default(cuid())
+  businessId String
+  staffId String
+  serviceId String
+  service Service @relation(fields: [serviceId], references: [id])
+  startsAt DateTime @db.Timestamptz(3)
+  endsAt DateTime @db.Timestamptz(3)
+  customerName String
+  customerEmail String
+}
+model Campaign {
+  id String @id @default(cuid())
+  businessId String
+  serviceId String
+  service Service @relation(fields: [serviceId], references: [id])
+  title String
+  discountPercent Int
+  validFrom String
+  validUntil String
+  published Boolean @default(false)
+}

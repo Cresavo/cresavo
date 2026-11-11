@@ -1,0 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+CREATE TABLE "Service" ("id" TEXT PRIMARY KEY, "businessId" TEXT NOT NULL, "name" TEXT NOT NULL, "duration" INTEGER NOT NULL CHECK ("duration" > 0), "priceOre" INTEGER NOT NULL CHECK ("priceOre" >= 0));
+CREATE TABLE "Booking" ("id" TEXT PRIMARY KEY, "businessId" TEXT NOT NULL, "staffId" TEXT NOT NULL, "serviceId" TEXT NOT NULL REFERENCES "Service"("id"), "startsAt" TIMESTAMPTZ(3) NOT NULL, "endsAt" TIMESTAMPTZ(3) NOT NULL, "customerName" TEXT NOT NULL, "customerEmail" TEXT NOT NULL, CHECK ("endsAt" > "startsAt"));
+ALTER TABLE "Booking" ADD CONSTRAINT booking_no_overlap EXCLUDE USING gist ("businessId" WITH =, "staffId" WITH =, tstzrange("startsAt", "endsAt", '[)') WITH &&);
+CREATE TABLE "Campaign" ("id" TEXT PRIMARY KEY, "businessId" TEXT NOT NULL, "serviceId" TEXT NOT NULL REFERENCES "Service"("id"), "title" TEXT NOT NULL, "discountPercent" INTEGER NOT NULL CHECK ("discountPercent" BETWEEN 1 AND 100), "validFrom" TEXT NOT NULL, "validUntil" TEXT NOT NULL, "published" BOOLEAN NOT NULL DEFAULT false);

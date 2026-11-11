@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest";
+import { Client } from "@modelcontextprotocol/client"; import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+describe("Lokal MCP-behörighet",()=>{ it("erbjuder inte adminverktyg utan uttryckligt adminläge",async()=>{ const client=new Client({name:"test",version:"1"}); await client.connect(new StdioClientTransport({command:process.execPath,args:["--env-file=.env","--import","tsx","src/mcp/server.ts"]})); try {const {tools}=await client.listTools(); expect(tools.map(t=>t.name).sort()).toEqual(["get_availability","list_services"]); await expect(client.callTool({name:"list_bookings",arguments:{}})).rejects.toThrow(); } finally {await client.close();} }); });

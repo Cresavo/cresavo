@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root { color-scheme: light; }
+body { background: #f7f5f0; color: #203c36; font-family: Arial, sans-serif; }
+input, select { border: 1px solid #aabdb4; border-radius: .5rem; padding: .7rem; width: 100%; background: white; color: #203c36; }
+button { background: #255d4c; color: white; padding: .7rem 1rem; border-radius: .5rem; font-weight: 600; }
+button:disabled { opacity: .5; }
+a { text-decoration: underline; text-underline-offset: 3px; }
+label { display: block; font-weight: 600; margin-bottom: .35rem; }
