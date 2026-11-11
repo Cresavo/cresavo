@@ -1,5 +1,13 @@
 # Verifiering – Epic 01 uppföljning M2/L8 och CI
 
+## Slutgodkännande efter dc15023
+
+Epic 01 är **avslutad som lokal POC** enligt Booking Lab QA:s lästa slutrapport `QA-REPORT-epic01-dc15023.md`. M2/L9/L8 godkända, inga nya fynd eller regressioner. CI 43114326682 har fyra gröna E2E-jobb; endast känd audit är röd. Detta ersätter äldre uppgifter nedan om väntande extern CI och slutgranskning. [Slutstatus, rapporterade QA-resultat och backlogg](PROJECT_STATUS.md).
+
+Epic 02: GO för fortsatt planering, inget nytt arbete startat. Pilot: NO-GO av fem dokumenterade skäl. Ingen ny fixomgång eller demo behövs. Denna ändring är enbart dokumentation; inga tester har körts på nytt. Ingen merge eller push görs med avslutningsnoteringen.
+
+## Tidigare verifiering och arbetsomgångar
+
 Verifierat 2026-11-11 cirka 23:33–23:39 Europe/Stockholm. Kod **01e80ed08a95101cf8e8eb7e899d82e979a4b46b**, bas **8b83a40**, branch epic-01-foundation-hardening. Inga nya produktfunktioner/beroenden/migrationer. Visa e-post undantaget. Ingen push, merge eller ny demo.
 
 | Kommando/kontroll | Faktiskt resultat |

@@ -1,4 +1,32 @@
-# Projektstatus – Epic 01 QA batch 3
+# Projektstatus – Epic 01 avslutad som lokal POC
+
+## Slutbeslut för dc15023
+
+Epic 01 är avslutad som lokal POC-grund. Oberoende slutkontroll från Booking Lab QA (Grok Bot), rapport `QA-REPORT-epic01-dc15023.md`, anger att M2/L9/L8 är åtgärdade, utan nya fynd eller regressioner. Rapporten anger tidsintervallet 2026-11-11 kl. 23:48 till cirka 00:05 Europe/Stockholm (över midnatt). Epic 02 får planeras; den har inte påbörjats. **Pilot är fortsatt NO-GO.** Stängning innebär inte merge till main.
+
+- QA rapporterar 80 omgångar med blandade överlapp och 30 omgångar på samma tid, 20 samtidiga anrop per omgång: exakt en framgång, 0 serverfel, 0 deadlocks och 0 överlapp.
+- QA rapporterar integration 18/18 elva gånger i rad, unit 28/28 och produktions-E2E 8/8 med och utan proxy. Lint/tsc/build och städning passerade.
+- [CI 43114326682](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43114326682) på dc15023: samtliga fyra E2E-jobb 8/8. Codex kontrollerade körningen efter push; QA bekräftar samma resultat. Bara audit-jobbet är rött: 3 höga och 7 måttliga fynd.
+
+QA:s extra belastningskörningar är uppgifter från den lästa slutrapporten, inte nya körningar av Codex. Denna avslutning ändrar endast dokumentation; inga tester eller nya demoinspelningar har körts här. Lokala tidigare testresultat finns i [VERIFICATION](VERIFICATION.md).
+
+### Kvarstående pilotblockerare
+
+1. Delat adminlösenord utan individuella konton/MFA.
+2. Kund-GDPR: export, radering och lagringstid saknas.
+3. Audit-fynden återstår.
+4. Verklig TLS/proxy, flera serverinstanser och riktiga IPv6-sockets är inte verifierade; limiter är processlokal.
+5. Produktbeslut om adminens kontaktväg, ”Visa e-post”, återstår.
+
+### Uppföljning vid planering av Epic 02
+
+- Bedöm 409 för bokningskonflikt; dagens 400 är befintligt kontrakt och ändras inte i avslutningen.
+- Om bokningar över midnatt införs måste låsningen omfatta berörda dagar.
+- Bedöm transaktionsfel utanför INSERT; nuvarande konfliktmappning täcker endast INSERT. Inga sådana fel observerades i slutkontrollen.
+
+Ingen ny fixbeställning behövs för Epic 01. Nästa produktsteg är en beslutad, avgränsad Epic 02; backloggpunkterna ovan startas inte automatiskt.
+
+## Historik före slutgodkännandet
 
 ## Uppföljning M2/L8 och CI – 2026-11-11
 
