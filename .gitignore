@@ -6,6 +6,11 @@
 *.key
 *.p12
 *.pfx
+*.secret
+*.keystore
+id_rsa
+id_ed25519
+secrets/
 
 # Local databases and backups
 *.db
@@ -16,6 +21,13 @@
 *.sqlite3-*
 *.dump
 *.backup
+*.bak
+*.mdb
+*.accdb
+pgdata/
+postgres-data/
+.postgres/
+data/
 
 # Dependencies, build and test output
 node_modules/
@@ -28,3 +40,8 @@ test-results/
 playwright-report/
 *.tsbuildinfo
 *.log
+
+# Local review archives
+*.zip
+*.tar
+*.tar.gz

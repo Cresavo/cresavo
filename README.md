@@ -17,7 +17,7 @@ npm run db:seed
 npm run dev
 ```
 
-Öppna http://localhost:3000 och välj en vardag inom 60 dagar. Salongen har öppet måndag–fredag 09–17 i Europe/Stockholm, en anställd och tider på halvtimmar. Logga in via `/admin` med lösenordet i `.env`. Seeds kan köras igen utan att radera bokningar. För en egen Postgres-instans, ändra `DATABASE_URL` i `.env`; databasanvändaren måste kunna skapa extensionen `btree_gist`. Compose-lösenordet är endast avsett för lokal demo. Stoppa databasen med `docker compose stop`; volymen sparas.
+Öppna http://localhost:3000 och välj en vardag inom 60 dagar. Salongen har öppet måndag–fredag 09–17 i Europe/Stockholm, en anställd och tider på halvtimmar. Logga in via `/admin` med lösenordet i `.env`. Seeds kan köras igen utan att radera bokningar. För en egen Postgres-instans, ändra `DATABASE_URL` i `.env`; databasanvändaren måste kunna skapa extensionen `btree_gist`. Ett verifierat alternativ utan Docker beskrivs i [verifieringsrapporten](docs/VERIFICATION.md). Compose-lösenordet är endast avsett för lokal demo. Stoppa databasen med `docker compose stop`; volymen sparas.
 
 ## MCP
 
@@ -49,7 +49,7 @@ Integration och Playwright kräver den migrerade, seedade lokala databasen och `
 
 Admininloggningen är en minimal lokal lösning utan konton, spärr mot lösenordsgissning, återställning eller revisionslogg. Endast stdio-processens ägare bestämmer MCP-adminläget. Delade cookies, tenant-isolering, HTTPS, säker konfiguration, missbruksskydd, tillgänglighet, integritet och säkerhetsgranskning krävs inför verklig drift. Den signerade cookien kräver HTTPS i `NODE_ENV=production`; kör `npm run dev` för lokalt HTTP. Pris och erbjudande är information, ingen debitering. Översättningsförberedelsen är begränsad: några texter ligger i `src/lib/i18n.ts`, men flertalet är ännu svenska i komponenterna. Kalendern är en kronologisk agenda, inte en fullständig veckovy.
 
-[Omfattning](docs/POC_SCOPE.md) · [Arkitektur](docs/ARCHITECTURE.md) · [Licens- och projektgranskning](docs/OPEN_SOURCE_REVIEW.md) · [Bidra](CONTRIBUTING.md)
+[Omfattning](docs/POC_SCOPE.md) · [Arkitektur](docs/ARCHITECTURE.md) · [Licens- och projektgranskning](docs/OPEN_SOURCE_REVIEW.md) · [Verifiering](docs/VERIFICATION.md) · [Bidra](CONTRIBUTING.md)
 
 Projektets egen kod är AGPL-3.0-only, se [LICENSE](LICENSE). Paket och tillgångar har egna licenser. Före distribution eller nätverksdrift måste licensuppfyllelse och ett fungerande erbjudande om motsvarande källkod för den körda versionen ordnas; se granskningen.
 
