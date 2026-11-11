@@ -1,3 +1,49 @@
+# Verifiering – Epic 01 uppföljning M2/L8 och CI
+
+Verifierat 2026-11-11 cirka 23:33–23:39 Europe/Stockholm. Kod **01e80ed08a95101cf8e8eb7e899d82e979a4b46b**, bas **8b83a40**, branch epic-01-foundation-hardening. Inga nya produktfunktioner/beroenden/migrationer. Visa e-post undantaget. Ingen push, merge eller ny demo.
+
+| Kommando/kontroll | Faktiskt resultat |
+| --- | --- |
+| `npx prisma generate` | PASS: Generated Prisma Client (v6.19.3). |
+| `npm run db:migrate`, `npm run db:seed` | PASS, exit 0: tre befintliga migrationer på ny isolerad booking_followup_test. |
+| `npm run lint`, `npx tsc --noEmit` | PASS, exit 0; tsc även efter hela E2E-matrisen. |
+| `npm test` | PASS: Test Files 5 passed (5), Tests 28 passed (28), 1.57 s. |
+| `npm run test:integration`, fem sekventiella körningar | PASS 18/18 i alla fem. Tider 12.12, 11.11, 10.97, 11.55, 11.21 s. |
+| Stressregression i varje integrationskörning | 20 omgångar ×20 blandade 30/60-minutersanrop: exakt en framgång/omgång, övriga DomainError ”Tiden är inte tillgänglig”, varje omgång <2000 ms, SQL-kontroll visar 0 överlapp. Totalt 100 omgångar/2000 anrop över fem körningar. |
+| PostgreSQL-logg efter integration och efter E2E | POSTGRES_DEADLOCK_COUNT=0. |
+| `npm run test:e2e`, dev/proxy=0 | PASS: 8 passed (1.2m). |
+| `npm run test:e2e`, dev/proxy=1 | PASS: 8 passed (24.7s). |
+| `npm run build` | PASS: Compiled successfully in 1913ms; statiska sidor 8/8. |
+| `npm run test:e2e`, E2E_PRODUCTION=1/proxy=0 | PASS: 8 passed (16.0s). |
+| `npm run test:e2e`, E2E_PRODUCTION=1/proxy=1 | PASS: 8 passed (16.2s). |
+| `node --env-file=.env scripts/test-cleanup.mjs` | PASS, exit 0: CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0; PASS. |
+| Slutlig Prisma-räkning | {"booking":0,"campaign":0,"adminSession":0}. Ingen manuell datarensning. |
+| `node --env-file=.env scripts/server.mjs`, TRUST_PROXY_IP=1, TRUSTED_PROXY_IPS=::/32 | Negativ kontroll PASS: BOOKING_SERVER_CONFIG_FAILED, exit 1 före lyssning. |
+| YAML-parsning med befintlig js-yaml | PASS: mode=[dev,production], proxy=[0,1], fyra kombinationer. Det är inte en extern Actions-körning. |
+| Prettier 3.6.2 check på ändrade kod-/CI-filer | PASS: All matched files use Prettier code style! Inget projektberoende tillagt. |
+| Diff-check, package.json/låsfil/tre migrationer mot 8b83a40 | PASS; skyddade filer oförändrade. |
+
+## Ändringar och testgränser
+
+createBooking tar advisory lock per verksamhet/anställd/bokningsdag före tillgänglighetskontroll och insert. Låsordningen är idempotens → klient/skapandedag → e-post/skapandedag → anställd/bokningsdag. Exclusion är oförändrad. Strukturerade P2010/meta.code 23P01/40P01/40001 mappas till befintlig DomainError; unit testar samtliga samt att andra databasfel inte maskeras som konflikt. Inga riktiga deadlocks framkallades för felmappningstestet; det använder konstruerade Prisma-fel. Stressregressionen kör riktig PostgreSQL och observerade inga deadlocks.
+
+Proxyvalideringen avvisar IPv6-subnät som matchar IPv4-ändpunkterna via Node BlockList. Unit inkluderar ::/32, ::/64, ::/80 och bevarad giltig IPv4, IPv6-adress och 2001:db8::/32. Serverstart med ::/32 är provad separat. CI-matrisen bygger och kör E2E i fyra isolerade runner-/DB-miljöer; lint/unit/integration körs i dev/0. Audit är separat och oförändrat.
+
+## Miljö och reproduktion
+
+Ny PostgreSQL 18.6 via tidigare installerat externt embedded-postgres: 127.0.0.1:55447, kluster C:\Users\<user>\booking-lab-pg-test\qa-followup-20261111. Windows, Node 24.16.0, npm 11.13.0. Samma nya *_test-databas användes för fem sekventiella körningar; testerna städar sina egna data. Full E2E kördes därefter i ett sekventiellt skript med stopp vid fel. NEXT_TELEMETRY_DISABLED=1 och CHECKPOINT_DISABLE=1; bara syntetiska uppgifter. Reproducerbara testkommandon finns i README; integrationsupprepning: `1..5 | ForEach-Object { npm run test:integration; if ($LASTEXITCODE -ne 0) { throw 'Integration failed' } }`.
+
+Råloggar utanför Git: C:\Users\<user>\booking-lab-pg-test\followup-integration-1.log till -5.log, followup-pg.log, followup-e2e-dev-0.log, followup-e2e-dev-1.log, followup-build.log, followup-e2e-prod-0.log och followup-e2e-prod-1.log. Samtliga testkörningar passerade första försöket i denna uppföljning. En hjälpkontroll av YAML försökte först använda modulen yaml som inte fanns; den kördes om med redan installerad js-yaml och passerade. Inga paket installerades för detta.
+
+**Inte kört:** npm ci och npm audit på nytt (paket/låsfil oförändrade, senaste verifierade audit var 3 high/7 moderate), demo:record enligt ny överenskommen policy, nya GitHub Actions-jobb (ingen push), Docker/PG16 lokalt, riktig TLS/proxy, riktiga IPv6-sockets eller flera appinstanser. CI-acceptansen ”fyra gröna jobb” är därför ännu inte verifierad externt. Senaste demo avser äldre a364bda och används inte som bevis för denna kod.
+
+M2/L8 har riktade regressionsbevis; inga funktionella regressioner observerades. Pilot fortfarande NO-GO: delat adminlösenord, kund-GDPR-livscykel, audit, verklig drift/TLS/proxy och kontaktvägsbeslut återstår. Processlokal limiter och dagbaserad serialisering är POC-avvägningar. Befintliga lokala ändringar av demopolicyn i AGENTS/DEMO bevarades och ingår i kodcommiten.
+
+Efter verifieringen stoppades egen PostgreSQL och hjälpprocess (server stopped; pg_ctl: no server running). Inga lyssnare på 3000/55447 återstod. Egen tillfällig syntetisk .env togs bort efter adresskontroll; klusterfiler/loggar behölls lokalt.
+
+<details>
+<summary>Bilaga: historiska verifieringsomgångar</summary>
+
 # Verifiering – Epic 01 QA fix batch 3
 
 Verifierat 2026-11-11 cirka 22:48–22:54 Europe/Stockholm. Kodrevision **a364bda73850c2983212684e94e9690d100d1d9b**, bas **056d0c2**, branch `epic-01-foundation-hardening`. Dokumentationscommit följer. Beställt: punkter 1–5 och små förbättringar i punkt 6. Visa e-post är fortsatt undantagen. Ingen push, merge, deploy eller Epic 02.
@@ -339,5 +385,7 @@ Försök 1: FAIL, grep var felaktigt förankrat och hittade inga tester. Rättat
 Slutlig [lokal demo](../demo-artifacts/2026-11-11T17-17-11-326Z/index.html) och [manifest](../demo-artifacts/2026-11-11T17-17-11-326Z/manifest.json). Endast syntetiska uppgifter; inspelningarna saknar ljud. Trace är avstängt i demo för att undvika request-/sessionsdata i artefakter. Bilder/video är Git-ignorerade och har inte publicerats. Manuell reproduktion finns i DEMO.md. Observerad UX-begränsning: datumfältets placeholder är mm/dd/yyyy även med sv-SE; admin är en enkel agenda. Verifierad demo innebär inte produktionsberedskap.
 
 Efter körningen stoppades testdatabasen (pg_ctl: no server running) och hjälpprocessen. Den egen skapade tillfälliga .env togs bort. Kluster och demoartefakter finns kvar lokalt; ingen automatisk gallring görs.
+
+</details>
 
 </details>

@@ -1,5 +1,15 @@
 # Handoff – Epic 01 QA batch 3
 
+## Uppföljning M2/L8 och CI – 2026-11-11
+
+Kod **01e80ed**, bas **8b83a40**. Bokningsförsök låses per anställd/dag före tillgänglighetsläsning; strukturerade insert-konflikter ger befintligt domänfel. IPv6-proxynät som också litar på IPv4 nekas. Tre historiska migrationer och exclusion bevarade. CI är konfigurerat för fyra E2E-lägen; extern körning återstår tills push godkänns.
+
+Verifierat lokalt: 28/28 unit, 18/18 integration fem gånger, totalt 100 stressomgångar à20 anrop med en framgång/omgång, <2 s/omgång och 0 överlapp/deadlocks. Alla fyra E2E-lägen 8/8, lint/tsc/build och cleanup PASS; slutdatabas 0 bokningar/0 kampanjer/0 sessioner. [Exakta kommandon, resultat och begränsningar](VERIFICATION.md).
+
+Ingen ny demo enligt produktägarens beslut; senaste inspelning avser äldre kod. Ingen push/merge eller Epic 02-funktion. Visa e-post fortsatt undantagen. Audit omkördes inte; senast 3 high/7 moderate. Pilot fortsatt NO-GO av tidigare skäl. Nästa steg: oberoende kontroll av M2/L8, fyrfälts-CI efter godkänd push och därefter beslutad Epic 02. Inga observerade regressioner i sluttester.
+
+## Historik före denna uppföljning
+
 Bas **056d0c2**, kodcommit **a364bda73850c2983212684e94e9690d100d1d9b**, branch `epic-01-foundation-hardening`. Dokumentationscommit följer kodcommiten. Fixbeställning 1–5 och små förbättringar i punkt 6 genomförda. Visa e-post fortsatt undantagen. Inga nya dependencies, migrationer, Epic 02, deploys, pushar eller merge. Arbetsnamnet är booking-lab-se och repot ska förbli privat.
 
 ## Ändrat
