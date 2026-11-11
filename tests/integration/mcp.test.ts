@@ -59,6 +59,31 @@ afterAll(async () => {
 });
 
 describe("Lokal MCP-behörighet och dataminimering", () => {
+  it("sanerar verkliga databasfel innan MCP-klienten får svaret", async () => {
+    const client = new Client({ name: "failure-test", version: "1" });
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: ["--import", "tsx", "src/mcp/server.ts", "--admin"],
+      env: { ...Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined)),
+        DATABASE_URL: "postgresql://canary:CANARY_SECRET@127.0.0.1:1/canary?connect_timeout=1" },
+      stderr: "pipe"
+    });
+    let stderr = "";
+    transport.stderr?.on("data", chunk => { stderr += String(chunk); });
+    try {
+      await client.connect(transport);
+      for (const [name, args] of [
+        ["list_services", {}], ["get_availability", { serviceId: "fotvard", date: day.from }],
+        ["list_bookings", day], ["create_campaign_draft", { serviceId: "fotvard", title: "Syntetisk", discountPercent: 20, validFrom: day.from, validUntil: day.to }]
+      ] as const) {
+        const result = await client.callTool({ name, arguments: args });
+        expect(result.isError).toBe(true);
+        expect(result.content).toEqual([{ type: "text", text: "Ett fel inträffade" }]);
+      }
+    } finally { await client.close(); }
+    expect(stderr).not.toMatch(/CANARY|postgresql:|PrismaClient|canary/);
+    expect(stderr).toContain("BOOKING_INTERNAL_ERROR");
+  });
   it("erbjuder inte adminverktyg utan uttryckligt adminläge", async () => {
     const client = await connect(false);
     try {

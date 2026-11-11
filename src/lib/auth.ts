@@ -19,7 +19,7 @@ function equal(a: string, b: string) {
 export function checkPassword(password: string) {
   const expected = process.env.ADMIN_PASSWORD;
   if (!expected || expected.length < 12) throw new Error("ADMIN_PASSWORD måste vara minst 12 tecken");
-  return equal(password, expected);
+  return password.length <= 1024 && equal(password, expected);
 }
 
 export async function login() {
@@ -35,9 +35,9 @@ export async function login() {
 
 export async function isAdmin() {
   const value = (await cookies()).get("booking_admin")?.value;
-  if (!value) return false;
+  if (!value || !/^\d{13}\.[a-f0-9]{64}$/.test(value)) return false;
   const [expiry, signature] = value.split(".");
-  return !!expiry && !!signature && /^\d+$/.test(expiry) && Number(expiry) > Date.now() && equal(sign(expiry), signature);
+  return Number(expiry) > Date.now() && Number(expiry) <= Date.now() + 8 * 3600_000 && equal(sign(expiry), signature);
 }
 
 export async function sameOrigin() {

@@ -14,4 +14,4 @@ async function main() {
   }
  } finally { await client.close(); }
 }
-main().catch(e=>{console.error(e);process.exitCode=1;});
+main().catch(()=>{console.error("MCP_CLIENT_FAILED");process.exitCode=1;});
