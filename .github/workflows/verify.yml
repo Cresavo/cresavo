@@ -1,0 +1,39 @@
+name: Verify POC
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      CHECKPOINT_DISABLE: "1"
+      DATABASE_URL: postgresql://booking:booking@127.0.0.1:5432/booking_lab
+      ADMIN_PASSWORD: synthetic-ci-password-only
+      SESSION_SECRET: synthetic-ci-session-secret-never-use-in-deployment
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+      - run: npm ci
+      - run: |
+          touch .env
+          docker compose up -d --wait
+          npx prisma generate
+          npm run db:migrate
+          npm run db:seed
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:integration
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: npm run build
+      - run: npx tsc --noEmit
+      # Deliberately fails while the documented advisories remain unresolved.
+      - run: npm audit
+      - if: always()
+        run: docker compose down
