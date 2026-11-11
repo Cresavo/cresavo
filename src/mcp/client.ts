@@ -1,3 +1,4 @@
+import { mcpEnvironment } from "./environment";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { DateTime } from "luxon";
@@ -9,6 +10,7 @@ async function main() {
   });
   const transport = new StdioClientTransport({
     command: process.execPath,
+    env: mcpEnvironment(),
     args: [
       "--env-file=.env",
       "--import",

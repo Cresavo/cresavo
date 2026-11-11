@@ -1,4 +1,5 @@
-import { isIP } from "node:net";
+import { setTimeout as delay } from "node:timers/promises";
+import { verifiedClientAddress } from "../../scripts/client-address.mjs";
 import { DomainError } from "./errors";
 
 // One bounded map per process. No persistence or cross-worker guarantee.
@@ -6,11 +7,7 @@ const buckets = new Map<string, { count: number; until: number }>();
 const windowMs = 15 * 60_000;
 
 export function clientIp(headers: Headers) {
-  // Enable only behind a proxy that overwrites this header and blocks direct access.
-  const ip = headers.get("x-real-ip");
-  return process.env.TRUST_PROXY_IP === "1" && ip && isIP(ip)
-    ? ip
-    : "local-shared";
+  return verifiedClientAddress(headers, process.env.BOOKING_ADDRESS_SECRET);
 }
 
 export function checkRateLimit(
@@ -23,21 +20,22 @@ export function checkRateLimit(
     if (bucket.until <= now) buckets.delete(key);
   const key = `${route}:${ip}`;
   const bucket = buckets.get(key) ?? { count: 0, until: now + windowMs };
-  if (
-    bucket.count >= (route === "login" ? 5 : 30) ||
-    (!buckets.has(key) && buckets.size >= 10000)
-  )
+  if (bucket.count >= (route === "login" ? 5 : 30))
     throw new DomainError(
       "För många försök. Försök igen senare.",
       429,
       Math.max(1, Math.ceil((bucket.until - now) / 1000)),
     );
   if (consume) {
+    if (!buckets.has(key) && buckets.size >= 10000)
+      buckets.delete(buckets.keys().next().value!);
     bucket.count++;
     buckets.set(key, bucket);
   }
+  return bucket.count;
 }
 
-export function recordFailedLogin(ip: string) {
-  checkRateLimit("login", ip);
+export async function recordFailedLogin(ip: string) {
+  const failures = checkRateLimit("login", ip);
+  await delay(Math.min(failures * 100, 500));
 }

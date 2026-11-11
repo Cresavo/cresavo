@@ -2,6 +2,8 @@ import { ZodError } from "zod";
 
 // Only literal messages owned by this codebase may cross a trust boundary.
 const publicMessages = [
+  "Slutdatum får inte vara före startdatum.",
+  "Kampanjen får gälla högst 90 kalenderdagar.",
   "Tjänsten finns inte",
   "Tiden är inte tillgänglig",
   "Ogiltig sidmarkör för datumintervallet",
@@ -31,6 +33,13 @@ export function safeFailure(error: unknown) {
       message: error.message,
       retryAfter: error.retryAfter,
     };
+  if (
+    error instanceof ZodError &&
+    error.issues.length === 1 &&
+    error.issues[0].code === "custom" &&
+    publicMessages.includes(error.issues[0].message as PublicMessage)
+  )
+    return { status: 400, message: error.issues[0].message };
   if (error instanceof ZodError || error instanceof SyntaxError)
     return { status: 400, message: "Kontrollera uppgifterna" };
   // Never log the error, message, stack, cause, SQL, request or credentials.

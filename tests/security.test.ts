@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createHmac } from "node:crypto";
+import { createHmac, createHash } from "node:crypto";
 import { z } from "zod";
+import { db } from "../src/lib/db";
 import { failure } from "../src/lib/http";
 import { DomainError, pageDataFailure } from "../src/lib/errors";
 
@@ -8,6 +9,37 @@ const state = vi.hoisted(() => ({
   cookie: undefined as string | undefined,
   set: vi.fn(),
   headers: new Headers(),
+  sessions: new Map<
+    string,
+    { id: string; expiresAt: Date; revokedAt?: Date }
+  >(),
+}));
+vi.mock("../src/lib/db", () => ({
+  db: {
+    adminSession: {
+      create: async ({ data }: { data: { id: string; expiresAt: Date } }) => {
+        state.sessions.set(data.id, data);
+        return data;
+      },
+      findFirst: async ({ where }: { where: { id: string } }) => {
+        const session = state.sessions.get(where.id);
+        return session && !session.revokedAt && session.expiresAt > new Date()
+          ? { id: session.id }
+          : null;
+      },
+      updateMany: async ({
+        where,
+        data,
+      }: {
+        where: { id: string };
+        data: { revokedAt: Date };
+      }) => {
+        const session = state.sessions.get(where.id);
+        if (session) session.revokedAt = data.revokedAt;
+        return { count: session ? 1 : 0 };
+      },
+    },
+  },
 }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({
@@ -23,15 +55,21 @@ import {
   logout,
   sameOrigin,
 } from "../src/lib/auth";
-import { checkRateLimit, clientIp } from "../src/lib/rate-limit";
+import {
+  checkRateLimit,
+  clientIp,
+  recordFailedLogin,
+} from "../src/lib/rate-limit";
 import { assertTestDatabase } from "../scripts/test-db-guard.mjs";
 import { demoRevision } from "../scripts/demo-revision.mjs";
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
   state.cookie = undefined;
   state.set.mockReset();
+  state.sessions.clear();
 });
 
 describe("Säkra felgränser", () => {
@@ -75,7 +113,12 @@ describe("Säkra felgränser", () => {
 describe("Lokal admins session", () => {
   const secret = "synthetic-session-secret-for-tests-only";
   function token(expiry: number) {
-    const value = String(expiry);
+    const id = "1".repeat(64);
+    state.sessions.set(createHash("sha256").update(id).digest("hex"), {
+      id: createHash("sha256").update(id).digest("hex"),
+      expiresAt: new Date(expiry),
+    });
+    const value = `${id}.${expiry}`;
     return `${value}.${createHmac("sha256", secret).update(`1:${value}`).digest("hex")}`;
   }
   it("kräver giltig signatur, exakt format och högst åtta timmar", async () => {
@@ -101,6 +144,16 @@ describe("Lokal admins session", () => {
     state.cookie = valid;
     expect(await isAdmin()).toBe(false);
   });
+  it("nekar session vid databasfel utan råa feldetaljer", async () => {
+    vi.stubEnv("SESSION_SECRET", secret);
+    state.cookie = token(Date.now() + 60000);
+    vi.spyOn(db.adminSession, "findFirst").mockRejectedValueOnce(
+      new Error("CANARY@example.test"),
+    );
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await isAdmin()).toBe(false);
+    expect(log.mock.calls).toEqual([["BOOKING_INTERNAL_ERROR"]]);
+  });
   it("sätter säkra cookieflaggor och avvisar fel/överstora lösenord", async () => {
     vi.stubEnv("SESSION_SECRET", secret);
     vi.stubEnv("ADMIN_PASSWORD", "synthetic-test-password");
@@ -108,6 +161,9 @@ describe("Lokal admins session", () => {
     expect(checkPassword("synthetic-test-password")).toBe(true);
     expect(checkPassword("wrong")).toBe(false);
     expect(checkPassword("x".repeat(1025))).toBe(false);
+    state.set.mockImplementation((_name, value) => {
+      state.cookie = value;
+    });
     await login();
     expect(state.set).toHaveBeenCalledWith(
       "booking_admin",
@@ -120,7 +176,11 @@ describe("Lokal admins session", () => {
         maxAge: 28800,
       },
     );
+    const copied = state.cookie;
+    expect(await isAdmin()).toBe(true);
     await logout();
+    state.cookie = copied;
+    expect(await isAdmin()).toBe(false);
     expect(state.set).toHaveBeenLastCalledWith(
       "booking_admin",
       "",
@@ -167,19 +227,50 @@ describe("Missbruksskydd och testgrind", () => {
       checkRateLimit("login", "unit-ip", true, now + 900001),
     ).not.toThrow();
   });
-  it("litar inte på godtyckliga IP-headers utan explicit proxykonfiguration", () => {
-    vi.stubEnv("TRUST_PROXY_IP", "0");
-    const headers = new Headers({
-      "x-real-ip": "192.0.2.10",
-      "x-forwarded-for": "192.0.2.20",
-    });
-    expect(clientIp(headers)).toBe("local-shared");
+  it("avvisar osignerade identitetsheaders även i proxyläge", () => {
     vi.stubEnv("TRUST_PROXY_IP", "1");
-    expect(clientIp(headers)).toBe("192.0.2.10");
-    headers.set("x-real-ip", "forged");
-    expect(clientIp(headers)).toBe("local-shared");
+    vi.stubEnv("BOOKING_ADDRESS_SECRET", "synthetic-proof-secret");
+    expect(() =>
+      clientIp(
+        new Headers({
+          "x-real-ip": "192.0.2.10",
+          "x-booking-client-ip": "192.0.2.10",
+          "x-booking-client-proof": "0".repeat(64),
+        }),
+      ),
+    ).toThrow();
+  });
+  it("fördröjer misslyckade login progressivt utan att blockera eventloopen", async () => {
+    vi.useFakeTimers();
+    let finished = false;
+    const first = recordFailedLogin("delay-test").then(() => {
+      finished = true;
+    });
+    await vi.advanceTimersByTimeAsync(99);
+    expect(finished).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await first;
+    expect(finished).toBe(true);
+    finished = false;
+    const second = recordFailedLogin("delay-test").then(() => {
+      finished = true;
+    });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(finished).toBe(false);
+    await vi.advanceTimersByTimeAsync(100);
+    await second;
+    expect(finished).toBe(true);
+  });
+  it("evikterar äldsta bucket vid kapacitet utan att neka ny klient", () => {
+    const now = Date.now() + 1800000;
+    for (let i = 0; i < 10001; i++)
+      checkRateLimit("login", `capacity-${i}`, true, now);
+    expect(() =>
+      checkRateLimit("login", "legitimate-new", true, now),
+    ).not.toThrow();
   });
   it("avvisar osäkra databasadresser före dataåtkomst", () => {
+    vi.stubEnv("DATABASE_URL", undefined);
     for (const value of [
       undefined,
       "not a URL",

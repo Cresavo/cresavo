@@ -1,4 +1,11 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { db } from "./db";
+import { safeFailure } from "./errors";
+import {
+  createHmac,
+  timingSafeEqual,
+  randomBytes,
+  createHash,
+} from "node:crypto";
 import { cookies, headers } from "next/headers";
 
 function secret() {
@@ -29,7 +36,12 @@ export function checkPassword(password: string) {
 
 export async function login() {
   const expiry = String(Date.now() + 8 * 3600_000);
-  (await cookies()).set("booking_admin", `${expiry}.${sign(expiry)}`, {
+  const token = randomBytes(32).toString("hex");
+  await db.adminSession.create({
+    data: { id: sessionId(token), expiresAt: new Date(Number(expiry)) },
+  });
+  const value = `${token}.${expiry}`;
+  (await cookies()).set("booking_admin", `${value}.${sign(value)}`, {
     httpOnly: true,
     sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
@@ -38,18 +50,43 @@ export async function login() {
   });
 }
 
-export async function isAdmin() {
+function sessionId(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
+async function currentSessionId() {
   const value = (await cookies()).get("booking_admin")?.value;
-  if (!value || !/^\d{13}\.[a-f0-9]{64}$/.test(value)) return false;
-  const [expiry, signature] = value.split(".");
-  return (
-    Number(expiry) > Date.now() &&
-    Number(expiry) <= Date.now() + 8 * 3600_000 &&
-    equal(sign(expiry), signature)
-  );
+  if (!value || !/^[a-f0-9]{64}\.\d{13}\.[a-f0-9]{64}$/.test(value))
+    return null;
+  const [token, expiry, signature] = value.split(".");
+  if (
+    Number(expiry) <= Date.now() ||
+    Number(expiry) > Date.now() + 8 * 3600_000 ||
+    !equal(sign(`${token}.${expiry}`), signature)
+  )
+    return null;
+  return sessionId(token);
+}
+export async function isAdmin() {
+  const id = await currentSessionId();
+  if (!id) return false;
+  try {
+    return !!(await db.adminSession.findFirst({
+      where: { id, revokedAt: null, expiresAt: { gt: new Date() } },
+      select: { id: true },
+    }));
+  } catch (error) {
+    safeFailure(error);
+    return false; // Fail closed without exposing database errors through SSR or auth guards.
+  }
 }
 
 export async function logout() {
+  const id = await currentSessionId();
+  if (id)
+    await db.adminSession.updateMany({
+      where: { id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   (await cookies()).set("booking_admin", "", {
     httpOnly: true,
     sameSite: "strict",

@@ -1,12 +1,15 @@
-import { test, expect } from "@playwright/test";
+import { mcpEnvironment } from "../../src/mcp/environment";
+import { test, expect } from "./fixtures";
+import { socketClient } from "./http-client";
 import { DateTime } from "luxon";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { PrismaClient } from "@prisma/client";
 const db = new PrismaClient();
-test("HTTP avvisar obehöriga anrop och ogiltig JSON utan feldetaljer", async ({
-  request,
-}) => {
+test("HTTP avvisar obehöriga anrop och ogiltig JSON utan feldetaljer", async ({}, testInfo) => {
+  const request = socketClient(
+    testInfo.project.name === "desktop" ? "127.0.0.21" : "127.0.0.22",
+  );
   const origin = { origin: "http://localhost:3000" };
   for (const data of [
     null,
@@ -44,6 +47,7 @@ test("HTTP avvisar obehöriga anrop och ogiltig JSON utan feldetaljer", async ({
 test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
   page,
   request,
+  synthetic,
 }, testInfo) => {
   const browserErrors: string[] = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
@@ -69,12 +73,10 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
     if (process.env.BOOKING_DEMO)
       expect(headers["strict-transport-security"]).toBe("max-age=31536000");
   }
-  const marker = `e2e-${Date.now()}`,
+  const marker = synthetic.marker,
     email = `${marker}@example.test`;
   const customerName = `Testkund ${marker}`;
-  const title = process.env.BOOKING_DEMO
-    ? "Demoerbjudande – 20 % på fotvård"
-    : marker;
+  const title = synthetic.title;
   async function capture(name: string) {
     if (!process.env.BOOKING_DEMO) return;
     // Avoid Playwright's temporary caret style changing DOM before hydration.
@@ -91,6 +93,7 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
     await client.connect(
       new StdioClientTransport({
         command: process.execPath,
+        env: mcpEnvironment(),
         args: [
           "--env-file=.env",
           "--import",
@@ -157,6 +160,21 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
     await page.getByRole("button", { name: "Logga in" }).click();
     await expect(page.getByText(customerName, { exact: false })).toBeVisible();
     await expect(page.getByText(email, { exact: false })).toHaveCount(0);
+    const copiedCookie = (await page.context().cookies()).find(
+      (c) => c.name === "booking_admin",
+    )!;
+    for (const query of [
+      "from=garbage",
+      "from=2026-11-12&to=2027-02-01",
+      "from=2026-11-15&to=2026-11-12",
+    ]) {
+      const response = await page.goto(`/admin?${query}`);
+      expect(response!.status()).toBe(200);
+      await expect(page.locator("p[role=alert]")).toContainText(
+        "Ogiltigt datumfilter",
+      );
+    }
+    await page.goto("/admin");
     await capture("04-admin-och-utkast");
     const campaign = page
       .locator("div", { has: page.getByText(title, { exact: true }) })
@@ -176,19 +194,35 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
       headers: { origin: "http://localhost:3000" },
     });
     expect(loggedOut.status()).toBe(403);
+    const replayHeaders = {
+      origin: "http://localhost:3000",
+      cookie: `booking_admin=${copiedCookie.value}`,
+    };
+    expect(
+      (
+        await request.post("/api/admin/publish", {
+          headers: replayHeaders,
+          data: { id: "fake" },
+        })
+      ).status(),
+    ).toBe(403);
+    const replayPage = await request.get("/admin", { headers: replayHeaders });
+    expect(replayPage.status()).toBe(200);
+    expect(await replayPage.text()).toContain('id="password"');
     expect(browserErrors).toEqual([]);
   } finally {
     await client.close();
-    await db.booking.deleteMany({ where: { customerEmail: email } });
-    await db.campaign.deleteMany({ where: { title } });
     await db.$disconnect();
   }
 });
 
 test("QA HTTP: limiter, idempotens och daglig gräns", async ({
-  request,
+  synthetic,
 }, testInfo) => {
-  const marker = `qa-http-${testInfo.project.name}-${Date.now()}`;
+  const address =
+    testInfo.project.name === "desktop" ? "127.0.0.31" : "127.0.0.32";
+  const request = socketClient(address);
+  const marker = synthetic.marker;
   const headers = {
     origin: "http://localhost:3000",
     "x-real-ip":
@@ -212,6 +246,11 @@ test("QA HTTP: limiter, idempotens och daglig gräns", async ({
       error: "För många försök. Försök igen senare.",
     });
   }
+  const validLogin = await request.post("/api/admin/login", {
+    headers,
+    data: { password: process.env.ADMIN_PASSWORD },
+  });
+  expect(validLogin.status()).toBe(200);
   let day = DateTime.now().setZone("Europe/Stockholm").plus({ days: 28 });
   while (day.weekday > 5) day = day.plus({ days: 1 });
   const slotsResponse = await request.get(
@@ -240,6 +279,12 @@ test("QA HTTP: limiter, idempotens och daglig gräns", async ({
     });
     expect(retry.status()).toBe(201);
     expect(await retry.json()).toEqual(ids[0]);
+    for (let i = 0; i < 35; i++)
+      expect(
+        (
+          await request.post("/api/bookings", { headers: keyed, data: payload })
+        ).status(),
+      ).toBe(201);
     const conflict = await request.post("/api/bookings", {
       headers: keyed,
       data: { ...payload, customerName: "Different" },
@@ -270,6 +315,9 @@ test("QA HTTP: limiter, idempotens och daglig gräns", async ({
       where: { customerEmail: payload.customerEmail },
     });
   }
+  const throttleRequest = socketClient(
+    testInfo.project.name === "desktop" ? "127.0.0.41" : "127.0.0.42",
+  );
   const throttleHeaders = {
     ...headers,
     "x-real-ip":
@@ -278,16 +326,95 @@ test("QA HTTP: limiter, idempotens och daglig gräns", async ({
   for (let i = 0; i < 30; i++)
     expect(
       (
-        await request.post("/api/bookings", {
+        await throttleRequest.post("/api/bookings", {
           headers: throttleHeaders,
           data: {},
         })
       ).status(),
     ).toBe(400);
-  const limited = await request.post("/api/bookings", {
+  const limited = await throttleRequest.post("/api/bookings", {
     headers: throttleHeaders,
     data: {},
   });
   expect(limited.status()).toBe(429);
   expect(Number(limited.headers()["retry-after"])).toBeGreaterThan(0);
+  const other = socketClient(
+    testInfo.project.name === "desktop" ? "127.0.0.51" : "127.0.0.52",
+  );
+  expect(
+    (await other.post("/api/bookings", { headers, data: {} })).status(),
+  ).toBe(400);
+  const direct = socketClient(
+    testInfo.project.name === "desktop" ? "127.0.0.61" : "127.0.0.62",
+    false,
+  );
+  for (let i = 0; i < 6; i++)
+    expect(
+      (
+        await direct.post("/api/admin/login", {
+          headers: {
+            ...headers,
+            "x-real-ip": `192.0.2.${i + 1}`,
+            "x-booking-client-ip": `192.0.2.${i + 1}`,
+            "x-booking-client-proof": "0".repeat(64),
+          },
+          data: { password: "wrong" },
+        })
+      ).status(),
+    ).toBe(i < 5 ? 401 : 429);
+});
+
+test("UI återanvänder bokningsnyckeln vid dubbelsubmit och tappat svar", async ({
+  page,
+  synthetic,
+}) => {
+  let day = DateTime.now().setZone("Europe/Stockholm").plus({ days: 45 });
+  while (day.weekday > 5) day = day.plus({ days: 1 });
+  const keys: string[] = [],
+    ids: string[] = [],
+    statuses: number[] = [];
+  let attempts = 0;
+  await page.route("**/api/bookings", async (route) => {
+    keys.push(route.request().headers()["idempotency-key"]);
+    const response = await route.fetch();
+    statuses.push(response.status());
+    ids.push((await response.json()).id);
+    if (++attempts === 1) await route.abort("failed");
+    else await route.fulfill({ response });
+  });
+  await page.goto("/");
+  await page.locator("#service").selectOption("massage");
+  await page.locator("#date").fill(day.toISODate()!);
+  await page.getByRole("button", { name: "Visa lediga tider" }).click();
+  await expect(page.locator("#slot option").nth(1)).toBeAttached();
+  await page
+    .locator("#slot")
+    .selectOption(
+      (await page.locator("#slot option").nth(1).getAttribute("value"))!,
+    );
+  await page.locator("#name").fill("Syntetisk retrykund");
+  await page.locator("#email").fill(`${synthetic.marker}@example.test`);
+  await page.getByRole("button", { name: "Bekräfta testbokning" }).click();
+  await expect(
+    page.getByText(
+      "Svaret kunde inte hämtas. Försök igen med samma uppgifter.",
+    ),
+  ).toBeVisible();
+  // Dispatch two real submit events before React replaces the successful form.
+  await page.locator("#name").evaluate((input) => {
+    const form = (input as HTMLInputElement).form!;
+    form.requestSubmit();
+    form.requestSubmit();
+  });
+  await expect(page.getByText(/^Din testbokning är registrerad/)).toBeVisible();
+  await expect.poll(() => statuses.length).toBe(3);
+  expect(statuses).toEqual([201, 201, 201]);
+  expect(new Set(keys).size).toBe(1);
+  expect(keys[0]).toMatch(/^[a-f0-9-]{36}$/);
+  expect(new Set(ids).size).toBe(1);
+  expect(
+    await db.booking.count({
+      where: { customerEmail: `${synthetic.marker}@example.test` },
+    }),
+  ).toBe(1);
 });

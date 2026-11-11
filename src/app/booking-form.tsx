@@ -1,6 +1,6 @@
 "use client";
 import { formatBookingTime } from "@/lib/format";
-import { useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 const subscribe = () => () => {};
 const hydratedSnapshot = () => true;
 const serverSnapshot = () => false;
@@ -11,6 +11,7 @@ export default function BookingForm({ services }: { services: Service[] }) {
     hydratedSnapshot,
     serverSnapshot,
   );
+  const submission = useRef<{ payload: string; key: string } | null>(null);
   const [serviceId, setService] = useState(services[0]?.id ?? ""),
     [date, setDate] = useState(""),
     [slots, setSlots] = useState<string[]>([]),
@@ -35,25 +36,35 @@ export default function BookingForm({ services }: { services: Service[] }) {
   async function book(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    const r = await fetch("/api/bookings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        serviceId,
-        start,
-        customerName: form.get("name"),
-        customerEmail: form.get("email"),
-      }),
+    const payload = JSON.stringify({
+      serviceId,
+      start,
+      customerName: form.get("name"),
+      customerEmail: form.get("email"),
     });
-    const data = await r.json();
-    if (r.ok) {
-      setMessage(
-        `Din testbokning är registrerad. ${services.find((s) => s.id === serviceId)?.name} · ${formatBookingTime(start)} (Europe/Stockholm)`,
-      );
-      setSlots([]);
-      setStart("");
-    } else setMessage(data.error);
+    if (submission.current?.payload !== payload)
+      submission.current = { payload, key: crypto.randomUUID() };
+    const key = submission.current.key;
+    try {
+      const r = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": key },
+        body: payload,
+      });
+      const data = await r.json();
+      if (r.ok) {
+        setMessage(
+          `Din testbokning är registrerad. ${services.find((s) => s.id === serviceId)?.name} · ${formatBookingTime(start)} (Europe/Stockholm)`,
+        );
+        setSlots([]);
+        setStart("");
+      } else setMessage(data.error);
+    } catch {
+      // Preserve the key: the server may have committed before the connection failed.
+      setMessage("Svaret kunde inte hämtas. Försök igen med samma uppgifter.");
+    }
   }
+
   return (
     <>
       <form onSubmit={search} className="space-y-4">
@@ -81,7 +92,9 @@ export default function BookingForm({ services }: { services: Service[] }) {
           <input
             disabled={!hydrated}
             id="date"
-            type="date"
+            type="text"
+            placeholder="YYYY-MM-DD"
+            pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
             lang="sv-SE"
             required
             value={date}

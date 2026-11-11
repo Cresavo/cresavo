@@ -2,7 +2,12 @@ import { formatPrice } from "@/lib/format";
 import { pageDataFailure } from "@/lib/errors";
 import Link from "next/link";
 import { isAdmin } from "@/lib/auth";
-import { listBookings, listCampaigns, listServices } from "@/lib/domain";
+import {
+  adminBookingFilter,
+  listBookings,
+  listCampaigns,
+  listServices,
+} from "@/lib/domain";
 import AdminActions from "./ui";
 export const dynamic = "force-dynamic";
 export default async function Admin({
@@ -19,8 +24,9 @@ export default async function Admin({
       </main>
     );
   const params = await searchParams;
+  const { filter, error } = adminBookingFilter(params);
   const [result, campaigns, services] = await Promise.all([
-    listBookings({ ...params, limit: 100 }),
+    listBookings(filter),
     listCampaigns(),
     listServices(),
   ]).catch(pageDataFailure);
@@ -33,16 +39,21 @@ export default async function Admin({
   return (
     <main className="max-w-4xl mx-auto px-5 py-10">
       <Link href="/">← Bokningssidan</Link>
-      <h1 className="text-3xl font-bold my-6">Administration</h1>
-      <section className="bg-white rounded-xl p-6 mb-6">
+      <header className="flex flex-wrap items-center justify-between gap-4 my-6">
+        <h1 className="text-3xl font-bold">Administration</h1>
         <AdminActions mode="logout" />
+      </header>
+      <section className="bg-white rounded-xl p-6 mb-6">
         <h2 className="text-xl font-bold mb-4">Kalender och bokningar</h2>
+        {error && <p role="alert">{error}</p>}
         <form className="mb-4" method="get">
           <label htmlFor="from">Från</label>
           <input
             id="from"
             name="from"
-            type="date"
+            type="text"
+            placeholder="YYYY-MM-DD"
+            pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
             defaultValue={result.from}
             required
           />
@@ -50,7 +61,9 @@ export default async function Admin({
           <input
             id="to"
             name="to"
-            type="date"
+            type="text"
+            placeholder="YYYY-MM-DD"
+            pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
             defaultValue={result.to}
             required
           />

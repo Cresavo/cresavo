@@ -1,5 +1,6 @@
+import { checkRateLimit } from "./rate-limit";
 import { z } from "zod";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import { Prisma, type Booking } from "@prisma/client";
 import { db } from "./db";
 import { DomainError } from "./errors";
@@ -25,16 +26,24 @@ export const campaignSchema = z
     validUntil: date,
   })
   .strict()
-  .refine((v) => {
+  .superRefine((v, ctx) => {
     try {
-      return (
-        v.validFrom <= v.validUntil &&
-        parseDay(v.validUntil) <= parseDay(v.validFrom).plus({ days: 89 })
-      );
+      const from = parseDay(v.validFrom),
+        to = parseDay(v.validUntil);
+      if (to < from)
+        ctx.addIssue({
+          code: "custom",
+          message: "Slutdatum får inte vara före startdatum.",
+        });
+      else if (to > from.plus({ days: 89 }))
+        ctx.addIssue({
+          code: "custom",
+          message: "Kampanjen får gälla högst 90 kalenderdagar.",
+        });
     } catch {
-      return false;
+      /* The field validators report invalid dates. */
     }
-  }, "Ogiltigt intervall; högst 90 kalenderdagar");
+  });
 
 const bookingSchema = z.object({
   serviceId: z.string().min(1),
@@ -96,13 +105,14 @@ export async function getAvailability(
 // A parameterized INSERT exposes PostgreSQL SQLSTATE in P2010.meta.code instead.
 export async function insertBooking(
   client: Prisma.TransactionClient,
-  data: Omit<Booking, "createdAt">,
+  data: Omit<Booking, "createdAt" | "clientKey" | "emailCapKey"> &
+    Partial<Pick<Booking, "clientKey" | "emailCapKey">>,
 ) {
   try {
     const rows = await client.$queryRaw<Booking[]>`INSERT INTO "Booking"
-      ("id", "businessId", "staffId", "serviceId", "startsAt", "endsAt", "customerName", "customerEmail", "idempotencyKey", "requestHash")
+      ("id", "businessId", "staffId", "serviceId", "startsAt", "endsAt", "customerName", "customerEmail", "idempotencyKey", "requestHash", "clientKey", "emailCapKey")
       VALUES (${data.id}, ${data.businessId}, ${data.staffId}, ${data.serviceId}, ${data.startsAt}, ${data.endsAt},
-        ${data.customerName}, ${data.customerEmail}, ${data.idempotencyKey}, ${data.requestHash}) RETURNING *`;
+        ${data.customerName}, ${data.customerEmail}, ${data.idempotencyKey}, ${data.requestHash}, ${data.clientKey ?? null}, ${data.emailCapKey ?? null}) RETURNING *`;
     return rows[0];
   } catch (e) {
     if (
@@ -115,15 +125,41 @@ export async function insertBooking(
   }
 }
 
-export async function createBooking(input: unknown, key?: string) {
-  const v = bookingSchema.parse(input);
-  const idempotencyKey = z
+export function emailCapKey(email: string) {
+  const [local, domain] = email.toLowerCase().split("@");
+  return `${local.split("+")[0]}@${domain}`;
+}
+
+export async function createBooking(
+  input: unknown,
+  key?: string,
+  clientAddress?: string,
+) {
+  const parsed = bookingSchema.safeParse(input);
+  if (!parsed.success) {
+    if (clientAddress) checkRateLimit("bookings", clientAddress);
+    throw parsed.error;
+  }
+  const v = parsed.data;
+  const emailKey = emailCapKey(v.customerEmail);
+  const secret = process.env.SESSION_SECRET;
+  if (clientAddress && (!secret || secret.length < 32))
+    throw new Error("CLIENT_KEY_CONFIG_INVALID");
+  const clientKey = clientAddress
+    ? createHmac("sha256", secret!).update(clientAddress).digest("hex")
+    : null;
+  const parsedKey = z
     .string()
     .min(1)
     .max(64)
     .regex(/^[A-Za-z0-9_-]+$/)
     .optional()
-    .parse(key);
+    .safeParse(key);
+  if (!parsedKey.success) {
+    if (clientAddress) checkRateLimit("bookings", clientAddress);
+    throw parsedKey.error;
+  }
+  const idempotencyKey = parsedKey.data;
   const start = new Date(v.start);
   const requestHash = createHash("sha256")
     .update(JSON.stringify({ ...v, start: start.toISOString() }))
@@ -136,22 +172,43 @@ export async function createBooking(input: unknown, key?: string) {
           where: { businessId_idempotencyKey: { businessId, idempotencyKey } },
         });
         if (existing) {
-          if (existing.requestHash !== requestHash)
+          if (existing.requestHash !== requestHash) {
+            if (clientAddress) checkRateLimit("bookings", clientAddress);
             throw new DomainError(
               "Bokningsnyckeln har redan använts med andra uppgifter.",
               409,
             );
+          }
           return existing;
         }
       }
+      if (clientAddress) checkRateLimit("bookings", clientAddress);
       const today = parseDay(localDay(new Date()));
       const tomorrow = today.plus({ days: 1 });
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:email:${v.customerEmail}:${today.toISODate()}`}))`;
+      const dayRange = { gte: today.toJSDate(), lt: tomorrow.toJSDate() };
+      const retryAfter = Math.max(
+        1,
+        Math.ceil((tomorrow.toMillis() - Date.now()) / 1000),
+      );
+      if (clientKey) {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:client:${clientKey}:${today.toISODate()}`}))`;
+        if (
+          (await tx.booking.count({
+            where: { businessId, clientKey, createdAt: dayRange },
+          })) >= 5
+        )
+          throw new DomainError(
+            "För många försök. Försök igen senare.",
+            429,
+            retryAfter,
+          );
+      }
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:email:${emailKey}:${today.toISODate()}`}))`;
       const count = await tx.booking.count({
         where: {
           businessId,
-          customerEmail: v.customerEmail,
-          createdAt: { gte: today.toJSDate(), lt: tomorrow.toJSDate() },
+          emailCapKey: emailKey,
+          createdAt: dayRange,
         },
       });
       if (count >= 3)
@@ -178,6 +235,8 @@ export async function createBooking(input: unknown, key?: string) {
         customerEmail: v.customerEmail,
         idempotencyKey: idempotencyKey ?? null,
         requestHash: idempotencyKey ? requestHash : null,
+        clientKey,
+        emailCapKey: emailKey,
       });
     },
     { maxWait: 30000, timeout: 30000 },
@@ -329,4 +388,23 @@ export async function publishCampaign(id: string) {
     data: { published: true },
   });
   if (!result.count) throw new DomainError("Utkastet finns inte");
+}
+
+export function adminBookingFilter(input: {
+  from?: unknown;
+  to?: unknown;
+  cursor?: unknown;
+}) {
+  const parsed = bookingListSchema.safeParse({
+    ...defaultBookingRange(),
+    ...input,
+    limit: 100,
+  });
+  return parsed.success
+    ? { filter: parsed.data, error: null }
+    : {
+        filter: { ...defaultBookingRange(), limit: 100 },
+        error:
+          "Ogiltigt datumfilter. Visar standardintervallet; ange högst 31 dagar i rätt ordning.",
+      };
 }

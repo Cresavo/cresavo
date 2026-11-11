@@ -5,9 +5,9 @@
   "license": "AGPL-3.0-only",
   "scripts": {
     "demo:record": "node --env-file=.env scripts/record-demo.mjs",
-    "dev": "next dev",
+    "dev": "node --env-file=.env scripts/server.mjs --dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node --env-file=.env scripts/server.mjs",
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "node --env-file=.env ./node_modules/@playwright/test/cli.js test",
@@ -15,7 +15,8 @@
     "db:seed": "node --env-file=.env --import tsx prisma/seed.ts",
     "mcp": "tsx --env-file=.env src/mcp/server.ts",
     "mcp:client": "tsx --env-file=.env src/mcp/client.ts",
-    "test:integration": "node --env-file=.env ./node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts"
+    "test:integration": "node --env-file=.env ./node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts",
+    "test:e2e:production": "node --env-file=.env scripts/run-production-e2e.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.4.0",

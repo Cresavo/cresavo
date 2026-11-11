@@ -7,10 +7,18 @@ export async function POST(r: NextRequest) {
   if (!(await sameOrigin()))
     return NextResponse.json({ error: "Otillåtet ursprung" }, { status: 403 });
   try {
-    checkRateLimit("bookings", clientIp(r.headers));
+    const ip = clientIp(r.headers);
+    let input;
+    try {
+      input = await r.json();
+    } catch (error) {
+      checkRateLimit("bookings", ip);
+      throw error;
+    }
     const b = await createBooking(
-      await r.json(),
+      input,
       r.headers.get("Idempotency-Key") ?? undefined,
+      ip,
     );
     return NextResponse.json({ id: b.id }, { status: 201 });
   } catch (e) {

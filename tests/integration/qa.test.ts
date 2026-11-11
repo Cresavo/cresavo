@@ -219,3 +219,33 @@ describe("Epic 01 QA-regression", () => {
     ).rejects.toThrow();
   });
 });
+
+it("begränsar en socketklient till fem nya bokningar och delar e-posttak över plus-taggar", async () => {
+  const slots = await getAvailability("massage", day(38));
+  const address = "192.0.2.193";
+  const results = await Promise.allSettled(
+    Array.from({ length: 6 }, (_, i) =>
+      createBooking(
+        input(slots[i], `client-${i}`, "massage"),
+        undefined,
+        address,
+      ),
+    ),
+  );
+  expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(5);
+  await expect(
+    createBooking(
+      input(slots[5], "client-over", "massage"),
+      undefined,
+      address,
+    ),
+  ).rejects.toMatchObject({ status: 429 });
+  for (let i = 0; i < 3; i++)
+    await createBooking({
+      ...input(slots[i + 6], "tag", "massage"),
+      customerEmail: `${marker}-tag+${i}@example.test`,
+    });
+  await expect(
+    createBooking(input(slots[9], "tag", "massage")),
+  ).rejects.toMatchObject({ status: 429 });
+});

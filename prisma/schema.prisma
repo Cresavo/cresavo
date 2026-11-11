@@ -27,8 +27,12 @@ model Booking {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   idempotencyKey String?
   requestHash String?
+  clientKey String?
+  emailCapKey String?
   @@unique([businessId, idempotencyKey])
   @@index([businessId, customerEmail, createdAt])
+  @@index([businessId, clientKey, createdAt])
+  @@index([businessId, emailCapKey, createdAt])
 }
 model Campaign {
   id String @id @default(cuid())
@@ -40,4 +44,11 @@ model Campaign {
   validFrom String
   validUntil String
   published Boolean @default(false)
+}
+
+model AdminSession {
+  id String @id
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  expiresAt DateTime @db.Timestamptz(3)
+  revokedAt DateTime? @db.Timestamptz(3)
 }
