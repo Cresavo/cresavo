@@ -1,3 +1,31 @@
+# Handoff – Epic 01 QA batch 3
+
+Bas **056d0c2**, kodcommit **a364bda73850c2983212684e94e9690d100d1d9b**, branch `epic-01-foundation-hardening`. Dokumentationscommit följer kodcommiten. Fixbeställning 1–5 och små förbättringar i punkt 6 genomförda. Visa e-post fortsatt undantagen. Inga nya dependencies, migrationer, Epic 02, deploys, pushar eller merge. Arbetsnamnet är booking-lab-se och repot ska förbli privat.
+
+## Ändrat
+
+- `src/lib/rate-limit.ts`, `src/app/api/admin/login/route.ts`: synkron reservation/spärr före lösenordsjämförelse; 100 ms för felaktiga och spärrade försök; korrekt lösenord från spärrad klient nekas också. Framgång återför sin reservation.
+- `scripts/client-address.mjs`, `scripts/server.mjs`: statisk engångsvarning för kollapsad proxyidentitet, minsta proxy-prefix /8 respektive /32, IPv6-/64 för limiter/dagstak, normaliserad IPv4-mappning. Rå socket används fortsatt för proxyförtroende.
+- `src/lib/auth.ts`: gallra högst 100 utgångna/återkallade rader vid lyckad login. Versionsnumret får endast höjas, dokumenterat i `.env.example`, README och säkerhetsdokumenten.
+- `scripts/test-db-guard.mjs`, `scripts/record-demo.mjs`: avvisa host/hostaddr-parametrar före dataåtkomst även i demo.
+- `tests/security.test.ts`, `tests/client-address.test.ts`, nya `tests/integration/sessions.test.ts`: negativa spärrtester, konfigurationsvarningar, /64, databasvakt och sessionsgallring mot riktig DB.
+- `tests/e2e/fixtures.ts`, `flow.spec.ts`, `cleanup.probe.ts`, `scripts/test-cleanup.mjs`: egna sessionshashar spåras/städas, timeout inkluderar session, 50 spärrade försök mäts och korta namn visas i demo.
+- AGENTS, README, ARCHITECTURE, DATA_FLOWS, PRIVACY_SECURITY, DEMO, VERIFICATION, PROJECT_STATUS, PRODUCT_OWNER_REPORT och WORKPLAN uppdaterade. Exakt fillista: `git diff --name-status 056d0c2 HEAD`.
+
+## Verifierat och reproducera
+
+24/24 unit, 17/17 integration, 8/8 E2E i alla fyra kombinationer dev/prod × TRUST_PROXY_IP=0/1. Ren npm ci, Prisma generate/tre migrationer/seed, lint, tsc, build och timeout-probe PASS. Test/demo lämnar 0 Booking, 0 Campaign och 0 AdminSession. Audit fortsatt FAIL 3 high/7 moderate, runtime 3 high. [Kommandon, riktig output och det tidiga E2E-körfelet](VERIFICATION.md).
+
+Följ README för ny lokal *_test-databas, `.env` och npm-kommandon; kör en QA-omgång åt gången. Produktions-HTTP måste startas via `npm run start`, inte rått `next start`. `_demo` ska vara separat och innehålla enbart seedtjänster. [Demo](DEMO.md) från ren a364bda innehåller 12 PNG/2 WebM; lokala genererade filer är inte med i Git. Videorna är inte fullständigt granskade.
+
+## Kvarstående risker och nästa granskning
+
+Granska särskilt att spärren kontrolleras före varje lösenordsjämförelse och samtidiga försök inte kan passera; att riktiga klienter separeras i korrekt proxykonfiguration; att fixture-städning och 100-raders sessionsgallring bevarar andra aktiva sessioner. IPv6-/64 täcks av unit, inte verkligt nätverks-E2E. Processlokal limiter, kapacitetseviktering, NAT och flera adresser är fortsatt POC-begränsningar. Sänkt sessionsversion kan återvalidera gamla cookies; höj endast. Ingen schemalagd sessionsretention. Gamla IPv6-/128-nycklar migreras inte.
+
+Pilot fortfarande NO-GO: delat lösenord, kund-GDPR-livscykel saknas, audit-fynd, verklig TLS/proxy/drift samt separat kontaktvägsbeslut. CI för denna lokala revision är inte körd; föregående 056d0c2 hade grön verify och röd audit. Tre nästa mål: oberoende QA av batch 3; avgränsad beroende-/driftåtgärd; individuella adminkonton och GDPR-livscykel före pilot.
+
+## Historik före batch 3
+
 # Handoff – Epic 01 QA fix batch 2
 
 2026-11-11. Kodcommit **a84e48a32a874a4392c13bb4f32437d06b317c45**, bas b000481, branch epic-01-foundation-hardening. Arbetskopian var ren före arbetet. Beställaren godkände punkterna 1–5 och 7–11, undantog punkt 6 och tillät bara lokala commits. Ingen push, deploy, publik MCP eller Epic 02. Repo ska förbli privat.

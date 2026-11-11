@@ -1,3 +1,21 @@
+# Produktägarrapport – Epic 01 QA batch 3
+
+2026-11-11, kod a364bda. Endast lokala commits; inget pushat eller mergat.
+
+**Vad har vi byggt?** Vi har rättat inloggningsspärren så att en spärrad klient inte längre kan fortsätta gissa lösenord. Vi har lagt till proxyvarning, striktare konfiguration, IPv6-skydd, begränsad sessionsgallring och teststädning. Visa e-post är fortsatt utanför scope.
+
+**Vad kan jag testa nu?** Samma kundbokning, adminvy och kampanjflöde som tidigare. Efter fem felaktiga login måste samma klient vänta även om rätt lösenord anges. En annan klient kan logga in. [Lokal produktionsdemo med tolv bilder och två videor](../demo-artifacts/2026-11-11T21-53-01-311Z/index.html), [prova själv](DEMO.md).
+
+**Vad blev bättre?** Säkerhetstestet kräver nu rätt beteende. Tester städar även sessioner, och demonstrationen visar korta syntetiska kundnamn. Desktop-/mobilbild av admin är visuellt granskad utan observerade layoutproblem; videorna är inte granskade i sin helhet.
+
+**Vad fungerar fortfarande inte?** POC:n är inte redo för pilot: delat lösenord, saknad GDPR-livscykel, oförändrade audit-fynd och ännu inte verifierad verklig TLS/proxy. Delad NAT delar spärr/tak. Proxyvarningen reparerar inte en felkonfiguration. E-post är maskerad.
+
+**Tester:** 24 unit, 17 integration, 8 E2E i vart och ett av fyra lägen, lint/tsc/build, timeout-städning och demo PASS. Audit FAIL: 3 höga/7 måttliga. Ett tidigt körfel vid överlappande Playwrightstarter dokumenterades och hela matrisen kördes om sekventiellt. [Detaljer och faktisk output](VERIFICATION.md).
+
+**Tre nästa mål:** oberoende QA av denna fix; separat beroende- och driftverifiering; individuella administratörer och en beslutad/testad GDPR-livscykel före pilot. Ingen Epic 02 har startats.
+
+## Historik före batch 3
+
 # Produktägarrapport – Epic 01 QA fix batch 2
 
 2026-11-11, kod a84e48a. Lokala commits på epic-01-foundation-hardening. Ingen push; repot förblir privat.

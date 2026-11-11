@@ -1,3 +1,16 @@
+# Demo – aktuell inspelning efter QA batch 3
+
+`npm run demo:record` PASS från ren **a364bda73850c2983212684e94e9690d100d1d9b**, 2026-11-11 kl. 22:53 Europe/Stockholm. Produktionsbygge, dirty=false, 2/2 tester (25.4 s), 12 PNG och 2 WebM.
+
+- [Lokalt galleri](../demo-artifacts/2026-11-11T21-53-01-311Z/index.html)
+- [Manifest med revision och filförteckning](../demo-artifacts/2026-11-11T21-53-01-311Z/manifest.json)
+
+Desktop/mobil visar Testkund Anna respektive Testkund Erik; inga riktiga personer. Slumpmässig e-postmarkör behålls för teststädning. Adminbilderna 04 har granskats visuellt: korta namn, maskerad e-post och ingen N-badge. Videorna har inte granskats i sin helhet. Artefakter ligger lokalt och ingår inte i Git.
+
+Start via **npm run start**, socket-wrappern runt produktionsbygget. Reproducera enligt stegen nedan med ny lokal *_demo-databas; host/hostaddr-queryparametrar avvisas före Prisma-åtkomst. Kör en omgång åt gången. Efter inspelning finns 0 bokningar, 0 kampanjer och 0 sessioner från testerna. Tidigare uppgift om kvarvarande demosessioner gäller bara äldre revisioner.
+
+## Historik och reproduktionsinstruktioner
+
 # Prova Booking Lab SE lokalt
 
 ## Aktuell inspelning efter QA batch 2

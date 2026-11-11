@@ -1,3 +1,27 @@
+# Projektstatus – Epic 01 QA batch 3
+
+Verifierat 2026-11-11, kod **a364bda**, bas 056d0c2, branch epic-01-foundation-hardening. Endast lokala commits, ingen push eller merge. Inga nya produktfunktioner eller beroenden. [Faktiska kommandon och resultat](VERIFICATION.md).
+
+| Funktion | Tekniskt/automatiskt verifierat acceptanskriterium | Kan provas och UX | Riktiga kunder? |
+| --- | --- | --- | --- |
+| Inloggning | Fem fel spärrar även rätt lösenord före jämförelse; 50 ytterligare försök nekas med fördröjning; annan klient loggar in. Unit + E2E i fyra lägen PASS. | Lokal adminvy; statiskt svenskt fel. NAT delar spärren. | Nej: delat lösenord och processlokal limiter. |
+| Klient-/proxygräns | Statisk engångsvarning, snävare prefixvalidering, IPv6-/64 unit PASS; spoofing-E2E fortsatt PASS. | Konfigureras enligt README:s driftmatris. Ingen ny UI. | Nej: riktig TLS/proxy och flera processer ej verifierade. |
+| Bokning | Befintliga överlapps-, idempotens- och dagstakstester PASS; kundflöde och bekräftelse PASS. | Mobil/desktop kan provas lokalt med syntetisk data. | Nej: GDPR-livscykel, drift och audit återstår. |
+| Session/logout | Återkallelse PASS; 100-raders gallring bevarar aktiva sessioner; efter full E2E/timeout 0 kvarvarande testsessioner. | Logga in/ut; versionsnumret får bara höjas. | Delvis: ingen individuell adminidentitet eller schemalagd retention. |
+| Adminbokningar | Maskerad e-post, datumfilter och vy fortsatt E2E PASS. | Kan provas; kontaktväg inte beslutad. | Nej: Visa e-post fortfarande undantaget. |
+| Lokal MCP och kampanjer | Befintliga behörighets-, validerings- och miljötester PASS; skapa utkast/publicera E2E PASS. | Lokal stdio och manuell publicering. | Nej: endast betrodd lokal POC. |
+| Demo | Produktionsdemo 2/2 PASS, 12 bilder/2 videor, ren kodrevision. | Korta Testkund Anna/Erik; två adminbilder visuellt granskade. | POC-demo, inte produktionsgodkännande. |
+
+**Förändrat sedan förra omgången:** H1 och felaktigt E2E-antagande rättade; proxyvarning och konfigurationsskydd; IPv6-gruppering; sessionsgallring/städning; host/hostaddr stoppas i test-/demovakt; demo och startdokumentation korrigerade. Historiska migrationer och exclusion oförändrade.
+
+**Resultat:** 24 unit, 17 integration, 8 E2E i vardera av fyra lägen, lint/tsc/build, timeout-probe och demo PASS. Audit FAIL: 3 höga + 7 måttliga. Tidig E2E-kollision och omkörning redovisas i VERIFICATION.
+
+**Planerat/separat beslut:** oberoende QA av batch 3, beroendeåtgärder inklusive separat Prisma-plan, verifierad TLS/proxy, individuella adminkonton och GDPR-livscykel. Visa e-post beslutas före pilot. Ingen Epic 02 startad. **Pilot NO-GO.**
+
+[Ny lokal demo](../demo-artifacts/2026-11-11T21-53-01-311Z/index.html) · [Handoff](HANDOFF.md) · [Produktägarrapport](PRODUCT_OWNER_REPORT.md)
+
+## Historik före batch 3
+
 # Projektstatus – Booking Lab SE
 
 ## Aktuell status: Epic 01 QA batch 2

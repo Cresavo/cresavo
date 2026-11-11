@@ -1,3 +1,18 @@
+# Epic 01 – slutförd QA batch 3
+
+Beställning: bas 056d0c2, punkter 1–5 och små förbättringar i punkt 6. Kod a364bda. Visa e-post fortsatt undantagen. Lokala commits utan push/merge. Inga subagenter, inga nya produktfunktioner/beroenden/migrationer.
+
+1. Loginspärr före lösenord och negativa samtidighetstester klara.
+2. Proxyvarning, striktare nät och IPv6-/64 klara.
+3. Begränsad sessionsgallring och fixture-städning klara.
+4. Test-/demovakt och demo-/versionsdokumentation korrigerade.
+5. Ren installation, ny isolerad PostgreSQL och full testmatris PASS; audit oförändrat FAIL.
+6. Produktionsdemo från ren commit a364bda PASS; aktuell handoff/status/resultat dokumenterade.
+
+Tidigt eget E2E-körfel rättades genom att köra hela matrisen sekventiellt. Nästa åtgärd är oberoende QA, inte Epic 02 eller pilot. [Verifiering](VERIFICATION.md).
+
+## Historik före batch 3
+
 # Epic 01 – arbetsplan
 
 ## Slutförd QA batch 2, bas b000481
