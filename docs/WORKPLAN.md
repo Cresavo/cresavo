@@ -1,5 +1,16 @@
 # Epic 01 – arbetsplan
 
+## Slutförd QA-fixbatch (inte ny Epic), bas ed1658a
+
+1. Bevara historisk migration; ny migration för idempotens, skapandetid och kampanjdatumkontroll.
+2. Implementera missbruksskydd, sessionsversion/utloggning, begränsad adminlista, idempotens och strukturerade konfliktfel.
+3. Kampanjregler, säkerhetsheaders, bekräftelse/prisformat och testdatabasgrind.
+4. Regression: 20 samtidiga anrop, 150 listposter, negativa HTTP/session/kampanjfall; produktionsdemo.
+5. Prettier utan nytt projektberoende, notices, separat auditjobb och framtida Prisma 7-plan.
+6. Ren installation och hela sviten på ny lokal booking_qa_test, sedan aktuella resultat/handoff och lokala commits. Inget publiceras.
+
+## Historik före QA-batchen
+
 Efterföljande uppdrag 2026-11-11: Visual Progress & Demo Delivery färdigt. PROJECT_STATUS, DEMO och PRODUCT_OWNER_REPORT samt npm run demo:record tillagda; samma E2E-flöde återanvänds, inga produktfunktioner/beroenden. Slutlig demo 2/2, E2E 4/4, unit 8/8, integration 8/8, lint/TypeScript/build PASS. Felaktigt demo-filter och screenshot/hydration-problem korrigerades; full historik i VERIFICATION. Bilder/video och manifest är lokala och ignorerade av Git. AGENTS kräver status/demo/produktägarrapport efter kommande Epics.
 
 Arbetsbranch: `epic-01-foundation-hardening`. Start 2026-11-11 från `2596ea6` med 10 modifierade och fyra ospårade filer. Befintliga ändringar har lästs: tidigare kodstädning, integritetsdokumentation och MCP-minimering. De bevaras som egen bascommit efter kontroll; inga hemligheter eller genererade artefakter ska ingå.
@@ -67,3 +78,7 @@ Första 60-sekunderskörningen med nya negativa HTTP-tester: 2 fullflöden PASS,
 ## Blockerare före riktig pilot
 
 Audit-risker, individuell autentisering/återkallelse och missbruksskydd, driftens TLS/cache/loggar/backuper, GDPR-ansvar/rättslig grund/gallring och agentmottagare måste hanteras. Flera verksamheter kräver serverhärledd kontext, relationell integritet och negativa isolationstester. Epicens lokala kriterier innebär inte produktionsgodkännande.
+
+## Epic 01 QA fix batch – slutförd 2026-11-11
+
+Kod 26ea617 på befintlig branch, bas ed1658a. Inga nya Epics eller beroenden. Fynd 1–13 implementerade/rapporterade, gammal migration och exclusion oförändrade. Aktuella kommandon/output, rättade fel och ej körda kontroller finns överst i [VERIFICATION](VERIFICATION.md); tidigare avsnitt här är historik. 14 unit, 14 integration, 6 E2E, lint, tsc, build PASS. Produktionsdemo 2/2 PASS. Audit kvar FAIL: 3 höga + 7 måttliga; separat märkt CI-jobb och framtida Prisma 7-plan. Docker/CI och verklig drift ej körda. [HANDOFF](HANDOFF.md) och [PROJECT_STATUS](PROJECT_STATUS.md) gäller denna batch.

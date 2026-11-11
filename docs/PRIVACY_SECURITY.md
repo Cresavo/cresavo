@@ -38,3 +38,11 @@ Senast granskad 2026-11-11. **POC:n är endast för syntetiska uppgifter och är
 ## Verifieringsgräns
 
 Granskningen omfattade lokala projektfiler, migration/schema, npm-manifestet, projektets logg- och nätverksanrop samt lokal Next-telemetristatus. Den inkluderade inte fullständig kodrevision av alla tredjepartspaket, aktivt intrångstest, kontroll av faktisk drift, avtal eller mätning av utgående trafik. Inga produktionsuppgifter eller hemligheter behövdes. Tidigare testresultat finns i [VERIFICATION.md](VERIFICATION.md).
+
+## Verifierade förbättringar i Epic 01 QA-batchen
+
+Datum 2026-11-11, kod 26ea617. Processlokal rate limit, transaktionssäkrat dagstak, browserlogout/global versionsåterkallelse, avgränsad adminlista/maskerad e-post, testdatabasgrind och säkerhetsheaders är testade enligt [VERIFICATION](VERIFICATION.md). Detta slutför inte P0-/P1-grindarna ovan.
+
+TRUST_PROXY_IP får bara aktiveras bakom en proxy som överskriver X-Real-IP och förhindrar direktåtkomst. Utan detta används gemensam konservativ bucket. In-process-räknaren skyddar inte flera processer eller omstarter. E-posttak bevisar inte kundidentitet. Höj aldrig tillbaka ADMIN_SESSION_VERSION; starta om alla instanser för global återkallelse. Logout stoppar inte en redan kopierad cookie individuellt.
+
+CSP tillåter unsafe-inline; admin no-store och HSTS-header är testade, men verklig TLS/proxy och webbläsarens HSTS-beteende är inte verifierade. IP-minne, skapandetid och idempotenshash behöver ingå i framtida lagrings-/gallringsbeslut. Inga nya externa tjänster eller npm-beroenden har lagts till. Audit och binärlicenskrav kvarstår; se [tredjepartsnotiser](../THIRD_PARTY_NOTICES.md).

@@ -1,3 +1,38 @@
+# Handoff – Epic 01 QA fix batch
+
+Senaste kodrevision: `3b3309d` (endast återstående formatering efter funktionellt testade `26ea617`); lint/tsc/build/Prettier omkörda PASS.
+
+2026-11-11. Lokal kodcommit `26ea6171de05fe17ce4d8bd1e4a4d931d9d5bc82` på `epic-01-foundation-hardening`, bas `ed1658a`. Ingen ny Epic, inga nya produktområden, npm-beroenden, remote eller publicering. Arbetskopian var ren vid start. Historiska migrationen och databasens exclusion constraint är oförändrade; en ny migration tillkommer.
+
+## Leverans och filer
+
+- `src/lib/rate-limit.ts`, login/bookings-rutter, `domain.ts`: processlokal rate limit, statisk 429/Retry-After, tre bokningar per normaliserad e-post/skapandedag i Stockholm. Säker konservativ gemensam bucket utan betrodd proxy.
+- `src/lib/auth.ts`, ny logout-rutt, admin UI: Logga ut + serverkonfigurerad ADMIN_SESSION_VERSION. Höj version och starta om alla processer för global återkallelse utan byte av SESSION_SECRET.
+- `domain.ts`, admin sida: inkluderande datumintervall, standard idag till idag+14 dagar, max 31 dagar, max 100/sida, maskerad e-post. MCP behåller minimerat svar och obligatoriskt intervall.
+- Prisma schema + `20261111010000_qa_hardening`: createdAt, idempotencyKey/requestHash, unik verksamhet/nyckel, index för dagstak, CHECK kampanjdatum. Valfri Idempotency-Key, max 64 ASCII-tecken; samma normaliserade payload ger 201/samma ID, annan 409.
+- Parameteriserad INSERT behövs eftersom Prisma6 ORM-create ger UnknownRequestError vid exclusion. `$queryRaw` ger strukturerat P2010/meta.code23P01; forcerat DB-test bevisar DomainError400. Advisory locks för idempotens/e-post kompletterar, ersätter aldrig exclusion constraint.
+- `next.config.ts`: CSP/frame-ancestors, nosniff, referrer, HSTS i production, admin no-store, ingen powered-by. CSP tillåter unsafe-inline; starkare nonce-policy är separat arbete.
+- `scripts/test-db-guard.mjs` och testkonfig: endast loopback + *_test/_demo före datatillgång. `tests/integration/qa.test.ts`, `tests/db-guard.test.ts`, utökade unit/MCP/E2E täcker negativa fall och20 parallella anrop.
+- Kampanjschema strict, max 90 inklusive kalenderdagar; framtida publicerad kampanj syns först validFrom i Stockholm. `src/lib/format.ts` delas för SEK och bekräftelse. Formuläret väntar på hydration innan interaktion.
+- `scripts/record-demo.mjs`, `demo-revision.mjs`, demo-config: produktionsbygge, en enda prodserver, revision unknown utan Git, statiska felkoder. Befintliga enradiga filer Prettier-formaterade.
+- `.github/workflows/verify.yml`: eget märkt audit-jobb, korrekt *_test-databas. `THIRD_PARTY_NOTICES.md` och `docs/PRISMA_7_PLAN.md`: licensbegränsningar och separat framtida migrering.
+
+Exakt fillista: `git diff --name-status ed1658a HEAD`. Dokumentationen uppdateras i en separat lokal commit efter kodcommiten.
+
+## Faktisk verifiering och prova själv
+
+[VERIFICATION](VERIFICATION.md) har den enda aktuella kommandotabellen, faktisk output, rättade fel och ej körda kontroller. Ren npm ci, generate/migrate/seed på nya isolerade PostgreSQL-databaser, lint/tsc/build PASS; 14 unit, 14 integration, 6 E2E PASS; produktionsdemo 2/2 PASS. Audit FAIL: 3 höga + 7 måttliga; runtime 3 höga. Ingen Prisma-major eller riskabel autofix.
+
+[Demoanvisning](DEMO.md), [galleri](../demo-artifacts/2026-11-11T19-51-02-683Z/index.html), [manifest](../demo-artifacts/2026-11-11T19-51-02-683Z/manifest.json). Inspelningen gjordes före commit och anger ärligt ed1658a/dirty=true; koden motsvarar 26ea617. README beskriver ny *_test-databas och återkallelse. Genererade artefakter är ignorerade och lokala.
+
+## Begränsningar och nästa steg
+
+Delat adminlösenord, ingen individuell återkallelse; kopierad cookie gäller till versionbyte/utgång även efter browserlogout. IP-spärren är processlokal och kräver betrodd överskrivande proxy för separata klienter. E-posttak kan inte verifiera identitet och nycklar/hashar är inte anonymisering. Databasdagstak räknar skapandetid; historiska rader får migrationstid. Idempotensnycklar finns kvar så länge bokningen finns, ingen TTL eller UI-genererad nyckel. Kampanjlistan saknar ännu paginering. Native datumformat och generiska filterfel behöver UX-arbete.
+
+Ingen Docker/extern CI/verklig TLS/proxy/lasttest/backupövning har körts. POC:n är inte kundklar. Tre nästa mål: (1) extern QA + Docker/CI och separat auditåtgärd, (2) individuella adminsessioner och verifierad driftgräns, (3) syntetisk backup-/gallrings-/dataskyddsövning. Ingen av dessa har påbörjats som ny Epic.
+
+## Bilaga – tidigare handoff (historik)
+
 # Booking Lab SE – Epic 01 handoff
 
 Efterföljande visuell leverans: [produktägarrapport](PRODUCT_OWNER_REPORT.md), [aktuell projektstatus](PROJECT_STATUS.md) och [lokal demo/instruktioner](DEMO.md). Denna tekniska Epic 01-rapport bevaras som historik.

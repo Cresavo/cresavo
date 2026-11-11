@@ -1,60 +1,43 @@
 # Projektstatus – Booking Lab SE
 
-Verifierad 2026-11-11. Produktkod: Git `6535b59` på `epic-01-foundation-hardening`. Denna arbetsomgång tillför dokumentation och demoverktyg/testinstrumentering, inga produktändringar. Demomanifestet anger denna basrevision och `dirty: true` eftersom leveransen ännu inte var committad vid inspelningen. Slutlig leveransrevision finns i Git-loggen.
+Senaste kodrevision: `3b3309d` (endast återstående formatering efter funktionellt testade `26ea617`); lint/tsc/build/Prettier omkörda PASS.
 
-**Beslut:** går att demonstrera lokalt med syntetiska uppgifter. Ingen funktion är godkänd för riktiga kunder. Ett fungerande test betyder att angivna kriterier passerar, inte att alla möjliga fel eller driftkrav är hanterade.
+Verifierat 2026-11-11, kodrevision `26ea6171de05fe17ce4d8bd1e4a4d931d9d5bc82`, branch `epic-01-foundation-hardening`, bas `ed1658a`. Denna leverans är **Epic 01 QA fix batch**, ingen ny Epic. Faktiska kommandon, fel och ej körda kontroller: [VERIFICATION](VERIFICATION.md).
 
-[Öppna verifierad lokal demo](../demo-artifacts/2026-11-11T17-17-11-326Z/index.html) · [manifest](../demo-artifacts/2026-11-11T17-17-11-326Z/manifest.json) · [spela in/prova själv](DEMO.md) · [produktägarrapport](PRODUCT_OWNER_REPORT.md)
+## Fungerar och är automatiskt testat
 
-Länkarna till artefakter gäller denna dator och ingår inte i Git. I en ny klon körs demon på nytt enligt DEMO.md. Bilderna visar sex tillstånd på desktop och mobil; filmerna visar faktiskt automatiserat webbläsarflöde utan ljud.
+| Funktion och acceptanskriterium | Tekniskt/testat | Kan provas? | UX / riktiga kunder |
+|---|---|---|---|
+| Kund bokar ledig tjänst; bekräftelse innehåller tjänst och Stockholmstid | PASS unit/integration/E2E | Ja, lokal demo | POC; native datumformat och nätverksfel behöver förbättras. Inte kundklar. |
+| Samtidighet: 20 försök, exakt en bokning per konfliktfönster, noll SQL-överlapp | PASS riktig PostgreSQL | Via automatiska tester | Ingen belastnings-/flerprocessdrift verifierad. |
+| Retry: samma nyckel/payload ger samma 201/ID även 20 parallellt; annan payload 409 | PASS domän och HTTP | API med Idempotency-Key | Nyckel är valfri; UI genererar ännu ingen retry-nyckel. |
+| Admin: datumfilter, max 100/sida, maskerad e-post; 150 poster ger100 + 50 | PASS integration/E2E | Ja, /admin | Agenda, inte full kalender; felaktigt URL-filter ger generiskt fel. Delad identitet. |
+| Logout tar bort browseråtkomst; versionshöjning ogiltigförklarar gamla cookies | PASS E2E/unit | Ja, Logga ut / lokal konfiguration | Global återkallelse, inga individuella serversessioner. |
+| Missbruk: sjätte felaktiga login ger 429; max 3 skapade bokningar/e-post/Stockholmsdag | PASS unit/integration/HTTP | API/testsvit | Processlokal IP-gräns; proxykonfiguration krävs före drift. |
+| MCP: avgränsade läsningar och strikt kampanjutkast, utan kundnamn/e-post | PASS stdio-integration/E2E | Ja, lokal testklient | Betrodd lokal --admin, ingen publik fjärråtkomst. |
+| Kampanj publiceras manuellt och visas bara under giltiga datum, max 90 dagar | PASS integration/produktionsdemo | Ja, MCP + admin | Informationspris, ingen debitering. |
+| Headers, no-store admin, testdatabasgrind | PASS E2E/unit, HSTS i produktionsdemo | Testkommandon | CSP unsafe-inline, verklig TLS/proxy ej verifierad. |
 
-## Fungerar och är testat i POC:n
+Inga ovanstående funktioner är godkända för riktiga kunduppgifter. **14 unit + 14 integration + 6 E2E PASS**, lint/tsc/build PASS; demo 2/2 PASS. Audit FAIL: 3 höga + 7 måttliga.
 
-| Funktion och observerbart acceptanskriterium | Tekniskt | Automatiskt bevis | Kan provas? | UX och kundberedskap |
-|---|---|---|---|---|
-| Kundbokning: välj tjänst, vardag och ledig tid; få bekräftelse och hitta samma kund i admin | Ja | E2E desktop/mobil, demobild 01–04 | Ja, enligt DEMO | Fungerande grundflöde. Inga kundkonton, avbokning eller ombokning. Inte kundklar: missbruksskydd och integritets-/driftkrav saknas |
-| Bokningsmotor: två samtidiga försök för samma tid ger exakt en bokning; angränsande intervall tillåts | Ja | PostgreSQL-integration, även två direkta DB-insättningar; tidszonstester | Via tester; normal tillgänglighet kan provas i UI | Intern regel, ingen separat UX. Inte produktionsverifierad för driftbelastning eller flera företag |
-| Admin: nekad publicering utan behörighet; lokal inloggning visar bokningen och tjänsterna | Ja, lokalt | HTTP/E2E och sessionsenhetstester; demobild 04 | Ja, lokalt lösenord | Enkel kronologisk agenda, inte kalender med veckovy. Inte kundklar: personliga konton, återkallelse och rate limiting saknas |
-| Lokal MCP: publika verktyg ger tjänster/tider; list_bookings saknas utan --admin och lämnar aldrig kundnamn/e-post | Ja, stdio | Integration med SDK-klient, 31 dagar, max 100/sida, cursor och nekad åtkomst | Ja, CLI/MCP-klient | Kräver teknisk lokal konfiguration; ingen AI-chatt byggd. Inte fjärr-/kundklar: flaggan är bara ett betrott processläge |
-| Kampanj: MCP skapar tjänstekopplat utkast med rabatt/datum; först efter adminpublicering syns erbjudandet på bokningssidan | Ja | E2E desktop/mobil, demobild 04–06 | Ja, CLI + admin | Fungerande demonstration, ingen kampanjredigerare eller betalningsrabatt. Agenten måste lämna strukturerade argument; ingen egen tolkning av naturligt språk. Inte kundklar: innehålls-/behörighets-/driftgranskning kvarstår |
-| Felhantering: oväntade fel lämnar inte rå DB-text/anslutningsuppgifter i HTTP/MCP-svar eller granskad app-logg | Ja vid granskade gränser | Unit + verkliga trasiga MCP-anslutningar | Via tester; normala UI-fel kan provas | Meddelanden är korta, inte komplett fel-UX. Ingen garanti för ramverk, DB, proxy eller extern agentloggning |
+## Delvis implementerat och blockerare
 
-## Delvis implementerat
+- Lokal missbruksspärr och global sessionsversion finns; individuella konton, individuell återkallelse och robust driftgräns saknas.
+- Bokningslista är avgränsad; kampanjlistan är fortsatt obegränsad. Pagineringen är inte en fryst snapshot.
+- Testad Windows/PostgreSQL18.6/Chromium. Docker/PostgreSQL16 och faktisk GitHub-CI inte körda.
+- Kvarvarande audit, binära tredjepartsnotiser/källkodserbjudande, TLS, loggar, backup/restore, gallring, rättslig grund och mottagare måste hanteras före kunddrift.
+- Ingen verifierad flerföretagsisolering. Ingen fullständig extern trafik-/leverantörsgranskning.
 
-| Område | Finns | Kriterium som ännu inte är uppfyllt |
-|---|---|---|
-| Svensk/mobil upplevelse | Svenska texter, SEK, Stockholm-tider, mobilanpassad layout | Datumfältets platsmarkör ska vara begriplig i relevanta svenska webbläsare; nu observeras mm/dd/yyyy även med sv-SE. Tillgänglighet och användbarhet är inte fullständigt granskade |
-| Administration | Skyddad agenda och tjänstelista, kampanjpublicering | Individuella sessioner/roller, återkallelse, begränsade listor och användbar kalender behövs före verklig drift |
-| Integritet | Datakarta, minimerat MCP, säkra appfel | Beslutad datalivscykel, radering/rättigheter, avtal, logg-/backuphantering och återläsningstest saknas |
-| Lokal installation/CI | Dokumenterade kommandon och CI-definition | Compose på PostgreSQL 16 och verklig GitHub-run ska passera; hittills används lokal PostgreSQL 18.6 eftersom Docker saknas |
-| Agentstöd | Fyra strukturerade lokala MCP-verktyg | Ingen fjärr-MCP eller verifierad integration mot externa modellleverantörer; detta är en avsiktlig säkerhetsavgränsning |
+## Förändrat sedan föregående arbetsomgång
 
-## Planerat, inte levererat
+QA-fynd 1–13 hanterade med rate limit, dagstak, logout/version, avgränsad lista, idempotensmigration, headers, test-DB-grind, strukturerad konfliktmappning, samtidighetstester, kampanjregler, bekräftelse/prisformat och produktionsdemo. Enradiga filer formaterade, audit separerat i CI, licensnotiser och separat Prisma 7-plan tillagda. Inga nya npm-beroenden, ingen major-uppgradering; gammal migration/exclusion constraint bevarad.
 
-1. Beroendeåtgärder: åtgärda eller formellt bedöm kvarvarande advisories med verifierad licens-/versionskompatibilitet och full regression.
-2. Individuell admin: två olika konton kan särskiljas, utloggad/återkallad session nekas och borttaget medlemskap ger ingen åtkomst.
-3. Syntetisk pilotdrift: verifierad installation, privat admincache, TLS, loggminimering och lyckad backup/återläsning.
-4. Före flera företag: verifierad serverhärledd verksamhetskontext; korsverksamhetsläsning/skrivning och felaktiga relationer ska avvisas genom hela kedjan.
+## Prova nu
 
-Planen är en prioritering, inte en leveransprognos. Betalning, sociala medier, journaler, kassaregister och momsredovisning ingår inte i denna POC.
+Följ [DEMO](DEMO.md). [Nytt galleri med tolv bilder och två videor](../demo-artifacts/2026-11-11T19-51-02-683Z/index.html), [manifest](../demo-artifacts/2026-11-11T19-51-02-683Z/manifest.json). Inspelat mot produktionsbygge, bas ed1658a med arbetsändringarna som sedan blev 26ea617. Artefakter är lokala/ignorerade, inte del av Git.
 
-## Blockerare före riktiga kunder
+## Tre rekommenderade nästa mål (inte påbörjade)
 
-- Senaste audit (Epic 01, 2026-11-11): 3 höga och 7 måttliga poster. Inte omkörd i demoarbetet; inga paketversioner ändrades. Riskbedömning och uppströmskällor finns i VERIFICATION.
-- Delad adminidentitet, ingen individuell återkallelse eller tillräckligt missbruksskydd.
-- Inga färdiga drift-/GDPR-beslut, gallrings-/rättighetsfunktioner eller verifierade backup-/incidentrutiner. Tjänst + identitet kan avslöja känsliga uppgifter.
-- Ingen verifierad flerföretagsisolering. Nuvarande businessId-filter räcker inte.
-
-## Förändring sedan Epic 01
-
-Produktbeteendet är oförändrat. Nytt: denna kriteriematris, produktägarrapport, reproducerbar demo med syntetisk datakontroll, bildsekvens, video och revisionsmanifest. Befintligt E2E-flöde återanvänds; inga nya beroenden. AGENTS kräver samma leverans efter kommande Epics. Den tidigare fullständiga tekniska handoffen bevaras.
-
-## Verifieringsunderlag
-
-Aktuell körning: `npm test` 8 PASS, `npm run test:integration` 8 PASS, `npm run demo:record` 2 PASS (desktop/mobil). Tolv bilder och två WebM kontrollerade; Chromium kunde läsa båda videorna (10,00 s och 10,16 s). Två representativa bilder granskades visuellt. Preflight avvisade fjärrvärd, fel databasnamn och databas med befintligt syntetiskt utkast. Efter demo/teststädning var bokningar och kampanjer tomma.
-
-Första demo: FAIL, för snävt testfilter gav inga tester. Andra: desktop PASS, mobil FAIL efter att screenshotverktygets tillfälliga caret-stil störde hydration och en textsökning även träffade dev-overlay. Åtgärd: caret initial och exakt textsökning. Slutlig demo PASS 2/2 på 26,6 sekunder. Ingen produktkod behövde ändras. Se senaste tillägg i [VERIFICATION](VERIFICATION.md) för slutlig lint/TypeScript/build/E2E.
-
-## Så hålls statusen aktuell
-
-Efter varje Epic: uppdatera kriterier från faktiskt körda tester, skriv datum/revision, ange ej körda kontroller, spela in syntetisk demo och länka dess manifest, uppdatera produktägarrapportens fem frågor. Flytta inte en funktion till kundklar bara för att en testkörning eller skärmdump ser bra ut.
+1. Oberoende QA av denna commit och verifiering på Docker/PostgreSQL16/CI; hantera audit i separat beroendeförändring enligt Prisma 7-planen.
+2. Före pilot: individuell adminidentitet/återkallelse och verifierad TLS/proxy-/missbruksgräns.
+3. Syntetisk driftövning för backup/restore, loggminimering, gallring och dataskyddsansvar; tenant-isolering före delad flerföretagsdrift.

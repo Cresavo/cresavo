@@ -30,3 +30,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Uppdatera `docs/PROJECT_STATUS.md` med observerbara acceptanskriterier, datum/revision, faktisk testning, delvis/planerat och pilotblockerare. Använd inga uppskattade procenttal.
 - Kör relevant demo enligt `docs/DEMO.md` på separat syntetisk databas. Länka lokal bild/video och manifest, håll genererade artefakter utanför Git och ange om bilderna är äldre än koden.
 - Lägg kort svensk rapport i `docs/PRODUCT_OWNER_REPORT.md`: byggt, prova nu, förbättrat, kvarstår och tre nästa mål. Skilj alltid POC/PASS från produktionsklarhet; bevara tidigare Epic-bevis i HANDOFF/VERIFICATION.
+
+## QA-skydd
+
+- Tester får bara använda separat loopback-databas med suffix `_test`/`_demo`; kringgå aldrig `scripts/test-db-guard.mjs`.
+- Bevara rate limit, dagstak, idempotenslås och databasens exclusion constraint. Gå via `createBooking`, inte lagringshjälparen.
+- `TRUST_PROXY_IP=1` kräver betrodd överskrivande proxy; lokal `--admin` är ingen fjärrbehörighet. Sessionsåterkallelse och nya datafält beskrivs i README/DATA_FLOWS.
+- Aktuell resultatlista finns överst i VERIFICATION; historik i bilagan. Licensbegränsningar: `THIRD_PARTY_NOTICES.md`. Prisma 7 är separat framtida arbete enligt `docs/PRISMA_7_PLAN.md`.

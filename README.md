@@ -55,11 +55,11 @@ npm run test:e2e
 npm run build
 ```
 
-Integration och Playwright kräver den migrerade, seedade lokala databasen och `.env`; testerna skapar och tar bort sina egna syntetiska poster. Kör aldrig testerna mot produktionsdata. E2E startar en lokal Next-server på port 3000. Integrationstestet provar konkurrerande förfrågningar och en direkt insättning mot databasspärren. Enhetstester täcker sommartid/vintertid och datumvalidering.
+Integration och Playwright kräver en migrerad, seedad separat databas och `.env`. Testgrinden tillåter bara localhost/127.0.0.1/::1 och databasnamn som slutar med `_test` eller `_demo`; testerna skapar och tar bort sina egna syntetiska poster. Kör aldrig testerna mot produktionsdata. E2E startar en lokal Next-server på port 3000. Integrationstestet provar konkurrerande förfrågningar och en direkt insättning mot databasspärren. Enhetstester täcker sommartid/vintertid och datumvalidering.
 
 ## Avgränsningar
 
-Admininloggningen är en minimal lokal lösning utan konton, spärr mot lösenordsgissning, återställning eller revisionslogg. Endast stdio-processens ägare bestämmer MCP-adminläget. Delade cookies, tenant-isolering, HTTPS, säker konfiguration, missbruksskydd, tillgänglighet, integritet och säkerhetsgranskning krävs inför verklig drift. Den signerade cookien kräver HTTPS i `NODE_ENV=production`; kör `npm run dev` för lokalt HTTP. Pris och erbjudande är information, ingen debitering. Översättningsförberedelsen är begränsad: några texter ligger i `src/lib/i18n.ts`, men flertalet är ännu svenska i komponenterna. Kalendern är en kronologisk agenda, inte en fullständig veckovy.
+Admininloggningen är en minimal lokal lösning med processlokal spärr, logout och global sessionsversion, men utan individuella konton, återställning eller revisionslogg. Endast stdio-processens ägare bestämmer MCP-adminläget. Delade cookies, tenant-isolering, HTTPS, säker konfiguration, missbruksskydd, tillgänglighet, integritet och säkerhetsgranskning krävs inför verklig drift. Den signerade cookien kräver HTTPS i `NODE_ENV=production`; kör `npm run dev` för lokalt HTTP. Pris och erbjudande är information, ingen debitering. Översättningsförberedelsen är begränsad: några texter ligger i `src/lib/i18n.ts`, men flertalet är ännu svenska i komponenterna. Kalendern är en kronologisk agenda, inte en fullständig veckovy.
 
 [Omfattning](docs/POC_SCOPE.md) · [Arkitektur](docs/ARCHITECTURE.md) · [Tekniska principer](docs/ENGINEERING_PRINCIPLES.md) · [Underhållsgranskning](docs/MAINTENANCE_REVIEW.md) · [Licens- och projektgranskning](docs/OPEN_SOURCE_REVIEW.md) · [Verifiering](docs/VERIFICATION.md) · [Bidra](CONTRIBUTING.md)
 
@@ -67,8 +67,32 @@ Projektets egen kod är AGPL-3.0-only, se [LICENSE](LICENSE). Paket och tillgån
 
 ## Kända verifieringsresultat och risker (2026-11-11)
 
-Epic 01 på Windows/Node 24: ren installation, Prisma, åtta enhetstester, åtta integrationstester, fyra Playwright-tester (desktop/mobil), lint, TypeScript och build PASS mot separat PostgreSQL 18.6. Docker Compose och GitHub-CI har inte körts här. Playwrights gamla 30-sekundersgräns gav timeout även i browser-fixture; ordinarie 60 sekunder passerade med varm och tom Next-cache. Testerna återanvänder inte okända servrar: frigör port 3000 först.
+Epic 01 QA fix batch på Windows/Node 24: ren installation, Prisma, 14 enhetstester, 14 integrationstester, sex Playwright-tester (desktop/mobil), lint, TypeScript och build PASS mot ny separat PostgreSQL 18.6. Produktionsdemo: två fullflöden PASS. Docker Compose och GitHub-CI har inte körts här. Playwrights gamla 30-sekundersgräns gav timeout även i browser-fixture; ordinarie 60 sekunder passerade med varm och tom Next-cache. Testerna återanvänder inte okända servrar: frigör port 3000 först.
 
 `npm audit` rapporterade 10 poster: tre höga i kedjan Prisma CLI → @prisma/config → deepmerge-ts (samma bakomliggande [GHSA-ggr8-5vv4-36mx](https://github.com/advisories/GHSA-ggr8-5vv4-36mx)) och sju måttliga i ESLint/TypeScript ESLint → minimatch ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)). Dessa verktyg ska inte hantera opålitliga konfigurationer eller köras publikt. `npm audit fix` löste inte dessa i den låsta trädet; den föreslagna Prisma-uppgraderingen är en större migrering som behöver egen testning. Auditens antal räknar även beroendekedjans påverkade paket, inte tio oberoende sårbarheter.
 
-Epic 01 återkontrollerade audit och registry utan att hitta kompatibla patch/minor-rättningar. Inga overrides eller major-uppgraderingar infördes. CI-definitionen avslutar med audit som för närvarande ger rött resultat; inget publiceras. HTTP/MCP och sidornas dataladdning sanerar nu oväntade fel. Sessionsformatet är striktare, men delat adminlösenord och --admin är fortsatt lokala POC-lösningar. Se [arbetsplan/resultat](docs/WORKPLAN.md), [verifiering](docs/VERIFICATION.md) och [handoff](docs/HANDOFF.md) för detaljer och nästa steg.
+Epic 01 återkontrollerade audit och registry utan att hitta kompatibla patch/minor-rättningar. Inga overrides eller major-uppgraderingar infördes. CI-definitionen har ett separat märkt audit-jobb som för närvarande ger rött resultat; inget publiceras. HTTP/MCP och sidornas dataladdning sanerar nu oväntade fel. Sessionsformatet är striktare, men delat adminlösenord och --admin är fortsatt lokala POC-lösningar. Se [arbetsplan/resultat](docs/WORKPLAN.md), [verifiering](docs/VERIFICATION.md) och [handoff](docs/HANDOFF.md) för detaljer och nästa steg.
+
+## QA-batch: testdatabas och säkerhetsavtal
+
+Skapa en ny testdatabas innan testerna (den vanliga `booking`-databasen avvisas):
+
+```powershell
+docker compose exec db createdb -U booking booking_lab_test
+# Sätt DATABASE_URL i lokal .env till .../booking_lab_test.
+npm run db:migrate
+npm run db:seed
+```
+
+Om namnet redan finns, använd ett annat nytt namn med `_test`; radera inte befintliga databaser. Utan Docker: skapa motsvarande databas på egen lokal PostgreSQL med `createdb`. [Faktiskt verifierat portabelt alternativ](docs/VERIFICATION.md). Inspelning kräver en separat `_demo` och bygger/startar produktion automatiskt.
+
+- Fem felaktiga login per 15 minuter; sjätte nekas. Boknings-API: 30 försök per 15 minuter. Båda svarar 429 med `För många försök. Försök igen senare.` och Retry-After. Räknare är minnesbaserade per process/rutt/IP, återställs vid omstart. Utan betrodd IP används en konservativ gemensam bucket.
+- `TRUST_PROXY_IP=0` är standard. Sätt 1 enbart bakom en proxy som **skriver över X-Real-IP** och blockerar direktåtkomst. Testservern använder 1 med syntetiska test-IP för deterministiska fall; detta är ingen verifierad driftsproxy. Lita aldrig direkt på en publik klients header.
+- Max tre nya bokningar per normaliserad e-post och **skapandedag** i Stockholm. Transaktion/advisory lock hindrar samtidiga kringgåenden. Taket verifierar inte e-postägande. Historiska rader får migrationens skapandetid.
+- Valfri `Idempotency-Key` på POST /api/bookings: 1–64 tecken `[A-Za-z0-9_-]`, välj slumpmässigt UUID. Samma nyckel + samma normaliserade payload ger ursprunglig 201/ID, annan payload ger 409. Nyckeln är unik per verksamhet; lever så länge bokningen finns. Webbformuläret genererar ännu ingen egen nyckel. Rate limit gäller även retries.
+- Logga ut raderar browsercookien. Höj `ADMIN_SESSION_VERSION` i servermiljön och starta om **alla** processer för att ogiltigförklara alla gamla cookies utan att byta SESSION_SECRET. Återanvänd inte gamla versionsvärden. Redan kopierade cookies återkallas inte individuellt vid logout.
+- Admin visar idag till idag+14 dagar inklusive i Stockholm (15 kalenderdatum), kan filtrera max 31 dagar och visar max 100/sida. Domänens standardstorlek är20. E-post är maskerad som `***@***`; namn finns kvar för lokal admin. MCP lämnar aldrig ut namn/e-post.
+- Publicerade kampanjer visas först validFrom till validUntil inklusive, med dagens datum i Stockholm. Max90 kalenderdagar; okända utkastfält nekas. Kampanjlistan i admin är ännu obegränsad.
+- CSP/frame-ancestors, nosniff, referrer och admin no-store sätts av appen; HSTS i production. CSP tillåter unsafe-inline för Next; unsafe-eval endast dev. Verklig TLS/proxy och starkare nonce-policy är inte verifierade.
+
+[Tredjepartsnotiser](THIRD_PARTY_NOTICES.md) · [Prisma 7-plan, separat framtida arbete](docs/PRISMA_7_PLAN.md)

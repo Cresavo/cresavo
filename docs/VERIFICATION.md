@@ -1,3 +1,96 @@
+# Verifiering – Epic 01 QA fix batch
+
+## Aktuellt resultat, 2026-11-11
+
+Kodrevision: `26ea6171de05fe17ce4d8bd1e4a4d931d9d5bc82`, branch `epic-01-foundation-hardening`, bas `ed1658a`. Efterföljande kodrevision `3b3309df290cb9b3d6e9ec64c16adf51c32516ac` formaterar bara ESLint-config och CSS. Lint, tsc, build och Prettier kördes igen efter den formateringen; fullsvit/demobeteende gäller 26ea617. Dokumentationscommiten följer dessa commits. Endast syntetiska uppgifter. Windows x64, Node 24.16.0, npm 11.13.0, Prisma 6.19.3, Next 16.4.6. **Testad POC, inte produktionsgodkännande.**
+
+| Kommando/kontroll | Faktiskt resultat |
+|---|---|
+| `npm ci` | PASS, exit 0; `added 461 packages in 1m`. Ren ominstallation från oförändrad låsfil. |
+| `npx prisma generate` | PASS, Prisma Client 6.19.3. Första sandboxförsöket stoppades av nedladdningsåtkomst; godkänd omkörning passerade. |
+| `npm run db:migrate` | PASS på två nya databaser; båda migrationerna applicerade. Historisk migration oförändrad. |
+| `npm run db:seed` | PASS på båda databaserna, två syntetiska tjänster. |
+| `npm run lint` | PASS, exit 0, inga lintfel. |
+| `npx tsc --noEmit` | PASS, exit 0, ingen diagnostik. |
+| `npm test` | PASS: `Test Files 3 passed (3)` / `Tests 14 passed (14)`; slutlig körning 1.18 s. |
+| `npm run test:integration` | PASS: `Test Files 3 passed (3)` / `Tests 14 passed (14)`; slutlig körning 8.20 s. |
+| `npm run test:e2e` | PASS: `6 passed (15.2s)`, Chromium desktop och Pixel 7-emulering, utvecklingsserver. |
+| `npm run build` | PASS: `Compiled successfully in 3.6s`, `Generating static pages (8/8) in 146ms`, exit 0. |
+| `npm run demo:record` | PASS: produktionsbygge + `2 passed (25.7s)`, tolv PNG och två WebM. |
+| `npm audit --json` | FAIL, exit 1: 3 high, 7 moderate, 10 total. |
+| `npm audit --omit=dev --json` | FAIL, exit 1: 3 high, 0 moderate. |
+| Extern Prettier 3.6.2 `--check` | PASS: `All matched files use Prettier code style!` på src (inklusive CSS), tests, scripts, TS/MJS-config och seed. ESLint-configens AST är oförändrat; CSS-diff granskad (radbrytningar och inledande nollor). |
+| `git diff --check`; jämförelse av gammal migration, package.json och package-lock mot basen | PASS; inget innehåll ändrat i de skyddade filerna. |
+| Docker Compose/PostgreSQL 16, GitHub Actions, verklig TLS/proxy/flerprocessdrift | EJ KÖRT. Docker saknas; ingen remote/publicering tillåten. |
+
+## Isolerad miljö och kommandon
+
+En ny PostgreSQL 18.6-instans initierades med UTF-8 i `C:\Users\<user>\booking-lab-pg-test\qa-batch-20261111`, endast `127.0.0.1:55444`. `embedded-postgres@18.6.0-beta.19` är ett befintligt separat lokalt testverktyg, inget npm-beroende i projektet. Databaserna `booking_qa_test` och därefter `booking_qa_demo` skapades tomma, migrerades och seedades. Hela ordinarie sviten kördes mot testdatabasen. Produktionsinspelning och slutlig omkörning av unit/integration/build använde demodatabasen i samma isolerade kluster. Ingen befintlig användardatabas återanvändes. Efter verifieringen stoppades det egna klustret (`pg_ctl status`: `no server running`) och den tillfälliga egna .env-filen togs bort. Klusterfilerna behölls lokalt; ingen användardata raderades.
+
+`NEXT_TELEMETRY_DISABLED=1` och `CHECKPOINT_DISABLE=1` sattes för bygg-/test-/Prisma-processerna. Tillfällig ignorerad `.env` innehöll endast syntetisk lokal konfiguration. Ingen nätverksfångst eller fullständig tredjepartsgranskning gjordes.
+
+Körordning från projektroten (skapa först en ny lokal `*_test` enligt README):
+
+```powershell
+$env:NEXT_TELEMETRY_DISABLED='1'
+$env:CHECKPOINT_DISABLE='1'
+npm ci
+npx prisma generate
+npm run db:migrate
+npm run db:seed
+npm run lint
+npx tsc --noEmit
+npm test
+npm run test:integration
+npm run test:e2e
+npm run build
+npm audit --json
+npm audit --omit=dev --json
+# Byt till en separat, ny, migrerad och seedad *_demo:
+npm run demo:record
+```
+
+Audit-JSON sparades utanför repot i `C:\Users\<user>\booking-lab-pg-test\qa-audit.json` och `qa-audit-runtime.json`. Faktisk metadata för full audit:
+
+```json
+{"info":0,"low":0,"moderate":7,"high":3,"critical":0,"total":10}
+```
+
+Prisma/config/deepmerge-ts står för de tre höga posterna, ESLint/typescript-eslint/minimatch för de sju måttliga. Det är beroendeposter, inte tio oberoende sårbarheter. Inga major-uppgraderingar, overrides eller `audit fix --force`. Se historisk advisoryanalys nedan och [separat Prisma 7-plan](PRISMA_7_PLAN.md). Audit ligger nu i eget märkt CI-jobb och kommer fortfarande att ge rött; detta döljs inte med `continue-on-error`.
+
+## Vad acceptanstesterna faktiskt bevisar
+
+- Fem felaktiga lösenordsförsök följs av 429 på sjätte/sjunde, statiskt svenskt fel och Retry-After. Tre bokningar per normaliserad e-post och skapandedag i Stockholm; fjärde nekas även med parallella anrop. Bokningsrutten spärrar efter 30 försök per 15 minuter.
+- Utloggning visar loginform och efterföljande publicering ger 403. Sessionsversionstest ogiltigförklarar gammal signerad cookie utan byte av SESSION_SECRET.
+- 150 syntetiska bokningar ger 100 + 50, korrekt sortering/datumavgränsning över Stockholms 25-timmarsdygn och maskerad e-post. MCP:s negativa datum-/behörighets-/sidtester finns kvar.
+- Sekventiellt retry och 20 samtidiga anrop med samma nyckel ger en rad och samma ID; annan payload ger 409. Även 20 parallella HTTP-anrop testas.
+- 20 samtidiga bokningar och en separat blandad 30/60-minutersgrupp ger exakt en framgång per konfliktfönster. SQL self-join med `tstzrange &&` hittar noll överlapp. Forcerad exclusion-överträdelse blir DomainError 400 med `Tiden är inte tillgänglig`.
+- Verkliga Vitest-/Playwright-konfigurationsstarter med otillåten databas-URL avslutas med non-zero och `TEST_DATABASE_REFUSED` innan testinsamling/serverstart/dataåtkomst. Localhost samt *_test/*_demo krävs, men detta är ingen garanti för att data i en tillåten databas är syntetiska.
+- Kampanj med framtida validFrom visas inte före giltighetsdagen. Okänt MCP-fält, för långt (>90 kalenderdagar) eller omvänt intervall avvisas; DB CHECK stoppar omvända datum även vid direkt INSERT.
+- Headers kontrolleras på `/`, `/admin`, `/api/services`. Produktionsdemon kontrollerar även HSTS. Browserfel/CSP-blockeringar observeras av flödestestet. Bekräftelsen innehåller tjänst + lokal tid + Europe/Stockholm, och utloggning ingår.
+
+## Faktiska fel under arbetet och rättningar
+
+1. Första unit-körningens gamla sessionsfixture signerade utan version: testet uppdaterades för nya avtalet.
+2. Första integrationens 150-radersfixture använde samma personal för en gränsrad och träffade korrekt exclusion constraint: fixture separerades; produktskyddet ändrades inte.
+3. Kall desktop-E2E skickade formuläret innan hydration: bokningsval är nu inaktiverade tills React kan hantera formuläret. Därefter 6/6 PASS utan retry eller ökad timeout.
+4. Första produktionsdemon startade både dev och prod därför att Playwrights `defineConfig(base, override)` konkatenerar webServer. Ändrat till ett sammansatt config-objekt med en enda prodserver. Därefter 2/2 PASS.
+5. `createdb.exe` saknades i den portabla distributionen. Den nya demodatabasen skapades i stället med ett konstant administrativt CREATE DATABASE mot det egna isolerade klustret. Ingen produktkod för detta tillkom.
+
+Vite varnar för framtida native configLoader/ESM, ESLint 9 gav versionsvarning vid installation och Playwright varnar för NO_COLOR/FORCE_COLOR. Dessa varningar kvarstår. Prettier installerades utanför repot: MIT, separat audit 0 sårbarheter. Inga nya projektberoenden.
+
+## Demo, kvarvarande risker och ej körda kontroller
+
+[Produktionsgalleri](../demo-artifacts/2026-11-11T19-51-02-683Z/index.html) och [manifest](../demo-artifacts/2026-11-11T19-51-02-683Z/manifest.json). Manifestet anger basrevision ed1658a + dirty=true: den verifierade arbetskopians kod är nu committad som 26ea617. Artefakterna ändras inte för att låtsas vara inspelade efter commit. Båda videorna kunde läsas i Chromium: 10,88 s (800×450) och 10,60 s (392×800). Två representativa bilder granskades: mobil bekräftelse och desktop admin, utan N-badge; samma SEK-format. Native datumfält syns i testmiljön som MM/DD/YYYY, trots sv-SE-inställningen.
+
+Full svit i produktionsläge har inte körts; produktionsdemon återanvänder de två fullflödestesterna, medan samtliga sex E2E kördes mot dev. Ingen Docker/PostgreSQL 16, extern CI, andra webbläsare än Chromium, verklig reverse proxy/TLS, distribuerat rate limiting, penetrations-/lasttest eller backup/restore har verifierats. Manuell `mcp:client` har inte körts igen i denna batch; riktig stdio-klient används automatiskt i integration och E2E. Simulerat saknat Git är unit-testat, men alla demofelkoder har inte var för sig framkallats. Inget externt repo, deploy eller publicering.
+
+Rate limiter är processlokal och använder gemensam konservativ bucket utan betrodd proxy-IP. CSP tillåter unsafe-inline för Next; ingen nonce-policy. Utloggning raderar browsercookien, inte en redan stulen kopia; höj ADMIN_SESSION_VERSION och starta om alla processer för global återkallelse. Individuella konton, gallring, flerföretagsisolering och drift-/GDPR-beslut återstår. Se [PRIVACY_SECURITY](PRIVACY_SECURITY.md).
+
+## Bilaga – tidigare verifieringar (historik, inte aktuell status)
+
+Följande tidigare resultat bevaras för spårbarhet. Deras äldre kommandon, databasnamn och begränsningar gäller respektive dåvarande revision.
+
 # Lokal verifiering 2026-11-11
 
 Verifierat på Windows x64 med Node 24.16.0 och npm 11.13.0. Docker, Podman och vanlig PostgreSQL-installation fanns inte tillgängliga. Testerna kördes i stället mot en **ny separat PostgreSQL 18.6-instans**, skapad med `embedded-postgres@18.6.0-beta.19` utanför projektet. Instansen använde UTF-8 och lyssnade endast på `127.0.0.1:55439`. En tillfällig ignorerad `.env` pekade på en ny tom testdatabas. Databasen stoppades och `.env` togs bort efter verifieringen. Detta verifierar PostgreSQL-alternativet, inte Docker Compose-konfigurationen.
