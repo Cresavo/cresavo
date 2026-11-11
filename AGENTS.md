@@ -7,3 +7,13 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+# Guide för Booking Lab SE
+
+- Läs `README.md`, `docs/ARCHITECTURE.md` och `docs/ENGINEERING_PRINCIPLES.md` före ändringar.
+- Gör små, tydliga ändringar; behåll webb och MCP på samma domänlogik. Ändra inte API-kontrakt eller migrationer utan uttryckligt uppdrag.
+- Behåll servervalidering, admin- och origin-kontroller samt PostgreSQL:s överlappsskydd. Använd bara syntetiska kunduppgifter.
+- Kör relevanta tester, lint och build enligt README; ange vad som faktiskt körts och eventuella begränsningar. Använd en separat testdatabas.
+- Lägg inte till beroenden utan tydligt behov. Publicera inte, lägg inte till remote och exponera inte hemligheter utan uttryckligt uppdrag.
+- Följ `docs/DATA_FLOWS.md` och `docs/PRIVACY_SECURITY.md`: använd syntetiska uppgifter och logga eller skicka inte kunddata/hemligheter till externa agenter eller tjänster utan dokumenterad behörighet och bedömning.
+- Behandla `businessId` och lokal MCP-adminflagga som POC-begränsningar, inte verifierad tenant-isolering eller fjärrautentisering. Bedöm även indirekt hälsodata.
