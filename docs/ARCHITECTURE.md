@@ -6,7 +6,7 @@ create_booking är ett separat opt-in-verktyg: --admin och --allow-bookings krä
 
 Verktyget går via createBooking med den fasta serverägda kanalkontexten mcp:local-booking-channel:v1. Det använder samma HMAC, 5/kanal/skapandedag, 3/e-post/skapandedag, låsordning, idempotensnamnrymd och exclusion som HTTP. Ingen klientstyrd identitet tillåts; processomstart återställer inte DB-taket. HTTP:s statuskoder och payload är oförändrade. Svar projiceras uttryckligen till id/serviceId/startsAt/endsAt; inga kundfält eller lagringshashar skickas tillbaka.
 
-Testklientens separata --admin --book-läge visar en syntetisk sammanfattning och kräver ja; nej/EOF gör ingen skrivning. mcpEnvironment skickar SESSION_SECRET endast för uttryckligt bokningsläge och kopierar aldrig ADMIN_PASSWORD eller hela processmiljön. Ingen publik MCP, ny tabell, migration eller dependency har införts. Ingen garanti om pilot, tenant-isolering eller externa agentmottagare följer av detta.
+Testklientens separata --admin --book-läge visar en syntetisk sammanfattning och kräver ja; nej/EOF gör ingen skrivning. Föräldern läser lokal .env; dess MCP-subprocess läser inte env-filen igen. mcpEnvironment skickar SESSION_SECRET endast för uttryckligt bokningsläge och kopierar aldrig ADMIN_PASSWORD eller hela processmiljön. Ingen publik MCP, ny tabell, migration eller dependency har införts. Ingen garanti om pilot, tenant-isolering eller externa agentmottagare följer av detta.
 
 ## Uppföljning M2/L8 efter 8b83a40
 

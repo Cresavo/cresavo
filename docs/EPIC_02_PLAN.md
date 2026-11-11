@@ -32,7 +32,7 @@ En generell agentplattform eller avancerad nattorkestrering ingår inte i produk
 
 ## Små uppgifter i ordning
 
-Tidsboxarna är stoppgränser för första försöket, inte leveranslöften. Alla rader är **planerade/ej startade**. Codex implementerar och testar; Grok granskar frysta commits i egen arbetskopia.
+Tidsboxarna är stoppgränser för första försöket, inte leveranslöften. Raderna nedan definierar uppdraget; faktisk status och körresultat finns i [NIGHT_WORK](NIGHT_WORK.md) och [VERIFICATION](VERIFICATION.md). Codex implementerar och testar; Grok granskar frysta commits i egen arbetskopia.
 
 | ID | Uppgift / huvudsakliga filer | Acceptanskriterier | Kontroll och tidsbox |
 | --- | --- | --- | --- |
@@ -59,6 +59,8 @@ Tidsboxarna är stoppgränser för första försöket, inte leveranslöften. All
 ## Så kan Codex och Grok arbeta över natten
 
 ### Startgrind – ännu inte uppsatt eller godkänd
+
+Uppdatering 2026-11-12: produktägaren godkände lokalt självständigt arbete med överlämning genom befintligt Grok-gränssnitt. Kontaktprovet gav KONTAKT_OK och Grok har bekräftat första frysta revisionen. Ingen headless-installation eller ny betald API-loop har satts upp; följande headless-villkor kvarstår för en framtida sådan installation. Den aktuella omgången använder befintliga verktyg, högst sex timmar och inga nya betalda API-tjänster.
 
 Nattkörning startar först efter uttryckligt godkännande av scope och följande villkor:
 

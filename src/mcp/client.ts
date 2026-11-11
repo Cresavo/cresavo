@@ -18,7 +18,6 @@ async function main() {
     command: process.execPath,
     env: mcpEnvironment({ booking: book }),
     args: [
-      "--env-file=.env",
       "--import",
       "tsx",
       "src/mcp/server.ts",
