@@ -45,7 +45,7 @@ export const campaignSchema = z
     }
   });
 
-const bookingSchema = z.object({
+export const bookingSchema = z.object({
   serviceId: z.string().min(1),
   start: z.iso.datetime({ offset: true }),
   customerName: z.string().trim().min(2).max(80),
@@ -54,6 +54,12 @@ const bookingSchema = z.object({
     .max(254)
     .transform((v) => v.toLowerCase()),
 });
+
+export const idempotencyKeySchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[A-Za-z0-9_-]+$/);
 
 export async function listServices() {
   return db.service.findMany({
@@ -148,13 +154,7 @@ export async function createBooking(
   const clientKey = clientAddress
     ? createHmac("sha256", secret!).update(clientAddress).digest("hex")
     : null;
-  const parsedKey = z
-    .string()
-    .min(1)
-    .max(64)
-    .regex(/^[A-Za-z0-9_-]+$/)
-    .optional()
-    .safeParse(key);
+  const parsedKey = idempotencyKeySchema.optional().safeParse(key);
   if (!parsedKey.success) {
     if (clientAddress) checkRateLimit("bookings", clientAddress);
     throw parsedKey.error;

@@ -8,10 +8,23 @@ import {
   bookingListSchema,
   campaignSchema,
   createCampaign,
+  createBooking,
 } from "../lib/domain";
+import {
+  bookingModeAllowed,
+  mcpBookingSchema,
+  MCP_BOOKING_CLIENT,
+} from "./booking";
 import { safeFailure } from "../lib/errors";
 import { db } from "../lib/db";
 const admin = process.argv.includes("--admin");
+let allowBookings = false;
+try {
+  allowBookings = bookingModeAllowed(process.argv, process.env.SESSION_SECRET);
+} catch {
+  console.error("MCP_BOOKING_CONFIG_INVALID");
+  process.exit(1);
+}
 async function reply(operation: () => Promise<unknown>) {
   try {
     return {
@@ -46,6 +59,30 @@ serveStdio(() => {
     async (v) => reply(() => getAvailability(v.serviceId, v.date)),
   );
   if (admin) {
+    if (allowBookings) {
+      server.registerTool(
+        "create_booking",
+        {
+          description:
+            "Skapa en bekräftad syntetisk testbokning. Endast betrodd lokal operatör, example.test-kunder och stabil clientRequestId för retries. Gemensamt dagstak för den lokala MCP-kanalen.",
+          inputSchema: mcpBookingSchema,
+        },
+        async (v) =>
+          reply(async () => {
+            const booking = await createBooking(
+              v,
+              v.clientRequestId,
+              MCP_BOOKING_CLIENT,
+            );
+            return {
+              id: booking.id,
+              serviceId: booking.serviceId,
+              startsAt: booking.startsAt,
+              endsAt: booking.endsAt,
+            };
+          }),
+      );
+    }
     server.registerTool(
       "list_bookings",
       {
