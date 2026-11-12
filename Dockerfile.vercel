@@ -29,7 +29,7 @@ COPY --from=build --chown=node:node /app/.next ./.next
 COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/scripts ./scripts
 COPY --from=build --chown=node:node /app/next.config.mjs ./next.config.mjs
-COPY --from=build --chown=node:node /app/LICENSE /app/THIRD_PARTY_NOTICES.md /app/THIRD_PARTY_NATIVE_NOTICES.txt ./
+COPY --from=build --chown=node:node /app/LICENSE /app/THIRD_PARTY_NOTICES.md /app/THIRD_PARTY_NATIVE_NOTICES.txt /app/THIRD_PARTY_LUCIDE_LICENSE.txt ./
 COPY --from=build --chown=node:node /booking-lab-source.tar.gz ./booking-lab-source.tar.gz
 USER node
 EXPOSE 3000

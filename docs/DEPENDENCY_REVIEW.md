@@ -1,5 +1,33 @@
 # Beroendesäkerhet
 
+## Epic 06 — uttryckligen beställt ikonurval
+
+`lucide-react` **1.72.0**, exakt version, ersätter egna SVG-/ikonvarianter för
+arbetsytans fem menyval, kundsökning, nytt kundkort och ny bokning. Endast
+namngivna ikoner importeras; ingen dynamisk ikonladdare eller extern font/CDN.
+Textetiketter finns kvar och SVG är dekorativt `aria-hidden`, utan egen fokuspunkt.
+
+Registry och faktisk `npm pack`-tarball granskade 2026-11-12. Paketets LICENSE
+är ISC med separat MIT-notis för Feather-härledda ikoner; båda bevaras i
+[fullständig licenstext](../THIRD_PARTY_LUCIDE_LICENSE.txt). Permissiva villkor
+kan följas tillsammans med projektets oförändrade AGPL-3.0-only; notices måste
+medfölja vidare distribution. Paketet har inga egna runtime-beroenden, inga
+install-skript och återanvänder befintlig React-peer. Peerintervallet omfattar
+React19; faktisk installerad React/React DOM är19.3.1 och Lucide1.72.0 enligt
+`npm ls --depth=0`. Ny audit verifieras separat vid slutkontroll.
+Dess devDependencies i upstream är inte transitiva runtime-beroenden i vår app.
+
+Underlag: [Lucides licens](https://lucide.dev/license), faktisk låst tarball och
+[GNU:s kompatibilitetslista](https://www.gnu.org/licenses/license-list.html).
+Installerad Next16.4.6 har Lucide i sin förvalda optimizePackageImports-lista;
+standardimport med namngivna ikoner behålls utan ny Next-konfiguration.
+
+Base UI/shadcn, TanStack Table och React Hook Form installeras inte: befintlig
+kundsökform använder semantiska HTML-knappar, inte en egen komplex combobox,
+dialog eller meny; listan har serverpaginering och formulären är korta med
+befintlig Zod. Nästa genuint komplexa kontroll ska värdera standarddelar först.
+Inget generellt UI-byte, ingen Tailwind- eller React-/Next-major följer av detta.
+
 ## Audit-återkontroll 2026-11-12 — rättning blockerad av stabil upstream
 
 Ny avgränsad genomgång från 6acd2efdb909aff86245fc021e7c0c8cbc9541d4; produktkod d7bc47f och manifest/låsfil oförändrade. UI, molnpreview och dummydata ändras inte. Arbetsbranch chore/audit-review-2026-11-12. Ingen ny dependency, override, prerelease, borttagen lintregel eller ändrad licens.

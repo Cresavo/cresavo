@@ -4,6 +4,12 @@
 :root {
   color-scheme: light;
 }
+.ui-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: -3px;
+  margin-right: 8px;
+}
 .customer-list {
   display: grid;
   gap: 12px;

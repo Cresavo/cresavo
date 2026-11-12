@@ -41,3 +41,25 @@ feature/epic06-customers-demo-product. Ingen mainmerge eller offentlig release.
 
 Stoppgränser: ingen ny betaltjänst, providerbyte, offentlig MCP, journal,
 massutskick, betalning, flerföretagsdrift eller omskrivning av gamla migrationer.
+
+## Godkänt tillägg under genomförandet
+
+Återanvänd standarddelar där de minskar arbetet. Ett litet faktiskt använt
+Lucide-urval för navigation, kundsökning och bokningshandlingar ingår i samma
+leverans. Inga nya stora UI-/Tailwind-ramverk. Nya komplexa interaktioner ska
+föredra ett granskat sammanhängande Base UI/shadcn-urval. Befintligt kundval är
+en vanlig sökform med inbyggda knappar, ingen egen combobox/listbox/dialog;
+det skrivs inte om enbart för att införa ett bibliotek. TanStack Table och
+React Hook Form tillför inte konkret nytta för denna paginerade kortlista
+och korta formulär och installeras därför inte. Befintlig Zod består.
+
+Referenser studerade 2026-11-12: [Twentys layoutguide](https://github.com/twentyhq/twenty/blob/main/packages/twenty-docs/getting-started/core-concepts/layout.mdx),
+[Twentys aktivitetsguide](https://twentyhq-twenty.mintlify.app/user-guide/activities)
+och [Cal.coms bokningsbeskrivning](https://cal.com/faq). Användbara principer:
+sökbar lista → fokuserat kundkort → besök och nästa handling, samt tydligt
+dag-/tidsval och bokningsdetalj med flytt/avbokning. Ingen kod, CRM-panel,
+koppling till externa kalendrar eller skyddade assets kopieras. Det är
+referensläsning, inte ett påstående om utförd klicktest av deras produkter.
+
+Grok bedömer slutlig mobilfunktion, inte bibliotekets popularitet. Samma
+begränsade QA-flöde och högst två samlade rättningsvarv består.

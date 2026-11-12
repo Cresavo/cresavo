@@ -1,10 +1,19 @@
 # Third-party notices
 
+## Epic 06 icon subset
+
+`lucide-react` 1.72.0: ISC; Feather-derived icons retain the additional MIT
+copyright and permission notice. Complete tarball LICENSE is preserved in
+[THIRD_PARTY_LUCIDE_LICENSE.txt](THIRD_PARTY_LUCIDE_LICENSE.txt). No additional
+runtime dependencies; existing React peer. The application's AGPL-3.0-only
+license is unchanged. Original package notices also remain in node_modules.
+
 ## Restricted Vercel preview artifact (2026-11-12)
 
-This section qualifies the historical distribution gates below for the exact
+This earlier baseline section qualifies the historical distribution gates below for the exact
 Linux x64 GNU preview artifact. The application remains AGPL-3.0-only. No npm
-versions or upstream code have been changed. This is not clearance for other
+versions or upstream code were changed at that gate. Epic 06 adds only the
+Lucide package described above. This is not clearance for other
 platforms or a public binary release.
 
 `Dockerfile.vercel` installs the locked production tree with

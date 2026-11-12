@@ -62,19 +62,19 @@
   "productScreenshots": [
     {
       "file": "/demo/workspace.png",
-      "source": "actual local production build of Epic06 candidate based on16dae9a, upgraded isolated booking_epic06_demo",
+      "source": "Actual local production build: aab9fdf plus requested Lucide1.72.0 subset, dirty candidate, isolated booking_epic06_demo",
       "viewport": "390x844",
       "physicalIphone": false,
       "synthetic": true,
-      "sha256": "4ecf39449e88a2675fc1e08f6651a92c5f485d33a140982f1d91efc5bcd3bab7"
+      "sha256": "e54c71aa3fad108afc1e0decd5f96945869d1983587c59a14271dec2324c6839"
     },
     {
       "file": "/demo/customer-card.png",
-      "source": "actual local production build of Epic06 candidate based on16dae9a, upgraded isolated booking_epic06_demo",
+      "source": "Actual local production build: aab9fdf plus requested Lucide1.72.0 subset, dirty candidate, isolated booking_epic06_demo",
       "viewport": "390x844",
       "physicalIphone": false,
       "synthetic": true,
-      "sha256": "4065c5376bea1ba37889374e8153e931e669a6849676bc3f5b96de5c06b9a55d"
+      "sha256": "3d2cbc2c3a83d22c3b7aea60b4cb936f485774dc8ff64b703e4fe7a1e1f1d511"
     }
   ]
 }

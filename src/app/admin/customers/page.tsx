@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Plus, Search } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getAdminContext } from "@/lib/auth";
 import { customerListSchema, listCustomers } from "@/lib/customers";
@@ -47,6 +48,12 @@ export default async function Customers({
             <h1>Kunder</h1>
           </div>
           <Link className="button-link" href="/admin/customers/new">
+            <Plus
+              className="ui-icon"
+              size={18}
+              aria-hidden="true"
+              focusable="false"
+            />
             Ny kund
           </Link>
         </div>
@@ -80,7 +87,15 @@ export default async function Customers({
             />{" "}
             Visa även arkiverade
           </label>
-          <button>Sök kunder</button>
+          <button>
+            <Search
+              className="ui-icon"
+              size={18}
+              aria-hidden="true"
+              focusable="false"
+            />
+            Sök kunder
+          </button>
         </form>
         {!result.customers.length ? (
           <section className="panel">

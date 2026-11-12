@@ -8,6 +8,11 @@ Historiska bokningsfält skrivs inte om när kundkortet eller behandlingen ändr
 Ingen automatisk sammanslagning/backfill via namn eller obekräftad e-post.
 Gamla bokningar är kvar utan kundlänk tills en uttrycklig regel finns; endast
 seedens egna exakta nycklar/syntetiska snapshots får kompletteras av demoseed.
+En klientvald seednyckel bevisar aldrig ägarskap. Backfill kräver dessutom
+lagrad create-händelse av den särskilda demoaktören, förväntad tjänst och
+ursprunglig start. Historisk rånyckel kräver även seedens exakta rad-id;
+framtida rad använder adminnamespacad nyckel. Kolliderande publika/manuella
+rader lämnas orörda och rapporteras som skipped, inte som befintlig demodata.
 
 Kundläsning och skrivning kräver aktiv serverhärledd arbetsyteaktör inom demo-
 verksamheten. Listor hämtar högst50/sida utan kontaktfält; kundkortets historik

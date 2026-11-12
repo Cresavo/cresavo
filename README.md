@@ -1,5 +1,20 @@
 # booking-lab-se
 
+## Epic 06 — kunder, syntetisk salongsdag och produktingång
+
+Öppna `/product` för produktöversikten, `/admin/customers` för kundregistret
+och `/` för kundbokningen. Kundkort samlar kommande och tidigare besök;
+Ny bokning och Boka återbesök tar med vald kund. Nuvarande kontaktuppgifter
+och äldre bokningssnapshots hålls isär. Ingen automatisk sammanslagning eller
+publik kundsökning via e-post. Rå kontakt syns bara i den uttryckligen aktiverade
+isolerade demon; normal maskering och produktinloggning finns kvar.
+
+`npm run demo:seed` kräver `BOOKING_DEMO_SEED=1` och separat loopback-databas
+med suffix `_demo`. Seedningen är additiv och raderar inga manuella uppgifter.
+Cloudflaggan `--preview` är endast för den befintliga pinnade operatörsmiljön.
+[Plan och gränser](docs/EPIC_06_PLAN.md) · [aktuell leveransstatus](docs/PROJECT_STATUS.md)
+· [preview och provsteg](docs/DEMO.md). All data är påhittad. Pilot är fortsatt NO-GO.
+
 ## Epic 05 — QA-godkänd lokal produktalpha
 
 Den här branchen bygger på den godkända Epic04-POC:n. Migrera och seeda före start. Adminens huvudvy är nu en dag-/veckokalender med personalfilter; öppna ett bokningsblock för att flytta eller avboka, eller välj Ny bokning. Tjänster och Personal & tider har separata redigeringsvyer; tidigare kampanjflöde finns på `/admin/campaigns`. Endast syntetiska uppgifter. [Aktuell verifiering](docs/VERIFICATION.md) och [återstående godkänd omfattning](docs/EPIC_05_PLAN.md): MCP-paritet, ren installation/uppgraderingskopia och produktionsdemo är testade; Grok godkände4fc98d3 efter en avgränsad fix av adminens bokningsbudget; privat leveransc12b98a har grön fullmatris i Actions. [Exakt CI-bevis](docs/CI_DELIVERY_2026_11_12.md). [Stegvis provguide](docs/LOCAL_DEMO_WINDOWS.md). En separat [skyddad syntetisk mobilpreview](https://booking-lab-se-preview-i9pv3ji3h-<redacted-vercel-team>.vercel.app) är verifierad på kod f2fdac7; Vercel-inloggning och individuell appadmin krävs. [Prova och stoppa preview](docs/DEMO.md). Fysisk iPhone/Safari återstår; ingen kundpilot.

@@ -21,6 +21,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   isolerad demo; listor/bokningar/MCP behåller minimering. Läs DATA_FLOWS.
 - Codex är ensam skrivande huvudagent. Samlad fryst Grok-QA i separat syntetisk
   kopia, högst två samlade rättningsvarv. Funktionstester och audit separeras.
+- Niclas tillägg: återanvänd standarddelar där de minskar arbetet. Leveransen
+  använder ett litet Lucide-urval med textetiketter. Ny komplex UI ska föredra
+  granskat Base UI/shadcn; lägg inte till oanvända paket eller skriv om enkla
+  fungerande formulär. Versions-/licensbeslut i DEPENDENCY_REVIEW.
 
 ## Levererat användbarhetsuppdrag, 2026-11-12
 

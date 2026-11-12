@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CalendarDays, Users, Scissors, Clock, Megaphone } from "lucide-react";
 import AdminActions from "./ui";
 import { demoAccessEnabled, DEMO_ADMIN_EMAIL } from "@/lib/demo-access";
 export default function AdminHeader({
@@ -21,18 +22,26 @@ export default function AdminHeader({
         </p>
       </div>
       <nav aria-label="Administration">
-        {[
-          ["calendar", "/admin", "Kalender"],
-          ["customers", "/admin/customers", "Kunder"],
-          ["services", "/admin/services", "Tjänster"],
-          ["staff", "/admin/staff", "Personal & tider"],
-          ["campaigns", "/admin/campaigns", "Kampanjer"],
-        ].map(([key, href, label]) => (
+        {(
+          [
+            ["calendar", "/admin", "Kalender", CalendarDays],
+            ["customers", "/admin/customers", "Kunder", Users],
+            ["services", "/admin/services", "Tjänster", Scissors],
+            ["staff", "/admin/staff", "Personal & tider", Clock],
+            ["campaigns", "/admin/campaigns", "Kampanjer", Megaphone],
+          ] as const
+        ).map(([key, href, label, Icon]) => (
           <a
             key={key}
             href={href}
             aria-current={active === key ? "page" : undefined}
           >
+            <Icon
+              className="ui-icon"
+              size={18}
+              aria-hidden="true"
+              focusable="false"
+            />
             {label}
           </a>
         ))}

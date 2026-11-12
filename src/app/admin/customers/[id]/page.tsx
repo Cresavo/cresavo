@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowLeft, CalendarPlus } from "lucide-react";
 import { redirect, notFound } from "next/navigation";
 import { getAdminContext } from "@/lib/auth";
 import {
@@ -55,7 +56,15 @@ export default async function CustomerCard({
     <>
       <AdminHeader email={admin.email} active="customers" />
       <main className="admin-workspace narrow-workspace">
-        <Link href="/admin/customers">Till kunder</Link>
+        <Link href="/admin/customers">
+          <ArrowLeft
+            className="ui-icon"
+            size={18}
+            aria-hidden="true"
+            focusable="false"
+          />
+          Till kunder
+        </Link>
         <div className="workspace-heading customer-card-heading">
           <div>
             <p className="eyebrow">
@@ -65,6 +74,12 @@ export default async function CustomerCard({
           </div>
           {!customer.archived && (
             <Link className="button-link" href={newBooking}>
+              <CalendarPlus
+                className="ui-icon"
+                size={18}
+                aria-hidden="true"
+                focusable="false"
+              />
               Ny bokning
             </Link>
           )}
