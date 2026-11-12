@@ -8,6 +8,7 @@ import { DateTime } from "luxon";
 import DatePicker from "../../components/date-picker";
 import SlotPicker from "../../components/slot-picker";
 import { useAvailability } from "../../components/use-availability";
+import CustomerPicker, { type CustomerChoice } from "../customers/picker";
 
 function dayOf(instant: string) {
   return new Intl.DateTimeFormat("sv-SE", {
@@ -22,21 +23,31 @@ export default function BookingEditor({
   staff,
   booking,
   date,
+  customer,
+  preferredService,
+  preferredStaff,
 }: {
   services: ServiceView[];
   staff: StaffView[];
   booking?: BookingView;
   date?: string;
+  customer?: CustomerChoice;
+  preferredService?: string;
+  preferredStaff?: string;
 }) {
   const router = useRouter();
   const [current, setCurrent] = useState(booking),
     [mode, setMode] = useState<"view" | "edit">(booking ? "view" : "edit"),
     [confirmCancel, setConfirmCancel] = useState(false);
   const [serviceId, setService] = useState(
-    booking?.serviceId ?? services.find((s) => s.active)?.id ?? "",
+    booking?.serviceId ??
+      preferredService ??
+      services.find((s) => s.active)?.id ??
+      "",
   );
   const [staffId, setStaff] = useState(
     booking?.staffId ??
+      preferredStaff ??
       staff.find((p) => p.active && p.serviceIds.includes(serviceId))?.id ??
       "",
   );
@@ -48,6 +59,7 @@ export default function BookingEditor({
     [notice, setNotice] = useState("");
   const [customerName, setCustomerName] = useState(""),
     [customerEmail, setCustomerEmail] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState(customer);
   const availability = useAvailability(
     mode === "edit" ? serviceId : "",
     staffId,
@@ -91,8 +103,12 @@ export default function BookingEditor({
           serviceVersion: services.find((s) => s.id === serviceId)?.version,
           staffId,
           start,
-          customerName: form.get("name"),
-          customerEmail: form.get("email"),
+          ...(selectedCustomer
+            ? { customerId: selectedCustomer.id }
+            : {
+                customerName: form.get("name"),
+                customerEmail: form.get("email"),
+              }),
         };
     const result = await write<{
       id: string;
@@ -201,6 +217,19 @@ export default function BookingEditor({
           <p>
             {current.customerName} · {current.customerEmail}
           </p>
+          {current.customerId && (
+            <p>
+              <a
+                href={`/admin/customers/${encodeURIComponent(current.customerId)}`}
+              >
+                Öppna kundkort
+              </a>
+              <small>
+                {" "}
+                Namnet ovan är uppgiften som registrerades vid bokningen.
+              </small>
+            </p>
+          )}
           {current.status === "confirmed" &&
             mode === "view" &&
             !confirmCancel && (
@@ -224,6 +253,15 @@ export default function BookingEditor({
               </div>
             )}
         </section>
+      )}
+      {!current && (
+        <CustomerPicker
+          value={selectedCustomer}
+          onChange={(value) => {
+            setSelectedCustomer(value);
+            markDirty();
+          }}
+        />
       )}
       {confirmCancel && (
         <section className="panel confirm-panel" aria-labelledby="cancel-title">
@@ -384,7 +422,7 @@ export default function BookingEditor({
                     disabled={pending}
                   />
                 </div>
-                {!current && (
+                {!current && !selectedCustomer && (
                   <>
                     <div className="field">
                       <label htmlFor="booking-name">Namn (påhittat)</label>
@@ -417,6 +455,7 @@ export default function BookingEditor({
                   aria-label="Bokningssammanfattning"
                 >
                   <h3>Kontrollera bokningen</h3>
+                  {selectedCustomer && <p>Kund: {selectedCustomer.name}</p>}
                   <strong>
                     {current?.serviceName ??
                       services.find((s) => s.id === serviceId)?.name}

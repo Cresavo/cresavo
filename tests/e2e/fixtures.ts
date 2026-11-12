@@ -8,7 +8,7 @@ export const test = base.extend<{
     marker: string;
     title: string;
     trackSession: (cookie: string) => void;
-    trackResource: (kind: "service" | "staff", id: string) => void;
+    trackResource: (kind: "service" | "staff" | "customer", id: string) => void;
     trackWorkspaceRequest: (key: string, channel?: "admin" | "mcp") => void;
     admin: { email: string; password: string; id: string };
   };
@@ -28,9 +28,18 @@ export const test = base.extend<{
       const sessions = new Set<string>();
       const services = new Set<string>(),
         staff = new Set<string>(),
+        customers = new Set<string>(),
         workspaceKeys = new Set<string>();
-      const trackResource = (kind: "service" | "staff", id: string) =>
-        (kind === "service" ? services : staff).add(id);
+      const trackResource = (
+        kind: "service" | "staff" | "customer",
+        id: string,
+      ) =>
+        (kind === "service"
+          ? services
+          : kind === "staff"
+            ? staff
+            : customers
+        ).add(id);
       const trackWorkspaceRequest = (
         key: string,
         channel: "admin" | "mcp" = "admin",
@@ -69,7 +78,8 @@ export const test = base.extend<{
           if (key) trackWorkspaceRequest(key);
           if (
             (endpoint === "/api/admin/services" ||
-              endpoint === "/api/admin/staff") &&
+              endpoint === "/api/admin/staff" ||
+              endpoint === "/api/admin/customers") &&
             response.ok()
           ) {
             pending.push(
@@ -79,7 +89,11 @@ export const test = base.extend<{
                   const input = response.request().postDataJSON();
                   if (!input.id && typeof value.id === "string")
                     trackResource(
-                      endpoint.endsWith("/services") ? "service" : "staff",
+                      endpoint.endsWith("/services")
+                        ? "service"
+                        : endpoint.endsWith("/customers")
+                          ? "customer"
+                          : "staff",
                       value.id,
                     );
                 })
@@ -111,6 +125,7 @@ export const test = base.extend<{
           },
         });
         await db.campaign.deleteMany({ where: { title } });
+        await db.customer.deleteMany({ where: { id: { in: [...customers] } } });
         await db.workspaceRequest.deleteMany({
           where: { businessId: "demo", key: { in: [...workspaceKeys] } },
         });

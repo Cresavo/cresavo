@@ -1,7 +1,11 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-export default function DemoEntry() {
+export default function DemoEntry({
+  label = "Öppna demoadmin",
+}: {
+  label?: string;
+}) {
   const [pending, setPending] = useState(false),
     [error, setError] = useState("");
   const router = useRouter();
@@ -30,7 +34,7 @@ export default function DemoEntry() {
           }
         }}
       >
-        {pending ? "Öppnar arbetsytan…" : "Öppna demoadmin"}
+        {pending ? "Öppnar arbetsytan…" : label}
       </button>
       {error && <p role="alert">{error}</p>}
     </div>

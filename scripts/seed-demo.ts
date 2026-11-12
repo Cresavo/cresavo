@@ -4,7 +4,7 @@ import { DateTime } from "luxon";
 import { db } from "../src/lib/db";
 import { createAdminUser } from "../src/lib/admin-accounts";
 import { createBooking, getAvailability } from "../src/lib/domain";
-import { cancelBooking } from "../src/lib/booking-mutations";
+import { cancelBooking, moveBooking } from "../src/lib/booking-mutations";
 import {
   scheduleContains,
   weeklySchema,
@@ -123,7 +123,26 @@ async function main() {
     "Frankie Demo",
     "Ariel Demo",
     "Lou Demo",
+    "Dani Demo",
+    "Remi Demo",
+    "Toni Demo",
+    "Signe Demo",
+    "Malte Demo",
+    "Iris Demo",
+    "Alva Demo",
+    "Otto Demo",
   ];
+  for (const [index, name] of names.entries())
+    await db.customer.upsert({
+      where: { id: `demo-customer-${index}` },
+      create: {
+        id: `demo-customer-${index}`,
+        businessId: "demo",
+        name,
+        email: `demo-customer-${index}@example.test`,
+      },
+      update: {},
+    });
   let added = 0,
     skipped = 0,
     existing = 0;
@@ -135,6 +154,7 @@ async function main() {
     serviceId: string,
     index: number,
     cancelled = false,
+    moved = false,
   ) {
     const start = day.set({ hour, minute }),
       key =
@@ -145,21 +165,35 @@ async function main() {
           .slice(0, 36);
     // Admin creation namespaces idempotency keys; this tag also identifies past rows.
     const email = `demo-customer-${index % names.length}@example.test`;
-    if (
-      await db.booking.findFirst({
+    const previous = await db.booking.findFirst({
+      where: {
+        businessId: "demo",
+        OR: [
+          { idempotencyKey: key },
+          {
+            idempotencyKey: createHash("sha256")
+              .update(`admin:${actor.id}:${key}`)
+              .digest("hex"),
+          },
+        ],
+      },
+    });
+    if (previous) {
+      // Explicit backfill only for this exact seed-owned row and matching
+      // synthetic snapshot, never a customer-email identity heuristic.
+      const profile = await db.customer.findFirst({
         where: {
           businessId: "demo",
-          OR: [
-            { idempotencyKey: key },
-            {
-              idempotencyKey: createHash("sha256")
-                .update(`admin:${actor.id}:${key}`)
-                .digest("hex"),
-            },
-          ],
+          id: { startsWith: "demo-customer-" },
+          name: previous.customerName,
+          email: previous.customerEmail,
         },
-      })
-    ) {
+      });
+      if (!previous.customerId && profile)
+        await db.booking.update({
+          where: { id: previous.id },
+          data: { customerId: profile.id },
+        });
       existing++;
       return;
     }
@@ -197,6 +231,7 @@ async function main() {
           start: start.toUTC().toISO()!,
           customerName: names[index % names.length],
           customerEmail: email,
+          customerId: `demo-customer-${index % names.length}`,
         },
         key,
         undefined,
@@ -208,6 +243,25 @@ async function main() {
           key + "-cancel",
           actor,
         );
+      else if (moved) {
+        const nextStart = start.plus({ minutes: 30 }).toUTC().toISO()!;
+        if (
+          (
+            await getAvailability(
+              serviceId,
+              day.toISODate()!,
+              undefined,
+              staffId,
+              { ignoreBookingId: b.id, duration: b.duration, buffer: b.buffer },
+            )
+          ).includes(nextStart)
+        )
+          await moveBooking(
+            { id: b.id, expectedVersion: b.version, staffId, start: nextStart },
+            key + "-move",
+            actor,
+          );
+      }
     } else {
       // Past demonstrations cannot pass today's booking clock. Validate their
       // schedule explicitly, keep the DB exclusion constraint, and mark history
@@ -238,6 +292,7 @@ async function main() {
           priceOre: service.priceOre,
           customerName: names[index % names.length],
           customerEmail: email,
+          customerId: `demo-customer-${index % names.length}`,
           startsAt: start.toJSDate(),
           endsAt: end.toJSDate(),
           initialStartsAt: start.toJSDate(),
@@ -299,6 +354,30 @@ async function main() {
   while (past.weekday > 5) past = past.minus({ days: 1 });
   await add(past, 9, 0, sofia, "demo-ui-foot", 80);
   await add(past, 11, 0, elias, "demo-ui-hair", 81, true);
+  for (const [index, offset] of [10, 17, 24, 31].entries()) {
+    const day = weekday(offset);
+    await add(
+      day,
+      9,
+      0,
+      sofia,
+      "demo-ui-massage",
+      index * 4,
+      false,
+      index === 0,
+    );
+    await add(day, 10, 0, elias, "demo-ui-hair", index * 4 + 1);
+    await add(day, 13, 0, sofia, "demo-ui-foot", index * 4 + 2);
+    await add(day, 15, 0, elias, "demo-ui-massage", index * 4 + 3, index === 2);
+  }
+  let history = today.minus({ days: 2 });
+  for (let index = 0; index < 10; index++) {
+    while (history.weekday > 5) history = history.minus({ days: 1 });
+    await add(history, 9, 0, sofia, "demo-ui-foot", 20 + index);
+    await add(history, 10, 30, elias, "demo-ui-hair", 24 + index, index === 3);
+    await add(history, 14, 0, sofia, "demo-ui-massage", index);
+    history = history.minus({ days: 1 });
+  }
   for (const [id, title, published, from] of [
     [
       "demo-ui-campaign-current",
@@ -338,6 +417,7 @@ async function main() {
       sofiaLeave: leave.toISODate(),
       noDeletion: true,
       syntheticOnly: true,
+      customers: names.length,
     }),
   );
 }

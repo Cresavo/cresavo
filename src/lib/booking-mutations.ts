@@ -58,6 +58,7 @@ export async function getBooking(id: string, includeCustomer = false) {
     duration: row.duration,
     buffer: row.buffer,
     ...(includeCustomer && {
+      customerId: row.customerId,
       customerName: row.customerName,
       customerEmail: "***@***",
     }),

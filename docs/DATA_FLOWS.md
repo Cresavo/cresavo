@@ -1,5 +1,26 @@
 # Datakarta för Booking Lab SE POC
 
+## Epic 06 — syntetiskt kundregister
+
+Ny Customer-tabell innehåller id, verksamhet, namn, e-post, valfri telefon,
+arkiveringsflagga/version och skapandetid. Ingen journal eller fritextanteckning.
+Admin söker serverbaserat på namn/e-post/telefon; listsvaret innehåller namn,
+status och datum för nästa/tidigare bokning, högst50kort/sida. Söktext kan ingå i
+URL/serverns vanliga requestmetadata: använd endast syntetiska data; introducera
+inte loggning av sökparametrar. Ingen ny analytics eller extern söktjänst används.
+
+Kundkort är behörighetskontrollerat. Kontakt är maskerad utanför explicit pinnad
+Vercel-demo; där får admin se example.test-kontakter. Historik är paginerad och
+behåller Booking-snapshots separat från aktuell kontakt. Booking.customerId
+kopplas uttryckligen av admin/opt-in lokal arbetsyteagent, aldrig av publik
+e-postmatchning. Publik HTTP får fortfarande bara boknings-ID i skrivsvaret.
+
+Lokal MCP kan använda ett redan känt syntetiskt kund-ID med --allow-workspace,
+men får inga nya kontaktfält eller registerexportverktyg. WorkspaceRequest lagrar
+hash av skrivunderlag samt enbart id/version som resultat, inga råa kontakter.
+Arkivering behåller personuppgifter och historik; retention/export/radering är
+fortsatt pilotblockerare. Demoseed är additiv och skriver inga externa utskick.
+
 ## Avgränsad demoknapp i UI-uppdraget
 
 `POST /api/demo/session` tar inte emot kunduppgifter, lösenord eller en

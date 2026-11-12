@@ -1,5 +1,20 @@
 # Integritets- och säkerhetsprinciper
 
+## Kundmodulens demoavgränsning, Epic 06
+
+Kundregister är inte ett GDPR-godkännande. Endast syntetiska uppgifter får
+användas. Arkivering är åtkomst-/arbetsflödesstatus, inte radering/anonymisering.
+Export, verklig radering, lagringstid och eventuell framtida kontaktvisning
+utanför isolerad demo kräver separat arbete. Inga hälsoanteckningar införs.
+
+Admin-/origin-kontroll, verksamhetsfilter och sammansatt FK skyddar kundlänken.
+Aktör kontrolleras före replay. Klientens kund-ID är ett val, aldrig identitets-
+bevis; ett publikt inmatat e-postvärde får varken slå upp, uppdatera eller koppla
+kundkort. Rå example.test-kontakt är ett uttryckligt demo-undantag på kortet,
+inte generell avmaskering av listor, bokningar eller MCP. API-fel/loggar ska vara
+statiska och säkra enligt errors.ts. Bounded queries ersätter inte full framtida
+tenant-isolering, MFA eller datalivscykel. Behåll befintlig previewperimeter.
+
 ## Undantag enbart för ägarens isolerade syntetiska demo
 
 Niclas har uttryckligen godkänt att extra manuellt applösenord ersätts med en

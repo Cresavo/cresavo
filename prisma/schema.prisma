@@ -26,6 +26,8 @@ model Booking {
   endsAt DateTime @db.Timestamptz(3)
   customerName String
   customerEmail String
+  customerId String?
+  customer Customer? @relation(fields: [businessId, customerId], references: [businessId, id], onDelete: Restrict)
   serviceName String @default("")
   priceOre Int @default(0)
   duration Int @default(0)
@@ -44,6 +46,20 @@ model Booking {
   @@index([businessId, customerEmail, createdAt])
   @@index([businessId, clientKey, createdAt])
   @@index([businessId, emailCapKey, createdAt])
+  @@index([businessId, customerId, startsAt, id])
+}
+model Customer {
+  id String @id @default(cuid())
+  businessId String
+  name String
+  email String
+  phone String?
+  archived Boolean @default(false)
+  version Int @default(1)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  bookings Booking[]
+  @@unique([businessId, id])
+  @@index([businessId, archived, name, id])
 }
 model Staff {
   id String @id @default(cuid())

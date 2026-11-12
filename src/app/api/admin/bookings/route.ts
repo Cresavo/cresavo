@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin, requestId } from "@/lib/admin-http";
-import { createBooking, bookingSchema } from "@/lib/domain";
+import { createBooking, adminBookingSchema } from "@/lib/domain";
 import {
   bookingSummary,
   moveBooking,
@@ -13,7 +13,7 @@ import { listCalendar } from "@/lib/calendar";
 import { failure } from "@/lib/http";
 
 const actionSchema = z.discriminatedUnion("action", [
-  bookingSchema.extend({ action: z.literal("create") }).strict(),
+  adminBookingSchema.safeExtend({ action: z.literal("create") }).strict(),
   moveBookingSchema.extend({ action: z.literal("move") }).strict(),
   cancelBookingSchema.extend({ action: z.literal("cancel") }).strict(),
 ]);

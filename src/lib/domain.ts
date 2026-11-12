@@ -57,6 +57,17 @@ export const bookingSchema = z.object({
     .max(254)
     .transform((v) => v.toLowerCase()),
 });
+// Only authenticated admin callers can select a customer card. Public and
+// existing local-agent bookings remain snapshots without an inferred identity.
+export const adminBookingSchema = bookingSchema
+  .extend({
+    customerId: z.string().min(1).max(128).optional(),
+    customerName: bookingSchema.shape.customerName.optional(),
+    customerEmail: bookingSchema.shape.customerEmail.optional(),
+  })
+  .refine((v) => !!v.customerId || (!!v.customerName && !!v.customerEmail), {
+    message: "Välj en kund eller fyll i namn och e-post.",
+  });
 
 export async function listServices(includeInactive = false) {
   return db.service.findMany({
@@ -151,14 +162,15 @@ export async function insertBooking(
         | "priceOre"
         | "duration"
         | "buffer"
+        | "customerId"
       >
     >,
 ) {
   try {
     const rows = await client.$queryRaw<Booking[]>`INSERT INTO "Booking"
-      ("id", "businessId", "staffId", "serviceId", "startsAt", "endsAt", "customerName", "customerEmail", "idempotencyKey", "requestHash", "clientKey", "emailCapKey", "serviceName", "priceOre", "duration", "buffer")
+      ("id", "businessId", "staffId", "serviceId", "startsAt", "endsAt", "customerName", "customerEmail", "idempotencyKey", "requestHash", "clientKey", "emailCapKey", "serviceName", "priceOre", "duration", "buffer", "customerId")
       VALUES (${data.id}, ${data.businessId}, ${data.staffId}, ${data.serviceId}, ${data.startsAt}, ${data.endsAt},
-        ${data.customerName}, ${data.customerEmail}, ${data.idempotencyKey}, ${data.requestHash}, ${data.clientKey ?? null}, ${data.emailCapKey ?? null}, ${data.serviceName ?? ""}, ${data.priceOre ?? 0}, ${data.duration ?? 0}, ${data.buffer ?? 0}) RETURNING *`;
+        ${data.customerName}, ${data.customerEmail}, ${data.idempotencyKey}, ${data.requestHash}, ${data.clientKey ?? null}, ${data.emailCapKey ?? null}, ${data.serviceName ?? ""}, ${data.priceOre ?? 0}, ${data.duration ?? 0}, ${data.buffer ?? 0}, ${data.customerId ?? null}) RETURNING *`;
     return rows[0];
   } catch (e) {
     bookingDatabaseError(e);
@@ -205,13 +217,17 @@ export async function createBooking(
   const admin = actor?.kind === "admin";
   const budgetAddress = admin ? `admin:${actor.id}` : clientAddress;
   const rateRoute = admin ? "admin-bookings" : "bookings";
-  const parsed = bookingSchema.safeParse(input);
+  const mayLinkCustomer = !!actor;
+  const parsed = (
+    mayLinkCustomer ? adminBookingSchema : bookingSchema
+  ).safeParse(input);
   if (!parsed.success) {
     if (budgetAddress) await checkRateLimit(rateRoute, budgetAddress);
     throw parsed.error;
   }
   const v = parsed.data;
-  const emailKey = emailCapKey(v.customerEmail);
+  const selectedCustomerId =
+    mayLinkCustomer && "customerId" in v ? v.customerId : undefined;
   const secret = process.env.SESSION_SECRET;
   if (budgetAddress && (!secret || secret.length < 32))
     throw new Error("CLIENT_KEY_CONFIG_INVALID");
@@ -257,6 +273,24 @@ export async function createBooking(
           };
         }
       }
+      const customer = selectedCustomerId
+        ? (
+            await tx.$queryRaw<
+              { id: string; name: string; email: string; archived: boolean }[]
+            >`SELECT "id", "name", "email", "archived" FROM "Customer" WHERE "businessId"=${businessId} AND "id"=${selectedCustomerId} FOR SHARE`
+          )[0]
+        : undefined;
+      if (selectedCustomerId && (!customer || customer.archived))
+        throw new DomainError("Välj ett aktivt kundkort.", 409);
+      if (
+        actor?.kind === "local-mcp" &&
+        customer &&
+        !customer.email.endsWith("@example.test")
+      )
+        throw new DomainError("Välj ett aktivt kundkort.", 409);
+      const customerName = customer?.name ?? v.customerName!;
+      const customerEmail = customer?.email ?? v.customerEmail!;
+      const emailKey = emailCapKey(customerEmail);
       if (budgetAddress) await checkRateLimit(rateRoute, budgetAddress);
       const today = parseDay(localDay(new Date()));
       const tomorrow = today.plus({ days: 1 });
@@ -319,8 +353,9 @@ export async function createBooking(
         endsAt: new Date(
           start.getTime() + (service.duration + service.buffer) * 60000,
         ),
-        customerName: v.customerName,
-        customerEmail: v.customerEmail,
+        customerName,
+        customerEmail,
+        customerId: customer?.id ?? null,
         idempotencyKey: idempotencyKey ?? null,
         requestHash: idempotencyKey ? requestHash : null,
         clientKey,

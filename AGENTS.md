@@ -10,6 +10,18 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
+## Aktuellt beställt mål — Epic 06, 2026-11-12
+
+- Läs docs/EPIC_06_PLAN.md: A kundregister, B återkörbar syntetisk demo/assets,
+  C separat produktsida. Bas16dae9a/6acd2ef (produkt d7), inte äldre main.
+- Niclas tillåter minsta kundmodell och additiva migrationer samt privat push
+  och uppdatering av samma skyddade preview. Ingen mainmerge/reset/ny betaltjänst.
+- Bevara snapshots; inga automatiska kundsammanslagningar eller publika
+  kunduppslag/överskrivningar via e-post. Kontakt visas bara på kort i explicit
+  isolerad demo; listor/bokningar/MCP behåller minimering. Läs DATA_FLOWS.
+- Codex är ensam skrivande huvudagent. Samlad fryst Grok-QA i separat syntetisk
+  kopia, högst två samlade rättningsvarv. Funktionstester och audit separeras.
+
 ## Levererat användbarhetsuppdrag, 2026-11-12
 
 - Produktkod d7bc47f: två samlade Grok-fixvarv avslutade, GO för skyddad syntetisk preview; ingen tredje loop eller pilot. Stabil länk/stopp i docs/DEMO.md, tester i docs/VERIFICATION.md. Senare docs ändrar inte koden.

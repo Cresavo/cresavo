@@ -7,6 +7,7 @@ import { listStaff } from "@/lib/workspace-config";
 import { demoAccessEnabled } from "@/lib/demo-access";
 import DemoEntry from "./demo-entry";
 import Link from "next/link";
+import Image from "next/image";
 export const dynamic = "force-dynamic";
 export default async function Home() {
   const [services, campaigns, staff] = await Promise.all([
@@ -28,6 +29,11 @@ export default async function Home() {
           </a>
         )}
       </header>
+      <p className="product-backlink">
+        <Link href="/product">
+          Om Booking Lab – produkten bakom demosalongen
+        </Link>
+      </p>
       <div className="booking-intro">
         <p className="eyebrow">Välkommen till vår demosalong</p>
         <h1>Boka en behandling</h1>
@@ -48,6 +54,14 @@ export default async function Home() {
           />
         </section>
         <aside className="salon-information">
+          <Image
+            src="/demo/salon.webp"
+            alt="Den påhittade Salong Eko, AI-genererad salongsmiljö"
+            width={1200}
+            height={675}
+            unoptimized
+            className="salon-photo"
+          />
           <h2>Om ditt besök</h2>
           <p>
             Alla tider visas i svensk tid. Våra behandlingar och utförare hittar
@@ -62,6 +76,44 @@ export default async function Home() {
                 </span>
               </p>
             ))}
+          </div>
+          <section className="demo-people">
+            <h2>Träffa våra demomedarbetare</h2>
+            <p>Fiktiva personer med AI-genererade porträtt.</p>
+            {staff
+              .filter((p) => ["demo-ui-sofia", "demo-ui-elias"].includes(p.id))
+              .map((p) => (
+                <figure key={p.id}>
+                  <Image
+                    src={
+                      p.id.endsWith("sofia")
+                        ? "/demo/sofia.webp"
+                        : "/demo/elias.webp"
+                    }
+                    alt={`AI-genererat porträtt av ${p.name}, fiktiv medarbetare`}
+                    width={160}
+                    height={160}
+                    unoptimized
+                  />
+                  <figcaption>{p.name}</figcaption>
+                </figure>
+              ))}
+          </section>
+          <div className="demo-treatment-photos">
+            <Image
+              src="/demo/massage.webp"
+              alt="Handdukar och omärkt massageolja, AI-genererad demobild"
+              width={720}
+              height={480}
+              unoptimized
+            />
+            <Image
+              src="/demo/hair.webp"
+              alt="Frisörsax och kam, AI-genererad demobild"
+              width={720}
+              height={405}
+              unoptimized
+            />
           </div>
           {campaigns.map((c) => (
             <section className="campaign-card" key={c.id}>
@@ -83,9 +135,13 @@ export default async function Home() {
             <p>
               Arbetsytan visar bokningar, personal, behandlingar och kampanjer.
             </p>
-            <a href="/admin" className="button-link">
-              Öppna arbetsytan
-            </a>
+            {demoAccessEnabled() ? (
+              <DemoEntry label="Öppna arbetsytan" />
+            ) : (
+              <a href="/admin" className="button-link">
+                Öppna arbetsytan
+              </a>
+            )}
           </section>
         </aside>
       </div>

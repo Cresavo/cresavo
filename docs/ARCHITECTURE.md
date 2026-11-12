@@ -1,5 +1,36 @@
 # Arkitektur
 
+## Epic 06 — kundkort och historiska snapshots
+
+Customer är aktuell kontakt (namn/e-post/valfri telefon, version, arkiverad).
+Booking.customerId är valfri och har sammansatt FK på businessId/customerId.
+Historiska bokningsfält skrivs inte om när kundkortet eller behandlingen ändras.
+Ingen automatisk sammanslagning/backfill via namn eller obekräftad e-post.
+Gamla bokningar är kvar utan kundlänk tills en uttrycklig regel finns; endast
+seedens egna exakta nycklar/syntetiska snapshots får kompletteras av demoseed.
+
+Kundläsning och skrivning kräver aktiv serverhärledd arbetsyteaktör inom demo-
+verksamheten. Listor hämtar högst50/sida utan kontaktfält; kundkortets historik
+högst50/sida. Rå kontakt visas bara för admin i uttryckligen aktiverad/pinnad
+Vercel-demo och bara example.test-kort, aldrig för lokal MCP. Alla mutationer
+använder befintlig workspaceWrite med actor före replay, idempotens och version.
+Arkivering tar inte bort besök och är inte personuppgiftsradering.
+
+Adminbokning kan välja customerId; servern läser aktivt kort under FOR SHARE och
+tar snapshot i samma bokningstransaktion. Kontaktvalidering och befintliga kvoter,
+konfigurations-/idempotens-/personaldagslås samt exclusion består. Kundredigering
+låser bara kundraden, tar inga bokningslås. Rättighets-/konfigurationslåset kommer
+alltid först. Retry returnerar ursprunglig bokning före nytt kunduppslag.
+
+Befintlig lokal create_booking får valfritt känt customerId endast med tidigare
+--admin --allow-workspace. --allow-bookings ensamt har kvar gammalt strikt schema.
+Kanalen behåller kundkvoter, example.test-krav och minimerat svar; inga nya råa
+kontaktfält, registerexporter eller publik MCP. Flytt/avbokning behåller länken.
+
+Produktsida /product; kundbokning / och admin /admin består så äldre länkar
+fungerar. Samma isolerade skyddade preview och demoknapp används, ingen ny auth.
+Assets är lokala statiska filer utan tredjepartsanrop; manifest i public/demo.
+
 ## Godkänd Vercel-previewanpassning, 2026-11-12
 
 Separat previewbranch från Epic05-leverans29ac297. Ingen ny produktfunktion.

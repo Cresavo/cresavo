@@ -8,6 +8,10 @@ const publicMessages = [
   "Uppgifterna har ändrats. Läs in på nytt.",
   "Ändringen berör bokade tider. Flytta eller avboka dem först.",
   "Bokningen finns inte",
+  "Kunden finns inte",
+  "Välj ett aktivt kundkort.",
+  "Sökningen har ändrats. Börja från första sidan.",
+  "Historiken har ändrats. Börja från första sidan.",
   "Bokningen är avbokad och kan inte flyttas.",
   "Slutdatum får inte vara före startdatum.",
   "Kampanjen får gälla högst 90 kalenderdagar.",
@@ -23,7 +27,7 @@ type PublicMessage = (typeof publicMessages)[number];
 export class DomainError extends Error {
   constructor(
     message: PublicMessage,
-    readonly status: 400 | 403 | 409 | 429 = 400,
+    readonly status: 400 | 403 | 404 | 409 | 429 = 400,
     readonly retryAfter?: number,
   ) {
     super(message);

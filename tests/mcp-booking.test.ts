@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { bookingSchema, idempotencyKeySchema } from "../src/lib/domain";
-import { bookingModeAllowed, mcpBookingSchema } from "../src/mcp/booking";
+import {
+  bookingModeAllowed,
+  mcpBookingSchema,
+  mcpWorkspaceBookingSchema,
+} from "../src/mcp/booking";
 
 const valid = {
   serviceId: "fotvard",
@@ -12,6 +16,25 @@ const valid = {
 };
 
 describe("Lokalt MCP-bokningskontrakt", () => {
+  it("kund-ID kräver workspace-schema och ersätter inte strikt validering", () => {
+    const { customerName: _name, customerEmail: _email, ...rest } = valid;
+    void _name;
+    void _email;
+    const linked = { ...rest, customerId: "known-synthetic-customer" };
+    expect(mcpBookingSchema.safeParse(linked).success).toBe(false);
+    expect(mcpWorkspaceBookingSchema.safeParse(linked).success).toBe(true);
+    expect(mcpWorkspaceBookingSchema.safeParse(rest).success).toBe(false);
+    expect(
+      mcpWorkspaceBookingSchema.safeParse({ ...linked, businessId: "other" })
+        .success,
+    ).toBe(false);
+    expect(
+      mcpWorkspaceBookingSchema.safeParse({
+        ...valid,
+        customerEmail: "someone@example.com",
+      }).success,
+    ).toBe(false);
+  });
   it("återanvänder domänfält utan att begränsa befintlig HTTP-e-post", () => {
     expect(mcpBookingSchema.parse(valid)).toEqual(valid);
     expect(

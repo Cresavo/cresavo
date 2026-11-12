@@ -31,6 +31,7 @@ export type BookingView = {
   version: number;
   customerName?: string;
   customerEmail?: string;
+  customerId?: string | null;
   events: {
     action: string;
     createdAt: string | Date;

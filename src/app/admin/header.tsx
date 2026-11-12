@@ -6,7 +6,7 @@ export default function AdminHeader({
   active,
 }: {
   email: string;
-  active: "calendar" | "services" | "staff" | "campaigns";
+  active: "calendar" | "services" | "staff" | "campaigns" | "customers";
 }) {
   return (
     <header className="admin-header">
@@ -23,6 +23,7 @@ export default function AdminHeader({
       <nav aria-label="Administration">
         {[
           ["calendar", "/admin", "Kalender"],
+          ["customers", "/admin/customers", "Kunder"],
           ["services", "/admin/services", "Tjänster"],
           ["staff", "/admin/staff", "Personal & tider"],
           ["campaigns", "/admin/campaigns", "Kampanjer"],
@@ -37,6 +38,9 @@ export default function AdminHeader({
         ))}
       </nav>
       <div className="admin-account">
+        <Link prefetch={false} href="/product">
+          Om Booking Lab
+        </Link>
         <Link prefetch={false} href="/">
           Visa kundbokningen
         </Link>

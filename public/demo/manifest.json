@@ -1,0 +1,80 @@
+{
+  "synthetic": true,
+  "noRealPeople": true,
+  "images": [
+    {
+      "file": "/demo/sofia.webp",
+      "source": "exec-bc326657-c1fa-41d8-ab5a-e270fde7d57a.png",
+      "generated": "2026-11-12",
+      "tool": "built-in image_gen, no new service or subscription",
+      "promptSummary": "Fictional adult female practitioner Sofia,35,brown hair,sage linen,cream/oak/plant background,Nordic daylight,no real-person resemblance or text",
+      "alt": "Fiktiva Sofia i grön linnetröja",
+      "bytes": 15832,
+      "sha256": "ec4d361dcb77da9b754d15f1ae125f745e565c1ab8e5966d9eaf725503f4e2e3",
+      "usage": "synthetic staff section on customer page"
+    },
+    {
+      "file": "/demo/elias.webp",
+      "source": "exec-d3d9e423-6491-4c30-8df5-6bd00643f680.png",
+      "generated": "2026-11-12",
+      "tool": "built-in image_gen, no new service or subscription",
+      "promptSummary": "Fictional adult male practitioner Elias,40,short dark hair,sage linen,cream/oak/plant background,Nordic daylight,no real-person resemblance or text",
+      "alt": "Fiktiva Elias i grön linneskjorta",
+      "bytes": 18248,
+      "sha256": "1c0bfa019a3a2161f292db90cd9dc40cc3ecea65c90d0f65e9aa3490475c739d",
+      "usage": "synthetic staff section on customer page"
+    },
+    {
+      "file": "/demo/salon.webp",
+      "source": "exec-8baa75c9-faf5-4cbe-b259-70367bc569c0.png",
+      "generated": "2026-11-12",
+      "tool": "built-in image_gen, no new service or subscription",
+      "promptSummary": "Fictional Scandinavian salon interior,cream plaster,pale oak,sage linen,plants,treatment couch,Nordic daylight,no people or logos",
+      "alt": "Påhittad salong med ljus ek, gröna textilier och behandlingsbänk",
+      "bytes": 105376,
+      "sha256": "7705744e1dba622838c4c4a54b00e9b6a122efb9c2218c4bcf1c9a5e6a3b8222",
+      "usage": "customer page and product page"
+    },
+    {
+      "file": "/demo/massage.webp",
+      "source": "exec-473f6757-3bc4-4af7-bf20-0efde8972ed9.png",
+      "generated": "2026-11-12",
+      "tool": "built-in image_gen, no new service or subscription",
+      "promptSummary": "Editorial still life of cream towels,unbranded amber oil bottle,greenery,pale oak,sage linen,Nordic daylight,no people or text",
+      "alt": "Handdukar och omärkt massageolja i demosalongen",
+      "bytes": 31248,
+      "sha256": "e7c58af417f0a989092cdf008c8754abba65690a92b96cca9c460be5865c66a5",
+      "usage": "treatment section on customer page"
+    },
+    {
+      "file": "/demo/hair.webp",
+      "source": "exec-38cfd70d-23be-4a1f-a73c-3f34c949775c.png",
+      "generated": "2026-11-12",
+      "tool": "built-in image_gen, no new service or subscription",
+      "promptSummary": "Editorial hairdressing still life,clean scissors and dark comb,cream linen,pale oak,mirror,sage chair,plants,Nordic daylight,no people or text",
+      "alt": "Frisörsax och kam på en ljus arbetsbänk",
+      "bytes": 25214,
+      "sha256": "84d39a308f269802425ced2b735df067b238c75056f6b2af0d2790451fcccf5c",
+      "usage": "treatment section on customer page"
+    }
+  ],
+  "optimization": "Existing FFmpeg libwebp quality78, portraits480px, salon1200px, details720px; no npm dependency added. Original generated PNGs preserved outside repo.",
+  "productScreenshots": [
+    {
+      "file": "/demo/workspace.png",
+      "source": "actual local production build of Epic06 candidate based on16dae9a, upgraded isolated booking_epic06_demo",
+      "viewport": "390x844",
+      "physicalIphone": false,
+      "synthetic": true,
+      "sha256": "4ecf39449e88a2675fc1e08f6651a92c5f485d33a140982f1d91efc5bcd3bab7"
+    },
+    {
+      "file": "/demo/customer-card.png",
+      "source": "actual local production build of Epic06 candidate based on16dae9a, upgraded isolated booking_epic06_demo",
+      "viewport": "390x844",
+      "physicalIphone": false,
+      "synthetic": true,
+      "sha256": "4065c5376bea1ba37889374e8153e931e669a6849676bc3f5b96de5c06b9a55d"
+    }
+  ]
+}

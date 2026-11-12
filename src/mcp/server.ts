@@ -13,11 +13,13 @@ import {
 import {
   bookingModeAllowed,
   mcpBookingToolSchema,
+  mcpWorkspaceBookingSchema,
   MCP_BOOKING_CLIENT,
 } from "./booking";
 import { reply, safeToolSchema } from "./reply";
 import { registerWorkspaceTools, workspaceModeAllowed } from "./workspace";
 import { db } from "../lib/db";
+import { LOCAL_WORKSPACE_ACTOR } from "../lib/workspace-write";
 const admin = process.argv.includes("--admin");
 let allowBookings = false;
 let allowWorkspace = false;
@@ -72,14 +74,17 @@ serveStdio(() => {
         {
           description:
             "Skapa en bekräftad syntetisk testbokning. Endast betrodd lokal operatör, example.test-kunder och stabil clientRequestId för retries. Gemensamt dagstak för den lokala MCP-kanalen.",
-          inputSchema: mcpBookingToolSchema,
+          inputSchema: allowWorkspace
+            ? safeToolSchema(mcpWorkspaceBookingSchema)
+            : mcpBookingToolSchema,
         },
-        async (v) =>
+        async (v: z.output<typeof mcpWorkspaceBookingSchema>) =>
           reply(async () => {
             const booking = await createBooking(
               v,
               v.clientRequestId,
               MCP_BOOKING_CLIENT,
+              allowWorkspace ? LOCAL_WORKSPACE_ACTOR : undefined,
             );
             return {
               id: booking.id,
