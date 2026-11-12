@@ -1,6 +1,6 @@
 # Integritets- och säkerhetsprinciper
 
-## Epic 05: mutationer och historik under implementation
+## Epic 05: mutationer och historik, kandidat under slutgranskning
 
 Alla nya admin-API-mutationer ska kontrollera origin och aktiv serversession före payload eller idempotent replay. Härled aktör och businessId på servern; låt aldrig ett inskickat ID ensam ge rättighet. Versionskonflikt ska bevara originalet och kräva ny inläsning. Historiska bokningar ändras inte när tjänster redigeras; avbokning är status, inte radering. Direkt-DB-skydd för aktiva överlapp får inte ersättas av UI-kontroll.
 

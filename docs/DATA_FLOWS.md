@@ -1,6 +1,6 @@
 # Datakarta för Booking Lab SE POC
 
-## Epic 05: arbetsytans nya data, under implementation
+## Epic 05: arbetsytans nya data, kandidat under slutgranskning
 
 | Yta | Uppgifter / mottagare | Minimering och begränsning |
 | --- | --- | --- |
