@@ -1,6 +1,40 @@
 # Demo och mobilpreview — Epic 05
 
-## Vercel-förstudie 2026-11-12 — ingen deploy
+## Godkänd Vercel-anpassning — pågår, ännu ingen leveranslänk
+
+2026-11-12: Niclas godkänner separat säkerhetsanpassning och skyddad syntetisk
+preview. Några få dollar extra Vercelförbrukning accepteras, inga nya betalda
+abonnemang/tillägg. Branch preview/epic05-vercel-review, bas29ac297. Befintlig
+serverwrapper behålls med uttryckligt Vercel-ingressläge; ny PostgreSQL-spärr
+delas mellan instanser. Self-hosting/minnesläge är oförändrat. En ny additiv
+migration, inga nya npm-beroenden eller historiska migrationsändringar.
+
+Separat Vercel-projekt booking-lab-se-preview, Container Runtime (beta), Node24,
+fra1/Frankfurt, standardminne och60sekunders timeout. Alla deployments skyddas
+av Vercel Authentication; teamlistan innehåller endast Niclas som ägare. Ingen
+delningslänk eller publik skyddsdispens. Individuell syntetisk appadmin krävs
+dessutom. Ingen app har driftsatts vid denna kandidat. Inga domänköp/DNS-ändringar.
+
+Separat Neon-resurs booking-lab-se-preview-db, uttrycklig Free/free_v3,
+Frankfurt/eu-central-1, Auth och Realtime av. Endast previewmiljön ansluten.
+PostgreSQL18.6, sex migrationer och två syntetiska tjänster/personaler. Appen har
+eget konto utan superuser/CREATEDB/CREATEROLE, med DML i public men ingen åtkomst
+till migrationsmetadata. Runtime använder direkt anslutning med verifierad TLS,
+max5domän+1limiter-anslutningar per instans. Inga andra projekts data används.
+
+Vercel debiterar faktisk användning över befintlig kredit. Free-databasen är inte
+uppgraderad; inga betalda skyddstillägg används. Exakt merkostnad kan inte
+garanteras från testantal; aktivera inga teamomfattande stopp som påverkar andra
+projekt. Kontrollera förbrukningen och stoppa previewn om den inte håller sig
+inom de få dollar som accepterats. Ingen automatisk uppgradering vid DB-gräns.
+
+Lokala kommandon/resultat finns i VERIFICATION. Fryst Grok-kodgranskning,
+containerbygge/deploy, faktisk spoofing/TLS/skyddade resurser, backup/återläsning
+och fysisk iPhone/Safari återstår och får inte påstås godkända av lokala tester.
+Lösenord och DB-/miljöhemligheter ligger lokalt utanför Git och följer aldrig
+granskningspaketet. .dockerignore och .vercelignore tillåter bara käll-/byggfiler.
+
+## Bilaga — Vercel-förstudie 2026-11-12 före godkännandet
 
 Niclas väljer att i första hand undersöka befintligt Vercel-konto. Några få dollar
 i extra Vercel-förbrukning är accepterat; nya abonnemang, betalda tillägg och

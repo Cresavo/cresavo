@@ -1,5 +1,38 @@
 # Arkitektur
 
+## Godkänd Vercel-previewanpassning, 2026-11-12
+
+Separat previewbranch från Epic05-leverans29ac297. Ingen ny produktfunktion.
+Dockerfile.vercel väljer Vercels Container Runtime (beta), Node24 och samma
+scripts/server.mjs för alla HTML/API/resurser, inte vanlig Next-deploy som går
+förbi wrappern. Runtime kräver VERCEL=1, BOOKING_RUNTIME=vercel,
+RATE_LIMIT_STORE=postgres och ingen lokal forwarded-proxykonfiguration.
+Vercels dokumenterade överskrivna x-real-ip ersätter socket-peer-listan endast
+i detta uttryckliga plattformsläge; wrappern skriver fortfarande över interna
+IP/proof-headers och signerar med sin egen processhemlighet. Saknad/ogiltig
+plattformsklientadress nekas utan fallback. Self-hosting behåller socketreglerna.
+Faktisk plattformsspoofing/TLS måste verifieras före leverans, inte härledas ur
+en lokal stub. Vercel Authentication måste vara aktiverat på ALLA deployments
+utöver individuell appadmin. Ingen publik MCP.
+
+En ny additiv migration skapar RateLimitBucket. PostgreSQL-läget använder en
+egen pool med max1anslutning, separat från domänpoolens5, så att bokningar inte
+väntar på en anslutning som de själva håller. Ett kort separat transaktionslås
+serialiserar det högst10000rader stora previewlagret. Det tar aldrig domän- eller
+kontolås och släpps före lösenordskontroll. Endast route+identitetens HMAC,
+slumpmässig fönstergeneration, DB-expiry och räknare lagras. DB-klockan styr15min.
+Högst100utgångna rader städas per anrop; vid kapacitet evikteras äldsta raden,
+som i minnesläget. Ingen bakgrundsgallring om tjänsten är avstängd.
+
+Login reserverar före KDF. Lyckad login och specifikt PasswordCapacityError
+återlämnar endast sin egen generation. Andra fel och blockerade klienter
+återlämnas inte; blockerad klient kontrollerar aldrig ett lösenord. Misslyckade
+svar fördröjs fortfarande minst100ms. DB-fel får ingen minnesfallback.
+Bokningsförsök räknas i separat transaktion även om själva bokningen rullas
+tillbaka. Identisk replay returnerar före försöksspärren och förbrukar inget.
+Kundens/adminens dagstak, låsordning, sessionsregler och exclusion är oförändrade.
+Lokal standard är fortsatt memory; Vercel vägrar memory. Ingen ny npm-dependency.
+
 ## Epic 05: bokningsarbetsyta, QA-godkänd lokal alpha
 
 Femte migrationen lägger till versionsstyrda tjänster och personal med strikt begränsade veckoperioder, pauser och datumundantag. Undantag ersätter veckoschemat på det datumet. Bokningar lagrar namn/pris/längd/buffert som snapshots. Backfill kan endast återge tjänstens värden vid migrationen, inte återskapa okänt historiskt pris. Ursprungliga start/slut bevaras. Äldre migrationsfiler är oförändrade; den nya migrationen ersätter exclusion atomärt med samma halvöppna intervall för confirmed-rader.

@@ -1,9 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-/** @param {string | undefined} [connectionString] */
+/** @param {string | undefined} [connectionString] @param {number} [max] */
 export function createDatabaseClient(
   connectionString = process.env.DATABASE_URL,
+  max = 5,
 ) {
   if (!connectionString) throw new Error("DATABASE_CONFIG_INVALID");
   let url;
@@ -19,7 +20,7 @@ export function createDatabaseClient(
   url.searchParams.set("options", `${options} -c timezone=UTC`.trim());
   const adapter = new PrismaPg({
     connectionString: url.href,
-    max: 5,
+    max,
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 10000,
   });

@@ -6,6 +6,8 @@ import {
   resolveClientAddress,
   addressProof,
   proxyWarning,
+  runtimePolicy,
+  vercelClientAddress,
 } from "./client-address.mjs";
 
 // The only supported HTTP entry point: Next routes do not expose socket.remoteAddress.
@@ -17,6 +19,8 @@ const hostname =
   hostnameIndex >= 0 ? process.argv[hostnameIndex + 1] : "127.0.0.1";
 const port = Number(process.env.PORT ?? 3000);
 try {
+  const runtime = runtimePolicy(process.env);
+  if (runtime === "vercel" && dev) throw new Error("BOOKING_RUNTIME_CONFIG_INVALID");
   const trusted = proxyPolicy(
     process.env.TRUST_PROXY_IP,
     process.env.TRUSTED_PROXY_IPS,
@@ -27,8 +31,8 @@ try {
   await app.prepare();
   const server = createServer((req, res) => {
     try {
-      warnProxy(req.socket.remoteAddress, req.headers);
-      const ip = resolveClientAddress(
+      if (runtime === "local") warnProxy(req.socket.remoteAddress, req.headers);
+      const ip = runtime === "vercel" ? vercelClientAddress(req.headers) : resolveClientAddress(
         req.socket.remoteAddress,
         req.headers["x-real-ip"],
         trusted,

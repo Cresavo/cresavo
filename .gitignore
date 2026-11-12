@@ -33,6 +33,7 @@ data/
 node_modules/
 .next/
 .turbo/
+.vercel/
 dist/
 build/
 coverage/
@@ -46,3 +47,4 @@ demo-artifacts/
 *.zip
 *.tar
 *.tar.gz
+.vercel

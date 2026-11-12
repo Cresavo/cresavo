@@ -1,6 +1,13 @@
 # Projektstatus — Epic05 QA-godkänd lokal produktalpha
 
-**Senaste previewförstudie 2026-11-12:** separat branch
+**Aktuell previewstatus:** Niclas har nu godkänt den avgränsade Vercel-
+anpassningen och skyddad syntetisk preview. Implementerad kandidat har71unit,
+71integration och24E2E i vart och ett av dev0/dev1/prod0/prod1 PASS, den senare
+matrisen med delad PostgreSQL-spärr och fyra nya isolerade testdatabaser.
+Ingen app driftsatt eller länk levererad. Fryst Grok-granskning och faktisk
+driftverifiering återstår. [Detaljer](DEMO.md), [kommandon](VERIFICATION.md).
+
+**Historisk previewförstudie 2026-11-12 före godkännandet:** separat branch
 `preview/epic05-vercel-review` från ren lokal/remote `29ac297`.
 Niclas föredrar befintligt Vercel Pro och accepterar några få dollar extra
 Vercelförbrukning, inga nya betalda abonnemang/tillägg. **Config-only Vercel är
@@ -10,7 +17,7 @@ kod-/dokumentläsning av sin befintliga `4fc98d3`-kopia; runtime NOT RUN.
 Lokalt tvåprocessprov gav 5+5 lösenordskontroller för samma syntetiska klient.
 Produktkoden och lokala Epic05-GO är oförändrade. Ingen deploy/resurs/DNS eller
 åtkomständring. Separat beslut behövs före produkt-/säkerhetsanpassning.
-[Underlag, kostnadsosäkerhet och NOT RUN](DEMO.md#vercel-förstudie-2026-11-12--ingen-deploy).
+[Underlag, kostnadsosäkerhet och NOT RUN](DEMO.md).
 
 2026-11-12. Branch **epic-05-booking-workspace**, verifierad produktkod **4fc98d37fef805e041f8f8772a3fc37543d4ff04**, bas26b680d. Grok har stängt E05-QA-1 efter ett rättningsvarv och gett **GO för avgränsad lokal produktalpha**. Ingen kundpilot. Dokumentcommits efter4fc98d3 ändrar ingen produktkod/test/schema. Privat push **c12b98a** och [full manuell Actions-matris](CI_DELIVERY_2026_11_12.md) är verifierade gröna. Senare dokumentcommits ändrar bara Markdown; ingen mainmerge/deploy.
 
@@ -24,7 +31,7 @@ Produktkoden och lokala Epic05-GO är oförändrade. Ingen deploy/resurs/DNS ell
 | AC8/E05-3: användbar mobil/dator | PASS kärnflöden, nätverksfel/utkast/konflikt samt Tab/fokus/Enter; verkliga bilder granskade | UX delvis: fokus efter Flytta, dialog/Escape, dubbel kalenderlänk och kvotfeltext i backlogg. Ingen full a11y-/fysisk iPhone/Safari-verifiering. |
 | AC9: installation/uppgradering | PASS ren npmci,5migrationer/seed och faktisk Epic04-templatekopia4→5 med bevarade gamla kolumner/DST | README/Windowsguide. Historiska4migrationer orörda; ny migration ersätter exclusion atomärt för confirmed. Ingen skarp restoregaranti. |
 | AC10: oberoende QA / leverans-CI | PASS: Grok GO på4fc98d3 och69unit/66integration/24E2E×4 i egen miljö. CI påc12b98a har4gröna E2E-jobb,24/24 vardera | [Originalslutrapport](qa/QA-REPORT-epic05-4fc98d3.md). Första NO-GO7fc0e86 bevaras separat. |
-| E05-5: privat mobilpreview | Vercel-förstudie klar; faktisk URL **BLOCKERAD av säkerhets-/runtimebeslut** | [Aktuell förstudie och historiskt Hetznerförslag](DEMO.md). Ingen resurs/DNS/deploy/tunnel skapad. |
+| E05-5: privat mobilpreview | Godkänd Vercel-anpassning under test/QA; ingen verifierad faktisk URL | [Kandidat, isolerade resurser och NOT RUN](DEMO.md). Ingen appdeploy/DNS/tunnel; fysisk iPhone återstår. |
 
 **Sedan förra arbetsomgången:** hela arbetsytan och MCP-pariteten, ren installation/uppgraderingsbevis, produktionsdemo och en konkret QA-fix. Egna69unit/66integration/24E2E×4/lint/tsc/build/cleanup PASS. Full audit **FAIL7moderate/0high**,prod **PASS0**. Inga nya npm-beroenden eller licensändringar. [Faktiska kommandon och tidiga FAIL](VERIFICATION.md).
 

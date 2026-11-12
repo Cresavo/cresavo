@@ -6,6 +6,14 @@ import { DomainError, PasswordCapacityError } from "./errors";
 const buckets = new Map<string, { count: number; until: number }>();
 const windowMs = 15 * 60_000;
 
+function postgresStore() {
+  const mode = process.env.RATE_LIMIT_STORE ?? "memory";
+  if (!["memory", "postgres"].includes(mode) ||
+      (process.env.VERCEL === "1" && mode !== "postgres"))
+    throw new Error("RATE_LIMIT_CONFIG_INVALID");
+  return mode === "postgres";
+}
+
 export function clientIp(headers: Headers) {
   return verifiedClientAddress(headers, process.env.BOOKING_ADDRESS_SECRET);
 }
@@ -16,6 +24,10 @@ export function checkRateLimit(
   consume = true,
   now = Date.now(),
 ) {
+  if (postgresStore())
+    return import("./postgres-rate-limit").then(async (store) =>
+      (await store.reserveRateLimit(route, ip, consume)).count,
+    );
   for (const [key, bucket] of buckets)
     if (bucket.until <= now) buckets.delete(key);
   const key = `${route}:${ip}`;
@@ -44,17 +56,23 @@ export async function checkLoginAttempt(
   verify: () => boolean | Promise<boolean>,
 ) {
   let accepted = false;
-  let reservation: { count: number } | undefined;
+  let refund: (() => void | Promise<void>) | undefined;
   try {
-    checkRateLimit("login", ip);
-    reservation = buckets.get(`login:${ip}`)!;
+    if (postgresStore()) {
+      const store = await import("./postgres-rate-limit");
+      const reservation = await store.reserveRateLimit("login", ip);
+      refund = () => store.refundRateLimit(reservation);
+    } else {
+      checkRateLimit("login", ip);
+      const reservation = buckets.get(`login:${ip}`)!;
+      refund = () => { reservation.count--; };
+    }
     accepted = await verify();
-    if (accepted) reservation.count--;
+    if (accepted) await refund();
     return accepted;
   } catch (error) {
     // Capacity denial made no guess; refund only this request's original bucket.
-    if (error instanceof PasswordCapacityError && reservation)
-      reservation.count--;
+    if (error instanceof PasswordCapacityError && refund) await refund();
     throw error;
   } finally {
     // Locked requests never evaluate verify(), and get the same minimum delay.

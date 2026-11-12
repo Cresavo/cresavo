@@ -1,5 +1,25 @@
 # Datakarta för Booking Lab SE POC
 
+## Privat Vercel-preview, godkänd anpassning 2026-11-12
+
+Endast syntetiska data, separat Vercel-projekt och separat Neon Free-projekt i
+Frankfurt (eu-central-1), inte befintliga andra projekts data. Vercel behandlar
+IP/HTTP-metadata och sitt eget inloggningskonto vid perimetergrinden. Detta är
+en ny extern driftmottagare, inte ett nytt modell-/marknadsföringsanrop.
+Neon behandlar bokningsdatabasen och nya RateLimitBucket. Appen använder ett
+eget begränsat DB-konto över verifierad TLS. Migrationer körs med operatörskonto.
+
+RateLimitBucket: HMAC(route+IP-/admin-/lokal kanalidentitet), slumpmässig
+generation, räknare och expiry. Även HMAC är pseudonymiserat, inte anonymt.
+Inga råa IP-adresser, kundnamn, e-postadresser, lösenord eller request bodies.
+Fönstret gäller15min, högst100utgångna rader gallras per nytt anrop och lagret
+är begränsat till10000rader. Inga bakgrundsjobb: inaktiva rader kan ligga kvar
+efter expiry när previewn inte används. Ingen beslutad kundretention följer av
+detta. Originala kund-/sessionstabeller och lokala MCP-svar är oförändrade.
+Leverantörernas driftloggar är separata från appens sanerade loggar och måste
+bedömas före kunddrift. Grok får endast fryst källkod och sanerad konfiguration,
+aldrig miljöfiler, databaser, autentiseringsläge eller preview/serveråtkomst.
+
 ## Epic 05: arbetsytans nya data, kandidat under slutgranskning
 
 | Yta | Uppgifter / mottagare | Minimering och begränsning |

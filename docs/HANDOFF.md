@@ -1,5 +1,15 @@
 # Handoff — Epic05 QA-godkänd lokal produktalpha
 
+**Senaste, godkänd previewanpassning 2026-11-12:** separat kandidat på
+preview/epic05-vercel-review. Gemensam PostgreSQL-spärr, explicit Vercel-ingress
+och containerstart via befintlig wrapper. Ny sjätte migration, historiska
+migrationer och npm-paket orörda.71unit/71integration/24E2E×4 PASS, lint/tsc/build
+PASS. Fullaudit FAIL7moderate/0high,prod PASS0. Separat Vercel-projekt med skydd
+på alla deployments och ny Neon Free-DB i Frankfurt är konfigurerade, ingen
+appdeploy/länk. Grok-kandidatgranskning och faktisk drift återstår. Läs DEMO och
+VERIFICATION före fortsatt arbete. Äldre blockeringsnotering nedan gäller
+förstudien före Niclas uttryckliga godkännande.
+
 **Previewtillägg 2026-11-12, dokumentation endast:** förstudie på separat
 `preview/epic05-vercel-review`, bas `29ac297` (matchar originalbranchens remote).
 Aktiv Vercel Pro och Neon-integration verifierade läsande, ingen Booking Lab-DB
@@ -7,7 +17,7 @@ ansluten eller skapad. Några få dollar extra Vercelförbrukning accepterat, in
 nya betalda tjänster. Groks riktade läsande förstudie: **NO-GO config-only Vercel**,
 inte återkallat lokalt Epic05-GO. Processlokal spärr och overifierad socket/proxy
 kräver separat beslut före produkt-/säkerhetsanpassning. Inga molnändringar,
-deploys eller runtime-tester. [Fullt underlag/NOT RUN](DEMO.md#vercel-förstudie-2026-11-12--ingen-deploy).
+deploys eller runtime-tester. [Fullt underlag/NOT RUN](DEMO.md).
 
 2026-11-12. **epic-05-booking-workspace**, produktkod **4fc98d37fef805e041f8f8772a3fc37543d4ff04**, bas26b680d/plan5c9b07a. Grok har gett GO efter ett riktat fixvarv, E05-QA-1 stängd. Efterföljande dokumentcommits ändrar ingen app/test/schema. Privat leverans **c12b98a31f844f4dc50213a72feb57db02595794** är pushad; [Actions43210413097](CI_DELIVERY_2026_11_12.md) har4gröna E2E-jobb,24/24 vardera. Ingen mainmerge/deploy. Pilot NO-GO.
 

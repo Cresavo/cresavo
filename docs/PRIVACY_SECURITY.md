@@ -1,5 +1,22 @@
 # Integritets- och säkerhetsprinciper
 
+## Skyddad Vercel-preview — separat godkännande 2026-11-12
+
+Niclas har uttryckligen godkänt den avgränsade anpassningen och skyddad syntetisk
+preview, med några få dollar extra Vercelförbrukning men inga nya betalda
+abonnemang/tillägg. Det är inte pilotgodkännande. All-deployment Vercel
+Authentication och individuell appadmin krävs. Lämna inga publika undantag,
+delningslänkar eller bypass-token till Grok. Läs aktuell status i DEMO/HANDOFF;
+historiska formuleringar nedan om inget deploybeslut gäller den tidigare fasen.
+
+Vercel-läget får bara köras bakom Vercels dokumenterade ingress. Behåll
+socketmodellen för self-hosting; inför inte en generell headerfallback.
+Gemensam PostgreSQL-spärr krävs på Vercel, utan fail-open eller memoryfallback.
+Poolen för spärrar är separat från bokningstransaktioner. Tillfälliga
+process-/plattformstester är inte bevis för produktionsklar flerinstansdrift.
+Verifiera förfalskade headers, alla URL:ers skydd, sessioner/logout och
+beständighet/återläsning i faktisk drift innan länken lämnas ut.
+
 ## Epic 05: mutationer och historik, kandidat under slutgranskning
 
 Alla nya admin-API-mutationer ska kontrollera origin och aktiv serversession före payload eller idempotent replay. Härled aktör och businessId på servern; låt aldrig ett inskickat ID ensam ge rättighet. Versionskonflikt ska bevara originalet och kräva ny inläsning. Historiska bokningar ändras inte när tjänster redigeras; avbokning är status, inte radering. Direkt-DB-skydd för aktiva överlapp får inte ersättas av UI-kontroll.

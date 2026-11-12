@@ -114,3 +114,11 @@ model AdminUser {
   credentialVersion Int @default(1)
   sessions AdminSession[]
 }
+
+model RateLimitBucket {
+  key String @id
+  generation String
+  expiresAt DateTime @db.Timestamptz(3)
+  count Int
+  @@index([expiresAt])
+}

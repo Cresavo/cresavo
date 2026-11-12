@@ -1,0 +1,68 @@
+import { createHmac, randomUUID } from "node:crypto";
+import { createDatabaseClient } from "../../scripts/database.mjs";
+import { DomainError } from "./errors";
+
+// Separate, one-connection pool: booking transactions may already own every
+// connection in the domain pool. A rejected booking must still consume a try.
+export const rateLimitDatabase = createDatabaseClient(undefined, 1);
+type Route = "login" | "bookings" | "admin-bookings";
+export type Reservation = { key: string; generation: string; count: number };
+
+export async function reserveRateLimit(
+  route: Route,
+  identity: string,
+  consume = true,
+): Promise<Reservation> {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32) throw new Error("RATE_LIMIT_CONFIG_INVALID");
+  const key = createHmac("sha256", secret)
+    .update(`rate-limit:v1:${route}:${identity}`)
+    .digest("hex");
+  const limit = route === "login" ? 5 : route === "bookings" ? 30 : 60;
+  return rateLimitDatabase.$transaction(async (tx) => {
+    // Small bounded preview store. This lock has no domain/session dependencies;
+    // it is released before credential verification or booking processing.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('booking-lab:rate-store:v1'))`;
+    const [{ now }] = await tx.$queryRaw<{ now: Date }[]>`
+      SELECT clock_timestamp() AS now`;
+    await tx.$executeRaw`DELETE FROM "RateLimitBucket" WHERE "key" IN (
+      SELECT "key" FROM "RateLimitBucket" WHERE "expiresAt" <= ${now}
+      ORDER BY "expiresAt", "key" LIMIT 100
+    )`;
+    const previous = await tx.rateLimitBucket.findUnique({ where: { key } });
+    const active = previous && previous.expiresAt > now ? previous : null;
+    if (active && active.count >= limit)
+      throw new DomainError(
+        "För många försök. Försök igen senare.",
+        429,
+        Math.max(1, Math.ceil((active.expiresAt.getTime() - now.getTime()) / 1000)),
+      );
+    if (!consume)
+      return { key, generation: active?.generation ?? "", count: active?.count ?? 0 };
+    if (!previous && (await tx.rateLimitBucket.count()) >= 10000) {
+      const oldest = await tx.rateLimitBucket.findFirstOrThrow({
+        orderBy: [{ expiresAt: "asc" }, { key: "asc" }],
+      });
+      await tx.rateLimitBucket.delete({ where: { key: oldest.key } });
+    }
+    const value = {
+      generation: active?.generation ?? randomUUID(),
+      expiresAt: active?.expiresAt ?? new Date(now.getTime() + 15 * 60_000),
+      count: (active?.count ?? 0) + 1,
+    };
+    await tx.rateLimitBucket.upsert({
+      where: { key }, create: { key, ...value }, update: value,
+    });
+    return { key, generation: value.generation, count: value.count };
+  }, { maxWait: 30000, timeout: 10000 });
+}
+
+export async function refundRateLimit(reservation: Reservation) {
+  // An old, expired or evicted reservation can never lower a new window.
+  await rateLimitDatabase.rateLimitBucket.updateMany({
+    where: {
+      key: reservation.key, generation: reservation.generation, count: { gt: 0 },
+    },
+    data: { count: { decrement: 1 } },
+  });
+}

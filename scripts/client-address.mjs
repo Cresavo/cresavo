@@ -1,6 +1,26 @@
 import { BlockList, isIP } from "node:net";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+// Vercel is an explicit ingress trust model, never inferred from request headers.
+// Only use it in a Vercel Function protected at project level on every URL.
+export function runtimePolicy(env) {
+  const runtime = env.BOOKING_RUNTIME ?? "local";
+  if (!["local", "vercel"].includes(runtime) ||
+      (env.VERCEL === "1" && runtime !== "vercel") ||
+      (runtime === "vercel" &&
+        (env.VERCEL !== "1" || env.RATE_LIMIT_STORE !== "postgres" ||
+         (env.TRUST_PROXY_IP !== undefined && env.TRUST_PROXY_IP !== "0"))))
+    throw new Error("BOOKING_RUNTIME_CONFIG_INVALID");
+  return runtime;
+}
+
+export function vercelClientAddress(headers) {
+  // Vercel documents x-real-ip as its overwritten client address. Do not fall
+  // back to caller-controlled forwarding chains or internal proof headers.
+  return normalizeIp(typeof headers["x-real-ip"] === "string"
+    ? headers["x-real-ip"] : undefined);
+}
+
 export function normalizeIp(value) {
   if (!value || !isIP(value)) throw new Error("CLIENT_ADDRESS_INVALID");
   if (value.startsWith("::ffff:") && isIP(value.slice(7)) === 4)

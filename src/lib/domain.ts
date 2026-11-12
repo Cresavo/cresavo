@@ -207,7 +207,7 @@ export async function createBooking(
   const rateRoute = admin ? "admin-bookings" : "bookings";
   const parsed = bookingSchema.safeParse(input);
   if (!parsed.success) {
-    if (budgetAddress) checkRateLimit(rateRoute, budgetAddress);
+    if (budgetAddress) await checkRateLimit(rateRoute, budgetAddress);
     throw parsed.error;
   }
   const v = parsed.data;
@@ -220,7 +220,7 @@ export async function createBooking(
     : null;
   const parsedKey = idempotencyKeySchema.optional().safeParse(key);
   if (!parsedKey.success) {
-    if (budgetAddress) checkRateLimit(rateRoute, budgetAddress);
+    if (budgetAddress) await checkRateLimit(rateRoute, budgetAddress);
     throw parsedKey.error;
   }
   const idempotencyKey =
@@ -244,7 +244,7 @@ export async function createBooking(
         });
         if (existing) {
           if (existing.requestHash !== requestHash) {
-            if (budgetAddress) checkRateLimit(rateRoute, budgetAddress);
+            if (budgetAddress) await checkRateLimit(rateRoute, budgetAddress);
             throw new DomainError(
               "Bokningsnyckeln har redan använts med andra uppgifter.",
               409,
@@ -257,7 +257,7 @@ export async function createBooking(
           };
         }
       }
-      if (budgetAddress) checkRateLimit(rateRoute, budgetAddress);
+      if (budgetAddress) await checkRateLimit(rateRoute, budgetAddress);
       const today = parseDay(localDay(new Date()));
       const tomorrow = today.plus({ days: 1 });
       const dayRange = { gte: today.toJSDate(), lt: tomorrow.toJSDate() };

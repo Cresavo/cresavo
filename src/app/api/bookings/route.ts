@@ -12,7 +12,7 @@ export async function POST(r: NextRequest) {
     try {
       input = await r.json();
     } catch (error) {
-      checkRateLimit("bookings", ip);
+      await checkRateLimit("bookings", ip);
       throw error;
     }
     const b = await createBooking(

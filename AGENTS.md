@@ -10,6 +10,12 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
+## Avgränsad skyddad Vercel-preview, godkänd 2026-11-12
+
+- Separat worktree/branch preview/epic05-vercel-review från29ac297. Niclas har godkänt runtime-/säkerhetsanpassning och skyddad syntetisk preview, några få dollar extra Vercelförbrukning men inga nya betalda abonnemang/tillägg. Ingen ny Epic/pilot/mainmerge.
+- Behåll lokala socketregler. Vercel kräver explicit runtime, gemensam PostgreSQL-spärr, all-deployment perimeter och individuell appadmin. Ingen memoryfallback eller publik MCP. Läs ARCHITECTURE/DEMO och aktuell VERIFICATION.
+- Grok granskar fryst källkod i egen kopia, inga miljöfiler, preview-/serveråtkomster eller secrets. Högst två samlade rättningsvarv. Faktisk drift verifieras separat före länk; tidigare lokal QA är inget driftgodkännande.
+
 ## Epic 05: leveransstatus och godkänd plan, 2026-11-12
 
 - Epic05 produktkod4fc98d3 har Grok-GO som lokal alpha. Privat leveransc12b98a har4gröna CI-E2E-jobb; senare Markdown ändrar ingen kod. Mobilpreview väntar miljöbeslut, pilot NO-GO. Börja inte om eller härled en ny Epic06. Aktuellt underlag i PROJECT_STATUS/HANDOFF/CI_DELIVERY_2026_11_12.

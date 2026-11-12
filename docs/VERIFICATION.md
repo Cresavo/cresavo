@@ -1,8 +1,47 @@
-# Verifiering — Epic05 QA-fixvarv1
+# Verifiering — skyddad Vercel-preview, kandidat
+
+2026-11-12. Separat branch preview/epic05-vercel-review från29ac297. Endast
+syntetiska data. Följande körningar gäller kandidatens kod, inte den ännu ej
+driftsatta previewn. Grok och faktisk drift redovisas separat efter verifiering.
+
+## Aktuell resultattabell
+
+| Kommando/kontroll | Faktiskt utfall |
+| --- | --- |
+| npm ci --no-fund --no-audit | PASS, added570packages in1m; oförändrad lockfile. ESLint9 deprecation-varning, ingen automatisk uppgradering. |
+| npx prisma generate | PASS7.10.1,154ms. |
+| npm run db:migrate / npm run db:seed | PASS på ny loopback booking_preview_vercel_test: sex migrationer, ny sjätte rate-store-migration; seed exit0. |
+| npm run lint | PASS exit0. |
+| npx tsc --noEmit | PASS efter rättat testsubprocess-env NODE_ENV. Första körningen FAIL på testets ProcessEnv-typ, ingen ignorerad typkontroll. |
+| npm test | PASS71/71,12filer,8.94s. |
+| npm run test:integration | PASS71/71,17filer,68.01s. |
+| Riktat preview-rate-limit.test.ts | PASS5/5,5.38s. Fyra riktiga Node-processer delar högst5lösenordskontroller,15av20spärras; korrekt lösenord från spärrad klient kontrolleras aldrig. Refund/generation/expiry/no-memory-fallback testade. |
+| RATE_LIMIT_STORE=postgres, TRUST_PROXY_IP=0, npm run test:e2e | PASS24/24,dev0,2.1m på ny booking_preview_dev0_test. |
+| Samma med TRUST_PROXY_IP=1 | PASS24/24,dev1,1.4m på ny booking_preview_dev1_test. |
+| E2E_PRODUCTION=1 och TRUST_PROXY_IP=0 | PASS24/24,prod0,45.8s på ny booking_preview_prod0_test. |
+| E2E_PRODUCTION=1 och TRUST_PROXY_IP=1 | PASS24/24,prod1,42.1s på ny booking_preview_prod1_test. |
+| npm run build | PASS, Next16.4.6,compile9.7s/TypeScript8.9s; routes listade korrekt. Separat no-DB-bygge redovisas efteråt. |
+| npm audit --json | FAIL exit1,7moderate,0high/critical. Inga overrides/majoruppgraderingar. |
+| npm audit --omit=dev --json | PASS exit0,0fynd. Runtime-image ska pruna utvecklingsberoenden. |
+| git diff --check | PASS. |
+| Ny Neon-preview, läsande kontroll | PASS:18.6,UTC,initialt0publictabeller; därefter6migrationer/seed och begränsat appkonto. Ingen testsvit eller testvakt kringgås mot moln-DB. |
+| Vercel-projekt/perimeter | Konfigurerat separat projekt,Container,fra1,ssoProtection.enabled=true/deploymentType=all. Endast Niclas i teamlistan. Ingen faktisk HTTP-verifiering ännu. |
+
+E2E-/migrations-/auditloggar finns lokalt utanför Git under
+C:/Users/<user>/booking-lab-pg-test/preview-vercel-review. Övriga kommandoutdata
+observerades i Codex-verktygsresultat. Historiska5migrationer och package/lockfile
+är oförändrade. Ingen ny demo/video behövs för osynlig driftanpassning.
+
+**NOT RUN vid kandidat:** Linuxcontainerbygge/deploy, ny Grok-kandidat-QA, faktisk
+HTTP/API/resursgrind, TLS/proxyspoofing, driftens admin/logout/bokning,
+omstart/beständighet, backup/återläsning, fysisk iPhone/Safari, ny Actions-körning.
+Dokumenterade äldre lokala/CI/Grok-resultat nedan är inte driftbevis.
+
+## Bilaga — tidigare Epic05 QA-fixvarv1
 
 2026-11-12. Branch epic-05-booking-workspace; fryst fixkod **4fc98d37fef805e041f8f8772a3fc37543d4ff04** efter7fc0e86/b331cb1, E05-QA-1. Ny loopback booking_epic05_fix1_test på55451, PostgreSQL18.6. Original-QA7fc0e86 gav NO-GO på adminbudgeten; riktad återkontroll på4fc98d3 stängde E05-QA-1 och gav GO för lokal alpha. Historiska migrationer/dependencies oförändrade. Privat pushc12b98a och full manuell CI43210413097 PASS; ingen mainmerge/deploy.
 
-## Aktuell resultattabell
+### Historisk resultattabell för Epic05-fixen
 
 | Kommando/kontroll | Faktiskt resultat efter fix |
 | --- | --- |
