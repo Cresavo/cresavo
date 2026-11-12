@@ -10,6 +10,17 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
+## Nästa produktuppdrag: Epic 05, plan uppdaterad 2026-11-12
+
+- Läs `docs/PRODUCT_ROADMAP.md` och `docs/EPIC_05_PLAN.md` när produktägaren startar nästa mål. Epic 01–04 är avslutade POC-uppdrag; bygg inte om dem. Planbas är Epic 04 `26b680d`, inte äldre main.
+- Epic 05 ger faktisk kalender, tjänste-/schemakonfiguration, skapa/flytta/avboka och samma tillåtna lokala MCP-handlingar. Framtida lager, kampanjutbyggnad, journal och ekonomi är roadmap, inte automatiskt nya uppdrag.
+- Codex skriver kod. Använd befintlig Booking Lab QA/Grok via verifierad Computer Use-konversation för fryst separat granskning. Verifiera skickat meddelande, kodåtkomst och rätt SHA; inget QA-GO från ett oskickat utkast. Högst två samlade rättningsvarv enligt planen.
+- Less is more, riktig mobil dagvy och desktopkalender. Tidigare AI-genererade dashboardbilder är avvisade. Riktiga knappar/etiketter, inga bildknappar eller permanent stor AI-panel.
+- Planen tillåter relevanta nya domänfunktioner, kontrakt och additiva migrationer efter tester, aldrig omskrivning av historiska migrationer eller borttaget konfliktskydd. Basens säkerhetsinvarianter nedan består.
+- Färdig verifierad Epic 05 får pushas till befintligt privat origin enligt planens leveransgrind. Äldre batchspecifika pushstopp nedan gäller sina historiska uppdrag. Ingen main-merge, force-push, deploy, riktig data eller ny betald tjänst. Privat mobilpreview kräver separat uttryckligt miljögodkännande; lokal demo är inte en mobilåtkomlig site.
+
+## Gemensamma regler
+
 - Läs `README.md`, `docs/ARCHITECTURE.md` och `docs/ENGINEERING_PRINCIPLES.md` före ändringar.
 - Gör små, tydliga ändringar; behåll webb och MCP på samma domänlogik. Ändra inte API-kontrakt eller migrationer utan uttryckligt uppdrag.
 - Behåll servervalidering, admin- och origin-kontroller samt PostgreSQL:s överlappsskydd. Använd bara syntetiska kunduppgifter.
@@ -22,7 +33,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 - `src/lib/domain.ts` och `time.ts`: gemensamma bokningsregler, datum och MCP-paginering; `db.ts` och `prisma/`: databas och historiska integritetsregler.
 - `src/lib/auth.ts`, `errors.ts`, `http.ts`: lokal session och säkra felgränser. Skicka aldrig råa felobjekt till loggar eller klienter; `DomainError` får bara innehålla godkända statiska meddelanden.
-- `src/app/`: webb/admin/HTTP; `src/mcp/`: endast lokal stdio. SDK-valideringsfel kan spegla klientens egen indata; det är inte en fullständig sekretessgräns.
+- `src/app/`: webb/admin/HTTP; `src/mcp/`: endast lokal stdio. SDK-valideringsfel kan spegla klientens egna indata; det är inte en fullständig sekretessgräns.
 - `tests/`: unit, riktig PostgreSQL-integration och desktop/mobil. Läs `docs/WORKPLAN.md` för aktuell verifiering och `docs/HANDOFF.md` för överlämning. CI ligger i `.github/workflows/verify.yml`, utan publicering.
 
 ## Produktägarleverans efter varje Epic
@@ -41,16 +52,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Epic 01 är avslutad. Epic 02 är godkänd enligt `docs/EPIC_02_PLAN.md`: endast lokal syntetisk MCP-bokning. Visa e-post är fortsatt utanför scope. Logout måste återkalla serverraden; idempotenta replays förbrukar ingen budget. Bevara alla historiska migrationer.
 - MCP-subprocesser får samma exporterade DATABASE_URL via mcpEnvironment, inte alla förälderns hemligheter. Kör bara en QA-omgång per miljö; bevara fixture-städningens egen teardown-tid och spårning av egna sessionshashar.
 - Vitlistad explicit miljö är inte OS-isolering. Prisma 7:s runtime autoläser inte .env; CLI laddar den uttryckligen. Se ARCHITECTURE och PRIVACY_SECURITY. Bevara create_booking:s strikta publicerade schema, safeFailure-sanerade validering och separata --admin/--allow-bookings-flaggor.
-- Repot ska förbli privat. Denna batch får lokala commits, ingen push utan nytt uppdrag.
+- Repot ska förbli privat. Äldre lokala batcher fick inte pushas utan nytt uppdrag; senare uttryckliga leveransmandat anges i respektive målplan.
 
-- Epic 02 är slutgodkänd i dba05a2. Fortsatt Epic 03 följer `docs/EPIC_03_PLAN.md` och `docs/DEPENDENCY_REVIEW.md`. Prisma 7 använder `scripts/database.mjs` överallt: skapa inte adapterlös PrismaClient eller separat pool. Bevara UTC-session, poolgräns och strukturerad adapterfelsmappning. Bara CLI:s prisma.config.ts laddar .env; detta är inte OS-isolering. Äldre Prisma 6-noteringar ovan beskriver Epic 02.
+- Epic 02 är slutgodkänd i dba05a2. Epic 03 följer `docs/EPIC_03_PLAN.md` och `docs/DEPENDENCY_REVIEW.md`. Prisma 7 använder `scripts/database.mjs` överallt: skapa inte adapterlös PrismaClient eller separat pool. Bevara UTC-session, poolgräns och strukturerad adapterfelsmappning. Bara CLI:s prisma.config.ts laddar .env; detta är inte OS-isolering. Äldre Prisma 6-noteringar beskriver Epic 02.
 
 - Loginspärren måste kontrolleras före lösenordet, även rätt lösenord nekas från spärrad klient. Behåll testet att ingen lösenordskontroll anropas efter spärr. ADMIN_SESSION_VERSION får endast höjas.
 
-- Uppföljning efter 8b83a40: M2/L8 och fyrfältsmatris i CI. Bevara låsordningen idempotens → klient/dag → e-post/dag → anställd/bokningsdag; ta anställdslåset före tillgänglighetskontroll. Nya CI-jobb är inte verifierade på GitHub förrän en godkänd push har körts.
+- Uppföljning efter 8b83a40: M2/L8 och fyrfältsmatris i CI. Bevara låsordningen idempotens → klient/dag → e-post/dag → anställd/bokningsdag; ta anställdslåset före tillgänglighetskontroll. Ombokning som låser flera resurser måste utvidga ordningen deterministiskt och regressionstestas. Nya CI-jobb är inte verifierade på GitHub förrän en godkänd push har körts.
 
 - Epic 04: individuell lokal admin enligt docs/ADR_004_ADMIN_IDENTITY.md och docs/ADMIN_OPERATIONS.md. Ingen ADMIN_PASSWORD-fallback. Behåll asynkron spärrreservation före KDF, max fyra KDF-operationer, kontoradlås och credentialVersion vid login/reset/spärr. Radera aldrig historiska sessioner som migreringsgenväg. Endast example.test; kund-e-post är fortsatt maskerad. Testfixtures måste städa egna AdminUser och sessionsrader.
 
-- Produktägaren godkände 2026-11-12 push av färdiga Epic02–04-brancher till befintligt privat origin efter tester/Grok-QA. Följ docs/GOAL_EPIC_02_04.md; ingen merge till main, deploy eller odefinierad framtida Epic. Rapportera alla fyra Actions-jobb och kända audit-undantag per exakt revision.
+- Produktägaren godkände 2026-11-12 push av färdiga Epic02–04-brancher till befintligt privat origin efter tester/Grok-QA. Det avslutade målet finns i docs/GOAL_EPIC_02_04.md. Epic 05 har separat plan ovan; inga odefinierade framtida Epics. Rapportera alla fyra Actions-jobb och kända audit-undantag per exakt revision.
 
 - Epic04 är godkänd som lokal POC på471f91f. Bevara PasswordCapacityError som enda återbetalningsgrund för inloggningsförsök: återlämna originalobjektet, aldrig aktuell bucket via ny uppslagning. Verkliga fel och redan spärrad klient får ingen refund. Läs EPIC_04_QA_FOLLOWUP och slutrapporten före ändringar.
