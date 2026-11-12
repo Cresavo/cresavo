@@ -6,29 +6,38 @@ import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline";
 import { ZONE } from "../lib/time";
 import { formatBookingTime } from "../lib/format";
+import { runWorkspaceDemo } from "./workspace-client";
 async function main() {
   const admin = process.argv.includes("--admin");
   const book = process.argv.includes("--book");
+  const workspace = process.argv.includes("--workspace");
   if (book && !admin) throw new Error("MCP_CLIENT_BOOKING_REQUIRES_ADMIN");
+  if (workspace && (!admin || book))
+    throw new Error("MCP_CLIENT_WORKSPACE_CONFIG_INVALID");
   const client = new Client({
     name: "booking-lab-test-client",
     version: "0.1.0",
   });
   const transport = new StdioClientTransport({
     command: process.execPath,
-    env: mcpEnvironment({ booking: book }),
+    env: mcpEnvironment({ booking: book, workspace }),
     args: [
       "--import",
       "tsx",
       "src/mcp/server.ts",
       ...(admin ? ["--admin"] : []),
       ...(book ? ["--allow-bookings"] : []),
+      ...(workspace ? ["--allow-workspace"] : []),
     ],
   });
   await client.connect(transport);
   try {
     const tools = await client.listTools();
     console.log("Verktyg:", tools.tools.map((t) => t.name).join(", "));
+    if (workspace) {
+      await runWorkspaceDemo(client);
+      return;
+    }
     let day = DateTime.now()
       .setZone("Europe/Stockholm")
       .plus({ days: 1 })

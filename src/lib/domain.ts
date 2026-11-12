@@ -62,6 +62,7 @@ export async function listServices(includeInactive = false) {
   return db.service.findMany({
     where: { businessId, ...(!includeInactive && { active: true }) },
     orderBy: { name: "asc" },
+    take: 50,
   });
 }
 
@@ -386,7 +387,7 @@ async function bookingListQuery(input: unknown) {
 
   if (cursor) {
     const previous = await db.booking.findFirst({
-      where: { id: cursor, businessId, startsAt },
+      where: { id: cursor, businessId, startsAt, status: "confirmed" },
       select: { id: true },
     });
     if (!previous)
@@ -394,7 +395,7 @@ async function bookingListQuery(input: unknown) {
   }
 
   return {
-    where: { businessId, startsAt },
+    where: { businessId, startsAt, status: "confirmed" },
     orderBy: [{ startsAt: "asc" as const }, { id: "asc" as const }],
     take: limit + 1,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
@@ -409,11 +410,19 @@ export async function listBookingsForMcp(input: unknown) {
       id: true,
       startsAt: true,
       endsAt: true,
-      service: { select: { id: true, name: true } },
+      serviceId: true,
+      serviceName: true,
     },
   });
   const limit = query.take - 1;
-  const bookings = rows.slice(0, limit);
+  const bookings = rows
+    .slice(0, limit)
+    .map(({ id, startsAt, endsAt, serviceId, serviceName }) => ({
+      id,
+      startsAt,
+      endsAt,
+      service: { id: serviceId, name: serviceName },
+    }));
   return {
     bookings,
     nextCursor: rows.length > limit ? bookings[bookings.length - 1].id : null,
@@ -441,13 +450,18 @@ export async function listBookings(
       endsAt: true,
       customerName: true,
       customerEmail: true,
-      service: { select: { id: true, name: true } },
+      serviceId: true,
+      serviceName: true,
     },
   });
   const limit = query.take - 1;
   const bookings = rows
     .slice(0, limit)
-    .map((b) => ({ ...b, customerEmail: "***@***" }));
+    .map(({ serviceId, serviceName, ...booking }) => ({
+      ...booking,
+      customerEmail: "***@***",
+      service: { id: serviceId, name: serviceName },
+    }));
   return {
     ...range,
     bookings,

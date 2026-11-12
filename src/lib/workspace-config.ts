@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { Staff } from "@prisma/client";
 import { z } from "zod";
 import { db } from "./db";
 import { DEMO_BUSINESS_ID as businessId } from "./config";
@@ -38,6 +39,20 @@ export const staffEditSchema = z
   .strict()
   .refine(identityValid);
 
+function parsedStaff(row: Staff) {
+  return {
+    ...row,
+    weekly: weeklySchema.parse(row.weekly),
+    exceptions: exceptionsSchema.parse(row.exceptions),
+  };
+}
+export async function getStaff(id: string) {
+  const row = await db.staff.findFirst({
+    where: { id: z.string().min(1).max(128).parse(id), businessId },
+  });
+  if (!row) throw new DomainError("Medarbetaren kan inte utföra behandlingen");
+  return parsedStaff(row);
+}
 export async function listStaff(serviceId?: string, includeInactive = false) {
   const rows = await db.staff.findMany({
     where: {
@@ -48,11 +63,7 @@ export async function listStaff(serviceId?: string, includeInactive = false) {
     orderBy: { name: "asc" },
     take: 20,
   });
-  return rows.map((row) => ({
-    ...row,
-    weekly: weeklySchema.parse(row.weekly),
-    exceptions: exceptionsSchema.parse(row.exceptions),
-  }));
+  return rows.map(parsedStaff);
 }
 export async function saveService(
   input: unknown,

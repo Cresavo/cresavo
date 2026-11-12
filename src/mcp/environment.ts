@@ -1,5 +1,5 @@
 export function mcpEnvironment(
-  options: { booking?: boolean } = {},
+  options: { booking?: boolean; workspace?: boolean } = {},
 ): Record<string, string> {
   const result: Record<string, string> = {};
   for (const name of [
@@ -17,7 +17,10 @@ export function mcpEnvironment(
     "NEXT_TELEMETRY_DISABLED",
   ])
     if (process.env[name] !== undefined) result[name] = process.env[name]!;
-  if (options.booking && process.env.SESSION_SECRET !== undefined)
+  if (
+    (options.booking || options.workspace) &&
+    process.env.SESSION_SECRET !== undefined
+  )
     result.SESSION_SECRET = process.env.SESSION_SECRET;
   return result;
 }

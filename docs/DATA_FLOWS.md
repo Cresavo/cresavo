@@ -11,7 +11,9 @@
 | BookingEvent | Tid, åtgärd, bokning, betrodd aktör/kanal, föregående/nästa tid/personal | Inga kundpayloads eller lösenord. Admin-ID är personuppgift; lokal MCP-kanal är inte verifierad individ. |
 | WorkspaceRequest | Hashad aktörsbunden nyckel, payloadhash och minimalt mutationsresultat | Inga råa kunduppgifter i ledger. Ingen beslutad produktionsretention; växer med nya request-ID och måste ingå i framtida gallrings-/exportbedömning. |
 
-UI använder samma origins API; ingen ny extern telemetri, modellanslutning eller tjänst läggs till. Full lokal MCP-paritet är ännu inte implementerad/verifierad. Uppdatera verktygsmatrisen och datagranskningen när den är klar. Bara syntetiska uppgifter; pilot fortsatt NO-GO.
+UI använder samma origins API; ingen ny extern telemetri, modellanslutning eller tjänst läggs till. Lokal MCP-paritet är implementerad under slutverifiering. Nya arbetsyteläsningar kräver --admin och skickar aldrig kundnamn/e-post. Bokningslistan har bara id/tjänst/personal/start/slut/status/version, max100/sida och31dagar. Bokningsdetalj ger snapshotuppgifter och max20händelser. Personalmetadata max20 och tjänster max50. Schemaläsning är normalt31dagar; explicit get_staff_configuration ger en persons kompletta, högst60datumundantag för att kunna ersätta konfiguration utan förlust. Personalnamn och frånvaro kan vara personuppgifter även utan kunddata.
+
+Nya save_service/save_staff/move_booking/cancel_booking kräver --admin --allow-workspace, stabil request-id och confirmed. De skriver genom webbens domän; mutationernas ledger/historik får samma begränsningar ovan. Nya serververktyg öppnar inga portar. Testklientens --workspace bekräftar varje av sju syntetiska skrivningar, skriver endast minimala resultat och använder explicit miljövitlista inklusive kvothemligheten bara i valt skrivläge. Ingen extern AI får data automatiskt. Nej/EOF stoppar efter tidigare bekräftade ändringar; ingen dold rollback eller automatisk återkörning. [Aktuell verktygsmatris](ARCHITECTURE.md). Bara syntetiska uppgifter; pilot fortsatt NO-GO.
 
 ## Epic 04: administratörsidentitet
 

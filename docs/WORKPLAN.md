@@ -5,14 +5,26 @@ Start 2026-11-12. Godkänd plan5c9b07a på origin/epic-05-booking-workspace, ver
 | Del | Faktiskt läge |
 | --- | --- |
 | E05-0 | Plan/roadmap/AGENTS lästa, rätt branch hämtad och vald; inga nyare remotecommits än5c9b07a vid start. |
-| E05-1 | Domän/schema och redigerbara adminvyer/API implementerade. Pris/längd/snapshot och schemaändringar verifierade i verkligt mobil-/desktopflöde; MCP återstår. |
-| E05-2 | Domän och UI/API för atomär flytt/avbokning implementerade; samtidighet/retry/stale testade. MCP återstår. |
+| E05-1 | Domän/schema, adminvyer/API och lokal MCP implementerade. Pris/längd/snapshot och schemaändringar verifierade; slutinstallation/uppgraderingskopia/Grok återstår. |
+| E05-2 | Domän och UI/API/MCP för atomär flytt/avbokning implementerade. Retry/stale och blandad HTTP/MCP-konkurrens testade. |
 | E05-3 | Implementerad desktop dag/vecka och mobil lista med detalj-/inställningsvyer.20/20 E2E i alla4lägen PASS, inklusive manuella boknings-/utkast-/nätverksfall. Slutdemo/fysisk mobil/Safari ej verifierade. |
-| E05-4 | Planerad: lokal MCP-paritet, separat write-opt-in och bekräftande testklient. |
+| E05-4 | Implementerad och delverifierad:68unit/64integration,22prod-E2E samt stärkt race2/2. Separat opt-in, kundfria svar och sju operatörsbekräftelser. Slutmatris på ren installation återstår. |
 | E05-5 | Läsande inventering: ansluten Vercel-Pro-workspace finns men inget Booking Lab-projekt bland dess länkade projekt; ingen lokal Vercel-/Fly-/Railway-konfiguration i repot. Leverantörs-/runtimebedömning och konkret åtkomst/region/backup/kostnadsförslag återstår. Ingen resurs skapad eller deploy godkänd. |
 | QA/demo/leverans | Inte påbörjad; sammanhängande kandidat fryses först efter implementation och egna kontroller. |
 
 ## Skärmstruktur
+
+### MCP-delkontroll 2026-11-12
+
+Nya arbetsyteverktyg och separat --allow-workspace implementerade med officiell befintlig SDK, samma domänfunktioner/lås och safeToolSchema. Inga nya beroenden/migrationer. GetStaff är en scope-avgränsad gemensam läsning; listServices begränsas till samma50resurser som konfigurationsskrivning. Äldre list_bookings behåller svarstyp men använder snapshots och enbart confirmed; det nya list_workspace_bookings har status/version, kundfria fält och samma paginerade kalenderlogik som UI. Komplett personalkonfiguration är en explicit bounded read för säker ersättning av max60datumundantag; vanlig schemaläsning ger bara önskat31dagarsfönster.
+
+Faktiska kommandon på samma isolerade config2_test: npm run lint PASS utan varningar; npx tsc --noEmit PASS; npm test68/68(11filer,9.50s); npm run test:integration64/64(15filer,57.04s); npm run build PASS. E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e22/22 PASS(2.2m), därefter två stärkta assertions för racets förlorande konflikt. Riktad återkontroll av samma test med --grep 'HTTP och lokal MCP delar':2/2PASS(40.5s) desktop/mobil. Ingen full fyrfältsmatris för denna nya MCP-kod ännu; UI-delens tidigare20×4 gäller66f2796.
+
+Testfallen omfattar separat flagga/kvothemlighet, okända/främmande resurser, för breda datum/limit, kundfria svar, snapshot-längd/pris,20identiska flytt-retries, ändrad payload, stale-version, avbokad status, schemaläsning jämfört med komplett konfiguration och20blandade anrop. Verklig HTTP/MCP-flytt/avbokning:exakt1vinnare, kontrollerad400/409 och0överlappar. Samtliga4nya skrivverktyg testas via stdio för saknad/falsk confirmed, saknad request-id och okänt fält, utan nya ledger- eller bokningsändringar. Scriptad CLI-probe kräver7ja; första nej/EOF och partiellt ja→EOF/nej bevarar bara redan bekräftade ändringar. Ingen manuell mänsklig operatör eller fysisk mobil påstås verifierad.
+
+Tidiga fel: tsc krävde NODE_ENV i de två nya testernas spawn-miljö (Nexts globala ProcessEnv-typ). Första fulla integrationskörningen57/59 hade två5s-timeouter i oförändrade admin-CLI-test; isolerad3/3PASS följdes av59/59,60/60och slutlig64/64PASS. Inga testgränser sänktes. Läsande intern delgranskning hittade ingen konkret blockerande kodbugg men två täckningsluckor, båda kompletterade enligt ovan. Detta är inte Groks slut-QA och startar ingen ny full foundationgranskning.
+
+Extern slutprobe efter test: booking/event/requestledger/session/admin/campaign=0,service/staff=2/2,activeOverlaps0, databaseDeadlocks0; endast probens1anslutning. Alla originalutdata lokalt i booking-lab-pg-test/epic05-mcp-*.log. Återstår: ren npmci/generate och ny sluttest-DB, verifierad uppgraderingskopia4→5, full slutmatris, produktionsdemo/provguide, konkret previewförslag och fryst Grok-QA. Ingen implementationpush gjord.
 
 ### Avgränsad CI-kostnadsändring, 2026-11-12
 

@@ -10,15 +10,25 @@ Adminens nya HTTP-endpoints härleder konto och demo-kontext på servern. Alla m
 
 | UI-handling | Gemensam domän | HTTP | Lokal MCP / verifiering |
 | --- | --- | --- | --- |
-| Kund/admin skapar bokning | createBooking | POST /api/bookings respektive /api/admin/bookings action=create | Befintlig create_booking finns; nya workspace-kontrakt återstår |
-| Lediga tider per utförare | getAvailability | GET /api/availability, valfri staffId | Valfri staffId i MCP återstår |
-| Kalender och detaljer | listCalendar / getBooking | GET /api/admin/bookings, /[id] | Minimerad workspace-läsning återstår |
-| Flytta / avboka | moveBooking / cancelBooking | POST /api/admin/bookings | Nya opt-in-verktyg återstår |
-| Tjänst och schema | saveService / saveStaff | POST /api/admin/services, /api/admin/staff | Nya opt-in-verktyg återstår |
+| Kund/admin skapar bokning | createBooking | POST /api/bookings respektive /api/admin/bookings action=create | create_booking, strikt syntetiskt schema; valfri staffId/serviceVersion; tidigare fyrfältssvar bevarat |
+| Lediga tider per utförare | getAvailability / getMoveAvailability | GET /api/availability och /api/admin/bookings/[id]/availability | get_availability med valfri staffId, get_move_availability med bokningens lagrade längd |
+| Kalender och detaljer | listCalendar / getBooking | GET /api/admin/bookings, /[id] | list_workspace_bookings / get_booking, minimerade svar utan kundnamn/e-post |
+| Flytta / avboka | moveBooking / cancelBooking | POST /api/admin/bookings | move_booking / cancel_booking med version, clientRequestId, confirmed och separat opt-in |
+| Tjänst och schema | listServices / listStaff / getStaff / saveService / saveStaff | GET/POST /api/admin/services och /api/admin/staff | list_workspace_services, list_staff, get_staff_schedule, get_staff_configuration; save_service / save_staff |
 
 Kalendern är huvudyta med faktisk tidsskala på dator och kronologiska kort på mobil; tjänster, personal/tider och kampanjer har separata sidor. Formulär bevarar utkast vid nätverksfel och request-id vid samma retry, väntar på serverbekräftelse och varnar före osparad navigering. Datum anges YYYY-MM-DD oberoende av operativsystemets datumväljare; tider och pengar formateras i sv-SE/Stockholm/SEK. Public availability behåller string[] och kundbokning 201{id}. Valfria staffId/serviceVersion får inga schema-defaults som skulle ändra äldre request-hashar. En skickad gammal serviceVersion nekas med 409, men redan genomförd identisk replay bevaras.
 
-Detta är implementeringsläge, inte slut-QA: full matris, uppgraderingskopia, MCP-paritet, demo och Grok återstår. Se WORKPLAN för faktiska körningar.
+### Lokala agentkontrakt
+
+Nya läsverktyg kräver betrott lokalt --admin. Nya flytt-/avboknings-/konfigurationsverktyg kräver dessutom --allow-workspace och kvotens befintliga SESSION_SECRET. Äldre --allow-bookings aktiverar fortfarande enbart sin bokningsskrivning, inte arbetsytemutationer. --allow-workspace aktiverar också samma create_booking. Ingen HTTP-transport/port eller extern modell tillkommer; flaggorna är inte fjärrautentisering. SDK:s officiella StandardSchema-gräns behåller JSON-schemat och sanerar valideringsfel före callback; samma safeFailure används för körfel.
+
+list_workspace_bookings kräver datumintervall max31dagar, max100/sida och scope-kontrollerad cursor, valfritt staffId och status confirmed/all. Svarsfält: id,serviceId,staffId,startsAt,endsAt,status,version samt nextCursor; inga kundfält. get_booking ger lagrad behandling/pris/längd/buffert och max20händelser utan kundfält. Boknings-ID/tider/behandling kan fortfarande vara personuppgifter. Äldre list_bookings behåller sin svarstyp men visar endast confirmed och använder bokningens lagrade tjänstenamn, inte det senare ändrade namnet i katalogen. Inga avbokade tider ska framstå som aktiva i äldre klienter.
+
+Resurslistor är begränsade till50tjänster/20personal, samma gränser som konfigurationsskrivning. list_staff lämnar metadata/tjänsttilldelning, inte hela frånvarokonfigurationen. get_staff_schedule läser en persons veckoschema och undantag inom31dagar. För fullständig ersättning av exceptions krävs get_staff_configuration: en person, max7veckodagar/60datumundantag/8perioder per dag; inga kundfält eller fria frånvaroskäl. Att skriva exceptions ersätter hela listan. Utelämnat exceptions/active/buffer bevarar tidigare värden vid uppdatering; id/expectedVersion måste skickas tillsammans.
+
+Alla nya skrivningar kräver confirmed=true och stabil clientRequestId(max64). Aktören är en serverägd lokal kanal, aldrig klientens fält. Identisk retry återger samma minimala resultat; ändrad payload eller gammal version nekas. Den medföljande klientens --admin --workspace ber om sju separata bekräftelser för skapa tjänst/personal/bokning, flytta, avboka och inaktivera provresurser. Nekande/EOF stoppar innan nästa skrivning; tidigare godkända ändringar ligger kvar. Pipe/automation kan svara ja, så detta bevisar inte mänskligt samtycke.
+
+Detta är implementeringsläge, inte slut-QA: ren slutinstallation, full slutmatris, uppgraderingskopia, demo och Grok återstår. Se WORKPLAN för faktiska delkörningar.
 
 ## Epic 04: individuell lokal admin
 

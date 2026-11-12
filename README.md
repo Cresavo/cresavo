@@ -50,6 +50,12 @@ npm run dev
 
 ## MCP
 
+### Epic 05: lokal arbetsytegenomgång, under verifiering
+
+Efter migrering/seed: `npm run mcp:client -- --admin --workspace`. Klienten visar varje syntetisk ändring och kräver ett nytt `ja` inför varje skrivning. Den skapar en provtjänst/utförare och bokning, flyttar/avbokar bokningen och inaktiverar provresurserna. Historiken ligger kvar för kontroll i admin. Vid nej/EOF stoppas genomgången; tidigare bekräftade ändringar ligger kvar. Vid tappat svar, kontrollera admin och den utskrivna åtgärdsnyckeln innan du gör ett nytt försök. Detta är ett lokalt testverktyg och inget bevis på mänskligt samtycke.
+
+Manuell SDK-anslutning använder `node --env-file=.env --import tsx src/mcp/server.ts --admin --allow-workspace`. Nya begränsade läs-/skrivverktyg och deras svar finns i [verktygsmatrisen](docs/ARCHITECTURE.md). Ingen publik MCP-port. Äldre `--allow-bookings` ger inte rätt att flytta/avboka eller ändra tjänster/schema. Inga nya beroenden eller externa modellanslutningar. Äldre `list_bookings` behåller svarstypen men visar nu enbart aktiva bokningar med lagrat tjänstenamn; för status/version och avbokad historik används `list_workspace_bookings`/`get_booking`.
+
 En betrodd lokal MCP-klient kan starta `node --env-file=.env --import tsx src/mcp/server.ts` i projektkatalogen. Standardläget erbjuder `list_services` och `get_availability`. Administratören kan uttryckligen lägga till argumentet `--admin`; då tillkommer `list_bookings` och `create_campaign_draft`. Ge endast betrodda lokala klienter adminläget: flaggan är en lokal behörighetsgräns, inte säker fjärrautentisering. Servern lyssnar inte på något nätverksuttag. Utkastet publiceras manuellt i administrationen.
 
 Prova med den medföljande klienten:

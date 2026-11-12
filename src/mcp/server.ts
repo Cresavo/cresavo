@@ -15,29 +15,26 @@ import {
   mcpBookingToolSchema,
   MCP_BOOKING_CLIENT,
 } from "./booking";
-import { safeFailure } from "../lib/errors";
+import { reply, safeToolSchema } from "./reply";
+import { registerWorkspaceTools, workspaceModeAllowed } from "./workspace";
 import { db } from "../lib/db";
 const admin = process.argv.includes("--admin");
 let allowBookings = false;
+let allowWorkspace = false;
 try {
   allowBookings = bookingModeAllowed(process.argv, process.env.SESSION_SECRET);
 } catch {
   console.error("MCP_BOOKING_CONFIG_INVALID");
   process.exit(1);
 }
-async function reply(operation: () => Promise<unknown>) {
-  try {
-    return {
-      content: [
-        { type: "text" as const, text: JSON.stringify(await operation()) },
-      ],
-    };
-  } catch (error) {
-    return {
-      isError: true,
-      content: [{ type: "text" as const, text: safeFailure(error).message }],
-    };
-  }
+try {
+  allowWorkspace = workspaceModeAllowed(
+    process.argv,
+    process.env.SESSION_SECRET,
+  );
+} catch {
+  console.error("MCP_WORKSPACE_CONFIG_INVALID");
+  process.exit(1);
 }
 serveStdio(() => {
   const server = new McpServer({ name: "booking-lab-se", version: "0.1.0" });
@@ -54,12 +51,22 @@ serveStdio(() => {
     {
       description:
         "Lediga tider för en behandling och ett lokalt datum YYYY-MM-DD",
-      inputSchema: z.object({ serviceId: z.string(), date: z.string() }),
+      inputSchema: safeToolSchema(
+        z
+          .object({
+            serviceId: z.string().min(1).max(128),
+            date: z.string(),
+            staffId: z.string().min(1).max(128).optional(),
+          })
+          .strict(),
+      ),
     },
-    async (v) => reply(() => getAvailability(v.serviceId, v.date)),
+    async (v) =>
+      reply(() => getAvailability(v.serviceId, v.date, db, v.staffId)),
   );
   if (admin) {
-    if (allowBookings) {
+    registerWorkspaceTools(server, allowWorkspace);
+    if (allowBookings || allowWorkspace) {
       server.registerTool(
         "create_booking",
         {

@@ -6,7 +6,7 @@ Alla nya admin-API-mutationer ska kontrollera origin och aktiv serversession fö
 
 BookingEvent och WorkspaceRequest tillför personanknuten spårbarhet och hashat idempotensunderlag. Logga inga råa payloads; håll resultatledger fri från kundnamn/e-post och hemligheter. Ingen produktionsretention för de nya raderna är beslutad. Framtida kund-/adminexport, gallring och säkerhetskopior måste omfatta dessa tabeller och snapshots. Schemat lagrar tider och ledighet, aldrig medicinska orsaker. Kalenderdata är potentiellt indirekt känslig även utan e-post. [Datakarta](DATA_FLOWS.md).
 
-Lokal MCP-paritet är ännu inte levererad. Den kommande skrivopt-in ska hållas separat från betrott lokalt adminläge; varken flagga eller confirmed bevisar fjärrautentisering eller mänskligt samtycke. Inga nya portar eller externa AI-mottagare. Privata previewgränsen måste skydda hela appen och API, inte enbart admin; inget deploybeslut finns. Pilot fortsatt NO-GO.
+Lokal MCP-paritet är implementerad under slutverifiering. --allow-workspace är separat från --admin och äldre --allow-bookings; nya mutationer använder samma aktörs-/versions-/idempotens-/konfigurationslås och databasregler som webben. Varken flagga eller confirmed bevisar fjärrautentisering eller mänskligt samtycke. Agentläsningar utelämnar kundnamn/e-post; fullständig men begränsad personalkonfiguration är en uttrycklig administrativ läsning inför ersättande skrivning, inte allmän kalenderdata. Inga nya portar eller externa AI-mottagare. Privata previewgränsen måste skydda hela appen och API, inte enbart admin; inget deploybeslut finns. Pilot fortsatt NO-GO.
 
 ## Epic 04: kontobunden lokal åtkomst
 

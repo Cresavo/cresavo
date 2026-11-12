@@ -2,6 +2,169 @@ import { test, expect } from "./fixtures";
 import { DateTime } from "luxon";
 import { randomUUID } from "node:crypto";
 import { createDatabaseClient } from "../../scripts/database.mjs";
+import { Client } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import { mcpEnvironment } from "../../src/mcp/environment";
+
+test("HTTP och lokal MCP delar flytt/avbokning vid blandad samtidig trafik", async ({
+  page,
+  synthetic,
+}) => {
+  const client = new Client({
+    name: "synthetic-workspace-http-race",
+    version: "1",
+  });
+  const db = createDatabaseClient();
+  const origin = { origin: "http://localhost:3000" };
+  let day = DateTime.now()
+    .setZone("Europe/Stockholm")
+    .plus({ days: 7 })
+    .startOf("day");
+  while (day.weekday > 5) day = day.plus({ days: 1 });
+  const date = day.toISODate()!,
+    time = (hour: number) => day.set({ hour }).toUTC().toISO()!;
+  try {
+    const login = await page.request.post("/api/admin/login", {
+      headers: origin,
+      data: {
+        email: synthetic.admin.email,
+        password: synthetic.admin.password,
+      },
+    });
+    expect(login.status()).toBe(200);
+    await client.connect(
+      new StdioClientTransport({
+        command: process.execPath,
+        args: [
+          "--import",
+          "tsx",
+          "src/mcp/server.ts",
+          "--admin",
+          "--allow-workspace",
+        ],
+        env: mcpEnvironment({ workspace: true }),
+      }),
+    );
+    const bookings: { id: string }[] = [];
+    for (const staffId of ["staff-demo", "staff-erik"]) {
+      const key = randomUUID();
+      synthetic.trackWorkspaceRequest(key);
+      const response = await page.request.post("/api/admin/bookings", {
+        headers: { ...origin, "Idempotency-Key": key },
+        data: {
+          action: "create",
+          serviceId: "massage",
+          staffId,
+          start: time(11),
+          customerName: "Syntetisk kanalkund",
+          customerEmail: `${synthetic.marker}-${staffId}@example.test`,
+        },
+      });
+      expect(response.status()).toBe(201);
+      bookings.push(await response.json());
+    }
+    const moved = await Promise.all(
+      Array.from({ length: 20 }, async (_, index) => {
+        const key = randomUUID(),
+          viaMcp = index % 3 !== 0;
+        synthetic.trackWorkspaceRequest(key, viaMcp ? "mcp" : "admin");
+        const input = {
+          id: bookings[index % 2].id,
+          expectedVersion: 1,
+          staffId: "staff-demo",
+          start: time(13),
+        };
+        if (viaMcp) {
+          const response = await client.callTool({
+            name: "move_booking",
+            arguments: { ...input, clientRequestId: key, confirmed: true },
+          });
+          if (response.isError)
+            expect(response.content).toEqual([
+              {
+                type: "text",
+                text: expect.stringMatching(
+                  /^(Uppgifterna har ändrats\. Läs in på nytt\.|Tiden är inte tillgänglig)$/,
+                ),
+              },
+            ]);
+          return !response.isError;
+        }
+        const response = await page.request.post("/api/admin/bookings", {
+          headers: { ...origin, "Idempotency-Key": key },
+          data: { action: "move", ...input },
+        });
+        expect([200, 400, 409]).toContain(response.status());
+        return response.status() === 200;
+      }),
+    );
+    expect(moved.filter(Boolean)).toHaveLength(1);
+    const winner = await db.booking.findFirstOrThrow({
+      where: { id: { in: bookings.map((b) => b.id) }, version: 2 },
+    });
+    const cancellation = { id: winner.id, expectedVersion: 2 },
+      httpKey = randomUUID(),
+      mcpKey = randomUUID();
+    synthetic.trackWorkspaceRequest(httpKey);
+    synthetic.trackWorkspaceRequest(mcpKey, "mcp");
+    const [httpCancel, mcpCancel] = await Promise.all([
+      page.request.post("/api/admin/bookings", {
+        headers: { ...origin, "Idempotency-Key": httpKey },
+        data: { action: "cancel", ...cancellation },
+      }),
+      client.callTool({
+        name: "cancel_booking",
+        arguments: {
+          ...cancellation,
+          clientRequestId: mcpKey,
+          confirmed: true,
+        },
+      }),
+    ]);
+    expect([200, 409]).toContain(httpCancel.status());
+    if (httpCancel.status() === 409)
+      expect(await httpCancel.json()).toEqual({
+        error: "Uppgifterna har ändrats. Läs in på nytt.",
+      });
+    if (mcpCancel.isError)
+      expect(mcpCancel.content).toEqual([
+        { type: "text", text: "Uppgifterna har ändrats. Läs in på nytt." },
+      ]);
+    expect(
+      Number(httpCancel.status() === 200) + Number(!mcpCancel.isError),
+    ).toBe(1);
+    const details = await client.callTool({
+      name: "get_booking",
+      arguments: { id: winner.id },
+    });
+    expect(details.isError).not.toBeTruthy();
+    expect(JSON.stringify(details)).not.toMatch(
+      /Syntetisk kanalkund|customerName|customerEmail|@example.test/,
+    );
+    const current = await db.booking.findUniqueOrThrow({
+      where: { id: winner.id },
+      include: { events: true },
+    });
+    expect(current).toMatchObject({ status: "cancelled", version: 3 });
+    expect(current.events.map((event) => event.action).sort()).toEqual([
+      "cancel",
+      "create",
+      "move",
+    ]);
+    const overlap = await db.$queryRaw<
+      { count: bigint }[]
+    >`SELECT count(*) FROM "Booking" a JOIN "Booking" b ON a.id < b.id AND a."businessId"=b."businessId" AND a."staffId"=b."staffId" AND a.status='confirmed' AND b.status='confirmed' AND tstzrange(a."startsAt",a."endsAt",'[)') && tstzrange(b."startsAt",b."endsAt",'[)')`;
+    expect(Number(overlap[0].count)).toBe(0);
+    await page.goto(`/admin/bookings/${winner.id}`);
+    await expect(page.locator(".booking-summary")).toContainText("Avbokad");
+    await expect(page.locator(".booking-summary")).toContainText(
+      `${date} 13:00`,
+    );
+  } finally {
+    await client.close();
+    await db.$disconnect();
+  }
+});
 
 test("manuell bokning bevarar utkast och request-id vid nätverksfel", async ({
   page,
