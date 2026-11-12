@@ -31,3 +31,9 @@ Ett nytt direkt beroende och plattformsvalda nativepaket är motiverade av en un
 POST /api/admin/login kräver nu email och password, med generiskt401 vid fel. Det är en avsiktlig brytning av gamla password-only-login; inga boknings-, kampanj- eller MCP-kontrakt ändras. Ingen fallback till ADMIN_PASSWORD. Cookieformat/åtta timmar/global versionshöjning bevaras, men gamla konto-lösa sessionsrader ger403.
 
 MFA, verifierad e-postleverans, kontorecovery via webben, revisionslogg och kundernas GDPR-livscykel ingår inte. Pilot förblir NO-GO. Visa kund-e-post är fortsatt undantagen.
+
+## Granskade primärkällor
+
+[Better Auth Prismaadapter](https://better-auth.com/docs/adapters/prisma), [lösenord](https://better-auth.com/docs/authentication/email-password), [sessioner](https://better-auth.com/docs/concepts/session-management), [probad utils-implementation](https://github.com/better-auth/utils/blob/main/src/password.node.ts). Argon2-wrapperns [paketmanifest](https://github.com/napi-rs/node-rs/blob/main/packages/argon2/package.json) och [Rustmanifest](https://github.com/napi-rs/node-rs/blob/main/packages/argon2/Cargo.toml) lästes; upstream main är inte ett komplett versionslåst SBOM för den installerade binären. Faktisk installerad LICENSE/lockfile gäller för den lokala kontrollen.
+
+Projektinstallation och ren npm ci: 570 paket installerade/571 auditerade, exit0; full audit exit1 med7måttliga/0höga, produktionsaudit exit0/0fynd. Ingen riskabel automatisk uppgradering gjordes.
