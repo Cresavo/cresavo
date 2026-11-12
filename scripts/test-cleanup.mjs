@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { randomUUID, createHash } from "node:crypto";
-import { PrismaClient } from "@prisma/client";
+import { createDatabaseClient } from "./database.mjs";
 import { assertTestDatabase } from "./test-db-guard.mjs";
 assertTestDatabase();
 const marker = `e2e-cleanup-${randomUUID()}`;
@@ -18,7 +18,7 @@ const run = spawnSync(
     env: { ...process.env, CLEANUP_PROBE_MARKER: marker },
   },
 );
-const db = new PrismaClient();
+const db = createDatabaseClient();
 try {
   const rows =
     (await db.booking.count({

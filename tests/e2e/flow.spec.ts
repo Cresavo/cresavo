@@ -4,9 +4,9 @@ import { socketClient } from "./http-client";
 import { DateTime } from "luxon";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
-import { PrismaClient } from "@prisma/client";
+import { createDatabaseClient } from "../../scripts/database.mjs";
 import { LOGIN_FAILURE_DELAY_MS } from "../../src/lib/rate-limit";
-const db = new PrismaClient();
+const db = createDatabaseClient();
 
 function bookingTransport() {
   return new StdioClientTransport({

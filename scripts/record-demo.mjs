@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { createDatabaseClient } from "./database.mjs";
 import { spawnSync } from "node:child_process";
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -18,7 +18,7 @@ async function main() {
       "Demon kräver en lokal databas vars namn slutar med _demo.",
     );
   step = "DEMO_DATABASE_UNAVAILABLE";
-  const db = new PrismaClient();
+  const db = createDatabaseClient();
   try {
     const [bookings, campaigns, services] = await Promise.all([
       db.booking.count(),

@@ -1,5 +1,13 @@
 # Arkitektur
 
+## Epic 03-kandidat: databasanslutning
+
+Prisma 7.10.1 med PostgreSQL-adapter skapas endast via scripts/database.mjs. Fabriken återanvänds i appens befintliga singleton, seed, demo och testhjälpare. Varje klient får högst fem anslutningar, fem sekunders anslutnings-/poolväntan och tio sekunders inaktiv timeout; domänens transaktionsgränser är kvar. $disconnect stänger den adapterägda poolen. Flera processer multiplicerar budgeten och är inte verifierad drift.
+
+Adaptern skriver Date som UTC-klockslag utan offset; därför tvingas timezone=UTC sist i PostgreSQL-sessionens options, även om operatörens URL anger annan zon. Stockholm används fortsatt för affärsdagar/öppettider och presentation, UTC för lagring. En verklig DST-regression kontrollerar både ORM, rå SQL och sessionszon. Strukturerade insert-fel läses från v7:s driverAdapterError.cause.originalCode (legacy meta.code stöds); inga felmeddelanden strängmatchas. Exclusion och de tre migrationsfilerna är oförändrade.
+
+prisma.config.ts laddar .env uttryckligen endast i CLI. Runtimeklienter kräver exporterad DATABASE_URL; ingen implicit .env-läsning sker via Prisma Client. Node:s befintliga --env-file i webb/MCP-start fungerar fortsatt. Det löser den specifika Prisma-autoladdningen i E02-QA-2, men tillgång till OS, projektfiler eller explicita env-flaggor är inte isolerat. [Beroende-/licensbeslut och verkliga tidiga fel](DEPENDENCY_REVIEW.md). Kandidaten behåller tills vidare den kompatibla prisma-client-js-generatorn.
+
 ## Epic 02: lokal MCP-skrivning
 
 create_booking är ett separat opt-in-verktyg: --admin och --allow-bookings krävs tillsammans med kvotens befintliga SESSION_SECRET. Det strikta schemat återanvänder bokningens fält och idempotensnyckelregel; confirmed=true och example.test är extra POC-begränsningar. Bekräftelsefältet bevisar inte mänskligt samtycke. Endast betrodda lokala processer får starta läget.

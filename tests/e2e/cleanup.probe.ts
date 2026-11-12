@@ -1,8 +1,8 @@
 import { test } from "./fixtures";
-import { PrismaClient } from "@prisma/client";
+import { createDatabaseClient } from "../../scripts/database.mjs";
 import { createHash } from "node:crypto";
 test("forced timeout exercises fixture teardown", async ({ synthetic }) => {
-  const db = new PrismaClient();
+  const db = createDatabaseClient();
   const token = createHash("sha256").update(synthetic.marker).digest("hex");
   await db.adminSession.create({
     data: {

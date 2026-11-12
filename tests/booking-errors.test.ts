@@ -41,3 +41,29 @@ it("döljer inte andra databasfel som bokningskonflikter", async () => {
   vi.spyOn(db, "$queryRaw").mockRejectedValueOnce(error);
   await expect(insertBooking(db, data)).rejects.toBe(error);
 });
+
+it.each(["23P01", "40P01", "40001"])(
+  "mappar Prisma 7:s strukturerade adapterfel %s",
+  async (originalCode) => {
+    vi.spyOn(db, "$queryRaw").mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("synthetic", {
+        code: "P2010",
+        clientVersion: "7",
+        meta: { driverAdapterError: { cause: { originalCode } } },
+      }),
+    );
+    await expect(insertBooking(db, data)).rejects.toEqual(
+      new DomainError("Tiden är inte tillgänglig"),
+    );
+  },
+);
+
+it("döljer inte andra adapterfel även om meddelandet innehåller en SQLSTATE", async () => {
+  const error = new Prisma.PrismaClientKnownRequestError("23P01", {
+    code: "P2010",
+    clientVersion: "7",
+    meta: { driverAdapterError: { cause: { originalCode: "08006" } } },
+  });
+  vi.spyOn(db, "$queryRaw").mockRejectedValueOnce(error);
+  await expect(insertBooking(db, data)).rejects.toBe(error);
+});

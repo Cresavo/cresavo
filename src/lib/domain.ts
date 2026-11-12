@@ -107,8 +107,8 @@ export async function getAvailability(
     .map((s) => s.toISOString());
 }
 
-// Prisma 6's ORM create exposes exclusion failures as UnknownRequestError.
-// A parameterized INSERT exposes PostgreSQL SQLSTATE in P2010.meta.code instead.
+// Keep structured SQLSTATE detection for the raw INSERT: Prisma 7 wraps the
+// driver cause; historical Prisma 6 errors used meta.code.
 export async function insertBooking(
   client: Prisma.TransactionClient,
   data: Omit<Booking, "createdAt" | "clientKey" | "emailCapKey"> &
@@ -121,10 +121,24 @@ export async function insertBooking(
         ${data.customerName}, ${data.customerEmail}, ${data.idempotencyKey}, ${data.requestHash}, ${data.clientKey ?? null}, ${data.emailCapKey ?? null}) RETURNING *`;
     return rows[0];
   } catch (e) {
+    const driver =
+      e instanceof Prisma.PrismaClientKnownRequestError
+        ? e.meta?.driverAdapterError
+        : undefined;
+    const cause =
+      typeof driver === "object" && driver !== null && "cause" in driver
+        ? driver.cause
+        : undefined;
+    const sqlState =
+      typeof cause === "object" && cause !== null && "originalCode" in cause
+        ? cause.originalCode
+        : e instanceof Prisma.PrismaClientKnownRequestError
+          ? e.meta?.code
+          : undefined;
     if (
       e instanceof Prisma.PrismaClientKnownRequestError &&
       e.code === "P2010" &&
-      ["23P01", "40P01", "40001"].includes(String(e.meta?.code))
+      ["23P01", "40P01", "40001"].includes(String(sqlState))
     )
       throw new DomainError("Tiden är inte tillgänglig");
     throw e;

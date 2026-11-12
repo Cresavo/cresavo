@@ -43,6 +43,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Vitlistad explicit miljö är inte isolering: Prisma 6 kan autoläsa projektets .env. Se ARCHITECTURE och PRIVACY_SECURITY. Bevara nya create_booking:s strikta publicerade schema, safeFailure-sanerade validering och separata --admin/--allow-bookings-flaggor.
 - Repot ska förbli privat. Denna batch får lokala commits, ingen push utan nytt uppdrag.
 
+- Epic 02 är slutgodkänd i dba05a2. Fortsatt Epic 03 följer `docs/EPIC_03_PLAN.md` och `docs/DEPENDENCY_REVIEW.md`. Prisma 7 använder `scripts/database.mjs` överallt: skapa inte adapterlös PrismaClient eller separat pool. Bevara UTC-session, poolgräns och strukturerad adapterfelsmappning. Bara CLI:s prisma.config.ts laddar .env; detta är inte OS-isolering. Äldre Prisma 6-noteringar ovan beskriver Epic 02.
+
 - Loginspärren måste kontrolleras före lösenordet, även rätt lösenord nekas från spärrad klient. Behåll testet att ingen lösenordskontroll anropas efter spärr. ADMIN_SESSION_VERSION får endast höjas.
 
 - Uppföljning efter 8b83a40: M2/L8 och fyrfältsmatris i CI. Bevara låsordningen idempotens → klient/dag → e-post/dag → anställd/bokningsdag; ta anställdslåset före tillgänglighetskontroll. Nya CI-jobb är inte verifierade på GitHub förrän en godkänd push har körts.

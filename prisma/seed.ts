@@ -1,5 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-const db = new PrismaClient();
+import { createDatabaseClient } from "../scripts/database.mjs";
+const db = createDatabaseClient();
 async function main() {
   for (const service of [
     { id: "fotvard", name: "Fotvård", duration: 60, priceOre: 65000 },

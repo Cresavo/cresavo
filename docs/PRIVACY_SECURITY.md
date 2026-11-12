@@ -1,5 +1,9 @@
 # Integritets- och säkerhetsprinciper
 
+## Epic 03-kandidat: beroenden och explicit konfiguration
+
+Prisma 7.10.1 rättar den tidigare deepmerge-kedjan; full audit har preliminärt 7 moderate kvar i lintverktyg och produktionsaudit 0 fynd. Runtime/MCP autoläser inte längre .env via Prisma, men Node:s explicita env-flaggor och OS-/filåtkomst finns kvar. Detta löser ett specifikt konfigurationsbeteende, inte hela processisoleringsbehovet. Ingen ny mottagare eller behandling tillkommer. [Beroendegranskning, EPL-verktygsgräns och kvarvarande distributionskontroller](DEPENDENCY_REVIEW.md). Äldre Prisma 6-noteringar nedan är historik; pilot förblir NO-GO.
+
 ## Epic 02: lokal agentbokning och konfigurationsgräns
 
 Endast --admin tillsammans med --allow-bookings aktiverar syntetisk MCP-bokning. Confirmed=true är klientens försäkran, inte bevis på mänskligt samtycke. Domänregler, kvoter och databasens skydd är gemensamma med HTTP; svaren minimeras. Det nya verktyget sanerar även schemafel via safeFailure utan att ändra äldre verktygs kontrakt.

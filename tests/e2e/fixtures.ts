@@ -1,6 +1,6 @@
 import { test as base, expect } from "@playwright/test";
 import { randomUUID, createHash } from "node:crypto";
-import { PrismaClient } from "@prisma/client";
+import { createDatabaseClient } from "../../scripts/database.mjs";
 
 export const test = base.extend<{
   synthetic: {
@@ -15,7 +15,7 @@ export const test = base.extend<{
       const title = process.env.BOOKING_DEMO
         ? "Demoerbjudande – 20 % på fotvård"
         : marker;
-      const db = new PrismaClient();
+      const db = createDatabaseClient();
       const sessions = new Set<string>();
       const pending: Promise<void>[] = [];
       const trackSession = (cookie: string) => {

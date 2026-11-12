@@ -1,5 +1,13 @@
 # Third-party notices
 
+## Epic 03 candidate — Prisma 7 (2026-11-12)
+
+Prisma CLI, Client, PostgreSQL adapter and driver-adapter-utils **7.10.1**: installed LICENSE texts declare **Apache-2.0**. The new direct adapter is required by Prisma 7; its transitive **pg** driver (Brian Carlson and contributors) and **postgres-array** (Ben Drucker and contributors) carry **MIT** license texts. Preserve those original texts/copyright notices. [Prisma source](https://github.com/prisma/prisma), [adapter source](https://github.com/prisma/prisma/tree/main/packages/adapter-pg), [node-postgres source](https://github.com/brianc/node-postgres).
+
+The larger Prisma CLI/Studio tool tree also installs **elkjs 0.11.1, EPL-2.0**. Actual LICENSE.md and bundled SPDX headers were inspected; no concrete GPL secondary-license notice was verified. Do not assume GPL/AGPL compatibility or copy/relicense its code into our application. It remains an unmodified separate tool component, not an application import. Even `npm ls --omit=dev` may include this CLI tree via the optional Prisma peer; do not assume a production install excludes it. Before binary/container distribution, verify the exact artifact, separation and EPL source/notice obligations. No such artifact is distributed here. [elkjs source](https://github.com/kieler/elkjs), [EPL terms](https://www.eclipse.org/legal/epl-2.0/).
+
+See [changed dependency inventory](docs/EPIC_03_LICENSE_INVENTORY.md) and [review and unresolved distribution checks](docs/DEPENDENCY_REVIEW.md). This is not full bundled-code clearance; @prisma/dev's ISC metadata lacks a separate root LICENSE. Earlier sharp/libvips and caniuse obligations below still apply. The application remains AGPL-3.0-only; the old Prisma 6 version statement is historical.
+
 Inventory for the locked Booking Lab SE POC, reviewed 2026-11-11. Our application is AGPL-3.0-only; dependencies retain their own licenses. No third-party package source or binary is committed here. This file is an attribution and distribution checklist, not a claim that every future deployment artifact is license-cleared. Preserve the original LICENSE/NOTICE files with any redistributed packages.
 
 ## Sharp and libvips
