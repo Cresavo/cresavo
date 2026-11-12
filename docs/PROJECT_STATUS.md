@@ -1,8 +1,8 @@
 # Projektstatus — Epic 05 pågår
 
-2026-11-12. Branch epic-05-booking-workspace, godkänd plan5c9b07a ovanpå verifierad26b680d. Domändel för E05-1/2 implementerad: konfigurerbara resurser/scheman, snapshots, status/version, atomär flytt/avbokning och mutationsidempotens. Delkontroll:65unit/50integration samt lint/tsc/build PASS mot ny isolerad PostgreSQL. Historiska4migrationer oförändrade; ny femte migration verifierad på tom DB.
+2026-11-12. Branch **epic-05-booking-workspace**, verifierad UI/API-kod **66f279699fe2330f340e515f6d7d72e8960a42b0**, plan5c9b07a och bas26b680d. Kalender, tjänster, personal/schema och bokningsdetaljer med flytt/avbokning är lokalt implementerade.65unit/53integration, lint/tsc/build och20/20E2E i alla4lägen PASS. Slutaggregat:0 testbokningar/händelser/requestledger/sessioner/adminer/kampanjer,0 aktiva överlapp och0 observerade databasdeadlocks. [Faktiska resultat och tidiga FAIL](VERIFICATION.md). Historiska4migrationer oförändrade.
 
-**Epic05 är inte färdig.** UI/API/MCP-paritet, uppgraderingskopia, nya E2E, full slutmatris, demo, previewunderlag och Grok-QA återstår. Ingen push/deploy gjord för implementationen. [Aktuellt arbete och verkliga delresultat](WORKPLAN.md) · [Hela godkända omfattningen](EPIC_05_PLAN.md). Mobilpreview har inget miljögodkännande; oberoende produktarbete fortsätter.
+**Epic05 är inte färdig.** MCP-paritet, uppgraderingskopia, ren slutinstallation/audit, ny slutmatris efter MCP, slutdemo, previewunderlag och Grok-QA återstår. Tidiga dev-start-/testväljarfel är dokumenterade; slutmatrisen är grön utan sänkta gränser. Ingen push/deploy gjord för implementationen. [Hela godkända omfattningen](EPIC_05_PLAN.md). Mobilpreview saknar miljögodkännande; oberoende arbete fortsätter. Pilot NO-GO. Denna statusuppdatering efter66f2796 ändrar bara dokument.
 
 ## Verifierad föregångare — Epic04
 

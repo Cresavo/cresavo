@@ -1,8 +1,8 @@
 # Handoff — pågående Epic 05
 
-2026-11-12. Branch epic-05-booking-workspace, godkänd plan5c9b07a ovanpå verifierad26b680d. Domändel för E05-1/2 implementerad: konfigurerbara resurser/scheman, snapshots, status/version, atomär flytt/avbokning och mutationsidempotens. Delkontroll:65unit/50integration samt lint/tsc/build PASS mot ny isolerad PostgreSQL. Historiska4migrationer oförändrade; ny femte migration verifierad på tom DB.
+2026-11-12. Branch **epic-05-booking-workspace**, verifierad UI/API-kod **66f279699fe2330f340e515f6d7d72e8960a42b0**, bas26b680d. Arbetsytan har kalender, redigerbara resurser och skapa/flytta/avboka. Nya API-vägar kontrollerar admin/origin/request-id; gamla publika svar bevaras. [Teknik](ARCHITECTURE.md), [faktiska kommandon/fel](VERIFICATION.md).65unit/53integration, lint/tsc/build samt20E2E i alla4lägen PASS. Slutaggregat0 test-/sessions-/mutationsrader,0överlappar/observeradeDBdeadlocks. Historiska4migrationer oförändrade. Denna efterföljande dokumentuppdatering ändrar ingen kod.
 
-**Epic05 är inte färdig.** UI/API/MCP-paritet, uppgraderingskopia, nya E2E, full slutmatris, demo, previewunderlag och Grok-QA återstår. Ingen push/deploy gjord för implementationen. [Aktuellt arbete och verkliga delresultat](WORKPLAN.md) · [Hela godkända omfattningen](EPIC_05_PLAN.md). Mobilpreview har inget miljögodkännande; oberoende produktarbete fortsätter.
+**Epic05 är inte färdig.** MCP-paritet, uppgraderingskopia, ren slutinstallation/audit, ny slutmatris efter MCP, slutdemo, previewunderlag och Grok-QA återstår. Bilderna är preliminära lokala testartefakter. Ingen push/deploy gjord för implementationen. [Hela godkända omfattningen](EPIC_05_PLAN.md). Mobilpreview saknar miljögodkännande; oberoende arbete fortsätter. Pilot NO-GO.
 
 ## Verifierad föregångare — Epic04
 

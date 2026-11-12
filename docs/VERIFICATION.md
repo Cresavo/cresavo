@@ -1,8 +1,36 @@
-# Verifiering — Epic 04, lokal slutmatris
+# Verifiering — Epic 05, pågående delverifiering
+
+2026-11-12. Branch epic-05-booking-workspace, verifierad UI/API-kod **66f279699fe2330f340e515f6d7d72e8960a42b0**, backend66e2a4d. Windows, Node24.16.0/npm11.13.0, Prisma7.10.1. Egen PostgreSQL18.6 på127.0.0.1:55451, booking_epic05_config2_test. Endast syntetiskt. Denna efterföljande dokumentuppdatering ändrar ingen kod. Detta är ingen slutmatris eller QA-GO för hela Epic05.
+
+## Aktuell resultattabell
+
+| Kommando/kontroll | Faktiskt delresultat |
+| --- | --- |
+| npm ci | NOT RUN i UI-delen; inget beroende/lockfile ändrat. Ren slutinstallation återstår. |
+| npx prisma generate / npm run db:migrate / npm run db:seed | PASS i backenddelen: klient7.10.1,5migrationer på tom egen DB,2tjänster/2personal.4historiska migrationer orörda. |
+| npm run lint / npx tsc --noEmit | PASS exit0 efter UI/API samt nya testfall, ingen diagnostik. |
+| npm test | PASS65/65,10filer,8.72s. |
+| npm run test:integration | PASS53/53,13filer,62.76s; verklig DB,150-raders kalender och partiella konfigurationsuppdateringar. |
+| npm run build | PASS exit0 efter konsekventa datumfält; samtliga nya admin/API-routes byggda. |
+| E2E_PRODUCTION=1 npm run test:e2e -- tests/e2e/workspace.spec.ts | PASS4/4,1.7m före nya manuella bokningstestet/datumfälten. |
+| E2E_PRODUCTION=1 npm run test:e2e -- tests/e2e/workspace.spec.ts --grep 'manuell bokning' | PASS2/2,10.3s efter testväljarfix; tappad läsning/sparrespons, osparad navigering och identisk retry utan dubblett. |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e | PASS20/20,1.5m. |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 npm run test:e2e | PASS20/20,45.3s. |
+| E2E_PRODUCTION borttagen, TRUST_PROXY_IP=0 npm run test:e2e | PASS20/20,2.1m. |
+| E2E_PRODUCTION borttagen, TRUST_PROXY_IP=1 npm run test:e2e | PASS20/20,1.8m. |
+| Uppgradering av Epic04-data / fixturestädningsprobe | NOT RUN i denna del; återstår före slutleverans. |
+| Extern node epic05-aggregate.mjs efter matrisen | PASS: booking/event/requestledger/session/admin/campaign=0;service/staff=2/2;activeOverlaps0;databaseDeadlocks0;1anslutning (proben). |
+| npm audit full/produktion | NOT RUN i denna del; känt föregångarresultat7moderate/full och0prod återges endast som historik nedan. Ny audit återstår. |
+| Grok-QA / Actions för Epic05 | NOT RUN; ingen fryst slutkandidat eller implementationpush än. |
+| Slutdemo / mobilpreview | NOT RUN. Preliminära riktiga skärmar finns lokalt, kalenderbilder granskade. Ingen extern deploy godkänd. |
+
+Tidiga FAIL är bevarade: två dev/desktop60s-startproblem (trace: browserstart/sidladdning tog tidsbudgeten), första fulla prod17/20 (en fixtureanslutningstimeout före bokningsanrop, två tvetydiga testlänkar), andra18/20 (nytt test valde även Nexts route-announcer-alert). Testväljare rättade till rätt länk/appens main-alert; manuell bokning därefter2/2. Inga assertions/timeouts/DB- eller säkerhetsgränser sänkta. Lokala originalutdata: booking-lab-pg-test/epic05-ui-*.log. Följ WORKPLAN för pågående scope; oförändrad Epic01–04 beställs inte om för full QA.
+
+## Bilaga — Epic 04:s verifierade slutleverans
 
 2026-11-12. Produktkod **471f91fa11ad27c19ecd43244bcc90ba3f0b2489**, QA-fixvarv 1 ovanpå3419973, branch epic-04-individual-admin, bas10175ed. Windows, Node24.16.0/npm11.13.0, Prisma7.10.1, PostgreSQL18.6. Ny isolerad loopbackdatabas booking_epic04_fix_test på55450; endast syntetiska data. Groks fulla QA på3419973 gav GO; riktad återkontroll på471f91f stängde E04-QA-1 utan nya fynd. Pilot NO-GO. Epic02/03 har nu pushats efter uttryckligt nytt uppdrag; Epic04 är pushad och extern CI kontrollerad. Ingen merge/deploy.
 
-## Aktuell resultattabell
+## Resultattabell Epic 04 (historik)
 
 | Kommando/kontroll | Faktisk utdata / resultat |
 | --- | --- |
