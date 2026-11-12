@@ -1,3 +1,29 @@
+# Verifiering — Epic05 QA-fixvarv1
+
+2026-11-12. Branch epic-05-booking-workspace; arbetskod efter7fc0e86/b331cb1, E05-QA-1. Ny loopback booking_epic05_fix1_test på55451, PostgreSQL18.6. Original-Grok-QA7fc0e86 gav NO-GO för lokal alpha trots grön matris; riktad återkontroll återstår. Historiska migrationer/dependencies oförändrade. Ingen push/mainmerge/deploy.
+
+## Aktuell resultattabell
+
+| Kommando/kontroll | Faktiskt resultat efter fix |
+| --- | --- |
+| npm ci --no-fund | Inte omkörd i detta fixvarv; tidigare ren570/571PASS på samma oförändrade lockfile återanvänds, se bilaga. |
+| npx prisma generate | PASS7.10.1,124ms. |
+| npm run db:migrate / npm run db:seed | PASS på ny fix1_test:5migrations,2tjänster/2personal,0standardkonton. |
+| npm run lint / npx tsc --noEmit | PASS före och efter formatering med befintlig cachad Prettier3.9.9(MIT); ingen ny dependency/install. |
+| npm test | PASS69/69,11filer,7.21s. |
+| npm run test:integration | PASS66/66,16filer,58.36s. |
+| npm run build | PASS före enbart formatering; ny fryst build och24E2E×4 återstår. |
+| Ny HTTP-E2E / full dev-prod×proxy0-1 | NOT RUN ännu. Testet kräver7adminbokningar, oförändrade kundtak och20identiska adminretries. |
+| npm audit full / produktion | Inte omkörd efter fix ännu; tidigare fullFAIL7moderate/0high ochprodPASS0 på oförändrade beroenden. |
+| Grok-QA | Original7fc0e86:NO-GO för adminens delade kundbudget. Endast E05-QA-1 blockerar. Riktad återkontroll av ny fixrevision återstår. |
+| Demo / preview / CI | Demo är äldre7fc0e86; ingen ny full inspelning för osynlig fix.09-bilderna är laddningsbilder, inte funktionsbevis. Preview BLOCKERAD miljöbeslut. Ny implementation-CI NOT RUN. |
+
+Två första riktade DB-test FAIL på felaktigt överlappande fixtures(60minbehandling i30minsteg); fixturen byttes till befintlig30min-Massage och2/2PASS utan ändrade produktregler, sedan hela66/66PASS. Första försöket att använda createdb.exe kördes inte eftersom externa QA-paketet saknar filen; Nodepg hjälparen skapade sedan ny DB, inget reset. Behåll dessa skillnader från produktfel. Alla originalkörningar/loggar beskrivs i WORKPLAN.
+
+Faktisk E2E-proxy är **127.0.0.10/32**, hårdkodad testfixture matchande socketClient; exporterad TRUSTED_PROXY_IPS skriver inte över detta. Riktig TLS/proxy/fysisk mobil NOT RUN. Nytt godkännande och exakt push-CI behövs fortfarande. Pilot NO-GO.
+
+## Bilaga — kandidat7fc0e86, före QA-fix
+
 # Verifiering — Epic 05, fryst kandidat inför Grok-QA
 
 2026-11-12. Branch **epic-05-booking-workspace**, kandidat **7fc0e866f0ef457bf9eaef4ca153e7a69b30b3d0**, produktkod **4099d9d**. Windows, Node24.16.0/npm11.13.0, Prisma7.10.1, egen PostgreSQL18.6 på127.0.0.1:55451. Ren installation och ny **booking_epic05_final_test**; separat **booking_epic05_delivery_demo**. Endast syntetiskt. Kandidaten innehåller efter produktkoden test-/demoverktyg och dokument, ingen ytterligare app-/schemaändring. Efterföljande resultatdokument ändrar ingen kod. Grok-QA skickad, inget GO ännu. Ingen implementationpush/mainmerge/deploy.

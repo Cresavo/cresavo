@@ -1,3 +1,9 @@
+# Projektstatus — Epic05 QA-fixvarv1 pågår
+
+2026-11-12. Groks oberoende granskning av7fc0e86 gav **NO-GO för lokal alpha** på grund av E05-QA-1: adminbokning delade kundkvot. Rättningen har egen adminkvot100/konto/dag och60/15min;69unit/66integration/lint/tsc/build PASS på ny fix1_test, HTTP-slutmatris och riktad Grok-återkontroll återstår. Ingen push. Pilot fortsatt NO-GO. [Originalrapport](qa/QA-REPORT-epic05-7fc0e86.md) · [aktuell fix och backlogg](WORKPLAN.md).
+
+## Bilaga — kandidat7fc0e86 före QA-fix
+
 # Projektstatus — Epic 05, kandidat i slutgranskning
 
 2026-11-12. Branch **epic-05-booking-workspace**, fryst **7fc0e866f0ef457bf9eaef4ca153e7a69b30b3d0**, produktkod4099d9d, bas26b680d. Efterföljande statusdokument ändrar ingen kod. **Testad lokal produktalpha, ännu inte slutlevererad eller Grok-godkänd.** [Verifikation](VERIFICATION.md) · [plan](EPIC_05_PLAN.md) · [prova](LOCAL_DEMO_WINDOWS.md) · [riktig demo](DEMO.md).

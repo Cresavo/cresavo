@@ -48,6 +48,10 @@ npm run dev
 
 Öppna http://localhost:3000 och välj en vardag inom 60 dagar. Ny seed ger två syntetiska medarbetare: Anna måndag–fredag09–17 och Erik10–16 i Europe/Stockholm, med valbara tider på halvtimmar. Logga in via `/admin` med kontot du skapade lokalt. Seeds kan köras igen utan att skriva över redigerade tjänster, scheman eller bokningar. För egen Postgres, ändra `DATABASE_URL` i `.env`; databasanvändaren måste kunna skapa extensionen `btree_gist`. Lokala verifieringsmiljöer beskrivs i [verifieringsrapporten](docs/VERIFICATION.md). Compose-lösenordet gäller endast lokal demo. `docker compose stop` stoppar databasen och bevarar volymen.
 
+## Bokningskvoter per kanal
+
+Verifierad aktiv admin har en separat budget per konto: **100 nya bokningar per skapandedag i Stockholm**, och **60 försök per15minuter** per process. IP/e-postkundtaken används inte för admin, och adminbokningar förbrukar inte kundens kvot. Kundsidan behåller **5 per klient/skapandedag,3 per normaliserad e-post/skapandedag och30försök/15min**. Lokal MCP-bokning behåller **5 per betrodd lokal kanal/dag och3 per normaliserad e-post/dag**, med samma försöksskydd. Plus-taggar normaliseras. Identiska retries förbrukar ingen ny budget; avbokade rader räknas fortfarande som skapade. Adminkontext hämtas från aktiv serversession och kontrolleras på nytt före replay/skrivning; ett actor-fält eller en cookie på den publika vägen ger inget undantag. Befintliga för-fix-adminrader behåller sina lagrade kvotfält och kan påverka den gamla skapandedagens kundbudget tills dagen löper ut; ingen historik skrivs om.
+
 ## MCP
 
 ### Epic 05: lokal arbetsytegenomgång, under verifiering

@@ -1,3 +1,9 @@
+# Produktägarrapport — Epic05 rättas efter QA
+
+2026-11-12. Grok har provat hela matrisen själv och hittat ett blockerande användningsfel: receptionen stoppas efter fem manuella bokningar. Det rättas med en separat, högre kontobudget; kundskydden består. Egna nya tester för separation, tak, retry och behörighet passerar. Slutlig webbläsarmatris och Groks riktade återkontroll återstår; ingen push än. Övriga mindre UX-/demo-/DB-idéer är backlogg, ingen ny Epic. [Detaljer](WORKPLAN.md).
+
+## Bilaga — kandidat7fc0e86 före QA-fix
+
 # Produktägarrapport — Epic 05 i slutgranskning
 
 **Byggt:** salongens kalender på dator och mobil, redigerbara behandlingar och personalens tider samt skapa, flytta och avboka. Lokala agenter använder samma regler och kan göra motsvarande arbete efter uttrycklig opt-in. Inga nya framtida moduler.

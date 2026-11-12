@@ -11,7 +11,7 @@ export function clientIp(headers: Headers) {
 }
 
 export function checkRateLimit(
-  route: "login" | "bookings",
+  route: "login" | "bookings" | "admin-bookings",
   ip: string,
   consume = true,
   now = Date.now(),
@@ -20,7 +20,8 @@ export function checkRateLimit(
     if (bucket.until <= now) buckets.delete(key);
   const key = `${route}:${ip}`;
   const bucket = buckets.get(key) ?? { count: 0, until: now + windowMs };
-  if (bucket.count >= (route === "login" ? 5 : 30))
+  const limit = route === "login" ? 5 : route === "admin-bookings" ? 60 : 30;
+  if (bucket.count >= limit)
     throw new DomainError(
       "För många försök. Försök igen senare.",
       429,

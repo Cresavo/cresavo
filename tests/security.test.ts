@@ -262,6 +262,22 @@ describe("Lokal admins session", () => {
 });
 
 describe("Missbruksskydd och testgrind", () => {
+  it("adminens 60-försöksfönster är separat från kundernas 30-försöksfönster", () => {
+    const now = Date.now(),
+      id = "unit-admin-booking-budget";
+    for (let i = 0; i < 60; i++)
+      checkRateLimit("admin-bookings", id, true, now);
+    expect(() => checkRateLimit("admin-bookings", id, true, now)).toThrow(
+      DomainError,
+    );
+    expect(() =>
+      checkRateLimit("admin-bookings", "another-admin-budget", true, now),
+    ).not.toThrow();
+    for (let i = 0; i < 30; i++) checkRateLimit("bookings", id, true, now);
+    expect(() => checkRateLimit("bookings", id, true, now)).toThrow(
+      DomainError,
+    );
+  });
   it("demo kan rapportera okänd revision utan Git", () => {
     expect(
       demoRevision(() => {

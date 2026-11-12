@@ -1,3 +1,9 @@
+# Handoff — Epic05 QA-fixvarv1
+
+2026-11-12. Original-QA7fc0e86 är sparad oförändrad och innehåller en blockerare: adminens manuella bokningar delar kundkvot. Ny serverägd policy separerar kontobudget100/dag och60/15min utan kundens e-posttak; offentlig/MCP-budget består.69unit/66integration/lint/tsc/build PASS på ny fix1_test. Slutlig24×4E2E/riktad Grok-återkontroll återstår före privat push. Inga nya beroenden/migrationer; ingen deploy/mainmerge. [Arbetsplan och verkliga fel/resultat](WORKPLAN.md) · [original](qa/QA-REPORT-epic05-7fc0e86.md).
+
+## Bilaga — kandidat7fc0e86 före QA-fix
+
 # Handoff — Epic 05, fryst kandidat inför QA
 
 2026-11-12. **epic-05-booking-workspace**, kandidat **7fc0e866f0ef457bf9eaef4ca153e7a69b30b3d0**, bas26b680d. Produktkod4099d9d; senare commit tillför demo-/testverktyg, ingen app-/schemaändring. Statusdokument efter kandidaten är separata från kod. **Grok-QA skickad, inget GO ännu; ingen implementationpush/mainmerge/deploy.**

@@ -18,6 +18,12 @@ Adminens nya HTTP-endpoints härleder konto och demo-kontext på servern. Alla m
 
 Kalendern är huvudyta med faktisk tidsskala på dator och kronologiska kort på mobil; tjänster, personal/tider och kampanjer har separata sidor. Formulär bevarar utkast vid nätverksfel och request-id vid samma retry, väntar på serverbekräftelse och varnar före osparad navigering. Datum anges YYYY-MM-DD oberoende av operativsystemets datumväljare; tider och pengar formateras i sv-SE/Stockholm/SEK. Public availability behåller string[] och kundbokning 201{id}. Valfria staffId/serviceVersion får inga schema-defaults som skulle ändra äldre request-hashar. En skickad gammal serviceVersion nekas med 409, men redan genomförd identisk replay bevaras.
 
+### Separata bokningsbudgetar, E05-QA-1
+
+Samma createBooking skiljer en serverägd adminaktör från publik/lokal MCP-kanal. Aktivt demo-konto kontrolleras i transaktionen före replay och privilegierad skrivning. Adminens clientKey är HMAC(admin:<konto-id>), inte klient-IP; samma konto delar budget över IP-adresser.100nya bokningar per Stockholm-skapandedag, med samma serialiserade klient/dag-lås, och separat processlokalt admin-bookings-fönster60/15min. Kunden behåller30försök/15min,5/klient/dag och3/normaliserad e-post/dag. Lokal MCP behåller sina befintliga kanal-/e-posttak; --allow-workspace är inte en adminkontoidentitet.
+
+Adminrader får emailCapKeyNULL så att manuella bokningar inte förbrukar kundens e-postbudget. Rå e-post lagras fortfarande enligt befintligt syntetiskt bokningskontrakt och maskeras/minimeras som tidigare. Ingen ny tabell/migration. Idempotensnamnrymd, serviceVersion, behörighet före replay, konfigurationslås och exclusion består. Admin hoppar över e-postlåset men byter inte ordning på några gemensamma lås. Identisk retry återges före kvotdekrement; avbokade rader räknas fortfarande. Äldre adminrader skrivs inte om och kan påverka äldre kundkvoter till skapandedagens slut.
+
 ### Lokala agentkontrakt
 
 Nya läsverktyg kräver betrott lokalt --admin. Nya flytt-/avboknings-/konfigurationsverktyg kräver dessutom --allow-workspace och kvotens befintliga SESSION_SECRET. Äldre --allow-bookings aktiverar fortfarande enbart sin bokningsskrivning, inte arbetsytemutationer. --allow-workspace aktiverar också samma create_booking. Ingen HTTP-transport/port eller extern modell tillkommer; flaggorna är inte fjärrautentisering. SDK:s officiella StandardSchema-gräns behåller JSON-schemat och sanerar valideringsfel före callback; samma safeFailure används för körfel.

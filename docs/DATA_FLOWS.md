@@ -15,6 +15,8 @@ UI använder samma origins API; ingen ny extern telemetri, modellanslutning elle
 
 Nya save_service/save_staff/move_booking/cancel_booking kräver --admin --allow-workspace, stabil request-id och confirmed. De skriver genom webbens domän; mutationernas ledger/historik får samma begränsningar ovan. Nya serververktyg öppnar inga portar. Testklientens --workspace bekräftar varje av sju syntetiska skrivningar, skriver endast minimala resultat och använder explicit miljövitlista inklusive kvothemligheten bara i valt skrivläge. Ingen extern AI får data automatiskt. Nej/EOF stoppar efter tidigare bekräftade ändringar; ingen dold rollback eller automatisk återkörning. [Aktuell verktygsmatris](ARCHITECTURE.md). Bara syntetiska uppgifter; pilot fortsatt NO-GO.
 
+Adminens nya bokningar har en kontoanknuten clientKey-HMAC i stället för IP-HMAC och emailCapKeyNULL. Kontolänkad HMAC är pseudonymiserad, inte anonym; den ingår i framtida GDPR-/retentionsbedömning tillsammans med BookingEvent. Kund/MCP:s befintliga nycklar/tak består. Ingen rå IP eller ny extern mottagare. Se ARCHITECTURE för kvoter och äldre rader.
+
 ## Epic 04: administratörsidentitet
 
 | Yta | Uppgifter och mottagare | Minimering / kvarstående risk |

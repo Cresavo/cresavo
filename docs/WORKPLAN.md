@@ -2,6 +2,18 @@
 
 Start 2026-11-12. Godkänd plan5c9b07a på origin/epic-05-booking-workspace, verifierad föregångare26b680d. Arbetskopian var ren, endast en registrerad worktree; inga befintliga processer stoppas. Codex är enda skrivare. Separat agent gör endast läsande kontraktsgranskning. Ingen ny QA av oförändrad Epic01–04.
 
+## Aktuellt: QA-fixvarv1, E05-QA-1
+
+Groks originalrapport7fc0e86 och fixbeställning hämtade oförändrade till docs/qa. Rapport SHA25603ea42f5f16209d00611ffda67c1e8db24af0b26733705b8105ae9bad2c2ffa5. Matrisen/proberna PASS men lokal alpha NO-GO tills adminens felaktigt delade kundkvot rättats. Ingen push gjord. Endast blockeraren rättas; QA-2–7 backlogg, med explicit varning om09-laddningsbilderna i DEMO. Ny framåtmigration5 ersätter exclusion atomärt; inte påstående att alla dess SQL-steg endast ADD. Historiska4 är oförändrade.
+
+Implementerad kanalpolicy: aktiv verifierad admin100nya/konto/Stockholm-skapandedag,60försök/15min i separat processbucket. HMAC av konto-id, emailCapKeyNULL. Publik och MCP behåller sina ursprungliga5/3/30-skydd. Auth i transaktionen före replay, versions-/idempotens-/lås-/exclusionregler består. Ingen ny dependency/migration. Befintlig cachad Prettier3.9.9(MIT-LICENSE läst) formaterar berörda filer; inget installeras/tillförs projektet.
+
+Ny isolerad booking_epic05_fix1_test på55451:5migrations/seed PASS,generate7.10.1(124ms),lint/tsc/69unit(7.21s)/66integration(58.36s)/build PASS. Två nya DB-test täcker6admin/sammaemail+IP, oförändrade kundtak,100/konto,annanadmin,20replays vidtak och403efterspärr. Ny HTTP-E2E verifierar7adminbokningar/åtskild kundbudget/förfalskat actor samt20retries; fyrfältsmatris återstår. Första riktade DB-försöket2FAIL på fixtureöverlapp:60min-Fotvård bokades i30min-steg. Fixturen byttes till den befintliga30min-Massage, sedan2/2PASS utan ändrade regler. Inledande createdb.exe fanns inte i externa QA-distributionen; ingen DB skapades då, Nodepg hjälparen skapade sedan ny DB utan reset. Detta är verktygs-/fixturefel, inte dolda produkt-PASS.
+
+E2E:s faktiska proxy är testfixturen127.0.0.10/32 i playwright.config och socketClient, inte den exporterade127.0.0.1,::1-listan. Detta dokumenteras; ingen proxy/testsäkerhet ändras. Fyra lägen finns i manuell/main CI, ett feature-ben enligt uttrycklig kostnadspolicy; schemat aktiveras inte utan default-branch. Ny demo behövs inte för kvotfix, tidigare7fc0e86 är tydligt äldre.
+
+## Föregående kandidat7fc0e86 och första QA-underlag
+
 | Del | Faktiskt läge |
 | --- | --- |
 | E05-0 | Plan/roadmap/AGENTS lästa, rätt branch hämtad och vald; inga nyare remotecommits än5c9b07a vid start. |

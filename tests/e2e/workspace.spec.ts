@@ -5,6 +5,88 @@ import { createDatabaseClient } from "../../scripts/database.mjs";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { mcpEnvironment } from "../../src/mcp/environment";
+import { socketClient } from "./http-client";
+
+test("manuella adminbokningar har egen budget och kan inte kringgå kundskyddet", async ({
+  page,
+  synthetic,
+}, testInfo) => {
+  const address =
+    testInfo.project.name === "desktop" ? "127.87.0.11" : "127.87.0.12";
+  const http = socketClient(address);
+  const origin = { origin: "http://localhost:3000" };
+  const authenticated = await http.post("/api/admin/login", {
+    headers: origin,
+    data: { email: synthetic.admin.email, password: synthetic.admin.password },
+  });
+  expect(authenticated.status()).toBe(200);
+  const rawCookie = String(authenticated.headers()["set-cookie"]);
+  synthetic.trackSession(rawCookie);
+  const cookie = rawCookie.split(";")[0];
+  let day = DateTime.now().setZone("Europe/Stockholm").plus({ days: 28 });
+  while (day.weekday > 5) day = day.plus({ days: 1 });
+  const response = await page.request.get(
+    `/api/availability?serviceId=massage&date=${day.toISODate()}`,
+  );
+  const slots: string[] = await response.json();
+  expect(slots.length).toBeGreaterThanOrEqual(13);
+  const payload = (
+    index: number,
+    email = `${synthetic.marker}@example.test`,
+  ) => ({
+    serviceId: "massage",
+    start: slots[index],
+    customerName: "Syntetisk telefonkund",
+    customerEmail: email,
+  });
+  const adminPost = async (index: number) => {
+    const key = randomUUID();
+    synthetic.trackWorkspaceRequest(key);
+    const data = { action: "create", ...payload(index) };
+    const headers = { ...origin, cookie, "Idempotency-Key": key };
+    return {
+      result: await http.post("/api/admin/bookings", { headers, data }),
+      headers,
+      data,
+    };
+  };
+  for (let i = 0; i < 7; i++)
+    expect((await adminPost(i)).result.status()).toBe(201);
+  const publicPost = (index: number, email?: string) =>
+    http.post("/api/bookings", {
+      headers: { ...origin, "Idempotency-Key": randomUUID() },
+      data: payload(index, email),
+    });
+  for (let i = 7; i < 10; i++) expect((await publicPost(i)).status()).toBe(201);
+  expect((await publicPost(10)).status()).toBe(429); // Still three per e-mail.
+  for (let i = 10; i < 12; i++)
+    expect(
+      (await publicPost(i, `${synthetic.marker}-${i}@example.test`)).status(),
+    ).toBe(201);
+  const denied = await http.post("/api/bookings", {
+    headers: { ...origin, cookie, "Idempotency-Key": randomUUID() },
+    data: {
+      ...payload(12, `${synthetic.marker}-sixth@example.test`),
+      actor: { kind: "admin", id: synthetic.admin.id },
+    },
+  });
+  expect(denied.status()).toBe(429); // A cookie/payload never promotes the public route.
+  const accepted = await adminPost(12);
+  expect(accepted.result.status()).toBe(201);
+  const original = await accepted.result.json();
+  const retries = await Promise.all(
+    Array.from({ length: 20 }, () =>
+      http.post("/api/admin/bookings", {
+        headers: accepted.headers,
+        data: accepted.data,
+      }),
+    ),
+  );
+  for (const retry of retries) {
+    expect(retry.status()).toBe(201);
+    expect((await retry.json()).id).toBe(original.id);
+  }
+});
 
 test("HTTP och lokal MCP delar flytt/avbokning vid blandad samtidig trafik", async ({
   page,

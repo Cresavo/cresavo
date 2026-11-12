@@ -45,6 +45,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## QA-skydd
 
+- E05-QA-1: adminbokning använder separat serverhärledd kontobudget100/dag och60/15min, aldrig publik IP-/e-postkvot. Behåll auth före replay, adminnamespacad idempotens och kund/MCP-taken; klientpayload/cookie får inte uppgradera publik väg. Se ARCHITECTURE.
+
 - Tester får bara använda separat loopback-databas med suffix `_test`/`_demo`; kringgå aldrig `scripts/test-db-guard.mjs`.
 - Bevara rate limit, dagstak, idempotenslås och databasens exclusion constraint. Gå via `createBooking`, inte lagringshjälparen.
 - Starta HTTP via `npm run dev/start` och socket-wrappern. `TRUST_PROXY_IP=1` kräver matchande socket i TRUSTED_PROXY_IPS och överskrivande proxy; lokal `--admin` är ingen fjärrbehörighet.

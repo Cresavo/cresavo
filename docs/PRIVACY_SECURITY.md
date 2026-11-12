@@ -8,6 +8,8 @@ BookingEvent och WorkspaceRequest tillför personanknuten spårbarhet och hashat
 
 Lokal MCP-paritet är implementerad under slutverifiering. --allow-workspace är separat från --admin och äldre --allow-bookings; nya mutationer använder samma aktörs-/versions-/idempotens-/konfigurationslås och databasregler som webben. Varken flagga eller confirmed bevisar fjärrautentisering eller mänskligt samtycke. Agentläsningar utelämnar kundnamn/e-post; fullständig men begränsad personalkonfiguration är en uttrycklig administrativ läsning inför ersättande skrivning, inte allmän kalenderdata. Inga nya portar eller externa AI-mottagare. Privata previewgränsen måste skydda hela appen och API, inte enbart admin; inget deploybeslut finns. Pilot fortsatt NO-GO.
 
+Verifierad admin får separat kontoanknuten bokningsbudget100/dag och60försök/15min, utan kundens IP-/e-posttak. Servern härleder aktören och kontrollerar aktivt konto igen före replay/skrivning. Publik väg och MCP behåller sina skydd även om en klient skickar actor-fält eller cookie. Detta är ingen MFA-/distribuerad limiterlösning; detaljregler och kvarvarande äldre kvotfält finns i ARCHITECTURE.
+
 ## Epic 04: kontobunden lokal åtkomst
 
 Det delade adminlösenordet ersätts av individuella syntetiska konton, men MFA saknas fortfarande och pilot är NO-GO. Inget konto seedas som standard. Använd den lokala [operatörsguiden](ADMIN_OPERATIONS.md); lösenord får inte skrivas i argument, rapporter eller .env. Endast betrodd operatör med DB-/filsystemåtkomst får provisionera.

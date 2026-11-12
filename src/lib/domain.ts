@@ -200,22 +200,27 @@ export async function createBooking(
   clientAddress?: string,
   actor?: WorkspaceActor,
 ) {
+  // Only the server supplies actors; assertWorkspaceActor rechecks the account
+  // inside the transaction before replay or any privileged write.
+  const admin = actor?.kind === "admin";
+  const budgetAddress = admin ? `admin:${actor.id}` : clientAddress;
+  const rateRoute = admin ? "admin-bookings" : "bookings";
   const parsed = bookingSchema.safeParse(input);
   if (!parsed.success) {
-    if (clientAddress) checkRateLimit("bookings", clientAddress);
+    if (budgetAddress) checkRateLimit(rateRoute, budgetAddress);
     throw parsed.error;
   }
   const v = parsed.data;
   const emailKey = emailCapKey(v.customerEmail);
   const secret = process.env.SESSION_SECRET;
-  if (clientAddress && (!secret || secret.length < 32))
+  if (budgetAddress && (!secret || secret.length < 32))
     throw new Error("CLIENT_KEY_CONFIG_INVALID");
-  const clientKey = clientAddress
-    ? createHmac("sha256", secret!).update(clientAddress).digest("hex")
+  const clientKey = budgetAddress
+    ? createHmac("sha256", secret!).update(budgetAddress).digest("hex")
     : null;
   const parsedKey = idempotencyKeySchema.optional().safeParse(key);
   if (!parsedKey.success) {
-    if (clientAddress) checkRateLimit("bookings", clientAddress);
+    if (budgetAddress) checkRateLimit(rateRoute, budgetAddress);
     throw parsedKey.error;
   }
   const idempotencyKey =
@@ -239,7 +244,7 @@ export async function createBooking(
         });
         if (existing) {
           if (existing.requestHash !== requestHash) {
-            if (clientAddress) checkRateLimit("bookings", clientAddress);
+            if (budgetAddress) checkRateLimit(rateRoute, budgetAddress);
             throw new DomainError(
               "Bokningsnyckeln har redan använts med andra uppgifter.",
               409,
@@ -252,7 +257,7 @@ export async function createBooking(
           };
         }
       }
-      if (clientAddress) checkRateLimit("bookings", clientAddress);
+      if (budgetAddress) checkRateLimit(rateRoute, budgetAddress);
       const today = parseDay(localDay(new Date()));
       const tomorrow = today.plus({ days: 1 });
       const dayRange = { gte: today.toJSDate(), lt: tomorrow.toJSDate() };
@@ -265,7 +270,7 @@ export async function createBooking(
         if (
           (await tx.booking.count({
             where: { businessId, clientKey, createdAt: dayRange },
-          })) >= 5
+          })) >= (admin ? 100 : 5)
         )
           throw new DomainError(
             "För många försök. Försök igen senare.",
@@ -273,20 +278,18 @@ export async function createBooking(
             retryAfter,
           );
       }
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:email:${emailKey}:${today.toISODate()}`}))`;
-      const count = await tx.booking.count({
-        where: {
-          businessId,
-          emailCapKey: emailKey,
-          createdAt: dayRange,
-        },
-      });
-      if (count >= 3)
-        throw new DomainError(
-          "För många försök. Försök igen senare.",
-          429,
-          Math.max(1, Math.ceil((tomorrow.toMillis() - Date.now()) / 1000)),
-        );
+      if (!admin) {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:email:${emailKey}:${today.toISODate()}`}))`;
+        const count = await tx.booking.count({
+          where: { businessId, emailCapKey: emailKey, createdAt: dayRange },
+        });
+        if (count >= 3)
+          throw new DomainError(
+            "För många försök. Försök igen senare.",
+            429,
+            retryAfter,
+          );
+      }
       const service = await serviceById(v.serviceId, tx);
       if (
         v.serviceVersion !== undefined &&
@@ -321,7 +324,7 @@ export async function createBooking(
         idempotencyKey: idempotencyKey ?? null,
         requestHash: idempotencyKey ? requestHash : null,
         clientKey,
-        emailCapKey: emailKey,
+        emailCapKey: admin ? null : emailKey,
       });
       await tx.bookingEvent.create({
         data: {

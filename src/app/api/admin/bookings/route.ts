@@ -10,7 +10,6 @@ import {
   cancelBookingSchema,
 } from "@/lib/booking-mutations";
 import { listCalendar } from "@/lib/calendar";
-import { clientIp } from "@/lib/rate-limit";
 import { failure } from "@/lib/http";
 
 const actionSchema = z.discriminatedUnion("action", [
@@ -40,9 +39,7 @@ export async function POST(request: NextRequest) {
     const { action, ...input } = actionSchema.parse(await request.json());
     const result =
       action === "create"
-        ? bookingSummary(
-            await createBooking(input, key, clientIp(request.headers), actor),
-          )
+        ? bookingSummary(await createBooking(input, key, undefined, actor))
         : action === "move"
           ? await moveBooking(input, key, actor)
           : await cancelBooking(input, key, actor);
