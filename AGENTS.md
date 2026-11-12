@@ -10,6 +10,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
+## Planändring: agent-first och kalenderjämförelse, 2026-11-12
+
+- Läs aktuell `docs/PRODUCT_ROADMAP.md`. Niclas har därefter godkänt första
+  lokala syntetiska kalenderprovet med befintlig MCP och Grok-QA. Status och
+  underlag: `docs/calendar-proof/README.md`. Ingen fjärr-MCP eller livekalendersynk.
+- Kundagentens kalenderunderlag ska stanna hos agenten; behåll webb och
+  gemensam domänlogik, dataminimering och samtliga befintliga pilotgrindar.
+
 ## Epic 06 levererad skyddad syntetisk demo, 2026-11-12
 
 - Produktkod7c1407d, Grok-GO efter1samlat fixvarv; Actions43301797796 har4gröna

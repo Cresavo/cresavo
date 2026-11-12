@@ -1,5 +1,17 @@
 # Handoff — Epic 06,2026-11-12
 
+## Senare avgränsat kalenderprov, 2026-11-13
+
+Lokalt på experiment/calendar-agent-proof, produktkod7c1407d oförändrad.
+Direkt läsande MCP, två syntetiska kalenderunderlag, faktisk kundbokning och
+adminvisning samt nekat gammalt tidsval med bevarat utkast. Exakt1bokning och
+0överlappar; syntetiskt provkonto inaktiverat och egen provserver stoppad.
+Aktuellt underlag: [kalenderprov](calendar-proof/COMPLETION_2026-11-13.md).
+Fryst paketv1 till Grok: avgränsat GO efter artefakt-/bildgranskning och egen
+kalenderberäkning; inga egna systemtester. [QA och backlogg](calendar-proof/QA_FINAL_REVIEW.md).
+Ingen ny drift eller pilot. Äldre delrapporter med datorstyrningshinder är
+historiska: verktygssessionens reset och Chrome-återanslutning fungerade.
+
 Levererat: kundregister med sökning/paginering, kundkort och aktuell kontakt,
 versionerad redigering/arkivering, bevarade bokningssnapshots och uttrycklig
 kundkoppling i bokning/återbesök. Ingen automatisk matchning på e-post, inga

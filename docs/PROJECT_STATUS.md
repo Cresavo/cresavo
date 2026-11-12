@@ -34,8 +34,18 @@ Produktionsaudit0 är inte ett allmänt säkerhetsgodkännande. Ingen ny abonnem
 eller tilläggskostnad; faktisk fakturaförbrukning ej avläst. Automatisk extern
 backup och framtvingad omstart/lastcertifiering är inte verifierade.
 
-Planerat endast som backlogg, inga nya uppdrag: Niclas fysiska mobilprov,
-därefter observerade UX-problem och separat prioritering av pilotgrindar.
+Planändring 2026-11-12, dokumentation endast: [agent-first-riktning och
+kalenderprov](PRODUCT_ROADMAP.md). Nästa föreslagna prov jämför två syntetiska
+kundkalendrar med verklig lokal MCP-tillgänglighet; bokningen slutförs i
+befintlig webb. Ingen implementation, livekalenderanslutning eller ny QA
+påbörjad vid planändringen. Därefter godkänt första lokalprov: två dummy-
+kalendrar förberedda på experiment/calendar-agent-proof. Klienten byttes
+till Codex och provet är nu genomfört lokalt 2026-11-13: direkta
+läsverktyg, kalenderjämförelse, kundbokning, admin och gammalt tidsval som
+nekas med bevarade uppgifter.1bokning/0överlappar; provkonto inaktiverat.
+Grok ger avgränsat GO efter artefakt-/bildgranskning och egen kalenderberäkning,
+inga egna server-/MCP-/UI-körningar. Inga blockerare; spårbarhetsidéer backlogg.
+[Aktuell provstatus](calendar-proof/README.md). Pilotgrindar kvarstår.
 Main är inte mergad. [Prova och stoppa](DEMO.md), [handoff](HANDOFF.md).
 
 ## Bilaga — historiska arbetsomgångar

@@ -1,22 +1,118 @@
 # Booking Lab SE: produktmål och leveransordning
 
-Uppdaterad 2026-11-12 efter Niclas produktförtydligande. Detta dokument skiljer målbild, nästa avgränsade bygguppdrag och framtida beslut. Det är inte en lista över färdiga funktioner eller ett tillstånd att bygga alla moduler samtidigt.
+Uppdaterad 2026-11-12 efter Niclas agent-first- och kalenderförtydligande.
+Niclas har efter planuppdateringen godkänt det första avgränsade lokala provet.
+Genomförandestatus finns i [kalenderprovet](calendar-proof/README.md).
+Övriga senare steg är förslag, inte godkända bygguppdrag. Ingen ny drift.
 
 ## Målbild
 
-En komplett svensk verksamhetsplattform för små salonger och tjänsteföretag. Bokadirekt och Valei är jämförelseprodukter, inte kodbaser eller designmallar att kopiera. Målet är bättre vardagsflöden, öppna data/integrationer, agentstöd och hållbar total kostnad. Funktionell jämförbarhet måste kartläggas mot faktiska användarbehov; den får inte härledas ur antal avslutade epics.
+En svensk verksamhetsplattform för små salonger där människor och deras egna
+AI-assistenter använder samma tillförlitliga boknings- och verksamhetslogik.
+Ägaren ska kunna arbeta via sin valda assistent eller den visuella arbetsytan;
+kunden via sin personliga agent eller en enkel bokningssida. Booking Lab äger
+bokningens korrekta tillstånd, regler och åtkomstkontroller. Agenten hjälper
+användaren att jämföra och utföra tillåtna handlingar.
 
-Bokning är en del av helheten. Slutprodukten ska omfatta kalender, tjänster, personal, kunder, kampanjer, produkter/lager och relevanta ekonomi- och dokumentationsfunktioner. Journalstöd är en separat modul att utreda, inte ett obegränsat anteckningsfält i MVP:n. En egen marknadsplats, certifierad kassa eller egen grundmodell är inte en förutsättning för att lösa salongens vardag.
+Positionering: **Driv salongen med den AI-assistent du föredrar. Låt kunderna
+boka på sitt sätt.** ChatGPT, Claude, Muse och andra klienter är möjliga
+ingångar, inte löften om redan verifierat stöd. MCP ger inte automatisk
+upptäckt av salongen eller garanterad kompatibilitet. Bokadirekt och Valei är
+jämförelseprodukter, inte funktionslistor att efterlikna. Värdet ska visas i
+sparad administration och enklare bokning, inte antal sidor eller MCP-verktyg.
+
+Befintlig kalender, kundregister, tjänster, personal och kampanjer bevaras.
+Webben har tre tydliga uppgifter: kundbokning, visuell arbetsyta och separat
+produktpresentation. Ingen stor egen chatt krävs. Produkter/lager, ekonomi och
+dokumentationsfunktioner är framtida behov att prioritera, inte automatiska
+krav för nästa leverans. Journal kräver separat bedömning.
+
+## Kalenderkoppling: ansvar och integritet
+
+- Kundens agent får, med kundens tillåtelse, jämföra privat-, jobb- och andra
+  delade kalendrar som kunden har rätt att använda. Börja med upptagna intervall;
+  titlar, deltagare och anteckningar behövs normalt inte för tidsjämförelsen.
+- Booking Lab lämnar tjänst, utförare, pris, längd och aktuell tillgänglighet.
+  Kundens kalenderinnehåll ska inte lagras hos salongen eller skickas som
+  bokningsmetadata. Kundagenten får inte ägarens kundregister eller adminroll.
+- Agenten kombinerar tillgänglighet med önskemål och eventuell uttrycklig
+  tidsbuffert. Ingen kart-/restidsintegration ingår i första provet.
+- Bekräftelse visar salong, behandling, utförare, pris och Stockholmstid.
+  Tillgänglighet är inget reservationslöfte; bokningsmotorn avgör vid skrivning.
+- Kalenderpost skapas först efter lyckad bokning. En framtida kalenderkoppling
+  måste hantera återförsök och delvis fel utan dubbelbokning: misslyckad
+  kalenderinsättning betyder inte att salongsbokningen misslyckades.
+- Ägarens externa kalender kan senare bidra till planeringen, men får inte
+  automatiskt skriva om salongens schema eller flytta kundbokningar.
+- Befintlig kalenderåtkomst i användarens agent återanvänds när den faktiskt
+  stöds. Koppling till Google/Microsoft/Apple, OAuth, realtidssynk och fjärr-MCP
+  är separata beslut; lokal stdio eller demoåtkomst får inte exponeras som genväg.
+
+## Minsta nästa prov: hitta en tid som passar kunden
+
+**Godkänt för avgränsat prov; förberedelser påbörjade.** En lokal syntetisk demonstration i en befintlig
+agentklient med verifierat stöd för lokal MCP. En klient först; fler klienter
+och ägarens assistentflöde kommer efter att nyttan har provats. Ingen ny Epic
+numreras eller startas av denna plan.
+
+Niclas ska kunna fråga: ”Hitta en massage nästa vecka efter klockan 16 som
+passar både min jobbkalender och privatkalender. Visa två alternativ.”
+
+Första provet använder två små, tydligt märkta syntetiska kalenderunderlag med
+datum, upptagna intervall och tidszon, tillgängliga bara för agenten. Detta är
+**kalenderjämförelse med testunderlag, inte verifierad livekalendersynk**.
+Booking Labs tjänster och lediga tider ska däremot hämtas genom riktiga
+befintliga MCP-anrop mot separat lokal demodatabas. Ingen inmatad kopia av
+salongens lediga tider får presenteras som en fungerande integration.
+
+| Liten uppgift efter bygggodkännande | Observerbart acceptanskriterium |
+| --- | --- |
+| 1. Verifiera en befintlig klient och läsbehörig lokal anslutning | Klienten gör verkliga tjänste-/tillgänglighetsanrop; inga admin- eller skrivflaggor, inga hemligheter i prompten. Klient/version och begränsningar dokumenteras. Saknat stöd är en blockerare, inte skäl att öppna publik MCP. |
+| 2. Förbered två kalenderunderlag och en reproducerbar fråga | Agenten visar två verkliga alternativ utan överlapp med någon kalender, med svensk dag/tid, behandling, utförare, längd och pris. Ett förberett facit finns. |
+| 3. Prova hela vägen med befintlig webb | Niclas väljer förslaget och slutför bokningen i den lokala kundvyn; bokningen syns i samma lokala admin. Dag/tid väljs där manuellt, ingen påstådd förifylld länk eller automatisk agentbokning. |
+| 4. Prova negativa fall och granska resultatet | Inga gemensamma tider ger begripligt besked; tidszons-/sommar-vintertidsfall blir rätt; en tid som tas efter förslaget ger konflikt utan dubbelbokning. Kalenderinnehåll förekommer inte i Booking Labs anrop, DB eller loggar. |
+
+Planerad leverans: en kort provguide, verkliga verktygsanrop och en bokning
+synlig i kalendern, samt riktade tester för eventuell ändrad kod. Grok granskar
+fryst underlag i separat syntetisk kopia via befintligt flöde, högst två samlade
+rättningsvarv. Egna tester, Groks faktiska prov och Niclas användarprov redovisas
+separat. Ingen ny full QA av oförändrade epics eller påstådd mobil-/molnverifiering.
+
+Provet kräver lokal dator; befintlig skyddad mobilpreview uppdateras inte.
+Det innehåller inga nya beroenden som mål, ingen kalenderleverantörsanslutning,
+kunddataexport, autonom skrivning, kalenderinsättning, utskick eller ny kostnad.
+
+## Efter provet: separata beslut
+
+1. Om jämförelsen hjälper: välj en faktisk kalenderanslutning och prova med
+   syntetiska kalenderkonton. Verifiera behörighet och återkallelse i vald klient.
+2. Avgränsa därefter bekräftad agentbokning och kalenderinsättning. Ett
+   modellgenererat `confirmed: true` räcker inte; provet behöver en verifierad
+   användarbekräftelse och säkra retry-/konflikt-/delfelsfall. Ingen kundagent
+   får lokal administratörsbehörighet för att få demonstrationen att fungera.
+3. Prova ägarens ”min arbetsdag” med minimerade verksamhetsdata, följt av en
+   uttryckligt bekräftad ändring. Fjärråtkomst och stöd i en andra klient kräver
+   egna verifierade anslutnings- och behörighetsbeslut.
+
+Pilotspåret består: kunddataexport/anonymisering/retention, MFA/recovery,
+drift-/integritetsbedömning och kvarvarande auditfynd. Agentprovet ersätter
+ingen av dessa grindar och ger inget tillstånd för riktiga kunduppgifter.
 
 ## Baslinje och namngivning
 
-Epic 01–04 är avslutade som avgränsade syntetiska POC:er. Senaste verifierade leverans vid denna planändring: `26b680d73f95255473d07b073ab8e06a43d294f0` på `epic-04-individual-admin`. Produktkoden är QA-granskad på `471f91f`. `main` är en äldre bas och ska inte väljas av slentrian.
+Epic 01–06 är avslutade inom respektive avgränsning. Lokal ren bas vid denna
+planändring: `b8de7489cfdbe87de2dea33305ffcbc8c900fc5d` på
+`feature/epic06-customers-demo-product`. Produktkod `7c1407d` är levererad som
+skyddad syntetisk preview; senare dokumentation ändrar inte produktkoden.
+Se [PROJECT_STATUS](PROJECT_STATUS.md) och [HANDOFF](HANDOFF.md) för faktisk
+QA/CI/drift. `main` är en äldre bas och ska inte väljas av slentrian.
 
 - Epic 01: teknisk grund och härdning.
 - Epic 02: lokal MCP-bokning, inte hela det äldre förslaget Booking Core.
 - Epic 03: beroendesäkerhet/Prisma 7.
 - Epic 04: individuella lokala administratörer.
-- Epic05: [bokningsarbetsyta](EPIC_05_PLAN.md), nu lokal alpha med Grok-GO på4fc98d3 och grön full-CI påc12b98a. Privat mobilpreview väntar separat miljöbeslut. Inget efterföljande Epic är automatiskt beställt.
+- Epic 05: [bokningsarbetsyta](EPIC_05_PLAN.md), följd av separat godkänd skyddad preview och användbarhetsförbättringar.
+- Epic 06: [kundregister, syntetisk demo och separat produktsida](EPIC_06_PLAN.md), levererad. Ingen efterföljande implementation är beställd genom denna plan.
 
 Den ursprungliga roadmapändringen byggde inga funktioner. Epic05 har därefter implementerats och verifierats enligt den avgränsade planen. Läs aktuell PROJECT_STATUS och Git-status innan arbetet startar. Hela systemet är fortfarande inte godkänt för riktiga kunder.
 
@@ -26,7 +122,7 @@ Den ursprungliga roadmapändringen byggde inga funktioner. Epic05 har därefter 
 | --- | --- | --- |
 | Kalender och bokningar | Mobil dagvy, desktop dag/vecka, manuellt skapa, öppna, flytta och avboka en tid; samma uppdaterade verklighet för kund, admin och agent. | Epic 05 |
 | Tjänster, personal och tillgänglighet | Ändra pris/längd, välja utförare, ange arbetstider, pauser och undantag utan kodändring. | Epic 05, liten enverksamhetsmodell |
-| Kunder och kontakt | Sökbara kundkort, besök/köp och tydlig kontaktväg, med åtkomster och datalivscykel. | Nästa separat avgränsning; beslut om e-post kvar |
+| Kunder och kontakt | Sökbara kundkort och besök; kontaktväg och datalivscykel måste avgränsas för riktiga kunder. | Kundregister levererat i Epic 06; export/anonymisering/retention och verklig kontaktåtkomst återstår |
 | Produkter och lager | Saldo, inleverans, inventering, försäljning/förbrukning och varning om lågt saldo. Spårbara lagerhändelser och säkra agentåtgärder. | Planerat produktområde, inte Epic 05 |
 | Kampanjer och kommunikation | Skapa erbjudande, välja målgrupp/kanal, förhandsgranska, godkänna och följa utfall. Skilj bokningsmeddelanden från reklam. | Befintligt utkastflöde bevaras; större modul planeras separat |
 | Betalning, presentkort och ekonomi | Betallänk/förskott, försäljning, avstämning, återbetalning och bokföringskoppling där målgruppen behöver dem. | Partnerutvärdering och egen kravgrind före skarpa integrationer |
@@ -58,12 +154,19 @@ Niclas ska kunna följa vad som byggts utan att läsa kod. Varje synlig leverans
 
 Målet är en beständig, autentiserad preview av samma applikation med egen syntetisk databas, oberoende av att Windows-datorn är på. En hemlig URL/noindex är inte åtkomstskydd. Hela previewn, även API och kundbokningssidan, ska omfattas av åtkomstgränsen. Gör aldrig en offentlig tunnel som genväg.
 
-Begäran att uppdatera repot är inte ett separat godkännande av en viss molnleverantör, ny kostnad, hemlighetsändring eller deployment. Epic 05 ska förbereda och redovisa previewns tekniska väg och kvarvarande beslut. Skapa ingen extern resurs/deploy utan uttryckligt mål- och miljögodkännande. Lokal produktdemonstration får fortsätta medan denna del är blockerad. Rapportera mobilpreview separat som tillgänglig/verifierad eller blockerad, aldrig som klar för att en lokal film finns.
+Befintlig skyddad Vercel-preview är levererad enligt [DEMO](DEMO.md).
+Denna plan ändrar varken dess kostnadsram, åtkomst eller deployment.
+Skapa ingen extern resurs eller ny anslutning utan uttryckligt uppdrag.
+En lokal demonstration är inte en mobilåtkomlig agentintegration.
 
 ## Arbetsfördelning och definition av framsteg
 
 Codex äger kod, tester och samordning. Booking Lab QA/Grok granskar via det befintliga Computer Use-flödet, på fryst revision i egen kopia/databas. Niclas bedömer användbarhet och produktval. ChatGPT följer rapporterade resultat och hjälper till med beslut; det ersätter inte faktisk körning.
 
-Efter en epic: verklig funktionsstatus, exakt commit, automatiska resultat, Groks originalrapport, demo/revision och en kort svensk produktägarrapport. Inga godtyckliga färdigprocent, uppfunna bevis eller eviga QA-loopar. Detaljerad arbetsmetod och nästa acceptansmatris finns i EPIC_05_PLAN.md.
+Efter en leverans: verklig funktionsstatus, exakt commit, automatiska resultat,
+Groks originalrapport och en kort svensk produktägarrapport med provbevis.
+Inga godtyckliga färdigprocent, uppfunna bevis eller eviga QA-loopar. Nästa
+föreslagna prov och dess acceptanskriterier finns ovan; äldre Epic-planer gäller
+sina avslutade uppdrag.
 
 Referenser att undersöka, inte redan bevisad funktionsparitet: https://business.bokadirekt.se/funktioner och https://www.valei.com/bokningssystem. Projektets integritets- och licensregler finns i PRIVACY_SECURITY, DATA_FLOWS och THIRD_PARTY_NOTICES.
