@@ -1,4 +1,20 @@
-# Produktägarrapport – Epic 01 QA batch 3
+# Produktägarrapport — Epic 02 vid slutgrinden
+
+2026-11-12, kod **3cd633b**, lokal branch `epic-02-local-agent-booking`. Ingen push, merge eller publicering. Arbetsnamnet Booking Lab SE används fortsatt.
+
+**Byggt:** en lokal agent kan läsa lediga tider och skapa en uttryckligen bekräftad syntetisk bokning. Samma bokningsmotor och databasregler gäller som i webben. Svaret skickar inte tillbaka kundnamn/e-post. En liten testklient kräver ja, medan nej/EOF lämnar databasen orörd.
+
+**Prova nu:** följ README för lokal start. Kör `npm run mcp:client -- --admin --book`, läs sammanfattningen och skriv `ja`. Öppna `/admin` och kontrollera bokningen. Enbart `--admin` provar fortfarande kampanjutkast och manuell publicering. Använd enbart syntetiska uppgifter.
+
+**Bättre:** testerna täcker verklig stdio, riktiga HTTP/MCP-anrop samtidigt, 20 retries med samma id, bestående dagstak, behörighet och minimerade statiska fel. Lokalt passerar 43 unit, 30 integration tre gånger och 12 E2E i fyra lägen, samt lint/tsc/build/cleanup. [Faktiska resultat och felhistorik](VERIFICATION.md).
+
+**Demo:** [galleri och prova-själv-steg](DEMO.md), 4/4 PASS, 14 bilder/4 videor från ren 7a65aee. Agentbokningens adminbilder är granskade; videorna är inte genomtittade i sin helhet. Första inspelningen fastnade vid screenshot och är kvar som FAIL; dess rotorsak är inte fastställd.
+
+**Kvar:** Groks slutkontroll återstår. Första QA godkände servergrunden med ett lågt fel, nu rättat; [rapport och rättning](EPIC_02_QA_FOLLOWUP.md). Pilot är fortfarande stoppad av identitet/MFA, GDPR-livscykel, audit, verklig driftverifiering och beslut om kundkontakt/e-post.
+
+**Tre nästa mål:** slutför slut-QA och demoleverans; välj nästa avgränsade arbete utifrån pilotblockerarna; genomför senare godkänd QA-branch-push och kontrollera extern CI. Inget nytt Epic- eller publiceringsuppdrag antas av denna rekommendation.
+
+## Bilaga — tidigare Epic 01-rapport
 
 ## Uppföljning M2/L8 och CI – 2026-11-11
 

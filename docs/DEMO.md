@@ -1,4 +1,21 @@
-# Demo – aktuell inspelning efter QA batch 3
+# Demo — Epic 02
+
+Aktuell giltig inspelning: **7a65aeec341820442effe68a77a1ea978050a0b0** (produktkod 3cd633b), 2026-11-12 kl. 01:27 Europe/Stockholm, dirty=false och produktionsbygge. `npm run demo:record`: **4/4 PASS**, 1,2 min, **14 PNG och 4 WebM**. Bara syntetiska uppgifter, inget externt publicerat.
+
+- [Öppna det lokala galleriet](../demo-artifacts/2026-11-12T00-27-19-502Z/index.html)
+- [Manifest med revision och filer](../demo-artifacts/2026-11-12T00-27-19-502Z/manifest.json)
+- [Agentbokning i admin, desktop](../demo-artifacts/2026-11-12T00-27-19-502Z/flow-lokal-MCP-bokning-vis-0cccc-dad-admin-med-Stockholmstid-desktop/07-agentbokning-i-admin.png)
+- [Agentbokning i admin, mobil](../demo-artifacts/2026-11-12T00-27-19-502Z/flow-lokal-MCP-bokning-vis-0cccc-dad-admin-med-Stockholmstid-mobile/07-agentbokning-i-admin.png)
+
+Två flöden per skärmstorlek: (1) kundbokning → bekräftelse → admin → kampanjutkast → manuell publicering → publikt erbjudande; (2) en separat verklig lokal MCP-bokning som visas i admin. Terminalens MCP-anrop sker i testklienten; videorna visar webbläsarens resultat, ingen extern modellchatt. Bild 07 visar Syntetisk agentkund Anna/Erik. Desktop/mobil-bilderna 07 är visuellt granskade: svensk tid, SEK, maskerad e-post, ingen N-badge eller observerat horisontellt överflöde. Videorna har inte granskats i sin helhet.
+
+Prova agentflödet själv: starta lokal databas och webb enligt README, kör `npm run mcp:client -- --admin --book`, läs sammanfattningen och skriv `ja`. `nej` eller EOF avbryter utan bokning. Öppna /admin och kontrollera bokningen. Endast example.test och syntetiska namn. Ingen ytterligare UI, dashboard eller modellnyckel behövs.
+
+Reproducera hela inspelningen med instruktionerna nedan och en separat tom *_demo-databas. Demokonfigurationen väljer nu både befintligt fullflöde och agentflödet. Artefakterna är lokala/ignorerade och finns inte i Git eller den rena källkods-ZIP:en. Efter körningen: 0 bokningar, 0 kampanjer, 0 sessioner i demodatabasen.
+
+Första inspelningsförsöket på 18b2ac5 blev FAIL 1/4 vid screenshot, medan funktionella kontroller och tre videoflöden passerade. Det ligger kvar separat och räknas inte som godkänd demo. Riktad diagnostik och ny full inspelning PASS, utan höjd timeout eller ändrad bokningslogik; rotorsaken är inte fastställd. [Felhistorik](EPIC_02_QA_FOLLOWUP.md).
+
+## Bilaga — tidigare inspelningar och gemensamma instruktioner
 
 ## När vi spelar in
 

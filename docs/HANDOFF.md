@@ -8,7 +8,7 @@ Verifierat: lint, tsc, build; 43 unit; 30 integration tre gånger; 12 E2E i alla
 
 Grok har granskat fc83a70 och godkänt E02-1–3 med ett lågt fel inför slutgrinden. E02-QA-1 är rättat i 3cd633b via SDK:s publika Standard Schema-gränssnitt och exakt stdio-regression. E02-QA-2 (.env-autoladdning) och E02-QA-3 (delad idempotensnamnrymd) dokumenteras; inga garantier om miljöisolering eller nya namnrymder. [Originalrapport](qa/QA-REPORT-epic02-fc83a70.md), [rättningsnotering](EPIC_02_QA_FOLLOWUP.md).
 
-Återstår för att stänga Epic 02: giltig slutdemo och Groks oberoende slutkontroll av den frysta kodrevisionen. Första demo var delvis misslyckad vid screenshot; den får inte beskrivas som PASS. Ingen ytterligare produktfunktion behövs. Pilot är fortsatt NO-GO av fem oförändrade skäl i PROJECT_STATUS.
+Slutdemo: **4/4 PASS**, 14 bilder/4 videor, produktion från ren 7a65aee (kod 3cd633b). [Galleri och reproduktion](DEMO.md). Agentens desktop-/mobilbilder granskade, videor inte genomtittade i sin helhet. Första inspelningsförsöket var FAIL och ligger kvar separat; dess rotorsak är inte fastställd. Återstår för att stänga Epic 02: Groks oberoende slutkontroll. Ingen ytterligare produktfunktion behövs. Pilot är fortsatt NO-GO av fem oförändrade skäl i PROJECT_STATUS.
 
 ## Bilaga — tidigare Epic 01-handoff
 

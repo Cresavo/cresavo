@@ -21,8 +21,8 @@ Verifierad kod **3cd633b99e5aa990d002dc5563aed4bfe6bfe4a6**, branch `epic-02-loc
 | E2E_PRODUCTION=1 TRUST_PROXY_IP=1 npm run test:e2e | PASS, **12/12**, 20,9 s |
 | node --env-file=.env scripts/test-cleanup.mjs | PASS: CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0. Wrapper exit 0; barnets avsiktliga timeout är inte ett testsvitfel. |
 | Aggregat på testdatabasen efter sviten | PASS: 0 bokningar, 0 kampanjer, 0 sessioner, 0 överlapp, pg_stat_database.deadlocks=0 |
-| npm audit --json | **FAIL, exit 1**: 3 höga + 7 måttliga, 0 kritiska. Samma beroendeträd; inga automatiska uppgraderingar/overrides. Baslinjefil epic02-audit.json. |
-| npm run demo:record | Slutkörning återstår. Första inspelningen på 18b2ac5: FAIL 1/4 vid screenshot; se avvikelsen nedan. |
+| npm audit --json | **FAIL, exit 1**: 3 höga + 7 måttliga, 0 kritiska. Omkört efter QA-rättning, epic02-qa-audit.json; inga automatiska uppgraderingar/overrides. |
+| npm run demo:record | **PASS 4/4**, 1,2 min, produktionsbygge, ren **7a65aee** (samma kod som 3cd633b), dirty=false. **14 PNG, 4 WebM**. Första misslyckade försök bevaras separat. |
 | Grok första QA | E02-1–3 GO på fc83a70, ett lågt obligatoriskt fel E02-QA-1. Rättat i 3cd633b; oberoende slutkontroll återstår. |
 | GitHub Actions på Epic 02 | **EJ KÖRT**: ingen push tillåten. Epic 01:s CI är inte bevis för Epic 02. |
 | Docker Compose, riktig TLS/proxy, IPv6-transport/fler serverinstanser | **EJ KÖRT**. Docker saknas i PATH. Loopback-simulering av proxy i E2E ersätter inte driftverifiering. |
@@ -40,6 +40,7 @@ Grok körde därutöver egna prober (60 MCP- och 160 blandade HTTP/MCP-omgångar
 - Första tsc-körningen stoppade vid testets subprocess-env-typ (NODE_ENV saknades). Testet rättades; samtliga senare tsc och build PASS.
 - Första riktade nya E2E-körningen blev 0/2: desktop såg ännu loginformen efter UI-klick; mobilens förväntade datumtext matchade inte adminvyns svenska fullformat. Det fokuserade MCP→admin-testet väntar nu på verifierad API-login och navigerar sedan till admin; befintlig UI-login/utloggning i fullflödet är kvar. Datumförväntan använder rätt visningsformat. Därefter riktat 2/2 och samtliga fulla matriser PASS. Första feltraces skrevs över av efterföljande testkörning; sammanfattningen kommer från faktiskt observerad output, inte en bevarad tracefil.
 - Första fulla demo på 18b2ac5 blev FAIL 1/4 vid desktopens nya screenshot, efter godkända funktionella kontroller. Ingen produktions-/bokningsregel ändrades för inspelningen. Riktad diagnostik av samma flöde PASS; rotorsaken är inte fastställd. [Detaljer och partiella artefakter](EPIC_02_QA_FOLLOWUP.md).
+- Slutdemon på 7a65aee blev 4/4 PASS utan ändrade timeoutgränser eller någon inspelningsspecifik produktändring. [Galleri](../demo-artifacts/2026-11-12T00-27-19-502Z/index.html) och [manifest](../demo-artifacts/2026-11-12T00-27-19-502Z/manifest.json). Desktop/mobilens 07-bilder visuellt granskade: syntetisk agentkund, rätt Stockholmstid, maskerad e-post, SEK och ingen utvecklarbadge. Videorna är **inte genomtittade i sin helhet**. Efter demo: 0 bokningar/kampanjer/sessioner och 0 deadlocks i demodatabasen. Första inspelningsfelets rotorsak är fortsatt okänd; den lyckade körningen bevisar inte att felet är permanent löst.
 - Prisma kan autoläsa .env trots explicit miljövitlistning; ingen processisolering påstås. Gemensam idempotensnamnrymd är avsiktlig i denna POC. [Arkitektur](ARCHITECTURE.md).
 - Vites befintliga configLoader-varning och Playwrights NO_COLOR/FORCE_COLOR-varning kvarstår. Ingen varning har dolts genom ändrade testgränser.
 

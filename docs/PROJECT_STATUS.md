@@ -1,6 +1,6 @@
 # Projektstatus — Epic 02 vid slutgrinden
 
-Verifierat 2026-11-12, kod **3cd633b**, branch `epic-02-local-agent-booking`. Epic 01 är avslutad som lokal POC. Epic 02 är implementerad och lokalt funktionstestad, men **oberoende slutkontroll och slutdemo återstår**. Pilot är fortfarande **NO-GO**. [Exakta kommandon och resultat](VERIFICATION.md) · [Nattens arbetslogg](NIGHT_WORK.md).
+Verifierat 2026-11-12, kod **3cd633b**, branch `epic-02-local-agent-booking`. Epic 01 är avslutad som lokal POC. Epic 02 är implementerad och lokalt funktionstestad; slutdemon på 7a65aee har 4/4 PASS, men **oberoende slutkontroll återstår**. Pilot är fortfarande **NO-GO**. [Exakta kommandon och resultat](VERIFICATION.md) · [Nattens arbetslogg](NIGHT_WORK.md) · [Demo, 14 bilder/4 videor](DEMO.md).
 
 | Funktion / observerbart acceptanskriterium | Tekniskt / automatiskt verifierat | Kan provas? | UX och riktig kundberedskap |
 | --- | --- | --- | --- |
