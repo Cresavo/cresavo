@@ -52,8 +52,14 @@ test("kalendern går att använda med tangentbord och ryms vid 320px", async ({
   const today = DateTime.now().setZone("Europe/Stockholm").toISODate()!;
   const picker = page.locator("fieldset.date-picker");
   const selected = picker.locator("button[aria-pressed=true]");
+  await expect(selected).toBeEnabled();
   await selected.focus();
   await page.keyboard.press("ArrowRight");
+  await expect(
+    picker.locator(
+      `button[data-date="${DateTime.fromISO(today).plus({ days: 1 }).toISODate()}"]`,
+    ),
+  ).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("#date")).toHaveValue(
     DateTime.fromISO(today).plus({ days: 1 }).toISODate()!,
