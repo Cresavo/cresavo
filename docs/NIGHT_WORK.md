@@ -15,6 +15,22 @@ Avgränsning vid start: genomför Epic 02:s E02-0–6. Senare styrning från pro
 | Grok-överlämning | PASS | Chrome-adressen verifierad; KONTAKT_OK läst; första frysta QA-uppdraget utfört i egen kopia på Groks dator med separat databas. Originalrapport/fixbeställning sparade i docs/qa. Desktop-utkastet var inte skickat. |
 | Extern CI | Ej körd | Ingen push tillåten. |
 
+## Fortsättning Epic 03
+
+Separat branch epic-03-dependency-security från dba05a2. Plan716e679, produktkod18a4d73, lokal verifieringsdokumentation1e33c65. Ingen push/merge/deploy. Förstudien i separat verktygskatalog rättfärdigade en nödvändig adapter; inga produktfunktioner eller migrationer lades till.
+
+| Uppgift | Status | Faktiskt bevis / hinder |
+| --- | --- | --- |
+| E03-0–2 | PASS lokalt | Ren bas, Prisma7.10.1, explicita env-/pool-/UTC-regler, notices och 129 ändrade paketposter inventerade. Ingen generell EPL/AGPL-kompatibilitet påstås. |
+| E03-3 | BLOCKERAT upstream | 7 moderate ESLint/minimatch kvar; ingen stödd rättad kedja verifierad. Inga overrides/lintundantag. 0 high och prod audit0fynd. |
+| E03-4 | PASS | Ren npm ci568paket; generate/migrate/seed på ny PG18.6/55449, syntetisk template-uppgraderingskopia från Epic02. |
+| E03-5 | PASS lokalt, QA pågår | 51 unit,31 integration ×3,12 E2E ×4,lint/tsc/build/cleanup PASS. Slutdata0,overlap0,deadlocks0. Grok bekräftade SHA/ZIP och kör i egen miljö med svensk serverzon. |
+| E03-6 | Pågår | Dokumentationen uppdaterad; slutrapport/QA/avslutande processstopp återstår. Ingen ny video för osynlig dependencyändring; äldre Epic02-demo märks tydligt. |
+
+Första integrationen fångade nya strukturerade adapterfel och offsetlösa datumvärden mot icke-UTC PG; rättat med tester, inga sänkta kriterier. Extern uppgraderingsprobe kunde inte använda saknade pg_dump/restore; templatekopian PASS. Tvångsprober 40P01/40001 PASS efter korrigerad .mts-filtyp. Se VERIFICATION/DEPENDENCY_REVIEW för alla resultat och tidiga fel.
+
+För slut-QA lämnades ren klon booking-lab-qa-epic03-18a4d73 och byteexakt källkods-ZIP, SHA256 F18D8BB21354DFB9CD99B21161750DF37BF72AD81F9BB5B4CA04F4398D9F6F9A, 133 arkivposter utan env/modules/genererade filer. Skickat02:05CET. Grok kör samma avgränsade QA i egen miljö; inga dubbla QA-omgångar beställda. Kompletterande faktisk slutmatris skickad utan ny snapshot/nytt jobb. Äldre PG55448 stoppad igen efter uppgraderingskopian och nollräkning; nya55449 ägs av denna omgång och hålls tills eventuell rättning verifierats.
+
 Codex fortsätter lokalt arbete och kan nu lämna underlag via Groks verifierade Chrome-flik. Detta är en aktiv arbetsomgång, inte en verifierad headless-installation eller ett löfte om kontinuerlig drift om värden/sessionen stannar.
 
 ## Resurser

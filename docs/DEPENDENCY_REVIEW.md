@@ -31,6 +31,8 @@ Första integrationskörningen gav **24 PASS, 1 FAIL, 5 SKIPPED**: adapterfelens
 
 Uppgraderingskopian är en PostgreSQL-template-kopia av vår föregående Epic 02-testdatabas på 55448, med tre egna syntetiska Booking/Campaign/AdminSession-fixturer. Prisma 7 migrate deploy gav inga väntande migrationer; läsningar bevarade datum och fält, en ORM-uppdatering behöll exakt UTC-epoch över DST. **UPGRADE_COPY_PASS**, egna fixturer borttagna i båda databaser. Första försök med pg_dump/pg_restore kördes inte: de binärerna saknas i embedded-paketet, proben gav exit 1 och städade sina fixturer. Template-metoden verifierar databaskopian, inte en logisk backup/återställningsrutin.
 
+En riktad extern driverprobe tvingade även verkliga SQLSTATE **40P01 och 40001** vid insert via temporärt skapad testtrigger i varsin återställd transaktion. Båda gav samma säkra DomainError/status400, och 0 triggerrester blev kvar. Inga produktmigrationer eller regler ändrades. Proben behövde först byta från .ts i verktygskatalogens CJS-kontext till .mts; första försöket gav TransformError före dataåtkomst. Godkänt resultat i epic03-conflict-probe-mts.log. Slutlig dataräkning/deadlocks är fortsatt separat kontrollerad.
+
 ## Licenser och distributionsgräns
 
 Faktiska installerade LICENSE-filer för @prisma/client, prisma, @prisma/adapter-pg och @prisma/driver-adapter-utils innehåller **Apache-2.0**; pg och postgres-array **MIT**. Dessa komponenter kan användas med vår AGPL-3.0-only-kod med bibehållna notices enligt tidigare licensbeslut. Ingen upstream-kod har kopierats in i applikationen.

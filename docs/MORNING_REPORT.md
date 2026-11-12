@@ -1,23 +1,36 @@
 # Morgonrapport — Booking Lab SE, 2026-11-12
 
-## Epic 02: klar som lokal POC
+**Epic 02 är godkänd som lokal POC. Epic 03 är lokalt verifierad och väntar på Groks slutrapport. Pilot är NO-GO.** Inget pushat, mergat eller deployat; privat repo. Remote main kontrollerad läsande: b000481. Ingen lokal main-branch finns.
 
-Bas 02edeaf, produktkod 3cd633b, QA-snapshot cad997b, branch `epic-02-local-agent-booking`. Lokala commits; inget pushat, mergat eller deployat. Grok godkände Epic 02 kl. 01:44 CET utan blockerande fynd. [Full slutrapport](qa/QA-REPORT-epic02-cad997b.md).
+## Vad byggdes och vad kan jag prova?
 
-**Byggt/prova:** lokal syntetisk agentbokning via befintlig bokningsmotor. Efter start enligt README: `npm run mcp:client -- --admin --book`, läs sammanfattningen och skriv `ja`, se bokningen i `/admin`. Nej/EOF skapar inget. Befintligt kund-/kampanjflöde fungerar fortsatt. Inga nya beroenden eller migrationer i Epic 02.
+- **Epic 02:** lokal syntetisk MCP-bokning via samma motor som webben, minimerade svar och en ja/nej/EOF-testklient. Avslutningscommit **dba05a2**, produktkod **3cd633b**, QA **cad997b**. Grok godkände själv hela matrisen utan blockerare. [Slutrapport](qa/QA-REPORT-epic02-cad997b.md).
+- **Epic 03:** kontrollerad Prisma **7.10.1**-uppgradering med PostgreSQL-adapter, begränsad pool, uttrycklig UTC-session och CLI-env. Inga nya produktfunktioner eller migrationer. Produktkod **18a4d73**, separat branch **epic-03-dependency-security**. De tre höga audit-fynden är borta; sju måttliga lintfynd kvarstår utan stödd upstream-fix. [Beslut/licenser](DEPENDENCY_REVIEW.md).
+- **Prova:** [Windows-genväg](LOCAL_DEMO_WINDOWS.md) eller portabel start enligt README. Kundbokning → `/admin`; `npm run mcp:client -- --admin --book` och uttryckligt `ja` → syntetisk bokning. Enbart `--admin` → kampanjutkast som publiceras manuellt. Bara påhittade namn/example.test. Separat demodatabas för dessa försök.
 
-**Faktiska resultat:** Codex lint/tsc/build PASS, 43/43 unit, 30/30 integration ×3, 12/12 E2E i vart och ett av fyra dev/prod × proxy-lägen. Cleanup: 0 bokningar, kampanjer, sessioner, överlappar och deadlocks. Grok körde samma fullmatris och ren npm ci själv: PASS. `npm audit` **FAIL: 3 höga/7 måttliga**, oförändrat. Lokal npm ci, extern CI, Docker och riktig TLS/proxy/flerinstansdrift **ej körda**. [Kommandon/loggar och tidiga fel](VERIFICATION.md).
+## Faktiska resultat
 
-**Demo:** [lokalt galleri och steg](DEMO.md), 14 bilder/4 videor, produktionsinspelning från ren 7a65aee, 4/4 PASS. Bilder visuellt granskade av Codex och QA. Videor medietekniskt verifierade, inte fullt genomtittade. Första screenshot-inspelningen föll; orsak okänd, senare full körning PASS utan ändrade tidsgränser.
+| Kontroll | Epic 02 | Epic 03 på 18a4d73 |
+| --- | --- | --- |
+| Ren npm ci/generate/migrate/seed | QA PASS; Codex ci ej körd | Codex PASS, 568 installerade paket, 3 oförändrade migrationer |
+| Lint/tsc/build | PASS | PASS |
+| Unit / integration | 43/43; 30/30 ×3 | 51/51; 31/31 ×3 |
+| E2E dev/prod × proxy 0/1 | 12/12 i alla fyra | 12/12 i alla fyra |
+| Cleanup / överlapp / deadlocks | PASS, alla 0 | PASS, alla 0 |
+| Full audit | FAIL: 3 high / 7 moderate | FAIL: 0 high / 7 moderate |
+| Produktionsaudit | Tidigare kvarstående fynd | PASS: 0 fynd |
+| Oberoende Grok-QA | PASS | PÅGÅR i egen miljö |
 
-**Kvar/osäkert:** pilot NO-GO. Delat adminlösenord/MFA, kund-GDPR-livscykel, audit, verklig drift, processisolering och kundkontaktbeslut återstår. SDK:s normalisering av __proto__, protokollfel utanför verktyget och pipe-inmatat ja dokumenterade som icke blockerande POC-begränsningar. Ingen garanti för headless-drift eller produktion.
+Epic 03 har dessutom PASS för syntetisk äldre DB-kopia, verkliga insert-fel 40P01/40001 och produktionsstart mot separat demo: root/admin 200, loginform och två tjänster. [Exakta kommandon, tider, loggar och misslyckade första prober](VERIFICATION.md). Extern CI, Docker, riktig TLS/proxy/flerinstansdrift och logisk backup/restore är **ej körda**.
 
-**Hushållning:** egen DB 55448 och helper stoppade efter slutkontroll, inga lyssnare på 3000/55448. Ignorerad syntetisk .env och lokala test-/demoartefakter bevarade inför fortsatt arbete. Diskagentens stödda npm-cacherensning frigjorde 1,843 GiB på D:, inga projekt eller databaser raderades. Ingen ny betald API-tjänst startad.
+## Demo, kvar och nästa tre mål
 
-## Fortsättning enligt produktägarens nattuppdrag
+[Epic 02-galleri och steg](DEMO.md): 14 bilder/4 videor, produktion från ren **7a65aee**, 4/4 PASS. Bilder granskade; videor avkodade utan mediafel men inte fullt genomtittade. Första inspelningsfelets orsak okänd. Ingen ny inspelning för Epic 03:s osynliga ändring; den äldre filmen är inte testbevis för Prisma 7.
 
-1. Epic 03: beroendesäkerhet med separat plan/branch och verifierad Prisma-migrering; ingen automatisk major-override. Förstudien sker i separat verktygskatalog, inte Epic 02:s produktkod.
-2. Besluta och avgränsa individuell adminåtkomst samt kundernas GDPR-livscykel före pilot.
-3. Efter uttryckligen godkänd push: kontrollera extern fyrfälts-CI. Main och remote förblir orörda tills dess.
+Pilot kräver fortfarande individuell admin/MFA, kund-GDPR-livscykel, kvarvarande audit, riktig drift/processisolering och kundkontaktbeslut. EPL-verktyg och sharp/libvips kräver separat faktisk distributionskontroll; ingen generell licensklarering av framtida image påstås.
 
-Denna rapport uppdateras med faktiskt Epic 03-resultat innan nattarbetet avslutas; Epic 03 är ännu inte implementerad här.
+1. Avsluta Groks avgränsade Epic 03-QA och eventuella konkreta regressioner; inga fler stil-/funktionsloopar.
+2. Besluta nästa avgränsning för adminidentitet och kund-GDPR före pilot.
+3. Efter uttryckligen godkänd push: kontrollera extern fyrfälts-CI och följ upp audit-/driftgrindarna.
+
+**Resurser:** egen gamla PG 55448 och smoke-webben är stoppade. Nya PG 55449 är ännu igång inför eventuell omkontroll och stoppas vid avslut. Endast ignorerad syntetisk .env/egna databaser och lokala artefakter kvar. Diskagenten frigjorde 1,843 GiB på D: via npm-cacheunderhåll; inga projekt eller databaser raderades. Ingen ny betald API-tjänst startad. Epic 02 tog cirka 1 h 18 min; Epic 03-tid anges vid slutbesked.

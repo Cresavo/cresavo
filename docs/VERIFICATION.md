@@ -22,6 +22,8 @@
 | node --env-file=.env scripts/test-cleanup.mjs | PASS, wrapperexit 0: CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0; PASS. |
 | Slutaggregat/SQL-overlap/pg_stat_database | PASS: bookings0,campaigns0,sessions0,overlaps0,deadlocks0. |
 | Syntetisk uppgraderingskopia från Epic 02 | PASS, templatekopia på55448/booking_epic03_upgrade_test:3 migrationer inga väntande, Booking/Campaign/Session bevarade, ORM-update exakt UTC-epoch. |
+| Riktig SQLSTATE-probe vid insert | PASS: tvingade 40P01 och 40001 gav DomainError/status400; 0 testtriggerrester. Extern .mts-probe, inte ytterligare två testfall i svitens 31. |
+| Separat lokal demodatabas / produktionsstart | PASS: ny booking_epic03_demo migrerad/seedad. ROOT_STATUS=200, ADMIN_STATUS=200 med loginform, SERVICE_COUNT=2; egen smoke-server stoppad, därefter 0 bokningar/kampanjer/sessioner/överlapp/deadlocks. Ingen video inspelad. [Windows-guide](LOCAL_DEMO_WINDOWS.md). |
 | npm audit --json | **FAIL exit 1,7 moderate,0 high/critical**. Ingen override eller allowlist. |
 | npm audit --omit=dev --json | **PASS exit 0,0 fynd**. CLI kan ändå installeras via optionalpeer. |
 | Byggspårning |10 server-nft-filer,0 elkjs/Studio/prisma-build-referenser. Inte full distributionsklarering. |

@@ -22,6 +22,8 @@ För produktägaren: [projektstatus och acceptanskriterier](docs/PROJECT_STATUS.
 
 ## Starta lokalt
 
+På den befintliga Windows-datorn finns även en [kort lokal demoguide](docs/LOCAL_DEMO_WINDOWS.md) för det separata syntetiska PostgreSQL-klustret. Den är inte en portabel installation och ersätter inte instruktionerna nedan.
+
 Förutsättningar: Node.js 22.12 eller senare (alternativt 24 eller senare), npm och Docker med Compose. Port 5432 och 3000 måste vara lediga. I projektkatalogen:
 
 ```powershell
