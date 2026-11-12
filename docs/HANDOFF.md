@@ -1,3 +1,11 @@
+# Handoff — pågående Epic 05
+
+2026-11-12. Branch epic-05-booking-workspace, godkänd plan5c9b07a ovanpå verifierad26b680d. Domändel för E05-1/2 implementerad: konfigurerbara resurser/scheman, snapshots, status/version, atomär flytt/avbokning och mutationsidempotens. Delkontroll:65unit/50integration samt lint/tsc/build PASS mot ny isolerad PostgreSQL. Historiska4migrationer oförändrade; ny femte migration verifierad på tom DB.
+
+**Epic05 är inte färdig.** UI/API/MCP-paritet, uppgraderingskopia, nya E2E, full slutmatris, demo, previewunderlag och Grok-QA återstår. Ingen push/deploy gjord för implementationen. [Aktuellt arbete och verkliga delresultat](WORKPLAN.md) · [Hela godkända omfattningen](EPIC_05_PLAN.md). Mobilpreview har inget miljögodkännande; oberoende produktarbete fortsätter.
+
+## Verifierad föregångare — Epic04
+
 # Handoff — Epic 04 godkänd lokal POC
 
 2026-11-12. Branch **epic-04-individual-admin**. Produktkod **471f91fa11ad27c19ecd43244bcc90ba3f0b2489**; första kod3419973, bas10175ed. Efterföljande leveranscommits ändrar dokument. Groks full-QA och riktade återkontroll gav GO; E04-QA-1 stängd, inga nya fynd. Pilot NO-GO.

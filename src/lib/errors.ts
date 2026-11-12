@@ -2,6 +2,13 @@ import { ZodError } from "zod";
 
 // Only literal messages owned by this codebase may cross a trust boundary.
 const publicMessages = [
+  "Åtkomst nekad",
+  "För många resurser",
+  "Medarbetaren kan inte utföra behandlingen",
+  "Uppgifterna har ändrats. Läs in på nytt.",
+  "Ändringen berör bokade tider. Flytta eller avboka dem först.",
+  "Bokningen finns inte",
+  "Bokningen är avbokad och kan inte flyttas.",
   "Slutdatum får inte vara före startdatum.",
   "Kampanjen får gälla högst 90 kalenderdagar.",
   "Tjänsten finns inte",
@@ -16,7 +23,7 @@ type PublicMessage = (typeof publicMessages)[number];
 export class DomainError extends Error {
   constructor(
     message: PublicMessage,
-    readonly status: 400 | 409 | 429 = 400,
+    readonly status: 400 | 403 | 409 | 429 = 400,
     readonly retryAfter?: number,
   ) {
     super(message);

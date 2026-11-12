@@ -1,3 +1,41 @@
+# Aktuellt arbete — Epic 05 bokningsarbetsyta
+
+Start 2026-11-12. Godkänd plan5c9b07a på origin/epic-05-booking-workspace, verifierad föregångare26b680d. Arbetskopian var ren, endast en registrerad worktree; inga befintliga processer stoppas. Codex är enda skrivare. Separat agent gör endast läsande kontraktsgranskning. Ingen ny QA av oförändrad Epic01–04.
+
+| Del | Faktiskt läge |
+| --- | --- |
+| E05-0 | Plan/roadmap/AGENTS lästa, rätt branch hämtad och vald; inga nyare remotecommits än5c9b07a vid start. |
+| E05-1 | Domän/schema implementerade och riktat testade; redigerbara adminvyer/API/MCP återstår. |
+| E05-2 | Domän för atomär flytt/avbokning och idempotens implementerad, samtidighet/retry testad. Koppling till UI/API/MCP återstår. |
+| E05-3 | Planerad: desktop dag/vecka, mobil dag och separata detalj-/inställningsvyer. |
+| E05-4 | Planerad: lokal MCP-paritet, separat write-opt-in och bekräftande testklient. |
+| E05-5 | Förberedelse återstår. Ingen extern preview/deploy godkänd. Oberoende produktarbete fortsätter. |
+| QA/demo/leverans | Inte påbörjad; sammanhängande kandidat fryses först efter implementation och egna kontroller. |
+
+## Skärmstruktur
+
+Desktop: Kalender som huvudvy → datum/idag/föregående/nästa, dag/vecka och personalfilter → tidsskala med bokningsblock. Ny bokning öppnar ett fokuserat formulär. Bokningsblock öppnar detaljvy med Flytta/Avboka. Inställningar innehåller Tjänster och Personal/tider, kampanjflödet finns kvar i separat vy. Mobil visar dag och kronologiska bokningskort, samma primära handlingar utan horisontellt beroende. Ingen AI-panel/KPI-vägg, inga nya bilder eller UI-beroenden planeras.
+
+## Tekniska beslut under implementation
+
+- Behåll gamla HTTP-arrayen för availability och201{id} för kundbokning. Valfri staffId utan default i hashunderlaget; legacy väljer staff-demo. getAvailability:s tredje transaktionsklient behålls, personalval är separat argument.
+- Booking sparar tjänstens namn/pris/längd/buffert som snapshot. Äldre backfill representerar endast tjänstedata vid migrationen; okänt historiskt pris kan inte återställas. Befintliga start/slut bevaras.
+- Personalens veckoperioder och pauser samt datumundantag sparas som strikt begränsad JSON per versionsstyrd personalrad. Inga fria journalfält. Datumundantag ersätter just den dagens veckoschema.
+- Lägg gemensamt konfigurationslås före befintliga bokningslås: boknings-/flyttväg använder shared, konfigurationsändring exclusive. Befintlig relativ låsordning för idempotens/kvot/personal bevaras. Flytt låser alla berörda personal/dagnycklar sorterat före bokningsraden.
+- Avbokning blir status, dagstaken fortsätter räkna skapade rader även efter avbokning. Ny migration ersätter exclusion atomärt med samma halvöppna skydd för aktiva rader; inga historiska migrationer ändras.
+
+## Verifierad backenddel, 2026-11-12
+
+Ny egen PostgreSQL18.6 på127.0.0.1:55451, booking_epic05_config2_test (migrerad/seedad från tom DB). Prisma generate7.10.1 PASS; fem migrationer/seed PASS; lint, tsc och npm run build PASS; npm test65/65 PASS(10.70s); npm run test:integration50/50 PASS(42.39s). Ny SQL-migrations checksumma motsvarar tillämpad DB. Basens tester kördes som relevanta regressioner eftersom bokningslogik ändrats. Inga tester sänkta.
+
+Tidiga fel rättade: Luxons generiska DateTime-typ krävde uttrycklig now-typ i schemahjälparen. Första migrationsutkastet skapade tom standardtilldelning före seed på tom DB; ny ännu ej committad migration korrigerades och verifierades på ny separat config2-databas (ingen reset/omsrkrivning av historiska filer). Ett retrytest jämförde JSON-nyckelordning från JSONB; ändrat till full semantisk likhet för alla20 svar, samma version och exakt en händelse krävs fortsatt.
+
+Riktade testfall: historiska snapshots, två personaler, paus/ledighet, schemaändring med bokad tid, avbokad tid/frigjord kapacitet, bibehållen skapandekvot, stale-version, resurs-/dygnsflytt, 20retry/20konkurrerande flyttar, direkt-DB-exclusion, generiska fel och minimerade bokningsdetaljer. Datumregeln nekar obefintliga/tvetydiga lokala starttider vid DST i stället för att flytta dem tyst.
+
+Aktuell implementation är inte verifierad produktleverans. API/UI/MCP, uppgraderingskopia, nya E2E, full slutmatris, demo, previewförslag och extern QA återstår. Ingen Epic05-push gjord. Hela AC1–AC10 och previewbeslutet kvarstår enligt EPIC_05_PLAN.
+
+## Bilaga — föregående verifierad leverans
+
 # Aktuellt arbete — Epic 02–04 färdigställda som lokal POC
 
 Produktkod471f91f, branch epic-04-individual-admin. Full-QA på3419973 och riktad återkontroll på471f91f gav GO; kapacitetsfyndet stängt. Lokal slutmatris61unit/40integration/14E2E×4 PASS. Demo4/4 PASS, märkt äldre än osynlig fix. Epic02/03 pushade med4 gröna CI-E2E vardera; känt audit-undantag synligt. Epic04 pushad199d326, Actions43172522203 verifierad med4×14E2E PASS och känt audit-undantag. [CI-bevis](CI_DELIVERY_2026_11_12.md). Ingen mainmerge/deploy.

@@ -10,6 +10,9 @@ model Service {
   name String
   duration Int
   priceOre Int
+  buffer Int @default(0)
+  active Boolean @default(true)
+  version Int @default(1)
   bookings Booking[]
   campaigns Campaign[]
 }
@@ -23,6 +26,15 @@ model Booking {
   endsAt DateTime @db.Timestamptz(3)
   customerName String
   customerEmail String
+  serviceName String @default("")
+  priceOre Int @default(0)
+  duration Int @default(0)
+  buffer Int @default(0)
+  status String @default("confirmed")
+  version Int @default(1)
+  initialStartsAt DateTime? @db.Timestamptz(3)
+  initialEndsAt DateTime? @db.Timestamptz(3)
+  events BookingEvent[]
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   idempotencyKey String?
   requestHash String?
@@ -32,6 +44,44 @@ model Booking {
   @@index([businessId, customerEmail, createdAt])
   @@index([businessId, clientKey, createdAt])
   @@index([businessId, emailCapKey, createdAt])
+}
+model Staff {
+  id String @id @default(cuid())
+  businessId String
+  name String
+  active Boolean @default(true)
+  version Int @default(1)
+  serviceIds String[]
+  weekly Json
+  exceptions Json @default("[]")
+  @@index([businessId, active])
+}
+
+model BookingEvent {
+  id String @id @default(cuid())
+  bookingId String
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  action String
+  actorKind String
+  actorId String
+  previousStart DateTime? @db.Timestamptz(3)
+  previousEnd DateTime? @db.Timestamptz(3)
+  previousStaffId String?
+  nextStart DateTime? @db.Timestamptz(3)
+  nextEnd DateTime? @db.Timestamptz(3)
+  nextStaffId String?
+  @@index([bookingId, createdAt])
+}
+
+model WorkspaceRequest {
+  id String @id @default(cuid())
+  businessId String
+  key String
+  requestHash String
+  result Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([businessId, key])
 }
 model Campaign {
   id String @id @default(cuid())

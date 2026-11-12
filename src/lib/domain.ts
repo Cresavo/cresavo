@@ -5,18 +5,18 @@ import { Prisma, type Booking } from "@prisma/client";
 import { db } from "./db";
 import { DEMO_BUSINESS_ID } from "./config";
 import { DomainError } from "./errors";
-import { localDay, parseDay, slotsForDay } from "./time";
+import { localDay, parseDay } from "./time";
+import { dateSchema as date, idempotencyKeySchema } from "./validation";
+export { idempotencyKeySchema } from "./validation";
+import { weeklySchema, exceptionsSchema, scheduledSlots } from "./schedule";
+import {
+  lockConfiguration,
+  assertWorkspaceActor,
+  type WorkspaceActor,
+} from "./workspace-write";
 
 const businessId = DEMO_BUSINESS_ID,
   staffId = "staff-demo";
-const date = z.string().refine((v) => {
-  try {
-    parseDay(v);
-    return true;
-  } catch {
-    return false;
-  }
-}, "Ogiltigt datum");
 
 export const campaignSchema = z
   .object({
@@ -48,6 +48,7 @@ export const campaignSchema = z
 
 export const bookingSchema = z.object({
   serviceId: z.string().min(1),
+  staffId: z.string().min(1).max(128).optional(),
   start: z.iso.datetime({ offset: true }),
   customerName: z.string().trim().min(2).max(80),
   customerEmail: z
@@ -56,21 +57,21 @@ export const bookingSchema = z.object({
     .transform((v) => v.toLowerCase()),
 });
 
-export const idempotencyKeySchema = z
-  .string()
-  .min(1)
-  .max(64)
-  .regex(/^[A-Za-z0-9_-]+$/);
-
-export async function listServices() {
+export async function listServices(includeInactive = false) {
   return db.service.findMany({
-    where: { businessId },
+    where: { businessId, ...(!includeInactive && { active: true }) },
     orderBy: { name: "asc" },
   });
 }
 
-async function serviceById(id: string, client: Prisma.TransactionClient = db) {
-  const service = await client.service.findFirst({ where: { id, businessId } });
+async function serviceById(
+  id: string,
+  client: Prisma.TransactionClient = db,
+  includeInactive = false,
+) {
+  const service = await client.service.findFirst({
+    where: { id, businessId, ...(!includeInactive && { active: true }) },
+  });
   if (!service) throw new DomainError("Tjänsten finns inte");
   return service;
 }
@@ -79,71 +80,111 @@ export async function getAvailability(
   serviceId: string,
   day: string,
   client: Prisma.TransactionClient = db,
+  selectedStaff = "staff-demo",
+  internal?: { ignoreBookingId: string; duration: number; buffer: number },
 ) {
   date.parse(day);
-  const service = await serviceById(serviceId, client);
-  const candidates = slotsForDay(day, service.duration);
+  const service = await serviceById(serviceId, client, !!internal);
+  const staff = await client.staff.findFirst({
+    where: { id: selectedStaff, businessId, active: true },
+  });
+  if (!staff || !staff.serviceIds.includes(serviceId))
+    throw new DomainError("Medarbetaren kan inte utföra behandlingen");
+  const minutes = internal
+    ? internal.duration + internal.buffer
+    : service.duration + service.buffer;
+  const candidates = scheduledSlots(
+    weeklySchema.parse(staff.weekly),
+    exceptionsSchema.parse(staff.exceptions),
+    day,
+    minutes,
+  );
   if (!candidates.length) return [];
-
   const start = parseDay(day).toUTC().toJSDate(),
     end = parseDay(day).plus({ days: 1 }).toUTC().toJSDate();
   const bookings = await client.booking.findMany({
     where: {
       businessId,
-      staffId,
+      staffId: selectedStaff,
+      status: "confirmed",
       startsAt: { lt: end },
       endsAt: { gt: start },
+      ...(internal && { id: { not: internal.ignoreBookingId } }),
     },
     select: { startsAt: true, endsAt: true },
   });
-  return candidates
-    .filter(
-      (s) =>
-        !bookings.some(
-          (b) =>
-            s.getTime() < b.endsAt.getTime() &&
-            s.getTime() + service.duration * 60000 > b.startsAt.getTime(),
-        ),
-    )
-    .map((s) => s.toISOString());
+  return candidates.filter((value) => {
+    const start = new Date(value).getTime();
+    return !bookings.some(
+      (b) =>
+        start < b.endsAt.getTime() &&
+        start + minutes * 60000 > b.startsAt.getTime(),
+    );
+  });
 }
 
 // Keep structured SQLSTATE detection for the raw INSERT: Prisma 7 wraps the
 // driver cause; historical Prisma 6 errors used meta.code.
 export async function insertBooking(
   client: Prisma.TransactionClient,
-  data: Omit<Booking, "createdAt" | "clientKey" | "emailCapKey"> &
-    Partial<Pick<Booking, "clientKey" | "emailCapKey">>,
+  data: Pick<
+    Booking,
+    | "id"
+    | "businessId"
+    | "staffId"
+    | "serviceId"
+    | "startsAt"
+    | "endsAt"
+    | "customerName"
+    | "customerEmail"
+    | "idempotencyKey"
+    | "requestHash"
+  > &
+    Partial<
+      Pick<
+        Booking,
+        | "clientKey"
+        | "emailCapKey"
+        | "serviceName"
+        | "priceOre"
+        | "duration"
+        | "buffer"
+      >
+    >,
 ) {
   try {
     const rows = await client.$queryRaw<Booking[]>`INSERT INTO "Booking"
-      ("id", "businessId", "staffId", "serviceId", "startsAt", "endsAt", "customerName", "customerEmail", "idempotencyKey", "requestHash", "clientKey", "emailCapKey")
+      ("id", "businessId", "staffId", "serviceId", "startsAt", "endsAt", "customerName", "customerEmail", "idempotencyKey", "requestHash", "clientKey", "emailCapKey", "serviceName", "priceOre", "duration", "buffer")
       VALUES (${data.id}, ${data.businessId}, ${data.staffId}, ${data.serviceId}, ${data.startsAt}, ${data.endsAt},
-        ${data.customerName}, ${data.customerEmail}, ${data.idempotencyKey}, ${data.requestHash}, ${data.clientKey ?? null}, ${data.emailCapKey ?? null}) RETURNING *`;
+        ${data.customerName}, ${data.customerEmail}, ${data.idempotencyKey}, ${data.requestHash}, ${data.clientKey ?? null}, ${data.emailCapKey ?? null}, ${data.serviceName ?? ""}, ${data.priceOre ?? 0}, ${data.duration ?? 0}, ${data.buffer ?? 0}) RETURNING *`;
     return rows[0];
   } catch (e) {
-    const driver =
-      e instanceof Prisma.PrismaClientKnownRequestError
-        ? e.meta?.driverAdapterError
-        : undefined;
-    const cause =
-      typeof driver === "object" && driver !== null && "cause" in driver
-        ? driver.cause
-        : undefined;
-    const sqlState =
-      typeof cause === "object" && cause !== null && "originalCode" in cause
-        ? cause.originalCode
-        : e instanceof Prisma.PrismaClientKnownRequestError
-          ? e.meta?.code
-          : undefined;
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === "P2010" &&
-      ["23P01", "40P01", "40001"].includes(String(sqlState))
-    )
-      throw new DomainError("Tiden är inte tillgänglig");
-    throw e;
+    bookingDatabaseError(e);
   }
+}
+
+export function bookingDatabaseError(e: unknown): never {
+  const driver =
+    e instanceof Prisma.PrismaClientKnownRequestError
+      ? e.meta?.driverAdapterError
+      : undefined;
+  const cause =
+    typeof driver === "object" && driver !== null && "cause" in driver
+      ? driver.cause
+      : undefined;
+  const sqlState =
+    typeof cause === "object" && cause !== null && "originalCode" in cause
+      ? cause.originalCode
+      : e instanceof Prisma.PrismaClientKnownRequestError
+        ? e.meta?.code
+        : undefined;
+  if (
+    e instanceof Prisma.PrismaClientKnownRequestError &&
+    e.code === "P2010" &&
+    ["23P01", "40P01", "40001"].includes(String(sqlState))
+  )
+    throw new DomainError("Tiden är inte tillgänglig");
+  throw e;
 }
 
 export function emailCapKey(email: string) {
@@ -155,6 +196,7 @@ export async function createBooking(
   input: unknown,
   key?: string,
   clientAddress?: string,
+  actor?: WorkspaceActor,
 ) {
   const parsed = bookingSchema.safeParse(input);
   if (!parsed.success) {
@@ -174,13 +216,20 @@ export async function createBooking(
     if (clientAddress) checkRateLimit("bookings", clientAddress);
     throw parsedKey.error;
   }
-  const idempotencyKey = parsedKey.data;
+  const idempotencyKey =
+    actor?.kind === "admin" && parsedKey.data
+      ? createHash("sha256")
+          .update(`admin:${actor.id}:${parsedKey.data}`)
+          .digest("hex")
+      : parsedKey.data;
   const start = new Date(v.start);
   const requestHash = createHash("sha256")
     .update(JSON.stringify({ ...v, start: start.toISOString() }))
     .digest("hex");
   return db.$transaction(
     async (tx) => {
+      await lockConfiguration(tx);
+      if (actor) await assertWorkspaceActor(tx, actor);
       if (idempotencyKey) {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:key:${idempotencyKey}`}))`;
         const existing = await tx.booking.findUnique({
@@ -194,7 +243,11 @@ export async function createBooking(
               409,
             );
           }
-          return existing;
+          return {
+            ...existing,
+            startsAt: existing.initialStartsAt ?? existing.startsAt,
+            endsAt: existing.initialEndsAt ?? existing.endsAt,
+          };
         }
       }
       if (clientAddress) checkRateLimit("bookings", clientAddress);
@@ -233,22 +286,29 @@ export async function createBooking(
           Math.max(1, Math.ceil((tomorrow.toMillis() - Date.now()) / 1000)),
         );
       const service = await serviceById(v.serviceId, tx);
+      const selectedStaff = v.staffId ?? staffId;
       // Lock order: idempotency, client/day, email/day, staff/booking day.
       // Serialise competing inserts before reading availability; exclusion remains the final guard.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:staff:${staffId}:${localDay(start)}`}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:staff:${selectedStaff}:${localDay(start)}`}))`;
       if (
-        !(await getAvailability(service.id, localDay(start), tx)).includes(
-          start.toISOString(),
-        )
+        !(
+          await getAvailability(service.id, localDay(start), tx, selectedStaff)
+        ).includes(start.toISOString())
       )
         throw new DomainError("Tiden är inte tillgänglig");
-      return insertBooking(tx, {
+      const booking = await insertBooking(tx, {
         id: randomUUID(),
         businessId,
-        staffId,
+        staffId: selectedStaff,
+        serviceName: service.name,
+        priceOre: service.priceOre,
+        duration: service.duration,
+        buffer: service.buffer,
         serviceId: service.id,
         startsAt: start,
-        endsAt: new Date(start.getTime() + service.duration * 60000),
+        endsAt: new Date(
+          start.getTime() + (service.duration + service.buffer) * 60000,
+        ),
         customerName: v.customerName,
         customerEmail: v.customerEmail,
         idempotencyKey: idempotencyKey ?? null,
@@ -256,6 +316,22 @@ export async function createBooking(
         clientKey,
         emailCapKey: emailKey,
       });
+      await tx.bookingEvent.create({
+        data: {
+          bookingId: booking.id,
+          action: "create",
+          actorKind:
+            actor?.kind ??
+            (clientAddress === "mcp:local-booking-channel:v1"
+              ? "local-mcp"
+              : "public"),
+          actorId: actor?.id ?? "booking-channel",
+          nextStart: booking.startsAt,
+          nextEnd: booking.endsAt,
+          nextStaffId: booking.staffId,
+        },
+      });
+      return booking;
     },
     { maxWait: 30000, timeout: 30000 },
   );
