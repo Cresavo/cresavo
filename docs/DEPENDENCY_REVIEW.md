@@ -18,9 +18,14 @@ fullständig länkad SBOM eller godkännande för andra plattformar. Provenance-
 lästes, men dess signatur verifierades inte kryptografiskt. Appens licens ändras
 inte. Slutimagen innehåller originalnotiser och arkiv av egen motsvarande källa.
 
-Windows-prototyp utan CLI/Studio/ELK/sharp/TypeScript klarade 24 E2E. Faktiskt
-Linux-containerbygge och skyddad molndrift är separata kvarvarande kontroller;
-lokal prototyp är inget bevis för dem. Full audit: 7 måttliga utvecklingsfynd,
+Windows-prototyp utan CLI/Studio/ELK/sharp/TypeScript klarade24E2E. Därefter
+gav Grok f2fdac7 kod/paketering-GO för just privat preview, med emulerade
+Linuxsteg. Codex faktiska Vercel-Buildahbygge/linux-amd64 och skyddade driftprov
+PASS; exakt image/revision i VERIFICATION. Detta generaliseras inte till andra
+plattformar eller publik binärrelease. Grok verifierade57crate-checksummor,
+men fullständighet mot det lokalt granskade Cargo.lock var inte oberoende
+verifierbar; provenance-signatur och full SBOM är fortfarande inte verifierade.
+Full audit: 7 måttliga utvecklingsfynd,
 0 höga/kritiska; omit-dev-audit: 0. Inga overrides eller majoruppgraderingar.
 
 2026-11-12, bas dba05a2, kod 18a4d73. Grok har godkänt uppgraderingen som lokal POC utan blockerande fynd; inget publicerat. Detta dokument skiljer paketadvisories, faktisk användning och licensvillkor. Ett grönt audit-resultat är inte ett säkerhets- eller licensgodkännande. [Oberoende slutrapport](qa/QA-REPORT-epic03-18a4d73.md).

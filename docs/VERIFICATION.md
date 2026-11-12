@@ -1,8 +1,9 @@
-# Verifiering — skyddad Vercel-preview, kandidat
+# Verifiering — levererad skyddad Vercel-preview
 
 2026-11-12. Separat branch preview/epic05-vercel-review från29ac297. Endast
-syntetiska data. Följande körningar gäller kandidatens kod, inte den ännu ej
-driftsatta previewn. Grok och faktisk drift redovisas separat efter verifiering.
+syntetiska data. Driftsatt kod f2fdac700125df2d212e824555758b8ed6d6a7a7.
+Lokalt, Grok, Actions och faktisk drift skiljs åt nedan. Senare dokumentations-
+commits ändrar inte den granskade/driftsatta koden.
 
 ## Aktuell resultattabell
 
@@ -16,30 +17,78 @@ driftsatta previewn. Grok och faktisk drift redovisas separat efter verifiering.
 | npm test | PASS72/72,13filer,9.39s efter rättningsvarv1. |
 | npm run test:integration | PASS72/72,17filer,61.71s efter rättningsvarv1. |
 | Riktat preview-rate-limit.test.ts | PASS6/6,5.78s efter rättningsvarv1. Fyra riktiga Node-processer delar högst5lösenordskontroller,15av20spärras; korrekt lösenord från spärrad klient kontrolleras aldrig. Refund/generation/expiry/no-memory-fallback testade. |
-| RATE_LIMIT_STORE=postgres, TRUST_PROXY_IP=0, npm run test:e2e | PASS24/24,dev0,2.1m på ny booking_preview_dev0_test. |
-| Samma med TRUST_PROXY_IP=1 | PASS24/24,dev1,1.4m på ny booking_preview_dev1_test. |
-| E2E_PRODUCTION=1 och TRUST_PROXY_IP=0 | PASS24/24,prod0,45.8s på ny booking_preview_prod0_test. |
-| E2E_PRODUCTION=1 och TRUST_PROXY_IP=1 | PASS24/24,prod1,42.1s på ny booking_preview_prod1_test. |
+| RATE_LIMIT_STORE=postgres, TRUST_PROXY_IP=0, npm run test:e2e | PASS24/24,fix1r2 dev0,1.5m på ny booking_preview_fix1r2_dev0_test. |
+| Samma med TRUST_PROXY_IP=1 | PASS24/24,fix1r2 dev1,1.4m på ny booking_preview_fix1r2_dev1_test. |
+| E2E_PRODUCTION=1 och TRUST_PROXY_IP=0 | PASS24/24,fix1r2 prod0,45.7s på ny booking_preview_fix1r2_prod0_test. |
+| E2E_PRODUCTION=1 och TRUST_PROXY_IP=1 | PASS24/24,fix1r2 prod1,44.4s på ny booking_preview_fix1r2_prod1_test. |
 | npm run build | PASS, Next16.4.6,compile9.7s/TypeScript8.9s; routes listade korrekt. Separat bygge med dummy-URL till loopbackport1 PASS utan databas. Ny fix1-build PASS. |
 | npm audit --json | FAIL exit1,7moderate,0high/critical. Inga overrides/majoruppgraderingar. |
 | npm audit --omit=dev --json | PASS exit0,0fynd. Minimal runtime-installation utesluter utveckling/peer/optional; exakt native-binding kopieras separat. |
-| git diff --check | PASS. |
+| git diff --check | Egna kodändringar PASS. Original-Grokrapport har trailing whitespace och original-native-notis blankrad vid EOF; dessa källbytes bevaras uttryckligen, inte falskt grönt diff-check. |
 | Ny Neon-preview, läsande kontroll | PASS:18.6,UTC,initialt0publictabeller; därefter6migrationer/seed och begränsat appkonto. Ingen testsvit eller testvakt kringgås mot moln-DB. |
-| Vercel-projekt/perimeter | Konfigurerat separat projekt,Container,fra1,ssoProtection.enabled=true/deploymentType=all. Endast Niclas i teamlistan. Ingen faktisk HTTP-verifiering ännu. |
+| Vercel-projekt/perimeter | PASS separat projekt, Container/fra1, ssoProtection.enabled=true/deploymentType=all; enbart Niclas. HTML/API/favicon och verklig statisk JS-resurs ger302, POST401 utan Vercel-auth; appdata exponeras inte. |
+| Grok återkontroll f2fdac7 | GO kod/paketering efter1samlat rättningsvarv:72unit/72integration/6riktade/24E2E×4 på egna DB med RATE_LIMIT_STORE=postgres. Ingen driftåtkomst. [Oförändrad originalrapport](qa/QA-REPORT-preview-vercel-f2fdac7.md), SHA2565751d5f2cd6245b25b549f6466db91cdfb30f8296c4f88bd0392cb8aacaea0b4. |
+| Privat push / Actions43243542749 | PASS exakt f2fdac7, alla4jobb gröna:dev0=24/24(1.1m),dev1=24/24(1.3m),prod0=24/24(34.6s),prod1=24/24(33.7s). CI använder memory-default för HTTP; lokala/Groks fyrfältsmatriser ovan använder postgres. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43243542749). |
+| Faktiskt containerbygge | PASS Buildah/linux-amd64 på Vercel,97källfiler; fullbuild571paket/minimalruntime53. Prisma7.10.1/generate, Next16.4.6/build, nativeSHA-guard, USERnode/chown och sourcearchive PASS. Image281bf3df713ae12726f42dfa67d310239d1ca5fe669a9a8a7ebaf9f2c092db5d. |
+| Faktisk TLS/headers/direktport | PASS verifierat TLS1.3-certifikat; CSP,HSTS,nosniff,referrer,no-powered-by,admin no-store. Port3000 ej nåbar. NeonPG är autentiserad managed TLS-endpoint, inte nätverksstängd5432. |
+| Faktisk UI och API | PASS individuell login, Secure/HttpOnly/SameSiteStrict-cookie, kundbokning, kalender, tjänster/personal, flytt, avbokning, logout och replay403 (även POSTpublish). MobilChromium390×844. |
+| Faktisk header/spärr | PASS fem401 med roterande falska x-real-ip/x-forwarded-for/internIP/proof, därefter429 + Retry-After833; rätt lösenord med ny falsk IP också429. Testspärrar och testsessioner städade före överlämning. |
+| Faktisk kallstart/beständighet | PASS baseline15:08:23Z →15:09:53Z. Logg BOOKING_SERVER_READY15:09:52.602Z för vf5xk-1794496190186-a50e23ad4309 i fra1. Samma session/bokning/statuscancelled/version3/starttid kvar. |
+| Backup efter driftflöden | PASS pg_dump18.7 verify-full, AES-256-GCM befintlig separat nyckel bevarad, tamper nekas; pg_restore till ny lokal booking_preview_live_restore_demo. Alla10tabellers antal/hash lika:1booking,3events,2workspaceRequests,1admin,0session/rate. |
+| Faktiskt MCP-perimeter | PASS auktoriserade /mcp,/api/mcp,/sse ger404. Ingen publik MCPserver. |
 
 E2E-/migrations-/auditloggar finns lokalt utanför Git under
 C:/Users/<user>/booking-lab-pg-test/preview-vercel-review. Övriga kommandoutdata
 observerades i Codex-verktygsresultat. Historiska5migrationer och package/lockfile
 är oförändrade. Ingen ny demo/video behövs för osynlig driftanpassning.
 
-**NOT RUN vid rättningsvarv1:** Linuxcontainerbygge/deploy, Grok-återkontroll, faktisk
-HTTP/API/resursgrind, TLS/proxyspoofing, driftens admin/logout/bokning,
-omstart/beständighet i drift, ny backup efter driftprov, fysisk iPhone/Safari, ny Actions-körning.
-Dokumenterade äldre lokala/CI/Grok-resultat nedan är inte driftbevis.
+**NOT RUN / begränsningar:** fysisk iPhone/Safari, framtvingad omstart av alla
+instanser, full lastcertifiering, automatiserad extern backup och exakt fakturerad
+projektkostnad. Grok körde chroot-emulerade Dockersteg som root, inte äkta
+Dockerimage eller USERnode; dessa delar testades sedan av Codex genom det
+faktiska Vercelbygget/driften. Ingen ny full video behövs; riktiga driftbilder
+är granskade. Pilot fortfarande NO-GO.
 
-Fix1 första dev0-körningen: FAIL23/24,60s totaltest-timeout i kall lokal
-MCP→admin-sekvens; samma mobiltest PASS. Ny hel matris körs mot nya
-fix1r2-databaser utan timeoutökning eller svagare assertions.
+Första live-proben FAIL efter godkänd kalender: selector main träffade både
+Next-loading och sidans main under övergång. Operatörsproben ändrades till
+sidans specifika formulärfält och återupptog SAMMA bokning; ingen produktkod
+ändrades, inget nytt bokningsförsök dolde felet. Resten av driftflödet PASS.
+En misslyckad lokal PowerShell-ersättning av provskriptets regex nekades av
+parsern innan något ändrades; rättad med patch.
+
+Vercels första deploy blev automatiskt Production trots --target preview: den
+avbröts innan appstart, dpl_<redacted> CANCELED.
+--skip-domain avvisades sedan lokalt som production-only. Ny deploy fick
+Preview/target=null, dpl_<redacted> READY och metadata
+sourceRevision=f2fdac7. Projektets all-deployment-skydd var alltid aktivt; inga
+previewhemligheter fördes till production. Buildregion cle1, runtime fra1.
+Prisma varnade om OpenSSL-detektion i byggsteget men generate/build/runtime
+PASS; ingen blind paket-/basimageuppgradering. Feature-pushens CI ersattes
+av samma SHAs fulla manuella fyrfältsmatris via befintlig concurrency.
+
+Lokala kommandon för egna driftprober (operatörsfiler utanför Git, inga nya
+appdependencies): node verify-live.mjs (första FAIL), node resume-live.mjs PASS,
+node persistence-setup.mjs PASS, node persistence-check.mjs PASS,
+node --env-file=.env backup-live.mjs PASS, node verify-network.mjs PASS.
+Alla ligger under artefaktkatalogen ovan; privata loggar/token/cookies bara i
+ignorerad .vercel. Loggar: fix1r2-*-e2e.log, fix1-integration.log,
+fix1-build.log, fix1-audit-*.json, vercel-build-f2fdac7.log, actions-f2fdac7.log.
+Bevis: live-verification.json, persistence-before/after.json,
+live-backup-restore.json, live-final-network.json och live-*.png.
+Screenshots visar samma kod och faktisk skyddad runtime; inte gamla Epicar.
+Backup är lokalt krypterad, inte offsite i Tyskland.
+
+Låga fynd i backlogg: PV-QA-4 eviktion av aktiv bucket vid10000rader;
+PV-QA-7 åtta memory-unit-tester ger64/72 med global RATE_LIMIT_STORE=postgres
+(standardkörningen är72/72; ingen testgrind sänks). PV-QA-8: källkodserbjudande
+enligt AGPL§13 före åtkomst för andra än Niclas. Native-Cargo-inventeringen
+är kontrollerad av Codex, Grok kunde kontrollera57crates checksummor men inte
+fullständighet mot Cargo.lock som inte skickades. Kryptografisk provenance,
+full SBOM och bredare publicerings-/basimagegrindar återstår före binaryrelease.
+Ingen annan mänsklig/agentåtkomst är tilldelad.
+
+Slutmatrisen ovan gäller fryst kod f2fdac700125df2d212e824555758b8ed6d6a7a7.
+Dessa uppdaterade resultat är enbart dokumentationsändringar efter frysning.
 
 ## Previewns oberoende QA och rättningsvarv1
 

@@ -1,3 +1,14 @@
+# Produktägarrapport — skyddad mobilpreview, 2026-11-12
+
+- **Byggt:** separat skyddad Vercel-preview av befintlig Epic05, kod f2fdac7.
+- **Prova:** [öppna preview](https://booking-lab-se-preview-i9pv3ji3h-<redacted-vercel-team>.vercel.app), logga in med ditt Vercel-konto och individuell appadmin enligt [DEMO](DEMO.md). Kalender, tjänster, personal, skapa/flytta/avboka fungerar. Syntetiska uppgifter endast.
+- **Bättre:** samma wrapper och delad PostgreSQL-spärr fungerar i faktisk Vercelmiljö; minimal runtime, skyddade API/resurser, testad kallstart och krypterad återläsning.
+- **Bevis:** Grok GO efter1fixvarv,72unit/72integration/24E2E×4 och4gröna [CI-jobb](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43243542749). Verkliga mobilbilder och faktiska driftkontroller i [VERIFICATION](VERIFICATION.md). Ingen ny Epic/video.
+- **Kvar:** fysisk iPhone/Safari, automatisk offsitebackup och exakt fakturakostnad ej verifierade; audit7moderate utvecklingsfynd/0production. Ingen kundpilot.
+- **Tre nästa mål, inga automatiska beställningar:** Niclas provar iPhone/Safari; följ upp förbrukning och backupbehov inom godkänd kostnad; besluta separat om bredare åtkomst/källkodserbjudande och befintliga pilotblockerare.
+
+## Historik — tidigare Epic05-rapport
+
 # Produktägarrapport — Epic 05 levererad som lokal alpha
 
 **Vad har vi byggt?** En salongskalender med dag- och veckovy på dator och daglista på mobil. Du kan ändra behandlingar, priser, personalens arbetstider, pauser och ledighet samt skapa, öppna, flytta och avboka bokningar. Lokala agenter kan göra motsvarande tillåtna ändringar genom samma bokningsmotor.

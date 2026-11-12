@@ -2,6 +2,14 @@
 
 ## Skyddad Vercel-preview — separat godkännande 2026-11-12
 
+Leverans f2fdac7 har verifierad all-deployment-perimeter, individuell appadmin,
+TLS, headeröverskrivning/spärr, logout-revokering och beständighet vid kallstart.
+Endast Niclas har åtkomst. Krypterad backup/återläsning är testad lokalt efter
+driftprov, inte automatiserad eller offsite. Managed Neon har autentiserad
+TLS-endpoint, inget verifierat privat nät. Vercelbuilden sker utanför EU medan
+app/DB körs i Frankfurt. Inget av detta ersätter kunddriftens leverantörs-,
+retentions-, licens- eller åtkomstbeslut. Fysisk iPhone/Safari återstår.
+
 Niclas har uttryckligen godkänt den avgränsade anpassningen och skyddad syntetisk
 preview, med några få dollar extra Vercelförbrukning men inga nya betalda
 abonnemang/tillägg. Det är inte pilotgodkännande. All-deployment Vercel

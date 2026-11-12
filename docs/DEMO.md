@@ -1,47 +1,104 @@
 # Demo och mobilpreview — Epic 05
 
-## Godkänd Vercel-anpassning — pågår, ännu ingen leveranslänk
+## Skyddad mobilpreview — verifierad 2026-11-12
 
-2026-11-12: Niclas godkänner separat säkerhetsanpassning och skyddad syntetisk
-preview. Några få dollar extra Vercelförbrukning accepteras, inga nya betalda
-abonnemang/tillägg. Branch preview/epic05-vercel-review, bas29ac297. Befintlig
-serverwrapper behålls med uttryckligt Vercel-ingressläge; ny PostgreSQL-spärr
-delas mellan instanser. Self-hosting/minnesläge är oförändrat. En ny additiv
-migration, inga nya npm-beroenden eller historiska migrationsändringar.
+[Öppna Booking Lab SE](https://booking-lab-se-preview-i9pv3ji3h-<redacted-vercel-team>.vercel.app). Använd Niclas befintliga Vercel-konto.
+Hela webbplatsen (även API och resurser) kräver Vercel Authentication.
+Därefter kräver /admin individuell appinloggning: niclas@example.test.
+Lösenordet finns enbart på operatörens PC i ignorerad
+C:/Users/<user>/booking-lab-se-preview/.vercel/preview-admin.private.json.
+Öppna filen lokalt; klistra inte in lösenordet i chatten, Git eller Grok.
+Ingen standardinloggning, delningslänk eller skyddsdispens har införts.
 
-Separat Vercel-projekt booking-lab-se-preview, Container Runtime (beta), Node24,
-fra1/Frankfurt, standardminne och60sekunders timeout. Alla deployments skyddas
-av Vercel Authentication; teamlistan innehåller endast Niclas som ägare. Ingen
-delningslänk eller publik skyddsdispens. Individuell syntetisk appadmin krävs
-dessutom. Ingen app har driftsatts vid denna kandidat. Inga domänköp/DNS-ändringar.
+Driftsatt kod **f2fdac700125df2d212e824555758b8ed6d6a7a7**, branch
+preview/epic05-vercel-review. Deployment **dpl_<redacted>**,
+faktisk Preview (target=null), Container Runtime, Node24, fra1/Frankfurt.
+Image digest sha256:281bf3df713ae12726f42dfa67d310239d1ca5fe669a9a8a7ebaf9f2c092db5d.
+Builden kördes i cle1/USA, inte Frankfurt. Endast vitlistad källkod/byggfiler
+skickades (97filer), inga lokala miljöfiler eller operatörshemligheter.
+Projektet saknar Git-autodeploy, custom domain och DNS-ändringar.
 
-Separat Neon-resurs booking-lab-se-preview-db, uttrycklig Free/free_v3,
-Frankfurt/eu-central-1, Auth och Realtime av. Endast previewmiljön ansluten.
-PostgreSQL18.6, sex migrationer och två syntetiska tjänster/personaler. Appen har
-eget konto utan superuser/CREATEDB/CREATEROLE, med DML i public men ingen åtkomst
-till migrationsmetadata. Runtime använder direkt anslutning med verifierad TLS,
-max5domän+1limiter-anslutningar per instans. Inga andra projekts data används.
+### Prova på iPhone
 
-Vercel debiterar faktisk användning över befintlig kredit. Free-databasen är inte
-uppgraderad; inga betalda skyddstillägg används. Exakt merkostnad kan inte
-garanteras från testantal; aktivera inga teamomfattande stopp som påverkar andra
-projekt. Kontrollera förbrukningen och stoppa previewn om den inte håller sig
-inom de få dollar som accepterats. Ingen automatisk uppgradering vid DB-gräns.
+1. Öppna länken i Safari och logga in med ditt Vercel-konto. Ingen annan har
+   fått åtkomst. Öppna Administration och logga in med det individuella kontot.
+2. Kalender: välj ett vardagsdatum, medarbetare och Visa. Skapa en påhittad
+   bokning med Ny bokning. Använd bara example.test-adresser och syntetiska namn.
+3. Öppna bokningen: Flytta → medarbetare/datum → Visa lediga tider → Spara flytt.
+   Prova därefter Avboka och bekräftelsen. Visa avbokade visar tidigare prov.
+4. Öppna Tjänster och Personal & tider för att granska/ändra demodata.
+   Logga ut och kontrollera att kalendern kräver ny appinloggning.
 
-Lokala kommandon/resultat finns i VERIFICATION. Groks frysta b46da13-granskning
-gav kod-GO men konfigurations-NO-GO: källmappar utelämnades av ignore-reglerna.
-Ett samlat rättningsvarv rättar filurval, liten refund-race, startupvalidering,
-teststädning och minimal runtime med native-notiser. Ny fryst återkontroll krävs.
-Containerbygge/deploy, faktisk spoofing/TLS/skyddade resurser och fysisk
-iPhone/Safari återstår och får inte påstås godkända av lokala tester.
+Kundflödet finns på startsidan: behandling, personal, vardagsdatum och ledig tid.
+Codex driftprov bokade Massage2026-11-19, flyttade till Erik10:00 och avbokade.
+Den avbokade syntetiska raden/historiken är kvar; inga testsessioner eller
+spärrposter lämnades vid överlämningen. Ordinarie kundtak och bokningsregler
+gäller även i preview. Adminens manuella bokningar har egen budget.
 
-Krypterad backup av den separata syntetiska Neon-databasen är faktiskt återläst
-till ny lokal booking_preview_restore_demo. Alla10tabellers radantal/innehållshashar
-matchade; manipulerad krypterad fil avvisades. Backupen ligger på operatörens PC,
-nyckeln separat i ignorerad .vercel, inte i granskningspaketet. Detta är inte
-automatisk extern backup i Tyskland; en ny backup efter driftprov återstår.
-Lösenord och DB-/miljöhemligheter ligger lokalt utanför Git och följer aldrig
-granskningspaketet. .dockerignore och .vercelignore tillåter bara käll-/byggfiler.
+### Vad är faktiskt verifierat?
+
+- Befintlig Epic05 lokal QA/CI är separat historik. Nya previewkoden har
+ 72unit/72integration och24E2E i alla4lägen. Grok gav kod/paketering-GO på
+ fryst f2fdac7 i egen kopia; fick aldrig molnhemligheter eller previewåtkomst.
+- Vercels faktiska Linuximage byggdes med USER node/chown och minimal53pakets
+ runtime. Samma wrapper är enda HTTP-ingång. Inget publikt MCP: tre provade
+ MCP-sökvägar ger404 även efter Vercel-autentisering.
+- Oinloggade HTML/API/POST/resurs-anrop blockeras av perimeter. TLS1.3 med
+ verifierat certifikat, CSP/HSTS/nosniff/referrer/no-powered-by och admin no-store.
+ Port3000 är inte externt nåbar. Neon är en autentiserad managed PG-endpoint
+ med verifierad TLS, inte en loopbackport eller bevisat nätverksstängd5432.
+- Individuell UI-login, kundbokning, mobilkalender, tjänster/personal, flytt,
+ avbokning, logout och kopierad-cookie-replay403 PASS. Falska IP/proof-headers
+ kan inte rotera limitern; fem401, sedan429 även med rätt lösenord.
+- Efter90sekunder utan apptrafik: Vercelloggen visar ny BOOKING_SERVER_READY
+ för exakt kontrollrequest. Samma signerade session fungerar, avbokning/version3
+ och bokningstid är kvar. Detta är faktisk kallstartsverifiering, inte en
+ manuellt framtvingad omstart av alla instanser eller full belastningscertifiering.
+- Krypterad backup efter driftflöden återlästes till ny lokal
+ booking_preview_live_restore_demo. Alla10tabellers radantal/innehållshashar
+ matchar. Manipulerad ciphertext avvisas. Backup på PC, separat bevarad nyckel
+ i .vercel; ingen automatisk extern/Tysklandsbackup.
+- **Fysisk iPhone/Safari: NOT RUN.** Mobilbilder är verkliga skärmbilder från
+ driftsatt produktionsbygge i Chromium390×844, inte Safari eller designmockups.
+
+### Kostnad och stopp
+
+Befintlig Vercel Pro och ny separat **Neon Free/free_v3** i Frankfurt,
+Auth/Realtime av. Inga nya betalda abonnemang/tillägg eller domänköp. Vercels
+bygg-/registry-/runtimeförbrukning kan belasta befintlig användningspott eller
+ge överförbrukning; några få dollar är godkända. Exakt projektkostnad är ännu
+inte verifierad i fakturaunderlag. Detta är inte ett tekniskt hårt kostnadstak.
+Ändra inte teamgemensamma stopp som påverkar andra projekt. Uppgradera inte
+databasen automatiskt. Se [Vercels runtime/prissättningsmodell](https://vercel.com/docs/functions/runtimes/container).
+
+Stoppa åtkomsten genom att ta bort just preview-deploymenten:
+
+```powershell
+vercel remove dpl_<redacted> --scope <redacted-vercel-team> --yes
+```
+
+Kontrollera att just denna skyddade URL därefter inte serverar appen. Ingen
+Git-autodeploy är ansluten. Låt DB/backup finnas för återupptagning; radera inte
+andras projekt eller nyckeln. Vercels Pause Project gäller produktion och är
+inte i sig ett verifierat stopp av denna preview. Ingen mainmerge har gjorts.
+
+### Operatörsunderlag
+
+Appkonto i Neon saknar superuser/CREATEDB/CREATEROLE och migrationsåtkomst;
+max5domän+1limiter-anslutningar per instans. Sex migrationer, bara den sjätte
+är ny för preview. Fulla paket/låsfil och historiska migrationer är orörda.
+Miljöhemligheter ligger i Vercels Preview target och lokalt ignorerad .vercel.
+
+Första deployförsöket klassades automatiskt Production trots explicit Preview.
+Det avbröts innan appstart (dpl_<redacted> CANCELED).
+Ett --skip-domain-försök avvisades lokalt eftersom flaggan bara stöds för
+produktion. Nästa vanliga --target preview fick faktiskt target=null; detta
+kontrollerades via API innan driftprov. Inga hemligheter kopierades till
+produktionsmiljön och ingen bootstrap-app driftsattes där.
+
+[Verifiering, original-Grokrapport, CI och lokala artefaktvägar](VERIFICATION.md).
+Endast Niclas får åtkomst i denna leverans. Innan andra bjuds in krävs bland
+annat AGPL§13-källkodserbjudande; inga bredare åtkomster är godkända.
 
 ## Bilaga — Vercel-förstudie 2026-11-12 före godkännandet
 

@@ -2,6 +2,16 @@
 
 ## Privat Vercel-preview, godkänd anpassning 2026-11-12
 
+Faktisk leverans på f2fdac7: app-runtime fra1/Frankfurt och Neon eu-central-1,
+men Vercelbygget kördes i cle1/USA. Detta är inte en verifierad EU-exklusiv
+leverantörskedja för kunddrift. Byggkontexten innehöll bara vitlistad källa,
+inga lokala miljöfiler; appbygget använde en dummy-URL till loopbackport1.
+Efter syntetiskt driftprov krypterades separat DB-backup på operatörens PC
+och återlästes till ny lokal *_demo-databas med identiskt innehåll i10tabeller.
+Backupnyckel/adminuppgifter/token finns enbart i ignorerad .vercel, krypterad
+backup på D:. Ingen automatiserad offsitebackup eller kundretention följer av
+detta. Se DEMO/VERIFICATION för faktisk perimeter, åtkomst och begränsningar.
+
 Endast syntetiska data, separat Vercel-projekt och separat Neon Free-projekt i
 Frankfurt (eu-central-1), inte befintliga andra projekts data. Vercel behandlar
 IP/HTTP-metadata och sitt eget inloggningskonto vid perimetergrinden. Detta är
