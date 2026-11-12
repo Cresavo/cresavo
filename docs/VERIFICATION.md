@@ -18,6 +18,7 @@
 | node --env-file=.env scripts/test-cleanup.mjs / extern epic05-aggregate.mjs | PASS:CLEANUP_TIMEOUT_EXPECTED_EXIT=1;REMAINING_SYNTHETIC_ROWS=0. Därefter0booking/event/request/session/admin/campaign,2service/2staff,0aktivaöverlappar/observeradedeadlocks. |
 | Grok-QA | PASS:original7fc0e86:NO-GO;slutrapport4fc98d3:GO efter1fixvarv. Grok egen ren installation,69unit/66integration/24E2E×4 och kvot/auth/retry/MCP/samtidighetsprober. [Originalslutrapport](qa/QA-REPORT-epic05-4fc98d3.md). |
 | GitHub Actions, c12b98a | PASS feature43209758207:1jobb,4m01s. Full manuell43210413097:4gröna jobb/24E2E vardera,69unit/66integration i dev0. Ren Compose-DB/generate/migrate/seed/lint/build/tsc PASS. [Jobb/loggbevis](CI_DELIVERY_2026_11_12.md). Veckoaudit ej aktiv på default-branch. |
+| Docs-only-push7e8f901 | PASS:0Actions-körningar efter push, endast Markdown ändrat. Båda gröna testkörningarna gäller fortfarande exaktc12b98a. Inga tester beställdes om för dokumentation. |
 | Demo / preview / CI | Demo är äldre7fc0e86; ingen ny full inspelning för osynlig fix.09-bilderna är laddningsbilder, inte funktionsbevis. Preview BLOCKERAD miljöbeslut. CI43210413097 påc12b98a PASS med4×24E2E; se separat CI-bevis. |
 
 Grok observerade **1deadlock i oförändrat avsiktligt direkt-ORM-bypasstest** (booking.test.ts25–27); testet PASS, inga deadlocks i domänprober. Vårt eget observerade0 gäller våra körningar och är ingen global garanti. Mindre QA-2–8 är backlogg, inte nya blockerare.
@@ -32,7 +33,7 @@ Faktisk E2E-proxy är **127.0.0.10/32**, hårdkodad testfixture matchande socket
 
 2026-11-12. Branch **epic-05-booking-workspace**, kandidat **7fc0e866f0ef457bf9eaef4ca153e7a69b30b3d0**, produktkod **4099d9d**. Windows, Node24.16.0/npm11.13.0, Prisma7.10.1, egen PostgreSQL18.6 på127.0.0.1:55451. Ren installation och ny **booking_epic05_final_test**; separat **booking_epic05_delivery_demo**. Endast syntetiskt. Kandidaten innehåller efter produktkoden test-/demoverktyg och dokument, ingen ytterligare app-/schemaändring. Efterföljande resultatdokument ändrar ingen kod. Grok-QA skickad, inget GO ännu. Ingen implementationpush/mainmerge/deploy.
 
-## Aktuell resultattabell
+### Historisk resultattabell
 
 | Kommando/kontroll | Faktiskt resultat |
 | --- | --- |
@@ -125,7 +126,7 @@ Epic02 dba05a2: körning43168794400, fyra E2E-jobb success, audit failure med7mo
 
 2026-11-12, kod **18a4d736bd5435ed8d856ae87843cadcf237cfcc**, branch epic-03-dependency-security, bas dba05a2. Node 24.16.0 / npm 11.13.0 på Windows; ny PostgreSQL 18.6 på loopback 55449/booking_epic03_test. Serverns grundzon Europe/Paris, klientzon uttryckligen UTC. Syntetiska data; ingen push/merge/deploy. Groks oberoende slut-QA gav GO som lokal POC kl. 02:25 CET. Inga blockerande fynd; E03-3 är fortsatt upstreamblockerat. Pilot NO-GO.
 
-## Aktuell resultattabell
+### Historisk resultattabell
 
 | Kommando / kontroll | Faktiskt resultat på kandidaten |
 | --- | --- |
@@ -275,7 +276,7 @@ Efter verifieringen stoppades egen PostgreSQL och hjälpprocess (server stopped;
 
 Verifierat 2026-11-11 cirka 22:48–22:54 Europe/Stockholm. Kodrevision **a364bda73850c2983212684e94e9690d100d1d9b**, bas **056d0c2**, branch `epic-01-foundation-hardening`. Dokumentationscommit följer. Beställt: punkter 1–5 och små förbättringar i punkt 6. Visa e-post är fortsatt undantagen. Ingen push, merge, deploy eller Epic 02.
 
-## Aktuell resultattabell
+### Historisk resultattabell
 
 | Kommando/kontroll | Faktiskt resultat |
 | --- | --- |

@@ -18,14 +18,14 @@
 
 Dev/proxy0 har även lint, **69/69 unit**, **66/66 integration** och typkontroll PASS. Alla fyra körde ren npmci, Prisma generate7.10.1, fem migrationer och seed på ny booking_ci_test, build, E2E och tsc. Ubuntu26.04.1, Node24.22.2/npm11.19.1; PostgreSQL16-image via befintlig Docker Compose. Detta provar databascontainern och appen på runnerns Node, inte en komplett distributionsimage eller riktig TLS/proxy.
 
-Feature-loggens exakta utdrag: `added 571 packages, and audited 572 packages in 54s`; `Generated Prisma Client (v7.10.1)`; `5 migrations found`; `All migrations have been successfully applied`; `69 passed (69)`; `66 passed (66)`; `24 passed (58.3s)`. Skillnad mot Windows570/571 beror på plattformens paketträd. ESLint-deprecation och npm-varningar om tre ej allowScripts-listade installskript finns i loggen; inget undertrycktes och inga beroenden/overrides ändrades.
+Feature-loggens exakta utdrag: `added 571 packages, and audited 572 packages in 54s`; `Generated Prisma Client (v7.10.1)`; `5 migrations found`; `All migrations have been successfully applied`; `69 passed (69)`; `66 passed (66)`; `24 passed (58.3s)`. Windows installerade570/571 och Linux571/572; Git och QA har verifierat identisk lockfil. Antalen avser olika plattformar/npm-versioner och är inte bevis för ett tillagt projektberoende. ESLint-deprecation och npm-varningar om tre ej allowScripts-listade installskript finns i loggen; inget undertrycktes och inga beroenden/overrides ändrades.
 
 ## CI-kostnadsacceptans och kvarstående gränser
 
 - Feature körde verkligen ett jobb och tog4m01s med kall cache. Ingen påstådd omräkning av alla tidigare10docs-körningar.
 - Manuellt kördes verkligen hela fyrfältsmatrisen på samma SHA och alla jobb blev gröna. Main-villkoret är kodläst men ingen mainpush/merge gjordes.
 - Npm- och Playwright-cache fick **hit i samtliga fyra manuella jobb**; browserinstallationen hoppades över, OS-beroenden installerades fortsatt. Kall feature-körning sparade båda cacharna. Ingen node_modules-/secretcache.
-- Docs-only-push verifieras efter denna dokumentcommit; inget PASS antas före observation. PR-dublettvillkor och concurrency är syntax-/kodgranskade, men separat PR-/avbrottsprov är NOT RUN; ingen onödig PR skapades.
+- **Docs-only PASS:** pushen7e8f9013023d6e92f04cef805743a70065fa3b52 ändrade endast Markdown och gav0Actions-körningar i API-kontrollen efter push. Båda senaste verifieringskörningarna gäller fortsattc12b98a. Senare dokumentation är ingen ny kodrevision och beställer ingen ny fullmatris. PR-dublettvillkor och concurrency är syntax-/kodgranskade, men separat PR-/avbrottsprov är NOT RUN; ingen onödig PR skapades.
 - Full audit är fortfarande **FAIL,7 moderate/0 high/critical**; produktionsaudit **PASS,0**. Verify POC kör inte längre ett separat auditjobb per push enligt uttrycklig kostnadsbeställning. Grönt Verify är därför inte noll advisories eller pilot-GO.
 - `.github/workflows/dependency-audit.yml` finns på branch: måndag06:00 Europe/Stockholm och manuellt läge, full-audit-utfall rapporteras separat och high/critical är jobbegränsningen. **Schema/runtime NOT RUN och inte aktivt**, eftersom workflow saknas på default-branchen main. Aktivering kräver ett framtida uttryckligt tillåtet mainbeslut; det genomförs inte här. Inga riskabla majoruppgraderingar/overrides infördes för minimatch.
 

@@ -2,11 +2,15 @@
 
 Start 2026-11-12. Godkänd plan5c9b07a på origin/epic-05-booking-workspace, verifierad föregångare26b680d. Arbetskopian var ren, endast en registrerad worktree; inga befintliga processer stoppas. Codex är enda skrivare. Separat agent gör endast läsande kontraktsgranskning. Ingen ny QA av oförändrad Epic01–04.
 
-## Aktuellt: Grok GO, privat leverans förbereds
+## Aktuellt: lokal alpha levererad, mobilpreview väntar miljöbeslut
 
 Slutrapport4fc98d3 hämtad oförändrad till docs/qa (SHA2568a47bdad37dab70a573e68b9f4910f7cd6071bd3ca146a7633e30ac663449cf6). E05-QA-1 STÄNGD, GO för lokal alpha, pilot NO-GO, inga nya blockerare.1av2fixvarv använt. Grok verifierade egna69unit/66integration/24E2E×4 och kvot/auth/retry/MCP-prober,100gräns/annanadmin/60-fönster/samtidigt95+12→100.1observeraddeadlock i avsiktlig direkt-ORM-bypass i oförändrat test, ingen i domänprober. Nytt lågt E05-QA-8 är generisk kvotfeltext; lämnas i backlogg med2–7.
 
-GitHubconnector verifierade repot privat och pushbehörighet. Origin/epic05 står fortsatt5c9b07a och är ancestor till lokalaHEAD, inga främmande uppdateringar. Endast.env.example spåras; artefakter/data/dependencies ignorerade. Produktkod4fc98d3 är fryst, senare commits endast dokumentation. Ingen source/test/schemaändring efter QA. Docs-only-filter kontrolleras vid den efterföljande resultatpushen. Levererat:fast-forwardpush endastepic05 tillc12b98a; feature43209758207 PASS,ettjobb4m01s; manuell43210413097 PASS,4×24E2E på exaktc12b98a. Npm/browser-cachehit i alla4manuellajobb; browserinstallskipped,OSdepsfortsattinstallerade.69unit/66integration och ren Compose-DB/generate/5migrate/seed/lint/build/tsc i CI PASS. Ingen mainmerge/deploy. Veckoaudit har ingen aktiv default-branch och detta ändras inte som genväg.
+GitHubconnector verifierade repot privat och pushbehörighet. Origin/epic05 står fortsatt5c9b07a och är ancestor till lokalaHEAD, inga främmande uppdateringar. Endast.env.example spåras; artefakter/data/dependencies ignorerade. Produktkod4fc98d3 är fryst, senare commits endast dokumentation. Ingen source/test/schemaändring efter QA. Docs-only-push7e8f901 verifierad med0Actions-körningar. Levererat:fast-forwardpush endastepic05 tillc12b98a; feature43209758207 PASS,ettjobb4m01s; manuell43210413097 PASS,4×24E2E på exaktc12b98a. Npm/browser-cachehit i alla4manuellajobb; browserinstallskipped,OSdepsfortsattinstallerade.69unit/66integration och ren Compose-DB/generate/5migrate/seed/lint/build/tsc i CI PASS. Ingen mainmerge/deploy. Veckoaudit har ingen aktiv default-branch och detta ändras inte som genväg.
+
+Leveransgrinden är uppfylld för den lokala alphan: godkänd full omfattning E05-1–4/AC1–10, ren installation/uppgraderingskopia,69unit/66integration/24E2E×4, verklig demo/provguide och fryst separat Grok-QA med1fixvarv. Privat pushc12b98a och fyra gröna CI-jobb verifierade med faktiska loggar. Docs-only7e8f901 gav0nyaActions-körningar. Endast Markdown ändras efter kod4fc98d3; inga äldre epics återimplementeras eller nya scope startas.
+
+E05-5:s förberedelse/beslutsunderlag är levererat. Den faktiska mobilåtkomliga previewn är INTE levererad: separat miljögodkännande krävs. Veckoaudit är konfigurerad men inaktiv tills ett framtida default-branchbeslut, inget mainmerge här. Fullaudit7moderate kvar,prod0; pilot NO-GO och mindre QA-2–8 i backlogg. Detta är kvarstående grindar, inte dolda gröna resultat.
 
 ## Historik — QA-fixvarv1, E05-QA-1
 

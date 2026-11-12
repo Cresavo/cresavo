@@ -18,7 +18,7 @@
 
 [Prova stegvis på PC:n](LOCAL_DEMO_WINDOWS.md) · [demo](DEMO.md) · [plan](EPIC_05_PLAN.md). Demo7fc0e86 är äldre än den osynliga kvotfixen:6/6PASS,28fångade PNG (26funktionsbilder+2laddningsbilder),6WebM. Utvalda still-/videorutor granskade; inte helt genomtittade filmer. Ingen mobilåtkomlig site.
 
-**Pilot NO-GO:** kund-GDPR(export/radering/retention), MFA/recovery och kontobundet/distribuerat missbruksskydd, verklig TLS/proxy/flerinstansdrift, upstreamaudit/native-/distributionslicenser och beslut om Visa kund-e-post. Planerade områden i roadmap är inte nya beställningar. Mindre E05-QA-2–8 i originalrapporterna är backlogg, ingen ny fixloop. CI-kostnadspolicy lokalt verifierad:feature1/main+manuellt4/docs-ignore/cache/concurrency/veckoaudit. Feature-jobbet tog4m01s och full manuell4-matris PASS påc12b98a; cachehit i alla4jobb. Docs-filter verifieras vid dokumentpush; veckoschemat kräver framtida separat tillåten default-branchaktivering.
+**Pilot NO-GO:** kund-GDPR(export/radering/retention), MFA/recovery och kontobundet/distribuerat missbruksskydd, verklig TLS/proxy/flerinstansdrift, upstreamaudit/native-/distributionslicenser och beslut om Visa kund-e-post. Planerade områden i roadmap är inte nya beställningar. Mindre E05-QA-2–8 i originalrapporterna är backlogg, ingen ny fixloop. CI-kostnadspolicy lokalt verifierad:feature1/main+manuellt4/docs-ignore/cache/concurrency/veckoaudit. Feature-jobbet tog4m01s och full manuell4-matris PASS påc12b98a; cachehit i alla4jobb. Docs-only-push7e8f901 gav0Actions-körningar; veckoschemat kräver framtida separat tillåten default-branchaktivering.
 
 ## Verifierad föregångare — Epic04
 

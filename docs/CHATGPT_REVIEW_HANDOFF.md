@@ -12,7 +12,7 @@ Byggt: verklig kalender, tjänster/priser, personalens schema/paus/undantag, ska
 
 Bedöm konkreta regressions-, säkerhets-, produkt- och underhållsfynd mot planens acceptanskriterier. Codex och Grok körde69unit/66integration/24E2E×4. GitHub-manualrun43210413097 påc12b98a har4gröna E2E-jobb; feature-run43209758207 hade ett jobb och tog4m01s. Skilj exakta körningar från kodläsning/NOT RUN. Mindre QA-2–8 är dokumenterad backlogg, inte order om en obegränsad fixloop.
 
-Grönt Verify POC betyder inte noll auditfynd: full audit FAIL7moderate/0high/critical,prod PASS0. Audit har flyttats till ett separat veckoworkflow enligt kostnadsbeslut; schemat är inte aktivt innan filen finns på default-branchen. Ingen sådan merge är godkänd här. Docs-only ignoreras, feature kör ett ben och manuellt/main kör fyra.
+Grönt Verify POC betyder inte noll auditfynd: full audit FAIL7moderate/0high/critical,prod PASS0. Audit har flyttats till ett separat veckoworkflow enligt kostnadsbeslut; schemat är inte aktivt innan filen finns på default-branchen. Ingen sådan merge är godkänd här. Docs-only-push7e8f901 verifierades med0Actions-körningar. Feature kör ett ben och manuellt/main kör fyra. Ingen ny kod-/QA- eller CI-status får tillskrivas senare Markdown utan att kontrollera diffen.
 
 Pilot är NO-GO: kund-GDPR, MFA/recovery, kontobundet/distribuerat missbruksskydd, verklig TLS/proxy/flerinstansdrift, kvarstående audit-/distributionslicenser och beslut om Visa kund-e-post. Privat mobilpreview har ett konkret beslutsunderlag men ingen driftsatt URL eller miljögodkännande. Ingen merge till main, deploy, betald resurs eller ny odefinierad Epic ingår.
 
