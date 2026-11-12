@@ -9,6 +9,8 @@ Aktuell giltig inspelning: **7a65aeec341820442effe68a77a1ea978050a0b0** (produkt
 
 Två flöden per skärmstorlek: (1) kundbokning → bekräftelse → admin → kampanjutkast → manuell publicering → publikt erbjudande; (2) en separat verklig lokal MCP-bokning som visas i admin. Terminalens MCP-anrop sker i testklienten; videorna visar webbläsarens resultat, ingen extern modellchatt. Bild 07 visar Syntetisk agentkund Anna/Erik. Desktop/mobil-bilderna 07 är visuellt granskade: svensk tid, SEK, maskerad e-post, ingen N-badge eller observerat horisontellt överflöde. Videorna har inte granskats i sin helhet.
 
+Alla fyra WebM har kontrollerats med ffprobe och avkodats till slut med ffmpeg utan mediafel: VP9, 13,24 s / 10,68 s för kund-/kampanjflödena och 8,44 s / 2,44 s för agentflödena. Desktop 800×450, mobil 392×800. Detta är en medieteknisk kontroll, inte en fullständig visuell genomtittning. Lokal resultatfil: `C:\Users\<user>\booking-lab-pg-test\epic02-video-check.json`.
+
 Prova agentflödet själv: starta lokal databas och webb enligt README, kör `npm run mcp:client -- --admin --book`, läs sammanfattningen och skriv `ja`. `nej` eller EOF avbryter utan bokning. Öppna /admin och kontrollera bokningen. Endast example.test och syntetiska namn. Ingen ytterligare UI, dashboard eller modellnyckel behövs.
 
 Reproducera hela inspelningen med instruktionerna nedan och en separat tom *_demo-databas. Demokonfigurationen väljer nu både befintligt fullflöde och agentflödet. Artefakterna är lokala/ignorerade och finns inte i Git eller den rena källkods-ZIP:en. Efter körningen: 0 bokningar, 0 kampanjer, 0 sessioner i demodatabasen.

@@ -11,7 +11,7 @@ Avgränsning: genomför Epic 02:s E02-0–6. Senare epics saknar fastställda kr
 | E02-0 | PASS | Regler lästa, separat branch, ny loopback PostgreSQL 18.6/55448, booking_epic02_test, 3 migrationer och seed. |
 | E02-1–3 | Lokalt PASS; första QA godkänd med ett lågt fel | Grok granskade fc83a70 i egen miljö och godkände servergrunden. E02-QA-1 rättad i 3cd633b, exakt statisk feltext och strikt schema testade. Slutkontroll återstår. |
 | E02-4–5 | PASS lokalt | 43 unit, 30 integration ×3, testklient ja/nej/EOF och 12 E2E ×4 lägen; riktig HTTP/MCP-samtidighet inkluderad. Se VERIFICATION. |
-| E02-6 | Pågår | Full lokal slutmatris och cleanup PASS på 3cd633b. Slutdemo 4/4 PASS från ren 7a65aee. Oberoende slutkontroll återstår. Första inspelningen var FAIL vid screenshot, diagnostiken beskrivs i EPIC_02_QA_FOLLOWUP. |
+| E02-6 | Pågår | Full lokal slutmatris och cleanup PASS på 3cd633b. Slutdemo 4/4 PASS från ren 7a65aee. Fryst cad997b lämnad till Grok för oberoende slutkontroll kl. 01:33; meddelandet är skickat och Working observerat, ingen slutbedömning ännu. Första inspelningen var FAIL vid screenshot, diagnostiken beskrivs i EPIC_02_QA_FOLLOWUP. |
 | Grok-överlämning | PASS | Chrome-adressen verifierad; KONTAKT_OK läst; första frysta QA-uppdraget utfört i egen kopia på Groks dator med separat databas. Originalrapport/fixbeställning sparade i docs/qa. Desktop-utkastet var inte skickat. |
 | Extern CI | Ej körd | Ingen push tillåten. |
 
@@ -32,3 +32,5 @@ All testning har körts sekventiellt i huvudmiljön; Grok använde egen dator/DB
 ## Morgonrapport
 
 Ej klar. Fylls med slutrevision, faktisk testoutput, eventuella blockerare och tre nästa åtgärder innan omgången avslutas.
+
+Slut-QA-underlag: ren klon `C:\Users\<user>\booking-lab-qa-epic02-cad997b` och byteexakt `git archive` i `C:\Users\<user>\booking-lab-pg-test\booking-lab-epic02-cad997b.zip`. SHA256 `0B70B4386CE659F409C04AB0292846AE3A1273086B9EC51D544BA14E24D4601E`, ZIP-kommentar cad997b9562e54b0cd6919277683f425fbacc389. 124 arkivposter, kontroll fann ingen .env/node_modules/.next/.git/demo-artifacts. Endast Git-spårad källkod; ingen extern publicering. QA-granskningens live-status måste läsas i Grok-chatten, inte antas från denna anteckning.
