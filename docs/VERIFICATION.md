@@ -1,6 +1,6 @@
 # Verifiering — Epic 05, pågående delverifiering
 
-2026-11-12. Branch epic-05-booking-workspace, verifierad UI/API-kod **66f279699fe2330f340e515f6d7d72e8960a42b0**, backend66e2a4d. Windows, Node24.16.0/npm11.13.0, Prisma7.10.1. Egen PostgreSQL18.6 på127.0.0.1:55451, booking_epic05_config2_test. Endast syntetiskt. Denna efterföljande dokumentuppdatering ändrar ingen kod. Detta är ingen slutmatris eller QA-GO för hela Epic05.
+2026-11-12. Branch epic-05-booking-workspace, verifierad MCP-del **4099d9d99e64dd002026e37a37b156eb12e29464**, föregående UI/API66f2796 och backend66e2a4d. Windows, Node24.16.0/npm11.13.0, Prisma7.10.1. Egen PostgreSQL18.6 på127.0.0.1:55451, booking_epic05_config2_test. Endast syntetiskt. Denna efterföljande dokumentuppdatering ändrar ingen kod. Ren slutinstallation, uppgraderingskopia och full slutmatris återstår; inget Grok-GO för Epic05.
 
 ## Aktuell resultattabell
 
@@ -9,15 +9,14 @@
 | npm ci | NOT RUN i UI-delen; inget beroende/lockfile ändrat. Ren slutinstallation återstår. |
 | npx prisma generate / npm run db:migrate / npm run db:seed | PASS i backenddelen: klient7.10.1,5migrationer på tom egen DB,2tjänster/2personal.4historiska migrationer orörda. |
 | npm run lint / npx tsc --noEmit | PASS exit0 efter UI/API samt nya testfall, ingen diagnostik. |
-| npm test | PASS65/65,10filer,8.72s. |
-| npm run test:integration | PASS53/53,13filer,62.76s; verklig DB,150-raders kalender och partiella konfigurationsuppdateringar. |
+| npm test | PASS68/68,11filer,9.50s efter MCP. |
+| npm run test:integration | PASS64/64,15filer,57.04s efter MCP inklusive strikta protokoll och partiellt operatörsavbrott. |
 | npm run build | PASS exit0 efter konsekventa datumfält; samtliga nya admin/API-routes byggda. |
 | E2E_PRODUCTION=1 npm run test:e2e -- tests/e2e/workspace.spec.ts | PASS4/4,1.7m före nya manuella bokningstestet/datumfälten. |
 | E2E_PRODUCTION=1 npm run test:e2e -- tests/e2e/workspace.spec.ts --grep 'manuell bokning' | PASS2/2,10.3s efter testväljarfix; tappad läsning/sparrespons, osparad navigering och identisk retry utan dubblett. |
-| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e | PASS20/20,1.5m. |
-| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 npm run test:e2e | PASS20/20,45.3s. |
-| E2E_PRODUCTION borttagen, TRUST_PROXY_IP=0 npm run test:e2e | PASS20/20,2.1m. |
-| E2E_PRODUCTION borttagen, TRUST_PROXY_IP=1 npm run test:e2e | PASS20/20,1.8m. |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e | PASS22/22,2.2m efter MCP. Därefter stärktes två konfliktassertioner i racet, se riktad återkontroll nästa rad. |
+| E2E_PRODUCTION=1 npm run test:e2e -- tests/e2e/workspace.spec.ts --grep 'HTTP och lokal MCP delar' | PASS2/2,40.5s efter stärkta assertions.20blandade flyttar och konkurrerande avbokning,0överlappar, minimal MCP-läsning och faktisk adminvy. |
+| Övriga3E2E-lägen för nya MCP-koden | NOT RUN ännu. Föregående UI-kod66f2796 hade20/20 i alla4lägen; detta är inte full matris för4099d9d. |
 | Uppgradering av Epic04-data / fixturestädningsprobe | NOT RUN i denna del; återstår före slutleverans. |
 | Extern node epic05-aggregate.mjs efter matrisen | PASS: booking/event/requestledger/session/admin/campaign=0;service/staff=2/2;activeOverlaps0;databaseDeadlocks0;1anslutning (proben). |
 | npm audit --json / npm audit --omit=dev --json | Omkört för CI-kostnadsändringen2026-11-12: full FAIL exit1,7moderate/0high/critical;prod PASS exit0,0fynd. Inget beroende uppgraderat. |
@@ -28,6 +27,8 @@
 | Slutdemo / mobilpreview | NOT RUN. Preliminära riktiga skärmar finns lokalt, kalenderbilder granskade. Ingen extern deploy godkänd. |
 
 Tidiga FAIL är bevarade: två dev/desktop60s-startproblem (trace: browserstart/sidladdning tog tidsbudgeten), första fulla prod17/20 (en fixtureanslutningstimeout före bokningsanrop, två tvetydiga testlänkar), andra18/20 (nytt test valde även Nexts route-announcer-alert). Testväljare rättade till rätt länk/appens main-alert; manuell bokning därefter2/2. Inga assertions/timeouts/DB- eller säkerhetsgränser sänkta. Lokala originalutdata: booking-lab-pg-test/epic05-ui-*.log. Följ WORKPLAN för pågående scope; oförändrad Epic01–04 beställs inte om för full QA.
+
+MCP-delens första fulla integration57/59 föll på två5s-timeouter i oförändrad admin-CLI. Isolerad återkontroll3/3PASS, sedan59/59,60/60och slutlig64/64PASS. NODE_ENV lades explicit i nya testsubprocesser för Nexts ProcessEnv-typ; tsc/lint slutligen PASS utan diagnostik. Intern läsgranskning hittade två negativa täckningsluckor, nu testade med riktig stdio; det är inte Groks slut-QA. MCP-originalutdata i epic05-mcp-*.log. Slutaggregat efter racet:0booking/event/requestledger/session/admin/campaign,2services/2staff,0activeOverlaps/observeradeDBdeadlocks.
 
 ## Bilaga — Epic 04:s verifierade slutleverans
 
