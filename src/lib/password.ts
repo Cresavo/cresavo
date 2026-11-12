@@ -1,6 +1,6 @@
 import { hash, verify, type Options } from "@node-rs/argon2";
 import { z } from "zod";
-import { DomainError } from "./errors";
+import { PasswordCapacityError } from "./errors";
 
 export const newPasswordSchema = z.string().min(15).max(128);
 const policy: Options = {
@@ -16,8 +16,7 @@ const dummyHash =
   "$argon2id$v=19$m=19456,t=2,p=1$djynxczVM1XvZ1x+A5Bthw$IZoXCc+9S2kbfcv8QXYafofvGv6wmTrVJYi9H343np8";
 let running = 0;
 async function passwordSlot<T>(operation: () => Promise<T>) {
-  if (running >= 4)
-    throw new DomainError("För många försök. Försök igen senare.", 429, 1);
+  if (running >= 4) throw new PasswordCapacityError();
   running++;
   try {
     return await operation();

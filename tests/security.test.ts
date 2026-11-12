@@ -3,7 +3,11 @@ import { createHmac, createHash } from "node:crypto";
 import { z } from "zod";
 import { db } from "../src/lib/db";
 import { failure } from "../src/lib/http";
-import { DomainError, pageDataFailure } from "../src/lib/errors";
+import {
+  DomainError,
+  PasswordCapacityError,
+  pageDataFailure,
+} from "../src/lib/errors";
 
 const state = vi.hoisted(() => ({
   cookie: undefined as string | undefined,
@@ -336,6 +340,60 @@ describe("Missbruksskydd och testgrind", () => {
       results.filter((r) => r.status === "fulfilled" && r.value === false),
     ).toHaveLength(5);
     expect(results.filter((r) => r.status === "rejected")).toHaveLength(295);
+  });
+  it("återlämnar kapacitetsavslag så korrekt login fungerar efter fler än fem avslag", async () => {
+    for (let i = 0; i < 8; i++)
+      await expect(
+        checkLoginAttempt("capacity-refund-unit", async () => {
+          throw new PasswordCapacityError();
+        }),
+      ).rejects.toMatchObject({ status: 429, retryAfter: 1 });
+    expect(
+      await checkLoginAttempt("capacity-refund-unit", async () => true),
+    ).toBe(true);
+    const response = failure(new PasswordCapacityError());
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("1");
+    expect(await response.json()).toEqual({
+      error: "För många försök. Försök igen senare.",
+    });
+  });
+  it("behåller verkliga fel och återlämnar inte andra 429-fel som kapacitetsavslag", async () => {
+    for (let i = 0; i < 4; i++)
+      expect(
+        await checkLoginAttempt("real-errors-unit", async () => false),
+      ).toBe(false);
+    for (let i = 0; i < 6; i++)
+      await expect(
+        checkLoginAttempt("real-errors-unit", async () => {
+          throw new PasswordCapacityError();
+        }),
+      ).rejects.toBeInstanceOf(PasswordCapacityError);
+    await expect(
+      checkLoginAttempt("real-errors-unit", async () => {
+        throw new DomainError("För många försök. Försök igen senare.", 429, 1);
+      }),
+    ).rejects.toBeInstanceOf(DomainError);
+    const correct = vi.fn(async () => true);
+    await expect(
+      checkLoginAttempt("real-errors-unit", correct),
+    ).rejects.toMatchObject({ status: 429, retryAfter: expect.any(Number) });
+    expect(correct).not.toHaveBeenCalled();
+  });
+  it("återlämnar en evikterad reservation utan att sänka en ny buckets spärr", async () => {
+    let reject!: (reason: unknown) => void;
+    const pending = checkLoginAttempt(
+      "evicted-refund-unit",
+      () => new Promise<boolean>((_resolve, fail) => (reject = fail)),
+    );
+    for (let i = 0; i < 10001; i++)
+      checkRateLimit("login", `refund-capacity-${i}`);
+    for (let i = 0; i < 5; i++) checkRateLimit("login", "evicted-refund-unit");
+    reject(new PasswordCapacityError());
+    await expect(pending).rejects.toBeInstanceOf(PasswordCapacityError);
+    expect(() => checkRateLimit("login", "evicted-refund-unit")).toThrow(
+      DomainError,
+    );
   });
   it("hanterar att en väntande lyckad reservation evikteras utan 500 eller felaktig ny bucket", async () => {
     let finish!: (value: boolean) => void;

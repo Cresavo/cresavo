@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { hashPassword, verifyPasswordHash } from "../src/lib/password";
+import { PasswordCapacityError } from "../src/lib/errors";
 
 it("använder saltad Argon2id och verifierar rätt/fel lösenord utan klartextlagring", async () => {
   const password = "Syntetiskt-lösenord-2026";
@@ -34,8 +35,10 @@ it("begränsar dyra lösenordsoperationer utan obegränsad kö och släpper kapa
   );
   expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(4);
   for (const result of results.filter((r) => r.status === "rejected")) {
-    if (result.status === "rejected")
+    if (result.status === "rejected") {
+      expect(result.reason).toBeInstanceOf(PasswordCapacityError);
       expect(result.reason).toMatchObject({ status: 429, retryAfter: 1 });
+    }
   }
   expect(await verifyPasswordHash(undefined, "wrong")).toBe(false);
 });

@@ -1,6 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { verifiedClientAddress } from "../../scripts/client-address.mjs";
-import { DomainError } from "./errors";
+import { DomainError, PasswordCapacityError } from "./errors";
 
 // One bounded map per process. No persistence or cross-worker guarantee.
 const buckets = new Map<string, { count: number; until: number }>();
@@ -43,12 +43,18 @@ export async function checkLoginAttempt(
   verify: () => boolean | Promise<boolean>,
 ) {
   let accepted = false;
+  let reservation: { count: number } | undefined;
   try {
     checkRateLimit("login", ip);
-    const reservation = buckets.get(`login:${ip}`)!;
+    reservation = buckets.get(`login:${ip}`)!;
     accepted = await verify();
     if (accepted) reservation.count--;
     return accepted;
+  } catch (error) {
+    // Capacity denial made no guess; refund only this request's original bucket.
+    if (error instanceof PasswordCapacityError && reservation)
+      reservation.count--;
+    throw error;
   } finally {
     // Locked requests never evaluate verify(), and get the same minimum delay.
     if (!accepted) await delay(LOGIN_FAILURE_DELAY_MS);

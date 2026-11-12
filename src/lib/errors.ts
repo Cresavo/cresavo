@@ -23,6 +23,13 @@ export class DomainError extends Error {
   }
 }
 
+// No password was checked. Callers may return a reserved attempt to the client.
+export class PasswordCapacityError extends DomainError {
+  constructor() {
+    super("För många försök. Försök igen senare.", 429, 1);
+  }
+}
+
 export function safeFailure(error: unknown) {
   if (
     error instanceof DomainError &&
