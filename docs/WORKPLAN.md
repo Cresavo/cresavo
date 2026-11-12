@@ -1,4 +1,8 @@
-# Epic 01 – slutförd QA batch 3
+# Aktuellt arbete — Epic 03 beroendesäkerhet
+
+Epic 02 avslutad i dba05a2 med oberoende QA. Aktuell kod 18a4d73 på separat branch epic-03-dependency-security; full lokal slutmatris PASS, full audit FAIL7 moderate och0 high. E03-0–2/4 lokaltPASS;E03-3 upstreamblockerat;E03-5–6 väntar på pågående Grok-QA/slutrapport. [Plan](EPIC_03_PLAN.md),[resultat](VERIFICATION.md),[handoff](HANDOFF.md). Endast lokala commits, ingen publicering eller nya produktfunktioner.
+
+## Bilaga — Epic 01
 
 ## Slutgodkännande efter dc15023
 

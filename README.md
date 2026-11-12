@@ -1,5 +1,9 @@
 # booking-lab-se
 
+## Epic 03 — beroendesäkerhet, lokal kandidat
+
+Prisma CLI/klient/adapter är uppgraderade till exakt **7.10.1**. Samma startkommandon nedan gäller; PostgreSQL-klienten har en uttrycklig poolbudget och UTC-session. Inga historiska migrationer, bokningsregler eller produktfunktioner har ändrats. Lokal slutmatris på **18a4d73**: 51 unit, 31 integration ×3, 12 E2E ×4, lint/tsc/build/cleanup PASS. Full audit **FAIL: 7 måttliga, 0 höga**; produktionsaudit **PASS: 0 fynd**. Groks slutkontroll pågår. [Beroende-/licensbeslut](docs/DEPENDENCY_REVIEW.md) · [Verifiering](docs/VERIFICATION.md) · [Morgonrapport](docs/MORNING_REPORT.md). **Endast syntetisk lokal POC; pilot fortsatt NO-GO.**
+
 ## Epic 02 — lokal agentbokning
 
 En betrodd lokal MCP-klient kan nu skapa en syntetisk bokning via samma bokningsmotor som webben. Prova `npm run mcp:client -- --admin --book` efter lokal installation och bekräfta med `ja`; kontrollera sedan bokningen i `/admin`. Verktyget kräver separat opt-in, minimerar svaret och bevarar databasens integritetsregler. Ingen extern AI-modell behövs. [MCP-kontrakt och begränsningar](#lokal-syntetisk-agentbokning-epic-02).

@@ -21,7 +21,7 @@ Vi behåller den fortfarande fungerande `prisma-client-js`-generatorn och import
 
 [minimatch-advisory](https://github.com/advisories/GHSA-g3hv-75wg-m249): resursförbrukning vid angriparkontrollerade globmönster/optimering. Appen tar inte emot globmönster; kedjan är lintverktyg. Fynden lämnas synliga i full audit och CI. Det finns ingen generell garanti att en utvecklar-/CI-installation är opåverkbar. ESLint 9.39.5 ger dessutom deprecation-varning; framtida ESLint-major kräver Next-konfigens kompatibilitet.
 
-Preliminärt faktiskt audit: full **exit 1, 7 moderate, 0 high/critical**; `--omit=dev` **exit 0, 0 fynd**. Detta betyder inte att Prisma CLI/Studio saknas i produktionsinstallation: klientens optional peer kan dra med CLI även där (`npm ls --omit=dev elkjs prisma` visade kedjan). Ingen Studio/dev-server startas av appen.
+Faktiskt slut-audit på 18a4d73: full **exit 1, 7 moderate, 0 high/critical**; `--omit=dev` **exit 0, 0 fynd**. Detta betyder inte att Prisma CLI/Studio saknas i produktionsinstallation: klientens optional peer kan dra med CLI även där (`npm ls --omit=dev elkjs prisma` visade kedjan). Ingen Studio/dev-server startas av appen.
 
 ## PostgreSQL och verkliga regressioner
 
@@ -38,6 +38,8 @@ Faktiska installerade LICENSE-filer för @prisma/client, prisma, @prisma/adapter
 [Inventering av 129 nya/ändrade paketposter](EPIC_03_LICENSE_INVENTORY.md) jämför låsfiler och listar deklarerade licenser och rotfiler. Inventeringen innehåller Apache/MIT/ISC/BSD/Unlicense samt **elkjs 0.11.1 EPL-2.0** via Prisma → Studio. Faktisk LICENSE.md och elk.bundled.js kontrollerades: EPL-2.0, ingen konkret secondary-license-notis verifierad; generiska Exhibit A ger inte en sådan rätt. Vi påstår därför **inte** att EPL-koden får kombineras med vår AGPL-kod. Det används som oförändrad separat Prisma CLI/Studio-verktygskomponent, inte importerat i bokningsappen; ingen EPL-kod kopieras eller relikensieras. Ingen ny CLI-tjänst införs. [EPL-villkor](https://www.eclipse.org/legal/epl-2.0/) och [GNU om separata program/aggregat](https://www.gnu.org/licenses/gpl-faq.html#MereAggregation).
 
 Ingen distribution av node_modules, binärer eller container görs. Före sådan leverans: fastställ exakt artefakt, uteslut onödigt CLI/Studio där det kan göras med stödda installationsvägar, verifiera faktisk koppling och separat distribution samt uppfyll EPL:s källkods-/noticekrav. Licensinventeringen är ingen full granskning av alla bundlade filer; @prisma/dev anger ISC men saknar separat LICENSE i paketrot. Paketens originallicenser/notices och eventuella källkodserbjudanden måste bevaras/verifieras inför release. Saknad kontroll stoppar den leveransen; den ger ingen rätt att anta fri relikensiering. Tidigare sharp/libvips- och caniuse-notiser kvarstår.
+
+Byggbevis på 18a4d73: de tio .next/server/*.nft.json-spårningsfilerna gav **0 referenser** till elkjs, @prisma/studio eller prisma/build. Detta stödjer bedömningen att verktyget inte är en del av det byggda appanropsträdet, men är inte en full licens-/distributionsklarering av en framtida image.
 
 ## Rollback och kvar
 

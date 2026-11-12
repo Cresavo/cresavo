@@ -1,5 +1,7 @@
 # Demo — Epic 02
 
+Epic 03 ändrar endast databasberoenden/konfiguration. Ingen ny video spelas in i denna batch; nedanstående galleri är från **äldre Epic 02-kod**, inte bevis för den nya Prisma-kandidaten. Kund/admin/kampanj/MCP verifieras i stället med hela E2E-matrisen på 18a4d73 (12/12 ×4). Se VERIFICATION. Det kosmetiska galleriets äldre introduktion nämner bara kampanjutkast; de separata 07-bilderna visar också agentbokningen.
+
 Aktuell giltig inspelning: **7a65aeec341820442effe68a77a1ea978050a0b0** (produktkod 3cd633b), 2026-11-12 kl. 01:27 Europe/Stockholm, dirty=false och produktionsbygge. `npm run demo:record`: **4/4 PASS**, 1,2 min, **14 PNG och 4 WebM**. Bara syntetiska uppgifter, inget externt publicerat.
 
 - [Öppna det lokala galleriet](../demo-artifacts/2026-11-12T00-27-19-502Z/index.html)

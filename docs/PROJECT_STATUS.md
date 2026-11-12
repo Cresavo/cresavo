@@ -1,4 +1,20 @@
-# Projektstatus — Epic 02 avslutad som lokal POC
+# Projektstatus — Epic 03 verifierad lokalt, QA pågår
+
+2026-11-12, kod **18a4d73**, branch epic-03-dependency-security. Epic01/02 avslutade som lokala POC:er. Epic 03 förbättrar beroendesäkerhet utan nya produktfunktioner; Groks oberoende slutkontroll pågår. **Pilot NO-GO**. [Verifiering](VERIFICATION.md) · [Avgränsning](EPIC_03_PLAN.md).
+
+| Acceptanskriterium / produktkvalitet | Tekniskt och automatiskt | Prova / UX / kundberedskap |
+| --- | --- | --- |
+| Prisma 7 startar mot ny DB och bevarar tidigare schema/data | PASS npm ci/generate/3migrate/seed och syntetisk uppgraderingskopia | Samma README-kommandon; ingen synlig UI-ändring. Ej kundklart. |
+| Bokning, admin och kampanj samt lokal MCP bevarar beteende | PASS51 unit/31 integration×3/12 E2E×4, lint/tsc/build | Ja lokalt, syntetiska uppgifter. Befintlig POC-UX oförändrad. |
+| Tider bevaras vid DST och annan serverzon | PASS verklig ORM/rawSQL/SHOW TIME ZONE, sommar/vinter | Affärszon Stockholm, lagring UTC. Ingen midnattsbokning tillkommer. |
+| Exclusion, idempotens,20parallell och kvoter består | PASS befintliga regressioner,0 överlapp/deadlocks | Testbart automatiskt, ingen drift-/flerinstansgaranti. |
+| Ta bort höga Prisma-advisories utan override | PASS full audit0 high, prod0 fynd | Verktygsträdet större; notices/releasekontroll krävs. |
+| Rätta måttliga ESLint/minimatch-fynd med stödd kedja | **BLOCKERAT upstream**,7 moderate kvar | Inga lintregler/audit dolda. Inte ett grönt full audit eller pilotgodkännande. |
+| Oberoende slut-QA och slutleverans | PÅGÅR | Ingen färdig Epic 03 påstås ännu. |
+
+Sedan Epic 02: kontrollerad Prisma 7-adaptermigrering, explicit konfiguration, UTC-/felregressioner, licensinventering och full lokal verifiering. Inga schemafält/historiska migrationer eller användarfunktioner ändrade. Nästa produktfunktioner för adminidentitet/GDPR/kundkontakt kräver separat avgränsning. Demo från7a65aee är äldre kod; ingen ny inspelning för osynlig ändring.
+
+## Bilaga — Epic 02 godkänd status
 
 Verifierat 2026-11-12, kod **3cd633b**, branch `epic-02-local-agent-booking`. Epic 01 och Epic 02 är avslutade som lokala POC:er. Groks oberoende slutkontroll av **cad997b** godkände samtliga steg, utan blockerande fynd, kl. 01:44 CET. Slutdemon på 7a65aee har 4/4 PASS. Pilot är fortfarande **NO-GO**. [Slut-QA](qa/QA-REPORT-epic02-cad997b.md) · [Exakta kommandon och resultat](VERIFICATION.md) · [Nattens arbetslogg](NIGHT_WORK.md) · [Demo, 14 bilder/4 videor](DEMO.md).
 
@@ -142,7 +158,7 @@ Inga ovanstående funktioner är godkända för riktiga kunduppgifter. **14 unit
 
 - Lokal missbruksspärr och global sessionsversion finns; individuella konton, individuell återkallelse och robust driftgräns saknas.
 - Bokningslista är avgränsad; kampanjlistan är fortsatt obegränsad. Pagineringen är inte en fryst snapshot.
-- Testad Windows/PostgreSQL18.6/Chromium. Docker/PostgreSQL16 och faktisk GitHub-CI inte körda.
+- Testad Windows/PostgreSQL 18.6/Chromium. Docker/PostgreSQL16 och faktisk GitHub-CI inte körda.
 - Kvarvarande audit, binära tredjepartsnotiser/källkodserbjudande, TLS, loggar, backup/restore, gallring, rättslig grund och mottagare måste hanteras före kunddrift.
 - Ingen verifierad flerföretagsisolering. Ingen fullständig extern trafik-/leverantörsgranskning.
 

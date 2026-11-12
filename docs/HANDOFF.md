@@ -1,4 +1,18 @@
-# Handoff — Epic 02 godkänd som lokal POC
+# Handoff — Epic 03, lokal kandidat för QA
+
+Kod **18a4d73**, bas **dba05a2** (Epic 02 godkänd), branch epic-03-dependency-security. Inget pushat/mergat/deployat; privat repo och main orörda.
+
+Prisma/client/adapter-pg är exakt7.10.1. Ett nytt direkt adapterberoende; pg transitivt, ingen ny env-loader. Gemensam klientfabrik i scripts/database.mjs för webb/MCP/seed/test/demo, begränsad pool och explicit UTC-session. Endast CLI-konfigurationen laddar .env; runtime kräver exporterad URL. Strukturerad v7-konfliktmappning. Schemafält, historiska migrationer, låsordning och HTTP/MCP-kontrakt bevarade. [Beslut/licenser/tidiga fel](DEPENDENCY_REVIEW.md).
+
+Ändrade kodfiler: package.json/låsfil, prisma/schema.prisma (bara URL bort), ny prisma.config.ts och scripts/database.mjs, src/lib/db.ts/domain.ts, seed, demo-/cleanupskript och E2E-klientkonstruktioner. Nya database-unit/integrationstester och adapterfeltester; vitest.config.ts har en syntetisk aldrig ansluten unit-URL. Dokumentation/notices/licensinventering uppdaterad; exakt lista via git diff --name-status dba05a2 18a4d73.
+
+Faktiskt PASS: ren npm ci/generate/3migrate/seed, lint/tsc/build,51 unit,31 integration×3,12 E2E×4,cleanup0 data/överlapp/deadlocks och syntetisk äldre DB-kopia. Full audit FAIL7 moderate/0 high; prod audit PASS0. E03-3 upstreamblockerat utan säker kompatibel minimatchfix; inga overrides/lintundantag. [Kommandon/loggar](VERIFICATION.md).
+
+Grok granskar fryst 18a4d73 från ren separat klon och source-ZIP, SHA256 F18D8BB21354DFB9CD99B21161750DF37BF72AD81F9BB5B4CA04F4398D9F6F9A. Uppdrag skickat02:05CET; oberoende slutbedömning **återstår**. Ingen ny demo; äldre Epic 02-galleri har14 PNG / 4 WebM, filmer inte fullt genomtittade. Nuvarande beteende verifieras genom E2E, inte genom den äldre videon.
+
+Pilot fortsatt NO-GO. Identitet/MFA, kund-GDPR, audit/upstream, riktig drift/processisolering och kundkontaktbeslut kvar. EPL2 elkjs är separat Prisma Studio-verktyg, ingen kompatibilitet med AGPL påstås; framtida artefakt-/källkods-/noticegranskning krävs före binärdistribution. Rollback: tidigare kod/låsfil +npm ci/generate, ingen DB-migration att återställa. Ingen skarp rollback eller logisk backup/restore verifierad.
+
+## Bilaga — Epic 02 godkänd som lokal POC
 
 Kod **3cd633b99e5aa990d002dc5563aed4bfe6bfe4a6**, lokal branch `epic-02-local-agent-booking`, bas 02edeaf. Ingen push eller merge. Projektet och remote förblir privata; main har inte ändrats av arbetet.
 
