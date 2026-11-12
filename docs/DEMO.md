@@ -1,4 +1,19 @@
-# Demo — Epic 02
+# Demo — aktuell Epic 04
+
+## Epic 04 — aktuell produktionsdemo
+
+2026-11-12 kl.07:35 CET. Revision **9282cdc9557f0bd76ea6c0196fab7bd92290d21b**, produktkod3419973, dirty=false, produktionsbygge. **4/4 PASS**,34.6s;14PNG och4WebM. Endast syntetiska uppgifter.
+
+- [Lokalt galleri](../demo-artifacts/2026-11-12T06-35-12-079Z/index.html)
+- [Manifest](../demo-artifacts/2026-11-12T06-35-12-079Z/manifest.json)
+- [Individuell admin och kampanj, mobil](../demo-artifacts/2026-11-12T06-35-12-079Z/flow-bokning-skyddad-admin-d3ab4-h-MCP-utkast-som-publiceras-mobile/04-admin-och-utkast.png)
+- [MCP-bokning i admin, mobil](../demo-artifacts/2026-11-12T06-35-12-079Z/flow-lokal-MCP-bokning-vis-0cccc-dad-admin-med-Stockholmstid-mobile/07-agentbokning-i-admin.png)
+
+Kundbokning/bekräftelse/admin/kampanj och separat lokal agentbokning körs på dator och mobil. Egen syntetisk admin skapas/städas av varje fixture; inga standardkonton lämnas. Manuellt konto skapas med admin:manage enligt ADMIN_OPERATIONS. Granskade stillbilder: mobil/desktopadmin, desktopbekräftelse, mobilpublikt erbjudande och mobilagentbokning. Synlig egen adminidentifierare, maskerad kund-e-post, Stockholmstid/SEK och ingen N-badge i dessa bilder.
+
+Alla4WebM probe/avkodning exit0 (11.08/11.48/4.92/2.92s); ingen full visuell genomtittning påstås. Slutaggregat i demo: bookings/campaigns/sessions/admins/overlaps=0. Artefakter är lokala och ignorerade, **inte tillgängliga via GitHub**. Källkod och reproduktionssteg är delbara. Tidigare Epic02-demo nedan är historisk.
+
+## Bilaga — tidigare Epic 02-demo
 
 Epic 03 ändrar endast databasberoenden/konfiguration. Ingen ny video spelas in i denna batch; nedanstående galleri är från **äldre Epic 02-kod**, inte bevis för den nya Prisma-kandidaten. Kund/admin/kampanj/MCP verifieras i stället med hela E2E-matrisen på 18a4d73 (12/12 ×4). Se VERIFICATION. Det kosmetiska galleriets äldre introduktion nämner bara kampanjutkast; de separata 07-bilderna visar också agentbokningen.
 

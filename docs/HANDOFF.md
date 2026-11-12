@@ -1,3 +1,20 @@
+# Handoff — Epic 04 kandidat
+
+2026-11-12. Branch epic-04-individual-admin. Kod3419973, docs9282cdc. Planbf290d5; bas10175ed. Eget adminregister/Argon2id, kontobundna sessioner, lokal create/disable/reset-CLI och asynkron spärr. Se [ADR004](ADR_004_ADMIN_IDENTITY.md), [datakarta](DATA_FLOWS.md), [operatörsguide](ADMIN_OPERATIONS.md), [faktisk verifiering](VERIFICATION.md). QA och full demo pågår; Epic04 ännu inte slutgodkänd/pushad.
+
+Ändrade huvudfiler: prisma/schema.prisma och ny fjärde migration; src/lib/admin-accounts.ts,password.ts,config.ts,auth.ts,rate-limit.ts; loginroute/adminpage/ui; scripts/admin.mts och fixturecleanup; tester i password/security/admin-accounts/admin-cli/e2e; package.json/lockfile, envexempel, CI-env och dokument. Domänens enda ändring delar konstanten demo; inga bokningsregler ändras. De3historiska migrationerna och exclusion är oförändrade.
+
+Ren npmci/generate/migrate/seed/lint/tsc/build PASS;58unit;40integration×3;14E2E×4;cleanup/uppgradering/TTY PASS. Full audit FAIL7moderate/0high,prodPASS0. Ett nytt direkt MIT-paket @node-rs/argon2 exakt2.2.2 är motiverat; [ändrad licensinventering](EPIC_04_LICENSE_INVENTORY.md). Inga riskabla automatiska majoruppgraderingar.
+
+Efter explicit pushuppdrag: Epic02 dba05a2 på privat remote, Actions43168794400 fyraE2Egröna/audit kändröd. Epic03 10175ed pushad, Actions43169125103 fyraE2Egröna/audit kändröd. Ingen merge till main(b000481), deploy eller riktiga data. Epic04 får pushas när färdig enligt nya målet.
+
+Prova: starta DB enligt README/LOCAL_DEMO_WINDOWS, migrera/seeda, npm run admin:manage -- create admin@example.test, välj eget dolt testlösenord, npm run dev och /admin. Testa andra kontot i separat browserkontext. Kund/MCP/kampanjflöden kvar. Inga standardkonton seedas. Endast example.test och syntetiska uppgifter.
+
+Pilot fortfarande NO-GO: MFA/livscykel, kund-GDPR, verklig TLS/proxy/flerinstansdrift, audit/distributionslicenser och öppet produktbeslut Visa kund-e-post. Ingen framtida Epic startas utan definierat/godkänt scope. Nästa tre mål: slutföra oberoendeQA för04; besluta liten GDPR-livscykel; besluta MFA-/driftgrind innan verkliga kunder.
+
+
+## Bilaga — tidigare verifierad historik
+
 # Handoff — Epic 03 godkänd som lokal POC
 
 Kod **18a4d73**, bas **dba05a2** (Epic 02 godkänd), branch epic-03-dependency-security. Inget pushat/mergat/deployat; privat repo och main orörda.

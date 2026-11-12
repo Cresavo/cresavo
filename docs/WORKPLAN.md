@@ -1,3 +1,9 @@
+# Aktuellt arbete — Epic 04 individuell admin
+
+Produktägaren har valt individuell admin och därefter godkänt ett fortsatt mål för färdigställande/synkning av Epic02–04. [Goal prompt och ramar](GOAL_EPIC_02_04.md). Kod3419973, docs9282cdc. Lokal slutmatris58unit/40integration×3/14E2E×4 samt produktionsdemo4/4 PASS; Grok-QA pågår före push. Epic02/03 pushade till privat origin med4grönaE2E-jobb vardera; separat audit känt rött. Ingen merge/deploy. [Plan](EPIC_04_PLAN.md),[verifiering](VERIFICATION.md),[handoff](HANDOFF.md).
+
+## Bilaga — föregående arbetsomgång
+
 # Aktuellt arbete — Epic 03 beroendesäkerhet
 
 Epic 02 avslutad i dba05a2 med oberoende QA. Aktuell kod 18a4d73 på separat branch epic-03-dependency-security; full lokal slutmatris PASS, full audit FAIL 7 moderate och0 high. E03-0–2/4/5/6 PASS som lokal POC efter läst Grok-slutrapport; E03-3 upstreamblockerat och fortsatt dokumenterat. Ingen fixbeställning behövdes. [Plan](EPIC_03_PLAN.md),[resultat](VERIFICATION.md),[handoff](HANDOFF.md). Endast lokala commits, ingen publicering eller nya produktfunktioner.

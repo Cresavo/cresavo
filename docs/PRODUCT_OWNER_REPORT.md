@@ -1,3 +1,19 @@
+# Produktägarrapport — Epic 04, slut-QA pågår
+
+**Byggt:** individuella syntetiska adminkonton med säker lösenordshash, kontobundna sessioner och lokal skapa/spärra/återställ-CLI. Det delade lösenordet är borttaget som reservväg.
+
+**Prova nu:** skapa två example.test-konton enligt [operatörsguiden](ADMIN_OPERATIONS.md), logga in separat på /admin och testa logout/reset/spärr. Kundbokning, kampanj och lokal MCP-bokning fungerar kvar; kund-e-post är maskerad.
+
+**Bättre:** ett konto kan återkallas utan att det andra påverkas; gammal cookie/verifiering överlever inte reset. 58unit,40integration×3 och14E2E×4 PASS. [Exakta resultat](VERIFICATION.md). [Ny lokal demo](../demo-artifacts/2026-11-12T06-35-12-079Z/index.html):4/4PASS,14bilder/4videor, produktion9282cdc. Utvalda bilder granskade, alla videor avkodade; inte fullständigt visuellt genomtittade.
+
+**Kvar:** Groks oberoende slut-QA pågår, så Epic04 är ännu inte slutgodkänd/pushad. Ingen MFA, webb-recovery, kund-GDPR eller verifierad verklig drift. Full audit7moderate/0high,prod0; native-/CLI-licensgrindar kvar. Endast testad POC, pilotNO-GO.
+
+**GitHub:** färdiga Epic02 dba05a2 och Epic03 10175ed finns nu på egna brancher i privata repot; fyra E2E-jobb gröna vardera. Audit är röd:02 har3high/7moderate,03 har0high/7moderate. main är oförändrad b000481. Ingen deploy.
+
+**Tre nästa mål:** slutför Grok-QA och branchleverans för04; avgränsa kundernas GDPR-livscykel; besluta MFA-/återställnings- och driftgrind inför pilot. Inga nya Epics startas på antaganden.
+
+## Bilaga — tidigare rapport
+
 # Produktägarrapport — Epic 03 godkänd lokal POC
 
 **Byggt/bättre:** Prisma uppgraderad kontrollerat till 7.10.1 med gemensam PostgreSQL-adapter, begränsad pool och UTC-session. De tre höga audit-fynden borta; 7 måttliga lintfynd kvar och synliga. Inga nya produktfunktioner.

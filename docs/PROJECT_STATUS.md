@@ -1,3 +1,24 @@
+# Projektstatus — Epic 04 individuell lokal admin
+
+2026-11-12, kod3419973, branch epic-04-individual-admin. Lokal slutmatris PASS; oberoende Grok-QA pågår. **Testad syntetisk POC, inte produktionsklar. Pilot NO-GO.** [Exakta resultat](VERIFICATION.md) · [Operatörsguide](ADMIN_OPERATIONS.md).
+
+| Acceptanskriterium | Teknisk funktion och automatiskt bevis | Prova / UX / kundberedskap |
+| --- | --- | --- |
+| Två individuella administratörer kan logga in | PASS verklig DB/API/desktop/mobil; eget konto syns i admin | Ja, skapa två example.test-konton med dold CLI. Enkel svensk login; ingen inbjudan eller MFA. Ej kundklart. |
+| Spärr/reset/logout återkallar rätt åtkomst | PASS kopieradcookie, annat konto opåverkat, gammal snapshot/reset-race och gamla sessioner nekas | Logout i UI; reset/spärr endast lokal operatör. Ingen webb-recovery. |
+| Ingen delad reservväg eller främmande salong | PASS ADMIN_PASSWORD/passwordonly/annanbusiness nekas | Gammal login behöver nytt konto. Ingen full tenant-isolering påstås. |
+| Spärren fungerar även med asynkron hash | PASS300försök→högst5verifieringar, blockerad rättkod nekas, kapacitet4/felvägar | 429 med Retry-After; processlokalt, kan behöva vänta. Ingen distribuerad garanti. |
+| Bokning/kampanj/lokal MCP bevaras | PASS58unit,40integration×3,14E2E×4 och0överlapp | Ja lokalt. Kampanj publiceras manuellt; ingen kund-e-post avmaskeras. POC-UX. |
+| Tom DB och uppgradering fungerar | PASS4migrationer,3historiska orörda, tidigare data bevarade | README/Windowsguide. Docker/TLS/extern drift ej verifierad. |
+| Oberoende QA och synlig demo | Pågår, inte accepterat ännu | Artefaktlänkar införs efter verkligt resultat. |
+
+Sedan förra arbetsomgången: eget adminkonto ersätter delat lösenord, Argon2id via ett motiverat nytt MIT-paket, kontobundna hash-only-sessioner och lokal konto-CLI. Inga nya kundfunktioner. Epic02 är pushad efter produktägarens nya uppdrag (dba05a2,4CI-E2Egröna; kändaudit röd); Epic03 pushad10175ed,fyraCI-E2Egröna och kändaudit röd. main orörd.
+
+Delvis: identitetslivscykel utan MFA/recovery/revisionslogg; användarupplevelsen är lokal POC. Planerat utan byggstart: MFA-beslut, kundernas GDPR-livscykel, verifierad drift-/distributionsgrind. Kvarstående blockerare före pilot: dessa områden, audit-/licensgrindar och beslut om Visa kund-e-post. Full audit7moderate/0high, prod0 på aktuell kod.
+
+
+## Bilaga — tidigare verifierad historik
+
 # Projektstatus — Epic 03 godkänd som lokal POC
 
 2026-11-12, kod **18a4d73**, branch epic-03-dependency-security. Epic01/02 avslutade som lokala POC:er. Epic 03 förbättrar beroendesäkerhet utan nya produktfunktioner; Groks oberoende slutkontroll gav GO kl. 02:25 CET; inga blockerande fynd. [Groks originalrapport](qa/QA-REPORT-epic03-18a4d73.md). **Pilot NO-GO**. [Verifiering](VERIFICATION.md) · [Avgränsning](EPIC_03_PLAN.md).
