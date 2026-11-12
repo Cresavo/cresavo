@@ -5,12 +5,20 @@ Start 2026-11-12. Godkänd plan5c9b07a på origin/epic-05-booking-workspace, ver
 | Del | Faktiskt läge |
 | --- | --- |
 | E05-0 | Plan/roadmap/AGENTS lästa, rätt branch hämtad och vald; inga nyare remotecommits än5c9b07a vid start. |
-| E05-1 | Domän/schema, adminvyer/API och lokal MCP implementerade. Pris/längd/snapshot och schemaändringar verifierade; slutinstallation/uppgraderingskopia/Grok återstår. |
-| E05-2 | Domän och UI/API/MCP för atomär flytt/avbokning implementerade. Retry/stale och blandad HTTP/MCP-konkurrens testade. |
-| E05-3 | Implementerad desktop dag/vecka och mobil lista med detalj-/inställningsvyer.20/20 E2E i alla4lägen PASS, inklusive manuella boknings-/utkast-/nätverksfall. Slutdemo/fysisk mobil/Safari ej verifierade. |
-| E05-4 | Implementerad och delverifierad:68unit/64integration,22prod-E2E samt stärkt race2/2. Separat opt-in, kundfria svar och sju operatörsbekräftelser. Slutmatris på ren installation återstår. |
-| E05-5 | Konkret beslutsunderlag i DEMO: Hetzner-projekt, HEL1, Tysklandsbackup, skydd för hela webb/API och kostnadsram. Pris läst i renderad officiell sida; kapacitet/konto/DNS ej godkända/verifierade. Ingen miljö skapad, faktisk mobilpreview BLOCKERAD. |
-| QA/demo/leverans | Inte påbörjad; sammanhängande kandidat fryses först efter implementation och egna kontroller. |
+| E05-1 | Implementerad domän/schema/UI/API/MCP. Pris/längd/snapshot/schema, ren installation och faktisk4→5uppgraderingskopia PASS. Grok granskar fryst kandidat. |
+| E05-2 | Atomär flytt/avbokning, status/version/historik och idempotens; blandad HTTP/MCP-konkurrens och direkt-DB-skydd PASS. |
+| E05-3 | Desktop dag/vecka, mobil kronologisk dag/lista, detalj-/inställningsformulär; nätverks-/utkast-/konflikt- och Tab/fokus/Enter-test PASS. Riktig produktionsdemo och utvalda bilder granskade; fysisk mobil/Safari NOT RUN. |
+| E05-4 | Lokal MCP-paritet med separat opt-in, kundfria begränsade svar och sju klientbekräftelser.68unit/64integration/22E2E×4PASS på ren installation; kandidat7fc0e86 har också22×4PASS. |
+| E05-5 | Konkret beslutsunderlag i DEMO: Hetzner/HEL1/Tysklandsbackup/hela HTML+API autentiserat/föreslagen15€-gräns. Ingen miljö skapad, faktisk mobilpreview BLOCKERAD av samlat miljöbeslut. |
+| QA/demo/leverans | Kandidat7fc0e86 fryst, demo6/6PASS28PNG/6WebM, Windowsprovguide uppdaterad. Grok har mottagit/verifierat alla169filhashar/SHA/bas/demo och startat egen QA. Originalrapport inväntas; ingen implementationpush än. |
+
+### Fryst kandidat och överlämning 2026-11-12
+
+7fc0e866f0ef457bf9eaef4ca153e7a69b30b3d0 innehåller slutliga demo-/tangentbordsverktyg, app/domän/schema oförändrade sedan4099d9d. Kandidatmatrisen22/22×4 PASS (prod0=43.6s,prod1=42.7s,dev0=1.3m,dev1=1.4m) och slutaggregat0kund-/konto-/mutationsrader,0aktiva överlapp/observeradeDBdeadlocks. Produktiondemo6/6PASS52.8s,28PNG/6WebM,dirtyfalse. Fyra verkliga kalender/schema/flytt-bilder visuellt granskade; alla6videor avkodade exit0, ej full genomtittning. DEMO/LOCAL_DEMO_WINDOWS har galleri och provguide.
+
+Rensade git-archive-paket/inventering/diffbas/demo skickades i befintlig verifierad Chrome3 Booking Lab QA-konversation. Grok bekräftade SHA7fc0e86, alla169filhashar, bas26b680d, demo28/6 och egen isolerad Postgres/Stockholm-miljö före granskning. Ingen PC-testkörning beställd eller samtidig ändring av vår arbetskopia. Originalslutrapport inväntas. Käll-ZIP SHA256154dda086409cd810049cfb72b3f19b993fdb1d959f4d892b98a2bf0e74ed458. Ingen implementationpush/mainmerge/deploy. Efterföljande resultat-/guidedokument separeras från den frysta koden. [Aktuella resultat](VERIFICATION.md).
+
+## Historik — delverifiering och beslut
 
 ## Skärmstruktur
 

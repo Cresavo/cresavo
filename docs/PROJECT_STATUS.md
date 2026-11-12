@@ -1,10 +1,22 @@
-# Projektstatus — Epic 05 pågår
+# Projektstatus — Epic 05, kandidat i slutgranskning
 
-2026-11-12. Branch **epic-05-booking-workspace**, MCP-kod **4099d9d99e64dd002026e37a37b156eb12e29464**, UI/API66f2796, plan5c9b07a och bas26b680d. Kalender, konfigurationsvyer och skapa/flytta/avboka fungerar nu via webb och lokal MCP.68unit/64integration, lint/tsc/build,22prod-E2E och stärkt race2/2 PASS. UI-delens tidigare20×4 är bevarat bevis men inte full matris för nya MCP-koden. Slutaggregat0 test-/sessions-/mutationsrader och0aktiva överlapp/observeradeDBdeadlocks. [Faktiska resultat och tidiga FAIL](VERIFICATION.md). Historiska4migrationer oförändrade.
+2026-11-12. Branch **epic-05-booking-workspace**, fryst **7fc0e866f0ef457bf9eaef4ca153e7a69b30b3d0**, produktkod4099d9d, bas26b680d. Efterföljande statusdokument ändrar ingen kod. **Testad lokal produktalpha, ännu inte slutlevererad eller Grok-godkänd.** [Verifikation](VERIFICATION.md) · [plan](EPIC_05_PLAN.md) · [prova](LOCAL_DEMO_WINDOWS.md) · [riktig demo](DEMO.md).
 
-**Epic05 är inte färdig.** Uppgraderingskopia, ren slutinstallation/audit, full slutmatris, slutdemo, previewunderlag och Grok-QA återstår. Ingen push/deploy gjord för implementationen. [Hela godkända omfattningen](EPIC_05_PLAN.md). Mobilpreview saknar miljögodkännande; oberoende arbete fortsätter. Pilot NO-GO. Denna statusuppdatering efter4099d9d ändrar bara dokument.
+| Acceptans | Funktion/testbevis | Kan provas / UX / kundberedskap |
+| --- | --- | --- |
+| AC1/E05-3: kundbokning syns i kalendern | PASS riktiga desktop-/mobil-E2E med service/utförare/Stockholmstid | Ja lokalt. Dag/veckokalender på dator, kronologisk dag/lista på mobil. POC, ej pilot. |
+| AC2/E05-1: pris/längd och historik | PASS snapshot/inaktivering/version i DB/API/MCP | Tjänster kan ändras. Äldre bokning bevarar lagrade uppgifter; migration kan inte återskapa okänt historiskt pris. |
+| AC3/E05-1: två personaler, paus/ledighet | PASS availability, DST/undantag och konflikter med befintlig bokning | Personal & tider kan redigeras. Enkel fullformsredigering; ingen avancerad schemaplanerare. |
+| AC4–5/E05-2: flytt/avbokning | PASS atomär flytt, retry/stale, historik, avbokad tid ledig | Öppna kalenderblock, Flytta/Avboka. Tydlig avbokningsbekräftelse och sparrespons. Ingen kundsjälvservice. |
+| AC6–7/E05-4: gemensam agentlogik | PASS riktig stdio, strict/opt-in/kundfria begränsade svar,20blandade HTTP/MCP-race och direkt-DB-exclusion | Lokal klient --admin --workspace, sju ja-frågor. Ingen modellnyckel/fjärr-MCP. |
+| AC8: användbar UX | PASS desktop/mobil E2E, nätverks-/stale-/utkastfall och riktat Tab/fokus/Enter | Verkliga skärmar granskade;28bilder/6videor. Fysisk iPhone/Safari och full tillgänglighetsgranskning ej körda. |
+| AC9: ren installation och uppgradering | PASS npmci/5migrationer/seed och faktisk4→5templatekopia med bevarade tidigare data | README/Windowsguide. Ingen skarp backup-/restoregaranti. |
+| AC10: oberoende QA och leverans-CI | PÅGÅR: Grok-uppdrag skickat för fryst7fc0e86. Ingen implementationpush/Actions ännu | Ej slutgodkänt. Kodåtkomst bekräftad:169filhashar, SHA, bas och demo stämmer i Groks egen miljö; originalrapport inväntas. |
+| E05-5: privat mobilpreview | Förslag klart, faktisk site **BLOCKERAD** av miljöbeslut | Hetzner/HEL1, separat Tysklandsbackup, hela HTML/API autentiserat, föreslagen15€/mån exmoms-gräns. Ingen resurs/URL skapad. |
 
-CI-kostnadsändring2026-11-12 är lokalt syntaxkontrollerad (actionlint1.7.12 PASS): docs-filter, ett feature-ben,4main/manuellt, concurrency, cache och separat måndagsaudit. Inget pushat eller externt acceptanstestat;≤5min är inte bevisat. Veckoschema väntar på framtida tillåten default-branchaktivering. Audit omkörd:full FAIL7moderate/0high,prod PASS0. [Detaljer och NOT RUN](WORKPLAN.md). Produktkod66f2796 är oförändrad.
+Sedan föregående omgång: hela bokningsarbetsytan och lokal MCP-paritet, ren installation/uppgraderingsbevis/full22×4, ny produktionsdemo och konkret previewförslag.68unit/64integration/lint/tsc/build PASS; kandidat7fc0e86 har också22/22×4PASS efter tangentbordsassertionerna. Full audit FAIL7moderate/0high,prod PASS0; inga nya dependencies/overrides. [Resultattabell och tidiga FAIL](VERIFICATION.md).
+
+Planerat utan byggstart: kund-GDPR-livscykel, MFA/recovery, verifierad drift/distribution och framtida moduler i roadmap. Kundkontakt/Visa e-post fortsatt utanför scope. Pilot **NO-GO**: dessa grindar, kontobundet/distribuerat missbruksskydd, upstreamaudit och native-/distributionslicenser. CI-besparing implementerad lokalt med actionlint-PASS; featuretid/docsfilter/extern matris ej bevisade och veckoschema inaktivt innan separat tillåten default-branchaktivering. Ingen mainmerge/deploy.
 
 ## Verifierad föregångare — Epic04
 

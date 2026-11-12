@@ -1,3 +1,19 @@
+# Produktägarrapport — Epic 05 i slutgranskning
+
+**Byggt:** salongens kalender på dator och mobil, redigerbara behandlingar och personalens tider samt skapa, flytta och avboka. Lokala agenter använder samma regler och kan göra motsvarande arbete efter uttrycklig opt-in. Inga nya framtida moduler.
+
+**Prova nu:** följ [Windowsguiden](LOCAL_DEMO_WINDOWS.md): boka på kundsidan, hitta tiden i kalendern, öppna/flytta/avboka, ändra tjänst/schema och prova den guidade lokala MCP-klienten. Bara påhittade uppgifter. [Produktionsgalleriet med28bilder/6videor](../demo-artifacts/2026-11-12T10-29-00-935Z/index.html) visar verklig kod7fc0e86; inte en mobilåtkomlig site.
+
+**Bättre:** bokningen behåller pris och behandlingstid när katalogen ändras, olika personal har egna tider, samtidiga ändringar och retry skyddas och avbokningar har historik. Ren installation/uppgradering,68unit/64integration/22E2E×4/lint/tsc/build PASS. [Faktiska resultat](VERIFICATION.md). Även fryst kandidat7fc0e86 med tangentbordsassertionerna har22×4PASS. Grok har verifierat mottagen kod/hash och granskar i egen miljö; inget godkännande ännu.
+
+**Kvar:** extern QA och exakt leverans-CI. Den privata mobilpreviewn har ett [konkret förslag](DEMO.md) men ingen godkänd miljö eller fungerande URL. Kundpilot är NO-GO: GDPR/MFA/drift/licensgrindar och7måttliga upstreamauditfynd kvar; prod audit0. Kund-e-post förblir maskerad.
+
+**Revision:** epic-05-booking-workspace, kandidat7fc0e866f0ef457bf9eaef4ca153e7a69b30b3d0; appkod4099d9d. Ingen implementationpush/mainmerge/deploy än. Demo6/6PASS från ren kandidat; utvalda bilder granskade, filmer tekniskt avkodade men inte helt genomtittade.
+
+**Tre nästa mål:** slutför oberoende QA/leverans-CI; fatta ett samlat beslut om skyddad syntetisk mobilpreview; avgränsa kundernas GDPR-livscykel inför framtida pilot. Inga nya Epics startas automatiskt.
+
+## Bilaga — tidigare produktägarrapporter
+
 # Produktägarrapport — Epic 04 klar som lokal POC
 
 **Byggt:** egna syntetiska adminkonton, säker lösenordsverifiering, kontobundna sessioner och lokal skapa/spärra/återställ-CLI. Det delade lösenordet är borttaget som reservväg.

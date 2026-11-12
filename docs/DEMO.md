@@ -1,6 +1,17 @@
-# Demo och mobilpreview — Epic 05 under leverans
+# Demo och mobilpreview — Epic 05
 
-Ny produktionsinspelning av kalender/tjänster/schema/flytt/avbokning förbereds. Äldre Epic04-bilder nedan är historik och bevisar inte den nya arbetsytan. Aktuell produktkod4099d9d; sluttestning körs på ny isolerad DB efter ren npmci. Ingen publik eller privat testsite är driftsatt.
+2026-11-12 kl.11:29 CET. Ren kandidat **7fc0e866f0ef457bf9eaef4ca153e7a69b30b3d0**, dirty=false, produktionsbygge. `npm run demo:record` **PASS6/6,52.8s**,28PNG och6WebM på ny separat booking_epic05_delivery_demo. Tre flöden på desktop och mobil: kund/admin/kampanj, lokal MCP-bokning och hela nya arbetsytan tjänst/schema/ledighet/flytt/avbokning. Inspelningen har ingen N-badge. Ingen testsite är driftsatt.
+
+- [Lokalt galleri](../demo-artifacts/2026-11-12T10-29-00-935Z/index.html)
+- [Manifest med exakt revision och alla filer](../demo-artifacts/2026-11-12T10-29-00-935Z/manifest.json)
+- [Desktop veckokalender](../demo-artifacts/2026-11-12T10-29-00-935Z/workspace-Epic05-salongsar-3594f-st-schema-flytta-och-avboka-desktop/epic05-calendar.png)
+- [Mobil kalender](../demo-artifacts/2026-11-12T10-29-00-935Z/workspace-Epic05-salongsar-3594f-st-schema-flytta-och-avboka-mobile/epic05-calendar.png)
+- [Mobil schema med paus](../demo-artifacts/2026-11-12T10-29-00-935Z/workspace-Epic05-salongsar-3594f-st-schema-flytta-och-avboka-mobile/11-veckoschema-med-paus.png)
+- [Mobil flyttad bokning](../demo-artifacts/2026-11-12T10-29-00-935Z/workspace-Epic05-salongsar-3594f-st-schema-flytta-och-avboka-mobile/13-flyttad-bokning.png)
+
+Dessa fyra stillbilder är visuellt granskade: läsbara handlingar, korrekt YYYY-MM-DD/SEK/Stockholmstid och maskerad kundkontakt; desktop är verklig tidsgrid, mobil kronologisk lista. Det långa personalformuläret kan förbättras senare, inte en full UX-/tillgänglighetscertifiering. Ingen fysisk iPhone/Safari testad. Alla6WebM probe/avkodade exit0 (11.16/10.64/5.56/3.32/9.48/9.56s); de är inte helt visuellt genomtittade. Medieteknisk logg epic05-video-check.json. Slutaggregat0booking/event/request/session/admin/campaign,2service/2staff,0överlappar/observeradeDBdeadlocks.
+
+[Prova själv stegvis](LOCAL_DEMO_WINDOWS.md). Reproducera med npmci/generate, ny egen loopback *_demo-DB, db:migrate/db:seed och npm run demo:record; se gemensamma instruktioner i bilagan. Demovakten kräver exakt syntetisk seed och inga boknings-/konto-/sessions-/mutationsrader, raderar aldrig för att förbereda. Efter manuell provning ska nästa inspelning använda ny demo-DB. Artefakter är ignorerade och finns inte automatiskt i GitHub; granskat separat QA-demopaket skapat, hash finns i handoff. Detta är automatiserad verklig POC, inte produktionsklar eller mobilåtkomlig drift.
 
 ## Privat mobilpreview: beslutsunderlag, BLOCKERAD
 

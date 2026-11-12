@@ -1,34 +1,42 @@
-# Verifiering — Epic 05, pågående delverifiering
+# Verifiering — Epic 05, fryst kandidat inför Grok-QA
 
-2026-11-12. Branch epic-05-booking-workspace, verifierad MCP-del **4099d9d99e64dd002026e37a37b156eb12e29464**, föregående UI/API66f2796 och backend66e2a4d. Windows, Node24.16.0/npm11.13.0, Prisma7.10.1. Egen PostgreSQL18.6 på127.0.0.1:55451, booking_epic05_config2_test. Endast syntetiskt. Denna efterföljande dokumentuppdatering ändrar ingen kod. Ren slutinstallation, uppgraderingskopia och full slutmatris återstår; inget Grok-GO för Epic05.
+2026-11-12. Branch **epic-05-booking-workspace**, kandidat **7fc0e866f0ef457bf9eaef4ca153e7a69b30b3d0**, produktkod **4099d9d**. Windows, Node24.16.0/npm11.13.0, Prisma7.10.1, egen PostgreSQL18.6 på127.0.0.1:55451. Ren installation och ny **booking_epic05_final_test**; separat **booking_epic05_delivery_demo**. Endast syntetiskt. Kandidaten innehåller efter produktkoden test-/demoverktyg och dokument, ingen ytterligare app-/schemaändring. Efterföljande resultatdokument ändrar ingen kod. Grok-QA skickad, inget GO ännu. Ingen implementationpush/mainmerge/deploy.
 
 ## Aktuell resultattabell
 
-| Kommando/kontroll | Faktiskt delresultat |
+| Kommando/kontroll | Faktiskt resultat |
 | --- | --- |
-| npm ci | NOT RUN i UI-delen; inget beroende/lockfile ändrat. Ren slutinstallation återstår. |
-| npx prisma generate / npm run db:migrate / npm run db:seed | PASS i backenddelen: klient7.10.1,5migrationer på tom egen DB,2tjänster/2personal.4historiska migrationer orörda. |
-| npm run lint / npx tsc --noEmit | PASS exit0 efter UI/API samt nya testfall, ingen diagnostik. |
-| npm test | PASS68/68,11filer,9.50s efter MCP. |
-| npm run test:integration | PASS64/64,15filer,57.04s efter MCP inklusive strikta protokoll och partiellt operatörsavbrott. |
-| npm run build | PASS exit0 efter konsekventa datumfält; samtliga nya admin/API-routes byggda. |
-| E2E_PRODUCTION=1 npm run test:e2e -- tests/e2e/workspace.spec.ts | PASS4/4,1.7m före nya manuella bokningstestet/datumfälten. |
-| E2E_PRODUCTION=1 npm run test:e2e -- tests/e2e/workspace.spec.ts --grep 'manuell bokning' | PASS2/2,10.3s efter testväljarfix; tappad läsning/sparrespons, osparad navigering och identisk retry utan dubblett. |
-| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e | PASS22/22,2.2m efter MCP. Därefter stärktes två konfliktassertioner i racet, se riktad återkontroll nästa rad. |
-| E2E_PRODUCTION=1 npm run test:e2e -- tests/e2e/workspace.spec.ts --grep 'HTTP och lokal MCP delar' | PASS2/2,40.5s efter stärkta assertions.20blandade flyttar och konkurrerande avbokning,0överlappar, minimal MCP-läsning och faktisk adminvy. |
-| Övriga3E2E-lägen för nya MCP-koden | NOT RUN ännu. Föregående UI-kod66f2796 hade20/20 i alla4lägen; detta är inte full matris för4099d9d. |
-| Uppgradering av Epic04-data / fixturestädningsprobe | NOT RUN i denna del; återstår före slutleverans. |
-| Extern node epic05-aggregate.mjs efter matrisen | PASS: booking/event/requestledger/session/admin/campaign=0;service/staff=2/2;activeOverlaps0;databaseDeadlocks0;1anslutning (proben). |
-| npm audit --json / npm audit --omit=dev --json | Omkört för CI-kostnadsändringen2026-11-12: full FAIL exit1,7moderate/0high/critical;prod PASS exit0,0fynd. Inget beroende uppgraderat. |
-| npm audit --audit-level=high --json | PASS exit0,fortfarande7moderate. Ny veckogrind, inte ett grönt full-audit-resultat. |
-| actionlint1.7.12 -color, nya verify/audit-workflow | PASS exit0. Release-ZIP-digest verifierad, extern QA-installation. Ingen GitHub-/Docker-runtime eller shellcheck körd för ändringen. |
-| CI-kostnadsacceptans (docs-ignore, feature≤5min, full manuell matris, veckoschema) | NOT RUN externt; ingen push/merge. Schemat kan inte aktiveras på featurebranch. [Underlag, policy och kommandon](WORKPLAN.md). |
-| Grok-QA / Actions för Epic05 | NOT RUN; ingen fryst slutkandidat eller implementationpush än. |
-| Slutdemo / mobilpreview | NOT RUN. Preliminära riktiga skärmar finns lokalt, kalenderbilder granskade. Ingen extern deploy godkänd. |
+| npm ci --no-fund | PASS exit0: added570 packages, audited571 in2m; ESLint9-deprecation och7moderate. |
+| npx prisma generate | PASS: Prisma Client7.10.1,125ms. |
+| npm run db:migrate / npm run db:seed | PASS på ny final_test:5migrationer,2tjänster/2personal,0standardkonton.4historiska SQL-filer byteidentiska mot26b680d. |
+| npm run lint / npx tsc --noEmit | PASS exit0 utan diagnostik; även efter nya demo-/tangentbordstester. |
+| npm test | PASS68/68,11filer,8.16s på oförändrad produktkod4099d9d. |
+| npm run test:integration | PASS64/64,15filer,56.84s på ny final_test. |
+| npm run build | PASS exit0; samtliga nya admin/API-vägar byggda. Även demokörningen byggde produktion från7fc0e86. |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e | PASS22/22,2.4m på ren slutinstallation före de nya tangentbordsassertionerna. |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 npm run test:e2e | PASS22/22,38.9s, samma slutinstallation. |
+| TRUST_PROXY_IP=0 npm run test:e2e (E2E_PRODUCTION tom) | PASS22/22,1.3m, samma slutinstallation. |
+| TRUST_PROXY_IP=1 npm run test:e2e (E2E_PRODUCTION tom) | PASS22/22,1.1m, samma slutinstallation. |
+| Kandidat7fc0e86, samma fyra E2E-kommandon | PASS22/22 i alla4lägen på exakt7fc0e86:prod/proxy0=43.6s,prod/proxy1=42.7s,dev/proxy0=1.3m,dev/proxy1=1.4m. Inkluderar Tab/fokus/Enter; samma gränser/assertions. Slutaggregat åter0kund-/konto-/mutationsrader,0överlappar/deadlocks. |
+| node --env-file=.env scripts/test-cleanup.mjs | PASS: CLEANUP_TIMEOUT_EXPECTED_EXIT=1, REMAINING_SYNTHETIC_ROWS=0. Avsiktlig timeout är kontrollens förväntade barnutfall. |
+| Extern node epic05-upgrade-verify.mjs | PASS riktig PostgreSQL-templatekopia4→5 av syntetisk Epic04-DB. Gamla scalarfält/UTC/DST-bokningar/kampanj/konto/session bevarade;5SQL-checksummor matchar. Snapshotpris/namn är migrationstidens katalogvärden, faktisk bokad längd bevaras. Aktiv direktöverlapp ger23P01, cancelled-overlap tillåts. Källans4migrationer/data oförändrade. Egna provrader städade. Inte pg_dump/restore eller skarp backup. |
+| Extern node epic05-aggregate.mjs | PASS efter fullmatris och efter demo:0booking/event/workspaceRequest/session/admin/campaign,2services/2staff,0activeOverlaps och0observeradeDBdeadlocks.1anslutning är proben. |
+| npm audit --json | **FAIL exit1:7moderate,0high/critical.** Känd lint/minimatchkedja, inga overrides/majoruppgraderingar. |
+| npm audit --omit=dev --json | PASS exit0:0fynd. Inte en distributionslicens- eller pilotklarering. |
+| npm audit --audit-level=high --json | PASS exit0 med samma7moderate; separat synlig veckogrind, ingen påstådd åtgärd av fynden. |
+| npm run demo:record | PASS6/6,52.8s,produktion7fc0e86,dirty=false;28PNG/6WebM. [Manifest/galleri](DEMO.md). Alla6videor probe/avkodade exit0; utvalda verkliga bilder granskade. Inte helt visuellt genomtittade videor. |
+| Demovakt mot egen inaktiv syntetisk adminrad | PASS: DEMO_DATABASE_NOT_EMPTY_OR_SYNTHETIC före build, ingen rå identifierare/hash i fel, raden raderades inte. Bara provets egen rad togs bort efteråt. |
+| actionlint1.7.12, verify/audit-workflow | PASS exit0. Externt officiellt verktyg, ingen appdependency. Shellcheck NOT RUN. |
+| Grok-QA / Actions / CI-kostnadsacceptans | QA skickad till verifierad befintlig bot; Grok bekräftade faktisk mottagning7fc0e86, alla169filhashar/bas/demo och separat DB i egen miljö. Originalslutrapport inväntas. Implementationpush/Actions NOT RUN. Feature≤5min och docs-ignore ej externt bevisade. Veckoschema kräver default-branch, ingen mainmerge. |
+| Privat mobilpreview / fysisk iPhone/Safari / skarp drift | BLOCKERAD miljöbeslut respektive NOT RUN. [Konkreta miljö-/kostnads-/åtkomstval](DEMO.md). Ingen deploy/tunnel. Kundpilot NO-GO. |
 
-Tidiga FAIL är bevarade: två dev/desktop60s-startproblem (trace: browserstart/sidladdning tog tidsbudgeten), första fulla prod17/20 (en fixtureanslutningstimeout före bokningsanrop, två tvetydiga testlänkar), andra18/20 (nytt test valde även Nexts route-announcer-alert). Testväljare rättade till rätt länk/appens main-alert; manuell bokning därefter2/2. Inga assertions/timeouts/DB- eller säkerhetsgränser sänkta. Lokala originalutdata: booking-lab-pg-test/epic05-ui-*.log. Följ WORKPLAN för pågående scope; oförändrad Epic01–04 beställs inte om för full QA.
+Exporterad DATABASE_URL går före .env. Kör en matris åt gången, exportera TRUSTED_PROXY_IPS=127.0.0.1,::1 och växla TRUST_PROXY_IP=0/1 samt E2E_PRODUCTION tom/1. Bygg före produktion. Historik/testkategorier och låsbeslut i [WORKPLAN](WORKPLAN.md), [arkitektur](ARCHITECTURE.md). Lokala råutdata: C:/Users/<user>/booking-lab-pg-test/epic05-final-*.log/json, epic05-candidate-*.log/json, epic05-demo-record-1.log och epic05-video-check.json. Käll-ZIP från7fc0e86:169filer, SHA256 **154dda086409cd810049cfb72b3f19b993fdb1d959f4d892b98a2bf0e74ed458**. Innehåll inventerat, inga .env/hemligheter/buildfiler/data.
 
-MCP-delens första fulla integration57/59 föll på två5s-timeouter i oförändrad admin-CLI. Isolerad återkontroll3/3PASS, sedan59/59,60/60och slutlig64/64PASS. NODE_ENV lades explicit i nya testsubprocesser för Nexts ProcessEnv-typ; tsc/lint slutligen PASS utan diagnostik. Intern läsgranskning hittade två negativa täckningsluckor, nu testade med riktig stdio; det är inte Groks slut-QA. MCP-originalutdata i epic05-mcp-*.log. Slutaggregat efter racet:0booking/event/requestledger/session/admin/campaign,2services/2staff,0activeOverlaps/observeradeDBdeadlocks.
+## Bilaga — tidigare Epic05-delkörningar och FAIL
+
+Tidiga UI FAIL: dev/desktop60s vid första browser-/sidstart; fullprod17/20 (en fixtureDB-anslutningstimeout före bokning, två tvetydiga länkväljare), sedan18/20 (Next route-announcer valdes också som alert). Väljare rättade till avsedd länk och main-alert; sedan20×4 och nya MCP22×4 PASS utan sänkta gränser/assertions. MCP:s första fullintegration57/59 föll på två5s-timeouter i oförändrad admin-CLI, isolerad3/3 och därefter59/59,60/60,64/64 PASS. NODE_ENV behövde sättas uttryckligt i nya testsubprocessers ProcessEnv. Ursprungliga loggar epic05-ui-*/epic05-mcp-* kvar lokalt. Intern läsgranskning hittade två negativa täckningsluckor, kompletterade via riktig stdio; den är inte Groks oberoende QA.
+
+Oförändrade Epic01–04 beställs inte för ny full QA. Docker lokalt Windows, riktig TLS/proxy, extern IPv6, flerinstansdrift, full penetrationstestning, komplett native/Cargo-distributionsinventering och fysisk mobil är NOT RUN i denna Epic05-leverans. Inget pilot-GO härleds från lokala gröna tester.
 
 ## Bilaga — Epic 04:s verifierade slutleverans
 
