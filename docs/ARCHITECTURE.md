@@ -1,6 +1,6 @@
 # Arkitektur
 
-## Epic 05: bokningsarbetsyta, fryst kandidat i slutgranskning
+## Epic 05: bokningsarbetsyta, QA-godkänd lokal alpha
 
 Femte migrationen lägger till versionsstyrda tjänster och personal med strikt begränsade veckoperioder, pauser och datumundantag. Undantag ersätter veckoschemat på det datumet. Bokningar lagrar namn/pris/längd/buffert som snapshots. Backfill kan endast återge tjänstens värden vid migrationen, inte återskapa okänt historiskt pris. Ursprungliga start/slut bevaras. Äldre migrationsfiler är oförändrade; den nya migrationen ersätter exclusion atomärt med samma halvöppna intervall för confirmed-rader.
 
@@ -34,7 +34,7 @@ Resurslistor är begränsade till50tjänster/20personal, samma gränser som konf
 
 Alla nya skrivningar kräver confirmed=true och stabil clientRequestId(max64). Aktören är en serverägd lokal kanal, aldrig klientens fält. Identisk retry återger samma minimala resultat; ändrad payload eller gammal version nekas. Den medföljande klientens --admin --workspace ber om sju separata bekräftelser för skapa tjänst/personal/bokning, flytta, avboka och inaktivera provresurser. Nekande/EOF stoppar innan nästa skrivning; tidigare godkända ändringar ligger kvar. Pipe/automation kan svara ja, så detta bevisar inte mänskligt samtycke.
 
-Kandidat7fc0e86 har ren installation, full slutmatris, faktisk uppgraderingskopia och produktionsdemo PASS. Oberoende Grok-QA och exakt leverans-CI återstår. Se VERIFICATION/WORKPLAN för faktisk revision, kommandon och begränsningar. Detta är inte pilot- eller driftgodkännande.
+Kandidat7fc0e86 har ren installation, full slutmatris, faktisk uppgraderingskopia och produktionsdemo PASS. Grok godkände efterföljande kvotfix4fc98d3. Exakt leverans-CI återstår. Se VERIFICATION/WORKPLAN för faktisk revision, kommandon och begränsningar. Detta är inte pilot- eller driftgodkännande.
 
 ## Epic 04: individuell lokal admin
 

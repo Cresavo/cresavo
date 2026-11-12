@@ -1,22 +1,18 @@
-# Produktägarrapport — Epic05 rättas efter QA
+# Produktägarrapport — Epic05 lokal produktalpha
 
-2026-11-12. Grok har provat hela matrisen själv och hittat ett blockerande användningsfel: receptionen stoppas efter fem manuella bokningar. Det rättas med en separat, högre kontobudget; kundskydden består. Egna nya tester för separation, tak, retry och behörighet passerar. Slutlig webbläsarmatris och Groks riktade återkontroll återstår; ingen push än. Övriga mindre UX-/demo-/DB-idéer är backlogg, ingen ny Epic. [Detaljer](WORKPLAN.md).
+**Byggt:** en faktisk salongskalender på dator/mobil, redigerbara behandlingar och personalens tider samt skapa, hitta, flytta och avboka. Lokala agenter har motsvarande tillåtna verktyg och samma regler. Ingen stor AI-panel eller ny extern tjänst.
 
-## Bilaga — kandidat7fc0e86 före QA-fix
+**Prova nu på PC:n:** följ [den korta provguiden](LOCAL_DEMO_WINDOWS.md). Kundbokning → adminkalender → flytt/avbokning → tjänst/schema → lokal MCP med7ja-frågor. Bara påhittade uppgifter. Ingen mobilåtkomlig testsite finns ännu.
 
-# Produktägarrapport — Epic 05 i slutgranskning
+**Bättre efter QA:** receptionen stoppas inte längre av kundernas fem-bokningstak. Admin får egen dokumenterad kontobudget; kund- och MCP-skydden består. Grok har stängt blockeraren efter en fixomgång och gett **GO som lokal produktalpha**. [Originalslutrapport](qa/QA-REPORT-epic05-4fc98d3.md).
 
-**Byggt:** salongens kalender på dator och mobil, redigerbara behandlingar och personalens tider samt skapa, flytta och avboka. Lokala agenter använder samma regler och kan göra motsvarande arbete efter uttrycklig opt-in. Inga nya framtida moduler.
+**Verifierat:** egna69unit/66integration/24E2E×4/lint/tsc/build/cleanup PASS. Grok körde också69/66/24×4 och egna samtidighets-/kvot-/behörighetsprober. [Kommandon och verkliga fel](VERIFICATION.md). Privat branchpush och leverans-CI förbereds; ingen mainmerge/deploy.
 
-**Prova nu:** följ [Windowsguiden](LOCAL_DEMO_WINDOWS.md): boka på kundsidan, hitta tiden i kalendern, öppna/flytta/avboka, ändra tjänst/schema och prova den guidade lokala MCP-klienten. Bara påhittade uppgifter. [Produktionsgalleriet med28bilder/6videor](../demo-artifacts/2026-11-12T10-29-00-935Z/index.html) visar verklig kod7fc0e86; inte en mobilåtkomlig site.
+**Se produkten:** [produktionsgalleri](../demo-artifacts/2026-11-12T10-29-00-935Z/index.html),6/6PASS från7fc0e86, före osynlig kvotfix4fc98d3.28bilder består av26funktionsbilder+2laddningsbilder;6videor tekniskt kontrollerade och stickprovsgranskade, inte helt genomtittade. [Demo/previewbeslut](DEMO.md). Inga nya fullfilmer i fixvarvet.
 
-**Bättre:** bokningen behåller pris och behandlingstid när katalogen ändras, olika personal har egna tider, samtidiga ändringar och retry skyddas och avbokningar har historik. Ren installation/uppgradering,68unit/64integration/22E2E×4/lint/tsc/build PASS. [Faktiska resultat](VERIFICATION.md). Även fryst kandidat7fc0e86 med tangentbordsassertionerna har22×4PASS. Grok har verifierat mottagen kod/hash och granskar i egen miljö; inget godkännande ännu.
+**Kvar:** mindre fokus-/dialog-/kvottextförbättringar, kund-GDPR, MFA/recovery, verklig TLS/proxy/flerinstansdrift och audit-/licensgrindar. Fullaudit7måttliga/0höga,prod0. Kund-e-post förblir maskerad. **Pilot NO-GO.** Privat mobilpreview har konkret förslag men kräver ditt miljöbeslut; ingen URL/resurs är skapad.
 
-**Kvar:** extern QA och exakt leverans-CI. Den privata mobilpreviewn har ett [konkret förslag](DEMO.md) men ingen godkänd miljö eller fungerande URL. Kundpilot är NO-GO: GDPR/MFA/drift/licensgrindar och7måttliga upstreamauditfynd kvar; prod audit0. Kund-e-post förblir maskerad.
-
-**Revision:** epic-05-booking-workspace, kandidat7fc0e866f0ef457bf9eaef4ca153e7a69b30b3d0; appkod4099d9d. Ingen implementationpush/mainmerge/deploy än. Demo6/6PASS från ren kandidat; utvalda bilder granskade, filmer tekniskt avkodade men inte helt genomtittade.
-
-**Tre nästa mål:** slutför oberoende QA/leverans-CI; fatta ett samlat beslut om skyddad syntetisk mobilpreview; avgränsa kundernas GDPR-livscykel inför framtida pilot. Inga nya Epics startas automatiskt.
+**Branch/kod:** epic-05-booking-workspace,4fc98d37fef805e041f8f8772a3fc37543d4ff04; senare ändringar är dokumentation. **Tre nästa mål:** verifiera skyddad syntetisk mobilpreview efter samlat miljöbeslut; avgränsa GDPR-livscykeln för framtida kunder; prioritera kvarvarande UX och MFA/återställning inför pilotplanering. Inga odefinierade Epics startas.
 
 ## Bilaga — tidigare produktägarrapporter
 

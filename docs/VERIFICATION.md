@@ -1,6 +1,6 @@
 # Verifiering — Epic05 QA-fixvarv1
 
-2026-11-12. Branch epic-05-booking-workspace; fryst fixkod **4fc98d37fef805e041f8f8772a3fc37543d4ff04** efter7fc0e86/b331cb1, E05-QA-1. Ny loopback booking_epic05_fix1_test på55451, PostgreSQL18.6. Original-Grok-QA7fc0e86 gav NO-GO för lokal alpha trots grön matris; riktad återkontroll återstår. Historiska migrationer/dependencies oförändrade. Ingen push/mainmerge/deploy.
+2026-11-12. Branch epic-05-booking-workspace; fryst fixkod **4fc98d37fef805e041f8f8772a3fc37543d4ff04** efter7fc0e86/b331cb1, E05-QA-1. Ny loopback booking_epic05_fix1_test på55451, PostgreSQL18.6. Original-QA7fc0e86 gav NO-GO på adminbudgeten; riktad återkontroll på4fc98d3 stängde E05-QA-1 och gav GO för lokal alpha. Historiska migrationer/dependencies oförändrade. Ingen push/mainmerge/deploy.
 
 ## Aktuell resultattabell
 
@@ -16,8 +16,10 @@
 | Ny HTTP-E2E / full dev-prod×proxy0-1 | PASS24/24 i alla4lägen på4fc98d3:prod0=1.3m,prod1=43.1s,dev0=1.5m,dev1=1.2m. Testet verifierar7adminbokningar, oförändrade kundtak/förfalskad actor och20identiska adminretries. |
 | npm audit full / produktion | Omkörd efter fix:full FAILexit1,7moderate/0high/critical;produktion PASSexit0,0fynd. Inga overrides eller dependencies ändrade. |
 | node --env-file=.env scripts/test-cleanup.mjs / extern epic05-aggregate.mjs | PASS:CLEANUP_TIMEOUT_EXPECTED_EXIT=1;REMAINING_SYNTHETIC_ROWS=0. Därefter0booking/event/request/session/admin/campaign,2service/2staff,0aktivaöverlappar/observeradedeadlocks. |
-| Grok-QA | Original7fc0e86:NO-GO för adminens delade kundbudget. Endast E05-QA-1 blockerar. Riktad återkontroll av ny fixrevision återstår. |
+| Grok-QA | PASS:original7fc0e86:NO-GO;slutrapport4fc98d3:GO efter1fixvarv. Grok egen ren installation,69unit/66integration/24E2E×4 och kvot/auth/retry/MCP/samtidighetsprober. [Originalslutrapport](qa/QA-REPORT-epic05-4fc98d3.md). |
 | Demo / preview / CI | Demo är äldre7fc0e86; ingen ny full inspelning för osynlig fix.09-bilderna är laddningsbilder, inte funktionsbevis. Preview BLOCKERAD miljöbeslut. Ny implementation-CI NOT RUN. |
+
+Grok observerade **1deadlock i oförändrat avsiktligt direkt-ORM-bypasstest** (booking.test.ts25–27); testet PASS, inga deadlocks i domänprober. Vårt eget observerade0 gäller våra körningar och är ingen global garanti. Mindre QA-2–8 är backlogg, inte nya blockerare.
 
 Två första riktade DB-test FAIL på felaktigt överlappande fixtures(60minbehandling i30minsteg); fixturen byttes till befintlig30min-Massage och2/2PASS utan ändrade produktregler, sedan hela66/66PASS. Första försöket att använda createdb.exe kördes inte eftersom externa QA-paketet saknar filen; Nodepg hjälparen skapade sedan ny DB, inget reset. Behåll dessa skillnader från produktfel. Alla originalkörningar/loggar beskrivs i WORKPLAN.
 

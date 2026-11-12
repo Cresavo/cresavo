@@ -1,8 +1,8 @@
 # booking-lab-se
 
-## Epic 05 — bokningsarbetsyta under utveckling
+## Epic 05 — QA-godkänd lokal produktalpha
 
-Den här branchen bygger på den godkända Epic04-POC:n. Migrera och seeda före start. Adminens huvudvy är nu en dag-/veckokalender med personalfilter; öppna ett bokningsblock för att flytta eller avboka, eller välj Ny bokning. Tjänster och Personal & tider har separata redigeringsvyer; tidigare kampanjflöde finns på `/admin/campaigns`. Endast syntetiska uppgifter. [Aktuell verifiering](docs/VERIFICATION.md) och [återstående godkänd omfattning](docs/EPIC_05_PLAN.md): MCP-paritet, ren installation/uppgraderingskopia och produktionsdemo är testade; oberoende Grok-QA och leverans-CI återstår. [Stegvis provguide](docs/LOCAL_DEMO_WINDOWS.md). Ingen privat mobilsite är driftsatt.
+Den här branchen bygger på den godkända Epic04-POC:n. Migrera och seeda före start. Adminens huvudvy är nu en dag-/veckokalender med personalfilter; öppna ett bokningsblock för att flytta eller avboka, eller välj Ny bokning. Tjänster och Personal & tider har separata redigeringsvyer; tidigare kampanjflöde finns på `/admin/campaigns`. Endast syntetiska uppgifter. [Aktuell verifiering](docs/VERIFICATION.md) och [återstående godkänd omfattning](docs/EPIC_05_PLAN.md): MCP-paritet, ren installation/uppgraderingskopia och produktionsdemo är testade; Grok godkände4fc98d3 efter en avgränsad fix av adminens bokningsbudget; privat leveranspush/CI förbereds. [Stegvis provguide](docs/LOCAL_DEMO_WINDOWS.md). Ingen privat mobilsite är driftsatt.
 
 ## Epic 04 — individuell lokal adminåtkomst
 
