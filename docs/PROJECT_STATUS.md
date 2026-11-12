@@ -1,4 +1,25 @@
-# Projektstatus – Epic 01 avslutad som lokal POC
+# Projektstatus — Epic 02 vid slutgrinden
+
+Verifierat 2026-11-12, kod **3cd633b**, branch `epic-02-local-agent-booking`. Epic 01 är avslutad som lokal POC. Epic 02 är implementerad och lokalt funktionstestad, men **oberoende slutkontroll och slutdemo återstår**. Pilot är fortfarande **NO-GO**. [Exakta kommandon och resultat](VERIFICATION.md) · [Nattens arbetslogg](NIGHT_WORK.md).
+
+| Funktion / observerbart acceptanskriterium | Tekniskt / automatiskt verifierat | Kan provas? | UX och riktig kundberedskap |
+| --- | --- | --- | --- |
+| Kund väljer behandling/datum/tid, får bekräftelse och syns i admin | PASS, full E2E desktop/mobil i dev/prod med och utan proxy | Ja, lokal bokningssida | Mobil POC. Inte kundklart: pilotgrindarna nedan. |
+| Admin kräver login, visar agenda och maskerad e-post; logout återkallar session | PASS, befintliga integrationer och E2E kvar | Ja, /admin med egen lokal konfiguration | Enkel agenda/delat lösenord, inga individuella roller/MFA. |
+| MCP-bokning kräver två flaggor, bekräftad syntetisk indata och stabil nyckel; svaret saknar kundfält | PASS, verklig stdio, strikt schema och exakta statiska fel | Ja, npm run mcp:client -- --admin --book, sedan ja | Terminalbaserad operatörs-POC. Ingen fjärrautentisering eller verkligt samtyckesbevis. |
+| 20 samtidiga anrop och överlappande 30/60 min ger en vinnare; retry ger samma id | PASS, domän/MCP och riktig HTTP/MCP, DB-exclusion kvar, 0 överlapp/deadlocks | Ja, automatiska tester | Integritetsbevis för denna POC, inte drift-/lastgaranti. |
+| Gemensamt MCP-tak 5/dag och e-posttak 3/dag består över processomstart; replay efter tak fungerar | PASS, PostgreSQL-integration | Ja, lokal syntetisk testmiljö | Delad kanal är avsiktlig; inte individuella agentkonton eller distribuerat missbruksskydd. |
+| Kampanjutkast från lokal agent publiceras manuellt och syns inom giltiga datum | PASS, befintligt fullflöde i fyra E2E-lägen | Ja, --admin-klienten och admin | Grundläggande informationsflöde; inga sociala kanaler eller betalningar. |
+
+**Delvis:** översättningsförberedelse, kalenderns UX och inspelningens tillförlitlighet. Svenskt språk, SEK och Stockholmstid fungerar; full översättningsstruktur och veckokalender är inte byggda. Testklientens ja/nej/EOF passerar, men confirmed=true i själva verktyget kan sättas av en betrodd agent.
+
+**Planerat men inte godkänt som nytt bygguppdrag:** individuella administratörer/MFA, kundernas datalivscykel, beroendeuppgraderingar och faktisk driftverifiering. Ingen Epic 03+ har uppfunnits eller implementerats.
+
+**Blockerare före riktiga kunder/pilot:** delat adminlösenord; GDPR-export/radering/lagringstid saknas; 3 höga/7 måttliga audit-fynd; verklig TLS/proxy/flerinstansdrift inte testad; beslut om Visa e-post/kundkontakt saknas. Prisma-autoladdning av .env kräver dessutom korrekt framtida isoleringsdesign. Lokala adminflaggor och businessId=demo är inte tenant-isolering.
+
+**Sedan förra arbetsomgången:** ett nytt opt-in create_booking med samma bokningsmotor; explicit syntetisk testklient; delad datumformatterare; negativa schema-/behörighetstester; kvot-/retry-/samtidighetsregressioner över verklig MCP och HTTP. Grok har godkänt första serverdelen och identifierat ett lågt fel i feltexten, rättat inför slutkontrollen. Inga nya beroenden, migrationer, betalningar, fjärr-MCP eller ändrade HTTP-kontrakt. Ingen push/merge/deploy.
+
+## Bilaga — Epic 01:s godkända slutstatus
 
 ## Slutbeslut för dc15023
 

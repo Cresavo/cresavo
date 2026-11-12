@@ -1,4 +1,49 @@
-# Verifiering – Epic 01 uppföljning M2/L8 och CI
+# Verifiering — aktuell Epic 02
+
+Verifierad kod **3cd633b99e5aa990d002dc5563aed4bfe6bfe4a6**, branch `epic-02-local-agent-booking`, 2026-11-12. Bas `02edeaf`. Node 24.16.0/npm 11.13.0 på Windows. Ny isolerad PostgreSQL 18.6, `127.0.0.1:55448/booking_epic02_test`; separat `booking_epic02_demo` för inspelning. Endast syntetiska uppgifter. NEXT_TELEMETRY_DISABLED=1 och CHECKPOINT_DISABLE=1 sattes före CLI/byggprocesserna. Inga nya paket, migrationer eller ändrat HTTP-kontrakt. Ingen push/merge/deploy.
+
+## Aktuell resultattabell
+
+| Kommando / kontroll | Faktiskt resultat |
+| --- | --- |
+| npm ci | **EJ KÖRT lokalt i Epic 02**; befintlig installation/låsfil återanvänd. Grok körde ren npm ci på fc83a70: PASS, 462 paket. Låsfil och manifest är identiska på slutkoden. |
+| npx prisma generate | PASS, Prisma 6.19.3 |
+| npm run db:migrate | PASS, samtliga 3 oförändrade historiska migrationer på ny testdatabas; även ny separat demodatabas migrerad |
+| npm run db:seed | PASS på test och demo |
+| npm run lint | PASS, exit 0 |
+| npx tsc --noEmit | PASS, exit 0 |
+| npm test | PASS, **43/43**, 7 filer, 2,70 s |
+| npm run test:integration, tre körningar efter QA-rättning | PASS, **30/30 ×3**, 24,86 / 28,22 / 26,62 s |
+| TRUST_PROXY_IP=0 npm run test:e2e (dev) | PASS, **12/12**, 1,3 min |
+| TRUST_PROXY_IP=1 npm run test:e2e (dev) | PASS, **12/12**, 31,6 s |
+| npm run build | PASS, produktion, TypeScript och 8/8 statiska sidor |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e | PASS, **12/12**, 21,1 s |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 npm run test:e2e | PASS, **12/12**, 20,9 s |
+| node --env-file=.env scripts/test-cleanup.mjs | PASS: CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0. Wrapper exit 0; barnets avsiktliga timeout är inte ett testsvitfel. |
+| Aggregat på testdatabasen efter sviten | PASS: 0 bokningar, 0 kampanjer, 0 sessioner, 0 överlapp, pg_stat_database.deadlocks=0 |
+| npm audit --json | **FAIL, exit 1**: 3 höga + 7 måttliga, 0 kritiska. Samma beroendeträd; inga automatiska uppgraderingar/overrides. Baslinjefil epic02-audit.json. |
+| npm run demo:record | Slutkörning återstår. Första inspelningen på 18b2ac5: FAIL 1/4 vid screenshot; se avvikelsen nedan. |
+| Grok första QA | E02-1–3 GO på fc83a70, ett lågt obligatoriskt fel E02-QA-1. Rättat i 3cd633b; oberoende slutkontroll återstår. |
+| GitHub Actions på Epic 02 | **EJ KÖRT**: ingen push tillåten. Epic 01:s CI är inte bevis för Epic 02. |
+| Docker Compose, riktig TLS/proxy, IPv6-transport/fler serverinstanser | **EJ KÖRT**. Docker saknas i PATH. Loopback-simulering av proxy i E2E ersätter inte driftverifiering. |
+
+Kommandologgar finns lokalt i `C:\Users\<user>\booking-lab-pg-test\`: `epic02-qa-final-lint.log`, `epic02-qa-final-tsc.log`, `epic02-qa-final-unit.log`, `epic02-qa-final-integration-1/2/3.log`, `epic02-qa-final-e2e-dev-0/1.log`, `epic02-qa-final-build.log`, `epic02-qa-final-e2e-prod-0/1.log`, `epic02-qa-cleanup.log`. De är testartefakter utanför Git. Prisma/migrering/seed-output observerades direkt i körningen; återgiven ovan, ingen falsk lokal npm ci-status.
+
+## Vad testerna bevisar
+
+Verklig lokal stdio med båda flaggorna; nekad skrivning annars; strikt annonserat schema; exakt statisk svensk feltext; minimerade svar; bokning till admin med maskerad e-post; ja/nej/EOF i testklienten; bevarade kvoter över processomstart och replay efter tak; 20 parallella retries/1 rad. Både domän/MCP och **riktig HTTP/MCP** konkurrerar om 30/60-minutersöverlapp med exakt en vinnare och endast förväntade konfliktfel. SQL-self-join måste ge 0 överlapp. Befintlig 20-omgångars stressregression och historisk exclusion är kvar. Sommar-/vintertid täcks av befintliga slot-tester och tre testfall för den gemensamma webb-/MCP-formatteraren.
+
+Grok körde därutöver egna prober (60 MCP- och 160 blandade HTTP/MCP-omgångar) på fc83a70 i sin egen miljö. Dessa är **Groks rapporterade resultat**, inte nya Codex-körningar. [Originalrapport](qa/QA-REPORT-epic02-fc83a70.md).
+
+## Avvikelser och begränsningar
+
+- Första tsc-körningen stoppade vid testets subprocess-env-typ (NODE_ENV saknades). Testet rättades; samtliga senare tsc och build PASS.
+- Första riktade nya E2E-körningen blev 0/2: desktop såg ännu loginformen efter UI-klick; mobilens förväntade datumtext matchade inte adminvyns svenska fullformat. Det fokuserade MCP→admin-testet väntar nu på verifierad API-login och navigerar sedan till admin; befintlig UI-login/utloggning i fullflödet är kvar. Datumförväntan använder rätt visningsformat. Därefter riktat 2/2 och samtliga fulla matriser PASS. Första feltraces skrevs över av efterföljande testkörning; sammanfattningen kommer från faktiskt observerad output, inte en bevarad tracefil.
+- Första fulla demo på 18b2ac5 blev FAIL 1/4 vid desktopens nya screenshot, efter godkända funktionella kontroller. Ingen produktions-/bokningsregel ändrades för inspelningen. Riktad diagnostik av samma flöde PASS; rotorsaken är inte fastställd. [Detaljer och partiella artefakter](EPIC_02_QA_FOLLOWUP.md).
+- Prisma kan autoläsa .env trots explicit miljövitlistning; ingen processisolering påstås. Gemensam idempotensnamnrymd är avsiktlig i denna POC. [Arkitektur](ARCHITECTURE.md).
+- Vites befintliga configLoader-varning och Playwrights NO_COLOR/FORCE_COLOR-varning kvarstår. Ingen varning har dolts genom ändrade testgränser.
+
+## Bilaga A — Epic 01 och tidigare körningar
 
 ## Slutgodkännande efter dc15023
 

@@ -1,4 +1,16 @@
-# Handoff – Epic 01 QA batch 3
+# Handoff — Epic 02, slutgrind pågår
+
+Kod **3cd633b99e5aa990d002dc5563aed4bfe6bfe4a6**, lokal branch `epic-02-local-agent-booking`, bas 02edeaf. Ingen push eller merge. Projektet och remote förblir privata; main har inte ändrats av arbetet.
+
+Byggt: ett opt-in lokalt MCP-verktyg create_booking, gemensamt strikt indataavtal/domänmotor, fasta serverkvoter, minimerade svar och en syntetisk ja/nej/EOF-testklient. Befintlig webb/admin/kampanjflöde bevarade. README innehåller kommandot `npm run mcp:client -- --admin --book`. Standardklienten skriver ingen bokning; enbart --admin behåller befintligt kampanjutkastflöde.
+
+Verifierat: lint, tsc, build; 43 unit; 30 integration tre gånger; 12 E2E i alla fyra lägen; cleanup och 0 kvarvarande testposter/överlappar/deadlocks. Audit är FAIL 3 höga/7 måttliga. Lokal npm ci, Docker och extern CI ej körda i denna Epic; ingen push tillåten. [Kommandon, loggar, tidiga fel och begränsningar](VERIFICATION.md).
+
+Grok har granskat fc83a70 och godkänt E02-1–3 med ett lågt fel inför slutgrinden. E02-QA-1 är rättat i 3cd633b via SDK:s publika Standard Schema-gränssnitt och exakt stdio-regression. E02-QA-2 (.env-autoladdning) och E02-QA-3 (delad idempotensnamnrymd) dokumenteras; inga garantier om miljöisolering eller nya namnrymder. [Originalrapport](qa/QA-REPORT-epic02-fc83a70.md), [rättningsnotering](EPIC_02_QA_FOLLOWUP.md).
+
+Återstår för att stänga Epic 02: giltig slutdemo och Groks oberoende slutkontroll av den frysta kodrevisionen. Första demo var delvis misslyckad vid screenshot; den får inte beskrivas som PASS. Ingen ytterligare produktfunktion behövs. Pilot är fortsatt NO-GO av fem oförändrade skäl i PROJECT_STATUS.
+
+## Bilaga — tidigare Epic 01-handoff
 
 ## Slutgodkännande efter dc15023
 
