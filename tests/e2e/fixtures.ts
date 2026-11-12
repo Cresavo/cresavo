@@ -8,6 +8,8 @@ export const test = base.extend<{
     marker: string;
     title: string;
     trackSession: (cookie: string) => void;
+    trackResource: (kind: "service" | "staff", id: string) => void;
+    trackWorkspaceRequest: (key: string, channel?: "admin" | "mcp") => void;
     admin: { email: string; password: string; id: string };
   };
 }>({
@@ -24,6 +26,24 @@ export const test = base.extend<{
       const password = "synthetic-e2e-admin-password-2026";
       const account = await createAdminUser(email, password);
       const sessions = new Set<string>();
+      const services = new Set<string>(),
+        staff = new Set<string>(),
+        workspaceKeys = new Set<string>();
+      const trackResource = (kind: "service" | "staff", id: string) =>
+        (kind === "service" ? services : staff).add(id);
+      const trackWorkspaceRequest = (
+        key: string,
+        channel: "admin" | "mcp" = "admin",
+      ) =>
+        workspaceKeys.add(
+          createHash("sha256")
+            .update(
+              channel === "admin"
+                ? `admin:${account.id}:${key}`
+                : `local-mcp:local-workspace-channel:v1:${key}`,
+            )
+            .digest("hex"),
+        );
       const pending: Promise<void>[] = [];
       const trackSession = (cookie: string) => {
         const token = String(cookie).match(
@@ -39,12 +59,42 @@ export const test = base.extend<{
               .headerValue("set-cookie")
               .then((cookie) => trackSession(cookie ?? "")),
           );
+        const endpoint = new URL(response.url()).pathname;
+        if (
+          response.request().method() === "POST" &&
+          endpoint.startsWith("/api/admin/") &&
+          !endpoint.endsWith("/login")
+        ) {
+          const key = response.request().headers()["idempotency-key"];
+          if (key) trackWorkspaceRequest(key);
+          if (
+            (endpoint === "/api/admin/services" ||
+              endpoint === "/api/admin/staff") &&
+            response.ok()
+          ) {
+            pending.push(
+              response
+                .json()
+                .then((value) => {
+                  const input = response.request().postDataJSON();
+                  if (!input.id && typeof value.id === "string")
+                    trackResource(
+                      endpoint.endsWith("/services") ? "service" : "staff",
+                      value.id,
+                    );
+                })
+                .catch(() => {}),
+            );
+          }
+        }
       });
       try {
         await provide({
           marker,
           title,
           trackSession,
+          trackResource,
+          trackWorkspaceRequest,
           admin: { email, password, id: account.id },
         });
       } finally {
@@ -53,9 +103,19 @@ export const test = base.extend<{
           where: { id: { in: [...sessions] } },
         });
         await db.booking.deleteMany({
-          where: { customerEmail: { startsWith: marker } },
+          where: {
+            OR: [
+              { customerEmail: { startsWith: marker } },
+              { serviceId: { in: [...services] } },
+            ],
+          },
         });
         await db.campaign.deleteMany({ where: { title } });
+        await db.workspaceRequest.deleteMany({
+          where: { businessId: "demo", key: { in: [...workspaceKeys] } },
+        });
+        await db.staff.deleteMany({ where: { id: { in: [...staff] } } });
+        await db.service.deleteMany({ where: { id: { in: [...services] } } });
         await db.adminSession.deleteMany({ where: { userId: account.id } });
         await db.adminUser.delete({ where: { id: account.id } });
         await db.$disconnect();

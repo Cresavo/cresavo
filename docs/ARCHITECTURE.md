@@ -1,5 +1,25 @@
 # Arkitektur
 
+## Epic 05: bokningsarbetsyta under implementation
+
+Femte migrationen lägger till versionsstyrda tjänster och personal med strikt begränsade veckoperioder, pauser och datumundantag. Undantag ersätter veckoschemat på det datumet. Bokningar lagrar namn/pris/längd/buffert som snapshots. Backfill kan endast återge tjänstens värden vid migrationen, inte återskapa okänt historiskt pris. Ursprungliga start/slut bevaras. Äldre migrationsfiler är oförändrade; den nya migrationen ersätter exclusion atomärt med samma halvöppna intervall för confirmed-rader.
+
+Bokningar får status och version. Flytt och avbokning använder workspaceWrite med aktörskontroll före replay, aktörsbunden request-id och minimal resultatledger. Konfigurationsskrivning tar exclusive konfigurationslås; bokningsmutation tar shared före befintliga idempotens-/kvot-/personallås. Flytt låser gammal och ny personal/dag i sorterad ordning före bokningsraden och kontrollerar versionen igen. Avbokning är en spårbar statusövergång; skapade avbokade rader fortsätter räknas i missbrukskvoter. Ursprungliga snapshots styr ombokningens längd även efter en pris-/tidsändring.
+
+Adminens nya HTTP-endpoints härleder konto och demo-kontext på servern. Alla mutationer kräver samma origin och Idempotency-Key. Behörighet prövas före JSON och replay. Strikta actions create/move/cancel accepterar inte klientvald aktör eller businessId. Läsningar är no-store; kalendern kräver högst 31 dagar och max 100 rader per sida. Cursor kontrolleras mot samma företag/datum/status/personal. Bokningsdetaljer har högst 20 händelser och maskerad kund-e-post.
+
+| UI-handling | Gemensam domän | HTTP | Lokal MCP / verifiering |
+| --- | --- | --- | --- |
+| Kund/admin skapar bokning | createBooking | POST /api/bookings respektive /api/admin/bookings action=create | Befintlig create_booking finns; nya workspace-kontrakt återstår |
+| Lediga tider per utförare | getAvailability | GET /api/availability, valfri staffId | Valfri staffId i MCP återstår |
+| Kalender och detaljer | listCalendar / getBooking | GET /api/admin/bookings, /[id] | Minimerad workspace-läsning återstår |
+| Flytta / avboka | moveBooking / cancelBooking | POST /api/admin/bookings | Nya opt-in-verktyg återstår |
+| Tjänst och schema | saveService / saveStaff | POST /api/admin/services, /api/admin/staff | Nya opt-in-verktyg återstår |
+
+Kalendern är huvudyta med faktisk tidsskala på dator och kronologiska kort på mobil; tjänster, personal/tider och kampanjer har separata sidor. Formulär bevarar utkast vid nätverksfel och request-id vid samma retry, väntar på serverbekräftelse och varnar före osparad navigering. Datum anges YYYY-MM-DD oberoende av operativsystemets datumväljare; tider och pengar formateras i sv-SE/Stockholm/SEK. Public availability behåller string[] och kundbokning 201{id}. Valfria staffId/serviceVersion får inga schema-defaults som skulle ändra äldre request-hashar. En skickad gammal serviceVersion nekas med 409, men redan genomförd identisk replay bevaras.
+
+Detta är implementeringsläge, inte slut-QA: full matris, uppgraderingskopia, MCP-paritet, demo och Grok återstår. Se WORKPLAN för faktiska körningar.
+
 ## Epic 04: individuell lokal admin
 
 AdminUser innehåller normaliserad syntetisk e-postidentifierare, Argon2id-hash, aktiv status, businessId och credentialVersion. AdminSession lagrar bara tokenhash, expiry/revocation och nullable userId. Historiska sessioner utan konto nekas. Fjärde migrationen är additiv; de tre tidigare ändras inte.

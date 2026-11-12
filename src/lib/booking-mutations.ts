@@ -65,6 +65,24 @@ export async function getBooking(id: string, includeCustomer = false) {
   };
 }
 
+export async function getMoveAvailability(
+  id: string,
+  day: string,
+  staffId: string,
+) {
+  const row = await db.booking.findFirst({
+    where: { id: z.string().min(1).max(128).parse(id), businessId },
+  });
+  if (!row) throw new DomainError("Bokningen finns inte");
+  if (row.status !== "confirmed")
+    throw new DomainError("Bokningen är avbokad och kan inte flyttas.", 409);
+  return getAvailability(row.serviceId, day, db, staffId, {
+    ignoreBookingId: row.id,
+    duration: row.duration,
+    buffer: row.buffer,
+  });
+}
+
 function resourceKeys(staffId: string, start: Date, end: Date) {
   const keys: string[] = [];
   const last = parseDay(localDay(new Date(end.getTime() - 1)));

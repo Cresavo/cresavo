@@ -18,8 +18,8 @@ export const serviceEditSchema = z
     name: z.string().trim().min(2).max(80),
     priceOre: z.number().int().min(0).max(10000000),
     duration: z.number().int().min(5).max(480),
-    buffer: z.number().int().min(0).max(120).default(0),
-    active: z.boolean().default(true),
+    buffer: z.number().int().min(0).max(120).optional(),
+    active: z.boolean().optional(),
   })
   .strict()
   .refine(identityValid);
@@ -27,19 +27,19 @@ export const staffEditSchema = z
   .object({
     ...identity,
     name: z.string().trim().min(2).max(80),
-    active: z.boolean().default(true),
+    active: z.boolean().optional(),
     serviceIds: z
       .array(z.string().min(1).max(128))
       .max(50)
       .refine((v) => new Set(v).size === v.length),
     weekly: weeklySchema,
-    exceptions: exceptionsSchema.default([]),
+    exceptions: exceptionsSchema.optional(),
   })
   .strict()
   .refine(identityValid);
 
 export async function listStaff(serviceId?: string, includeInactive = false) {
-  return db.staff.findMany({
+  const rows = await db.staff.findMany({
     where: {
       businessId,
       ...(!includeInactive && { active: true }),
@@ -48,6 +48,11 @@ export async function listStaff(serviceId?: string, includeInactive = false) {
     orderBy: { name: "asc" },
     take: 20,
   });
+  return rows.map((row) => ({
+    ...row,
+    weekly: weeklySchema.parse(row.weekly),
+    exceptions: exceptionsSchema.parse(row.exceptions),
+  }));
 }
 export async function saveService(
   input: unknown,
@@ -106,7 +111,6 @@ export async function saveStaff(
     }
     const existing = await tx.staff.findFirst({
       where: { id, businessId, version: expectedVersion },
-      select: { id: true },
     });
     if (!existing)
       throw new DomainError("Uppgifterna har ändrats. Läs in på nytt.", 409);
@@ -121,9 +125,14 @@ export async function saveStaff(
     if (
       upcoming.some(
         (b) =>
-          !data.active ||
+          !(data.active ?? existing.active) ||
           !data.serviceIds.includes(b.serviceId) ||
-          !scheduleContains(data.weekly, data.exceptions, b.startsAt, b.endsAt),
+          !scheduleContains(
+            data.weekly,
+            data.exceptions ?? exceptionsSchema.parse(existing.exceptions),
+            b.startsAt,
+            b.endsAt,
+          ),
       )
     )
       throw new DomainError(

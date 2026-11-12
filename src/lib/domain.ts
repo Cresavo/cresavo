@@ -49,6 +49,7 @@ export const campaignSchema = z
 export const bookingSchema = z.object({
   serviceId: z.string().min(1),
   staffId: z.string().min(1).max(128).optional(),
+  serviceVersion: z.number().int().min(1).optional(),
   start: z.iso.datetime({ offset: true }),
   customerName: z.string().trim().min(2).max(80),
   customerEmail: z
@@ -286,6 +287,11 @@ export async function createBooking(
           Math.max(1, Math.ceil((tomorrow.toMillis() - Date.now()) / 1000)),
         );
       const service = await serviceById(v.serviceId, tx);
+      if (
+        v.serviceVersion !== undefined &&
+        v.serviceVersion !== service.version
+      )
+        throw new DomainError("Uppgifterna har ändrats. Läs in på nytt.", 409);
       const selectedStaff = v.staffId ?? staffId;
       // Lock order: idempotency, client/day, email/day, staff/booking day.
       // Serialise competing inserts before reading availability; exclusion remains the final guard.

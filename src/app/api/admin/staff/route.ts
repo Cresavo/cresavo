@@ -1,0 +1,29 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin, requestId } from "@/lib/admin-http";
+import { listStaff, saveStaff } from "@/lib/workspace-config";
+import { failure } from "@/lib/http";
+export async function GET() {
+  try {
+    await requireAdmin();
+    return NextResponse.json(await listStaff(undefined, true), {
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch (error) {
+    return failure(error);
+  }
+}
+export async function POST(request: NextRequest) {
+  try {
+    const actor = await requireAdmin(true);
+    const result = await saveStaff(
+      await request.json(),
+      requestId(request.headers),
+      actor,
+    );
+    return NextResponse.json(result, {
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch (error) {
+    return failure(error);
+  }
+}

@@ -1,5 +1,13 @@
 # Integritets- och säkerhetsprinciper
 
+## Epic 05: mutationer och historik under implementation
+
+Alla nya admin-API-mutationer ska kontrollera origin och aktiv serversession före payload eller idempotent replay. Härled aktör och businessId på servern; låt aldrig ett inskickat ID ensam ge rättighet. Versionskonflikt ska bevara originalet och kräva ny inläsning. Historiska bokningar ändras inte när tjänster redigeras; avbokning är status, inte radering. Direkt-DB-skydd för aktiva överlapp får inte ersättas av UI-kontroll.
+
+BookingEvent och WorkspaceRequest tillför personanknuten spårbarhet och hashat idempotensunderlag. Logga inga råa payloads; håll resultatledger fri från kundnamn/e-post och hemligheter. Ingen produktionsretention för de nya raderna är beslutad. Framtida kund-/adminexport, gallring och säkerhetskopior måste omfatta dessa tabeller och snapshots. Schemat lagrar tider och ledighet, aldrig medicinska orsaker. Kalenderdata är potentiellt indirekt känslig även utan e-post. [Datakarta](DATA_FLOWS.md).
+
+Lokal MCP-paritet är ännu inte levererad. Den kommande skrivopt-in ska hållas separat från betrott lokalt adminläge; varken flagga eller confirmed bevisar fjärrautentisering eller mänskligt samtycke. Inga nya portar eller externa AI-mottagare. Privata previewgränsen måste skydda hela appen och API, inte enbart admin; inget deploybeslut finns. Pilot fortsatt NO-GO.
+
 ## Epic 04: kontobunden lokal åtkomst
 
 Det delade adminlösenordet ersätts av individuella syntetiska konton, men MFA saknas fortfarande och pilot är NO-GO. Inget konto seedas som standard. Använd den lokala [operatörsguiden](ADMIN_OPERATIONS.md); lösenord får inte skrivas i argument, rapporter eller .env. Endast betrodd operatör med DB-/filsystemåtkomst får provisionera.

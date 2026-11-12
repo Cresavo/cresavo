@@ -5,14 +5,24 @@ Start 2026-11-12. Godkänd plan5c9b07a på origin/epic-05-booking-workspace, ver
 | Del | Faktiskt läge |
 | --- | --- |
 | E05-0 | Plan/roadmap/AGENTS lästa, rätt branch hämtad och vald; inga nyare remotecommits än5c9b07a vid start. |
-| E05-1 | Domän/schema implementerade och riktat testade; redigerbara adminvyer/API/MCP återstår. |
-| E05-2 | Domän för atomär flytt/avbokning och idempotens implementerad, samtidighet/retry testad. Koppling till UI/API/MCP återstår. |
-| E05-3 | Planerad: desktop dag/vecka, mobil dag och separata detalj-/inställningsvyer. |
+| E05-1 | Domän/schema och redigerbara adminvyer/API implementerade. Pris/längd/snapshot och schemaändringar verifierade i verkligt mobil-/desktopflöde; MCP återstår. |
+| E05-2 | Domän och UI/API för atomär flytt/avbokning implementerade; samtidighet/retry/stale testade. MCP återstår. |
+| E05-3 | Implementerad desktop dag/vecka och mobil lista med detalj-/inställningsvyer.20/20 E2E i alla4lägen PASS, inklusive manuella boknings-/utkast-/nätverksfall. Slutdemo/fysisk mobil/Safari ej verifierade. |
 | E05-4 | Planerad: lokal MCP-paritet, separat write-opt-in och bekräftande testklient. |
-| E05-5 | Förberedelse återstår. Ingen extern preview/deploy godkänd. Oberoende produktarbete fortsätter. |
+| E05-5 | Läsande inventering: ansluten Vercel-Pro-workspace finns men inget Booking Lab-projekt bland dess länkade projekt; ingen lokal Vercel-/Fly-/Railway-konfiguration i repot. Leverantörs-/runtimebedömning och konkret åtkomst/region/backup/kostnadsförslag återstår. Ingen resurs skapad eller deploy godkänd. |
 | QA/demo/leverans | Inte påbörjad; sammanhängande kandidat fryses först efter implementation och egna kontroller. |
 
 ## Skärmstruktur
+
+### UI/API-delkontroll 2026-11-12
+
+Slutkontroll för denna del efter datumfält och testväljarfix:20/20 E2E i samtliga4lägen, prod/proxy0=1.5m,prod/proxy1=45.3s,dev/proxy0=2.1m,dev/proxy1=1.8m. Samma60s testtimeout och alla assertioner kvar. Slutaggregat via extern epic05-aggregate.mjs: booking0,bookingEvent0,workspaceRequest0,adminSession0,adminUser0,campaign0; endast2seedtjänster/2seedpersonal; activeOverlaps0 och databasens deadlockräknare0. Inga kvarvarande testposter. Git-diff för beroenden och migrationer mot66e2a4d är tom.
+
+Fulla tidigare prodkörningar17/20 respektive18/20 är bevarade i loggarna: först en fixtureanslutningstimeout före bokningsanrop och två tvetydiga länkväljare, därefter två väljare som även hittade Nexts route-announcer-alert. Korrigerat till avsedd länk och appens main-alert, utan borttagna kontroller. Därefter manuell bokning2/2 och full fyrfältsmatris20/20 vardera. De tidiga dev-startproblemen reproducerades inte i slutmatrisen; inga generella startgarantier härleds från detta.
+
+Arbetskod efter backendcommit66e2a4d (ännu ej fryst slutkandidat): npm test65/65 PASS(8.72s); npm run test:integration53/53 PASS(62.76s),13filer. Inkluderar 150 syntetiska kalenderbokningar,100+50-paginering, datum/företag/status och bevarade utelämnade konfigurationsfält. Lint och npx tsc --noEmit PASS. Produktionsbuild PASS. Med E2E_PRODUCTION=1: npm run test:e2e -- tests/e2e/workspace.spec.ts gav4/4 PASS(1.7m), full skapa/ändra-schema/flytta/avboka plus negativa admin-API-fall på desktop/mobil. Ett ytterligare manuellt boknings-/nätverks-/utkasttest och konsekventa datumfält tillkom därefter och är under ny verifiering;4/4 gäller den tidigare UI-revisionen, inte dessa ändringar.
+
+Två tidiga dev/desktopkörningar FAIL60s vid första sidladdning/tidsval. Trace visar att första sidladdning/webbläsarstart förbrukade tidsbudgeten; ingen timeout eller kontroll sänktes. Dev/mobil PASS21.9s. Produktionskörning ovan lyckades på båda. Full dev/prod×proxy-matris återstår, därför är dev-startproblemen inte deklarerade slutligt lösta. Riktiga produktionsbilder togs och kalenderbilderna granskades visuellt; artefakter ligger lokalt i test-results och är preliminära, inte den slutliga Epic-demon. Inga beroenden tillagda, ingen push/Grokbeställning gjord.
 
 Desktop: Kalender som huvudvy → datum/idag/föregående/nästa, dag/vecka och personalfilter → tidsskala med bokningsblock. Ny bokning öppnar ett fokuserat formulär. Bokningsblock öppnar detaljvy med Flytta/Avboka. Inställningar innehåller Tjänster och Personal/tider, kampanjflödet finns kvar i separat vy. Mobil visar dag och kronologiska bokningskort, samma primära handlingar utan horisontellt beroende. Ingen AI-panel/KPI-vägg, inga nya bilder eller UI-beroenden planeras.
 

@@ -158,15 +158,24 @@ test("lokal MCP-bokning visas i skyddad admin med Stockholmstid", async ({
     });
     expect(login.status()).toBe(200);
     synthetic.trackSession(login.headers()["set-cookie"] ?? "");
-    await page.goto("/admin");
-    await expect(page.getByText(name, { exact: false })).toBeVisible();
+    await page.goto(`/admin?date=${day.toISODate()}`);
+    const visibleBooking = page
+      .locator(".calendar-booking:visible,.mobile-booking:visible")
+      .filter({ hasText: name });
+    await expect(visibleBooking).toBeVisible();
     await expect(page.getByText(email, { exact: false })).toHaveCount(0);
-    const displayedTime = new Intl.DateTimeFormat("sv-SE", {
-      timeZone: "Europe/Stockholm",
-      dateStyle: "full",
-      timeStyle: "short",
-    }).format(new Date(start));
-    await expect(page.getByText(displayedTime, { exact: true })).toBeVisible();
+    await expect(visibleBooking).toContainText(
+      DateTime.fromISO(start).setZone("Europe/Stockholm").toFormat("HH:mm"),
+    );
+    await visibleBooking.click();
+    await expect(
+      page.getByText(
+        DateTime.fromISO(start)
+          .setZone("Europe/Stockholm")
+          .toFormat("yyyy-MM-dd HH:mm"),
+        { exact: false },
+      ),
+    ).toBeVisible();
     if (process.env.BOOKING_DEMO) {
       await page.screenshot({
         path: testInfo.outputPath("07-agentbokning-i-admin.png"),
@@ -439,7 +448,15 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
     await page.locator("#email").fill(synthetic.admin.email);
     await page.locator("#password").fill(synthetic.admin.password);
     await page.getByRole("button", { name: "Logga in" }).click();
-    await expect(page.getByText(customerName, { exact: false })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Kalender", exact: true }),
+    ).toBeVisible();
+    await page.goto(`/admin?date=${day.toISODate()}`);
+    await expect(
+      page
+        .locator(".calendar-booking:visible,.mobile-booking:visible")
+        .filter({ hasText: customerName }),
+    ).toBeVisible();
     await expect(page.getByText(email, { exact: false })).toHaveCount(0);
     const copiedCookie = (await page.context().cookies()).find(
       (c) => c.name === "booking_admin",
@@ -455,7 +472,7 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
         "Ogiltigt datumfilter",
       );
     }
-    await page.goto("/admin");
+    await page.goto("/admin/campaigns");
     await capture("04-admin-och-utkast");
     const campaign = page
       .locator("div", { has: page.getByText(title, { exact: true }) })

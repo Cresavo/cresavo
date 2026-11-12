@@ -1,5 +1,18 @@
 # Datakarta för Booking Lab SE POC
 
+## Epic 05: arbetsytans nya data, under implementation
+
+| Yta | Uppgifter / mottagare | Minimering och begränsning |
+| --- | --- | --- |
+| Kundbokning → API | Valfri personal/tjänsteversion, befintligt syntetiskt kundnamn/e-post och tid | Samma origin, domänvalidering, kvoter och idempotens; publikt svar fortfarande endast id. |
+| Skyddad kalender / detalj | Boknings-ID, utförare, lagrad behandling/tid/pris/status/version, kundnamn | Kalender max100/sida och31dagar; ingen kund-e-post. Detalj maskerar e-post och visar max20 händelser. |
+| Staff / Service | Syntetiskt personalnamn, tjänsttilldelning, veckoperioder, pauser, datumundantag, aktiv/version | Public staff-endpoint skickar bara id/namn/tjänst-ID, inga arbetsscheman. Admin krävs för redigering och konfigurationsläsning. Inga fria frånvaro-/hälsoskäl lagras. |
+| Booking snapshots | Namn/pris/längd/buffert, initiala och nuvarande tider, status/version | Behövs för historik; kan indirekt avslöja behandling. Äldre pris rekonstrueras inte. Ingen generell kund-GDPR-gallring införs här. |
+| BookingEvent | Tid, åtgärd, bokning, betrodd aktör/kanal, föregående/nästa tid/personal | Inga kundpayloads eller lösenord. Admin-ID är personuppgift; lokal MCP-kanal är inte verifierad individ. |
+| WorkspaceRequest | Hashad aktörsbunden nyckel, payloadhash och minimalt mutationsresultat | Inga råa kunduppgifter i ledger. Ingen beslutad produktionsretention; växer med nya request-ID och måste ingå i framtida gallrings-/exportbedömning. |
+
+UI använder samma origins API; ingen ny extern telemetri, modellanslutning eller tjänst läggs till. Full lokal MCP-paritet är ännu inte implementerad/verifierad. Uppdatera verktygsmatrisen och datagranskningen när den är klar. Bara syntetiska uppgifter; pilot fortsatt NO-GO.
+
 ## Epic 04: administratörsidentitet
 
 | Yta | Uppgifter och mottagare | Minimering / kvarstående risk |

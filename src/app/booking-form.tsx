@@ -4,14 +4,30 @@ import { useRef, useState, useSyncExternalStore } from "react";
 const subscribe = () => () => {};
 const hydratedSnapshot = () => true;
 const serverSnapshot = () => false;
-type Service = { id: string; name: string };
-export default function BookingForm({ services }: { services: Service[] }) {
+type Service = { id: string; name: string; version?: number };
+type Staff = { id: string; name: string; serviceIds: string[] };
+export default function BookingForm({
+  services,
+  staff,
+}: {
+  services: Service[];
+  staff: Staff[];
+}) {
   const hydrated = useSyncExternalStore(
     subscribe,
     hydratedSnapshot,
     serverSnapshot,
   );
   const submission = useRef<{ payload: string; key: string } | null>(null);
+  const searchVersion = useRef(0);
+  const [staffId, setStaff] = useState(
+    staff.find((p) => p.serviceIds.includes(services[0]?.id))?.id ?? "",
+  );
+  const [customerName, setCustomerName] = useState(""),
+    [customerEmail, setCustomerEmail] = useState("");
+  const [searching, setSearching] = useState(false),
+    [pending, setPending] = useState(false),
+    [staleService, setStaleService] = useState(false);
   const [serviceId, setService] = useState(services[0]?.id ?? ""),
     [date, setDate] = useState(""),
     [slots, setSlots] = useState<string[]>([]),
@@ -21,16 +37,26 @@ export default function BookingForm({ services }: { services: Service[] }) {
     e.preventDefault();
     setMessage("");
     setStart("");
-    const r = await fetch(
-      `/api/availability?serviceId=${encodeURIComponent(serviceId)}&date=${encodeURIComponent(date)}`,
-    );
-    const data = await r.json();
-    if (!r.ok) {
-      setMessage(data.error);
-      setSlots([]);
-    } else {
-      setSlots(data);
-      if (!data.length) setMessage("Inga lediga tider detta datum.");
+    const version = ++searchVersion.current;
+    setSearching(true);
+    setSlots([]);
+    try {
+      const query = new URLSearchParams({ serviceId, staffId, date });
+      const r = await fetch(`/api/availability?${query}`, {
+        cache: "no-store",
+      });
+      const data = await r.json();
+      if (version !== searchVersion.current) return;
+      if (!r.ok) setMessage(data.error);
+      else {
+        setSlots(data);
+        if (!data.length) setMessage("Inga lediga tider detta datum.");
+      }
+    } catch {
+      if (version === searchVersion.current)
+        setMessage("Tiderna kunde inte hämtas. Försök igen.");
+    } finally {
+      if (version === searchVersion.current) setSearching(false);
     }
   }
   async function book(e: React.FormEvent<HTMLFormElement>) {
@@ -38,6 +64,8 @@ export default function BookingForm({ services }: { services: Service[] }) {
     const form = new FormData(e.currentTarget);
     const payload = JSON.stringify({
       serviceId,
+      staffId,
+      serviceVersion: services.find((s) => s.id === serviceId)?.version,
       start,
       customerName: form.get("name"),
       customerEmail: form.get("email"),
@@ -45,6 +73,8 @@ export default function BookingForm({ services }: { services: Service[] }) {
     if (submission.current?.payload !== payload)
       submission.current = { payload, key: crypto.randomUUID() };
     const key = submission.current.key;
+    setPending(true);
+    setStaleService(false);
     try {
       const r = await fetch("/api/bookings", {
         method: "POST",
@@ -58,10 +88,15 @@ export default function BookingForm({ services }: { services: Service[] }) {
         );
         setSlots([]);
         setStart("");
-      } else setMessage(data.error);
+      } else {
+        setMessage(data.error);
+        setStaleService(r.status === 409);
+      }
     } catch {
       // Preserve the key: the server may have committed before the connection failed.
       setMessage("Svaret kunde inte hämtas. Försök igen med samma uppgifter.");
+    } finally {
+      setPending(false);
     }
   }
 
@@ -71,11 +106,17 @@ export default function BookingForm({ services }: { services: Service[] }) {
         <div>
           <label htmlFor="service">Behandling</label>
           <select
-            disabled={!hydrated}
+            disabled={!hydrated || pending}
             id="service"
             value={serviceId}
             onChange={(e) => {
               setService(e.target.value);
+              setStaff(
+                staff.find((p) => p.serviceIds.includes(e.target.value))?.id ??
+                  "",
+              );
+              searchVersion.current++;
+              setSearching(false);
               setSlots([]);
               setStart("");
             }}
@@ -88,9 +129,34 @@ export default function BookingForm({ services }: { services: Service[] }) {
           </select>
         </div>
         <div>
+          <label htmlFor="staff">Medarbetare</label>
+          <select
+            id="staff"
+            value={staffId}
+            disabled={!hydrated || pending}
+            required
+            onChange={(e) => {
+              setStaff(e.target.value);
+              searchVersion.current++;
+              setSearching(false);
+              setSlots([]);
+              setStart("");
+            }}
+          >
+            <option value="">Välj medarbetare</option>
+            {staff
+              .filter((p) => p.serviceIds.includes(serviceId))
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+          </select>
+        </div>
+        <div>
           <label htmlFor="date">Datum</label>
           <input
-            disabled={!hydrated}
+            disabled={!hydrated || pending}
             id="date"
             type="text"
             placeholder="YYYY-MM-DD"
@@ -100,13 +166,18 @@ export default function BookingForm({ services }: { services: Service[] }) {
             value={date}
             onChange={(e) => {
               setDate(e.target.value);
+              searchVersion.current++;
+              setSearching(false);
               setSlots([]);
               setStart("");
             }}
           />
         </div>
-        <button disabled={!hydrated} type="submit">
-          Visa lediga tider
+        <button
+          disabled={!hydrated || searching || pending || !staffId}
+          type="submit"
+        >
+          {searching ? "Hämtar tider…" : "Visa lediga tider"}
         </button>
       </form>
       {slots.length > 0 && (
@@ -136,6 +207,8 @@ export default function BookingForm({ services }: { services: Service[] }) {
             <input
               id="name"
               name="name"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
               minLength={2}
               maxLength={80}
               required
@@ -146,17 +219,26 @@ export default function BookingForm({ services }: { services: Service[] }) {
             <input
               id="email"
               name="email"
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
               type="email"
               maxLength={254}
               required
             />
           </div>
-          <button type="submit">Bekräfta testbokning</button>
+          <button type="submit" disabled={pending}>
+            {pending ? "Bokar…" : "Bekräfta testbokning"}
+          </button>
         </form>
       )}
       <p aria-live="polite" className="mt-4">
         {message}
       </p>
+      {staleService && (
+        <button className="secondary" onClick={() => window.location.reload()}>
+          Uppdatera behandlingar och priser
+        </button>
+      )}
     </>
   );
 }

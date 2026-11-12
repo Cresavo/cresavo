@@ -1,0 +1,390 @@
+import { test, expect } from "./fixtures";
+import { DateTime } from "luxon";
+import { randomUUID } from "node:crypto";
+import { createDatabaseClient } from "../../scripts/database.mjs";
+
+test("manuell bokning bevarar utkast och request-id vid nätverksfel", async ({
+  page,
+  synthetic,
+}) => {
+  let day = DateTime.now().setZone("Europe/Stockholm").plus({ days: 25 });
+  while (day.weekday > 5) day = day.plus({ days: 1 });
+  const login = await page.request.post("/api/admin/login", {
+    headers: { origin: "http://localhost:3000" },
+    data: { email: synthetic.admin.email, password: synthetic.admin.password },
+  });
+  expect(login.status()).toBe(200);
+  await page.goto(`/admin/bookings/new?date=${day.toISODate()}`);
+  await page.locator("#booking-service").selectOption("massage");
+  await page.locator("#booking-staff").selectOption("staff-demo");
+  await page.route("**/api/availability?*", (route) => route.abort("failed"), {
+    times: 1,
+  });
+  await page.getByRole("button", { name: "Visa lediga tider" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Tiderna kunde inte hämtas",
+  );
+  await page.getByRole("button", { name: "Visa lediga tider" }).click();
+  await expect(page.locator("#booking-slot option").nth(1)).toBeAttached();
+  await page
+    .locator("#booking-slot")
+    .selectOption(
+      (await page
+        .locator("#booking-slot option")
+        .nth(1)
+        .getAttribute("value"))!,
+    );
+  await page.locator("#booking-name").fill("Syntetisk manuell kund");
+  await page.locator("#booking-email").fill(`${synthetic.marker}@example.test`);
+  let warned = false;
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toBe("Lämna sidan utan att spara ändringarna?");
+    warned = true;
+    await dialog.dismiss();
+  });
+  await page.getByRole("link", { name: "Till kalendern" }).first().click();
+  expect(warned).toBe(true);
+  await expect(page.locator("#booking-name")).toHaveValue(
+    "Syntetisk manuell kund",
+  );
+  const keys: string[] = [],
+    ids: string[] = [];
+  await page.route("**/api/admin/bookings", async (route) => {
+    keys.push(route.request().headers()["idempotency-key"]);
+    synthetic.trackWorkspaceRequest(keys.at(-1)!);
+    const response = await route.fetch();
+    expect(response.status()).toBe(201);
+    ids.push((await response.json()).id);
+    if (ids.length === 1) await route.abort("failed");
+    else await route.fulfill({ response });
+  });
+  await page
+    .getByRole("button", { name: "Skapa bokning", exact: true })
+    .click();
+  await expect(page.locator("main").getByRole("alert")).toContainText(
+    "Svaret kunde inte hämtas",
+  );
+  await expect(page.locator("#booking-name")).toHaveValue(
+    "Syntetisk manuell kund",
+  );
+  await page
+    .getByRole("button", { name: "Skapa bokning", exact: true })
+    .click();
+  await expect(page.locator(".booking-summary")).toContainText(
+    "Syntetisk manuell kund",
+  );
+  expect(keys).toHaveLength(2);
+  expect(new Set(keys).size).toBe(1);
+  expect(new Set(ids).size).toBe(1);
+  const db = createDatabaseClient();
+  try {
+    expect(
+      await db.booking.count({
+        where: { customerEmail: `${synthetic.marker}@example.test` },
+      }),
+    ).toBe(1);
+  } finally {
+    await db.$disconnect();
+  }
+});
+
+test("arbetsytans API nekar obehörig åtkomst, främmande origin och för bred läsning", async ({
+  request,
+  synthetic,
+}) => {
+  const origin = { origin: "http://localhost:3000" };
+  for (const path of [
+    "/api/admin/bookings",
+    "/api/admin/services",
+    "/api/admin/staff",
+    "/api/admin/bookings/unknown",
+    "/api/admin/bookings/unknown/availability?date=2026-11-16&staffId=staff-demo",
+  ])
+    expect((await request.get(path)).status()).toBe(403);
+  for (const path of [
+    "/api/admin/bookings",
+    "/api/admin/services",
+    "/api/admin/staff",
+  ])
+    expect(
+      (await request.post(path, { headers: origin, data: {} })).status(),
+    ).toBe(403);
+  const logged = await request.post("/api/admin/login", {
+    headers: origin,
+    data: { email: synthetic.admin.email, password: synthetic.admin.password },
+  });
+  expect(logged.status()).toBe(200);
+  synthetic.trackSession(logged.headers()["set-cookie"] ?? "");
+  for (const path of [
+    "/api/admin/bookings",
+    "/api/admin/services",
+    "/api/admin/staff",
+  ])
+    expect(
+      (
+        await request.post(path, {
+          headers: {
+            origin: "http://foreign.test",
+            "Idempotency-Key": randomUUID(),
+          },
+          data: {},
+        })
+      ).status(),
+    ).toBe(403);
+  for (const query of [
+    "from=2026-11-16&to=2026-11-15",
+    "from=2026-11-16&to=2027-02-16",
+    "from=2026-11-16&to=2026-11-16&limit=101",
+    "from=invalid&to=2026-11-16",
+  ])
+    expect((await request.get(`/api/admin/bookings?${query}`)).status()).toBe(
+      400,
+    );
+  expect((await request.get("/api/admin/bookings/unknown")).status()).toBe(400);
+  const denied = await request.post("/api/admin/bookings", {
+    headers: { ...origin, "Idempotency-Key": randomUUID() },
+    data: {
+      action: "cancel",
+      id: "unknown",
+      expectedVersion: 1,
+      businessId: "other",
+      actor: "admin",
+    },
+  });
+  expect(denied.status()).toBe(400);
+  expect(await denied.text()).not.toMatch(
+    /stack|Prisma|customerEmail|password/,
+  );
+});
+
+test("Epic05 salongsarbetsyta: boka, ändra tjänst/schema, flytta och avboka", async ({
+  page,
+  synthetic,
+}, testInfo) => {
+  const db = createDatabaseClient();
+  const day = DateTime.now()
+    .setZone("Europe/Stockholm")
+    .startOf("day")
+    .plus({ days: 4 });
+  const date = day.toISODate()!,
+    nextDay = day.plus({ days: 1 }).toISODate()!,
+    moveDay = day.plus({ days: 2 }).toISODate()!;
+  const title = `Fotvård ${synthetic.marker.slice(-8)}`,
+    newTitle = `Fotvård Plus ${synthetic.marker.slice(-8)}`;
+  async function post(url: string, data: unknown) {
+    const key = randomUUID();
+    synthetic.trackWorkspaceRequest(key);
+    return page.request.post(url, {
+      headers: { origin: "http://localhost:3000", "Idempotency-Key": key },
+      data,
+    });
+  }
+  try {
+    const logged = await page.request.post("/api/admin/login", {
+      headers: { origin: "http://localhost:3000" },
+      data: {
+        email: synthetic.admin.email,
+        password: synthetic.admin.password,
+      },
+    });
+    expect(logged.status()).toBe(200);
+    const serviceResponse = await post("/api/admin/services", {
+      name: title,
+      priceOre: 50000,
+      duration: 30,
+      buffer: 0,
+      active: true,
+    });
+    expect(serviceResponse.status()).toBe(200);
+    const service = await serviceResponse.json();
+    synthetic.trackResource("service", service.id);
+    const people = [];
+    for (const [name, start, end] of [
+      ["Demo Anna", "09:00", "17:00"],
+      ["Demo Erik", "10:00", "16:00"],
+    ]) {
+      const created = await post("/api/admin/staff", {
+        name,
+        active: true,
+        serviceIds: [service.id],
+        weekly: [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
+          weekday,
+          periods: [{ start, end }],
+          breaks: [],
+        })),
+        exceptions: [],
+      });
+      expect(created.status()).toBe(200);
+      const person = await created.json();
+      synthetic.trackResource("staff", person.id);
+      people.push(person);
+    }
+    await page.goto("/");
+    await page.locator("#service").selectOption(service.id);
+    await page.locator("#staff").selectOption(people[0].id);
+    await page.locator("#date").fill(date);
+    await page.getByRole("button", { name: "Visa lediga tider" }).click();
+    await expect(page.locator("#slot option").nth(1)).toBeAttached();
+    const firstSlot = await page
+      .locator("#slot option")
+      .nth(1)
+      .getAttribute("value");
+    await page.locator("#slot").selectOption(firstSlot!);
+    await page.locator("#name").fill("Syntetisk kalenderkund");
+    await page.locator("#email").fill(`${synthetic.marker}@example.test`);
+    await page.getByRole("button", { name: "Bekräfta testbokning" }).click();
+    await expect(
+      page.getByText("Din testbokning är registrerad.", { exact: false }),
+    ).toBeVisible();
+    const booking = await db.booking.findFirstOrThrow({
+      where: { customerEmail: `${synthetic.marker}@example.test` },
+    });
+    await page.goto(`/admin?date=${date}&view=week&staffId=${people[0].id}`);
+    const visibleBooking = page
+      .locator(".calendar-booking:visible,.mobile-booking:visible")
+      .filter({ hasText: "Syntetisk kalenderkund" });
+    await expect(visibleBooking).toBeVisible();
+    if (testInfo.project.name === "desktop")
+      await expect(
+        page.getByRole("region", { name: "Veckokalender" }),
+      ).toBeVisible();
+    else
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+    await page.screenshot({
+      path: testInfo.outputPath("epic05-calendar.png"),
+      fullPage: true,
+    });
+    await visibleBooking.click();
+    await expect(page.locator(".booking-summary")).toContainText(title);
+    await expect(page.locator(".booking-summary")).toContainText("500,00");
+
+    await page.goto(`/admin/services?id=${service.id}`);
+    await page.locator("#service-name").fill(newTitle);
+    await page.locator("#service-price").fill("725,50");
+    await page.locator("#service-duration").fill("45");
+    await page.locator("#service-buffer").fill("15");
+    await page.getByRole("button", { name: "Spara behandling" }).click();
+    await expect(page.getByRole("status")).toContainText(
+      "Behandlingen är sparad",
+    );
+    await expect(page.locator("#service-duration")).toHaveValue("45");
+    await page.goto(`/admin/bookings/${booking.id}`);
+    await expect(page.locator(".booking-summary")).toContainText(title);
+    await expect(page.locator(".booking-summary")).toContainText("30 min");
+    await expect(page.locator(".booking-summary")).toContainText("500,00");
+
+    await page.goto(`/admin/staff?id=${people[0].id}`);
+    const weekName = day.setLocale("sv").toFormat("cccc");
+    const weekday = page.locator("details.schedule-day").filter({
+      has: page
+        .locator("summary")
+        .filter({ hasText: new RegExp(weekName, "i") }),
+    });
+    await weekday.locator("summary").click();
+    await weekday
+      .getByRole("button", { name: "Lägg till paus", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Spara medarbetare" }).click();
+    await expect(page.getByRole("status")).toContainText("tiderna är sparade");
+    const afterPause = await page.request.get(
+      `/api/availability?serviceId=${service.id}&staffId=${people[0].id}&date=${date}`,
+    );
+    const slots = await afterPause.json();
+    expect(
+      slots.map((s: string) =>
+        DateTime.fromISO(s).setZone("Europe/Stockholm").toFormat("HH:mm"),
+      ),
+    ).not.toContain("12:00");
+    await page.goto(`/admin/staff?id=${people[1].id}`);
+    await page.locator("#new-exception-date").fill(nextDay);
+    await page
+      .getByRole("button", { name: "Lägg till datum", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Spara medarbetare" }).click();
+    await expect(page.getByRole("status")).toContainText("tiderna är sparade");
+    const holiday = await page.request.get(
+      `/api/availability?serviceId=${service.id}&staffId=${people[1].id}&date=${nextDay}`,
+    );
+    expect(await holiday.json()).toEqual([]);
+
+    const occupiedStart = day
+      .plus({ days: 2 })
+      .set({ hour: 11 })
+      .toUTC()
+      .toISO()!;
+    const blocker = await post("/api/admin/bookings", {
+      action: "create",
+      serviceId: service.id,
+      serviceVersion: 2,
+      staffId: people[1].id,
+      start: occupiedStart,
+      customerName: "Syntetisk upptagen tid",
+      customerEmail: `${synthetic.marker}-blocker@example.test`,
+    });
+    expect(blocker.status()).toBe(201);
+    const denied = await post("/api/admin/bookings", {
+      action: "move",
+      id: booking.id,
+      expectedVersion: 1,
+      staffId: people[1].id,
+      start: occupiedStart,
+    });
+    expect(denied.status()).toBe(400);
+    expect(
+      (await db.booking.findUniqueOrThrow({ where: { id: booking.id } }))
+        .startsAt,
+    ).toEqual(booking.startsAt);
+    await page.goto(`/admin/bookings/${booking.id}`);
+    await page.getByRole("button", { name: "Flytta", exact: true }).click();
+    await page.locator("#booking-staff").selectOption(people[1].id);
+    await page.locator("#booking-date").fill(moveDay);
+    await page.getByRole("button", { name: "Visa lediga tider" }).click();
+    await expect(page.locator("#booking-slot option").nth(1)).toBeAttached();
+    const moveSlot = day.plus({ days: 2 }).set({ hour: 10 }).toUTC().toISO()!;
+    await page.locator("#booking-slot").selectOption(moveSlot);
+    await page
+      .getByRole("button", { name: "Spara flytt", exact: true })
+      .click();
+    await expect(page.getByRole("status")).toContainText("har flyttats");
+    await expect(page.locator(".booking-summary")).toContainText("Demo Erik");
+    await expect(page.locator(".booking-summary")).toContainText("10:00");
+    const moved = await db.booking.findUniqueOrThrow({
+      where: { id: booking.id },
+    });
+    expect(moved.version).toBe(2);
+    expect(moved.endsAt.getTime() - moved.startsAt.getTime()).toBe(30 * 60000);
+    await page.getByRole("button", { name: "Avboka", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Avboka bokningen?" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Behåll bokningen" }).click();
+    expect(
+      (await db.booking.findUniqueOrThrow({ where: { id: booking.id } }))
+        .status,
+    ).toBe("confirmed");
+    await page.getByRole("button", { name: "Avboka", exact: true }).click();
+    await page.getByRole("button", { name: "Ja, avboka", exact: true }).click();
+    await expect(page.getByRole("status")).toContainText("är avbokad");
+    expect(
+      (await db.booking.findUniqueOrThrow({ where: { id: booking.id } }))
+        .status,
+    ).toBe("cancelled");
+    const freed = await page.request.get(
+      `/api/availability?serviceId=${service.id}&staffId=${people[1].id}&date=${moveDay}`,
+    );
+    expect(await freed.json()).toContain(moveSlot);
+    await page.locator("summary").filter({ hasText: "Historik" }).click();
+    await expect(page.locator(".event-list")).toContainText("Flyttad");
+    await expect(page.locator(".event-list")).toContainText("Avbokad");
+    await page.screenshot({
+      path: testInfo.outputPath("epic05-cancelled-booking.png"),
+      fullPage: true,
+    });
+  } finally {
+    await db.$disconnect();
+  }
+});

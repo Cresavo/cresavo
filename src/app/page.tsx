@@ -4,11 +4,13 @@ import { DateTime } from "luxon";
 import { listServices, publicCampaigns } from "@/lib/domain";
 import BookingForm from "./booking-form";
 import { sv } from "@/lib/i18n";
+import { listStaff } from "@/lib/workspace-config";
 export const dynamic = "force-dynamic";
 export default async function Home() {
-  const [services, campaigns] = await Promise.all([
+  const [services, campaigns, staff] = await Promise.all([
     listServices(),
     publicCampaigns(DateTime.now().setZone("Europe/Stockholm").toISODate()!),
+    listStaff(),
   ]).catch(pageDataFailure);
   return (
     <main className="mx-auto max-w-5xl px-5 py-8 sm:py-12">
@@ -52,7 +54,14 @@ export default async function Home() {
         </section>
         <section className="rounded-2xl bg-white p-6 sm:p-8 shadow-sm">
           <h2 className="text-2xl font-semibold mb-6">{sv.book}</h2>
-          <BookingForm services={services} />
+          <BookingForm
+            services={services}
+            staff={staff.map(({ id, name, serviceIds }) => ({
+              id,
+              name,
+              serviceIds,
+            }))}
+          />
         </section>
       </div>
     </main>

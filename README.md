@@ -1,5 +1,9 @@
 # booking-lab-se
 
+## Epic 05 — bokningsarbetsyta under utveckling
+
+Den här branchen bygger på den godkända Epic04-POC:n. Migrera och seeda före start. Adminens huvudvy är nu en dag-/veckokalender med personalfilter; öppna ett bokningsblock för att flytta eller avboka, eller välj Ny bokning. Tjänster och Personal & tider har separata redigeringsvyer; tidigare kampanjflöde finns på `/admin/campaigns`. Endast syntetiska uppgifter. [Aktuell verifiering](docs/VERIFICATION.md) och [återstående godkänd omfattning](docs/EPIC_05_PLAN.md): MCP-paritet, uppgraderingskopia, slutdemo och Grok-QA är ännu inte klara. Ingen privat mobilsite är driftsatt.
+
 ## Epic 04 — individuell lokal adminåtkomst
 
 Epic 04 är godkänd som lokal POC efter oberoende Grok-QA och en avgränsad limiterfix, produktkod471f91f. Separata syntetiska konton ersätter delat ADMIN_PASSWORD. Skapa konto med `npm run admin:manage -- create admin@example.test` efter migrering; välj eget testlösenord i den dolda terminalinmatningen. [Operatörsguide](docs/ADMIN_OPERATIONS.md) · [tekniskt beslut](docs/ADR_004_ADMIN_IDENTITY.md). Inga standardkonton skapas. Kund-e-post förblir maskerad; MFA saknas och pilot är fortsatt NO-GO. Aktuell verifiering: [VERIFICATION](docs/VERIFICATION.md).
@@ -42,7 +46,7 @@ npm run admin:manage -- create admin@example.test
 npm run dev
 ```
 
-Öppna http://localhost:3000 och välj en vardag inom 60 dagar. Salongen har öppet måndag–fredag 09–17 i Europe/Stockholm, en anställd och tider på halvtimmar. Logga in via `/admin` med kontoidentifieraren och lösenordet du skapade lokalt. Seeds kan köras igen utan att radera bokningar. För en egen Postgres-instans, ändra `DATABASE_URL` i `.env`; databasanvändaren måste kunna skapa extensionen `btree_gist`. Ett verifierat alternativ utan Docker beskrivs i [verifieringsrapporten](docs/VERIFICATION.md). Compose-lösenordet är endast avsett för lokal demo. Stoppa databasen med `docker compose stop`; volymen sparas.
+Öppna http://localhost:3000 och välj en vardag inom 60 dagar. Ny seed ger två syntetiska medarbetare: Anna måndag–fredag09–17 och Erik10–16 i Europe/Stockholm, med valbara tider på halvtimmar. Logga in via `/admin` med kontot du skapade lokalt. Seeds kan köras igen utan att skriva över redigerade tjänster, scheman eller bokningar. För egen Postgres, ändra `DATABASE_URL` i `.env`; databasanvändaren måste kunna skapa extensionen `btree_gist`. Lokala verifieringsmiljöer beskrivs i [verifieringsrapporten](docs/VERIFICATION.md). Compose-lösenordet gäller endast lokal demo. `docker compose stop` stoppar databasen och bevarar volymen.
 
 ## MCP
 

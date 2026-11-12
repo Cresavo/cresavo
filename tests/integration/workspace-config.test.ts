@@ -126,6 +126,33 @@ it("lagrar bokad tjänst/pris/längd och ändrar bara nya bokningar", async () =
   expect(await db.booking.count({ where: { id: booking.id } })).toBe(1);
 });
 
+it("nekar ett gammalt visat tjänstepris men bevarar en redan skapad requests replay", async () => {
+  const s = await service(),
+    p = await staff(s.id);
+  const value = { ...input(s.id, p.id), serviceVersion: 1 },
+    requestId = randomUUID();
+  const first = await createBooking(value, requestId);
+  await saveService(
+    {
+      id: s.id,
+      expectedVersion: 1,
+      name: marker,
+      priceOre: 90000,
+      duration: 30,
+    },
+    key(),
+    actor,
+  );
+  expect((await createBooking(value, requestId)).id).toBe(first.id);
+  await expect(
+    createBooking(
+      { ...input(s.id, p.id, "14:00"), serviceVersion: 1 },
+      randomUUID(),
+    ),
+  ).rejects.toMatchObject({ status: 409 });
+  expect(await db.booking.count({ where: { serviceId: s.id } })).toBe(1);
+});
+
 it("håller isär två personaler, pauser och ledighet utan hårdkodad vardagsstängning", async () => {
   const s = await service(),
     a = await staff(s.id),
@@ -148,6 +175,66 @@ it("håller isär två personaler, pauser och ledighet utan hårdkodad vardagsst
     actor,
   );
   expect(await getAvailability(s.id, day, db, b.id)).toEqual([]);
+});
+
+it("bevarar utelämnad buffert, inaktivering och datumundantag vid uppdatering", async () => {
+  const s = await service(),
+    p = await staff(s.id);
+  await saveService(
+    {
+      id: s.id,
+      expectedVersion: 1,
+      name: marker,
+      priceOre: 1,
+      duration: 30,
+      buffer: 15,
+      active: false,
+    },
+    key(),
+    actor,
+  );
+  await saveService(
+    {
+      id: s.id,
+      expectedVersion: 2,
+      name: `${marker} ändrad`,
+      priceOre: 2,
+      duration: 45,
+    },
+    key(),
+    actor,
+  );
+  expect(
+    await db.service.findUniqueOrThrow({ where: { id: s.id } }),
+  ).toMatchObject({ buffer: 15, active: false, version: 3 });
+  const exceptions = [{ date: day, periods: [], breaks: [] }];
+  await saveStaff(
+    {
+      id: p.id,
+      expectedVersion: 1,
+      name: marker,
+      serviceIds: [s.id],
+      weekly,
+      exceptions,
+      active: false,
+    },
+    key(),
+    actor,
+  );
+  await saveStaff(
+    {
+      id: p.id,
+      expectedVersion: 2,
+      name: `${marker} ändrad`,
+      serviceIds: [s.id],
+      weekly,
+    },
+    key(),
+    actor,
+  );
+  expect(
+    await db.staff.findUniqueOrThrow({ where: { id: p.id } }),
+  ).toMatchObject({ exceptions, active: false, version: 3 });
 });
 
 it("nekar schemaändring som gömmer en bokning och nekar gammal resursversion", async () => {
