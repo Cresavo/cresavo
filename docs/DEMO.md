@@ -1,4 +1,83 @@
-# Demo — förbättrad skyddad mobilpreview
+# Demo — Epic 06, skyddad syntetisk preview
+
+[Öppna Booking Labs produktsida](https://booking-lab-se-preview.vercel.app/product) · [demoadmin](https://booking-lab-se-preview.vercel.app/admin) · [kundbokningen](https://booking-lab-se-preview.vercel.app/).
+Använd Niclas befintliga Vercel-inloggning vid behov. Tryck **Prova salongens
+arbetsyta** eller **Öppna demoadmin**; inget ytterligare lösenord behövs.
+Aktören är tydligt Demoägare, inte en påhittad verifierad Vercelanvändare.
+Hela sajten, API och resurser är fortsatt skyddade; endast befintlig ägare.
+
+## Fem saker att prova på mobilen
+
+1. Öppna produktsidan och gå till arbetsytan. Växla till kundbokningen och
+   tillbaka med synliga länkar; kalendern visar dagens verkliga demobokningar.
+2. Välj Kunder, sök Mira och öppna Mira Demo. Växla mellan Kommande och
+   Tidigare och avbokade; öppna ett besök och länken tillbaka till kundkortet.
+3. Välj Ny kund med påhittat namn och en adress på example.test. Spara,
+   ladda om och välj Ny bokning. Välj behandling, utförare, dag och tidsknapp;
+   kontrollera sammanfattningen före Skapa bokning. Du behöver inte skriva ISO-datum.
+4. Redigera nya kundkortets namn. Kontrollera att gamla bokningens registrerade
+   namn är kvar. Boka återbesök från kortet utan att skriva kontaktuppgifter igen.
+5. Öppna en bokning i kalendern, flytta den och avboka en egen testbokning med
+   bekräftelse. Se rätt status i kundhistoriken. Arkivera ditt nya kort om du vill;
+   det raderar inte historiken. Använd bara egna påhittade provuppgifter.
+
+## Faktiska leveransbilder
+
+Tagna från den stabila skyddade länken2026-11-12, produktionsbygge7c1407d,
+automatiserad Chromium390×844. Färdigladdade vyer; inte fysisk iPhone/Safari.
+
+[Produktsida](assets/epic06/product.png) · [kundlista](assets/epic06/customers.png) ·
+[kundkort/historik](assets/epic06/customer-history.png) · [valt återbesök](assets/epic06/revisit.png) ·
+[mobil arbetsyta](assets/epic06/workspace.png). [Manifest med revision/hashar](assets/epic06/manifest.json).
+
+## Revision, data och drift
+
+Branch **feature/epic06-customers-demo-product**, produkt-/QA-/deploykod **7c1407dce66910ef8ab304c882c90d90c173ca72**. Deployment
+**dpl_<redacted>**, READY Preview(target=null), fra1;
+immutable URL https://booking-lab-se-preview-jhaiomi7c-<redacted-vercel-team>.vercel.app.
+Den stabila aliasen verifierades via Vercel-API till exakt detta deployment-id.
+[Actions43301797796](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43301797796):4 gröna jobb; [Groks originalrapport](qa/QA-REPORT-epic06-fix1-7c1407d.md):GO endast syntetisk skyddad preview.
+Dokumentation/bilder efter fryst QA ändrar inte den driftsatta produktkoden.
+
+32 seedkunder,79 seedbokningar,3 aktiva behandlingar och2 medarbetare; vid egna
+slutprover33 kort/84 bokningar totalt, inklusive arkiverat QA-kort och manuella
+prov. Noll överlapp. Relativa datum skapade12 november; Sofia har fullbokad
+13 november och ledighet17 november. Prova Hitta nästa lediga dag. Datum blir
+inte automatiskt nyseedade varje natt. Fiktiva example.test-adresser, inga
+slumpade telefonnummer eller externa utskick. Fem faktiskt genererade och
+optimerade AI-assets används; public/demo/manifest.json anger ursprung.
+
+Publika bokningar skapar/kopplar inte kundkort genom e-postmatchning. Äldre
+fristående bokningar har ingen efterhandskopplingsknapp. Rå kontakt på kort
+är uttryckligen begränsad till denna pinnade demo; listor/MCP förblir minimerade.
+
+Samma befintliga Vercel-konto och Neon Free-resurs; ingen ny plan, abonnemang
+eller betaltillägg. Befintlig förbrukning kan kosta några få dollar; exakt
+fakturerad kostnad är ej avläst. App/DB i Frankfurt, byggregion cle1/USA;
+detta är inte en EU-exklusiv kunddriftskedja. Ingen publik release/pilot.
+
+Operatörsprofiler ligger fortsatt endast i ignorerad
+C:/Users/<user>/booking-lab-se-preview/.vercel. ui-runtime.private.json och
+ui-owner.private.env avser separata booking_ui_preview_demo; gamla profiler
+avser andra tidigare prover och får inte användas. ui-live-target.private.json
+har aktuell7c; ui-before-epic06.private.json bevarar föregående d7-mål.
+Inga hemligheter ska klistras in i chatten eller lämnas till Grok.
+
+Stopp/paus: använd befintliga operatörsregler nedan, stäng inte av Vercels
+skydd. En flaggpaus återkallar inte gamla sessioner permanent; vid permanent
+stopp inaktiveras demoaktören eller höjs befintlig sessionsversion. Återställ
+alias vid kodrollback till tidigare dpl_<redacted>; behåll
+additiv databasmigration och befintliga uppgifter, ingen automatisk DB-restore.
+Krypterad backup finns på operatörens PC och har återlästs före/efter migrering;
+den är inte automatiserad extern backup. [Full verifiering/NOT RUN](VERIFICATION.md).
+
+Fysisk iPhone/Safari och Niclas eget UX-godkännande återstår. Pilot NO-GO.
+
+## Bilaga — historiska arbetsomgångar
+
+Äldre uppgifter nedan gäller sina angivna revisioner, inte aktuell leverans.
+
+### Demo — förbättrad skyddad mobilpreview
 
 **Aktuell UI-leverans 2026-11-12:** [Öppna skyddad demo](https://booking-lab-se-preview.vercel.app). Logga vid behov in i Vercel och tryck **Öppna demoadmin**; inget ytterligare lösenord behövs. Endast syntetiska uppgifter, endast Niclas. Branch `ui/epic05-booking-usability`, granskad och driftsatt produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**. Senare dokumentationscommit ändrar inte previewkoden.
 

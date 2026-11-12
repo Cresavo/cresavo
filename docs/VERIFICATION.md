@@ -1,4 +1,70 @@
-# Verifiering — användbarhet och förenklad demoåtkomst
+# Verifiering — Epic 06 levererad skyddad syntetisk preview
+
+2026-11-12. Produkt-/QA-/deploykod **7c1407dce66910ef8ab304c882c90d90c173ca72**, branch **feature/epic06-customers-demo-product**.
+Dokumentation/bildbevis efter QA är separata från produktkoden. Lokal faktisk
+råutdata: C:/Users/<user>/booking-lab-pg-test/epic06. Utvalda råutdrag och JSON
+i [evidence-epic06](qa/evidence-epic06); full CI-logg via [Actions43301797796](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43301797796).
+
+## Aktuell resultattabell
+
+| Kommando/kontroll | Faktiskt utfall |
+| --- | --- |
+| npm ci --no-fund --no-audit | PASS exit0,571 paket Windows, lucide-ci.log. ESLint9-deprecation kvar. Linux/Grok/build572; ingen manifestversionsskillnad. |
+| npx prisma generate | PASS: 7.10.1. Lokalt körd via node node_modules/prisma/build/index.js generate; CI kör npx. |
+| npm run db:migrate / db:seed | PASS: 7 migrationer+grundseed på nya booking_epic06_lucide_{integration,prod0}_test. CLI via node Prisma/tsx; alla gamla migrationer oförändrade. |
+| npm run lint / npx tsc --noEmit / npm run build | PASS: 0; lokalt motsvarande installerade eslint/tsc/Next-CLI. Samma npm-kommandon även verifierade i CI. |
+| npm test | PASS: 76/76,14 filer,7.80s; node node_modules/vitest/vitest.mjs run lokalt. |
+| npm run test:integration | PASS: 84/84,20 filer,79.20s; node Vitest med vitest.integration.config.ts. Ny seed-CLI-test skapar/städar endast egen slumpad loopback_demo-databas. |
+| RATE_LIMIT_STORE=postgres E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e | PASS: 40/40,1.8m, desktop+mobil på7c. Lokalt node Playwright-CLI. |
+| Föregående samlade rättning aab9fdf, före Lucide | PASS: 40/40×4 i prod0/prod1/dev0/dev1,1.7m/1.2m/4.2m/3.0m. Redovisas inte som lokal fyrmatris på7c. |
+| Slutstädning lokal7c | PASS: 0 egna bokningar/kunder/kampanjer/admins/sessioner/ledger/events/spärrposter i både integration och prod0. |
+| Actions43301797796 på7c | PASS: 4/4jobb:dev0 40/40(2.2m),dev1 40/40(2.6m),prod0 40/40(1.2m),prod1 40/40(1.2m). CI76 unit/84 integration/lint/tsc/build PASS; Docker Postgres faktiskt körd. |
+| npm audit --json | **FAIL exit1:7 moderate,0 high/critical**. Samma upstream-blockerade minimatch/ESLint-kedja; ingen major/override/canary införd. |
+| npm audit --omit=dev --json | **PASS exit0:0fynd**. Skilt från funktionstester och pilotbeslut. |
+| Groks egen frysta återkontroll7c | PASS: 76 unit/84 integration/40 prod-E2E och lint/tsc/build. Seedspoof/uppgradering,12 sökprov,33 gate-on-mätningar320/390/1440; verklig återbesöksklickning. GO syntetisk skyddad preview efter1fixvarv; NO-GO pilot. |
+| Lokal uppgraderingskopia | PASS: 37ursprungliga snapshots bevarade,83 bokningar/32 kort,0 överlapp; återseed0 nya och oförändrade hashvärden. Publik spoofad seednyckel förblir olänkad. |
+| Molnmigration+seed | PASS: 7 migrationer,35 äldre snapshots bevarade.46 nya+33 befintliga; följande tre0 nya/79 befintliga. Sju tabellhashar identiska vid sista återkörningen. |
+| Faktiskt Vercelbygge | PASS Linuxamd64,124 vitlistade filer,572 byggpaket/54 runtimepaket, Prisma+Nextbuild, ursprunglig nativehash och Lucide-notiser. READY Preview target=null, dpl_<redacted>, fra1; build cle1/USA. |
+| Faktisk perimeter/TLS | PASS stabil och immutable alias, HTML/admin/API/POSTdemo/AI-asset/statisk chunk skyddade. Vercel SSO alla deployments,1ägare. Giltig TLS1.3, appheaders och no-store; direkt3000ejnåbar(4s timeout). Ingen publik MCP. |
+| Faktiska kundflöden | PASS: 67 kontroller i faktisk skyddad deployment: demoentry, minimala listor, kort/historik, skapa+reload, kalender→kort, kontaktedit med gammal snapshot kvar, flytt/avbokning/återbesök/arkiv, publikt201 och ingen kundlänk. |
+| Faktisk mobil/desktop | PASS: 320/390/1440inklusive långa synliga kontakter. Fem riktiga färdigladdade bilder tagna via stabil länk390×844; faktisk iPhone/Safari NOT RUN. |
+| Faktisk session/beständighet | PASS: samma bokningssvar/session efter90197 ms; logout och kopierad cookie403. Ingen framtvingad omstart; startup-loggar observerade men inte knutna till just persistensrequesten. |
+| Backup/återläsning | PASS före migrering10 tabeller och efter egna molnflöden11 tabeller, alla radantal/hashar identiska. pg_dump18.7 verify-full, AES256GCM, manipulering nekas. Befintlig separat nyckel bevarad. Lokal krypterad PC-backup, ingen automatisk offsitebackup. |
+
+[Groks originalrapport](qa/QA-REPORT-epic06-fix1-7c1407d.md), SHA256 **5c1f5194d76fb2b88bb5ce05b7c3c7c0b3a68a4451cc50fd71c12bbcfc8a4381**. Grok hade ingen moln- eller GitHub-åtkomst.
+Moln-/CI-bevisen ovan är Codex egna, inte tillskrivna Grok. Den manuella
+fyrmatrisen ersatte push-jobbet43301798348 som avbröts av concurrency.
+
+## Avvikelser och NOT RUN
+
+Initial024-körning på Windows fick dev-starttimeout120s/slow filesystem;
+genererad cache bevarades genom namnbyte, oförändrade tidsgränser och samma
+kod passerade sedan38×4. Första nya seedtestets ProcessEnv-typ nekades av
+build; rättat med explicit NODE_ENV:test, utan ignorerade typer. Slut7c är grön.
+Groks egna miljömissar med ärvt NODE_ENV/namespace finns i originalrapporten.
+
+Operatörens första avslutande moln-SQL använde reserverat alias overlaps och
+föll EFTER lyckad migration och tre seedkörningar. Endast kontrollfrågan
+rättades; ingen reset eller ny migration. En extra återseed med hashjämförelse
+passerade. Tidig återbesöksbild visade laddning och kasserades som bevis;
+slutbilderna visar vald tid och aktiv bokningshandling.
+
+NOT RUN: fysisk iPhone/Safari, WebKit/Firefox/screenreader, framtvingad omstart,
+kommersiell last-/flerinstanscertifiering, exakt fakturaförbrukning, automatisk
+extern backup och ny fullvideo. Lokal Docker Desktop ej körd; CI körde faktisk
+Docker Postgres och Vercel körde verkligt containerbygge. Normal individuell
+inloggning testad positivt lokalt/CI/Grok, endast normalform plus demoaktör i
+nya molnet; inga nya mänskliga konton skapades. Lokal slut7c-E2E körde prod0;
+övriga tre slutlägen är verifierade i exakt7c-CI, inte påstått körda lokalt igen.
+
+Inga tester försvagades och inga riskabla paketuppgraderingar gjordes.
+Pilot för riktiga kunder är fortsatt NO-GO.
+
+## Bilaga — historiska arbetsomgångar
+
+Äldre uppgifter nedan gäller sina angivna revisioner, inte aktuell leverans.
+
+### Verifiering — användbarhet och förenklad demoåtkomst
 
 ## Avgränsad auditomgång 2026-11-12
 
@@ -7,7 +73,7 @@ Full audit fortsatt **FAIL7moderate**, omit-dev **PASS0**. Ingen säker publicer
 
 2026-11-12. Produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**, branch ui/epic05-booking-usability. Enbart dokumentation/bilder tillkommer efter fryst QA. Alla kommandoutdata finns utanför Git i C:/Users/<user>/booking-lab-pg-test/ui-usability. Utvalda maskinresultat i [evidence-ui](qa/evidence-ui).
 
-## Aktuell resultattabell
+### Historisk resultattabell d7bc47f
 
 | Kommando/kontroll | Faktiskt resultat |
 | --- | --- |

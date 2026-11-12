@@ -1,4 +1,48 @@
-# Projektstatus — förbättrad skyddad demo
+# Projektstatus — Epic 06 levererad som skyddad syntetisk demo
+
+Verifierad 2026-11-12. Branch **feature/epic06-customers-demo-product**; granskad och driftsatt produktkod
+**7c1407dce66910ef8ab304c882c90d90c173ca72**. Senare dokument-/bildcommit ändrar inte denna kod. [Öppna produkten](https://booking-lab-se-preview.vercel.app/product).
+
+| Funktion och observerbart acceptanskriterium | Utfall och kvalitet |
+| --- | --- |
+| Produktingång visar verkliga funktioner och leder till arbetsyta/kundbokning | PASS i faktisk preview. Separat /product; / och /admin består. |
+| Vercel-inloggning vid behov, sedan demoadmin utan extra lösenord | PASS via stabil alias. Tydlig Demoägare; vanlig produktinloggning kvar. |
+| Sök namn/e-post/telefon, öppna kundkort och se kommande/tidigare/avbokade besök | PASS API/integration/E2E/Grok och moln. Listor utan rå kontakt; kortets example.test-kontakt endast i pinnad demo. |
+| Skapa/redigera/arkivera kund utan att slå ihop personer eller skriva om äldre snapshots | PASS. Skapad kund finns efter omladdning; historik kvar efter arkiv. |
+| Kalender → bokning → kundkort; ny bokning/återbesök med förvald kund | PASS faktisk molnprovning; skapa, flytta, avboka och återbesök. Dag/tid väljs med tryck. |
+| Publik bokning fungerar och kan inte koppla/skriva över kund via e-post | PASS inklusive faktisk bokning med samma kontakt som ett kort; customerId förblir null. |
+| Demo uppgraderas additivt och seed kan köras igen | PASS: 35 äldre molnsnapshots bevarade,32 seedkunder/79 seedbokningar; vid slutprovet33 kort/84 bokningar inklusive egna syntetiska prover,0 överlapp. |
+| Bilder och granskade mobilvyer fungerar | PASS riktiga färdigladdade bilder, nio Lucide-ikoner,320/390/1440px. Fysisk iPhone/Safari och Niclas UX-godkännande återstår. |
+
+Tekniskt testad, automatiskt verifierad och möjlig att prova: **ja**. Färdig
+UX för målgruppen/redo för riktiga kunder: **nej**. Detta är en syntetisk POC.
+[Groks originalrapport](qa/QA-REPORT-epic06-fix1-7c1407d.md): GO preview efter1 samlat rättningsvarv, inte pilot. [Actions43301797796](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43301797796):4 gröna jobb på exakt produkt-SHA. [Full resultattabell](VERIFICATION.md).
+
+Sedan förra arbetsomgången: kundmodell och bokningskoppling,32kundkort och
+historik, levande syntetisk salongsdag, fem faktiska AI-assets, separat
+produktsida och återanvänt Lucide-urval. Rättat seedägarskap, bokstavlig
+sökning och långa kontaktfält. Inga nya autentiseringssystem eller nya tjänster.
+
+Delvis/återstår: listan har Nästa men saknar Föregående/antal och tydligare
+aktiv historikflik; äldre fristående bokningar saknar efterhandskoppling.
+Publika bokningar skapar/kopplar inte kort automatiskt. Arkiv är inte radering.
+Seedade datum är relativa vid körning, inte en schemalagd automatisk reset.
+
+Blockerar kundpilot: datalivscykel/export/radering/retention, MFA, full
+kommersiell drift-/integritetsbedömning och auditens7 måttliga utvecklingsfynd.
+Produktionsaudit0 är inte ett allmänt säkerhetsgodkännande. Ingen ny abonnemangs-
+eller tilläggskostnad; faktisk fakturaförbrukning ej avläst. Automatisk extern
+backup och framtvingad omstart/lastcertifiering är inte verifierade.
+
+Planerat endast som backlogg, inga nya uppdrag: Niclas fysiska mobilprov,
+därefter observerade UX-problem och separat prioritering av pilotgrindar.
+Main är inte mergad. [Prova och stoppa](DEMO.md), [handoff](HANDOFF.md).
+
+## Bilaga — historiska arbetsomgångar
+
+Äldre uppgifter nedan gäller sina angivna revisioner, inte aktuell leverans.
+
+### Projektstatus — förbättrad skyddad demo
 
 ## Epic 06 — kandidat inför samlad QA, 2026-11-12
 

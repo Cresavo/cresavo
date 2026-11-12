@@ -14,7 +14,9 @@ kan följas tillsammans med projektets oförändrade AGPL-3.0-only; notices mås
 medfölja vidare distribution. Paketet har inga egna runtime-beroenden, inga
 install-skript och återanvänder befintlig React-peer. Peerintervallet omfattar
 React19; faktisk installerad React/React DOM är19.3.1 och Lucide1.72.0 enligt
-`npm ls --depth=0`. Ny audit verifieras separat vid slutkontroll.
+`npm ls --depth=0`. Slutkontroll7c: ren npmci571paket, lint/tsc/build,76unit/84integration/40prod-E2E
+och4gröna CI-lägen PASS. Full npm audit FAIL7moderate/0high/critical;
+--omit=dev PASS0. Inga nya auditfynd via Lucide.
 Dess devDependencies i upstream är inte transitiva runtime-beroenden i vår app.
 
 Underlag: [Lucides licens](https://lucide.dev/license), faktisk låst tarball och

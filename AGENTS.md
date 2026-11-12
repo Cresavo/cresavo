@@ -10,7 +10,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
-## Aktuellt beställt mål — Epic 06, 2026-11-12
+## Epic 06 levererad skyddad syntetisk demo, 2026-11-12
+
+- Produktkod7c1407d, Grok-GO efter1samlat fixvarv; Actions43301797796 har4gröna
+  E2E-jobb40/40. Samma stabila skyddade alias, aktuell drift/provning i DEMO.
+  Senare docs/bilder ändrar inte produktkoden. Ingen automatisk nästa Epic.
+  Fysisk iPhone/Safari och Niclas UX-beslut kvar; pilot NO-GO.
+
+### Godkänt genomförande och bevarade regler
 
 - Läs docs/EPIC_06_PLAN.md: A kundregister, B återkörbar syntetisk demo/assets,
   C separat produktsida. Bas16dae9a/6acd2ef (produkt d7), inte äldre main.

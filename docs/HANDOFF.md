@@ -1,4 +1,62 @@
-# Handoff — förbättrad skyddad demo
+# Handoff — Epic 06,2026-11-12
+
+Levererat: kundregister med sökning/paginering, kundkort och aktuell kontakt,
+versionerad redigering/arkivering, bevarade bokningssnapshots och uttrycklig
+kundkoppling i bokning/återbesök. Ingen automatisk matchning på e-post, inga
+nya MCP-exporter. Syntetisk seed och fem optimerade bildassets används i UI.
+Separat [produktsida](https://booking-lab-se-preview.vercel.app/product), [demoadmin](https://booking-lab-se-preview.vercel.app/admin) och [kundbokning](https://booking-lab-se-preview.vercel.app/).
+
+- Branch **feature/epic06-customers-demo-product**, produkt-/QA-/deploy-SHA **7c1407dce66910ef8ab304c882c90d90c173ca72**.
+- Bas16dae9a/6acd2ef, produktbas d7bc47f. Initial Epic06-kod024796f;
+  rättning aab9fdf; uttryckligt beställt Lucide-urval och bildrefresh7c1407d.
+- [Groks originalrapport](qa/QA-REPORT-epic06-fix1-7c1407d.md), original-SHA256 **5c1f5194d76fb2b88bb5ce05b7c3c7c0b3a68a4451cc50fd71c12bbcfc8a4381**. GO endast skyddad syntetisk preview;
+  1 av 2 samlade fixvarv användes, inget nytt blockerande fynd. Grok testade
+  separat Linux/Chromium-kopia, inte vår molnmiljö eller Actions.
+- [Actions43301797796](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43301797796):alla4jobb40/40,76 unit/84 integration. Push-jobb43301798348 avbröts av
+  avsedd concurrency när full manuell matris startades. Main oförändrad b000481.
+- Deployment **dpl_<redacted>**, READY Preview target=null,
+  fra1; faktiskt containerbygge i cle1/USA. Image sha256:
+  **8dfea65990374ff6c8d16570c033ccac641deeea99748171f7bede0e1f6db3b0**.
+
+Kodkarta: src/lib/customers.ts; src/app/admin/customers/* och
+src/app/api/admin/customers/*; bokningseditor/domän med valfritt customerId;
+prisma/schema.prisma och ny20261112190000_customers. De 6 äldre migrationerna
+är orörda. src/app/product/page.tsx, public/demo/* och scripts/seed-demo.ts.
+Kund-/seed-/E2E-regressioner i tests. Enda nya paketet är lucide-react 1.72.0,
+ISC plus bevarad Feather/MIT-notis, inga egna runtime-beroenden. React 19.3.1
+och Next 16.4.6 verifierade; inga befintliga paketversioner uppgraderades.
+[Beroendebeslut](DEPENDENCY_REVIEW.md), [arkitektur](ARCHITECTURE.md).
+
+Molnet: samma skyddade projekt och isolerade booking_ui_preview_demo.
+Backup före migration verifierad genom återläsning. Alla35 äldre snapshots
+bevarade; första seed46 nya+33 befintliga, tre följande0 nya/79 befintliga.
+Efter egna molnprover33 kort/84 bokningar,0 överlapp,0 icke-example.test-kontakter.
+Nya QA-kortet arkiverades, manuella/äldre data raderades inte. Endast den nya
+Customer-tabellens SELECT/INSERT/UPDATE gavs befintlig approle; inga nya personer.
+
+Faktisk Chromium-provning och fem riktiga stabil-aliasbilder finns i [DEMO](DEMO.md).
+TLS/perimeter, appbehörighet, logout/replay, kundflöden och backup11 tabeller
+PASS. Beständighet efter90 sekunder PASS; framtvingad omstart är NOT RUN.
+[Kommandon, mellan-FAIL, audit och samlat bevis](VERIFICATION.md).
+
+Rest/backlogg: ingen automatisk offentlig kundkoppling eller efterhandskoppling
+av gamla fristående besök. Mobil paginering/aktiv flik kan förtydligas. En
+avsiktligt kolliderande publik seednyckel gör att en demobokning hoppas över;
+ingen felaktig koppling eller dataskada (Grok Låg, ingen ny fixloop).
+Testport3000 är fast. Fysisk iPhone/Safari och ägarens UX-beslut återstår.
+Pilot NO-GO; full audit7 moderate/0 high, runtime0; inga riskabla overrides.
+
+Inga nya betalda abonnemang/tillägg, mainmerge, force-push, publik MCP eller
+verkliga kunduppgifter. Fortsätt inte automatiskt till nästa Epic. Drift/stopp,
+privata operatörsprofiler och tidigare miljöer beskrivs i DEMO; kopiera aldrig
+miljöfiler till Git/Grok. Efter denna frysta revision är leveransändringar
+endast dokumentation, original-QA och verkliga skärmbilder.
+
+## Bilaga — historiska arbetsomgångar
+
+Äldre uppgifter nedan gäller sina angivna revisioner, inte aktuell leverans.
+
+### Handoff — förbättrad skyddad demo
 
 ## Epic 06 — kandidat inför samlad QA, 2026-11-12
 

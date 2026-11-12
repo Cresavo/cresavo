@@ -1,6 +1,10 @@
 # booking-lab-se
 
-## Epic 06 — kunder, syntetisk salongsdag och produktingång
+## Epic 06 — levererad skyddad syntetisk demo
+
+[Öppna Booking Lab](https://booking-lab-se-preview.vercel.app/product) · [demoadmin](https://booking-lab-se-preview.vercel.app/admin) · [kundbokning](https://booking-lab-se-preview.vercel.app/).
+Kod7c1407d är QA-/CI-godkänd för avgränsad demo. Vercel-inloggning vid behov,
+sedan demoknapp utan extra lösenord. Inte kundpilot. [Prova och se riktiga bilder](docs/DEMO.md).
 
 Öppna `/product` för produktöversikten, `/admin/customers` för kundregistret
 och `/` för kundbokningen. Kundkort samlar kommande och tidigare besök;
@@ -11,6 +15,9 @@ isolerade demon; normal maskering och produktinloggning finns kvar.
 
 `npm run demo:seed` kräver `BOOKING_DEMO_SEED=1` och separat loopback-databas
 med suffix `_demo`. Seedningen är additiv och raderar inga manuella uppgifter.
+Integrationstestet för riktig seed-CLI skapar och städar endast sin egen nya
+slumpade loopback-databas; lokalt testkonto behöver därför CREATEDB. Ge aldrig
+produktionskontot den rättigheten för tester.
 Cloudflaggan `--preview` är endast för den befintliga pinnade operatörsmiljön.
 [Plan och gränser](docs/EPIC_06_PLAN.md) · [aktuell leveransstatus](docs/PROJECT_STATUS.md)
 · [preview och provsteg](docs/DEMO.md). All data är påhittad. Pilot är fortsatt NO-GO.

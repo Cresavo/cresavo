@@ -1,4 +1,39 @@
-# Produktägarrapport — användbarhet,2026-11-12
+# Produktägarrapport — Epic 06,2026-11-12
+
+[Här öppnar du Booking Lab](https://booking-lab-se-preview.vercel.app/product). [Demoadmin](https://booking-lab-se-preview.vercel.app/admin) · [kundbokning](https://booking-lab-se-preview.vercel.app/).
+Vercel-inloggning vid behov, därefter en demoknapp utan extra lösenord.
+
+Byggt: ett sammanhängande kundregister och kundkort med besökshistorik,
+förvald kund i ny bokning/återbesök och bevarade äldre uppgifter när kortet
+ändras. Demon har32 fiktiva kunder/79 seedade besök, personal- och salongsbilder
+samt en separat produktingång. Nio återanvända Lucide-ikoner, inga oanvända
+form-/tabellbibliotek och ingen större UI-migrering.
+
+Prova nu: hitta Mira, skapa en ny påhittad kund och boka, ändra kontakt och
+kontrollera gammal bokning, boka återbesök samt flytta/avboka från kalendern.
+[Fem mobiluppgifter och fem riktiga bilder](DEMO.md). Bilderna är tagna från
+den stabila skyddade previewn, inte mockups eller laddningsskärmar.
+
+Branch **feature/epic06-customers-demo-product**, produkt-/deploycommit **7c1407dce66910ef8ab304c882c90d90c173ca72**.
+76 unit/84 integration/40 E2E lokalt; [Actions43301797796](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43301797796)40/40×4. [Groks originalrapport](qa/QA-REPORT-epic06-fix1-7c1407d.md) har eget
+76/84/40-PASS och GO skyddad syntetisk preview efter1 samlat fixvarv.
+Faktiska molnflöden, perimeter, historik,0 överlapp och backup11 tabeller PASS.
+Funktionstester och audit hålls isär: full audit FAIL7 moderate, runtime PASS: 0.
+
+Kvar: fysisk iPhone/Safari och ditt UX-beslut, enklare tillbakapaginering/aktiv
+historikflik och efterhandskoppling av äldre fristående besök. Publik e-post
+leder aldrig automatiskt till kundkort. Arkiv är inte GDPR-radering. Pilot
+är fortfarande NO-GO; inga nya betalda abonnemang, ingen mainmerge.
+
+Tre nästa mål som rekommendation, inte nya beställningar: ditt faktiska
+iPhone-prov; samla dess viktigaste arbetsflödesproblem; prioritera sedan
+pilotgrindar för datalivscykel, MFA, drift och säker stabil audit-rättning.
+
+## Bilaga — historiska arbetsomgångar
+
+Äldre uppgifter nedan gäller sina angivna revisioner, inte aktuell leverans.
+
+### Produktägarrapport — användbarhet,2026-11-12
 
 **Aktuell UI-leverans 2026-11-12:** [Öppna skyddad demo](https://booking-lab-se-preview.vercel.app). Logga vid behov in i Vercel och tryck **Öppna demoadmin**; inget ytterligare lösenord behövs. Endast syntetiska uppgifter, endast Niclas. Branch `ui/epic05-booking-usability`, granskad och driftsatt produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**. Senare dokumentationscommit ändrar inte previewkoden.
 
