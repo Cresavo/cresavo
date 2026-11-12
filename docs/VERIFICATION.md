@@ -1,5 +1,10 @@
 # Verifiering — användbarhet och förenklad demoåtkomst
 
+## Avgränsad auditomgång 2026-11-12
+
+Full audit fortsatt **FAIL7moderate**, omit-dev **PASS0**. Ingen säker publicerad stabil rättningskedja verifierad; inga paket, produktfunktioner eller UI ändrade. Rättning är upstream-blockerad, inte klar. Nya lint/tsc/build,75unit och75integration på ny lokal syntetisk DB PASS. Inga nya E2E/CI/deploy i denna dokumentationsbatch. [Beroendebeslut och faktiska data](DEPENDENCY_REVIEW.md#audit-återkontroll-2026-11-12--rättning-blockerad-av-stabil-upstream). Driftsatt kod och senaste fungerande preview är fortsatt d7bc47f. Grok bekräftar slutsatsen i [originalrapporten](qa/AUDIT-REPORT-6acd2ef-minimatch.md); ingen stabil säker rättning finns ännu.
+
+
 2026-11-12. Produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**, branch ui/epic05-booking-usability. Enbart dokumentation/bilder tillkommer efter fryst QA. Alla kommandoutdata finns utanför Git i C:/Users/<user>/booking-lab-pg-test/ui-usability. Utvalda maskinresultat i [evidence-ui](qa/evidence-ui).
 
 ## Aktuell resultattabell

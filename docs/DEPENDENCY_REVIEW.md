@@ -1,4 +1,18 @@
-# Epic 03 — beroendesäkerhet
+# Beroendesäkerhet
+
+## Audit-återkontroll 2026-11-12 — rättning blockerad av stabil upstream
+
+Ny avgränsad genomgång från 6acd2efdb909aff86245fc021e7c0c8cbc9541d4; produktkod d7bc47f och manifest/låsfil oförändrade. UI, molnpreview och dummydata ändras inte. Arbetsbranch chore/audit-review-2026-11-12. Ingen ny dependency, override, prerelease, borttagen lintregel eller ändrad licens.
+
+- **Full audit FAIL exit1:**7moderate,0high/critical. Det är en advisory plus sex kedjeeffekter, inte sju oberoende sårbarheter. **Omit-dev PASS exit0:**0fynd. [Rådata och exitkoder](qa/evidence-audit-2026-11-12).
+- Publicerat latest typescript-eslint / typescript-estree **8.72.2** kräver minimatch **^10.2.2**; installerat10.2.6. Senaste publicerade10.x är10.2.6. [Advisoryn](https://github.com/advisories/GHSA-g3hv-75wg-m249) anger drabbade>=7.0.0 <11.0.1 och rättad11.0.1.
+- Upstream [main-manifest](https://github.com/typescript-eslint/typescript-eslint/blob/main/packages/typescript-estree/package.json) har ändrats till^11.0.1. Det är inte samma sak som en publicerad stabil tarball: registry-manifest/integrity och den faktiska npm pack-tarballens package.json kräver ännu10.x (MIT, oförändrad licens). Canary8.72.3-alpha.8 använder11.x, men förhandsversion väljs inte i denna försiktiga batch.
+- **npm audit fix --dry-run --ignore-scripts --json** gav0added/changed/removed och kvar7moderate trots fixAvailable:true. Flaggan är därför inte bevis för en genomförbar kompatibel rättning. Inget riktigt audit fix/--force kördes.
+- Installerat useProgramFromProjectService.js anropar minimatch med {dot:true}, inte optimizationLevel>=2 som advisoryns angrepp kräver. Minimatchs default är1. Repoets ESLintkonfig importerar Next-vitals/TypeScript, ingen egen allowDefaultProject. Inga globmönster tas emot av bokningswebb/API/MCP. Detta begränsar observerad exponering men upphäver varken advisoryn eller utvecklar-/CI-risken med obetrodd konfiguration. Kör inte okänd lintkonfiguration eller okända PR-skript med hemligheter.
+- **Nästa säkra rättningsgrind:** publicerad stabil typescript-eslint-kedja som stöder11.0.1+ (eller verifierad10.x-backport), riktad lockfiluppdatering inom stödda semverintervall, granska exakt paket-/licensdiff, sedan ren npm ci, generate, lint/tsc/unit/integration/build och relevant E2E. Ingen automatisk bred npm update.
+
+Nya kontroller på oförändrad bas: lint/tsc/build PASS, unit75/75(13.80s), integration75/75(74.86s) på ny loopback booking_audit_review_test efter alla6migrationer/seed. Egna bokningar/kampanjer/admins/sessioner/spärrposter/workspaceRequests0 efteråt. **NOT RUN denna batch:**npm ci/prisma generate (ingen paketändring), E2E/fyrmatris (oförändrad kod/låsfil), ny molnverifiering/deploy, video, fysisk iPhone och ny CI. Tidigare d7-matris är historiskt underlag, inte nya körningar. Integrationstester använder endast syntetisk data. Ingen kundpilot godkänns.
+
 
 ## Avgränsad Vercel-previewartefakt, 2026-11-12
 
@@ -82,3 +96,4 @@ E03-QA-1: testet med två direkta ORM-writes som avsiktligt kringgår bokningsl�
 E03-QA-2 kvarstår som medium pilot-/distributionsgrind: CLI/Studio/elkjs finns även i produktionsinstallation. Ingen generell licensklarering följer av inventeringen. E03-QA-3: minimatch-rättningen finns i typescript-eslint-canary men ingen stabil version verifierad; ingen förhandsversion införs. E03-QA-4: första frågan efter avsiktligt dödade poolanslutningar kan fela en gång före återanslutning; ingen blind transaktionsretry införs. E03-QA-5: MCP:s pooluppvärmning påverkar kapplöpningens starttid, inte korrektheten. Den specifika .env-autoladdningen (E02-QA-2) är verifierat löst; OS-isolering återstår.
 
 Eftersom ingen migration eller tabell ändrats sker kodrollback genom att återgå till dba05a2:s kod/manifest/låsfil och köra npm ci + prisma generate. Ingen återställning av kunddata behövs för schemaändring i denna batch; återgång över skarpa samtidiga skrivningar/backup har inte verifierats och ingen pilot är godkänd. Slutmatris och QA dokumenteras i VERIFICATION/HANDOFF efter körning. Kvarstående audit ska inte döljas eller flyttas till allowlist.
+`nGroks oberoende [originalrapport](qa/AUDIT-REPORT-6acd2ef-minimatch.md), SHA256 dd7fa61626a3d76aefb913fbf0286c1033375cf36169afc8c11837d844033409, bekräftar ingen publicerad stabil rättning och avråder från canary/major-override. Grok körde egen npm pack/registry/anropsgranskning samt en override-probe endast i egen kopia (lint/tsc/audit grönt där, ändå inte rekommenderad). Ingen override infördes här. Grok läste inte nya PC-auditfiler och körde inte vår slutmatris. Manifestets radslut skiljer i gamla arkivet; normaliserat innehåll och låsfilshash matchar. Ompröva vid nästa stabila upstream-release eller senast 2026-11-26; ingen ny bevakningstjänst skapas.
