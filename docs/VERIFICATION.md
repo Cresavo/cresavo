@@ -23,7 +23,7 @@ Verifierad kod **3cd633b99e5aa990d002dc5563aed4bfe6bfe4a6**, branch `epic-02-loc
 | Aggregat på testdatabasen efter sviten | PASS: 0 bokningar, 0 kampanjer, 0 sessioner, 0 överlapp, pg_stat_database.deadlocks=0 |
 | npm audit --json | **FAIL, exit 1**: 3 höga + 7 måttliga, 0 kritiska. Omkört efter QA-rättning, epic02-qa-audit.json; inga automatiska uppgraderingar/overrides. |
 | npm run demo:record | **PASS 4/4**, 1,2 min, produktionsbygge, ren **7a65aee** (samma kod som 3cd633b), dirty=false. **14 PNG, 4 WebM**. Första misslyckade försök bevaras separat. |
-| Grok första QA | E02-1–3 GO på fc83a70, ett lågt obligatoriskt fel E02-QA-1. Rättat i 3cd633b; oberoende slutkontroll återstår. |
+| Grok slut-QA | **PASS, Epic 02 kan stängas som lokal POC** på cad997b, 01:34–01:44 CET. Ren npm ci/Prisma/lint/tsc/build, 43 unit, 30 integration ×3, 12 E2E ×4 och cleanup PASS i egen miljö. Audit FAIL 3/7. QA-1 stängt; inga blockerande nya fynd. [Originalrapport](qa/QA-REPORT-epic02-cad997b.md). |
 | GitHub Actions på Epic 02 | **EJ KÖRT**: ingen push tillåten. Epic 01:s CI är inte bevis för Epic 02. |
 | Docker Compose, riktig TLS/proxy, IPv6-transport/fler serverinstanser | **EJ KÖRT**. Docker saknas i PATH. Loopback-simulering av proxy i E2E ersätter inte driftverifiering. |
 

@@ -1,4 +1,4 @@
-# Handoff — Epic 02, slutgrind pågår
+# Handoff — Epic 02 godkänd som lokal POC
 
 Kod **3cd633b99e5aa990d002dc5563aed4bfe6bfe4a6**, lokal branch `epic-02-local-agent-booking`, bas 02edeaf. Ingen push eller merge. Projektet och remote förblir privata; main har inte ändrats av arbetet.
 
@@ -8,7 +8,9 @@ Verifierat: lint, tsc, build; 43 unit; 30 integration tre gånger; 12 E2E i alla
 
 Grok har granskat fc83a70 och godkänt E02-1–3 med ett lågt fel inför slutgrinden. E02-QA-1 är rättat i 3cd633b via SDK:s publika Standard Schema-gränssnitt och exakt stdio-regression. E02-QA-2 (.env-autoladdning) och E02-QA-3 (delad idempotensnamnrymd) dokumenteras; inga garantier om miljöisolering eller nya namnrymder. [Originalrapport](qa/QA-REPORT-epic02-fc83a70.md), [rättningsnotering](EPIC_02_QA_FOLLOWUP.md).
 
-Slutdemo: **4/4 PASS**, 14 bilder/4 videor, produktion från ren 7a65aee (kod 3cd633b). [Galleri och reproduktion](DEMO.md). Agentens desktop-/mobilbilder granskade, videor inte genomtittade i sin helhet. Första inspelningsförsöket var FAIL och ligger kvar separat; dess rotorsak är inte fastställd. Återstår för att stänga Epic 02: Groks oberoende slutkontroll. Ingen ytterligare produktfunktion behövs. Pilot är fortsatt NO-GO av fem oförändrade skäl i PROJECT_STATUS.
+Slutdemo: **4/4 PASS**, 14 bilder/4 videor, produktion från ren 7a65aee (kod 3cd633b). [Galleri och reproduktion](DEMO.md). Agentens desktop-/mobilbilder granskade, videor inte genomtittade i sin helhet. Första inspelningsförsöket var FAIL och ligger kvar separat; dess rotorsak är inte fastställd.
+
+**Slutkontroll klar:** Grok godkände cad997b som lokal POC 2026-11-12 kl. 01:44 CET. Ren npm ci, generation/migration/seed, lint/tsc/build, 43 unit, 30 integration ×3, 12 E2E ×4, cleanup och egna samtidighetsprober PASS. QA-1 stängt, inga blockerande fynd. Full [originalrapport](qa/QA-REPORT-epic02-cad997b.md) sparad. Tre nya Low/Info-idéer gäller SDK:s __proto__-normalisering, protokollfel och pipe-bekräftelse; de dokumenteras, ingen extra fixloop. Pilot fortsatt NO-GO, inklusive Prisma-autoladdning/processisolering och beslut om kundkontakt. Inga tester omkörda för denna dokumentationsavslutning.
 
 ## Bilaga — tidigare Epic 01-handoff
 

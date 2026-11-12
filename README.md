@@ -4,7 +4,7 @@
 
 En betrodd lokal MCP-klient kan nu skapa en syntetisk bokning via samma bokningsmotor som webben. Prova `npm run mcp:client -- --admin --book` efter lokal installation och bekräfta med `ja`; kontrollera sedan bokningen i `/admin`. Verktyget kräver separat opt-in, minimerar svaret och bevarar databasens integritetsregler. Ingen extern AI-modell behövs. [MCP-kontrakt och begränsningar](#lokal-syntetisk-agentbokning-epic-02).
 
-Lokal slutmatris på kod 3cd633b: 43 unit, 30 integration ×3 och 12 E2E i fyra lägen, lint/tsc/build/cleanup PASS. Audit kvar FAIL (3 höga/7 måttliga). Slutdemo 4/4 PASS; oberoende slut-QA pågår. **POC för syntetiska uppgifter, inte pilot**. [Aktuell status](docs/PROJECT_STATUS.md) · [Exakta resultat](docs/VERIFICATION.md) · [Demo](docs/DEMO.md).
+Lokal slutmatris på kod 3cd633b: 43 unit, 30 integration ×3 och 12 E2E i fyra lägen, lint/tsc/build/cleanup PASS. Grok har oberoende verifierat samma matris på cad997b och **godkänt Epic 02 som lokal POC**, utan blockerande fynd. Audit kvar FAIL (3 höga/7 måttliga). Slutdemo 4/4 PASS. **POC för syntetiska uppgifter, inte pilot**. [Aktuell status](docs/PROJECT_STATUS.md) · [Exakta resultat](docs/VERIFICATION.md) · [Slut-QA](docs/qa/QA-REPORT-epic02-cad997b.md) · [Demo](docs/DEMO.md).
 
 ## Uppföljning M2/L8 efter fixomgång 3
 
@@ -57,6 +57,8 @@ MCP-serverns nya `create_booking` exponeras endast med **både** `--admin --allo
 Verktyget kräver `serviceId`, `start` (ISO-instant med offset), `customerName`, `customerEmail` (endast `example.test`), `clientRequestId` (1–64 tecken, samma regel som HTTP:s idempotensnyckel) och `confirmed: true`. Okända fält nekas. `confirmed` är klientens försäkran, inte tekniskt bevis på en människas godkännande. Använd samma nyckel och uppgifter vid retry; ändrade uppgifter kräver ny nyckel. Nycklar delar samma befintliga namnrymd som HTTP inom demosalongen.
 
 Svaret innehåller endast `id`, `serviceId`, `startsAt`, `endsAt` i UTC. Samma domänmotor, överlappsskydd, idempotens och dagstak används som i webben. Den lokala MCP-kanalen har **ett gemensamt tak på fem nya bokningar per skapandedag i Stockholm**, även efter processomstart, samt tre per e-postnyckel. Det är ett avsiktligt begränsat testläge, inte individuella agentkvoter. Replays förbrukar ingen ny kvot. Ingen klientstyrd IP/kvotidentitet accepteras.
+
+Protokollbegränsningar från slut-QA: SDK:n tar bort ett rått eget `__proto__`-fält före verktygets strikta validering; ingen prototypförorening observerades. Felaktiga anropshöljen där `arguments` inte är ett objekt ger SDK:ns protokollfel, inte verktygets statiska feltext. `ja` kan matas via pipe, så testklientens bekräftelse är inte bevis på mänsklig granskning. Dessa dokumenterade POC-begränsningar ändrar inte flagg-/domänkontrollerna.
 
 `list_bookings` i adminläge kräver nu `from` och `to` som inkluderande datum `YYYY-MM-DD` i Europe/Stockholm, högst 31 kalenderdagar. `limit` är valfri (standard 20, max 100) och `cursor` är valfri. Exempel på argument:
 
