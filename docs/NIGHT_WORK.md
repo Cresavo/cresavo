@@ -9,7 +9,7 @@ Avgränsning vid start: genomför Epic 02:s E02-0–6. Senare styrning från pro
 | Uppgift | Status | Bevis / hinder |
 | --- | --- | --- |
 | E02-0 | PASS | Regler lästa, separat branch, ny loopback PostgreSQL 18.6/55448, booking_epic02_test, 3 migrationer och seed. |
-| E02-1–3 | Lokalt PASS; första QA godkänd med ett lågt fel | Grok granskade fc83a70 i egen miljö och godkände servergrunden. E02-QA-1 rättad i 3cd633b, exakt statisk feltext och strikt schema testade. Slutkontroll återstår. |
+| E02-1–3 | PASS, oberoende slut-QA klar | Grok granskade fc83a70 och sedan cad997b. E02-QA-1 rättad i 3cd633b och stängd; exakt statisk feltext och strikt schema testade. Inga blockerande fynd. |
 | E02-4–5 | PASS lokalt | 43 unit, 30 integration ×3, testklient ja/nej/EOF och 12 E2E ×4 lägen; riktig HTTP/MCP-samtidighet inkluderad. Se VERIFICATION. |
 | E02-6 | PASS | Grok godkände cad997b som lokal POC kl. 01:44 CET, inga blockerande fynd. 43 unit/30 integration ×3/12 E2E ×4 och ren installation PASS även i QA:s egen miljö. Slutdemo 4/4 PASS från ren 7a65aee; första inspelningsfelets orsak fortsatt okänd. Originalrapport i docs/qa. |
 | Grok-överlämning | PASS | Chrome-adressen verifierad; KONTAKT_OK läst; första frysta QA-uppdraget utfört i egen kopia på Groks dator med separat databas. Originalrapport/fixbeställning sparade i docs/qa. Desktop-utkastet var inte skickat. |
@@ -24,14 +24,16 @@ Separat branch epic-03-dependency-security från dba05a2. Plan716e679, produktko
 | E03-0–2 | PASS lokalt | Ren bas, Prisma7.10.1, explicita env-/pool-/UTC-regler, notices och 129 ändrade paketposter inventerade. Ingen generell EPL/AGPL-kompatibilitet påstås. |
 | E03-3 | BLOCKERAT upstream | 7 moderate ESLint/minimatch kvar; ingen stödd rättad kedja verifierad. Inga overrides/lintundantag. 0 high och prod audit0fynd. |
 | E03-4 | PASS | Ren npm ci568paket; generate/migrate/seed på ny PG18.6/55449, syntetisk template-uppgraderingskopia från Epic02. |
-| E03-5 | PASS lokalt, QA pågår | 51 unit,31 integration ×3,12 E2E ×4,lint/tsc/build/cleanup PASS. Slutdata0,overlap0,deadlocks0. Grok bekräftade SHA/ZIP och kör i egen miljö med svensk serverzon. |
-| E03-6 | Pågår | Dokumentationen uppdaterad; slutrapport/QA/avslutande processstopp återstår. Ingen ny video för osynlig dependencyändring; äldre Epic02-demo märks tydligt. |
+| E03-5 | PASS lokalt och oberoende QA | 51 unit,31 integration ×3,12 E2E ×4,lint/tsc/build/cleanup PASS. Slutdata0,overlap0,deadlocks0. Grok bekräftade SHA/ZIP och kör i egen miljö med svensk serverzon. |
+| E03-6 | PASS som lokal POC | Groks slutrapport läst/sparad, inga blockerande fynd; egen PG/helper/webb stoppade, 0 lyssnare. Ingen ny video för osynlig dependencyändring; äldre Epic02-demo märks tydligt. |
 
 Första integrationen fångade nya strukturerade adapterfel och offsetlösa datumvärden mot icke-UTC PG; rättat med tester, inga sänkta kriterier. Extern uppgraderingsprobe kunde inte använda saknade pg_dump/restore; templatekopian PASS. Tvångsprober 40P01/40001 PASS efter korrigerad .mts-filtyp. Se VERIFICATION/DEPENDENCY_REVIEW för alla resultat och tidiga fel.
 
-För slut-QA lämnades ren klon booking-lab-qa-epic03-18a4d73 och byteexakt källkods-ZIP, SHA256 F18D8BB21354DFB9CD99B21161750DF37BF72AD81F9BB5B4CA04F4398D9F6F9A, 133 arkivposter utan env/modules/genererade filer. Skickat02:05CET. Grok kör samma avgränsade QA i egen miljö; inga dubbla QA-omgångar beställda. Kompletterande faktisk slutmatris skickad utan ny snapshot/nytt jobb. Äldre PG55448 stoppad igen efter uppgraderingskopian och nollräkning; nya55449 ägs av denna omgång och hålls tills eventuell rättning verifierats.
+För slut-QA lämnades ren klon booking-lab-qa-epic03-18a4d73 och byteexakt källkods-ZIP, SHA256 F18D8BB21354DFB9CD99B21161750DF37BF72AD81F9BB5B4CA04F4398D9F6F9A, 133 arkivposter utan env/modules/genererade filer. Skickat02:05CET. Grok kör samma avgränsade QA i egen miljö; inga dubbla QA-omgångar beställda. Kompletterande faktisk slutmatris skickad utan ny snapshot/nytt jobb. Äldre PG55448 stoppad igen efter uppgraderingskopian och nollräkning; även nya 55449 och helpern är nu stoppade efter nollräkning i både test/demo.
 
 Codex fortsätter lokalt arbete och kan nu lämna underlag via Groks verifierade Chrome-flik. Detta är en aktiv arbetsomgång, inte en verifierad headless-installation eller ett löfte om kontinuerlig drift om värden/sessionen stannar.
+
+Slut-QA: Grok gav GO 02:25 CET på 18a4d73; originalrapport i docs/qa. 51 unit, 31 integration ×3, 12 E2E ×4 samt extra tidszon/uppgradering/4 400 blandade anrop PASS. Fyra deadlocks enbart i direkt-ORM-bypass-prober är dokumenterade; 0 i produktvägen. Ingen fixbeställning eller ytterligare rättningsrunda behövdes. Produktkod oförändrad, endast dokumentation efter snapshot.
 
 ## Resurser
 

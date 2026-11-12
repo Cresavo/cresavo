@@ -1,6 +1,6 @@
 # Epic 03 — beroendesäkerhet
 
-2026-11-12, bas dba05a2. Kandidat under verifiering; inget publicerat. Detta dokument skiljer paketadvisories, faktisk användning och licensvillkor. Ett grönt audit-resultat är inte ett säkerhets- eller licensgodkännande.
+2026-11-12, bas dba05a2, kod 18a4d73. Grok har godkänt uppgraderingen som lokal POC utan blockerande fynd; inget publicerat. Detta dokument skiljer paketadvisories, faktisk användning och licensvillkor. Ett grönt audit-resultat är inte ett säkerhets- eller licensgodkännande. [Oberoende slutrapport](qa/QA-REPORT-epic03-18a4d73.md).
 
 ## Beslut
 
@@ -44,5 +44,13 @@ Ingen distribution av node_modules, binärer eller container görs. Före sådan
 Byggbevis på 18a4d73: de tio .next/server/*.nft.json-spårningsfilerna gav **0 referenser** till elkjs, @prisma/studio eller prisma/build. Detta stödjer bedömningen att verktyget inte är en del av det byggda appanropsträdet, men är inte en full licens-/distributionsklarering av en framtida image.
 
 ## Rollback och kvar
+
+### Oberoende slutkontroll
+
+Grok verifierade 51 unit, 31 integration ×3 och 12 E2E ×4 i egen Linux-miljö, svensk server-/Node-zon och extra unit/integration i New York. Dess riktiga Prisma 6→7→6-probe bevarade tidigare och nya data runt fyra DST-dagar. 220 blandade omgångar/4 400 anrop och poolbelastning gav 0 serverfel/överlappar och 0 deadlocks i **produktens låsta bokningsväg**. Dessa är QA:s rapporterade körningar, inte Codex extra tester.
+
+E03-QA-1: testet med två direkta ORM-writes som avsiktligt kringgår bokningslåsen kan ge en förväntad PostgreSQL-deadlock där en transaktion avvisas. QA såg 4 sådana efter extra repetitioner; alla tester passerade och ingen dubbelbokning uppstod. Vår observerade lokala räknare 0 är ett körresultat, ingen garanti om globalt 0 under direkta writes. Dokumentation/testprecisering kan göras senare; inga produktlås eller tester mildras för att dölja detta. Kravet 0 deadlocks gäller produktvägens stressprober.
+
+E03-QA-2 kvarstår som medium pilot-/distributionsgrind: CLI/Studio/elkjs finns även i produktionsinstallation. Ingen generell licensklarering följer av inventeringen. E03-QA-3: minimatch-rättningen finns i typescript-eslint-canary men ingen stabil version verifierad; ingen förhandsversion införs. E03-QA-4: första frågan efter avsiktligt dödade poolanslutningar kan fela en gång före återanslutning; ingen blind transaktionsretry införs. E03-QA-5: MCP:s pooluppvärmning påverkar kapplöpningens starttid, inte korrektheten. Den specifika .env-autoladdningen (E02-QA-2) är verifierat löst; OS-isolering återstår.
 
 Eftersom ingen migration eller tabell ändrats sker kodrollback genom att återgå till dba05a2:s kod/manifest/låsfil och köra npm ci + prisma generate. Ingen återställning av kunddata behövs för schemaändring i denna batch; återgång över skarpa samtidiga skrivningar/backup har inte verifierats och ingen pilot är godkänd. Slutmatris och QA dokumenteras i VERIFICATION/HANDOFF efter körning. Kvarstående audit ska inte döljas eller flyttas till allowlist.

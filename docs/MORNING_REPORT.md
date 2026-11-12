@@ -1,6 +1,6 @@
 # Morgonrapport — Booking Lab SE, 2026-11-12
 
-**Epic 02 är godkänd som lokal POC. Epic 03 är lokalt verifierad och väntar på Groks slutrapport. Pilot är NO-GO.** Inget pushat, mergat eller deployat; privat repo. Remote main kontrollerad läsande: b000481. Ingen lokal main-branch finns.
+**Epic 02 är godkänd som lokal POC. Epic 03 är också godkänd som lokal POC; upstream-/distributionsgrindar kvarstår. Pilot är NO-GO.** Inget pushat, mergat eller deployat; privat repo. Remote main kontrollerad läsande: b000481. Ingen lokal main-branch finns.
 
 ## Vad byggdes och vad kan jag prova?
 
@@ -19,7 +19,7 @@
 | Cleanup / överlapp / deadlocks | PASS, alla 0 | PASS, alla 0 |
 | Full audit | FAIL: 3 high / 7 moderate | FAIL: 0 high / 7 moderate |
 | Produktionsaudit | Tidigare kvarstående fynd | PASS: 0 fynd |
-| Oberoende Grok-QA | PASS | PÅGÅR i egen miljö |
+| Oberoende Grok-QA | PASS | PASS, [Groks originalrapport](qa/QA-REPORT-epic03-18a4d73.md) |
 
 Epic 03 har dessutom PASS för syntetisk äldre DB-kopia, verkliga insert-fel 40P01/40001 och produktionsstart mot separat demo: root/admin 200, loginform och två tjänster. [Exakta kommandon, tider, loggar och misslyckade första prober](VERIFICATION.md). Extern CI, Docker, riktig TLS/proxy/flerinstansdrift och logisk backup/restore är **ej körda**.
 
@@ -27,10 +27,12 @@ Epic 03 har dessutom PASS för syntetisk äldre DB-kopia, verkliga insert-fel 40
 
 [Epic 02-galleri och steg](DEMO.md): 14 bilder/4 videor, produktion från ren **7a65aee**, 4/4 PASS. Bilder granskade; videor avkodade utan mediafel men inte fullt genomtittade. Första inspelningsfelets orsak okänd. Ingen ny inspelning för Epic 03:s osynliga ändring; den äldre filmen är inte testbevis för Prisma 7.
 
+QA såg 4 deadlocks bara i ett direkt-ORM-test som avsiktligt kringgår bokningslåsen; produktvägens 4 400 blandade anrop hade 0. Vår lokala räknare var 0, vilket är ett körresultat. Ingen produktfix eller ny QA-loop behövdes.
+
 Pilot kräver fortfarande individuell admin/MFA, kund-GDPR-livscykel, kvarvarande audit, riktig drift/processisolering och kundkontaktbeslut. EPL-verktyg och sharp/libvips kräver separat faktisk distributionskontroll; ingen generell licensklarering av framtida image påstås.
 
-1. Avsluta Groks avgränsade Epic 03-QA och eventuella konkreta regressioner; inga fler stil-/funktionsloopar.
-2. Besluta nästa avgränsning för adminidentitet och kund-GDPR före pilot.
-3. Efter uttryckligen godkänd push: kontrollera extern fyrfälts-CI och följ upp audit-/driftgrindarna.
+1. Avgränsa individuell adminåtkomst inför pilot.
+2. Besluta och bygg testad kund-GDPR-livscykel.
+3. Definiera leveransartefakt och verifiera audit/licenser/drift; extern CI först efter uttryckligen godkänd push.
 
-**Resurser:** egen gamla PG 55448 och smoke-webben är stoppade. Nya PG 55449 är ännu igång inför eventuell omkontroll och stoppas vid avslut. Endast ignorerad syntetisk .env/egna databaser och lokala artefakter kvar. Diskagenten frigjorde 1,843 GiB på D: via npm-cacheunderhåll; inga projekt eller databaser raderades. Ingen ny betald API-tjänst startad. Epic 02 tog cirka 1 h 18 min; Epic 03-tid anges vid slutbesked.
+**Resurser:** egen gamla PG 55448 och smoke-webben är stoppade. Även nya PG 55449/helpern är stoppade. Noll lyssnare på 3000/55448/55449. Endast ignorerad syntetisk .env/egna databaser och lokala artefakter kvar. Diskagenten frigjorde 1,843 GiB på D: via npm-cacheunderhåll; inga projekt eller databaser raderades. Ingen ny betald API-tjänst startad. Epic 02 tog cirka 1 h 18 min; Epic 03 cirka 40 min fram till godkänd QA och ytterligare avslutande dokumentation.

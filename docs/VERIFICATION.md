@@ -1,14 +1,14 @@
-# Verifiering — aktuell Epic 03-kandidat
+# Verifiering — aktuell Epic 03, godkänd lokal POC
 
-2026-11-12, kod **18a4d736bd5435ed8d856ae87843cadcf237cfcc**, branch epic-03-dependency-security, bas dba05a2. Node 24.16.0 / npm 11.13.0 på Windows; ny PostgreSQL 18.6 på loopback 55449/booking_epic03_test. Serverns grundzon Europe/Paris, klientzon uttryckligen UTC. Syntetiska data; ingen push/merge/deploy. Groks oberoende slut-QA pågår, ingen slutbedömning antas.
+2026-11-12, kod **18a4d736bd5435ed8d856ae87843cadcf237cfcc**, branch epic-03-dependency-security, bas dba05a2. Node 24.16.0 / npm 11.13.0 på Windows; ny PostgreSQL 18.6 på loopback 55449/booking_epic03_test. Serverns grundzon Europe/Paris, klientzon uttryckligen UTC. Syntetiska data; ingen push/merge/deploy. Groks oberoende slut-QA gav GO som lokal POC kl. 02:25 CET. Inga blockerande fynd; E03-3 är fortsatt upstreamblockerat. Pilot NO-GO.
 
 ## Aktuell resultattabell
 
 | Kommando / kontroll | Faktiskt resultat på kandidaten |
 | --- | --- |
-| npm ci | **PASS**, exit 0, added 568 / audited 569 i 1 min. ESLint9 deprecation-varning;7 moderate. |
+| npm ci | **PASS**, exit 0, added 568 / audited 569 i 1 min. ESLint9 deprecation-varning; 7 moderate. |
 | npx prisma generate | PASS, Generated Prisma Client v7.10.1,126 ms. |
-| npm run db:migrate | PASS, alla3 oförändrade migrationer på ny databas. |
+| npm run db:migrate | PASS, alla 3 oförändrade migrationer på ny databas. |
 | npm run db:seed | PASS, exit 0, två syntetiska tjänster. |
 | npm run lint | PASS, exit 0. |
 | npx tsc --noEmit | PASS, exit 0 både före och efter fullmatris. |
@@ -16,28 +16,34 @@
 | npm run test:integration ×3 | PASS, **31/31 ×3**,25,27 / 26,83 / 28,11 s,8 filer. |
 | TRUST_PROXY_IP=0 npm run test:e2e | PASS, dev **12/12**,1,4 min. |
 | TRUST_PROXY_IP=1 npm run test:e2e | PASS, dev **12/12**,35,7 s. |
-| npm run build | PASS,3,6 s kompilering, TypeScript,8/8statiska sidor. |
+| npm run build | PASS,3,6 s kompilering, TypeScript,8/8 statiska sidor. |
 | E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e | PASS, **12/12**,29,2 s. |
 | E2E_PRODUCTION=1 TRUST_PROXY_IP=1 npm run test:e2e | PASS, **12/12**,25,2 s. |
 | node --env-file=.env scripts/test-cleanup.mjs | PASS, wrapperexit 0: CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0; PASS. |
-| Slutaggregat/SQL-overlap/pg_stat_database | PASS: bookings0,campaigns0,sessions0,overlaps0,deadlocks0. |
-| Syntetisk uppgraderingskopia från Epic 02 | PASS, templatekopia på55448/booking_epic03_upgrade_test:3 migrationer inga väntande, Booking/Campaign/Session bevarade, ORM-update exakt UTC-epoch. |
-| Riktig SQLSTATE-probe vid insert | PASS: tvingade 40P01 och 40001 gav DomainError/status400; 0 testtriggerrester. Extern .mts-probe, inte ytterligare två testfall i svitens 31. |
+| Slutaggregat/SQL-overlap/pg_stat_database | PASS: bokningar 0, kampanjer 0, sessioner 0, överlapp 0, deadlocks 0 (lokal observation). |
+| Syntetisk uppgraderingskopia från Epic 02 | PASS, templatekopia på 55448/booking_epic03_upgrade_test: 3 migrationer inga väntande, Booking/Campaign/Session bevarade, ORM-update exakt UTC-epoch. |
+| Riktig SQLSTATE-probe vid insert | PASS: tvingade 40P01 och 40001 gav DomainError/status 400; 0 testtriggerrester. Extern .mts-probe, inte ytterligare två testfall i svitens 31. |
 | Separat lokal demodatabas / produktionsstart | PASS: ny booking_epic03_demo migrerad/seedad. ROOT_STATUS=200, ADMIN_STATUS=200 med loginform, SERVICE_COUNT=2; egen smoke-server stoppad, därefter 0 bokningar/kampanjer/sessioner/överlapp/deadlocks. Ingen video inspelad. [Windows-guide](LOCAL_DEMO_WINDOWS.md). |
 | npm audit --json | **FAIL exit 1,7 moderate,0 high/critical**. Ingen override eller allowlist. |
-| npm audit --omit=dev --json | **PASS exit 0,0 fynd**. CLI kan ändå installeras via optionalpeer. |
-| Byggspårning |10 server-nft-filer,0 elkjs/Studio/prisma-build-referenser. Inte full distributionsklarering. |
+| npm audit --omit=dev --json | **PASS exit 0,0 fynd**. CLI kan ändå installeras via optional peer. |
+| Byggspårning | 10 server-nft-filer, 0 elkjs/Studio/prisma-build-referenser. Inte full distributionsklarering. |
 | Ny demo, extern CI, Docker, riktig TLS/proxy/flerinstans | **EJ KÖRT**. Ingen synlig produktändring/ingen push; Docker saknas. Senaste video är äldre Epic 02-kod. |
-| Grok QA | **PÅGÅR** på fryst 18a4d73, med egen miljö. Inget PASS antas före läst rapport. |
+| Grok QA | **PASS, lokal POC** på 18a4d73. Ren installation, 51 unit, 31 integration ×3, 12 E2E ×4; extra NY-tidszon, Prisma 6→7→6 och 4 400 blandade anrop. Full audit FAIL 7 moderate, prod PASS 0. [Groks originalrapport](qa/QA-REPORT-epic03-18a4d73.md). |
 
 Alla faktiska körloggar utanför Git i C:/Users/<user>/booking-lab-pg-test/: epic03-ci/generate/migrate/seed.log; epic03-final-lint/tsc/unit/integration-1/2/3/e2e-dev-0/1/build/e2e-prod-0/1/cleanup/tsc-after.log; epic03-final-audit.json och epic03-final-audit-production.json. Uppgraderingsproben: epic03-upgrade-clone.log. De angivna tiderna/countsen kommer från faktisk output; inga CI-resultat tillskrivs lokal körning.
 
+## Oberoende QA och deadlock-avgränsning
+
+QA:s ordinarie matris hade också deadlocks=0. Efter extra repetitioner såg QA däremot **4 deadlocks i det avsiktligt låsförbigående direkt-ORM-testet**; en transaktion avvisas och integritetskravet håller. Den låsta produktvägen hade 0 deadlocks/överlappar/serverfel i QA:s stressprober. Vår lokala räknare 0 ovan är faktiskt observerad, ingen garanti för globalt 0 under direkta DB-writes. E03-QA-1 är en dokumenterad testprecisering i backloggen; inga lås eller testgränser ändras för att dölja detta.
+
+QA bekräftade även poolens max 5 vid återanslutning, explicit env utan Prisma-autoladdning och exakt 129 inventeringsposter. E03-QA-2 är en fortsatt distributions-/pilotgrind för CLI/Studio/EPL; E03-QA-3–5 gäller väntad stabil minimatchfix, första frågans fel efter dödad anslutning och pooluppvärmning. Inget nytt rättningsvarv behövdes. Plattformsskillnader: QA installerade 569 paket och såg 12 nft-filer på Linux, mot våra 568 och 10 på Windows; samma versioner/resultat och 0 Studio/elkjs-byggreferenser.
+
 ## Fel som fångades och begränsningar
 
-- Första integration:24PASS/1FAIL/5SKIPPED. Verklig exclusion gav ny adapter-meta; DST-fixturens check bröts p.g.a. offsetlös serialisering i annan PG-sessionzon. Rättat med strukturerad mapping och UTC-session, inte ändrade datum/testgränser/DB-spärrar. Sedan31/31 och slutmatrisen ovan. Logg epic03-initial-integration.log.
-- Första externa licensinventering använde ConvertFrom-Json utan -AsHashtable på npm:s tomma rotkey; metadata kom inte fram. Korrigerad inventering har129ändrade poster. Saknad LICENSE i @prisma/dev-rot dokumenteras, ingen full bundled-licensklarering påstås.
+- Första integration:24 PASS / 1 FAIL / 5 SKIPPED. Verklig exclusion gav ny adapter-meta; DST-fixturens check bröts p.g.a. offsetlös serialisering i annan PG-sessionzon. Rättat med strukturerad mapping och UTC-session, inte ändrade datum/testgränser/DB-spärrar. Sedan 31/31 och slutmatrisen ovan. Logg epic03-initial-integration.log.
+- Första externa licensinventering använde ConvertFrom-Json utan -AsHashtable på npm:s tomma rotkey; metadata kom inte fram. Korrigerad inventering har 129 ändrade poster. Saknad LICENSE i @prisma/dev-rot dokumenteras, ingen full bundled-licensklarering påstås.
 - pg_dump/pg_restore-proben gav exit 1 eftersom binärerna saknas. Ingen backup/restore är verifierad. Egen testfixture städades; templatekopian genomfördes sedan med PASS. Loggar för båda finns kvar.
-- ESLint9 deprecation och NO_COLOR/FORCE_COLOR-varning kvar. Vites tidigare CJS/ESM-configvarning uppträder inte efter type:module. Audit7 moderate är kvar/upstreamblockerat, inte grönt.
+- ESLint9 deprecation och NO_COLOR/FORCE_COLOR-varning kvar. Vites tidigare CJS/ESM-configvarning uppträder inte efter type:module. Audit 7 moderate är kvar/upstreamblockerat, inte grönt.
 - Ingen nätverksfångst, full OS-processisolering, skarp backup/rollback eller binär/containerlicensgranskning. [Beslut och risker](DEPENDENCY_REVIEW.md).
 
 ## Bilaga — Epic 02 verifieringshistorik

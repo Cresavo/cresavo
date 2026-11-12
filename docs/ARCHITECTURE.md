@@ -1,6 +1,6 @@
 # Arkitektur
 
-## Epic 03-kandidat: databasanslutning
+## Epic 03: databasanslutning
 
 Prisma 7.10.1 med PostgreSQL-adapter skapas endast via scripts/database.mjs. Fabriken återanvänds i appens befintliga singleton, seed, demo och testhjälpare. Varje klient får högst fem anslutningar, fem sekunders anslutnings-/poolväntan och tio sekunders inaktiv timeout; domänens transaktionsgränser är kvar. $disconnect stänger den adapterägda poolen. Flera processer multiplicerar budgeten och är inte verifierad drift.
 

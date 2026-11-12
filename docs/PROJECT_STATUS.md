@@ -1,18 +1,20 @@
-# Projektstatus — Epic 03 verifierad lokalt, QA pågår
+# Projektstatus — Epic 03 godkänd som lokal POC
 
-2026-11-12, kod **18a4d73**, branch epic-03-dependency-security. Epic01/02 avslutade som lokala POC:er. Epic 03 förbättrar beroendesäkerhet utan nya produktfunktioner; Groks oberoende slutkontroll pågår. **Pilot NO-GO**. [Verifiering](VERIFICATION.md) · [Avgränsning](EPIC_03_PLAN.md).
+2026-11-12, kod **18a4d73**, branch epic-03-dependency-security. Epic01/02 avslutade som lokala POC:er. Epic 03 förbättrar beroendesäkerhet utan nya produktfunktioner; Groks oberoende slutkontroll gav GO kl. 02:25 CET; inga blockerande fynd. [Groks originalrapport](qa/QA-REPORT-epic03-18a4d73.md). **Pilot NO-GO**. [Verifiering](VERIFICATION.md) · [Avgränsning](EPIC_03_PLAN.md).
 
 | Acceptanskriterium / produktkvalitet | Tekniskt och automatiskt | Prova / UX / kundberedskap |
 | --- | --- | --- |
 | Prisma 7 startar mot ny DB och bevarar tidigare schema/data | PASS npm ci/generate/3migrate/seed och syntetisk uppgraderingskopia | Samma README-kommandon; ingen synlig UI-ändring. Ej kundklart. |
-| Bokning, admin och kampanj samt lokal MCP bevarar beteende | PASS51 unit/31 integration×3/12 E2E×4, lint/tsc/build | Ja lokalt, syntetiska uppgifter. Befintlig POC-UX oförändrad. |
+| Bokning, admin och kampanj samt lokal MCP bevarar beteende | PASS 51 unit/31 integration×3/12 E2E×4, lint/tsc/build | Ja lokalt, syntetiska uppgifter. Befintlig POC-UX oförändrad. |
 | Tider bevaras vid DST och annan serverzon | PASS verklig ORM/rawSQL/SHOW TIME ZONE, sommar/vinter | Affärszon Stockholm, lagring UTC. Ingen midnattsbokning tillkommer. |
-| Exclusion, idempotens,20parallell och kvoter består | PASS befintliga regressioner,0 överlapp/deadlocks | Testbart automatiskt, ingen drift-/flerinstansgaranti. |
-| Ta bort höga Prisma-advisories utan override | PASS full audit0 high, prod0 fynd | Verktygsträdet större; notices/releasekontroll krävs. |
+| Exclusion, idempotens,20parallell och kvoter består | PASS i produktvägen: 0 överlapp/deadlocks; direkt-ORM-bypass kan deadlocka | Testbart automatiskt, ingen drift-/flerinstansgaranti. |
+| Ta bort höga Prisma-advisories utan override | PASS full audit0 high, prod 0 fynd | Verktygsträdet större; notices/releasekontroll krävs. |
 | Rätta måttliga ESLint/minimatch-fynd med stödd kedja | **BLOCKERAT upstream**,7 moderate kvar | Inga lintregler/audit dolda. Inte ett grönt full audit eller pilotgodkännande. |
-| Oberoende slut-QA och slutleverans | PÅGÅR | Ingen färdig Epic 03 påstås ännu. |
+| Oberoende slut-QA och slutleverans | PASS, avgränsad lokal POC | Inga blockerande fynd; sju audit-fynd och distributionsgrindar kvar. |
 
-Sedan Epic 02: kontrollerad Prisma 7-adaptermigrering, explicit konfiguration, UTC-/felregressioner, licensinventering och full lokal verifiering. Inga schemafält/historiska migrationer eller användarfunktioner ändrade. Nästa produktfunktioner för adminidentitet/GDPR/kundkontakt kräver separat avgränsning. Demo från7a65aee är äldre kod; ingen ny inspelning för osynlig ändring.
+E03-QA-1–5 är dokumenterade i DEPENDENCY_REVIEW: direkt-ORM-testets förväntade deadlock, CLI/EPL-distribution, upstreamfix, anslutningsåterhämtning och uppvärmning. Den specifika .env-autoladdningen är löst, OS-isolering återstår.
+
+Sedan Epic 02: kontrollerad Prisma 7-adaptermigrering, explicit konfiguration, UTC-/felregressioner, licensinventering och full lokal verifiering. Inga schemafält/historiska migrationer eller användarfunktioner ändrade. Nästa produktfunktioner för adminidentitet/GDPR/kundkontakt kräver separat avgränsning. Demo från 7a65aee är äldre kod; ingen ny inspelning för osynlig ändring.
 
 ## Bilaga — Epic 02 godkänd status
 

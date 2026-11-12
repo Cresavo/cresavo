@@ -1,6 +1,6 @@
 # Datakarta för Booking Lab SE POC
 
-## Epic 03-kandidat: explicit databasmiljö
+## Epic 03: explicit databasmiljö
 
 Ingen ny personuppgift, tabell eller extern mottagare tillkommer. Prisma 7 använder lokal PostgreSQL-driveradapter via samma klientfabrik. Runtime/MCP autoläser inte längre .env genom Prisma; endast CLI-konfigurationen laddar den uttryckligen. Startkommandon med --env-file laddar fortfarande filen avsiktligt. Readonly-subprocessens befintliga miljövitlista får därmed avsedd effekt för just automatisk env-laddning, men är ingen OS-/filsystemsisolering. Datum lagras med uttrycklig UTC-session; UI/dagstak använder fortsatt Stockholm. Nedanstående Prisma 6-autoladdning är historiken från Epic 02. Nätverksfångst/leverantörsbedömning har inte gjorts i uppgraderingen; CLI:s större Studio/dev-träd har inte startats som tjänst. [Detaljer](DEPENDENCY_REVIEW.md).
 

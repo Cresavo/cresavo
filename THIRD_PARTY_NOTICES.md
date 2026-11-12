@@ -1,6 +1,6 @@
 # Third-party notices
 
-## Epic 03 candidate — Prisma 7 (2026-11-12)
+## Epic 03 verified local POC — Prisma 7 (2026-11-12)
 
 Prisma CLI, Client, PostgreSQL adapter and driver-adapter-utils **7.10.1**: installed LICENSE texts declare **Apache-2.0**. The new direct adapter is required by Prisma 7; its transitive **pg** driver (Brian Carlson and contributors) and **postgres-array** (Ben Drucker and contributors) carry **MIT** license texts. Preserve those original texts/copyright notices. [Prisma source](https://github.com/prisma/prisma), [adapter source](https://github.com/prisma/prisma/tree/main/packages/adapter-pg), [node-postgres source](https://github.com/brianc/node-postgres).
 

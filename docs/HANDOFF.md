@@ -1,14 +1,16 @@
-# Handoff — Epic 03, lokal kandidat för QA
+# Handoff — Epic 03 godkänd som lokal POC
 
 Kod **18a4d73**, bas **dba05a2** (Epic 02 godkänd), branch epic-03-dependency-security. Inget pushat/mergat/deployat; privat repo och main orörda.
 
-Prisma/client/adapter-pg är exakt7.10.1. Ett nytt direkt adapterberoende; pg transitivt, ingen ny env-loader. Gemensam klientfabrik i scripts/database.mjs för webb/MCP/seed/test/demo, begränsad pool och explicit UTC-session. Endast CLI-konfigurationen laddar .env; runtime kräver exporterad URL. Strukturerad v7-konfliktmappning. Schemafält, historiska migrationer, låsordning och HTTP/MCP-kontrakt bevarade. [Beslut/licenser/tidiga fel](DEPENDENCY_REVIEW.md).
+Prisma/client/adapter-pg är exakt 7.10.1. Ett nytt direkt adapterberoende; pg transitivt, ingen ny env-loader. Gemensam klientfabrik i scripts/database.mjs för webb/MCP/seed/test/demo, begränsad pool och explicit UTC-session. Endast CLI-konfigurationen laddar .env; runtime kräver exporterad URL. Strukturerad v7-konfliktmappning. Schemafält, historiska migrationer, låsordning och HTTP/MCP-kontrakt bevarade. [Beslut/licenser/tidiga fel](DEPENDENCY_REVIEW.md).
 
 Ändrade kodfiler: package.json/låsfil, prisma/schema.prisma (bara URL bort), ny prisma.config.ts och scripts/database.mjs, src/lib/db.ts/domain.ts, seed, demo-/cleanupskript och E2E-klientkonstruktioner. Nya database-unit/integrationstester och adapterfeltester; vitest.config.ts har en syntetisk aldrig ansluten unit-URL. Dokumentation/notices/licensinventering uppdaterad; exakt lista via git diff --name-status dba05a2 18a4d73.
 
-Faktiskt PASS: ren npm ci/generate/3migrate/seed, lint/tsc/build,51 unit,31 integration×3,12 E2E×4,cleanup0 data/överlapp/deadlocks och syntetisk äldre DB-kopia. Full audit FAIL7 moderate/0 high; prod audit PASS0. E03-3 upstreamblockerat utan säker kompatibel minimatchfix; inga overrides/lintundantag. [Kommandon/loggar](VERIFICATION.md).
+Faktiskt PASS: ren npm ci, generate/tre migrationer/seed, lint/tsc/build, 51 unit, 31 integration ×3, 12 E2E ×4, cleanup och syntetisk äldre DB-kopia. Lokalt 0 kvarvarande data/överlapp/deadlocks. Full audit FAIL: 7 moderate / 0 high; prod audit PASS: 0. E03-3 upstreamblockerat utan säker kompatibel minimatchfix; inga overrides/lintundantag. [Kommandon/loggar](VERIFICATION.md).
 
-Grok granskar fryst 18a4d73 från ren separat klon och source-ZIP, SHA256 F18D8BB21354DFB9CD99B21161750DF37BF72AD81F9BB5B4CA04F4398D9F6F9A. Uppdrag skickat02:05CET; oberoende slutbedömning **återstår**. Ingen ny demo; äldre Epic 02-galleri har14 PNG / 4 WebM, filmer inte fullt genomtittade. Nuvarande beteende verifieras genom E2E, inte genom den äldre videon.
+Grok godkände **18a4d73** som lokal POC kl. 02:25 CET; inget blockerande fynd eller fixbeställning. [Groks originalrapport](qa/QA-REPORT-epic03-18a4d73.md). QA körde hela matrisen i egen miljö, extra New York-zon, riktig Prisma 6→7→6 och 4 400 blandade anrop med 0 produktvägsdeadlocks/överlappar/serverfel. Fyra deadlocks sågs enbart i det avsiktligt låsförbigående direkt-ORM-testet; dokumenterad testbegränsning, inte en produktregression. Kod och tester är oförändrade efter QA-snapshoten.
+
+Ingen ny demo; äldre Epic 02-galleri har 14 PNG / 4 WebM, filmer inte fullt genomtittade. Nuvarande beteende verifieras genom E2E, inte genom den äldre videon. Egen PG 55448/55449 och webben är stoppade, 0 lyssnare; ignorerad syntetisk .env pekar på separat seedad demo. [Windows-start](LOCAL_DEMO_WINDOWS.md). Privat [GitHub-repo](https://github.com/niclasvestlund-YT/booking-lab-se); remote main läsverifierad b000481, ingen lokal main-branch eller push.
 
 Pilot fortsatt NO-GO. Identitet/MFA, kund-GDPR, audit/upstream, riktig drift/processisolering och kundkontaktbeslut kvar. EPL2 elkjs är separat Prisma Studio-verktyg, ingen kompatibilitet med AGPL påstås; framtida artefakt-/källkods-/noticegranskning krävs före binärdistribution. Rollback: tidigare kod/låsfil +npm ci/generate, ingen DB-migration att återställa. Ingen skarp rollback eller logisk backup/restore verifierad.
 

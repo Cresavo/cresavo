@@ -1,6 +1,6 @@
 # Integritets- och säkerhetsprinciper
 
-## Epic 03-kandidat: beroenden och explicit konfiguration
+## Epic 03: beroenden och explicit konfiguration
 
 Prisma 7.10.1 rättar den tidigare deepmerge-kedjan; full audit har preliminärt 7 moderate kvar i lintverktyg och produktionsaudit 0 fynd. Runtime/MCP autoläser inte längre .env via Prisma, men Node:s explicita env-flaggor och OS-/filåtkomst finns kvar. Detta löser ett specifikt konfigurationsbeteende, inte hela processisoleringsbehovet. Ingen ny mottagare eller behandling tillkommer. [Beroendegranskning, EPL-verktygsgräns och kvarvarande distributionskontroller](DEPENDENCY_REVIEW.md). Äldre Prisma 6-noteringar nedan är historik; pilot förblir NO-GO.
 
