@@ -1,12 +1,14 @@
 import { test as base, expect } from "@playwright/test";
 import { randomUUID, createHash } from "node:crypto";
 import { createDatabaseClient } from "../../scripts/database.mjs";
+import { createAdminUser } from "../../src/lib/admin-accounts";
 
 export const test = base.extend<{
   synthetic: {
     marker: string;
     title: string;
     trackSession: (cookie: string) => void;
+    admin: { email: string; password: string; id: string };
   };
 }>({
   synthetic: [
@@ -16,6 +18,11 @@ export const test = base.extend<{
         ? "Demoerbjudande – 20 % på fotvård"
         : marker;
       const db = createDatabaseClient();
+      const email = process.env.BOOKING_DEMO
+        ? `admin-${randomUUID().slice(0, 8)}@example.test`
+        : `${marker}-admin@example.test`;
+      const password = "synthetic-e2e-admin-password-2026";
+      const account = await createAdminUser(email, password);
       const sessions = new Set<string>();
       const pending: Promise<void>[] = [];
       const trackSession = (cookie: string) => {
@@ -34,7 +41,12 @@ export const test = base.extend<{
           );
       });
       try {
-        await provide({ marker, title, trackSession });
+        await provide({
+          marker,
+          title,
+          trackSession,
+          admin: { email, password, id: account.id },
+        });
       } finally {
         await Promise.all(pending);
         await db.adminSession.deleteMany({
@@ -44,6 +56,8 @@ export const test = base.extend<{
           where: { customerEmail: { startsWith: marker } },
         });
         await db.campaign.deleteMany({ where: { title } });
+        await db.adminSession.deleteMany({ where: { userId: account.id } });
+        await db.adminUser.delete({ where: { id: account.id } });
         await db.$disconnect();
       }
     },

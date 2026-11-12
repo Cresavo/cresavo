@@ -1,5 +1,19 @@
 # Datakarta för Booking Lab SE POC
 
+## Epic 04: administratörsidentitet
+
+| Yta | Uppgifter och mottagare | Minimering / kvarstående risk |
+| --- | --- | --- |
+| Lokal CLI → domän → PostgreSQL | Syntetisk admin-e-post och lösenord vid provisionering/reset; endast saltad Argon2id-hash lagras | Lösenord läses från dold terminal/stdin, aldrig argv, .env eller logg; ingen mejlleverans. Operatörens terminal/OS är betrodd. |
+| Loginform → samma origins API | email och password skickas lokalt via HTTP i POC; verklig drift kräver TLS | Strikt validering, generiskt401, klientspärr före KDF, ingen delad lösenordsfallback. Lösenord finns tillfälligt i processminne; ingen säker minnesnollning garanteras i JS. |
+| AdminUser | id, email, passwordHash, businessId, active, credentialVersion | Endast example.test, en demosalong. Hash är känslig autentiseringsdata; ingår i DB-backup men inte API/MCP. Ingen automatisk kontogallring. |
+| AdminSession / browser | DB: tokenhash, userId, expiresAt, revokedAt. Cookie: slumpmässigt token, expiry, signatur | Serverkontroll varje adminåtkomst; logout/reset/spärr återkallar raden. Befintlig begränsad sessionsgallring kvarstår. |
+| Skyddad adminvy | Den inloggades egen e-postidentifierare | Ingen ny kund-e-post lämnas ut. API-fel och CLI-koder innehåller inga identifierare/hashar. |
+| MCP / externa tjänster | Inga nya kontofält till MCP och ingen ny extern mottagare | Lokal --admin behåller sin särskilda tillitsmodell. Nativepaket installeras från npm; appen konfigurerar ingen ny extern tjänst. Ingen nätverksfångst gjord. |
+
+Konton/provsessioner skapas och städas av egna testfixtures. Endast syntetiska data; ingen GDPR-funktion för riktiga konton tillkommer. Nedanstående beskrivningar av delat ADMIN_PASSWORD är historiska. [Säkerhetsbeslut](ADR_004_ADMIN_IDENTITY.md).
+
+
 ## Epic 03: explicit databasmiljö
 
 Ingen ny personuppgift, tabell eller extern mottagare tillkommer. Prisma 7 använder lokal PostgreSQL-driveradapter via samma klientfabrik. Runtime/MCP autoläser inte längre .env genom Prisma; endast CLI-konfigurationen laddar den uttryckligen. Startkommandon med --env-file laddar fortfarande filen avsiktligt. Readonly-subprocessens befintliga miljövitlista får därmed avsedd effekt för just automatisk env-laddning, men är ingen OS-/filsystemsisolering. Datum lagras med uttrycklig UTC-session; UI/dagstak använder fortsatt Stockholm. Nedanstående Prisma 6-autoladdning är historiken från Epic 02. Nätverksfångst/leverantörsbedömning har inte gjorts i uppgraderingen; CLI:s större Studio/dev-träd har inte startats som tjänst. [Detaljer](DEPENDENCY_REVIEW.md).

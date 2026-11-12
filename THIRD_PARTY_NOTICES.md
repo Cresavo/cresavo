@@ -1,5 +1,14 @@
 # Third-party notices
 
+## Epic 04 password hashing (2026-11-12)
+
+**@node-rs/argon2 2.2.2**, copyright LongYinan, MIT: the installed wrapper LICENSE was read; retain its full text and attribution. Installed **@node-rs/argon2-win32-x64-msvc 2.2.2** declares MIT and supplies a native binding. [Source and license](https://github.com/napi-rs/node-rs), [package source](https://github.com/napi-rs/node-rs/tree/main/packages/argon2). No upstream source/binary is copied into Git. One new direct dependency is justified by a maintained Argon2id implementation; see [ADR004](docs/ADR_004_ADMIN_IDENTITY.md).
+
+The upstream Rust manifest uses argon2-rust, napi and allocator dependencies. Root MIT metadata alone does not clear every platform build's bundled sources/notices. Before binary/container distribution inventory the exact native artifact and Cargo source/dependency versions, preserve applicable MIT/Apache notices and verify corresponding obligations. Windows local installation is tested; other optional platforms are lockfile entries, not individually tested artifacts. Existing sharp/libvips and EPL distribution gates remain.
+
+Separate probe audit: zero findings. Application full audit after installation: seven moderate development-tool findings, zero high; production audit zero. This is not cryptographic certification or production clearance. No Better Auth probe package was added to the project.
+
+
 ## Epic 03 verified local POC — Prisma 7 (2026-11-12)
 
 Prisma CLI, Client, PostgreSQL adapter and driver-adapter-utils **7.10.1**: installed LICENSE texts declare **Apache-2.0**. The new direct adapter is required by Prisma 7; its transitive **pg** driver (Brian Carlson and contributors) and **postgres-array** (Ben Drucker and contributors) carry **MIT** license texts. Preserve those original texts/copyright notices. [Prisma source](https://github.com/prisma/prisma), [adapter source](https://github.com/prisma/prisma/tree/main/packages/adapter-pg), [node-postgres source](https://github.com/brianc/node-postgres).

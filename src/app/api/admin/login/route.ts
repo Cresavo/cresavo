@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkPassword, login, sameOrigin } from "@/lib/auth";
+import { login, sameOrigin } from "@/lib/auth";
+import { verifyAdminCredentials } from "@/lib/admin-accounts";
 import { failure } from "@/lib/http";
 import { clientIp, checkLoginAttempt } from "@/lib/rate-limit";
 
@@ -10,15 +11,16 @@ export async function POST(r: NextRequest) {
     const ip = clientIp(r.headers);
     const v = await r.json();
     if (
-      !(await checkLoginAttempt(
-        ip,
-        () =>
-          !!v && typeof v.password === "string" && checkPassword(v.password),
-      ))
+      !(await checkLoginAttempt(ip, async () => {
+        const identity = await verifyAdminCredentials(v);
+        return !!identity && (await login(identity));
+      }))
     ) {
-      return NextResponse.json({ error: "Fel lösenord" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Fel inloggningsuppgifter" },
+        { status: 401 },
+      );
     }
-    await login();
     return NextResponse.json(
       { ok: true },
       { headers: { "Cache-Control": "no-store" } },

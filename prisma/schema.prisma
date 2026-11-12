@@ -50,4 +50,17 @@ model AdminSession {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   expiresAt DateTime @db.Timestamptz(3)
   revokedAt DateTime? @db.Timestamptz(3)
+  userId String?
+  user AdminUser? @relation(fields: [userId], references: [id], onDelete: Restrict)
+  @@index([userId])
+}
+
+model AdminUser {
+  id String @id @default(cuid())
+  email String @unique
+  passwordHash String
+  businessId String
+  active Boolean @default(true)
+  credentialVersion Int @default(1)
+  sessions AdminSession[]
 }

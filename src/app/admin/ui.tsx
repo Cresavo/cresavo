@@ -17,7 +17,9 @@ export default function AdminActions({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(
-        mode === "login" ? { password: form.get("password") } : { id },
+        mode === "login"
+          ? { email: form.get("email"), password: form.get("password") }
+          : { id },
       ),
     });
     const data = await r.json();
@@ -28,8 +30,23 @@ export default function AdminActions({
     <form onSubmit={submit} className="mt-3">
       {mode === "login" && (
         <div className="mb-4">
+          <label htmlFor="email">E-post för administratör</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="username"
+            required
+          />
           <label htmlFor="password">Lösenord</label>
-          <input id="password" name="password" type="password" required />
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            maxLength={128}
+            required
+          />
         </div>
       )}
       <button>

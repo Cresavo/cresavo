@@ -1,5 +1,16 @@
 # Integritets- och säkerhetsprinciper
 
+## Epic 04: kontobunden lokal åtkomst
+
+Det delade adminlösenordet ersätts av individuella syntetiska konton, men MFA saknas fortfarande och pilot är NO-GO. Inget konto seedas som standard. Använd den lokala [operatörsguiden](ADMIN_OPERATIONS.md); lösenord får inte skrivas i argument, rapporter eller .env. Endast betrodd operatör med DB-/filsystemåtkomst får provisionera.
+
+Argon2id via @node-rs/argon2 2.2.2, slumpmässigt salt, 19456KiB/t2/p1, 15–128 tecken. Bibliotekets verifiering används. Samma kostnad för okänt/inaktivt konto; samma generiska inloggningsfel. Reservation av fem klientförsök sker före await; högst fyra samtidigt pågående hashoperationer begränsar processens minnesarbete. Det senare kan kortvarigt ge429 för andra klienter och är ingen distribuerad kapacitetsgaranti.
+
+Aktiv status, demo-kontext och serversession kontrolleras vid varje adminåtkomst. Versionskontroll under kontoradlås gör samtidig reset/login säker. Spärr/reset återkallar kontots samtliga sessioner; global ADMIN_SESSION_VERSION behålls. Återaktivering får inte återuppliva gamla sessioner. Kunduppgifter och MCP-kontrakt ändras inte. Att visa egen adminidentifierare är inte beslut om Visa kund-e-post.
+
+Före pilot: underhållen MFA/återställning och identitetslivscykel, kundernas export/radering/retention, verifierad TLS/proxy/flerinstansdrift och licens-/auditgrindar. Ny nativebindning är lokalt testad på Windows; Linux/container och komplett nativeartefaktinventering återstår. Tidigare avsnitt om delat lösenord beskriver historiskt läge.
+
+
 ## Epic 03: beroenden och explicit konfiguration
 
 Prisma 7.10.1 rättar den tidigare deepmerge-kedjan; full audit har preliminärt 7 moderate kvar i lintverktyg och produktionsaudit 0 fynd. Runtime/MCP autoläser inte längre .env via Prisma, men Node:s explicita env-flaggor och OS-/filåtkomst finns kvar. Detta löser ett specifikt konfigurationsbeteende, inte hela processisoleringsbehovet. Ingen ny mottagare eller behandling tillkommer. [Beroendegranskning, EPL-verktygsgräns och kvarvarande distributionskontroller](DEPENDENCY_REVIEW.md). Äldre Prisma 6-noteringar nedan är historik; pilot förblir NO-GO.

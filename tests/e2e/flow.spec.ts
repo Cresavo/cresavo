@@ -6,7 +6,96 @@ import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 import { LOGIN_FAILURE_DELAY_MS } from "../../src/lib/rate-limit";
+import {
+  createAdminUser,
+  disableAdminUser,
+  resetAdminPassword,
+} from "../../src/lib/admin-accounts";
 const db = createDatabaseClient();
+
+test("separata administratörer, återkallelse och ingen delad lösenordsfallback", async ({
+  request,
+  synthetic,
+}, testInfo) => {
+  const otherEmail = `${synthetic.marker}-second@example.test`;
+  const password = "synthetic-second-admin-password-2026";
+  const nextPassword = "synthetic-reset-admin-password-2026";
+  const other = await createAdminUser(otherEmail, password);
+  const origin = { origin: "http://localhost:3000" };
+  try {
+    const a = await request.post("/api/admin/login", {
+      headers: origin,
+      data: {
+        email: synthetic.admin.email,
+        password: synthetic.admin.password,
+      },
+    });
+    expect(a.status()).toBe(200);
+    const cookieA = a.headers()["set-cookie"].split(";")[0];
+    const b = await request.post("/api/admin/login", {
+      headers: origin,
+      data: { email: otherEmail, password },
+    });
+    expect(b.status()).toBe(200);
+    const cookieB = b.headers()["set-cookie"].split(";")[0];
+    const ownPage = await request.get("/admin", {
+      headers: { cookie: cookieA },
+    });
+    expect(await ownPage.text()).toContain(`Inloggad som`);
+    expect(await ownPage.text()).toContain(synthetic.admin.email);
+    await disableAdminUser(synthetic.admin.email);
+    expect(
+      (
+        await request.post("/api/admin/publish", {
+          headers: { ...origin, cookie: cookieA },
+          data: { id: "not-existing" },
+        })
+      ).status(),
+    ).toBe(403);
+    expect(
+      (
+        await request.post("/api/admin/publish", {
+          headers: { ...origin, cookie: cookieB },
+          data: { id: "not-existing" },
+        })
+      ).status(),
+    ).toBe(400);
+    await resetAdminPassword(otherEmail, nextPassword);
+    expect(
+      (
+        await request.post("/api/admin/publish", {
+          headers: { ...origin, cookie: cookieB },
+          data: { id: "not-existing" },
+        })
+      ).status(),
+    ).toBe(403);
+    const negatives = socketClient(
+      testInfo.project.name === "desktop" ? "127.0.0.43" : "127.0.0.44",
+    );
+    for (const data of [
+      { email: otherEmail, password },
+      { password: "synthetic-legacy-password-not-used" },
+    ]) {
+      const denied = await negatives.post("/api/admin/login", {
+        headers: origin,
+        data,
+      });
+      expect(denied.status()).toBe(401);
+      expect(await denied.json()).toEqual({
+        error: "Fel inloggningsuppgifter",
+      });
+    }
+    const refreshed = await request.post("/api/admin/login", {
+      headers: origin,
+      data: { email: otherEmail, password: nextPassword },
+    });
+    expect(refreshed.status()).toBe(200);
+  } finally {
+    await db.adminSession.deleteMany({ where: { userId: other.id } });
+    await db.adminUser.delete({ where: { id: other.id } });
+    await db.$disconnect();
+  }
+});
 
 function bookingTransport() {
   return new StdioClientTransport({
@@ -62,7 +151,10 @@ test("lokal MCP-bokning visas i skyddad admin med Stockholmstid", async ({
     // UI login is covered by the existing full flow; this test focuses on MCP → admin.
     const login = await page.request.post("/api/admin/login", {
       headers: { origin: "http://localhost:3000" },
-      data: { password: process.env.ADMIN_PASSWORD },
+      data: {
+        email: synthetic.admin.email,
+        password: synthetic.admin.password,
+      },
     });
     expect(login.status()).toBe(200);
     synthetic.trackSession(login.headers()["set-cookie"] ?? "");
@@ -190,7 +282,9 @@ test("HTTP och MCP delar idempotens och stoppar 20 blandade överlapp", async ({
   }
 });
 
-test("HTTP avvisar obehöriga anrop och ogiltig JSON utan feldetaljer", async ({}, testInfo) => {
+test("HTTP avvisar obehöriga anrop och ogiltig JSON utan feldetaljer", async ({
+  synthetic,
+}, testInfo) => {
   const request = socketClient(
     testInfo.project.name === "desktop" ? "127.0.0.21" : "127.0.0.22",
   );
@@ -198,7 +292,7 @@ test("HTTP avvisar obehöriga anrop och ogiltig JSON utan feldetaljer", async ({
   for (const data of [
     null,
     {},
-    { password: "wrong" },
+    { email: synthetic.admin.email, password: "wrong" },
     { password: "x".repeat(1025) },
   ]) {
     const response = await request.post("/api/admin/login", {
@@ -218,7 +312,7 @@ test("HTTP avvisar obehöriga anrop och ogiltig JSON utan feldetaljer", async ({
   expect(malformed.status()).toBe(400);
   expect(await malformed.json()).toEqual({ error: "Kontrollera uppgifterna" });
   const denied = await request.post("/api/admin/login", {
-    data: { password: process.env.ADMIN_PASSWORD },
+    data: { email: synthetic.admin.email, password: synthetic.admin.password },
     headers: { origin: "http://foreign.test" },
   });
   expect(denied.status()).toBe(403);
@@ -342,7 +436,8 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
     );
     await capture("03-bekraftelse");
     await page.goto("/admin");
-    await page.locator("#password").fill(process.env.ADMIN_PASSWORD!);
+    await page.locator("#email").fill(synthetic.admin.email);
+    await page.locator("#password").fill(synthetic.admin.password);
     await page.getByRole("button", { name: "Logga in" }).click();
     await expect(page.getByText(customerName, { exact: false })).toBeVisible();
     await expect(page.getByText(email, { exact: false })).toHaveCount(0);
@@ -417,14 +512,14 @@ test("QA HTTP: limiter, idempotens och daglig gräns", async ({
   for (let i = 0; i < 5; i++) {
     const result = await request.post("/api/admin/login", {
       headers,
-      data: { password: "wrong" },
+      data: { email: synthetic.admin.email, password: "wrong" },
     });
     expect(result.status()).toBe(401);
   }
   for (let i = 0; i < 2; i++) {
     const result = await request.post("/api/admin/login", {
       headers,
-      data: { password: "wrong" },
+      data: { email: synthetic.admin.email, password: "wrong" },
     });
     expect(result.status()).toBe(429);
     expect(Number(result.headers()["retry-after"])).toBeGreaterThan(0);
@@ -434,7 +529,7 @@ test("QA HTTP: limiter, idempotens och daglig gräns", async ({
   }
   const lockedLogin = await request.post("/api/admin/login", {
     headers,
-    data: { password: process.env.ADMIN_PASSWORD },
+    data: { email: synthetic.admin.email, password: synthetic.admin.password },
   });
   expect(lockedLogin.status()).toBe(429);
   expect(lockedLogin.headers()["set-cookie"]).toBeUndefined();
@@ -444,7 +539,10 @@ test("QA HTTP: limiter, idempotens och daglig gräns", async ({
       const started = performance.now();
       const response = await request.post("/api/admin/login", {
         headers,
-        data: { password: i % 2 ? "wrong" : process.env.ADMIN_PASSWORD },
+        data: {
+          email: synthetic.admin.email,
+          password: i % 2 ? "wrong" : synthetic.admin.password,
+        },
       });
       expect(performance.now() - started).toBeGreaterThanOrEqual(
         LOGIN_FAILURE_DELAY_MS,
@@ -458,7 +556,7 @@ test("QA HTTP: limiter, idempotens och daglig gräns", async ({
   );
   const validLogin = await otherClient.post("/api/admin/login", {
     headers,
-    data: { password: process.env.ADMIN_PASSWORD },
+    data: { email: synthetic.admin.email, password: synthetic.admin.password },
   });
   synthetic.trackSession(validLogin.headers()["set-cookie"]);
   expect(validLogin.status()).toBe(200);
@@ -569,7 +667,7 @@ test("QA HTTP: limiter, idempotens och daglig gräns", async ({
             "x-booking-client-ip": `192.0.2.${i + 1}`,
             "x-booking-client-proof": "0".repeat(64),
           },
-          data: { password: "wrong" },
+          data: { email: synthetic.admin.email, password: "wrong" },
         })
       ).status(),
     ).toBe(i < 5 ? 401 : 429);

@@ -1,6 +1,6 @@
 # Epic 04 — förslag: individuell adminåtkomst
 
-Status: **avgränsningsförslag, inte byggstart**. Bas 10175ed, 2026-11-12. Produktägaren har bett oss fortsätta; prioriteringsfrågan mellan adminåtkomst, GDPR och återstående leveranskontroller är ställd. Befintliga Epic 02/03 och deras verifieringsresultat ändras inte av denna plan.
+Status: **individuell adminåtkomst vald av produktägaren; implementation pågår**. Bas 10175ed, 2026-11-12. Tekniskt val och avgränsningar i [ADR 004](ADR_004_ADMIN_IDENTITY.md). Befintliga Epic 02/03 och deras historiska verifieringsresultat bevaras.
 
 ## Resultat för produktägaren
 

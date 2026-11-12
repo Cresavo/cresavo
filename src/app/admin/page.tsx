@@ -1,7 +1,7 @@
 import { formatPrice } from "@/lib/format";
 import { pageDataFailure } from "@/lib/errors";
 import Link from "next/link";
-import { isAdmin } from "@/lib/auth";
+import { getAdminContext } from "@/lib/auth";
 import {
   adminBookingFilter,
   listBookings,
@@ -15,7 +15,8 @@ export default async function Admin({
 }: {
   searchParams: Promise<{ from?: string; to?: string; cursor?: string }>;
 }) {
-  if (!(await isAdmin()))
+  const admin = await getAdminContext();
+  if (!admin)
     return (
       <main className="max-w-md mx-auto px-5 py-12">
         <Link href="/">← Bokningssidan</Link>
@@ -41,6 +42,7 @@ export default async function Admin({
       <Link href="/">← Bokningssidan</Link>
       <header className="flex flex-wrap items-center justify-between gap-4 my-6">
         <h1 className="text-3xl font-bold">Administration</h1>
+        <p>Inloggad som {admin.email}</p>
         <AdminActions mode="logout" />
       </header>
       <section className="bg-white rounded-xl p-6 mb-6">

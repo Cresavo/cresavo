@@ -1,5 +1,9 @@
 # booking-lab-se
 
+## Epic 04 — individuell lokal adminåtkomst
+
+Separata syntetiska konton ersätter delat ADMIN_PASSWORD. Skapa konto med `npm run admin:manage -- create admin@example.test` efter migrering; välj eget testlösenord i den dolda terminalinmatningen. [Operatörsguide](docs/ADMIN_OPERATIONS.md) · [tekniskt beslut](docs/ADR_004_ADMIN_IDENTITY.md). Inga standardkonton skapas. Kund-e-post förblir maskerad; MFA saknas och pilot är fortsatt NO-GO. Aktuell verifiering: [VERIFICATION](docs/VERIFICATION.md).
+
 ## Epic 03 — godkänd lokal POC
 
 Prisma CLI/klient/adapter är uppgraderade till exakt **7.10.1**. Samma startkommandon nedan gäller; PostgreSQL-klienten har en uttrycklig poolbudget och UTC-session. Inga historiska migrationer, bokningsregler eller produktfunktioner har ändrats. Lokal slutmatris på **18a4d73**: 51 unit, 31 integration ×3, 12 E2E ×4, lint/tsc/build/cleanup PASS. Full audit **FAIL: 7 måttliga, 0 höga**; produktionsaudit **PASS: 0 fynd**. Groks oberoende slutkontroll godkände 18a4d73 utan blockerande fynd; [slutrapport](docs/qa/QA-REPORT-epic03-18a4d73.md). [Beroende-/licensbeslut](docs/DEPENDENCY_REVIEW.md) · [Verifiering](docs/VERIFICATION.md) · [Morgonrapport](docs/MORNING_REPORT.md). **Endast syntetisk lokal POC; pilot fortsatt NO-GO.**
@@ -28,16 +32,17 @@ Förutsättningar: Node.js 22.12 eller senare (alternativt 24 eller senare), npm
 
 ```powershell
 if (!(Test-Path .env)) { Copy-Item .env.example .env }
-# Redigera .env: välj ADMIN_PASSWORD (minst 12 tecken) och SESSION_SECRET (minst 32 slumpmässiga tecken).
+# Redigera .env: välj SESSION_SECRET (minst 32 slumpmässiga tecken).
 docker compose up -d --wait
 npm ci
 npx prisma generate
 npm run db:migrate
 npm run db:seed
+npm run admin:manage -- create admin@example.test
 npm run dev
 ```
 
-Öppna http://localhost:3000 och välj en vardag inom 60 dagar. Salongen har öppet måndag–fredag 09–17 i Europe/Stockholm, en anställd och tider på halvtimmar. Logga in via `/admin` med lösenordet i `.env`. Seeds kan köras igen utan att radera bokningar. För en egen Postgres-instans, ändra `DATABASE_URL` i `.env`; databasanvändaren måste kunna skapa extensionen `btree_gist`. Ett verifierat alternativ utan Docker beskrivs i [verifieringsrapporten](docs/VERIFICATION.md). Compose-lösenordet är endast avsett för lokal demo. Stoppa databasen med `docker compose stop`; volymen sparas.
+Öppna http://localhost:3000 och välj en vardag inom 60 dagar. Salongen har öppet måndag–fredag 09–17 i Europe/Stockholm, en anställd och tider på halvtimmar. Logga in via `/admin` med kontoidentifieraren och lösenordet du skapade lokalt. Seeds kan köras igen utan att radera bokningar. För en egen Postgres-instans, ändra `DATABASE_URL` i `.env`; databasanvändaren måste kunna skapa extensionen `btree_gist`. Ett verifierat alternativ utan Docker beskrivs i [verifieringsrapporten](docs/VERIFICATION.md). Compose-lösenordet är endast avsett för lokal demo. Stoppa databasen med `docker compose stop`; volymen sparas.
 
 ## MCP
 
@@ -93,7 +98,7 @@ Integration och Playwright kräver en migrerad, seedad separat databas och `.env
 
 ## Avgränsningar
 
-Admininloggningen är en minimal lokal lösning med socketbaserad processlokal spärr, serveråterkallad logout och global sessionsversion, men utan individuella konton, återställning eller revisionslogg. Endast stdio-processens ägare bestämmer MCP-adminläget. Delade cookies, tenant-isolering, HTTPS, säker konfiguration, missbruksskydd, tillgänglighet, integritet och säkerhetsgranskning krävs inför verklig drift. Den signerade cookien kräver HTTPS i `NODE_ENV=production`; kör `npm run dev` för lokalt HTTP. Pris och erbjudande är information, ingen debitering. Översättningsförberedelsen är begränsad: några texter ligger i `src/lib/i18n.ts`, men flertalet är ännu svenska i komponenterna. Kalendern är en kronologisk agenda, inte en fullständig veckovy.
+Admininloggningen är en minimal lokal lösning med socketbaserad processlokal spärr, serveråterkallad logout och global sessionsversion, med individuella syntetiska konton och lokal lösenordsåterställning, men utan MFA, webbaserad recovery eller revisionslogg. Endast stdio-processens ägare bestämmer MCP-adminläget. Delade cookies, tenant-isolering, HTTPS, säker konfiguration, missbruksskydd, tillgänglighet, integritet och säkerhetsgranskning krävs inför verklig drift. Den signerade cookien kräver HTTPS i `NODE_ENV=production`; kör `npm run dev` för lokalt HTTP. Pris och erbjudande är information, ingen debitering. Översättningsförberedelsen är begränsad: några texter ligger i `src/lib/i18n.ts`, men flertalet är ännu svenska i komponenterna. Kalendern är en kronologisk agenda, inte en fullständig veckovy.
 
 [Omfattning](docs/POC_SCOPE.md) · [Arkitektur](docs/ARCHITECTURE.md) · [Tekniska principer](docs/ENGINEERING_PRINCIPLES.md) · [Underhållsgranskning](docs/MAINTENANCE_REVIEW.md) · [Licens- och projektgranskning](docs/OPEN_SOURCE_REVIEW.md) · [Verifiering](docs/VERIFICATION.md) · [Bidra](CONTRIBUTING.md)
 

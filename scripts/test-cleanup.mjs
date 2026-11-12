@@ -21,6 +21,7 @@ const run = spawnSync(
 const db = createDatabaseClient();
 try {
   const rows =
+    (await db.adminUser.count({ where: { email: { startsWith: marker } } })) +
     (await db.booking.count({
       where: { customerEmail: { startsWith: marker } },
     })) +

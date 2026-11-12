@@ -66,7 +66,7 @@ Använd en **separat lokal databas**, utan andra användare eller parallella tes
 
    Kommandot skapar databasen en gång. Om namnet redan finns: använd en annan tom `*_demo`-databas, radera inte den befintliga. Docker saknas på verifieringsvärden; den faktiska körningen använde separat PostgreSQL 18.6. En egen lokal PostgreSQL fungerar med motsvarande `createdb`.
 
-3. Skapa `.env` från `.env.example` om den saknas; bevara egen konfiguration. Sätt DATABASE_URL till demodatabasen, exempelvis `postgresql://booking:booking@127.0.0.1:5432/booking_visual_demo`. Välj lokalt ADMIN_PASSWORD (minst 12 tecken) och SESSION_SECRET (minst 32 tecken). Lägg dem aldrig i rapporter eller Git.
+3. Skapa `.env` från `.env.example` om den saknas; bevara egen konfiguration. Sätt DATABASE_URL till demodatabasen, exempelvis `postgresql://booking:booking@127.0.0.1:5432/booking_visual_demo`. Välj SESSION_SECRET (minst 32 tecken). Skapa ett eget syntetiskt adminkonto enligt ADMIN_OPERATIONS.md för manuell provning; den automatiska demon skapar och städar sitt eget konto. Lägg dem aldrig i rapporter eller Git.
 4. Kör från projektroten med port 3000 ledig:
 
    ```powershell
@@ -102,7 +102,7 @@ Desktop och mobil har varsin sekvens. Den tekniska bokningskonflikten och MCP:s 
 4. I en andra terminal, kör `npm run mcp:client -- --admin`. Detta skapar ett syntetiskt kampanjutkast i databasen. Ladda om admin och kontrollera tjänst, rabatt och datum. Klicka Publicera och ladda om bokningssidan.
 5. Stoppa webbservern med Ctrl+C och databasen med `docker compose stop` om Compose används. Dina manuella testposter består tills du själv väljer att städa testmiljön.
 
-Det är en lokal POC: delat lösenord, inga kundkonton, ingen avbokning, återbetalning eller automatisk rabattdebitering. Se [PROJECT_STATUS](PROJECT_STATUS.md) innan något tolkas som färdigt för kunder.
+Det är en lokal POC: individuella syntetiska adminer utan MFA, inga kundkonton, ingen avbokning, återbetalning eller automatisk rabattdebitering. Se [PROJECT_STATUS](PROJECT_STATUS.md) innan något tolkas som färdigt för kunder.
 
 ## Aktuell QA-inspelning
 

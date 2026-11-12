@@ -38,12 +38,16 @@ export function checkRateLimit(
 export const LOGIN_FAILURE_DELAY_MS = 100;
 
 // Reserve synchronously before checking credentials, including concurrent requests.
-export async function checkLoginAttempt(ip: string, verify: () => boolean) {
+export async function checkLoginAttempt(
+  ip: string,
+  verify: () => boolean | Promise<boolean>,
+) {
   let accepted = false;
   try {
     checkRateLimit("login", ip);
-    accepted = verify();
-    if (accepted) buckets.get(`login:${ip}`)!.count--;
+    const reservation = buckets.get(`login:${ip}`)!;
+    accepted = await verify();
+    if (accepted) reservation.count--;
     return accepted;
   } finally {
     // Locked requests never evaluate verify(), and get the same minimum delay.

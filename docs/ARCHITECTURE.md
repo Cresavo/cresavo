@@ -1,5 +1,16 @@
 # Arkitektur
 
+## Epic 04: individuell lokal admin
+
+AdminUser innehåller normaliserad syntetisk e-postidentifierare, Argon2id-hash, aktiv status, businessId och credentialVersion. AdminSession lagrar bara tokenhash, expiry/revocation och nullable userId. Historiska sessioner utan konto nekas. Fjärde migrationen är additiv; de tre tidigare ändras inte.
+
+POST /api/admin/login kräver strikt {email,password}; password-only och ADMIN_PASSWORD ger ingen fallback. UI visar bara den egna adminidentifieraren. Kundernas e-post förblir maskerad. Varje adminläsning går via getAdminContext/isAdmin och kontrollerar aktivt konto i demo-kontext. Lokal MCP:s betrodda --admin är fortsatt separat och är inte kopplad till webbsessionen.
+
+Inloggningsspärren reserverar synkront före asynkron KDF. Högst fyra pågående KDF-operationer per process; full kapacitet ger statisk429/Retry-After1. Login låser kontoraden och jämför credentialVersion innan sessionsskapande. Spärr/reset låser konto före sessioner och återkallar samtliga berörda sessioner i samma transaktion. Detta hindrar en äldre verifiering från att återinföra åtkomst. Annat kontos sessioner påverkas inte. Lokal CLI läser lösenord utan terminaleko; inga publika kontoendpoints.
+
+[Beslut, bibliotek och begränsningar](ADR_004_ADMIN_IDENTITY.md) · [operatörsguide](ADMIN_OPERATIONS.md). Ingen MFA eller verifierad multi-tenancy byggs här.
+
+
 ## Epic 03: databasanslutning
 
 Prisma 7.10.1 med PostgreSQL-adapter skapas endast via scripts/database.mjs. Fabriken återanvänds i appens befintliga singleton, seed, demo och testhjälpare. Varje klient får högst fem anslutningar, fem sekunders anslutnings-/poolväntan och tio sekunders inaktiv timeout; domänens transaktionsgränser är kvar. $disconnect stänger den adapterägda poolen. Flera processer multiplicerar budgeten och är inte verifierad drift.

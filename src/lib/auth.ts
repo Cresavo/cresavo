@@ -1,5 +1,7 @@
 import { db } from "./db";
 import { safeFailure } from "./errors";
+import { DEMO_BUSINESS_ID } from "./config";
+import type { AdminIdentity } from "./admin-accounts";
 import {
   createHmac,
   timingSafeEqual,
@@ -27,28 +29,41 @@ function equal(a: string, b: string) {
   return x.length === y.length && timingSafeEqual(x, y);
 }
 
-export function checkPassword(password: string) {
-  const expected = process.env.ADMIN_PASSWORD;
-  if (!expected || expected.length < 12)
-    throw new Error("ADMIN_PASSWORD måste vara minst 12 tecken");
-  return password.length <= 1024 && equal(password, expected);
-}
-
-export async function login() {
-  await pruneSessions();
+export async function login(identity: AdminIdentity) {
   const expiry = String(Date.now() + 8 * 3600_000);
   const token = randomBytes(32).toString("hex");
-  await db.adminSession.create({
-    data: { id: sessionId(token), expiresAt: new Date(Number(expiry)) },
-  });
   const value = `${token}.${expiry}`;
-  (await cookies()).set("booking_admin", `${value}.${sign(value)}`, {
+  const signed = `${value}.${sign(value)}`;
+  await pruneSessions();
+  const created = await db.$transaction(async (tx) => {
+    const accounts = await tx.$queryRaw<
+      Array<{ active: boolean; businessId: string; credentialVersion: number }>
+    >`SELECT "active", "businessId", "credentialVersion" FROM "AdminUser" WHERE "id" = ${identity.id} FOR UPDATE`;
+    const account = accounts[0];
+    if (
+      !account?.active ||
+      account.businessId !== DEMO_BUSINESS_ID ||
+      account.credentialVersion !== identity.credentialVersion
+    )
+      return false;
+    await tx.adminSession.create({
+      data: {
+        id: sessionId(token),
+        userId: identity.id,
+        expiresAt: new Date(Number(expiry)),
+      },
+    });
+    return true;
+  });
+  if (!created) return false;
+  (await cookies()).set("booking_admin", signed, {
     httpOnly: true,
     sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: 8 * 3600,
   });
+  return true;
 }
 
 export async function pruneSessions(now = new Date()) {
@@ -83,18 +98,28 @@ async function currentSessionId() {
     return null;
   return sessionId(token);
 }
-export async function isAdmin() {
+export async function getAdminContext() {
   const id = await currentSessionId();
-  if (!id) return false;
+  if (!id) return null;
   try {
-    return !!(await db.adminSession.findFirst({
-      where: { id, revokedAt: null, expiresAt: { gt: new Date() } },
-      select: { id: true },
-    }));
+    const session = await db.adminSession.findFirst({
+      where: {
+        id,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+        user: { is: { active: true, businessId: DEMO_BUSINESS_ID } },
+      },
+      select: { user: { select: { id: true, email: true } } },
+    });
+    return session?.user ?? null;
   } catch (error) {
     safeFailure(error);
-    return false; // Fail closed without exposing database errors through SSR or auth guards.
+    return null; // Fail closed without exposing database errors through SSR or auth guards.
   }
+}
+
+export async function isAdmin() {
+  return !!(await getAdminContext());
 }
 
 export async function logout() {

@@ -18,7 +18,6 @@ jobs:
       NEXT_TELEMETRY_DISABLED: "1"
       CHECKPOINT_DISABLE: "1"
       DATABASE_URL: postgresql://booking:booking@127.0.0.1:5432/booking_ci_test
-      ADMIN_PASSWORD: synthetic-ci-password-only
       SESSION_SECRET: synthetic-ci-session-secret-never-use-in-deployment
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6

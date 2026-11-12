@@ -3,10 +3,11 @@ import { z } from "zod";
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { Prisma, type Booking } from "@prisma/client";
 import { db } from "./db";
+import { DEMO_BUSINESS_ID } from "./config";
 import { DomainError } from "./errors";
 import { localDay, parseDay, slotsForDay } from "./time";
 
-const businessId = "demo",
+const businessId = DEMO_BUSINESS_ID,
   staffId = "staff-demo";
 const date = z.string().refine((v) => {
   try {

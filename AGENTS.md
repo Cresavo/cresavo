@@ -38,7 +38,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Bevara rate limit, dagstak, idempotenslås och databasens exclusion constraint. Gå via `createBooking`, inte lagringshjälparen.
 - Starta HTTP via `npm run dev/start` och socket-wrappern. `TRUST_PROXY_IP=1` kräver matchande socket i TRUSTED_PROXY_IPS och överskrivande proxy; lokal `--admin` är ingen fjärrbehörighet.
 - Aktuell resultatlista finns överst i VERIFICATION; historik i bilagan. Licensbegränsningar: `THIRD_PARTY_NOTICES.md`. Prisma 7 är verifierad i Epic 03; beslut/återstående distributionsgrindar finns i `docs/DEPENDENCY_REVIEW.md`.
-- Epic 01 är avslutad. Epic 02 är godkänd enligt `docs/EPIC_02_PLAN.md`: endast lokal syntetisk MCP-bokning. Visa e-post är fortsatt utanför scope. Logout måste återkalla serverraden; idempotenta replays förbrukar ingen budget. Bevara samtliga tre migrationer.
+- Epic 01 är avslutad. Epic 02 är godkänd enligt `docs/EPIC_02_PLAN.md`: endast lokal syntetisk MCP-bokning. Visa e-post är fortsatt utanför scope. Logout måste återkalla serverraden; idempotenta replays förbrukar ingen budget. Bevara alla historiska migrationer.
 - MCP-subprocesser får samma exporterade DATABASE_URL via mcpEnvironment, inte alla förälderns hemligheter. Kör bara en QA-omgång per miljö; bevara fixture-städningens egen teardown-tid och spårning av egna sessionshashar.
 - Vitlistad explicit miljö är inte OS-isolering. Prisma 7:s runtime autoläser inte .env; CLI laddar den uttryckligen. Se ARCHITECTURE och PRIVACY_SECURITY. Bevara create_booking:s strikta publicerade schema, safeFailure-sanerade validering och separata --admin/--allow-bookings-flaggor.
 - Repot ska förbli privat. Denna batch får lokala commits, ingen push utan nytt uppdrag.
@@ -48,3 +48,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Loginspärren måste kontrolleras före lösenordet, även rätt lösenord nekas från spärrad klient. Behåll testet att ingen lösenordskontroll anropas efter spärr. ADMIN_SESSION_VERSION får endast höjas.
 
 - Uppföljning efter 8b83a40: M2/L8 och fyrfältsmatris i CI. Bevara låsordningen idempotens → klient/dag → e-post/dag → anställd/bokningsdag; ta anställdslåset före tillgänglighetskontroll. Nya CI-jobb är inte verifierade på GitHub förrän en godkänd push har körts.
+
+- Epic 04: individuell lokal admin enligt docs/ADR_004_ADMIN_IDENTITY.md och docs/ADMIN_OPERATIONS.md. Ingen ADMIN_PASSWORD-fallback. Behåll asynkron spärrreservation före KDF, max fyra KDF-operationer, kontoradlås och credentialVersion vid login/reset/spärr. Radera aldrig historiska sessioner som migreringsgenväg. Endast example.test; kund-e-post är fortsatt maskerad. Testfixtures måste städa egna AdminUser och sessionsrader.
