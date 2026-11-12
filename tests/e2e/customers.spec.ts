@@ -2,6 +2,56 @@ import { test, expect } from "./fixtures";
 import { chooseDay, chooseSlot } from "./date-controls";
 import { DateTime } from "luxon";
 
+test("långa kundnamn ryms på kundkort, lista och bokningsval utan mobilzoom", async ({
+  page,
+  synthetic,
+}) => {
+  const login = await page.request.post("/api/admin/login", {
+    headers: { origin: "http://localhost:3000" },
+    data: { email: synthetic.admin.email, password: synthetic.admin.password },
+  });
+  expect(login.status()).toBe(200);
+  synthetic.trackSession(login.headers()["set-cookie"] ?? "");
+  const name = "S".repeat(80);
+  await page.goto("/admin/customers/new");
+  await page.locator("#customer-name").fill(name);
+  await page.locator("#customer-email").fill("s".repeat(64) + "@example.test");
+  await page.getByRole("button", { name: "Skapa kund", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/customers\/(?!new(?:[/?]|$))[^/?]+$/);
+  const card = page.url();
+  async function fits(selector: string, width: number) {
+    await expect(page.locator(selector).first()).toBeVisible();
+    expect(await page.evaluate(() => innerWidth)).toBe(width);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    for (const node of await page.locator(selector).all())
+      expect(
+        await node.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
+      ).toBe(true);
+  }
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(card);
+    await fits(".customer-card-heading h1", width);
+    await fits(".customer-contact", width);
+    await page.getByRole("link", { name: "Ny bokning", exact: true }).click();
+    await fits(".customer-picker p", width);
+    await page.getByRole("button", { name: "Byt kund", exact: true }).click();
+    await page.locator("#booking-customer-search").fill(name);
+    await page.getByRole("button", { name: "Sök kund", exact: true }).click();
+    await fits(".customer-choices button", width);
+    await page.getByRole("button", { name, exact: true }).click();
+    await fits(".customer-picker p", width);
+    await page.goto("/admin/customers?q=" + name);
+    await fits(".customer-row strong", width);
+    await page.locator(".customer-row").filter({ hasText: name }).click();
+    await expect(page).toHaveURL(card);
+  }
+});
+
 test("kundkort, bokning, ändrade uppgifter, flytt, avbokning och återbesök hänger ihop", async ({
   page,
   synthetic,

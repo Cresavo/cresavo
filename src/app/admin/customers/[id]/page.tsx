@@ -56,7 +56,7 @@ export default async function CustomerCard({
       <AdminHeader email={admin.email} active="customers" />
       <main className="admin-workspace narrow-workspace">
         <Link href="/admin/customers">Till kunder</Link>
-        <div className="workspace-heading">
+        <div className="workspace-heading customer-card-heading">
           <div>
             <p className="eyebrow">
               Kundkort{customer.archived ? " · arkiverat" : ""}
@@ -76,7 +76,7 @@ export default async function CustomerCard({
         )}
         <section className="panel">
           <h2>Aktuella uppgifter</h2>
-          <p>
+          <p className="customer-contact">
             {customer.email}
             {customer.phone ? ` · ${customer.phone}` : ""}
           </p>

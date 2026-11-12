@@ -269,6 +269,32 @@ it("bounds pagination, rejects invalid input and prevents stale edits and archiv
     ),
   ).rejects.toMatchObject({ status: 409 });
 });
+it("searches LIKE metacharacters literally while preserving email and phone search", async () => {
+  await setup();
+  expect((await listCustomers({ q: "_" }, actor)).customers).toHaveLength(0);
+  expect((await listCustomers({ q: "%" }, actor)).customers).toHaveLength(0);
+  const literal = await createCustomer(
+    {
+      name: "Syntetisk_100%\\kund",
+      email: `${marker}-demo-customer-1@example.test`,
+      phone: "+00 000 111 222",
+    },
+    key(),
+    actor,
+  );
+  customerIds.push(literal.id);
+  for (const q of [
+    "_",
+    "%",
+    "\\",
+    "demo-customer-1@",
+    "+00 000 111 222",
+    "SYNTETISK_",
+  ])
+    expect(
+      (await listCustomers({ q }, actor)).customers.map((c) => c.id),
+    ).toEqual([literal.id]);
+});
 it("existing local workspace tools preserve a known customer link without returning contacts", async () => {
   const c = await customer(),
     client = new Client({ name: "customer-link-test", version: "1" });

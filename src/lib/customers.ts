@@ -137,6 +137,8 @@ export async function getCustomer(value: string, actor: WorkspaceActor) {
 }
 export async function listCustomers(input: unknown, actor: WorkspaceActor) {
   const value = customerListSchema.parse(input);
+  // Prisma contains uses LIKE semantics; user searches are literal text.
+  const pattern = value.q.replace(/[\\%_]/g, "\\$&");
   return db.$transaction(async (tx) => {
     await assertWorkspaceActor(tx, actor);
     const where: Prisma.CustomerWhereInput = {
@@ -144,7 +146,7 @@ export async function listCustomers(input: unknown, actor: WorkspaceActor) {
       ...(value.archived === "active" && { archived: false }),
       ...(value.q && {
         OR: ["name", "email", "phone"].map((field) => ({
-          [field]: { contains: value.q, mode: "insensitive" },
+          [field]: { contains: pattern, mode: "insensitive" },
         })),
       }),
     };

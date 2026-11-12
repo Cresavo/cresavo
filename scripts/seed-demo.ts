@@ -165,20 +165,40 @@ async function main() {
           .slice(0, 36);
     // Admin creation namespaces idempotency keys; this tag also identifies past rows.
     const email = `demo-customer-${index % names.length}@example.test`;
+    const adminKey = createHash("sha256")
+      .update(`admin:${actor.id}:${key}`)
+      .digest("hex");
     const previous = await db.booking.findFirst({
       where: {
         businessId: "demo",
-        OR: [
-          { idempotencyKey: key },
-          {
-            idempotencyKey: createHash("sha256")
-              .update(`admin:${actor.id}:${key}`)
-              .digest("hex"),
-          },
-        ],
+        OR: [{ idempotencyKey: key }, { idempotencyKey: adminKey }],
+      },
+      include: {
+        events: {
+          where: { action: "create", actorKind: "admin", actorId: actor.id },
+          select: { nextStaffId: true },
+          take: 1,
+        },
       },
     });
     if (previous) {
+      // A client-chosen key is not proof of ownership. Only our persisted
+      // admin create event can authorize a backfill or an existing-seed count.
+      const ownedKey =
+        previous.idempotencyKey === adminKey ||
+        (previous.idempotencyKey === key && previous.id === key);
+      if (
+        !ownedKey ||
+        !previous.events.length ||
+        previous.serviceId !== serviceId ||
+        (previous.initialStartsAt ?? previous.startsAt).getTime() !==
+          start.toMillis() ||
+        (previous.events[0].nextStaffId &&
+          previous.events[0].nextStaffId !== staffId)
+      ) {
+        skipped++;
+        return; // Preserve colliding public/manual rows without adopting them.
+      }
       // Explicit backfill only for this exact seed-owned row and matching
       // synthetic snapshot, never a customer-email identity heuristic.
       const profile = await db.customer.findFirst({
@@ -190,8 +210,8 @@ async function main() {
         },
       });
       if (!previous.customerId && profile)
-        await db.booking.update({
-          where: { id: previous.id },
+        await db.booking.updateMany({
+          where: { id: previous.id, businessId: "demo", customerId: null },
           data: { customerId: profile.id },
         });
       existing++;

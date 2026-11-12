@@ -9,6 +9,29 @@
   gap: 12px;
   margin: 22px 0;
 }
+.customer-row,
+.customer-row strong,
+.customer-picker,
+.customer-picker p,
+.customer-picker strong,
+.customer-choices button,
+.customer-contact,
+.customer-visits p,
+.booking-review p,
+.booking-summary p,
+.customer-card-heading,
+.customer-card-heading > div,
+.customer-card-heading h1 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.customer-choices button {
+  max-width: 100%;
+  white-space: normal;
+}
+.customer-card-heading > div {
+  flex: 1;
+}
 .customer-row {
   display: grid;
   gap: 8px;
