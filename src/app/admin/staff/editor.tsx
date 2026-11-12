@@ -242,7 +242,8 @@ export default function StaffEditor({
         {exceptions.map((day, index) => (
           <details className="schedule-day" key={index} open>
             <summary>
-              {day.date} · {day.periods.length ? "Avvikande tider" : "Ledig"}
+              {readableDay(day.date)} ·{" "}
+              {day.periods.length ? "Avvikande tider" : "Ledig"}
             </summary>
             <div className="field">
               <details>

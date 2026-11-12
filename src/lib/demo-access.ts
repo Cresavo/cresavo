@@ -9,7 +9,7 @@ export function demoDatabaseFingerprint(value: string) {
   if (
     !["postgres:", "postgresql:"].includes(url.protocol) ||
     [...url.searchParams.keys()].some((k) =>
-      ["host", "hostaddr"].includes(k.toLowerCase()),
+      ["host", "hostaddr", "port"].includes(k.toLowerCase()),
     )
   )
     throw new Error("DEMO_DATABASE_REFUSED");

@@ -27,7 +27,6 @@ export default async function NewBooking({
     <>
       <AdminHeader email={admin.email} active="calendar" />
       <main className="admin-workspace narrow-workspace">
-        <a href={`/admin?date=${date}`}>Till kalendern</a>
         <h1>Ny bokning</h1>
         <BookingEditor services={services} staff={staff} date={date} />
       </main>

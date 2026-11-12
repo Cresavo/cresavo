@@ -38,6 +38,8 @@ describe("snävt avgränsad demoåtkomst", () => {
       { VERCEL_PROJECT_ID: "other" },
       { DATABASE_URL: url + "2" },
       { DATABASE_URL: url + "?HOST=other" },
+      { DATABASE_URL: url + "?port=6543" },
+      { DATABASE_URL: url + "?%50ORT=6543" },
     ])
       expect(demoAccessEnabled({ ...enabled, ...patch })).toBe(false);
     expect(

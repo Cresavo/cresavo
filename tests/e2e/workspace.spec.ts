@@ -241,7 +241,7 @@ test("HTTP och lokal MCP delar flytt/avbokning vid blandad samtidig trafik", asy
     await page.goto(`/admin/bookings/${winner.id}`);
     await expect(page.locator(".booking-summary")).toContainText("Avbokad");
     await expect(page.locator(".booking-summary")).toContainText(
-      `${date} 13:00`,
+      `${DateTime.fromISO(date, { zone: "Europe/Stockholm" }).setLocale("sv").toFormat("cccc d MMMM yyyy")} kl. 13:00`,
     );
   } finally {
     await client.close();

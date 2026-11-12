@@ -123,19 +123,38 @@ test("alla arbetsytans menyer och datumval ryms på en smal telefon", async ({
     DateTime.now().setZone("Europe/Stockholm").plus({ days: 2 }).toISODate()!,
   );
   await expect(page).toHaveURL(/date=/);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/admin?view=week");
+  await expect(
+    page.getByRole("region", { name: "Veckokalender" }),
+  ).toBeVisible();
+  const lane = page.locator(".staff-headings span").first();
+  expect((await lane.boundingBox())!.width).toBeGreaterThanOrEqual(150);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.locator("#calendar-staff").selectOption("staff-demo");
+  await expect(page).toHaveURL(/staffId=staff-demo/);
+  expect((await lane.boundingBox())!.width).toBeGreaterThanOrEqual(150);
 });
 
 test("demoinloggning är stängd i normalt läge även med falska miljöheaders", async ({
   request,
 }) => {
-  const response = await request.post("/api/demo/session", {
-    headers: {
-      origin: "http://localhost:3000",
-      VERCEL: "1",
-      VERCEL_ENV: "preview",
-      BOOKING_DEMO_ACCESS: "1",
+  const response = await request.post(
+    "/api/demo/session?BOOKING_DEMO_ACCESS=1&VERCEL_ENV=preview",
+    {
+      headers: {
+        origin: "http://localhost:3000",
+        VERCEL: "1",
+        VERCEL_ENV: "preview",
+        BOOKING_DEMO_ACCESS: "1",
+      },
+      data: { BOOKING_DEMO_ACCESS: "1", VERCEL: "1", VERCEL_ENV: "preview" },
     },
-  });
+  );
   expect(response.status()).toBe(403);
   expect(response.headers()["set-cookie"]).toBeUndefined();
   expect((await request.get("/api/demo/session")).status()).toBe(405);

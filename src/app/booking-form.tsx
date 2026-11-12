@@ -88,7 +88,11 @@ export default function BookingForm({
           `${service?.name} · ${service?.duration} min · ${formatPrice(service?.priceOre ?? 0)} · ${person?.name} · ${readableDay(date)} kl. ${time(start)}`,
         );
       } else {
-        setMessage(result.error ?? "Bokningen kunde inte sparas. Försök igen.");
+        setMessage(
+          result.error === "Tiden är inte tillgänglig"
+            ? "Tiden är inte längre tillgänglig. Välj en annan ledig tid."
+            : (result.error ?? "Bokningen kunde inte sparas. Försök igen."),
+        );
         setStale(response.status === 409);
         if (response.status === 400 || response.status === 409) {
           setStart("");
@@ -275,7 +279,8 @@ export default function BookingForm({
         </section>
         {message && (
           <p role="alert" className="form-error">
-            {message} Dina uppgifter finns kvar.
+            {message}
+            {/[.!?]$/.test(message) ? "" : "."} Dina uppgifter finns kvar.
           </p>
         )}
         {stale && (

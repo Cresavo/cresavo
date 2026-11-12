@@ -179,7 +179,11 @@ export default function BookingEditor({
             </span>
           </div>
           <p className="booking-date">
-            {formatBookingTime(current.startsAt)}–
+            {readableDay(dayOf(current.startsAt))} kl.{" "}
+            {DateTime.fromISO(current.startsAt, {
+              zone: "Europe/Stockholm",
+            }).toFormat("HH:mm")}
+            –
             {new Intl.DateTimeFormat("sv-SE", {
               timeZone: "Europe/Stockholm",
               hour: "2-digit",

@@ -67,7 +67,9 @@ Utökat team eller borttaget skydd kräver att demovägen stängs först. Inte k
 ## Reproducerbar syntetisk arbetsdag
 
 `BOOKING_DEMO_SEED=1 npm run demo:seed` kräver lokal loopbackdatabas med `_demo`.
-Kör först vanliga migrationer och grundseed. För redan godkänd isolerad molnpreview
+Kör först vanliga migrationer. En ny tom demodatabas behöver inte grundseedningen;
+demo:seed skapar egna behandlingar och medarbetare. Befintliga grundseedade resurser
+bevaras, vilket annars kan ge liknande behandlingsnamn. För redan godkänd isolerad molnpreview
 krävs dessutom `-- --preview` och samtliga ovanstående projekt/databasvillkor.
 Miljöuppgifterna läses privat av operatören, klistras aldrig in i chatt.
 
@@ -90,3 +92,51 @@ levereras med QA-underlaget. Skilj automatiserade bilder från egen klicktest.
 Grok ska granska fryst revision i egen syntetisk kopia; ingen driftåtkomst.
 Grokgranskning, Actions och molnprovning redovisas först när de faktiskt utförts.
 Fysisk iPhone/Safari och produktägarens UX-godkännande återstår.
+
+## Samlat rättningsvarv efter Groks första granskning
+
+Originalrapport: [QA-REPORT-ui-dd98ae4](qa/QA-REPORT-ui-dd98ae4.md),
+SHA256 314789fd93b22ae742b78563d9c6883a7eb38a2156ddcfe796d39291d34a85d8.
+Grok gav avgränsat GO på dd98ae4, inte pilot: 75 unit/75 integration,
+32 E2E i fyra lägen, egen headless-klicktest i 320/390/1440 och 66 egna bilder.
+Det är Groks utförda kontroller i egen kopia, inte moln- eller iPhoneprovning.
+
+Det samlade varvet rättar UX-QA-1–5, -9 och -10: läsbara personkolumner med
+scroll enbart inom desktopkalendern, datum vid nästa besök, en tillbaka-länk,
+svensk versalisering, begripligt konfliktbesked och läsbara datumrubriker.
+Tangentbordstestet väntar på interaktiv kalender och verifierar flyttat fokus.
+E2E mäter kolumnbredd och avsaknad av sidöverflöde; klientens headers/body/query
+får inte aktivera demoåtkomsten. Egen komplettering: även port-parametrar i
+databas-URL nekas, eftersom PostgreSQL-drivrutinen annars kan välja annan port
+än det fastlåsta fingeravtrycket.
+
+Kända låga förbättringar inför eventuell utökning, utan ny fixloop:
+
+- UX-QA-6: dagknapparna är 32–42 px breda på smala skärmar, minst 44 px höga.
+  WCAG:s 24 px-minimum uppfylls; fysisk iPhone ska bedöma ergonomin. Vi gör
+  inte kalendern horisontellt rullande på telefon för att få 44 px bredd.
+- UX-QA-7: miljöflaggan är en åtkomstpaus, inte en permanent revokering.
+  En outloggad cookie kan fungera igen om samma grind återaktiveras inom 8 h.
+  Använd befintlig kontospärr/credentialVersion eller höj ADMIN_SESSION_VERSION
+  för permanent återkallelse vid stopp. Ingen ny auth-modell införs i UI-varvet.
+- UX-QA-8: fler positiva HTTP-prober genom wrappern bör permanentas i repot.
+  Groks separata 43 prober och våra integrationstester ersätter inte framtida
+  regressionsunderhåll. Faktisk previewprovning dokumenteras separat.
+- UX-QA-11/12/14/15: automatisk nästa-dag, utkast över omladdning, webbläsarens
+  valideringsspråk och bättre statiska seed-felkoder är backlog, inga nya funktioner.
+
+## Separering av verkliga prov och den nya arbetsdagen
+
+Läsande kontroll av den gamla molndatabasen fann en tidigare provbokning med
+kontaktadress utanför reserverad testdomän. Den gamla databasen är **orörd** och
+dess data kopieras inte till den nya demonstrationen eller till Grok.
+Den förenklade demovägen aktiveras inte mot den gamla databasen.
+
+En ny tom `booking_ui_preview_demo` har förberetts inom den befintliga Neon
+Free-resursen, utan ny tjänst/plan eller beställning. Sex oförändrade migrationer,
+separat begränsad databasroll och ny sessionshemlighet. Gamla appkontot saknar
+CONNECT till den nya databasen; nya appkontot saknar migrations-/ägarprivilegier.
+33 helt syntetiska bokningar kontrollerades: 0 icke-testadresser och 0 överlapp.
+Grundseedens egna dubbla resurser i denna nyskapade databas får inaktiveras för
+en konsekvent demo; detta görs inte automatiskt av den additiva seedningen.
+Aktuell driftsatt databas/revision redovisas i DEMO efter faktisk verifiering.

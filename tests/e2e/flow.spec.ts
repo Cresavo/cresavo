@@ -173,7 +173,8 @@ test("lokal MCP-bokning visas i skyddad admin med Stockholmstid", async ({
       page.getByText(
         DateTime.fromISO(start)
           .setZone("Europe/Stockholm")
-          .toFormat("yyyy-MM-dd HH:mm"),
+          .setLocale("sv")
+          .toFormat("cccc d MMMM yyyy 'kl.' HH:mm"),
         { exact: false },
       ),
     ).toBeVisible();

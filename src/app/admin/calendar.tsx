@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import { ZONE } from "@/lib/time";
+import { readableDay } from "@/lib/format";
 import type { StaffView } from "./types";
 import CalendarFilters from "./calendar-filters";
 
@@ -111,7 +112,13 @@ export default function Calendar({
               );
               return next ? (
                 <a href={bookingLink(next)}>
-                  Nästa besök: {time(next.startsAt)} · {next.customerName} ·{" "}
+                  Nästa besök:{" "}
+                  {readableDay(
+                    DateTime.fromJSDate(next.startsAt, {
+                      zone: ZONE,
+                    }).toISODate()!,
+                  )}{" "}
+                  kl. {time(next.startsAt)} · {next.customerName} ·{" "}
                   {next.serviceName}
                 </a>
               ) : (
@@ -232,16 +239,25 @@ export default function Calendar({
           );
         })}
       </div>
+      {view === "week" && people.length > 1 && (
+        <p className="desktop-calendar-help muted" id="calendar-help">
+          Välj en medarbetare för en samlad veckoöverblick. Med alla medarbetare
+          kan du rulla kalendern i sidled eller trycka på en dag för dagvyn.
+        </p>
+      )}
       <div
         className="desktop-calendar"
         role="region"
         aria-label={view === "week" ? "Veckokalender" : "Dagkalender"}
+        aria-describedby={
+          view === "week" && people.length > 1 ? "calendar-help" : undefined
+        }
         tabIndex={0}
       >
         <div
           className="calendar-grid"
           style={{
-            gridTemplateColumns: `52px repeat(${days.length}, minmax(${view === "week" ? "135px" : "230px"}, 1fr))`,
+            gridTemplateColumns: `52px repeat(${days.length}, minmax(${Math.max(view === "week" ? 160 : 230, people.length * 160 + 8)}px, 1fr))`,
           }}
         >
           <div className="calendar-axis-heading">Tid</div>

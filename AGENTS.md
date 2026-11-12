@@ -10,6 +10,19 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
+## Pågående användbarhetsuppdrag, 2026-11-12
+
+- Separat `ui/epic05-booking-usability` från967454f/f2fdac7. Befintliga funktioner,
+  datumval, arbetsyta och syntetisk demo; ingen ny Epic eller ändrad kärnlogik.
+  Läs UI_USABILITY_REVIEW och aktuell VERIFICATION/HANDOFF innan nästa ändring.
+- Niclas har uttryckligen ersatt dubbel manuell inloggning för sin privata demo:
+  opt-in demoknapp bakom verifierat Vercel-skydd på alla deployments/alias, exakt
+  previewprojekt och separat demodatabas. Normal individuell produktinloggning
+  består. Aktivera aldrig demo mot Production eller den gamla provdatabasen.
+- Gamla molnprover bevaras separat; operatörens nya profil är ignorerad
+  `.vercel/ui-runtime.private.json` i previewarbetskopian. Inga hemligheter till
+  Git/Grok/URL. Läs DEMO före driftändring. Återkommande GitHub-bevakning är läsande.
+
 ## Avgränsad skyddad Vercel-preview, godkänd 2026-11-12
 
 - Levererad skyddad preview på fryst f2fdac7,1samlat QA-fixvarv. Faktisk drift/CI/backup är verifierade; fysisk iPhone/Safari återstår. Bara Niclas har åtkomst; lägg inte till andra innan AGPL-källkodserbjudande och nytt åtkomstbeslut. Drift/stopp/privata lokala adminuppgifter: docs/DEMO.md.

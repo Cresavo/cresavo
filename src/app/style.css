@@ -278,7 +278,6 @@ button:hover,
 .date-navigation strong {
   margin-left: 5px;
   font-size: 16px;
-  text-transform: capitalize;
 }
 .calendar-filters {
   display: flex;
@@ -320,6 +319,8 @@ button:hover,
 }
 .desktop-calendar {
   overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
   border: 1px solid #d5ded6;
   border-radius: 9px;
   background: #fff;
@@ -328,6 +329,10 @@ button:hover,
   display: grid;
 }
 .calendar-axis-heading {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #fff;
   font-size: 11px;
   color: #52645f;
   align-self: center;
@@ -343,7 +348,6 @@ button:hover,
 }
 .calendar-day-heading > a {
   text-decoration: none;
-  text-transform: capitalize;
 }
 .staff-headings {
   display: flex;
@@ -359,7 +363,10 @@ button:hover,
   white-space: nowrap;
 }
 .calendar-axis {
-  position: relative;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #fff;
   font-size: 11px;
   color: #52645f;
 }
@@ -596,6 +603,9 @@ button:hover,
   .desktop-empty {
     display: none;
   }
+  .desktop-calendar-help {
+    display: none;
+  }
   .mobile-calendar,
   .mobile-navigation {
     display: block;
@@ -606,7 +616,6 @@ button:hover,
   .mobile-calendar section h2 {
     margin: 22px 0 12px;
     font-size: 17px;
-    text-transform: capitalize;
   }
   .mobile-booking {
     display: grid;
@@ -868,7 +877,6 @@ body {
   margin: 2px 0 14px;
 }
 .month-heading strong {
-  text-transform: capitalize;
   font-size: 16px;
 }
 .month-heading button {
@@ -925,7 +933,6 @@ body {
   font-size: 14px;
   font-weight: 650;
   margin: 14px 0 4px;
-  text-transform: capitalize;
   line-height: 1.5;
 }
 .date-manual summary {
