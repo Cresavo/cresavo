@@ -10,8 +10,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
-## Pågående användbarhetsuppdrag, 2026-11-12
+## Levererat användbarhetsuppdrag, 2026-11-12
 
+- Produktkod d7bc47f: två samlade Grok-fixvarv avslutade, GO för skyddad syntetisk preview; ingen tredje loop eller pilot. Stabil länk/stopp i docs/DEMO.md, tester i docs/VERIFICATION.md. Senare docs ändrar inte koden.
 - Separat `ui/epic05-booking-usability` från967454f/f2fdac7. Befintliga funktioner,
   datumval, arbetsyta och syntetisk demo; ingen ny Epic eller ändrad kärnlogik.
   Läs UI_USABILITY_REVIEW och aktuell VERIFICATION/HANDOFF innan nästa ändring.

@@ -1,3 +1,42 @@
+# Verifiering — användbarhet och förenklad demoåtkomst
+
+2026-11-12. Produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**, branch ui/epic05-booking-usability. Enbart dokumentation/bilder tillkommer efter fryst QA. Alla kommandoutdata finns utanför Git i C:/Users/<user>/booking-lab-pg-test/ui-usability. Utvalda maskinresultat i [evidence-ui](qa/evidence-ui).
+
+## Aktuell resultattabell
+
+| Kommando/kontroll | Faktiskt resultat |
+| --- | --- |
+| npm ci --no-fund --no-audit | PASS570packages; oförändrad lockfile, ESLint9 deprecation kvar. |
+| npx prisma generate | PASS7.10.1. |
+| npm run db:migrate; npm run db:seed | PASS sex oförändrade migrationer och seed på nya isolerade loopback *_test-databaser för slutmatrisen. |
+| npm run lint; npx tsc --noEmit | PASS exit0, lint-fix2-final.log / tsc-fix2-final.log. |
+| npm test | PASS75/75, unit-fix2.log. |
+| npm run test:integration | PASS75/75,75.24s. Ytterligare helt ny delivery_integration_test75/75,68.8s. |
+| npm run build | PASS Next16.4.6 / Prisma7.10.1, build-fix2.log. |
+| RATE_LIMIT_STORE=postgres npm run test:e2e (prod0) | PASS34/34,1.2m, egen booking_ui_fix2_prod0_test. |
+| Samma prod1 | PASS34/34,58.6s, egen booking_ui_fix2_prod1_test. |
+| Samma dev0 | PASS34/34,6.7m (lokal filcachekompaktering), egen booking_ui_fix2_dev0_test. |
+| Samma dev1 | PASS34/34,1.8m, egen booking_ui_fix2_dev1_test. |
+| Slutstädning | PASS0 egna bokningar/kampanjer/admins/sessioner/spärrposter/workspaceRequests/events i samtliga fyra test-DB. |
+| npm audit --json | FAIL exit1,7moderate,0high/critical; inga riskabla overrides/majorbyten. |
+| npm audit --omit=dev --json | PASS0fynd. Separat från funktionstester. |
+| Actions43275980287 | PASS exakt d7:dev0 34/34(1.4m),dev1 34/34(1.5m),prod0 34/34(52.0s),prod1 34/34(39.5s). HTTP memory-default i CI; lokal matris postgres. |
+| Grok fryst slutrevision | GO för skyddad syntetisk preview, NO-GO pilot. Egna75unit/lint/tsc/build,34prod0,2riktade dev+prod; slutlig riktig hjul-/tangentbordsprovning av kalender. Föregående fix1 hade75integration och66HTTP-gateprober; oförändrad auth återtestades inte i slutvarvet. Ingen cloudåtkomst eller granskning av våra aktuella Actions. |
+| Verkligt Vercel containerbygge | PASS Buildah Linuxamd64,105källfiler, Prisma/Nextbuild och minimalruntime53paket; revision d7, deployment dpl_<redacted>. Preview target=null, fra1; build cle1/USA. |
+| Faktisk perimeter | PASS stabil alias och immutable deployment; HTML, API, demoPOST, favicon och verklig statisk resurs kräver Vercel-auth. SSO alla deployments, endast Niclas. |
+| Faktisk säkerhet | PASS giltig HTTPS-certifikatkedja, CSP/HSTS/nosniff/no-powered-by/admin no-store, Secure/HttpOnly/Strict-cookie, same-origin, separat appbehörighet, session reuse, logout och kopierad-cookie403. Port3000 ej nåbar; /mcp,/api/mcp,/sse404. |
+| Faktisk användarprovning | PASS Chromium: demoknapp, kundbokning+tom dag→nästa lediga, sammanfattning/bekräftelse; ägare skapa/flytta/avboka; ändra och återställ pris, lägg ledighet, publicera kampanj. Alla fyra adminmenyer utan sid-overflow vid320/390/1440. Se live/result.json. |
+| Faktisk beständighet | PASS samma session och bokningssvar efter99sekunders inaktivitet, därefter probe-session revokerad. Kompletterande Vercellogg BOOKING_SERVER_READY för samma boknings-GET200 vid18:30:52.888Z (cnm4m-1794508252888-208cb974d6b6) styrker ny instans efter inaktiviteten; ingen framtvingad omstart. Se cold-start.json. |
+| Backup/återläsning efter UI-prov | PASS pg_dump18.7 verify-full, AES256GCM, tamper nekas; ny lokal booking_ui_live_restore_demo, alla10tabellers antal/rowhash identiska,35bokningar. Krypterad fil på operatörens PC, inte automatiserad offsitebackup. |
+
+**NOT RUN:** fysisk iPhone/Safari, WebKit/Firefox/screenreader, framtvingad omstart/lastcertifiering, exakt fakturakostnad, ny fullvideo och automatisk offsitebackup. Nya instansbevis finns i cold-start.json; gamla kallstartsbevis återanvänds inte. Normal individuell login verifieras positivt lokalt/integration/Grok; nya molnflödet använder demoaktören, vanlig loginform kontrollerad men inget nytt lösenordskonto skapat i moln-DB.
+
+## Mellanresultat och rättningar
+
+Initial tsc/build hittade nullable auth/seedclosure; rättat. Första E2E30/32 hittade engelskt nätfel och alertlocator; rättat. Dev-hydration gav test-race; väntar nu enabled/focus. Mänskliga datum krävde nya exakta Stockholm-assertioner. Scrolltestets inputdriver behövde stabil mätning; sluttest verifierar tangentbord och full geometri, verkligt hjul verifierat separat. Inga misslyckade mellanresultat räknas som PASS. Två samlade produktfixvarv, ingen tredje loop.
+
+## Bilaga — tidigare preview- och Epicresultat
+
 # Verifiering — levererad skyddad Vercel-preview
 
 2026-11-12. Separat branch preview/epic05-vercel-review från29ac297. Endast
@@ -5,7 +44,7 @@ syntetiska data. Driftsatt kod f2fdac700125df2d212e824555758b8ed6d6a7a7.
 Lokalt, Grok, Actions och faktisk drift skiljs åt nedan. Senare dokumentations-
 commits ändrar inte den granskade/driftsatta koden.
 
-## Aktuell resultattabell
+### Historisk resultattabell f2fdac7
 
 | Kommando/kontroll | Faktiskt utfall |
 | --- | --- |

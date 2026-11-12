@@ -1,6 +1,23 @@
 # Datakarta för Booking Lab SE POC
 
-## Privat Vercel-preview, godkänd anpassning 2026-11-12
+## Avgränsad demoknapp i UI-uppdraget
+
+`POST /api/demo/session` tar inte emot kunduppgifter, lösenord eller en
+användaridentitet. I uttryckligen tillåten, skyddad Preview skapas en vanlig
+serverlagrad session för den markerade aktören `demo-owner@example.test`.
+Frontend får bara ok/fel och en HttpOnly-cookie, aldrig miljöhemligheter.
+Aktören visas som Demoägare, inte som en verifierad Vercelanvändare.
+Normal individuell inloggning och bokningsregler består.
+
+Ny demodatabas är separat från tidigare prov; inga tidigare
+kontaktuppgifter kopieras till demoseed eller Grok. Bara påhittade namn och
+reserverade example.test-adresser. Källkod/bilder för Grok kommer från egen
+lokal syntetisk kopia; Grok får inga molnhemligheter eller driftåtkomster.
+Ingen ny extern telemetri, utskick eller betaltjänst införs av UI-ändringen.
+Aktuell faktisk drift, revision och verifiering finns i [DEMO](DEMO.md) och
+[VERIFICATION](VERIFICATION.md); grinden i [UI-granskningen](UI_USABILITY_REVIEW.md).
+
+## Tidigare privat Vercel-preview f2fdac7, 2026-11-12
 
 Faktisk leverans på f2fdac7: app-runtime fra1/Frankfurt och Neon eu-central-1,
 men Vercelbygget kördes i cle1/USA. Detta är inte en verifierad EU-exklusiv

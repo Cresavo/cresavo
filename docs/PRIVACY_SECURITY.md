@@ -1,6 +1,27 @@
 # Integritets- och säkerhetsprinciper
 
-## Skyddad Vercel-preview — separat godkännande 2026-11-12
+## Undantag enbart för ägarens isolerade syntetiska demo
+
+Niclas har uttryckligen godkänt att extra manuellt applösenord ersätts med en
+demoknapp efter Vercels åtkomstskydd. Detta ändrar inte produktens normala
+individuella admininloggning. Demovägen är av som standard och kräver Preview,
+exakt projekt/databas, aktivt särskilt demokonto, origin-kontroll, wrapperns
+adressbevis och befintlig loginspärr. Production nekas. Aktuell perimeter för
+HTML, API, resurser och alla alias ska verifieras före aktivering, aldrig sänkas.
+
+Grindflaggan pausar åtkomst men återkallar inte i sig alla cookies permanent:
+en kopierad cookie från en session som inte loggats ut kan fungera när samma
+miljö återaktiveras inom sessionens 8 timmar. Logout är permanent serverrevokering.
+Använd befintlig kontospärr/credentialVersion eller ADMIN_SESSION_VERSION vid
+permanent stopp. Vercels ändrade miljövariabler börjar gälla först i en ny deploy;
+de ändrar inte en redan driftsatt instans. Inga hemligheter i klientkod eller URL.
+
+Endast syntetisk data och redan godkänd ägare får finnas bakom denna förenkling.
+Utökad åtkomst, kunddrift eller annan miljö kräver separat beslut. Aktuell
+drift/stopp beskrivs i [DEMO](DEMO.md); kända låga begränsningar och testbevis i
+[UI_USABILITY_REVIEW](UI_USABILITY_REVIEW.md) och [VERIFICATION](VERIFICATION.md).
+
+## Tidigare skyddad Vercel-preview f2fdac7, 2026-11-12
 
 Leverans f2fdac7 har verifierad all-deployment-perimeter, individuell appadmin,
 TLS, headeröverskrivning/spärr, logout-revokering och beständighet vid kallstart.

@@ -1,3 +1,39 @@
+# Demo — förbättrad skyddad mobilpreview
+
+**Aktuell UI-leverans 2026-11-12:** [Öppna skyddad demo](https://booking-lab-se-preview.vercel.app). Logga vid behov in i Vercel och tryck **Öppna demoadmin**; inget ytterligare lösenord behövs. Endast syntetiska uppgifter, endast Niclas. Branch `ui/epic05-booking-usability`, granskad och driftsatt produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**. Senare dokumentationscommit ändrar inte previewkoden.
+
+Tappbar svensk kalender och lediga tider, nästa lediga dag, tydlig sammanfattning/bekräftelse, bibehållna kundutkast och mobil arbetsdag med skapa/flytta/avboka. Tjänster, scheman, pauser, ledighet och kampanjer använder befintliga funktioner. Separat demo-DB med 3 aktiva behandlingar, 2 medarbetare och 33 seedbokningar; efter faktisk molnprovning 35 bokningar inklusive en avbokad. Inga utskick eller verkliga kunduppgifter.
+
+Verifierat:75/75 unit,75/75 integration,34/34 E2E i vart och ett av dev/prod × proxy av/på; lint/tsc/build PASS. [Actions43275980287](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43275980287) kör exakt d7bc47f och alla fyra jobb är gröna. Grok har gett [GO för skyddad syntetisk preview](qa/QA-REPORT-ui-fix2-d7bc47f.md) efter två samlade rättningsvarv, inte för pilot. Faktiskt molnprov är separat från Groks isolerade granskning.
+
+Kvar: fysisk iPhone/Safari och Niclas UX-godkännande; full audit FAIL7moderate, runtime audit PASS0. Ingen ny betald tjänst/prisplan, inget mainmerge eller publik MCP. Exakt fakturerad förbrukning och automatisk extern backup ej verifierade. [Resultat och begränsningar](VERIFICATION.md), [prova/stopp](DEMO.md), [före/efter](UI_USABILITY_REVIEW.md).
+
+## Prova nu
+
+1. Öppna den stabila länken i Safari. Vercel-inloggning vid behov → Öppna demoadmin.
+2. Kalender: tryck Välj dag, byt dag/medarbetare och öppna en bokning.
+3. Ny bokning → välj behandling, person, kalenderdag och tid → skapa. Använd påhittat namn och example.test.
+4. Öppna bokningen → Flytta → ny dag/tid → Spara flytt. Avboka har separat bekräftelse och säkert initialt fokus.
+5. Visa kundbokningen → välj behandling/person/dag/tid. Fullbokad dag erbjuder Hitta nästa lediga dag. Kontrollera sammanfattningen innan Bekräfta testbokning.
+
+## Exakt miljö och åtkomst
+
+Stabil alias https://booking-lab-se-preview.vercel.app pekar på dpl_<redacted>. Immutable https://booking-lab-se-preview-6bk2naol8-<redacted-vercel-team>.vercel.app. Produktkod d7bc47f5596cc8be06e58603fe2f32457c6b0fa0; Preview target=null, project prj_<redacted>. Alias är manuellt tilldelad; deployment.alias kan vara tom trots korrekt alias-API. Ingen Productionpromotion/Git-autodeploy/DNS-ändring. Image sha256:4b9dfae99b5a67624e8be7c63957eddc685fd705e8f657cc2f7ad8bf0e64477b.
+
+Separat booking_ui_preview_demo på samma befintliga Neon Free-resurs i Frankfurt. Begränsad ny approll, nytt sessionshemligt värde; gamla neondb och gamla previewn är bevarade och används inte av nya demon. Inga nya betalda abonnemang/tillägg; redan godkänd Vercelförbrukning kan tillkomma. Inte verifierat EU-exklusivt: runtime/DB Frankfurt men build cle1/USA.
+
+Demoåtkomst avstängd som standard, kräver explicit Vercel Preview/projekt/databasfingeravtryck och nekas i Production. Markeringen Demoägare är en demoaktör, ingen verifierad personidentitet. Vanlig individuell produktinloggning finns kvar. Skyddet omfattar hela projektet/alla deployments. Inga bypasshemligheter i URL/klientkod. Grok har inte fått miljöåtkomst.
+
+## Drift/stopp och privata operatörsprofiler
+
+Läs enbart lokalt i C:/Users/<user>/booking-lab-se-preview/.vercel: ui-runtime.private.json (ny app), ui-owner.private.env (ny DB-owner), ui-live-target.private.json (exakt mål), backup-key.private (befintlig separat nyckel). Dessa är ignorerade och får aldrig skickas till Git/Grok/chatten. Gamla runtime-private.json/.env.preview.local avser gamla miljön: använd dem inte för nya demon.
+
+För åtkomstpaus: BOOKING_DEMO_ACCESS=0 och ny skyddad Previewdeploy. En flaggpaus är INTE permanent sessionrevokering; återaktivering inom8h kan återuppliva kvarvarande icke-utloggade sessioner. Vid permanent stopp: inaktivera demoaktören/höj dess credentialVersion eller befintlig ADMIN_SESSION_VERSION, därefter stoppa/ta bort just nya deployment/alias genom befintligt Vercelflöde. Radera inte databas eller gamla miljöer automatiskt. Sänk aldrig Vercels skydd. Ingen serverändring utan nytt konkret uppdrag.
+
+Additiv seed: npm run demo:seed kräver uttrycklig opt-in och isolerad *_demo-DB. Preview kräver --preview samt exakt pin; kör inte testsviter/testvakt mot molndatabasen. Seed är separat från fixtures och raderar inte befintliga data.
+
+## Historik — tidigare preview och lokal demo
+
 # Demo och mobilpreview — Epic 05
 
 ## Skyddad mobilpreview — verifierad 2026-11-12

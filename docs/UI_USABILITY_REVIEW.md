@@ -167,3 +167,14 @@ Inga boknings-, auth-, MCP-, API- eller databasregler ändras i detta varv.
   kan därför ha tre aktiva medarbetare efter enbart migrate + demo:seed.
   Den faktiska nya molndatabasen har två efter explicit inaktivering av sina
   egna grundresurser; historiska migrationer och befintliga data ändras inte.
+
+## Slutleverans och bildbevis
+
+Produktkod d7bc47f5596cc8be06e58603fe2f32457c6b0fa0, [Grok slutrapport](qa/QA-REPORT-ui-fix2-d7bc47f.md), SHA2566e79ec4f9ae3990234f67c9aa23b6b4deb65ad87c5ff1a61b9ec915bbfe5f095. Två samlade fixvarv avslutade, GO för syntetisk skyddad preview, inte pilot.
+
+| Flöde | Före f2fdac7 | Efter d7bc47f |
+| --- | --- | --- |
+| Kundval/sammanfattning | [Bild](assets/ui-usability/before-customer.png) | [Bild](assets/ui-usability/after-customer.png) |
+| Mobil arbetsdag | [Bild](assets/ui-usability/before-calendar.png) | [Bild](assets/ui-usability/after-calendar.png) |
+
+Jämförelseparen använder samma lokala syntetiska dataset,390px och produktionsbyggen. [Manifest/hash](assets/ui-usability/manifest.json). [Faktisk molnadmin](assets/ui-usability/live-admin.png) och [bekräftelse](assets/ui-usability/live-confirmation.png) är separata bevis med nytt isolerat dataset. Bilderna är granskade; inga laddningsskärmar används. Inledande felaktiga IAB-fullpagebilder uteslöts; de bevisar inte att basens navigation alltid var trasig. Fysisk iPhone är inte verifierad.
