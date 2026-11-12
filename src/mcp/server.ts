@@ -12,7 +12,7 @@ import {
 } from "../lib/domain";
 import {
   bookingModeAllowed,
-  mcpBookingSchema,
+  mcpBookingToolSchema,
   MCP_BOOKING_CLIENT,
 } from "./booking";
 import { safeFailure } from "../lib/errors";
@@ -65,7 +65,7 @@ serveStdio(() => {
         {
           description:
             "Skapa en bekräftad syntetisk testbokning. Endast betrodd lokal operatör, example.test-kunder och stabil clientRequestId för retries. Gemensamt dagstak för den lokala MCP-kanalen.",
-          inputSchema: mcpBookingSchema,
+          inputSchema: mcpBookingToolSchema,
         },
         async (v) =>
           reply(async () => {

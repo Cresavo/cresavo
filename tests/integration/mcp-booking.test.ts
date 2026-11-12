@@ -144,17 +144,30 @@ describe("Verklig lokal MCP-bokning", () => {
   }, 30000);
 
   it("avvisar obekräftad, förfalskad och otillåten indata utan skrivning", async () => {
-    const { client } = await connect();
+    const { client, stderr } = await connect();
+    const tool = (await client.listTools()).tools.find(
+      (t) => t.name === "create_booking",
+    )!;
+    expect(tool.inputSchema.additionalProperties).toBe(false);
+    expect(tool.inputSchema.required).toEqual(
+      expect.arrayContaining(["confirmed", "clientRequestId", "customerEmail"]),
+    );
     const input = payload((await getAvailability("massage", date))[0]);
     const before = await db.booking.count();
     for (const bad of [
       { ...input, confirmed: false },
+      { ...input, customerName: 42 },
       { ...input, clientRequestId: "x".repeat(65) },
       { ...input, customerEmail: "syntetisk@example.com" },
       { ...input, clientAddress: "spoof" },
       { ...input, start: "2026-02-30T09:00:00Z" },
-    ])
-      expect((await call(client, bad)).isError).toBe(true);
+    ]) {
+      const result = await call(client, bad);
+      expect(result.isError).toBe(true);
+      expect(result.content).toEqual([
+        { type: "text", text: "Kontrollera uppgifterna" },
+      ]);
+    }
     for (const bad of [
       { ...input, serviceId: "missing" },
       { ...input, start: "2020-01-01T09:00:00Z" },
@@ -168,6 +181,9 @@ describe("Verklig lokal MCP-bokning", () => {
     ])
       expect((await call(client, bad)).isError).toBe(true);
     expect(await db.booking.count()).toBe(before);
+    expect(stderr()).not.toMatch(
+      /clientAddress|Unrecognized|Input validation|syntetisk@example.com/,
+    );
   }, 30000);
 
   it("20 parallella MCP-retries ger en rad och samma id", async () => {

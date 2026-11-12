@@ -7,26 +7,28 @@ import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { PrismaClient } from "@prisma/client";
 import { LOGIN_FAILURE_DELAY_MS } from "../../src/lib/rate-limit";
 const db = new PrismaClient();
+
+function bookingTransport() {
+  return new StdioClientTransport({
+    command: process.execPath,
+    env: mcpEnvironment({ booking: true }),
+    args: [
+      "--env-file=.env",
+      "--import",
+      "tsx",
+      "src/mcp/server.ts",
+      "--admin",
+      "--allow-bookings",
+    ],
+  });
+}
 test("lokal MCP-bokning visas i skyddad admin med Stockholmstid", async ({
   page,
   synthetic,
 }, testInfo) => {
   const client = new Client({ name: "synthetic-mcp-admin-flow", version: "1" });
   try {
-    await client.connect(
-      new StdioClientTransport({
-        command: process.execPath,
-        env: mcpEnvironment({ booking: true }),
-        args: [
-          "--env-file=.env",
-          "--import",
-          "tsx",
-          "src/mcp/server.ts",
-          "--admin",
-          "--allow-bookings",
-        ],
-      }),
-    );
+    await client.connect(bookingTransport());
     let day = DateTime.now().setZone("Europe/Stockholm").plus({ days: 2 });
     while (day.weekday > 5) day = day.plus({ days: 1 });
     const available = await client.callTool({
@@ -86,6 +88,108 @@ test("lokal MCP-bokning visas i skyddad admin med Stockholmstid", async ({
     await db.$disconnect();
   }
 });
+test("HTTP och MCP delar idempotens och stoppar 20 blandade överlapp", async ({
+  request,
+  synthetic,
+}) => {
+  const client = new Client({ name: "synthetic-cross-channel", version: "1" });
+  try {
+    await client.connect(bookingTransport());
+    let day = DateTime.now().setZone("Europe/Stockholm").plus({ days: 12 });
+    while (day.weekday > 5) day = day.plus({ days: 1 });
+    async function slots() {
+      const result = await client.callTool({
+        name: "get_availability",
+        arguments: { serviceId: "massage", date: day.toISODate() },
+      });
+      expect(result.isError).not.toBeTruthy();
+      const block = result.content[0];
+      if (block.type !== "text") throw new Error("Expected text");
+      return JSON.parse(block.text) as string[];
+    }
+    const payload = {
+      serviceId: "massage",
+      start: (await slots())[0],
+      customerName: "Syntetisk kanaltest",
+      customerEmail: `${synthetic.marker}-shared@example.test`,
+    };
+    const created = await client.callTool({
+      name: "create_booking",
+      arguments: {
+        ...payload,
+        clientRequestId: synthetic.marker,
+        confirmed: true,
+      },
+    });
+    expect(created.isError).not.toBeTruthy();
+    const block = created.content[0];
+    if (block.type !== "text") throw new Error("Expected text");
+    const id = (JSON.parse(block.text) as { id: string }).id;
+    const headers = {
+      origin: "http://localhost:3000",
+      "Idempotency-Key": synthetic.marker,
+    };
+    const replay = await request.post("/api/bookings", {
+      headers,
+      data: payload,
+    });
+    expect(replay.status()).toBe(201);
+    expect(await replay.json()).toEqual({ id });
+    const mismatch = await request.post("/api/bookings", {
+      headers,
+      data: { ...payload, customerName: "Annan syntetisk kund" },
+    });
+    expect(mismatch.status()).toBe(409);
+    const available = await slots();
+    expect(available.length).toBeGreaterThan(1);
+    const results = await Promise.all(
+      Array.from({ length: 20 }, async (_, index) => {
+        const input = {
+          serviceId: index % 2 ? "fotvard" : "massage",
+          start: index % 2 ? available[0] : available[1],
+          customerName: "Syntetisk samtidighetskund",
+          customerEmail: `${synthetic.marker}-mixed-${index}@example.test`,
+        };
+        const key = `${synthetic.marker}-${index}`;
+        if (index % 3) {
+          const result = await client.callTool({
+            name: "create_booking",
+            arguments: { ...input, clientRequestId: key, confirmed: true },
+          });
+          if (result.isError)
+            expect(result.content).toEqual([
+              { type: "text", text: "Tiden är inte tillgänglig" },
+            ]);
+          return !result.isError;
+        }
+        const result = await request.post("/api/bookings", {
+          headers: { ...headers, "Idempotency-Key": key },
+          data: input,
+        });
+        expect([201, 400]).toContain(result.status());
+        if (result.status() === 400)
+          expect(await result.json()).toEqual({
+            error: "Tiden är inte tillgänglig",
+          });
+        return result.status() === 201;
+      }),
+    );
+    expect(results.filter(Boolean)).toHaveLength(1);
+    expect(
+      await db.booking.count({
+        where: { customerEmail: { startsWith: synthetic.marker } },
+      }),
+    ).toBe(2);
+    const overlaps = await db.$queryRaw<
+      { count: bigint }[]
+    >`SELECT count(*) FROM "Booking" a JOIN "Booking" b ON a.id < b.id AND a."businessId"=b."businessId" AND a."staffId"=b."staffId" AND tstzrange(a."startsAt",a."endsAt",'[)') && tstzrange(b."startsAt",b."endsAt",'[)')`;
+    expect(Number(overlaps[0].count)).toBe(0);
+  } finally {
+    await client.close();
+    await db.$disconnect();
+  }
+});
+
 test("HTTP avvisar obehöriga anrop och ogiltig JSON utan feldetaljer", async ({}, testInfo) => {
   const request = socketClient(
     testInfo.project.name === "desktop" ? "127.0.0.21" : "127.0.0.22",

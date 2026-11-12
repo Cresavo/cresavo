@@ -62,7 +62,7 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-it("standardklienten läser utan att skriva eller ärva adminhemligheter", async () => {
+it("standardklienten läser utan skrivning och den explicita miljön vitlistas", async () => {
   const before = await db.booking.count();
   const campaigns = await db.campaign.count();
   const result = await runClient(false);

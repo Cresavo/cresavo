@@ -1,5 +1,11 @@
 # Integritets- och säkerhetsprinciper
 
+## Epic 02: lokal agentbokning och konfigurationsgräns
+
+Endast --admin tillsammans med --allow-bookings aktiverar syntetisk MCP-bokning. Confirmed=true är klientens försäkran, inte bevis på mänskligt samtycke. Domänregler, kvoter och databasens skydd är gemensamma med HTTP; svaren minimeras. Det nya verktyget sanerar även schemafel via safeFailure utan att ändra äldre verktygs kontrakt.
+
+Grok identifierade Prismas befintliga automatiska .env-inläsning (E02-QA-2): även en uttryckligt vitlistad subprocess-miljö kan få ADMIN_PASSWORD/SESSION_SECRET från projektkonfiguration vid Prisma-import. Att ta bort Node --env-file garanterar inte frånvaro av dessa värden. Ingen isolering påstås; detta är ett dokumenterat framtida driftarbete. Inga verktyg lämnar ut miljövärden, och bara syntetiska uppgifter får behandlas. Den explicita negativa serverstarten testas med tom hemlighet; Groks oberoende prob verifierade även helt saknad hemlighet utan sådan .env-konfiguration.
+
 ## Aktuellt efter QA batch 3
 
 Fem fel från samma klient spärrar fortsatta lösenordskontroller, även för rätt lösenord. Samtidiga försök reserveras före jämförelsen; spärrade/felaktiga svar fördröjs minst 100 ms. Den tidigare beskrivningen om att rätt lösenord alltid släpps igenom är ett rättat säkerhetsfel, inte avsedd policy. NAT och IPv6-/64 delar skyddet; andra klienter påverkas inte. Processomstart, kapacitetseviktering och roterade nät är kvarvarande begränsningar.

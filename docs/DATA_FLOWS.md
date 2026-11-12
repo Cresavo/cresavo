@@ -6,7 +6,7 @@ I separat lokalt skrivläge tar create_booking emot syntetiskt namn och example.
 
 createBooking lagrar samma bokningsfält, idempotenshash och e-postkvotnyckel som webben. clientKey är HMAC av en fast serverägd MCP-kanalsträng, inte operatörens IP eller individuell agentidentitet. Samma lokala databas och dagstak används; ingen ny mottagare, tabell eller extern modellanslutning läggs till. Verktygssvar innehåller endast id, serviceId, startsAt och endsAt. Administrationsvyn har fortsatt maskerad e-post. Ingen kundlivscykel/gallring tillkommer.
 
-Testklienten visar syntetiskt kundnamn och tid före ja, skriver ett minimerat resultat och lämnar inte e-post eller sessionshemlighet i resultatloggen. SESSION_SECRET lämnas bara till den betrodda lokala bokningssubprocessen för HMAC; ADMIN_PASSWORD skickas inte via mcpEnvironment. En operatörs --env-file kan själv innehålla fler hemligheter; använd separat minimal lokal konfiguration. SDK:s valideringsfel kan fortfarande spegla klientens egen felaktiga indata.
+Testklienten visar syntetiskt kundnamn och tid före ja, skriver ett minimerat resultat och lämnar inte e-post eller sessionshemlighet i resultatloggen. mcpEnvironment exporterar SESSION_SECRET bara i bokningsläge och exporterar inte ADMIN_PASSWORD. **Prisma 6 kan dock automatiskt läsa projektets .env**, även utan Node --env-file, och tillföra båda hemligheterna i subprocessen. Vitlistningen är inte en isoleringsgräns; använd separat minimal konfiguration och utred verklig processisolering före pilot. Det nya create_booking sanerar schemafel till statisk svensk text före SDK:s isError-svar; äldre verktygs SDK-valideringsfel kan fortfarande spegla klientens egen indata.
 
 ## Uppdatering efter QA batch 3
 
