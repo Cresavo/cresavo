@@ -116,7 +116,8 @@ Kända låga förbättringar inför eventuell utökning, utan ny fixloop:
   WCAG:s 24 px-minimum uppfylls; fysisk iPhone ska bedöma ergonomin. Vi gör
   inte kalendern horisontellt rullande på telefon för att få 44 px bredd.
 - UX-QA-7: miljöflaggan är en åtkomstpaus, inte en permanent revokering.
-  En outloggad cookie kan fungera igen om samma grind återaktiveras inom 8 h.
+  En kopierad cookie från en session som inte loggats ut kan fungera igen om
+  samma grind återaktiveras inom 8 h. Utloggade sessioner förblir återkallade.
   Använd befintlig kontospärr/credentialVersion eller höj ADMIN_SESSION_VERSION
   för permanent återkallelse vid stopp. Ingen ny auth-modell införs i UI-varvet.
 - UX-QA-8: fler positiva HTTP-prober genom wrappern bör permanentas i repot.
@@ -140,3 +141,29 @@ CONNECT till den nya databasen; nya appkontot saknar migrations-/ägarprivilegie
 Grundseedens egna dubbla resurser i denna nyskapade databas får inaktiveras för
 en konsekvent demo; detta görs inte automatiskt av den additiva seedningen.
 Aktuell driftsatt databas/revision redovisas i DEMO efter faktisk verifiering.
+
+## Sista avgränsade rättningsvarvet: lång sidscroll
+
+Groks [originalrapport för f737ed2](qa/QA-REPORT-ui-fix1-f737ed2.md)
+har SHA256 6a70cd90ac77688c526e6fb47428c13ebd7d6099c4e8df5208e749216f4adb2e.
+Även denna fick avgränsat preview-GO, utan pilotgodkännande. Den korta
+scrollproben räckte dock inte för att verifiera den fasta tidsaxeln.
+Codex reproducerade att axeln försvann vid 2400 px sidscroll: gridens box var
+1382 px medan dess innehåll var 4588 px (UX-QA-22).
+
+Varv 2 begränsas till `width: max-content; min-width: 100%` på kalendergriden
+och en regression med fyra medarbetare. Testet kontrollerar inbyggd piltangent,
+rullar därefter deterministiskt till hela regionens slut och mäter att
+tidsaxeln stannar vid vänsterkanten och att sidan inte får horisontell overflow.
+Inga boknings-, auth-, MCP-, API- eller databasregler ändras i detta varv.
+
+Övriga nya låga fynd från Grok blir backlog, ingen tredje fixloop:
+
+- UX-QA-17/19: framtida strukturerade felkoder och kosmetik i kalenderns hörn.
+- UX-QA-18: fingeravtrycket bör i framtiden även validera tom host och pg:s
+  alternativa miljöstandarder. Den faktiska nya previewprofilen har redan
+  explicit icke-tom host och port5432; byte av lösenord/roll ändrar inte målet.
+- UX-QA-21: migrationen skapar Anna även utan grundseed. En ny lokal databas
+  kan därför ha tre aktiva medarbetare efter enbart migrate + demo:seed.
+  Den faktiska nya molndatabasen har två efter explicit inaktivering av sina
+  egna grundresurser; historiska migrationer och befintliga data ändras inte.

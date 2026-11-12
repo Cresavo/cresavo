@@ -327,6 +327,8 @@ button:hover,
 }
 .calendar-grid {
   display: grid;
+  width: max-content;
+  min-width: 100%;
 }
 .calendar-axis-heading {
   position: sticky;

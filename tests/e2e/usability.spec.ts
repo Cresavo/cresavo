@@ -140,6 +140,60 @@ test("alla arbetsytans menyer och datumval ryms på en smal telefon", async ({
   expect((await lane.boundingBox())!.width).toBeGreaterThanOrEqual(150);
 });
 
+test("bred veckokalender behåller tidsaxeln vid sidscroll", async ({
+  page,
+  synthetic,
+}) => {
+  const login = await page.request.post("/api/admin/login", {
+    headers: { origin: "http://localhost:3000" },
+    data: { email: synthetic.admin.email, password: synthetic.admin.password },
+  });
+  expect(login.status()).toBe(200);
+  synthetic.trackSession(login.headers()["set-cookie"] ?? "");
+  for (const i of [1, 2]) {
+    const key = `${synthetic.marker}-scroll-${i}`;
+    synthetic.trackWorkspaceRequest(key);
+    const response = await page.request.post("/api/admin/staff", {
+      headers: { origin: "http://localhost:3000", "Idempotency-Key": key },
+      data: {
+        name: `Syntetisk scroll ${i}`,
+        serviceIds: ["massage"],
+        weekly: [],
+        active: true,
+      },
+    });
+    expect(response.status()).toBe(200);
+    synthetic.trackResource("staff", (await response.json()).id);
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/admin?view=week");
+  const region = page.getByRole("region", { name: "Veckokalender" });
+  await expect(page.locator(".staff-headings span")).toHaveCount(28);
+  await region.focus();
+  const rect = (await region.boundingBox())!;
+  const end = await region.evaluate((el) => el.scrollWidth - el.clientWidth);
+  expect(end).toBeGreaterThan(1800);
+  await page.keyboard.press("ArrowRight");
+  await expect
+    .poll(() => region.evaluate((el) => el.scrollLeft))
+    .toBeGreaterThan(0);
+  // Jump deterministically to the far end after checking native keyboard input.
+  // This exercises sticky layout without depending on OS scroll animation speed.
+  await region.evaluate((el) =>
+    el.scrollTo({ left: el.scrollWidth, behavior: "instant" }),
+  );
+  await expect
+    .poll(() => region.evaluate((el) => el.scrollLeft))
+    .toBeGreaterThanOrEqual(end - 1);
+  const axis = (await page.locator(".calendar-axis").boundingBox())!;
+  expect(Math.abs(axis.x - rect.x)).toBeLessThanOrEqual(2);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
 test("demoinloggning är stängd i normalt läge även med falska miljöheaders", async ({
   request,
 }) => {
