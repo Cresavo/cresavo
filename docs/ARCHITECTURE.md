@@ -34,7 +34,7 @@ Resurslistor är begränsade till50tjänster/20personal, samma gränser som konf
 
 Alla nya skrivningar kräver confirmed=true och stabil clientRequestId(max64). Aktören är en serverägd lokal kanal, aldrig klientens fält. Identisk retry återger samma minimala resultat; ändrad payload eller gammal version nekas. Den medföljande klientens --admin --workspace ber om sju separata bekräftelser för skapa tjänst/personal/bokning, flytta, avboka och inaktivera provresurser. Nekande/EOF stoppar innan nästa skrivning; tidigare godkända ändringar ligger kvar. Pipe/automation kan svara ja, så detta bevisar inte mänskligt samtycke.
 
-Kandidat7fc0e86 har ren installation, full slutmatris, faktisk uppgraderingskopia och produktionsdemo PASS. Grok godkände efterföljande kvotfix4fc98d3. Exakt leverans-CI återstår. Se VERIFICATION/WORKPLAN för faktisk revision, kommandon och begränsningar. Detta är inte pilot- eller driftgodkännande.
+Kandidat7fc0e86 har ren installation, full slutmatris, faktisk uppgraderingskopia och produktionsdemo PASS. Grok godkände efterföljande kvotfix4fc98d3. Exakt leveransc12b98a har4gröna CI-E2E-jobb med24/24 vardera, se CI_DELIVERY_2026_11_12. Se VERIFICATION/WORKPLAN för faktisk revision, kommandon och begränsningar. Detta är inte pilot- eller driftgodkännande.
 
 ## Epic 04: individuell lokal admin
 

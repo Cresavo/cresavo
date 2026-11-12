@@ -1,6 +1,6 @@
 # Handoff — Epic05 QA-godkänd lokal produktalpha
 
-2026-11-12. **epic-05-booking-workspace**, produktkod **4fc98d37fef805e041f8f8772a3fc37543d4ff04**, bas26b680d/plan5c9b07a. Grok har gett GO efter ett riktat fixvarv, E05-QA-1 stängd. Efterföljande dokumentcommits ändrar ingen app/test/schema. Privat branchpush och exakt Actions-kontroll förbereds; ingen mainmerge/deploy. Pilot NO-GO.
+2026-11-12. **epic-05-booking-workspace**, produktkod **4fc98d37fef805e041f8f8772a3fc37543d4ff04**, bas26b680d/plan5c9b07a. Grok har gett GO efter ett riktat fixvarv, E05-QA-1 stängd. Efterföljande dokumentcommits ändrar ingen app/test/schema. Privat leverans **c12b98a31f844f4dc50213a72feb57db02595794** är pushad; [Actions43210413097](CI_DELIVERY_2026_11_12.md) har4gröna E2E-jobb,24/24 vardera. Ingen mainmerge/deploy. Pilot NO-GO.
 
 Byggt: faktisk dag-/veckokalender och mobil dag/lista; tjänsters pris/längd/buffert/aktiv/version; två personaler med tilldelning, arbetspass, pauser och datumundantag; manuellt skapa/öppna/flytta/avboka med snapshots/historik. Samma domänregler/lås/version/idempotens via API och lokal MCP. Femte nya framåtmigrationen bevarar gamla kolumner och ersätter exclusion atomärt med skydd för confirmed. Fyra historiska migrationer byteidentiska. Ingen ny npm-dependency/licensändring. Backfill använder migrationens katalogpris/namn, inte ett påhittat historiskt pris.
 
@@ -14,9 +14,11 @@ QA-fixen separerar manuella adminbokningar:100nya per konto/Stockholm-skapandeda
 
 **Demo/prova:** [Windowsguide](LOCAL_DEMO_WINDOWS.md), [galleri/revision](DEMO.md). Produktionsdemo7fc0e86 dirty=false6/6PASS,28PNG/6WebM;26funktionsbilder+2ogiltiga09-laddningsbilder.13visar riktig detalj. Äldre än osynlig kvotfix, inte nytt kodbevis för4fc98d3. Ingen full ny inspelning. Filmer avkodade, stillrutor granskade, inte helt genomtittade. Artefakter ignorerade; Grok fick separat rensat paket.
 
+Komplett ändringslista mot godkänd föregångare: `git diff --name-status 26b680d 4fc98d3`; senare ändringar är enbart dokumentation.
+
 Käll-ZIP4fc98d3 med172filer/inventering/patch: C:/Users/<user>/booking-lab-pg-test/epic05-qa-fix1-4fc98d3, SHA256537dd086e0b310698bd4d3413d7c37f8ac6b6da1eac20c1a16528106d7e2e32c. Inga .env/auth-state/dependencies/build/data. Grok har faktisk åtkomst i egen miljö, inte bara en C:-sökväg.
 
-**Kvar inför slutleverans:** tillåten privat push och full manuell4CI för exakt leveransrevision, därefter dokumentera verkligt resultat. Mobilpreviewförslag klart men faktisk miljö kräver samlat beslut om leverantör/HEL1/backup/budget/domän/namngivna konton. Pilotblockerare i PROJECT_STATUS. QA-2–8 är mindre backlogg; inga nya Epics/andra fixvarv startas för dem. CI-besparing är konfigurerad och actionlintPASS; veckoschema kan inte aktiveras på featurebranch och inget mainmerge är tillåtet.
+**Leverans:** feature-push43209758207 PASS på4m01s, full manuell43210413097 PASS på exaktc12b98a.69unit/66integration/24E2E×4 också verifierade i Ubuntu/Docker-DB. Senare dokumentcommits ändrar endast Markdown; inga nya kod-/test-/schemaändringar efter QA. Docs-only-filter kontrolleras efter dokumentpush. Mobilpreviewförslag klart men faktisk miljö kräver samlat beslut om leverantör/HEL1/backup/budget/domän/namngivna konton. Pilotblockerare i PROJECT_STATUS. QA-2–8 är mindre backlogg; inga nya Epics/andra fixvarv startas för dem. CI-besparing är konfigurerad, actionlintPASS och feature/fullmatris/cache verifierade externt; veckoschema kan inte aktiveras på featurebranch och inget mainmerge är tillåtet.
 
 ## Verifierad föregångare — Epic04
 

@@ -16,9 +16,9 @@ Epic 01–04 är avslutade som avgränsade syntetiska POC:er. Senaste verifierad
 - Epic 02: lokal MCP-bokning, inte hela det äldre förslaget Booking Core.
 - Epic 03: beroendesäkerhet/Prisma 7.
 - Epic 04: individuella lokala administratörer.
-- Nästa definierade uppdrag: [Epic 05: bokningsarbetsyta](EPIC_05_PLAN.md).
+- Epic05: [bokningsarbetsyta](EPIC_05_PLAN.md), nu lokal alpha med Grok-GO på4fc98d3 och grön full-CI påc12b98a. Privat mobilpreview väntar separat miljöbeslut. Inget efterföljande Epic är automatiskt beställt.
 
-Denna dokumentationsleverans bygger inga nya funktioner och ändrar inga tidigare testresultat. Läs aktuell PROJECT_STATUS och Git-status innan arbetet startar. Hela systemet är fortfarande inte godkänt för riktiga kunder.
+Den ursprungliga roadmapändringen byggde inga funktioner. Epic05 har därefter implementerats och verifierats enligt den avgränsade planen. Läs aktuell PROJECT_STATUS och Git-status innan arbetet startar. Hela systemet är fortfarande inte godkänt för riktiga kunder.
 
 ## Produktområden och prioritering
 

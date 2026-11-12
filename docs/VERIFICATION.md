@@ -1,12 +1,12 @@
 # Verifiering — Epic05 QA-fixvarv1
 
-2026-11-12. Branch epic-05-booking-workspace; fryst fixkod **4fc98d37fef805e041f8f8772a3fc37543d4ff04** efter7fc0e86/b331cb1, E05-QA-1. Ny loopback booking_epic05_fix1_test på55451, PostgreSQL18.6. Original-QA7fc0e86 gav NO-GO på adminbudgeten; riktad återkontroll på4fc98d3 stängde E05-QA-1 och gav GO för lokal alpha. Historiska migrationer/dependencies oförändrade. Ingen push/mainmerge/deploy.
+2026-11-12. Branch epic-05-booking-workspace; fryst fixkod **4fc98d37fef805e041f8f8772a3fc37543d4ff04** efter7fc0e86/b331cb1, E05-QA-1. Ny loopback booking_epic05_fix1_test på55451, PostgreSQL18.6. Original-QA7fc0e86 gav NO-GO på adminbudgeten; riktad återkontroll på4fc98d3 stängde E05-QA-1 och gav GO för lokal alpha. Historiska migrationer/dependencies oförändrade. Privat pushc12b98a och full manuell CI43210413097 PASS; ingen mainmerge/deploy.
 
 ## Aktuell resultattabell
 
 | Kommando/kontroll | Faktiskt resultat efter fix |
 | --- | --- |
-| npm ci --no-fund | Inte omkörd i detta fixvarv; tidigare ren570/571PASS på samma oförändrade lockfile återanvänds, se bilaga. |
+| npm ci --no-fund | Lokalt återanvänd ren570/571PASS på oförändrad lockfile. Ny ren CI-installation påc12b98a PASS:571/572paket,54s på kall feature-körning. |
 | npx prisma generate | PASS7.10.1,124ms. |
 | npm run db:migrate / npm run db:seed | PASS på ny fix1_test:5migrations,2tjänster/2personal,0standardkonton. |
 | npm run lint / npx tsc --noEmit | PASS före och efter formatering med befintlig cachad Prettier3.9.9(MIT); ingen ny dependency/install. |
@@ -17,13 +17,14 @@
 | npm audit full / produktion | Omkörd efter fix:full FAILexit1,7moderate/0high/critical;produktion PASSexit0,0fynd. Inga overrides eller dependencies ändrade. |
 | node --env-file=.env scripts/test-cleanup.mjs / extern epic05-aggregate.mjs | PASS:CLEANUP_TIMEOUT_EXPECTED_EXIT=1;REMAINING_SYNTHETIC_ROWS=0. Därefter0booking/event/request/session/admin/campaign,2service/2staff,0aktivaöverlappar/observeradedeadlocks. |
 | Grok-QA | PASS:original7fc0e86:NO-GO;slutrapport4fc98d3:GO efter1fixvarv. Grok egen ren installation,69unit/66integration/24E2E×4 och kvot/auth/retry/MCP/samtidighetsprober. [Originalslutrapport](qa/QA-REPORT-epic05-4fc98d3.md). |
-| Demo / preview / CI | Demo är äldre7fc0e86; ingen ny full inspelning för osynlig fix.09-bilderna är laddningsbilder, inte funktionsbevis. Preview BLOCKERAD miljöbeslut. Ny implementation-CI NOT RUN. |
+| GitHub Actions, c12b98a | PASS feature43209758207:1jobb,4m01s. Full manuell43210413097:4gröna jobb/24E2E vardera,69unit/66integration i dev0. Ren Compose-DB/generate/migrate/seed/lint/build/tsc PASS. [Jobb/loggbevis](CI_DELIVERY_2026_11_12.md). Veckoaudit ej aktiv på default-branch. |
+| Demo / preview / CI | Demo är äldre7fc0e86; ingen ny full inspelning för osynlig fix.09-bilderna är laddningsbilder, inte funktionsbevis. Preview BLOCKERAD miljöbeslut. CI43210413097 påc12b98a PASS med4×24E2E; se separat CI-bevis. |
 
 Grok observerade **1deadlock i oförändrat avsiktligt direkt-ORM-bypasstest** (booking.test.ts25–27); testet PASS, inga deadlocks i domänprober. Vårt eget observerade0 gäller våra körningar och är ingen global garanti. Mindre QA-2–8 är backlogg, inte nya blockerare.
 
 Två första riktade DB-test FAIL på felaktigt överlappande fixtures(60minbehandling i30minsteg); fixturen byttes till befintlig30min-Massage och2/2PASS utan ändrade produktregler, sedan hela66/66PASS. Första försöket att använda createdb.exe kördes inte eftersom externa QA-paketet saknar filen; Nodepg hjälparen skapade sedan ny DB, inget reset. Behåll dessa skillnader från produktfel. Alla originalkörningar/loggar beskrivs i WORKPLAN.
 
-Faktisk E2E-proxy är **127.0.0.10/32**, hårdkodad testfixture matchande socketClient; exporterad TRUSTED_PROXY_IPS skriver inte över detta. Riktig TLS/proxy/fysisk mobil NOT RUN. Nytt godkännande och exakt push-CI behövs fortfarande. Pilot NO-GO.
+Faktisk E2E-proxy är **127.0.0.10/32**, hårdkodad testfixture matchande socketClient; exporterad TRUSTED_PROXY_IPS skriver inte över detta. Riktig TLS/proxy/fysisk mobil NOT RUN. Grok GO4fc98d3 och exakt push-CIc12b98a är nu verifierade. Pilot NO-GO.
 
 ## Bilaga — kandidat7fc0e86, före QA-fix
 

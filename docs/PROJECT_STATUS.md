@@ -1,6 +1,6 @@
 # Projektstatus — Epic05 QA-godkänd lokal produktalpha
 
-2026-11-12. Branch **epic-05-booking-workspace**, verifierad produktkod **4fc98d37fef805e041f8f8772a3fc37543d4ff04**, bas26b680d. Grok har stängt E05-QA-1 efter ett rättningsvarv och gett **GO för avgränsad lokal produktalpha**. Ingen kundpilot. Dokumentcommits efter4fc98d3 ändrar ingen produktkod/test/schema. Privat leveranspush och exakt Actions-kontroll förbereds; ingen mainmerge/deploy.
+2026-11-12. Branch **epic-05-booking-workspace**, verifierad produktkod **4fc98d37fef805e041f8f8772a3fc37543d4ff04**, bas26b680d. Grok har stängt E05-QA-1 efter ett rättningsvarv och gett **GO för avgränsad lokal produktalpha**. Ingen kundpilot. Dokumentcommits efter4fc98d3 ändrar ingen produktkod/test/schema. Privat push **c12b98a** och [full manuell Actions-matris](CI_DELIVERY_2026_11_12.md) är verifierade gröna. Senare dokumentcommits ändrar bara Markdown; ingen mainmerge/deploy.
 
 | Acceptans | Tekniskt / automatiskt verifierat | Prova / UX / kundberedskap |
 | --- | --- | --- |
@@ -11,14 +11,14 @@
 | AC6–7/E05-4: agentparitet och integritet | PASS riktig stdio, strict/opt-in, begränsade kundfria läsningar, blandad HTTP/MCP-konkurrens och direkt-DB-exclusion | Lokal --admin --workspace med7ja-frågor. Ingen modellnyckel/publik MCP. |
 | AC8/E05-3: användbar mobil/dator | PASS kärnflöden, nätverksfel/utkast/konflikt samt Tab/fokus/Enter; verkliga bilder granskade | UX delvis: fokus efter Flytta, dialog/Escape, dubbel kalenderlänk och kvotfeltext i backlogg. Ingen full a11y-/fysisk iPhone/Safari-verifiering. |
 | AC9: installation/uppgradering | PASS ren npmci,5migrationer/seed och faktisk Epic04-templatekopia4→5 med bevarade gamla kolumner/DST | README/Windowsguide. Historiska4migrationer orörda; ny migration ersätter exclusion atomärt för confirmed. Ingen skarp restoregaranti. |
-| AC10: oberoende QA / leverans-CI | Grok GO på4fc98d3,69unit/66integration/24E2E×4 i egen miljö. Privat push/Actions återstår | [Originalslutrapport](qa/QA-REPORT-epic05-4fc98d3.md). Första NO-GO7fc0e86 bevaras separat. |
+| AC10: oberoende QA / leverans-CI | PASS: Grok GO på4fc98d3 och69unit/66integration/24E2E×4 i egen miljö. CI påc12b98a har4gröna E2E-jobb,24/24 vardera | [Originalslutrapport](qa/QA-REPORT-epic05-4fc98d3.md). Första NO-GO7fc0e86 bevaras separat. |
 | E05-5: privat mobilpreview | Beslutsunderlag klart; faktisk URL **BLOCKERAD av miljögodkännande** | [Hetzner/HEL1/Tysklandsbackup/hela HTML+API skyddat/föreslagen15€-ram](DEMO.md). Ingen resurs/DNS/deploy/tunnel skapad. |
 
 **Sedan förra arbetsomgången:** hela arbetsytan och MCP-pariteten, ren installation/uppgraderingsbevis, produktionsdemo och en konkret QA-fix. Egna69unit/66integration/24E2E×4/lint/tsc/build/cleanup PASS. Full audit **FAIL7moderate/0high**,prod **PASS0**. Inga nya npm-beroenden eller licensändringar. [Faktiska kommandon och tidiga FAIL](VERIFICATION.md).
 
 [Prova stegvis på PC:n](LOCAL_DEMO_WINDOWS.md) · [demo](DEMO.md) · [plan](EPIC_05_PLAN.md). Demo7fc0e86 är äldre än den osynliga kvotfixen:6/6PASS,28fångade PNG (26funktionsbilder+2laddningsbilder),6WebM. Utvalda still-/videorutor granskade; inte helt genomtittade filmer. Ingen mobilåtkomlig site.
 
-**Pilot NO-GO:** kund-GDPR(export/radering/retention), MFA/recovery och kontobundet/distribuerat missbruksskydd, verklig TLS/proxy/flerinstansdrift, upstreamaudit/native-/distributionslicenser och beslut om Visa kund-e-post. Planerade områden i roadmap är inte nya beställningar. Mindre E05-QA-2–8 i originalrapporterna är backlogg, ingen ny fixloop. CI-kostnadspolicy lokalt verifierad:feature1/main+manuellt4/docs-ignore/cache/concurrency/veckoaudit. Extern tid/filter/fullmatris ska kontrolleras efter push; veckoschemat kräver framtida separat tillåten default-branchaktivering.
+**Pilot NO-GO:** kund-GDPR(export/radering/retention), MFA/recovery och kontobundet/distribuerat missbruksskydd, verklig TLS/proxy/flerinstansdrift, upstreamaudit/native-/distributionslicenser och beslut om Visa kund-e-post. Planerade områden i roadmap är inte nya beställningar. Mindre E05-QA-2–8 i originalrapporterna är backlogg, ingen ny fixloop. CI-kostnadspolicy lokalt verifierad:feature1/main+manuellt4/docs-ignore/cache/concurrency/veckoaudit. Feature-jobbet tog4m01s och full manuell4-matris PASS påc12b98a; cachehit i alla4jobb. Docs-filter verifieras vid dokumentpush; veckoschemat kräver framtida separat tillåten default-branchaktivering.
 
 ## Verifierad föregångare — Epic04
 

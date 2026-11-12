@@ -1,6 +1,6 @@
 # Prova Epic 05 på den här Windows-datorn
 
-Syntetisk lokal produktalpha, inte kundpilot. Kandidat7fc0e86, produktkod4099d9d. Ren, seedad **booking_epic05_delivery_demo** finns på127.0.0.1:55451 efter produktionsinspelningen. **booking_epic05_final_test** är separat testdatabas. Den äldre ignorerade .env bevaras; exportera DATABASE_URL i varje ny terminal så att den gamla Epic04-databasen inte används av misstag. Dessa offentligt dokumenterade booking:booking-uppgifter gäller bara detta syntetiska lokala kluster, aldrig extern drift.
+Syntetisk lokal produktalpha, inte kundpilot. QA-godkänd produktkod4fc98d3, CI-verifierad leveransc12b98a. Demo7fc0e86 visar samma UI före osynlig kvotfix. Ren, seedad **booking_epic05_delivery_demo** finns på127.0.0.1:55451 efter produktionsinspelningen. **booking_epic05_final_test** är separat testdatabas. Den äldre ignorerade .env bevaras; exportera DATABASE_URL i varje ny terminal så att den gamla Epic04-databasen inte används av misstag. Dessa offentligt dokumenterade booking:booking-uppgifter gäller bara detta syntetiska lokala kluster, aldrig extern drift.
 
 ## Starta på PC:n
 

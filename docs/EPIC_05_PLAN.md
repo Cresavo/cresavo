@@ -1,6 +1,6 @@
 # Epic 05: en användbar, agentredo bokningsarbetsyta
 
-Datum: 2026-11-12. Status: DEFINIERAD FÖR NÄSTA CODEX-UPPDRAG, INTE IMPLEMENTERAD ELLER TESTAD av denna dokumentationsändring.
+Planen fastställdes 2026-11-12 i5c9b07a. Genomförandestatus: produktkod4fc98d3 är testad och Grok-godkänd som lokal alpha; privat leveransc12b98a har full grön fyrfälts-CI. Faktisk mobilpreview är fortsatt BLOCKERAD av miljöbeslut och pilot NO-GO. Läs PROJECT_STATUS/VERIFICATION/CI_DELIVERY_2026_11_12 för bevis. Plantexten nedan bevarar den godkända ursprungliga beställningen; den är inte en ny byggstart.
 
 Bas: Epic 04-leveransen `26b680d73f95255473d07b073ab8e06a43d294f0`. Planbranch: `epic-05-booking-workspace`. Produktägaren har bett om uppdaterad repo-plan och en Codex-prompt, med samma arbetsdelning: Codex kodar, Grok granskar via Computer Use. Start sker när produktägaren skickar målprompten till Codex. Gör ingen omstart av redan godkända Epic 01–04.
 
