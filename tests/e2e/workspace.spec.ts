@@ -332,8 +332,21 @@ test("Epic05 salongsarbetsyta: boka, ändra tjänst/schema, flytta och avboka", 
   const date = day.toISODate()!,
     nextDay = day.plus({ days: 1 }).toISODate()!,
     moveDay = day.plus({ days: 2 }).toISODate()!;
-  const title = `Fotvård ${synthetic.marker.slice(-8)}`,
-    newTitle = `Fotvård Plus ${synthetic.marker.slice(-8)}`;
+  const title = process.env.BOOKING_DEMO
+      ? "Fotvård Demo"
+      : `Fotvård ${synthetic.marker.slice(-8)}`,
+    newTitle = process.env.BOOKING_DEMO
+      ? "Fotvård Plus Demo"
+      : `Fotvård Plus ${synthetic.marker.slice(-8)}`;
+  async function capture(name: string) {
+    if (!process.env.BOOKING_DEMO) return;
+    await page.screenshot({
+      path: testInfo.outputPath(`${name}.png`),
+      fullPage: true,
+      caret: "initial",
+    });
+    await page.waitForTimeout(1000); // Recording only; never used to synchronise assertions.
+  }
   async function post(url: string, data: unknown) {
     const key = randomUUID();
     synthetic.trackWorkspaceRequest(key);
@@ -383,6 +396,18 @@ test("Epic05 salongsarbetsyta: boka, ändra tjänst/schema, flytta och avboka", 
       people.push(person);
     }
     await page.goto("/");
+    await expect(page.locator("#service")).toBeEnabled();
+    await page.locator("#service").focus();
+    await page.keyboard.press("Tab");
+    await expect(page.locator("#staff")).toBeFocused();
+    expect(
+      await page.locator("#staff").evaluate((element) => {
+        const style = getComputedStyle(element);
+        return (
+          style.outlineStyle !== "none" && parseFloat(style.outlineWidth) > 0
+        );
+      }),
+    ).toBe(true);
     await page.locator("#service").selectOption(service.id);
     await page.locator("#staff").selectOption(people[0].id);
     await page.locator("#date").fill(date);
@@ -395,7 +420,9 @@ test("Epic05 salongsarbetsyta: boka, ändra tjänst/schema, flytta och avboka", 
     await page.locator("#slot").selectOption(firstSlot!);
     await page.locator("#name").fill("Syntetisk kalenderkund");
     await page.locator("#email").fill(`${synthetic.marker}@example.test`);
-    await page.getByRole("button", { name: "Bekräfta testbokning" }).click();
+    await page
+      .getByRole("button", { name: "Bekräfta testbokning" })
+      .press("Enter");
     await expect(
       page.getByText("Din testbokning är registrerad.", { exact: false }),
     ).toBeVisible();
@@ -420,10 +447,12 @@ test("Epic05 salongsarbetsyta: boka, ändra tjänst/schema, flytta och avboka", 
     await page.screenshot({
       path: testInfo.outputPath("epic05-calendar.png"),
       fullPage: true,
+      caret: "initial",
     });
     await visibleBooking.click();
     await expect(page.locator(".booking-summary")).toContainText(title);
     await expect(page.locator(".booking-summary")).toContainText("500,00");
+    await capture("09-bokningsdetalj");
 
     await page.goto(`/admin/services?id=${service.id}`);
     await page.locator("#service-name").fill(newTitle);
@@ -435,6 +464,7 @@ test("Epic05 salongsarbetsyta: boka, ändra tjänst/schema, flytta och avboka", 
       "Behandlingen är sparad",
     );
     await expect(page.locator("#service-duration")).toHaveValue("45");
+    await capture("10-tjanst-andrad");
     await page.goto(`/admin/bookings/${booking.id}`);
     await expect(page.locator(".booking-summary")).toContainText(title);
     await expect(page.locator(".booking-summary")).toContainText("30 min");
@@ -453,6 +483,15 @@ test("Epic05 salongsarbetsyta: boka, ändra tjänst/schema, flytta och avboka", 
       .click();
     await page.getByRole("button", { name: "Spara medarbetare" }).click();
     await expect(page.getByRole("status")).toContainText("tiderna är sparade");
+    if (process.env.BOOKING_DEMO) {
+      if (
+        !(await weekday.evaluate(
+          (element) => (element as HTMLDetailsElement).open,
+        ))
+      )
+        await weekday.locator("summary").click();
+      await capture("11-veckoschema-med-paus");
+    }
     const afterPause = await page.request.get(
       `/api/availability?serviceId=${service.id}&staffId=${people[0].id}&date=${date}`,
     );
@@ -473,6 +512,7 @@ test("Epic05 salongsarbetsyta: boka, ändra tjänst/schema, flytta och avboka", 
       `/api/availability?serviceId=${service.id}&staffId=${people[1].id}&date=${nextDay}`,
     );
     expect(await holiday.json()).toEqual([]);
+    await capture("12-ledigt-datum");
 
     const occupiedStart = day
       .plus({ days: 2 })
@@ -515,6 +555,7 @@ test("Epic05 salongsarbetsyta: boka, ändra tjänst/schema, flytta och avboka", 
     await expect(page.getByRole("status")).toContainText("har flyttats");
     await expect(page.locator(".booking-summary")).toContainText("Demo Erik");
     await expect(page.locator(".booking-summary")).toContainText("10:00");
+    await capture("13-flyttad-bokning");
     const moved = await db.booking.findUniqueOrThrow({
       where: { id: booking.id },
     });
@@ -546,6 +587,7 @@ test("Epic05 salongsarbetsyta: boka, ändra tjänst/schema, flytta och avboka", 
     await page.screenshot({
       path: testInfo.outputPath("epic05-cancelled-booking.png"),
       fullPage: true,
+      caret: "initial",
     });
   } finally {
     await db.$disconnect();

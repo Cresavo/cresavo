@@ -9,10 +9,20 @@ Start 2026-11-12. Godkänd plan5c9b07a på origin/epic-05-booking-workspace, ver
 | E05-2 | Domän och UI/API/MCP för atomär flytt/avbokning implementerade. Retry/stale och blandad HTTP/MCP-konkurrens testade. |
 | E05-3 | Implementerad desktop dag/vecka och mobil lista med detalj-/inställningsvyer.20/20 E2E i alla4lägen PASS, inklusive manuella boknings-/utkast-/nätverksfall. Slutdemo/fysisk mobil/Safari ej verifierade. |
 | E05-4 | Implementerad och delverifierad:68unit/64integration,22prod-E2E samt stärkt race2/2. Separat opt-in, kundfria svar och sju operatörsbekräftelser. Slutmatris på ren installation återstår. |
-| E05-5 | Läsande inventering: ansluten Vercel-Pro-workspace finns men inget Booking Lab-projekt bland dess länkade projekt; ingen lokal Vercel-/Fly-/Railway-konfiguration i repot. Leverantörs-/runtimebedömning och konkret åtkomst/region/backup/kostnadsförslag återstår. Ingen resurs skapad eller deploy godkänd. |
+| E05-5 | Konkret beslutsunderlag i DEMO: Hetzner-projekt, HEL1, Tysklandsbackup, skydd för hela webb/API och kostnadsram. Pris läst i renderad officiell sida; kapacitet/konto/DNS ej godkända/verifierade. Ingen miljö skapad, faktisk mobilpreview BLOCKERAD. |
 | QA/demo/leverans | Inte påbörjad; sammanhängande kandidat fryses först efter implementation och egna kontroller. |
 
 ## Skärmstruktur
+
+### Ren installation, uppgraderingskopia och slutmatris 2026-11-12
+
+På oförändrad produktkod4099d9d: npm ci --no-fund PASS,570paket installerade/571granskade på2m, ESLint9-deprecation och7moderate. Prisma generate7.10.1 PASS125ms. Ny egen booking_epic05_final_test på127.0.0.1:55451:5migrationer och seed PASS. Lint/tsc PASS;68unit PASS8.16s;64integration PASS56.84s; build PASS. E2E22/22 i samtliga4lägen:prod/proxy0=2.4m,prod/proxy1=38.9s,dev/proxy0=1.3m,dev/proxy1=1.1m. Därefter tillkom endast demo-/testverktyg:Tab/fokus och Enter verifierat i arbetsyteflödet2/2prodPASS14.7s. Ingen app-/domänändring efter4099d9d; slutlig kandidat omfattar dessa verktyg separat.
+
+Extern epic05-upgrade-verify.mjs skapade egen4-migrationskälla med syntetiska bokningar över båda DST-gränserna, kampanj, inaktivt adminkonto och återkallad session. PostgreSQL-templatekopia migrerades4→5 och seedades; full jämförelse av gamla skalärfält PASS, ursprungliga UTC-instanter bevarade, snapshots får migrationstidens namn/pris men faktisk bokad längd60/30min även när kataloglängden ändrats. Alla5checksummor matchar tillämpadSQL. Källkopian förblev4migrationer/oförändrad. Aktiv direktöverlapp gav23P01; avbokad överlapp accepterades i återställd transaktion. Egna provposter borttagna. Detta provar template-uppgradering, inte pg_dump/restore eller skarp backup.
+
+node --env-file=.env scripts/test-cleanup.mjs PASS:CLEANUP_TIMEOUT_EXPECTED_EXIT=1, REMAINING_SYNTHETIC_ROWS=0. Slutaggregat0booking/event/requestledger/session/admin/campaign,2service/2staff,0activeOverlaps/databaseDeadlocks. Ny full audit FAIL exit1:7moderate/0high/critical;prod audit PASS exit0:0fynd. Ingen auditfix, override eller beroendeändring. Originalutdata i epic05-final-*.log/json.
+
+Ny egen booking_epic05_delivery_demo förberedd med5migrationer/seed. Syntetisk spärrprobe skapade en egen inaktiv adminrad: demovakten nekade före build med statisk DEMO_DATABASE_NOT_EMPTY_OR_SYNTHETIC, utan att skriva identifierare/hash eller radera raden. Bara provets egen rad togs sedan bort. Demo-verktyget kräver nu exakt kända seedtjänster/personal och inga kund-/konto-/sessions-/mutationsrader. Full inspelning återstår tills verktygen är committade, så manifestet kan märkas ärligt med clean revision.
 
 ### MCP-delkontroll 2026-11-12
 

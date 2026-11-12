@@ -1,4 +1,35 @@
-# Demo — aktuell Epic 04
+# Demo och mobilpreview — Epic 05 under leverans
+
+Ny produktionsinspelning av kalender/tjänster/schema/flytt/avbokning förbereds. Äldre Epic04-bilder nedan är historik och bevisar inte den nya arbetsytan. Aktuell produktkod4099d9d; sluttestning körs på ny isolerad DB efter ren npmci. Ingen publik eller privat testsite är driftsatt.
+
+## Privat mobilpreview: beslutsunderlag, BLOCKERAD
+
+Läsande inventering2026-11-12 hittade en ansluten Vercel Pro-workspace men inget länkat Booking Lab-projekt. Inget Hetzner-konto eller projekt har verifierats/skapat. Nedanstående är ett konkret förslag, inte utförd drift eller en beställning. Lokal demo fungerar oberoende av detta beslut. Kundpilot är fortsatt NO-GO.
+
+| Val | Föreslagen exakt miljö |
+| --- | --- |
+| Leverantör/projekt | Hetzner Cloud, nytt separat projekt **booking-lab-se-preview**, server **booking-lab-se-e05-preview**, endast syntetiska data. |
+| Server/region | **CX23, x86-64,2vCPU/4GB/40GB, HEL1/Helsingfors, Finland**. Kapacitet är inte reserverad; leverantörssidan visar även en otillgänglighetsmarkering. Tillgång i HEL1 måste bekräftas före beställning. Ingen automatisk annan region/större plan. |
+| Runtime | En Linuxserver med en Node24-process via befintliga scripts/server.mjs, byggd app och PostgreSQL18.6 på samma server, bara loopback. En process bevarar nuvarande processlokala limiter/proof; inga skalningsgarantier. Linux/nativebibliotek och riktig proxy/TLS måste verifieras före öppning. |
+| Databas | Egen **booking_preview_demo** i HEL1, separata credentials, inga publika5432/3000-portar. Migration sker med operatörsbehörighet; appkontot ska inte vara PostgreSQL-superuser. Ingen anslutning till lokal/test-/produktions-DB. |
+| Backup | Daglig konsekvent pg_dump, krypterad före överföring till separat **BX11 Storage Box i Tyskland/FSN1**, underkatalog booking-lab-se-preview; föreslagen retention7dagliga/4veckovisa. Återläsning till separat demo-DB ska provas. Cloud-diskbackup är ett tillägg, inte ersättning för logisk DB-backup. |
+| Hela webbgränsen | Caddy HTTPS med separat namngivet Basic Auth-konto för Niclas på **alla paths**, inklusive /, /api/*, /admin och Next-resurser. Ingen offentlig health-/API-bakväg eller delad anonym länk. Appens individuella adminsession krävs därutöver. Ingen MCP-port; stdio förblir lokal. |
+| Värdnamn | Niclas väljer en redan ägd domän/subdomän för TLS. Inget ägarskap eller fungerande URL antas; DNS/certifikat har inte ändrats. En hemlig URL/noindex ersätter inte åtkomstskydd. |
+| Behöriga konton | Endast Niclas godkända preview-/admin-/infrastrukturkonton. Inget konto eller lösenord ges automatiskt till Grok, Codex eller andra. Grok granskar fryst källkod i separat lokal kopia enligt planen. |
+
+**Kostnadsunderlag, inte offert:** renderad officiell prislista läst2026-11-12 visade CX23 **5,99€/månad inklusive IPv4, exklusive moms**, BX11 **3,20€/månad exklusive moms**; tillsammans9,19€. Separat Cloud-backup kostar ytterligare; sidan visade från1,098€/månad. Föreslagen infrastrukturgräns är **15€/månad exklusive moms**, utan ny domän eller förbrukning utöver grundnivå. Pris, regional kapacitet och slutlig order ska kontrolleras igen innan köp. Inget pris anges som garanterad tillgänglig offert och ingen tjänst har köpts. [Serverpris](https://www.hetzner.com/cloud/cost-optimized/) · [Storage Box](https://www.hetzner.com/storage/storage-box/).
+
+Caddy ska överskriva X-Real-IP från verklig klientanslutning; appen litar bara på lokala Caddys exakta loopbackadress, aldrig godtyckligt X-Forwarded-For eller breda CIDR. Host bevaras för befintlig sameOrigin-kontroll. Perimeter-Authorization ska inte vidarebefordras till appen; inga råa request bodies, cookies, credentials eller IP-adresser i demologgar/artefakter. Generera hemligheter separat, behåll filrättigheter och aldrig i Git. Behåll distributions-/native-notisgrindar i DEPENDENCY_REVIEW; förslaget är ingen licensklarering av en framtida image.
+
+Vanlig Next-deploy på det befintliga Vercel-kontot väljs inte automatiskt. Vercel har sedan2026 stöd för Node-servrar, så vi påstår inte ett generellt förbud. Däremot är kombinationen denna Next-wrapper, socketidentitet, processlokal limiter och plattformens instansskalning **inte verifierad**. Det skulle kräva separat runtime-/proxytest; att ta bort wrappern eller lita på alla proxyadresser är ingen tillåten genväg. Detta är vår tekniska bedömning, inte ett påstående att ingen Vercel-lösning är möjlig. [Vercels Node-serverstöd](https://vercel.com/changelog/deploy-node-servers-with-zero-configuration) · [Aktuell Next custom-serverguide](https://nextjs.org/docs/app/guides/custom-server).
+
+**Ett samlat beslut behövs före någon åtgärd:** godkänn leverantör/projekt/HEL1, kostnadsgränsen, backup i Tyskland, valt ägt värdnamn och exakt vilka namngivna konton som får åtkomst. Beställning, DNS, secrets, kontoåtkomst och deploy ingår inte i förberedelsen. Om kapacitet/pris avviker ska förslaget omprövas, inte automatiskt bytas.
+
+Efter ett sådant beslut återstår faktisk verifiering: oinloggat/inkognito ger401 på både HTML och API; direkt3000/5432 är stängt; korrekta proxyheaders och två separata klienter fungerar; cookie/logout/adminregler består över TLS; återställningsprov lyckas; Niclas kan genomföra flödet från sin verkliga mobil. Alla dessa är **NOT RUN** nu. Ingen iPhone/Safari eller privat testsite påstås godkänd genom Playwrights mobilemulering.
+
+Primärkällor för driftförslaget: [Caddy Basic Auth](https://caddyserver.com/docs/caddyfile/directives/basic_auth), [proxyheaders](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy), [Hetzners backupplacering](https://docs.hetzner.com/cloud/servers/backups-snapshots/faq/). Hetzner anger Cloud-backup på samma ort och snapshots inom samma nätzon; därför väljs separat logisk backup med uttrycklig Tysklandsregion i detta förslag. Ingen generell GDPR-certifiering härleds av regionvalet.
+
+## Bilaga — verifierad Epic 04-demo
 
 ## Epic 04 — aktuell produktionsdemo
 
