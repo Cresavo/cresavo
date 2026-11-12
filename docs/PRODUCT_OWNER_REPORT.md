@@ -1,16 +1,19 @@
-# Produktägarrapport — Epic 04, slut-QA pågår
+# Produktägarrapport — Epic 04 klar som lokal POC
 
-**Byggt:** individuella syntetiska adminkonton med säker lösenordshash, kontobundna sessioner och lokal skapa/spärra/återställ-CLI. Det delade lösenordet är borttaget som reservväg.
+**Byggt:** egna syntetiska adminkonton, säker lösenordsverifiering, kontobundna sessioner och lokal skapa/spärra/återställ-CLI. Det delade lösenordet är borttaget som reservväg.
 
-**Prova nu:** skapa två example.test-konton enligt [operatörsguiden](ADMIN_OPERATIONS.md), logga in separat på /admin och testa logout/reset/spärr. Kundbokning, kampanj och lokal MCP-bokning fungerar kvar; kund-e-post är maskerad.
+**Prova nu:** skapa två example.test-konton enligt [operatörsguiden](ADMIN_OPERATIONS.md). Logga in på /admin och prova logout/reset/spärr. Kundbokning, kampanj och lokal MCP fungerar kvar; kund-e-post är fortsatt maskerad.
 
-**Bättre:** ett konto kan återkallas utan att det andra påverkas; gammal cookie/verifiering överlever inte reset. 58unit,40integration×3 och14E2E×4 PASS. [Exakta resultat](VERIFICATION.md). [Ny lokal demo](../demo-artifacts/2026-11-12T06-35-12-079Z/index.html):4/4PASS,14bilder/4videor, produktion9282cdc. Utvalda bilder granskade, alla videor avkodade; inte fullständigt visuellt genomtittade.
+**Bättre:** ett konto kan återkallas utan att det andra påverkas. Gamla cookies och pågående äldre verifieringar överlever inte reset. QA:s kapacitetsfynd är rättat och oberoende återtestat.61 unit,40 integration och14 E2E ×4 PASS. [Exakta resultat](VERIFICATION.md), [Groks slutgodkännande](qa/QA-REPORT-epic04-471f91f.md).
 
-**Kvar:** Groks oberoende slut-QA pågår, så Epic04 är ännu inte slutgodkänd/pushad. Ingen MFA, webb-recovery, kund-GDPR eller verifierad verklig drift. Full audit7moderate/0high,prod0; native-/CLI-licensgrindar kvar. Endast testad POC, pilotNO-GO.
+**Se resultatet:** [lokalt galleri](../demo-artifacts/2026-11-12T06-35-12-079Z/index.html),4/4 PASS,14 bilder/4 videor från produktion9282cdc, före den osynliga limiterfixen. Utvalda bilder granskade och videor avkodade, inte helt visuellt genomtittade. Se [DEMO](DEMO.md) för reproduktion; artefakterna finns inte i GitHub.
 
-**GitHub:** färdiga Epic02 dba05a2 och Epic03 10175ed finns nu på egna brancher i privata repot; fyra E2E-jobb gröna vardera. Audit är röd:02 har3high/7moderate,03 har0high/7moderate. main är oförändrad b000481. Ingen deploy.
+**Kvar:** MFA, webb-recovery, kund-GDPR och verifierad verklig drift saknas. Full audit har7 måttliga/0 höga,prod0; native-/CLI-licensgrindar och kontobundet/distribuerat missbruksskydd kvar. Endast testad POC, pilot NO-GO.
 
-**Tre nästa mål:** slutför Grok-QA och branchleverans för04; avgränsa kundernas GDPR-livscykel; besluta MFA-/återställnings- och driftgrind inför pilot. Inga nya Epics startas på antaganden.
+**GitHub:** Epic02 och03 är pushade; båda har4 gröna E2E-jobb och känt rött audit-jobb. Epic04 är godkänd för branchleverans; dess exakta Actions-resultat kontrolleras efter push. main lämnas på b000481. [Underlag för ChatGPT](CHATGPT_REVIEW_HANDOFF.md).
+
+**Tre nästa mål:** avgränsa kundernas export/radering/lagringstid; välj MFA-/återställningslösning; definiera och testa EU/EES-/self-hostingens drift- och distributionsgrind. Inga nya Epics startas utan scope.
+
 
 ## Bilaga — tidigare rapport
 

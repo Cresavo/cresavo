@@ -1,6 +1,6 @@
-# Epic 04 — förslag: individuell adminåtkomst
+# Epic 04 — individuell adminåtkomst
 
-Status: **individuell adminåtkomst vald av produktägaren; implementation pågår**. Bas 10175ed, 2026-11-12. Tekniskt val och avgränsningar i [ADR 004](ADR_004_ADMIN_IDENTITY.md). Befintliga Epic 02/03 och deras historiska verifieringsresultat bevaras.
+Status: **godkänd lokal POC efter full-QA på3419973 och riktad återkontroll på471f91f**. Bas 10175ed, 2026-11-12. Tekniskt val och avgränsningar i [ADR 004](ADR_004_ADMIN_IDENTITY.md). Befintliga Epic 02/03 och deras historiska verifieringsresultat bevaras.
 
 ## Resultat för produktägaren
 
@@ -47,3 +47,7 @@ Nuvarande AdminSession saknar konto-ID och isAdmin returnerar bara bool. Ny beh�
 ## Leverans
 
 Små lokala commits, uppdaterad DATA_FLOWS/PRIVACY_SECURITY för administratörers identifierare och sessionskoppling, kort AGENTS-guide, explicit uppgraderings-/operatörsinstruktion och aktuell VERIFICATION/PROJECT_STATUS/HANDOFF. Produktägarrapporten ska visa vad som går att prova och vilka pilotblockerare som återstår. Starta inga framtida GDPR- eller driftfunktioner på antaganden.
+
+## Slutbedömning
+
+E04-0–7 PASS för avgränsad lokal POC. Full egen matris, fryst oberoende QA och ett begränsat fixvarv finns i VERIFICATION samt docs/qa. Pilot NO-GO. Branchpush och exakt extern CI-kontroll görs enligt produktägarens senare uppdrag; ingen merge/deploy.

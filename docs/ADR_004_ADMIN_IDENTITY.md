@@ -37,3 +37,7 @@ MFA, verifierad e-postleverans, kontorecovery via webben, revisionslogg och kund
 [Better Auth Prismaadapter](https://better-auth.com/docs/adapters/prisma), [lösenord](https://better-auth.com/docs/authentication/email-password), [sessioner](https://better-auth.com/docs/concepts/session-management), [probad utils-implementation](https://github.com/better-auth/utils/blob/main/src/password.node.ts). Argon2-wrapperns [paketmanifest](https://github.com/napi-rs/node-rs/blob/main/packages/argon2/package.json) och [Rustmanifest](https://github.com/napi-rs/node-rs/blob/main/packages/argon2/Cargo.toml) lästes; upstream main är inte ett komplett versionslåst SBOM för den installerade binären. Faktisk installerad LICENSE/lockfile gäller för den lokala kontrollen.
 
 Projektinstallation och ren npm ci: 570 paket installerade/571 auditerade, exit0; full audit exit1 med7måttliga/0höga, produktionsaudit exit0/0fynd. Ingen riskabel automatisk uppgradering gjordes.
+
+## QA-uppföljning
+
+Oberoende full-QA på3419973 gav GO som lokal POC. E04-QA-1 rättades i471f91f: kapacitetsavslag som inte utfört KDF får tillbaka just sin reservation via en specifik feltyp; verkliga fel, andra429 och redan spärrade klienter behåller skyddet. Se EPIC_04_QA_FOLLOWUP. Windows och isolerad Linux runtime är testade; Linuxpaketets saknade LICENSE-fil och kompletta nativebyggkälla kvarstår som distributionsgrind.

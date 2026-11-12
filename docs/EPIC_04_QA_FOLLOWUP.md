@@ -10,7 +10,7 @@ Tillför en specifik PasswordCapacityError under befintlig DomainError, samma st
 
 Nya regressioner: åtta kapacitetsavslag följt av korrekt login; fyra verkliga fel plus sex kapacitetsavslag och ett annat429 fyller fortfarande verkliga femförsöksgränsen; evikterad reservation påverkar inte ny bucket. Nativekapacitetstestet kräver den specifika feltypen. Första testkörningen fångade en för exakt testförväntan på900sekunder: verkligt korrekt899 efter testets fördröjning. Testet ändrades till numerisk Retry-After; inga produkttider ändrades.
 
-Slutmatris och riktad oberoende återkontroll införs i VERIFICATION efter körning. Ingen ny video behövs för detta osynliga rättningsvarv; produktionsdemo9282cdc är märkt som äldre än limiterfixen.
+Slutmatris PASS efter fix:61unit,40integration,14E2E×4,lint/tsc/build/cleanup och aggregat0. Grok stängde E04-QA-1 efter riktade verkliga prod/proxy/flodprober på471f91f; inga nya fynd. [Slutrapport](qa/QA-REPORT-epic04-471f91f.md). Ingen ny video behövs för detta osynliga rättningsvarv; produktionsdemo9282cdc är märkt som äldre än limiterfixen.
 
 ## Kvarstående fynd
 

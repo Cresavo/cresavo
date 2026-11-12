@@ -6,7 +6,7 @@ AdminUser innehåller normaliserad syntetisk e-postidentifierare, Argon2id-hash,
 
 POST /api/admin/login kräver strikt {email,password}; password-only och ADMIN_PASSWORD ger ingen fallback. UI visar bara den egna adminidentifieraren. Kundernas e-post förblir maskerad. Varje adminläsning går via getAdminContext/isAdmin och kontrollerar aktivt konto i demo-kontext. Lokal MCP:s betrodda --admin är fortsatt separat och är inte kopplad till webbsessionen.
 
-Inloggningsspärren reserverar synkront före asynkron KDF. Högst fyra pågående KDF-operationer per process; full kapacitet ger statisk429/Retry-After1. Login låser kontoraden och jämför credentialVersion innan sessionsskapande. Spärr/reset låser konto före sessioner och återkallar samtliga berörda sessioner i samma transaktion. Detta hindrar en äldre verifiering från att återinföra åtkomst. Annat kontos sessioner påverkas inte. Lokal CLI läser lösenord utan terminaleko; inga publika kontoendpoints.
+Inloggningsspärren reserverar synkront före asynkron KDF. Högst fyra pågående KDF-operationer per process; full kapacitet ger statisk429/Retry-After1 utan att förbruka klientens lösenordsförsök (specifik PasswordCapacityError, originalreservation återlämnas). Andra fel får ingen återbetalning. Login låser kontoraden och jämför credentialVersion innan sessionsskapande. Spärr/reset låser konto före sessioner och återkallar samtliga berörda sessioner i samma transaktion. Detta hindrar en äldre verifiering från att återinföra åtkomst. Annat kontos sessioner påverkas inte. Lokal CLI läser lösenord utan terminaleko; inga publika kontoendpoints.
 
 [Beslut, bibliotek och begränsningar](ADR_004_ADMIN_IDENTITY.md) · [operatörsguide](ADMIN_OPERATIONS.md). Ingen MFA eller verifierad multi-tenancy byggs här.
 

@@ -8,7 +8,7 @@ Argon2id via @node-rs/argon2 2.2.2, slumpmässigt salt, 19456KiB/t2/p1, 15–128
 
 Aktiv status, demo-kontext och serversession kontrolleras vid varje adminåtkomst. Versionskontroll under kontoradlås gör samtidig reset/login säker. Spärr/reset återkallar kontots samtliga sessioner; global ADMIN_SESSION_VERSION behålls. Återaktivering får inte återuppliva gamla sessioner. Kunduppgifter och MCP-kontrakt ändras inte. Att visa egen adminidentifierare är inte beslut om Visa kund-e-post.
 
-Före pilot: underhållen MFA/återställning och identitetslivscykel, kundernas export/radering/retention, verifierad TLS/proxy/flerinstansdrift och licens-/auditgrindar. Ny nativebindning är lokalt testad på Windows; Linux/container och komplett nativeartefaktinventering återstår. Tidigare avsnitt om delat lösenord beskriver historiskt läge.
+Före pilot: underhållen MFA/återställning och identitetslivscykel, kundernas export/radering/retention, verifierad TLS/proxy/flerinstansdrift och licens-/auditgrindar. Ny nativebindning är lokalt testad på Windows och i Groks isolerade Linuxmiljö. Docker/container och komplett nativeartefaktinventering återstår; Linuxpaketet saknar egen LICENSE-fil enligt QA. Tidigare avsnitt om delat lösenord beskriver historiskt läge.
 
 
 ## Epic 03: beroenden och explicit konfiguration

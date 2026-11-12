@@ -18,4 +18,4 @@ Om något blockeras: dokumentera reproduktion, säkerhetsbetydelse och vilken in
 
 ## Aktuell avgränsning
 
-Epic 02 och 03 är redan godkända av oberoende QA och pushade. Epic 04 har lokal slutmatris och demo PASS; oberoende QA pågår på3419973. Aktuella detaljresultat finns i VERIFICATION, inte i denna arbetsinstruktion. Kommande GDPR/MFA/driftarbete är rekommendationer, inte automatiskt godkända nya Epics.
+Epic 02 och 03 är redan godkända av oberoende QA och pushade. Epic 04 har lokal slutmatris och demo PASS, full-QA på3419973 och riktad slut-QA på471f91f godkända. Branchleverans och Actions kontrolleras sist. Aktuella detaljresultat finns i VERIFICATION, inte i denna arbetsinstruktion. Kommande GDPR/MFA/driftarbete är rekommendationer, inte automatiskt godkända nya Epics.

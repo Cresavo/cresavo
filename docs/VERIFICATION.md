@@ -1,6 +1,6 @@
 # Verifiering — Epic 04, lokal slutmatris
 
-2026-11-12. Produktkod **3419973b151141e034a8600e3f807750f9500d76**, dokumentuppföljning9282cdc, branch epic-04-individual-admin, bas10175ed. Windows, Node24.16.0/npm11.13.0, Prisma7.10.1, PostgreSQL18.6. Ny isolerad loopbackdatabas booking_epic04_final_test på55450; endast syntetiska data. Groks frysta QA på3419973 pågår. Pilot NO-GO. Epic02/03 har nu pushats efter uttryckligt nytt uppdrag; Epic04 inväntar slut-QA. Ingen merge/deploy.
+2026-11-12. Produktkod **471f91fa11ad27c19ecd43244bcc90ba3f0b2489**, QA-fixvarv 1 ovanpå3419973, branch epic-04-individual-admin, bas10175ed. Windows, Node24.16.0/npm11.13.0, Prisma7.10.1, PostgreSQL18.6. Ny isolerad loopbackdatabas booking_epic04_fix_test på55450; endast syntetiska data. Groks fulla QA på3419973 gav GO; riktad återkontroll på471f91f stängde E04-QA-1 utan nya fynd. Pilot NO-GO. Epic02/03 har nu pushats efter uttryckligt nytt uppdrag; Epic04 är godkänd för branchleverans. Ingen merge/deploy.
 
 ## Aktuell resultattabell
 
@@ -12,33 +12,37 @@
 | npm run db:seed | PASS exit0: två tjänster, inga standardadminer. |
 | npm run lint | PASS exit0, ingen ESLint-diagnostik. |
 | npx tsc --noEmit | PASS exit0, ingen diagnostik. |
-| npm test | PASS:9files,58/58tests,4.13s. |
-| npm run test:integration ×3 | PASS:10files,40/40 varje gång,35.69/35.19/39.10s. |
-| npm run test:e2e, TRUST_PROXY_IP=0, dev | PASS14/14,1.5m. |
-| npm run test:e2e, TRUST_PROXY_IP=1, dev | PASS14/14,39.3s. |
+| npm test | PASS:9files,61/61tests,9.75s efter fixen. |
+| npm run test:integration | PASS:10files,40/40,35.65s efter fixen på ny DB. Bas3419973 hade dessutom3PASS-varv; se original-QA. |
+| npm run test:e2e, TRUST_PROXY_IP=0, dev | PASS14/14,1.4m. |
+| npm run test:e2e, TRUST_PROXY_IP=1, dev | PASS14/14,44.9s. |
 | npm run build | PASS exit0: Compiled successfully; TypeScript och8sidor färdiga, befintliga routes kvar. |
-| E2E_PRODUCTION=1 npm run test:e2e, proxy0 | PASS14/14,29.5s. |
-| E2E_PRODUCTION=1 npm run test:e2e, proxy1 | PASS14/14,27.6s. |
+| E2E_PRODUCTION=1 npm run test:e2e, proxy0 | PASS14/14,26.8s. |
+| E2E_PRODUCTION=1 npm run test:e2e, proxy1 | PASS14/14,25.4s. |
 | node --env-file=.env scripts/test-cleanup.mjs | PASS: CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0. Avsiktligt timeout-test räknas inte som produktfel. |
 | Slutaggregat, separat SQL/ORM | PASS: bookings0,campaigns0,sessions0,admins0,overlaps0; observedDeadlocks0. Det sista är denna körnings observation, inte garanti för direkt-ORM-bypass. |
 | Uppgradering med extern epic04-upgrade.mjs | PASS:3→4migrationer, syntetisk bokningsdata/UTC-tid, publicerad kampanj och äldre sessionsrad bevarade; userIdNULL;0autoadminer; exclusion kvar. Egna provposter borttagna. |
 | Verklig Windows-TTY, admin-CLI | PASS: lösenord/upprepning syntes inte i utdata, ADMIN_COMMAND_OK och exit0; endast eget provkonto borttaget. CLI-stdin/EOF/felkoder dessutom3integrationstester. |
 | npm audit --json | **FAIL exit1:**7moderate,0high/critical. Känd ESLint/minimatchkedja; exakt JSON sparad lokalt. |
 | npm audit --omit=dev --json | PASS exit0:0vulnerabilities. Detta är inte en distributionslicensgranskning. |
-| npm run demo:record | PASS4/4,34.6s,14PNG/4WebM; revision9282cdc,dirty=false,produktion. Se DEMO. Alla videor avkodade utan fel; ej full visuell genomtittning. |
-| Grok oberoende QA | Pågår på fryst3419973 i egen miljö; räknas inte som PASS ännu. |
+| npm run demo:record | PASS4/4,34.6s,14PNG/4WebM; revision9282cdc,dirty=false,produktion; före osynlig limiterfix471f91f. Se DEMO. Alla videor avkodade utan fel; ej full visuell genomtittning. |
+| Grok oberoende QA | GO för3419973: egen58unit/40integration×3/14E2E×4 och riktade prober. E04-QA-1 stängd på471f91f efter egen ren installation,61unit/40integration och riktade prod/proxy/flodprober. [Slutrapport](qa/QA-REPORT-epic04-471f91f.md). [Original](qa/QA-REPORT-epic04-3419973.md). |
 
 ## Reproducera och avgränsa
 
 Exportera DATABASE_URL till egen migrerad loopback-DB med suffix _test; exporterad miljö går före .env. Följ README, ADMIN_OPERATIONS och testkommandona i tabellen. Växla TRUST_PROXY_IP mellan0/1, E2E_PRODUCTION mellan tomt/1; kör npm run build före produktionsmatrisen. Kör en matris åt gången. Manuella konton provisioneras genom dold CLI, aldrig standardlösenord. Ny lokal demo-DB heter booking_epic04_demo, port55450; Windowsguiden anger exakt start/stopp.
 
-Lokala råloggar: C:\Users\<user>\booking-lab-pg-test\epic04-final-*.log/json; separat epic04-upgrade.log och epic04-demo-record.log. Inga .env, lösenord eller cookies kopieras till Git. Rensad fryst käll-ZIP3419973 har SHA2568757E056A47A8DE48CBE59A6BC086F5C99B4D4C5C69811551B9E59053AE68515.
+Ren npm ci/generate/audit utfördes före den begränsade limiterfixen; lockfile och schema är identiska sedan dess. Ny fix-DB fick alla4 migrationer och seed. Inga nya beroenden i rättningsvarvet.
+
+Lokala råloggar efter fix: C:\Users\<user>\booking-lab-pg-test\epic04-fix-*.log; tidigare slutmatris: C:\Users\<user>\booking-lab-pg-test\epic04-final-*.log/json; separat epic04-upgrade.log och epic04-demo-record.log. Inga .env, lösenord eller cookies kopieras till Git. Rensad fryst käll-ZIP3419973 har SHA2568757E056A47A8DE48CBE59A6BC086F5C99B4D4C5C69811551B9E59053AE68515.
 
 Tidiga fel före slutmatris: tsc fångade const-enumåtkomst under isolatedModules, äldre login-testanrop och saknat NODE_ENV i CLI-testmiljön. Dessa rättades före slutkörningen; de tidiga felen räknas inte som PASS. Ingen produktions-/testtimeout höjdes för att få grön matris.
 
+Första nya regressionstestet föll på för exakt Retry-After900 när899sekunder återstod. Testförväntan rättades; produkttider ändrades inte. [Fixbeslut och kvarvarande QA-fynd](EPIC_04_QA_FOLLOWUP.md).
+
 ## Ej körda kontroller / kvarstående grindar
 
-Epic04 GitHub Actions ännu ej körd; push inväntar QA. Verklig Docker/container, TLS/proxy, extern IPv6 och flerinstansdrift ej körda. Ingen penetrationstestning, full GDPR-/MFA-bedömning, nätverksfångst eller komplett Cargo/native-binärlicensinventering. Produktionsaudit0 är inte pilotklarering. Se ADR004, DATA_FLOWS och PRIVACY_SECURITY.
+Epic04 Actions kontrolleras efter godkänd branchpush; detta är rapport före push. Se [branchens körningar](https://github.com/niclasvestlund-YT/booking-lab-se/actions?query=branch%3Aepic-04-individual-admin) och leveransens exakta körningslänk. Verklig Docker/container, TLS/proxy, extern IPv6 och flerinstansdrift ej körda. Ingen penetrationstestning, full GDPR-/MFA-bedömning, nätverksfångst eller komplett Cargo/native-binärlicensinventering. Produktionsaudit0 är inte pilotklarering. Se ADR004, DATA_FLOWS och PRIVACY_SECURITY.
 
 ## Extern CI efter godkänd push
 

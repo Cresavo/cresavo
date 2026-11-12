@@ -52,3 +52,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Epic 04: individuell lokal admin enligt docs/ADR_004_ADMIN_IDENTITY.md och docs/ADMIN_OPERATIONS.md. Ingen ADMIN_PASSWORD-fallback. Behåll asynkron spärrreservation före KDF, max fyra KDF-operationer, kontoradlås och credentialVersion vid login/reset/spärr. Radera aldrig historiska sessioner som migreringsgenväg. Endast example.test; kund-e-post är fortsatt maskerad. Testfixtures måste städa egna AdminUser och sessionsrader.
 
 - Produktägaren godkände 2026-11-12 push av färdiga Epic02–04-brancher till befintligt privat origin efter tester/Grok-QA. Följ docs/GOAL_EPIC_02_04.md; ingen merge till main, deploy eller odefinierad framtida Epic. Rapportera alla fyra Actions-jobb och kända audit-undantag per exakt revision.
+
+- Epic04 är godkänd som lokal POC på471f91f. Bevara PasswordCapacityError som enda återbetalningsgrund för inloggningsförsök: återlämna originalobjektet, aldrig aktuell bucket via ny uppslagning. Verkliga fel och redan spärrad klient får ingen refund. Läs EPIC_04_QA_FOLLOWUP och slutrapporten före ändringar.

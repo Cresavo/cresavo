@@ -1,6 +1,9 @@
-# Aktuellt arbete — Epic 04 individuell admin
+# Aktuellt arbete — Epic 02–04 färdigställda som lokal POC
 
-Produktägaren har valt individuell admin och därefter godkänt ett fortsatt mål för färdigställande/synkning av Epic02–04. [Goal prompt och ramar](GOAL_EPIC_02_04.md). Kod3419973, docs9282cdc. Lokal slutmatris58unit/40integration×3/14E2E×4 samt produktionsdemo4/4 PASS; Grok-QA pågår före push. Epic02/03 pushade till privat origin med4grönaE2E-jobb vardera; separat audit känt rött. Ingen merge/deploy. [Plan](EPIC_04_PLAN.md),[verifiering](VERIFICATION.md),[handoff](HANDOFF.md).
+Produktkod471f91f, branch epic-04-individual-admin. Full-QA på3419973 och riktad återkontroll på471f91f gav GO; kapacitetsfyndet stängt. Lokal slutmatris61unit/40integration/14E2E×4 PASS. Demo4/4 PASS, märkt äldre än osynlig fix. Epic02/03 pushade med4 gröna CI-E2E vardera; känt audit-undantag synligt. Epic04:s branchleverans och Actions är sista målkontrollen. Ingen mainmerge/deploy.
+
+[Godkänt arbetsmål](GOAL_EPIC_02_04.md) · [resultat](VERIFICATION.md) · [handoff](HANDOFF.md) · [slut-QA](qa/QA-REPORT-epic04-471f91f.md). Framtida GDPR/MFA/drift-Epics är rekommendationer, inte påbörjade.
+
 
 ## Bilaga — föregående arbetsomgång
 

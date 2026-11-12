@@ -20,3 +20,5 @@
 | @node-rs/argon2-win32-x64-msvc | 2.2.2 | MIT | Installerad Windowsbindning, metadata läst |
 
 Root-MIT är kompatibel med att använda paketet i vår AGPL-applikation; behåll originallicenser. Ingen full licensklarering av framtida binär/container påstås. Ingen Better Auth-dependency tillkom. Audit: full7moderate/0high, prod0, separat Argon2-probe0.
+
+Oberoende QA körde dessutom Linux x64 GNU2.2.2. Metadata MIT men ingen egen LICENSE-fil; delvis observerade länkade crates ersätter inte komplett käll-/notisinventering. Se QA-REPORT-epic04-3419973 och THIRD_PARTY_NOTICES. Inget binär-/containerpaket är distributionsklarerat.
