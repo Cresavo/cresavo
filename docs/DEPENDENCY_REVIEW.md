@@ -1,5 +1,28 @@
 # Epic 03 — beroendesäkerhet
 
+## Avgränsad Vercel-previewartefakt, 2026-11-12
+
+Historiska distributionsgrindar nedan gäller den fulla installationen. För denna
+preview gör Dockerfile.vercel en separat minimal runtime-installation med
+oförändrad låsfil: 53 paket, utan CLI/Studio/elkjs, sharp/libvips eller TypeScript.
+Genererad Prisma-klient och exakt Linux x64 GNU Argon2-binding kopieras från
+byggsteget; nativefilens SHA-256 kontrolleras i Dockerfile. Ingen ny npm-dependency.
+Next-konfigurationen kompileras från den befintliga TS-källan i byggsteget.
+
+Fulla native-licenstexter, exakt källursprung och begränsningar finns i
+[THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md) och
+[native-notiserna](../THIRD_PARTY_NATIVE_NOTICES.txt). 57 registry-crate-arkiv
+kontrollerades mot källans Cargo.lock; MIT-alternativ väljs där tillgängligt,
+ISC/Unicode-notiser bevaras. Detta är en konservativ källinventering, inte en
+fullständig länkad SBOM eller godkännande för andra plattformar. Provenance-payload
+lästes, men dess signatur verifierades inte kryptografiskt. Appens licens ändras
+inte. Slutimagen innehåller originalnotiser och arkiv av egen motsvarande källa.
+
+Windows-prototyp utan CLI/Studio/ELK/sharp/TypeScript klarade 24 E2E. Faktiskt
+Linux-containerbygge och skyddad molndrift är separata kvarvarande kontroller;
+lokal prototyp är inget bevis för dem. Full audit: 7 måttliga utvecklingsfynd,
+0 höga/kritiska; omit-dev-audit: 0. Inga overrides eller majoruppgraderingar.
+
 2026-11-12, bas dba05a2, kod 18a4d73. Grok har godkänt uppgraderingen som lokal POC utan blockerande fynd; inget publicerat. Detta dokument skiljer paketadvisories, faktisk användning och licensvillkor. Ett grönt audit-resultat är inte ett säkerhets- eller licensgodkännande. [Oberoende slutrapport](qa/QA-REPORT-epic03-18a4d73.md).
 
 ## Beslut

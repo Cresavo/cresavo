@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { checkLoginAttempt, checkRateLimit } from "../../src/lib/rate-limit";
 import { PasswordCapacityError } from "../../src/lib/errors";
 import { rateLimitDatabase, reserveRateLimit, refundRateLimit } from "../../src/lib/postgres-rate-limit";
+import { createDatabaseClient } from "../../scripts/database.mjs";
 
 const keys = new Set<string>();
 function track(route: string, value: string) {
@@ -104,14 +105,16 @@ it("håller rutterna åtskilda, använder databasens klocka och lagrar inga råa
 
 it("begränsar lagret till10000rader och nekar inte en ny legitim klient vid kapacitet", async () => {
   const marker = randomUUID();
-  const data = Array.from({ length: 10000 }, (_, i) => {
+  const existing = await rateLimitDatabase.rateLimitBucket.count();
+  if (existing > 10000) throw new Error("PREVIEW_CAP_FIXTURE_NOT_ISOLATED");
+  const data = Array.from({ length: 10000 - existing }, (_, i) => {
     const key = createHmac("sha256", marker).update(String(i)).digest("hex");
     keys.add(key);
     return { key, generation: marker, expiresAt: new Date(Date.now() + 900000), count: 1 };
   });
   await rateLimitDatabase.rateLimitBucket.createMany({ data });
   await expect(reserveRateLimit("login", identity())).resolves.toMatchObject({ count: 1 });
-  expect(await rateLimitDatabase.rateLimitBucket.count()).toBe(10000);
+  expect(await rateLimitDatabase.rateLimitBucket.count()).toBeLessThanOrEqual(10000);
 }, 30000);
 
 it("vägrar lokal minnesspärr när processen kör i Vercel", () => {
@@ -119,3 +122,36 @@ it("vägrar lokal minnesspärr när processen kör i Vercel", () => {
   vi.stubEnv("RATE_LIMIT_STORE", "memory");
   expect(() => checkRateLimit("login", "synthetic")).toThrow("RATE_LIMIT_CONFIG_INVALID");
 });
+
+it("en refund väntar på en annan anslutnings reservation och försvinner inte i dess uppdatering", async () => {
+  const reservation = await reserveRateLimit("login", identity());
+  const other = createDatabaseClient(undefined, 1);
+  let locked!: () => void, release!: () => void;
+  const ready = new Promise<void>((resolve) => { locked = resolve; });
+  const proceed = new Promise<void>((resolve) => { release = resolve; });
+  const writer = other.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('booking-lab:rate-store:v1'))`;
+    const old = await tx.rateLimitBucket.findUniqueOrThrow({ where: { key: reservation.key } });
+    locked();
+    await proceed;
+    await tx.rateLimitBucket.update({ where: { key: old.key }, data: { count: old.count + 1 } });
+  }, { timeout: 10000 });
+  try {
+    await ready;
+    const refund = refundRateLimit(reservation);
+    const outcome = await Promise.race([
+      refund.then(() => "finished"),
+      new Promise<string>((resolve) => setTimeout(() => resolve("waiting"), 200)),
+    ]);
+    release();
+    await writer;
+    await refund;
+    expect(outcome).toBe("waiting");
+    const row = await rateLimitDatabase.rateLimitBucket.findUniqueOrThrow({ where: { key: reservation.key } });
+    expect(row.count).toBe(1);
+  } finally {
+    release();
+    await writer;
+    await other.$disconnect();
+  }
+}, 30000);

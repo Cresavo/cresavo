@@ -1,5 +1,44 @@
 # Third-party notices
 
+## Restricted Vercel preview artifact (2026-11-12)
+
+This section qualifies the historical distribution gates below for the exact
+Linux x64 GNU preview artifact. The application remains AGPL-3.0-only. No npm
+versions or upstream code have been changed. This is not clearance for other
+platforms or a public binary release.
+
+`Dockerfile.vercel` installs the locked production tree with
+`--omit=dev --omit=peer --omit=optional --ignore-scripts`. It excludes Prisma
+CLI/Studio/elkjs, sharp/libvips and TypeScript from the final runtime. The build
+stage retains the original toolchain. The generated Prisma client and the one
+required Argon2 Linux binding are copied explicitly. Original package notices
+remain in node_modules; Node/Debian retain their own notices. The final image
+also includes our LICENSE, these notices, the native notice bundle and a
+credential-free archive of the corresponding application source.
+
+**@node-rs/argon2-linux-x64-gnu 2.2.2:** the Docker build refuses a different
+architecture or native binary SHA-256 from
+`0f4e6088e351149af677044c0570bdd8a1a10517069811744e48170366e714b2`.
+The registry tarball integrity was checked. Published provenance identifies
+node-rs source commit `b706e3035f5d4d487ae66ea0549a041cd509e5d4`;
+its signature was not independently cryptographically verified.
+
+[THIRD_PARTY_NATIVE_NOTICES.txt](THIRD_PARTY_NATIVE_NOTICES.txt) preserves full
+upstream license/copyright material for the wrapper, Rust standard library and
+the source Cargo graph (57 checksum-verified registry crates plus workspace
+packages). Missing package-root texts were retrieved from the exact upstream
+source commits recorded in the bundle. This is a conservative source dependency
+inventory, not a claim that every crate is linked or a complete binary SBOM.
+MIT is selected where offered as an alternative; ISC and Unicode-3.0 notices
+are preserved. Unicode-3.0 is listed as GPL-compatible by
+[GNU](https://www.gnu.org/licenses/license-list.html#Unicode-3.0); GNU's
+[compatibility guidance](https://www.gnu.org/licenses/gpl-faq.html#AllCompatibility)
+also addresses AGPLv3. No LGPL option is selected where MIT is available.
+
+The old CLI/ELK and sharp/libvips gates still apply if those components are
+included in another artifact. Do not generalise this narrower preview packaging
+decision to the full development installation or future optional bindings.
+
 ## Epic 04 password hashing (2026-11-12)
 
 **@node-rs/argon2 2.2.2**, copyright LongYinan, MIT: the installed wrapper LICENSE was read; retain its full text and attribution. Installed **@node-rs/argon2-win32-x64-msvc 2.2.2** declares MIT and supplies a native binding. [Source and license](https://github.com/napi-rs/node-rs), [package source](https://github.com/napi-rs/node-rs/tree/main/packages/argon2). No upstream source/binary is copied into Git. One new direct dependency is justified by a maintained Argon2id implementation; see [ADR004](docs/ADR_004_ADMIN_IDENTITY.md).

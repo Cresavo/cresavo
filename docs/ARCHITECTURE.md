@@ -7,6 +7,8 @@ Dockerfile.vercel väljer Vercels Container Runtime (beta), Node24 och samma
 scripts/server.mjs för alla HTML/API/resurser, inte vanlig Next-deploy som går
 förbi wrappern. Runtime kräver VERCEL=1, BOOKING_RUNTIME=vercel,
 RATE_LIMIT_STORE=postgres och ingen lokal forwarded-proxykonfiguration.
+Startup validerar även SESSION_SECRET (minst32tecken), PostgreSQL-URL och valt
+rate-store-läge utan att logga värden. Ogiltigt läge stoppar även lokal start.
 Vercels dokumenterade överskrivna x-real-ip ersätter socket-peer-listan endast
 i detta uttryckliga plattformsläge; wrappern skriver fortfarande över interna
 IP/proof-headers och signerar med sin egen processhemlighet. Saknad/ogiltig
@@ -23,6 +25,15 @@ kontolås och släpps före lösenordskontroll. Endast route+identitetens HMAC,
 slumpmässig fönstergeneration, DB-expiry och räknare lagras. DB-klockan styr15min.
 Högst100utgångna rader städas per anrop; vid kapacitet evikteras äldsta raden,
 som i minnesläget. Ingen bakgrundsgallring om tjänsten är avstängd.
+Refund tar samma korta store-lås som reservation så att samtidiga processers
+räknaruppdateringar inte tappar en återbetalning. Generationen skyddar nya fönster.
+
+Slutimagen använder en separat minimal npm-installation, genererad Prisma-klient,
+exakt hashkontrollerad Linux x64 GNU Argon2-binding och byggkompilerad Next-config.
+CLI/Studio/ELK/sharp/TypeScript ingår inte i runtime. Se DEPENDENCY_REVIEW och
+THIRD_PARTY_NOTICES för avgränsad artefaktinventering. Rootförankrade ignore-regler
+släpper igenom källmappar men inte hemligheter; tests/preview-files.test.ts testar
+filurvalet. Vercels faktiska filinsamlare kontrolleras separat av Grok.
 
 Login reserverar före KDF. Lyckad login och specifikt PasswordCapacityError
 återlämnar endast sin egen generation. Andra fel och blockerade klienter

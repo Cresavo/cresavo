@@ -34,6 +34,8 @@ node_modules/
 .next/
 .turbo/
 .vercel/
+# Build-only compiled copy; the authoritative source is next.config.ts.
+next.config.mjs
 dist/
 build/
 coverage/

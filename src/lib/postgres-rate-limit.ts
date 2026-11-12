@@ -59,10 +59,13 @@ export async function reserveRateLimit(
 
 export async function refundRateLimit(reservation: Reservation) {
   // An old, expired or evicted reservation can never lower a new window.
-  await rateLimitDatabase.rateLimitBucket.updateMany({
-    where: {
-      key: reservation.key, generation: reservation.generation, count: { gt: 0 },
-    },
-    data: { count: { decrement: 1 } },
-  });
+  await rateLimitDatabase.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('booking-lab:rate-store:v1'))`;
+    await tx.rateLimitBucket.updateMany({
+      where: {
+        key: reservation.key, generation: reservation.generation, count: { gt: 0 },
+      },
+      data: { count: { decrement: 1 } },
+    });
+  }, { maxWait: 30000, timeout: 10000 });
 }

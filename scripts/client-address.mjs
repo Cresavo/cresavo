@@ -5,12 +5,26 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 // Only use it in a Vercel Function protected at project level on every URL.
 export function runtimePolicy(env) {
   const runtime = env.BOOKING_RUNTIME ?? "local";
+  if (!["memory", "postgres"].includes(env.RATE_LIMIT_STORE ?? "memory"))
+    throw new Error("BOOKING_RUNTIME_CONFIG_INVALID");
   if (!["local", "vercel"].includes(runtime) ||
       (env.VERCEL === "1" && runtime !== "vercel") ||
       (runtime === "vercel" &&
         (env.VERCEL !== "1" || env.RATE_LIMIT_STORE !== "postgres" ||
          (env.TRUST_PROXY_IP !== undefined && env.TRUST_PROXY_IP !== "0"))))
     throw new Error("BOOKING_RUNTIME_CONFIG_INVALID");
+  if (runtime === "vercel") {
+    if (!env.SESSION_SECRET || env.SESSION_SECRET.length < 32)
+      throw new Error("BOOKING_RUNTIME_CONFIG_INVALID");
+    try {
+      const database = new URL(env.DATABASE_URL);
+      if (!["postgres:", "postgresql:"].includes(database.protocol) ||
+          !database.hostname || database.pathname.length < 2)
+        throw new Error();
+    } catch {
+      throw new Error("BOOKING_RUNTIME_CONFIG_INVALID");
+    }
+  }
   return runtime;
 }
 

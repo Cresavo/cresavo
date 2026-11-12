@@ -28,9 +28,18 @@ garanteras från testantal; aktivera inga teamomfattande stopp som påverkar and
 projekt. Kontrollera förbrukningen och stoppa previewn om den inte håller sig
 inom de få dollar som accepterats. Ingen automatisk uppgradering vid DB-gräns.
 
-Lokala kommandon/resultat finns i VERIFICATION. Fryst Grok-kodgranskning,
-containerbygge/deploy, faktisk spoofing/TLS/skyddade resurser, backup/återläsning
-och fysisk iPhone/Safari återstår och får inte påstås godkända av lokala tester.
+Lokala kommandon/resultat finns i VERIFICATION. Groks frysta b46da13-granskning
+gav kod-GO men konfigurations-NO-GO: källmappar utelämnades av ignore-reglerna.
+Ett samlat rättningsvarv rättar filurval, liten refund-race, startupvalidering,
+teststädning och minimal runtime med native-notiser. Ny fryst återkontroll krävs.
+Containerbygge/deploy, faktisk spoofing/TLS/skyddade resurser och fysisk
+iPhone/Safari återstår och får inte påstås godkända av lokala tester.
+
+Krypterad backup av den separata syntetiska Neon-databasen är faktiskt återläst
+till ny lokal booking_preview_restore_demo. Alla10tabellers radantal/innehållshashar
+matchade; manipulerad krypterad fil avvisades. Backupen ligger på operatörens PC,
+nyckeln separat i ignorerad .vercel, inte i granskningspaketet. Detta är inte
+automatisk extern backup i Tyskland; en ny backup efter driftprov återstår.
 Lösenord och DB-/miljöhemligheter ligger lokalt utanför Git och följer aldrig
 granskningspaketet. .dockerignore och .vercelignore tillåter bara käll-/byggfiler.
 

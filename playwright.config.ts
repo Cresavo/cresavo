@@ -3,6 +3,7 @@ import { assertTestDatabase } from "./scripts/test-db-guard.mjs";
 assertTestDatabase();
 export default defineConfig({
   testDir: "./tests/e2e",
+  globalTeardown: "./tests/e2e/global-teardown.ts",
   timeout: 60000,
   workers: 1,
   reporter: "list",

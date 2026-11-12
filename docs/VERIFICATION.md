@@ -13,16 +13,16 @@ driftsatta previewn. Grok och faktisk drift redovisas separat efter verifiering.
 | npm run db:migrate / npm run db:seed | PASS på ny loopback booking_preview_vercel_test: sex migrationer, ny sjätte rate-store-migration; seed exit0. |
 | npm run lint | PASS exit0. |
 | npx tsc --noEmit | PASS efter rättat testsubprocess-env NODE_ENV. Första körningen FAIL på testets ProcessEnv-typ, ingen ignorerad typkontroll. |
-| npm test | PASS71/71,12filer,8.94s. |
-| npm run test:integration | PASS71/71,17filer,68.01s. |
-| Riktat preview-rate-limit.test.ts | PASS5/5,5.38s. Fyra riktiga Node-processer delar högst5lösenordskontroller,15av20spärras; korrekt lösenord från spärrad klient kontrolleras aldrig. Refund/generation/expiry/no-memory-fallback testade. |
+| npm test | PASS72/72,13filer,9.39s efter rättningsvarv1. |
+| npm run test:integration | PASS72/72,17filer,61.71s efter rättningsvarv1. |
+| Riktat preview-rate-limit.test.ts | PASS6/6,5.78s efter rättningsvarv1. Fyra riktiga Node-processer delar högst5lösenordskontroller,15av20spärras; korrekt lösenord från spärrad klient kontrolleras aldrig. Refund/generation/expiry/no-memory-fallback testade. |
 | RATE_LIMIT_STORE=postgres, TRUST_PROXY_IP=0, npm run test:e2e | PASS24/24,dev0,2.1m på ny booking_preview_dev0_test. |
 | Samma med TRUST_PROXY_IP=1 | PASS24/24,dev1,1.4m på ny booking_preview_dev1_test. |
 | E2E_PRODUCTION=1 och TRUST_PROXY_IP=0 | PASS24/24,prod0,45.8s på ny booking_preview_prod0_test. |
 | E2E_PRODUCTION=1 och TRUST_PROXY_IP=1 | PASS24/24,prod1,42.1s på ny booking_preview_prod1_test. |
-| npm run build | PASS, Next16.4.6,compile9.7s/TypeScript8.9s; routes listade korrekt. Separat no-DB-bygge redovisas efteråt. |
+| npm run build | PASS, Next16.4.6,compile9.7s/TypeScript8.9s; routes listade korrekt. Separat bygge med dummy-URL till loopbackport1 PASS utan databas. Ny fix1-build PASS. |
 | npm audit --json | FAIL exit1,7moderate,0high/critical. Inga overrides/majoruppgraderingar. |
-| npm audit --omit=dev --json | PASS exit0,0fynd. Runtime-image ska pruna utvecklingsberoenden. |
+| npm audit --omit=dev --json | PASS exit0,0fynd. Minimal runtime-installation utesluter utveckling/peer/optional; exakt native-binding kopieras separat. |
 | git diff --check | PASS. |
 | Ny Neon-preview, läsande kontroll | PASS:18.6,UTC,initialt0publictabeller; därefter6migrationer/seed och begränsat appkonto. Ingen testsvit eller testvakt kringgås mot moln-DB. |
 | Vercel-projekt/perimeter | Konfigurerat separat projekt,Container,fra1,ssoProtection.enabled=true/deploymentType=all. Endast Niclas i teamlistan. Ingen faktisk HTTP-verifiering ännu. |
@@ -32,10 +32,44 @@ C:/Users/<user>/booking-lab-pg-test/preview-vercel-review. Övriga kommandoutdat
 observerades i Codex-verktygsresultat. Historiska5migrationer och package/lockfile
 är oförändrade. Ingen ny demo/video behövs för osynlig driftanpassning.
 
-**NOT RUN vid kandidat:** Linuxcontainerbygge/deploy, ny Grok-kandidat-QA, faktisk
+**NOT RUN vid rättningsvarv1:** Linuxcontainerbygge/deploy, Grok-återkontroll, faktisk
 HTTP/API/resursgrind, TLS/proxyspoofing, driftens admin/logout/bokning,
-omstart/beständighet, backup/återläsning, fysisk iPhone/Safari, ny Actions-körning.
+omstart/beständighet i drift, ny backup efter driftprov, fysisk iPhone/Safari, ny Actions-körning.
 Dokumenterade äldre lokala/CI/Grok-resultat nedan är inte driftbevis.
+
+Fix1 första dev0-körningen: FAIL23/24,60s totaltest-timeout i kall lokal
+MCP→admin-sekvens; samma mobiltest PASS. Ny hel matris körs mot nya
+fix1r2-databaser utan timeoutökning eller svagare assertions.
+
+## Previewns oberoende QA och rättningsvarv1
+
+Fryst b46da1321532ef683e971181d5404f54368e1b95: Grok gav kod-GO men
+konfigurations-NO-GO. Vercels faktiska filinsamlare tog bara15rotfiler på grund
+av ignorerade föräldramappar. [Originalrapport](qa/QA-REPORT-preview-vercel-b46da13.md)
+och [fixunderlag](qa/FIX-REQUEST-preview-vercel-b46da13.md) är oförändrade.
+Grok körde71unit/71integration och24E2E i varje läge; prod0 hade först
+MCP-timeout23/24, sedan24/24 två gånger. Detta är QA:s körningar, inte våra.
+
+Rättningsvarv1 använder rotförankrad vitlista och nytt filurvalstest. Första
+testet fångade en felaktig slash i den lokala insamlingsproben, därefter rättat.
+Minimal53pakets Windows-runtime utan CLI/ELK/sharp/TypeScript klarade24/24E2E
+på egen booking_preview_pruned_test; inte bevis för Linuxcontainer/Vercel.
+Refund-race serialiseras och har riktat regressionstest. E2E global teardown
+städar delade rate-buckets i den testdatabas som den befintliga vakten godkänt.
+Kapacitetstestets första omkörning föll på redan existerande smoke-buckets;
+fixture tar nu hänsyn till existerande antal och DB-expiry, produktgränsen
+10000 är oförändrad. Aktiv spärr kan fortfarande evikteras vid mättat lager
+(samma tidigare policy); lågprioriterad skalningsfråga, ingen kundpilot.
+
+Backup: pg_dump18.7 mot nya syntetiska Neon18.6 med sslmode=verify-full,
+AES-256-GCM, manipulationsprov avvisat. Första pg_restore utan explicit
+--dbname FAIL och0tabeller; rättad återläsning till ny lokal
+booking_preview_restore_demo PASS, alla10tabellers antal och innehållshashar
+matchar. Krypterad fil på operatörens PC, separat nyckel i ignorerad .vercel.
+Ingen automatisk extern/Tysklandsbackup eller återläsning efter driftprov ännu.
+
+En lokal matrislauncher nekades först av Node för C:-import utan file:///;
+rättad innan databas skapades. Ingen testvakt eller produktkod försvagades.
 
 ## Bilaga — tidigare Epic05 QA-fixvarv1
 
