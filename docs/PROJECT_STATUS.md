@@ -4,6 +4,8 @@
 
 **Epic05 är inte färdig.** MCP-paritet, uppgraderingskopia, ren slutinstallation/audit, ny slutmatris efter MCP, slutdemo, previewunderlag och Grok-QA återstår. Tidiga dev-start-/testväljarfel är dokumenterade; slutmatrisen är grön utan sänkta gränser. Ingen push/deploy gjord för implementationen. [Hela godkända omfattningen](EPIC_05_PLAN.md). Mobilpreview saknar miljögodkännande; oberoende arbete fortsätter. Pilot NO-GO. Denna statusuppdatering efter66f2796 ändrar bara dokument.
 
+CI-kostnadsändring2026-11-12 är lokalt syntaxkontrollerad (actionlint1.7.12 PASS): docs-filter, ett feature-ben,4main/manuellt, concurrency, cache och separat måndagsaudit. Inget pushat eller externt acceptanstestat;≤5min är inte bevisat. Veckoschema väntar på framtida tillåten default-branchaktivering. Audit omkörd:full FAIL7moderate/0high,prod PASS0. [Detaljer och NOT RUN](WORKPLAN.md). Produktkod66f2796 är oförändrad.
+
 ## Verifierad föregångare — Epic04
 
 # Projektstatus — Epic 04 godkänd lokal POC

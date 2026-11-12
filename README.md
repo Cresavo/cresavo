@@ -22,7 +22,7 @@ Epic 02:s slutmatris på kod 3cd633b: 43 unit, 30 integration ×3 och 12 E2E i f
 
 Samtidiga bokningar för samma anställd/dag serialiseras nu före tillgänglighetskontroll. Databasens överlappsskydd är kvar; lås-/serialiseringskonflikter från insert ger det befintliga svenska konfliktfelet. Proxykonfiguration avvisar även IPv6-subnät som annars skulle lita på IPv4-klienter (exempel ::/32).
 
-CI är konfigurerat för fyra E2E-jobb: dev/production × TRUST_PROXY_IP=0/1. Ny extern CI-körning kräver senare godkänd push. Aktuell testning och undantag finns i [VERIFICATION](docs/VERIFICATION.md). Vanliga fixomgångar kräver ingen ny demo; senaste inspelning är märkt med sin äldre revision.
+CI kör ett dev/proxy0-jobb på kodändringar i feature-grenar, och hela fyrfältsmatrisen på main eller manuell Verify POC-körning. Dokumentationsändringar ignoreras; samma repos PR duplicerar inte push-jobbet. Slutleverans kräver fortsatt full matris för exakt levererad kodrevision. Separat veckoaudit rapporterar alla fynd men blockerar sitt eget jobb vid high/critical. Sju kända moderate är fortfarande ett rött full-audit-resultat, inte åtgärdade genom ändrad jobbfördelning. Veckoschemat blir aktivt först när dess workflow finns på default-branchen. Ny extern verifiering kräver godkänd push; ingen merge/deploy sker automatiskt. [Faktisk verifiering och NOT RUN](docs/VERIFICATION.md).
 
 En liten lokal, svensk boknings-POC för en fiktiv salong. Next.js, TypeScript, PostgreSQL/Prisma och lokal MCP över stdio. Endast syntetiska uppgifter. **Inte för produktion eller riktiga kunder.**
 

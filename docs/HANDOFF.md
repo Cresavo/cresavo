@@ -4,6 +4,8 @@
 
 **Epic05 är inte färdig.** MCP-paritet, uppgraderingskopia, ren slutinstallation/audit, ny slutmatris efter MCP, slutdemo, previewunderlag och Grok-QA återstår. Bilderna är preliminära lokala testartefakter. Ingen push/deploy gjord för implementationen. [Hela godkända omfattningen](EPIC_05_PLAN.md). Mobilpreview saknar miljögodkännande; oberoende arbete fortsätter. Pilot NO-GO.
 
+Senaste avgränsade tillägg är CI-kostnadspolicyn, lokalt actionlint-PASS och audit omkörd (full FAIL7moderate,high-gate PASS med samma fynd,prod PASS0). Ett feature-ben/full manuell4-matris och veckoaudit är konfigurerade men INTE externt verifierade eller pushade. Schema aktiveras först från default-branchen; ingen merge tillåten här. Underlagets /workspace-filer saknas lokalt. [Exakt policy, källor, kommandon och NOT RUN](WORKPLAN.md). Inga nya produktändringar, beroenden eller migrationer.
+
 ## Verifierad föregångare — Epic04
 
 # Handoff — Epic 04 godkänd lokal POC

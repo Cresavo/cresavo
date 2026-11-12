@@ -14,6 +14,23 @@ Start 2026-11-12. Godkänd plan5c9b07a på origin/epic-05-booking-workspace, ver
 
 ## Skärmstruktur
 
+### Avgränsad CI-kostnadsändring, 2026-11-12
+
+Ny styrning från produktägaren tillämpas på aktuell Epic05-branch; den historiska Epic01-listan återimplementeras inte påb000481. Befintlig produktkod66f2796 och godkännanden bevaras. Visa kund-e-post införs inte genom den gamla listan; tidigare scopebeslut gäller i väntan på förtydligande. Underlagets /workspace/ci-savings/booking-lab-verify.patch och README finns inte på denna Windowsvärd; ingen påstådd läsning/applicering av den patchen. Ändringen bygger på den uttryckliga sexpunktsbeställningen och faktisk workflow.
+
+- Verify POC ignorerar docs/** och **/*.md vid push/PR, kör dev/proxy0 på feature och hela4 på main/workflow_dispatch. Samma-repo PR-jobb hoppas över eftersom push redan körs; fork-PR verifieras. Concurrency avbryter äldre körningar per ref/PR utom main.
+- npm-cache via setup-node; endast Playwright-binärer cachas med OS/arkitektur/låsfil som exakt nyckel, aldrig node_modules/.env/authdata. Linux systempaket installeras fortsatt varje körning. Playwright rekommenderar normalt inte browsercache eftersom återställning kan kosta lika mycket som nedladdning; ingen garanterad tidsvinst påstås. Ny cache-actionv5 är SHA-pinnad, dess MIT-LICENSE läst; inget npm-beroende tillagt.
+- Separat dependency-audit.yml schemalägger måndag06:00 Europe/Stockholm med GitHubs IANA-tidszonstöd. Full npm audit behåller sitt röda step-utfall via explicit continue-on-error och visas i jobbsammanfattning; npm audit --audit-level=high avgör veckojobbets status. Detta är operativ prioritering, inte löst moderate eller pilot-GO. Manuellt auditstöd finns. Schemat är INTE aktivt på featurebranch och kräver att workflow senare finns på main; ingen merge görs.
+- Senast läst faktisk Actions:43181684018 på5c9b07a, alla4E2E PASS, endast dependency-audit FAIL. Uppgiften om10samtliga tidigare runs har inte oberoende räknats om här. Nya workflowen är inte pushad eller körd på GitHub.
+
+Lokal verifiering: officiell actionlint1.7.12 Windows-amd64, release-ZIP SHA2566e7241b51e6817ea6a047693d8e6fed13b31819c9a0dd6c5a726e1592d22f6e9 verifierad mot GitHubs releasedigest; actionlint -color PASS exit0 för båda filer. Körning sker med externt QA-verktyg, ingen appinstallation eller låsfil ändrad. Shellcheck/GitHub-runner/Docker-runtime för nya workflowen NOT RUN. Ingen ny produktkod eller DB-migration: npmci/generate/migrate/seed, produktmatris och demo körs inte om för enbart CI-policy; föregående verkliga UI-matris gäller fortsatt66f2796.
+
+Audit omkörd: npm audit --json FAIL exit1,7moderate/0high/0critical; npm audit --audit-level=high --json PASS exit0 med samma7moderate; npm audit --omit=dev --json PASS exit0,0fynd. Stabil typescript-eslint8.72.2 använder fortfarande typescript-estree8.72.2 → minimatch^10.2.2. Senaste10version är10.2.6; audit anger>=7 <11.0.1 som sårbart, aktuell senaste11.0.8 ligger utanför stödd range. Ingen major/override eller canary införs.
+
+Acceptans ej bevisad externt: docs-push ger0runs, feature tar≤5min, manuell/main kör4gröna samt schemalagd audit körs. Dessa kräver framtida tillåten push och default-branchaktivering, inte lokala påståenden. Fram till dess är ändringen lokalt syntaxkontrollerad.
+
+Primärkällor: [GitHub workflowfilter/tidszoner](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax), [Playwright om browsercache](https://playwright.dev/docs/ci#caching-browsers), [pinnad cache-LICENSE](https://raw.githubusercontent.com/actions/cache/caa296126883cff596d87d8935842f9db880ef25/LICENSE). Registry- och auditfrågor körda2026-11-12.
+
 ### UI/API-delkontroll 2026-11-12
 
 Slutkontroll för denna del efter datumfält och testväljarfix:20/20 E2E i samtliga4lägen, prod/proxy0=1.5m,prod/proxy1=45.3s,dev/proxy0=2.1m,dev/proxy1=1.8m. Samma60s testtimeout och alla assertioner kvar. Slutaggregat via extern epic05-aggregate.mjs: booking0,bookingEvent0,workspaceRequest0,adminSession0,adminUser0,campaign0; endast2seedtjänster/2seedpersonal; activeOverlaps0 och databasens deadlockräknare0. Inga kvarvarande testposter. Git-diff för beroenden och migrationer mot66e2a4d är tom.

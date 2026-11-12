@@ -20,7 +20,10 @@
 | E2E_PRODUCTION borttagen, TRUST_PROXY_IP=1 npm run test:e2e | PASS20/20,1.8m. |
 | Uppgradering av Epic04-data / fixturestädningsprobe | NOT RUN i denna del; återstår före slutleverans. |
 | Extern node epic05-aggregate.mjs efter matrisen | PASS: booking/event/requestledger/session/admin/campaign=0;service/staff=2/2;activeOverlaps0;databaseDeadlocks0;1anslutning (proben). |
-| npm audit full/produktion | NOT RUN i denna del; känt föregångarresultat7moderate/full och0prod återges endast som historik nedan. Ny audit återstår. |
+| npm audit --json / npm audit --omit=dev --json | Omkört för CI-kostnadsändringen2026-11-12: full FAIL exit1,7moderate/0high/critical;prod PASS exit0,0fynd. Inget beroende uppgraderat. |
+| npm audit --audit-level=high --json | PASS exit0,fortfarande7moderate. Ny veckogrind, inte ett grönt full-audit-resultat. |
+| actionlint1.7.12 -color, nya verify/audit-workflow | PASS exit0. Release-ZIP-digest verifierad, extern QA-installation. Ingen GitHub-/Docker-runtime eller shellcheck körd för ändringen. |
+| CI-kostnadsacceptans (docs-ignore, feature≤5min, full manuell matris, veckoschema) | NOT RUN externt; ingen push/merge. Schemat kan inte aktiveras på featurebranch. [Underlag, policy och kommandon](WORKPLAN.md). |
 | Grok-QA / Actions för Epic05 | NOT RUN; ingen fryst slutkandidat eller implementationpush än. |
 | Slutdemo / mobilpreview | NOT RUN. Preliminära riktiga skärmar finns lokalt, kalenderbilder granskade. Ingen extern deploy godkänd. |
 
