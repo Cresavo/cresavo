@@ -1,5 +1,77 @@
 # Demo och mobilpreview — Epic 05
 
+## Vercel-förstudie 2026-11-12 — ingen deploy
+
+Niclas väljer att i första hand undersöka befintligt Vercel-konto. Några få dollar
+i extra Vercel-förbrukning är accepterat; nya abonnemang, betalda tillägg och
+uppgraderingar är inte godkända. Detta ersätter inte kravet på en konkret säker
+driftlösning. Hetznerförslaget nedan är historiskt underlag, inte en beställning.
+
+Fryst bas: `29ac2977627971ededb94a5c50354b316f52f332`, både lokal och remote
+`epic-05-booking-workspace`. Arbetskopian var ren. Produktkodens diff mot
+QA-granskade `4fc98d37fef805e041f8f8772a3fc37543d4ff04` är tom när Markdown
+undantas. Förstudien ligger separat på `preview/epic05-vercel-review`.
+
+### Verifierat och återstående
+
+- Vercel CLI:s läsande kontoanrop visar aktiv Pro-plan. Befintlig Neon-integration
+  finns, men dess Free-etikett är inte bevis för kostnadsfri ny databas: samma
+  integrationsmetadata innehåller historisk debitering. Ingen befintlig databas
+  eller annat projekts data har anslutits eller ändrats.
+- Vercel Authentication kan skydda alla deployments utan separat betalt
+  skyddstillägg. Planerat enda mänskliga previewkonto är Niclas eget Vercel-konto;
+  appens individuella admin krävs dessutom. Inga åtkomster har ändrats.
+- Vercel stöder Node-servrar. Det är inte i sig ett bevis för att Next-wrapperns
+  socket-/proxyidentitet fungerar oförändrat i den aktuella körmiljön.
+- Fluid Compute skalar mellan processer och kan avsluta inaktiva instanser.
+  Någon dokumenterad garanti för en enda instans har inte verifierats.
+  En region innebär inte en process. Nuvarande limiter använder en processlokal
+  Map och kan därför inte antas ge samma spärr över flera instanser.
+- Lokalt reproduktionsprov utan databas: två separata Node-processer anropar
+  `checkLoginAttempt` sex gånger var med samma syntetiska IP. Varje process
+  kontrollerade fem lösenord och spärrade ett försök; tillsammans blev det tio
+  kontroller i stället för fem. Detta bevisar processisoleringen, inte Vercels
+  faktiska instansfördelning. Endast en stub som alltid svarar falskt användes.
+- Vercels dokumenterade överskrivning av klientheaders är användbart underlag,
+  men vår befintliga kontroll av anslutningens betrodda socket måste också hålla.
+  Att lita på alla adresser eller hoppa över wrapper/proof är inte ett alternativ.
+
+**Stoppgrind:** öppna ingen preview med förändrad limiter- eller proxysemantik.
+Om driftskonfiguration inte kan bevara dem behövs separat godkännande för en
+avgränsad runtime-/säkerhetsanpassning, exempelvis en transaktionell gemensam
+limiter i befintliga PostgreSQL i stället för ytterligare en betald tjänst.
+Det är en utredningsriktning, inte en beslutad eller implementerad lösning.
+
+**Oberoende Grok-förstudie via befintlig Booking Lab QA-konversation:** svar
+mottaget 2026-11-12: **NO-GO för Vercel med enbart driftkonfiguration**.
+Grok anger läsning av sin befintliga separata `4fc98d3`-kopia och Vercels källor,
+inte nya runtime-tester. Samma blockerare: processlokal limiter, overifierad
+socket/proxyidentitet och wrapperns startpunkt vid vanlig Next-deploy.
+Grok har inte fått preview-/serveråtkomst eller secrets. Detta är inte ett nytt
+underkännande av den redan godkända lokala Epic05-alphan. Eventuella förslag om
+ny Epic eller svagare skydd i svaret är inte nya uppdrag eller godkännanden.
+Lokalt originalutdrag och skärmbild finns utanför Git i
+`C:/Users/<user>/booking-lab-pg-test/preview-vercel-review/`.
+
+Separat EU-databas/region, plan och kostnadsgränser för databas, backup/återläsning
+samt exakt runtime/proxykonfiguration är ännu inte verifierade eller skapade.
+Ingen automatisk koppling till befintliga Neon-projekt. Inget nytt värdnamn har
+skapats; en skyddad standardadress från Vercel kan utvärderas utan domänköp.
+Ingen publik MCP, inga hemligheter eller serveråtkomster till Grok.
+
+Ny full testmatris, deploy, skydd av verklig HTML/API/resurser, TLS/proxy,
+admininloggning/logout i drift, bokningsflöden i drift, omstart, återläsning och
+fysisk iPhone/Safari: **NOT RUN**. Produktkoden är oförändrad; tidigare Epic05-QA
+och CI är historiska bevis och räknas inte som previewgodkännande.
+
+Källor: [Node-servrar](https://vercel.com/changelog/deploy-node-servers-with-zero-configuration),
+[instansskalning](https://vercel.com/docs/functions/concurrency-scaling),
+[klientheaders](https://vercel.com/docs/headers/request-headers),
+[åtkomstskydd](https://vercel.com/changelog/protect-production-deployments-for-free-on-every-plan),
+[Pro-förbrukning](https://vercel.com/docs/plans/pro-plan).
+
+## Befintlig lokal Epic 05-demo
+
 2026-11-12 kl.11:29 CET. Ren kandidat **7fc0e866f0ef457bf9eaef4ca153e7a69b30b3d0**, dirty=false, produktionsbygge. `npm run demo:record` **PASS6/6,52.8s**,28PNG och6WebM på ny separat booking_epic05_delivery_demo. Tre flöden på desktop och mobil: kund/admin/kampanj, lokal MCP-bokning och hela nya arbetsytan tjänst/schema/ledighet/flytt/avbokning. Inspelningen har ingen N-badge. Ingen testsite är driftsatt.
 
 - [Lokalt galleri](../demo-artifacts/2026-11-12T10-29-00-935Z/index.html)

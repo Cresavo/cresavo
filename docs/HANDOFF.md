@@ -1,5 +1,14 @@
 # Handoff — Epic05 QA-godkänd lokal produktalpha
 
+**Previewtillägg 2026-11-12, dokumentation endast:** förstudie på separat
+`preview/epic05-vercel-review`, bas `29ac297` (matchar originalbranchens remote).
+Aktiv Vercel Pro och Neon-integration verifierade läsande, ingen Booking Lab-DB
+ansluten eller skapad. Några få dollar extra Vercelförbrukning accepterat, inga
+nya betalda tjänster. Groks riktade läsande förstudie: **NO-GO config-only Vercel**,
+inte återkallat lokalt Epic05-GO. Processlokal spärr och overifierad socket/proxy
+kräver separat beslut före produkt-/säkerhetsanpassning. Inga molnändringar,
+deploys eller runtime-tester. [Fullt underlag/NOT RUN](DEMO.md#vercel-förstudie-2026-11-12--ingen-deploy).
+
 2026-11-12. **epic-05-booking-workspace**, produktkod **4fc98d37fef805e041f8f8772a3fc37543d4ff04**, bas26b680d/plan5c9b07a. Grok har gett GO efter ett riktat fixvarv, E05-QA-1 stängd. Efterföljande dokumentcommits ändrar ingen app/test/schema. Privat leverans **c12b98a31f844f4dc50213a72feb57db02595794** är pushad; [Actions43210413097](CI_DELIVERY_2026_11_12.md) har4gröna E2E-jobb,24/24 vardera. Ingen mainmerge/deploy. Pilot NO-GO.
 
 Byggt: faktisk dag-/veckokalender och mobil dag/lista; tjänsters pris/längd/buffert/aktiv/version; två personaler med tilldelning, arbetspass, pauser och datumundantag; manuellt skapa/öppna/flytta/avboka med snapshots/historik. Samma domänregler/lås/version/idempotens via API och lokal MCP. Femte nya framåtmigrationen bevarar gamla kolumner och ersätter exclusion atomärt med skydd för confirmed. Fyra historiska migrationer byteidentiska. Ingen ny npm-dependency/licensändring. Backfill använder migrationens katalogpris/namn, inte ett påhittat historiskt pris.
