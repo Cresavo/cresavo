@@ -1,10 +1,12 @@
-import { formatPrice } from "@/lib/format";
+import { formatPrice, readableDay } from "@/lib/format";
 import { pageDataFailure } from "@/lib/errors";
 import { DateTime } from "luxon";
 import { listServices, publicCampaigns } from "@/lib/domain";
 import BookingForm from "./booking-form";
-import { sv } from "@/lib/i18n";
 import { listStaff } from "@/lib/workspace-config";
+import { demoAccessEnabled } from "@/lib/demo-access";
+import DemoEntry from "./demo-entry";
+import Link from "next/link";
 export const dynamic = "force-dynamic";
 export default async function Home() {
   const [services, campaigns, staff] = await Promise.all([
@@ -13,47 +15,29 @@ export default async function Home() {
     listStaff(),
   ]).catch(pageDataFailure);
   return (
-    <main className="mx-auto max-w-5xl px-5 py-8 sm:py-12">
-      <header className="flex justify-between items-center">
-        <span className="font-bold tracking-wide">
-          SALONG EKO <span className="text-xs font-normal">/ DEMO</span>
-        </span>
-        <a href="/admin" className="text-sm">
-          Administration
-        </a>
+    <main className="booking-page">
+      <header className="customer-header">
+        <Link className="salon-brand" href="/">
+          SALONG EKO<span>Kundbokning</span>
+        </Link>
+        {demoAccessEnabled() ? (
+          <DemoEntry />
+        ) : (
+          <a className="quiet-button" href="/admin">
+            Salongens arbetsyta
+          </a>
+        )}
       </header>
-      <div className="grid gap-10 md:grid-cols-2 mt-14">
-        <section>
-          <p className="uppercase tracking-widest text-sm">En stund för dig</p>
-          <h1 className="text-5xl sm:text-6xl font-semibold mt-4 leading-tight">
-            {sv.welcome}
-          </h1>
-          <p className="mt-6 text-lg leading-relaxed">
-            Välj behandling och en tid som passar dig. Det här är en
-            demonstration – använd bara påhittade uppgifter.
-          </p>
-          <div className="mt-8 space-y-4">
-            {services.map((s) => (
-              <div key={s.id} className="border-t border-stone-300 pt-4">
-                <strong>{s.name}</strong>
-                <span className="block text-sm mt-1">
-                  {s.duration} min · {formatPrice(s.priceOre)}
-                </span>
-              </div>
-            ))}
-          </div>
-          {campaigns.map((c) => (
-            <div key={c.id} className="mt-6 rounded-xl bg-amber-100 p-4">
-              <strong>{c.title}</strong>
-              <p>
-                {c.discountPercent} % rabatt på {c.service.name.toLowerCase()} ·{" "}
-                {c.validFrom}–{c.validUntil}
-              </p>
-            </div>
-          ))}
-        </section>
-        <section className="rounded-2xl bg-white p-6 sm:p-8 shadow-sm">
-          <h2 className="text-2xl font-semibold mb-6">{sv.book}</h2>
+      <div className="booking-intro">
+        <p className="eyebrow">Välkommen till vår demosalong</p>
+        <h1>Boka en behandling</h1>
+        <p>
+          Välj behandling, tryck på en dag och välj en ledig tid. Du ser hela
+          bokningen innan du bekräftar.
+        </p>
+      </div>
+      <div className="booking-layout">
+        <section className="booking-surface" aria-label="Boka en tid">
           <BookingForm
             services={services}
             staff={staff.map(({ id, name, serviceIds }) => ({
@@ -63,6 +47,47 @@ export default async function Home() {
             }))}
           />
         </section>
+        <aside className="salon-information">
+          <h2>Om ditt besök</h2>
+          <p>
+            Alla tider visas i svensk tid. Våra behandlingar och utförare hittar
+            du direkt i bokningen.
+          </p>
+          <div className="service-menu">
+            {services.map((s) => (
+              <p key={s.id}>
+                <strong>{s.name}</strong>
+                <span>
+                  {s.duration} min · {formatPrice(s.priceOre)}
+                </span>
+              </p>
+            ))}
+          </div>
+          {campaigns.map((c) => (
+            <section className="campaign-card" key={c.id}>
+              <span className="eyebrow">Demokampanj</span>
+              <h3>{c.title}</h3>
+              <p>
+                {c.discountPercent} % på {c.service.name.toLowerCase()}
+              </p>
+              <p>
+                {readableDay(c.validFrom)} – {readableDay(c.validUntil)}
+              </p>
+              <small>
+                Ordinarie pris visas i bokningen. Ingen betalning sker i demon.
+              </small>
+            </section>
+          ))}
+          <section className="owner-entry">
+            <h2>Provar du som salongsägare?</h2>
+            <p>
+              Arbetsytan visar bokningar, personal, behandlingar och kampanjer.
+            </p>
+            <a href="/admin" className="button-link">
+              Öppna arbetsytan
+            </a>
+          </section>
+        </aside>
       </div>
     </main>
   );

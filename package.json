@@ -7,6 +7,7 @@
   "scripts": {
     "admin:manage": "node --env-file=.env --import tsx scripts/admin.mts",
     "demo:record": "node --env-file=.env scripts/record-demo.mjs",
+    "demo:seed": "node --env-file=.env --import tsx scripts/seed-demo.ts",
     "dev": "node --env-file=.env scripts/server.mjs --dev",
     "build": "next build",
     "start": "node --env-file=.env scripts/server.mjs",

@@ -1,3 +1,4 @@
+import { chooseDay, chooseSlot } from "./date-controls";
 import { mcpEnvironment } from "../../src/mcp/environment";
 import { test, expect } from "./fixtures";
 import { socketClient } from "./http-client";
@@ -423,14 +424,8 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
     await expect(page.getByText(title)).toHaveCount(0);
     await capture("01-bokningssida");
     await page.locator("#service").selectOption("fotvard");
-    await page.locator("#date").fill(day.toISODate()!);
-    await page.getByRole("button", { name: "Visa lediga tider" }).click();
-    await expect(page.locator("#slot option").nth(1)).toBeAttached();
-    const slot = await page
-      .locator("#slot option")
-      .nth(1)
-      .getAttribute("value");
-    await page.locator("#slot").selectOption(slot!);
+    await chooseDay(page, "date", day.toISODate()!);
+    const slot = await chooseSlot(page, "slot");
     await page.locator("#name").fill(customerName);
     await page.locator("#email").fill(email);
     await capture("02-vald-tid");
@@ -438,10 +433,8 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
     await expect(
       page.getByText(/^Din testbokning är registrerad\./),
     ).toBeVisible();
-    await expect(
-      page.getByText(/^Din testbokning är registrerad\./),
-    ).toContainText(
-      `Fotvård · ${DateTime.fromISO(slot!).setZone("Europe/Stockholm").toFormat("yyyy-MM-dd HH:mm")} (Europe/Stockholm)`,
+    await expect(page.locator(".booking-success")).toContainText(
+      `Fotvård · 60 min · 650,00\u00a0kr · Anna · ${DateTime.fromISO(slot!).setZone("Europe/Stockholm").setLocale("sv").toFormat("cccc d MMMM yyyy")} kl. ${DateTime.fromISO(slot!).setZone("Europe/Stockholm").toFormat("HH:mm")}`,
     );
     await capture("03-bekraftelse");
     await page.goto("/admin");
@@ -710,14 +703,8 @@ test("UI återanvänder bokningsnyckeln vid dubbelsubmit och tappat svar", async
   });
   await page.goto("/");
   await page.locator("#service").selectOption("massage");
-  await page.locator("#date").fill(day.toISODate()!);
-  await page.getByRole("button", { name: "Visa lediga tider" }).click();
-  await expect(page.locator("#slot option").nth(1)).toBeAttached();
-  await page
-    .locator("#slot")
-    .selectOption(
-      (await page.locator("#slot option").nth(1).getAttribute("value"))!,
-    );
+  await chooseDay(page, "date", day.toISODate()!);
+  await chooseSlot(page, "slot");
   await page.locator("#name").fill("Syntetisk retrykund");
   await page.locator("#email").fill(`${synthetic.marker}@example.test`);
   await page.getByRole("button", { name: "Bekräfta testbokning" }).click();

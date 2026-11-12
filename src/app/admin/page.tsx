@@ -10,6 +10,8 @@ import { ZONE } from "@/lib/time";
 import AdminActions from "./ui";
 import AdminHeader from "./header";
 import Calendar from "./calendar";
+import DemoEntry from "../demo-entry";
+import { demoAccessEnabled } from "@/lib/demo-access";
 export const dynamic = "force-dynamic";
 export default async function Admin({
   searchParams,
@@ -32,8 +34,22 @@ export default async function Admin({
           Bokningssidan
         </Link>
         <p className="eyebrow">SALONG EKO / DEMO</p>
-        <h1>Administration</h1>
-        <AdminActions mode="login" />
+        <h1>Salongens arbetsyta</h1>
+        <p>
+          Här ser du bokningar och ändrar behandlingar, personal och
+          arbetstider.
+        </p>
+        {demoAccessEnabled() ? (
+          <>
+            <DemoEntry />
+            <details>
+              <summary>Vanlig admininloggning</summary>
+              <AdminActions mode="login" />
+            </details>
+          </>
+        ) : (
+          <AdminActions mode="login" />
+        )}
       </main>
     );
   const params = await searchParams;

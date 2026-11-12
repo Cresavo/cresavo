@@ -8,7 +8,10 @@ export default function Layout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="sv">
-      <body>{children}</body>
+      <body>
+        <p className="demo-banner">Demo – endast påhittade uppgifter</p>
+        {children}
+      </body>
     </html>
   );
 }

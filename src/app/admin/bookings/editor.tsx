@@ -1,9 +1,13 @@
 "use client";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatBookingTime, formatPrice } from "@/lib/format";
+import { formatBookingTime, formatPrice, readableDay } from "@/lib/format";
 import type { BookingView, StaffView, ServiceView } from "../types";
 import { useWrite, useUnsavedChanges } from "../use-write";
+import { DateTime } from "luxon";
+import DatePicker from "../../components/date-picker";
+import SlotPicker from "../../components/slot-picker";
+import { useAvailability } from "../../components/use-availability";
 
 function dayOf(instant: string) {
   return new Intl.DateTimeFormat("sv-SE", {
@@ -39,54 +43,36 @@ export default function BookingEditor({
   const [day, setDay] = useState(
       booking ? dayOf(booking.startsAt) : (date ?? ""),
     ),
-    [slots, setSlots] = useState<string[]>([]),
     [start, setStart] = useState("");
-  const [searching, setSearching] = useState(false),
-    [readError, setReadError] = useState(""),
+  const [readError, setReadError] = useState(""),
     [notice, setNotice] = useState("");
   const [customerName, setCustomerName] = useState(""),
     [customerEmail, setCustomerEmail] = useState("");
-  const searchVersion = useRef(0);
+  const availability = useAvailability(
+    mode === "edit" ? serviceId : "",
+    staffId,
+    day,
+    current
+      ? `/api/admin/bookings/${encodeURIComponent(current.id)}/availability`
+      : "/api/availability",
+  );
+  const { slots } = availability;
+  const today = DateTime.now().setZone("Europe/Stockholm").toISODate()!;
   const { write, pending, message, status } = useWrite();
   const { markDirty, markClean } = useUnsavedChanges();
   const people = staff.filter(
     (p) => p.active && p.serviceIds.includes(serviceId),
   );
   function clearSlots(dirty = true) {
-    searchVersion.current++;
-    setSearching(false);
-    setSlots([]);
+    availability.refresh();
     setStart("");
     setReadError("");
     if (dirty) markDirty();
   }
-  async function search(event: React.FormEvent) {
+  function search(event: React.FormEvent) {
     event.preventDefault();
-    const version = ++searchVersion.current;
-    setSearching(true);
-    setReadError("");
-    setSlots([]);
     setStart("");
-    try {
-      const query = new URLSearchParams({ serviceId, staffId, date: day });
-      const url = current
-        ? `/api/admin/bookings/${encodeURIComponent(current.id)}/availability?${query}`
-        : `/api/availability?${query}`;
-      const response = await fetch(url, { cache: "no-store" });
-      const data = await response.json();
-      if (version !== searchVersion.current) return;
-      if (!response.ok) {
-        setReadError(data.error ?? "Tiderna kunde inte hämtas.");
-        return;
-      }
-      setSlots(data);
-      if (!data.length) setReadError("Inga lediga tider detta datum.");
-    } catch {
-      if (version === searchVersion.current)
-        setReadError("Tiderna kunde inte hämtas. Försök igen.");
-    } finally {
-      if (version === searchVersion.current) setSearching(false);
-    }
+    availability.refresh();
   }
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -124,7 +110,6 @@ export default function BookingEditor({
     }
     setCurrent({ ...current, ...result });
     setMode("view");
-    setSlots([]);
     setStart("");
     await reload();
     setNotice("Bokningen har flyttats.");
@@ -241,17 +226,13 @@ export default function BookingEditor({
           <h2 id="cancel-title">Avboka bokningen?</h2>
           <p>Tiden blir ledig. Bokningen och historiken finns kvar.</p>
           <div className="action-row">
-            <button
-              className="danger"
-              autoFocus
-              disabled={pending}
-              onClick={cancel}
-            >
+            <button className="danger" disabled={pending} onClick={cancel}>
               {pending ? "Avbokar…" : "Ja, avboka"}
             </button>
             <button
               className="secondary"
               disabled={pending}
+              autoFocus
               onClick={() => setConfirmCancel(false)}
             >
               Behåll bokningen
@@ -312,17 +293,15 @@ export default function BookingEditor({
                   </select>
                 </div>
                 <div className="field">
-                  <label htmlFor="booking-date">Datum</label>
-                  <input
+                  <DatePicker
                     id="booking-date"
-                    type="text"
-                    lang="sv-SE"
-                    placeholder="YYYY-MM-DD"
-                    pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
-                    required
                     value={day}
-                    onChange={(e) => {
-                      setDay(e.target.value);
+                    min={today}
+                    max={
+                      DateTime.fromISO(today).plus({ days: 60 }).toISODate()!
+                    }
+                    onChange={(value) => {
+                      setDay(value);
                       clearSlots();
                     }}
                   />
@@ -330,10 +309,12 @@ export default function BookingEditor({
               </div>
               <button
                 className="secondary"
-                disabled={searching || !staffId || !serviceId}
+                disabled={availability.loading || !staffId || !serviceId}
                 type="submit"
               >
-                {searching ? "Hämtar tider…" : "Visa lediga tider"}
+                {availability.loading
+                  ? "Hämtar tider…"
+                  : "Uppdatera lediga tider"}
               </button>
             </fieldset>
           </form>
@@ -341,6 +322,44 @@ export default function BookingEditor({
             <p role="status" className="form-message">
               {readError}
             </p>
+          )}
+          {availability.error && (
+            <p className="form-error" role="alert">
+              {availability.error}
+            </p>
+          )}
+          {!availability.loading && !availability.error && !slots.length && (
+            <p className="empty-state">
+              Inga lediga tider den här dagen. Det kan vara stängt eller
+              fullbokat.
+            </p>
+          )}
+          <button
+            type="button"
+            className="secondary next-available"
+            disabled={pending || availability.finding || !staffId}
+            onClick={() =>
+              void availability.next((value) => {
+                setDay(value);
+                clearSlots();
+              })
+            }
+          >
+            {availability.finding
+              ? "Letar efter en ledig dag…"
+              : "Hitta nästa lediga dag"}
+          </button>
+          {current && !slots.length && (
+            <button
+              type="button"
+              className="quiet-button"
+              onClick={() => {
+                setMode("view");
+                markClean();
+              }}
+            >
+              Avbryt flytt
+            </button>
           )}
           {!!slots.length && (
             <form
@@ -350,24 +369,16 @@ export default function BookingEditor({
             >
               <fieldset disabled={pending}>
                 <div className="field">
-                  <label htmlFor="booking-slot">Ledig tid</label>
-                  <select
+                  <SlotPicker
                     id="booking-slot"
+                    slots={slots}
                     value={start}
-                    onChange={(e) => setStart(e.target.value)}
-                    required
-                  >
-                    <option value="">Välj tid</option>
-                    {slots.map((slot) => (
-                      <option key={slot} value={slot}>
-                        {new Intl.DateTimeFormat("sv-SE", {
-                          timeZone: "Europe/Stockholm",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }).format(new Date(slot))}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => {
+                      setStart(value);
+                      markDirty();
+                    }}
+                    disabled={pending}
+                  />
                 </div>
                 {!current && (
                   <>
@@ -397,6 +408,33 @@ export default function BookingEditor({
                     </div>
                   </>
                 )}
+                <section
+                  className="booking-review"
+                  aria-label="Bokningssammanfattning"
+                >
+                  <h3>Kontrollera bokningen</h3>
+                  <strong>
+                    {current?.serviceName ??
+                      services.find((s) => s.id === serviceId)?.name}
+                  </strong>
+                  <p>
+                    {current?.duration ??
+                      services.find((s) => s.id === serviceId)?.duration}{" "}
+                    min ·{" "}
+                    {formatPrice(
+                      current?.priceOre ??
+                        services.find((s) => s.id === serviceId)?.priceOre ??
+                        0,
+                    )}{" "}
+                    · {people.find((p) => p.id === staffId)?.name}
+                  </p>
+                  <p>
+                    {readableDay(day)}
+                    {start
+                      ? ` kl. ${new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit" }).format(new Date(start))}`
+                      : " · välj en ledig tid"}
+                  </p>
+                </section>
                 <div className="action-row">
                   <button disabled={!start}>
                     {pending
@@ -425,7 +463,7 @@ export default function BookingEditor({
       )}
       {message && (
         <p role="alert" className="form-error">
-          {message}
+          {message} Dina val finns kvar.
         </p>
       )}
       {readError && mode === "view" && (

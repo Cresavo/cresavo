@@ -35,6 +35,11 @@ export default async function Services({
             Behandlingen är sparad.
           </p>
         )}
+        <p className="workspace-guidance">
+          Välj en behandling för att ändra pris och längd. Skapa nya med Ny
+          behandling och koppla dem sedan till rätt person under Personal &amp;
+          tider.
+        </p>
         <div className="settings-layout">
           <aside aria-label="Behandlingar" className="resource-list">
             {services.map((s) => (

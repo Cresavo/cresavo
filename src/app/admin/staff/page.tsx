@@ -36,6 +36,11 @@ export default async function Staff({
             Medarbetaren och tiderna är sparade.
           </p>
         )}
+        <p className="workspace-guidance">
+          Välj en medarbetare. Veckoschemat anger vanliga arbetstider; under
+          Ledighet och avvikande tider ändrar du en enskild dag. Spara när du är
+          klar.
+        </p>
         <div className="settings-layout">
           <aside aria-label="Medarbetare" className="resource-list">
             {staff.map((p) => (

@@ -1,10 +1,19 @@
 "use client";
-import { formatBookingTime } from "@/lib/format";
 import { useRef, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { DateTime } from "luxon";
+import { formatPrice, readableDay } from "@/lib/format";
+import DatePicker from "./components/date-picker";
+import SlotPicker from "./components/slot-picker";
+import { useAvailability } from "./components/use-availability";
 const subscribe = () => () => {};
-const hydratedSnapshot = () => true;
-const serverSnapshot = () => false;
-type Service = { id: string; name: string; version?: number };
+type Service = {
+  id: string;
+  name: string;
+  duration: number;
+  priceOre: number;
+  version?: number;
+};
 type Staff = { id: string; name: string; serviceIds: string[] };
 export default function BookingForm({
   services,
@@ -14,231 +23,279 @@ export default function BookingForm({
   staff: Staff[];
 }) {
   const hydrated = useSyncExternalStore(
-    subscribe,
-    hydratedSnapshot,
-    serverSnapshot,
-  );
+      subscribe,
+      () => true,
+      () => false,
+    ),
+    router = useRouter();
   const submission = useRef<{ payload: string; key: string } | null>(null);
-  const searchVersion = useRef(0);
-  const [staffId, setStaff] = useState(
-    staff.find((p) => p.serviceIds.includes(services[0]?.id))?.id ?? "",
-  );
-  const [customerName, setCustomerName] = useState(""),
-    [customerEmail, setCustomerEmail] = useState("");
-  const [searching, setSearching] = useState(false),
-    [pending, setPending] = useState(false),
-    [staleService, setStaleService] = useState(false);
   const [serviceId, setService] = useState(services[0]?.id ?? ""),
-    [date, setDate] = useState(""),
-    [slots, setSlots] = useState<string[]>([]),
+    [staffId, setStaff] = useState(
+      staff.find((p) => p.serviceIds.includes(services[0]?.id))?.id ?? "",
+    );
+  const today = DateTime.now().setZone("Europe/Stockholm").toISODate()!,
+    last = DateTime.fromISO(today).plus({ days: 60 }).toISODate()!;
+  const [date, setDate] = useState(today),
     [start, setStart] = useState(""),
-    [message, setMessage] = useState("");
-  async function search(e: React.FormEvent) {
-    e.preventDefault();
-    setMessage("");
+    [customerName, setCustomerName] = useState(""),
+    [customerEmail, setCustomerEmail] = useState("");
+  const [pending, setPending] = useState(false),
+    [message, setMessage] = useState(""),
+    [stale, setStale] = useState(false),
+    [success, setSuccess] = useState("");
+  const availability = useAvailability(serviceId, staffId, date);
+  const service = services.find((s) => s.id === serviceId),
+    person = staff.find((s) => s.id === staffId);
+  const time = (value: string) =>
+    new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Europe/Stockholm",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(value));
+  const chooseDay = (value: string) => {
+    setDate(value);
     setStart("");
-    const version = ++searchVersion.current;
-    setSearching(true);
-    setSlots([]);
-    try {
-      const query = new URLSearchParams({ serviceId, staffId, date });
-      const r = await fetch(`/api/availability?${query}`, {
-        cache: "no-store",
-      });
-      const data = await r.json();
-      if (version !== searchVersion.current) return;
-      if (!r.ok) setMessage(data.error);
-      else {
-        setSlots(data);
-        if (!data.length) setMessage("Inga lediga tider detta datum.");
-      }
-    } catch {
-      if (version === searchVersion.current)
-        setMessage("Tiderna kunde inte hämtas. Försök igen.");
-    } finally {
-      if (version === searchVersion.current) setSearching(false);
-    }
-  }
-  async function book(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
+    setMessage("");
+  };
+  async function book(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!start || pending) return;
     const payload = JSON.stringify({
       serviceId,
       staffId,
-      serviceVersion: services.find((s) => s.id === serviceId)?.version,
+      serviceVersion: service?.version,
       start,
-      customerName: form.get("name"),
-      customerEmail: form.get("email"),
+      customerName,
+      customerEmail,
     });
     if (submission.current?.payload !== payload)
       submission.current = { payload, key: crypto.randomUUID() };
-    const key = submission.current.key;
     setPending(true);
-    setStaleService(false);
+    setMessage("");
+    setStale(false);
     try {
-      const r = await fetch("/api/bookings", {
+      const response = await fetch("/api/bookings", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Idempotency-Key": key },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": submission.current.key,
+        },
         body: payload,
       });
-      const data = await r.json();
-      if (r.ok) {
-        setMessage(
-          `Din testbokning är registrerad. ${services.find((s) => s.id === serviceId)?.name} · ${formatBookingTime(start)} (Europe/Stockholm)`,
+      const result = await response.json();
+      if (response.ok) {
+        setSuccess(
+          `${service?.name} · ${service?.duration} min · ${formatPrice(service?.priceOre ?? 0)} · ${person?.name} · ${readableDay(date)} kl. ${time(start)}`,
         );
-        setSlots([]);
-        setStart("");
       } else {
-        setMessage(data.error);
-        setStaleService(r.status === 409);
+        setMessage(result.error ?? "Bokningen kunde inte sparas. Försök igen.");
+        setStale(response.status === 409);
+        if (response.status === 400 || response.status === 409) {
+          setStart("");
+          availability.refresh();
+        }
       }
     } catch {
-      // Preserve the key: the server may have committed before the connection failed.
       setMessage("Svaret kunde inte hämtas. Försök igen med samma uppgifter.");
     } finally {
       setPending(false);
     }
   }
-
+  if (success)
+    return (
+      <section className="booking-success" role="status">
+        <span className="eyebrow">Bokningsbekräftelse</span>
+        <h2>Din bokning är klar</h2>
+        <p>Din testbokning är registrerad.</p>
+        <p className="confirmation-summary">{success}</p>
+        <p>Detta är en demo. Inga mejl eller SMS skickas.</p>
+        <button
+          type="button"
+          onClick={() => {
+            setSuccess("");
+            setStart("");
+            submission.current = null;
+            availability.refresh();
+          }}
+        >
+          Boka en ny tid
+        </button>
+      </section>
+    );
+  if (!services.length || !staff.length)
+    return (
+      <p className="empty-state">
+        Det finns inga bokningsbara behandlingar just nu. Salongen behöver
+        aktivera behandling och personal i arbetsytan.
+      </p>
+    );
   return (
-    <>
-      <form onSubmit={search} className="space-y-4">
-        <div>
-          <label htmlFor="service">Behandling</label>
-          <select
-            disabled={!hydrated || pending}
-            id="service"
-            value={serviceId}
-            onChange={(e) => {
-              setService(e.target.value);
-              setStaff(
-                staff.find((p) => p.serviceIds.includes(e.target.value))?.id ??
-                  "",
-              );
-              searchVersion.current++;
-              setSearching(false);
-              setSlots([]);
-              setStart("");
-            }}
-          >
-            {services.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
+    <form onSubmit={book} className="customer-booking">
+      <div className="booking-step">
+        <h2>
+          <span>1</span> Behandling och utförare
+        </h2>
+        <label htmlFor="service">Behandling</label>
+        <select
+          id="service"
+          disabled={!hydrated || pending}
+          value={serviceId}
+          onChange={(e) => {
+            setService(e.target.value);
+            setStaff(
+              staff.find((p) => p.serviceIds.includes(e.target.value))?.id ??
+                "",
+            );
+            setStart("");
+            setMessage("");
+          }}
+        >
+          {services.map((s) => (
+            <option value={s.id} key={s.id}>
+              {s.name} · {s.duration} min · {formatPrice(s.priceOre)}
+            </option>
+          ))}
+        </select>
+        <label htmlFor="staff">Medarbetare</label>
+        <select
+          id="staff"
+          disabled={!hydrated || pending}
+          required
+          value={staffId}
+          onChange={(e) => {
+            setStaff(e.target.value);
+            setStart("");
+            setMessage("");
+          }}
+        >
+          <option value="">Välj medarbetare</option>
+          {staff
+            .filter((p) => p.serviceIds.includes(serviceId))
+            .map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
               </option>
             ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="staff">Medarbetare</label>
-          <select
-            id="staff"
-            value={staffId}
-            disabled={!hydrated || pending}
-            required
-            onChange={(e) => {
-              setStaff(e.target.value);
-              searchVersion.current++;
-              setSearching(false);
-              setSlots([]);
-              setStart("");
+        </select>
+      </div>
+      <div className="booking-step">
+        <h2>
+          <span>2</span> Dag och tid
+        </h2>
+        <DatePicker
+          id="date"
+          value={date}
+          min={today}
+          max={last}
+          onChange={chooseDay}
+          disabled={!hydrated || pending}
+        />
+        {availability.loading ? (
+          <p role="status">Hämtar lediga tider…</p>
+        ) : availability.error ? (
+          <div role="alert" className="form-error">
+            <p>{availability.error}</p>
+            <button
+              type="button"
+              className="secondary"
+              onClick={availability.refresh}
+            >
+              Försök hämta tider igen
+            </button>
+          </div>
+        ) : availability.slots.length ? (
+          <SlotPicker
+            id="slot"
+            slots={availability.slots}
+            value={start}
+            onChange={setStart}
+            disabled={pending}
+          />
+        ) : (
+          <div className="empty-state">
+            <strong>Inga lediga tider {readableDay(date)}.</strong>
+            <p>
+              Det kan vara stängt eller fullbokat. Välj en annan dag, behandling
+              eller medarbetare.
+            </p>
+          </div>
+        )}
+        <button
+          type="button"
+          className="secondary next-available"
+          disabled={pending || availability.finding || !staffId}
+          onClick={() => void availability.next(chooseDay)}
+        >
+          {availability.finding
+            ? "Letar efter en ledig dag…"
+            : "Hitta nästa lediga dag"}
+        </button>
+      </div>
+      <div className="booking-step">
+        <h2>
+          <span>3</span> Dina uppgifter och bokning
+        </h2>
+        <label htmlFor="name">Namn (påhittat)</label>
+        <input
+          id="name"
+          name="name"
+          required
+          minLength={2}
+          maxLength={80}
+          value={customerName}
+          onChange={(e) => setCustomerName(e.target.value)}
+          autoComplete="off"
+        />
+        <label htmlFor="email">E-post (påhittad)</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          required
+          maxLength={254}
+          value={customerEmail}
+          onChange={(e) => setCustomerEmail(e.target.value)}
+          autoComplete="off"
+        />
+        <p className="muted">
+          Använd en testadress, till exempel kund@example.test. Inga utskick
+          görs.
+        </p>
+        <section className="booking-review" aria-label="Din bokning">
+          <h3>Din bokning</h3>
+          <strong>{service?.name}</strong>
+          <p>
+            {service?.duration} min · {formatPrice(service?.priceOre ?? 0)} ·{" "}
+            {person?.name}
+          </p>
+          <p>
+            {readableDay(date)}
+            {start ? ` kl. ${time(start)}` : " · välj en ledig tid ovan"}
+          </p>
+        </section>
+        {message && (
+          <p role="alert" className="form-error">
+            {message} Dina uppgifter finns kvar.
+          </p>
+        )}
+        {stale && (
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              router.refresh();
+              availability.refresh();
+              setStale(false);
             }}
           >
-            <option value="">Välj medarbetare</option>
-            {staff
-              .filter((p) => p.serviceIds.includes(serviceId))
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="date">Datum</label>
-          <input
-            disabled={!hydrated || pending}
-            id="date"
-            type="text"
-            placeholder="YYYY-MM-DD"
-            pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
-            lang="sv-SE"
-            required
-            value={date}
-            onChange={(e) => {
-              setDate(e.target.value);
-              searchVersion.current++;
-              setSearching(false);
-              setSlots([]);
-              setStart("");
-            }}
-          />
-        </div>
-        <button
-          disabled={!hydrated || searching || pending || !staffId}
-          type="submit"
-        >
-          {searching ? "Hämtar tider…" : "Visa lediga tider"}
-        </button>
-      </form>
-      {slots.length > 0 && (
-        <form onSubmit={book} className="space-y-4 mt-6 border-t pt-5">
-          <div>
-            <label htmlFor="slot">Ledig tid</label>
-            <select
-              id="slot"
-              required
-              value={start}
-              onChange={(e) => setStart(e.target.value)}
-            >
-              <option value="">Välj tid</option>
-              {slots.map((s) => (
-                <option value={s} key={s}>
-                  {new Intl.DateTimeFormat("sv-SE", {
-                    timeZone: "Europe/Stockholm",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }).format(new Date(s))}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="name">Namn (påhittat)</label>
-            <input
-              id="name"
-              name="name"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              minLength={2}
-              maxLength={80}
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="email">E-post (påhittad)</label>
-            <input
-              id="email"
-              name="email"
-              value={customerEmail}
-              onChange={(e) => setCustomerEmail(e.target.value)}
-              type="email"
-              maxLength={254}
-              required
-            />
-          </div>
-          <button type="submit" disabled={pending}>
-            {pending ? "Bokar…" : "Bekräfta testbokning"}
+            Uppdatera behandlingar och priser
           </button>
-        </form>
-      )}
-      <p aria-live="polite" className="mt-4">
-        {message}
-      </p>
-      {staleService && (
-        <button className="secondary" onClick={() => window.location.reload()}>
-          Uppdatera behandlingar och priser
+        )}
+        <button type="submit" disabled={!hydrated || pending || !start}>
+          {pending ? "Bokar…" : "Bekräfta testbokning"}
         </button>
-      )}
-    </>
+        <p className="muted">Demo – endast påhittade uppgifter.</p>
+      </div>
+    </form>
   );
 }

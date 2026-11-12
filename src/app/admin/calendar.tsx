@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { ZONE } from "@/lib/time";
 import type { StaffView } from "./types";
+import CalendarFilters from "./calendar-filters";
 
 type CalendarBooking = {
   id: string;
@@ -81,12 +82,44 @@ export default function Calendar({
     <>
       <div className="workspace-heading">
         <div>
-          <p className="eyebrow">Bokningar</p>
+          <p className="eyebrow">Salongens arbetsdag</p>
           <h1>Kalender</h1>
         </div>
         <a className="button-link" href={`/admin/bookings/new?date=${date}`}>
           Ny bokning
         </a>
+      </div>
+      <div className="workspace-guidance calendar-guidance">
+        <details>
+          <summary>Så använder du kalendern</summary>
+          <p>
+            Öppna ett bokningskort för att flytta eller avboka. Välj Ny bokning
+            för att hitta en ledig tid åt en kund.
+          </p>
+        </details>
+        {date === DateTime.now().setZone(ZONE).toISODate() && (
+          <p>
+            <strong>
+              {bookings.filter((b) => b.status === "confirmed").length}
+              {nextCursor ? " +" : ""} bokningar i den visade perioden.
+            </strong>{" "}
+            {(() => {
+              const next = bookings.find(
+                (b) =>
+                  b.status === "confirmed" &&
+                  b.startsAt.getTime() >= Date.now(),
+              );
+              return next ? (
+                <a href={bookingLink(next)}>
+                  Nästa besök: {time(next.startsAt)} · {next.customerName} ·{" "}
+                  {next.serviceName}
+                </a>
+              ) : (
+                "Inga fler kommande besök i den visade perioden."
+              );
+            })()}
+          </p>
+        )}
       </div>
       <div className="calendar-toolbar">
         <div className="date-navigation">
@@ -134,44 +167,13 @@ export default function Calendar({
               : selected.toFormat("cccc d MMMM", { locale: "sv" })}
           </strong>
         </div>
-        <form method="get" className="calendar-filters">
-          <input type="hidden" name="view" value={view} />
-          <div>
-            <label htmlFor="calendar-date">Datum</label>
-            <input
-              id="calendar-date"
-              name="date"
-              type="text"
-              lang="sv-SE"
-              placeholder="YYYY-MM-DD"
-              pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
-              defaultValue={date}
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="calendar-staff">Medarbetare</label>
-            <select id="calendar-staff" name="staffId" defaultValue={staffId}>
-              <option value="">Alla</option>
-              {staff.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                  {!p.active ? " (inaktiv)" : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-          <label className="check-label">
-            <input
-              type="checkbox"
-              name="status"
-              value="all"
-              defaultChecked={status === "all"}
-            />
-            Visa avbokade
-          </label>
-          <button className="secondary">Visa</button>
-        </form>
+        <CalendarFilters
+          date={date}
+          href={link(date)}
+          staffId={staffId}
+          staff={staff.map(({ id, name, active }) => ({ id, name, active }))}
+          status={status}
+        />
         <div className="calendar-views" aria-label="Kalendervy">
           <a
             className={view === "day" ? "selected" : ""}
@@ -201,7 +203,10 @@ export default function Calendar({
               )}
               {!items.length ? (
                 <p className="empty-state">
-                  Inga bokningar {view === "week" ? "den här dagen" : "ännu"}.
+                  Inga bokningar {view === "week" ? "den här dagen" : "ännu"}.{" "}
+                  <a href={`/admin/bookings/new?date=${day.toISODate()}`}>
+                    Lägg in en bokning eller sök lediga tider.
+                  </a>
                 </p>
               ) : (
                 items.map((b) => (

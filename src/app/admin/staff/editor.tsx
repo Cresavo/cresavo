@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import type { StaffView, ServiceView } from "../types";
 import type { Weekly, Exceptions } from "@/lib/schedule";
 import { useWrite, useUnsavedChanges } from "../use-write";
+import DatePicker from "../../components/date-picker";
+import { readableDay } from "@/lib/format";
 
 type Period = { start: string; end: string };
 const weekdays = [
@@ -40,6 +42,7 @@ function Periods({
             <label htmlFor={`${prefix}-${index}-start`}>Från</label>
             <input
               id={`${prefix}-${index}-start`}
+              list="schedule-times"
               value={row.start}
               placeholder="09:00"
               pattern="[0-9]{2}:[0-9]{2}"
@@ -57,6 +60,7 @@ function Periods({
             <label htmlFor={`${prefix}-${index}-end`}>Till</label>
             <input
               id={`${prefix}-${index}-end`}
+              list="schedule-times"
               value={row.end}
               placeholder="17:00"
               pattern="[0-9]{2}:[0-9]{2}"
@@ -202,8 +206,8 @@ export default function StaffEditor({
         </fieldset>
         <h3>Veckoschema</h3>
         <p className="muted field">
-          Tider i Europe/Stockholm, HH:MM. Inga arbetspass betyder ledigt.
-          Pauser ska rymmas inom arbetspassen.
+          Tider i svensk tid, HH:MM. Inga arbetspass betyder ledigt. Pauser ska
+          rymmas inom arbetspassen.
         </p>
         {weekly.map((day, index) => (
           <details className="schedule-day" key={day.weekday}>
@@ -229,10 +233,11 @@ export default function StaffEditor({
             />
           </details>
         ))}
-        <h3 className="section-space">Avvikande datum</h3>
+        <h3 className="section-space">Ledighet och avvikande tider</h3>
         <p className="muted field">
-          Ersätter veckoschemat den dagen. Lämna arbetspassen tomma för
-          ledighet.
+          Välj dag och Lägg till datum. Dagen blir ledig om du inte lägger till
+          arbetspass. Spara medarbetaren när du är klar. Detta ersätter
+          veckoschemat bara den valda dagen.
         </p>
         {exceptions.map((day, index) => (
           <details className="schedule-day" key={index} open>
@@ -240,19 +245,14 @@ export default function StaffEditor({
               {day.date} · {day.periods.length ? "Avvikande tider" : "Ledig"}
             </summary>
             <div className="field">
-              <label htmlFor={`exception-${index}-date`}>Datum</label>
-              <input
-                id={`exception-${index}-date`}
-                type="text"
-                lang="sv-SE"
-                placeholder="YYYY-MM-DD"
-                pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
-                value={day.date}
-                required
-                onChange={(e) =>
-                  changeException(index, { date: e.target.value })
-                }
-              />
+              <details>
+                <summary>Ändra dag · {readableDay(day.date)}</summary>
+                <DatePicker
+                  id={`exception-${index}-date`}
+                  value={day.date}
+                  onChange={(value) => changeException(index, { date: value })}
+                />
+              </details>
             </div>
             <Periods
               label="Arbetspass"
@@ -280,15 +280,11 @@ export default function StaffEditor({
         ))}
         <div className="exception-add field">
           <div>
-            <label htmlFor="new-exception-date">Nytt datumundantag</label>
-            <input
+            <DatePicker
               id="new-exception-date"
-              type="text"
-              lang="sv-SE"
-              placeholder="YYYY-MM-DD"
-              pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
               value={newDate}
-              onChange={(e) => setNewDate(e.target.value)}
+              label="Välj dag för ledighet eller andra tider"
+              onChange={setNewDate}
             />
           </div>
           <button
@@ -315,7 +311,18 @@ export default function StaffEditor({
           Ändringar som krockar med bokade tider nekas. Flytta eller avboka
           berörda bokningar först.
         </p>
-        <button>{pending ? "Sparar…" : "Spara medarbetare"}</button>
+        <div className="editor-actions">
+          <p className="muted">
+            Ändringarna sparas först när du väljer Spara medarbetare.
+          </p>
+          <button>{pending ? "Sparar…" : "Spara medarbetare"}</button>
+        </div>
+        <datalist id="schedule-times">
+          {Array.from({ length: 49 }, (_, i) => {
+            const value = `${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`;
+            return <option key={value} value={value} />;
+          })}
+        </datalist>
       </fieldset>
       {message && (
         <p className="form-error" role="alert">

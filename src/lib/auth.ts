@@ -9,6 +9,7 @@ import {
   createHash,
 } from "node:crypto";
 import { cookies, headers } from "next/headers";
+import { demoAccessEnabled, DEMO_ADMIN_EMAIL } from "./demo-access";
 
 function secret() {
   const s = process.env.SESSION_SECRET;
@@ -37,13 +38,19 @@ export async function login(identity: AdminIdentity) {
   await pruneSessions();
   const created = await db.$transaction(async (tx) => {
     const accounts = await tx.$queryRaw<
-      Array<{ active: boolean; businessId: string; credentialVersion: number }>
-    >`SELECT "active", "businessId", "credentialVersion" FROM "AdminUser" WHERE "id" = ${identity.id} FOR UPDATE`;
+      Array<{
+        active: boolean;
+        businessId: string;
+        credentialVersion: number;
+        email: string;
+      }>
+    >`SELECT "active", "businessId", "credentialVersion", "email" FROM "AdminUser" WHERE "id" = ${identity.id} FOR UPDATE`;
     const account = accounts[0];
     if (
       !account?.active ||
       account.businessId !== DEMO_BUSINESS_ID ||
-      account.credentialVersion !== identity.credentialVersion
+      account.credentialVersion !== identity.credentialVersion ||
+      (account.email === DEMO_ADMIN_EMAIL && !demoAccessEnabled())
     )
       return false;
     await tx.adminSession.create({
@@ -111,6 +118,8 @@ export async function getAdminContext() {
       },
       select: { user: { select: { id: true, email: true } } },
     });
+    if (session?.user?.email === DEMO_ADMIN_EMAIL && !demoAccessEnabled())
+      return null;
     return session?.user ?? null;
   } catch (error) {
     safeFailure(error);

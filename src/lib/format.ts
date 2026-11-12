@@ -17,3 +17,10 @@ export function formatBookingTime(value: string | Date) {
     hour12: false,
   }).format(new Date(value));
 }
+import { DateTime } from "luxon";
+export function readableDay(value: string) {
+  const d = DateTime.fromISO(value, { zone: "Europe/Stockholm" });
+  return d.isValid
+    ? d.setLocale("sv").toFormat("cccc d MMMM yyyy")
+    : "Välj en dag";
+}

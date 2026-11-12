@@ -1,5 +1,6 @@
 import Link from "next/link";
 import AdminActions from "./ui";
+import { demoAccessEnabled, DEMO_ADMIN_EMAIL } from "@/lib/demo-access";
 export default function AdminHeader({
   email,
   active,
@@ -13,7 +14,11 @@ export default function AdminHeader({
         <a href="/admin">
           SALONG EKO <span>/ DEMO</span>
         </a>
-        <p>Inloggad som {email}</p>
+        <p>
+          {demoAccessEnabled() && email === DEMO_ADMIN_EMAIL
+            ? "Demoägare · skyddad arbetsyta"
+            : `Inloggad som ${email}`}
+        </p>
       </div>
       <nav aria-label="Administration">
         {[
@@ -33,7 +38,7 @@ export default function AdminHeader({
       </nav>
       <div className="admin-account">
         <Link prefetch={false} href="/">
-          Bokningssidan
+          Visa kundbokningen
         </Link>
         <AdminActions mode="logout" />
       </div>

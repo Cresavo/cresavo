@@ -1,3 +1,4 @@
+import { chooseDay, chooseSlot } from "./date-controls";
 import { test, expect } from "./fixtures";
 import { DateTime } from "luxon";
 import { randomUUID } from "node:crypto";
@@ -262,23 +263,16 @@ test("manuell bokning bevarar utkast och request-id vid nätverksfel", async ({
   await page.goto(`/admin/bookings/new?date=${day.toISODate()}`);
   await page.locator("#booking-service").selectOption("massage");
   await page.locator("#booking-staff").selectOption("staff-demo");
+  await expect(page.locator("#booking-slot")).toBeAttached();
   await page.route("**/api/availability?*", (route) => route.abort("failed"), {
     times: 1,
   });
-  await page.getByRole("button", { name: "Visa lediga tider" }).click();
-  await expect(page.getByRole("status")).toContainText(
+  await page.getByRole("button", { name: "Uppdatera lediga tider" }).click();
+  await expect(page.locator("main").getByRole("alert")).toContainText(
     "Tiderna kunde inte hämtas",
   );
-  await page.getByRole("button", { name: "Visa lediga tider" }).click();
-  await expect(page.locator("#booking-slot option").nth(1)).toBeAttached();
-  await page
-    .locator("#booking-slot")
-    .selectOption(
-      (await page
-        .locator("#booking-slot option")
-        .nth(1)
-        .getAttribute("value"))!,
-    );
+  await page.getByRole("button", { name: "Uppdatera lediga tider" }).click();
+  await chooseSlot(page, "booking-slot");
   await page.locator("#booking-name").fill("Syntetisk manuell kund");
   await page.locator("#booking-email").fill(`${synthetic.marker}@example.test`);
   let warned = false;
@@ -492,14 +486,8 @@ test("Epic05 salongsarbetsyta: boka, ändra tjänst/schema, flytta och avboka", 
     ).toBe(true);
     await page.locator("#service").selectOption(service.id);
     await page.locator("#staff").selectOption(people[0].id);
-    await page.locator("#date").fill(date);
-    await page.getByRole("button", { name: "Visa lediga tider" }).click();
-    await expect(page.locator("#slot option").nth(1)).toBeAttached();
-    const firstSlot = await page
-      .locator("#slot option")
-      .nth(1)
-      .getAttribute("value");
-    await page.locator("#slot").selectOption(firstSlot!);
+    await chooseDay(page, "date", date);
+    await chooseSlot(page, "slot");
     await page.locator("#name").fill("Syntetisk kalenderkund");
     await page.locator("#email").fill(`${synthetic.marker}@example.test`);
     await page
@@ -584,7 +572,7 @@ test("Epic05 salongsarbetsyta: boka, ändra tjänst/schema, flytta och avboka", 
       ),
     ).not.toContain("12:00");
     await page.goto(`/admin/staff?id=${people[1].id}`);
-    await page.locator("#new-exception-date").fill(nextDay);
+    await chooseDay(page, "new-exception-date", nextDay);
     await page
       .getByRole("button", { name: "Lägg till datum", exact: true })
       .click();
@@ -626,11 +614,10 @@ test("Epic05 salongsarbetsyta: boka, ändra tjänst/schema, flytta och avboka", 
     await page.goto(`/admin/bookings/${booking.id}`);
     await page.getByRole("button", { name: "Flytta", exact: true }).click();
     await page.locator("#booking-staff").selectOption(people[1].id);
-    await page.locator("#booking-date").fill(moveDay);
-    await page.getByRole("button", { name: "Visa lediga tider" }).click();
-    await expect(page.locator("#booking-slot option").nth(1)).toBeAttached();
+    await chooseDay(page, "booking-date", moveDay);
+    await page.getByRole("button", { name: "Uppdatera lediga tider" }).click();
     const moveSlot = day.plus({ days: 2 }).set({ hour: 10 }).toUTC().toISO()!;
-    await page.locator("#booking-slot").selectOption(moveSlot);
+    await chooseSlot(page, "booking-slot", moveSlot);
     await page
       .getByRole("button", { name: "Spara flytt", exact: true })
       .click();
