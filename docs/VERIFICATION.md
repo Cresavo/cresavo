@@ -1,6 +1,6 @@
 # Verifiering — Epic05 QA-fixvarv1
 
-2026-11-12. Branch epic-05-booking-workspace; arbetskod efter7fc0e86/b331cb1, E05-QA-1. Ny loopback booking_epic05_fix1_test på55451, PostgreSQL18.6. Original-Grok-QA7fc0e86 gav NO-GO för lokal alpha trots grön matris; riktad återkontroll återstår. Historiska migrationer/dependencies oförändrade. Ingen push/mainmerge/deploy.
+2026-11-12. Branch epic-05-booking-workspace; fryst fixkod **4fc98d37fef805e041f8f8772a3fc37543d4ff04** efter7fc0e86/b331cb1, E05-QA-1. Ny loopback booking_epic05_fix1_test på55451, PostgreSQL18.6. Original-Grok-QA7fc0e86 gav NO-GO för lokal alpha trots grön matris; riktad återkontroll återstår. Historiska migrationer/dependencies oförändrade. Ingen push/mainmerge/deploy.
 
 ## Aktuell resultattabell
 
@@ -12,9 +12,10 @@
 | npm run lint / npx tsc --noEmit | PASS före och efter formatering med befintlig cachad Prettier3.9.9(MIT); ingen ny dependency/install. |
 | npm test | PASS69/69,11filer,7.21s. |
 | npm run test:integration | PASS66/66,16filer,58.36s. |
-| npm run build | PASS före enbart formatering; ny fryst build och24E2E×4 återstår. |
-| Ny HTTP-E2E / full dev-prod×proxy0-1 | NOT RUN ännu. Testet kräver7adminbokningar, oförändrade kundtak och20identiska adminretries. |
-| npm audit full / produktion | Inte omkörd efter fix ännu; tidigare fullFAIL7moderate/0high ochprodPASS0 på oförändrade beroenden. |
+| npm run build | PASS även ny build från fryst4fc98d3:compiled1507ms,TypeScript3.5s. |
+| Ny HTTP-E2E / full dev-prod×proxy0-1 | PASS24/24 i alla4lägen på4fc98d3:prod0=1.3m,prod1=43.1s,dev0=1.5m,dev1=1.2m. Testet verifierar7adminbokningar, oförändrade kundtak/förfalskad actor och20identiska adminretries. |
+| npm audit full / produktion | Omkörd efter fix:full FAILexit1,7moderate/0high/critical;produktion PASSexit0,0fynd. Inga overrides eller dependencies ändrade. |
+| node --env-file=.env scripts/test-cleanup.mjs / extern epic05-aggregate.mjs | PASS:CLEANUP_TIMEOUT_EXPECTED_EXIT=1;REMAINING_SYNTHETIC_ROWS=0. Därefter0booking/event/request/session/admin/campaign,2service/2staff,0aktivaöverlappar/observeradedeadlocks. |
 | Grok-QA | Original7fc0e86:NO-GO för adminens delade kundbudget. Endast E05-QA-1 blockerar. Riktad återkontroll av ny fixrevision återstår. |
 | Demo / preview / CI | Demo är äldre7fc0e86; ingen ny full inspelning för osynlig fix.09-bilderna är laddningsbilder, inte funktionsbevis. Preview BLOCKERAD miljöbeslut. Ny implementation-CI NOT RUN. |
 

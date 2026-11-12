@@ -12,6 +12,10 @@ Ny isolerad booking_epic05_fix1_test på55451:5migrations/seed PASS,generate7.10
 
 E2E:s faktiska proxy är testfixturen127.0.0.10/32 i playwright.config och socketClient, inte den exporterade127.0.0.1,::1-listan. Detta dokumenteras; ingen proxy/testsäkerhet ändras. Fyra lägen finns i manuell/main CI, ett feature-ben enligt uttrycklig kostnadspolicy; schemat aktiveras inte utan default-branch. Ny demo behövs inte för kvotfix, tidigare7fc0e86 är tydligt äldre.
 
+Fryst fix4fc98d37fef805e041f8f8772a3fc37543d4ff04: ny produktionsbuild PASS,24/24E2E i alla4lägen (prod0=1.3m,prod1=43.1s,dev0=1.5m,dev1=1.2m). Timeoutcleanup PASS förväntadbarnevent1/0rader; slutaggregat0booking/event/request/session/admin/campaign,2service/2staff,0överlappar/observeradeDBdeadlocks. Audit omkörd fullFAILexit1=7moderate/0high/critical,prodPASSexit0=0. Rawloggar epic05-fix1-*.log/json. next-env:s enbart dev-genererade importvägar återställda till tidigare prodvägar efter matrisen; ingen produktändring.
+
+Första riktade återkontrollen beställd i samma verifierade Grok-konversation, egen kopia/ny DB. Grok bekräftade4fc98d3/alla172filhashar/zipSHA537dd086e0b310698bd4d3413d7c37f8ac6b6da1eac20c1a16528106d7e2e32c och oförändrade originalrapporter före körning. Scope enbart E05-QA-1+kvot/auth/retry/MCP/samtidighetsregression; ingen ny full QA/demobeställning. Originalslutrapport inväntas. Ingen push innan den grinden. Efterföljande resultatdokument ändrar inte fixkoden.
+
 ## Föregående kandidat7fc0e86 och första QA-underlag
 
 | Del | Faktiskt läge |
