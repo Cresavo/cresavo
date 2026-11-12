@@ -1,6 +1,6 @@
 # Verifiering — Epic 04, lokal slutmatris
 
-2026-11-12. Produktkod **471f91fa11ad27c19ecd43244bcc90ba3f0b2489**, QA-fixvarv 1 ovanpå3419973, branch epic-04-individual-admin, bas10175ed. Windows, Node24.16.0/npm11.13.0, Prisma7.10.1, PostgreSQL18.6. Ny isolerad loopbackdatabas booking_epic04_fix_test på55450; endast syntetiska data. Groks fulla QA på3419973 gav GO; riktad återkontroll på471f91f stängde E04-QA-1 utan nya fynd. Pilot NO-GO. Epic02/03 har nu pushats efter uttryckligt nytt uppdrag; Epic04 är godkänd för branchleverans. Ingen merge/deploy.
+2026-11-12. Produktkod **471f91fa11ad27c19ecd43244bcc90ba3f0b2489**, QA-fixvarv 1 ovanpå3419973, branch epic-04-individual-admin, bas10175ed. Windows, Node24.16.0/npm11.13.0, Prisma7.10.1, PostgreSQL18.6. Ny isolerad loopbackdatabas booking_epic04_fix_test på55450; endast syntetiska data. Groks fulla QA på3419973 gav GO; riktad återkontroll på471f91f stängde E04-QA-1 utan nya fynd. Pilot NO-GO. Epic02/03 har nu pushats efter uttryckligt nytt uppdrag; Epic04 är pushad och extern CI kontrollerad. Ingen merge/deploy.
 
 ## Aktuell resultattabell
 
@@ -42,7 +42,7 @@ Första nya regressionstestet föll på för exakt Retry-After900 när899sekunde
 
 ## Ej körda kontroller / kvarstående grindar
 
-Epic04 Actions kontrolleras efter godkänd branchpush; detta är rapport före push. Se [branchens körningar](https://github.com/niclasvestlund-YT/booking-lab-se/actions?query=branch%3Aepic-04-individual-admin) och leveransens exakta körningslänk. Verklig Docker/container, TLS/proxy, extern IPv6 och flerinstansdrift ej körda. Ingen penetrationstestning, full GDPR-/MFA-bedömning, nätverksfångst eller komplett Cargo/native-binärlicensinventering. Produktionsaudit0 är inte pilotklarering. Se ADR004, DATA_FLOWS och PRIVACY_SECURITY.
+Epic04 Actions43172522203 på199d326 är verifierad:4 gröna E2E-jobb,14/14 vardera;61unit/40integration PASS; känt audit-jobb rött med7moderate/0high. [Exakt CI-bevis](CI_DELIVERY_2026_11_12.md). Se [branchens körningar](https://github.com/niclasvestlund-YT/booking-lab-se/actions?query=branch%3Aepic-04-individual-admin) och leveransens exakta körningslänk. Docker Compose och Ubuntu-native körda i CI. Lokal Windows-Docker, komplett distributionscontainer, riktig TLS/proxy, extern IPv6 och flerinstansdrift ej körda. Ingen penetrationstestning, full GDPR-/MFA-bedömning, nätverksfångst eller komplett Cargo/native-binärlicensinventering. Produktionsaudit0 är inte pilotklarering. Se ADR004, DATA_FLOWS och PRIVACY_SECURITY.
 
 ## Extern CI efter godkänd push
 

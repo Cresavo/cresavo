@@ -10,7 +10,7 @@
 
 **Kvar:** MFA, webb-recovery, kund-GDPR och verifierad verklig drift saknas. Full audit har7 måttliga/0 höga,prod0; native-/CLI-licensgrindar och kontobundet/distribuerat missbruksskydd kvar. Endast testad POC, pilot NO-GO.
 
-**GitHub:** Epic02 och03 är pushade; båda har4 gröna E2E-jobb och känt rött audit-jobb. Epic04 är godkänd för branchleverans; dess exakta Actions-resultat kontrolleras efter push. main lämnas på b000481. [Underlag för ChatGPT](CHATGPT_REVIEW_HANDOFF.md).
+**GitHub:** Epic02 och03 är pushade; båda har4 gröna E2E-jobb och känt rött audit-jobb. Epic04 är pushad som199d326. Actions43172522203 har4 gröna E2E-jobb(14/14 vardera),61unit/40integration PASS; endast kändaudit är röd. [CI-bevis](CI_DELIVERY_2026_11_12.md). main lämnas på b000481. [Underlag för ChatGPT](CHATGPT_REVIEW_HANDOFF.md).
 
 **Tre nästa mål:** avgränsa kundernas export/radering/lagringstid; välj MFA-/återställningslösning; definiera och testa EU/EES-/self-hostingens drift- och distributionsgrind. Inga nya Epics startas utan scope.
 

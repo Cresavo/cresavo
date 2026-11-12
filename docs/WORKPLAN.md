@@ -1,6 +1,6 @@
 # Aktuellt arbete — Epic 02–04 färdigställda som lokal POC
 
-Produktkod471f91f, branch epic-04-individual-admin. Full-QA på3419973 och riktad återkontroll på471f91f gav GO; kapacitetsfyndet stängt. Lokal slutmatris61unit/40integration/14E2E×4 PASS. Demo4/4 PASS, märkt äldre än osynlig fix. Epic02/03 pushade med4 gröna CI-E2E vardera; känt audit-undantag synligt. Epic04:s branchleverans och Actions är sista målkontrollen. Ingen mainmerge/deploy.
+Produktkod471f91f, branch epic-04-individual-admin. Full-QA på3419973 och riktad återkontroll på471f91f gav GO; kapacitetsfyndet stängt. Lokal slutmatris61unit/40integration/14E2E×4 PASS. Demo4/4 PASS, märkt äldre än osynlig fix. Epic02/03 pushade med4 gröna CI-E2E vardera; känt audit-undantag synligt. Epic04 pushad199d326, Actions43172522203 verifierad med4×14E2E PASS och känt audit-undantag. [CI-bevis](CI_DELIVERY_2026_11_12.md). Ingen mainmerge/deploy.
 
 [Godkänt arbetsmål](GOAL_EPIC_02_04.md) · [resultat](VERIFICATION.md) · [handoff](HANDOFF.md) · [slut-QA](qa/QA-REPORT-epic04-471f91f.md). Framtida GDPR/MFA/drift-Epics är rekommendationer, inte påbörjade.
 

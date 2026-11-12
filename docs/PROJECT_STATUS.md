@@ -14,7 +14,7 @@
 
 Sedan föregående Epic: individuella konton, underhållen Argon2id-verifiering, kontobundna hash-only-sessioner och lokal konto-CLI. Ett nytt direkt MIT-paket är motiverat i ADR004. Ett begränsat QA-varv rättade kapacitetsavslag. Inga nya kundfunktioner.
 
-Epic02 dba05a2 och Epic03 10175ed är pushade till privata origin. Båda har4 gröna CI-E2E-jobb och känt rött audit-jobb. Epic04 är klar för branchleverans; dess Actions kontrolleras vid push. Ingen merge/deploy. main kvar b000481. [Granskningsunderlag för ChatGPT](CHATGPT_REVIEW_HANDOFF.md).
+Epic02 dba05a2 och Epic03 10175ed är pushade till privata origin. Båda har4 gröna CI-E2E-jobb och känt rött audit-jobb. Epic04 är pushad som199d326; Actions43172522203 har4 gröna E2E-jobb och känt rött audit-jobb. [CI-bevis](CI_DELIVERY_2026_11_12.md). Ingen merge/deploy. main kvar b000481. [Granskningsunderlag för ChatGPT](CHATGPT_REVIEW_HANDOFF.md).
 
 Delvis: identitetslivscykel utan MFA/recovery/revisionslogg. Planerat utan byggstart: kund-GDPR, MFA-beslut och verifierad drift/distribution. Pilotblockerare: dessa områden, kontobundet/distribuerat missbruksskydd, audit-/licensgrindar och beslut om Visa kund-e-post. Full audit7 måttliga/0 höga; produktionsaudit0. Övriga QA-fynd i [uppföljningen](EPIC_04_QA_FOLLOWUP.md).
 
