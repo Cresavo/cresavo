@@ -6,6 +6,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { db } from "../../src/lib/db";
 import { getAvailability } from "../../src/lib/domain";
 import { mcpEnvironment } from "../../src/mcp/environment";
+import { createDatabaseClient } from "../../scripts/database.mjs";
 const serviceId = `workday-${randomUUID()}`,
   staffId = `workday-${randomUUID()}`;
 const date = DateTime.now()
@@ -15,7 +16,14 @@ const date = DateTime.now()
   .toISODate()!;
 let starts: string[],
   clients: Client[] = [];
-async function connect(owner = false, secret = process.env.SESSION_SECRET!) {
+async function connect(
+  owner = false,
+  secret = process.env.SESSION_SECRET!,
+  options: { applicationName?: string; legacy?: boolean } = {},
+) {
+  const url = new URL(process.env.DATABASE_URL!);
+  if (options.applicationName)
+    url.searchParams.set("application_name", options.applicationName);
   const c = new Client({ name: "workday-integration", version: "1" });
   await c.connect(
     new StdioClientTransport({
@@ -23,16 +31,21 @@ async function connect(owner = false, secret = process.env.SESSION_SECRET!) {
       args: [
         "--import",
         "tsx",
-        owner ? "src/mcp/server.ts" : "src/mcp/time-card/server.ts",
+        owner || options.legacy
+          ? "src/mcp/server.ts"
+          : "src/mcp/time-card/server.ts",
         "--admin",
         owner ? "--workday-card" : "--allow-bookings",
       ],
       env: {
         ...mcpEnvironment({ booking: true }),
+        DATABASE_URL: url.href,
         SESSION_SECRET: secret,
         ...(owner
           ? { BOOKING_OWNER_CARD_DEMO: "1" }
-          : { BOOKING_TIME_CARD_DEMO: "1", BOOKING_TIME_CARD_BOOKINGS: "1" }),
+          : options.legacy
+            ? {}
+            : { BOOKING_TIME_CARD_DEMO: "1", BOOKING_TIME_CARD_BOOKINGS: "1" }),
       },
     }),
   );
@@ -50,6 +63,43 @@ const request = (patch = {}) => ({
   confirmed: true,
   ...patch,
 });
+async function holdBookingKey(requestId: string) {
+  const locker = createDatabaseClient(undefined, 1);
+  let release!: () => void, acquired!: () => void;
+  const unlocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const ready = new Promise<void>((resolve) => {
+    acquired = resolve;
+  });
+  const held = locker.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`demo:key:time-card_${requestId}`}))`;
+      acquired();
+      await unlocked;
+    },
+    { timeout: 30000 },
+  );
+  await Promise.race([ready, held]);
+  return async () => {
+    release();
+    try {
+      await held;
+    } finally {
+      await locker.$disconnect();
+    }
+  };
+}
+async function waitForKeyWaiter(applicationName: string) {
+  for (let i = 0; i < 150; i++) {
+    const rows = await db.$queryRaw<
+      { n: bigint }[]
+    >`SELECT count(*) AS n FROM pg_stat_activity WHERE application_name=${applicationName} AND wait_event_type='Lock' AND query LIKE '%pg_advisory_xact_lock%'`;
+    if (Number(rows[0].n) > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("SYNTHETIC_KEY_WAITER_NOT_OBSERVED");
+}
 beforeAll(async () => {
   await db.service.create({
     data: {
@@ -89,6 +139,135 @@ afterAll(async () => {
   await db.$disconnect();
 });
 describe("Beständig lokal demobokning och arbetsdag", () => {
+  it("en redan förbrukad främmande nyckel avslutar eget pending före 403", async () => {
+    const a = await connect(),
+      b = await connect(false, "other-synthetic-secret".repeat(3), {
+        legacy: true,
+      }),
+      args = request();
+    await call(a, "book_demo_time", args);
+    await db.booking.deleteMany({ where: { serviceId } });
+    await db.cardBookingAttempt.updateMany({
+      where: { requestId: args.clientRequestId },
+      data: { outcome: "pending" },
+    });
+    const foreign = await call(b, "create_booking", {
+      ...args,
+      customerName: "Tidkort Demo",
+      customerEmail: "tidkort@example.test",
+      clientRequestId: `time-card_${args.clientRequestId}`,
+    });
+    expect(foreign.isError).not.toBeTruthy();
+    const denied = await call(a, "book_demo_time", args);
+    expect(denied.structuredContent).toMatchObject({ error: { status: 403 } });
+    expect(
+      (await call(a, "read_demo_bookings", { requestId: args.clientRequestId }))
+        .structuredContent,
+    ).toMatchObject({ items: [{ outcome: "failed" }] });
+    expect(
+      (await call(a, "book_demo_time", request({ start: starts[2] }))).isError,
+    ).not.toBeTruthy();
+    expect(await db.booking.count({ where: { serviceId } })).toBe(2);
+  });
+  it("korsprofilrace med samma UUID lämnar bara rätt kanal ett kvitto", async () => {
+    const marker = randomUUID(),
+      nameA = `card-A-${marker}`,
+      nameB = `card-B-${marker}`;
+    const a = await connect(false, process.env.SESSION_SECRET!, {
+      applicationName: nameA,
+    });
+    const b = await connect(false, "other-synthetic-secret".repeat(3), {
+      applicationName: nameB,
+    });
+    const args = request(),
+      release = await holdBookingKey(args.clientRequestId);
+    let first: ReturnType<typeof call> | undefined,
+      second: ReturnType<typeof call> | undefined;
+    try {
+      first = call(a, "book_demo_time", args);
+      await waitForKeyWaiter(nameA);
+      second = call(b, "book_demo_time", args);
+      await waitForKeyWaiter(nameB);
+    } finally {
+      await release();
+    }
+    const [one, two] = await Promise.all([first!, second!]);
+    expect(one.isError, JSON.stringify(one)).not.toBeTruthy();
+    expect(two.isError).toBe(true);
+    expect(two.structuredContent).toMatchObject({ error: { status: 403 } });
+    expect(
+      (await call(b, "read_demo_bookings")).structuredContent,
+    ).toMatchObject({ items: [] });
+    expect(await db.booking.count({ where: { serviceId } })).toBe(1);
+  });
+  it("en annan profil kan inte förbruka ett beständigt oavslutat UUID", async () => {
+    const a = await connect(),
+      b = await connect(false, "other-synthetic-secret".repeat(3)),
+      args = request();
+    await call(a, "book_demo_time", args);
+    await db.booking.deleteMany({ where: { serviceId } });
+    await db.cardBookingAttempt.updateMany({
+      where: { requestId: args.clientRequestId },
+      data: { outcome: "pending" },
+    });
+    const denied = await call(b, "book_demo_time", args);
+    expect(denied.isError).toBe(true);
+    expect(denied.structuredContent).toMatchObject({ error: { status: 403 } });
+    expect((await call(a, "book_demo_time", args)).isError).not.toBeTruthy();
+    expect(
+      (await call(a, "book_demo_time", request({ start: starts[2] }))).isError,
+    ).not.toBeTruthy();
+    expect(
+      await db.cardBookingAttempt.count({
+        where: {
+          payload: { path: ["serviceId"], equals: serviceId },
+          outcome: "pending",
+        },
+      }),
+    ).toBe(0);
+    expect(await db.booking.count({ where: { serviceId } })).toBe(2);
+  });
+  it("domänreplay från annan äldre kanal läcker inte och lämnar inte pending låst", async () => {
+    const marker = randomUUID(),
+      nameA = `card-A-${marker}`,
+      nameB = `legacy-B-${marker}`;
+    const a = await connect(false, process.env.SESSION_SECRET!, {
+      applicationName: nameA,
+    });
+    const b = await connect(false, "other-synthetic-secret".repeat(3), {
+      applicationName: nameB,
+      legacy: true,
+    });
+    const args = request(),
+      release = await holdBookingKey(args.clientRequestId);
+    let first: ReturnType<typeof call> | undefined,
+      second: ReturnType<typeof call> | undefined;
+    try {
+      first = call(a, "book_demo_time", args);
+      await waitForKeyWaiter(nameA);
+      second = call(b, "create_booking", {
+        ...args,
+        customerName: "Tidkort Demo",
+        customerEmail: "tidkort@example.test",
+        clientRequestId: `time-card_${args.clientRequestId}`,
+      });
+      await waitForKeyWaiter(nameB);
+    } finally {
+      await release();
+    }
+    const [one, two] = await Promise.all([first!, second!]);
+    expect(two.isError, JSON.stringify(two)).not.toBeTruthy();
+    expect(one.isError).toBe(true);
+    expect(one.structuredContent).toMatchObject({ error: { status: 403 } });
+    expect(
+      (await call(a, "read_demo_bookings", { requestId: args.clientRequestId }))
+        .structuredContent,
+    ).toMatchObject({ items: [{ outcome: "failed" }] });
+    expect(
+      (await call(a, "book_demo_time", request({ start: starts[2] }))).isError,
+    ).not.toBeTruthy();
+    expect(await db.booking.count({ where: { serviceId } })).toBe(2);
+  });
   it("begränsar historiken men tappar aldrig ett äldre oklart försök", async () => {
     const c = await connect();
     const scope = createHmac("sha256", process.env.SESSION_SECRET!)

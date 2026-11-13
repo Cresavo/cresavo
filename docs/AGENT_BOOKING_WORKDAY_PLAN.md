@@ -41,6 +41,20 @@ kräver nytt drift-/åtkomstbeslut; övrigt arbete fortsätter.
 
 ## Status vid start
 
+### Samlat rättningsvarv 1 efter första Grok-granskningen
+
+Grok ger scopedGO på c4e08bd med4Low/6Info. AW-QA-1/2 strider dock mot målets
+uttryckliga profilgräns: ett samtidigt globalt domänreplay kunde lämna annan
+kanals kvitto eller permanent låsa ett pending-försök. Codex rättar därför
+just dessa två inom samma mål, inte ett omtag av epics eller all Low-backlogg.
+Admission tar befintligt globalt idempotenslås före kanallåset och kontrollerar
+UUID-claim. Efter createBooking verifieras även faktisk clientKey, och en
+förbrukad främmande nyckel markerar eget pending failed i en committad
+transaktion innan403. Ingen ändring av domänkärna, kontrakt eller migrationer.
+Fyra deterministiska PostgreSQL-/MCP-regressioner håller/släpper verkliga lås
+och täcker samtidigt replay, oavslutat försök samt äldre icke-kortkanal.
+Övriga Low/Info är backlogg. Slutmatris och riktad Grok-återkontroll återstår.
+
 Ren arbetskopia och rätt föregångare verifierade. Föregående Grok/CI gäller
 8126410, inte den nya implementationen. Befintlig Vercel-preview är oförändrad.
 Inga nya npm-beroenden planeras. Resultat förs till befintliga status-/handoff-

@@ -25,6 +25,14 @@ function channelKey() {
     .digest("hex");
 }
 
+export function assertCardBookingChannel(clientKey: string | null) {
+  if (clientKey !== channelKey())
+    throw new DomainError(
+      "Bokningen kan inte visas med den här demoprofilen.",
+      403,
+    );
+}
+
 async function currentCardBooking(requestId: string) {
   // Callers first authorise and select an attempt in cardScope(). No raw id lookup.
   const row = await db.booking.findFirst({
@@ -67,87 +75,118 @@ async function currentCardBooking(requestId: string) {
 export async function rememberCardAttempt(input: unknown) {
   const scope = cardScope(),
     args = cardBookingSchema.parse(input);
-  // Serialize admission only; domain booking retains its original lock ordering.
-  await db.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:card-attempt:${scope}`}))`;
-    const priorBooking = await tx.booking.findFirst({
-      where: {
-        businessId,
-        idempotencyKey: `time-card_${args.clientRequestId}`,
-      },
-      select: { clientKey: true },
-    });
-    if (priorBooking && priorBooking.clientKey !== channelKey())
-      throw new DomainError(
-        "Bokningen kan inte visas med den här demoprofilen.",
-        403,
-      );
-    const existing = await tx.cardBookingAttempt.findUnique({
-      where: {
-        businessId_scope_requestId: {
-          businessId,
-          scope,
-          requestId: args.clientRequestId,
-        },
-      },
-    });
-    if (existing) {
-      if (
-        JSON.stringify(cardBookingSchema.parse(existing.payload)) !==
-        JSON.stringify(args)
-      )
-        throw new DomainError(
-          "Bokningsnyckeln har redan använts med andra uppgifter.",
-          409,
-        );
-      if (existing.outcome === "failed")
-        throw new DomainError(
-          "Det tidigare försöket nekades. Välj en ny tid och bekräfta igen.",
-          409,
-        );
-      return;
-    }
-    const pending = await tx.cardBookingAttempt.findFirst({
-      where: { businessId, scope, outcome: "pending" },
-    });
-    if (pending) {
-      const saved = await tx.booking.findFirst({
+  // Claim UUIDs across profiles under the SAME key lock used by createBooking.
+  // Release admission locks before the domain transaction; its order is unchanged.
+  const denied = await db.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:key:time-card_${args.clientRequestId}`}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:card-attempt:${scope}`}))`;
+      const priorBooking = await tx.booking.findFirst({
         where: {
           businessId,
-          clientKey: channelKey(),
-          idempotencyKey: `time-card_${pending.requestId}`,
+          idempotencyKey: `time-card_${args.clientRequestId}`,
         },
-        select: { id: true },
+        select: { clientKey: true },
       });
-      if (!saved) {
-        const previous = cardBookingSchema.parse(pending.payload);
-        if (previous.start === args.start && previous.staffId === args.staffId)
-          throw new DomainError("Tiden är inte tillgänglig");
-        throw new DomainError(
-          "Kontrollera det tidigare bokningsförsöket först.",
-          409,
-        );
+      const claim = await tx.cardBookingAttempt.findFirst({
+        where: { businessId, requestId: args.clientRequestId },
+        orderBy: [{ createdAt: "asc" }, { scope: "asc" }],
+        select: { scope: true },
+      });
+      if (
+        priorBooking
+          ? priorBooking.clientKey !== channelKey()
+          : claim && claim.scope !== scope
+      ) {
+        // Commit this recovery marker BEFORE returning 403. Throwing in the
+        // transaction would roll it back and permanently strand our own pending.
+        await tx.cardBookingAttempt.updateMany({
+          where: {
+            businessId,
+            scope,
+            requestId: args.clientRequestId,
+            outcome: "pending",
+          },
+          data: { outcome: "failed" },
+        });
+        return true;
       }
-      await tx.cardBookingAttempt.update({
+      const existing = await tx.cardBookingAttempt.findUnique({
         where: {
           businessId_scope_requestId: {
             businessId,
             scope,
-            requestId: pending.requestId,
+            requestId: args.clientRequestId,
           },
         },
-        data: { outcome: "saved" },
       });
-    }
-    await tx.cardBookingAttempt.create({
-      data: {
-        businessId,
-        scope,
-        requestId: args.clientRequestId,
-        payload: args,
-      },
-    });
-  });
+      if (existing) {
+        if (
+          JSON.stringify(cardBookingSchema.parse(existing.payload)) !==
+          JSON.stringify(args)
+        )
+          throw new DomainError(
+            "Bokningsnyckeln har redan använts med andra uppgifter.",
+            409,
+          );
+        if (existing.outcome === "failed")
+          throw new DomainError(
+            "Det tidigare försöket nekades. Välj en ny tid och bekräfta igen.",
+            409,
+          );
+        return;
+      }
+      const pending = await tx.cardBookingAttempt.findFirst({
+        where: { businessId, scope, outcome: "pending" },
+      });
+      if (pending) {
+        const saved = await tx.booking.findFirst({
+          where: {
+            businessId,
+            clientKey: channelKey(),
+            idempotencyKey: `time-card_${pending.requestId}`,
+          },
+          select: { id: true },
+        });
+        if (!saved) {
+          const previous = cardBookingSchema.parse(pending.payload);
+          if (
+            previous.start === args.start &&
+            previous.staffId === args.staffId
+          )
+            throw new DomainError("Tiden är inte tillgänglig");
+          throw new DomainError(
+            "Kontrollera det tidigare bokningsförsöket först.",
+            409,
+          );
+        }
+        await tx.cardBookingAttempt.update({
+          where: {
+            businessId_scope_requestId: {
+              businessId,
+              scope,
+              requestId: pending.requestId,
+            },
+          },
+          data: { outcome: "saved" },
+        });
+      }
+      await tx.cardBookingAttempt.create({
+        data: {
+          businessId,
+          scope,
+          requestId: args.clientRequestId,
+          payload: args,
+        },
+      });
+    },
+    { maxWait: 30000, timeout: 30000 },
+  );
+  if (denied)
+    throw new DomainError(
+      "Bokningen kan inte visas med den här demoprofilen.",
+      403,
+    );
 }
 
 export async function finishCardAttempt(

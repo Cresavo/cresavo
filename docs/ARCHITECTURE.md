@@ -2,6 +2,16 @@
 
 ## Beständig lokal kortbokning och ägarens arbetsdag
 
+Rättningsvarv1 efter c4e08bd stänger profilracet AW-QA-1/2 utan att ändra
+createBooking. Admission tar samma globala idempotenslås som domänen innan
+kanallåset och kontrollerar försökets profilclaim. Låsen släpps före domänens
+transaktion. En äldre/annan bokningsväg kan fortfarande använda den globala
+nyckeln mellan transaktionerna; därför verifieras faktisk clientKey även efter
+createBooking-replay, innan något kvitto lämnas ut. Om en främmande kanal redan
+förbrukat nyckeln markeras eget pending failed och transaktionen committas
+innan403 returneras. Då låses inte kanalen permanent. Historik/ICS förblir
+kanalavgränsade; inga nya mutationer/behörigheter eller schemaändringar behövs.
+
 Godkänt scope: AGENT_BOOKING_WORKDAY_PLAN.md. Den nya additiva tionde
 migrationen skapar CardBookingAttempt. Den innehåller businessId, serverhärlett
 HMAC-scope, UUID, strikt syntetiskt tjänste-/tidsval, outcome och createdAt.

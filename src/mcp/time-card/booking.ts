@@ -2,7 +2,11 @@ import { z } from "zod";
 import { createBooking } from "../../lib/domain";
 import { db } from "../../lib/db";
 import { DomainError, safeFailure } from "../../lib/errors";
-import { rememberCardAttempt, finishCardAttempt } from "./recovery";
+import {
+  rememberCardAttempt,
+  finishCardAttempt,
+  assertCardBookingChannel,
+} from "./recovery";
 import { MCP_BOOKING_CLIENT, mcpBookingSchema } from "../booking";
 import { timeCardBookingsEnabled } from "./guard";
 
@@ -32,6 +36,10 @@ export async function bookDemoTime(input: unknown) {
       `time-card_${args.clientRequestId}`,
       MCP_BOOKING_CLIENT,
     );
+    // Another legacy/non-card client may win the domain key after admission.
+    // Domain replay intentionally keeps its old contract; never return its row
+    // to this card unless the server-owned channel also matches.
+    assertCardBookingChannel(booking.clientKey);
     await finishCardAttempt(args.clientRequestId, "saved");
   } catch (error) {
     if (safeFailure(error).status < 500)
