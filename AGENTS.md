@@ -10,6 +10,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
+## Pågår: avgränsad UI-polering
+
+- Niclas godkände 2026-11-13 riktig visuell polering efter egna previewbilder.
+  Läs docs/UI_POLISH_PLAN.md. Bas 2c74a4b/produkt 51d54d4, ui/salon-polish.
+- Ensam skrivare. Endast presentation, befintliga kontroller och relevanta tester.
+  Ingen domän/API/MCP-/auth-/schemaändring eller nytt beroende.
+- Separat syntetisk miljö, fryst Grok-QA/max två samlade fixvarv; samma skyddade
+  preview efter verifiering. Privat push tillåten; ingen mainmerge eller ny kostnad.
+- Föregående QA/CI nedan gäller föregående produkt, inte den nya UI-koden.
+
 ## Levererat: sammanhängande salongsupplevelse
 
 - Produkt/Grok/CI/deploy 51d54d4, feature/coherent-salon-workspace från 3273934.

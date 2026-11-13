@@ -5,6 +5,7 @@ import {
   Clock,
   Megaphone,
   LayoutDashboard,
+  Leaf,
 } from "lucide-react";
 import AdminActions from "./ui";
 import Link from "next/link";
@@ -27,7 +28,10 @@ export default function AdminHeader({
     <header className="workspace-header">
       <div className="workspace-brand">
         <a href="/admin/overview">
-          SALONG EKO <span>Arbetsyta</span>
+          <Leaf className="workspace-mark" size={24} aria-hidden="true" />
+          <span className="workspace-wordmark">
+            Salong Eko<small>Booking Lab</small>
+          </span>
         </a>
         <p>
           {demoAccessEnabled() && email === DEMO_ADMIN_EMAIL

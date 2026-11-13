@@ -46,7 +46,7 @@ export default async function Overview({
   return (
     <>
       <AdminHeader email={admin.email} active="overview" />
-      <main className="admin-workspace narrow-workspace">
+      <main className="admin-workspace overview-workspace">
         <div className="workspace-heading">
           <div>
             <p className="eyebrow">Salongens arbetsdag</p>
@@ -56,9 +56,8 @@ export default async function Overview({
             Öppna kalendern
           </ContextLink>
         </div>
-        <p>
-          Se vad som behöver ett beslut. Förslagen bygger på verkliga
-          avbokningar och aktuella scheman.
+        <p className="workspace-lead">
+          Lediga tider att ta hand om. Granska ett förslag och välj nästa steg.
         </p>
         {invalid && <p role="alert">Ogiltigt sidval. Visar första sidan.</p>}
         <CapacityOverview

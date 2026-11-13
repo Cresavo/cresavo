@@ -7,6 +7,7 @@ import {
   type FormEvent,
 } from "react";
 import { DateTime } from "luxon";
+import { Lightbulb, RefreshCw, CalendarDays } from "lucide-react";
 import Link from "next/link";
 import type { CapacityQuery, listCapacity } from "@/lib/capacity";
 import { formatBookingTime, formatPrice, readableDay } from "@/lib/format";
@@ -70,19 +71,28 @@ export default function CapacityOverview({
   }
   return (
     <section aria-label="Förslag från ledig kapacitet" aria-busy={pending}>
-      <div className="action-row">
-        <p>
-          Hämtat {formatBookingTime(result.fetchedAt)} ·{" "}
-          {readableDay(result.from)}–{readableDay(result.until)}
-        </p>
-        <button type="button" onClick={refresh} disabled={pending}>
+      <div className="capacity-toolbar">
+        <details className="capacity-context">
+          <summary>Om förslagen</summary>
+          <p>
+            Förslagen bygger på verkliga avbokningar och aktuella scheman. Ett
+            förslag reserverar ingen tid.
+          </p>
+          <p>
+            Hämtat {formatBookingTime(result.fetchedAt)} ·{" "}
+            {readableDay(result.from)}–{readableDay(result.until)}
+          </p>
+        </details>
+        <button
+          className="secondary"
+          type="button"
+          onClick={refresh}
+          disabled={pending}
+        >
+          <RefreshCw size={16} aria-hidden="true" />
           {pending ? "Uppdaterar…" : "Uppdatera förslagen"}
         </button>
       </div>
-      <p className="muted">
-        Granska ett förslag, välj åtgärd och följ resultatet. Ett förslag
-        reserverar ingen tid.
-      </p>
       {error && <p role="alert">{error}</p>}
       {(query.cursor || result.nextCursor) && (
         <nav className="action-row capacity-pages" aria-label="Förslagssidor">
@@ -115,14 +125,16 @@ export default function CapacityOverview({
         </div>
       )}
       {result.suggestions.length > 0 && <h2>Förslag och uppföljning</h2>}
-      {result.suggestions.map((s) => (
-        <CapacityCard
-          key={`${s.bookingId}:${s.sourceVersion}:${s.expectedToken}`}
-          suggestion={s}
-          refresh={refresh}
-          setDraftDirty={setDraftDirty}
-        />
-      ))}
+      <div className="capacity-grid">
+        {result.suggestions.map((s) => (
+          <CapacityCard
+            key={`${s.bookingId}:${s.sourceVersion}:${s.expectedToken}`}
+            suggestion={s}
+            refresh={refresh}
+            setDraftDirty={setDraftDirty}
+          />
+        ))}
+      </div>
     </section>
   );
 }
@@ -250,9 +262,11 @@ function CapacityCard({
   return (
     <article
       className="panel capacity-card"
+      data-state={!s.available ? "stale" : s.status}
       aria-label={`${s.serviceName} ${formatBookingTime(s.startsAt)}`}
     >
-      <p className="eyebrow">
+      <p className="eyebrow capacity-state">
+        <Lightbulb size={16} aria-hidden="true" />
         {s.available ? "Bokningsbar avbokning" : "Inaktuellt underlag"} ·{" "}
         {s.status === "dismissed"
           ? "Avfärdat"
@@ -263,7 +277,8 @@ function CapacityCard({
               : "Ingen åtgärd genomförd"}
       </p>
       <h2>{s.serviceName}</h2>
-      <p>
+      <p className="capacity-appointment">
+        <CalendarDays size={16} aria-hidden="true" />
         <strong>{formatBookingTime(s.startsAt)}</strong> · {s.staffName} ·{" "}
         {s.duration} min {s.priceOre !== null && `· ${formatPrice(s.priceOre)}`}
       </p>

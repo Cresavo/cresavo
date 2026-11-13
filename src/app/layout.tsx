@@ -1,4 +1,5 @@
 import "./style.css";
+import "./workspace-polish.css";
 import { RestoreReturnScroll } from "./components/context-link";
 export const metadata = {
   title: "Salong Eko – boka tid",

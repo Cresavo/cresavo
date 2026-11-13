@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { ZONE } from "@/lib/time";
 import { readableDay } from "@/lib/format";
 import type { StaffView } from "./types";
@@ -34,7 +35,7 @@ export default function Calendar({
   status: "confirmed" | "all";
   context?: ReturnContext;
 }) {
-  const hourHeight = 96;
+  const hourHeight = 144;
   const selected = DateTime.fromISO(date, { zone: ZONE });
   const start = view === "week" ? selected.startOf("week") : selected;
   const days = Array.from({ length: view === "week" ? 7 : 1 }, (_, i) =>
@@ -97,6 +98,7 @@ export default function Calendar({
           className="button-link"
           href={`/admin/bookings/new?date=${date}${staffId ? `&staff=${encodeURIComponent(staffId)}` : ""}`}
         >
+          <Plus size={18} aria-hidden="true" />
           Ny bokning
         </ContextLink>
       </div>
@@ -153,7 +155,7 @@ export default function Calendar({
               selected.minus({ days: view === "week" ? 7 : 1 }).toISODate()!,
             )}
           >
-            ←
+            <ChevronLeft size={18} aria-hidden="true" />
           </a>
           <a
             className="quiet-button desktop-navigation"
@@ -162,21 +164,21 @@ export default function Calendar({
               selected.plus({ days: view === "week" ? 7 : 1 }).toISODate()!,
             )}
           >
-            →
+            <ChevronRight size={18} aria-hidden="true" />
           </a>
           <a
             className="quiet-button mobile-navigation"
             aria-label="Föregående dag"
             href={link(selected.minus({ days: 1 }).toISODate()!, "day")}
           >
-            ←
+            <ChevronLeft size={18} aria-hidden="true" />
           </a>
           <a
             className="quiet-button mobile-navigation"
             aria-label="Nästa dag"
             href={link(selected.plus({ days: 1 }).toISODate()!, "day")}
           >
-            →
+            <ChevronRight size={18} aria-hidden="true" />
           </a>
           <strong>
             {view === "week"
@@ -230,6 +232,12 @@ export default function Calendar({
               ) : (
                 items.map((b) => (
                   <ContextLink
+                    data-tone={
+                      Math.max(
+                        0,
+                        staff.findIndex((p) => p.id === b.staffId),
+                      ) % 4
+                    }
                     className={`mobile-booking ${b.status === "cancelled" ? "cancelled" : ""}`}
                     key={b.id}
                     href={bookingLink(b)}
@@ -281,7 +289,17 @@ export default function Calendar({
               </a>
               <div className="staff-headings">
                 {people.map((p) => (
-                  <span key={p.id}>{p.name}</span>
+                  <span
+                    key={p.id}
+                    data-tone={
+                      Math.max(
+                        0,
+                        staff.findIndex((person) => person.id === p.id),
+                      ) % 4
+                    }
+                  >
+                    {p.name}
+                  </span>
                 ))}
               </div>
             </div>
@@ -333,14 +351,25 @@ export default function Calendar({
                     <ContextLink
                       key={b.id}
                       href={bookingLink(b)}
+                      data-tone={
+                        Math.max(
+                          0,
+                          staff.findIndex((p) => p.id === b.staffId),
+                        ) % 4
+                      }
+                      data-compact={
+                        endMinute - minute(b.startsAt) < 25 ? "true" : undefined
+                      }
+                      aria-label={`${time(b.startsAt)}–${time(b.endsAt)} · ${b.serviceName} · ${b.customerName}`}
                       className={`calendar-booking ${b.status === "cancelled" ? "cancelled" : ""}`}
                       style={{
                         top:
                           ((minute(b.startsAt) - minHour * 60) / 60) *
                           hourHeight,
                         height: Math.max(
-                          44,
-                          ((endMinute - minute(b.startsAt)) / 60) * hourHeight,
+                          10,
+                          ((endMinute - minute(b.startsAt)) / 60) * hourHeight -
+                            2,
                         ),
                         left: `calc(${(lane / lanes) * 100}% + 3px)`,
                         width: `calc(${100 / lanes}% - 6px)`,
