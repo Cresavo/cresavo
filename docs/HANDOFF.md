@@ -39,6 +39,15 @@ och kundpilot inte godkända. Inget native-PC-/Grokprov kan härledas ur testvä
 Bevara stängd-kort-begränsningen: kontrollera admin innan nytt försök vid okänt utfall.
 [Provguide/bilder](DEMO.md) · [kommandon och NOT RUN](VERIFICATION.md).
 
+
+Faktiskt PC-slutprov: Massage/Anna16nov09.30–10.00 (b48ea9ab-c0e5-4013-8d25-64ca409228ce)
+och10.00–10.30 (47797e71-dfa2-4482-a34b-9b4481241723). Två olika tidsval,
+1create-event vardera,0överlapp. Niclas bekräftade i native-kortet; Codex läste
+DB och klickade faktisk vanlig admin/detalj. Inga av dessa rader raderades.
+Appomstarten tog även ned den lokala wrappern; den återstartades med samma
+frysta kod/DB/secret och befintlig individuellt inloggad browsersession fungerade.
+Groks oförändrade original: SHA2562064b2f90e762b8af901237ec156ab308464ab30ed377e7235179ac7adf1e685.
+
 <!-- CARD_BOOKING_CURRENT_END -->
 
 ## Historik — tidigare leverans

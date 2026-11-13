@@ -16,9 +16,9 @@ Faktisk PC-kedja är nu bekräftad av Niclas plus DB/Codex-admin. Kvar: fysisk i
 mobilanslutning. Stängt kort tappar lokal retry-nyckel; okänt utfall kontrolleras
 i admin. Ingen kundpilot, ny drift eller åtkomst till riktiga kunder.
 
-Tre motiverade nästa steg: slutför faktisk klientprovning; avgränsa säker
-mobilanslutning separat; överväg återställning av väntande försök efter stängt
-kort innan flödet används bredare. Starta inget av dem automatiskt.
+Tre motiverade nästa steg: avgränsa säker mobilanslutning; gör återhämtning
+av okänt utfall robust även efter stängt kort; samla de låga gräns-/fel-/
+tangentbordsfynden i en separat liten härdningsbeställning. Inget startas automatiskt.
 
 <!-- CARD_BOOKING_CURRENT_END -->
 
