@@ -1,5 +1,21 @@
 # Booking Lab SE: produktmål och leveransordning
 
+## Levererad uppföljning: kunddata och verkligt agentprov
+
+95f8071 levererar godkänd manuell export/kontaktminimering; automatisk gallring
+är avstängd. Ett faktiskt Codex-MCP-ägarscenario är genomfört i lokal demodatabas,
+utan fjärranslutning eller nya modellkonton. Grok-GO/CI/preview och avgränsningar
+i PROJECT_STATUS/DEMO. Inget fullständigt GDPR- eller pilotgodkännande.
+Nästa planbeslut gäller fysisk mobilprovning, vald salongstyp/retention och
+MFA/recovery/driftgrindar. Full produktvision nedan består; inga fler epics startas.
+
+LC-F1-QA-backlogg: Low requestHash kan bekräfta gissade uppgifter trots
+kontaktminimering; separat kvotnyckel/rotationsrutin krävs före pilot. Normal
+revokering använder befintlig sessionsversion, inte byte av SESSION_SECRET.
+Äldre klartextbeskrivning i ARCHITECTURE rättad som docs efterQA. Nästa lokala
+MCP-start är pinnad95f8071; använd inte äldre runtime till nya bokningslägen.
+Tidigare6Info från initial-QA är backlogg, inte nya uppdrag.
+
 ## Aktuell produktinriktning och nattmål, 2026-11-13
 
 **Niclas produktbeslut:** Booking Lab ska omfatta bokning/kalender/resurser,

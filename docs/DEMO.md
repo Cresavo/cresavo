@@ -1,4 +1,106 @@
-# Demo — proaktiv kapacitetsöversikt, 2026-11-13
+# Demo — kunddata och verkligt lokalt ägaragentprov, 2026-11-13
+
+[Öppna skyddade kundarbetsytan](https://booking-lab-se-preview.vercel.app/admin/customers)
+· [produktingång](https://booking-lab-se-preview.vercel.app/product) · [kundbokning](https://booking-lab-se-preview.vercel.app/).
+Vercel-inloggning vid behov, sedan demoknapp utan extra adminlösenord.
+**Demo – endast påhittade uppgifter.** Fysisk iPhone/Safari inte verifierad.
+
+## Prova på mobilen
+
+1. Kunder → Ny kund. Använd påhittat namn och en ny example.test-adress,
+   lämna telefon tom. Inga riktiga kontaktuppgifter eller utskick.
+2. På kortet: Kunddata → Exportera → Förbered export → Ladda ner. Filen
+   innehåller kort+kopplade bokningar, max100/fil och1000totalt. Fler delar
+   förbereds med samma underlag. Fristående bokningar/loggar/backups ingår inte.
+3. Vill du prova historiken: Ny bokning från just kortet, välj dag/tid med tryck.
+   Öppna bokningen och avboka den innan kontaktborttagning. Pågående/kommande
+   aktiva besök blockeras av POC-flödet och måste hanteras först.
+4. Kunddata → Ta bort kontaktuppgifter → Förhandsgranska. Läs omfattningen,
+   kryssa uttryckligen och bekräfta. Ett nytt tomt provkort kan också användas.
+5. Ladda om och öppna Tidigare och avbokade. Namn/e-post/telefon och kopplade
+   kontaktkopior är ersatta; tid/pris/status/historik finns kvar. Kortet är
+   arkiverat och kan inte återaktiveras. I listan: Visa även arkiverade för att
+   hitta det igen. Automatisk gallring är avstängd.
+
+Det redan genomförda [egna molnprovkortet](https://booking-lab-se-preview.vercel.app/admin/customers/cmwepygwe000001o2y7dqxij5?view=history)
+visar bevarad Avslappnande massage16nov16.30/450kr, nu avbokad och utan kontakt.
+Ändra inte äldre demokort för provet; skapa ett eget. Ingen automatisk radering
+eller återseed har gjorts. Exportfiler och äldre backups kan innehålla tidigare
+uppgifter: detta är inte full anonymisering eller komplett GDPR-registerutdrag.
+
+## Riktiga före-/efterbilder
+
+Samtliga molnbilder kommer från95f8071 och samma eget syntetiskt kort:
+
+- [Före: förberedd export, kontakt och kopplat besök](assets/lifecycle/cloud-export-mobile.png).
+- [Omfattning och avstängd bekräftelse före kryss](assets/lifecycle/cloud-confirm-mobile.png).
+- [Efter: kontakt borta,450kr-historik kvar](assets/lifecycle/cloud-removed-mobile.png).
+- [Efter på desktop](assets/lifecycle/cloud-removed-desktop.png).
+- [Egen CUA på stabil alias](assets/lifecycle/stable-removed-mobile.jpg), CSS390×844;
+  browserverktyget returnerade skalad247×844bild. Automatiska molnbilder är390/1440.
+- [Manifest/källa/revision/pixelmått/hashar](assets/lifecycle/manifest.json).
+
+Playwright verifierade riktig nedladdning/20retries/bounds/layout i faktiska
+molnmiljön; egen CUA kontrollerade stabilaliasens färdigladdade kort. Egen
+lokal CUA provade även skapande/exportförberedelse/kryss/borttagning/reload.
+Ingen bild på laddningsskärm eller ny video används som bevis.
+
+## Agentprovet är lokalt, inte previewns MCP
+
+Denna faktiska Codex-konversation använde6befintliga lokala MCP-verktyg:
+läs/inspektera, skapa ett opublicerat20%-utkast16november, retry/negatives och
+stale efter egen webbåterbokning09.00.1beslut/1ledger,0överlapp. Kampanjen gäller
+tjänst+hela dagen, inte bara luckan. [Faktiskt transkript och avgränsning](agent-proof/OWNER_AGENT_2026-11-13.md).
+Utkastet och dessa4förslag finns i separat booking_lifecycle_demo på PC:n;
+de har INTE kopierats till molndemon. Ingen publik MCP eller ny anslutning.
+confirmed=true är klientens försäkran, inte bevis för mänskligt samtycke.
+
+MCPe2e0e39/identisk kapacitetskod, webb95f8071 vid huvudprovet. Nästa start av
+befintlig booking_calendar_demo är konfigurerad till separat pinnad95f8071-
+runtime och SDK-testad. Ingen automatisk följning av utvecklingsarbetskopian.
+Lokalt via projektets vanliga instruktioner: separat *_demo,9migrate/seed,
+BOOKING_DEMO_SEED=1 npm run demo:seed:capacity och individuell admin. Operatörens
+privata profiler/nycklar finns utanför Git; klistra dem inte i chatt.
+
+## Revision, åtkomst och kostnad
+
+Produkt/Grok/CI/deploy **95f807196f9b15e0bae2afdcd89604837cf747dd**, feature/customer-lifecycle-agent-proof.
+dpl_<redacted>, READY Preview(target=null), runtimefra1/NeonFrankfurt,
+buildcle1/USA. [Actions43393207291](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43393207291):4gröna46/46.
+Grok stängdeLC-QA-1 efter1fixvarv, egna79/99/46prod, inget Medium+. Deras
+agentbedömning gäller underlaget, inte egen åtkomst till vår PC/preview.
+[Verkliga resultat/NOT RUN](VERIFICATION.md) och [originalrapport](qa/QA-REPORT-lifecycle-fix1-95f8071.md).
+
+SSOall på5READY-deployments+stabilalias, HTML/API/resurser/chunk skyddade.
+Ny kod kräver fortfarande appsession/origin; vanlig individuell produktlogin
+finns kvar. Bara Niclas, inga nya konton, delningslänkar eller publika tjänster.
+92äldre bokningar/33kort är oförändrade; slut93/34 med ett eget borttaget
+provkort+en avbokad bokning,0överlapp. Krypterad backup före12/efter13tabeller
+återläst med identiska radhashar; lokaloperatörs-PC, inte automatiskoffsite.
+Samma VercelPro/NeonFree, inga nya abonnemang/tillägg/domänköp. Några få dollar
+extra befintlig användning är godkänd ram, inte hårt tekniskt tak; faktura ej
+verifierad. Ett för tidigt bygge avbröts och korrekt nytt bygge kördes; ingen
+Production-promote eller mainmerge. Kundpilot fortsatt NO-GO.
+
+## Stoppa just detta bygge
+
+Vid ett nytt konkret stoppuppdrag, ta bort just denna Previewdeployment och
+kontrollera därefter alias/URL. Ingen databas raderas:
+
+```powershell
+vercel remove dpl_<redacted> --scope <redacted-vercel-team> --yes
+```
+
+Äldre4READY-byggen finns kvar och stoppas inte av detta. Ett fullständigt
+demostopp måste inventera alla adresser och återkalla demoaktör/sessioner;
+PauseProject är inte verifierat som stopp för alla Previewbyggen. BehållSSO.
+Återgå inte automatiskt till äldre kod mot nya privacyfält; kompatibiliteten
+måste kontrolleras. DBåterläsning kan återinföra kontakter och kräver hantering
+av efterföljande kontaktåtgärder innan åtkomst öppnas. Inget stopp utfördes nu.
+
+## Historik — föregående proaktiva demo
+
+### Demo — proaktiv kapacitetsöversikt, 2026-11-13
 
 [Öppna Booking Lab](https://booking-lab-se-preview.vercel.app/product) ·
 [översikten](https://booking-lab-se-preview.vercel.app/admin/overview) ·

@@ -1,28 +1,40 @@
-# Projektstatus — kunddatas livscykel och ägaragentprov
+# Projektstatus — kundlivscykel och verkligt ägaragentprov
 
-2026-11-13. Kandidat på feature/customer-lifecycle-agent-proof från d2ccb6c
-(föregående produkt8843d06). Niclas har uttryckligen valt manuell hantering;
-automatisk gallring är avstängd. Ingen ny Epic eller kundpilot.
+2026-11-13. Fryst produkt **95f807196f9b15e0bae2afdcd89604837cf747dd**, branch
+**feature/customer-lifecycle-agent-proof** från d2ccb6c efter produkt8843d06.
+Dokumentation/bilder därefter är separata. Ingen mainmerge eller ny Epic.
 
-| Acceptanskriterium | Faktiskt läge |
+| Acceptanskriterium | Faktiskt verifierat / produktkvalitet |
 | --- | --- |
-| Exportera valt kort och uttryckligen kopplade bokningar | Implementerat: max100/fil, fortsättning med token, max1000totalt. Inga andra kunder eller interna kvot-/sessionshemligheter. |
-| Förhandsgranska och bekräfta kontaktborttagning | Implementerat: namn/e-post/telefon och kopplade kontaktkopior ersätts; kort arkiveras, tider/priser/status/historik bevaras. |
-| Behörighet, samtidighet och oförändrad bokningsmotor | Riktade tester PASS;20samma-idempotensnyckel ger1åtgärd. Separat contactRemovedAt, bokningsversion och kapacitetsbeslut bevaras. |
-| Ingen automatisk gallring eller kontakt-MCP | Implementerat och testat. Existerande lokal MCP får ett avgränsat capacity-only-läge; ingen ny server/anslutning. |
-| Verkligt ägaragentprov i Codex | Kvar: actual-klientomladdning och nya kapacitetsanrop. SDK-test är inte ett AI-klientbevis. |
-| Oberoende Grok, privat CI och samma skyddade preview | Inte körda för kandidaten ännu. Nuvarande preview kör fortfarande8843d06. |
+| Exportera valt kort och kopplade bokningar | PASS unit/integration/E2E/initialGrok:100/fil,150=100+50, max1000, ingen annan kund eller intern nyckeldata. Verklig UI-nedladdning i E2E. |
+| Förhandsgranska och uttryckligen bekräfta kontaktåtgärd | PASS alla4E2Elägen och egen faktisk webbklicktest. Kommande aktiva besök stoppar POC-åtgärden; kort arkiveras och kan inte återaktiveras. |
+| Bevara teknisk historik och skydd | PASS20retries, races, auth/origin/foreign/stale/oversize. Tid/pris/status/version/events/kapacitetsbeslut/exclusion består. |
+| Även äldre e-postkvotkopior minimeras utan budgetåterbetalning | LC-QA-1 rättat i fixvarv1: nya HMAC, äldre dualcount och omkodning vid manuell åtgärd. Nytt test99och faktisk MCP+HTTP-E2E PASS. Grok stängdeLC-QA-1 på95f8071. |
+| Ägaragent använder faktiskt lokal MCP | PASS faktiska Codex tools.*: read/inspect/draft/retry/negatives/stale, ett opublicerat20%-utkast. Egen webbåterbokning och DB1beslut/1ledger/0överlapp. MCPe2e0e39, kapacitetskod oförändrad i95f8071; web95f8071. |
+| Automatisk gallring och kontakt-MCP av | PASS. Inga kontaktverktyg, modellnycklar eller nya agentintegrationer. |
+| Privat CI och samma skyddade preview | PASS [Actions43393207291](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43393207291):4×46/46 på95f8071. Stabil skyddad alias kör dpl_<redacted>, READY Preview/fra1. |
 
-Ny migration9 är additiv; historiska8oförändrade. Isolerad8→9uppgradering och
-återseed bevarar äldre kolumnvärden, beslut och konfliktfrihet. Inga paket eller
-lockfilsändringar. Se [plan/avgränsning](CUSTOMER_LIFECYCLE_AGENT_PLAN.md).
+[Öppna skyddad kundarbetsyta](https://booking-lab-se-preview.vercel.app/admin/customers). Vercel vid behov, sedan demoknapp. Endast påhittade uppgifter.
 
-Detta är kontaktminimering, inte full anonymisering eller komplett GDPR-utdrag.
-Fristående bokningar matchas inte på e-post; backups, hämtade filer, loggar och
-fria kampanjrubriker påverkas inte. Kommande aktiva besök måste hanteras först
-som tekniskt POC-skydd. Lagringstid och rättighetsprövning före pilot återstår.
-Pilot fortsatt NO-GO: MFA/recovery, drift/tenant-/leverantörsgrindar, full
-dataskyddskedja och fysisk iPhone/Safari är inte godkända.
+Slutmatris EFTER fix1: **79unit/99integration/46E2E×4**, lint/tsc/build PASS.
+Ren npmci571Windows,9migrate/seed på6nya miljöer,8→9med legacykvot/återseed
+PASS.196källfiler matchar fryst kod. Full audit FAIL7moderate dev; prodPASS0.
+Grok initiale2e0e39:79/98/46prodPASS och syntetiskt GO med MediumLC-QA-1.
+Riktat fixvarv1: Grok-GO på95f8071, LC-QA-1 stängt, inget Medium+. Egna79/99/46prod, LC-prob23/0 och katalog27/0. Underlagsgranskning av Codex agentprov; inget eget Codex-/molnprov.
+[Verifiering](VERIFICATION.md) · [faktiskt agentprov](agent-proof/OWNER_AGENT_2026-11-13.md).
+
+Sedan förra leveransen: manuell kundexport/kontaktåtgärd med minimal logg,
+separata privacymarkörer och begränsad MCP-profil som provats av verklig klient.
+Automatisk gallring är avstängd enligt Niclas. Inga historiska migrationer,
+paket eller låsfiler ändrade; ny migration9 är additiv.
+
+**Delvis/kvar:** inte full anonymisering eller komplett GDPR-registerutdrag.
+Oanknutna bokningar, fria kampanjrubriker, driftloggar, hämtade exporter och
+backups omfattas inte. Äldre ännu inte hanterade kvotrader kan ha rå e-post.
+Verklig lagringstid/rättighetsprövning och återläsning utan återinförda kontakter
+måste lösas före pilot.10hashade testspärrposter kvar i integration, övriga
+egna affärs-/adminrader0; alla4E2Emiljöer0. Fysisk iPhone/Safari och Niclas
+UX-godkännande är inte verifierade. Pilot fortsatt NO-GO.
 
 
 ## Historik — föregående verifierade leverans

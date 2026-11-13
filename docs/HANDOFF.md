@@ -1,34 +1,54 @@
-# Handoff — pågående kundlivscykel och lokalt ägaragentprov
+# Handoff — kundlivscykel och ägaragentprov
 
-2026-11-13, feature/customer-lifecycle-agent-proof från ren d2ccb6c.
-Produktägaren har godkänt manuell export/kontaktborttagning; automatisk gallring
-av. [Acceptans/mandat](CUSTOMER_LIFECYCLE_AGENT_PLAN.md). Inga beroenden ändrade.
+2026-11-13. Produkt **95f807196f9b15e0bae2afdcd89604837cf747dd**, feature/customer-lifecycle-agent-proof
+från ren d2ccb6c. Niclas godkände steg2–3 och valde manuell hantering;
+automatisk gallring av. [Scope](CUSTOMER_LIFECYCLE_AGENT_PLAN.md).
 
-Ny customer-data.ts samlar adminbehörighet, begränsad tokenpaginering och
-atomär kontaktminimering. Endast POST /api/admin/customers/[id]/data;
-Kundkort→Kunddata förbereder fil eller förhandsgranskar omfattning, följt av
-uttrycklig bekräftelse. Minimal CustomerDataAction utan kontaktfält.
-Migration9 och separat contactRemovedAt bevarar bokningsversion/källbeslut,
-tider/priser/events/kvotnycklar. Gamla borttagna kort kan inte återaktiveras.
-Exklusivt befintligt konfigurationslås, aktör-före-replay och begränsad scope
-återanvänds. Lokala MCP-aktörer får inte kunddataåtgärder.
+customer-data.ts + POST /api/admin/customers/[id]/data och kundkortets
+Kunddata delar bounded export/token, preview och bekräftad kontaktåtgärd.
+Aktiv webadmin/origin/strict/no-store; lokal MCP får inte kunddataåtgärder.
+Migration9: två contactRemovedAt, minimal CustomerDataAction och kontroller.
+Äldre8oförändrade. Kort/kopplade snapshots minimeras, kort arkiveras; teknisk
+historik/Booking.version/källbeslut/exclusion bevaras. Inga kontaktpayloads i
+logg/ledger, inga automatiska matchningar via e-post eller fullgallringslöften.
 
-MCP --admin --capacity-only ger2publika+2kapacitetsläsningar; det befintliga
---allow-workspace med SESSION_SECRET tillåter ytterligare2kapacitetsbeslut.
-Default/full äldre kataloger består. confirmed är klientens försäkran, inte
-bevis på mänskligt mandat. Faktiskt Codex-prov återstår; katalogtest ensamt
-kallas inte agentgodkännande. Ingen publik MCP eller modellnyckel.
+**QA-fix1:** Grok hittade att emailCapKey var rå normaliserad e-post.
+95f8071 lagrar nya icke-adminnycklar som namespacad HMAC och omkodar äldre
+kopplade rånycklar vid manuell åtgärd. Inget töms, createdAt/dagslås/tak består.
+Kvotfrågan räknar båda formaten; ingen global backfill/ny migration. Nya tester
+verifierar full Booking-rad efter riktig stdio-MCP och HTTPadmin, blandad
+legacy/HMAC-kvot före/efter åtgärd, +tag och gamla replays. Ingen ny dependency.
 
-Riktade integration7/7, nya UI4/4 och catalog/mode7/7 PASS. Första fulla
-matrisen79unit/98integration/46E2E×4 PASS; sista regressionen körs efter ett
-missvisande sparmeddelande och en Gitignore-regel för data/-rutter rättats.
-Uppgraderingskopian8→9/återseed PASS. Audit7moderate dev/0produktion.
-Grok/privat push/CI/deploy har ännu inte körts för kandidaten. Ingen mainmerge.
+Slutmatris79unit/99integration/46E2E×4, lint/tsc/build PASS. Ren npmci571,
+generate7.10.1,9migrate/seed på6nya loopbackmiljöer och8→9/återseed PASS.
+196produkt/konfig/test/assetfiler matchar Gitblobs; LF-text/exaktbinär.
+Audit separat7moderate dev/0prod. Grok initialGO för syntetiskt prov med
+LC-QA-1; riktad återkontroll fix1på95f8071 GO, LC-QA-1 stängt och inget Medium+. Originalrapport/fixrequest
+bevarade i docs/qa. Privat push genomförd. [Actions43393207291](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43393207291) success:4×46/46 på exakt95f8071, npmci572Linux/generate/migrate/seed/lint/79unit/99integration/build/tsc. Push43393207637 avbröts av den manuella fullmatrisen enligt befintlig concurrency. Senare docs är separat från produktkoden.
 
-Källan finns bara i <local-state>/codex/booking-lab-ui. Sluttester körs i separat
-C:/Users/<user>/booking-lab-proactive-deps-20261113 med samma källfiler/låsfil.
-Sex nya loopbackmiljöer booking_lifecycle_*_test/_demo är migrerade/seedade.
-Privata profiler/exportfiler och råa browserstate får inte lämna PC:n.
+**Verkligt agentprov:** samma booking_calendar_demo, ingen ny integration.
+Default2/full äldre kataloger består; capacity-only ger4läsverktyg och med
+befintlig allow-workspace+secret exakt6totalt. Verktygen blev faktiskt synliga
+i denna Codex-konversation efter tidigare laddningsproblem. Faktiska tools.*
+skapade ett opublicerat20%-utkast16november; samma retry samma id, ändradretry,
+confirmedfalse och nytt staleunderlag nekades. Egen CUA såg utkast efter reload,
+öppnade rätt kalender och återbokade09via vanlig webb; MCP/UI visade stale.
+DB1beslut/1accepteradledger, nekade0,0överlapp. [Transkript/avgränsning](agent-proof/OWNER_AGENT_2026-11-13.md).
+MCPkällae2e0e39, kapacitetskod oförändrad i95f8071; web95f8071. Det är inte
+fjärrmandat/OAuth, och confirmed=true bevisar inte mänskligt samtycke.
+
+[Grok original95f8071](qa/QA-REPORT-lifecycle-fix1-95f8071.md), SHA2561a07d93fb6eff74a8996882883537303ee33bcf7b5bb0cf3971bb14a2f7b4a9b. Egna79/99/46prod, LC-prob23/0, katalog27/0 och riktig8843→95fuppgradering med gammal MCP-råkvot. Underlagsgranskning av Codex-provet; inte ett eget Codex-/PC-/molnprov. Fixvarv2 behövdes inte. Ett Low/fleraInfo ligger i roadmap, inga nya uppdrag.
+
+Fryst QA-kod ändrades inte medan Grok granskade. Privata profiler, exporter,
+nycklar, databaser och node_modules finns utanför Git och QA-paketen. **Drift verifierad:** samma https://booking-lab-se-preview.vercel.app/admin/customers, dpl_<redacted>, sourceRevision95f8071, READY Preview(target=null), runtimefra1/NeonFrankfurt, buildcle1/USA. SSOall kvar,5READY-adresser+stabil alias skyddade förHTML/API/resurser. TLS1.3, headers/no-store, ingen port3000anslutning inom5s (inte full pentest). Minimerad API/auth/origin/strict/bounds, riktig exportdownload, framtidabesökblock, en kontaktåtgärd/20retries och cookie-revocation PASS i molnet. Egen CUA på stabilalias såg samma borttagna kort/450kr-historik. [Bilder/provsteg](DEMO.md).
+
+Migration9 bevarade alla äldre kolumnvärden i11tabeller. Efter testet: ursprungliga92bokningar/33kort/107events/4kampanjer/3beslut/6tjänster/5personal oförändrade. Endast ett eget nytt syntetiskt kort och en senare avbokad bokning tillkom:93bokningar/34kort,1remove/3exports,0överlapp. Den lokala agentkampanjen kopierades inte till molnet. Backup före12och efter13tabeller AES-GCM återläst med identiska radhashar; befintlig separat nyckel bevarad. Operatörs-PC, inte automatisk offsite.
+
+Ett första deploybygge startades felaktigt innan driftkontrollens resultat lästs; det avbröts(CANCELED), stabil alias förblev gammal. Kontrollfelet antog id på samtliga tabeller och stoppade före migration. Rättat utan produktändring. Två driftprobfel: inaktiva startfixture-ID och pris läst från ett minimerat API utan pris. Samma eget kort återanvändes; priset jämfördes därefter med exporterad bokningssnapshot och allt PASS. Försöksutdata bevarade, ingen ny bokning eller kontaktåtgärd vid sista återkontrollen.
+
+MCP:s nästa start är konfigurerad till separat pinnad95f8071-runtime (kopierad verifierad oförändrad npmci-kedja), SDK-start/katalog6PASS. Det faktiska huvudsakliga AI-provet använde e2e0e39 med identisk kapacitetskod; ingen påstådd pågående klientomstart/cutover. Ingen publik MCP.
+
+Inga nya abonnemang/tillägg/domänköp; befintlig Vercelanvändning/få dollar är ramen, exakt faktura ej verifierad. Stoppa exakt nya deploymenten enligt DEMO, bevara data/SSO. Ingen mainmerge/force-push. Fysisk iPhone/Safari, automatisk gallring/externbackup, framtida nyckelrotation och kundpilot NOT RUN/NO-GO.
 
 
 ## Historik — föregående verifierade leverans

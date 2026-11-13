@@ -1,10 +1,103 @@
+# Verifiering — kundlivscykel och verkligt lokalt agentprov
+
+2026-11-13. Produkt **95f807196f9b15e0bae2afdcd89604837cf747dd**, feature/customer-lifecycle-agent-proof.
+Dokumentation/bilder därefter är separata. Endast syntetiska data; pilot NO-GO.
+
+## Aktuell resultattabell
+
+| Körda kommandon / kontroll | Faktiskt resultat efter fix1 |
+| --- | --- |
+| npm ci --offline --no-fund --no-audit | PASS571Windows-paket,6m i ny lokal runtime. Oförändrad lockfil. |
+| node node_modules/prisma/build/index.js generate | PASS7.10.1,3s; även isolerad runtime. |
+| node node_modules/prisma/build/index.js migrate deploy; node --import tsx prisma/seed.ts | PASS9migrationer/seed på6nya loopback55451 *_test/_demo. Historiska8oförändrade. |
+| node node_modules/eslint/bin/eslint.js . | PASS exit0,14s. |
+| node node_modules/typescript/bin/tsc --noEmit | PASS exit0,8s. |
+| RATE_LIMIT_STORE=memory node node_modules/vitest/vitest.mjs run | PASS79/79,16filer. |
+| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts | PASS99/99,23filer,89.81s. Nytt kvot-/kontaktregressionstest. |
+| node node_modules/next/dist/bin/next build | PASS exit0,17s. |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test | PASS46/46,119s. |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test | PASS46/46,113s. |
+| E2E_PRODUCTION= TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test | PASS46/46,206s. |
+| E2E_PRODUCTION= TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test | PASS46/46,164s. |
+| 8→9uppgradering/återseed efter fix1 | PASS ny *_demo, äldre kolumner bevarade vid migration; efter manuell kontaktåtgärd även äldre råkvot→HMAC, teknisk historik/beslut består. Seed2gånger sammahashar,0överlapp. |
+| Gitblob mot testkopia | PASS196produkt-/konfig-/test-/assetfiler,0mismatch, LF-normaliserad text/exaktbinär; docs/AGENTS/genererad next-env undantagna. |
+| Städning | PASS5miljöer:0Booking/Event/Customer/DataAction/Campaign/Decision/AdminUser/Session/WorkspaceRequest. Integration10hashade RateLimitBucket kvar;4E2Emiljöer0. |
+| Faktiska Codex MCP-verktyg | PASS read/inspect/draft/retry/changedretry/confirmedfalse/stale. MCPe2e0e39; server/workspace/capacity oförändrade i95f8071. Inte en shell-/SDK-ersättning. |
+| Egen CUA+DB för agentprov | PASS samma opublicerade20%-utkast16november efterreload; kalender16nov/Sam, återbokning09viawebb95f8071, MCP/UIstale;1beslut/1ledger, nekade0,0överlapp. Negativconfirmedfalse är inte verkligt mänskligtnej. |
+| Egen CUA för kunddata | PASS eget påhittat kort→förbereddexport→preview/disabled→kryss→bekräfta→reloadarkiverat. Mobilbild375×812; nedladdningsinnehåll separat E2E. |
+| npm audit --package-lock-only --json | FAIL exit1,7moderate dev,0high/critical. Inga paket-/lockändringar. |
+| npm audit --package-lock-only --omit=dev --json | PASS exit0,0fynd; inte pilotgodkännande. |
+| Oberoende Grok initial | Syntetisk GO med MediumLC-QA-1 påe2e0e39. Egna79unit/98integration/46prod-E2E, API77/1(Medium), MCP27/0, UI52/0. |
+| Oberoende Grok fix1 | GO syntetisk POC på95f8071, LC-QA-1 stängt, inga Medium+. Egna79unit/99integration/46prod-E2E, LC-prob23/0, MCP27/0,8843→95fupgrade. Agentprovet endast underlagsgranskat. |
+| gh workflow run verify.yml --ref feature/customer-lifecycle-agent-proof | [43393207291](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43393207291) success på95f8071:4gröna46/46, npmci572Linux/generate/9migrationer/seed/lint/79unit/99integration/build/tsc. Push43393207637 cancelled av manualmatris. |
+| Skyddad faktisk Vercel Preview och stabil alias | PASS dpl_<redacted>, READY target=null, fra1, customsourceRevision95f8071 verifierad viaCLIAPI; exaktGitarchive. Stabil alias→sammaID. |
+| Molnflöden | PASS en demoknapp, exportdownload/100max/auth/origin/strict/no-store, framtida-besökguard, UIremove/20retries→1åtgärd och ändradretry409. Snapshot/version/pris består, logout/copiedcookie403.320/390/1440 PASS. |
+| Egen CUA i stabil preview | PASS färdigladdat borttaget kort och avbokad historik450kr. CSS390×844 verifierat; returneradbild247×844skalad. Fullpage-försök timeout, vanligbild lyckades. Ingen fysisk iPhone. |
+| Äldre molndata | PASS92Booking/33Customer/107Event/4Campaign/3CapacityDecision/6Service/5Staff oförändrade. Slut93/34,0överlapp, endast example.test; eget provkort/1avbokadbokning tillkom. |
+| Perimeter/TLS/direktport | PASS5READY-URL:er+stabilalias,24HTML/API/assetprober skyddade, newchunk skyddad, SSOall; TLS1.3certverifierat; port3000ejansluten inom5s, ingen fullportscan. |
+| Krypterad backup/återläsning | PASS före12/efter13tabeller i nya lokala *_demo, alla radhashar matchar, AES-256-GCM/tampernekas, separat befintlignyckel bevarad; lokalPC, ejautomatiskoffsite. |
+| Slutlig SDK-launcher95f8071 | PASS6tool/4förslag/0writes; nästa befintliga registreringsstart pinnad95f8071. Faktiskt huvudklientprov e2e0e39/identisk kapacitetskod särredovisas. |
+
+Råkommandon/exitkoder och utdata: [verification/lifecycle](verification/lifecycle/),
+[matris](verification/lifecycle/verification.json), [källmatchning](verification/lifecycle/source-freeze.json),
+[uppgradering](verification/lifecycle/upgrade-proof.json), [faktiska verktyg](verification/lifecycle/owner-tool-transcript.json),
+[DB-kontroll](verification/lifecycle/owner-proof-db.json). Rawrot:
+C:/Users/<user>/booking-lab-pg-test/lifecycle. Initiale2e0e39-resultat är
+separat historik; data-/profil-/token-/dumpfiler ingår inte i underlaget.
+
+**NOT RUN:** fysisk iPhone/Safari/WebKit/NiclasUX-godkännande, nyvideo, forceradVercelomstart/flerinstansfel, fjärr-MCP/OAuth, verkligt mänskligtnej i agentprov, automatisk gallring/externbackup och kundpilot. Grok hade ingen PC/Codex/previewåtkomst; deras övriga3E2Elägen NOT RUN. Nästa pinnadeMCP-start95f8071 är SDK-testad; huvudsaklig faktisk agentkörning e2e0e39/identisk kapacitetskod. Inga nya betaltjänster eller mainmerge.
+
+[Grok original](qa/QA-REPORT-lifecycle-fix1-95f8071.md) SHA2561a07d93fb6eff74a8996882883537303ee33bcf7b5bb0cf3971bb14a2f7b4a9b. [CI med steg](verification/lifecycle/ci-43393207291.json), [CI-utdrag](verification/lifecycle/ci-selected-output.txt), [drift](verification/lifecycle/live-result.json), [stabil alias](verification/lifecycle/stable-alias.json), [slutläsning](verification/lifecycle/final-cloud-read.json), [backup](verification/lifecycle/after-migration-backup.json). [Bildmanifest](assets/lifecycle/manifest.json).
+
+## Appendix — driftprober och efterföljande dokumentation
+
+Driftkontrollen antog id på alla tabeller och stoppade före migration. Första95fbygget startades för tidigt av operatören och avbröts(CANCELED) utan aliasbyte; rättat script gav migrationPASS och nyttREADYbygge. Ingen produktkod ändrades eller ny QA-loop startades. Före-kontrollens första misslyckade försök hade0migrationssteg. Verklig driftprob använde först inaktiva basfixture-ID(400) och läste sedan pris ur bookingSummary, som saknar prisfält. [Attempt1](verification/lifecycle/attempt1-old-service-config.json) och [attempt2](verification/lifecycle/attempt2-summary-price-assumption.json) bevaras. Samma eget provkort återanvändes, rätt aktiva resurser lästes viaAPI och existerande exporterad snapshot blev prisreferens. Slutkontrollen PASS utan fler bokningar/borttagningar; inga produktassertions togs bort.
+
+All kod förblev95f8071. Därefter ändrades endast Markdown/bilder/råa bevis. Arkitekturens äldre klartextbeskrivning rättades som dokumentation(LC-F1-QA-2), inget andra fixvarv.
+
+## Appendix — LC-QA-1 och faktiska klientförsök
+
+Initiale2e0e39 hade79/98/46×4PASS men missade rå emailCapKey i kopplad MCP-
+bokning. Grok hittade detta. Fix1 lagrar nya HMAC och omkodar äldre kopplade
+nycklar; kvoten räknar båda. Inga nya migrationer. Ursprunglig rapport och
+fixrequest är bevarade, inte omskrivna som PASS. Infos LC-QA-2–7 är backlogg.
+Formatering gjordes med temporär Prettier3.6.2CLI; inget projektberoende
+eller lockfil lades till. Äldre ännu inte hanterade kvotrader kan ha rå e-post.
+
+Ett nytt uppgraderingsförsök fick generiskt schemaenginefel innan migration
+med ärvt--env-file; ny separat DB och explicit profilenv gav PASS utan
+källändring. NativeAX fungerade men bildfångsttimeout hindrade settingsklick.
+De6faktiska verktygen blev senare synliga utan att användaren behövde göra
+något. Orsaken till den fördröjda klientomladdningen är inte fastställd.
+
+## Appendix — tidigare försök i denna leverans
+
+Första D:-matrisen79/98/46×4PASS. Därefter skyddades ett gammalt saved=1-
+meddelande från att påstå att gamla kontakter är oförändrade efter explicit
+kontaktborttagning. Ett nytt E2E-påstående verifierar detta. Ovan är sista
+matrisen efter rättningen. Lokal data/-ignore var för bred och dolde den nya
+API-rutten; den begränsades till rotens /data/ innan fryst arkiv/källmatchning.
+
+Tidiga operatörsförsök: --env-file genom Nextbyggarens worker gav förbjuden
+NODE_OPTIONS; explicit env gav vanlig buildPASS. Testwebben ärvde PORT3015
+medan Playwright väntade3000; explicit PORT3000 i testwebserver rättade detta.
+Ett nytt test matchade /customers/new för tidigt; väntan på kortets rubrik
+rättades. Ett alert-påstående avgränsades till Kunddata. Ingen assertion eller
+säkerhetskontroll sänktes. Första npm-ci-wrappern kvoterade inte ProgramFiles;
+den startade inte npm. Direkt npmci ovan PASS. Försökt lokal formatter sökväg
+saknade paket; inget nytt paket installerades, lilla rutten formaterades manuellt.
+Git-jämförelsens första filtypslista missade .prisma/.mts/dotfiles; full LF-
+normalisering för alla textformat gav0mismatch, inte ändrade produktfiler.
+
+## Appendix — föregående verifierade leverans
+
 # Verifiering — levererad proaktiv kapacitetsöversikt
 
 2026-11-13. Produkt-/Grok-/CI-/deploykod **8843d06350c6478e375fb640579cb3ac4f7fe3dc**,
 feature/proactive-capacity-overview från28a48fe. Dokument-/bildändringar efter
 QA är separata. Endast syntetiska uppgifter. Pilot NO-GO.
 
-## Aktuell resultattabell
+## Historisk resultattabell (8843d06)
 
 | Körda kommandon / kontroll | Faktiskt resultat |
 | --- | --- |

@@ -1,6 +1,21 @@
 # booking-lab-se
 
-## Proaktiv kapacitetsöversikt — levererad syntetisk POC
+## Kunddata och verkligt ägaragentprov — levererad syntetisk POC
+
+[Öppna skyddade kundarbetsytan](https://booking-lab-se-preview.vercel.app/admin/customers).
+Kundkort → Kunddata: begränsad export och uttryckligen bekräftad kontakt-
+borttagning med bokningshistorik kvar. Kommande aktiva besök hanteras först.
+Automatisk gallring av; inte full anonymisering eller komplett GDPR-utdrag.
+Direkt Codex-MCP-prov läste kapacitet, sparade ett opublicerat utkast och
+kontrollerade retry/stale efter vanlig webbåterbokning. MCP-provet är lokalt,
+inte previewns databas. Ingen publik MCP eller ny modellanslutning.
+
+Produkt95f8071, Grok-GO efter1fixvarv,79unit/99integration/46E2E×4 och4gröna
+CIjobb. Full audit7moderate dev; prod0. [Prova/bilder/stopp](docs/DEMO.md) ·
+[kommandon/NOT RUN](docs/VERIFICATION.md) · [faktiskt agentprov](docs/agent-proof/OWNER_AGENT_2026-11-13.md).
+Fysisk iPhone/Safari och pilot är inte godkända. Senare docs/bilder ändrar ingen kod.
+
+## Tidigare leverans: proaktiv kapacitetsöversikt
 
 [Öppna den skyddade demon](https://booking-lab-se-preview.vercel.app/product),
 välj arbetsytan och **Översikt**. Framtida avbokningar kontrolleras mot samma
