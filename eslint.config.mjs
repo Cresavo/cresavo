@@ -3,6 +3,7 @@ import nextTypescript from "eslint-config-next/typescript";
 const config = [
   ...nextVitals,
   ...nextTypescript,
-  { ignores: [".next/**", "node_modules/**", "next-env.d.ts"] },
+  // Operator-only profiles and generated diagnostics are never product source.
+  { ignores: [".next/**", ".vercel/**", "node_modules/**", "next-env.d.ts"] },
 ];
 export default config;

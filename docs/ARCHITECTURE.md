@@ -1,5 +1,39 @@
 # Arkitektur
 
+## Proaktiv arbetsöversikt, 2026-11-13
+
+`src/lib/capacity.ts` används av `/admin/overview`, `/api/admin/capacity` och
+befintlig lokal MCP. Läsning beräknar på begäran, ingen scheduler eller modell.
+Källa är en avbokad Booking med cancel-händelse och oförändrad version. Token
+hashar källa/tider och aktuell tjänst-/personalversion. Tillgänglighet kontrolleras
+av getAvailability; token ersätter aldrig en ny kontroll före handlingen.
+
+En ny additiv migration inför CapacityDecision och sammansatta verksamhets-FK.
+De sju historiska migrationerna och exclusion constraint är oförändrade. Läsning
+har gemensamt konfigurationslås; mutationer använder workspaceWrite, aktör före
+replay, befintligt personal-/lokaldagslås och sedan källås. Kampanj+beslut sparas
+atomärt. Unik businessId/bookingId/sourceVersion skyddar även olika request-ID
+och aktörer. En retry av redan utförd handling returnerar originalresultatet;
+det är ingen ny kapacitetskontroll eller reservation. Ny listläsning visar aktuell
+bokningsbarhet separat från beständigt beslut. Utfallet är beslut/utkast/publicerad
+status, inte tillskriven försäljning eller bevis på kampanjeffekt.
+
+POST accepterar calendar/preview/dismiss/draft efter aktiv admin+originkontroll;
+de två sista kräver Idempotency-Key. Preview validerar samma kampanjschema och
+omfattning som save. Befintlig kampanjmodell är tjänst+datumintervall, inte
+utförare eller exklusiv lucka. Utkast reserverar ingen tid och publiceras inte.
+
+Lokala adminverktyg: list_capacity_suggestions och inspect_capacity_suggestion.
+Med --allow-workspace tillkommer dismiss_capacity_suggestion och
+create_capacity_campaign_draft. Samma betrodda lokala aktör, strikt schema och
+minimerade resultat. Defaultservern behåller enbart list_services/get_availability.
+Confirmed är ingen verifiering av mänskligt mandat. Ingen publik MCP har införts.
+
+Avgränsningar: max7lokala dagar/max20källor (UI10), ingen historiksida efter att
+källans dag lämnat intervallet. Avfärdanden/utkast lagras ändå och kampanjer finns
+i befintlig kampanjvy. Stockholmsdagens staff-lås förutsätter fortfarande att
+bokningar inte går över midnatt. Ingen full tenant-isolering eller kundpilot.
+
 ## Epic 06 — kundkort och historiska snapshots
 
 Customer är aktuell kontakt (namn/e-post/valfri telefon, version, arkiverad).

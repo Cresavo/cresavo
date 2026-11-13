@@ -169,6 +169,7 @@ it("CLI seed rejects spoofed public ownership, links legitimate history, preserv
       "Staff",
       "Service",
       "WorkspaceRequest",
+      "CapacityDecision",
     ])
       hashes.push(
         await fixture!.$queryRawUnsafe(
@@ -185,6 +186,42 @@ it("CLI seed rejects spoofed public ownership, links legitimate history, preserv
     ).toBe(0);
     expect(await fingerprint()).toEqual(after);
   }
+  const existingIds = (
+    await fixture.booking.findMany({ select: { id: true } })
+  ).map((b) => b.id);
+  const previousRows = await fixture.booking.findMany({
+    where: { id: { in: existingIds } },
+    orderBy: { id: "asc" },
+  });
+  const capacity = JSON.parse(
+    command(["--import", "tsx", "scripts/seed-capacity.ts"]).trim(),
+  );
+  expect(capacity).toMatchObject({ synthetic: true, scenarios: 4, skipped: 0 });
+  expect(
+    await fixture.booking.findMany({
+      where: { id: { in: existingIds } },
+      orderBy: { id: "asc" },
+    }),
+  ).toEqual(previousRows);
+  expect(
+    await fixture.capacityDecision.count({ where: { outcome: "draft" } }),
+  ).toBe(1);
+  expect(
+    await fixture.capacityDecision.count({ where: { outcome: "dismissed" } }),
+  ).toBe(1);
+  expect(
+    await fixture.booking.count({
+      where: { staffId: "demo-capacity-staff", status: "cancelled" },
+    }),
+  ).toBe(4);
+  expect(
+    await fixture.booking.count({
+      where: { staffId: "demo-capacity-staff", status: "confirmed" },
+    }),
+  ).toBe(1);
+  const withCapacity = await fingerprint();
+  command(["--import", "tsx", "scripts/seed-capacity.ts"]);
+  expect(await fingerprint()).toEqual(withCapacity);
 }, 60000);
 
 afterAll(async () => {

@@ -37,12 +37,15 @@ model Booking {
   initialStartsAt DateTime? @db.Timestamptz(3)
   initialEndsAt DateTime? @db.Timestamptz(3)
   events BookingEvent[]
+  capacityDecisions CapacityDecision[]
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   idempotencyKey String?
   requestHash String?
   clientKey String?
   emailCapKey String?
   @@unique([businessId, idempotencyKey])
+  @@unique([businessId, id])
+  @@index([businessId, status, startsAt, id])
   @@index([businessId, customerEmail, createdAt])
   @@index([businessId, clientKey, createdAt])
   @@index([businessId, emailCapKey, createdAt])
@@ -109,6 +112,23 @@ model Campaign {
   validFrom String
   validUntil String
   published Boolean @default(false)
+  capacityDecision CapacityDecision?
+  @@unique([businessId, id])
+}
+
+model CapacityDecision {
+  id String @id @default(cuid())
+  businessId String
+  bookingId String
+  booking Booking @relation(fields: [businessId, bookingId], references: [businessId, id], onDelete: Restrict, map: "CapacityDecision_booking_fk")
+  sourceVersion Int
+  outcome String
+  campaignId String? @unique
+  campaign Campaign? @relation(fields: [businessId, campaignId], references: [businessId, id], onDelete: Restrict, map: "CapacityDecision_campaign_fk")
+  payloadHash String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([businessId, bookingId, sourceVersion])
+  @@unique([businessId, campaignId])
 }
 
 model AdminSession {

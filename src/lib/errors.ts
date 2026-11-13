@@ -2,6 +2,8 @@ import { ZodError } from "zod";
 
 // Only literal messages owned by this codebase may cross a trust boundary.
 const publicMessages = [
+  "Förslaget är inte aktuellt. Uppdatera översikten.",
+  "Förslaget har redan hanterats med andra villkor.",
   "Åtkomst nekad",
   "För många resurser",
   "Medarbetaren kan inte utföra behandlingen",

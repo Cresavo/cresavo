@@ -1,4 +1,24 @@
-# Handoff — Epic 06,2026-11-12
+# Handoff — proaktiv kapacitet, kandidat 2026-11-13
+
+Aktivt nytt mandat: docs/PROACTIVE_OVERVIEW_PLAN.md och komplett Del B i
+docs/research. Bas28a48fe, branch feature/proactive-capacity-overview. Codex
+ensam skrivare; ingen tidigare QA pågår. Ny produktkod väntar på fryst Grok-QA
+och avslutande E2E/CI. Ingen push/deployment har gjorts för kandidaten.
+
+Gemensam domän capacity.ts används från /admin/overview, skyddad HTTP och
+befintlig lokal stdio. Ny additiv CapacityDecision kopplar källbokning/version
+till beständigt beslut och högst ett kampanjutkast. Aktör före replay,
+konfigurations-/personaldagslås och exclusion består. Ingen ny npm-dependency,
+modell, port, autentisering eller extern utskicksanslutning.
+
+Lokalt hittills: clean npmci571, generate/migrate/seed, lint/tsc/build,
+78unit/89integration och7→8-/återseedbevis PASS. Faktiska kommandon, tidiga
+misslyckade operatörsförsök och NOT RUN i VERIFICATION. Testkopian på C: är
+hashad mot denna källkod; inga källändringar görs där. Fyra E2E-lägen och
+Grok återstår. Preview nedan är fortfarande äldre7c, inte nattens funktion.
+Senare dokument-/bildbevis ska tydligt skiljas från produktcommit.
+
+## Föregående verifierade leveranser
 
 ## Senare avgränsat kalenderprov, 2026-11-13
 

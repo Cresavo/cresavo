@@ -1,4 +1,23 @@
-# Projektstatus — Epic 06 levererad som skyddad syntetisk demo
+# Projektstatus — proaktiv kapacitetsöversikt under slutverifiering
+
+2026-11-13. Branch **feature/proactive-capacity-overview**, fortsättningsbas
+28a48fe. Ny kandidat är ännu inte QA-godkänd, pushad eller driftsatt.
+Den stabila previewn nedan kör fortfarande föregående7c1407d.
+
+Implementerat: begränsad avbokningssignal med aktuell tillgänglighet, Översikt,
+rätt kalenderlänk, beständigt avfärdande och atomärt/idempotent kampanjutkast.
+Samma domän för skyddad UI/API och opt-in lokal MCP; ingen ny modellanslutning.
+Utkastets verkliga omfattning är tjänst+datum, inga reservationer/utskick.
+
+Hittills verifierat: lint/tsc/build,78unit,89integration, uppgradering7→8,
+återseed med identiska tabellhashar och0överlapp. Manuellt Chromiumprov visar
+kalender→egna kampanjvillkor→sparat utkast→ny bokning→inaktuellt förslag.
+Mobilstorlek320/390 och desktop1440 är emulering, inte fysisk iPhone.
+Fyrmatris/Grok/CI/ny preview återstår; aktuellt utfall i VERIFICATION.
+Full långsiktig målbild finns kvar i [roadmap](PRODUCT_ROADMAP.md).
+Ingen kundpilot eller ny epic är godkänd genom detta mål.
+
+## Föregående leverans — Epic 06 skyddad syntetisk demo
 
 Verifierad 2026-11-12. Branch **feature/epic06-customers-demo-product**; granskad och driftsatt produktkod
 **7c1407dce66910ef8ab304c882c90d90c173ca72**. Senare dokument-/bildcommit ändrar inte denna kod. [Öppna produkten](https://booking-lab-se-preview.vercel.app/product).

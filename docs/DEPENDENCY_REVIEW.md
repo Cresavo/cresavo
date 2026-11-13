@@ -1,5 +1,14 @@
 # Beroendesäkerhet
 
+## Proaktiv översikt, 2026-11-13
+
+Inga nya npm-beroenden eller låsfilsändringar. Befintlig Lucide, DatePicker,
+Luxon, Zod, Prisma och lokal MCP används. Ingen modellanslutning införs.
+Ny faktisk kontroll: `npm audit --package-lock-only --json` exit1:7moderate,
+0high/critical. `npm audit --package-lock-only --omit=dev --json` exit0:0fynd.
+Råutdata ligger i nattmålets verifieringsunderlag. Kända ESLint/minimatch-
+utvecklingskedjan kvarstår; inga riskabla overrides/majorer för att få grönt.
+
 ## Epic 06 — uttryckligen beställt ikonurval
 
 `lucide-react` **1.72.0**, exakt version, ersätter egna SVG-/ikonvarianter för

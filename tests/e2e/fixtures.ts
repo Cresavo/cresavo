@@ -116,6 +116,31 @@ export const test = base.extend<{
         await db.adminSession.deleteMany({
           where: { id: { in: [...sessions] } },
         });
+        const ownBookings = await db.booking.findMany({
+          where: {
+            OR: [
+              { customerEmail: { startsWith: marker } },
+              { serviceId: { in: [...services] } },
+            ],
+          },
+          select: { id: true },
+        });
+        const capacityDecisions = await db.capacityDecision.findMany({
+          where: { bookingId: { in: ownBookings.map((b) => b.id) } },
+          select: { id: true, campaignId: true },
+        });
+        await db.capacityDecision.deleteMany({
+          where: { id: { in: capacityDecisions.map((d) => d.id) } },
+        });
+        await db.campaign.deleteMany({
+          where: {
+            id: {
+              in: capacityDecisions.flatMap((d) =>
+                d.campaignId ? [d.campaignId] : [],
+              ),
+            },
+          },
+        });
         await db.booking.deleteMany({
           where: {
             OR: [

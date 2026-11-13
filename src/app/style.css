@@ -4,6 +4,45 @@
 :root {
   color-scheme: light;
 }
+
+.capacity-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.capacity-card form {
+  display: grid;
+  gap: 12px;
+}
+.capacity-card input {
+  min-width: 0;
+  width: 100%;
+}
+.capacity-draft {
+  margin-top: 18px;
+}
+.capacity-draft summary {
+  cursor: pointer;
+  padding: 12px 0;
+  font-weight: 600;
+}
+.capacity-dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.capacity-scope {
+  padding: 14px;
+  background: #edf3ee;
+  border-radius: 8px;
+}
+@media (max-width: 700px) {
+  .capacity-dates {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .capacity-card .action-row {
+    align-items: stretch;
+  }
+}
 .ui-icon {
   display: inline-block;
   flex-shrink: 0;

@@ -21,6 +21,14 @@ import {
 import { LOCAL_WORKSPACE_ACTOR as actor } from "../lib/workspace-write";
 import { dateSchema, idempotencyKeySchema } from "../lib/validation";
 import { safeToolSchema, reply } from "./reply";
+import {
+  capacityListSchema,
+  capacitySourceSchema,
+  capacityDraftSchema,
+  listCapacity,
+  inspectCapacity,
+  decideCapacity,
+} from "../lib/capacity";
 
 const id = z.string().min(1).max(128);
 const writeFields = {
@@ -60,6 +68,52 @@ export function registerWorkspaceTools(
   server: McpServer,
   allowWrites: boolean,
 ) {
+  server.registerTool(
+    "list_capacity_suggestions",
+    {
+      description:
+        "Avbokningar inom högst sju lokala dagar, aktuell bokningsbarhet och sparade beslut. Högst20, inga kunduppgifter. Lokal administratör.",
+      inputSchema: safeToolSchema(capacityListSchema),
+    },
+    async (v) => reply(() => listCapacity(v, actor)),
+  );
+  server.registerTool(
+    "inspect_capacity_suggestion",
+    {
+      description:
+        "Kontrollera att ett förslag fortfarande är aktuellt före kalenderöppning. Reserverar ingen tid.",
+      inputSchema: safeToolSchema(capacitySourceSchema),
+    },
+    async (v) => reply(() => inspectCapacity(v, actor)),
+  );
+  if (allowWrites) {
+    const dismissSchema = capacitySourceSchema.extend(writeFields).strict();
+    const draftSchema = capacityDraftSchema.extend(writeFields).strict();
+    server.registerTool(
+      "dismiss_capacity_suggestion",
+      {
+        description:
+          "Avfärda ett aktuellt förslag beständigt. Betrodd lokal --admin --allow-workspace. confirmed är klientens försäkran, inte bevis för mänskligt godkännande.",
+        inputSchema: safeToolSchema(dismissSchema),
+      },
+      async (v) =>
+        reply(() =>
+          decideCapacity(mutationInput(v), v.clientRequestId, actor, "dismiss"),
+        ),
+    );
+    server.registerTool(
+      "create_capacity_campaign_draft",
+      {
+        description:
+          "Spara högst ett kampanjutkast per förslag. Kräver uttryckligt valda villkor och rabatt. Kampanjen gäller tjänsten under datumintervallet, alla utförare/tider, inte en exklusiv lucka. Ingen reservation/publicering/utskick. Betrodd lokal --admin --allow-workspace; confirmed är inget mänskligt mandatbevis.",
+        inputSchema: safeToolSchema(draftSchema),
+      },
+      async (v) =>
+        reply(() =>
+          decideCapacity(mutationInput(v), v.clientRequestId, actor, "draft"),
+        ),
+    );
+  }
   server.registerTool(
     "list_workspace_services",
     {

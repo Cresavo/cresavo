@@ -1,11 +1,51 @@
-# Verifiering — Epic 06 levererad skyddad syntetisk preview
+# Verifiering — proaktiv kapacitetsöversikt, kandidat 2026-11-13
+
+Branch feature/proactive-capacity-overview, bas28a48fe. Slutkandidatens exakta
+SHA tillförs efter frysning. Ingen ny Grok-QA/CI/deploy är ännu godkänd.
+Råutdata: C:/Users/<user>/booking-lab-pg-test/proactive. Källkod ändras endast
+i <local-state>/codex/booking-lab-ui; hashkontrollerad testkopia på C: används
+efter hög I/O-kö på D:. Paket- och låsfil identiska, inga nya beroenden.
+
+## Aktuell resultattabell
+
+| Kommando/kontroll | Faktiskt utfall hittills |
+| --- | --- |
+| npm ci --offline --no-fund --no-audit | PASS exit0,571paket,4m i tom separat testkopia på C:. D:-försöken avbröts vid belastad disk; inte räknade som godkända. |
+| node node_modules/prisma/build/index.js generate | PASS7.10.1 efter ren installation. |
+| Prisma migrate deploy + grundseed | PASS8migrationer på6nya loopback_test/_demo-miljöer; historiska7oförändrade. |
+| node node_modules/eslint/bin/eslint.js . | PASS exit0. |
+| node node_modules/typescript/bin/tsc --noEmit | PASS exit0. |
+| RATE_LIMIT_STORE=memory node node_modules/vitest/vitest.mjs run | PASS78/78,15filer,7.97s. Minneslagrets enhetstester ska inte ärva integrationens PostgreSQL-läge. |
+| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts | PASS89/89,21filer,81.41s mot ny isolerad databas. |
+| node node_modules/next/dist/bin/next build | PASS exit0,17s. |
+| Fyra fulla E2E-lägen | PÅGÅR. Första prod0 avbröts efter page/context-setup-timeouter före produktsteg. Browsercache på belastade D: undersöks; inga assertions/tidsgränser ändrade. |
+| Uppgradering och återseed | PASS7→8; äldre tabeller/snapshot oförändrade, samtliga hashvärden identiska vid andra capacity-seed,0överlapp. |
+| Manuell ny produktionsbyggd UI | PASS kalenderurval, kampanjdatum/rabatt, sparat utkast/reload och rebook→stale-varning. Bilder finns lokalt; kampanjvyns laddning återstår att reda ut. |
+| npm audit --package-lock-only --json | FAIL exit1:7moderate,0high/critical. |
+| npm audit --package-lock-only --omit=dev --json | PASS exit0:0fynd. Separat från funktioner/pilotbeslut. |
+| Grok / privat push / Actions / ny faktisk preview | VÄNTAR; inget godkännande påstås. |
+
+Initiala försök: en ny CHECK fick namnkonflikt (P3018/42710), rättad enbart i
+den nya ännu inte levererade migrationen; nya v2-databaser skapades, ingen
+historik/reset. MCP-testets två kallstarter överskred dess ursprungliga5s;
+ett uttryckligt30s-fönster för detta nya subprocessprov passerade. Tidig tsc
+kördes innan installationen var färdig och seedens poolavslut hade ett typfel;
+färdig installation och rättad .$disconnect gav PASS. Ett felaktigt operatörs-
+env lät unit ärva RATE_LIMIT_STORE=postgres; korrigerad kommandokonfiguration
+gav78PASS utan sänkta tester. En tillfällig lokal DB-connecttimeout efter
+installationslast följdes av lyckad hälsokontroll och89PASS.
+
+NOT RUN ännu: slutlig fyrmatris, Groks nya QA, ny CI/deployment/backupkontroll,
+fysisk iPhone/Safari/WebKit, ny video. Föregående QA gäller endast sin kod.
+
+## Appendix — föregående Epic 06-verifiering (2026-11-12)
 
 2026-11-12. Produkt-/QA-/deploykod **7c1407dce66910ef8ab304c882c90d90c173ca72**, branch **feature/epic06-customers-demo-product**.
 Dokumentation/bildbevis efter QA är separata från produktkoden. Lokal faktisk
 råutdata: C:/Users/<user>/booking-lab-pg-test/epic06. Utvalda råutdrag och JSON
 i [evidence-epic06](qa/evidence-epic06); full CI-logg via [Actions43301797796](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43301797796).
 
-## Aktuell resultattabell
+### Historisk resultattabell
 
 | Kommando/kontroll | Faktiskt utfall |
 | --- | --- |

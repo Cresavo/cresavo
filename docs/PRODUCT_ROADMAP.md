@@ -1,5 +1,60 @@
 # Booking Lab SE: produktmål och leveransordning
 
+## Aktuell produktinriktning och nattmål, 2026-11-13
+
+**Niclas produktbeslut:** Booking Lab ska omfatta bokning/kalender/resurser,
+kunder/historik, journal/behandlingsdokumentation, produkter/lager/förbrukning/
+inköp, betalning/kassa/presentkort/återbetalning/bokföringskoppling samt kampanjer,
+kommunikation, sociala medier och analys. Journal och lager är uttryckliga delar
+av slutprodukten, inte valfria bortval i denna mindre leverans.
+
+Människor använder en bra arbetsyta och kundbokning. Godkända kund-/ägarassistenter
+använder kontrollerade operationer med samma verksamhetsregler. Ägaren ska även
+kunna möta relevant läge, förslag, beslut och verkliga resultat i en proaktiv
+översikt, med kalender och kundkort som direktåtkomst.
+
+**AI-inriktning:** inkluderad användning i abonnemanget, ansluten egen assistent
+och valfria egna API-nycklar. Priser, kvoter, modeller, leverantörer, nyckelförvaring
+och budgetpolicy är återstående beslut. En ansluten assistent är en klient;
+en modellnyckel finansierar plattformens egen exekvering. Nattens regelbaserade
+förslag använder inget modellkonto och ska märkas därefter.
+
+**Externt underlag:** [hela Del B](research/BOOKING_LAB_DIRECTION_2026_11_13.md)
+bevarar researchdatum12–13november och ursprungliga källor. Det är levererat
+researchunderlag, inte våra nya praktiska tester av varje leverantör eller en
+garanti om framtida svensk tillgänglighet. Priser/laguppgifter ska kontrolleras
+igen inför respektive skarpa beslut.
+
+**Arkitekturförslag:** verksamhetsmotor → kontrollerade anslutningar → arbetsyta.
+Beräkna första signalen vid uppdatering, med minsta persistens för beslut och
+utkast. Events, bakgrundsjobb, modellanslutningar, usage-mätning och egna nycklar
+byggs först när ett verkligt flöde kräver dem. Ingen generell workflowmotor nu.
+
+**Affärshypoteser:** sparad administration, återfylld kapacitet, betalningsvilja,
+usage-nivåer och kommersiell nytta måste mätas. Ett utkast är inte försäljning;
+en ny bokning efter ett förslag bevisar inte att kampanjen orsakade den.
+
+Aktivt avgränsat byggmål: [proaktiv kapacitetsöversikt](PROACTIVE_OVERVIEW_PLAN.md).
+Framtida avbokning → faktiskt bokningsbar tid → kalender eller beständigt
+kampanjutkast → synligt beslut och ny aktualitetskontroll. Samma domän från
+webb/API/lokal MCP. Separat branch från28a48fe; kalenderprovet är avslutat.
+
+| Senare leverans | Observerbart resultat | Beroenden och beslut före skarp användning |
+| --- | --- | --- |
+| Kunddata och pilotgrindar | Export/radering/retention kan provas; MFA/recovery, backup/restore och drift verifierade | Retentionsbeslut, regel-/leverantörs-/licensbedömning, kvarvarande auditfynd |
+| Journal/behandlingsdokumentation | Behörig personal skapar/granskar en versionsspårad anteckning med rätt journaltyp | Vald verksamhet och rättslig klassning, separata ändamål/behörigheter/lagringstider; inga hälsodata nu |
+| Lager/förbrukning/inköp | Inleverans → saldo/reservation → faktisk förbrukning/försäljning/retur, spårbar historik | Produktmodell och vald målgrupp; batch/bäst före när relevant; inköp kräver mandat |
+| Betalning/kassa/presentkort/återbetalning | Bokning/försäljning kopplas till faktisk betalningsstatus och verifierad avvikelsehantering | PSP-/kassapartner, regler/avtal och testmiljö; ingen egen certifierad kassa byggs på antagande |
+| Bokföringskoppling | Försäljning/avgifter/utbetalningar/återbetalningar kan stämmas av; fel och retry synliga | Vald ekonomipartner/format, kundmandat och bevarandekrav |
+| Marknadsföring/sociala medier | Granskat innehåll/målgrupp/kanal/budget publiceras genom verifierad anslutning; faktiska boknings-/besöksutfall följs | Kanalbehörigheter, samtycke/ändamål, budget och attribution; inga automatiska utskick nu |
+| Analys | Beläggning/avbokningar/återbesök/försäljning visar datakälla, period och begränsningar | Faktiskt underlag, definierade mått och dataminimering; inga låtsade prognoser |
+| Inbyggd AI och fler assistenter | Ett avgränsat ärende fungerar med budgettak, korrekt mandat och återhämtning | Verifierad klient/provider, användningsmätning och produktbeslut; Dots/Muse är inte redan integrerade |
+
+När nattmålet är verifierat avslutas det. Tabellen är framtida leveranser,
+inte tillstånd att starta dem samma natt. Kundpilot förblir en separat grind.
+
+## Föregående riktning och kalenderprov, 2026-11-12
+
 Uppdaterad 2026-11-12 efter Niclas agent-first- och kalenderförtydligande.
 Niclas har efter planuppdateringen godkänt det första avgränsade lokala provet.
 Genomförandestatus finns i [kalenderprovet](calendar-proof/README.md).
@@ -24,8 +79,9 @@ sparad administration och enklare bokning, inte antal sidor eller MCP-verktyg.
 Befintlig kalender, kundregister, tjänster, personal och kampanjer bevaras.
 Webben har tre tydliga uppgifter: kundbokning, visuell arbetsyta och separat
 produktpresentation. Ingen stor egen chatt krävs. Produkter/lager, ekonomi och
-dokumentationsfunktioner är framtida behov att prioritera, inte automatiska
-krav för nästa leverans. Journal kräver separat bedömning.
+journal/dokumentationsfunktioner är beslutade delar av målbilden, att leverera
+i etapper med respektive beslut och grind. De byggs inte automatiskt i nästa
+lilla leverans. Journaltypen kräver separat verksamhets- och regelbedömning.
 
 ## Kalenderkoppling: ansvar och integritet
 

@@ -10,6 +10,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
+## Aktivt nattmål 2026-11-13: proaktiv kapacitet
+
+- Godkänd Del A: `docs/PROACTIVE_OVERVIEW_PLAN.md`; full Del B i docs/research.
+  Bas28a48fe, feature/proactive-capacity-overview, inte äldre main. Kalenderprov klart.
+- Endast framtida avbokning → aktuell tillgänglighet → kalender/avfärda/verkligt
+  idempotent kampanjutkast. Inga kundfält i förslagen, ingen slotexklusiv kampanj.
+- Codex ensam skrivare, fryst separat Grok-QA/max2fixvarv. Privat push och samma
+  skyddade preview efter godkänd QA inom befintligt mandat, ingen mainmerge.
+  Slutför och stanna; journal/lager/ekonomi/full AI-prissättning är roadmap.
+
 ## Planändring: agent-first och kalenderjämförelse, 2026-11-12
 
 - Läs aktuell `docs/PRODUCT_ROADMAP.md`. Niclas har därefter godkänt första

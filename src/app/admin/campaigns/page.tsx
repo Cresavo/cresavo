@@ -28,7 +28,7 @@ export default async function Campaigns() {
           </p>
         )}
         {campaigns.map((c) => (
-          <div className="panel" key={c.id}>
+          <div className="panel" key={c.id} id={`campaign-${c.id}`}>
             <h2>{c.title}</h2>
             <p>
               {c.discountPercent} % · {c.service.name} ·{" "}

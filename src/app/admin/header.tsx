@@ -7,7 +7,8 @@ export default function AdminHeader({
   active,
 }: {
   email: string;
-  active: "calendar" | "services" | "staff" | "campaigns" | "customers";
+  active:
+    "overview" | "calendar" | "services" | "staff" | "campaigns" | "customers";
 }) {
   return (
     <header className="admin-header">
@@ -24,6 +25,7 @@ export default function AdminHeader({
       <nav aria-label="Administration">
         {(
           [
+            ["overview", "/admin/overview", "Översikt", CalendarDays],
             ["calendar", "/admin", "Kalender", CalendarDays],
             ["customers", "/admin/customers", "Kunder", Users],
             ["services", "/admin/services", "Tjänster", Scissors],

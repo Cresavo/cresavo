@@ -1,4 +1,19 @@
-# Produktägarrapport — Epic 06,2026-11-12
+# Produktägarrapport — proaktiv kapacitet under slutverifiering
+
+2026-11-13: lokal kandidat på feature/proactive-capacity-overview. Översikt
+visar framtida avbokningar och aktuell bokningsbarhet. Ägaren kan öppna rätt
+kalenderdag, avfärda eller välja villkor och spara ett beständigt kampanjutkast.
+Vid ny bokning blir förslaget inaktuellt, men utkastet finns kvar med varning.
+Kampanjen gäller tjänst+datumintervall, inte en exklusiv tid. Inget publiceras
+eller skickas automatiskt; ingen språkmodell används för signalen.
+
+Ren installation,78unit/89integration, lint/tsc/build och uppgradering/återseed
+har passerat. Manuell lokal mobil-/desktopprovning har utförts; detta är inte
+en fysisk iPhone. Slutlig fyrmatris och Groks oberoende QA pågår/väntar.
+Den skyddade länken nedan kör fortfarande tidigare7c tills den nya leveransen
+är godkänd och faktiskt driftsatt. Inget nytt pilotgodkännande.
+
+## Föregående leverans — Epic 06,2026-11-12
 
 [Här öppnar du Booking Lab](https://booking-lab-se-preview.vercel.app/product). [Demoadmin](https://booking-lab-se-preview.vercel.app/admin) · [kundbokning](https://booking-lab-se-preview.vercel.app/).
 Vercel-inloggning vid behov, därefter en demoknapp utan extra lösenord.

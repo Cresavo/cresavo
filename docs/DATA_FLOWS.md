@@ -1,5 +1,25 @@
 # Datakarta för Booking Lab SE POC
 
+## Proaktiv kapacitet, 2026-11-13
+
+Översikten och tillåten lokal MCP läser avbokade bokningars id/version,
+tjänst/personal/tider och avbokningshändelse; kundfält väljs inte i frågan.
+Aktuell tillgänglighet räknas av befintlig domän inom högst sju Stockholmsdagar,
+max20källor. Skyddad webb/API använder aktiv admin; lokala verktyg kräver
+befintlig --admin, skrivningar dessutom --allow-workspace. Ingen ny fjärrport.
+
+CapacityDecision lagrar verksamhet/källbokning/version, avfärdande eller utkast,
+kampanjreferens, villkorshash och skapandetid. FK bevarar källkopplingarna;
+unika källor och en gemensam transaktion förhindrar dubbla utkast. Inga kund-
+eller kontaktkopior. Boknings-ID och kopplingar är ändå personrelaterade data;
+framtida GDPR-livscykel måste omfatta även dessa referenser och befintlig ledger.
+Inga automatiska gallringslöften införs här. Bara syntetisk demo är tillåten.
+
+Kampanjrubrik/villkor väljs av ägaren. Skriv inga kundnamn, kontakter eller
+hälsouppgifter i rubriken. UI visar verklig omfattning: tjänst+datum, samtliga
+bokningsbara tider/utförare. Ingen reservation, publicering, modellanslutning,
+telemetri eller utskick införs. Grok får endast rensad källa och syntetiska bevis.
+
 ## Epic 06 — syntetiskt kundregister
 
 Ny Customer-tabell innehåller id, verksamhet, namn, e-post, valfri telefon,

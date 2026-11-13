@@ -507,10 +507,13 @@ export async function listBookings(
   };
 }
 
-export async function createCampaign(input: unknown) {
+export async function createCampaign(
+  input: unknown,
+  client: Prisma.TransactionClient = db,
+) {
   const v = campaignSchema.parse(input);
-  await serviceById(v.serviceId);
-  return db.campaign.create({ data: { ...v, businessId } });
+  await serviceById(v.serviceId, client);
+  return client.campaign.create({ data: { ...v, businessId } });
 }
 
 export async function listCampaigns() {
