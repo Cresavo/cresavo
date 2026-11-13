@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { DEMO_BUSINESS_ID as businessId } from "./config";
 import { DomainError } from "./errors";
+import { hashedEmailCapKey } from "./domain";
 import {
   assertWorkspaceActor,
   lockConfiguration,
@@ -221,6 +222,24 @@ export async function removeCustomerContact(
           409,
         );
       const now = new Date();
+      const quotaRows = await tx.booking.findMany({
+        where: {
+          businessId,
+          customerId: customer.id,
+          emailCapKey: { not: null },
+        },
+        select: { emailCapKey: true },
+        distinct: ["emailCapKey"],
+      });
+      for (const row of quotaRows) {
+        const oldKey = row.emailCapKey!;
+        const newKey = hashedEmailCapKey(oldKey);
+        if (oldKey !== newKey)
+          await tx.booking.updateMany({
+            where: { businessId, customerId: customer.id, emailCapKey: oldKey },
+            data: { emailCapKey: newKey },
+          });
+      }
       await tx.booking.updateMany({
         where: { businessId, customerId: customer.id },
         // Booking operation versions/cancellation sources stay unchanged. The

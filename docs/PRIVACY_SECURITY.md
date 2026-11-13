@@ -2,6 +2,12 @@
 
 ## Manuell kunddata — godkänd avgränsning 2026-11-13
 
+LC-QA-1: äldre e-postkvotnycklar var klartext. Nya icke-adminbokningar lagrar
+nu HMAC-SHA256 med befintlig secret; kontaktåtgärden omkodar äldre råa nycklar
+på sina kopplade bokningar. Övriga äldre rader ändras inte automatiskt.
+Kvotfrågan räknar båda formaten; ingen budget återbetalas eller nyckel töms.
+Detta är fortfarande pseudonymisering, inte full anonymisering.
+
 Niclas har valt manuell export och bekräftad kontaktborttagning med teknisk
 bokningshistorik kvar. Automatisk gallring är avstängd och ingen faktisk
 lagringstid härleds från demodata. Endast syntetiska example.test-kort ingår.

@@ -20,6 +20,12 @@ nya bokningar på kortet och redigering/återaktivering stoppas. Kommande/pågå
 aktiva besök stoppar denna POC-åtgärd. Andra kort/fristående bokningar ändras inte,
 även om samma e-postadress förekommer. Ingen automatisk identitetsmatchning.
 
+Äldre Booking.emailCapKey kan innehålla normaliserad e-post i klartext.
+LC-QA-1 rättar kopian vid manuell kontaktborttagning genom HMAC, och nya
+icke-adminbokningar lagrar HMAC direkt. Gamla ännu inte hanterade rader
+ändras inte automatiskt. Kvotfrågan räknar båda formaten så borttagning inte
+återbetalar dagens bokningsbudget; createdAt och samma e-post/dagslås består.
+
 CustomerDataAction: businessId/customerId/actorId, action, tid, bokningsantal.
 Inga namn/e-post/telefon, råa fel eller exporter i loggen. WorkspaceRequest för
 kontaktborttagning lagrar bara hash av underlag och minimalt id/version/tid-svar.

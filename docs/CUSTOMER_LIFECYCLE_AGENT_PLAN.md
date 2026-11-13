@@ -42,6 +42,14 @@ Ingen automatisk gallring eller påhittad lagringstid. Återläsning av äldre
 backup kräver operatörshantering av kontaktåtgärder före ny åtkomst; ingen
 permanent juridisk radering eller backupgallring påstås.
 
+Fixvarv1 efter Groks LC-QA-1: äldre emailCapKey var normaliserad e-post i
+klartext, inte en hash. Nya icke-adminbokningar lagrar nu en namespacad HMAC
+med befintlig SESSION_SECRET. Vid kontaktborttagning omkodas äldre råa nycklar
+i samma transaktion, utan att tömma dem eller ändra createdAt. Taket räknar
+både äldre och nya format; samma e-post/dagslås och plusnormalisering består.
+Äldre ännu inte hanterade bokningar kan fortfarande ha rå kvotadress. Ingen
+global backfill, historisk migration eller livslängd ändras automatiskt.
+
 Primärkällor lästa2026-11-13: [EU-kommissionen om identifierbarhet/anonymisering](https://commission.europa.eu/law/law-topic/data-protection/information-business-and-organisations/application-gdpr_en)
 och [IMY om radering och undantag](https://www.imy.se/privatperson/dataskydd/dina-rattigheter/radering/).
 De är rättslig bakgrund; ovanstående tekniska POC-val är våra avgränsningar,

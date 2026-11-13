@@ -206,6 +206,16 @@ export function emailCapKey(email: string) {
   return `${local.split("+")[0]}@${domain}`;
 }
 
+export function hashedEmailCapKey(key: string) {
+  if (/^email-hmac-v1:[a-f0-9]{64}$/.test(key)) return key;
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32)
+    throw new Error("EMAIL_CAP_CONFIG_INVALID");
+  return `email-hmac-v1:${createHmac("sha256", secret)
+    .update(`${businessId}:email:${key}`)
+    .digest("hex")}`;
+}
+
 export async function createBooking(
   input: unknown,
   key?: string,
@@ -291,6 +301,7 @@ export async function createBooking(
       const customerName = customer?.name ?? v.customerName!;
       const customerEmail = customer?.email ?? v.customerEmail!;
       const emailKey = emailCapKey(customerEmail);
+      const storedEmailKey = admin ? null : hashedEmailCapKey(emailKey);
       if (budgetAddress) await checkRateLimit(rateRoute, budgetAddress);
       const today = parseDay(localDay(new Date()));
       const tomorrow = today.plus({ days: 1 });
@@ -315,7 +326,13 @@ export async function createBooking(
       if (!admin) {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:email:${emailKey}:${today.toISODate()}`}))`;
         const count = await tx.booking.count({
-          where: { businessId, emailCapKey: emailKey, createdAt: dayRange },
+          where: {
+            businessId,
+            // Count legacy plaintext rows as well as minimised/new rows. Keep
+            // the same normalised email/day lock and the same daily budget.
+            emailCapKey: { in: [emailKey, storedEmailKey!] },
+            createdAt: dayRange,
+          },
         });
         if (count >= 3)
           throw new DomainError(
@@ -359,7 +376,7 @@ export async function createBooking(
         idempotencyKey: idempotencyKey ?? null,
         requestHash: idempotencyKey ? requestHash : null,
         clientKey,
-        emailCapKey: admin ? null : emailKey,
+        emailCapKey: storedEmailKey,
       });
       await tx.bookingEvent.create({
         data: {

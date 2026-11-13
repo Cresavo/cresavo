@@ -3,7 +3,11 @@ import { randomUUID, createHash } from "node:crypto";
 import { DateTime } from "luxon";
 import { db } from "../../src/lib/db";
 import { createCustomer, editCustomer } from "../../src/lib/customers";
-import { createBooking } from "../../src/lib/domain";
+import {
+  createBooking,
+  emailCapKey,
+  hashedEmailCapKey,
+} from "../../src/lib/domain";
 import { cancelBooking } from "../../src/lib/booking-mutations";
 import { decideCapacity, listCapacity } from "../../src/lib/capacity";
 import {
@@ -486,6 +490,96 @@ it("refuses oversized scopes before touching contact data or audit logs", async 
   expect(
     await db.customerDataAction.count({ where: { customerId: c.id } }),
   ).toBe(0);
+});
+
+it("scrubs legacy email quota copies without resetting the daily cap or booking replays", async () => {
+  const c = await customer();
+  const contact = await db.customer.findUniqueOrThrow({ where: { id: c.id } });
+  const client = `lifecycle-client:${marker}`;
+  const day = DateTime.now()
+    .setZone("Europe/Stockholm")
+    .plus({ days: 5 })
+    .startOf("day");
+  const inputs = [9, 10, 11, 12].map((hour) => ({
+    customerId: c.id,
+    serviceId,
+    staffId,
+    start: day.set({ hour }).toUTC().toISO()!,
+  }));
+  const keys = [key(), key(), key()];
+  const created = [];
+  for (let i = 0; i < 3; i++)
+    created.push(
+      await createBooking(inputs[i], keys[i], client, LOCAL_WORKSPACE_ACTOR),
+    );
+  const hash = hashedEmailCapKey(emailCapKey(contact.email));
+  expect(created.every((b) => b.emailCapKey === hash)).toBe(true);
+  expect(hash).not.toContain(contact.email);
+  // Simulate an existing row written by the older application. Both formats
+  // must count before removal; hashing must never refund a booking budget.
+  await db.booking.update({
+    where: { id: created[0].id },
+    data: { emailCapKey: emailCapKey(contact.email) },
+  });
+  await expect(
+    createBooking(inputs[3], key(), client, LOCAL_WORKSPACE_ACTOR),
+  ).rejects.toMatchObject({ status: 429 });
+  for (const b of created)
+    await cancelBooking({ id: b.id, expectedVersion: b.version }, key(), actor);
+  const before = await db.booking.findMany({
+    where: { customerId: c.id },
+    orderBy: { id: "asc" },
+  });
+  const events = await db.bookingEvent.findMany({
+    where: { bookingId: { in: created.map((b) => b.id) } },
+    orderBy: { id: "asc" },
+  });
+  await removeCustomerContact(await removal(c.id, c.version), key(), actor);
+  const removed = await db.customer.findUniqueOrThrow({ where: { id: c.id } });
+  const after = await db.booking.findMany({
+    where: { customerId: c.id },
+    orderBy: { id: "asc" },
+  });
+  for (let i = 0; i < after.length; i++) {
+    expect(after[i]).toEqual({
+      ...before[i],
+      customerName: REMOVED_CONTACT_NAME,
+      customerEmail: REMOVED_CONTACT_EMAIL,
+      emailCapKey: hash,
+      contactRemovedAt: removed.contactRemovedAt,
+    });
+    expect(JSON.stringify(after[i])).not.toContain(contact.email);
+    expect(JSON.stringify(after[i])).not.toContain(contact.name);
+  }
+  expect(
+    await db.bookingEvent.findMany({
+      where: { bookingId: { in: created.map((b) => b.id) } },
+      orderBy: { id: "asc" },
+    }),
+  ).toEqual(events);
+  const replay = await createBooking(
+    inputs[0],
+    keys[0],
+    client,
+    LOCAL_WORKSPACE_ACTOR,
+  );
+  expect(replay.id).toBe(created[0].id);
+  expect(replay.customerEmail).toBe(REMOVED_CONTACT_EMAIL);
+  expect(await db.booking.count({ where: { customerId: c.id } })).toBe(3);
+  const [local, domain] = contact.email.split("@");
+  await expect(
+    createBooking(
+      {
+        serviceId,
+        staffId,
+        start: inputs[3].start,
+        customerName: "Ny påhittad kontakt",
+        customerEmail: `${local}+retry@${domain}`,
+      },
+      key(),
+      client,
+    ),
+  ).rejects.toMatchObject({ status: 429 });
 });
 
 afterAll(async () => {

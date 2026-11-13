@@ -3,7 +3,10 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { DateTime } from "luxon";
 import { createDatabaseClient } from "../../scripts/database.mjs";
-import { createBooking } from "../../src/lib/domain";
+import { emailCapKey, hashedEmailCapKey } from "../../src/lib/domain";
+import { Client } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import { mcpEnvironment } from "../../src/mcp/environment";
 
 test("kundexport laddas ner och bekräftad kontaktborttagning bevarar teknisk historik", async ({
   page,
@@ -72,6 +75,7 @@ test("kundexport laddas ner och bekräftad kontaktborttagning bevarar teknisk hi
         endsAt: new Date(+start + 1800000),
         customerName: "Tidigare påhittat namn",
         customerEmail: email,
+        emailCapKey: emailCapKey(email),
         serviceName: "Historisk demobehandling",
         duration: 30,
         priceOre: 45000,
@@ -190,8 +194,10 @@ test("kundexport laddas ner och bekräftad kontaktborttagning bevarar teknisk hi
       ...booking,
       customerName: "Kontaktuppgifter borttagna",
       customerEmail: "removed@example.test",
+      emailCapKey: hashedEmailCapKey(emailCapKey(email)),
       contactRemovedAt: expect.any(Date),
     });
+    expect(JSON.stringify(removed)).not.toContain(email);
     const actions = await db.customerDataAction.findMany({
       where: { customerId },
     });
@@ -218,7 +224,7 @@ test("kundexport laddas ner och bekräftad kontaktborttagning bevarar teknisk hi
   }
 });
 
-test("kontaktborttagning stoppas vid kommande besök och kan förhandsgranskas efter avbokning", async ({
+test("HTTP-admin och lokal MCP-kontakt minimeras först efter att kommande besök hanterats", async ({
   page,
   synthetic,
 }) => {
@@ -227,6 +233,7 @@ test("kontaktborttagning stoppas vid kommande besök och kan förhandsgranskas e
     staffId = synthetic.marker + "-staff";
   synthetic.trackResource("service", serviceId);
   synthetic.trackResource("staff", staffId);
+  const client = new Client({ name: "customer-privacy-proof", version: "1" });
   try {
     const login = await page.request.post("/api/admin/login", {
       headers: { origin: "http://localhost:3000" },
@@ -275,12 +282,54 @@ test("kontaktborttagning stoppas vid kommande besök och kan förhandsgranskas e
       .set({ hour: 9 })
       .toUTC()
       .toISO()!;
-    const booking = await createBooking(
-      { customerId: customer.id, serviceId, staffId, start },
-      randomUUID(),
-      undefined,
-      { kind: "admin", id: synthetic.admin.id },
+    await client.connect(
+      new StdioClientTransport({
+        command: process.execPath,
+        args: [
+          "--import",
+          "tsx",
+          "src/mcp/server.ts",
+          "--admin",
+          "--allow-workspace",
+        ],
+        env: mcpEnvironment({ workspace: true }),
+      }),
     );
+    const mcp = await client.callTool({
+      name: "create_booking",
+      arguments: {
+        customerId: customer.id,
+        serviceId,
+        staffId,
+        start,
+        clientRequestId: randomUUID(),
+        confirmed: true,
+      },
+    });
+    expect(mcp.isError).toBeFalsy();
+    const block = mcp.content[0];
+    if (block.type !== "text") throw Error("MCP_TEXT_EXPECTED");
+    const booking = await db.booking.findUniqueOrThrow({
+      where: { id: JSON.parse(block.text).id },
+    });
+    expect(booking.emailCapKey).toMatch(/^email-hmac-v1:[a-f0-9]{64}$/);
+    const adminKey = randomUUID();
+    synthetic.trackWorkspaceRequest(adminKey);
+    const adminResponse = await page.request.post("/api/admin/bookings", {
+      headers: { origin: "http://localhost:3000", "Idempotency-Key": adminKey },
+      data: {
+        action: "create",
+        customerId: customer.id,
+        serviceId,
+        staffId,
+        start: DateTime.fromISO(start).plus({ hours: 1 }).toISO(),
+      },
+    });
+    expect(adminResponse.status()).toBe(201);
+    const adminBooking = await db.booking.findUniqueOrThrow({
+      where: { id: (await adminResponse.json()).id },
+    });
+    expect(adminBooking.emailCapKey).toBeNull();
     await page.goto(`/admin/customers/${customer.id}`);
     await page.getByText("Ta bort kontaktuppgifter", { exact: true }).click();
     await page
@@ -293,7 +342,7 @@ test("kontaktborttagning stoppas vid kommande besök och kan förhandsgranskas e
       page
         .getByRole("region", { name: "Kunddata", exact: true })
         .getByRole("alert"),
-    ).toContainText("Hantera 1 kommande eller pågående bokningar först.");
+    ).toContainText("Hantera 2 kommande eller pågående bokningar först.");
     await expect(
       page.getByRole("button", {
         name: "Bekräfta kontaktborttagning",
@@ -311,6 +360,23 @@ test("kontaktborttagning stoppas vid kommande besök och kan förhandsgranskas e
       },
     });
     expect(cancel.status()).toBe(200);
+    const adminCancelKey = randomUUID();
+    synthetic.trackWorkspaceRequest(adminCancelKey);
+    expect(
+      (
+        await page.request.post("/api/admin/bookings", {
+          headers: {
+            origin: "http://localhost:3000",
+            "Idempotency-Key": adminCancelKey,
+          },
+          data: {
+            action: "cancel",
+            id: adminBooking.id,
+            expectedVersion: adminBooking.version,
+          },
+        })
+      ).status(),
+    ).toBe(200);
     await page
       .getByRole("button", {
         name: "Förhandsgranska kontaktborttagning",
@@ -327,7 +393,51 @@ test("kontaktborttagning stoppas vid kommande besök och kan förhandsgranskas e
       (await db.customer.findUniqueOrThrow({ where: { id: customer.id } }))
         .contactRemovedAt,
     ).toBeNull();
+    const before = await db.booking.findMany({
+      where: { customerId: customer.id },
+      orderBy: { id: "asc" },
+    });
+    const events = await db.bookingEvent.findMany({
+      where: { bookingId: { in: before.map((b) => b.id) } },
+      orderBy: { id: "asc" },
+    });
+    await page
+      .getByRole("checkbox", {
+        name: "Jag förstår omfattningen och vill ta bort kontaktuppgifterna.",
+        exact: true,
+      })
+      .check();
+    await page
+      .getByRole("button", { name: "Bekräfta kontaktborttagning", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", {
+        name: "Kontaktuppgifter borttagna",
+        exact: true,
+      }),
+    ).toBeVisible();
+    const after = await db.booking.findMany({
+      where: { customerId: customer.id },
+      orderBy: { id: "asc" },
+    });
+    for (let i = 0; i < after.length; i++) {
+      expect(after[i]).toEqual({
+        ...before[i],
+        customerName: "Kontaktuppgifter borttagna",
+        customerEmail: "removed@example.test",
+        contactRemovedAt: expect.any(Date),
+      });
+      expect(JSON.stringify(after[i])).not.toContain(customer.email);
+      expect(JSON.stringify(after[i])).not.toContain(customer.name);
+    }
+    expect(
+      await db.bookingEvent.findMany({
+        where: { bookingId: { in: before.map((b) => b.id) } },
+        orderBy: { id: "asc" },
+      }),
+    ).toEqual(events);
   } finally {
+    await client.close();
     await db.$disconnect();
   }
 });

@@ -23,7 +23,8 @@ redigeras/återaktiveras; DB CHECK skyddar markörerna när contactRemovedAt sat
 Inga rader raderas. Booking.version för tid/status ändras inte av kontaktåtgärden;
 den separata contactRemovedAt visar ändringen. Därmed bevaras avbokningskällans
 version och CapacityDecision-koppling. Tider/pris/tjänstesnapshot, events,
-requestHash/clientKey/emailCapKey och konfliktskydd består. Gamla replays
+requestHash/clientKey och konfliktskydd består. E-postkvotens logiska budget
+bevaras; äldre rå emailCapKey omkodas till HMAC vid kontaktåtgärden. Gamla replays
 innehåller inga råa kontakter i ledger och kan inte återställa borttagna fält.
 
 CustomerDataAction lagrar verksamhet, kort/aktör-id, action, bokningsantal och
@@ -41,6 +42,15 @@ Utan den nya flaggan är tidigare katalog/kontrakt oförändrade. Det är fortfa
 betrodd lokal stdio, inte OAuth, fjärrmandat eller full flerföretagsisolering.
 Faktisk klientprovning ska skiljas från SDK-test; aktuell plan/status i
 CUSTOMER_LIFECYCLE_AGENT_PLAN/PROJECT_STATUS.
+
+Nya icke-adminbokningar lagrar emailCapKey som email-hmac-v1 + HMAC-SHA256
+med befintlig SESSION_SECRET och verksamhetsnamespace. Oförändrat e-post/
+dagslås använder samma normaliserade adress; kvotfrågan räknar både äldre
+råa nycklar och HMAC. Kontaktåtgärden omkodar sina äldre kopplade råa nycklar
+atomärt, aldrig tömmer dem eller ändrar createdAt. Ingen global backfill eller
+ny migration. Äldre obehandlade rader kan ha rå kvotadress. HMAC är fortfarande
+pseudonymiserad data, inte anonym. SESSION_SECRET-rotation har liksom tidigare
+konsekvenser för kvot-/klientnycklar; normal sessionsrevokering använder version.
 
 ## Proaktiv arbetsöversikt, 2026-11-13
 

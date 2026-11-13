@@ -20,6 +20,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Kontaktåtgärder tar befintligt exklusivt konfigurationslås. Booking.version
   och CapacityDecision-källor bevaras; separat contactRemovedAt markerar
   kontaktändringen. Återaktivera inte borttagna kort och rensa inte kvotnycklar.
+- LC-QA-1: nya icke-adminbokningar lagrar e-postkvot som email-hmac-v1.
+  Äldre råa nycklar räknas tillsammans med HMAC och omkodas vid kontaktåtgärd.
+  Behåll normaliserat e-post/dagslås, createdAt och tak3/dag även efter borttagning.
 - --capacity-only avgränsar befintlig lokal MCP. Klientens confirmed=true är
   ingen garanti för mänskligt mandat; redovisa faktiska klientanrop separat.
 - Samma avgränsade arbetssätt: ensam skrivare, fryst separat Grok-QA/max2fixvarv,
