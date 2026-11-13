@@ -110,15 +110,16 @@ test("avbokning till kalender, beständigt avfärdande och korrekt kampanjutkast
     await page
       .getByRole("button", { name: "Uppdatera förslagen", exact: true })
       .click();
-    await expect(page.getByRole("alert")).toContainText(
-      "Översikten kunde inte hämtas",
-    );
+    const overviewError = page
+      .getByRole("region", { name: "Förslag från ledig kapacitet" })
+      .getByRole("alert");
+    await expect(overviewError).toContainText("Översikten kunde inte hämtas");
     await expect(card).toBeVisible();
     await page.unroute("**/api/admin/capacity");
     await page
       .getByRole("button", { name: "Uppdatera förslagen", exact: true })
       .click();
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(overviewError).toHaveCount(0);
     for (const width of [320, 390, 1440]) {
       await page.setViewportSize({ width, height: 844 });
       expect(
