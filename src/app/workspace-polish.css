@@ -144,9 +144,9 @@ button.danger {
   font-size: 14px;
 }
 .admin-workspace input[type="checkbox"] {
-  min-height: 22px;
-  width: 22px;
-  height: 22px;
+  min-height: 24px;
+  width: 24px;
+  height: 24px;
 }
 .panel {
   border-color: var(--line);
@@ -166,7 +166,7 @@ button.danger {
 }
 .calendar-guidance summary {
   padding: 4px 0;
-  min-height: 36px;
+  min-height: 44px;
 }
 .calendar-guidance p {
   margin-top: 4px;
@@ -315,26 +315,23 @@ button.danger {
 .calendar-booking > span:last-of-type {
   opacity: 0.88;
 }
+/* Dense visits keep a real target; details live on the booking page, not over a neighbour. */
 .calendar-booking[data-compact] {
-  padding: 0 5px;
+  justify-content: center;
+  padding: 0 3px;
   font-size: 10px;
-  line-height: 1.05;
+  line-height: 1.2;
 }
 .calendar-booking[data-compact] strong {
   font-size: 10px;
+  white-space: nowrap;
+}
+.calendar-booking[data-compact] > span {
+  display: none;
 }
 .calendar-booking:hover,
 .calendar-booking:focus-visible {
-  z-index: 6;
-  min-height: 82px;
-  padding: 8px 10px;
-  box-shadow: 0 5px 20px #183d2120;
-  font-size: 12px;
-  line-height: 1.4;
-}
-.calendar-booking:hover strong,
-.calendar-booking:focus-visible strong {
-  font-size: 12px;
+  box-shadow: 0 2px 8px #183d2120;
 }
 .mobile-booking {
   border-color: var(--line);
@@ -685,4 +682,20 @@ button.danger {
   max-width: 680px;
   line-height: 1.7;
   margin-bottom: 8px;
+}
+
+.calendar-views a {
+  min-height: 44px;
+}
+.customer-search > label {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+@media (max-width: 767px) {
+  .admin-workspace input,
+  .admin-workspace select {
+    font-size: 16px;
+  }
 }

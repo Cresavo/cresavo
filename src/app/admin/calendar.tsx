@@ -4,6 +4,7 @@ import { ZONE } from "@/lib/time";
 import { readableDay } from "@/lib/format";
 import type { StaffView } from "./types";
 import CalendarFilters from "./calendar-filters";
+import { layoutCalendarCards, type CardPlacement } from "./calendar-layout";
 import ContextLink from "../components/context-link";
 import { contextualHref, type ReturnContext } from "@/lib/navigation-context";
 
@@ -85,6 +86,33 @@ export default function Calendar({
       minute: "2-digit",
       hour12: false,
     }).format(d);
+  const placements = new Map<string, CardPlacement>();
+  for (const day of days) {
+    for (const person of people) {
+      const cards = bookings
+        .filter(
+          (b) =>
+            b.status === "confirmed" &&
+            b.staffId === person.id &&
+            DateTime.fromJSDate(b.startsAt, { zone: ZONE }).toISODate() ===
+              day.toISODate(),
+        )
+        .map((b) => {
+          const endMinute =
+            DateTime.fromJSDate(b.endsAt, { zone: ZONE }).toISODate() !==
+            day.toISODate()
+              ? 1440
+              : minute(b.endsAt);
+          return {
+            id: b.id,
+            top: ((minute(b.startsAt) - minHour * 60) / 60) * hourHeight,
+            height: ((endMinute - minute(b.startsAt)) / 60) * hourHeight - 2,
+          };
+        });
+      for (const [id, placement] of layoutCalendarCards(cards))
+        placements.set(id, placement);
+    }
+  }
   const bookingLink = (b: CalendarBooking) =>
     `/admin/bookings/${encodeURIComponent(b.id)}`;
   return (
@@ -341,12 +369,10 @@ export default function Calendar({
                       people.findIndex((p) => p.id === b.staffId),
                     ),
                     lanes = Math.max(1, people.length);
-                  const endMinute =
-                    DateTime.fromJSDate(b.endsAt, {
-                      zone: ZONE,
-                    }).toISODate() !== day.toISODate()
-                      ? 1440
-                      : minute(b.endsAt);
+                  const placement = placements.get(b.id)!;
+                  const person =
+                    people.find((p) => p.id === b.staffId)?.name ??
+                    "Tidigare utförare";
                   return (
                     <ContextLink
                       key={b.id}
@@ -357,24 +383,16 @@ export default function Calendar({
                           staff.findIndex((p) => p.id === b.staffId),
                         ) % 4
                       }
-                      data-compact={
-                        endMinute - minute(b.startsAt) < 25 ? "true" : undefined
-                      }
-                      aria-label={`${time(b.startsAt)}–${time(b.endsAt)} · ${b.serviceName} · ${b.customerName}`}
+                      data-compact={placement.height < 60 ? "true" : undefined}
+                      aria-label={`${time(b.startsAt)}–${time(b.endsAt)} · ${b.serviceName} · ${b.customerName} · ${person}`}
                       className={`calendar-booking ${b.status === "cancelled" ? "cancelled" : ""}`}
                       style={{
-                        top:
-                          ((minute(b.startsAt) - minHour * 60) / 60) *
-                          hourHeight,
-                        height: Math.max(
-                          10,
-                          ((endMinute - minute(b.startsAt)) / 60) * hourHeight -
-                            2,
-                        ),
-                        left: `calc(${(lane / lanes) * 100}% + 3px)`,
-                        width: `calc(${100 / lanes}% - 6px)`,
+                        top: placement.top,
+                        height: placement.height,
+                        left: `calc(${((lane + placement.column / placement.columns) / lanes) * 100}% + 3px)`,
+                        width: `calc(${100 / lanes / placement.columns}% - 6px)`,
                       }}
-                      title={`${time(b.startsAt)}–${time(b.endsAt)} ${b.serviceName} · ${b.customerName}`}
+                      title={`${time(b.startsAt)}–${time(b.endsAt)} ${b.serviceName} · ${b.customerName} · ${person}`}
                     >
                       <strong>
                         {time(b.startsAt)}–{time(b.endsAt)}

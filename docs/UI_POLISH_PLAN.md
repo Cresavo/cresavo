@@ -18,3 +18,21 @@ Faktisk iPhone/Safari och ägarens visuella godkännande särredovisas.
 
 Före-bilder i <local-state>/codex/booking-lab-polish-evidence/before, fångade
 från verklig skyddad preview före ändringen, plus Niclas två bifogade bilder.
+
+## Samlat rättningsvarv 1 efter Grok på 268ebdf
+
+UP-QA-1/2: layoutCalendarCards är en liten ren presentationsfunktion per
+personal/dag. Den behåller faktisk tidsposition, ger minst 24px tryckhöjd och
+delar visuellt kolliderande ytor i sidled. Hover/fokus ändrar aldrig geometri.
+Kompakta kort visar tid; full behandling/kund/personal finns i aria-label/title
+och i vanlig bokningsdetalj. Ingen ny affärsregel eller agentbehörighet.
+
+Fyra unitfall verifierar vanlig kalender, 20 täta kort, kort→långt och osorterat
+underlag. E2E mäter verkliga 2D-rektanglar, mål24px, hover/fokus-stabilitet och
+klick på nästa ursprungliga mittpunkt vid 1180/1440. Detta ersätter det tidigare
+kravet på överlappande expansion82px med ett strikt krav på stabil geometri.
+
+Samma varv återställer hjälp44px/kryssruta24px, ger kundarkivet etikett44px,
+mobilfält16px samt Dag/Vecka44px. Fysisk Safari-fokuszoom är fortfarande ej provad.
+UP-QA-5 förbättras med personal i tillgängligt namn; färger får upprepas och
+är aldrig ensam identifiering. Mindre idéer stannar i backloggen.
