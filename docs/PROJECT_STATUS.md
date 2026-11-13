@@ -1,24 +1,48 @@
-# Projektstatus — proaktiv kapacitetsöversikt under slutverifiering
+# Projektstatus — proaktiv kapacitetsöversikt levererad
 
-2026-11-13. Branch **feature/proactive-capacity-overview**, fortsättningsbas
-28a48fe. Grok har granskat956155f: GO syntetisk POC, inte pilot. Ett Medium-
-fynd PRO-QA-1 rättas med begränsad cursorpaginering; riktad återkontroll väntar.
-Den nya koden är ännu inte pushad eller driftsatt.
-Den stabila previewn nedan kör fortfarande föregående7c1407d.
+Verifierad **2026-11-13**. Branch **feature/proactive-capacity-overview**.
+Produkt, Groks återkontroll och driftsatt kod:
+**8843d06350c6478e375fb640579cb3ac4f7fe3dc**. Senare dokument-/bildcommit
+ändrar ingen produktkod. Bas28a48fe efter avslutat kalenderprov; main är
+fortfarande b000481 och har inte mergats.
 
-Implementerat: begränsad avbokningssignal med aktuell tillgänglighet, Översikt,
-rätt kalenderlänk, beständigt avfärdande och atomärt/idempotent kampanjutkast.
-Samma domän för skyddad UI/API och opt-in lokal MCP; ingen ny modellanslutning.
-Utkastets verkliga omfattning är tjänst+datum, inga reservationer/utskick.
+[Öppna skyddad demo](https://booking-lab-se-preview.vercel.app/product) →
+**Prova salongens arbetsyta → Översikt**. Endast påhittade uppgifter.
 
-Hittills verifierat: lint/tsc/build,78unit,89integration, uppgradering7→8,
-återseed med identiska tabellhashar och0överlapp. Manuellt Chromiumprov visar
-kalender→egna kampanjvillkor→sparat utkast→ny bokning→inaktuellt förslag.
-Mobilstorlek320/390 och desktop1440 är emulering, inte fysisk iPhone.
-Fyra E2E-lägen gav42/42 vardera på956155f. Efter pagineringsrättningen körs
-slutmatrisen igen; CI/ny preview återstår. Aktuellt utfall i VERIFICATION.
-Full långsiktig målbild finns kvar i [roadmap](PRODUCT_ROADMAP.md).
-Ingen kundpilot eller ny epic är godkänd genom detta mål.
+| Acceptanskriterium | Faktiskt verifierat / produktkvalitet |
+| --- | --- |
+| Framtida avbokning visar tjänst, utförare, tid och verklig tillgänglighet | PASS domän/integration/UI/Grok/moln; högst7Stockholmsdagar, max20/sida. Regelbaserat, ingen modell eller intäktsprognos. |
+| Ägaren öppnar rätt kalenderläge | PASS egen klicktest på stabil alias:16november, Sam Demo; kalender/kundflöden kvar. |
+| Avfärdande och kampanjutkast består | PASS integration/E2E/Grok; sparat utkast och status i faktisk preview. Beslut knyts till bokning+version. |
+| Rabatt väljs uttryckligen och faktisk omfattning framgår | PASS förhandsgranskning: tjänst+datum, alla bokningsbara tider/utförare; ingen slotreservation, automatisk publicering eller utskick. |
+| Dubbeltryck/retry/samtidighet ger högst ett utkast | PASS lokalt, Grok och20samtidiga HTTP-anrop i molnet; samma utkast-id och ändrad payload409. |
+| Ny bokning eller ändrat underlag gör förslaget inaktuellt | PASS domän/Grok; verklig återbokning15.00 i molnet visar stale och behåller utkastet. |
+| Senare förslag går att nå | PASS efter1samlat fixvarv: cursor i UI/API/MCP, omladdning/handling på sida2. Grok stängde PRO-QA-1. |
+| Lokal agent använder samma regler utan kundfält | PASS faktiska stdio-kontraktstester. Nya skrivningar kräver --admin --allow-workspace; ingen publik MCP eller påstådd Dots/Muse-integration. |
+| Uppgradering/seed bevarar äldre data | PASS lokal7→8 och återseed; molnets84äldre bokningar oförändrade,92totalt,0överlapp. |
+| Åtkomstskydd och återläsning | PASS HTML/API/resurser, logout/revocation, TLS och alla4READY-adresser+stabil alias. Krypterad slutbackup återläst:12tabeller, identiska radhashar. |
+
+Automatik: **78unit/90integration/42E2E×4**, lint/tsc/build PASS.
+[Actions43353236981](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43353236981):
+fyra gröna jobb på exakt produkt-SHA. [Grok original](qa/QA-REPORT-proactive-fix1-8843d06.md):
+egna78/90/42prod-E2E, riktad UI/API/MCP och GO syntetisk POC; inte egen fyrmatris/moln.
+[Aktuella resultat och råutdata](VERIFICATION.md) · [provguide/bilder](DEMO.md).
+
+Sedan förra omgången: ny Översikt, beständiga beslut/utkast, gemensamma lokala
+agentverktyg, additiv scenarioseed och nåbara förslag efter första sidan.
+Full målbild bevarad i befintlig [roadmap](PRODUCT_ROADMAP.md) och Del B.
+
+**Delvis/kvar:** signalen täcker avbokningar, inte all ledig kapacitet;
+uppdateras vid läsning/knapp, inga bakgrundsnotiser. Kampanjpris debiteras inte
+automatiskt. Ett Low och tre Info från återkontrollen ligger i backloggen.
+Mobil emulering är testad; fysisk iPhone/Safari och Niclas UX-beslut återstår.
+14hashade spärrposter finns i integrationstestdatabasen, övriga egna affärsrader0.
+
+**Pilot NO-GO:** MFA/recovery, kundexport/radering/retention, full tenant-/drift-
+och leverantörs-/licensgrind kvar. Full audit FAIL7moderate i dev; prod0fynd.
+Ingen automatiserad extern backup eller framtida integration är levererad.
+Journal, lager, ekonomi, sociala medier och AI-prissättning är planerade områden,
+inte nattens implementation. Nattmålet är avslutat; inga fler epics startas.
 
 ## Föregående leverans — Epic 06 skyddad syntetisk demo
 

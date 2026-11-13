@@ -34,7 +34,9 @@ byggs först när ett verkligt flöde kräver dem. Ingen generell workflowmotor 
 usage-nivåer och kommersiell nytta måste mätas. Ett utkast är inte försäljning;
 en ny bokning efter ett förslag bevisar inte att kampanjen orsakade den.
 
-Aktivt avgränsat byggmål: [proaktiv kapacitetsöversikt](PROACTIVE_OVERVIEW_PLAN.md).
+Levererat avgränsat nattmål: [proaktiv kapacitetsöversikt](PROACTIVE_OVERVIEW_PLAN.md),
+produkt-/QA-/deploykod8843d06. Ett samlat fixvarv, Grok-GO för syntetisk POC,
+fyra gröna CI-jobb; faktisk status och begränsningar i PROJECT_STATUS/DEMO.
 Framtida avbokning → faktiskt bokningsbar tid → kalender eller beständigt
 kampanjutkast → synligt beslut och ny aktualitetskontroll. Samma domän från
 webb/API/lokal MCP. Separat branch från28a48fe; kalenderprovet är avslutat.
@@ -55,13 +57,20 @@ inte tillstånd att starta dem samma natt. Kundpilot förblir en separat grind.
 
 ### Begränsad QA-backlog från956155f
 
-PRO-QA-1 (nåbara förslag bortom första sidan) rättas inom nattmålet. Info-fynd
+PRO-QA-1 (nåbara förslag bortom första sidan) är stängt i8843d06. Info-fynd
 utvidgar inte leveransen: integrationstesters hashade spärrposter behöver egen
 städning; äldre fristående create_campaign_draft har kvar sitt --admin-kontrakt;
 Översikt/Kalender kan få olika befintliga ikoner; stale-avfärdande och befintlig
 90dagars-/100%-kampanjpolicy behöver framtida UX-/produktbeslut. Äldre demoseed
 hoppar över en fredagstid. Paketantal571Windows/572Linux med identisk låsfil är
 en plattformsskillnad, inte ett uppgraderingsbehov. Originalfynd i docs/qa.
+
+Återkontroll8843d06 gav inga blockerare/Medium+. PRO-F1-QA-1 Low: visa tydligare
+att senare sidor kan innehålla nya förslag; Nästa förslag hamnar under vikningen
+vid320px. Tre Info: formge ogiltigt-sidval-meddelandet, skilj a11y-etiketter för
+samtidiga förslag med olika personal och förklara datumlåsta bokmärken som blir
+ogiltiga efter midnatt. Bounded paging och fallback fungerar; dessa förbättringar
+startar inget andra fixvarv eller ny Epic. [Original](qa/QA-REPORT-proactive-fix1-8843d06.md).
 
 ## Föregående riktning och kalenderprov, 2026-11-12
 

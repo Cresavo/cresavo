@@ -1,5 +1,10 @@
 # Nattmål 2026-11-13: proaktiv arbetsöversikt
 
+**Avslutat:** produkt-/Grok-/CI-/deployrevision8843d06350c6478e375fb640579cb3ac4f7fe3dc.
+Ett samlat fixvarv, GO syntetisk POC; ingen kundpilot. Faktiska resultat,
+begränsningar och provväg i VERIFICATION/PROJECT_STATUS/DEMO. Planen nedan
+bevarar uppdraget; inga efterföljande moduler startas automatiskt.
+
 Godkänt mandat: Del A i Niclas paket booking-lab-codex-nattmal-2026-11-13.md.
 Del B bevaras i [research](research/BOOKING_LAB_DIRECTION_2026_11_13.md), med
 ursprungliga datum/källor. Det är levererat researchunderlag, inte nya egna
@@ -79,7 +84,7 @@ väntande. Ingen mainmerge/force-push, publik MCP, nya betaltjänster eller pilo
 Uppdatera befintlig status/handoff/verifiering/produktägarrapport och avsluta
 målet. Starta inga ytterligare epics automatiskt.
 
-## Implementerad provväg (slutverifiering pågår)
+## Implementerad och verifierad provväg
 
 Efter befintliga lokala startsteg och migrering av en separat loopback *_demo:
 

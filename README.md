@@ -1,5 +1,21 @@
 # booking-lab-se
 
+## Proaktiv kapacitetsöversikt — levererad syntetisk POC
+
+[Öppna den skyddade demon](https://booking-lab-se-preview.vercel.app/product),
+välj arbetsytan och **Översikt**. Framtida avbokningar kontrolleras mot samma
+bokningsmotor; öppna rätt kalenderdag, avfärda eller välj villkor och spara ett
+beständigt kampanjutkast. Ingen automatisk publicering eller modellanslutning.
+Tjänst+datum gäller alla bokningsbara tider/utförare, inte en exklusiv lucka.
+
+Produkt-/QA-/deploykod8843d06.78unit/90integration/42E2E×4 och fyra CI-jobb PASS;
+Grok-GO efter ett samlat fixvarv. Full audit har7moderate dev, prod0fynd.
+[Provguide och riktiga bilder](docs/DEMO.md) · [faktiska kommandon/NOT RUN](docs/VERIFICATION.md).
+Fysisk iPhone/Safari och kundpilot är inte godkända. Lokalt efter migrering/
+grundseed på en separat *_demo: `BOOKING_DEMO_SEED=1 npm run demo:seed:capacity`.
+Använd individuell lokal admin; previewns opt-in-demoinloggning är miljöbunden.
+Ingen ny drift, extern MCP eller betald tjänst behövs för det lokala provet.
+
 ## Epic 06 — levererad skyddad syntetisk demo
 
 [Öppna Booking Lab](https://booking-lab-se-preview.vercel.app/product) · [demoadmin](https://booking-lab-se-preview.vercel.app/admin) · [kundbokning](https://booking-lab-se-preview.vercel.app/).

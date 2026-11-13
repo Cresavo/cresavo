@@ -1,42 +1,80 @@
-# Verifiering — proaktiv kapacitetsöversikt, kandidat 2026-11-13
+# Verifiering — levererad proaktiv kapacitetsöversikt
 
-Branch feature/proactive-capacity-overview, bas28a48fe. Slutkandidatens exakta
-SHA tillförs efter frysning. Grok956155f gav GO syntetisk POC; PRO-QA-1 rättas i fixvarv1, riktad återkontroll väntar. Ingen ny CI/deploy är ännu godkänd.
-Råutdata: C:/Users/<user>/booking-lab-pg-test/proactive. Källkod ändras endast
-i <local-state>/codex/booking-lab-ui; hashkontrollerad testkopia på C: används
-efter hög I/O-kö på D:. Paket- och låsfil identiska, inga nya beroenden.
+2026-11-13. Produkt-/Grok-/CI-/deploykod **8843d06350c6478e375fb640579cb3ac4f7fe3dc**,
+feature/proactive-capacity-overview från28a48fe. Dokument-/bildändringar efter
+QA är separata. Endast syntetiska uppgifter. Pilot NO-GO.
 
 ## Aktuell resultattabell
 
-| Kommando/kontroll | Faktiskt utfall hittills |
+| Körda kommandon / kontroll | Faktiskt resultat |
 | --- | --- |
-| npm ci --offline --no-fund --no-audit | PASS exit0,571paket,4m i tom separat testkopia på C:. D:-försöken avbröts vid belastad disk; inte räknade som godkända. |
-| node node_modules/prisma/build/index.js generate | PASS7.10.1 efter ren installation. |
-| Prisma migrate deploy + grundseed | PASS8migrationer på6nya loopback_test/_demo-miljöer; historiska7oförändrade. |
-| node node_modules/eslint/bin/eslint.js . | PASS exit0. |
-| node node_modules/typescript/bin/tsc --noEmit | PASS exit0. |
-| RATE_LIMIT_STORE=memory node node_modules/vitest/vitest.mjs run | PASS78/78,15filer,7.97s. Minneslagrets enhetstester ska inte ärva integrationens PostgreSQL-läge. |
-| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts | PASS90/90,21filer,79.02s efter pagineringsrättningen; tidigare89/89 på956155f. |
-| node node_modules/next/dist/bin/next build | PASS exit0,17s. |
-| Fyra fulla E2E-lägen | 42/42×4 PASS på956155f. Slutmatris efter fixvarv1 väntar; första fix1-prod0 gav40PASS/2FAIL eftersom nätverksmocken saknade nya sidparametrar. Testets matchning rättad, assertions oförändrade. |
-| Uppgradering och återseed | PASS7→8; äldre tabeller/snapshot oförändrade, samtliga hashvärden identiska vid andra capacity-seed,0överlapp. |
-| Manuell ny produktionsbyggd UI | PASS956155f: kalenderurval, kampanjdatum/rabatt, utkast/reload, rebook→stale och sparad kampanj efter verklig lokal serveromstart.320/390/1440px, inte fysisk iPhone. |
-| npm audit --package-lock-only --json | FAIL exit1:7moderate,0high/critical. |
-| npm audit --package-lock-only --omit=dev --json | PASS exit0:0fynd. Separat från funktioner/pilotbeslut. |
-| Grok / privat push / Actions / ny faktisk preview | Grok956155f: egna78/89/42prod-E2E och79HTTP/61UI PASS, GO syntetisk POC med PRO-QA-1. Fix1/privat push/Actions/ny preview VÄNTAR. |
+| npm ci --offline --no-fund --no-audit | PASS exit0,571paket,4m i tom Windows-testkopia på C:. Oförändrad lockfil; Linux/Grok/CI har plattformsberoende valfria paket. |
+| node node_modules/prisma/build/index.js generate | PASS exit0,7.10.1. |
+| node node_modules/prisma/build/index.js migrate deploy; node --import tsx prisma/seed.ts | PASS8migreringar/grundseed på6nya loopback_test/_demo, separat prod0-v3_test vid sista körningen. Historiska7orörda. |
+| BOOKING_DEMO_SEED=1 node --import tsx scripts/seed-capacity.ts | PASS lokal additiv demo och7→8uppgraderingskopia; andra seedens samtliga tabellhashar identiska,0överlapp. |
+| node node_modules/eslint/bin/eslint.js . | PASS exit0,7s. |
+| node node_modules/typescript/bin/tsc --noEmit | PASS exit0,3s. |
+| RATE_LIMIT_STORE=memory node node_modules/vitest/vitest.mjs run | PASS78/78,15filer,7.03s. |
+| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts | PASS90/90,21filer,77.26s, riktig PostgreSQL. |
+| node node_modules/next/dist/bin/next build | PASS exit0,7s; verkligt produktionsbygge. |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test | PASS42/42,86s. |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test | PASS42/42,87s. |
+| E2E_PRODUCTION= TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test | PASS42/42,153s. |
+| E2E_PRODUCTION= TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test | PASS42/42,162s. |
+| npm audit --package-lock-only --json | FAIL exit1:7moderate,0high/critical; enbart ESLint/typescript-eslint/minimatch-devkedjan. |
+| npm audit --package-lock-only --omit=dev --json | PASS exit0:0fynd. Inte ett generellt säkerhets- eller pilotgodkännande. |
+| Gitarchive mot testkopia | PASS167kod-/konfig-/asset-/testfiler matchar8843d06; LF-normaliserad text och exakt binär jämförelse. Inga källändringar i testkopian. |
+| Teststädning | Alla fem testmiljöer:0Booking/BookingEvent/Customer/Campaign/CapacityDecision/AdminUser/AdminSession/WorkspaceRequest. Integration har14hashade RateLimitBucket-rader kvar; fyra E2E-miljöer0. |
+| Oberoende Grok, fix1 | GO syntetisk POC; PRO-QA-1 stängt. Egna78unit/90integration/42prod-E2E, lint/tsc/build och51UI-prober PASS. Fyra mindre backlogfynd, inga blockerare/Medium+. |
+| gh workflow run verify.yml --ref feature/proactive-capacity-overview | [43353236981](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43353236981) success på8843d06: fyra42/42jobb,78unit/90integration, npmci/migrate/seed/lint/tsc/build. Push43353218140 avbröts av manuell fullmatris. |
+| Skyddad Vercel Preview och stabil alias | PASS READY dpl_<redacted>, sourceRevision8843d06, target=null, fra1; source archive av exakt Git-SHA. CLI API kompletterade connectorns utelämnade custom metadata. |
+| Molnmigration/seed/historik | PASS8migreringar;84äldre bokningshashar identiska; seed två gånger identisk; slut92bokningar/33kunder/4kampanjer/3beslut;0överlapp och endast example.test. |
+| Verkliga driftflöden | PASS ett demoklick, minimerad/bounded API, origin403,20samtidiga draft→1id, replay/ändrad payload409, UI/save/reload, rebook→stale, opublicerat utkast, logout/kopierad cookie403. Ingen publik MCP. |
+| HTML/API/resurser/TLS | PASS alla4READY-URL:er+stabil alias kräver Vercel302 utan auth. Nya resurser/static chunk/POST skyddade. HTTPS/certifikat, säkerhetsheaders, HTTP308. Ingen TCP-anslutning till port3000 observerades inom5s; ingen full nätverkspentest. |
+| Stabil alias, utan appsession | PASS produkt200 bakom befintlig Vercel-auth, capacityAPI403. Overview ger200 med Nexts streamade loginredirect och inga kapacitetsdata; HTTP200 betyder inte adminåtkomst. |
+| Egen faktisk Computer Use i preview | PASS390px: demoinloggning, Översikt→16nov/Sam,20%-villkor/datumval→förhandsgranskning utan sparande, verkligt stale-kort. Nya faktiska390/1440-bilder granskade. Automatiskt layoutprov även320px. |
+| Krypterad backup/återläsning | PASS före migration11tabeller och efter drift12tabeller, alla radhashar identiska. AES-256-GCM, manipulerad data nekas, befintlig separat nyckel bevarad. Lokal PC-backup, inte automatisk offsite. |
 
-Initiala försök: en ny CHECK fick namnkonflikt (P3018/42710), rättad enbart i
-den nya ännu inte levererade migrationen; nya v2-databaser skapades, ingen
-historik/reset. MCP-testets två kallstarter överskred dess ursprungliga5s;
-ett uttryckligt30s-fönster för detta nya subprocessprov passerade. Tidig tsc
-kördes innan installationen var färdig och seedens poolavslut hade ett typfel;
-färdig installation och rättad .$disconnect gav PASS. Ett felaktigt operatörs-
-env lät unit ärva RATE_LIMIT_STORE=postgres; korrigerad kommandokonfiguration
-gav78PASS utan sänkta tester. En tillfällig lokal DB-connecttimeout efter
-installationslast följdes av lyckad hälsokontroll och89PASS.
+Råkommandon/exitkoder och oförändrade textkopior av utdata finns i [verification/proactive](verification/proactive/):
+[lokal manifest](verification/proactive/final-local-manifest.json), [matris](verification/proactive/verification.json),
+[unit](verification/proactive/unit.txt), [integration](verification/proactive/integration.txt),
+[CI med steg](verification/proactive/ci-43353236981.json), [drift](verification/proactive/live-result.json)
+och [slutlig molnläsning](verification/proactive/final-cloud-read.json).
+Lokal manifest är tidsstämplad före QA/CI/deploy; dess dåvarande NOT RUN ersätts
+av separata senare bevis, inte efterhandsändrad råhistorik. Full lokal rårot:
+C:/Users/<user>/booking-lab-pg-test/proactive. Hemliga profiler/dumpar/nycklar
+och browserstate ingår inte. Utvalda riktiga bilder i [DEMO](DEMO.md).
 
-NOT RUN ännu: slutlig fix1-fyrmatris, Groks riktade återkontroll, ny CI/deployment/backupkontroll,
-fysisk iPhone/Safari/WebKit, ny video. Föregående QA gäller endast sin kod.
+[Grok original8843d06](qa/QA-REPORT-proactive-fix1-8843d06.md), SHA256
+24763222f4002aa0edf4b3b8e5dd0e75af4aa0c9335d067832095bc0acc9b639.
+Initiala [956155f-rapporten](qa/QA-REPORT-proactive-956155f.md) och fixbeställning
+bevaras. Groks9API/MCP-probfel och1HTML-probfel var fel i deras egna prober,
+rättade enligt originalrapporten; de är inte dolda produktfel. Grok körde
+inte egen fyrmatris eller preview. Codex egna resultat särredovisas ovan.
+
+**NOT RUN:** fysisk iPhone/Safari/WebKit och Niclas UX-godkännande, ny video,
+forcerad Vercelomstart/multi-instance-felinjektion, automatisk extern backup,
+skarpa integrationer/kundpilot. Dessa kallas inte godkända. Inga nya paket,
+audit-overrides, mainmerge, publik MCP eller betaltjänster införda.
+
+## Appendix — initiala lokala försök och första QA
+
+956155f hade78unit/89integration/42E2E×4 PASS. Första fix1-prod0 gav40PASS/2FAIL
+eftersom nätverksmocken inte fångade nya queryparametrar. Adressmönstret
+rättades utan sänkta assertions; därefter riktat2/2 och slutmatrisen ovan PASS.
+Ett kopieringsförsök kördes från fel arbetskatalog innan exakt källfil synkades.
+En första screenshot fångade laddning och används inte som produktbevis;
+de valda färdigladdade bilderna är senare verifierade.
+
+Tidigare operatörsförsök på belastad D:-disk avbröts. Separat ren C:-kopia
+och kopierad betrodd browsercache gav full PASS; inga tidsgränser/assertions
+sänktes. En tidig tsc kördes före avslutad installation, seedpoolens .$disconnect
+rättades och en ny CHECK fick ett unikt namn före första leveransen; nya
+v2databaser användes efter misslyckad v1migration, ingen historik omskrevs.
+Unit ärvde tillfälligt postgres-env och fick8FAIL; rätt minnesenv gav78PASS.
+Nya MCP-testets två faktiska kallstarter fick uttryckligt30s-fönster.
+Lokalt efter faktisk serveromstart956155f fanns sparad kampanj kvar. Detta
+är lokal historik, inte en påstådd omstart av den nya Vercelmiljön.
 
 ## Appendix — föregående Epic 06-verifiering (2026-11-12)
 

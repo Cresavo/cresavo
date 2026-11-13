@@ -10,11 +10,13 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
-## Aktivt nattmål 2026-11-13: proaktiv kapacitet
+## Avslutat nattmål 2026-11-13: proaktiv kapacitet
 
-- QA956155f: GO syntetisk POC. PRO-QA-1 rättas i ett samlat fixvarv med
-  begränsad cursorpaginering i UI/API/MCP. Original i docs/qa. Kör slutmatris
-  och fryst riktad återkontroll före privat push/preview; inga nya funktioner.
+- Produkt/QA/deploy8843d06, Grok-GO efter1samlat fixvarv; PRO-QA-1 stängt.
+  Privat push och Actions43353236981:4gröna42/42jobb. Samma skyddade alias
+  verifierad; provsteg/bilder i DEMO, kommandon/NOT RUN i VERIFICATION.
+  Senare docs/bilder ändrar inte produktkoden. Nattmålet avslutat; inga fler
+  epics utan nytt avgränsat uppdrag. Mindre QA-fynd är backlogg, inte fixloop.
 
 - Godkänd Del A: `docs/PROACTIVE_OVERVIEW_PLAN.md`; full Del B i docs/research.
   Bas28a48fe, feature/proactive-capacity-overview, inte äldre main. Kalenderprov klart.

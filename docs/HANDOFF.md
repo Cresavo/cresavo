@@ -1,26 +1,66 @@
-# Handoff — proaktiv kapacitet, kandidat 2026-11-13
+# Handoff — levererad proaktiv kapacitet, 2026-11-13
 
-Aktivt nytt mandat: docs/PROACTIVE_OVERVIEW_PLAN.md och komplett Del B i
-docs/research. Bas28a48fe, branch feature/proactive-capacity-overview. Codex
-ensam skrivare; ingen QA pågår. Groks originalrapport för956155f finns i
-docs/qa: GO syntetisk POC, PRO-QA-1 Medium. Fixvarv1 lägger till begränsad
-cursorpaginering i UI/API/MCP; riktad återkontroll väntar efter slutmatrisen.
-Ingen push/deployment har gjorts för kandidaten.
+Branch **feature/proactive-capacity-overview**, bas28a48fe efter avslutat
+kalenderprov. Produkt-/QA-/CI-/deployrevision
+**8843d06350c6478e375fb640579cb3ac4f7fe3dc**. Privat push genomförd; main
+fortfarande b000481. Dokumentation/bilder därefter är separat från produktkod.
 
-Gemensam domän capacity.ts används från /admin/overview, skyddad HTTP och
-befintlig lokal stdio. Ny additiv CapacityDecision kopplar källbokning/version
-till beständigt beslut och högst ett kampanjutkast. Aktör före replay,
-konfigurations-/personaldagslås och exclusion består. Ingen ny npm-dependency,
-modell, port, autentisering eller extern utskicksanslutning.
+Byggt: capacity.ts med minimerad sjudagarssignal, bounded cursorpaginering,
+aktualitetskontroll och beständigt beslut per avbokad bokningsversion.
+Översikt → rätt kalenderläge eller explicit förhandsgranskat kampanjutkast.
+Ny CapacityDecision-migration är additiv; historiska7migreringar och exclusion
+är orörda. Befintlig workspaceWrite, aktör-före-replay och personaldagslås
+återanvänds. Kampanj+beslut sparas atomärt; ingen alternativ bokningsmotor.
 
-Lokalt hittills: clean npmci571, generate/migrate/seed, lint/tsc/build,
-78unit/89integration och7→8-/återseedbevis PASS. Faktiska kommandon, tidiga
-misslyckade operatörsförsök och NOT RUN i VERIFICATION. Testkopian på C: är
-hashad mot956155f; inga källändringar görs där. Fyra E2E-lägen42/42 vardera
-på956155f; motsvarande slutmatris körs efter rättningen. Grok körde själv
-78unit/89integration/42prod-E2E och egen UI/API-provning; inte fyrmatrisen.
-Preview nedan är fortfarande äldre7c, inte nattens funktion.
-Senare dokument-/bildbevis ska tydligt skiljas från produktcommit.
+Berörda ingångar: /admin/overview, /api/admin/capacity, befintlig lokal
+src/mcp/workspace.ts; nya adminläsningar och opt-in-skrivningar delar domän.
+scripts/seed-capacity.ts lägger additivt till fyra scenarier; inga nya beroenden
+eller lockfilsändringar. Produktvisionens hela Del B och tydliga beslut/
+förslag/hypoteser finns i befintlig roadmap/research.
+
+**QA:** initial956155f GO med Medium PRO-QA-1. Ett samlat fixvarv gav8843d06;
+[Grok återkontroll](qa/QA-REPORT-proactive-fix1-8843d06.md) stänger fyndet,
+inga blockerare/Medium+. Fyra mindre fynd till backlog, inget andra fixvarv.
+Original SHA25624763222f4002aa0edf4b3b8e5dd0e75af4aa0c9335d067832095bc0acc9b639.
+Grok körde själv78/90/42prod-E2E och egna UI/API/MCP-prov i separat syntetisk
+kopia. Grok hade ingen PC-, GitHub-, preview- eller serveråtkomst.
+
+**Verifiering:** ren npmci571Windows, generate7.10.1,8migreringar/seed på nya
+loopbackmiljöer, lint/tsc/build,78unit/90integration/42E2E×4 PASS. Testkopians167
+kod-/konfig-/assetfiler matchar Gitarchive8843d06; källändringar gjordes bara i
+<local-state>/codex/booking-lab-ui. Full audit FAIL7moderate dev, omitdev PASS0.
+[Actions43353236981](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43353236981)
+har4gröna42/42jobb på exakt SHA. Pushens enbenskörning43353218140 avbröts av
+den manuella fullmatrisen enligt befintlig concurrency, inte ett kodfel.
+
+**Faktisk preview:** https://booking-lab-se-preview.vercel.app/product,
+dpl_<redacted>, READY Preview(target=null), fra1.
+Vercel-API:s sourceRevision och alias verifierade. Oförändrat SSO på alla
+deployments; ingen Production-promote. Build cle1/USA, runtime/DB Frankfurt.
+Samma Neon Free och befintlig Vercelanvändning; inga nya abonnemang/tillägg.
+Exakt förbrukningskostnad är inte fakturaverifierad, några få dollar är ramen.
+
+Moln:84äldre bokningshashar oförändrade,92bokningar/33kundkort/4kampanjer/
+3beslut,4aktiva tjänster/3aktiva medarbetare, endast example.test och0överlapp.
+Seed två gånger ger identiska tabellhashar. Alla nya utkast är opublicerade.
+20HTTP-draft/replay, faktisk UI/save/stale/logout, perimeter/TLS,320/390/1440
+PASS. Egen Computer Use på stabil alias verifierar kalender16nov/Sam och
+20%-förhandsgranskning utan att spara09-tiden. Bilder i DEMO.
+
+Backup före migration11tabeller och efter flöden12tabeller återlästa till nya
+lokala *_demo; alla radhashar lika, manipulerad AES-GCM-data nekas. Befintlig
+separat ignorerad nyckel bevarad. Backup är på operatörens PC, inte automatisk
+offsitebackup. Secrets/operatorprofiler stannar utanför Git och Grok.
+
+**Inte verifierat/klart:** fysisk iPhone/Safari/WebKit, Niclas UX-godkännande,
+forcerad Vercelomstart/felåterhämtning över flera instanser, ny video och skarp
+drift. 14hashade rate-limit-rader kvar i integrationstest; övriga affärs-/admin-
+testrader0. Mindre paginerings-/a11y-fynd och tidigare Info i roadmapbacklog.
+Kundpilot fortsatt NO-GO enligt PROJECT_STATUS/PRIVACY_SECURITY.
+
+Prova och stoppa miljön: [DEMO](DEMO.md). Aktuella kommandon, råbevis, initiala
+misslyckade försök och NOT RUN: [VERIFICATION](VERIFICATION.md). Nattmålet är
+avslutat. Starta ingen efterföljande modul utan nytt avgränsat uppdrag.
 
 ## Föregående verifierade leveranser
 

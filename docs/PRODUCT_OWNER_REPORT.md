@@ -1,20 +1,54 @@
-# Produktägarrapport — proaktiv kapacitet under slutverifiering
+# Produktägarrapport — nattmålet klart, 2026-11-13
 
-2026-11-13: lokal kandidat på feature/proactive-capacity-overview. Översikt
-visar framtida avbokningar och aktuell bokningsbarhet. Ägaren kan öppna rätt
-kalenderdag, avfärda eller välja villkor och spara ett beständigt kampanjutkast.
-Vid ny bokning blir förslaget inaktuellt, men utkastet finns kvar med varning.
-Kampanjen gäller tjänst+datumintervall, inte en exklusiv tid. Inget publiceras
-eller skickas automatiskt; ingen språkmodell används för signalen.
+[Här öppnar du produkten](https://booking-lab-se-preview.vercel.app/product).
+Tryck **Prova salongens arbetsyta → Översikt**. Samma skyddade länk och
+Vercel-inloggning vid behov, inget extra demoadminlösenord.
 
-Ren installation,78unit/89integration, lint/tsc/build och uppgradering/återseed
-har passerat. Manuell lokal mobil-/desktopprovning har utförts; detta är inte
-en fysisk iPhone. Fyra lägen gav42/42 vardera på956155f. Groks oberoende QA
-gav GO syntetisk POC och hittade ett Medium-fynd: senare förslag kunde döljas.
-Det rättas med sidindelning i samma avgränsade leverans; slutmatris och riktad
-återkontroll återstår. Originalrapporten finns i docs/qa.
-Den skyddade länken nedan kör fortfarande tidigare7c tills den nya leveransen
-är godkänd och faktiskt driftsatt. Inget nytt pilotgodkännande.
+Vi har byggt första proaktiva flödet: en verklig avbokning kontrolleras mot
+aktuell tillgänglighet. Du kan öppna rätt kalenderdag, avfärda eller välja
+rabatt/datum och spara ett riktigt kampanjutkast. Beslut består; om tiden
+bokas igen visas en varning och utkastet finns kvar. Förslaget är regelbaserat,
+inte en påstådd AI-analys. Inget publiceras eller skickas automatiskt.
+
+**Prova på mobilen:**
+
+1. Öppna09-förslaget för Sam Demo, måndag16november. Läs tid/längd/pris.
+2. Välj Öppna kalendern och kontrollera samma dag och medarbetare.
+3. Gå tillbaka, Förbered kampanjutkast, välj egen rabatt och datum med tryck.
+   Förhandsgranska: erbjudandet gäller tjänsten under hela perioden, inte bara09.
+4. Spara och ladda om. Öppna samma utkast i Kampanjer utan att publicera det.
+5. Boka den tiden i kalendern och uppdatera Översikt. Utkastet består, tiden
+   blir inaktuell.14-förslaget är också lämnat öppet för ditt prov/avfärdande.
+
+[Aktuella mobil-/desktopbilder och provguide](DEMO.md).15-förslaget visar
+redan ett sparat15%-utkast vars tid bokats igen. Första riktiga20%-provningen
+på09 förhandsgranskades men sparades inte, så den är kvar för dig.
+
+Branch **feature/proactive-capacity-overview**, produkt-/QA-/deploycommit
+**8843d06350c6478e375fb640579cb3ac4f7fe3dc**. Lokalt78unit/90integration/
+42E2E×4, lint/tsc/build PASS. [Actions43353236981](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43353236981):
+fyra gröna42/42jobb. [Grok original](qa/QA-REPORT-proactive-fix1-8843d06.md):
+egna78/90/42 och GO syntetisk POC efter ett samlat fixvarv.
+Driftens åtkomstskydd, verkliga flöden och krypterad återläsning är verifierade
+separat av Codex. Grok testade inte molnet eller fysisk iPhone.
+
+Kvar: enklare signalen omfattar bara avbokningar och kräver uppdatering;
+ingen automatisk prisdebitering, utskick eller full AI-modul. Mindre UX-fynd
+ligger i backloggen. Full audit har7måttliga devfynd, prod0; detta är inte ett
+pilotgodkännande. Din fysiska iPhone/Safari och ditt UX-godkännande återstår.
+Inga nya abonnemang, ingen mainmerge eller publik MCP.
+
+Tre rekommenderade nästa leveranser, inte startade:
+
+1. Prova femstegsflödet på fysisk iPhone med dig och rätta de viktigaste
+   orienterings-/a11yproblemen, särskilt hur senare förslag upptäcks.
+2. Avgränsa kunddatas livscykel: retention, export och radering med bevarad
+   bokningshistorik. Det låser upp en konkret del av pilotgrinden.
+3. Ett verifierat ägarassistentflöde med tydligt mandat och uppföljning utifrån
+   dagens lokala verktyg; välj verklig klient innan fjärråtkomst/modellbudget.
+
+Hela visionen för journal, lager, ekonomi och marknadsföring är bevarad i
+[roadmapen](PRODUCT_ROADMAP.md). Nattmålet är avslutat, inga fler epics startas.
 
 ## Föregående leverans — Epic 06,2026-11-12
 

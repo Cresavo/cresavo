@@ -1,4 +1,127 @@
-# Demo — Epic 06, skyddad syntetisk preview
+# Demo — proaktiv kapacitetsöversikt, 2026-11-13
+
+[Öppna Booking Lab](https://booking-lab-se-preview.vercel.app/product) ·
+[översikten](https://booking-lab-se-preview.vercel.app/admin/overview) ·
+[kalendern](https://booking-lab-se-preview.vercel.app/admin) ·
+[kundbokning](https://booking-lab-se-preview.vercel.app/).
+Vercel-inloggning vid behov, sedan **Prova salongens arbetsyta** eller
+**Öppna demoadmin**. Demoägare, endast påhittade uppgifter. Hela sajten,
+API och resurser omfattas fortsatt av befintligt Vercelskydd; inga nya konton.
+
+## Prova hela flödet
+
+1. Välj **Översikt**. Sam Demo har måndag16november09.00 ett nytt bokningsbart
+   förslag;14.00 är också lämnat öppet.10.00 är återbokad,11.00 avfärdad,
+   13.00 har ett10%-utkast och15.00 ett15%-utkast vars tid återbokats.
+2. **Öppna kalendern** på09.00: samma datum, dagvy och Sam Demo ska vara vald.
+   Gå tillbaka till Översikt.
+3. **Förbered kampanjutkast**. Välj rabatt själv och datum med kalenderknappar.
+   Förhandsgranska verklig omfattning: tjänst+hela datumperioden, alla bokningsbara
+   tider/utförare. En lucka reserveras inte och ordinarie debitering ändras inte.
+4. **Spara kampanjutkast**, ladda om och **Granska sparat kampanjutkast**.
+   Samma utkast finns i Kampanjer; publicera inte under detta prov.
+5. Boka samma09-tid genom kalendern och uppdatera förslagen. Det blir inaktuellt
+   men utkastet finns kvar med varning. Prova att avfärda14-förslaget och ladda om.
+
+09-provets20%-förhandsgranskning sparades inte vid leverans, så tiden är kvar
+för dig. Datum och tillgänglighet förändras när du provar. **Uppdatera förslagen**
+hämtar aktuell status. **Nästa förslag** visar fler när första sidan är full;
+om ett gammalt bokmärke blivit ogiltigt, gå till första sidan. Ingen seed körs
+automatiskt varje natt. Påhittade example.test-adresser, inga utskick.
+
+## Aktuella granskade bilder
+
+Produkt-/deploykod8843d06, faktisk skyddad preview2026-11-13. Mobil390px och
+desktop1440px är Chromiumemulering, inte fysisk iPhone/Safari.
+
+- [Bokningsbart förslag på mobilen](assets/proactive/overview-mobile.jpg).
+- [Rätt kalenderdag och Sam Demo](assets/proactive/calendar-mobile.jpg).
+- [Vald20%-kampanj och verklig omfattning](assets/proactive/campaign-preview-mobile.jpg).
+- [Sparat utkast trots återbokad tid](assets/proactive/stale-mobile.jpg).
+- [Verkligt sparad opublicerad kampanj](assets/proactive/saved-campaign-mobile.png).
+- [Översikten på desktop](assets/proactive/overview-desktop.jpg).
+- [Bildmanifest med ursprung/hashar](assets/proactive/manifest.json).
+
+Fem JPG är egna Computer Use-klickbilder från stabil alias. Kampanj-PNG är
+från automatiserad faktisk driftprovning på samma immutable deployment.
+Färdigladdade vyer är granskade; en första automatisk laddningsbild används
+inte. Lokala äldre956-bilder och Epic06-bilder nedan är historiska, inte bevis
+för den nya produktkoden. Ingen ny full videoinspelning behövdes i fixvarvet.
+
+## Revision, skydd och drift
+
+Branch **feature/proactive-capacity-overview**. Produkt, Groks riktade QA,
+Actions och driftsatt revision **8843d06350c6478e375fb640579cb3ac4f7fe3dc**.
+Senare dokument-/bildcommit ändrar inte detta bygge.
+Deployment **dpl_<redacted>**, READY Preview(target=null),
+runtimefra1; buildcle1/USA. Immutable URL:
+https://booking-lab-se-preview-nfwi9mosj-<redacted-vercel-team>.vercel.app.
+Vercel-API:s sourceRevision och stabil alias→deployment-id verifierade.
+
+[Actions43353236981](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43353236981)
+har4gröna42/42jobb. [Grok original](qa/QA-REPORT-proactive-fix1-8843d06.md): GO
+syntetisk POC efter1samlat fixvarv. [Faktiska resultat/NOT RUN](VERIFICATION.md).
+Grok hade ingen previewåtkomst; Codex verifierade separat den driftsatta miljön.
+Alla4READY-adresser och stabil alias kräver Vercelåtkomst för HTML/API.
+Nya assets/static chunk/POST är också skyddade. Lokal MCP förblir lokal.
+
+Separat booking_ui_preview_demo, samma Neon Free i Frankfurt.84äldre bokningar
+är oförändrade; slut92bokningar/33kundkort/4kampanjer/3förslagsbeslut,
+4aktiva behandlingar och3aktiva medarbetare,0överlapp. Nya utkast opublicerade.
+Äldre demokampanjer kan redan vara publicerade; denna leverans publicerade ingen.
+Backup före migration och efter flöden återläst till nya lokala *_demo;
+11respektive12tabeller med identiska radhashar, AES-256-GCM och separat bevarad
+nyckel. Det är operatörens PC-backup, inte automatisk extern backup.
+
+Samma befintliga Vercel Pro/Neon Free, inga nya abonnemang/tillägg/domänköp.
+Bygg/registry/runtime kan förbruka befintlig pott eller några få dollar extra;
+exakt fakturakostnad är **inte verifierad** och ramen är inget tekniskt hårt tak.
+Ingen Production-promote eller mainmerge. Pilot fortsatt NO-GO.
+
+## Stoppa eller återgå
+
+För enbart detta nya bygge: ta bort dess exakta Previewdeployment och verifiera
+att URL:en/stabil alias inte längre serverar appen:
+
+```powershell
+vercel remove dpl_<redacted> --scope <redacted-vercel-team> --yes
+```
+
+Äldre skyddade deployments finns kvar; detta stoppar inte dem. Ett fullständigt
+demostopp kräver att demoaktören inaktiveras/versioneras enligt befintlig
+ADMIN_OPERATIONS och att åtkomst till samtliga relevanta previewadresser
+kontrolleras. Radera inte DB/backup eller andra projekt automatiskt. Vercels
+Pause Project är inte ett verifierat stopp av alla Previewdeploymenter.
+Sänk aldrig SSO-skyddet. Inget stopp har utförts nu.
+
+Vid rollback används föregående skyddade dpl_<redacted>
+för aliasen; den additiva databasen/demouppgifterna bevaras. Återställ inte
+backup över den aktiva databasen utan separat beslut. Privata operatorprofiler
+finns kvar i C:/Users/<user>/booking-lab-se-preview/.vercel; ui-live-target anger
+ny revision. Filer/nycklar/tokens får inte skickas till Git/Grok/chatten.
+
+## Lokal reproduktion
+
+Använd README:s PostgreSQL-/individuella adminsteg, en separat loopback *_demo,
+migrera och kör grundseed. Därefter:
+
+```powershell
+$env:BOOKING_DEMO_SEED = "1"
+npm run demo:seed:capacity
+npm run build
+npm run start
+```
+
+Seedningen är additiv/återkörbar och återställer inte manuella ändringar.
+Lokal demobypass aktiveras inte; använd individuellt admin enligt befintliga
+instruktioner. [Plan/API/MCP-kontrakt](PROACTIVE_OVERVIEW_PLAN.md).
+
+## Appendix — tidigare Epic 06-demo och äldre driftunderlag
+
+Avsnitten nedan är historiska och gäller uttryckligen sina äldre revisioner.
+Den stabila länken kör nu bygget ovan.
+
+## Föregående Epic 06, skyddad syntetisk preview
 
 [Öppna Booking Labs produktsida](https://booking-lab-se-preview.vercel.app/product) · [demoadmin](https://booking-lab-se-preview.vercel.app/admin) · [kundbokningen](https://booking-lab-se-preview.vercel.app/).
 Använd Niclas befintliga Vercel-inloggning vid behov. Tryck **Prova salongens
