@@ -53,7 +53,25 @@ förbrukad främmande nyckel markerar eget pending failed i en committad
 transaktion innan403. Ingen ändring av domänkärna, kontrakt eller migrationer.
 Fyra deterministiska PostgreSQL-/MCP-regressioner håller/släpper verkliga lås
 och täcker samtidigt replay, oavslutat försök samt äldre icke-kortkanal.
-Övriga Low/Info är backlogg. Slutmatris och riktad Grok-återkontroll återstår.
+F1 cf6d2d2 har Grok scopedGO: båda fynden stängda, 89 unit/124 integration,
+13 korttester och 46 webbtester i alla fyra lägen även hos Grok. Originalrapport:
+`qa/QA-REPORT-agent-workday-f1-cf6d2d2.md`. Övriga Low/Info är backlogg.
+
+### Samlat rättningsvarv 2 (sista) — omvänd replaygräns
+
+AW-F1-QA-1 är Low men berör samma uttryckliga profilkrav: äldre MCP eller publik
+HTTP kunde få kortets bokningssvar genom exakt känd nyckel/payload. Den lilla
+rättningen kontrollerar därför den faktiska returnerade radens kanal innan
+svaret lämnar dessa ingångar, bara för kortets `time-card_`-prefix. Kontrollen
+sker efter domäntransaktionen och täcker även samtidiga replays. Samma lokala
+hemlighet och MCP-identitet är avsiktligt samma betrodda demokanal, inte olika
+personer. Andra nycklars kontrakt, administratörens redan separata namespace,
+domänens regler/lås och alla migrationer lämnas oförändrade. Inga äldre tester
+tas bort eller sänks. Nya tester omfattar parallella nekade replays från äldre
+MCP och verklig HTTP samt positivt replay från rätt kanal.
+
+Ingen tredje rättningsloop. Blockerande fel efter denna granskning redovisas
+som blockerade; mindre kvarvarande förbättringar stannar i backloggen.
 
 Ren arbetskopia och rätt föregångare verifierade. Föregående Grok/CI gäller
 8126410, inte den nya implementationen. Befintlig Vercel-preview är oförändrad.

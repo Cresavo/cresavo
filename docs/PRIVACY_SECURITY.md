@@ -217,6 +217,12 @@ och försök i annan kanalscope nekas. Högst20historiska försök + ett pending
 återläses, men ingen automatisk gallring sker i denna leverans. Produktions-
 retention och individuell kundautentisering är separata pilotbeslut.
 
+F1/F2 täcker kända nycklar i båda riktningarna: kortet kontrollerar faktisk
+kanal efter domänreplay och vanliga MCP-/HTTP-ingångar gör samma kontroll för
+time-card_-nycklar innan svaret returneras. En annan hemlighet eller HTTP-
+identitet får ett statiskt403 utan bokningsuppgifter. Samma hemlighet och
+lokala MCP-identitet är uttryckligen samma kanal, inte personlig autentisering.
+
 Ägarprofilen är separat och läsande. Varken kundnamn, e-post, journal eller
 kontakter skickas i arbetsdagskortet. Kalenderfiler innehåller tjänst/personal/
 tid och boknings-id, inga kundkontakter eller inloggningshemligheter. Filen

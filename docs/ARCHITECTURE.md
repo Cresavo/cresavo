@@ -2,6 +2,15 @@
 
 ## Beständig lokal kortbokning och ägarens arbetsdag
 
+Rättningsvarv2 skyddar även omvänd replay: äldre create_booking och publik
+POST /api/bookings kontrollerar faktisk returnerad clientKey innan svaret
+lämnas ut, när den sparade nyckeln har time-card_-prefix. Samma serverägda
+identitet och hemlighet är samma kanal. Kontrollen ligger efter domänens
+transaktion och missar därför inte en vinnare som uppstår mellan låsen.
+Andra nycklars replay och adminns hashade namespace är oförändrade. Det
+gemensamma svaret är ett statiskt403 utan bokningsuppgifter. createBooking
+och historiska migrationer ändras inte. Ett prefix/UUID är aldrig behörighet.
+
 Rättningsvarv1 efter c4e08bd stänger profilracet AW-QA-1/2 utan att ändra
 createBooking. Admission tar samma globala idempotenslås som domänen innan
 kanallåset och kontrollerar försökets profilclaim. Låsen släpps före domänens

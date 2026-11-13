@@ -26,6 +26,7 @@ import { db } from "../lib/db";
 import { LOCAL_WORKSPACE_ACTOR } from "../lib/workspace-write";
 import { assertOwnerCard } from "./owner-card/data";
 import { registerOwnerCard } from "./owner-card/register";
+import { assertCardReplayChannel } from "../lib/booking-channel";
 const workdayCard = process.argv.includes("--workday-card");
 if (workdayCard) {
   try {
@@ -116,6 +117,7 @@ serveStdio(() => {
                 MCP_BOOKING_CLIENT,
                 allowWorkspace ? LOCAL_WORKSPACE_ACTOR : undefined,
               );
+              assertCardReplayChannel(booking, MCP_BOOKING_CLIENT);
               return {
                 id: booking.id,
                 serviceId: booking.serviceId,

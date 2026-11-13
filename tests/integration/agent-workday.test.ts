@@ -139,6 +139,54 @@ afterAll(async () => {
   await db.$disconnect();
 });
 describe("Beständig lokal demobokning och arbetsdag", () => {
+  it("äldre MCP med annan hemlighet kan inte återläsa kortets bokning", async () => {
+    const a = await connect(),
+      foreign = await connect(false, "other-synthetic-secret".repeat(3), {
+        legacy: true,
+      }),
+      sameChannel = await connect(false, process.env.SESSION_SECRET!, {
+        legacy: true,
+      }),
+      args = request();
+    const original = await call(a, "book_demo_time", args);
+    expect(original.isError).not.toBeTruthy();
+    const payload = {
+      ...args,
+      customerName: "Tidkort Demo",
+      customerEmail: "tidkort@example.test",
+      clientRequestId: `time-card_${args.clientRequestId}`,
+    };
+    const denied = await Promise.all(
+      Array.from({ length: 20 }, () =>
+        call(foreign, "create_booking", payload),
+      ),
+    );
+    for (const result of denied) {
+      expect(result.isError).toBe(true);
+      expect(result.content).toEqual([
+        {
+          type: "text",
+          text: "Bokningen kan inte visas med den här demoprofilen.",
+        },
+      ]);
+      expect(JSON.stringify(result)).not.toContain(
+        (original.structuredContent as { id: string }).id,
+      );
+    }
+    const replay = await call(sameChannel, "create_booking", payload);
+    expect(replay.isError).not.toBeTruthy();
+    expect(
+      JSON.parse((replay.content[0] as { text: string }).text),
+    ).toMatchObject({
+      id: (original.structuredContent as { id: string }).id,
+    });
+    expect(await db.booking.count({ where: { serviceId } })).toBe(1);
+    expect(
+      await db.bookingEvent.count({
+        where: { booking: { serviceId } },
+      }),
+    ).toBe(1);
+  });
   it("en redan förbrukad främmande nyckel avslutar eget pending före 403", async () => {
     const a = await connect(),
       b = await connect(false, "other-synthetic-secret".repeat(3), {
