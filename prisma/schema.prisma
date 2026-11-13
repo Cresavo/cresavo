@@ -118,6 +118,18 @@ model WorkspaceRequest {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   @@unique([businessId, key])
 }
+
+// Local synthetic card channel only; not a customer identity/session table.
+model CardBookingAttempt {
+  businessId String
+  scope String
+  requestId String @db.Uuid
+  payload Json
+  outcome String @default("pending")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@id([businessId, scope, requestId])
+  @@index([businessId, scope, createdAt, requestId])
+}
 model Campaign {
   id String @id @default(cuid())
   businessId String

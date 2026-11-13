@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "booking-lab-time-card",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Privat lokalt prov: välj en demotid. Separat opt-in kan skapa uttryckligen bekräftade testbokningar.",
   "license": "AGPL-3.0-only",
   "author": { "name": "Booking Lab" },

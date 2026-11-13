@@ -67,8 +67,7 @@ jobs:
       - if: matrix.mode == 'dev' && matrix.proxy == '0'
         name: Local MCP card and booking proof (test host)
         run: |
-          npx playwright test --config playwright.time-card.config.ts
-          npx playwright test --config playwright.card-booking.config.ts
+          npx playwright test --config playwright.agent-workday.config.ts
       - run: npm run test:e2e
       - run: npx tsc --noEmit
       - if: always()

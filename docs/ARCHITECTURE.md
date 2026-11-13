@@ -1,5 +1,49 @@
 # Arkitektur
 
+## Beständig lokal kortbokning och ägarens arbetsdag
+
+Godkänt scope: AGENT_BOOKING_WORKDAY_PLAN.md. Den nya additiva tionde
+migrationen skapar CardBookingAttempt. Den innehåller businessId, serverhärlett
+HMAC-scope, UUID, strikt syntetiskt tjänste-/tidsval, outcome och createdAt.
+Inga kontaktfält. Ett partiellt unikt index tillåter bara ett pending-försök
+per kanal. Admission serialiseras och släpper sitt eget lås före createBooking;
+motorns historiska låsordning/exclusion/kvoter är oförändrade. Sparat försök
+kommer före domänskrivning. Både domänbokning och separat slutförandemarkering
+kan ha hunnit sparas när svaret tappas; återläsning kontrollerar alltid Booking.
+
+Återläsning kräver samma befintliga opt-in/flaggar/privata SQL-profil/secret som
+skrivningen. Scope väljs aldrig av klienten. Booking-uppslag kräver kanalens
+serverhärledda clientKey och time-card_-namespace. Även replay med känd nyckel
+nekas om den tillhör annan kanal. Det är EN lokal demokanals behörighet, inte
+personliga kundkonton eller fjärrautentisering. De senaste20försöken och ett
+eventuellt pending-försök visas; inget raderas automatiskt. Bytt secret gör den
+gamla kanalen otillgänglig. Behåll befintliga profiler; rotera inte för sessionkill.
+
+UI frågar servern vid omöppning och skapar aldrig automatiskt en bokning.
+Okänt försök kräver uttrycklig retry med samma beständiga nyckel/payload.
+Aktuellt kvitto läses från Booking; tidigare createBooking-replay behåller sitt
+kontrakt med ursprungliga tider. Säkerhetsmarkörer VERCEL* och NOW_REGION nekas
+nu både i launcher och kortserver. Resource-v3; äldre alias bevaras.
+
+Kalenderfil hämtas bara för aktiv egen demobokning. UTC-instanter representerar
+Stockholmstiden även över DST; DTEND använder duration utan buffer. Stabil UID,
+SEQUENCE, escaped text och UTF8-radvikning följer RFC5545. Blobnedladdning kräver
+värdens stöd; en nedladdad fil är inte en lyckad import och synkas inte senare.
+Ingen kalenderinloggning, ATTENDEE, utskick eller extern nättrafik läggs till.
+
+Ägarkortet är separat: src/mcp/server.ts --admin --workday-card, explicit lokal
+opt-in och giltig secret. Exakt ett läsverktyg show_workday, inget normalt admin-
+eller skrivverktyg i denna profil. listCalendar (20/sida), listStaff, listServices,
+getAvailability och listCapacity återanvänds. Kontaktfält som kalenderfunktionen
+använder internt projiceras bort. Nästa besök beräknas oberoende av sidmarkör.
+Lediga tider avser uttryckligen vald medarbetare/behandling, högst12visas;
+kapacitetsdelen beskriver högst3källor och länkar till hela översikten.
+Loopback-länkar öppnar vanlig skyddad admin, inga sessionshemligheter i URL.
+
+Källor: https://www.rfc-editor.org/rfc/rfc5545.html och
+https://developers.openai.com/plugins/build/chatgpt-ui (kontrollerade2026-11-13).
+Vanlig hostspecifik widgetState behövs inte; serverloggen överlever kort/process.
+
 ## Opt-in: lokalt bokningsprov från MCP-kort, 2026-11-13
 
 `MCP_CARD_BOOKING_PLAN.md` utökar läsprovet utan ändring av vanlig MCP-server,

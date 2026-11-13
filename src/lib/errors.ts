@@ -2,6 +2,13 @@ import { ZodError } from "zod";
 
 // Only literal messages owned by this codebase may cross a trust boundary.
 const publicMessages = [
+  "Kontrollera det tidigare bokningsförsöket först.",
+  "Det tidigare försöket nekades. Välj en ny tid och bekräfta igen.",
+  "Bokningen kan inte visas med den här demoprofilen.",
+  "Ingen aktiv bokning att lägga i kalendern.",
+  "Välj en dag från förra veckan till de kommande 28 dagarna.",
+  "Välj en aktiv medarbetare.",
+  "Välj en behandling som medarbetaren utför.",
   "Välj en dag inom de kommande 28 dagarna.",
   "Välj en tillgänglig behandling.",
   "Ingen utförare finns för den valda behandlingen.",

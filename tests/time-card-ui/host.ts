@@ -2,6 +2,7 @@ import { expect, type Page } from "@playwright/test";
 import type { Client } from "@modelcontextprotocol/client";
 
 type ToolCall = { name: string; arguments?: Record<string, unknown> };
+let mountSequence = 0;
 
 // This is an explicit test host, never evidence of native ChatGPT rendering.
 export async function mountTimeCard(
@@ -11,12 +12,14 @@ export async function mountTimeCard(
   initial: unknown,
   hooks: {
     call?: (args: ToolCall, next: () => Promise<unknown>) => Promise<unknown>;
+    kind?: "workday";
   } = {},
 ) {
   const contexts: unknown[] = [];
   const calls: ToolCall[] = [];
+  const bindingName = `cardBridge${++mountSequence}`;
   await page.exposeFunction(
-    "cardBridge",
+    bindingName,
     async (message: { method: string; params: Record<string, unknown> }) => {
       if (message.method === "ui/initialize")
         return {
@@ -38,43 +41,46 @@ export async function mountTimeCard(
     },
   );
   await page.setContent(
-    '<iframe title="MCP Apps testvärd" style="width:100%;height:1600px;border:0" sandbox="allow-scripts allow-same-origin"></iframe>',
+    '<iframe title="MCP Apps testvärd" style="width:100%;height:1600px;border:0" sandbox="allow-scripts allow-same-origin allow-downloads"></iframe>',
   );
-  await page.evaluate((html) => {
-    const frame = document.querySelector("iframe")!;
-    window.addEventListener("message", async (event) => {
-      if (event.source !== frame.contentWindow) return;
-      if (event.data?.method === "ui/notifications/size-changed") {
-        frame.style.height = `${event.data.params.height}px`;
-        return;
-      }
-      if (!event.data?.id) return;
-      try {
-        const result = await (
-          window as unknown as {
-            cardBridge: (message: unknown) => Promise<unknown>;
-          }
-        ).cardBridge(event.data);
-        frame.contentWindow!.postMessage(
-          { jsonrpc: "2.0", id: event.data.id, result },
-          "*",
-        );
-      } catch {
-        frame.contentWindow!.postMessage(
-          {
-            jsonrpc: "2.0",
-            id: event.data.id,
-            error: { code: -32000, message: "Synthetic transport failure" },
-          },
-          "*",
-        );
-      }
-    });
-    frame.srcdoc = html;
-  }, html);
+  await page.evaluate(
+    ({ html, bindingName }) => {
+      const frame = document.querySelector("iframe")!;
+      window.addEventListener("message", async (event) => {
+        if (event.source !== frame.contentWindow) return;
+        if (event.data?.method === "ui/notifications/size-changed") {
+          frame.style.height = `${event.data.params.height}px`;
+          return;
+        }
+        if (!event.data?.id) return;
+        try {
+          const result = await (
+            window as unknown as {
+              [key: string]: (message: unknown) => Promise<unknown>;
+            }
+          )[bindingName](event.data);
+          frame.contentWindow!.postMessage(
+            { jsonrpc: "2.0", id: event.data.id, result },
+            "*",
+          );
+        } catch {
+          frame.contentWindow!.postMessage(
+            {
+              jsonrpc: "2.0",
+              id: event.data.id,
+              error: { code: -32000, message: "Synthetic transport failure" },
+            },
+            "*",
+          );
+        }
+      });
+      frame.srcdoc = html;
+    },
+    { html, bindingName },
+  );
   const frame = page.frameLocator("iframe");
   await expect(frame.getByRole("status")).toContainText(
-    "Hämtar lediga demotider",
+    hooks.kind === "workday" ? "Hämtar arbetsdagen" : "Hämtar lediga demotider",
   );
   await page.evaluate(
     (result) =>
@@ -89,7 +95,9 @@ export async function mountTimeCard(
     initial,
   );
   await expect(
-    frame.getByRole("heading", { name: "En stund för dig." }),
+    frame.getByRole("heading", {
+      name: hooks.kind === "workday" ? "Min arbetsdag" : "En stund för dig.",
+    }),
   ).toBeVisible();
   return { frame, contexts, calls };
 }

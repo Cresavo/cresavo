@@ -10,6 +10,23 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
+## Pågående: beständigt agentkort och ägarens arbetsdag
+
+- Niclas har godkänt docs/AGENT_BOOKING_WORKDAY_PLAN.md och hela goal-prompten.
+  Bas e702838/produkt8126410, branch feature/agent-booking-workday. Ensam skrivare.
+- CardBookingAttempt är en liten beständig försökslogg, inte kundautentisering.
+  Scope härleds av privat lokal profil och SESSION_SECRET; aldrig av payload/id.
+  Högst ett oklart försök per kanal. Behåll retry-payload/nyckel även efter stängt
+  kort. Same createBooking/kvoter/lås; tio migrationer varav en ny additiv.
+- read_demo_bookings/get_demo_calendar_file är app-only, opt-in, kanalavgränsade.
+  Ingen kundkontakt eller obegränsad historik. ICS visar behandling utan buffert;
+  kalenderimport och senare synk är inte verifierade bara för att filen hämtats.
+- --admin --workday-card + BOOKING_OWNER_CARD_DEMO=1 är separat betrodd lokal
+  läsprofil, aldrig kundkortets rättigheter. Vanlig admin krävs i länkad arbetsyta.
+- Grok granskar fryst kod i egen syntetisk kopia/max2samlande fixvarv. Privat
+  push och exakt full Actions enligt planen. Ingen ny molnanslutning/mainmerge.
+  Native/mobil skiljs från testvärd; produktägarens manuella test krävs inte.
+
 ## Levererat: lokalt bokningsprov från MCP-kort
 
 - Niclas godkände 2026-11-13 `docs/MCP_CARD_BOOKING_PLAN.md`. Bas fdcb41b,

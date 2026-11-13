@@ -203,3 +203,25 @@ Datum 2026-11-11, kod 26ea617. Processlokal rate limit, transaktionssäkrat dags
 TRUST_PROXY_IP får bara aktiveras bakom en proxy som överskriver X-Real-IP och förhindrar direktåtkomst. Utan detta används gemensam konservativ bucket. In-process-räknaren skyddar inte flera processer eller omstarter. E-posttak bevisar inte kundidentitet. Höj aldrig tillbaka ADMIN_SESSION_VERSION; starta om alla instanser för global återkallelse. Logout stoppar inte en redan kopierad cookie individuellt.
 
 CSP tillåter unsafe-inline; admin no-store och HSTS-header är testade, men verklig TLS/proxy och webbläsarens HSTS-beteende är inte verifierade. IP-minne, skapandetid och idempotenshash behöver ingå i framtida lagrings-/gallringsbeslut. Inga nya externa tjänster eller npm-beroenden har lagts till. Audit och binärlicenskrav kvarstår; se [tredjepartsnotiser](../THIRD_PARTY_NOTICES.md).
+# Tillägg 2026-11-13: beständiga syntetiska agentkort
+
+AGENT_BOOKING_WORKDAY_PLAN tillåter en liten försökslogg i isolerad lokal demo.
+CardBookingAttempt lagrar syntetisk tjänst/personal/tid/version/UUID/outcome,
+inte kontaktuppgifter. Scope är ett pseudonymt HMAC av lokal konfiguration.
+Inga nya kundkonton eller personliga rättighetsgarantier införs. Alla kort i
+samma uttryckligen betrodda profil delar EN demoaktör och kanal. Secret/profil
+och SQL-åtkomst är lokala privilegier, inte behörigheter för en publik server.
+
+Återläsning och ICS kräver den profilen. Känd bookingId/e-post räcker inte,
+och försök i annan kanalscope nekas. Högst20historiska försök + ett pending
+återläses, men ingen automatisk gallring sker i denna leverans. Produktions-
+retention och individuell kundautentisering är separata pilotbeslut.
+
+Ägarprofilen är separat och läsande. Varken kundnamn, e-post, journal eller
+kontakter skickas i arbetsdagskortet. Kalenderfiler innehåller tjänst/personal/
+tid och boknings-id, inga kundkontakter eller inloggningshemligheter. Filen
+stannar lokalt tills användaren väljer kalenderimport; ingen automatisk extern
+överföring, kalenderåtkomst, e-post eller betalning har byggts.
+
+Ingen fjärr-MCP eller ny molnåtkomst följer av detta mål. Responsiv testvärd
+bevisar inte faktisk ChatGPT-mobilanslutning eller fysisk iPhone/Safari.

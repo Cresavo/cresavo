@@ -16,13 +16,12 @@ try {
   if (
     settings.BOOKING_TIME_CARD_DEMO !== "1" ||
     settings.NODE_ENV === "production" ||
-    settings.VERCEL_ENV ||
-    settings.VERCEL ||
-    settings.VERCEL_URL ||
     process.env.NODE_ENV === "production" ||
-    process.env.VERCEL_ENV ||
-    process.env.VERCEL ||
-    process.env.VERCEL_URL
+    [settings, process.env].some((env) =>
+      Object.keys(env).some(
+        (k) => (k.startsWith("VERCEL") || k === "NOW_REGION") && env[k],
+      ),
+    )
   )
     throw new Error();
   const env = {

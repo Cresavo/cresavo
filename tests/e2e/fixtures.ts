@@ -113,6 +113,11 @@ export const test = base.extend<{
         });
       } finally {
         await Promise.all(pending);
+        for (const serviceId of services) {
+          await db.cardBookingAttempt.deleteMany({
+            where: { payload: { path: ["serviceId"], equals: serviceId } },
+          });
+        }
         await db.adminSession.deleteMany({
           where: { id: { in: [...sessions] } },
         });

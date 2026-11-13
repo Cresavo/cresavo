@@ -306,6 +306,17 @@
         <p>Välj behandling, dag och en tid som passar.</p>
       </header>
       <div class="body">
+        <section id="history" hidden aria-label="Mina demobokningar">
+          <h2 class="slots-title">Mina lokala demobokningar</h2>
+          <p class="muted">
+            Den här betrodda demoprofilens senaste 20 försök. Endast påhittade
+            uppgifter.
+          </p>
+          <div id="history-items"></div>
+          <button id="refresh-history" type="button">
+            Hämta mina demobokningar
+          </button>
+        </section>
         <div id="content" hidden>
           <div class="fields">
             <div>
@@ -380,6 +391,17 @@
           <p id="receipt-summary"></p>
           <p id="receipt-time"></p>
           <p id="receipt-id" class="muted"></p>
+          <button id="refresh-receipt" type="button">
+            Uppdatera bokningsstatus
+          </button>
+          <button id="calendar-file" type="button">Lägg i min kalender</button>
+          <p id="calendar-notice" class="muted">
+            Du hämtar en kalenderfil. Importen görs i din kalenderapp; flytt och
+            avbokning synkas inte automatiskt.
+          </p>
+          <a id="calendar-download" hidden download="booking-lab-demo.ics"
+            >Hämta kalenderfil</a
+          >
           <p class="muted">Tidkort Demo · Ingen betalning eller utskick.</p>
           <button id="new-booking" type="button">Välj en ny demotid</button>
         </section>
@@ -409,7 +431,11 @@
           sequence = 0,
           lastArgs = {},
           pendingBooking = null,
-          bookingReceipt = null;
+          bookingReceipt = null,
+          activeRequestId = null,
+          historyReady = false,
+          historyLoading = false,
+          downloadUrl = null;
         const pending = new Map();
         const dateValue = (value) => new Date(value + "T12:00:00Z");
         const dayText = (value) =>
@@ -520,7 +546,7 @@
           $("window").textContent =
             `Demot visar ${dayText(data.firstDate)}–${dayText(data.lastDate)}.`;
           $("booking-controls").hidden = data.bookingEnabled !== true;
-          $("book").disabled = busy || !$("consent").checked;
+          $("book").disabled = busy || !historyReady || !$("consent").checked;
           $("notice").textContent = data.bookingEnabled
             ? "Stockholmstid · Ett tidsval reserverar inget. Testbokning skapas först när du uttryckligen bekräftar."
             : "Stockholmstid · Endast tidsval. Ingen tid reserveras och ingen bokning skapas.";
@@ -614,7 +640,7 @@
           };
         }
         async function load(patch = {}, recheck = false) {
-          if (pendingBooking || bookingReceipt) return;
+          if (pendingBooking || bookingReceipt || historyLoading) return;
           const own = ++sequence;
           lastArgs = args(patch);
           const old = selected;
@@ -679,10 +705,169 @@
             structuredContent: value,
           }).catch(() => {});
         }
+        function showReceipt(value, requestId) {
+          bookingReceipt = value;
+          activeRequestId = requestId;
+          pendingBooking = null;
+          selected = null;
+          busy = false;
+          render();
+          $("selection").hidden = true;
+          $("retry-booking").hidden = true;
+          $("receipt").hidden = false;
+          $("receipt-title").textContent =
+            value.status === "cancelled"
+              ? "Din testbokning är avbokad"
+              : value.changedSinceCreation
+                ? "Testbokningen har ändrats i admin"
+                : "Din testbokning är klar";
+          $("receipt-summary").textContent =
+            `${value.serviceName} hos ${value.staffName} · ${value.duration} minuter · ${price(value.priceOre)}`;
+          $("receipt-time").textContent =
+            `${new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(value.startsAt))} · ${clock(value.startsAt)}–${clock(new Date(Date.parse(value.startsAt) + value.duration * 60000).toISOString())} (Stockholmstid)`;
+          $("receipt-id").textContent = `Boknings-id: ${value.id}`;
+          $("status").textContent =
+            value.status === "cancelled"
+              ? "Bokningen är avbokad. En tidigare importerad kalenderpost behöver du själv ta bort."
+              : value.changedSinceCreation
+                ? "Aktuell bokning visas. En tidigare importerad kalenderpost uppdateras inte automatiskt."
+                : "Testbokningen är sparad och syns i salongens lokala kalender.";
+          $("refresh-receipt").disabled = false;
+          $("calendar-file").disabled = value.status !== "confirmed";
+          $("new-booking").disabled = false;
+          $("calendar-download").hidden = true;
+          $("receipt").focus();
+          bookingContext(
+            `Aktuell testbokning: ${value.status}. Boknings-id ${value.id}.`,
+            value,
+          );
+        }
+        async function restoreHistory(auto = false) {
+          if (historyLoading || busy) return;
+          historyLoading = true;
+          document
+            .querySelectorAll("#content button,#content select,#content input")
+            .forEach((el) => (el.disabled = true));
+          $("history").hidden = false;
+          $("refresh-history").disabled = true;
+          $("book").disabled = true;
+          try {
+            const result = await rpc("tools/call", {
+              name: "read_demo_bookings",
+              arguments: {},
+            });
+            if (
+              result.isError ||
+              !Array.isArray(result.structuredContent?.items)
+            )
+              throw new Error();
+            historyReady = true;
+            $("history-items").replaceChildren();
+            const items = result.structuredContent.items;
+            const unfinished = items.find(
+              (i) => i.outcome === "pending" && i.retry,
+            );
+            if (unfinished) {
+              pendingBooking = unfinished.retry;
+              bookingReceipt = null;
+              activeRequestId = unfinished.requestId;
+              $("receipt").hidden = true;
+              render();
+              $("selection").hidden = true;
+              $("retry-booking").hidden = false;
+              $("retry-booking").disabled = false;
+              $("status").textContent =
+                `Tidigare försök: ${dayText(pendingBooking.start.slice(0, 10))} kl. ${clock(pendingBooking.start)}. Utfallet är okänt. Kontrollera samma försök innan du väljer nytt.`;
+              $("retry-booking").focus();
+            } else {
+              const receipts = items.filter((i) => i.receipt);
+              for (const item of receipts) {
+                const b = document.createElement("button");
+                b.type = "button";
+                b.textContent = `${item.receipt.serviceName} · ${dayText(item.receipt.startsAt.slice(0, 10))} ${clock(item.receipt.startsAt)} · ${item.receipt.status === "cancelled" ? "Avbokad" : "Bokad"}`;
+                b.onclick = () => {
+                  if (!busy && !pendingBooking)
+                    showReceipt(item.receipt, item.requestId);
+                };
+                $("history-items").append(b);
+              }
+              const current =
+                receipts.find((i) => i.requestId === activeRequestId) ??
+                (auto ? receipts[0] : null);
+              if (current) showReceipt(current.receipt, current.requestId);
+              else if (!receipts.length) {
+                $("history-items").textContent =
+                  "Inga sparade bokningar från det här provet ännu.";
+                render();
+              }
+            }
+            $("error").textContent = "";
+          } catch {
+            historyReady = false;
+            $("book").disabled = true;
+            $("error").textContent =
+              "Tidigare bokningsförsök kunde inte kontrolleras. Hämta dem igen innan du bokar nytt.";
+          } finally {
+            historyLoading = false;
+            document
+              .querySelectorAll(
+                "#content button,#content select,#content input",
+              )
+              .forEach((el) => (el.disabled = false));
+            render();
+            $("refresh-history").disabled = busy;
+            $("refresh-receipt").disabled = busy;
+          }
+        }
+        $("refresh-history").onclick = () => restoreHistory();
+        $("refresh-receipt").onclick = () => restoreHistory();
+        $("calendar-file").onclick = async () => {
+          if (!activeRequestId || busy || pendingBooking) return;
+          $("calendar-file").disabled = true;
+          try {
+            const result = await rpc("tools/call", {
+              name: "get_demo_calendar_file",
+              arguments: { requestId: activeRequestId },
+            });
+            if (
+              result.isError ||
+              typeof result.structuredContent?.content !== "string"
+            )
+              throw new Error();
+            if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+            downloadUrl = URL.createObjectURL(
+              new Blob([result.structuredContent.content], {
+                type: "text/calendar;charset=utf-8",
+              }),
+            );
+            $("calendar-download").href = downloadUrl;
+            $("calendar-download").hidden = false;
+            $("calendar-download").focus();
+            $("calendar-notice").textContent =
+              "Kalenderfilen är klar. Hämta och importera den i din kalenderapp. Ingen insättning eller automatisk synk är bekräftad.";
+          } catch {
+            $("error").textContent =
+              "Kalenderfilen kunde inte hämtas. Uppdatera bokningsstatus och försök igen.";
+          } finally {
+            $("calendar-file").disabled =
+              bookingReceipt?.status !== "confirmed";
+          }
+        };
         async function book() {
-          if (busy || bookingReceipt || data?.bookingEnabled !== true) return;
+          if (
+            busy ||
+            historyLoading ||
+            bookingReceipt ||
+            data?.bookingEnabled !== true
+          )
+            return;
           if (!pendingBooking) {
-            if (!selected || !$("consent").checked) return;
+            if (!historyReady || !selected || !$("consent").checked) return;
+            if (typeof crypto.randomUUID !== "function") {
+              $("error").textContent =
+                "Klienten saknar säkert stöd för bokningsförsök. Öppna den lokala skyddade demon.";
+              return;
+            }
             pendingBooking = {
               serviceId: data.service.id,
               staffId: data.selectedStaff.id,
@@ -721,6 +906,10 @@
               document
                 .querySelectorAll("button,select,input")
                 .forEach((el) => (el.disabled = false));
+              if (error.code === "previous_attempt_pending") {
+                await restoreHistory();
+                return;
+              }
               await load();
               $("error").textContent =
                 error.code === "slot_unavailable"
@@ -743,32 +932,9 @@
               !Number.isFinite(Date.parse(value.endsAt))
             )
               throw new Error("BOOKING_UNKNOWN");
-            bookingReceipt = value;
-            pendingBooking = null;
-            busy = false;
-            selected = null;
-            render();
-            $("selection").hidden = true;
-            $("receipt").hidden = false;
-            const changed =
-              value.status !== "confirmed" || value.changedSinceCreation;
-            $("receipt-title").textContent = changed
-              ? "Testbokningen har ändrats i admin"
-              : "Din testbokning är klar";
-            $("receipt-summary").textContent =
-              `${value.serviceName} hos ${value.staffName} · ${value.duration} minuter · ${price(value.priceOre)}`;
-            $("receipt-time").textContent =
-              `${new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(value.startsAt))} · ${clock(value.startsAt)}–${clock(value.endsAt)} (Stockholmstid)`;
-            $("receipt-id").textContent = `Boknings-id: ${value.id}`;
-            $("status").textContent = changed
-              ? "Det ursprungliga bokningsvalet visas ovan. Bokningen har senare flyttats eller avbokats. Kontrollera den i admin med boknings-id."
-              : "Testbokningen är sparad och syns i salongens lokala kalender.";
-            $("new-booking").disabled = false;
-            $("receipt").focus();
-            bookingContext(
-              `Testbokning skapad. Boknings-id ${value.id}.`,
-              value,
-            );
+            activeRequestId = pendingBooking.clientRequestId;
+            showReceipt({ ...value, version: 1 }, activeRequestId);
+            await restoreHistory();
           } catch {
             busy = false;
             selected = null;
@@ -777,7 +943,7 @@
               .querySelectorAll("button")
               .forEach((el) => el.setAttribute("aria-pressed", "false"));
             $("status").textContent =
-              "Bokningen kan ha skapats, men svaret saknas. Kontrollera samma försök för att få besked.";
+              `Bokningen kan ha skapats, men svaret saknas. Försöket gäller ${dayText(pendingBooking.start.slice(0, 10))} kl. ${clock(pendingBooking.start)}. Kontrollera samma försök för att få besked.`;
             $("error").textContent =
               "Starta inte en ny bokning innan utfallet är klarlagt.";
             $("retry-booking").hidden = false;
@@ -817,6 +983,7 @@
             render();
             $("status").textContent =
               "Välj en tid. Tillgängligheten kan ändras.";
+            if (data.bookingEnabled && !historyReady) void restoreHistory(true);
           }
         });
         $("service").onchange = () =>
@@ -831,17 +998,18 @@
         $("check").onclick = () => load({}, true);
         $("retry").onclick = () => load(lastArgs);
         $("consent").onchange = () => {
-          $("book").disabled = !$("consent").checked || busy;
+          $("book").disabled = !$("consent").checked || busy || !historyReady;
         };
         $("book").onclick = book;
         $("retry-booking").onclick = book;
         $("new-booking").onclick = () => {
           bookingReceipt = null;
+          activeRequestId = null;
           $("receipt").hidden = true;
           load();
         };
         rpc("ui/initialize", {
-          appInfo: { name: "booking-lab-time-card", version: "0.2.0" },
+          appInfo: { name: "booking-lab-time-card", version: "0.3.0" },
           appCapabilities: { availableDisplayModes: ["inline", "fullscreen"] },
           protocolVersion: "2026-01-26",
         })

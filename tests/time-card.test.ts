@@ -16,6 +16,9 @@ describe("Tidvalskortets lokala gräns", () => {
       { ...local, VERCEL_ENV: "preview" },
       { ...local, VERCEL: "1" },
       { ...local, VERCEL_URL: "synthetic.vercel.app" },
+      { ...local, VERCEL_REGION: "fra1" },
+      { ...local, VERCEL_TARGET_ENV: "preview" },
+      { ...local, NOW_REGION: "fra1" },
     ])
       expect(() => assertTimeCardDemo(env, [])).toThrow(
         "TIME_CARD_DEMO_REFUSED",

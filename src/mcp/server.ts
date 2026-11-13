@@ -24,6 +24,17 @@ import {
 } from "./workspace";
 import { db } from "../lib/db";
 import { LOCAL_WORKSPACE_ACTOR } from "../lib/workspace-write";
+import { assertOwnerCard } from "./owner-card/data";
+import { registerOwnerCard } from "./owner-card/register";
+const workdayCard = process.argv.includes("--workday-card");
+if (workdayCard) {
+  try {
+    assertOwnerCard();
+  } catch {
+    console.error("OWNER_CARD_DEMO_REFUSED");
+    process.exit(1);
+  }
+}
 const admin = process.argv.includes("--admin");
 const capacityOnly = process.argv.includes("--capacity-only");
 if (capacityOnly && (!admin || process.argv.includes("--allow-bookings"))) {
@@ -49,6 +60,13 @@ try {
 }
 serveStdio(() => {
   const server = new McpServer({ name: "booking-lab-se", version: "0.1.0" });
+  if (workdayCard) {
+    registerOwnerCard(server);
+    server.server.onclose = () => {
+      void db.$disconnect().catch(() => console.error("MCP_DISCONNECT_FAILED"));
+    };
+    return server;
+  }
   server.registerTool(
     "list_services",
     {

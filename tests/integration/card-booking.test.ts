@@ -77,6 +77,9 @@ beforeAll(async () => {
   reader = await connect(false);
 });
 afterEach(async () => {
+  await db.cardBookingAttempt.deleteMany({
+    where: { payload: { path: ["serviceId"], equals: serviceId } },
+  });
   await db.booking.deleteMany({ where: { serviceId } });
 });
 afterAll(async () => {
@@ -100,7 +103,9 @@ describe("Avgränsad bokning från MCP-kort", () => {
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name).sort()).toEqual([
       "book_demo_time",
+      "get_demo_calendar_file",
       "list_services",
+      "read_demo_bookings",
       "show_time_picker",
     ]);
     expect(tools.find((t) => t.name === "book_demo_time")?._meta).toMatchObject(

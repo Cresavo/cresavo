@@ -255,3 +255,21 @@ Appens cache-/säkerhetsheaders är E2E-testade. Inga paketflöden under verklig
 - Skapandetid lagras för dagstak. E-post normaliseras till gemener. Idempotency-Key och hash av payload lagras för retries; de kan knytas till bokningar och är inte anonymiserade. Ingen TTL/gallringsfunktion har införts.
 - Admin får fortsatt kundnamn, men e-post ersätts med ***@*** innan renderingen. MCP:s svar saknar båda fälten. Retention, mottagarbedömning och känslig indirekt information kvarstår även med maskering.
 - Global sessionsversion är konfiguration utan kunddata. Logout raderar browsercookie; kopierade cookies kräver versionshöjning/utgång. Demobilder/video innehåller bara syntetiska uppgifter och är lokalt ignorerade.
+# Tillägg 2026-11-13: beständigt kort och läsande ägarkort
+
+Kundkort → befintlig lokal stdio/opt-in → strikt syntetiskt försök till
+CardBookingAttempt → oförändrad createBooking → Booking/BookingEvent → kvitto.
+Försöket sparas före skrivning. Omöppning → app-only read_demo_bookings →
+serverhärledd lokal kanal/scope → högst20försök + eventuellt pending → aktuellt
+minimerat kvitto eller samma retry-payload. Ingen klientstyrd scope/aktör och
+inget uppslag enbart via bookingId/e-post. Inga kontaktfält i försöksloggen.
+
+Aktivt kvitto → get_demo_calendar_file → samma behörighetskontroll → escaped
+ICS → lokal blobnedladdning. Ingen kalenderkontakt sker. Extern kalenderimport
+är ett separat användarsteg, aldrig ett påstått lyckat API-anrop.
+
+Separat --admin --workday-card → befintliga datum-/kalender-/tillgänglighets-
+och kapacitetsfunktioner → kontaktfri projektion → MCP Apps-ägarkort. Max20
+bokningar/sida,12tider,3kapacitetskällor. Nästa/pågående besök avser uttryckligen
+vald medarbetare/dag. Webblänkar → vanlig individuell skyddad admin. Ingen
+kundkortssökning, nya mutationer, extern telemetri eller ny leverantör.

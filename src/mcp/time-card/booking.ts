@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { createBooking } from "../../lib/domain";
 import { db } from "../../lib/db";
-import { DomainError } from "../../lib/errors";
+import { DomainError, safeFailure } from "../../lib/errors";
+import { rememberCardAttempt, finishCardAttempt } from "./recovery";
 import { MCP_BOOKING_CLIENT, mcpBookingSchema } from "../booking";
 import { timeCardBookingsEnabled } from "./guard";
 
@@ -23,11 +24,20 @@ export const cardBookingSchema = mcpBookingSchema
 export async function bookDemoTime(input: unknown) {
   if (!timeCardBookingsEnabled()) throw new DomainError("Åtkomst nekad", 403);
   const args = cardBookingSchema.parse(input);
-  const booking = await createBooking(
-    mcpBookingSchema.parse({ ...args, ...CARD_CUSTOMER }),
-    `time-card_${args.clientRequestId}`,
-    MCP_BOOKING_CLIENT,
-  );
+  await rememberCardAttempt(args);
+  let booking;
+  try {
+    booking = await createBooking(
+      mcpBookingSchema.parse({ ...args, ...CARD_CUSTOMER }),
+      `time-card_${args.clientRequestId}`,
+      MCP_BOOKING_CLIENT,
+    );
+    await finishCardAttempt(args.clientRequestId, "saved");
+  } catch (error) {
+    if (safeFailure(error).status < 500)
+      await finishCardAttempt(args.clientRequestId, "failed");
+    throw error;
+  }
   const staff = await db.staff.findFirst({
     where: { businessId: booking.businessId, id: args.staffId },
     select: { name: true },

@@ -9,10 +9,11 @@ export function assertTimeCardDemo(
   if (
     env.BOOKING_TIME_CARD_DEMO !== "1" ||
     env.NODE_ENV === "production" ||
-    env.VERCEL_ENV ||
-    env.VERCEL ||
-    env.VERCEL_URL ||
-    args.includes("--allow-workspace")
+    Object.keys(env).some(
+      (k) => (k.startsWith("VERCEL") || k === "NOW_REGION") && env[k],
+    ) ||
+    args.includes("--allow-workspace") ||
+    args.includes("--workday-card")
   )
     throw new Error("TIME_CARD_DEMO_REFUSED");
   try {

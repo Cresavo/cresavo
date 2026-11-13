@@ -8,6 +8,8 @@ import { timeCardData, timeCardSchema, timeCardServices } from "./data";
 import { db } from "../../lib/db";
 import { safeToolSchema } from "../reply";
 import { safeFailure } from "../../lib/errors";
+import { cardHistorySchema, readCardBookings } from "./recovery";
+import { calendarFileSchema, getCardCalendarFile } from "./calendar-file";
 
 try {
   assertTimeCardDemo();
@@ -16,7 +18,7 @@ try {
   process.exit(1);
 }
 const allowBookings = timeCardBookingsEnabled();
-const uri = "ui://booking-lab/time-card-v2.html";
+const uri = "ui://booking-lab/time-card-v3.html";
 const ui = {
   prefersBorder: false,
   csp: {
@@ -30,11 +32,15 @@ const ui = {
 serveStdio(() => {
   const server = new McpServer({
     name: "booking-lab-time-card-demo",
-    version: "0.2.0",
+    version: "0.3.0",
   });
-  for (const resourceUri of [uri, "ui://booking-lab/time-card-v1.html"])
+  for (const resourceUri of [
+    uri,
+    "ui://booking-lab/time-card-v2.html",
+    "ui://booking-lab/time-card-v1.html",
+  ])
     server.registerResource(
-      resourceUri === uri ? "time-card" : "time-card-v1",
+      resourceUri === uri ? "time-card" : resourceUri,
       resourceUri,
       { mimeType: "text/html;profile=mcp-app", _meta: { ui } },
       async () => ({
@@ -48,6 +54,62 @@ serveStdio(() => {
         ],
       }),
     );
+  if (allowBookings) {
+    const appOnly = {
+      ui: { visibility: ["app"] },
+      "openai/widgetAccessible": true,
+    };
+    server.registerTool(
+      "read_demo_bookings",
+      {
+        title: "Mina lokala demobokningar",
+        description:
+          "Återläs högst 20 försök och eventuellt pågående försök i den betrodda lokala demokanalen. Ingen kundinloggning eller kontaktinformation.",
+        inputSchema: safeToolSchema(cardHistorySchema),
+        annotations: { readOnlyHint: true, openWorldHint: false },
+        _meta: appOnly,
+      },
+      async (input) => {
+        try {
+          const result = await readCardBookings(input);
+          return {
+            structuredContent: result,
+            content: [{ type: "text" as const, text: JSON.stringify(result) }],
+          };
+        } catch (e) {
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: safeFailure(e).message }],
+          };
+        }
+      },
+    );
+    server.registerTool(
+      "get_demo_calendar_file",
+      {
+        title: "Hämta kalenderfil",
+        description:
+          "Kalenderfil för egen aktiv syntetisk bokning. Ingen insättning eller automatisk synk.",
+        inputSchema: safeToolSchema(calendarFileSchema),
+        annotations: { readOnlyHint: true, openWorldHint: false },
+        _meta: appOnly,
+      },
+      async (input) => {
+        try {
+          const result = await getCardCalendarFile(input);
+          return {
+            structuredContent: result,
+            content: [{ type: "text" as const, text: result.notice }],
+          };
+        } catch (e) {
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: safeFailure(e).message }],
+          };
+        }
+      },
+    );
+  }
   server.registerTool(
     "show_time_picker",
     {
@@ -128,7 +190,10 @@ serveStdio(() => {
                 code:
                   failure.message === "Tiden är inte tillgänglig"
                     ? "slot_unavailable"
-                    : "booking_failed",
+                    : failure.message ===
+                        "Kontrollera det tidigare bokningsförsöket först."
+                      ? "previous_attempt_pending"
+                      : "booking_failed",
                 status: failure.status,
                 message: failure.message,
               },

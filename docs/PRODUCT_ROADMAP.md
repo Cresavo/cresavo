@@ -1,5 +1,22 @@
 # Booking Lab SE: produktmål och leveransordning
 
+## Aktivt godkänt mål: användbar agentbokning och arbetsdag
+
+Niclas godkände2026-11-13 AGENT_BOOKING_WORKDAY_PLAN och goal-promptens A–C.
+Bas e702838/produkt8126410, feature/agent-booking-workday. Nu byggs beständig
+lokal återhämtning/kvitto, kalenderfil och separat läsande ägarkort. Inga nya
+epicnummer eller framtidsmoduler härleds. Tekniska resultat/QA redovisas när de
+finns, inte utifrån tidigare tester. Produktägarens manuella provning är frivillig
+och ingen teknisk leveransgrind, men eget UX-/iPhone-godkännande får inte hittas på.
+
+Tidigare bokningsprov är faktiskt genomfört: Niclas skapade två olika tider i
+native-PC-kortet; DB och vanlig admin verifierades, 0överlapp. Se PROJECT_STATUS.
+Den äldre läskortsbeskrivningen nedan är historik, inte det senaste bokningsläget.
+
+Säker fjärr-/mobilanslutning, personlig kundautentisering och kalenderleverantörs-
+synk är separata beslut. Lokal försökslogg/ICS är ett konkret steg utan nya
+modellkonton, kostnader eller publika portar. Full produktvision nedan bevaras.
+
 ## Lokalt MCP-tidvalskort och återstående klientbevis
 
 a65f0f2 bygger ett separat läsande MCP Apps-kort utan bokningsskrivning.
