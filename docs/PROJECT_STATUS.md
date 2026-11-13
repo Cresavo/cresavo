@@ -1,3 +1,34 @@
+# Projektstatus — lokalt MCP-kort till admin
+
+2026-11-13, feature/mcp-card-booking-proof från fdcb41b. Produkt **8126410af712bdd71d6b6a42c0a1fcc58055d28d**.
+[Godkänt scope](MCP_CARD_BOOKING_PLAN.md). Dokumentation därefter skiljs från kod.
+
+| Acceptanskriterium | Faktiskt läge |
+| --- | --- |
+| Välj, sammanfatta och uttryckligen bekräfta | PASS4bokningskortstester från produktionsbygge, plus320/390/1024bildprov utan skrivning. Fast syntetisk kund, ordinarie pris, tjänst/utförare och Stockholmstid. |
+| Dubbeltryck/retry ger en bokning | PASSUI-dubbeltryck, sekventiell retry,20samma nyckel:1rad/1create-event/samma id. Ändrat payload409. |
+| Upptagen tid utan omstart | PASS20konkurrerande nycklar:1vinnare/0överlapp. UI läser om och kräver nytt val/bekräftelse. |
+| Tappat svar efter commit | PASSi testvärden: okänt utfall, nytt val låst, exakt samma payload/nyckel på retry,1rad. Ingen felaktig ”ingen bokning”-försäkran. |
+| Bokning i vanlig admin/samma DB | PASSproduktionsbyggd riktig kalender vid390/1024, vanlig individuell login. Egen CUA verifierade lokal admin/login; faktisk PC-kortkedja särredovisas nedan. |
+| Default läsläge och separata skydd | PASS2läsverktyg som standard; enbart explicit opt-in+flaggor/secret ger1app-skrivverktyg. Samma kundkvoter, inga adminbudgetar/registerverktyg. |
+| Snäv SQL-roll | PASSriktig launcher: skapa/retry/konflikt; kundregister/admin och UPDATE/DELETE nekas. Booking-kontakter är syntetiska och behövs internt av motorn, men returneras inte. |
+| Oberoende Grok | GO för avgränsad syntetisk lokal POC;4Low/1Info i backlogg,0Medium+; 8126410af712bdd71d6b6a42c0a1fcc58055d28d. [Groks originalrapport](qa/QA-REPORT-card-booking-8126410.md) |
+| Faktisk PC / fysisk mobil | PASSanrop efter PC-omstart: bookingEnabled=true och tjänsteversion1. Niclas bekräftade själv bokning i native-kortet; databasen har2skilda bokningar,1create-event vardera och0överlapp. Codex verifierade båda i faktisk skyddad Chrome-admin och öppnade10.00-bokningens detalj. Egen native-kortklickning NOT RUN. Fysisk iPhone/Safari och mobilanslutning NOT RUN/olöst. |
+| Privat leverans / Actions | [Actions43430009174](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43430009174) —4gröna jobb på8126410 efter1riktad omkörning av dev0 (första försöket112/113 i gammalt refundtest, anslutnings-/testtimeout; ingen kod/testgräns ändrad, rotorsak inte fastställd). Ingen mainmerge/deploy. |
+
+Privat plugin uppdaterat/aktiverat med lokal bokningsprofil. Lokal vanlig admin: [PC-loopback](http://localhost:3187/admin).
+Vercel-previewn och dess databas är OFÖRÄNDRADE, inte bevis på nya MCP-provet.
+Testad POC är inte kundpilot. Faktiskt provboknings-id: b48ea9ab-c0e5-4013-8d25-64ca409228ce och47797e71-dfa2-4482-a34b-9b4481241723.
+
+Slutmatris85unit/113integration/3läs-UI/4boknings-UI samt46webb-E2E×4,
+lint/tsc/build PASS. Audit separat7moderate dev/0prod. Samma9migrationer,
+domänmotor/auth/schema/lockfil; inga nya dependencies eller kostnader.
+[Verifikation](VERIFICATION.md) · [prova/bilder](DEMO.md).
+
+<!-- CARD_BOOKING_CURRENT_END -->
+
+## Historik — tidigare leverans
+
 # Projektstatus — lokalt MCP-tidvalskort
 
 2026-11-13. Granskningsrevision **a65f0f2ee5750044dd46c5db50453db5602b79f2**,

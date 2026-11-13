@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
-## Aktivt: avgränsat bokningsprov från MCP-kort
+## Levererat: lokalt bokningsprov från MCP-kort
 
 - Niclas godkände 2026-11-13 `docs/MCP_CARD_BOOKING_PLAN.md`. Bas fdcb41b,
   feature/mcp-card-booking-proof; bygg vidare utan omtag av gamla epics.
@@ -20,6 +20,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   MCP, ny drift/dependency eller mainmerge. Fryst Grok-QA/max2fixvarv.
 - Tappat skrivsvar är ett okänt utfall: samma payload/nyckel på retry, inga
   påståenden om att bokning saknas. Skilj testvärd från verklig klientprovning.
+- Produkt8126410 har Grok scopedGO (4Low/1Info, ingaMedium+). Inga nya fixloopar
+  för backlogg.85unit/113integration/3läs-UI/4boknings-UI/46webb×4 PASS lokalt.
+- Plugin0.2.0 är privat på fryst8126410. Efter Niclas PC-omstart laddades
+  bookingEnabled=true. Niclas bokade själv2olika tider; Codex verifierade
+  2rader/2create-events/0överlapp och verklig skyddad Chrome-admin/detalj.
+- Actions43430009174 är grön på8126410 efter1omkörning av oförändrad dev0:
+  initialt112/113 med anslutnings-/testtimeout i gammalt refundtest; rotorsak
+  okänd. Inga assertions/timeouts ändrade. OriginalFAIL och Grokrapport bevaras.
+- Uppdraget är klart som lokal syntetisk POC. Ingen fysisk iPhone/Safari eller
+  egen native-kortklickning är gjord. Ingen nästa epic eller Low-fixloop automatiskt.
 
 ## Lokalt MCP-tidvalskort: scoped QA klar, mobil återstår
 

@@ -1,13 +1,23 @@
 # booking-lab-se
 
-## Lokalt MCP-tidvalskort — PC-POC, mobil återstår
+## Lokalt MCP-bokningskort till admin — verifierad syntetisk POC
 
-Privat installerat plugin, faktisk MCP-läsning fungerar. Kortets egna tester
-passerar vid320/390/1024px; användarens PC-foton bekräftar visningen. Grok
-ger scopedGO lokal syntetisk POC med3Low/5Info. Egen PC-klickning och mobil
-återstår; användaren ser inget kort i mobilen.
-Ingen bokning/reservation, inga kundfält, ingen publik MCP eller ny drift.
-[Prova/status](docs/DEMO.md) · [plan](docs/MCP_TIME_CARD_PLAN.md) · [resultat](docs/VERIFICATION.md).
+Samma privata PC-plugin kan nu, vid separat lokal opt-in, skapa en testbokning
+för en fast påhittad kund efter sammanfattning, kryssruta och uttrycklig
+bekräftelse. Tappat svar återanvänder samma nyckel, upptagen tid ger nytt val.
+Standardens läsläge består. Ingen publik MCP, betalning eller utskick.
+
+Niclas har bokat i faktiska PC-kortet; två skilda tider verifierades som
+2bokningar/2create-events/0överlapp och i vanlig skyddad admin i samma lokala
+DB. Fysisk iPhone/Safari/mobilanslutning återstår. Produkt8126410 på
+feature/mcp-card-booking-proof, Grok scopedGO (4Low/1Info,0Medium+).
+85unit/113integration/3läs-UI/4boknings-UI/46webb×4,lint/tsc/build PASS.
+Actions43430009174 har4gröna jobb efter1omkörning av ett gammalt testtimeout;
+originalfelet bevaras och rotorsaken är inte fastställd. Audit separat7moderate
+dev/0prod. Inga nya beroenden, migrationer eller ändringar i bokningsmotorn.
+[Prova/status](docs/DEMO.md) · [plan](docs/MCP_CARD_BOOKING_PLAN.md) ·
+[resultat/NOT RUN](docs/VERIFICATION.md) · [Grok-original](docs/qa/QA-REPORT-card-booking-8126410.md).
+Ingen kundpilot, ny molndeploy eller mainmerge. Ingen ny epic startas automatiskt.
 
 ## Tidigare verifierade leveranser
 

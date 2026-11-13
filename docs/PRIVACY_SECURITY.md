@@ -8,8 +8,8 @@ kvoter, idempotens och överlappsskydd består. Bekräftelsefält och app-only
 metadata ersätter inte autentisering eller verifierat mänskligt mandat.
 Vid tappat skrivsvar får klienten inte anta att ingenting skapats. Samma
 payload/nyckel på retry; efter stängt kort kontrolleras okänt utfall i admin
-innan nytt försök. Läsroll/gammal profil bevaras. Production/Vercel nekas även
-med opt-in. Ingen kundpilot eller mobil-/molnanslutning godkänns här.
+innan nytt försök. Läsroll/gammal profil bevaras. Production och VERCEL/VERCEL_ENV/VERCEL_URL nekas även
+med opt-in. Andra ensamma plattformsmarkörer är inte alla kontrollerade (CB-QA-2). Ingen kundpilot eller mobil-/molnanslutning godkänns här.
 
 ## Manuell kunddata — godkänd avgränsning 2026-11-13
 

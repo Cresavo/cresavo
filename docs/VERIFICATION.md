@@ -1,3 +1,69 @@
+# Verifiering — lokalt MCP-kort till admin
+
+2026-11-13. Produkt **8126410af712bdd71d6b6a42c0a1fcc58055d28d**, feature/mcp-card-booking-proof.
+Riktig PostgreSQL på7nya loopback *_test/_demo; inga historiska migrationer ändrade.
+
+| Faktiskt kommando / kontroll | Resultat |
+| --- | --- |
+| node npm-cli.js ci (officiell lokal npm CLI) | PASS571Windows installerade,572auditerade; ren installation. |
+| node node_modules/prisma/build/index.js generate | PASS7.10.1. |
+| node node_modules/prisma/build/index.js migrate deploy; node --import tsx prisma/seed.ts | PASS9migrationer/seed på7nya DB. |
+| node node_modules/eslint/bin/eslint.js . | PASS. |
+| node node_modules/typescript/bin/tsc --noEmit | PASS. |
+| node node_modules/vitest/vitest.mjs run | PASS85/85. |
+| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts | PASS113/113,25filer. |
+| node node_modules/@playwright/test/cli.js test --config playwright.time-card.config.ts | PASS3/3,320/390/1024; egen stdio-testvärd. |
+| node node_modules/next/dist/bin/next build | PASS. |
+| node node_modules/@playwright/test/cli.js test --config playwright.card-booking.config.ts | PASS4/4 från produktionsbygge; dubbeltryck390/1024, upptagen tid och tappat svar efter commit → samma id i riktig admin. |
+| node node_modules/@playwright/test/cli.js test; E2E_PRODUCTION=1,TRUST_PROXY_IP=0 | PASS46/46. |
+| Samma, E2E_PRODUCTION=1,TRUST_PROXY_IP=1 | PASS46/46. |
+| Samma, E2E_PRODUCTION tom,TRUST_PROXY_IP=0 | PASS46/46. |
+| Samma, E2E_PRODUCTION tom,TRUST_PROXY_IP=1 | PASS46/46. |
+| Riktig launcher och SQL-roll, tillfällig HOME | PASS13kontroller,20retries och nekade register/admin/UPDATE/DELETE. Egen provrad städad,0kvar. Inte aktiv klient. |
+| Separat bekräftelsebildprov | PASS320/390/1024: consent krävs,0horisontell scroll,0bokningsanrop. Egen Chromiumvärd. |
+| Fryst runtime / fixture-städning | PASS451källfiler,0avvikelser (UTF8-LF/exakta binärer; genererad next-env undantagen). Testaffärsrader0.15/1hashade spärrposter integration/card. Demo1avsiktlig admin/1session;0bokningar vid kontroll. |
+| Faktisk lokal webbadministration | PASSegen CUA vanlig login i Chrome. Anonym/admin visar login200; anonym publish403; endast127.0.0.1:3187. |
+| npm audit --package-lock-only --json | FAILexit1:7moderate dev,0high/critical. |
+| npm audit --package-lock-only --omit=dev --json | PASSexit0:0fynd. |
+| Grok | GO för avgränsad syntetisk lokal POC;4Low/1Info i backlogg,0Medium+. [Groks originalrapport](qa/QA-REPORT-card-booking-8126410.md) |
+| Faktisk PC-kortkedja | PASSanrop efter PC-omstart: bookingEnabled=true och tjänsteversion1. Niclas bekräftade själv bokning i native-kortet; databasen har2skilda bokningar,1create-event vardera och0överlapp. Codex verifierade båda i faktisk skyddad Chrome-admin och öppnade10.00-bokningens detalj. Egen native-kortklickning NOT RUN. |
+| Actions på exakt pushad SHA | [Actions43430009174](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43430009174) —4gröna jobb på8126410 efter1riktad omkörning av dev0 (första försöket112/113 i gammalt refundtest, anslutnings-/testtimeout; ingen kod/testgräns ändrad, rotorsak inte fastställd). |
+
+Exakta subprocesskommandon/exit/tider i [full-results](verification/card-booking/full-results.json)
+och [fyrmatris](verification/card-booking/matrix-results.json). [Alla råutdata](verification/card-booking/README.md).
+Miljö laddades uttryckligen från separata ignorerade testprofiler; inga secrets i loggar/Git.
+MCP-läsläge2verktyg; opt-in3inklusive app-only book_demo_time.21ändrade/nya
+produkt-/test-/scopedokumentfiler; package/lock/schema/auth/motor byte-oförändrade.
+Privat plugin uppdaterat/aktiverat med lokal bokningsprofil.
+
+**NOT RUN:** fysisk iPhone/Safari, ny mobil-/fjärr-MCP/OAuth, kundpilot,
+Docker lokalt och ny deployment. Ingen ny video: riktade bilder för bounded prov.
+Pluginrelease, native klient och CI får inte antas PASS från SDK/testvärden.
+Nuvarande Grok-original gäller endast angiven revision och dess egna kontroller.
+Groks egna prober: guard36PASS/8FAIL (8andra ensamma plattformsmarkörer) och
+1nekad med annat felmeddelande; MCP90PASS/1FAIL (bokning+35dagar), launcher15/0,
+DST/read-only11/0 ochUI69/0. Dessa FAIL är redovisade Low-fynd, inte dolda PASS.
+Backlogg: CB-QA-1 UI28dagar/motor60; CB-QA-2 övriga miljömarkörer; CB-QA-3
+crypto.randomUUID saknas i osäker värd och ger tyst knapp; CB-QA-4 okänt utfall
+döljer försökt tid; CB-QA-5 17Tab till consent. Inget nytt rättningsvarv krävs
+för scopedGO. Native värd måste ändå provas; ingen generell klient-GO.
+
+## Appendix — initiala fel och faktisk gräns
+
+Kolon i ny nyckelprefix nekades av gamla regex; underscore rättade detta.
+Desktoptest valde dold mobil-länk; väljer nu synlig riktig kalenderlänk.
+Bildgranskning fångade falsk ändringsvarning eftersom historisk trigger alltid
+fyller initialStartsAt. Befintlig Booking.version används och kvittotext testas.
+Slutmatrisen ovan är EFTER dessa rättningar. Ingen assertion/säkerhet sänktes.
+Fryst lokal webbkopia missade först3genererade Next-junctions; de återskapades
+inom egen runtime, normal login/API kontrollerades därefter. Ingen kodrättning.
+MCP-bekräftelse är klientens försäkran. Stängt kort tappar lokal retry-nyckel:
+vid okänt utfall krävs adminkontroll innan ett nytt försök, inte automatisk ombokning.
+
+<!-- CARD_BOOKING_CURRENT_END -->
+
+## Historik — tidigare leverans
+
 # Verifiering — lokalt MCP-tidvalskort
 
 2026-11-13. Produkt8648316 med enbart separat testoutput ändrad i

@@ -5,7 +5,8 @@
 `MCP_CARD_BOOKING_PLAN.md` utökar läsprovet utan ändring av vanlig MCP-server,
 domänmotor eller schema. Standardprofilen behåller två läsverktyg och läsroll.
 Separat env-opt-in + båda befintliga bokningsflaggor + SESSION_SECRET krävs
-för `book_demo_time`. Production, alla Vercelflaggor och workspaceflaggor nekas.
+för `book_demo_time`. Production, VERCEL/VERCEL_ENV/VERCEL_URL och workspaceflaggor nekas. Åtta
+andra ensamma plattformsmarkörer nekas inte (CB-QA-2 Low-backlogg).
 Launcher skickar hemligheten bara i opt-in, aldrig i HTML/payload eller paket.
 
 Strikt schema: tids-/tjänsteversion, UUID och confirmed:true. Servern sätter
@@ -18,7 +19,8 @@ UI behåller samma payload/nyckel vid okänt skrivutfall och låser nya försök
 tills retry ger besked. Definitiva 4xx/konflikter läser om lediga tider och
 kräver nytt val/bekräftelse. Tjänsteversion stoppar ändrat pris/längd; replay
 går först i motorn. Bokningen syns i ordinarie skyddad admin i samma lokala DB.
-UI söker28dagar; övriga datumregler ligger kvar i domänmotorn.
+UI söker28dagar; skrivverktyget behåller motorns60dagarsregel (CB-QA-1 Low).
+Resurs-v2 undviker gammal UI-cache; v1 finns kvar som alias för samma HTML.
 App-only metadata och confirmed är inte verifierat mänskligt mandat eller
 fjärrautentisering. Tillfälligt tillstånd överlever inte stängt kort: okänt
 utfall kontrolleras då i admin före nytt försök. Ingen molnändring.

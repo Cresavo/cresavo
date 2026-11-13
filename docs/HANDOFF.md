@@ -1,3 +1,48 @@
+# Handoff — avgränsat MCP-bokningsprov
+
+2026-11-13, feature/mcp-card-booking-proof från fdcb41b, produkt **8126410af712bdd71d6b6a42c0a1fcc58055d28d**.
+[Mandat/acceptans](MCP_CARD_BOOKING_PLAN.md). Ingen nästa epic eller core-omskrivning.
+
+Byggt: opt-in book_demo_time, fast syntetisk kontakt, befintlig createBooking/
+kundkvoter, UUID med time-card_-namnrymd och tjänsteversion. UI har checkbox/
+uttrycklig bekräftelse, kvitto i Stockholmstid, konflikt → nytt val och okänt
+skrivutfall → låst nytt val + exakt retry. Senare adminändring visas som sådan.
+Standardens två läsverktyg/gamla läsprofil består. VERCEL/VERCEL_ENV/VERCEL_URL och
+production/workspace nekas;8andra ensamma plattformsmarkörer är Low-backlogg. App-only metadata är inte fjärrautentisering.
+
+Ny src/mcp/time-card/booking.ts; små ändringar i guard/data/server/ui och
+befintlig launcher/pluginmetadata0.2.0. Ny integration och testvärdshjälpare,
+ny Playwrightkonfiguration för bokning→admin. CI kör kortsviter i befintligt
+dev0-jobb; övrig fullmatris består. Inga nya beroenden, migrations-/auth-/
+domänmotor-/HTTP-/gammal MCP-serverändringar.
+
+85unit/113integration/3läs-UI/4boknings-UI/46webb×4,lint/tsc/build PASS.
+Ren npmci571Windows,9migreringar/seed på7nya DB. Full auditFAIL7moderate dev,
+prodPASS0. 13riktiga launcher/SQL-kontroller och egen faktisk CUA-adminlogin.
+[Groks originalrapport](qa/QA-REPORT-card-booking-8126410.md) Status: **GO för avgränsad syntetisk lokal POC;4Low/1Info i backlogg,0Medium+**, granskad revision 8126410af712bdd71d6b6a42c0a1fcc58055d28d.
+[Actions43430009174](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43430009174) —4gröna jobb på8126410 efter1riktad omkörning av dev0 (första försöket112/113 i gammalt refundtest, anslutnings-/testtimeout; ingen kod/testgräns ändrad, rotorsak inte fastställd). Privat plugin uppdaterat/aktiverat med lokal bokningsprofil.
+
+Runtime <local-state>/codex/booking-lab-card-booking-8126410. Källmatchning
+451filer,0mismatch (normaliserad UTF8-LF/exakta binärer, next-env genererad).
+Verifierade rena C-dependencies och produktionsbygge kopierades till egen
+fryst runtime; tre genererade externa paketjunctions återställdes inom den.
+Vanlig serverwrapper på127.0.0.1:3187, NY booking_cardbooking_demo. SQL-writer
+har SELECTService/Staff/Booking/BookingEvent och INSERTBooking/BookingEvent;
+syntetiska Booking-kontakter behövs internt, Customer/Admin/User-åtkomst nekas.
+Det är inte OS-isolering eller tenant-säker drift. Old reader och DB orörda.
+Ny vanlig syntetisk webadmin, slumpat lösenord endast privat lokal envfil;
+ingen bypass/autologin i produktkoden. Normal login i operatörens Chrome är verifierad.
+
+PASSanrop efter PC-omstart: bookingEnabled=true och tjänsteversion1. Niclas bekräftade själv bokning i native-kortet; databasen har2skilda bokningar,1create-event vardera och0överlapp. Codex verifierade båda i faktisk skyddad Chrome-admin och öppnade10.00-bokningens detalj. Egen native-kortklickning NOT RUN. Befintlig Vercel-preview/databas oförändrade, inga
+publiceringar/utskick/betalningar/riktiga kunder eller mainmerge. Fysisk mobil
+och kundpilot inte godkända. Inget native-PC-/Grokprov kan härledas ur testvärden.
+Bevara stängd-kort-begränsningen: kontrollera admin innan nytt försök vid okänt utfall.
+[Provguide/bilder](DEMO.md) · [kommandon och NOT RUN](VERIFICATION.md).
+
+<!-- CARD_BOOKING_CURRENT_END -->
+
+## Historik — tidigare leverans
+
 # Handoff — lokalt MCP-tidvalskort
 
 2026-11-13, feature/mcp-time-card från1a49a0e. Produktkod8648316,

@@ -1,3 +1,68 @@
+# Prova MCP-bokningskortet på PC:n
+
+**Demo – endast påhittade uppgifter.** Produkt8126410af712bdd71d6b6a42c0a1fcc58055d28d.
+Privat plugin uppdaterat/aktiverat med lokal bokningsprofil. Grok: **GO för avgränsad syntetisk lokal POC;4Low/1Info i backlogg,0Medium+**. PASSanrop efter PC-omstart: bookingEnabled=true och tjänsteversion1. Niclas bekräftade själv bokning i native-kortet; databasen har2skilda bokningar,1create-event vardera och0överlapp. Codex verifierade båda i faktisk skyddad Chrome-admin och öppnade10.00-bokningens detalj. Egen native-kortklickning NOT RUN.
+
+[Samma privata Booking Lab-plugin](https://chatgpt.com/plugins/plugins_6af6eef3bf6881919d99e654b91644e3)
+och [lokal admin på PC:n](http://localhost:3187/admin). Ingen publik MCP eller
+ny mobilanslutning. Den skyddade Vercel-demon är inte samma databas.
+
+## Prova den aktiverade bokningsprofilen
+
+1. Be pluginet visa Massage hos Anna nästa vardag. Inget bokas av verktygets visning.
+2. Välj dag/tid. Läs tjänst, utförare, längd, ordinarie pris och Stockholmstid.
+   Demofönstret13nov–10dec visas i kortet. Kontrollera mitt tidsval är valfri omläsning.
+3. Kryssa ”Jag vill skapa den här testbokningen”, tryck ”Bekräfta testbokning”.
+   Testkunden är fast Tidkort Demo. Inga verkliga uppgifter, utskick eller betalningar.
+4. Läs kvitto/boknings-id. Öppna samma dag i lokal admin; bokningen ska synas där.
+   Webben behåller vanlig individuell inloggning. Operatörens Chrome är redan
+   inloggad på det isolerade syntetiska testkontot, inte en ny authgenväg.
+5. Om tiden togs: välj ett av de uppdaterade alternativen och bekräfta på nytt.
+   Vid tappat svar: ”Kontrollera samma bokningsförsök”, aldrig nytt försök med ny nyckel.
+
+Tre bokningar per dag för den fasta testadressen; kanalens tak5/dag består.
+Gamla bokningar raderas inte/återbetalas inte av en avbokning. Stänger du ett
+kort med okänt utfall: kontrollera admin innan ny bokning. Lokal minnesnyckel
+är inte en beständig klientjournal. Profil/secret ligger utanför Git/paket.
+
+## Faktiskt PC-prov
+
+Niclas bokade i det nya kortet efter omstart. Codex kontrollerade endast genom
+läsning av DB: två olika Massage/Anna-bokningar måndag16nov09.30–10.00 och
+10.00–10.30, ett create-event vardera,0överlapp. Båda lämnades kvar. Codex
+öppnade faktiskt kalendern och10.00-detaljen i vanlig skyddad Chrome-admin.
+Det är inte ett eget klicktest av själva native-kortet eller Groks PC-test.
+[Öppna rätt kalenderdag på PC:n](http://localhost:3187/admin?date=2026-11-16&staffId=staff-demo).
+Kalenderfliken är redan öppen i Chrome. [DB-bevis](verification/card-booking/user-native-booking.json).
+
+## Bilder och bevis
+
+[Bekräftelsesteg390](assets/card-booking/confirmation-390.png) ·
+[kvitto390](assets/card-booking/receipt-390.png) ·
+[admin390](assets/card-booking/admin-390.png) ·
+[kvitto1024](assets/card-booking/receipt-1024.png) ·
+[admin1024](assets/card-booking/admin-1024.png).
+[Faktisk PC-admin](assets/card-booking/actual-pc-admin-calendar.png) ·
+[faktisk bokningsdetalj](assets/card-booking/actual-pc-admin-booking.png).
+[Manifest](assets/card-booking/manifest.json). Kortbilder är från egen verklig
+stdio/testvärd, adminbilder från vanlig produktionsbyggd webbsida. Inte native
+ChatGPT eller fysisk iPhone. [Groks originalrapport](qa/QA-REPORT-card-booking-8126410.md)
+
+## Start och stopp
+
+Portabel isolerad installation/profiler i [plugin-README](../plugins/booking-lab-time-card/README.md).
+Admin kör via befintlig wrapper med samma DB. Lokalt operatörsstartkommando:
+`node --env-file=<local-state>/codex/booking-lab-ui/.vercel/card-booking-web.private.env scripts/server.mjs --hostname 127.0.0.1`
+från den frysta runtimekatalogen. Envfilen innehåller hemligheter och skickas aldrig.
+Stoppa bara denna nya wrapper och detta plugin; stoppa inte delad PostgreSQL
+eller ägarens andra MCP. Gammal read-only-profil bevaras som återgångsväg.
+Pluginrelease pluginrel_6af70999bc548191a5554d9befb1fe19. [Actions43430009174](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43430009174) —4gröna jobb på8126410 efter1riktad omkörning av dev0 (första försöket112/113 i gammalt refundtest, anslutnings-/testtimeout; ingen kod/testgräns ändrad, rotorsak inte fastställd).
+Ingen kostnad, mainmerge, ny Vercel-deploy eller pilot följer av provet.
+
+<!-- CARD_BOOKING_CURRENT_END -->
+
+## Historik — tidigare leverans
+
 # Prova lokalt MCP-tidvalskort i ChatGPT på PC:n
 
 [Booking Lab – tidval](https://chatgpt.com/plugins/plugins_6af6eef3bf6881919d99e654b91644e3)

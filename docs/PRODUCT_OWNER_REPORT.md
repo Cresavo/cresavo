@@ -1,3 +1,29 @@
+# Produktägarrapport — lokalt MCP-kort till admin
+
+Byggt: ett uttryckligt bekräftelsesteg som skapar en riktig syntetisk bokning
+och ett begripligt kvitto. Samma bokningsmotor; dubbeltryck, retries och upptagna
+tider hanteras. Tappat svar kan betyda sparad bokning och får inte starta ett nytt försök.
+
+Prova när aktiverat: [privat PC-plugin](https://chatgpt.com/plugins/plugins_6af6eef3bf6881919d99e654b91644e3)
+→ välj tid → läs sammanfattning → kryssa/bekräfta → [lokal admin](http://localhost:3187/admin).
+[Steg/bilder](DEMO.md). Privat plugin uppdaterat/aktiverat med lokal bokningsprofil. PASSanrop efter PC-omstart: bookingEnabled=true och tjänsteversion1. Niclas bekräftade själv bokning i native-kortet; databasen har2skilda bokningar,1create-event vardera och0överlapp. Codex verifierade båda i faktisk skyddad Chrome-admin och öppnade10.00-bokningens detalj. Egen native-kortklickning NOT RUN.
+
+Branch feature/mcp-card-booking-proof, produkt8126410af712bdd71d6b6a42c0a1fcc58055d28d.85unit/113integration/
+3läs-UI/4boknings-UI/46webb-E2E×4 samt lint/tsc/build PASS. Audit separat7moderate
+dev/0prod. Grok **GO för avgränsad syntetisk lokal POC;4Low/1Info i backlogg,0Medium+**. [Groks originalrapport](qa/QA-REPORT-card-booking-8126410.md) [Actions43430009174](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43430009174) —4gröna jobb på8126410 efter1riktad omkörning av dev0 (första försöket112/113 i gammalt refundtest, anslutnings-/testtimeout; ingen kod/testgräns ändrad, rotorsak inte fastställd).
+
+Faktisk PC-kedja är nu bekräftad av Niclas plus DB/Codex-admin. Kvar: fysisk iPhone/Safari och
+mobilanslutning. Stängt kort tappar lokal retry-nyckel; okänt utfall kontrolleras
+i admin. Ingen kundpilot, ny drift eller åtkomst till riktiga kunder.
+
+Tre motiverade nästa steg: slutför faktisk klientprovning; avgränsa säker
+mobilanslutning separat; överväg återställning av väntande försök efter stängt
+kort innan flödet används bredare. Starta inget av dem automatiskt.
+
+<!-- CARD_BOOKING_CURRENT_END -->
+
+## Historik — tidigare leverans
+
 # Produktägarrapport — lokalt MCP-tidvalskort
 
 [Öppna Booking Lab – tidval på PC:n](https://chatgpt.com/plugins/plugins_6af6eef3bf6881919d99e654b91644e3).
