@@ -259,6 +259,7 @@ export default function Calendar({
       )}
       <div
         className="desktop-calendar"
+        data-calendar-scroll
         role="region"
         aria-label={view === "week" ? "Veckokalender" : "Dagkalender"}
         aria-describedby={

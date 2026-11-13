@@ -351,8 +351,8 @@ button,
   min-height: 44px;
 }
 input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
   accent-color: #255d4c;
 }
@@ -373,6 +373,10 @@ fieldset {
   flex: 1;
 }
 .workspace-brand > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 44px;
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -633,6 +637,7 @@ button:hover,
   margin-top: 20px;
 }
 .check-label {
+  min-height: 44px;
   display: flex;
   gap: 9px;
   align-items: center;
@@ -751,7 +756,15 @@ button:hover,
   background: #f6f8f4;
 }
 .calendar-day-heading > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   text-decoration: none;
+}
+.calendar-guidance summary {
+  min-height: 44px;
+  padding-block: 10px;
+  cursor: pointer;
 }
 .staff-headings {
   display: flex;

@@ -96,6 +96,7 @@ export default function BookingEditor({
         (!!start && start !== current.startsAt))
     : initialSelection !== originalSelection;
   const { markDirty, markClean } = useUnsavedChanges(changed);
+  const cancelButton = useRef<HTMLButtonElement>(null);
   const editButton = useRef<HTMLButtonElement>(null),
     noticeElement = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
@@ -296,6 +297,7 @@ export default function BookingEditor({
                 </button>
                 <button
                   className="danger-secondary"
+                  ref={cancelButton}
                   onClick={() => setConfirmCancel(true)}
                 >
                   Avboka
@@ -325,7 +327,10 @@ export default function BookingEditor({
               className="secondary"
               disabled={pending}
               autoFocus
-              onClick={() => setConfirmCancel(false)}
+              onClick={() => {
+                setConfirmCancel(false);
+                requestAnimationFrame(() => cancelButton.current?.focus());
+              }}
             >
               Behåll bokningen
             </button>

@@ -24,6 +24,10 @@ export default function HeaderMenu({
       ref={ref}
       className="workspace-menu"
       data-active={active || undefined}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+          event.currentTarget.open = false;
+      }}
       onKeyDown={(event) => {
         if (event.key === "Escape" && ref.current?.open) {
           event.preventDefault();

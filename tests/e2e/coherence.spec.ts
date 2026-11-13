@@ -25,6 +25,8 @@ test("kalender, bokning och kundkort behåller datum, filter, sökning och retur
   const day = DateTime.now()
     .setZone("Europe/Stockholm")
     .plus({ days: 12 })
+    .startOf("week")
+    .plus({ days: 4 })
     .startOf("day");
   try {
     await db.service.create({
@@ -111,6 +113,57 @@ test("kalender, bokning och kundkort behåller datum, filter, sökning och retur
       .poll(() => new URL(page.url()).pathname + new URL(page.url()).search)
       .toBe(calendar);
     await expect.poll(() => page.evaluate(() => scrollY)).toBeCloseTo(y, 0);
+    await visit.click();
+    await expect(
+      page.getByRole("heading", { name: "Bokning", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Avboka", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Behåll bokningen", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Avboka", exact: true }),
+    ).toBeFocused();
+    await page.goBack();
+    await expect.poll(() => page.evaluate(() => scrollY)).toBeCloseTo(y, 0);
+    // The week is wider than the desktop viewport: both axes belong to the
+    // calendar context, for an explicit return and ordinary browser Back.
+    const originalViewport = page.viewportSize()!;
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const week = calendar
+      .replace("view=day", "view=week")
+      .replace(`&staffId=${id}`, "");
+    await page.goto(week);
+    const grid = page.getByRole("region", {
+      name: "Veckokalender",
+      exact: true,
+    });
+    await visit.scrollIntoViewIfNeeded();
+    const weekX = await grid.evaluate((element) => element.scrollLeft);
+    const weekY = await page.evaluate(() => scrollY);
+    expect(weekX).toBeGreaterThan(0);
+    for (const browserBack of [false, true]) {
+      await visit.click();
+      await expect(
+        page.getByRole("heading", { name: "Bokning", exact: true }),
+      ).toBeVisible();
+      if (browserBack) await page.goBack();
+      else
+        await page
+          .getByRole("link", { name: "Till kalendern", exact: true })
+          .click();
+      await expect
+        .poll(() => new URL(page.url()).pathname + new URL(page.url()).search)
+        .toBe(week);
+      await expect(grid).toBeVisible();
+      await expect
+        .poll(() => page.evaluate(() => scrollY))
+        .toBeCloseTo(weekY, 0);
+      await expect
+        .poll(() => grid.evaluate((element) => element.scrollLeft))
+        .toBeCloseTo(weekX, 0);
+    }
+    await page.setViewportSize(originalViewport);
     await page.goto(`/admin/customers?q=${id}`);
     await page.locator(".customer-row").filter({ hasText: id }).click();
     await page.getByText("Redigera kunduppgifter", { exact: true }).click();
@@ -243,6 +296,15 @@ test("tre tydliga huvudval och stängbara sekundärmenyer fungerar på mobil och
       ),
     ).toBe(true);
     await page.locator("summary").filter({ hasText: "Konto" }).click();
+    const account = page
+      .locator(".workspace-menu")
+      .filter({ has: page.locator("summary", { hasText: "Konto" }) });
+    await account
+      .getByRole("button", { name: "Logga ut", exact: true })
+      .focus();
+    await page.keyboard.press("Tab");
+    await expect(account).not.toHaveAttribute("open", "");
+    await account.locator("summary").click();
     await page
       .getByRole("link", { name: "Visa kundbokningen", exact: true })
       .click();
