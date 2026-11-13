@@ -10,15 +10,20 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
-## Pågående: sammanhängande salongsupplevelse
+## Levererat: sammanhängande salongsupplevelse
 
-- Niclas godkände docs/COHERENT_EXPERIENCE_PLAN.md. Bas3273934,
-  feature/coherent-salon-workspace. Bevara hela senare agent-workday-leveransen.
-- Endast befintlig UI/navigation/kontext/återkoppling. Ingen ny modul, modell,
-  dependencyuppgradering eller förändring av boknings-/auth-/MCP-regler.
-- Codex ensam skrivare, faktiska före/efter-klicktest och fryst Grok-QA i egen
-  syntetisk kopia, max2 samlade rättningsvarv. Privat push/exakt CI och samma
-  skyddade preview. Ingen mainmerge, ny åtkomst eller ny kostnad.
+- Produkt/Grok/CI/deploy 51d54d4, feature/coherent-salon-workspace från 3273934.
+  Grok scoped GO efter ett samlat fixvarv. Actions 43502629318 har fyra gröna jobb med 54/54;
+  102 unit / 125 integration / 13 kort/lint/tsc/build PASS. Audit 7 moderate dev/omit dev: 0.
+- Samma skyddade preview verifierad med verklig Chrome-klick och SQL/HTTP.
+  93 gamla bokningar/originalrader bevarade, endast 1 egen avbokad testbokning ny.
+  Senare Markdown ändrar inte produktkoden. Main är orörd; ingen nästa Epic nu.
+- Läs DEMO/PROJECT_STATUS/HANDOFF/VERIFICATION och Groks original i docs/qa.
+  Bevara gemensam returkontext/säker allowlist, verklig dirty-guard och grundregler.
+  Low gallringsordning/Info korrupt scrollpost är backlogg, ingen ny fixloop.
+- Fysisk iPhone/Safari och Niclas UX-godkännande återstår; pilot NO-GO.
+  PC-plugin/runtime 05 på 3187 och dess DB/profiler är separata och bevarade.
+  Ingen ny fjärr-MCP, modul, ny kostnad/åtkomst, mainmerge eller licensändring.
 
 ## Levererat: beständigt agentkort och ägarens arbetsdag
 

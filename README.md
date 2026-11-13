@@ -1,3 +1,29 @@
+<!-- COHERENT_CURRENT_START -->
+# Booking Lab SE — bokning och salongens arbetsyta
+
+Svensk, agentredo boknings-POC med en sammanhängande arbetsyta och helt syntetiska
+uppgifter. Översikt, Kalender och Kunder är huvudval; Salongen samlar tjänster,
+personal och kampanjer. Kundbokning och produktsida har tydliga egna ingångar.
+Befintlig lokal MCP använder samma verksamhetsregler.
+
+[Öppna skyddad demo](https://booking-lab-se-preview.vercel.app/admin) · [fem provflöden och bilder](docs/DEMO.md) ·
+[status](docs/PROJECT_STATUS.md) · [testresultat](docs/VERIFICATION.md).
+Vercel-inloggning vid behov, därefter Öppna demoadmin utan ett extra lösenord.
+
+Produkt/Grok/CI/deploy: **51d54d4696dd5fee51449acbd096f8529fbd3c5c**, branch
+**feature/coherent-salon-workspace**. Grok scoped GO efter ett rättningsvarv;
+[Actions 43502629318](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43502629318)
+har fyra gröna jobb med 54 webbtester vardera. Lokalt: 102 unit, 125 integration,
+13 MCP-kort, lint/tsc/build PASS. Full audit **FAIL: 7 moderate dev**; omitdev 0.
+
+Detta är en privat syntetisk POC. Fysisk iPhone/Safari och Niclas UX-godkännande
+återstår; kundpilot är inte godkänd. Senare dokumentation ändrar inte produktkoden.
+Befintlig PC-plugin/runtime är separat och bevarad. Lokala startinstruktioner och
+tidigare leveransbevis finns nedan.
+<!-- COHERENT_CURRENT_END -->
+
+## Tidigare leveranser och bevis
+
 # booking-lab-se
 
 ## Beständig agentbokning och ägarens arbetsdag — lokal syntetisk POC

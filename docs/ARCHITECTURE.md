@@ -1,5 +1,24 @@
 # Arkitektur
 
+## Sammanhängande arbetsyta: UI-kontext
+
+Tre primära adminvyer delar samma ram; Salongen/Konto är enkla native details.
+Ingen ny router, datamodell eller agentplattform. `navigation-context.ts`
+validerar interna returvägar och ger reservväg vid direktlänk. Kalenderfilter,
+lista/sökning och nästlad bokning–kundkort följer med i interna länkar.
+
+`context-link.tsx` binder en opak nyckel till en historikpost och sparar endast
+scrollkoordinater/tid i flikens sessionStorage: högst 20 poster. Poster äldre än
+30 minuter används inte och rensas vid nästa sparning. Retur och
+vanlig Bakåt väntar på streamat innehåll; effektstädning är idempotent i
+StrictMode och avsiktliga användarhandlingar avbryter väntan. Lagringen är
+valfri: säkra vanliga returlänkar fungerar när den inte är tillgänglig.
+
+Bokningssidan läser efter vanlig adminauth högst 20 BookingEvent för vald
+bokning/salong, med action/tid/flyttider/actorKind. Ingen aktörsidentitet eller
+kontakt läggs i projektionen. HTML visar faktisk kanal, inte vem som gav en
+agent uppdraget. HTTP/MCP-kontrakt och verksamhetsregler är oförändrade.
+
 ## Beständig lokal kortbokning och ägarens arbetsdag
 
 Rättningsvarv2 skyddar även omvänd replay: äldre create_booking och publik

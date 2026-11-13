@@ -1,3 +1,78 @@
+<!-- COHERENT_CURRENT_START -->
+# Prova den sammanhängande salongsupplevelsen
+
+**[Öppna den förbättrade skyddade demon](https://booking-lab-se-preview.vercel.app/admin).**
+Vercel-inloggning vid behov, därefter **Öppna demoadmin**. Inget extra
+adminlösenord behövs i denna uttryckligt isolerade demo. Vanlig produktinloggning
+finns kvar. Bara påhittade uppgifter, inga betalningar eller utskick.
+
+Verifierat 2026-11-13: produkt/Grok/CI/deploy **51d54d4696dd5fee51449acbd096f8529fbd3c5c**,
+feature/coherent-salon-workspace, `dpl_<redacted>`, fra1. Metadata och
+källarkivhash matchar, samma alias är verifierat med både åtkomstskydd och egna
+klick. Senare dokumentationscommit ändrar inte den driftsatta koden.
+
+## Fem saker att prova på mobilen
+
+1. **Hitta rätt läge.** Arbetsytan har Översikt, Kalender, Kunder. Salongen har
+   tjänster, personal och kampanjer. Konto visar identitet, kundbokning, produktsida
+   och Logga ut. [Produktsidan](https://booking-lab-se-preview.vercel.app/product) har tydliga ingångar.
+2. **Följ en bokning.** Välj dag och personal i Kalender, öppna en bokning med
+   kopplat kundkort, öppna kortet och gå tillbaka. Samma dag/filter finns kvar.
+   Prova vanlig Bakåt. På desktop bevaras även veckokalenderns sidscroll.
+3. **Prova kundsökning och Avbryt.** Sök Mira, öppna kundkortet, skriv ett nytt
+   namn och Avbryt. Ingenting sparas; Till kunder återgår till samma sökning.
+   Tjänster/personal väljs medvetet innan redigering; Stäng, Avbryt och Spara skiljs åt.
+4. **Boka och ändra en testtid.** Konto→Visa kundbokningen. Välj dag/tid med knappar,
+   använd @example.test och bekräfta. Se behandling/pris/utförare/tid i den synliga
+   bekräftelsen. Tillbaka i admin: flytta eller avboka den egna bokningen. Visa
+   avbokade och Historik för uppföljning. Ändra bara syntetiska demouppgifter.
+5. **Granska verkliga förslag.** Översikt skiljer behov av beslut från inaktuellt,
+   avfärdat och sparat utkast. Granska sparat kampanjutkast landar på rätt kort.
+   Hela behandlingens datumperiod visas; erbjudandet är inte bara en tidslucka.
+
+Egen molnkontroll skapade en Sammanhang Preview Demo-bokning 18 november 09:30,
+flyttade till 10:30 och avbokade. Den ligger kvar som avbokad med 3 händelser;
+93 äldre bokningar och övriga originalrader är bevarade. Ingen befintlig kampanj
+publicerades eller ändrades. Fysisk iPhone/Safari och ditt UX-godkännande återstår.
+
+## Verkliga bilder och underlag
+
+Lokalt: <local-state>/codex/booking-lab-coherence-evidence/.
+- Före: review-images/before/05-calendar-390.jpg, lokal05e5eaf före ändringen.
+- Efter: cloud/10-stable-calendar-390.jpg och 11-stable-overview-390.jpg,
+  faktisk skyddad preview 51d54d4. Olika helt syntetiska databaser; bokningsantal
+  i bilderna är inte ett mått på UI-förbättringen.
+- Hela kund-/adminflödet: cloud/01–09; lokala kompletteringar i review-images/f1/.
+- Groks egen mobilbild: grok-f1-CS-QA-2-390.png. Separat headless-miljö, inte vår
+  molndatabas eller fysisk iPhone. [Grok-original](qa/QA-REPORT-coherent-f1-51d54d4.md).
+- delivery-visual-manifest.json anger exakt SHA, pixelmått, format och hash.
+  CSS 390/320/1280 är emulering; ingen fysisk enhetskontroll eller ny video påstås.
+
+För reproducerbar lokal kopia: följ README:s lokala setup och använd NY separat
+loopbackdatabas med suffix _demo. Migrera/grundseeda; sätt därefter explicit
+`BOOKING_DEMO_SEED=1` och kör `npm run demo:seed` samt `npm run demo:seed:capacity`.
+Skapa syntetiskt admin via `npm run admin:manage -- create owner@example.test`;
+lösenord väljs i dold terminalinmatning, aldrig i chatten. Ingen automatisk radering.
+
+PC-plugin/runtime 05 på 3187 och dess lokala DB är separata och bevarade. Den
+är ingen moln-/mobil-MCP-anslutning. Detta uppdrag lade inte till någon sådan.
+
+## Drift och stopp
+
+Samma befintliga Vercelprojekt/Neon-Free-databas i Frankfurt och SSO all.
+Inga nya planer, tillägg, domäner, behörigheter eller betalabonnemang.
+Vanlig Vercelförbrukning kan tillkomma enligt godkänd ram; fakturabelopp är inte
+mätt här. För stopp: pausa befintliga previewprojektet i Vercel; behåll SSO-skyddet
+på. Gör inga databasraderingar. Tidigare verifierad rollbackadress är
+booking-lab-se-preview-37wcqseut-<redacted-vercel-team>.vercel.app
+(`dpl_<redacted>`,95f8071); om alias återställs ska skydd och
+faktisk revision kontrolleras på nytt. Ingen rollback eller paus är utförd nu.
+
+[Exakta resultat/NOT RUN](VERIFICATION.md) · [status](PROJECT_STATUS.md).
+<!-- COHERENT_CURRENT_END -->
+
+## Tidigare leveranser och bevis
+
 # Prova agentbokning och ägarens arbetsdag
 
 Verifierat 2026-11-13. Branch **feature/agent-booking-workday** från e702838.

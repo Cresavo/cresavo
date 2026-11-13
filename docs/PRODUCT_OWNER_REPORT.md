@@ -1,3 +1,37 @@
+<!-- COHERENT_CURRENT_START -->
+# Produktägarrapport — sammanhängande salongsupplevelse
+
+**[Prova förbättrade Booking Lab](https://booking-lab-se-preview.vercel.app/admin)**. Vercel-inloggning vid behov,
+sedan Öppna demoadmin utan ett extra lösenord. Samma skyddade länk som tidigare.
+
+Byggt: tre tydliga användarlägen och gemensam arbetsyta. Översikt/Kalender/Kunder
+är huvudval; Salongen och Konto samlar resten. Bokning/kundkort/sökning går att
+lämna och återvända till med sammanhanget kvar. Avbryt sparar inte, bekräftelsen
+syns och förslag skiljs från utkast/resultat. [Fem konkreta provflöden/bilder](DEMO.md).
+
+Före→efter: sex parallella huvudval→tre; tappade kalenderfilter→bevarade;
+förlorad kundsökning→samma sökning tillbaka; otydlig redigering→Stäng/Avbryt/Spara;
+bortscrollad kundbekräftelse/fel utkastläge→synlig bekräftelse/rätt fokuserat utkast.
+
+Branch **feature/coherent-salon-workspace**, produkt/Grok/CI/deploy **51d54d4696dd5fee51449acbd096f8529fbd3c5c**.
+Grok scoped GO efter ett samlat rättningsvarv, inga Medium/High. [Original](qa/QA-REPORT-coherent-f1-51d54d4.md).
+[Actions 43502629318](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43502629318)
+har fyra gröna jobb med 54/54. Lokalt 102 unit / 125 integration / 13 korttester/lint/tsc/build PASS.
+Full audit är separat **röd: 7 moderate dev**, produktionsberoenden: 0.
+
+Egen faktisk molnklick: boka→demoadmin→avbryt/flytta/avboka/historik, kundsökning,
+tjänster/personal, förslag/kampanjfokus och logout. Anonyma HTML/API/assets är
+skyddade; alla 93 äldre bokningar och originalrader är oförändrade.
+
+Kvar: Low/Info om scrollminnets gallring/korrupt post, fysisk iPhone/Safari och
+ditt UX-godkännande. Ingen kundpilot eller nya funktioner/abonnemang.
+Tre nästa separata mål: fysisk Safari-/ägarprovning med begränsad puts; säker
+mobil anslutning för vald agentklient; avgränsade pilotgrindar för MFA/recovery,
+retention och drift. Inget nästa Epic startas automatiskt.
+<!-- COHERENT_CURRENT_END -->
+
+## Tidigare leveranser och bevis
+
 # Produktägarrapport — bokningen följer med
 
 Öppna samma [privata Booking Lab-plugin på PC](https://chatgpt.com/plugins/plugins_6af6eef3bf6881919d99e654b91644e3). Samma privata personliga plugin är uppdaterat till 0.3.0, release pluginrel_6af7418393e88191bb5834222b306ab3. Återläsning verifierar oförändrad identitet, audience, anslutningar och standardprompt samt exakt granskad launcher.

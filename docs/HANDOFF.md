@@ -1,3 +1,52 @@
+<!-- COHERENT_CURRENT_START -->
+# Handoff — sammanhängande salongsupplevelse
+
+Klart som privat syntetisk POC på **51d54d4696dd5fee51449acbd096f8529fbd3c5c**,
+branch **feature/coherent-salon-workspace** från 3273934/05e5eaf. Main b000481
+är orörd. [Preview](https://booking-lab-se-preview.vercel.app/admin), `dpl_<redacted>`, region fra1.
+Senare dokumentationscommit skiljs från denna produkt-/QA-/CI-/driftrevision.
+
+- Tre lägen och gemensam ram. Översikt/Kalender/Kunder; Salongen samlar tjänster,
+  personal och kampanjer. Konto visar identitet, kund-/produktväg och logout.
+- Kontextbunden kalender→bokning→kundkort, kundsökning och återgång efter sparande.
+  Retur och vanlig Bakåt bevarar även scroll; direktlänk har säker reservväg.
+- Explicita Stäng/Avbryt/Spara; verkliga ändringar skyddas, återställda värden rena.
+  Fokus/återkoppling förbättrad; kundbekräftelsen kommer i bild.
+- Verkliga förslags-/utkaststatus och händelsekanaler. Inga nya agentlöften eller
+  API-/MCP-/domän-/datamodellsändringar. Tio historiska migrationer och lock orörda.
+
+Kod: components/context-link.tsx och lib/navigation-context.ts, adminram,
+boknings-/kund-/personal-/tjänsteredigering, översikt/kampanjfokus, publikt
+bokningsformulär och style.css. Tester: tests/navigation-context.test.ts,
+tests/e2e/coherence.spec.ts och oförsvagade befintliga flödestester.
+
+102 unit /125 integration /13 kort /54 webb ×4 /lint/tsc/build PASS lokalt.
+[Grok-original](qa/QA-REPORT-coherent-f1-51d54d4.md): scoped GO efter rättningsvarv 1;
+egna 102/125/13,54×4,72 extra coherence-körningar och 91 klickprober PASS.
+[Actions 43502629318](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43502629318):
+fyra gröna jobb på exakt SHA; Docker/PostgreSQL i CI. Full audit 7 moderate dev
+exit 1, omit dev: 0 exit 0. Lokal Docker är inte körd. Råa fel/NOT RUN i VERIFICATION.
+
+Molnet: SSO all på samma projekt, anonyma HTML/API/assets→Vercel-login;
+app-API 403 utan appsession trots giltig perimeteråtkomst. CSP/HSTS/nosniff/
+referrer/no-store/poweredBy kontrollerade. Direktport 3000 gav timeout, ingen
+HTTP-tjänst observerad. Egna verkliga Chrome-klick med 390 px emulering: bokning,
+demoadmin utan andra lösenord, avbryt/flytt/avbokning/historik, sökning/kundkort,
+tjänster/personal, översikt/kampanjfokus och logout. Fysisk iPhone är inte testad.
+
+93 gamla bokningar och originalrader i åtta tabeller matchar före-hasharna. Endast en
+ny egen testbokning skapad/flyttad/avbokad, version 3 / 3 events / 0 överlapp. Ingen
+ny migration eller behörighet i molnet: 9 befintliga webbmigrationer. Tionde lokala
+MCP-tabellen används inte av webben och infördes inte där. PC-plugin/runtime 05
+på 3187 och dess bokningar/profiler är bevarade och separata från moln-DB.
+
+Öppet Low/Info: gallringsordning/korrupt scrollpost och äldre Info6–9. Ingen ny
+fixloop. Fysisk Safari/ägarens UX-godkännande och pilotgrindar återstår.
+[Provguide/bilder](DEMO.md) · [status](PROJECT_STATUS.md) · [scope](COHERENT_EXPERIENCE_PLAN.md).
+<!-- COHERENT_CURRENT_END -->
+
+## Bilaga — tidigare verifierade leveranser
+
 # Handoff — beständig agentbokning och ägarens arbetsdag
 
 Verifierat 2026-11-13. Branch **feature/agent-booking-workday** från e702838.

@@ -1,3 +1,117 @@
+<!-- COHERENT_CURRENT_START -->
+# Aktuell verifiering — sammanhängande salongsupplevelse
+
+2026-11-13. Produkt/Grok/CI/deploy **51d54d4696dd5fee51449acbd096f8529fbd3c5c**,
+feature/coherent-salon-workspace. Senare Markdown ändrar ingen testad produktkod.
+**Funktionstester och scoped QA gröna; full audit röd; ingen kundpilot.**
+
+| Faktiskt kört kommando/kontroll | Resultat |
+| --- | --- |
+| npm ci | PASS ren separat kopia168 s; även PASS på exakt SHA i alla fyra CI-jobb. Lock oförändrad. |
+| node node_modules/prisma/build/index.js generate | PASS 7.10.1 lokalt och i CI. |
+| prisma migrate deploy + node --import tsx prisma/seed.ts | PASS 10 migrationer på7nya isolerade f1-databaser, och färsk Docker-PG i CI. |
+| node node_modules/eslint/bin/eslint.js . / npm run lint i CI | PASS. |
+| node node_modules/typescript/bin/tsc --noEmit / npx tsc --noEmit i CI | PASS. |
+| node node_modules/vitest/vitest.mjs run / npm test i CI | PASS 102/102. |
+| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts / npm run test:integration i CI | PASS 125/125, riktig PostgreSQL. |
+| node node_modules/next/dist/bin/next build / npm run build i CI | PASS. |
+| node node_modules/@playwright/test/cli.js test --config playwright.agent-workday.config.ts | PASS 13/13 lokalt och i CI. |
+| node node_modules/@playwright/test/cli.js test; E2E_PRODUCTION=1, TRUST_PROXY_IP=0 | PASS 54/54,111 s lokalt;54/54 CI. |
+| Samma; E2E_PRODUCTION=1, TRUST_PROXY_IP=1 | PASS 54/54,109 s;54/54 CI. |
+| Samma; dev, TRUST_PROXY_IP=0 | PASS 54/54,203 s;54/54 CI. |
+| Samma; dev, TRUST_PROXY_IP=1 | PASS 54/54,194 s;54/54 CI. |
+| npm audit --json | **FAIL exit 1:**7 moderate dev,0 high/critical. Ingen override/uppgradering. |
+| npm audit --omit=dev --json | PASS exit 0:0 fynd i produktionsberoenden. |
+| Läsande teardown-kontroll | PASS 0 Booking / 0 Campaign / 0 AdminSession / 0 CardBookingAttempt i alla sex testdatabaser. |
+| Egna lokala CUA-klick | PASS kalender/kund/retur/avbryt; mobil Bakåt 671→671px; bilder320/390/1280. |
+| Grok återkontroll1/2 | Scoped GO. Egen matris102/125/13/build/54×4;72 extra coherence och 91 egna klickprober utan fel. |
+| GitHub Actions 43502629318 | PASS 4/4 jobb, exakt SHA. Ingen jobbrerun. Automatisk pushkörning43502613523 avbröts av full manualmatris enligt befintlig concurrency. |
+| Faktisk skyddad preview | PASS metadata/arkivhash/region/perimeter, eget Chrome-flöde och läsande SQL/HTTP enligt nedan. |
+
+Kommandona använde explicita privata env-profiler, tom .env i testkopian och
+separata loopbackdatabaser booking_coherence_f1_*_test. Sju nya databaser
+migrerades/seedades; sex användes för tester. Molnet och gamla lokala PC-demon
+användes aldrig som test-fixtures. CI kör Docker Compose; lokal Docker NOT RUN.
+
+## Fyra skilda typer av bevis
+
+1. **Lokalt/CI:** resultat ovan och råa kommandoutskrifter. Alla fyra CI-loggar
+   innehåller 54 passed; dev0 även 102/125/13. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43502629318).
+2. **Grok:** [oförändrat original](qa/QA-REPORT-coherent-f1-51d54d4.md), fryst SHA
+   och egen syntetisk kopia. Headless Chromium320/390/1280; inte fysisk enhet.
+   Originaldownload SHA256 f22d2d84563ed74d3c45735bc304f0e0cea7417c1f79d0b13789bb178fcc9795.
+   Git kan normalisera radslut; innehållet har inte redigerats.
+3. **Egen faktisk molnkontroll:** `dpl_<redacted>`, fra1,
+   sourceRevision 51d54d4 och källarkivSHA256
+   `2987c0f8991b9d1e7d2cbfecdc72a0bedc1c24261524fd8c943a9dcedad90a1b`.
+   Samma skyddade alias verifierat mot deployment-id, inte mot ny branchspets.
+4. **Fysisk iPhone/Safari och produktägarens UX-godkännande:** NOT RUN/återstår.
+
+## Faktisk molnmiljö och data
+
+På både unik deploymentadress och stabilt alias: anonyma /, /product, /admin,
+/api/services, /api/admin/bookings och /demo/salon.webp ger 302 till Vercel-login.
+En verklig CSS-resurs från HTML är också skyddad 302. Befintlig Vercel-CLI-identitet
+mot exakt Preview får 200 på kund-/produkt-/admin-HTML och tjänste-API; admin-API
+utan appcookie ger 403. CSP frame-ancestors none, nosniff, strict-origin-when-cross-origin,
+HSTS, saknad powered-by och no-store på admin verifierade. TLS-validering kvar.
+Port 3000 gav ETIMEDOUT: ingen direkt HTTP-tjänst observerad, ingen full portscan.
+
+Egen Chrome-klick i 390 px emulering: public behandling/dag/tid→bekräftelse synlig
+med fokus→Öppna demoadmin utan extra lösenord→rätt kalenderdag/Elias→avbryt flytt
+utan sparande→flytt 09:30 till 10:30→Behåll återför fokus→avbokning→3 händelser→
+omladdning med samma filter/status. Kundkort Mira: avbrutet namnbyte och
+återgång till samma sökning. Tjänst: avbrutet namnbyte; personalschema läst/
+stängt utan sparande. Rätt kampanjutkast fokuserat i bild (top 51 / bottom 114 vid 844 px),
+åter till rätt förslagskort; ingen kampanj ändrad/publicerad. Logout visar
+inloggningsvyn. Stabilt alias kontrollerat med ny demoingång / 3 huvudval/översikt.
+
+Läsande SQL i samma isolerade demodatabas: 94 bokningar varav 93 originalrader
+oförändrade; egen d1a15ab0-eea2-494b-bd14-665f7e7f22f4 är cancelled / version 3 med
+create/move/cancel. Alla åtta originaltabellers radantal/hash matchar före-underlaget
+när den egna bokningen/events undantas. 0 överlapp och 0 icke-syntetiska kontakter.
+9 befintliga molnmigrationer har oförändrade checksummor; ingen ny migration/grant.
+Lokal tionde MCP-tabell är inte använd av webben. Alla privata profiler/hemligheter
+stannade utanför Git, QA-arkiv och kommandoutskrift.
+
+## Bevarade tidiga fel och verktygsbegränsningar
+
+- c0a5be6: prod 54/54 men båda dev 53/54 (scroll 774→0); Grok fann även vanlig
+  Bakåt som tappade scroll. Rättat i 51d54d4. [Första originalet](qa/QA-REPORT-coherent-c0a5be6.md).
+- Första f1-starten fick webServer 120 s timeout innan assertioner. Endast egen
+  dev-cache flyttades till bevarad backup. Nästa fokusprov 5/6 föll när NYTT test
+  evaluerade under native dokumentbyte. Väntan på verklig mål-URL/synlig kalender
+  lades till; samma scrollprecision, StrictMode och timeouter kvar. Därefter 6/6
+  och slutmatris 54×4. Tidiga Prisma-genererings-/testinteraktions-/kampanjmatchningsfel
+  från ursprungsomgången är också bevarade i råloggen.
+- GitHub CLI kunde inte lämna full logg under aktiv körning. Parallell logghämtning
+  fick sedan en lokal cache-ZIP-krock; den loggen hämtades via per-job-API.
+  Ingen CI/testomkörning behövdes. Curl-beta krävde cwd-baserad projektlänk i stället
+  för vidarebefordrade globala flaggor. Slutliga HTTP-bevis ovan är PASS.
+- Några CUA/CDP-evalueringsanrop fick 3 s timeout under sidbyte; färsk DOM visade
+  korrekt laddad sida. Ingen skrivning upprepades av det skälet. Fullpage-capture
+  fick 5 s timeout; verklig viewportbild användes. En övergångsbild under lokal
+  viewportändring har sparats separat och används inte som fungerande bevis.
+
+Rått lokalt underlag: <local-state>/codex/booking-lab-coherence-evidence/,
+full-*,ui-*,matrix-*,audit-*,ci-*.txt,ci-final-proof.json,f1-cleanup-read.json,
+preview-final.json,preview-db-proof.json,preview-http-proof*.json,cloud/ och
+bildmanifest. QA-arkivets hash 9da224cf…1b6562 och evidens d340cca4…576a1f är
+verifierade av Grok. Före/efter har faktisk individuell SHA; äldre bilder
+utges inte för nya. Inga nya videor krävdes.
+
+## Öppet / inte kört
+
+Low CS-F1-QA-1: 20 posters gallring är inte kronologisk; äldre returposition kan
+försvinna efter många besök. Info CS-F1-QA-2: korrupt post stoppar nytt scrollminne.
+URL/filter/säker reservväg består. Äldre Info6–9 är backlogg; inget nytt fixvarv.
+Fysisk iPhone/Safari, WebKit/Firefox, skärmläsare, ny backup-/återläsningskontroll,
+serveromstart och flerinstanslast på nya deploymenten är NOT RUN. Browserreload
+är verifierad, inte påstådd serverrestart. Pilot är fortsatt NO-GO.
+<!-- COHERENT_CURRENT_END -->
+
+## Bilaga — tidigare verifierade leveranser
+
 # Verifiering — agentbokning och arbetsdagskort
 
 Verifierat 2026-11-13. Branch **feature/agent-booking-workday** från e702838.

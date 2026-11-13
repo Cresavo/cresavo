@@ -1,5 +1,17 @@
 # Datakarta för Booking Lab SE POC
 
+## UI-returkontext och händelsekanal, 2026-11-13
+
+Interna adminlänkar kan bära ursprungsvy/filter/sökning i `returnTo`; detta kan
+innehålla befintlig söktext och ska hanteras med samma loggminimering som andra
+admin-URL:er. Intern allowlist förhindrar öppen redirect. Browserhistoriken får
+enbart en opak koordinatnyckel; sessionStorage sparar y/calendarX/timestamp,
+högst 20 poster, aldrig URL:er/kontakter. Efter 30 minuter används posten inte;
+radering sker vid nästa sparning eller när fliken stängs. Ingen extern telemetri.
+Bokningshistorik i autentiserad HTML visar högst 20 befintliga händelser med
+handling/tid/flyttider och kanaltyp; inga nya kontaktfält eller aktörs-id:n.
+Det är inte en ny fjärr-MCP- eller agentbehörighet.
+
 ## Lokalt MCP-kort: avgränsat syntetiskt bokningsprov
 
 Opt-in-bokning skickar tjänst/utförare, tjänsteversion, UTC-instant, UUID och

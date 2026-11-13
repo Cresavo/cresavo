@@ -1,3 +1,45 @@
+<!-- COHERENT_CURRENT_START -->
+# Projektstatus — sammanhängande salongsupplevelse
+
+Verifierat 2026-11-13. Branch **feature/coherent-salon-workspace**, bas 3273934 /
+produkt 05e5eaf. Produkt, slutlig Grok-revision, full CI och deploy:
+**51d54d4696dd5fee51449acbd096f8529fbd3c5c**. Senare dokumentation är ingen ny produktrevision.
+[Skyddad preview](https://booking-lab-se-preview.vercel.app/admin), deployment `dpl_<redacted>`, Frankfurt.
+
+| Acceptanskriterium | Faktiskt verifierat läge |
+| --- | --- |
+| A: Produktsida → kundbokning/arbetsyta | PASS egna lokala klick/Grok/CI; tre tydliga lägen. Molnets /product ger autentiserad HTML 200. |
+| B: Översikt, Kalender, Kunder hittas | PASS 320/390/1280 lokalt/Grok/CI; egen molnklick på 390, tre huvudval och Salongen/Konto. |
+| C: Rätt kalenderläge/sökning tillbaka | PASS retur och vanlig Bakåt, båda veckoscrollaxlarna och nästlad kundretur. Egen lokal mobil Bakåt 671→671; molnet behåller dag/personal/status, kundsökning Mira och rätt översiktskort. |
+| D: Avbryt sparar inte | PASS tester/Grok. Egen molnklick: avbruten flytt, kundnamn och behandlingsnamn sparar inget; gamla datarader oförändrade. |
+| E: Förslag → granska → resultat | PASS. Molnet visar verkligt nytt förslag från testavbokningen och fokuserar rätt befintligt kampanjutkast med full datumomfattning. |
+| F: Inga låtsasagenter | PASS kod/klick. Kanal visas i historiken; lokal MCP beskrivs inte som färdig molnfunktion. |
+| G: Befintliga kärnflöden består | PASS 54 webbtester ×4, 125 integration, 13 kort. Egen molnklick: kundbokning→demoadmin→flytt→avbokning→omladdad historik. |
+| H: Begriplighet utan dokumentation | Grok scoped GO efter egna klickprober i emulerad Chromium. Niclas eget UX-godkännande återstår. |
+
+Sedan förra arbetsomgången: gemensam ram och färre huvudval; kontextbunden
+återgång; medveten redigering; tydliga utkast/resultat; synlig bokningsbekräftelse.
+Första Grok-granskningens två scrollfel och tre små fokus-/tryckytefynd är stängda
+efter ett samlat rättningsvarv. Inget andra varv eller nästa Epic startas.
+
+**Funktionstester gröna, full audit röd:** 102 unit /125 integration /13 kort /
+54 webb ×4 /lint/tsc/build PASS. [CI 43502629318](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43502629318)
+är grön i alla fyra lägen. [Grok-original](qa/QA-REPORT-coherent-f1-51d54d4.md).
+Audit: 7 moderate dev, inga high/critical; produktionsberoenden 0.
+
+Inga tekniska Medium/High-blockerare i det avgränsade UI-uppdraget. Öppet Low/Info:
+scrollgallringen sorterar inte efter ålder; en korrupt post kan stoppa nytt
+scrollminne. URL/filter och säkra reservlänkar består. Äldre Info6–9 är backlogg.
+Fysisk iPhone/Safari, WebKit/Firefox, skärmläsare och ägarens UX-beslut återstår.
+Kundpilot är fortsatt NO-GO. Inga nya moduler, beroenden, åtkomster eller verkliga data.
+
+De 93 ursprungliga molnbokningarna och alla åtta kontrollerade originaltabeller
+är oförändrade. En egen testbokning har lagts till, flyttats och avbokats;
+3 händelser, version 3 och 0 överlapp. [Prova](DEMO.md) · [verifiering](VERIFICATION.md).
+<!-- COHERENT_CURRENT_END -->
+
+## Bilaga — tidigare verifierade leveranser
+
 # Projektstatus — agentbokning och ägarens arbetsdag
 
 Verifierat 2026-11-13. Branch **feature/agent-booking-workday** från e702838.
