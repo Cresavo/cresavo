@@ -2,6 +2,9 @@ import { ZodError } from "zod";
 
 // Only literal messages owned by this codebase may cross a trust boundary.
 const publicMessages = [
+  "Välj en dag inom de kommande 28 dagarna.",
+  "Välj en tillgänglig behandling.",
+  "Ingen utförare finns för den valda behandlingen.",
   "Underlaget har ändrats. Förhandsgranska igen.",
   "POC-flödet tillåter endast syntetiska testadresser.",
   "Underlaget är för stort för POC-flödet. Högst 1000 kopplade bokningar stöds.",

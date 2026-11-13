@@ -10,6 +10,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
+## Pågående: avgränsat lokalt MCP-tidvalskort
+
+- Niclas godkände `docs/MCP_TIME_CARD_PLAN.md` och valde ChatGPT på PC:n först.
+  Bas `1a49a0e`, branch `feature/mcp-time-card`. Ingen ny epic eller fjärr-MCP.
+- Endast läsning och syntetisk separat lokal databas; inga boknings-/adminverktyg.
+  Bevara gamla serverprofiler. Tidsval är aldrig en bokning eller reservation.
+- Fryst separat Grok-QA, högst två fixvarv. Skilj faktisk ChatGPT-rendering från
+  SDK/testvärd. Ingen Vercel-ändring, mainmerge, nya beroenden eller abonnemang.
+
 ## Levererat: kunddatas livscykel och lokalt ägaragentprov
 
 - Klart som syntetisk POC på95f8071. Grok-GO efter1fixvarv, Actions43393207291:
