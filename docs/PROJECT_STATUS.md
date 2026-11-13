@@ -11,7 +11,7 @@ branch **feature/mcp-time-card**, bas1a49a0e/produkt95f8071. [Godkänt scope](MC
 | Tomt, felaktigt eller ändrat underlag | PASS nästa dag, byte av behandling tömmer val, stale/transportfel/retry. 28dagars gräns, inga fria sökintervall. |
 | Minimerad lokal anslutning | PASS opt-in/loopback/test- eller demosuffix, production/VERCEL_ENV/skrivflaggor nekas. Low3: VERCEL/VERCEL_URL ensamma nekas inte. Endast2läsverktyg; kunddata och skrivning nekas även av separat SQL-läskonto. |
 | Faktiskt AI-klientanrop | PASS exponerade pluginverktyget i denna konversation, Anna16tider och Erik12tider16nov. Inte SDK som ersättning. |
-| Faktisk PC-rendering / mobil | Användarens två riktiga PC-foton bekräftar Anna-/Erik-korten. Inte egen CUA-klickning. Användaren ser inget kort i mobilen: mobilstödet är olöst, inte GO. |
+| Faktisk PC-rendering / klick / mobil | Användarens PC-foton visar korten. Efter ett foto med hämtningsfel bekräftade Niclas 2026-11-13 att kontrollknappen svarar ”Tiden är fortfarande ledig. Ingen bokning har skapats.” Det är användarens lyckade prov, inte egen CUA- eller Grok-klickning. Orsaken till föregående fel är okänd; mobilen visar fortfarande inget kort. |
 | Oberoende Grok-QA | GO för lokal syntetisk POC på a65f0f2. Egna83/105/3/46×4 PASS; MCP63/0. Egna guard20PASS/2FAIL och UI38PASS/2FAIL med3Low/5Info, ingaMedium+. Inget eget ChatGPT-prov. |
 | Fokus och vald kontrast | DELVIS: GrokLow1 fokus tappas vid laddning, Low2 vald kontroll har dålig hoverkontrast. Backlogg, inte dolt av gröna funktionstester. |
 | Privat push/Actions | a65f0f2 pushad privat efter scopedGrokGO. Full Actions43417840017 PASS:4gröna46/46 på sammaSHA; ingen mainmerge. |

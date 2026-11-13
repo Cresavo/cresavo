@@ -21,6 +21,14 @@ klientprov. Mobilen visar enligt Niclas inget kort. Orsaken är ännu inte fasts
 ingen mobil-GO. Fotooriginal stannar utanför Git, hash/proveniens i underlaget.
 Webbens pluginstart hänvisar korrekt till desktop för lokal exekvering.
 
+Uppföljning 2026-11-13, oförändrad produkt8648316/runtime: ett nytt användarfoto
+visade hämtningsfel efter tidsval. Niclas bekräftade sedan att kontrollknappen
+svarade ”Tiden är fortfarande ledig. Ingen bokning har skapats.” Lyckad
+användarprovning i PC-klienten, inte egen eller Groks klicktest. Direkta MCP-anrop
+fungerade under felsökningen. Rotorsak och varaktig lösning på det tidigare felet
+är INTE verifierade; ingen kodrättning eller ny Grok-runda har gjorts. Mobilen
+är fortsatt olöst. Endast dokumentationsuppföljning, inga nya testresultat.
+
 Operatörens runtime <local-state>/codex/booking-lab-time-card-8648316 är fryst.
 Oförändrade verifierade9migrations-dependencies återanvänds genom node_modules-
 junction till egen tidigare95f8071-runtime; ny npmci är INTE körd denna gång.

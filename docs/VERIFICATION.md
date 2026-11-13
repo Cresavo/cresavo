@@ -26,7 +26,7 @@
 | npm audit --package-lock-only --json | FAIL exit1:7moderate dev,0high/critical; inga overrides eller uppgraderingar. |
 | npm audit --package-lock-only --omit=dev --json | PASS exit0,0fynd. |
 | Grok oberoende QA | Scoped GO lokal syntetisk POC påa65f0f2: egna npmci572,83unit/105integration/3kort/46webb×4 PASS, MCP63/0. Guard20PASS/2FAIL och UI38PASS/2FAIL:3Low/5Info, ingaMedium+. |
-| Faktisk PC-rendering / klick / mobil | Niclas två foton visar Anna-/Erik-korten i riktiga PC-klienten. Inte egen CUA-klickning och inte Grok. Niclas ser inget kort i mobilen; mobil olöst. |
+| Faktisk PC-rendering / klick / mobil | PC-kort visas på Niclas foton. Nytt foto visade hämtningsfel; därefter bekräftade Niclas 2026-11-13 lyckad kontroll: ”Tiden är fortfarande ledig. Ingen bokning har skapats.” Oförändrad produkt/runtime8648316. Inte egen CUA-klickning eller Grok; felorsak okänd. Mobil olöst. |
 | Privat push / GitHub Actions / deploy | Push a65f0f2 efter scopedGrokGO. Full [43417840017](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43417840017) PASS:4gröna46/46 påsammaSHA. Ren npmci572Linux,9migrate/seed,83unit/105integration/build/lint/tsc verifierade. Ingen deploy; Vercel95f8071 är oförändrad. |
 
 Råutdata och exitkoder: [verification/time-card](verification/time-card/).
@@ -42,6 +42,11 @@ fjärr-MCP/OAuth/tunnel, kundpilot och ny produktionsdrift. Groks
 [oförändrade originalrapport](qa/QA-REPORT-time-card-a65f0f2.md) redovisar egna kommandon. Ingen ny lokal Windows-npmci eller Dockerinstallationsprovning; CI körde ren npmci och Docker Compose på GitHub.
 Nya kort-UI-konfigurationen körs uttryckligen separat; befintlig CI har ännu
 ingen egen step för den. Lint/unit/integration/webb-E2E omfattas av gamla workflow.
+
+Uppföljningen av användarens hämtningsfel ändrade endast dokumentation.
+Inga tester, lint, build, audit eller CI kördes om för dessa textändringar.
+Tidigare PASS gäller revisionerna ovan, inte ett nytt korrigerat klientbygge.
+Ingen rättning eller stabilitetsgaranti tillskrivs den senare lyckade kontrollen.
 
 ## Appendix — QA, klientbevis och begränsningar
 

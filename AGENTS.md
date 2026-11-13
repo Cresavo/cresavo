@@ -17,8 +17,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Endast läsning och syntetisk separat lokal databas; inga boknings-/adminverktyg.
   Bevara gamla serverprofiler. Tidsval är aldrig en bokning eller reservation.
 - Grok scopedGO påa65f0f2,3Low/5Info i backlogg utan ny fixloop. PC-rendering
-  bekräftad av användarfoton; egen klickning inte verifierad och mobilen visar
-  inget kort. Privat push klar, Actions43417840017 har4gröna46/46 påa65f0f2. Skilj ChatGPT-rendering från
+  bekräftad av användarfoton. Niclas bekräftade därefter lyckad kontroll av
+  tidsvalet i PC-klienten efter ett tidigare hämtningsfel; orsaken är okänd.
+  Egen klientklickning är inte verifierad och mobilen visar inget kort. Privat push klar, Actions43417840017 har4gröna46/46 påa65f0f2. Skilj ChatGPT-rendering från
   SDK/testvärd. Ingen Vercel-ändring, mainmerge, nya beroenden eller abonnemang.
 
 ## Levererat: kunddatas livscykel och lokalt ägaragentprov
