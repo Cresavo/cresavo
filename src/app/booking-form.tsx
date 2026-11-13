@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { DateTime } from "luxon";
 import { formatPrice, readableDay } from "@/lib/format";
@@ -28,6 +28,8 @@ export default function BookingForm({
       () => false,
     ),
     router = useRouter();
+  const confirmationHeading = useRef<HTMLHeadingElement>(null);
+  const serviceSelect = useRef<HTMLSelectElement>(null);
   const submission = useRef<{ payload: string; key: string } | null>(null);
   const [serviceId, setService] = useState(services[0]?.id ?? ""),
     [staffId, setStaff] = useState(
@@ -43,6 +45,12 @@ export default function BookingForm({
     [message, setMessage] = useState(""),
     [stale, setStale] = useState(false),
     [success, setSuccess] = useState("");
+  useEffect(() => {
+    if (success) {
+      confirmationHeading.current?.focus();
+      confirmationHeading.current?.scrollIntoView({ block: "center" });
+    }
+  }, [success]);
   const availability = useAvailability(serviceId, staffId, date);
   const service = services.find((s) => s.id === serviceId),
     person = staff.find((s) => s.id === staffId);
@@ -109,7 +117,9 @@ export default function BookingForm({
     return (
       <section className="booking-success" role="status">
         <span className="eyebrow">Bokningsbekräftelse</span>
-        <h2>Din bokning är klar</h2>
+        <h2 ref={confirmationHeading} tabIndex={-1}>
+          Din bokning är klar
+        </h2>
         <p>Din testbokning är registrerad.</p>
         <p className="confirmation-summary">{success}</p>
         <p>Detta är en demo. Inga mejl eller SMS skickas.</p>
@@ -120,6 +130,7 @@ export default function BookingForm({
             setStart("");
             submission.current = null;
             availability.refresh();
+            requestAnimationFrame(() => serviceSelect.current?.focus());
           }}
         >
           Boka en ny tid
@@ -142,6 +153,7 @@ export default function BookingForm({
         <label htmlFor="service">Behandling</label>
         <select
           id="service"
+          ref={serviceSelect}
           disabled={!hydrated || pending}
           value={serviceId}
           onChange={(e) => {

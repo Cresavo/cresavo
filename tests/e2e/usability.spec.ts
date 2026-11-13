@@ -40,6 +40,12 @@ test("datum väljs med tryck och tangentbord, tom dag har en väg vidare", async
   await expect(
     page.getByRole("heading", { name: "Din bokning är klar" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Din bokning är klar", exact: true }),
+  ).toBeFocused();
+  await expect(
+    page.getByRole("heading", { name: "Din bokning är klar", exact: true }),
+  ).toBeInViewport();
   await expect(page.locator(".booking-success")).toContainText("Erik");
   await expect(page.locator(".booking-success")).toContainText("30 min");
 });
