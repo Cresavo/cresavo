@@ -8,6 +8,7 @@ import { readableDay } from "@/lib/format";
 import { ReturnLink } from "../../components/context-link";
 import { returnContext, type ReturnContext } from "@/lib/navigation-context";
 import Link from "next/link";
+import FocusCampaign from "./focus";
 export const dynamic = "force-dynamic";
 export default async function Campaigns({
   searchParams,
@@ -62,6 +63,7 @@ export default async function Campaigns({
             )}
           </div>
         ))}
+        <FocusCampaign />
       </main>
     </>
   );

@@ -473,7 +473,10 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
       .filter({ has: page.getByRole("button", { name: "Publicera" }) })
       .last();
     await campaign.getByRole("button", { name: "Publicera" }).click();
-    await expect(page.getByText("Publicerad")).toBeVisible();
+    await expect(page.getByText("Publicerad", { exact: true })).toBeVisible();
+    await expect(page.getByRole("status")).toContainText(
+      "Publicerad på bokningssidan under giltighetsperioden",
+    );
     await capture("05-publicerad-i-admin");
     await page.goto("/");
     await expect(page.getByText(title)).toBeVisible();

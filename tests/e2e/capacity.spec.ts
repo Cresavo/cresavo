@@ -222,6 +222,18 @@ test("avbokning till kalender, beständigt avfärdande och korrekt kampanjutkast
     await expect(
       page.locator(`#campaign-${decision.campaignId}`),
     ).toContainText("15 %");
+    await expect(
+      page.locator(`#campaign-${decision.campaignId} h2`),
+    ).toBeFocused();
+    await expect(
+      page.locator(`#campaign-${decision.campaignId} h2`),
+    ).toBeInViewport();
+    await page
+      .getByRole("link", { name: "Till översikten", exact: true })
+      .click();
+    await expect
+      .poll(() => new URL(page.url()).pathname + new URL(page.url()).search)
+      .toBe(new URL(overviewUrl).pathname + new URL(overviewUrl).search);
     const invalid = await page.goto("/admin/overview?cursor=foreign-source");
     expect(invalid?.status()).toBe(200);
     await expect(page.getByRole("main").getByRole("alert")).toContainText(
