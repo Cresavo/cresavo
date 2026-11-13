@@ -173,7 +173,8 @@
         font-size: 10px;
       }
       .day[aria-pressed="true"],
-      .slot[aria-pressed="true"] {
+      .slot[aria-pressed="true"],
+      button[aria-pressed="true"]:hover:not(:disabled) {
         background: var(--accent);
         color: var(--accent-text);
         border-color: var(--accent);
@@ -225,6 +226,21 @@
       .primary:hover:not(:disabled) {
         background: var(--accent);
         color: var(--accent-text);
+      }
+      .consent {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 14px 0 0;
+        min-height: 44px;
+      }
+      .consent input {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+      }
+      #receipt:focus {
+        outline: 3px solid #579b86;
       }
       #status {
         min-height: 21px;
@@ -302,6 +318,7 @@
             </div>
           </div>
           <p id="details" class="details"></p>
+          <p id="window" class="details"></p>
           <div class="month">
             <h2 id="month"></h2>
             <div class="arrows">
@@ -338,15 +355,44 @@
             <button id="check" class="primary" type="button">
               Kontrollera mitt tidsval
             </button>
+            <div id="booking-controls" hidden>
+              <p class="muted">
+                Testkund: Tidkort Demo. Inga utskick eller betalningar.
+              </p>
+              <label class="consent" for="consent">
+                <input id="consent" type="checkbox" />
+                Jag vill skapa den här testbokningen
+              </label>
+              <button id="book" class="primary" type="button" disabled>
+                Bekräfta testbokning
+              </button>
+            </div>
           </div>
         </div>
+        <section
+          id="receipt"
+          class="selection"
+          hidden
+          tabindex="-1"
+          aria-label="Bokningsbekräftelse"
+        >
+          <strong id="receipt-title">Din testbokning är klar</strong>
+          <p id="receipt-summary"></p>
+          <p id="receipt-time"></p>
+          <p id="receipt-id" class="muted"></p>
+          <p class="muted">Tidkort Demo · Ingen betalning eller utskick.</p>
+          <button id="new-booking" type="button">Välj en ny demotid</button>
+        </section>
         <p id="status" role="status" aria-live="polite">
           Hämtar lediga demotider…
         </p>
         <p id="error" role="alert"></p>
         <button id="retry" type="button" hidden>Försök igen</button>
+        <button id="retry-booking" type="button" hidden>
+          Kontrollera samma bokningsförsök
+        </button>
       </div>
-      <footer>
+      <footer id="notice">
         Stockholmstid · Endast tidsval. Ingen tid reserveras och ingen bokning
         skapas.
       </footer>
@@ -361,7 +407,9 @@
           busy = false,
           requestId = 0,
           sequence = 0,
-          lastArgs = {};
+          lastArgs = {},
+          pendingBooking = null,
+          bookingReceipt = null;
         const pending = new Map();
         const dateValue = (value) => new Date(value + "T12:00:00Z");
         const dayText = (value) =>
@@ -382,7 +430,7 @@
           new Intl.NumberFormat("sv-SE", {
             style: "currency",
             currency: "SEK",
-            maximumFractionDigits: 0,
+            maximumFractionDigits: 2,
           }).format(value / 100);
         const shift = (value, count) => {
           const day = dateValue(value);
@@ -431,6 +479,7 @@
           );
         }
         function updateContext(start) {
+          if (pendingBooking || bookingReceipt) return;
           if (!hostCapabilities.updateModelContext) return;
           rpc("ui/update-model-context", {
             structuredContent: {
@@ -468,6 +517,13 @@
           selectOptions("staff", data.staff, data.selectedStaff.id);
           $("details").textContent =
             `${data.service.duration} minuter · Ordinarie pris ${price(data.service.priceOre)}`;
+          $("window").textContent =
+            `Demot visar ${dayText(data.firstDate)}–${dayText(data.lastDate)}.`;
+          $("booking-controls").hidden = data.bookingEnabled !== true;
+          $("book").disabled = busy || !$("consent").checked;
+          $("notice").textContent = data.bookingEnabled
+            ? "Stockholmstid · Ett tidsval reserverar inget. Testbokning skapas först när du uttryckligen bekräftar."
+            : "Stockholmstid · Endast tidsval. Ingen tid reserveras och ingen bokning skapas.";
           $("month").textContent = new Intl.DateTimeFormat("sv-SE", {
             timeZone: "Europe/Stockholm",
             month: "long",
@@ -515,7 +571,9 @@
               String(selected === slot.start),
             );
             button.onclick = () => {
+              if (busy || pendingBooking || bookingReceipt) return;
               selected = slot.start;
+              $("consent").checked = false;
               render();
               $("slots").querySelector(`[aria-pressed="true"]`)?.focus();
               $("status").textContent = "Tiden är vald, men inte reserverad.";
@@ -540,6 +598,12 @@
           else
             $("empty").querySelector(".muted").textContent =
               "Det kan vara stängt eller fullbokat. Prova en annan dag.";
+          if (pendingBooking || bookingReceipt)
+            document
+              .querySelectorAll(
+                "#content button,#content select,#content input",
+              )
+              .forEach((el) => (el.disabled = true));
         }
         function args(patch = {}) {
           return {
@@ -550,10 +614,12 @@
           };
         }
         async function load(patch = {}, recheck = false) {
+          if (pendingBooking || bookingReceipt) return;
           const own = ++sequence;
           lastArgs = args(patch);
           const old = selected;
           selected = null;
+          $("consent").checked = false;
           updateContext(null);
           busy = true;
           $("status").textContent = recheck
@@ -562,7 +628,7 @@
           $("error").textContent = "";
           $("retry").hidden = true;
           document
-            .querySelectorAll("button,select")
+            .querySelectorAll("button,select,input")
             .forEach((el) => (el.disabled = true));
           try {
             const result = await rpc("tools/call", {
@@ -581,9 +647,11 @@
               recheck && data.slots.some((s) => s.start === old) ? old : null;
             busy = false;
             document
-              .querySelectorAll("button,select")
+              .querySelectorAll("button,select,input")
               .forEach((el) => (el.disabled = false));
             render();
+            $("slots-title").setAttribute("tabindex", "-1");
+            $("slots-title").focus();
             $("status").textContent = recheck
               ? selected
                 ? "Tiden är fortfarande ledig. Ingen bokning har skapats."
@@ -598,9 +666,123 @@
               "Tiderna kunde inte hämtas. Försök igen med samma val.";
             $("status").textContent = "";
             document
-              .querySelectorAll("button,select")
+              .querySelectorAll("button,select,input")
               .forEach((el) => (el.disabled = false));
+            render();
             $("retry").hidden = false;
+          }
+        }
+        function bookingContext(text, value) {
+          if (!hostCapabilities.updateModelContext) return;
+          rpc("ui/update-model-context", {
+            content: [{ type: "text", text }],
+            structuredContent: value,
+          }).catch(() => {});
+        }
+        async function book() {
+          if (busy || bookingReceipt || data?.bookingEnabled !== true) return;
+          if (!pendingBooking) {
+            if (!selected || !$("consent").checked) return;
+            pendingBooking = {
+              serviceId: data.service.id,
+              staffId: data.selectedStaff.id,
+              serviceVersion: data.service.version,
+              start: selected,
+              clientRequestId: crypto.randomUUID(),
+              confirmed: true,
+            };
+          }
+          busy = true;
+          document
+            .querySelectorAll("button,select,input")
+            .forEach((el) => (el.disabled = true));
+          $("retry-booking").hidden = true;
+          $("error").textContent = "";
+          $("status").textContent = "Bekräftar testbokningen…";
+          bookingContext("Testbokning skickad. Utfallet är ännu okänt.", {
+            demo: true,
+            bookingCreated: "unknown",
+          });
+          try {
+            const result = await rpc("tools/call", {
+              name: "book_demo_time",
+              arguments: pendingBooking,
+            });
+            const value = result?.structuredContent;
+            if (result?.isError) {
+              const error = value?.error;
+              // A definite validation/conflict/quota failure permits a new choice.
+              // Transport/5xx errors may follow a committed booking: keep its key.
+              if (![400, 403, 409, 429].includes(error?.status))
+                throw new Error("BOOKING_UNKNOWN");
+              pendingBooking = null;
+              busy = false;
+              selected = null;
+              document
+                .querySelectorAll("button,select,input")
+                .forEach((el) => (el.disabled = false));
+              await load();
+              $("error").textContent =
+                error.code === "slot_unavailable"
+                  ? "Tiden hann bli bokad. Välj en annan ledig tid och bekräfta igen."
+                  : error.status === 429
+                    ? "Demots bokningsgräns är nådd. Försök igen senare."
+                    : "Uppgifterna har ändrats eller är ogiltiga. Välj en tid och bekräfta igen.";
+              $("slots-title").focus();
+              return;
+            }
+            if (
+              !value ||
+              value.demo !== true ||
+              value.bookingCreated !== true ||
+              typeof value.id !== "string" ||
+              !value.id ||
+              value.serviceId !== pendingBooking.serviceId ||
+              value.staffId !== pendingBooking.staffId ||
+              value.startsAt !== pendingBooking.start ||
+              !Number.isFinite(Date.parse(value.endsAt))
+            )
+              throw new Error("BOOKING_UNKNOWN");
+            bookingReceipt = value;
+            pendingBooking = null;
+            busy = false;
+            selected = null;
+            render();
+            $("selection").hidden = true;
+            $("receipt").hidden = false;
+            const changed =
+              value.status !== "confirmed" || value.changedSinceCreation;
+            $("receipt-title").textContent = changed
+              ? "Testbokningen har ändrats i admin"
+              : "Din testbokning är klar";
+            $("receipt-summary").textContent =
+              `${value.serviceName} hos ${value.staffName} · ${value.duration} minuter · ${price(value.priceOre)}`;
+            $("receipt-time").textContent =
+              `${new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(value.startsAt))} · ${clock(value.startsAt)}–${clock(value.endsAt)} (Stockholmstid)`;
+            $("receipt-id").textContent = `Boknings-id: ${value.id}`;
+            $("status").textContent = changed
+              ? "Det ursprungliga bokningsvalet visas ovan. Bokningen har senare flyttats eller avbokats. Kontrollera den i admin med boknings-id."
+              : "Testbokningen är sparad och syns i salongens lokala kalender.";
+            $("new-booking").disabled = false;
+            $("receipt").focus();
+            bookingContext(
+              `Testbokning skapad. Boknings-id ${value.id}.`,
+              value,
+            );
+          } catch {
+            busy = false;
+            selected = null;
+            $("selection").hidden = true;
+            $("slots")
+              .querySelectorAll("button")
+              .forEach((el) => el.setAttribute("aria-pressed", "false"));
+            $("status").textContent =
+              "Bokningen kan ha skapats, men svaret saknas. Kontrollera samma försök för att få besked.";
+            $("error").textContent =
+              "Starta inte en ny bokning innan utfallet är klarlagt.";
+            $("retry-booking").hidden = false;
+            $("retry-booking").disabled = false;
+            $("retry-booking").focus();
           }
         }
         window.addEventListener("message", (event) => {
@@ -623,6 +805,8 @@
           if (
             message.method === "ui/notifications/tool-result" &&
             !busy &&
+            !pendingBooking &&
+            !bookingReceipt &&
             valid(message.params?.structuredContent) &&
             (!data ||
               message.params.structuredContent.checkedAt > data.checkedAt)
@@ -646,9 +830,19 @@
         $("next-day").onclick = () => load({ date: shift(data.date, 1) });
         $("check").onclick = () => load({}, true);
         $("retry").onclick = () => load(lastArgs);
+        $("consent").onchange = () => {
+          $("book").disabled = !$("consent").checked || busy;
+        };
+        $("book").onclick = book;
+        $("retry-booking").onclick = book;
+        $("new-booking").onclick = () => {
+          bookingReceipt = null;
+          $("receipt").hidden = true;
+          load();
+        };
         rpc("ui/initialize", {
-          appInfo: { name: "booking-lab-time-card", version: "0.1.0" },
-          appCapabilities: { availableDisplayModes: ["inline"] },
+          appInfo: { name: "booking-lab-time-card", version: "0.2.0" },
+          appCapabilities: { availableDisplayModes: ["inline", "fullscreen"] },
           protocolVersion: "2026-01-26",
         })
           .then((result) => {

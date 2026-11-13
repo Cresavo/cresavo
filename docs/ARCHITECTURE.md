@@ -1,6 +1,29 @@
 # Arkitektur
 
-## Separat lokalt MCP-tidvalskort
+## Opt-in: lokalt bokningsprov från MCP-kort, 2026-11-13
+
+`MCP_CARD_BOOKING_PLAN.md` utökar läsprovet utan ändring av vanlig MCP-server,
+domänmotor eller schema. Standardprofilen behåller två läsverktyg och läsroll.
+Separat env-opt-in + båda befintliga bokningsflaggor + SESSION_SECRET krävs
+för `book_demo_time`. Production, alla Vercelflaggor och workspaceflaggor nekas.
+Launcher skickar hemligheten bara i opt-in, aldrig i HTML/payload eller paket.
+
+Strikt schema: tids-/tjänsteversion, UUID och confirmed:true. Servern sätter
+fast syntetisk kontakt, använder samma MCP_BOOKING_CLIENT och createBooking,
+med `time-card_`-prefix på befintlig idempotensnyckel. Ingen adminbudget;
+5/kanal,3/e-post/dag består. Samma transaktion skriver bokning och händelse.
+Svaret har id/tider/tjänstesnapshot utan kontakter, kvotnycklar eller session.
+
+UI behåller samma payload/nyckel vid okänt skrivutfall och låser nya försök
+tills retry ger besked. Definitiva 4xx/konflikter läser om lediga tider och
+kräver nytt val/bekräftelse. Tjänsteversion stoppar ändrat pris/längd; replay
+går först i motorn. Bokningen syns i ordinarie skyddad admin i samma lokala DB.
+UI söker28dagar; övriga datumregler ligger kvar i domänmotorn.
+App-only metadata och confirmed är inte verifierat mänskligt mandat eller
+fjärrautentisering. Tillfälligt tillstånd överlever inte stängt kort: okänt
+utfall kontrolleras då i admin före nytt försök. Ingen molnändring.
+
+## Ursprungligt separat lokalt MCP-tidvalskort
 
 src/mcp/time-card/server.ts är en opt-in ingång med bara två läsverktyg.
 Den ändrar inte den vanliga MCP-serverns katalog eller ägarens kapacitetsprofil.

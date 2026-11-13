@@ -1,6 +1,7 @@
 import { assertTestDatabase } from "../../../scripts/test-db-guard.mjs";
+import { bookingModeAllowed } from "../booking";
 
-// This profile is deliberately local and read-only; it is not remote auth.
+// Local demo only; explicit booking opt-in does not grant workspace/admin tools.
 export function assertTimeCardDemo(
   env: Record<string, string | undefined> = process.env,
   args = process.argv,
@@ -9,14 +10,25 @@ export function assertTimeCardDemo(
     env.BOOKING_TIME_CARD_DEMO !== "1" ||
     env.NODE_ENV === "production" ||
     env.VERCEL_ENV ||
-    args.some((arg) =>
-      ["--admin", "--allow-bookings", "--allow-workspace"].includes(arg),
-    )
+    env.VERCEL ||
+    env.VERCEL_URL ||
+    args.includes("--allow-workspace")
   )
     throw new Error("TIME_CARD_DEMO_REFUSED");
   try {
     assertTestDatabase(env.DATABASE_URL);
+    const booking = env.BOOKING_TIME_CARD_BOOKINGS === "1";
+    if (booking) {
+      if (!bookingModeAllowed(args, env.SESSION_SECRET)) throw new Error();
+    } else if (args.includes("--admin") || args.includes("--allow-bookings")) {
+      throw new Error();
+    }
   } catch {
     throw new Error("TIME_CARD_DEMO_REFUSED");
   }
+}
+
+export function timeCardBookingsEnabled() {
+  assertTimeCardDemo();
+  return process.env.BOOKING_TIME_CARD_BOOKINGS === "1";
 }

@@ -1,8 +1,31 @@
 # Booking Lab – lokalt tidvalskort
 
 Privat första prov på PC, inte en fjärrserver eller mobilinstallation.
-Pluginet exponerar bara `list_services` och `show_time_picker`.
+Standardläget exponerar bara `list_services` och `show_time_picker`.
 Tidsvalet reserverar ingenting och skapar ingen bokning.
+
+## Valfritt bokningsprov (0.2.0)
+
+Bevara den gamla läsprofilen. För det uttryckligen godkända bokningsprovet:
+NY isolerad migrerad/seedad loopback-`*_demo`, egen snäv skrivroll och fryst
+granskad runtime. Privat envfil utanför Git/paket: `DATABASE_URL`,
+`BOOKING_TIME_CARD_DEMO=1`, `BOOKING_TIME_CARD_BOOKINGS=1` och lokalt genererad
+`SESSION_SECRET` med minst32tecken. Launcher lägger till `--admin --allow-bookings`.
+Saknad flagga/hemlighet nekas; workspace/production/Vercel nekas alltid.
+Endast `book_demo_time` tillkommer, inga admin-/kundregisterverktyg.
+
+Fast testkund `Tidkort Demo / tidkort@example.test` sätts på servern. Inga
+fria kundfält. Samma createBooking och kundkvoter som vanlig lokal MCP:
+5/kanal/dag,3/e-post/dag och30försök/15min/process. Ingen adminbudget.
+Skrivverktyget är märkt för appen; metadata och confirmed är inte bevis på
+mänskligt mandat. Vid tappat svar behålls samma nyckel/payload för retry.
+Stängt kort tappar sitt tillfälliga tillstånd: kontrollera admin innan nytt
+försök om utfallet är okänt. Ordinarie admin startas via befintlig wrapper
+mot SAMMA nya DB och kräver vanlig individuell inloggning. Ingen bypass.
+
+Efter build: `npx playwright test --config playwright.card-booking.config.ts`
+mot en separat migrerad/seedad loopback-testdatabas. Testvärden är inte native
+ChatGPT. Inga nya beroenden, migreringar, utskick, betalningar eller drift.
 
 ## Förbered en isolerad lokal runtime
 

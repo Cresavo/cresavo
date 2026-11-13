@@ -1,0 +1,53 @@
+import { z } from "zod";
+import { createBooking } from "../../lib/domain";
+import { db } from "../../lib/db";
+import { DomainError } from "../../lib/errors";
+import { MCP_BOOKING_CLIENT, mcpBookingSchema } from "../booking";
+import { timeCardBookingsEnabled } from "./guard";
+
+// No customer contact can be supplied by the app or model in this proof.
+export const CARD_CUSTOMER = {
+  customerName: "Tidkort Demo",
+  customerEmail: "tidkort@example.test",
+} as const;
+
+export const cardBookingSchema = mcpBookingSchema
+  .omit({ customerName: true, customerEmail: true })
+  .extend({
+    staffId: z.string().min(1).max(128),
+    serviceVersion: z.number().int().min(1),
+    clientRequestId: z.uuid(),
+  })
+  .strict();
+
+export async function bookDemoTime(input: unknown) {
+  if (!timeCardBookingsEnabled()) throw new DomainError("Åtkomst nekad", 403);
+  const args = cardBookingSchema.parse(input);
+  const booking = await createBooking(
+    mcpBookingSchema.parse({ ...args, ...CARD_CUSTOMER }),
+    `time-card_${args.clientRequestId}`,
+    MCP_BOOKING_CLIENT,
+  );
+  const staff = await db.staff.findFirst({
+    where: { businessId: booking.businessId, id: args.staffId },
+    select: { name: true },
+  });
+  return {
+    demo: true,
+    bookingCreated: true,
+    timezone: "Europe/Stockholm",
+    id: booking.id,
+    serviceId: booking.serviceId,
+    staffId: args.staffId,
+    status: booking.status,
+    // Initial timestamps are populated on INSERT by the historical trigger.
+    // The existing booking version tracks later workspace changes.
+    changedSinceCreation: booking.version > 1,
+    serviceName: booking.serviceName,
+    staffName: staff?.name ?? "Demopersonal",
+    duration: booking.duration,
+    priceOre: booking.priceOre,
+    startsAt: booking.startsAt.toISOString(),
+    endsAt: booking.endsAt.toISOString(),
+  };
+}

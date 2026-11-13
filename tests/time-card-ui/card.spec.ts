@@ -5,6 +5,7 @@ import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { mcpEnvironment } from "../../src/mcp/environment";
 import { db } from "../../src/lib/db";
+import { mountTimeCard } from "./host";
 
 const monday = DateTime.now()
   .setZone("Europe/Stockholm")
@@ -43,86 +44,23 @@ for (const width of [320, 390, 1024]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    const contexts: unknown[] = [];
     let fail = false;
-    await page.exposeFunction(
-      "mcp",
-      async (message: { method: string; params: Record<string, unknown> }) => {
-        if (message.method === "ui/initialize")
-          return {
-            protocolVersion: "2026-01-26",
-            hostCapabilities: { updateModelContext: { text: true } },
-            hostInfo: { name: "test-harness-not-chatgpt", version: "1" },
-          };
-        if (message.method === "ui/update-model-context") {
-          contexts.push(message.params);
-          return {};
-        }
-        if (message.method === "tools/call") {
-          if (fail) throw new Error("SYNTHETIC_TRANSPORT_FAILURE");
-          return client.callTool(
-            message.params as {
-              name: string;
-              arguments: Record<string, unknown>;
-            },
-          );
-        }
-        return {};
-      },
-    );
-    await page.setContent(
-      '<iframe title="MCP Apps testvärd" style="width:100%;height:1600px;border:0" sandbox="allow-scripts allow-same-origin"></iframe>',
-    );
-    await page.evaluate((html) => {
-      const frame = document.querySelector("iframe")!;
-      window.addEventListener("message", async (event) => {
-        if (event.source !== frame.contentWindow) return;
-        if (event.data?.method === "ui/notifications/size-changed") {
-          frame.style.height = `${event.data.params.height}px`;
-          return;
-        }
-        if (!event.data?.id) return;
-        try {
-          const result = await (
-            window as unknown as { mcp: (message: unknown) => Promise<unknown> }
-          ).mcp(event.data);
-          frame.contentWindow!.postMessage(
-            { jsonrpc: "2.0", id: event.data.id, result },
-            "*",
-          );
-        } catch {
-          frame.contentWindow!.postMessage(
-            {
-              jsonrpc: "2.0",
-              id: event.data.id,
-              error: { code: -32000, message: "Transport failure" },
-            },
-            "*",
-          );
-        }
-      });
-      frame.srcdoc = html;
-    }, html);
     const initial = await client.callTool({
       name: "show_time_picker",
       arguments: { date: monday, serviceId: "massage", staffId: "staff-demo" },
     });
-    await expect(page.frameLocator("iframe").getByRole("status")).toContainText(
-      "Hämtar lediga demotider",
-    );
-    await page.evaluate(
-      (result) =>
-        document.querySelector("iframe")!.contentWindow!.postMessage(
-          {
-            jsonrpc: "2.0",
-            method: "ui/notifications/tool-result",
-            params: result,
-          },
-          "*",
-        ),
+    const { frame, contexts } = await mountTimeCard(
+      page,
+      client,
+      html,
       initial,
+      {
+        call: async (_args, next) => {
+          if (fail) throw new Error("SYNTHETIC_TRANSPORT_FAILURE");
+          return next();
+        },
+      },
     );
-    const frame = page.frameLocator("iframe");
     await expect(
       frame.getByRole("heading", { name: "En stund för dig." }),
     ).toBeVisible();

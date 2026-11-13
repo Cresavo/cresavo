@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "booking-lab-time-card",
-  "version": "0.1.0",
-  "description": "Privat lokalt prov: välj en syntetisk behandling och ledig tid. Skapar inga bokningar.",
+  "version": "0.2.0",
+  "description": "Privat lokalt prov: välj en demotid. Separat opt-in kan skapa uttryckligen bekräftade testbokningar.",
   "license": "AGPL-3.0-only",
   "author": { "name": "Booking Lab" },
   "extensions": {
@@ -11,7 +11,7 @@
       "interface": {
         "displayName": "Booking Lab – tidval",
         "shortDescription": "Välj en ledig demotid",
-        "longDescription": "Ett lokalt tidvalskort med verklig syntetisk tillgänglighet. Ingen bokning, inga kunduppgifter och ingen publik MCP-server. Kräver förberedd lokal Booking Lab-runtime på PC:n.",
+        "longDescription": "Ett lokalt tidvalskort med verklig syntetisk tillgänglighet. Standardläget läser bara. Separat lokal opt-in kan boka för en fast påhittad kund efter uttrycklig bekräftelse. Ingen publik MCP-server, betalning eller utskick. Kräver förberedd isolerad Booking Lab-runtime på PC:n.",
         "developerName": "Booking Lab",
         "category": "Productivity",
         "capabilities": ["Interactive"],

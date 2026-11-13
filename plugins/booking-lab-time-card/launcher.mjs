@@ -16,7 +16,13 @@ try {
   if (
     settings.BOOKING_TIME_CARD_DEMO !== "1" ||
     settings.NODE_ENV === "production" ||
-    settings.VERCEL_ENV
+    settings.VERCEL_ENV ||
+    settings.VERCEL ||
+    settings.VERCEL_URL ||
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV ||
+    process.env.VERCEL ||
+    process.env.VERCEL_URL
   )
     throw new Error();
   const env = {
@@ -25,6 +31,13 @@ try {
     NEXT_TELEMETRY_DISABLED: "1",
     CHECKPOINT_DISABLE: "1",
   };
+  const bookings = settings.BOOKING_TIME_CARD_BOOKINGS === "1";
+  if (bookings) {
+    if (!settings.SESSION_SECRET || settings.SESSION_SECRET.length < 32)
+      throw new Error();
+    env.BOOKING_TIME_CARD_BOOKINGS = "1";
+    env.SESSION_SECRET = settings.SESSION_SECRET;
+  }
   for (const key of [
     "PATH",
     "Path",
@@ -43,6 +56,7 @@ try {
       pathToFileURL(join(profile.runtime, "node_modules/tsx/dist/loader.mjs"))
         .href,
       join(profile.runtime, "src/mcp/time-card/server.ts"),
+      ...(bookings ? ["--admin", "--allow-bookings"] : []),
     ],
     { cwd: profile.runtime, env, stdio: "inherit", windowsHide: true },
   );

@@ -10,6 +10,17 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
+## Aktivt: avgränsat bokningsprov från MCP-kort
+
+- Niclas godkände 2026-11-13 `docs/MCP_CARD_BOOKING_PLAN.md`. Bas fdcb41b,
+  feature/mcp-card-booking-proof; bygg vidare utan omtag av gamla epics.
+- Separat lokal opt-in/demodatabas, fast syntetisk kund, uttrycklig bekräftelse.
+  Samma createBooking/kvoter/idempotens/exclusion; ingen adminbudget i kortet.
+- Bevara standardens läsläge, gamla profiler och all historik. Ingen publik
+  MCP, ny drift/dependency eller mainmerge. Fryst Grok-QA/max2fixvarv.
+- Tappat skrivsvar är ett okänt utfall: samma payload/nyckel på retry, inga
+  påståenden om att bokning saknas. Skilj testvärd från verklig klientprovning.
+
 ## Lokalt MCP-tidvalskort: scoped QA klar, mobil återstår
 
 - Niclas godkände `docs/MCP_TIME_CARD_PLAN.md` och valde ChatGPT på PC:n först.

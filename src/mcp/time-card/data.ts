@@ -15,15 +15,18 @@ export const timeCardSchema = z
   .strict();
 
 export async function timeCardServices() {
-  return (await listServices()).map(({ id, name, duration, priceOre }) => ({
-    id,
-    name,
-    duration,
-    priceOre,
-  }));
+  return (await listServices()).map(
+    ({ id, name, duration, priceOre, version }) => ({
+      id,
+      name,
+      duration,
+      priceOre,
+      version,
+    }),
+  );
 }
 
-export async function timeCardData(input: unknown) {
+export async function timeCardData(input: unknown, bookingEnabled = false) {
   const args = timeCardSchema.parse(input);
   const today = DateTime.now().setZone("Europe/Stockholm").startOf("day");
   const date = args.date ?? today.toISODate()!;
@@ -56,6 +59,7 @@ export async function timeCardData(input: unknown) {
     timezone: "Europe/Stockholm",
     currency: "SEK",
     bookingCreated: false,
+    bookingEnabled,
     services,
     service,
     staff,

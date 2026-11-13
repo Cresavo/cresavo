@@ -1,5 +1,16 @@
 # Integritets- och säkerhetsprinciper
 
+## MCP-kortets lokala bokningsprov
+
+Separat opt-in, loopback-demodatabas, snäv SQL-roll och fast syntetisk kontakt;
+inga admin-/registerverktyg. Individuell webbinloggning, domänvalidering,
+kvoter, idempotens och överlappsskydd består. Bekräftelsefält och app-only
+metadata ersätter inte autentisering eller verifierat mänskligt mandat.
+Vid tappat skrivsvar får klienten inte anta att ingenting skapats. Samma
+payload/nyckel på retry; efter stängt kort kontrolleras okänt utfall i admin
+innan nytt försök. Läsroll/gammal profil bevaras. Production/Vercel nekas även
+med opt-in. Ingen kundpilot eller mobil-/molnanslutning godkänns här.
+
 ## Manuell kunddata — godkänd avgränsning 2026-11-13
 
 LC-QA-1: äldre e-postkvotnycklar var klartext. Nya icke-adminbokningar lagrar

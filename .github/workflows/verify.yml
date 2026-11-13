@@ -64,6 +64,11 @@ jobs:
       - if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install chromium
       - run: npm run build
+      - if: matrix.mode == 'dev' && matrix.proxy == '0'
+        name: Local MCP card and booking proof (test host)
+        run: |
+          npx playwright test --config playwright.time-card.config.ts
+          npx playwright test --config playwright.card-booking.config.ts
       - run: npm run test:e2e
       - run: npx tsc --noEmit
       - if: always()

@@ -1,5 +1,16 @@
 # Datakarta för Booking Lab SE POC
 
+## Lokalt MCP-kort: avgränsat syntetiskt bokningsprov
+
+Opt-in-bokning skickar tjänst/utförare, tjänsteversion, UTC-instant, UUID och
+bekräftelse till lokal stdio. Fast påhittad kontakt sätts på servern; inga
+kontaktfält eller kunduppslag i MCP. Samma Booking/BookingEvent och HMAC-kvoter
+som annan lokal MCP-bokning. Svar/modellkontext får boknings-id, tider,
+pris/längd och tjänst/utförare, aldrig kontakter, hemligheter eller kvotnycklar.
+Den fasta demokunden förklaras i UI. Ingen extern hämtning, telemetri,
+betalning eller utskick. Ordinarie skyddad admin visar bokningen i samma
+isolerade lokala DB. Läsprofilen består som standard; inga riktiga kunder.
+
 ## Manuell kunddata, pågående leverans 2026-11-13
 
 Aktiv webbadministratör väljer ett befintligt kundkort och använder ett
