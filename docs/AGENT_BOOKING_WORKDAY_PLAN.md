@@ -4,6 +4,14 @@ Godkänt av Niclas 2026-11-13 genom ”Kör denna” efter goal-prompten i chatt
 Bas e702838 (produkt8126410), separat feature/agent-booking-workday. Codex är
 ensam skrivare. Gamla profiler, bokningar och historiska migrationer bevaras.
 
+Status2026-11-13: levererad lokal syntetisk POC på05e5eaf, samma revision har
+Groks slutligaGO och fyra gröna Actionsjobb43467138367. Två rättningsvarv är
+använda; inga fler automatiskt.91unit/125integration/13kort och48webb×4 PASS,
+med bevarade lokala dev-fel/cacheåterställning enligt VERIFICATION. Privat
+plugin0.3.0 och lokal webb/ägarprofil aktiverade med bevarade gamla bokningar.
+Native-klick, hot-reload, fysisk mobil och kalenderimport NOT RUN. Ingen ny drift.
+Originalslutrapport: qa/QA-REPORT-agent-workday-f2-05e5eaf.md.
+
 ## Avgränsade leveranser och acceptans
 
 A. Beständig, lokal syntetisk försökslogg avgränsad till befintlig betrodd
@@ -14,7 +22,7 @@ Kalenderfil har UTC-instanter, korrekt behandlingslängd (utan intern buffert),
 stabil UID, escaping och tydlig information om utebliven automatisk synk.
 
 B. Separat opt-in, lokal ägarprofil med --admin, giltig SESSION_SECRET och
-loopback *_test/_demo. Ett läsande arbetsdagskort återanvänder kalender,
+loopback \*\_test/\_demo. Ett läsande arbetsdagskort återanvänder kalender,
 tillgänglighet och kapacitetsförslag. Inga kontaktuppgifter, nya mutationer
 eller automatiska uppgraderingar av kundkortets rättigheter. Begränsad
 paginering och tydliga länkar till vanlig skyddad admin; inga hemligheter i URL.

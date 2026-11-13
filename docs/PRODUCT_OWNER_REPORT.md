@@ -1,3 +1,21 @@
+# Produktägarrapport — bokningen följer med
+
+Öppna samma [privata Booking Lab-plugin på PC](https://chatgpt.com/plugins/plugins_6af6eef3bf6881919d99e654b91644e3). Samma privata personliga plugin är uppdaterat till 0.3.0, release pluginrel_6af7418393e88191bb5834222b306ab3. Återläsning verifierar oförändrad identitet, audience, anslutningar och standardprompt samt exakt granskad launcher.
+
+Byggt: återöppna kvitto, återuppta oklart försök utan dubbelbokning, hämta kalenderfil och läs ägarens arbetsdag i ett separat kort. Vanlig skyddad admin används för flytt/avbokning. Fryst lokal runtime och vanlig skyddad webb på 3187 kör 05e5eaf. Tionde migrationen tillämpad additivt; båda befintliga demokvittona återtagna genom granskad idempotent retry. Separat booking_workday_demo är konfigurerad med endast show_workday. Ingen extern deploy.
+
+[Fem frivilliga prov och riktiga bilder](DEMO.md). Faktiskt läsanrop från denna Codex-anslutning lyckades med bookingEnabled=true. Separata SDK-processer genom den riktiga lokala launchern och ägarkonfigurationen återläste båda gamla bokningarna; detta är inte native-klickning. Ingen app var exponerad i sidopanelen. Nya native-klick, ägarprofilens hot-reload, fysisk iPhone/Safari och kalenderimport är NOT RUN. Nästa inläsning av den lokala anslutningen kan behövas innan ägarkortet syns; inget manuellt QA-uppdrag lämnas till Niclas.
+
+Branch feature/agent-booking-workday; produkt och Grok-revision 05e5eafc68302b92eeb3ae2edf3829ffa73f7aa1. 91 unit, 125 integration, 13 korttester och 48 webbtester i fyra lägen samt lint/tsc/build PASS. Grok GO för lokal syntetisk POC på exakt 05e5eaf efter två samlade rättningsvarv. Egen separat kopia: 91 unit, 125 integration, 13 kort och 192 webbtester PASS; inga Medium/High. Övriga Low/Info är backlogg. [Groks originalrapport](qa/QA-REPORT-agent-workday-f2-05e5eaf.md). Verify POC på exakt 05e5eaf: alla fyra jobb gröna, 48 webbtester per jobb. Dev0 kör även 91 unit, 125 integration och 13 korttester. Docker/PostgreSQL användes i CI; det är inte ett lokalt Dockerprov. [Actions 43467138367](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43467138367). Audit separat: sju moderate dev, noll produktion.
+
+Detta är en betrodd lokal syntetisk demokanal, inte individuell kundautentisering. Ingen fjärr-MCP, ny drift, ny kostnad, riktiga uppgifter, utskick eller betalning. Ingen mainmerge. Mobil fjärranslutning, fysisk iPhone/Safari och verklig kalenderimport är **inte verifierade**. Kalenderfilen synkas inte vid senare ändringar. Pilot är fortsatt NO-GO. Mindre fynd ligger kvar: gammal kalenderfil-notis efter statusändring (AW-QA-3), fokus vid ägarkortets fel (AW-QA-4), tidigare sökfönster 28/35 dagar (CB-QA-1) och övriga Info enligt originalrapporterna. Samma secret och lokala MCP-identitet är avsiktligt samma kanal. Inga ytterligare fixloopar startas.
+
+Nästa tre prioriteringar: säker anslutning för vald mobilklient; individuell kundbehörighet för fler agenthandlingar; avgränsade pilotgrindar för MFA/recovery, retention och drift. Målet stängs efter denna leverans, inga fler epics startas.
+
+<!-- AGENT_WORKDAY_CURRENT_END -->
+
+## Historik — tidigare leverans
+
 # Produktägarrapport — lokalt MCP-kort till admin
 
 Byggt: ett uttryckligt bekräftelsesteg som skapar en riktig syntetisk bokning

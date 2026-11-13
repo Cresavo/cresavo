@@ -1,3 +1,58 @@
+# Prova agentbokning och ägarens arbetsdag
+
+Verifierat 2026-11-13. Branch **feature/agent-booking-workday** från e702838.
+Produkt och slutlig Grok-revision: **05e5eafc68302b92eeb3ae2edf3829ffa73f7aa1**. Senare dokumentationscommit ändrar ingen produktkod.
+
+Öppna samma [privata Booking Lab-plugin på PC](https://chatgpt.com/plugins/plugins_6af6eef3bf6881919d99e654b91644e3). Samma privata personliga plugin är uppdaterat till 0.3.0, release pluginrel_6af7418393e88191bb5834222b306ab3. Återläsning verifierar oförändrad identitet, audience, anslutningar och standardprompt samt exakt granskad launcher.
+Fryst lokal runtime och vanlig skyddad webb på 3187 kör 05e5eaf. Tionde migrationen tillämpad additivt; båda befintliga demokvittona återtagna genom granskad idempotent retry. Separat booking_workday_demo är konfigurerad med endast show_workday. Ingen extern deploy.
+
+Faktiskt läsanrop från denna Codex-anslutning lyckades med bookingEnabled=true. Separata SDK-processer genom den riktiga lokala launchern och ägarkonfigurationen återläste båda gamla bokningarna; detta är inte native-klickning. Ingen app var exponerad i sidopanelen. Nya native-klick, ägarprofilens hot-reload, fysisk iPhone/Safari och kalenderimport är NOT RUN. Nästa inläsning av den lokala anslutningen kan behövas innan ägarkortet syns; inget manuellt QA-uppdrag lämnas till Niclas.
+
+## Prova hela flödet
+
+1. Be om Booking Labs tidvalskort för Massage nästa vardag. Välj behandling, medarbetare, dag och tid. Bekräfta bara om du vill skapa en syntetisk bokning.
+2. Stäng och öppna kortet igen i samma lokala profil. Servern återläser kvitto eller samma oklara försök. Vid oklart utfall används den uttryckliga kontrollknappen och samma nyckel; en ny bokning skapas inte automatiskt.
+3. Välj Lägg i min kalender och Hämta kalenderfil. Detta ger en ICS-fil; faktisk import och uppdateringssynk är inte verifierade.
+4. Öppna [vanlig lokal admin](http://localhost:3187/admin?date=2026-11-16), flytta eller avboka där och välj Uppdatera bokningsstatus i kortet. Vanlig individuell adminbehörighet krävs. Historiska bokningar och händelser bevaras.
+5. Den separata lokala Codex-profilen booking_workday_demo erbjuder show_workday: be ”Visa min arbetsdag för nästa vardag”. Läs dag/nästa besök/lediga tider och använd länkarna till vanlig admin för ändringar. Kortet är läsande och visar inga kundkontakter.
+
+Provningen är frivillig. Du behöver inte manuellt kvalitetssäkra leveransen åt Codex. Den fasta testkunden har fortfarande taket tre bokningar per dag; dina två tidigare testbokningar räknas. Taket kringgås inte och bokningar raderas inte för att frigöra budget.
+
+## Reproducerbar testvärd
+
+Följ README för ny isolerad loopback _\_test eller _\_demo, npm ci, generate, tio migrationer och seed. Kör sedan:
+
+```text
+npm run build
+npx playwright test --config playwright.agent-workday.config.ts
+```
+
+Konfigurationen startar vanlig skyddad webb på loopback 3197 och explicit MCP Apps-testvärd. Alla 13 korttester använder egna syntetiska fixtures som städas. Det är inte native ChatGPT eller en iPhone-simulator. Den verkliga lokala adminn kör uttryckligen på 3187; 3197 är endast testvärden.
+
+Ren ägarserver för en stdio-klient: exporterad DATABASE_URL till separat syntetisk loopbackdatabas, lång egen lokal SESSION_SECRET, BOOKING_OWNER_CARD_DEMO=1 och BOOKING_OWNER_WEB_ORIGIN till vanlig skyddad lokal webb. Kör `node --import tsx src/mcp/server.ts --admin --workday-card`. Inga allow-workspace/bookings-flaggor. Hemligheter ska inte stå i chatt eller delade filer.
+
+## Riktiga bilder från slutrevisionens testvärd
+
+![Ägarens arbetsdag vid 390 px](assets/agent-workday/owner-390.png)
+
+![Aktuellt testkvitto](assets/agent-workday/receipt-390.png)
+
+![Återläst avbokningsstatus](assets/agent-workday/reopen-390.png)
+
+[320 px](assets/agent-workday/owner-320.png) · [desktop](assets/agent-workday/owner-1024.png) · [proveniens och SHA256](assets/agent-workday/manifest.json). Bilderna bevisar varken fysisk mobil eller ny native-klientfunktion.
+
+## Stopp, återställning och gränser
+
+För att stänga av kortets skrivprov: återställ den sparade tidigare läsprofilen ~/.booking-lab/time-card-readonly-8648316.json till time-card.json och läs om anslutningen. Den omedelbara tidigare bokningsprofilen finns också i time-card-booking-8126410-before-1794588993176.json, men den äldre bokningskoden saknar nya skydd och ska inte återaktiveras som lösning. För ägarkortet: sätt endast booking_workday_demo till enabled=false. Global config-backup finns lokalt i config.workday-before-1794589068648.toml; tidigare innehåll är byte-identiskt bevarat. Stoppa bara den identifierade loopback-wrappern på3187, aldrig alla Node-/Postgresprocesser. Återställ inte hemlighet, migration eller bokningar.
+
+Ingen bokning eller migration ska raderas för att återställa profilen. Gamla runtimekataloger/profilbackup finns kvar. Privat envfil och SQL-roller återanvänder befintlig lokalt skyddad databas; ingen publik listener har öppnats.
+
+localhost fungerar bara på PC:n. [Befintlig skyddad webbpreview](https://booking-lab-se-preview.vercel.app/admin) är oförändrad och är inte fjärr-MCP. Detta är en betrodd lokal syntetisk demokanal, inte individuell kundautentisering. Ingen fjärr-MCP, ny drift, ny kostnad, riktiga uppgifter, utskick eller betalning. Ingen mainmerge. Mobil fjärranslutning, fysisk iPhone/Safari och verklig kalenderimport är **inte verifierade**. Kalenderfilen synkas inte vid senare ändringar. Pilot är fortsatt NO-GO.
+
+<!-- AGENT_WORKDAY_CURRENT_END -->
+
+## Historik — tidigare leverans
+
 # Prova MCP-bokningskortet på PC:n
 
 **Demo – endast påhittade uppgifter.** Produkt8126410af712bdd71d6b6a42c0a1fcc58055d28d.
@@ -99,7 +154,6 @@ stannar utanför paket/Git. Stäng av just detta plugin för att stoppa provet;
 stoppa inte delad PostgreSQL eller ändra ägarens andra MCP. Ingen ny avgift,
 publik tunnel eller extern publicering. Fysisk iPhone/Safari ingår inte här.
 
-
 ## Historik — föregående verifierade leverans
 
 # Demo — kunddata och verkligt lokalt ägaragentprov, 2026-11-13
@@ -162,7 +216,7 @@ confirmed=true är klientens försäkran, inte bevis för mänskligt samtycke.
 MCPe2e0e39/identisk kapacitetskod, webb95f8071 vid huvudprovet. Nästa start av
 befintlig booking_calendar_demo är konfigurerad till separat pinnad95f8071-
 runtime och SDK-testad. Ingen automatisk följning av utvecklingsarbetskopian.
-Lokalt via projektets vanliga instruktioner: separat *_demo,9migrate/seed,
+Lokalt via projektets vanliga instruktioner: separat \*\_demo,9migrate/seed,
 BOOKING_DEMO_SEED=1 npm run demo:seed:capacity och individuell admin. Operatörens
 privata profiler/nycklar finns utanför Git; klistra dem inte i chatt.
 
@@ -275,7 +329,7 @@ Separat booking_ui_preview_demo, samma Neon Free i Frankfurt.84äldre bokningar
 är oförändrade; slut92bokningar/33kundkort/4kampanjer/3förslagsbeslut,
 4aktiva behandlingar och3aktiva medarbetare,0överlapp. Nya utkast opublicerade.
 Äldre demokampanjer kan redan vara publicerade; denna leverans publicerade ingen.
-Backup före migration och efter flöden återläst till nya lokala *_demo;
+Backup före migration och efter flöden återläst till nya lokala \*\_demo;
 11respektive12tabeller med identiska radhashar, AES-256-GCM och separat bevarad
 nyckel. Det är operatörens PC-backup, inte automatisk extern backup.
 
@@ -308,7 +362,7 @@ ny revision. Filer/nycklar/tokens får inte skickas till Git/Grok/chatten.
 
 ## Lokal reproduktion
 
-Använd README:s PostgreSQL-/individuella adminsteg, en separat loopback *_demo,
+Använd README:s PostgreSQL-/individuella adminsteg, en separat loopback \*\_demo,
 migrera och kör grundseed. Därefter:
 
 ```powershell
@@ -438,7 +492,7 @@ Läs enbart lokalt i C:/Users/<user>/booking-lab-se-preview/.vercel: ui-runtime.
 
 För åtkomstpaus: BOOKING_DEMO_ACCESS=0 och ny skyddad Previewdeploy. En flaggpaus är INTE permanent sessionrevokering; återaktivering inom8h kan återuppliva kvarvarande icke-utloggade sessioner. Vid permanent stopp: inaktivera demoaktören/höj dess credentialVersion eller befintlig ADMIN_SESSION_VERSION, därefter stoppa/ta bort just nya deployment/alias genom befintligt Vercelflöde. Radera inte databas eller gamla miljöer automatiskt. Sänk aldrig Vercels skydd. Ingen serverändring utan nytt konkret uppdrag.
 
-Additiv seed: npm run demo:seed kräver uttrycklig opt-in och isolerad *_demo-DB. Preview kräver --preview samt exakt pin; kör inte testsviter/testvakt mot molndatabasen. Seed är separat från fixtures och raderar inte befintliga data.
+Additiv seed: npm run demo:seed kräver uttrycklig opt-in och isolerad \*\_demo-DB. Preview kräver --preview samt exakt pin; kör inte testsviter/testvakt mot molndatabasen. Seed är separat från fixtures och raderar inte befintliga data.
 
 ## Historik — tidigare preview och lokal demo
 
@@ -482,28 +536,28 @@ gäller även i preview. Adminens manuella bokningar har egen budget.
 ### Vad är faktiskt verifierat?
 
 - Befintlig Epic05 lokal QA/CI är separat historik. Nya previewkoden har
- 72unit/72integration och24E2E i alla4lägen. Grok gav kod/paketering-GO på
- fryst f2fdac7 i egen kopia; fick aldrig molnhemligheter eller previewåtkomst.
+  72unit/72integration och24E2E i alla4lägen. Grok gav kod/paketering-GO på
+  fryst f2fdac7 i egen kopia; fick aldrig molnhemligheter eller previewåtkomst.
 - Vercels faktiska Linuximage byggdes med USER node/chown och minimal53pakets
- runtime. Samma wrapper är enda HTTP-ingång. Inget publikt MCP: tre provade
- MCP-sökvägar ger404 även efter Vercel-autentisering.
+  runtime. Samma wrapper är enda HTTP-ingång. Inget publikt MCP: tre provade
+  MCP-sökvägar ger404 även efter Vercel-autentisering.
 - Oinloggade HTML/API/POST/resurs-anrop blockeras av perimeter. TLS1.3 med
- verifierat certifikat, CSP/HSTS/nosniff/referrer/no-powered-by och admin no-store.
- Port3000 är inte externt nåbar. Neon är en autentiserad managed PG-endpoint
- med verifierad TLS, inte en loopbackport eller bevisat nätverksstängd5432.
+  verifierat certifikat, CSP/HSTS/nosniff/referrer/no-powered-by och admin no-store.
+  Port3000 är inte externt nåbar. Neon är en autentiserad managed PG-endpoint
+  med verifierad TLS, inte en loopbackport eller bevisat nätverksstängd5432.
 - Individuell UI-login, kundbokning, mobilkalender, tjänster/personal, flytt,
- avbokning, logout och kopierad-cookie-replay403 PASS. Falska IP/proof-headers
- kan inte rotera limitern; fem401, sedan429 även med rätt lösenord.
+  avbokning, logout och kopierad-cookie-replay403 PASS. Falska IP/proof-headers
+  kan inte rotera limitern; fem401, sedan429 även med rätt lösenord.
 - Efter90sekunder utan apptrafik: Vercelloggen visar ny BOOKING_SERVER_READY
- för exakt kontrollrequest. Samma signerade session fungerar, avbokning/version3
- och bokningstid är kvar. Detta är faktisk kallstartsverifiering, inte en
- manuellt framtvingad omstart av alla instanser eller full belastningscertifiering.
+  för exakt kontrollrequest. Samma signerade session fungerar, avbokning/version3
+  och bokningstid är kvar. Detta är faktisk kallstartsverifiering, inte en
+  manuellt framtvingad omstart av alla instanser eller full belastningscertifiering.
 - Krypterad backup efter driftflöden återlästes till ny lokal
- booking_preview_live_restore_demo. Alla10tabellers radantal/innehållshashar
- matchar. Manipulerad ciphertext avvisas. Backup på PC, separat bevarad nyckel
- i .vercel; ingen automatisk extern/Tysklandsbackup.
+  booking_preview_live_restore_demo. Alla10tabellers radantal/innehållshashar
+  matchar. Manipulerad ciphertext avvisas. Backup på PC, separat bevarad nyckel
+  i .vercel; ingen automatisk extern/Tysklandsbackup.
 - **Fysisk iPhone/Safari: NOT RUN.** Mobilbilder är verkliga skärmbilder från
- driftsatt produktionsbygge i Chromium390×844, inte Safari eller designmockups.
+  driftsatt produktionsbygge i Chromium390×844, inte Safari eller designmockups.
 
 ### Kostnad och stopp
 
@@ -629,22 +683,22 @@ Dessa fyra stillbilder är visuellt granskade: läsbara handlingar, korrekt YYYY
 
 **QA-begränsning E05-QA-7:** de två09-bokningsdetalj-bilderna visar bara laddningsskärmen och räknas inte som funktionsbevis.28fångade bilder betyder26användbara funktionsbilder+2laddningsbilder.13-flyttad-bokning visar den verkliga detaljen med snapshotpris/tid. Originalmanifest/filer bevaras; ingen ny full inspelning för den osynliga kvotfixen. Fokus efter Flytta, dialogens fokus/Escape och dubblerad kalenderlänk är mindre UX-backlogg enligt originalrapporten.
 
-[Prova själv stegvis](LOCAL_DEMO_WINDOWS.md). Reproducera med npmci/generate, ny egen loopback *_demo-DB, db:migrate/db:seed och npm run demo:record; se gemensamma instruktioner i bilagan. Demovakten kräver exakt syntetisk seed och inga boknings-/konto-/sessions-/mutationsrader, raderar aldrig för att förbereda. Efter manuell provning ska nästa inspelning använda ny demo-DB. Artefakter är ignorerade och finns inte automatiskt i GitHub; granskat separat QA-demopaket skapat, hash finns i handoff. Detta är automatiserad verklig POC, inte produktionsklar eller mobilåtkomlig drift.
+[Prova själv stegvis](LOCAL_DEMO_WINDOWS.md). Reproducera med npmci/generate, ny egen loopback \*\_demo-DB, db:migrate/db:seed och npm run demo:record; se gemensamma instruktioner i bilagan. Demovakten kräver exakt syntetisk seed och inga boknings-/konto-/sessions-/mutationsrader, raderar aldrig för att förbereda. Efter manuell provning ska nästa inspelning använda ny demo-DB. Artefakter är ignorerade och finns inte automatiskt i GitHub; granskat separat QA-demopaket skapat, hash finns i handoff. Detta är automatiserad verklig POC, inte produktionsklar eller mobilåtkomlig drift.
 
 ## Privat mobilpreview: beslutsunderlag, BLOCKERAD
 
 Läsande inventering2026-11-12 hittade en ansluten Vercel Pro-workspace men inget länkat Booking Lab-projekt. Inget Hetzner-konto eller projekt har verifierats/skapat. Nedanstående är ett konkret förslag, inte utförd drift eller en beställning. Lokal demo fungerar oberoende av detta beslut. Kundpilot är fortsatt NO-GO.
 
-| Val | Föreslagen exakt miljö |
-| --- | --- |
-| Leverantör/projekt | Hetzner Cloud, nytt separat projekt **booking-lab-se-preview**, server **booking-lab-se-e05-preview**, endast syntetiska data. |
-| Server/region | **CX23, x86-64,2vCPU/4GB/40GB, HEL1/Helsingfors, Finland**. Kapacitet är inte reserverad; leverantörssidan visar även en otillgänglighetsmarkering. Tillgång i HEL1 måste bekräftas före beställning. Ingen automatisk annan region/större plan. |
-| Runtime | En Linuxserver med en Node24-process via befintliga scripts/server.mjs, byggd app och PostgreSQL18.6 på samma server, bara loopback. En process bevarar nuvarande processlokala limiter/proof; inga skalningsgarantier. Linux/nativebibliotek och riktig proxy/TLS måste verifieras före öppning. |
-| Databas | Egen **booking_preview_demo** i HEL1, separata credentials, inga publika5432/3000-portar. Migration sker med operatörsbehörighet; appkontot ska inte vara PostgreSQL-superuser. Ingen anslutning till lokal/test-/produktions-DB. |
-| Backup | Daglig konsekvent pg_dump, krypterad före överföring till separat **BX11 Storage Box i Tyskland/FSN1**, underkatalog booking-lab-se-preview; föreslagen retention7dagliga/4veckovisa. Återläsning till separat demo-DB ska provas. Cloud-diskbackup är ett tillägg, inte ersättning för logisk DB-backup. |
-| Hela webbgränsen | Caddy HTTPS med separat namngivet Basic Auth-konto för Niclas på **alla paths**, inklusive /, /api/*, /admin och Next-resurser. Ingen offentlig health-/API-bakväg eller delad anonym länk. Appens individuella adminsession krävs därutöver. Ingen MCP-port; stdio förblir lokal. |
-| Värdnamn | Niclas väljer en redan ägd domän/subdomän för TLS. Inget ägarskap eller fungerande URL antas; DNS/certifikat har inte ändrats. En hemlig URL/noindex ersätter inte åtkomstskydd. |
-| Behöriga konton | Endast Niclas godkända preview-/admin-/infrastrukturkonton. Inget konto eller lösenord ges automatiskt till Grok, Codex eller andra. Grok granskar fryst källkod i separat lokal kopia enligt planen. |
+| Val                | Föreslagen exakt miljö                                                                                                                                                                                                                                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Leverantör/projekt | Hetzner Cloud, nytt separat projekt **booking-lab-se-preview**, server **booking-lab-se-e05-preview**, endast syntetiska data.                                                                                                                                                                            |
+| Server/region      | **CX23, x86-64,2vCPU/4GB/40GB, HEL1/Helsingfors, Finland**. Kapacitet är inte reserverad; leverantörssidan visar även en otillgänglighetsmarkering. Tillgång i HEL1 måste bekräftas före beställning. Ingen automatisk annan region/större plan.                                                          |
+| Runtime            | En Linuxserver med en Node24-process via befintliga scripts/server.mjs, byggd app och PostgreSQL18.6 på samma server, bara loopback. En process bevarar nuvarande processlokala limiter/proof; inga skalningsgarantier. Linux/nativebibliotek och riktig proxy/TLS måste verifieras före öppning.         |
+| Databas            | Egen **booking_preview_demo** i HEL1, separata credentials, inga publika5432/3000-portar. Migration sker med operatörsbehörighet; appkontot ska inte vara PostgreSQL-superuser. Ingen anslutning till lokal/test-/produktions-DB.                                                                         |
+| Backup             | Daglig konsekvent pg_dump, krypterad före överföring till separat **BX11 Storage Box i Tyskland/FSN1**, underkatalog booking-lab-se-preview; föreslagen retention7dagliga/4veckovisa. Återläsning till separat demo-DB ska provas. Cloud-diskbackup är ett tillägg, inte ersättning för logisk DB-backup. |
+| Hela webbgränsen   | Caddy HTTPS med separat namngivet Basic Auth-konto för Niclas på **alla paths**, inklusive /, /api/\*, /admin och Next-resurser. Ingen offentlig health-/API-bakväg eller delad anonym länk. Appens individuella adminsession krävs därutöver. Ingen MCP-port; stdio förblir lokal.                       |
+| Värdnamn           | Niclas väljer en redan ägd domän/subdomän för TLS. Inget ägarskap eller fungerande URL antas; DNS/certifikat har inte ändrats. En hemlig URL/noindex ersätter inte åtkomstskydd.                                                                                                                          |
+| Behöriga konton    | Endast Niclas godkända preview-/admin-/infrastrukturkonton. Inget konto eller lösenord ges automatiskt till Grok, Codex eller andra. Grok granskar fryst källkod i separat lokal kopia enligt planen.                                                                                                     |
 
 **Kostnadsunderlag, inte offert:** renderad officiell prislista läst2026-11-12 visade CX23 **5,99€/månad inklusive IPv4, exklusive moms**, BX11 **3,20€/månad exklusive moms**; tillsammans9,19€. Separat Cloud-backup kostar ytterligare; sidan visade från1,098€/månad. Föreslagen infrastrukturgräns är **15€/månad exklusive moms**, utan ny domän eller förbrukning utöver grundnivå. Pris, regional kapacitet och slutlig order ska kontrolleras igen innan köp. Inget pris anges som garanterad tillgänglig offert och ingen tjänst har köpts. [Serverpris](https://www.hetzner.com/cloud/cost-optimized/) · [Storage Box](https://www.hetzner.com/storage/storage-box/).
 
@@ -690,7 +744,7 @@ Alla fyra WebM har kontrollerats med ffprobe och avkodats till slut med ffmpeg u
 
 Prova agentflödet själv: starta lokal databas och webb enligt README, kör `npm run mcp:client -- --admin --book`, läs sammanfattningen och skriv `ja`. `nej` eller EOF avbryter utan bokning. Öppna /admin och kontrollera bokningen. Endast example.test och syntetiska namn. Ingen ytterligare UI, dashboard eller modellnyckel behövs.
 
-Reproducera hela inspelningen med instruktionerna nedan och en separat tom *_demo-databas. Demokonfigurationen väljer nu både befintligt fullflöde och agentflödet. Artefakterna är lokala/ignorerade och finns inte i Git eller den rena källkods-ZIP:en. Efter körningen: 0 bokningar, 0 kampanjer, 0 sessioner i demodatabasen.
+Reproducera hela inspelningen med instruktionerna nedan och en separat tom \*\_demo-databas. Demokonfigurationen väljer nu både befintligt fullflöde och agentflödet. Artefakterna är lokala/ignorerade och finns inte i Git eller den rena källkods-ZIP:en. Efter körningen: 0 bokningar, 0 kampanjer, 0 sessioner i demodatabasen.
 
 Första inspelningsförsöket på 18b2ac5 blev FAIL 1/4 vid screenshot, medan funktionella kontroller och tre videoflöden passerade. Det ligger kvar separat och räknas inte som godkänd demo. Riktad diagnostik och ny full inspelning PASS, utan höjd timeout eller ändrad bokningslogik; rotorsaken är inte fastställd. [Felhistorik](EPIC_02_QA_FOLLOWUP.md).
 
@@ -711,7 +765,7 @@ Full demo spelas in när en Epic är klar, inför en överenskommen viktig avst�
 
 Desktop/mobil visar Testkund Anna respektive Testkund Erik; inga riktiga personer. Slumpmässig e-postmarkör behålls för teststädning. Adminbilderna 04 har granskats visuellt: korta namn, maskerad e-post och ingen N-badge. Videorna har inte granskats i sin helhet. Artefakter ligger lokalt och ingår inte i Git.
 
-Start via **npm run start**, socket-wrappern runt produktionsbygget. Reproducera enligt stegen nedan med ny lokal *_demo-databas; host/hostaddr-queryparametrar avvisas före Prisma-åtkomst. Kör en omgång åt gången. Efter inspelning finns 0 bokningar, 0 kampanjer och 0 sessioner från testerna. Tidigare uppgift om kvarvarande demosessioner gäller bara äldre revisioner.
+Start via **npm run start**, socket-wrappern runt produktionsbygget. Reproducera enligt stegen nedan med ny lokal \*\_demo-databas; host/hostaddr-queryparametrar avvisas före Prisma-åtkomst. Kör en omgång åt gången. Efter inspelning finns 0 bokningar, 0 kampanjer och 0 sessioner från testerna. Tidigare uppgift om kvarvarande demosessioner gäller bara äldre revisioner.
 
 ## Historik och reproduktionsinstruktioner
 
@@ -758,14 +812,14 @@ Manifestet anger Git-revision, tid, PASS/FAIL och om arbetskopian hade ändringa
 
 ## Bildsekvens
 
-| Bild | Vad du ser och vad som kontrolleras |
-|---|---|
-| 01-bokningssida | Två tjänster; det opublicerade erbjudandet syns inte publikt |
-| 02-vald-tid | Fotvård, vardag inom bokningshorisonten, ledig tid och syntetisk kund |
-| 03-bekraftelse | Kunden får bekräftelsen att bokningen är registrerad |
-| 04-admin-och-utkast | Samma kund i adminagendan och MCP-skapat utkast med 20 % rabatt |
-| 05-publicerad-i-admin | Administratören har klickat Publicera; statusen har ändrats |
-| 06-publikt-erbjudande | Erbjudandet visas på den egna bokningssidan |
+| Bild                  | Vad du ser och vad som kontrolleras                                   |
+| --------------------- | --------------------------------------------------------------------- |
+| 01-bokningssida       | Två tjänster; det opublicerade erbjudandet syns inte publikt          |
+| 02-vald-tid           | Fotvård, vardag inom bokningshorisonten, ledig tid och syntetisk kund |
+| 03-bekraftelse        | Kunden får bekräftelsen att bokningen är registrerad                  |
+| 04-admin-och-utkast   | Samma kund i adminagendan och MCP-skapat utkast med 20 % rabatt       |
+| 05-publicerad-i-admin | Administratören har klickat Publicera; statusen har ändrats           |
+| 06-publikt-erbjudande | Erbjudandet visas på den egna bokningssidan                           |
 
 Desktop och mobil har varsin sekvens. Den tekniska bokningskonflikten och MCP:s nekade åtkomst visas inte av bilderna; de bevisas i integrationstesterna.
 

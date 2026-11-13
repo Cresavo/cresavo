@@ -10,7 +10,18 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
-## Pågående: beständigt agentkort och ägarens arbetsdag
+## Levererat: beständigt agentkort och ägarens arbetsdag
+
+- Produkt/slutlig Grok-revision05e5eaf, två samlade rättningsvarv avslutade.
+  Lokal syntetisk POC-GO, inga Medium/High. Privat push och Actions43467138367:
+  fyra gröna48/48.91unit/125integration/13kort PASS. Bevarade lokala dev-fel
+  och cacheåterställning redovisas i VERIFICATION, inte dolda bakom omkörningen.
+- Privat plugin0.3.0 och lokal runtime/web3187 är aktiverade; två äldre bokningar
+  och händelser bevarade. Separat readonlySQL/egen ownerhemlighet/show_workday.
+  Nya native-klick, owner-hot-reload, fysisk mobil och kalenderimport NOT RUN.
+  Målet är avslutat med dessa uttryckliga begränsningar. Ingen ny Epic/fixloop.
+- F2: kontrollera faktisk clientKey före svar i äldre MCP/publik HTTP för
+  time-card\_-replay. Ändra inte domänens kontrakt för andra namespaces.
 
 - Niclas har godkänt docs/AGENT_BOOKING_WORKDAY_PLAN.md och hela goal-prompten.
   Bas e702838/produkt8126410, branch feature/agent-booking-workday. Ensam skrivare.

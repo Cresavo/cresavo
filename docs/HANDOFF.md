@@ -1,10 +1,35 @@
+# Handoff — beständig agentbokning och ägarens arbetsdag
+
+Verifierat 2026-11-13. Branch **feature/agent-booking-workday** från e702838.
+Produkt och slutlig Grok-revision: **05e5eafc68302b92eeb3ae2edf3829ffa73f7aa1**. Senare dokumentationscommit ändrar ingen produktkod.
+
+Byggt: CardBookingAttempt, beständig pending/retry och aktuellt kvitto, lokal kalenderfil och separat läsande arbetsdagskort. En additiv migration och inga nya beroenden. Gemensam domänlogik, historiska migrationer, överlappsskydd, kvoter och adminbehörighet bevaras.
+
+QA: Grok GO för lokal syntetisk POC på exakt 05e5eaf efter två samlade rättningsvarv. Egen separat kopia: 91 unit, 125 integration, 13 kort och 192 webbtester PASS; inga Medium/High. Övriga Low/Info är backlogg. [Groks originalrapport](qa/QA-REPORT-agent-workday-f2-05e5eaf.md). Första granskningen på c4e och riktad F1 på cf6 finns kvar i docs/qa. Slutlig F2 på 05e5eaf stänger omvänd replay vid befintliga MCP-/HTTP-ingångar. Inga HTML- eller domänändringar i rättningsvarven. Två varv använda, inget automatiskt omtag.
+
+91 unit, 125 integration, 13 kort och 48 webbtester i fyra lägen, lint/tsc/build PASS. Audit separat FAIL: sju moderate dev; produktion PASS: noll. Verify POC på exakt 05e5eaf: alla fyra jobb gröna, 48 webbtester per jobb. Dev0 kör även 91 unit, 125 integration och 13 korttester. Docker/PostgreSQL användes i CI; det är inte ett lokalt Dockerprov. [Actions 43467138367](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43467138367). [Råa resultat](VERIFICATION.md).
+
+Fryst lokal runtime och vanlig skyddad webb på 3187 kör 05e5eaf. Tionde migrationen tillämpad additivt; båda befintliga demokvittona återtagna genom granskad idempotent retry. Separat booking_workday_demo är konfigurerad med endast show_workday. Ingen extern deploy. Samma privata personliga plugin är uppdaterat till 0.3.0, release pluginrel_6af7418393e88191bb5834222b306ab3. Återläsning verifierar oförändrad identitet, audience, anslutningar och standardprompt samt exakt granskad launcher. De två gamla syntetiska bokningarna och två create-händelserna är oförändrade, med identisk SHA256 före/efter migration och retry. Vanlig Chrome-admin laddades om på den nya runtime med samma individuella session och visade båda besöken. Aktiv publik HTTP-replay nekas med statiskt403 och admin-API utan cookie med403.
+
+Lokal produkt-runtime: <local-state>/codex/booking-lab-agent-workday-05e5eaf. Vanlig webb använder samma frysta produkt på http://localhost:3187 och samma tidigare individuella adminsessioner. Ägarprofilen booking_workday_demo har bara show_workday och en separat SQL-läsroll/hemlighet, utan emailkolumn. Gamla läs-/bokningsprofiler och kapacitetsprofilen bevaras. Hemligheter finns endast i ignorerad lokal konfiguration, aldrig i plugin/URL/Git.
+
+Faktiskt läsanrop från denna Codex-anslutning lyckades med bookingEnabled=true. Separata SDK-processer genom den riktiga lokala launchern och ägarkonfigurationen återläste båda gamla bokningarna; detta är inte native-klickning. Ingen app var exponerad i sidopanelen. Nya native-klick, ägarprofilens hot-reload, fysisk iPhone/Safari och kalenderimport är NOT RUN. Nästa inläsning av den lokala anslutningen kan behövas innan ägarkortet syns; inget manuellt QA-uppdrag lämnas till Niclas. Läs [provväg, bilder, stopp och återställning](DEMO.md). Webbpreviewn är oförändrad; denna lokala MCP-leverans är inte en ny molndeploy. Detta är en betrodd lokal syntetisk demokanal, inte individuell kundautentisering. Ingen fjärr-MCP, ny drift, ny kostnad, riktiga uppgifter, utskick eller betalning. Ingen mainmerge. Mobil fjärranslutning, fysisk iPhone/Safari och verklig kalenderimport är **inte verifierade**. Kalenderfilen synkas inte vid senare ändringar. Pilot är fortsatt NO-GO.
+
+Mindre fynd ligger kvar: gammal kalenderfil-notis efter statusändring (AW-QA-3), fokus vid ägarkortets fel (AW-QA-4), tidigare sökfönster 28/35 dagar (CB-QA-1) och övriga Info enligt originalrapporterna. Samma secret och lokala MCP-identitet är avsiktligt samma kanal. Inga ytterligare fixloopar startas.
+
+Tre nästa leveranser: vald säker mobilanslutning och faktisk klientprovning; individuell kundbehörighet inför fler agenthandlingar; avgränsade pilotgrindar för MFA/recovery, retention och drift. Inget av dem startas automatiskt.
+
+<!-- AGENT_WORKDAY_CURRENT_END -->
+
+## Historik — tidigare leverans
+
 # Handoff — avgränsat MCP-bokningsprov
 
 2026-11-13, feature/mcp-card-booking-proof från fdcb41b, produkt **8126410af712bdd71d6b6a42c0a1fcc58055d28d**.
 [Mandat/acceptans](MCP_CARD_BOOKING_PLAN.md). Ingen nästa epic eller core-omskrivning.
 
-Byggt: opt-in book_demo_time, fast syntetisk kontakt, befintlig createBooking/
-kundkvoter, UUID med time-card_-namnrymd och tjänsteversion. UI har checkbox/
+Byggt: opt-in book*demo_time, fast syntetisk kontakt, befintlig createBooking/
+kundkvoter, UUID med time-card*-namnrymd och tjänsteversion. UI har checkbox/
 uttrycklig bekräftelse, kvitto i Stockholmstid, konflikt → nytt val och okänt
 skrivutfall → låst nytt val + exakt retry. Senare adminändring visas som sådan.
 Standardens två läsverktyg/gamla läsprofil består. VERCEL/VERCEL_ENV/VERCEL_URL och
@@ -38,7 +63,6 @@ publiceringar/utskick/betalningar/riktiga kunder eller mainmerge. Fysisk mobil
 och kundpilot inte godkända. Inget native-PC-/Grokprov kan härledas ur testvärden.
 Bevara stängd-kort-begränsningen: kontrollera admin innan nytt försök vid okänt utfall.
 [Provguide/bilder](DEMO.md) · [kommandon och NOT RUN](VERIFICATION.md).
-
 
 Faktiskt PC-slutprov: Massage/Anna16nov09.30–10.00 (b48ea9ab-c0e5-4013-8d25-64ca409228ce)
 och10.00–10.30 (47797e71-dfa2-4482-a34b-9b4481241723). Två olika tidsval,
@@ -118,7 +142,6 @@ fokus, hoverkontrast och kompletterande Vercelflaggor går till backloggen.
 tunnlar, driftbehörigheter eller mainmerge. Fysisk iPhone/Safari-klickning och egen faktisk PC-
 klickning NOT RUN. PC-rendering från användarfoton, mobilen olöst. [Testbevis](verification/time-card/), [prova](DEMO.md).
 
-
 ## Historik — föregående verifierade leverans
 
 # Handoff — kundlivscykel och ägaragentprov
@@ -152,7 +175,7 @@ bevarade i docs/qa. Privat push genomförd. [Actions43393207291](https://github.
 **Verkligt agentprov:** samma booking_calendar_demo, ingen ny integration.
 Default2/full äldre kataloger består; capacity-only ger4läsverktyg och med
 befintlig allow-workspace+secret exakt6totalt. Verktygen blev faktiskt synliga
-i denna Codex-konversation efter tidigare laddningsproblem. Faktiska tools.*
+i denna Codex-konversation efter tidigare laddningsproblem. Faktiska tools.\*
 skapade ett opublicerat20%-utkast16november; samma retry samma id, ändradretry,
 confirmedfalse och nytt staleunderlag nekades. Egen CUA såg utkast efter reload,
 öppnade rätt kalender och återbokade09via vanlig webb; MCP/UI visade stale.
@@ -172,7 +195,6 @@ Ett första deploybygge startades felaktigt innan driftkontrollens resultat läs
 MCP:s nästa start är konfigurerad till separat pinnad95f8071-runtime (kopierad verifierad oförändrad npmci-kedja), SDK-start/katalog6PASS. Det faktiska huvudsakliga AI-provet använde e2e0e39 med identisk kapacitetskod; ingen påstådd pågående klientomstart/cutover. Ingen publik MCP.
 
 Inga nya abonnemang/tillägg/domänköp; befintlig Vercelanvändning/få dollar är ramen, exakt faktura ej verifierad. Stoppa exakt nya deploymenten enligt DEMO, bevara data/SSO. Ingen mainmerge/force-push. Fysisk iPhone/Safari, automatisk gallring/externbackup, framtida nyckelrotation och kundpilot NOT RUN/NO-GO.
-
 
 ## Historik — föregående verifierade leverans
 
@@ -226,7 +248,7 @@ PASS. Egen Computer Use på stabil alias verifierar kalender16nov/Sam och
 20%-förhandsgranskning utan att spara09-tiden. Bilder i DEMO.
 
 Backup före migration11tabeller och efter flöden12tabeller återlästa till nya
-lokala *_demo; alla radhashar lika, manipulerad AES-GCM-data nekas. Befintlig
+lokala \*\_demo; alla radhashar lika, manipulerad AES-GCM-data nekas. Befintlig
 separat ignorerad nyckel bevarad. Backup är på operatörens PC, inte automatisk
 offsitebackup. Secrets/operatorprofiler stannar utanför Git och Grok.
 
@@ -272,10 +294,10 @@ Separat [produktsida](https://booking-lab-se-preview.vercel.app/product), [demoa
   fra1; faktiskt containerbygge i cle1/USA. Image sha256:
   **8dfea65990374ff6c8d16570c033ccac641deeea99748171f7bede0e1f6db3b0**.
 
-Kodkarta: src/lib/customers.ts; src/app/admin/customers/* och
-src/app/api/admin/customers/*; bokningseditor/domän med valfritt customerId;
+Kodkarta: src/lib/customers.ts; src/app/admin/customers/_ och
+src/app/api/admin/customers/_; bokningseditor/domän med valfritt customerId;
 prisma/schema.prisma och ny20261112190000_customers. De 6 äldre migrationerna
-är orörda. src/app/product/page.tsx, public/demo/* och scripts/seed-demo.ts.
+är orörda. src/app/product/page.tsx, public/demo/\* och scripts/seed-demo.ts.
 Kund-/seed-/E2E-regressioner i tests. Enda nya paketet är lucide-react 1.72.0,
 ISC plus bevarad Feather/MIT-notis, inga egna runtime-beroenden. React 19.3.1
 och Next 16.4.6 verifierade; inga befintliga paketversioner uppgraderades.
@@ -316,11 +338,9 @@ endast dokumentation, original-QA och verkliga skärmbilder.
 
 Ny branch feature/epic06-customers-demo-product från16dae9a/6acd2ef, produktbas d7bc47f. Kundkort och uttrycklig bokningskoppling, additiv sjunde migration,32fiktiva kunder/79seedbokningar samt separat /product. Gamla kundbokningen / och admin /admin består. Lokal uppgraderingskopia behåller37äldre bokningssnapshots;83bokningar totalt inklusive manuella prov,0överlapp, oförändrade tabellhashar vid ny seed. Riktat kundtest7/7, unit76, preliminär full integration81 före sista MCP-proben, kund-E2E4/4 på desktop/mobil. Ny slutmatris och oberoende Grok-QA återstår; preview är fortfarande d7bc47f. Ingen pilot eller ny betaltjänst. [Plan](EPIC_06_PLAN.md).
 
-
 ## Avgränsad auditomgång 2026-11-12
 
 Full audit fortsatt **FAIL7moderate**, omit-dev **PASS0**. Ingen säker publicerad stabil rättningskedja verifierad; inga paket, produktfunktioner eller UI ändrade. Rättning är upstream-blockerad, inte klar. Nya lint/tsc/build,75unit och75integration på ny lokal syntetisk DB PASS. Inga nya E2E/CI/deploy i denna dokumentationsbatch. [Beroendebeslut och faktiska data](DEPENDENCY_REVIEW.md#audit-återkontroll-2026-11-12--rättning-blockerad-av-stabil-upstream). Driftsatt kod och senaste fungerande preview är fortsatt d7bc47f. Grok bekräftar slutsatsen i [originalrapporten](qa/AUDIT-REPORT-6acd2ef-minimatch.md); ingen stabil säker rättning finns ännu.
-
 
 **Aktuell UI-leverans 2026-11-12:** [Öppna skyddad demo](https://booking-lab-se-preview.vercel.app). Logga vid behov in i Vercel och tryck **Öppna demoadmin**; inget ytterligare lösenord behövs. Endast syntetiska uppgifter, endast Niclas. Branch `ui/epic05-booking-usability`, granskad och driftsatt produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**. Senare dokumentationscommit ändrar inte previewkoden.
 

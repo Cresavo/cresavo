@@ -4,7 +4,7 @@ Privat första prov på PC, inte en fjärrserver eller mobilinstallation.
 Standardläget exponerar bara `list_services` och `show_time_picker`.
 Tidsvalet reserverar ingenting och skapar ingen bokning.
 
-## Valfritt bokningsprov (0.2.0)
+## Valfritt bokningsprov och återhämtning (0.3.0)
 
 Bevara den gamla läsprofilen. För det uttryckligen godkända bokningsprovet:
 NY isolerad migrerad/seedad loopback-`*_demo`, egen snäv skrivroll och fryst
@@ -12,20 +12,27 @@ granskad runtime. Privat envfil utanför Git/paket: `DATABASE_URL`,
 `BOOKING_TIME_CARD_DEMO=1`, `BOOKING_TIME_CARD_BOOKINGS=1` och lokalt genererad
 `SESSION_SECRET` med minst32tecken. Launcher lägger till `--admin --allow-bookings`.
 Saknad flagga/hemlighet nekas; workspace/production/Vercel nekas alltid.
-Endast `book_demo_time` tillkommer, inga admin-/kundregisterverktyg.
+`book_demo_time`, `read_demo_bookings` och `get_demo_calendar_file` tillkommer
+som appverktyg. Inga admin-/kundregisterverktyg. Tionde additiva migrationen
+skapar CardBookingAttempt; nio historiska migrationer lämnas orörda.
 
 Fast testkund `Tidkort Demo / tidkort@example.test` sätts på servern. Inga
 fria kundfält. Samma createBooking och kundkvoter som vanlig lokal MCP:
 5/kanal/dag,3/e-post/dag och30försök/15min/process. Ingen adminbudget.
 Skrivverktyget är märkt för appen; metadata och confirmed är inte bevis på
 mänskligt mandat. Vid tappat svar behålls samma nyckel/payload för retry.
-Stängt kort tappar sitt tillfälliga tillstånd: kontrollera admin innan nytt
-försök om utfallet är okänt. Ordinarie admin startas via befintlig wrapper
+Stängt kort återläser samma serverlagrade försök eller aktuellt kvitto.
+Okänt utfall kräver uttrycklig retry med samma nyckel/payload; ny bokning
+skapas inte automatiskt. Samma privat konfigurerade kanal krävs. En UUID
+eller e-post ger inte behörighet. Kalenderfilen gäller aktiv egen bokning,
+innehåller ingen kundkontakt och synkas inte efter flytt/avbokning.
+Ordinarie admin startas via befintlig wrapper
 mot SAMMA nya DB och kräver vanlig individuell inloggning. Ingen bypass.
 
-Efter build: `npx playwright test --config playwright.card-booking.config.ts`
+Efter build: `npx playwright test --config playwright.agent-workday.config.ts`
 mot en separat migrerad/seedad loopback-testdatabas. Testvärden är inte native
-ChatGPT. Inga nya beroenden, migreringar, utskick, betalningar eller drift.
+ChatGPT. Inga nya beroenden, utskick, betalningar eller drift. Den separata
+ägarprofilen beskrivs i ../../docs/DEMO.md och får aldrig blandas in i kundpluginet.
 
 ## Förbered en isolerad lokal runtime
 

@@ -1,20 +1,52 @@
+# Projektstatus — agentbokning och ägarens arbetsdag
+
+Verifierat 2026-11-13. Branch **feature/agent-booking-workday** från e702838.
+Produkt och slutlig Grok-revision: **05e5eafc68302b92eeb3ae2edf3829ffa73f7aa1**. Senare dokumentationscommit ändrar ingen produktkod.
+
+| Acceptanskriterium                                                | Verifierat resultat                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stängt kort/processomstart tappar inte kvitto eller oklart försök | PASS: beständig försökslogg, återläsning och uttrycklig retry med samma nyckel/payload. Ingen automatisk ny bokning vid omöppning.                                                                                                                                                                                                                                                                                                                                                                            |
+| Dubbeltryck, tappat svar och samtidiga retries                    | PASS: en bokning/en create-händelse; samma kvoter, idempotens, domänlås och exclusion.                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Känd UUID ger inte annan profil ett kvitto                        | PASS: båda riktningar, före/efter commit och race; statiska nekanden även via äldre MCP och publik HTTP.                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Flytt/avbokning syns i återläst kvitto                            | PASS i MCP och produktionsbyggd testvärd. Vanlig skyddad admin används för ändringar.                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Kalenderfil för egen aktiv bokning                                | PASS: faktisk testvärdsnedladdning, UTC/DST, stabil UID, escaping/radvikning och längd utan buffert. Import/synk ej verifierade.                                                                                                                                                                                                                                                                                                                                                                              |
+| Separat ägarkort                                                  | PASS: dag/nästa besök/lediga tider, 20 bokningar per sida, ett läsverktyg, inga kundkontakter.                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Responsiv presentation                                            | PASS i Chromium-testvärd vid 320/390/1024 px. Detta är inte fysisk iPhone eller native ChatGPT.                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Historik och migrationer                                          | PASS: högst 20 historiska försök plus pending; en additiv migration, nio historiska oförändrade. Uppgraderingsprov och gamla bokningar bevarade.                                                                                                                                                                                                                                                                                                                                                              |
+| Grok                                                              | Grok GO för lokal syntetisk POC på exakt 05e5eaf efter två samlade rättningsvarv. Egen separat kopia: 91 unit, 125 integration, 13 kort och 192 webbtester PASS; inga Medium/High. Övriga Low/Info är backlogg. [Groks originalrapport](qa/QA-REPORT-agent-workday-f2-05e5eaf.md). Två samlade rättningsvarv använda; inga nya Medium/High enligt slutrapporten.                                                                                                                                              |
+| Privat leverans och CI                                            | Verify POC på exakt 05e5eaf: alla fyra jobb gröna, 48 webbtester per jobb. Dev0 kör även 91 unit, 125 integration och 13 korttester. Docker/PostgreSQL användes i CI; det är inte ett lokalt Dockerprov. [Actions 43467138367](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43467138367).                                                                                                                                                                                                 |
+| Lokal aktivering                                                  | Fryst lokal runtime och vanlig skyddad webb på 3187 kör 05e5eaf. Tionde migrationen tillämpad additivt; båda befintliga demokvittona återtagna genom granskad idempotent retry. Separat booking_workday_demo är konfigurerad med endast show_workday. Ingen extern deploy. Samma privata personliga plugin är uppdaterat till 0.3.0, release pluginrel_6af7418393e88191bb5834222b306ab3. Återläsning verifierar oförändrad identitet, audience, anslutningar och standardprompt samt exakt granskad launcher. |
+| Faktisk klient                                                    | Faktiskt läsanrop från denna Codex-anslutning lyckades med bookingEnabled=true. Separata SDK-processer genom den riktiga lokala launchern och ägarkonfigurationen återläste båda gamla bokningarna; detta är inte native-klickning. Ingen app var exponerad i sidopanelen. Nya native-klick, ägarprofilens hot-reload, fysisk iPhone/Safari och kalenderimport är NOT RUN. Nästa inläsning av den lokala anslutningen kan behövas innan ägarkortet syns; inget manuellt QA-uppdrag lämnas till Niclas.        |
+
+Ändrat sedan föregående omgång: beständig återhämtning, aktuellt kvitto, ICS och separat läsande arbetsdagskort. Två små rättningsvarv säkrar profilgränserna i båda riktningarna. Ingen ny dependency, ändrad bokningsmotor eller generell UI-omskrivning.
+
+Detta är en betrodd lokal syntetisk demokanal, inte individuell kundautentisering. Ingen fjärr-MCP, ny drift, ny kostnad, riktiga uppgifter, utskick eller betalning. Ingen mainmerge. Mobil fjärranslutning, fysisk iPhone/Safari och verklig kalenderimport är **inte verifierade**. Kalenderfilen synkas inte vid senare ändringar. Pilot är fortsatt NO-GO.
+
+Delvis/planerat: individuell kundbehörighet, mobil anslutning och kalendersynk. Mindre fynd ligger kvar: gammal kalenderfil-notis efter statusändring (AW-QA-3), fokus vid ägarkortets fel (AW-QA-4), tidigare sökfönster 28/35 dagar (CB-QA-1) och övriga Info enligt originalrapporterna. Samma secret och lokala MCP-identitet är avsiktligt samma kanal. Inga ytterligare fixloopar startas.
+
+[Prova och se bilder](DEMO.md) · [kommandon och råa resultat](VERIFICATION.md) · [handoff](HANDOFF.md).
+
+<!-- AGENT_WORKDAY_CURRENT_END -->
+
+## Historik — tidigare leverans
+
 # Projektstatus — lokalt MCP-kort till admin
 
 2026-11-13, feature/mcp-card-booking-proof från fdcb41b. Produkt **8126410af712bdd71d6b6a42c0a1fcc58055d28d**.
 [Godkänt scope](MCP_CARD_BOOKING_PLAN.md). Dokumentation därefter skiljs från kod.
 
-| Acceptanskriterium | Faktiskt läge |
-| --- | --- |
-| Välj, sammanfatta och uttryckligen bekräfta | PASS4bokningskortstester från produktionsbygge, plus320/390/1024bildprov utan skrivning. Fast syntetisk kund, ordinarie pris, tjänst/utförare och Stockholmstid. |
-| Dubbeltryck/retry ger en bokning | PASSUI-dubbeltryck, sekventiell retry,20samma nyckel:1rad/1create-event/samma id. Ändrat payload409. |
-| Upptagen tid utan omstart | PASS20konkurrerande nycklar:1vinnare/0överlapp. UI läser om och kräver nytt val/bekräftelse. |
-| Tappat svar efter commit | PASSi testvärden: okänt utfall, nytt val låst, exakt samma payload/nyckel på retry,1rad. Ingen felaktig ”ingen bokning”-försäkran. |
-| Bokning i vanlig admin/samma DB | PASSproduktionsbyggd riktig kalender vid390/1024, vanlig individuell login. Egen CUA verifierade lokal admin/login; faktisk PC-kortkedja särredovisas nedan. |
-| Default läsläge och separata skydd | PASS2läsverktyg som standard; enbart explicit opt-in+flaggor/secret ger1app-skrivverktyg. Samma kundkvoter, inga adminbudgetar/registerverktyg. |
-| Snäv SQL-roll | PASSriktig launcher: skapa/retry/konflikt; kundregister/admin och UPDATE/DELETE nekas. Booking-kontakter är syntetiska och behövs internt av motorn, men returneras inte. |
-| Oberoende Grok | GO för avgränsad syntetisk lokal POC;4Low/1Info i backlogg,0Medium+; 8126410af712bdd71d6b6a42c0a1fcc58055d28d. [Groks originalrapport](qa/QA-REPORT-card-booking-8126410.md) |
-| Faktisk PC / fysisk mobil | PASSanrop efter PC-omstart: bookingEnabled=true och tjänsteversion1. Niclas bekräftade själv bokning i native-kortet; databasen har2skilda bokningar,1create-event vardera och0överlapp. Codex verifierade båda i faktisk skyddad Chrome-admin och öppnade10.00-bokningens detalj. Egen native-kortklickning NOT RUN. Fysisk iPhone/Safari och mobilanslutning NOT RUN/olöst. |
-| Privat leverans / Actions | [Actions43430009174](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43430009174) —4gröna jobb på8126410 efter1riktad omkörning av dev0 (första försöket112/113 i gammalt refundtest, anslutnings-/testtimeout; ingen kod/testgräns ändrad, rotorsak inte fastställd). Ingen mainmerge/deploy. |
+| Acceptanskriterium                          | Faktiskt läge                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Välj, sammanfatta och uttryckligen bekräfta | PASS4bokningskortstester från produktionsbygge, plus320/390/1024bildprov utan skrivning. Fast syntetisk kund, ordinarie pris, tjänst/utförare och Stockholmstid.                                                                                                                                                                                                              |
+| Dubbeltryck/retry ger en bokning            | PASSUI-dubbeltryck, sekventiell retry,20samma nyckel:1rad/1create-event/samma id. Ändrat payload409.                                                                                                                                                                                                                                                                          |
+| Upptagen tid utan omstart                   | PASS20konkurrerande nycklar:1vinnare/0överlapp. UI läser om och kräver nytt val/bekräftelse.                                                                                                                                                                                                                                                                                  |
+| Tappat svar efter commit                    | PASSi testvärden: okänt utfall, nytt val låst, exakt samma payload/nyckel på retry,1rad. Ingen felaktig ”ingen bokning”-försäkran.                                                                                                                                                                                                                                            |
+| Bokning i vanlig admin/samma DB             | PASSproduktionsbyggd riktig kalender vid390/1024, vanlig individuell login. Egen CUA verifierade lokal admin/login; faktisk PC-kortkedja särredovisas nedan.                                                                                                                                                                                                                  |
+| Default läsläge och separata skydd          | PASS2läsverktyg som standard; enbart explicit opt-in+flaggor/secret ger1app-skrivverktyg. Samma kundkvoter, inga adminbudgetar/registerverktyg.                                                                                                                                                                                                                               |
+| Snäv SQL-roll                               | PASSriktig launcher: skapa/retry/konflikt; kundregister/admin och UPDATE/DELETE nekas. Booking-kontakter är syntetiska och behövs internt av motorn, men returneras inte.                                                                                                                                                                                                     |
+| Oberoende Grok                              | GO för avgränsad syntetisk lokal POC;4Low/1Info i backlogg,0Medium+; 8126410af712bdd71d6b6a42c0a1fcc58055d28d. [Groks originalrapport](qa/QA-REPORT-card-booking-8126410.md)                                                                                                                                                                                                  |
+| Faktisk PC / fysisk mobil                   | PASSanrop efter PC-omstart: bookingEnabled=true och tjänsteversion1. Niclas bekräftade själv bokning i native-kortet; databasen har2skilda bokningar,1create-event vardera och0överlapp. Codex verifierade båda i faktisk skyddad Chrome-admin och öppnade10.00-bokningens detalj. Egen native-kortklickning NOT RUN. Fysisk iPhone/Safari och mobilanslutning NOT RUN/olöst. |
+| Privat leverans / Actions                   | [Actions43430009174](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43430009174) —4gröna jobb på8126410 efter1riktad omkörning av dev0 (första försöket112/113 i gammalt refundtest, anslutnings-/testtimeout; ingen kod/testgräns ändrad, rotorsak inte fastställd). Ingen mainmerge/deploy.                                                               |
 
 Privat plugin uppdaterat/aktiverat med lokal bokningsprofil. Lokal vanlig admin: [PC-loopback](http://localhost:3187/admin).
 Vercel-previewn och dess databas är OFÖRÄNDRADE, inte bevis på nya MCP-provet.
@@ -34,18 +66,18 @@ domänmotor/auth/schema/lockfil; inga nya dependencies eller kostnader.
 2026-11-13. Granskningsrevision **a65f0f2ee5750044dd46c5db50453db5602b79f2**,
 branch **feature/mcp-time-card**, bas1a49a0e/produkt95f8071. [Godkänt scope](MCP_TIME_CARD_PLAN.md).
 
-| Acceptanskriterium | Faktiskt läge |
-| --- | --- |
-| Välj behandling, utförare, dag och tid utan datumskrivning | PASS i egen MCP-testvärd vid320/390/1024px. Vanliga etiketter/knappar/select, sv-SE och Stockholmstid. |
-| Riktig tillgänglighet, inte påhittade tider | PASS samma getAvailability, 105integration och3korttester. Ny fixturebokning tar bort tiden från resultatet. |
-| Förstå tidsvalets omfattning | PASS UI/text anger ingen reservation/ingen bokning. Ordinarie pris/längd/utförare och valt datum/tid visas. |
-| Tomt, felaktigt eller ändrat underlag | PASS nästa dag, byte av behandling tömmer val, stale/transportfel/retry. 28dagars gräns, inga fria sökintervall. |
-| Minimerad lokal anslutning | PASS opt-in/loopback/test- eller demosuffix, production/VERCEL_ENV/skrivflaggor nekas. Low3: VERCEL/VERCEL_URL ensamma nekas inte. Endast2läsverktyg; kunddata och skrivning nekas även av separat SQL-läskonto. |
-| Faktiskt AI-klientanrop | PASS exponerade pluginverktyget i denna konversation, Anna16tider och Erik12tider16nov. Inte SDK som ersättning. |
-| Faktisk PC-rendering / klick / mobil | Användarens PC-foton visar korten. Efter ett foto med hämtningsfel bekräftade Niclas 2026-11-13 att kontrollknappen svarar ”Tiden är fortfarande ledig. Ingen bokning har skapats.” Det är användarens lyckade prov, inte egen CUA- eller Grok-klickning. Orsaken till föregående fel är okänd; mobilen visar fortfarande inget kort. |
-| Oberoende Grok-QA | GO för lokal syntetisk POC på a65f0f2. Egna83/105/3/46×4 PASS; MCP63/0. Egna guard20PASS/2FAIL och UI38PASS/2FAIL med3Low/5Info, ingaMedium+. Inget eget ChatGPT-prov. |
-| Fokus och vald kontrast | DELVIS: GrokLow1 fokus tappas vid laddning, Low2 vald kontroll har dålig hoverkontrast. Backlogg, inte dolt av gröna funktionstester. |
-| Privat push/Actions | a65f0f2 pushad privat efter scopedGrokGO. Full Actions43417840017 PASS:4gröna46/46 på sammaSHA; ingen mainmerge. |
+| Acceptanskriterium                                         | Faktiskt läge                                                                                                                                                                                                                                                                                                                         |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Välj behandling, utförare, dag och tid utan datumskrivning | PASS i egen MCP-testvärd vid320/390/1024px. Vanliga etiketter/knappar/select, sv-SE och Stockholmstid.                                                                                                                                                                                                                                |
+| Riktig tillgänglighet, inte påhittade tider                | PASS samma getAvailability, 105integration och3korttester. Ny fixturebokning tar bort tiden från resultatet.                                                                                                                                                                                                                          |
+| Förstå tidsvalets omfattning                               | PASS UI/text anger ingen reservation/ingen bokning. Ordinarie pris/längd/utförare och valt datum/tid visas.                                                                                                                                                                                                                           |
+| Tomt, felaktigt eller ändrat underlag                      | PASS nästa dag, byte av behandling tömmer val, stale/transportfel/retry. 28dagars gräns, inga fria sökintervall.                                                                                                                                                                                                                      |
+| Minimerad lokal anslutning                                 | PASS opt-in/loopback/test- eller demosuffix, production/VERCEL_ENV/skrivflaggor nekas. Low3: VERCEL/VERCEL_URL ensamma nekas inte. Endast2läsverktyg; kunddata och skrivning nekas även av separat SQL-läskonto.                                                                                                                      |
+| Faktiskt AI-klientanrop                                    | PASS exponerade pluginverktyget i denna konversation, Anna16tider och Erik12tider16nov. Inte SDK som ersättning.                                                                                                                                                                                                                      |
+| Faktisk PC-rendering / klick / mobil                       | Användarens PC-foton visar korten. Efter ett foto med hämtningsfel bekräftade Niclas 2026-11-13 att kontrollknappen svarar ”Tiden är fortfarande ledig. Ingen bokning har skapats.” Det är användarens lyckade prov, inte egen CUA- eller Grok-klickning. Orsaken till föregående fel är okänd; mobilen visar fortfarande inget kort. |
+| Oberoende Grok-QA                                          | GO för lokal syntetisk POC på a65f0f2. Egna83/105/3/46×4 PASS; MCP63/0. Egna guard20PASS/2FAIL och UI38PASS/2FAIL med3Low/5Info, ingaMedium+. Inget eget ChatGPT-prov.                                                                                                                                                                |
+| Fokus och vald kontrast                                    | DELVIS: GrokLow1 fokus tappas vid laddning, Low2 vald kontroll har dålig hoverkontrast. Backlogg, inte dolt av gröna funktionstester.                                                                                                                                                                                                 |
+| Privat push/Actions                                        | a65f0f2 pushad privat efter scopedGrokGO. Full Actions43417840017 PASS:4gröna46/46 på sammaSHA; ingen mainmerge.                                                                                                                                                                                                                      |
 
 Tekniskt verifierad POC är inte ett löfte om färdig upplevelse i ChatGPT.
 Nuvarande testmatris: **83unit,105integration,3kort-UI,46webb-E2E i vart och ett
@@ -58,7 +90,6 @@ Sedan förra leveransen: separat read-only MCP Apps-kort, privat lokalt plugin,
 minimerat SQL-konto och riktade tester. Manuell kundlivscykel består och
 automatisk gallring är fortsatt avstängd. Full produktvision ligger kvar i roadmapen.
 
-
 ## Historik — föregående verifierade leverans
 
 # Projektstatus — kundlivscykel och verkligt ägaragentprov
@@ -67,15 +98,15 @@ automatisk gallring är fortsatt avstängd. Full produktvision ligger kvar i roa
 **feature/customer-lifecycle-agent-proof** från d2ccb6c efter produkt8843d06.
 Dokumentation/bilder därefter är separata. Ingen mainmerge eller ny Epic.
 
-| Acceptanskriterium | Faktiskt verifierat / produktkvalitet |
-| --- | --- |
-| Exportera valt kort och kopplade bokningar | PASS unit/integration/E2E/initialGrok:100/fil,150=100+50, max1000, ingen annan kund eller intern nyckeldata. Verklig UI-nedladdning i E2E. |
-| Förhandsgranska och uttryckligen bekräfta kontaktåtgärd | PASS alla4E2Elägen och egen faktisk webbklicktest. Kommande aktiva besök stoppar POC-åtgärden; kort arkiveras och kan inte återaktiveras. |
-| Bevara teknisk historik och skydd | PASS20retries, races, auth/origin/foreign/stale/oversize. Tid/pris/status/version/events/kapacitetsbeslut/exclusion består. |
-| Även äldre e-postkvotkopior minimeras utan budgetåterbetalning | LC-QA-1 rättat i fixvarv1: nya HMAC, äldre dualcount och omkodning vid manuell åtgärd. Nytt test99och faktisk MCP+HTTP-E2E PASS. Grok stängdeLC-QA-1 på95f8071. |
-| Ägaragent använder faktiskt lokal MCP | PASS faktiska Codex tools.*: read/inspect/draft/retry/negatives/stale, ett opublicerat20%-utkast. Egen webbåterbokning och DB1beslut/1ledger/0överlapp. MCPe2e0e39, kapacitetskod oförändrad i95f8071; web95f8071. |
-| Automatisk gallring och kontakt-MCP av | PASS. Inga kontaktverktyg, modellnycklar eller nya agentintegrationer. |
-| Privat CI och samma skyddade preview | PASS [Actions43393207291](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43393207291):4×46/46 på95f8071. Stabil skyddad alias kör dpl_<redacted>, READY Preview/fra1. |
+| Acceptanskriterium                                             | Faktiskt verifierat / produktkvalitet                                                                                                                                                                               |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Exportera valt kort och kopplade bokningar                     | PASS unit/integration/E2E/initialGrok:100/fil,150=100+50, max1000, ingen annan kund eller intern nyckeldata. Verklig UI-nedladdning i E2E.                                                                          |
+| Förhandsgranska och uttryckligen bekräfta kontaktåtgärd        | PASS alla4E2Elägen och egen faktisk webbklicktest. Kommande aktiva besök stoppar POC-åtgärden; kort arkiveras och kan inte återaktiveras.                                                                           |
+| Bevara teknisk historik och skydd                              | PASS20retries, races, auth/origin/foreign/stale/oversize. Tid/pris/status/version/events/kapacitetsbeslut/exclusion består.                                                                                         |
+| Även äldre e-postkvotkopior minimeras utan budgetåterbetalning | LC-QA-1 rättat i fixvarv1: nya HMAC, äldre dualcount och omkodning vid manuell åtgärd. Nytt test99och faktisk MCP+HTTP-E2E PASS. Grok stängdeLC-QA-1 på95f8071.                                                     |
+| Ägaragent använder faktiskt lokal MCP                          | PASS faktiska Codex tools.\*: read/inspect/draft/retry/negatives/stale, ett opublicerat20%-utkast. Egen webbåterbokning och DB1beslut/1ledger/0överlapp. MCPe2e0e39, kapacitetskod oförändrad i95f8071; web95f8071. |
+| Automatisk gallring och kontakt-MCP av                         | PASS. Inga kontaktverktyg, modellnycklar eller nya agentintegrationer.                                                                                                                                              |
+| Privat CI och samma skyddade preview                           | PASS [Actions43393207291](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43393207291):4×46/46 på95f8071. Stabil skyddad alias kör dpl_<redacted>, READY Preview/fra1.           |
 
 [Öppna skyddad kundarbetsyta](https://booking-lab-se-preview.vercel.app/admin/customers). Vercel vid behov, sedan demoknapp. Endast påhittade uppgifter.
 
@@ -99,7 +130,6 @@ måste lösas före pilot.10hashade testspärrposter kvar i integration, övriga
 egna affärs-/adminrader0; alla4E2Emiljöer0. Fysisk iPhone/Safari och Niclas
 UX-godkännande är inte verifierade. Pilot fortsatt NO-GO.
 
-
 ## Historik — föregående verifierade leverans
 
 # Projektstatus — proaktiv kapacitetsöversikt levererad
@@ -113,18 +143,18 @@ fortfarande b000481 och har inte mergats.
 [Öppna skyddad demo](https://booking-lab-se-preview.vercel.app/product) →
 **Prova salongens arbetsyta → Översikt**. Endast påhittade uppgifter.
 
-| Acceptanskriterium | Faktiskt verifierat / produktkvalitet |
-| --- | --- |
-| Framtida avbokning visar tjänst, utförare, tid och verklig tillgänglighet | PASS domän/integration/UI/Grok/moln; högst7Stockholmsdagar, max20/sida. Regelbaserat, ingen modell eller intäktsprognos. |
-| Ägaren öppnar rätt kalenderläge | PASS egen klicktest på stabil alias:16november, Sam Demo; kalender/kundflöden kvar. |
-| Avfärdande och kampanjutkast består | PASS integration/E2E/Grok; sparat utkast och status i faktisk preview. Beslut knyts till bokning+version. |
-| Rabatt väljs uttryckligen och faktisk omfattning framgår | PASS förhandsgranskning: tjänst+datum, alla bokningsbara tider/utförare; ingen slotreservation, automatisk publicering eller utskick. |
-| Dubbeltryck/retry/samtidighet ger högst ett utkast | PASS lokalt, Grok och20samtidiga HTTP-anrop i molnet; samma utkast-id och ändrad payload409. |
-| Ny bokning eller ändrat underlag gör förslaget inaktuellt | PASS domän/Grok; verklig återbokning15.00 i molnet visar stale och behåller utkastet. |
-| Senare förslag går att nå | PASS efter1samlat fixvarv: cursor i UI/API/MCP, omladdning/handling på sida2. Grok stängde PRO-QA-1. |
-| Lokal agent använder samma regler utan kundfält | PASS faktiska stdio-kontraktstester. Nya skrivningar kräver --admin --allow-workspace; ingen publik MCP eller påstådd Dots/Muse-integration. |
-| Uppgradering/seed bevarar äldre data | PASS lokal7→8 och återseed; molnets84äldre bokningar oförändrade,92totalt,0överlapp. |
-| Åtkomstskydd och återläsning | PASS HTML/API/resurser, logout/revocation, TLS och alla4READY-adresser+stabil alias. Krypterad slutbackup återläst:12tabeller, identiska radhashar. |
+| Acceptanskriterium                                                        | Faktiskt verifierat / produktkvalitet                                                                                                               |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framtida avbokning visar tjänst, utförare, tid och verklig tillgänglighet | PASS domän/integration/UI/Grok/moln; högst7Stockholmsdagar, max20/sida. Regelbaserat, ingen modell eller intäktsprognos.                            |
+| Ägaren öppnar rätt kalenderläge                                           | PASS egen klicktest på stabil alias:16november, Sam Demo; kalender/kundflöden kvar.                                                                 |
+| Avfärdande och kampanjutkast består                                       | PASS integration/E2E/Grok; sparat utkast och status i faktisk preview. Beslut knyts till bokning+version.                                           |
+| Rabatt väljs uttryckligen och faktisk omfattning framgår                  | PASS förhandsgranskning: tjänst+datum, alla bokningsbara tider/utförare; ingen slotreservation, automatisk publicering eller utskick.               |
+| Dubbeltryck/retry/samtidighet ger högst ett utkast                        | PASS lokalt, Grok och20samtidiga HTTP-anrop i molnet; samma utkast-id och ändrad payload409.                                                        |
+| Ny bokning eller ändrat underlag gör förslaget inaktuellt                 | PASS domän/Grok; verklig återbokning15.00 i molnet visar stale och behåller utkastet.                                                               |
+| Senare förslag går att nå                                                 | PASS efter1samlat fixvarv: cursor i UI/API/MCP, omladdning/handling på sida2. Grok stängde PRO-QA-1.                                                |
+| Lokal agent använder samma regler utan kundfält                           | PASS faktiska stdio-kontraktstester. Nya skrivningar kräver --admin --allow-workspace; ingen publik MCP eller påstådd Dots/Muse-integration.        |
+| Uppgradering/seed bevarar äldre data                                      | PASS lokal7→8 och återseed; molnets84äldre bokningar oförändrade,92totalt,0överlapp.                                                                |
+| Åtkomstskydd och återläsning                                              | PASS HTML/API/resurser, logout/revocation, TLS och alla4READY-adresser+stabil alias. Krypterad slutbackup återläst:12tabeller, identiska radhashar. |
 
 Automatik: **78unit/90integration/42E2E×4**, lint/tsc/build PASS.
 [Actions43353236981](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43353236981):
@@ -153,16 +183,16 @@ inte nattens implementation. Nattmålet är avslutat; inga fler epics startas.
 Verifierad 2026-11-12. Branch **feature/epic06-customers-demo-product**; granskad och driftsatt produktkod
 **7c1407dce66910ef8ab304c882c90d90c173ca72**. Senare dokument-/bildcommit ändrar inte denna kod. [Öppna produkten](https://booking-lab-se-preview.vercel.app/product).
 
-| Funktion och observerbart acceptanskriterium | Utfall och kvalitet |
-| --- | --- |
-| Produktingång visar verkliga funktioner och leder till arbetsyta/kundbokning | PASS i faktisk preview. Separat /product; / och /admin består. |
-| Vercel-inloggning vid behov, sedan demoadmin utan extra lösenord | PASS via stabil alias. Tydlig Demoägare; vanlig produktinloggning kvar. |
-| Sök namn/e-post/telefon, öppna kundkort och se kommande/tidigare/avbokade besök | PASS API/integration/E2E/Grok och moln. Listor utan rå kontakt; kortets example.test-kontakt endast i pinnad demo. |
-| Skapa/redigera/arkivera kund utan att slå ihop personer eller skriva om äldre snapshots | PASS. Skapad kund finns efter omladdning; historik kvar efter arkiv. |
-| Kalender → bokning → kundkort; ny bokning/återbesök med förvald kund | PASS faktisk molnprovning; skapa, flytta, avboka och återbesök. Dag/tid väljs med tryck. |
-| Publik bokning fungerar och kan inte koppla/skriva över kund via e-post | PASS inklusive faktisk bokning med samma kontakt som ett kort; customerId förblir null. |
-| Demo uppgraderas additivt och seed kan köras igen | PASS: 35 äldre molnsnapshots bevarade,32 seedkunder/79 seedbokningar; vid slutprovet33 kort/84 bokningar inklusive egna syntetiska prover,0 överlapp. |
-| Bilder och granskade mobilvyer fungerar | PASS riktiga färdigladdade bilder, nio Lucide-ikoner,320/390/1440px. Fysisk iPhone/Safari och Niclas UX-godkännande återstår. |
+| Funktion och observerbart acceptanskriterium                                            | Utfall och kvalitet                                                                                                                                   |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Produktingång visar verkliga funktioner och leder till arbetsyta/kundbokning            | PASS i faktisk preview. Separat /product; / och /admin består.                                                                                        |
+| Vercel-inloggning vid behov, sedan demoadmin utan extra lösenord                        | PASS via stabil alias. Tydlig Demoägare; vanlig produktinloggning kvar.                                                                               |
+| Sök namn/e-post/telefon, öppna kundkort och se kommande/tidigare/avbokade besök         | PASS API/integration/E2E/Grok och moln. Listor utan rå kontakt; kortets example.test-kontakt endast i pinnad demo.                                    |
+| Skapa/redigera/arkivera kund utan att slå ihop personer eller skriva om äldre snapshots | PASS. Skapad kund finns efter omladdning; historik kvar efter arkiv.                                                                                  |
+| Kalender → bokning → kundkort; ny bokning/återbesök med förvald kund                    | PASS faktisk molnprovning; skapa, flytta, avboka och återbesök. Dag/tid väljs med tryck.                                                              |
+| Publik bokning fungerar och kan inte koppla/skriva över kund via e-post                 | PASS inklusive faktisk bokning med samma kontakt som ett kort; customerId förblir null.                                                               |
+| Demo uppgraderas additivt och seed kan köras igen                                       | PASS: 35 äldre molnsnapshots bevarade,32 seedkunder/79 seedbokningar; vid slutprovet33 kort/84 bokningar inklusive egna syntetiska prover,0 överlapp. |
+| Bilder och granskade mobilvyer fungerar                                                 | PASS riktiga färdigladdade bilder, nio Lucide-ikoner,320/390/1440px. Fysisk iPhone/Safari och Niclas UX-godkännande återstår.                         |
 
 Tekniskt testad, automatiskt verifierad och möjlig att prova: **ja**. Färdig
 UX för målgruppen/redo för riktiga kunder: **nej**. Detta är en syntetisk POC.
@@ -208,11 +238,9 @@ Main är inte mergad. [Prova och stoppa](DEMO.md), [handoff](HANDOFF.md).
 
 Ny branch feature/epic06-customers-demo-product från16dae9a/6acd2ef, produktbas d7bc47f. Kundkort och uttrycklig bokningskoppling, additiv sjunde migration,32fiktiva kunder/79seedbokningar samt separat /product. Gamla kundbokningen / och admin /admin består. Lokal uppgraderingskopia behåller37äldre bokningssnapshots;83bokningar totalt inklusive manuella prov,0överlapp, oförändrade tabellhashar vid ny seed. Riktat kundtest7/7, unit76, preliminär full integration81 före sista MCP-proben, kund-E2E4/4 på desktop/mobil. Ny slutmatris och oberoende Grok-QA återstår; preview är fortfarande d7bc47f. Ingen pilot eller ny betaltjänst. [Plan](EPIC_06_PLAN.md).
 
-
 ## Avgränsad auditomgång 2026-11-12
 
 Full audit fortsatt **FAIL7moderate**, omit-dev **PASS0**. Ingen säker publicerad stabil rättningskedja verifierad; inga paket, produktfunktioner eller UI ändrade. Rättning är upstream-blockerad, inte klar. Nya lint/tsc/build,75unit och75integration på ny lokal syntetisk DB PASS. Inga nya E2E/CI/deploy i denna dokumentationsbatch. [Beroendebeslut och faktiska data](DEPENDENCY_REVIEW.md#audit-återkontroll-2026-11-12--rättning-blockerad-av-stabil-upstream). Driftsatt kod och senaste fungerande preview är fortsatt d7bc47f. Grok bekräftar slutsatsen i [originalrapporten](qa/AUDIT-REPORT-6acd2ef-minimatch.md); ingen stabil säker rättning finns ännu.
-
 
 **Aktuell UI-leverans 2026-11-12:** [Öppna skyddad demo](https://booking-lab-se-preview.vercel.app). Logga vid behov in i Vercel och tryck **Öppna demoadmin**; inget ytterligare lösenord behövs. Endast syntetiska uppgifter, endast Niclas. Branch `ui/epic05-booking-usability`, granskad och driftsatt produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**. Senare dokumentationscommit ändrar inte previewkoden.
 

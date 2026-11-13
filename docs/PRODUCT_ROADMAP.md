@@ -1,9 +1,16 @@
 # Booking Lab SE: produktmål och leveransordning
 
-## Aktivt godkänt mål: användbar agentbokning och arbetsdag
+## Levererat mål: användbar agentbokning och arbetsdag
+
+Slutlig produkt/Grok-revision05e5eaf, två samlade rättningsvarv avslutade med
+GO för lokal syntetisk POC. Privat plugin0.3.0 och separat läsande ägarprofil
+är aktiverade; inga gamla bokningar raderade. Actions43467138367 har fyra
+gröna jobb. Aktuell provväg, begränsningar och bevarade testfel finns i DEMO,
+PROJECT_STATUS och VERIFICATION. Nya native-klick/mobil/import är inte
+verifierade och ingen fjärranslutning har byggts. Inget nytt mål startas nu.
 
 Niclas godkände2026-11-13 AGENT_BOOKING_WORKDAY_PLAN och goal-promptens A–C.
-Bas e702838/produkt8126410, feature/agent-booking-workday. Nu byggs beständig
+Bas e702838/produkt8126410, feature/agent-booking-workday. Leveransen omfattar beständig
 lokal återhämtning/kvitto, kalenderfil och separat läsande ägarkort. Inga nya
 epicnummer eller framtidsmoduler härleds. Tekniska resultat/QA redovisas när de
 finns, inte utifrån tidigare tester. Produktägarens manuella provning är frivillig
@@ -29,7 +36,6 @@ VERCEL-/VERCEL_URL-guard. Info4–8: tydlig start utanDBURL, öreformat, veckans
 månadsrubrik, uteblivettoolresult-fallback och enhetliga annotations.
 Kortets3tester körs separat; lägg till ett eget CI-steg vid nästa relevanta
 ändring. Ingen extra fixloop eller ny epic startas för små fynd.
-
 
 ## Levererad uppföljning: kunddata och verkligt agentprov
 
@@ -88,16 +94,16 @@ Framtida avbokning → faktiskt bokningsbar tid → kalender eller beständigt
 kampanjutkast → synligt beslut och ny aktualitetskontroll. Samma domän från
 webb/API/lokal MCP. Separat branch från28a48fe; kalenderprovet är avslutat.
 
-| Senare leverans | Observerbart resultat | Beroenden och beslut före skarp användning |
-| --- | --- | --- |
-| Kunddata och pilotgrindar | Export/radering/retention kan provas; MFA/recovery, backup/restore och drift verifierade | Retentionsbeslut, regel-/leverantörs-/licensbedömning, kvarvarande auditfynd |
-| Journal/behandlingsdokumentation | Behörig personal skapar/granskar en versionsspårad anteckning med rätt journaltyp | Vald verksamhet och rättslig klassning, separata ändamål/behörigheter/lagringstider; inga hälsodata nu |
-| Lager/förbrukning/inköp | Inleverans → saldo/reservation → faktisk förbrukning/försäljning/retur, spårbar historik | Produktmodell och vald målgrupp; batch/bäst före när relevant; inköp kräver mandat |
-| Betalning/kassa/presentkort/återbetalning | Bokning/försäljning kopplas till faktisk betalningsstatus och verifierad avvikelsehantering | PSP-/kassapartner, regler/avtal och testmiljö; ingen egen certifierad kassa byggs på antagande |
-| Bokföringskoppling | Försäljning/avgifter/utbetalningar/återbetalningar kan stämmas av; fel och retry synliga | Vald ekonomipartner/format, kundmandat och bevarandekrav |
-| Marknadsföring/sociala medier | Granskat innehåll/målgrupp/kanal/budget publiceras genom verifierad anslutning; faktiska boknings-/besöksutfall följs | Kanalbehörigheter, samtycke/ändamål, budget och attribution; inga automatiska utskick nu |
-| Analys | Beläggning/avbokningar/återbesök/försäljning visar datakälla, period och begränsningar | Faktiskt underlag, definierade mått och dataminimering; inga låtsade prognoser |
-| Inbyggd AI och fler assistenter | Ett avgränsat ärende fungerar med budgettak, korrekt mandat och återhämtning | Verifierad klient/provider, användningsmätning och produktbeslut; Dots/Muse är inte redan integrerade |
+| Senare leverans                           | Observerbart resultat                                                                                                 | Beroenden och beslut före skarp användning                                                             |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Kunddata och pilotgrindar                 | Export/radering/retention kan provas; MFA/recovery, backup/restore och drift verifierade                              | Retentionsbeslut, regel-/leverantörs-/licensbedömning, kvarvarande auditfynd                           |
+| Journal/behandlingsdokumentation          | Behörig personal skapar/granskar en versionsspårad anteckning med rätt journaltyp                                     | Vald verksamhet och rättslig klassning, separata ändamål/behörigheter/lagringstider; inga hälsodata nu |
+| Lager/förbrukning/inköp                   | Inleverans → saldo/reservation → faktisk förbrukning/försäljning/retur, spårbar historik                              | Produktmodell och vald målgrupp; batch/bäst före när relevant; inköp kräver mandat                     |
+| Betalning/kassa/presentkort/återbetalning | Bokning/försäljning kopplas till faktisk betalningsstatus och verifierad avvikelsehantering                           | PSP-/kassapartner, regler/avtal och testmiljö; ingen egen certifierad kassa byggs på antagande         |
+| Bokföringskoppling                        | Försäljning/avgifter/utbetalningar/återbetalningar kan stämmas av; fel och retry synliga                              | Vald ekonomipartner/format, kundmandat och bevarandekrav                                               |
+| Marknadsföring/sociala medier             | Granskat innehåll/målgrupp/kanal/budget publiceras genom verifierad anslutning; faktiska boknings-/besöksutfall följs | Kanalbehörigheter, samtycke/ändamål, budget och attribution; inga automatiska utskick nu               |
+| Analys                                    | Beläggning/avbokningar/återbesök/försäljning visar datakälla, period och begränsningar                                | Faktiskt underlag, definierade mått och dataminimering; inga låtsade prognoser                         |
+| Inbyggd AI och fler assistenter           | Ett avgränsat ärende fungerar med budgettak, korrekt mandat och återhämtning                                          | Verifierad klient/provider, användningsmätning och produktbeslut; Dots/Muse är inte redan integrerade  |
 
 När nattmålet är verifierat avslutas det. Tabellen är framtida leveranser,
 inte tillstånd att starta dem samma natt. Kundpilot förblir en separat grind.
@@ -187,12 +193,12 @@ Booking Labs tjänster och lediga tider ska däremot hämtas genom riktiga
 befintliga MCP-anrop mot separat lokal demodatabas. Ingen inmatad kopia av
 salongens lediga tider får presenteras som en fungerande integration.
 
-| Liten uppgift efter bygggodkännande | Observerbart acceptanskriterium |
-| --- | --- |
-| 1. Verifiera en befintlig klient och läsbehörig lokal anslutning | Klienten gör verkliga tjänste-/tillgänglighetsanrop; inga admin- eller skrivflaggor, inga hemligheter i prompten. Klient/version och begränsningar dokumenteras. Saknat stöd är en blockerare, inte skäl att öppna publik MCP. |
-| 2. Förbered två kalenderunderlag och en reproducerbar fråga | Agenten visar två verkliga alternativ utan överlapp med någon kalender, med svensk dag/tid, behandling, utförare, längd och pris. Ett förberett facit finns. |
-| 3. Prova hela vägen med befintlig webb | Niclas väljer förslaget och slutför bokningen i den lokala kundvyn; bokningen syns i samma lokala admin. Dag/tid väljs där manuellt, ingen påstådd förifylld länk eller automatisk agentbokning. |
-| 4. Prova negativa fall och granska resultatet | Inga gemensamma tider ger begripligt besked; tidszons-/sommar-vintertidsfall blir rätt; en tid som tas efter förslaget ger konflikt utan dubbelbokning. Kalenderinnehåll förekommer inte i Booking Labs anrop, DB eller loggar. |
+| Liten uppgift efter bygggodkännande                              | Observerbart acceptanskriterium                                                                                                                                                                                                 |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Verifiera en befintlig klient och läsbehörig lokal anslutning | Klienten gör verkliga tjänste-/tillgänglighetsanrop; inga admin- eller skrivflaggor, inga hemligheter i prompten. Klient/version och begränsningar dokumenteras. Saknat stöd är en blockerare, inte skäl att öppna publik MCP.  |
+| 2. Förbered två kalenderunderlag och en reproducerbar fråga      | Agenten visar två verkliga alternativ utan överlapp med någon kalender, med svensk dag/tid, behandling, utförare, längd och pris. Ett förberett facit finns.                                                                    |
+| 3. Prova hela vägen med befintlig webb                           | Niclas väljer förslaget och slutför bokningen i den lokala kundvyn; bokningen syns i samma lokala admin. Dag/tid väljs där manuellt, ingen påstådd förifylld länk eller automatisk agentbokning.                                |
+| 4. Prova negativa fall och granska resultatet                    | Inga gemensamma tider ger begripligt besked; tidszons-/sommar-vintertidsfall blir rätt; en tid som tas efter förslaget ger konflikt utan dubbelbokning. Kalenderinnehåll förekommer inte i Booking Labs anrop, DB eller loggar. |
 
 Planerad leverans: en kort provguide, verkliga verktygsanrop och en bokning
 synlig i kalendern, samt riktade tester för eventuell ändrad kod. Grok granskar
@@ -240,16 +246,16 @@ Den ursprungliga roadmapändringen byggde inga funktioner. Epic05 har därefter 
 
 ## Produktområden och prioritering
 
-| Område | Användarresultat | Placering |
-| --- | --- | --- |
-| Kalender och bokningar | Mobil dagvy, desktop dag/vecka, manuellt skapa, öppna, flytta och avboka en tid; samma uppdaterade verklighet för kund, admin och agent. | Epic 05 |
-| Tjänster, personal och tillgänglighet | Ändra pris/längd, välja utförare, ange arbetstider, pauser och undantag utan kodändring. | Epic 05, liten enverksamhetsmodell |
-| Kunder och kontakt | Sökbara kundkort och besök; kontaktväg och datalivscykel måste avgränsas för riktiga kunder. | Kundregister levererat i Epic 06; export/anonymisering/retention och verklig kontaktåtkomst återstår |
-| Produkter och lager | Saldo, inleverans, inventering, försäljning/förbrukning och varning om lågt saldo. Spårbara lagerhändelser och säkra agentåtgärder. | Planerat produktområde, inte Epic 05 |
-| Kampanjer och kommunikation | Skapa erbjudande, välja målgrupp/kanal, förhandsgranska, godkänna och följa utfall. Skilj bokningsmeddelanden från reklam. | Befintligt utkastflöde bevaras; större modul planeras separat |
-| Betalning, presentkort och ekonomi | Betallänk/förskott, försäljning, avstämning, återbetalning och bokföringskoppling där målgruppen behöver dem. | Partnerutvärdering och egen kravgrind före skarpa integrationer |
-| Behandlingsdokumentation/journal | Kontrollerad dokumentation av rätt typ, med egna behörigheter, spårbarhet och livscykel. | Separat behovs-, risk- och regelbedömning; inga verkliga hälsodata nu |
-| Säker drift och dataskydd | MFA/recovery, rättigheter/export/radering, retention, isolering, backup/restore, EU/EES-leverantörskedja och distributionslicenser. | Förutsättningar före riktig pilot; egen verifierad leverans |
+| Område                                | Användarresultat                                                                                                                         | Placering                                                                                            |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Kalender och bokningar                | Mobil dagvy, desktop dag/vecka, manuellt skapa, öppna, flytta och avboka en tid; samma uppdaterade verklighet för kund, admin och agent. | Epic 05                                                                                              |
+| Tjänster, personal och tillgänglighet | Ändra pris/längd, välja utförare, ange arbetstider, pauser och undantag utan kodändring.                                                 | Epic 05, liten enverksamhetsmodell                                                                   |
+| Kunder och kontakt                    | Sökbara kundkort och besök; kontaktväg och datalivscykel måste avgränsas för riktiga kunder.                                             | Kundregister levererat i Epic 06; export/anonymisering/retention och verklig kontaktåtkomst återstår |
+| Produkter och lager                   | Saldo, inleverans, inventering, försäljning/förbrukning och varning om lågt saldo. Spårbara lagerhändelser och säkra agentåtgärder.      | Planerat produktområde, inte Epic 05                                                                 |
+| Kampanjer och kommunikation           | Skapa erbjudande, välja målgrupp/kanal, förhandsgranska, godkänna och följa utfall. Skilj bokningsmeddelanden från reklam.               | Befintligt utkastflöde bevaras; större modul planeras separat                                        |
+| Betalning, presentkort och ekonomi    | Betallänk/förskott, försäljning, avstämning, återbetalning och bokföringskoppling där målgruppen behöver dem.                            | Partnerutvärdering och egen kravgrind före skarpa integrationer                                      |
+| Behandlingsdokumentation/journal      | Kontrollerad dokumentation av rätt typ, med egna behörigheter, spårbarhet och livscykel.                                                 | Separat behovs-, risk- och regelbedömning; inga verkliga hälsodata nu                                |
+| Säker drift och dataskydd             | MFA/recovery, rättigheter/export/radering, retention, isolering, backup/restore, EU/EES-leverantörskedja och distributionslicenser.      | Förutsättningar före riktig pilot; egen verifierad leverans                                          |
 
 Framtida områden ska inte få nya epicnummer förrän scope, beroenden och acceptanskriterier är fastställda. Första användbara salongsprodukt och redo-för-pilot är två olika grindar. Fortsätt gärna bygga och granska med syntetiska uppgifter utan att kalla detta regelefterlevnad eller kundlansering.
 

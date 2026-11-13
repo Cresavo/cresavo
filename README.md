@@ -1,5 +1,29 @@
 # booking-lab-se
 
+## Beständig agentbokning och ägarens arbetsdag — lokal syntetisk POC
+
+Det lokala MCP-kortet kan nu återöppna kvitton, återuppta oklara försök och
+hämta en kalenderfil. En separat läsprofil visar ägarens dag, nästa besök och
+lediga tider. Vanlig skyddad admin används för ändringar. Samma privata
+PC-plugin, version 0.3.0; inga nya beroenden eller externa tjänster.
+
+Produkt och slutlig Grok-revision **05e5eaf**, branch
+**feature/agent-booking-workday**. Grok GO för lokal syntetisk POC efter två
+samlande rättningsvarv. 91 unit, 125 integration, 13 korttester och 48
+webbtester i fyra lägen PASS; lokal dev0 behövde cacheåterställning efter
+bevarade FAIL-körningar. Actions **43467138367** har fyra gröna jobb på samma
+SHA. Full audit kvar på sju moderate dev, produktionsberoenden noll.
+
+Två tidigare testbokningar och händelser är bevarade. Native-klickning av
+de nya funktionerna, ägarprofilens hot-reload, fysisk iPhone/Safari och riktig
+kalenderimport är inte verifierade. Ingen fjärr-MCP, molndeploy, mainmerge eller
+kundpilot följer av detta. Nästa mål startas inte automatiskt.
+
+[Prova och se bilder](docs/DEMO.md) · [resultat och ursprungliga fel](docs/VERIFICATION.md) ·
+[Grok-original](docs/qa/QA-REPORT-agent-workday-f2-05e5eaf.md) · [godkänt scope](docs/AGENT_BOOKING_WORKDAY_PLAN.md).
+
+## Tidigare bokningsprov
+
 ## Lokalt MCP-bokningskort till admin — verifierad syntetisk POC
 
 Samma privata PC-plugin kan nu, vid separat lokal opt-in, skapa en testbokning
@@ -48,7 +72,7 @@ Produkt-/QA-/deploykod8843d06.78unit/90integration/42E2E×4 och fyra CI-jobb PAS
 Grok-GO efter ett samlat fixvarv. Full audit har7moderate dev, prod0fynd.
 [Provguide och riktiga bilder](docs/DEMO.md) · [faktiska kommandon/NOT RUN](docs/VERIFICATION.md).
 Fysisk iPhone/Safari och kundpilot är inte godkända. Lokalt efter migrering/
-grundseed på en separat *_demo: `BOOKING_DEMO_SEED=1 npm run demo:seed:capacity`.
+grundseed på en separat \*\_demo: `BOOKING_DEMO_SEED=1 npm run demo:seed:capacity`.
 Använd individuell lokal admin; previewns opt-in-demoinloggning är miljöbunden.
 Ingen ny drift, extern MCP eller betald tjänst behövs för det lokala provet.
 
@@ -197,6 +221,7 @@ Projektets egen kod är AGPL-3.0-only, se [LICENSE](LICENSE). Paket och tillgån
 Bas `056d0c2`, branch `epic-01-foundation-hardening`. Fixpunkter 1–5 samt små förbättringar i punkt 6; Visa e-post är fortsatt undantagen. Inga nya beroenden eller migrationer. Endast lokala commits i denna omgång, ingen push eller merge. Aktuella kommandon, resultat och felhistorik: [VERIFICATION](docs/VERIFICATION.md).
 
 Audit-fynden kvarstår i Prisma/config/deepmerge-ts och ESLint-kedjan. [Separat Prisma 7-plan](docs/PRISMA_7_PLAN.md). GitHub Actions test-/byggjobb för föregående `056d0c2` har verifierats grönt, dess audit-jobb rött. Den lokala batch 3-revisionen har inte körts i extern CI. Verklig TLS/proxydrift återstår.
+
 ## HTTP-start och betrodda proxyadresser
 
 `npm run dev` och `npm run start` använder `scripts/server.mjs`, en liten Node-startpunkt runt samma Next-app. Den läser socketens remoteAddress och skriver över interna, signerade adressheaders. Nexts route-objekt exponerar inte socketadressen. **Använd dessa npm-kommandon, inte direkt next dev/next start.** Utan verifierad intern adress nekas bokning/login; ingen global reservbucket finns. Produktionsläget använder kompilerad Next med dev:false. Ingen extra tjänst eller npm-dependency.
@@ -216,7 +241,7 @@ Fem felaktiga login per klient/15 minuter. Därefter nekas alla försök med 429
 
 ## Reproducera testerna
 
-Skapa en ny lokal *_test-databas, exempelvis med `docker compose exec db createdb -U booking booking_lab_test`, och peka lokal .env på den. Bevara befintliga databaser. Alternativet är separat lokal PostgreSQL; denna körning använde PostgreSQL 18.6. Kör npm ci, prisma generate, migration och seed enligt startanvisningen.
+Skapa en ny lokal \*\_test-databas, exempelvis med `docker compose exec db createdb -U booking booking_lab_test`, och peka lokal .env på den. Bevara befintliga databaser. Alternativet är separat lokal PostgreSQL; denna körning använde PostgreSQL 18.6. Kör npm ci, prisma generate, migration och seed enligt startanvisningen.
 
 ```powershell
 $env:NEXT_TELEMETRY_DISABLED='1'
@@ -247,14 +272,13 @@ MCP-klienter skickar explicit förälderns DATABASE_URL; exporterad miljö vinne
 
 [Tredjepartsnotiser](THIRD_PARTY_NOTICES.md) · [Datakarta](docs/DATA_FLOWS.md) · [Handoff](docs/HANDOFF.md)
 
-
 ### Driftmatris och varning efter QA batch 3
 
-| Anslutning | Konfiguration | Identitet och krav |
-| --- | --- | --- |
-| Direkt till Node | `TRUST_PROXY_IP=0` | Verklig socket; inkommande forwarding ignoreras och ger en statisk varning en gång. |
-| Betrodd proxy | `TRUST_PROXY_IP=1`, snäv `TRUSTED_PROXY_IPS` | Proxyn måste skriva över `X-Real-IP` med faktisk klientadress. Begränsa även nätåtkomsten till Node. |
-| Proxy med standardläge eller bara X-Forwarded-For | Felkonfiguration | Alla delar proxyns identitet, spärr och bokningstak. `PROXY_CLIENT_IDENTITY_COLLAPSED` varnar en gång, utan IP eller headerinnehåll. Åtgärda före drift. |
+| Anslutning                                        | Konfiguration                                | Identitet och krav                                                                                                                                       |
+| ------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Direkt till Node                                  | `TRUST_PROXY_IP=0`                           | Verklig socket; inkommande forwarding ignoreras och ger en statisk varning en gång.                                                                      |
+| Betrodd proxy                                     | `TRUST_PROXY_IP=1`, snäv `TRUSTED_PROXY_IPS` | Proxyn måste skriva över `X-Real-IP` med faktisk klientadress. Begränsa även nätåtkomsten till Node.                                                     |
+| Proxy med standardläge eller bara X-Forwarded-For | Felkonfiguration                             | Alla delar proxyns identitet, spärr och bokningstak. `PROXY_CLIENT_IDENTITY_COLLAPSED` varnar en gång, utan IP eller headerinnehåll. Åtgärda före drift. |
 
 Proxylistan avvisar IPv4-prefix kortare än /8 och IPv6-prefix kortare än /32. Dessa gränser innebär inte att stora tillåtna nät är lämpliga; lista endast de verkliga proxyadresserna. IPv6-klienters /64 används för både inloggningsspärr och bokningstak; rå adress används fortfarande för att kontrollera betrodd proxy. IPv4-mappad IPv6 normaliseras till IPv4. Gammal IPv6-/128-bokningshistorik räknas inte retroaktivt mot /64-taket. Inga historiska migrationer ändras.
 

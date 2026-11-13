@@ -1,33 +1,110 @@
+# Verifiering — agentbokning och arbetsdagskort
+
+Verifierat 2026-11-13. Branch **feature/agent-booking-workday** från e702838.
+Produkt och slutlig Grok-revision: **05e5eafc68302b92eeb3ae2edf3829ffa73f7aa1**. Senare dokumentationscommit ändrar ingen produktkod.
+
+| Slutkontroll                           | Faktiskt resultat                                                                                                                                                                                                                                                                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Ren npm ci / generate / migrate / seed | PASS: ny ren installation, sju nya isolerade loopbackdatabaser, tio migrationer vardera.                                                                                                                                                                                                                                       |
+| Lint / tsc / unit                      | PASS / PASS / 91 av 91.                                                                                                                                                                                                                                                                                                        |
+| Integration                            | PASS: 125 av 125.                                                                                                                                                                                                                                                                                                              |
+| Produktionsbyggda MCP-kort             | PASS: 13 av 13.                                                                                                                                                                                                                                                                                                                |
+| Build                                  | PASS i testkopian och separat fryst runtime.                                                                                                                                                                                                                                                                                   |
+| Webb-E2E                               | Slutligen PASS: 48 av 48 i prod0, prod1, dev0 och dev1; totalt 192. Dev0 hade först två äldre laddningstimeouter (46/48), sedan en starttimeout. Båda FAIL-körningarna bevaras. Ren genererad dev-cache gav 48/48 utan ändrad kod/assertion/tidsgräns.                                                                         |
+| Begränsade SQL-roller/operatörswrapper | PASS: 21 riktiga begränsade SQL-prober, kontaktfritt ägarkort med ett läsverktyg, aktiv owner nekas emailkolumn med 42501. Verklig wrapper/konfig startad via SDK; ingen fjärråtkomst.                                                                                                                                         |
+| Källmatchning/städning                 | PASS: 510 Git-filer i fryst runtime, noll kodavvikelser i testkopian och fem uttryckligt listade statusutkast. Genererad next-env undantagen. Sju F2-testdatabaser har noll affärs-, försöks-, admin- och sessionsfixtures. Åtta hashade limiterposter i integration och en i korttest kvar; övriga noll.                      |
+| Befintliga bokningar                   | De två gamla syntetiska bokningarna och två create-händelserna är oförändrade, med identisk SHA256 före/efter migration och retry. Vanlig Chrome-admin laddades om på den nya runtime med samma individuella session och visade båda besöken. Aktiv publik HTTP-replay nekas med statiskt403 och admin-API utan cookie med403. |
+| Full npm audit                         | **FAIL: exit 1, sju moderate i utvecklingsberoenden; noll high/critical.**                                                                                                                                                                                                                                                     |
+| npm audit --omit=dev                   | PASS: exit 0, noll fynd.                                                                                                                                                                                                                                                                                                       |
+| Grok                                   | Grok GO för lokal syntetisk POC på exakt 05e5eaf efter två samlade rättningsvarv. Egen separat kopia: 91 unit, 125 integration, 13 kort och 192 webbtester PASS; inga Medium/High. Övriga Low/Info är backlogg. [Groks originalrapport](qa/QA-REPORT-agent-workday-f2-05e5eaf.md).                                             |
+| GitHub Actions                         | Verify POC på exakt 05e5eaf: alla fyra jobb gröna, 48 webbtester per jobb. Dev0 kör även 91 unit, 125 integration och 13 korttester. Docker/PostgreSQL användes i CI; det är inte ett lokalt Dockerprov. [Actions 43467138367](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43467138367).                  |
+
+## Faktiska kommandon och utdata
+
+Exakta Node/npm-CLI-anrop, exitkoder och tider finns i [installation](verification/agent-workday/setup-results.json), [lint/tsc/unit/integration](verification/agent-workday/full-results.json), [build/kort](verification/agent-workday/ui-results.json), [webbmatris](verification/agent-workday/matrix-results.json) och [audit](verification/agent-workday/audit-results.json). Node 24.16 och separat native PostgreSQL på loopback 55451 användes. Det är inte ett lokalt Dockerprov.
+
+| Steg                           | Resultat/exit | Tid   |
+| ------------------------------ | ------------- | ----- |
+| npm-ci                         | PASS (0)      | 141 s |
+| generate                       | PASS (0)      | 2 s   |
+| migrate-integration            | PASS (0)      | 7 s   |
+| seed-integration               | PASS (0)      | 0 s   |
+| migrate-card                   | PASS (0)      | 2 s   |
+| seed-card                      | PASS (0)      | 0 s   |
+| migrate-prod0                  | PASS (0)      | 2 s   |
+| seed-prod0                     | PASS (0)      | 0 s   |
+| migrate-prod1                  | PASS (0)      | 2 s   |
+| seed-prod1                     | PASS (0)      | 0 s   |
+| migrate-dev0                   | PASS (0)      | 2 s   |
+| seed-dev0                      | PASS (0)      | 0 s   |
+| migrate-dev1                   | PASS (0)      | 2 s   |
+| seed-dev1                      | PASS (0)      | 0 s   |
+| migrate-demo                   | PASS (0)      | 2 s   |
+| seed-demo                      | PASS (0)      | 0 s   |
+| generate                       | PASS (0)      | 2 s   |
+| lint                           | PASS (0)      | 8 s   |
+| tsc                            | PASS (0)      | 4 s   |
+| unit                           | PASS (0)      | 8 s   |
+| integration                    | PASS (0)      | 114 s |
+| build                          | PASS (0)      | 13 s  |
+| cards                          | PASS (0)      | 31 s  |
+| e2e-prod0                      | PASS (0)      | 96 s  |
+| e2e-prod1                      | PASS (0)      | 100 s |
+| e2e-dev0                       | FAIL (1)      | 275 s |
+| e2e-dev0-unchanged-rerun       | FAIL (1)      | 126 s |
+| e2e-dev0-unchanged-clean-cache | PASS (0)      | 197 s |
+| e2e-dev1                       | PASS (0)      | 158 s |
+| audit                          | FAIL (1)      | 5 s   |
+| audit-production               | PASS (0)      | 1 s   |
+
+[Full audit](verification/agent-workday/audit-full.json) · [produktionsaudit](verification/agent-workday/audit-production.json) · [SQL-prober](verification/agent-workday/restricted-role-probe.json) · [källmatchning/städning](verification/agent-workday/source-cleanup.json) · [aktivering/bevarade bokningar](verification/agent-workday/activation.json) · [CI-resultat](verification/agent-workday/ci-results.json).
+
+Schema/migrationer är byte-identiska mellan c4e, F1 och F2. Separat 9→10-prov på c4e bevarade en befintlig bokning med identisk hash och städade endast sin egen fixture: [ursprungligt resultat](verification/agent-workday/upgrade-result.json). Inga gamla användarbokningar raderades för att skapa testutrymme.
+
+Operatörsfel: fryst runtime kunde inte byggas med node_modules som kataloglänk utanför Turbopacks rot. Originalfelet bevaras i [FAIL-logg](verification/agent-workday/runtime-build-junction-failed.txt). Efter vanlig filkopia läste TypeScript även en tillfällig gammal beroendelänk i roten: 6 135 extra filer gav minnesfel. Länken flyttades reversibelt utanför roten; samma byggkommando och oförändrade kontroller passerade sedan. [Diagnos](verification/agent-workday/runtime-link-diagnosis.json). Inga byggskydd eller tester sänktes.
+
+Windows-dev0: [första FAIL](verification/agent-workday/matrix-e2e-dev0-initial-failed.txt) visar två äldre UI-fall. Nätspår visade HTTP200/201 men kall laddning/omdirigering över testets femsekundersfönster; ett följande försök fick starttimeout och varning om långsamt filsystem. Exakt bakomliggande IO-orsak är inte verifierad. Den gamla genererade cachen lades reversibelt undan och full oförändrad dev0/dev1 gick igenom; detta är inte bevis att all Windows-flakighet är löst. CI och Groks separata fullmatriser gick grönt utan dessa fel.
+
+Grok: download-event fick timeout trots att den verkliga filen sparades och SHA256 verifierades. Chrome-skärmbilds-API fick timeout två gånger; inget påhittat skärmbildsbevis eller QA-GO har skapats. Originalrapporten och faktisk AX-observation finns, medan de riktiga nya UI-bilderna kommer från den märkta testvärden.
+
+NOT RUN: fysisk iPhone/Safari, ny native-kortklickning, riktig kalenderimport/synk, fjärr-MCP och ny TLS-/backup-/flerinstansmiljö. Faktiskt läsanrop från denna Codex-anslutning lyckades med bookingEnabled=true. Separata SDK-processer genom den riktiga lokala launchern och ägarkonfigurationen återläste båda gamla bokningarna; detta är inte native-klickning. Ingen app var exponerad i sidopanelen. Nya native-klick, ägarprofilens hot-reload, fysisk iPhone/Safari och kalenderimport är NOT RUN. Nästa inläsning av den lokala anslutningen kan behövas innan ägarkortet syns; inget manuellt QA-uppdrag lämnas till Niclas. Ingen ny full videoinspelning; aktuella riktade bilder har proveniens och filhashar. Docker lokalt ej kört; eventuell CI-Docker särredovisas i Actions.
+
+Mindre fynd ligger kvar: gammal kalenderfil-notis efter statusändring (AW-QA-3), fokus vid ägarkortets fel (AW-QA-4), tidigare sökfönster 28/35 dagar (CB-QA-1) och övriga Info enligt originalrapporterna. Samma secret och lokala MCP-identitet är avsiktligt samma kanal. Inga ytterligare fixloopar startas.
+
+<!-- AGENT_WORKDAY_CURRENT_END -->
+
+## Historik — tidigare leverans
+
 # Verifiering — lokalt MCP-kort till admin
 
 2026-11-13. Produkt **8126410af712bdd71d6b6a42c0a1fcc58055d28d**, feature/mcp-card-booking-proof.
-Riktig PostgreSQL på7nya loopback *_test/_demo; inga historiska migrationer ändrade.
+Riktig PostgreSQL på7nya loopback \*\_test/\_demo; inga historiska migrationer ändrade.
 
-| Faktiskt kommando / kontroll | Resultat |
-| --- | --- |
-| node npm-cli.js ci (officiell lokal npm CLI) | PASS571Windows installerade,572auditerade; ren installation. |
-| node node_modules/prisma/build/index.js generate | PASS7.10.1. |
-| node node_modules/prisma/build/index.js migrate deploy; node --import tsx prisma/seed.ts | PASS9migrationer/seed på7nya DB. |
-| node node_modules/eslint/bin/eslint.js . | PASS. |
-| node node_modules/typescript/bin/tsc --noEmit | PASS. |
-| node node_modules/vitest/vitest.mjs run | PASS85/85. |
-| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts | PASS113/113,25filer. |
-| node node_modules/@playwright/test/cli.js test --config playwright.time-card.config.ts | PASS3/3,320/390/1024; egen stdio-testvärd. |
-| node node_modules/next/dist/bin/next build | PASS. |
-| node node_modules/@playwright/test/cli.js test --config playwright.card-booking.config.ts | PASS4/4 från produktionsbygge; dubbeltryck390/1024, upptagen tid och tappat svar efter commit → samma id i riktig admin. |
-| node node_modules/@playwright/test/cli.js test; E2E_PRODUCTION=1,TRUST_PROXY_IP=0 | PASS46/46. |
-| Samma, E2E_PRODUCTION=1,TRUST_PROXY_IP=1 | PASS46/46. |
-| Samma, E2E_PRODUCTION tom,TRUST_PROXY_IP=0 | PASS46/46. |
-| Samma, E2E_PRODUCTION tom,TRUST_PROXY_IP=1 | PASS46/46. |
-| Riktig launcher och SQL-roll, tillfällig HOME | PASS13kontroller,20retries och nekade register/admin/UPDATE/DELETE. Egen provrad städad,0kvar. Inte aktiv klient. |
-| Separat bekräftelsebildprov | PASS320/390/1024: consent krävs,0horisontell scroll,0bokningsanrop. Egen Chromiumvärd. |
-| Fryst runtime / fixture-städning | PASS451källfiler,0avvikelser (UTF8-LF/exakta binärer; genererad next-env undantagen). Testaffärsrader0.15/1hashade spärrposter integration/card. Demo1avsiktlig admin/1session;0bokningar vid kontroll. |
-| Faktisk lokal webbadministration | PASSegen CUA vanlig login i Chrome. Anonym/admin visar login200; anonym publish403; endast127.0.0.1:3187. |
-| npm audit --package-lock-only --json | FAILexit1:7moderate dev,0high/critical. |
-| npm audit --package-lock-only --omit=dev --json | PASSexit0:0fynd. |
-| Grok | GO för avgränsad syntetisk lokal POC;4Low/1Info i backlogg,0Medium+. [Groks originalrapport](qa/QA-REPORT-card-booking-8126410.md) |
-| Faktisk PC-kortkedja | PASSanrop efter PC-omstart: bookingEnabled=true och tjänsteversion1. Niclas bekräftade själv bokning i native-kortet; databasen har2skilda bokningar,1create-event vardera och0överlapp. Codex verifierade båda i faktisk skyddad Chrome-admin och öppnade10.00-bokningens detalj. Egen native-kortklickning NOT RUN. |
-| Actions på exakt pushad SHA | [Actions43430009174](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43430009174) —4gröna jobb på8126410 efter1riktad omkörning av dev0 (första försöket112/113 i gammalt refundtest, anslutnings-/testtimeout; ingen kod/testgräns ändrad, rotorsak inte fastställd). |
+| Faktiskt kommando / kontroll                                                              | Resultat                                                                                                                                                                                                                                                                                                              |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| node npm-cli.js ci (officiell lokal npm CLI)                                              | PASS571Windows installerade,572auditerade; ren installation.                                                                                                                                                                                                                                                          |
+| node node_modules/prisma/build/index.js generate                                          | PASS7.10.1.                                                                                                                                                                                                                                                                                                           |
+| node node_modules/prisma/build/index.js migrate deploy; node --import tsx prisma/seed.ts  | PASS9migrationer/seed på7nya DB.                                                                                                                                                                                                                                                                                      |
+| node node_modules/eslint/bin/eslint.js .                                                  | PASS.                                                                                                                                                                                                                                                                                                                 |
+| node node_modules/typescript/bin/tsc --noEmit                                             | PASS.                                                                                                                                                                                                                                                                                                                 |
+| node node_modules/vitest/vitest.mjs run                                                   | PASS85/85.                                                                                                                                                                                                                                                                                                            |
+| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts             | PASS113/113,25filer.                                                                                                                                                                                                                                                                                                  |
+| node node_modules/@playwright/test/cli.js test --config playwright.time-card.config.ts    | PASS3/3,320/390/1024; egen stdio-testvärd.                                                                                                                                                                                                                                                                            |
+| node node_modules/next/dist/bin/next build                                                | PASS.                                                                                                                                                                                                                                                                                                                 |
+| node node_modules/@playwright/test/cli.js test --config playwright.card-booking.config.ts | PASS4/4 från produktionsbygge; dubbeltryck390/1024, upptagen tid och tappat svar efter commit → samma id i riktig admin.                                                                                                                                                                                              |
+| node node_modules/@playwright/test/cli.js test; E2E_PRODUCTION=1,TRUST_PROXY_IP=0         | PASS46/46.                                                                                                                                                                                                                                                                                                            |
+| Samma, E2E_PRODUCTION=1,TRUST_PROXY_IP=1                                                  | PASS46/46.                                                                                                                                                                                                                                                                                                            |
+| Samma, E2E_PRODUCTION tom,TRUST_PROXY_IP=0                                                | PASS46/46.                                                                                                                                                                                                                                                                                                            |
+| Samma, E2E_PRODUCTION tom,TRUST_PROXY_IP=1                                                | PASS46/46.                                                                                                                                                                                                                                                                                                            |
+| Riktig launcher och SQL-roll, tillfällig HOME                                             | PASS13kontroller,20retries och nekade register/admin/UPDATE/DELETE. Egen provrad städad,0kvar. Inte aktiv klient.                                                                                                                                                                                                     |
+| Separat bekräftelsebildprov                                                               | PASS320/390/1024: consent krävs,0horisontell scroll,0bokningsanrop. Egen Chromiumvärd.                                                                                                                                                                                                                                |
+| Fryst runtime / fixture-städning                                                          | PASS451källfiler,0avvikelser (UTF8-LF/exakta binärer; genererad next-env undantagen). Testaffärsrader0.15/1hashade spärrposter integration/card. Demo1avsiktlig admin/1session;0bokningar vid kontroll.                                                                                                               |
+| Faktisk lokal webbadministration                                                          | PASSegen CUA vanlig login i Chrome. Anonym/admin visar login200; anonym publish403; endast127.0.0.1:3187.                                                                                                                                                                                                             |
+| npm audit --package-lock-only --json                                                      | FAILexit1:7moderate dev,0high/critical.                                                                                                                                                                                                                                                                               |
+| npm audit --package-lock-only --omit=dev --json                                           | PASSexit0:0fynd.                                                                                                                                                                                                                                                                                                      |
+| Grok                                                                                      | GO för avgränsad syntetisk lokal POC;4Low/1Info i backlogg,0Medium+. [Groks originalrapport](qa/QA-REPORT-card-booking-8126410.md)                                                                                                                                                                                    |
+| Faktisk PC-kortkedja                                                                      | PASSanrop efter PC-omstart: bookingEnabled=true och tjänsteversion1. Niclas bekräftade själv bokning i native-kortet; databasen har2skilda bokningar,1create-event vardera och0överlapp. Codex verifierade båda i faktisk skyddad Chrome-admin och öppnade10.00-bokningens detalj. Egen native-kortklickning NOT RUN. |
+| Actions på exakt pushad SHA                                                               | [Actions43430009174](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43430009174) —4gröna jobb på8126410 efter1riktad omkörning av dev0 (första försöket112/113 i gammalt refundtest, anslutnings-/testtimeout; ingen kod/testgräns ändrad, rotorsak inte fastställd).                               |
 
 Exakta subprocesskommandon/exit/tider i [full-results](verification/card-booking/full-results.json)
 och [fyrmatris](verification/card-booking/matrix-results.json). [Alla råutdata](verification/card-booking/README.md).
@@ -71,29 +148,29 @@ vid okänt utfall krävs adminkontroll innan ett nytt försök, inte automatisk 
 
 ## Aktuell resultattabell
 
-| Kommando / kontroll | Faktiskt resultat |
-| --- | --- |
-| npm ci | Lokalt NOT RUN denna omgång; oförändrad package/lock och verifierade befintliga beroenden. Ny CI43417840017: ren npmci572Linux PASS. Föregående rena Windows-körning571paket i historiken. |
-| node node_modules/prisma/build/index.js generate | PASS7.10.1,2s. |
-| node node_modules/prisma/build/index.js migrate deploy; node --import tsx prisma/seed.ts | PASS9migrationer/seed på6nya loopback *_test/_demo. Inga historiska migrationer ändrade. |
-| node node_modules/eslint/bin/eslint.js . | PASS14s; slutlig riktad körning exit0. |
-| node node_modules/typescript/bin/tsc --noEmit | PASS7s; slutlig körning exit0. |
-| RATE_LIMIT_STORE=memory node node_modules/vitest/vitest.mjs run | PASS83/83,17filer. |
-| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts | PASS105/105,24filer,126.70s efter extra processtest. Tidigare104/104 separat. |
-| node node_modules/@playwright/test/cli.js test --config playwright.time-card.config.ts | PASS3/3 vid320/390/1024,6s efter isolerad outputDir. Verklig stdio/HTML, egen testvärd, inte ChatGPT. |
-| node node_modules/next/dist/bin/next build | PASS14s. |
-| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test | PASS46/46,92s. |
-| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test | PASS46/46,104s. |
-| E2E_PRODUCTION= TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test | FörstFAIL45/46 pga delad artifactmapp/ENOENT. Efter isolering/sekventiell omkörning PASS46/46,182s. |
-| E2E_PRODUCTION= TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test | PASS46/46,171s. |
-| Gitblob vs testkopia | PASS207filer,0mismatch (LF-text/exaktbinär); docs/AGENTS/genererad next-env undantagna. |
-| Faktisk exponerad plugin-MCP | PASS list_services/show_time_picker i denna konversation; Anna16/Erik12tider16nov,450kr/30min. Källa8648316, produktkod identisk i a65. Ingen SDK-ersättning. |
-| SDK/DB-läsroll | PASS2verktyg, UI-MIME/metadatakoppling, read-only=on; Customer/contact42501, UPDATE25006; ingen publik lyssnare. |
-| npm audit --package-lock-only --json | FAIL exit1:7moderate dev,0high/critical; inga overrides eller uppgraderingar. |
-| npm audit --package-lock-only --omit=dev --json | PASS exit0,0fynd. |
-| Grok oberoende QA | Scoped GO lokal syntetisk POC påa65f0f2: egna npmci572,83unit/105integration/3kort/46webb×4 PASS, MCP63/0. Guard20PASS/2FAIL och UI38PASS/2FAIL:3Low/5Info, ingaMedium+. |
-| Faktisk PC-rendering / klick / mobil | PC-kort visas på Niclas foton. Nytt foto visade hämtningsfel; därefter bekräftade Niclas 2026-11-13 lyckad kontroll: ”Tiden är fortfarande ledig. Ingen bokning har skapats.” Oförändrad produkt/runtime8648316. Inte egen CUA-klickning eller Grok; felorsak okänd. Mobil olöst. |
-| Privat push / GitHub Actions / deploy | Push a65f0f2 efter scopedGrokGO. Full [43417840017](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43417840017) PASS:4gröna46/46 påsammaSHA. Ren npmci572Linux,9migrate/seed,83unit/105integration/build/lint/tsc verifierade. Ingen deploy; Vercel95f8071 är oförändrad. |
+| Kommando / kontroll                                                                      | Faktiskt resultat                                                                                                                                                                                                                                                                           |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| npm ci                                                                                   | Lokalt NOT RUN denna omgång; oförändrad package/lock och verifierade befintliga beroenden. Ny CI43417840017: ren npmci572Linux PASS. Föregående rena Windows-körning571paket i historiken.                                                                                                  |
+| node node_modules/prisma/build/index.js generate                                         | PASS7.10.1,2s.                                                                                                                                                                                                                                                                              |
+| node node_modules/prisma/build/index.js migrate deploy; node --import tsx prisma/seed.ts | PASS9migrationer/seed på6nya loopback \*\_test/\_demo. Inga historiska migrationer ändrade.                                                                                                                                                                                                 |
+| node node_modules/eslint/bin/eslint.js .                                                 | PASS14s; slutlig riktad körning exit0.                                                                                                                                                                                                                                                      |
+| node node_modules/typescript/bin/tsc --noEmit                                            | PASS7s; slutlig körning exit0.                                                                                                                                                                                                                                                              |
+| RATE_LIMIT_STORE=memory node node_modules/vitest/vitest.mjs run                          | PASS83/83,17filer.                                                                                                                                                                                                                                                                          |
+| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts            | PASS105/105,24filer,126.70s efter extra processtest. Tidigare104/104 separat.                                                                                                                                                                                                               |
+| node node_modules/@playwright/test/cli.js test --config playwright.time-card.config.ts   | PASS3/3 vid320/390/1024,6s efter isolerad outputDir. Verklig stdio/HTML, egen testvärd, inte ChatGPT.                                                                                                                                                                                       |
+| node node_modules/next/dist/bin/next build                                               | PASS14s.                                                                                                                                                                                                                                                                                    |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test         | PASS46/46,92s.                                                                                                                                                                                                                                                                              |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test         | PASS46/46,104s.                                                                                                                                                                                                                                                                             |
+| E2E_PRODUCTION= TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test          | FörstFAIL45/46 pga delad artifactmapp/ENOENT. Efter isolering/sekventiell omkörning PASS46/46,182s.                                                                                                                                                                                         |
+| E2E_PRODUCTION= TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test          | PASS46/46,171s.                                                                                                                                                                                                                                                                             |
+| Gitblob vs testkopia                                                                     | PASS207filer,0mismatch (LF-text/exaktbinär); docs/AGENTS/genererad next-env undantagna.                                                                                                                                                                                                     |
+| Faktisk exponerad plugin-MCP                                                             | PASS list_services/show_time_picker i denna konversation; Anna16/Erik12tider16nov,450kr/30min. Källa8648316, produktkod identisk i a65. Ingen SDK-ersättning.                                                                                                                               |
+| SDK/DB-läsroll                                                                           | PASS2verktyg, UI-MIME/metadatakoppling, read-only=on; Customer/contact42501, UPDATE25006; ingen publik lyssnare.                                                                                                                                                                            |
+| npm audit --package-lock-only --json                                                     | FAIL exit1:7moderate dev,0high/critical; inga overrides eller uppgraderingar.                                                                                                                                                                                                               |
+| npm audit --package-lock-only --omit=dev --json                                          | PASS exit0,0fynd.                                                                                                                                                                                                                                                                           |
+| Grok oberoende QA                                                                        | Scoped GO lokal syntetisk POC påa65f0f2: egna npmci572,83unit/105integration/3kort/46webb×4 PASS, MCP63/0. Guard20PASS/2FAIL och UI38PASS/2FAIL:3Low/5Info, ingaMedium+.                                                                                                                    |
+| Faktisk PC-rendering / klick / mobil                                                     | PC-kort visas på Niclas foton. Nytt foto visade hämtningsfel; därefter bekräftade Niclas 2026-11-13 lyckad kontroll: ”Tiden är fortfarande ledig. Ingen bokning har skapats.” Oförändrad produkt/runtime8648316. Inte egen CUA-klickning eller Grok; felorsak okänd. Mobil olöst.           |
+| Privat push / GitHub Actions / deploy                                                    | Push a65f0f2 efter scopedGrokGO. Full [43417840017](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43417840017) PASS:4gröna46/46 påsammaSHA. Ren npmci572Linux,9migrate/seed,83unit/105integration/build/lint/tsc verifierade. Ingen deploy; Vercel95f8071 är oförändrad. |
 
 Råutdata och exitkoder: [verification/time-card](verification/time-card/).
 [Slutlig källmatchning](verification/time-card/source-freeze-final.json),
@@ -147,7 +224,6 @@ dev0 45/46/ENOENT vid context.close. a65f0f2 flyttar kortartefakter till
 demo-artifacts/time-card/test-results. Alla omkörningar var sekventiella och
 passerade utan sänkta assertions. Ursprunglig FAIL finns kvar i verification.json.
 
-
 ## Historik — föregående verifierade leverans
 
 # Verifiering — kundlivscykel och verkligt lokalt agentprov
@@ -157,38 +233,38 @@ Dokumentation/bilder därefter är separata. Endast syntetiska data; pilot NO-GO
 
 ## Aktuell resultattabell
 
-| Körda kommandon / kontroll | Faktiskt resultat efter fix1 |
-| --- | --- |
-| npm ci --offline --no-fund --no-audit | PASS571Windows-paket,6m i ny lokal runtime. Oförändrad lockfil. |
-| node node_modules/prisma/build/index.js generate | PASS7.10.1,3s; även isolerad runtime. |
-| node node_modules/prisma/build/index.js migrate deploy; node --import tsx prisma/seed.ts | PASS9migrationer/seed på6nya loopback55451 *_test/_demo. Historiska8oförändrade. |
-| node node_modules/eslint/bin/eslint.js . | PASS exit0,14s. |
-| node node_modules/typescript/bin/tsc --noEmit | PASS exit0,8s. |
-| RATE_LIMIT_STORE=memory node node_modules/vitest/vitest.mjs run | PASS79/79,16filer. |
-| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts | PASS99/99,23filer,89.81s. Nytt kvot-/kontaktregressionstest. |
-| node node_modules/next/dist/bin/next build | PASS exit0,17s. |
-| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test | PASS46/46,119s. |
-| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test | PASS46/46,113s. |
-| E2E_PRODUCTION= TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test | PASS46/46,206s. |
-| E2E_PRODUCTION= TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test | PASS46/46,164s. |
-| 8→9uppgradering/återseed efter fix1 | PASS ny *_demo, äldre kolumner bevarade vid migration; efter manuell kontaktåtgärd även äldre råkvot→HMAC, teknisk historik/beslut består. Seed2gånger sammahashar,0överlapp. |
-| Gitblob mot testkopia | PASS196produkt-/konfig-/test-/assetfiler,0mismatch, LF-normaliserad text/exaktbinär; docs/AGENTS/genererad next-env undantagna. |
-| Städning | PASS5miljöer:0Booking/Event/Customer/DataAction/Campaign/Decision/AdminUser/Session/WorkspaceRequest. Integration10hashade RateLimitBucket kvar;4E2Emiljöer0. |
-| Faktiska Codex MCP-verktyg | PASS read/inspect/draft/retry/changedretry/confirmedfalse/stale. MCPe2e0e39; server/workspace/capacity oförändrade i95f8071. Inte en shell-/SDK-ersättning. |
-| Egen CUA+DB för agentprov | PASS samma opublicerade20%-utkast16november efterreload; kalender16nov/Sam, återbokning09viawebb95f8071, MCP/UIstale;1beslut/1ledger, nekade0,0överlapp. Negativconfirmedfalse är inte verkligt mänskligtnej. |
-| Egen CUA för kunddata | PASS eget påhittat kort→förbereddexport→preview/disabled→kryss→bekräfta→reloadarkiverat. Mobilbild375×812; nedladdningsinnehåll separat E2E. |
-| npm audit --package-lock-only --json | FAIL exit1,7moderate dev,0high/critical. Inga paket-/lockändringar. |
-| npm audit --package-lock-only --omit=dev --json | PASS exit0,0fynd; inte pilotgodkännande. |
-| Oberoende Grok initial | Syntetisk GO med MediumLC-QA-1 påe2e0e39. Egna79unit/98integration/46prod-E2E, API77/1(Medium), MCP27/0, UI52/0. |
-| Oberoende Grok fix1 | GO syntetisk POC på95f8071, LC-QA-1 stängt, inga Medium+. Egna79unit/99integration/46prod-E2E, LC-prob23/0, MCP27/0,8843→95fupgrade. Agentprovet endast underlagsgranskat. |
-| gh workflow run verify.yml --ref feature/customer-lifecycle-agent-proof | [43393207291](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43393207291) success på95f8071:4gröna46/46, npmci572Linux/generate/9migrationer/seed/lint/79unit/99integration/build/tsc. Push43393207637 cancelled av manualmatris. |
-| Skyddad faktisk Vercel Preview och stabil alias | PASS dpl_<redacted>, READY target=null, fra1, customsourceRevision95f8071 verifierad viaCLIAPI; exaktGitarchive. Stabil alias→sammaID. |
-| Molnflöden | PASS en demoknapp, exportdownload/100max/auth/origin/strict/no-store, framtida-besökguard, UIremove/20retries→1åtgärd och ändradretry409. Snapshot/version/pris består, logout/copiedcookie403.320/390/1440 PASS. |
-| Egen CUA i stabil preview | PASS färdigladdat borttaget kort och avbokad historik450kr. CSS390×844 verifierat; returneradbild247×844skalad. Fullpage-försök timeout, vanligbild lyckades. Ingen fysisk iPhone. |
-| Äldre molndata | PASS92Booking/33Customer/107Event/4Campaign/3CapacityDecision/6Service/5Staff oförändrade. Slut93/34,0överlapp, endast example.test; eget provkort/1avbokadbokning tillkom. |
-| Perimeter/TLS/direktport | PASS5READY-URL:er+stabilalias,24HTML/API/assetprober skyddade, newchunk skyddad, SSOall; TLS1.3certverifierat; port3000ejansluten inom5s, ingen fullportscan. |
-| Krypterad backup/återläsning | PASS före12/efter13tabeller i nya lokala *_demo, alla radhashar matchar, AES-256-GCM/tampernekas, separat befintlignyckel bevarad; lokalPC, ejautomatiskoffsite. |
-| Slutlig SDK-launcher95f8071 | PASS6tool/4förslag/0writes; nästa befintliga registreringsstart pinnad95f8071. Faktiskt huvudklientprov e2e0e39/identisk kapacitetskod särredovisas. |
+| Körda kommandon / kontroll                                                               | Faktiskt resultat efter fix1                                                                                                                                                                                                                        |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| npm ci --offline --no-fund --no-audit                                                    | PASS571Windows-paket,6m i ny lokal runtime. Oförändrad lockfil.                                                                                                                                                                                     |
+| node node_modules/prisma/build/index.js generate                                         | PASS7.10.1,3s; även isolerad runtime.                                                                                                                                                                                                               |
+| node node_modules/prisma/build/index.js migrate deploy; node --import tsx prisma/seed.ts | PASS9migrationer/seed på6nya loopback55451 \*\_test/\_demo. Historiska8oförändrade.                                                                                                                                                                 |
+| node node_modules/eslint/bin/eslint.js .                                                 | PASS exit0,14s.                                                                                                                                                                                                                                     |
+| node node_modules/typescript/bin/tsc --noEmit                                            | PASS exit0,8s.                                                                                                                                                                                                                                      |
+| RATE_LIMIT_STORE=memory node node_modules/vitest/vitest.mjs run                          | PASS79/79,16filer.                                                                                                                                                                                                                                  |
+| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts            | PASS99/99,23filer,89.81s. Nytt kvot-/kontaktregressionstest.                                                                                                                                                                                        |
+| node node_modules/next/dist/bin/next build                                               | PASS exit0,17s.                                                                                                                                                                                                                                     |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test         | PASS46/46,119s.                                                                                                                                                                                                                                     |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test         | PASS46/46,113s.                                                                                                                                                                                                                                     |
+| E2E_PRODUCTION= TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test          | PASS46/46,206s.                                                                                                                                                                                                                                     |
+| E2E_PRODUCTION= TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test          | PASS46/46,164s.                                                                                                                                                                                                                                     |
+| 8→9uppgradering/återseed efter fix1                                                      | PASS ny \*\_demo, äldre kolumner bevarade vid migration; efter manuell kontaktåtgärd även äldre råkvot→HMAC, teknisk historik/beslut består. Seed2gånger sammahashar,0överlapp.                                                                     |
+| Gitblob mot testkopia                                                                    | PASS196produkt-/konfig-/test-/assetfiler,0mismatch, LF-normaliserad text/exaktbinär; docs/AGENTS/genererad next-env undantagna.                                                                                                                     |
+| Städning                                                                                 | PASS5miljöer:0Booking/Event/Customer/DataAction/Campaign/Decision/AdminUser/Session/WorkspaceRequest. Integration10hashade RateLimitBucket kvar;4E2Emiljöer0.                                                                                       |
+| Faktiska Codex MCP-verktyg                                                               | PASS read/inspect/draft/retry/changedretry/confirmedfalse/stale. MCPe2e0e39; server/workspace/capacity oförändrade i95f8071. Inte en shell-/SDK-ersättning.                                                                                         |
+| Egen CUA+DB för agentprov                                                                | PASS samma opublicerade20%-utkast16november efterreload; kalender16nov/Sam, återbokning09viawebb95f8071, MCP/UIstale;1beslut/1ledger, nekade0,0överlapp. Negativconfirmedfalse är inte verkligt mänskligtnej.                                       |
+| Egen CUA för kunddata                                                                    | PASS eget påhittat kort→förbereddexport→preview/disabled→kryss→bekräfta→reloadarkiverat. Mobilbild375×812; nedladdningsinnehåll separat E2E.                                                                                                        |
+| npm audit --package-lock-only --json                                                     | FAIL exit1,7moderate dev,0high/critical. Inga paket-/lockändringar.                                                                                                                                                                                 |
+| npm audit --package-lock-only --omit=dev --json                                          | PASS exit0,0fynd; inte pilotgodkännande.                                                                                                                                                                                                            |
+| Oberoende Grok initial                                                                   | Syntetisk GO med MediumLC-QA-1 påe2e0e39. Egna79unit/98integration/46prod-E2E, API77/1(Medium), MCP27/0, UI52/0.                                                                                                                                    |
+| Oberoende Grok fix1                                                                      | GO syntetisk POC på95f8071, LC-QA-1 stängt, inga Medium+. Egna79unit/99integration/46prod-E2E, LC-prob23/0, MCP27/0,8843→95fupgrade. Agentprovet endast underlagsgranskat.                                                                          |
+| gh workflow run verify.yml --ref feature/customer-lifecycle-agent-proof                  | [43393207291](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43393207291) success på95f8071:4gröna46/46, npmci572Linux/generate/9migrationer/seed/lint/79unit/99integration/build/tsc. Push43393207637 cancelled av manualmatris. |
+| Skyddad faktisk Vercel Preview och stabil alias                                          | PASS dpl_<redacted>, READY target=null, fra1, customsourceRevision95f8071 verifierad viaCLIAPI; exaktGitarchive. Stabil alias→sammaID.                                                                                            |
+| Molnflöden                                                                               | PASS en demoknapp, exportdownload/100max/auth/origin/strict/no-store, framtida-besökguard, UIremove/20retries→1åtgärd och ändradretry409. Snapshot/version/pris består, logout/copiedcookie403.320/390/1440 PASS.                                   |
+| Egen CUA i stabil preview                                                                | PASS färdigladdat borttaget kort och avbokad historik450kr. CSS390×844 verifierat; returneradbild247×844skalad. Fullpage-försök timeout, vanligbild lyckades. Ingen fysisk iPhone.                                                                  |
+| Äldre molndata                                                                           | PASS92Booking/33Customer/107Event/4Campaign/3CapacityDecision/6Service/5Staff oförändrade. Slut93/34,0överlapp, endast example.test; eget provkort/1avbokadbokning tillkom.                                                                         |
+| Perimeter/TLS/direktport                                                                 | PASS5READY-URL:er+stabilalias,24HTML/API/assetprober skyddade, newchunk skyddad, SSOall; TLS1.3certverifierat; port3000ejansluten inom5s, ingen fullportscan.                                                                                       |
+| Krypterad backup/återläsning                                                             | PASS före12/efter13tabeller i nya lokala \*\_demo, alla radhashar matchar, AES-256-GCM/tampernekas, separat befintlignyckel bevarad; lokalPC, ejautomatiskoffsite.                                                                                  |
+| Slutlig SDK-launcher95f8071                                                              | PASS6tool/4förslag/0writes; nästa befintliga registreringsstart pinnad95f8071. Faktiskt huvudklientprov e2e0e39/identisk kapacitetskod särredovisas.                                                                                                |
 
 Råkommandon/exitkoder och utdata: [verification/lifecycle](verification/lifecycle/),
 [matris](verification/lifecycle/verification.json), [källmatchning](verification/lifecycle/source-freeze.json),
@@ -251,34 +327,34 @@ QA är separata. Endast syntetiska uppgifter. Pilot NO-GO.
 
 ## Historisk resultattabell (8843d06)
 
-| Körda kommandon / kontroll | Faktiskt resultat |
-| --- | --- |
-| npm ci --offline --no-fund --no-audit | PASS exit0,571paket,4m i tom Windows-testkopia på C:. Oförändrad lockfil; Linux/Grok/CI har plattformsberoende valfria paket. |
-| node node_modules/prisma/build/index.js generate | PASS exit0,7.10.1. |
-| node node_modules/prisma/build/index.js migrate deploy; node --import tsx prisma/seed.ts | PASS8migreringar/grundseed på6nya loopback_test/_demo, separat prod0-v3_test vid sista körningen. Historiska7orörda. |
-| BOOKING_DEMO_SEED=1 node --import tsx scripts/seed-capacity.ts | PASS lokal additiv demo och7→8uppgraderingskopia; andra seedens samtliga tabellhashar identiska,0överlapp. |
-| node node_modules/eslint/bin/eslint.js . | PASS exit0,7s. |
-| node node_modules/typescript/bin/tsc --noEmit | PASS exit0,3s. |
-| RATE_LIMIT_STORE=memory node node_modules/vitest/vitest.mjs run | PASS78/78,15filer,7.03s. |
-| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts | PASS90/90,21filer,77.26s, riktig PostgreSQL. |
-| node node_modules/next/dist/bin/next build | PASS exit0,7s; verkligt produktionsbygge. |
-| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test | PASS42/42,86s. |
-| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test | PASS42/42,87s. |
-| E2E_PRODUCTION= TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test | PASS42/42,153s. |
-| E2E_PRODUCTION= TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test | PASS42/42,162s. |
-| npm audit --package-lock-only --json | FAIL exit1:7moderate,0high/critical; enbart ESLint/typescript-eslint/minimatch-devkedjan. |
-| npm audit --package-lock-only --omit=dev --json | PASS exit0:0fynd. Inte ett generellt säkerhets- eller pilotgodkännande. |
-| Gitarchive mot testkopia | PASS167kod-/konfig-/asset-/testfiler matchar8843d06; LF-normaliserad text och exakt binär jämförelse. Inga källändringar i testkopian. |
-| Teststädning | Alla fem testmiljöer:0Booking/BookingEvent/Customer/Campaign/CapacityDecision/AdminUser/AdminSession/WorkspaceRequest. Integration har14hashade RateLimitBucket-rader kvar; fyra E2E-miljöer0. |
-| Oberoende Grok, fix1 | GO syntetisk POC; PRO-QA-1 stängt. Egna78unit/90integration/42prod-E2E, lint/tsc/build och51UI-prober PASS. Fyra mindre backlogfynd, inga blockerare/Medium+. |
-| gh workflow run verify.yml --ref feature/proactive-capacity-overview | [43353236981](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43353236981) success på8843d06: fyra42/42jobb,78unit/90integration, npmci/migrate/seed/lint/tsc/build. Push43353218140 avbröts av manuell fullmatris. |
-| Skyddad Vercel Preview och stabil alias | PASS READY dpl_<redacted>, sourceRevision8843d06, target=null, fra1; source archive av exakt Git-SHA. CLI API kompletterade connectorns utelämnade custom metadata. |
-| Molnmigration/seed/historik | PASS8migreringar;84äldre bokningshashar identiska; seed två gånger identisk; slut92bokningar/33kunder/4kampanjer/3beslut;0överlapp och endast example.test. |
-| Verkliga driftflöden | PASS ett demoklick, minimerad/bounded API, origin403,20samtidiga draft→1id, replay/ändrad payload409, UI/save/reload, rebook→stale, opublicerat utkast, logout/kopierad cookie403. Ingen publik MCP. |
-| HTML/API/resurser/TLS | PASS alla4READY-URL:er+stabil alias kräver Vercel302 utan auth. Nya resurser/static chunk/POST skyddade. HTTPS/certifikat, säkerhetsheaders, HTTP308. Ingen TCP-anslutning till port3000 observerades inom5s; ingen full nätverkspentest. |
-| Stabil alias, utan appsession | PASS produkt200 bakom befintlig Vercel-auth, capacityAPI403. Overview ger200 med Nexts streamade loginredirect och inga kapacitetsdata; HTTP200 betyder inte adminåtkomst. |
-| Egen faktisk Computer Use i preview | PASS390px: demoinloggning, Översikt→16nov/Sam,20%-villkor/datumval→förhandsgranskning utan sparande, verkligt stale-kort. Nya faktiska390/1440-bilder granskade. Automatiskt layoutprov även320px. |
-| Krypterad backup/återläsning | PASS före migration11tabeller och efter drift12tabeller, alla radhashar identiska. AES-256-GCM, manipulerad data nekas, befintlig separat nyckel bevarad. Lokal PC-backup, inte automatisk offsite. |
+| Körda kommandon / kontroll                                                               | Faktiskt resultat                                                                                                                                                                                                                         |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| npm ci --offline --no-fund --no-audit                                                    | PASS exit0,571paket,4m i tom Windows-testkopia på C:. Oförändrad lockfil; Linux/Grok/CI har plattformsberoende valfria paket.                                                                                                             |
+| node node_modules/prisma/build/index.js generate                                         | PASS exit0,7.10.1.                                                                                                                                                                                                                        |
+| node node_modules/prisma/build/index.js migrate deploy; node --import tsx prisma/seed.ts | PASS8migreringar/grundseed på6nya loopback_test/\_demo, separat prod0-v3_test vid sista körningen. Historiska7orörda.                                                                                                                     |
+| BOOKING_DEMO_SEED=1 node --import tsx scripts/seed-capacity.ts                           | PASS lokal additiv demo och7→8uppgraderingskopia; andra seedens samtliga tabellhashar identiska,0överlapp.                                                                                                                                |
+| node node_modules/eslint/bin/eslint.js .                                                 | PASS exit0,7s.                                                                                                                                                                                                                            |
+| node node_modules/typescript/bin/tsc --noEmit                                            | PASS exit0,3s.                                                                                                                                                                                                                            |
+| RATE_LIMIT_STORE=memory node node_modules/vitest/vitest.mjs run                          | PASS78/78,15filer,7.03s.                                                                                                                                                                                                                  |
+| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts            | PASS90/90,21filer,77.26s, riktig PostgreSQL.                                                                                                                                                                                              |
+| node node_modules/next/dist/bin/next build                                               | PASS exit0,7s; verkligt produktionsbygge.                                                                                                                                                                                                 |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test         | PASS42/42,86s.                                                                                                                                                                                                                            |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test         | PASS42/42,87s.                                                                                                                                                                                                                            |
+| E2E_PRODUCTION= TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test          | PASS42/42,153s.                                                                                                                                                                                                                           |
+| E2E_PRODUCTION= TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test          | PASS42/42,162s.                                                                                                                                                                                                                           |
+| npm audit --package-lock-only --json                                                     | FAIL exit1:7moderate,0high/critical; enbart ESLint/typescript-eslint/minimatch-devkedjan.                                                                                                                                                 |
+| npm audit --package-lock-only --omit=dev --json                                          | PASS exit0:0fynd. Inte ett generellt säkerhets- eller pilotgodkännande.                                                                                                                                                                   |
+| Gitarchive mot testkopia                                                                 | PASS167kod-/konfig-/asset-/testfiler matchar8843d06; LF-normaliserad text och exakt binär jämförelse. Inga källändringar i testkopian.                                                                                                    |
+| Teststädning                                                                             | Alla fem testmiljöer:0Booking/BookingEvent/Customer/Campaign/CapacityDecision/AdminUser/AdminSession/WorkspaceRequest. Integration har14hashade RateLimitBucket-rader kvar; fyra E2E-miljöer0.                                            |
+| Oberoende Grok, fix1                                                                     | GO syntetisk POC; PRO-QA-1 stängt. Egna78unit/90integration/42prod-E2E, lint/tsc/build och51UI-prober PASS. Fyra mindre backlogfynd, inga blockerare/Medium+.                                                                             |
+| gh workflow run verify.yml --ref feature/proactive-capacity-overview                     | [43353236981](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43353236981) success på8843d06: fyra42/42jobb,78unit/90integration, npmci/migrate/seed/lint/tsc/build. Push43353218140 avbröts av manuell fullmatris.      |
+| Skyddad Vercel Preview och stabil alias                                                  | PASS READY dpl_<redacted>, sourceRevision8843d06, target=null, fra1; source archive av exakt Git-SHA. CLI API kompletterade connectorns utelämnade custom metadata.                                                     |
+| Molnmigration/seed/historik                                                              | PASS8migreringar;84äldre bokningshashar identiska; seed två gånger identisk; slut92bokningar/33kunder/4kampanjer/3beslut;0överlapp och endast example.test.                                                                               |
+| Verkliga driftflöden                                                                     | PASS ett demoklick, minimerad/bounded API, origin403,20samtidiga draft→1id, replay/ändrad payload409, UI/save/reload, rebook→stale, opublicerat utkast, logout/kopierad cookie403. Ingen publik MCP.                                      |
+| HTML/API/resurser/TLS                                                                    | PASS alla4READY-URL:er+stabil alias kräver Vercel302 utan auth. Nya resurser/static chunk/POST skyddade. HTTPS/certifikat, säkerhetsheaders, HTTP308. Ingen TCP-anslutning till port3000 observerades inom5s; ingen full nätverkspentest. |
+| Stabil alias, utan appsession                                                            | PASS produkt200 bakom befintlig Vercel-auth, capacityAPI403. Overview ger200 med Nexts streamade loginredirect och inga kapacitetsdata; HTTP200 betyder inte adminåtkomst.                                                                |
+| Egen faktisk Computer Use i preview                                                      | PASS390px: demoinloggning, Översikt→16nov/Sam,20%-villkor/datumval→förhandsgranskning utan sparande, verkligt stale-kort. Nya faktiska390/1440-bilder granskade. Automatiskt layoutprov även320px.                                        |
+| Krypterad backup/återläsning                                                             | PASS före migration11tabeller och efter drift12tabeller, alla radhashar identiska. AES-256-GCM, manipulerad data nekas, befintlig separat nyckel bevarad. Lokal PC-backup, inte automatisk offsite.                                       |
 
 Råkommandon/exitkoder och oförändrade textkopior av utdata finns i [verification/proactive](verification/proactive/):
 [lokal manifest](verification/proactive/final-local-manifest.json), [matris](verification/proactive/verification.json),
@@ -330,29 +406,29 @@ i [evidence-epic06](qa/evidence-epic06); full CI-logg via [Actions43301797796](h
 
 ### Historisk resultattabell
 
-| Kommando/kontroll | Faktiskt utfall |
-| --- | --- |
-| npm ci --no-fund --no-audit | PASS exit0,571 paket Windows, lucide-ci.log. ESLint9-deprecation kvar. Linux/Grok/build572; ingen manifestversionsskillnad. |
-| npx prisma generate | PASS: 7.10.1. Lokalt körd via node node_modules/prisma/build/index.js generate; CI kör npx. |
-| npm run db:migrate / db:seed | PASS: 7 migrationer+grundseed på nya booking_epic06_lucide_{integration,prod0}_test. CLI via node Prisma/tsx; alla gamla migrationer oförändrade. |
-| npm run lint / npx tsc --noEmit / npm run build | PASS: 0; lokalt motsvarande installerade eslint/tsc/Next-CLI. Samma npm-kommandon även verifierade i CI. |
-| npm test | PASS: 76/76,14 filer,7.80s; node node_modules/vitest/vitest.mjs run lokalt. |
-| npm run test:integration | PASS: 84/84,20 filer,79.20s; node Vitest med vitest.integration.config.ts. Ny seed-CLI-test skapar/städar endast egen slumpad loopback_demo-databas. |
-| RATE_LIMIT_STORE=postgres E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e | PASS: 40/40,1.8m, desktop+mobil på7c. Lokalt node Playwright-CLI. |
-| Föregående samlade rättning aab9fdf, före Lucide | PASS: 40/40×4 i prod0/prod1/dev0/dev1,1.7m/1.2m/4.2m/3.0m. Redovisas inte som lokal fyrmatris på7c. |
-| Slutstädning lokal7c | PASS: 0 egna bokningar/kunder/kampanjer/admins/sessioner/ledger/events/spärrposter i både integration och prod0. |
-| Actions43301797796 på7c | PASS: 4/4jobb:dev0 40/40(2.2m),dev1 40/40(2.6m),prod0 40/40(1.2m),prod1 40/40(1.2m). CI76 unit/84 integration/lint/tsc/build PASS; Docker Postgres faktiskt körd. |
-| npm audit --json | **FAIL exit1:7 moderate,0 high/critical**. Samma upstream-blockerade minimatch/ESLint-kedja; ingen major/override/canary införd. |
-| npm audit --omit=dev --json | **PASS exit0:0fynd**. Skilt från funktionstester och pilotbeslut. |
-| Groks egen frysta återkontroll7c | PASS: 76 unit/84 integration/40 prod-E2E och lint/tsc/build. Seedspoof/uppgradering,12 sökprov,33 gate-on-mätningar320/390/1440; verklig återbesöksklickning. GO syntetisk skyddad preview efter1fixvarv; NO-GO pilot. |
-| Lokal uppgraderingskopia | PASS: 37ursprungliga snapshots bevarade,83 bokningar/32 kort,0 överlapp; återseed0 nya och oförändrade hashvärden. Publik spoofad seednyckel förblir olänkad. |
-| Molnmigration+seed | PASS: 7 migrationer,35 äldre snapshots bevarade.46 nya+33 befintliga; följande tre0 nya/79 befintliga. Sju tabellhashar identiska vid sista återkörningen. |
-| Faktiskt Vercelbygge | PASS Linuxamd64,124 vitlistade filer,572 byggpaket/54 runtimepaket, Prisma+Nextbuild, ursprunglig nativehash och Lucide-notiser. READY Preview target=null, dpl_<redacted>, fra1; build cle1/USA. |
-| Faktisk perimeter/TLS | PASS stabil och immutable alias, HTML/admin/API/POSTdemo/AI-asset/statisk chunk skyddade. Vercel SSO alla deployments,1ägare. Giltig TLS1.3, appheaders och no-store; direkt3000ejnåbar(4s timeout). Ingen publik MCP. |
-| Faktiska kundflöden | PASS: 67 kontroller i faktisk skyddad deployment: demoentry, minimala listor, kort/historik, skapa+reload, kalender→kort, kontaktedit med gammal snapshot kvar, flytt/avbokning/återbesök/arkiv, publikt201 och ingen kundlänk. |
-| Faktisk mobil/desktop | PASS: 320/390/1440inklusive långa synliga kontakter. Fem riktiga färdigladdade bilder tagna via stabil länk390×844; faktisk iPhone/Safari NOT RUN. |
-| Faktisk session/beständighet | PASS: samma bokningssvar/session efter90197 ms; logout och kopierad cookie403. Ingen framtvingad omstart; startup-loggar observerade men inte knutna till just persistensrequesten. |
-| Backup/återläsning | PASS före migrering10 tabeller och efter egna molnflöden11 tabeller, alla radantal/hashar identiska. pg_dump18.7 verify-full, AES256GCM, manipulering nekas. Befintlig separat nyckel bevarad. Lokal krypterad PC-backup, ingen automatisk offsitebackup. |
+| Kommando/kontroll                                                            | Faktiskt utfall                                                                                                                                                                                                                                           |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| npm ci --no-fund --no-audit                                                  | PASS exit0,571 paket Windows, lucide-ci.log. ESLint9-deprecation kvar. Linux/Grok/build572; ingen manifestversionsskillnad.                                                                                                                               |
+| npx prisma generate                                                          | PASS: 7.10.1. Lokalt körd via node node_modules/prisma/build/index.js generate; CI kör npx.                                                                                                                                                               |
+| npm run db:migrate / db:seed                                                 | PASS: 7 migrationer+grundseed på nya booking*epic06_lucide*{integration,prod0}\_test. CLI via node Prisma/tsx; alla gamla migrationer oförändrade.                                                                                                        |
+| npm run lint / npx tsc --noEmit / npm run build                              | PASS: 0; lokalt motsvarande installerade eslint/tsc/Next-CLI. Samma npm-kommandon även verifierade i CI.                                                                                                                                                  |
+| npm test                                                                     | PASS: 76/76,14 filer,7.80s; node node_modules/vitest/vitest.mjs run lokalt.                                                                                                                                                                               |
+| npm run test:integration                                                     | PASS: 84/84,20 filer,79.20s; node Vitest med vitest.integration.config.ts. Ny seed-CLI-test skapar/städar endast egen slumpad loopback_demo-databas.                                                                                                      |
+| RATE_LIMIT_STORE=postgres E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e | PASS: 40/40,1.8m, desktop+mobil på7c. Lokalt node Playwright-CLI.                                                                                                                                                                                         |
+| Föregående samlade rättning aab9fdf, före Lucide                             | PASS: 40/40×4 i prod0/prod1/dev0/dev1,1.7m/1.2m/4.2m/3.0m. Redovisas inte som lokal fyrmatris på7c.                                                                                                                                                       |
+| Slutstädning lokal7c                                                         | PASS: 0 egna bokningar/kunder/kampanjer/admins/sessioner/ledger/events/spärrposter i både integration och prod0.                                                                                                                                          |
+| Actions43301797796 på7c                                                      | PASS: 4/4jobb:dev0 40/40(2.2m),dev1 40/40(2.6m),prod0 40/40(1.2m),prod1 40/40(1.2m). CI76 unit/84 integration/lint/tsc/build PASS; Docker Postgres faktiskt körd.                                                                                         |
+| npm audit --json                                                             | **FAIL exit1:7 moderate,0 high/critical**. Samma upstream-blockerade minimatch/ESLint-kedja; ingen major/override/canary införd.                                                                                                                          |
+| npm audit --omit=dev --json                                                  | **PASS exit0:0fynd**. Skilt från funktionstester och pilotbeslut.                                                                                                                                                                                         |
+| Groks egen frysta återkontroll7c                                             | PASS: 76 unit/84 integration/40 prod-E2E och lint/tsc/build. Seedspoof/uppgradering,12 sökprov,33 gate-on-mätningar320/390/1440; verklig återbesöksklickning. GO syntetisk skyddad preview efter1fixvarv; NO-GO pilot.                                    |
+| Lokal uppgraderingskopia                                                     | PASS: 37ursprungliga snapshots bevarade,83 bokningar/32 kort,0 överlapp; återseed0 nya och oförändrade hashvärden. Publik spoofad seednyckel förblir olänkad.                                                                                             |
+| Molnmigration+seed                                                           | PASS: 7 migrationer,35 äldre snapshots bevarade.46 nya+33 befintliga; följande tre0 nya/79 befintliga. Sju tabellhashar identiska vid sista återkörningen.                                                                                                |
+| Faktiskt Vercelbygge                                                         | PASS Linuxamd64,124 vitlistade filer,572 byggpaket/54 runtimepaket, Prisma+Nextbuild, ursprunglig nativehash och Lucide-notiser. READY Preview target=null, dpl_<redacted>, fra1; build cle1/USA.                                       |
+| Faktisk perimeter/TLS                                                        | PASS stabil och immutable alias, HTML/admin/API/POSTdemo/AI-asset/statisk chunk skyddade. Vercel SSO alla deployments,1ägare. Giltig TLS1.3, appheaders och no-store; direkt3000ejnåbar(4s timeout). Ingen publik MCP.                                    |
+| Faktiska kundflöden                                                          | PASS: 67 kontroller i faktisk skyddad deployment: demoentry, minimala listor, kort/historik, skapa+reload, kalender→kort, kontaktedit med gammal snapshot kvar, flytt/avbokning/återbesök/arkiv, publikt201 och ingen kundlänk.                           |
+| Faktisk mobil/desktop                                                        | PASS: 320/390/1440inklusive långa synliga kontakter. Fem riktiga färdigladdade bilder tagna via stabil länk390×844; faktisk iPhone/Safari NOT RUN.                                                                                                        |
+| Faktisk session/beständighet                                                 | PASS: samma bokningssvar/session efter90197 ms; logout och kopierad cookie403. Ingen framtvingad omstart; startup-loggar observerade men inte knutna till just persistensrequesten.                                                                       |
+| Backup/återläsning                                                           | PASS före migrering10 tabeller och efter egna molnflöden11 tabeller, alla radantal/hashar identiska. pg_dump18.7 verify-full, AES256GCM, manipulering nekas. Befintlig separat nyckel bevarad. Lokal krypterad PC-backup, ingen automatisk offsitebackup. |
 
 [Groks originalrapport](qa/QA-REPORT-epic06-fix1-7c1407d.md), SHA256 **5c1f5194d76fb2b88bb5ce05b7c3c7c0b3a68a4451cc50fd71c12bbcfc8a4381**. Grok hade ingen moln- eller GitHub-åtkomst.
 Moln-/CI-bevisen ovan är Codex egna, inte tillskrivna Grok. Den manuella
@@ -393,35 +469,34 @@ Pilot för riktiga kunder är fortsatt NO-GO.
 
 Full audit fortsatt **FAIL7moderate**, omit-dev **PASS0**. Ingen säker publicerad stabil rättningskedja verifierad; inga paket, produktfunktioner eller UI ändrade. Rättning är upstream-blockerad, inte klar. Nya lint/tsc/build,75unit och75integration på ny lokal syntetisk DB PASS. Inga nya E2E/CI/deploy i denna dokumentationsbatch. [Beroendebeslut och faktiska data](DEPENDENCY_REVIEW.md#audit-återkontroll-2026-11-12--rättning-blockerad-av-stabil-upstream). Driftsatt kod och senaste fungerande preview är fortsatt d7bc47f. Grok bekräftar slutsatsen i [originalrapporten](qa/AUDIT-REPORT-6acd2ef-minimatch.md); ingen stabil säker rättning finns ännu.
 
-
 2026-11-12. Produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**, branch ui/epic05-booking-usability. Enbart dokumentation/bilder tillkommer efter fryst QA. Alla kommandoutdata finns utanför Git i C:/Users/<user>/booking-lab-pg-test/ui-usability. Utvalda maskinresultat i [evidence-ui](qa/evidence-ui).
 
 ### Historisk resultattabell d7bc47f
 
-| Kommando/kontroll | Faktiskt resultat |
-| --- | --- |
-| npm ci --no-fund --no-audit | PASS570packages; oförändrad lockfile, ESLint9 deprecation kvar. |
-| npx prisma generate | PASS7.10.1. |
-| npm run db:migrate; npm run db:seed | PASS sex oförändrade migrationer och seed på nya isolerade loopback *_test-databaser för slutmatrisen. |
-| npm run lint; npx tsc --noEmit | PASS exit0, lint-fix2-final.log / tsc-fix2-final.log. |
-| npm test | PASS75/75, unit-fix2.log. |
-| npm run test:integration | PASS75/75,75.24s. Ytterligare helt ny delivery_integration_test75/75,68.8s. |
-| npm run build | PASS Next16.4.6 / Prisma7.10.1, build-fix2.log. |
-| RATE_LIMIT_STORE=postgres npm run test:e2e (prod0) | PASS34/34,1.2m, egen booking_ui_fix2_prod0_test. |
-| Samma prod1 | PASS34/34,58.6s, egen booking_ui_fix2_prod1_test. |
-| Samma dev0 | PASS34/34,6.7m (lokal filcachekompaktering), egen booking_ui_fix2_dev0_test. |
-| Samma dev1 | PASS34/34,1.8m, egen booking_ui_fix2_dev1_test. |
-| Slutstädning | PASS0 egna bokningar/kampanjer/admins/sessioner/spärrposter/workspaceRequests/events i samtliga fyra test-DB. |
-| npm audit --json | FAIL exit1,7moderate,0high/critical; inga riskabla overrides/majorbyten. |
-| npm audit --omit=dev --json | PASS0fynd. Separat från funktionstester. |
-| Actions43275980287 | PASS exakt d7:dev0 34/34(1.4m),dev1 34/34(1.5m),prod0 34/34(52.0s),prod1 34/34(39.5s). HTTP memory-default i CI; lokal matris postgres. |
-| Grok fryst slutrevision | GO för skyddad syntetisk preview, NO-GO pilot. Egna75unit/lint/tsc/build,34prod0,2riktade dev+prod; slutlig riktig hjul-/tangentbordsprovning av kalender. Föregående fix1 hade75integration och66HTTP-gateprober; oförändrad auth återtestades inte i slutvarvet. Ingen cloudåtkomst eller granskning av våra aktuella Actions. |
-| Verkligt Vercel containerbygge | PASS Buildah Linuxamd64,105källfiler, Prisma/Nextbuild och minimalruntime53paket; revision d7, deployment dpl_<redacted>. Preview target=null, fra1; build cle1/USA. |
-| Faktisk perimeter | PASS stabil alias och immutable deployment; HTML, API, demoPOST, favicon och verklig statisk resurs kräver Vercel-auth. SSO alla deployments, endast Niclas. |
-| Faktisk säkerhet | PASS giltig HTTPS-certifikatkedja, CSP/HSTS/nosniff/no-powered-by/admin no-store, Secure/HttpOnly/Strict-cookie, same-origin, separat appbehörighet, session reuse, logout och kopierad-cookie403. Port3000 ej nåbar; /mcp,/api/mcp,/sse404. |
-| Faktisk användarprovning | PASS Chromium: demoknapp, kundbokning+tom dag→nästa lediga, sammanfattning/bekräftelse; ägare skapa/flytta/avboka; ändra och återställ pris, lägg ledighet, publicera kampanj. Alla fyra adminmenyer utan sid-overflow vid320/390/1440. Se live/result.json. |
-| Faktisk beständighet | PASS samma session och bokningssvar efter99sekunders inaktivitet, därefter probe-session revokerad. Kompletterande Vercellogg BOOKING_SERVER_READY för samma boknings-GET200 vid18:30:52.888Z (cnm4m-1794508252888-208cb974d6b6) styrker ny instans efter inaktiviteten; ingen framtvingad omstart. Se cold-start.json. |
-| Backup/återläsning efter UI-prov | PASS pg_dump18.7 verify-full, AES256GCM, tamper nekas; ny lokal booking_ui_live_restore_demo, alla10tabellers antal/rowhash identiska,35bokningar. Krypterad fil på operatörens PC, inte automatiserad offsitebackup. |
+| Kommando/kontroll                                  | Faktiskt resultat                                                                                                                                                                                                                                                                                                                |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| npm ci --no-fund --no-audit                        | PASS570packages; oförändrad lockfile, ESLint9 deprecation kvar.                                                                                                                                                                                                                                                                  |
+| npx prisma generate                                | PASS7.10.1.                                                                                                                                                                                                                                                                                                                      |
+| npm run db:migrate; npm run db:seed                | PASS sex oförändrade migrationer och seed på nya isolerade loopback \*\_test-databaser för slutmatrisen.                                                                                                                                                                                                                         |
+| npm run lint; npx tsc --noEmit                     | PASS exit0, lint-fix2-final.log / tsc-fix2-final.log.                                                                                                                                                                                                                                                                            |
+| npm test                                           | PASS75/75, unit-fix2.log.                                                                                                                                                                                                                                                                                                        |
+| npm run test:integration                           | PASS75/75,75.24s. Ytterligare helt ny delivery_integration_test75/75,68.8s.                                                                                                                                                                                                                                                      |
+| npm run build                                      | PASS Next16.4.6 / Prisma7.10.1, build-fix2.log.                                                                                                                                                                                                                                                                                  |
+| RATE_LIMIT_STORE=postgres npm run test:e2e (prod0) | PASS34/34,1.2m, egen booking_ui_fix2_prod0_test.                                                                                                                                                                                                                                                                                 |
+| Samma prod1                                        | PASS34/34,58.6s, egen booking_ui_fix2_prod1_test.                                                                                                                                                                                                                                                                                |
+| Samma dev0                                         | PASS34/34,6.7m (lokal filcachekompaktering), egen booking_ui_fix2_dev0_test.                                                                                                                                                                                                                                                     |
+| Samma dev1                                         | PASS34/34,1.8m, egen booking_ui_fix2_dev1_test.                                                                                                                                                                                                                                                                                  |
+| Slutstädning                                       | PASS0 egna bokningar/kampanjer/admins/sessioner/spärrposter/workspaceRequests/events i samtliga fyra test-DB.                                                                                                                                                                                                                    |
+| npm audit --json                                   | FAIL exit1,7moderate,0high/critical; inga riskabla overrides/majorbyten.                                                                                                                                                                                                                                                         |
+| npm audit --omit=dev --json                        | PASS0fynd. Separat från funktionstester.                                                                                                                                                                                                                                                                                         |
+| Actions43275980287                                 | PASS exakt d7:dev0 34/34(1.4m),dev1 34/34(1.5m),prod0 34/34(52.0s),prod1 34/34(39.5s). HTTP memory-default i CI; lokal matris postgres.                                                                                                                                                                                          |
+| Grok fryst slutrevision                            | GO för skyddad syntetisk preview, NO-GO pilot. Egna75unit/lint/tsc/build,34prod0,2riktade dev+prod; slutlig riktig hjul-/tangentbordsprovning av kalender. Föregående fix1 hade75integration och66HTTP-gateprober; oförändrad auth återtestades inte i slutvarvet. Ingen cloudåtkomst eller granskning av våra aktuella Actions. |
+| Verkligt Vercel containerbygge                     | PASS Buildah Linuxamd64,105källfiler, Prisma/Nextbuild och minimalruntime53paket; revision d7, deployment dpl_<redacted>. Preview target=null, fra1; build cle1/USA.                                                                                                                                           |
+| Faktisk perimeter                                  | PASS stabil alias och immutable deployment; HTML, API, demoPOST, favicon och verklig statisk resurs kräver Vercel-auth. SSO alla deployments, endast Niclas.                                                                                                                                                                     |
+| Faktisk säkerhet                                   | PASS giltig HTTPS-certifikatkedja, CSP/HSTS/nosniff/no-powered-by/admin no-store, Secure/HttpOnly/Strict-cookie, same-origin, separat appbehörighet, session reuse, logout och kopierad-cookie403. Port3000 ej nåbar; /mcp,/api/mcp,/sse404.                                                                                     |
+| Faktisk användarprovning                           | PASS Chromium: demoknapp, kundbokning+tom dag→nästa lediga, sammanfattning/bekräftelse; ägare skapa/flytta/avboka; ändra och återställ pris, lägg ledighet, publicera kampanj. Alla fyra adminmenyer utan sid-overflow vid320/390/1440. Se live/result.json.                                                                     |
+| Faktisk beständighet                               | PASS samma session och bokningssvar efter99sekunders inaktivitet, därefter probe-session revokerad. Kompletterande Vercellogg BOOKING_SERVER_READY för samma boknings-GET200 vid18:30:52.888Z (cnm4m-1794508252888-208cb974d6b6) styrker ny instans efter inaktiviteten; ingen framtvingad omstart. Se cold-start.json.          |
+| Backup/återläsning efter UI-prov                   | PASS pg_dump18.7 verify-full, AES256GCM, tamper nekas; ny lokal booking_ui_live_restore_demo, alla10tabellers antal/rowhash identiska,35bokningar. Krypterad fil på operatörens PC, inte automatiserad offsitebackup.                                                                                                            |
 
 **NOT RUN:** fysisk iPhone/Safari, WebKit/Firefox/screenreader, framtvingad omstart/lastcertifiering, exakt fakturakostnad, ny fullvideo och automatisk offsitebackup. Nya instansbevis finns i cold-start.json; gamla kallstartsbevis återanvänds inte. Normal individuell login verifieras positivt lokalt/integration/Grok; nya molnflödet använder demoaktören, vanlig loginform kontrollerad men inget nytt lösenordskonto skapat i moln-DB.
 
@@ -440,35 +515,35 @@ commits ändrar inte den granskade/driftsatta koden.
 
 ### Historisk resultattabell f2fdac7
 
-| Kommando/kontroll | Faktiskt utfall |
-| --- | --- |
-| npm ci --no-fund --no-audit | PASS, added570packages in1m; oförändrad lockfile. ESLint9 deprecation-varning, ingen automatisk uppgradering. |
-| npx prisma generate | PASS7.10.1,154ms. |
-| npm run db:migrate / npm run db:seed | PASS på ny loopback booking_preview_vercel_test: sex migrationer, ny sjätte rate-store-migration; seed exit0. |
-| npm run lint | PASS exit0. |
-| npx tsc --noEmit | PASS efter rättat testsubprocess-env NODE_ENV. Första körningen FAIL på testets ProcessEnv-typ, ingen ignorerad typkontroll. |
-| npm test | PASS72/72,13filer,9.39s efter rättningsvarv1. |
-| npm run test:integration | PASS72/72,17filer,61.71s efter rättningsvarv1. |
-| Riktat preview-rate-limit.test.ts | PASS6/6,5.78s efter rättningsvarv1. Fyra riktiga Node-processer delar högst5lösenordskontroller,15av20spärras; korrekt lösenord från spärrad klient kontrolleras aldrig. Refund/generation/expiry/no-memory-fallback testade. |
-| RATE_LIMIT_STORE=postgres, TRUST_PROXY_IP=0, npm run test:e2e | PASS24/24,fix1r2 dev0,1.5m på ny booking_preview_fix1r2_dev0_test. |
-| Samma med TRUST_PROXY_IP=1 | PASS24/24,fix1r2 dev1,1.4m på ny booking_preview_fix1r2_dev1_test. |
-| E2E_PRODUCTION=1 och TRUST_PROXY_IP=0 | PASS24/24,fix1r2 prod0,45.7s på ny booking_preview_fix1r2_prod0_test. |
-| E2E_PRODUCTION=1 och TRUST_PROXY_IP=1 | PASS24/24,fix1r2 prod1,44.4s på ny booking_preview_fix1r2_prod1_test. |
-| npm run build | PASS, Next16.4.6,compile9.7s/TypeScript8.9s; routes listade korrekt. Separat bygge med dummy-URL till loopbackport1 PASS utan databas. Ny fix1-build PASS. |
-| npm audit --json | FAIL exit1,7moderate,0high/critical. Inga overrides/majoruppgraderingar. |
-| npm audit --omit=dev --json | PASS exit0,0fynd. Minimal runtime-installation utesluter utveckling/peer/optional; exakt native-binding kopieras separat. |
-| git diff --check | Egna kodändringar PASS. Original-Grokrapport har trailing whitespace och original-native-notis blankrad vid EOF; dessa källbytes bevaras uttryckligen, inte falskt grönt diff-check. |
-| Ny Neon-preview, läsande kontroll | PASS:18.6,UTC,initialt0publictabeller; därefter6migrationer/seed och begränsat appkonto. Ingen testsvit eller testvakt kringgås mot moln-DB. |
-| Vercel-projekt/perimeter | PASS separat projekt, Container/fra1, ssoProtection.enabled=true/deploymentType=all; enbart Niclas. HTML/API/favicon och verklig statisk JS-resurs ger302, POST401 utan Vercel-auth; appdata exponeras inte. |
-| Grok återkontroll f2fdac7 | GO kod/paketering efter1samlat rättningsvarv:72unit/72integration/6riktade/24E2E×4 på egna DB med RATE_LIMIT_STORE=postgres. Ingen driftåtkomst. [Oförändrad originalrapport](qa/QA-REPORT-preview-vercel-f2fdac7.md), SHA2565751d5f2cd6245b25b549f6466db91cdfb30f8296c4f88bd0392cb8aacaea0b4. |
-| Privat push / Actions43243542749 | PASS exakt f2fdac7, alla4jobb gröna:dev0=24/24(1.1m),dev1=24/24(1.3m),prod0=24/24(34.6s),prod1=24/24(33.7s). CI använder memory-default för HTTP; lokala/Groks fyrfältsmatriser ovan använder postgres. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43243542749). |
-| Faktiskt containerbygge | PASS Buildah/linux-amd64 på Vercel,97källfiler; fullbuild571paket/minimalruntime53. Prisma7.10.1/generate, Next16.4.6/build, nativeSHA-guard, USERnode/chown och sourcearchive PASS. Image281bf3df713ae12726f42dfa67d310239d1ca5fe669a9a8a7ebaf9f2c092db5d. |
-| Faktisk TLS/headers/direktport | PASS verifierat TLS1.3-certifikat; CSP,HSTS,nosniff,referrer,no-powered-by,admin no-store. Port3000 ej nåbar. NeonPG är autentiserad managed TLS-endpoint, inte nätverksstängd5432. |
-| Faktisk UI och API | PASS individuell login, Secure/HttpOnly/SameSiteStrict-cookie, kundbokning, kalender, tjänster/personal, flytt, avbokning, logout och replay403 (även POSTpublish). MobilChromium390×844. |
-| Faktisk header/spärr | PASS fem401 med roterande falska x-real-ip/x-forwarded-for/internIP/proof, därefter429 + Retry-After833; rätt lösenord med ny falsk IP också429. Testspärrar och testsessioner städade före överlämning. |
-| Faktisk kallstart/beständighet | PASS baseline15:08:23Z →15:09:53Z. Logg BOOKING_SERVER_READY15:09:52.602Z för vf5xk-1794496190186-a50e23ad4309 i fra1. Samma session/bokning/statuscancelled/version3/starttid kvar. |
-| Backup efter driftflöden | PASS pg_dump18.7 verify-full, AES-256-GCM befintlig separat nyckel bevarad, tamper nekas; pg_restore till ny lokal booking_preview_live_restore_demo. Alla10tabellers antal/hash lika:1booking,3events,2workspaceRequests,1admin,0session/rate. |
-| Faktiskt MCP-perimeter | PASS auktoriserade /mcp,/api/mcp,/sse ger404. Ingen publik MCPserver. |
+| Kommando/kontroll                                             | Faktiskt utfall                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| npm ci --no-fund --no-audit                                   | PASS, added570packages in1m; oförändrad lockfile. ESLint9 deprecation-varning, ingen automatisk uppgradering.                                                                                                                                                                                    |
+| npx prisma generate                                           | PASS7.10.1,154ms.                                                                                                                                                                                                                                                                                |
+| npm run db:migrate / npm run db:seed                          | PASS på ny loopback booking_preview_vercel_test: sex migrationer, ny sjätte rate-store-migration; seed exit0.                                                                                                                                                                                    |
+| npm run lint                                                  | PASS exit0.                                                                                                                                                                                                                                                                                      |
+| npx tsc --noEmit                                              | PASS efter rättat testsubprocess-env NODE_ENV. Första körningen FAIL på testets ProcessEnv-typ, ingen ignorerad typkontroll.                                                                                                                                                                     |
+| npm test                                                      | PASS72/72,13filer,9.39s efter rättningsvarv1.                                                                                                                                                                                                                                                    |
+| npm run test:integration                                      | PASS72/72,17filer,61.71s efter rättningsvarv1.                                                                                                                                                                                                                                                   |
+| Riktat preview-rate-limit.test.ts                             | PASS6/6,5.78s efter rättningsvarv1. Fyra riktiga Node-processer delar högst5lösenordskontroller,15av20spärras; korrekt lösenord från spärrad klient kontrolleras aldrig. Refund/generation/expiry/no-memory-fallback testade.                                                                    |
+| RATE_LIMIT_STORE=postgres, TRUST_PROXY_IP=0, npm run test:e2e | PASS24/24,fix1r2 dev0,1.5m på ny booking_preview_fix1r2_dev0_test.                                                                                                                                                                                                                               |
+| Samma med TRUST_PROXY_IP=1                                    | PASS24/24,fix1r2 dev1,1.4m på ny booking_preview_fix1r2_dev1_test.                                                                                                                                                                                                                               |
+| E2E_PRODUCTION=1 och TRUST_PROXY_IP=0                         | PASS24/24,fix1r2 prod0,45.7s på ny booking_preview_fix1r2_prod0_test.                                                                                                                                                                                                                            |
+| E2E_PRODUCTION=1 och TRUST_PROXY_IP=1                         | PASS24/24,fix1r2 prod1,44.4s på ny booking_preview_fix1r2_prod1_test.                                                                                                                                                                                                                            |
+| npm run build                                                 | PASS, Next16.4.6,compile9.7s/TypeScript8.9s; routes listade korrekt. Separat bygge med dummy-URL till loopbackport1 PASS utan databas. Ny fix1-build PASS.                                                                                                                                       |
+| npm audit --json                                              | FAIL exit1,7moderate,0high/critical. Inga overrides/majoruppgraderingar.                                                                                                                                                                                                                         |
+| npm audit --omit=dev --json                                   | PASS exit0,0fynd. Minimal runtime-installation utesluter utveckling/peer/optional; exakt native-binding kopieras separat.                                                                                                                                                                        |
+| git diff --check                                              | Egna kodändringar PASS. Original-Grokrapport har trailing whitespace och original-native-notis blankrad vid EOF; dessa källbytes bevaras uttryckligen, inte falskt grönt diff-check.                                                                                                             |
+| Ny Neon-preview, läsande kontroll                             | PASS:18.6,UTC,initialt0publictabeller; därefter6migrationer/seed och begränsat appkonto. Ingen testsvit eller testvakt kringgås mot moln-DB.                                                                                                                                                     |
+| Vercel-projekt/perimeter                                      | PASS separat projekt, Container/fra1, ssoProtection.enabled=true/deploymentType=all; enbart Niclas. HTML/API/favicon och verklig statisk JS-resurs ger302, POST401 utan Vercel-auth; appdata exponeras inte.                                                                                     |
+| Grok återkontroll f2fdac7                                     | GO kod/paketering efter1samlat rättningsvarv:72unit/72integration/6riktade/24E2E×4 på egna DB med RATE_LIMIT_STORE=postgres. Ingen driftåtkomst. [Oförändrad originalrapport](qa/QA-REPORT-preview-vercel-f2fdac7.md), SHA2565751d5f2cd6245b25b549f6466db91cdfb30f8296c4f88bd0392cb8aacaea0b4.   |
+| Privat push / Actions43243542749                              | PASS exakt f2fdac7, alla4jobb gröna:dev0=24/24(1.1m),dev1=24/24(1.3m),prod0=24/24(34.6s),prod1=24/24(33.7s). CI använder memory-default för HTTP; lokala/Groks fyrfältsmatriser ovan använder postgres. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43243542749). |
+| Faktiskt containerbygge                                       | PASS Buildah/linux-amd64 på Vercel,97källfiler; fullbuild571paket/minimalruntime53. Prisma7.10.1/generate, Next16.4.6/build, nativeSHA-guard, USERnode/chown och sourcearchive PASS. Image281bf3df713ae12726f42dfa67d310239d1ca5fe669a9a8a7ebaf9f2c092db5d.                                      |
+| Faktisk TLS/headers/direktport                                | PASS verifierat TLS1.3-certifikat; CSP,HSTS,nosniff,referrer,no-powered-by,admin no-store. Port3000 ej nåbar. NeonPG är autentiserad managed TLS-endpoint, inte nätverksstängd5432.                                                                                                              |
+| Faktisk UI och API                                            | PASS individuell login, Secure/HttpOnly/SameSiteStrict-cookie, kundbokning, kalender, tjänster/personal, flytt, avbokning, logout och replay403 (även POSTpublish). MobilChromium390×844.                                                                                                        |
+| Faktisk header/spärr                                          | PASS fem401 med roterande falska x-real-ip/x-forwarded-for/internIP/proof, därefter429 + Retry-After833; rätt lösenord med ny falsk IP också429. Testspärrar och testsessioner städade före överlämning.                                                                                         |
+| Faktisk kallstart/beständighet                                | PASS baseline15:08:23Z →15:09:53Z. Logg BOOKING_SERVER_READY15:09:52.602Z för vf5xk-1794496190186-a50e23ad4309 i fra1. Samma session/bokning/statuscancelled/version3/starttid kvar.                                                                                                             |
+| Backup efter driftflöden                                      | PASS pg_dump18.7 verify-full, AES-256-GCM befintlig separat nyckel bevarad, tamper nekas; pg_restore till ny lokal booking_preview_live_restore_demo. Alla10tabellers antal/hash lika:1booking,3events,2workspaceRequests,1admin,0session/rate.                                                  |
+| Faktiskt MCP-perimeter                                        | PASS auktoriserade /mcp,/api/mcp,/sse ger404. Ingen publik MCPserver.                                                                                                                                                                                                                            |
 
 E2E-/migrations-/auditloggar finns lokalt utanför Git under
 C:/Users/<user>/booking-lab-pg-test/preview-vercel-review. Övriga kommandoutdata
@@ -504,10 +579,10 @@ appdependencies): node verify-live.mjs (första FAIL), node resume-live.mjs PASS
 node persistence-setup.mjs PASS, node persistence-check.mjs PASS,
 node --env-file=.env backup-live.mjs PASS, node verify-network.mjs PASS.
 Alla ligger under artefaktkatalogen ovan; privata loggar/token/cookies bara i
-ignorerad .vercel. Loggar: fix1r2-*-e2e.log, fix1-integration.log,
-fix1-build.log, fix1-audit-*.json, vercel-build-f2fdac7.log, actions-f2fdac7.log.
+ignorerad .vercel. Loggar: fix1r2-_-e2e.log, fix1-integration.log,
+fix1-build.log, fix1-audit-_.json, vercel-build-f2fdac7.log, actions-f2fdac7.log.
 Bevis: live-verification.json, persistence-before/after.json,
-live-backup-restore.json, live-final-network.json och live-*.png.
+live-backup-restore.json, live-final-network.json och live-\*.png.
 Screenshots visar samma kod och faktisk skyddad runtime; inte gamla Epicar.
 Backup är lokalt krypterad, inte offsite i Tyskland.
 
@@ -559,22 +634,22 @@ rättad innan databas skapades. Ingen testvakt eller produktkod försvagades.
 
 ### Historisk resultattabell för Epic05-fixen
 
-| Kommando/kontroll | Faktiskt resultat efter fix |
-| --- | --- |
-| npm ci --no-fund | Lokalt återanvänd ren570/571PASS på oförändrad lockfile. Ny ren CI-installation påc12b98a PASS:571/572paket,54s på kall feature-körning. |
-| npx prisma generate | PASS7.10.1,124ms. |
-| npm run db:migrate / npm run db:seed | PASS på ny fix1_test:5migrations,2tjänster/2personal,0standardkonton. |
-| npm run lint / npx tsc --noEmit | PASS före och efter formatering med befintlig cachad Prettier3.9.9(MIT); ingen ny dependency/install. |
-| npm test | PASS69/69,11filer,7.21s. |
-| npm run test:integration | PASS66/66,16filer,58.36s. |
-| npm run build | PASS även ny build från fryst4fc98d3:compiled1507ms,TypeScript3.5s. |
-| Ny HTTP-E2E / full dev-prod×proxy0-1 | PASS24/24 i alla4lägen på4fc98d3:prod0=1.3m,prod1=43.1s,dev0=1.5m,dev1=1.2m. Testet verifierar7adminbokningar, oförändrade kundtak/förfalskad actor och20identiska adminretries. |
-| npm audit full / produktion | Omkörd efter fix:full FAILexit1,7moderate/0high/critical;produktion PASSexit0,0fynd. Inga overrides eller dependencies ändrade. |
-| node --env-file=.env scripts/test-cleanup.mjs / extern epic05-aggregate.mjs | PASS:CLEANUP_TIMEOUT_EXPECTED_EXIT=1;REMAINING_SYNTHETIC_ROWS=0. Därefter0booking/event/request/session/admin/campaign,2service/2staff,0aktivaöverlappar/observeradedeadlocks. |
-| Grok-QA | PASS:original7fc0e86:NO-GO;slutrapport4fc98d3:GO efter1fixvarv. Grok egen ren installation,69unit/66integration/24E2E×4 och kvot/auth/retry/MCP/samtidighetsprober. [Originalslutrapport](qa/QA-REPORT-epic05-4fc98d3.md). |
-| GitHub Actions, c12b98a | PASS feature43209758207:1jobb,4m01s. Full manuell43210413097:4gröna jobb/24E2E vardera,69unit/66integration i dev0. Ren Compose-DB/generate/migrate/seed/lint/build/tsc PASS. [Jobb/loggbevis](CI_DELIVERY_2026_11_12.md). Veckoaudit ej aktiv på default-branch. |
-| Docs-only-push7e8f901 | PASS:0Actions-körningar efter push, endast Markdown ändrat. Båda gröna testkörningarna gäller fortfarande exaktc12b98a. Inga tester beställdes om för dokumentation. |
-| Demo / preview / CI | Demo är äldre7fc0e86; ingen ny full inspelning för osynlig fix.09-bilderna är laddningsbilder, inte funktionsbevis. Preview BLOCKERAD miljöbeslut. CI43210413097 påc12b98a PASS med4×24E2E; se separat CI-bevis. |
+| Kommando/kontroll                                                           | Faktiskt resultat efter fix                                                                                                                                                                                                                                       |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| npm ci --no-fund                                                            | Lokalt återanvänd ren570/571PASS på oförändrad lockfile. Ny ren CI-installation påc12b98a PASS:571/572paket,54s på kall feature-körning.                                                                                                                          |
+| npx prisma generate                                                         | PASS7.10.1,124ms.                                                                                                                                                                                                                                                 |
+| npm run db:migrate / npm run db:seed                                        | PASS på ny fix1_test:5migrations,2tjänster/2personal,0standardkonton.                                                                                                                                                                                             |
+| npm run lint / npx tsc --noEmit                                             | PASS före och efter formatering med befintlig cachad Prettier3.9.9(MIT); ingen ny dependency/install.                                                                                                                                                             |
+| npm test                                                                    | PASS69/69,11filer,7.21s.                                                                                                                                                                                                                                          |
+| npm run test:integration                                                    | PASS66/66,16filer,58.36s.                                                                                                                                                                                                                                         |
+| npm run build                                                               | PASS även ny build från fryst4fc98d3:compiled1507ms,TypeScript3.5s.                                                                                                                                                                                               |
+| Ny HTTP-E2E / full dev-prod×proxy0-1                                        | PASS24/24 i alla4lägen på4fc98d3:prod0=1.3m,prod1=43.1s,dev0=1.5m,dev1=1.2m. Testet verifierar7adminbokningar, oförändrade kundtak/förfalskad actor och20identiska adminretries.                                                                                  |
+| npm audit full / produktion                                                 | Omkörd efter fix:full FAILexit1,7moderate/0high/critical;produktion PASSexit0,0fynd. Inga overrides eller dependencies ändrade.                                                                                                                                   |
+| node --env-file=.env scripts/test-cleanup.mjs / extern epic05-aggregate.mjs | PASS:CLEANUP_TIMEOUT_EXPECTED_EXIT=1;REMAINING_SYNTHETIC_ROWS=0. Därefter0booking/event/request/session/admin/campaign,2service/2staff,0aktivaöverlappar/observeradedeadlocks.                                                                                    |
+| Grok-QA                                                                     | PASS:original7fc0e86:NO-GO;slutrapport4fc98d3:GO efter1fixvarv. Grok egen ren installation,69unit/66integration/24E2E×4 och kvot/auth/retry/MCP/samtidighetsprober. [Originalslutrapport](qa/QA-REPORT-epic05-4fc98d3.md).                                        |
+| GitHub Actions, c12b98a                                                     | PASS feature43209758207:1jobb,4m01s. Full manuell43210413097:4gröna jobb/24E2E vardera,69unit/66integration i dev0. Ren Compose-DB/generate/migrate/seed/lint/build/tsc PASS. [Jobb/loggbevis](CI_DELIVERY_2026_11_12.md). Veckoaudit ej aktiv på default-branch. |
+| Docs-only-push7e8f901                                                       | PASS:0Actions-körningar efter push, endast Markdown ändrat. Båda gröna testkörningarna gäller fortfarande exaktc12b98a. Inga tester beställdes om för dokumentation.                                                                                              |
+| Demo / preview / CI                                                         | Demo är äldre7fc0e86; ingen ny full inspelning för osynlig fix.09-bilderna är laddningsbilder, inte funktionsbevis. Preview BLOCKERAD miljöbeslut. CI43210413097 påc12b98a PASS med4×24E2E; se separat CI-bevis.                                                  |
 
 Grok observerade **1deadlock i oförändrat avsiktligt direkt-ORM-bypasstest** (booking.test.ts25–27); testet PASS, inga deadlocks i domänprober. Vårt eget observerade0 gäller våra körningar och är ingen global garanti. Mindre QA-2–8 är backlogg, inte nya blockerare.
 
@@ -590,37 +665,37 @@ Faktisk E2E-proxy är **127.0.0.10/32**, hårdkodad testfixture matchande socket
 
 ### Historisk resultattabell
 
-| Kommando/kontroll | Faktiskt resultat |
-| --- | --- |
-| npm ci --no-fund | PASS exit0: added570 packages, audited571 in2m; ESLint9-deprecation och7moderate. |
-| npx prisma generate | PASS: Prisma Client7.10.1,125ms. |
-| npm run db:migrate / npm run db:seed | PASS på ny final_test:5migrationer,2tjänster/2personal,0standardkonton.4historiska SQL-filer byteidentiska mot26b680d. |
-| npm run lint / npx tsc --noEmit | PASS exit0 utan diagnostik; även efter nya demo-/tangentbordstester. |
-| npm test | PASS68/68,11filer,8.16s på oförändrad produktkod4099d9d. |
-| npm run test:integration | PASS64/64,15filer,56.84s på ny final_test. |
-| npm run build | PASS exit0; samtliga nya admin/API-vägar byggda. Även demokörningen byggde produktion från7fc0e86. |
-| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e | PASS22/22,2.4m på ren slutinstallation före de nya tangentbordsassertionerna. |
-| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 npm run test:e2e | PASS22/22,38.9s, samma slutinstallation. |
-| TRUST_PROXY_IP=0 npm run test:e2e (E2E_PRODUCTION tom) | PASS22/22,1.3m, samma slutinstallation. |
-| TRUST_PROXY_IP=1 npm run test:e2e (E2E_PRODUCTION tom) | PASS22/22,1.1m, samma slutinstallation. |
-| Kandidat7fc0e86, samma fyra E2E-kommandon | PASS22/22 i alla4lägen på exakt7fc0e86:prod/proxy0=43.6s,prod/proxy1=42.7s,dev/proxy0=1.3m,dev/proxy1=1.4m. Inkluderar Tab/fokus/Enter; samma gränser/assertions. Slutaggregat åter0kund-/konto-/mutationsrader,0överlappar/deadlocks. |
-| node --env-file=.env scripts/test-cleanup.mjs | PASS: CLEANUP_TIMEOUT_EXPECTED_EXIT=1, REMAINING_SYNTHETIC_ROWS=0. Avsiktlig timeout är kontrollens förväntade barnutfall. |
-| Extern node epic05-upgrade-verify.mjs | PASS riktig PostgreSQL-templatekopia4→5 av syntetisk Epic04-DB. Gamla scalarfält/UTC/DST-bokningar/kampanj/konto/session bevarade;5SQL-checksummor matchar. Snapshotpris/namn är migrationstidens katalogvärden, faktisk bokad längd bevaras. Aktiv direktöverlapp ger23P01, cancelled-overlap tillåts. Källans4migrationer/data oförändrade. Egna provrader städade. Inte pg_dump/restore eller skarp backup. |
-| Extern node epic05-aggregate.mjs | PASS efter fullmatris och efter demo:0booking/event/workspaceRequest/session/admin/campaign,2services/2staff,0activeOverlaps och0observeradeDBdeadlocks.1anslutning är proben. |
-| npm audit --json | **FAIL exit1:7moderate,0high/critical.** Känd lint/minimatchkedja, inga overrides/majoruppgraderingar. |
-| npm audit --omit=dev --json | PASS exit0:0fynd. Inte en distributionslicens- eller pilotklarering. |
-| npm audit --audit-level=high --json | PASS exit0 med samma7moderate; separat synlig veckogrind, ingen påstådd åtgärd av fynden. |
-| npm run demo:record | PASS6/6,52.8s,produktion7fc0e86,dirty=false;28PNG/6WebM. [Manifest/galleri](DEMO.md). Alla6videor probe/avkodade exit0; utvalda verkliga bilder granskade. Inte helt visuellt genomtittade videor. |
-| Demovakt mot egen inaktiv syntetisk adminrad | PASS: DEMO_DATABASE_NOT_EMPTY_OR_SYNTHETIC före build, ingen rå identifierare/hash i fel, raden raderades inte. Bara provets egen rad togs bort efteråt. |
-| actionlint1.7.12, verify/audit-workflow | PASS exit0. Externt officiellt verktyg, ingen appdependency. Shellcheck NOT RUN. |
-| Grok-QA / Actions / CI-kostnadsacceptans | QA skickad till verifierad befintlig bot; Grok bekräftade faktisk mottagning7fc0e86, alla169filhashar/bas/demo och separat DB i egen miljö. Originalslutrapport inväntas. Implementationpush/Actions NOT RUN. Feature≤5min och docs-ignore ej externt bevisade. Veckoschema kräver default-branch, ingen mainmerge. |
-| Privat mobilpreview / fysisk iPhone/Safari / skarp drift | BLOCKERAD miljöbeslut respektive NOT RUN. [Konkreta miljö-/kostnads-/åtkomstval](DEMO.md). Ingen deploy/tunnel. Kundpilot NO-GO. |
+| Kommando/kontroll                                        | Faktiskt resultat                                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| npm ci --no-fund                                         | PASS exit0: added570 packages, audited571 in2m; ESLint9-deprecation och7moderate.                                                                                                                                                                                                                                                                                                                              |
+| npx prisma generate                                      | PASS: Prisma Client7.10.1,125ms.                                                                                                                                                                                                                                                                                                                                                                               |
+| npm run db:migrate / npm run db:seed                     | PASS på ny final_test:5migrationer,2tjänster/2personal,0standardkonton.4historiska SQL-filer byteidentiska mot26b680d.                                                                                                                                                                                                                                                                                         |
+| npm run lint / npx tsc --noEmit                          | PASS exit0 utan diagnostik; även efter nya demo-/tangentbordstester.                                                                                                                                                                                                                                                                                                                                           |
+| npm test                                                 | PASS68/68,11filer,8.16s på oförändrad produktkod4099d9d.                                                                                                                                                                                                                                                                                                                                                       |
+| npm run test:integration                                 | PASS64/64,15filer,56.84s på ny final_test.                                                                                                                                                                                                                                                                                                                                                                     |
+| npm run build                                            | PASS exit0; samtliga nya admin/API-vägar byggda. Även demokörningen byggde produktion från7fc0e86.                                                                                                                                                                                                                                                                                                             |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e       | PASS22/22,2.4m på ren slutinstallation före de nya tangentbordsassertionerna.                                                                                                                                                                                                                                                                                                                                  |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 npm run test:e2e       | PASS22/22,38.9s, samma slutinstallation.                                                                                                                                                                                                                                                                                                                                                                       |
+| TRUST_PROXY_IP=0 npm run test:e2e (E2E_PRODUCTION tom)   | PASS22/22,1.3m, samma slutinstallation.                                                                                                                                                                                                                                                                                                                                                                        |
+| TRUST_PROXY_IP=1 npm run test:e2e (E2E_PRODUCTION tom)   | PASS22/22,1.1m, samma slutinstallation.                                                                                                                                                                                                                                                                                                                                                                        |
+| Kandidat7fc0e86, samma fyra E2E-kommandon                | PASS22/22 i alla4lägen på exakt7fc0e86:prod/proxy0=43.6s,prod/proxy1=42.7s,dev/proxy0=1.3m,dev/proxy1=1.4m. Inkluderar Tab/fokus/Enter; samma gränser/assertions. Slutaggregat åter0kund-/konto-/mutationsrader,0överlappar/deadlocks.                                                                                                                                                                         |
+| node --env-file=.env scripts/test-cleanup.mjs            | PASS: CLEANUP_TIMEOUT_EXPECTED_EXIT=1, REMAINING_SYNTHETIC_ROWS=0. Avsiktlig timeout är kontrollens förväntade barnutfall.                                                                                                                                                                                                                                                                                     |
+| Extern node epic05-upgrade-verify.mjs                    | PASS riktig PostgreSQL-templatekopia4→5 av syntetisk Epic04-DB. Gamla scalarfält/UTC/DST-bokningar/kampanj/konto/session bevarade;5SQL-checksummor matchar. Snapshotpris/namn är migrationstidens katalogvärden, faktisk bokad längd bevaras. Aktiv direktöverlapp ger23P01, cancelled-overlap tillåts. Källans4migrationer/data oförändrade. Egna provrader städade. Inte pg_dump/restore eller skarp backup. |
+| Extern node epic05-aggregate.mjs                         | PASS efter fullmatris och efter demo:0booking/event/workspaceRequest/session/admin/campaign,2services/2staff,0activeOverlaps och0observeradeDBdeadlocks.1anslutning är proben.                                                                                                                                                                                                                                 |
+| npm audit --json                                         | **FAIL exit1:7moderate,0high/critical.** Känd lint/minimatchkedja, inga overrides/majoruppgraderingar.                                                                                                                                                                                                                                                                                                         |
+| npm audit --omit=dev --json                              | PASS exit0:0fynd. Inte en distributionslicens- eller pilotklarering.                                                                                                                                                                                                                                                                                                                                           |
+| npm audit --audit-level=high --json                      | PASS exit0 med samma7moderate; separat synlig veckogrind, ingen påstådd åtgärd av fynden.                                                                                                                                                                                                                                                                                                                      |
+| npm run demo:record                                      | PASS6/6,52.8s,produktion7fc0e86,dirty=false;28PNG/6WebM. [Manifest/galleri](DEMO.md). Alla6videor probe/avkodade exit0; utvalda verkliga bilder granskade. Inte helt visuellt genomtittade videor.                                                                                                                                                                                                             |
+| Demovakt mot egen inaktiv syntetisk adminrad             | PASS: DEMO_DATABASE_NOT_EMPTY_OR_SYNTHETIC före build, ingen rå identifierare/hash i fel, raden raderades inte. Bara provets egen rad togs bort efteråt.                                                                                                                                                                                                                                                       |
+| actionlint1.7.12, verify/audit-workflow                  | PASS exit0. Externt officiellt verktyg, ingen appdependency. Shellcheck NOT RUN.                                                                                                                                                                                                                                                                                                                               |
+| Grok-QA / Actions / CI-kostnadsacceptans                 | QA skickad till verifierad befintlig bot; Grok bekräftade faktisk mottagning7fc0e86, alla169filhashar/bas/demo och separat DB i egen miljö. Originalslutrapport inväntas. Implementationpush/Actions NOT RUN. Feature≤5min och docs-ignore ej externt bevisade. Veckoschema kräver default-branch, ingen mainmerge.                                                                                            |
+| Privat mobilpreview / fysisk iPhone/Safari / skarp drift | BLOCKERAD miljöbeslut respektive NOT RUN. [Konkreta miljö-/kostnads-/åtkomstval](DEMO.md). Ingen deploy/tunnel. Kundpilot NO-GO.                                                                                                                                                                                                                                                                               |
 
-Exporterad DATABASE_URL går före .env. Kör en matris åt gången, exportera TRUSTED_PROXY_IPS=127.0.0.1,::1 och växla TRUST_PROXY_IP=0/1 samt E2E_PRODUCTION tom/1. Bygg före produktion. Historik/testkategorier och låsbeslut i [WORKPLAN](WORKPLAN.md), [arkitektur](ARCHITECTURE.md). Lokala råutdata: C:/Users/<user>/booking-lab-pg-test/epic05-final-*.log/json, epic05-candidate-*.log/json, epic05-demo-record-1.log och epic05-video-check.json. Käll-ZIP från7fc0e86:169filer, SHA256 **154dda086409cd810049cfb72b3f19b993fdb1d959f4d892b98a2bf0e74ed458**. Innehåll inventerat, inga .env/hemligheter/buildfiler/data.
+Exporterad DATABASE_URL går före .env. Kör en matris åt gången, exportera TRUSTED_PROXY_IPS=127.0.0.1,::1 och växla TRUST_PROXY_IP=0/1 samt E2E_PRODUCTION tom/1. Bygg före produktion. Historik/testkategorier och låsbeslut i [WORKPLAN](WORKPLAN.md), [arkitektur](ARCHITECTURE.md). Lokala råutdata: C:/Users/<user>/booking-lab-pg-test/epic05-final-_.log/json, epic05-candidate-_.log/json, epic05-demo-record-1.log och epic05-video-check.json. Käll-ZIP från7fc0e86:169filer, SHA256 **154dda086409cd810049cfb72b3f19b993fdb1d959f4d892b98a2bf0e74ed458**. Innehåll inventerat, inga .env/hemligheter/buildfiler/data.
 
 ## Bilaga — tidigare Epic05-delkörningar och FAIL
 
-Tidiga UI FAIL: dev/desktop60s vid första browser-/sidstart; fullprod17/20 (en fixtureDB-anslutningstimeout före bokning, två tvetydiga länkväljare), sedan18/20 (Next route-announcer valdes också som alert). Väljare rättade till avsedd länk och main-alert; sedan20×4 och nya MCP22×4 PASS utan sänkta gränser/assertions. MCP:s första fullintegration57/59 föll på två5s-timeouter i oförändrad admin-CLI, isolerad3/3 och därefter59/59,60/60,64/64 PASS. NODE_ENV behövde sättas uttryckligt i nya testsubprocessers ProcessEnv. Ursprungliga loggar epic05-ui-*/epic05-mcp-* kvar lokalt. Intern läsgranskning hittade två negativa täckningsluckor, kompletterade via riktig stdio; den är inte Groks oberoende QA.
+Tidiga UI FAIL: dev/desktop60s vid första browser-/sidstart; fullprod17/20 (en fixtureDB-anslutningstimeout före bokning, två tvetydiga länkväljare), sedan18/20 (Next route-announcer valdes också som alert). Väljare rättade till avsedd länk och main-alert; sedan20×4 och nya MCP22×4 PASS utan sänkta gränser/assertions. MCP:s första fullintegration57/59 föll på två5s-timeouter i oförändrad admin-CLI, isolerad3/3 och därefter59/59,60/60,64/64 PASS. NODE_ENV behövde sättas uttryckligt i nya testsubprocessers ProcessEnv. Ursprungliga loggar epic05-ui-_/epic05-mcp-_ kvar lokalt. Intern läsgranskning hittade två negativa täckningsluckor, kompletterade via riktig stdio; den är inte Groks oberoende QA.
 
 Oförändrade Epic01–04 beställs inte för ny full QA. Docker lokalt Windows, riktig TLS/proxy, extern IPv6, flerinstansdrift, full penetrationstestning, komplett native/Cargo-distributionsinventering och fysisk mobil är NOT RUN i denna Epic05-leverans. Inget pilot-GO härleds från lokala gröna tester.
 
@@ -630,37 +705,37 @@ Oförändrade Epic01–04 beställs inte för ny full QA. Docker lokalt Windows,
 
 ## Resultattabell Epic 04 (historik)
 
-| Kommando/kontroll | Faktisk utdata / resultat |
-| --- | --- |
-| npm ci --no-fund | PASS exit0: added570 packages, audited571 in2m; ESLint9-deprecation och7moderate. Ingen npm audit fix körd. |
-| npx prisma generate | PASS: Generated Prisma Client v7.10.1,118ms. |
-| npm run db:migrate | PASS på ny DB: alla4 migrationer applied. De3 tidigare byteidentiska mot10175ed. |
-| npm run db:seed | PASS exit0: två tjänster, inga standardadminer. |
-| npm run lint | PASS exit0, ingen ESLint-diagnostik. |
-| npx tsc --noEmit | PASS exit0, ingen diagnostik. |
-| npm test | PASS:9files,61/61tests,9.75s efter fixen. |
-| npm run test:integration | PASS:10files,40/40,35.65s efter fixen på ny DB. Bas3419973 hade dessutom3PASS-varv; se original-QA. |
-| npm run test:e2e, TRUST_PROXY_IP=0, dev | PASS14/14,1.4m. |
-| npm run test:e2e, TRUST_PROXY_IP=1, dev | PASS14/14,44.9s. |
-| npm run build | PASS exit0: Compiled successfully; TypeScript och8sidor färdiga, befintliga routes kvar. |
-| E2E_PRODUCTION=1 npm run test:e2e, proxy0 | PASS14/14,26.8s. |
-| E2E_PRODUCTION=1 npm run test:e2e, proxy1 | PASS14/14,25.4s. |
-| node --env-file=.env scripts/test-cleanup.mjs | PASS: CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0. Avsiktligt timeout-test räknas inte som produktfel. |
-| Slutaggregat, separat SQL/ORM | PASS: bookings0,campaigns0,sessions0,admins0,overlaps0; observedDeadlocks0. Det sista är denna körnings observation, inte garanti för direkt-ORM-bypass. |
-| Uppgradering med extern epic04-upgrade.mjs | PASS:3→4migrationer, syntetisk bokningsdata/UTC-tid, publicerad kampanj och äldre sessionsrad bevarade; userIdNULL;0autoadminer; exclusion kvar. Egna provposter borttagna. |
-| Verklig Windows-TTY, admin-CLI | PASS: lösenord/upprepning syntes inte i utdata, ADMIN_COMMAND_OK och exit0; endast eget provkonto borttaget. CLI-stdin/EOF/felkoder dessutom3integrationstester. |
-| npm audit --json | **FAIL exit1:**7moderate,0high/critical. Känd ESLint/minimatchkedja; exakt JSON sparad lokalt. |
-| npm audit --omit=dev --json | PASS exit0:0vulnerabilities. Detta är inte en distributionslicensgranskning. |
-| npm run demo:record | PASS4/4,34.6s,14PNG/4WebM; revision9282cdc,dirty=false,produktion; före osynlig limiterfix471f91f. Se DEMO. Alla videor avkodade utan fel; ej full visuell genomtittning. |
-| Grok oberoende QA | GO för3419973: egen58unit/40integration×3/14E2E×4 och riktade prober. E04-QA-1 stängd på471f91f efter egen ren installation,61unit/40integration och riktade prod/proxy/flodprober. [Slutrapport](qa/QA-REPORT-epic04-471f91f.md). [Original](qa/QA-REPORT-epic04-3419973.md). |
+| Kommando/kontroll                             | Faktisk utdata / resultat                                                                                                                                                                                                                                                      |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| npm ci --no-fund                              | PASS exit0: added570 packages, audited571 in2m; ESLint9-deprecation och7moderate. Ingen npm audit fix körd.                                                                                                                                                                    |
+| npx prisma generate                           | PASS: Generated Prisma Client v7.10.1,118ms.                                                                                                                                                                                                                                   |
+| npm run db:migrate                            | PASS på ny DB: alla4 migrationer applied. De3 tidigare byteidentiska mot10175ed.                                                                                                                                                                                               |
+| npm run db:seed                               | PASS exit0: två tjänster, inga standardadminer.                                                                                                                                                                                                                                |
+| npm run lint                                  | PASS exit0, ingen ESLint-diagnostik.                                                                                                                                                                                                                                           |
+| npx tsc --noEmit                              | PASS exit0, ingen diagnostik.                                                                                                                                                                                                                                                  |
+| npm test                                      | PASS:9files,61/61tests,9.75s efter fixen.                                                                                                                                                                                                                                      |
+| npm run test:integration                      | PASS:10files,40/40,35.65s efter fixen på ny DB. Bas3419973 hade dessutom3PASS-varv; se original-QA.                                                                                                                                                                            |
+| npm run test:e2e, TRUST_PROXY_IP=0, dev       | PASS14/14,1.4m.                                                                                                                                                                                                                                                                |
+| npm run test:e2e, TRUST_PROXY_IP=1, dev       | PASS14/14,44.9s.                                                                                                                                                                                                                                                               |
+| npm run build                                 | PASS exit0: Compiled successfully; TypeScript och8sidor färdiga, befintliga routes kvar.                                                                                                                                                                                       |
+| E2E_PRODUCTION=1 npm run test:e2e, proxy0     | PASS14/14,26.8s.                                                                                                                                                                                                                                                               |
+| E2E_PRODUCTION=1 npm run test:e2e, proxy1     | PASS14/14,25.4s.                                                                                                                                                                                                                                                               |
+| node --env-file=.env scripts/test-cleanup.mjs | PASS: CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0. Avsiktligt timeout-test räknas inte som produktfel.                                                                                                                                                         |
+| Slutaggregat, separat SQL/ORM                 | PASS: bookings0,campaigns0,sessions0,admins0,overlaps0; observedDeadlocks0. Det sista är denna körnings observation, inte garanti för direkt-ORM-bypass.                                                                                                                       |
+| Uppgradering med extern epic04-upgrade.mjs    | PASS:3→4migrationer, syntetisk bokningsdata/UTC-tid, publicerad kampanj och äldre sessionsrad bevarade; userIdNULL;0autoadminer; exclusion kvar. Egna provposter borttagna.                                                                                                    |
+| Verklig Windows-TTY, admin-CLI                | PASS: lösenord/upprepning syntes inte i utdata, ADMIN_COMMAND_OK och exit0; endast eget provkonto borttaget. CLI-stdin/EOF/felkoder dessutom3integrationstester.                                                                                                               |
+| npm audit --json                              | **FAIL exit1:**7moderate,0high/critical. Känd ESLint/minimatchkedja; exakt JSON sparad lokalt.                                                                                                                                                                                 |
+| npm audit --omit=dev --json                   | PASS exit0:0vulnerabilities. Detta är inte en distributionslicensgranskning.                                                                                                                                                                                                   |
+| npm run demo:record                           | PASS4/4,34.6s,14PNG/4WebM; revision9282cdc,dirty=false,produktion; före osynlig limiterfix471f91f. Se DEMO. Alla videor avkodade utan fel; ej full visuell genomtittning.                                                                                                      |
+| Grok oberoende QA                             | GO för3419973: egen58unit/40integration×3/14E2E×4 och riktade prober. E04-QA-1 stängd på471f91f efter egen ren installation,61unit/40integration och riktade prod/proxy/flodprober. [Slutrapport](qa/QA-REPORT-epic04-471f91f.md). [Original](qa/QA-REPORT-epic04-3419973.md). |
 
 ## Reproducera och avgränsa
 
-Exportera DATABASE_URL till egen migrerad loopback-DB med suffix _test; exporterad miljö går före .env. Följ README, ADMIN_OPERATIONS och testkommandona i tabellen. Växla TRUST_PROXY_IP mellan0/1, E2E_PRODUCTION mellan tomt/1; kör npm run build före produktionsmatrisen. Kör en matris åt gången. Manuella konton provisioneras genom dold CLI, aldrig standardlösenord. Ny lokal demo-DB heter booking_epic04_demo, port55450; Windowsguiden anger exakt start/stopp.
+Exportera DATABASE_URL till egen migrerad loopback-DB med suffix \_test; exporterad miljö går före .env. Följ README, ADMIN_OPERATIONS och testkommandona i tabellen. Växla TRUST_PROXY_IP mellan0/1, E2E_PRODUCTION mellan tomt/1; kör npm run build före produktionsmatrisen. Kör en matris åt gången. Manuella konton provisioneras genom dold CLI, aldrig standardlösenord. Ny lokal demo-DB heter booking_epic04_demo, port55450; Windowsguiden anger exakt start/stopp.
 
 Ren npm ci/generate/audit utfördes före den begränsade limiterfixen; lockfile och schema är identiska sedan dess. Ny fix-DB fick alla4 migrationer och seed. Inga nya beroenden i rättningsvarvet.
 
-Lokala råloggar efter fix: C:\Users\<user>\booking-lab-pg-test\epic04-fix-*.log; tidigare slutmatris: C:\Users\<user>\booking-lab-pg-test\epic04-final-*.log/json; separat epic04-upgrade.log och epic04-demo-record.log. Inga .env, lösenord eller cookies kopieras till Git. Rensad fryst käll-ZIP3419973 har SHA2568757E056A47A8DE48CBE59A6BC086F5C99B4D4C5C69811551B9E59053AE68515.
+Lokala råloggar efter fix: C:\Users\<user>\booking-lab-pg-test\epic04-fix-_.log; tidigare slutmatris: C:\Users\<user>\booking-lab-pg-test\epic04-final-_.log/json; separat epic04-upgrade.log och epic04-demo-record.log. Inga .env, lösenord eller cookies kopieras till Git. Rensad fryst käll-ZIP3419973 har SHA2568757E056A47A8DE48CBE59A6BC086F5C99B4D4C5C69811551B9E59053AE68515.
 
 Tidiga fel före slutmatris: tsc fångade const-enumåtkomst under isolatedModules, äldre login-testanrop och saknat NODE_ENV i CLI-testmiljön. Dessa rättades före slutkörningen; de tidiga felen räknas inte som PASS. Ingen produktions-/testtimeout höjdes för att få grön matris.
 
@@ -674,7 +749,6 @@ Epic04 Actions43172522203 på199d326 är verifierad:4 gröna E2E-jobb,14/14 vard
 
 Epic02 dba05a2: körning43168794400, fyra E2E-jobb success, audit failure med7moderate/3high; logg läst av Codex. Epic03 10175ed: körning43169125103 färdig, fyraE2E-jobb success, audit failure med7moderate/0high; loggen läst. main är fortsatt b000481. Dessa är separata revisioner, inte bevis för Epic04.
 
-
 ## Bilaga — tidigare verifierad historik
 
 # Verifiering — aktuell Epic 03, godkänd lokal POC
@@ -683,31 +757,31 @@ Epic02 dba05a2: körning43168794400, fyra E2E-jobb success, audit failure med7mo
 
 ### Historisk resultattabell
 
-| Kommando / kontroll | Faktiskt resultat på kandidaten |
-| --- | --- |
-| npm ci | **PASS**, exit 0, added 568 / audited 569 i 1 min. ESLint9 deprecation-varning; 7 moderate. |
-| npx prisma generate | PASS, Generated Prisma Client v7.10.1,126 ms. |
-| npm run db:migrate | PASS, alla 3 oförändrade migrationer på ny databas. |
-| npm run db:seed | PASS, exit 0, två syntetiska tjänster. |
-| npm run lint | PASS, exit 0. |
-| npx tsc --noEmit | PASS, exit 0 både före och efter fullmatris. |
-| npm test | PASS, **51/51**,8 filer,2,24 s. |
-| npm run test:integration ×3 | PASS, **31/31 ×3**,25,27 / 26,83 / 28,11 s,8 filer. |
-| TRUST_PROXY_IP=0 npm run test:e2e | PASS, dev **12/12**,1,4 min. |
-| TRUST_PROXY_IP=1 npm run test:e2e | PASS, dev **12/12**,35,7 s. |
-| npm run build | PASS,3,6 s kompilering, TypeScript,8/8 statiska sidor. |
-| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e | PASS, **12/12**,29,2 s. |
-| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 npm run test:e2e | PASS, **12/12**,25,2 s. |
-| node --env-file=.env scripts/test-cleanup.mjs | PASS, wrapperexit 0: CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0; PASS. |
-| Slutaggregat/SQL-overlap/pg_stat_database | PASS: bokningar 0, kampanjer 0, sessioner 0, överlapp 0, deadlocks 0 (lokal observation). |
-| Syntetisk uppgraderingskopia från Epic 02 | PASS, templatekopia på 55448/booking_epic03_upgrade_test: 3 migrationer inga väntande, Booking/Campaign/Session bevarade, ORM-update exakt UTC-epoch. |
-| Riktig SQLSTATE-probe vid insert | PASS: tvingade 40P01 och 40001 gav DomainError/status 400; 0 testtriggerrester. Extern .mts-probe, inte ytterligare två testfall i svitens 31. |
-| Separat lokal demodatabas / produktionsstart | PASS: ny booking_epic03_demo migrerad/seedad. ROOT_STATUS=200, ADMIN_STATUS=200 med loginform, SERVICE_COUNT=2; egen smoke-server stoppad, därefter 0 bokningar/kampanjer/sessioner/överlapp/deadlocks. Ingen video inspelad. [Windows-guide](LOCAL_DEMO_WINDOWS.md). |
-| npm audit --json | **FAIL exit 1,7 moderate,0 high/critical**. Ingen override eller allowlist. |
-| npm audit --omit=dev --json | **PASS exit 0,0 fynd**. CLI kan ändå installeras via optional peer. |
-| Byggspårning | 10 server-nft-filer, 0 elkjs/Studio/prisma-build-referenser. Inte full distributionsklarering. |
-| Ny demo, extern CI, Docker, riktig TLS/proxy/flerinstans | **EJ KÖRT**. Ingen synlig produktändring/ingen push; Docker saknas. Senaste video är äldre Epic 02-kod. |
-| Grok QA | **PASS, lokal POC** på 18a4d73. Ren installation, 51 unit, 31 integration ×3, 12 E2E ×4; extra NY-tidszon, Prisma 6→7→6 och 4 400 blandade anrop. Full audit FAIL 7 moderate, prod PASS 0. [Groks originalrapport](qa/QA-REPORT-epic03-18a4d73.md). |
+| Kommando / kontroll                                      | Faktiskt resultat på kandidaten                                                                                                                                                                                                                                       |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| npm ci                                                   | **PASS**, exit 0, added 568 / audited 569 i 1 min. ESLint9 deprecation-varning; 7 moderate.                                                                                                                                                                           |
+| npx prisma generate                                      | PASS, Generated Prisma Client v7.10.1,126 ms.                                                                                                                                                                                                                         |
+| npm run db:migrate                                       | PASS, alla 3 oförändrade migrationer på ny databas.                                                                                                                                                                                                                   |
+| npm run db:seed                                          | PASS, exit 0, två syntetiska tjänster.                                                                                                                                                                                                                                |
+| npm run lint                                             | PASS, exit 0.                                                                                                                                                                                                                                                         |
+| npx tsc --noEmit                                         | PASS, exit 0 både före och efter fullmatris.                                                                                                                                                                                                                          |
+| npm test                                                 | PASS, **51/51**,8 filer,2,24 s.                                                                                                                                                                                                                                       |
+| npm run test:integration ×3                              | PASS, **31/31 ×3**,25,27 / 26,83 / 28,11 s,8 filer.                                                                                                                                                                                                                   |
+| TRUST_PROXY_IP=0 npm run test:e2e                        | PASS, dev **12/12**,1,4 min.                                                                                                                                                                                                                                          |
+| TRUST_PROXY_IP=1 npm run test:e2e                        | PASS, dev **12/12**,35,7 s.                                                                                                                                                                                                                                           |
+| npm run build                                            | PASS,3,6 s kompilering, TypeScript,8/8 statiska sidor.                                                                                                                                                                                                                |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e       | PASS, **12/12**,29,2 s.                                                                                                                                                                                                                                               |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 npm run test:e2e       | PASS, **12/12**,25,2 s.                                                                                                                                                                                                                                               |
+| node --env-file=.env scripts/test-cleanup.mjs            | PASS, wrapperexit 0: CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0; PASS.                                                                                                                                                                               |
+| Slutaggregat/SQL-overlap/pg_stat_database                | PASS: bokningar 0, kampanjer 0, sessioner 0, överlapp 0, deadlocks 0 (lokal observation).                                                                                                                                                                             |
+| Syntetisk uppgraderingskopia från Epic 02                | PASS, templatekopia på 55448/booking_epic03_upgrade_test: 3 migrationer inga väntande, Booking/Campaign/Session bevarade, ORM-update exakt UTC-epoch.                                                                                                                 |
+| Riktig SQLSTATE-probe vid insert                         | PASS: tvingade 40P01 och 40001 gav DomainError/status 400; 0 testtriggerrester. Extern .mts-probe, inte ytterligare två testfall i svitens 31.                                                                                                                        |
+| Separat lokal demodatabas / produktionsstart             | PASS: ny booking_epic03_demo migrerad/seedad. ROOT_STATUS=200, ADMIN_STATUS=200 med loginform, SERVICE_COUNT=2; egen smoke-server stoppad, därefter 0 bokningar/kampanjer/sessioner/överlapp/deadlocks. Ingen video inspelad. [Windows-guide](LOCAL_DEMO_WINDOWS.md). |
+| npm audit --json                                         | **FAIL exit 1,7 moderate,0 high/critical**. Ingen override eller allowlist.                                                                                                                                                                                           |
+| npm audit --omit=dev --json                              | **PASS exit 0,0 fynd**. CLI kan ändå installeras via optional peer.                                                                                                                                                                                                   |
+| Byggspårning                                             | 10 server-nft-filer, 0 elkjs/Studio/prisma-build-referenser. Inte full distributionsklarering.                                                                                                                                                                        |
+| Ny demo, extern CI, Docker, riktig TLS/proxy/flerinstans | **EJ KÖRT**. Ingen synlig produktändring/ingen push; Docker saknas. Senaste video är äldre Epic 02-kod.                                                                                                                                                               |
+| Grok QA                                                  | **PASS, lokal POC** på 18a4d73. Ren installation, 51 unit, 31 integration ×3, 12 E2E ×4; extra NY-tidszon, Prisma 6→7→6 och 4 400 blandade anrop. Full audit FAIL 7 moderate, prod PASS 0. [Groks originalrapport](qa/QA-REPORT-epic03-18a4d73.md).                   |
 
 Alla faktiska körloggar utanför Git i C:/Users/<user>/booking-lab-pg-test/: epic03-ci/generate/migrate/seed.log; epic03-final-lint/tsc/unit/integration-1/2/3/e2e-dev-0/1/build/e2e-prod-0/1/cleanup/tsc-after.log; epic03-final-audit.json och epic03-final-audit-production.json. Uppgraderingsproben: epic03-upgrade-clone.log. De angivna tiderna/countsen kommer från faktisk output; inga CI-resultat tillskrivs lokal körning.
 
@@ -733,28 +807,28 @@ Verifierad kod **3cd633b99e5aa990d002dc5563aed4bfe6bfe4a6**, branch `epic-02-loc
 
 ### Historisk resultattabell Epic 02
 
-| Kommando / kontroll | Faktiskt resultat |
-| --- | --- |
-| npm ci | **EJ KÖRT lokalt i Epic 02**; befintlig installation/låsfil återanvänd. Grok körde ren npm ci på fc83a70: PASS, 462 paket. Låsfil och manifest är identiska på slutkoden. |
-| npx prisma generate | PASS, Prisma 6.19.3 |
-| npm run db:migrate | PASS, samtliga 3 oförändrade historiska migrationer på ny testdatabas; även ny separat demodatabas migrerad |
-| npm run db:seed | PASS på test och demo |
-| npm run lint | PASS, exit 0 |
-| npx tsc --noEmit | PASS, exit 0 |
-| npm test | PASS, **43/43**, 7 filer, 2,70 s |
-| npm run test:integration, tre körningar efter QA-rättning | PASS, **30/30 ×3**, 24,86 / 28,22 / 26,62 s |
-| TRUST_PROXY_IP=0 npm run test:e2e (dev) | PASS, **12/12**, 1,3 min |
-| TRUST_PROXY_IP=1 npm run test:e2e (dev) | PASS, **12/12**, 31,6 s |
-| npm run build | PASS, produktion, TypeScript och 8/8 statiska sidor |
-| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e | PASS, **12/12**, 21,1 s |
-| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 npm run test:e2e | PASS, **12/12**, 20,9 s |
-| node --env-file=.env scripts/test-cleanup.mjs | PASS: CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0. Wrapper exit 0; barnets avsiktliga timeout är inte ett testsvitfel. |
-| Aggregat på testdatabasen efter sviten | PASS: 0 bokningar, 0 kampanjer, 0 sessioner, 0 överlapp, pg_stat_database.deadlocks=0 |
-| npm audit --json | **FAIL, exit 1**: 3 höga + 7 måttliga, 0 kritiska. Omkört efter QA-rättning, epic02-qa-audit.json; inga automatiska uppgraderingar/overrides. |
-| npm run demo:record | **PASS 4/4**, 1,2 min, produktionsbygge, ren **7a65aee** (samma kod som 3cd633b), dirty=false. **14 PNG, 4 WebM**. Första misslyckade försök bevaras separat. |
-| Grok slut-QA | **PASS, Epic 02 kan stängas som lokal POC** på cad997b, 01:34–01:44 CET. Ren npm ci/Prisma/lint/tsc/build, 43 unit, 30 integration ×3, 12 E2E ×4 och cleanup PASS i egen miljö. Audit FAIL 3/7. QA-1 stängt; inga blockerande nya fynd. [Originalrapport](qa/QA-REPORT-epic02-cad997b.md). |
-| GitHub Actions på Epic 02 | **EJ KÖRT**: ingen push tillåten. Epic 01:s CI är inte bevis för Epic 02. |
-| Docker Compose, riktig TLS/proxy, IPv6-transport/fler serverinstanser | **EJ KÖRT**. Docker saknas i PATH. Loopback-simulering av proxy i E2E ersätter inte driftverifiering. |
+| Kommando / kontroll                                                   | Faktiskt resultat                                                                                                                                                                                                                                                                          |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| npm ci                                                                | **EJ KÖRT lokalt i Epic 02**; befintlig installation/låsfil återanvänd. Grok körde ren npm ci på fc83a70: PASS, 462 paket. Låsfil och manifest är identiska på slutkoden.                                                                                                                  |
+| npx prisma generate                                                   | PASS, Prisma 6.19.3                                                                                                                                                                                                                                                                        |
+| npm run db:migrate                                                    | PASS, samtliga 3 oförändrade historiska migrationer på ny testdatabas; även ny separat demodatabas migrerad                                                                                                                                                                                |
+| npm run db:seed                                                       | PASS på test och demo                                                                                                                                                                                                                                                                      |
+| npm run lint                                                          | PASS, exit 0                                                                                                                                                                                                                                                                               |
+| npx tsc --noEmit                                                      | PASS, exit 0                                                                                                                                                                                                                                                                               |
+| npm test                                                              | PASS, **43/43**, 7 filer, 2,70 s                                                                                                                                                                                                                                                           |
+| npm run test:integration, tre körningar efter QA-rättning             | PASS, **30/30 ×3**, 24,86 / 28,22 / 26,62 s                                                                                                                                                                                                                                                |
+| TRUST_PROXY_IP=0 npm run test:e2e (dev)                               | PASS, **12/12**, 1,3 min                                                                                                                                                                                                                                                                   |
+| TRUST_PROXY_IP=1 npm run test:e2e (dev)                               | PASS, **12/12**, 31,6 s                                                                                                                                                                                                                                                                    |
+| npm run build                                                         | PASS, produktion, TypeScript och 8/8 statiska sidor                                                                                                                                                                                                                                        |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 npm run test:e2e                    | PASS, **12/12**, 21,1 s                                                                                                                                                                                                                                                                    |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 npm run test:e2e                    | PASS, **12/12**, 20,9 s                                                                                                                                                                                                                                                                    |
+| node --env-file=.env scripts/test-cleanup.mjs                         | PASS: CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0. Wrapper exit 0; barnets avsiktliga timeout är inte ett testsvitfel.                                                                                                                                                     |
+| Aggregat på testdatabasen efter sviten                                | PASS: 0 bokningar, 0 kampanjer, 0 sessioner, 0 överlapp, pg_stat_database.deadlocks=0                                                                                                                                                                                                      |
+| npm audit --json                                                      | **FAIL, exit 1**: 3 höga + 7 måttliga, 0 kritiska. Omkört efter QA-rättning, epic02-qa-audit.json; inga automatiska uppgraderingar/overrides.                                                                                                                                              |
+| npm run demo:record                                                   | **PASS 4/4**, 1,2 min, produktionsbygge, ren **7a65aee** (samma kod som 3cd633b), dirty=false. **14 PNG, 4 WebM**. Första misslyckade försök bevaras separat.                                                                                                                              |
+| Grok slut-QA                                                          | **PASS, Epic 02 kan stängas som lokal POC** på cad997b, 01:34–01:44 CET. Ren npm ci/Prisma/lint/tsc/build, 43 unit, 30 integration ×3, 12 E2E ×4 och cleanup PASS i egen miljö. Audit FAIL 3/7. QA-1 stängt; inga blockerande nya fynd. [Originalrapport](qa/QA-REPORT-epic02-cad997b.md). |
+| GitHub Actions på Epic 02                                             | **EJ KÖRT**: ingen push tillåten. Epic 01:s CI är inte bevis för Epic 02.                                                                                                                                                                                                                  |
+| Docker Compose, riktig TLS/proxy, IPv6-transport/fler serverinstanser | **EJ KÖRT**. Docker saknas i PATH. Loopback-simulering av proxy i E2E ersätter inte driftverifiering.                                                                                                                                                                                      |
 
 Kommandologgar finns lokalt i `C:\Users\<user>\booking-lab-pg-test\`: `epic02-qa-final-lint.log`, `epic02-qa-final-tsc.log`, `epic02-qa-final-unit.log`, `epic02-qa-final-integration-1/2/3.log`, `epic02-qa-final-e2e-dev-0/1.log`, `epic02-qa-final-build.log`, `epic02-qa-final-e2e-prod-0/1.log`, `epic02-qa-cleanup.log`. De är testartefakter utanför Git. Prisma/migrering/seed-output observerades direkt i körningen; återgiven ovan, ingen falsk lokal npm ci-status.
 
@@ -785,26 +859,26 @@ Epic 02: GO för fortsatt planering, inget nytt arbete startat. Pilot: NO-GO av 
 
 Verifierat 2026-11-11 cirka 23:33–23:39 Europe/Stockholm. Kod **01e80ed08a95101cf8e8eb7e899d82e979a4b46b**, bas **8b83a40**, branch epic-01-foundation-hardening. Inga nya produktfunktioner/beroenden/migrationer. Visa e-post undantaget. Ingen push, merge eller ny demo.
 
-| Kommando/kontroll | Faktiskt resultat |
-| --- | --- |
-| `npx prisma generate` | PASS: Generated Prisma Client (v6.19.3). |
-| `npm run db:migrate`, `npm run db:seed` | PASS, exit 0: tre befintliga migrationer på ny isolerad booking_followup_test. |
-| `npm run lint`, `npx tsc --noEmit` | PASS, exit 0; tsc även efter hela E2E-matrisen. |
-| `npm test` | PASS: Test Files 5 passed (5), Tests 28 passed (28), 1.57 s. |
-| `npm run test:integration`, fem sekventiella körningar | PASS 18/18 i alla fem. Tider 12.12, 11.11, 10.97, 11.55, 11.21 s. |
-| Stressregression i varje integrationskörning | 20 omgångar ×20 blandade 30/60-minutersanrop: exakt en framgång/omgång, övriga DomainError ”Tiden är inte tillgänglig”, varje omgång <2000 ms, SQL-kontroll visar 0 överlapp. Totalt 100 omgångar/2000 anrop över fem körningar. |
-| PostgreSQL-logg efter integration och efter E2E | POSTGRES_DEADLOCK_COUNT=0. |
-| `npm run test:e2e`, dev/proxy=0 | PASS: 8 passed (1.2m). |
-| `npm run test:e2e`, dev/proxy=1 | PASS: 8 passed (24.7s). |
-| `npm run build` | PASS: Compiled successfully in 1913ms; statiska sidor 8/8. |
-| `npm run test:e2e`, E2E_PRODUCTION=1/proxy=0 | PASS: 8 passed (16.0s). |
-| `npm run test:e2e`, E2E_PRODUCTION=1/proxy=1 | PASS: 8 passed (16.2s). |
-| `node --env-file=.env scripts/test-cleanup.mjs` | PASS, exit 0: CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0; PASS. |
-| Slutlig Prisma-räkning | {"booking":0,"campaign":0,"adminSession":0}. Ingen manuell datarensning. |
-| `node --env-file=.env scripts/server.mjs`, TRUST_PROXY_IP=1, TRUSTED_PROXY_IPS=::/32 | Negativ kontroll PASS: BOOKING_SERVER_CONFIG_FAILED, exit 1 före lyssning. |
-| YAML-parsning med befintlig js-yaml | PASS: mode=[dev,production], proxy=[0,1], fyra kombinationer. Det är inte en extern Actions-körning. |
-| Prettier 3.6.2 check på ändrade kod-/CI-filer | PASS: All matched files use Prettier code style! Inget projektberoende tillagt. |
-| Diff-check, package.json/låsfil/tre migrationer mot 8b83a40 | PASS; skyddade filer oförändrade. |
+| Kommando/kontroll                                                                    | Faktiskt resultat                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npx prisma generate`                                                                | PASS: Generated Prisma Client (v6.19.3).                                                                                                                                                                                         |
+| `npm run db:migrate`, `npm run db:seed`                                              | PASS, exit 0: tre befintliga migrationer på ny isolerad booking_followup_test.                                                                                                                                                   |
+| `npm run lint`, `npx tsc --noEmit`                                                   | PASS, exit 0; tsc även efter hela E2E-matrisen.                                                                                                                                                                                  |
+| `npm test`                                                                           | PASS: Test Files 5 passed (5), Tests 28 passed (28), 1.57 s.                                                                                                                                                                     |
+| `npm run test:integration`, fem sekventiella körningar                               | PASS 18/18 i alla fem. Tider 12.12, 11.11, 10.97, 11.55, 11.21 s.                                                                                                                                                                |
+| Stressregression i varje integrationskörning                                         | 20 omgångar ×20 blandade 30/60-minutersanrop: exakt en framgång/omgång, övriga DomainError ”Tiden är inte tillgänglig”, varje omgång <2000 ms, SQL-kontroll visar 0 överlapp. Totalt 100 omgångar/2000 anrop över fem körningar. |
+| PostgreSQL-logg efter integration och efter E2E                                      | POSTGRES_DEADLOCK_COUNT=0.                                                                                                                                                                                                       |
+| `npm run test:e2e`, dev/proxy=0                                                      | PASS: 8 passed (1.2m).                                                                                                                                                                                                           |
+| `npm run test:e2e`, dev/proxy=1                                                      | PASS: 8 passed (24.7s).                                                                                                                                                                                                          |
+| `npm run build`                                                                      | PASS: Compiled successfully in 1913ms; statiska sidor 8/8.                                                                                                                                                                       |
+| `npm run test:e2e`, E2E_PRODUCTION=1/proxy=0                                         | PASS: 8 passed (16.0s).                                                                                                                                                                                                          |
+| `npm run test:e2e`, E2E_PRODUCTION=1/proxy=1                                         | PASS: 8 passed (16.2s).                                                                                                                                                                                                          |
+| `node --env-file=.env scripts/test-cleanup.mjs`                                      | PASS, exit 0: CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0; PASS.                                                                                                                                                 |
+| Slutlig Prisma-räkning                                                               | {"booking":0,"campaign":0,"adminSession":0}. Ingen manuell datarensning.                                                                                                                                                         |
+| `node --env-file=.env scripts/server.mjs`, TRUST_PROXY_IP=1, TRUSTED_PROXY_IPS=::/32 | Negativ kontroll PASS: BOOKING_SERVER_CONFIG_FAILED, exit 1 före lyssning.                                                                                                                                                       |
+| YAML-parsning med befintlig js-yaml                                                  | PASS: mode=[dev,production], proxy=[0,1], fyra kombinationer. Det är inte en extern Actions-körning.                                                                                                                             |
+| Prettier 3.6.2 check på ändrade kod-/CI-filer                                        | PASS: All matched files use Prettier code style! Inget projektberoende tillagt.                                                                                                                                                  |
+| Diff-check, package.json/låsfil/tre migrationer mot 8b83a40                          | PASS; skyddade filer oförändrade.                                                                                                                                                                                                |
 
 ## Ändringar och testgränser
 
@@ -814,7 +888,7 @@ Proxyvalideringen avvisar IPv6-subnät som matchar IPv4-ändpunkterna via Node B
 
 ## Miljö och reproduktion
 
-Ny PostgreSQL 18.6 via tidigare installerat externt embedded-postgres: 127.0.0.1:55447, kluster C:\Users\<user>\booking-lab-pg-test\qa-followup-20261111. Windows, Node 24.16.0, npm 11.13.0. Samma nya *_test-databas användes för fem sekventiella körningar; testerna städar sina egna data. Full E2E kördes därefter i ett sekventiellt skript med stopp vid fel. NEXT_TELEMETRY_DISABLED=1 och CHECKPOINT_DISABLE=1; bara syntetiska uppgifter. Reproducerbara testkommandon finns i README; integrationsupprepning: `1..5 | ForEach-Object { npm run test:integration; if ($LASTEXITCODE -ne 0) { throw 'Integration failed' } }`.
+Ny PostgreSQL 18.6 via tidigare installerat externt embedded-postgres: 127.0.0.1:55447, kluster C:\Users\<user>\booking-lab-pg-test\qa-followup-20261111. Windows, Node 24.16.0, npm 11.13.0. Samma nya \*\_test-databas användes för fem sekventiella körningar; testerna städar sina egna data. Full E2E kördes därefter i ett sekventiellt skript med stopp vid fel. NEXT_TELEMETRY_DISABLED=1 och CHECKPOINT_DISABLE=1; bara syntetiska uppgifter. Reproducerbara testkommandon finns i README; integrationsupprepning: `1..5 | ForEach-Object { npm run test:integration; if ($LASTEXITCODE -ne 0) { throw 'Integration failed' } }`.
 
 Råloggar utanför Git: C:\Users\<user>\booking-lab-pg-test\followup-integration-1.log till -5.log, followup-pg.log, followup-e2e-dev-0.log, followup-e2e-dev-1.log, followup-build.log, followup-e2e-prod-0.log och followup-e2e-prod-1.log. Samtliga testkörningar passerade första försöket i denna uppföljning. En hjälpkontroll av YAML försökte först använda modulen yaml som inte fanns; den kördes om med redan installerad js-yaml och passerade. Inga paket installerades för detta.
 
@@ -833,29 +907,29 @@ Verifierat 2026-11-11 cirka 22:48–22:54 Europe/Stockholm. Kodrevision **a364bd
 
 ### Historisk resultattabell
 
-| Kommando/kontroll | Faktiskt resultat |
-| --- | --- |
-| `npm ci` | PASS, exit 0: `added 461 packages, and audited 462 packages in 1m`; 10 vulnerabilities. |
-| `npx prisma generate` | PASS: `Generated Prisma Client (v6.19.3)`. |
-| `npm run db:migrate` | PASS på nya test/demo: `3 migrations found`; `All migrations have been successfully applied.` Alla tre migrationer oförändrade. |
-| `npm run db:seed` | PASS, exit 0 på båda databaserna. |
-| `npm run lint` | PASS, exit 0 utan diagnostik. |
-| `npx tsc --noEmit` | PASS, exit 0; även efter hela E2E-matrisen. |
-| `npm test` | PASS: `Test Files 4 passed (4)`; `Tests 24 passed (24)`; 2.07 s. |
-| `npm run test:integration` | PASS: `Test Files 5 passed (5)`; `Tests 17 passed (17)`; 10.21 s. |
-| `npm run test:e2e`, dev, TRUST_PROXY_IP=0 | PASS: `8 passed (25.6s)`. |
-| `npm run test:e2e`, dev, TRUST_PROXY_IP=1 | PASS: `8 passed (24.7s)`. |
-| `npm run build` | PASS: `Compiled successfully in 1966ms`; statiska sidor 8/8. |
-| `npm run test:e2e`, E2E_PRODUCTION=1, TRUST_PROXY_IP=0 | PASS: `8 passed (16.0s)`. |
-| `npm run test:e2e`, E2E_PRODUCTION=1, TRUST_PROXY_IP=1 | PASS: `8 passed (16.0s)`. |
-| `node --env-file=.env scripts/test-cleanup.mjs` | PASS, exit 0: `CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0; PASS`. Inkluderar nu sessionen. |
-| DB-räkning efter full matris och cleanup | PASS: `{"booking":0,"campaign":0,"adminSession":0}`. Ingen manuell rensning behövdes. |
-| `npm run demo:record`, exporterad `_demo`-URL | PASS: `2 passed (25.4s)`, 12 PNG och 2 WebM, ren a364bda, production. Därefter demo-DB 0/0/0. |
-| `npm audit --json` | FAIL, exit 1: `{"info":0,"low":0,"moderate":7,"high":3,"critical":0,"total":10}`. |
-| `npm audit --omit=dev --json` | FAIL, exit 1: 3 high, 3 totalt. Oförändrade beroendekedjor. |
-| `npx --yes prettier@3.6.2 --check` på ändrade TS/MJS | PASS: `All matched files use Prettier code style!`. Verktyget kördes externt, inget paket tillagt. |
-| `git diff --exit-code 056d0c2 -- package.json package-lock.json prisma/migrations` | PASS, oförändrat; inga nya migrationer eller beroenden. |
-| `git diff --check` | PASS efter borttagning av extra tomma slutrader i dokument. |
+| Kommando/kontroll                                                                  | Faktiskt resultat                                                                                                               |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `npm ci`                                                                           | PASS, exit 0: `added 461 packages, and audited 462 packages in 1m`; 10 vulnerabilities.                                         |
+| `npx prisma generate`                                                              | PASS: `Generated Prisma Client (v6.19.3)`.                                                                                      |
+| `npm run db:migrate`                                                               | PASS på nya test/demo: `3 migrations found`; `All migrations have been successfully applied.` Alla tre migrationer oförändrade. |
+| `npm run db:seed`                                                                  | PASS, exit 0 på båda databaserna.                                                                                               |
+| `npm run lint`                                                                     | PASS, exit 0 utan diagnostik.                                                                                                   |
+| `npx tsc --noEmit`                                                                 | PASS, exit 0; även efter hela E2E-matrisen.                                                                                     |
+| `npm test`                                                                         | PASS: `Test Files 4 passed (4)`; `Tests 24 passed (24)`; 2.07 s.                                                                |
+| `npm run test:integration`                                                         | PASS: `Test Files 5 passed (5)`; `Tests 17 passed (17)`; 10.21 s.                                                               |
+| `npm run test:e2e`, dev, TRUST_PROXY_IP=0                                          | PASS: `8 passed (25.6s)`.                                                                                                       |
+| `npm run test:e2e`, dev, TRUST_PROXY_IP=1                                          | PASS: `8 passed (24.7s)`.                                                                                                       |
+| `npm run build`                                                                    | PASS: `Compiled successfully in 1966ms`; statiska sidor 8/8.                                                                    |
+| `npm run test:e2e`, E2E_PRODUCTION=1, TRUST_PROXY_IP=0                             | PASS: `8 passed (16.0s)`.                                                                                                       |
+| `npm run test:e2e`, E2E_PRODUCTION=1, TRUST_PROXY_IP=1                             | PASS: `8 passed (16.0s)`.                                                                                                       |
+| `node --env-file=.env scripts/test-cleanup.mjs`                                    | PASS, exit 0: `CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0; PASS`. Inkluderar nu sessionen.                     |
+| DB-räkning efter full matris och cleanup                                           | PASS: `{"booking":0,"campaign":0,"adminSession":0}`. Ingen manuell rensning behövdes.                                           |
+| `npm run demo:record`, exporterad `_demo`-URL                                      | PASS: `2 passed (25.4s)`, 12 PNG och 2 WebM, ren a364bda, production. Därefter demo-DB 0/0/0.                                   |
+| `npm audit --json`                                                                 | FAIL, exit 1: `{"info":0,"low":0,"moderate":7,"high":3,"critical":0,"total":10}`.                                               |
+| `npm audit --omit=dev --json`                                                      | FAIL, exit 1: 3 high, 3 totalt. Oförändrade beroendekedjor.                                                                     |
+| `npx --yes prettier@3.6.2 --check` på ändrade TS/MJS                               | PASS: `All matched files use Prettier code style!`. Verktyget kördes externt, inget paket tillagt.                              |
+| `git diff --exit-code 056d0c2 -- package.json package-lock.json prisma/migrations` | PASS, oförändrat; inga nya migrationer eller beroenden.                                                                         |
+| `git diff --check`                                                                 | PASS efter borttagning av extra tomma slutrader i dokument.                                                                     |
 
 ## Acceptanskriterier och bevis
 
@@ -891,35 +965,34 @@ Efter verifieringen stoppades det egna klustret (`server stopped`, därefter `pg
 <details>
 <summary>Bilaga: tidigare verifiering, historiska resultat och tidigare felaktiga säkerhetsantaganden</summary>
 
-
 # Verifiering – Epic 01 QA fix batch 2
 
 ## Aktuella resultat 2026-11-11
 
 Kodrevision **a84e48a32a874a4392c13bb4f32437d06b317c45**, bas b000481, branch epic-01-foundation-hardening. Dokumentationscommit följer kodcommiten. Punkterna 1–5 och 7–11 godkända av beställaren; punkt 6 uttryckligen undantagen. Endast lokala commits, ingen push/deploy. Windows x64, Node 24.16.0, npm 11.13.0, Prisma 6.19.3, Next 16.4.6 och ny isolerad PostgreSQL 18.6. Detta är en testad POC, inte pilotgodkännande.
 
-| Kommando/kontroll | Faktiskt slutresultat |
-|---|---|
-| `npm ci` | PASS, exit 0: `added 461 packages, and audited 462 packages in 1m`; `10 vulnerabilities (7 moderate, 3 high)`. |
-| `npx prisma generate` | PASS: `Generated Prisma Client (v6.19.3)`. |
-| `npm run db:migrate` | PASS på nya `_test` och `_demo`: `3 migrations found`; `All migrations have been successfully applied.` |
-| `npm run db:seed` | PASS, exit 0 på båda nya databaserna. Även separat decoy-databas migrerad/seedad för miljötest. |
-| `npm run lint` | PASS, exit 0 utan diagnostik. |
-| `npx tsc --noEmit` | PASS, exit 0; även efter sista produktions-E2E. |
-| `npm test` | PASS: `Test Files 4 passed (4)` / `Tests 20 passed (20)`, 1.97 s. |
-| `npm run test:integration` | PASS: `Test Files 4 passed (4)` / `Tests 16 passed (16)`, 9.85 s. |
-| `npm run test:e2e`, dev, TRUST_PROXY_IP=0 | PASS: `8 passed (1.2m)`. |
-| `npm run test:e2e`, dev, TRUST_PROXY_IP=1 | PASS: `8 passed (27.0s)`. |
-| `npm run build` | PASS: `Compiled successfully in 961ms`; statiska sidor `8/8` på 153 ms. |
-| `npm run test:e2e`, E2E_PRODUCTION=1, TRUST_PROXY_IP=0 | PASS: `8 passed (19.5s)`. |
-| `npm run test:e2e`, E2E_PRODUCTION=1, TRUST_PROXY_IP=1 | PASS: `8 passed (19.1s)`. |
-| `node --env-file=.env scripts/test-cleanup.mjs` | PASS: `CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0; PASS`. Den avsiktliga timeout-processen ska avslutas med 1; kontrollskriptet avslutades med 0. |
-| `npm run demo:record`, ny `_demo` | PASS: produktionsbygge + `2 passed (24.2s)`, 12 PNG och 2 WebM. Manifest a84e48a, dirty=false. |
-| `npm audit --json` | FAIL, exit 1: 3 high, 7 moderate, 10 total. |
-| `npm audit --omit=dev --json` | FAIL, exit 1: 3 high, 0 moderate, 3 total. |
-| Proxyläge utan TRUSTED_PROXY_IPS, `node scripts/server.mjs` | PASS negativ startkontroll: `BOOKING_SERVER_CONFIG_FAILED`, exit 1 före lyssning. |
-| Extern Prettier 3.6.2 `--check` | PASS: `All matched files use Prettier code style!` på src/tests/scripts/config/seed. Inget nytt projektberoende. |
-| Git-diff och skyddade filer | PASS: diff-check utan fel; package-lock och båda tidigare migrationer oförändrade mot b000481. `.env`, artefakter, resultat och dependencies ignorerade. |
+| Kommando/kontroll                                           | Faktiskt slutresultat                                                                                                                                              |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm ci`                                                    | PASS, exit 0: `added 461 packages, and audited 462 packages in 1m`; `10 vulnerabilities (7 moderate, 3 high)`.                                                     |
+| `npx prisma generate`                                       | PASS: `Generated Prisma Client (v6.19.3)`.                                                                                                                         |
+| `npm run db:migrate`                                        | PASS på nya `_test` och `_demo`: `3 migrations found`; `All migrations have been successfully applied.`                                                            |
+| `npm run db:seed`                                           | PASS, exit 0 på båda nya databaserna. Även separat decoy-databas migrerad/seedad för miljötest.                                                                    |
+| `npm run lint`                                              | PASS, exit 0 utan diagnostik.                                                                                                                                      |
+| `npx tsc --noEmit`                                          | PASS, exit 0; även efter sista produktions-E2E.                                                                                                                    |
+| `npm test`                                                  | PASS: `Test Files 4 passed (4)` / `Tests 20 passed (20)`, 1.97 s.                                                                                                  |
+| `npm run test:integration`                                  | PASS: `Test Files 4 passed (4)` / `Tests 16 passed (16)`, 9.85 s.                                                                                                  |
+| `npm run test:e2e`, dev, TRUST_PROXY_IP=0                   | PASS: `8 passed (1.2m)`.                                                                                                                                           |
+| `npm run test:e2e`, dev, TRUST_PROXY_IP=1                   | PASS: `8 passed (27.0s)`.                                                                                                                                          |
+| `npm run build`                                             | PASS: `Compiled successfully in 961ms`; statiska sidor `8/8` på 153 ms.                                                                                            |
+| `npm run test:e2e`, E2E_PRODUCTION=1, TRUST_PROXY_IP=0      | PASS: `8 passed (19.5s)`.                                                                                                                                          |
+| `npm run test:e2e`, E2E_PRODUCTION=1, TRUST_PROXY_IP=1      | PASS: `8 passed (19.1s)`.                                                                                                                                          |
+| `node --env-file=.env scripts/test-cleanup.mjs`             | PASS: `CLEANUP_TIMEOUT_EXPECTED_EXIT=1; REMAINING_SYNTHETIC_ROWS=0; PASS`. Den avsiktliga timeout-processen ska avslutas med 1; kontrollskriptet avslutades med 0. |
+| `npm run demo:record`, ny `_demo`                           | PASS: produktionsbygge + `2 passed (24.2s)`, 12 PNG och 2 WebM. Manifest a84e48a, dirty=false.                                                                     |
+| `npm audit --json`                                          | FAIL, exit 1: 3 high, 7 moderate, 10 total.                                                                                                                        |
+| `npm audit --omit=dev --json`                               | FAIL, exit 1: 3 high, 0 moderate, 3 total.                                                                                                                         |
+| Proxyläge utan TRUSTED_PROXY_IPS, `node scripts/server.mjs` | PASS negativ startkontroll: `BOOKING_SERVER_CONFIG_FAILED`, exit 1 före lyssning.                                                                                  |
+| Extern Prettier 3.6.2 `--check`                             | PASS: `All matched files use Prettier code style!` på src/tests/scripts/config/seed. Inget nytt projektberoende.                                                   |
+| Git-diff och skyddade filer                                 | PASS: diff-check utan fel; package-lock och båda tidigare migrationer oförändrade mot b000481. `.env`, artefakter, resultat och dependencies ignorerade.           |
 
 ## Vad som faktiskt ändrades och bevisades
 
@@ -948,7 +1021,7 @@ Efter verifieringen stoppades det egna klustret (`server stopped`, därefter `pg
 Audit-output sparades lokalt utanför repot i `C:\Users\<user>\booking-lab-pg-test\qa2-audit.json` och `qa2-audit-runtime.json`. Full audits faktiska metadata:
 
 ```json
-{"info":0,"low":0,"moderate":7,"high":3,"critical":0,"total":10}
+{ "info": 0, "low": 0, "moderate": 7, "high": 3, "critical": 0, "total": 10 }
 ```
 
 Inga nya dependencies, overrides eller major-uppgraderingar. Advisoryanalys och licensbegränsningar från tidigare granskning består. Se [Prisma 7-plan](PRISMA_7_PLAN.md) och [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md).
@@ -977,24 +1050,24 @@ Allt nedan gäller tidigare revisioner. Äldre resultat och begränsningar är i
 
 Kodrevision: `26ea6171de05fe17ce4d8bd1e4a4d931d9d5bc82`, branch `epic-01-foundation-hardening`, bas `ed1658a`. Efterföljande kodrevision `3b3309df290cb9b3d6e9ec64c16adf51c32516ac` formaterar bara ESLint-config och CSS. Lint, tsc, build och Prettier kördes igen efter den formateringen; fullsvit/demobeteende gäller 26ea617. Dokumentationscommiten följer dessa commits. Endast syntetiska uppgifter. Windows x64, Node 24.16.0, npm 11.13.0, Prisma 6.19.3, Next 16.4.6. **Testad POC, inte produktionsgodkännande.**
 
-| Kommando/kontroll | Faktiskt resultat |
-|---|---|
-| `npm ci` | PASS, exit 0; `added 461 packages in 1m`. Ren ominstallation från oförändrad låsfil. |
-| `npx prisma generate` | PASS, Prisma Client 6.19.3. Första sandboxförsöket stoppades av nedladdningsåtkomst; godkänd omkörning passerade. |
-| `npm run db:migrate` | PASS på två nya databaser; båda migrationerna applicerade. Historisk migration oförändrad. |
-| `npm run db:seed` | PASS på båda databaserna, två syntetiska tjänster. |
-| `npm run lint` | PASS, exit 0, inga lintfel. |
-| `npx tsc --noEmit` | PASS, exit 0, ingen diagnostik. |
-| `npm test` | PASS: `Test Files 3 passed (3)` / `Tests 14 passed (14)`; slutlig körning 1.18 s. |
-| `npm run test:integration` | PASS: `Test Files 3 passed (3)` / `Tests 14 passed (14)`; slutlig körning 8.20 s. |
-| `npm run test:e2e` | PASS: `6 passed (15.2s)`, Chromium desktop och Pixel 7-emulering, utvecklingsserver. |
-| `npm run build` | PASS: `Compiled successfully in 3,6 s`, `Generating static pages (8/8) in 146ms`, exit 0. |
-| `npm run demo:record` | PASS: produktionsbygge + `2 passed (25.7s)`, tolv PNG och två WebM. |
-| `npm audit --json` | FAIL, exit 1: 3 high, 7 moderate, 10 total. |
-| `npm audit --omit=dev --json` | FAIL, exit 1: 3 high, 0 moderate. |
-| Extern Prettier 3.6.2 `--check` | PASS: `All matched files use Prettier code style!` på src (inklusive CSS), tests, scripts, TS/MJS-config och seed. ESLint-configens AST är oförändrat; CSS-diff granskad (radbrytningar och inledande nollor). |
-| `git diff --check`; jämförelse av gammal migration, package.json och package-lock mot basen | PASS; inget innehåll ändrat i de skyddade filerna. |
-| Docker Compose/PostgreSQL 16, GitHub Actions, verklig TLS/proxy/flerprocessdrift | EJ KÖRT. Docker saknas; ingen remote/publicering tillåten. |
+| Kommando/kontroll                                                                           | Faktiskt resultat                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm ci`                                                                                    | PASS, exit 0; `added 461 packages in 1m`. Ren ominstallation från oförändrad låsfil.                                                                                                                           |
+| `npx prisma generate`                                                                       | PASS, Prisma Client 6.19.3. Första sandboxförsöket stoppades av nedladdningsåtkomst; godkänd omkörning passerade.                                                                                              |
+| `npm run db:migrate`                                                                        | PASS på två nya databaser; båda migrationerna applicerade. Historisk migration oförändrad.                                                                                                                     |
+| `npm run db:seed`                                                                           | PASS på båda databaserna, två syntetiska tjänster.                                                                                                                                                             |
+| `npm run lint`                                                                              | PASS, exit 0, inga lintfel.                                                                                                                                                                                    |
+| `npx tsc --noEmit`                                                                          | PASS, exit 0, ingen diagnostik.                                                                                                                                                                                |
+| `npm test`                                                                                  | PASS: `Test Files 3 passed (3)` / `Tests 14 passed (14)`; slutlig körning 1.18 s.                                                                                                                              |
+| `npm run test:integration`                                                                  | PASS: `Test Files 3 passed (3)` / `Tests 14 passed (14)`; slutlig körning 8.20 s.                                                                                                                              |
+| `npm run test:e2e`                                                                          | PASS: `6 passed (15.2s)`, Chromium desktop och Pixel 7-emulering, utvecklingsserver.                                                                                                                           |
+| `npm run build`                                                                             | PASS: `Compiled successfully in 3,6 s`, `Generating static pages (8/8) in 146ms`, exit 0.                                                                                                                      |
+| `npm run demo:record`                                                                       | PASS: produktionsbygge + `2 passed (25.7s)`, tolv PNG och två WebM.                                                                                                                                            |
+| `npm audit --json`                                                                          | FAIL, exit 1: 3 high, 7 moderate, 10 total.                                                                                                                                                                    |
+| `npm audit --omit=dev --json`                                                               | FAIL, exit 1: 3 high, 0 moderate.                                                                                                                                                                              |
+| Extern Prettier 3.6.2 `--check`                                                             | PASS: `All matched files use Prettier code style!` på src (inklusive CSS), tests, scripts, TS/MJS-config och seed. ESLint-configens AST är oförändrat; CSS-diff granskad (radbrytningar och inledande nollor). |
+| `git diff --check`; jämförelse av gammal migration, package.json och package-lock mot basen | PASS; inget innehåll ändrat i de skyddade filerna.                                                                                                                                                             |
+| Docker Compose/PostgreSQL 16, GitHub Actions, verklig TLS/proxy/flerprocessdrift            | EJ KÖRT. Docker saknas; ingen remote/publicering tillåten.                                                                                                                                                     |
 
 ## Isolerad miljö och kommandon
 
@@ -1026,7 +1099,7 @@ npm run demo:record
 Audit-JSON sparades utanför repot i `C:\Users\<user>\booking-lab-pg-test\qa-audit.json` och `qa-audit-runtime.json`. Faktisk metadata för full audit:
 
 ```json
-{"info":0,"low":0,"moderate":7,"high":3,"critical":0,"total":10}
+{ "info": 0, "low": 0, "moderate": 7, "high": 3, "critical": 0, "total": 10 }
 ```
 
 Prisma/config/deepmerge-ts står för de tre höga posterna, ESLint/typescript-eslint/minimatch för de sju måttliga. Det är beroendeposter, inte tio oberoende sårbarheter. Inga major-uppgraderingar, overrides eller `audit fix --force`. Se historisk advisoryanalys nedan och [separat Prisma 7-plan](PRISMA_7_PLAN.md). Audit ligger nu i eget märkt CI-jobb och kommer fortfarande att ge rött; detta döljs inte med `continue-on-error`.
@@ -1038,7 +1111,7 @@ Prisma/config/deepmerge-ts står för de tre höga posterna, ESLint/typescript-e
 - 150 syntetiska bokningar ger 100 + 50, korrekt sortering/datumavgränsning över Stockholms 25-timmarsdygn och maskerad e-post. MCP:s negativa datum-/behörighets-/sidtester finns kvar.
 - Sekventiellt retry och 20 samtidiga anrop med samma nyckel ger en rad och samma ID; annan payload ger 409. Även 20 parallella HTTP-anrop testas.
 - 20 samtidiga bokningar och en separat blandad 30/60-minutersgrupp ger exakt en framgång per konfliktfönster. SQL self-join med `tstzrange &&` hittar noll överlapp. Forcerad exclusion-överträdelse blir DomainError 400 med `Tiden är inte tillgänglig`.
-- Verkliga Vitest-/Playwright-konfigurationsstarter med otillåten databas-URL avslutas med non-zero och `TEST_DATABASE_REFUSED` innan testinsamling/serverstart/dataåtkomst. Localhost samt *_test/*_demo krävs, men detta är ingen garanti för att data i en tillåten databas är syntetiska.
+- Verkliga Vitest-/Playwright-konfigurationsstarter med otillåten databas-URL avslutas med non-zero och `TEST_DATABASE_REFUSED` innan testinsamling/serverstart/dataåtkomst. Localhost samt _\_test/_\_demo krävs, men detta är ingen garanti för att data i en tillåten databas är syntetiska.
 - Kampanj med framtida validFrom visas inte före giltighetsdagen. Okänt MCP-fält, för långt (>90 kalenderdagar) eller omvänt intervall avvisas; DB CHECK stoppar omvända datum även vid direkt INSERT.
 - Headers kontrolleras på `/`, `/admin`, `/api/services`. Produktionsdemon kontrollerar även HSTS. Browserfel/CSP-blockeringar observeras av flödestestet. Bekräftelsen innehåller tjänst + lokal tid + Europe/Stockholm, och utloggning ingår.
 
@@ -1068,21 +1141,21 @@ Följande tidigare resultat bevaras för spårbarhet. Deras äldre kommandon, da
 
 Verifierat på Windows x64 med Node 24.16.0 och npm 11.13.0. Docker, Podman och vanlig PostgreSQL-installation fanns inte tillgängliga. Testerna kördes i stället mot en **ny separat PostgreSQL 18.6-instans**, skapad med `embedded-postgres@18.6.0-beta.19` utanför projektet. Instansen använde UTF-8 och lyssnade endast på `127.0.0.1:55439`. En tillfällig ignorerad `.env` pekade på en ny tom testdatabas. Databasen stoppades och `.env` togs bort efter verifieringen. Detta verifierar PostgreSQL-alternativet, inte Docker Compose-konfigurationen.
 
-| Kontroll | Resultat |
-|---|---|
-| `npm ci` | PASS; ren ominstallation från låsfilen. |
-| `npx prisma generate` | PASS. |
-| `npm run db:migrate` | PASS på den nya databasen. |
-| `npm run db:seed` | PASS. |
-| `npm run lint` | PASS. |
-| `npm test` | PASS, 3 enhetstester. |
-| `npm run test:integration` | PASS, 3 integrationstester, inklusive samtidiga bokningsförsök och direkt kontroll av databasens överlappsspärr. |
-| `npm run mcp:client -- --admin` | PASS; listade behandlingar, hämtade tillgänglighet och skapade utkast. |
-| `npm run test:e2e` | Första körningen: FAIL för desktop, 30 sekunders timeout vid `page.goto`; mobil PASS. Efter att testets timeout ökats till 60 sekunder: PASS för både desktop och mobil. Orsaken till den första fördröjningen är inte fastställd. |
-| `npm run build` | PASS, inklusive TypeScript-kontroll. |
-| `npm audit` | FAIL (exit 1): 3 höga och 7 måttliga beroendeposter; se nedan. |
-| `npm audit --omit=dev` | FAIL (exit 1): 3 höga poster i Prisma-kedjan. |
-| Docker Compose / PostgreSQL 16 | EJ VERIFIERAT: Docker saknas på värden. |
+| Kontroll                        | Resultat                                                                                                                                                                                                                           |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm ci`                        | PASS; ren ominstallation från låsfilen.                                                                                                                                                                                            |
+| `npx prisma generate`           | PASS.                                                                                                                                                                                                                              |
+| `npm run db:migrate`            | PASS på den nya databasen.                                                                                                                                                                                                         |
+| `npm run db:seed`               | PASS.                                                                                                                                                                                                                              |
+| `npm run lint`                  | PASS.                                                                                                                                                                                                                              |
+| `npm test`                      | PASS, 3 enhetstester.                                                                                                                                                                                                              |
+| `npm run test:integration`      | PASS, 3 integrationstester, inklusive samtidiga bokningsförsök och direkt kontroll av databasens överlappsspärr.                                                                                                                   |
+| `npm run mcp:client -- --admin` | PASS; listade behandlingar, hämtade tillgänglighet och skapade utkast.                                                                                                                                                             |
+| `npm run test:e2e`              | Första körningen: FAIL för desktop, 30 sekunders timeout vid `page.goto`; mobil PASS. Efter att testets timeout ökats till 60 sekunder: PASS för både desktop och mobil. Orsaken till den första fördröjningen är inte fastställd. |
+| `npm run build`                 | PASS, inklusive TypeScript-kontroll.                                                                                                                                                                                               |
+| `npm audit`                     | FAIL (exit 1): 3 höga och 7 måttliga beroendeposter; se nedan.                                                                                                                                                                     |
+| `npm audit --omit=dev`          | FAIL (exit 1): 3 höga poster i Prisma-kedjan.                                                                                                                                                                                      |
+| Docker Compose / PostgreSQL 16  | EJ VERIFIERAT: Docker saknas på värden.                                                                                                                                                                                            |
 
 `npm ci` och Vitest gav varningar om stödet för ESLint 9 respektive framtida Vite-konfigurationsladdning. De påverkade inte testresultaten men bör följas upp.
 
@@ -1109,18 +1182,18 @@ Den första lokala commiten skapades efter att `.gitignore` utökats och en rikt
 
 Efter kod- och beroendestädningen verifierades projektet på Windows med Node 24.16.0 mot en ny, isolerad lokal PostgreSQL 18.6-databas. Den historiska migrationen applicerades och demodata seedades; Docker Compose verifierades inte.
 
-| Kommando/kontroll | Resultat |
-|---|---|
-| `npm ci` | PASS; låsfilen accepterades. npm rapporterade fortfarande 3 höga och 7 måttliga auditposter samt en ESLint-varning. |
-| `npx prisma validate` | PASS. |
-| `npm run db:migrate`, `npm run db:seed` | PASS på den nya testdatabasen. |
-| `npm run lint` | PASS. |
-| `npm test` | PASS, 3 tester; Vite gav en konfigurationsvarning. |
-| `npm run test:integration` | Första körningen FAIL eftersom `npm ci` hade ersatt Prisma-klienten och `prisma generate` ännu inte körts. Efter `npx prisma generate`: PASS, 3 tester. |
-| `npm run test:e2e` | PASS, 2 körningar: desktop och mobil. |
-| `npm run build` | PASS, inklusive TypeScript-kontroll. |
-| TypeScript AST-jämförelse | PASS: `src/lib/domain.ts` och `src/lib/auth.ts` har samma syntaxträd som före läsbarhetsändringarna. |
-| Manuell Chromium-kontroll | PASS för HTTP 200, rubrik, två tjänster och inga observerade konsol- eller nätverksfel. En skärmbild sparades utanför repot; datumfältets lokaliseringsfynd beskrivs i underhållsgranskningen. |
+| Kommando/kontroll                       | Resultat                                                                                                                                                                                       |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm ci`                                | PASS; låsfilen accepterades. npm rapporterade fortfarande 3 höga och 7 måttliga auditposter samt en ESLint-varning.                                                                            |
+| `npx prisma validate`                   | PASS.                                                                                                                                                                                          |
+| `npm run db:migrate`, `npm run db:seed` | PASS på den nya testdatabasen.                                                                                                                                                                 |
+| `npm run lint`                          | PASS.                                                                                                                                                                                          |
+| `npm test`                              | PASS, 3 tester; Vite gav en konfigurationsvarning.                                                                                                                                             |
+| `npm run test:integration`              | Första körningen FAIL eftersom `npm ci` hade ersatt Prisma-klienten och `prisma generate` ännu inte körts. Efter `npx prisma generate`: PASS, 3 tester.                                        |
+| `npm run test:e2e`                      | PASS, 2 körningar: desktop och mobil.                                                                                                                                                          |
+| `npm run build`                         | PASS, inklusive TypeScript-kontroll.                                                                                                                                                           |
+| TypeScript AST-jämförelse               | PASS: `src/lib/domain.ts` och `src/lib/auth.ts` har samma syntaxträd som före läsbarhetsändringarna.                                                                                           |
+| Manuell Chromium-kontroll               | PASS för HTTP 200, rubrik, två tjänster och inga observerade konsol- eller nätverksfel. En skärmbild sparades utanför repot; datumfältets lokaliseringsfynd beskrivs i underhållsgranskningen. |
 
 E2E-testet följde bokningssida → tillgänglighet och boknings-API → PostgreSQL → administrationsagenda samt MCP-utkast → publicering → bokningssida. Testerna använde syntetiska uppgifter. Den tillfälliga `.env`-filen togs bort och testdatabasen stoppades efteråt. Resultaten innebär inte att POC:n är produktionssäker.
 
@@ -1149,19 +1222,19 @@ CI använder officiella [checkout](https://github.com/actions/checkout) och [set
 
 Basrevision `6535b596c4a7be56f091d0d20e88390238dc8caf`, med ocommittad demo-/dokumentationsinstrumentering under körningen (redovisas i manifest). Ingen produktkod eller beroendeversion ändrades. Startläget var rent. Ny lokal PostgreSQL 18.6, databas booking_visual_demo på 127.0.0.1:55443, skapades med tidigare befintligt separat testverktyg. Migration/seed PASS. Docker/Compose är fortfarande ej testat.
 
-| Kommando/kontroll | Resultat |
-|---|---|
-| npm run demo:record | Slutlig PASS 2/2, desktop/mobil, 26,6 s |
-| npm test | PASS 8/8 |
-| npm run test:integration | PASS 8/8 |
-| npm run test:e2e | PASS 4/4, 10,6 s |
-| npm run lint | PASS |
-| npm run build | PASS |
-| npx tsc --noEmit | PASS |
-| git diff --check | PASS |
-| Demons preflight | PASS: fjärrvärd, fel databasnamn och befintligt syntetiskt utkast avvisades |
-| Bild/video | 12 PNG och 2 WebM; Chromium läste videometadata: 10,00 s/800×450 och 10,16 s/392×800. Admin desktop och publicerat erbjudande mobil granskades visuellt |
-| npm ci / npm audit | Ej omkörda: paketversioner/låsfil oförändrade; tidigare Epic-resultat gäller som historik |
+| Kommando/kontroll        | Resultat                                                                                                                                                |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| npm run demo:record      | Slutlig PASS 2/2, desktop/mobil, 26,6 s                                                                                                                 |
+| npm test                 | PASS 8/8                                                                                                                                                |
+| npm run test:integration | PASS 8/8                                                                                                                                                |
+| npm run test:e2e         | PASS 4/4, 10,6 s                                                                                                                                        |
+| npm run lint             | PASS                                                                                                                                                    |
+| npm run build            | PASS                                                                                                                                                    |
+| npx tsc --noEmit         | PASS                                                                                                                                                    |
+| git diff --check         | PASS                                                                                                                                                    |
+| Demons preflight         | PASS: fjärrvärd, fel databasnamn och befintligt syntetiskt utkast avvisades                                                                             |
+| Bild/video               | 12 PNG och 2 WebM; Chromium läste videometadata: 10,00 s/800×450 och 10,16 s/392×800. Admin desktop och publicerat erbjudande mobil granskades visuellt |
+| npm ci / npm audit       | Ej omkörda: paketversioner/låsfil oförändrade; tidigare Epic-resultat gäller som historik                                                               |
 
 Försök 1: FAIL, grep var felaktigt förankrat och hittade inga tester. Rättat. Försök 2: desktop PASS, mobil FAIL; Playwrights tillfälliga caret-stil för screenshot observerades i React hydration-varning, och en icke-exakt textsökning matchade även dev-overlay. Åtgärd: screenshot med caret initial och exakt bekräftelsetext. Försök 3: PASS på båda enheterna utan observerad hydration-varning. Produktkoden ändrades inte. Misslyckade artefakter är märkta FAIL och ska inte förväxlas med slutleveransen.
 
