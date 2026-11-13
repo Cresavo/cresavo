@@ -1,5 +1,15 @@
 # Beroendesäkerhet
 
+## Lokalt tidvalskort, 2026-11-13
+
+Inga nya npm-paket eller lockfilsändringar. Officiell befintlig MCP SDK2.4.0,
+Luxon/Zod/Prisma; egen liten HTML-resurs med vanliga kontroller och standard
+JSON-RPC-brygga. Ingen kopierad tredjepartsapp/asset. Ingen extern font/CDN
+eller telemetri. AGPL-3.0-only består. Cached Prettier3.6.2 är endast ett
+operatörsverktyg. Nya auditkörningar:7moderate dev/0high/critical; prod0.
+Verifierade oförändrade runtimeberoenden återanvända, ny npmci NOT RUN.
+
+
 ## Kunddatas livscykel/agentprov, 2026-11-13
 
 Inga nya paket eller lockfilsändringar. Befintlig Zod/Prisma/Next/React och

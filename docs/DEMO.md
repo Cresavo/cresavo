@@ -1,3 +1,42 @@
+# Prova lokalt MCP-tidvalskort i ChatGPT på PC:n
+
+[Booking Lab – tidval](https://chatgpt.com/plugins/plugins_6af6eef3bf6881919d99e654b91644e3)
+är ett privat installerat plugin, endast för den förberedda lokala PC:n.
+Den skyddade Vercel-previewn är oförändrad. Ingen ny bokningsfunktion eller
+moln-/mobilanslutning har lagts till. **Demo – endast påhittade uppgifter.**
+
+1. I en lokal ChatGPT-konversation, välj Booking Lab – tidval och be:
+   ”Visa tidvalskortet för Massage hos Anna nästa vardag. Skapa ingen bokning.”
+2. Om klienten visar kortet: välj dag och en tid med knappar. Behandling,
+   utförare, längd och ordinarie pris visas. Inget datum behöver skrivas.
+3. Kontrollera mitt tidsval läser tillgängligheten på nytt. En vald tid är
+   aldrig reserverad; kortet skapar ingen bokning.
+4. Byt behandling/utförare eller välj en stängd dag; tidigare tidsval töms och
+   tomläget erbjuder nästa dag. Sökfönstret i provet är28kalenderdagar.
+5. Visa kortet expanderat om du vill att Codex ska kunna klicktesta via den
+   befintliga MCP Apps-panelstyrningen. Endast inlinekort syns inte i panelinventeringen.
+
+**Viktig status:** faktiska pluginanrop fungerar och Niclas två riktiga PC-
+foton visar Anna-/Erik-korten. Det är användarens renderingsbevis, inte egen
+klickning. Niclas ser inget kort i mobilen: mobilstödet är olöst. Nedanstående
+bilder är från egen Playwrightvärd med verklig MCP-resurs, inte ChatGPT.
+Grok ger GO för lokal syntetisk POC; fokus/hoverkontrast/extraVercelflaggor
+har3Low som ligger i backloggen. Inget mobil- eller pilotgodkännande.
+
+- [320px](assets/time-card/harness-320.png) · [390px](assets/time-card/harness-390.png) · [desktop](assets/time-card/harness-1024.png).
+- [Bildmanifest](assets/time-card/manifest.json) · [faktiskt anrop](verification/time-card/actual-tool-call.json).
+- [Reproducerbar lokal installation och stopp](../plugins/booking-lab-time-card/README.md).
+- [Kommandon/resultat](VERIFICATION.md) · [godkänt scope](MCP_TIME_CARD_PLAN.md).
+
+Runtime8648316, granskning a65f0f2 (bara testoutput skiljer). Separat lokal
+booking_timecard_demo, läskonto utan kundkontaktåtkomst/skrivning. Profil/nyckel
+stannar utanför paket/Git. Stäng av just detta plugin för att stoppa provet;
+stoppa inte delad PostgreSQL eller ändra ägarens andra MCP. Ingen ny avgift,
+publik tunnel eller extern publicering. Fysisk iPhone/Safari ingår inte här.
+
+
+## Historik — föregående verifierade leverans
+
 # Demo — kunddata och verkligt lokalt ägaragentprov, 2026-11-13
 
 [Öppna skyddade kundarbetsytan](https://booking-lab-se-preview.vercel.app/admin/customers)

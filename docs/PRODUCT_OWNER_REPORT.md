@@ -1,52 +1,34 @@
-# Produktägarrapport — kunddata och direkt ägaragentprov, 2026-11-13
+# Produktägarrapport — lokalt MCP-tidvalskort
 
-[Öppna uppdaterade skyddade Booking Lab](https://booking-lab-se-preview.vercel.app/admin/customers).
-Vercel vid behov, sedan demoknapp. Bara påhittade uppgifter, ingen kundpilot.
+[Öppna Booking Lab – tidval på PC:n](https://chatgpt.com/plugins/plugins_6af6eef3bf6881919d99e654b91644e3).
+Privat plugin är installerat; faktiska MCP-anrop fungerar i denna konversation.
+**Dina två PC-foton bekräftar kortvisningen. Mobilen visar inget kort och är
+fortfarande olöst; egen klickning i PC-klienten är inte verifierad.**
 
-**Byggt:** kundkort kan exporteras i begränsade JSONdelar och kontaktuppgifter
-tas bort efter förhandsgranskning/kryss. Kopplade kontaktkopior minimeras,
-teknisk bokningshistorik består. Automatisk gallring är avstängd enligt ditt
-beslut. Grok hittade en rå e-postkvotkopia; den är rättad med HMAC utan att
-återbetala bokningstaket. Inga nya projektberoenden eller större UIändringar.
+Byggt: ett lugnt svenskt tidvalskort med behandling, utförare, pris, dagknappar
+och tider. Verklig befintlig tillgänglighet, kontroll av ändrad tid och tydliga
+tom-/fel-/retrylägen. Inga bokningar/reservationer, kundfält eller adminverktyg.
+Ny separat lokal syntetisk databas med riktigt minimerat SQL-läskonto.
 
-**Prova nu:** skapa eget nytt example.test-kort, förbered/hämta export, läs
-omfattningen och bekräfta kontaktborttagning. För historik: boka via kortet,
-avboka besöket först, och kontrollera sedan bevarad tid/pris under Tidigare.
-[Fem provsteg och riktiga före-/efterbilder](DEMO.md).
+Prova: välj pluginet, be om Massage nästa vardag, tryck på en dag/tid och
+Kontrollera mitt tidsval. [Steg/bilder](DEMO.md). Bilderna är från egen MCP-
+testvärd, inte ChatGPT. Expandera ett eventuellt inlinekort så kan Codex
+granska den faktiska vyn utan att styra själva desktopappens gränssnitt.
 
-**Agentdelen fungerar också:** denna Codex-konversation anropade faktiskt
-lokal MCP, sparade ett20%-utkast16november och fick samma id påretry.
-Ändradretry/confirmedfalse/stale nekades. Egen webbåterbokning gjorde förslaget
-inaktuellt; utkastet bestod opublicerat.1beslut/1ledger,0överlapp.
-Detta finns i lokal isolerad demodatabas, inte i previewns kampanjlista.
-[Transkript/källa/bilder](agent-proof/OWNER_AGENT_2026-11-13.md).
+Branch feature/mcp-time-card; granskad kod a65f0f2, runtime8648316 med samma
+produktkod.83unit/105integration/3korttester och46webb-E2E×4, lint/tsc/build
+PASS. En felaktig parallell artefaktkörning rättades och omkörningen passerade.
+Audit separat7moderate dev/0prod. [Faktiska utdata](VERIFICATION.md).
+Grok ger GO för lokal syntetisk POC påa65f0f2, egna83/105/3/46×4 PASS,
+MCP63/0. EgnaUI38PASS/2FAIL och guard20PASS/2FAIL har3Low (fokus,hoverkontrast,Vercelflaggor) och
+5Info; ingaMedium+. [Original](qa/QA-REPORT-time-card-a65f0f2.md). Inget eget
+ChatGPT-/mobilprov av Grok. Privat push klar; Actions43417840017 PASS:4gröna46/46 påsammaSHA.
 
-Branch **feature/customer-lifecycle-agent-proof**, produkt **95f807196f9b15e0bae2afdcd89604837cf747dd**.
-Privat push klar, ingen mainmerge. Grok stängdeLC-QA-1 på samma kod efter1fixvarv
-och gav syntetiskt GO; inga nya Medium+. [Original](qa/QA-REPORT-lifecycle-fix1-95f8071.md).
-Lokalt79unit/99integration/46E2E×4, lint/tsc/build PASS. [Actions43393207291](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43393207291)
-har4gröna46/46. Audit separat7moderate dev/0prod. [Kommandon och utdata](VERIFICATION.md).
-Grok körde egna79/99/46prod och granskade vårt agentunderlag, inget eget PC-/molnprov.
+Återstår: egen faktisk PC-klickning och ditt UX-besked. Mobilkortet är inte
+fungerande hos dig; fysisk iPhone/Safari-klickning,
+fjärranslutning och kundpilot ingår inte. Ingen ny drift eller abonnemang;
+befintlig skyddad preview95f8071 och kund-/bokningsflöden är bevarade.
 
-**Verklig preview:**95f8071, dpl_<redacted>, samma stabila skyddade länk,
-SSOall kvar. Auth/origin/export/nedladdning/20retries/logout,320/390/1440 och
-återläsning12/13tabeller PASS. Befintliga92bokningar/33kort oförändrade.
-Operatörsproberna hade två antagandefel som rättades utan produktkodändring;
-misslyckade försök är redovisade. Ett för tidigt bygge avbröts utan aliasbyte.
-
-**Återstår:** fysisk iPhone/Safari och ditt UX-godkännande; fullständiga
-kundrättigheter/lagringstid/oanknutna bokningar/backups, MFA/recovery och
-drift-/leverantörsgrindar. Hashar/ID är fortfarande personrelaterbara; separat
-kvotnyckel/rotationsrutin behövs före pilot. Ny extern MCP/AIleverantör/OAuth
-är inte byggd. Ingen automatisk extern backup eller nya abonnemang/tillägg;
-faktisk faktura ej verifierad. Pilot fortfarande NO-GO.
-
-**Tre nästa avgränsade leveranser:**
-
-1. Din fysiska iPhone/Safari-provning av femstegsflödet; samla konkreta UXfel.
-2. En pilotchecklista för vald salongstyp: retention/rättighetsärenden,
-   oanknutna bokningar, hash-/nyckelrotation och återläsning utan återinförda kontakter.
-3. Individuell MFA/recovery och driftgrind med återläsnings-/felövning innan
-   riktig kundpilot. Externa assistenter får en separat avgränsad anslutningsplan.
-
-Uppdrag2–3 är slutfört som syntetisk POC. Inga nya epics startas automatiskt.
+Tre nästa avgränsningar när provet är bedömt:1 faktisk klient-/UXåterkoppling,
+2 besluta säker anslutning för webb/mobil om du vill dit,3 pilotgrindarna
+retention/rättighetsärenden/MFA/återläsning. Ingen av dem startas automatiskt.

@@ -1,3 +1,35 @@
+# Projektstatus — lokalt MCP-tidvalskort
+
+2026-11-13. Granskningsrevision **a65f0f2ee5750044dd46c5db50453db5602b79f2**,
+branch **feature/mcp-time-card**, bas1a49a0e/produkt95f8071. [Godkänt scope](MCP_TIME_CARD_PLAN.md).
+
+| Acceptanskriterium | Faktiskt läge |
+| --- | --- |
+| Välj behandling, utförare, dag och tid utan datumskrivning | PASS i egen MCP-testvärd vid320/390/1024px. Vanliga etiketter/knappar/select, sv-SE och Stockholmstid. |
+| Riktig tillgänglighet, inte påhittade tider | PASS samma getAvailability, 105integration och3korttester. Ny fixturebokning tar bort tiden från resultatet. |
+| Förstå tidsvalets omfattning | PASS UI/text anger ingen reservation/ingen bokning. Ordinarie pris/längd/utförare och valt datum/tid visas. |
+| Tomt, felaktigt eller ändrat underlag | PASS nästa dag, byte av behandling tömmer val, stale/transportfel/retry. 28dagars gräns, inga fria sökintervall. |
+| Minimerad lokal anslutning | PASS opt-in/loopback/test- eller demosuffix, production/VERCEL_ENV/skrivflaggor nekas. Low3: VERCEL/VERCEL_URL ensamma nekas inte. Endast2läsverktyg; kunddata och skrivning nekas även av separat SQL-läskonto. |
+| Faktiskt AI-klientanrop | PASS exponerade pluginverktyget i denna konversation, Anna16tider och Erik12tider16nov. Inte SDK som ersättning. |
+| Faktisk PC-rendering / mobil | Användarens två riktiga PC-foton bekräftar Anna-/Erik-korten. Inte egen CUA-klickning. Användaren ser inget kort i mobilen: mobilstödet är olöst, inte GO. |
+| Oberoende Grok-QA | GO för lokal syntetisk POC på a65f0f2. Egna83/105/3/46×4 PASS; MCP63/0. Egna guard20PASS/2FAIL och UI38PASS/2FAIL med3Low/5Info, ingaMedium+. Inget eget ChatGPT-prov. |
+| Fokus och vald kontrast | DELVIS: GrokLow1 fokus tappas vid laddning, Low2 vald kontroll har dålig hoverkontrast. Backlogg, inte dolt av gröna funktionstester. |
+| Privat push/Actions | a65f0f2 pushad privat efter scopedGrokGO. Full Actions43417840017 PASS:4gröna46/46 på sammaSHA; ingen mainmerge. |
+
+Tekniskt verifierad POC är inte ett löfte om färdig upplevelse i ChatGPT.
+Nuvarande testmatris: **83unit,105integration,3kort-UI,46webb-E2E i vart och ett
+av4lägen**, lint/tsc/build PASS. Audit separat:7moderate dev/0prod.
+Fysisk iPhone/Safari och kundpilot är inte verifierade/godkända. Ingen ny drift,
+betalning, modellnyckel, schemaändring eller dependency. Befintlig preview95f8071
+och ägarens kapacitets-MCP oförändrade. [Kommandon/utdata](VERIFICATION.md).
+
+Sedan förra leveransen: separat read-only MCP Apps-kort, privat lokalt plugin,
+minimerat SQL-konto och riktade tester. Manuell kundlivscykel består och
+automatisk gallring är fortsatt avstängd. Full produktvision ligger kvar i roadmapen.
+
+
+## Historik — föregående verifierade leverans
+
 # Projektstatus — kundlivscykel och verkligt ägaragentprov
 
 2026-11-13. Fryst produkt **95f807196f9b15e0bae2afdcd89604837cf747dd**, branch

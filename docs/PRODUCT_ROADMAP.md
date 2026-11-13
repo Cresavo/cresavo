@@ -1,5 +1,19 @@
 # Booking Lab SE: produktmål och leveransordning
 
+## Lokalt MCP-tidvalskort och återstående klientbevis
+
+a65f0f2 bygger ett separat läsande MCP Apps-kort utan bokningsskrivning.
+Niclas valde PC först och har sedan gett två foton som visar kortet där.
+Mobilen visar inget kort; orsak/säker anslutningsväg återstår och ingår inte
+som godkänd mobil leverans. Inga nya tunnlar/modellkonton/drift startas automatiskt.
+Grok har scopedGO för lokal syntetisk POC, ingaMedium+, följande backlogg:
+Low1 tangentbordsfokus vid laddning; Low2 vald hoverkontrast; Low3 kompletterande
+VERCEL-/VERCEL_URL-guard. Info4–8: tydlig start utanDBURL, öreformat, veckans
+månadsrubrik, uteblivettoolresult-fallback och enhetliga annotations.
+Kortets3tester körs separat; lägg till ett eget CI-steg vid nästa relevanta
+ändring. Ingen extra fixloop eller ny epic startas för små fynd.
+
+
 ## Levererad uppföljning: kunddata och verkligt agentprov
 
 95f8071 levererar godkänd manuell export/kontaktminimering; automatisk gallring

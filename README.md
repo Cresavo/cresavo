@@ -1,5 +1,16 @@
 # booking-lab-se
 
+## Lokalt MCP-tidvalskort — PC-POC, mobil återstår
+
+Privat installerat plugin, faktisk MCP-läsning fungerar. Kortets egna tester
+passerar vid320/390/1024px; användarens PC-foton bekräftar visningen. Grok
+ger scopedGO lokal syntetisk POC med3Low/5Info. Egen PC-klickning och mobil
+återstår; användaren ser inget kort i mobilen.
+Ingen bokning/reservation, inga kundfält, ingen publik MCP eller ny drift.
+[Prova/status](docs/DEMO.md) · [plan](docs/MCP_TIME_CARD_PLAN.md) · [resultat](docs/VERIFICATION.md).
+
+## Tidigare verifierade leveranser
+
 ## Kunddata och verkligt ägaragentprov — levererad syntetisk POC
 
 [Öppna skyddade kundarbetsytan](https://booking-lab-se-preview.vercel.app/admin/customers).

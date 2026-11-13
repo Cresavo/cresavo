@@ -1,3 +1,64 @@
+# Handoff — lokalt MCP-tidvalskort
+
+2026-11-13, feature/mcp-time-card från1a49a0e. Produktkod8648316,
+testartefaktisolering **a65f0f2ee5750044dd46c5db50453db5602b79f2**. Endast
+Playwrights outputDir skiljer de två revisionerna. Scope/mandat i
+[MCP_TIME_CARD_PLAN](MCP_TIME_CARD_PLAN.md); Niclas valde ChatGPT på PC:n först.
+
+Nya src/mcp/time-card delar befintlig getAvailability och aktiva resurser.
+Två läsverktyg, en MCP Apps HTML-resurs och strukturerad/textfallback. Inga
+kundfält eller skrivningar; explicit opt-in, lokal DB-guard, production/Vercel/
+adminflaggor nekas. Alla9migrationer, paket/lockfil och gamla profiler bevarade.
+Ingen appbackend-/infrastrukturmigrering. Inga nya npm-beroenden; cached
+Prettier3.6.2 formaterade bara koden, inte ett levererat beroende.
+
+Privat plugin: [Booking Lab – tidval](https://chatgpt.com/plugins/plugins_6af6eef3bf6881919d99e654b91644e3),
+USER/PRIVATE, release pluginrel_6af6eef513a88191bf80a0fe215fac42, version0.1.0.
+Installerat bekräftat i konto-UI och två faktiska verktyg exponerade i denna
+konversation. Verkliga show_time_picker/list_services anrop fungerar. Därefter gav Niclas två foton av den riktiga PC-klienten: både Anna-/Erik-kort
+visas. Dessa är användarens observation, inte egen CUA-klickning eller Groks
+klientprov. Mobilen visar enligt Niclas inget kort. Orsaken är ännu inte fastställd;
+ingen mobil-GO. Fotooriginal stannar utanför Git, hash/proveniens i underlaget.
+Webbens pluginstart hänvisar korrekt till desktop för lokal exekvering.
+
+Operatörens runtime <local-state>/codex/booking-lab-time-card-8648316 är fryst.
+Oförändrade verifierade9migrations-dependencies återanvänds genom node_modules-
+junction till egen tidigare95f8071-runtime; ny npmci är INTE körd denna gång.
+Användarprofil ~/.booking-lab/time-card.json innehåller bara lokala sökvägar,
+privat envfil stannar utanför Git/paket. Anslutning enbart till ny
+booking_timecard_demo på127.0.0.1:55451 med separat läskonto. Bara Service/Staff
+och6Bookingkolumner (inklusive Prismas implicita id); inga kontakter.
+default_transaction_read_only=on. Kundtabell/kontaktläsning42501, UPDATE25006.
+En tillfällig redundant config.toml-registrering togs bort efter riktig
+pluginanslutning; original booking_calendar_demo kontrollerades oförändrad.
+
+Slutmatris83/105/3 och46webb-E2E×4 PASS; lint/tsc/build.9migrate/seed på6nya
+loopbackDB,207källfiler matchar Git.7moderate dev/0prod audit. Alla egna
+affärs-/admin-/session-/ledger-rader0 efter testerna; integration16hashade
+RateLimitBucket kvar, övriga5miljöer0. Ingen ny domänbokning i användardemon.
+
+Operatörsfel öppet redovisade: lokal PG var stoppad efter föregående session;
+native återstart återhämtade befintliga data utan radering. Första reader-grant
+saknade id som Prisma läser implicit:42501; enbart id lades till. Dev0 fick
+ENOENTtrace när jag körde kort-UI samtidigt med webb-E2E i samma outputDir;
+a65f0f2 separerar artefakter och sekventiella omkörningar46/46 båda devlägen.
+Ingen produktassertion eller säkerhetskontroll sänktes. Första uppladdningsknappen
+öppnade en meny; efter rätt val skickades ett QA-paket, inte dubbla beställningar.
+
+Grok: original QA-REPORT-time-card-a65f0f2.md, SHA256
+891b6903f92fd963bff1310dba19c1f6bfaf10011b69b569ef98723b127ab676.
+Scoped GO lokal syntetisk POC; egna npmci572/83unit/105integration/3kort-UI/
+46webb-E2E×4 PASS, MCP63/0. Guard20PASS/2FAIL och UI38PASS/2FAIL har3Low, ingaMedium+.
+Inget eget ChatGPT-/fysiskt mobilprov. Bilderna kom till vår konversation efter
+deras granskning och har inte granskats av Grok. Ingen ny fixloop för små fynd:
+fokus, hoverkontrast och kompletterande Vercelflaggor går till backloggen.
+5Info dokumenterade. Privat push a65f0f2 klar, Actions43417840017 PASS:4gröna46/46 påsammaSHA. Preview95f8071 orörd; inga nya kostnader,
+tunnlar, driftbehörigheter eller mainmerge. Fysisk iPhone/Safari-klickning och egen faktisk PC-
+klickning NOT RUN. PC-rendering från användarfoton, mobilen olöst. [Testbevis](verification/time-card/), [prova](DEMO.md).
+
+
+## Historik — föregående verifierade leverans
+
 # Handoff — kundlivscykel och ägaragentprov
 
 2026-11-13. Produkt **95f807196f9b15e0bae2afdcd89604837cf747dd**, feature/customer-lifecycle-agent-proof

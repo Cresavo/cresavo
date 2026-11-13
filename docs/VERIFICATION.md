@@ -1,3 +1,84 @@
+# Verifiering — lokalt MCP-tidvalskort
+
+2026-11-13. Produkt8648316 med enbart separat testoutput ändrad i
+**a65f0f2ee5750044dd46c5db50453db5602b79f2**. feature/mcp-time-card.
+
+## Aktuell resultattabell
+
+| Kommando / kontroll | Faktiskt resultat |
+| --- | --- |
+| npm ci | Lokalt NOT RUN denna omgång; oförändrad package/lock och verifierade befintliga beroenden. Ny CI43417840017: ren npmci572Linux PASS. Föregående rena Windows-körning571paket i historiken. |
+| node node_modules/prisma/build/index.js generate | PASS7.10.1,2s. |
+| node node_modules/prisma/build/index.js migrate deploy; node --import tsx prisma/seed.ts | PASS9migrationer/seed på6nya loopback *_test/_demo. Inga historiska migrationer ändrade. |
+| node node_modules/eslint/bin/eslint.js . | PASS14s; slutlig riktad körning exit0. |
+| node node_modules/typescript/bin/tsc --noEmit | PASS7s; slutlig körning exit0. |
+| RATE_LIMIT_STORE=memory node node_modules/vitest/vitest.mjs run | PASS83/83,17filer. |
+| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts | PASS105/105,24filer,126.70s efter extra processtest. Tidigare104/104 separat. |
+| node node_modules/@playwright/test/cli.js test --config playwright.time-card.config.ts | PASS3/3 vid320/390/1024,6s efter isolerad outputDir. Verklig stdio/HTML, egen testvärd, inte ChatGPT. |
+| node node_modules/next/dist/bin/next build | PASS14s. |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test | PASS46/46,92s. |
+| E2E_PRODUCTION=1 TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test | PASS46/46,104s. |
+| E2E_PRODUCTION= TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test | FörstFAIL45/46 pga delad artifactmapp/ENOENT. Efter isolering/sekventiell omkörning PASS46/46,182s. |
+| E2E_PRODUCTION= TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test | PASS46/46,171s. |
+| Gitblob vs testkopia | PASS207filer,0mismatch (LF-text/exaktbinär); docs/AGENTS/genererad next-env undantagna. |
+| Faktisk exponerad plugin-MCP | PASS list_services/show_time_picker i denna konversation; Anna16/Erik12tider16nov,450kr/30min. Källa8648316, produktkod identisk i a65. Ingen SDK-ersättning. |
+| SDK/DB-läsroll | PASS2verktyg, UI-MIME/metadatakoppling, read-only=on; Customer/contact42501, UPDATE25006; ingen publik lyssnare. |
+| npm audit --package-lock-only --json | FAIL exit1:7moderate dev,0high/critical; inga overrides eller uppgraderingar. |
+| npm audit --package-lock-only --omit=dev --json | PASS exit0,0fynd. |
+| Grok oberoende QA | Scoped GO lokal syntetisk POC påa65f0f2: egna npmci572,83unit/105integration/3kort/46webb×4 PASS, MCP63/0. Guard20PASS/2FAIL och UI38PASS/2FAIL:3Low/5Info, ingaMedium+. |
+| Faktisk PC-rendering / klick / mobil | Niclas två foton visar Anna-/Erik-korten i riktiga PC-klienten. Inte egen CUA-klickning och inte Grok. Niclas ser inget kort i mobilen; mobil olöst. |
+| Privat push / GitHub Actions / deploy | Push a65f0f2 efter scopedGrokGO. Full [43417840017](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43417840017) PASS:4gröna46/46 påsammaSHA. Ren npmci572Linux,9migrate/seed,83unit/105integration/build/lint/tsc verifierade. Ingen deploy; Vercel95f8071 är oförändrad. |
+
+Råutdata och exitkoder: [verification/time-card](verification/time-card/).
+[Slutlig källmatchning](verification/time-card/source-freeze-final.json),
+[faktiskt klientanrop](verification/time-card/actual-tool-call.json),
+[SQL-läsroll](verification/time-card/launcher-check.json),
+[städning](verification/time-card/cleanup.json), [bildmanifest](assets/time-card/manifest.json).
+Integration har16hashade RateLimitBucket kvar; alla egna Booking/Event/Customer/
+DataAction/Campaign/Decision/AdminUser/Session/WorkspaceRequest0 i6miljöer.
+
+**NOT RUN:** egen strukturerad fysisk iPhone/Safari/WebKit-provning, egen faktisk ChatGPT-klickning, ny video,
+fjärr-MCP/OAuth/tunnel, kundpilot och ny produktionsdrift. Groks
+[oförändrade originalrapport](qa/QA-REPORT-time-card-a65f0f2.md) redovisar egna kommandon. Ingen ny lokal Windows-npmci eller Dockerinstallationsprovning; CI körde ren npmci och Docker Compose på GitHub.
+Nya kort-UI-konfigurationen körs uttryckligen separat; befintlig CI har ännu
+ingen egen step för den. Lint/unit/integration/webb-E2E omfattas av gamla workflow.
+
+## Appendix — QA, klientbevis och begränsningar
+
+Grok har2UI-fail om tangentbordsfokus (Low1), vald hoverkontrast cirka1,15:1
+(Low2),2guard-fail för VERCEL/VERCEL_URL ensamma (Low3). IngetMedium+.
+Info: saknad DBURL ger säker stacktrace före guarden; ören avrundas i pris;
+vald månadsrubrik täcker inte hela veckospannet (dagknapparna har månad);
+klient utan tool-result saknar fallback; list_services saknar2extraannotations.
+Dessa är backlogg, ingen ny fixloop. Ingen full kundpilot eller allmän
+klientkompatibilitet är godkänd.
+
+Senare i samtalet gav användaren riktiga PC-foton: rendering nu observerad
+från dessa bilder, inte egna klick. Mobilen visar enligt användaren inget kort.
+[Runtime/fotobevis](verification/time-card/runtime-and-user-photo-proof.json)
+visar206matchade filer; endast Playwrightkonfig skiljer runtime864 motQAa65.
+Fotooriginal är användarbilagor och kopior utanför Git. Inget nytt Grok-GO
+tillskrivs dessa foton. Nedladdningshändelsen för QA-rapporten gav timeout,
+men filen sparades faktiskt i Downloads; originalhashen kontrollerades.
+Pluginsharing-API gav400 (USER-scope); ingen retry eller delningsändring.
+PRIVATE/USER verifierades vid skapandet, ingen ny publik publicering.
+
+## Appendix — operatörsfel och omkörningar
+
+Första setup stoppade före DBskapande medECONNREFUSED: lokal PG var avstängd.
+Native pg_ctl start återhämtade befintlig cluster och lät tidigare data bestå.
+Första readerprov gav42501, eftersom Prisma även hämtar Booking.id. Endast id
+lades till de5tids-/filterkolumnerna; kontaktkolumner förblev nekade.
+
+Jag körde ett nytt Playwrightkorttest parallellt med webb-E2E i olika DB men
+samma utmatningsmapp. Det raderade den andra körningens traceartefakt och gav
+dev0 45/46/ENOENT vid context.close. a65f0f2 flyttar kortartefakter till
+demo-artifacts/time-card/test-results. Alla omkörningar var sekventiella och
+passerade utan sänkta assertions. Ursprunglig FAIL finns kvar i verification.json.
+
+
+## Historik — föregående verifierade leverans
+
 # Verifiering — kundlivscykel och verkligt lokalt agentprov
 
 2026-11-13. Produkt **95f807196f9b15e0bae2afdcd89604837cf747dd**, feature/customer-lifecycle-agent-proof.

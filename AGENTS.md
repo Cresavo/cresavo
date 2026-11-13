@@ -10,13 +10,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
-## Pågående: avgränsat lokalt MCP-tidvalskort
+## Lokalt MCP-tidvalskort: scoped QA klar, mobil återstår
 
 - Niclas godkände `docs/MCP_TIME_CARD_PLAN.md` och valde ChatGPT på PC:n först.
   Bas `1a49a0e`, branch `feature/mcp-time-card`. Ingen ny epic eller fjärr-MCP.
 - Endast läsning och syntetisk separat lokal databas; inga boknings-/adminverktyg.
   Bevara gamla serverprofiler. Tidsval är aldrig en bokning eller reservation.
-- Fryst separat Grok-QA, högst två fixvarv. Skilj faktisk ChatGPT-rendering från
+- Grok scopedGO påa65f0f2,3Low/5Info i backlogg utan ny fixloop. PC-rendering
+  bekräftad av användarfoton; egen klickning inte verifierad och mobilen visar
+  inget kort. Privat push klar, Actions43417840017 har4gröna46/46 påa65f0f2. Skilj ChatGPT-rendering från
   SDK/testvärd. Ingen Vercel-ändring, mainmerge, nya beroenden eller abonnemang.
 
 ## Levererat: kunddatas livscykel och lokalt ägaragentprov

@@ -1,5 +1,30 @@
 # Arkitektur
 
+## Separat lokalt MCP-tidvalskort
+
+src/mcp/time-card/server.ts är en opt-in ingång med bara två läsverktyg.
+Den ändrar inte den vanliga MCP-serverns katalog eller ägarens kapacitetsprofil.
+Dataadapter använder samma getAvailability och returnerar minimerade resurser,
+inte Booking-kontakter. Ett 28dagarsfönster tolkas i Stockholm. Priset är
+uttryckligen ordinarie pris; kortet säljer/publicerar inte en kampanj.
+
+MCP Apps-resursen använder standardbryggan, textContent och tom CSP-nätlista;
+inga cookies, hemligheter eller extern hämtning. Tidsval är lokal tillfällig UI-
+status, inte en bokning eller reservation. Kontroll läser tillgänglighet igen;
+byte/stale tömmer valet och modellkontexten när värden stöder detta.
+
+Launcher läser en användarlokal profil utanför paket/Git och skickar endast
+explicit nödvändig miljö, ingen SESSION_SECRET. Opt-in/localDB/NODE_ENV=production/
+VERCEL_ENV/flagguard före databasfrågor. VERCEL/VERCEL_URL utan VERCEL_ENV
+nekas inte i denna version (TC-QA-3 Low). Separat SQL-konto tillåter endast läsning
+avService/Staff och6Bookingkolumner, aldrig kontakter eller writes. Detta är
+inte OS-isolering, fjärrautentisering eller verifierad flerföretagsdrift.
+
+Metadata/MIME/resurs och faktiska verktygsanrop verifieras separat från
+klientens grafiska rendering. Installation på kontot är inte i sig ett
+UI-godkännande. Läs MCP_TIME_CARD_PLAN, DEMO och aktuell VERIFICATION.
+
+
 ## Manuell kunddata och avgränsad agentprofil, 2026-11-13
 
 `customer-data.ts` betjänar enbart aktiv webbadministratör. Ett separat POST
