@@ -4,6 +4,7 @@ import { capacityListSchema, listCapacity } from "@/lib/capacity";
 import { DomainError, pageDataFailure } from "@/lib/errors";
 import AdminHeader from "../header";
 import CapacityOverview from "./overview";
+import ContextLink from "../../components/context-link";
 export const dynamic = "force-dynamic";
 export default async function Overview({
   searchParams,
@@ -46,11 +47,18 @@ export default async function Overview({
     <>
       <AdminHeader email={admin.email} active="overview" />
       <main className="admin-workspace narrow-workspace">
-        <p className="eyebrow">Salongens arbetsdag</p>
-        <h1>Översikt</h1>
+        <div className="workspace-heading">
+          <div>
+            <p className="eyebrow">Salongens arbetsdag</p>
+            <h1>Översikt</h1>
+          </div>
+          <ContextLink className="button-link" href="/admin">
+            Öppna kalendern
+          </ContextLink>
+        </div>
         <p>
-          Här finns avbokade tider att ta ställning till. Förslagen bygger på
-          bokningar och aktuella scheman, utan AI-analys eller intäktsprognoser.
+          Se vad som behöver ett beslut. Förslagen bygger på verkliga
+          avbokningar och aktuella scheman.
         </p>
         {invalid && <p role="alert">Ogiltigt sidval. Visar första sidan.</p>}
         <CapacityOverview

@@ -135,7 +135,18 @@ export default function StaffEditor({
     ),
     [newDate, setNewDate] = useState("");
   const { write, pending, message, status } = useWrite();
-  const { markDirty, markClean } = useUnsavedChanges();
+  const [name, setName] = useState(staff?.name ?? "");
+  const [active, setActive] = useState(staff?.active ?? true);
+  const [serviceIds, setServiceIds] = useState(staff?.serviceIds ?? []);
+  const snapshot = JSON.stringify({
+    name,
+    active,
+    serviceIds: [...serviceIds].sort(),
+    weekly,
+    exceptions: [...exceptions].sort((a, b) => a.date.localeCompare(b.date)),
+  });
+  const [original] = useState(snapshot);
+  const { markDirty, markClean } = useUnsavedChanges(snapshot !== original);
   function changeDay(index: number, patch: Partial<Weekly[number]>) {
     setWeekly((rows) =>
       rows.map((d, i) => (i === index ? { ...d, ...patch } : d)),
@@ -173,7 +184,8 @@ export default function StaffEditor({
           <input
             id="staff-name"
             name="name"
-            defaultValue={staff?.name ?? ""}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
             minLength={2}
             maxLength={80}
             required
@@ -183,7 +195,8 @@ export default function StaffEditor({
           <input
             type="checkbox"
             name="active"
-            defaultChecked={staff?.active ?? true}
+            checked={active}
+            onChange={(event) => setActive(event.target.checked)}
           />
           Aktiv för nya bokningar
         </label>
@@ -196,7 +209,14 @@ export default function StaffEditor({
                   type="checkbox"
                   name="serviceIds"
                   value={s.id}
-                  defaultChecked={staff?.serviceIds.includes(s.id) ?? false}
+                  checked={serviceIds.includes(s.id)}
+                  onChange={(event) =>
+                    setServiceIds((ids) =>
+                      event.target.checked
+                        ? [...ids, s.id]
+                        : ids.filter((id) => id !== s.id),
+                    )
+                  }
                 />
                 {s.name}
                 {!s.active ? " (inaktiv)" : ""}
@@ -317,6 +337,16 @@ export default function StaffEditor({
             Ändringarna sparas först när du väljer Spara medarbetare.
           </p>
           <button>{pending ? "Sparar…" : "Spara medarbetare"}</button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              markClean();
+              router.replace("/admin/staff");
+            }}
+          >
+            Avbryt
+          </button>
         </div>
         <datalist id="schedule-times">
           {Array.from({ length: 49 }, (_, i) => {

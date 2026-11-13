@@ -1,6 +1,14 @@
-import Link from "next/link";
-import { CalendarDays, Users, Scissors, Clock, Megaphone } from "lucide-react";
+import {
+  CalendarDays,
+  Users,
+  Scissors,
+  Clock,
+  Megaphone,
+  LayoutDashboard,
+} from "lucide-react";
 import AdminActions from "./ui";
+import Link from "next/link";
+import HeaderMenu from "./header-menu";
 import { demoAccessEnabled, DEMO_ADMIN_EMAIL } from "@/lib/demo-access";
 export default function AdminHeader({
   email,
@@ -8,13 +16,18 @@ export default function AdminHeader({
 }: {
   email: string;
   active:
-    "overview" | "calendar" | "services" | "staff" | "campaigns" | "customers";
+    | "overview"
+    | "calendar"
+    | "services"
+    | "staff"
+    | "campaigns"
+    | "customers";
 }) {
   return (
-    <header className="admin-header">
-      <div className="admin-brand">
-        <a href="/admin">
-          SALONG EKO <span>/ DEMO</span>
+    <header className="workspace-header">
+      <div className="workspace-brand">
+        <a href="/admin/overview">
+          SALONG EKO <span>Arbetsyta</span>
         </a>
         <p>
           {demoAccessEnabled() && email === DEMO_ADMIN_EMAIL
@@ -22,15 +35,12 @@ export default function AdminHeader({
             : `Inloggad som ${email}`}
         </p>
       </div>
-      <nav aria-label="Administration">
+      <nav className="workspace-primary" aria-label="Administration">
         {(
           [
-            ["overview", "/admin/overview", "Översikt", CalendarDays],
+            ["overview", "/admin/overview", "Översikt", LayoutDashboard],
             ["calendar", "/admin", "Kalender", CalendarDays],
             ["customers", "/admin/customers", "Kunder", Users],
-            ["services", "/admin/services", "Tjänster", Scissors],
-            ["staff", "/admin/staff", "Personal & tider", Clock],
-            ["campaigns", "/admin/campaigns", "Kampanjer", Megaphone],
           ] as const
         ).map(([key, href, label, Icon]) => (
           <a
@@ -48,15 +58,41 @@ export default function AdminHeader({
           </a>
         ))}
       </nav>
-      <div className="admin-account">
-        <Link prefetch={false} href="/product">
-          Om Booking Lab
-        </Link>
+      <HeaderMenu
+        label="Salongen"
+        active={["services", "staff", "campaigns"].includes(active)}
+      >
+        <nav aria-label="Salongens inställningar">
+          {(
+            [
+              ["services", "/admin/services", "Tjänster", Scissors],
+              ["staff", "/admin/staff", "Personal & tider", Clock],
+              ["campaigns", "/admin/campaigns", "Kampanjer", Megaphone],
+            ] as const
+          ).map(([key, href, label, Icon]) => (
+            <a
+              key={key}
+              href={href}
+              aria-current={active === key ? "page" : undefined}
+            >
+              <Icon size={18} aria-hidden="true" />
+              {label}
+            </a>
+          ))}
+        </nav>
+      </HeaderMenu>
+      <HeaderMenu label="Konto">
+        <p className="workspace-identity">
+          {demoAccessEnabled() && email === DEMO_ADMIN_EMAIL
+            ? "Demoägare · skyddad arbetsyta"
+            : `Inloggad som ${email}`}
+        </p>
         <Link prefetch={false} href="/">
           Visa kundbokningen
         </Link>
+        <a href="/product">Om Booking Lab</a>
         <AdminActions mode="logout" />
-      </div>
+      </HeaderMenu>
     </header>
   );
 }

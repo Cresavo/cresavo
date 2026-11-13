@@ -12,6 +12,8 @@ import AdminHeader from "./header";
 import Calendar from "./calendar";
 import DemoEntry from "../demo-entry";
 import { demoAccessEnabled } from "@/lib/demo-access";
+import { ReturnLink } from "../components/context-link";
+import { returnContext } from "@/lib/navigation-context";
 export const dynamic = "force-dynamic";
 export default async function Admin({
   searchParams,
@@ -24,6 +26,8 @@ export default async function Admin({
     cursor?: string;
     from?: string;
     to?: string;
+    returnTo?: string;
+    returnKey?: string;
   }>;
 }) {
   const admin = await getAdminContext();
@@ -108,6 +112,12 @@ export default async function Admin({
     <>
       <AdminHeader email={admin.email} active="calendar" />
       <main className="admin-workspace">
+        {params.returnTo && (
+          <ReturnLink
+            context={returnContext(params, "/admin/overview")}
+            fallback="/admin/overview"
+          />
+        )}
         {(error || loaded.cursorError) && (
           <p role="alert" className="form-error">
             {error || loaded.cursorError}
@@ -121,6 +131,11 @@ export default async function Admin({
           bookings={loaded.result.bookings}
           nextCursor={loaded.result.nextCursor}
           status={status}
+          context={
+            params.returnTo
+              ? returnContext(params, "/admin/overview")
+              : undefined
+          }
         />
       </main>
     </>

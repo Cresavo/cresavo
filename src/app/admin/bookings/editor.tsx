@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { formatBookingTime, formatPrice, readableDay } from "@/lib/format";
+import { formatPrice, readableDay } from "@/lib/format";
 import type { BookingView, StaffView, ServiceView } from "../types";
 import { useWrite, useUnsavedChanges } from "../use-write";
 import { DateTime } from "luxon";
@@ -9,6 +9,12 @@ import DatePicker from "../../components/date-picker";
 import SlotPicker from "../../components/slot-picker";
 import { useAvailability } from "../../components/use-availability";
 import CustomerPicker, { type CustomerChoice } from "../customers/picker";
+import ContextLink, { ReturnLink } from "../../components/context-link";
+import {
+  contextualHref,
+  returnHref,
+  type ReturnContext,
+} from "@/lib/navigation-context";
 
 function dayOf(instant: string) {
   return new Intl.DateTimeFormat("sv-SE", {
@@ -26,6 +32,7 @@ export default function BookingEditor({
   customer,
   preferredService,
   preferredStaff,
+  context = {},
 }: {
   services: ServiceView[];
   staff: StaffView[];
@@ -34,6 +41,7 @@ export default function BookingEditor({
   customer?: CustomerChoice;
   preferredService?: string;
   preferredStaff?: string;
+  context?: ReturnContext;
 }) {
   const router = useRouter();
   const [current, setCurrent] = useState(booking),
@@ -70,8 +78,38 @@ export default function BookingEditor({
   );
   const { slots } = availability;
   const today = DateTime.now().setZone("Europe/Stockholm").toISODate()!;
-  const { write, pending, message, status } = useWrite();
-  const { markDirty, markClean } = useUnsavedChanges();
+  const { write, pending, message, status, clearFeedback } = useWrite();
+  const initialSelection = JSON.stringify({
+    serviceId,
+    staffId,
+    day,
+    start,
+    customerName,
+    customerEmail,
+    customerId: selectedCustomer?.id,
+  });
+  const [originalSelection] = useState(initialSelection);
+  const changed = current
+    ? mode === "edit" &&
+      (staffId !== current.staffId ||
+        day !== dayOf(current.startsAt) ||
+        (!!start && start !== current.startsAt))
+    : initialSelection !== originalSelection;
+  const { markDirty, markClean } = useUnsavedChanges(changed);
+  const editButton = useRef<HTMLButtonElement>(null),
+    noticeElement = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (notice) noticeElement.current?.focus();
+  }, [notice]);
+  function abandonMove() {
+    clearFeedback();
+    setReadError("");
+    setMode("view");
+    setStart("");
+    setNotice("");
+    markClean();
+    requestAnimationFrame(() => editButton.current?.focus());
+  }
   const people = staff.filter(
     (p) => p.active && p.serviceIds.includes(serviceId),
   );
@@ -121,7 +159,12 @@ export default function BookingEditor({
     if (!result) return;
     markClean();
     if (!current) {
-      router.push(`/admin/bookings/${encodeURIComponent(result.id)}`);
+      router.push(
+        contextualHref(
+          `/admin/bookings/${encodeURIComponent(result.id)}`,
+          context,
+        ),
+      );
       return;
     }
     setCurrent({ ...current, ...result });
@@ -164,19 +207,24 @@ export default function BookingEditor({
       setMode("view");
       setConfirmCancel(false);
       setNotice("Bokningen är uppdaterad.");
+      router.refresh();
     } catch {
       setReadError("Bokningen kunde inte hämtas. Försök igen.");
     }
   }
   return (
     <>
-      <p>
-        <a href={`/admin?date=${current ? dayOf(current.startsAt) : day}`}>
-          Till kalendern
-        </a>
-      </p>
+      <ReturnLink
+        context={context}
+        fallback={`/admin?date=${current ? dayOf(current.startsAt) : day}`}
+      />
       {notice && (
-        <p className="success-message" role="status">
+        <p
+          ref={noticeElement}
+          tabIndex={-1}
+          className="success-message"
+          role="status"
+        >
           {notice}
         </p>
       )}
@@ -219,11 +267,11 @@ export default function BookingEditor({
           </p>
           {current.customerId && (
             <p>
-              <a
+              <ContextLink
                 href={`/admin/customers/${encodeURIComponent(current.customerId)}`}
               >
                 Öppna kundkort
-              </a>
+              </ContextLink>
               <small>
                 {" "}
                 Namnet ovan är uppgiften som registrerades vid bokningen.
@@ -235,7 +283,9 @@ export default function BookingEditor({
             !confirmCancel && (
               <div className="action-row">
                 <button
+                  ref={editButton}
                   onClick={() => {
+                    setNotice("");
                     setMode("edit");
                     setStaff(current.staffId);
                     setDay(dayOf(current.startsAt));
@@ -396,8 +446,7 @@ export default function BookingEditor({
               type="button"
               className="quiet-button"
               onClick={() => {
-                setMode("view");
-                markClean();
+                abandonMove();
               }}
             >
               Avbryt flytt
@@ -491,8 +540,7 @@ export default function BookingEditor({
                       type="button"
                       className="secondary"
                       onClick={() => {
-                        setMode("view");
-                        markClean();
+                        abandonMove();
                       }}
                     >
                       Avbryt
@@ -503,6 +551,19 @@ export default function BookingEditor({
             </form>
           )}
         </section>
+      )}
+      {!current && (
+        <button
+          type="button"
+          className="quiet-button"
+          disabled={pending}
+          onClick={() => {
+            markClean();
+            location.assign(returnHref(context, `/admin?date=${day}`));
+          }}
+        >
+          Avbryt bokning
+        </button>
       )}
       {message && (
         <p role="alert" className="form-error">
@@ -518,32 +579,6 @@ export default function BookingEditor({
         <button className="secondary" onClick={reload}>
           Läs in bokningen på nytt
         </button>
-      )}
-      {current && current.events.length > 0 && (
-        <details className="panel">
-          <summary>Historik</summary>
-          <ul className="event-list">
-            {current.events.map((event, index) => (
-              <li key={`${event.createdAt}-${index}`}>
-                <strong>
-                  {event.action === "create"
-                    ? "Skapad"
-                    : event.action === "move"
-                      ? "Flyttad"
-                      : "Avbokad"}
-                </strong>{" "}
-                · {formatBookingTime(event.createdAt)}
-                {event.previousStart && event.nextStart && (
-                  <span>
-                    {formatBookingTime(event.previousStart)} →{" "}
-                    {formatBookingTime(event.nextStart)}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-          <p className="muted">De senaste 20 händelserna.</p>
-        </details>
       )}
     </>
   );

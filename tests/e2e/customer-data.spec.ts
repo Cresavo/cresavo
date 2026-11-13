@@ -37,7 +37,7 @@ test("kundexport laddas ner och bekräftad kontaktborttagning bevarar teknisk hi
     await expect(
       page.getByRole("heading", { name, exact: true }),
     ).toBeVisible();
-    await expect(page).toHaveURL(/\/admin\/customers\/[^/?]+$/);
+    await expect(page).toHaveURL(/\/admin\/customers\/[^/?]+(?:\?[^#]*)?$/);
     const customerId = new URL(page.url()).pathname.split("/").at(-1)!;
     synthetic.trackResource("customer", customerId);
     await page.goto(page.url() + "?saved=1");

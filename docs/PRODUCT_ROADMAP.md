@@ -1,5 +1,15 @@
 # Booking Lab SE: produktmål och leveransordning
 
+## Pågående: sammanhängande salongsupplevelse
+
+Godkänd separat UI-leverans från kumulativ3273934 på
+feature/coherent-salon-workspace, enligt [avgränsning och faktisk genomgång](COHERENT_EXPERIENCE_PLAN.md).
+Tre lägen: produktsida, kundbokning och arbetsyta. Översikt/Kalender/Kunder är
+primära; Salongen samlar Tjänster/Personal & tider/Kampanjer. Kontextbunden
+retur, tydliga avbryt-/sparhandlingar och verklig förslagsstatus. Inga nya moduler,
+agentanslutningar, beroenden eller datamodeller. Fryst QA/slutmatris/preview
+redovisas separat; tidigare lokala MCP-leveransen nedan är bevarad.
+
 ## Levererat mål: användbar agentbokning och arbetsdag
 
 Slutlig produkt/Grok-revision05e5eaf, två samlade rättningsvarv avslutade med

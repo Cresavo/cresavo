@@ -3,6 +3,8 @@ import { ZONE } from "@/lib/time";
 import { readableDay } from "@/lib/format";
 import type { StaffView } from "./types";
 import CalendarFilters from "./calendar-filters";
+import ContextLink from "../components/context-link";
+import { contextualHref, type ReturnContext } from "@/lib/navigation-context";
 
 type CalendarBooking = {
   id: string;
@@ -21,6 +23,7 @@ export default function Calendar({
   bookings,
   nextCursor,
   status,
+  context = {},
 }: {
   date: string;
   view: "day" | "week";
@@ -29,6 +32,7 @@ export default function Calendar({
   bookings: CalendarBooking[];
   nextCursor: string | null;
   status: "confirmed" | "all";
+  context?: ReturnContext;
 }) {
   const hourHeight = 96;
   const selected = DateTime.fromISO(date, { zone: ZONE });
@@ -48,7 +52,10 @@ export default function Calendar({
       .map((id) => ({ id, name: "Tidigare utförare" })),
   ];
   const link = (nextDate: string, nextView = view, cursor?: string) =>
-    `/admin?${new URLSearchParams({ date: nextDate, view: nextView, ...(staffId && { staffId }), ...(status === "all" && { status }), ...(cursor && { cursor }) })}`;
+    contextualHref(
+      `/admin?${new URLSearchParams({ date: nextDate, view: nextView, ...(staffId && { staffId }), ...(status === "all" && { status }), ...(cursor && { cursor }) })}`,
+      context,
+    );
   const minute = (value: Date) => {
     const t = DateTime.fromJSDate(value, { zone: ZONE });
     return t.hour * 60 + t.minute;
@@ -86,9 +93,12 @@ export default function Calendar({
           <p className="eyebrow">Salongens arbetsdag</p>
           <h1>Kalender</h1>
         </div>
-        <a className="button-link" href={`/admin/bookings/new?date=${date}`}>
+        <ContextLink
+          className="button-link"
+          href={`/admin/bookings/new?date=${date}${staffId ? `&staff=${encodeURIComponent(staffId)}` : ""}`}
+        >
           Ny bokning
-        </a>
+        </ContextLink>
       </div>
       <div className="workspace-guidance calendar-guidance">
         <details>
@@ -111,7 +121,7 @@ export default function Calendar({
                   b.startsAt.getTime() >= Date.now(),
               );
               return next ? (
-                <a href={bookingLink(next)}>
+                <ContextLink href={bookingLink(next)}>
                   Nästa besök:{" "}
                   {readableDay(
                     DateTime.fromJSDate(next.startsAt, {
@@ -120,7 +130,7 @@ export default function Calendar({
                   )}{" "}
                   kl. {time(next.startsAt)} · {next.customerName} ·{" "}
                   {next.serviceName}
-                </a>
+                </ContextLink>
               ) : (
                 "Inga fler kommande besök i den visade perioden."
               );
@@ -211,13 +221,15 @@ export default function Calendar({
               {!items.length ? (
                 <p className="empty-state">
                   Inga bokningar {view === "week" ? "den här dagen" : "ännu"}.{" "}
-                  <a href={`/admin/bookings/new?date=${day.toISODate()}`}>
+                  <ContextLink
+                    href={`/admin/bookings/new?date=${day.toISODate()}`}
+                  >
                     Lägg in en bokning eller sök lediga tider.
-                  </a>
+                  </ContextLink>
                 </p>
               ) : (
                 items.map((b) => (
-                  <a
+                  <ContextLink
                     className={`mobile-booking ${b.status === "cancelled" ? "cancelled" : ""}`}
                     key={b.id}
                     href={bookingLink(b)}
@@ -232,7 +244,7 @@ export default function Calendar({
                         "Tidigare medarbetare"}
                     </span>
                     {b.status === "cancelled" && <span>Avbokad</span>}
-                  </a>
+                  </ContextLink>
                 ))
               )}
             </section>
@@ -317,7 +329,7 @@ export default function Calendar({
                       ? 1440
                       : minute(b.endsAt);
                   return (
-                    <a
+                    <ContextLink
                       key={b.id}
                       href={bookingLink(b)}
                       className={`calendar-booking ${b.status === "cancelled" ? "cancelled" : ""}`}
@@ -340,7 +352,7 @@ export default function Calendar({
                       <span>{b.serviceName}</span>
                       <span>{b.customerName}</span>
                       {b.status === "cancelled" && <span>Avbokad</span>}
-                    </a>
+                    </ContextLink>
                   );
                 })}
             </div>
@@ -360,12 +372,12 @@ export default function Calendar({
               .filter((b) => b.status === "cancelled")
               .map((b) => (
                 <li key={b.id}>
-                  <a href={bookingLink(b)}>
+                  <ContextLink href={bookingLink(b)}>
                     {DateTime.fromJSDate(b.startsAt, { zone: ZONE }).toFormat(
                       "d/M HH:mm",
                     )}{" "}
                     · {b.serviceName} · {b.customerName}
-                  </a>
+                  </ContextLink>
                 </li>
               ))}
           </ul>

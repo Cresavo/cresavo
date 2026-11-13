@@ -102,7 +102,19 @@ export default function ServiceEditor({ service }: { service?: ServiceView }) {
           Befintliga bokningar behåller namn, pris och bokad tid. Tilldela nya
           behandlingar under Personal &amp; tider.
         </p>
-        <button>{pending ? "Sparar…" : "Spara behandling"}</button>
+        <div className="action-row editor-actions">
+          <button>{pending ? "Sparar…" : "Spara behandling"}</button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              markClean();
+              router.replace("/admin/services");
+            }}
+          >
+            Avbryt
+          </button>
+        </div>
       </fieldset>
       {(error || message) && (
         <p role="alert" className="form-error">

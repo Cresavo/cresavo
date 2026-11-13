@@ -1,10 +1,19 @@
 "use client";
-import { useRef, useState, type FormEvent } from "react";
+import {
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+  type FormEvent,
+} from "react";
 import { DateTime } from "luxon";
 import Link from "next/link";
 import type { CapacityQuery, listCapacity } from "@/lib/capacity";
 import { formatBookingTime, formatPrice, readableDay } from "@/lib/format";
 import DatePicker from "@/app/components/date-picker";
+import ContextLink, { rememberReturn } from "@/app/components/context-link";
+
+import { useUnsavedChanges } from "../use-write";
 
 type Result = Awaited<ReturnType<typeof listCapacity>>;
 type Suggestion = Result["suggestions"][number];
@@ -37,6 +46,17 @@ export default function CapacityOverview({
   const [result, setResult] = useState(initial),
     [pending, setPending] = useState(false),
     [error, setError] = useState("");
+  const [dirtyCards, setDirtyCards] = useState<Record<string, boolean>>({});
+  useUnsavedChanges(Object.values(dirtyCards).some(Boolean));
+  const setDraftDirty = useCallback((id: string, dirty: boolean) => {
+    setDirtyCards((current) => {
+      if (!!current[id] === dirty) return current;
+      const next = { ...current };
+      if (dirty) next[id] = true;
+      else delete next[id];
+      return next;
+    });
+  }, []);
   async function refresh() {
     setPending(true);
     setError("");
@@ -60,8 +80,8 @@ export default function CapacityOverview({
         </button>
       </div>
       <p className="muted">
-        Ett förslag reserverar ingen tid. Uppdatera när bokningar eller scheman
-        ändras.
+        Granska ett förslag, välj åtgärd och följ resultatet. Ett förslag
+        reserverar ingen tid.
       </p>
       {error && <p role="alert">{error}</p>}
       {(query.cursor || result.nextCursor) && (
@@ -94,11 +114,13 @@ export default function CapacityOverview({
           </p>
         </div>
       )}
+      {result.suggestions.length > 0 && <h2>Förslag och uppföljning</h2>}
       {result.suggestions.map((s) => (
         <CapacityCard
           key={`${s.bookingId}:${s.sourceVersion}:${s.expectedToken}`}
           suggestion={s}
           refresh={refresh}
+          setDraftDirty={setDraftDirty}
         />
       ))}
     </section>
@@ -107,9 +129,11 @@ export default function CapacityOverview({
 function CapacityCard({
   suggestion: s,
   refresh,
+  setDraftDirty,
 }: {
   suggestion: Suggestion;
   refresh: () => Promise<void>;
+  setDraftDirty: (id: string, dirty: boolean) => void;
 }) {
   const day = DateTime.fromISO(s.startsAt)
     .setZone("Europe/Stockholm")
@@ -128,6 +152,16 @@ function CapacityCard({
     expectedToken: s.expectedToken,
   };
   const canAct = s.available && s.status === "new";
+  const dirty =
+    canAct &&
+    (title !== `Lediga tider för ${s.serviceName}` ||
+      from !== day ||
+      until !== day ||
+      discount !== "");
+  useEffect(() => {
+    setDraftDirty(s.bookingId, dirty);
+    return () => setDraftDirty(s.bookingId, false);
+  }, [s.bookingId, dirty, setDraftDirty]);
   async function request(
     action: "calendar" | "preview" | "dismiss" | "draft",
     input: unknown = source,
@@ -163,7 +197,7 @@ function CapacityCard({
     setMessage("");
     try {
       const result = await request("calendar");
-      window.location.assign(result.calendarHref);
+      window.location.assign(rememberReturn(result.calendarHref));
     } catch (e) {
       setMessage((e as Error).message);
       setPending(false);
@@ -224,7 +258,9 @@ function CapacityCard({
           ? "Avfärdat"
           : s.status === "draft"
             ? "Utkast sparat"
-            : "Behöver beslut"}
+            : s.available
+              ? "Förslag · behöver beslut"
+              : "Ingen åtgärd genomförd"}
       </p>
       <h2>{s.serviceName}</h2>
       <p>
@@ -235,11 +271,11 @@ function CapacityCard({
       {s.decidedAt && <p>Beslut sparat {formatBookingTime(s.decidedAt)}.</p>}
       {s.campaign && (
         <p>
-          <Link href={`/admin/campaigns#campaign-${s.campaign.id}`}>
+          <ContextLink href={`/admin/campaigns#campaign-${s.campaign.id}`}>
             {s.campaign.published
               ? "Visa publicerad kampanj"
               : "Granska sparat kampanjutkast"}
-          </Link>
+          </ContextLink>
           . {s.campaign.discountPercent} % på tjänsten{" "}
           {readableDay(s.campaign.validFrom)}–
           {readableDay(s.campaign.validUntil)}. Gäller inte bara denna lucka.
@@ -259,6 +295,16 @@ function CapacityCard({
         >
           Öppna kalendern
         </button>
+        {!s.available && (
+          <button
+            type="button"
+            className="secondary"
+            disabled={pending}
+            onClick={refresh}
+          >
+            Uppdatera underlaget
+          </button>
+        )}
         {canAct && (
           <button
             type="button"
@@ -275,8 +321,8 @@ function CapacityCard({
         <details className="capacity-draft">
           <summary>Förbered kampanjutkast</summary>
           <p>
-            Välj själv rabatt och giltighetsperiod. Den befintliga
-            kampanjmodellen kräver 1–100 % rabatt.
+            Välj rabatt och giltighetsperiod. Du granskar erbjudandet innan det
+            sparas.
           </p>
           <form onSubmit={draft} onChange={() => setPreview(false)}>
             <label htmlFor={`title-${s.bookingId}`}>Rubrik</label>
@@ -341,13 +387,35 @@ function CapacityCard({
                 </p>
               </div>
             )}
-            <button type="submit" disabled={pending}>
-              {pending
-                ? "Kontrollerar…"
-                : preview
-                  ? "Spara kampanjutkast"
-                  : "Förhandsgranska utkast"}
-            </button>
+            <div className="action-row">
+              <button type="submit" disabled={pending}>
+                {pending
+                  ? "Kontrollerar…"
+                  : preview
+                    ? "Spara kampanjutkast"
+                    : "Förhandsgranska utkast"}
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                disabled={pending}
+                onClick={(event) => {
+                  setTitle(`Lediga tider för ${s.serviceName}`);
+                  setFrom(day);
+                  setUntil(day);
+                  setDiscount("");
+                  setPreview(false);
+                  setMessage("");
+                  const details = event.currentTarget.closest("details");
+                  if (details) {
+                    details.open = false;
+                    details.querySelector("summary")?.focus();
+                  }
+                }}
+              >
+                Avbryt utkast
+              </button>
+            </div>
           </form>
         </details>
       )}

@@ -2,6 +2,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWrite, useUnsavedChanges } from "../use-write";
+import {
+  contextualHref,
+  returnHref,
+  type ReturnContext,
+} from "@/lib/navigation-context";
 
 export type CustomerView = {
   id: string;
@@ -15,11 +20,13 @@ export type CustomerView = {
 };
 export default function CustomerEditor({
   customer,
+  context = {},
 }: {
   customer?: CustomerView;
+  context?: ReturnContext;
 }) {
   const router = useRouter(),
-    { write, pending, message, status } = useWrite();
+    { write, pending, message, status, clearFeedback } = useWrite();
   const [notice, setNotice] = useState("");
   const { markDirty, markClean } = useUnsavedChanges();
   async function save(e: React.FormEvent<HTMLFormElement>) {
@@ -46,12 +53,17 @@ export default function CustomerEditor({
     if (!result) return;
     markClean();
     if (!customer)
-      router.push(`/admin/customers/${encodeURIComponent(result.id)}`);
+      router.push(
+        contextualHref(
+          `/admin/customers/${encodeURIComponent(result.id)}`,
+          context,
+        ),
+      );
     else {
       setNotice("Kundkortet är sparat. Äldre bokningar är oförändrade.");
-      router.replace(
-        `/admin/customers/${encodeURIComponent(customer.id)}?saved=1`,
-      );
+      const href = new URL(location.href);
+      href.searchParams.set("saved", "1");
+      router.replace(href.pathname + href.search);
       router.refresh();
     }
   }
@@ -111,9 +123,32 @@ export default function CustomerEditor({
             Arkivera kundkortet. Besökshistoriken finns kvar.
           </label>
         )}
-        <button>
-          {pending ? "Sparar…" : customer ? "Spara kundkort" : "Skapa kund"}
-        </button>
+        <div className="action-row editor-actions">
+          <button>
+            {pending ? "Sparar…" : customer ? "Spara kundkort" : "Skapa kund"}
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={(event) => {
+              clearFeedback();
+              markClean();
+              if (!customer) {
+                location.assign(returnHref(context, "/admin/customers"));
+                return;
+              }
+              event.currentTarget.form?.reset();
+              const details = event.currentTarget.closest("details");
+              if (details) {
+                details.open = false;
+                details.querySelector("summary")?.focus();
+              }
+              setNotice("Ändringarna har återställts.");
+            }}
+          >
+            Avbryt
+          </button>
+        </div>
       </fieldset>
       {message && (
         <p role="alert">

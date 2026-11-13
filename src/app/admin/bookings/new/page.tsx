@@ -8,6 +8,7 @@ import { localDay } from "@/lib/time";
 import AdminHeader from "../../header";
 import BookingEditor from "../editor";
 import { getCustomer } from "@/lib/customers";
+import { returnContext } from "@/lib/navigation-context";
 export const dynamic = "force-dynamic";
 export default async function NewBooking({
   searchParams,
@@ -17,6 +18,8 @@ export default async function NewBooking({
     customer?: string;
     service?: string;
     staff?: string;
+    returnTo?: string;
+    returnKey?: string;
   }>;
 }) {
   const admin = await getAdminContext();
@@ -37,8 +40,10 @@ export default async function NewBooking({
         },
       )
     : undefined;
-  const preferredService = services.find(
-    (s) => s.id === params.service && s.active,
+  const requestedStaff = staff.find((s) => s.id === params.staff && s.active);
+  const preferredService = (
+    services.find((s) => s.id === params.service && s.active) ??
+    services.find((s) => s.active && requestedStaff?.serviceIds.includes(s.id))
   )?.id;
   const preferredStaff = staff.find(
     (s) =>
@@ -64,6 +69,7 @@ export default async function NewBooking({
             customer={customer && { id: customer.id, name: customer.name }}
             preferredService={preferredService}
             preferredStaff={preferredStaff}
+            context={returnContext(params, `/admin?date=${date}`)}
           />
         )}
       </main>

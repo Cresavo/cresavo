@@ -30,9 +30,7 @@ export default async function Home() {
         )}
       </header>
       <p className="product-backlink">
-        <Link href="/product">
-          Om Booking Lab – produkten bakom demosalongen
-        </Link>
+        <Link href="/product">Om Booking Lab</Link>
       </p>
       <div className="booking-intro">
         <p className="eyebrow">Välkommen till vår demosalong</p>

@@ -10,6 +10,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
+## Pågående: sammanhängande salongsupplevelse
+
+- Niclas godkände docs/COHERENT_EXPERIENCE_PLAN.md. Bas3273934,
+  feature/coherent-salon-workspace. Bevara hela senare agent-workday-leveransen.
+- Endast befintlig UI/navigation/kontext/återkoppling. Ingen ny modul, modell,
+  dependencyuppgradering eller förändring av boknings-/auth-/MCP-regler.
+- Codex ensam skrivare, faktiska före/efter-klicktest och fryst Grok-QA i egen
+  syntetisk kopia, max2 samlade rättningsvarv. Privat push/exakt CI och samma
+  skyddade preview. Ingen mainmerge, ny åtkomst eller ny kostnad.
+
 ## Levererat: beständigt agentkort och ägarens arbetsdag
 
 - Produkt/slutlig Grok-revision05e5eaf, två samlade rättningsvarv avslutade.

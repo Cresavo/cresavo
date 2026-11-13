@@ -479,6 +479,7 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
     await expect(page.getByText(title)).toBeVisible();
     await capture("06-publikt-erbjudande");
     await page.goto("/admin");
+    await page.locator("summary").filter({ hasText: "Konto" }).click();
     await page.getByRole("button", { name: "Logga ut" }).click();
     await expect(page.locator("#password")).toBeVisible();
     const loggedOut = await page.request.post("/api/admin/publish", {

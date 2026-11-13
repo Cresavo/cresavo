@@ -44,11 +44,26 @@ export function useWrite() {
       setPending(false);
     }
   }
-  return { write, pending, message, status };
+  return {
+    write,
+    pending,
+    message,
+    status,
+    clearFeedback: () => {
+      setMessage("");
+      setStatus(0);
+    },
+  };
 }
 
-export function useUnsavedChanges() {
+export function useUnsavedChanges(stateDirty?: boolean) {
   const dirty = useRef(false);
+  const stateChanged = useRef(false);
+  const formChanged = useRef(false);
+  useEffect(() => {
+    stateChanged.current = stateDirty ?? false;
+    dirty.current = stateChanged.current || formChanged.current;
+  }, [stateDirty]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (dirty.current) {
@@ -98,11 +113,32 @@ export function useUnsavedChanges() {
     };
   }, []);
   return {
-    markDirty: () => {
-      dirty.current = true;
+    markDirty: (event?: { currentTarget: EventTarget }) => {
+      if (stateDirty !== undefined) return;
+      if (event?.currentTarget instanceof HTMLFormElement) {
+        const form = event.currentTarget;
+        const defaults: [string, string][] = [];
+        for (const input of Array.from(form.elements)) {
+          if (
+            !(input instanceof HTMLInputElement) ||
+            !input.name ||
+            input.disabled
+          )
+            continue;
+          if (["checkbox", "radio"].includes(input.type)) {
+            if (input.defaultChecked) defaults.push([input.name, input.value]);
+          } else if (!["submit", "button", "reset"].includes(input.type))
+            defaults.push([input.name, input.defaultValue]);
+        }
+        formChanged.current =
+          JSON.stringify([...new FormData(form).entries()]) !==
+          JSON.stringify(defaults);
+        dirty.current = formChanged.current;
+      } else dirty.current = true;
     },
     markClean: () => {
       dirty.current = false;
+      formChanged.current = false;
     },
   };
 }

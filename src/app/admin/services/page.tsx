@@ -19,7 +19,7 @@ export default async function Services({
   ]).catch(pageDataFailure);
   const selected = params.new
     ? undefined
-    : (services.find((s) => s.id === params.id) ?? services[0]);
+    : services.find((s) => s.id === params.id);
   return (
     <>
       <AdminHeader email={admin.email} active="services" />
@@ -36,9 +36,8 @@ export default async function Services({
           </p>
         )}
         <p className="workspace-guidance">
-          Välj en behandling för att ändra pris och längd. Skapa nya med Ny
-          behandling och koppla dem sedan till rätt person under Personal &amp;
-          tider.
+          Behandlingar, priser och längder. Välj en behandling för att ändra
+          den.
         </p>
         <div className="settings-layout">
           <aside aria-label="Behandlingar" className="resource-list">
@@ -56,13 +55,23 @@ export default async function Services({
               </a>
             ))}
           </aside>
-          <section className="panel">
-            <h2>{selected ? "Redigera behandling" : "Ny behandling"}</h2>
-            <ServiceEditor
-              key={selected ? `${selected.id}-${selected.version}` : "new"}
-              service={selected}
-            />
-          </section>
+          {selected || params.new ? (
+            <section className="panel">
+              <div className="section-heading">
+                <h2>{selected ? "Redigera behandling" : "Ny behandling"}</h2>
+                <a href="/admin/services">Stäng</a>
+              </div>
+              <ServiceEditor
+                key={selected ? `${selected.id}-${selected.version}` : "new"}
+                service={selected}
+              />
+            </section>
+          ) : (
+            <section className="panel empty-state">
+              <h2>Välj en behandling</h2>
+              <p>Öppna en behandling i listan eller välj Ny behandling.</p>
+            </section>
+          )}
         </div>
       </main>
     </>

@@ -17,8 +17,10 @@ test("långa kundnamn ryms på kundkort, lista och bokningsval utan mobilzoom", 
   await page.locator("#customer-name").fill(name);
   await page.locator("#customer-email").fill("s".repeat(64) + "@example.test");
   await page.getByRole("button", { name: "Skapa kund", exact: true }).click();
-  await expect(page).toHaveURL(/\/admin\/customers\/(?!new(?:[/?]|$))[^/?]+$/);
-  const card = page.url();
+  await expect(page).toHaveURL(
+    /\/admin\/customers\/(?!new(?:[/?]|$))[^/?]+(?:\?[^#]*)?$/,
+  );
+  const card = new URL(page.url()).origin + new URL(page.url()).pathname;
   async function fits(selector: string, width: number) {
     await expect(page.locator(selector).first()).toBeVisible();
     expect(await page.evaluate(() => innerWidth)).toBe(width);
@@ -48,7 +50,7 @@ test("långa kundnamn ryms på kundkort, lista och bokningsval utan mobilzoom", 
     await page.goto("/admin/customers?q=" + name);
     await fits(".customer-row strong", width);
     await page.locator(".customer-row").filter({ hasText: name }).click();
-    await expect(page).toHaveURL(card);
+    await expect(page).toHaveURL((url) => url.origin + url.pathname === card);
   }
 });
 
@@ -69,8 +71,10 @@ test("kundkort, bokning, ändrade uppgifter, flytt, avbokning och återbesök h�
     .locator("#customer-email")
     .fill(`${synthetic.marker}@example.test`);
   await page.getByRole("button", { name: "Skapa kund", exact: true }).click();
-  await expect(page).toHaveURL(/\/admin\/customers\/(?!new(?:[/?]|$))[^/?]+$/);
-  const customerUrl = page.url();
+  await expect(page).toHaveURL(
+    /\/admin\/customers\/(?!new(?:[/?]|$))[^/?]+(?:\?[^#]*)?$/,
+  );
+  const customerUrl = new URL(page.url()).origin + new URL(page.url()).pathname;
   await page.reload();
   await expect(
     page.getByRole("heading", { name: synthetic.marker, exact: true }),
@@ -85,8 +89,10 @@ test("kundkort, bokning, ändrade uppgifter, flytt, avbokning och återbesök h�
   await page
     .getByRole("button", { name: "Skapa bokning", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/admin\/bookings\/(?!new(?:[/?]|$))[^/?]+$/);
-  const bookingUrl = page.url();
+  await expect(page).toHaveURL(
+    /\/admin\/bookings\/(?!new(?:[/?]|$))[^/?]+(?:\?[^#]*)?$/,
+  );
+  const bookingUrl = new URL(page.url()).origin + new URL(page.url()).pathname;
   await page.getByRole("link", { name: "Öppna kundkort", exact: true }).click();
   await page.getByText("Redigera kunduppgifter", { exact: true }).click();
   await page.locator("#customer-name").fill(synthetic.marker + " ändrad");
@@ -128,7 +134,9 @@ test("kundkort, bokning, ändrade uppgifter, flytt, avbokning och återbesök h�
   await page
     .getByRole("button", { name: "Skapa bokning", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/admin\/bookings\/(?!new(?:[/?]|$))[^/?]+$/);
+  await expect(page).toHaveURL(
+    /\/admin\/bookings\/(?!new(?:[/?]|$))[^/?]+(?:\?[^#]*)?$/,
+  );
   await page.goto("/admin/customers");
   await page
     .locator("#customer-search")

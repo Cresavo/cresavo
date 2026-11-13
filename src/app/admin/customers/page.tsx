@@ -6,6 +6,7 @@ import { customerListSchema, listCustomers } from "@/lib/customers";
 import { formatBookingTime } from "@/lib/format";
 import AdminHeader from "../header";
 import { DomainError, pageDataFailure } from "@/lib/errors";
+import ContextLink from "../../components/context-link";
 export const dynamic = "force-dynamic";
 
 export default async function Customers({
@@ -47,7 +48,7 @@ export default async function Customers({
             <p className="eyebrow">Salongens kunder</p>
             <h1>Kunder</h1>
           </div>
-          <Link className="button-link" href="/admin/customers/new">
+          <ContextLink className="button-link" href="/admin/customers/new">
             <Plus
               className="ui-icon"
               size={18}
@@ -55,7 +56,7 @@ export default async function Customers({
               focusable="false"
             />
             Ny kund
-          </Link>
+          </ContextLink>
         </div>
         <p>
           Hitta kunden, se besöken och boka en ny tid. Kontaktuppgifter visas på
@@ -114,7 +115,7 @@ export default async function Customers({
         ) : (
           <div className="customer-list">
             {result.customers.map((c) => (
-              <Link
+              <ContextLink
                 className="panel customer-row"
                 key={c.id}
                 href={`/admin/customers/${encodeURIComponent(c.id)}`}
@@ -132,7 +133,7 @@ export default async function Customers({
                     ? `Tidigare bokning: ${formatBookingTime(c.lastVisit)}`
                     : "Inga tidigare besök"}
                 </small>
-              </Link>
+              </ContextLink>
             ))}
           </div>
         )}

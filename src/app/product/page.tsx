@@ -13,9 +13,12 @@ export default function Product() {
     <main className="product-page">
       <header className="product-nav">
         <Link className="salon-brand" href="/product">
-          BOOKING LAB<span>Tidig version · privat demo</span>
+          BOOKING LAB<span>Produktsida · tidig version</span>
         </Link>
-        <Link href="/">Se kundbokningen</Link>
+        <nav aria-label="Välj upplevelse">
+          <Link href="/">Se kundbokningen</Link>
+          <Link href="/admin/overview">Salongens arbetsyta</Link>
+        </nav>
       </header>
       <section className="product-hero">
         <div>

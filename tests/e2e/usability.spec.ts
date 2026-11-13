@@ -101,6 +101,13 @@ test("alla arbetsytans menyer och datumval ryms på en smal telefon", async ({
     ["/admin/campaigns", "h1"],
   ]) {
     await page.goto(path);
+    if (path === "/admin/services")
+      await page
+        .getByRole("link", { name: /Fotvård/ })
+        .first()
+        .click();
+    if (path === "/admin/staff")
+      await page.getByRole("link", { name: /Anna/ }).first().click();
     await expect(page.locator(ready)).toBeVisible();
     expect(
       await page.evaluate(

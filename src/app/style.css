@@ -359,66 +359,166 @@ input[type="checkbox"] {
 fieldset {
   min-width: 0;
 }
-.admin-header {
+.workspace-header {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 20px;
-  padding: 18px 28px;
+  gap: 12px 24px;
+  padding: 12px 28px;
   background: #fff;
   border-bottom: 1px solid #dce3dc;
 }
-.admin-brand {
-  min-width: 210px;
+.workspace-brand {
+  min-width: 0;
+  flex: 1;
 }
-.admin-brand > a {
+.workspace-brand > a {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-decoration: none;
 }
-.admin-brand span {
+.workspace-brand span {
   font-size: 11px;
   font-weight: 400;
 }
-.admin-brand p {
+.workspace-brand p {
   font-size: 12px;
   color: #52645f;
   margin-top: 5px;
-  overflow-wrap: anywhere;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.admin-header nav {
+.workspace-primary {
   display: flex;
-  flex-wrap: wrap;
   gap: 4px;
 }
-.admin-header nav a {
-  padding: 12px 14px;
+.workspace-primary > a,
+.workspace-menu > summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 10px 12px;
   border-radius: 7px;
   text-decoration: none;
   font-size: 14px;
+  cursor: pointer;
 }
-.admin-header nav a[aria-current="page"] {
+.workspace-primary a[aria-current="page"],
+.workspace-menu[data-active] > summary,
+.workspace-menu[open] > summary {
   background: #eaf1ed;
   font-weight: 700;
 }
-.admin-account {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-left: auto;
-  font-size: 13px;
+.workspace-menu {
+  position: relative;
 }
-.admin-account form {
-  margin: 0;
+.workspace-menu > summary {
+  list-style: none;
 }
-.admin-account form p:empty {
+.workspace-menu > summary::-webkit-details-marker {
   display: none;
 }
-.admin-account button {
-  padding: 10px 13px;
-  background: #f4f6f3;
+.workspace-menu-panel {
+  position: absolute;
+  right: 0;
+  z-index: 30;
+  min-width: min(260px, calc(100vw - 32px));
+  padding: 8px;
+  border: 1px solid #cbd7cf;
+  border-radius: 10px;
+  background: white;
+  box-shadow: 0 12px 28px #203c3620;
+}
+.workspace-menu-panel nav {
+  display: grid;
+}
+.workspace-menu-panel a,
+.workspace-menu-panel button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 6px;
   color: #203c36;
+  background: white;
+  text-decoration: none;
+  text-align: left;
+}
+.workspace-menu-panel a:hover,
+.workspace-menu-panel button:hover {
+  background: #f1f5f1;
+}
+.workspace-menu-panel form {
+  margin: 0;
+}
+.workspace-menu-panel form p:empty {
+  display: none;
+}
+.workspace-identity {
+  padding: 10px 12px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  color: #52645f;
+}
+.context-back {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 44px;
+  margin-bottom: 12px;
+}
+@media (max-width: 767px) {
+  .workspace-header {
+    padding: 10px 16px;
+    gap: 8px;
+  }
+  .workspace-brand {
+    flex: 1 0 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .workspace-brand > a {
+    flex: 0 0 auto;
+  }
+  .workspace-brand p {
+    max-width: 48%;
+    margin: 0;
+  }
+  .workspace-menu:last-child {
+    margin-left: auto;
+  }
+  .workspace-menu:not(:last-child) .workspace-menu-panel {
+    left: 0;
+    right: auto;
+  }
+  .workspace-primary {
+    order: 3;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+  }
+  .workspace-primary > a {
+    flex-direction: column;
+    gap: 3px;
+    padding: 7px 2px;
+    font-size: 12px;
+  }
+}
+@media (max-width: 360px) {
+  .workspace-header {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
 }
 .admin-workspace {
   max-width: 1550px;
@@ -855,28 +955,6 @@ button:hover,
   border-color: #d8ada7;
 }
 @media (max-width: 767px) {
-  .admin-header {
-    padding: 16px;
-    gap: 14px;
-  }
-  .admin-brand {
-    width: 100%;
-  }
-  .admin-header nav {
-    order: 3;
-    width: 100%;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .admin-header nav a {
-    padding: 11px;
-    text-align: center;
-  }
-  .admin-account {
-    margin-left: 0;
-    width: 100%;
-    justify-content: space-between;
-  }
   .admin-workspace {
     padding: 24px 16px 40px;
   }
@@ -1371,27 +1449,9 @@ body {
   .month-row button {
     font-size: 13px;
   }
-  .admin-header,
   .admin-workspace {
     width: 100%;
     min-width: 0;
-  }
-  .admin-brand {
-    min-width: 0;
-  }
-  .admin-header nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .admin-header nav a {
-    min-height: 44px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    white-space: normal;
-    overflow-wrap: normal;
-  }
-  .admin-account > a {
-    padding: 10px 0;
   }
   .workspace-heading h1 {
     font-size: 28px;
@@ -1421,4 +1481,16 @@ body {
   .form-grid {
     min-width: 0;
   }
+}
+
+.product-nav nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+}
+.product-nav nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }

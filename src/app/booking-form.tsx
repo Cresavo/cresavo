@@ -299,7 +299,6 @@ export default function BookingForm({
         <button type="submit" disabled={!hydrated || pending || !start}>
           {pending ? "Bokar…" : "Bekräfta testbokning"}
         </button>
-        <p className="muted">Demo – endast påhittade uppgifter.</p>
       </div>
     </form>
   );

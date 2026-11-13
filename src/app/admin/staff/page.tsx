@@ -20,7 +20,7 @@ export default async function Staff({
   ]).catch(pageDataFailure);
   const selected = params.new
     ? undefined
-    : (staff.find((p) => p.id === params.id) ?? staff[0]);
+    : staff.find((p) => p.id === params.id);
   return (
     <>
       <AdminHeader email={admin.email} active="staff" />
@@ -37,9 +37,8 @@ export default async function Staff({
           </p>
         )}
         <p className="workspace-guidance">
-          Välj en medarbetare. Veckoschemat anger vanliga arbetstider; under
-          Ledighet och avvikande tider ändrar du en enskild dag. Spara när du är
-          klar.
+          Välj en medarbetare för behandlingar, arbetstider, pauser och
+          ledighet.
         </p>
         <div className="settings-layout">
           <aside aria-label="Medarbetare" className="resource-list">
@@ -54,14 +53,24 @@ export default async function Staff({
               </a>
             ))}
           </aside>
-          <section className="panel">
-            <h2>{selected ? "Redigera medarbetare" : "Ny medarbetare"}</h2>
-            <StaffEditor
-              key={selected ? `${selected.id}-${selected.version}` : "new"}
-              staff={selected}
-              services={services}
-            />
-          </section>
+          {selected || params.new ? (
+            <section className="panel">
+              <div className="section-heading">
+                <h2>{selected ? "Redigera medarbetare" : "Ny medarbetare"}</h2>
+                <a href="/admin/staff">Stäng</a>
+              </div>
+              <StaffEditor
+                key={selected ? `${selected.id}-${selected.version}` : "new"}
+                staff={selected}
+                services={services}
+              />
+            </section>
+          ) : (
+            <section className="panel empty-state">
+              <h2>Välj en medarbetare</h2>
+              <p>Öppna en medarbetare i listan eller välj Ny medarbetare.</p>
+            </section>
+          )}
         </div>
       </main>
     </>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, CalendarPlus } from "lucide-react";
+import { CalendarPlus } from "lucide-react";
 import { redirect, notFound } from "next/navigation";
 import { getAdminContext } from "@/lib/auth";
 import {
@@ -12,6 +12,8 @@ import { formatBookingTime, formatPrice } from "@/lib/format";
 import AdminHeader from "../../header";
 import CustomerEditor from "../editor";
 import CustomerDataPanel from "../data-panel";
+import ContextLink, { ReturnLink } from "../../../components/context-link";
+import { returnContext, contextualHref } from "@/lib/navigation-context";
 export const dynamic = "force-dynamic";
 export default async function CustomerCard({
   params,
@@ -53,19 +55,12 @@ export default async function CustomerCard({
       return pageDataFailure(error);
     });
   const newBooking = `/admin/bookings/new?customer=${encodeURIComponent(id)}`;
+  const context = returnContext(raw, "/admin/customers");
   return (
     <>
       <AdminHeader email={admin.email} active="customers" />
       <main className="admin-workspace narrow-workspace">
-        <Link href="/admin/customers">
-          <ArrowLeft
-            className="ui-icon"
-            size={18}
-            aria-hidden="true"
-            focusable="false"
-          />
-          Till kunder
-        </Link>
+        <ReturnLink context={context} fallback="/admin/customers" />
         <div className="workspace-heading customer-card-heading">
           <div>
             <p className="eyebrow">
@@ -74,7 +69,7 @@ export default async function CustomerCard({
             <h1>{customer.name}</h1>
           </div>
           {!customer.archived && (
-            <Link className="button-link" href={newBooking}>
+            <ContextLink className="button-link" href={newBooking}>
               <CalendarPlus
                 className="ui-icon"
                 size={18}
@@ -82,7 +77,7 @@ export default async function CustomerCard({
                 focusable="false"
               />
               Ny bokning
-            </Link>
+            </ContextLink>
           )}
         </div>
         {raw.saved === "1" && !customer.contactRemovedAt && (
@@ -109,26 +104,29 @@ export default async function CustomerCard({
                 <CustomerEditor
                   key={`${customer.id}-${customer.version}`}
                   customer={customer}
+                  context={context}
                 />
               </details>
             </>
           )}
         </section>
-        <CustomerDataPanel
-          key={`${customer.id}-${customer.version}`}
-          customer={customer}
-        />
         <section className="customer-visits">
           <h2>Besök</h2>
           <nav aria-label="Kundens besök" className="action-row">
             <Link
-              href="?view=upcoming"
+              href={contextualHref(
+                `/admin/customers/${encodeURIComponent(id)}?view=upcoming`,
+                context,
+              )}
               aria-current={value.view === "upcoming" ? "page" : undefined}
             >
               Kommande
             </Link>
             <Link
-              href="?view=history"
+              href={contextualHref(
+                `/admin/customers/${encodeURIComponent(id)}?view=history`,
+                context,
+              )}
               aria-current={value.view === "history" ? "page" : undefined}
             >
               Tidigare och avbokade
@@ -145,7 +143,9 @@ export default async function CustomerCard({
                   ? "Ingen kommande bokning."
                   : "Inga tidigare eller avbokade besök."}
               </p>
-              {!customer.archived && <Link href={newBooking}>Boka en tid</Link>}
+              {!customer.archived && (
+                <ContextLink href={newBooking}>Boka en tid</ContextLink>
+              )}
             </div>
           )}
           {result.bookings.map((b) => (
@@ -166,27 +166,36 @@ export default async function CustomerCard({
               </p>
               <p>Registrerat namn vid bokning: {b.customerName}</p>
               <div className="action-row">
-                <Link href={`/admin/bookings/${encodeURIComponent(b.id)}`}>
+                <ContextLink
+                  href={`/admin/bookings/${encodeURIComponent(b.id)}`}
+                >
                   Öppna bokningen
-                </Link>
+                </ContextLink>
                 {!customer.archived && (
-                  <Link
+                  <ContextLink
                     href={`${newBooking}&service=${encodeURIComponent(b.serviceId)}&staff=${encodeURIComponent(b.staffId)}`}
                   >
                     Boka återbesök
-                  </Link>
+                  </ContextLink>
                 )}
               </div>
             </article>
           ))}
           {result.nextCursor && (
             <Link
-              href={`?view=${value.view}&cursor=${encodeURIComponent(result.nextCursor)}`}
+              href={contextualHref(
+                `/admin/customers/${encodeURIComponent(id)}?view=${value.view}&cursor=${encodeURIComponent(result.nextCursor)}`,
+                context,
+              )}
             >
               Fler besök
             </Link>
           )}
         </section>
+        <CustomerDataPanel
+          key={`${customer.id}-${customer.version}`}
+          customer={customer}
+        />
       </main>
     </>
   );
