@@ -1,7 +1,7 @@
 # Verifiering — proaktiv kapacitetsöversikt, kandidat 2026-11-13
 
 Branch feature/proactive-capacity-overview, bas28a48fe. Slutkandidatens exakta
-SHA tillförs efter frysning. Ingen ny Grok-QA/CI/deploy är ännu godkänd.
+SHA tillförs efter frysning. Grok956155f gav GO syntetisk POC; PRO-QA-1 rättas i fixvarv1, riktad återkontroll väntar. Ingen ny CI/deploy är ännu godkänd.
 Råutdata: C:/Users/<user>/booking-lab-pg-test/proactive. Källkod ändras endast
 i <local-state>/codex/booking-lab-ui; hashkontrollerad testkopia på C: används
 efter hög I/O-kö på D:. Paket- och låsfil identiska, inga nya beroenden.
@@ -16,14 +16,14 @@ efter hög I/O-kö på D:. Paket- och låsfil identiska, inga nya beroenden.
 | node node_modules/eslint/bin/eslint.js . | PASS exit0. |
 | node node_modules/typescript/bin/tsc --noEmit | PASS exit0. |
 | RATE_LIMIT_STORE=memory node node_modules/vitest/vitest.mjs run | PASS78/78,15filer,7.97s. Minneslagrets enhetstester ska inte ärva integrationens PostgreSQL-läge. |
-| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts | PASS89/89,21filer,81.41s mot ny isolerad databas. |
+| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts | PASS90/90,21filer,79.02s efter pagineringsrättningen; tidigare89/89 på956155f. |
 | node node_modules/next/dist/bin/next build | PASS exit0,17s. |
-| Fyra fulla E2E-lägen | PÅGÅR. Första prod0 avbröts efter page/context-setup-timeouter före produktsteg. Browsercache på belastade D: undersöks; inga assertions/tidsgränser ändrade. |
+| Fyra fulla E2E-lägen | 42/42×4 PASS på956155f. Slutmatris efter fixvarv1 väntar; första fix1-prod0 gav40PASS/2FAIL eftersom nätverksmocken saknade nya sidparametrar. Testets matchning rättad, assertions oförändrade. |
 | Uppgradering och återseed | PASS7→8; äldre tabeller/snapshot oförändrade, samtliga hashvärden identiska vid andra capacity-seed,0överlapp. |
-| Manuell ny produktionsbyggd UI | PASS kalenderurval, kampanjdatum/rabatt, sparat utkast/reload och rebook→stale-varning. Bilder finns lokalt; kampanjvyns laddning återstår att reda ut. |
+| Manuell ny produktionsbyggd UI | PASS956155f: kalenderurval, kampanjdatum/rabatt, utkast/reload, rebook→stale och sparad kampanj efter verklig lokal serveromstart.320/390/1440px, inte fysisk iPhone. |
 | npm audit --package-lock-only --json | FAIL exit1:7moderate,0high/critical. |
 | npm audit --package-lock-only --omit=dev --json | PASS exit0:0fynd. Separat från funktioner/pilotbeslut. |
-| Grok / privat push / Actions / ny faktisk preview | VÄNTAR; inget godkännande påstås. |
+| Grok / privat push / Actions / ny faktisk preview | Grok956155f: egna78/89/42prod-E2E och79HTTP/61UI PASS, GO syntetisk POC med PRO-QA-1. Fix1/privat push/Actions/ny preview VÄNTAR. |
 
 Initiala försök: en ny CHECK fick namnkonflikt (P3018/42710), rättad enbart i
 den nya ännu inte levererade migrationen; nya v2-databaser skapades, ingen
@@ -35,7 +35,7 @@ env lät unit ärva RATE_LIMIT_STORE=postgres; korrigerad kommandokonfiguration
 gav78PASS utan sänkta tester. En tillfällig lokal DB-connecttimeout efter
 installationslast följdes av lyckad hälsokontroll och89PASS.
 
-NOT RUN ännu: slutlig fyrmatris, Groks nya QA, ny CI/deployment/backupkontroll,
+NOT RUN ännu: slutlig fix1-fyrmatris, Groks riktade återkontroll, ny CI/deployment/backupkontroll,
 fysisk iPhone/Safari/WebKit, ny video. Föregående QA gäller endast sin kod.
 
 ## Appendix — föregående Epic 06-verifiering (2026-11-12)

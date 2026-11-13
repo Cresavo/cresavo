@@ -29,7 +29,16 @@ create_capacity_campaign_draft. Samma betrodda lokala aktör, strikt schema och
 minimerade resultat. Defaultservern behåller enbart list_services/get_availability.
 Confirmed är ingen verifiering av mänskligt mandat. Ingen publik MCP har införts.
 
-Avgränsningar: max7lokala dagar/max20källor (UI10), ingen historiksida efter att
+PRO-QA-1: listan har nyckelbaserad paginering på startsAt/id. Varje sida läser
+högst limit+1källor, aldrig hela perioden. Cursor måste tillhöra verksamheten,
+datumfönstret och avbokningsurvalet. nextCursor är additivt; hasMore och äldre
+svarsfält består. API och lokal MCP använder samma schema. UI:s Nästa förslag
+behåller fönstret i URL; omladdning och mutationsrefresh stannar på samma sida.
+Till första sidan börjar om med dagens standardfönster. Ogiltig markör ger
+statisk200-fallback i HTML och400 i API/MCP, inga råa parametrar loggas. Alla
+sidor inom fönstret är nåbara även när äldre källor är hanterade/inaktuella.
+
+Avgränsningar: max7lokala dagar/max20källor per sida (UI10), ingen historiksida efter att
 källans dag lämnat intervallet. Avfärdanden/utkast lagras ändå och kampanjer finns
 i befintlig kampanjvy. Stockholmsdagens staff-lås förutsätter fortfarande att
 bokningar inte går över midnatt. Ingen full tenant-isolering eller kundpilot.

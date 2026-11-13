@@ -12,6 +12,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Aktivt nattmål 2026-11-13: proaktiv kapacitet
 
+- QA956155f: GO syntetisk POC. PRO-QA-1 rättas i ett samlat fixvarv med
+  begränsad cursorpaginering i UI/API/MCP. Original i docs/qa. Kör slutmatris
+  och fryst riktad återkontroll före privat push/preview; inga nya funktioner.
+
 - Godkänd Del A: `docs/PROACTIVE_OVERVIEW_PLAN.md`; full Del B i docs/research.
   Bas28a48fe, feature/proactive-capacity-overview, inte äldre main. Kalenderprov klart.
 - Endast framtida avbokning → aktuell tillgänglighet → kalender/avfärda/verkligt

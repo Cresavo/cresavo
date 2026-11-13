@@ -58,6 +58,14 @@ kapacitet, så ett sparat utkast aldrig framstår som en reserverad tid.
 
 ## Verifiering och leveransgrind
 
+QA956155f gav GO för syntetisk POC men hittade PRO-QA-1: hanterade/inaktuella
+källor kunde dölja senare förslag. Ett samlat fixvarv använder cursorpaginering
+i befintlig UI/API/MCP, inga större resultatsvar eller alternativ bokningslogik.
+Nästa förslag och Till första sidan gör alla sidor nåbara. Ett nytt domänprov
+har12källor och ett E2E-prov har tio tidiga återbokningar före nästa bokningsbara
+källa. Omladdning/handling på senare sida och ogiltiga markörer kontrolleras.
+Övriga Info-fynd går till roadmapens backlog; ingen ny produktfunktion byggs.
+
 Ny separat loopback_test: generate/migrate/seed, lint/tsc/unit/integration,
 build och projektets fyra E2E-lägen; meningsfulla negativa/stale/retry/
 samtidighets-/MCP-prov och uppgraderings-/återseedbevis. Audit separat, inga
@@ -103,8 +111,9 @@ Seedningen är uttrycklig/additiv. Redan ändrade eller upptagna seedtider
 rapporteras som skipped; inga manuella uppgifter återställs. Se faktisk
 VERIFICATION innan provvägen kallas slutverifierad eller driftsatt.
 
-Kontrakt: GET /api/admin/capacity tar optional from/days/limit, max7dagar inom
-idag..idag+7, max20källor; gränserna tolkas i Stockholm. POST tar action och
+Kontrakt: GET /api/admin/capacity tar optional from/days/limit/cursor, max7dagar inom
+idag..idag+7 och max20källor/sida. nextCursor skickas som cursor med samma
+datumfönster för fortsättning; UI bevarar sidan i URL. Gränserna tolkas i Stockholm. POST tar action och
 input, där källa är bookingId/sourceVersion/expectedToken. Calendar och preview
 läser; dismiss och draft kräver Idempotency-Key. Draft/preview tar dessutom
 campaign med befintliga serviceId/title/discountPercent/validFrom/validUntil.

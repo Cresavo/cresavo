@@ -21,8 +21,10 @@ export const capacityListSchema = z
     from: dateSchema.optional(),
     days: z.number().int().min(1).max(7).default(7),
     limit: z.number().int().min(1).max(20).default(10),
+    cursor: id.optional(),
   })
   .strict();
+export type CapacityQuery = z.infer<typeof capacityListSchema>;
 export const capacitySourceSchema = z
   .object({
     bookingId: id,
@@ -188,12 +190,29 @@ export async function listCapacity(input: unknown, actor: WorkspaceActor) {
     async (tx) => {
       await lockConfiguration(tx);
       await assertWorkspaceActor(tx, actor);
+      const where = {
+        businessId,
+        status: "cancelled",
+        startsAt: { gte: from.toJSDate(), lt: end.toJSDate() },
+        events: { some: { action: "cancel" } },
+      } satisfies Prisma.BookingWhereInput;
+      const cursor = v.cursor
+        ? await tx.booking.findFirst({
+            where: { ...where, id: v.cursor },
+            select: { id: true, startsAt: true },
+          })
+        : null;
+      if (v.cursor && !cursor)
+        throw new DomainError("Ogiltig sidmarkör för datumintervallet");
       const sources = await tx.booking.findMany({
         where: {
-          businessId,
-          status: "cancelled",
-          startsAt: { gte: from.toJSDate(), lt: end.toJSDate() },
-          events: { some: { action: "cancel" } },
+          ...where,
+          ...(cursor && {
+            OR: [
+              { startsAt: { gt: cursor.startsAt } },
+              { startsAt: cursor.startsAt, id: { gt: cursor.id } },
+            ],
+          }),
         },
         select: sourceSelect,
         orderBy: [{ startsAt: "asc" }, { id: "asc" }],
@@ -208,6 +227,7 @@ export async function listCapacity(input: unknown, actor: WorkspaceActor) {
         until: end.minus({ days: 1 }).toISODate()!,
         suggestions,
         hasMore: sources.length > v.limit,
+        nextCursor: sources.length > v.limit ? sources[v.limit - 1].id : null,
       };
     },
     { timeout: 30000 },

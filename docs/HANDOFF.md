@@ -2,8 +2,10 @@
 
 Aktivt nytt mandat: docs/PROACTIVE_OVERVIEW_PLAN.md och komplett Del B i
 docs/research. Bas28a48fe, branch feature/proactive-capacity-overview. Codex
-ensam skrivare; ingen tidigare QA pågår. Ny produktkod väntar på fryst Grok-QA
-och avslutande E2E/CI. Ingen push/deployment har gjorts för kandidaten.
+ensam skrivare; ingen QA pågår. Groks originalrapport för956155f finns i
+docs/qa: GO syntetisk POC, PRO-QA-1 Medium. Fixvarv1 lägger till begränsad
+cursorpaginering i UI/API/MCP; riktad återkontroll väntar efter slutmatrisen.
+Ingen push/deployment har gjorts för kandidaten.
 
 Gemensam domän capacity.ts används från /admin/overview, skyddad HTTP och
 befintlig lokal stdio. Ny additiv CapacityDecision kopplar källbokning/version
@@ -14,8 +16,10 @@ modell, port, autentisering eller extern utskicksanslutning.
 Lokalt hittills: clean npmci571, generate/migrate/seed, lint/tsc/build,
 78unit/89integration och7→8-/återseedbevis PASS. Faktiska kommandon, tidiga
 misslyckade operatörsförsök och NOT RUN i VERIFICATION. Testkopian på C: är
-hashad mot denna källkod; inga källändringar görs där. Fyra E2E-lägen och
-Grok återstår. Preview nedan är fortfarande äldre7c, inte nattens funktion.
+hashad mot956155f; inga källändringar görs där. Fyra E2E-lägen42/42 vardera
+på956155f; motsvarande slutmatris körs efter rättningen. Grok körde själv
+78unit/89integration/42prod-E2E och egen UI/API-provning; inte fyrmatrisen.
+Preview nedan är fortfarande äldre7c, inte nattens funktion.
 Senare dokument-/bildbevis ska tydligt skiljas från produktcommit.
 
 ## Föregående verifierade leveranser

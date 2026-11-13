@@ -72,7 +72,7 @@ export function registerWorkspaceTools(
     "list_capacity_suggestions",
     {
       description:
-        "Avbokningar inom högst sju lokala dagar, aktuell bokningsbarhet och sparade beslut. Högst20, inga kunduppgifter. Lokal administratör.",
+        "Avbokningar inom högst sju lokala dagar, aktuell bokningsbarhet och sparade beslut. Högst20/sida, inga kunduppgifter. Fortsätt med nextCursor som cursor och samma datumintervall. Lokal administratör.",
       inputSchema: safeToolSchema(capacityListSchema),
     },
     async (v) => reply(() => listCapacity(v, actor)),

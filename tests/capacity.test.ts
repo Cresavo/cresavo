@@ -11,6 +11,8 @@ it("rejects oversized queries and forged source/version fields", () => {
     { limit: 21 },
     { from: "2026-02-30" },
     { actor: "admin" },
+    { cursor: "" },
+    { cursor: "x".repeat(129) },
   ])
     expect(capacityListSchema.safeParse(v).success).toBe(false);
   for (const v of [

@@ -56,12 +56,12 @@ beforeAll(async () => {
     },
   });
 });
-async function make(hour: number, cancel = true) {
+async function make(hour: number, cancel = true, at = day, minute = 0) {
   const b = await createBooking(
     {
       serviceId,
       staffId,
-      start: day.set({ hour }).toUTC().toISO()!,
+      start: at.set({ hour, minute }).toUTC().toISO()!,
       customerName: "Syntetisk kund hemligt namn",
       customerEmail: `${randomUUID()}@example.test`,
     },
@@ -314,6 +314,47 @@ it("bounds ranges and results and rejects foreign sources", async () => {
   ).rejects.toMatchObject({ status: 409 });
   expect((await listCapacity({ limit: 1 }, actor)).suggestions.length).toBe(1);
 });
+it("keeps the eleventh actionable source reachable beyond ten handled sources", async () => {
+  const earlier = day.minus({ days: 1 });
+  const sources = [];
+  for (let i = 0; i < 12; i++) {
+    const s = await make(9 + Math.floor(i / 2), true, earlier, (i % 2) * 30);
+    sources.push(s);
+    if (i < 10)
+      await decideCapacity(
+        {
+          bookingId: s.bookingId,
+          sourceVersion: s.sourceVersion,
+          expectedToken: s.expectedToken,
+        },
+        randomUUID(),
+        actor,
+        "dismiss",
+      );
+  }
+  const query = { from: earlier.toISODate()!, days: 1, limit: 10 };
+  const first = await listCapacity(query, actor);
+  expect(first.suggestions).toHaveLength(10);
+  expect(first.suggestions.every((s) => s.status === "dismissed")).toBe(true);
+  expect(first.hasMore).toBe(true);
+  const next = await listCapacity(
+    { ...query, cursor: first.nextCursor! },
+    actor,
+  );
+  expect(next.suggestions.map((s) => s.bookingId)).toEqual(
+    sources.slice(10).map((s) => s.bookingId),
+  );
+  expect(next.suggestions.every((s) => s.available && s.status === "new")).toBe(
+    true,
+  );
+  expect(next.nextCursor).toBeNull();
+  expect(next.hasMore).toBe(false);
+  for (const cursor of ["foreign-source", bookingIds[0]])
+    await expect(listCapacity({ ...query, cursor }, actor)).rejects.toThrow(
+      "Ogiltig sidmarkör för datumintervallet",
+    );
+  expect(JSON.stringify(next)).not.toMatch(/customer|hemligt namn|@example/);
+}, 15000);
 it("MCP read/write opt-in exposes the same domain and rejects unknown fields", async () => {
   const s = await make(13),
     source = {
@@ -347,6 +388,28 @@ it("MCP read/write opt-in exposes the same domain and rejects unknown fields", a
       expect(JSON.stringify(list.content)).not.toMatch(
         /hemligt namn|customerEmail/,
       );
+      const block = list.content[0];
+      if (block.type !== "text") throw Error("MCP_TEXT_EXPECTED");
+      const first = JSON.parse(block.text) as Awaited<
+        ReturnType<typeof listCapacity>
+      >;
+      expect(first.nextCursor).not.toBeNull();
+      const next = await client.callTool({
+        name: "list_capacity_suggestions",
+        arguments: { from: first.from, days: 7, cursor: first.nextCursor },
+      });
+      expect(next.isError).toBeFalsy();
+      const nextBlock = next.content[0];
+      if (nextBlock.type !== "text") throw Error("MCP_TEXT_EXPECTED");
+      const second = JSON.parse(nextBlock.text) as Awaited<
+        ReturnType<typeof listCapacity>
+      >;
+      expect(second.suggestions.length).toBeGreaterThan(0);
+      expect(
+        second.suggestions.every(
+          (s) => !first.suggestions.some((a) => a.bookingId === s.bookingId),
+        ),
+      ).toBe(true);
       if (writes) {
         const v = {
           ...source,
@@ -374,9 +437,12 @@ it("MCP read/write opt-in exposes the same domain and rejects unknown fields", a
         });
         expect(result.isError).toBeFalsy();
         expect(
-          (await listCapacity({}, actor)).suggestions.find(
-            (x) => x.bookingId === s.bookingId,
-          )?.status,
+          (
+            await listCapacity(
+              { from: first.from, days: 7, cursor: first.nextCursor! },
+              actor,
+            )
+          ).suggestions.find((x) => x.bookingId === s.bookingId)?.status,
         ).toBe("draft");
       }
     } finally {

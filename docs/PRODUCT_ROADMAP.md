@@ -53,6 +53,16 @@ webb/API/lokal MCP. Separat branch från28a48fe; kalenderprovet är avslutat.
 När nattmålet är verifierat avslutas det. Tabellen är framtida leveranser,
 inte tillstånd att starta dem samma natt. Kundpilot förblir en separat grind.
 
+### Begränsad QA-backlog från956155f
+
+PRO-QA-1 (nåbara förslag bortom första sidan) rättas inom nattmålet. Info-fynd
+utvidgar inte leveransen: integrationstesters hashade spärrposter behöver egen
+städning; äldre fristående create_campaign_draft har kvar sitt --admin-kontrakt;
+Översikt/Kalender kan få olika befintliga ikoner; stale-avfärdande och befintlig
+90dagars-/100%-kampanjpolicy behöver framtida UX-/produktbeslut. Äldre demoseed
+hoppar över en fredagstid. Paketantal571Windows/572Linux med identisk låsfil är
+en plattformsskillnad, inte ett uppgraderingsbehov. Originalfynd i docs/qa.
+
 ## Föregående riktning och kalenderprov, 2026-11-12
 
 Uppdaterad 2026-11-12 efter Niclas agent-first- och kalenderförtydligande.

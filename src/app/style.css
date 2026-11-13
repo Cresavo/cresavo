@@ -9,6 +9,12 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.capacity-pages a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 12px;
+}
 .capacity-card form {
   display: grid;
   gap: 12px;

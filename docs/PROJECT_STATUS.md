@@ -1,7 +1,9 @@
 # Projektstatus — proaktiv kapacitetsöversikt under slutverifiering
 
 2026-11-13. Branch **feature/proactive-capacity-overview**, fortsättningsbas
-28a48fe. Ny kandidat är ännu inte QA-godkänd, pushad eller driftsatt.
+28a48fe. Grok har granskat956155f: GO syntetisk POC, inte pilot. Ett Medium-
+fynd PRO-QA-1 rättas med begränsad cursorpaginering; riktad återkontroll väntar.
+Den nya koden är ännu inte pushad eller driftsatt.
 Den stabila previewn nedan kör fortfarande föregående7c1407d.
 
 Implementerat: begränsad avbokningssignal med aktuell tillgänglighet, Översikt,
@@ -13,7 +15,8 @@ Hittills verifierat: lint/tsc/build,78unit,89integration, uppgradering7→8,
 återseed med identiska tabellhashar och0överlapp. Manuellt Chromiumprov visar
 kalender→egna kampanjvillkor→sparat utkast→ny bokning→inaktuellt förslag.
 Mobilstorlek320/390 och desktop1440 är emulering, inte fysisk iPhone.
-Fyrmatris/Grok/CI/ny preview återstår; aktuellt utfall i VERIFICATION.
+Fyra E2E-lägen gav42/42 vardera på956155f. Efter pagineringsrättningen körs
+slutmatrisen igen; CI/ny preview återstår. Aktuellt utfall i VERIFICATION.
 Full långsiktig målbild finns kvar i [roadmap](PRODUCT_ROADMAP.md).
 Ingen kundpilot eller ny epic är godkänd genom detta mål.
 

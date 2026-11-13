@@ -9,7 +9,10 @@ eller skickas automatiskt; ingen språkmodell används för signalen.
 
 Ren installation,78unit/89integration, lint/tsc/build och uppgradering/återseed
 har passerat. Manuell lokal mobil-/desktopprovning har utförts; detta är inte
-en fysisk iPhone. Slutlig fyrmatris och Groks oberoende QA pågår/väntar.
+en fysisk iPhone. Fyra lägen gav42/42 vardera på956155f. Groks oberoende QA
+gav GO syntetisk POC och hittade ett Medium-fynd: senare förslag kunde döljas.
+Det rättas med sidindelning i samma avgränsade leverans; slutmatris och riktad
+återkontroll återstår. Originalrapporten finns i docs/qa.
 Den skyddade länken nedan kör fortfarande tidigare7c tills den nya leveransen
 är godkänd och faktiskt driftsatt. Inget nytt pilotgodkännande.
 

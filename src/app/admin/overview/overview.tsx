@@ -2,23 +2,38 @@
 import { useRef, useState, type FormEvent } from "react";
 import { DateTime } from "luxon";
 import Link from "next/link";
-import type { listCapacity } from "@/lib/capacity";
+import type { CapacityQuery, listCapacity } from "@/lib/capacity";
 import { formatBookingTime, formatPrice, readableDay } from "@/lib/format";
 import DatePicker from "@/app/components/date-picker";
 
 type Result = Awaited<ReturnType<typeof listCapacity>>;
 type Suggestion = Result["suggestions"][number];
-async function load() {
-  const r = await fetch("/api/admin/capacity", { cache: "no-store" }).catch(
-    () => {
-      throw Error("Översikten kunde inte hämtas. Försök uppdatera igen.");
-    },
-  );
+function queryString(query: CapacityQuery) {
+  const params = new URLSearchParams({
+    days: String(query.days),
+    limit: String(query.limit),
+  });
+  if (query.from) params.set("from", query.from);
+  if (query.cursor) params.set("cursor", query.cursor);
+  return params.toString();
+}
+async function load(query: CapacityQuery) {
+  const r = await fetch(`/api/admin/capacity?${queryString(query)}`, {
+    cache: "no-store",
+  }).catch(() => {
+    throw Error("Översikten kunde inte hämtas. Försök uppdatera igen.");
+  });
   if (!r.ok)
     throw Error("Översikten kunde inte hämtas. Försök uppdatera igen.");
   return (await r.json()) as Result;
 }
-export default function CapacityOverview({ initial }: { initial: Result }) {
+export default function CapacityOverview({
+  initial,
+  query,
+}: {
+  initial: Result;
+  query: CapacityQuery;
+}) {
   const [result, setResult] = useState(initial),
     [pending, setPending] = useState(false),
     [error, setError] = useState("");
@@ -26,7 +41,7 @@ export default function CapacityOverview({ initial }: { initial: Result }) {
     setPending(true);
     setError("");
     try {
-      setResult(await load());
+      setResult(await load(query));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -49,6 +64,27 @@ export default function CapacityOverview({ initial }: { initial: Result }) {
         ändras.
       </p>
       {error && <p role="alert">{error}</p>}
+      {(query.cursor || result.nextCursor) && (
+        <nav className="action-row capacity-pages" aria-label="Förslagssidor">
+          <p>
+            Avbokningar i tidsordning, högst {query.limit} per sida. Även
+            hanterade och inaktuella finns kvar för uppföljning.
+          </p>
+          {query.cursor && (
+            <Link prefetch={false} href="/admin/overview">
+              Till första sidan
+            </Link>
+          )}
+          {result.nextCursor && (
+            <Link
+              prefetch={false}
+              href={`/admin/overview?${queryString({ ...query, from: result.from, cursor: result.nextCursor })}`}
+            >
+              Nästa förslag <span aria-hidden="true">→</span>
+            </Link>
+          )}
+        </nav>
+      )}
       {!result.suggestions.length && (
         <div className="empty-state">
           <h2>Inga avbokade tider att ta ställning till</h2>
@@ -65,11 +101,6 @@ export default function CapacityOverview({ initial }: { initial: Result }) {
           refresh={refresh}
         />
       ))}
-      {result.hasMore && (
-        <p role="status">
-          Visar de första 10 avbokningarna i perioden. Fler finns i kalendern.
-        </p>
-      )}
     </section>
   );
 }

@@ -10,7 +10,7 @@ test("avbokning till kalender, beständigt avfärdande och korrekt kampanjutkast
   page,
   request,
   synthetic,
-}) => {
+}, testInfo) => {
   expect((await request.get("/api/admin/capacity")).status()).toBe(403);
   const login = await page.request.post("/api/admin/login", {
     headers: { origin: "http://localhost:3000" },
@@ -47,7 +47,7 @@ test("avbokning till kalender, beständigt avfärdande och korrekt kampanjutkast
       data: {
         id: serviceId,
         businessId: "demo",
-        name: synthetic.marker,
+        name: "Massage – sidprov",
         duration: 30,
         priceOre: 45000,
       },
@@ -66,12 +66,17 @@ test("avbokning till kalender, beständigt avfärdande och korrekt kampanjutkast
         exceptions: [],
       },
     });
-    async function booking(hour: number, cancelled: boolean) {
+    async function booking(
+      hour: number,
+      cancelled: boolean,
+      at = day,
+      minute = 0,
+    ) {
       const b = await createBooking(
         {
           serviceId,
           staffId,
-          start: day.set({ hour }).toUTC().toISO()!,
+          start: at.set({ hour, minute }).toUTC().toISO()!,
           customerName: "Syntetisk ej visad kund",
           customerEmail: `${synthetic.marker}-${hour}@example.test`,
         },
@@ -90,6 +95,13 @@ test("avbokning till kalender, beständigt avfärdande och korrekt kampanjutkast
       }
       return b;
     }
+    // Ten early rebooked cancellations must not hide the actionable eleventh.
+    for (let i = 0; i < 10; i++) {
+      const hour = 9 + Math.floor(i / 2),
+        minute = (i % 2) * 30;
+      await booking(hour, true, day.minus({ days: 1 }), minute);
+      await booking(hour, false, day.minus({ days: 1 }), minute);
+    }
     const source = await booking(9, true);
     await booking(10, true);
     await booking(11, true);
@@ -98,13 +110,24 @@ test("avbokning till kalender, beständigt avfärdande och korrekt kampanjutkast
     const card = page
       .locator(".capacity-card")
       .filter({ hasText: formatBookingTime(source.startsAt) });
+    await expect(card).toHaveCount(0);
+    if (process.env.PROACTIVE_CAPTURE === "1")
+      await page.screenshot({
+        path: testInfo.outputPath("capacity-page-1.png"),
+        fullPage: false,
+      });
+    await page
+      .getByRole("link", { name: "Nästa förslag", exact: true })
+      .click();
+    await expect(page).toHaveURL(/cursor=/);
+    const overviewUrl = page.url();
     await expect(
-      card.getByRole("heading", { name: synthetic.marker, exact: true }),
+      card.getByRole("heading", { name: "Massage – sidprov", exact: true }),
     ).toBeVisible();
     await expect(page.locator("main")).not.toContainText(
       "Syntetisk ej visad kund",
     );
-    await page.route("**/api/admin/capacity", (route) =>
+    await page.route(/\/api\/admin\/capacity(?:\?.*)?$/, (route) =>
       route.fulfill({ status: 503, json: { error: "Synthetic unavailable" } }),
     );
     await page
@@ -115,11 +138,12 @@ test("avbokning till kalender, beständigt avfärdande och korrekt kampanjutkast
       .getByRole("alert");
     await expect(overviewError).toContainText("Översikten kunde inte hämtas");
     await expect(card).toBeVisible();
-    await page.unroute("**/api/admin/capacity");
+    await page.unroute(/\/api\/admin\/capacity(?:\?.*)?$/);
     await page
       .getByRole("button", { name: "Uppdatera förslagen", exact: true })
       .click();
     await expect(overviewError).toHaveCount(0);
+    const originalViewport = page.viewportSize();
     for (const width of [320, 390, 1440]) {
       await page.setViewportSize({ width, height: 844 });
       expect(
@@ -128,13 +152,19 @@ test("avbokning till kalender, beständigt avfärdande och korrekt kampanjutkast
         ),
       ).toBe(true);
     }
+    if (originalViewport) await page.setViewportSize(originalViewport);
+    if (process.env.PROACTIVE_CAPTURE === "1")
+      await page.screenshot({
+        path: testInfo.outputPath("capacity-page-2.png"),
+        fullPage: false,
+      });
     await card
       .getByRole("button", { name: "Öppna kalendern", exact: true })
       .click();
     await expect(page).toHaveURL(
       new RegExp(`/admin\\?date=${day.toISODate()}&view=day&staffId=`),
     );
-    await page.goto("/admin/overview");
+    await page.goto(overviewUrl);
     const second = page
       .locator(".capacity-card")
       .filter({ hasText: formatBookingTime(day.set({ hour: 10 }).toJSDate()) });
@@ -192,6 +222,11 @@ test("avbokning till kalender, beständigt avfärdande och korrekt kampanjutkast
     await expect(
       page.locator(`#campaign-${decision.campaignId}`),
     ).toContainText("15 %");
+    const invalid = await page.goto("/admin/overview?cursor=foreign-source");
+    expect(invalid?.status()).toBe(200);
+    await expect(page.getByRole("main").getByRole("alert")).toContainText(
+      "Ogiltigt sidval. Visar första sidan.",
+    );
   } finally {
     await db.$disconnect();
   }

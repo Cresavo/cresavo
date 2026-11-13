@@ -5,8 +5,9 @@
 Översikten och tillåten lokal MCP läser avbokade bokningars id/version,
 tjänst/personal/tider och avbokningshändelse; kundfält väljs inte i frågan.
 Aktuell tillgänglighet räknas av befintlig domän inom högst sju Stockholmsdagar,
-max20källor. Skyddad webb/API använder aktiv admin; lokala verktyg kräver
-befintlig --admin, skrivningar dessutom --allow-workspace. Ingen ny fjärrport.
+max20källor/sida. Skyddad webb/API använder aktiv admin; kapacitetsverktyg kräver
+befintlig --admin, deras skrivningar dessutom --allow-workspace. Äldre fristående
+create_campaign_draft behåller sitt lokala --admin-kontrakt. Ingen ny fjärrport.
 
 CapacityDecision lagrar verksamhet/källbokning/version, avfärdande eller utkast,
 kampanjreferens, villkorshash och skapandetid. FK bevarar källkopplingarna;
@@ -19,6 +20,12 @@ Kampanjrubrik/villkor väljs av ägaren. Skriv inga kundnamn, kontakter eller
 hälsouppgifter i rubriken. UI visar verklig omfattning: tjänst+datum, samtliga
 bokningsbara tider/utförare. Ingen reservation, publicering, modellanslutning,
 telemetri eller utskick införs. Grok får endast rensad källa och syntetiska bevis.
+
+Cursorpaginering använder endast ett redan visat boknings-ID. Admin-URL kan
+innehålla en pseudonym källreferens och datumfönster, aldrig kontaktfält. Även
+dessa URL-referenser kan hamna i driftmetadata och ska ingå i framtida logg-/
+retentionsbedömning. Cursor valideras inom verksamhet och datumintervall efter
+behörighetskontroll. Högst20källor/sida även via lokal MCP; inga större exporter.
 
 ## Epic 06 — syntetiskt kundregister
 
