@@ -36,3 +36,12 @@ Samma varv återställer hjälp44px/kryssruta24px, ger kundarkivet etikett44px,
 mobilfält16px samt Dag/Vecka44px. Fysisk Safari-fokuszoom är fortfarande ej provad.
 UP-QA-5 förbättras med personal i tillgängligt namn; färger får upprepas och
 är aldrig ensam identifiering. Mindre idéer stannar i backloggen.
+
+## Sista samlade rättningsvarv 2
+
+UP-F1-QA-1: borttagen transparens på kalenderns synliga kundrad. Brun palett
+gav 4,27:1 efter alpha-komposition, nu 5,48:1 utan alpha. Ett riktat E2E mäter
+verklig renderad text och opacitet på just denna rad. Provet verifierades rött
+(4,26679) före CSS-rättningen. Inga ändringar av bokning, auth eller data.
+Tidigt fixturförsök valde fel palettindex eftersom grundseed har både Anna och
+Erik; fixturen rättades utan att sänka kontrastgränsen 4,5.

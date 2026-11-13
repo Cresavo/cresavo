@@ -312,9 +312,6 @@ button.danger {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
-.calendar-booking > span:last-of-type {
-  opacity: 0.88;
-}
 /* Dense visits keep a real target; details live on the booking page, not over a neighbour. */
 .calendar-booking[data-compact] {
   justify-content: center;

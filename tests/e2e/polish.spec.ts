@@ -136,6 +136,21 @@ test("korta kalenderbesök har riktiga tryckytor och hover kan inte stjäla näs
         exceptions: [],
       },
     });
+    // Seeded Anna/Erik plus BA place the selected staff at the brown tone3.
+    for (const [suffix, name] of [["a", "BA Palette Demo"]]) {
+      const staffId = `${id}-${suffix}`;
+      synthetic.trackResource("staff", staffId);
+      await db.staff.create({
+        data: {
+          id: staffId,
+          businessId: "demo",
+          name,
+          serviceIds: [id],
+          weekly: [],
+          exceptions: [],
+        },
+      });
+    }
     const bookings = [];
     for (const minute of [0, 5, 10, 15, 45]) {
       bookings.push(
@@ -163,6 +178,37 @@ test("korta kalenderbesök har riktiga tryckytor och hover kan inte stjäla näs
       await expect(cards[0]).toHaveAccessibleName(
         /09:00–09:05.*Kort syntetiskt besök.*Korttid Demo.*Syntetisk korttidspersonal/,
       );
+      await expect(cards[3]).toHaveAttribute("data-tone", "3");
+      const contrast = await cards[3]
+        .locator("span")
+        .last()
+        .evaluate((label) => {
+          const style = getComputedStyle(label);
+          const rgb = (v: string) =>
+            v
+              .match(/[0-9.]+/g)!
+              .slice(0, 3)
+              .map(Number);
+          const background = rgb(
+            getComputedStyle(label.parentElement!).backgroundColor,
+          );
+          const foreground = rgb(style.color).map(
+            (c, i) =>
+              c * Number(style.opacity) +
+              background[i] * (1 - Number(style.opacity)),
+          );
+          const luminance = (colors: number[]) =>
+            colors
+              .map((c) => c / 255)
+              .map((c) =>
+                c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4,
+              )
+              .reduce((sum, c, i) => sum + c * [0.2126, 0.7152, 0.0722][i], 0);
+          const a = luminance(foreground),
+            b = luminance(background);
+          return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+        });
+      expect(contrast).toBeGreaterThanOrEqual(4.5);
       const boxes = await Promise.all(cards.map((card) => card.boundingBox()));
       for (let i = 0; i < boxes.length; i++) {
         const a = boxes[i]!;
