@@ -10,6 +10,22 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
+## Aktivt uppdrag: kunddatas livscykel och lokalt ägaragentprov
+
+- Niclas har godkänt steg2–3 och manuell hantering; automatisk gallring av.
+  Läs docs/CUSTOMER_LIFECYCLE_AGENT_PLAN.md. Basd2ccb6c på separat
+  feature/customer-lifecycle-agent-proof, inte äldre main. Bevara tidigare bevis.
+- Export/kontaktborttagning enbart admin och syntetisk data; kalla inte kvarvarande
+  historik anonym eller GDPR-klar. Ingen kontakt-MCP, ny drift eller betaltjänst.
+- Kontaktåtgärder tar befintligt exklusivt konfigurationslås. Booking.version
+  och CapacityDecision-källor bevaras; separat contactRemovedAt markerar
+  kontaktändringen. Återaktivera inte borttagna kort och rensa inte kvotnycklar.
+- --capacity-only avgränsar befintlig lokal MCP. Klientens confirmed=true är
+  ingen garanti för mänskligt mandat; redovisa faktiska klientanrop separat.
+- Samma avgränsade arbetssätt: ensam skrivare, fryst separat Grok-QA/max2fixvarv,
+  privat push och samma skyddade preview efter verifiering. Behåll äldre8migrationer,
+  exclusion/kvoter/lås/idempotens. Faktisk AI-klientprovning skiljs från SDK-test.
+
 ## Avslutat nattmål 2026-11-13: proaktiv kapacitet
 
 - Produkt/QA/deploy8843d06, Grok-GO efter1samlat fixvarv; PRO-QA-1 stängt.

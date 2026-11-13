@@ -15,6 +15,20 @@
   min-height: 44px;
   padding: 10px 12px;
 }
+
+.customer-data-panel details + details,
+.contact-removal-preview,
+.export-ready {
+  margin-top: 1rem;
+}
+.export-ready {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+}
+.customer-data-panel .archive-choice {
+  margin-bottom: 1rem;
+}
 .capacity-card form {
   display: grid;
   gap: 12px;

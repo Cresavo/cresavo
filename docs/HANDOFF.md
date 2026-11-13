@@ -1,3 +1,38 @@
+# Handoff — pågående kundlivscykel och lokalt ägaragentprov
+
+2026-11-13, feature/customer-lifecycle-agent-proof från ren d2ccb6c.
+Produktägaren har godkänt manuell export/kontaktborttagning; automatisk gallring
+av. [Acceptans/mandat](CUSTOMER_LIFECYCLE_AGENT_PLAN.md). Inga beroenden ändrade.
+
+Ny customer-data.ts samlar adminbehörighet, begränsad tokenpaginering och
+atomär kontaktminimering. Endast POST /api/admin/customers/[id]/data;
+Kundkort→Kunddata förbereder fil eller förhandsgranskar omfattning, följt av
+uttrycklig bekräftelse. Minimal CustomerDataAction utan kontaktfält.
+Migration9 och separat contactRemovedAt bevarar bokningsversion/källbeslut,
+tider/priser/events/kvotnycklar. Gamla borttagna kort kan inte återaktiveras.
+Exklusivt befintligt konfigurationslås, aktör-före-replay och begränsad scope
+återanvänds. Lokala MCP-aktörer får inte kunddataåtgärder.
+
+MCP --admin --capacity-only ger2publika+2kapacitetsläsningar; det befintliga
+--allow-workspace med SESSION_SECRET tillåter ytterligare2kapacitetsbeslut.
+Default/full äldre kataloger består. confirmed är klientens försäkran, inte
+bevis på mänskligt mandat. Faktiskt Codex-prov återstår; katalogtest ensamt
+kallas inte agentgodkännande. Ingen publik MCP eller modellnyckel.
+
+Riktade integration7/7, nya UI4/4 och catalog/mode7/7 PASS. Första fulla
+matrisen79unit/98integration/46E2E×4 PASS; sista regressionen körs efter ett
+missvisande sparmeddelande och en Gitignore-regel för data/-rutter rättats.
+Uppgraderingskopian8→9/återseed PASS. Audit7moderate dev/0produktion.
+Grok/privat push/CI/deploy har ännu inte körts för kandidaten. Ingen mainmerge.
+
+Källan finns bara i <local-state>/codex/booking-lab-ui. Sluttester körs i separat
+C:/Users/<user>/booking-lab-proactive-deps-20261113 med samma källfiler/låsfil.
+Sex nya loopbackmiljöer booking_lifecycle_*_test/_demo är migrerade/seedade.
+Privata profiler/exportfiler och råa browserstate får inte lämna PC:n.
+
+
+## Historik — föregående verifierade leverans
+
 # Handoff — levererad proaktiv kapacitet, 2026-11-13
 
 Branch **feature/proactive-capacity-overview**, bas28a48fe efter avslutat

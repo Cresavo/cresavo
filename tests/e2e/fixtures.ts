@@ -150,6 +150,14 @@ export const test = base.extend<{
           },
         });
         await db.campaign.deleteMany({ where: { title } });
+        await db.customerDataAction.deleteMany({
+          where: {
+            OR: [
+              { actorId: account.id },
+              { customerId: { in: [...customers] } },
+            ],
+          },
+        });
         await db.customer.deleteMany({ where: { id: { in: [...customers] } } });
         await db.workspaceRequest.deleteMany({
           where: { businessId: "demo", key: { in: [...workspaceKeys] } },

@@ -11,6 +11,7 @@ export type CustomerView = {
   archived: boolean;
   version: number;
   contactVisible: boolean;
+  contactRemovedAt: string | null;
 };
 export default function CustomerEditor({
   customer,

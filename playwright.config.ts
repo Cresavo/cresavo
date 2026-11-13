@@ -33,6 +33,7 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: false,
     env: {
+      PORT: "3000", // Fixed baseURL; an operator's .env may use another app port.
       TRUST_PROXY_IP: process.env.TRUST_PROXY_IP ?? "0",
       TRUSTED_PROXY_IPS: "127.0.0.10/32",
       NEXT_TELEMETRY_DISABLED: "1",

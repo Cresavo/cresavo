@@ -1,5 +1,47 @@
 # Arkitektur
 
+## Manuell kunddata och avgränsad agentprofil, 2026-11-13
+
+`customer-data.ts` betjänar enbart aktiv webbadministratör. Ett separat POST
+`/api/admin/customers/[id]/data` kräver samma origin och strikt action-schema:
+export, preview_removal eller remove_contact. Inga nya MCP-kontaktverktyg.
+Det valda kortet måste ha example.test-adress och högst1000uttryckligen kopplade
+bokningar. Ingen identitetsmatchning via namn/e-post. Exportfil högst100bokningar,
+cursor/token för fortsättning och ett statiskt nedladdningsnamn; no-store.
+
+Sällsynta manuella dataåtgärder tar befintligt exklusivt konfigurationslås,
+så kund-/bokningsskrivningar som redan använder delat lås inte kan återinföra
+kontaktkopior under åtgärden. Förhandsgranskning/token omfattar kortversion
+och kopplade bokningsid/versioner/privacystatus. En ändring kräver nytt underlag.
+Kommande/pågående confirmed-besök stoppar kontaktborttagning i denna POC.
+Det är en teknisk avgränsning, inte ett automatiskt juridiskt rättighetsbeslut.
+
+Kontaktåtgärden använder workspaceWrite: aktiv aktör före replay, stabil
+idempotensnyckel, atomär uppdatering och minimal åtgärdslogg. Customer och dess
+Booking-kontaktkopior ersätts med fasta markörer. Kortet arkiveras och kan inte
+redigeras/återaktiveras; DB CHECK skyddar markörerna när contactRemovedAt satts.
+Inga rader raderas. Booking.version för tid/status ändras inte av kontaktåtgärden;
+den separata contactRemovedAt visar ändringen. Därmed bevaras avbokningskällans
+version och CapacityDecision-koppling. Tider/pris/tjänstesnapshot, events,
+requestHash/clientKey/emailCapKey och konfliktskydd består. Gamla replays
+innehåller inga råa kontakter i ledger och kan inte återställa borttagna fält.
+
+CustomerDataAction lagrar verksamhet, kort/aktör-id, action, bokningsantal och
+tid. Exportlogg betyder förberett underlag, inte att filöverföring till kund är
+bevisad. Varje exportdel kan ge en loggrad; kontaktborttagning/retry ger en enda.
+Inga kontaktfält eller kompletta exportpayloads lagras i logg/ledger. Ny migration
+är additiv; historiska8orörda. Kontaktborttagning är inte full anonymisering.
+
+MCP:s opt-in `--admin --capacity-only` visar enbart två publika läsverktyg och
+två befintliga kapacitetsläsningar. `--allow-workspace` och giltig lokal secret
+lägger till exakt dismiss_capacity_suggestion/create_capacity_campaign_draft.
+Inga boknings-, personal-, kund- eller fristående kampanjskrivningar i denna
+profil. --capacity-only utan --admin eller med --allow-bookings nekas vid start.
+Utan den nya flaggan är tidigare katalog/kontrakt oförändrade. Det är fortfarande
+betrodd lokal stdio, inte OAuth, fjärrmandat eller full flerföretagsisolering.
+Faktisk klientprovning ska skiljas från SDK-test; aktuell plan/status i
+CUSTOMER_LIFECYCLE_AGENT_PLAN/PROJECT_STATUS.
+
 ## Proaktiv arbetsöversikt, 2026-11-13
 
 `src/lib/capacity.ts` används av `/admin/overview`, `/api/admin/capacity` och

@@ -11,6 +11,7 @@ import { DomainError, pageDataFailure } from "@/lib/errors";
 import { formatBookingTime, formatPrice } from "@/lib/format";
 import AdminHeader from "../../header";
 import CustomerEditor from "../editor";
+import CustomerDataPanel from "../data-panel";
 export const dynamic = "force-dynamic";
 export default async function CustomerCard({
   params,
@@ -84,25 +85,39 @@ export default async function CustomerCard({
             </Link>
           )}
         </div>
-        {raw.saved === "1" && (
+        {raw.saved === "1" && !customer.contactRemovedAt && (
           <p role="status">
             Kundkortet är sparat. Äldre bokningar är oförändrade.
           </p>
         )}
         <section className="panel">
           <h2>Aktuella uppgifter</h2>
-          <p className="customer-contact">
-            {customer.email}
-            {customer.phone ? ` · ${customer.phone}` : ""}
-          </p>
-          <details>
-            <summary>Redigera kunduppgifter</summary>
-            <CustomerEditor
-              key={`${customer.id}-${customer.version}`}
-              customer={customer}
-            />
-          </details>
+          {customer.contactRemovedAt ? (
+            <p>
+              Kontaktuppgifterna togs bort{" "}
+              {formatBookingTime(customer.contactRemovedAt)}. Kortet kan inte
+              återaktiveras.
+            </p>
+          ) : (
+            <>
+              <p className="customer-contact">
+                {customer.email}
+                {customer.phone ? ` · ${customer.phone}` : ""}
+              </p>
+              <details>
+                <summary>Redigera kunduppgifter</summary>
+                <CustomerEditor
+                  key={`${customer.id}-${customer.version}`}
+                  customer={customer}
+                />
+              </details>
+            </>
+          )}
         </section>
+        <CustomerDataPanel
+          key={`${customer.id}-${customer.version}`}
+          customer={customer}
+        />
         <section className="customer-visits">
           <h2>Besök</h2>
           <nav aria-label="Kundens besök" className="action-row">

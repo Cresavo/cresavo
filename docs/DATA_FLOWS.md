@@ -1,5 +1,39 @@
 # Datakarta för Booking Lab SE POC
 
+## Manuell kunddata, pågående leverans 2026-11-13
+
+Aktiv webbadministratör väljer ett befintligt kundkort och använder ett
+same-origin POST. Exporten förbereds i en transaktion och innehåller kortets
+kontaktfält samt högst100direktkopplade bokningar per JSON-fil, med fortsatt
+sidmarkör och underlagstoken. Max1000kopplade bokningar i detta POC-flöde;
+större underlag avvisas i sin helhet. Kontaktuppgifter finns inte i URL/filnamn.
+Nedladdningen sker uttryckligen genom en lokal blob-länk; inget skickas till
+en modell, marknadsföringskanal eller extern exporttjänst. Blob-länk städas vid
+ny export, avslutad kontaktåtgärd och lämnad komponent. Sparade filer kan inte
+återkallas och omfattas inte av serverns kontaktborttagning.
+
+Förhandsgranskning för kontaktborttagning returnerar antal, kortversion och
+underlagstoken, inga nya råa kontaktfält. Efter bekräftelse ersätts namn/e-post/
+telefon på kortet och namn/e-post i uttryckligen länkade Booking-rader med fasta
+markörer. contactRemovedAt på båda tabellerna visar åtgärden. Kortet arkiveras,
+nya bokningar på kortet och redigering/återaktivering stoppas. Kommande/pågående
+aktiva besök stoppar denna POC-åtgärd. Andra kort/fristående bokningar ändras inte,
+även om samma e-postadress förekommer. Ingen automatisk identitetsmatchning.
+
+CustomerDataAction: businessId/customerId/actorId, action, tid, bokningsantal.
+Inga namn/e-post/telefon, råa fel eller exporter i loggen. WorkspaceRequest för
+kontaktborttagning lagrar bara hash av underlag och minimalt id/version/tid-svar.
+Exportlogg registrerar förberedelsen per del, inte bevisad kundleverans. Aktör-id
+och kvarvarande kund-/boknings-ID, behandlingar/tider och HMAC/hashar är fortfarande
+personrelaterade kopplingar. Backups, driftloggar, egna exporter och eventuella
+kunduppgifter i fria kampanjrubriker ligger utanför denna åtgärd. Ingen automatisk
+gallring eller lagringstid är beslutad. Bara syntetiska example.test-kort tillåts.
+
+Lokal MCP har inga nya export-/kontaktverktyg. Den begränsade kapacitetsprofilen
+visar bara sex befintliga bokningsbarhets-/utkastverktyg vid uttryckligt opt-in;
+kundkalendrar, kontakter och kunddataexport lämnas inte till AI-klienten.
+Se aktuell plan, ARCHITECTURE och PRIVACY_SECURITY för exakta gränser.
+
 ## Proaktiv kapacitet, 2026-11-13
 
 Översikten och tillåten lokal MCP läser avbokade bokningars id/version,

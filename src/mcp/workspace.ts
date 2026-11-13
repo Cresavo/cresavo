@@ -64,10 +64,7 @@ function mutationInput(value: Record<string, unknown>) {
 }
 
 // Called only in trusted local --admin mode. It never opens a network listener.
-export function registerWorkspaceTools(
-  server: McpServer,
-  allowWrites: boolean,
-) {
+export function registerCapacityTools(server: McpServer, allowWrites: boolean) {
   server.registerTool(
     "list_capacity_suggestions",
     {
@@ -114,6 +111,13 @@ export function registerWorkspaceTools(
         ),
     );
   }
+}
+
+export function registerWorkspaceTools(
+  server: McpServer,
+  allowWrites: boolean,
+) {
+  registerCapacityTools(server, allowWrites);
   server.registerTool(
     "list_workspace_services",
     {

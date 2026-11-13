@@ -90,6 +90,11 @@ export async function editCustomer(
         Customer[]
       >`SELECT * FROM "Customer" WHERE "businessId"=${businessId} AND "id"=${value.id} FOR UPDATE`;
       if (!row) throw new DomainError("Kunden finns inte", 404);
+      if (row.contactRemovedAt)
+        throw new DomainError(
+          "Kontaktuppgifterna är borttagna. Skapa ett nytt kundkort för en ny kontakt.",
+          409,
+        );
       if (row.version !== value.expectedVersion)
         throw new DomainError("Uppgifterna har ändrats. Läs in på nytt.", 409);
       const updated = await tx.customer.update({
@@ -122,6 +127,7 @@ export async function getCustomer(value: string, actor: WorkspaceActor) {
     // Web demo exception never extends to local MCP or non-demo deployments.
     const contactVisible =
       actor.kind === "admin" &&
+      !row.contactRemovedAt &&
       demoAccessEnabled() &&
       row.email.endsWith("@example.test");
     return {
@@ -132,6 +138,7 @@ export async function getCustomer(value: string, actor: WorkspaceActor) {
       email: contactVisible ? row.email : "***@***",
       phone: contactVisible ? row.phone : null,
       contactVisible,
+      contactRemovedAt: row.contactRemovedAt?.toISOString() ?? null,
     };
   });
 }

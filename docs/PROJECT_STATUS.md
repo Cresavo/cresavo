@@ -1,3 +1,32 @@
+# Projektstatus — kunddatas livscykel och ägaragentprov
+
+2026-11-13. Kandidat på feature/customer-lifecycle-agent-proof från d2ccb6c
+(föregående produkt8843d06). Niclas har uttryckligen valt manuell hantering;
+automatisk gallring är avstängd. Ingen ny Epic eller kundpilot.
+
+| Acceptanskriterium | Faktiskt läge |
+| --- | --- |
+| Exportera valt kort och uttryckligen kopplade bokningar | Implementerat: max100/fil, fortsättning med token, max1000totalt. Inga andra kunder eller interna kvot-/sessionshemligheter. |
+| Förhandsgranska och bekräfta kontaktborttagning | Implementerat: namn/e-post/telefon och kopplade kontaktkopior ersätts; kort arkiveras, tider/priser/status/historik bevaras. |
+| Behörighet, samtidighet och oförändrad bokningsmotor | Riktade tester PASS;20samma-idempotensnyckel ger1åtgärd. Separat contactRemovedAt, bokningsversion och kapacitetsbeslut bevaras. |
+| Ingen automatisk gallring eller kontakt-MCP | Implementerat och testat. Existerande lokal MCP får ett avgränsat capacity-only-läge; ingen ny server/anslutning. |
+| Verkligt ägaragentprov i Codex | Kvar: actual-klientomladdning och nya kapacitetsanrop. SDK-test är inte ett AI-klientbevis. |
+| Oberoende Grok, privat CI och samma skyddade preview | Inte körda för kandidaten ännu. Nuvarande preview kör fortfarande8843d06. |
+
+Ny migration9 är additiv; historiska8oförändrade. Isolerad8→9uppgradering och
+återseed bevarar äldre kolumnvärden, beslut och konfliktfrihet. Inga paket eller
+lockfilsändringar. Se [plan/avgränsning](CUSTOMER_LIFECYCLE_AGENT_PLAN.md).
+
+Detta är kontaktminimering, inte full anonymisering eller komplett GDPR-utdrag.
+Fristående bokningar matchas inte på e-post; backups, hämtade filer, loggar och
+fria kampanjrubriker påverkas inte. Kommande aktiva besök måste hanteras först
+som tekniskt POC-skydd. Lagringstid och rättighetsprövning före pilot återstår.
+Pilot fortsatt NO-GO: MFA/recovery, drift/tenant-/leverantörsgrindar, full
+dataskyddskedja och fysisk iPhone/Safari är inte godkända.
+
+
+## Historik — föregående verifierade leverans
+
 # Projektstatus — proaktiv kapacitetsöversikt levererad
 
 Verifierad **2026-11-13**. Branch **feature/proactive-capacity-overview**.

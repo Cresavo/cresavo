@@ -2,6 +2,13 @@ import { ZodError } from "zod";
 
 // Only literal messages owned by this codebase may cross a trust boundary.
 const publicMessages = [
+  "Underlaget har ändrats. Förhandsgranska igen.",
+  "POC-flödet tillåter endast syntetiska testadresser.",
+  "Underlaget är för stort för POC-flödet. Högst 1000 kopplade bokningar stöds.",
+  "Fortsättningen kräver samma exportunderlag.",
+  "Ogiltig sidmarkör för kundexporten.",
+  "Hantera kommande eller pågående bokningar innan kontaktuppgifterna tas bort.",
+  "Kontaktuppgifterna är borttagna. Skapa ett nytt kundkort för en ny kontakt.",
   "Förslaget är inte aktuellt. Uppdatera översikten.",
   "Förslaget har redan hanterats med andra villkor.",
   "Åtkomst nekad",
@@ -29,7 +36,7 @@ type PublicMessage = (typeof publicMessages)[number];
 export class DomainError extends Error {
   constructor(
     message: PublicMessage,
-    readonly status: 400 | 403 | 404 | 409 | 429 = 400,
+    readonly status: 400 | 403 | 404 | 409 | 413 | 429 = 400,
     readonly retryAfter?: number,
   ) {
     super(message);

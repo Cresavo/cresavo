@@ -27,7 +27,7 @@ secrets/
 pgdata/
 postgres-data/
 .postgres/
-data/
+/data/
 
 # Dependencies, build and test output
 node_modules/
@@ -46,6 +46,8 @@ demo-artifacts/
 *.log
 
 # Local review archives
+# Explicit customer downloads must stay private, including synthetic demos.
+booking-lab-kunddata*.json
 *.zip
 *.tar
 *.tar.gz

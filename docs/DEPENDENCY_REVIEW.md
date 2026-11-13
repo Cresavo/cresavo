@@ -1,5 +1,14 @@
 # Beroendesäkerhet
 
+## Kunddatas livscykel/agentprov, 2026-11-13
+
+Inga nya paket eller lockfilsändringar. Befintlig Zod/Prisma/Next/React och
+officiell MCP SDK används. Standarddetails, formulär och nedladdningslänk;
+inga nya UI-ramverk, modellanslutningar eller egna API-nycklar. Sista slut-
+audit redovisas separat i VERIFICATION; tidigare7moderate dev är inte lösta
+genom detta uppdrag. Lokal isolerad MCP-runtime ska använda samma låsta
+beroenden och en fryst källa, inte följa nya utvecklingsändringar automatiskt.
+
 ## Proaktiv översikt, 2026-11-13
 
 Inga nya npm-beroenden eller låsfilsändringar. Befintlig Lucide, DatePicker,

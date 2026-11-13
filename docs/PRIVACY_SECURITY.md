@@ -1,5 +1,39 @@
 # Integritets- och säkerhetsprinciper
 
+## Manuell kunddata — godkänd avgränsning 2026-11-13
+
+Niclas har valt manuell export och bekräftad kontaktborttagning med teknisk
+bokningshistorik kvar. Automatisk gallring är avstängd och ingen faktisk
+lagringstid härleds från demodata. Endast syntetiska example.test-kort ingår.
+Detta är tekniska byggdelar, inte pilotgodkännande eller ett automatiskt beslut
+om hur en verklig begäran om tillgång/radering ska hanteras.
+
+Kontaktborttagning ersätter de valda fälten i kortet och direktkopplade
+bokningskopior; det är **inte full anonymisering**. ID, relationer, behandling/
+tid, händelser, kvot-/idempotenshashar och backups kan fortfarande göra data
+identifierbara. EU-kommissionen beskriver att återidentifierbara pseudonymiserade
+uppgifter fortsatt omfattas av GDPR. [Primärkälla läst2026-11-13](https://commission.europa.eu/law/law-topic/data-protection/information-business-and-organisations/application-gdpr_en).
+IMY beskriver att radering kräver en bedömning och har undantag; POC:ns stopp
+vid kommande besök ersätter ingen sådan rättslig prövning. [IMY](https://www.imy.se/privatperson/dataskydd/dina-rattigheter/radering/).
+
+Exporten avgränsas till kundkort/direktkopplade bokningar och kallas inte ett
+fullständigt GDPR-registerutdrag. Ingen namn-/e-postmatchning på fristående
+bokningar, massutlämning, kundexport-MCP eller publikt rättighets-API. Webben
+kräver aktiv admin, samma origin, strikt schema och no-store. Själva åtgärds-
+loggen innehåller enbart id/aktör/åtgärd/tid/antal och behöver egen framtida
+retentionsbedömning. Den lagrar inte kontakter eller exportpayloads.
+
+Före riktiga kunder återstår åtminstone: verksamhet/ändamål och lagringstider,
+identifiering och manuell rättighetsprövning, relationen till eventuella journal-/
+ekonomikrav, fristående bokningars identitetskoppling, logg-/hash-/backuplivscykel
+och återläsning utan återinförda kontakter. Befintlig backup kan innehålla äldre
+kontakter; operatören behöver hantera efterföljande kontaktåtgärder innan den
+återställda miljön används. MFA/recovery, verkliga behörighets-/tenantgrindar,
+leverantörskedja och kvarvarande auditfynd består som separata pilotkrav.
+
+Tidigare avsnitt nedan är historik. Arkivering ensam är fortfarande inte
+kontaktborttagning; den nya funktionen och dess begränsningar är uttryckliga.
+
 ## Kundmodulens demoavgränsning, Epic 06
 
 Kundregister är inte ett GDPR-godkännande. Endast syntetiska uppgifter får

@@ -362,7 +362,12 @@ it("MCP read/write opt-in exposes the same domain and rejects unknown fields", a
       sourceVersion: s.sourceVersion,
       expectedToken: s.expectedToken,
     };
-  for (const writes of [false, true]) {
+  for (const { writes, only } of [
+    { writes: false, only: false },
+    { writes: false, only: true },
+    { writes: true, only: true },
+    { writes: true, only: false },
+  ]) {
     const client = new Client({ name: "capacity-contract-test", version: "1" });
     await client.connect(
       new StdioClientTransport({
@@ -373,6 +378,7 @@ it("MCP read/write opt-in exposes the same domain and rejects unknown fields", a
           "tsx",
           "src/mcp/server.ts",
           "--admin",
+          ...(only ? ["--capacity-only"] : []),
           ...(writes ? ["--allow-workspace"] : []),
         ],
       }),
@@ -380,6 +386,33 @@ it("MCP read/write opt-in exposes the same domain and rejects unknown fields", a
     try {
       const tools = (await client.listTools()).tools.map((x) => x.name);
       expect(tools.includes("create_capacity_campaign_draft")).toBe(writes);
+      if (only) {
+        expect(tools.sort()).toEqual(
+          [
+            "get_availability",
+            "inspect_capacity_suggestion",
+            "list_capacity_suggestions",
+            "list_services",
+            ...(writes
+              ? [
+                  "create_capacity_campaign_draft",
+                  "dismiss_capacity_suggestion",
+                ]
+              : []),
+          ].sort(),
+        );
+        for (const name of [
+          "create_booking",
+          "create_campaign_draft",
+          "save_staff",
+          "save_service",
+          "export_customer_data",
+          "remove_customer_contact",
+        ])
+          await expect(
+            client.callTool({ name, arguments: {} }),
+          ).rejects.toThrow();
+      }
       const list = await client.callTool({
         name: "list_capacity_suggestions",
         arguments: {},
@@ -449,4 +482,4 @@ it("MCP read/write opt-in exposes the same domain and rejects unknown fields", a
       await client.close();
     }
   }
-}, 30000); // Two real stdio subprocesses, including their cold start.
+}, 30000); // Four real stdio subprocesses, including their cold start.
