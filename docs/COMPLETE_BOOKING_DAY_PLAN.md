@@ -86,7 +86,7 @@ inklusive avläsning av samma bokning genom befintlig lokal ägar-MCP.
 officiell ClientFactory passerade i det riktade A2A-provet. Terminalprovet
 valde en tid, skrev BOKA, skapade testbokningen och avbokade den genom
 befintlig ägaroperation med två korrekta historikhändelser. Egna rader städades.
-Grok och CI återstår.
+Detta var mellanresultatet före det samlade rättningsvarvet nedan.
 
 
 ## Samlat rättningsvarv 1
@@ -97,4 +97,16 @@ auth401/WWW-Authenticate (A2A-QA-1), standardiserade JSON-RPC-fel med
 korrelation/version (A2A-QA-2) samt 413/Connection close utan förstörd
 keep-alive-återanvändning (A2A-QA-3). Riktat test täcker även chunkad body.
 A2A-QA-4/5 är dokumenterade lokala begränsningar. Status/handoff uppdateras
-i befintlig struktur (A2A-QA-6). Slutlig riktad Grok-QA och exakt CI krävs.
+i befintlig struktur (A2A-QA-6).
+
+## Slutleverans
+
+Produkt/Grok `d8562b8190f52e7b76f3d4682ec6f3b84fd35732`, samma arbetsbranch.
+Actions43593764129: fyra gröna lägen, 62 webbtester vardera; 114 unit,
+128 integration och 13 MCP-korttester. Lint/types/build/ren installation och
+ny databas passerade. [Faktiska bevis](VERIFICATION.md).
+[Groks originalrapport](qa/QA-REPORT-booking-day-f1-d8562b8.md) ger scoped GO
+efter ett rättningsvarv, inga Medium/High. Ny Low om obegränsad dränering,
+gemensam demokvot och public-historiketikett kvarstår som dokumenterad backlogg.
+Ingen fjärrdrift, pilot, native-modellklient eller fysisk iPhone är verifierad.
+Målet är avslutat; senare docs ändrar inte granskad produktkod.

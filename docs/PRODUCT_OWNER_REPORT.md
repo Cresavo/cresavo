@@ -1,3 +1,24 @@
+# Produktägarrapport — bokningsdag och lokalt agentprov, 14 november 2026
+
+Befintlig manuell bokning, kundlänk och ägar-MCP kompletteras med ett litet
+lokalt A2A-prov. Samma regler, tillgänglighet och databas används.
+Välj en tid, granska behandling/pris/utförare och skriv BOKA. Bokningen kan
+ses och hanteras i den vanliga lokala arbetsytan. [Provguide](COMPLETE_BOOKING_DAY_PLAN.md).
+
+Branch `feature/complete-booking-day`, produkt/Grok `d8562b8`.
+114 unit, 128 integration, 13 kort och 62 webbtester ×4; lint/tsc/build PASS.
+[Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43593764129).
+[Groks original](qa/QA-REPORT-booking-day-f1-d8562b8.md): GO endast syntetiskt lokalt.
+Audit separat: 7 moderate dev, produktion 0. [Fullt testunderlag](VERIFICATION.md).
+
+Detta är ett SDK-/terminalprov, ingen ny anslutning i ChatGPT eller mobilen.
+Webbpreviewn är oförändrad. Gemensam demokund/kvot, historikens kanaletikett
+och ett Low om överstora autentiserade HTTP-kroppar återstår. Ingen kundpilot.
+Nästa tre förslag: verklig agentklient, tydligare agentattribution, pilotgrindarna.
+Ingen nästa leverans startas automatiskt.
+
+---
+
 <!-- POLISH_CURRENT_START -->
 # Produktägarrapport — polerad arbetsyta
 

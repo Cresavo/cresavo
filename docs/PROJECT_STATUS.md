@@ -1,7 +1,7 @@
 # Premiumdemo — skyddad preview levererad
 
 
-## Komplett bokningsdag och lokalt A2A-prov · under slutgranskning
+## Komplett bokningsdag och lokalt A2A-prov · avslutat 14 november 2026
 
 Arbetsbranch `feature/complete-booking-day` från `d015141`.
 Manuell ägarbokning, kundens bokningslänk och lokal ägar-MCP återanvänds.
@@ -13,10 +13,18 @@ Bokningen använder befintlig motor och syns i samma lokala kalender.
 Första Grok-granskningen gäller `4438941` och ger GO för syntetisk lokal POC.
 [Originalrapport](qa/QA-REPORT-booking-day-4438941.md). Det samlade rättningsvarvet
 omfattar obligatorisk behandlingsversion, korrekta auth-/JSON-RPC-fel och
-stabil anslutningsstängning efter överstor body. Slutlig QA och CI återstår.
+stabil anslutningsstängning efter överstor body. Slutmatrisen är grön på d8562b8: 128 integration, 114 unit, 13 korttester
+och 62 webbtester i vart och ett av fyra lägen. Groks riktade återkontroll av
+`d8562b8190f52e7b76f3d4682ec6f3b84fd35732` ger GO endast för syntetisk lokal miljö,
+utan Medium/High. [Slutrapport i original](qa/QA-REPORT-booking-day-f1-d8562b8.md).
+[CI-bevis](qa/evidence-booking-day-d8562b8/ci-results.json) ·
+[Lokala prov](qa/evidence-booking-day-d8562b8/local-results.json).
 Kvar är bland annat befintlig public-etikett i A2A-bokningens historik och
 den avsiktligt gemensamma demokundens kvot. Ingen fjärr-/native-klient eller
 fysisk iPhone har verifierats av detta lokala protokollprov.
+Nytt Low-fynd: en autentiserad överstor HTTP-kropp dräneras utan eget tids-/bytestak.
+Detta är backlogg för loopbackprovet, inte godkännande för fjärrdrift.
+Ingen ny deployment eller pilot; senare dokumentationscommit ändrar inte produktrevisionen.
 
 
 

@@ -10,6 +10,19 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
+## Levererat: komplett bokningsdag och lokalt A2A-prov
+
+- Produkt/Grok d8562b8 på feature/complete-booking-day, ett samlat fixvarv.
+  Scoped GO endast syntetiskt lokalt. Actions43593764129: fyra gröna62/62,
+  114unit/128integration/13kort; audit7moderate dev, produktion0.
+- Läs COMPLETE_BOOKING_DAY_PLAN och aktuell HANDOFF/VERIFICATION samt
+  docs/qa/QA-REPORT-booking-day-f1-d8562b8.md. Senare docs ändrar inte produktSHA.
+- A2A är dev-only opt-in, loopback, skyddad discovery/RPC, separat test/demoDB;
+  aldrig Next-route, Vercel eller fjärrbehörighet. Bokning kräver serviceVersion,
+  confirmed och UUID men klientflaggan bevisar inte mänskligt mandat.
+- Gemensam demokvot/public-historiketikett och Low om obegränsad dränering är
+  dokumenterad backlogg. Ingen ny deployment/nativeklient/pilot eller nästa epic.
+
 ## Levererat: visuell UI-polering
 
 - Produkt/Grok/CI/deploy9840309, ui/salon-polish från2c74a4b. Två samlade

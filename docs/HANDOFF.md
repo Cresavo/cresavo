@@ -1,7 +1,7 @@
 # Leverans — premiumdemo, 2026-11-14
 
 
-## Lokal bokningsdag via A2A · slutgranskning pågår
+## Lokal bokningsdag via A2A · avslutad 14 november 2026
 
 Läs `COMPLETE_BOOKING_DAY_PLAN.md` för att prova på separat loopbackdatabas.
 Sätt BOOKING_A2A_DEMO=1 lokalt och kör
@@ -11,8 +11,22 @@ BOKA, eller avbryt med Enter. Använd därefter vanlig lokal admin/ägar-MCP fö
 flytt och avbokning i samma databas. Kundprofilen har inga adminverktyg.
 
 Detta är ett strukturerat protokollprov med syntetisk kund, ingen språkmodell
-eller installerad fjärranslutning i ChatGPT. Första Grok-GO gäller4438941;
-återkontroll efter det samlade rättningsvarvet är ännu väntande.
+eller installerad fjärranslutning i ChatGPT. Produkt och slutlig Grok-revision:
+`d8562b8190f52e7b76f3d4682ec6f3b84fd35732`, `feature/complete-booking-day`.
+[Grok-original](qa/QA-REPORT-booking-day-f1-d8562b8.md) ger scoped GO efter ett
+samlat rättningsvarv; SHA256 `99003d5fe6ec201a0eb309817ac331452b8c73d4e2ae16027b8afc66ed27ac0f`.
+Grok körde själv 114 unit, 128 integration, 24 produktionswebbtester och CLI 22/22.
+Dess wire-probe 63/64 hade en för snäv minneströskel; separat skalningsprov
+bekräftade att kroppen inte buffras proportionellt. Originalutfallet är bevarat.
+[Actions 43593764129](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43593764129)
+har fyra gröna jobb på exakt produkt-SHA, med 62 webbtester per läge.
+[Kommandon och begränsningar](VERIFICATION.md). Audit: 7 moderate dev, produktion 0.
+
+Öppet: gemensam syntetisk kund/kvot, public-etikett i historiken och obegränsad
+dränering av autentiserad överstor body (Low). Ingen verklig modellklient,
+fysisk iPhone, fjärr-A2A eller ny previewdeployment verifierad. Pilot NO-GO.
+Nästa avgränsningar: en verklig godkänd agentklient; tydligare kanalattribution;
+pilotgrindarna för identitet, dataskydd och faktisk drift. Inget av detta startas nu.
 
 
 

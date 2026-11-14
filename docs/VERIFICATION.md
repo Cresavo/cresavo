@@ -1,6 +1,61 @@
 # Aktuell verifiering — premiumdemo
 
 
+## Komplett bokningsdag och lokalt A2A · 14 november 2026
+
+Fryst slutrevision `d8562b8190f52e7b76f3d4682ec6f3b84fd35732`,
+branch `feature/complete-booking-day`, från `d015141`.
+[Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43593764129)
+är grön på exakt revision. Varje jobb använder ny PostgreSQL-testdatabas.
+
+| Kontroll | Faktiskt resultat |
+| --- | --- |
+| npm ci, Prisma generate/migrate/seed i CI | PASS i slutmatrisen |
+| Lint, tsc och build | PASS lokalt och CI |
+| Unit | 114/114 i CI |
+| Integration | 128/128 i CI |
+| MCP-korttester | 13/13 i CI |
+| Webb dev/prod med proxy 0/1 | 62/62 i vart och ett av fyra jobb |
+| Riktad slutlig A2A-suite | 3/3, tre lokala körningar i rad |
+| Terminalprov BOKA → bokning → ägaravbokning | PASS på slutrevisionen |
+| Full audit | FAIL 7 moderate dev; 0 high/critical |
+| Produktionsaudit, omit-dev | PASS 0 fynd |
+| Riktad Grok-QA | GO endast syntetiskt lokalt på fryst d8562b8; inga Medium/High |
+
+[CI-resultat och logghashar](qa/evidence-booking-day-d8562b8/ci-results.json).
+[Lokala kommandon och logghashar](qa/evidence-booking-day-d8562b8/local-results.json).
+[Full audit](qa/evidence-booking-day-d8562b8/audit-full.json) ·
+[produktionsaudit](qa/evidence-booking-day-d8562b8/audit-production.json).
+
+Utvecklingsfel som rättades. Första direkta SDK-transportanropet saknade
+A2A-Version; officiell ClientFactory sköter nu versionen. TypeScript fångade ett
+felaktigt antaget SDK-fältnamn. EOF i första terminalprovet hanterades först som
+fel; itererad inläsning avslutar nu utan bokning. Den första 413-rättningen
+kunde fortfarande ge ECONNRESET. Slutversionen dränerar överskjutande bytes utan
+att buffra eller parsa dem och svarar därefter med Connection close. Tester
+täcker Content-Length, chunkad body, 2 MB och ett efterföljande giltigt anrop.
+
+Första Grok-granskningen gav scoped GO på4438941, egen probe60/64 med fyra Low-fel.
+[Oförändrat original](qa/QA-REPORT-booking-day-4438941.md).
+[Slutrapport i original](qa/QA-REPORT-booking-day-f1-d8562b8.md), SHA256
+`99003d5fe6ec201a0eb309817ac331452b8c73d4e2ae16027b8afc66ed27ac0f`.
+Grok verifierade själv ren npm ci, sex nya DB, lint/tsc/build, 114 unit,
+128 integration, A2A 3/3 ×3, 24 produktionswebbtester och CLI 22/22.
+Dess wire-probe gav 63/64 ×3: minneströskeln föll, men separat skalningsprov
+upp till 500 MB bekräftade icke-proportionell minnesanvändning. Ingen dold grön omtolkning
+av probeutfallet. Grok läste inte CI; fyrmatrisen ovan är Codex verifiering av Actions.
+Nytt Low: överstor autentiserad body dräneras tills den är färdig eller Nodes timeout.
+Info: olika HTTP-status för egna respektive SDK:s JSON-RPC-fel. Dessa är backlogg.
+Rapportens Info om saknade A2A-resultat i VERIFICATION åtgärdas med denna
+dokumentationsändring efter QA, utan produktkodändring.
+
+NOT RUN lokalt: ren npm ci efter paketändringen (utförd i CI), hela fyrmatrisen
+(utförd i CI). Lokalt kördes de relevanta 24 webbfallen i produktion, separat
+full integrationssvit och nya A2A-fall. Ingen ny deployment, verklig modell,
+native/tredjeparts A2A-klient, fjärr-MCP/A2A eller fysisk iPhone/Safari.
+
+
+
 ## API och lokal MCP · 14 november 2026
 
 Testrevision `dbe1e1f`, branch `backend/api-mcp-pilot-proof`, kumulativ bas
