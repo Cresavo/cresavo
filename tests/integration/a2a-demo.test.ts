@@ -121,10 +121,18 @@ it("official A2A client discovers, requests times and confirms exactly one booki
       serviceId: selection.serviceId,
       staffId: selection.staffId,
       start: result.slots[0],
+      serviceVersion: result.service.version,
       clientRequestId: randomUUID(),
       confirmed: true,
     };
     expect((await send({ ...input, confirmed: false })).error.status).toBe(400);
+    expect(
+      (await send({ ...input, serviceVersion: undefined })).error.status,
+    ).toBe(400);
+    expect(
+      (await send({ ...input, serviceVersion: result.service.version + 1 }))
+        .error.status,
+    ).toBe(409);
     expect(await db.booking.count()).toBe(before);
     const attempts = await Promise.all(
       Array.from({ length: 20 }, () => send(input)),

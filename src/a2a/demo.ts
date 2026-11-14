@@ -35,6 +35,7 @@ const command = z.discriminatedUnion("action", [
     .pick({ serviceId: true, staffId: true, start: true, serviceVersion: true })
     .extend({
       action: z.literal("book"),
+      serviceVersion: z.number().int().positive(),
       confirmed: z.literal(true),
       clientRequestId: z.uuid(),
     })

@@ -488,3 +488,39 @@ Ny migration tillför createdAt, unik businessId/idempotencyKey, requestHash, e-
 Per-IP/rutt-spärren är en begränsad processlokal Map (högst 10000 buckets,15 min). Betrodd X-Real-IP aktiveras endast uttryckligen; annars delar klienter en bucket. Flera processer kräver en annan verifierad driftgräns. Cookieversionen är serverkonfiguration, inte en ny sessionsdatabas. CSP tillåter inline-script för Next; ingen nonce-mekanism tillförs.
 
 Kampanjer syns publikt endast inom dagens inkluderande Stockholmsintervall, max 90 kalenderdagar. Adminbokningslistan och MCP delar validering/cursor men olika fältprojektioner. UI, HTTP och lokal MCP behåller gemensamma domänregler.
+
+
+## Lokalt A2A-bokningsprov
+
+src/a2a/demo.ts är en separat operatörsstartad loopbackserver, inte en
+Next-route. scripts/a2a-demo.ts är en deterministisk kundagent/testklient som
+använder officiell SDK och kräver operatörens BOKA. Ingen modellanslutning
+eller fri språkförståelse ingår. Vanlig webbokning och lokal ägar-MCP består.
+
+Protokollprovet använder A2A JSONRPC 1.0. AgentCard och SendMessage kräver
+processens slumpade bearer-token. Den officiella klienten upptäcker AgentCard
+genom en autentiserad resolver. Servern tar enbart emot SendMessage vid /a2a,
+A2A-Version 1.0 och högst 16 KiB body. Origin-header nekas. Servern binder
+127.0.0.1 på slumpad port och stängs när terminalprovet avslutas.
+
+Tillåtna textdelar innehåller strikt JSON för två operationer.
+availability kräver serviceId, staffId och date (lokal dag). Resultatet har
+slots, service(id/name/priceOre/duration/version), staff(id/name) och timeZone.
+book kräver serviceId, staffId, start, serviceVersion, clientRequestId(UUID)
+och confirmed=true. Nyckeln namespacas med a2a_ och går till samma createBooking.
+Kunden är alltid A2A Demo på a2a-demo@example.test. Fast kundkanal har samma
+dagstak och övriga regler som publika bokningar. confirmed är klientens
+försäkran, inte ett tekniskt bevis för mänskligt samtycke.
+
+Bokningssvaret innehåller bara id, serviceId, staffId, startsAt och endsAt.
+Det ger inga adminrättigheter. Flytt/avbokning sker via befintlig autentiserad
+ägaryta eller betrodd lokal ägar-MCP. A2A exponerar ingen kundlista, journal,
+betalning eller ägarfunktion. Affärsfel returneras som statiska strukturerade
+domänfel i A2A-meddelandets innehåll, med status/message.
+
+Start kräver BOOKING_A2A_DEMO=1, loopbackdatabas med _test/_demo, giltig lokal
+SESSION_SECRET och frånvaro av produktion/Vercel. Token skickas bara i
+Authorization-header, aldrig URL/klientkod/logg. Ingen fjärrautentisering,
+streaming, push eller beständiga A2A-tasks har införts. Provet innebär ingen
+generell A2A-certifiering eller stöd för alla klienter. Se
+COMPLETE_BOOKING_DAY_PLAN.md och DEPENDENCY_REVIEW.md för provväg och SDK.
