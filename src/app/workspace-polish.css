@@ -828,7 +828,7 @@ button.danger {
     z-index: 12;
     display: grid;
     grid-template-columns: repeat(3,minmax(0,1fr));
-    padding: 4px 12px max(4px,env(safe-area-inset-bottom));
+    padding: 4px 2px max(4px,env(safe-area-inset-bottom));
     background: #132534;
     color: white;
   }
@@ -836,5 +836,5 @@ button.danger {
   .workspace-header .workspace-primary > a[aria-current="page"] { background:#31546a; color:white; }
   .admin-workspace { padding-bottom:calc(88px + env(safe-area-inset-bottom)); }
   html:has(.workspace-primary) {scroll-padding-bottom:90px;}
-  body:has(input:focus,textarea:focus) .workspace-primary { position:static; }
+  .admin-workspace :is(input, textarea, button, a) { scroll-margin-bottom: 64px; }
 }
