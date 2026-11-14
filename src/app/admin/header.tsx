@@ -11,7 +11,9 @@ import AdminActions from "./ui";
 import Link from "next/link";
 import HeaderMenu from "./header-menu";
 import { demoAccessEnabled, DEMO_ADMIN_EMAIL } from "@/lib/demo-access";
-export default function AdminHeader({
+import { getLocale } from "@/lib/locale-server";
+import { text } from "@/lib/locale";
+export default async function AdminHeader({
   email,
   active,
 }: {
@@ -24,6 +26,8 @@ export default function AdminHeader({
     | "campaigns"
     | "customers";
 }) {
+  const locale = await getLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   return (
     <header className="workspace-header">
       <div className="workspace-brand">
@@ -35,16 +39,24 @@ export default function AdminHeader({
         </a>
         <p>
           {demoAccessEnabled() && email === DEMO_ADMIN_EMAIL
-            ? "Demoägare · skyddad arbetsyta"
-            : `Inloggad som ${email}`}
+            ? t(
+                "Demo owner · private workspace",
+                "Demoägare · skyddad arbetsyta",
+              )
+            : t(`Signed in as ${email}`, `Inloggad som ${email}`)}
         </p>
       </div>
       <nav className="workspace-primary" aria-label="Administration">
         {(
           [
-            ["overview", "/admin/overview", "Översikt", LayoutDashboard],
-            ["calendar", "/admin", "Kalender", CalendarDays],
-            ["customers", "/admin/customers", "Kunder", Users],
+            [
+              "overview",
+              "/admin/overview",
+              t("Overview", "Översikt"),
+              LayoutDashboard,
+            ],
+            ["calendar", "/admin", t("Calendar", "Kalender"), CalendarDays],
+            ["customers", "/admin/customers", t("Customers", "Kunder"), Users],
           ] as const
         ).map(([key, href, label, Icon]) => (
           <a
@@ -63,15 +75,30 @@ export default function AdminHeader({
         ))}
       </nav>
       <HeaderMenu
-        label="Salongen"
+        label={t("Business", "Salongen")}
         active={["services", "staff", "campaigns"].includes(active)}
       >
-        <nav aria-label="Salongens inställningar">
+        <nav aria-label={t("Business settings", "Salongens inställningar")}>
           {(
             [
-              ["services", "/admin/services", "Tjänster", Scissors],
-              ["staff", "/admin/staff", "Personal & tider", Clock],
-              ["campaigns", "/admin/campaigns", "Kampanjer", Megaphone],
+              [
+                "services",
+                "/admin/services",
+                t("Services", "Tjänster"),
+                Scissors,
+              ],
+              [
+                "staff",
+                "/admin/staff",
+                t("Team & schedules", "Personal & tider"),
+                Clock,
+              ],
+              [
+                "campaigns",
+                "/admin/campaigns",
+                t("Campaigns", "Kampanjer"),
+                Megaphone,
+              ],
             ] as const
           ).map(([key, href, label, Icon]) => (
             <a
@@ -85,16 +112,19 @@ export default function AdminHeader({
           ))}
         </nav>
       </HeaderMenu>
-      <HeaderMenu label="Konto">
+      <HeaderMenu label={t("Account", "Konto")}>
         <p className="workspace-identity">
           {demoAccessEnabled() && email === DEMO_ADMIN_EMAIL
-            ? "Demoägare · skyddad arbetsyta"
-            : `Inloggad som ${email}`}
+            ? t(
+                "Demo owner · private workspace",
+                "Demoägare · skyddad arbetsyta",
+              )
+            : t(`Signed in as ${email}`, `Inloggad som ${email}`)}
         </p>
         <Link prefetch={false} href="/">
-          Visa kundbokningen
+          {t("Customer booking", "Visa kundbokningen")}
         </Link>
-        <a href="/product">Om Booking Lab</a>
+        <a href="/product">{t("About Booking Lab", "Om Booking Lab")}</a>
         <AdminActions mode="logout" />
       </HeaderMenu>
     </header>

@@ -3,7 +3,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ServiceView } from "../types";
 import { useWrite, useUnsavedChanges } from "../use-write";
+import { useLocale } from "../../components/locale-provider";
+import { text } from "@/lib/locale";
+import { presentationError } from "@/lib/presentation-errors";
 export default function ServiceEditor({ service }: { service?: ServiceView }) {
+  const locale = useLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const router = useRouter();
   const { write, pending, message, status } = useWrite();
   const { markDirty, markClean } = useUnsavedChanges();
@@ -13,7 +18,12 @@ export default function ServiceEditor({ service }: { service?: ServiceView }) {
     const form = new FormData(event.currentTarget),
       price = String(form.get("price")).replace(",", ".");
     if (!/^\d{1,6}(\.\d{1,2})?$/.test(price)) {
-      setError("Ange pris i kronor, till exempel 650,00.");
+      setError(
+        t(
+          "Enter the price in SEK, for example 650.00.",
+          "Ange pris i kronor, till exempel 650,00.",
+        ),
+      );
       return;
     }
     const [whole, fraction = ""] = price.split(".");
@@ -38,7 +48,7 @@ export default function ServiceEditor({ service }: { service?: ServiceView }) {
     <form onSubmit={save} onChange={markDirty}>
       <fieldset disabled={pending}>
         <div className="field">
-          <label htmlFor="service-name">Namn</label>
+          <label htmlFor="service-name">{t("Name", "Namn")}</label>
           <input
             id="service-name"
             name="name"
@@ -50,21 +60,27 @@ export default function ServiceEditor({ service }: { service?: ServiceView }) {
         </div>
         <div className="form-grid">
           <div className="field">
-            <label htmlFor="service-price">Pris (kr)</label>
+            <label htmlFor="service-price">
+              {t("Price (SEK)", "Pris (kr)")}
+            </label>
             <input
               id="service-price"
               name="price"
               inputMode="decimal"
               defaultValue={
                 service
-                  ? (service.priceOre / 100).toFixed(2).replace(".", ",")
+                  ? (service.priceOre / 100)
+                      .toFixed(2)
+                      .replace(".", locale === "sv" ? "," : ".")
                   : ""
               }
               required
             />
           </div>
           <div className="field">
-            <label htmlFor="service-duration">Behandlingstid (min)</label>
+            <label htmlFor="service-duration">
+              {t("Treatment duration (min)", "Behandlingstid (min)")}
+            </label>
             <input
               id="service-duration"
               name="duration"
@@ -77,7 +93,9 @@ export default function ServiceEditor({ service }: { service?: ServiceView }) {
             />
           </div>
           <div className="field">
-            <label htmlFor="service-buffer">Buffert efteråt (min)</label>
+            <label htmlFor="service-buffer">
+              {t("Buffer afterwards (min)", "Buffert efteråt (min)")}
+            </label>
             <input
               id="service-buffer"
               name="buffer"
@@ -96,14 +114,20 @@ export default function ServiceEditor({ service }: { service?: ServiceView }) {
             name="active"
             defaultChecked={service?.active ?? true}
           />
-          Aktiv för nya bokningar
+          {t("Available for new bookings", "Aktiv för nya bokningar")}
         </label>
         <p className="muted field">
-          Befintliga bokningar behåller namn, pris och bokad tid. Tilldela nya
-          behandlingar under Personal &amp; tider.
+          {t(
+            "Existing bookings keep their name, price and time. Assign new treatments under Team & schedules.",
+            "Befintliga bokningar behåller namn, pris och bokad tid. Tilldela nya behandlingar under Personal & tider.",
+          )}
         </p>
         <div className="action-row editor-actions">
-          <button>{pending ? "Sparar…" : "Spara behandling"}</button>
+          <button>
+            {pending
+              ? t("Saving…", "Sparar…")
+              : t("Save treatment", "Spara behandling")}
+          </button>
           <button
             type="button"
             className="secondary"
@@ -112,13 +136,13 @@ export default function ServiceEditor({ service }: { service?: ServiceView }) {
               router.replace("/admin/services");
             }}
           >
-            Avbryt
+            {t("Cancel", "Avbryt")}
           </button>
         </div>
       </fieldset>
       {(error || message) && (
         <p role="alert" className="form-error">
-          {error || message}
+          {error || presentationError(message, locale)}
         </p>
       )}
       {status === 409 && (
@@ -130,7 +154,7 @@ export default function ServiceEditor({ service }: { service?: ServiceView }) {
             window.location.reload();
           }}
         >
-          Läs in uppgifterna på nytt
+          {t("Reload latest details", "Läs in uppgifterna på nytt")}
         </button>
       )}
     </form>

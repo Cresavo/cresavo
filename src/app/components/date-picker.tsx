@@ -2,6 +2,8 @@
 import { useRef, useState } from "react";
 import { DateTime } from "luxon";
 import { readableDay } from "@/lib/format";
+import { useLocale } from "./locale-provider";
+import { text } from "@/lib/locale";
 
 const zone = "Europe/Stockholm";
 export default function DatePicker({
@@ -11,7 +13,7 @@ export default function DatePicker({
   name,
   min,
   max,
-  label = "Välj dag",
+  label,
   disabled = false,
 }: {
   id: string;
@@ -23,6 +25,8 @@ export default function DatePicker({
   label?: string;
   disabled?: boolean;
 }) {
+  const locale = useLocale();
+  const labelText = label ?? text(locale, "Choose a day", "Välj dag");
   const today = DateTime.now().setZone(zone).toISODate()!;
   const anchor = value || today;
   const [page, setPage] = useState({ anchor, month: anchor.slice(0, 7) });
@@ -53,15 +57,15 @@ export default function DatePicker({
       className="date-picker"
       data-month={month.toFormat("yyyy-MM")}
       disabled={disabled}
-      aria-label={label}
+      aria-label={labelText}
     >
-      <legend>{label}</legend>
+      <legend>{labelText}</legend>
       <input type="hidden" id={id} name={name} value={value} />
       <div className="month-heading">
         <button
           type="button"
           className="quiet-button"
-          aria-label="Föregående månad"
+          aria-label={text(locale, "Previous month", "Föregående månad")}
           disabled={
             disabled ||
             (!!min &&
@@ -72,12 +76,12 @@ export default function DatePicker({
           ←
         </button>
         <strong aria-live="polite">
-          {month.setLocale("sv").toFormat("MMMM yyyy")}
+          {month.setLocale(locale).toFormat("MMMM yyyy")}
         </strong>
         <button
           type="button"
           className="quiet-button"
-          aria-label="Nästa månad"
+          aria-label={text(locale, "Next month", "Nästa månad")}
           disabled={
             disabled || (!!max && month.toFormat("yyyy-MM") >= max.slice(0, 7))
           }
@@ -88,11 +92,14 @@ export default function DatePicker({
       </div>
       <div
         role="grid"
-        aria-label={month.setLocale("sv").toFormat("MMMM yyyy")}
+        aria-label={month.setLocale(locale).toFormat("MMMM yyyy")}
         className="month-grid"
       >
         <div role="row" className="month-row">
-          {["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"].map((d) => (
+          {(locale === "en"
+            ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            : ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"]
+          ).map((d) => (
             <span role="columnheader" key={d}>
               {d}
             </span>
@@ -126,7 +133,7 @@ export default function DatePicker({
                             ? "today-day"
                             : ""
                       }
-                      aria-label={readableDay(key)}
+                      aria-label={readableDay(key, locale)}
                       aria-pressed={value === key}
                       aria-current={key === today ? "date" : undefined}
                       disabled={!allowed(key)}
@@ -174,11 +181,21 @@ export default function DatePicker({
         ))}
       </div>
       <p className="chosen-day">
-        {value ? readableDay(value) : "Tryck på en dag i kalendern."}
+        {value
+          ? readableDay(value, locale)
+          : text(
+              locale,
+              "Choose a day in the calendar.",
+              "Tryck på en dag i kalendern.",
+            )}
       </p>
       <details className="date-manual">
-        <summary>Skriv datum med tangentbord</summary>
-        <label htmlFor={`${id}-manual`}>Datum (ÅÅÅÅ-MM-DD)</label>
+        <summary>
+          {text(locale, "Type a date instead", "Skriv datum med tangentbord")}
+        </summary>
+        <label htmlFor={`${id}-manual`}>
+          {text(locale, "Date (YYYY-MM-DD)", "Datum (ÅÅÅÅ-MM-DD)")}
+        </label>
         <input
           id={`${id}-manual`}
           type="date"

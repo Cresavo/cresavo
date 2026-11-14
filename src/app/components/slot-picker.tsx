@@ -1,4 +1,6 @@
 "use client";
+import { useLocale } from "./locale-provider";
+import { text } from "@/lib/locale";
 export default function SlotPicker({
   id,
   slots,
@@ -12,9 +14,12 @@ export default function SlotPicker({
   onChange: (value: string) => void;
   disabled?: boolean;
 }) {
+  const locale = useLocale();
   return (
     <fieldset className="slot-picker" disabled={disabled}>
-      <legend>Välj ledig tid</legend>
+      <legend>
+        {text(locale, "Choose an available time", "Välj ledig tid")}
+      </legend>
       <input id={id} type="hidden" value={value} />
       <div className="slot-grid">
         {slots.map((slot) => (
@@ -35,8 +40,16 @@ export default function SlotPicker({
         ))}
       </div>
       <p className="muted">
-        Tiderna visas i svensk tid. {slots.length}{" "}
-        {slots.length === 1 ? "ledig tid" : "lediga tider"}.
+        {text(locale, "Stockholm time.", "Tiderna visas i svensk tid.")}{" "}
+        {slots.length}{" "}
+        {locale === "en"
+          ? slots.length === 1
+            ? "available time"
+            : "available times"
+          : slots.length === 1
+            ? "ledig tid"
+            : "lediga tider"}
+        .
       </p>
     </fieldset>
   );

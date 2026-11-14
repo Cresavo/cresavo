@@ -6,6 +6,9 @@ import { formatPrice, readableDay } from "@/lib/format";
 import DatePicker from "./components/date-picker";
 import SlotPicker from "./components/slot-picker";
 import { useAvailability } from "./components/use-availability";
+import { useLocale } from "./components/locale-provider";
+import { text } from "@/lib/locale";
+import { presentationError } from "@/lib/presentation-errors";
 const subscribe = () => () => {};
 type Service = {
   id: string;
@@ -22,6 +25,8 @@ export default function BookingForm({
   services: Service[];
   staff: Staff[];
 }) {
+  const locale = useLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const hydrated = useSyncExternalStore(
       subscribe,
       () => true,
@@ -93,13 +98,16 @@ export default function BookingForm({
       const result = await response.json();
       if (response.ok) {
         setSuccess(
-          `${service?.name} · ${service?.duration} min · ${formatPrice(service?.priceOre ?? 0)} · ${person?.name} · ${readableDay(date)} kl. ${time(start)}`,
+          `${service?.name} · ${service?.duration} min · ${formatPrice(service?.priceOre ?? 0, locale)} · ${person?.name} · ${readableDay(date, locale)}${t(" at ", " kl. ")}${time(start)} (Stockholm)`,
         );
       } else {
         setMessage(
           result.error === "Tiden är inte tillgänglig"
-            ? "Tiden är inte längre tillgänglig. Välj en annan ledig tid."
-            : (result.error ?? "Bokningen kunde inte sparas. Försök igen."),
+            ? t(
+                "That time is no longer available. Choose another time.",
+                "Tiden är inte längre tillgänglig. Välj en annan ledig tid.",
+              )
+            : presentationError(result.error, locale),
         );
         setStale(response.status === 409);
         if (response.status === 400 || response.status === 409) {
@@ -108,7 +116,12 @@ export default function BookingForm({
         }
       }
     } catch {
-      setMessage("Svaret kunde inte hämtas. Försök igen med samma uppgifter.");
+      setMessage(
+        t(
+          "The response was lost. Retry with the same details.",
+          "Svaret kunde inte hämtas. Försök igen med samma uppgifter.",
+        ),
+      );
     } finally {
       setPending(false);
     }
@@ -116,13 +129,25 @@ export default function BookingForm({
   if (success)
     return (
       <section className="booking-success" role="status">
-        <span className="eyebrow">Bokningsbekräftelse</span>
+        <span className="eyebrow">
+          {t("Booking confirmation", "Bokningsbekräftelse")}
+        </span>
         <h2 ref={confirmationHeading} tabIndex={-1}>
-          Din bokning är klar
+          {t("Your booking is confirmed", "Din bokning är klar")}
         </h2>
-        <p>Din testbokning är registrerad.</p>
+        <p>
+          {t(
+            "Your demo booking has been saved.",
+            "Din testbokning är registrerad.",
+          )}
+        </p>
         <p className="confirmation-summary">{success}</p>
-        <p>Detta är en demo. Inga mejl eller SMS skickas.</p>
+        <p>
+          {t(
+            "This is a demo. No emails or text messages are sent.",
+            "Detta är en demo. Inga mejl eller SMS skickas.",
+          )}
+        </p>
         <button
           type="button"
           onClick={() => {
@@ -133,24 +158,26 @@ export default function BookingForm({
             requestAnimationFrame(() => serviceSelect.current?.focus());
           }}
         >
-          Boka en ny tid
+          {t("Book another visit", "Boka en ny tid")}
         </button>
       </section>
     );
   if (!services.length || !staff.length)
     return (
       <p className="empty-state">
-        Det finns inga bokningsbara behandlingar just nu. Salongen behöver
-        aktivera behandling och personal i arbetsytan.
+        {t(
+          "No treatments are available to book yet. Services and staff need to be activated in the workspace.",
+          "Det finns inga bokningsbara behandlingar just nu. Salongen behöver aktivera behandling och personal i arbetsytan.",
+        )}
       </p>
     );
   return (
     <form onSubmit={book} className="customer-booking">
       <div className="booking-step">
         <h2>
-          <span>1</span> Behandling och utförare
+          <span>1</span> {t("Treatment and person", "Behandling och utförare")}
         </h2>
-        <label htmlFor="service">Behandling</label>
+        <label htmlFor="service">{t("Treatment", "Behandling")}</label>
         <select
           id="service"
           ref={serviceSelect}
@@ -168,11 +195,11 @@ export default function BookingForm({
         >
           {services.map((s) => (
             <option value={s.id} key={s.id}>
-              {s.name} · {s.duration} min · {formatPrice(s.priceOre)}
+              {s.name} · {s.duration} min · {formatPrice(s.priceOre, locale)}
             </option>
           ))}
         </select>
-        <label htmlFor="staff">Medarbetare</label>
+        <label htmlFor="staff">{t("Team member", "Medarbetare")}</label>
         <select
           id="staff"
           disabled={!hydrated || pending}
@@ -184,7 +211,9 @@ export default function BookingForm({
             setMessage("");
           }}
         >
-          <option value="">Välj medarbetare</option>
+          <option value="">
+            {t("Choose a team member", "Välj medarbetare")}
+          </option>
           {staff
             .filter((p) => p.serviceIds.includes(serviceId))
             .map((p) => (
@@ -196,7 +225,7 @@ export default function BookingForm({
       </div>
       <div className="booking-step">
         <h2>
-          <span>2</span> Dag och tid
+          <span>2</span> {t("Day and time", "Dag och tid")}
         </h2>
         <DatePicker
           id="date"
@@ -207,16 +236,18 @@ export default function BookingForm({
           disabled={!hydrated || pending}
         />
         {availability.loading ? (
-          <p role="status">Hämtar lediga tider…</p>
+          <p role="status">
+            {t("Finding available times…", "Hämtar lediga tider…")}
+          </p>
         ) : availability.error ? (
           <div role="alert" className="form-error">
-            <p>{availability.error}</p>
+            <p>{presentationError(availability.error, locale)}</p>
             <button
               type="button"
               className="secondary"
               onClick={availability.refresh}
             >
-              Försök hämta tider igen
+              {t("Try loading times again", "Försök hämta tider igen")}
             </button>
           </div>
         ) : availability.slots.length ? (
@@ -229,10 +260,15 @@ export default function BookingForm({
           />
         ) : (
           <div className="empty-state">
-            <strong>Inga lediga tider {readableDay(date)}.</strong>
+            <strong>
+              {t("No available times on", "Inga lediga tider")}{" "}
+              {readableDay(date, locale)}.
+            </strong>
             <p>
-              Det kan vara stängt eller fullbokat. Välj en annan dag, behandling
-              eller medarbetare.
+              {t(
+                "This day may be closed or fully booked. Try another day, treatment or team member.",
+                "Det kan vara stängt eller fullbokat. Välj en annan dag, behandling eller medarbetare.",
+              )}
             </p>
           </div>
         )}
@@ -243,15 +279,16 @@ export default function BookingForm({
           onClick={() => void availability.next(chooseDay)}
         >
           {availability.finding
-            ? "Letar efter en ledig dag…"
-            : "Hitta nästa lediga dag"}
+            ? t("Finding the next available day…", "Letar efter en ledig dag…")
+            : t("Find the next available day", "Hitta nästa lediga dag")}
         </button>
       </div>
       <div className="booking-step">
         <h2>
-          <span>3</span> Dina uppgifter och bokning
+          <span>3</span>{" "}
+          {t("Your details and booking", "Dina uppgifter och bokning")}
         </h2>
-        <label htmlFor="name">Namn (påhittat)</label>
+        <label htmlFor="name">{t("Name (fictional)", "Namn (påhittat)")}</label>
         <input
           id="name"
           name="name"
@@ -262,7 +299,9 @@ export default function BookingForm({
           onChange={(e) => setCustomerName(e.target.value)}
           autoComplete="off"
         />
-        <label htmlFor="email">E-post (påhittad)</label>
+        <label htmlFor="email">
+          {t("Email (fictional)", "E-post (påhittad)")}
+        </label>
         <input
           id="email"
           name="email"
@@ -274,25 +313,36 @@ export default function BookingForm({
           autoComplete="off"
         />
         <p className="muted">
-          Använd en testadress, till exempel kund@example.test. Inga utskick
-          görs.
+          {t(
+            "Use a test address, such as guest@example.test. No messages are sent.",
+            "Använd en testadress, till exempel kund@example.test. Inga utskick görs.",
+          )}
         </p>
-        <section className="booking-review" aria-label="Din bokning">
-          <h3>Din bokning</h3>
+        <section
+          className="booking-review"
+          aria-label={t("Your booking", "Din bokning")}
+        >
+          <h3>{t("Your booking", "Din bokning")}</h3>
           <strong>{service?.name}</strong>
           <p>
-            {service?.duration} min · {formatPrice(service?.priceOre ?? 0)} ·{" "}
-            {person?.name}
+            {service?.duration} min ·{" "}
+            {formatPrice(service?.priceOre ?? 0, locale)} · {person?.name}
           </p>
           <p>
-            {readableDay(date)}
-            {start ? ` kl. ${time(start)}` : " · välj en ledig tid ovan"}
+            {readableDay(date, locale)}
+            {start
+              ? `${t(" at ", " kl. ")}${time(start)} (Stockholm)`
+              : t(
+                  " · choose an available time above",
+                  " · välj en ledig tid ovan",
+                )}
           </p>
         </section>
         {message && (
           <p role="alert" className="form-error">
             {message}
-            {/[.!?]$/.test(message) ? "" : "."} Dina uppgifter finns kvar.
+            {/[.!?]$/.test(message) ? "" : "."}{" "}
+            {t("Your details are still here.", "Dina uppgifter finns kvar.")}
           </p>
         )}
         {stale && (
@@ -305,11 +355,16 @@ export default function BookingForm({
               setStale(false);
             }}
           >
-            Uppdatera behandlingar och priser
+            {t(
+              "Refresh treatments and prices",
+              "Uppdatera behandlingar och priser",
+            )}
           </button>
         )}
         <button type="submit" disabled={!hydrated || pending || !start}>
-          {pending ? "Bokar…" : "Bekräfta testbokning"}
+          {pending
+            ? t("Booking…", "Bokar…")
+            : t("Confirm demo booking", "Bekräfta testbokning")}
         </button>
       </div>
     </form>

@@ -1,5 +1,18 @@
 # Beroendesäkerhet
 
+## Premiumdemo, pågående 2026-11-14
+
+Inga nya npm-paket, lockfilsändringar eller overrides. Befintliga React, Next,
+Lucide, Luxon och interna datumkontroller återanvänds. Prettier 3.6.2 körs ur
+befintlig operatörscache, inte som nytt produktberoende. Full audit: 7 moderate
+i utvecklingskedjan (minimatch/typescript-eslint), 0 high/critical. Audit utan
+dev: 0. Detta är inte ett pilotgodkännande och fynden är inte åtgärdade.
+
+`public/brand/relay-interior.png` är en ny AI-genererad dekorativ interiörbild
+från denna designomgång, utan verkliga kunder eller kopierade konkurrentassets.
+Den används lokalt med Next Image, utan extern bild-/font-CDN. Agentsekvensen
+på produktsidan är uttryckligen illustrerad och gör inga MCP-/modell-/API-anrop.
+
 ## Lokalt tidvalskort, 2026-11-13
 
 Inga nya npm-paket eller lockfilsändringar. Officiell befintlig MCP SDK2.4.0,

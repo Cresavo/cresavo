@@ -187,11 +187,11 @@ test("produktingång och kund-API behåller tydliga vägar och åtkomstskydd", a
   ).toBe(403);
   await page.goto("/product");
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "Håll ihop dagen",
+    "Your next booking.",
   );
   await expect(
-    page.getByRole("link", { name: "Prova salongens arbetsyta", exact: true }),
-  ).toHaveAttribute("href", "/admin");
+    page.getByRole("link", { name: "Explore the workspace", exact: true }),
+  ).toHaveAttribute("href", "/admin/overview");
   for (const image of await page.locator("img").all()) {
     await image.scrollIntoViewIfNeeded();
     await expect(image).toHaveJSProperty("complete", true);
@@ -200,8 +200,8 @@ test("produktingång och kund-API behåller tydliga vägar och åtkomstskydd", a
     ).toBeGreaterThan(0);
   }
   await page
-    .getByRole("link", { name: "Se kundbokningen", exact: true })
-    .first()
+    .getByRole("link")
+    .filter({ hasText: "Try customer booking" })
     .click();
   await expect(page.locator("#service")).toBeVisible();
   expect(

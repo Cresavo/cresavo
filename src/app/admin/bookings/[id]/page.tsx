@@ -11,6 +11,8 @@ import { formatBookingTime } from "@/lib/format";
 import { localDay } from "@/lib/time";
 import { db } from "@/lib/db";
 import { DEMO_BUSINESS_ID } from "@/lib/config";
+import { getLocale } from "@/lib/locale-server";
+import { text } from "@/lib/locale";
 export const dynamic = "force-dynamic";
 export default async function BookingPage({
   params,
@@ -21,6 +23,8 @@ export default async function BookingPage({
 }) {
   const admin = await getAdminContext();
   if (!admin) redirect("/admin");
+  const locale = await getLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const { id } = await params;
   const [booking, services, staff] = await Promise.all([
     getBooking(id, true),
@@ -50,7 +54,7 @@ export default async function BookingPage({
     <>
       <AdminHeader email={admin.email} active="calendar" />
       <main className="admin-workspace narrow-workspace">
-        <h1>Bokning</h1>
+        <h1>{t("Booking", "Bokning")}</h1>
         <BookingEditor
           key={booking.id}
           services={services}
@@ -63,39 +67,48 @@ export default async function BookingPage({
         />
         {events.length > 0 && (
           <details className="panel">
-            <summary>Historik</summary>
+            <summary>{t("History", "Historik")}</summary>
             <ul className="event-list">
               {events.map((event, index) => (
                 <li key={`${event.createdAt.toISOString()}-${index}`}>
                   <strong>
                     {event.action === "create"
-                      ? "Skapad"
+                      ? t("Created", "Skapad")
                       : event.action === "move"
-                        ? "Flyttad"
-                        : "Avbokad"}
+                        ? t("Rescheduled", "Flyttad")
+                        : t("Cancelled", "Avbokad")}
                   </strong>
                   {" · "}
-                  {formatBookingTime(event.createdAt.toISOString())}
+                  {formatBookingTime(event.createdAt.toISOString(), locale)}
                   <span>
                     {" · "}
                     {event.actorKind === "admin"
-                      ? "Salongens arbetsyta"
+                      ? t("Business workspace", "Salongens arbetsyta")
                       : event.actorKind === "local-mcp"
-                        ? "Lokal agentanslutning"
-                        : "Kund- eller bokningskanal"}
+                        ? t("Local agent connection", "Lokal agentanslutning")
+                        : t(
+                            "Customer or booking channel",
+                            "Kund- eller bokningskanal",
+                          )}
                   </span>
                   {event.previousStart && event.nextStart && (
                     <span>
-                      {formatBookingTime(event.previousStart.toISOString())} →{" "}
-                      {formatBookingTime(event.nextStart.toISOString())}
+                      {formatBookingTime(
+                        event.previousStart.toISOString(),
+                        locale,
+                      )}{" "}
+                      →{" "}
+                      {formatBookingTime(event.nextStart.toISOString(), locale)}
                     </span>
                   )}
                 </li>
               ))}
             </ul>
             <p className="muted">
-              De senaste 20 händelserna. Kanalen visar var åtgärden utfördes,
-              inte vem som gav en agent uppdraget.
+              {t(
+                "The latest 20 events. The channel shows where an action happened, not who instructed an agent.",
+                "De senaste 20 händelserna. Kanalen visar var åtgärden utfördes, inte vem som gav en agent uppdraget.",
+              )}
             </p>
           </details>
         )}

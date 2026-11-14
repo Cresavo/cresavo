@@ -14,6 +14,9 @@ import DemoEntry from "../demo-entry";
 import { demoAccessEnabled } from "@/lib/demo-access";
 import { ReturnLink } from "../components/context-link";
 import { returnContext } from "@/lib/navigation-context";
+import { getLocale } from "@/lib/locale-server";
+import { text } from "@/lib/locale";
+import { presentationError } from "@/lib/presentation-errors";
 export const dynamic = "force-dynamic";
 export default async function Admin({
   searchParams,
@@ -30,24 +33,30 @@ export default async function Admin({
     returnKey?: string;
   }>;
 }) {
+  const locale = await getLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const admin = await getAdminContext();
   if (!admin)
     return (
       <main className="login-page">
         <Link prefetch={false} href="/">
-          Bokningssidan
+          {t("Customer booking", "Bokningssidan")}
         </Link>
         <p className="eyebrow">SALONG EKO / DEMO</p>
-        <h1>Salongens arbetsyta</h1>
+        <h1>{t("Your workspace", "Salongens arbetsyta")}</h1>
         <p>
-          Här ser du bokningar och ändrar behandlingar, personal och
-          arbetstider.
+          {t(
+            "Manage appointments, treatments, your team and working hours.",
+            "Här ser du bokningar och ändrar behandlingar, personal och arbetstider.",
+          )}
         </p>
         {demoAccessEnabled() ? (
           <>
             <DemoEntry />
             <details>
-              <summary>Vanlig admininloggning</summary>
+              <summary>
+                {t("Administrator login", "Vanlig admininloggning")}
+              </summary>
               <AdminActions mode="login" />
             </details>
           </>
@@ -120,7 +129,7 @@ export default async function Admin({
         )}
         {(error || loaded.cursorError) && (
           <p role="alert" className="form-error">
-            {error || loaded.cursorError}
+            {presentationError(error || loaded.cursorError, locale)}
           </p>
         )}
         <Calendar

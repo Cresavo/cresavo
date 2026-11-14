@@ -15,6 +15,9 @@ import DatePicker from "@/app/components/date-picker";
 import ContextLink, { rememberReturn } from "@/app/components/context-link";
 
 import { useUnsavedChanges } from "../use-write";
+import { useLocale } from "../../components/locale-provider";
+import { text } from "@/lib/locale";
+import { presentationError } from "@/lib/presentation-errors";
 
 type Result = Awaited<ReturnType<typeof listCapacity>>;
 type Suggestion = Result["suggestions"][number];
@@ -44,6 +47,8 @@ export default function CapacityOverview({
   initial: Result;
   query: CapacityQuery;
 }) {
+  const locale = useLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const [result, setResult] = useState(initial),
     [pending, setPending] = useState(false),
     [error, setError] = useState("");
@@ -70,17 +75,27 @@ export default function CapacityOverview({
     }
   }
   return (
-    <section aria-label="Förslag från ledig kapacitet" aria-busy={pending}>
+    <section
+      aria-label={t(
+        "Available capacity suggestions",
+        "Förslag från ledig kapacitet",
+      )}
+      aria-busy={pending}
+    >
       <div className="capacity-toolbar">
         <details className="capacity-context">
-          <summary>Om förslagen</summary>
+          <summary>{t("About these suggestions", "Om förslagen")}</summary>
           <p>
-            Förslagen bygger på verkliga avbokningar och aktuella scheman. Ett
-            förslag reserverar ingen tid.
+            {t(
+              "Based on cancellations and current schedules. A suggestion does not reserve a time.",
+              "Förslagen bygger på verkliga avbokningar och aktuella scheman. Ett förslag reserverar ingen tid.",
+            )}
           </p>
           <p>
-            Hämtat {formatBookingTime(result.fetchedAt)} ·{" "}
-            {readableDay(result.from)}–{readableDay(result.until)}
+            {t("Updated", "Hämtat")}{" "}
+            {formatBookingTime(result.fetchedAt, locale)} ·{" "}
+            {readableDay(result.from, locale)}–
+            {readableDay(result.until, locale)}
           </p>
         </details>
         <button
@@ -90,19 +105,26 @@ export default function CapacityOverview({
           disabled={pending}
         >
           <RefreshCw size={16} aria-hidden="true" />
-          {pending ? "Uppdaterar…" : "Uppdatera förslagen"}
+          {pending
+            ? t("Refreshing…", "Uppdaterar…")
+            : t("Refresh suggestions", "Uppdatera förslagen")}
         </button>
       </div>
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert">{presentationError(error, locale)}</p>}
       {(query.cursor || result.nextCursor) && (
-        <nav className="action-row capacity-pages" aria-label="Förslagssidor">
+        <nav
+          className="action-row capacity-pages"
+          aria-label={t("Suggestion pages", "Förslagssidor")}
+        >
           <p>
-            Avbokningar i tidsordning, högst {query.limit} per sida. Även
-            hanterade och inaktuella finns kvar för uppföljning.
+            {t(
+              `Cancellations in time order, up to ${query.limit} per page. Resolved and outdated suggestions remain for follow-up.`,
+              `Avbokningar i tidsordning, högst ${query.limit} per sida. Även hanterade och inaktuella finns kvar för uppföljning.`,
+            )}
           </p>
           {query.cursor && (
             <Link prefetch={false} href="/admin/overview">
-              Till första sidan
+              {t("First page", "Till första sidan")}
             </Link>
           )}
           {result.nextCursor && (
@@ -110,21 +132,33 @@ export default function CapacityOverview({
               prefetch={false}
               href={`/admin/overview?${queryString({ ...query, from: result.from, cursor: result.nextCursor })}`}
             >
-              Nästa förslag <span aria-hidden="true">→</span>
+              {t("Next suggestions", "Nästa förslag")}{" "}
+              <span aria-hidden="true">→</span>
             </Link>
           )}
         </nav>
       )}
       {!result.suggestions.length && (
         <div className="empty-state">
-          <h2>Inga avbokade tider att ta ställning till</h2>
+          <h2>
+            {t(
+              "No cancelled times to review",
+              "Inga avbokade tider att ta ställning till",
+            )}
+          </h2>
           <p>
-            Du kan fortsätta arbeta i <Link href="/admin">kalendern</Link>.
-            Uppdatera här efter en framtida avbokning.
+            {t("Continue in the", "Du kan fortsätta arbeta i")}{" "}
+            <Link href="/admin">{t("calendar", "kalendern")}</Link>.
+            {t(
+              " Refresh here after a future cancellation.",
+              " Uppdatera här efter en framtida avbokning.",
+            )}
           </p>
         </div>
       )}
-      {result.suggestions.length > 0 && <h2>Förslag och uppföljning</h2>}
+      {result.suggestions.length > 0 && (
+        <h2>{t("Suggestions and follow-up", "Förslag och uppföljning")}</h2>
+      )}
       <div className="capacity-grid">
         {result.suggestions.map((s) => (
           <CapacityCard
@@ -147,10 +181,20 @@ function CapacityCard({
   refresh: () => Promise<void>;
   setDraftDirty: (id: string, dirty: boolean) => void;
 }) {
+  const locale = useLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
+  // Keep the initial default stable across language changes so a switch cannot
+  // mark an untouched draft dirty or replace something the owner has typed.
+  const [defaultTitle] = useState(() =>
+    t(
+      `Available times for ${s.serviceName}`,
+      `Lediga tider för ${s.serviceName}`,
+    ),
+  );
   const day = DateTime.fromISO(s.startsAt)
     .setZone("Europe/Stockholm")
     .toISODate()!;
-  const [title, setTitle] = useState(`Lediga tider för ${s.serviceName}`),
+  const [title, setTitle] = useState(defaultTitle),
     [from, setFrom] = useState(day),
     [until, setUntil] = useState(day),
     [discount, setDiscount] = useState("");
@@ -166,7 +210,7 @@ function CapacityCard({
   const canAct = s.available && s.status === "new";
   const dirty =
     canAct &&
-    (title !== `Lediga tider för ${s.serviceName}` ||
+    (title !== defaultTitle ||
       from !== day ||
       until !== day ||
       discount !== "");
@@ -211,7 +255,7 @@ function CapacityCard({
       const result = await request("calendar");
       window.location.assign(rememberReturn(result.calendarHref));
     } catch (e) {
-      setMessage((e as Error).message);
+      setMessage(presentationError((e as Error).message, locale));
       setPending(false);
     }
   }
@@ -220,10 +264,10 @@ function CapacityCard({
     setMessage("");
     try {
       await request("dismiss");
-      setMessage("Förslaget är avfärdat.");
+      setMessage(t("Suggestion dismissed.", "Förslaget är avfärdat."));
       await refresh();
     } catch (e) {
-      setMessage((e as Error).message);
+      setMessage(presentationError((e as Error).message, locale));
     } finally {
       setPending(false);
     }
@@ -249,12 +293,15 @@ function CapacityCard({
       } else {
         await request("draft", input);
         setMessage(
-          "Kampanjutkastet är sparat. Ingen tid är reserverad och inget är publicerat.",
+          t(
+            "Campaign draft saved. No time is reserved and nothing is published.",
+            "Kampanjutkastet är sparat. Ingen tid är reserverad och inget är publicerat.",
+          ),
         );
         await refresh();
       }
     } catch (e) {
-      setMessage((e as Error).message);
+      setMessage(presentationError((e as Error).message, locale));
     } finally {
       setPending(false);
     }
@@ -263,43 +310,67 @@ function CapacityCard({
     <article
       className="panel capacity-card"
       data-state={!s.available ? "stale" : s.status}
-      aria-label={`${s.serviceName} ${formatBookingTime(s.startsAt)}`}
+      aria-label={`${s.serviceName} ${formatBookingTime(s.startsAt, locale)}`}
     >
       <p className="eyebrow capacity-state">
         <Lightbulb size={16} aria-hidden="true" />
-        {s.available ? "Bokningsbar avbokning" : "Inaktuellt underlag"} ·{" "}
+        {s.available
+          ? t("Available cancellation", "Bokningsbar avbokning")
+          : t("Outdated suggestion", "Inaktuellt underlag")}{" "}
+        ·{" "}
         {s.status === "dismissed"
-          ? "Avfärdat"
+          ? t("Dismissed", "Avfärdat")
           : s.status === "draft"
-            ? "Utkast sparat"
+            ? t("Draft saved", "Utkast sparat")
             : s.available
-              ? "Förslag · behöver beslut"
-              : "Ingen åtgärd genomförd"}
+              ? t("Suggestion · needs a decision", "Förslag · behöver beslut")
+              : t("No action taken", "Ingen åtgärd genomförd")}
       </p>
       <h2>{s.serviceName}</h2>
       <p className="capacity-appointment">
         <CalendarDays size={16} aria-hidden="true" />
-        <strong>{formatBookingTime(s.startsAt)}</strong> · {s.staffName} ·{" "}
-        {s.duration} min {s.priceOre !== null && `· ${formatPrice(s.priceOre)}`}
+        <strong>{formatBookingTime(s.startsAt, locale)}</strong> · {s.staffName}{" "}
+        · {s.duration} min{" "}
+        {s.priceOre !== null && `· ${formatPrice(s.priceOre, locale)}`}
       </p>
-      <p>{s.reason}</p>
-      {s.decidedAt && <p>Beslut sparat {formatBookingTime(s.decidedAt)}.</p>}
+      <p>
+        {locale === "sv"
+          ? s.reason
+          : s.available
+            ? "A cancellation has opened an available time."
+            : "This time is no longer bookable under the current rules."}
+      </p>
+      {s.decidedAt && (
+        <p>
+          {t("Decision saved", "Beslut sparat")}{" "}
+          {formatBookingTime(s.decidedAt, locale)}.
+        </p>
+      )}
       {s.campaign && (
         <p>
           <ContextLink href={`/admin/campaigns#campaign-${s.campaign.id}`}>
             {s.campaign.published
-              ? "Visa publicerad kampanj"
-              : "Granska sparat kampanjutkast"}
+              ? t("View published campaign", "Visa publicerad kampanj")
+              : t(
+                  "Review saved campaign draft",
+                  "Granska sparat kampanjutkast",
+                )}
           </ContextLink>
-          . {s.campaign.discountPercent} % på tjänsten{" "}
-          {readableDay(s.campaign.validFrom)}–
-          {readableDay(s.campaign.validUntil)}. Gäller inte bara denna lucka.
+          . {s.campaign.discountPercent} % {t("off the service", "på tjänsten")}{" "}
+          {readableDay(s.campaign.validFrom, locale)}–
+          {readableDay(s.campaign.validUntil, locale)}.{" "}
+          {t(
+            "Applies beyond this single slot.",
+            "Gäller inte bara denna lucka.",
+          )}
         </p>
       )}
       {s.status === "draft" && !s.available && (
         <p>
-          Utkastet finns kvar, men tiden är inte längre bokningsbar. Granska
-          kampanjen innan du publicerar.
+          {t(
+            "The draft is saved, but this time is no longer available. Review the campaign before publishing.",
+            "Utkastet finns kvar, men tiden är inte längre bokningsbar. Granska kampanjen innan du publicerar.",
+          )}
         </p>
       )}
       <div className="action-row">
@@ -308,7 +379,7 @@ function CapacityCard({
           onClick={calendar}
           disabled={pending || !s.available}
         >
-          Öppna kalendern
+          {t("Open calendar", "Öppna kalendern")}
         </button>
         {!s.available && (
           <button
@@ -317,7 +388,7 @@ function CapacityCard({
             disabled={pending}
             onClick={refresh}
           >
-            Uppdatera underlaget
+            {t("Refresh availability", "Uppdatera underlaget")}
           </button>
         )}
         {canAct && (
@@ -327,20 +398,26 @@ function CapacityCard({
             onClick={dismiss}
             disabled={pending}
           >
-            Avfärda förslaget
+            {t("Dismiss suggestion", "Avfärda förslaget")}
           </button>
         )}
       </div>
       {message && <p role="status">{message}</p>}
       {canAct && (
         <details className="capacity-draft">
-          <summary>Förbered kampanjutkast</summary>
+          <summary>
+            {t("Prepare campaign draft", "Förbered kampanjutkast")}
+          </summary>
           <p>
-            Välj rabatt och giltighetsperiod. Du granskar erbjudandet innan det
-            sparas.
+            {t(
+              "Choose a discount and validity period. Review the offer before saving.",
+              "Välj rabatt och giltighetsperiod. Du granskar erbjudandet innan det sparas.",
+            )}
           </p>
           <form onSubmit={draft} onChange={() => setPreview(false)}>
-            <label htmlFor={`title-${s.bookingId}`}>Rubrik</label>
+            <label htmlFor={`title-${s.bookingId}`}>
+              {t("Title", "Rubrik")}
+            </label>
             <input
               id={`title-${s.bookingId}`}
               maxLength={100}
@@ -349,7 +426,9 @@ function CapacityCard({
               onChange={(e) => setTitle(e.target.value)}
               disabled={pending}
             />
-            <label htmlFor={`discount-${s.bookingId}`}>Rabatt i procent</label>
+            <label htmlFor={`discount-${s.bookingId}`}>
+              {t("Discount percent", "Rabatt i procent")}
+            </label>
             <input
               id={`discount-${s.bookingId}`}
               type="number"
@@ -363,7 +442,7 @@ function CapacityCard({
             <div className="capacity-dates">
               <DatePicker
                 id={`from-${s.bookingId}`}
-                label="Kampanjen börjar"
+                label={t("Campaign starts", "Kampanjen börjar")}
                 value={from}
                 onChange={(v) => {
                   setFrom(v);
@@ -373,7 +452,7 @@ function CapacityCard({
               />
               <DatePicker
                 id={`until-${s.bookingId}`}
-                label="Kampanjen slutar"
+                label={t("Campaign ends", "Kampanjen slutar")}
                 value={until}
                 onChange={(v) => {
                   setUntil(v);
@@ -383,39 +462,43 @@ function CapacityCard({
               />
             </div>
             <p className="capacity-scope">
-              <strong>Verklig omfattning:</strong> {s.serviceName},{" "}
-              {readableDay(from)}–{readableDay(until)}, alla bokningsbara tider
-              och utförare för tjänsten. Kampanjen är inte begränsad till den
-              avbokade tiden. Ingen tid reserveras. Ordinarie bokningspris
-              ändras inte automatiskt i demon.
+              <strong>{t("Actual scope:", "Verklig omfattning:")}</strong>{" "}
+              {s.serviceName}, {readableDay(from, locale)}–
+              {readableDay(until, locale)}
+              {t(
+                ", all available times and team members for this service. The campaign is not limited to this cancelled slot. No time is reserved. The demo does not automatically change the booking price.",
+                ", alla bokningsbara tider och utförare för tjänsten. Kampanjen är inte begränsad till den avbokade tiden. Ingen tid reserveras. Ordinarie bokningspris ändras inte automatiskt i demon.",
+              )}
             </p>
             {preview && (
               <div className="empty-state" role="status">
-                <h3>Förhandsgranskning</h3>
+                <h3>{t("Preview", "Förhandsgranskning")}</h3>
                 <p>
-                  {title} · {discount} % · {s.serviceName} · {readableDay(from)}
-                  –{readableDay(until)}
+                  {title} · {discount} % · {s.serviceName} ·{" "}
+                  {readableDay(from, locale)}–{readableDay(until, locale)}
                 </p>
                 <p>
-                  Sparas som utkast för din granskning. Inget publiceras eller
-                  skickas.
+                  {t(
+                    "Saved as a draft for your review. Nothing is published or sent.",
+                    "Sparas som utkast för din granskning. Inget publiceras eller skickas.",
+                  )}
                 </p>
               </div>
             )}
             <div className="action-row">
               <button type="submit" disabled={pending}>
                 {pending
-                  ? "Kontrollerar…"
+                  ? t("Checking…", "Kontrollerar…")
                   : preview
-                    ? "Spara kampanjutkast"
-                    : "Förhandsgranska utkast"}
+                    ? t("Save campaign draft", "Spara kampanjutkast")
+                    : t("Preview draft", "Förhandsgranska utkast")}
               </button>
               <button
                 type="button"
                 className="secondary"
                 disabled={pending}
                 onClick={(event) => {
-                  setTitle(`Lediga tider för ${s.serviceName}`);
+                  setTitle(defaultTitle);
                   setFrom(day);
                   setUntil(day);
                   setDiscount("");
@@ -428,7 +511,7 @@ function CapacityCard({
                   }
                 }}
               >
-                Avbryt utkast
+                {t("Discard draft changes", "Avbryt utkast")}
               </button>
             </div>
           </form>

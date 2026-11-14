@@ -2,6 +2,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWrite, useUnsavedChanges } from "../use-write";
+import { useLocale } from "../../components/locale-provider";
+import { text } from "@/lib/locale";
+import { presentationError } from "@/lib/presentation-errors";
 import {
   contextualHref,
   returnHref,
@@ -25,6 +28,8 @@ export default function CustomerEditor({
   customer?: CustomerView;
   context?: ReturnContext;
 }) {
+  const locale = useLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const router = useRouter(),
     { write, pending, message, status, clearFeedback } = useWrite();
   const [notice, setNotice] = useState("");
@@ -60,7 +65,12 @@ export default function CustomerEditor({
         ),
       );
     else {
-      setNotice("Kundkortet är sparat. Äldre bokningar är oförändrade.");
+      setNotice(
+        t(
+          "Customer saved. Previous bookings are unchanged.",
+          "Kundkortet är sparat. Äldre bokningar är oförändrade.",
+        ),
+      );
       const href = new URL(location.href);
       href.searchParams.set("saved", "1");
       router.replace(href.pathname + href.search);
@@ -71,7 +81,9 @@ export default function CustomerEditor({
     <form onSubmit={save} onChange={markDirty} className="customer-editor">
       <fieldset disabled={pending}>
         <div className="field">
-          <label htmlFor="customer-name">Namn (påhittat)</label>
+          <label htmlFor="customer-name">
+            {t("Name (fictional)", "Namn (påhittat)")}
+          </label>
           <input
             id="customer-name"
             name="name"
@@ -83,7 +95,9 @@ export default function CustomerEditor({
           />
         </div>
         <div className="field">
-          <label htmlFor="customer-email">E-post (testadress)</label>
+          <label htmlFor="customer-email">
+            {t("Email (test address)", "E-post (testadress)")}
+          </label>
           <input
             id="customer-email"
             name="email"
@@ -93,14 +107,19 @@ export default function CustomerEditor({
             required={!customer}
             placeholder={
               customer && !customer.contactVisible
-                ? "Dold – lämna tomt för att behålla"
+                ? t(
+                    "Hidden — leave blank to keep",
+                    "Dold – lämna tomt för att behålla",
+                  )
                 : "namn@example.test"
             }
             autoComplete="off"
           />
         </div>
         <div className="field">
-          <label htmlFor="customer-phone">Telefon (valfritt)</label>
+          <label htmlFor="customer-phone">
+            {t("Phone (optional)", "Telefon (valfritt)")}
+          </label>
           <input
             id="customer-phone"
             name="phone"
@@ -111,7 +130,12 @@ export default function CustomerEditor({
             maxLength={30}
             autoComplete="off"
           />
-          <small>Använd inte verkliga telefonnummer. Lämna gärna tomt.</small>
+          <small>
+            {t(
+              "Do not use real phone numbers. You can leave this blank.",
+              "Använd inte verkliga telefonnummer. Lämna gärna tomt.",
+            )}
+          </small>
         </div>
         {customer && (
           <label className="archive-choice">
@@ -120,12 +144,19 @@ export default function CustomerEditor({
               type="checkbox"
               defaultChecked={customer.archived}
             />{" "}
-            Arkivera kundkortet. Besökshistoriken finns kvar.
+            {t(
+              "Archive this customer. Visit history is kept.",
+              "Arkivera kundkortet. Besökshistoriken finns kvar.",
+            )}
           </label>
         )}
         <div className="action-row editor-actions">
           <button>
-            {pending ? "Sparar…" : customer ? "Spara kundkort" : "Skapa kund"}
+            {pending
+              ? t("Saving…", "Sparar…")
+              : customer
+                ? t("Save customer", "Spara kundkort")
+                : t("Create customer", "Skapa kund")}
           </button>
           <button
             type="button"
@@ -143,21 +174,23 @@ export default function CustomerEditor({
                 details.open = false;
                 details.querySelector("summary")?.focus();
               }
-              setNotice("Ändringarna har återställts.");
+              setNotice(
+                t("Changes discarded.", "Ändringarna har återställts."),
+              );
             }}
           >
-            Avbryt
+            {t("Cancel", "Avbryt")}
           </button>
         </div>
       </fieldset>
       {message && (
         <p role="alert">
-          {message}
+          {presentationError(message, locale)}
           {status === 409 && (
             <>
               {" "}
               <button type="button" onClick={() => router.refresh()}>
-                Läs in senaste version
+                {t("Load latest version", "Läs in senaste version")}
               </button>
             </>
           )}

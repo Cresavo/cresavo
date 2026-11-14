@@ -40,7 +40,7 @@ test("separata administratörer, återkallelse och ingen delad lösenordsfallbac
     expect(b.status()).toBe(200);
     const cookieB = b.headers()["set-cookie"].split(";")[0];
     const ownPage = await request.get("/admin", {
-      headers: { cookie: cookieA },
+      headers: { cookie: cookieA, "accept-language": "sv-SE" },
     });
     expect(await ownPage.text()).toContain(`Inloggad som`);
     expect(await ownPage.text()).toContain(synthetic.admin.email);

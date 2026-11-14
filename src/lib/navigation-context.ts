@@ -1,3 +1,5 @@
+import { text, type Locale } from "./locale";
+
 // UI-only navigation metadata. Never use returnTo as authority.
 const origin = "http://booking.invalid";
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -46,14 +48,20 @@ export function returnHref(context: ReturnContext, fallback: string) {
     url.hash = `return-${context.returnKey}`;
   return url.pathname + url.search + url.hash;
 }
-export function returnLabel(href: string) {
+export function returnLabel(href: string, locale: Locale = "sv") {
   const path = new URL(href, origin).pathname;
-  if (path.startsWith("/admin/bookings/")) return "Till bokningen";
-  if (/^\/admin\/customers\//.test(path)) return "Till kundkortet";
-  if (path === "/admin/customers") return "Till kunder";
-  if (path === "/admin/overview") return "Till översikten";
-  if (path === "/admin/services") return "Till tjänster";
-  if (path === "/admin/staff") return "Till personal och tider";
-  if (path === "/admin/campaigns") return "Till kampanjer";
-  return "Till kalendern";
+  const t = (en: string, sv: string) => text(locale, en, sv);
+  if (path.startsWith("/admin/bookings/"))
+    return t("Back to booking", "Till bokningen");
+  if (/^\/admin\/customers\//.test(path))
+    return t("Back to customer", "Till kundkortet");
+  if (path === "/admin/customers") return t("Back to customers", "Till kunder");
+  if (path === "/admin/overview")
+    return t("Back to overview", "Till översikten");
+  if (path === "/admin/services") return t("Back to services", "Till tjänster");
+  if (path === "/admin/staff")
+    return t("Back to team and hours", "Till personal och tider");
+  if (path === "/admin/campaigns")
+    return t("Back to campaigns", "Till kampanjer");
+  return t("Back to calendar", "Till kalendern");
 }

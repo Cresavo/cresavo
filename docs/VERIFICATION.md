@@ -1,5 +1,53 @@
+# Aktuell verifiering — premiumdemo (pågående)
+
+2026-11-14, `design/international-agent-ready`, ocommittad arbetskopia från
+46b261a. Ingen ny Grok-QA, CI, push eller previewdeployment ännu.
+
+| Kontroll | Faktiskt resultat |
+| --- | --- |
+| npm ci / prisma generate | PASS, befintlig lockfil och Prisma 7.10.1 |
+| npx tsc --noEmit / npm run lint | PASS |
+| npm test | PASS 114/114, 23 filer |
+| prisma migrate deploy / seed, ny booking_premium_20261114_test | PASS, 10 historiska migrationer |
+| vitest --config vitest.integration.config.ts | PASS 125/125, 26 filer, 122,46 s |
+| next build | PASS efter korrigerad kommandostart (se nedan) |
+| Playwright, produktion utan proxy, första körningen | FAIL 9 / PASS 53 av 62, 3,8 min; åtgärder/omkörning pågår |
+| Playwright, produktion utan proxy, efter rättningar | PASS 62/62, 2,2 min |
+| Playwright, produktion med proxy, efter rättningar | PASS 62/62, 2,1 min |
+| Agentkort, playwright.agent-workday.config.ts | PASS 13/13, 35,2 s; testvärd, inte fysisk klient |
+| npm audit --json | FAIL: 7 moderate dev, 0 high/critical; ingen override/uppgradering |
+| npm audit --omit=dev --json | PASS: 0 fynd |
+| Dev utan/med proxy | Pågående; E2E_PRODUCTION helt borttagen |
+
+Testmiljön laddas från ignorerad `.vercel/premium-test.env`. Byggkommandot
+startas med `process.loadEnvFile` och `spawnSync(node, [next, build])` så att
+Next inte ärver `--env-file` via NODE_OPTIONS. Första byggförsöket med flaggan
+kompilerade men workerstart föll med exit9; det är inte dolt som PASS.
+
+Matrisoperatörsfel: första skriptet satte E2E_PRODUCTION="0" för två avsedda
+dev-ben. Befintlig konfiguration testar truthiness, så även de körde produktion
+(62/62 vardera). De räknas INTE som dev-bevis. Riktiga dev-ben körs med variabeln
+borttagen. Ursprungliga loggar behålls med sina felaktiga filnamn; separata
+`premium-actual-dev-proxy*.log` och `premium-dev-matrix.json` visar rätt körning.
+
+Första webbsvitens fel: fyra inaktuella landningssideassertioner, två HTTP-
+språkantaganden, två svenska bekräftelser som tappat ”kl.”, och ett mobiltest
+för returposition (1120 väntat, 1108 faktiskt). Bekräftelsen har rättats och
+språk/ny landningscopy görs explicit i testerna. Returtestets krav är oförändrat;
+felet reproducerades även med oberoende mätning vid klicket. `pagehide` skrev
+över den uttryckligt sparade returpositionen efter mobilens scrolljustering.
+ContextLink bevarar nu klickets position; pagehide sparar fortsatt position för
+annan navigation. Produktionsbygge PASS och exakt returtest PASS 2/2 på desktop
+och mobil efter rättningen. Full fyrfältsmatris körs därefter separat.
+Ursprungliga spår
+bevarade i ignorerad `.vercel/premium-first-e2e-failures/`.
+
+Egen lokal klickkontroll: språkbyte behöll inskrivet namn; mobil 390px öppnade
+bokning och återgick till rätt dag. Detta ersätter inte pixelprecisions-testet
+för scroll eller fysisk iPhone/Safari. Bilder i `.vercel/premium-evidence/`.
+
+## Tidigare leverans — visuell UI-polering
 <!-- POLISH_CURRENT_START -->
-# Aktuell verifiering — visuell UI-polering
 
 Verifierat 2026-11-14. Branch **ui/salon-polish**, från 2c74a4b/produkt 51d54d4.
 Produkt, slutlig Grok-revision, CI och deploy: **9840309df4d8addc3e4bf5f6c5da0f3802eb4a2d**.

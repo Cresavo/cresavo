@@ -1,3 +1,14 @@
+# Pågående premiumdemo — ännu inte levererad
+
+2026-11-14: `design/international-agent-ready`, ocommittad från `46b261a`.
+Engelsk fotografisk landningssida, språkval och sammanhängande arbetsytestil
+är implementerade lokalt. Bokning → kalender → flytt → avbokning har provats
+med en ny syntetisk bokning i isolerad demo, inklusive bevarad historik.
+Unit 114, integration 125, agentkort 13 och produktion/proxy0 62 passerade;
+övrig matris pågår. Audit har fortfarande 7 moderate dev, produktion 0.
+Grok och deployment är inte godkända för denna kod ännu. Tidigare leverans
+nedan gäller fortsatt befintlig preview. Se VERIFICATION och PREMIUM_DEMO_PLAN.
+
 <!-- POLISH_CURRENT_START -->
 # Projektstatus — UI-polering
 

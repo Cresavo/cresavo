@@ -9,6 +9,8 @@ import AdminHeader from "../../header";
 import BookingEditor from "../editor";
 import { getCustomer } from "@/lib/customers";
 import { returnContext } from "@/lib/navigation-context";
+import { getLocale } from "@/lib/locale-server";
+import { text } from "@/lib/locale";
 export const dynamic = "force-dynamic";
 export default async function NewBooking({
   searchParams,
@@ -24,6 +26,8 @@ export default async function NewBooking({
 }) {
   const admin = await getAdminContext();
   if (!admin) redirect("/admin");
+  const locale = await getLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const [services, staff, params] = await Promise.all([
     listServices(),
     listStaff(),
@@ -55,11 +59,16 @@ export default async function NewBooking({
     <>
       <AdminHeader email={admin.email} active="calendar" />
       <main className="admin-workspace narrow-workspace">
-        <h1>Ny bokning</h1>
+        <h1>{t("New booking", "Ny bokning")}</h1>
         {customer?.archived ? (
           <p>
-            Kundkortet är arkiverat. Återaktivera det före ny bokning.{" "}
-            <a href={`/admin/customers/${customer.id}`}>Öppna kundkort</a>
+            {t(
+              "This customer is archived. Reactivate them before booking.",
+              "Kundkortet är arkiverat. Återaktivera det före ny bokning.",
+            )}{" "}
+            <a href={`/admin/customers/${customer.id}`}>
+              {t("Open customer", "Öppna kundkort")}
+            </a>
           </p>
         ) : (
           <BookingEditor

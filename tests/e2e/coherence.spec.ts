@@ -9,7 +9,7 @@ import { LOCAL_WORKSPACE_ACTOR } from "../../src/lib/workspace-write";
 test("kalender, bokning och kundkort behåller datum, filter, sökning och returposition", async ({
   page,
   synthetic,
-}) => {
+}, testInfo) => {
   const login = await page.request.post("/api/admin/login", {
     headers: { origin: "http://localhost:3000" },
     data: { email: synthetic.admin.email, password: synthetic.admin.password },
@@ -140,13 +140,33 @@ test("kalender, bokning och kundkort behåller datum, filter, sökning och retur
     });
     await visit.scrollIntoViewIfNeeded();
     const weekX = await grid.evaluate((element) => element.scrollLeft);
-    const weekY = await page.evaluate(() => scrollY);
+    const layout = () => page.evaluate(() => ({
+      y: scrollY,
+      height: document.documentElement.scrollHeight,
+      viewport: innerHeight,
+      bannerHeight: document.querySelector('.demo-banner')?.getBoundingClientRect().height,
+      mainHeight: document.querySelector('main')?.getBoundingClientRect().height,
+      savedPositions: Object.keys(sessionStorage).filter(k => k.startsWith('booking-return:')).map(k => JSON.parse(sessionStorage.getItem(k)!)),
+    }));
+    const originalLayout = await layout();
     expect(weekX).toBeGreaterThan(0);
     for (const browserBack of [false, true]) {
+      // Playwright can scroll again while bringing the click point into view,
+      // especially with mobile emulation and a wide week. Measure the actual
+      // departure independently at the input event, before the app's handler.
+      await page.evaluate(() => {
+        document.addEventListener("click", () => {
+          sessionStorage.setItem("test-departure-scroll", JSON.stringify({
+            y: scrollY,
+            x: document.querySelector('[data-calendar-scroll]')?.scrollLeft ?? 0,
+          }));
+        }, { capture: true, once: true });
+      });
       await visit.click();
       await expect(
         page.getByRole("heading", { name: "Bokning", exact: true }),
       ).toBeVisible();
+      const departure = await page.evaluate(() => JSON.parse(sessionStorage.getItem("test-departure-scroll")!)) as { y: number; x: number };
       if (browserBack) await page.goBack();
       else
         await page
@@ -156,12 +176,16 @@ test("kalender, bokning och kundkort behåller datum, filter, sökning och retur
         .poll(() => new URL(page.url()).pathname + new URL(page.url()).search)
         .toBe(week);
       await expect(grid).toBeVisible();
+      await testInfo.attach(`return-layout-${browserBack ? 'history' : 'link'}`, {
+        body: JSON.stringify({ before: originalLayout, returned: await layout() }),
+        contentType: 'application/json',
+      });
       await expect
         .poll(() => page.evaluate(() => scrollY))
-        .toBeCloseTo(weekY, 0);
+        .toBeCloseTo(departure.y, 0);
       await expect
         .poll(() => grid.evaluate((element) => element.scrollLeft))
-        .toBeCloseTo(weekX, 0);
+        .toBeCloseTo(departure.x, 0);
     }
     await page.setViewportSize(originalViewport);
     await page.goto(`/admin/customers?q=${id}`);
@@ -313,7 +337,7 @@ test("tre tydliga huvudval och stängbara sekundärmenyer fungerar på mobil och
       .getByRole("link", { name: "Om Booking Lab", exact: true })
       .click();
     await expect(
-      page.getByRole("navigation", { name: "Välj upplevelse" }),
+      page.getByRole("navigation", { name: "Product navigation" }),
     ).toBeVisible();
     expect(
       await page.evaluate(

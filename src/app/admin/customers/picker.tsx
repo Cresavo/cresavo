@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { useLocale } from "../../components/locale-provider";
+import { text } from "@/lib/locale";
 export type CustomerChoice = { id: string; name: string };
 export default function CustomerPicker({
   value,
@@ -9,6 +11,8 @@ export default function CustomerPicker({
   value?: CustomerChoice;
   onChange: (value?: CustomerChoice) => void;
 }) {
+  const locale = useLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const [query, setQuery] = useState(""),
     [rows, setRows] = useState<CustomerChoice[]>([]),
     [error, setError] = useState(""),
@@ -31,32 +35,44 @@ export default function CustomerPicker({
       setRows(data.customers);
       if (!data.customers.length)
         setError(
-          "Inga kunder hittades. Prova en annan sökning eller skapa ett kundkort.",
+          t(
+            "No customers found. Try another search or create a customer.",
+            "Inga kunder hittades. Prova en annan sökning eller skapa ett kundkort.",
+          ),
         );
     } catch {
       if (sequence === request.current)
-        setError("Kunderna kunde inte hämtas. Försök igen.");
+        setError(
+          t(
+            "Could not load customers. Try again.",
+            "Kunderna kunde inte hämtas. Försök igen.",
+          ),
+        );
     } finally {
       if (sequence === request.current) setPending(false);
     }
   }
   return (
-    <section className="panel customer-picker" aria-label="Välj kund">
-      <h2>Kund</h2>
+    <section
+      className="panel customer-picker"
+      aria-label={t("Choose customer", "Välj kund")}
+    >
+      <h2>{t("Customer", "Kund")}</h2>
       {value ? (
         <>
           <p>
-            Vald kund: <strong>{value.name}</strong>
+            {t("Selected customer:", "Vald kund:")}{" "}
+            <strong>{value.name}</strong>
           </p>
           <button
             type="button"
             className="secondary"
             onClick={() => onChange(undefined)}
           >
-            Byt kund
+            {t("Change customer", "Byt kund")}
           </button>
           <Link href={`/admin/customers/${encodeURIComponent(value.id)}`}>
-            Öppna kundkort
+            {t("Open customer", "Öppna kundkort")}
           </Link>
         </>
       ) : (
@@ -64,7 +80,7 @@ export default function CustomerPicker({
           <form onSubmit={search} className="action-row">
             <div className="field">
               <label htmlFor="booking-customer-search">
-                Sök befintlig kund
+                {t("Find an existing customer", "Sök befintlig kund")}
               </label>
               <input
                 id="booking-customer-search"
@@ -80,7 +96,9 @@ export default function CustomerPicker({
               />
             </div>
             <button disabled={pending}>
-              {pending ? "Söker…" : "Sök kund"}
+              {pending
+                ? t("Searching…", "Söker…")
+                : t("Find customer", "Sök kund")}
             </button>
           </form>
           <ul className="customer-choices">
@@ -101,8 +119,13 @@ export default function CustomerPicker({
           </ul>
           {error && <p role="status">{error}</p>}
           <p>
-            <Link href="/admin/customers/new">Skapa nytt kundkort</Link> eller
-            fyll i en fristående bokning nedan.
+            <Link href="/admin/customers/new">
+              {t("Create a customer", "Skapa nytt kundkort")}
+            </Link>{" "}
+            {t(
+              "or enter a standalone booking below.",
+              "eller fyll i en fristående bokning nedan.",
+            )}
           </p>
         </>
       )}

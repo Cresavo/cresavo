@@ -5,12 +5,16 @@ import { formatPrice } from "@/lib/format";
 import { pageDataFailure } from "@/lib/errors";
 import AdminHeader from "../header";
 import ServiceEditor from "./editor";
+import { getLocale } from "@/lib/locale-server";
+import { text } from "@/lib/locale";
 export const dynamic = "force-dynamic";
 export default async function Services({
   searchParams,
 }: {
   searchParams: Promise<{ id?: string; new?: string; saved?: string }>;
 }) {
+  const locale = await getLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const admin = await getAdminContext();
   if (!admin) redirect("/admin");
   const [services, params] = await Promise.all([
@@ -25,22 +29,27 @@ export default async function Services({
       <AdminHeader email={admin.email} active="services" />
       <main className="admin-workspace">
         <div className="workspace-heading">
-          <h1>Tjänster</h1>
+          <h1>{t("Services", "Tjänster")}</h1>
           <a className="button-link" href="/admin/services?new=1">
-            Ny behandling
+            {t("New treatment", "Ny behandling")}
           </a>
         </div>
         {params.saved === "1" && (
           <p className="success-message" role="status">
-            Behandlingen är sparad.
+            {t("Treatment saved.", "Behandlingen är sparad.")}
           </p>
         )}
         <p className="workspace-guidance">
-          Behandlingar, priser och längder. Välj en behandling för att ändra
-          den.
+          {t(
+            "Treatments, prices and durations. Select a treatment to edit it.",
+            "Behandlingar, priser och längder. Välj en behandling för att ändra den.",
+          )}
         </p>
         <div className="settings-layout">
-          <aside aria-label="Behandlingar" className="resource-list">
+          <aside
+            aria-label={t("Treatments", "Behandlingar")}
+            className="resource-list"
+          >
             {services.map((s) => (
               <a
                 aria-current={selected?.id === s.id ? "true" : undefined}
@@ -49,8 +58,8 @@ export default async function Services({
               >
                 <strong>{s.name}</strong>
                 <span>
-                  {s.duration} min · {formatPrice(s.priceOre)}
-                  {!s.active ? " · Inaktiv" : ""}
+                  {s.duration} min · {formatPrice(s.priceOre, locale)}
+                  {!s.active ? t(" · Inactive", " · Inaktiv") : ""}
                 </span>
               </a>
             ))}
@@ -58,8 +67,12 @@ export default async function Services({
           {selected || params.new ? (
             <section className="panel">
               <div className="section-heading">
-                <h2>{selected ? "Redigera behandling" : "Ny behandling"}</h2>
-                <a href="/admin/services">Stäng</a>
+                <h2>
+                  {selected
+                    ? t("Edit treatment", "Redigera behandling")
+                    : t("New treatment", "Ny behandling")}
+                </h2>
+                <a href="/admin/services">{t("Close", "Stäng")}</a>
               </div>
               <ServiceEditor
                 key={selected ? `${selected.id}-${selected.version}` : "new"}
@@ -68,8 +81,13 @@ export default async function Services({
             </section>
           ) : (
             <section className="panel empty-state">
-              <h2>Välj en behandling</h2>
-              <p>Öppna en behandling i listan eller välj Ny behandling.</p>
+              <h2>{t("Choose a treatment", "Välj en behandling")}</h2>
+              <p>
+                {t(
+                  "Open a treatment in the list or choose New treatment.",
+                  "Öppna en behandling i listan eller välj Ny behandling.",
+                )}
+              </p>
             </section>
           )}
         </div>

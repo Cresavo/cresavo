@@ -3,6 +3,8 @@ import { useRouter } from "next/navigation";
 import { useRef, useTransition } from "react";
 import DatePicker from "../components/date-picker";
 import { readableDay } from "@/lib/format";
+import { useLocale } from "../components/locale-provider";
+import { text } from "@/lib/locale";
 export default function CalendarFilters({
   date,
   href,
@@ -16,6 +18,8 @@ export default function CalendarFilters({
   staff: { id: string; name: string; active: boolean }[];
   status: string;
 }) {
+  const locale = useLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const details = useRef<HTMLDetailsElement>(null),
@@ -34,7 +38,7 @@ export default function CalendarFilters({
     <div className="calendar-filters" aria-busy={pending}>
       <details className="calendar-date-choice" ref={details}>
         <summary className="quiet-button" ref={summary}>
-          Välj dag · {readableDay(date)}
+          {t("Choose day", "Välj dag")} · {readableDay(date, locale)}
         </summary>
         <DatePicker
           id="calendar-date"
@@ -44,18 +48,20 @@ export default function CalendarFilters({
         />
       </details>
       <div>
-        <label htmlFor="calendar-staff">Medarbetare</label>
+        <label htmlFor="calendar-staff">
+          {t("Team member", "Medarbetare")}
+        </label>
         <select
           id="calendar-staff"
           disabled={pending}
           value={staffId}
           onChange={(e) => change("staffId", e.target.value)}
         >
-          <option value="">Alla</option>
+          <option value="">{t("All", "Alla")}</option>
           {staff.map((p) => (
             <option value={p.id} key={p.id}>
               {p.name}
-              {!p.active ? " (inaktiv)" : ""}
+              {!p.active ? t(" (inactive)", " (inaktiv)") : ""}
             </option>
           ))}
         </select>
@@ -69,11 +75,11 @@ export default function CalendarFilters({
             change("status", e.target.checked ? "all" : "confirmed")
           }
         />
-        Visa avbokade
+        {t("Show cancelled", "Visa avbokade")}
       </label>
       {pending && (
         <p role="status" className="muted">
-          Uppdaterar kalendern…
+          {t("Updating calendar…", "Uppdaterar kalendern…")}
         </p>
       )}
     </div>

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, type AnchorHTMLAttributes } from "react";
 import { ArrowLeft } from "lucide-react";
+import { useLocale } from "./locale-provider";
 import {
   contextualHref,
   returnHref,
@@ -10,6 +11,7 @@ import {
 
 // History/tab storage keeps only opaque keys/coordinates, never URLs or contacts.
 const HISTORY_KEY = "bookingScrollKey";
+let explicitDepartureKey: string | undefined;
 function currentScrollKey() {
   const saved = history.state?.[HISTORY_KEY];
   if (typeof saved === "string" && /^[a-f0-9-]{36}$/i.test(saved)) return saved;
@@ -44,6 +46,7 @@ export function rememberReturn(href: string) {
   try {
     const key = currentScrollKey();
     rememberPosition(key);
+    explicitDepartureKey = key;
     return contextualHref(href, {
       returnTo: location.pathname + location.search + location.hash,
       returnKey: key,
@@ -87,10 +90,11 @@ export function ReturnLink({
   fallback: string;
 }) {
   const href = returnHref(context, fallback);
+  const locale = useLocale();
   return (
     <a className="context-back" href={href}>
       <ArrowLeft size={18} aria-hidden="true" />
-      {returnLabel(href)}
+      {returnLabel(href, locale)}
     </a>
   );
 }
@@ -178,14 +182,19 @@ export function RestoreReturnScroll() {
         /* The safe return link works even when storage is unavailable. */
       }
     };
-    const show = (event: PageTransitionEvent) =>
+    const show = (event: PageTransitionEvent) => {
+      explicitDepartureKey = undefined;
       restore(event.persisted || isHistoryLoad);
+    };
     const back = () => restore(true);
     const hash = () => restore();
     const save = () => {
       if (!location.pathname.startsWith("/admin")) return;
       try {
-        rememberPosition(currentScrollKey());
+        const key = currentScrollKey();
+        // Preserve the position captured by a contextual link. Mobile browsers
+        // may adjust scroll between the click and pagehide during navigation.
+        if (explicitDepartureKey !== key) rememberPosition(key);
       } catch {
         /* Storage is optional. */
       }

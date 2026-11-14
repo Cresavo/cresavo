@@ -6,6 +6,9 @@ import type { Weekly, Exceptions } from "@/lib/schedule";
 import { useWrite, useUnsavedChanges } from "../use-write";
 import DatePicker from "../../components/date-picker";
 import { readableDay } from "@/lib/format";
+import { useLocale } from "../../components/locale-provider";
+import { text } from "@/lib/locale";
+import { presentationError } from "@/lib/presentation-errors";
 
 type Period = { start: string; end: string };
 const weekdays = [
@@ -28,6 +31,12 @@ function Periods({
   rows: Period[];
   onChange: (rows: Period[]) => void;
 }) {
+  const locale = useLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
+  const displayLabel =
+    label === "Pauser"
+      ? t("Breaks", "Pauser")
+      : t("Working hours", "Arbetspass");
   const nextStart =
     rows.at(-1)?.end ?? (label === "Pauser" ? "12:00" : "09:00");
   const [hour, minute] = nextStart.split(":").map(Number);
@@ -35,11 +44,13 @@ function Periods({
   const nextEnd = `${String(Math.floor(nextEndMinutes / 60)).padStart(2, "0")}:${String(nextEndMinutes % 60).padStart(2, "0")}`;
   return (
     <div className="periods">
-      <h4>{label}</h4>
+      <h4>{displayLabel}</h4>
       {rows.map((row, index) => (
         <div className="period-row" key={index}>
           <div>
-            <label htmlFor={`${prefix}-${index}-start`}>Från</label>
+            <label htmlFor={`${prefix}-${index}-start`}>
+              {t("From", "Från")}
+            </label>
             <input
               id={`${prefix}-${index}-start`}
               list="schedule-times"
@@ -57,7 +68,9 @@ function Periods({
             />
           </div>
           <div>
-            <label htmlFor={`${prefix}-${index}-end`}>Till</label>
+            <label htmlFor={`${prefix}-${index}-end`}>
+              {t("Until", "Till")}
+            </label>
             <input
               id={`${prefix}-${index}-end`}
               list="schedule-times"
@@ -77,10 +90,10 @@ function Periods({
           <button
             type="button"
             className="quiet-button"
-            aria-label={`Ta bort ${label.toLowerCase()} ${index + 1}`}
+            aria-label={`${t("Remove", "Ta bort")} ${displayLabel.toLowerCase()} ${index + 1}`}
             onClick={() => onChange(rows.filter((_, i) => i !== index))}
           >
-            Ta bort
+            {t("Remove", "Ta bort")}
           </button>
         </div>
       ))}
@@ -106,7 +119,9 @@ function Periods({
           ])
         }
       >
-        Lägg till {label === "Pauser" ? "paus" : "arbetspass"}
+        {label === "Pauser"
+          ? t("Add break", "Lägg till paus")
+          : t("Add working period", "Lägg till arbetspass")}
       </button>
     </div>
   );
@@ -118,6 +133,20 @@ export default function StaffEditor({
   staff?: StaffView;
   services: ServiceView[];
 }) {
+  const locale = useLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
+  const dayNames =
+    locale === "en"
+      ? [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday",
+        ]
+      : weekdays;
   const router = useRouter();
   const [weekly, setWeekly] = useState<Weekly>(
     Array.from(
@@ -180,7 +209,9 @@ export default function StaffEditor({
     <form onSubmit={save} onChange={markDirty}>
       <fieldset disabled={pending}>
         <div className="field">
-          <label htmlFor="staff-name">Namn (syntetiskt)</label>
+          <label htmlFor="staff-name">
+            {t("Name (fictional)", "Namn (syntetiskt)")}
+          </label>
           <input
             id="staff-name"
             name="name"
@@ -198,10 +229,10 @@ export default function StaffEditor({
             checked={active}
             onChange={(event) => setActive(event.target.checked)}
           />
-          Aktiv för nya bokningar
+          {t("Available for new bookings", "Aktiv för nya bokningar")}
         </label>
         <fieldset className="field">
-          <legend>Behandlingar</legend>
+          <legend>{t("Treatments", "Behandlingar")}</legend>
           <div className="check-grid">
             {services.map((s) => (
               <label key={s.id} className="check-label">
@@ -219,24 +250,26 @@ export default function StaffEditor({
                   }
                 />
                 {s.name}
-                {!s.active ? " (inaktiv)" : ""}
+                {!s.active ? t(" (inactive)", " (inaktiv)") : ""}
               </label>
             ))}
           </div>
         </fieldset>
-        <h3>Veckoschema</h3>
+        <h3>{t("Weekly schedule", "Veckoschema")}</h3>
         <p className="muted field">
-          Tider i svensk tid, HH:MM. Inga arbetspass betyder ledigt. Pauser ska
-          rymmas inom arbetspassen.
+          {t(
+            "Stockholm time, HH:MM. No working periods means a day off. Breaks must fit within working hours.",
+            "Tider i svensk tid, HH:MM. Inga arbetspass betyder ledigt. Pauser ska rymmas inom arbetspassen.",
+          )}
         </p>
         {weekly.map((day, index) => (
           <details className="schedule-day" key={day.weekday}>
             <summary>
-              {weekdays[index]}{" "}
+              {dayNames[index]}{" "}
               <span>
                 {day.periods.length
                   ? day.periods.map((p) => `${p.start}–${p.end}`).join(", ")
-                  : "Ledig"}
+                  : t("Day off", "Ledig")}
               </span>
             </summary>
             <Periods
@@ -253,21 +286,32 @@ export default function StaffEditor({
             />
           </details>
         ))}
-        <h3 className="section-space">Ledighet och avvikande tider</h3>
+        <h3 className="section-space">
+          {t(
+            "Time off and schedule exceptions",
+            "Ledighet och avvikande tider",
+          )}
+        </h3>
         <p className="muted field">
-          Välj dag och Lägg till datum. Dagen blir ledig om du inte lägger till
-          arbetspass. Spara medarbetaren när du är klar. Detta ersätter
-          veckoschemat bara den valda dagen.
+          {t(
+            "Choose a day and add it. Leave working hours empty for a day off. Save the team member when done. This replaces the weekly schedule for that day only.",
+            "Välj dag och Lägg till datum. Dagen blir ledig om du inte lägger till arbetspass. Spara medarbetaren när du är klar. Detta ersätter veckoschemat bara den valda dagen.",
+          )}
         </p>
         {exceptions.map((day, index) => (
           <details className="schedule-day" key={index} open>
             <summary>
-              {readableDay(day.date)} ·{" "}
-              {day.periods.length ? "Avvikande tider" : "Ledig"}
+              {readableDay(day.date, locale)} ·{" "}
+              {day.periods.length
+                ? t("Custom hours", "Avvikande tider")
+                : t("Day off", "Ledig")}
             </summary>
             <div className="field">
               <details>
-                <summary>Ändra dag · {readableDay(day.date)}</summary>
+                <summary>
+                  {t("Change day", "Ändra dag")} ·{" "}
+                  {readableDay(day.date, locale)}
+                </summary>
                 <DatePicker
                   id={`exception-${index}-date`}
                   value={day.date}
@@ -295,7 +339,7 @@ export default function StaffEditor({
                 markDirty();
               }}
             >
-              Ta bort datumundantag
+              {t("Remove date exception", "Ta bort datumundantag")}
             </button>
           </details>
         ))}
@@ -304,7 +348,10 @@ export default function StaffEditor({
             <DatePicker
               id="new-exception-date"
               value={newDate}
-              label="Välj dag för ledighet eller andra tider"
+              label={t(
+                "Choose a day for time off or custom hours",
+                "Välj dag för ledighet eller andra tider",
+              )}
               onChange={setNewDate}
             />
           </div>
@@ -325,18 +372,27 @@ export default function StaffEditor({
               markDirty();
             }}
           >
-            Lägg till datum
+            {t("Add date", "Lägg till datum")}
           </button>
         </div>
         <p className="muted field">
-          Ändringar som krockar med bokade tider nekas. Flytta eller avboka
-          berörda bokningar först.
+          {t(
+            "Changes that conflict with bookings are rejected. Move or cancel the affected bookings first.",
+            "Ändringar som krockar med bokade tider nekas. Flytta eller avboka berörda bokningar först.",
+          )}
         </p>
         <div className="editor-actions">
           <p className="muted">
-            Ändringarna sparas först när du väljer Spara medarbetare.
+            {t(
+              "Changes are saved only when you choose Save team member.",
+              "Ändringarna sparas först när du väljer Spara medarbetare.",
+            )}
           </p>
-          <button>{pending ? "Sparar…" : "Spara medarbetare"}</button>
+          <button>
+            {pending
+              ? t("Saving…", "Sparar…")
+              : t("Save team member", "Spara medarbetare")}
+          </button>
           <button
             type="button"
             className="secondary"
@@ -345,7 +401,7 @@ export default function StaffEditor({
               router.replace("/admin/staff");
             }}
           >
-            Avbryt
+            {t("Cancel", "Avbryt")}
           </button>
         </div>
         <datalist id="schedule-times">
@@ -357,7 +413,7 @@ export default function StaffEditor({
       </fieldset>
       {message && (
         <p className="form-error" role="alert">
-          {message}
+          {presentationError(message, locale)}
         </p>
       )}
       {status === 409 && (
@@ -369,7 +425,7 @@ export default function StaffEditor({
             window.location.reload();
           }}
         >
-          Läs in uppgifterna på nytt
+          {t("Reload latest details", "Läs in uppgifterna på nytt")}
         </button>
       )}
     </form>

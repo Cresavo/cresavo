@@ -1,6 +1,9 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale } from "../../components/locale-provider";
+import { text } from "@/lib/locale";
+import { presentationError } from "@/lib/presentation-errors";
 import { formatPrice, readableDay } from "@/lib/format";
 import type { BookingView, StaffView, ServiceView } from "../types";
 import { useWrite, useUnsavedChanges } from "../use-write";
@@ -44,6 +47,8 @@ export default function BookingEditor({
   context?: ReturnContext;
 }) {
   const router = useRouter();
+  const locale = useLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const [current, setCurrent] = useState(booking),
     [mode, setMode] = useState<"view" | "edit">(booking ? "view" : "edit"),
     [confirmCancel, setConfirmCancel] = useState(false);
@@ -172,7 +177,7 @@ export default function BookingEditor({
     setMode("view");
     setStart("");
     await reload();
-    setNotice("Bokningen har flyttats.");
+    setNotice(t("Booking moved.", "Bokningen har flyttats."));
   }
   async function cancel() {
     if (!current) return;
@@ -185,7 +190,7 @@ export default function BookingEditor({
       setCurrent({ ...current, ...result });
       setConfirmCancel(false);
       await reload();
-      setNotice("Bokningen är avbokad.");
+      setNotice(t("Booking cancelled.", "Bokningen är avbokad."));
     }
   }
   async function reload() {
@@ -207,7 +212,7 @@ export default function BookingEditor({
       setDay(dayOf(value.startsAt));
       setMode("view");
       setConfirmCancel(false);
-      setNotice("Bokningen är uppdaterad.");
+      setNotice(t("Booking refreshed.", "Bokningen är uppdaterad."));
       router.refresh();
     } catch {
       setReadError("Bokningen kunde inte hämtas. Försök igen.");
@@ -240,11 +245,14 @@ export default function BookingEditor({
                   : "status-pill"
               }
             >
-              {current.status === "cancelled" ? "Avbokad" : "Bokad"}
+              {current.status === "cancelled"
+                ? t("Cancelled", "Avbokad")
+                : t("Confirmed", "Bokad")}
             </span>
           </div>
           <p className="booking-date">
-            {readableDay(dayOf(current.startsAt))} kl.{" "}
+            {readableDay(dayOf(current.startsAt), locale)}
+            {t(" at ", " kl. ")}
             {DateTime.fromISO(current.startsAt, {
               zone: "Europe/Stockholm",
             }).toFormat("HH:mm")}
@@ -257,11 +265,12 @@ export default function BookingEditor({
           </p>
           <p>
             {staff.find((p) => p.id === current.staffId)?.name ??
-              "Tidigare medarbetare"}{" "}
+              t("Former team member", "Tidigare medarbetare")}{" "}
             · {current.duration} min
             {current.buffer > 0
-              ? ` + ${current.buffer} min buffert`
-              : ""} · {formatPrice(current.priceOre)}
+              ? ` + ${current.buffer} min ${t("buffer", "buffert")}`
+              : ""}{" "}
+            · {formatPrice(current.priceOre, locale)}
           </p>
           <p>
             {current.customerName} · {current.customerEmail}
@@ -271,11 +280,14 @@ export default function BookingEditor({
               <ContextLink
                 href={`/admin/customers/${encodeURIComponent(current.customerId)}`}
               >
-                Öppna kundkort
+                {t("Open customer", "Öppna kundkort")}
               </ContextLink>
               <small>
                 {" "}
-                Namnet ovan är uppgiften som registrerades vid bokningen.
+                {t(
+                  "The name above was recorded when this booking was made.",
+                  "Namnet ovan är uppgiften som registrerades vid bokningen.",
+                )}
               </small>
             </p>
           )}
@@ -293,14 +305,14 @@ export default function BookingEditor({
                     clearSlots(false);
                   }}
                 >
-                  Flytta
+                  {t("Reschedule", "Flytta")}
                 </button>
                 <button
                   className="danger-secondary"
                   ref={cancelButton}
                   onClick={() => setConfirmCancel(true)}
                 >
-                  Avboka
+                  {t("Cancel booking", "Avboka")}
                 </button>
               </div>
             )}
@@ -317,11 +329,20 @@ export default function BookingEditor({
       )}
       {confirmCancel && (
         <section className="panel confirm-panel" aria-labelledby="cancel-title">
-          <h2 id="cancel-title">Avboka bokningen?</h2>
-          <p>Tiden blir ledig. Bokningen och historiken finns kvar.</p>
+          <h2 id="cancel-title">
+            {t("Cancel this booking?", "Avboka bokningen?")}
+          </h2>
+          <p>
+            {t(
+              "This frees up the time. The booking and its history are kept.",
+              "Tiden blir ledig. Bokningen och historiken finns kvar.",
+            )}
+          </p>
           <div className="action-row">
             <button className="danger" disabled={pending} onClick={cancel}>
-              {pending ? "Avbokar…" : "Ja, avboka"}
+              {pending
+                ? t("Cancelling…", "Avbokar…")
+                : t("Yes, cancel booking", "Ja, avboka")}
             </button>
             <button
               className="secondary"
@@ -332,19 +353,25 @@ export default function BookingEditor({
                 requestAnimationFrame(() => cancelButton.current?.focus());
               }}
             >
-              Behåll bokningen
+              {t("Keep booking", "Behåll bokningen")}
             </button>
           </div>
         </section>
       )}
       {mode === "edit" && (
         <section className="panel">
-          <h2>{current ? "Välj ny tid" : "Behandling och tid"}</h2>
+          <h2>
+            {current
+              ? t("Choose a new time", "Välj ny tid")
+              : t("Treatment and time", "Behandling och tid")}
+          </h2>
           <form onSubmit={search}>
             <fieldset disabled={pending}>
               {!current && (
                 <div className="field">
-                  <label htmlFor="booking-service">Behandling</label>
+                  <label htmlFor="booking-service">
+                    {t("Treatment", "Behandling")}
+                  </label>
                   <select
                     id="booking-service"
                     value={serviceId}
@@ -363,7 +390,7 @@ export default function BookingEditor({
                       .filter((s) => s.active)
                       .map((s) => (
                         <option key={s.id} value={s.id}>
-                          {s.name} · {formatPrice(s.priceOre)}
+                          {s.name} · {formatPrice(s.priceOre, locale)}
                         </option>
                       ))}
                   </select>
@@ -371,7 +398,9 @@ export default function BookingEditor({
               )}
               <div className="form-grid">
                 <div className="field">
-                  <label htmlFor="booking-staff">Medarbetare</label>
+                  <label htmlFor="booking-staff">
+                    {t("Team member", "Medarbetare")}
+                  </label>
                   <select
                     id="booking-staff"
                     value={staffId}
@@ -381,7 +410,9 @@ export default function BookingEditor({
                       clearSlots();
                     }}
                   >
-                    <option value="">Välj medarbetare</option>
+                    <option value="">
+                      {t("Choose team member", "Välj medarbetare")}
+                    </option>
                     {people.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
@@ -410,25 +441,27 @@ export default function BookingEditor({
                 type="submit"
               >
                 {availability.loading
-                  ? "Hämtar tider…"
-                  : "Uppdatera lediga tider"}
+                  ? t("Loading times…", "Hämtar tider…")
+                  : t("Refresh available times", "Uppdatera lediga tider")}
               </button>
             </fieldset>
           </form>
           {readError && (
             <p role="status" className="form-message">
-              {readError}
+              {presentationError(readError, locale)}
             </p>
           )}
           {availability.error && (
             <p className="form-error" role="alert">
-              {availability.error}
+              {presentationError(availability.error, locale)}
             </p>
           )}
           {!availability.loading && !availability.error && !slots.length && (
             <p className="empty-state">
-              Inga lediga tider den här dagen. Det kan vara stängt eller
-              fullbokat.
+              {t(
+                "No times available that day. The business may be closed or fully booked.",
+                "Inga lediga tider den här dagen. Det kan vara stängt eller fullbokat.",
+              )}
             </p>
           )}
           <button
@@ -443,8 +476,11 @@ export default function BookingEditor({
             }
           >
             {availability.finding
-              ? "Letar efter en ledig dag…"
-              : "Hitta nästa lediga dag"}
+              ? t(
+                  "Finding the next available day…",
+                  "Letar efter en ledig dag…",
+                )
+              : t("Find next available day", "Hitta nästa lediga dag")}
           </button>
           {current && !slots.length && (
             <button
@@ -454,7 +490,7 @@ export default function BookingEditor({
                 abandonMove();
               }}
             >
-              Avbryt flytt
+              {t("Keep original time", "Avbryt flytt")}
             </button>
           )}
           {!!slots.length && (
@@ -479,7 +515,9 @@ export default function BookingEditor({
                 {!current && !selectedCustomer && (
                   <>
                     <div className="field">
-                      <label htmlFor="booking-name">Namn (påhittat)</label>
+                      <label htmlFor="booking-name">
+                        {t("Name (fictional)", "Namn (påhittat)")}
+                      </label>
                       <input
                         id="booking-name"
                         name="name"
@@ -491,7 +529,9 @@ export default function BookingEditor({
                       />
                     </div>
                     <div className="field">
-                      <label htmlFor="booking-email">E-post (påhittad)</label>
+                      <label htmlFor="booking-email">
+                        {t("Email (fictional)", "E-post (påhittad)")}
+                      </label>
                       <input
                         id="booking-email"
                         name="email"
@@ -506,10 +546,14 @@ export default function BookingEditor({
                 )}
                 <section
                   className="booking-review"
-                  aria-label="Bokningssammanfattning"
+                  aria-label={t("Booking summary", "Bokningssammanfattning")}
                 >
-                  <h3>Kontrollera bokningen</h3>
-                  {selectedCustomer && <p>Kund: {selectedCustomer.name}</p>}
+                  <h3>{t("Review booking", "Kontrollera bokningen")}</h3>
+                  {selectedCustomer && (
+                    <p>
+                      {t("Customer:", "Kund:")} {selectedCustomer.name}
+                    </p>
+                  )}
                   <strong>
                     {current?.serviceName ??
                       services.find((s) => s.id === serviceId)?.name}
@@ -522,23 +566,27 @@ export default function BookingEditor({
                       current?.priceOre ??
                         services.find((s) => s.id === serviceId)?.priceOre ??
                         0,
+                      locale,
                     )}{" "}
                     · {people.find((p) => p.id === staffId)?.name}
                   </p>
                   <p>
-                    {readableDay(day)}
+                    {readableDay(day, locale)}
                     {start
-                      ? ` kl. ${new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit" }).format(new Date(start))}`
-                      : " · välj en ledig tid"}
+                      ? `${t(" at ", " kl. ")}${new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit" }).format(new Date(start))}`
+                      : t(
+                          " · choose an available time",
+                          " · välj en ledig tid",
+                        )}
                   </p>
                 </section>
                 <div className="action-row">
                   <button disabled={!start}>
                     {pending
-                      ? "Sparar…"
+                      ? t("Saving…", "Sparar…")
                       : current
-                        ? "Spara flytt"
-                        : "Skapa bokning"}
+                        ? t("Save new time", "Spara flytt")
+                        : t("Create booking", "Skapa bokning")}
                   </button>
                   {current && (
                     <button
@@ -548,7 +596,7 @@ export default function BookingEditor({
                         abandonMove();
                       }}
                     >
-                      Avbryt
+                      {t("Cancel", "Avbryt")}
                     </button>
                   )}
                 </div>
@@ -567,22 +615,23 @@ export default function BookingEditor({
             location.assign(returnHref(context, `/admin?date=${day}`));
           }}
         >
-          Avbryt bokning
+          {t("Cancel without saving", "Avbryt bokning")}
         </button>
       )}
       {message && (
         <p role="alert" className="form-error">
-          {message} Dina val finns kvar.
+          {presentationError(message, locale)}{" "}
+          {t("Your selections are kept.", "Dina val finns kvar.")}
         </p>
       )}
       {readError && mode === "view" && (
         <p role="alert" className="form-error">
-          {readError}
+          {presentationError(readError, locale)}
         </p>
       )}
       {status === 409 && current && (
         <button className="secondary" onClick={reload}>
-          Läs in bokningen på nytt
+          {t("Reload booking", "Läs in bokningen på nytt")}
         </button>
       )}
     </>

@@ -7,6 +7,9 @@ import { formatBookingTime } from "@/lib/format";
 import AdminHeader from "../header";
 import { DomainError, pageDataFailure } from "@/lib/errors";
 import ContextLink from "../../components/context-link";
+import { getLocale } from "@/lib/locale-server";
+import { text } from "@/lib/locale";
+import { presentationError } from "@/lib/presentation-errors";
 export const dynamic = "force-dynamic";
 
 export default async function Customers({
@@ -14,6 +17,8 @@ export default async function Customers({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
+  const locale = await getLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const admin = await getAdminContext();
   if (!admin) redirect("/admin");
   const raw = await searchParams;
@@ -45,8 +50,10 @@ export default async function Customers({
       <main className="admin-workspace">
         <div className="workspace-heading">
           <div>
-            <p className="eyebrow">Salongens kunder</p>
-            <h1>Kunder</h1>
+            <p className="eyebrow">
+              {t("People and visits", "Salongens kunder")}
+            </p>
+            <h1>{t("Customers", "Kunder")}</h1>
           </div>
           <ContextLink className="button-link" href="/admin/customers/new">
             <Plus
@@ -55,21 +62,33 @@ export default async function Customers({
               aria-hidden="true"
               focusable="false"
             />
-            Ny kund
+            {t("New customer", "Ny kund")}
           </ContextLink>
         </div>
         <p>
-          Hitta kunden, se besöken och boka en ny tid. Kontaktuppgifter visas på
-          kundkortet i den isolerade demon.
+          {t(
+            "Find a customer, see their visits and book the next one. Contact details are shown on their card in this isolated demo.",
+            "Hitta kunden, se besöken och boka en ny tid. Kontaktuppgifter visas på kundkortet i den isolerade demon.",
+          )}
         </p>
         {!input.success && (
-          <p role="alert">Sökningen var ogiltig. Visar första sidan.</p>
+          <p role="alert">
+            {t(
+              "Invalid search. Showing the first page.",
+              "Sökningen var ogiltig. Visar första sidan.",
+            )}
+          </p>
         )}
-        {searchError && <p role="alert">{searchError}</p>}
+        {searchError && (
+          <p role="alert">{presentationError(searchError, locale)}</p>
+        )}
         <form method="get" className="customer-search action-row">
           <div className="field">
             <label htmlFor="customer-search">
-              Sök namn, e-post eller telefon
+              {t(
+                "Search name, email or phone",
+                "Sök namn, e-post eller telefon",
+              )}
             </label>
             <input
               id="customer-search"
@@ -86,7 +105,7 @@ export default async function Customers({
               value="all"
               defaultChecked={value.archived === "all"}
             />{" "}
-            Visa även arkiverade
+            {t("Include archived", "Visa även arkiverade")}
           </label>
           <button>
             <Search
@@ -95,21 +114,31 @@ export default async function Customers({
               aria-hidden="true"
               focusable="false"
             />
-            Sök kunder
+            {t("Search customers", "Sök kunder")}
           </button>
         </form>
         {!result.customers.length ? (
           <section className="panel">
             <h2>
-              {value.q ? "Inga kunder matchar sökningen" : "Inga kunder ännu"}
+              {value.q
+                ? t("No matching customers", "Inga kunder matchar sökningen")
+                : t("No customers yet", "Inga kunder ännu")}
             </h2>
             <p>
               {value.q
-                ? "Prova ett kortare namn eller en annan sökning."
-                : "Skapa ditt första påhittade kundkort och boka en tid."}
+                ? t(
+                    "Try a shorter name or a different search.",
+                    "Prova ett kortare namn eller en annan sökning.",
+                  )
+                : t(
+                    "Create a fictional customer and book their first visit.",
+                    "Skapa ditt första påhittade kundkort och boka en tid.",
+                  )}
             </p>
             <Link href={value.q ? "/admin/customers" : "/admin/customers/new"}>
-              {value.q ? "Visa alla kunder" : "Skapa kund"}
+              {value.q
+                ? t("Show all customers", "Visa alla kunder")
+                : t("Create customer", "Skapa kund")}
             </Link>
           </section>
         ) : (
@@ -123,15 +152,15 @@ export default async function Customers({
                 <strong>{c.name}</strong>
                 <span>
                   {c.archived
-                    ? "Arkiverad"
+                    ? t("Archived", "Arkiverad")
                     : c.nextVisit
-                      ? `Nästa: ${formatBookingTime(c.nextVisit)}`
-                      : "Ingen kommande bokning"}
+                      ? `${t("Next:", "Nästa:")} ${formatBookingTime(c.nextVisit, locale)}`
+                      : t("No upcoming booking", "Ingen kommande bokning")}
                 </span>
                 <small>
                   {c.lastVisit
-                    ? `Tidigare bokning: ${formatBookingTime(c.lastVisit)}`
-                    : "Inga tidigare besök"}
+                    ? `${t("Previous booking:", "Tidigare bokning:")} ${formatBookingTime(c.lastVisit, locale)}`
+                    : t("No previous visits", "Inga tidigare besök")}
                 </small>
               </ContextLink>
             ))}
@@ -139,7 +168,7 @@ export default async function Customers({
         )}
         {result.nextCursor && (
           <Link className="quiet-button" href={`?${next}`}>
-            Nästa sida
+            {t("Next page", "Nästa sida")}
           </Link>
         )}
       </main>

@@ -7,6 +7,8 @@ import CalendarFilters from "./calendar-filters";
 import { layoutCalendarCards, type CardPlacement } from "./calendar-layout";
 import ContextLink from "../components/context-link";
 import { contextualHref, type ReturnContext } from "@/lib/navigation-context";
+import { getLocale } from "@/lib/locale-server";
+import { text } from "@/lib/locale";
 
 type CalendarBooking = {
   id: string;
@@ -17,7 +19,7 @@ type CalendarBooking = {
   customerName: string;
   status: string;
 };
-export default function Calendar({
+export default async function Calendar({
   date,
   view,
   staffId,
@@ -36,6 +38,8 @@ export default function Calendar({
   status: "confirmed" | "all";
   context?: ReturnContext;
 }) {
+  const locale = await getLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const hourHeight = 144;
   const selected = DateTime.fromISO(date, { zone: ZONE });
   const start = view === "week" ? selected.startOf("week") : selected;
@@ -51,7 +55,10 @@ export default function Calendar({
     ...knownPeople.map((p) => ({ id: p.id, name: p.name })),
     ...[...new Set(bookings.map((b) => b.staffId))]
       .filter((id) => !knownPeople.some((p) => p.id === id))
-      .map((id) => ({ id, name: "Tidigare utförare" })),
+      .map((id) => ({
+        id,
+        name: t("Former team member", "Tidigare utförare"),
+      })),
   ];
   const link = (nextDate: string, nextView = view, cursor?: string) =>
     contextualHref(
@@ -119,30 +126,40 @@ export default function Calendar({
     <>
       <div className="workspace-heading">
         <div>
-          <p className="eyebrow">Salongens arbetsdag</p>
-          <h1>Kalender</h1>
+          <p className="eyebrow">
+            {t("Your working day", "Salongens arbetsdag")}
+          </p>
+          <h1>{t("Calendar", "Kalender")}</h1>
         </div>
         <ContextLink
           className="button-link"
           href={`/admin/bookings/new?date=${date}${staffId ? `&staff=${encodeURIComponent(staffId)}` : ""}`}
         >
           <Plus size={18} aria-hidden="true" />
-          Ny bokning
+          {t("New booking", "Ny bokning")}
         </ContextLink>
       </div>
       <div className="workspace-guidance calendar-guidance">
         <details>
-          <summary>Så använder du kalendern</summary>
+          <summary>
+            {t("Using your calendar", "Så använder du kalendern")}
+          </summary>
           <p>
-            Öppna ett bokningskort för att flytta eller avboka. Välj Ny bokning
-            för att hitta en ledig tid åt en kund.
+            {t(
+              "Open an appointment to move or cancel it. Choose New booking to find a time for a customer.",
+              "Öppna ett bokningskort för att flytta eller avboka. Välj Ny bokning för att hitta en ledig tid åt en kund.",
+            )}
           </p>
         </details>
         {date === DateTime.now().setZone(ZONE).toISODate() && (
           <p>
             <strong>
               {bookings.filter((b) => b.status === "confirmed").length}
-              {nextCursor ? " +" : ""} bokningar i den visade perioden.
+              {nextCursor ? " +" : ""}{" "}
+              {t(
+                "bookings in this period.",
+                "bokningar i den visade perioden.",
+              )}
             </strong>{" "}
             {(() => {
               const next = bookings.find(
@@ -152,17 +169,21 @@ export default function Calendar({
               );
               return next ? (
                 <ContextLink href={bookingLink(next)}>
-                  Nästa besök:{" "}
+                  {t("Next visit:", "Nästa besök:")}{" "}
                   {readableDay(
                     DateTime.fromJSDate(next.startsAt, {
                       zone: ZONE,
                     }).toISODate()!,
+                    locale,
                   )}{" "}
-                  kl. {time(next.startsAt)} · {next.customerName} ·{" "}
+                  {time(next.startsAt)} · {next.customerName} ·{" "}
                   {next.serviceName}
                 </ContextLink>
               ) : (
-                "Inga fler kommande besök i den visade perioden."
+                t(
+                  "No more upcoming visits in this period.",
+                  "Inga fler kommande besök i den visade perioden.",
+                )
               );
             })()}
           </p>
@@ -174,11 +195,15 @@ export default function Calendar({
             className="quiet-button"
             href={link(DateTime.now().setZone(ZONE).toISODate()!)}
           >
-            Idag
+            {t("Today", "Idag")}
           </a>
           <a
             className="quiet-button desktop-navigation"
-            aria-label={view === "week" ? "Föregående vecka" : "Föregående dag"}
+            aria-label={
+              view === "week"
+                ? t("Previous week", "Föregående vecka")
+                : t("Previous day", "Föregående dag")
+            }
             href={link(
               selected.minus({ days: view === "week" ? 7 : 1 }).toISODate()!,
             )}
@@ -187,7 +212,11 @@ export default function Calendar({
           </a>
           <a
             className="quiet-button desktop-navigation"
-            aria-label={view === "week" ? "Nästa vecka" : "Nästa dag"}
+            aria-label={
+              view === "week"
+                ? t("Next week", "Nästa vecka")
+                : t("Next day", "Nästa dag")
+            }
             href={link(
               selected.plus({ days: view === "week" ? 7 : 1 }).toISODate()!,
             )}
@@ -196,22 +225,22 @@ export default function Calendar({
           </a>
           <a
             className="quiet-button mobile-navigation"
-            aria-label="Föregående dag"
+            aria-label={t("Previous day", "Föregående dag")}
             href={link(selected.minus({ days: 1 }).toISODate()!, "day")}
           >
             <ChevronLeft size={18} aria-hidden="true" />
           </a>
           <a
             className="quiet-button mobile-navigation"
-            aria-label="Nästa dag"
+            aria-label={t("Next day", "Nästa dag")}
             href={link(selected.plus({ days: 1 }).toISODate()!, "day")}
           >
             <ChevronRight size={18} aria-hidden="true" />
           </a>
           <strong>
             {view === "week"
-              ? `Vecka ${selected.weekNumber} · ${start.toFormat("d MMM", { locale: "sv" })}–${start.plus({ days: 6 }).toFormat("d MMM", { locale: "sv" })}`
-              : selected.toFormat("cccc d MMMM", { locale: "sv" })}
+              ? `${t("Week", "Vecka")} ${selected.weekNumber} · ${start.toFormat("d MMM", { locale })}–${start.plus({ days: 6 }).toFormat("d MMM", { locale })}`
+              : selected.toFormat("cccc d MMMM", { locale })}
           </strong>
         </div>
         <CalendarFilters
@@ -221,22 +250,28 @@ export default function Calendar({
           staff={staff.map(({ id, name, active }) => ({ id, name, active }))}
           status={status}
         />
-        <div className="calendar-views" aria-label="Kalendervy">
+        <div
+          className="calendar-views"
+          aria-label={t("Calendar view", "Kalendervy")}
+        >
           <a
             className={view === "day" ? "selected" : ""}
             href={link(date, "day")}
           >
-            Dag
+            {t("Day", "Dag")}
           </a>
           <a
             className={view === "week" ? "selected" : ""}
             href={link(date, "week")}
           >
-            Vecka
+            {t("Week", "Vecka")}
           </a>
         </div>
       </div>
-      <div className="mobile-calendar" aria-label="Dagens bokningar">
+      <div
+        className="mobile-calendar"
+        aria-label={t("Daily bookings", "Dagens bokningar")}
+      >
         {days.map((day) => {
           const items = bookings.filter(
             (b) =>
@@ -246,15 +281,21 @@ export default function Calendar({
           return (
             <section key={day.toISODate()}>
               {view === "week" && (
-                <h2>{day.toFormat("cccc d MMMM", { locale: "sv" })}</h2>
+                <h2>{day.toFormat("cccc d MMMM", { locale })}</h2>
               )}
               {!items.length ? (
                 <p className="empty-state">
-                  Inga bokningar {view === "week" ? "den här dagen" : "ännu"}.{" "}
+                  {t(
+                    "No bookings on this day.",
+                    `Inga bokningar ${view === "week" ? "den här dagen" : "ännu"}.`,
+                  )}{" "}
                   <ContextLink
                     href={`/admin/bookings/new?date=${day.toISODate()}`}
                   >
-                    Lägg in en bokning eller sök lediga tider.
+                    {t(
+                      "Add a booking or find an available time.",
+                      "Lägg in en bokning eller sök lediga tider.",
+                    )}
                   </ContextLink>
                 </p>
               ) : (
@@ -277,9 +318,11 @@ export default function Calendar({
                     <span>
                       {b.customerName} ·{" "}
                       {staff.find((p) => p.id === b.staffId)?.name ??
-                        "Tidigare medarbetare"}
+                        t("Former team member", "Tidigare medarbetare")}
                     </span>
-                    {b.status === "cancelled" && <span>Avbokad</span>}
+                    {b.status === "cancelled" && (
+                      <span>{t("Cancelled", "Avbokad")}</span>
+                    )}
                   </ContextLink>
                 ))
               )}
@@ -289,15 +332,21 @@ export default function Calendar({
       </div>
       {view === "week" && people.length > 1 && (
         <p className="desktop-calendar-help muted" id="calendar-help">
-          Välj en medarbetare för en samlad veckoöverblick. Med alla medarbetare
-          kan du rulla kalendern i sidled eller trycka på en dag för dagvyn.
+          {t(
+            "Choose one team member for a focused week view. With the whole team, scroll across or select a day to open its daily view.",
+            "Välj en medarbetare för en samlad veckoöverblick. Med alla medarbetare kan du rulla kalendern i sidled eller trycka på en dag för dagvyn.",
+          )}
         </p>
       )}
       <div
         className="desktop-calendar"
         data-calendar-scroll
         role="region"
-        aria-label={view === "week" ? "Veckokalender" : "Dagkalender"}
+        aria-label={
+          view === "week"
+            ? t("Week calendar", "Veckokalender")
+            : t("Day calendar", "Dagkalender")
+        }
         aria-describedby={
           view === "week" && people.length > 1 ? "calendar-help" : undefined
         }
@@ -309,11 +358,11 @@ export default function Calendar({
             gridTemplateColumns: `52px repeat(${days.length}, minmax(${Math.max(view === "week" ? 160 : 230, people.length * 160 + 8)}px, 1fr))`,
           }}
         >
-          <div className="calendar-axis-heading">Tid</div>
+          <div className="calendar-axis-heading">{t("Time", "Tid")}</div>
           {days.map((day) => (
             <div className="calendar-day-heading" key={day.toISODate()}>
               <a href={link(day.toISODate()!, "day")}>
-                {day.toFormat("ccc d/M", { locale: "sv" })}
+                {day.toFormat("ccc d/M", { locale })}
               </a>
               <div className="staff-headings">
                 {people.map((p) => (
@@ -372,7 +421,7 @@ export default function Calendar({
                   const placement = placements.get(b.id)!;
                   const person =
                     people.find((p) => p.id === b.staffId)?.name ??
-                    "Tidigare utförare";
+                    t("Former team member", "Tidigare utförare");
                   return (
                     <ContextLink
                       key={b.id}
@@ -399,7 +448,9 @@ export default function Calendar({
                       </strong>
                       <span>{b.serviceName}</span>
                       <span>{b.customerName}</span>
-                      {b.status === "cancelled" && <span>Avbokad</span>}
+                      {b.status === "cancelled" && (
+                        <span>{t("Cancelled", "Avbokad")}</span>
+                      )}
                     </ContextLink>
                   );
                 })}
@@ -409,12 +460,15 @@ export default function Calendar({
       </div>
       {!bookings.filter((b) => b.status === "confirmed").length && (
         <p className="desktop-empty">
-          Inga aktiva bokningar i den valda perioden.
+          {t(
+            "No active bookings in this period.",
+            "Inga aktiva bokningar i den valda perioden.",
+          )}
         </p>
       )}
       {status === "all" && bookings.some((b) => b.status === "cancelled") && (
         <section className="desktop-cancellations panel">
-          <h2>Avbokade bokningar</h2>
+          <h2>{t("Cancelled bookings", "Avbokade bokningar")}</h2>
           <ul className="event-list">
             {bookings
               .filter((b) => b.status === "cancelled")
@@ -433,8 +487,13 @@ export default function Calendar({
       )}
       {nextCursor && (
         <p className="pagination-notice">
-          Visar högst 100 bokningar per sida.{" "}
-          <a href={link(date, view, nextCursor)}>Nästa sida med bokningar</a>
+          {t(
+            "Showing up to 100 bookings per page.",
+            "Visar högst 100 bokningar per sida.",
+          )}{" "}
+          <a href={link(date, view, nextCursor)}>
+            {t("Next page of bookings", "Nästa sida med bokningar")}
+          </a>
         </p>
       )}
     </>

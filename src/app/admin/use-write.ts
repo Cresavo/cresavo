@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useLocale } from "../components/locale-provider";
+import { text } from "@/lib/locale";
 
 export function useWrite() {
   const request = useRef<{ payload: string; key: string } | null>(null);
@@ -57,6 +59,7 @@ export function useWrite() {
 }
 
 export function useUnsavedChanges(stateDirty?: boolean) {
+  const locale = useLocale();
   const dirty = useRef(false);
   const stateChanged = useRef(false);
   const formChanged = useRef(false);
@@ -99,7 +102,15 @@ export function useUnsavedChanges(stateDirty?: boolean) {
         url.hash
       )
         return;
-      if (window.confirm("Lämna sidan utan att spara ändringarna?")) {
+      if (
+        window.confirm(
+          text(
+            locale,
+            "Leave without saving your changes?",
+            "Lämna sidan utan att spara ändringarna?",
+          ),
+        )
+      ) {
         dirty.current = false;
       } else {
         event.preventDefault();
@@ -111,7 +122,7 @@ export function useUnsavedChanges(stateDirty?: boolean) {
       window.removeEventListener("beforeunload", warn);
       document.removeEventListener("click", navigation, true);
     };
-  }, []);
+  }, [locale]);
   return {
     markDirty: (event?: { currentTarget: EventTarget }) => {
       if (stateDirty !== undefined) return;

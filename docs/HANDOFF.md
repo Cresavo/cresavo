@@ -1,3 +1,24 @@
+# Pågående — premiumdemo, 2026-11-14
+
+Branch `design/international-agent-ready`, isolerad från `46b261a`.
+Ingen ny leveransrevision, push, Grok-granskning eller deployment ännu.
+Den befintliga skyddade previewn visar fortfarande tidigare produkt `9840309`.
+
+Implementerat: fotografisk engelsk Relay-landningssida med tydligt illustrerad
+agentinteraktion, gemensam engelska/svenska för befintliga boknings- och
+arbetsyteflöden, mörk desktopnavigation och ljusa arbetsytor. Ingen ändring av
+domänregler, databasmigrationer, MCP, autentisering eller beroenden.
+
+Lokalt klickprov: skapade `Premium Journey Demo` med `@example.test`, hittade
+bokningen i kalendern, flyttade 09:30 till 11:00 och avbokade. Historiken visar
+alla tre steg. Endast nya isolerade demodatabasen berördes. Mobil emulerad
+390px; fysisk iPhone inte testad. Den avbokade raden behålls som demo/bevis.
+
+Aktuella resultat och tidigare misslyckade körningar finns i VERIFICATION;
+full testmatris pågår. Nästa grindar är produktionsbilder, fryst separat
+Grok-QA, privat push/Actions och verifierad uppdatering av samma skyddade preview.
+Plan och acceptanskriterier: [PREMIUM_DEMO_PLAN](PREMIUM_DEMO_PLAN.md).
+
 <!-- POLISH_CURRENT_START -->
 # Handoff — UI-polering
 

@@ -1,6 +1,9 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale } from "../components/locale-provider";
+import { text } from "@/lib/locale";
+import { presentationError } from "@/lib/presentation-errors";
 export default function AdminActions({
   mode,
   id,
@@ -8,6 +11,8 @@ export default function AdminActions({
   mode: "login" | "publish" | "logout";
   id?: string;
 }) {
+  const locale = useLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const [message, setMessage] = useState("");
   const router = useRouter();
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -24,13 +29,15 @@ export default function AdminActions({
     });
     const data = await r.json();
     if (r.ok) router.refresh();
-    else setMessage(data.error);
+    else setMessage(presentationError(data.error, locale));
   }
   return (
     <form onSubmit={submit} className="mt-3">
       {mode === "login" && (
         <div className="mb-4">
-          <label htmlFor="email">E-post för administratör</label>
+          <label htmlFor="email">
+            {t("Administrator email", "E-post för administratör")}
+          </label>
           <input
             id="email"
             name="email"
@@ -38,7 +45,7 @@ export default function AdminActions({
             autoComplete="username"
             required
           />
-          <label htmlFor="password">Lösenord</label>
+          <label htmlFor="password">{t("Password", "Lösenord")}</label>
           <input
             id="password"
             name="password"
@@ -51,10 +58,10 @@ export default function AdminActions({
       )}
       <button>
         {mode === "login"
-          ? "Logga in"
+          ? t("Log in", "Logga in")
           : mode === "logout"
-            ? "Logga ut"
-            : "Publicera"}
+            ? t("Log out", "Logga ut")
+            : t("Publish", "Publicera")}
       </button>
       <p aria-live="polite">{message}</p>
     </form>

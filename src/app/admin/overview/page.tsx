@@ -5,12 +5,16 @@ import { DomainError, pageDataFailure } from "@/lib/errors";
 import AdminHeader from "../header";
 import CapacityOverview from "./overview";
 import ContextLink from "../../components/context-link";
+import { getLocale } from "@/lib/locale-server";
+import { text } from "@/lib/locale";
 export const dynamic = "force-dynamic";
 export default async function Overview({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const locale = await getLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const admin = await getAdminContext();
   if (!admin) redirect("/admin");
   const params = await searchParams;
@@ -49,17 +53,29 @@ export default async function Overview({
       <main className="admin-workspace overview-workspace">
         <div className="workspace-heading">
           <div>
-            <p className="eyebrow">Salongens arbetsdag</p>
-            <h1>Översikt</h1>
+            <p className="eyebrow">
+              {t("Your working day", "Salongens arbetsdag")}
+            </p>
+            <h1>{t("Overview", "Översikt")}</h1>
           </div>
           <ContextLink className="button-link" href="/admin">
-            Öppna kalendern
+            {t("Open calendar", "Öppna kalendern")}
           </ContextLink>
         </div>
         <p className="workspace-lead">
-          Lediga tider att ta hand om. Granska ett förslag och välj nästa steg.
+          {t(
+            "Opportunities in your schedule. Review a suggestion and choose the next step.",
+            "Lediga tider att ta hand om. Granska ett förslag och välj nästa steg.",
+          )}
         </p>
-        {invalid && <p role="alert">Ogiltigt sidval. Visar första sidan.</p>}
+        {invalid && (
+          <p role="alert">
+            {t(
+              "Invalid page. Showing the first page.",
+              "Ogiltigt sidval. Visar första sidan.",
+            )}
+          </p>
+        )}
         <CapacityOverview
           key={JSON.stringify(query)}
           initial={result}

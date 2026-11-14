@@ -7,6 +7,9 @@ import type {
 } from "@/lib/customer-data";
 import { useWrite } from "../use-write";
 import type { CustomerView } from "./editor";
+import { useLocale } from "../../components/locale-provider";
+import { text } from "@/lib/locale";
+import { presentationError } from "@/lib/presentation-errors";
 
 type ExportFile = Awaited<ReturnType<typeof exportCustomerData>>;
 type Preview = Awaited<ReturnType<typeof previewCustomerContactRemoval>>;
@@ -15,6 +18,8 @@ export default function CustomerDataPanel({
 }: {
   customer: CustomerView;
 }) {
+  const locale = useLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const router = useRouter(),
     { write, pending, message } = useWrite();
   const [file, setFile] = useState<ExportFile | null>(null);
@@ -88,37 +93,48 @@ export default function CustomerDataPanel({
       aria-labelledby="customer-data-heading"
       aria-busy={pending}
     >
-      <h2 id="customer-data-heading">Kunddata</h2>
+      <h2 id="customer-data-heading">{t("Customer data", "Kunddata")}</h2>
       <p>
-        Manuell hantering av påhittade uppgifter. Automatisk gallring är
-        avstängd.
+        {t(
+          "Manual management of fictional data. Automatic retention cleanup is off.",
+          "Manuell hantering av påhittade uppgifter. Automatisk gallring är avstängd.",
+        )}
       </p>
       <details>
-        <summary>Exportera kundkort och kopplade bokningar</summary>
+        <summary>
+          {t(
+            "Export customer and linked bookings",
+            "Exportera kundkort och kopplade bokningar",
+          )}
+        </summary>
         <p>
-          Exporten innehåller kontaktuppgifter och uttryckligen kopplade
-          bokningar, högst 100 per fil och 1000 totalt i POC:n. Fristående
-          bokningar, loggar och backups ingår inte.
+          {t(
+            "Includes contact details and explicitly linked bookings, up to 100 per file and 1,000 in this POC. Standalone bookings, logs and backups are excluded.",
+            "Exporten innehåller kontaktuppgifter och uttryckligen kopplade bokningar, högst 100 per fil och 1000 totalt i POC:n. Fristående bokningar, loggar och backups ingår inte.",
+          )}
         </p>
         <button
           type="button"
           disabled={pending}
           onClick={() => prepareExport()}
         >
-          Förbered export
+          {t("Prepare export", "Förbered export")}
         </button>
         {download && file && (
           <div className="export-ready" role="status">
             <p>
-              Del {download.part}: {file.bookings.length} av totalt{" "}
-              {file.totalLinkedBookings} kopplade bokningar.
+              {t(
+                `Part ${download.part}: ${file.bookings.length} of ${file.totalLinkedBookings} linked bookings.`,
+                `Del ${download.part}: ${file.bookings.length} av totalt ${file.totalLinkedBookings} kopplade bokningar.`,
+              )}
             </p>
             <a
               className="button-link"
               href={download.url}
               download={`booking-lab-kunddata-del-${download.part}.json`}
             >
-              Ladda ner kunddata, del {download.part}
+              {t("Download customer data, part", "Ladda ner kunddata, del")}{" "}
+              {download.part}
             </a>
             {file.nextCursor ? (
               <button
@@ -126,46 +142,56 @@ export default function CustomerDataPanel({
                 disabled={pending}
                 onClick={() => prepareExport(true)}
               >
-                Förbered nästa del
+                {t("Prepare next part", "Förbered nästa del")}
               </button>
             ) : (
-              <p>Detta är sista delen.</p>
+              <p>{t("This is the final part.", "Detta är sista delen.")}</p>
             )}
           </div>
         )}
       </details>
       {customer.contactRemovedAt || complete ? (
         <p role="status">
-          Kontaktuppgifterna är borttagna. Teknisk bokningshistorik finns kvar.
+          {t(
+            "Contact details removed. Technical booking history is retained.",
+            "Kontaktuppgifterna är borttagna. Teknisk bokningshistorik finns kvar.",
+          )}
         </p>
       ) : (
         <details>
-          <summary>Ta bort kontaktuppgifter</summary>
+          <summary>
+            {t("Remove contact details", "Ta bort kontaktuppgifter")}
+          </summary>
           <p>
-            Detta skiljer sig från arkivering. Namn, e-post och telefon på
-            kortet samt kontaktkopior i kopplade bokningar ersätts. Åtgärden kan
-            inte ångras här. Bokningarnas tider, priser, status och kopplingar
-            bevaras.
+            {t(
+              "Unlike archiving, this replaces the name, email and phone on the customer record and contact copies in linked bookings. You cannot undo this here. Booking times, prices, status and links are retained.",
+              "Detta skiljer sig från arkivering. Namn, e-post och telefon på kortet samt kontaktkopior i kopplade bokningar ersätts. Åtgärden kan inte ångras här. Bokningarnas tider, priser, status och kopplingar bevaras.",
+            )}
           </p>
           <p>
-            Fristående bokningar, nedladdade exporter, kampanjrubriker, loggar
-            och backups ändras inte. Kvarvarande historik är inte fullständigt
-            anonym.
+            {t(
+              "Standalone bookings, downloaded exports, campaign titles, logs and backups are unchanged. Retained history is not fully anonymous.",
+              "Fristående bokningar, nedladdade exporter, kampanjrubriker, loggar och backups ändras inte. Kvarvarande historik är inte fullständigt anonym.",
+            )}
           </p>
           <button type="button" disabled={pending} onClick={prepareRemoval}>
-            Förhandsgranska kontaktborttagning
+            {t("Preview contact removal", "Förhandsgranska kontaktborttagning")}
           </button>
           {preview && (
             <div className="contact-removal-preview">
-              <h3>Kontrollera omfattningen</h3>
+              <h3>{t("Review the scope", "Kontrollera omfattningen")}</h3>
               <p>
-                Ett kundkort och {preview.linkedBookings} direktkopplade
-                bokningar. Inga andra kunder ändras.
+                {t(
+                  `One customer and ${preview.linkedBookings} directly linked bookings. No other customers are changed.`,
+                  `Ett kundkort och ${preview.linkedBookings} direktkopplade bokningar. Inga andra kunder ändras.`,
+                )}
               </p>
               {preview.activeVisits > 0 && (
                 <p role="alert">
-                  Hantera {preview.activeVisits} kommande eller pågående
-                  bokningar först. Öppna dem under Besök.
+                  {t(
+                    `Handle ${preview.activeVisits} upcoming or ongoing bookings first. Open them under Visits.`,
+                    `Hantera ${preview.activeVisits} kommande eller pågående bokningar först. Öppna dem under Besök.`,
+                  )}
                 </p>
               )}
               {preview.canRemove && (
@@ -178,11 +204,18 @@ export default function CustomerDataPanel({
                       required
                       disabled={pending}
                     />{" "}
-                    Jag förstår omfattningen och vill ta bort
-                    kontaktuppgifterna.
+                    {t(
+                      "I understand the scope and want to remove the contact details.",
+                      "Jag förstår omfattningen och vill ta bort kontaktuppgifterna.",
+                    )}
                   </label>
                   <button className="danger" disabled={pending || !confirmed}>
-                    {pending ? "Tar bort…" : "Bekräfta kontaktborttagning"}
+                    {pending
+                      ? t("Removing…", "Tar bort…")
+                      : t(
+                          "Confirm contact removal",
+                          "Bekräfta kontaktborttagning",
+                        )}
                   </button>
                 </form>
               )}
@@ -192,7 +225,11 @@ export default function CustomerDataPanel({
       )}
       {message && (
         <p role="alert">
-          {message} Vid ändrat underlag: läs in sidan och förhandsgranska igen.
+          {presentationError(message, locale)}{" "}
+          {t(
+            "If the details have changed, reload the page and preview again.",
+            "Vid ändrat underlag: läs in sidan och förhandsgranska igen.",
+          )}
         </p>
       )}
     </section>

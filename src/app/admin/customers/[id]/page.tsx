@@ -14,6 +14,9 @@ import CustomerEditor from "../editor";
 import CustomerDataPanel from "../data-panel";
 import ContextLink, { ReturnLink } from "../../../components/context-link";
 import { returnContext, contextualHref } from "@/lib/navigation-context";
+import { getLocale } from "@/lib/locale-server";
+import { text } from "@/lib/locale";
+import { presentationError } from "@/lib/presentation-errors";
 export const dynamic = "force-dynamic";
 export default async function CustomerCard({
   params,
@@ -22,6 +25,8 @@ export default async function CustomerCard({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
+  const locale = await getLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
   const admin = await getAdminContext();
   if (!admin) redirect("/admin");
   const { id } = await params,
@@ -64,7 +69,8 @@ export default async function CustomerCard({
         <div className="workspace-heading customer-card-heading">
           <div>
             <p className="eyebrow">
-              Kundkort{customer.archived ? " · arkiverat" : ""}
+              {t("Customer profile", "Kundkort")}
+              {customer.archived ? t(" · archived", " · arkiverat") : ""}
             </p>
             <h1>{customer.name}</h1>
           </div>
@@ -76,22 +82,28 @@ export default async function CustomerCard({
                 aria-hidden="true"
                 focusable="false"
               />
-              Ny bokning
+              {t("New booking", "Ny bokning")}
             </ContextLink>
           )}
         </div>
         {raw.saved === "1" && !customer.contactRemovedAt && (
           <p role="status">
-            Kundkortet är sparat. Äldre bokningar är oförändrade.
+            {t(
+              "Customer saved. Previous bookings are unchanged.",
+              "Kundkortet är sparat. Äldre bokningar är oförändrade.",
+            )}
           </p>
         )}
         <section className="panel">
-          <h2>Aktuella uppgifter</h2>
+          <h2>{t("Contact details", "Aktuella uppgifter")}</h2>
           {customer.contactRemovedAt ? (
             <p>
-              Kontaktuppgifterna togs bort{" "}
-              {formatBookingTime(customer.contactRemovedAt)}. Kortet kan inte
-              återaktiveras.
+              {t("Contact details removed", "Kontaktuppgifterna togs bort")}{" "}
+              {formatBookingTime(customer.contactRemovedAt, locale)}.{" "}
+              {t(
+                "This profile cannot be reactivated.",
+                "Kortet kan inte återaktiveras.",
+              )}
             </p>
           ) : (
             <>
@@ -100,7 +112,9 @@ export default async function CustomerCard({
                 {customer.phone ? ` · ${customer.phone}` : ""}
               </p>
               <details>
-                <summary>Redigera kunduppgifter</summary>
+                <summary>
+                  {t("Edit customer details", "Redigera kunduppgifter")}
+                </summary>
                 <CustomerEditor
                   key={`${customer.id}-${customer.version}`}
                   customer={customer}
@@ -111,8 +125,11 @@ export default async function CustomerCard({
           )}
         </section>
         <section className="customer-visits">
-          <h2>Besök</h2>
-          <nav aria-label="Kundens besök" className="action-row">
+          <h2>{t("Visits", "Besök")}</h2>
+          <nav
+            aria-label={t("Customer visits", "Kundens besök")}
+            className="action-row"
+          >
             <Link
               href={contextualHref(
                 `/admin/customers/${encodeURIComponent(id)}?view=upcoming`,
@@ -120,7 +137,7 @@ export default async function CustomerCard({
               )}
               aria-current={value.view === "upcoming" ? "page" : undefined}
             >
-              Kommande
+              {t("Upcoming", "Kommande")}
             </Link>
             <Link
               href={contextualHref(
@@ -129,22 +146,34 @@ export default async function CustomerCard({
               )}
               aria-current={value.view === "history" ? "page" : undefined}
             >
-              Tidigare och avbokade
+              {t("Past and cancelled", "Tidigare och avbokade")}
             </Link>
           </nav>
           {!parsed.success && (
-            <p role="alert">Ogiltigt filter. Visar kommande besök.</p>
+            <p role="alert">
+              {t(
+                "Invalid filter. Showing upcoming visits.",
+                "Ogiltigt filter. Visar kommande besök.",
+              )}
+            </p>
           )}
-          {historyError && <p role="alert">{historyError}</p>}
+          {historyError && (
+            <p role="alert">{presentationError(historyError, locale)}</p>
+          )}
           {!result.bookings.length && (
             <div className="panel">
               <p>
                 {value.view === "upcoming"
-                  ? "Ingen kommande bokning."
-                  : "Inga tidigare eller avbokade besök."}
+                  ? t("No upcoming booking.", "Ingen kommande bokning.")
+                  : t(
+                      "No past or cancelled visits.",
+                      "Inga tidigare eller avbokade besök.",
+                    )}
               </p>
               {!customer.archived && (
-                <ContextLink href={newBooking}>Boka en tid</ContextLink>
+                <ContextLink href={newBooking}>
+                  {t("Book a visit", "Boka en tid")}
+                </ContextLink>
               )}
             </div>
           )}
@@ -154,28 +183,34 @@ export default async function CustomerCard({
                 <h3>{b.serviceName}</h3>
                 <span className="status-pill">
                   {b.status === "cancelled"
-                    ? "Avbokad"
+                    ? t("Cancelled", "Avbokad")
                     : new Date(b.startsAt) < new Date()
-                      ? "Tidigare bokning"
-                      : "Bokad"}
+                      ? t("Past booking", "Tidigare bokning")
+                      : t("Booked", "Bokad")}
                 </span>
               </div>
               <p>
-                {formatBookingTime(b.startsAt.toISOString())} ·{" "}
-                {formatPrice(b.priceOre)}
+                {formatBookingTime(b.startsAt.toISOString(), locale)} ·{" "}
+                {formatPrice(b.priceOre, locale)}
               </p>
-              <p>Registrerat namn vid bokning: {b.customerName}</p>
+              <p>
+                {t(
+                  "Name recorded at booking:",
+                  "Registrerat namn vid bokning:",
+                )}{" "}
+                {b.customerName}
+              </p>
               <div className="action-row">
                 <ContextLink
                   href={`/admin/bookings/${encodeURIComponent(b.id)}`}
                 >
-                  Öppna bokningen
+                  {t("Open booking", "Öppna bokningen")}
                 </ContextLink>
                 {!customer.archived && (
                   <ContextLink
                     href={`${newBooking}&service=${encodeURIComponent(b.serviceId)}&staff=${encodeURIComponent(b.staffId)}`}
                   >
-                    Boka återbesök
+                    {t("Book a return visit", "Boka återbesök")}
                   </ContextLink>
                 )}
               </div>
@@ -188,7 +223,7 @@ export default async function CustomerCard({
                 context,
               )}
             >
-              Fler besök
+              {t("More visits", "Fler besök")}
             </Link>
           )}
         </section>
