@@ -2,3 +2,4 @@
 THIRD_PARTY_NATIVE_NOTICES.txt -text
 docs/qa/*preview*.md -text
 docs/qa/QA-REPORT-premium-*.md text eol=lf
+docs/qa/QA-REPORT-mobile-story-*.md -text

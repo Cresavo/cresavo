@@ -1,5 +1,22 @@
 # Premiumdemo — skyddad preview levererad
 
+## Mobil bokningsdemo · skyddad preview levererad 14 november 2026
+
+Produktrevision `9a8350a7d68a0a14d7b345bca3e53f5ace76d823` på `design/mobile-booking-story`. På produktsidan illustrerar frågan kundens begäran. Svaret hämtar en bokningsbar tid. I den isolerade demodatabasen följde vi tiden 16.00 den 16 november från förval till bekräftelse och samma boknings-id i Elias kalender. [Bokningsprov](assets/mobile-story/booking-proof.json). I WebKit vid 320, 390 och 1440 px behöll bokningen samma förval och rymdes utan sidscroll. I Chromium gick alla tre returrutter tillbaka med rätt sammanhang och fokus. Förkortad mobilvy gav åtkomst till Spara, Avbryt och Stäng. På Sofias fullbokade måndag gav tillgänglighets-API:t noll tider. I WebKit ledde knappen för nästa lediga dag vidare till tolv tider på tisdagen. Fysisk iPhone återstår.
+
+[Öppna produktsidan](https://booking-lab-se-preview.vercel.app/product). Samma skyddade alias kör den [verifierade revisionen](assets/mobile-story/preview-final.json). Anonym åtkomst till HTML, API och resurser kräver Vercel-inloggning. Åtta datatabeller jämfördes före och efter leveransen, inklusive 94 bokningar. [Skydd](assets/mobile-story/preview-anonymous-alias.json) · [HTTP-kontroller](assets/mobile-story/preview-http-proof-alias.json) · [Datakontroll](assets/mobile-story/preview-db-proof.json).
+
+Alla fyra CI-jobb gav 62/62 webbtester vardera. Dessutom passerade 114 enhets-, 125 integrations- och 13 korttester. [CI-underlag](assets/mobile-story/ci-proof.json). Grok godkände de oberoende klickproven på den frysta slutrevisionen. [Originalrapport](qa/QA-REPORT-mobile-story-9a8350a.md). Exempelfrågan kan märkas tydligare och utförarens demosuffix bryts i svensk mobilvy. Vid framåtnavigering kan fokus landa på sidan. Begriplighet på fyra sekunder och fysisk iPhone med tangentbord behöver fortfarande bedömas av en människa.
+
+| Mobilbild vid 390 px | Före | Efter |
+| --- | --- | --- |
+| Produktsida | [Bild](assets/mobile-story/product-before.png) | [Bild](assets/mobile-story/product-after.png) |
+| Sofia med 14 bokningar | [Bild](assets/mobile-story/full-day-before.png) | [Bild](assets/mobile-story/full-day-after.png) |
+| Tillbaka från kundkortet | [Bild](assets/mobile-story/customer-return-before.png) | [Bild](assets/mobile-story/customer-return-after.png) |
+
+[Första skissen](assets/mobile-story/concept-question.png), [alternativ med avbokning först](assets/mobile-story/concept-day.png) och [Groks första bildläsning](assets/mobile-story/grok-first-reading.txt). Designvalen hämtade en idé per referens. Från Cal.com tog vi ett bokningsbart exempel, från Linear en retur till det man just arbetade med och från Raycast en tydlig primär handling. Originalets ljusa spegel gjorde texten svårläst. Bokningsflödet fick egen textyta och en direkt väg till den föreslagna tiden.
+
+
 ## Bred översikt · 14 november 2026
 
 [Öppna den skyddade översikten](https://booking-lab-se-preview.vercel.app/admin/overview). Produktrevision `4b02f26ae5240cc80c09bb71e4e7bb1688f0e9f5`, branch `design/international-agent-ready`. Tre kolumner från 1680 CSS-px, med innehållet centrerat bredvid sidomenyn. [Före](assets/premium/overview-4b02f26/overview-wide-before.png) och [driftsatt vid 2880 px](assets/premium/overview-4b02f26/cloud-overview.png).

@@ -1,5 +1,14 @@
 # Leverans — premiumdemo, 2026-11-14
 
+## Prova det mobila bokningsflödet
+
+[Öppna den skyddade demon](https://booking-lab-se-preview.vercel.app/product). För hela vägen till rätt kalenderdag, öppna först demoarbetsytan en gång i samma webbläsare. Demoinloggning från en ny session landar på standardkalendern. [Groks originalrapport](qa/QA-REPORT-mobile-story-9a8350a.md).
+
+Checka ut `design/mobile-booking-story` och använd projektets lokala demostart med en isolerad syntetisk databas. Öppna `/product`, följ **Try the booking demo**, kontrollera tid och utförare och bekräfta med en adress på `example.test`. Följ sedan **See this time in the demo calendar** med en behörig demosession. Öppna en bokning med kopplad kund, besök kundkortet och gå tillbaka två gånger. Datum och personalfilter ska finnas kvar. På mobilen ligger Översikt, Kalender och Kunder vid nederkanten.
+
+[Produktstatus och bildpar](PROJECT_STATUS.md) · [CI på produktrevisionen](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43578328177).
+
+
 ## Bred översikt · 14 november 2026
 
 [Öppna den skyddade översikten](https://booking-lab-se-preview.vercel.app/admin/overview). Produktrevision `4b02f26ae5240cc80c09bb71e4e7bb1688f0e9f5`, branch `design/international-agent-ready`. Tre kolumner från 1680 CSS-px, med innehållet centrerat bredvid sidomenyn. [Före](assets/premium/overview-4b02f26/overview-wide-before.png) och [driftsatt vid 2880 px](assets/premium/overview-4b02f26/cloud-overview.png).
