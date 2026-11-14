@@ -56,30 +56,35 @@ Repair and re-emit it without claiming a successful client render unseen.
 
 ## Current evidence
 
-- Base verified; clean existing worktree preserved; isolated branch created.
-- In progress: photographic English product page and labelled illustrative
-  assistant interaction; shared English/Swedish preference and presentation for
-  booking, calendar, customer lists/cards, services and staff. Remaining screens,
-  the final visual system and browser verification are not complete.
-- Isolated local `booking_premium_20261114_demo` created, ten migrations verified
-  current. Read-only counts: 78 bookings, 32 customers, six services, five staff.
-  Shared preview and local MCP data were not changed.
-- `npm ci` and Prisma generation passed. Latest completed unit run: 114/114 in
-  23 files; lint and typecheck passed. Locale-route tests initially failed because
-  Vitest lacked the app's `@` alias; resolving the existing source alias fixed the
-  test import. Targeted locale/navigation tests then passed 19/19.
-- Integration 125/125, build, unit 114/114, lint/typecheck and 13/13 agent-card
-  tests passed. Production web without proxy passed 62/62 after recorded fixes;
-  other three modes running. Full audit: seven moderate development findings,
-  production dependencies: zero. New Grok QA and deployment remain pending.
-  No new commit or push yet. These intermediate results do not certify a release.
-- Local browser evidence: English preference retained typed booking name;
-  authenticated calendar opened, day picker selected Monday 16 November;
-  at 390px a booking opened and its return link restored that same calendar day.
-  Measured viewport 390px, document scroll width 375px (no horizontal overflow).
-  Actual screenshots are in ignored `.vercel/premium-evidence/`; these are dev
-  captures, not production/demo release evidence. Physical Safari not tested.
-- Additional presentation implemented: midnight desktop navigation, cool light
-  workspace surfaces, bilingual capacity/campaign review and contact-data panel.
-  Safety scope and campaign validity descriptions retained. New local review
-  account only in the isolated demo database; credential stays in ignored storage.
+Frozen product: `5212b7afb439ec22e36116f226b6db504cc7c5c3`. Subsequent
+status edits are documentation only. Private product push and protected preview deployment verified.
+
+- Implemented English/Swedish customer and workspace presentation, dark Relay
+  product page, labelled interactive illustration, shared navigation and styles.
+- Synthetic demo database started with 78 bookings, 32 customers, six services
+  and five staff. Own browser test added one booking, moved and cancelled it,
+  then saved one unpublished campaign draft. Shared databases remain unchanged.
+- PASS: npm ci, Prisma generate, ten historical migrations and seed, lint,
+  typecheck, build, 114 unit, 125 integration, 13 agent-card harness tests,
+  and 62 web tests in each of four dev/production/proxy modes. Initial failures
+  and the unchanged dev timeout rerun are retained in VERIFICATION.
+- Actual local browser clicks cover booking, move, cancellation, history,
+  customer search return, team editor cancellation, and capacity-to-draft.
+  Screenshots include production desktop and emulated mobile, plus old cloud
+  preview before-images. Physical iPhone/Safari remains NOT RUN.
+- Full audit: seven moderate development findings; production: zero. No new
+  dependency, risky override or business-rule change.
+- Grok verified the frozen source archive and reviewed it in a separate
+  synthetic copy. Initial scoped GO received, zero correction rounds used. Original hash verified.
+- The standalone motion fragment works in a browser. Its inline host rendering
+  is not yet confirmed; re-emitting a path is not proof of a repaired host read.
+- Full CI run 43546809210 passed all four jobs on the exact pushed SHA; the protected preview was verified. See DEMO.md.
+
+## Accepted scoped-QA backlog
+
+PR-QA-1: hero navigation contrast over the photograph at 1440px.
+PR-QA-2: use unambiguous English month names in history timestamps.
+PR-QA-3: explicit E2E_PRODUCTION parsing rather than truthiness (existing).
+PR-QA-4/5: clarify English-only product page selector and a few action labels.
+No new fix loop is started for these Low/Info findings. Exact evidence,
+reproduction and limitations remain in the unmodified QA original.

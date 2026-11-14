@@ -1,13 +1,18 @@
-# Pågående premiumdemo — ännu inte levererad
+# Premiumdemo — skyddad preview levererad
 
-2026-11-14: `design/international-agent-ready`, ocommittad från `46b261a`.
+**[Öppna den skyddade premiumdemon](https://booking-lab-se-preview.vercel.app/product)**. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43546809210): 62/62 webbtester i vart och ett av fyra gröna jobb. [Driftbevis](assets/premium/preview-final.json), [CI-loggarnas kontrollsummor](assets/premium/ci-final-proof.json) och [Groks original](qa/QA-REPORT-premium-5212b7a.md).
+
+Vercel `dpl_<redacted>`, fra1. Fast alias och immutable preview kontrollerades: anonyma HTML/API/resurser stoppades; behörig Vercel-session utan appinloggning fick 403 för admin-API. Direktport 3000 gick inte att nå. Egen Chrome-klick: öppna demoadmin utan extra lösenord, välj gårdagens bokningar och läs bokningsdetaljen. [Alla åtta datatabeller oförändrade](assets/premium/preview-db-proof.json), inklusive 94 bokningar. Ingen mainmerge. Pilot och fysisk Safari ej godkända.
+
+2026-11-14: `design/international-agent-ready`, produkt `5212b7a` från `46b261a`.
 Engelsk fotografisk landningssida, språkval och sammanhängande arbetsytestil
 är implementerade lokalt. Bokning → kalender → flytt → avbokning har provats
 med en ny syntetisk bokning i isolerad demo, inklusive bevarad historik.
-Unit 114, integration 125, agentkort 13 och produktion/proxy0 62 passerade;
-övrig matris pågår. Audit har fortfarande 7 moderate dev, produktion 0.
-Grok och deployment är inte godkända för denna kod ännu. Tidigare leverans
-nedan gäller fortsatt befintlig preview. Se VERIFICATION och PREMIUM_DEMO_PLAN.
+Unit 114, integration 125, agentkort 13 och 62 webbtester i alla fyra lägen
+passerade. Ett tidigare dev-timeoutfel redovisas i VERIFICATION; inga gränser
+sänktes eller timeoutvärden höjdes. Audit har fortfarande 7 moderate dev, produktion 0.
+Grok scoped GO på samma SHA: 139 egna Chromium-kontroller, inga Medium/High.
+[Groks originalrapport](qa/QA-REPORT-premium-5212b7a.md). Privat push och alla fyra CI-jobb klara; skyddad preview verifierad. Tidigare leverans nedan är historik. Se VERIFICATION och PREMIUM_DEMO_PLAN.
 
 <!-- POLISH_CURRENT_START -->
 # Projektstatus — UI-polering

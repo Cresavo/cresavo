@@ -1,8 +1,16 @@
-# Pågående — premiumdemo, 2026-11-14
+# Leverans — premiumdemo, 2026-11-14
+
+**[Öppna den skyddade premiumdemon](https://booking-lab-se-preview.vercel.app/product)**. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43546809210): 62/62 webbtester i vart och ett av fyra gröna jobb. [Driftbevis](assets/premium/preview-final.json), [CI-loggarnas kontrollsummor](assets/premium/ci-final-proof.json) och [Groks original](qa/QA-REPORT-premium-5212b7a.md).
+
+Vercel `dpl_<redacted>`, fra1. Fast alias och immutable preview kontrollerades: anonyma HTML/API/resurser stoppades; behörig Vercel-session utan appinloggning fick 403 för admin-API. Direktport 3000 gick inte att nå. Egen Chrome-klick: öppna demoadmin utan extra lösenord, välj gårdagens bokningar och läs bokningsdetaljen. [Alla åtta datatabeller oförändrade](assets/premium/preview-db-proof.json), inklusive 94 bokningar. Ingen mainmerge. Pilot och fysisk Safari ej godkända.
 
 Branch `design/international-agent-ready`, isolerad från `46b261a`.
-Ingen ny leveransrevision, push, Grok-granskning eller deployment ännu.
-Den befintliga skyddade previewn visar fortfarande tidigare produkt `9840309`.
+Fryst produktrevision `5212b7afb439ec22e36116f226b6db504cc7c5c3`.
+Grok har lämnat scoped GO för syntetisk lokal demo, inga Medium/High.
+[Groks originalrapport](qa/QA-REPORT-premium-5212b7a.md); originalets SHA256 är verifierad. Noll rättningsvarv använda.
+Produkten är privat pushad; Actions 43546809210 har fyra gröna ben på exakt SHA.
+Skyddad preview är uppdaterad. Senare dokumentation ändrar inte koden.
+Föregående previewrevision var `9840309`.
 
 Implementerat: fotografisk engelsk Relay-landningssida med tydligt illustrerad
 agentinteraktion, gemensam engelska/svenska för befintliga boknings- och
@@ -14,9 +22,21 @@ bokningen i kalendern, flyttade 09:30 till 11:00 och avbokade. Historiken visar
 alla tre steg. Endast nya isolerade demodatabasen berördes. Mobil emulerad
 390px; fysisk iPhone inte testad. Den avbokade raden behålls som demo/bevis.
 
+Den egna avbokningen gav också ett verkligt kapacitetsförslag. I lokal
+produktionswebb sparades ett 15-procentigt kampanjutkast för samma tjänst/dag;
+kampanjvyn visade utkastet som opublicerat och omfattningen var uttrycklig.
+Kundkortets retur behöll sökningen; mobil teamvy 390px hade ingen sidscroll
+och Avbryt lämnade formuläret utan sparning. Produktionsbilder ligger separat
+från tidigare dev-bilder i `.vercel/premium-evidence/`.
+
+Motion-fragmentets JS, tidsval, återspelning och 390px-bredd passerade lokal
+Chromium-kontroll. Referensen har återgetts med absolut framåtslash-sökväg.
+Värdens faktiska inline-rendering är fortfarande inte verifierad: Windows-
+fönstret gav bara tomma regioner och skärmbildsanropet fick timeout.
+
 Aktuella resultat och tidigare misslyckade körningar finns i VERIFICATION;
-full testmatris pågår. Nästa grindar är produktionsbilder, fryst separat
-Grok-QA, privat push/Actions och verifierad uppdatering av samma skyddade preview.
+alla fyra webbtestlägen passerade 62/62. Produktionsbilder finns och fryst separat
+Grok-QA är klar. Full Actions och samma skyddade preview är verifierade.
 Plan och acceptanskriterier: [PREMIUM_DEMO_PLAN](PREMIUM_DEMO_PLAN.md).
 
 <!-- POLISH_CURRENT_START -->

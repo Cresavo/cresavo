@@ -1,7 +1,15 @@
-# Aktuell verifiering — premiumdemo (pågående)
+# Aktuell verifiering — premiumdemo
 
-2026-11-14, `design/international-agent-ready`, ocommittad arbetskopia från
-46b261a. Ingen ny Grok-QA, CI, push eller previewdeployment ännu.
+**[Öppna den skyddade premiumdemon](https://booking-lab-se-preview.vercel.app/product)**. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43546809210): 62/62 webbtester i vart och ett av fyra gröna jobb. [Driftbevis](assets/premium/preview-final.json), [CI-loggarnas kontrollsummor](assets/premium/ci-final-proof.json) och [Groks original](qa/QA-REPORT-premium-5212b7a.md).
+
+Vercel `dpl_<redacted>`, fra1. Fast alias och immutable preview kontrollerades: anonyma HTML/API/resurser stoppades; behörig Vercel-session utan appinloggning fick 403 för admin-API. Direktport 3000 gick inte att nå. Egen Chrome-klick: öppna demoadmin utan extra lösenord, välj gårdagens bokningar och läs bokningsdetaljen. [Alla åtta datatabeller oförändrade](assets/premium/preview-db-proof.json), inklusive 94 bokningar. Ingen mainmerge. Pilot och fysisk Safari ej godkända.
+
+2026-11-14, `design/international-agent-ready`, produktrevision
+`5212b7afb439ec22e36116f226b6db504cc7c5c3` från 46b261a.
+Grok scoped GO på samma SHA; [Groks originalrapport](qa/QA-REPORT-premium-5212b7a.md). Original SHA256:
+`864d63737d7caaf556b34e4eeb48a99da8534ca29e80f30f37eb0e0c67c86dda`.
+Privat push klar. Full Actions 43546809210 verifierad på exakt produkt-SHA.
+Skyddad preview levererad. Senare ändringar här är dokumentation.
 
 | Kontroll | Faktiskt resultat |
 | --- | --- |
@@ -9,15 +17,19 @@
 | npx tsc --noEmit / npm run lint | PASS |
 | npm test | PASS 114/114, 23 filer |
 | prisma migrate deploy / seed, ny booking_premium_20261114_test | PASS, 10 historiska migrationer |
-| vitest --config vitest.integration.config.ts | PASS 125/125, 26 filer, 122,46 s |
+| vitest --config vitest.integration.config.ts | PASS 125/125, 26 filer; slutkörning på 5212b7a: 125,26 s |
+| Slutlig read-only städkontroll på testdatabasen | PASS: 0 bokningar, kunder, kampanjer, admins och sessioner |
 | next build | PASS efter korrigerad kommandostart (se nedan) |
-| Playwright, produktion utan proxy, första körningen | FAIL 9 / PASS 53 av 62, 3,8 min; åtgärder/omkörning pågår |
+| Playwright, produktion utan proxy, första körningen | FAIL 9 / PASS 53 av 62, 3,8 min; rättad, slutmatris nedan |
 | Playwright, produktion utan proxy, efter rättningar | PASS 62/62, 2,2 min |
 | Playwright, produktion med proxy, efter rättningar | PASS 62/62, 2,1 min |
 | Agentkort, playwright.agent-workday.config.ts | PASS 13/13, 35,2 s; testvärd, inte fysisk klient |
 | npm audit --json | FAIL: 7 moderate dev, 0 high/critical; ingen override/uppgradering |
 | npm audit --omit=dev --json | PASS: 0 fynd |
-| Dev utan/med proxy | Pågående; E2E_PRODUCTION helt borttagen |
+| Dev med proxy, E2E_PRODUCTION helt borttagen | PASS 62/62, 4,2 min |
+| Första verkliga dev/proxy0 | FAIL 1, PASS 61/62 (7,1 min), timeout i workspace-samtidighetstestets sidladdning |
+| Samma avgränsade dev-test utan kod-/timeoutändring | PASS 1/1, själva testet 4,7 s (29,1 s inklusive serverstart) |
+| Full dev/proxy0 efter riktad felsökning, oförändrad kod | PASS 62/62, 4,6 min |
 
 Testmiljön laddas från ignorerad `.vercel/premium-test.env`. Byggkommandot
 startas med `process.loadEnvFile` och `spawnSync(node, [next, build])` så att
@@ -30,6 +42,17 @@ dev-ben. Befintlig konfiguration testar truthiness, så även de körde produkti
 borttagen. Ursprungliga loggar behålls med sina felaktiga filnamn; separata
 `premium-actual-dev-proxy*.log` och `premium-dev-matrix.json` visar rätt körning.
 
+Första verkliga dev-felets trace: POST tog 10,4 s; efterföljande page.goto till
+bokningsdetaljen avbröts efter 46,8 s av testets oförändrade 60 s-gräns.
+Ingen dubbelbokningsassertion föll. Riktad omkörning passerade och Next varnade
+för långsamt filsystem (493 ms benchmark). Orsaken är inte säkert fastställd;
+originaltrace sparad som `.vercel/premium-dev-first-timeout.zip`. Fulla dev-ben
+har därefter passerat, loggar `premium-dev0-final.log` och `premium-dev1-final.log`.
+
+Slutliga båda dev-ben har nu PASS. Alla fyra webbkonfigurationer täcker 62
+tester vardera på produktkoden i 5212b7a. Den genererade next-env-filen växlade
+till .next/dev vid dev-körning och är återställd till den committade build-varianten.
+
 Första webbsvitens fel: fyra inaktuella landningssideassertioner, två HTTP-
 språkantaganden, två svenska bekräftelser som tappat ”kl.”, och ett mobiltest
 för returposition (1120 väntat, 1108 faktiskt). Bekräftelsen har rättats och
@@ -38,7 +61,7 @@ felet reproducerades även med oberoende mätning vid klicket. `pagehide` skrev
 över den uttryckligt sparade returpositionen efter mobilens scrolljustering.
 ContextLink bevarar nu klickets position; pagehide sparar fortsatt position för
 annan navigation. Produktionsbygge PASS och exakt returtest PASS 2/2 på desktop
-och mobil efter rättningen. Full fyrfältsmatris körs därefter separat.
+och mobil efter rättningen. Full fyrfältsmatris har därefter passerat, se aktuell tabell.
 Ursprungliga spår
 bevarade i ignorerad `.vercel/premium-first-e2e-failures/`.
 

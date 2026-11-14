@@ -1,0 +1,74 @@
+{
+  "revision": "5212b7afb439ec22e36116f226b6db504cc7c5c3",
+  "sourceMatchesCommittedProduct": true,
+  "physicalIphone": false,
+  "productionPort": 3210,
+  "developmentPort": 3208,
+  "data": "isolated synthetic booking_premium_20261114_demo",
+  "images": [
+    {
+      "name": "calendar-mobile-390.png",
+      "capturedAt": "2026-11-14T01:28:52.775Z",
+      "mode": "development",
+      "sha256": "04d15f89ec98f602928a3f43a1506797579ad29d404ca5ada7eda85f35826623"
+    },
+    {
+      "name": "customer-mobile-production.png",
+      "capturedAt": "2026-11-14T02:06:40.509Z",
+      "mode": "production",
+      "sha256": "fe733104d20b91283e7b062a8a9b54d3479588f59c9524a3a603f241893325ed"
+    },
+    {
+      "name": "english-booking-confirmation-dev.png",
+      "capturedAt": "2026-11-14T01:52:40.680Z",
+      "mode": "development",
+      "sha256": "f660eb8e1a4e03a88d45b9a29e9e26f012de02f8d05b2a9ca201d68e4068172f"
+    },
+    {
+      "name": "overview-desktop-production.png",
+      "capturedAt": "2026-11-14T01:57:36.338Z",
+      "mode": "production",
+      "sha256": "07eb5101bb6b2460eccb773cb792c5db11d6ae8ea6a5c97386fa438dc578c40f"
+    },
+    {
+      "name": "product-desktop-production.png",
+      "capturedAt": "2026-11-14T01:57:21.198Z",
+      "mode": "production",
+      "sha256": "810a45c09c6539a7d470e9c52577850c2df6ca3eba7c835f67756b7bacf1cb10"
+    },
+    {
+      "name": "team-mobile-production.png",
+      "capturedAt": "2026-11-14T02:07:04.896Z",
+      "mode": "production",
+      "sha256": "be4ea96d7736617965ec55966b1e739d67aac2797fdd416a9016f5fba1b75822"
+    },
+    {
+      "name": "before-overview-cloud-9840309.png",
+      "capturedAt": "2026-11-14T02:16:38.377596+00:00",
+      "mode": "protected-cloud-production",
+      "revision": "9840309df4d8addc3e4bf5f6c5da0f3802eb4a2d",
+      "sha256": "f20f7ee1ac98f711ad958d3be934abc7a8062e161658ccf3bb0afa71d40da045"
+    },
+    {
+      "name": "before-product-cloud-9840309.png",
+      "capturedAt": "2026-11-14T02:17:12.575028+00:00",
+      "mode": "protected-cloud-production",
+      "revision": "9840309df4d8addc3e4bf5f6c5da0f3802eb4a2d",
+      "sha256": "f4b0aeb4aa31f72da1edadaa1e6f08d0127c8e29dc37d7dc419ec7b975f7aa03"
+    },
+    {
+      "name": "product-cloud-5212b7a.png",
+      "capturedAt": "2026-11-14T02:43:06.838122+00:00",
+      "mode": "protected-cloud-preview",
+      "revision": "5212b7afb439ec22e36116f226b6db504cc7c5c3",
+      "sha256": "85b63eb5d9d0406d727030b5da7977dfeb83fe32b123a5ad48a19cd56e5439e8"
+    },
+    {
+      "name": "calendar-cloud-5212b7a.png",
+      "capturedAt": "2026-11-14T02:43:53.616478+00:00",
+      "mode": "protected-cloud-preview",
+      "revision": "5212b7afb439ec22e36116f226b6db504cc7c5c3",
+      "sha256": "1cd02a61aad4ac4a56a7ac5bd1f8f8e599c0e52ade27bb205773bab496b644fa"
+    }
+  ]
+}

@@ -1,3 +1,50 @@
+# Prova Booking Labs premiumdemo
+
+**[Öppna produkten](https://booking-lab-se-preview.vercel.app/product)** · [Kundbokning](https://booking-lab-se-preview.vercel.app/) · [Arbetsytan](https://booking-lab-se-preview.vercel.app/admin/overview).
+Vercel-inloggning vid behov, sedan **Open demo workspace**. Endast syntetiska uppgifter.
+Verifierad previewrevision `5212b7afb439ec22e36116f226b6db504cc7c5c3`, branch `design/international-agent-ready`.
+[Driftsatt produktsida](assets/premium/product-cloud-5212b7a.png) och [driftsatt kalender](assets/premium/calendar-cloud-5212b7a.png) är faktiska Chrome-bilder.
+Fredag 13 november 2026 visar en fylld exempelkalender; en stängd helgdag kan vara tom.
+
+## Fem sammanhängande prov
+
+1. Öppna produktsidan, spela upp illustrationen och välj en tid. Illustrationen
+   skapar ingen bokning. Fortsätt via länken till den verkliga kundbokningen.
+2. Välj behandling, utförare, dag och tid utan att skriva datum. Växla English/
+   Svenska och kontrollera att inskrivet namn finns kvar. Bekräfta med testdata.
+3. Öppna bokningen i Calendar, flytta den, kontrollera historiken och avboka.
+   Återgå till samma kalenderdag och personalfilter.
+4. Sök i Customers, öppna kundkortet och återgå till samma sökning. Öppna Team
+   and schedules under Business, granska en medarbetare och avbryt utan sparande.
+5. Granska en bokningsbar avbokning i Overview och förbered ett kampanjutkast.
+   Kontrollera att hela tjänstens datumintervall framgår; utkastet publiceras inte.
+
+## Riktiga bilder
+
+Före-bilderna är från den tidigare skyddade molnrevisionen; efter-bilderna är
+från den nya lokala produktionen med separat syntetisk databas. De visar samma
+sidor men inte identiska data eller samma driftmiljö. Metadata och SHA256:
+[bildmanifest](assets/premium/manifest.json). Mobilbilder är emulering, inte fysisk iPhone.
+
+| Vy | Före | Efter |
+| --- | --- | --- |
+| Produktsida | [9840309](assets/premium/before-product-cloud-9840309.png) | [5212b7a, lokal produktion](assets/premium/product-desktop-production.png) |
+| Översikt | [9840309](assets/premium/before-overview-cloud-9840309.png) | [5212b7a, lokal produktion](assets/premium/overview-desktop-production.png) |
+
+Övrigt: [kundkort mobil](assets/premium/customer-mobile-production.png),
+[personal mobil](assets/premium/team-mobile-production.png),
+[kalender mobil, dev](assets/premium/calendar-mobile-390.png),
+[bokningsbekräftelse, dev](assets/premium/english-booking-confirmation-dev.png).
+
+Den infogade motion-visualiseringen fungerar som fristående interaktion men
+värdklientens tidigare läsfel är ännu inte verifierat löst. Produktens egen
+illustration fungerar oberoende av den. Fysisk iPhone och produktägarens
+slutliga UX-godkännande återstår.
+
+---
+
+## Föregående leverans
+
 <!-- POLISH_CURRENT_START -->
 # Prova den polerade arbetsytan
 
