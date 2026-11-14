@@ -148,6 +148,12 @@ it("official A2A client discovers, requests times and confirms exactly one booki
       }),
     ).toBe(1);
     expect(
+      await db.bookingEvent.findFirstOrThrow({
+        where: { bookingId: booked.id, action: "create" },
+        select: { actorKind: true, actorId: true },
+      }),
+    ).toEqual({ actorKind: "public", actorId: "local-a2a-demo-channel:v1" });
+    expect(
       (await send({ ...input, start: result.slots[1] })).error.status,
     ).toBe(409);
     expect(

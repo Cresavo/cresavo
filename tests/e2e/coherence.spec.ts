@@ -2,9 +2,87 @@ import { test, expect } from "./fixtures";
 import { chooseDay } from "./date-controls";
 import { DateTime } from "luxon";
 import { createDatabaseClient } from "../../scripts/database.mjs";
-import { createBooking } from "../../src/lib/domain";
+import { createBooking, getAvailability } from "../../src/lib/domain";
 import { moveBooking } from "../../src/lib/booking-mutations";
 import { LOCAL_WORKSPACE_ACTOR } from "../../src/lib/workspace-write";
+
+test("historiken skiljer lokalt A2A-prov från publik bokning utan att skriva om äldre händelser", async ({
+  page,
+  synthetic,
+}, testInfo) => {
+  const login = await page.request.post("/api/admin/login", {
+    headers: { origin: "http://localhost:3000" },
+    data: { email: synthetic.admin.email, password: synthetic.admin.password },
+  });
+  expect(login.status()).toBe(200);
+  synthetic.trackSession(login.headers()["set-cookie"] ?? "");
+  let day = DateTime.now().setZone("Europe/Stockholm").plus({ days: 24 });
+  while (day.weekday > 5) day = day.plus({ days: 1 });
+  const db = createDatabaseClient();
+  try {
+    for (const [channel, label] of [
+      ["public-history-demo", "Kund- eller bokningskanal"],
+      ["a2a:local-customer-demo:v1", "Lokalt A2A-prov"],
+    ]) {
+      const slots = await getAvailability(
+        "massage",
+        day.toISODate()!,
+        undefined,
+        "staff-demo",
+      );
+      expect(slots.length).toBeGreaterThan(0);
+      const booking = await createBooking(
+        {
+          serviceId: "massage",
+          staffId: "staff-demo",
+          start: slots[0],
+          customerName: "Syntetiskt historikprov",
+          customerEmail: `${synthetic.marker}@example.test`,
+          // Payload claims cannot choose the server-owned history channel.
+          actorKind: "local-a2a",
+          clientAddress: "a2a:local-customer-demo:v1",
+        },
+        undefined,
+        channel,
+      );
+      await page.goto(`/admin/bookings/${booking.id}`);
+      await page.getByText("Historik", { exact: true }).click();
+      await expect(page.locator(".event-list")).toContainText(label);
+      const original = await db.bookingEvent.findFirstOrThrow({
+        where: { bookingId: booking.id },
+      });
+      if (channel === "public-history-demo")
+        expect(original.actorKind).toBe("public");
+      else {
+        expect(original.actorKind).toBe("public");
+        expect(original.actorId).toBe("local-a2a-demo-channel:v1");
+        await page.screenshot({
+          path: testInfo.outputPath("local-a2a-history.png"),
+          fullPage: true,
+        });
+        await page
+          .context()
+          .addCookies([
+            {
+              name: "booking-locale",
+              value: "en",
+              url: "http://localhost:3000",
+            },
+          ]);
+        await page.reload();
+        await page.getByText("History", { exact: true }).click();
+        await expect(page.locator(".event-list")).toContainText(
+          "Local A2A demo",
+        );
+      }
+      expect(
+        await db.bookingEvent.findUniqueOrThrow({ where: { id: original.id } }),
+      ).toEqual(original);
+    }
+  } finally {
+    await db.$disconnect();
+  }
+});
 
 test("kalender, bokning och kundkort behåller datum, filter, sökning och returposition", async ({
   page,

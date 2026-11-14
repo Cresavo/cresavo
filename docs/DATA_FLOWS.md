@@ -1,5 +1,16 @@
 # Datakarta för Booking Lab SE POC
 
+## Lokal A2A-kanaletikett · 14 november 2026
+
+Nya bokningar via den befintliga fasta A2A-demoingången lagrar
+local-a2a-demo-channel:v1 i befintligt BookingEvent.actorId, med actorKind public.
+Inga nya fält, migrationer, kontaktuppgifter eller mottagare.
+Värdet bestäms av serverns kanal, aldrig av bokningspayload. Befintlig
+behörig historik-HTML visar Lokalt A2A-prov/Local A2A demo; actorId visas inte.
+Det är en kanaletikett, inte verifierad mänsklig identitet eller agentmandat.
+Äldre public-händelser lämnas orörda; de kan inte säkert klassificeras i efterhand.
+HTTP-/MCP-svaren och WorkspaceActor-behörigheter är oförändrade.
+
 ## UI-returkontext och händelsekanal, 2026-11-13
 
 Interna adminlänkar kan bära ursprungsvy/filter/sökning i `returnTo`; detta kan

@@ -32,7 +32,7 @@ export default async function BookingPage({
     listStaff(undefined, true),
   ]).catch(pageDataFailure);
   // Presentation-only projection for authenticated HTML. Keep HTTP/MCP contracts
-  // and actor IDs unchanged; never infer who prompted an assistant.
+  // unchanged. Channel IDs stay server-side; never infer who prompted an assistant.
   const events = await db.bookingEvent
     .findMany({
       where: {
@@ -47,6 +47,7 @@ export default async function BookingPage({
         previousStart: true,
         nextStart: true,
         actorKind: true,
+        actorId: true,
       },
     })
     .catch(pageDataFailure);
@@ -86,10 +87,13 @@ export default async function BookingPage({
                       ? t("Business workspace", "Salongens arbetsyta")
                       : event.actorKind === "local-mcp"
                         ? t("Local agent connection", "Lokal agentanslutning")
-                        : t(
-                            "Customer or booking channel",
-                            "Kund- eller bokningskanal",
-                          )}
+                        : event.actorKind === "public" &&
+                            event.actorId === "local-a2a-demo-channel:v1"
+                          ? t("Local A2A demo", "Lokalt A2A-prov")
+                          : t(
+                              "Customer or booking channel",
+                              "Kund- eller bokningskanal",
+                            )}
                   </span>
                   {event.previousStart && event.nextStart && (
                     <span>

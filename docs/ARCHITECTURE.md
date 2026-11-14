@@ -534,8 +534,11 @@ Connection close, både med Content-Length och chunkad överföring.
 
 Kända avgränsningar för lokal syntetisk profil. Alla A2A-prov delar samma
 kundadress och kanal, inklusive högst tre bokningar per dag och e-post.
-Create-händelsen får befintlig kundkanals etikett public/booking-channel;
-A2A går att särskilja tekniskt genom dess clientKey-HMAC, inte i ägarens
-vanliga historiketikett. En särskild etikett är en senare additiv ändring
-av gemensam domän/presentation. Ingen mänsklig eller extern agentidentitet
+Efter uppföljningen14november får nya create-händelser actorKind public och
+actorId local-a2a-demo-channel:v1. Serveradapterns fasta kanal avgör etiketten,
+inte bokningspayload. Detta är endast historikmetadata: WorkspaceActor,
+kundlänkning, bokningsbudgetar och autentisering är oförändrade. Befintlig
+databas-CHECK behålls. Äldre händelser migreras inte och visar sin gamla etikett.
+Autentiserad historik projicerar kanal-id till Lokalt A2A-prov/Local A2A demo;
+rått actorId lämnas inte ut. Ingen mänsklig eller extern agentidentitet
 har verifierats genom den lokala bearer-profilen.

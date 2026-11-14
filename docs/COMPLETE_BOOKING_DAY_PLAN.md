@@ -1,5 +1,29 @@
 # En komplett bokningsdag — manuellt och via agenter
 
+## Uppföljning godkänd 14 november 2026
+
+Niclas bad genomföra de tre rekommenderade nästa stegen. Bas7998056,
+separat branch feature/agent-client-pilot-readiness. Bevara tidigare granskning.
+
+1. Kontrollera de verkliga Booking Lab-verktygen i den aktuella Codex-klienten.
+   Redovisa läsning och bokning separat. Ingen ny fjärranslutning, modellnyckel
+   eller utökad klientbehörighet följer av ett lyckat SDK-prov.
+2. Märk nya lokala A2A-bokningars skapandehändelse med tekniskt kanal-id och visa
+   Lokalt A2A-prov/Local A2A demo i befintlig skyddad bokningshistorik.
+   Befintlig public-aktörstyp består; ingen omskrivning av äldre historik, ingen utökning av WorkspaceActor eller
+   dess administrativa rättigheter. Webbens indata får inte välja kanaletikett.
+3. Samla aktuella pilotgrindar överst i PRIVACY_SECURITY, med faktisk befintlig
+   funktion, kvarvarande teknik och uttryckliga drift-/produktbeslut. Ingen
+   automatisk gallring, MFA/auth-omskrivning, kunddrift eller ny infrastruktur.
+
+Acceptans: samma A2A-retry ger samma bokning och exakt en korrekt märkt händelse;
+publik bokning och äldre händelser behåller etikett; skyddad historik visar rätt
+svensk/engelsk text på mobil/desktop. Verkliga klientanrop och begränsningar
+dokumenteras utan att likställas med fullständigt bokningsprov. Regressioner,
+lint/types/build och audit separat. Fryst Grok-QA, högst två samlade fixvarv,
+privat push och exakt Actions enligt befintligt leveransmandat. Ingen deploy
+behövs för enbart det lokala A2A-provet. Uppföljningen godkänner inte pilot.
+
 Godkänt av Niclas 14 november 2026 genom ”Kör denna nu”. Bas d015141 på
 backend/api-mcp-pilot-proof. Separat branch feature/complete-booking-day.
 Tidigare backendbevis dbe1e1f och Grok-GO återanvänds för oförändrad kod.

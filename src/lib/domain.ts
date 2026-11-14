@@ -383,11 +383,16 @@ export async function createBooking(
           bookingId: booking.id,
           action: "create",
           actorKind:
+            // These channel names come from server adapters, never booking input.
             actor?.kind ??
             (clientAddress === "mcp:local-booking-channel:v1"
               ? "local-mcp"
               : "public"),
-          actorId: actor?.id ?? "booking-channel",
+          actorId:
+            actor?.id ??
+            (clientAddress === "a2a:local-customer-demo:v1"
+              ? "local-a2a-demo-channel:v1"
+              : "booking-channel"),
           nextStart: booking.startsAt,
           nextEnd: booking.endsAt,
           nextStaffId: booking.staffId,

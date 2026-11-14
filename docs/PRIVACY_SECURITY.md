@@ -1,5 +1,27 @@
 # Integritets- och säkerhetsprinciper
 
+## Aktuella pilotgrindar · uppföljning 14 november 2026
+
+Denna sammanställning ersätter äldre nulägespåståenden nedan, inte deras
+historiska verifieringar. Fortsatt endast syntetisk POC, inga riktiga kunder.
+
+| Område | Finns och har tidigare testats | Kvar före pilot |
+| --- | --- | --- |
+| Adminidentitet | Individuella konton, serveråterkallelse, kontospärr och inloggningsskydd | Välja och verifiera MFA/återställning samt verklig provisionering; ingen ny auth byggs i uppföljningen |
+| Kunddata | Manuell begränsad export och kontaktborttagning, bevarad teknisk historik | Bestäm innehåll/ändamål, lagringstider och hantering av fristående bokningar, loggar, hashnycklar och backups; automatisk gallring förblir avstängd |
+| Drift | Skyddad syntetisk Vercel-preview, tidigare TLS/proxy- och backupbevis för den miljön | Verifiera separat tänkt pilotmiljö, driftansvar, återställning, incidentrutiner och leverantörs-/regionsbeslut; previewbevis godkänner inte kunddrift |
+| Agenter | Lokala snäva MCP-profiler och separat skyddat A2A-loopbackprov | Verklig klientbehörighet, mottagare och mänskligt mandat för riktiga uppgifter; ingen publik/fjärr-MCP eller A2A här |
+| Beroenden/licens | Tidigare audit 7 moderate dev, 0 produktionsfynd; AGPL och tredjepartsnotiser | Förnya risk-/distributionsbedömning och verifiera faktiska container/nativeartefakter före vald distribution |
+
+Nästa tekniska leveranser kan väljas från dessa grindar. Denna uppföljning
+inför varken MFA, bestämd lagringstid eller kundrättsligt beslutsunderlag.
+Sådana beslut kan inte utläsas ur en syntetisk testsvit. Äldre påståenden om
+delat lösenord eller helt saknad export beskriver tidigare revisioner.
+
+Kanal-id local-a2a-demo-channel:v1 beskriver endast serverns lokala demoingång, inte
+en verifierad person eller bevis för att en människa godkänt åtgärden.
+Den ger inga extra rättigheter och äldre händelser skrivs inte om.
+
 ## MCP-kortets lokala bokningsprov
 
 Separat opt-in, loopback-demodatabas, snäv SQL-roll och fast syntetisk kontakt;
