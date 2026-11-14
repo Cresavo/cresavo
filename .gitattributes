@@ -1,3 +1,4 @@
 # Preserve exact third-party notice and original preview-QA evidence bytes.
 THIRD_PARTY_NATIVE_NOTICES.txt -text
 docs/qa/*preview*.md -text
+docs/qa/QA-REPORT-premium-*.md text eol=lf

@@ -1,5 +1,12 @@
 # Leverans — premiumdemo, 2026-11-14
 
+## Bred översikt · 14 november 2026
+
+[Öppna den skyddade översikten](https://booking-lab-se-preview.vercel.app/admin/overview). Produktrevision `4b02f26ae5240cc80c09bb71e4e7bb1688f0e9f5`, branch `design/international-agent-ready`. Tre kolumner från 1680 CSS-px, med innehållet centrerat bredvid sidomenyn. [Före](assets/premium/overview-4b02f26/overview-wide-before.png) och [driftsatt vid 2880 px](assets/premium/overview-4b02f26/cloud-overview.png).
+
+[Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43573515733) gav 62 godkända webbtester i varje matrisjobb, 114 enhets-, 125 integrations- och 13 korttester. [Grok](qa/QA-REPORT-premium-f1-4b02f26.md) utförde 205 godkända Chromium-kontroller. Vid återgång bevaras scrollpositionen men tangentbordsfokus hamnar på sidan. Fysisk Safari återstår. [Verifierad deployment](assets/premium/overview-4b02f26/preview-final.json), [åtkomstskydd](assets/premium/overview-4b02f26/preview-anonymous-alias.json) och [datakontroll](assets/premium/overview-4b02f26/preview-db-proof.json). Codex öppnade demoarbetsytan och den färdigladdade översikten på det fasta aliaset.
+
+
 **[Öppna den skyddade premiumdemon](https://booking-lab-se-preview.vercel.app/product)**. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43546809210): 62/62 webbtester i vart och ett av fyra gröna jobb. [Driftbevis](assets/premium/preview-final.json), [CI-loggarnas kontrollsummor](assets/premium/ci-final-proof.json) och [Groks original](qa/QA-REPORT-premium-5212b7a.md).
 
 Vercel `dpl_<redacted>`, fra1. Fast alias och immutable preview kontrollerades: anonyma HTML/API/resurser stoppades; behörig Vercel-session utan appinloggning fick 403 för admin-API. Direktport 3000 gick inte att nå. Egen Chrome-klick: öppna demoadmin utan extra lösenord, välj gårdagens bokningar och läs bokningsdetaljen. [Alla åtta datatabeller oförändrade](assets/premium/preview-db-proof.json), inklusive 94 bokningar. Ingen mainmerge. Pilot och fysisk Safari ej godkända.
