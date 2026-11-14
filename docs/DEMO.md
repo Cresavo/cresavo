@@ -1,3 +1,76 @@
+<!-- POLISH_CURRENT_START -->
+# Prova den polerade arbetsytan
+
+**[Öppna Booking Lab](https://booking-lab-se-preview.vercel.app/admin).** Vercel vid behov → Öppna demoadmin.
+Demo – endast påhittade uppgifter. Inga betalningar eller utskick.
+
+Verifierat 2026-11-14. Branch **ui/salon-polish**, från 2c74a4b/produkt 51d54d4.
+Produkt, slutlig Grok-revision, CI och deploy: **9840309df4d8addc3e4bf5f6c5da0f3802eb4a2d**.
+Senare dokumentationscommit ändrar ingen produktkod. Main b000481 är orörd.
+[Samma skyddade preview](https://booking-lab-se-preview.vercel.app/admin), deployment `dpl_<redacted>`, fra1.
+Vercel-inloggning vid behov → **Öppna demoadmin**, inget andra lösenord.
+
+## Fem saker att prova
+
+1. **Orientera dig:** Översikt, Kalender och Kunder. På desktop sidomeny, på mobil tre
+   primära flikar; Salongen samlar tjänster/personal/kampanjer, Konto växlar läge.
+2. **Läs arbetsdagen:** Kalender → välj dag/personal → öppna en bokning.30 min-kort
+   är rymligare och färgerna stödjer personalnamnen. Mobil har läsbar agenda.
+3. **Gå in och tillbaka:** öppna Flytta, välj inget sparande, Avbryt och återgå till
+   samma datum/filter. Sök Mira i Kunder, öppna kort och gå tillbaka till sökningen.
+4. **Granska ett förslag:** Översikt visar vad som behöver beslut, är inaktuellt,
+   avfärdat eller redan har utkast. Om förslagen visar källa/tid vid behov.
+   Granska sparat utkast visar hela erbjudandets verkliga omfattning.
+5. **Kundboka:** Konto → kundbokningen. Välj behandling/utförare/dag/tid med tryck,
+   använd en helt syntetisk @example.test-adress och kontrollera sammanfattningen.
+   Hitta din bokning i admin; prova flytt/avbokning enbart på din egen demobokning.
+
+## Fem före → efter
+
+- Smal centrerad desktoplista → riktig arbetsyta med sidonavigation och använd bredd.
+- Små täta kalenderkort → mer tidshöjd, personaltoner och stabila klickytor.
+- Oordnade datum/filter → samlad kalenderkontroll med tydliga val.
+- En lång teknisk förslagslista → läsbara kort med verkliga statusar och handlingar.
+- Små mobilfält/tryckytor →16 px fält, tydliga knappar och bibehållen mobilagenda.
+
+## Bilder och bevis
+
+<local-state>/codex/booking-lab-polish-evidence/ innehåller riktiga bilder:
+before/ är äldre skyddad molnprodukt 51d54d4; cloud/ är slutlig984 på samma skyddade
+miljö. delivery-visual-manifest.json anger faktiskt pixelmått/format/SHA/hash för
+varje bild. Lokala after/-bilder är268, f1/ är före F1-commit med verifierat källinnehåll,
+f2/ är984; dessa märks var för sig och kallas inte slutlig molndrift.
+Vyerna är Chromium/emulering, inte fysisk iPhone. Ingen ny video i fixrundorna.
+[Tester/NOT RUN](VERIFICATION.md) · [Groks original](qa/QA-REPORT-polish-f2-9840309.md).
+
+Utvalda bildpar, samma syntetiska molndata och faktiskt pixelmått:
+
+| Flöde | Före 51d54d4 | Efter 9840309 |
+| --- | --- | --- |
+| Översikt 1440 px | before/overview-1440.jpg | cloud/stable-overview-1440.jpg |
+| Kalender 13 nov, 1440 px | before/calendar-1440.jpg | cloud/calendar-1440.jpg |
+| Översikt 390 px | before/overview-390.jpg | cloud/stable-overview-390.jpg |
+| Kalender 13 nov, 390 px | before/calendar-390.jpg | cloud/calendar-390.jpg |
+
+Sökretur i cloud/customers-390.jpg och customers-320.jpg är faktiskt provad.
+Bilderna ligger lokalt i ovanstående evidensmapp och är inte incheckade i Git.
+
+Oförändrad lokal provväg: README:s setup med NY loopbackdatabas *_demo,
+db:migrate/db:seed, explicit BOOKING_DEMO_SEED=1 och demo:seed/demo:seed:capacity.
+Ingen automatisk radering. PC-runtime3187 och dess gamla data är bevarade/separata.
+
+## Drift och stopp
+
+Samma projekt/NeonFree i Frankfurt, SSO all. Inga nya planer/tillägg/åtkomster.
+Godkänd normal Vercelförbrukning kan tillkomma; faktisk faktura är inte uppmätt.
+För stopp använd befintlig verifierad stopprutin nedan och behåll åtkomstskyddet.
+Rollback av just UI: återställ samma alias till tidigare skyddade
+dpl_<redacted> (produkt 51d54d4); inga DB-migrationer krävs.
+Pilot, fysisk Safari och ditt UX-godkännande är fortsatt separata.
+<!-- POLISH_CURRENT_END -->
+
+## Bilaga — tidigare leveranser och resultat
+
 <!-- COHERENT_CURRENT_START -->
 # Prova den sammanhängande salongsupplevelsen
 

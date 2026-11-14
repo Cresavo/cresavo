@@ -1,3 +1,24 @@
+<!-- POLISH_CURRENT_START -->
+# Booking Lab SE — polerad salongsarbetsyta
+
+Svensk agentredo boknings-POC med syntetiska uppgifter. Gemensam arbetsyta med
+Översikt/Kalender/Kunder; Salongen och Konto samlar övriga befintliga funktioner.
+Sidomeny på desktop, kompakt mobilnav. Webb och befintlig lokal MCP behåller samma
+verksamhetsregler. Inga nya agentanslutningar eller produktmoduler i denna leverans.
+
+[Skyddad demo](https://booking-lab-se-preview.vercel.app/admin) · [provsteg/bilder](docs/DEMO.md) ·
+[tester](docs/VERIFICATION.md) · [status](docs/PROJECT_STATUS.md).
+Vercel vid behov → Öppna demoadmin utan extra lösenord, endast isolerad demo.
+
+Produkt/Grok/CI/deploy **9840309df4d8addc3e4bf5f6c5da0f3802eb4a2d**, branch **ui/salon-polish**.
+106 unit/125 integration/13 kort/58 webb×4/lint/tsc/build PASS; [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43529548681)4/4.
+Grok scoped GO efter2 rättningsvarv. Fullaudit FAIL7 moderate dev, produktion 0.
+FysiskSafari/ägaracceptans/pilot återstår. Main/PC-runtime är bevarade.
+Senare dokumentation är ingen ny produktrevision. Lokala startinstruktioner nedan.
+<!-- POLISH_CURRENT_END -->
+
+## Bilaga — tidigare leveranser och resultat
+
 <!-- COHERENT_CURRENT_START -->
 # Booking Lab SE — bokning och salongens arbetsyta
 

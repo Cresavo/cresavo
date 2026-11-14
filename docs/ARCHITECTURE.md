@@ -1,5 +1,15 @@
 # Arkitektur
 
+## Visuell arbetsyta
+
+workspace-polish.css importeras efter befintlig style.css. Sidomeny>=1180px,
+kompakt mobilram, ingen ny router eller UI-dependency. calendar-layout.ts är
+en liten ren presentationsfunktion per personal/dag: verklig top-position,
+minst24pxtryckhöjd och sidledskolumner för visuellt kolliderande kort. Ingen
+höjdändring på hover/fokus eller ändrad bokningstid/domänregel. Fulltext via
+aria-label/title/detalj, mobilagenda består. Kompakta kort visar bara tid.
+
+
 ## Sammanhängande arbetsyta: UI-kontext
 
 Tre primära adminvyer delar samma ram; Salongen/Konto är enkla native details.

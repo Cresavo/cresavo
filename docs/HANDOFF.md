@@ -1,3 +1,39 @@
+<!-- POLISH_CURRENT_START -->
+# Handoff — UI-polering
+
+Verifierat 2026-11-14. Branch **ui/salon-polish**, från 2c74a4b/produkt 51d54d4.
+Produkt, slutlig Grok-revision, CI och deploy: **9840309df4d8addc3e4bf5f6c5da0f3802eb4a2d**.
+Senare dokumentationscommit ändrar ingen produktkod. Main b000481 är orörd.
+[Samma skyddade preview](https://booking-lab-se-preview.vercel.app/admin), deployment `dpl_<redacted>`, fra1.
+Vercel-inloggning vid behov → **Öppna demoadmin**, inget andra lösenord.
+
+Byggt: systemfont och enhetliga ytor/fält, desktopsidebar, mobilnav, samlad
+kalenderkontroll, tydliga personalkort och tvåkolumnig förslagsöversikt. Ingen
+dekorativ agentknapp. Befintliga kund-/boknings-/förslagsflöden och retur består.
+
+Filer: src/app/workspace-polish.css (ny), layout.tsx, admin/header.tsx,
+calendar.tsx, calendar-layout.ts (ny ren presentationsfunktion), overview.tsx,
+admin/overview/page.tsx; tests/calendar-layout.test.ts och tests/e2e/polish.spec.ts.
+Se git diff 2c74a4b..984 för exakt lista. Ingen lib/API/MCP/auth/schema/packageändring.
+
+106 unit/125 integration/13 kort/58 webb×4/lint/tsc/build PASS lokalt och [CI](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43529548681).
+Slutlig [Grokrapport](qa/QA-REPORT-polish-f2-9840309.md) scoped GO på 984,
+två rättningsvarv använda. Groks sista egna tester är106 unit/4 polish/99 klick,
+inte full 58×4; den fulla matrisen kördes av Codex/CI. Original/hash/proveniens och
+tidiga bevarade FAIL i VERIFICATION. Audit 7 moderate dev/produktion 0 separat.
+
+Moln är faktiskt kontrollerat på 984 med SSO all/HTTP/CSS/adminskydd och Chrome.
+94 bokningar och 8 affärstabeller oförändrade. Inga nya hemligheter/åtkomster, inga
+affärsdataändringar (vanlig demosession skapades). [Provväg/bilder](DEMO.md).
+Privat push, ingen mainmerge.
+
+Öppet: fysisk Safari/skärmläsare/ägaracceptans/pilot. Info: smala långa kort kan
+klippa text, täta24 px-kort ligger kant i kant, paletten återanvänds efter 4 personal.
+Mindre förbättringar till backlogg; inget tredje varv eller nästa Epic automatiskt.
+<!-- POLISH_CURRENT_END -->
+
+## Bilaga — tidigare leveranser och resultat
+
 <!-- COHERENT_CURRENT_START -->
 # Handoff — sammanhängande salongsupplevelse
 

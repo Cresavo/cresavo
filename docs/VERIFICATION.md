@@ -1,3 +1,92 @@
+<!-- POLISH_CURRENT_START -->
+# Aktuell verifiering — visuell UI-polering
+
+Verifierat 2026-11-14. Branch **ui/salon-polish**, från 2c74a4b/produkt 51d54d4.
+Produkt, slutlig Grok-revision, CI och deploy: **9840309df4d8addc3e4bf5f6c5da0f3802eb4a2d**.
+Senare dokumentationscommit ändrar ingen produktkod. Main b000481 är orörd.
+[Samma skyddade preview](https://booking-lab-se-preview.vercel.app/admin), deployment `dpl_<redacted>`, fra1.
+Vercel-inloggning vid behov → **Öppna demoadmin**, inget andra lösenord.
+
+**Funktionstester och avgränsad QA PASS; full audit FAIL; pilot NO-GO.**
+
+| Faktiskt kört kommando/kontroll | Resultat |
+| --- | --- |
+| npm ci | PASS ren separat kopia 211s, oförändrad lock; även exakt SHA i CI. |
+| node node_modules/prisma/build/index.js generate | PASS Prisma 7.10.1. |
+| prisma migrate deploy; node --import tsx prisma/seed.ts | PASS 10 oförändrade migrationer på 7 nya loopbackdatabaser vid uppdragsstart; fixtures återanvända/städade mellan varv. Färsk Docker-PG i CI. |
+| node node_modules/eslint/bin/eslint.js . | PASS; npm run lint även i CI. |
+| node node_modules/typescript/bin/tsc --noEmit | PASS; npx tsc --noEmit även CI. |
+| node node_modules/vitest/vitest.mjs run | PASS 106/106; npm test i CI. Fyra nya meningsfulla layoutfall. |
+| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts | PASS 125/125; npm run test:integration även CI. |
+| node node_modules/next/dist/bin/next build | PASS; npm run build även alla 4 CI-jobb. |
+| node node_modules/@playwright/test/cli.js test --config playwright.agent-workday.config.ts | PASS 13/13; även CI, testvärd inte native-klientklick. |
+| node node_modules/@playwright/test/cli.js test; produktion/proxy0 | PASS 58/58,121s; även 58/58CI. |
+| Samma; produktion/proxy1 | PASS 58/58,118s; även 58/58CI. |
+| Samma; dev/proxy0 | PASS 58/58,286s; även 58/58CI. |
+| Samma; dev/proxy1 | PASS 58/58,218s; även 58/58CI. |
+| npm audit --json | **FAIL exit 1: 7 moderate dev**,0 high/critical. Inga overrides eller uppgraderingar. |
+| npm audit --omit=dev --json | PASS exit 0: 0 fynd. |
+| Läsande teardown-kontroll | PASS alla 6 testdatabaser: 0 Booking/Campaign/AdminSession/CardBookingAttempt. |
+| GitHub Actions 43529548681 | PASS 4/4 på exakt 984. Automatisk push 43529537054 avbröts av manuell fullmatris enligt befintlig concurrency. |
+| Grok sista samlade varv 2/2 | Scoped GO, inga Medium+. Egna 106 unit/4 polish/prod/lint/tsc/build, 99 klickprober 0 FAIL, 62 geometrikontroller. Full 58×4/125 integration/13 kort på 984 INTE körda av Grok. |
+| Faktisk skyddad preview | PASS exakt sourceSHA/arkivhash/fra1/SSO all, egna Chrome-klick, anonym HTML/API/CSS blockeras, adminAPI utan appcookie 403. Åtta affärstabeller oförändrade. |
+
+## Spårbarhet och begränsningar
+
+Lokala råutskrifter: <local-state>/codex/booking-lab-polish-evidence/ (full-*, cards-*,
+matrix-*, audit-* och slutmarkören final-completion.json på 984). Privata explicita
+env-profiler och separata booking_polish_*_test/_demo; aldrig molnet som fixtures.
+[Exakta CI-loggar](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43529548681) är lästa per jobb: 58 vardera, dev0 även 106/125/13.
+Lokal Docker NOT RUN; Docker är faktiskt kört i CI.
+
+[Groks originalrapport](qa/QA-REPORT-polish-f2-9840309.md) är återpublicerad ordagrant
+i befintlig Grok-konversation efter att download-knappen inte gav någon lokal fil.
+DOM-text plus en avslutande LF ger exakt originalhash
+640ae0b6d15ae6296084e5010492ace328c8cdbafe2bd44e338637f905b8a745 och 9691 byte.
+Groks uppgift att filen saknade avslutande LF motsägs av den matchande hashen;
+rapportens innehåll har inte redigerats. Grokgranskning är separat från Codex CI/
+molnkontroll. Original 268 och F1 samt deras fynd ligger kvar i docs/qa.
+
+Egna verkliga lokala klick: kalender/bokningsdetalj/flytta/Avbryt/retur, kundsökning
+Mira/kort/retur, menyer, Om förslagen. 320/390/1179/1180/1440 emulering med 0 sidoscroll.
+Efter 2 rättningsvarv: stabila 24 px kort med sidledskolumner där deras visuella ytor
+annars krockar; hover/fokus ändrar aldrig klickytan. Synlig brun kundrad 5,48:1
+(tidigare4,27); Grok mätte alla 4 toner och förfäders-opacity i dag/vecka/alla personal.
+
+Tidiga FAIL bevarade: initial navbredd320px rättades; första fokusproben låg efter
+en oberoende musprobe och ordnades om utan sänkta assertions; palettfixtur valde
+felindex och rättades. Nytt kontrasttest verifierat rött på 1c (4,26679) och grönt
+efter CSS-rättning. initial-268ebdf/ och f1-1c1ff5a/ bevarar tidigare råresultat.
+
+Moln: anonym /,/product,/admin,/api/services,/api/admin/bookings,/demo/salon.webp
+samt riktig CSS-resurs skyddade. Befintlig CLI-identitet får 200 HTML/tjänster,
+403 admin-API utan appcookie. CSP/frame-ancestors none/nosniff/Referrer/HSTS/no-store
+och frånvaro av powered-by verifierade. Port 3000 timeout; ingen fullportscan.
+Read-only SQL: alla 8 affärstabeller/radhashar oförändrade, 94 bokningar bevarade.
+Inga affärsdata ändrades i molnet. Demoåtkomsten skapade en vanlig administrativ
+session. Egen Chrome-klick: demoknapp utan extra lösenord; kalender 13 nov →
+Elli 09:30 → Flytta → Avbryt → samma kalenderdag. Kunder → Mira → kundkort →
+samma sökning. Verkliga molnvyer 1440/390/320 utan dokumentöverflöde;
+mobilens kalenderfält 16 px. Stabilt alias öppnades igen efter växlingen.
+Två korta CUA/CDP-timeouts återhämtades genom läsning av aktuell sida; inga
+åtkomstinställningar ändrades. Ett bildförsök gav 1080 px trots viewportbegäran;
+filerna döptes efter verkligt mått. Nya slutbilder har verifierade 1440/390-mått.
+Deploymentens källarkivSHA256:
+`b62db312503585930f77f255bc4acf6003625938b8895405fd686292055d842c`.
+
+**NOT RUN:** fysisk iPhone/Safari, WebKit/Firefox, skärmläsare, nya native MCP-klick,
+ny backup/restore/omstart/flerinstansprov, full accessibility-certifiering och
+produktägarens UX-acceptans. Ingen ny video. Senaste kort-/molnflöden från äldre
+revision märks historik och används inte som ny nativebevisning.
+
+Info/backlog: långa kort i smala kolumner klipper text (full aria/title/detalj),
+24 px-kort kant i kant, färger upprepas efter 4 personal; textidentifiering finns.
+Utöka kontrasttest till 4 toner/föräldraopacity senare. Äldre scrollgallring/korrupt
+valfri sessionStorage-post och pilotgrindar kvar. Inget tredje fixvarv.
+<!-- POLISH_CURRENT_END -->
+
+## Bilaga — tidigare leveranser och resultat
+
 <!-- COHERENT_CURRENT_START -->
 # Aktuell verifiering — sammanhängande salongsupplevelse
 

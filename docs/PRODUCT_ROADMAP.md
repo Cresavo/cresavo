@@ -312,3 +312,11 @@ föreslagna prov och dess acceptanskriterier finns ovan; äldre Epic-planer gäl
 sina avslutade uppdrag.
 
 Referenser att undersöka, inte redan bevisad funktionsparitet: https://business.bokadirekt.se/funktioner och https://www.valei.com/bokningssystem. Projektets integritets- och licensregler finns i PRIVACY_SECURITY, DATA_FLOWS och THIRD_PARTY_NOTICES.
+
+
+## Avslutad UI-polering 2026-11-14
+
+Produkt/Grok/CI/deploy9840309 på ui/salon-polish. Två samlade rättningsvarv
+avslutade med scopedGO,4grönaCI-jobb och samma skyddade preview verifierad.
+Aktuella provsteg/bilder i DEMO och faktiska resultat/begränsningar i VERIFICATION.
+Ingen ny Epic automatiskt; fysiskSafari/ägarnasUX-beslut/pilotgrindar kvar.

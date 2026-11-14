@@ -45,3 +45,11 @@ verklig renderad text och opacitet på just denna rad. Provet verifierades rött
 (4,26679) före CSS-rättningen. Inga ändringar av bokning, auth eller data.
 Tidigt fixturförsök valde fel palettindex eftersom grundseed har både Anna och
 Erik; fixturen rättades utan att sänka kontrastgränsen 4,5.
+
+
+## Avslutad UI-polering 2026-11-14
+
+Produkt/Grok/CI/deploy9840309 på ui/salon-polish. Två samlade rättningsvarv
+avslutade med scopedGO,4grönaCI-jobb och samma skyddade preview verifierad.
+Aktuella provsteg/bilder i DEMO och faktiska resultat/begränsningar i VERIFICATION.
+Ingen ny Epic automatiskt; fysiskSafari/ägarnasUX-beslut/pilotgrindar kvar.

@@ -1,3 +1,27 @@
+<!-- POLISH_CURRENT_START -->
+# Produktägarrapport — polerad arbetsyta
+
+**[Här öppnar du förbättrade Booking Lab](https://booking-lab-se-preview.vercel.app/admin).** Samma skyddade länk.
+Vercel vid behov → Öppna demoadmin. Bara syntetiska uppgifter.
+
+Nu finns en sammanhållen desktoparbetsyta med sidomeny och en kompakt mobilvy.
+Kalendern har samlade datum/filter, läsbarare personalkort och stabila klickytor.
+Översiktens verkliga förslag/utkast/resultat får mer plats och tydligare status.
+[Fem före/efter-förbättringar, provsteg och bilder](DEMO.md).
+
+Branch **ui/salon-polish**, produkt/Grok/CI/deploy **9840309df4d8addc3e4bf5f6c5da0f3802eb4a2d**.
+[Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43529548681):4/4 gröna,58 webbvar. Lokalt106 unit/125 integration/13 kort/
+lint/tsc/build PASS. [Grok-original](qa/QA-REPORT-polish-f2-9840309.md): scoped GO
+efter 2 samlade rättningsvarv, inga Medium+. Egen Chrome/molnkontroll och oförändrad
+databas verifierade; fysisk iPhone och ditt UX-godkännande återstår.
+
+Audit separat:7 måttliga devfynd,0 i produktionsberoenden. Ingen kundpilot.
+Nästa 3 förslag: din mobilprovning; riktad Safari/tangentbords-/skärmläsarkontroll;
+separat prioritering av pilotgrindar/audit. Inget av detta startas automatiskt.
+<!-- POLISH_CURRENT_END -->
+
+## Bilaga — tidigare leveranser och resultat
+
 <!-- COHERENT_CURRENT_START -->
 # Produktägarrapport — sammanhängande salongsupplevelse
 

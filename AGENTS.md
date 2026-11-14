@@ -10,15 +10,18 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
-## Pågår: avgränsad UI-polering
+## Levererat: visuell UI-polering
 
-- Niclas godkände 2026-11-13 riktig visuell polering efter egna previewbilder.
-  Läs docs/UI_POLISH_PLAN.md. Bas 2c74a4b/produkt 51d54d4, ui/salon-polish.
-- Ensam skrivare. Endast presentation, befintliga kontroller och relevanta tester.
-  Ingen domän/API/MCP-/auth-/schemaändring eller nytt beroende.
-- Separat syntetisk miljö, fryst Grok-QA/max två samlade fixvarv; samma skyddade
-  preview efter verifiering. Privat push tillåten; ingen mainmerge eller ny kostnad.
-- Föregående QA/CI nedan gäller föregående produkt, inte den nya UI-koden.
+- Produkt/Grok/CI/deploy9840309, ui/salon-polish från2c74a4b. Två samlade
+  rättningsvarv avslutade, scopedGO; inga fler loopar automatiskt.
+- 106unit/125integration/13kort/58webb×4 och4grönaCI-jobb43529548681.
+  Samma skyddade preview verifierad med Chrome/HTTP/read-onlySQL;94bokningar kvar.
+- Ingen lib/API/MCP/auth/schema/packageändring. Kalenderns24pxlayout är ren
+  presentation, hover/fokus ändrar aldrig klickytan. Full info i aria/title/detalj.
+- Audit7moderate dev/produktion0; pilot/fysiskSafari/ägarnasUX-godkännande kvar.
+  Smala kort/kanter/palett och testutökning till backlogg, inget nytt uppdrag.
+- Läs UI_POLISH_PLAN, aktuell PROJECT_STATUS/HANDOFF/DEMO/VERIFICATION och
+  docs/qa/QA-REPORT-polish-f2-9840309.md. Senare docs ändrar inte produktSHA.
 
 ## Levererat: sammanhängande salongsupplevelse
 

@@ -1,3 +1,35 @@
+<!-- POLISH_CURRENT_START -->
+# Projektstatus — UI-polering
+
+Verifierat 2026-11-14. Branch **ui/salon-polish**, från 2c74a4b/produkt 51d54d4.
+Produkt, slutlig Grok-revision, CI och deploy: **9840309df4d8addc3e4bf5f6c5da0f3802eb4a2d**.
+Senare dokumentationscommit ändrar ingen produktkod. Main b000481 är orörd.
+[Samma skyddade preview](https://booking-lab-se-preview.vercel.app/admin), deployment `dpl_<redacted>`, fra1.
+Vercel-inloggning vid behov → **Öppna demoadmin**, inget andra lösenord.
+
+| Acceptanskriterium | Faktiskt resultat |
+| --- | --- |
+| Enhetlig begriplig arbetsyta | PASS egen klick/Grok: sidomeny på bred skärm, kompakt mobilnav, samma3 huvudval. |
+| Läsbar kalender och stabila kort | PASS1440/1180, även5min/20täta/mixade tider,24pxminimum och inga2D-krockar. Full info i detalj/aria. |
+| Mobil320/390utan sidscroll | PASS emulerad Chromium,16 px fält och större tryckytor. FysiskSafari återstår. |
+| Verkliga förslag/status | PASS uppdelade kort/begripliga tillstånd, befintliga handlingar kvar; ingen låtsas-AI eller KPI. |
+| Kärnregler/retur/säkerhet bevarade | PASS 106 unit/125 integration/13 kort/58 webb×4/lint/tsc/build och4 grönaCI. |
+| Samma skyddade preview | PASS metadata/HTTP/Chrome/read-onlySQL;94 bokningar och 8 affärstabeller bevarade. |
+| Produktägarens visuella godkännande | ÅTERSTÅR. Detta är testad syntetisk POC, inte pilot. |
+
+Sedan förra omgången: systemtypografi, bredare arbetsyta, samlad kalenderkontroll,
+personalfärger och läsbara30-minuterskort, lugnare förslagsöversikt med riktiga statusar.
+Två samlade Grok-rättningsvarv stängde klickytekollision och kontrastfel.
+Inga nya beroenden/moduler/API/MCP/auth/schema/migrationer. Agentflöden bevarade.
+
+[Grok-original](qa/QA-REPORT-polish-f2-9840309.md) scoped GO; [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43529548681)4/4.
+Audit separat FAIL:7 moderate dev,0 high/critical; produktion 0. Info/backlog och
+NOT RUN i [VERIFICATION](VERIFICATION.md). FysiskSafari/NiclasUX/pilot återstår.
+Uppdraget avslutat inom scope; inga fler epics eller fixloopar automatiskt.
+<!-- POLISH_CURRENT_END -->
+
+## Bilaga — tidigare leveranser och resultat
+
 <!-- COHERENT_CURRENT_START -->
 # Projektstatus — sammanhängande salongsupplevelse
 
