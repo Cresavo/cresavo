@@ -256,10 +256,29 @@ it("MCP konfigurerar samma kalender, flyttar med snapshotlängd och avbokar idem
   expect((await write(client, "move_booking", move)).isError).toBe(true);
   const cancelKey = key(),
     cancel = { id: original.id, expectedVersion: 2 };
-  const cancelled = read(
-    await write(client, "cancel_booking", cancel, cancelKey),
+  const cancellations = await Promise.all(
+    Array.from({ length: 20 }, () =>
+      write(client, "cancel_booking", cancel, cancelKey),
+    ),
   );
+  const cancelled = read(cancellations[0]);
+  for (const response of cancellations) expect(read(response)).toEqual(cancelled);
   expect(cancelled).toMatchObject({ status: "cancelled", version: 3 });
+  expect(
+    await db.bookingEvent.count({
+      where: { bookingId: original.id, action: "cancel" },
+    }),
+  ).toBe(1);
+  expect(
+    (
+      await write(
+        client,
+        "cancel_booking",
+        { ...cancel, expectedVersion: 3 },
+        cancelKey,
+      )
+    ).isError,
+  ).toBe(true);
   expect(
     read(await write(client, "cancel_booking", cancel, cancelKey)),
   ).toEqual(cancelled);

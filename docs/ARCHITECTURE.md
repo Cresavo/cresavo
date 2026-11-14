@@ -343,6 +343,23 @@ Adminrader får emailCapKeyNULL så att manuella bokningar inte förbrukar kunde
 
 ### Lokala agentkontrakt
 
+Verifieringskartan för backendmålet den 14 november återanvänder följande tester.
+De bevisar lokal betrodd åtkomst, inte fjärrautentisering eller flerföretagsdrift.
+
+| Regel | Befintligt testbevis |
+| --- | --- |
+| Skapa, kalender, detaljer, historiska snapshots och begränsade svar | tests/integration/mcp-workspace.test.ts |
+| 20 identiska flytt- och avbokningsretries ger samma svar och en händelse | tests/integration/mcp-workspace.test.ts |
+| Samma nyckel med ändrad payload, gamla versioner, främmande resurser och saknad opt-in nekas | tests/integration/mcp-workspace.test.ts |
+| 20 bokningsretries och blandade behandlingslängder delar konfliktskydd | tests/integration/mcp-booking.test.ts |
+| HTTP skapar, HTTP/MCP konkurrerar om flytt/avbokning, SQL kontrollerar överlapp och admin visar samma bokning | tests/e2e/workspace.spec.ts, testet HTTP och lokal MCP |
+| Inloggning, origin, sessioner och serverhärledd aktör | tests/e2e/flow.spec.ts och tests/e2e/workspace.spec.ts |
+
+Manuella HTTP-listor innehåller kundnamn för behörig arbetsyta. Lokal MCP mappar
+kalendern till uttryckligen tillåtna fält utan kundnamn och kontaktuppgifter.
+Ett separat läsande ägarkort får inte automatiskt tillgång till skrivprofilen.
+confirmed=true är klientens försäkran och utgör inget bevis på mänskligt godkännande.
+
 Nya läsverktyg kräver betrott lokalt --admin. Nya flytt-/avboknings-/konfigurationsverktyg kräver dessutom --allow-workspace och kvotens befintliga SESSION_SECRET. Äldre --allow-bookings aktiverar fortfarande enbart sin bokningsskrivning, inte arbetsytemutationer. --allow-workspace aktiverar också samma create_booking. Ingen HTTP-transport/port eller extern modell tillkommer; flaggorna är inte fjärrautentisering. SDK:s officiella StandardSchema-gräns behåller JSON-schemat och sanerar valideringsfel före callback; samma safeFailure används för körfel.
 
 list_workspace_bookings kräver datumintervall max31dagar, max100/sida och scope-kontrollerad cursor, valfritt staffId och status confirmed/all. Svarsfält: id,serviceId,staffId,startsAt,endsAt,status,version samt nextCursor; inga kundfält. get_booking ger lagrad behandling/pris/längd/buffert och max20händelser utan kundfält. Boknings-ID/tider/behandling kan fortfarande vara personuppgifter. Äldre list_bookings behåller sin svarstyp men visar endast confirmed och använder bokningens lagrade tjänstenamn, inte det senare ändrade namnet i katalogen. Inga avbokade tider ska framstå som aktiva i äldre klienter.
