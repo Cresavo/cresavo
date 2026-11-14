@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DateTime } from "luxon";
 import { formatPrice, readableDay } from "@/lib/format";
@@ -21,9 +22,17 @@ type Staff = { id: string; name: string; serviceIds: string[] };
 export default function BookingForm({
   services,
   staff,
+  initialService,
+  initialStaff,
+  initialDate,
+  initialSlot,
 }: {
   services: Service[];
   staff: Staff[];
+  initialService?: string;
+  initialStaff?: string;
+  initialDate?: string;
+  initialSlot?: string;
 }) {
   const locale = useLocale();
   const t = (en: string, sv: string) => text(locale, en, sv);
@@ -36,14 +45,29 @@ export default function BookingForm({
   const confirmationHeading = useRef<HTMLHeadingElement>(null);
   const serviceSelect = useRef<HTMLSelectElement>(null);
   const submission = useRef<{ payload: string; key: string } | null>(null);
-  const [serviceId, setService] = useState(services[0]?.id ?? ""),
+  const [serviceId, setService] = useState(
+      services.find((s) => s.id === initialService)?.id ??
+        services[0]?.id ??
+        "",
+    ),
     [staffId, setStaff] = useState(
-      staff.find((p) => p.serviceIds.includes(services[0]?.id))?.id ?? "",
+      staff.find(
+        (p) => p.id === initialStaff && p.serviceIds.includes(serviceId),
+      )?.id ??
+        staff.find((p) => p.serviceIds.includes(serviceId))?.id ??
+        "",
     );
   const today = DateTime.now().setZone("Europe/Stockholm").toISODate()!,
     last = DateTime.fromISO(today).plus({ days: 60 }).toISODate()!;
-  const [date, setDate] = useState(today),
-    [start, setStart] = useState(""),
+  const [date, setDate] = useState(
+      initialDate &&
+        DateTime.fromISO(initialDate).toISODate() === initialDate &&
+        initialDate >= today &&
+        initialDate <= last
+        ? initialDate
+        : today,
+    ),
+    [requestedStart, setStart] = useState(initialSlot ?? ""),
     [customerName, setCustomerName] = useState(""),
     [customerEmail, setCustomerEmail] = useState("");
   const [pending, setPending] = useState(false),
@@ -57,6 +81,9 @@ export default function BookingForm({
     }
   }, [success]);
   const availability = useAvailability(serviceId, staffId, date);
+  const start = availability.slots.includes(requestedStart)
+    ? requestedStart
+    : "";
   const service = services.find((s) => s.id === serviceId),
     person = staff.find((s) => s.id === staffId);
   const time = (value: string) =>
@@ -142,6 +169,9 @@ export default function BookingForm({
           )}
         </p>
         <p className="confirmation-summary">{success}</p>
+        <Link href={"/admin?" + new URLSearchParams({ date, view: "day", staffId })}>
+          {t("See this time in the demo calendar", "Se tiden i demokalendern")}
+        </Link>
         <p>
           {t(
             "This is a demo. No emails or text messages are sent.",

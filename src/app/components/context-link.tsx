@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, type AnchorHTMLAttributes } from "react";
+import { useEffect, useId, type AnchorHTMLAttributes } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useLocale } from "./locale-provider";
 import {
@@ -19,7 +19,7 @@ function currentScrollKey() {
   history.replaceState({ ...history.state, [HISTORY_KEY]: key }, "");
   return key;
 }
-function rememberPosition(key: string) {
+function rememberPosition(key: string, focusKey?: string) {
   for (const name of Object.keys(sessionStorage).filter((k) =>
     k.startsWith("booking-return:"),
   )) {
@@ -35,6 +35,7 @@ function rememberPosition(key: string) {
     `booking-return:${key}`,
     JSON.stringify({
       y: scrollY,
+      focusKey,
       calendarX:
         document.querySelector<HTMLElement>("[data-calendar-scroll]")
           ?.scrollLeft ?? 0,
@@ -42,10 +43,10 @@ function rememberPosition(key: string) {
     }),
   );
 }
-export function rememberReturn(href: string) {
+export function rememberReturn(href: string, focusKey?: string) {
   try {
     const key = currentScrollKey();
-    rememberPosition(key);
+    rememberPosition(key, focusKey);
     explicitDepartureKey = key;
     return contextualHref(href, {
       returnTo: location.pathname + location.search + location.hash,
@@ -62,8 +63,10 @@ export default function ContextLink({
   onClick,
   ...props
 }: AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) {
+  const focusKey = useId();
   return (
     <a
+      data-return-focus={focusKey}
       {...props}
       href={href}
       onClick={(event) => {
@@ -77,7 +80,7 @@ export default function ContextLink({
           event.altKey
         )
           return;
-        event.currentTarget.href = rememberReturn(href);
+        event.currentTarget.href = rememberReturn(href, focusKey);
       }}
     />
   );
@@ -143,7 +146,16 @@ export function RestoreReturnScroll() {
             stop();
           };
           const abandon = () => finish();
+          const focusTarget = () => {
+            const target = typeof value.focusKey === "string"
+              ? document.querySelector<HTMLElement>(
+                  `[data-return-focus="${CSS.escape(value.focusKey)}"]`,
+                )
+              : null;
+            return target?.getClientRects().length ? target : null;
+          };
           const apply = () => {
+            focusTarget()?.focus({ preventScroll: true });
             const calendar = document.querySelector<HTMLElement>(
               "[data-calendar-scroll]",
             );
@@ -158,6 +170,7 @@ export function RestoreReturnScroll() {
                 "[data-calendar-scroll]",
               );
               if (
+                (!value.focusKey || focusTarget()) &&
                 document.documentElement.scrollHeight - innerHeight + 1 >=
                   value.y &&
                 (!(value.calendarX > 0) ||

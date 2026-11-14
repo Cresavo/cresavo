@@ -11,7 +11,12 @@ import Image from "next/image";
 import { getLocale } from "@/lib/locale-server";
 import { text } from "@/lib/locale";
 export const dynamic = "force-dynamic";
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const query = await searchParams;
   const locale = await getLocale();
   const t = (en: string, sv: string) => text(locale, en, sv);
   const [services, campaigns, staff] = await Promise.all([
@@ -55,6 +60,18 @@ export default async function Home() {
         >
           <BookingForm
             services={services}
+            initialService={
+              typeof query.service === "string" ? query.service : undefined
+            }
+            initialStaff={
+              typeof query.staff === "string" ? query.staff : undefined
+            }
+            initialDate={
+              typeof query.date === "string" ? query.date : undefined
+            }
+            initialSlot={
+              typeof query.slot === "string" ? query.slot : undefined
+            }
             staff={staff.map(({ id, name, serviceIds }) => ({
               id,
               name,

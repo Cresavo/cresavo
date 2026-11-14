@@ -1,183 +1,139 @@
 import Image from "next/image";
 import Link from "next/link";
-import {
-  ArrowUpRight,
-  CalendarDays,
-  Leaf,
-  Users,
-  Workflow,
-} from "lucide-react";
-import AgentScene from "./scene";
+import { ArrowUpRight, Leaf } from "lucide-react";
+import { DateTime } from "luxon";
+import { getAvailability, listServices } from "@/lib/domain";
+import { listStaff } from "@/lib/workspace-config";
+import { getLocale } from "@/lib/locale-server";
+import { formatPrice, readableDay } from "@/lib/format";
 import styles from "./product.module.css";
 
-export default function Relay() {
+async function findDemoVisit() {
+  const [services, team] = await Promise.all([listServices(), listStaff()]);
+  const available = services.filter((s) =>
+    team.some((p) => p.serviceIds.includes(s.id)),
+  );
+  const service =
+    available.find((s) => /massage/i.test(s.name)) ?? available[0];
+  if (!service) return;
+  const person = team.find((p) => p.serviceIds.includes(service.id))!;
+  const today = DateTime.now().setZone("Europe/Stockholm");
+  for (let offset = 0; offset < 7; offset++) {
+    const date = today.plus({ days: offset }).toISODate()!;
+    const slots = await getAvailability(service.id, date, undefined, person.id);
+    const slot =
+      slots.find(
+        (s) => DateTime.fromISO(s).setZone("Europe/Stockholm").hour >= 15,
+      ) ?? slots[0];
+    if (slot) return { service, person, date, slot };
+  }
+}
+
+export default async function Relay() {
+  const [locale, visit] = await Promise.all([getLocale(), findDemoVisit()]);
+  const t = (en: string, sv: string) => (locale === "sv" ? sv : en);
+  const href = visit
+    ? "/?" +
+      new URLSearchParams({
+        service: visit.service.id,
+        staff: visit.person.id,
+        date: visit.date,
+        slot: visit.slot,
+      })
+    : "/";
+  const time =
+    visit &&
+    DateTime.fromISO(visit.slot).setZone("Europe/Stockholm").toFormat("HH:mm");
   return (
-    <main className={styles.page} lang="en">
+    <main className={styles.page} lang={locale}>
       <section className={styles.hero}>
-        <Image
-          className={styles.backdrop}
-          src="/brand/relay-interior.png"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-        />
         <header className={styles.nav}>
           <Link className={styles.brand} href="/product">
-            <Leaf aria-hidden="true" />
-            Booking Lab
+            <Leaf aria-hidden="true" /> Booking Lab
           </Link>
-          <nav aria-label="Product navigation">
-            <a href="#product">Product</a>
-            <a href="#agents">Agent-ready</a>
+          <nav aria-label={t("Product navigation", "Produktnavigation")}>
             <Link href="/admin/overview">
-              Log in <ArrowUpRight size={15} aria-hidden="true" />
+              {t("Open workspace", "Öppna arbetsytan")}{" "}
+              <ArrowUpRight size={16} />
             </Link>
           </nav>
         </header>
         <div className={styles.heroBody}>
           <h1>
-            Your next booking.
-            <br />
-            Just ask.
+            {t(
+              "Book through your AI assistant.",
+              "Boka med din AI-assistent.",
+            )}
           </h1>
-          <p>Agent-ready booking. Built around your business.</p>
-          <div className={styles.actions}>
-            <a className={styles.primary} href="#agent-demo">
-              See it in action <ArrowUpRight size={19} aria-hidden="true" />
-            </a>
-            <Link className={styles.textLink} href="/admin/overview">
-              Explore the workspace
-            </Link>
-          </div>
-          <AgentScene />
-        </div>
-      </section>
-      <section
-        className={styles.section}
-        id="product"
-        aria-labelledby="product-heading"
-      >
-        <p className={styles.eyebrow}>One connected day</p>
-        <h2 id="product-heading">More than a time slot.</h2>
-        <p className={styles.lead}>
-          The people, the appointments, the changes in between. Keep them
-          together.
-        </p>
-        <div className={styles.features}>
-          <Link href="/">
-            <CalendarDays aria-hidden="true" />
-            <h3>A simpler way to book</h3>
-            <p>
-              Choose a treatment, a person and a time. Know exactly what you are
-              confirming.
-            </p>
-            <span>
-              Try customer booking <ArrowUpRight size={16} aria-hidden="true" />
-            </span>
-          </Link>
-          <Link href="/admin">
-            <Workflow aria-hidden="true" />
-            <h3>A calmer working day</h3>
-            <p>See who is coming. Move a visit. Make room when plans change.</p>
-            <span>
-              Explore the calendar <ArrowUpRight size={16} aria-hidden="true" />
-            </span>
-          </Link>
-          <Link href="/admin/customers">
-            <Users aria-hidden="true" />
-            <h3>Keep the context</h3>
-            <p>
-              Find a customer, see their visits and book the next one without
-              starting over.
-            </p>
-            <span>
-              Open customer records{" "}
-              <ArrowUpRight size={16} aria-hidden="true" />
-            </span>
-          </Link>
-        </div>
-      </section>
-      <section
-        className={`${styles.section} ${styles.agentSection}`}
-        id="agents"
-        aria-labelledby="agent-heading"
-      >
-        <div>
-          <p className={styles.eyebrow}>
-            Built for people and their assistants
-          </p>
-          <h2 id="agent-heading">
-            Your assistant.
-            <br />
-            Your rules.
-          </h2>
-        </div>
-        <div>
-          <p className={styles.lead}>
-            Ask naturally. Review the choices. Confirm what happens next.
-          </p>
           <p>
-            Our local MCP demos connect assistants to the same availability and
-            booking rules as the web. Booking actions need explicit
-            confirmation. The website remains a direct way to work.
+            {t(
+              "Your client asks. Their assistant finds a time. They confirm, and it appears in your calendar.",
+              "Kunden frågar. Assistenten hittar en tid. Kunden bekräftar och bokningen syns i din kalender.",
+            )}
           </p>
-          <details>
-            <summary>What can I use today?</summary>
-            <p>
-              Local PC demonstrations include time selection, synthetic booking
-              and a read-only owner card. Support depends on the client and
-              configured permissions. Mobile cards, public remote MCP and
-              general support for every assistant are not verified.
-            </p>
-          </details>
-          <p className={styles.small}>
-            The scene above is an illustration. The links open the actual
-            protected web demo.
-          </p>
+          {visit && (
+            <div className={styles.visit}>
+              <p>{/massage/i.test(visit.service.name)
+                ? t("“When can I get a massage?”", "”När kan jag få massage?”")
+                : t("“When could I come in?”", "”När kan jag komma?”")}</p>
+              <div>
+                <strong>{time}</strong>
+                <span>
+                  {readableDay(visit.date, locale)}
+                  <br />
+                  {locale === "en" && visit.service.id === "demo-ui-massage" && visit.service.name === "Avslappnande massage"
+                    ? "Relaxation massage"
+                    : visit.service.name} · {visit.person.name}
+                </span>
+              </div>
+              <small>
+                {visit.service.duration} min ·{" "}
+                {formatPrice(visit.service.priceOre, locale)} ·{" "}
+                {t("Stockholm time", "Stockholmstid")}
+              </small>
+            </div>
+          )}
+          <Link className={styles.primary} href={href} prefetch={false}>
+            {t("Try the booking demo", "Prova bokningen")}{" "}
+            <ArrowUpRight size={19} />
+          </Link>
+        </div>
+        <div className={styles.photo}>
+          <Image src="/brand/relay-interior.png" alt="" fill sizes="(max-width: 760px) 100vw, 44vw" priority />
         </div>
       </section>
-      <section
-        className={`${styles.section} ${styles.demoSection}`}
-        aria-labelledby="demo-heading"
-      >
-        <p className={styles.eyebrow}>Explore the demo</p>
-        <h2 id="demo-heading">
-          A real workflow.
-          <br />
-          Entirely fictional people.
+      <section className={styles.section}>
+        <p className={styles.eyebrow}>
+          {t("Inside the workspace", "I arbetsytan")}
+        </p>
+        <h2>
+          {t("A cancellation opens a time.", "En avbokning öppnar en tid.")}
         </h2>
         <p className={styles.lead}>
-          Start with Salong Eko. Browse a working day, try a booking, then
-          follow it into the workspace.
+          {t(
+            "See the opening in your calendar. Review a suggestion or prepare an offer for the treatment. You choose when to publish.",
+            "Se luckan i kalendern. Granska förslaget eller förbered ett erbjudande för behandlingen. Du väljer när det publiceras.",
+          )}
         </p>
-        <div className={styles.actions}>
-          <Link className={styles.primary} href="/">
-            Book a demo visit <ArrowUpRight size={19} aria-hidden="true" />
-          </Link>
-          <Link className={styles.textLink} href="/admin/overview">
-            Open the workspace
-          </Link>
-        </div>
-        <p className={styles.small}>
-          Private proof of concept. No payments or messages. Not a live customer
-          service.
-        </p>
+        <Link className={styles.textLink} href="/admin/overview">
+          {t("Review suggestions", "Granska förslagen")} ↗
+        </Link>
       </section>
       <footer className={styles.footer}>
-        <Link className={styles.brand} href="/product">
-          <Leaf aria-hidden="true" />
-          Booking Lab
-        </Link>
-        <p>An open foundation. A considered next step.</p>
-        <p className={styles.small}>
-          API-first · local MCP · AGPL-3.0-only. Source release is planned; the
-          repository is currently private. Booking Lab is a working name.
-          Interior image is AI-generated.
-        </p>
-        <Link href="/admin">
-          Workspace login <ArrowUpRight size={15} aria-hidden="true" />
-        </Link>
+        <details>
+          <summary>
+            {t("How assistants connect", "Så ansluter assistenter")}
+          </summary>
+          <p>
+            {t(
+              "The question above illustrates a request. Times come from the booking engine. Local PC tests cover MCP time selection, confirmed test bookings and a read-only owner card. This private web demo uses fictional data.",
+              "Frågan ovan illustrerar en förfrågan. Tiderna hämtas från bokningsmotorn. Lokala PC-prov omfattar tidval via MCP, bekräftade testbokningar och ett läsbart ägarkort. Den privata webbdemon använder påhittade uppgifter.",
+            )}
+          </p>
+        </details>
+        <small>
+          Booking Lab · AGPL-3.0-only · {t("Private demo", "Privat demo")}
+        </small>
       </footer>
     </main>
   );

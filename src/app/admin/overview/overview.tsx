@@ -1,6 +1,7 @@
 "use client";
 import {
   useRef,
+  useId,
   useState,
   useCallback,
   useEffect,
@@ -248,12 +249,13 @@ function CapacityCard({
       );
     return result;
   }
+  const calendarFocusKey = useId();
   async function calendar() {
     setPending(true);
     setMessage("");
     try {
       const result = await request("calendar");
-      window.location.assign(rememberReturn(result.calendarHref));
+      window.location.assign(rememberReturn(result.calendarHref, calendarFocusKey));
     } catch (e) {
       setMessage(presentationError((e as Error).message, locale));
       setPending(false);
@@ -376,6 +378,7 @@ function CapacityCard({
       <div className="action-row">
         <button
           type="button"
+          data-return-focus={calendarFocusKey}
           onClick={calendar}
           disabled={pending || !s.available}
         >
