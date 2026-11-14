@@ -6,7 +6,13 @@ import { AgentApiError } from "./errors";
 // Key format: blk_<prefix>_<secret>. The prefix (12 hex) is a public lookup id
 // and is shown in listings; the secret (32 random bytes) never leaves the CLI.
 export const KEY_PATTERN = /^blk_([0-9a-f]{12})_([A-Za-z0-9_-]{43})$/;
-export const AGENT_SCOPES = ["services:read", "availability:read"] as const;
+export const AGENT_SCOPES = [
+  "services:read",
+  "availability:read",
+  "bookings:read",
+  "bookings:write",
+] as const;
+export const KEY_KINDS = ["demo-script", "registered-client", "verified-agent-proof"] as const;
 export type AgentScope = (typeof AGENT_SCOPES)[number];
 
 type KeyDb = Pick<PrismaClient, "agentApiKey"> | Prisma.TransactionClient;
@@ -29,6 +35,7 @@ export const createKeySchema = z
     ownerName: z.string().trim().min(2).max(80),
     ownerContact: z.string().trim().min(3).max(254),
     scopes: z.array(z.enum(AGENT_SCOPES)).min(1).default([...AGENT_SCOPES]),
+    kind: z.enum(KEY_KINDS).default("registered-client"),
   })
   .strict();
 
@@ -44,7 +51,7 @@ export async function createAgentApiKey(input: unknown, client: KeyDb) {
 
 export function publicKeyRecord(row: {
   id: string; businessId: string; agentName: string; ownerName: string;
-  ownerContact: string; keyPrefix: string; scopes: string[]; createdAt: Date;
+  ownerContact: string; keyPrefix: string; scopes: string[]; kind: string; createdAt: Date;
   lastUsedAt: Date | null; revokedAt: Date | null;
 }) {
   return {
@@ -55,6 +62,7 @@ export function publicKeyRecord(row: {
     ownerContact: row.ownerContact,
     keyPrefix: `blk_${row.keyPrefix}`,
     scopes: row.scopes,
+    kind: row.kind,
     createdAt: row.createdAt.toISOString(),
     lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
     revokedAt: row.revokedAt?.toISOString() ?? null,
@@ -86,6 +94,7 @@ export type AgentPrincipal = {
   businessId: string;
   agentName: string;
   ownerName: string;
+  kind: string;
   scopes: string[];
 };
 
@@ -126,6 +135,7 @@ export async function authenticateAgent(
     businessId: row.businessId,
     agentName: row.agentName,
     ownerName: row.ownerName,
+    kind: row.kind,
     scopes: row.scopes,
   };
 }

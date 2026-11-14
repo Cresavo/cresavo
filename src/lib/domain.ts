@@ -15,6 +15,9 @@ import {
   type WorkspaceActor,
 } from "./workspace-write";
 
+// Server-owned agent API channel prefix; the suffix is the AgentApiKey id.
+export const AGENT_API_CHANNEL = "agent-api:key:";
+
 const businessId = DEMO_BUSINESS_ID,
   staffId = "staff-demo";
 
@@ -387,12 +390,16 @@ export async function createBooking(
             actor?.kind ??
             (clientAddress === "mcp:local-booking-channel:v1"
               ? "local-mcp"
-              : "public"),
+              : clientAddress?.startsWith(AGENT_API_CHANNEL)
+                ? "agent-api"
+                : "public"),
           actorId:
             actor?.id ??
             (clientAddress === "a2a:local-customer-demo:v1"
               ? "local-a2a-demo-channel:v1"
-              : "booking-channel"),
+              : clientAddress?.startsWith(AGENT_API_CHANNEL)
+                ? clientAddress.slice(AGENT_API_CHANNEL.length)
+                : "booking-channel"),
           nextStart: booking.startsAt,
           nextEnd: booking.endsAt,
           nextStaffId: booking.staffId,

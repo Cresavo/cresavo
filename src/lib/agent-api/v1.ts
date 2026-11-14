@@ -24,7 +24,7 @@ export const MAX_RANGE_DAYS = 14;
 const BUSINESSES: Record<string, { id: string; name: string; timeZone: string }> = {
   [DEMO_BUSINESS_ID]: {
     id: DEMO_BUSINESS_ID,
-    name: "Booking Lab demo salon (synthetic)",
+    name: "Salong Eko (synthetic demo)",
     timeZone: ZONE,
   },
 };
@@ -54,6 +54,10 @@ export function mapAgentError(error: unknown): { code: AgentApiErrorCode; retryA
     if (error.status === 429) return { code: "rate_limited", retryAfter: error.retryAfter };
     if (error.message === "Tjänsten finns inte") return { code: "service_not_found" };
     if (error.message === "Medarbetaren kan inte utföra behandlingen") return { code: "staff_not_found" };
+    if (error.message === "Tiden är inte tillgänglig") return { code: "slot_unavailable" };
+    if (error.message === "Uppgifterna har ändrats. Läs in på nytt.") return { code: "stale_service" };
+    if (error.message === "Bokningsnyckeln har redan använts med andra uppgifter.") return { code: "idempotency_conflict" };
+    if (error.message === "Bokningen finns inte") return { code: "booking_not_found" };
     if (error.status === 400) return { code: "invalid_request" };
   }
   if (error instanceof ZodError || error instanceof SyntaxError) return { code: "invalid_request" };
@@ -75,19 +79,31 @@ function logUsage(route: string, principal: AgentPrincipal | null, status: numbe
   );
 }
 
+export type AgentHandler = (
+  principal: AgentPrincipal,
+  params: URLSearchParams,
+  request: Request,
+) => Promise<unknown>;
+
+/** Lets a handler choose a non-200 status (e.g. 201 Created). */
+export class Created {
+  constructor(readonly body: unknown) {}
+}
+
 export async function agentRoute(
   request: Request,
   route: string,
   scope: AgentScope,
-  handler: (principal: AgentPrincipal, params: URLSearchParams) => Promise<unknown>,
+  handler: AgentHandler,
 ) {
   let principal: AgentPrincipal | null = null;
   try {
     principal = await authenticateAgent(request.headers, db, scope);
     await checkRateLimit("agent-api", `key:${principal.keyId}`);
-    const body = await handler(principal, new URL(request.url).searchParams);
-    logUsage(route, principal, 200);
-    return NextResponse.json(body, { headers });
+    const result = await handler(principal, new URL(request.url).searchParams, request);
+    const status = result instanceof Created ? 201 : 200;
+    logUsage(route, principal, status);
+    return NextResponse.json(result instanceof Created ? result.body : result, { status, headers });
   } catch (error) {
     const { code, retryAfter } = mapAgentError(error);
     logUsage(route, principal, agentApiErrors[code].status);
@@ -95,8 +111,8 @@ export async function agentRoute(
   }
 }
 
-function business(principal: AgentPrincipal, params: URLSearchParams) {
-  const requested = id.safeParse(params.get("business"));
+export function business(principal: AgentPrincipal, value: unknown) {
+  const requested = id.safeParse(value);
   if (!requested.success) throw new AgentApiError("invalid_request");
   assertBusinessAccess(principal, requested.data);
   const found = BUSINESSES[requested.data];
@@ -104,7 +120,7 @@ function business(principal: AgentPrincipal, params: URLSearchParams) {
   return found;
 }
 
-async function activeStaff() {
+export async function activeStaff() {
   return db.staff.findMany({
     where: { businessId: DEMO_BUSINESS_ID, active: true },
     select: { id: true, name: true, serviceIds: true },
@@ -113,7 +129,7 @@ async function activeStaff() {
   });
 }
 
-function serviceView(
+export function serviceView(
   s: { id: string; name: string; duration: number; buffer: number; priceOre: number; version: number },
   staff: { id: string; name: string; serviceIds: string[] }[],
 ) {
@@ -129,7 +145,7 @@ function serviceView(
 }
 
 export async function servicesV1(principal: AgentPrincipal, params: URLSearchParams) {
-  const b = business(principal, params);
+  const b = business(principal, params.get("business"));
   const [services, staff] = await Promise.all([listServices(), activeStaff()]);
   return {
     apiVersion: API_VERSION,
@@ -155,7 +171,7 @@ export function dayRange(params: URLSearchParams) {
 }
 
 export async function availabilityV1(principal: AgentPrincipal, params: URLSearchParams) {
-  const b = business(principal, params);
+  const b = business(principal, params.get("business"));
   const serviceId = id.safeParse(params.get("service"));
   if (!serviceId.success) throw new AgentApiError("invalid_request");
   const staffParam = params.get("staff");

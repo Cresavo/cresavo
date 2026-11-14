@@ -1,12 +1,14 @@
 openapi: 3.1.0
 info:
   title: Booking Lab Agent API
-  version: "1.0.0-sandbox"
+  version: "1.1.0-sandbox"
   description: |
-    Read-only v1 for AI agents: list services and look up available times in the
-    synthetic Booking Lab demo salon. All data is synthetic. Booking creation,
-    rescheduling and cancellation are not part of v1.
+    Sandbox API for AI agents on the synthetic Booking Lab demo salon (Salong Eko):
+    services, availability, booking with Idempotency-Key, booking status and
+    cancellation. The same tools are exposed over MCP (Streamable HTTP) at
+    /api/v1/mcp with the same key. Rescheduling is not part of v1.
     Every key belongs to one business plus a named agent and a responsible person.
+    A key can only read or cancel bookings it created itself.
 servers:
   - url: http://localhost:3000
 security:
@@ -51,6 +53,52 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/Error" }
+  /api/v1/bookings:
+    post:
+      summary: Book one slot from /availability
+      description: |
+        Call only after the person approved this exact service, staff and time (confirmed=true).
+        The sandbox only accepts customer emails ending in @example.test. Retrying with the same
+        Idempotency-Key and body returns the same booking (200, replayed=true). Engine limits apply:
+        5 bookings per key per day, 3 per customer email per day.
+      security: [{ bearerKey: [] }, { apiKeyHeader: [] }]
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, pattern: "^[A-Za-z0-9_-]{1,64}$" } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BookingRequest" }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/BookingResponse" } } } }
+        "200": { description: Idempotent replay, content: { application/json: { schema: { $ref: "#/components/schemas/BookingResponse" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /api/v1/bookings/{id}:
+    get:
+      summary: Status of a booking created by this key
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Booking, content: { application/json: { schema: { $ref: "#/components/schemas/BookingResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/bookings/{id}/cancel:
+    post:
+      summary: Cancel a booking created by this key (idempotent)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Cancelled, content: { application/json: { schema: { $ref: "#/components/schemas/CancelResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/live:
+    get:
+      summary: Public, read-only activity feed for /live (no auth, allow-listed fields only)
+      security: []
+      responses:
+        "200": { description: Snapshot }
 components:
   securitySchemes:
     bearerKey: { type: http, scheme: bearer, description: "Authorization: Bearer blk_<prefix>_<secret>" }
@@ -124,6 +172,49 @@ components:
             to: { type: string, format: date }
             timeZone: { type: string }
         slots: { type: array, items: { $ref: "#/components/schemas/Slot" } }
+    BookingRequest:
+      type: object
+      additionalProperties: false
+      required: [business, serviceId, serviceVersion, staffId, start, customer, confirmed]
+      properties:
+        business: { type: string, example: demo }
+        serviceId: { type: string, example: fotvard }
+        serviceVersion: { type: integer, example: 1 }
+        staffId: { type: string, example: staff-demo }
+        start: { type: string, format: date-time, example: "2026-11-16T09:00:00+01:00" }
+        customer:
+          type: object
+          required: [name, email]
+          properties:
+            name: { type: string }
+            email: { type: string, format: email, example: "person@example.test" }
+        confirmed: { type: boolean, const: true }
+    Booking:
+      type: object
+      required: [id, status, start, end, durationMinutes, serviceId, serviceName, staff, version, createdAt]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [confirmed, cancelled] }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        durationMinutes: { type: integer }
+        serviceId: { type: string }
+        serviceName: { type: string }
+        staff: { $ref: "#/components/schemas/Staff" }
+        version: { type: integer }
+        createdAt: { type: string, format: date-time }
+    BookingResponse:
+      type: object
+      properties:
+        apiVersion: { type: string, const: v1 }
+        replayed: { type: boolean }
+        booking: { $ref: "#/components/schemas/Booking" }
+    CancelResponse:
+      type: object
+      properties:
+        apiVersion: { type: string, const: v1 }
+        alreadyCancelled: { type: boolean }
+        booking: { $ref: "#/components/schemas/Booking" }
     Error:
       type: object
       required: [apiVersion, error]
@@ -135,5 +226,5 @@ components:
           properties:
             code:
               type: string
-              enum: [unauthorized, forbidden_scope, forbidden_business, business_not_found, service_not_found, staff_not_found, invalid_request, range_too_large, rate_limited, internal_error]
+              enum: [unauthorized, forbidden_scope, forbidden_business, business_not_found, service_not_found, staff_not_found, booking_not_found, invalid_request, range_too_large, idempotency_key_required, confirmation_required, synthetic_contact_required, slot_unavailable, stale_service, idempotency_conflict, rate_limited, internal_error]
             message: { type: string }

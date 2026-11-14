@@ -175,7 +175,7 @@ describe("GET /api/v1/services", () => {
     const res = await get(services, "/api/v1/services?business=demo", bearer(key));
     expect(res.headers.get("cache-control")).toBe("no-store");
     const body = await res.json();
-    expect(body.business).toEqual({ id: "demo", name: "Booking Lab demo salon (synthetic)", timeZone: "Europe/Stockholm" });
+    expect(body.business).toEqual({ id: "demo", name: "Salong Eko (synthetic demo)", timeZone: "Europe/Stockholm" });
     expect(body.services[0]).toEqual({
       id: "fotvard", name: "Fotvård", durationMinutes: 60, bufferMinutes: 0,
       price: { amountMinor: 65000, currency: "SEK" }, version: 1,

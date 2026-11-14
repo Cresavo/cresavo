@@ -1,6 +1,6 @@
 // Operator CLI for agent API keys. The plaintext key is printed once on create
 // and never stored; list/revoke only ever show the public prefix.
-//   npm run agent-keys -- create --agent "Codex test" --owner "Niclas" --contact "niclas@example.test" [--business demo] [--scopes services:read,availability:read]
+//   npm run agent-keys -- create --agent "Codex test" --owner "Niclas" --contact "niclas@example.test" [--business demo] [--scopes services:read,availability:read,bookings:read,bookings:write] [--kind demo-script|registered-client|verified-agent-proof]
 //   npm run agent-keys -- list [--business demo]
 //   npm run agent-keys -- revoke <id|blk_prefix>
 import { parseArgs } from "node:util";
@@ -21,6 +21,7 @@ async function main() {
       contact: { type: "string" },
       business: { type: "string" },
       scopes: { type: "string" },
+      kind: { type: "string" },
       json: { type: "boolean" },
     },
   });
@@ -35,10 +36,12 @@ async function main() {
         ownerName: values.owner,
         ownerContact: values.contact,
         ...(values.scopes && { scopes: values.scopes.split(",").map((s) => s.trim()) }),
+        ...(values.kind && { kind: values.kind }),
       },
       db,
     );
     stdout.write(`${JSON.stringify(record, null, 2)}\n`);
+    stdout.write("\nNote: the agent name and kind are shown publicly on /live.\n");
     stdout.write(`\nAPI key (shown once, store it securely now):\n${key}\n`);
   } else if (action === "list") {
     const rows = await listAgentApiKeys(db, values.business);
@@ -46,7 +49,7 @@ async function main() {
     else
       for (const r of rows)
         stdout.write(
-          `${r.keyPrefix}\t${r.revokedAt ? "REVOKED" : "active"}\t${r.businessId}\t${r.agentName}\t${r.ownerName} <${r.ownerContact}>\t${r.scopes.join(",")}\tlastUsed=${r.lastUsedAt ?? "never"}\n`,
+          `${r.keyPrefix}\t${r.revokedAt ? "REVOKED" : "active"}\t${r.kind}\t${r.businessId}\t${r.agentName}\t${r.ownerName} <${r.ownerContact}>\t${r.scopes.join(",")}\tlastUsed=${r.lastUsedAt ?? "never"}\n`,
         );
   } else if (action === "revoke" && positionals.length === 1) {
     const count = await revokeAgentApiKey(positionals[0], db);

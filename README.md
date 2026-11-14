@@ -331,19 +331,23 @@ Proxylistan avvisar IPv4-prefix kortare än /8 och IPv6-prefix kortare än /32. 
 
 Test- och demovakten avvisar även `host`/`hostaddr` i URL-parametrar före databasåtkomst. E2E-fixturer tar bort sina egna sessionshashar, även efter timeout, men är inte en generell datagallring.
 
-## Agent API v1 (read-only sandbox)
+## Agent API v1 (sandbox)
 
-A small, versioned HTTP API so AI agents can read services and available times
-from the synthetic demo salon. It reuses the booking engine's own availability
-logic (`getAvailability`); nothing is booked. Spec:
-[`docs/agent-api-v1.openapi.yaml`](docs/agent-api-v1.openapi.yaml).
+A small, versioned HTTP + MCP API so AI agents can read services and available
+times, book, read status and cancel in the synthetic demo salon. It reuses the
+booking engine (`listServices`, `getAvailability`, `createBooking` with its
+locks, idempotency and daily caps). Spec:
+[`docs/agent-api-v1.openapi.yaml`](docs/agent-api-v1.openapi.yaml). Live feed:
+`/live`.
 
-Every key is tied to one business, a named agent and a responsible person.
-Only a SHA-256 digest of the key is stored; the key is printed once.
+Every key is tied to one business, a named agent, a responsible person and a
+provenance label (`demo-script`, `registered-client`, `verified-agent-proof`)
+shown on `/live`. Only a SHA-256 digest of the key is stored; the key is
+printed once. A key can only see and cancel bookings it created.
 
 ```bash
 npm run db:migrate && npm run db:seed
-npm run agent-keys -- create --agent "My test agent" --owner "Jane Doe" --contact "jane@example.test"
+npm run agent-keys -- create --agent "My test agent" --owner "Jane Doe" --contact "jane@example.test" [--kind demo-script]
 npm run agent-keys -- list
 npm run agent-keys -- revoke blk_<prefix>
 ```
@@ -353,15 +357,18 @@ KEY=blk_...   # printed once by the create command
 curl -s -H "Authorization: Bearer $KEY" "http://localhost:3000/api/v1/services?business=demo"
 curl -s -H "X-API-Key: $KEY" \
   "http://localhost:3000/api/v1/availability?business=demo&service=fotvard&date=2026-11-16"
+curl -s -X POST -H "Authorization: Bearer $KEY" -H "Idempotency-Key: try-1" -H "content-type: application/json" \
+  -d '{"business":"demo","serviceId":"fotvard","serviceVersion":1,"staffId":"staff-demo","start":"2026-11-16T09:00:00+01:00","customer":{"name":"Test Person","email":"person@example.test"},"confirmed":true}' \
+  http://localhost:3000/api/v1/bookings
+curl -s -X POST -H "Authorization: Bearer $KEY" http://localhost:3000/api/v1/bookings/<id>/cancel
 ```
+
+Availability response (abridged):
 
 ```json
 {
   "apiVersion": "v1",
-  "business": { "id": "demo", "name": "Booking Lab demo salon (synthetic)", "timeZone": "Europe/Stockholm" },
-  "service": { "id": "fotvard", "name": "Fotvård", "durationMinutes": 60, "bufferMinutes": 0,
-    "price": { "amountMinor": 65000, "currency": "SEK" }, "version": 1,
-    "staff": [{ "id": "staff-demo", "name": "Anna" }, { "id": "staff-erik", "name": "Erik" }] },
+  "business": { "id": "demo", "name": "Salong Eko (synthetic demo)", "timeZone": "Europe/Stockholm" },
   "range": { "from": "2026-11-16", "to": "2026-11-16", "timeZone": "Europe/Stockholm" },
   "slots": [
     { "start": "2026-11-16T09:00:00+01:00", "end": "2026-11-16T10:00:00+01:00", "durationMinutes": 60,
@@ -371,8 +378,14 @@ curl -s -H "X-API-Key: $KEY" \
 ```
 
 Errors are always `{ "apiVersion": "v1", "error": { "code": "...", "message": "..." } }`
-(`unauthorized` 401, `forbidden_scope` / `forbidden_business` 403, `*_not_found` 404,
-`invalid_request` / `range_too_large` 400, `rate_limited` 429). A key can only read
-its own business. Limit: 300 requests per key per 15 minutes. Use `date`, or
-`from`/`to` (max 14 days). Not in v1: creating, moving or cancelling bookings,
-booking status, MCP over HTTP/OAuth.
+(e.g. `unauthorized` 401, `forbidden_business` 403, `booking_not_found` 404,
+`slot_unavailable` / `stale_service` / `idempotency_conflict` 409, `rate_limited` 429).
+
+**MCP over HTTP:** `POST /api/v1/mcp` (Streamable HTTP, stateless) with the same
+`Authorization: Bearer` key. Tools: `list_services`, `get_availability`,
+`create_booking`, `get_booking`, `cancel_booking`. This is API-key auth, not the
+MCP OAuth authorization flow, so clients that only support OAuth will not connect yet.
+Try it: `AGENT_API_KEY=... node --import tsx scripts/agent-mcp-smoke.mts http://localhost:3000`.
+REST demo client: `scripts/agent-demo.mts` (use a `--kind demo-script` key).
+
+Not in v1: rescheduling, OAuth, multiple businesses, real customer data.

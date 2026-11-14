@@ -200,8 +200,33 @@ model AgentApiKey {
   keyPrefix String @unique
   keyHash String @unique
   scopes String[]
+  // Provenance shown on /live: demo-script | registered-client | verified-agent-proof.
+  kind String @default("registered-client")
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   lastUsedAt DateTime? @db.Timestamptz(3)
   revokedAt DateTime? @db.Timestamptz(3)
   @@index([businessId, revokedAt])
+}
+
+// Which agent key created a booking. Object-level authorisation for status/cancel.
+model AgentBooking {
+  bookingId String @id
+  keyId String
+  businessId String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([keyId, createdAt])
+}
+
+// Public-safe agent activity for /live: no customer fields, no key material.
+model AgentApiEvent {
+  id String @id @default(cuid())
+  keyId String
+  businessId String
+  action String
+  outcome String
+  serviceName String?
+  staffName String?
+  startsAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([businessId, createdAt, id])
 }

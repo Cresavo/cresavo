@@ -87,7 +87,9 @@ export default async function BookingPage({
                       ? t("Business workspace", "Salongens arbetsyta")
                       : event.actorKind === "local-mcp"
                         ? t("Local agent connection", "Lokal agentanslutning")
-                        : event.actorKind === "public" &&
+                        : event.actorKind === "agent-api"
+                          ? t("Agent API key", "Agent-API-nyckel")
+                          : event.actorKind === "public" &&
                             event.actorId === "local-a2a-demo-channel:v1"
                           ? t("Local A2A demo", "Lokalt A2A-prov")
                           : t(
