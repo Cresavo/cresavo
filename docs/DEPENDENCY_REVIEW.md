@@ -171,3 +171,32 @@ E03-QA-2 kvarstår som medium pilot-/distributionsgrind: CLI/Studio/elkjs finns 
 
 Eftersom ingen migration eller tabell ändrats sker kodrollback genom att återgå till dba05a2:s kod/manifest/låsfil och köra npm ci + prisma generate. Ingen återställning av kunddata behövs för schemaändring i denna batch; återgång över skarpa samtidiga skrivningar/backup har inte verifierats och ingen pilot är godkänd. Slutmatris och QA dokumenteras i VERIFICATION/HANDOFF efter körning. Kvarstående audit ska inte döljas eller flyttas till allowlist.
 Groks oberoende [originalrapport](qa/AUDIT-REPORT-6acd2ef-minimatch.md), SHA256 dd7fa61626a3d76aefb913fbf0286c1033375cf36169afc8c11837d844033409, bekräftar ingen publicerad stabil rättning och avråder från canary/major-override. Grok körde egen npm pack/registry/anropsgranskning samt en override-probe endast i egen kopia (lint/tsc/audit grönt där, ändå inte rekommenderad). Ingen override infördes här. Grok läste inte nya PC-auditfiler och körde inte vår slutmatris. Manifestets radslut skiljer i gamla arkivet; normaliserat innehåll och låsfilshash matchar. Ompröva vid nästa stabila upstream-release eller senast 2026-11-26; ingen ny bevakningstjänst skapas.
+
+
+## Lokalt A2A-prov · 14 november 2026
+
+@a2a-js/sdk 1.3.0 är ett exakt pinnat devDependency för separat lokalt
+protokollprov. Paketet ersätter egen A2A-klient, AgentCard-konvertering,
+JSON-RPC-hantering och meddelandeserialisering. Node >=20 stöds av projektets
+Node 24. SDK:n används faktiskt av scripts/a2a-demo.ts och integrationstestet,
+och importeras inte av Next-sidor eller API-rutter.
+
+Paketets LICENSE kontrollerades i den installerade versionen, Apache-2.0.
+Ingen separat NOTICE finns i paketrot. Dess direkta runtimeberoende jose
+återanvänder installerad 6.2.17 under MIT, kontrollerad LICENSE.md.
+Inga nya Express-/gRPC-beroenden installerades. npm install tillförde ett
+paket. Full audit gav 7 moderate dev, 0 high/critical; omit-dev gav 0.
+Slutresultat efter implementation redovisas separat i VERIFICATION.
+
+Bedömningen är att Apache-2.0/MIT kan ingå i denna AGPL-3.0-only-kodbas,
+med bevarade originallicenser, attributioner och tillämpliga patentvillkor.
+Ingen relikensiering av SDK:n görs. GNU:s kompatibilitetsöversikt anger att
+GNU-licenser från version 3 subsumerar Apache-2.0. Distribution av ett separat
+binärpaket/container behöver fortfarande projektets artefaktgranskning.
+[SDK](https://github.com/a2aproject/a2a-js) ·
+[GNU](https://www.gnu.org/licenses/license-compatibility.en.html).
+
+SDK 1.3.0 implementerar A2A 1.0 och legacy-varianter. Provet annonserar och
+testar endast JSONRPC 1.0 SendMessage och skyddad lokal AgentCard.
+Streaming, tasks, push, fjärrautentisering och generell interoperabilitet
+ingår inte. Tokens är slumpade per process och skrivs inte till URL/logg.
