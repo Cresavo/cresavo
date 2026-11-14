@@ -11,6 +11,7 @@ import {
   type AgentExecutor,
 } from "@a2a-js/sdk/server";
 import { z } from "zod";
+import { VersionNotSupportedError, toJsonRpcError } from "@a2a-js/sdk/errors";
 import { assertTestDatabase } from "../../scripts/test-db-guard.mjs";
 import {
   bookingSchema,
@@ -138,12 +139,19 @@ export async function startA2aDemo() {
     response.setHeader("Cache-Control", "no-store");
     const supplied = Buffer.from(request.headers.authorization ?? "");
     const expected = Buffer.from(`Bearer ${token}`);
+    if (request.headers.origin) {
+      response.writeHead(403).end();
+      return;
+    }
     if (
-      request.headers.origin ||
       supplied.length !== expected.length ||
       !timingSafeEqual(supplied, expected)
     ) {
-      response.writeHead(403).end();
+      response.setHeader(
+        "WWW-Authenticate",
+        'Bearer realm="booking-lab-local-demo"',
+      );
+      response.writeHead(401).end();
       return;
     }
     response.setHeader("Content-Type", "application/json");
@@ -158,21 +166,67 @@ export async function startA2aDemo() {
       response.writeHead(404).end();
       return;
     }
+    let requestId: string | number | null = null;
+    const rpcError = (
+      error: { code: number; message: string; data?: unknown },
+      status = 400,
+    ) => {
+      response
+        .writeHead(status)
+        .end(JSON.stringify({ jsonrpc: "2.0", id: requestId, error }));
+    };
     try {
-      let body = "";
-      for await (const chunk of request) {
-        body += chunk.toString();
-        if (Buffer.byteLength(body) > 16384) {
-          response.writeHead(413).end();
-          return;
-        }
+      const chunks: Buffer[] = [];
+      let bytes = 0;
+      let oversized = Number(request.headers["content-length"]) > 16384;
+      // Drain excess bytes without storing or parsing them. Finishing the
+      // request before closing avoids resets while the client is still sending.
+      for await (const chunk of request.iterator({ destroyOnReturn: false })) {
+        bytes += chunk.length;
+        oversized ||= bytes > 16384;
+        if (!oversized) chunks.push(chunk);
       }
-      const rpc = JSON.parse(body);
+      if (oversized) {
+        response.setHeader("Connection", "close");
+        response.writeHead(413).end();
+        return;
+      }
+      let rpc;
+      try {
+        rpc = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      } catch {
+        rpcError({ code: -32700, message: "Parse error" });
+        return;
+      }
+      if (!rpc || typeof rpc !== "object" || Array.isArray(rpc)) {
+        rpcError({ code: -32600, message: "Invalid Request" });
+        return;
+      }
       if (
-        rpc.method !== "SendMessage" ||
-        request.headers["a2a-version"] !== "1.0"
+        typeof rpc.id === "string" ||
+        (typeof rpc.id === "number" && Number.isFinite(rpc.id))
+      )
+        requestId = rpc.id;
+      const invalidId =
+        "id" in rpc &&
+        rpc.id !== null &&
+        typeof rpc.id !== "string" &&
+        !(typeof rpc.id === "number" && Number.isInteger(rpc.id));
+      if (
+        rpc.jsonrpc !== "2.0" ||
+        typeof rpc.method !== "string" ||
+        !rpc.method ||
+        invalidId
       ) {
-        response.writeHead(400).end();
+        rpcError({ code: -32600, message: "Invalid Request" });
+        return;
+      }
+      if (request.headers["a2a-version"] !== "1.0") {
+        rpcError(toJsonRpcError(new VersionNotSupportedError()));
+        return;
+      }
+      if (rpc.method !== "SendMessage") {
+        rpcError({ code: -32601, message: "Method not found" });
         return;
       }
       const result = await handler.handle(
@@ -181,9 +235,7 @@ export async function startA2aDemo() {
       );
       response.end(JSON.stringify(result));
     } catch {
-      response
-        .writeHead(400)
-        .end(JSON.stringify({ error: "A2A_DEMO_REQUEST_INVALID" }));
+      rpcError({ code: -32603, message: "Internal error" }, 500);
     }
   });
   server.listen(0, "127.0.0.1");

@@ -1,6 +1,25 @@
 # Premiumdemo — skyddad preview levererad
 
 
+## Komplett bokningsdag och lokalt A2A-prov · under slutgranskning
+
+Arbetsbranch `feature/complete-booking-day` från `d015141`.
+Manuell ägarbokning, kundens bokningslänk och lokal ägar-MCP återanvänds.
+Nytt är ett separat skyddat loopbackprov med A2A JSONRPC 1.0 och officiell SDK.
+Operatören väljer en verklig demotid och skriver BOKA efter sammanfattningen.
+Bokningen använder befintlig motor och syns i samma lokala kalender.
+[Provsteg och acceptans](COMPLETE_BOOKING_DAY_PLAN.md).
+
+Första Grok-granskningen gäller `4438941` och ger GO för syntetisk lokal POC.
+[Originalrapport](qa/QA-REPORT-booking-day-4438941.md). Det samlade rättningsvarvet
+omfattar obligatorisk behandlingsversion, korrekta auth-/JSON-RPC-fel och
+stabil anslutningsstängning efter överstor body. Slutlig QA och CI återstår.
+Kvar är bland annat befintlig public-etikett i A2A-bokningens historik och
+den avsiktligt gemensamma demokundens kvot. Ingen fjärr-/native-klient eller
+fysisk iPhone har verifierats av detta lokala protokollprov.
+
+
+
 ## API och lokal MCP · 14 november 2026
 
 Branch `backend/api-mcp-pilot-proof`, testrevision `dbe1e1f5edcc6fcee69651e7d4ed334ddd507aa8`

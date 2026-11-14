@@ -51,7 +51,7 @@ it("official A2A client discovers, requests times and confirms exactly one booki
   try {
     expect(
       (await fetch(demo.url + "/.well-known/agent-card.json")).status,
-    ).toBe(403);
+    ).toBe(401);
     const authenticated: typeof fetch = (url, init) =>
       fetch(url, {
         ...init,
@@ -204,3 +204,97 @@ it("official A2A client discovers, requests times and confirms exactly one booki
     await demo.close();
   }
 }, 30000);
+
+it("local HTTP returns protocol errors and closes oversized requests without breaking the next call", async () => {
+  vi.stubEnv("BOOKING_A2A_DEMO", "1");
+  const demo = await startA2aDemo();
+  try {
+    const unauthenticated = await fetch(
+      demo.url + "/.well-known/agent-card.json",
+    );
+    expect(unauthenticated.status).toBe(401);
+    expect(unauthenticated.headers.get("www-authenticate")).toContain("Bearer");
+    const headers = {
+      authorization: `Bearer ${demo.token}`,
+      "a2a-version": "1.0",
+    };
+    const post = (body: string, version = "1.0") =>
+      fetch(demo.url + "/a2a", {
+        method: "POST",
+        headers: { ...headers, "a2a-version": version },
+        body,
+      });
+    const malformed = await post("{not json");
+    expect(await malformed.json()).toMatchObject({
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32700 },
+    });
+    for (const body of [
+      "null",
+      "[]",
+      '{"jsonrpc":"wrong","method":"GetTask","id":1}',
+    ]) {
+      const invalid = await post(body);
+      expect(await invalid.json()).toMatchObject({
+        jsonrpc: "2.0",
+        error: { code: -32600 },
+      });
+    }
+    const unknown = await post(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: "synthetic-unknown",
+        method: "GetTask",
+        params: {},
+      }),
+    );
+    expect(await unknown.json()).toMatchObject({
+      id: "synthetic-unknown",
+      error: { code: -32601 },
+    });
+    const version = await post(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 3,
+        method: "SendMessage",
+        params: {},
+      }),
+      "0.3",
+    );
+    expect(await version.json()).toMatchObject({
+      id: 3,
+      error: { code: -32009 },
+    });
+    for (const size of [16385, 2 * 1024 * 1024, 16385]) {
+      const oversized = await post("x".repeat(size));
+      expect(oversized.status).toBe(413);
+      expect(oversized.headers.get("connection")).toBe("close");
+      await oversized.text();
+      const next = await fetch(demo.url + "/.well-known/agent-card.json", {
+        headers,
+      });
+      expect(next.status).toBe(200);
+      await next.text();
+    }
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("x".repeat(16385)));
+        controller.close();
+      },
+    });
+    const options = { method: "POST", headers, body: stream, duplex: "half" };
+    const chunked = await fetch(demo.url + "/a2a", options);
+    expect(chunked.status).toBe(413);
+    expect(chunked.headers.get("connection")).toBe("close");
+    await chunked.text();
+    const afterChunked = await fetch(
+      demo.url + "/.well-known/agent-card.json",
+      { headers },
+    );
+    expect(afterChunked.status).toBe(200);
+    await afterChunked.text();
+  } finally {
+    await demo.close();
+  }
+});

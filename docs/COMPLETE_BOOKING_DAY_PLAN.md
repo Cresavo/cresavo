@@ -87,3 +87,14 @@ officiell ClientFactory passerade i det riktade A2A-provet. Terminalprovet
 valde en tid, skrev BOKA, skapade testbokningen och avbokade den genom
 befintlig ägaroperation med två korrekta historikhändelser. Egna rader städades.
 Grok och CI återstår.
+
+
+## Samlat rättningsvarv 1
+
+Första Grok-rapporten gäller4438941 och ger scoped GO med Low/Info.
+Inga Medium/High. Codex skärper obligatorisk serviceVersion (A2A-QA-7),
+auth401/WWW-Authenticate (A2A-QA-1), standardiserade JSON-RPC-fel med
+korrelation/version (A2A-QA-2) samt 413/Connection close utan förstörd
+keep-alive-återanvändning (A2A-QA-3). Riktat test täcker även chunkad body.
+A2A-QA-4/5 är dokumenterade lokala begränsningar. Status/handoff uppdateras
+i befintlig struktur (A2A-QA-6). Slutlig riktad Grok-QA och exakt CI krävs.

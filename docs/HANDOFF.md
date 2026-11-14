@@ -1,6 +1,21 @@
 # Leverans — premiumdemo, 2026-11-14
 
 
+## Lokal bokningsdag via A2A · slutgranskning pågår
+
+Läs `COMPLETE_BOOKING_DAY_PLAN.md` för att prova på separat loopbackdatabas.
+Sätt BOOKING_A2A_DEMO=1 lokalt och kör
+`npm run demo:a2a -- massage staff-demo YYYY-MM-DD`.
+Granska behandling, utförare, längd, pris och tid. Välj tidsnummer och skriv
+BOKA, eller avbryt med Enter. Använd därefter vanlig lokal admin/ägar-MCP för
+flytt och avbokning i samma databas. Kundprofilen har inga adminverktyg.
+
+Detta är ett strukturerat protokollprov med syntetisk kund, ingen språkmodell
+eller installerad fjärranslutning i ChatGPT. Första Grok-GO gäller4438941;
+återkontroll efter det samlade rättningsvarvet är ännu väntande.
+
+
+
 ## Backendprov · API och lokal MCP
 
 Arbetsbranch `backend/api-mcp-pilot-proof`, testrevision `dbe1e1f`. Befintliga

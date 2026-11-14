@@ -4,3 +4,4 @@ docs/qa/*preview*.md -text
 docs/qa/QA-REPORT-premium-*.md text eol=lf
 docs/qa/QA-REPORT-mobile-story-*.md -text
 docs/qa/QA-REPORT-backend-*.md -text
+docs/qa/QA-REPORT-booking-day-*.md -text

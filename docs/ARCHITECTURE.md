@@ -524,3 +524,18 @@ Authorization-header, aldrig URL/klientkod/logg. Ingen fjärrautentisering,
 streaming, push eller beständiga A2A-tasks har införts. Provet innebär ingen
 generell A2A-certifiering eller stöd för alla klienter. Se
 COMPLETE_BOOKING_DAY_PLAN.md och DEPENDENCY_REVIEW.md för provväg och SDK.
+
+
+Efter första A2A-QA kräver book alltid serviceVersion. Saknad/felaktig version
+nekas före bokning. Saknad/felaktig bearer ger 401 och WWW-Authenticate, medan
+Origin nekas med 403. Protokollfel har JSON-RPC-envelope med id/error; fel
+version använder SDK:ns VersionNotSupported-fel. Överstor body ger 413 och
+Connection close, både med Content-Length och chunkad överföring.
+
+Kända avgränsningar för lokal syntetisk profil. Alla A2A-prov delar samma
+kundadress och kanal, inklusive högst tre bokningar per dag och e-post.
+Create-händelsen får befintlig kundkanals etikett public/booking-channel;
+A2A går att särskilja tekniskt genom dess clientKey-HMAC, inte i ägarens
+vanliga historiketikett. En särskild etikett är en senare additiv ändring
+av gemensam domän/presentation. Ingen mänsklig eller extern agentidentitet
+har verifierats genom den lokala bearer-profilen.
