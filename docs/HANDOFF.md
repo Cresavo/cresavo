@@ -1,5 +1,33 @@
 # Leverans — premiumdemo, 2026-11-14
 
+## Uppföljning · agentklient och pilotgrindar
+
+Produkt cced2112349f0d1bd60fd1ba7e6a37bda36c68fa på
+feature/agent-client-pilot-readiness. Ny A2A-händelse visar Lokalt A2A-prov /
+Local A2A demo i vanlig behörig bokningsdetalj. Gamla händelser ändras inte.
+[Mobilbild](demo/agent-history/mobile.png) · [Desktop](demo/agent-history/desktop.png).
+Bilderna kommer från verklig lokal Playwright-körning, inte fysisk iPhone.
+
+Riktiga klientanrop läser behandlingar och tider och returnerar bokningsaktiverat
+MCP-kort. Befintlig privat plugin0.3.0, runtime05e5eaf och opt-in kvarstår;
+inga profiler/hemligheter ändrade. Ingen styrbar apppanel; nativefångst timeout.
+Nytt klick till bokningsbekräftelse i faktisk klient är därför inte verifierat.
+Det ska inte ersättas av ett SDK-anrop och beskrivas som samma kontroll.
+
+Aktuella återstående pilotbeslut och teknik finns överst i PRIVACY_SECURITY.
+Ingen pilotstart, automatisk retention, MFA-implementation eller ny drift ingår.
+Actions43597108005 är grön i alla fyra lägen på exakt produktrevision:
+64webb vardera,114unit/128integration/13kort, ren npmci och ny DB.
+Grok ger scoped GO på samma SHA, utan Medium/High, inga rättningsvarv beställda.
+[Originalrapport](qa/QA-REPORT-booking-day-client-cced211.md), SHA256
+3d3500d38c13d687f05b408199659c3aa6992c55b75ef0651bd37148837c6cec.
+Grok körde själv114unit/128integration/64produktionswebb, A2A3/3×3 och
+separat actor-prov28/28, inklusive verkliga äldre d8562b8-rader oförändrade.
+[Testbevis](qa/evidence-agent-client-cced211/ci-results.json).
+Low AC-QA-1 (negativa repotestluckor) är backlogg. Dokumentationsfyndet AC-QA-2
+hanteras efter QA i status/verification/handoff; ingen produktkod ändras.
+Grok har inte verifierat GitHub, PC-klienten eller den driftsatta previewn.
+
 
 ## Lokal bokningsdag via A2A · avslutad 14 november 2026
 

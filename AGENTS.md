@@ -10,6 +10,20 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Guide för Booking Lab SE
 
+## Uppföljning: agentklient och pilotunderlag
+
+- Produkt/Grok cced211, feature/agent-client-pilot-readiness från7998056.
+  Scoped GO lokalt, Actions43597108005 fyra gröna64/64,114unit/128integration/13kort.
+- A2A-create behåller public och använder befintligt actorId som tekniskt
+  kanal-id. Ingen WorkspaceActor-utökning eller ändring av gamla händelser.
+  Visa enbart etikett, aldrig rått actorId. AC-QA-1 negativa testluckor är backlogg.
+- Verklig klient har bookingEnabled=true och app-only-bekräftelse. Frånvaro av
+  skrivverktyg i modellistan är inte ett anslutningsfel. Ny nativeklickning NOTRUN;
+  ingen sidopanel och capturetimeout. Ingen profil/secret/preview ändrad.
+- Läs aktuell HANDOFF/VERIFICATION och PRIVACY_SECURITY:s nya pilotgrindar.
+  Individuella konton/manuell datahantering finns; MFA/retention/kunddrift kvar.
+  Ingen ny fixloop eller nästa epic automatiskt.
+
 ## Levererat: komplett bokningsdag och lokalt A2A-prov
 
 - Produkt/Grok d8562b8 på feature/complete-booking-day, ett samlat fixvarv.

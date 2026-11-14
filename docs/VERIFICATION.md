@@ -1,5 +1,69 @@
 # Aktuell verifiering — premiumdemo
 
+## Agentklient och A2A-historik · 14 november 2026
+
+Fryst produkt cced2112349f0d1bd60fd1ba7e6a37bda36c68fa,
+feature/agent-client-pilot-readiness från7998056. Ny isolerad lokal PostgreSQL
+agent_readiness_1794660393451_test, alla10historiska migrationer och seed.
+Inga schema-/paket-/rättighetsändringar.
+
+| Kontroll | Faktiskt utfall |
+| --- | --- |
+| Prisma generate/migrate/seed på ny databas | PASS |
+| npm run lint / npx tsc --noEmit / npm run build | PASS |
+| npm test | 114/114 |
+| Full integration efter korrigering | 128/128 |
+| Full webb, produktionsbygge, proxy0 | 64/64 desktop + mobil |
+| npm audit --json | FAIL7moderate dev,0high/critical |
+| npm audit --omit=dev --json | PASS0 |
+| Verklig klient list_services / get_availability / show_time_picker | PASS för läsning; bookingEnabled=true i kortsvaret |
+| Verklig klientbekräftelse | NOT RUN; ingen apppanel, nativecapture timeout |
+| Full Actions43597108005 på fryst revision | PASS fyra jobb,64webb vardera;114unit/128integration/13kort |
+| Grok på fryst revision | Scoped GO endast syntetiskt lokalt; inga Medium/High |
+
+Integrationskommandot var node --env-file=.vercel/agent-readiness-test.env
+node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts.
+Webbkommandot var node --env-file=.vercel/agent-readiness-test.env
+node_modules/@playwright/test/cli.js test med E2E_PRODUCTION=1/TRUST_PROXY_IP=0.
+Ingen lokal npmci i denna uppföljning; låsta paket är oförändrade, ren installation
+körs i CI. Tidigare körning127/128 FAIL: första patchen försökte ny actorKind och
+databasens befintliga CHECK nekade. Rättningen använder befintligt actorId,
+behåller actorKind public och ändrar ingen migration eller constraint.
+Originalfelet bevaras separat från slutlig PASS, inga tester försvagades.
+
+Plugin Creator metadata visar privat booking-lab-time-card0.3.0 och aktuell
+release pluginrel_6af7418393e88191bb5834222b306ab3. Launcher läser befintlig
+lokalprofil; kontroller visade opt-in1, lokal demodatabas och befintlig secret.
+Inga secretvärden lästes ut i logg/rapport. Bookingverktyg är app-only: frånvaro
+i modellens verktygslista bevisar inte att UI-bokning saknas. MCPkortsvaret
+bekräftade opt-in men rendering/klick i ny klientvy har inte verifierats.
+
+Ingen fysisk iPhone/Safari, extern modell-A2A, fjärr-MCP, Dockerlokalt,
+ny previewdeployment, verklig kunddata eller pilotverifiering utförd.
+
+[Lokala kommandon och logghashar](qa/evidence-agent-client-cced211/local-results.json) ·
+[CI och logghashar](qa/evidence-agent-client-cced211/ci-results.json) ·
+[Faktiska klientobservationer](qa/evidence-agent-client-cced211/client-observations.json).
+[Full audit](qa/evidence-agent-client-cced211/audit-full.json) ·
+[Produktionsaudit](qa/evidence-agent-client-cced211/audit-production.json).
+
+[Groks byte-identiska original](qa/QA-REPORT-booking-day-client-cced211.md), SHA256
+3d3500d38c13d687f05b408199659c3aa6992c55b75ef0651bd37148837c6cec.
+Egen QA körde ren npmci,nyDB,lint/types/build,114unit/128integration,
+A2A3/3×3,64produktionswebb och actor-prov28/28. Gamla rader skapades med
+riktig d8562b8-kod;4/4händelser och3/3bokningar byte-oförändrade.
+Negativa kontroller: egen probe fångar4/4; repots tester fångar2/4.
+AC-QA-1 Low: tester saknas för rått kanal-id i HTML och actorId från payload;
+nuvarande produkt nekade samtliga förfalskningar/läckage i Groks egna prov.
+Detta är öppen testbacklogg, ingen verifierad aktuell läcka.
+AC-QA-2 Low: eftersläpande dokumentation/klientprov kompletteras här efter QA.
+Info AC-QA-3/4: etiketten är kanal, inte person; actorId ska stanna i serverkomponenten.
+Grok verifierade inte CI eller PC. Codex kontrollerade Actions exaktSHA och
+git diff --exit-code d8562b8 7998056 -- src tests scripts prisma package.json
+package-lock.json next.config.ts (exit0) för den dokumentationsbas som saknades
+i Groks historiklösa export. QA-bedömningen avser produkt cced211; senare docs
+och lokalt genererade bilder är separata. Ingen produktfix efter QA.
+
 
 ## Komplett bokningsdag och lokalt A2A · 14 november 2026
 

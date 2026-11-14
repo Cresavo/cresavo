@@ -1,4 +1,32 @@
-# Produktägarrapport — bokningsdag och lokalt agentprov, 14 november 2026
+# Produktägarrapport — agenthistorik och pilotunderlag, 14 november 2026
+
+Nya lokala A2A-bokningar visas nu som **Lokalt A2A-prov** i bokningens historik.
+Gamla händelser ligger kvar som de var. Ingen förändring av behörighet,
+bokningsregler, migreringar eller kunduppgifter.
+[Mobilbild](demo/agent-history/mobile.png) · [Desktopbild](demo/agent-history/desktop.png).
+
+Verkliga anrop i Codex läser behandlingar och lediga tider och hämtar ett
+bokningsaktiverat tidvalskort. Sista bekräftelseklicket är inte verifierat:
+ingen styrbar apppanel och nativefångsten fick timeout. Den befintliga privata
+profilen är redan opt-in; inga inloggningsuppgifter eller åtkomster har ändrats.
+
+Branch feature/agent-client-pilot-readiness, produkt cced211.
+Alla fyra [CI-jobb](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43597108005)
+är gröna:64webb per läge,114unit/128integration/13kort.
+[Grok](qa/QA-REPORT-booking-day-client-cced211.md) ger scoped GO endast lokalt,
+inga Medium/High. Ett Low om negativa repotester är backlogg; statusfyndet
+hanteras i denna dokumentationsleverans efter QA.
+Audit separat:7moderate dev,0produktion. [Underlag](VERIFICATION.md).
+
+Pilot är fortfarande NO-GO. [Aktuella pilotgrindar](PRIVACY_SECURITY.md) skiljer
+befintliga funktioner från MFA/recovery, datalivscykelbeslut och verifierad
+kunddrift. Nästa avgränsning är verkligt klientklick, därefter val av
+MFA/återställningsflöde och konkret datalivscykel för första salongen.
+Webbpreviewn och befintlig lokalt installerad runtime är oförändrade.
+
+---
+
+# Tidigare: bokningsdag och lokalt agentprov, 14 november 2026
 
 Befintlig manuell bokning, kundlänk och ägar-MCP kompletteras med ett litet
 lokalt A2A-prov. Samma regler, tillgänglighet och databas används.

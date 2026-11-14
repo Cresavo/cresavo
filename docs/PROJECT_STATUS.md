@@ -1,5 +1,34 @@
 # Premiumdemo — skyddad preview levererad
 
+## Agentklient, historik och pilotunderlag · uppföljning 14 november 2026
+
+Branch feature/agent-client-pilot-readiness från7998056. Produktrevision
+cced2112349f0d1bd60fd1ba7e6a37bda36c68fa. Nya lokala A2A-bokningar får ett
+tekniskt kanal-id i befintlig händelse och etiketten Lokalt A2A-prov i skyddad
+historik. Äldre rader, aktörstyper, migrationer, API/MCP och rättigheter består.
+128integration/114unit/lint/types/build och64webb i lokalt produktionsbygge PASS.
+Actions43597108005 har fyra gröna jobb på exakt produktrevision,64webb i varje
+läge,114unit/128integration/13kort. Groks riktade återkontroll på samma SHA
+ger scoped GO endast syntetiskt lokalt, inga Medium/High.
+[Originalrapport](qa/QA-REPORT-booking-day-client-cced211.md).
+AC-QA-1 (Low): repots negativa tester saknar två skydd mot framtida regressioner;
+Groks separata28/28-probe verifierade nuvarande skydd. Backlogg, ingen ny fixloop.
+AC-QA-2 om eftersläpande status åtgärdas i denna docsändring efter QA.
+
+Faktisk Codex-klient: list_services, get_availability och show_time_picker
+svarade. Kortet returnerade bookingEnabled=true. Befintlig privat plugin0.3.0
+och lokal demoprofil har bokning opt-in; skrivning ligger i appens UI, inte
+modellens fria verktygslista. Ingen ny anslutning eller behörighet behövs för
+det konstaterandet. Ingen styrbar MCP-sidopanel fanns och nativefönstrets
+skärmfångst fick timeout. Därför är nytt native-bekräftelseklick NOT RUN.
+
+[Aktuella pilotgrindar](PRIVACY_SECURITY.md): individuella konton och begränsad
+manuell export/kontaktborttagning finns redan. MFA/recovery, fastställd
+datalivscykel och faktisk kunddrift återstår. Automatisk gallring är avstängd.
+Ingen ny deployment eller verklig kunddata. Pilot fortsatt NO-GO.
+Agenthistorik och pilotinventering är klara. Hela native-klientbokningen är
+delvis verifierad och blockerad på styrbar kortvy, inte markerad klar.
+
 
 ## Komplett bokningsdag och lokalt A2A-prov · avslutat 14 november 2026
 
