@@ -1,5 +1,24 @@
 # Leverans — premiumdemo, 2026-11-14
 
+
+## Backendprov · API och lokal MCP
+
+Arbetsbranch `backend/api-mcp-pilot-proof`, testrevision `dbe1e1f`. Befintliga
+operationer återanvänds; enda kodändringen gäller testbevis för samtidiga
+avbokningsretries. Ny databas och städkontroll, schema-/konflikt-/historikskydd,
+blandad HTTP/MCP-trafik och versionskontroll ingår i de passerade proven.
+[Resultat och kommandon](qa/evidence-backend-dbe1e1f/local-results.json).
+[Actions på fryst revision](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43581522275).
+CI är godkänd på testrevisionen, med 62 webbtester i vart och ett av fyra jobb.
+Grok ger GO för lokal syntetisk backend på samma SHA.
+[Originalrapport](qa/QA-REPORT-backend-dbe1e1f.md), verifierad SHA256
+e6b30c80439efe7566699511b823cdc823dcc05a146d975e5bcb2de21900c4fb.
+Grok körde 125 integration, 114 unit, riktade tester 5/5 tre gånger,
+HTTP/MCP 2/2 i både dev och produktion samt en stdio-probe 132/132.
+Jämförelsen gjordes mot 9a8350a eftersom föregående dokumentationsarkiv
+56579bd inte fanns hos Grok. Lokalt är skillnaden mot 56579bd verifierad. Ingen produktdeploy behövs för test-/dokumentationsändringen.
+
+
 ## Prova det mobila bokningsflödet
 
 [Öppna den skyddade demon](https://booking-lab-se-preview.vercel.app/product). För hela vägen till rätt kalenderdag, öppna först demoarbetsytan en gång i samma webbläsare. Demoinloggning från en ny session landar på standardkalendern. [Groks originalrapport](qa/QA-REPORT-mobile-story-9a8350a.md).

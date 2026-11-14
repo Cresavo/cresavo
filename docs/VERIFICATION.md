@@ -1,5 +1,41 @@
 # Aktuell verifiering — premiumdemo
 
+
+## API och lokal MCP · 14 november 2026
+
+Testrevision `dbe1e1f`, branch `backend/api-mcp-pilot-proof`, kumulativ bas
+`56579bd`. Ingen produktkod, migration eller beroendeändring.
+
+| Kontroll | Faktiskt kommando / omfattning | Resultat |
+| --- | --- | --- |
+| Ny isolerad loopbackdatabas | prisma migrate deploy, sedan node --import tsx prisma/seed.ts | PASS |
+| Integration | vitest run --config vitest.integration.config.ts | 125/125 PASS |
+| Parallella avbokningsretries | samma Vitest-konfig med tests/integration/mcp-workspace.test.ts efter ändringen | 5/5 PASS |
+| Unit | npm test | 114/114 PASS |
+| HTTP/MCP | Playwright workspace.spec.ts, grep HTTP och lokal MCP, E2E_PRODUCTION=1 | 2/2 PASS desktop/mobil |
+| Lint / typer / bygge | npm run lint, tsc --noEmit, npm run build | PASS |
+| Dev HTTP/MCP | samma Playwright-filter utan E2E_PRODUCTION | STARTFEL; äldre dev-server håller arbetskopians lås |
+| Full audit | npm audit --json | FAIL 7 moderate dev; 0 high/critical |
+| Produktionsaudit | npm audit --omit=dev --json | PASS 0 fynd |
+
+Alla databasberoende lokala kommandon ovan ärvde DATABASE_URL från den ignorerade
+`.vercel/backend-test.env`, aldrig från molndemon. Efter provet var bokningar,
+händelser, kampanjer, adminkonton, sessioner, workspaceRequests och spärrposter 0.
+[Resultat och logghashar](qa/evidence-backend-dbe1e1f/local-results.json).
+[Full audit](qa/evidence-backend-dbe1e1f/audit-full.json) och
+[produktionsaudit](qa/evidence-backend-dbe1e1f/audit-production.json).
+
+NOT RUN lokalt i denna omgång: npm ci och prisma generate (inga paket-/schemaändringar),
+hela webbmatrisen (körs i Actions), nya native-MCP-klick, fysisk mobil och deployment.
+[Actions 43581522275](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43581522275)
+passerade på dbe1e1f: 62 webbtester i alla fyra lägen, 114 unit, 125 integration
+och 13 korttester. [CI-bevis](qa/evidence-backend-dbe1e1f/ci-results.json).
+Grok godkände samma frysta revision som lokal syntetisk backend.
+[Originalrapport](qa/QA-REPORT-backend-dbe1e1f.md). Den lokala dev-låsningen
+reproducerades inte i Groks rena kopia. Fjärr-/native-klientprov och pilot
+ingår inte i godkännandet.
+
+
 **[Öppna den skyddade premiumdemon](https://booking-lab-se-preview.vercel.app/product)**. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43546809210): 62/62 webbtester i vart och ett av fyra gröna jobb. [Driftbevis](assets/premium/preview-final.json), [CI-loggarnas kontrollsummor](assets/premium/ci-final-proof.json) och [Groks original](qa/QA-REPORT-premium-5212b7a.md).
 
 Vercel `dpl_<redacted>`, fra1. Fast alias och immutable preview kontrollerades: anonyma HTML/API/resurser stoppades; behörig Vercel-session utan appinloggning fick 403 för admin-API. Direktport 3000 gick inte att nå. Egen Chrome-klick: öppna demoadmin utan extra lösenord, välj gårdagens bokningar och läs bokningsdetaljen. [Alla åtta datatabeller oförändrade](assets/premium/preview-db-proof.json), inklusive 94 bokningar. Ingen mainmerge. Pilot och fysisk Safari ej godkända.

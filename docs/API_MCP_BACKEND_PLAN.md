@@ -43,4 +43,6 @@ MCP-arbetsytesviten 5/5 och HTTP/MCP-produktionsprovet 2/2 (desktop/mobil).
 Lint, tsc och build passerade. Audit gav 7 moderate dev, 0 high/critical och
 0 produktionsfynd. Dev-provet startade inte eftersom en äldre dev-server
 använder samma arbetskopia; det redovisas separat från passerat produktionsprov.
-Fryst QA, privat push och Actions återstår.
+Fryst QA och privat push är klara på dbe1e1f. Grok ger scoped GO utan
+Medium/High. Alla fyra Actions-jobb43581522275 passerade. Senare
+dokumentationsändringar förtydligar semantisk idempotens och kanalscope.

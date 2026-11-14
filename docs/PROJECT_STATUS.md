@@ -1,5 +1,34 @@
 # Premiumdemo — skyddad preview levererad
 
+
+## API och lokal MCP · 14 november 2026
+
+Branch `backend/api-mcp-pilot-proof`, testrevision `dbe1e1f5edcc6fcee69651e7d4ed334ddd507aa8`
+från leverans `56579bd`. Ingen produktkod ändrad. Kartläggningen visar att
+befintlig lokal arbetsyteprofil redan stöder läsa kalender, skapa, flytta och
+avboka. [Omfattning](API_MCP_BACKEND_PLAN.md) och [verktygsmatris](ARCHITECTURE.md).
+
+Testet har förstärkts för 20 parallella avbokningsretries, identiska svar,
+exakt en avbokningshändelse och nekad ändrad payload med samma nyckel.
+Ny loopbackdatabas migrerad och seedad. 125 integration, riktad MCP 5/5,
+HTTP/MCP-konkurrens i produktionsbygge desktop/mobil 2/2, unit 114/114,
+lint, tsc och build PASS. Efteråt var bokningar/händelser/kampanjer/admins/
+sessioner/workspaceRequests/spärrposter 0. Lokalt dev-prov startade inte
+eftersom en äldre utvecklingsserver håller arbetskopians lås.
+
+Full audit FAIL med 7 moderate dev, 0 high/critical; omit-dev PASS med 0 fynd.
+[Lokala resultat och körda kommandon](qa/evidence-backend-dbe1e1f/local-results.json).
+Alla fyra Actions-jobb passerade med 62 webbtester vardera på testrevisionen.
+[CI-bevis](qa/evidence-backend-dbe1e1f/ci-results.json). Grok ger GO för lokal syntetisk backend på samma SHA.
+[Originalrapport](qa/QA-REPORT-backend-dbe1e1f.md), verifierad SHA256
+e6b30c80439efe7566699511b823cdc823dcc05a146d975e5bcb2de21900c4fb.
+Grok körde 125 integration, 114 unit, riktade tester 5/5 tre gånger,
+HTTP/MCP 2/2 i både dev och produktion samt en stdio-probe 132/132.
+Jämförelsen gjordes mot 9a8350a eftersom föregående dokumentationsarkiv
+56579bd inte fanns hos Grok. Lokalt är skillnaden mot 56579bd verifierad. Skrivflaggorna är betrodd lokal
+operatörsåtkomst. Kundpilot och fjärrautentisering återstår.
+
+
 ## Mobil bokningsdemo · skyddad preview levererad 14 november 2026
 
 Produktrevision `9a8350a7d68a0a14d7b345bca3e53f5ace76d823` på `design/mobile-booking-story`. På produktsidan illustrerar frågan kundens begäran. Svaret hämtar en bokningsbar tid. I den isolerade demodatabasen följde vi tiden 16.00 den 16 november från förval till bekräftelse och samma boknings-id i Elias kalender. [Bokningsprov](assets/mobile-story/booking-proof.json). I WebKit vid 320, 390 och 1440 px behöll bokningen samma förval och rymdes utan sidscroll. I Chromium gick alla tre returrutter tillbaka med rätt sammanhang och fokus. Förkortad mobilvy gav åtkomst till Spara, Avbryt och Stäng. På Sofias fullbokade måndag gav tillgänglighets-API:t noll tider. I WebKit ledde knappen för nästa lediga dag vidare till tolv tider på tisdagen. Fysisk iPhone återstår.

@@ -360,6 +360,15 @@ kalendern till uttryckligen tillåtna fält utan kundnamn och kontaktuppgifter.
 Ett separat läsande ägarkort får inte automatiskt tillgång till skrivprofilen.
 confirmed=true är klientens försäkran och utgör inget bevis på mänskligt godkännande.
 
+Kontraktsförtydligande efter backend-QA den 14 november. Idempotens garanterar
+samma resultatvärden; JSON-objektens nyckelordning är inte ett kontrakt. PostgreSQL
+jsonb kan ändra ordningen vid replay. Jämför parsade resultat, inte råtext.
+Request-id avgränsas till aktör/kanal. Samma nyckel hos HTTP-admin och lokal MCP
+är två olika försök; användarversion och databaslås skyddar samtidiga ändringar.
+Avbokning av redan avbokad bokning med aktuell version och en ny nyckel lyckas
+utan ny historikhändelse eller versionsökning.
+
+
 Nya läsverktyg kräver betrott lokalt --admin. Nya flytt-/avboknings-/konfigurationsverktyg kräver dessutom --allow-workspace och kvotens befintliga SESSION_SECRET. Äldre --allow-bookings aktiverar fortfarande enbart sin bokningsskrivning, inte arbetsytemutationer. --allow-workspace aktiverar också samma create_booking. Ingen HTTP-transport/port eller extern modell tillkommer; flaggorna är inte fjärrautentisering. SDK:s officiella StandardSchema-gräns behåller JSON-schemat och sanerar valideringsfel före callback; samma safeFailure används för körfel.
 
 list_workspace_bookings kräver datumintervall max31dagar, max100/sida och scope-kontrollerad cursor, valfritt staffId och status confirmed/all. Svarsfält: id,serviceId,staffId,startsAt,endsAt,status,version samt nextCursor; inga kundfält. get_booking ger lagrad behandling/pris/längd/buffert och max20händelser utan kundfält. Boknings-ID/tider/behandling kan fortfarande vara personuppgifter. Äldre list_bookings behåller sin svarstyp men visar endast confirmed och använder bokningens lagrade tjänstenamn, inte det senare ändrade namnet i katalogen. Inga avbokade tider ska framstå som aktiva i äldre klienter.
