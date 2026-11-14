@@ -15,6 +15,7 @@ const csp = [
 const config: NextConfig = {
   turbopack: { root: process.cwd() },
   poweredByHeader: false,
+  devIndicators: false,
   async headers() {
     return [
       {
