@@ -188,3 +188,20 @@ model RateLimitBucket {
   count Int
   @@index([expiresAt])
 }
+
+// Agent API v1 credentials. Only a SHA-256 digest of the high-entropy key is
+// stored; the plaintext key is shown once by scripts/agent-keys.mts.
+model AgentApiKey {
+  id String @id @default(cuid())
+  businessId String
+  agentName String
+  ownerName String
+  ownerContact String
+  keyPrefix String @unique
+  keyHash String @unique
+  scopes String[]
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  lastUsedAt DateTime? @db.Timestamptz(3)
+  revokedAt DateTime? @db.Timestamptz(3)
+  @@index([businessId, revokedAt])
+}

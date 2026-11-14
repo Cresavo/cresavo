@@ -330,3 +330,49 @@ MCP-klienter skickar explicit förälderns DATABASE_URL; exporterad miljö vinne
 Proxylistan avvisar IPv4-prefix kortare än /8 och IPv6-prefix kortare än /32. Dessa gränser innebär inte att stora tillåtna nät är lämpliga; lista endast de verkliga proxyadresserna. IPv6-klienters /64 används för både inloggningsspärr och bokningstak; rå adress används fortfarande för att kontrollera betrodd proxy. IPv4-mappad IPv6 normaliseras till IPv4. Gammal IPv6-/128-bokningshistorik räknas inte retroaktivt mot /64-taket. Inga historiska migrationer ändras.
 
 Test- och demovakten avvisar även `host`/`hostaddr` i URL-parametrar före databasåtkomst. E2E-fixturer tar bort sina egna sessionshashar, även efter timeout, men är inte en generell datagallring.
+
+## Agent API v1 (read-only sandbox)
+
+A small, versioned HTTP API so AI agents can read services and available times
+from the synthetic demo salon. It reuses the booking engine's own availability
+logic (`getAvailability`); nothing is booked. Spec:
+[`docs/agent-api-v1.openapi.yaml`](docs/agent-api-v1.openapi.yaml).
+
+Every key is tied to one business, a named agent and a responsible person.
+Only a SHA-256 digest of the key is stored; the key is printed once.
+
+```bash
+npm run db:migrate && npm run db:seed
+npm run agent-keys -- create --agent "My test agent" --owner "Jane Doe" --contact "jane@example.test"
+npm run agent-keys -- list
+npm run agent-keys -- revoke blk_<prefix>
+```
+
+```bash
+KEY=blk_...   # printed once by the create command
+curl -s -H "Authorization: Bearer $KEY" "http://localhost:3000/api/v1/services?business=demo"
+curl -s -H "X-API-Key: $KEY" \
+  "http://localhost:3000/api/v1/availability?business=demo&service=fotvard&date=2026-11-16"
+```
+
+```json
+{
+  "apiVersion": "v1",
+  "business": { "id": "demo", "name": "Booking Lab demo salon (synthetic)", "timeZone": "Europe/Stockholm" },
+  "service": { "id": "fotvard", "name": "Fotvård", "durationMinutes": 60, "bufferMinutes": 0,
+    "price": { "amountMinor": 65000, "currency": "SEK" }, "version": 1,
+    "staff": [{ "id": "staff-demo", "name": "Anna" }, { "id": "staff-erik", "name": "Erik" }] },
+  "range": { "from": "2026-11-16", "to": "2026-11-16", "timeZone": "Europe/Stockholm" },
+  "slots": [
+    { "start": "2026-11-16T09:00:00+01:00", "end": "2026-11-16T10:00:00+01:00", "durationMinutes": 60,
+      "serviceId": "fotvard", "serviceVersion": 1, "staff": { "id": "staff-demo", "name": "Anna" } }
+  ]
+}
+```
+
+Errors are always `{ "apiVersion": "v1", "error": { "code": "...", "message": "..." } }`
+(`unauthorized` 401, `forbidden_scope` / `forbidden_business` 403, `*_not_found` 404,
+`invalid_request` / `range_too_large` 400, `rate_limited` 429). A key can only read
+its own business. Limit: 300 requests per key per 15 minutes. Use `date`, or
+`from`/`to` (max 14 days). Not in v1: creating, moving or cancelling bookings,
+booking status, MCP over HTTP/OAuth.

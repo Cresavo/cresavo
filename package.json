@@ -21,7 +21,8 @@
     "mcp:client": "tsx --env-file=.env src/mcp/client.ts",
     "test:integration": "node --env-file=.env ./node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts",
     "test:e2e:production": "node --env-file=.env scripts/run-production-e2e.mjs",
-    "demo:a2a": "node --env-file=.env --import tsx scripts/a2a-demo.ts"
+    "demo:a2a": "node --env-file=.env --import tsx scripts/a2a-demo.ts",
+    "agent-keys": "node --env-file=.env --import tsx scripts/agent-keys.mts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.4.0",
