@@ -5,10 +5,12 @@ export const USP_VERSION = "2026-08-20";
 export const DISCOVERY_CACHE = "public, max-age=60";
 export function discoveryOrigin(env = process.env) {
   // Never trust Host/X-Forwarded-Host or request JSON when publishing endpoints.
-  if (env.BOOKING_RUNTIME === "vercel" && !env.BOOKING_PUBLIC_ORIGIN) throw new Error("DISCOVERY_ORIGIN_INVALID");
+  const hosted = env.BOOKING_RUNTIME === "vercel";
+  if ((hosted || env.NODE_ENV === "production") && !env.BOOKING_PUBLIC_ORIGIN)
+    throw new Error("DISCOVERY_ORIGIN_INVALID");
   const url = new URL(env.BOOKING_PUBLIC_ORIGIN ?? `http://127.0.0.1:${env.PORT ?? "3000"}`);
   const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-  if ((url.protocol !== "https:" && !(loopback && url.protocol === "http:")) ||
+  if ((url.protocol !== "https:" && !(!hosted && loopback && url.protocol === "http:")) ||
       url.username || url.password || url.search || url.hash || url.pathname !== "/")
     throw new Error("DISCOVERY_ORIGIN_INVALID");
   return url.origin;

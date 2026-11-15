@@ -13,6 +13,7 @@ Do not reuse the older preview's credentials or DB implicitly.
 | `SESSION_SECRET` | Fresh protected random secret, at least 32 characters. Never source/client code or report. |
 | `ADMIN_SESSION_VERSION` | Global existing web-session revocation version. |
 | `BOOKING_RUNTIME` | `vercel`; preserve existing wrapper ingress trust model. |
+| `BOOKING_PUBLIC_ORIGIN` | Explicit approved HTTPS origin for discovery links. Required in production; Vercel mode rejects HTTP, including loopback. Never derive from request headers. |
 | `RATE_LIMIT_STORE` | `postgres`, never process-local memory in Vercel. |
 | `TRUST_PROXY_IP` | `0` or unset in this explicit Vercel mode. |
 | `VERCEL`, `VERCEL_ENV` | Platform supplied; do not fake them to bypass checks. Preview environment required. |
@@ -61,7 +62,7 @@ npm run db:seed
 npm run build
 ```
 
-Apply all historical migrations plus `20261115010000_agent_contract`; no reset,
+Apply all historical migrations through `20261115020000_mandate_place`; no reset,
 `db push`, rewritten histories or dropped data. `btree_gist` extension permission
 is required by the original exclusion migration. Seed uses upsert and inserts
 the two synthetic services/staff only; it is not a customer-data import.

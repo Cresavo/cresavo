@@ -23,6 +23,7 @@
 !/docs
 /docs/*
 !/docs/DEPENDENCY_REVIEW.md
+!/docs/agent-api-v1.openapi.yaml
 .env
 .env.*
 !/.env.example

@@ -60,7 +60,15 @@ describe("bounded USP discovery", () => {
   });
   it("requires an explicit origin in Vercel and permits loopback HTTP only locally", () => {
     expect(() => discoveryOrigin({ NODE_ENV: "test", BOOKING_RUNTIME: "vercel" })).toThrow();
+    expect(() => discoveryOrigin({ NODE_ENV: "production" })).toThrow();
     expect(discoveryOrigin({ NODE_ENV: "test", PORT: "3218" })).toBe("http://127.0.0.1:3218");
+    expect(discoveryOrigin({ NODE_ENV: "production", BOOKING_RUNTIME: "vercel", BOOKING_PUBLIC_ORIGIN: "https://booking.example.test" })).toBe("https://booking.example.test");
+  });
+  it.each(["http://localhost:3218", "http://127.0.0.1:3218", "http://[::1]:3218"])("rejects Vercel loopback HTTP origin %s", value => {
+    vi.stubEnv("BOOKING_RUNTIME", "vercel");
+    vi.stubEnv("BOOKING_PUBLIC_ORIGIN", value);
+    expect(profile().status).toBe(503);
+    expect(llms().status).toBe(503);
   });
   it("native booking schema never accepts a caller-authored mandate or buyer.consent", () => {
     const input = { idempotencyKey: "proof", business: "demo", serviceId: "massage", serviceVersion: 1,

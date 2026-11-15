@@ -28,6 +28,7 @@ RUN node -e "const c=require('node:crypto'),f=require('node:fs');if(process.arch
 COPY --from=build --chown=node:node /app/.next ./.next
 COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/scripts ./scripts
+COPY --from=build --chown=node:node /app/docs/agent-api-v1.openapi.yaml ./docs/agent-api-v1.openapi.yaml
 COPY --from=build --chown=node:node /app/next.config.mjs ./next.config.mjs
 COPY --from=build --chown=node:node /app/LICENSE /app/THIRD_PARTY_NOTICES.md /app/THIRD_PARTY_NATIVE_NOTICES.txt /app/THIRD_PARTY_LUCIDE_LICENSE.txt ./
 COPY --from=build --chown=node:node /booking-lab-source.tar.gz ./booking-lab-source.tar.gz

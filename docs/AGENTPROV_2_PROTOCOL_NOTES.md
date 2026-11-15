@@ -21,9 +21,22 @@ Metadata är read-only; inga agent-/adminkontroller blir anonyma.
 
 /.well-known/usp och /llms.txt refererar endast operatorns validerade
 BOOKING_PUBLIC_ORIGIN eller lokal loopback/PORT. Host, forwardingheaders och
-requestbody används inte. Vercel-läge kräver explicit HTTPS-origin; inga
+requestbody används inte. Produktionsläge kräver explicit origin och
+Vercel-läge kräver HTTPS även om en loopback-adress konfigurerats; inga
 accessinställningar ändras här. Lokal HTTP är ett testundantag, inte verifierad
 USP-hosting eller TLS. Alla miljöers åtkomstskydd måste kontrolleras före drift.
+
+Discovery öppnar ingen webbläsar-CORS-policy. Serverklienter kan läsa de
+publika metadataresurserna inom miljöns åtkomstskydd; cross-origin browserstöd
+kräver ett separat beslut om tillåtna origins. Next:s Vary-routerheaders
+behålls för korrekt variantcache. De två schemaresurserna är statiska native
+kontrakt utan origin eller hemligheter och kan ge200 även när den dynamiska
+profilens origin är felkonfigurerad (profil/llms ger då503/no-store).
+
+OpenAPI-filen måste följa hela kedjan: .vercelignore, .dockerignore och
+Dockerfile.vercel:s explicita COPY till runtime. NFT-spårning ensam bevisar
+inte detta för container-ramverket. Filurval och COPY regressionstestas;
+en faktisk Docker-/Vercel-körning är separat verifiering.
 
 Alias: usp_services_list→list_services, usp_availability_query→get_availability,
 usp_bookings_create→create_booking, usp_bookings_get→get_booking.
