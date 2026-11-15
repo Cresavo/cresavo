@@ -1,7 +1,7 @@
 # Handoff · Agentprov 2 · 2026-11-15
 
 Separat lokal worktree <local-state>/codex/booking-lab-agentprov-2, branch
-codex/agentprov-2 från fryst e890b69. Produkt17ce75bb92f2d5c14b3cc017d7343d99b6f918bd.
+codex/agentprov-2 från fryst e890b69. Produkt9e1c929a9246d4cad8c3385cfe5a12afbc20d333.
 Ingen push, PR, merge eller deploy. Fryst agentprov-1 är bevarad för dess QA.
 
 Levererat: USP2026-08-20-upptäckbarhet, llms, fem alias över befintligt native
@@ -15,11 +15,20 @@ fem dokument är i konflikt. LEGACY_DECOUPLE_PLAN.md är enbart en plan; inget
 har tagits bort. AGENTPROV_2_PROTOCOL_NOTES.md beskriver standardjämförelsen,
 fältmappningen, datumkonventionerna och den enda syntetiska platsens gräns.
 
-Slutmatris: unit166/166, integration139/139, lint, tsc och build PASS.
-Äldre-mandat-uppgradering13→14 PASS. Riktiga kommandoutfall och NOTRUN finns
+Slutmatris efter fix1: unit171/171, integration139/139, lint, tsc och build PASS.
+Äldre-mandat-uppgradering13→14 PASS före fix1 (oförändrad migration). Riktiga kommandoutfall och NOTRUN finns
 i VERIFICATION.md; kort rapport i <local-scratch>/night-02.md. Extra lokal
 HTTP-processstart blockerades av automatisk säkerhetsgranskning. Ingen ny
-Grok-QA, molnverifiering eller fysisk mobilkontroll påstås för denna revision.
+molnverifiering eller fysisk mobilkontroll påstås för denna revision.
+
+Groks original på bcae82b finns i docs/qa/QA-REPORT-agentprov2-bcae82b.md:
+166/139,75/75 egen HTTP och8/8 migrering. En Medium-blockerare AP2-QA-1:
+OpenAPI-filen saknades i paketerad runtime. Fix1 rättar ignore/COPY, förtydligar
+paketeringsbevis och begränsar origin. Riktad återkontroll på9e1c929 väntar;
+ingen slutlig QA-GO för den rättade koden påstås. Både QA/fixbegärans hash
+matchar Groks original efter återställd slut-LF i webbkopian.
+Info4/5/7 om DB-CHECK/härledd plats/snabbare unit-täckning är backlogg.
+Info6 om CORS/Vary/statiska schemaresurser dokumenteras i protokollnoterna.
 
 Nästa beslut är full USP-wire kontra fortsatt nativealias och ett separat
 sammanföringsuppdrag efter agentprov-1:s QA. Fler platser kräver verklig

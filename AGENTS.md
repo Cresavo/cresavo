@@ -15,6 +15,9 @@
 - Kör lint, tsc, full unit/integration och build; integration enbart med
   befintlig loopback-DB-vakt. Rapport <local-scratch>/night-02.md under4000tecken.
   Rapporten är aldrig bevis utan faktisk output från den aktuella koden.
+- Fix1 produkt9e1c929:171unit/139integration/lint/tsc/build PASS. Groks original
+  påbcae82b bekräftar166/139+75HTTP; rättad paketering/origin väntar återkontroll.
+  Inga nya migrationer/dependencies. Se aktuell VERIFICATION och docs/qa.
 
 ## Fryst historik: Agentprov 1
 

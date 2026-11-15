@@ -1,4 +1,40 @@
-# Aktuell verifiering · Agentprov 2 · 2026-11-15
+# Aktuell verifiering · Agentprov 2, rättningsvarv 1 · 2026-11-15
+
+Produkt **9e1c929a9246d4cad8c3385cfe5a12afbc20d333**, codex/agentprov-2.
+Efterföljande rapportcommits ändrar inte denna produktkod. Ingen push/deploy.
+Windows/Node24.16.0/PostgreSQL18.6, ny agentprov_2_fix1_test på127.0.0.1:55468.
+Ingen .env läst. Råoutput i <local-scratch>/agentprov-2/fix1-*.
+
+| Faktisk kontroll | Resultat |
+| --- | --- |
+| Prisma generate / migrate deploy / seed | exit0; klient7.10.1, alla14migrationer på ny DB; fix1-generate/migrate/seed.txt. |
+| npm run lint | exit0, inga fel; fix1-lint.txt. |
+| node node_modules/typescript/bin/tsc --noEmit | exit0; fix1-types.txt. |
+| npm test | `Test Files 27 passed (27)` / `Tests 171 passed (171)`;33.90s, fix1-unit.txt. |
+| npm run test:integration | `Test Files 31 passed (31)` / `Tests 139 passed (139)`;140.69s, fix1-integration.txt. |
+| npm run build | exit0, `Compiled successfully in 74s`; fix1-build.txt. |
+| Nya negativa regressioner, sedan rättning | Före:7fail/9pass. Efter:16/16; fix1-red/targeted.txt. |
+| Filurval + runtime-COPY | OpenAPI vald av previewFiles och explicit i Dockerfile:s runtime; fix1-packaging-check.json. Statisk kontroll, inte Docker/HTTP. |
+| SQL-städning |0 Booking/BookingEvent/AgentClient/AgentApiKey/AgentMandate/AgentBooking/AgentApiEvent/Customer; fix1-cleanup.txt. |
+
+Ny clean npm ci är inte omkörd: tidigare installation572paket/573auditerade
+gäller samma oförändrade package-lock. Inga dependencies/licenser ändrades.
+Ingen ny auditkörning; tidigare7moderate är separat från funktionstesterna.
+
+Groks original [QA2-bcae82b-01](qa/QA-REPORT-agentprov2-bcae82b.md) gäller
+**föregående** bcae82b:166/139,75/75 HTTP,8/8 migration, scoped lokalGO men
+paketerad previewNO-GO på AP2-QA-1. Rapportens slut-LF återställdes efter
+webbkopiering; SHA256 matchar116ff870b1588ed2fa149fe44a5f136139fb84c8d206704ffdc19513e9750a53.
+Fix1 rättar AP2-QA-1/2/3 och den separat reproducerade Vercel+loopbackHTTP-luckan.
+Återkontroll på9e1c929 är **väntande**, inget QA-GO för rättningen påstås.
+
+NOT RUN lokalt: paketerad runtime-HTTP, Docker, full E2E/fyra lägen,
+personliga assistenter, fysisk iPhone, Actions, moln/TLS/deploy. Extra npm start
+stoppades tidigare före processstart av automatisk granskning: `blocked by policy`.
+Ingen alternativ start eller försvagning av skydd gjordes. Groks separata
+syntetiska HTTP-prov är hans verifiering, inte ett lokalt prov på denna PC.
+
+## Historik · Agentprov 2 före rättning, 2026-11-15
 
 Produkt **17ce75bb92f2d5c14b3cc017d7343d99b6f918bd**, lokal branch
 codex/agentprov-2, separat worktree från e890b69. Senare Markdown-commits
