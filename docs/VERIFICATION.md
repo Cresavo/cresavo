@@ -1,3 +1,65 @@
+# Aktuell verifiering · Agentprov 1 · 2026-11-15
+
+Produktrevision **570de3abc886bb1dc8f313ea27e986e0b5fe83c9**, lokal
+codex/agentprov-1 från bf7b6c3. Dokumentationscommits efter denna revision
+ändrar inte den verifierade produkten. Windows, Node24.16.0, PostgreSQL18.6.
+Inga `.env`-filer eller Docker användes; inga gamla credentials lästes.
+Råa lokala kommandoutfall: `<local-scratch>/` (inte Git-/CI-artefakter).
+
+| Kört kommando/kontroll | Resultat | Observerat underlag |
+| --- | --- | --- |
+| `npm ci --no-fund` | PASS exit0 | 572 installerade/573 granskade; npm-ci.txt. Samma oförändrade dependency-lock som slutrevisionen. |
+| `node node_modules/prisma/build/index.js generate` | PASS exit0 | Prisma7.10.1; contract-generate-retry.txt. |
+| `node node_modules/prisma/build/index.js migrate deploy` | PASS exit0 | 13 migrationer, delivery-migrate.txt; ny isolerad agentprov_delivery_test på127.0.0.1:55467. |
+| `node --import tsx prisma/seed.ts` | PASS exit0 | delivery-seed.txt, två tjänster/två utförare, inga kundkort. |
+| `npm run lint` | PASS exit0 | delivery-lint.txt. |
+| `node node_modules/typescript/bin/tsc --noEmit` | PASS exit0 | delivery-types.txt; nya .mts-klienter inkluderade uttryckligen. |
+| `npm test` | PASS154/154,26filer | delivery-unit.txt,8.40s. |
+| `npm run test:integration` | PASS135/135,30filer | delivery-integration.txt,135.36s; färsk DB med slutlig ny migration. |
+| `npm run build` | PASS exit0 | delivery-build.txt, Next16.4.6; /, /admin, /product, /live och agentroutes byggda. |
+| `npm run agent:proof` mot produktionswrapper | PASS exit0 | delivery-agentproof.txt; två separata processer, verklig HTTP-MCP SDK + fristående fetch REST, samma nya DB. |
+| Negativ testdatabasvakt | PASS: avsiktlig exit1 | Vitest med icke-loopback-URL stoppade med TEST_DATABASE_REFUSED innan dataåtkomst; test-db-guard-negative.txt. |
+| HTTP-smoke | PASS7/7 | /, /admin, /product, /live:200; utan nyckel services/MCP:401; publish utan admin:403. delivery-http-smoke.json. Detta är inte en browserklicktest. |
+| SQL-städning efter provet | PASS | Booking, BookingEvent, AgentClient, AgentApiKey, AgentMandate, AgentBooking, Customer:0 var; delivery-cleanup.txt. |
+| `npm audit --json` | FAIL exit1 | 7moderate,0high/critical; minimatch/typescript-eslint-kedjan. final-audit.json. Inga dependencyändringar/overrides. |
+| `npm audit --omit=dev --json` | PASS exit0 | 0fynd; final-audit-production.json. Inte ett generellt säkerhetsgodkännande. |
+
+`delivery-checks.json` har lint/types/unit/build=0. Ny migration är additiv och
+explicit transaktionell; alla 12 historiska migrationer/exklusionsvillkoret är
+oförändrade mot bf7b6c3. Bred legacy-parking är inte genomförd; snapshotbranch
+park/legacy är bf7b6c3. Bara oanvänd product/scene.tsx har säkert tagits bort.
+
+## Tidigare försök i detta uppdrag — bevarad felhistorik
+
+- Baslinje före implementation:129/129unit, lint/tsc/build PASS.
+- Första nya generate FAILP1012: saknade sammansatta unika 1:1-relationsindex.
+  Rättat innan verifieringen ovan. Tidiga tsc/lintfel i nya fixtures/klienter
+  rättades; inga assertions eller timeouts sänktes/togs bort.
+- Första initdb med gamla preview-binärer FAIL: saknad share/postgres.bki.
+  Kompletta redan installerade embedded-binärer användes därefter; ingen
+  installation, ny tjänst eller Windows-behörighetsändring.
+- Första fulla integrationen avbröts efter .env-krav i gamla stdio-teststarter.
+  Dessa och E2E:s samma subprocessargument använder nu valfri env-fil.
+- Nästa fulla körning133/135: kunddatans 20-retry-test nådde5s och efterföljaren
+  såg403 i stället409. Samtidigt bygge kördes då. Exakt rotorsak är inte bevisad;
+  separat kunddatasvit gick8/8, två senare färska fulla sviter gick135/135 utan
+  deadline-/assertionsändring (155.26s respektive135.36s). Behåll som möjlig
+  resurs-/timeoutkänslighet, inte ett bevisat produktionsfel eller dold fix.
+- Första transportprovet FAIL med generisk kod, cleanup PASS; fas kunde inte
+  fastställas. Statiska fasfelkoder tillkom. Fyra följande körningar PASS; det
+  sista provet mot slutligt produktionsbygge och nya DB:n gick också PASS.
+
+## Inte kört / inte påstått
+
+Full browser-E2E/4lägen, fysisk iPhone/Safari, native personlig assistent,
+ny Grok-QA, GitHub Actions, hosted Neon, Vercel-deploy/protection/TLS,
+backup/restore och migration på ett historiskt verkligt datainnehåll: **NOT RUN**.
+Ingen push/PR eller molnåtkomst. Äldre UI/Grok/Actions-resultat nedan får inte
+räknas som verifiering av denna kod. Vercel/Neon-preflight är en enhetstestad
+read-only kontroll av konfigurationsform, inte ett åtkomstskyddstest.
+
+## Bilaga: historik före Agentprov 1
+
 # Aktuell verifiering — premiumdemo
 
 ## Agentklient och A2A-historik · 14 november 2026

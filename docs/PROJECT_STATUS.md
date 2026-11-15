@@ -1,3 +1,42 @@
+# Aktuell lokal status · Agentprov 1 · 2026-11-15
+
+Branch `codex/agentprov-1`, produktrevision
+`570de3abc886bb1dc8f313ea27e986e0b5fe83c9`, från bf7b6c3.
+Efterföljande rapportändringar är dokumentation, inte ny produktkod.
+
+| Acceptanskriterium | Faktiskt verifierat |
+| --- | --- |
+| Två separata transportklienter bokar med samma kontrakt | PASS: fristående REST-process och officiell HTTP-MCP SDK-process mot lokalt produktionsbygge. Detta är inte två verifierade personliga AI-assistenter. |
+| Samma nyckel/payload ger samma id och behörig status | PASS för båda; även 20 parallella retries i integration. |
+| Klienter kan inte läsa/replaya varandras bokningar | PASS; även främmande verksamhet och mandat nekas. |
+| Rotation bevarar ägarskap och idempotens | PASS; gammal nyckel får401, ny nyckel läser/replayar samma bokning. |
+| Mandat kontrolleras server-side | PASS för syntetiskt operatörsursprung, tjänst/utförare, intervall/maxpris, expiry/revocation och engångsbruk. Verkligt kundgodkännande är inte verifierat. |
+| Bokning och AgentBooking är atomära | PASS: framtvingat länkfel ger rollback av bokning/händelse/länk; retry fungerar sedan. |
+| En vinnare vid samtidig krock | PASS: två klienter/två transportvägar, kontrollerat slot_unavailable; integration kontrollerar även SQL-överlapp. |
+| Ingen kundprofil skapas och egna fixtures städas | PASS, kontrollräkning av sju berörda tabeller gav0 efter slutprovet. |
+
+Lokal kod och körbar plan är förberedda. **Ingen molnpreview har skapats eller
+uppdaterats, ingen push/PR eller Actions-körning gjorts.** Vercel/Neon är bara
+förberett i [checklistan](AGENTPROV_1_PREVIEW.md). Ingen ny Grok-QA är godkänd.
+Fulla faktiska resultat, inklusive tidigare fel: [VERIFICATION](VERIFICATION.md).
+
+Sedan förra arbetsomgången: två små nya modeller, stabil credentialrotation,
+servermandat, atomisk länk, strikt MCP-schema, två transportprocesser och
+avgränsad reset; README/API-kontrakt uppdaterade och oanvänd scen borttagen.
+Ingen ny dependency, historisk migration, licens eller produktmodul ändrad.
+
+Delvis/återstående: legacy har snapshot `park/legacy` på bf7b6c3, men bred
+modulbortkoppling är inte genomförd eftersom nödvändig admin delar beroenden.
+Windows shared-booking-policy b241d8a/a101704 är lokalt jämförd, inte införd
+eller pushad. Realistisk kundidentitet/mandat, pilotgrindar och cloudåtkomst
+är fortfarande öppna. Ingen planerad funktion framställs som implementerad.
+
+---
+
+## Historik före Agentprov 1
+
+Följande leveransrapporter gäller andra revisioner och är inte bevis för denna.
+
 # Premiumdemo — skyddad preview levererad
 
 ## Agentklient, historik och pilotunderlag · uppföljning 14 november 2026

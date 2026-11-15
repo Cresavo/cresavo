@@ -30,6 +30,25 @@ med sin gamla nyckel-id som klient-id för att bevara hashnamespace/kvoter.
 Ingen generell provideradapter, OAuth-plattform eller extra tjänst införs.
 Detaljer och begränsningar: [runbook](AGENTPROV_1_RUNBOOK.md).
 
+### Jämförelse med tidigare ChatGPT-diagram
+
+| Påstående | Faktiskt läge på denna gren |
+| --- | --- |
+| Webb/admin är en egen väg till samma motor | Överens. Lokal betrodd MCP är också separat; inga adminverktyg förs ut i gatewayen. |
+| MCP kan bara nås lokalt | Stämmer inte för bf7b6c3: REST och HTTP-MCP fanns redan. Säker faktisk molnåtkomst är däremot inte verifierad här. |
+| Rätt verksamhet/bokning är mandatkontroll | Det är klient-/objektbehörighet. Nya AgentMandate kontrollerar ett syntetiskt operatörstillstånd, fortfarande inte verkligt kundgodkännande. |
+| Postgres delar idempotens/överlappsskydd | Överens; ny stabil klient och atomisk länk kompletterar befintliga regler, ingen motoromskrivning. |
+| Säker resultatsida | För starkt om /live: filtrerat syntetiskt best-effort-flöde. Boknings-id och behörig GET-status är resultatkällan. |
+| Valei/Bokadirekt kommer senare | Överens. Ingen integration eller generell adapter utan konkret andra leverantör. |
+
+Windows-policyn b241d8a (granskad a101704) finns lokalt på denna PC och har
+gemensam förfader 121a229b9d2b86724ff8cd7192e249a40a1c02ca med bf7b6c3.
+Den är en sidogren, inte en äldre bas som får ersätta gatewayarbetet. Lokal
+jämförelse är gjord; privat push/remotejämförelse återstår enligt mandatet
+ingen push. Policy har egna schema-, domän-, schedule-, webb- och lokal-MCP-
+ändringar. En framtida sammanföring måste behålla både centrala policyregler
+och dessa gatewayhooks, sedan köra gemensamma regressioner. Ingen blind rebase.
+
 ## Visuell arbetsyta
 
 workspace-polish.css importeras efter befintlig style.css. Sidomeny>=1180px,

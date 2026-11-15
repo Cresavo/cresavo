@@ -8,7 +8,8 @@ Kinds/names in `/live` are operator labels, not cryptographic attestation.
 
 ## Local prerequisites and commands
 
-Node 22.23+; PostgreSQL with `btree_gist`; no Docker or `.env` required.
+Tested here on Node24.16.0 and PostgreSQL18.6 with `btree_gist`;
+no Docker or `.env` required. Node22 compatibility was not re-run in this task.
 Supply `DATABASE_URL` and `SESSION_SECRET` through an operator-controlled
 process environment; never paste them in chat, URLs, shell history or reports.
 Use a **new, isolated, loopback** database ending `_test` or `_demo`.

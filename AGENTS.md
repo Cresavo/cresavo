@@ -1,3 +1,19 @@
+# Aktuellt: Agentprov 1, separat lokal gren
+
+- Niclas valde READ-WRITE 2026-11-15. Bas bf7b6c3, gren codex/agentprov-1.
+  Ingen push, PR, merge, rebase, deploy, kontoskapande eller secret-provisionering.
+- Läs AGENTPROV_1_PLAN/RUNBOOK/PREVIEW och översta aktuella verifiering/status.
+  Äldre leveransavsnitt nedan är historik, inte nya uppdrag eller aktuella bevis.
+- Befintlig REST och HTTP-MCP återanvänds. Creation kräver serverlagrat
+  syntetiskt operatörsmandat; confirmed räcker inte. Stabil klient över rotation.
+  Bevara atomär Booking/händelse/AgentBooking och alla gamla lås/migrationer.
+- Ingen .env läses i provet. Inga hemligheter i utskrift, klientkällkod eller
+  QA-material. Lokal test-DB-vakt består; Neon är aldrig en integrationstest-DB.
+- Windows shared-booking-policy b241d8a/a101704 är separat och inte införd.
+  park/legacy bevarar basen; bred modulbortkoppling är inte genomförd.
+- Transportprovet är inte en verifierad personlig assistentkörning. /live är
+  best effort, inte audit/statuskälla. Inga riktiga kunder eller utskick.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know

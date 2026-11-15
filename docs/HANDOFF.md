@@ -1,3 +1,47 @@
+# Handoff · Agentprov 1 · 2026-11-15
+
+Produkt `570de3abc886bb1dc8f313ea27e986e0b5fe83c9` på lokal branch
+`codex/agentprov-1`, bas bf7b6c3. Separat arbetskopia:
+`<local-state>/codex/booking-lab-agentprov-1`. Originalet booking-lab-premium
+på b241d8a är bevarat och rent. Ingen push, PR, merge, rebase eller deploy.
+
+Fungerande prov: två separata REST/HTTP-MCP-processer bokar, läser status,
+gör idempotent retry, nekas annan klients objekt och tävlar om samma slot.
+Serverlagrat syntetiskt operatörsmandat krävs; stabil klient överlever rotation.
+Bokning/händelse/länk committas atomärt. Agentvägen skapar inga kundkort men
+lagrar fortfarande namn/e-post på Booking. Ingen verklig kundauktorisation
+eller pilotgodkännande hävdas.
+
+Prova med [runbook](AGENTPROV_1_RUNBOOK.md). Ingen `.env` eller Docker behövs;
+operatorn tillför en loopback test-DB och processkonfiguration, startar den
+befintliga wrappern med `npm start`, kör sedan `npm run agent:proof` i andra
+terminalen mot samma databas. Riktiga nycklar skrivs aldrig ut av provet.
+Förberedelser för molnet finns i [previewchecklistan](AGENTPROV_1_PREVIEW.md),
+men konton, miljö/region, kostnad, åtkomst och exekvering kräver Niclas beslut.
+
+Slutmatris: lint/tsc/build PASS, unit154/154, integration135/135 mot färsk
+agentprov_delivery_test och produktionsprov PASS. Full audit FAIL7moderate dev;
+omit=dev PASS0. Inga nya paket eller overrides. Ursprungliga felkörningar
+och ej körda kontroller finns i [VERIFICATION](VERIFICATION.md).
+Grok-konversationen kunde nås, men ingen ny granskning beställd eller godkänd
+vid denna överlämning. Äldre Grok-GO gäller andra revisioner.
+
+Lokala commits före denna dokumentation:
+
+- a020784: avgränsad plan.
+- e5094c7: klient/mandat/atomisk länk, testkod och driftunderlag.
+- e6b7a1c: transaktionell ny migration och strikt MCP-schema.
+- 570de3a: separat säker städning och uppdaterad API-guide.
+
+Tre nästa leveranser: sammanför den lokala delade policyn under separat
+verifiering; välj/godkänn skyddad Vercel/Neon-miljö och säker verklig
+klientåtkomst; koppla därefter loss legacy-ingångar i små grupper med admin-
+regressioner. Inga externa bokningsleverantörer eller nya epics startas här.
+
+---
+
+## Historik före Agentprov 1
+
 # Leverans — premiumdemo, 2026-11-14
 
 ## Uppföljning · agentklient och pilotgrindar
