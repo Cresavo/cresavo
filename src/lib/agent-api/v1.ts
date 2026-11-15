@@ -22,9 +22,10 @@ import {
 export const API_VERSION = "v1";
 export const MAX_RANGE_DAYS = 14;
 
-// The engine currently serves exactly one synthetic business. The API layer
-// still checks every request against the key's business (OWASP API1 / BOLA).
+// Closed synthetic business allowlist; provider registration cannot widen it.
+// Every request is checked against the credential business (OWASP API1 / BOLA).
 const BUSINESSES: Record<string, { id: string; name: string; timeZone: string; locationId: string }> = {
+  "lab-partner": { id: "lab-partner", name: "Synthetic partner lab", timeZone: ZONE, locationId: DEMO_LOCATION_ID },
   [DEMO_BUSINESS_ID]: {
     id: DEMO_BUSINESS_ID,
     name: "Salong Eko (synthetic demo)",
@@ -113,12 +114,12 @@ async function agentRouteInternal(
     await checkRateLimit("agent-api", `client:${principal.clientId}`);
     const result = await handler(principal, new URL(request.url).searchParams, request);
     const status = result instanceof Created ? 201 : 200;
-    await recordAudit({ event: "agent.request", outcome: String(status), route, clientId: principal.clientId, keyId: principal.keyId, scopes: principal.scopes });
+    await recordAudit({ businessId: principal?.businessId as "demo" | "lab-partner" | undefined, event: "agent.request", outcome: String(status), route, clientId: principal.clientId, keyId: principal.keyId, scopes: principal.scopes });
     logUsage(route, principal, status);
     return NextResponse.json(result instanceof Created ? result.body : result, { status, headers });
   } catch (error) {
     const { code, retryAfter } = mapAgentError(error);
-    await recordAudit({ event: "agent.request", outcome: code, route, ...(principal ? { clientId: principal.clientId, keyId: principal.keyId, scopes: principal.scopes } : {}) });
+    await recordAudit({ businessId: principal?.businessId as "demo" | "lab-partner" | undefined, event: "agent.request", outcome: code, route, ...(principal ? { clientId: principal.clientId, keyId: principal.keyId, scopes: principal.scopes } : {}) });
     logUsage(route, principal, agentApiErrors[code].status);
     return agentErrorResponse(code, retryAfter);
   }
@@ -150,7 +151,7 @@ export function serviceView(
 
 export async function servicesV1(principal: AgentPrincipal, params: URLSearchParams) {
   const b = business(principal, params.get("business"));
-  const { services, resources: staff } = await getBookingProvider().listServices();
+  const { services, resources: staff } = await getBookingProvider(principal.businessId).listServices();
   return {
     apiVersion: API_VERSION,
     business: b,
@@ -190,7 +191,7 @@ export async function availabilityV1(principal: AgentPrincipal, params: URLSearc
   if (!serviceId.success) throw new AgentApiError("invalid_request");
   const staffParam = params.get("staff");
   const days = dayRange(params);
-  const { services, resources } = await getBookingProvider().listServices();
+  const { services, resources } = await getBookingProvider(principal.businessId).listServices();
   const service = services.find((s) => s.id === serviceId.data);
   if (!service) throw new AgentApiError("service_not_found");
   const staff = resources.filter(
@@ -200,7 +201,7 @@ export async function availabilityV1(principal: AgentPrincipal, params: URLSearc
   const slots = [];
   for (const day of days)
     for (const member of staff)
-      for (const start of (await getBookingProvider().getAvailability(service.id, day, member.id)).starts) {
+      for (const start of (await getBookingProvider(principal.businessId).getAvailability(service.id, day, member.id)).starts) {
         const at = DateTime.fromISO(start, { zone: ZONE });
         slots.push({
           start: at.toISO({ suppressMilliseconds: true })!,

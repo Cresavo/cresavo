@@ -1,6 +1,7 @@
 import { auditContext, recordAudit } from "./audit";
 import { z } from "zod";
 import type { AgentProposal } from "@prisma/client";
+import { getBookingProvider } from "./provider";
 import { db } from "../db";
 import { lockConfiguration } from "../workspace-write";
 import type { AgentPrincipal } from "./keys";
@@ -33,13 +34,15 @@ export async function createProposal(p: AgentPrincipal, body: unknown, now = new
   const ttl = Number(process.env.BOOKING_CONSENT_TTL_SECONDS ?? 600);
   if (!Number.isInteger(ttl) || ttl < 1 || ttl > 900) throw new AgentApiError("invalid_request");
   const { token, digest } = labCustomerIdentity.issueCredential();
+  const provider = getBookingProvider(p.businessId);
+  const catalog = provider.id === "native" ? null : await provider.listServices();
   const row = await db.$transaction(async tx => {
     await lockConfiguration(tx);
     await assertCurrentAgent(tx, p);
-    const service = await tx.service.findFirst({ where: { id: input.serviceId, businessId: p.businessId, active: true } });
+    const service = catalog ? catalog.services.find(s => s.id === input.serviceId) : await tx.service.findFirst({ where: { id: input.serviceId, businessId: p.businessId, active: true } });
     if (!service) throw new AgentApiError("service_not_found");
     if (service.version !== input.serviceVersion) throw new AgentApiError("stale_service");
-    const staff = await tx.staff.findFirst({ where: { id: input.staffId, businessId: p.businessId, active: true } });
+    const staff = catalog ? catalog.resources.find(s => s.id === input.staffId) : await tx.staff.findFirst({ where: { id: input.staffId, businessId: p.businessId, active: true } });
     if (!staff?.serviceIds.includes(service.id)) throw new AgentApiError("staff_not_found");
     const start = new Date(input.start);
     if (+start <= +now) throw new AgentApiError("invalid_request");
@@ -51,7 +54,7 @@ export async function createProposal(p: AgentPrincipal, body: unknown, now = new
       duration: service.duration, priceOre: service.priceOre, proposalHash: bookingProposalHash(snapshot),
       tokenHash: digest, expiresAt: new Date(Math.min(+now + ttl * 1000, +start)) } });
   });
-  await recordAudit({ event: "proposal.created", outcome: "pending", proposalId: row.id, clientId: row.clientId });
+  await recordAudit({ event: "proposal.created", outcome: "pending", proposalId: row.id, clientId: row.clientId, businessId: row.businessId as "demo" | "lab-partner" });
   console.info(JSON.stringify({ event: "customer_proposal", outcome: "pending" }));
   return { proposal: view(row, now), ...labCustomerIdentity.deliver(row.id, token) };
 }
@@ -98,11 +101,11 @@ async function customerDecisionInternal(proposalId: string, body: unknown, now?:
     return { status: input.decision === "yes" ? "approved" : "declined" };
   });
   } catch (error) {
-    if (expired && auditRow) await recordAudit({ event: "proposal.expired", outcome: "expired", proposalId: auditRow.id, clientId: auditRow.clientId });
+    if (expired && auditRow) await recordAudit({ businessId: auditRow.businessId as "demo" | "lab-partner", event: "proposal.expired", outcome: "expired", proposalId: auditRow.id, clientId: auditRow.clientId });
     throw error;
   }
   if (auditRow) {
-    const detail = { proposalId: auditRow.id, clientId: auditRow.clientId, mandateId: approvedMandate };
+    const detail = { proposalId: auditRow.id, clientId: auditRow.clientId, businessId: auditRow.businessId as "demo" | "lab-partner", mandateId: approvedMandate };
     await recordAudit({ ...detail, event: input.decision === "view" ? "proposal.viewed" : input.decision === "yes" ? "consent.approved" : "consent.declined", outcome: "success" });
     if (approvedMandate) await recordAudit({ ...detail, event: "mandate.created", outcome: "customer-consent" });
   }

@@ -14,6 +14,8 @@ import { assertMandatedBooking } from "./mandate-policy";
 import { proposalHash } from "./proposals";
 import { placeForStaff } from "./place";
 
+import { createPartnerAgentBooking } from "./partner-bookings";
+import { nativeBookingProvider } from "./provider/native";
 import { getBookingProvider } from "./provider";
 import type { ProviderBooking } from "./provider/types";
 
@@ -38,12 +40,13 @@ export const agentBookingSchema = z
   })
   .strict();
 
-async function staffName(staffId: string) {
+async function staffName(staffId: string, businessId = "demo") {
+  if (businessId !== "demo") return (await getBookingProvider(businessId).listServices()).resources.find(s => s.id === staffId)?.name ?? null;
   return (await db.staff.findFirst({ where: { id: staffId, businessId: DEMO_BUSINESS_ID }, select: { name: true } }))?.name ?? null;
 }
 
 // Agent-facing view. Never includes customer name/email.
-async function bookingView(b: ProviderBooking) {
+async function bookingView(b: ProviderBooking, businessId = "demo") {
   return {
     id: b.id,
     status: b.status,
@@ -53,7 +56,7 @@ async function bookingView(b: ProviderBooking) {
     serviceId: b.serviceId,
     serviceName: b.serviceName,
     ...placeForStaff(b.staffId),
-    staff: { id: b.staffId, name: await staffName(b.staffId) },
+    staff: { id: b.staffId, name: await staffName(b.staffId, businessId) },
     version: b.version,
     createdAt: iso(b.createdAt),
   };
@@ -94,6 +97,7 @@ export async function createBookingV1(principal: AgentPrincipal, _params: URLSea
 
 /** Shared by HTTP and MCP. Returns Created for a new booking, a plain body for a replay. */
 export async function createAgentBooking(principal: AgentPrincipal, rawKey: string | null | undefined, body: unknown) {
+  if (!principal.scopes.includes("bookings:write")) throw new AgentApiError("forbidden_scope");
   const idempotencyKey = scopedIdempotencyKey(principal, rawKey);
   const parsed = agentBookingSchema.safeParse(body);
   if (!parsed.success) throw new AgentApiError("invalid_request");
@@ -103,6 +107,29 @@ export async function createAgentBooking(principal: AgentPrincipal, rawKey: stri
   if (!input.customer.email.toLowerCase().endsWith("@example.test"))
     throw new AgentApiError("synthetic_contact_required");
   if (!input.mandateId) throw new AgentApiError("mandate_required");
+  if (getBookingProvider(principal.businessId) !== nativeBookingProvider) {
+    try {
+      const result = await createPartnerAgentBooking(principal, input, idempotencyKey);
+      await recordEvent(principal, "book", result.replayed ? "replayed" : "booked", {
+        serviceName: result.booking.serviceName, staffName: await staffName(input.staffId, principal.businessId), startsAt: result.booking.startsAt,
+      });
+      const body = { apiVersion: API_VERSION, replayed: result.replayed, booking: await bookingView(result.booking, principal.businessId) };
+      return result.replayed ? body : new Created(body);
+    } catch (error) {
+      if (error instanceof AgentApiError) {
+        if (["slot_unavailable", "stale_service", "rate_limited", "idempotency_conflict"].includes(error.code))
+          await recordEvent(principal, "book", error.code === "slot_unavailable" ? "conflict" : error.code);
+        if (error.code === "mandate_denied") {
+          const mandate = await db.agentMandate.findFirst({ where: { id: input.mandateId, clientId: principal.clientId, businessId: principal.businessId } });
+          if (mandate && +mandate.expiresAt <= Date.now()) await recordAudit({
+            businessId: "lab-partner", event: "mandate.expired", outcome: "expired", clientId: principal.clientId,
+            mandateId: mandate.id, ...(mandate.origin === "customer-consent" ? { proposalId: mandate.originReference } : {}),
+          });
+        }
+      }
+      throw error;
+    }
+  }
   const staff = await staffName(input.staffId);
   const service = await db.service.findFirst({
     where: { id: input.serviceId, businessId: DEMO_BUSINESS_ID },
@@ -112,7 +139,7 @@ export async function createAgentBooking(principal: AgentPrincipal, rawKey: stri
   let proposalId: string | undefined;
   try {
     let replayed = false;
-    const booking = await getBookingProvider().createBooking(
+    const booking = await nativeBookingProvider.createBooking(
       {
         serviceId: input.serviceId,
         serviceVersion: input.serviceVersion,
@@ -155,7 +182,7 @@ export async function createAgentBooking(principal: AgentPrincipal, rawKey: stri
             replayed = true;
           } else {
             await tx.agentBooking.create({ data: {
-              bookingId: row.id, keyId: principal.keyId, clientId: principal.clientId,
+              bookingId: row.id, nativeBookingId: row.id, keyId: principal.keyId, clientId: principal.clientId,
               businessId: principal.businessId, mandateId: input.mandateId,
             } });
           }
@@ -191,24 +218,28 @@ async function ownedBooking(principal: AgentPrincipal, bookingId: string) {
   const link = await db.agentBooking.findUnique({ where: { bookingId: parsed.data } });
   if (!link || link.clientId !== principal.clientId || link.businessId !== principal.businessId)
     throw new AgentApiError("booking_not_found");
-  return getBookingProvider().getBooking(parsed.data);
+  return getBookingProvider(principal.businessId).getBooking(parsed.data);
 }
 
 export async function getBookingV1(principal: AgentPrincipal, bookingId: string) {
-  return { apiVersion: API_VERSION, booking: await bookingView(await ownedBooking(principal, bookingId)) };
+  if (!principal.scopes.includes("bookings:read")) throw new AgentApiError("forbidden_scope");
+  return { apiVersion: API_VERSION, booking: await bookingView(await ownedBooking(principal, bookingId), principal.businessId) };
 }
 
 export async function cancelBookingV1(principal: AgentPrincipal, bookingId: string) {
+  if (!principal.scopes.includes("bookings:write")) throw new AgentApiError("forbidden_scope");
   const owned = await ownedBooking(principal, bookingId);
   const auditLink = await db.agentBooking.findUnique({ where: { bookingId: owned.id } });
-  const result = await getBookingProvider().cancelBooking(owned.id, principal.clientId,
-    tx => assertCurrentAgent(tx, principal));
+  const provider = getBookingProvider(principal.businessId);
+  const result = provider === nativeBookingProvider
+    ? await nativeBookingProvider.cancelBooking(owned.id, principal.clientId, tx => assertCurrentAgent(tx, principal))
+    : await db.$transaction(async tx => { await assertCurrentAgent(tx, principal); return provider.cancelBooking(owned.id, principal.clientId); });
   if (!result.already)
     await recordEvent(principal, "cancel", "cancelled", {
-      serviceName: result.row.serviceName, staffName: await staffName(result.row.staffId), startsAt: result.row.startsAt,
+      serviceName: result.row.serviceName, staffName: await staffName(result.row.staffId, principal.businessId), startsAt: result.row.startsAt,
     });
   if (!result.already) {
-    await recordAudit({ event: "booking.cancelled", outcome: "cancelled", clientId: principal.clientId, bookingId: owned.id, mandateId: auditLink?.mandateId ?? undefined });
+    await recordAudit({ businessId: principal.businessId as "demo" | "lab-partner", event: "booking.cancelled", outcome: "cancelled", clientId: principal.clientId, bookingId: owned.id, mandateId: auditLink?.mandateId ?? undefined });
   }
-  return { apiVersion: API_VERSION, alreadyCancelled: result.already, booking: await bookingView(result.row) };
+  return { apiVersion: API_VERSION, alreadyCancelled: result.already, booking: await bookingView(result.row, principal.businessId) };
 }

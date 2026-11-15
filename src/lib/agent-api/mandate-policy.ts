@@ -5,7 +5,7 @@ import { DEMO_LOCATION_ID, placeForStaff } from "./place";
 
 // Only trusted operator code may issue this record. No agent endpoint issues it.
 export const mandateSchema = z.object({
-  businessId: z.literal("demo"),
+  businessId: z.enum(["demo", "lab-partner"]),
   clientId: z.string().min(1).max(128),
   serviceId: z.string().min(1).max(128),
   staffId: z.string().min(1).max(128),

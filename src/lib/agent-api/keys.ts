@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { labOAuthBusiness } from "./oauth/lab-business";
 import { AgentApiError } from "./errors";
 
 // Key format: blk_<prefix>_<secret>. The prefix (12 hex) is a public lookup id
@@ -129,6 +130,7 @@ export async function authenticateAgent(
     const token = verifyLabAccessToken(key, now);
     if (!token) throw new AgentApiError("unauthorized");
     if (!(Array.isArray(scope) ? scope : [scope]).some(s => token.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
+    const businessId = labOAuthBusiness(token.clientId);
     const identity = createHash("sha256").update(`booking-lab:oauth-client:v1:${token.clientId}`).digest("hex");
     const clientId = `oauth_${identity}`;
     // Native write-lock checks need a credential row. Its ceiling is the
@@ -139,11 +141,11 @@ export async function authenticateAgent(
         keyPrefix: clientId, keyHash: createHash("sha256").update(randomBytes(32)).digest("hex"), scopes: token.registeredScopes,
         agentName: "Synthetic OAuth lab", ownerName: "Synthetic operator", ownerContact: "oauth@example.test",
         kind: "registered-client",
-        client: { connectOrCreate: { where: { businessId_id: { businessId: "demo", id: clientId } },
-          create: { id: clientId, businessId: "demo" } } },
+        client: { connectOrCreate: { where: { businessId_id: { businessId, id: clientId } },
+          create: { id: clientId, businessId } } },
       }, include: { client: true },
     });
-    if (row.revokedAt || !row.client.active || row.clientId !== clientId || row.businessId !== "demo")
+    if (row.revokedAt || !row.client.active || row.clientId !== clientId || row.businessId !== businessId)
       throw new AgentApiError("unauthorized");
     console.info(JSON.stringify({ event: "oauth_lab_auth", status: 200 }));
     return { keyId: row.id, clientId, keyPrefix: row.keyPrefix, businessId: row.businessId,

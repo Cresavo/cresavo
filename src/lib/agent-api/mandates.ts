@@ -16,7 +16,7 @@ export async function issueSyntheticMandate(input: unknown, client: PrismaClient
     ...data, validFrom: new Date(data.validFrom), validUntil: new Date(data.validUntil),
     expiresAt: new Date(data.expiresAt),
   } });
-  await recordAudit({ event: "mandate.created", outcome: "synthetic-operator", mandateId: mandate.id, clientId: mandate.clientId });
+  await recordAudit({ businessId: data.businessId, event: "mandate.created", outcome: "synthetic-operator", mandateId: mandate.id, clientId: mandate.clientId });
   return mandate;
 }
 
