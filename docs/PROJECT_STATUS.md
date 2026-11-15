@@ -15,7 +15,12 @@ fryst e890b69. Agentprov-1 har inte ändrats eller pushats i denna omgång.
 - Groks original på bcae82b bekräftar166/139,75/75 riktade HTTP-prov och8/8
   migreringsprov. AP2-QA-1 blockerade paketerad preview. Fix1 inkluderar nu
   OpenAPI-filen genom båda ignorefiler/runtime-COPY och begränsar origin
-  (explicit i produktion, HTTPS i Vercel). Groks återkontroll är väntande.
+  (explicit i produktion, HTTPS i Vercel). Groks återkontroll påc9c5e49 bekräftar
+  171/139,75/75 HTTP-MCP och filpaketerad OpenAPI200 (utan YAML500): scoped GO
+  för syntetisk lokal POC/filsimulering, inga blockerare. Original i docs/qa.
+- Riktig Docker/Vercel och personlig agent/fysisk mobil är inte verifierade.
+  OpenAPI:s ärvda localhost-servers och Info-fynd ligger i backloggen; ingen
+  ytterligare fixloop. Pilot och produktion är fortsatt NO-GO.
 - Policysammanföring har fem dokumentkonflikter: endast POLICY_MERGE_PLAN.
   Legacy har endast LEGACY_DECOUPLE_PLAN; inga moduler eller tester borttagna.
 - Inga nya beroenden, push/PR/merge, konton, molnresurser, deploy eller Epic02.

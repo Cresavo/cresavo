@@ -25,13 +25,19 @@ requestbody används inte. Produktionsläge kräver explicit origin och
 Vercel-läge kräver HTTPS även om en loopback-adress konfigurerats; inga
 accessinställningar ändras här. Lokal HTTP är ett testundantag, inte verifierad
 USP-hosting eller TLS. Alla miljöers åtkomstskydd måste kontrolleras före drift.
+Fallbacken gäller lokal dev/test, inte npm start som sätter NODE_ENV=production.
+För lokal npm start måste BOOKING_PUBLIC_ORIGIN därför uttryckligen sättas till
+http://127.0.0.1:<PORT> (utan Vercel-läge). Detta är en provväg, ingen start här.
 
 Discovery öppnar ingen webbläsar-CORS-policy. Serverklienter kan läsa de
 publika metadataresurserna inom miljöns åtkomstskydd; cross-origin browserstöd
 kräver ett separat beslut om tillåtna origins. Next:s Vary-routerheaders
 behålls för korrekt variantcache. De två schemaresurserna är statiska native
-kontrakt utan origin eller hemligheter och kan ge200 även när den dynamiska
+kontrakt utan requestberoende origin eller hemligheter och kan ge200 även när den dynamiska
 profilens origin är felkonfigurerad (profil/llms ger då503/no-store).
+YAML-filens ärvda servers-url är dock http://localhost:3000. Klienter måste
+använda explicit operatorvald basadress; relativ servers-url är backlogg före
+hostad klientprovning. Schemat är inte ett verifierat publikt anslutningslöfte.
 
 OpenAPI-filen måste följa hela kedjan: .vercelignore, .dockerignore och
 Dockerfile.vercel:s explicita COPY till runtime. NFT-spårning ensam bevisar

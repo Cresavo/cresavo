@@ -24,11 +24,20 @@ molnverifiering eller fysisk mobilkontroll påstås för denna revision.
 Groks original på bcae82b finns i docs/qa/QA-REPORT-agentprov2-bcae82b.md:
 166/139,75/75 egen HTTP och8/8 migrering. En Medium-blockerare AP2-QA-1:
 OpenAPI-filen saknades i paketerad runtime. Fix1 rättar ignore/COPY, förtydligar
-paketeringsbevis och begränsar origin. Riktad återkontroll på9e1c929 väntar;
-ingen slutlig QA-GO för den rättade koden påstås. Både QA/fixbegärans hash
+paketeringsbevis och begränsar origin. Riktad återkontroll påc9c5e49 (produkt
+9e1c929) ger scoped GO för syntetisk lokal POC och filpaketerad simulering.
+Original: docs/qa/QA-REPORT-agentprov2-f1-c9c5e49.md, SHA634fc825e6accc2a94d45807e8eded285e4716ce3a89a7e430c1c6b66a221dbf.
+171/139,75HTTP-MCP,240originanrop utan reflektion,5negativa kontroller fångade.
+Inga kvarvarande blockerare inom detta uppdrag efter1samlat rättningsvarv.
+Riktig Docker/Vercel/pilot är inte godkända. Både QA/fixbegärans hash
 matchar Groks original efter återställd slut-LF i webbkopian.
 Info4/5/7 om DB-CHECK/härledd plats/snabbare unit-täckning är backlogg.
 Info6 om CORS/Vary/statiska schemaresurser dokumenteras i protokollnoterna.
+Nya Low/Info (localhost-servers, https-loopback, ignore-semantik) är backlogg.
+Lokal npm start kräver explicit origin; docs förtydligade efter QA utan kodändring.
+Niclas vidarebefordrade separat GO för e890b69:154unit/135integration och30egna
+säkerhetsprov. Det är hans återgivna externa QA, inte en ny körning här eller
+ett originaldokument som Codex verifierat. Ingen ny fullQA på oförändrad e890.
 
 Nästa beslut är full USP-wire kontra fortsatt nativealias och ett separat
 sammanföringsuppdrag efter agentprov-1:s QA. Fler platser kräver verklig

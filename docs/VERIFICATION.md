@@ -16,6 +16,7 @@ Ingen .env läst. Råoutput i <local-scratch>/agentprov-2/fix1-*.
 | Nya negativa regressioner, sedan rättning | Före:7fail/9pass. Efter:16/16; fix1-red/targeted.txt. |
 | Filurval + runtime-COPY | OpenAPI vald av previewFiles och explicit i Dockerfile:s runtime; fix1-packaging-check.json. Statisk kontroll, inte Docker/HTTP. |
 | SQL-städning |0 Booking/BookingEvent/AgentClient/AgentApiKey/AgentMandate/AgentBooking/AgentApiEvent/Customer; fix1-cleanup.txt. |
+| Oberoende Grok på c9c5e49 / produkt9e1c929 |171/171unit,139/139integration,75/75 HTTP-MCP,240 originanrop utan reflektion,5/5 negativa kontroller fångade. Paketerad filsimulering: OpenAPI200, utan YAML500. Se originalrapporten nedan. |
 
 Ny clean npm ci är inte omkörd: tidigare installation572paket/573auditerade
 gäller samma oförändrade package-lock. Inga dependencies/licenser ändrades.
@@ -26,13 +27,31 @@ Groks original [QA2-bcae82b-01](qa/QA-REPORT-agentprov2-bcae82b.md) gäller
 paketerad previewNO-GO på AP2-QA-1. Rapportens slut-LF återställdes efter
 webbkopiering; SHA256 matchar116ff870b1588ed2fa149fe44a5f136139fb84c8d206704ffdc19513e9750a53.
 Fix1 rättar AP2-QA-1/2/3 och den separat reproducerade Vercel+loopbackHTTP-luckan.
-Återkontroll på9e1c929 är **väntande**, inget QA-GO för rättningen påstås.
+Återkontrollen [QA2-F1-c9c5e49](qa/QA-REPORT-agentprov2-f1-c9c5e49.md) gäller
+fryst c9c5e490c8429798470370fcc1d68b4db8c56db3 / produkt9e1c929.
+**Scoped GO för syntetisk lokal POC och filpaketerad simulering**, inga kvarvarande
+blockerare i uppdraget efter ett samlat rättningsvarv. Originalets21835byte och
+SHA634fc825e6accc2a94d45807e8eded285e4716ce3a89a7e430c1c6b66a221dbf
+matchar den sparade webbkopian efter återställd slut-LF. Senare ändringar är
+enbart rapport/dokumentation, ingen ny produktkod och inget nytt QA-varv.
+
+Grok körde på sin Linux/Node24.22.1-box, separat syntetisk nätverksnamnrymd och
+egen testDB. Han verifierade inte denna PC:s råloggar/Git-historik. Hans
+filpaketeringssimulering kör riktig Node-HTTP men **inte** Docker-image,
+runtime omit-install/native-binding/USER node eller faktisk Vercel-ingress.
+AP2-QA-1/2/3/6 är stängda inom denna avgränsning. Kvarvarande backlogg:
+DB-CHECK/härledd plats/extra unit-täckning (Info4/5/7), OpenAPI:s ärvda
+localhost:3000-servers (Low), https-loopback i Vercel och ignoretestets
+git-semantik (Info). Lokal npm start-origin förtydligas i protokollnoterna.
+Ingen ny fixloop för dessa icke-blockerande idéer. Pilot/produktion: NO-GO.
 
 NOT RUN lokalt: paketerad runtime-HTTP, Docker, full E2E/fyra lägen,
 personliga assistenter, fysisk iPhone, Actions, moln/TLS/deploy. Extra npm start
 stoppades tidigare före processstart av automatisk granskning: `blocked by policy`.
 Ingen alternativ start eller försvagning av skydd gjordes. Groks separata
 syntetiska HTTP-prov är hans verifiering, inte ett lokalt prov på denna PC.
+Webbkopierad slutrapport är hämtad med matchande hash. Ett försök att spara
+QA-konversationens skärmdump fick timeout; inget sådant bildbevis påstås.
 
 ## Historik · Agentprov 2 före rättning, 2026-11-15
 
