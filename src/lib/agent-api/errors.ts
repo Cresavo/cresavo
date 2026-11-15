@@ -15,6 +15,8 @@ export const agentApiErrors = {
   idempotency_conflict: { status: 409, message: "This Idempotency-Key was already used with different booking details." },
   idempotency_key_required: { status: 400, message: "Send an Idempotency-Key header (1-64 characters A-Z a-z 0-9 _ -)." },
   confirmation_required: { status: 400, message: "Set confirmed: true only after the person has approved this exact booking." },
+  mandate_required: { status: 400, message: "A server-issued synthetic booking mandate is required." },
+  mandate_denied: { status: 403, message: "The booking is outside the authorised mandate." },
   synthetic_contact_required: { status: 400, message: "The sandbox only accepts synthetic customer emails ending in @example.test." },
   rate_limited: { status: 429, message: "Too many requests. Retry later." },
   internal_error: { status: 500, message: "An internal error occurred." },

@@ -1,5 +1,27 @@
 # Datakarta för Booking Lab SE POC
 
+## Agentprov 1 · separat lokal kontraktsgren 2026-11-15
+
+REST/HTTP-MCP tar fortfarande emot syntetiskt namn/e-post och lagrar dem på
+Booking, men skapar eller slår inte upp kundkort. Svar innehåller boknings-id,
+status, tjänst/utförare och tider, inte kundkontakter. Ett stabilt klient-id
+kopplar roterbara nycklar, mandat och bokningar; det är pseudonym identitet,
+inte verifierad kundidentitet. AgentMandate lagrar tjänst/utförare, tidsfönster,
+maxpris, giltighet/återkallelse och syntetisk operatörsreferens, inga kundfält.
+
+Operatörens testkoordinator utfärdar nycklar/mandat med databasbehörighet.
+Transportprocesserna får bara egen tillfällig bearer-nyckel och loopbackadress,
+ingen databas-URL eller sessionshemlighet. Inget laddas från `.env` i provet.
+Tillfälliga credentials skrivs inte i resultat/loggar. Egna fixtures städas
+uttryckligen även efter fel; abrupt processdöd kräver avgränsad manuell reset.
+Ordinarie äldre agent-CLI kan skriva klartextnyckel och kördes inte här.
+
+`/live` visar ett best-effort-urval av lagrade utfall, inte råanrop eller
+auktoritativ historik. Tjänst/utförare/tid och operatörsetiketter gör flödet
+olämpligt för verkliga kunduppgifter. Ingen extern kalender, modell, utskick
+eller telemetrimottagare läggs till i denna kontraktsrättning. Inga data skickas
+till Vercel/Neon av driftförberedelsens dokument eller read-only preflight.
+
 ## Lokal A2A-kanaletikett · 14 november 2026
 
 Nya bokningar via den befintliga fasta A2A-demoingången lagrar

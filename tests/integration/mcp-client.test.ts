@@ -10,7 +10,7 @@ async function runClient(book: boolean, answer: string | null = null) {
       const child = spawn(
         process.execPath,
         [
-          "--env-file=.env",
+          "--env-file-if-exists=.env",
           "--import",
           "tsx",
           "src/mcp/client.ts",

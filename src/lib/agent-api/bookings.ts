@@ -10,6 +10,8 @@ import { lockConfiguration } from "../workspace-write";
 import { AgentApiError } from "./errors";
 import type { AgentPrincipal } from "./keys";
 import { API_VERSION, business, Created, mapAgentError } from "./v1";
+import { assertCurrentAgent, lockMandate } from "./mandates";
+import { assertMandatedBooking } from "./mandate-policy";
 
 const id = z.string().trim().min(1).max(128);
 const iso = (d: Date) => DateTime.fromJSDate(d, { zone: ZONE }).toISO({ suppressMilliseconds: true })!;
@@ -28,6 +30,7 @@ export const agentBookingSchema = z
       })
       .strict(),
     confirmed: z.boolean(),
+    mandateId: id.optional(),
   })
   .strict();
 
@@ -71,11 +74,11 @@ async function recordEvent(
   }
 }
 
-/** Scope the client's Idempotency-Key to this API key so agents can never replay each other. */
+/** Stable client namespace survives rotation; another client cannot replay it. */
 export function scopedIdempotencyKey(principal: AgentPrincipal, value: string | null | undefined) {
   const raw = value?.trim();
   if (!raw || !/^[A-Za-z0-9_-]{1,64}$/.test(raw)) throw new AgentApiError("idempotency_key_required");
-  return createHash("sha256").update(`agent-api:${principal.keyId}:${raw}`).digest("hex");
+  return createHash("sha256").update(`agent-api:${principal.clientId}:${raw}`).digest("hex");
 }
 
 export async function createBookingV1(principal: AgentPrincipal, _params: URLSearchParams, request: Request) {
@@ -99,12 +102,14 @@ export async function createAgentBooking(principal: AgentPrincipal, rawKey: stri
   if (!input.confirmed) throw new AgentApiError("confirmation_required");
   if (!input.customer.email.toLowerCase().endsWith("@example.test"))
     throw new AgentApiError("synthetic_contact_required");
+  if (!input.mandateId) throw new AgentApiError("mandate_required");
   const staff = await staffName(input.staffId);
   const service = await db.service.findFirst({
     where: { id: input.serviceId, businessId: DEMO_BUSINESS_ID },
     select: { name: true },
   });
   try {
+    let replayed = false;
     const booking = await createBooking(
       {
         serviceId: input.serviceId,
@@ -115,19 +120,35 @@ export async function createAgentBooking(principal: AgentPrincipal, rawKey: stri
         customerEmail: input.customer.email,
       },
       idempotencyKey,
-      `${AGENT_API_CHANNEL}${principal.keyId}`,
+      `${AGENT_API_CHANNEL}${principal.clientId}`,
+      undefined,
+      {
+        authorize: tx => assertCurrentAgent(tx, principal),
+        beforeInsert: async (tx, currentService) => {
+          const mandate = await lockMandate(tx, input.mandateId!);
+          assertMandatedBooking(mandate, {
+            businessId: principal.businessId, clientId: principal.clientId,
+            serviceId: input.serviceId, staffId: input.staffId,
+            start: new Date(input.start), duration: currentService.duration, priceOre: currentService.priceOre,
+          });
+          if (await tx.agentBooking.findUnique({ where: { mandateId: input.mandateId! } }))
+            throw new AgentApiError("mandate_denied");
+        },
+        booked: async (tx, row, isReplay) => {
+          if (isReplay) {
+            const link = await tx.agentBooking.findUnique({ where: { bookingId: row.id } });
+            if (!link || link.clientId !== principal.clientId || link.businessId !== principal.businessId || link.mandateId !== input.mandateId)
+              throw new AgentApiError("idempotency_conflict");
+            replayed = true;
+          } else {
+            await tx.agentBooking.create({ data: {
+              bookingId: row.id, keyId: principal.keyId, clientId: principal.clientId,
+              businessId: principal.businessId, mandateId: input.mandateId,
+            } });
+          }
+        },
+      },
     );
-    let replayed = false;
-    try {
-      await db.agentBooking.create({
-        data: { bookingId: booking.id, keyId: principal.keyId, businessId: principal.businessId },
-      });
-    } catch {
-      // Already linked: an idempotent replay (keys are scoped per API key).
-      const link = await db.agentBooking.findUnique({ where: { bookingId: booking.id } });
-      if (!link || link.keyId !== principal.keyId) throw new AgentApiError("idempotency_conflict");
-      replayed = true;
-    }
     await recordEvent(principal, "book", replayed ? "replayed" : "booked", {
       serviceName: booking.serviceName, staffName: staff, startsAt: booking.startsAt,
     });
@@ -147,9 +168,9 @@ export async function createAgentBooking(principal: AgentPrincipal, rawKey: stri
 async function ownedBooking(principal: AgentPrincipal, bookingId: string) {
   const parsed = id.safeParse(bookingId);
   if (!parsed.success) throw new AgentApiError("booking_not_found");
-  // Object-level authorisation: only bookings created by this key are visible.
+  // Stable ownership survives credential rotation.
   const link = await db.agentBooking.findUnique({ where: { bookingId: parsed.data } });
-  if (!link || link.keyId !== principal.keyId || link.businessId !== principal.businessId)
+  if (!link || link.clientId !== principal.clientId || link.businessId !== principal.businessId)
     throw new AgentApiError("booking_not_found");
   const row = await db.booking.findFirst({ where: { id: parsed.data, businessId: DEMO_BUSINESS_ID } });
   if (!row) throw new AgentApiError("booking_not_found");
@@ -164,6 +185,7 @@ export async function cancelBookingV1(principal: AgentPrincipal, bookingId: stri
   const owned = await ownedBooking(principal, bookingId);
   const result = await db.$transaction(async (tx) => {
     await lockConfiguration(tx);
+    await assertCurrentAgent(tx, principal);
     const [current] = await tx.$queryRaw<BookingRow[]>`
       SELECT * FROM "Booking" WHERE "id" = ${owned.id} AND "businessId" = ${DEMO_BUSINESS_ID} FOR UPDATE`;
     if (!current) throw new DomainError("Bokningen finns inte");
@@ -174,7 +196,7 @@ export async function cancelBookingV1(principal: AgentPrincipal, bookingId: stri
     });
     await tx.bookingEvent.create({
       data: {
-        bookingId: current.id, action: "cancel", actorKind: "agent-api", actorId: principal.keyId,
+        bookingId: current.id, action: "cancel", actorKind: "agent-api", actorId: principal.clientId,
         previousStart: current.startsAt, previousEnd: current.endsAt, previousStaffId: current.staffId,
       },
     });

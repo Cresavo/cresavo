@@ -17,7 +17,7 @@ async function run(answers: readonly ("ja" | "nej" | null)[]) {
     const child = spawn(
       process.execPath,
       [
-        "--env-file=.env",
+        "--env-file-if-exists=.env",
         "--import",
         "tsx",
         "src/mcp/client.ts",
@@ -101,7 +101,7 @@ it("nekar arbetsyteklienten utan admin och tillsammans med det √§ldre bokningsl√
   for (const flags of [["--workspace"], ["--admin", "--workspace", "--book"]]) {
     const result = spawnSync(
       process.execPath,
-      ["--env-file=.env", "--import", "tsx", "src/mcp/client.ts", ...flags],
+      ["--env-file-if-exists=.env", "--import", "tsx", "src/mcp/client.ts", ...flags],
       {
         env: { ...mcpEnvironment({ workspace: true }), NODE_ENV: "test" },
         encoding: "utf8",

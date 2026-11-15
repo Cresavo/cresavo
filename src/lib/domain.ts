@@ -15,7 +15,8 @@ import {
   type WorkspaceActor,
 } from "./workspace-write";
 
-// Server-owned agent API channel prefix; the suffix is the AgentApiKey id.
+// Server-owned agent API channel prefix. The suffix is a stable AgentClient id;
+// the legacy prefix is retained so migrated historical quotas remain valid.
 export const AGENT_API_CHANNEL = "agent-api:key:";
 
 const businessId = DEMO_BUSINESS_ID,
@@ -219,11 +220,21 @@ export function hashedEmailCapKey(key: string) {
     .digest("hex")}`;
 }
 
+// Trusted server adapters can join the SAME transaction. Never populate these
+// callbacks from HTTP/MCP input. They may validate a grant and attach ownership;
+// a callback failure rolls back the booking and its create-event together.
+export type BookingTransactionHooks = {
+  authorize: (tx: Prisma.TransactionClient) => Promise<void>;
+  beforeInsert: (tx: Prisma.TransactionClient, service: { priceOre: number; duration: number }) => Promise<void>;
+  booked: (tx: Prisma.TransactionClient, booking: Booking, replayed: boolean) => Promise<void>;
+};
+
 export async function createBooking(
   input: unknown,
   key?: string,
   clientAddress?: string,
   actor?: WorkspaceActor,
+  hooks?: BookingTransactionHooks,
 ) {
   // Only the server supplies actors; assertWorkspaceActor rechecks the account
   // inside the transaction before replay or any privileged write.
@@ -266,6 +277,7 @@ export async function createBooking(
     async (tx) => {
       await lockConfiguration(tx);
       if (actor) await assertWorkspaceActor(tx, actor);
+      if (hooks) await hooks.authorize(tx);
       if (idempotencyKey) {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:key:${idempotencyKey}`}))`;
         const existing = await tx.booking.findUnique({
@@ -279,6 +291,7 @@ export async function createBooking(
               409,
             );
           }
+          if (hooks) await hooks.booked(tx, existing, true);
           return {
             ...existing,
             startsAt: existing.initialStartsAt ?? existing.startsAt,
@@ -351,6 +364,7 @@ export async function createBooking(
       )
         throw new DomainError("Uppgifterna har ändrats. Läs in på nytt.", 409);
       const selectedStaff = v.staffId ?? staffId;
+      if (hooks) await hooks.beforeInsert(tx, service);
       // Lock order: idempotency, client/day, email/day, staff/booking day.
       // Serialise competing inserts before reading availability; exclusion remains the final guard.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:staff:${selectedStaff}:${localDay(start)}`}))`;
@@ -405,6 +419,7 @@ export async function createBooking(
           nextStaffId: booking.staffId,
         },
       });
+      if (hooks) await hooks.booked(tx, booking, false);
       return booking;
     },
     { maxWait: 30000, timeout: 30000 },

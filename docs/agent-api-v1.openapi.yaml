@@ -1,14 +1,17 @@
 openapi: 3.1.0
 info:
   title: Booking Lab Agent API
-  version: "1.1.0-sandbox"
+  version: "1.2.0-sandbox"
   description: |
     Sandbox API for AI agents on the synthetic Booking Lab demo salon (Salong Eko):
     services, availability, booking with Idempotency-Key, booking status and
     cancellation. The same tools are exposed over MCP (Streamable HTTP) at
     /api/v1/mcp with the same key. Rescheduling is not part of v1.
     Every key belongs to one business plus a named agent and a responsible person.
-    A key can only read or cancel bookings it created itself.
+    Ownership belongs to a stable client, not a credential: operator rotation
+    revokes the old key while retaining booking ownership and idempotency.
+    Creation requires a server-stored synthetic operator mandate. This is not
+    verified consent from a real customer. /live is best effort, not an audit log.
 servers:
   - url: http://localhost:3000
 security:
@@ -57,10 +60,17 @@ paths:
     post:
       summary: Book one slot from /availability
       description: |
-        Call only after the person approved this exact service, staff and time (confirmed=true).
+        Requires mandateId issued by the trusted synthetic test operator outside this API.
+        The server checks client, business, service, staff, complete treatment interval,
+        current price cap, expiry, revocation and one-booking use. confirmed=true alone
+        grants no authority. No API or MCP tool issues mandates.
         The sandbox only accepts customer emails ending in @example.test. Retrying with the same
         Idempotency-Key and body returns the same booking (200, replayed=true). Engine limits apply:
-        5 bookings per key per day, 3 per customer email per day.
+        5 bookings per stable client per day, 3 per normalised customer email per day.
+        A replay returns the original booking snapshot only for the same client,
+        payload and original mandateId, even after credential rotation. Replays
+        do not consume another mandate or booking quota. A mandate's later expiry
+        or revocation stops new writes, not read-only retries of an existing result.
       security: [{ bearerKey: [] }, { apiKeyHeader: [] }]
       parameters:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, pattern: "^[A-Za-z0-9_-]{1,64}$" } }
@@ -79,7 +89,7 @@ paths:
         "429": { $ref: "#/components/responses/Error" }
   /api/v1/bookings/{id}:
     get:
-      summary: Status of a booking created by this key
+      summary: Status of a booking owned by this stable client
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
         "200": { description: Booking, content: { application/json: { schema: { $ref: "#/components/schemas/BookingResponse" } } } }
@@ -175,7 +185,7 @@ components:
     BookingRequest:
       type: object
       additionalProperties: false
-      required: [business, serviceId, serviceVersion, staffId, start, customer, confirmed]
+      required: [business, serviceId, serviceVersion, staffId, start, customer, confirmed, mandateId]
       properties:
         business: { type: string, example: demo }
         serviceId: { type: string, example: fotvard }
@@ -189,6 +199,7 @@ components:
             name: { type: string }
             email: { type: string, format: email, example: "person@example.test" }
         confirmed: { type: boolean, const: true }
+        mandateId: { type: string, minLength: 1, maxLength: 128, description: Opaque operator-issued synthetic mandate id; cannot be self-issued by the client. }
     Booking:
       type: object
       required: [id, status, start, end, durationMinutes, serviceId, serviceName, staff, version, createdAt]

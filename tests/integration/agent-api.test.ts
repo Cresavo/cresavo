@@ -7,7 +7,9 @@ import { GET as availability } from "../../src/app/api/v1/availability/route";
 
 const agentName = `integration-agent-${Date.now()}`;
 afterAll(async () => {
+  const keys = await db.agentApiKey.findMany({ where: { agentName } });
   await db.agentApiKey.deleteMany({ where: { agentName } });
+  await db.agentClient.deleteMany({ where: { id: { in: keys.map(k => k.clientId) } } });
   await db.$disconnect();
 });
 let day = DateTime.now().setZone("Europe/Stockholm").startOf("day").plus({ days: 5 });
@@ -47,7 +49,7 @@ describe("Agent API v1 mot PostgreSQL", () => {
   it("databasen vägrar klartext i keyHash", async () => {
     await expect(
       db.agentApiKey.create({
-        data: { businessId: "demo", agentName, ownerName: "x", ownerContact: "x@example.test", keyPrefix: "plaintextxx1", keyHash: "blk_not_a_hash", scopes: [] },
+        data: { client: { create: { id: `invalid-${agentName}`, businessId: "demo" } }, agentName, ownerName: "x", ownerContact: "x@example.test", keyPrefix: "plaintextxx1", keyHash: "blk_not_a_hash", scopes: [] },
       }),
     ).rejects.toThrow();
   });

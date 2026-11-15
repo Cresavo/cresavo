@@ -99,7 +99,7 @@ export async function agentRoute(
   let principal: AgentPrincipal | null = null;
   try {
     principal = await authenticateAgent(request.headers, db, scope);
-    await checkRateLimit("agent-api", `key:${principal.keyId}`);
+    await checkRateLimit("agent-api", `client:${principal.clientId}`);
     const result = await handler(principal, new URL(request.url).searchParams, request);
     const status = result instanceof Created ? 201 : 200;
     logUsage(route, principal, status);

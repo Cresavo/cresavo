@@ -1,5 +1,25 @@
 # Integritets- och säkerhetsprinciper
 
+## Agentprov 1 · syntetiskt mandat, inte verkligt kundsamtycke
+
+Gatewayens klientbehörighet och kundens godkännande är skilda frågor.
+Serverlagrat operatörsmandat kontrollerar nu exakt klient/verksamhet,
+tjänst/utförare, behandlingens tidsfönster, maxpris, expiry/revocation och
+engångsbruk. Ursprung är uttryckligen `synthetic-operator`; ett klientfält
+confirmed=true bevisar ingenting på egen hand. Ingen agent får utfärda mandat.
+
+Nyckelbyte behåller stabil ägare, idempotensnamespace och kvoter; gammal nyckel
+återkallas. Skrivningar kontrollerar credential/aktiv klient igen i samma
+transaktion som bokning/händelse/koppling. BOLA kontrolleras även vid replay.
+Ett redan committat utfalls read-only replay kan läsas efter mandatets expiry;
+en återkallad nyckel eller inaktiv klient nekas fortfarande. Se runbook för
+äldre null-mandat och skillnaden mellan skapandesnapshot och aktuell status.
+
+Detta godkänner inte pilot: Booking lagrar namn/e-post; personidentifiering,
+verkligt mandatursprung, lagringstid/radering för fristående bokningar/backups
+och driftåtkomst återstår. Kundkortsexporten är inte export av alla agentdata.
+Ingen ny fjärråtkomst har öppnats och befintliga säkerhetskontroller består.
+
 ## Aktuella pilotgrindar · uppföljning 14 november 2026
 
 Denna sammanställning ersätter äldre nulägespåståenden nedan, inte deras

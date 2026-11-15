@@ -103,7 +103,7 @@ function bookingTransport() {
     command: process.execPath,
     env: mcpEnvironment({ booking: true }),
     args: [
-      "--env-file=.env",
+      "--env-file-if-exists=.env",
       "--import",
       "tsx",
       "src/mcp/server.ts",
@@ -386,7 +386,7 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
         command: process.execPath,
         env: mcpEnvironment(),
         args: [
-          "--env-file=.env",
+          "--env-file-if-exists=.env",
           "--import",
           "tsx",
           "src/mcp/server.ts",

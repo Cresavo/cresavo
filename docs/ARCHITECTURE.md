@@ -1,5 +1,35 @@
 # Arkitektur
 
+## Agentprov 1 · kontrakt på separat sidogren
+
+```mermaid
+flowchart LR
+  R[Fristående REST-klient] --> A[Credential + scope + verksamhet]
+  M[HTTP-MCP SDK-klient] --> A
+  A --> I[Stabil klientidentitet]
+  I --> G[Serverlagrat syntetiskt operatörsmandat]
+  G --> D[Gemensam bokningsmotor]
+  W[Webb och nödvändig admin] --> D
+  L[Lokal betrodd MCP] --> D
+  D --> T[PostgreSQL-transaktion: Booking + händelse + AgentBooking]
+  T --> S[Boknings-id och status]
+  T -. best effort .-> F[Filtrerat syntetiskt live-flöde]
+```
+
+Mandatkontrollen gäller den nya gatewayens skapandeväg. Den ersätter inte
+webbens eller lokal MCP:s befintliga behörigheter. Tre små serverhooks i
+createBooking gör credentialkontroll, aktuell pris-/mandatkontroll och
+bokningskoppling inom samma befintliga transaktion. Credential/klient låses
+för läsning och mandat för skrivning; idempotens/kvoter/personaldag och
+databasens historiska exklusionsvillkor består. Inga klientbestämda hooks.
+
+AgentClient är stabil identitet, AgentApiKey är roterbar credential och
+AgentMandate är ett återkallningsbart syntetiskt engångstillstånd. Nya FK:er
+hindrar länk till fel verksamhet/klient/mandat. Befintliga nycklar backfillas
+med sin gamla nyckel-id som klient-id för att bevara hashnamespace/kvoter.
+Ingen generell provideradapter, OAuth-plattform eller extra tjänst införs.
+Detaljer och begränsningar: [runbook](AGENTPROV_1_RUNBOOK.md).
+
 ## Visuell arbetsyta
 
 workspace-polish.css importeras efter befintlig style.css. Sidomeny>=1180px,

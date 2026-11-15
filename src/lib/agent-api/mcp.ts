@@ -51,11 +51,12 @@ export function agentMcpServer(principal: AgentPrincipal) {
     "create_booking",
     {
       description:
-        "Book one slot from get_availability. Only call after the person approved this exact service, staff and time; set confirmed=true. Synthetic @example.test emails only. Reuse the same idempotencyKey when retrying.",
+        "Book one slot under an operator-issued synthetic mandateId. confirmed=true alone grants no authority. Synthetic @example.test emails only. Reuse the same idempotencyKey and mandateId when retrying.",
       inputSchema: z.object({
         idempotencyKey: z.string(), business, serviceId: z.string(), serviceVersion: z.number().int(),
         staffId: z.string(), start: z.string(),
         customer: z.object({ name: z.string(), email: z.string() }), confirmed: z.boolean(),
+        mandateId: z.string().optional(),
       }),
     },
     async ({ idempotencyKey, ...body }) =>
@@ -63,7 +64,7 @@ export function agentMcpServer(principal: AgentPrincipal) {
   );
   server.registerTool(
     "get_booking",
-    { description: "Read status of a booking this key created.", inputSchema: z.object({ bookingId: z.string() }) },
+    { description: "Read status of a booking owned by this stable client.", inputSchema: z.object({ bookingId: z.string() }).strict() },
     async (a) => tool(principal, "bookings:read", () => getBookingV1(principal, a.bookingId)),
   );
   server.registerTool(
@@ -78,7 +79,7 @@ export async function handleMcp(request: Request) {
   let principal: AgentPrincipal;
   try {
     principal = await authenticateAgent(request.headers, db, "services:read");
-    await checkRateLimit("agent-api", `key:${principal.keyId}`);
+    await checkRateLimit("agent-api", `client:${principal.clientId}`);
   } catch (error) {
     const { code, retryAfter } = mapAgentError(error);
     return agentErrorResponse(code, retryAfter);

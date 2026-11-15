@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { AgentApiError } from "./errors";
@@ -41,21 +41,25 @@ export const createKeySchema = z
 
 /** Returns the plaintext key exactly once. Only its hash is persisted. */
 export async function createAgentApiKey(input: unknown, client: KeyDb) {
-  const data = createKeySchema.parse(input);
+  const { businessId, ...data } = createKeySchema.parse(input);
   const { key, prefix, hash } = generateApiKey();
   const row = await client.agentApiKey.create({
-    data: { ...data, scopes: [...new Set(data.scopes)], keyPrefix: prefix, keyHash: hash },
+    data: {
+      ...data, scopes: [...new Set(data.scopes)], keyPrefix: prefix, keyHash: hash,
+      client: { create: { id: randomUUID(), businessId } },
+    },
   });
   return { key, record: publicKeyRecord(row) };
 }
 
 export function publicKeyRecord(row: {
-  id: string; businessId: string; agentName: string; ownerName: string;
+  id: string; clientId: string; businessId: string; agentName: string; ownerName: string;
   ownerContact: string; keyPrefix: string; scopes: string[]; kind: string; createdAt: Date;
   lastUsedAt: Date | null; revokedAt: Date | null;
 }) {
   return {
     id: row.id,
+    clientId: row.clientId,
     businessId: row.businessId,
     agentName: row.agentName,
     ownerName: row.ownerName,
@@ -90,6 +94,7 @@ export async function revokeAgentApiKey(idOrPrefix: string, client: KeyDb) {
 
 export type AgentPrincipal = {
   keyId: string;
+  clientId: string;
   keyPrefix: string;
   businessId: string;
   agentName: string;
@@ -117,12 +122,13 @@ export async function authenticateAgent(
   const key = presentedKey(headers);
   const match = key ? KEY_PATTERN.exec(key) : null;
   if (!key || !match) throw new AgentApiError("unauthorized");
-  const row = await client.agentApiKey.findUnique({ where: { keyPrefix: match[1] } });
+  const row = await client.agentApiKey.findUnique({ where: { keyPrefix: match[1] }, include: { client: true } });
   const expected = Buffer.from(row?.keyHash ?? "0".repeat(64), "hex");
   const actual = Buffer.from(hashApiKey(key), "hex");
   // Compare even for unknown prefixes so timing does not reveal valid prefixes.
   const equal = timingSafeEqual(expected, actual);
-  if (!row || !equal || row.revokedAt) throw new AgentApiError("unauthorized");
+  if (!row || !equal || row.revokedAt || !row.client.active || row.client.businessId !== row.businessId)
+    throw new AgentApiError("unauthorized");
   if (!row.scopes.includes(scope)) throw new AgentApiError("forbidden_scope");
   if (!row.lastUsedAt || now.getTime() - row.lastUsedAt.getTime() > LAST_USED_GRANULARITY_MS)
     await client.agentApiKey.updateMany({
@@ -131,6 +137,7 @@ export async function authenticateAgent(
     });
   return {
     keyId: row.id,
+    clientId: row.clientId,
     keyPrefix: row.keyPrefix,
     businessId: row.businessId,
     agentName: row.agentName,
@@ -138,6 +145,24 @@ export async function authenticateAgent(
     kind: row.kind,
     scopes: row.scopes,
   };
+}
+
+/** Trusted operator operation. The new credential owns the SAME stable client. */
+export async function rotateAgentApiKey(keyId: string, client: PrismaClient) {
+  return client.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "AgentApiKey" WHERE "id"=${keyId} AND "revokedAt" IS NULL FOR UPDATE`;
+    if (!rows.length) throw new AgentApiError("unauthorized");
+    const old = await tx.agentApiKey.findUniqueOrThrow({ where: { id: keyId }, include: { client: true } });
+    if (!old.client.active) throw new AgentApiError("unauthorized");
+    const next = generateApiKey();
+    const row = await tx.agentApiKey.create({ data: {
+      agentName: old.agentName, ownerName: old.ownerName, ownerContact: old.ownerContact,
+      kind: old.kind, scopes: old.scopes, keyHash: next.hash, keyPrefix: next.prefix,
+      client: { connect: { businessId_id: { businessId: old.businessId, id: old.clientId } } },
+    } });
+    await tx.agentApiKey.update({ where: { id: old.id }, data: { revokedAt: new Date() } });
+    return { key: next.key, record: publicKeyRecord(row) };
+  });
 }
 
 /** Object-level authorisation: a key may only read its own business. */

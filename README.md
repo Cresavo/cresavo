@@ -1,3 +1,20 @@
+# Current local work: Agentprov 1
+
+Branch `codex/agentprov-1`, based on `bf7b6c3` (not older main).
+The existing gateway has REST `/api/v1` and HTTP-MCP `/api/v1/mcp`.
+This task adds stable client ownership across key rotation, a server-checked
+synthetic operator mandate and atomic booking/link writes. It does not deploy,
+add a customer register to the agent path or certify real-customer consent.
+
+Start with [the runnable proof](docs/AGENTPROV_1_RUNBOOK.md),
+[approved scope](docs/AGENTPROV_1_PLAN.md) and
+[Vercel/Neon preparation](docs/AGENTPROV_1_PREVIEW.md).
+No `.env` or Docker is required when environment variables are supplied by
+the operator. Hosted preview execution still requires Niclas's approval.
+Historical delivery notes below describe other revisions and environments.
+
+---
+
 <!-- POLISH_CURRENT_START -->
 # Booking Lab SE — polerad salongsarbetsyta
 

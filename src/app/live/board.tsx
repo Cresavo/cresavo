@@ -27,7 +27,7 @@ function relative(locale: Locale, iso: string, now: number) {
 const PROVENANCE: Record<LiveEvent["provenance"], { en: string; sv: string; hintEn: string; hintSv: string }> = {
   "verified-agent-proof": {
     en: "Verified agent proof", sv: "Verifierat agentprov",
-    hintEn: "A real assistant run, checked by a person.", hintSv: "En riktig assistentkörning, kontrollerad av en människa.",
+    hintEn: "Operator label; independent proof requires a linked review report.", hintSv: "Operatörsetikett; oberoende bevis kräver en tillhörande granskningsrapport.",
   },
   "registered-client": {
     en: "Registered API client", sv: "Registrerad API-klient",
@@ -98,7 +98,7 @@ export function LiveBoard({ initial, locale }: { initial: LiveSnapshot | null; l
   const cards = [
     { value: stats.booked, label: t("Bookings made", "Bokade tider"), note: t("Created through the agent API", "Skapade via agent-API:t") },
     { value: stats.conflictsHandled, label: t("Conflicts handled", "Krockar hanterade"), note: t("Double bookings refused by the engine", "Dubbelbokningar som motorn stoppade") },
-    { value: stats.cancelled, label: t("Cancellations", "Avbokningar"), note: t("Only by the key that booked", "Bara av nyckeln som bokade") },
+    { value: stats.cancelled, label: t("Cancellations", "Avbokningar"), note: t("Only by the owning client", "Bara av klienten som äger bokningen") },
     { value: stats.activeKeys, label: t("Active API keys", "Aktiva API-nycklar"), note: t("One key is not necessarily one AI agent", "En nyckel är inte nödvändigtvis en AI-agent") },
   ];
 
@@ -133,8 +133,8 @@ export function LiveBoard({ initial, locale }: { initial: LiveSnapshot | null; l
         </h1>
         <p className={s.lede}>
           {t(
-            "Every row is a real call to the Booking Lab engine through the agent API or MCP. The salon and its customers are fictional; the booking rules are the real ones.",
-            "Varje rad är ett riktigt anrop till Booking Labs bokningsmotor via agent-API:t eller MCP. Salongen och kunderna är påhittade – bokningsreglerna är de riktiga.",
+            "Recorded sandbox outcomes, shown on a best-effort basis. This is not an audit log. Use booking id and status to check the actual result. Synthetic data only.",
+            "Registrerade sandlådeutfall visas när de kunnat sparas. Detta är ingen revisionslogg. Kontrollera verkligt resultat med boknings-id och status. Endast påhittade uppgifter.",
           )}
         </p>
       </section>

@@ -3,6 +3,7 @@ import { DateTime } from "luxon";
 
 type KeyRow = {
   id: string; businessId: string; agentName: string; ownerName: string;
+  clientId: string; client: { id: string; businessId: string; active: boolean };
   ownerContact: string; keyPrefix: string; keyHash: string; scopes: string[];
   createdAt: Date; lastUsedAt: Date | null; revokedAt: Date | null;
 };
@@ -29,8 +30,9 @@ vi.mock("../src/lib/db", () => {
   return {
     db: {
       agentApiKey: {
-        create: async ({ data }: { data: Omit<KeyRow, "id" | "createdAt" | "lastUsedAt" | "revokedAt"> }) => {
-          const row = { ...data, id: `key-${state.keys.length + 1}`, createdAt: new Date(), lastUsedAt: null, revokedAt: null };
+        create: async ({ data }: { data: Omit<KeyRow, "id" | "businessId" | "clientId" | "client" | "createdAt" | "lastUsedAt" | "revokedAt"> & { client: { create: { id: string; businessId: string } } } }) => {
+          const identity = data.client.create;
+          const row = { ...data, id: `key-${state.keys.length + 1}`, businessId: identity.businessId, clientId: identity.id, client: { ...identity, active: true }, createdAt: new Date(), lastUsedAt: null, revokedAt: null };
           state.keys.push(row);
           return row;
         },
@@ -131,6 +133,12 @@ describe("GET /api/v1 authentication", () => {
     expect(await revokeAgentApiKey(record.keyPrefix, db)).toBe(1);
     const res = await get(services, "/api/v1/services?business=demo", bearer(key));
     expect(res.status).toBe(401);
+  });
+
+  it("rejects an inactive stable client even when its key is valid", async () => {
+    const { key } = await newKey();
+    state.keys[0].client.active = false;
+    expect((await get(services, "/api/v1/services?business=demo", bearer(key))).status).toBe(401);
   });
 
   it("accepts X-API-Key and refuses conflicting credentials", async () => {

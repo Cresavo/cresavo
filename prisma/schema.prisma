@@ -44,6 +44,7 @@ model Booking {
   requestHash String?
   clientKey String?
   emailCapKey String?
+  agentBooking AgentBooking?
   @@unique([businessId, idempotencyKey])
   @@unique([businessId, id])
   @@index([businessId, status, startsAt, id])
@@ -194,6 +195,8 @@ model RateLimitBucket {
 model AgentApiKey {
   id String @id @default(cuid())
   businessId String
+  clientId String
+  client AgentClient @relation(fields: [businessId, clientId], references: [businessId, id], onDelete: Restrict)
   agentName String
   ownerName String
   ownerContact String
@@ -213,8 +216,49 @@ model AgentBooking {
   bookingId String @id
   keyId String
   businessId String
+  clientId String
+  mandateId String? @unique
+  client AgentClient @relation(fields: [businessId, clientId], references: [businessId, id], onDelete: Restrict)
+  booking Booking @relation(fields: [businessId, bookingId], references: [businessId, id], onDelete: Restrict)
+  mandate AgentMandate? @relation(fields: [businessId, mandateId, clientId], references: [businessId, id, clientId], onDelete: Restrict)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   @@index([keyId, createdAt])
+  @@unique([businessId, bookingId])
+  @@unique([businessId, mandateId, clientId])
+  @@index([businessId, clientId, createdAt])
+}
+
+// Stable identity; credential rotation never transfers booking ownership.
+model AgentClient {
+  id String @id
+  businessId String
+  active Boolean @default(true)
+  keys AgentApiKey[]
+  bookings AgentBooking[]
+  mandates AgentMandate[]
+  @@unique([businessId, id])
+}
+
+// Synthetic operator authorisation only. Not proof of a real customer's consent.
+model AgentMandate {
+  id String @id @default(cuid())
+  businessId String
+  clientId String
+  client AgentClient @relation(fields: [businessId, clientId], references: [businessId, id], onDelete: Restrict)
+  serviceId String
+  staffId String
+  validFrom DateTime @db.Timestamptz(3)
+  validUntil DateTime @db.Timestamptz(3)
+  expiresAt DateTime @db.Timestamptz(3)
+  maxPriceOre Int
+  currency String @default("SEK")
+  origin String
+  originReference String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  revokedAt DateTime? @db.Timestamptz(3)
+  booking AgentBooking?
+  @@unique([businessId, id, clientId])
+  @@index([businessId, clientId, createdAt])
 }
 
 // Public-safe agent activity for /live: no customer fields, no key material.
