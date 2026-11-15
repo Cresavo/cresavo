@@ -1,3 +1,32 @@
+# Handoff · Agentprov 2 · 2026-11-15
+
+Separat lokal worktree <local-state>/codex/booking-lab-agentprov-2, branch
+codex/agentprov-2 från fryst e890b69. Produkt17ce75bb92f2d5c14b3cc017d7343d99b6f918bd.
+Ingen push, PR, merge eller deploy. Fryst agentprov-1 är bevarad för dess QA.
+
+Levererat: USP2026-08-20-upptäckbarhet, llms, fem alias över befintligt native
+MCP-kontrakt samt uttrycklig plats-/schemabindning i serverlagrat mandat.
+Inga checkout/holds eller ny auth. Native kontrakt-URL:erna gör schemaresurserna
+åtkomliga utan att hänvisa felaktigt till USP:s annorlunda wire-format.
+Full konformitet eller verkligt kundsamtycke hävdas inte.
+
+POLICY_MERGE_PLAN.md redovisar faktisk konfliktkontroll; ingen merge eftersom
+fem dokument är i konflikt. LEGACY_DECOUPLE_PLAN.md är enbart en plan; inget
+har tagits bort. AGENTPROV_2_PROTOCOL_NOTES.md beskriver standardjämförelsen,
+fältmappningen, datumkonventionerna och den enda syntetiska platsens gräns.
+
+Slutmatris: unit166/166, integration139/139, lint, tsc och build PASS.
+Äldre-mandat-uppgradering13→14 PASS. Riktiga kommandoutfall och NOTRUN finns
+i VERIFICATION.md; kort rapport i <local-scratch>/night-02.md. Extra lokal
+HTTP-processstart blockerades av automatisk säkerhetsgranskning. Ingen ny
+Grok-QA, molnverifiering eller fysisk mobilkontroll påstås för denna revision.
+
+Nästa beslut är full USP-wire kontra fortsatt nativealias och ett separat
+sammanföringsuppdrag efter agentprov-1:s QA. Fler platser kräver verklig
+datamodell/platskälla; den modellen införs inte i denna omgång.
+
+## Historik: Agentprov 1
+
 # Handoff · Agentprov 1 · 2026-11-15
 
 Produkt `570de3abc886bb1dc8f313ea27e986e0b5fe83c9` på lokal branch

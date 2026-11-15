@@ -1,3 +1,54 @@
+# Aktuell verifiering · Agentprov 2 · 2026-11-15
+
+Produkt **17ce75bb92f2d5c14b3cc017d7343d99b6f918bd**, lokal branch
+codex/agentprov-2, separat worktree från e890b69. Senare Markdown-commits
+ändrar inte testad produktkod. Windows, faktisk Nodev24.16.0, lokal isolerad
+PostgreSQL18.6 på127.0.0.1:55468. Ingen .env/hemlighetsläsning, Docker,
+molnmiljö eller extern publicering. Råloggar: <local-scratch>/agentprov-2/.
+
+| Faktiskt kommando/kontroll | Resultat och riktig output |
+| --- | --- |
+| npm ci --no-fund | exit0; `added 572 packages, and audited 573 packages in 3m`; npm-ci.txt. Rapporterade7moderate, inget audit fix kört. |
+| node node_modules/prisma/build/index.js generate | exit0; `Generated Prisma Client (v7.10.1)`; generate.txt. |
+| node node_modules/prisma/build/index.js migrate deploy | exit0;14migrationer på ny agentprov_2_final_test; `All migrations have been successfully applied.`; final-migrate.txt. |
+| node --import tsx prisma/seed.ts | exit0, inga fel; final-seed.txt. |
+| npm run lint | exit0; `eslint .`, inga fel; final-lint.txt. |
+| node node_modules/typescript/bin/tsc --noEmit | exit0, tom feloutput; final-types.txt. |
+| npm test | `Test Files 27 passed (27)` / `Tests 166 passed (166)`,9.10s; final-unit.txt. |
+| npm run test:integration | `Test Files 31 passed (31)` / `Tests 139 passed (139)`,141.87s; final-integration.txt. |
+| npm run build | exit0; Next16.4.6, nya profil/llms/schema-routes byggda; final-build.txt. |
+| Separat13→14-uppgradering med äldre mandat | `PASS UPGRADE_EXISTING_SCOPE_PRESERVED`; upgrade-before/after/verify.txt. Ägare, tjänst, utförare, tider och pristak bevarades; samma implicita plats/schema blev explicita. |
+| Policy konfliktkontroll | Förväntad exit1:5dokumentkonflikter. Ingen merge genomförd; policy-merge-tree.txt och POLICY_MERGE_PLAN.md. |
+
+`final-checks.json` innehåller build/unit/types/lint=0. Full integration gjordes
+efter riktade MCP-prov4/4 och mot en **ny** migrerad/seedad testdatabas, utan
+samtidigt bygge. Nytt MCP-prov använder riktig SDK+HTTP-handler med in-process
+fetch-brygga: det är inte en verklig nätverksklient eller en personlig assistent.
+Det provar alla fem alias, gamla namn, scopes/BOLA, manipulerat mandat/consent,
+plats/schema/tjänst/utförare/tid/pris, gemensam replay/status och kontrollerad krock.
+Byggmanifestet innehåller alla fyra nya metadata-routes och NFT-spårningen
+inkluderar OpenAPI-filen (build-route-check.json). SQL efter sviten visar0 i
+Booking/BookingEvent/AgentClient/AgentApiKey/AgentMandate/AgentBooking/
+AgentApiEvent/Customer (cleanup.txt). Detta är inte ett runtime-HTTP-prov.
+
+Inledande riktad unitkörning gav31/33: två exakta DTO-förväntningar saknade de
+nya additiva platsfälten. Förväntningarna utökades och behåller exakt toEqual;
+ingen assertion, säkerhetsregel eller timeout sänktes. Därefter43/43 riktade
+och166/166 i fullsviten. Alla13historiska migrationsfiler är oförändrade mot
+fryst e890b69. Inga dependencies, lockfiler eller legacyfunktioner togs bort.
+
+**NOT RUN:** riktig HTTP-process/produktionssmoke, full browser-E2E/fyra lägen,
+Node22, fysisk iPhone, personlig agentklient, ny Grok-QA på agentprov-2,
+upstream full USP/OSBP-konformitetskit, Actions, hosted DB, TLS/proxy/deploy.
+Extra lokal `npm start` stoppades före processstart av automatisk säkerhets-
+granskning, med enbart skälet `blocked by policy`. Ingen alternativ start eller
+försvagning av skydd gjordes. Ingen runtime-HTTP-verifiering påstås.
+
+Profilen beskriver upptäckbarhet och native namnalias, inte full USP-wire eller
+OSBP-konformitet. Köra tester är inte kundpilot-/samtyckesgodkännande.
+
+## Historik: fryst Agentprov 1 (andra revisioner)
+
 # Aktuell verifiering · Agentprov 1 · 2026-11-15
 
 Produktrevision **570de3abc886bb1dc8f313ea27e986e0b5fe83c9**, lokal

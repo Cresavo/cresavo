@@ -26,6 +26,9 @@ eller branchflytt. Full output: <local-scratch>/agentprov-2/policy-merge-tree.tx
 Eftersom det **inte är rent** görs bara denna plan enligt Niclas instruktion.
 AGENTS, schema och domain.ts auto-mergear textmässigt; det är inte ett
 semantiskt godkännande.
+Detta konfliktutfall gäller jämförelsen med fryst e890b69. Agentprov-2:s nya
+plats-/schemafält och upptäckbarhet kräver en ny konfliktkontroll vid ett
+senare sammanföringstillfälle, inte återanvändning av det tillfälliga trädet.
 
 ## Överlapp att bevara
 

@@ -1,3 +1,24 @@
+# Aktuell lokal status · Agentprov 2 · 2026-11-15
+
+Produkt17ce75bb92f2d5c14b3cc017d7343d99b6f918bd på codex/agentprov-2 från
+fryst e890b69. Agentprov-1 har inte ändrats eller pushats i denna omgång.
+
+- GET /.well-known/usp och /llms.txt, fem MCP-namnalias och verkliga native
+  schema-URL:er är implementerade och testade. Inga holds eller checkout_systems.
+  Full USP-wire/förhandling/OSBP-konformitet är inte implementerad eller godkänd.
+- Serverlagrat mandat begränsar nu även demo-plats och befintligt personalschema.
+  Buyer consent eller ny JSON kan inte vidga tillståndet. Inget verkligt
+  kundgodkännande hävdas; namn/e-post finns fortfarande i Booking.
+- Lint/tsc/build PASS, unit166/166, integration139/139 på färsk lokalDB.
+  Separat äldre-mandat-uppgradering13→14 PASS. Se VERIFICATION för riktig output,
+  initiala fel och kontroller som inte körts; ingen ny Grok-QA på denna gren.
+- Policysammanföring har fem dokumentkonflikter: endast POLICY_MERGE_PLAN.
+  Legacy har endast LEGACY_DECOUPLE_PLAN; inga moduler eller tester borttagna.
+- Inga nya beroenden, push/PR/merge, konton, molnresurser, deploy eller Epic02.
+  Kundpilot och faktisk moln-/nätverksverifiering förblir utanför denna leverans.
+
+## Historik: Agentprov 1
+
 # Aktuell lokal status · Agentprov 1 · 2026-11-15
 
 Branch `codex/agentprov-1`, produktrevision
