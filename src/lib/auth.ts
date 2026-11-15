@@ -1,3 +1,4 @@
+import { isPublicReadonly, assertWritable } from "./public-readonly";
 import { db } from "./db";
 import { safeFailure } from "./errors";
 import { DEMO_BUSINESS_ID } from "./config";
@@ -31,6 +32,7 @@ function equal(a: string, b: string) {
 }
 
 export async function login(identity: AdminIdentity) {
+  assertWritable();
   const expiry = String(Date.now() + 8 * 3600_000);
   const token = randomBytes(32).toString("hex");
   const value = `${token}.${expiry}`;
@@ -74,6 +76,7 @@ export async function login(identity: AdminIdentity) {
 }
 
 export async function pruneSessions(now = new Date()) {
+  assertWritable();
   const obsolete = {
     OR: [{ expiresAt: { lte: now } }, { revokedAt: { not: null } }],
   };
@@ -106,6 +109,7 @@ async function currentSessionId() {
   return sessionId(token);
 }
 export async function getAdminContext() {
+  if (isPublicReadonly()) return null;
   const id = await currentSessionId();
   if (!id) return null;
   try {
@@ -132,6 +136,7 @@ export async function isAdmin() {
 }
 
 export async function logout() {
+  assertWritable();
   const id = await currentSessionId();
   if (id)
     await db.adminSession.updateMany({

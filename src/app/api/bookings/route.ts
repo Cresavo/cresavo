@@ -1,3 +1,4 @@
+import { isPublicReadonly, readonlyForbidden } from "@/lib/public-readonly";
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { createBooking } from "@/lib/domain";
@@ -5,6 +6,7 @@ import { failure } from "@/lib/http";
 import { sameOrigin } from "@/lib/auth";
 import { assertCardReplayChannel } from "@/lib/booking-channel";
 export async function POST(r: NextRequest) {
+  if (isPublicReadonly()) return readonlyForbidden();
   if (!(await sameOrigin()))
     return NextResponse.json({ error: "Otillåtet ursprung" }, { status: 403 });
   try {

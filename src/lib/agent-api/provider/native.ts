@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "../../db";
+import { isPublicReadonly } from "../../public-readonly";
+import { fixtureStaff } from "../../public-fixtures";
 import { DEMO_BUSINESS_ID } from "../../config";
 import { listServices, getAvailability, createBooking, type BookingTransactionHooks } from "../../domain";
 import { DomainError } from "../../errors";
@@ -13,11 +15,16 @@ export const nativeBookingProvider = {
   id: "native",
   capabilities: Object.freeze({ holdSlot: false, cancelBooking: true, staffSelection: true, idempotency: true, timeZone: ZONE }),
   async listServices() {
-    const [services, resources] = await Promise.all([listServices(), db.staff.findMany({
-      where: { businessId: DEMO_BUSINESS_ID, active: true },
-      select: { id: true, name: true, serviceIds: true },
-      orderBy: [{ name: "asc" }, { id: "asc" }], take: 100,
-    })]);
+    const [services, resources] = await Promise.all([
+      listServices(),
+      isPublicReadonly()
+        ? Promise.resolve(fixtureStaff())
+        : db.staff.findMany({
+            where: { businessId: DEMO_BUSINESS_ID, active: true },
+            select: { id: true, name: true, serviceIds: true },
+            orderBy: [{ name: "asc" }, { id: "asc" }], take: 100,
+          }),
+    ]);
     return { services, resources };
   },
   async getAvailability(serviceId: string, day: string, resourceId?: string) {

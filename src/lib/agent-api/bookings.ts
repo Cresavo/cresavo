@@ -1,4 +1,5 @@
 import { recordAudit } from "./audit";
+import { isPublicReadonly, assertWritable } from "../public-readonly";
 import { createHash } from "node:crypto";
 import { DateTime } from "luxon";
 import { z } from "zod";
@@ -97,6 +98,7 @@ export async function createBookingV1(principal: AgentPrincipal, _params: URLSea
 
 /** Shared by HTTP and MCP. Returns Created for a new booking, a plain body for a replay. */
 export async function createAgentBooking(principal: AgentPrincipal, rawKey: string | null | undefined, body: unknown) {
+  assertWritable();
   if (!principal.scopes.includes("bookings:write")) throw new AgentApiError("forbidden_scope");
   const idempotencyKey = scopedIdempotencyKey(principal, rawKey);
   const parsed = agentBookingSchema.safeParse(body);
@@ -222,11 +224,13 @@ async function ownedBooking(principal: AgentPrincipal, bookingId: string) {
 }
 
 export async function getBookingV1(principal: AgentPrincipal, bookingId: string) {
+  if (isPublicReadonly()) throw new AgentApiError("booking_not_found");
   if (!principal.scopes.includes("bookings:read")) throw new AgentApiError("forbidden_scope");
   return { apiVersion: API_VERSION, booking: await bookingView(await ownedBooking(principal, bookingId), principal.businessId) };
 }
 
 export async function cancelBookingV1(principal: AgentPrincipal, bookingId: string) {
+  assertWritable();
   if (!principal.scopes.includes("bookings:write")) throw new AgentApiError("forbidden_scope");
   const owned = await ownedBooking(principal, bookingId);
   const auditLink = await db.agentBooking.findUnique({ where: { bookingId: owned.id } });

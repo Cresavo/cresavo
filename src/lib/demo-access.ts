@@ -1,3 +1,4 @@
+import { isPublicReadonly } from "./public-readonly";
 import { createHash } from "node:crypto";
 
 export const DEMO_ADMIN_EMAIL = "demo-owner@example.test";
@@ -21,6 +22,7 @@ export function demoDatabaseFingerprint(value: string) {
 }
 
 export function demoAccessEnabled(env = process.env) {
+  if (isPublicReadonly(env)) return false;
   if (
     env.BOOKING_DEMO_ACCESS !== "1" ||
     env.BOOKING_RUNTIME !== "vercel" ||

@@ -1,3 +1,4 @@
+import { assertWritable } from "./public-readonly";
 import { z } from "zod";
 import { db } from "./db";
 import { DEMO_BUSINESS_ID } from "./config";
@@ -14,6 +15,7 @@ export type AdminIdentity = { id: string; credentialVersion: number };
 export async function verifyAdminCredentials(
   input: unknown,
 ): Promise<AdminIdentity | null> {
+  assertWritable();
   const parsed = z
     .object({ email: adminEmailSchema, password: z.string().min(1).max(128) })
     .strict()
@@ -33,6 +35,7 @@ export async function verifyAdminCredentials(
 }
 
 export async function createAdminUser(email: string, password: string) {
+  assertWritable();
   const normalized = adminEmailSchema.parse(email);
   const passwordHash = await hashPassword(password);
   const account = await db.adminUser.create({
@@ -44,6 +47,7 @@ export async function createAdminUser(email: string, password: string) {
 
 // Updating the account locks its row before touching sessions, matching login's lock order.
 export async function disableAdminUser(email: string) {
+  assertWritable();
   const normalized = adminEmailSchema.parse(email);
   await db.$transaction(async (tx) => {
     const account = await tx.adminUser.update({
@@ -59,6 +63,7 @@ export async function disableAdminUser(email: string) {
 }
 
 export async function resetAdminPassword(email: string, password: string) {
+  assertWritable();
   const normalized = adminEmailSchema.parse(email);
   const passwordHash = await hashPassword(password);
   await db.$transaction(async (tx) => {

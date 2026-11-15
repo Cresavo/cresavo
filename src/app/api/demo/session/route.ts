@@ -1,3 +1,4 @@
+import { isPublicReadonly, readonlyForbidden } from "@/lib/public-readonly";
 import { NextRequest, NextResponse } from "next/server";
 import { demoAccessEnabled, DEMO_ADMIN_EMAIL } from "@/lib/demo-access";
 import { getAdminContext, login, sameOrigin } from "@/lib/auth";
@@ -7,6 +8,7 @@ import { DEMO_BUSINESS_ID } from "@/lib/config";
 import { failure } from "@/lib/http";
 
 export async function POST(request: NextRequest) {
+  if (isPublicReadonly()) return readonlyForbidden();
   if (!demoAccessEnabled() || !(await sameOrigin()))
     return NextResponse.json(
       { error: "Demoåtkomst är inte tillgänglig." },

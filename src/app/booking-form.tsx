@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DateTime } from "luxon";
@@ -10,6 +10,7 @@ import { useAvailability } from "./components/use-availability";
 import { useLocale } from "./components/locale-provider";
 import { text } from "@/lib/locale";
 import { presentationError } from "@/lib/presentation-errors";
+import { DemoConfirmation } from "./demo-confirmation";
 const subscribe = () => () => {};
 type Service = {
   id: string;
@@ -20,6 +21,10 @@ type Service = {
 };
 type Staff = { id: string; name: string; serviceIds: string[] };
 export default function BookingForm({
+  readOnly = false,
+  demoSalon,
+  agentDemo = false,
+  presentationOnly = false,
   services,
   staff,
   initialService,
@@ -27,6 +32,10 @@ export default function BookingForm({
   initialDate,
   initialSlot,
 }: {
+  readOnly?: boolean;
+  demoSalon?: string;
+  agentDemo?: boolean;
+  presentationOnly?: boolean;
   services: Service[];
   staff: Staff[];
   initialService?: string;
@@ -34,6 +43,7 @@ export default function BookingForm({
   initialDate?: string;
   initialSlot?: string;
 }) {
+  const prefix = useId();
   const locale = useLocale();
   const t = (en: string, sv: string) => text(locale, en, sv);
   const hydrated = useSyncExternalStore(
@@ -70,6 +80,7 @@ export default function BookingForm({
     [requestedStart, setStart] = useState(initialSlot ?? ""),
     [customerName, setCustomerName] = useState(""),
     [customerEmail, setCustomerEmail] = useState("");
+  const [paymentComplete, setPaymentComplete] = useState(false);
   const [pending, setPending] = useState(false),
     [message, setMessage] = useState(""),
     [stale, setStale] = useState(false),
@@ -80,8 +91,11 @@ export default function BookingForm({
       confirmationHeading.current?.scrollIntoView({ block: "center" });
     }
   }, [success]);
-  const availability = useAvailability(serviceId, staffId, date);
-  const start = availability.slots.includes(requestedStart)
+  const availability = useAvailability(presentationOnly ? "" : serviceId, staffId, date);
+  const slots = presentationOnly
+    ? ["10:00", "11:30", "14:00"].map((hour) => DateTime.fromISO(`${date}T${hour}`, { zone: "Europe/Stockholm" }).toUTC().toISO()!)
+    : availability.slots;
+  const start = slots.includes(requestedStart)
     ? requestedStart
     : "";
   const service = services.find((s) => s.id === serviceId),
@@ -99,7 +113,7 @@ export default function BookingForm({
   };
   async function book(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!start || pending) return;
+    if (readOnly || !start || pending) return;
     const payload = JSON.stringify({
       serviceId,
       staffId,
@@ -169,6 +183,12 @@ export default function BookingForm({
           )}
         </p>
         <p className="confirmation-summary">{success}</p>
+        <section data-testid="simulated-payment" className="payment-step" aria-label={t("Simulated prepayment", "Simulerad förskottsbetalning")}>
+          <h3>{t("Simulated prepayment", "Simulerad förskottsbetalning")}</h3>
+          <p>{t("Separate from booking confirmation. No payment details are collected and no money is charged.", "Separat från bokningsbekräftelsen. Inga betaluppgifter samlas in och inga pengar dras.")}</p>
+          <button type="button" data-testid="simulated-payment-confirm" disabled={paymentComplete} onClick={() => setPaymentComplete(true)}>{t("Simulate payment token", "Simulera betalningstoken")}</button>
+          {paymentComplete && <p role="status">{t("Fictional token simulated for this visit. No real payment.", "Påhittat token simulerat för detta besök. Ingen riktig betalning.")}</p>}
+        </section>
         <Link href={"/admin?" + new URLSearchParams({ date, view: "day", staffId })}>
           {t("See this time in the demo calendar", "Se tiden i demokalendern")}
         </Link>
@@ -182,6 +202,7 @@ export default function BookingForm({
           type="button"
           onClick={() => {
             setSuccess("");
+            setPaymentComplete(false);
             setStart("");
             submission.current = null;
             availability.refresh();
@@ -203,13 +224,14 @@ export default function BookingForm({
     );
   return (
     <form onSubmit={book} className="customer-booking">
+      {readOnly && <p id={prefix + "-readonly"} className="muted">{t("Read-only simulation. Contact fields and booking submission are disabled. Choose a time to explore the local demo.", "Simulering i läsläge. Kontaktfält och bokningssändning är avstängda. Välj en tid för att utforska den lokala demon.")}</p>}
       <div className="booking-step">
         <h2>
           <span>1</span> {t("Treatment and person", "Behandling och utförare")}
         </h2>
-        <label htmlFor="service">{t("Treatment", "Behandling")}</label>
+        <label htmlFor={prefix + "-service"}>{t("Treatment", "Behandling")}</label>
         <select
-          id="service"
+          id={prefix + "-service"}
           ref={serviceSelect}
           disabled={!hydrated || pending}
           value={serviceId}
@@ -229,9 +251,9 @@ export default function BookingForm({
             </option>
           ))}
         </select>
-        <label htmlFor="staff">{t("Team member", "Medarbetare")}</label>
+        <label htmlFor={prefix + "-staff"}>{t("Team member", "Medarbetare")}</label>
         <select
-          id="staff"
+          id={prefix + "-staff"}
           disabled={!hydrated || pending}
           required
           value={staffId}
@@ -258,13 +280,14 @@ export default function BookingForm({
           <span>2</span> {t("Day and time", "Dag och tid")}
         </h2>
         <DatePicker
-          id="date"
+          id={prefix + "-date"}
           value={date}
           min={today}
           max={last}
           onChange={chooseDay}
           disabled={!hydrated || pending}
         />
+        <p className="muted">{service?.duration} min · {formatPrice(service?.priceOre ?? 0, locale)}</p>
         {availability.loading ? (
           <p role="status">
             {t("Finding available times…", "Hämtar lediga tider…")}
@@ -280,10 +303,10 @@ export default function BookingForm({
               {t("Try loading times again", "Försök hämta tider igen")}
             </button>
           </div>
-        ) : availability.slots.length ? (
+        ) : slots.length ? (
           <SlotPicker
-            id="slot"
-            slots={availability.slots}
+            id={prefix + "-slot"}
+            slots={slots}
             value={start}
             onChange={setStart}
             disabled={pending}
@@ -302,7 +325,7 @@ export default function BookingForm({
             </p>
           </div>
         )}
-        <button
+        {!presentationOnly && !agentDemo && <button
           type="button"
           className="secondary next-available"
           disabled={pending || availability.finding || !staffId}
@@ -311,33 +334,36 @@ export default function BookingForm({
           {availability.finding
             ? t("Finding the next available day…", "Letar efter en ledig dag…")
             : t("Find the next available day", "Hitta nästa lediga dag")}
-        </button>
+        </button>}
       </div>
       <div className="booking-step">
         <h2>
           <span>3</span>{" "}
-          {t("Your details and booking", "Dina uppgifter och bokning")}
+          {agentDemo ? t("Review the proposal", "Granska förslaget") : t("Your details and booking", "Dina uppgifter och bokning")}
         </h2>
-        <label htmlFor="name">{t("Name (fictional)", "Namn (påhittat)")}</label>
+        {!agentDemo && <>
+        <label htmlFor={prefix + "-name"}>{t("Name (fictional)", "Namn (påhittat)")}</label>
         <input
-          id="name"
+          id={prefix + "-name"}
           name="name"
           required
           minLength={2}
           maxLength={80}
+          disabled={readOnly}
           value={customerName}
           onChange={(e) => setCustomerName(e.target.value)}
           autoComplete="off"
         />
-        <label htmlFor="email">
+        <label htmlFor={prefix + "-email"}>
           {t("Email (fictional)", "E-post (påhittad)")}
         </label>
         <input
-          id="email"
+          id={prefix + "-email"}
           name="email"
           type="email"
           required
           maxLength={254}
+          disabled={readOnly}
           value={customerEmail}
           onChange={(e) => setCustomerEmail(e.target.value)}
           autoComplete="off"
@@ -348,6 +374,7 @@ export default function BookingForm({
             "Använd en testadress, till exempel kund@example.test. Inga utskick görs.",
           )}
         </p>
+        </>}
         <section
           className="booking-review"
           aria-label={t("Your booking", "Din bokning")}
@@ -391,11 +418,21 @@ export default function BookingForm({
             )}
           </button>
         )}
-        <button type="submit" disabled={!hydrated || pending || !start}>
+        {!agentDemo && <button
+          type="submit"
+          disabled={readOnly || !hydrated || pending || !start}
+          aria-describedby={readOnly ? prefix + "-readonly" : undefined}
+        >
           {pending
             ? t("Booking…", "Bokar…")
             : t("Confirm demo booking", "Bekräfta testbokning")}
-        </button>
+        </button>}
+        {readOnly && demoSalon && start && service && person && <DemoConfirmation
+          key={JSON.stringify([demoSalon, serviceId, staffId, date, start])}
+          agent={agentDemo}
+          booking={{ salon: demoSalon, serviceId, treatment: service.name, duration: service.duration,
+            priceOre: service.priceOre, staffId, person: person.name, day: date, start }}
+        />}
       </div>
     </form>
   );

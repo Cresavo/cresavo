@@ -1,19 +1,21 @@
 import { BlockList, isIP } from "node:net";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual, randomBytes } from "node:crypto";
 
 // Vercel is an explicit ingress trust model, never inferred from request headers.
 // Only use it in a Vercel Function protected at project level on every URL.
 export function runtimePolicy(env) {
+  const readonly = env.PUBLIC_READONLY === "1";
+  if (readonly && !env.SESSION_SECRET) env.SESSION_SECRET = randomBytes(32).toString("hex");
   const runtime = env.BOOKING_RUNTIME ?? "local";
   if (!["memory", "postgres"].includes(env.RATE_LIMIT_STORE ?? "memory"))
     throw new Error("BOOKING_RUNTIME_CONFIG_INVALID");
   if (!["local", "vercel"].includes(runtime) ||
       (env.VERCEL === "1" && runtime !== "vercel") ||
       (runtime === "vercel" &&
-        (env.VERCEL !== "1" || env.RATE_LIMIT_STORE !== "postgres" ||
+        (env.VERCEL !== "1" || (!readonly && env.RATE_LIMIT_STORE !== "postgres") ||
          (env.TRUST_PROXY_IP !== undefined && env.TRUST_PROXY_IP !== "0"))))
     throw new Error("BOOKING_RUNTIME_CONFIG_INVALID");
-  if (runtime === "vercel") {
+  if (runtime === "vercel" && !readonly) {
     if (!env.SESSION_SECRET || env.SESSION_SECRET.length < 32)
       throw new Error("BOOKING_RUNTIME_CONFIG_INVALID");
     try {

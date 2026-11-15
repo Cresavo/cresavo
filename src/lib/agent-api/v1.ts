@@ -1,4 +1,6 @@
 import { auditContext, recordAudit } from "./audit";
+import { isPublicReadonly, readonlyForbidden } from "../public-readonly";
+import { fixtureStaff } from "../public-fixtures";
 import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { z, ZodError } from "zod";
@@ -63,6 +65,7 @@ export function agentErrorResponse(code: AgentApiErrorCode, retryAfter?: number)
 export function mapAgentError(error: unknown): { code: AgentApiErrorCode; retryAfter?: number } {
   if (error instanceof AgentApiError) return { code: error.code, retryAfter: error.retryAfter };
   if (error instanceof DomainError) {
+    if (isPublicReadonly() && error.status === 403) return { code: "forbidden_scope" };
     if (error.status === 429) return { code: "rate_limited", retryAfter: error.retryAfter };
     if (error.message === "Tjänsten finns inte") return { code: "service_not_found" };
     if (error.message === "Medarbetaren kan inte utföra behandlingen") return { code: "staff_not_found" };
@@ -108,6 +111,26 @@ async function agentRouteInternal(
   scope: AgentScope | readonly AgentScope[],
   handler: AgentHandler,
 ) {
+  if (isPublicReadonly()) {
+    if (request.method !== "GET") return readonlyForbidden();
+    const read = route === "GET /api/v1/services" ? servicesV1
+      : route === "GET /api/v1/availability" ? availabilityV1 : undefined;
+    if (!read) return agentErrorResponse("booking_not_found");
+    try {
+      const params = new URL(request.url).searchParams;
+      if (!params.has("business")) params.set("business", DEMO_BUSINESS_ID);
+      const preview: AgentPrincipal = {
+        keyId: "fixture", clientId: "fixture", keyPrefix: "fixture",
+        businessId: DEMO_BUSINESS_ID, agentName: "Synthetic preview",
+        ownerName: "Fictional salon", kind: "demo-script",
+        scopes: ["services:read", "availability:read"],
+      };
+      return NextResponse.json(await read(preview, params), { headers });
+    } catch (error) {
+      const { code, retryAfter } = mapAgentError(error);
+      return agentErrorResponse(code, retryAfter);
+    }
+  }
   let principal: AgentPrincipal | null = null;
   try {
     principal = await authenticateAgent(request.headers, db, scope);
@@ -132,6 +155,16 @@ export function business(principal: AgentPrincipal, value: unknown) {
   const found = BUSINESSES[requested.data];
   if (!found) throw new AgentApiError("business_not_found");
   return found;
+}
+
+export async function activeStaff() {
+  if (isPublicReadonly()) return fixtureStaff();
+  return db.staff.findMany({
+    where: { businessId: DEMO_BUSINESS_ID, active: true },
+    select: { id: true, name: true, serviceIds: true },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    take: 100,
+  });
 }
 
 export function serviceView(

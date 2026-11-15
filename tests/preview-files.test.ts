@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { expect, it } from "vitest";
 import {
   copyFileSync,
@@ -23,7 +24,6 @@ it.each([".vercelignore", ".dockerignore"])("%s inkluderar runtime-schemat men a
       "docs/agent-api-v1.openapi.yaml",
       "THIRD_PARTY_NATIVE_NOTICES.txt",
       "THIRD_PARTY_LUCIDE_LICENSE.txt",
-      ".env.example",
     ];
     const rejected = [
       ".env",
@@ -37,10 +37,19 @@ it.each([".vercelignore", ".dockerignore"])("%s inkluderar runtime-schemat men a
       "docs/HANDOFF.md",
       "docs/private/file.json",
     ];
-    for (const file of [...wanted, ...rejected]) {
+    // Check sensitive-looking names virtually; never create environment/key files.
+    const virtual = rejected.filter((file) => /(?:\.env|private\.json|\.key)/.test(file));
+    for (const file of [...wanted, ...rejected.filter((file) => !virtual.includes(file))]) {
       mkdirSync(dirname(join(root, file)), { recursive: true });
       writeFileSync(join(root, file), "synthetic-fixture");
     }
+    const ignored = spawnSync("git", ["-c", "core.excludesFile=", "-c", "init.templateDir=", "init", "--quiet", root]);
+    expect(ignored.status).toBe(0);
+    copyFileSync(".vercelignore", join(root, ".gitignore"));
+    for (const file of virtual) {
+      expect(spawnSync("git", ["-C", root, "check-ignore", "--no-index", file]).status).toBe(0);
+    }
+    expect(spawnSync("git", ["-C", root, "check-ignore", "--no-index", ".env.example"]).status).toBe(1);
     const files = previewFiles(root);
     for (const file of wanted) expect(files).toContain(file);
     for (const file of rejected) expect(files).not.toContain(file);

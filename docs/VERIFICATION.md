@@ -1,3 +1,67 @@
+# Public read-only cleanup · 2026-11-15
+
+Lokal branch `codex/public-readonly-cleanup`, bas
+`84a811c90b9d5f1991432571afab742329699b7a`. Fyra avgränsade rättningar:
+
+- Landningens svenska/engelska footer beskriver läsdemo med påhittade data.
+- `/` och `/product` döljer ägarnas adminingångar endast i PUBLIC_READONLY.
+  Normal demoinloggningslogik är oförändrad.
+- Gemensam proxy sätter `X-Robots-Tag: noindex, nofollow` när flaggan är `1`,
+  även för landningssidor, framtida sidor och blockerade svar. Utan flaggan
+  tillkommer ingen indexeringsregel; landningens befintliga meta består.
+- Söndag 2026-11-15 saknar korrekt tider: Anna/Erik har enbart vardagstider.
+  UI valde tidigare idag. Servern väljer nu första datum med faktisk
+  fixturetillgänglighet för vald behandling/utförare (måndag 2026-11-16).
+  Giltigt uttryckligt `?date=` bevaras, även stängda dagar. Ingen ändring av
+  scheduledSlots, veckotidsberäkning, överlapp, mandat eller gateway.
+
+Ändrade produktfiler: `src/components/landing/Landing.tsx`, `src/app/page.tsx`,
+`src/app/product/relay.tsx`, `src/lib/public-fixtures.ts`, `src/proxy.ts`.
+Nya tester: `tests/public-readonly-ux.test.ts` (11). Befintliga
+`tests/preview-files.test.ts` kontrollerar nu känsliga filnamn virtuellt med
+Git ignore-regler, utan att skapa miljö- eller nyckelfiler.
+
+Faktiska slutresultat (exit 0):
+
+```text
+> booking-lab-se@0.1.0 lint
+> eslint .
+```
+
+`npx tsc --noEmit`: ingen utskrift, exit 0.
+
+```text
+ Test Files  28 passed (28)
+      Tests  206 passed (206)
+```
+
+Första kontrollen hade TypeScript-fel för Luxons infererade giltighetsparameter
+samt 2 nya testfel vid serialisering av React-komponenttyper
+(`2 failed | 204 passed (206)`). Explicit DateTime-typ och inspektion av
+props/barn utan komponenttyper rättade dessa; inga befintliga assertioner togs bort.
+Befintliga 403-skydd och databasfria negativa tester passerar.
+
+Inte verifierat: build, browser/visuell kontroll, integration, E2E eller faktisk
+HTTP/deploy. Ingen server/port, DB-provisionering, push, PR, merge eller deploy.
+Inga miljö-/hemlighetsfiler lästes eller skapades. Endast lokal commit ingår.
+Äldre resultat nedan gäller sina egna grenar/revisioner.
+
+---
+
+# Public read-only preview · aktuell lokal gren · 2026-11-15
+
+`codex/public-readonly-preview` från `e890b69`. PUBLIC_READONLY=1 ger
+syntetiska fixtures utan DB, server-403 för skrivning/admin/live och spärrad
+HTTP-MCP. Landningsskissen är bevarad. Lint/tsc/build PASS; unit **195/195,
+27 filer**, inklusive 41 nya databasfria tester. Build i Vercel-läge utan DB-URL
+eller sessionshemlighet PASS. Ingen server, integration/E2E, push eller deploy.
+
+Detaljer, filgrupper, kommandoutfall och begränsningar:
+[PUBLIC_READONLY_PREVIEW](PUBLIC_READONLY_PREVIEW.md).
+Äldre verifiering nedan gäller andra grenar/revisioner, inte denna leverans.
+
+---
+
 # Aktuell verifiering · Agentprov 2, rättningsvarv 1 · 2026-11-15
 
 Produkt **9e1c929a9246d4cad8c3385cfe5a12afbc20d333**, codex/agentprov-2.

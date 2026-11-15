@@ -1,3 +1,4 @@
+import { assertWritable } from "./public-readonly";
 import { z } from "zod";
 import type { Booking, Prisma } from "@prisma/client";
 import { db } from "./db";
@@ -123,6 +124,7 @@ export async function moveBooking(
   requestId: string,
   actor: WorkspaceActor,
 ) {
+  assertWritable();
   const v = moveBookingSchema.parse(input);
   return workspaceWrite(
     "move_booking",
@@ -194,6 +196,7 @@ export async function cancelBooking(
   requestId: string,
   actor: WorkspaceActor,
 ) {
+  assertWritable();
   const v = cancelBookingSchema.parse(input);
   return workspaceWrite(
     "cancel_booking",

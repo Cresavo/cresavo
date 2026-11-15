@@ -1,8 +1,10 @@
+import { isPublicReadonly, readonlyForbidden } from "@/lib/public-readonly";
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin, sameOrigin } from "@/lib/auth";
 import { publishCampaign } from "@/lib/domain";
 import { failure } from "@/lib/http";
 export async function POST(r: NextRequest) {
+  if (isPublicReadonly()) return readonlyForbidden();
   if (!(await sameOrigin()) || !(await isAdmin()))
     return NextResponse.json({ error: "Ej behörig" }, { status: 403 });
   try {

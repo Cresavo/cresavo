@@ -1,4 +1,5 @@
 import { auditContext, recordAudit } from "./audit";
+import { isPublicReadonly, readonlyForbidden, assertWritable } from "../public-readonly";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { db } from "../db";
 import { checkRateLimit } from "../rate-limit";
@@ -13,7 +14,9 @@ import { mcpInputs } from "./mcp-inputs";
 // sandbox API key or process-local lab OAuth access token.
 async function tool(principal: AgentPrincipal, scope: AgentScope | readonly AgentScope[], run: () => Promise<unknown>, name: string) {
   try {
-    if (!(Array.isArray(scope) ? scope : [scope]).some(s => principal!.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
+    const required = Array.isArray(scope) ? scope : [scope];
+    if (required.includes("bookings:write")) assertWritable();
+    if (!required.some(s => principal!.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
     const result = await run();
     await recordAudit({ event: "agent.request", outcome: "success", tool: name, clientId: principal.clientId, keyId: principal.keyId, scopes: principal.scopes });
     const body = result instanceof Created ? result.body : result;
@@ -132,4 +135,7 @@ async function handleMcpInternal(request: Request) {
   }
 }
 
-export const handleMcp: typeof handleMcpInternal = (...args) => auditContext(() => handleMcpInternal(...args));
+export async function handleMcp(request: Request) {
+  if (isPublicReadonly()) return readonlyForbidden();
+  return auditContext(() => handleMcpInternal(request));
+}

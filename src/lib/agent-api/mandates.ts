@@ -1,4 +1,5 @@
 import { recordAudit } from "./audit";
+import { assertWritable } from "../public-readonly";
 import type { Prisma, PrismaClient, AgentMandate } from "@prisma/client";
 import { AgentApiError } from "./errors";
 import type { AgentPrincipal } from "./keys";
@@ -6,6 +7,7 @@ import { mandateSchema } from "./mandate-policy";
 
 /** Operator database capability required; never exposed as a REST/MCP tool. */
 export async function issueSyntheticMandate(input: unknown, client: PrismaClient) {
+  assertWritable();
   const data = mandateSchema.parse(input);
   if (Date.parse(data.expiresAt) <= Date.now()) throw new AgentApiError("mandate_denied");
   const owner = await client.agentClient.findFirst({

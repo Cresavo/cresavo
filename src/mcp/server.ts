@@ -1,3 +1,4 @@
+import { isPublicReadonly } from "../lib/public-readonly";
 import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
@@ -61,9 +62,10 @@ try {
 }
 serveStdio(() => {
   const server = new McpServer({ name: "booking-lab-se", version: "0.1.0" });
-  if (workdayCard) {
+  if (workdayCard && !isPublicReadonly()) {
     registerOwnerCard(server);
     server.server.onclose = () => {
+      if (isPublicReadonly()) return;
       void db.$disconnect().catch(() => console.error("MCP_DISCONNECT_FAILED"));
     };
     return server;
@@ -94,7 +96,7 @@ serveStdio(() => {
     async (v) =>
       reply(() => getAvailability(v.serviceId, v.date, db, v.staffId)),
   );
-  if (admin) {
+  if (admin && !isPublicReadonly()) {
     if (capacityOnly) {
       registerCapacityTools(server, allowWorkspace);
     } else {
@@ -148,6 +150,7 @@ serveStdio(() => {
     }
   }
   server.server.onclose = () => {
+    if (isPublicReadonly()) return;
     void db.$disconnect().catch(() => {
       console.error("MCP_DISCONNECT_FAILED");
     });

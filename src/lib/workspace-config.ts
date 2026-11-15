@@ -1,3 +1,5 @@
+import { isPublicReadonly, assertWritable } from "./public-readonly";
+import { fixtureStaff } from "./public-fixtures";
 import { randomUUID } from "node:crypto";
 import type { Staff } from "@prisma/client";
 import { z } from "zod";
@@ -54,6 +56,7 @@ export async function getStaff(id: string) {
   return parsedStaff(row);
 }
 export async function listStaff(serviceId?: string, includeInactive = false) {
+  if (isPublicReadonly()) return fixtureStaff().filter((s) => !serviceId || s.serviceIds.includes(serviceId));
   const rows = await db.staff.findMany({
     where: {
       businessId,
@@ -70,6 +73,7 @@ export async function saveService(
   requestId: string,
   actor: WorkspaceActor,
 ) {
+  assertWritable();
   const v = serviceEditSchema.parse(input);
   return workspaceWrite(
     "save_service",
@@ -103,6 +107,7 @@ export async function saveStaff(
   requestId: string,
   actor: WorkspaceActor,
 ) {
+  assertWritable();
   const v = staffEditSchema.parse(input);
   return workspaceWrite("save_staff", v, requestId, actor, true, async (tx) => {
     if (

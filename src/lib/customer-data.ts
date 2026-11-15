@@ -1,3 +1,4 @@
+import { assertWritable } from "./public-readonly";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
@@ -113,6 +114,7 @@ export async function exportCustomerData(
   input: unknown,
   actor: WorkspaceActor,
 ) {
+  assertWritable();
   const admin = webAdmin(actor),
     value = customerExportSchema.parse(input);
   if (value.cursor && !value.expectedToken)
@@ -197,6 +199,7 @@ export async function removeCustomerContact(
   key: string,
   actor: WorkspaceActor,
 ) {
+  assertWritable();
   const admin = webAdmin(actor),
     value = customerContactRemovalSchema.parse(input);
   return workspaceWrite(

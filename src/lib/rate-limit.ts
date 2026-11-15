@@ -1,3 +1,4 @@
+import { isPublicReadonly } from "./public-readonly";
 import { setTimeout as delay } from "node:timers/promises";
 import { verifiedClientAddress } from "../../scripts/client-address.mjs";
 import { DomainError, PasswordCapacityError } from "./errors";
@@ -7,6 +8,7 @@ const buckets = new Map<string, { count: number; until: number }>();
 const windowMs = 15 * 60_000;
 
 function postgresStore() {
+  if (isPublicReadonly()) return false;
   const mode = process.env.RATE_LIMIT_STORE ?? "memory";
   if (!["memory", "postgres"].includes(mode) ||
       (process.env.VERCEL === "1" && mode !== "postgres"))
