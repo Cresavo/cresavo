@@ -5,13 +5,14 @@ import { AgentApiError, agentApiErrors } from "./errors";
 import { authenticateAgent, type AgentPrincipal, type AgentScope } from "./keys";
 import { agentErrorResponse, availabilityV1, Created, mapAgentError, servicesV1, serviceV1 } from "./v1";
 import { cancelBookingV1, createAgentBooking, getBookingV1 } from "./bookings";
+import { createProposal, getProposal } from "./proposals";
 import { mcpInputs } from "./mcp-inputs";
 
 // Same business rules and key checks as the REST API. Authentication is the
 // sandbox API key or process-local lab OAuth access token.
-async function tool(principal: AgentPrincipal, scope: AgentScope, run: () => Promise<unknown>) {
+async function tool(principal: AgentPrincipal, scope: AgentScope | readonly AgentScope[], run: () => Promise<unknown>) {
   try {
-    if (!principal.scopes.includes(scope)) throw new AgentApiError("forbidden_scope");
+    if (!(Array.isArray(scope) ? scope : [scope]).some(s => principal.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
     const result = await run();
     const body = result instanceof Created ? result.body : result;
     return {
@@ -30,6 +31,10 @@ const params = (o: Record<string, string | undefined>) =>
 
 export function agentMcpServer(principal: AgentPrincipal) {
   const server = new McpServer({ name: "booking-lab-agent-api", version: "1.0.0" });
+  server.registerTool("create_proposal", { description: "Propose an exact synthetic booking for customer consent. Does not grant authority.", inputSchema: mcpInputs.create_proposal },
+    async a => tool(principal, "bookings:write", () => createProposal(principal, a)));
+  server.registerTool("get_proposal", { description: "Read this client's proposal status and approved mandateId.", inputSchema: mcpInputs.get_proposal },
+    async a => tool(principal, ["bookings:read", "bookings:write"], () => getProposal(principal, a.proposalId)));
   for (const name of ["list_services", "usp_services_list"])
   server.registerTool(
     name,
@@ -54,7 +59,7 @@ export function agentMcpServer(principal: AgentPrincipal) {
     name,
     {
       description:
-        "Book one slot under an operator-issued synthetic mandateId. confirmed=true alone grants no authority. Synthetic @example.test emails only. Reuse the same idempotencyKey and mandateId when retrying.",
+        "Book one slot under a server-issued mandateId. confirmed=true alone grants no authority. Synthetic @example.test emails only. Reuse the same idempotencyKey and mandateId when retrying.",
       inputSchema: mcpInputs.create_booking,
     },
     async ({ idempotencyKey, ...body }) =>
@@ -77,7 +82,7 @@ export function agentMcpServer(principal: AgentPrincipal) {
 export async function handleMcp(request: Request) {
   let principal: AgentPrincipal;
   try {
-    principal = await authenticateAgent(request.headers, db, "services:read");
+    principal = await authenticateAgent(request.headers, db, ["services:read", "availability:read", "bookings:read", "bookings:write"]);
     if (request.method === "POST") {
       // Inspect a bounded clone; the SDK still validates and consumes the original.
       const reader = request.clone().body?.getReader();
@@ -91,14 +96,15 @@ export async function handleMcp(request: Request) {
         }
         let rpc;
         try { rpc = JSON.parse(Buffer.concat(chunks).toString()); } catch { throw new AgentApiError("invalid_request"); }
-        const scopes: Record<string, AgentScope> = {
+        const scopes: Record<string, AgentScope | readonly AgentScope[]> = {
+          create_proposal: "bookings:write", get_proposal: ["bookings:read", "bookings:write"],
           list_services: "services:read", usp_services_list: "services:read", usp_services_get: "services:read",
           get_availability: "availability:read", usp_availability_query: "availability:read",
           create_booking: "bookings:write", usp_bookings_create: "bookings:write",
           get_booking: "bookings:read", usp_bookings_get: "bookings:read", cancel_booking: "bookings:write",
         };
         const required = rpc?.method === "tools/call" && typeof rpc.params?.name === "string" ? scopes[rpc.params.name] : undefined;
-        if (required && !principal.scopes.includes(required)) throw new AgentApiError("forbidden_scope");
+        if (required && !(Array.isArray(required) ? required : [required]).some(s => principal.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
       }
     }
     await checkRateLimit("agent-api", `client:${principal.clientId}`);

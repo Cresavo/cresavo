@@ -116,7 +116,7 @@ const LAST_USED_GRANULARITY_MS = 60_000;
 export async function authenticateAgent(
   headers: Headers,
   client: KeyDb,
-  scope: AgentScope,
+  scope: AgentScope | readonly AgentScope[],
   now = new Date(),
 ): Promise<AgentPrincipal> {
   const key = presentedKey(headers);
@@ -128,7 +128,7 @@ export async function authenticateAgent(
     const { verifyLabAccessToken } = await import("./oauth/server");
     const token = verifyLabAccessToken(key, now);
     if (!token) throw new AgentApiError("unauthorized");
-    if (!token.scopes.includes(scope)) throw new AgentApiError("forbidden_scope");
+    if (!(Array.isArray(scope) ? scope : [scope]).some(s => token.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
     const identity = createHash("sha256").update(`booking-lab:oauth-client:v1:${token.clientId}`).digest("hex");
     const clientId = `oauth_${identity}`;
     // Native write-lock checks need a credential row. Its ceiling is the
@@ -156,7 +156,7 @@ export async function authenticateAgent(
   const equal = timingSafeEqual(expected, actual);
   if (!row || !equal || row.revokedAt || !row.client.active || row.client.businessId !== row.businessId)
     throw new AgentApiError("unauthorized");
-  if (!row.scopes.includes(scope)) throw new AgentApiError("forbidden_scope");
+  if (!(Array.isArray(scope) ? scope : [scope]).some(s => row.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
   if (!row.lastUsedAt || now.getTime() - row.lastUsedAt.getTime() > LAST_USED_GRANULARITY_MS)
     await client.agentApiKey.updateMany({
       where: { id: row.id, revokedAt: null },

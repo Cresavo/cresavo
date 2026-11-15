@@ -12,6 +12,7 @@ import type { AgentPrincipal } from "./keys";
 import { API_VERSION, business, Created, mapAgentError } from "./v1";
 import { assertCurrentAgent, lockMandate } from "./mandates";
 import { assertMandatedBooking } from "./mandate-policy";
+import { proposalHash } from "./proposals";
 import { placeForStaff } from "./place";
 
 const id = z.string().trim().min(1).max(128);
@@ -134,6 +135,13 @@ export async function createAgentBooking(principal: AgentPrincipal, rawKey: stri
             ...placeForStaff(input.staffId),
             start: new Date(input.start), duration: currentService.duration, priceOre: currentService.priceOre,
           });
+          if (mandate?.origin === "customer-consent") {
+            const proposals = await tx.$queryRaw<import("@prisma/client").AgentProposal[]>`SELECT * FROM "AgentProposal" WHERE "id"=${mandate.originReference} FOR SHARE`;
+            const proposal = proposals[0];
+            if (!proposal || proposal.status !== "approved" || proposal.mandateId !== mandate.id ||
+                proposal.proposalHash !== mandate.proposalHash || proposalHash(proposal) !== mandate.proposalHash)
+              throw new AgentApiError("mandate_denied");
+          }
           if (await tx.agentBooking.findUnique({ where: { mandateId: input.mandateId! } }))
             throw new AgentApiError("mandate_denied");
         },

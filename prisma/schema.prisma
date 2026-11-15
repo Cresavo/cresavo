@@ -236,10 +236,11 @@ model AgentClient {
   keys AgentApiKey[]
   bookings AgentBooking[]
   mandates AgentMandate[]
+  proposals AgentProposal[]
   @@unique([businessId, id])
 }
 
-// Synthetic operator authorisation only. Not proof of a real customer's consent.
+// Bounded operator authority or synthetic lab customer consent. No real identity proof.
 model AgentMandate {
   id String @id @default(cuid())
   businessId String
@@ -256,9 +257,11 @@ model AgentMandate {
   currency String @default("SEK")
   origin String
   originReference String
+  proposalHash String?
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   revokedAt DateTime? @db.Timestamptz(3)
   booking AgentBooking?
+  proposal AgentProposal?
   @@unique([businessId, id, clientId])
   @@index([businessId, clientId, createdAt])
 }
@@ -275,4 +278,31 @@ model AgentApiEvent {
   startsAt DateTime? @db.Timestamptz(3)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   @@index([businessId, createdAt, id])
+}
+
+// One-use synthetic customer consent. Only the digest of the link is stored.
+model AgentProposal {
+  id String @id @default(cuid())
+  businessId String
+  clientId String
+  client AgentClient @relation(fields: [businessId, clientId], references: [businessId, id], onDelete: Restrict)
+  serviceId String
+  serviceVersion Int
+  serviceName String
+  staffId String
+  staffName String
+  locationId String
+  scheduleId String
+  startsAt DateTime @db.Timestamptz(3)
+  duration Int
+  priceOre Int
+  proposalHash String
+  tokenHash String @unique
+  status String @default("pending")
+  expiresAt DateTime @db.Timestamptz(3)
+  mandateId String? @unique
+  mandate AgentMandate? @relation(fields: [businessId, mandateId, clientId], references: [businessId, id, clientId], onDelete: Restrict, map: "AgentProposal_mandate_fk")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([businessId, mandateId, clientId])
+  @@index([businessId, clientId, createdAt])
 }

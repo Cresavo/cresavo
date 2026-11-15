@@ -103,7 +103,7 @@ export class Created {
 export async function agentRoute(
   request: Request,
   route: string,
-  scope: AgentScope,
+  scope: AgentScope | readonly AgentScope[],
   handler: AgentHandler,
 ) {
   let principal: AgentPrincipal | null = null;

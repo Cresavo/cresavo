@@ -55,3 +55,44 @@ via en intern credential-post utan användbar API-nyckel. Token kräver fortfara
 labbflagga, loopback-origin och testdatabas; de ersätter aldrig bokningsmandat.
 401 annonserar Protected Resource Metadata; otillräckligt scope ger 403 med
 `insufficient_scope`. Processomstart ogiltigförklarar alla labbtoken.
+
+## Paket 3: kundens syntetiska Ja utfärdar bokningsmandat
+
+`POST /api/v1/proposals` / MCP `create_proposal` kräver `bookings:write`.
+Strict input: `business`, `serviceId`, `serviceVersion`, `staffId`, `start`.
+Pris/längd, personalnamn och plats/schema hämtas server-side. Förslaget reserverar
+inte tiden. `GET /api/v1/proposals/{id}` / `get_proposal` kräver `bookings:read`
+eller `bookings:write`, bara för samma stabila klient. Status: `pending`,
+`approved`, `declined`, `expired`; godkänt svar innehåller `mandateId`.
+Både API-nyckel och labb-OAuth fungerar. OAuth-godkännande i paket 1 utfärdar
+fortfarande inget bokningsmandat.
+
+Aktivera separat `BOOKING_CONSENT_LAB=1` på lokal loopback-origin och isolerad
+`*_test`/`*_demo`. Standard-TTL 600 sekunder, `BOOKING_CONSENT_TTL_SECONDS` kan
+sättas till 1–900 i tester. Endast i detta labbläge returnerar identitetsadaptern
+`approvalUrl` till anroparen. Öppna länken i webbläsare: `/consent/{id}#<token>`.
+Fragmentet skickas inte i sidans HTTP-URL; sidan tar bort det ur adressfältet och
+skickar det endast i kundytans POST-body, aldrig i loggar eller `/live`.
+Kundytan kräver verifierad loopback-socket, samma Origin och separat kundtoken;
+Authorization/x-api-key nekas även med en giltig kundtoken. Kundytan är inget
+agentverktyg. Sidan visar syntetiskt namn, tjänst/tid i Stockholm, personal,
+salong/plats, SEK, längd och utgång före Ja/Nej.
+
+Ja låser förslaget, förbrukar länken och skapar ett `customer-consent`-mandat i
+samma transaktion. Nej/utgång/återanvändning ger inget nytt mandat. Mandatet är
+engångs för exakt tjänst/tid/personal/plats/schema/pris/längd/klient; både aktuell
+bokning och lagrat förslag jämförs med mandatets SHA-256. Ändrat katalogpris eller
+längd kräver ett nytt förslag och nytt godkännande. Mandatet löper ut samtidigt
+som länken. Agenten slutför via befintlig booking-route med `mandateId`, samma
+idempotensnyckel vid retry och `confirmed=true`. Ingen betalning införs.
+
+`CustomerIdentityProvider` i `customer-identity.ts` kapslar labbets credential,
+identifiering och leverans. Det är en innehavarbaserad syntetisk identitet,
+**inte verifiering av en riktig kund eller tekniskt bevis på att en människa
+klickat**. Eftersom agenten får länken i labbet kan den efterlikna en webbläsare;
+frånvaro av Bearer bevisar inte mänsklighet. Före skarp drift ska adaptern ersättas
+med oberoende kundidentifiering/leverans; godkännandehemligheten får då aldrig gå
+till agenten. Skarp metod är inte beslutad. Ingen e-post/SMS/extern plattform används.
+Operatorns gamla `issueSyntheticMandate` och fixtures är oförändrade och exponeras
+inte via REST/MCP. Den nya additiva migrationen behåller gamla operatörsmandat
+med null `proposalHash` och utökar endast ursprungskontrollen till kundflödet.
