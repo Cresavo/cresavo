@@ -4,10 +4,8 @@ import { DateTime } from "luxon";
 import { z } from "zod";
 import { db } from "../db";
 import { DEMO_BUSINESS_ID } from "../config";
-import { AGENT_API_CHANNEL, createBooking } from "../domain";
-import { DomainError } from "../errors";
+import { AGENT_API_CHANNEL } from "../domain";
 import { ZONE } from "../time";
-import { lockConfiguration } from "../workspace-write";
 import { AgentApiError } from "./errors";
 import type { AgentPrincipal } from "./keys";
 import { API_VERSION, business, Created, mapAgentError } from "./v1";
@@ -15,6 +13,9 @@ import { assertCurrentAgent, lockMandate } from "./mandates";
 import { assertMandatedBooking } from "./mandate-policy";
 import { proposalHash } from "./proposals";
 import { placeForStaff } from "./place";
+
+import { getBookingProvider } from "./provider";
+import type { ProviderBooking } from "./provider/types";
 
 const id = z.string().trim().min(1).max(128);
 const iso = (d: Date) => DateTime.fromJSDate(d, { zone: ZONE }).toISO({ suppressMilliseconds: true })!;
@@ -37,17 +38,12 @@ export const agentBookingSchema = z
   })
   .strict();
 
-type BookingRow = {
-  id: string; status: string; startsAt: Date; endsAt: Date; duration: number;
-  serviceId: string; serviceName: string; staffId: string; version: number; createdAt: Date;
-};
-
 async function staffName(staffId: string) {
   return (await db.staff.findFirst({ where: { id: staffId, businessId: DEMO_BUSINESS_ID }, select: { name: true } }))?.name ?? null;
 }
 
 // Agent-facing view. Never includes customer name/email.
-async function bookingView(b: BookingRow) {
+async function bookingView(b: ProviderBooking) {
   return {
     id: b.id,
     status: b.status,
@@ -116,7 +112,7 @@ export async function createAgentBooking(principal: AgentPrincipal, rawKey: stri
   let proposalId: string | undefined;
   try {
     let replayed = false;
-    const booking = await createBooking(
+    const booking = await getBookingProvider().createBooking(
       {
         serviceId: input.serviceId,
         serviceVersion: input.serviceVersion,
@@ -127,7 +123,6 @@ export async function createAgentBooking(principal: AgentPrincipal, rawKey: stri
       },
       idempotencyKey,
       `${AGENT_API_CHANNEL}${principal.clientId}`,
-      undefined,
       {
         authorize: tx => assertCurrentAgent(tx, principal),
         beforeInsert: async (tx, currentService) => {
@@ -196,9 +191,7 @@ async function ownedBooking(principal: AgentPrincipal, bookingId: string) {
   const link = await db.agentBooking.findUnique({ where: { bookingId: parsed.data } });
   if (!link || link.clientId !== principal.clientId || link.businessId !== principal.businessId)
     throw new AgentApiError("booking_not_found");
-  const row = await db.booking.findFirst({ where: { id: parsed.data, businessId: DEMO_BUSINESS_ID } });
-  if (!row) throw new AgentApiError("booking_not_found");
-  return row;
+  return getBookingProvider().getBooking(parsed.data);
 }
 
 export async function getBookingV1(principal: AgentPrincipal, bookingId: string) {
@@ -208,25 +201,8 @@ export async function getBookingV1(principal: AgentPrincipal, bookingId: string)
 export async function cancelBookingV1(principal: AgentPrincipal, bookingId: string) {
   const owned = await ownedBooking(principal, bookingId);
   const auditLink = await db.agentBooking.findUnique({ where: { bookingId: owned.id } });
-  const result = await db.$transaction(async (tx) => {
-    await lockConfiguration(tx);
-    await assertCurrentAgent(tx, principal);
-    const [current] = await tx.$queryRaw<BookingRow[]>`
-      SELECT * FROM "Booking" WHERE "id" = ${owned.id} AND "businessId" = ${DEMO_BUSINESS_ID} FOR UPDATE`;
-    if (!current) throw new DomainError("Bokningen finns inte");
-    if (current.status === "cancelled") return { row: current, already: true };
-    const row = await tx.booking.update({
-      where: { id: current.id },
-      data: { status: "cancelled", version: { increment: 1 } },
-    });
-    await tx.bookingEvent.create({
-      data: {
-        bookingId: current.id, action: "cancel", actorKind: "agent-api", actorId: principal.clientId,
-        previousStart: current.startsAt, previousEnd: current.endsAt, previousStaffId: current.staffId,
-      },
-    });
-    return { row, already: false };
-  }, { maxWait: 30000, timeout: 30000 });
+  const result = await getBookingProvider().cancelBooking(owned.id, principal.clientId,
+    tx => assertCurrentAgent(tx, principal));
   if (!result.already)
     await recordEvent(principal, "cancel", "cancelled", {
       serviceName: result.row.serviceName, staffName: await staffName(result.row.staffId), startsAt: result.row.startsAt,

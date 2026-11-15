@@ -6,7 +6,7 @@ import { db } from "../db";
 import { DEMO_BUSINESS_ID } from "../config";
 import { DomainError } from "../errors";
 import { checkRateLimit } from "../rate-limit";
-import { listServices, getAvailability } from "../domain";
+import { getBookingProvider } from "./provider";
 import { parseDay, ZONE } from "../time";
 import { dateSchema } from "../validation";
 import { AgentApiError, agentApiErrors, type AgentApiErrorCode } from "./errors";
@@ -133,15 +133,6 @@ export function business(principal: AgentPrincipal, value: unknown) {
   return found;
 }
 
-export async function activeStaff() {
-  return db.staff.findMany({
-    where: { businessId: DEMO_BUSINESS_ID, active: true },
-    select: { id: true, name: true, serviceIds: true },
-    orderBy: [{ name: "asc" }, { id: "asc" }],
-    take: 100,
-  });
-}
-
 export function serviceView(
   s: { id: string; name: string; duration: number; buffer: number; priceOre: number; version: number },
   staff: { id: string; name: string; serviceIds: string[] }[],
@@ -159,7 +150,7 @@ export function serviceView(
 
 export async function servicesV1(principal: AgentPrincipal, params: URLSearchParams) {
   const b = business(principal, params.get("business"));
-  const [services, staff] = await Promise.all([listServices(), activeStaff()]);
+  const { services, resources: staff } = await getBookingProvider().listServices();
   return {
     apiVersion: API_VERSION,
     business: b,
@@ -199,16 +190,17 @@ export async function availabilityV1(principal: AgentPrincipal, params: URLSearc
   if (!serviceId.success) throw new AgentApiError("invalid_request");
   const staffParam = params.get("staff");
   const days = dayRange(params);
-  const service = (await listServices()).find((s) => s.id === serviceId.data);
+  const { services, resources } = await getBookingProvider().listServices();
+  const service = services.find((s) => s.id === serviceId.data);
   if (!service) throw new AgentApiError("service_not_found");
-  const staff = (await activeStaff()).filter(
+  const staff = resources.filter(
     (m) => m.serviceIds.includes(service.id) && (!staffParam || m.id === staffParam),
   );
   if (staffParam && !staff.length) throw new AgentApiError("staff_not_found");
   const slots = [];
   for (const day of days)
     for (const member of staff)
-      for (const start of await getAvailability(service.id, day, db, member.id)) {
+      for (const start of (await getBookingProvider().getAvailability(service.id, day, member.id)).starts) {
         const at = DateTime.fromISO(start, { zone: ZONE });
         slots.push({
           start: at.toISO({ suppressMilliseconds: true })!,
