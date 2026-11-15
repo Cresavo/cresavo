@@ -1,3 +1,4 @@
+BEGIN;
 CREATE TABLE "AgentClient" (
   "id" TEXT PRIMARY KEY,
   "businessId" TEXT NOT NULL,
@@ -9,7 +10,7 @@ INSERT INTO "AgentClient" ("id", "businessId") SELECT "id", "businessId" FROM "A
 ALTER TABLE "AgentApiKey" ADD COLUMN "clientId" TEXT;
 UPDATE "AgentApiKey" SET "clientId" = "id";
 ALTER TABLE "AgentApiKey" ALTER COLUMN "clientId" SET NOT NULL;
-ALTER TABLE "AgentApiKey" ADD FOREIGN KEY ("businessId", "clientId") REFERENCES "AgentClient" ("businessId", "id") ON DELETE RESTRICT;
+ALTER TABLE "AgentApiKey" ADD FOREIGN KEY ("businessId", "clientId") REFERENCES "AgentClient" ("businessId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 CREATE TABLE "AgentMandate" (
   "id" TEXT PRIMARY KEY,
@@ -26,7 +27,7 @@ CREATE TABLE "AgentMandate" (
   "originReference" TEXT NOT NULL,
   "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "revokedAt" TIMESTAMPTZ(3),
-  FOREIGN KEY ("businessId", "clientId") REFERENCES "AgentClient" ("businessId", "id") ON DELETE RESTRICT,
+  FOREIGN KEY ("businessId", "clientId") REFERENCES "AgentClient" ("businessId", "id") ON DELETE RESTRICT ON UPDATE CASCADE,
   CHECK ("validFrom" < "validUntil" AND "maxPriceOre" >= 0 AND "currency" = 'SEK'),
   CHECK ("origin" = 'synthetic-operator' AND length("originReference") BETWEEN 1 AND 128),
   UNIQUE ("businessId", "id", "clientId")
@@ -39,10 +40,11 @@ UPDATE "AgentBooking" AS b SET "clientId" = k."clientId"
 FROM "AgentApiKey" AS k WHERE b."keyId" = k."id" AND b."businessId" = k."businessId";
 -- Refuse orphaned historical links; never silently delete or reassign them.
 ALTER TABLE "AgentBooking" ALTER COLUMN "clientId" SET NOT NULL;
-ALTER TABLE "AgentBooking" ADD FOREIGN KEY ("businessId", "clientId") REFERENCES "AgentClient" ("businessId", "id") ON DELETE RESTRICT;
-ALTER TABLE "AgentBooking" ADD FOREIGN KEY ("businessId", "bookingId") REFERENCES "Booking" ("businessId", "id") ON DELETE RESTRICT;
-ALTER TABLE "AgentBooking" ADD FOREIGN KEY ("businessId", "mandateId", "clientId") REFERENCES "AgentMandate" ("businessId", "id", "clientId") ON DELETE RESTRICT;
+ALTER TABLE "AgentBooking" ADD FOREIGN KEY ("businessId", "clientId") REFERENCES "AgentClient" ("businessId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "AgentBooking" ADD FOREIGN KEY ("businessId", "bookingId") REFERENCES "Booking" ("businessId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "AgentBooking" ADD FOREIGN KEY ("businessId", "mandateId", "clientId") REFERENCES "AgentMandate" ("businessId", "id", "clientId") ON DELETE RESTRICT ON UPDATE CASCADE;
 CREATE UNIQUE INDEX "AgentBooking_mandateId_key" ON "AgentBooking" ("mandateId");
 CREATE UNIQUE INDEX "AgentBooking_businessId_bookingId_key" ON "AgentBooking" ("businessId", "bookingId");
 CREATE UNIQUE INDEX "AgentBooking_businessId_mandateId_clientId_key" ON "AgentBooking" ("businessId", "mandateId", "clientId");
 CREATE INDEX "AgentBooking_businessId_clientId_createdAt_idx" ON "AgentBooking" ("businessId", "clientId", "createdAt");
+COMMIT;

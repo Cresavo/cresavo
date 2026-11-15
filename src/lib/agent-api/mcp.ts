@@ -33,7 +33,7 @@ export function agentMcpServer(principal: AgentPrincipal) {
   const business = z.string().describe(`Business id. This key may only use "${principal.businessId}".`);
   server.registerTool(
     "list_services",
-    { description: "List bookable services, prices, durations and staff for the synthetic demo salon.", inputSchema: z.object({ business }) },
+    { description: "List bookable services, prices, durations and staff for the synthetic demo salon.", inputSchema: z.object({ business }).strict() },
     async (a) => tool(principal, "services:read", () => servicesV1(principal, params(a))),
   );
   server.registerTool(
@@ -43,7 +43,7 @@ export function agentMcpServer(principal: AgentPrincipal) {
       inputSchema: z.object({
         business, service: z.string(),
         date: z.string().optional(), from: z.string().optional(), to: z.string().optional(), staff: z.string().optional(),
-      }),
+      }).strict(),
     },
     async (a) => tool(principal, "availability:read", () => availabilityV1(principal, params(a))),
   );
@@ -55,9 +55,9 @@ export function agentMcpServer(principal: AgentPrincipal) {
       inputSchema: z.object({
         idempotencyKey: z.string(), business, serviceId: z.string(), serviceVersion: z.number().int(),
         staffId: z.string(), start: z.string(),
-        customer: z.object({ name: z.string(), email: z.string() }), confirmed: z.boolean(),
+        customer: z.object({ name: z.string(), email: z.string() }).strict(), confirmed: z.boolean(),
         mandateId: z.string().optional(),
-      }),
+      }).strict(),
     },
     async ({ idempotencyKey, ...body }) =>
       tool(principal, "bookings:write", () => createAgentBooking(principal, idempotencyKey, body)),
@@ -69,7 +69,7 @@ export function agentMcpServer(principal: AgentPrincipal) {
   );
   server.registerTool(
     "cancel_booking",
-    { description: "Cancel a booking this key created. Only on the person's explicit request.", inputSchema: z.object({ bookingId: z.string() }) },
+    { description: "Cancel a booking owned by this client. Only on the person's explicit request.", inputSchema: z.object({ bookingId: z.string() }).strict() },
     async (a) => tool(principal, "bookings:write", () => cancelBookingV1(principal, a.bookingId)),
   );
   return server;

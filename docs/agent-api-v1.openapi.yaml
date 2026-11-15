@@ -237,5 +237,5 @@ components:
           properties:
             code:
               type: string
-              enum: [unauthorized, forbidden_scope, forbidden_business, business_not_found, service_not_found, staff_not_found, booking_not_found, invalid_request, range_too_large, idempotency_key_required, confirmation_required, synthetic_contact_required, slot_unavailable, stale_service, idempotency_conflict, rate_limited, internal_error]
+              enum: [unauthorized, forbidden_scope, forbidden_business, business_not_found, service_not_found, staff_not_found, booking_not_found, invalid_request, range_too_large, idempotency_key_required, confirmation_required, mandate_required, mandate_denied, synthetic_contact_required, slot_unavailable, stale_service, idempotency_conflict, rate_limited, internal_error]
             message: { type: string }
