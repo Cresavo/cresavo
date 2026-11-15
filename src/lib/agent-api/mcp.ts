@@ -8,7 +8,7 @@ import { cancelBookingV1, createAgentBooking, getBookingV1 } from "./bookings";
 import { mcpInputs } from "./mcp-inputs";
 
 // Same business rules and key checks as the REST API. Authentication is the
-// sandbox API key (Bearer / X-API-Key), not MCP OAuth; see README.
+// sandbox API key or process-local lab OAuth access token.
 async function tool(principal: AgentPrincipal, scope: AgentScope, run: () => Promise<unknown>) {
   try {
     if (!principal.scopes.includes(scope)) throw new AgentApiError("forbidden_scope");
@@ -78,6 +78,29 @@ export async function handleMcp(request: Request) {
   let principal: AgentPrincipal;
   try {
     principal = await authenticateAgent(request.headers, db, "services:read");
+    if (request.method === "POST") {
+      // Inspect a bounded clone; the SDK still validates and consumes the original.
+      const reader = request.clone().body?.getReader();
+      if (reader) {
+        const chunks: Uint8Array[] = []; let size = 0;
+        for (;;) {
+          const next = await reader.read(); if (next.done) break;
+          size += next.value.length;
+          if (size > 64 * 1024) { void reader.cancel(); throw new AgentApiError("invalid_request"); }
+          chunks.push(next.value);
+        }
+        let rpc;
+        try { rpc = JSON.parse(Buffer.concat(chunks).toString()); } catch { throw new AgentApiError("invalid_request"); }
+        const scopes: Record<string, AgentScope> = {
+          list_services: "services:read", usp_services_list: "services:read", usp_services_get: "services:read",
+          get_availability: "availability:read", usp_availability_query: "availability:read",
+          create_booking: "bookings:write", usp_bookings_create: "bookings:write",
+          get_booking: "bookings:read", usp_bookings_get: "bookings:read", cancel_booking: "bookings:write",
+        };
+        const required = rpc?.method === "tools/call" && typeof rpc.params?.name === "string" ? scopes[rpc.params.name] : undefined;
+        if (required && !principal.scopes.includes(required)) throw new AgentApiError("forbidden_scope");
+      }
+    }
     await checkRateLimit("agent-api", `client:${principal.clientId}`);
   } catch (error) {
     const { code, retryAfter } = mapAgentError(error);

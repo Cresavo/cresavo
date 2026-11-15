@@ -121,7 +121,34 @@ export async function authenticateAgent(
 ): Promise<AgentPrincipal> {
   const key = presentedKey(headers);
   const match = key ? KEY_PATTERN.exec(key) : null;
-  if (!key || !match) throw new AgentApiError("unauthorized");
+  if (!key) throw new AgentApiError("unauthorized");
+  if (!match) {
+    // OAuth is accepted only in Authorization, never as an X-API-Key.
+    if (!headers.get("authorization")?.match(/^Bearer\s+(\S+)$/i)) throw new AgentApiError("unauthorized");
+    const { verifyLabAccessToken } = await import("./oauth/server");
+    const token = verifyLabAccessToken(key, now);
+    if (!token) throw new AgentApiError("unauthorized");
+    if (!token.scopes.includes(scope)) throw new AgentApiError("forbidden_scope");
+    const identity = createHash("sha256").update(`booking-lab:oauth-client:v1:${token.clientId}`).digest("hex");
+    const clientId = `oauth_${identity}`;
+    // Native write-lock checks need a credential row. Its ceiling is the
+    // registered grant; the principal and transport always use token scopes.
+    const row = await client.agentApiKey.upsert({
+      where: { keyPrefix: clientId }, update: {},
+      create: {
+        keyPrefix: clientId, keyHash: createHash("sha256").update(randomBytes(32)).digest("hex"), scopes: token.registeredScopes,
+        agentName: "Synthetic OAuth lab", ownerName: "Synthetic operator", ownerContact: "oauth@example.test",
+        kind: "registered-client",
+        client: { connectOrCreate: { where: { businessId_id: { businessId: "demo", id: clientId } },
+          create: { id: clientId, businessId: "demo" } } },
+      }, include: { client: true },
+    });
+    if (row.revokedAt || !row.client.active || row.clientId !== clientId || row.businessId !== "demo")
+      throw new AgentApiError("unauthorized");
+    console.info(JSON.stringify({ event: "oauth_lab_auth", status: 200 }));
+    return { keyId: row.id, clientId, keyPrefix: row.keyPrefix, businessId: row.businessId,
+      agentName: row.agentName, ownerName: row.ownerName, kind: row.kind, scopes: token.scopes };
+  }
   const row = await client.agentApiKey.findUnique({ where: { keyPrefix: match[1] }, include: { client: true } });
   const expected = Buffer.from(row?.keyHash ?? "0".repeat(64), "hex");
   const actual = Buffer.from(hashApiKey(key), "hex");

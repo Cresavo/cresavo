@@ -1,4 +1,4 @@
-import { createHash, generateKeyPairSync, randomBytes, sign } from "node:crypto";
+import { createHash, generateKeyPairSync, randomBytes, sign, verify } from "node:crypto";
 import { z } from "zod";
 import { discoveryOrigin } from "../discovery";
 import { AGENT_SCOPES } from "../keys";
@@ -141,4 +141,33 @@ export async function oauth(request: Request, action: "register" | "authorize" |
   }
   console.info(JSON.stringify({ event: "oauth_lab_request", route: action, status: response.status }));
   return response;
+}
+
+/** Only tokens issued by this opt-in, process-local lab are trusted. */
+export function verifyLabAccessToken(token: string, now: Date) {
+  try {
+    const origin = discoveryOrigin();
+    if (process.env.BOOKING_OAUTH_LAB !== "1" || process.env.BOOKING_RUNTIME === "vercel" ||
+        !loopback(new URL(origin).hostname)) return null;
+    assertTestDatabase();
+    const s = globalState.bookingOAuthLab;
+    if (!s || token.length > 8192) return null;
+    const parts = token.split(".");
+    if (parts.length !== 3 || parts.some(p => !/^[A-Za-z0-9_-]+$/.test(p))) return null;
+    const [h, p, signature] = parts;
+    const header = JSON.parse(Buffer.from(h, "base64url").toString());
+    if (header.typ !== "at+jwt" || header.alg !== "EdDSA" || header.kid !== undefined || header.crit !== undefined ||
+        !verify(null, Buffer.from(`${h}.${p}`), s.key.publicKey, Buffer.from(signature, "base64url"))) return null;
+    const claims = JSON.parse(Buffer.from(p, "base64url").toString());
+    if (claims.iss !== origin || claims.aud !== `${origin}/api/v1/mcp` ||
+        !Number.isSafeInteger(claims.exp) || claims.exp <= now.getTime() / 1000 ||
+        !Number.isSafeInteger(claims.iat) || claims.iat > now.getTime() / 1000 ||
+        typeof claims.jti !== "string" || !claims.jti ||
+        typeof claims.client_id !== "string" || claims.sub !== claims.client_id) return null;
+    const registered = s.clients.get(claims.client_id);
+    if (!registered || registered.expires <= now.getTime() || typeof claims.scope !== "string") return null;
+    const granted: string[] = claims.scope === "" ? [] : claims.scope.split(" ");
+    if (granted.some(v => !(AGENT_SCOPES as readonly string[]).includes(v) || !registered.scope.split(" ").includes(v))) return null;
+    return { clientId: claims.client_id as string, scopes: [...new Set(granted)], registeredScopes: registered.scope.split(" ") };
+  } catch { return null; }
 }

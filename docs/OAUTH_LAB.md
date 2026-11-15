@@ -47,3 +47,11 @@ Protokollunderlag: [MCP Authorization 2025-06-18](https://modelcontextprotocol.i
 [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414),
 [RFC 8707](https://www.rfc-editor.org/rfc/rfc8707),
 [RFC 9728](https://www.rfc-editor.org/rfc/rfc9728).
+
+Paket 2: giltiga processlokala labbtoken accepteras som Bearer av HTTP-MCP och
+agent-REST parallellt med befintliga API-nycklar. Samma scopes och ägarskap gäller.
+En separat stabil `oauth_`-identitet per registrerad klient kopplas till AgentClient
+via en intern credential-post utan användbar API-nyckel. Token kräver fortfarande
+labbflagga, loopback-origin och testdatabas; de ersätter aldrig bokningsmandat.
+401 annonserar Protected Resource Metadata; otillräckligt scope ger 403 med
+`insufficient_scope`. Processomstart ogiltigförklarar alla labbtoken.

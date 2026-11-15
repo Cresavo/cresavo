@@ -9,6 +9,7 @@ import { listServices, getAvailability } from "../domain";
 import { parseDay, ZONE } from "../time";
 import { dateSchema } from "../validation";
 import { AgentApiError, agentApiErrors, type AgentApiErrorCode } from "./errors";
+import { discoveryOrigin } from "./discovery";
 import { DEMO_LOCATION_ID, placeForStaff } from "./place";
 import {
   assertBusinessAccess,
@@ -35,6 +36,13 @@ const id = z.string().trim().min(1).max(128);
 
 const headers = { "Cache-Control": "no-store", "X-Booking-Lab-Api": API_VERSION };
 
+function authChallenge(code: AgentApiErrorCode) {
+  let metadata = "";
+  try { metadata = `, resource_metadata="${discoveryOrigin()}/.well-known/oauth-protected-resource"`; }
+  catch { /* Invalid operator configuration: never fall back to request headers. */ }
+  return `Bearer realm="booking-lab-agent-api"${metadata}${code === "forbidden_scope" ? ', error="insufficient_scope"' : ""}`;
+}
+
 export function agentErrorResponse(code: AgentApiErrorCode, retryAfter?: number) {
   const { status, message } = agentApiErrors[code];
   return NextResponse.json(
@@ -43,7 +51,7 @@ export function agentErrorResponse(code: AgentApiErrorCode, retryAfter?: number)
       status,
       headers: {
         ...headers,
-        ...(status === 401 ? { "WWW-Authenticate": 'Bearer realm="booking-lab-agent-api"' } : {}),
+        ...(status === 401 || code === "forbidden_scope" ? { "WWW-Authenticate": authChallenge(code) } : {}),
         ...(retryAfter ? { "Retry-After": String(retryAfter) } : {}),
       },
     },
