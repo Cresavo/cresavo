@@ -1,3 +1,5 @@
+import { isPublicReadonly, assertWritable } from "./public-readonly";
+import { fixtureServices, fixtureAvailability } from "./public-fixtures";
 import { checkRateLimit } from "./rate-limit";
 import { z } from "zod";
 import { createHash, createHmac, randomUUID } from "node:crypto";
@@ -74,6 +76,7 @@ export const adminBookingSchema = bookingSchema
   });
 
 export async function listServices(includeInactive = false) {
+  if (isPublicReadonly()) return fixtureServices();
   return db.service.findMany({
     where: { businessId, ...(!includeInactive && { active: true }) },
     orderBy: { name: "asc" },
@@ -100,6 +103,7 @@ export async function getAvailability(
   selectedStaff = "staff-demo",
   internal?: { ignoreBookingId: string; duration: number; buffer: number },
 ) {
+  if (isPublicReadonly()) return fixtureAvailability(serviceId, day, selectedStaff);
   date.parse(day);
   const service = await serviceById(serviceId, client, !!internal);
   const staff = await client.staff.findFirst({
@@ -170,6 +174,7 @@ export async function insertBooking(
       >
     >,
 ) {
+  assertWritable();
   try {
     const rows = await client.$queryRaw<Booking[]>`INSERT INTO "Booking"
       ("id", "businessId", "staffId", "serviceId", "startsAt", "endsAt", "customerName", "customerEmail", "idempotencyKey", "requestHash", "clientKey", "emailCapKey", "serviceName", "priceOre", "duration", "buffer", "customerId")
@@ -236,6 +241,7 @@ export async function createBooking(
   actor?: WorkspaceActor,
   hooks?: BookingTransactionHooks,
 ) {
+  assertWritable();
   // Only the server supplies actors; assertWorkspaceActor rechecks the account
   // inside the transaction before replay or any privileged write.
   const admin = actor?.kind === "admin";
@@ -555,6 +561,7 @@ export async function createCampaign(
   input: unknown,
   client: Prisma.TransactionClient = db,
 ) {
+  assertWritable();
   const v = campaignSchema.parse(input);
   await serviceById(v.serviceId, client);
   return client.campaign.create({ data: { ...v, businessId } });
@@ -569,6 +576,7 @@ export async function listCampaigns() {
 }
 
 export async function publicCampaigns(day: string) {
+  if (isPublicReadonly()) return [];
   date.parse(day);
   return db.campaign.findMany({
     where: {
@@ -582,6 +590,7 @@ export async function publicCampaigns(day: string) {
 }
 
 export async function publishCampaign(id: string) {
+  assertWritable();
   const result = await db.campaign.updateMany({
     where: { id, businessId },
     data: { published: true },

@@ -1,3 +1,4 @@
+import { isPublicReadonly, readonlyForbidden } from "@/lib/public-readonly";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin, requestId } from "@/lib/admin-http";
@@ -15,6 +16,7 @@ const actionSchema = z.discriminatedUnion("action", [
   customerEditSchema.extend({ action: z.literal("edit") }),
 ]);
 export async function GET(request: NextRequest) {
+  if (isPublicReadonly()) return readonlyForbidden();
   try {
     const actor = await requireAdmin(),
       params = request.nextUrl.searchParams;
@@ -33,6 +35,7 @@ export async function GET(request: NextRequest) {
   }
 }
 export async function POST(request: NextRequest) {
+  if (isPublicReadonly()) return readonlyForbidden();
   try {
     const actor = await requireAdmin(true),
       key = requestId(request.headers);

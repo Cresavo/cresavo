@@ -1,3 +1,4 @@
+import { isPublicReadonly, assertWritable } from "../public-readonly";
 import { createHash } from "node:crypto";
 import { DateTime } from "luxon";
 import { z } from "zod";
@@ -82,6 +83,7 @@ export function scopedIdempotencyKey(principal: AgentPrincipal, value: string | 
 }
 
 export async function createBookingV1(principal: AgentPrincipal, _params: URLSearchParams, request: Request) {
+  assertWritable();
   const key = request.headers.get("idempotency-key");
   let body: unknown;
   try {
@@ -94,6 +96,7 @@ export async function createBookingV1(principal: AgentPrincipal, _params: URLSea
 
 /** Shared by HTTP and MCP. Returns Created for a new booking, a plain body for a replay. */
 export async function createAgentBooking(principal: AgentPrincipal, rawKey: string | null | undefined, body: unknown) {
+  assertWritable();
   const idempotencyKey = scopedIdempotencyKey(principal, rawKey);
   const parsed = agentBookingSchema.safeParse(body);
   if (!parsed.success) throw new AgentApiError("invalid_request");
@@ -178,10 +181,12 @@ async function ownedBooking(principal: AgentPrincipal, bookingId: string) {
 }
 
 export async function getBookingV1(principal: AgentPrincipal, bookingId: string) {
+  if (isPublicReadonly()) throw new AgentApiError("booking_not_found");
   return { apiVersion: API_VERSION, booking: await bookingView(await ownedBooking(principal, bookingId)) };
 }
 
 export async function cancelBookingV1(principal: AgentPrincipal, bookingId: string) {
+  assertWritable();
   const owned = await ownedBooking(principal, bookingId);
   const result = await db.$transaction(async (tx) => {
     await lockConfiguration(tx);

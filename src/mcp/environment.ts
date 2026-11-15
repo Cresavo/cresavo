@@ -4,6 +4,7 @@ export function mcpEnvironment(
   const result: Record<string, string> = {};
   for (const name of [
     "DATABASE_URL",
+    "PUBLIC_READONLY",
     "PATH",
     "Path",
     "SystemRoot",

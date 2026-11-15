@@ -1,3 +1,4 @@
+import { assertWritable } from "../public-readonly";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import type { Prisma, PrismaClient } from "@prisma/client";
@@ -22,6 +23,7 @@ export function hashApiKey(key: string) {
 }
 
 export function generateApiKey() {
+  assertWritable();
   const prefix = randomBytes(6).toString("hex");
   const secret = randomBytes(32).toString("base64url");
   const key = `blk_${prefix}_${secret}`;
@@ -41,6 +43,7 @@ export const createKeySchema = z
 
 /** Returns the plaintext key exactly once. Only its hash is persisted. */
 export async function createAgentApiKey(input: unknown, client: KeyDb) {
+  assertWritable();
   const { businessId, ...data } = createKeySchema.parse(input);
   const { key, prefix, hash } = generateApiKey();
   const row = await client.agentApiKey.create({
@@ -84,6 +87,7 @@ export async function listAgentApiKeys(client: KeyDb, businessId?: string) {
 
 /** Accepts the record id or the public prefix (with or without "blk_"). */
 export async function revokeAgentApiKey(idOrPrefix: string, client: KeyDb) {
+  assertWritable();
   const prefix = idOrPrefix.replace(/^blk_/, "");
   const result = await client.agentApiKey.updateMany({
     where: { OR: [{ id: idOrPrefix }, { keyPrefix: prefix }], revokedAt: null },
@@ -119,6 +123,7 @@ export async function authenticateAgent(
   scope: AgentScope,
   now = new Date(),
 ): Promise<AgentPrincipal> {
+  assertWritable();
   const key = presentedKey(headers);
   const match = key ? KEY_PATTERN.exec(key) : null;
   if (!key || !match) throw new AgentApiError("unauthorized");
@@ -149,6 +154,7 @@ export async function authenticateAgent(
 
 /** Trusted operator operation. The new credential owns the SAME stable client. */
 export async function rotateAgentApiKey(keyId: string, client: PrismaClient) {
+  assertWritable();
   return client.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "AgentApiKey" WHERE "id"=${keyId} AND "revokedAt" IS NULL FOR UPDATE`;
     if (!rows.length) throw new AgentApiError("unauthorized");

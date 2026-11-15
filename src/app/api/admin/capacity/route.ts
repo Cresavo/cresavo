@@ -1,3 +1,4 @@
+import { isPublicReadonly, readonlyForbidden } from "@/lib/public-readonly";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, requestId } from "@/lib/admin-http";
 import { decideCapacity, inspectCapacity, listCapacity } from "@/lib/capacity";
@@ -12,6 +13,7 @@ const action = z
   .strict();
 const headers = { "Cache-Control": "no-store" };
 export async function GET(request: NextRequest) {
+  if (isPublicReadonly()) return readonlyForbidden();
   try {
     const actor = await requireAdmin(),
       params = request.nextUrl.searchParams;
@@ -31,6 +33,7 @@ export async function GET(request: NextRequest) {
   }
 }
 export async function POST(request: NextRequest) {
+  if (isPublicReadonly()) return readonlyForbidden();
   try {
     const actor = await requireAdmin(true);
     const v = action.parse(await request.json());

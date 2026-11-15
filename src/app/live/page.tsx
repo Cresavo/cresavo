@@ -1,3 +1,5 @@
+import { isPublicReadonly } from "@/lib/public-readonly";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { liveSnapshot, type LiveSnapshot } from "@/lib/agent-api/live";
 import { getLocale } from "@/lib/locale-server";
@@ -10,6 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function LivePage() {
+  if (isPublicReadonly()) notFound();
   const locale = await getLocale();
   let initial: LiveSnapshot | null = null;
   try {

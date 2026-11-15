@@ -1,3 +1,4 @@
+import { assertWritable } from "./public-readonly";
 import { z } from "zod";
 import type { Customer, Prisma } from "@prisma/client";
 import { db } from "./db";
@@ -58,6 +59,7 @@ export async function createCustomer(
   key: string,
   actor: WorkspaceActor,
 ) {
+  assertWritable();
   const value = customerCreateSchema.parse(input);
   return workspaceWrite(
     "create_customer",
@@ -78,6 +80,7 @@ export async function editCustomer(
   key: string,
   actor: WorkspaceActor,
 ) {
+  assertWritable();
   const value = customerEditSchema.parse(input);
   return workspaceWrite(
     "edit_customer",

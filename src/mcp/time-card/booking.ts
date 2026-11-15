@@ -1,3 +1,4 @@
+import { assertWritable } from "../../lib/public-readonly";
 import { z } from "zod";
 import { createBooking } from "../../lib/domain";
 import { db } from "../../lib/db";
@@ -26,6 +27,7 @@ export const cardBookingSchema = mcpBookingSchema
   .strict();
 
 export async function bookDemoTime(input: unknown) {
+  assertWritable();
   if (!timeCardBookingsEnabled()) throw new DomainError("Åtkomst nekad", 403);
   const args = cardBookingSchema.parse(input);
   await rememberCardAttempt(args);

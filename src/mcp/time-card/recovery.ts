@@ -1,3 +1,4 @@
+import { assertWritable } from "../../lib/public-readonly";
 import { createHmac } from "node:crypto";
 import { z } from "zod";
 import { db } from "../../lib/db";
@@ -73,6 +74,7 @@ async function currentCardBooking(requestId: string) {
 }
 
 export async function rememberCardAttempt(input: unknown) {
+  assertWritable();
   const scope = cardScope(),
     args = cardBookingSchema.parse(input);
   // Claim UUIDs across profiles under the SAME key lock used by createBooking.
@@ -193,6 +195,7 @@ export async function finishCardAttempt(
   requestId: string,
   outcome: "saved" | "failed",
 ) {
+  assertWritable();
   await db.cardBookingAttempt.update({
     where: {
       businessId_scope_requestId: { businessId, scope: cardScope(), requestId },

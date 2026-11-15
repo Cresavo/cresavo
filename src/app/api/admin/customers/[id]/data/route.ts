@@ -1,3 +1,4 @@
+import { isPublicReadonly, readonlyForbidden } from "@/lib/public-readonly";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin, requestId } from "@/lib/admin-http";
@@ -26,6 +27,7 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  if (isPublicReadonly()) return readonlyForbidden();
   try {
     const actor = await requireAdmin(true),
       { id } = await context.params;

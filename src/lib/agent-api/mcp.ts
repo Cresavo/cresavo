@@ -1,3 +1,4 @@
+import { isPublicReadonly, readonlyForbidden, assertWritable } from "../public-readonly";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { db } from "../db";
@@ -11,6 +12,7 @@ import { cancelBookingV1, createAgentBooking, getBookingV1 } from "./bookings";
 // sandbox API key (Bearer / X-API-Key), not MCP OAuth; see README.
 async function tool(principal: AgentPrincipal, scope: AgentScope, run: () => Promise<unknown>) {
   try {
+    if (scope === "bookings:write") assertWritable();
     if (!principal.scopes.includes(scope)) throw new AgentApiError("forbidden_scope");
     const result = await run();
     const body = result instanceof Created ? result.body : result;
@@ -76,6 +78,7 @@ export function agentMcpServer(principal: AgentPrincipal) {
 }
 
 export async function handleMcp(request: Request) {
+  if (isPublicReadonly()) return readonlyForbidden();
   let principal: AgentPrincipal;
   try {
     principal = await authenticateAgent(request.headers, db, "services:read");

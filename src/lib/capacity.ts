@@ -1,3 +1,4 @@
+import { assertWritable } from "./public-readonly";
 import { createHash } from "node:crypto";
 import { DateTime } from "luxon";
 import { z } from "zod";
@@ -283,6 +284,7 @@ export async function decideCapacity(
   actor: WorkspaceActor,
   action: "dismiss" | "draft",
 ) {
+  assertWritable();
   const v =
     action === "draft"
       ? capacityDraftSchema.parse(input)

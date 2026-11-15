@@ -20,6 +20,7 @@ type Service = {
 };
 type Staff = { id: string; name: string; serviceIds: string[] };
 export default function BookingForm({
+  readOnly = false,
   services,
   staff,
   initialService,
@@ -27,6 +28,7 @@ export default function BookingForm({
   initialDate,
   initialSlot,
 }: {
+  readOnly?: boolean;
   services: Service[];
   staff: Staff[];
   initialService?: string;
@@ -99,7 +101,7 @@ export default function BookingForm({
   };
   async function book(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!start || pending) return;
+    if (readOnly || !start || pending) return;
     const payload = JSON.stringify({
       serviceId,
       staffId,
@@ -325,6 +327,7 @@ export default function BookingForm({
           required
           minLength={2}
           maxLength={80}
+          disabled={readOnly}
           value={customerName}
           onChange={(e) => setCustomerName(e.target.value)}
           autoComplete="off"
@@ -338,6 +341,7 @@ export default function BookingForm({
           type="email"
           required
           maxLength={254}
+          disabled={readOnly}
           value={customerEmail}
           onChange={(e) => setCustomerEmail(e.target.value)}
           autoComplete="off"
@@ -391,7 +395,11 @@ export default function BookingForm({
             )}
           </button>
         )}
-        <button type="submit" disabled={!hydrated || pending || !start}>
+        <button
+          type="submit"
+          disabled={readOnly || !hydrated || pending || !start}
+          aria-describedby={readOnly ? "readonly-notice" : undefined}
+        >
           {pending
             ? t("Booking…", "Bokar…")
             : t("Confirm demo booking", "Bekräfta testbokning")}

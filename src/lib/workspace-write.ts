@@ -1,3 +1,4 @@
+import { assertWritable } from "./public-readonly";
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { db } from "./db";
@@ -50,6 +51,7 @@ export async function workspaceWrite<T extends Prisma.InputJsonValue>(
   exclusive: boolean,
   write: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
+  assertWritable();
   const key = idempotencyKeySchema.parse(requestId);
   const requestHash = createHash("sha256")
     .update(JSON.stringify({ operation, actor, input }))

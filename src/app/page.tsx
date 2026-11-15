@@ -1,3 +1,4 @@
+import { isPublicReadonly } from "@/lib/public-readonly";
 import { formatPrice, readableDay } from "@/lib/format";
 import { pageDataFailure } from "@/lib/errors";
 import { DateTime } from "luxon";
@@ -53,12 +54,17 @@ export default async function Home({
           )}
         </p>
       </div>
+      {isPublicReadonly() && <p role="note" id="readonly-notice">
+        {t("Synthetic read-only demo. Bookings cannot be created. Do not enter personal data.",
+          "Syntetisk demo i läsläge. Bokningar kan inte skapas. Ange inga personuppgifter.")}
+      </p>}
       <div className="booking-layout">
         <section
           className="booking-surface"
           aria-label={t("Book a visit", "Boka en tid")}
         >
           <BookingForm
+            readOnly={isPublicReadonly()}
             services={services}
             initialService={
               typeof query.service === "string" ? query.service : undefined

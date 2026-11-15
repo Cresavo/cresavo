@@ -1,3 +1,17 @@
+# Public read-only preview · aktuell lokal gren · 2026-11-15
+
+`codex/public-readonly-preview` från `e890b69`. PUBLIC_READONLY=1 ger
+syntetiska fixtures utan DB, server-403 för skrivning/admin/live och spärrad
+HTTP-MCP. Landningsskissen är bevarad. Lint/tsc/build PASS; unit **195/195,
+27 filer**, inklusive 41 nya databasfria tester. Build i Vercel-läge utan DB-URL
+eller sessionshemlighet PASS. Ingen server, integration/E2E, push eller deploy.
+
+Detaljer, filgrupper, kommandoutfall och begränsningar:
+[PUBLIC_READONLY_PREVIEW](PUBLIC_READONLY_PREVIEW.md).
+Äldre verifiering nedan gäller andra grenar/revisioner, inte denna leverans.
+
+---
+
 # Aktuell lokal status · Agentprov 1 · 2026-11-15
 
 Branch `codex/agentprov-1`, produktrevision

@@ -6,6 +6,7 @@ export function createDatabaseClient(
   connectionString = process.env.DATABASE_URL,
   max = 5,
 ) {
+  if (process.env.PUBLIC_READONLY === "1") throw new Error("PUBLIC_READONLY_DATABASE_DISABLED");
   if (!connectionString) throw new Error("DATABASE_CONFIG_INVALID");
   let url;
   try {
