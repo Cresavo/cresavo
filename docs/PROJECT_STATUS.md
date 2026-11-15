@@ -1,3 +1,17 @@
+# Kundspårets regressioner · aktuell status · 2026-11-15
+
+Produkt/test `4162 ec94 e0814828 a3868 b4648 fcf55608471056` på `fix/gateway-service-auth`.
+Alla64 webbtester passerar lokalt i produktion på mobil+desktop. Publicerade kampanjer
+visas åter på Ekos kundspår och kalenderknapparnas tryckytor ryms vid320 px.
+Tester följer verkligt salongsval och använder etiketter i rätt kundformulär.
+392 unit/lint/tsc/build PASS. Ingen säkerhets-, boknings- eller databasregel ändrad.
+[Kommandon, mellanresultat och begränsningar](VERIFICATION.md).
+
+CI inväntas efter push. Ny Grok-QA, fysisk iPhone, full audit och drift NOT RUN.
+Tidigare kända7 moderate dev-beroendefynd kvarstår; pilotgodkännande återstår.
+
+---
+
 # Gateway/salong · aktuell lokal status · 2026-11-15
 
 Gren `fix/gateway-service-auth`. Salongens produkt `c7eeda6`, senare

@@ -1,3 +1,36 @@
+# Webbläsarregressioner · aktuell verifiering · 2026-11-15
+
+Gren `fix/gateway-service-auth`, produkt/testcommit `4162 ec94 e0814828 a3868 b4648 fcf55608471056`.
+Återställer befintlig publicerad kampanjvisning på Salong Ekos kundspår med
+befintlig Stockholm-datumfiltrering. Smalare kortmarginaler vid högst480 px ger
+kalenderknapparna plats. Tester går via salongsvalet och mobilens kundflik,
+använder etiketter och avgränsar kundformuläret från agentsimuleringen.
+Boknings-, auth-, API- och databasregler har samma innehåll som före rättningen.
+
+| Lokal kontroll | Kommando | Resultat |
+| --- | --- | --- |
+| Migrering och syntetisk seed | npm run db:migrate; npm run db:seed | exit 0 på ny loopback gateway_boundary_test |
+| Lint | npm run lint | exit 0 |
+| Unit | npm test | 392/392, exit 0 |
+| Build | npm run build | exit 0 |
+| Webbläsare | node node_modules/@playwright/test/cli.js test med E2 E_PRODUCTION=1 | 64/64, desktop+mobil,2.4 min,exit 0 |
+| Typer | node node_modules/typescript/bin/tsc --noEmit | exit 0 |
+
+Lokala loggar `<local-state>/codex/e2 e-nav-iorhtydp/`, koordinator
+`<local-scratch>/e2 e-nav-verify.py`. Ingen .env lästes.
+Första devförsöket avbröts efter fel i den nya navigationshjälpen och en kallstarts-
+timeout. Nästa produktionsförsök gav58 PASS/6 FAIL och identifierade de återstående
+UI-regressionerna och den tvetydiga sammanfattningsselektorn. Slutkörningen ovan
+gick64/64 med ursprungliga assertions för bokning, publicering, språk, tryckytor,
+retry, behörigheter och städning. Inga tester skippades eller timeoutgränser höjdes.
+
+CI efter push väntar vid denna dokumentrevision. Full integration, npm ci och
+utvecklingslägets E2 E körs i befintlig feature-CI. Full audit och en ny Grok-granskning
+är NOT RUN i denna omgång. Groks tidigare godkännande gäller tjänsteidentiteten på
+c7 eeda6/a239275, före denna UI-rättning. Ingen fysisk iPhone eller driftverifiering.
+
+## Tidigare verifiering
+
 # Gateway/salong · aktuell lokal verifiering · 2026-11-15
 
 Gren `fix/gateway-service-auth`, salongens testcommit `587d84a55475da0f173a1720970de5fea36360b8`.
