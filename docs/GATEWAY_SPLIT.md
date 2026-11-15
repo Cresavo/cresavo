@@ -49,3 +49,27 @@ Provet går via två processer och riktiga HTTP-anrop. Databasåtkomsten i provk
 för operatörens syntetiska mandat, nycklar och städning. Gatewayens bokningsväg har ingen sådan åtkomst.
 Att en utvecklare kan köra detta lokalt verifierar varken en molndeployment, ChatGPT i en slutanvändares
 konto, en extern bokningsleverantör eller pilotdrift.
+
+## Kontroll vid konfigurationsdrift
+
+Access-svaret innehåller `providerMode`. Salongen ger `split` först efter
+agentRoute-kontrollen av både tjänstenyckel och agentnyckel. Det äldre samlade
+körläget anger `standalone`. Gatewayen kräver `apiVersion: "v1"`,
+`providerMode: "split"` och en scopes-array i ett lyckat access-svar inför varje
+operation, inklusive REST-status och skrivningar. Bekräftelsen cachelagras inte
+mellan anrop. Saknad eller felaktig bekräftelse ger 503
+`provider_configuration_invalid` före den begärda operationen. 401/403 från
+autentiseringen behåller sina statuskoder. Uppgradera båda servrarna tillsammans.
+
+Detta upptäcker att fel körläge används vid gatewayens kontroll. En salong som
+startas avsiktligt i det äldre samlade läget behåller sin tidigare direkta API-
+åtkomst. Discovery är fortsatt åtkomlig. Körningen är ännu en lokal syntetisk POC.
+
+Regression mot verklig felkonfiguration: starta en extra salong utan båda split-
+inställningarna och en extra gateway som pekar på den. Med en ny separat lokal
+testdatabas och tillfälliga processhemligheter, sätt AGENTPROV_SALON_URL till
+den extra salongen och AGENTPROV_BASE_URL till dess gateway. Kör
+`node --import tsx scripts/agentprov/check-provider-mode.mts`.
+Det verifierar giltig agentnyckel, standalone-besked, nio nekade gatewayoperationer
+och oförändrat bokningsantal. Provet städar sin egen klient/nyckel. Den
+append-only revisionshistoriken följer befintliga lagringsregler.

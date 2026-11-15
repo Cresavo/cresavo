@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DateTime } from "luxon";
 
 // Exercise a valid base64url secret containing "_" on every key creation.
@@ -82,6 +82,7 @@ vi.mock("../src/lib/db", () => {
 const { db } = await import("../src/lib/db");
 const { createAgentApiKey, hashApiKey, revokeAgentApiKey, listAgentApiKeys } = await import("../src/lib/agent-api/keys");
 const services = await import("../src/app/api/v1/services/route");
+const access = await import("../src/app/api/v1/access/route");
 const availability = await import("../src/app/api/v1/availability/route");
 
 // A future weekday inside the engine's 60-day window.
@@ -105,6 +106,8 @@ beforeEach(() => {
   state.bookings.length = 0;
   vi.spyOn(console, "info").mockImplementation(() => undefined);
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe("agent API keys", () => {
   it("stores only a hash and shows the plaintext key once", async () => {
@@ -269,5 +272,36 @@ describe("GET /api/v1/availability", () => {
       expect([q, res.status]).toEqual([q, status]);
       expect((await res.json()).error.code).toBe(code);
     }
+  });
+});
+
+describe("provider split confirmation", () => {
+  it("reports standalone instead of claiming service authentication when split mode is absent", async () => {
+    const { key } = await newKey();
+    vi.stubEnv("BOOKING_SERVICE_ROLE", undefined);
+    const response = await get(access, "/api/v1/access", bearer(key));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ apiVersion: "v1", providerMode: "standalone" });
+  });
+
+  it("confirms split mode only after the service token and active agent credential both pass", async () => {
+    const { key } = await newKey();
+    const token = "ab".repeat(32);
+    vi.stubEnv("BOOKING_SERVICE_ROLE", "salon");
+    vi.stubEnv("GATEWAY_SERVICE_TOKEN", token);
+    for (const headers of [
+      bearer(key),
+      { ...bearer(key), "x-booking-gateway-token": "cd".repeat(32) },
+      { "x-booking-gateway-token": token },
+    ]) {
+      expect((await get(access, "/api/v1/access", headers)).status).toBe(401);
+    }
+    const response = await get(access, "/api/v1/access", {
+      ...bearer(key), "x-booking-gateway-token": token,
+    });
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(JSON.parse(body)).toMatchObject({ apiVersion: "v1", providerMode: "split" });
+    expect(body).not.toContain(token);
   });
 });
