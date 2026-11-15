@@ -1,6 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DateTime } from "luxon";
 
+// Exercise a valid base64url secret containing "_" on every key creation.
+// The old split("_").at(-1) assertion accidentally checked just the final "o".
+vi.mock("node:crypto", async (importOriginal) => {
+  const crypto = await importOriginal<typeof import("node:crypto")>();
+  return {
+    ...crypto,
+    randomBytes: (size: number) => {
+      if (size !== 32) return crypto.randomBytes(size);
+      const bytes = Buffer.alloc(32, 1);
+      bytes[30] = 3;
+      bytes[31] = 250;
+      return bytes;
+    },
+  };
+});
+
 type KeyRow = {
   id: string; businessId: string; agentName: string; ownerName: string;
   clientId: string; client: { id: string; businessId: string; active: boolean };
@@ -94,16 +110,17 @@ describe("agent API keys", () => {
   it("stores only a hash and shows the plaintext key once", async () => {
     const { key, record } = await newKey();
     expect(key).toMatch(/^blk_[0-9a-f]{12}_[A-Za-z0-9_-]{43}$/);
+    expect(key).toMatch(/_o$/);
     const stored = JSON.stringify(state.keys);
     expect(stored).not.toContain(key);
-    expect(stored).not.toContain(key.split("_").at(-1));
+    expect(stored).not.toContain(key.slice("blk_000000000000_".length));
     expect(state.keys[0].keyHash).toBe(hashApiKey(key));
     expect(state.keys[0].keyHash).toMatch(/^[0-9a-f]{64}$/);
-    expect(JSON.stringify(record)).not.toContain(key.split("_").at(-1));
+    expect(JSON.stringify(record)).not.toContain(key.slice("blk_000000000000_".length));
     expect(record).toMatchObject({ agentName: "Synthetic test agent", ownerName: "Test Owner", ownerContact: "owner@example.test", businessId: "demo" });
     const listed = JSON.stringify(await listAgentApiKeys(db));
     expect(listed).not.toContain("keyHash");
-    expect(listed).not.toContain(key.split("_").at(-1));
+    expect(listed).not.toContain(key.slice("blk_000000000000_".length));
   });
 
   it("requires agent name, owner and contact", async () => {
@@ -173,7 +190,7 @@ describe("GET /api/v1 authentication", () => {
     expect(state.keys[0].lastUsedAt).toBeInstanceOf(Date);
     const lines = vi.mocked(console.info).mock.calls.map((c) => String(c[0]));
     expect(lines.some((l) => l.includes("Synthetic test agent"))).toBe(true);
-    expect(lines.join("\n")).not.toContain(key.split("_").at(-1));
+    expect(lines.join("\n")).not.toContain(key.slice("blk_000000000000_".length));
   });
 });
 

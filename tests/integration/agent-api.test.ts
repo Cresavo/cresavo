@@ -26,7 +26,9 @@ describe("Agent API v1 mot PostgreSQL", () => {
     );
     const row = await db.agentApiKey.findUniqueOrThrow({ where: { id: record.id } });
     expect(row.keyHash).toBe(hashApiKey(key));
-    expect(JSON.stringify(row)).not.toContain(key.split("_").at(-1));
+    expect(key).toMatch(/^blk_[0-9a-f]{12}_[A-Za-z0-9_-]{43}$/);
+    expect(JSON.stringify(row)).not.toContain(key);
+    expect(JSON.stringify(row)).not.toContain(key.slice("blk_000000000000_".length));
 
     const s = await call(services, "/api/v1/services?business=demo", key);
     expect(s.status).toBe(200);
