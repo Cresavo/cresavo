@@ -1,7 +1,9 @@
 import { fixtureBookingDate } from "@/lib/public-fixtures";
 import { isPublicReadonly } from "@/lib/public-readonly";
 import { pageDataFailure } from "@/lib/errors";
-import { listServices } from "@/lib/domain";
+import { DateTime } from "luxon";
+import { readableDay } from "@/lib/format";
+import { listServices, publicCampaigns } from "@/lib/domain";
 import BookingForm from "./booking-form";
 import { listStaff } from "@/lib/workspace-config";
 import { demoAccessEnabled } from "@/lib/demo-access";
@@ -19,8 +21,9 @@ export default async function Home({
   const query = await searchParams;
   const locale = await getLocale();
   const t = (en: string, sv: string) => text(locale, en, sv);
-  const [services, staff] = await Promise.all([
+  const [services, campaigns, staff] = await Promise.all([
     listServices(),
+    publicCampaigns(DateTime.now().setZone("Europe/Stockholm").toISODate()!),
     listStaff(),
   ]).catch(pageDataFailure);
   const readOnly = isPublicReadonly();
@@ -34,6 +37,19 @@ export default async function Home({
     </header>
     {readOnly && <p role="note" id="readonly-notice">{t("Synthetic read-only demo. Bookings cannot be created. Do not enter personal data.", "Syntetisk demo i läsläge. Bokningar kan inte skapas. Ange inga personuppgifter.")}</p>}
     <TwoTrackLab demoDate={fixtureBookingDate(query)} readOnly={readOnly}>
+          <>
+          {campaigns.map((campaign) => (
+            <section className="campaign-card" key={campaign.id}>
+              <span className="eyebrow">{t("Demo offer", "Demokampanj")}</span>
+              <h3>{campaign.title}</h3>
+              <p>{campaign.discountPercent} % {t("off", "på")} {campaign.service.name.toLowerCase()}</p>
+              <p>{readableDay(campaign.validFrom, locale)} – {readableDay(campaign.validUntil, locale)}</p>
+              <small>{t(
+                "The booking form shows the regular price. No payment is taken in this demo.",
+                "Ordinarie pris visas i bokningen. Ingen betalning sker i demon.",
+              )}</small>
+            </section>
+          ))}
           <BookingForm
             readOnly={readOnly}
             demoSalon="Salong Eko"
@@ -58,6 +74,7 @@ export default async function Home({
               serviceIds,
             }))}
           />
+          </>
     </TwoTrackLab>
   </main>;
 }

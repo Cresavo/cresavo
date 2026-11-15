@@ -1,3 +1,4 @@
+import { chooseDemoSalon } from "./booking-entry";
 import { test, expect } from "./fixtures";
 import { chooseDay, chooseSlot } from "./date-controls";
 import { DateTime } from "luxon";
@@ -206,7 +207,7 @@ test("produktingång och kund-API behåller tydliga vägar och åtkomstskydd", a
     .getByRole("link")
     .filter({ hasText: /Try the booking demo|Prova bokningen/ })
     .click();
-  await expect(page.locator("#service")).toBeVisible();
+  await chooseDemoSalon(page);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

@@ -1,3 +1,4 @@
+import { chooseDemoSalon } from "./booking-entry";
 import { test, expect } from "./fixtures";
 
 test("language changes preserve booking details and selected day", async ({
@@ -5,14 +6,15 @@ test("language changes preserve booking details and selected day", async ({
   synthetic,
 }) => {
   await page.goto("/");
-  await page
+  await chooseDemoSalon(page);
+  await page.getByTestId("track-customer")
     .getByLabel("Namn (påhittat)", { exact: true })
     .fill(synthetic.marker);
-  await page
+  await page.getByTestId("track-customer")
     .getByLabel("E-post (påhittad)", { exact: true })
     .fill(`${synthetic.marker}@example.test`);
-  const chosen = await page
-    .locator('[aria-pressed="true"]')
+  const chosen = await page.getByTestId("track-customer")
+    .locator('fieldset.date-picker button[aria-pressed="true"]')
     .first()
     .getAttribute("aria-label");
   await page
@@ -20,10 +22,10 @@ test("language changes preserve booking details and selected day", async ({
     .selectOption("en");
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(
-    page.getByLabel("Name (fictional)", { exact: true }),
+    page.getByTestId("track-customer").getByLabel("Name (fictional)", { exact: true }),
   ).toHaveValue(synthetic.marker);
   await expect(
-    page.getByLabel("Email (fictional)", { exact: true }),
+    page.getByTestId("track-customer").getByLabel("Email (fictional)", { exact: true }),
   ).toHaveValue(`${synthetic.marker}@example.test`);
   await expect(
     page.getByRole("button", { name: "Confirm demo booking", exact: true }),
@@ -32,7 +34,7 @@ test("language changes preserve booking details and selected day", async ({
     .getByRole("combobox", { name: "Language", exact: true })
     .selectOption("sv");
   await expect(page.locator("html")).toHaveAttribute("lang", "sv");
-  await expect(page.locator('[aria-pressed="true"]').first()).toHaveAttribute(
+  await expect(page.getByTestId("track-customer").locator('fieldset.date-picker button[aria-pressed="true"]').first()).toHaveAttribute(
     "aria-label",
     chosen!,
   );

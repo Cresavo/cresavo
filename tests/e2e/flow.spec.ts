@@ -1,3 +1,4 @@
+import { chooseDemoSalon } from "./booking-entry";
 import { chooseDay, chooseSlot } from "./date-controls";
 import { mcpEnvironment } from "../../src/mcp/environment";
 import { test, expect } from "./fixtures";
@@ -422,13 +423,14 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
     });
     expect(forbidden.status()).toBe(403);
     await page.goto("/");
+    await chooseDemoSalon(page);
     await expect(page.getByText(title)).toHaveCount(0);
     await capture("01-bokningssida");
-    await page.locator("#service").selectOption("fotvard");
+    await page.getByTestId("track-customer").getByLabel("Behandling", { exact: true }).selectOption("fotvard");
     await chooseDay(page, "date", day.toISODate()!);
     const slot = await chooseSlot(page, "slot");
-    await page.locator("#name").fill(customerName);
-    await page.locator("#email").fill(email);
+    await page.getByTestId("track-customer").getByLabel("Namn (påhittat)", { exact: true }).fill(customerName);
+    await page.getByTestId("track-customer").getByLabel("E-post (påhittad)", { exact: true }).fill(email);
     await capture("02-vald-tid");
     await page.getByRole("button", { name: "Bekräfta testbokning" }).click();
     await expect(
@@ -479,6 +481,7 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
     );
     await capture("05-publicerad-i-admin");
     await page.goto("/");
+    await chooseDemoSalon(page);
     await expect(page.getByText(title)).toBeVisible();
     await capture("06-publikt-erbjudande");
     await page.goto("/admin");
@@ -707,11 +710,12 @@ test("UI återanvänder bokningsnyckeln vid dubbelsubmit och tappat svar", async
     else await route.fulfill({ response });
   });
   await page.goto("/");
-  await page.locator("#service").selectOption("massage");
+  await chooseDemoSalon(page);
+  await page.getByTestId("track-customer").getByLabel("Behandling", { exact: true }).selectOption("massage");
   await chooseDay(page, "date", day.toISODate()!);
   await chooseSlot(page, "slot");
-  await page.locator("#name").fill("Syntetisk retrykund");
-  await page.locator("#email").fill(`${synthetic.marker}@example.test`);
+  await page.getByTestId("track-customer").getByLabel("Namn (påhittat)", { exact: true }).fill("Syntetisk retrykund");
+  await page.getByTestId("track-customer").getByLabel("E-post (påhittad)", { exact: true }).fill(`${synthetic.marker}@example.test`);
   await page.getByRole("button", { name: "Bekräfta testbokning" }).click();
   await expect(
     page.getByText(
@@ -719,7 +723,7 @@ test("UI återanvänder bokningsnyckeln vid dubbelsubmit och tappat svar", async
     ),
   ).toBeVisible();
   // Dispatch two real submit events before React replaces the successful form.
-  await page.locator("#name").evaluate((input) => {
+  await page.getByTestId("track-customer").getByLabel("Namn (påhittat)", { exact: true }).evaluate((input) => {
     const form = (input as HTMLInputElement).form!;
     form.requestSubmit();
     form.requestSubmit();

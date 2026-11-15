@@ -1,3 +1,4 @@
+import { chooseDemoSalon } from "./booking-entry";
 import { test, expect } from "./fixtures";
 import { chooseDay } from "./date-controls";
 import { DateTime } from "luxon";
@@ -410,7 +411,7 @@ test("tre tydliga huvudval och stängbara sekundärmenyer fungerar på mobil och
     await page
       .getByRole("link", { name: "Visa kundbokningen", exact: true })
       .click();
-    await expect(page.locator("#service")).toBeVisible();
+    await chooseDemoSalon(page);
     await page
       .getByRole("link", { name: "Om Booking Lab", exact: true })
       .click();

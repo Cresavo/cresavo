@@ -1,3 +1,4 @@
+import { chooseDemoSalon } from "./booking-entry";
 import { test, expect } from "./fixtures";
 import { chooseDay, chooseSlot } from "./date-controls";
 import { DateTime } from "luxon";
@@ -7,8 +8,9 @@ test("datum väljs med tryck och tangentbord, tom dag har en väg vidare", async
   synthetic,
 }) => {
   await page.goto("/");
-  await page.locator("#name").fill("Syntetisk kalenderkund");
-  await page.locator("#email").fill(`${synthetic.marker}@example.test`);
+  await chooseDemoSalon(page);
+  await page.getByTestId("track-customer").getByLabel("Namn (påhittat)", { exact: true }).fill("Syntetisk kalenderkund");
+  await page.getByTestId("track-customer").getByLabel("E-post (påhittad)", { exact: true }).fill(`${synthetic.marker}@example.test`);
   let day = DateTime.now().setZone("Europe/Stockholm").plus({ days: 9 });
   while (day.weekday !== 6) day = day.plus({ days: 1 });
   await chooseDay(page, "date", day.toISODate()!);
@@ -17,24 +19,23 @@ test("datum väljs med tryck och tangentbord, tom dag har en väg vidare", async
     .getByRole("button", { name: "Hitta nästa lediga dag", exact: true })
     .click();
   await chooseSlot(page, "slot");
-  await page.locator("#service").selectOption("massage");
+  await page.getByTestId("track-customer").getByLabel("Behandling", { exact: true }).selectOption("massage");
   await expect(
     page.getByRole("button", { name: "Bekräfta testbokning" }),
   ).toBeDisabled();
-  await expect(page.locator("#name")).toHaveValue("Syntetisk kalenderkund");
-  await expect(page.locator("#email")).toHaveValue(
+  await expect(page.getByTestId("track-customer").getByLabel("Namn (påhittat)", { exact: true })).toHaveValue("Syntetisk kalenderkund");
+  await expect(page.getByTestId("track-customer").getByLabel("E-post (påhittad)", { exact: true })).toHaveValue(
     `${synthetic.marker}@example.test`,
   );
   await chooseSlot(page, "slot");
-  await page.locator("#staff").selectOption("staff-erik");
+  await page.getByTestId("track-customer").getByLabel("Medarbetare", { exact: true }).selectOption("staff-erik");
   await expect(
     page.getByRole("button", { name: "Bekräfta testbokning" }),
   ).toBeDisabled();
   await chooseSlot(page, "slot");
   await expect(
-    page
-      .getByRole("region", { name: "Din bokning" })
-      .or(page.locator(".booking-review")),
+    page.getByTestId("track-customer")
+      .getByRole("region", { name: "Din bokning", exact: true }),
   ).toContainText("450,00");
   await page.getByRole("button", { name: "Bekräfta testbokning" }).click();
   await expect(
@@ -55,8 +56,9 @@ test("kalendern går att använda med tangentbord och ryms vid 320px", async ({
 }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto("/");
+  await chooseDemoSalon(page);
   const today = DateTime.now().setZone("Europe/Stockholm").toISODate()!;
-  const picker = page.locator("fieldset.date-picker");
+  const picker = page.getByTestId("track-customer").locator("fieldset.date-picker");
   const selected = picker.locator("button[aria-pressed=true]");
   await expect(selected).toBeEnabled();
   await selected.focus();
@@ -67,7 +69,7 @@ test("kalendern går att använda med tangentbord och ryms vid 320px", async ({
     ),
   ).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(page.locator("#date")).toHaveValue(
+  await expect(page.getByTestId("track-customer").locator('input[id$="-date"]')).toHaveValue(
     DateTime.fromISO(today).plus({ days: 1 }).toISODate()!,
   );
   expect(

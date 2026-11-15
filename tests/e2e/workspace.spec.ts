@@ -1,3 +1,4 @@
+import { chooseDemoSalon } from "./booking-entry";
 import { chooseDay, chooseSlot } from "./date-controls";
 import { test, expect } from "./fixtures";
 import { DateTime } from "luxon";
@@ -472,24 +473,25 @@ test("Epic05 salongsarbetsyta: boka, ändra tjänst/schema, flytta och avboka", 
       people.push(person);
     }
     await page.goto("/");
-    await expect(page.locator("#service")).toBeEnabled();
-    await page.locator("#service").focus();
+    await chooseDemoSalon(page);
+    await expect(page.getByTestId("track-customer").getByLabel("Behandling", { exact: true })).toBeEnabled();
+    await page.getByTestId("track-customer").getByLabel("Behandling", { exact: true }).focus();
     await page.keyboard.press("Tab");
-    await expect(page.locator("#staff")).toBeFocused();
+    await expect(page.getByTestId("track-customer").getByLabel("Medarbetare", { exact: true })).toBeFocused();
     expect(
-      await page.locator("#staff").evaluate((element) => {
+      await page.getByTestId("track-customer").getByLabel("Medarbetare", { exact: true }).evaluate((element) => {
         const style = getComputedStyle(element);
         return (
           style.outlineStyle !== "none" && parseFloat(style.outlineWidth) > 0
         );
       }),
     ).toBe(true);
-    await page.locator("#service").selectOption(service.id);
-    await page.locator("#staff").selectOption(people[0].id);
+    await page.getByTestId("track-customer").getByLabel("Behandling", { exact: true }).selectOption(service.id);
+    await page.getByTestId("track-customer").getByLabel("Medarbetare", { exact: true }).selectOption(people[0].id);
     await chooseDay(page, "date", date);
     await chooseSlot(page, "slot");
-    await page.locator("#name").fill("Syntetisk kalenderkund");
-    await page.locator("#email").fill(`${synthetic.marker}@example.test`);
+    await page.getByTestId("track-customer").getByLabel("Namn (påhittat)", { exact: true }).fill("Syntetisk kalenderkund");
+    await page.getByTestId("track-customer").getByLabel("E-post (påhittad)", { exact: true }).fill(`${synthetic.marker}@example.test`);
     await page
       .getByRole("button", { name: "Bekräfta testbokning" })
       .press("Enter");

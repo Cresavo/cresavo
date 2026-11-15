@@ -1,9 +1,9 @@
 import { expect, type Page } from "@playwright/test";
 import { DateTime } from "luxon";
 export async function chooseDay(page: Page, id: string, date: string) {
-  const picker = page
-    .locator("fieldset.date-picker")
-    .filter({ has: page.locator(`#${id}`) });
+  const picker = id === "date"
+    ? page.getByTestId("track-customer").locator("fieldset.date-picker")
+    : page.locator("fieldset.date-picker").filter({ has: page.locator(`#${id}`) });
   const details = picker.locator("..").locator(":scope > summary");
   if (!(await picker.isVisible()) && (await details.count()))
     await details.click();
@@ -26,9 +26,9 @@ export async function chooseDay(page: Page, id: string, date: string) {
     .click();
 }
 export async function chooseSlot(page: Page, id: string, instant?: string) {
-  const picker = page
-    .locator("fieldset.slot-picker")
-    .filter({ has: page.locator(`#${id}`) });
+  const picker = id === "slot"
+    ? page.getByTestId("track-customer").locator("fieldset.slot-picker")
+    : page.locator("fieldset.slot-picker").filter({ has: page.locator(`#${id}`) });
   const button = instant
     ? picker.locator(`button[data-slot="${instant}"]`)
     : picker.locator("button[data-slot]").first();

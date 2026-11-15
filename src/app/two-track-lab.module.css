@@ -61,3 +61,8 @@
   .selectedSummary { align-items: start; flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) { .lab { scroll-behavior: auto; } }
+
+/* Leave room for seven usable date buttons on narrow phones. */
+@media (max-width: 480px) {
+  .customer, .agent { padding: 12px; }
+}
