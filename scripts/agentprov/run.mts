@@ -8,6 +8,7 @@ import { assertTestDatabase } from "../test-db-guard.mjs";
 import { db } from "../../src/lib/db";
 import { createAgentApiKey, rotateAgentApiKey } from "../../src/lib/agent-api/keys";
 import { cleanupRun, grant } from "./fixtures.mjs";
+import { checkSalonCalendar } from "./salon-calendar.mjs";
 
 // Guard before the first query or child process. Hosted DBs are never test DBs.
 assertTestDatabase();
@@ -104,6 +105,14 @@ try {
     mandateId: (await grant(clientId, slot, service.price.amountMinor, run)).id,
   });
   const pa = await payload(a.record.clientId, slots[0], "a"), ia = randomUUID();
+  if (process.env.AGENTPROV_SALON_URL) {
+    const noGrant = { ...pa, mandateId: undefined };
+    const rejected = await rest(wa, "POST", "/api/v1/bookings", noGrant, randomUUID());
+    assert.equal(rejected.body.error.code, "mandate_required");
+    const widened = await rest(wa, "POST", "/api/v1/bookings", { ...pa, maxPriceOre: 999999 }, randomUUID());
+    assert.equal(widened.body.error.code, "invalid_request");
+    pass("SPLIT_MANDATE_REQUIRED_AND_CANNOT_BE_WIDENED");
+  }
   const firstA = await rest(wa, "POST", "/api/v1/bookings", pa, ia);
   assert.equal(firstA.status, 201); assert.equal(firstA.body.booking.status, "confirmed");
   const replayA = await rest(wa, "POST", "/api/v1/bookings", pa, ia);
@@ -123,6 +132,10 @@ try {
   assert.equal((await mcp(wb, "get_booking", { bookingId: firstB.body.booking.id })).body.booking.status, "confirmed");
   assert.equal((await rest(wa, "GET", `/api/v1/bookings/${firstB.body.booking.id}`)).status, 404);
   pass("HTTP_MCP_CREATE_RETRY_STATUS");
+  if (process.env.AGENTPROV_SALON_URL) {
+    await checkSalonCalendar(process.env.AGENTPROV_SALON_URL, base, firstB.body.booking.id, slots[1].start);
+    pass("SEPARATE_SALON_AUTHENTICATED_CALENDAR");
+  }
   step = "CONCURRENT_CONFLICT";
   const raceA = await payload(a.record.clientId, slots[2], "race-a");
   const raceB = await payload(b.record.clientId, slots[2], "race-b");

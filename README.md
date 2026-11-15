@@ -1,4 +1,9 @@
-# Current local work: Agentprov 2
+# Booking Lab salon
+
+The salon and its PostgreSQL database can run independently of the agent gateway.
+See [the two-repository runbook](docs/GATEWAY_SPLIT.md) to book through the gateway and verify the booking in the salon calendar.
+
+## Earlier work: Agentprov 2
 
 Local branch `codex/agentprov-2` starts at frozen `e890b69` in a separate
 worktree. `codex/agentprov-1` remains unchanged for independent QA.
