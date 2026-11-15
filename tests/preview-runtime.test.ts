@@ -23,6 +23,15 @@ describe("explicit preview ingress", () => {
       { ...valid, DATABASE_URL: "postgresql://" },
     ]) expect(() => runtimePolicy(env)).toThrow("BOOKING_RUNTIME_CONFIG_INVALID");
   });
+  it("rejects incomplete split configuration before the listener opens", () => {
+    const split = { BOOKING_SERVICE_ROLE: "salon", GATEWAY_SERVICE_TOKEN: "ab".repeat(32) };
+    expect(runtimePolicy(split)).toBe("local");
+    for (const env of [
+      { ...split, BOOKING_SERVICE_ROLE: "saloon" }, { ...split, BOOKING_SERVICE_ROLE: undefined },
+      { BOOKING_SERVICE_ROLE: "salon" }, { ...split, GATEWAY_SERVICE_TOKEN: "short" },
+      { ...split, PUBLIC_READONLY: "1" },
+    ]) expect(() => runtimePolicy(env)).toThrow("BOOKING_RUNTIME_CONFIG_INVALID");
+  });
   it("accepts only one valid platform client header without forwarding fallbacks", () => {
     expect(vercelClientAddress({ "x-real-ip": "::ffff:192.0.2.10", "x-booking-client-ip": "198.51.100.2" })).toBe("192.0.2.10");
     for (const value of [undefined, "", "192.0.2.1, 198.51.100.1", ["192.0.2.1"], "garbage"])

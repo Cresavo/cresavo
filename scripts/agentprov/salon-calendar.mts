@@ -5,7 +5,7 @@ import { createAdminUser } from "../../src/lib/admin-accounts";
 import { db } from "../../src/lib/db";
 import { assertTestDatabase } from "../test-db-guard.mjs";
 
-export async function checkSalonCalendar(address: string, gateway: URL, bookingId: string, start: string) {
+export async function checkSalonCalendar(address: string, gateway: URL, bookingId: string, start: string, agentKey: string) {
   assertTestDatabase();
   const salon = new URL(address);
   assert.equal(salon.protocol, "http:");
@@ -15,6 +15,19 @@ export async function checkSalonCalendar(address: string, gateway: URL, bookingI
   const get = (path: string, options: RequestInit = {}) =>
     fetch(new URL(path, salon.origin), { ...options, redirect: "error" });
   assert.equal((await get("/api/v1/mcp")).status, 404, "salon must have its embedded MCP disabled");
+  // The same active credential already booked via the gateway. Alone it must
+  // never reach the salon agent handlers, even with a spoofed service header.
+  for (const [method, path] of [
+    ["GET", "/api/v1/access"], ["GET", "/api/v1/services?business=demo"],
+    ["GET", "/api/v1/availability"], ["POST", "/api/v1/bookings"],
+    ["GET", "/api/v1/bookings/" + bookingId], ["POST", "/api/v1/bookings/" + bookingId + "/cancel"],
+    ["POST", "/api/v1/proposals"], ["GET", "/api/v1/proposals/missing"],
+  ]) {
+    for (const extra of [new Headers(), new Headers({ "x-booking-gateway-token": randomUUID().replaceAll("-", "").repeat(2) })]) {
+      extra.set("authorization", "Bearer " + agentKey);
+      assert.equal((await get(path, { method, headers: extra })).status, 401, method + " " + path);
+    }
+  }
   const email = "split-" + randomUUID() + "@example.test";
   const password = randomUUID() + randomUUID();
   const user = await createAdminUser(email, password);

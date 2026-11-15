@@ -5,6 +5,10 @@ import { createHmac, timingSafeEqual, randomBytes } from "node:crypto";
 // Only use it in a Vercel Function protected at project level on every URL.
 export function runtimePolicy(env) {
   const readonly = env.PUBLIC_READONLY === "1";
+  const splitConfigured = env.BOOKING_SERVICE_ROLE !== undefined || env.GATEWAY_SERVICE_TOKEN !== undefined;
+  if (splitConfigured && (env.BOOKING_SERVICE_ROLE !== "salon" || readonly ||
+      !/^[a-f0-9]{64}$/.test(env.GATEWAY_SERVICE_TOKEN ?? "")))
+    throw new Error("BOOKING_RUNTIME_CONFIG_INVALID");
   if (readonly && !env.SESSION_SECRET) env.SESSION_SECRET = randomBytes(32).toString("hex");
   const runtime = env.BOOKING_RUNTIME ?? "local";
   if (!["memory", "postgres"].includes(env.RATE_LIMIT_STORE ?? "memory"))

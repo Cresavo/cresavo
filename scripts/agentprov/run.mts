@@ -133,7 +133,8 @@ try {
   assert.equal((await rest(wa, "GET", `/api/v1/bookings/${firstB.body.booking.id}`)).status, 404);
   pass("HTTP_MCP_CREATE_RETRY_STATUS");
   if (process.env.AGENTPROV_SALON_URL) {
-    await checkSalonCalendar(process.env.AGENTPROV_SALON_URL, base, firstB.body.booking.id, slots[1].start);
+    await checkSalonCalendar(process.env.AGENTPROV_SALON_URL, base, firstB.body.booking.id, slots[1].start, b.key);
+    pass("DIRECT_PROVIDER_CALLS_WITH_VALID_AGENT_KEY_DENIED");
     pass("SEPARATE_SALON_AUTHENTICATED_CALENDAR");
   }
   step = "CONCURRENT_CONFLICT";

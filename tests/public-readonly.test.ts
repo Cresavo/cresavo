@@ -172,3 +172,23 @@ it("the registered agent MCP write callbacks refuse create and cancel", async ()
     }
   } finally { await server.close(); }
 });
+
+it("requires the gateway credential before serving any split-provider fixture", async () => {
+  vi.stubEnv("BOOKING_SERVICE_ROLE", "salon");
+  const { GET } = await import("../src/app/api/v1/services/route");
+  const token = "ab".repeat(32);
+  for (const [configured, supplied, status] of [
+    [undefined, undefined, 401],
+    ["bad", "bad", 401],
+    [token, undefined, 401],
+    [token, "cd".repeat(32), 401],
+    [token, token, 403], // Split + public read-only must never skip agent authentication.
+  ] as const) {
+    vi.stubEnv("GATEWAY_SERVICE_TOKEN", configured);
+    const headers = new Headers();
+    if (supplied) headers.set("x-booking-gateway-token", supplied);
+    const reply = await GET(new Request("http://localhost/api/v1/services", { headers }));
+    expect(reply.status).toBe(status);
+    expect(reply.headers.get("cache-control")).toBe("no-store");
+  }
+});

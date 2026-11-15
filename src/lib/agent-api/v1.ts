@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { auditContext, recordAudit } from "./audit";
 import { isPublicReadonly, readonlyForbidden } from "../public-readonly";
 import { fixtureStaff } from "../public-fixtures";
@@ -111,6 +112,17 @@ async function agentRouteInternal(
   scope: AgentScope | readonly AgentScope[],
   handler: AgentHandler,
 ) {
+  if (process.env.BOOKING_SERVICE_ROLE === "salon") {
+    const token = process.env.GATEWAY_SERVICE_TOKEN;
+    const presented = request.headers.get("x-booking-gateway-token");
+    if (!token || !/^[a-f0-9]{64}$/.test(token) || !presented ||
+        !/^[a-f0-9]{64}$/.test(presented) ||
+        !timingSafeEqual(Buffer.from(token), Buffer.from(presented))) {
+      return agentErrorResponse("unauthorized");
+    }
+    // Fixture reads normally skip client auth. A split provider must require both identities.
+    if (isPublicReadonly()) return readonlyForbidden();
+  }
   if (isPublicReadonly()) {
     if (request.method !== "GET") return readonlyForbidden();
     const read = route === "GET /api/v1/services" ? servicesV1
