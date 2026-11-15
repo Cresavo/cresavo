@@ -260,6 +260,7 @@ model AgentMandate {
   origin String
   originReference String
   proposalHash String?
+  verifiedVia String?
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   revokedAt DateTime? @db.Timestamptz(3)
   booking AgentBooking?
@@ -301,6 +302,14 @@ model AgentProposal {
   priceOre Int
   proposalHash String
   tokenHash String @unique
+  smsOtpRequired Boolean @default(false)
+  phoneHash String?
+  phoneMask String?
+  otpHash String?
+  otpExpiresAt DateTime? @db.Timestamptz(3)
+  otpAttempts Int @default(0)
+  otpLastSentAt DateTime? @db.Timestamptz(3)
+  otpVerifiedAt DateTime? @db.Timestamptz(3)
   status String @default("pending")
   expiresAt DateTime @db.Timestamptz(3)
   mandateId String? @unique

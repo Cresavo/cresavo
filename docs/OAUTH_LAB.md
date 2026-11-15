@@ -59,7 +59,8 @@ labbflagga, loopback-origin och testdatabas; de ersätter aldrig bokningsmandat.
 ## Paket 3: kundens syntetiska Ja utfärdar bokningsmandat
 
 `POST /api/v1/proposals` / MCP `create_proposal` kräver `bookings:write`.
-Strict input: `business`, `serviceId`, `serviceVersion`, `staffId`, `start`.
+Strict input: `business`, `serviceId`, `serviceVersion`, `staffId`, `start`,
+samt valfritt `customerPhone` enligt SMS-labbreglerna nedan.
 Pris/längd, personalnamn och plats/schema hämtas server-side. Förslaget reserverar
 inte tiden. `GET /api/v1/proposals/{id}` / `get_proposal` kräver `bookings:read`
 eller `bookings:write`, bara för samma stabila klient. Status: `pending`,
@@ -92,7 +93,8 @@ identifiering och leverans. Det är en innehavarbaserad syntetisk identitet,
 klickat**. Eftersom agenten får länken i labbet kan den efterlikna en webbläsare;
 frånvaro av Bearer bevisar inte mänsklighet. Före skarp drift ska adaptern ersättas
 med oberoende kundidentifiering/leverans; godkännandehemligheten får då aldrig gå
-till agenten. Skarp metod är inte beslutad. Ingen e-post/SMS/extern plattform används.
+till agenten. Skarp metod är inte beslutad. Ingen extern e-post-/SMS-leverantör eller annan
+extern plattform används; SMS-kod simuleras lokalt enligt nedan.
 Operatorns gamla `issueSyntheticMandate` och fixtures är oförändrade och exponeras
 inte via REST/MCP. Den nya additiva migrationen behåller gamla operatörsmandat
 med null `proposalHash` och utökar endast ursprungskontrollen till kundflödet.
@@ -132,3 +134,65 @@ eller TRUNCATE; detta är ingen kryptografiskt manipulationssäker logg.
 Testauditrader bevaras även när deras fixtures städas, utan foreign keys.
 
 Betalning är inte implementerad. Se [Mandat och betalning](MANDATE_VS_PAYMENT.md).
+
+## Steg 5: simulerad SMS-kod, endast lokalt labb
+
+Två lager aktiverar kravet: `BOOKING_SMS_OTP_LAB=1` och verksamhetens id i
+`BOOKING_SMS_OTP_BUSINESSES` (kommaseparerad, exempelvis `demo,lab-partner`).
+Labbet kräver dessutom `BOOKING_CONSENT_LAB=1`, loopback-origin, runtime som
+inte är Vercel samt befintlig loopback-DB-vakt för `*_test`/`*_demo`.
+Flaggorna är labbets ersättning för en framtida per-salong-inställning; ingen
+ny inställningstabell införs. Osatt/tom lista eller avstängd labbflagga ger
+befintligt länk + Ja utan kod. `customerPhone` avvisas då med `invalid_request`.
+
+När båda lagren aktiverar verksamheten krävs `customerPhone`: strikt E.164
+med labbets syntetiska prefix `+46700…` och exakt sex efterföljande siffror.
+Detta är en lokal syntetisk konvention, **inte en reserverad svensk nummerserie**;
+använd aldrig verkliga kundnummer. Kravet sparas som `smsOtpRequired` på
+förslaget och kan inte tas bort genom senare flaggändringar. Befintliga
+förslag och operatorns `issueSyntheticMandate` fortsätter fungera oförändrat.
+
+Rå telefon lagras aldrig. Förslaget innehåller endast purpose-prefixad SHA-256
+(`sms-phone-v1:`), helt maskerad nummersuffixvisning, kodhash och tids-/försöksfält.
+`SmsSender` är injicerbart. Enda implementationen `SimulatedSmsSender` skriver
+kod och hash/maskerad destination till en begränsad processlokal labbuffert
+(högst 1000 meddelanden). Inget skrivs till vanlig konsol eller disk, inga
+HTTP-anrop eller nycklar används. Lokal operatör/testkod kan läsa bufferten
+via `simulatedSmsSender.read()`; ingen REST/MCP-route exponerar den. Omstart
+eller buffertgallring förlorar meddelandet; kunden kan begära omsändning.
+Ett skarpt leveransgränssnitt och en SMS-leverantör är inte beslutade/inkopplade.
+
+Koden har sex kryptografiskt slumpade siffror och lagras endast som SHA-256
+av `sms-otp-v1:<proposalId>:<code>`. Standardgiltighet är 600 sekunder;
+`BOOKING_SMS_OTP_TTL_SECONDS` tillåter 1–900 för tester. Fem felaktiga Ja
+(inklusive saknad kod) spärrar även en korrekt kod tills omsändning.
+`BOOKING_SMS_OTP_RESEND_SECONDS` är minstaintervall mellan utskick,
+standard 60, testintervall 1–900 sekunder. Omsändning kräver giltig, oanvänd
+kundlänk; den nollställer försöken och gör den gamla koden ogiltig.
+Förslagets egen utgång gäller alltid, även efter omsändning.
+
+Kundytans strict POST accepterar valfritt `code` och beslutet `resend` utöver
+`view|yes|no`. View och Nej kräver ingen kod. SMS-krävande Ja kräver korrekt,
+ännu giltig kod och förslagshash. Felaktiga försök sparas innan nekandet
+returneras; samma radlås serialiserar försök, omsändning och Ja. Bara ett
+mandat kan skapas. Mandatet behåller `origin=customer-consent` och får
+`verifiedVia=sms-otp`; äldre mandat och operator-mandat lämnas null.
+Märkningen är inget nytt ursprung och ändrar inte gamla mandatkontroller.
+
+OTP returneras **aldrig till agenten**, inte heller i approvalUrl. Telefonmask
+visas endast på kundytan; agentens statusprojektion är oförändrad. Befintliga
+Origin-, socket-, auth-, storleks- och felskydd på kundytan består.
+`sms_otp.sent`, `sms_otp.resent`, `sms_otp.verified`, `sms_otp.denied` lägger till
+append-only-audit med id och statiskt utfall, inga kund-/kod-/tokenfält.
+Försök/omsändning/verifiering auditeras i samma DB-transaktion; första utskick
+är, liksom befintlig förslagsaudit, best effort efter att förslaget skapats.
+Processbufferten är inte transaktionell: vid ett commitfel kan ett simulerat
+meddelande finnas utan giltig kod i DB. Ingen bokningsrätt följer av meddelandet.
+Detta labb bevisar varken riktig kundidentitet eller mänskligt mandat.
+
+Additiv migration: `20261116000000_sms_otp_lab`. Historiska migrationer och
+append-only-triggern lämnas orörda. De isolerade databaserna
+`booking_lab_gw_suite_test` och `booking_lab_gw_e2e_test` på `127.0.0.1:55434`
+behöver `prisma migrate deploy` via `scripts/test-db-guard.mjs` före extern
+verifiering. Prisma CLI:s vanliga config läser `.env`; använd en separat
+explicit config utan dotenv om en sådan fil inte får läsas.
