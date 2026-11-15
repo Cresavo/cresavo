@@ -1,3 +1,34 @@
+# Två privata repon · main integrerad · 2026-11-16
+
+Niclas godkände granskning och integration till båda huvudgrenarna.
+Fast-forward bevarade alla produktcommits. Gatewayens produkt är `b37d414`;
+dess main `e1830fee14484a84aedb5806898725b9965ac1ba` inkluderar därefter
+en korrigerad dokumentlänk. Salongens integrerade revision är
+`4de4d3ec63026383d5a64bcdbdd6cb6fa3ddf1b8`, produkt `09f0a0d`.
+Efterföljande commit ändrar endast Markdown och agentguiden.
+
+[Salongens main-CI 43772631817](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43772631817)
+är SUCCESS på exakt 4de4d3e. Alla fyra lägen gav 64/64 webbtester:
+dev/proxy 0, dev/proxy 1, production/proxy 0, production/proxy 1.
+Huvudjobbet verifierade också npm ci, PostgreSQL/Docker, Prisma generate/migrate/seed,
+lint, 394 enhetstester, 205 integrationstester, 13 MCP-kort, build och tsc.
+[Gatewayens main-CI 43772883228](https://github.com/niclasvestlund-YT/booking-lab-gateway/actions/runs/43772883228)
+är SUCCESS på exakt e1830fe, npm ci/build och 10/10 tester.
+
+Båda repona är privata. Läsande Vercel-kontroll fann ingen Git-koppling för
+Booking Labs fyra projekt; ingen deploy startades eller driftinställning ändrades.
+Ingen kod, migration, behörighet, miljöfil eller kunddata ändrades av integrationen.
+De gamla arbetsgrenarna och andra worktrees är bevarade.
+Fortsätt från aktuell main i respektive repo, se [kontrakt och lokalt prov](GATEWAY_SPLIT.md).
+
+Groks granskning av produktrevisionerna finns i
+[originalrapporten](qa/QA-REPORT-provider-mode-b37d414-09f0a0d.md).
+Sju måttliga utvecklingsberoendefynd och fyra Info-fynd kvarstår.
+Grön main-CI godkänner fortsatt endast POC-omfattningen. Pilot och drift återstår.
+Råa CI-loggar finns lokalt i <local-scratch> med respektive körningsnummer.
+
+---
+
 # Kontroll av salongens körläge · 2026-11-15
 
 Gatewayprodukt `b37d414462320b608e3618f2e3bd274619b6cd3f`,

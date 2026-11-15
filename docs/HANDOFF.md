@@ -1,3 +1,17 @@
+# Aktuellt · två privata repon på main · 2026-11-16
+
+Båda leveranserna är granskade och integrerade med fast-forward.
+Arbeta från aktuell main i booking-lab-gateway respektive booking-lab-se.
+Gatewayens main e1830fe har grön CI 43772883228 (10/10).
+Salongens integrerade 4de4d3e har grön CI 43772631817:
+64/64 webbtester i alla fyra lägen, 394 unit, 205 integration och 13 MCP-kort,
+samt lint/build/tsc. Efterföljande commit ändrar endast dokumentation.
+[Verifiering och exakta revisioner](VERIFICATION.md).
+[Lokalt tvårepoprov](GATEWAY_SPLIT.md). Ingen deploy har gjorts.
+Kända audit- och Info-fynd kvarstår. Pilot är fortsatt NO-GO.
+
+---
+
 # Salongens körläge · aktuell lokal leverans · 2026-11-15
 
 Gateway `b37d414`, salong `09f0a0d` på `fix/gateway-service-auth`.

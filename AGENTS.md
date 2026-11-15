@@ -1,4 +1,16 @@
-# Aktuellt: Agentprov 2, separat lokal gren
+# Aktuellt: två privata repon på main · 2026-11-16
+
+- Niclas godkände granskning och integration till båda huvudgrenarna.
+- Detta repo äger salong, databas, kalender och bokningsregler.
+  Gatewayens REST/MCP-adapter finns i det separata privata booking-lab-gateway.
+- Utgå från aktuell main i respektive repo och bevara andra worktrees.
+- Läs docs/GATEWAY_SPLIT.md och överst i PROJECT_STATUS/HANDOFF/VERIFICATION.
+  Test-DB-vakt, syntetiska data, mandat, behörigheter och lås består.
+- Historiska uppdrag nedan beskriver sina dåvarande grenar och mandat.
+  De ger inga nya uppdrag. En ny deploy eller kundpilot kräver separat godkännande.
+- Båda implementationerna är lokala POC:er. Kända audit- och Info-fynd är öppna.
+
+# Historik: Agentprov 2, separat lokal gren
 
 - Niclas godkände denna avgränsade fortsättning 2026-11-15. Worktree
   booking-lab-agentprov-2, branch codex/agentprov-2 från e890b69. Agentprov-1
