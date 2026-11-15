@@ -1,3 +1,41 @@
+# Kontroll av salongens körläge · 2026-11-15
+
+Gatewayprodukt `b37d414462320b608e3618f2e3bd274619b6cd3f`,
+salongsprodukt `09f0a0d5f66a4948d0c88b17bf88bdd39046d4c3`,
+båda på `fix/gateway-service-auth`.
+Gatewayen kräver autentiserad split-bekräftelse inför varje agentoperation.
+Äldre samlat körläge, saknat läge och felformat besked stoppas före operationen.
+Salongens äldre direkta API finns kvar för befintliga samlade installationer.
+
+[Groks originalrapport](qa/QA-REPORT-provider-mode-b37d414-09f0a0d.md) stänger
+GS1-QA-3 inom den lokala syntetiska omfattningen. Riktigt prov av omstart
+split → samlat → split bakom samma gateway, nekade anrop och återställd
+åtkomst PASS. SDK-bokningen öppnades i inloggad Chromium-kalender med samma id.
+Grok körde gateway 10/10, salong unit 394/394 och lint/tsc/build. Ny
+integration och full E2E var NOT RUN hos Grok.
+
+Codex körde mot ny loopback gateway_boundary_test med slumpade processhemligheter,
+utan .env-läsning. Prisma generate/migrate/seed, lint, 394 unit, 205 integration,
+build och tsc PASS. Gateway test 10/10 och build PASS. agent:proof gav 10 PASS,
+inklusive REST/MCP, mandat, idempotens, krock och Chromium-kalender.
+check-provider-mode.mts nekade nio operationer mot en extra verklig samlad
+salong med giltig agentnyckel och verifierade oförändrat bokningsantal.
+Loggar finns lokalt i `<local-state>/codex/provider-mode-ixai4uy2/`.
+
+Kontrollen gäller läget vid förkontrollen. Byte till samlat läge exakt mellan
+förkontroll och operation har ett kvarvarande tidsfönster (GS3-QA-4, Info).
+Övrig Info-backlogg avser vidarebefordrad access-5xx-body, fler accessanrop
+mot klientbudgeten och förbefintlig 500 för avstängt proposal-labb.
+Inga nya fixloopar beställda för dessa fynd. Pilot och fjärrdrift är inte godkända.
+Kända sju måttliga utvecklingsberoendefynd kvarstår. Inga beroenden ändrade.
+
+CI väntar vid denna dokumentrevision. Lokal full webb-E2E, npm ci, ny full audit,
+fysisk iPhone och drift är NOT RUN i denna omgång.
+Förregående fulla webbsvit 64/64 finns på 4162ec9 / CI 104ad3a och är historik
+för denna senare kodrevision.
+
+---
+
 # Webbläsarregressioner · aktuell verifiering · 2026-11-15
 
 Gren `fix/gateway-service-auth`, produkt/testcommit `4162ec94e0814828a3868b4648fcf55608471056`.

@@ -1,3 +1,17 @@
+# Salongens körläge · aktuell lokal leverans · 2026-11-15
+
+Gateway `b37d414`, salong `09f0a0d` på `fix/gateway-service-auth`.
+Gatewayen kräver split-bekräftelse inför varje agentoperation. Grok stänger
+GS1-QA-3 efter prov med verklig felkonfiguration, omstart och MCP-bokning till kalendern.
+Lokalt PASS: gateway 10/10, salong 394 unit / 205 integration, lint/tsc/build,
+agent:proof 10/10 samt nio nekade legacyoperationer. CI inväntas efter push.
+[Verifiering och kvarvarande begränsningar](VERIFICATION.md).
+[Groks originalrapport](qa/QA-REPORT-provider-mode-b37d414-09f0a0d.md).
+Fyra Info-fynd kvarstår, inklusive tidsfönstret vid omstart mitt i ett anrop.
+Sju måttliga dev-beroendefynd kvarstår. Pilot är fortsatt NO-GO.
+
+---
+
 # Kundspårets regressioner · aktuell status · 2026-11-15
 
 Produkt/test `4162ec94e0814828a3868b4648fcf55608471056` på `fix/gateway-service-auth`.
