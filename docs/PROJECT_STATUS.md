@@ -1,3 +1,24 @@
+# Gateway/salong · aktuell lokal status · 2026-11-15
+
+Gren `fix/gateway-service-auth`. Salongens produkt `c7eeda6`, senare
+testcommit `587d84a55475da0f173a1720970de5fea36360b8`; gateway `a239275`.
+Grok har stängt GS-QA-1 och klickat fram samma MCP-bokning i salongskalendern.
+Sekretesskontrollerna använder nu hela nyckelhemligheten och ett reproducerbart
+`_o`-fall i enhetstesterna. Codex verifierade 392/392 unit, 205/205 integration,
+lint, typkontroll, build och 10/10 agent:proof mot en ny isolerad lokal databas.
+
+Kör provet enligt [GATEWAY_SPLIT](GATEWAY_SPLIT.md).
+Kommandoutfall, NOT RUN och skillnaden mellan Groks produktgranskning och den
+senare testrättningen finns i [VERIFICATION](VERIFICATION.md).
+[Groks originalrapport](qa/QA-REPORT-GS-QA-1-a239275-c7eeda6.md) behåller sina två
+röda testutfall. Codex har därefter återskapat och rättat det felaktiga suffixprovet.
+
+Ändringarna är lokala. CI, molndrift/TLS, fysisk iPhone och pilot är kvar.
+Low/Info i rapporten är backlogg, inklusive loggning av nekad tjänsteidentitet
+och upptäckt av konfigurationsdrift till äldre samlat körläge.
+
+---
+
 # Public read-only preview · aktuell lokal gren · 2026-11-15
 
 `codex/public-readonly-preview` från `e890b69`. PUBLIC_READONLY=1 ger

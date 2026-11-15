@@ -1,3 +1,45 @@
+# Gateway/salong · aktuell lokal verifiering · 2026-11-15
+
+Gren `fix/gateway-service-auth`, salongens testcommit `587d84a55475da0f173a1720970de5fea36360b8`.
+Produktkod i salongen `c7eeda6f9a1d32e67866082b941dffb2ea5e621f`,
+gateway `a2392754df0c28df300e38a44a514e57087075a5`.
+Senaste ändringen omfattar enbart sekretesskontroller i tester.
+Fast syntetisk enhetsnyckel slutar på `_o`; hela 43-teckenshemligheten
+kontrolleras i lagring, listor och loggar. Slumpade integrationsnycklar behålls.
+
+| Kört kommando | Faktiskt utfall |
+| --- | --- |
+| node node_modules/prisma/build/index.js generate | exit 0 |
+| npm run db:migrate | exit 0, ny isolerad gateway_boundary_test |
+| npm run db:seed | exit 0, syntetiska grunddata |
+| npm run lint | exit 0 |
+| npm test | 392/392, 41 filer, exit 0 |
+| npm run test:integration | 205/205, 37 filer, exit 0 |
+| npm run build | exit 0 |
+| node node_modules/typescript/bin/tsc --noEmit | exit 0 |
+| npm run agent:proof | 10/10 PASS, exit 0, produktionsbygge med separat gateway och Chromium-kalender |
+| Gamla assertions med samma fasta nyckel i tillfällig testkopia | förväntad exit 1, 2 fel / 14 godkända; kopian borttagen |
+
+Loggar sparade lokalt i `<local-state>/codex/gsqa1-lgzod0e_/`.
+Koordinator `<local-scratch>/gsqa1-verify.py` skapar en ny PostgreSQL-instans på
+loopback med slumpade processhemligheter, tillämpar DB-vakten och stoppar egna processer.
+Ingen .env lästes. Produktfiler, beroenden och migrationer har samma innehåll som
+den granskade produktrevisionen.
+
+Groks [originalrapport](qa/QA-REPORT-GS-QA-1-a239275-c7eeda6.md) gäller produktrevisionerna
+ovan. GS-QA-1 stängd; egna SDK-bokningen öppnades genom kalenderklick med exakt samma id.
+Grok fick 391/392 och 204/205 i sina ursprungliga grindar på grund av suffixfelet.
+Dessa röda originalutfall består i rapporten. Den senare testrättningen har
+verifierats av Codex; ingen ny Grok-granskning av testcommitten är utförd.
+
+NOT RUN i denna omgång: npm ci, gatewayens oförändrade separata svit, npm audit,
+full webb-E2E, CI, deployment, TLS, fysisk iPhone och ChatGPT som klient.
+Tidigare gateway 8/8 och build har oberoende Grok-bevis i rapporten.
+Kvarvarande Low/Info inkluderar saknad logg för nekad tjänsteidentitet och
+konfigurationsdrift till äldre samlat läge. Pilotgodkännande kvarstår.
+
+## Tidigare verifiering
+
 # Public read-only cleanup · 2026-11-15
 
 Lokal branch `codex/public-readonly-cleanup`, bas
