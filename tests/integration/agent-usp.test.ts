@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DateTime } from "luxon";
-import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
+import { Client, InsufficientScopeError, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { db } from "../../src/lib/db";
 import { createAgentApiKey } from "../../src/lib/agent-api/keys";
 import { handleMcp } from "../../src/lib/agent-api/mcp";
@@ -86,7 +86,8 @@ describe("USP aliases preserve native authority and business logic", () => {
     expect(stored.locationId).toBe(slot.locationId);
     expect(stored.scheduleId).toBe(slot.scheduleId);
     const args = bookingArgs(slot, stored.id);
-    expect(payload(await call(cr, "usp_bookings_create", args)).error.code).toBe("forbidden_scope");
+    await expect(call(cr, "usp_bookings_create", args)).rejects.toBeInstanceOf(InsufficientScopeError);
+    expect(await db.agentBooking.count({ where: { clientId: readOnly.record.clientId } })).toBe(0);
     expect((await call(ca, "usp_bookings_create", { ...args, mandate: { locationId: "anywhere", maxPriceOre: 999999 } })).isError).toBe(true);
     const { idempotencyKey, mandateId: _unused, ...body } = args;
     void _unused;

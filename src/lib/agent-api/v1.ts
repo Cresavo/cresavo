@@ -1,3 +1,4 @@
+import { auditContext, recordAudit } from "./audit";
 import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { z, ZodError } from "zod";
@@ -5,10 +6,11 @@ import { db } from "../db";
 import { DEMO_BUSINESS_ID } from "../config";
 import { DomainError } from "../errors";
 import { checkRateLimit } from "../rate-limit";
-import { listServices, getAvailability } from "../domain";
+import { getBookingProvider } from "./provider";
 import { parseDay, ZONE } from "../time";
 import { dateSchema } from "../validation";
 import { AgentApiError, agentApiErrors, type AgentApiErrorCode } from "./errors";
+import { discoveryOrigin } from "./discovery";
 import { DEMO_LOCATION_ID, placeForStaff } from "./place";
 import {
   assertBusinessAccess,
@@ -20,9 +22,10 @@ import {
 export const API_VERSION = "v1";
 export const MAX_RANGE_DAYS = 14;
 
-// The engine currently serves exactly one synthetic business. The API layer
-// still checks every request against the key's business (OWASP API1 / BOLA).
+// Closed synthetic business allowlist; provider registration cannot widen it.
+// Every request is checked against the credential business (OWASP API1 / BOLA).
 const BUSINESSES: Record<string, { id: string; name: string; timeZone: string; locationId: string }> = {
+  "lab-partner": { id: "lab-partner", name: "Synthetic partner lab", timeZone: ZONE, locationId: DEMO_LOCATION_ID },
   [DEMO_BUSINESS_ID]: {
     id: DEMO_BUSINESS_ID,
     name: "Salong Eko (synthetic demo)",
@@ -35,6 +38,13 @@ const id = z.string().trim().min(1).max(128);
 
 const headers = { "Cache-Control": "no-store", "X-Booking-Lab-Api": API_VERSION };
 
+function authChallenge(code: AgentApiErrorCode) {
+  let metadata = "";
+  try { metadata = `, resource_metadata="${discoveryOrigin()}/.well-known/oauth-protected-resource"`; }
+  catch { /* Invalid operator configuration: never fall back to request headers. */ }
+  return `Bearer realm="booking-lab-agent-api"${metadata}${code === "forbidden_scope" ? ', error="insufficient_scope"' : ""}`;
+}
+
 export function agentErrorResponse(code: AgentApiErrorCode, retryAfter?: number) {
   const { status, message } = agentApiErrors[code];
   return NextResponse.json(
@@ -43,7 +53,7 @@ export function agentErrorResponse(code: AgentApiErrorCode, retryAfter?: number)
       status,
       headers: {
         ...headers,
-        ...(status === 401 ? { "WWW-Authenticate": 'Bearer realm="booking-lab-agent-api"' } : {}),
+        ...(status === 401 || code === "forbidden_scope" ? { "WWW-Authenticate": authChallenge(code) } : {}),
         ...(retryAfter ? { "Retry-After": String(retryAfter) } : {}),
       },
     },
@@ -92,10 +102,10 @@ export class Created {
   constructor(readonly body: unknown) {}
 }
 
-export async function agentRoute(
+async function agentRouteInternal(
   request: Request,
   route: string,
-  scope: AgentScope,
+  scope: AgentScope | readonly AgentScope[],
   handler: AgentHandler,
 ) {
   let principal: AgentPrincipal | null = null;
@@ -104,10 +114,12 @@ export async function agentRoute(
     await checkRateLimit("agent-api", `client:${principal.clientId}`);
     const result = await handler(principal, new URL(request.url).searchParams, request);
     const status = result instanceof Created ? 201 : 200;
+    await recordAudit({ businessId: principal?.businessId as "demo" | "lab-partner" | undefined, event: "agent.request", outcome: String(status), route, clientId: principal.clientId, keyId: principal.keyId, scopes: principal.scopes });
     logUsage(route, principal, status);
     return NextResponse.json(result instanceof Created ? result.body : result, { status, headers });
   } catch (error) {
     const { code, retryAfter } = mapAgentError(error);
+    await recordAudit({ businessId: principal?.businessId as "demo" | "lab-partner" | undefined, event: "agent.request", outcome: code, route, ...(principal ? { clientId: principal.clientId, keyId: principal.keyId, scopes: principal.scopes } : {}) });
     logUsage(route, principal, agentApiErrors[code].status);
     return agentErrorResponse(code, retryAfter);
   }
@@ -120,15 +132,6 @@ export function business(principal: AgentPrincipal, value: unknown) {
   const found = BUSINESSES[requested.data];
   if (!found) throw new AgentApiError("business_not_found");
   return found;
-}
-
-export async function activeStaff() {
-  return db.staff.findMany({
-    where: { businessId: DEMO_BUSINESS_ID, active: true },
-    select: { id: true, name: true, serviceIds: true },
-    orderBy: [{ name: "asc" }, { id: "asc" }],
-    take: 100,
-  });
 }
 
 export function serviceView(
@@ -148,7 +151,7 @@ export function serviceView(
 
 export async function servicesV1(principal: AgentPrincipal, params: URLSearchParams) {
   const b = business(principal, params.get("business"));
-  const [services, staff] = await Promise.all([listServices(), activeStaff()]);
+  const { services, resources: staff } = await getBookingProvider(principal.businessId).listServices();
   return {
     apiVersion: API_VERSION,
     business: b,
@@ -188,16 +191,17 @@ export async function availabilityV1(principal: AgentPrincipal, params: URLSearc
   if (!serviceId.success) throw new AgentApiError("invalid_request");
   const staffParam = params.get("staff");
   const days = dayRange(params);
-  const service = (await listServices()).find((s) => s.id === serviceId.data);
+  const { services, resources } = await getBookingProvider(principal.businessId).listServices();
+  const service = services.find((s) => s.id === serviceId.data);
   if (!service) throw new AgentApiError("service_not_found");
-  const staff = (await activeStaff()).filter(
+  const staff = resources.filter(
     (m) => m.serviceIds.includes(service.id) && (!staffParam || m.id === staffParam),
   );
   if (staffParam && !staff.length) throw new AgentApiError("staff_not_found");
   const slots = [];
   for (const day of days)
     for (const member of staff)
-      for (const start of await getAvailability(service.id, day, db, member.id)) {
+      for (const start of (await getBookingProvider(principal.businessId).getAvailability(service.id, day, member.id)).starts) {
         const at = DateTime.fromISO(start, { zone: ZONE });
         slots.push({
           start: at.toISO({ suppressMilliseconds: true })!,
@@ -218,3 +222,5 @@ export async function availabilityV1(principal: AgentPrincipal, params: URLSearc
     slots,
   };
 }
+
+export const agentRoute: typeof agentRouteInternal = (...args) => auditContext(() => agentRouteInternal(...args));

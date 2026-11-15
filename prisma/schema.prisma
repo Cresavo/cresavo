@@ -219,11 +219,13 @@ model AgentBooking {
   clientId String
   mandateId String? @unique
   client AgentClient @relation(fields: [businessId, clientId], references: [businessId, id], onDelete: Restrict)
-  booking Booking @relation(fields: [businessId, bookingId], references: [businessId, id], onDelete: Restrict)
+  nativeBookingId String? @unique
+  booking Booking? @relation(fields: [businessId, nativeBookingId], references: [businessId, id], onDelete: Restrict)
   mandate AgentMandate? @relation(fields: [businessId, mandateId, clientId], references: [businessId, id, clientId], onDelete: Restrict)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   @@index([keyId, createdAt])
   @@unique([businessId, bookingId])
+  @@unique([businessId, nativeBookingId])
   @@unique([businessId, mandateId, clientId])
   @@index([businessId, clientId, createdAt])
 }
@@ -236,10 +238,11 @@ model AgentClient {
   keys AgentApiKey[]
   bookings AgentBooking[]
   mandates AgentMandate[]
+  proposals AgentProposal[]
   @@unique([businessId, id])
 }
 
-// Synthetic operator authorisation only. Not proof of a real customer's consent.
+// Bounded operator authority or synthetic lab customer consent. No real identity proof.
 model AgentMandate {
   id String @id @default(cuid())
   businessId String
@@ -256,9 +259,13 @@ model AgentMandate {
   currency String @default("SEK")
   origin String
   originReference String
+  proposalHash String?
+  verifiedVia String?
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   revokedAt DateTime? @db.Timestamptz(3)
   booking AgentBooking?
+  partnerAttempt PartnerBookingAttempt?
+  proposal AgentProposal?
   @@unique([businessId, id, clientId])
   @@index([businessId, clientId, createdAt])
 }
@@ -275,4 +282,75 @@ model AgentApiEvent {
   startsAt DateTime? @db.Timestamptz(3)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   @@index([businessId, createdAt, id])
+}
+
+// One-use synthetic customer consent. Only the digest of the link is stored.
+model AgentProposal {
+  id String @id @default(cuid())
+  businessId String
+  clientId String
+  client AgentClient @relation(fields: [businessId, clientId], references: [businessId, id], onDelete: Restrict)
+  serviceId String
+  serviceVersion Int
+  serviceName String
+  staffId String
+  staffName String
+  locationId String
+  scheduleId String
+  startsAt DateTime @db.Timestamptz(3)
+  duration Int
+  priceOre Int
+  proposalHash String
+  tokenHash String @unique
+  smsOtpRequired Boolean @default(false)
+  phoneHash String?
+  phoneMask String?
+  otpHash String?
+  otpExpiresAt DateTime? @db.Timestamptz(3)
+  otpAttempts Int @default(0)
+  otpLastSentAt DateTime? @db.Timestamptz(3)
+  otpVerifiedAt DateTime? @db.Timestamptz(3)
+  status String @default("pending")
+  expiresAt DateTime @db.Timestamptz(3)
+  mandateId String? @unique
+  mandate AgentMandate? @relation(fields: [businessId, mandateId, clientId], references: [businessId, id, clientId], onDelete: Restrict, map: "AgentProposal_mandate_fk")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([businessId, mandateId, clientId])
+  @@index([businessId, clientId, createdAt])
+}
+
+// Independent, redacted operator audit. No customer or credential columns.
+model AgentAuditEvent {
+  id String @id @default(cuid())
+  createdAt DateTime @default(now())
+  businessId String
+  event String
+  outcome String
+  clientId String?
+  keyId String?
+  scopes String[]
+  route String?
+  tool String?
+  requestId String
+  proposalId String?
+  mandateId String?
+  bookingId String?
+  @@index([businessId, createdAt, id])
+  @@index([proposalId])
+  @@index([mandateId])
+  @@index([bookingId])
+  @@index([requestId])
+}
+
+// Durable reservation before a non-transactional provider call. No contact data.
+model PartnerBookingAttempt {
+  idempotencyKey String @id
+  mandateId String @unique
+  businessId String
+  clientId String
+  providerId String
+  bodyHash String
+  mandate AgentMandate @relation(fields: [businessId, mandateId, clientId], references: [businessId, id, clientId], onDelete: Restrict, map: "PartnerBookingAttempt_mandate_fk")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([businessId, mandateId, clientId])
 }

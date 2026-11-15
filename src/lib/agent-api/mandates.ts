@@ -1,3 +1,4 @@
+import { recordAudit } from "./audit";
 import type { Prisma, PrismaClient, AgentMandate } from "@prisma/client";
 import { AgentApiError } from "./errors";
 import type { AgentPrincipal } from "./keys";
@@ -11,10 +12,12 @@ export async function issueSyntheticMandate(input: unknown, client: PrismaClient
     where: { id: data.clientId, businessId: data.businessId, active: true },
   });
   if (!owner) throw new AgentApiError("mandate_denied");
-  return client.agentMandate.create({ data: {
+  const mandate = await client.agentMandate.create({ data: {
     ...data, validFrom: new Date(data.validFrom), validUntil: new Date(data.validUntil),
     expiresAt: new Date(data.expiresAt),
   } });
+  await recordAudit({ businessId: data.businessId, event: "mandate.created", outcome: "synthetic-operator", mandateId: mandate.id, clientId: mandate.clientId });
+  return mandate;
 }
 
 /** Revocation and rotation linearise against these row locks at commit. */

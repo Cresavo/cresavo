@@ -1,8 +1,11 @@
 import { z } from "zod";
+import { proposalSchema } from "./proposals";
 
 const business = z.string().describe("Business id authorised by the configured API key.");
 // Shared by native tools, USP name aliases and their published native schema.
 export const mcpInputs = {
+  create_proposal: proposalSchema,
+  get_proposal: z.object({ proposalId: z.string().min(1).max(128) }).strict(),
   list_services: z.object({ business }).strict(),
   get_service: z.object({ business, service: z.string() }).strict(),
   get_availability: z.object({
