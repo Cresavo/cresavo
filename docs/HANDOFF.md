@@ -4,7 +4,10 @@ Gateway `b37d414`, salong `09f0a0d` på `fix/gateway-service-auth`.
 Gatewayen kräver split-bekräftelse inför varje agentoperation. Grok stänger
 GS1-QA-3 efter prov med verklig felkonfiguration, omstart och MCP-bokning till kalendern.
 Lokalt PASS: gateway 10/10, salong 394 unit / 205 integration, lint/tsc/build,
-agent:proof 10/10 samt nio nekade legacyoperationer. CI inväntas efter push.
+agent:proof 10/10 samt nio nekade legacyoperationer.
+CI är grön i båda repona: salong 43769377375 på 1af3fa2 med 64/64 webbtester
+och gateway 43769382799 på b37d414 med 10/10. Endast dev/proxy 0 kördes i
+salongens feature-CI. Detaljer och exakta revisioner finns i verifieringen.
 [Verifiering och kvarvarande begränsningar](VERIFICATION.md).
 [Groks originalrapport](qa/QA-REPORT-provider-mode-b37d414-09f0a0d.md).
 Fyra Info-fynd kvarstår, inklusive tidsfönstret vid omstart mitt i ett anrop.

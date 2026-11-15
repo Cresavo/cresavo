@@ -29,10 +29,19 @@ mot klientbudgeten och förbefintlig 500 för avstängt proposal-labb.
 Inga nya fixloopar beställda för dessa fynd. Pilot och fjärrdrift är inte godkända.
 Kända sju måttliga utvecklingsberoendefynd kvarstår. Inga beroenden ändrade.
 
-CI väntar vid denna dokumentrevision. Lokal full webb-E2E, npm ci, ny full audit,
-fysisk iPhone och drift är NOT RUN i denna omgång.
-Förregående fulla webbsvit 64/64 finns på 4162ec9 / CI 104ad3a och är historik
-för denna senare kodrevision.
+CI avslutades grönt efter push. Salongens
+[43769377375](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43769377375)
+körde exakt `1af3fa2ec5b9b3e14746d4d611631affec3fba2f`:
+npm ci, Docker/PostgreSQL, Prisma generate/migrate/seed, lint, 394 unit,
+205 integration, build, 13 MCP-kort, 64 webb-E2E och tsc PASS.
+Det körda feature-jobbet är dev/proxy 0.
+Gatewayens [43769382799](https://github.com/niclasvestlund-YT/booking-lab-gateway/actions/runs/43769382799)
+körde exakt `b37d414462320b608e3618f2e3bd274619b6cd3f`:
+npm ci, build och 10/10 tester PASS. Gatewayinstallationen gav noll auditfynd;
+salongsinstallationen rapporterade fortfarande sju moderate.
+Efterföljande commit ändrar endast dokumentation.
+Lokal full webb-E2E, lokal npm ci, ny full audit, fysisk iPhone och drift är
+NOT RUN i denna omgång. Full fyrfältsmatris är NOT RUN.
 
 ---
 
