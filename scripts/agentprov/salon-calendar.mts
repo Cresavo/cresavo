@@ -33,6 +33,22 @@ export async function checkSalonCalendar(address: string, gateway: URL, bookingI
     assert.ok((await calendar.text()).includes("/admin/bookings/" + bookingId), "calendar has the exact booking link");
     const logout = await get("/api/admin/logout", { method: "POST", headers: { cookie, origin: salon.origin } });
     assert.equal(logout.status, 200);
+    // Start a fresh browser with none of the HTTP test's cookies.
+    const { chromium } = await import("@playwright/test");
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 850 } });
+      await page.goto(new URL(path, salon.origin).href);
+      await page.locator('input[name="email"]').fill(email);
+      await page.locator('input[name="password"]').fill(password);
+      await page.locator("form").filter({ has: page.locator("#password") }).getByRole("button").click();
+      const bookingPath = "/admin/bookings/" + bookingId;
+      await page.locator(`a[href^="${bookingPath}"]:visible`).first().click();
+      await page.waitForURL(url => url.origin === salon.origin && url.pathname === bookingPath);
+      await page.getByRole("heading", { name: /^(Booking|Bokning)$/ }).waitFor();
+    } finally {
+      await browser.close();
+    }
   } finally {
     await db.$transaction([db.adminSession.deleteMany({ where: { userId: user.id } }), db.adminUser.delete({ where: { id: user.id } })]);
   }

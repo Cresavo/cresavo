@@ -23,7 +23,7 @@ Tillför `DATABASE_URL` och ett separat tillfälligt `SESSION_SECRET` (minst 32 
 salongen och provets process på vanligt säkert sätt. En isolerad terminal för gatewayen
 behöver bara `SALON_ORIGIN` och `PORT`. Kör Node 24.
 
-1. I salongens repo: `npm ci`, `npx prisma generate`, `npm run db:migrate`, `npm run db:seed`, `npm run build`.
+1. I salongens repo: `npm ci`, `npx playwright install chromium`, `npx prisma generate`, `npm run db:migrate`, `npm run db:seed`, `npm run build`.
 2. I salongsterminalen: sätt `PORT=3217`, `BOOKING_SERVICE_ROLE=salon`,
    `BOOKING_PUBLIC_ORIGIN=http://127.0.0.1:3218`. Starta med `npm start`.
 3. I gatewayens repo: `npm ci`. Sätt `SALON_ORIGIN=http://127.0.0.1:3217`, `PORT=3218`, kör `npm start`.
@@ -31,7 +31,8 @@ behöver bara `SALON_ORIGIN` och `PORT`. Kör Node 24.
    `AGENTPROV_SALON_URL=http://127.0.0.1:3217` och kör `npm run agent:proof` mot samma test-DB som salongen.
 5. Förvänta nio PASS-rader inklusive `SEPARATE_SALON_AUTHENTICATED_CALENDAR` och
    `TWO_TRANSPORTS_ONE_WINNER_ONE_CONTROLLED_CONFLICT`. Provet skapar egna syntetiska aktörer
-   och kontrollerar en länk till exakt rätt boknings-id i salongens inloggade kalender innan städning.
+   och kontrollerar en länk till exakt rätt boknings-id i salongens inloggade kalender. En separat
+   Chromium-session loggar sedan in via formuläret och klickar vidare till samma bokningsdetalj innan städning.
 
 Provet går via två processer och riktiga HTTP-anrop. Databasåtkomsten i provkoordinatorn används
 för operatörens syntetiska mandat, nycklar och städning. Gatewayens bokningsväg har ingen sådan åtkomst.
