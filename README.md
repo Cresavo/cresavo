@@ -350,59 +350,29 @@ Test- och demovakten avvisar även `host`/`hostaddr` i URL-parametrar före data
 
 ## Agent API v1 (sandbox)
 
-A small, versioned HTTP + MCP API so AI agents can read services and available
-times, book, read status and cancel in the synthetic demo salon. It reuses the
-booking engine (`listServices`, `getAvailability`, `createBooking` with its
-locks, idempotency and daily caps). Spec:
-[`docs/agent-api-v1.openapi.yaml`](docs/agent-api-v1.openapi.yaml). Live feed:
-`/live`.
+REST and stateless Streamable HTTP MCP reuse the existing engine, locks,
+idempotency and quotas. See the [OpenAPI contract](docs/agent-api-v1.openapi.yaml)
+and [Agentprov 1 runbook](docs/AGENTPROV_1_RUNBOOK.md).
 
-Every key is tied to one business, a named agent, a responsible person and a
-provenance label (`demo-script`, `registered-client`, `verified-agent-proof`)
-shown on `/live`. Only a SHA-256 digest of the key is stored; the key is
-printed once. A key can only see and cancel bookings it created.
+- A stable client owns its bookings. Operator key rotation revokes the old
+  credential while preserving ownership, idempotency and daily quotas.
+- Creation requires a stored, one-use synthetic operator mandate bound to that
+  client, business, service, provider, treatment window and current price cap.
+  `confirmed: true` alone grants no authority. No agent endpoint issues grants.
+- Same payload, mandate and Idempotency-Key: first REST response 201, subsequent
+  receipts 200 with the same booking id. Conflicts return a controlled 409.
+- HTTP-MCP tools: list_services, get_availability, create_booking, get_booking,
+  cancel_booking. Bearer/API-key authentication is not OAuth; OAuth-only clients
+  are not yet compatible. Local stdio MCP remains a separate trusted path.
+- `/live` is a filtered synthetic best-effort feed, not an audit log or proof
+  that a named AI assistant actually ran. Booking id/status are authoritative.
 
-```bash
-npm run db:migrate && npm run db:seed
-npm run agent-keys -- create --agent "My test agent" --owner "Jane Doe" --contact "jane@example.test" [--kind demo-script]
-npm run agent-keys -- list
-npm run agent-keys -- revoke blk_<prefix>
-```
+After starting the wrapper on loopback with the same isolated test database,
+run `npm run agent:proof`. It provisions two temporary test credentials in
+memory, uses independent REST/MCP subprocesses, asserts results and removes its
+own fixtures. It never prints the credentials or creates customer profiles.
+The older key CLI prints credentials and is not used by this proof; legacy
+agent demo/smoke scripts predate mandates and are not current acceptance tools.
 
-```bash
-KEY=blk_...   # printed once by the create command
-curl -s -H "Authorization: Bearer $KEY" "http://localhost:3000/api/v1/services?business=demo"
-curl -s -H "X-API-Key: $KEY" \
-  "http://localhost:3000/api/v1/availability?business=demo&service=fotvard&date=2026-11-16"
-curl -s -X POST -H "Authorization: Bearer $KEY" -H "Idempotency-Key: try-1" -H "content-type: application/json" \
-  -d '{"business":"demo","serviceId":"fotvard","serviceVersion":1,"staffId":"staff-demo","start":"2026-11-16T09:00:00+01:00","customer":{"name":"Test Person","email":"person@example.test"},"confirmed":true}' \
-  http://localhost:3000/api/v1/bookings
-curl -s -X POST -H "Authorization: Bearer $KEY" http://localhost:3000/api/v1/bookings/<id>/cancel
-```
-
-Availability response (abridged):
-
-```json
-{
-  "apiVersion": "v1",
-  "business": { "id": "demo", "name": "Salong Eko (synthetic demo)", "timeZone": "Europe/Stockholm" },
-  "range": { "from": "2026-11-16", "to": "2026-11-16", "timeZone": "Europe/Stockholm" },
-  "slots": [
-    { "start": "2026-11-16T09:00:00+01:00", "end": "2026-11-16T10:00:00+01:00", "durationMinutes": 60,
-      "serviceId": "fotvard", "serviceVersion": 1, "staff": { "id": "staff-demo", "name": "Anna" } }
-  ]
-}
-```
-
-Errors are always `{ "apiVersion": "v1", "error": { "code": "...", "message": "..." } }`
-(e.g. `unauthorized` 401, `forbidden_business` 403, `booking_not_found` 404,
-`slot_unavailable` / `stale_service` / `idempotency_conflict` 409, `rate_limited` 429).
-
-**MCP over HTTP:** `POST /api/v1/mcp` (Streamable HTTP, stateless) with the same
-`Authorization: Bearer` key. Tools: `list_services`, `get_availability`,
-`create_booking`, `get_booking`, `cancel_booking`. This is API-key auth, not the
-MCP OAuth authorization flow, so clients that only support OAuth will not connect yet.
-Try it: `AGENT_API_KEY=... node --import tsx scripts/agent-mcp-smoke.mts http://localhost:3000`.
-REST demo client: `scripts/agent-demo.mts` (use a `--kind demo-script` key).
-
-Not in v1: rescheduling, OAuth, multiple businesses, real customer data.
+Still out of scope: real customer consent/identity, cloud OAuth-MCP,
+rescheduling contracts, multiple salons and external booking providers.

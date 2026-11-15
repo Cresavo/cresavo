@@ -58,3 +58,22 @@ schema/migrationsordning, lokal MCP workspace och publika bokningsformulär.
 Agentmandatet får inte framställas som införande av den saknade delade policyn.
 
 Svenska looprapporter på denna Windows-körning: <local-scratch>/night-NN.md.
+
+## Avgränsad städning och kvarvarande parkering
+
+`park/legacy` bevarar bf7b6c3507fd68503b9e797dce55e71f87e8bd1c lokalt.
+Den oanvända `src/app/product/scene.tsx` saknar importer och tas bort separat
+efter godkänd kontraktsmatris. README:s aktuella API-del ersätter gamla exempel
+som saknade mandat; historiska resultat behålls och märks som historik.
+
+Bred modulbortkoppling är **inte genomförd**: adminbokningens editor importerar
+fortfarande customers/picker och länkar kundkort; domänens customerId-koppling,
+kontaktborttagningsskydd och workspace-write används även av nödvändig admin.
+Lokal MCP delar dessutom schemas/importer för kampanj/kapacitet och kortlägen.
+Att flytta katalogerna direkt skulle bryta befintliga ingångar och tester.
+Snapshotbranchen betyder därför inte att modulerna är borttagna ur arbetsgrenen.
+
+Nästa separata städuppgift är att koppla loss UI/adapteringångarna en grupp åt
+gången och verifiera nödvändig admin/startsida innan borttagning. Inga lås,
+historiska migrationer, skydd eller tester har tagits bort för att få grönt.
+Agentprov 1 är körbart utan den större städningen; den redovisas som återstående.
