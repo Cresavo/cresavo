@@ -1,3 +1,4 @@
+import { auditContext, recordAudit } from "./audit";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { db } from "../db";
 import { checkRateLimit } from "../rate-limit";
@@ -10,10 +11,11 @@ import { mcpInputs } from "./mcp-inputs";
 
 // Same business rules and key checks as the REST API. Authentication is the
 // sandbox API key or process-local lab OAuth access token.
-async function tool(principal: AgentPrincipal, scope: AgentScope | readonly AgentScope[], run: () => Promise<unknown>) {
+async function tool(principal: AgentPrincipal, scope: AgentScope | readonly AgentScope[], run: () => Promise<unknown>, name: string) {
   try {
-    if (!(Array.isArray(scope) ? scope : [scope]).some(s => principal.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
+    if (!(Array.isArray(scope) ? scope : [scope]).some(s => principal!.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
     const result = await run();
+    await recordAudit({ event: "agent.request", outcome: "success", tool: name, clientId: principal.clientId, keyId: principal.keyId, scopes: principal.scopes });
     const body = result instanceof Created ? result.body : result;
     return {
       content: [{ type: "text" as const, text: JSON.stringify(body) }],
@@ -21,6 +23,7 @@ async function tool(principal: AgentPrincipal, scope: AgentScope | readonly Agen
     };
   } catch (error) {
     const { code } = mapAgentError(error);
+    await recordAudit({ event: "agent.request", outcome: code, tool: name, clientId: principal.clientId, keyId: principal.keyId, scopes: principal.scopes });
     const payload = { error: { code, message: agentApiErrors[code].message } };
     return { isError: true, content: [{ type: "text" as const, text: JSON.stringify(payload) }] };
   }
@@ -32,19 +35,19 @@ const params = (o: Record<string, string | undefined>) =>
 export function agentMcpServer(principal: AgentPrincipal) {
   const server = new McpServer({ name: "booking-lab-agent-api", version: "1.0.0" });
   server.registerTool("create_proposal", { description: "Propose an exact synthetic booking for customer consent. Does not grant authority.", inputSchema: mcpInputs.create_proposal },
-    async a => tool(principal, "bookings:write", () => createProposal(principal, a)));
+    async a => tool(principal, "bookings:write", () => createProposal(principal, a), "create_proposal"));
   server.registerTool("get_proposal", { description: "Read this client's proposal status and approved mandateId.", inputSchema: mcpInputs.get_proposal },
-    async a => tool(principal, ["bookings:read", "bookings:write"], () => getProposal(principal, a.proposalId)));
+    async a => tool(principal, ["bookings:read", "bookings:write"], () => getProposal(principal, a.proposalId), "get_proposal"));
   for (const name of ["list_services", "usp_services_list"])
   server.registerTool(
     name,
     { description: "List synthetic services using Booking Lab native v1 arguments/results (USP name alias only).", inputSchema: mcpInputs.list_services },
-    async (a) => tool(principal, "services:read", () => servicesV1(principal, params(a))),
+    async (a) => tool(principal, "services:read", () => servicesV1(principal, params(a)), name),
   );
   server.registerTool("usp_services_get", {
     description: "One service from the same authorised catalog. Native arguments: business, service. Not canonical USP wire format.",
     inputSchema: mcpInputs.get_service,
-  }, async a => tool(principal, "services:read", () => serviceV1(principal, params(a))));
+  }, async a => tool(principal, "services:read", () => serviceV1(principal, params(a)), "usp_services_get"));
   for (const name of ["get_availability", "usp_availability_query"])
   server.registerTool(
     name,
@@ -52,7 +55,7 @@ export function agentMcpServer(principal: AgentPrincipal) {
       description: "Available start times (ISO 8601, Europe/Stockholm). Use date, or from/to (max 14 days).",
       inputSchema: mcpInputs.get_availability,
     },
-    async (a) => tool(principal, "availability:read", () => availabilityV1(principal, params(a))),
+    async (a) => tool(principal, "availability:read", () => availabilityV1(principal, params(a)), name),
   );
   for (const name of ["create_booking", "usp_bookings_create"])
   server.registerTool(
@@ -63,24 +66,25 @@ export function agentMcpServer(principal: AgentPrincipal) {
       inputSchema: mcpInputs.create_booking,
     },
     async ({ idempotencyKey, ...body }) =>
-      tool(principal, "bookings:write", () => createAgentBooking(principal, idempotencyKey, body)),
+      tool(principal, "bookings:write", () => createAgentBooking(principal, idempotencyKey, body), name),
   );
   for (const name of ["get_booking", "usp_bookings_get"])
   server.registerTool(
     name,
     { description: "Read status of a booking owned by this stable client.", inputSchema: mcpInputs.get_booking },
-    async (a) => tool(principal, "bookings:read", () => getBookingV1(principal, a.bookingId)),
+    async (a) => tool(principal, "bookings:read", () => getBookingV1(principal, a.bookingId), name),
   );
   server.registerTool(
     "cancel_booking",
     { description: "Cancel a booking owned by this client. Only on the person's explicit request.", inputSchema: mcpInputs.cancel_booking },
-    async (a) => tool(principal, "bookings:write", () => cancelBookingV1(principal, a.bookingId)),
+    async (a) => tool(principal, "bookings:write", () => cancelBookingV1(principal, a.bookingId), "cancel_booking"),
   );
   return server;
 }
 
-export async function handleMcp(request: Request) {
-  let principal: AgentPrincipal;
+async function handleMcpInternal(request: Request) {
+  let principal: AgentPrincipal | undefined;
+  let requestedTool: string | undefined;
   try {
     principal = await authenticateAgent(request.headers, db, ["services:read", "availability:read", "bookings:read", "bookings:write"]);
     if (request.method === "POST") {
@@ -104,19 +108,28 @@ export async function handleMcp(request: Request) {
           get_booking: "bookings:read", usp_bookings_get: "bookings:read", cancel_booking: "bookings:write",
         };
         const required = rpc?.method === "tools/call" && typeof rpc.params?.name === "string" ? scopes[rpc.params.name] : undefined;
-        if (required && !(Array.isArray(required) ? required : [required]).some(s => principal.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
+        if (required) requestedTool = rpc.params.name;
+        if (required && !(Array.isArray(required) ? required : [required]).some(s => principal!.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
       }
     }
     await checkRateLimit("agent-api", `client:${principal.clientId}`);
   } catch (error) {
     const { code, retryAfter } = mapAgentError(error);
+    await recordAudit({ event: "agent.request", outcome: code, tool: requestedTool, route: "MCP /api/v1/mcp", ...(principal ? { clientId: principal.clientId, scopes: principal.scopes } : {}) });
     return agentErrorResponse(code, retryAfter);
   }
   console.info(JSON.stringify({ event: "agent_api_request", route: "MCP /api/v1/mcp", keyPrefix: `blk_${principal.keyPrefix}`, agentName: principal.agentName }));
-  const handler = createMcpHandler(() => agentMcpServer(principal), { responseMode: "json", maxRequestBodySize: 64 * 1024 });
+  const handler = createMcpHandler(() => agentMcpServer(principal!), { responseMode: "json", maxRequestBodySize: 64 * 1024 });
   try {
-    return await handler.fetch(request);
+    const response = await handler.fetch(request);
+    await recordAudit({ event: "agent.request", outcome: String(response.status), route: "MCP /api/v1/mcp", clientId: principal.clientId, scopes: principal.scopes });
+    return response;
+  } catch (error) {
+    await recordAudit({ event: "agent.request", outcome: "internal_error", route: "MCP /api/v1/mcp", clientId: principal.clientId });
+    throw error;
   } finally {
     await handler.close();
   }
 }
+
+export const handleMcp: typeof handleMcpInternal = (...args) => auditContext(() => handleMcpInternal(...args));

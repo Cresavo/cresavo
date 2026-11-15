@@ -6,6 +6,8 @@ import { POST as mcp } from "../src/app/api/v1/mcp/route";
 import { authenticateAgent } from "../src/lib/agent-api/keys";
 import { db } from "../src/lib/db";
 
+const audit = vi.hoisted(() => vi.fn());
+vi.mock("../src/lib/agent-api/audit", () => ({ auditContext: (run: () => unknown) => run(), recordAudit: audit }));
 const fixture = vi.hoisted(() => ({ active: true, revoked: false }));
 vi.mock("../src/lib/db", () => ({ db: {
   agentApiKey: { upsert: async ({create}: {create:{keyPrefix:string;agentName:string;ownerName:string;kind:string}}) => ({...create,id:`key-${create.keyPrefix}`,clientId:create.keyPrefix,businessId:"demo",client:{active:fixture.active},revokedAt:fixture.revoked ? new Date() : null}) },
@@ -13,6 +15,7 @@ vi.mock("../src/lib/db", () => ({ db: {
   staff: {findMany:async()=>[]},
 } }));
 beforeEach(()=>{
+  audit.mockClear();
   fixture.active=true; fixture.revoked=false;
   vi.stubEnv("BOOKING_PUBLIC_ORIGIN",origin); vi.stubEnv("BOOKING_OAUTH_LAB","1"); vi.stubEnv("BOOKING_RUNTIME","local");
   vi.stubEnv("BOOKING_ADDRESS_SECRET","synthetic-oauth-socket-proof"); vi.stubEnv("RATE_LIMIT_STORE","memory");
@@ -28,6 +31,10 @@ it("serves REST and MCP using the real OAuth verifier and route chain with synth
   const rpc = await call(t,"list_services"); expect(rpc.status).toBe(200);
   expect((await rpcBody(rpc)).result.structuredContent.services[0].id).toBe("massage");
   expect(JSON.stringify(log.mock.calls)).not.toContain(t);
+  const events = audit.mock.calls.map(c => c[0]);
+  expect(events).toContainEqual(expect.objectContaining({ event: "agent.request", tool: "list_services", outcome: "success", scopes: expect.arrayContaining(["services:read"]) }));
+  expect(events).toContainEqual(expect.objectContaining({ event: "agent.request", route: "GET /api/v1/services", outcome: "200" }));
+  expect(JSON.stringify(events)).not.toContain(t);
 });
 it("keeps client identity stable across token requests and separates registered clients",async()=>{
   const a=await accessToken(),b=await accessToken();

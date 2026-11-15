@@ -1,3 +1,4 @@
+import { auditContext, recordAudit } from "./audit";
 import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { z, ZodError } from "zod";
@@ -100,7 +101,7 @@ export class Created {
   constructor(readonly body: unknown) {}
 }
 
-export async function agentRoute(
+async function agentRouteInternal(
   request: Request,
   route: string,
   scope: AgentScope | readonly AgentScope[],
@@ -112,10 +113,12 @@ export async function agentRoute(
     await checkRateLimit("agent-api", `client:${principal.clientId}`);
     const result = await handler(principal, new URL(request.url).searchParams, request);
     const status = result instanceof Created ? 201 : 200;
+    await recordAudit({ event: "agent.request", outcome: String(status), route, clientId: principal.clientId, keyId: principal.keyId, scopes: principal.scopes });
     logUsage(route, principal, status);
     return NextResponse.json(result instanceof Created ? result.body : result, { status, headers });
   } catch (error) {
     const { code, retryAfter } = mapAgentError(error);
+    await recordAudit({ event: "agent.request", outcome: code, route, ...(principal ? { clientId: principal.clientId, keyId: principal.keyId, scopes: principal.scopes } : {}) });
     logUsage(route, principal, agentApiErrors[code].status);
     return agentErrorResponse(code, retryAfter);
   }
@@ -226,3 +229,5 @@ export async function availabilityV1(principal: AgentPrincipal, params: URLSearc
     slots,
   };
 }
+
+export const agentRoute: typeof agentRouteInternal = (...args) => auditContext(() => agentRouteInternal(...args));

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { AgentProposal } from "@prisma/client";
 import type { AgentPrincipal } from "../src/lib/agent-api/keys";
+const audit = vi.hoisted(() => vi.fn());
+vi.mock("../src/lib/agent-api/audit", () => ({ recordAudit: audit, auditContext: (run: () => unknown) => run() }));
 const store = vi.hoisted(() => ({ proposal: null as unknown, mandates: [] as Record<string, unknown>[] }));
 vi.mock("../src/lib/db", () => {
   const tx = {
@@ -30,6 +32,7 @@ const principal: AgentPrincipal = { businessId: "demo", clientId: "client-a", ke
 const now = new Date("2026-11-16T08:00:00Z");
 const input = { business: "demo", serviceId: "massage", serviceVersion: 3, staffId: "anna", start: "2026-11-17T10:00:00+01:00" };
 beforeEach(() => {
+  audit.mockClear();
   store.proposal = null; store.mandates = [];
   vi.stubEnv("BOOKING_CONSENT_LAB", "1"); vi.stubEnv("BOOKING_PUBLIC_ORIGIN", "http://127.0.0.1:3229");
   vi.stubEnv("BOOKING_RUNTIME", "local"); vi.stubEnv("DATABASE_URL", "postgresql://synthetic@127.0.0.1:1/package3_test");
@@ -80,4 +83,21 @@ it("uses a short test-configured TTL and logs no credential", async () => {
   expect(+(store.proposal as AgentProposal).expiresAt).toBe(+now + 2000);
   await customerDecision(r.id, { token: r.token, decision: "no", proposalHash: r.proposalHash }, now);
   expect(JSON.stringify(logs.mock.calls)).not.toContain(r.token);
+});
+
+it("audits created, viewed, approved and mandate with no credential or display data", async () => {
+  const r = await pending();
+  await customerDecision(r.id, { token: r.token, decision: "yes", proposalHash: r.proposalHash }, now);
+  expect(audit.mock.calls.map(c => c[0].event)).toEqual(["proposal.created", "proposal.viewed", "consent.approved", "mandate.created"]);
+  const rows = JSON.stringify(audit.mock.calls);
+  for (const value of [r.token, "Syntetisk Testkund", "Syntetisk Personal", "@example.test"]) expect(rows).not.toContain(value);
+  expect(audit.mock.calls.at(-1)?.[0]).toMatchObject({ proposalId: r.id, mandateId: "mandate-a", clientId: "client-a" });
+});
+it("audits declined and expired attempts", async () => {
+  const r = await pending();
+  await customerDecision(r.id, { token: r.token, decision: "no", proposalHash: r.proposalHash }, now);
+  expect(audit.mock.calls.at(-1)?.[0].event).toBe("consent.declined");
+  const expired = await pending();
+  await expect(customerDecision(expired.id, { token: expired.token, decision: "yes", proposalHash: expired.proposalHash }, new Date(+now + 600000))).rejects.toBeDefined();
+  expect(audit.mock.calls.at(-1)?.[0].event).toBe("proposal.expired");
 });

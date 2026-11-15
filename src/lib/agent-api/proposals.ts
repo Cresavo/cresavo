@@ -1,3 +1,4 @@
+import { auditContext, recordAudit } from "./audit";
 import { z } from "zod";
 import type { AgentProposal } from "@prisma/client";
 import { db } from "../db";
@@ -50,6 +51,7 @@ export async function createProposal(p: AgentPrincipal, body: unknown, now = new
       duration: service.duration, priceOre: service.priceOre, proposalHash: bookingProposalHash(snapshot),
       tokenHash: digest, expiresAt: new Date(Math.min(+now + ttl * 1000, +start)) } });
   });
+  await recordAudit({ event: "proposal.created", outcome: "pending", proposalId: row.id, clientId: row.clientId });
   console.info(JSON.stringify({ event: "customer_proposal", outcome: "pending" }));
   return { proposal: view(row, now), ...labCustomerIdentity.deliver(row.id, token) };
 }
@@ -63,13 +65,18 @@ export const customerDecisionSchema = z.object({
   token: z.string().regex(/^[A-Za-z0-9_-]{43}$/), decision: z.enum(["view", "yes", "no"]),
   proposalHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
 }).strict();
-export async function customerDecision(proposalId: string, body: unknown, now?: Date) {
+async function customerDecisionInternal(proposalId: string, body: unknown, now?: Date) {
   requireConsentLab();
   const input = customerDecisionSchema.parse(body);
-  const result = await db.$transaction(async tx => {
+  let auditRow: AgentProposal | undefined;
+  let approvedMandate: string | undefined;
+  let expired = false;
+  let result;
+  try { result = await db.$transaction(async tx => {
     const rows = await tx.$queryRaw<AgentProposal[]>`SELECT * FROM "AgentProposal" WHERE "id"=${proposalId} AND "tokenHash"=${labCustomerIdentity.credentialDigest(input.token)} FOR UPDATE`;
     const row = rows[0];
     const decisionTime = now ?? new Date();
+    if (row) { auditRow = row; expired = status(row, decisionTime) === "expired"; }
     if (!row || status(row, decisionTime) !== "pending" || row.proposalHash !== proposalHash(row))
       throw new AgentApiError("mandate_denied");
     if (input.decision === "view") return { proposal: view(row, decisionTime), proposalHash: row.proposalHash, customer: labCustomerIdentity.displayName };
@@ -85,11 +92,22 @@ export async function customerDecision(proposalId: string, body: unknown, now?: 
         expiresAt: row.expiresAt, maxPriceOre: row.priceOre, currency: "SEK",
         origin: "customer-consent", originReference: row.id, proposalHash: row.proposalHash,
       } });
-      mandateId = mandate.id;
+      mandateId = mandate.id; approvedMandate = mandate.id;
     }
     await tx.agentProposal.update({ where: { id: row.id }, data: { status: input.decision === "yes" ? "approved" : "declined", mandateId } });
     return { status: input.decision === "yes" ? "approved" : "declined" };
   });
+  } catch (error) {
+    if (expired && auditRow) await recordAudit({ event: "proposal.expired", outcome: "expired", proposalId: auditRow.id, clientId: auditRow.clientId });
+    throw error;
+  }
+  if (auditRow) {
+    const detail = { proposalId: auditRow.id, clientId: auditRow.clientId, mandateId: approvedMandate };
+    await recordAudit({ ...detail, event: input.decision === "view" ? "proposal.viewed" : input.decision === "yes" ? "consent.approved" : "consent.declined", outcome: "success" });
+    if (approvedMandate) await recordAudit({ ...detail, event: "mandate.created", outcome: "customer-consent" });
+  }
   console.info(JSON.stringify({ event: "customer_consent", outcome: input.decision === "view" ? "view" : result.status }));
   return result;
 }
+
+export const customerDecision: typeof customerDecisionInternal = (...args) => auditContext(() => customerDecisionInternal(...args));

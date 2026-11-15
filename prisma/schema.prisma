@@ -306,3 +306,26 @@ model AgentProposal {
   @@unique([businessId, mandateId, clientId])
   @@index([businessId, clientId, createdAt])
 }
+
+// Independent, redacted operator audit. No customer or credential columns.
+model AgentAuditEvent {
+  id String @id @default(cuid())
+  createdAt DateTime @default(now())
+  businessId String
+  event String
+  outcome String
+  clientId String?
+  keyId String?
+  scopes String[]
+  route String?
+  tool String?
+  requestId String
+  proposalId String?
+  mandateId String?
+  bookingId String?
+  @@index([businessId, createdAt, id])
+  @@index([proposalId])
+  @@index([mandateId])
+  @@index([bookingId])
+  @@index([requestId])
+}

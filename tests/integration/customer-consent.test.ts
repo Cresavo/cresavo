@@ -4,7 +4,8 @@ import { DateTime } from "luxon";
 import { db } from "../../src/lib/db";
 import { authenticateAgent, createAgentApiKey, type AgentPrincipal } from "../../src/lib/agent-api/keys";
 import { customerDecision, createProposal, getProposal, proposalHash } from "../../src/lib/agent-api/proposals";
-import { createAgentBooking } from "../../src/lib/agent-api/bookings";
+import { readAudit } from "../../src/lib/agent-api/audit-read";
+import { cancelBookingV1, createAgentBooking } from "../../src/lib/agent-api/bookings";
 import { liveSnapshot } from "../../src/lib/agent-api/live";
 import { POST as propose } from "../../src/app/api/v1/proposals/route";
 import { GET as getStatus } from "../../src/app/api/v1/proposals/[id]/route";
@@ -74,7 +75,15 @@ it.each([false, true])("customer yes creates exact authority, usable by key/OAut
   expect(+mandate.validUntil).toBe(+proposal.startsAt + proposal.duration * 60000);
   expect(+mandate.expiresAt).toBe(+proposal.expiresAt);
   expect(+proposal.expiresAt - +proposal.createdAt).toBeLessThanOrEqual(600000);
-  await expect(createAgentBooking(principal, `yes-${slot}`, booking(r.payload, mandate.id))).resolves.toBeDefined();
+  const created = await createAgentBooking(principal, `yes-${slot}`, booking(r.payload, mandate.id));
+  const bookingId = (created as { body: { booking: { id: string } } }).body.booking.id;
+  for (const query of [{ bookingId }, { mandateId: mandate.id }, { proposalId: r.proposal.id }]) {
+    const chain = await readAudit({ ...query, chain: "true" });
+    expect(chain.events.map(e => e.event)).toEqual(["proposal.created", "proposal.viewed", "consent.approved", "mandate.created", "mandate.consumed", "booking.created"]);
+    for (const secret of [r.token, "Syntetisk Testkund", "consent-test@example.test"]) expect(JSON.stringify(chain)).not.toContain(secret);
+  }
+  await cancelBookingV1(principal, bookingId);
+  expect((await readAudit({ bookingId, chain: "true" })).events.at(-1)?.event).toBe("booking.cancelled");
   await expect(createAgentBooking(principal, `reuse-${slot}`, booking(r.payload, mandate.id))).rejects.toMatchObject({ code: "mandate_denied" });
 });
 it.each(["yes", "no"] as const)("consumes link once after %s, including concurrent replay", async value => {

@@ -96,3 +96,39 @@ till agenten. Skarp metod är inte beslutad. Ingen e-post/SMS/extern plattform a
 Operatorns gamla `issueSyntheticMandate` och fixtures är oförändrade och exponeras
 inte via REST/MCP. Den nya additiva migrationen behåller gamla operatörsmandat
 med null `proposalHash` och utökar endast ursprungskontrollen till kundflödet.
+
+## Paket 4: separat operatörsaudit
+
+`AgentAuditEvent` är en separat append-only-logg, aldrig källa till `/live`.
+`recordAudit` validerar en fast fältlista och skriver bara id, kända scopes,
+händelsetyp, statiskt utfall och route/verktyg. Servergenererat UUID följer
+REST/MCP-anropets underhändelser; inkommande korrelationsheaders ignoreras.
+OAuth-klientens id loggas bara efter att det har hittats i labbets register.
+Inga tokens, koder, PKCE-värden, kundfält eller länkcredentials sparas.
+
+Händelser: `oauth.client_registered`, `oauth.register_denied`,
+`oauth.authorize_granted`, `oauth.authorize_denied`, `oauth.token_issued`,
+`oauth.token_denied`, `agent.request`, `proposal.created`, `proposal.viewed`,
+`proposal.expired`, `consent.approved`, `consent.declined`, `mandate.created`,
+`mandate.consumed`, `mandate.expired`, `booking.created`, `booking.cancelled`.
+Utfall är HTTP-status, statisk felkod eller pending/success/booked/cancelled/
+expired/ursprung. Replay skapar ingen ny `booking.created` eller förbrukning.
+MCP loggar både transport och körda verktyg; transportstatus 200 kan innehålla
+ett verktygsfel, vars egen auditrad bär felkoden.
+
+`GET /api/admin/audit` kräver befintlig adminsession; API-nyckel och OAuth-token
+räcker inte. Filter: `from`, `to` (ISO UTC), `clientId`, `requestId`, `proposalId`,
+`mandateId`, `bookingId`. `chain=true` plus ett förslags-, mandat- eller
+boknings-id följer de serverlagrade länkarna. Resultatet ordnas på createdAt/id,
+max 200 rader, med `nextCursor` som skickas som `after` med samma filter.
+Befintliga identitetslänkar måste finnas för full kedjeupplösning.
+
+Audit skrivs efter lyckade verksamhetstransaktioner, utan kundfält. Fel ger
+bara `AGENT_AUDIT_WRITE_FAILED` och ändrar inte verksamhetsutfallet. Detta är
+best effort, inte atomär eller garanterat komplett audit: processavbrott och
+skrivfel kan ge luckor. DB-trigger nekar UPDATE/DELETE på den nya tabellen;
+appmodulens mutationskapabiliteter kastar. DB-ägare kan fortfarande ändra DDL
+eller TRUNCATE; detta är ingen kryptografiskt manipulationssäker logg.
+Testauditrader bevaras även när deras fixtures städas, utan foreign keys.
+
+Betalning är inte implementerad. Se [Mandat och betalning](MANDATE_VS_PAYMENT.md).

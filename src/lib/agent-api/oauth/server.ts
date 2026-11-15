@@ -1,3 +1,4 @@
+import { auditContext, recordAudit } from "../audit";
 import { createHash, generateKeyPairSync, randomBytes, sign, verify } from "node:crypto";
 import { z } from "zod";
 import { discoveryOrigin } from "../discovery";
@@ -81,8 +82,10 @@ const registration = z.object({
   response_types: z.array(z.literal("code")).length(1).default(["code"]),
   scope: z.string().max(256).default("services:read availability:read"),
 });
-export async function oauth(request: Request, action: "register" | "authorize" | "token") {
+async function oauthInternal(request: Request, action: "register" | "authorize" | "token") {
   let response: Response;
+  let auditClient: string | undefined;
+  let auditScopes: string[] = [];
   try {
     const origin = discoveryOrigin(); lab(origin, request);
     const s = clean(); const resource = `${origin}/api/v1/mcp`;
@@ -92,6 +95,7 @@ export async function oauth(request: Request, action: "register" | "authorize" |
       if (!parsed.success) return fail("invalid_client_metadata");
       if (s.clients.size >= 1000) fail("temporarily_unavailable", 503);
       const data = parsed.data; const scope = scopes(data.scope); const id = random();
+      auditClient = id; auditScopes = scope.split(" ");
       s.clients.set(id, { redirect_uris: data.redirect_uris, scope, expires: Date.now() + 86400000 });
       response = json({ ...data, scope, client_id: id, client_id_issued_at: Math.floor(Date.now() / 1000) }, 201);
     } else {
@@ -101,6 +105,7 @@ export async function oauth(request: Request, action: "register" | "authorize" |
           new URLSearchParams(await body(request)) : fail("invalid_request"));
       const clientId = p.get("client_id") ?? ""; const client = s.clients.get(clientId);
       if (!client) fail("invalid_client");
+      auditClient = clientId;
       if (p.get("resource") !== resource) fail("invalid_target");
       const redirect = p.get("redirect_uri") ?? "";
       if (!client!.redirect_uris.includes(redirect)) fail("invalid_request");
@@ -112,6 +117,7 @@ export async function oauth(request: Request, action: "register" | "authorize" |
         if (scope.split(" ").some(v => !client!.scope.split(" ").includes(v))) fail("invalid_scope");
         if (s.codes.size >= 1000) fail("temporarily_unavailable", 503);
         // Operator explicitly enables automatic SYNTHETIC approval on isolated loopback only.
+        auditScopes = scope.split(" ");
         const code = random();
         s.codes.set(hash(code), { client: clientId, redirect, resource, scope, challenge, expires: Date.now() + 60000 });
         const target = new URL(redirect); target.searchParams.set("code", code);
@@ -125,6 +131,7 @@ export async function oauth(request: Request, action: "register" | "authorize" |
         if (!code || code.expires <= Date.now() || code.client !== clientId || code.redirect !== redirect || code.resource !== resource ||
           !/^[A-Za-z0-9._~-]{43,128}$/.test(verifier) || hash(verifier) !== code.challenge) fail("invalid_grant");
         // No await between validation and consumption: atomic within this single process.
+        auditScopes = code!.scope.split(" ");
         s.codes.delete(key);
         const now = Math.floor(Date.now() / 1000);
         const head = Buffer.from(JSON.stringify({ alg: "EdDSA", typ: "at+jwt" })).toString("base64url");
@@ -139,6 +146,10 @@ export async function oauth(request: Request, action: "register" | "authorize" |
     response = json({ error: e instanceof OAuthError ? e.code : e instanceof SyntaxError ? "invalid_request" : "temporarily_unavailable" },
       e instanceof OAuthError ? e.status : e instanceof SyntaxError ? 400 : 503);
   }
+  try {
+  assertTestDatabase();
+  await recordAudit({ event: action === "register" ? (response.status === 201 ? "oauth.client_registered" : "oauth.register_denied") : action === "authorize" ? (response.status === 302 ? "oauth.authorize_granted" : "oauth.authorize_denied") : (response.status === 200 ? "oauth.token_issued" : "oauth.token_denied"), outcome: String(response.status), route: action, clientId: auditClient, scopes: auditScopes });
+  } catch { console.error("AGENT_AUDIT_WRITE_FAILED"); }
   console.info(JSON.stringify({ event: "oauth_lab_request", route: action, status: response.status }));
   return response;
 }
@@ -171,3 +182,5 @@ export function verifyLabAccessToken(token: string, now: Date) {
     return { clientId: claims.client_id as string, scopes: [...new Set(granted)], registeredScopes: registered.scope.split(" ") };
   } catch { return null; }
 }
+
+export const oauth: typeof oauthInternal = (...args) => auditContext(() => oauthInternal(...args));

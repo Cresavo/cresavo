@@ -5,6 +5,8 @@ import { GET as serverMetadata } from "../src/app/.well-known/oauth-authorizatio
 import { POST as register } from "../src/app/register/route";
 import { GET as authorize } from "../src/app/authorize/route";
 import { POST as token } from "../src/app/token/route";
+const audit = vi.hoisted(() => vi.fn());
+vi.mock("../src/lib/agent-api/audit", () => ({ auditContext: (run: () => unknown) => run(), recordAudit: audit }));
 const origin = "http://127.0.0.1:3229";
 const resource = `${origin}/api/v1/mcp`;
 const redirect_uri = "http://127.0.0.1:3339/callback";
@@ -25,7 +27,7 @@ async function client() {
 const auth = (id: string, overrides: Record<string,string> = {}) => authorize(labRequest(`${origin}/authorize?${new URLSearchParams({client_id:id, redirect_uri, resource, response_type:"code", code_challenge:challenge, code_challenge_method:"S256", state:"synthetic-state", ...overrides})}`));
 async function code(id: string) { const r = await auth(id); expect(r.status).toBe(302); const url = new URL(r.headers.get("location")!); expect(url.searchParams.get("state")).toBe("synthetic-state"); return url.searchParams.get("code")!; }
 const redeem = (id:string, c:string, changes:Record<string,string>={}) => token(form({client_id:id, code:c, redirect_uri, resource, grant_type:"authorization_code", code_verifier:verifier,...changes}));
-beforeEach(() => { vi.stubEnv("BOOKING_PUBLIC_ORIGIN", origin); vi.stubEnv("BOOKING_OAUTH_LAB", "1"); vi.stubEnv("BOOKING_RUNTIME", "local"); vi.stubEnv("BOOKING_ADDRESS_SECRET", "synthetic-oauth-socket-proof"); });
+beforeEach(() => { audit.mockClear(); vi.stubEnv("BOOKING_PUBLIC_ORIGIN", origin); vi.stubEnv("BOOKING_OAUTH_LAB", "1"); vi.stubEnv("BOOKING_RUNTIME", "local"); vi.stubEnv("BOOKING_ADDRESS_SECRET", "synthetic-oauth-socket-proof"); });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 describe("OAuth package 1", () => {
   it("publishes resource and S256 code-only AS metadata from operator origin", async () => {
@@ -73,4 +75,15 @@ describe("OAuth package 1", () => {
     for(const call of log.mock.calls) expect(Object.keys(JSON.parse(call[0]))).toEqual(["event","route","status"]);
     const output=JSON.stringify(log.mock.calls); for(const secret of [id,c,t,verifier,challenge,"PRIVATE KEY"]) expect(output).not.toContain(secret);
   });
+});
+
+it("audits OAuth successes and denials without any credential material", async () => {
+  const id = await client();
+  await auth(id, { code_challenge_method: "plain" });
+  const c = await code(id);
+  await redeem(id, c, { code_verifier: "x".repeat(43) });
+  const issued = await redeem(id, c); const t = (await issued.json()).access_token;
+  expect(audit.mock.calls.map(c => c[0].event)).toEqual(["oauth.client_registered", "oauth.authorize_denied", "oauth.authorize_granted", "oauth.token_denied", "oauth.token_issued"]);
+  for (const secret of [c, t, verifier, challenge]) expect(JSON.stringify(audit.mock.calls)).not.toContain(secret);
+  expect(audit.mock.calls.at(-1)?.[0]).toMatchObject({ clientId: id, scopes: ["services:read", "bookings:write"], outcome: "200" });
 });

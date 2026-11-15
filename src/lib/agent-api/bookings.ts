@@ -1,3 +1,4 @@
+import { recordAudit } from "./audit";
 import { createHash } from "node:crypto";
 import { DateTime } from "luxon";
 import { z } from "zod";
@@ -111,6 +112,8 @@ export async function createAgentBooking(principal: AgentPrincipal, rawKey: stri
     where: { id: input.serviceId, businessId: DEMO_BUSINESS_ID },
     select: { name: true },
   });
+  let expired = false;
+  let proposalId: string | undefined;
   try {
     let replayed = false;
     const booking = await createBooking(
@@ -129,6 +132,10 @@ export async function createAgentBooking(principal: AgentPrincipal, rawKey: stri
         authorize: tx => assertCurrentAgent(tx, principal),
         beforeInsert: async (tx, currentService) => {
           const mandate = await lockMandate(tx, input.mandateId!);
+          if (mandate?.clientId === principal.clientId && mandate.businessId === principal.businessId) {
+            expired = +mandate.expiresAt <= Date.now();
+            if (mandate.origin === "customer-consent") proposalId = mandate.originReference;
+          }
           assertMandatedBooking(mandate, {
             businessId: principal.businessId, clientId: principal.clientId,
             serviceId: input.serviceId, staffId: input.staffId,
@@ -163,9 +170,15 @@ export async function createAgentBooking(principal: AgentPrincipal, rawKey: stri
     await recordEvent(principal, "book", replayed ? "replayed" : "booked", {
       serviceName: booking.serviceName, staffName: staff, startsAt: booking.startsAt,
     });
+    if (!replayed) {
+      const detail = { clientId: principal.clientId, mandateId: input.mandateId, proposalId, bookingId: booking.id };
+      await recordAudit({ ...detail, event: "mandate.consumed", outcome: "booked" });
+      await recordAudit({ ...detail, event: "booking.created", outcome: "booked" });
+    }
     const body = { apiVersion: API_VERSION, replayed, booking: await bookingView(booking) };
     return replayed ? body : new Created(body);
   } catch (error) {
+    if (expired) await recordAudit({ event: "mandate.expired", outcome: "expired", clientId: principal.clientId, mandateId: input.mandateId, proposalId });
     const { code } = mapAgentError(error);
     if (code === "slot_unavailable" || code === "stale_service" || code === "rate_limited" || code === "idempotency_conflict")
       await recordEvent(principal, "book", code === "slot_unavailable" ? "conflict" : code, {
@@ -194,6 +207,7 @@ export async function getBookingV1(principal: AgentPrincipal, bookingId: string)
 
 export async function cancelBookingV1(principal: AgentPrincipal, bookingId: string) {
   const owned = await ownedBooking(principal, bookingId);
+  const auditLink = await db.agentBooking.findUnique({ where: { bookingId: owned.id } });
   const result = await db.$transaction(async (tx) => {
     await lockConfiguration(tx);
     await assertCurrentAgent(tx, principal);
@@ -217,5 +231,8 @@ export async function cancelBookingV1(principal: AgentPrincipal, bookingId: stri
     await recordEvent(principal, "cancel", "cancelled", {
       serviceName: result.row.serviceName, staffName: await staffName(result.row.staffId), startsAt: result.row.startsAt,
     });
+  if (!result.already) {
+    await recordAudit({ event: "booking.cancelled", outcome: "cancelled", clientId: principal.clientId, bookingId: owned.id, mandateId: auditLink?.mandateId ?? undefined });
+  }
   return { apiVersion: API_VERSION, alreadyCancelled: result.already, booking: await bookingView(result.row) };
 }
