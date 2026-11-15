@@ -1,0 +1,37 @@
+# Vercel Container Runtime preserves the supported HTTP wrapper as the only
+# entry point. It is a scale-to-zero Function, not a persistent single server.
+FROM node:24-bookworm-slim AS build
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1 CHECKPOINT_DISABLE=1
+COPY package.json package-lock.json ./
+RUN npm ci --no-fund --no-audit
+COPY . .
+# Build does not receive database or session credentials.
+RUN export DATABASE_URL=postgresql://build@127.0.0.1:1/build_test \
+    && npx prisma generate && npm run build \
+    && node scripts/compile-runtime-config.mjs \
+    && mkdir -p public \
+    && tar --exclude=node_modules --exclude=.next -czf /booking-lab-source.tar.gz .
+
+FROM node:24-bookworm-slim
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 CHECKPOINT_DISABLE=1 PORT=3000
+COPY package.json package-lock.json ./
+# A supported npm omit policy avoids the optional Prisma CLI/Studio tree and
+# unused image optimisers. Copy only the generated client and required binding.
+RUN npm ci --omit=dev --omit=peer --omit=optional --ignore-scripts --no-fund --no-audit \
+    && test ! -d node_modules/prisma && test ! -d node_modules/elkjs \
+    && test ! -d node_modules/sharp && test ! -d node_modules/typescript
+COPY --from=build --chown=node:node /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build --chown=node:node /app/node_modules/@node-rs/argon2-linux-x64-gnu ./node_modules/@node-rs/argon2-linux-x64-gnu
+RUN node -e "const c=require('node:crypto'),f=require('node:fs');if(process.arch!=='x64'||c.createHash('sha256').update(f.readFileSync('node_modules/@node-rs/argon2-linux-x64-gnu/argon2.linux-x64-gnu.node')).digest('hex')!=='0f4e6088e351149af677044c0570bdd8a1a10517069811744e48170366e714b2')throw Error('PREVIEW_NATIVE_ARTIFACT_REFUSED')"
+COPY --from=build --chown=node:node /app/.next ./.next
+COPY --from=build --chown=node:node /app/public ./public
+COPY --from=build --chown=node:node /app/scripts ./scripts
+COPY --from=build --chown=node:node /app/docs/agent-api-v1.openapi.yaml ./docs/agent-api-v1.openapi.yaml
+COPY --from=build --chown=node:node /app/next.config.mjs ./next.config.mjs
+COPY --from=build --chown=node:node /app/LICENSE /app/THIRD_PARTY_NOTICES.md /app/THIRD_PARTY_NATIVE_NOTICES.txt /app/THIRD_PARTY_LUCIDE_LICENSE.txt ./
+COPY --from=build --chown=node:node /booking-lab-source.tar.gz ./booking-lab-source.tar.gz
+USER node
+EXPOSE 3000
+CMD ["node", "scripts/server.mjs", "--hostname", "0.0.0.0"]

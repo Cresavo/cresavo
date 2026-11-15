@@ -1,0 +1,47 @@
+{
+  "revision": "7c1407dce66910ef8ab304c882c90d90c173ca72",
+  "deploymentId": "dpl_<redacted>",
+  "origin": "https://booking-lab-se-preview.vercel.app",
+  "date": "2026-11-12T21:02:35.798Z",
+  "syntheticOnly": true,
+  "engine": "automated Chromium",
+  "physicalIphone": false,
+  "source": "Actual protected stable alias after rollout; ready views, no loading screenshots",
+  "images": [
+    {
+      "file": "product.png",
+      "path": "/product",
+      "viewport": "390x844",
+      "fullPage": true,
+      "sha256": "065b5652a6dc7a09df1142aa8a04a2cc1f5dee08f6d4276021a0931842f41aff"
+    },
+    {
+      "file": "workspace.png",
+      "path": "/admin",
+      "viewport": "390x844",
+      "fullPage": true,
+      "sha256": "1450b8b624c00a058d4da5a8f4876e0b1f8df6c35ce18a8baf0405331c44005e"
+    },
+    {
+      "file": "customers.png",
+      "path": "/admin/customers",
+      "viewport": "390x844",
+      "fullPage": false,
+      "sha256": "9420ed46cf161f67dd6d0bb93e72332bee4f98788ce2cd0a4779b99cee4b2366"
+    },
+    {
+      "file": "customer-history.png",
+      "path": "/admin/customers/demo-customer-0",
+      "viewport": "390x844",
+      "fullPage": true,
+      "sha256": "8dcef0f97b1f6d7bf7107e39cd592481b1b0fad3f5b7aed3d9fc2973971c4b29"
+    },
+    {
+      "file": "revisit.png",
+      "path": "/admin/bookings/new",
+      "viewport": "390x844",
+      "fullPage": true,
+      "sha256": "e1c5e451aba4aedc084cae186ef09bbbfaaa5879ef3c6688f943233843696b04"
+    }
+  ]
+}

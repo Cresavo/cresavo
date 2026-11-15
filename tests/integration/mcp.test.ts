@@ -1,3 +1,4 @@
+import { mcpEnvironment } from "../../src/mcp/environment";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { Client } from "@modelcontextprotocol/client";
@@ -18,8 +19,9 @@ async function connect(adminMode: boolean) {
   await client.connect(
     new StdioClientTransport({
       command: process.execPath,
+      env: mcpEnvironment(),
       args: [
-        "--env-file=.env",
+        "--env-file-if-exists=.env",
         "--import",
         "tsx",
         "src/mcp/server.ts",
@@ -100,11 +102,7 @@ describe("Lokal MCP-behörighet och dataminimering", () => {
       command: process.execPath,
       args: ["--import", "tsx", "src/mcp/server.ts", "--admin"],
       env: {
-        ...Object.fromEntries(
-          Object.entries(process.env).filter(
-            (entry): entry is [string, string] => entry[1] !== undefined,
-          ),
-        ),
+        ...mcpEnvironment(),
         DATABASE_URL:
           "postgresql://canary:CANARY_SECRET@127.0.0.1:1/canary?connect_timeout=1",
       },

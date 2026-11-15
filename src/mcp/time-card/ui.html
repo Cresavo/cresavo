@@ -1,0 +1,1037 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>Booking Lab – välj en demotid</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font:
+          15px/1.5 system-ui,
+          sans-serif;
+        --bg: #fff;
+        --ink: #192826;
+        --muted: #596b66;
+        --line: #dde5e0;
+        --soft: #f3f6f3;
+        --accent: #235d4c;
+        --accent-text: #fff;
+        --tint: #e8f1eb;
+        --danger: #9b3527;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 12px;
+        color: var(--ink);
+        background: transparent;
+      }
+      button,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      button,
+      select {
+        min-height: 44px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--bg);
+      }
+      button {
+        cursor: pointer;
+        padding: 10px 14px;
+      }
+      button:hover:not(:disabled) {
+        border-color: var(--accent);
+        background: var(--tint);
+      }
+      button:disabled {
+        cursor: default;
+        opacity: 0.5;
+      }
+      button:focus-visible,
+      select:focus-visible {
+        outline: 3px solid #579b86;
+        outline-offset: 3px;
+      }
+      main {
+        max-width: 640px;
+        margin: auto;
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        overflow: hidden;
+        background: var(--bg);
+      }
+      header {
+        padding: 22px 22px 18px;
+        border-bottom: 1px solid var(--line);
+        background: var(--soft);
+      }
+      .brand {
+        font-size: 11px;
+        font-weight: 750;
+        letter-spacing: 0.13em;
+        color: var(--muted);
+      }
+      .demo {
+        display: inline-block;
+        margin: 8px 0 10px;
+        padding: 3px 9px;
+        border-radius: 30px;
+        background: var(--tint);
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 650;
+      }
+      h1 {
+        font-size: 26px;
+        line-height: 1.15;
+        letter-spacing: -0.04em;
+        margin: 0 0 8px;
+      }
+      p {
+        margin: 0;
+      }
+      header p,
+      .muted {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .body {
+        padding: 20px 22px;
+      }
+      .fields {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        gap: 12px;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        font-weight: 650;
+        margin-bottom: 5px;
+      }
+      select {
+        width: 100%;
+        padding: 8px;
+        max-width: 100%;
+      }
+      .details {
+        margin: 12px 0 20px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .month {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .month h2 {
+        font-size: 17px;
+        margin: 0;
+        letter-spacing: -0.02em;
+      }
+      .arrows {
+        display: flex;
+        gap: 6px;
+      }
+      .arrows button {
+        padding: 7px 12px;
+      }
+      .days {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 5px;
+        margin-bottom: 20px;
+      }
+      .day {
+        padding: 7px 1px;
+        min-height: 62px;
+      }
+      .day span {
+        display: block;
+      }
+      .day .weekday {
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .day .number {
+        font-size: 18px;
+        font-weight: 650;
+      }
+      .day .day-month {
+        font-size: 10px;
+      }
+      .day[aria-pressed="true"],
+      .slot[aria-pressed="true"],
+      button[aria-pressed="true"]:hover:not(:disabled) {
+        background: var(--accent);
+        color: var(--accent-text);
+        border-color: var(--accent);
+      }
+      .day[aria-pressed="true"] .weekday {
+        color: var(--accent-text);
+      }
+      .slots-title {
+        font-size: 14px;
+        font-weight: 650;
+        margin-bottom: 10px;
+      }
+      .slots {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .slot {
+        padding: 10px 3px;
+        font-weight: 600;
+      }
+      .empty {
+        background: var(--soft);
+        padding: 18px;
+        border-radius: 14px;
+      }
+      .empty p {
+        margin-bottom: 12px;
+      }
+      .selection {
+        margin-top: 18px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--soft);
+      }
+      .selection strong {
+        display: block;
+        font-size: 16px;
+        margin: 4px 0;
+      }
+      .primary {
+        width: 100%;
+        margin-top: 12px;
+        background: var(--accent);
+        color: var(--accent-text);
+        border-color: var(--accent);
+      }
+      .primary:hover:not(:disabled) {
+        background: var(--accent);
+        color: var(--accent-text);
+      }
+      .consent {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 14px 0 0;
+        min-height: 44px;
+      }
+      .consent input {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+      }
+      #receipt:focus {
+        outline: 3px solid #579b86;
+      }
+      #status {
+        min-height: 21px;
+        margin-top: 14px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      #error {
+        color: var(--danger);
+        font-size: 13px;
+      }
+      footer {
+        padding: 14px 22px;
+        border-top: 1px solid var(--line);
+        font-size: 11px;
+        color: var(--muted);
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (max-width: 360px) {
+        body {
+          padding: 5px;
+        }
+        .body,
+        header {
+          padding: 16px;
+        }
+        .fields {
+          grid-template-columns: 1fr;
+        }
+        .slots {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .day .weekday {
+          font-size: 9px;
+        }
+        .arrows button {
+          padding: 6px 10px;
+        }
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #17221f;
+          --ink: #e6eee9;
+          --muted: #afc2b8;
+          --line: #35483e;
+          --soft: #202f28;
+          --accent: #addbc6;
+          --accent-text: #12261d;
+          --tint: #2a4034;
+          --danger: #ffb4a3;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main aria-label="Booking Lab tidval">
+      <header>
+        <div class="brand">BOOKING LAB / SALONG EKO</div>
+        <div class="demo">Demo – endast påhittade uppgifter</div>
+        <h1>En stund för dig.</h1>
+        <p>Välj behandling, dag och en tid som passar.</p>
+      </header>
+      <div class="body">
+        <section id="history" hidden aria-label="Mina demobokningar">
+          <h2 class="slots-title">Mina lokala demobokningar</h2>
+          <p class="muted">
+            Den här betrodda demoprofilens senaste 20 försök. Endast påhittade
+            uppgifter.
+          </p>
+          <div id="history-items"></div>
+          <button id="refresh-history" type="button">
+            Hämta mina demobokningar
+          </button>
+        </section>
+        <div id="content" hidden>
+          <div class="fields">
+            <div>
+              <label for="service">Behandling</label
+              ><select id="service"></select>
+            </div>
+            <div>
+              <label for="staff">Utförare</label
+              ><select id="staff"></select>
+            </div>
+          </div>
+          <p id="details" class="details"></p>
+          <p id="window" class="details"></p>
+          <div class="month">
+            <h2 id="month"></h2>
+            <div class="arrows">
+              <button id="today" type="button">Idag</button
+              ><button
+                id="previous"
+                type="button"
+                aria-label="Föregående sju dagar"
+              >
+                ←</button
+              ><button id="next" type="button" aria-label="Nästa sju dagar">
+                →
+              </button>
+            </div>
+          </div>
+          <div id="days" class="days" role="group" aria-label="Välj dag"></div>
+          <h2 id="slots-title" class="slots-title"></h2>
+          <div
+            id="slots"
+            class="slots"
+            role="group"
+            aria-label="Lediga tider"
+          ></div>
+          <div id="empty" class="empty" hidden>
+            <p>Inga lediga tider den här dagen.</p>
+            <p class="muted">
+              Det kan vara stängt eller fullbokat. Prova en annan dag.
+            </p>
+            <button id="next-day" type="button">Prova nästa dag →</button>
+          </div>
+          <div id="selection" class="selection" hidden>
+            <span class="muted">Ditt tidsval</span><strong id="chosen"></strong>
+            <p id="summary" class="muted"></p>
+            <button id="check" class="primary" type="button">
+              Kontrollera mitt tidsval
+            </button>
+            <div id="booking-controls" hidden>
+              <p class="muted">
+                Testkund: Tidkort Demo. Inga utskick eller betalningar.
+              </p>
+              <label class="consent" for="consent">
+                <input id="consent" type="checkbox" />
+                Jag vill skapa den här testbokningen
+              </label>
+              <button id="book" class="primary" type="button" disabled>
+                Bekräfta testbokning
+              </button>
+            </div>
+          </div>
+        </div>
+        <section
+          id="receipt"
+          class="selection"
+          hidden
+          tabindex="-1"
+          aria-label="Bokningsbekräftelse"
+        >
+          <strong id="receipt-title">Din testbokning är klar</strong>
+          <p id="receipt-summary"></p>
+          <p id="receipt-time"></p>
+          <p id="receipt-id" class="muted"></p>
+          <button id="refresh-receipt" type="button">
+            Uppdatera bokningsstatus
+          </button>
+          <button id="calendar-file" type="button">Lägg i min kalender</button>
+          <p id="calendar-notice" class="muted">
+            Du hämtar en kalenderfil. Importen görs i din kalenderapp; flytt och
+            avbokning synkas inte automatiskt.
+          </p>
+          <a id="calendar-download" hidden download="booking-lab-demo.ics"
+            >Hämta kalenderfil</a
+          >
+          <p class="muted">Tidkort Demo · Ingen betalning eller utskick.</p>
+          <button id="new-booking" type="button">Välj en ny demotid</button>
+        </section>
+        <p id="status" role="status" aria-live="polite">
+          Hämtar lediga demotider…
+        </p>
+        <p id="error" role="alert"></p>
+        <button id="retry" type="button" hidden>Försök igen</button>
+        <button id="retry-booking" type="button" hidden>
+          Kontrollera samma bokningsförsök
+        </button>
+      </div>
+      <footer id="notice">
+        Stockholmstid · Endast tidsval. Ingen tid reserveras och ingen bokning
+        skapas.
+      </footer>
+    </main>
+    <script>
+      (() => {
+        "use strict";
+        const $ = (id) => document.getElementById(id);
+        let hostCapabilities = {};
+        let data,
+          selected = null,
+          busy = false,
+          requestId = 0,
+          sequence = 0,
+          lastArgs = {},
+          pendingBooking = null,
+          bookingReceipt = null,
+          activeRequestId = null,
+          historyReady = false,
+          historyLoading = false,
+          downloadUrl = null;
+        const pending = new Map();
+        const dateValue = (value) => new Date(value + "T12:00:00Z");
+        const dayText = (value) =>
+          new Intl.DateTimeFormat("sv-SE", {
+            timeZone: "Europe/Stockholm",
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          }).format(dateValue(value));
+        const clock = (value) =>
+          new Intl.DateTimeFormat("sv-SE", {
+            timeZone: "Europe/Stockholm",
+            hour: "2-digit",
+            minute: "2-digit",
+            hourCycle: "h23",
+          }).format(new Date(value));
+        const price = (value) =>
+          new Intl.NumberFormat("sv-SE", {
+            style: "currency",
+            currency: "SEK",
+            maximumFractionDigits: 2,
+          }).format(value / 100);
+        const shift = (value, count) => {
+          const day = dateValue(value);
+          day.setUTCDate(day.getUTCDate() + count);
+          return day.toISOString().slice(0, 10);
+        };
+        const notify = (method, params) =>
+          window.parent.postMessage({ jsonrpc: "2.0", method, params }, "*");
+        function rpc(method, params) {
+          return new Promise((resolve, reject) => {
+            const id = ++requestId;
+            const timer = setTimeout(() => {
+              pending.delete(id);
+              reject(new Error("HOST_TIMEOUT"));
+            }, 12000);
+            pending.set(id, { resolve, reject, timer });
+            window.parent.postMessage(
+              { jsonrpc: "2.0", id, method, params },
+              "*",
+            );
+          });
+        }
+        function valid(value) {
+          return (
+            value &&
+            value.demo === true &&
+            value.bookingCreated === false &&
+            value.timezone === "Europe/Stockholm" &&
+            /^\d{4}-\d{2}-\d{2}$/.test(value.date) &&
+            Array.isArray(value.slots) &&
+            value.slots.length <= 200 &&
+            value.slots.every(
+              (s) =>
+                typeof s.start === "string" &&
+                Number.isFinite(Date.parse(s.start)),
+            ) &&
+            Array.isArray(value.days) &&
+            value.days.length <= 7 &&
+            value.days.every((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)) &&
+            Array.isArray(value.services) &&
+            value.services.length <= 50 &&
+            Array.isArray(value.staff) &&
+            value.staff.length <= 50 &&
+            value.service &&
+            value.selectedStaff
+          );
+        }
+        function updateContext(start) {
+          if (pendingBooking || bookingReceipt) return;
+          if (!hostCapabilities.updateModelContext) return;
+          rpc("ui/update-model-context", {
+            structuredContent: {
+              demo: true,
+              bookingCreated: false,
+              start,
+              serviceId: data?.service.id,
+              staffId: data?.selectedStaff.id,
+              timezone: "Europe/Stockholm",
+            },
+            content: [
+              {
+                type: "text",
+                text: start
+                  ? `Vald demotid ${start}. Ingen bokning skapad.`
+                  : "Inget kontrollerat tidsval. Ingen bokning skapad.",
+              },
+            ],
+          }).catch(() => {});
+        }
+        function selectOptions(id, values, active) {
+          const element = $(id);
+          element.replaceChildren();
+          for (const item of values) {
+            const option = document.createElement("option");
+            option.value = item.id;
+            option.textContent = item.name;
+            option.selected = item.id === active;
+            element.append(option);
+          }
+        }
+        function render() {
+          $("content").hidden = false;
+          selectOptions("service", data.services, data.service.id);
+          selectOptions("staff", data.staff, data.selectedStaff.id);
+          $("details").textContent =
+            `${data.service.duration} minuter · Ordinarie pris ${price(data.service.priceOre)}`;
+          $("window").textContent =
+            `Demot visar ${dayText(data.firstDate)}–${dayText(data.lastDate)}.`;
+          $("booking-controls").hidden = data.bookingEnabled !== true;
+          $("book").disabled = busy || !historyReady || !$("consent").checked;
+          $("notice").textContent = data.bookingEnabled
+            ? "Stockholmstid · Ett tidsval reserverar inget. Testbokning skapas först när du uttryckligen bekräftar."
+            : "Stockholmstid · Endast tidsval. Ingen tid reserveras och ingen bokning skapas.";
+          $("month").textContent = new Intl.DateTimeFormat("sv-SE", {
+            timeZone: "Europe/Stockholm",
+            month: "long",
+            year: "numeric",
+          }).format(dateValue(data.date));
+          $("days").replaceChildren();
+          for (const date of data.days) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "day";
+            button.setAttribute("aria-label", dayText(date));
+            button.setAttribute("aria-pressed", String(date === data.date));
+            const weekday = document.createElement("span");
+            weekday.className = "weekday";
+            weekday.textContent = new Intl.DateTimeFormat("sv-SE", {
+              timeZone: "Europe/Stockholm",
+              weekday: "short",
+            }).format(dateValue(date));
+            const number = document.createElement("span");
+            number.className = "number";
+            number.textContent = String(dateValue(date).getUTCDate());
+            const month = document.createElement("span");
+            month.className = "day-month";
+            month.textContent = new Intl.DateTimeFormat("sv-SE", {
+              timeZone: "Europe/Stockholm",
+              month: "short",
+            }).format(dateValue(date));
+            button.append(weekday, number, month);
+            button.onclick = () => load({ date });
+            $("days").append(button);
+          }
+          $("slots-title").textContent = `Ledigt ${dayText(data.date)}`;
+          $("slots").replaceChildren();
+          for (const slot of data.slots) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "slot";
+            button.textContent = clock(slot.start);
+            button.setAttribute(
+              "aria-label",
+              `${clock(slot.start)} till ${clock(slot.end)}`,
+            );
+            button.setAttribute(
+              "aria-pressed",
+              String(selected === slot.start),
+            );
+            button.onclick = () => {
+              if (busy || pendingBooking || bookingReceipt) return;
+              selected = slot.start;
+              $("consent").checked = false;
+              render();
+              $("slots").querySelector(`[aria-pressed="true"]`)?.focus();
+              $("status").textContent = "Tiden är vald, men inte reserverad.";
+            };
+            $("slots").append(button);
+          }
+          $("empty").hidden = data.slots.length > 0;
+          $("selection").hidden = !selected;
+          if (selected) {
+            const slot = data.slots.find((s) => s.start === selected);
+            $("chosen").textContent =
+              `${dayText(data.date)} · ${clock(selected)}–${clock(slot.end)}`;
+            $("summary").textContent =
+              `${data.service.name} hos ${data.selectedStaff.name} · ${data.service.duration} min · ${price(data.service.priceOre)}`;
+          }
+          $("previous").disabled = busy || data.date <= data.firstDate;
+          $("next").disabled = busy || data.date >= data.lastDate;
+          $("next-day").disabled = busy || data.date >= data.lastDate;
+          if (data.date === data.lastDate && !data.slots.length)
+            $("empty").querySelector(".muted").textContent =
+              "Du har nått slutet av provets 28 dagar. Välj en tidigare dag eller en annan behandling.";
+          else
+            $("empty").querySelector(".muted").textContent =
+              "Det kan vara stängt eller fullbokat. Prova en annan dag.";
+          if (pendingBooking || bookingReceipt)
+            document
+              .querySelectorAll(
+                "#content button,#content select,#content input",
+              )
+              .forEach((el) => (el.disabled = true));
+        }
+        function args(patch = {}) {
+          return {
+            serviceId: data?.service.id,
+            staffId: data?.selectedStaff.id,
+            date: data?.date,
+            ...patch,
+          };
+        }
+        async function load(patch = {}, recheck = false) {
+          if (pendingBooking || bookingReceipt || historyLoading) return;
+          const own = ++sequence;
+          lastArgs = args(patch);
+          const old = selected;
+          selected = null;
+          $("consent").checked = false;
+          updateContext(null);
+          busy = true;
+          $("status").textContent = recheck
+            ? "Kontrollerar att tiden fortfarande är ledig…"
+            : "Hämtar lediga tider…";
+          $("error").textContent = "";
+          $("retry").hidden = true;
+          document
+            .querySelectorAll("button,select,input")
+            .forEach((el) => (el.disabled = true));
+          try {
+            const result = await rpc("tools/call", {
+              name: "show_time_picker",
+              arguments: Object.fromEntries(
+                Object.entries(lastArgs).filter(
+                  ([, value]) => value !== undefined,
+                ),
+              ),
+            });
+            if (own !== sequence) return;
+            if (result.isError || !valid(result.structuredContent))
+              throw new Error("INVALID_RESULT");
+            data = result.structuredContent;
+            selected =
+              recheck && data.slots.some((s) => s.start === old) ? old : null;
+            busy = false;
+            document
+              .querySelectorAll("button,select,input")
+              .forEach((el) => (el.disabled = false));
+            render();
+            $("slots-title").setAttribute("tabindex", "-1");
+            $("slots-title").focus();
+            $("status").textContent = recheck
+              ? selected
+                ? "Tiden är fortfarande ledig. Ingen bokning har skapats."
+                : "Tiden är inte längre ledig. Välj en annan tid här ovanför."
+              : "Välj en tid. Tillgängligheten kan ändras.";
+            if (recheck && selected) updateContext(selected);
+          } catch {
+            if (own !== sequence) return;
+            busy = false;
+            $("selection").hidden = true;
+            $("error").textContent =
+              "Tiderna kunde inte hämtas. Försök igen med samma val.";
+            $("status").textContent = "";
+            document
+              .querySelectorAll("button,select,input")
+              .forEach((el) => (el.disabled = false));
+            render();
+            $("retry").hidden = false;
+          }
+        }
+        function bookingContext(text, value) {
+          if (!hostCapabilities.updateModelContext) return;
+          rpc("ui/update-model-context", {
+            content: [{ type: "text", text }],
+            structuredContent: value,
+          }).catch(() => {});
+        }
+        function showReceipt(value, requestId) {
+          bookingReceipt = value;
+          activeRequestId = requestId;
+          pendingBooking = null;
+          selected = null;
+          busy = false;
+          render();
+          $("selection").hidden = true;
+          $("retry-booking").hidden = true;
+          $("receipt").hidden = false;
+          $("receipt-title").textContent =
+            value.status === "cancelled"
+              ? "Din testbokning är avbokad"
+              : value.changedSinceCreation
+                ? "Testbokningen har ändrats i admin"
+                : "Din testbokning är klar";
+          $("receipt-summary").textContent =
+            `${value.serviceName} hos ${value.staffName} · ${value.duration} minuter · ${price(value.priceOre)}`;
+          $("receipt-time").textContent =
+            `${new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(value.startsAt))} · ${clock(value.startsAt)}–${clock(new Date(Date.parse(value.startsAt) + value.duration * 60000).toISOString())} (Stockholmstid)`;
+          $("receipt-id").textContent = `Boknings-id: ${value.id}`;
+          $("status").textContent =
+            value.status === "cancelled"
+              ? "Bokningen är avbokad. En tidigare importerad kalenderpost behöver du själv ta bort."
+              : value.changedSinceCreation
+                ? "Aktuell bokning visas. En tidigare importerad kalenderpost uppdateras inte automatiskt."
+                : "Testbokningen är sparad och syns i salongens lokala kalender.";
+          $("refresh-receipt").disabled = false;
+          $("calendar-file").disabled = value.status !== "confirmed";
+          $("new-booking").disabled = false;
+          $("calendar-download").hidden = true;
+          $("receipt").focus();
+          bookingContext(
+            `Aktuell testbokning: ${value.status}. Boknings-id ${value.id}.`,
+            value,
+          );
+        }
+        async function restoreHistory(auto = false) {
+          if (historyLoading || busy) return;
+          historyLoading = true;
+          document
+            .querySelectorAll("#content button,#content select,#content input")
+            .forEach((el) => (el.disabled = true));
+          $("history").hidden = false;
+          $("refresh-history").disabled = true;
+          $("book").disabled = true;
+          try {
+            const result = await rpc("tools/call", {
+              name: "read_demo_bookings",
+              arguments: {},
+            });
+            if (
+              result.isError ||
+              !Array.isArray(result.structuredContent?.items)
+            )
+              throw new Error();
+            historyReady = true;
+            $("history-items").replaceChildren();
+            const items = result.structuredContent.items;
+            const unfinished = items.find(
+              (i) => i.outcome === "pending" && i.retry,
+            );
+            if (unfinished) {
+              pendingBooking = unfinished.retry;
+              bookingReceipt = null;
+              activeRequestId = unfinished.requestId;
+              $("receipt").hidden = true;
+              render();
+              $("selection").hidden = true;
+              $("retry-booking").hidden = false;
+              $("retry-booking").disabled = false;
+              $("status").textContent =
+                `Tidigare försök: ${dayText(pendingBooking.start.slice(0, 10))} kl. ${clock(pendingBooking.start)}. Utfallet är okänt. Kontrollera samma försök innan du väljer nytt.`;
+              $("retry-booking").focus();
+            } else {
+              const receipts = items.filter((i) => i.receipt);
+              for (const item of receipts) {
+                const b = document.createElement("button");
+                b.type = "button";
+                b.textContent = `${item.receipt.serviceName} · ${dayText(item.receipt.startsAt.slice(0, 10))} ${clock(item.receipt.startsAt)} · ${item.receipt.status === "cancelled" ? "Avbokad" : "Bokad"}`;
+                b.onclick = () => {
+                  if (!busy && !pendingBooking)
+                    showReceipt(item.receipt, item.requestId);
+                };
+                $("history-items").append(b);
+              }
+              const current =
+                receipts.find((i) => i.requestId === activeRequestId) ??
+                (auto ? receipts[0] : null);
+              if (current) showReceipt(current.receipt, current.requestId);
+              else if (!receipts.length) {
+                $("history-items").textContent =
+                  "Inga sparade bokningar från det här provet ännu.";
+                render();
+              }
+            }
+            $("error").textContent = "";
+          } catch {
+            historyReady = false;
+            $("book").disabled = true;
+            $("error").textContent =
+              "Tidigare bokningsförsök kunde inte kontrolleras. Hämta dem igen innan du bokar nytt.";
+          } finally {
+            historyLoading = false;
+            document
+              .querySelectorAll(
+                "#content button,#content select,#content input",
+              )
+              .forEach((el) => (el.disabled = false));
+            render();
+            $("refresh-history").disabled = busy;
+            $("refresh-receipt").disabled = busy;
+          }
+        }
+        $("refresh-history").onclick = () => restoreHistory();
+        $("refresh-receipt").onclick = () => restoreHistory();
+        $("calendar-file").onclick = async () => {
+          if (!activeRequestId || busy || pendingBooking) return;
+          $("calendar-file").disabled = true;
+          try {
+            const result = await rpc("tools/call", {
+              name: "get_demo_calendar_file",
+              arguments: { requestId: activeRequestId },
+            });
+            if (
+              result.isError ||
+              typeof result.structuredContent?.content !== "string"
+            )
+              throw new Error();
+            if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+            downloadUrl = URL.createObjectURL(
+              new Blob([result.structuredContent.content], {
+                type: "text/calendar;charset=utf-8",
+              }),
+            );
+            $("calendar-download").href = downloadUrl;
+            $("calendar-download").hidden = false;
+            $("calendar-download").focus();
+            $("calendar-notice").textContent =
+              "Kalenderfilen är klar. Hämta och importera den i din kalenderapp. Ingen insättning eller automatisk synk är bekräftad.";
+          } catch {
+            $("error").textContent =
+              "Kalenderfilen kunde inte hämtas. Uppdatera bokningsstatus och försök igen.";
+          } finally {
+            $("calendar-file").disabled =
+              bookingReceipt?.status !== "confirmed";
+          }
+        };
+        async function book() {
+          if (
+            busy ||
+            historyLoading ||
+            bookingReceipt ||
+            data?.bookingEnabled !== true
+          )
+            return;
+          if (!pendingBooking) {
+            if (!historyReady || !selected || !$("consent").checked) return;
+            if (typeof crypto.randomUUID !== "function") {
+              $("error").textContent =
+                "Klienten saknar säkert stöd för bokningsförsök. Öppna den lokala skyddade demon.";
+              return;
+            }
+            pendingBooking = {
+              serviceId: data.service.id,
+              staffId: data.selectedStaff.id,
+              serviceVersion: data.service.version,
+              start: selected,
+              clientRequestId: crypto.randomUUID(),
+              confirmed: true,
+            };
+          }
+          busy = true;
+          document
+            .querySelectorAll("button,select,input")
+            .forEach((el) => (el.disabled = true));
+          $("retry-booking").hidden = true;
+          $("error").textContent = "";
+          $("status").textContent = "Bekräftar testbokningen…";
+          bookingContext("Testbokning skickad. Utfallet är ännu okänt.", {
+            demo: true,
+            bookingCreated: "unknown",
+          });
+          try {
+            const result = await rpc("tools/call", {
+              name: "book_demo_time",
+              arguments: pendingBooking,
+            });
+            const value = result?.structuredContent;
+            if (result?.isError) {
+              const error = value?.error;
+              // A definite validation/conflict/quota failure permits a new choice.
+              // Transport/5xx errors may follow a committed booking: keep its key.
+              if (![400, 403, 409, 429].includes(error?.status))
+                throw new Error("BOOKING_UNKNOWN");
+              pendingBooking = null;
+              busy = false;
+              selected = null;
+              document
+                .querySelectorAll("button,select,input")
+                .forEach((el) => (el.disabled = false));
+              if (error.code === "previous_attempt_pending") {
+                await restoreHistory();
+                return;
+              }
+              await load();
+              $("error").textContent =
+                error.code === "slot_unavailable"
+                  ? "Tiden hann bli bokad. Välj en annan ledig tid och bekräfta igen."
+                  : error.status === 429
+                    ? "Demots bokningsgräns är nådd. Försök igen senare."
+                    : "Uppgifterna har ändrats eller är ogiltiga. Välj en tid och bekräfta igen.";
+              $("slots-title").focus();
+              return;
+            }
+            if (
+              !value ||
+              value.demo !== true ||
+              value.bookingCreated !== true ||
+              typeof value.id !== "string" ||
+              !value.id ||
+              value.serviceId !== pendingBooking.serviceId ||
+              value.staffId !== pendingBooking.staffId ||
+              value.startsAt !== pendingBooking.start ||
+              !Number.isFinite(Date.parse(value.endsAt))
+            )
+              throw new Error("BOOKING_UNKNOWN");
+            activeRequestId = pendingBooking.clientRequestId;
+            showReceipt({ ...value, version: 1 }, activeRequestId);
+            await restoreHistory();
+          } catch {
+            busy = false;
+            selected = null;
+            $("selection").hidden = true;
+            $("slots")
+              .querySelectorAll("button")
+              .forEach((el) => el.setAttribute("aria-pressed", "false"));
+            $("status").textContent =
+              `Bokningen kan ha skapats, men svaret saknas. Försöket gäller ${dayText(pendingBooking.start.slice(0, 10))} kl. ${clock(pendingBooking.start)}. Kontrollera samma försök för att få besked.`;
+            $("error").textContent =
+              "Starta inte en ny bokning innan utfallet är klarlagt.";
+            $("retry-booking").hidden = false;
+            $("retry-booking").disabled = false;
+            $("retry-booking").focus();
+          }
+        }
+        window.addEventListener("message", (event) => {
+          if (
+            event.source !== window.parent ||
+            !event.data ||
+            event.data.jsonrpc !== "2.0"
+          )
+            return;
+          const message = event.data;
+          if (message.id && pending.has(message.id)) {
+            const entry = pending.get(message.id);
+            pending.delete(message.id);
+            clearTimeout(entry.timer);
+            message.error
+              ? entry.reject(new Error("HOST_ERROR"))
+              : entry.resolve(message.result);
+            return;
+          }
+          if (
+            message.method === "ui/notifications/tool-result" &&
+            !busy &&
+            !pendingBooking &&
+            !bookingReceipt &&
+            valid(message.params?.structuredContent) &&
+            (!data ||
+              message.params.structuredContent.checkedAt > data.checkedAt)
+          ) {
+            data = message.params.structuredContent;
+            selected = null;
+            updateContext(null);
+            render();
+            $("status").textContent =
+              "Välj en tid. Tillgängligheten kan ändras.";
+            if (data.bookingEnabled && !historyReady) void restoreHistory(true);
+          }
+        });
+        $("service").onchange = () =>
+          load({ serviceId: $("service").value, staffId: undefined });
+        $("staff").onchange = () => load({ staffId: $("staff").value });
+        $("today").onclick = () => load({ date: data.firstDate });
+        $("previous").onclick = () =>
+          load({ date: [data.firstDate, shift(data.date, -7)].sort().at(-1) });
+        $("next").onclick = () =>
+          load({ date: [data.lastDate, shift(data.date, 7)].sort()[0] });
+        $("next-day").onclick = () => load({ date: shift(data.date, 1) });
+        $("check").onclick = () => load({}, true);
+        $("retry").onclick = () => load(lastArgs);
+        $("consent").onchange = () => {
+          $("book").disabled = !$("consent").checked || busy || !historyReady;
+        };
+        $("book").onclick = book;
+        $("retry-booking").onclick = book;
+        $("new-booking").onclick = () => {
+          bookingReceipt = null;
+          activeRequestId = null;
+          $("receipt").hidden = true;
+          load();
+        };
+        rpc("ui/initialize", {
+          appInfo: { name: "booking-lab-time-card", version: "0.3.0" },
+          appCapabilities: { availableDisplayModes: ["inline", "fullscreen"] },
+          protocolVersion: "2026-01-26",
+        })
+          .then((result) => {
+            hostCapabilities = result.hostCapabilities ?? {};
+            notify("ui/notifications/initialized", {});
+          })
+          .catch(() => {
+            $("status").textContent =
+              "Öppna kortet genom Booking Lab-verktyget i en MCP Apps-klient. Ingen bokning har skapats.";
+          });
+        let lastHeight = 0;
+        new ResizeObserver(() => {
+          const height = Math.ceil(
+            document.body.getBoundingClientRect().height,
+          );
+          if (height !== lastHeight) {
+            lastHeight = height;
+            notify("ui/notifications/size-changed", { height });
+          }
+        }).observe(document.body);
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none';script-src 'unsafe-inline';style-src 'unsafe-inline';connect-src 'none';img-src 'none';base-uri 'none';form-action 'none'"
+    />
+    <title>Booking Lab – min arbetsdag</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 12px;
+        font:
+          15px/1.5 system-ui,
+          sans-serif;
+        color: #192826;
+        background: transparent;
+      }
+      main {
+        max-width: 640px;
+        margin: auto;
+        background: #fff;
+        border: 1px solid #dde5e0;
+        border-radius: 22px;
+        overflow: hidden;
+      }
+      header {
+        padding: 22px;
+        background: #f3f6f3;
+      }
+      h1 {
+        font-size: 27px;
+        margin: 8px 0;
+      }
+      h2 {
+        font-size: 17px;
+        margin: 22px 0 8px;
+      }
+      p {
+        margin: 8px 0;
+      }
+      .muted {
+        font-size: 13px;
+        color: #596b66;
+      }
+      .body {
+        padding: 0 22px 22px;
+      }
+      .badge {
+        display: inline-block;
+        background: #e8f1eb;
+        color: #235d4c;
+        border-radius: 20px;
+        padding: 4px 10px;
+        font-size: 12px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      button,
+      select,
+      a {
+        font: inherit;
+      }
+      button,
+      select {
+        min-height: 44px;
+        max-width: 100%;
+        border: 1px solid #ccd9d1;
+        background: #fff;
+        color: #192826;
+        border-radius: 10px;
+        padding: 8px 12px;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      a {
+        color: #235d4c;
+        display: inline-block;
+        padding: 8px 0;
+        overflow-wrap: anywhere;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      select:focus-visible {
+        outline: 3px solid #579b86;
+        outline-offset: 3px;
+      }
+      label {
+        display: block;
+        font-size: 13px;
+        margin-top: 12px;
+      }
+      .fields {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      select {
+        width: 100%;
+      }
+      ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      li {
+        border-top: 1px solid #dde5e0;
+        padding: 10px 0;
+      }
+      .next {
+        background: #e8f1eb;
+        padding: 12px;
+        border-radius: 12px;
+      }
+      #slots {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      #slots span {
+        border: 1px solid #dde5e0;
+        border-radius: 9px;
+        padding: 8px;
+      }
+      #error {
+        color: #9b3527;
+      }
+      footer {
+        border-top: 1px solid #dde5e0;
+        padding: 16px 22px;
+        font-size: 12px;
+        color: #596b66;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (max-width: 350px) {
+        header,
+        .body {
+          padding-left: 14px;
+          padding-right: 14px;
+        }
+        .fields {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="muted">BOOKING LAB / ÄGARENS ASSISTENT</div>
+        <div class="badge">Demo – endast påhittade uppgifter</div>
+        <h1>Min arbetsdag</h1>
+        <p id="actor" class="muted">
+          Betrodd lokal ägarprofil. Endast läsning.
+        </p>
+      </header>
+      <div class="body">
+        <p id="status" role="status">Hämtar arbetsdagen…</p>
+        <p id="error" role="alert"></p>
+        <button id="retry" hidden>Försök igen</button>
+        <div id="content" hidden>
+          <h2 id="day" tabindex="-1"></h2>
+          <div class="row">
+            <button id="previous" aria-label="Föregående dag">←</button
+            ><button id="today">Idag</button
+            ><button id="next" aria-label="Nästa dag">→</button
+            ><button id="refresh">Uppdatera</button>
+          </div>
+          <div class="fields">
+            <div>
+              <label for="staff">Medarbetare</label
+              ><select id="staff"></select>
+            </div>
+            <div>
+              <label for="service">Behandling för lediga tider</label
+              ><select id="service"></select>
+            </div>
+          </div>
+          <h2>Nästa eller pågående besök</h2>
+          <div id="next-visit" class="next"></div>
+          <h2>Dagens bokningar</h2>
+          <p class="muted">
+            För vald medarbetare. Högst 20 bokningar per sida, utan
+            kundkontakter.
+          </p>
+          <ul id="bookings"></ul>
+          <button id="more" hidden>Nästa sida bokningar</button
+          ><button id="first" hidden>Till första sidan</button>
+          <h2>Lediga tider</h2>
+          <p id="availability-label" class="muted"></p>
+          <div id="slots"></div>
+          <p class="muted">
+            Tillgängligheten kan ändras. Öppna kalendern för att skapa eller
+            ändra en bokning.
+          </p>
+          <h2>Kapacitetsförslag</h2>
+          <p id="capacity"></p>
+          <nav class="row" aria-label="Öppna arbetsytan">
+            <a id="calendar">Öppna kalendern</a
+            ><a id="overview">Öppna översikten</a>
+          </nav>
+        </div>
+      </div>
+      <footer>
+        Vanlig individuell admininloggning krävs i arbetsytan. Inga bokningar
+        ändras genom detta kort.
+      </footer>
+    </main>
+    <script>
+      (() => {
+        "use strict";
+        const $ = (id) => document.getElementById(id),
+          pending = new Map();
+        let id = 0,
+          data,
+          busy = false,
+          last = {};
+        const clock = (s) =>
+          new Intl.DateTimeFormat("sv-SE", {
+            timeZone: "Europe/Stockholm",
+            hour: "2-digit",
+            minute: "2-digit",
+            hourCycle: "h23",
+          }).format(new Date(s));
+        const dateText = (s) =>
+          new Intl.DateTimeFormat("sv-SE", {
+            timeZone: "Europe/Stockholm",
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }).format(new Date(s + "T12:00:00Z"));
+        const shift = (s, n) => {
+          const d = new Date(s + "T12:00:00Z");
+          d.setUTCDate(d.getUTCDate() + n);
+          return d.toISOString().slice(0, 10);
+        };
+        function rpc(method, params) {
+          return new Promise((resolve, reject) => {
+            const own = ++id;
+            const timer = setTimeout(() => {
+              pending.delete(own);
+              reject(new Error());
+            }, 12000);
+            pending.set(own, { resolve, reject, timer });
+            parent.postMessage(
+              { jsonrpc: "2.0", id: own, method, params },
+              "*",
+            );
+          });
+        }
+        function options(key, rows, selected) {
+          $(key).replaceChildren();
+          for (const row of rows) {
+            const o = document.createElement("option");
+            o.value = row.id;
+            o.textContent = row.name;
+            o.selected = row.id === selected;
+            $(key).append(o);
+          }
+        }
+        function safeLink(el, href) {
+          try {
+            const u = new URL(href);
+            if (
+              u.protocol !== "http:" ||
+              !["localhost", "127.0.0.1", "[::1]"].includes(u.hostname) ||
+              u.username ||
+              u.password
+            )
+              throw new Error();
+            el.href = u.href;
+            el.target = "_blank";
+            el.rel = "noopener noreferrer";
+          } catch {
+            el.removeAttribute("href");
+          }
+        }
+        function render() {
+          $("content").hidden = false;
+          $("day").textContent = dateText(data.date);
+          $("actor").textContent = data.actor;
+          options("staff", data.staff, data.selectedStaff?.id);
+          options("service", data.services, data.selectedService?.id);
+          $("previous").disabled = data.date <= data.firstDate;
+          $("next").disabled = data.date >= data.lastDate;
+          $("next-visit").textContent = data.nextVisit
+            ? `${clock(data.nextVisit.startsAt)} · ${data.nextVisit.serviceName} · ${data.nextVisit.duration} min hos ${data.selectedStaff.name}`
+            : "Inget kommande eller pågående besök för medarbetaren denna dag.";
+          $("bookings").replaceChildren();
+          for (const b of data.bookings) {
+            const li = document.createElement("li"),
+              a = document.createElement("a");
+            a.textContent = `${clock(b.startsAt)} · ${b.serviceName} · ${b.duration} min`;
+            safeLink(a, data.links.bookings[b.id]);
+            li.append(a);
+            $("bookings").append(li);
+          }
+          if (!data.bookings.length)
+            $("bookings").textContent = "Inga bokningar på den här sidan.";
+          $("more").hidden = !data.nextCursor;
+          $("first").hidden = !last.cursor;
+          $("availability-label").textContent = data.selectedService
+            ? `${data.selectedService.name} hos ${data.selectedStaff.name}, ${data.selectedService.duration} minuter. ${data.moreSlots ? "De första 12 tiderna visas; fler finns i kalendern." : ""}`
+            : "Ingen aktiv behandling eller personal finns att visa.";
+          $("slots").replaceChildren();
+          for (const start of data.slots) {
+            const s = document.createElement("span");
+            s.textContent = clock(start);
+            $("slots").append(s);
+          }
+          if (!data.slots.length)
+            $("slots").textContent =
+              data.date < data.today
+                ? "Dagen har passerat. Välj idag eller en kommande dag."
+                : "Inga lediga tider för detta val. Prova nästa dag eller annan behandling.";
+          $("capacity").textContent = !data.capacity
+            ? "Förslag visas bara för idag och de kommande sex dagarna."
+            : data.capacity.suggestions.length
+              ? `${data.capacity.suggestions.filter((s) => s.available).length} aktuella förslag bland högst tre källor för salongen denna dag. ${data.capacity.hasMore ? "Fler källor finns i översikten." : ""} Öppna översikten för omfattning och beslut.`
+              : "Inga kapacitetsförslag för salongen denna dag. Välj annan dag eller öppna kalendern.";
+          safeLink($("calendar"), data.links.calendar);
+          safeLink($("overview"), data.links.overview);
+          $("status").textContent =
+            `Stockholmstid · ${data.selectedStaff?.name ?? "Ingen aktiv personal"} · uppdaterat ${clock(data.checkedAt)}.`;
+        }
+        async function load(patch = {}) {
+          if (busy) return;
+          busy = true;
+          last = {
+            date: data?.date,
+            staffId: data?.selectedStaff?.id,
+            serviceId: data?.selectedService?.id,
+            ...patch,
+          };
+          last = Object.fromEntries(
+            Object.entries(last).filter(([, v]) => v !== undefined),
+          );
+          document
+            .querySelectorAll("button,select")
+            .forEach((el) => (el.disabled = true));
+          $("content").hidden = true;
+          $("status").textContent = "Hämtar arbetsdagen…";
+          $("error").textContent = "";
+          $("retry").hidden = true;
+          try {
+            const r = await rpc("tools/call", {
+              name: "show_workday",
+              arguments: last,
+            });
+            if (r.isError || r.structuredContent?.demo !== true)
+              throw new Error();
+            data = r.structuredContent;
+            document
+              .querySelectorAll("button,select")
+              .forEach((el) => (el.disabled = false));
+            render();
+            $("day").focus();
+          } catch {
+            $("error").textContent =
+              "Arbetsdagen kunde inte hämtas. Försök igen eller öppna den vanliga arbetsytan.";
+            $("status").textContent = "Ingen ändring har gjorts.";
+            $("retry").hidden = false;
+            $("retry").disabled = false;
+          } finally {
+            busy = false;
+          }
+        }
+        window.addEventListener("message", (e) => {
+          if (e.source !== parent || e.data?.jsonrpc !== "2.0") return;
+          const m = e.data;
+          if (m.id && pending.has(m.id)) {
+            const p = pending.get(m.id);
+            pending.delete(m.id);
+            clearTimeout(p.timer);
+            m.error ? p.reject(new Error()) : p.resolve(m.result);
+            return;
+          }
+          if (
+            m.method === "ui/notifications/tool-result" &&
+            !busy &&
+            m.params?.structuredContent?.demo === true &&
+            m.params.structuredContent.actor
+          ) {
+            data = m.params.structuredContent;
+            last = { date: data.date };
+            render();
+          }
+        });
+        $("retry").onclick = () => load(last);
+        $("refresh").onclick = () => load({ cursor: undefined });
+        $("today").onclick = () =>
+          load({ date: data.today, cursor: undefined });
+        $("previous").onclick = () =>
+          load({ date: shift(data.date, -1), cursor: undefined });
+        $("next").onclick = () =>
+          load({ date: shift(data.date, 1), cursor: undefined });
+        $("staff").onchange = () =>
+          load({
+            staffId: $("staff").value,
+            serviceId: undefined,
+            cursor: undefined,
+          });
+        $("service").onchange = () =>
+          load({ serviceId: $("service").value, cursor: undefined });
+        $("more").onclick = () => load({ cursor: data.nextCursor });
+        $("first").onclick = () => load({ cursor: undefined });
+        rpc("ui/initialize", {
+          appInfo: { name: "booking-lab-workday", version: "0.1.0" },
+          appCapabilities: { availableDisplayModes: ["inline", "fullscreen"] },
+          protocolVersion: "2026-01-26",
+        })
+          .then(() =>
+            parent.postMessage(
+              {
+                jsonrpc: "2.0",
+                method: "ui/notifications/initialized",
+                params: {},
+              },
+              "*",
+            ),
+          )
+          .catch(() => {
+            $("status").textContent =
+              "Öppna genom den betrodda lokala ägarprofilen.";
+          });
+        let height = 0;
+        new ResizeObserver(() => {
+          const h = Math.ceil(document.body.getBoundingClientRect().height);
+          if (h !== height) {
+            height = h;
+            parent.postMessage(
+              {
+                jsonrpc: "2.0",
+                method: "ui/notifications/size-changed",
+                params: { height: h },
+              },
+              "*",
+            );
+          }
+        }).observe(document.body);
+      })();
+    </script>
+  </body>
+</html>

@@ -3,7 +3,7 @@ import base from "./playwright.config";
 
 export default defineConfig({
   ...base,
-  grep: /bokning, skyddad administration och MCP-utkast/,
+  grep: /bokning, skyddad administration och MCP-utkast|lokal MCP-bokning|Epic05 salongsarbetsyta/,
   outputDir: process.env.BOOKING_DEMO_OUTPUT,
   webServer: {
     ...base.webServer,
@@ -11,7 +11,7 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: false,
     timeout: 120000,
-    env: { TRUST_PROXY_IP: "1", NEXT_TELEMETRY_DISABLED: "1" },
+    env: { TRUST_PROXY_IP: "0", NEXT_TELEMETRY_DISABLED: "1" },
   },
   use: { ...base.use, video: "on", trace: "off" },
 });

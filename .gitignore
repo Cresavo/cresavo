@@ -27,12 +27,15 @@ secrets/
 pgdata/
 postgres-data/
 .postgres/
-data/
+/data/
 
 # Dependencies, build and test output
 node_modules/
 .next/
 .turbo/
+.vercel/
+# Build-only compiled copy; the authoritative source is next.config.ts.
+next.config.mjs
 dist/
 build/
 coverage/
@@ -43,6 +46,9 @@ demo-artifacts/
 *.log
 
 # Local review archives
+# Explicit customer downloads must stay private, including synthetic demos.
+booking-lab-kunddata*.json
 *.zip
 *.tar
 *.tar.gz
+.vercel

@@ -1,0 +1,87 @@
+import { redirect } from "next/navigation";
+import { getAdminContext } from "@/lib/auth";
+import { capacityListSchema, listCapacity } from "@/lib/capacity";
+import { DomainError, pageDataFailure } from "@/lib/errors";
+import AdminHeader from "../header";
+import CapacityOverview from "./overview";
+import ContextLink from "../../components/context-link";
+import { getLocale } from "@/lib/locale-server";
+import { text } from "@/lib/locale";
+export const dynamic = "force-dynamic";
+export default async function Overview({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const locale = await getLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
+  const admin = await getAdminContext();
+  if (!admin) redirect("/admin");
+  const params = await searchParams;
+  const parsed = capacityListSchema.safeParse({
+    ...params,
+    ...(params.days !== undefined && { days: Number(params.days) }),
+    ...(params.limit !== undefined && { limit: Number(params.limit) }),
+  });
+  const initialQuery = parsed.success
+    ? parsed.data
+    : capacityListSchema.parse({});
+  const actor = { kind: "admin" as const, id: admin.id };
+  const { result, query, invalid } = await listCapacity(initialQuery, actor)
+    .then((result) => ({
+      result,
+      query: initialQuery,
+      invalid: !parsed.success,
+    }))
+    .catch(async (error) => {
+      if (
+        error instanceof DomainError &&
+        (error.status === 400 || error.status === 409)
+      ) {
+        const fallback = capacityListSchema.parse({});
+        return {
+          result: await listCapacity(fallback, actor).catch(pageDataFailure),
+          query: fallback,
+          invalid: true,
+        };
+      }
+      return pageDataFailure(error);
+    });
+  return (
+    <>
+      <AdminHeader email={admin.email} active="overview" />
+      <main className="admin-workspace overview-workspace">
+        <div className="workspace-heading">
+          <div>
+            <p className="eyebrow">
+              {t("Your working day", "Salongens arbetsdag")}
+            </p>
+            <h1>{t("Overview", "Översikt")}</h1>
+          </div>
+          <ContextLink className="button-link" href="/admin">
+            {t("Open calendar", "Öppna kalendern")}
+          </ContextLink>
+        </div>
+        <p className="workspace-lead">
+          {t(
+            "Opportunities in your schedule. Review a suggestion and choose the next step.",
+            "Lediga tider att ta hand om. Granska ett förslag och välj nästa steg.",
+          )}
+        </p>
+        {invalid && (
+          <p role="alert">
+            {t(
+              "Invalid page. Showing the first page.",
+              "Ogiltigt sidval. Visar första sidan.",
+            )}
+          </p>
+        )}
+        <CapacityOverview
+          key={JSON.stringify(query)}
+          initial={result}
+          query={query}
+        />
+      </main>
+    </>
+  );
+}

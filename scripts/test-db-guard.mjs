@@ -4,7 +4,10 @@ export function assertTestDatabase(value = process.env.DATABASE_URL) {
     if (
       !["postgresql:", "postgres:"].includes(url.protocol) ||
       !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) ||
-      !/^\/[a-zA-Z0-9_]+_(test|demo)$/.test(url.pathname)
+      !/^\/[a-zA-Z0-9_]+_(test|demo)$/.test(url.pathname) ||
+      [...url.searchParams.keys()].some((key) =>
+        ["host", "hostaddr"].includes(key.toLowerCase()),
+      )
     )
       throw new Error();
   } catch {

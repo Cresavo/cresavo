@@ -1,4 +1,206 @@
+# Current local work: Agentprov 2
+
+Local branch `codex/agentprov-2` starts at frozen `e890b69` in a separate
+worktree. `codex/agentprov-1` remains unchanged for independent QA.
+
+This step adds `/.well-known/usp`, `/llms.txt`, five MCP name aliases and
+explicit server-owned mandate place/schedule bounds. The aliases retain
+Booking Lab's native v1 contract; full USP/OSBP wire conformance is not claimed.
+Native contracts are available at `/api/v1/openapi` and `/api/v1/mcp/schema`.
+No new dependencies, legacy removal, policy merge, cloud resources or deploy.
+
+See [protocol boundaries](docs/AGENTPROV_2_PROTOCOL_NOTES.md),
+[policy merge plan](docs/POLICY_MERGE_PLAN.md) and
+[legacy decoupling plan](docs/LEGACY_DECOUPLE_PLAN.md).
+Actual current test results are at the top of [verification](docs/VERIFICATION.md).
+
+## Frozen prior delivery: Agentprov 1
+
+Branch `codex/agentprov-1`, based on `bf7b6c3` (not older main).
+The existing gateway has REST `/api/v1` and HTTP-MCP `/api/v1/mcp`.
+This task adds stable client ownership across key rotation, a server-checked
+synthetic operator mandate and atomic booking/link writes. It does not deploy,
+add a customer register to the agent path or certify real-customer consent.
+
+Start with [the runnable proof](docs/AGENTPROV_1_RUNBOOK.md),
+[approved scope](docs/AGENTPROV_1_PLAN.md) and
+[Vercel/Neon preparation](docs/AGENTPROV_1_PREVIEW.md).
+No `.env` or Docker is required when environment variables are supplied by
+the operator. Hosted preview execution still requires Niclas's approval.
+Historical delivery notes below describe other revisions and environments.
+
+---
+
+<!-- POLISH_CURRENT_START -->
+# Booking Lab SE — polerad salongsarbetsyta
+
+Svensk agentredo boknings-POC med syntetiska uppgifter. Gemensam arbetsyta med
+Översikt/Kalender/Kunder; Salongen och Konto samlar övriga befintliga funktioner.
+Sidomeny på desktop, kompakt mobilnav. Webb och befintlig lokal MCP behåller samma
+verksamhetsregler. Inga nya agentanslutningar eller produktmoduler i denna leverans.
+
+[Skyddad demo](https://booking-lab-se-preview.vercel.app/admin) · [provsteg/bilder](docs/DEMO.md) ·
+[tester](docs/VERIFICATION.md) · [status](docs/PROJECT_STATUS.md).
+Vercel vid behov → Öppna demoadmin utan extra lösenord, endast isolerad demo.
+
+Produkt/Grok/CI/deploy **9840309df4d8addc3e4bf5f6c5da0f3802eb4a2d**, branch **ui/salon-polish**.
+106 unit/125 integration/13 kort/58 webb×4/lint/tsc/build PASS; [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43529548681)4/4.
+Grok scoped GO efter2 rättningsvarv. Fullaudit FAIL7 moderate dev, produktion 0.
+FysiskSafari/ägaracceptans/pilot återstår. Main/PC-runtime är bevarade.
+Senare dokumentation är ingen ny produktrevision. Lokala startinstruktioner nedan.
+<!-- POLISH_CURRENT_END -->
+
+## Bilaga — tidigare leveranser och resultat
+
+<!-- COHERENT_CURRENT_START -->
+# Booking Lab SE — bokning och salongens arbetsyta
+
+Svensk, agentredo boknings-POC med en sammanhängande arbetsyta och helt syntetiska
+uppgifter. Översikt, Kalender och Kunder är huvudval; Salongen samlar tjänster,
+personal och kampanjer. Kundbokning och produktsida har tydliga egna ingångar.
+Befintlig lokal MCP använder samma verksamhetsregler.
+
+[Öppna skyddad demo](https://booking-lab-se-preview.vercel.app/admin) · [fem provflöden och bilder](docs/DEMO.md) ·
+[status](docs/PROJECT_STATUS.md) · [testresultat](docs/VERIFICATION.md).
+Vercel-inloggning vid behov, därefter Öppna demoadmin utan ett extra lösenord.
+
+Produkt/Grok/CI/deploy: **51d54d4696dd5fee51449acbd096f8529fbd3c5c**, branch
+**feature/coherent-salon-workspace**. Grok scoped GO efter ett rättningsvarv;
+[Actions 43502629318](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43502629318)
+har fyra gröna jobb med 54 webbtester vardera. Lokalt: 102 unit, 125 integration,
+13 MCP-kort, lint/tsc/build PASS. Full audit **FAIL: 7 moderate dev**; omitdev 0.
+
+Detta är en privat syntetisk POC. Fysisk iPhone/Safari och Niclas UX-godkännande
+återstår; kundpilot är inte godkänd. Senare dokumentation ändrar inte produktkoden.
+Befintlig PC-plugin/runtime är separat och bevarad. Lokala startinstruktioner och
+tidigare leveransbevis finns nedan.
+<!-- COHERENT_CURRENT_END -->
+
+## Tidigare leveranser och bevis
+
 # booking-lab-se
+
+## Beständig agentbokning och ägarens arbetsdag — lokal syntetisk POC
+
+Det lokala MCP-kortet kan nu återöppna kvitton, återuppta oklara försök och
+hämta en kalenderfil. En separat läsprofil visar ägarens dag, nästa besök och
+lediga tider. Vanlig skyddad admin används för ändringar. Samma privata
+PC-plugin, version 0.3.0; inga nya beroenden eller externa tjänster.
+
+Produkt och slutlig Grok-revision **05e5eaf**, branch
+**feature/agent-booking-workday**. Grok GO för lokal syntetisk POC efter två
+samlande rättningsvarv. 91 unit, 125 integration, 13 korttester och 48
+webbtester i fyra lägen PASS; lokal dev0 behövde cacheåterställning efter
+bevarade FAIL-körningar. Actions **43467138367** har fyra gröna jobb på samma
+SHA. Full audit kvar på sju moderate dev, produktionsberoenden noll.
+
+Två tidigare testbokningar och händelser är bevarade. Native-klickning av
+de nya funktionerna, ägarprofilens hot-reload, fysisk iPhone/Safari och riktig
+kalenderimport är inte verifierade. Ingen fjärr-MCP, molndeploy, mainmerge eller
+kundpilot följer av detta. Nästa mål startas inte automatiskt.
+
+[Prova och se bilder](docs/DEMO.md) · [resultat och ursprungliga fel](docs/VERIFICATION.md) ·
+[Grok-original](docs/qa/QA-REPORT-agent-workday-f2-05e5eaf.md) · [godkänt scope](docs/AGENT_BOOKING_WORKDAY_PLAN.md).
+
+## Tidigare bokningsprov
+
+## Lokalt MCP-bokningskort till admin — verifierad syntetisk POC
+
+Samma privata PC-plugin kan nu, vid separat lokal opt-in, skapa en testbokning
+för en fast påhittad kund efter sammanfattning, kryssruta och uttrycklig
+bekräftelse. Tappat svar återanvänder samma nyckel, upptagen tid ger nytt val.
+Standardens läsläge består. Ingen publik MCP, betalning eller utskick.
+
+Niclas har bokat i faktiska PC-kortet; två skilda tider verifierades som
+2bokningar/2create-events/0överlapp och i vanlig skyddad admin i samma lokala
+DB. Fysisk iPhone/Safari/mobilanslutning återstår. Produkt8126410 på
+feature/mcp-card-booking-proof, Grok scopedGO (4Low/1Info,0Medium+).
+85unit/113integration/3läs-UI/4boknings-UI/46webb×4,lint/tsc/build PASS.
+Actions43430009174 har4gröna jobb efter1omkörning av ett gammalt testtimeout;
+originalfelet bevaras och rotorsaken är inte fastställd. Audit separat7moderate
+dev/0prod. Inga nya beroenden, migrationer eller ändringar i bokningsmotorn.
+[Prova/status](docs/DEMO.md) · [plan](docs/MCP_CARD_BOOKING_PLAN.md) ·
+[resultat/NOT RUN](docs/VERIFICATION.md) · [Grok-original](docs/qa/QA-REPORT-card-booking-8126410.md).
+Ingen kundpilot, ny molndeploy eller mainmerge. Ingen ny epic startas automatiskt.
+
+## Tidigare verifierade leveranser
+
+## Kunddata och verkligt ägaragentprov — levererad syntetisk POC
+
+[Öppna skyddade kundarbetsytan](https://booking-lab-se-preview.vercel.app/admin/customers).
+Kundkort → Kunddata: begränsad export och uttryckligen bekräftad kontakt-
+borttagning med bokningshistorik kvar. Kommande aktiva besök hanteras först.
+Automatisk gallring av; inte full anonymisering eller komplett GDPR-utdrag.
+Direkt Codex-MCP-prov läste kapacitet, sparade ett opublicerat utkast och
+kontrollerade retry/stale efter vanlig webbåterbokning. MCP-provet är lokalt,
+inte previewns databas. Ingen publik MCP eller ny modellanslutning.
+
+Produkt95f8071, Grok-GO efter1fixvarv,79unit/99integration/46E2E×4 och4gröna
+CIjobb. Full audit7moderate dev; prod0. [Prova/bilder/stopp](docs/DEMO.md) ·
+[kommandon/NOT RUN](docs/VERIFICATION.md) · [faktiskt agentprov](docs/agent-proof/OWNER_AGENT_2026-11-13.md).
+Fysisk iPhone/Safari och pilot är inte godkända. Senare docs/bilder ändrar ingen kod.
+
+## Tidigare leverans: proaktiv kapacitetsöversikt
+
+[Öppna den skyddade demon](https://booking-lab-se-preview.vercel.app/product),
+välj arbetsytan och **Översikt**. Framtida avbokningar kontrolleras mot samma
+bokningsmotor; öppna rätt kalenderdag, avfärda eller välj villkor och spara ett
+beständigt kampanjutkast. Ingen automatisk publicering eller modellanslutning.
+Tjänst+datum gäller alla bokningsbara tider/utförare, inte en exklusiv lucka.
+
+Produkt-/QA-/deploykod8843d06.78unit/90integration/42E2E×4 och fyra CI-jobb PASS;
+Grok-GO efter ett samlat fixvarv. Full audit har7moderate dev, prod0fynd.
+[Provguide och riktiga bilder](docs/DEMO.md) · [faktiska kommandon/NOT RUN](docs/VERIFICATION.md).
+Fysisk iPhone/Safari och kundpilot är inte godkända. Lokalt efter migrering/
+grundseed på en separat \*\_demo: `BOOKING_DEMO_SEED=1 npm run demo:seed:capacity`.
+Använd individuell lokal admin; previewns opt-in-demoinloggning är miljöbunden.
+Ingen ny drift, extern MCP eller betald tjänst behövs för det lokala provet.
+
+## Epic 06 — levererad skyddad syntetisk demo
+
+[Öppna Booking Lab](https://booking-lab-se-preview.vercel.app/product) · [demoadmin](https://booking-lab-se-preview.vercel.app/admin) · [kundbokning](https://booking-lab-se-preview.vercel.app/).
+Kod7c1407d är QA-/CI-godkänd för avgränsad demo. Vercel-inloggning vid behov,
+sedan demoknapp utan extra lösenord. Inte kundpilot. [Prova och se riktiga bilder](docs/DEMO.md).
+
+Öppna `/product` för produktöversikten, `/admin/customers` för kundregistret
+och `/` för kundbokningen. Kundkort samlar kommande och tidigare besök;
+Ny bokning och Boka återbesök tar med vald kund. Nuvarande kontaktuppgifter
+och äldre bokningssnapshots hålls isär. Ingen automatisk sammanslagning eller
+publik kundsökning via e-post. Rå kontakt syns bara i den uttryckligen aktiverade
+isolerade demon; normal maskering och produktinloggning finns kvar.
+
+`npm run demo:seed` kräver `BOOKING_DEMO_SEED=1` och separat loopback-databas
+med suffix `_demo`. Seedningen är additiv och raderar inga manuella uppgifter.
+Integrationstestet för riktig seed-CLI skapar och städar endast sin egen nya
+slumpade loopback-databas; lokalt testkonto behöver därför CREATEDB. Ge aldrig
+produktionskontot den rättigheten för tester.
+Cloudflaggan `--preview` är endast för den befintliga pinnade operatörsmiljön.
+[Plan och gränser](docs/EPIC_06_PLAN.md) · [aktuell leveransstatus](docs/PROJECT_STATUS.md)
+· [preview och provsteg](docs/DEMO.md). All data är påhittad. Pilot är fortsatt NO-GO.
+
+## Epic 05 — QA-godkänd lokal produktalpha
+
+Den här branchen bygger på den godkända Epic04-POC:n. Migrera och seeda före start. Adminens huvudvy är nu en dag-/veckokalender med personalfilter; öppna ett bokningsblock för att flytta eller avboka, eller välj Ny bokning. Tjänster och Personal & tider har separata redigeringsvyer; tidigare kampanjflöde finns på `/admin/campaigns`. Endast syntetiska uppgifter. [Aktuell verifiering](docs/VERIFICATION.md) och [återstående godkänd omfattning](docs/EPIC_05_PLAN.md): MCP-paritet, ren installation/uppgraderingskopia och produktionsdemo är testade; Grok godkände4fc98d3 efter en avgränsad fix av adminens bokningsbudget; privat leveransc12b98a har grön fullmatris i Actions. [Exakt CI-bevis](docs/CI_DELIVERY_2026_11_12.md). [Stegvis provguide](docs/LOCAL_DEMO_WINDOWS.md). En separat [skyddad syntetisk mobilpreview](https://booking-lab-se-preview-i9pv3ji3h-<redacted-vercel-team>.vercel.app) är verifierad på kod f2fdac7; Vercel-inloggning och individuell appadmin krävs. [Prova och stoppa preview](docs/DEMO.md). Fysisk iPhone/Safari återstår; ingen kundpilot.
+
+## Epic 04 — individuell lokal adminåtkomst
+
+Epic 04 är godkänd som lokal POC efter oberoende Grok-QA och en avgränsad limiterfix, produktkod471f91f. Separata syntetiska konton ersätter delat ADMIN_PASSWORD. Skapa konto med `npm run admin:manage -- create admin@example.test` efter migrering; välj eget testlösenord i den dolda terminalinmatningen. [Operatörsguide](docs/ADMIN_OPERATIONS.md) · [tekniskt beslut](docs/ADR_004_ADMIN_IDENTITY.md). Inga standardkonton skapas. Kund-e-post förblir maskerad; MFA saknas och pilot är fortsatt NO-GO. Aktuell verifiering: [VERIFICATION](docs/VERIFICATION.md).
+
+## Epic 03 — godkänd lokal POC
+
+Prisma CLI/klient/adapter är uppgraderade till exakt **7.10.1**. Samma startkommandon nedan gäller; PostgreSQL-klienten har en uttrycklig poolbudget och UTC-session. Inga historiska migrationer, bokningsregler eller produktfunktioner har ändrats. Lokal slutmatris på **18a4d73**: 51 unit, 31 integration ×3, 12 E2E ×4, lint/tsc/build/cleanup PASS. Full audit **FAIL: 7 måttliga, 0 höga**; produktionsaudit **PASS: 0 fynd**. Groks oberoende slutkontroll godkände 18a4d73 utan blockerande fynd; [slutrapport](docs/qa/QA-REPORT-epic03-18a4d73.md). [Beroende-/licensbeslut](docs/DEPENDENCY_REVIEW.md) · [Verifiering](docs/VERIFICATION.md) · [Morgonrapport](docs/MORNING_REPORT.md). **Endast syntetisk lokal POC; pilot fortsatt NO-GO.**
+
+## Epic 02 — lokal agentbokning
+
+En betrodd lokal MCP-klient kan nu skapa en syntetisk bokning via samma bokningsmotor som webben. Prova `npm run mcp:client -- --admin --book` efter lokal installation och bekräfta med `ja`; kontrollera sedan bokningen i `/admin`. Verktyget kräver separat opt-in, minimerar svaret och bevarar databasens integritetsregler. Ingen extern AI-modell behövs. [MCP-kontrakt och begränsningar](#lokal-syntetisk-agentbokning-epic-02).
+
+Epic 02:s slutmatris på kod 3cd633b: 43 unit, 30 integration ×3 och 12 E2E i fyra lägen, lint/tsc/build/cleanup PASS. Grok verifierade samma matris på cad997b och **godkände Epic 02 som lokal POC**, utan blockerande fynd. Audit vid det tillfället: FAIL (3 höga/7 måttliga); aktuellt Epic 03-resultat står ovan. Slutdemo 4/4 PASS. **POC för syntetiska uppgifter, inte pilot**. [Aktuell status](docs/PROJECT_STATUS.md) · [Exakta resultat](docs/VERIFICATION.md) · [Slut-QA](docs/qa/QA-REPORT-epic02-cad997b.md) · [Demo](docs/DEMO.md).
+
+## Uppföljning M2/L8 efter fixomgång 3
+
+Samtidiga bokningar för samma anställd/dag serialiseras nu före tillgänglighetskontroll. Databasens överlappsskydd är kvar; lås-/serialiseringskonflikter från insert ger det befintliga svenska konfliktfelet. Proxykonfiguration avvisar även IPv6-subnät som annars skulle lita på IPv4-klienter (exempel ::/32).
+
+CI kör ett dev/proxy0-jobb på kodändringar i feature-grenar, och hela fyrfältsmatrisen på main eller manuell Verify POC-körning. Dokumentationsändringar ignoreras; samma repos PR duplicerar inte push-jobbet. Slutleverans kräver fortsatt full matris för exakt levererad kodrevision. Separat veckoaudit rapporterar alla fynd men blockerar sitt eget jobb vid high/critical. Sju kända moderate är fortfarande ett rött full-audit-resultat, inte åtgärdade genom ändrad jobbfördelning. Veckoschemat blir aktivt först när dess workflow finns på default-branchen. Feature-pushen påc12b98a tog4m01s och en manuell slutmatris fick4gröna jobb med24E2E vardera; senare dokumentcommits ändrar ingen kod. Ingen merge/deploy sker automatiskt. [Faktisk verifiering och NOT RUN](docs/VERIFICATION.md).
 
 En liten lokal, svensk boknings-POC för en fiktiv salong. Next.js, TypeScript, PostgreSQL/Prisma och lokal MCP över stdio. Endast syntetiska uppgifter. **Inte för produktion eller riktiga kunder.**
 
@@ -6,22 +208,35 @@ För produktägaren: [projektstatus och acceptanskriterier](docs/PROJECT_STATUS.
 
 ## Starta lokalt
 
+På den befintliga Windows-datorn finns även en [kort lokal demoguide](docs/LOCAL_DEMO_WINDOWS.md) för det separata syntetiska PostgreSQL-klustret. Den är inte en portabel installation och ersätter inte instruktionerna nedan.
+
 Förutsättningar: Node.js 22.12 eller senare (alternativt 24 eller senare), npm och Docker med Compose. Port 5432 och 3000 måste vara lediga. I projektkatalogen:
 
 ```powershell
-Copy-Item .env.example .env
-# Redigera .env: välj ADMIN_PASSWORD (minst 12 tecken) och SESSION_SECRET (minst 32 slumpmässiga tecken).
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+# Redigera .env: välj SESSION_SECRET (minst 32 slumpmässiga tecken).
 docker compose up -d --wait
 npm ci
 npx prisma generate
 npm run db:migrate
 npm run db:seed
+npm run admin:manage -- create admin@example.test
 npm run dev
 ```
 
-Öppna http://localhost:3000 och välj en vardag inom 60 dagar. Salongen har öppet måndag–fredag 09–17 i Europe/Stockholm, en anställd och tider på halvtimmar. Logga in via `/admin` med lösenordet i `.env`. Seeds kan köras igen utan att radera bokningar. För en egen Postgres-instans, ändra `DATABASE_URL` i `.env`; databasanvändaren måste kunna skapa extensionen `btree_gist`. Ett verifierat alternativ utan Docker beskrivs i [verifieringsrapporten](docs/VERIFICATION.md). Compose-lösenordet är endast avsett för lokal demo. Stoppa databasen med `docker compose stop`; volymen sparas.
+Öppna http://localhost:3000 och välj en vardag inom 60 dagar. Ny seed ger två syntetiska medarbetare: Anna måndag–fredag09–17 och Erik10–16 i Europe/Stockholm, med valbara tider på halvtimmar. Logga in via `/admin` med kontot du skapade lokalt. Seeds kan köras igen utan att skriva över redigerade tjänster, scheman eller bokningar. För egen Postgres, ändra `DATABASE_URL` i `.env`; databasanvändaren måste kunna skapa extensionen `btree_gist`. Lokala verifieringsmiljöer beskrivs i [verifieringsrapporten](docs/VERIFICATION.md). Compose-lösenordet gäller endast lokal demo. `docker compose stop` stoppar databasen och bevarar volymen.
+
+## Bokningskvoter per kanal
+
+Verifierad aktiv admin har en separat budget per konto: **100 nya bokningar per skapandedag i Stockholm**, och **60 försök per15minuter** per process. IP/e-postkundtaken används inte för admin, och adminbokningar förbrukar inte kundens kvot. Kundsidan behåller **5 per klient/skapandedag,3 per normaliserad e-post/skapandedag och30försök/15min**. Lokal MCP-bokning behåller **5 per betrodd lokal kanal/dag och3 per normaliserad e-post/dag**, med samma försöksskydd. Plus-taggar normaliseras. Identiska retries förbrukar ingen ny budget; avbokade rader räknas fortfarande som skapade. Adminkontext hämtas från aktiv serversession och kontrolleras på nytt före replay/skrivning; ett actor-fält eller en cookie på den publika vägen ger inget undantag. Befintliga för-fix-adminrader behåller sina lagrade kvotfält och kan påverka den gamla skapandedagens kundbudget tills dagen löper ut; ingen historik skrivs om.
 
 ## MCP
+
+### Epic 05: lokal arbetsytegenomgång, under verifiering
+
+Efter migrering/seed: `npm run mcp:client -- --admin --workspace`. Klienten visar varje syntetisk ändring och kräver ett nytt `ja` inför varje skrivning. Den skapar en provtjänst/utförare och bokning, flyttar/avbokar bokningen och inaktiverar provresurserna. Historiken ligger kvar för kontroll i admin. Vid nej/EOF stoppas genomgången; tidigare bekräftade ändringar ligger kvar. Vid tappat svar, kontrollera admin och den utskrivna åtgärdsnyckeln innan du gör ett nytt försök. Detta är ett lokalt testverktyg och inget bevis på mänskligt samtycke.
+
+Manuell SDK-anslutning använder `node --env-file=.env --import tsx src/mcp/server.ts --admin --allow-workspace`. Nya begränsade läs-/skrivverktyg och deras svar finns i [verktygsmatrisen](docs/ARCHITECTURE.md). Ingen publik MCP-port. Äldre `--allow-bookings` ger inte rätt att flytta/avboka eller ändra tjänster/schema. Inga nya beroenden eller externa modellanslutningar. Äldre `list_bookings` behåller svarstypen men visar nu enbart aktiva bokningar med lagrat tjänstenamn; för status/version och avbokad historik används `list_workspace_bookings`/`get_booking`.
 
 En betrodd lokal MCP-klient kan starta `node --env-file=.env --import tsx src/mcp/server.ts` i projektkatalogen. Standardläget erbjuder `list_services` och `get_availability`. Administratören kan uttryckligen lägga till argumentet `--admin`; då tillkommer `list_bookings` och `create_campaign_draft`. Ge endast betrodda lokala klienter adminläget: flaggan är en lokal behörighetsgräns, inte säker fjärrautentisering. Servern lyssnar inte på något nätverksuttag. Utkastet publiceras manuellt i administrationen.
 
@@ -31,6 +246,22 @@ Prova med den medföljande klienten:
 npm run mcp:client
 npm run mcp:client -- --admin
 ```
+
+### Lokal syntetisk agentbokning (Epic 02)
+
+```powershell
+npm run mcp:client -- --admin --book
+```
+
+Detta separata opt-in-läge visar Fotvård, en ledig tid i Europe/Stockholm och en syntetisk testkund. Skriv `ja` för att skapa bokningen; `nej` eller stängd standardindata avbryter utan skrivning. Bokningen syns sedan i `/admin`. Standardklienten bokar aldrig; enbart `--admin` behåller kampanjutkastflödet. Inget externt AI-API krävs.
+
+MCP-serverns nya `create_booking` exponeras endast med **både** `--admin --allow-bookings`. Starten kräver en lokal SESSION_SECRET om minst 32 tecken för den befintliga HMAC-kvoten. Saknad adminflagga eller hemlighet stoppar skrivläget med statisk felkod. Endast betrodda lokala processer får dessa flaggor; detta är inte fjärrautentisering eller pilotstöd.
+
+Verktyget kräver `serviceId`, `start` (ISO-instant med offset), `customerName`, `customerEmail` (endast `example.test`), `clientRequestId` (1–64 tecken, samma regel som HTTP:s idempotensnyckel) och `confirmed: true`. Okända fält nekas. `confirmed` är klientens försäkran, inte tekniskt bevis på en människas godkännande. Använd samma nyckel och uppgifter vid retry; ändrade uppgifter kräver ny nyckel. Nycklar delar samma befintliga namnrymd som HTTP inom demosalongen.
+
+Svaret innehåller endast `id`, `serviceId`, `startsAt`, `endsAt` i UTC. Samma domänmotor, överlappsskydd, idempotens och dagstak används som i webben. Den lokala MCP-kanalen har **ett gemensamt tak på fem nya bokningar per skapandedag i Stockholm**, även efter processomstart, samt tre per e-postnyckel. Det är ett avsiktligt begränsat testläge, inte individuella agentkvoter. Replays förbrukar ingen ny kvot. Ingen klientstyrd IP/kvotidentitet accepteras.
+
+Protokollbegränsningar från slut-QA: SDK:n tar bort ett rått eget `__proto__`-fält före verktygets strikta validering; ingen prototypförorening observerades. Felaktiga anropshöljen där `arguments` inte är ett objekt ger SDK:ns protokollfel, inte verktygets statiska feltext. `ja` kan matas via pipe, så testklientens bekräftelse är inte bevis på mänsklig granskning. Dessa dokumenterade POC-begränsningar ändrar inte flagg-/domänkontrollerna.
 
 `list_bookings` i adminläge kräver nu `from` och `to` som inkluderande datum `YYYY-MM-DD` i Europe/Stockholm, högst 31 kalenderdagar. `limit` är valfri (standard 20, max 100) och `cursor` är valfri. Exempel på argument:
 
@@ -59,40 +290,105 @@ Integration och Playwright kräver en migrerad, seedad separat databas och `.env
 
 ## Avgränsningar
 
-Admininloggningen är en minimal lokal lösning med processlokal spärr, logout och global sessionsversion, men utan individuella konton, återställning eller revisionslogg. Endast stdio-processens ägare bestämmer MCP-adminläget. Delade cookies, tenant-isolering, HTTPS, säker konfiguration, missbruksskydd, tillgänglighet, integritet och säkerhetsgranskning krävs inför verklig drift. Den signerade cookien kräver HTTPS i `NODE_ENV=production`; kör `npm run dev` för lokalt HTTP. Pris och erbjudande är information, ingen debitering. Översättningsförberedelsen är begränsad: några texter ligger i `src/lib/i18n.ts`, men flertalet är ännu svenska i komponenterna. Kalendern är en kronologisk agenda, inte en fullständig veckovy.
+Admininloggningen är en minimal lokal lösning med socketbaserad processlokal spärr, serveråterkallad logout och global sessionsversion, med individuella syntetiska konton och lokal lösenordsåterställning, men utan MFA, webbaserad recovery eller revisionslogg. Endast stdio-processens ägare bestämmer MCP-adminläget. Delade cookies, tenant-isolering, HTTPS, säker konfiguration, missbruksskydd, tillgänglighet, integritet och säkerhetsgranskning krävs inför verklig drift. Den signerade cookien kräver HTTPS i `NODE_ENV=production`; kör `npm run dev` för lokalt HTTP. Pris och erbjudande är information, ingen debitering. Översättningsförberedelsen är begränsad: några texter ligger i `src/lib/i18n.ts`, men flertalet är ännu svenska i komponenterna. Kalendern är en kronologisk agenda, inte en fullständig veckovy.
 
 [Omfattning](docs/POC_SCOPE.md) · [Arkitektur](docs/ARCHITECTURE.md) · [Tekniska principer](docs/ENGINEERING_PRINCIPLES.md) · [Underhållsgranskning](docs/MAINTENANCE_REVIEW.md) · [Licens- och projektgranskning](docs/OPEN_SOURCE_REVIEW.md) · [Verifiering](docs/VERIFICATION.md) · [Bidra](CONTRIBUTING.md)
 
 Projektets egen kod är AGPL-3.0-only, se [LICENSE](LICENSE). Paket och tillgångar har egna licenser. Före distribution eller nätverksdrift måste licensuppfyllelse och ett fungerande erbjudande om motsvarande källkod för den körda versionen ordnas; se granskningen.
 
-## Kända verifieringsresultat och risker (2026-11-11)
+## Historik — verifiering av Epic 01 QA batch 3
 
-Epic 01 QA fix batch på Windows/Node 24: ren installation, Prisma, 14 enhetstester, 14 integrationstester, sex Playwright-tester (desktop/mobil), lint, TypeScript och build PASS mot ny separat PostgreSQL 18.6. Produktionsdemo: två fullflöden PASS. Docker Compose och GitHub-CI har inte körts här. Playwrights gamla 30-sekundersgräns gav timeout även i browser-fixture; ordinarie 60 sekunder passerade med varm och tom Next-cache. Testerna återanvänder inte okända servrar: frigör port 3000 först.
+Bas `056d0c2`, branch `epic-01-foundation-hardening`. Fixpunkter 1–5 samt små förbättringar i punkt 6; Visa e-post är fortsatt undantagen. Inga nya beroenden eller migrationer. Endast lokala commits i denna omgång, ingen push eller merge. Aktuella kommandon, resultat och felhistorik: [VERIFICATION](docs/VERIFICATION.md).
 
-`npm audit` rapporterade 10 poster: tre höga i kedjan Prisma CLI → @prisma/config → deepmerge-ts (samma bakomliggande [GHSA-ggr8-5vv4-36mx](https://github.com/advisories/GHSA-ggr8-5vv4-36mx)) och sju måttliga i ESLint/TypeScript ESLint → minimatch ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)). Dessa verktyg ska inte hantera opålitliga konfigurationer eller köras publikt. `npm audit fix` löste inte dessa i den låsta trädet; den föreslagna Prisma-uppgraderingen är en större migrering som behöver egen testning. Auditens antal räknar även beroendekedjans påverkade paket, inte tio oberoende sårbarheter.
+Audit-fynden kvarstår i Prisma/config/deepmerge-ts och ESLint-kedjan. [Separat Prisma 7-plan](docs/PRISMA_7_PLAN.md). GitHub Actions test-/byggjobb för föregående `056d0c2` har verifierats grönt, dess audit-jobb rött. Den lokala batch 3-revisionen har inte körts i extern CI. Verklig TLS/proxydrift återstår.
 
-Epic 01 återkontrollerade audit och registry utan att hitta kompatibla patch/minor-rättningar. Inga overrides eller major-uppgraderingar infördes. CI-definitionen har ett separat märkt audit-jobb som för närvarande ger rött resultat; inget publiceras. HTTP/MCP och sidornas dataladdning sanerar nu oväntade fel. Sessionsformatet är striktare, men delat adminlösenord och --admin är fortsatt lokala POC-lösningar. Se [arbetsplan/resultat](docs/WORKPLAN.md), [verifiering](docs/VERIFICATION.md) och [handoff](docs/HANDOFF.md) för detaljer och nästa steg.
+## HTTP-start och betrodda proxyadresser
 
-## QA-batch: testdatabas och säkerhetsavtal
+`npm run dev` och `npm run start` använder `scripts/server.mjs`, en liten Node-startpunkt runt samma Next-app. Den läser socketens remoteAddress och skriver över interna, signerade adressheaders. Nexts route-objekt exponerar inte socketadressen. **Använd dessa npm-kommandon, inte direkt next dev/next start.** Utan verifierad intern adress nekas bokning/login; ingen global reservbucket finns. Produktionsläget använder kompilerad Next med dev:false. Ingen extra tjänst eller npm-dependency.
 
-Skapa en ny testdatabas innan testerna (den vanliga `booking`-databasen avvisas):
+TRUST_PROXY_IP=0 är standard: verklig socketadress används och X-Real-IP ignoreras. TRUST_PROXY_IP=1 kräver TRUSTED_PROXY_IPS, en kommaseparerad IP/CIDR-lista. Saknad/ogiltig lista stoppar starten. X-Real-IP används bara när anslutande socket matchar listan. Proxyn måste själv skriva över headern med faktisk klientadress. Lista aldrig hela internet eller vanliga klientnät som betrodda. Testerna simulerar proxy med en separat verklig loopback-källadress, 127.0.0.10/32; detta är ingen driftskonfiguration. BOOKING_ADDRESS_SECRET genereras internt vid start och ska inte konfigureras eller delas.
+
+Fem felaktiga login per klient/15 minuter. Därefter nekas alla försök med 429 innan lösenordet kontrolleras, även korrekt lösenord. Felaktiga och spärrade svar fördröjs minst 100 ms asynkront. Andra klienter kan fortfarande logga in; delad NAT delar spärren. Bokningsförsök begränsas till 30 per adress/15 minuter. Vid 10 000 buckets evikteras äldsta posten i stället för att spärra nya klienter. Räknarna är processlokala; omstart och flera processer kräver andra driftkontroller.
+
+## Bokning, sessioner och kampanjer
+
+- Tre nya bokningar per e-postnyckel och skapandedag i Stockholm. Nyckeln använder gemener utan +tagg; kontaktadressen behåller taggen. Detta är en POC-regel, inte universell e-postidentitet. Inga leverantörsspecifika punktregler eller e-postverifiering.
+- Fem nya bokningar per verifierad klientidentitet (IPv4-adress eller IPv6-/64) och skapandedag, även med olika e-postadresser. HMAC lagras som clientKey, inte rå IP. Transaktionslås säkrar båda taken. Användare bakom samma NAT delar taket; olika IP kan kringgå det. Det är inte pilotsäkert identitetsskydd.
+- Valfri Idempotency-Key, 1–64 tecken [A-Za-z0-9_-]. Samma nyckel/payload ger ursprunglig 201/ID utan att förbruka försöksbudget eller dagstak. Annan payload ger 409 och räknas som försök. UI återanvänder UUID vid retry/dubbelsubmit för samma payload, men nyckeln överlever inte sidomladdning. Servernycklar lever med bokningen.
+- Logout sätter revokedAt i AdminSession innan cookien raderas. Kopierad cookie nekas efter logout. DB lagrar tokenhash och skapande/utgång/återkallelsetid. Gamla cookies slutar fungera. ADMIN_SESSION_VERSION är global kill switch: höj och starta om alla instanser; återanvänd inte gamla värden. Vid lyckad inloggning gallras högst 100 utgångna eller återkallade sessioner. Utan nya inloggningar körs ingen gallring. ADMIN_SESSION_VERSION får bara höjas: sänkning kan återaktivera äldre, ännu aktiva sessioner. Individuella konton saknas.
+- Admin visar idag till idag+14 inklusive, max 31 dagar/100 rader per sida. Felaktiga datumfilter ger svensk text och standardintervall, inte 500. E-post förblir maskerad. Datum anges YYYY-MM-DD i textfält med validering; kalenderpopupen är ersatt.
+- Kampanjer visas endast inom giltiga Stockholmsdatum, högst 90 inkluderande kalenderdagar. Omvända datum och för lång period har olika meddelanden. **100 % rabatt tillåts** i informations-POC:n; ingen betalning/debitering görs. Kommersiella regler måste beslutas före pilot.
+
+## Reproducera testerna
+
+Skapa en ny lokal \*\_test-databas, exempelvis med `docker compose exec db createdb -U booking booking_lab_test`, och peka lokal .env på den. Bevara befintliga databaser. Alternativet är separat lokal PostgreSQL; denna körning använde PostgreSQL 18.6. Kör npm ci, prisma generate, migration och seed enligt startanvisningen.
 
 ```powershell
-docker compose exec db createdb -U booking booking_lab_test
-# Sätt DATABASE_URL i lokal .env till .../booking_lab_test.
-npm run db:migrate
-npm run db:seed
+$env:NEXT_TELEMETRY_DISABLED='1'
+$env:CHECKPOINT_DISABLE='1'
+npm run lint
+npx tsc --noEmit
+npm test
+npm run test:integration
+$env:TRUST_PROXY_IP='0'
+npm run test:e2e
+$env:TRUST_PROXY_IP='1'
+npm run test:e2e
+npm run build
+$env:E2E_PRODUCTION='1'
+$env:TRUST_PROXY_IP='0'
+npm run test:e2e
+$env:TRUST_PROXY_IP='1'
+npm run test:e2e
+Remove-Item Env:E2E_PRODUCTION
+Remove-Item Env:TRUST_PROXY_IP
+node --env-file=.env scripts/test-cleanup.mjs
+npm audit
 ```
 
-Om namnet redan finns, använd ett annat nytt namn med `_test`; radera inte befintliga databaser. Utan Docker: skapa motsvarande databas på egen lokal PostgreSQL med `createdb`. [Faktiskt verifierat portabelt alternativ](docs/VERIFICATION.md). Inspelning kräver en separat `_demo` och bygger/startar produktion automatiskt.
+Alternativt `npm run test:e2e:production` bygger och kör hela produktionssviten. Cleanup-proben framkallar avsiktlig timeout i separat Playwright och godkänner endast förväntad exit 1 plus noll kvarvarande syntetiska bokningar/kampanjer. Kör bara en QA-omgång i taget mot samma miljö/port. Fixture-städning klarar timeout när DB är tillgänglig, inte processkill, strömavbrott eller DB-avbrott.
 
-- Fem felaktiga login per 15 minuter; sjätte nekas. Boknings-API: 30 försök per 15 minuter. Båda svarar 429 med `För många försök. Försök igen senare.` och Retry-After. Räknare är minnesbaserade per process/rutt/IP, återställs vid omstart. Utan betrodd IP används en konservativ gemensam bucket.
-- `TRUST_PROXY_IP=0` är standard. Sätt 1 enbart bakom en proxy som **skriver över X-Real-IP** och blockerar direktåtkomst. Testservern använder 1 med syntetiska test-IP för deterministiska fall; detta är ingen verifierad driftsproxy. Lita aldrig direkt på en publik klients header.
-- Max tre nya bokningar per normaliserad e-post och **skapandedag** i Stockholm. Transaktion/advisory lock hindrar samtidiga kringgåenden. Taket verifierar inte e-postägande. Historiska rader får migrationens skapandetid.
-- Valfri `Idempotency-Key` på POST /api/bookings: 1–64 tecken `[A-Za-z0-9_-]`, välj slumpmässigt UUID. Samma nyckel + samma normaliserade payload ger ursprunglig 201/ID, annan payload ger 409. Nyckeln är unik per verksamhet; lever så länge bokningen finns. Webbformuläret genererar ännu ingen egen nyckel. Rate limit gäller även retries.
-- Logga ut raderar browsercookien. Höj `ADMIN_SESSION_VERSION` i servermiljön och starta om **alla** processer för att ogiltigförklara alla gamla cookies utan att byta SESSION_SECRET. Återanvänd inte gamla versionsvärden. Redan kopierade cookies återkallas inte individuellt vid logout.
-- Admin visar idag till idag+14 dagar inklusive i Stockholm (15 kalenderdatum), kan filtrera max 31 dagar och visar max 100/sida. Domänens standardstorlek är20. E-post är maskerad som `***@***`; namn finns kvar för lokal admin. MCP lämnar aldrig ut namn/e-post.
-- Publicerade kampanjer visas först validFrom till validUntil inklusive, med dagens datum i Stockholm. Max90 kalenderdagar; okända utkastfält nekas. Kampanjlistan i admin är ännu obegränsad.
-- CSP/frame-ancestors, nosniff, referrer och admin no-store sätts av appen; HSTS i production. CSP tillåter unsafe-inline för Next; unsafe-eval endast dev. Verklig TLS/proxy och starkare nonce-policy är inte verifierade.
+MCP-klienter skickar explicit förälderns DATABASE_URL; exporterad miljö vinner över env-filen. Ett integrationstest pekar env-filen på en annan oanvändbar databas och bevisar att utkastet hamnar i exporterad testdatabas.
 
-[Tredjepartsnotiser](THIRD_PARTY_NOTICES.md) · [Prisma 7-plan, separat framtida arbete](docs/PRISMA_7_PLAN.md)
+[Tredjepartsnotiser](THIRD_PARTY_NOTICES.md) · [Datakarta](docs/DATA_FLOWS.md) · [Handoff](docs/HANDOFF.md)
+
+### Driftmatris och varning efter QA batch 3
+
+| Anslutning                                        | Konfiguration                                | Identitet och krav                                                                                                                                       |
+| ------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Direkt till Node                                  | `TRUST_PROXY_IP=0`                           | Verklig socket; inkommande forwarding ignoreras och ger en statisk varning en gång.                                                                      |
+| Betrodd proxy                                     | `TRUST_PROXY_IP=1`, snäv `TRUSTED_PROXY_IPS` | Proxyn måste skriva över `X-Real-IP` med faktisk klientadress. Begränsa även nätåtkomsten till Node.                                                     |
+| Proxy med standardläge eller bara X-Forwarded-For | Felkonfiguration                             | Alla delar proxyns identitet, spärr och bokningstak. `PROXY_CLIENT_IDENTITY_COLLAPSED` varnar en gång, utan IP eller headerinnehåll. Åtgärda före drift. |
+
+Proxylistan avvisar IPv4-prefix kortare än /8 och IPv6-prefix kortare än /32. Dessa gränser innebär inte att stora tillåtna nät är lämpliga; lista endast de verkliga proxyadresserna. IPv6-klienters /64 används för både inloggningsspärr och bokningstak; rå adress används fortfarande för att kontrollera betrodd proxy. IPv4-mappad IPv6 normaliseras till IPv4. Gammal IPv6-/128-bokningshistorik räknas inte retroaktivt mot /64-taket. Inga historiska migrationer ändras.
+
+Test- och demovakten avvisar även `host`/`hostaddr` i URL-parametrar före databasåtkomst. E2E-fixturer tar bort sina egna sessionshashar, även efter timeout, men är inte en generell datagallring.
+
+## Agent API v1 (sandbox)
+
+REST and stateless Streamable HTTP MCP reuse the existing engine, locks,
+idempotency and quotas. See the [OpenAPI contract](docs/agent-api-v1.openapi.yaml)
+and [Agentprov 1 runbook](docs/AGENTPROV_1_RUNBOOK.md).
+
+- A stable client owns its bookings. Operator key rotation revokes the old
+  credential while preserving ownership, idempotency and daily quotas.
+- Creation requires a stored, one-use synthetic operator mandate bound to that
+  client, business, service, provider, treatment window and current price cap.
+  `confirmed: true` alone grants no authority. No agent endpoint issues grants.
+- Same payload, mandate and Idempotency-Key: first REST response 201, subsequent
+  receipts 200 with the same booking id. Conflicts return a controlled 409.
+- HTTP-MCP tools: list_services, get_availability, create_booking, get_booking,
+  cancel_booking. Bearer/API-key authentication is not OAuth; OAuth-only clients
+  are not yet compatible. Local stdio MCP remains a separate trusted path.
+- `/live` is a filtered synthetic best-effort feed, not an audit log or proof
+  that a named AI assistant actually ran. Booking id/status are authoritative.
+
+After starting the wrapper on loopback with the same isolated test database,
+run `npm run agent:proof`. It provisions two temporary test credentials in
+memory, uses independent REST/MCP subprocesses, asserts results and removes its
+own fixtures. It never prints the credentials or creates customer profiles.
+The older key CLI prints credentials and is not used by this proof; legacy
+agent demo/smoke scripts predate mandates and are not current acceptance tools.
+
+Still out of scope: real customer consent/identity, cloud OAuth-MCP,
+rescheduling contracts, multiple salons and external booking providers.

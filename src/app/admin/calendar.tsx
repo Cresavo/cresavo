@@ -1,0 +1,501 @@
+import { DateTime } from "luxon";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { ZONE } from "@/lib/time";
+import { readableDay } from "@/lib/format";
+import type { StaffView } from "./types";
+import CalendarFilters from "./calendar-filters";
+import { layoutCalendarCards, type CardPlacement } from "./calendar-layout";
+import ContextLink from "../components/context-link";
+import { contextualHref, type ReturnContext } from "@/lib/navigation-context";
+import { getLocale } from "@/lib/locale-server";
+import { text } from "@/lib/locale";
+
+type CalendarBooking = {
+  id: string;
+  startsAt: Date;
+  endsAt: Date;
+  staffId: string;
+  serviceName: string;
+  customerName: string;
+  status: string;
+};
+export default async function Calendar({
+  date,
+  view,
+  staffId,
+  staff,
+  bookings,
+  nextCursor,
+  status,
+  context = {},
+}: {
+  date: string;
+  view: "day" | "week";
+  staffId: string;
+  staff: StaffView[];
+  bookings: CalendarBooking[];
+  nextCursor: string | null;
+  status: "confirmed" | "all";
+  context?: ReturnContext;
+}) {
+  const locale = await getLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
+  const hourHeight = 144;
+  const selected = DateTime.fromISO(date, { zone: ZONE });
+  const start = view === "week" ? selected.startOf("week") : selected;
+  const days = Array.from({ length: view === "week" ? 7 : 1 }, (_, i) =>
+    start.plus({ days: i }),
+  );
+  const knownPeople = staff.filter(
+    (p) =>
+      (p.active || bookings.some((b) => b.staffId === p.id)) &&
+      (!staffId || p.id === staffId),
+  );
+  const people = [
+    ...knownPeople.map((p) => ({ id: p.id, name: p.name })),
+    ...[...new Set(bookings.map((b) => b.staffId))]
+      .filter((id) => !knownPeople.some((p) => p.id === id))
+      .map((id) => ({
+        id,
+        name: t("Former team member", "Tidigare utförare"),
+      })),
+  ];
+  const link = (nextDate: string, nextView = view, cursor?: string) =>
+    contextualHref(
+      `/admin?${new URLSearchParams({ date: nextDate, view: nextView, ...(staffId && { staffId }), ...(status === "all" && { status }), ...(cursor && { cursor }) })}`,
+      context,
+    );
+  const minute = (value: Date) => {
+    const t = DateTime.fromJSDate(value, { zone: ZONE });
+    return t.hour * 60 + t.minute;
+  };
+  const minHour = Math.min(
+    8,
+    ...bookings.map((b) => Math.floor(minute(b.startsAt) / 60)),
+  );
+  const maxHour = Math.max(
+    18,
+    ...bookings.map((b) =>
+      DateTime.fromJSDate(b.endsAt, { zone: ZONE }).toISODate() !==
+      DateTime.fromJSDate(b.startsAt, { zone: ZONE }).toISODate()
+        ? 24
+        : Math.ceil(minute(b.endsAt) / 60),
+    ),
+  );
+  const hours = Array.from(
+    { length: maxHour - minHour },
+    (_, i) => minHour + i,
+  );
+  const time = (d: Date) =>
+    new Intl.DateTimeFormat("sv-SE", {
+      timeZone: ZONE,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(d);
+  const placements = new Map<string, CardPlacement>();
+  for (const day of days) {
+    for (const person of people) {
+      const cards = bookings
+        .filter(
+          (b) =>
+            b.status === "confirmed" &&
+            b.staffId === person.id &&
+            DateTime.fromJSDate(b.startsAt, { zone: ZONE }).toISODate() ===
+              day.toISODate(),
+        )
+        .map((b) => {
+          const endMinute =
+            DateTime.fromJSDate(b.endsAt, { zone: ZONE }).toISODate() !==
+            day.toISODate()
+              ? 1440
+              : minute(b.endsAt);
+          return {
+            id: b.id,
+            top: ((minute(b.startsAt) - minHour * 60) / 60) * hourHeight,
+            height: ((endMinute - minute(b.startsAt)) / 60) * hourHeight - 2,
+          };
+        });
+      for (const [id, placement] of layoutCalendarCards(cards))
+        placements.set(id, placement);
+    }
+  }
+  const bookingLink = (b: CalendarBooking) =>
+    `/admin/bookings/${encodeURIComponent(b.id)}`;
+  return (
+    <>
+      <div className="workspace-heading">
+        <div>
+          <p className="eyebrow">
+            {t("Your working day", "Salongens arbetsdag")}
+          </p>
+          <h1>{t("Calendar", "Kalender")}</h1>
+        </div>
+        <ContextLink
+          className="button-link"
+          href={`/admin/bookings/new?date=${date}${staffId ? `&staff=${encodeURIComponent(staffId)}` : ""}`}
+        >
+          <Plus size={18} aria-hidden="true" />
+          {t("New booking", "Ny bokning")}
+        </ContextLink>
+      </div>
+      <div className="workspace-guidance calendar-guidance">
+        <details>
+          <summary>
+            {t("Using your calendar", "Så använder du kalendern")}
+          </summary>
+          <p>
+            {t(
+              "Open an appointment to move or cancel it. Choose New booking to find a time for a customer.",
+              "Öppna ett bokningskort för att flytta eller avboka. Välj Ny bokning för att hitta en ledig tid åt en kund.",
+            )}
+          </p>
+        </details>
+        {date === DateTime.now().setZone(ZONE).toISODate() && (
+          <p>
+            <strong>
+              {bookings.filter((b) => b.status === "confirmed").length}
+              {nextCursor ? " +" : ""}{" "}
+              {t(
+                "bookings in this period.",
+                "bokningar i den visade perioden.",
+              )}
+            </strong>{" "}
+            {(() => {
+              const next = bookings.find(
+                (b) =>
+                  b.status === "confirmed" &&
+                  b.startsAt.getTime() >= Date.now(),
+              );
+              return next ? (
+                <ContextLink href={bookingLink(next)}>
+                  {t("Next visit:", "Nästa besök:")}{" "}
+                  {readableDay(
+                    DateTime.fromJSDate(next.startsAt, {
+                      zone: ZONE,
+                    }).toISODate()!,
+                    locale,
+                  )}{" "}
+                  {time(next.startsAt)} · {next.customerName} ·{" "}
+                  {next.serviceName}
+                </ContextLink>
+              ) : (
+                t(
+                  "No more upcoming visits in this period.",
+                  "Inga fler kommande besök i den visade perioden.",
+                )
+              );
+            })()}
+          </p>
+        )}
+      </div>
+      <div className="calendar-toolbar">
+        <div className="date-navigation">
+          <a
+            className="quiet-button"
+            href={link(DateTime.now().setZone(ZONE).toISODate()!)}
+          >
+            {t("Today", "Idag")}
+          </a>
+          <a
+            className="quiet-button desktop-navigation"
+            aria-label={
+              view === "week"
+                ? t("Previous week", "Föregående vecka")
+                : t("Previous day", "Föregående dag")
+            }
+            href={link(
+              selected.minus({ days: view === "week" ? 7 : 1 }).toISODate()!,
+            )}
+          >
+            <ChevronLeft size={18} aria-hidden="true" />
+          </a>
+          <a
+            className="quiet-button desktop-navigation"
+            aria-label={
+              view === "week"
+                ? t("Next week", "Nästa vecka")
+                : t("Next day", "Nästa dag")
+            }
+            href={link(
+              selected.plus({ days: view === "week" ? 7 : 1 }).toISODate()!,
+            )}
+          >
+            <ChevronRight size={18} aria-hidden="true" />
+          </a>
+          <a
+            className="quiet-button mobile-navigation"
+            aria-label={t("Previous day", "Föregående dag")}
+            href={link(selected.minus({ days: 1 }).toISODate()!, "day")}
+          >
+            <ChevronLeft size={18} aria-hidden="true" />
+          </a>
+          <a
+            className="quiet-button mobile-navigation"
+            aria-label={t("Next day", "Nästa dag")}
+            href={link(selected.plus({ days: 1 }).toISODate()!, "day")}
+          >
+            <ChevronRight size={18} aria-hidden="true" />
+          </a>
+          <strong>
+            {view === "week"
+              ? `${t("Week", "Vecka")} ${selected.weekNumber} · ${start.toFormat("d MMM", { locale })}–${start.plus({ days: 6 }).toFormat("d MMM", { locale })}`
+              : selected.toFormat("cccc d MMMM", { locale })}
+          </strong>
+        </div>
+        <CalendarFilters
+          date={date}
+          href={link(date)}
+          staffId={staffId}
+          staff={staff.map(({ id, name, active }) => ({ id, name, active }))}
+          status={status}
+        />
+        <div
+          className="calendar-views"
+          aria-label={t("Calendar view", "Kalendervy")}
+        >
+          <a
+            className={view === "day" ? "selected" : ""}
+            href={link(date, "day")}
+          >
+            {t("Day", "Dag")}
+          </a>
+          <a
+            className={view === "week" ? "selected" : ""}
+            href={link(date, "week")}
+          >
+            {t("Week", "Vecka")}
+          </a>
+        </div>
+      </div>
+      <div
+        className="mobile-calendar"
+        aria-label={t("Daily bookings", "Dagens bokningar")}
+      >
+        {days.map((day) => {
+          const items = bookings.filter(
+            (b) =>
+              DateTime.fromJSDate(b.startsAt, { zone: ZONE }).toISODate() ===
+              day.toISODate(),
+          );
+          return (
+            <section key={day.toISODate()}>
+              {view === "week" && (
+                <h2>{day.toFormat("cccc d MMMM", { locale })}</h2>
+              )}
+              {!items.length ? (
+                <p className="empty-state">
+                  {t(
+                    "No bookings on this day.",
+                    `Inga bokningar ${view === "week" ? "den här dagen" : "ännu"}.`,
+                  )}{" "}
+                  <ContextLink
+                    href={`/admin/bookings/new?date=${day.toISODate()}`}
+                  >
+                    {t(
+                      "Add a booking or find an available time.",
+                      "Lägg in en bokning eller sök lediga tider.",
+                    )}
+                  </ContextLink>
+                </p>
+              ) : (
+                items.map((b) => (
+                  <ContextLink
+                    data-tone={
+                      Math.max(
+                        0,
+                        staff.findIndex((p) => p.id === b.staffId),
+                      ) % 4
+                    }
+                    className={`mobile-booking ${b.status === "cancelled" ? "cancelled" : ""}`}
+                    key={b.id}
+                    href={bookingLink(b)}
+                  >
+                    <strong>
+                      {time(b.startsAt)}–{time(b.endsAt)}
+                    </strong>
+                    <span>{b.serviceName}</span>
+                    <span>
+                      {b.customerName} ·{" "}
+                      {staff.find((p) => p.id === b.staffId)?.name ??
+                        t("Former team member", "Tidigare medarbetare")}
+                    </span>
+                    {b.status === "cancelled" && (
+                      <span>{t("Cancelled", "Avbokad")}</span>
+                    )}
+                  </ContextLink>
+                ))
+              )}
+            </section>
+          );
+        })}
+      </div>
+      {view === "week" && people.length > 1 && (
+        <p className="desktop-calendar-help muted" id="calendar-help">
+          {t(
+            "Choose one team member for a focused week view. With the whole team, scroll across or select a day to open its daily view.",
+            "Välj en medarbetare för en samlad veckoöverblick. Med alla medarbetare kan du rulla kalendern i sidled eller trycka på en dag för dagvyn.",
+          )}
+        </p>
+      )}
+      <div
+        className="desktop-calendar"
+        data-calendar-scroll
+        role="region"
+        aria-label={
+          view === "week"
+            ? t("Week calendar", "Veckokalender")
+            : t("Day calendar", "Dagkalender")
+        }
+        aria-describedby={
+          view === "week" && people.length > 1 ? "calendar-help" : undefined
+        }
+        tabIndex={0}
+      >
+        <div
+          className="calendar-grid"
+          style={{
+            gridTemplateColumns: `52px repeat(${days.length}, minmax(${Math.max(view === "week" ? 160 : 230, people.length * 160 + 8)}px, 1fr))`,
+          }}
+        >
+          <div className="calendar-axis-heading">{t("Time", "Tid")}</div>
+          {days.map((day) => (
+            <div className="calendar-day-heading" key={day.toISODate()}>
+              <a href={link(day.toISODate()!, "day")}>
+                {day.toFormat("ccc d/M", { locale })}
+              </a>
+              <div className="staff-headings">
+                {people.map((p) => (
+                  <span
+                    key={p.id}
+                    data-tone={
+                      Math.max(
+                        0,
+                        staff.findIndex((person) => person.id === p.id),
+                      ) % 4
+                    }
+                  >
+                    {p.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div
+            className="calendar-axis"
+            style={{ height: hours.length * hourHeight }}
+          >
+            {hours.map((h) => (
+              <span key={h} style={{ top: (h - minHour) * hourHeight }}>
+                {String(h).padStart(2, "0")}:00
+              </span>
+            ))}
+          </div>
+          {days.map((day) => (
+            <div
+              className="calendar-day"
+              key={day.toISODate()}
+              style={{ height: hours.length * hourHeight }}
+            >
+              {hours.map((h) => (
+                <div
+                  className="hour-line"
+                  key={h}
+                  style={{ top: (h - minHour) * hourHeight }}
+                />
+              ))}
+              {bookings
+                .filter(
+                  (b) =>
+                    b.status === "confirmed" &&
+                    DateTime.fromJSDate(b.startsAt, {
+                      zone: ZONE,
+                    }).toISODate() === day.toISODate(),
+                )
+                .map((b) => {
+                  const lane = Math.max(
+                      0,
+                      people.findIndex((p) => p.id === b.staffId),
+                    ),
+                    lanes = Math.max(1, people.length);
+                  const placement = placements.get(b.id)!;
+                  const person =
+                    people.find((p) => p.id === b.staffId)?.name ??
+                    t("Former team member", "Tidigare utförare");
+                  return (
+                    <ContextLink
+                      key={b.id}
+                      href={bookingLink(b)}
+                      data-tone={
+                        Math.max(
+                          0,
+                          staff.findIndex((p) => p.id === b.staffId),
+                        ) % 4
+                      }
+                      data-compact={placement.height < 60 ? "true" : undefined}
+                      aria-label={`${time(b.startsAt)}–${time(b.endsAt)} · ${b.serviceName} · ${b.customerName} · ${person}`}
+                      className={`calendar-booking ${b.status === "cancelled" ? "cancelled" : ""}`}
+                      style={{
+                        top: placement.top,
+                        height: placement.height,
+                        left: `calc(${((lane + placement.column / placement.columns) / lanes) * 100}% + 3px)`,
+                        width: `calc(${100 / lanes / placement.columns}% - 6px)`,
+                      }}
+                      title={`${time(b.startsAt)}–${time(b.endsAt)} ${b.serviceName} · ${b.customerName} · ${person}`}
+                    >
+                      <strong>
+                        {time(b.startsAt)}–{time(b.endsAt)}
+                      </strong>
+                      <span>{b.serviceName}</span>
+                      <span>{b.customerName}</span>
+                      {b.status === "cancelled" && (
+                        <span>{t("Cancelled", "Avbokad")}</span>
+                      )}
+                    </ContextLink>
+                  );
+                })}
+            </div>
+          ))}
+        </div>
+      </div>
+      {!bookings.filter((b) => b.status === "confirmed").length && (
+        <p className="desktop-empty">
+          {t(
+            "No active bookings in this period.",
+            "Inga aktiva bokningar i den valda perioden.",
+          )}
+        </p>
+      )}
+      {status === "all" && bookings.some((b) => b.status === "cancelled") && (
+        <section className="desktop-cancellations panel">
+          <h2>{t("Cancelled bookings", "Avbokade bokningar")}</h2>
+          <ul className="event-list">
+            {bookings
+              .filter((b) => b.status === "cancelled")
+              .map((b) => (
+                <li key={b.id}>
+                  <ContextLink href={bookingLink(b)}>
+                    {DateTime.fromJSDate(b.startsAt, { zone: ZONE }).toFormat(
+                      "d/M HH:mm",
+                    )}{" "}
+                    · {b.serviceName} · {b.customerName}
+                  </ContextLink>
+                </li>
+              ))}
+          </ul>
+        </section>
+      )}
+      {nextCursor && (
+        <p className="pagination-notice">
+          {t(
+            "Showing up to 100 bookings per page.",
+            "Visar högst 100 bokningar per sida.",
+          )}{" "}
+          <a href={link(date, view, nextCursor)}>
+            {t("Next page of bookings", "Nästa sida med bokningar")}
+          </a>
+        </p>
+      )}
+    </>
+  );
+}

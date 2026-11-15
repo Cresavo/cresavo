@@ -3,7 +3,6 @@ generator client {
 }
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
 }
 model Service {
   id String @id
@@ -11,6 +10,9 @@ model Service {
   name String
   duration Int
   priceOre Int
+  buffer Int @default(0)
+  active Boolean @default(true)
+  version Int @default(1)
   bookings Booking[]
   campaigns Campaign[]
 }
@@ -24,11 +26,110 @@ model Booking {
   endsAt DateTime @db.Timestamptz(3)
   customerName String
   customerEmail String
+  customerId String?
+  contactRemovedAt DateTime? @db.Timestamptz(3)
+  customer Customer? @relation(fields: [businessId, customerId], references: [businessId, id], onDelete: Restrict)
+  serviceName String @default("")
+  priceOre Int @default(0)
+  duration Int @default(0)
+  buffer Int @default(0)
+  status String @default("confirmed")
+  version Int @default(1)
+  initialStartsAt DateTime? @db.Timestamptz(3)
+  initialEndsAt DateTime? @db.Timestamptz(3)
+  events BookingEvent[]
+  capacityDecisions CapacityDecision[]
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   idempotencyKey String?
   requestHash String?
+  clientKey String?
+  emailCapKey String?
+  agentBooking AgentBooking?
   @@unique([businessId, idempotencyKey])
+  @@unique([businessId, id])
+  @@index([businessId, status, startsAt, id])
   @@index([businessId, customerEmail, createdAt])
+  @@index([businessId, clientKey, createdAt])
+  @@index([businessId, emailCapKey, createdAt])
+  @@index([businessId, customerId, startsAt, id])
+}
+model Customer {
+  id String @id @default(cuid())
+  businessId String
+  name String
+  email String
+  phone String?
+  archived Boolean @default(false)
+  version Int @default(1)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  bookings Booking[]
+  contactRemovedAt DateTime? @db.Timestamptz(3)
+  dataActions CustomerDataAction[]
+  @@unique([businessId, id])
+  @@index([businessId, archived, name, id])
+}
+model Staff {
+  id String @id @default(cuid())
+  businessId String
+  name String
+  active Boolean @default(true)
+  version Int @default(1)
+  serviceIds String[]
+  weekly Json
+  exceptions Json @default("[]")
+  @@index([businessId, active])
+}
+
+model CustomerDataAction {
+  id String @id @default(cuid())
+  businessId String
+  customerId String
+  actorId String
+  action String
+  bookingCount Int
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  customer Customer @relation(fields: [businessId, customerId], references: [businessId, id], onDelete: Restrict)
+  actor AdminUser @relation(fields: [businessId, actorId], references: [businessId, id], onDelete: Restrict)
+  @@index([businessId, customerId, createdAt, id])
+}
+
+model BookingEvent {
+  id String @id @default(cuid())
+  bookingId String
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  action String
+  actorKind String
+  actorId String
+  previousStart DateTime? @db.Timestamptz(3)
+  previousEnd DateTime? @db.Timestamptz(3)
+  previousStaffId String?
+  nextStart DateTime? @db.Timestamptz(3)
+  nextEnd DateTime? @db.Timestamptz(3)
+  nextStaffId String?
+  @@index([bookingId, createdAt])
+}
+
+model WorkspaceRequest {
+  id String @id @default(cuid())
+  businessId String
+  key String
+  requestHash String
+  result Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([businessId, key])
+}
+
+// Local synthetic card channel only; not a customer identity/session table.
+model CardBookingAttempt {
+  businessId String
+  scope String
+  requestId String @db.Uuid
+  payload Json
+  outcome String @default("pending")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@id([businessId, scope, requestId])
+  @@index([businessId, scope, createdAt, requestId])
 }
 model Campaign {
   id String @id @default(cuid())
@@ -40,4 +141,138 @@ model Campaign {
   validFrom String
   validUntil String
   published Boolean @default(false)
+  capacityDecision CapacityDecision?
+  @@unique([businessId, id])
+}
+
+model CapacityDecision {
+  id String @id @default(cuid())
+  businessId String
+  bookingId String
+  booking Booking @relation(fields: [businessId, bookingId], references: [businessId, id], onDelete: Restrict, map: "CapacityDecision_booking_fk")
+  sourceVersion Int
+  outcome String
+  campaignId String? @unique
+  campaign Campaign? @relation(fields: [businessId, campaignId], references: [businessId, id], onDelete: Restrict, map: "CapacityDecision_campaign_fk")
+  payloadHash String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([businessId, bookingId, sourceVersion])
+  @@unique([businessId, campaignId])
+}
+
+model AdminSession {
+  id String @id
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  expiresAt DateTime @db.Timestamptz(3)
+  revokedAt DateTime? @db.Timestamptz(3)
+  userId String?
+  user AdminUser? @relation(fields: [userId], references: [id], onDelete: Restrict)
+  @@index([userId])
+}
+
+model AdminUser {
+  id String @id @default(cuid())
+  email String @unique
+  passwordHash String
+  businessId String
+  active Boolean @default(true)
+  credentialVersion Int @default(1)
+  sessions AdminSession[]
+  dataActions CustomerDataAction[]
+  @@unique([businessId, id])
+}
+
+model RateLimitBucket {
+  key String @id
+  generation String
+  expiresAt DateTime @db.Timestamptz(3)
+  count Int
+  @@index([expiresAt])
+}
+
+// Agent API v1 credentials. Only a SHA-256 digest of the high-entropy key is
+// stored; the plaintext key is shown once by scripts/agent-keys.mts.
+model AgentApiKey {
+  id String @id @default(cuid())
+  businessId String
+  clientId String
+  client AgentClient @relation(fields: [businessId, clientId], references: [businessId, id], onDelete: Restrict)
+  agentName String
+  ownerName String
+  ownerContact String
+  keyPrefix String @unique
+  keyHash String @unique
+  scopes String[]
+  // Provenance shown on /live: demo-script | registered-client | verified-agent-proof.
+  kind String @default("registered-client")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  lastUsedAt DateTime? @db.Timestamptz(3)
+  revokedAt DateTime? @db.Timestamptz(3)
+  @@index([businessId, revokedAt])
+}
+
+// Which agent key created a booking. Object-level authorisation for status/cancel.
+model AgentBooking {
+  bookingId String @id
+  keyId String
+  businessId String
+  clientId String
+  mandateId String? @unique
+  client AgentClient @relation(fields: [businessId, clientId], references: [businessId, id], onDelete: Restrict)
+  booking Booking @relation(fields: [businessId, bookingId], references: [businessId, id], onDelete: Restrict)
+  mandate AgentMandate? @relation(fields: [businessId, mandateId, clientId], references: [businessId, id, clientId], onDelete: Restrict)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([keyId, createdAt])
+  @@unique([businessId, bookingId])
+  @@unique([businessId, mandateId, clientId])
+  @@index([businessId, clientId, createdAt])
+}
+
+// Stable identity; credential rotation never transfers booking ownership.
+model AgentClient {
+  id String @id
+  businessId String
+  active Boolean @default(true)
+  keys AgentApiKey[]
+  bookings AgentBooking[]
+  mandates AgentMandate[]
+  @@unique([businessId, id])
+}
+
+// Synthetic operator authorisation only. Not proof of a real customer's consent.
+model AgentMandate {
+  id String @id @default(cuid())
+  businessId String
+  clientId String
+  client AgentClient @relation(fields: [businessId, clientId], references: [businessId, id], onDelete: Restrict)
+  serviceId String
+  staffId String
+  locationId String @default("demo-location")
+  scheduleId String
+  validFrom DateTime @db.Timestamptz(3)
+  validUntil DateTime @db.Timestamptz(3)
+  expiresAt DateTime @db.Timestamptz(3)
+  maxPriceOre Int
+  currency String @default("SEK")
+  origin String
+  originReference String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  revokedAt DateTime? @db.Timestamptz(3)
+  booking AgentBooking?
+  @@unique([businessId, id, clientId])
+  @@index([businessId, clientId, createdAt])
+}
+
+// Public-safe agent activity for /live: no customer fields, no key material.
+model AgentApiEvent {
+  id String @id @default(cuid())
+  keyId String
+  businessId String
+  action String
+  outcome String
+  serviceName String?
+  staffName String?
+  startsAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@index([businessId, createdAt, id])
 }

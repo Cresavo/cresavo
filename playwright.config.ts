@@ -3,6 +3,7 @@ import { assertTestDatabase } from "./scripts/test-db-guard.mjs";
 assertTestDatabase();
 export default defineConfig({
   testDir: "./tests/e2e",
+  globalTeardown: "./tests/e2e/global-teardown.ts",
   timeout: 60000,
   workers: 1,
   reporter: "list",
@@ -11,14 +12,12 @@ export default defineConfig({
       name: "desktop",
       use: {
         ...devices["Desktop Chrome"],
-        extraHTTPHeaders: { "x-real-ip": "192.0.2.1" },
       },
     },
     {
       name: "mobile",
       use: {
         ...devices["Pixel 7"],
-        extraHTTPHeaders: { "x-real-ip": "192.0.2.2" },
       },
     },
   ],
@@ -28,10 +27,19 @@ export default defineConfig({
     locale: "sv-SE",
   },
   webServer: {
-    command: "npm run dev -- --hostname 127.0.0.1",
+    command: process.env.E2E_PRODUCTION
+      ? "npm run start -- --hostname 127.0.0.1"
+      : "npm run dev -- --hostname 127.0.0.1",
     url: "http://localhost:3000",
     reuseExistingServer: false,
-    env: { TRUST_PROXY_IP: "1", NEXT_TELEMETRY_DISABLED: "1" },
+    env: {
+      PORT: "3000", // Fixed baseURL; an operator's .env may use another app port.
+      TRUST_PROXY_IP: process.env.TRUST_PROXY_IP ?? "0",
+      TRUSTED_PROXY_IPS: "127.0.0.10/32",
+      NEXT_TELEMETRY_DISABLED: "1",
+      // Canary: the obsolete shared-password variable must never authenticate.
+      ADMIN_PASSWORD: "synthetic-legacy-password-not-used",
+    },
     timeout: 120000,
   },
 });

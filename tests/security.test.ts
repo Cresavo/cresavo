@@ -1,14 +1,79 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createHmac } from "node:crypto";
+import { createHmac, createHash } from "node:crypto";
 import { z } from "zod";
+import { db } from "../src/lib/db";
 import { failure } from "../src/lib/http";
-import { DomainError, pageDataFailure } from "../src/lib/errors";
+import {
+  DomainError,
+  PasswordCapacityError,
+  pageDataFailure,
+} from "../src/lib/errors";
 
 const state = vi.hoisted(() => ({
   cookie: undefined as string | undefined,
   set: vi.fn(),
   headers: new Headers(),
+  sessions: new Map<
+    string,
+    { id: string; expiresAt: Date; revokedAt?: Date; userId?: string }
+  >(),
 }));
+vi.mock("../src/lib/db", () => {
+  const fakeDb = {
+    $queryRaw: async () => [
+      { active: true, businessId: "demo", credentialVersion: 1 },
+    ],
+    adminSession: {
+      findMany: vi.fn(async () =>
+        [...state.sessions.values()]
+          .filter((s) => s.expiresAt <= new Date() || s.revokedAt)
+          .slice(0, 100)
+          .map(({ id }) => ({ id })),
+      ),
+      deleteMany: vi.fn(
+        async ({ where }: { where: { id: { in: string[] } } }) => {
+          for (const id of where.id.in) state.sessions.delete(id);
+          return { count: where.id.in.length };
+        },
+      ),
+      create: async ({
+        data,
+      }: {
+        data: { id: string; expiresAt: Date; userId?: string };
+      }) => {
+        state.sessions.set(data.id, data);
+        return data;
+      },
+      findFirst: async ({ where }: { where: { id: string } }) => {
+        const session = state.sessions.get(where.id);
+        return session &&
+          session.userId === "unit-admin" &&
+          !session.revokedAt &&
+          session.expiresAt > new Date()
+          ? { user: { id: session.userId, email: "unit-admin@example.test" } }
+          : null;
+      },
+      updateMany: async ({
+        where,
+        data,
+      }: {
+        where: { id: string };
+        data: { revokedAt: Date };
+      }) => {
+        const session = state.sessions.get(where.id);
+        if (session) session.revokedAt = data.revokedAt;
+        return { count: session ? 1 : 0 };
+      },
+    },
+  };
+  return {
+    db: {
+      ...fakeDb,
+      $transaction: async (run: (tx: typeof fakeDb) => Promise<unknown>) =>
+        run(fakeDb),
+    },
+  };
+});
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: () => (state.cookie ? { value: state.cookie } : undefined),
@@ -16,22 +81,22 @@ vi.mock("next/headers", () => ({
   }),
   headers: async () => state.headers,
 }));
+import { isAdmin, login, logout, sameOrigin } from "../src/lib/auth";
 import {
-  checkPassword,
-  isAdmin,
-  login,
-  logout,
-  sameOrigin,
-} from "../src/lib/auth";
-import { checkRateLimit, clientIp } from "../src/lib/rate-limit";
+  checkRateLimit,
+  clientIp,
+  checkLoginAttempt,
+} from "../src/lib/rate-limit";
 import { assertTestDatabase } from "../scripts/test-db-guard.mjs";
 import { demoRevision } from "../scripts/demo-revision.mjs";
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
   state.cookie = undefined;
   state.set.mockReset();
+  state.sessions.clear();
 });
 
 describe("Säkra felgränser", () => {
@@ -74,8 +139,15 @@ describe("Säkra felgränser", () => {
 
 describe("Lokal admins session", () => {
   const secret = "synthetic-session-secret-for-tests-only";
+  const identity = { id: "unit-admin", credentialVersion: 1 };
   function token(expiry: number) {
-    const value = String(expiry);
+    const id = "1".repeat(64);
+    state.sessions.set(createHash("sha256").update(id).digest("hex"), {
+      id: createHash("sha256").update(id).digest("hex"),
+      expiresAt: new Date(expiry),
+      userId: identity.id,
+    });
+    const value = `${id}.${expiry}`;
     return `${value}.${createHmac("sha256", secret).update(`1:${value}`).digest("hex")}`;
   }
   it("kräver giltig signatur, exakt format och högst åtta timmar", async () => {
@@ -101,14 +173,23 @@ describe("Lokal admins session", () => {
     state.cookie = valid;
     expect(await isAdmin()).toBe(false);
   });
-  it("sätter säkra cookieflaggor och avvisar fel/överstora lösenord", async () => {
+  it("nekar session vid databasfel utan råa feldetaljer", async () => {
     vi.stubEnv("SESSION_SECRET", secret);
-    vi.stubEnv("ADMIN_PASSWORD", "synthetic-test-password");
+    state.cookie = token(Date.now() + 60000);
+    vi.spyOn(db.adminSession, "findFirst").mockRejectedValueOnce(
+      new Error("CANARY@example.test"),
+    );
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await isAdmin()).toBe(false);
+    expect(log.mock.calls).toEqual([["BOOKING_INTERNAL_ERROR"]]);
+  });
+  it("sätter säkra cookieflaggor och återkallar kopierad cookie", async () => {
+    vi.stubEnv("SESSION_SECRET", secret);
     vi.stubEnv("NODE_ENV", "production");
-    expect(checkPassword("synthetic-test-password")).toBe(true);
-    expect(checkPassword("wrong")).toBe(false);
-    expect(checkPassword("x".repeat(1025))).toBe(false);
-    await login();
+    state.set.mockImplementation((_name, value) => {
+      state.cookie = value;
+    });
+    await login(identity);
     expect(state.set).toHaveBeenCalledWith(
       "booking_admin",
       expect.any(String),
@@ -120,7 +201,11 @@ describe("Lokal admins session", () => {
         maxAge: 28800,
       },
     );
+    const copied = state.cookie;
+    expect(await isAdmin()).toBe(true);
     await logout();
+    state.cookie = copied;
+    expect(await isAdmin()).toBe(false);
     expect(state.set).toHaveBeenLastCalledWith(
       "booking_admin",
       "",
@@ -136,9 +221,63 @@ describe("Lokal admins session", () => {
     state.headers.set("origin", "http://localhost:3000");
     expect(await sameOrigin()).toBe(true);
   });
+  it("gallrar högst 100 utgångna/återkallade sessioner vid login och bevarar aktiva", async () => {
+    vi.stubEnv("SESSION_SECRET", secret);
+    for (let i = 0; i < 105; i++)
+      state.sessions.set(`old-${i}`, {
+        id: `old-${i}`,
+        expiresAt: new Date(0),
+      });
+    state.sessions.set("revoked", {
+      id: "revoked",
+      expiresAt: new Date(Date.now() + 60000),
+      revokedAt: new Date(),
+    });
+    state.sessions.set("active", {
+      id: "active",
+      expiresAt: new Date(Date.now() + 60000),
+    });
+    await login(identity);
+    expect(state.sessions.size).toBe(8);
+    expect(state.sessions.has("active")).toBe(true);
+    expect(db.adminSession.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        take: 100,
+        where: {
+          OR: [
+            { expiresAt: { lte: expect.any(Date) } },
+            { revokedAt: { not: null } },
+          ],
+        },
+      }),
+    );
+    await login(identity);
+    expect(
+      [...state.sessions.keys()].some(
+        (id) => id.startsWith("old-") || id === "revoked",
+      ),
+    ).toBe(false);
+    expect(state.sessions.has("active")).toBe(true);
+  });
 });
 
 describe("Missbruksskydd och testgrind", () => {
+  it("adminens 60-försöksfönster är separat från kundernas 30-försöksfönster", () => {
+    const now = Date.now(),
+      id = "unit-admin-booking-budget";
+    for (let i = 0; i < 60; i++)
+      checkRateLimit("admin-bookings", id, true, now);
+    expect(() => checkRateLimit("admin-bookings", id, true, now)).toThrow(
+      DomainError,
+    );
+    expect(() =>
+      checkRateLimit("admin-bookings", "another-admin-budget", true, now),
+    ).not.toThrow();
+    for (let i = 0; i < 30; i++) checkRateLimit("bookings", id, true, now);
+    expect(() => checkRateLimit("bookings", id, true, now)).toThrow(
+      DomainError,
+    );
+  });
   it("demo kan rapportera okänd revision utan Git", () => {
     expect(
       demoRevision(() => {
@@ -167,25 +306,136 @@ describe("Missbruksskydd och testgrind", () => {
       checkRateLimit("login", "unit-ip", true, now + 900001),
     ).not.toThrow();
   });
-  it("litar inte på godtyckliga IP-headers utan explicit proxykonfiguration", () => {
-    vi.stubEnv("TRUST_PROXY_IP", "0");
-    const headers = new Headers({
-      "x-real-ip": "192.0.2.10",
-      "x-forwarded-for": "192.0.2.20",
-    });
-    expect(clientIp(headers)).toBe("local-shared");
+  it("avvisar osignerade identitetsheaders även i proxyläge", () => {
     vi.stubEnv("TRUST_PROXY_IP", "1");
-    expect(clientIp(headers)).toBe("192.0.2.10");
-    headers.set("x-real-ip", "forged");
-    expect(clientIp(headers)).toBe("local-shared");
+    vi.stubEnv("BOOKING_ADDRESS_SECRET", "synthetic-proof-secret");
+    expect(() =>
+      clientIp(
+        new Headers({
+          "x-real-ip": "192.0.2.10",
+          "x-booking-client-ip": "192.0.2.10",
+          "x-booking-client-proof": "0".repeat(64),
+        }),
+      ),
+    ).toThrow();
+  });
+  it("kontrollerar aldrig lösenord från spärrad klient, även vid samtidighet", async () => {
+    const wrong = vi.fn(() => false);
+    const attempts = await Promise.allSettled(
+      Array.from({ length: 20 }, () => checkLoginAttempt("locked-unit", wrong)),
+    );
+    expect(wrong).toHaveBeenCalledTimes(5);
+    expect(attempts.filter((a) => a.status === "rejected")).toHaveLength(15);
+    const correct = vi.fn(() => true);
+    await expect(
+      checkLoginAttempt("locked-unit", correct),
+    ).rejects.toMatchObject({ status: 429 });
+    expect(correct).not.toHaveBeenCalled();
+    expect(await checkLoginAttempt("other-unit", correct)).toBe(true);
+  });
+  it("evikterar äldsta bucket vid kapacitet utan att neka ny klient", () => {
+    const now = Date.now() + 1800000;
+    for (let i = 0; i < 10001; i++)
+      checkRateLimit("login", `capacity-${i}`, true, now);
+    expect(() =>
+      checkRateLimit("login", "legitimate-new", true, now),
+    ).not.toThrow();
+  });
+  it("väntar på asynkront falskt verifieringsresultat och begränsar 300 samtidiga försök", async () => {
+    const verify = vi.fn(async () => {
+      await Promise.resolve();
+      return false;
+    });
+    const results = await Promise.allSettled(
+      Array.from({ length: 300 }, () =>
+        checkLoginAttempt("async-unit", verify),
+      ),
+    );
+    expect(verify).toHaveBeenCalledTimes(5);
+    expect(
+      results.filter((r) => r.status === "fulfilled" && r.value === false),
+    ).toHaveLength(5);
+    expect(results.filter((r) => r.status === "rejected")).toHaveLength(295);
+  });
+  it("återlämnar kapacitetsavslag så korrekt login fungerar efter fler än fem avslag", async () => {
+    for (let i = 0; i < 8; i++)
+      await expect(
+        checkLoginAttempt("capacity-refund-unit", async () => {
+          throw new PasswordCapacityError();
+        }),
+      ).rejects.toMatchObject({ status: 429, retryAfter: 1 });
+    expect(
+      await checkLoginAttempt("capacity-refund-unit", async () => true),
+    ).toBe(true);
+    const response = failure(new PasswordCapacityError());
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("1");
+    expect(await response.json()).toEqual({
+      error: "För många försök. Försök igen senare.",
+    });
+  });
+  it("behåller verkliga fel och återlämnar inte andra 429-fel som kapacitetsavslag", async () => {
+    for (let i = 0; i < 4; i++)
+      expect(
+        await checkLoginAttempt("real-errors-unit", async () => false),
+      ).toBe(false);
+    for (let i = 0; i < 6; i++)
+      await expect(
+        checkLoginAttempt("real-errors-unit", async () => {
+          throw new PasswordCapacityError();
+        }),
+      ).rejects.toBeInstanceOf(PasswordCapacityError);
+    await expect(
+      checkLoginAttempt("real-errors-unit", async () => {
+        throw new DomainError("För många försök. Försök igen senare.", 429, 1);
+      }),
+    ).rejects.toBeInstanceOf(DomainError);
+    const correct = vi.fn(async () => true);
+    await expect(
+      checkLoginAttempt("real-errors-unit", correct),
+    ).rejects.toMatchObject({ status: 429, retryAfter: expect.any(Number) });
+    expect(correct).not.toHaveBeenCalled();
+  });
+  it("återlämnar en evikterad reservation utan att sänka en ny buckets spärr", async () => {
+    let reject!: (reason: unknown) => void;
+    const pending = checkLoginAttempt(
+      "evicted-refund-unit",
+      () => new Promise<boolean>((_resolve, fail) => (reject = fail)),
+    );
+    for (let i = 0; i < 10001; i++)
+      checkRateLimit("login", `refund-capacity-${i}`);
+    for (let i = 0; i < 5; i++) checkRateLimit("login", "evicted-refund-unit");
+    reject(new PasswordCapacityError());
+    await expect(pending).rejects.toBeInstanceOf(PasswordCapacityError);
+    expect(() => checkRateLimit("login", "evicted-refund-unit")).toThrow(
+      DomainError,
+    );
+  });
+  it("hanterar att en väntande lyckad reservation evikteras utan 500 eller felaktig ny bucket", async () => {
+    let finish!: (value: boolean) => void;
+    const login = checkLoginAttempt(
+      "evicted-success-unit",
+      () =>
+        new Promise<boolean>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    for (let i = 0; i < 10001; i++)
+      checkRateLimit("login", `async-capacity-${i}`);
+    finish(true);
+    await expect(login).resolves.toBe(true);
   });
   it("avvisar osäkra databasadresser före dataåtkomst", () => {
+    vi.stubEnv("DATABASE_URL", undefined);
     for (const value of [
       undefined,
       "not a URL",
       "postgresql://user@remote.test/db_test",
       "postgresql://user@localhost/production",
       "postgresql://user@127.0.0.1/db_test%2Fprod",
+      "postgresql://u@localhost/x_test?host=/tmp",
+      "postgresql://u@localhost/x_test?hostaddr=192.0.2.1",
+      "postgresql://u@localhost/x_test?%68ost=/tmp",
     ])
       expect(() => assertTestDatabase(value)).toThrow("TEST_DATABASE_REFUSED");
     for (const host of ["localhost", "127.0.0.1", "[::1]"])

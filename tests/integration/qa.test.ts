@@ -38,6 +38,52 @@ afterAll(async () => {
 });
 
 describe("Epic 01 QA-regression", () => {
+  it("20 omgångar med 20 blandade överlapp ger snabba domänkonflikter utan överlapp", async () => {
+    const base = (await getAvailability("fotvard", day(35)))[0];
+    const durations: number[] = [];
+    for (let round = 0; round < 20; round++) {
+      const roundMarker = `${marker}-stress-${round}-`;
+      try {
+        const started = performance.now();
+        const results = await Promise.allSettled(
+          Array.from({ length: 20 }, (_, i) =>
+            createBooking(
+              input(
+                new Date(
+                  new Date(base).getTime() + (i % 2 ? 30 * 60000 : 0),
+                ).toISOString(),
+                `stress-${round}-${i}`,
+                i % 2 ? "massage" : "fotvard",
+              ),
+            ),
+          ),
+        );
+        const elapsed = performance.now() - started;
+        durations.push(elapsed);
+        expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+        for (const result of results)
+          if (result.status === "rejected") {
+            expect(result.reason).toBeInstanceOf(DomainError);
+            expect(result.reason.message).toBe("Tiden är inte tillgänglig");
+          }
+        expect(elapsed).toBeLessThan(2000);
+        const overlaps = await db.$queryRaw<
+          { count: bigint }[]
+        >`SELECT count(*) FROM "Booking" a JOIN "Booking" b
+          ON a.id < b.id AND a."businessId" = b."businessId" AND a."staffId" = b."staffId"
+          AND tstzrange(a."startsAt", a."endsAt", '[)') && tstzrange(b."startsAt", b."endsAt", '[)')
+          WHERE a."businessId" = 'demo'`;
+        expect(overlaps[0].count).toBe(0n);
+      } finally {
+        await db.booking.deleteMany({
+          where: { customerEmail: { startsWith: roundMarker } },
+        });
+      }
+    }
+    console.log(
+      `MIXED_CONCURRENCY_ROUNDS=20; MAX_MS=${Math.ceil(Math.max(...durations))}; OVERLAPS=0`,
+    );
+  }, 60000);
   it("återger samma id vid sekventiell retry och 20 parallella idempotenta anrop", async () => {
     const slots = await getAvailability("fotvard", day(12));
     const payload = input(slots[0], "idempotent");
@@ -218,4 +264,34 @@ describe("Epic 01 QA-regression", () => {
       }),
     ).rejects.toThrow();
   });
+});
+
+it("begränsar en socketklient till fem nya bokningar och delar e-posttak över plus-taggar", async () => {
+  const slots = await getAvailability("massage", day(38));
+  const address = "192.0.2.193";
+  const results = await Promise.allSettled(
+    Array.from({ length: 6 }, (_, i) =>
+      createBooking(
+        input(slots[i], `client-${i}`, "massage"),
+        undefined,
+        address,
+      ),
+    ),
+  );
+  expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(5);
+  await expect(
+    createBooking(
+      input(slots[5], "client-over", "massage"),
+      undefined,
+      address,
+    ),
+  ).rejects.toMatchObject({ status: 429 });
+  for (let i = 0; i < 3; i++)
+    await createBooking({
+      ...input(slots[i + 6], "tag", "massage"),
+      customerEmail: `${marker}-tag+${i}@example.test`,
+    });
+  await expect(
+    createBooking(input(slots[9], "tag", "massage")),
+  ).rejects.toMatchObject({ status: 429 });
 });

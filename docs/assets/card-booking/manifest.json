@@ -1,0 +1,39 @@
+{
+  "revision": "8126410af712bdd71d6b6a42c0a1fcc58055d28d",
+  "type": "isolated Chromium test host and ordinary production-build admin; not native ChatGPT or physical iPhone",
+  "images": [
+    {
+      "file": "confirmation-390.png",
+      "sha256": "70cde7ad71cd9c47f7b72b9bbe2b51115ddb509fcf4f5cdc2368b7125cc7be3b"
+    },
+    {
+      "file": "receipt-390.png",
+      "sha256": "99e4eb651d97a834e5eb9c1298fd912ca53ffa474125803e405b06f060272f0c"
+    },
+    {
+      "file": "admin-390.png",
+      "sha256": "c6765107a3850cd80cf758e897f49cfa71252b1b5e8353b1efd6c9dfcbf8b86f"
+    },
+    {
+      "file": "receipt-1024.png",
+      "sha256": "fe81aa0eddc0ab0e4bf5653af69cbcc533ed5d071010b5c58fede8a240cc56b2"
+    },
+    {
+      "file": "admin-1024.png",
+      "sha256": "e3a2956a3747d312f65d1a021c0e66579ad800eda7271c0813548c74558c37cd"
+    }
+  ],
+  "actualPcEvidence": {
+    "source": "User confirmed native PC booking; Codex read-only DB check and CUA Chrome admin calendar/detail. Native card itself was not CUA-clicked.",
+    "images": [
+      {
+        "file": "actual-pc-admin-calendar.png",
+        "sha256": "bd10cda39d1d164833506710f51a240694c9aa97d2d0e145343c995a8d23893a"
+      },
+      {
+        "file": "actual-pc-admin-booking.png",
+        "sha256": "b630753ea6f7772a6d0f58bb5e1a2bb4de6cf3f1357a51193f574f0f56caf73a"
+      }
+    ]
+  }
+}

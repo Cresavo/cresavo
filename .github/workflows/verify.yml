@@ -1,16 +1,36 @@
 name: Verify POC
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
   verify:
+    # Same-repository PRs already have a push run. Fork PRs still run here.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    name: E2E ${{ matrix.mode }} / proxy ${{ matrix.proxy }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON((github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && '[{"mode":"dev","proxy":"0"},{"mode":"dev","proxy":"1"},{"mode":"production","proxy":"0"},{"mode":"production","proxy":"1"}]' || '[{"mode":"dev","proxy":"0"}]') }}
     env:
+      E2E_PRODUCTION: ${{ matrix.mode == 'production' && '1' || '' }}
+      TRUST_PROXY_IP: ${{ matrix.proxy }}
       NEXT_TELEMETRY_DISABLED: "1"
       CHECKPOINT_DISABLE: "1"
       DATABASE_URL: postgresql://booking:booking@127.0.0.1:5432/booking_ci_test
-      ADMIN_PASSWORD: synthetic-ci-password-only
       SESSION_SECRET: synthetic-ci-session-secret-never-use-in-deployment
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -19,6 +39,7 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "24"
+          cache: npm
       - run: npm ci
       - run: |
           touch .env
@@ -27,25 +48,27 @@ jobs:
           npx prisma generate
           npm run db:migrate
           npm run db:seed
-      - run: npm run lint
-      - run: npm test
-      - run: npm run test:integration
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - if: matrix.mode == 'dev' && matrix.proxy == '0'
+        run: npm run lint
+      - if: matrix.mode == 'dev' && matrix.proxy == '0'
+        run: npm test
+      - if: matrix.mode == 'dev' && matrix.proxy == '0'
+        run: npm run test:integration
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ hashFiles('package-lock.json') }}
+      # OS packages are not part of the browser cache.
+      - run: npx playwright install-deps chromium
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
       - run: npm run build
+      - if: matrix.mode == 'dev' && matrix.proxy == '0'
+        name: Local MCP card and booking proof (test host)
+        run: |
+          npx playwright test --config playwright.agent-workday.config.ts
+      - run: npm run test:e2e
       - run: npx tsc --noEmit
       - if: always()
         run: docker compose down
-
-  dependency-audit:
-    name: Dependency audit (known advisories)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: "24"
-      - run: npm audit

@@ -1,0 +1,38 @@
+name: Weekly dependency audit
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+      timezone: Europe/Stockholm
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: dependency-audit-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  dependency-audit:
+    name: Audit (all findings reported; high/critical gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Full audit (retain failure for moderate findings)
+        id: full-audit
+        continue-on-error: true
+        run: npm audit
+      - name: High and critical gate
+        id: high-audit
+        run: npm audit --audit-level=high
+      - name: Report both audit outcomes
+        if: always()
+        env:
+          FULL_OUTCOME: ${{ steps.full-audit.outcome }}
+          HIGH_OUTCOME: ${{ steps.high-audit.outcome }}
+        run: |
+          printf '### Dependency audit\n\nFull audit outcome: **%s**\n\nHigh/critical gate: **%s**\n\nA passing severity gate does not mean zero advisories or pilot approval.\n' "$FULL_OUTCOME" "$HIGH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"

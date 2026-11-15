@@ -1,108 +1,152 @@
-import { formatPrice } from "@/lib/format";
-import { pageDataFailure } from "@/lib/errors";
 import Link from "next/link";
-import { isAdmin } from "@/lib/auth";
-import { listBookings, listCampaigns, listServices } from "@/lib/domain";
+import { DateTime } from "luxon";
+import { getAdminContext } from "@/lib/auth";
+import { adminBookingFilter } from "@/lib/domain";
+import { listCalendar } from "@/lib/calendar";
+import { listStaff } from "@/lib/workspace-config";
+import { dateSchema } from "@/lib/validation";
+import { DomainError, pageDataFailure } from "@/lib/errors";
+import { ZONE } from "@/lib/time";
 import AdminActions from "./ui";
+import AdminHeader from "./header";
+import Calendar from "./calendar";
+import DemoEntry from "../demo-entry";
+import { demoAccessEnabled } from "@/lib/demo-access";
+import { ReturnLink } from "../components/context-link";
+import { returnContext } from "@/lib/navigation-context";
+import { getLocale } from "@/lib/locale-server";
+import { text } from "@/lib/locale";
+import { presentationError } from "@/lib/presentation-errors";
 export const dynamic = "force-dynamic";
 export default async function Admin({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; cursor?: string }>;
+  searchParams: Promise<{
+    date?: string;
+    view?: string;
+    staffId?: string;
+    status?: string;
+    cursor?: string;
+    from?: string;
+    to?: string;
+    returnTo?: string;
+    returnKey?: string;
+  }>;
 }) {
-  if (!(await isAdmin()))
+  const locale = await getLocale();
+  const t = (en: string, sv: string) => text(locale, en, sv);
+  const admin = await getAdminContext();
+  if (!admin)
     return (
-      <main className="max-w-md mx-auto px-5 py-12">
-        <Link href="/">← Bokningssidan</Link>
-        <h1 className="text-3xl font-bold my-6">Administration</h1>
-        <AdminActions mode="login" />
+      <main className="login-page">
+        <Link prefetch={false} href="/">
+          {t("Customer booking", "Bokningssidan")}
+        </Link>
+        <p className="eyebrow">SALONG EKO / DEMO</p>
+        <h1>{t("Your workspace", "Salongens arbetsyta")}</h1>
+        <p>
+          {t(
+            "Manage appointments, treatments, your team and working hours.",
+            "Här ser du bokningar och ändrar behandlingar, personal och arbetstider.",
+          )}
+        </p>
+        {demoAccessEnabled() ? (
+          <>
+            <DemoEntry />
+            <details>
+              <summary>
+                {t("Administrator login", "Vanlig admininloggning")}
+              </summary>
+              <AdminActions mode="login" />
+            </details>
+          </>
+        ) : (
+          <AdminActions mode="login" />
+        )}
       </main>
     );
   const params = await searchParams;
-  const [result, campaigns, services] = await Promise.all([
-    listBookings({ ...params, limit: 100 }),
-    listCampaigns(),
-    listServices(),
-  ]).catch(pageDataFailure);
-  const { bookings } = result;
-  const fmt = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Europe/Stockholm",
-    dateStyle: "full",
-    timeStyle: "short",
-  });
+  let error: string | null = null;
+  const today = DateTime.now().setZone(ZONE).toISODate()!;
+  let date = dateSchema.safeParse(params.date).success ? params.date! : today;
+  if (params.date && !dateSchema.safeParse(params.date).success)
+    error = "Ogiltigt datum. Visar idag.";
+  if (params.from || params.to) {
+    const legacy = adminBookingFilter({
+      ...(params.from && { from: params.from }),
+      ...(params.to && { to: params.to }),
+    });
+    error = legacy.error;
+    date = legacy.filter.from;
+  }
+  const view = params.view === "week" ? "week" : "day";
+  const staff = await listStaff(undefined, true).catch(pageDataFailure);
+  let staffId = typeof params.staffId === "string" ? params.staffId : "";
+  if (staffId && !staff.some((p) => p.id === staffId)) {
+    staffId = "";
+    error = "Medarbetaren finns inte i den här kalendern.";
+  }
+  const selected = DateTime.fromISO(date, { zone: ZONE });
+  const from = (
+    view === "week" ? selected.startOf("week") : selected
+  ).toISODate()!;
+  const to = (view === "week" ? selected.endOf("week") : selected).toISODate()!;
+  const status = params.status === "all" ? "all" : "confirmed";
+  const filter = {
+    from,
+    to,
+    limit: 100,
+    status,
+    ...(staffId && { staffId }),
+    ...(typeof params.cursor === "string" &&
+      params.cursor.length <= 128 && { cursor: params.cursor }),
+  };
+  const loaded = await listCalendar(filter)
+    .then((result) => ({ result, cursorError: null as string | null }))
+    .catch(async (cause) => {
+      if (
+        cause instanceof DomainError &&
+        cause.message === "Ogiltig sidmarkör för datumintervallet"
+      ) {
+        return {
+          result: await listCalendar({ ...filter, cursor: undefined }).catch(
+            pageDataFailure,
+          ),
+          cursorError: cause.message,
+        };
+      }
+      return pageDataFailure(cause);
+    });
   return (
-    <main className="max-w-4xl mx-auto px-5 py-10">
-      <Link href="/">← Bokningssidan</Link>
-      <h1 className="text-3xl font-bold my-6">Administration</h1>
-      <section className="bg-white rounded-xl p-6 mb-6">
-        <AdminActions mode="logout" />
-        <h2 className="text-xl font-bold mb-4">Kalender och bokningar</h2>
-        <form className="mb-4" method="get">
-          <label htmlFor="from">Från</label>
-          <input
-            id="from"
-            name="from"
-            type="date"
-            defaultValue={result.from}
-            required
+    <>
+      <AdminHeader email={admin.email} active="calendar" />
+      <main className="admin-workspace">
+        {params.returnTo && (
+          <ReturnLink
+            context={returnContext(params, "/admin/overview")}
+            fallback="/admin/overview"
           />
-          <label htmlFor="to">Till (max 31 dagar)</label>
-          <input
-            id="to"
-            name="to"
-            type="date"
-            defaultValue={result.to}
-            required
-          />
-          <button>Visa bokningar</button>
-        </form>
-        {!bookings.length && <p>Inga bokningar ännu.</p>}
-        <ul className="space-y-4">
-          {bookings.map((b) => (
-            <li key={b.id} className="border-t pt-3">
-              <strong>{fmt.format(b.startsAt)}</strong>
-              <p>
-                {b.service.name} · {b.customerName} · {b.customerEmail}
-              </p>
-            </li>
-          ))}
-        </ul>
-        {result.nextCursor && (
-          <Link
-            href={`/admin?${new URLSearchParams({ from: result.from, to: result.to, cursor: result.nextCursor })}`}
-          >
-            Nästa sida
-          </Link>
         )}
-      </section>
-      <section className="bg-white rounded-xl p-6 mb-6">
-        <h2 className="text-xl font-bold mb-4">Tjänster</h2>
-        {services.map((s) => (
-          <p key={s.id}>
-            {s.name} · {s.duration} min · {formatPrice(s.priceOre)}
+        {(error || loaded.cursorError) && (
+          <p role="alert" className="form-error">
+            {presentationError(error || loaded.cursorError, locale)}
           </p>
-        ))}
-      </section>
-      <section className="bg-white rounded-xl p-6">
-        <h2 className="text-xl font-bold mb-4">Kampanjer</h2>
-        {!campaigns.length && (
-          <p>Inga kampanjer ännu. Skapa ett utkast via lokal MCP.</p>
         )}
-        {campaigns.map((c) => (
-          <div key={c.id} className="border-t py-4">
-            <strong>{c.title}</strong>
-            <p>
-              {c.discountPercent} % · {c.service.name} · {c.validFrom}–
-              {c.validUntil}
-            </p>
-            {c.published ? (
-              <p>Publicerad</p>
-            ) : (
-              <AdminActions mode="publish" id={c.id} />
-            )}
-          </div>
-        ))}
-      </section>
-    </main>
+        <Calendar
+          date={date}
+          view={view}
+          staffId={staffId}
+          staff={staff}
+          bookings={loaded.result.bookings}
+          nextCursor={loaded.result.nextCursor}
+          status={status}
+          context={
+            params.returnTo
+              ? returnContext(params, "/admin/overview")
+              : undefined
+          }
+        />
+      </main>
+    </>
   );
 }

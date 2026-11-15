@@ -1,0 +1,113 @@
+{
+  "physicalIphone": "NOT RUN",
+  "captureNote": "First local mobile captures375x812; own owner-agent captures desktop. Automated E2E separately asserts320/390/1440. No generated or loading-screen evidence.",
+  "files": [
+    {
+      "name": "local-confirm-mobile.jpg",
+      "source": "Own actual Computer Use, local production build, same isolated synthetic database",
+      "webRevision": "e2e0e398de683823ffa962a4c669085f9800b6f2",
+      "capturedAt": "2026-11-13T07:32:40.036Z",
+      "width": 375,
+      "height": 812,
+      "format": "jpeg",
+      "sha256": "bd8b82cffe371e3720f9a4a8e695105337eba2a52c23038411dc3d96866da5a6"
+    },
+    {
+      "name": "local-export-mobile.jpg",
+      "source": "Own actual Computer Use, local production build, same isolated synthetic database",
+      "webRevision": "e2e0e398de683823ffa962a4c669085f9800b6f2",
+      "capturedAt": "2026-11-13T07:32:14.155Z",
+      "width": 375,
+      "height": 812,
+      "format": "jpeg",
+      "sha256": "18f28d1a6e0834e4316f7cdb12b664aea39652f1a97b943e8338b0ca38b8fa0b"
+    },
+    {
+      "name": "local-removed-mobile.jpg",
+      "source": "Own actual Computer Use, local production build, same isolated synthetic database",
+      "webRevision": "e2e0e398de683823ffa962a4c669085f9800b6f2",
+      "capturedAt": "2026-11-13T07:33:14.453Z",
+      "width": 375,
+      "height": 812,
+      "format": "jpeg",
+      "sha256": "93b0b882096bdb9d1af45c4495462b6a6b43a63f4c4348f1de77aed789ec67ab"
+    },
+    {
+      "name": "owner-agent-draft.jpg",
+      "source": "Own actual Computer Use, local production build, same isolated synthetic database",
+      "webRevision": "95f807196f9b15e0bae2afdcd89604837cf747dd",
+      "mcpRevision": "e2e0e398de683823ffa962a4c669085f9800b6f2",
+      "capturedAt": "2026-11-13T08:04:33.008Z",
+      "width": 1080,
+      "height": 1793,
+      "format": "jpeg",
+      "sha256": "2ab7674e568e42e54eff01adb0f6af074015db950982bc618a658ed228157793"
+    },
+    {
+      "name": "owner-agent-stale.jpg",
+      "source": "Own actual Computer Use, local production build, same isolated synthetic database",
+      "webRevision": "95f807196f9b15e0bae2afdcd89604837cf747dd",
+      "mcpRevision": "e2e0e398de683823ffa962a4c669085f9800b6f2",
+      "capturedAt": "2026-11-13T08:06:21.214Z",
+      "width": 1065,
+      "height": 1768,
+      "format": "jpeg",
+      "sha256": "823f616c4df6ee75b09841b3bbf30a6c2f6e6cdd910aaa8afa998219e7e60576"
+    },
+    {
+      "name": "cloud-confirm-mobile.png",
+      "source": "Playwright actual immutable protected deployment, same synthetic customer before/after, authenticated with existing origin-scoped owner credentials",
+      "webRevision": "95f807196f9b15e0bae2afdcd89604837cf747dd",
+      "url": "https://booking-lab-se-preview-37wcqseut-<redacted-vercel-team>.vercel.app",
+      "capturedAt": "2026-11-13T08:35:55.546Z",
+      "width": 390,
+      "height": 2105,
+      "format": "png",
+      "sha256": "9c9c286aab4fd810935144d61ea78c5ff19c3737cc5515712b949a1a631946ca"
+    },
+    {
+      "name": "cloud-export-mobile.png",
+      "source": "Playwright actual immutable protected deployment, same synthetic customer before/after, authenticated with existing origin-scoped owner credentials",
+      "webRevision": "95f807196f9b15e0bae2afdcd89604837cf747dd",
+      "url": "https://booking-lab-se-preview-37wcqseut-<redacted-vercel-team>.vercel.app",
+      "capturedAt": "2026-11-13T08:35:54.388Z",
+      "width": 390,
+      "height": 1606,
+      "format": "png",
+      "sha256": "da12cdaf367cfd0b55918c19dbf52ac978406d7e8ee0e9bded313abee0d63117"
+    },
+    {
+      "name": "cloud-removed-desktop.png",
+      "source": "Playwright actual immutable protected deployment, same synthetic customer before/after, authenticated with existing origin-scoped owner credentials",
+      "webRevision": "95f807196f9b15e0bae2afdcd89604837cf747dd",
+      "url": "https://booking-lab-se-preview-37wcqseut-<redacted-vercel-team>.vercel.app",
+      "capturedAt": "2026-11-13T08:39:05.705Z",
+      "width": 1440,
+      "height": 1000,
+      "format": "png",
+      "sha256": "226eecdccf9711b2dd4e69bf994af16dca009bcdd5b296b3f3c65f7f5983e16d"
+    },
+    {
+      "name": "cloud-removed-mobile.png",
+      "source": "Playwright actual immutable protected deployment, same synthetic customer before/after, authenticated with existing origin-scoped owner credentials",
+      "webRevision": "95f807196f9b15e0bae2afdcd89604837cf747dd",
+      "url": "https://booking-lab-se-preview-37wcqseut-<redacted-vercel-team>.vercel.app",
+      "capturedAt": "2026-11-13T08:39:05.624Z",
+      "width": 390,
+      "height": 1280,
+      "format": "png",
+      "sha256": "b58e890d7ffcfd86bb03a0193922e3a325ec2add0296714b01b898a1ac1ba901"
+    },
+    {
+      "name": "stable-removed-mobile.jpg",
+      "source": "Own actual CUA, stable protected alias; CSS viewport390x844 verified, returned screenshot scaled247x844",
+      "webRevision": "95f807196f9b15e0bae2afdcd89604837cf747dd",
+      "url": "https://booking-lab-se-preview.vercel.app",
+      "capturedAt": "2026-11-13T08:48:14.730Z",
+      "width": 247,
+      "height": 844,
+      "format": "jpeg",
+      "sha256": "265d705749155c2a4ee14292d34dfb1fee966c32db6ac346548a4df0986c4f00"
+    }
+  ]
+}
