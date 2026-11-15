@@ -1,3 +1,4 @@
+import { fixtureBookingDate } from "@/lib/public-fixtures";
 import { isPublicReadonly } from "@/lib/public-readonly";
 import { formatPrice, readableDay } from "@/lib/format";
 import { pageDataFailure } from "@/lib/errors";
@@ -31,13 +32,13 @@ export default async function Home({
         <Link className="salon-brand" href="/">
           SALONG EKO<span>{t("Customer booking", "Kundbokning")}</span>
         </Link>
-        {demoAccessEnabled() ? (
+        {!isPublicReadonly() && (demoAccessEnabled() ? (
           <DemoEntry />
         ) : (
           <a className="quiet-button" href="/admin">
             {t("Owner workspace", "Salongens arbetsyta")}
           </a>
-        )}
+        ))}
       </header>
       <p className="product-backlink">
         <Link href="/product">{t("About Booking Lab", "Om Booking Lab")}</Link>
@@ -73,7 +74,9 @@ export default async function Home({
               typeof query.staff === "string" ? query.staff : undefined
             }
             initialDate={
-              typeof query.date === "string" ? query.date : undefined
+              isPublicReadonly()
+                ? fixtureBookingDate(query)
+                : typeof query.date === "string" ? query.date : undefined
             }
             initialSlot={
               typeof query.slot === "string" ? query.slot : undefined
@@ -186,7 +189,7 @@ export default async function Home({
               </small>
             </section>
           ))}
-          <section className="owner-entry">
+          {!isPublicReadonly() && <section className="owner-entry">
             <h2>
               {t("Exploring as an owner?", "Provar du som salongsägare?")}
             </h2>
@@ -203,7 +206,7 @@ export default async function Home({
                 {t("Open the workspace", "Öppna arbetsytan")}
               </a>
             )}
-          </section>
+          </section>}
         </aside>
       </div>
     </main>

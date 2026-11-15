@@ -84,7 +84,7 @@ export default function Landing({ language = "sv" }: { language?: "sv" | "en" })
 
           <section className={s.protocol} aria-labelledby="protocol-title"><div><p className={s.eyebrow}>{t("ÖPPET FRÅN GRUNDEN", "OPEN FROM THE START")}</p><h2 id="protocol-title">{t("Byggt mot öppna protokoll", "Built around open protocols")}</h2></div><div className={s.protocolLinks}><a href="https://osbp.dev/">OSBP <span>{t("läs först", "read first")}</span><ArrowUpRight size={20} /></a><a href="https://usp-protocol.dev/">USP <ArrowUpRight size={20} /></a></div></section>
         </main>
-        <footer className={s.footer}><span className={s.footerBrand}><Image unoptimized src="/landing/logos/grok-bot.svg" alt="Grok" width={22} height={22} /> {t("byggt med Grok Bot", "built with Grok Bot")}</span><span>{t("Skiss – inte publicerad", "Sketch — not published")}</span></footer>
+        <footer className={s.footer}><span className={s.footerBrand}><Image unoptimized src="/landing/logos/grok-bot.svg" alt="Grok" width={22} height={22} /> {t("byggt med Grok Bot", "built with Grok Bot")}</span><span>{t("Läs-demo med påhittade data – inga riktiga bokningar", "Read-only demo with synthetic data — no real bookings")}</span></footer>
       </div>
     </>
   );

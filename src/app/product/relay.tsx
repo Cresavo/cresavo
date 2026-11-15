@@ -1,3 +1,4 @@
+import { isPublicReadonly } from "@/lib/public-readonly";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, Leaf } from "lucide-react";
@@ -51,12 +52,12 @@ export default async function Relay() {
           <Link className={styles.brand} href="/product">
             <Leaf aria-hidden="true" /> Booking Lab
           </Link>
-          <nav aria-label={t("Product navigation", "Produktnavigation")}>
+          {!isPublicReadonly() && <nav aria-label={t("Product navigation", "Produktnavigation")}>
             <Link href="/admin/overview">
               {t("Open workspace", "Öppna arbetsytan")}{" "}
               <ArrowUpRight size={16} />
             </Link>
-          </nav>
+          </nav>}
         </header>
         <div className={styles.heroBody}>
           <h1>
@@ -115,9 +116,9 @@ export default async function Relay() {
             "Se luckan i kalendern. Granska förslaget eller förbered ett erbjudande för behandlingen. Du väljer när det publiceras.",
           )}
         </p>
-        <Link className={styles.textLink} href="/admin/overview">
+        {!isPublicReadonly() && <Link className={styles.textLink} href="/admin/overview">
           {t("Review suggestions", "Granska förslagen")} ↗
-        </Link>
+        </Link>}
       </section>
       <footer className={styles.footer}>
         <details>
