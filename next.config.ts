@@ -13,6 +13,7 @@ const csp = [
   `connect-src 'self'${production ? "" : " ws://localhost:* ws://127.0.0.1:*"}`,
 ].join("; ");
 const config: NextConfig = {
+  outputFileTracingIncludes: { "/api/v1/openapi": ["./docs/agent-api-v1.openapi.yaml"] },
   turbopack: { root: process.cwd() },
   poweredByHeader: false,
   devIndicators: false,

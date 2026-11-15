@@ -247,6 +247,8 @@ model AgentMandate {
   client AgentClient @relation(fields: [businessId, clientId], references: [businessId, id], onDelete: Restrict)
   serviceId String
   staffId String
+  locationId String @default("demo-location")
+  scheduleId String
   validFrom DateTime @db.Timestamptz(3)
   validUntil DateTime @db.Timestamptz(3)
   expiresAt DateTime @db.Timestamptz(3)

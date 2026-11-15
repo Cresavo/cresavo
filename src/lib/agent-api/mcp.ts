@@ -1,11 +1,11 @@
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
-import { z } from "zod";
 import { db } from "../db";
 import { checkRateLimit } from "../rate-limit";
 import { AgentApiError, agentApiErrors } from "./errors";
 import { authenticateAgent, type AgentPrincipal, type AgentScope } from "./keys";
-import { agentErrorResponse, availabilityV1, Created, mapAgentError, servicesV1 } from "./v1";
+import { agentErrorResponse, availabilityV1, Created, mapAgentError, servicesV1, serviceV1 } from "./v1";
 import { cancelBookingV1, createAgentBooking, getBookingV1 } from "./bookings";
+import { mcpInputs } from "./mcp-inputs";
 
 // Same business rules and key checks as the REST API. Authentication is the
 // sandbox API key (Bearer / X-API-Key), not MCP OAuth; see README.
@@ -30,46 +30,45 @@ const params = (o: Record<string, string | undefined>) =>
 
 export function agentMcpServer(principal: AgentPrincipal) {
   const server = new McpServer({ name: "booking-lab-agent-api", version: "1.0.0" });
-  const business = z.string().describe(`Business id. This key may only use "${principal.businessId}".`);
+  for (const name of ["list_services", "usp_services_list"])
   server.registerTool(
-    "list_services",
-    { description: "List bookable services, prices, durations and staff for the synthetic demo salon.", inputSchema: z.object({ business }).strict() },
+    name,
+    { description: "List synthetic services using Booking Lab native v1 arguments/results (USP name alias only).", inputSchema: mcpInputs.list_services },
     async (a) => tool(principal, "services:read", () => servicesV1(principal, params(a))),
   );
+  server.registerTool("usp_services_get", {
+    description: "One service from the same authorised catalog. Native arguments: business, service. Not canonical USP wire format.",
+    inputSchema: mcpInputs.get_service,
+  }, async a => tool(principal, "services:read", () => serviceV1(principal, params(a))));
+  for (const name of ["get_availability", "usp_availability_query"])
   server.registerTool(
-    "get_availability",
+    name,
     {
       description: "Available start times (ISO 8601, Europe/Stockholm). Use date, or from/to (max 14 days).",
-      inputSchema: z.object({
-        business, service: z.string(),
-        date: z.string().optional(), from: z.string().optional(), to: z.string().optional(), staff: z.string().optional(),
-      }).strict(),
+      inputSchema: mcpInputs.get_availability,
     },
     async (a) => tool(principal, "availability:read", () => availabilityV1(principal, params(a))),
   );
+  for (const name of ["create_booking", "usp_bookings_create"])
   server.registerTool(
-    "create_booking",
+    name,
     {
       description:
         "Book one slot under an operator-issued synthetic mandateId. confirmed=true alone grants no authority. Synthetic @example.test emails only. Reuse the same idempotencyKey and mandateId when retrying.",
-      inputSchema: z.object({
-        idempotencyKey: z.string(), business, serviceId: z.string(), serviceVersion: z.number().int(),
-        staffId: z.string(), start: z.string(),
-        customer: z.object({ name: z.string(), email: z.string() }).strict(), confirmed: z.boolean(),
-        mandateId: z.string().optional(),
-      }).strict(),
+      inputSchema: mcpInputs.create_booking,
     },
     async ({ idempotencyKey, ...body }) =>
       tool(principal, "bookings:write", () => createAgentBooking(principal, idempotencyKey, body)),
   );
+  for (const name of ["get_booking", "usp_bookings_get"])
   server.registerTool(
-    "get_booking",
-    { description: "Read status of a booking owned by this stable client.", inputSchema: z.object({ bookingId: z.string() }).strict() },
+    name,
+    { description: "Read status of a booking owned by this stable client.", inputSchema: mcpInputs.get_booking },
     async (a) => tool(principal, "bookings:read", () => getBookingV1(principal, a.bookingId)),
   );
   server.registerTool(
     "cancel_booking",
-    { description: "Cancel a booking owned by this client. Only on the person's explicit request.", inputSchema: z.object({ bookingId: z.string() }).strict() },
+    { description: "Cancel a booking owned by this client. Only on the person's explicit request.", inputSchema: mcpInputs.cancel_booking },
     async (a) => tool(principal, "bookings:write", () => cancelBookingV1(principal, a.bookingId)),
   );
   return server;

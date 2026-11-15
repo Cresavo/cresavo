@@ -12,6 +12,7 @@ import type { AgentPrincipal } from "./keys";
 import { API_VERSION, business, Created, mapAgentError } from "./v1";
 import { assertCurrentAgent, lockMandate } from "./mandates";
 import { assertMandatedBooking } from "./mandate-policy";
+import { placeForStaff } from "./place";
 
 const id = z.string().trim().min(1).max(128);
 const iso = (d: Date) => DateTime.fromJSDate(d, { zone: ZONE }).toISO({ suppressMilliseconds: true })!;
@@ -53,6 +54,7 @@ async function bookingView(b: BookingRow) {
     durationMinutes: b.duration,
     serviceId: b.serviceId,
     serviceName: b.serviceName,
+    ...placeForStaff(b.staffId),
     staff: { id: b.staffId, name: await staffName(b.staffId) },
     version: b.version,
     createdAt: iso(b.createdAt),
@@ -129,6 +131,7 @@ export async function createAgentBooking(principal: AgentPrincipal, rawKey: stri
           assertMandatedBooking(mandate, {
             businessId: principal.businessId, clientId: principal.clientId,
             serviceId: input.serviceId, staffId: input.staffId,
+            ...placeForStaff(input.staffId),
             start: new Date(input.start), duration: currentService.duration, priceOre: currentService.priceOre,
           });
           if (await tx.agentBooking.findUnique({ where: { mandateId: input.mandateId! } }))

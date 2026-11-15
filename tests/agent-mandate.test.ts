@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { assertMandatedBooking, mandateSchema, type StoredMandate, type MandatedBooking } from "../src/lib/agent-api/mandate-policy";
+import { placeForStaff } from "../src/lib/agent-api/place";
 
 const now = new Date("2026-11-16T08:00:00Z");
 const mandate: StoredMandate = {
+  ...placeForStaff("anna"),
   businessId: "demo", clientId: "client-a", serviceId: "massage", staffId: "anna",
   validFrom: new Date("2026-11-16T14:00:00Z"), validUntil: new Date("2026-11-16T16:00:00Z"),
   expiresAt: new Date("2026-11-16T13:00:00Z"), revokedAt: null,
   maxPriceOre: 45000, currency: "SEK", origin: "synthetic-operator", originReference: "manual-test-01",
 };
 const booking: MandatedBooking = {
+  ...placeForStaff("anna"),
   businessId: "demo", clientId: "client-a", serviceId: "massage", staffId: "anna",
   start: new Date("2026-11-16T14:00:00Z"), duration: 30, priceOre: 45000,
 };
@@ -19,7 +22,8 @@ describe("server-owned synthetic mandate bounds", () => {
   });
   it.each([
     { businessId: "other" }, { clientId: "client-b" }, { serviceId: "fotvard" },
-    { staffId: "erik" }, { priceOre: 45001 }, { priceOre: -1 },
+    { staffId: "erik" }, { locationId: "another-location" }, { scheduleId: "another-schedule" },
+    { priceOre: 45001 }, { priceOre: -1 },
     { start: new Date("2026-11-16T13:59:59Z") },
     { start: new Date("2026-11-16T15:30:01Z") },
   ])("denies a booking outside a grant: %j", change => {
@@ -38,6 +42,8 @@ describe("server-owned synthetic mandate bounds", () => {
     expect(mandateSchema.safeParse(input).success).toBe(true);
     expect(mandateSchema.safeParse({ ...input, confirmed: true }).success).toBe(false);
     expect(mandateSchema.safeParse({ ...input, origin: "client-asserted" }).success).toBe(false);
+    expect(mandateSchema.safeParse({ ...input, locationId: "another-location" }).success).toBe(false);
+    expect(mandateSchema.safeParse({ ...input, scheduleId: "another-schedule" }).success).toBe(false);
     expect(mandateSchema.safeParse({ ...input, validUntil: input.validFrom }).success).toBe(false);
     expect(() => assertMandatedBooking(null, booking, now)).toThrow("authorised mandate");
   });

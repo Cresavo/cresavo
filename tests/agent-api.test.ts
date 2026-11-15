@@ -183,7 +183,7 @@ describe("GET /api/v1/services", () => {
     const res = await get(services, "/api/v1/services?business=demo", bearer(key));
     expect(res.headers.get("cache-control")).toBe("no-store");
     const body = await res.json();
-    expect(body.business).toEqual({ id: "demo", name: "Salong Eko (synthetic demo)", timeZone: "Europe/Stockholm" });
+    expect(body.business).toEqual({ id: "demo", name: "Salong Eko (synthetic demo)", timeZone: "Europe/Stockholm", locationId: "demo-location" });
     expect(body.services[0]).toEqual({
       id: "fotvard", name: "Fotvård", durationMinutes: 60, bufferMinutes: 0,
       price: { amountMinor: 65000, currency: "SEK" }, version: 1,
@@ -210,6 +210,7 @@ describe("GET /api/v1/availability", () => {
     expect(body.slots[0]).toEqual({
       start: `${DAY}T09:00:00${offset}`, end: `${DAY}T09:30:00${offset}`,
       durationMinutes: 30, serviceId: "massage", serviceVersion: 2,
+      locationId: "demo-location", scheduleId: "staff-schedule:staff-demo",
       staff: { id: "staff-demo", name: "Anna" },
     });
     // Anna 09–11 (4 slots) + Erik 10–11 (2 slots), sorted by start then staff.

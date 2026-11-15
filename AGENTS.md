@@ -1,4 +1,22 @@
-# Aktuellt: Agentprov 1, separat lokal gren
+# Aktuellt: Agentprov 2, separat lokal gren
+
+- Niclas godkände denna avgränsade fortsättning 2026-11-15. Worktree
+  booking-lab-agentprov-2, branch codex/agentprov-2 från e890b69. Agentprov-1
+  på e890b69 är fryst för oberoende QA och får inte ändras eller pushas.
+- Ingen push, PR, merge, rebase, deploy, molnmiljö, nya konton eller betaltjänster.
+  Ingen .env/hemlighetsläsning; alla nya uppgifter ska vara syntetiska.
+- Läs POLICY_MERGE_PLAN, LEGACY_DECOUPLE_PLAN och AGENTPROV_2_PROTOCOL_NOTES.
+  Konfliktkontroll fann fem dokumentkonflikter: endast policyplan, ingen merge.
+  Legacy får i denna omgång endast planeras; ta inte bort moduler eller tester.
+- USP-profil/llms och namnalias behåller native kontrakt och befintlig auth.
+  Tool-namn bevisar inte full USP-konformitet. buyer.consent är inget mandat.
+- Mandatets plats/schema härleds server-side och jämförs med lagrat scope;
+  klient-JSON får inte ersätta eller vidga det. Historiska migrationer består.
+- Kör lint, tsc, full unit/integration och build; integration enbart med
+  befintlig loopback-DB-vakt. Rapport <local-scratch>/night-02.md under4000tecken.
+  Rapporten är aldrig bevis utan faktisk output från den aktuella koden.
+
+## Fryst historik: Agentprov 1
 
 - Niclas valde READ-WRITE 2026-11-15. Bas bf7b6c3, gren codex/agentprov-1.
   Ingen push, PR, merge, rebase, deploy, kontoskapande eller secret-provisionering.

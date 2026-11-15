@@ -1,4 +1,20 @@
-# Current local work: Agentprov 1
+# Current local work: Agentprov 2
+
+Local branch `codex/agentprov-2` starts at frozen `e890b69` in a separate
+worktree. `codex/agentprov-1` remains unchanged for independent QA.
+
+This step adds `/.well-known/usp`, `/llms.txt`, five MCP name aliases and
+explicit server-owned mandate place/schedule bounds. The aliases retain
+Booking Lab's native v1 contract; full USP/OSBP wire conformance is not claimed.
+Native contracts are available at `/api/v1/openapi` and `/api/v1/mcp/schema`.
+No new dependencies, legacy removal, policy merge, cloud resources or deploy.
+
+See [protocol boundaries](docs/AGENTPROV_2_PROTOCOL_NOTES.md),
+[policy merge plan](docs/POLICY_MERGE_PLAN.md) and
+[legacy decoupling plan](docs/LEGACY_DECOUPLE_PLAN.md).
+Actual current test results are at the top of [verification](docs/VERIFICATION.md).
+
+## Frozen prior delivery: Agentprov 1
 
 Branch `codex/agentprov-1`, based on `bf7b6c3` (not older main).
 The existing gateway has REST `/api/v1` and HTTP-MCP `/api/v1/mcp`.

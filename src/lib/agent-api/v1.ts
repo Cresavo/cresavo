@@ -9,6 +9,7 @@ import { listServices, getAvailability } from "../domain";
 import { parseDay, ZONE } from "../time";
 import { dateSchema } from "../validation";
 import { AgentApiError, agentApiErrors, type AgentApiErrorCode } from "./errors";
+import { DEMO_LOCATION_ID, placeForStaff } from "./place";
 import {
   assertBusinessAccess,
   authenticateAgent,
@@ -21,11 +22,12 @@ export const MAX_RANGE_DAYS = 14;
 
 // The engine currently serves exactly one synthetic business. The API layer
 // still checks every request against the key's business (OWASP API1 / BOLA).
-const BUSINESSES: Record<string, { id: string; name: string; timeZone: string }> = {
+const BUSINESSES: Record<string, { id: string; name: string; timeZone: string; locationId: string }> = {
   [DEMO_BUSINESS_ID]: {
     id: DEMO_BUSINESS_ID,
     name: "Salong Eko (synthetic demo)",
     timeZone: ZONE,
+    locationId: DEMO_LOCATION_ID,
   },
 };
 
@@ -154,6 +156,16 @@ export async function servicesV1(principal: AgentPrincipal, params: URLSearchPar
   };
 }
 
+// Single-service representation reuses the same authorised catalog projection.
+export async function serviceV1(principal: AgentPrincipal, params: URLSearchParams) {
+  const serviceId = id.safeParse(params.get("service"));
+  if (!serviceId.success) throw new AgentApiError("invalid_request");
+  const catalog = await servicesV1(principal, params);
+  const service = catalog.services.find(s => s.id === serviceId.data);
+  if (!service) throw new AgentApiError("service_not_found");
+  return { apiVersion: API_VERSION, business: catalog.business, service };
+}
+
 export function dayRange(params: URLSearchParams) {
   const date = params.get("date");
   const from = params.get("from");
@@ -194,6 +206,7 @@ export async function availabilityV1(principal: AgentPrincipal, params: URLSearc
           serviceId: service.id,
           serviceVersion: service.version,
           staff: { id: member.id, name: member.name },
+          ...placeForStaff(member.id),
         });
       }
   slots.sort((a, b) => a.start.localeCompare(b.start) || a.staff.id.localeCompare(b.staff.id));
