@@ -1,14 +1,19 @@
 # Kundspårets regressioner · aktuell status · 2026-11-15
 
-Produkt/test `4162 ec94 e0814828 a3868 b4648 fcf55608471056` på `fix/gateway-service-auth`.
-Alla64 webbtester passerar lokalt i produktion på mobil+desktop. Publicerade kampanjer
-visas åter på Ekos kundspår och kalenderknapparnas tryckytor ryms vid320 px.
+Produkt/test `4162ec94e0814828a3868b4648fcf55608471056` på `fix/gateway-service-auth`.
+Alla 64 webbtester passerar lokalt i produktion på mobil+desktop. Publicerade kampanjer
+visas åter på Ekos kundspår och kalenderknapparnas tryckytor ryms vid 320 px.
 Tester följer verkligt salongsval och använder etiketter i rätt kundformulär.
 392 unit/lint/tsc/build PASS. Ingen säkerhets-, boknings- eller databasregel ändrad.
 [Kommandon, mellanresultat och begränsningar](VERIFICATION.md).
 
-CI inväntas efter push. Ny Grok-QA, fysisk iPhone, full audit och drift NOT RUN.
-Tidigare kända7 moderate dev-beroendefynd kvarstår; pilotgodkännande återstår.
+[Actions 43765483845](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43765483845)
+är grön på exakt `104ad3ae0503b0af88824daf53b4f6b17216d3f5`:
+392 unit, 205 integration, 13 MCP-kort och 64 webb-E2E samt lint/build/tsc.
+Feature-jobbet körde dev/proxy 0; lokal webbsvit körde produktion.
+Efterföljande dokumentation ändrar endast Markdown.
+Ny Grok-QA, fysisk iPhone, full audit och drift är NOT RUN.
+Tidigare kända 7 moderate dev-beroendefynd kvarstår; pilotgodkännande återstår.
 
 ---
 
@@ -386,7 +391,7 @@ branch **feature/mcp-time-card**, bas1a49a0e/produkt95f8071. [Godkänt scope](MC
 
 | Acceptanskriterium                                         | Faktiskt läge                                                                                                                                                                                                                                                                                                                         |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Välj behandling, utförare, dag och tid utan datumskrivning | PASS i egen MCP-testvärd vid320/390/1024px. Vanliga etiketter/knappar/select, sv-SE och Stockholmstid.                                                                                                                                                                                                                                |
+| Välj behandling, utförare, dag och tid utan datumskrivning | PASS i egen MCP-testvärd vid 320/390/1024px. Vanliga etiketter/knappar/select, sv-SE och Stockholmstid.                                                                                                                                                                                                                                |
 | Riktig tillgänglighet, inte påhittade tider                | PASS samma getAvailability, 105integration och3korttester. Ny fixturebokning tar bort tiden från resultatet.                                                                                                                                                                                                                          |
 | Förstå tidsvalets omfattning                               | PASS UI/text anger ingen reservation/ingen bokning. Ordinarie pris/längd/utförare och valt datum/tid visas.                                                                                                                                                                                                                           |
 | Tomt, felaktigt eller ändrat underlag                      | PASS nästa dag, byte av behandling tömmer val, stale/transportfel/retry. 28dagars gräns, inga fria sökintervall.                                                                                                                                                                                                                      |

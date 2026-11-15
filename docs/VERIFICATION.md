@@ -1,8 +1,8 @@
 # Webbläsarregressioner · aktuell verifiering · 2026-11-15
 
-Gren `fix/gateway-service-auth`, produkt/testcommit `4162 ec94 e0814828 a3868 b4648 fcf55608471056`.
+Gren `fix/gateway-service-auth`, produkt/testcommit `4162ec94e0814828a3868b4648fcf55608471056`.
 Återställer befintlig publicerad kampanjvisning på Salong Ekos kundspår med
-befintlig Stockholm-datumfiltrering. Smalare kortmarginaler vid högst480 px ger
+befintlig Stockholm-datumfiltrering. Smalare kortmarginaler vid högst 480 px ger
 kalenderknapparna plats. Tester går via salongsvalet och mobilens kundflik,
 använder etiketter och avgränsar kundformuläret från agentsimuleringen.
 Boknings-, auth-, API- och databasregler har samma innehåll som före rättningen.
@@ -13,21 +13,21 @@ Boknings-, auth-, API- och databasregler har samma innehåll som före rättning
 | Lint | npm run lint | exit 0 |
 | Unit | npm test | 392/392, exit 0 |
 | Build | npm run build | exit 0 |
-| Webbläsare | node node_modules/@playwright/test/cli.js test med E2 E_PRODUCTION=1 | 64/64, desktop+mobil,2.4 min,exit 0 |
+| Webbläsare | node node_modules/@playwright/test/cli.js test med E2E_PRODUCTION=1 | 64/64, desktop+mobil, 2.4 min, exit 0 |
 | Typer | node node_modules/typescript/bin/tsc --noEmit | exit 0 |
 
-Lokala loggar `<local-state>/codex/e2 e-nav-iorhtydp/`, koordinator
-`<local-scratch>/e2 e-nav-verify.py`. Ingen .env lästes.
+Lokala loggar `<local-state>/codex/e2e-nav-iorhtydp/`, koordinator
+`<local-scratch>/e2e-nav-verify.py`. Ingen .env lästes.
 Första devförsöket avbröts efter fel i den nya navigationshjälpen och en kallstarts-
-timeout. Nästa produktionsförsök gav58 PASS/6 FAIL och identifierade de återstående
+timeout. Nästa produktionsförsök gav 58 PASS / 6 FAIL och identifierade de återstående
 UI-regressionerna och den tvetydiga sammanfattningsselektorn. Slutkörningen ovan
-gick64/64 med ursprungliga assertions för bokning, publicering, språk, tryckytor,
+gick 64/64 med ursprungliga assertions för bokning, publicering, språk, tryckytor,
 retry, behörigheter och städning. Inga tester skippades eller timeoutgränser höjdes.
 
 CI efter push väntar vid denna dokumentrevision. Full integration, npm ci och
 utvecklingslägets E2 E körs i befintlig feature-CI. Full audit och en ny Grok-granskning
 är NOT RUN i denna omgång. Groks tidigare godkännande gäller tjänsteidentiteten på
-c7 eeda6/a239275, före denna UI-rättning. Ingen fysisk iPhone eller driftverifiering.
+c7eeda6/a239275, före denna UI-rättning. Ingen fysisk iPhone eller driftverifiering.
 
 ## Tidigare verifiering
 
@@ -893,7 +893,7 @@ vid okänt utfall krävs adminkontroll innan ett nytt försök, inte automatisk 
 | node node_modules/typescript/bin/tsc --noEmit                                            | PASS7s; slutlig körning exit0.                                                                                                                                                                                                                                                              |
 | RATE_LIMIT_STORE=memory node node_modules/vitest/vitest.mjs run                          | PASS83/83,17filer.                                                                                                                                                                                                                                                                          |
 | node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts            | PASS105/105,24filer,126.70s efter extra processtest. Tidigare104/104 separat.                                                                                                                                                                                                               |
-| node node_modules/@playwright/test/cli.js test --config playwright.time-card.config.ts   | PASS3/3 vid320/390/1024,6s efter isolerad outputDir. Verklig stdio/HTML, egen testvärd, inte ChatGPT.                                                                                                                                                                                       |
+| node node_modules/@playwright/test/cli.js test --config playwright.time-card.config.ts   | PASS3/3 vid 320/390/1024,6s efter isolerad outputDir. Verklig stdio/HTML, egen testvärd, inte ChatGPT.                                                                                                                                                                                       |
 | node node_modules/next/dist/bin/next build                                               | PASS14s.                                                                                                                                                                                                                                                                                    |
 | E2E_PRODUCTION=1 TRUST_PROXY_IP=0 node node_modules/@playwright/test/cli.js test         | PASS46/46,92s.                                                                                                                                                                                                                                                                              |
 | E2E_PRODUCTION=1 TRUST_PROXY_IP=1 node node_modules/@playwright/test/cli.js test         | PASS46/46,104s.                                                                                                                                                                                                                                                                             |
@@ -1230,7 +1230,7 @@ Full audit fortsatt **FAIL7moderate**, omit-dev **PASS0**. Ingen säker publicer
 | Verkligt Vercel containerbygge                     | PASS Buildah Linuxamd64,105källfiler, Prisma/Nextbuild och minimalruntime53paket; revision d7, deployment dpl_<redacted>. Preview target=null, fra1; build cle1/USA.                                                                                                                                           |
 | Faktisk perimeter                                  | PASS stabil alias och immutable deployment; HTML, API, demoPOST, favicon och verklig statisk resurs kräver Vercel-auth. SSO alla deployments, endast Niclas.                                                                                                                                                                     |
 | Faktisk säkerhet                                   | PASS giltig HTTPS-certifikatkedja, CSP/HSTS/nosniff/no-powered-by/admin no-store, Secure/HttpOnly/Strict-cookie, same-origin, separat appbehörighet, session reuse, logout och kopierad-cookie403. Port3000 ej nåbar; /mcp,/api/mcp,/sse404.                                                                                     |
-| Faktisk användarprovning                           | PASS Chromium: demoknapp, kundbokning+tom dag→nästa lediga, sammanfattning/bekräftelse; ägare skapa/flytta/avboka; ändra och återställ pris, lägg ledighet, publicera kampanj. Alla fyra adminmenyer utan sid-overflow vid320/390/1440. Se live/result.json.                                                                     |
+| Faktisk användarprovning                           | PASS Chromium: demoknapp, kundbokning+tom dag→nästa lediga, sammanfattning/bekräftelse; ägare skapa/flytta/avboka; ändra och återställ pris, lägg ledighet, publicera kampanj. Alla fyra adminmenyer utan sid-overflow vid 320/390/1440. Se live/result.json.                                                                     |
 | Faktisk beständighet                               | PASS samma session och bokningssvar efter99sekunders inaktivitet, därefter probe-session revokerad. Kompletterande Vercellogg BOOKING_SERVER_READY för samma boknings-GET200 vid18:30:52.888Z (cnm4m-1794508252888-208cb974d6b6) styrker ny instans efter inaktiviteten; ingen framtvingad omstart. Se cold-start.json.          |
 | Backup/återläsning efter UI-prov                   | PASS pg_dump18.7 verify-full, AES256GCM, tamper nekas; ny lokal booking_ui_live_restore_demo, alla10tabellers antal/rowhash identiska,35bokningar. Krypterad fil på operatörens PC, inte automatiserad offsitebackup.                                                                                                            |
 
