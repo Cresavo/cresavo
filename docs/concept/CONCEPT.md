@@ -173,6 +173,25 @@ agenter och externa AI:er via MCP. UI:t är bara ett av flera sätt att anropa d
 
 Licens och kostnad kontrolleras innan något kopplas på på riktigt.
 
+## Öppna protokoll: bygg på andras standarder
+
+Princip: egen kärna med typade verktyg, och **tunna adaptrar** per protokoll.
+När ett protokoll blir bättre eller ett nytt vinner, byter/lägger vi till en
+adapter, inte kärnan.
+
+| Protokoll | Vad det gör | Status i repot |
+|---|---|---|
+| MCP | AI (Claude/ChatGPT) läser data och kör verktyg | Finns (`src/mcp`, `/api/v1/mcp`). Utöka med läsverktyg för allt. |
+| A2A | Agent pratar med agent (kundens assistent ↔ salongens agent) | Lokalt prov finns (`@a2a-js/sdk`). |
+| USP (Universal Services Protocol) | Upptäckt/bokning av tjänster via agenter | Upptäcktsprofil `/.well-known/usp` + namnalias, inte full konformitet. Tidigt utkast till standard. |
+| UCP (Google/Shopify) | Agentisk handel: upptäckt, kassa, order; bygger ut mot resor/boende | Inte påbörjat. Relevant för e-handel och ev. bokning. |
+| ACP (OpenAI/Stripe) | Köp inne i ChatGPT | Inte påbörjat. Senare, när kassa finns. |
+| AP2 | Bevis på att en människa godkänt en agents betalning | Inte påbörjat. Repots mandat/godkännande-modell ligger nära idén. |
+| OAuth 2.1 + discovery, OpenAPI, llms.txt | Säker anslutning, maskinläsbar API-beskrivning | Finns (labb). |
+
+Demon visar detta på Mer → Din data & AI: "Din salong kan nås av AI-assistenter
+via MCP, A2A och USP" med status per protokoll.
+
 ## Fler branscher
 
 Salong (fotvård/massage) är första provet. Kärnan ska passa fler: frisör,
