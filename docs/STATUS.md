@@ -9,9 +9,9 @@ Lokal prototyp med syntetiska data. Ingen produktionsdrift, ingen kundpilot.
 
 - Salongen (detta repo) och gatewayen (`booking-lab-gateway`) är separata repon,
   båda integrerade på `main`.
-- Senaste gröna CI före städningen, salong `4de4d3e`: 394 enhetstester,
-  205 integrationstester, 64/64 webbtester i fyra lägen, 13 MCP-korttester,
-  lint, typkontroll och build. Gateway `e1830fe`: 10/10.
+- Efter städningen och borttaget av gamla demoytor (2026-11-16, lokalt mot
+  PostgreSQL 18): 385 enhetstester, 202 integrationstester, 64/64 webbtester
+  (desktop och mobil, dev-läge), lint, typkontroll och build. Gateway `e1830fe`: 10/10.
 - Kända öppna fynd: sju måttliga sårbarheter i utvecklingsberoenden (inga i
   produktionsberoenden) och några Info-fynd från tidigare granskningar.
 
