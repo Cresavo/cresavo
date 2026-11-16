@@ -1,0 +1,90 @@
+"use client";
+
+import { useState } from "react";
+import { RotateCcw } from "lucide-react";
+import { formatTime } from "@/concept/data/dates";
+import { t, words } from "@/concept/i18n";
+import { resetDemo } from "@/concept/store";
+import { MorePage } from "@/concept/studio/more/more-page";
+import { useStudio } from "@/concept/studio/use-studio";
+import { Button } from "@/concept/ui/button";
+import { Card, Section } from "@/concept/ui/card";
+import { Sheet } from "@/concept/ui/sheet";
+import { showToast } from "@/concept/ui/toast";
+
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+export default function SettingsPage() {
+  const { state } = useStudio();
+  const [confirming, setConfirming] = useState(false);
+  const { salon } = state;
+  const details = [
+    [t("settings.name"), salon.name],
+    [t("settings.address"), `${salon.address}, ${salon.area}`],
+    [t("settings.phone"), salon.phone],
+    [t("settings.email"), salon.email],
+    [t("settings.orgNumber"), salon.orgNumber],
+  ];
+
+  return (
+    <MorePage title={t("nav.settings")} subtitle={t("settings.subtitle")}>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Section title={t("settings.salon")}>
+          <Card className="divide-y divide-eko-line">
+            {details.map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-4 px-4 py-3 text-sm">
+                <span className="text-eko-muted">{label}</span>
+                <span className="text-right font-medium">{value}</span>
+              </div>
+            ))}
+          </Card>
+        </Section>
+        <Section title={t("settings.hours")}>
+          <Card className="divide-y divide-eko-line">
+            {WEEK_ORDER.map((d) => {
+              const hours = salon.hours[d];
+              return (
+                <div key={d} className="flex justify-between px-4 py-3 text-sm">
+                  <span>{words.weekdays[d]}</span>
+                  <span className={hours ? "font-medium tabular-nums" : "text-eko-muted"}>
+                    {hours ? `${formatTime(hours.open)}–${formatTime(hours.close)}` : t("calendar.closed")}
+                  </span>
+                </div>
+              );
+            })}
+          </Card>
+        </Section>
+        <Section title={t("settings.demo")} className="lg:col-span-2">
+          <Card className="flex flex-wrap items-center gap-4 p-4">
+            <p className="min-w-0 flex-1 text-sm text-eko-muted">{t("settings.demoText")}</p>
+            <Button variant="danger" icon={<RotateCcw size={18} />} onClick={() => setConfirming(true)}>{t("settings.reset")}</Button>
+          </Card>
+        </Section>
+      </div>
+      {confirming && (
+        <Sheet
+          open
+          onClose={() => setConfirming(false)}
+          title={t("settings.resetTitle")}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setConfirming(false)}>{t("common.cancel")}</Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  resetDemo();
+                  setConfirming(false);
+                  showToast(t("settings.resetDone"));
+                }}
+              >
+                {t("settings.reset")}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-[15px]">{t("settings.resetText")}</p>
+        </Sheet>
+      )}
+    </MorePage>
+  );
+}

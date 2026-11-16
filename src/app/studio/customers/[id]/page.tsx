@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
-import { CalendarPlus, ChevronLeft, Hand, Mail, MessageSquare, Phone, UserX } from "lucide-react";
+import { CalendarPlus, Hand, Mail, MessageSquare, Phone, UserX } from "lucide-react";
 import { diffDays } from "@/concept/data/dates";
 import { t, tc } from "@/concept/i18n";
 import { agoText, formatDate, formatMoney } from "@/concept/i18n/format";
 import { buildCustomerStats, findService, fullName, lateCustomers } from "@/concept/selectors";
 import { dispatch, undo } from "@/concept/store";
+import { BackLink } from "@/concept/studio/back-link";
 import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-sheets";
 import { BookingList } from "@/concept/studio/customers/booking-list";
 import { Journal } from "@/concept/studio/customers/journal";
@@ -33,12 +33,7 @@ export default function CustomerPage() {
   const customer = state.customers.find((c) => c.id === id);
   const stats = useMemo(() => buildCustomerStats(state, today), [state, today]);
 
-  const back = (
-    <Link href="/studio/customers" className="inline-flex items-center gap-1 text-sm font-medium text-eko-muted hover:text-eko-ink">
-      <ChevronLeft size={16} />
-      {t("customer.back")}
-    </Link>
-  );
+  const back = <BackLink href="/studio/customers" label={t("customer.back")} />;
   if (!customer) {
     return (
       <>
