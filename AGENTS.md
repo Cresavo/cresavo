@@ -25,8 +25,9 @@ Arbeta på gren `concept/ai-native-demo` (eller en gren från den).
 
 ## Arbetssätt: goals och issues
 
-- Arbete sker i **goals**: `docs/goals/README.md` beskriver flöde, mall och
-  vilken modell som passar. Jobba tills goal-filens "Klart när" är uppfyllt.
+- Arbete sker i **goals** i kön `docs/goals/QUEUE.md`. Ta översta lediga,
+  jobba tills "Klart när" är uppfyllt, ta sedan **nästa utan att fråga**.
+  Tom kö: städpass (issues). Flöde, mall och modellval: `docs/goals/README.md`.
 - Fixa inte saker utanför ditt goal. **Skapa ett GitHub-issue** med
   etiketten `fynd` (kommando i `docs/goals/README.md`), eller skriv det under
   "Fynd" i PROGRESS.md om du saknar GitHub-åtkomst.

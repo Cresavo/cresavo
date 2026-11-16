@@ -76,6 +76,5 @@ Det som uttryckligen inte ska göras nu. Sidofynd → issue.
 
 ## Goals
 
-| Fil | Status |
-|---|---|
-| [`../concept/CODEX_GOAL_NIGHT1.md`](../concept/CODEX_GOAL_NIGHT1.md) | Pågår: grund + /studio byggs av Claude, Codex tar resten |
+Alla goals står i ordning i **[QUEUE.md](QUEUE.md)**. Agenter tar nästa
+lediga goal själva när ett är klart, och kör städpass när kön är tom.
