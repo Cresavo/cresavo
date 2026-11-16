@@ -1,5 +1,45 @@
 # Beroendesäkerhet
 
+## Uppföljning: stödd rättning fortfarande blockerad · 2026-11-16
+
+Ny läsande kontroll från leverans e6702c5, produkt 0a88ac2. Den granskade
+nattgrenen och gateway f9b8506 lämnas oförändrade. Separat dokumentationsgren
+`chore/dependency-readiness-check`. Inga paket, låsfiler eller overrides ändras.
+
+| Faktiskt kört | Utfall |
+| --- | --- |
+| Salong: `npm audit --json` | exit 1, 7 moderate, 0 high/critical |
+| Salong: `npm audit --omit=dev` | exit 0, 0 fynd |
+| Gateway: `npm audit --json` | exit 0, 0 fynd |
+| `npm audit fix --dry-run --ignore-scripts --json` | exit 1, added 0 / removed 0 / changed 0 |
+| `npm ls minimatch typescript-eslint eslint eslint-config-next --depth=4` | exit 0, minimatch 10.2.6 via TypeScript-ESLint 8.72.2 och Next ESLint-config 16.4.6 |
+
+[Upstreams advisory GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)
+anger påverkat intervall >=7.0.0 och <11.0.1, rättat från 11.0.1.
+Alla sju auditposter kommer från detta enda advisory och dess beroendekedja.
+Registret verifierades med `npm view`: stabil typescript-eslint och
+@typescript-eslint/typescript-estree är 8.72.2; estree kräver minimatch ^10.2.2.
+Senaste 10.x är 10.2.6 och omfattas fortfarande av advisoryt. Auditens
+`fixAvailable: true` innebär därmed inte att npm kan rätta den nuvarande
+låsta kedjan inom dess versionskrav; den faktiska torrkörningen ändrar inget.
+
+ESLint 10.15.0 finns och Next-config 16.4.6 anger peer >=9.0.0, men följande
+installerade pluginers peer-intervall utesluter ESLint 10: eslint-plugin-react
+7.37.5, eslint-plugin-jsx-a11y 6.10.2 och eslint-plugin-import 2.32.0.
+En ESLint-major löser inte i sig minimatch-kedjan. Tvingad peer-installation,
+override, betaversion eller inaktiverad audit införs inte.
+
+Villkor för nästa verkliga rättning: upstream släpper en stödd TypeScript-ESLint-
+version som använder rättad minimatch, eller en verifierad patch för 10.x.
+Gör då en liten låsfilsändring och kör ren npm ci, lint, tsc, unit/integration,
+build och det frysta tvårepoprovet innan privat push/QA. ESLint-majoren kräver
+dessutom dokumenterad kompatibilitet med alla plugins och separat avgränsning.
+
+Ingen produktkod ändrades i denna uppföljning. Full testmatris och ny Grok-QA
+är NOT RUN; senaste kodbevis på 0a88ac2/f9b8506 i VERIFICATION gäller fortsatt
+oförändrad produkt. Råa audit-/dry-run-resultat finns lokalt under
+<local-scratch>/dependency-followup-*.json. Pilot är fortsatt NO-GO.
+
 ## Tvårepoprov · 2026-11-16
 
 Inga nya npm-beroenden, lockfilsändringar, overrides eller migrationer.
