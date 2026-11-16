@@ -15,10 +15,13 @@ historiska migrationsändringar, verkliga mottagare, deploy eller mainmerge.
 | npm run build | PASS/exit 0 |
 | Ren slutkörning: generate/migrate/seed/build/tsc | PASS/exit 0 på 721d445, ny testDB |
 | npm run test:pair -- --native-codex | PASS/exit 0, 25 PASS-koder, båda dirty=false |
-| OpenAPI YAML-parse med befintlig js-yaml | PASS, ingen ny dependency |
+| OpenAPI YAML-parse och verklig gateway-HTTP | PASS 1.4.1, matchande proposal-schema/giltiga refs, ingen ny dependency |
+| Ren docs/pin-pair 13adc8e/1617de1 | PASS 19/19, generate/migrate/seed/build/tsc0, båda rena |
+| Gateway-CI43850785900 på1617de1 | SUCCESS: npm ci/build och12/12 |
 | npm audit --json | exit 1, 7 moderate/dev, 0 high/critical |
 | npm audit --omit=dev --json | exit 0, 0 fynd |
 | CI 43845636237 på 721d445 | SUCCESS: npm ci/lint/build/tsc, 423 unit, 211 integration, 64 E2E och 13 MCP-kort |
+| CI43850868544 på13adc8e, försök2 | SUCCESS: npm ci/lint/build/tsc, 423 unit, 211 integration, 64 E2E och13 MCP-kort; försök1 var63/64 |
 | Grok på fryst 721d445/f9b8506 | Scoped lokal GO: egna 423 unit/211 integration/19 pair, lint/tsc/build; egen probe 31/33, två 429-fel redovisade nedan |
 
 [CI 43845636237](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43845636237)
@@ -61,8 +64,54 @@ Nykört efter docsändringen: gateway `npm test` **12/12**, `npm run build` exit
 HTTP-kontroll av verklig `/api/v1/openapi`: 1.4.1, egen origin, proposalvägar,
 svarsschema identiskt med salongens, alla lokala refs giltiga, ingen `/live`-route
 som gatewayen inte exponerar. PASS. Logg `<local-scratch>/separate-consent-qa/openapi-check.txt`.
-Ren pair-/CI-kontroll av det nya dokumentationsparet återstår vid denna commit;
-25 native-PASS och Grok-GO ovan gäller exakt **721d445/f9b8506**.
+Ren slutkontroll av dokumentationsparet **13adc8e/1617de1**: generate, 19
+migrationer, seed, build och tsc exit0 på en ny isolerad loopback-testDB.
+`npm run test:pair` exit0, **19 PASS**, båda dirty=false. Manifest observerat
+2026-11-16T10:41:49.240Z, passed=true, failedStep=null; egna fixtures och
+processer städade, pg_ctl stop exit0. Loggar:
+`<local-state>/codex/separate-consent-contract-n0sv088y/`; sanerat manifest
+`<local-scratch>/separate-consent-qa/contract-pair-evidence.json`.
+Ingen ny native-modellkörning för detta docs/pin-delta. **25 native-PASS och
+Grok-GO gäller exakt 721d445/f9b8506**, inte nya egna Grok-prov på dokumentationen.
+Gateway-CI [43850785900](https://github.com/niclasvestlund-YT/booking-lab-gateway/actions/runs/43850785900)
+SUCCESS på exakt1617de1: npm ci/build och12/12 tester,0 rapporterade auditfynd
+vid ci-installationen. Salon-CI [43850868544](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43850868544)
+**SUCCESS i försök2 på exakt13adc8e**: npm ci, lint,423unit,211integration,
+build,13MCP-kort,64webb ochtsc PASS. Ett ben dev/proxy0; pair-jobbet SKIPPED,
+inte ett nytt pair-PASS i CI. Inga nya kontokörningar. Loggar:
+`<local-scratch>/separate-consent-qa/ci-43850868544-attempt2.log` samt
+försök1 i `ci-43850868544.log`. Övriga tre E2E-lägen kördes inte.
+Slutlig resultatcommit efter13adc8e är bara Markdown, inte ny produktkod eller
+en ny Grok-granskad revision. Workflowets paths-ignore utlöser inga tester för den.
+
+### CI-fel och riktad reproduktion efter dokumentationssynk
+
+CI43850868544, försök1 på13adc8e, **FAIL**: 63/64 webbtester. Mobiltestet
+`tests/e2e/customers.spec.ts:6` fick 60000ms timeout när det efter ”Byt kund”
+väntade på `#booking-customer-search` (:46). Unit423, integration211, MCP-kort13,
+lint/build passerade; tsc-steget i detta CI-försök var SKIPPED. Det tidigare
+produkt-CI721d445 var grönt64/64. Varken kundkomponenten eller testet ändrades
+mellan revisionerna (diff kontrollerad). CI laddar inte upp webbtracen i detta
+workflow; den faktiska felsidans tillstånd kunde därför inte granskas.
+Orsaken är **inte fastställd**; timing/hydrering är endast en hypotes.
+
+Första lokala reproduktionskommandot `npm run test:e2e -- --project=mobile
+--grep "långa kundnamn" --repeat-each=5` startade **0 tester**, exit9: skriptet
+kräver `.env`, som inte finns. Ingen sådan fil lästes eller skapades. PostgreSQL
+stoppades normalt. Loggar i `<local-state>/codex/separate-consent-ci-repro-v5pgnf2w/`.
+Därefter samma Playwright/config direkt med exporterad syntetisk miljö:
+`node node_modules/@playwright/test/cli.js test --project=mobile --grep "långa
+kundnamn" --repeat-each=5`: **5/5 PASS**, exit0,2.4min. Ny loopback-testDB,
+generate/migrate/seed/build/tsc0, ordinarie DB-vakt, städning och pg_ctl stop0.
+Loggar `<local-state>/codex/separate-consent-ci-repro-jbzsfob7/`. Inga ändrade
+assertions, timeouter, retries eller produktfiler. Fem gröna lokala upprepningar
+är inget bevis för att ett intermittent CI-fel är löst.
+
+En enda riktad CI-omkörning av misslyckat jobb på samma13adc8e beställdes med
+`gh run rerun 43850868544 --failed`. **Försök2 blev SUCCESS** på samma13adc8e:
+423/211/13/64, lint/build/tsc ochstädning PASS. Ingen ny push eller kodändring
+gjordes mellan försöken. Den första röda körningen bevaras här. Intermittent
+kundval/CI är en öppen observation med okänd orsak, inte en åtgärdad bugg.
 
 Lokala fulla kontroller: `<local-state>/codex/separate-consent-check-p8wceos2/`,
 precommit med samma produktlogik som 721d445. Därefter lades bara transaktions-

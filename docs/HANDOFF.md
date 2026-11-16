@@ -26,8 +26,19 @@ eller beskrivet som pilotklart. Välj/verifiera riktig kundkanal före sådan dr
 
 Efter QA synkas bara dokumentation: gatewaydocs 1617de1 beskriver befintliga
 proposalvägar på /api/v1/openapi. Salonens pair-pin pekar på den; runtimekoden
-är oförändrad från det granskade paret. Ny ren pair-/CI-kontroll redovisas separat
-i VERIFICATION. Grok har inte omgranskat dokumentationsdeltat.
+är oförändrad från det granskade paret. Ren 13adc8e/1617de1 gav 19 pair-PASS
+och generate/migrate/seed/build/tsc0. Gateway-CI43850785900 är grönt på1617de1,
+gren `docs/separate-customer-consent-contract`. Salon-CI43850868544 blev grönt
+i försök2 på13adc8e:423/211/13kort/64webb/lint/tsc/build. Försök1 var63/64,
+timeout i oförändrat mobilkundval. Fem lokala upprepningar passerade; orsaken
+är inte fastställd och observationen kvarstår. Se VERIFICATION. Grok har inte
+omgranskat dokumentationsdeltat. Slutlig resultatcommit ändrar bara Markdown;
+ingen ny CI/Grok-prövning av produktkod görs för den.
+
+Tre nästa avgränsningar: (1) diagnostik av kundvalets intermittenta CI-timeout
+med bevarad felsidetrace, (2) produktbeslut och verifiering av verklig oberoende
+kundkanal, (3) uttryckliga mandatgränser för övriga bokningsmutationer. Ingen av
+dessa startas automatiskt. Pilot, fysisk iPhone och tvårepoprov i moln återstår.
 
 ---
 
