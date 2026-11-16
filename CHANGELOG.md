@@ -7,6 +7,13 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Command box at the top of every studio page: type or speak what you want,
+  review a proposal with before/after, then approve, edit or cancel. Questions
+  about earnings and lapsed customers are answered in the card.
+- Voice journal: dictate a visit, get treatment, observations, advice and next
+  visit as editable fields, and book the next visit in one tap.
+- Your data & AI shows which AI task runs on which model (or built-in rules),
+  a cost log, and a demo form for your own AI key (not stored).
 - Salon command proposals and seven optional AI tasks work without API keys.
 - AI evaluation command checks salon scenarios and reports accuracy, time and
   estimated cost, with no network calls by default.

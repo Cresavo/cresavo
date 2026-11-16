@@ -1,5 +1,49 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Claude Code · command box, voice and AI section in the studio
+
+**Done**
+
+- **Command box** (top of every `/studio` page): the rule parser answers
+  instantly (label "Quick parse"); when the server has an AI key the
+  `interpret-command` task replaces it a moment later (label "AI"). The result
+  is a proposal card with before/after, **Approve / Edit / Cancel**; Approve
+  dispatches the existing store action and shows the usual undo toast. Taken
+  times turn into up to three tappable alternatives. Questions answer inside
+  the card: earnings as a number plus bars per treatment, lapsed customers as a
+  list. Clarifying questions become tappable choices (treatments, days,
+  day parts, discounts, matching customers). Empty box shows three example
+  prompts built from real demo data. Enter sends, Esc closes.
+- **Voice**: browser `SpeechRecognition` (`en-GB`) on the mic in the box and a
+  floating mic on phones above the tab bar; hidden where unsupported.
+- **Voice journal** (customer → Journal → Dictate entry): dictate or type →
+  `structure-journal` (works without a key) → editable fields → save, or
+  "Save and book in N weeks" which opens the booking sheet near that date.
+- **More → Your data & AI**: the seven AI tasks with tier and provider/model
+  (or "Rules"), cost log from the new `GET /api/concept/ai`, and a demo "Add
+  your own key" form that says it stores nothing.
+- Tests: intent context, intent → proposal mapping and clarifying choices,
+  AI overview, USD formatting, next-visit interval parsing (23 new tests).
+
+**Try it**: `/studio` → click the box or a chip; `/studio/customers` → open a
+customer → Journal → Dictate entry (type into "What happened" to simulate);
+`/studio/more/data`.
+
+Screenshots (390 / 1280): command box
+[empty](screens/command-empty-390.png) ·
+[move](screens/command-move-390.png) ·
+[stock order](screens/command-stock-390.png) ·
+[earnings answer](screens/command-answer-390.png) ·
+[customers answer](screens/command-customers-390.png) ·
+[clarifying choices](screens/command-clarify-390.png); journal
+[dictation](screens/journal-dictation-390.png) ·
+[structured](screens/journal-review-390.png); AI section
+[Your data & AI](screens/data-ai-390.png). Replace `390` with `1280` for desktop.
+
+**Remains**: real-key check of the AI path (mocked only); speech cannot be
+screenshotted headless, so voice was verified by code and the typed fallback;
+make-poster only links to Campaigns; cost log is process-local.
+
 ## 2026-11-17 · Codex · goal 7 headless evaluations
 
 - Continued on `goal/7-ai-evals` from the latest concept branch, carrying the
