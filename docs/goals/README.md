@@ -28,7 +28,9 @@ GitHub issue with the label `goal` that links to the file.
 | Hardest problems (demo → real engine, stuck bugs, final pre-demo review) | Fable, sparingly | Strongest model, highest reasoning |
 
 Claude Code picks the model per subagent itself; the main session's model is
-changed by Niclas with `/model`. Codex currently runs "terra".
+changed by Niclas with `/model`. Codex models: "sol 6.1" for long goals
+(current), "astra" as the top tier for the hardest problems (use sparingly,
+like Fable).
 
 Rule of thumb: put the expensive model on what is long and unclear, the cheap
 one on what is short and clear. Model names change often, so pick from the list
