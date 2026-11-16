@@ -1,3 +1,107 @@
+# Aktuella resultat · native Codex-prov · 2026-11-16
+
+Fryst salongs-/harness-SHA `6aed5110e44c0247d93c470e8d2ef6f95072afbe` på
+`proof/native-codex-consent`; gateway `f9b8506cee3e3cd21bd279e01addf761cd3db1ed`.
+Produktkoden är oförändrad från 0a88ac2/ab07b6c. Båda arbetskopiorna var rena
+under slutprovet. Node v24.16.0, Codex CLI 0.153.2, befintlig ChatGPT-inloggning.
+Efterföljande dokumentationscommit ingår inte i den frysta provrevisionen.
+
+| Faktiskt kört kommando/kontroll | Codex ren slutkörning | Groks separata kopia |
+| --- | --- | --- |
+| npm ci | NOT RUN lokalt denna omgång; beroenden/låsfil oförändrade | PASS båda repona |
+| npx prisma generate | PASS/exit 0 | PASS |
+| npm run db:migrate, npm run db:seed | PASS/exit 0, ny isolerad loopback PostgreSQL | PASS egna nya testDB, 18 migrationer |
+| npm run lint | PASS/exit 0 | PASS/exit 0 |
+| npx tsc --noEmit | PASS/exit 0 | PASS/exit 0 |
+| npm test | PASS 408/408, 43 filer | PASS 408/408 |
+| npm run test:integration | PASS 205/205, 37 filer, 142.87 s | Full svit NOT RUN; relevant urval PASS 41/41, 6 filer |
+| npm run build | PASS/exit 0 | PASS/exit 0 |
+| npm run test:pair -- --native-codex | PASS/exit 0, 24 PASS-koder, båda dirty=false | NOT RUN; ingen användning av Niclas konto |
+| npm run test:pair utan flagga | Ingår med standardkontroller i native-provet, annan lokal discovery-origin | PASS/exit 0, 19 PASS-koder, dirty=false |
+| Egna consent-HTTP-prober | Två negativa HTTP-kontroller i native-provet | PASS 15/15; rå HTTP, ingen assistent |
+| npm audit --json | exit 1, 7 moderate/dev, 0 high/critical | samma utfall enligt Grok |
+| npm audit --omit=dev --json | PASS/exit 0, 0 fynd | PASS/0 fynd enligt Grok |
+| GitHub Actions på 6aed511 | SUCCESS 43819669674; npm ci/lint/build/tsc, 408 unit, 205 integration, 64 E2E och 13 MCP-kort | NOT RUN av Grok |
+
+[CI 43819669674](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43819669674)
+är SUCCESS på exakt 6aed511. Jobbet körde dev/proxy0 enligt befintlig featurepolicy.
+Webb-E2E gav `64 passed (3.6m)`, kortprovet `13 passed (25.4s)`.
+Pair-jobbet var SKIPPED (kräver manuell dispatch), inte ett godkänt CI-pair-prov.
+Inget modellkonto eller native-flagga användes i CI. De tre övriga E2E-lägena
+beställdes inte på nytt för oförändrad produkt. Full jobblogg finns i
+`<local-scratch>/native-client-qa/ci-43819669674.log`.
+
+Slutloggar: `<local-state>/codex/native-client-final-8oot14yh/`.
+Den egna PostgreSQL-klustern startades med initdb/pg_ctl och stoppades med
+`pg_ctl -m fast -w stop` (exit 0). Inga .env-värden lästes eller nya paket installerades.
+Aktiva servers/testfixtures städades av provet. Append-only audit behåller sina
+lagringsregler i den isolerade testdatabasen.
+
+Sanerat `test-results/native-codex/evidence.json` (gitignorerat) anger
+observerat `2026-11-16T06:48:08.556Z`, båda exakta rena SHA ovan,
+`complete=true`, `cleaned=true`, `failedStep=null`. Det innehåller sju lyckade
+native MCP-anrop: list_services, get_availability, create_proposal,
+get_proposal, create_booking, create_booking, get_booking. Förslag
+`7842beb0-9a92-4ef5-918a-bacb3a3d8e9b`; bokning
+`38609997-b174-4b80-b723-47fb49d36e55`. Samma id i båda create och get,
+exakt en AgentBooking med rätt servermandat och samma id öppnat efter riktig
+admininloggning och kalenderklick. Massage hos Anna 17 november 10:30–11:00,
+450 SEK. Testbokningen är därefter borttagen, inte kvar i en användbar preview.
+
+```text
+PAIR salon=6aed5110e44c0247d93c470e8d2ef6f95072afbe gateway=f9b8506cee3e3cd21bd279e01addf761cd3db1ed dirty=false
+PASS NATIVE_PROPOSAL_WITHOUT_BOOKING
+PASS SYNTHETIC_APPROVAL_AND_SERVER_BOUNDS
+PASS NATIVE_BOOKING_RETRY_STATUS_ONE_ROW
+PASS NATIVE_BOOKING_SAME_ID_IN_CALENDAR
+PASS NATIVE_CODEX_CONSENT_TO_CALENDAR
+PASS OWN_FIXTURES_REMOVED
+```
+
+Kundgodkännandet utfördes av en separat automatiserad syntetisk Chromium-kund,
+inte en människa eller verifierad riktig kund. Servern nekade utan mandat
+med 400 mandate_required och utanför tidsfönstret med 403 mandate_denied.
+Klienten kunde inte få DB/session/tjänstehemligheter genom miljöallowlisten.
+Varken global Codex-konfiguration, befintligt plugin, preview eller produktkontrakt ändrades.
+Riktiga bilder: `test-results/native-codex/consent-before.png`, `consent-after.png`
+och `calendar.png`. Lokal kopia inklusive manifest:
+`<local-scratch>/native-client-qa/final-evidence/`. Inga bilder eller JSON-resultat i Git.
+
+[Groks original](qa/QA-REPORT-native-codex-6aed511.md), 15810 byte,
+SHA-256 `25843111f82f12e3c2be4b0e06ba346c1cbb973411f3508cc470a3e4c2e3427a`.
+Avgränsat GO för syntetisk lokal harness, inga blockerare och ingen FIX-REQUEST.
+Det verkliga Codex-provet är granskat som kod och delat bevis, inte eget klientprov.
+Grok jämförde första manifestet, som saknade CLI/tid/SHA; slutmanifestet ovan
+har dessa fält men var inte självt granskat av Grok. Originalets sluttid 07:55
+är fel enligt Groks eftermeddelande (rapport klar 07:47). Originalet bevaras orört.
+NC-QA-1..6 Low/Info: striktare JSONL-/verktygssekvens, replayed i beviset,
+allowlist-assertion, retention/processgrupp och discovery-origin i native-läge.
+De är backlogg, inte produktionsgodkännanden eller nya fixbeställningar.
+
+## Mellanresultat och begränsningar
+
+Första rena matrisen i `native-client-final-j_3708i8/` gav 408/408 unit och lint0,
+men integration 204/205: `agent-workday.test.ts:142` nådde Vitests 5000 ms-timeout.
+Det testet startar tre stdio-MCP-klienter och gör parallella replay-anrop.
+Build/tsc/native-pair hann inte köras i den matrisen. Nästa fulla matris mot ny
+testDB passerade 205/205 utan kod-, timeout- eller assertionsändring. Detta
+bevisar inte att den befintliga timeoutkänsligheten aldrig kan återkomma.
+Grok körde inte den filen; dess regressionsbedömning är statisk.
+
+Tidiga förberedelseförsök föll på testklientens verktygsgodkännande, harnessens
+felaktiga förväntan 403 i stället för kontraktets 400 och tappad business-kontext
+i andra prompten. Den frysta 6aed511 innehåller rättningarna och metadata.
+De förberedande försöken ersätter inte den rena slutkörningen ovan.
+
+NOT RUN lokalt denna omgång: ny npm ci, full webb-E2E/fyrmatris, MCP-kortsvit,
+Docker, demo:record, ChatGPT webb/mobil, Claude-klient, fysisk iPhone/Safari,
+moln/TLS/backup/deploy och verklig kundidentitet. För oförändrad produkt finns
+föregående fyrmatris på 0a88ac2 nedan; den är inte ny bevisning för harnessen.
+Audit redovisas separat. Pilot fortsatt NO-GO enligt PRIVACY_SECURITY.
+Tidigare leveransers resultat följer nedan som historik.
+
+---
+
 <!-- NIGHT_PAIR_VERIFICATION_START -->
 # Tvårepoprov · aktuella resultat · 2026-11-16
 

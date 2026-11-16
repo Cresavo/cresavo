@@ -1,3 +1,34 @@
+# Aktuellt · riktig Codex-klient till salongens kalender · 2026-11-16
+
+Gren `proof/native-codex-consent`, fryst provkod `6aed511` ovanpå föregående
+leverans `e6702c5`. Gateway `f9b8506` är oförändrad. Produktkod, kontrakt,
+migrationer och beroenden är oförändrade; leveransen är ett frivilligt acceptansprov.
+
+- Testat: riktig Codex CLI via HTTP-MCP läser tider, skapar förslag, läser separat
+  syntetiskt kundgodkännande, bokar, återförsöker och läser bekräftad status.
+- Acceptans: inget mandat → `400 mandate_required`; utanför godkänd tid →
+  `403 mandate_denied`; identiskt återförsök → samma id och exakt en bokning.
+  Samma id öppnades genom salongens individuella admininloggning och kalender.
+- Ren slutkörning: 408/408 unit, 205/205 integration, lint/tsc/build och
+  24 PASS-koder i `test:pair -- --native-codex`. Egna fixtures städade.
+- Groks oberoende kopia: 408 unit, 41 relevanta integrationstester, vanlig
+  pair 19/19 och 15 egna HTTP-prov. Avgränsat lokalt GO utan blockerare.
+  Grok körde inte Codex-kontot; det verkliga klientprovet är Codex egen observation.
+- CI på exakt 6aed511: 43819669674 SUCCESS, 408 unit, 205 integration,
+  64/64 webb-E2E och 13/13 MCP-kort i dev/proxy0 samt npm ci/lint/build/tsc.
+
+Skillnad mot föregående omgång: transportprovet har nu kompletterats med en
+verklig modellstyrd klient. Kundgodkännandet var automatiserat och syntetiskt,
+inte en autentiserad riktig kund. ChatGPT webb/mobil och fysisk iPhone är inte provade.
+Ingen preview/deploy eller mainmerge. Testbokningen är städad och finns inte kvar
+i en användbar preview. Pilot fortsatt NO-GO; audit 7 moderate/dev, 0 produktion.
+
+[Resultat och första timeouten](VERIFICATION.md) · [provväg](GATEWAY_SPLIT.md) ·
+[Groks oförändrade original](qa/QA-REPORT-native-codex-6aed511.md).
+Tidigare leveranser och deras verifieringsrevisioner följer nedan som historik.
+
+---
+
 <!-- NIGHT_PAIR_STATUS_START -->
 # Aktuellt · verifierat tvårepoprov · 2026-11-16
 

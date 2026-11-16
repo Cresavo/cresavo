@@ -6,3 +6,4 @@ docs/qa/QA-REPORT-mobile-story-*.md -text
 docs/qa/QA-REPORT-backend-*.md -text
 docs/qa/QA-REPORT-booking-day-*.md -text
 docs/qa/*agentprov2*.md -text
+docs/qa/QA-REPORT-native-codex-*.md -text

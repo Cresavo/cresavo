@@ -1,4 +1,19 @@
-# Aktuellt: fryst tvårepoprov · 2026-11-16
+# Aktuellt: frivilligt native-klientprov · 2026-11-16
+
+- Gren proof/native-codex-consent, fryst provkod 6aed511, gateway f9b8506.
+  Produkt/API/migrationer/beroenden är oförändrade. Läs överst i HANDOFF,
+  VERIFICATION och GATEWAY_SPLIT; äldre uppdrag nedan är enbart historik.
+- test:pair -- --native-codex använder befintlig Codex-inloggning/modellkvot.
+  Kör bara efter uttryckligt uppdrag, med ny loopback-testDB och syntetiska data.
+  CI får inte köra verkliga kontot. Normal test:pair behåller tidigare beteende.
+- Kundgodkännandet i provet är automatiserat och syntetiskt, inte verifierad
+  kundidentitet. Bevara mandat, auth, idempotens och samtliga bokningsregler.
+- Grok ger avgränsat lokalt GO på 6aed511; ingen egen native-körning.
+  NC-QA-1..6 Low/Info är backlogg. Ingen ny fixloop eller epic härleds ur dem.
+- Ingen deploy/mainmerge. Inga nya rättigheter, paket eller hemligheter i Git.
+  Pilot fortsatt NO-GO. Genererade bevis/skärmbilder stannar utanför Git.
+
+# Historik: fryst tvårepoprov · 2026-11-16
 
 - Nattmål på night/gateway-salon-integration i båda privata repona.
   Salongsprodukt 0a88ac2, gateway f9b8506 (produkt ab07b6c).

@@ -1,3 +1,52 @@
+# Överlämning · native-klient, mandat och kalender · 2026-11-16
+
+Fryst provkod `6aed5110e44c0247d93c470e8d2ef6f95072afbe`, gren
+`proof/native-codex-consent`, gateway `f9b8506cee3e3cd21bd279e01addf761cd3db1ed`.
+Den tidigare salongsprodukten 0a88ac2 är oförändrad. Efterföljande status- och
+QA-dokumentation ändrar inte körd/granskad kod. Ingen mainmerge eller deploy.
+
+Byggt: opt-in-harness med verklig installerad Codex CLI och befintlig
+ChatGPT-inloggning. Bara sex avgränsade gateway-MCP-verktyg. Ingen global
+konfiguration, ny nyckeltjänst eller klientintegration. Normal pair/CI startar
+inte en modell; native-flaggan vägras i CI före klientstart.
+
+Verifierad kedja: förslag utan bokning → separat automatiserad syntetisk kund
+godkänner exakt bokningsscope i Chromium → servermandat → Codex bokar,
+upprepar samma payload/nyckel och läser status → samma id öppnas i kalendern.
+Utan mandat och utanför mandatets tidsfönster nekas bokning. Id:
+`38609997-b174-4b80-b723-47fb49d36e55`, Massage Anna 17 november 10:30–11:00,
+450 SEK. Exakt en rad före städning; efter provet är den borttagen.
+
+Kör själv enligt GATEWAY_SPLIT med ny loopback-testDB och det låsta gatewayparet:
+`npm run test:pair -- --native-codex`. Kräver befintlig CLI-inloggning och använder
+kontots vanliga modellkvot. Detta är ett utvecklarprov, ingen mobilpreview.
+Tre riktiga skärmbilder och sanerat manifest ligger ignorerat i
+`test-results/native-codex/`. Säkrad lokal kopia:
+`<local-scratch>/native-client-qa/final-evidence/`.
+
+Slutmatris: lint/tsc/build PASS, 408/408 unit, 205/205 integration och 24 pair-PASS.
+En första integrationstimeout (204/205) redovisas; nästa fulla körning passerade
+utan ändrad kod, timeout eller assertion. [Detaljer](VERIFICATION.md).
+CI 43819669674 på exakt 6aed511 är SUCCESS: npm ci, lint, 408 unit,
+205 integration, build, 13/13 MCP-kort, 64/64 webb-E2E i dev/proxy0 och tsc.
+Manuellt pair-jobb och övriga tre E2E-lägen ingick inte i denna feature-CI.
+
+Grok: fryst 6aed511, avgränsat GO, inga blockerare/FIX-REQUEST. Egna 408 unit,
+41 integration, 19 normal-pair och 15 rå-HTTP-prov. Ingen egen native-körning
+eller full integrationsmatris. [Originalrapport](qa/QA-REPORT-native-codex-6aed511.md)
+är 15810 byte, SHA-256 25843111f82f12e3c2be4b0e06ba346c1cbb973411f3508cc470a3e4c2e3427a.
+Originalets sluttid 07:55 är felaktig enligt Groks efterföljande meddelande:
+rapporten var klar redan 07:47. Originalet ändras inte. Det granskade första
+manifestet saknade metadata; den rena slutkörningens manifest innehåller CLI,
+Node, UTC-tid och båda rena SHA. Grok har inte själv verifierat den senare filen.
+
+NC-QA-1..6 är Low/Info i testverktyget och går till backloggen, ingen fixloop.
+Kvar: audit 7 moderate/dev (0 prod), ingen fysisk iPhone, moln/TLS eller verifierad
+kundidentitet. Pilot NO-GO. Nästa prioriteringar: avgränsat verkligt kundgodkännande,
+separat skyddad tvårepopreview och därefter återstående pilotgrindar i PRIVACY_SECURITY.
+
+---
+
 <!-- NIGHT_PAIR_HANDOFF_START -->
 # Nattmål · två oberoende repon · 2026-11-16
 
