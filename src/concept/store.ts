@@ -58,6 +58,11 @@ function getSnapshot(): DemoState | null {
   return state;
 }
 
+/** The current state outside React, for code that just dispatched and needs the result. */
+export function currentState(): DemoState | null {
+  return getSnapshot();
+}
+
 /** Applies an action. Returns false when nothing changed (e.g. the slot was taken). */
 export function dispatch(action: DemoAction): boolean {
   const current = getSnapshot();

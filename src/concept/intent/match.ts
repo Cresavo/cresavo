@@ -2,7 +2,7 @@ export function normalize(text: string) {
   return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’']/g, "").replace(/[^a-z0-9]+/g, " ").trim().replace(/foot treatment/g, "foot care");
 }
 
-function distance(a: string, b: string): number {
+export function distance(a: string, b: string): number {
   if (a.length === b.length) {
     for (let i = 0; i < a.length - 1; i++) {
       if (a.slice(0, i) + a[i + 1] + a[i] + a.slice(i + 2) === b) return 1;
