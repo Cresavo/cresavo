@@ -22,10 +22,10 @@ const snapshot = (node: unknown) => JSON.stringify(node, (key, value) =>
 it("diagnoses closed weekend fixtures and defaults to Monday with actual slots", () => {
   const sunday = DateTime.fromISO("2026-11-15T12:00:00", { zone: "Europe/Stockholm" });
   for (const service of fixtureServices()) for (const staff of fixtureStaff()) {
-    expect(fixtureAvailability(service.id, "2026-11-15", staff.id)).toEqual([]);
+    expect(fixtureAvailability(service.id, "2026-11-15", staff.id, sunday)).toEqual([]);
     const day = fixtureBookingDate({ service: service.id, staff: staff.id }, sunday);
     expect(day).toBe("2026-11-16");
-    expect(fixtureAvailability(service.id, day, staff.id).length).toBeGreaterThan(0);
+    expect(fixtureAvailability(service.id, day, staff.id, sunday).length).toBeGreaterThan(0);
   }
   expect(fixtureBookingDate({}, sunday.minus({ days: 1 }))).toBe("2026-11-16");
   expect(fixtureBookingDate({}, sunday.plus({ days: 1 }))).toBe("2026-11-16");
