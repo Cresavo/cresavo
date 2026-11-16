@@ -124,7 +124,6 @@ export default async function AdminHeader({
         <Link prefetch={false} href="/">
           {t("Customer booking", "Visa kundbokningen")}
         </Link>
-        <a href="/product">{t("About Booking Lab", "Om Booking Lab")}</a>
         <AdminActions mode="logout" />
       </HeaderMenu>
     </header>

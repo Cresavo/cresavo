@@ -18,7 +18,7 @@ export function readonlyForbidden() {
 export function publicReadonlyResponse(request: Request) {
   if (!isPublicReadonly()) return;
   const path = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
-  if (/^\/(?:admin|api\/admin|live|api\/v1\/live)(?:\/|$)/.test(path) ||
+  if (/^\/(?:admin|api\/admin)(?:\/|$)/.test(path) ||
       (!["GET", "HEAD", "OPTIONS"].includes(request.method) &&
        !(request.method === "POST" && path === "/api/locale")))
     return readonlyForbidden();

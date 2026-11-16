@@ -7,7 +7,7 @@ Salongens integrerade 4de4d3e har grön CI 43772631817:
 64/64 webbtester i alla fyra lägen, 394 unit, 205 integration och 13 MCP-kort,
 samt lint/build/tsc. Efterföljande commit ändrar endast dokumentation.
 [Verifiering och exakta revisioner](VERIFICATION.md).
-[Lokalt tvårepoprov](GATEWAY_SPLIT.md). Ingen deploy har gjorts.
+[Lokalt tvårepoprov](../GATEWAY_SPLIT.md). Ingen deploy har gjorts.
 Kända audit- och Info-fynd kvarstår. Pilot är fortsatt NO-GO.
 
 ---
@@ -57,7 +57,7 @@ Sekretesskontrollerna använder nu hela nyckelhemligheten och ett reproducerbart
 `_o`-fall i enhetstesterna. Codex verifierade 392/392 unit, 205/205 integration,
 lint, typkontroll, build och 10/10 agent:proof mot en ny isolerad lokal databas.
 
-Kör provet enligt [GATEWAY_SPLIT](GATEWAY_SPLIT.md).
+Kör provet enligt [GATEWAY_SPLIT](../GATEWAY_SPLIT.md).
 Kommandoutfall, NOT RUN och skillnaden mellan Groks produktgranskning och den
 senare testrättningen finns i [VERIFICATION](VERIFICATION.md).
 [Groks originalrapport](qa/QA-REPORT-GS-QA-1-a239275-c7eeda6.md) behåller sina två
@@ -177,7 +177,7 @@ modellens fria verktygslista. Ingen ny anslutning eller behörighet behövs för
 det konstaterandet. Ingen styrbar MCP-sidopanel fanns och nativefönstrets
 skärmfångst fick timeout. Därför är nytt native-bekräftelseklick NOT RUN.
 
-[Aktuella pilotgrindar](PRIVACY_SECURITY.md): individuella konton och begränsad
+[Aktuella pilotgrindar](../PRIVACY_SECURITY.md): individuella konton och begränsad
 manuell export/kontaktborttagning finns redan. MFA/recovery, fastställd
 datalivscykel och faktisk kunddrift återstår. Automatisk gallring är avstängd.
 Ingen ny deployment eller verklig kunddata. Pilot fortsatt NO-GO.
@@ -217,7 +217,7 @@ Ingen ny deployment eller pilot; senare dokumentationscommit ändrar inte produk
 Branch `backend/api-mcp-pilot-proof`, testrevision `dbe1e1f5edcc6fcee69651e7d4ed334ddd507aa8`
 från leverans `56579bd`. Ingen produktkod ändrad. Kartläggningen visar att
 befintlig lokal arbetsyteprofil redan stöder läsa kalender, skapa, flytta och
-avboka. [Omfattning](API_MCP_BACKEND_PLAN.md) och [verktygsmatris](ARCHITECTURE.md).
+avboka. [Omfattning](API_MCP_BACKEND_PLAN.md) och [verktygsmatris](../ARCHITECTURE.md).
 
 Testet har förstärkts för 20 parallella avbokningsretries, identiska svar,
 exakt en avbokningshändelse och nekad ändrad payload med samma nyckel.
@@ -594,7 +594,7 @@ Ny branch feature/epic06-customers-demo-product från16dae9a/6acd2ef, produktbas
 
 ## Avgränsad auditomgång 2026-11-12
 
-Full audit fortsatt **FAIL7moderate**, omit-dev **PASS0**. Ingen säker publicerad stabil rättningskedja verifierad; inga paket, produktfunktioner eller UI ändrade. Rättning är upstream-blockerad, inte klar. Nya lint/tsc/build,75unit och75integration på ny lokal syntetisk DB PASS. Inga nya E2E/CI/deploy i denna dokumentationsbatch. [Beroendebeslut och faktiska data](DEPENDENCY_REVIEW.md#audit-återkontroll-2026-11-12--rättning-blockerad-av-stabil-upstream). Driftsatt kod och senaste fungerande preview är fortsatt d7bc47f. Grok bekräftar slutsatsen i [originalrapporten](qa/AUDIT-REPORT-6acd2ef-minimatch.md); ingen stabil säker rättning finns ännu.
+Full audit fortsatt **FAIL7moderate**, omit-dev **PASS0**. Ingen säker publicerad stabil rättningskedja verifierad; inga paket, produktfunktioner eller UI ändrade. Rättning är upstream-blockerad, inte klar. Nya lint/tsc/build,75unit och75integration på ny lokal syntetisk DB PASS. Inga nya E2E/CI/deploy i denna dokumentationsbatch. [Beroendebeslut och faktiska data](../DEPENDENCY_REVIEW.md#audit-återkontroll-2026-11-12--rättning-blockerad-av-stabil-upstream). Driftsatt kod och senaste fungerande preview är fortsatt d7bc47f. Grok bekräftar slutsatsen i [originalrapporten](qa/AUDIT-REPORT-6acd2ef-minimatch.md); ingen stabil säker rättning finns ännu.
 
 **Aktuell UI-leverans 2026-11-12:** [Öppna skyddad demo](https://booking-lab-se-preview.vercel.app). Logga vid behov in i Vercel och tryck **Öppna demoadmin**; inget ytterligare lösenord behövs. Endast syntetiska uppgifter, endast Niclas. Branch `ui/epic05-booking-usability`, granskad och driftsatt produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**. Senare dokumentationscommit ändrar inte previewkoden.
 

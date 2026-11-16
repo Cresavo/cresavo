@@ -6,7 +6,6 @@ import { authenticateAgent, createAgentApiKey, type AgentPrincipal } from "../..
 import { createProposal, customerDecision, getProposal } from "../../src/lib/agent-api/proposals";
 import { simulatedSmsSender } from "../../src/lib/agent-api/sms-otp";
 import { createAgentBooking } from "../../src/lib/agent-api/bookings";
-import { liveSnapshot } from "../../src/lib/agent-api/live";
 import { readAudit } from "../../src/lib/agent-api/audit-read";
 import { POST as consent } from "../../src/app/consent/[id]/decision/route";
 import { POST as propose } from "../../src/app/api/v1/proposals/route";
@@ -101,7 +100,7 @@ it("HTTP denies absent/wrong OTP, accepts correct OTP and allows exactly the man
   const mandate = await db.agentMandate.findFirstOrThrow({ where: { originReference: r.proposal.id } });
   expect(mandate).toMatchObject({ origin: "customer-consent", verifiedVia: "sms-otp" });
   await createAgentBooking(principal, `sms-${randomUUID()}`, booking(r, mandate.id));
-  const output = JSON.stringify({ audit: await readAudit({ proposalId: r.proposal.id, chain: "true" }), live: await liveSnapshot(), logs: logs.mock.calls, status: await getProposal(principal, r.proposal.id) });
+  const output = JSON.stringify({ audit: await readAudit({ proposalId: r.proposal.id, chain: "true" }), logs: logs.mock.calls, status: await getProposal(principal, r.proposal.id) });
   for (const secret of [phone, otp, r.token]) expect(output).not.toContain(secret);
   const stored = await db.agentProposal.findUniqueOrThrow({ where: { id: r.proposal.id } });
   expect(stored.phoneHash).toMatch(/^[a-f0-9]{64}$/); expect(stored.otpHash).toMatch(/^[a-f0-9]{64}$/);

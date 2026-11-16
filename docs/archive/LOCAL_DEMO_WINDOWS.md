@@ -21,7 +21,7 @@ npm run build
 npm run start
 ```
 
-Välj eget syntetiskt lösenord i den dolda terminalfrågan (15–128tecken). Ingen standardadmin finns. SESSION_SECRET måste finnas lokalt och vara minst32slumpmässiga tecken enligt README; skriv inte över en egen .env och lägg inga hemligheter i rapport/Git. Vid ADMIN_ACCOUNT_EXISTS används ditt tidigare lösenord eller operatörens reset-password enligt [ADMIN_OPERATIONS](ADMIN_OPERATIONS.md). Gamla ADMIN_PASSWORD är ingen reservväg. En ren dator behöver installation och databas enligt README; den externa PostgreSQL-installationen här är ett tidigare QA-verktyg, inte ett produktberoende.
+Välj eget syntetiskt lösenord i den dolda terminalfrågan (15–128tecken). Ingen standardadmin finns. SESSION_SECRET måste finnas lokalt och vara minst32slumpmässiga tecken enligt README; skriv inte över en egen .env och lägg inga hemligheter i rapport/Git. Vid ADMIN_ACCOUNT_EXISTS används ditt tidigare lösenord eller operatörens reset-password enligt [ADMIN_OPERATIONS](../ADMIN_OPERATIONS.md). Gamla ADMIN_PASSWORD är ingen reservväg. En ren dator behöver installation och databas enligt README; den externa PostgreSQL-installationen här är ett tidigare QA-verktyg, inte ett produktberoende.
 
 ## Sex små prov
 

@@ -28,7 +28,7 @@ AgentMandate är ett återkallningsbart syntetiskt engångstillstånd. Nya FK:er
 hindrar länk till fel verksamhet/klient/mandat. Befintliga nycklar backfillas
 med sin gamla nyckel-id som klient-id för att bevara hashnamespace/kvoter.
 Ingen generell provideradapter, OAuth-plattform eller extra tjänst införs.
-Detaljer och begränsningar: [runbook](AGENTPROV_1_RUNBOOK.md).
+Detaljer och begränsningar: [runbook](archive/AGENTPROV_1_RUNBOOK.md).
 
 ### Jämförelse med tidigare ChatGPT-diagram
 
@@ -38,7 +38,7 @@ Detaljer och begränsningar: [runbook](AGENTPROV_1_RUNBOOK.md).
 | MCP kan bara nås lokalt | Stämmer inte för bf7b6c3: REST och HTTP-MCP fanns redan. Säker faktisk molnåtkomst är däremot inte verifierad här. |
 | Rätt verksamhet/bokning är mandatkontroll | Det är klient-/objektbehörighet. Nya AgentMandate kontrollerar ett syntetiskt operatörstillstånd, fortfarande inte verkligt kundgodkännande. |
 | Postgres delar idempotens/överlappsskydd | Överens; ny stabil klient och atomisk länk kompletterar befintliga regler, ingen motoromskrivning. |
-| Säker resultatsida | För starkt om /live: filtrerat syntetiskt best-effort-flöde. Boknings-id och behörig GET-status är resultatkällan. |
+| Säker resultatsida | Boknings-id och behörig GET-status är resultatkällan. (/live är borttagen.) |
 | Valei/Bokadirekt kommer senare | Överens. Ingen integration eller generell adapter utan konkret andra leverantör. |
 
 Windows-policyn b241d8a (granskad a101704) finns lokalt på denna PC och har
@@ -318,8 +318,8 @@ Befintlig lokal create_booking får valfritt känt customerId endast med tidigar
 Kanalen behåller kundkvoter, example.test-krav och minimerat svar; inga nya råa
 kontaktfält, registerexporter eller publik MCP. Flytt/avbokning behåller länken.
 
-Produktsida /product; kundbokning / och admin /admin består så äldre länkar
-fungerar. Samma isolerade skyddade preview och demoknapp används, ingen ny auth.
+Kundbokning / och admin /admin. Produktsidan /product och /live togs bort
+2026-11-16; marknadsföring ligger på den separata webbplatsen. Samma isolerade skyddade preview och demoknapp används, ingen ny auth.
 Assets är lokala statiska filer utan tredjepartsanrop; manifest i public/demo.
 
 ## Godkänd Vercel-previewanpassning, 2026-11-12
@@ -436,7 +436,7 @@ POST /api/admin/login kräver strikt {email,password}; password-only och ADMIN_P
 
 Inloggningsspärren reserverar synkront före asynkron KDF. Högst fyra pågående KDF-operationer per process; full kapacitet ger statisk429/Retry-After1 utan att förbruka klientens lösenordsförsök (specifik PasswordCapacityError, originalreservation återlämnas). Andra fel får ingen återbetalning. Login låser kontoraden och jämför credentialVersion innan sessionsskapande. Spärr/reset låser konto före sessioner och återkallar samtliga berörda sessioner i samma transaktion. Detta hindrar en äldre verifiering från att återinföra åtkomst. Annat kontos sessioner påverkas inte. Lokal CLI läser lösenord utan terminaleko; inga publika kontoendpoints.
 
-[Beslut, bibliotek och begränsningar](ADR_004_ADMIN_IDENTITY.md) · [operatörsguide](ADMIN_OPERATIONS.md). Ingen MFA eller verifierad multi-tenancy byggs här.
+[Beslut, bibliotek och begränsningar](decisions/ADR_004_ADMIN_IDENTITY.md) · [operatörsguide](ADMIN_OPERATIONS.md). Ingen MFA eller verifierad multi-tenancy byggs här.
 
 
 ## Epic 03: databasanslutning
@@ -492,7 +492,7 @@ Följande ersätter äldre beskrivningar av global bucket och browserlogout neda
 - Kampanjer har olika meddelanden för omvända datum och mer än 90 dagar. 100 % rabatt tillåts uttryckligen som information i POC:n; ingen debitering sker.
 - MCP-klienter skickar en liten explicit miljölista med DATABASE_URL, utan adminlösenord/sessionshemlighet. Endast lokal stdio, inga nya fjärrbehörigheter.
 
-Aktuella verifieringar finns överst i [VERIFICATION](VERIFICATION.md). POC:n är inte kundklar: audit, konton, datalivscykel, TLS/proxy, backup och tenant-isolering återstår. CSP unsafe-inline och obegränsad kampanjlista är oförändrade.
+Aktuella verifieringar finns överst i [VERIFICATION](archive/VERIFICATION.md). POC:n är inte kundklar: audit, konton, datalivscykel, TLS/proxy, backup och tenant-isolering återstår. CSP unsafe-inline och obegränsad kampanjlista är oförändrade.
 
 ## Bakgrund före QA batch 2
 
@@ -539,55 +539,9 @@ Per-IP/rutt-spärren är en begränsad processlokal Map (högst 10000 buckets,15
 Kampanjer syns publikt endast inom dagens inkluderande Stockholmsintervall, max 90 kalenderdagar. Adminbokningslistan och MCP delar validering/cursor men olika fältprojektioner. UI, HTTP och lokal MCP behåller gemensamma domänregler.
 
 
-## Lokalt A2A-bokningsprov
+## Lokalt A2A-bokningsprov (borttaget)
 
-src/a2a/demo.ts är en separat operatörsstartad loopbackserver, inte en
-Next-route. scripts/a2a-demo.ts är en deterministisk kundagent/testklient som
-använder officiell SDK och kräver operatörens BOKA. Ingen modellanslutning
-eller fri språkförståelse ingår. Vanlig webbokning och lokal ägar-MCP består.
-
-Protokollprovet använder A2A JSONRPC 1.0. AgentCard och SendMessage kräver
-processens slumpade bearer-token. Den officiella klienten upptäcker AgentCard
-genom en autentiserad resolver. Servern tar enbart emot SendMessage vid /a2a,
-A2A-Version 1.0 och högst 16 KiB body. Origin-header nekas. Servern binder
-127.0.0.1 på slumpad port och stängs när terminalprovet avslutas.
-
-Tillåtna textdelar innehåller strikt JSON för två operationer.
-availability kräver serviceId, staffId och date (lokal dag). Resultatet har
-slots, service(id/name/priceOre/duration/version), staff(id/name) och timeZone.
-book kräver serviceId, staffId, start, serviceVersion, clientRequestId(UUID)
-och confirmed=true. Nyckeln namespacas med a2a_ och går till samma createBooking.
-Kunden är alltid A2A Demo på a2a-demo@example.test. Fast kundkanal har samma
-dagstak och övriga regler som publika bokningar. confirmed är klientens
-försäkran, inte ett tekniskt bevis för mänskligt samtycke.
-
-Bokningssvaret innehåller bara id, serviceId, staffId, startsAt och endsAt.
-Det ger inga adminrättigheter. Flytt/avbokning sker via befintlig autentiserad
-ägaryta eller betrodd lokal ägar-MCP. A2A exponerar ingen kundlista, journal,
-betalning eller ägarfunktion. Affärsfel returneras som statiska strukturerade
-domänfel i A2A-meddelandets innehåll, med status/message.
-
-Start kräver BOOKING_A2A_DEMO=1, loopbackdatabas med _test/_demo, giltig lokal
-SESSION_SECRET och frånvaro av produktion/Vercel. Token skickas bara i
-Authorization-header, aldrig URL/klientkod/logg. Ingen fjärrautentisering,
-streaming, push eller beständiga A2A-tasks har införts. Provet innebär ingen
-generell A2A-certifiering eller stöd för alla klienter. Se
-COMPLETE_BOOKING_DAY_PLAN.md och DEPENDENCY_REVIEW.md för provväg och SDK.
-
-
-Efter första A2A-QA kräver book alltid serviceVersion. Saknad/felaktig version
-nekas före bokning. Saknad/felaktig bearer ger 401 och WWW-Authenticate, medan
-Origin nekas med 403. Protokollfel har JSON-RPC-envelope med id/error; fel
-version använder SDK:ns VersionNotSupported-fel. Överstor body ger 413 och
-Connection close, både med Content-Length och chunkad överföring.
-
-Kända avgränsningar för lokal syntetisk profil. Alla A2A-prov delar samma
-kundadress och kanal, inklusive högst tre bokningar per dag och e-post.
-Efter uppföljningen14november får nya create-händelser actorKind public och
-actorId local-a2a-demo-channel:v1. Serveradapterns fasta kanal avgör etiketten,
-inte bokningspayload. Detta är endast historikmetadata: WorkspaceActor,
-kundlänkning, bokningsbudgetar och autentisering är oförändrade. Befintlig
-databas-CHECK behålls. Äldre händelser migreras inte och visar sin gamla etikett.
-Autentiserad historik projicerar kanal-id till Lokalt A2A-prov/Local A2A demo;
-rått actorId lämnas inte ut. Ingen mänsklig eller extern agentidentitet
-har verifierats genom den lokala bearer-profilen.
+Det lokala A2A-provet (`src/a2a`, `scripts/a2a-demo.ts`) togs bort 2026-11-16.
+Äldre BookingEvent med actorId `local-a2a-demo-channel:v1` visas fortfarande som
+Lokalt A2A-prov/Local A2A demo i den autentiserade historiken. Historiken skrivs
+inte om. Tidigare beskrivning finns i git-historiken.

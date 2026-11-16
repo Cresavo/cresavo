@@ -300,7 +300,7 @@ ChatGPT eller fysisk iPhone. [Groks originalrapport](qa/QA-REPORT-card-booking-8
 
 ## Start och stopp
 
-Portabel isolerad installation/profiler i [plugin-README](../plugins/booking-lab-time-card/README.md).
+Portabel isolerad installation/profiler i [plugin-README](../../plugins/booking-lab-time-card/README.md).
 Admin kör via befintlig wrapper med samma DB. Lokalt operatörsstartkommando:
 `node --env-file=<local-state>/codex/booking-lab-ui/.vercel/card-booking-web.private.env scripts/server.mjs --hostname 127.0.0.1`
 från den frysta runtimekatalogen. Envfilen innehåller hemligheter och skickas aldrig.
@@ -340,7 +340,7 @@ har3Low som ligger i backloggen. Inget mobil- eller pilotgodkännande.
 
 - [320px](assets/time-card/harness-320.png) · [390px](assets/time-card/harness-390.png) · [desktop](assets/time-card/harness-1024.png).
 - [Bildmanifest](assets/time-card/manifest.json) · [faktiskt anrop](verification/time-card/actual-tool-call.json).
-- [Reproducerbar lokal installation och stopp](../plugins/booking-lab-time-card/README.md).
+- [Reproducerbar lokal installation och stopp](../../plugins/booking-lab-time-card/README.md).
 - [Kommandon/resultat](VERIFICATION.md) · [godkänt scope](MCP_TIME_CARD_PLAN.md).
 
 Runtime8648316, granskning a65f0f2 (bara testoutput skiljer). Separat lokal
