@@ -35,11 +35,12 @@ slutkunder. Ägarens egen assistent ansluter direkt till plattformen.
 
 ## Faser
 
-### Fas 0 – Städning (pågår)
+### Fas 0 – Städning
 
 - [x] Ny README, STATUS, ROADMAP och AGENTS. Historik till `docs/archive/`.
-- [ ] Lyft ut gatewayrester ur salongen (förslag nedan). Varje borttag i egen
-      commit, efter att imports, ingångar och tester kontrollerats.
+- [x] Datumberoende demotester lagade.
+- [x] A2A-demo, gamla agentskript, `/live`, `/product` och landningssidan borttagna.
+- [ ] Det äldre samlade MCP-läget och discovery tas bort i fas 2 (se tabellen).
 
 | Område | Förslag | Varför |
 |---|---|---|
@@ -48,10 +49,10 @@ slutkunder. Ägarens egen assistent ansluter direkt till plattformen.
 | `src/lib/agent-api/oauth`, `/authorize`, `/token`, `/register`, `.well-known/oauth-*` | Behåll och återanvänd | Grund för fjärr-MCP för ägaren i fas 2 |
 | `sms-otp`, `customer-identity`, `/consent` | Behåll | Kundens godkännande, salongen äger kunden |
 | `payment-contract` | Behåll | Grund för fas 5 |
-| `/api/v1/mcp` + schema, `agent-api/mcp*.ts` (det äldre samlade läget) | Ta bort | Dubblerar gatewayen. Ersätts i fas 2 av ägar-MCP |
-| `.well-known/usp`, `llms.txt`, `agent-api/discovery.ts` | Flytta till gatewayen | Discovery för externa agenter |
-| `src/a2a`, `scripts/a2a-demo.ts`, äldre agent-demo-skript | Ta bort | Demo från före mandaten |
-| `/live`, `/product`, `src/pages` (landningssida) | Ta bort | Demo och marknadsföring, hör till webbplatsen |
+| `/api/v1/mcp` + schema, `agent-api/mcp*.ts` (det äldre samlade läget) | Ta bort i fas 2 | Dubblerar gatewayen, men OAuth-labbet utfärdar token för just denna resurs och integrationstesterna använder den. Byts ut när ägar-MCP med OAuth byggs |
+| `.well-known/usp`, `llms.txt`, `agent-api/discovery.ts` | Flytta till gatewayen i fas 2 | Discovery för externa agenter. `discoveryOrigin` används även av OAuth |
+| `src/a2a`, `scripts/a2a-demo.ts`, äldre agent-demo-skript | Borttaget | Demo från före mandaten |
+| `/live`, `/product`, `src/pages` (landningssida) | Borttaget | Demo och marknadsföring, hör till webbplatsen |
 | `src/mcp/time-card`, `owner-card`, `plugins/` | Utvärdera | Experimentella MCP-kort, behåll bara om de används i fas 2 |
 
 **Klart när:** lint, typkontroll, enhets-, integrations- och webbtester är gröna
@@ -71,6 +72,7 @@ varandras data, och miljön kan återställas från backup.
 ### Fas 2 – Agentiskt för ägaren
 
 - Fjärr-MCP med OAuth så att ägaren kan ansluta Claude, ChatGPT och mobilen.
+  Ersätter det äldre samlade `/api/v1/mcp`-läget; discovery flyttas till gatewayen.
 - Agentregler i arbetsytan: vilka handlingar som kräver godkännande, gränser
   per agent, och en synlig logg över allt agenter gjort.
 - Enkel CLI ovanpå samma API.
