@@ -7,6 +7,9 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Salon command proposals and seven optional AI tasks work without API keys.
+- AI evaluation command checks salon scenarios and reports accuracy, time and
+  estimated cost, with no network calls by default.
 - Concept for an AI-native salon system: owners and customers say or type
   what they want and approve a proposal; everything also works with buttons.
 - Owner studio (`/studio`) demo: Today, Calendar, Customers, Inbox and More,

@@ -27,13 +27,13 @@ export function fixtureStaff() {
   }));
 }
 
-export function fixtureAvailability(serviceId: string, day: string, staffId: string) {
+export function fixtureAvailability(serviceId: string, day: string, staffId: string, now: DateTime = DateTime.now()) {
   dateSchema.parse(day);
   const service = fixtureServices().find((s) => s.id === serviceId);
   if (!service) throw new DomainError("Tjänsten finns inte");
   const staff = fixtureStaff().find((s) => s.id === staffId && s.serviceIds.includes(serviceId));
   if (!staff) throw new DomainError("Medarbetaren kan inte utföra behandlingen");
-  return scheduledSlots(staff.weekly, staff.exceptions, day, service.duration + service.buffer);
+  return scheduledSlots(staff.weekly, staff.exceptions, day, service.duration + service.buffer, now);
 }
 
 // Demo presentation default only. Explicit valid dates (including closed days)
@@ -54,7 +54,7 @@ export function fixtureBookingDate(
   const person = team.find((s) => s.id === query.staff) ?? team[0];
   for (let offset = 0; offset <= 60; offset++) {
     const day = today.plus({ days: offset }).toISODate()!;
-    if (fixtureAvailability(service.id, day, person.id).length) return day;
+    if (fixtureAvailability(service.id, day, person.id, now).length) return day;
   }
   return first;
 }

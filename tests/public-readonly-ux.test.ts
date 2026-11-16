@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { DateTime } from "luxon";
 import { NextRequest } from "next/server";
 import { fixtureAvailability, fixtureBookingDate, fixtureServices, fixtureStaff } from "../src/lib/public-fixtures";
@@ -13,7 +13,17 @@ vi.mock("../src/lib/workspace-config", async () => {
   const { fixtureStaff } = await import("../src/lib/public-fixtures");
   return { listStaff: async () => fixtureStaff() };
 });
+beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-15T12:00:00Z")); });
 afterEach(() => { vi.unstubAllEnvs(); vi.useRealTimers(); });
+
+it("keeps the injected scheduling clock independent of wall time", () => {
+  vi.setSystemTime(new Date("2027-06-01T12:00:00Z"));
+  const now = DateTime.fromISO("2026-11-15T12:00:00Z");
+  const day = fixtureBookingDate({}, now);
+  expect(day).toBe("2026-11-16");
+  expect(fixtureAvailability("fotvard", day, "staff-demo", now).length).toBeGreaterThan(0);
+  expect(fixtureAvailability("fotvard", day, "staff-demo")).toEqual([]);
+});
 
 // Inspect rendered props/children without serializing framework component types.
 const snapshot = (node: unknown) => JSON.stringify(node, (key, value) =>

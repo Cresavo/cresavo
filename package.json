@@ -24,7 +24,8 @@
     "demo:a2a": "node --env-file=.env --import tsx scripts/a2a-demo.ts",
     "agent-keys": "node --env-file-if-exists=.env --import tsx scripts/agent-keys.mts",
     "agent:proof": "node --import tsx scripts/agentprov/run.mts",
-    "test:pair": "node --import tsx scripts/integration/run.mts"
+    "test:pair": "node --import tsx scripts/integration/run.mts",
+    "ai:eval": "node --env-file-if-exists=.env --import tsx scripts/ai-eval.mts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.4.0",

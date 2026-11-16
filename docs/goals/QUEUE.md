@@ -28,7 +28,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 4 | The marketing studio | Codex | open |
 | 5 | Stock and purchasing | Codex | open |
 | 6 | Finance and overview | Codex | open |
-| 7 | The AI layer for real | Opus | open |
+| 7 | The AI layer for real | Opus | open · headless evaluations delivered on goal/7-ai-evals · 2026-11-17; UI/BYOK/live-key work remains |
 | 8 | Support, log and "What happened?" | Both | open |
 | 9 | Modules and industry packs | Both | open |
 | 10 | Open protocols for the concept | Opus | open |
