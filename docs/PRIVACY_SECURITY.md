@@ -1,5 +1,25 @@
 # Integritets- och säkerhetsprinciper
 
+## Kundgodkännandets identitetsgräns · verifierad 2026-11-16
+
+Det lokala consent-labbet lämnar en bearer-länk till anropande agent.
+Innehavaren kan använda länken i en ny webbläsare utan kundinloggning och
+skapa ett exakt, bokningsbart mandat. Agent-header på kundrutten nekas,
+men innehavaren behöver inte skicka den. Detta är observerat på 13e0179,
+ingen ny regression. `origin=customer-consent` anger labbets beslutsväg,
+inte autentiserad kundidentitet. Tidigare syntetiska GO ger inget pilotmandat.
+
+Det befintliga SMS-OTP-labbet kräver separat kod men har bara en simulerad
+processlokal avsändare, med telefon från klientens indata. Före verklig
+användning måste leverans och verifiering bindas till avsedd kund genom en
+oberoende, betrodd väg som agenten inte själv kan välja eller läsa. Leverantör,
+kundidentifiering, återställning och verkliga utskick är separata beslut.
+Inget sådant system införs genom denna kontroll. [Testbevis](VERIFICATION.md).
+Groks egen HTTP-/Chromium-reproduktion bekräftar gränsen. Dess förslag om
+registrerad kanal/verifiedVia är beslutsunderlag, inte en beställning av nytt
+kundregister eller auth-system. Ett icke-null verifieringsfält ersätter inte
+den underliggande verifieringen eller bindningen till avsedd kund.
+
 ## Agentprov 1 · syntetiskt mandat, inte verkligt kundsamtycke
 
 Gatewayens klientbehörighet och kundens godkännande är skilda frågor.

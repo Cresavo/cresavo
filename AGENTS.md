@@ -1,4 +1,11 @@
-# Aktuellt: frivilligt native-klientprov · 2026-11-16
+# Aktuellt: kundgodkännandets testade gräns · 2026-11-16
+
+- Ny riktad identitetskontroll på 13e0179: labblänkens innehavare kan själv
+  godkänna i en ny browser utan kundlogin. OTP är bara simulerat/klientvald
+  mottagare. Läs överst i VERIFICATION/PRIVACY_SECURITY innan kundmandat påstås.
+  Ingen kundidentifierings- eller utskickstjänst är vald eller beställd här.
+  Rapportgren proof/customer-approval-boundary; produktprov på oförändrad13e0179.
+  Groks eget addendum bekräftar identitetskriteriet FAIL, inte en regression.
 
 - Gren proof/native-codex-consent, fryst provkod 6aed511, gateway f9b8506.
   Produkt/API/migrationer/beroenden är oförändrade. Läs överst i HANDOFF,

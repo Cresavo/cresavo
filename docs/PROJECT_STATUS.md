@@ -1,4 +1,31 @@
-# Aktuellt · riktig Codex-klient till salongens kalender · 2026-11-16
+# Aktuellt · kundgodkännandets identitetsgräns · 2026-11-16
+
+Riktad kontroll av oförändrad salong `13e0179` och gateway `f9b8506`.
+Rapportgren `proof/customer-approval-boundary`; inga produktändringar.
+
+- **Inte uppfyllt:** agenten ska inte kunna godkänna sitt eget förslag. Den som
+  fått labblänken genom HTTP-MCP kunde öppna en ny Chromium-session utan
+  kundinloggning, godkänna och därefter boka med servermandatet.
+- **Verifierat:** förfalskat/främmande/utgånget/återkallat/använt mandat nekas;
+  20 samtidiga godkännanden ger ett mandat; retry ger samma bokning och en rad.
+- OTP-labbet stoppar godkännande utan kod, men simulerad leverans och klientvalt
+  telefonnummer verifierar ingen avsedd verklig kund. Inga SMS har skickats.
+- Nykört: 77/77 riktade unit, 41/41 integration och 12 diagnostiska PASS-grupper.
+  Detta gör inte det misslyckade identitetskriteriet godkänt.
+- Grok reproducerade bristen med egen rå HTTP och Chromium: identitetskriteriet
+  FAIL. Egna 83 unit, 41 integration och 20 diagnostiska kontroller PASS.
+  [Oförändrat originaladdendum](qa/QA-REPORT-native-codex-consent-boundary-13e0179.md).
+
+Labbet är lokalt, opt-in och test-DB-skyddat; detta är en avsiktligt svag
+syntetisk identitetsmodell, ingen ny regression eller öppnad publik server.
+Tidigare GO gäller den syntetiska POC:n. Pilot fortsatt NO-GO.
+Nästa beslut: hur kundens godkännande levereras och binds till rätt kund utan
+att agenten får samma bevis. Ingen ny identifierings- eller utskickstjänst vald.
+[Faktiska testbevis och avgränsning](VERIFICATION.md).
+
+---
+
+# Tidigare verifiering · riktig Codex-klient till salongens kalender · 2026-11-16
 
 Gren `proof/native-codex-consent`, fryst provkod `6aed511` ovanpå föregående
 leverans `e6702c5`. Gateway `f9b8506` är oförändrad. Produktkod, kontrakt,

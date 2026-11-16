@@ -1,4 +1,31 @@
-# Överlämning · native-klient, mandat och kalender · 2026-11-16
+# Överlämning · riktad kontroll av kundgodkännande · 2026-11-16
+
+Rapportgren `proof/customer-approval-boundary` från `13e0179`, gateway
+`f9b8506` oförändrad. Ingen produkt-/API-/testsvits-/migrationsändring.
+77/77 riktade unit och 41/41 integration på ny loopback-PostgreSQL samt
+12 diagnostiska skyddskontroller passerade. Egna fixtures/processer städade.
+
+**Acceptans FAIL:** innehavaren av agentens returnerade labblänk kan godkänna
+i en ny webbläsare utan kundinloggning och få ett bokningsbart servermandat.
+Att agent-Authorization nekas på consent-rutten och att approve-MCP saknas
+skiljer inte kunden från en agent som använder samma länk i webbläsaren.
+OTP på kräver kod men är endast simulerat, med klientvalt mottagarnummer.
+`origin=customer-consent` är därför inte bevis för verifierad kundidentitet.
+
+Detta ändrar inte tidigare syntetiska GO. Separat verifierad leverans till
+avsedd kund och kundkontroll behöver väljas före riktig användning.
+Ingen sådan implementation eller ny tjänst har beställts i denna testomgång.
+Grok bekräftade samma brist i egen rå HTTP och färsk Chromium: identitetskriteriet
+FAIL, egna 83 unit / 41 integration / 20 diagnostiska PASS. Ingen regression eller
+FIX-REQUEST; tidigare POC-GO utvidgas inte. [Originaladdendum](qa/QA-REPORT-native-codex-consent-boundary-13e0179.md):
+9804 byte, SHA-256 035add6fe28c89d75c21dfa0574b9a68e6a83c002c32c09791bdaf1ce07b4783.
+Den tidigare rapportens breda "agent kan inte godkänna" avgränsas uttryckligen
+till då testade auth-headers/verktyg. Båda originalrapporterna bevaras orörda.
+[Kommandon, artefakter, NOT RUN och resultat](VERIFICATION.md).
+
+---
+
+# Tidigare överlämning · native-klient, mandat och kalender · 2026-11-16
 
 Fryst provkod `6aed5110e44c0247d93c470e8d2ef6f95072afbe`, gren
 `proof/native-codex-consent`, gateway `f9b8506cee3e3cd21bd279e01addf761cd3db1ed`.

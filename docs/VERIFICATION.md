@@ -1,4 +1,102 @@
-# Aktuella resultat · native Codex-prov · 2026-11-16
+# Aktuella resultat · kundgodkännandets identitetsgräns · 2026-11-16
+
+Oförändrad salong `13e01799427e9fa7e8617479cc6e61941a528d07`, gateway
+`f9b8506cee3e3cd21bd279e01addf761cd3db1ed`. Rapportgren
+`proof/customer-approval-boundary`. Inga produkt-, schema-, beroende- eller
+migrationsändringar. Befintliga assertions och testtimeouts är orörda.
+
+| Faktiskt kört | Resultat |
+| --- | --- |
+| npx prisma generate | exit 0 |
+| npm run db:migrate; npm run db:seed | exit 0, ny isolerad loopback PostgreSQL |
+| node node_modules/vitest/vitest.mjs run tests/customer-consent.test.ts tests/customer-consent-flow.test.ts tests/agent-mandate.test.ts tests/sms-otp.test.ts | 77/77 PASS, 4 filer |
+| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts tests/integration/customer-consent.test.ts tests/integration/sms-otp.test.ts tests/integration/agent-usp.test.ts tests/integration/agent-bookings.test.ts tests/integration/agent-audit.test.ts tests/integration/mock-partner-gateway.test.ts | 41/41 PASS, 6 filer |
+| node --import tsx test-results/consent-boundary/probe.mts | exit 0, 12 diagnostiska PASS-grupper, 2 ej uppfyllda identitetskriterier |
+| pg_ctl -m fast -w stop | exit 0; egna server-/browser-/MCP-processer avslutade |
+
+## Direkt observerat kund-/agentglapp
+
+Testklienten skapade ett förslag genom verklig HTTP-MCP-SDK och fick labbets
+approvalUrl. Med agentens Authorization-header nekades kund-POST (403).
+Samma länk öppnades sedan i en ny Chromium 390×844 med noll initiala cookies
+och utan kundinloggning. Klick på Ja skapade mandatet; klienten kunde därefter
+boka via gatewayen (201) och återförsöka (200, replayed=true, samma id, en rad).
+Boknings-id `99eda0bb-76c0-4e1e-acaa-41ab9e052bb5` är därefter städat.
+Mandatet hade `origin=customer-consent`, `verifiedVia=null`.
+
+**FAIL: oberoende kundgodkännande/agenten kan inte självgodkänna.**
+Agentens tillgång till bearer-länken ger samma möjlighet som labbets syntetiska
+kund. En avstängd approve-tool eller nekad API-header löser inte denna
+identitetsfråga. Det befintliga integrationstestet med namn "agent cannot
+approve" provar auth-header/MCP, inte agentens möjlighet att använda länken
+utan header i en vanlig webbläsare. Ingen testassertion ändrades för utfallet.
+
+Detta är ett testprogram som simulerar agentens browserförmåga. Det är varken
+en ny verklig modellkörning eller en fysisk iPhone-kontroll. Produktens labb
+beskriver redan att länken lämnas till anroparen och bevisar ingen riktig
+identitet; fyndet är en bekräftad pilotgräns, inte en ny produktregression.
+
+## Skydd som höll och OTP-gränsen
+
+- Fel token eller agent-Authorization: 403. Annan klient kan inte läsa förslag
+  (404) eller använda mandatet (403).
+- Identiskt booking-retry ger samma id och en rad. Ny nyckel kan inte använda
+  det förbrukade mandatet (403); använd godkännandelänk nekas också (403).
+- 20 samtidiga kundbeslut: en 200, nitton 403, ett mandat.
+- Utgången länk skapar inget mandat. Återkallat/utgånget mandat nekas (403).
+  Vidgat JSON och en annan länks token nekas före nytt mandat.
+- OTP-labb på: saknad/fel kod nekas (403) även med giltig länk. Agentens
+  statusvy exponerar inte kod-/hashfälten. De 41 integrationstesterna omfattar
+  även fem försök, resend/expiry, samtidig verifiering och avgränsad loggning.
+- Labb av: skapande av förslag och godkännande nekas (403).
+
+**Ej verifierad kundidentitet även med OTP:** avsändaren är en processlokal
+SimulatedSmsSender. Telefonnumret kommer från agentens JSON och saknar
+oberoende bindning till avsedd kund. Simulerade koder och ett labbnummer
+användes; inga externa utskick, konton eller leverantörer kontaktades.
+En framtida riktig OTP bevisar kontroll över vald mottagare, inte i sig att
+mottagaren är den avsedda kunden. Leverans och kundbindning måste lösas tillsammans.
+
+Loggar: `<local-state>/codex/consent-boundary-1_0z6gwm/`.
+Sanerat manifest och två verkliga bilder: `test-results/consent-boundary/`.
+Manifestet anger 2026-11-16T08:44:50.061Z, completed=true, cleaned=true,
+failedStep=null, men de två identitetskriterierna met=false. Diagnostikens
+exit 0 betyder reproducerade observationer, inte godkänd kundidentifiering.
+Lokal kopia av probe/bilder/manifest: `<local-scratch>/consent-boundary/`.
+Tillfällig probe SHA-256
+`039c70c0c32cb4096756e30677401493feedb73239a48a869bcf6fc3caa2c9ba`.
+Proben är en engångsdiagnostik, gitignorerad och låst till ovanstående SHA;
+det är inte en ny underhållen testsvit eller ett nytt produktverktyg.
+
+Grok körde egen minimal probe efter formateringsförlust av delad kod i chatten.
+Det körde inte Codex engångsprobe. [Originaladdendum](qa/QA-REPORT-native-codex-consent-boundary-13e0179.md):
+9804 byte, SHA-256 `035add6fe28c89d75c21dfa0574b9a68e6a83c002c32c09791bdaf1ce07b4783`.
+Egen rå HTTP OCH färsk headless Chromium bekräftade länkinnehavarens godkännande
+och efterföljande bokning/retry. Egna 83/83 unit (fem filer, våra fyra plus sex
+native-parserprov), 41/41 integration och 20/20 diagnostiska kontroller passerade.
+Build kördes för serverstart, exit 0. Identitetskriteriet är fortfarande FAIL.
+Grok verifierade också engångsbruk, 20 samtidiga beslut, fel hash/JSON/token,
+främmande klient, återkallat mandat, OTP utan kod och avstängt labb. Det körde
+inte utgånget mandats expiresAt eller rätt OTP i HTTP-servern; dessa delar
+skiljs från våra egna tester. Dess fulla NOT RUN och kommandon står i originalet.
+
+Groks gamla "agent kan inte godkänna" avgränsas i addendum till auth-header
+och saknat approve-MCP. Bredare påståenden om oberoende kundgodkännande stöds
+inte. Ingen regression och ingen FIX-REQUEST; framtida kundidentifiering och
+leverans är produkt-/säkerhetsbeslut, inte redan godkänd pilot eller ny uppgift.
+En markerad verifiedVia-sträng är inte i sig autentisering eller rätt kundbindning.
+
+NOT RUN denna omgång: ny npm ci, full lint/tsc/unit/integration/build,
+hela webb-E2E/fyrmatrisen, native Codex-klient, ny CI, audit, Docker, moln,
+riktiga SMS/mejl/kunder, kundidentifiering hos extern leverantör, fysisk iPhone.
+Befintligt produktionsbygge återanvändes efter kontroll att produktkoden var
+oförändrad. Tidigare CI 43820748911 på exakt 13e0179 är SUCCESS
+(408/205/64/13, lint/build/tsc/npm ci); det ersätter inte denna acceptansbedömning.
+Inga skydd, testkrav eller datarestriktioner har försvagats. Pilot NO-GO.
+
+---
+
+# Tidigare verifiering · native Codex-prov · 2026-11-16
 
 Fryst salongs-/harness-SHA `6aed5110e44c0247d93c470e8d2ef6f95072afbe` på
 `proof/native-codex-consent`; gateway `f9b8506cee3e3cd21bd279e01addf761cd3db1ed`.

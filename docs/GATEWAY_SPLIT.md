@@ -198,6 +198,13 @@ verklig kundautentisering, pilotberedskap eller att en människa klickade.
 Förslagets labblänk levereras enligt befintligt labbkontrakt till agenten;
 den mekanismen får inte användas som verklig identitetsverifiering.
 
+Riktad återkontroll på 13e0179 bekräftar detta konkret: den som fick länken
+via MCP kunde öppna den i en ny webbläsare utan kundinloggning och godkänna.
+Att agent-Authorization nekas på kundrutten eller att approve-MCP saknas
+garanterar därför inte separat kundgodkännande. OTP-labb kräver kod, men
+simulerad leverans och klientvalt telefonnummer bevisar ingen avsedd kund.
+Se den aktuella identitetsbedömningen i VERIFICATION och PRIVACY_SECURITY.
+
 Klienten får en tillfällig verksamhetsnyckel i sin processmiljö och endast sex
 namngivna MCP-verktyg. DB-adress, sessionshemlighet och tjänstenyckel lämnas inte
 till klienten. Skalverktyg, webbsökning och externa appar är avstängda.
