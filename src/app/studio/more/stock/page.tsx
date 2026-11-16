@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { Minus, PackageCheck, Plus, ShoppingCart } from "lucide-react";
-import type { StockItem } from "@/concept/data/types";
 import { t, tc } from "@/concept/i18n";
 import { formatMoney } from "@/concept/i18n/format";
-import { lowStock } from "@/concept/selectors";
+import { lowStock, suggestedOrderQuantity } from "@/concept/selectors";
 import { dispatch, undo } from "@/concept/store";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -16,16 +15,11 @@ import { Meter } from "@/concept/ui/charts";
 import { Sheet } from "@/concept/ui/sheet";
 import { showToast } from "@/concept/ui/toast";
 
-/** Enough for about four weeks plus the safety level. */
-function suggestedQuantity(item: StockItem) {
-  return Math.max(1, Math.ceil(item.usagePerWeek * 4 + item.reorderAt - item.inStock - item.onOrder));
-}
-
 export default function StockPage() {
   const { state } = useStudio();
   const [ordering, setOrdering] = useState(false);
   const low = lowStock(state);
-  const lines = low.map((item) => ({ item, quantity: suggestedQuantity(item) }));
+  const lines = low.map((item) => ({ item, quantity: suggestedOrderQuantity(item) }));
   const total = lines.reduce((sum, l) => sum + l.quantity * l.item.unitCost, 0);
   const suppliers = [...new Set(lines.map((l) => l.item.supplier))];
   const categories = [...new Set(state.stock.map((s) => s.category))];

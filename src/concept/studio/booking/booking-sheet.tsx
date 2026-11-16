@@ -14,6 +14,7 @@ import { Sheet } from "../../ui/sheet";
 import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { SlotPicker, type Slot } from "./slot-picker";
+import { waitlistCount, waitlistNotice } from "./waitlist-notice";
 
 type Mode = "details" | "move" | "cancel";
 
@@ -39,7 +40,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const lastJournal = state.modules.journal
     ? state.journals.filter((j) => j.customerId === booking.customerId && j.date < booking.date).at(-1)
     : undefined;
-  const waitlist = state.customers.filter((c) => c.waitlist && c.id !== booking.customerId).length;
+  const waitlist = waitlistCount(state, booking);
 
   const confirmMove = () => {
     if (!slot) return;
@@ -58,17 +59,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
       type: "booking/cancel",
       id: booking.id,
       reason: t(reason),
-      notice: offer
-        ? {
-            kind: "system",
-            date: today,
-            time: minutes,
-            title: t("cancel.offerTitle", { time: formatTime(booking.start) }),
-            body: tc("cancel.offerBody", waitlist, { day: formatDayLong(booking.date), time: formatTime(booking.start) }),
-            read: false,
-            handled: true,
-          }
-        : undefined,
+      notice: offer ? waitlistNotice(booking, waitlist, { today, minutes }) : undefined,
     });
     showToast(offer ? tc("booking.cancelledOfferedToast", waitlist) : t("booking.cancelledToast"), { label: t("common.undo"), run: undo });
     onClose();

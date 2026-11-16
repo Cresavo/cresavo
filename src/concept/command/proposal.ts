@@ -1,0 +1,299 @@
+import { addDays, formatTime } from "../data/dates";
+import { freeStarts, isFree } from "../data/slots";
+import type { Booking, DateKey, DemoState, Service, StaffId } from "../data/types";
+import type { DemoAction } from "../actions";
+import { t, tc } from "../i18n";
+import { agoText, formatDayLong, formatDayMonth, formatDuration, formatMoney } from "../i18n/format";
+import type { IntentParams, IntentResult } from "../intent";
+import { normalize } from "../intent/match";
+import { buildCustomerStats, findCustomer, findService, fullName, revenueBetween, suggestedOrderQuantity } from "../selectors";
+import { waitlistCount, waitlistNotice } from "../studio/booking/waitlist-notice";
+import { clarifyChoices, type Retry } from "./clarify";
+
+// Turns what the interpreter understood into something the owner can review.
+// Nothing here changes data: a "change" proposal carries one store action that
+// runs only when the owner approves it.
+
+export interface Clock {
+  today: DateKey;
+  minutes: number;
+}
+
+export interface ChangeRow {
+  label: string;
+  before?: string;
+  after: string;
+}
+
+export type Choice = { label: string; proposal: Proposal } | Retry;
+
+export type Proposal =
+  | { kind: "change"; title: string; subtitle?: string; rows: ChangeRow[]; action: DemoAction; toast: string; destructive?: boolean }
+  | { kind: "choose"; title: string; choices: Choice[] }
+  | { kind: "revenue"; title: string; range: string; total: number; visits: number; bars: { id: string; label: string; value: number }[] }
+  | { kind: "customers"; title: string; total: number; items: { id: string; name: string; detail: string }[] }
+  | { kind: "message"; text: string; link?: { href: string; label: string } };
+
+const MAX_SLOT_CHOICES = 3;
+const MAX_LISTED_CUSTOMERS = 8;
+const NOON = 12 * 60;
+
+const minutesOf = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+const message = (text: string): Proposal => ({ kind: "message", text });
+const whenText = (date: DateKey, start: number) => `${formatDayLong(date)} ${formatTime(start)}`;
+
+interface Candidate {
+  staffId: StaffId;
+  start: number;
+}
+
+/** Up to three free starts: closest to the wanted time, or spread through the part of the day. */
+function pickCandidates(state: DemoState, staffIds: StaffId[], duration: number, date: DateKey, clock: Clock, wanted: { near?: number; period?: "morning" | "afternoon"; ignoreId?: string }): Candidate[] {
+  const after = date === clock.today ? clock.minutes : 0;
+  const all = staffIds.flatMap((staffId) => freeStarts(state, staffId, date, duration, { after, ignoreId: wanted.ignoreId }).map((start) => ({ staffId, start })));
+  const inPeriod = all.filter(({ start }) => !wanted.period || (wanted.period === "morning" ? start < NOON : start >= NOON));
+  if (wanted.near !== undefined) {
+    const near = wanted.near;
+    return inPeriod.sort((a, b) => Math.abs(a.start - near) - Math.abs(b.start - near) || a.start - b.start).slice(0, MAX_SLOT_CHOICES).sort((a, b) => a.start - b.start);
+  }
+  const spread: Candidate[] = [];
+  for (const candidate of inPeriod.sort((a, b) => a.start - b.start)) {
+    const last = spread.at(-1);
+    if (!last || candidate.start - last.start >= 60) spread.push(candidate);
+    if (spread.length === MAX_SLOT_CHOICES) break;
+  }
+  return spread;
+}
+
+function staffName(state: DemoState, staffId: StaffId) {
+  return state.staff.find((s) => s.id === staffId)?.firstName ?? staffId;
+}
+
+/** Pick one or let the owner pick: a single candidate goes straight to its proposal. */
+function chooseSlot(state: DemoState, candidates: Candidate[], title: string, date: DateKey, build: (c: Candidate) => Proposal): Proposal {
+  if (!candidates.length) return message(t("command.noFreeTime", { day: formatDayLong(date) }));
+  if (candidates.length === 1) return build(candidates[0]);
+  const showStaff = new Set(candidates.map((c) => c.staffId)).size > 1;
+  return {
+    kind: "choose",
+    title,
+    choices: candidates.map((c) => ({
+      label: showStaff ? t("command.slotWith", { time: formatTime(c.start), name: staffName(state, c.staffId) }) : formatTime(c.start),
+      proposal: build(c),
+    })),
+  };
+}
+
+function bookProposal(state: DemoState, params: IntentParams, clock: Clock): Proposal {
+  const customer = findCustomer(state, params.customerId);
+  const service = findService(state, params.serviceId ?? "");
+  const date = params.date;
+  if (!customer || !service || !date) return message(t("command.notUnderstood"));
+  if (date < clock.today) return message(t("command.dayPassed", { day: formatDayLong(date) }));
+  const staffIds = params.staffId
+    ? service.staffIds.filter((id) => id === params.staffId)
+    : [...service.staffIds].sort((a, b) => Number(b === customer.preferredStaff) - Number(a === customer.preferredStaff));
+  const build = ({ staffId, start }: Candidate): Proposal => ({
+    kind: "change",
+    title: t("command.book.title", { name: fullName(customer), service: service.name }),
+    subtitle: `${formatDuration(service.duration)} · ${formatMoney(service.price)}`,
+    rows: [
+      { label: t("command.row.when"), before: t("command.free"), after: whenText(date, start) },
+      { label: t("command.row.with"), after: staffName(state, staffId) },
+    ],
+    action: { type: "booking/create", customerId: customer.id, serviceId: service.id, staffId, date, start, source: "assistant" },
+    toast: t("newBooking.bookedToast", { name: customer.firstName, when: whenText(date, start) }),
+  });
+  if (params.time) {
+    const start = minutesOf(params.time);
+    const upcoming = date > clock.today || start >= clock.minutes;
+    const staffId = upcoming ? staffIds.find((id) => isFree(state, id, date, start, service.duration)) : undefined;
+    if (staffId) return build({ staffId, start });
+    return chooseSlot(state, pickCandidates(state, staffIds, service.duration, date, clock, { near: start }), t("command.pickAnother"), date, build);
+  }
+  return chooseSlot(state, pickCandidates(state, staffIds, service.duration, date, clock, { period: params.period }), t("command.pickTime"), date, build);
+}
+
+function bookingLine(state: DemoState, booking: Booking) {
+  const service = findService(state, booking.serviceId);
+  return `${whenText(booking.date, booking.start)} · ${service?.name ?? ""}`;
+}
+
+function moveProposal(state: DemoState, params: IntentParams, clock: Clock): Proposal {
+  const booking = state.bookings.find((b) => b.id === params.bookingId && b.status === "booked");
+  const customer = findCustomer(state, booking?.customerId);
+  const date = params.date;
+  if (!booking || !customer || !date || !params.time) return message(t("command.notUnderstood"));
+  if (date < clock.today) return message(t("command.dayPassed", { day: formatDayLong(date) }));
+  const wanted = minutesOf(params.time);
+  const build = ({ start }: Candidate): Proposal => ({
+    kind: "change",
+    title: t("command.move.title", { name: fullName(customer) }),
+    subtitle: `${findService(state, booking.serviceId)?.name} · ${staffName(state, booking.staffId)}`,
+    rows: [{ label: t("command.row.when"), before: whenText(booking.date, booking.start), after: whenText(date, start) }],
+    action: { type: "booking/move", id: booking.id, date, start },
+    toast: t("booking.movedToast", { name: customer.firstName, when: whenText(date, start) }),
+  });
+  if (date === booking.date && wanted === booking.start) return message(t("command.alreadyThere"));
+  const upcoming = date > clock.today || wanted >= clock.minutes;
+  if (upcoming && isFree(state, booking.staffId, date, wanted, booking.duration, booking.id)) return build({ staffId: booking.staffId, start: wanted });
+  const candidates = pickCandidates(state, [booking.staffId], booking.duration, date, clock, { near: wanted, ignoreId: booking.id });
+  return chooseSlot(state, candidates, t("command.pickAnother"), date, build);
+}
+
+function cancelProposal(state: DemoState, params: IntentParams, clock: Clock): Proposal {
+  const booking = state.bookings.find((b) => b.id === params.bookingId && b.status === "booked");
+  const customer = findCustomer(state, booking?.customerId);
+  if (!booking || !customer) return message(t("command.notUnderstood"));
+  const offered = params.offerWaitingList ? waitlistCount(state, booking) : 0;
+  return {
+    kind: "change",
+    title: t("command.cancel.title", { name: fullName(customer) }),
+    subtitle: staffName(state, booking.staffId),
+    rows: [
+      { label: t("command.row.booking"), before: bookingLine(state, booking), after: t("command.cancelled") },
+      ...(params.offerWaitingList ? [{ label: t("command.row.waitlist"), after: tc("command.waitlistOffer", offered) }] : []),
+    ],
+    action: {
+      type: "booking/cancel",
+      id: booking.id,
+      reason: t("cancel.reason.other"),
+      notice: params.offerWaitingList ? waitlistNotice(booking, offered, clock) : undefined,
+    },
+    toast: params.offerWaitingList ? tc("booking.cancelledOfferedToast", offered) : t("booking.cancelledToast"),
+    destructive: true,
+  };
+}
+
+function serviceOf(state: DemoState, id: string | undefined): Service | undefined {
+  return findService(state, id ?? "");
+}
+
+function campaignProposal(state: DemoState, params: IntentParams, clock: Clock): Proposal {
+  const service = serviceOf(state, params.serviceId);
+  if (!service || params.percentOff === undefined || params.priceSek === undefined || !params.start || !params.end) return message(t("command.notUnderstood"));
+  const from = params.start > clock.today ? params.start : clock.today;
+  const to = params.end > from ? addDays(params.end, -1) : from;
+  const name = t("command.campaign.name", { percent: params.percentOff, service: service.name });
+  return {
+    kind: "change",
+    title: name,
+    subtitle: t("command.campaign.subtitle"),
+    rows: [
+      { label: t("command.row.price"), before: formatMoney(service.price), after: formatMoney(params.priceSek) },
+      { label: t("command.row.period"), after: from === to ? formatDayMonth(from) : `${formatDayMonth(from)} – ${formatDayMonth(to)}` },
+    ],
+    action: {
+      type: "campaign/create",
+      campaign: { name, serviceIds: [service.id], discountPercent: params.percentOff, from, to, status: from <= clock.today ? "active" : "planned", channels: ["Instagram", "Newsletter"] },
+    },
+    toast: t("command.campaign.created", { name }),
+  };
+}
+
+function priceProposal(state: DemoState, params: IntentParams): Proposal {
+  const service = serviceOf(state, params.serviceId);
+  if (!service || params.priceSek === undefined) return message(t("command.notUnderstood"));
+  return {
+    kind: "change",
+    title: t("command.price.title", { service: service.name }),
+    rows: [{ label: t("command.row.price"), before: formatMoney(service.price), after: formatMoney(params.priceSek) }],
+    action: { type: "service/price", id: service.id, price: params.priceSek },
+    toast: t("command.price.changed", { service: service.name }),
+  };
+}
+
+const FILLER_WORDS = new Set(["more", "some", "the", "for", "and", "new"]);
+
+function stockProposal(state: DemoState, params: IntentParams): Proposal {
+  const words = normalize(params.product ?? "")
+    .split(" ")
+    .filter((w) => w.length > 2 && !FILLER_WORDS.has(w))
+    .map((w) => (w.length > 3 ? w.replace(/s$/, "") : w));
+  const scored = state.stock.map((item) => ({ item, score: words.filter((w) => normalize(item.name).includes(w)).length }));
+  const best = Math.max(0, ...scored.map((s) => s.score));
+  const matches = scored.filter((s) => best > 0 && s.score === best).map((s) => s.item);
+  if (!matches.length) return message(t("command.stock.none", { product: params.product ?? "" }));
+  const build = (item: (typeof matches)[number]): Proposal => {
+    const quantity = suggestedOrderQuantity(item);
+    return {
+      kind: "change",
+      title: t("command.stock.title", { name: item.name }),
+      subtitle: item.supplier,
+      rows: [
+        { label: t("command.row.quantity"), after: t("command.stock.quantity", { count: quantity, unit: item.unit }) },
+        { label: t("command.row.onOrder"), before: String(item.onOrder), after: String(item.onOrder + quantity) },
+        { label: t("command.row.cost"), after: formatMoney(quantity * item.unitCost) },
+      ],
+      action: { type: "stock/order", lines: [{ id: item.id, quantity }] },
+      toast: t("stock.ordered", { suppliers: item.supplier }),
+    };
+  };
+  if (matches.length === 1) return build(matches[0]);
+  return { kind: "choose", title: t("command.stock.pick"), choices: matches.slice(0, 6).map((item) => ({ label: item.name, proposal: build(item) })) };
+}
+
+function revenueProposal(state: DemoState, params: IntentParams, clock: Clock): Proposal {
+  if (!params.start || !params.end) return message(t("command.notUnderstood"));
+  const result = revenueBetween(state, clock.today, clock.minutes, params.start, params.end);
+  const last = addDays(params.end, -1);
+  return {
+    kind: "revenue",
+    title: t("command.revenue.title"),
+    range: last <= params.start ? formatDayLong(params.start) : `${formatDayMonth(params.start)} – ${formatDayMonth(last)}`,
+    total: result.total,
+    visits: result.visits,
+    bars: result.byService.slice(0, 5).map((row) => ({ id: row.id, label: findService(state, row.id)?.name ?? row.id, value: row.total })),
+  };
+}
+
+function inactiveProposal(state: DemoState, params: IntentParams, clock: Clock): Proposal {
+  const since = params.since;
+  if (!since) return message(t("command.notUnderstood"));
+  const stats = buildCustomerStats(state, clock.today);
+  const lapsed = state.customers
+    .flatMap((customer) => {
+      const s = stats.get(customer.id);
+      return s?.lastVisit && s.lastVisit < since && !s.nextBooking ? [{ customer, visits: s.visits, lastVisit: s.lastVisit }] : [];
+    })
+    .sort((a, b) => b.visits - a.visits || a.lastVisit.localeCompare(b.lastVisit));
+  return {
+    kind: "customers",
+    title: t("command.customers.title", { date: formatDayMonth(since) }),
+    total: lapsed.length,
+    items: lapsed.slice(0, MAX_LISTED_CUSTOMERS).map(({ customer, visits, lastVisit }) => ({
+      id: customer.id,
+      name: fullName(customer),
+      detail: `${tc("command.customers.visits", visits)} · ${t("command.customers.last", { ago: agoText(lastVisit, clock.today) })}`,
+    })),
+  };
+}
+
+/** Everything the card needs for one interpreter result. `examples` fill in when the command is too vague. */
+export function proposalFor(state: DemoState, intent: IntentResult, text: string, clock: Clock, examples: string[]): Proposal {
+  const { params } = intent;
+  switch (intent.action) {
+    case "question": {
+      const choices = clarifyChoices(intent.question, text, state, clock.today, examples);
+      return choices.length ? { kind: "choose", title: intent.question, choices } : message(intent.question);
+    }
+    case "book":
+      return bookProposal(state, params, clock);
+    case "move":
+      return moveProposal(state, params, clock);
+    case "cancel":
+      return cancelProposal(state, params, clock);
+    case "campaign":
+      return campaignProposal(state, params, clock);
+    case "change-price":
+      return priceProposal(state, params);
+    case "order-stock":
+      return stockProposal(state, params);
+    case "make-poster":
+      return { kind: "message", text: t("command.poster", { occasion: params.occasion ?? "" }), link: { href: "/studio/more/campaigns", label: t("command.poster.open") } };
+    case "revenue":
+      return revenueProposal(state, params, clock);
+    case "inactive-customers":
+      return inactiveProposal(state, params, clock);
+  }
+}

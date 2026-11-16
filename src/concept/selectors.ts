@@ -1,6 +1,6 @@
 import { addDays, diffDays, monthKey } from "./data/dates";
 import { isActive, lunchFor, openingFor, staffWorks } from "./data/slots";
-import type { Booking, Customer, DateKey, DemoState, Service, StaffId } from "./data/types";
+import type { Booking, Customer, DateKey, DemoState, Service, StaffId, StockItem } from "./data/types";
 
 // Read-only views of the demo state used by several pages.
 
@@ -134,4 +134,24 @@ export function utilisation(state: DemoState, from: DateKey, days: number, staff
 export function averageRating(state: DemoState) {
   if (!state.reviews.length) return 0;
   return state.reviews.reduce((sum, r) => sum + r.rating, 0) / state.reviews.length;
+}
+
+/** Revenue earned in [start, end) as of now: finished visits only, split by treatment. */
+export function revenueBetween(state: DemoState, today: DateKey, minutes: number, start: DateKey, end: DateKey) {
+  const totals = new Map<string, number>();
+  let visits = 0;
+  for (const b of state.bookings) {
+    if (b.date < start || b.date >= end) continue;
+    const finished = b.status === "completed" || (b.status === "booked" && (b.date < today || (b.date === today && b.start + b.duration <= minutes)));
+    if (!finished) continue;
+    visits += 1;
+    totals.set(b.serviceId, (totals.get(b.serviceId) ?? 0) + b.price);
+  }
+  const byService = [...totals.entries()].map(([id, total]) => ({ id, total })).sort((a, b) => b.total - a.total);
+  return { total: byService.reduce((sum, row) => sum + row.total, 0), visits, byService };
+}
+
+/** Enough for about four weeks plus the safety level. */
+export function suggestedOrderQuantity(item: StockItem) {
+  return Math.max(1, Math.ceil(item.usagePerWeek * 4 + item.reorderAt - item.inStock - item.onOrder));
 }

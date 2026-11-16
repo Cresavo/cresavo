@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { Leaf } from "lucide-react";
+import { FloatingMic } from "../command/floating-mic";
 import { t } from "../i18n";
 import { unreadCount } from "../selectors";
 import { useDemo } from "../store";
@@ -19,12 +20,13 @@ export function StudioShell({ children }: { children: ReactNode }) {
   return (
     <>
       <Sidebar state={state} pathname={pathname} />
-      <main className="pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-12 lg:pl-64">
+      <main className="pb-[calc(9rem+env(safe-area-inset-bottom))] lg:pb-12 lg:pl-64">
         <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6 lg:px-10 lg:pt-8">
           <Suspense>{children}</Suspense>
         </div>
       </main>
       <BottomTabs state={state} pathname={pathname} />
+      <FloatingMic />
       <Toaster />
     </>
   );

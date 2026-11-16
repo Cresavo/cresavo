@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CommandSlot } from "../command/command-slot";
+import { CommandBox } from "../command/command-box";
 
 interface PageHeaderProps {
   title: string;
@@ -9,7 +9,7 @@ interface PageHeaderProps {
   back?: ReactNode;
 }
 
-/** Page title row followed by the command box slot. Used by every studio page. */
+/** Page title row followed by the command box. Used by every studio page. */
 export function PageHeader({ title, subtitle, actions, back }: PageHeaderProps) {
   return (
     <header className="mb-6 space-y-4">
@@ -21,7 +21,7 @@ export function PageHeader({ title, subtitle, actions, back }: PageHeaderProps) 
         </div>
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>
-      <CommandSlot />
+      <CommandBox />
     </header>
   );
 }

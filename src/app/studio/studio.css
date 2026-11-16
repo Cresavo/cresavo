@@ -112,6 +112,11 @@ body:has(.studio-root) .demo-banner {
   outline-offset: 2px;
 }
 
+/* Inputs inside a container that draws its own focus ring (the command box). */
+.studio-root .bare-input:focus-visible {
+  outline: none;
+}
+
 .studio-root .no-scrollbar {
   scrollbar-width: none;
 }
