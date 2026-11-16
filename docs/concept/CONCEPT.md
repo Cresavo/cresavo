@@ -192,6 +192,31 @@ adapter, inte kärnan.
 Demon visar detta på Mer → Din data & AI: "Din salong kan nås av AI-assistenter
 via MCP, A2A och USP" med status per protokoll.
 
+## Affärsmodell: öppen kärna enligt Accounted-modellen (förslag)
+
+Förebild: [Accounted](https://github.com/erp-mafia/accounted), svensk
+AI-native bokföring med öppen källkod (Next.js 16, AGPL, 150+ MCP-verktyg,
+agenten föreslår och människan godkänner). Deras modell, översatt hit:
+
+1. **Kärnan är AGPL och kan driftas fritt.** Det ger förtroende och
+   uppmärksamhet. Gratis att drifta själv, aldrig spärrat där.
+2. **Betald molnversion.** Abonnemang för den som bara vill logga in
+   (de flesta salonger).
+3. **"Connect"-tjänst, privat och betald.** Det som kräver avtal, nycklar
+   och certifikat (SMS, betalning, publicering i sociala kanaler, annonser,
+   Google-bokning, kalendersynk) körs som separat tjänst. Även den som driftar
+   själv köper den. Accounted valde detta efter att någon sålt vidare en fork.
+4. **Undantag för tillägg i licensen.** Tredjepartsmoduler som bara använder
+   det dokumenterade tilläggs-API:t får ha egen licens, så det kan växa en
+   marknadsplats.
+5. **White label.** Kedjor, franchiser och leverantörer kan köra under eget
+   varumärke.
+6. **Ingen provision per bokning.** Det är skillnaden mot kedjorna.
+
+**Bokföring byggs inte själv.** Koppla i stället till Accounted via deras
+MCP/API. Det är samma stack och samma licens, och vi slipper bygga om
+bokföring.
+
 ## Fler branscher
 
 Salong (fotvård/massage) är första provet. Kärnan ska passa fler: frisör,
