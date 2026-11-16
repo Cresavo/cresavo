@@ -33,6 +33,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 9 | Modules and industry packs | Both | open |
 | 10 | Open protocols for the concept | Opus | open |
 | 11 | From demo to real engine | Opus | open |
+| 12 | Pilot readiness: quality and security | Opus (Fable for review) | open |
 
 ---
 
@@ -203,6 +204,21 @@ existing booking engine.
 
 **Done when:** `/studio` in real mode books/moves against Postgres with the
 same UI, and demo mode still works.
+
+## 12 · Pilot readiness: quality and security
+
+**Goal:** everything in the "Pilot gate" of `docs/QUALITY_SECURITY.md` is
+done or has an explicit, documented decision. Run after goal 11.
+
+- Work through the checklist section by section; each item ends as done
+  (with test/evidence), or as an issue labelled `later` with a reason.
+- Add tenant-isolation tests, permission tests and end-to-end tests for the
+  critical journeys listed there.
+- Enable secret scanning and code scanning; fix high/critical findings.
+- Write the incident/breach runbook and do one backup restore drill.
+
+**Done when:** every pilot-gate checkbox is ticked or linked to an issue,
+and an independent review (Fable or external) has signed off in REVIEW.md.
 
 ---
 

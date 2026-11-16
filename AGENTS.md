@@ -40,6 +40,12 @@ Work on branch `concept/ai-native-demo` (or a branch off it).
   label `finding` (command in `docs/goals/README.md`), or write it under
   "Findings" in PROGRESS.md if you lack GitHub access.
 
+## Quality and security
+
+`docs/QUALITY_SECURITY.md` lists the habits that apply to all code now
+(tests where logic lives, server-side validation, AI only proposes, no
+secrets or personal data in logs) and the pilot gate before real customers.
+
 ## Code principles
 
 - Keep it simple and readable for humans and agents: small focused files,
