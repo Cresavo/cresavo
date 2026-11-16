@@ -217,6 +217,43 @@ agenten föreslår och människan godkänner). Deras modell, översatt hit:
 MCP/API. Det är samma stack och samma licens, och vi slipper bygga om
 bokföring.
 
+## Drift, loggning och support: byggt för en person
+
+En person ska kunna driva detta. Därför gör systemet så mycket som möjligt
+av supporten själv, och felen ska synas innan kunden ringer.
+
+- **Strukturerad loggning från dag ett.** Varje anrop får ett request-id.
+  JSON-loggar med nivå, verksamhet, användare (pseudonymiserat), åtgärd och
+  tid. Aldrig kunddata, journaltext eller nycklar i loggar.
+- **Händelselogg per verksamhet.** Allt som ändras (av människa, AI eller
+  integration) sparas med vem, vad, före/efter och varifrån. Visas för ägaren
+  som "Vad har hänt?" och gör att man kan ångra och felsöka utan att gräva i servern.
+- **AI-logg.** Varje AI-anrop: uppgift, modell, tokens, kostnad, tid, om
+  fallback användes, om förslaget godkändes. Det är både felsökning och prissättning.
+- **Felspårning och larm.** Fel samlas (t.ex. Sentry eller öppen källkods-
+  alternativet GlitchTip) med request-id. Larm till telefonen vid fel som
+  påverkar bokning. Hälsosida för integrationer (SMS, publicering, betalning).
+- **Inbyggd support.** "Hjälp"-knapp i appen som (1) svarar med AI utifrån
+  dokumentation och kundens egna data/logg, (2) kan visa "så här gör du"
+  direkt i rätt vy, (3) skapar ett ärende med skärmbild, request-id och
+  senaste händelser när AI inte räcker. Ett ställe för alla ärenden.
+- **Självbetjäning.** Export, återställning av raderat (papperskorg),
+  ångra, statussida och kunskapsbank, så att färre behöver kontakta support.
+- **Supportläge.** Ägaren kan tidsbegränsat ge support läsåtkomst; varje
+  åtkomst loggas och syns för ägaren.
+
+## Bidrag till projektet
+
+- Varje bidrag kräver ett **bidragsgivaravtal (CLA)** som signeras digitalt
+  en gång (t.ex. CLA Assistant på GitHub) innan första PR kan slås ihop.
+- Varför CLA och inte bara DCO (som Accounted använder): Accounted
+  konstaterade att de inte kan ändra licens utan samtycke från alla
+  bidragsgivare. Med CLA behåller projektet möjligheten att erbjuda
+  kommersiell licens eller ändra licens senare. Kärnan förblir AGPL för alla.
+- `CONTRIBUTING.md` beskriver: CLA, kodstil, tester, syntetisk data,
+  säkerhetsrapportering (aldrig publik issue) och tilläggs-API:t.
+- Texten i CLA:n ska granskas juridiskt innan projektet blir publikt.
+
 ## Fler branscher
 
 Salong (fotvård/massage) är första provet. Kärnan ska passa fler: frisör,
