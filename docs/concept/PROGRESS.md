@@ -1,5 +1,19 @@
 # Framsteg · AI-native demo
 
+## 2026-11-17 · Codex · goal 7 headless evaluations
+
+- Continued on `goal/7-ai-evals` from the latest concept branch, carrying the
+  completed engine commits forward. Added `npm run ai:eval`: 25 fixed-clock,
+  fictional scenarios covering all seven tasks; rules mode passes 25/25 with
+  no network or API cost, even if keys are configured. `--task <name>` filters
+  cases and `--json` exports accuracy, timings, safe model/token/cost metadata.
+- Added 39 evaluation tests, including mocked live success, fallback counted
+  as failure, unknown costs, private-error redaction and CLI behavior. No live
+  provider calls made. Full verification: 620 tests, lint, TypeScript and production build pass. Integration: `src/concept/ai/README.md`.
+- Goal 7 remains in progress: evaluation tooling is delivered; real-key
+  verification, encrypted BYOK storage, persisted cost history and UI/function
+  calling integration remain. Reserved UI/data/store/i18n files are unchanged.
+
 ## 2026-11-17 · Codex · intent/AI engine and cleanup
 
 - Night 1 steps 3/3b engine is ready: rule-based English intent interpreter, seven versioned AI tasks, JSON schemas, provider router, fetch adapters, bounded in-memory cost log and `POST /api/concept/ai/[task]`. No UI, fixture/store changes or new dependencies. No keys used; provider tests mock fetch.

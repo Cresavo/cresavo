@@ -1,5 +1,32 @@
 # Headless intent and AI integration
 
+## Evaluations
+
+Run `npm run ai:eval` for the fixed-clock, fictional evaluation suite. The
+default always uses rules, even when provider keys exist in `.env`. No API
+requests or charges occur. Every task is represented; expected parameters,
+numbers and factual content are checked without requiring identical prose.
+
+Use `npm run ai:eval -- --task stock-forecast` to select one task, or append
+`--json` for a machine-readable report. Reports include per-case pass/fail,
+duration, provider/model, task prompt version, tokens and estimated USD cost.
+They omit input payloads, generated text, keys and provider error messages.
+Failures set exit code 1. Unknown charges remain null; `knownCostUsd` is only
+the known subtotal, not a claim about the total bill.
+
+After a real key has separately been configured and live testing is authorized,
+`npm run ai:eval -- --live` uses the same router and task runner as the API.
+This opt-in can incur provider charges. Rules fallback is always a failed live
+evaluation, even if its answer matches the expectation. No real-key run has
+been performed in this delivery; mocked provider tests cover the live path.
+
+`evaluationCases` in `ai/evals/cases.ts` defines the scenarios;
+`evaluateCases(cases, options)` in `ai/evals/evaluate.ts` returns a typed
+`EvaluationReport`. Add semantic dot-path assertions in `expected` or
+case-insensitive text checks in `contains` when adding scenarios.
+
+## Engine integration
+
 - Added `interpretCommand(text, context)` from `src/concept/intent/index.ts`; import `IntentContext`, `IntentResult`, `IntentAction` and `IntentParams` there. Map fixture fields into the small context (`durationMin`, `priceSek`, ISO booking `start`, ISO `now`; optional salon `timezone`, default Europe/Stockholm). No store dependency or mutations. Results contain `action`, `params`, `summary`, `confidence`; `action: "question"` also contains `question`. Show proposals for review, then map approved actions to the store. Booking proposals specify a date/time or day period; the UI/store must calculate and offer available slots before approval. Revenue/segment proposals specify query ranges; compute answers from fixture history. Range ends are exclusive; "since summer" means 1 September of the most recent completed summer. Bare weekdays include today, "next" advances a same-day weekday by seven days.
 - Seven versioned tasks live in `src/concept/ai/registry.ts` (`tasks`, `TaskName`, `isTaskName`). Each entry exposes `input`, `output` (Zod schemas), `schema` (JSON Schema), `prompt`, `tier`, `version`, `fallback`. Input contracts are inspectable per task file. Use `POST /api/concept/ai/<task>` with the task input object directly as JSON; response is `{ output, log }`. For interpretation send `{ text, context }`. Invalid input returns 400, unknown tasks 404. The existing PUBLIC_READONLY policy blocks POST with 403; normal local concept mode leaves that flag unset.
 - Server code can call typed `runTask(name, input)` from `ai/run-task.ts`. The browser should use the HTTP route and must not import server router/client modules. Without keys, every task runs deterministic rules and never calls fetch. With keys, output schemas and intent references are checked; network, timeout, JSON or validation failures fall back to rules. Tasks only produce drafts/proposals, never send messages or change records.
