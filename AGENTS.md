@@ -23,6 +23,14 @@ Arbeta på gren `concept/ai-native-demo` (eller en gren från den).
 - AI-nycklar (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) är valfria och används
   bara på servern. Allt ska fungera utan nyckel.
 
+## Arbetssätt: goals och issues
+
+- Arbete sker i **goals**: `docs/goals/README.md` beskriver flöde, mall och
+  vilken modell som passar. Jobba tills goal-filens "Klart när" är uppfyllt.
+- Fixa inte saker utanför ditt goal. **Skapa ett GitHub-issue** med
+  etiketten `fynd` (kommando i `docs/goals/README.md`), eller skriv det under
+  "Fynd" i PROGRESS.md om du saknar GitHub-åtkomst.
+
 ## Så ser Niclas vad som händer
 
 Efter varje större steg:
