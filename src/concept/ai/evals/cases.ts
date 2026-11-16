@@ -29,6 +29,7 @@ export const evaluationCases: EvaluationCase[] = [
   ...commands.map(([id, text, expected]) => ({ id, task: "interpret-command" as const, input: { text, context }, expected })),
   { id: "journal-facts", task: "structure-journal", input: { transcript: "Foot treatment completed. Observed dry skin. Recommend cream. Next visit in six weeks." }, contains: { treatment: "Foot treatment", observations: "dry skin", recommendation: "cream", nextVisit: "six weeks" } },
   { id: "journal-no-invention", task: "structure-journal", input: { transcript: "Massage completed." }, expected: { observations: "", recommendation: "", nextVisit: "" }, contains: { treatment: "Massage" } },
+  { id: "journal-treatment-with-skin", task: "structure-journal", input: { transcript: "Treated both feet and removed hard skin from the heels. Noticed a dry heel." }, contains: { treatment: "hard skin", observations: "dry heel" }, expected: { recommendation: "" } },
   { id: "post-instagram", task: "write-post", input: { offer: "20% off massage", channel: "instagram" }, contains: { text: "20%" } },
   { id: "post-sms", task: "write-post", input: { offer: "Foot care for 600 SEK", channel: "sms" }, contains: { text: "600" }, expected: { hashtags: [] } },
   { id: "holiday-campaign", task: "suggest-campaign", input: { occasion: "Father's Day", service: "Massage", priceSek: 800 }, contains: { title: "Father's Day", description: "Massage" } },
