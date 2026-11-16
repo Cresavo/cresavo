@@ -1,8 +1,13 @@
 export function normalize(text: string) {
-  return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’']/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+  return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’']/g, "").replace(/[^a-z0-9]+/g, " ").trim().replace(/foot treatment/g, "foot care");
 }
 
 function distance(a: string, b: string): number {
+  if (a.length === b.length) {
+    for (let i = 0; i < a.length - 1; i++) {
+      if (a.slice(0, i) + a[i + 1] + a[i] + a.slice(i + 2) === b) return 1;
+    }
+  }
   const row = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) {
     let diagonal = row[0]; row[0] = i;
@@ -24,8 +29,8 @@ export function matchNames<T extends { id: string; name: string }>(text: string,
     let score = 0;
     for (const candidate of [name, ...parts]) {
       for (let i = 0; i < words.length; i++) {
-        const phrase = words.slice(i, i + candidate.split(" ").length).join(" ").replace(/s$/, "");
-        if (phrase === candidate || words.slice(i, i + parts.length).join(" ") === name) score = Math.max(score, candidate === name ? 4 : 3);
+        const phrase = words.slice(i, i + candidate.split(" ").length).join(" ");
+        if (phrase === candidate || phrase === candidate + "s") score = Math.max(score, candidate === name ? 4 : 3);
         else if (candidate.length >= 4 && distance(phrase, candidate) === 1) score = Math.max(score, 1);
       }
     }

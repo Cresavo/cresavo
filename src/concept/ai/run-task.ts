@@ -3,6 +3,8 @@ import { callModel } from "./client";
 import { estimateCost, logCost, type CostEntry } from "./cost-log";
 import { tasks, type TaskName } from "./registry";
 import { routeModel, type AiEnvironment } from "./router";
+import { intentContextSchema, intentOutputSchema } from "./tasks/interpret-command";
+import { hasValidIntentReferences } from "./validate-intent";
 
 export class InvalidTaskInput extends Error {}
 export async function runTask<T extends TaskName>(name: T, rawInput: unknown, options: { env?: AiEnvironment; fetcher?: typeof fetch } = {}): Promise<{ output: z.infer<(typeof tasks)[T]["output"]>; log: CostEntry }> {
@@ -18,7 +20,8 @@ export async function runTask<T extends TaskName>(name: T, rawInput: unknown, op
       inputTokens = response.inputTokens; outputTokens = response.outputTokens;
       costUsd = response.costUsd ?? estimateCost(route.model, inputTokens, outputTokens);
       const valid = task.output.safeParse(response.output);
-      if (valid.success) return { output: valid.data as z.infer<(typeof tasks)[T]["output"]>, log: logCost({ task: name, version: task.version, provider: route.provider, model: route.model, source: "ai", inputTokens, outputTokens, costUsd }) };
+      const validReferences = name !== "interpret-command" || (valid.success && hasValidIntentReferences(intentOutputSchema.parse(valid.data), intentContextSchema.parse((parsed.data as { context: unknown }).context)));
+      if (valid.success && validReferences) return { output: valid.data as z.infer<(typeof tasks)[T]["output"]>, log: logCost({ task: name, version: task.version, provider: route.provider, model: route.model, source: "ai", inputTokens, outputTokens, costUsd }) };
       reason = "invalid-output";
     } catch { reason = "provider-error"; costUsd = null; }
   }
