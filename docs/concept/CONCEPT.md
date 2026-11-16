@@ -108,6 +108,78 @@ Lager: ~15 produkter (fotkräm, nagelband­olja, filar, massageolja …) varav
 2 nära slut. 3 omdömen per vecka. Dagens datum = verkligt dagens datum så
 "Idag" alltid ser levande ut.
 
+## AI-arkitektur: byggd för att bli bättre när modellerna blir bättre
+
+Kärnan är **headless**: alla verksamhetsåtgärder (boka, flytta, ändra pris,
+skapa kampanj, journal, lager, publicera inlägg) är *verktyg* med tydligt
+schema. Samma verktyg används av knapparna i appen, kommandorutan, interna
+agenter och externa AI:er via MCP. UI:t är bara ett av flera sätt att anropa dem.
+
+```
+ Knappar · Kommandoruta · Röst · Claude/ChatGPT (MCP) · Schemalagda agenter
+                              │
+                  Verktyg (typade åtgärder + förslag/godkänn)
+                              │
+       Uppgiftsagenter (en sak var) ── Modellväljare (billig/smart/lokal)
+                              │                     │
+                   Verksamhetsdata            Leverantör: OpenAI / Anthropic /
+                                              OpenRouter / egen nyckel (BYOK)
+```
+
+- **En agent per uppgift.** Små specialister: `tolka-kommando`,
+  `strukturera-journal`, `skriv-inlägg`, `föreslå-kampanj`, `lagerprognos`,
+  `svara-kund`, `dagens-summering`. Varje uppgift har eget promptfil, egen
+  in/ut-struktur (JSON-schema) och en **modellnivå**: `snabb` (billig),
+  `smart` (dyr), `bild`, `tal`. Bättre modell = byt nivå i en tabell.
+- **Modellväljare/router.** Ett ställe som mappar nivå → leverantör + modell.
+  Standard: plattformens nycklar. Kunden kan lägga in egen nyckel (OpenAI,
+  Anthropic eller OpenRouter, som ger hundratals modeller via ett API) och
+  välja nivå per funktion. Allt OpenAI-kompatibelt anrop går genom samma klient.
+- **Kostnad syns.** Varje AI-anrop loggas med uppgift, modell och uppskattad
+  kostnad, så man ser vad features kostar och kan prissätta dem.
+- **Alltid en fallback.** Utan nyckel fungerar regelbaserade varianter.
+  AI förbättrar, men krävs aldrig.
+- **Förslag först.** Agenter ändrar aldrig direkt; de lämnar förslag som
+  människan godkänner (eller som ägaren uttryckligen har slagit på
+  "godkänn automatiskt" för, per typ).
+- **AI i bakgrunden.** Mycket AI ska inte synas: den sorterar Idag-korten,
+  fyller i fält, föreslår text, upptäcker mönster. Ingen chattbubbla i onödan.
+
+## Marknadsföring: en kampanj → alla kanaler
+
+- **Kampanjstudio**: välj behandling/erbjudande (eller ta ett högtidsförslag)
+  → systemet skriver text per kanal (Instagram, Facebook, TikTok, Google,
+  nyhetsbrev, SMS) och gör bild/affisch i salongens stil → granska/ändra →
+  **Publicera överallt** eller schemalägg.
+- Bilder: mallbaserade affischer (egen text på salongens foton) som standard,
+  AI-genererad bild som tillval. Många gillar inte "AI-look", så mallar och
+  egna foton först.
+- **Annonser**: "Kör detta som annons på Facebook/Instagram, 500 kr, 7 dagar"
+  → förslag på målgrupp (närområde) → godkänn.
+- **Resultat tillbaka**: räckvidd, klick och – viktigast – **bokningar som
+  kom via kampanjlänken** syns på kampanjen. Varje kampanj får spårbar länk.
+- I demon är publicering och statistik simulerade men ser verkliga ut.
+
+## Återanvänd i stället för att uppfinna (kandidater)
+
+| Behov | Kandidat | Not |
+|---|---|---|
+| Publicera i sociala kanaler | Postiz (öppen källkod, AGPL-3.0, självhostad, API + MCP) | Samma licens som repot. Annars Ayrshare/PostPeer som betal-API. |
+| Flera AI-leverantörer i ett API | OpenRouter (OpenAI-kompatibelt), Vercel AI SDK | BYOK-stöd. Börja med enkel fetch-klient, byt till SDK vid behov. |
+| Tal till text | Webbläsarens taligenkänning → OpenAI-transkribering | Lokal Whisper senare om kostnad/integritet kräver. |
+| MCP för "äg din data" | Befintlig `src/mcp` + `/api/v1/mcp` i repot | Utöka med läsverktyg för allt. |
+| Affischer | Mall i HTML/SVG → PNG (Playwright finns redan) | AI-bild som tillval. |
+| Bokföring (senare) | Fortnox API | Kassa byggs inte nu. |
+
+Licens och kostnad kontrolleras innan något kopplas på på riktigt.
+
+## Fler branscher
+
+Salong (fotvård/massage) är första provet. Kärnan ska passa fler: frisör,
+naglar, PT, klinik, hantverkare med bokning och e-handel. Branschen är ett
+**paket** av moduler, ord ("behandling"/"tjänst"/"produkt") och agentprompter
+– inte en egen kodbas.
+
 ## Inte i demon (senare)
 
 Riktiga utskick (SMS/e-post), betalning/kassa, riktig bokföring, inloggning,

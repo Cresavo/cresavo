@@ -19,6 +19,9 @@ syns sedan i kalendern/listan).
 
 ## Arbeta i den här ordningen. Commita och pusha efter varje steg.
 
+Läs först `docs/concept/PROGRESS.md`. Om Claude eller någon annan redan har
+gjort ett steg: fortsätt därifrån, bygg om inte det som finns.
+
 1. **Grund**
    - `src/concept/data/` – fixture-data enligt CONCEPT.md "Demodata"
      (salong, personal, ~40 kunder, tjänster, bokningar relativt dagens datum,
@@ -68,6 +71,22 @@ syns sedan i kalendern/listan).
      ber om samma JSON-struktur och faller tillbaka på regeltolken.
      Visa liten etikett "AI" eller "Snabbtolk" på kortet.
 
+3b. **AI-lagret** (se CONCEPT.md "AI-arkitektur") i `src/concept/ai/`:
+   - `tasks/` – en fil per uppgift (`interpret-command`, `structure-journal`,
+     `write-post`, `suggest-campaign`, `stock-forecast`, `reply-customer`,
+     `daily-summary`) med prompt, JSON-schema för svar, modellnivå
+     (`fast`/`smart`/`image`/`speech`) och en regelbaserad fallback.
+   - `router.ts` – nivå → leverantör + modell. Läser `OPENROUTER_API_KEY`,
+     `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` på servern. OpenAI-kompatibel
+     fetch-klient (fungerar mot OpenRouter och OpenAI); Anthropic via egen
+     liten adapter. Inga nya beroenden.
+   - `api/concept/ai/[task]/route.ts` – kör uppgiften, validerar svaret mot
+     schemat, faller tillbaka på regelvarianten, loggar uppgift/modell/
+     uppskattad kostnad (i minnet, visas i Mer → Din data & AI).
+   - Mer → Din data & AI: visa vilka uppgifter som finns, vilken nivå/modell
+     de kör, "Lägg till egen nyckel (OpenRouter/OpenAI/Anthropic)" som
+     demo-formulär (sparas inte på riktigt), och kostnadslogg.
+
 4. **Röstjournal** på ett besök/kundkort: "Prata in journal" →
    transkribering (SpeechRecognition, eller `api/concept/transcribe` med
    OpenAI om nyckel finns) → strukturerad anteckning (behandling,
@@ -79,6 +98,14 @@ syns sedan i kalendern/listan).
    namn + telefon → bekräftelse (lägg i kalender, boka om, avboka).
    Klassiskt 3-stegsflöde som alternativ. Bokningen syns sedan i `/studio`
    (samma `localStorage`-store) och som ny post i Inkorg.
+
+5b. **Kampanjstudio** (Mer → Kampanjer): välj erbjudande eller
+   högtidsförslag → text per kanal (Instagram, Facebook, TikTok, nyhetsbrev,
+   SMS) från `write-post` → affisch från mall (salongsfoto + text + pris,
+   2–3 stilar) → förhandsvisning som det ser ut i varje kanal → "Publicera
+   överallt"/"Schemalägg" (simulerat) → kampanjen får spårbar länk och
+   simulerad statistik (räckvidd, klick, bokningar via länken).
+   Knapp "Kör som annons" med budget/dagar/närområde (simulerat).
 
 6. **Startsida**: lägg till tydliga länkar till `/studio` och
    `/boka/salong-eko` från `/` (liten ändring, rör inget annat där).
