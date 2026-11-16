@@ -24,6 +24,11 @@ GitHub issue with the label `goal` that links to the file.
 | Planning, architecture, review | Opus | Strongest model, reasoning high |
 | Bounded build step, clear spec | Sonnet | Default model, reasoning medium |
 | Small fixes from issues | Sonnet or Haiku | Fastest/cheapest model |
+| Mechanical work (screenshots, renames, copy tweaks) | Haiku | Fastest/cheapest model |
+| Hardest problems (demo → real engine, stuck bugs, final pre-demo review) | Fable, sparingly | Strongest model, highest reasoning |
+
+Claude Code picks the model per subagent itself; the main session's model is
+changed by Niclas with `/model`. Codex currently runs "terra".
 
 Rule of thumb: put the expensive model on what is long and unclear, the cheap
 one on what is short and clear. Model names change often, so pick from the list
