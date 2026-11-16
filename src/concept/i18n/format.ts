@@ -75,3 +75,9 @@ export function dayChipLabel(key: DateKey, today: DateKey): string {
   const diff = diffDays(key, today);
   return diff === 0 || diff === 1 ? relativeDay(key, today) : words.weekdaysShort[weekday(key)];
 }
+
+/** Estimated cost of AI calls in US dollars; null when the provider's price is unknown. */
+export function formatUsd(amount: number | null): string {
+  if (amount === null) return t("ai.costUnknown");
+  return t("usd", { amount: amount.toFixed(amount > 0 && amount < 0.01 ? 4 : 2) });
+}
