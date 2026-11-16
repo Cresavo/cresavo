@@ -1,0 +1,67 @@
+import { describe, expect, it } from "vitest";
+import { addDays } from "@/concept/data/dates";
+import { createDemoState } from "@/concept/data/generate";
+import { upcomingHolidays } from "@/concept/data/holidays";
+import { freeStarts, isFree } from "@/concept/data/slots";
+import { buildCustomerStats, lateCustomers, lowStock, utilisation } from "@/concept/selectors";
+
+const today = "2026-11-16";
+const state = createDemoState(today);
+
+describe("concept demo data", () => {
+  it("is deterministic for a given day", () => {
+    expect(JSON.stringify(createDemoState(today))).toBe(JSON.stringify(state));
+  });
+
+  it("has the salon, two staff and plenty of customers", () => {
+    expect(state.salon.name).toBe("Salong Eko");
+    expect(state.staff.map((s) => s.firstName)).toEqual(["Anna", "Erik"]);
+    expect(state.customers.filter((c) => c.isRegular)).toHaveLength(40);
+    expect(new Set(state.customers.map((c) => c.phone)).size).toBe(state.customers.length);
+  });
+
+  it("never double-books a staff member", () => {
+    const active = state.bookings.filter((b) => b.status !== "cancelled");
+    for (const b of active) {
+      const clash = active.find(
+        (o) => o !== b && o.staffId === b.staffId && o.date === b.date && o.start < b.start + b.duration && b.start < o.start + o.duration,
+      );
+      expect(clash).toBeUndefined();
+    }
+  });
+
+  it("is about 70% booked for the next three weeks and has six months of history", () => {
+    const booked = utilisation(state, today, 21);
+    expect(booked).toBeGreaterThan(0.6);
+    expect(booked).toBeLessThan(0.8);
+    expect(state.bookings.some((b) => b.date <= addDays(today, -175))).toBe(true);
+  });
+
+  it("includes the story items: low stock, late customers, inbox and reviews", () => {
+    expect(lowStock(state).map((s) => s.id)).toEqual(["urea-cream", "massage-oil-neutral"]);
+    expect(lateCustomers(state, buildCustomerStats(state, today), today).length).toBeGreaterThan(3);
+    expect(state.inbox.filter((i) => !i.read).length).toBeGreaterThan(3);
+    expect(state.reviews.length).toBeGreaterThan(70);
+  });
+
+  it("finds free starts that respect lunch and existing bookings", () => {
+    const date = addDays(today, 30);
+    for (const start of freeStarts(state, "anna", date, 60)) {
+      expect(start + 60 <= 12 * 60 || start >= 13 * 60).toBe(true);
+      expect(isFree(state, "anna", date, start, 60)).toBe(true);
+    }
+    expect(freeStarts(state, "anna", "2026-11-22", 30)).toEqual([]);
+  });
+});
+
+describe("holiday calendar", () => {
+  it("computes Swedish holiday dates", () => {
+    const list = upcomingHolidays(today);
+    const date = (name: string) => list.find((h) => h.name === name)?.date;
+    expect(date("Black Friday")).toBe("2026-11-27");
+    expect(date("First Advent")).toBe("2026-11-29");
+    expect(date("Easter")).toBe("2027-03-28");
+    expect(date("Midsummer")).toBe("2027-06-25");
+    expect(date("Mother's Day")).toBe("2027-05-30");
+  });
+});
