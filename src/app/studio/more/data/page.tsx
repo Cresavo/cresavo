@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Download, Sparkles } from "lucide-react";
+import { Check, Copy, Download } from "lucide-react";
 import { t, type MessageKey } from "@/concept/i18n";
 import { bookingsCsv, customersCsv, download } from "@/concept/studio/more/export";
+import { AiSection } from "@/concept/studio/more/ai-section";
 import { MorePage } from "@/concept/studio/more/more-page";
+import { OwnKeyForm } from "@/concept/studio/more/own-key-form";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Badge } from "@/concept/ui/badge";
 import { Button } from "@/concept/ui/button";
@@ -93,13 +95,15 @@ export default function DataPage() {
               ))}
             </Card>
           </Section>
-          <Section title={t("data.ai")}>
-            <Card className="flex gap-3 p-5">
-              <Sparkles size={20} className="mt-0.5 shrink-0 text-eko-accent" />
-              <p className="text-sm text-eko-muted">{t("data.aiComingSoon")}</p>
-            </Card>
-          </Section>
         </div>
+      </div>
+      <div className="mt-8 space-y-8">
+        <Section title={t("data.ai")}>
+          <AiSection />
+        </Section>
+        <Section title={t("ai.ownKeySection")}>
+          <OwnKeyForm />
+        </Section>
       </div>
     </MorePage>
   );
