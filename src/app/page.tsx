@@ -32,6 +32,8 @@ export default async function Home({
       <Link className="salon-brand" href="/">BOOKING LAB<span>{t("Find a salon. Make time.", "Hitta salong. Ta dig tid.")}</span></Link>
       <nav aria-label={t("About and workspace", "Om och arbetsyta")}>
         <Link href="/product">{t("About Booking Lab", "Om Booking Lab")}</Link>
+        <Link href="/boka/salong-eko">{t("Customer page demo", "Kundsida (demo)")}</Link>
+        <Link href="/studio">{t("Owner studio demo", "Ägarstudio (demo)")}</Link>
         {!readOnly && (demoAccessEnabled() ? <DemoEntry /> : <a className="quiet-button" href="/admin">{t("Owner workspace", "Salongens arbetsyta")}</a>)}
       </nav>
     </header>

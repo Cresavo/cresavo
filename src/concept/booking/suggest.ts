@@ -38,13 +38,19 @@ export function inPeriod(start: number, period: Period | undefined): boolean {
 }
 
 /** Every bookable start on one day, merged over the staff who can do the treatment. */
-export function openSlots(state: DemoState, serviceId: string, date: DateKey, clock: Clock, staffId?: StaffId): OpenSlot[] {
+export function openSlots(
+  state: DemoState,
+  serviceId: string,
+  date: DateKey,
+  clock: Clock,
+  opts: { staffId?: StaffId; ignoreId?: string } = {},
+): OpenSlot[] {
   const service = state.services.find((s) => s.id === serviceId);
   if (!service || date < clock.today) return [];
   const after = date === clock.today ? clock.minutes + LEAD_MINUTES : 0;
   const byStart = new Map<number, OpenSlot>();
-  for (const id of service.staffIds.filter((s) => !staffId || s === staffId)) {
-    for (const start of freeStarts(state, id, date, service.duration, { after, step: STEP })) {
+  for (const id of service.staffIds.filter((s) => !opts.staffId || s === opts.staffId)) {
+    for (const start of freeStarts(state, id, date, service.duration, { after, step: STEP, ignoreId: opts.ignoreId })) {
       if (!byStart.has(start)) byStart.set(start, { staffId: id, date, start });
     }
   }
@@ -61,7 +67,7 @@ export function suggestSlots(state: DemoState, query: SlotQuery, clock: Clock, c
   const first = query.from < clock.today ? clock.today : query.from;
   for (let i = 0; i < MAX_DAYS && addDays(first, i) <= query.to && picks.length < count; i++) {
     const date = addDays(first, i);
-    const matching = openSlots(state, query.serviceId, date, clock, query.staffId).filter((s) => inPeriod(s.start, query.period));
+    const matching = openSlots(state, query.serviceId, date, clock, { staffId: query.staffId }).filter((s) => inPeriod(s.start, query.period));
     if (query.time !== undefined) matching.sort((a, b) => Math.abs(a.start - query.time!) - Math.abs(b.start - query.time!));
     const [best, ...rest] = matching;
     if (!best) continue;

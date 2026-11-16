@@ -1,0 +1,97 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { BellRing } from "lucide-react";
+import { addDays, formatTime, fromKey } from "../data/dates";
+import { openingFor } from "../data/slots";
+import type { DateKey, DemoState } from "../data/types";
+import { t } from "../i18n";
+import { dayChipLabel, formatDayLong } from "../i18n/format";
+import { Button } from "../ui/button";
+import { cx } from "../ui/cx";
+import { openSlots, type Clock, type OpenSlot } from "./suggest";
+
+const DAYS_SHOWN = 14;
+
+interface TimePickerProps {
+  state: DemoState;
+  serviceId: string;
+  clock: Clock;
+  onPick: (slot: OpenSlot) => void;
+  /** Called when the chosen day has no free time. */
+  onWaitlist: (date: DateKey) => void;
+  /** A booking being moved: its own time counts as free. */
+  ignoreId?: string;
+  /** Highlights the time the customer already tapped. */
+  selected?: OpenSlot;
+}
+
+/** Two rows: pick a day, then a time. Full days say so and offer the waiting list. */
+export function TimePicker({ state, serviceId, clock, onPick, onWaitlist, ignoreId, selected: picked }: TimePickerProps) {
+  const days = useMemo(() => {
+    const list: { date: DateKey; slots: OpenSlot[] }[] = [];
+    for (let i = 0; list.length < DAYS_SHOWN && i < DAYS_SHOWN * 2; i++) {
+      const date = addDays(clock.today, i);
+      if (openingFor(state.salon, date)) list.push({ date, slots: openSlots(state, serviceId, date, clock, { ignoreId }) });
+    }
+    return list;
+  }, [state, serviceId, clock, ignoreId]);
+  const [chosen, setChosen] = useState<DateKey>();
+  const selected = days.find((d) => d.date === chosen) ?? days.find((d) => d.slots.length) ?? days[0];
+
+  return (
+    <div className="space-y-4">
+      <div role="radiogroup" aria-label={t("booking.pickDay")} className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+        {days.map(({ date, slots }) => {
+          const active = date === selected.date;
+          return (
+            <button
+              key={date}
+              role="radio"
+              aria-checked={active}
+              onClick={() => setChosen(date)}
+              className={cx(
+                "flex min-h-16 w-[4.25rem] shrink-0 flex-col items-center justify-center rounded-2xl px-1 py-2 ring-1 ring-inset transition-colors",
+                active ? "bg-eko-accent text-eko-on-accent ring-eko-accent" : "bg-eko-surface ring-eko-line hover:bg-eko-sunken",
+                !slots.length && !active && "text-eko-muted",
+              )}
+            >
+              <span className="text-xs font-medium opacity-80">{dayChipLabel(date, clock.today)}</span>
+              <span className="text-lg font-semibold leading-tight">{fromKey(date).getDate()}</span>
+              <span className="text-[11px] opacity-80">{slots.length ? t("booking.times", { count: slots.length }) : t("booking.full")}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="text-sm font-medium">{formatDayLong(selected.date)}</p>
+
+      {selected.slots.length ? (
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+          {selected.slots.map((slot) => (
+            <button
+              key={slot.start}
+              onClick={() => onPick(slot)}
+              aria-pressed={picked?.date === slot.date && picked.start === slot.start}
+              className={cx(
+                "flex min-h-12 items-center justify-center rounded-xl text-[15px] font-medium ring-1 ring-inset transition-colors",
+                picked?.date === slot.date && picked.start === slot.start
+                  ? "bg-eko-accent text-eko-on-accent ring-eko-accent"
+                  : "bg-eko-surface ring-eko-line hover:bg-eko-accent-soft hover:text-eko-accent hover:ring-eko-accent",
+              )}
+            >
+              {formatTime(slot.start)}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3 rounded-2xl bg-eko-sunken p-4">
+          <p className="text-[15px]">{t("booking.dayFull", { day: formatDayLong(selected.date) })}</p>
+          <Button variant="secondary" icon={<BellRing size={16} />} onClick={() => onWaitlist(selected.date)}>
+            {t("booking.notifyMe")}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
