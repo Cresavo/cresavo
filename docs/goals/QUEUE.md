@@ -226,6 +226,12 @@ and an independent review (Fable or external) has signed off in REVIEW.md.
 **Goal:** booking-lab-se (and later the gateway) can be made public without
 embarrassment or risk, and gets the free security tooling public repos have.
 
+Recommended structure: **one public monorepo** (`apps/web`, `packages/gateway`
+from booking-lab-gateway, `packages/ai`, `docs/`) instead of separate public
+repos: one CI, one CLA, one changelog and release, no cross-repo version pin.
+Paid/private services (e.g. a "Connect" service for SMS, payments, social
+publishing) stay in separate private repos.
+
 Recommended path: publish a **new public repo with fresh, short history**
 (squashed from the cleaned tree) and keep the current repo private as the
 archive. Niclas decides the name and flips visibility; agents never do.
