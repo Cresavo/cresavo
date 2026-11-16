@@ -34,6 +34,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 10 | Open protocols for the concept | Opus | open |
 | 11 | From demo to real engine | Opus | open |
 | 12 | Pilot readiness: quality and security | Opus (Fable for review) | open |
+| 13 | Open-source launch: clean public repos | Opus | open (can run any time after goal 1) |
 
 ---
 
@@ -219,6 +220,39 @@ done or has an explicit, documented decision. Run after goal 11.
 
 **Done when:** every pilot-gate checkbox is ticked or linked to an issue,
 and an independent review (Fable or external) has signed off in REVIEW.md.
+
+## 13 · Open-source launch: clean public repos
+
+**Goal:** booking-lab-se (and later the gateway) can be made public without
+embarrassment or risk, and gets the free security tooling public repos have.
+
+Recommended path: publish a **new public repo with fresh, short history**
+(squashed from the cleaned tree) and keep the current repo private as the
+archive. Niclas decides the name and flips visibility; agents never do.
+
+- Secrets: scan the full history of the tree being published with a proper
+  scanner (gitleaks or trufflehog) in CI. A first pattern scan on
+  2026-11-16 of both repos' full history found no keys (only false positives).
+- Content: remove or move out internal docs (`docs/history/`, old epic/QA
+  reports, Swedish internal notes, personal names beyond the copyright
+  line). Keep a short English `docs/` that matches the code.
+- Front door (all English): README with what/why/screenshots/quick start,
+  LICENSE (AGPL-3.0, plus an extension exception like Accounted if we want
+  proprietary add-ons), CONTRIBUTING, CODE_OF_CONDUCT (Contributor Covenant),
+  SECURITY.md (private vulnerability reporting), issue and PR templates.
+- Contributor agreement: a standard **CLA** (individual + entity, based on
+  the Apache/Harmony templates) enforced by the CLA Assistant GitHub app on
+  every PR. Text reviewed by a lawyer before launch.
+- Security tooling to switch on (free for public repos): secret scanning
+  with push protection, CodeQL code scanning, Dependabot alerts and updates,
+  private vulnerability reporting, branch protection on `main` (PR + green
+  CI required), OpenSSF Scorecard.
+- Data: confirm no real customer data anywhere (fixtures are synthetic,
+  avatars generated), and that demo/seed data is clearly fictional.
+
+**Done when:** a checklist in `docs/OPEN_SOURCE_LAUNCH.md` is fully ticked,
+the cleaned tree builds and tests green from a fresh clone, and Niclas has
+approved making it public.
 
 ---
 
