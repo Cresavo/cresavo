@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {DateTime} from 'luxon';
 import {Client} from '@modelcontextprotocol/client';
 import {StdioClientTransport} from '@modelcontextprotocol/client/stdio';
-const work=JSON.parse(readFileSync('docs/calendar-proof/work.json'));
-const personal=JSON.parse(readFileSync('docs/calendar-proof/private.json'));
+const work=JSON.parse(readFileSync('docs/archive/calendar-proof/work.json'));
+const personal=JSON.parse(readFileSync('docs/archive/calendar-proof/private.json'));
 const client=new Client({name:'calendar-case-check',version:'1'});
 const transcript=[];
 await client.connect(new StdioClientTransport({command:process.execPath,args:['--import','tsx','.vercel/calendar-mcp.ts']}));
@@ -22,6 +22,6 @@ try {
  assert.equal(DateTime.fromISO('2026-03-29T01:30:00Z').setZone('Europe/Stockholm').toFormat('HH:mm ZZ'),'03:30 +02:00');
  assert.equal(DateTime.fromISO('2026-10-25T01:30:00Z').setZone('Europe/Stockholm').toFormat('HH:mm ZZ'),'02:30 +01:00');
  const result={kind:'Deterministic SDK test, NOT direct Codex MCP agent test',productRevision:'7c1407d',cases:{one,two,none:[],dst:'PASS',readOnlyCatalog:'PASS'},transcript};
- writeFileSync('docs/calendar-proof/sdk-results.json',JSON.stringify(result,null,2)+'\n');
+ writeFileSync('docs/archive/calendar-proof/sdk-results.json',JSON.stringify(result,null,2)+'\n');
  console.log('PASS: read-only catalog, one match, two matches, no match, spring DST, autumn DST');
 }finally{await client.close();}

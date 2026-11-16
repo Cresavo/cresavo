@@ -28,7 +28,7 @@ AgentMandate är ett återkallningsbart syntetiskt engångstillstånd. Nya FK:er
 hindrar länk till fel verksamhet/klient/mandat. Befintliga nycklar backfillas
 med sin gamla nyckel-id som klient-id för att bevara hashnamespace/kvoter.
 Ingen generell provideradapter, OAuth-plattform eller extra tjänst införs.
-Detaljer och begränsningar: [runbook](AGENTPROV_1_RUNBOOK.md).
+Detaljer och begränsningar: [runbook](archive/AGENTPROV_1_RUNBOOK.md).
 
 ### Jämförelse med tidigare ChatGPT-diagram
 
@@ -436,7 +436,7 @@ POST /api/admin/login kräver strikt {email,password}; password-only och ADMIN_P
 
 Inloggningsspärren reserverar synkront före asynkron KDF. Högst fyra pågående KDF-operationer per process; full kapacitet ger statisk429/Retry-After1 utan att förbruka klientens lösenordsförsök (specifik PasswordCapacityError, originalreservation återlämnas). Andra fel får ingen återbetalning. Login låser kontoraden och jämför credentialVersion innan sessionsskapande. Spärr/reset låser konto före sessioner och återkallar samtliga berörda sessioner i samma transaktion. Detta hindrar en äldre verifiering från att återinföra åtkomst. Annat kontos sessioner påverkas inte. Lokal CLI läser lösenord utan terminaleko; inga publika kontoendpoints.
 
-[Beslut, bibliotek och begränsningar](ADR_004_ADMIN_IDENTITY.md) · [operatörsguide](ADMIN_OPERATIONS.md). Ingen MFA eller verifierad multi-tenancy byggs här.
+[Beslut, bibliotek och begränsningar](decisions/ADR_004_ADMIN_IDENTITY.md) · [operatörsguide](ADMIN_OPERATIONS.md). Ingen MFA eller verifierad multi-tenancy byggs här.
 
 
 ## Epic 03: databasanslutning
@@ -492,7 +492,7 @@ Följande ersätter äldre beskrivningar av global bucket och browserlogout neda
 - Kampanjer har olika meddelanden för omvända datum och mer än 90 dagar. 100 % rabatt tillåts uttryckligen som information i POC:n; ingen debitering sker.
 - MCP-klienter skickar en liten explicit miljölista med DATABASE_URL, utan adminlösenord/sessionshemlighet. Endast lokal stdio, inga nya fjärrbehörigheter.
 
-Aktuella verifieringar finns överst i [VERIFICATION](VERIFICATION.md). POC:n är inte kundklar: audit, konton, datalivscykel, TLS/proxy, backup och tenant-isolering återstår. CSP unsafe-inline och obegränsad kampanjlista är oförändrade.
+Aktuella verifieringar finns överst i [VERIFICATION](archive/VERIFICATION.md). POC:n är inte kundklar: audit, konton, datalivscykel, TLS/proxy, backup och tenant-isolering återstår. CSP unsafe-inline och obegränsad kampanjlista är oförändrade.
 
 ## Bakgrund före QA batch 2
 

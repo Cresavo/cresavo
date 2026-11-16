@@ -5,7 +5,7 @@
 ## Vad byggdes och vad kan jag prova?
 
 - **Epic 02:** lokal syntetisk MCP-bokning via samma motor som webben, minimerade svar och en ja/nej/EOF-testklient. Avslutningscommit **dba05a2**, produktkod **3cd633b**, QA **cad997b**. Grok godkände själv hela matrisen utan blockerare. [Slutrapport](qa/QA-REPORT-epic02-cad997b.md).
-- **Epic 03:** kontrollerad Prisma **7.10.1**-uppgradering med PostgreSQL-adapter, begränsad pool, uttrycklig UTC-session och CLI-env. Inga nya produktfunktioner eller migrationer. Produktkod **18a4d73**, separat branch **epic-03-dependency-security**. De tre höga audit-fynden är borta; sju måttliga lintfynd kvarstår utan stödd upstream-fix. [Beslut/licenser](DEPENDENCY_REVIEW.md).
+- **Epic 03:** kontrollerad Prisma **7.10.1**-uppgradering med PostgreSQL-adapter, begränsad pool, uttrycklig UTC-session och CLI-env. Inga nya produktfunktioner eller migrationer. Produktkod **18a4d73**, separat branch **epic-03-dependency-security**. De tre höga audit-fynden är borta; sju måttliga lintfynd kvarstår utan stödd upstream-fix. [Beslut/licenser](../DEPENDENCY_REVIEW.md).
 - **Prova:** [Windows-genväg](LOCAL_DEMO_WINDOWS.md) eller portabel start enligt README. Kundbokning → `/admin`; `npm run mcp:client -- --admin --book` och uttryckligt `ja` → syntetisk bokning. Enbart `--admin` → kampanjutkast som publiceras manuellt. Bara påhittade namn/example.test. Separat demodatabas för dessa försök.
 
 ## Faktiska resultat

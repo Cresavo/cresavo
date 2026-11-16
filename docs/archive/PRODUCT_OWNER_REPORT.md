@@ -18,7 +18,7 @@ inga Medium/High. Ett Low om negativa repotester är backlogg; statusfyndet
 hanteras i denna dokumentationsleverans efter QA.
 Audit separat:7moderate dev,0produktion. [Underlag](VERIFICATION.md).
 
-Pilot är fortfarande NO-GO. [Aktuella pilotgrindar](PRIVACY_SECURITY.md) skiljer
+Pilot är fortfarande NO-GO. [Aktuella pilotgrindar](../PRIVACY_SECURITY.md) skiljer
 befintliga funktioner från MFA/recovery, datalivscykelbeslut och verifierad
 kunddrift. Nästa avgränsning är verkligt klientklick, därefter val av
 MFA/återställningsflöde och konkret datalivscykel för första salongen.

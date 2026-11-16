@@ -1,6 +1,6 @@
 # Epic 04 — individuell adminåtkomst
 
-Status: **godkänd lokal POC efter full-QA på3419973 och riktad återkontroll på471f91f**. Bas 10175ed, 2026-11-12. Tekniskt val och avgränsningar i [ADR 004](ADR_004_ADMIN_IDENTITY.md). Befintliga Epic 02/03 och deras historiska verifieringsresultat bevaras.
+Status: **godkänd lokal POC efter full-QA på3419973 och riktad återkontroll på471f91f**. Bas 10175ed, 2026-11-12. Tekniskt val och avgränsningar i [ADR 004](../decisions/ADR_004_ADMIN_IDENTITY.md). Befintliga Epic 02/03 och deras historiska verifieringsresultat bevaras.
 
 ## Resultat för produktägaren
 
