@@ -12,7 +12,7 @@ I split-läge ska `BOOKING_PUBLIC_ORIGIN` anges till gatewayens adress för disc
 
 Provider-API: tjänster, tillgänglighet, bokning med idempotensnyckel, status, avbokning
 och befintliga labförslag under `/api/v1`. `GET /api/v1/access` autentiserar aktuell
-agent och returnerar endast protokollversion och scopes. Åtkomst till en operation eller ett
+agent och returnerar endast protokollversion, körläge och scopes. Åtkomst till en operation eller ett
 bokningsobjekt kontrolleras åter i salongen. Den behåller atomär mandatanvändning och
 konfliktskydd även när anslutningen till gatewayen bryts.
 
@@ -61,7 +61,15 @@ mellan anrop. Saknad eller felaktig bekräftelse ger 503
 `provider_configuration_invalid` före den begärda operationen. 401/403 från
 autentiseringen behåller sina statuskoder. Uppgradera båda servrarna tillsammans.
 
-Detta upptäcker att fel körläge används vid gatewayens kontroll. En salong som
+Salongen nekar också gatewaymärkta operationer i samlat körläge, med statiskt 503
+`provider_configuration_invalid`. Det stänger fönstret där servern startar om i
+fel läge mellan en lyckad accesskontroll och operationen. MCP-delstegen inom
+ett inkommande anrop återanvänder samma accessbesked, aldrig mellan anrop.
+En vanlig operation kostar därmed två poster i salongens befintliga anropsbudget.
+Gatewayen ersätter alla provider-5xx med statiskt 503 `provider_unavailable`.
+Avstängd consent-lab ger kontrollerat 403 även utan konfigurerad publik origin.
+
+En salong som
 startas avsiktligt i det äldre samlade läget behåller sin tidigare direkta API-
 åtkomst. Discovery är fortsatt åtkomlig. Körningen är ännu en lokal syntetisk POC.
 
@@ -73,3 +81,55 @@ den extra salongen och AGENTPROV_BASE_URL till dess gateway. Kör
 Det verifierar giltig agentnyckel, standalone-besked, nio nekade gatewayoperationer
 och oförändrat bokningsantal. Provet städar sin egen klient/nyckel. Den
 append-only revisionshistoriken följer befintliga lagringsregler.
+
+## Reproducerbart prov av ett fryst revisionspar
+
+`scripts/integration/pair.json` låser gatewayens revision. Salongens revision och
+smutsig arbetskopia redovisas vid körning. CI kräver rena arbetskopior.
+Checka ut de två repona separat. Inga .env-filer får finnas i provkopiorna.
+Provet läser inte sådana filer och laddar inga operatörshemligheter från dem.
+
+1. Installera Node 24 och lokalt PostgreSQL. Skapa en ny isolerad databas på
+   loopback, med namn som slutar på `_test`. Tillför DATABASE_URL i provprocessens
+   miljö. Kör inte mot en befintlig demo eller kunddatabas.
+2. Kör `npm ci` i båda repona och `npx playwright install chromium` i salongen.
+3. I salongen: `npx prisma generate`, `npm run db:migrate`, `npm run db:seed`
+   och `npm run build`. Tillför ett tillfälligt SESSION_SECRET för dessa steg.
+4. Ange GATEWAY_PATH till den separata gatewayutcheckningen på den låsta revisionen.
+   Kör `npm run test:pair`. Starta inga servrar manuellt för detta prov.
+
+Runnern startar salongens vanliga wrapper och gatewayen med slumpade processhemligheter.
+Gatewayens miljö innehåller varken databasadress eller sessionshemlighet. Separata
+REST- och riktiga HTTP-MCP-SDK-klienter skapar bokningar. En inloggad Chromium-session
+öppnar samma boknings-id i salongens kalender. En lokal testproxy utanför produkterna
+tappar ett redan sparat svar, injicerar providerfel och startar om salongen mellan
+accesskontroll och skrivning. Dessutom provas 20 samtidiga försök, främmande klient,
+återkallad nyckel, driftavbrott och återhämtning. SQL-kontroll kräver noll överlapp.
+Egna testfixtures och egna processer städas även vid fel. Append-only historik följer
+befintliga lagringsregler. Ta bort hela den isolerade testdatabasen efter provet.
+
+`test-results/integration-pair.json` innehåller endast revisionspar, dirty-markering,
+tidpunkt och statiska testkoder. Inga nycklar, kunduppgifter eller råa anropsloggar.
+Provets klienter är testscripts och MCP SDK, inte certifierade personliga assistenter.
+
+### Privat CI utan nya åtkomstnycklar
+
+Befintlig GitHub-token kan inte hämta det andra privata repot och inga repo-secrets
+finns för detta. Ordinarie push-CI behålls. Det gemensamma provet startas uttryckligen
+efter privat push, via operatörens befintliga gh-inloggning:
+
+```powershell
+node scripts/integration/dispatch.mjs ../booking-lab-gateway night/gateway-salon-integration
+```
+
+Skriptet kräver ren gateway på exakt låst SHA och skickar en Git-bundle av den
+committade källan till det privata salongsworkflowets manuella körning.
+Inga tokens eller miljöfiler ingår. CI kontrollerar SHA-256, låst commit och bundle,
+checkar ut gatewayen separat och kör `test:pair` mot ny lokal Docker-PostgreSQL.
+Samma körning behåller den fulla befintliga fyrfältsmatrisen. Endast det sanerade
+resultatmanifestet laddas upp som artefakt i sju dagar.
+
+Detta är en manuell revisionsparskörning. Automatisk hämtning från det andra privata
+repot vid varje push kräver ett separat beslut om snävt avgränsad läsbehörighet.
+Bundlegränsen är 60 000 base64-tecken; när repot växer behövs den lösningen.
+Ingen schemalagd körning, deploy eller utökad behörighet införs här.

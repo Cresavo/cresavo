@@ -19,6 +19,7 @@ export const agentApiErrors = {
   mandate_denied: { status: 403, message: "The booking is outside the authorised mandate." },
   synthetic_contact_required: { status: 400, message: "The sandbox only accepts synthetic customer emails ending in @example.test." },
   rate_limited: { status: 429, message: "Too many requests. Retry later." },
+  provider_configuration_invalid: { status: 503, message: "The salon is not configured for gateway operations." },
   internal_error: { status: 500, message: "An internal error occurred." },
 } as const;
 export type AgentApiErrorCode = keyof typeof agentApiErrors;

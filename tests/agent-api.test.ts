@@ -81,6 +81,7 @@ vi.mock("../src/lib/db", () => {
 
 const { db } = await import("../src/lib/db");
 const { createAgentApiKey, hashApiKey, revokeAgentApiKey, listAgentApiKeys } = await import("../src/lib/agent-api/keys");
+const { agentRoute } = await import("../src/lib/agent-api/v1");
 const services = await import("../src/app/api/v1/services/route");
 const access = await import("../src/app/api/v1/access/route");
 const availability = await import("../src/app/api/v1/availability/route");
@@ -276,6 +277,36 @@ describe("GET /api/v1/availability", () => {
 });
 
 describe("provider split confirmation", () => {
+  it("refuses an operation after a successful access check when the salon restarts in standalone mode", async () => {
+    const { key } = await newKey();
+    const token = "ab".repeat(32);
+    const headers = { ...bearer(key), "x-booking-gateway-token": token };
+    vi.stubEnv("BOOKING_SERVICE_ROLE", "salon");
+    vi.stubEnv("GATEWAY_SERVICE_TOKEN", token);
+    expect((await get(access, "/api/v1/access", headers)).status).toBe(200);
+    vi.stubEnv("BOOKING_SERVICE_ROLE", undefined);
+    vi.stubEnv("GATEWAY_SERVICE_TOKEN", undefined);
+    const save = vi.fn();
+    const response = await agentRoute(new Request("http://localhost/api/v1/bookings", {
+      method: "POST", headers,
+    }), "POST /api/v1/bookings", "bookings:write", save);
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.code).toBe("provider_configuration_invalid");
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("returns a controlled denial for a disabled proposal lab even without a production origin", async () => {
+    const { key } = await newKey();
+    vi.stubEnv("BOOKING_CONSENT_LAB", "0");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("BOOKING_PUBLIC_ORIGIN", undefined);
+    const { POST } = await import("../src/app/api/v1/proposals/route");
+    const response = await POST(new Request("http://localhost/api/v1/proposals", {
+      method: "POST", headers: bearer(key), body: "{}",
+    }));
+    expect(response.status).toBe(403);
+    expect((await response.json()).error.code).toBe("mandate_denied");
+  });
   it("reports standalone instead of claiming service authentication when split mode is absent", async () => {
     const { key } = await newKey();
     vi.stubEnv("BOOKING_SERVICE_ROLE", undefined);

@@ -112,6 +112,11 @@ async function agentRouteInternal(
   scope: AgentScope | readonly AgentScope[],
   handler: AgentHandler,
 ) {
+  // A restart into standalone mode must also refuse an operation whose access
+  // check succeeded on the previous split process. Check before any handler.
+  if (route !== "GET /api/v1/access" && request.headers.has("x-booking-gateway-token") &&
+      process.env.BOOKING_SERVICE_ROLE !== "salon")
+    return agentErrorResponse("provider_configuration_invalid");
   if (process.env.BOOKING_SERVICE_ROLE === "salon") {
     const token = process.env.GATEWAY_SERVICE_TOKEN;
     const presented = request.headers.get("x-booking-gateway-token");

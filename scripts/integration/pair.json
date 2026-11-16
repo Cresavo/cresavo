@@ -1,0 +1,5 @@
+{
+  "gatewayRepository": "niclasvestlund-YT/booking-lab-gateway",
+  "gatewayRevision": "f9b8506cee3e3cd21bd279e01addf761cd3db1ed",
+  "contract": "booking-lab-provider-v1"
+}
