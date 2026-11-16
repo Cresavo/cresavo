@@ -64,7 +64,7 @@ fjärrautentisering. Fjärranslutning från Claude/ChatGPT är nästa stora steg
 | `src/lib/domain.ts` | Bokningsreglerna, gemensamma för webb, API och MCP |
 | `src/lib/` | Övrig serverlogik: schema, tid, kunder, kvoter, inloggning |
 | `src/mcp/` | Lokal ägar-MCP och experimentella MCP-kort |
-| `src/lib/agent-api/`, `src/a2a/` | Äldre agentkod från tiden före gatewayen, se ROADMAP fas 0 |
+| `src/lib/agent-api/` | Agentregler: nycklar, mandat, förslag, logg och OAuth |
 | `prisma/` | Datamodell och migrationer |
 | `tests/` | Enhets-, integrations- och E2E-tester |
 | `scripts/` | Server-wrapper, seed, testvakter och verktyg |
