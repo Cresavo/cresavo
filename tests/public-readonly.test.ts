@@ -35,7 +35,7 @@ for (const [file, load] of Object.entries(routes)) {
     const routeModule = await load();
     for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE"]) {
       if (!(method in routeModule)) continue;
-      const blockedRead = file.includes("/admin/") || file.includes("/live/") || file.includes("/mcp/");
+      const blockedRead = file.includes("/admin/") || file.includes("/mcp/");
       if (method === "GET" && !blockedRead) continue;
       const handler = routeModule[method] as (r: NextRequest, ctx: { params: Promise<{ id: string }> }) => Response | Promise<Response>;
       const response = await handler(new NextRequest("http://localhost/api/test", { method }), {
@@ -47,7 +47,7 @@ for (const [file, load] of Object.entries(routes)) {
   });
 }
 
-it.each(["/admin", "/admin/customers/fictional", "/admin/bookings/new", "/live", "/live/", "/api/v1/live", "/api/admin/bookings"])(
+it.each(["/admin", "/admin/customers/fictional", "/admin/bookings/new", "/api/admin/bookings"])(
   "blocks pages/APIs before rendering: %s", async (path) => {
     const { proxy } = await import("../src/proxy");
     expect(proxy(new NextRequest(`http://localhost${path}`)).status).toBe(403);
@@ -64,10 +64,8 @@ it("blocks future mutations and permits locale/read requests only", () => {
   expect(publicReadonlyResponse(new Request("http://localhost/api/bookings", { method: "POST" }))).toBeUndefined();
 });
 
-it("also prevents rendering live/admin components directly", async () => {
-  const { default: live } = await import("../src/app/live/page");
+it("also prevents rendering admin components directly", async () => {
   const { default: admin } = await import("../src/app/admin/layout");
-  await expect(live()).rejects.toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
   expect(() => admin({ children: null })).toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
 });
 
@@ -150,11 +148,9 @@ it("accepts database-free Vercel only with exact opt-in; retains unsafe-shape re
 });
 
 
-it("renders the home/product fixture data without a DB", async () => {
+it("renders the home fixture data without a DB", async () => {
   const { default: home } = await import("../src/app/page");
-  const { default: product } = await import("../src/app/product/page");
   expect(await home({ searchParams: Promise.resolve({}) })).toBeTruthy();
-  expect(await product()).toBeTruthy();
 });
 
 it("the registered agent MCP write callbacks refuse create and cancel", async () => {

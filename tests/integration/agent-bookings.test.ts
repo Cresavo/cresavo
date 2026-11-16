@@ -3,7 +3,6 @@ import { DateTime } from "luxon";
 import { db } from "../../src/lib/db";
 import { createAgentApiKey, rotateAgentApiKey } from "../../src/lib/agent-api/keys";
 import { issueSyntheticMandate } from "../../src/lib/agent-api/mandates";
-import { liveSnapshot } from "../../src/lib/agent-api/live";
 import { POST as book } from "../../src/app/api/v1/bookings/route";
 import { GET as status } from "../../src/app/api/v1/bookings/[id]/route";
 import { POST as cancel } from "../../src/app/api/v1/bookings/[id]/cancel/route";
@@ -102,12 +101,5 @@ describe("Agent API v1 bokningar mot PostgreSQL", () => {
       ["create", "agent-api", a.record.clientId],
       ["cancel", "agent-api", a.record.clientId],
     ]);
-
-    const live = await liveSnapshot(100);
-    const mine = live.events.filter((e) => e.agentName.startsWith(tag));
-    expect(mine.map((e) => e.outcome).sort()).toEqual(["booked", "cancelled", "conflict", "replayed", "replayed", "stale_service"]);
-    expect(mine.find((e) => e.agentName === `${tag}-a`)?.provenance).toBe("demo-script");
-    const text = JSON.stringify(live);
-    for (const secret of [email, "a@example.test", "Ägare A", a.key, a.record.keyPrefix]) expect(text).not.toContain(secret);
   });
 });

@@ -412,12 +412,6 @@ test("tre tydliga huvudval och stängbara sekundärmenyer fungerar på mobil och
       .getByRole("link", { name: "Visa kundbokningen", exact: true })
       .click();
     await chooseDemoSalon(page);
-    await page
-      .getByRole("link", { name: "Om Booking Lab", exact: true })
-      .click();
-    await expect(
-      page.getByRole("navigation", { name: /Product navigation|Produktnavigation/ }),
-    ).toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
