@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { createElement, type ReactElement } from "react";
 import type { DemoBooking } from "../src/lib/two-track-demo";
 import { advanceDemo, bookingExample } from "../src/lib/two-track-demo";
@@ -37,7 +37,8 @@ function click(node: ReactElement<Record<string, unknown>> | undefined) {
   (node!.props.onClick as () => void)();
 }
 const booking: DemoBooking = { salon: "Salong Eko", serviceId: "fotvard", treatment: "Fotvård", duration: 60, priceOre: 65000, staffId: "staff-demo", person: "Anna", day: "2026-11-16", start: "2026-11-16T09:00:00Z" };
-afterEach(() => { harness.values = []; harness.cursor = 0; harness.locale = "sv"; });
+beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-15T12:00:00Z")); });
+afterEach(() => { harness.values = []; harness.cursor = 0; harness.locale = "sv"; vi.useRealTimers(); });
 
 describe("two public booking paths", () => {
   it.each(["sv", "en"] as const)("offers both equal hero actions in %s", (locale) => {
