@@ -16,6 +16,18 @@ agent och returnerar endast protokollversion, körläge och scopes. Åtkomst til
 bokningsobjekt kontrolleras åter i salongen. Den behåller atomär mandatanvändning och
 konfliktskydd även när anslutningen till gatewayen bryts.
 
+## Separat labbkanals begränsningar
+
+Den fasta syntetiska kontakten delar ordinarie gräns 3 bokningar per dag och
+verksamhet mellan alla klienter. Sprid prov över flera dagar/ny testDB; höj inte
+eller kringgå kvoten för att få gröna resultat. Kundkvittot är en hemlighet och
+klienten får inte ha serverns filåtkomst, även via samma uid. Operatören raderar
+kvittot; servern saknar automatisk gallring. Misslyckad leverans kan lämna en
+pending-rad tills TTL löpt ut, utan att agenten får någon token eller mandat.
+Grok verifierade lokalt syntetiskt bruk på 721d445/f9b8506, inte riktig identitet.
+Efterföljande gatewaydocs1617de1 exponerar befintliga förslag i sin egen OpenAPI;
+provider- och gatewaydocs är separata filer. Produktkoden är oförändrad.
+
 ## Kör acceptansprovet lokalt
 
 Förbered en ny PostgreSQL-databas på loopback med namn som slutar på `_test`.

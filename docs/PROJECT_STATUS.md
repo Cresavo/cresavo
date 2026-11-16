@@ -1,4 +1,38 @@
-# Aktuellt · kundgodkännandets identitetsgräns · 2026-11-16
+# Aktuellt · separat syntetisk kundkanal · 2026-11-16
+
+Produkt/provkod `721d445`, gren `feat/separate-customer-consent-lab`, gateway
+`f9b8506` oförändrad. Ny opt-in-profil, inga verkliga mottagare eller utskick.
+
+- Agentens REST/MCP-svar innehåller bara förslag/status och leveransmetadata,
+  ingen godkännandehemlighet, kundkontakt eller inkorgsadress.
+- Separat testoperatör tar kundkvittot från privat lokal inkorg. Agent utan
+  hemligheten kan inte godkänna. Efter testkundens godkännande bokar riktig
+  Codex CLI, återförsöker och läser status; samma id öppnades i kalendern.
+- Serverbestämd v1-dummy-kund kan inte bytas genom JSON eller senare ändrad
+  leveranskonfiguration. Både native- och mockleverantörsvägen kontrolleras.
+- Lokalt: 423 unit/211 integration PASS, lint/tsc/build PASS. Ren slutkörning
+  på 721d445/f9b8506 gav 25 pair-PASS inklusive verklig Codex och privat leverans.
+- CI 43845636237 på exakt 721d445 är SUCCESS: 423 unit, 211 integration,
+  64 webb-E2E och 13 MCP-kort i dev/proxy0 samt npm ci/lint/build/tsc.
+  Grok ger scoped lokalt GO på samma 721d445/f9b8506: egna 423/211,
+  19 pair och egen Chromium/REST/MCP. Extraprobe 31/33; två fall stoppades av
+  den fasta kontaktens dagskvot och är öppet redovisade, inga blockerare.
+
+En ny migration sparar leveransprofilen; inga historiska migrationer,
+överlappsskydd eller beroenden ändras. Vanlig kund-/adminbokning består.
+Legacy-labbet har fortfarande sin dokumenterade identitetsbegränsning.
+Ny profil verifierar separerad syntetisk leverans, inte en verklig person.
+Pilot NO-GO. Ingen deploy/mainmerge. [Provväg](GATEWAY_SPLIT.md) ·
+[Exakta resultat, mellanresultat och NOT RUN](VERIFICATION.md).
+
+Efter QA synkas bara dokumentation: gatewaydocs 1617de1 beskriver befintliga
+proposalvägar på /api/v1/openapi. Salonens pair-pin pekar på den; runtimekoden
+är oförändrad från det granskade paret. Ny ren pair-/CI-kontroll redovisas separat
+i VERIFICATION. Grok har inte omgranskat dokumentationsdeltat.
+
+---
+
+# Tidigare kontroll · kundgodkännandets identitetsgräns · 2026-11-16
 
 Riktad kontroll av oförändrad salong `13e0179` och gateway `f9b8506`.
 Rapportgren `proof/customer-approval-boundary`; inga produktändringar.

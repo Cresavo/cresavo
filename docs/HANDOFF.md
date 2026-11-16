@@ -1,4 +1,37 @@
-# Överlämning · riktad kontroll av kundgodkännande · 2026-11-16
+# Överlämning · separat syntetisk kundkanal · 2026-11-16
+
+Gren `feat/separate-customer-consent-lab`, produkt/prov
+`721d445b651f0e08eac1219e1d710b70b1632bed`, gateway
+`f9b8506cee3e3cd21bd279e01addf761cd3db1ed` oförändrad.
+Ingen merge/deploy. Riktig kundidentifiering och leverantör är fortfarande obeslutade.
+
+Prova enligt GATEWAY_SPLIT på ny loopback-testDB med den nya migrationen:
+`npm run test:pair -- --native-codex`. Befintlig CLI-inloggning/modellkvot behövs.
+Runnern startar separata servrar, skapar en privat kundinkorg och lämnar ingen
+kundhemlighet till agenten. Testkunden är automatiserad och serverbestämd.
+Codex bokar först efter separat UI-godkännande. Fel kundkontakt nekas.
+Samma id vid retry/status/kalender. Egna data, inkorg och processer städas.
+
+Fulla lokala produktkontroller: 423 unit, 211 integration, lint/tsc/build PASS.
+Slutprovet på rena 721d445/f9b8506: generate/migrate/seed/build/tsc0, 25 pair-PASS.
+CI 43845636237 på exakt 721d445 är SUCCESS: npm ci/lint/build/tsc,
+423 unit, 211 integration, 64 E2E och 13 MCP-kort i dev/proxy0.
+Grok: scoped lokal GO på 721d445/f9b8506; egna 423/211 och 19 pair samt
+Chromium/REST/MCP. Extraprobe 31/33: två bokningar stoppades av dagskvoten.
+Inget pilot-GO. [Originalrapport](qa/QA-REPORT-native-codex-separate-channel-721d445.md)
+och [exakta resultat/backlogg](VERIFICATION.md).
+Lokala bilder/manifest: `<local-scratch>/separate-consent-qa/final-evidence/`.
+Ingen uppdaterad mobilpreview. Legacy-labbets gamla beteende är inte reparerat
+eller beskrivet som pilotklart. Välj/verifiera riktig kundkanal före sådan drift.
+
+Efter QA synkas bara dokumentation: gatewaydocs 1617de1 beskriver befintliga
+proposalvägar på /api/v1/openapi. Salonens pair-pin pekar på den; runtimekoden
+är oförändrad från det granskade paret. Ny ren pair-/CI-kontroll redovisas separat
+i VERIFICATION. Grok har inte omgranskat dokumentationsdeltat.
+
+---
+
+# Tidigare överlämning · riktad kontroll av kundgodkännande · 2026-11-16
 
 Rapportgren `proof/customer-approval-boundary` från `13e0179`, gateway
 `f9b8506` oförändrad. Ingen produkt-/API-/testsvits-/migrationsändring.

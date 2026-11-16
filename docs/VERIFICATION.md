@@ -1,4 +1,129 @@
-# Aktuella resultat · kundgodkännandets identitetsgräns · 2026-11-16
+# Aktuella resultat · separat syntetisk kundkanal · 2026-11-16
+
+Fryst produkt/prov `721d445b651f0e08eac1219e1d710b70b1632bed`, gren
+`feat/separate-customer-consent-lab` från 64b7bcb. Gateway
+`f9b8506cee3e3cd21bd279e01addf761cd3db1ed` oförändrad. Inga nya beroenden,
+historiska migrationsändringar, verkliga mottagare, deploy eller mainmerge.
+
+| Faktiskt kört | Resultat |
+| --- | --- |
+| npx prisma generate; npm run db:migrate; npm run db:seed | exit 0 på ny loopback PostgreSQL, inklusive ny migration |
+| npm run lint | PASS/exit 0 |
+| npx tsc --noEmit | PASS/exit 0 |
+| npm test | PASS 423/423, 44 filer |
+| npm run test:integration | PASS 211/211, 38 filer |
+| npm run build | PASS/exit 0 |
+| Ren slutkörning: generate/migrate/seed/build/tsc | PASS/exit 0 på 721d445, ny testDB |
+| npm run test:pair -- --native-codex | PASS/exit 0, 25 PASS-koder, båda dirty=false |
+| OpenAPI YAML-parse med befintlig js-yaml | PASS, ingen ny dependency |
+| npm audit --json | exit 1, 7 moderate/dev, 0 high/critical |
+| npm audit --omit=dev --json | exit 0, 0 fynd |
+| CI 43845636237 på 721d445 | SUCCESS: npm ci/lint/build/tsc, 423 unit, 211 integration, 64 E2E och 13 MCP-kort |
+| Grok på fryst 721d445/f9b8506 | Scoped lokal GO: egna 423 unit/211 integration/19 pair, lint/tsc/build; egen probe 31/33, två 429-fel redovisade nedan |
+
+[CI 43845636237](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43845636237)
+är SUCCESS på exakt 721d445. Jobbet körde dev/proxy0 enligt featurepolicyn,
+inklusive nya lokala kanalintegrationer. Pair-jobbet var SKIPPED (kräver manuell
+dispatch), inte ett godkänt nytt CI-pair-prov. Modellen/kontot kördes inte i CI.
+Övriga tre E2E-lägen beställdes inte i denna omgång. Full logg:
+`<local-scratch>/separate-consent-qa/ci-43845636237.log`.
+
+## Oberoende QA och efterföljande kontraktsdokumentation
+
+Grok körde en separat syntetisk Linux-kopia av **721d445/f9b8506**:
+423/423 unit, 211/211 integration, 19/19 ordinarie pair, generate/migrate(19)/seed,
+lint/tsc/build PASS. Egna REST/MCP SDK-klienter och Chromium reproducerade
+separat leverans, ingen godkännandeknapp utan credential, godkännande, bokning,
+retry/samma id/en rad och nekad främmande kundkontakt. Ingen riktig modellklient
+kördes av Grok. Dess extra probe blev **31/33 PASS, 2 FAIL**: den fasta kontakten
+nådde ordinarie 3-bokningar-per-dag-gränsen. Fallen kördes inte om; befintliga
+kvoter sänktes inte. Detta är labbets begränsning, inte ett godkänt provresultat.
+
+[Originalrapport](qa/QA-REPORT-native-codex-separate-channel-721d445.md):
+11 661 byte, SHA-256 5f6c23e070e8f14c267f2c21e67fc34db0d70c9ac39e6f535a439fc16b466617.
+[Originaltillägg](qa/QA-REPORT-native-codex-separate-channel-openapi-721d445.md):
+2 370 byte, SHA-256 02e599eccb0bd27401775c3446b087efb717961b89ae2f9a848f01af8f4380af.
+Båda bytebevarade. Dess hänvisningar till ”Niclas” avser våra skickade
+Codex-resultat, inte en påstådd manuell körning av produktägaren. Grok läste
+inte CI eller körde native; dessa bevis är Codex egna enligt tabellen ovan.
+
+Ingen blockerare för lokalt syntetiskt bruk. SC-QA-1 (delad kontaktkvot),
+SC-QA-2 (inkorgens samma-uid/TOCTOU-gräns) och SC-QA-3 (pending-rad vid
+leveransfel) är Low-backlogg, inte nya rättningsloopar. Pilot NO-GO.
+SC-QA-4/5 rättas efter fryst QA enbart i kontraktsdokumentation: provider-GET
+får 429/500; gatewayens exponerade spec får befintliga proposalvägar, samma
+leveransschema och sina statiska 502/503-fel. Gatewaydocs **1617de1** från f9b8506
+ändrar bara README/openapi, ingen runtimekod, transport, auth eller dependency.
+Salonens följdcommit ändrar dokumentation, originalrapporter och exakt pair-pin,
+inte produktkoden. Detta doc/pin-delta är inte självständigt omgranskat av Grok.
+
+Nykört efter docsändringen: gateway `npm test` **12/12**, `npm run build` exit0.
+HTTP-kontroll av verklig `/api/v1/openapi`: 1.4.1, egen origin, proposalvägar,
+svarsschema identiskt med salongens, alla lokala refs giltiga, ingen `/live`-route
+som gatewayen inte exponerar. PASS. Logg `<local-scratch>/separate-consent-qa/openapi-check.txt`.
+Ren pair-/CI-kontroll av det nya dokumentationsparet återstår vid denna commit;
+25 native-PASS och Grok-GO ovan gäller exakt **721d445/f9b8506**.
+
+Lokala fulla kontroller: `<local-state>/codex/separate-consent-check-p8wceos2/`,
+precommit med samma produktlogik som 721d445. Därefter lades bara transaktions-
+wrap i den nya migrationen och två negativa native-harnesskontroller till.
+Lint/tsc kördes igen efter detta. Rena slutkörningens färska migration/build
+och native-prov finns i `<local-state>/codex/separate-consent-final-fn8qdec8/`.
+PostgreSQL stoppades med pg_ctl (exit 0); egna app-/browser-/CLI-processer avslutades.
+
+Slutmanifest observerat 2026-11-16T10:03:47.973Z, Node v24.16.0,
+Codex CLI 0.153.2 med befintlig ChatGPT-inloggning. Båda exakta rena SHA ovan,
+complete=true, cleaned=true, failedStep=null. Förslag
+`42343d1e-119e-4afc-942b-c72f2fd38f32`, bokning
+`e6c6ba9c-0d37-4f6b-bbbc-174810c847b8`: Massage Anna 17 november 10:30–11:00,
+450 SEK, serverbestämd Separat Demokund. Samma id vid två create-anrop,
+status confirmed och inloggat kalenderklick; en rad före egen städning.
+
+```text
+PAIR salon=721d445b651f0e08eac1219e1d710b70b1632bed gateway=f9b8506cee3e3cd21bd279e01addf761cd3db1ed dirty=false
+PASS NATIVE_PROPOSAL_WITHOUT_BOOKING
+PASS AGENT_WITHOUT_CUSTOMER_CREDENTIAL_DENIED
+PASS SYNTHETIC_APPROVAL_AND_SERVER_BOUNDS
+PASS NATIVE_BOOKING_RETRY_STATUS_ONE_ROW
+PASS NATIVE_BOOKING_SAME_ID_IN_CALENDAR
+PASS NATIVE_CODEX_CONSENT_TO_CALENDAR
+PASS OWN_FIXTURES_REMOVED
+```
+
+Hemligheten gick bara till en privat lokal kundinkorg, inte till REST/MCP-svar,
+modellprompt eller modellens miljö. Manifest/trace innehåller inga kvitton.
+En ny browser utan kundcredential kunde inte visa godkännandeknappen. Separat
+automatiserad syntetisk kund fick kvittot via operatören och godkände i Chromium.
+Försök utanför tiden och med annan kundkontakt gav 403 mandate_denied och inga
+bokningar. Native- och partnerintegration testar kontaktbindning före skrivning,
+configbyte, parallella beslut, främmande klient och DB-CHECK för metod/origin.
+Detta verifierar inte verklig kundidentitet eller motstånd mot server-OS-/DB-ägaren.
+
+Bilder: `test-results/native-codex/agent-without-customer-credential.png`,
+`consent-before.png`, `consent-after.png`, `calendar.png`; sanerat evidence.json.
+Kopia i `<local-scratch>/separate-consent-qa/final-evidence/`. Gitignorerat.
+Själva hemliga kundkvittot togs bort; inkorgen städades av runnerns finally.
+Legacy-agent-link är ett annat, fortfarande svagt lokalt labbkontrakt.
+Det nya lägets opt-in/guard/bindning är inte en generell identitets- eller pilot-GO.
+
+Mellanresultat: första lint föll på en gammal gitignorerad engångsprobe under
+test-results. Den genererade katalogen undantas nu, inte underhållna tests/scripts.
+Första integrationen gav 206/211: nya metodvärdet nekades av gamla verifiedVia-CHECK.
+Den nya migrationen lägger nu till det snäva värdet med oförändrat origin-krav;
+ingen gammal migration skrevs om. Nästa 211/211 passerade. Build fångade sedan
+en testimport .mts och två unknown-typfel i testkod; rättade utan assertionssänkning.
+Slutlig full körning och ren slutbuild ovan passerade. Initialt YAML-verktyg
+saknades; redan installerade js-yaml användes för parse, inget paket installerades.
+
+NOT RUN lokalt: ny npm ci, hela webb-E2E/fyrmatrisen, separat MCP-kortsvit,
+Docker, demo:record, ChatGPT webb/mobil, Claude, fysisk iPhone/Safari,
+moln/TLS/backup/deploy, riktiga utskick eller kundidentifieringsleverantör.
+Ingen ny frontenddesign att spela in. Audit är separat och fortfarande röd i dev.
+Pilot NO-GO. Tidigare resultat nedan gäller sina historiska revisioner/profiler.
+
+---
+
+# Tidigare kontroll · kundgodkännandets identitetsgräns · 2026-11-16
 
 Oförändrad salong `13e01799427e9fa7e8617479cc6e61941a528d07`, gateway
 `f9b8506cee3e3cd21bd279e01addf761cd3db1ed`. Rapportgren

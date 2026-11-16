@@ -11,7 +11,11 @@
   CI vägrar fortfarande kontokörningen. Kvittot är en hemlighet, inte testbevis.
 - Legacy-labbets svaga länkkontrakt finns kvar för kompatibilitet. Ny profil
   ger inget pilotgodkännande. Ingen deploy/mainmerge, riktig SMS eller ny tjänst.
-- Grok granskar fryst revision i egen syntetisk kopia, max två samlade fixvarv.
+- Grok gav scoped lokal GO på 721d445/f9b8506: 423/211, 19 pair och egen
+  Chromium/REST/MCP. SC-QA-1..3 Low till backlogg. Fast kund delar ordinarie
+  3/dag-kvot; klienten får inte ha serverns filåtkomst. Inget pilot-GO.
+- Efter QA: docs/pair-pin synkas med gatewaydocs1617de1; ingen runtimeändring
+  eller ny full QA-loop för oförändrad kod. Resultat i VERIFICATION.
 
 # Historik: kundgodkännandets testade gräns · 2026-11-16
 

@@ -1,5 +1,31 @@
 # Datakarta för Booking Lab SE POC
 
+## Separat syntetisk kundkanal · tillägg 2026-11-16
+
+Opt-in separate-lab på 721d445 ändrar endast det lokala agentprovet:
+agentens förslag → PostgreSQL (snapshot, tokenHash, consentDelivery) → privat
+servervald temporär kundinkorg (förslags-id, fast syntetiskt subject-id och
+engångslänk med fragmenttoken) → testoperatörens separata Chromium-kund →
+befintlig consent-POST → servermandat → gateway/MCP-bokning → salongskalender.
+Agenten får bara id/status och approvalRequired/approvalDelivery, inget kvitto.
+
+Det är samma fasta påhittade kontakt som visas för testkunden och måste användas
+vid bokning. Ingen ny kundprofil/tabell eller verklig person har tillkommit.
+En nullable profilkolumn skiljer nya förslag från legacy; snapshoten överlever
+configbyte. TokenHash finns i DB; rå token finns bara i privat kundkvitto/browser-
+minne under provet. Kvitto tas bort av operatören och inkorgen av runnerns finally.
+Leveransfel kan lämna pending-förslag till expiry, utan att skapa mandat eller
+skicka token till agenten. Detta är inte en produktionskö eller retentionsrutin.
+
+Katalogen ligger utanför webbroten, kan inte läsas via API/MCP och är inte Git-
+eller demoartefakt. Inget rått kvitto i modellunderlaget. Inga riktiga SMS/mejl
+eller nya externa tjänster. Native-Codex-provet använder befintligt modellkonto
+med syntetiska katalog-/bokningsuppgifter enligt samma avgränsning som tidigare.
+Ingen Windows-/OS-isolering mot en serveradministratör eller verklig kundidentitet
+är verifierad. Se [PRIVACY_SECURITY](PRIVACY_SECURITY.md) och [VERIFICATION](VERIFICATION.md).
+
+---
+
 ## Agentprov 1 · separat lokal kontraktsgren 2026-11-15
 
 REST/HTTP-MCP tar fortfarande emot syntetiskt namn/e-post och lagrar dem på

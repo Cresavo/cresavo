@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Booking Lab Agent API
-  version: "1.4.0-sandbox"
+  version: "1.4.1-sandbox"
   description: |
     Sandbox API for AI agents on the synthetic Booking Lab demo salon (Salong Eko):
     services, availability, booking with Idempotency-Key, booking status and
@@ -63,6 +63,8 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+        "500": { $ref: "#/components/responses/Error" }
   /api/v1/services:
     get:
       summary: List active services for a business
@@ -283,7 +285,7 @@ components:
             name: { type: string }
             email: { type: string, format: email, example: "person@example.test" }
         confirmed: { type: boolean, const: true }
-        mandateId: { type: string, minLength: 1, maxLength: 128, description: Opaque operator-issued synthetic mandate id; cannot be self-issued by the client. }
+        mandateId: { type: string, minLength: 1, maxLength: 128, description: Opaque server-issued synthetic mandate id; cannot be self-issued by the client. }
     Booking:
       type: object
       required: [id, status, start, end, durationMinutes, serviceId, serviceName, staff, version, createdAt]
