@@ -4,6 +4,6 @@ const config = [
   ...nextVitals,
   ...nextTypescript,
   // Operator-only profiles and generated diagnostics are never product source.
-  { ignores: [".next/**", ".vercel/**", "node_modules/**", "test-results/**", "next-env.d.ts"] },
+  { ignores: [".next/**", ".vercel/**", "node_modules/**", "test-results/**", "next-env.d.ts", ".claude/**"] },
 ];
 export default config;

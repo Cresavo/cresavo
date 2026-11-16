@@ -1,3 +1,4 @@
+import { findCustomerByPhone } from "./booking/lookup";
 import { isFree } from "./data/slots";
 import type {
   Booking,
@@ -17,9 +18,11 @@ import type {
 // today; the command box and AI suggestions will dispatch the same actions.
 
 export type DemoAction =
-  | { type: "booking/move"; id: string; date: DateKey; start: number; staffId?: StaffId }
+  | { type: "booking/move"; id: string; date: DateKey; start: number; staffId?: StaffId; notice?: Omit<InboxItem, "id"> }
   | { type: "booking/cancel"; id: string; reason?: string; notice?: Omit<InboxItem, "id"> }
   | { type: "booking/create"; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource }
+  | { type: "online/book"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId: StaffId; date: DateKey; start: number }
+  | { type: "online/waitlist"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string }
   | { type: "service/price"; id: string; price: number }
   | { type: "campaign/create"; campaign: Omit<Campaign, "id"> }
   | { type: "journal/add"; entry: Omit<JournalEntry, "id"> }
@@ -33,6 +36,20 @@ export type DemoAction =
   | { type: "customer/note"; id: string; note: string }
   | { type: "module/toggle"; key: ModuleKey }
   | { type: "card/dismiss"; id: string };
+
+/** A customer using the public booking page. `at` is the moment they acted, used for the owner's inbox. */
+export interface OnlineGuest {
+  name: string;
+  phone: string;
+  at: { date: DateKey; time: number };
+}
+
+/** Owner-facing inbox text for an online action, written by the caller from the dictionary. */
+export interface OnlineNotice {
+  title: string;
+  body: string;
+  draftReply?: string;
+}
 
 const nextId = (state: DemoState, prefix: string) => `${prefix}-${state.seq}`;
 
@@ -62,6 +79,69 @@ function moveBooking(state: DemoState, id: string, date: DateKey, start: number,
   const target = staffId ?? booking.staffId;
   if (!isFree(state, target, date, start, booking.duration, id)) return state;
   return { ...state, bookings: updateBy(state.bookings, id, (b) => ({ ...b, date, start, staffId: target })) };
+}
+
+/** The customer with this phone number, or a new one from the public booking page. */
+function ensureOnlineCustomer(state: DemoState, guest: OnlineGuest, category: Customer["category"], staffId: StaffId, waitlist: boolean): { state: DemoState; customer: Customer } {
+  const existing = findCustomerByPhone(state, guest.phone);
+  if (existing) {
+    if (existing.waitlist || !waitlist) return { state, customer: existing };
+    const customer = { ...existing, waitlist };
+    return { state: { ...state, customers: updateBy(state.customers, existing.id, () => customer) }, customer };
+  }
+  const [firstName, ...rest] = guest.name.trim().split(/\s+/);
+  const customer: Customer = {
+    id: nextId(state, "k"),
+    firstName,
+    lastName: rest.join(" "),
+    phone: guest.phone.trim(),
+    email: "",
+    category,
+    preferredStaff: staffId,
+    since: guest.at.date,
+    isRegular: false,
+    tags: ["New"],
+    waitlist,
+  };
+  return { state: { ...state, seq: state.seq + 1, customers: [...state.customers, customer] }, customer };
+}
+
+function bookOnline(state: DemoState, action: Extract<DemoAction, { type: "online/book" }>): DemoState {
+  const service = state.services.find((s) => s.id === action.serviceId);
+  if (!service || !action.guest.name.trim() || !isFree(state, action.staffId, action.date, action.start, service.duration)) return state;
+  const { state: withCustomer, customer } = ensureOnlineCustomer(state, action.guest, service.category, action.staffId, false);
+  const booked = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" });
+  return reduce(booked, {
+    type: "inbox/add",
+    item: {
+      kind: "request",
+      customerId: customer.id,
+      bookingId: booked.bookings[booked.bookings.length - 1].id,
+      date: action.guest.at.date,
+      time: action.guest.at.time,
+      ...action.notice,
+      read: false,
+      handled: true,
+    },
+  });
+}
+
+function joinWaitlist(state: DemoState, action: Extract<DemoAction, { type: "online/waitlist" }>): DemoState {
+  const service = state.services.find((s) => s.id === action.serviceId);
+  if (!service || !action.guest.name.trim()) return state;
+  const { state: withCustomer, customer } = ensureOnlineCustomer(state, action.guest, service.category, service.staffIds[0], true);
+  return reduce(withCustomer, {
+    type: "inbox/add",
+    item: {
+      kind: "request",
+      customerId: customer.id,
+      date: action.guest.at.date,
+      time: action.guest.at.time,
+      ...action.notice,
+      read: false,
+      handled: false,
+    },
+  });
 }
 
 function replyToInbox(state: DemoState, id: string, reply: string, slot?: SlotSuggestion): DemoState {
@@ -101,8 +181,10 @@ function replyToInbox(state: DemoState, id: string, reply: string, slot?: SlotSu
 
 export function reduce(state: DemoState, action: DemoAction): DemoState {
   switch (action.type) {
-    case "booking/move":
-      return moveBooking(state, action.id, action.date, action.start, action.staffId);
+    case "booking/move": {
+      const moved = moveBooking(state, action.id, action.date, action.start, action.staffId);
+      return action.notice && moved !== state ? reduce(moved, { type: "inbox/add", item: action.notice }) : moved;
+    }
     case "booking/cancel": {
       const cancelled = { ...state, bookings: updateBy(state.bookings, action.id, (b) => ({ ...b, status: "cancelled" as const, cancelReason: action.reason })) };
       return action.notice ? reduce(cancelled, { type: "inbox/add", item: action.notice }) : cancelled;
@@ -116,6 +198,10 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
         start: action.start,
         source: action.source,
       });
+    case "online/book":
+      return bookOnline(state, action);
+    case "online/waitlist":
+      return joinWaitlist(state, action);
     case "service/price":
       return { ...state, services: updateBy(state.services, action.id, (s) => ({ ...s, price: Math.max(0, Math.round(action.price)) })) };
     case "campaign/create":

@@ -14,6 +14,11 @@ All notable changes to this project are documented here. Format follows
   visit as editable fields, and book the next visit in one tap.
 - Your data & AI shows which AI task runs on which model (or built-in rules),
   a cost log, and a demo form for your own AI key (not stored).
+- Customer booking page (`/boka/salong-eko`): describe what you want in your own
+  words or pick a treatment, choose a time, confirm with name and phone. Includes
+  add to calendar, reschedule, cancel (free until 24 hours before), "My bookings"
+  with rebooking, and a waiting list for full days that reaches the owner's Inbox.
+- Links from the start page to the customer page and owner studio demos.
 - Salon command proposals and seven optional AI tasks work without API keys.
 - AI evaluation command checks salon scenarios and reports accuracy, time and
   estimated cost, with no network calls by default.
