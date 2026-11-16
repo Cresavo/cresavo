@@ -11,6 +11,8 @@ import { assertTestDatabase } from "../test-db-guard.mjs";
 
 assertTestDatabase();
 assert(!process.env.VERCEL && !process.env.VERCEL_ENV, "PAIR_CLOUD_REFUSED");
+const nativeCodex = process.argv.includes("--native-codex");
+if (nativeCodex) assert(!process.env.CI, "NATIVE_CLIENT_CI_REFUSED");
 const salonPath = realpathSync(fileURLToPath(new URL("../..", import.meta.url)));
 const gatewayPath = realpathSync(resolve(process.env.GATEWAY_PATH ?? "../booking-lab-gateway"));
 assert.notEqual(gatewayPath, salonPath, "PAIR_REQUIRES_SEPARATE_REPOSITORIES");
@@ -99,7 +101,9 @@ function launch(cwd: string, args: string[], env: NodeJS.ProcessEnv, ready?: str
 async function startSalon(mode: "split" | "standalone") {
   await stop(salon);
   salon = await launch(salonPath, ["scripts/server.mjs"], {
-    ...salonEnv, PORT: String(salonPort), BOOKING_PUBLIC_ORIGIN: gatewayOrigin,
+    ...salonEnv, PORT: String(salonPort),
+    BOOKING_PUBLIC_ORIGIN: nativeCodex ? `http://127.0.0.1:${salonPort}` : gatewayOrigin,
+    ...(nativeCodex ? { BOOKING_CONSENT_LAB: "1", BOOKING_RUNTIME: "local" } : {}),
     ...(mode === "split" ? { BOOKING_SERVICE_ROLE: "salon", GATEWAY_SERVICE_TOKEN: token } : {}),
   }, "BOOKING_SERVER_READY");
 }
@@ -235,6 +239,12 @@ try {
   await startSalon("split");
   assert.equal((await call("GET", "/api/v1/services?business=demo", undefined, undefined, b.key)).status, 200);
   pass("OUTAGE_AND_RESTART_RECOVERED");
+  if (nativeCodex) {
+    step = "NATIVE_CODEX_CONSENT_PROOF";
+    const { runNativeCodexProof } = await import("../agentprov/native-codex.mjs");
+    await runNativeCodexProof(gatewayOrigin, `http://127.0.0.1:${salonPort}`, pair);
+    pass("NATIVE_CODEX_CONSENT_TO_CALENDAR");
+  }
 } catch {
   console.error("FAIL " + step); process.exitCode = 1;
 } finally {

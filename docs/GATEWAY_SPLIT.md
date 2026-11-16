@@ -163,3 +163,59 @@ källkodsbundle/request.json efter utskick. Inga nycklar ingår. Begränsa
 åtkomst till operatörens temporära katalog och lägg till ägd finally-städning
 vid nästa lilla verktygsändring. Äldre GS1-QA-2 om rate-begränsad loggning
 vid nekad tjänsteidentitet ingick inte i nattens fyra fynd och är fortsatt öppet.
+
+## Frivilligt prov med riktig Codex-klient och syntetiskt kundgodkännande
+
+Efter samma lokala förberedelser kan operatören uttryckligen köra:
+
+```powershell
+npm run test:pair -- --native-codex
+```
+
+Det kräver redan installerad Codex CLI med befintlig ChatGPT-inloggning.
+Det använder kontots vanliga modellkvot. Ingen API-nyckel, ny tjänst eller
+automatisk CI-modellkörning införs. Flaggan nekas i CI innan några tjänster startas.
+Vanliga `test:pair` behåller sitt tidigare beteende.
+
+Provet startar en lokal, test-DB-skyddad consent-lab i salongen. Det gör sedan:
+
+1. Codex läser tjänster och tillgänglighet via gatewayens verkliga HTTP-MCP.
+   Det väljer Massage hos Anna nästa vardag, 30 minuter, högst 450 SEK och
+   skapar ett förslag. Ingen bokning eller mandat får då finnas.
+2. En separat negativ HTTP-kontroll kräver `400 mandate_required` utan mandat.
+3. En separat automatiserad syntetisk kund öppnar förslaget i Chromium och
+   godkänner exakt tjänst, personal, plats, tid och pris. Det befintliga UI:t
+   skapar servermandatet. Ett HTTP-försök utanför tiden måste ge `403 mandate_denied`.
+4. Codex får samma verksamhetskontext och förslags-id i en ny klientkörning,
+   läser godkännandet och bokar. Det upprepar samma payload/nyckel och läser status.
+   Krav: två lyckade create-anrop, samma id, en bokningsrad och rätt mandatkoppling.
+5. Vanlig individuell admininloggning och kalenderklick öppnar samma boknings-id.
+   Egna nycklar återkallas före städning av enbart egna fixtures.
+
+Detta provar en riktig modellstyrd Codex CLI, inte ChatGPTs mobil-/webbgränssnitt.
+Kundgodkännandet är automatiserat med påhittad identitet. Det bevisar inte
+verklig kundautentisering, pilotberedskap eller att en människa klickade.
+Förslagets labblänk levereras enligt befintligt labbkontrakt till agenten;
+den mekanismen får inte användas som verklig identitetsverifiering.
+
+Klienten får en tillfällig verksamhetsnyckel i sin processmiljö och endast sex
+namngivna MCP-verktyg. DB-adress, sessionshemlighet och tjänstenyckel lämnas inte
+till klienten. Skalverktyg, webbsökning och externa appar är avstängda.
+Verktygsgodkännandet gäller bara den enskilda körningens uttryckliga testlista.
+Serverns autentisering, scopes, kundmandat, idempotens och integritetsregler består.
+Ingen global Codex-konfiguration eller befintlig demoprofil ändras.
+
+`test-results/native-codex/` innehåller sanerat `evidence.json` och riktiga bilder
+av godkännande och bokningsdetalj. Nycklar, labblänkar och rå CLI-output sparas
+inte. Bounded modellanteckningar saneras före sparande. CLI körs med
+`--ephemeral`; det är ingen garanti för OS-isolering eller modellleverantörens
+datalagring. Endast syntetiskt katalog-/bokningsunderlag får användas.
+
+Två separata klientkörningar används för att hålla godkännandet utanför agenten.
+Verksamhets-id måste behållas mellan dem: det ingår för närvarande inte i
+`get_proposal`-svaret. Agenten ska stanna och fråga om det saknas, inte gissa.
+Denna uppföljning ändrar inte det befintliga API-kontraktet.
+
+Se officiell dokumentation för [Codex HTTP-MCP](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)
+och [icke-interaktiv körning](https://learn.chatgpt.com/docs/non-interactive-mode).
+Faktiska körresultat och begränsningar redovisas i VERIFICATION.
