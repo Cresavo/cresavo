@@ -1,5 +1,22 @@
 # Beroendesäkerhet
 
+## Tvårepoprov · 2026-11-16
+
+Inga nya npm-beroenden, lockfilsändringar, overrides eller migrationer.
+Ren npm ci: salong 572 installerade/573 granskade paket, gateway 3/4.
+Faktisk full audit i salongen: exit1, 7 moderate, 0 high/critical.
+Audit utan dev: exit0, 0 fynd. Gatewayens fulla audit: exit0, 0 fynd.
+Grok reproducerade auditresultaten oberoende. Sju räknade paket i samma
+minimatch/TypeScript-ESLint-kedja betyder inte sju fristående advisories.
+
+`npm audit fix --dry-run --ignore-scripts --json` gav added 0 / removed 0 / changed 0.
+Registret angav stabil TypeScript-ESLint 8.72.2 med minimatch ^10.2.2 och
+senaste minimatch 11.0.8. Vi tvingar inte in en annan huvudversion utanför
+upstreams intervall. Fynden förblir öppna i väntan på stödd rättning.
+Ren installation varnar också att eslint 9.39.5 inte längre stöds. Ingen
+oplanerad ESLint-/ramverksmigrering ingår. Verktygskedjan behöver separat
+kompatibilitetskontroll inför nästa stödda uppgradering och före distribution.
+
 ## Premiumdemo, pågående 2026-11-14
 
 Inga nya npm-paket, lockfilsändringar eller overrides. Befintliga React, Next,

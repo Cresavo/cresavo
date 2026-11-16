@@ -1,4 +1,16 @@
-# Aktuellt: två privata repon på main · 2026-11-16
+# Aktuellt: fryst tvårepoprov · 2026-11-16
+
+- Nattmål på night/gateway-salon-integration i båda privata repona.
+  Salongsprodukt 0a88ac2, gateway f9b8506 (produkt ab07b6c).
+- Läs aktuell VERIFICATION/HANDOFF och GATEWAY_SPLIT. pair.json låser gateway-SHA.
+  npm run test:pair kräver separata kopior, inga .env-filer och ny loopback-testDB.
+- Groks original QA-REPORT-night-f9b8506-0a88ac2 ger scoped lokal syntetisk GO.
+  GS3-QA-1..4 stängda. NIGHT-QA-1 (kvarvarande temporär dispatch-källa) är Info.
+- Behåll request-lokal accessdelning och operationens standalone-vakt.
+  Inga nya paket, migrationsändringar, mainmerge, deploy eller driftbehörigheter.
+  Nya uppdrag får inte härledas ur historiken nedan. Pilot är fortsatt NO-GO.
+
+# Historik: två privata repon på main · 2026-11-16
 
 - Niclas godkände granskning och integration till båda huvudgrenarna.
 - Detta repo äger salong, databas, kalender och bokningsregler.

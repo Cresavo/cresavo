@@ -2,6 +2,9 @@
 
 The salon and its PostgreSQL database can run independently of the agent gateway.
 See [the two-repository runbook](docs/GATEWAY_SPLIT.md) to book through the gateway and verify the booking in the salon calendar.
+The `night/gateway-salon-integration` branch adds `npm run test:pair` with a pinned,
+separate gateway checkout and fresh local test database. Current commands, QA boundaries
+and CI results are recorded in [verification](docs/VERIFICATION.md).
 
 ## Earlier work: Agentprov 2
 

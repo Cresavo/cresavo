@@ -1,3 +1,43 @@
+<!-- NIGHT_PAIR_HANDOFF_START -->
+# Nattmål · två oberoende repon · 2026-11-16
+
+Leveransen härdar gateway/salong-gränsen och gör felproven reproducerbara.
+Produkter: salong `0a88ac27482aef377ecce86892b5bfbb897cc181`,
+gateway `f9b8506cee3e3cd21bd279e01addf761cd3db1ed` (produkt ab07b6c).
+Båda arbetsgrenarna heter `night/gateway-salon-integration`, privata origin.
+Efterföljande dokumentation ändrar inte produkterna. Main är oförändrad.
+
+Prova: följ GATEWAY_SPLIT för ny loopback-testDB, separat gateway på pair.json-SHA,
+npm ci/generate/migrate/seed/build. `npm run test:pair` startar servrarna själv.
+Det läser tjänster/tider, bokar via REST och HTTP-MCP, öppnar samma boknings-id
+via kalendern i Chromium och provar tappat svar, retry, 20 samtidiga, omstart,
+ägarskap och revocation. Egna fixtures/processer städas. Audit följer lagringsregler.
+Ingen preview har uppdaterats och ingen ny driftlänk lämnas för denna kod.
+
+Codex rena slutkörning: 402 enhets- och 205 integrationstester samt lint, tsc,
+build och 19 pair-kontroller PASS.
+Grok reproducerade grindar/prov i egen isolerad kopia och stängde GS3-QA-1..4.
+Originalrapport: 10 983 byte,
+SHA-256 `78fc8ec1f4326370e9d75a9afaf9ce519a544d4c5ec9d5cf254a433414fbefcd`.
+Rapporten behålls oförändrad. Groks egna kalender-id/SQL-efterkontroller NOT RUN;
+det körde automatiseringen som innehåller dessa kontroller.
+CI 43781899181 på 0a88ac2 och gateway 43781813963 på f9b8506 är SUCCESS.
+Alla fyra E2E-lägen: 64/64, MCP-kort 13/13, revisionspar 19 PASS-koder.
+Push-jobbet 43781819976 ersattes av den fulla manuella körningen på samma SHA.
+
+Kvar: audit med 7 moderate i dev, 0 i produktion, Info NIGHT-QA-1 (tmp-källa efter dispatch),
+tidigare Low GS1-QA-2 (begränsad tjänsteauth-felloggning). Pilot NO-GO.
+Ingen ny behörighetsnyckel eller rättighet skapades för CI. Revisionspar-jobbet startas
+manuellt med privat sourcebundle; automatisk privat cross-repo-hämtning kräver
+senare beslut om snäv läsbehörighet. Se GATEWAY_SPLIT och VERIFICATION.
+
+Tre nästa prioriteringar: stödd rättning av utvecklingskedjan, nästa verkliga
+assistentprov med tydligt kundmandat, därefter separat verifierad skyddad drift
+för de två tjänsterna. Ingen av dessa leveranser startas automatiskt nu.
+<!-- NIGHT_PAIR_HANDOFF_END -->
+
+---
+
 # Aktuellt · två privata repon på main · 2026-11-16
 
 Båda leveranserna är granskade och integrerade med fast-forward.

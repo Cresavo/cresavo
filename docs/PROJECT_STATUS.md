@@ -1,3 +1,35 @@
+<!-- NIGHT_PAIR_STATUS_START -->
+# Aktuellt · verifierat tvårepoprov · 2026-11-16
+
+Arbetsgren i båda privata repona: `night/gateway-salon-integration`.
+Salongsprodukt `0a88ac2`, gateway `f9b8506` (produkt `ab07b6c`).
+Nya tester startar separata produktionsprocesser mot en ny isolerad testdatabas.
+
+- Fungerar och lokalt testat: REST + riktig HTTP-MCP-SDK → bokning → samma id
+  i inloggad Chromium-kalender; retry efter tappat sparat svar ger en bokning;
+  20 samtidiga försök ger en vinnare; främmande och återkallad klient nekas.
+- Säkerhet: fyra GS3-fynd stängda av Grok. Omstart till standalone mitt i ett
+  anrop ger ingen bokning. Providerfel saneras. Avstängt labb ger kontrollerat 403.
+- Ren npm ci, 402 enhets- och 205 integrationstester samt lint, tsc och build PASS.
+  Det gemensamma provet gav 19 PASS-koder.
+- CI: full körning 43781899181 på 0a88ac2 SUCCESS. Gateway 43781813963 på f9b8506 SUCCESS.
+- CI gav 64/64 E2E i fyra lägen och 13/13 MCP-kort samt godkänt revisionspar.
+- Ingen ny produktmodul, UI-förändring, deploy eller mainmerge. Inga migrations-
+  eller npm-beroendeändringar. Tidigare arbete bevarat.
+
+[Verifiering](VERIFICATION.md) · [provsteg och kompatibilitet](GATEWAY_SPLIT.md) ·
+[Groks original](qa/QA-REPORT-night-f9b8506-0a88ac2.md).
+Grok körde samma automatisering men gjorde ingen extra egen jämförelse av
+kalender-id/SQL-överlapp efter städning. Verkliga assistentkonton, fysisk iPhone
+samt drift är inte verifierade i detta uppdrag.
+
+Pilot fortsatt NO-GO. Sju moderate dev-fynd kvar, produktion/gateway 0.
+NIGHT-QA-1 om temporär dispatch-källa och tidigare GS1-QA-2 är backlogg.
+Nästa beslut gäller pilotgrindarna i PRIVACY_SECURITY, inte fler epics automatiskt.
+<!-- NIGHT_PAIR_STATUS_END -->
+
+---
+
 # Aktuellt · två privata repon på main · 2026-11-16
 
 Båda leveranserna är granskade och integrerade med fast-forward.

@@ -1,3 +1,85 @@
+<!-- NIGHT_PAIR_VERIFICATION_START -->
+# Tvårepoprov · aktuella resultat · 2026-11-16
+
+Salong `0a88ac27482aef377ecce86892b5bfbb897cc181`,
+gateway `f9b8506cee3e3cd21bd279e01addf761cd3db1ed` (produkt ab07b6c).
+Båda `night/gateway-salon-integration`. Båda rena under slutprovet.
+Inga nya beroenden, overrides, migrationsändringar eller produktmoduler.
+
+| Faktiskt kört kommando/kontroll | Codex lokalt | Groks separata kopia |
+| --- | --- | --- |
+| npm ci, båda repona | PASS/exit 0, salong 572/573 paket, gateway 3/4 | PASS enligt original |
+| npx prisma generate | PASS/exit 0 | PASS |
+| npm run db:migrate, npm run db:seed | PASS/exit 0, ny isolerad PostgreSQL | PASS, egna nya testDB |
+| npm run lint | PASS/exit 0 | PASS/exit 0 |
+| npx tsc --noEmit | PASS/exit 0 | PASS/exit 0 |
+| npm test, salong | PASS 402/402, 42 filer | PASS 402/402 |
+| npm run test:integration | PASS 205/205, 37 filer | PASS 205/205 |
+| npm run build, salong | PASS/exit 0 | PASS/exit 0 |
+| npm test + npm run build, gateway | PASS 12/12 + exit 0 | PASS 12/12 + exit 0 |
+| npm run test:pair | PASS/exit 0, 19 PASS-koder, dirty=false | PASS/exit 0, 19 PASS-koder, dirty=false |
+| CI fyrfältsmatris + låst revisionspar | PASS 43781899181 på exakt 0a88ac2; 64/64 × 4 + 13/13 MCP-kort + 19 pair-koder | NOT RUN av Grok |
+| npm audit, salong | exit 1, 7 moderate, 0 high/critical | samma utfall |
+| npm audit --omit=dev, salong | PASS/exit 0, 0 fynd | PASS/0 fynd |
+| npm audit, gateway | PASS/exit 0, 0 fynd | PASS/0 fynd |
+| npm audit fix --dry-run --ignore-scripts --json | exit 1, added 0 / removed 0 / changed 0 | NOT RUN |
+
+Lokala råloggar: <local-state>/codex/night-pair-4kqfj_q6/.
+Sanerat revisionsmanifest: test-results/integration-pair.json (genererat, ignorerat).
+Första precommit-provet föll på testproxyns komprimeringsheaders; därefter rättat.
+Den slutliga rena körningen ovan passerade. Historiska mellanresultat ersätter
+inte slutresultatet. Lokalt användes inbäddad PostgreSQL på loopback, inte Docker.
+
+Tvårepoprovet gav bland annat exakt:
+
+```text
+PAIR salon=0a88ac27482aef377ecce86892b5bfbb897cc181 gateway=f9b8506cee3e3cd21bd279e01addf761cd3db1ed dirty=false
+PASS SEPARATE_SALON_AUTHENTICATED_CALENDAR
+PASS LOST_SUCCESS_RETRY_ONE_BOOKING
+PASS RESTART_RACE_REFUSED_AND_RECOVERED
+PASS TWENTY_REQUESTS_ONE_WINNER
+PASS PROVIDER_ERRORS_REDACTED
+PASS REVOKED_CREDENTIAL_DENIED
+PASS OWN_FIXTURES_REMOVED
+```
+
+[Groks original](qa/QA-REPORT-night-f9b8506-0a88ac2.md): 10 983 byte,
+sha256 `78fc8ec1f4326370e9d75a9afaf9ce519a544d4c5ec9d5cf254a433414fbefcd`.
+GS3-QA-1..4 STÄNGDA, scoped GO för lokal syntetisk användning, inga blockerare.
+Grok körde även 28/28 stubprober och 15/16 egna prober; dess Q3e hade felaktig
+förväntan och bedömdes som harnessfel. Rapportens begränsningar behålls:
+ingen ytterligare egen kalender-id-jämförelse eller SQL-överlapp efter städning.
+Codex runner kontrollerar samma id och kräver 0 överlapp med SQL i körningen.
+NIGHT-QA-1, Info om temporär dispatch-källa, går till backlogg utan ny fixloop.
+
+[Full salongs-CI 43781899181](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43781899181)
+är SUCCESS på exakt salongsprodukt 0a88ac2. Dev/proxy 0: 64/64, dev/proxy 1: 64/64,
+production/proxy 0: 64/64 och production/proxy 1: 64/64. Huvudjobbet gav också
+402/402 unit, 205/205 integration, 13/13 MCP-kort samt lint/build/tsc.
+Det separata pair-jobbet verifierade bundle, körde ny Docker-PostgreSQL,
+Prisma generate/migrate/seed/build och gav 19 PASS med båda dirty=false.
+Hämtad CI-artefakt anger salong 0a88ac2 / gateway f9b8506 och passed=true, Node 24.22.2.
+[Gateway-CI 43781813963](https://github.com/niclasvestlund-YT/booking-lab-gateway/actions/runs/43781813963)
+är SUCCESS på exakt f9b8506, 12/12 och build/npm ci. Råa jobbloggar och artefakten
+finns lokalt i <local-scratch>/night-pair-ci/.
+Push-jobbet 43781819976 avbröts av workflowets befintliga concurrency när den
+fulla manuella körningen på samma SHA startade. Inga tester sänktes eller slopades.
+Efterföljande status/handoff/QA-commit ändrar endast Markdown. Denna fulla CI
+avser produkt-SHA ovan; en docs-push ignoreras av det befintliga workflowet.
+
+En separat temporär lokal källkodsutcheckning fick read-only Git-packfiler kvar
+när städningen nekades av automatisk säkerhetsgranskning (policyblockering).
+Inget kringgående gjordes. Den innehåller endast committad källa och ligger
+utanför repot. Produktprocesserna och den egna PostgreSQL-klustern är stoppade.
+
+NOT RUN i detta uppdrag lokalt: full webb-E2E/fyrmatris, Docker, demo:record,
+slutanvändares ChatGPT/Claude-konto, fysisk iPhone/Safari, moln/TLS/backup/deploy.
+Ingen ny synlig produktförändring att spela in. Äldre demo är inte nytt bevis.
+Audit är separat från funktionstesterna. Pilot är fortsatt NO-GO, se PRIVACY_SECURITY.
+<!-- NIGHT_PAIR_VERIFICATION_END -->
+
+---
+
 # Två privata repon · main integrerad · 2026-11-16
 
 Niclas godkände granskning och integration till båda huvudgrenarna.

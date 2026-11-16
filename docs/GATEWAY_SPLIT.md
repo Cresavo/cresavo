@@ -133,3 +133,33 @@ Detta är en manuell revisionsparskörning. Automatisk hämtning från det andra
 repot vid varje push kräver ett separat beslut om snävt avgränsad läsbehörighet.
 Bundlegränsen är 60 000 base64-tecken; när repot växer behövs den lösningen.
 Ingen schemalagd körning, deploy eller utökad behörighet införs här.
+
+## Verifierat revisionspar och kompatibilitet · 2026-11-16
+
+Salongens produkt: `0a88ac27482aef377ecce86892b5bfbb897cc181`.
+Gateway: `f9b8506cee3e3cd21bd279e01addf761cd3db1ed`, produkt `ab07b6c`.
+Båda finns på privata grenen `night/gateway-salon-integration`.
+Senare Markdown ändrar inte produktrevisionerna. Läs aktuell VERIFICATION
+för faktiska test- och CI-utfall och Groks oförändrade originalrapport.
+
+| Kombination | Bedömning |
+| --- | --- |
+| Det låsta nya revisionsparet | Lokalt verifierat med ren installation, separata processer och ny PostgreSQL; Grok reproducerade provet |
+| Ny gateway + äldre salong | Inte godkänd som härdad kombination; salongen saknar operationens skydd vid byte till standalone mitt i ett anrop |
+| Äldre gateway + ny salong | Ingen ny kompatibilitetscertifiering; äldre gateway saknar nya 5xx-saneringen och request-lokala accessdelningen |
+| Ny salong i standalone, direkt klient utan gatewayheader | Äldre kontrakt behålls; inget tillstånd till publik åtkomst eller pilot följer av det |
+
+REST v1, gamla MCP-verktygsnamn och mandat-/idempotenskontrakt består.
+Inga migrationsfiler ändras. Uppgradera och verifiera båda processerna som par.
+Discovery/alias är inte certifiering mot en extern leverantör eller assistent.
+
+Grok granskade koden och körde pair-provet. Dess egna auditprober bekräftade
+antal och avvisningar. Det gjorde ingen ytterligare fristående jämförelse av
+kalender-id eller SQL-överlapp efter att runnern städat. Dessa två kontroller
+finns i den körda automatiseringen och ska inte beskrivas som separat manuell QA.
+
+Kvar i backlogg: NIGHT-QA-1, Info, `dispatch.mjs` lämnar sin tillfälliga
+källkodsbundle/request.json efter utskick. Inga nycklar ingår. Begränsa
+åtkomst till operatörens temporära katalog och lägg till ägd finally-städning
+vid nästa lilla verktygsändring. Äldre GS1-QA-2 om rate-begränsad loggning
+vid nekad tjänsteidentitet ingick inte i nattens fyra fynd och är fortsatt öppet.
