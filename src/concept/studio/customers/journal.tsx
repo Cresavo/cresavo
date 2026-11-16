@@ -12,6 +12,7 @@ import { Field, TextArea, TextInput } from "../../ui/controls";
 import { EmptyState } from "../../ui/empty-state";
 import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
+import { JournalDictation } from "./journal-dictation";
 
 /** Journal entries for a customer plus a short form to add one. */
 export function Journal({ customer }: { customer: Customer }) {
@@ -19,6 +20,7 @@ export function Journal({ customer }: { customer: Customer }) {
   const entries = state.journals.filter((j) => j.customerId === customer.id).sort((a, b) => b.date.localeCompare(a.date));
   const [form, setForm] = useState({ treatment: "", observations: "", advice: "" });
   const [writing, setWriting] = useState(false);
+  const [dictating, setDictating] = useState(false);
   const staffId: StaffId = customer.preferredStaff;
 
   const save = () => {
@@ -31,11 +33,12 @@ export function Journal({ customer }: { customer: Customer }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        <Button icon={<NotebookPen size={18} />} onClick={() => setWriting(!writing)}>{t("journal.write")}</Button>
-        <Button variant="secondary" icon={<Mic size={18} />} onClick={() => showToast(t("journal.voiceComingSoon"))}>
+        <Button icon={<NotebookPen size={18} />} onClick={() => { setWriting(!writing); setDictating(false); }}>{t("journal.write")}</Button>
+        <Button variant="secondary" icon={<Mic size={18} />} onClick={() => { setDictating(true); setWriting(false); }}>
           {t("journal.dictate")}
         </Button>
       </div>
+      {dictating && <JournalDictation customer={customer} onClose={() => setDictating(false)} />}
       {writing && (
         <Card className="space-y-4 p-4">
           <Field label={t("journal.treatment")}>
