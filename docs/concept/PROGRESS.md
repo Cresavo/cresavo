@@ -1,5 +1,32 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Claude Code · goal 1 step 5/6 and goal 2: the customer page
+
+**Done**
+- `/boka/salong-eko`: salon hero (photo, rating, open now), the "What would you
+  like to book?" box, classic choose treatment, time, details flow, prices,
+  recent reviews, opening hours and address. Mobile first, light and dark.
+- The box reads free text ("foot care some afternoon next week with Anna", typos,
+  "after work", "as soon as possible") through the studio interpreter's date and
+  name matching (`src/concept/booking/request.ts`) and offers three varied times.
+- Confirmation page `/boka/salong-eko/booking/<id>` with Add to calendar (.ics),
+  Reschedule and Cancel. Rule: free until 24 h before, then "call us".
+- "My bookings" `/boka/salong-eko/me?ref=<customer id>`: upcoming, earlier visits,
+  Book again, cancel and reschedule. No login: the link carries the reference, or
+  the customer types their phone number (the page shows a demo number to try).
+- Waiting list "Notify me if something opens up" on full days and when nothing
+  matches. It lands in the owner's Inbox with a drafted reply and marks the
+  customer as waiting-list (used by "Fill the gap").
+- Bookings, moves and cancellations show up in `/studio` (same store) and as
+  Inbox items. Landing page `/` links to both demos.
+
+**Try it:** `npm run dev`, open `/boka/salong-eko`, book, then open `/studio/inbox`.
+Screenshots: `docs/concept/screens/booking-*-390.png` and `-1280.png`
+(home, suggest, details, confirmed, reschedule, cancel, mine, classic, waitlist, owner inbox).
+
+**Remains (goal 2):** SMS/email previews with a "sent" log, reviews after a visit,
+embed widget and share link, more phrasings.
+
 ## 2026-11-17 · Codex · goal 7 headless evaluations
 
 - Continued on `goal/7-ai-evals` from the latest concept branch, carrying the
