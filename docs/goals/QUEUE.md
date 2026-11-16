@@ -1,213 +1,214 @@
-# Goal-kö
+# Goal queue
 
-**Regel för agenter:** ta det översta goalet med status `ledig`, sätt
-`pågår · <agent> · <gren> · <datum>` och pusha det direkt (så att ingen annan
-tar samma). Jobba tills "Klart när" är uppfyllt, sätt `klar`, skriv i
-PROGRESS.md och **ta nästa ledig utan att fråga**. Är kön tom eller blockerad:
-kör "Städpass" längst ner. Sluta aldrig bara för att ett goal är klart.
+**Rule for agents:** take the topmost goal with status `open`, set it to
+`in progress · <agent> · <branch> · <date>` and push that immediately (so nobody
+else takes the same one). Work until "Done when" is met, set `done`, write in
+PROGRESS.md and **take the next open one without asking**. If the queue is empty
+or blocked: run the "Cleanup pass" at the bottom. Never stop just because a goal is done.
 
-**Grenar:** en agent åt gången kör direkt på `concept/ai-native-demo`.
-Kör två agenter samtidigt: gör `goal/<nr>-<kortnamn>` från senaste
-`concept/ai-native-demo`, och slå ihop tillbaka dit när goalet är klart
-(aldrig till `main`).
+**Branches:** one agent at a time works directly on `concept/ai-native-demo`.
+If two agents run at once: make `goal/<nr>-<shortname>` from the latest
+`concept/ai-native-demo`, and merge back there when the goal is done
+(never to `main`).
 
-**Vem:** `Codex` = väl specificerat UI- och funktionsbygge och städpass.
-`Opus` = arkitektur, AI-lager, flytt till riktig backend, granskning.
-`Båda` = vem som helst. Läs alltid CONCEPT.md för helheten.
+**Who:** `Codex` = well-specified UI and feature building and cleanup passes.
+`Opus` = architecture, AI layer, move to a real backend, review.
+`Both` = anyone. Always read CONCEPT.md for the big picture.
 
-Gemensamt "Klart när" för alla goals: lint, tsc, test och build gröna;
-skärmbilder 390 px + 1280 px av nya/ändrade vyer i `docs/concept/screens/`;
-PROGRESS.md uppdaterad; sidofynd som issues med etiketten `fynd`.
+Shared "Done when" for all goals: lint, tsc, test and build green;
+screenshots 390 px + 1280 px of new/changed views in `docs/concept/screens/`;
+PROGRESS.md updated; side findings as issues with the label `finding`.
+All UI text is English and goes through the dictionary (see AGENTS.md).
 
-| # | Goal | Vem | Status |
+| # | Goal | Who | Status |
 |---|---|---|---|
-| 1 | Klickbar demo natt 1 ([fil](../concept/CODEX_GOAL_NIGHT1.md)) | Båda | pågår · Claude (steg 1–2) |
-| 2 | Kundupplevelsen | Codex | ledig |
-| 3 | Kunder, journal och återbesök | Codex | ledig |
-| 4 | Marknadsstudion | Codex | ledig |
-| 5 | Lager och inköp | Codex | ledig |
-| 6 | Ekonomi och överblick | Codex | ledig |
-| 7 | AI-lagret på riktigt | Opus | ledig |
-| 8 | Support, logg och "Vad har hänt?" | Båda | ledig |
-| 9 | Moduler och branschpaket | Båda | ledig |
-| 10 | Öppna protokoll för konceptet | Opus | ledig |
-| 11 | Från demo till riktig motor | Opus | ledig |
+| 1 | Clickable demo night 1 ([file](../concept/CODEX_GOAL_NIGHT1.md)) | Both | in progress · Claude (steps 1–2) |
+| 2 | The customer experience | Codex | open |
+| 3 | Customers, journal and return visits | Codex | open |
+| 4 | The marketing studio | Codex | open |
+| 5 | Stock and purchasing | Codex | open |
+| 6 | Finance and overview | Codex | open |
+| 7 | The AI layer for real | Opus | open |
+| 8 | Support, log and "What happened?" | Both | open |
+| 9 | Modules and industry packs | Both | open |
+| 10 | Open protocols for the concept | Opus | open |
+| 11 | From demo to real engine | Opus | open |
 
 ---
 
-## 2 · Kundupplevelsen
+## 2 · The customer experience
 
-**Mål:** en kund som aldrig bokat online ska fatta direkt och boka på under en minut.
+**Goal:** a customer who has never booked online understands immediately and books in under a minute.
 
-- `/boka/salong-eko`: förfina "Vad vill du boka?" (fler formuleringar,
-  felstavningar, "så snart som möjligt", "efter jobbet", "med Anna").
-- Kundens egen sida via länk: kommande/tidigare bokningar, boka om med
-  samma behandling, avboka med tydlig regel ("fritt fram till 24 h innan").
-- Väntelista: "Meddela mig om något blir ledigt" när fullt; ägaren ser den
-  i Inkorg och "Fyll luckan" använder den.
-- Påminnelser och bekräftelser som förhandsvisning (SMS- och mejlutseende),
-  med simulerad "skickat"-logg i Inkorg.
-- Omdöme efter besöket: 1–5 stjärnor + text, visas på salongens sida efter
-  ägarens godkännande.
-- Bokningsknapp/widget att bädda in på egen hemsida (kopiera kod-ruta i
-  Mer → Inställningar) och en ren delningslänk för Instagram-bio.
+- `/boka/salong-eko`: refine "What would you like to book?" (more phrasings,
+  typos, "as soon as possible", "after work", "with Anna").
+- The customer's own page via link: upcoming/past bookings, rebook with the
+  same treatment, cancel with a clear rule ("free until 24 h before").
+- Waiting list: "Notify me if something opens up" when fully booked; the owner
+  sees it in Inbox and "Fill the gap" uses it.
+- Reminders and confirmations as previews (SMS and email look), with a
+  simulated "sent" log in Inbox.
+- Review after the visit: 1–5 stars + text, shown on the salon's page after
+  the owner's approval.
+- Booking button/widget to embed on your own website (copy-code box in
+  More → Settings) and a clean share link for an Instagram bio.
 
-**Klart när:** en testperson kan boka, boka om, avboka, ställa sig i kö och
-lämna omdöme på mobil utan instruktioner; allt syns hos ägaren.
+**Done when:** a test person can book, rebook, cancel, join the queue and
+leave a review on mobile without instructions; everything shows up for the owner.
 
-## 3 · Kunder, journal och återbesök
+## 3 · Customers, journal and return visits
 
-**Mål:** kundkortet är det bästa stället att förstå en kund på fem sekunder.
+**Goal:** the customer card is the best place to understand a customer in five seconds.
 
-- Kundkort: överst AI-sammanfattning ("Stamkund sedan 2024, fotvård var
-  6:e vecka, känslig hud, föredrar Anna, eftermiddagar").
-- Journal: röstinmatning → struktur (från goal 1), mallar per tjänst
-  (fotvård, massage), bilder före/efter (demobilder), versionshistorik.
-- Återbesöksmotor: intervall per tjänst, lista "sena" kunder, ett tryck
-  "skicka förslag på tid" (simulerat SMS med färdig länk).
-- Segment: "inte varit här på 3 mån", "stamkunder", "nya i år", "fyller år
-  denna månad" – används av Marknadsstudion.
-- Import av kunder från CSV (demo: exempelfil) med förhandsgranskning.
+- Customer card: AI summary at the top ("Regular since 2024, foot care every
+  6 weeks, sensitive skin, prefers Anna, afternoons").
+- Journal: voice input → structure (from goal 1), templates per service
+  (foot care, massage), before/after images (demo images), version history.
+- Return-visit engine: interval per service, list of "late" customers, one tap
+  "send time suggestion" (simulated SMS with a ready link).
+- Segments: "not been here in 3 months", "regulars", "new this year",
+  "birthday this month" – used by the Marketing studio.
+- Customer import from CSV (demo: example file) with preview.
 
-**Klart när:** öppna valfri kund → sammanfattning, historik, journal och
-nästa föreslagna besök syns; röstjournal sparas och syns i historiken.
+**Done when:** open any customer → summary, history, journal and next
+suggested visit are visible; a voice journal is saved and shows in the history.
 
-## 4 · Marknadsstudion
+## 4 · The marketing studio
 
-**Mål:** från idé till publicerad kampanj i alla kanaler på två minuter.
+**Goal:** from idea to a published campaign in all channels in two minutes.
 
-- Kampanjflödet från CONCEPT.md: erbjudande/högtid → text per kanal →
-  affisch från mall → förhandsvisning per kanal → publicera/schemalägg.
-- Affischmallar: 4–6 stilar, salongens färger/logga/foton, export som PNG
-  (format: Instagram-inlägg, story, A4 för skyltfönster).
-- Innehållskalender: månadsvy med planerade inlägg och högtider.
-- Annonsflöde: budget, dagar, närområde, förväntad räckvidd (simulerat).
-- Resultat per kampanj: räckvidd, klick, **bokningar via länken**, intäkt.
-- "Idag" föreslår kampanjer automatiskt (lediga tider + högtid + segment).
+- The campaign flow from CONCEPT.md: offer/holiday → text per channel →
+  poster from template → preview per channel → publish/schedule.
+- Poster templates: 4–6 styles, the salon's colours/logo/photos, export as PNG
+  (formats: Instagram post, story, A4 for the shop window).
+- Content calendar: month view with planned posts and holidays.
+- Ads flow: budget, days, local area, expected reach (simulated).
+- Results per campaign: reach, clicks, **bookings via the link**, revenue.
+- "Today" suggests campaigns automatically (free slots + holiday + segment).
 
-**Klart när:** skapa en fars dag-kampanj från Idag-kortet → texter + affisch
-→ "publicera överallt" → kampanjen visar simulerad statistik och bokningar.
+**Done when:** create a Father's Day campaign from the Today card → texts + poster
+→ "publish everywhere" → the campaign shows simulated statistics and bookings.
 
-## 5 · Lager och inköp
+## 5 · Stock and purchasing
 
-**Mål:** ägaren behöver aldrig räkna burkar.
+**Goal:** the owner never needs to count jars.
 
-- Produkter med saldo, minsta nivå, leverantör, inköpspris.
-- Förbrukning per behandling (fotvård drar 1 portion fotkräm) som
-  automatiskt minskar saldot när besök markeras klart.
-- Försäljning av produkt till kund (utan kassa: markera "såld").
-- Prognos: "tar slut om ca 9 dagar", inköpslista att godkänna, simulerad
-  beställning till leverantör (mejlutkast).
-- Inleverans: skanna/skriv in, eller fota följesedel (demo: fördefinierad).
-- Proaktiva kort på Idag.
+- Products with balance, minimum level, supplier, purchase price.
+- Consumption per treatment (foot care uses 1 portion of foot cream) that
+  automatically reduces the balance when visits are marked done.
+- Selling a product to a customer (no till: mark as "sold").
+- Forecast: "runs out in about 9 days", purchase list to approve, simulated
+  order to supplier (email draft).
+- Goods in: scan/type in, or photograph the delivery note (demo: predefined).
+- Proactive cards on Today.
 
-**Klart när:** klarmarkera besök → saldo minskar → varning på Idag →
-godkänn inköpslista → inleverans ökar saldo.
+**Done when:** mark a visit done → balance drops → warning on Today →
+approve purchase list → goods in raises the balance.
 
-## 6 · Ekonomi och överblick
+## 6 · Finance and overview
 
-**Mål:** "Hur går det?" besvaras på en skärm.
+**Goal:** "How is it going?" is answered on one screen.
 
-- Översikt: intäkt (dag/vecka/månad/år), beläggning per person, populära
-  tjänster, avbokningar/uteblivna, nya vs återkommande kunder, jämfört med
-  förra perioden. Enkla, snygga SVG-grafer.
-- Fråga med kommandorutan: "jämför mars med förra året", "vilken tjänst
-  tjänar mest per timme?" → svar med graf.
-- Kostnader (hyra, produkter, avgifter) inmatade enkelt → resultat.
-- "Koppla bokföring": Accounted-kort (simulerad koppling, visar vad som
-  skulle synkas), export SIE/CSV.
+- Overview: revenue (day/week/month/year), occupancy per person, popular
+  services, cancellations/no-shows, new vs returning customers, compared with
+  the previous period. Simple, nice SVG charts.
+- Ask with the command box: "compare March with last year", "which service
+  earns the most per hour?" → answer with a chart.
+- Costs (rent, products, fees) entered simply → result.
+- "Connect accounting": Accounted card (simulated connection, shows what
+  would be synced), export SIE/CSV.
 
-**Klart när:** Ekonomi-vyn och tre frågor via kommandorutan ger rimliga
-svar ur demodatan.
+**Done when:** the Finance view and three questions via the command box give
+reasonable answers from the demo data.
 
-## 7 · AI-lagret på riktigt
+## 7 · The AI layer for real
 
-**Mål:** alla AI-uppgifter körs genom ett lager som blir bättre när
-modellerna blir bättre, och som klarar egna nycklar.
+**Goal:** all AI tasks run through one layer that gets better when the
+models get better, and that handles own keys.
 
-- Uppgiftsregister (från goal 1 steg 3b) med versionerade promptar,
-  JSON-scheman och utvärderingsfall (exempel in → förväntad struktur ut).
-- Router: nivå → leverantör/modell; OpenRouter, OpenAI, Anthropic; egen
-  nyckel per verksamhet (BYOK) med krypterad lagring i demo-läge.
-- Eval-skript `npm run ai:eval` som kör alla fall mot vald modell och visar
-  träffsäkerhet, tid och kostnad, så modellbyten kan bedömas med siffror.
-- Kostnadsloggen persisteras och visas per uppgift/månad.
-- Kommandorutan använder verktyg/funktionsanrop i stället för fri text.
+- Task registry (from goal 1 step 3b) with versioned prompts,
+  JSON schemas and evaluation cases (example in → expected structure out).
+- Router: tier → provider/model; OpenRouter, OpenAI, Anthropic; own
+  key per business (BYOK) with encrypted storage in demo mode.
+- Eval script `npm run ai:eval` that runs all cases against the chosen model and
+  shows accuracy, time and cost, so model changes can be judged with numbers.
+- The cost log is persisted and shown per task/month.
+- The command box uses tools/function calls instead of free text.
 
-**Klart när:** `npm run ai:eval` går grönt med regelvarianten och med minst
-en riktig nyckel; byte av modell för en uppgift görs på ett ställe.
+**Done when:** `npm run ai:eval` passes with the rule-based variant and with at
+least one real key; switching the model for a task is done in one place.
 
-## 8 · Support, logg och "Vad har hänt?"
+## 8 · Support, log and "What happened?"
 
-**Mål:** en person kan supporta hundratals salonger. Se CONCEPT.md
-"Drift, loggning och support".
+**Goal:** one person can support hundreds of salons. See CONCEPT.md
+"Operations, logging and support".
 
-- Händelselogg i store: vem (människa/AI/integration), vad, före/efter.
-  Vy "Vad har hänt?" med filter och **Ångra**.
-- Papperskorg för raderade bokningar/kunder (30 dagar).
-- Hjälpknapp: AI-svar från en liten kunskapsbank (`docs/help/*.md`, skriv
-  10–15 artiklar), "visa mig" som markerar rätt knapp, och "skapa ärende"
-  som paketerar skärmbild, request-id och senaste händelser.
-- Supportläge: tidsbegränsad åtkomst som ägaren ger och ser i loggen.
-- Strukturerad serverloggning med request-id i `/api/concept/*`.
+- Event log in the store: who (human/AI/integration), what, before/after.
+  A "What happened?" view with filters and **Undo**.
+- Trash for deleted bookings/customers (30 days).
+- Help button: AI answers from a small knowledge base (`docs/help/*.md`, write
+  10–15 articles), "show me" that highlights the right button, and "create ticket"
+  that bundles a screenshot, request id and recent events.
+- Support mode: time-limited access that the owner grants and sees in the log.
+- Structured server logging with request id in `/api/concept/*`.
 
-**Klart när:** ändra något via AI → syns i "Vad har hänt?" → ångra fungerar;
-hjälpknappen besvarar 5 vanliga frågor.
+**Done when:** change something via AI → it shows in "What happened?" → undo works;
+the help button answers 5 common questions.
 
-## 9 · Moduler och branschpaket
+## 9 · Modules and industry packs
 
-**Mål:** samma kärna passar fler branscher; man betalar bara för det man slår på.
+**Goal:** the same core fits more industries; you only pay for what you switch on.
 
-- Modulregister: varje modul (Journal, Lager, Marknad, Ekonomi, Omdömen,
-  Väntelista, AI-assistent) har manifest: namn, beskrivning, menyval,
-  Idag-kort, AI-uppgifter, pris (demo).
-- Funktioner-sidan visar moduler som kort med på/av och pris.
-- Branschpaket: Fotvård/massage, Frisör, Naglar, PT, Klinik – ord,
-  standardtjänster, journalmallar och moduler. Byt paket i demo → appen
-  anpassar sig (ord, menyer, demodata).
-- Onboarding: "Vad har du för verksamhet?" → 3 frågor → färdigt upplägg.
+- Module registry: each module (Journal, Stock, Marketing, Finance, Reviews,
+  Waiting list, AI assistant) has a manifest: name, description, menu items,
+  Today cards, AI tasks, price (demo).
+- The Features page shows modules as cards with on/off and price.
+- Industry packs: Foot care/massage, Hairdresser, Nails, PT, Clinic – words,
+  default services, journal templates and modules. Switch pack in the demo → the
+  app adapts (words, menus, demo data).
+- Onboarding: "What kind of business do you have?" → 3 questions → ready setup.
 
-**Klart när:** byt till Frisör-paketet → tjänster, ord och menyer ändras;
-stäng av Lager → försvinner överallt.
+**Done when:** switch to the Hairdresser pack → services, words and menus change;
+turn off Stock → it disappears everywhere.
 
-## 10 · Öppna protokoll för konceptet
+## 10 · Open protocols for the concept
 
-**Mål:** konceptets data och åtgärder nås av externa AI:er. Se CONCEPT.md
-"Öppna protokoll".
+**Goal:** the concept's data and actions can be reached by external AIs. See CONCEPT.md
+"Open protocols".
 
-- Gemensamt verktygsregister för konceptets åtgärder (samma som
-  kommandorutan använder).
-- MCP-server (HTTP) som exponerar läsverktyg för allt + skrivverktyg som
-  skapar **förslag** som ägaren godkänner i appen.
-- A2A-kort och USP-profil för kundbokning.
-- "Din data & AI" visar status per protokoll + instruktioner för Claude
-  Desktop/Code och ChatGPT.
-- Återanvänd mönster från befintliga `src/mcp` och `/api/v1` (mandat,
-  idempotens), men koppla inte ihop med Prisma ännu.
+- A shared tool registry for the concept's actions (the same ones the
+  command box uses).
+- MCP server (HTTP) exposing read tools for everything + write tools that
+  create **proposals** the owner approves in the app.
+- A2A card and USP profile for customer booking.
+- "Your data & AI" shows status per protocol + instructions for Claude
+  Desktop/Code and ChatGPT.
+- Reuse patterns from the existing `src/mcp` and `/api/v1` (mandate,
+  idempotency), but do not connect to Prisma yet.
 
-**Klart när:** Claude Code kan via MCP lista dagens bokningar och skapa ett
-flyttförslag som syns i Inkorg och kan godkännas.
+**Done when:** Claude Code can list today's bookings via MCP and create a
+move proposal that shows up in Inbox and can be approved.
 
-## 11 · Från demo till riktig motor
+## 11 · From demo to real engine
 
-**Mål:** de bästa delarna av konceptet körs mot riktig databas och
-befintlig bokningsmotor.
+**Goal:** the best parts of the concept run against a real database and the
+existing booking engine.
 
-- Kartlägg: vilka konceptdelar som har motsvarighet i `src/lib/domain.ts`,
-  Prisma och `/api/v1`, och vilka som saknas. Skriv plan i `docs/goals/`.
-- Byt store-lagret mot ett API-lager bakom samma gränssnitt (flagga:
-  demo-läge kvar). Börja med bokningar, kunder, tjänster, personal.
-- Nya tabeller via additiva migrationer för journal, lager, kampanjer, logg.
-- Behåll dubbelbokningsskydd, idempotens och kvoter; testa mot `_test`-DB.
+- Map: which concept parts have counterparts in `src/lib/domain.ts`,
+  Prisma and `/api/v1`, and which are missing. Write the plan in `docs/goals/`.
+- Replace the store layer with an API layer behind the same interface (flag:
+  demo mode stays). Start with bookings, customers, services, staff.
+- New tables via additive migrations for journal, stock, campaigns, log.
+- Keep double-booking protection, idempotency and quotas; test against a `_test` DB.
 
-**Klart när:** `/studio` i riktigt läge bokar/flyttar mot Postgres med
-samma UI, och demo-läget fungerar fortfarande.
+**Done when:** `/studio` in real mode books/moves against Postgres with the
+same UI, and demo mode still works.
 
 ---
 
-## Städpass (när kön är tom eller blockerad)
+## Cleanup pass (when the queue is empty or blocked)
 
-Ta öppna issues med etiketten `fynd` (sedan `ux`, `bug`), minsta först.
-Ett issue = en commit som refererar `#nr`. Stäng issuet med en kort
-kommentar om vad som gjordes. Hitta du nya saker: nytt issue, inte
-scope-glidning. Passar bra för en billig/snabb modell.
+Take open issues labelled `finding` (then `ux`, `bug`), smallest first.
+One issue = one commit that references `#nr`. Close the issue with a short
+comment on what was done. If you find new things: new issue, not
+scope creep. Well suited to a cheap/fast model.

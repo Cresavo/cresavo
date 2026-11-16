@@ -1,77 +1,102 @@
-# Booking Lab SE – guide för agenter
+# Booking Lab SE – agent guide
 
-Gäller Claude Code, Codex och Grok. Kort med flit: läs denna, sedan bara
-det dokument din uppgift pekar på. Äldre historik ligger i
-`docs/history/AGENTS_2026-11-16.md` – den ger **inga** uppdrag eller regler.
+Applies to Claude Code, Codex and Grok. Short on purpose: read this, then only
+the document your task points to. Older history lives in
+`docs/history/AGENTS_2026-11-16.md` – it gives **no** assignments or rules.
 
-## Roller
+## Roles
 
-- **Niclas** – produktägare. Bestämmer vad som byggs.
-- **Claude Code** – teknisk ägare: plan, struktur, granskning, prompts.
-- **Codex** – bygger enligt en goal-prompt i `docs/concept/`.
-- **Grok** – granskar och klickar igenom, rapporterar i `docs/concept/REVIEW.md`.
+- **Niclas** – product owner. Decides what gets built.
+- **Claude Code** – technical owner: plan, structure, review, prompts.
+- **Codex** – builds according to a goal prompt in `docs/concept/`.
+- **Grok** – reviews and clicks through, reports in `docs/concept/REVIEW.md`.
 
-## Aktuellt mål: klickbar AI-native demo
+Conversation with Niclas may be Swedish, but everything committed is English.
 
-Läs `docs/concept/CONCEPT.md`. Fart och känsla går före full riktighet.
-Arbeta på gren `concept/ai-native-demo` (eller en gren från den).
+## Current goal: clickable AI-native demo
 
-- Bygg i `src/app/studio`, `src/app/boka`, `src/concept/` och
-  `src/app/api/concept/`. Rör inte befintlig `/admin`, `/api/v1`, MCP,
-  Prisma-schema eller migrationer utan uttryckligt uppdrag.
-- Konceptet använder fixture-data + webbläsarstate, ingen databas.
-- AI-nycklar (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) är valfria och används
-  bara på servern. Allt ska fungera utan nyckel.
+Read `docs/concept/CONCEPT.md`. Speed and feel come before full correctness.
+Work on branch `concept/ai-native-demo` (or a branch off it).
 
-## Arbetssätt: goals och issues
+- Build in `src/app/studio`, `src/app/boka`, `src/concept/` and
+  `src/app/api/concept/`. Do not touch the existing `/admin`, `/api/v1`, MCP,
+  Prisma schema or migrations without an explicit assignment.
+- The concept uses fixture data + browser state, no database.
+- AI keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) are optional and used
+  only on the server. Everything must work without a key.
+- All UI text is in English. Every user-facing string lives in a per-area
+  dictionary (e.g. `src/concept/i18n/en.ts` with a small `t()` helper) so
+  Swedish (`sv`) can be added later without touching components. Demo data may
+  stay Swedish-flavoured (Stockholm salon, Swedish names, SEK). Dates en-GB,
+  24h clock.
 
-- Arbete sker i **goals** i kön `docs/goals/QUEUE.md`. Ta översta lediga,
-  jobba tills "Klart när" är uppfyllt, ta sedan **nästa utan att fråga**.
-  Tom kö: städpass (issues). Flöde, mall och modellval: `docs/goals/README.md`.
-- Fixa inte saker utanför ditt goal. **Skapa ett GitHub-issue** med
-  etiketten `fynd` (kommando i `docs/goals/README.md`), eller skriv det under
-  "Fynd" i PROGRESS.md om du saknar GitHub-åtkomst.
+## Working method: goals and issues
 
-## Så ser Niclas vad som händer
+- Work happens in **goals** in the queue `docs/goals/QUEUE.md`. Take the topmost
+  open one, work until "Done when" is met, then take the **next one without
+  asking**. Empty queue: cleanup pass (issues). Flow, template and model
+  choice: `docs/goals/README.md`.
+- Do not fix things outside your goal. **Create a GitHub issue** with the
+  label `finding` (command in `docs/goals/README.md`), or write it under
+  "Findings" in PROGRESS.md if you lack GitHub access.
 
-Efter varje större steg:
-1. Uppdatera `docs/concept/PROGRESS.md`: datum, vad som är klart, hur man
-   provar det (URL-sökväg), vad som är kvar. Kort, på svenska.
-2. Ta mobil- (390 px) och datorskärmbild (1280 px) av nya sidor och lägg dem
-   i `docs/concept/screens/` (png, max ~400 kB styck). Länka dem i PROGRESS.
-3. Commita ofta med tydliga meddelanden och pusha grenen.
+## Code principles
 
-## Bevarade grundregler (gäller hela repot)
+- Keep it simple and readable for humans and agents: small focused files,
+  clear names, one responsibility per module.
+- No dead code, commented-out code, unused exports, speculative abstractions
+  or leftover scratch/debug files. When you replace something, delete the old
+  version in the same commit.
+- Types live next to the code that uses them; shared types only when actually
+  shared.
+- Follow existing patterns before inventing new ones; prefer the platform and
+  existing deps over new dependencies.
+- Every feature gets tests where logic lives (parsers, store actions, AI task
+  schemas); UI is verified with screenshots.
+- Leave the code cleaner than you found it, but only within your goal; other
+  cleanups become issues.
+- English for code, comments, commits and docs.
 
-- Bara påhittad data. Inga riktiga kunders uppgifter, inga riktiga utskick.
-- Inga hemligheter i Git. `.env` är ignorerad; nycklar loggas aldrig.
-- Ingen deploy, ingen merge till `main`, ingen force-push utan Niclas ja.
-- Befintlig bokningsmotor (`src/lib/domain.ts`, Prisma, MCP, `/api/v1`)
-  har dubbelbokningsskydd, idempotens och kvoter som inte får försvagas.
-  Tester mot databas kräver separat `_test`/`_demo`-databas
-  (`scripts/test-db-guard.mjs`).
-- Nya beroenden bara vid tydligt behov; skriv varför i commit-meddelandet.
+## How Niclas sees what is happening
 
-## Kommandon
+After each larger step:
+1. Update `docs/concept/PROGRESS.md`: date, what is done, how to try it
+   (URL path), what remains. Short, in English.
+2. Take mobile (390 px) and desktop (1280 px) screenshots of new pages and put
+   them in `docs/concept/screens/` (png, max ~400 kB each). Link them in PROGRESS.
+3. Commit often with clear messages and push the branch.
+
+## Standing ground rules (apply to the whole repo)
+
+- Invented data only. No real customer details, no real outgoing messages.
+- No secrets in Git. `.env` is ignored; keys are never logged.
+- No deploy, no merge to `main`, no force-push without Niclas's yes.
+- The existing booking engine (`src/lib/domain.ts`, Prisma, MCP, `/api/v1`)
+  has double-booking protection, idempotency and quotas that must not be
+  weakened. Tests against a database require a separate `_test`/`_demo`
+  database (`scripts/test-db-guard.mjs`).
+- New dependencies only when clearly needed; say why in the commit message.
+
+## Commands
 
 ```bash
-npm run dev          # http://localhost:3000 (kräver .env med DATABASE_URL för befintliga delar)
+npm run dev          # http://localhost:3000 (needs .env with DATABASE_URL for existing parts)
 npm run lint
 npx tsc --noEmit
 npm test             # unit
 npm run build
 ```
 
-Konceptsidorna (`/studio`, `/boka/salong-eko`) ska fungera även utan databas.
+The concept pages (`/studio`, `/boka/salong-eko`) must work even without a database.
 
-## Karta över befintlig kod (återanvänd gärna idéer)
+## Map of existing code (feel free to reuse ideas)
 
-- `src/lib/domain.ts`, `time.ts`, `schedule.ts` – bokningsregler och tider.
-- `src/lib/capacity.ts` – proaktiva förslag på luckor/kampanjer.
-- `src/app/admin/` – nuvarande admin (kalender, kunder, tjänster, personal,
-  översikt, kampanjer). Fungerar men upplevs rörig – konceptet ersätter UX:en.
-- `src/app/api/v1/`, `src/mcp/` – agent-API och MCP (Claude/ChatGPT).
-- `docs/ARCHITECTURE.md`, `docs/PRIVACY_SECURITY.md` – när du rör motorn.
+- `src/lib/domain.ts`, `time.ts`, `schedule.ts` – booking rules and times.
+- `src/lib/capacity.ts` – proactive suggestions for gaps/campaigns.
+- `src/app/admin/` – current admin (calendar, customers, services, staff,
+  overview, campaigns). Works but feels cluttered – the concept replaces its UX.
+- `src/app/api/v1/`, `src/mcp/` – agent API and MCP (Claude/ChatGPT).
+- `docs/ARCHITECTURE.md`, `docs/PRIVACY_SECURITY.md` – when you touch the engine.
 
 ## This is NOT the Next.js you know
 

@@ -1,267 +1,275 @@
-# Koncept: AI-native salongssystem (klickbar demo)
+# Concept: AI-native salon system (clickable demo)
 
-Beslut av Niclas 2026-11-16. Mål: en **klickbar, levande demo av hela systemet**
-som känns verklig. Den ska gå att visa för salongsägare och användas för att
-få reaktioner (till exempel från en fotterapeut som använder bokningssystem
-dagligen). Det är **inte** en skarp produkt. Fart och känsla går före full
-riktighet. Bra delar byggs om "på riktigt" senare.
+Decision by Niclas 2026-11-16. Goal: a **clickable, living demo of the whole system**
+that feels real. It should be possible to show to salon owners and use to
+get reactions (for example from a foot therapist who uses booking systems
+daily). It is **not** a live product. Speed and feel come before full
+correctness. The good parts are rebuilt "for real" later.
 
-## Idén i en mening
+## The idea in one sentence
 
-Ett salongssystem där ägaren och kunden **säger eller skriver vad de vill**
-och systemet föreslår ändringen, som man godkänner med ett tryck. Allt går
-också att göra med vanliga knappar, så AI är en genväg och inget krav.
+A salon system where the owner and the customer **say or type what they want**
+and the system proposes the change, which you approve with one tap. Everything
+can also be done with ordinary buttons, so AI is a shortcut and not a requirement.
 
-## Principer
+## Principles
 
-1. **Less is more.** Få menyval, stora tydliga knappar, högst två tryck till
-   allt vanligt. Ägaren är stressad och står ofta med en kund eller i telefon.
-2. **Säg det i stället för att klicka.** En kommandoruta (text + mikrofon)
-   finns alltid till hands. Resultatet visas som ett **förslagskort** med
-   Godkänn / Ändra / Avbryt. Inget ändras utan godkännande.
-3. **Proaktivt.** Systemet säger själv vad som behöver göras: luckor att fylla,
-   varor som tar slut, högtider att kampanja inför, kunder som inte varit där.
-4. **Du äger din data.** Allt går att läsa via MCP och exportera gratis.
-   En egen sida visar "koppla Claude/ChatGPT" med kopiera-knapp.
-5. **Moduler du själv slår på.** Journal, Lager, Kampanjer, Ekonomi, Omdömen.
-   Avstängd modul syns inte i menyn.
-6. **Kunden ska förstå direkt.** Kundsidan har en enkel ruta: "Vad vill du
-   boka?" → tre färdiga tidsförslag → boka. Klassiskt klickflöde finns kvar.
+1. **Less is more.** Few menu choices, big clear buttons, at most two taps to
+   anything common. The owner is stressed and often standing with a customer or on the phone.
+2. **Say it instead of clicking.** A command box (text + microphone) is
+   always at hand. The result is shown as a **proposal card** with
+   Approve / Change / Cancel. Nothing changes without approval.
+3. **Proactive.** The system says by itself what needs doing: gaps to fill,
+   products running out, holidays to run campaigns for, customers who have not been in.
+4. **You own your data.** Everything can be read via MCP and exported for free.
+   A dedicated page shows "connect Claude/ChatGPT" with a copy button.
+5. **Modules you switch on yourself.** Journal, Stock, Campaigns, Finance, Reviews.
+   A switched-off module does not appear in the menu.
+6. **The customer understands immediately.** The customer page has one simple box: "What would you
+   like to book?" → three ready time suggestions → book. The classic click flow remains.
+7. **English UI, ready for more languages.** All UI text is in English. Every
+   user-facing string lives in a per-area dictionary (e.g. `src/concept/i18n/en.ts`
+   with a small `t()` helper) so Swedish (`sv`) can be added later without touching
+   components. Demo data may stay Swedish-flavoured (Stockholm salon, Swedish names,
+   SEK). Dates en-GB, 24h clock.
 
-## Ägarens app (`/studio`)
+## The owner's app (`/studio`)
 
-Meny (flikar i botten på mobil, sidomeny på dator):
+Menu (tabs at the bottom on mobile, side menu on desktop):
 
-| Flik | Innehåll |
+| Tab | Content |
 |---|---|
-| **Idag** (start) | Dagens tidslinje, nästa kund med kundkort-snabbinfo, proaktiva kort ("2 luckor i eftermiddag – skicka erbjudande?", "Fotkräm snart slut – beställ?", "Fars dag om 19 dagar – se kampanjförslag"), dagens intäkt. |
-| **Kalender** | Dag/vecka, dra-och-släpp för att flytta, tryck för detaljer. Personalfilter. |
-| **Kunder** | Sök, kundkort med bild, historik, anteckningar, journal (om påslagen), "inte varit här på 10 veckor"-markering. |
-| **Inkorg** | Meddelanden/förfrågningar från kunder, ombokningsönskemål, nya omdömen. Ett tryck för att svara med förslag. |
-| **Mer** | Tjänster & priser, Personal, Lager, Kampanjer, Ekonomi, Omdömen, Funktioner (moduler på/av), Din data & AI, Inställningar. |
+| **Today** (start) | Today's timeline, next customer with customer-card quick info, proactive cards ("2 gaps this afternoon – send an offer?", "Foot cream running low – order?", "Father's Day in 19 days – see campaign suggestions"), today's revenue. |
+| **Calendar** | Day/week, drag and drop to move, tap for details. Staff filter. |
+| **Customers** | Search, customer card with image, history, notes, journal (if switched on), "not been here in 10 weeks" marker. |
+| **Inbox** | Messages/requests from customers, rebooking requests, new reviews. One tap to reply with a suggestion. |
+| **More** | Services & prices, Staff, Stock, Campaigns, Finance, Reviews, Features (modules on/off), Your data & AI, Settings. |
 
-**Kommandoruta** ("Vad vill du göra?") överst på varje sida + flytande
-mikrofonknapp på mobil. Exempel som ska fungera i demon:
+**Command box** ("What do you want to do?") at the top of every page + a floating
+microphone button on mobile. Examples that must work in the demo:
 
-- "Flytta Annas tid på torsdag till 14" → kort som visar före/efter.
-- "Boka in Erik på fotvård nästa tisdag förmiddag" → tre lediga tider.
-- "Avboka 15:00 idag och erbjud tiden till väntelistan".
-- "Kampanj på massage 20 % hela mars" → kampanjkort med pris före/efter.
-- "Vad har jag tjänat den här månaden?" → siffra + liten graf.
-- "Vilka kunder har inte varit här sedan sommaren?" → lista + "skicka hälsning".
-- "Beställ mer fotkräm" → inköpsutkast.
-- "Gör en affisch till fars dag" → affischförslag.
+- "Move Anna's appointment on Thursday to 14:00" → card showing before/after.
+- "Book Erik for a foot treatment next Tuesday morning" → three free times.
+- "Cancel 15:00 today and offer the slot to the waiting list".
+- "20% off massage all of March" → campaign card with price before/after.
+- "What have I earned this month?" → number + small chart.
+- "Which customers haven't been here since the summer?" → list + "send a greeting".
+- "Order more foot cream" → purchase draft.
+- "Make a poster for Father's Day" → poster suggestion.
 
-## Nya idéer att visa (sådant andra system saknar)
+## New ideas to show (things other systems lack)
 
-- **Telefonläge**: stor knapp "Någon ringer". Visar dagens/veckans luckor
-  direkt och låter ägaren säga "flytta Lisa till fredag 10" med en hand.
-- **Röstjournal efter besöket**: tryck "Prata in journal" på besöket →
-  transkribering → strukturerad anteckning (behandling, observationer,
-  rekommendation, nästa besök) → granska → spara. Föreslår nästa bokning.
-- **Smart påminnelse om återbesök**: "Fotvård brukar göras var 6:e vecka –
-  5 kunder är sena, skicka förslag?".
-- **Fyll luckan**: avbokning → väntelista/stamkunder får erbjudande automatiskt
-  (i demon: simulerat utskick som syns i Inkorg).
-- **Högtidskalender**: Alla hjärtans dag, påsk, mors dag, fars dag, jul,
-  presentkortsperioder. Varje högtid ger färdigt kampanjförslag + affisch.
-- **Dagens summering** vid stängning: intäkt, nya kunder, journaler som
-  saknas, morgondagens första kund.
-- **Lagret pratar**: förbrukning räknas per behandling, varning när det
-  börjar ta slut, inköpslista att godkänna.
+- **Phone mode**: a big "Someone is calling" button. Shows today's/this week's gaps
+  immediately and lets the owner say "move Lisa to Friday 10" with one hand.
+- **Voice journal after the visit**: tap "Dictate journal" on the visit →
+  transcription → structured note (treatment, observations,
+  recommendation, next visit) → review → save. Suggests the next booking.
+- **Smart return-visit reminder**: "Foot care is usually done every 6 weeks –
+  5 customers are late, send a suggestion?".
+- **Fill the gap**: a cancellation → waiting list/regulars get an offer automatically
+  (in the demo: a simulated send that shows up in Inbox).
+- **Holiday calendar**: Valentine's Day, Easter, Mother's Day, Father's Day, Christmas,
+  gift card periods. Each holiday gives a ready campaign suggestion + poster.
+- **Daily summary** at closing: revenue, new customers, missing journals,
+  tomorrow's first customer.
+- **Stock that talks**: consumption is counted per treatment, a warning when
+  it starts running out, a purchase list to approve.
 
-## Kundens sida (`/boka/[salong]`)
+## The customer's page (`/boka/[salon]`)
 
-- Salongens sida med bild, adress, öppettider, omdömen, tjänster med bild/pris.
-- Överst: **"Vad vill du boka?"**-ruta. "Fotvård nån eftermiddag nästa vecka"
-  → tre tidsförslag som kort → tryck → namn + telefon → klart.
-- Klassiskt alternativ: välj behandling → välj tid → bekräfta (3 steg).
-- Bekräftelsesida med "Lägg i kalender", "Boka om", "Avboka".
-- "Mina bokningar" via länk (ingen inloggning i demon).
+- The salon's page with image, address, opening hours, reviews, services with image/price.
+- At the top: the **"What would you like to book?"** box. "Foot care some afternoon next week"
+  → three time suggestions as cards → tap → name + phone → done.
+- Classic alternative: choose treatment → choose time → confirm (3 steps).
+- Confirmation page with "Add to calendar", "Rebook", "Cancel".
+- "My bookings" via link (no login in the demo).
 
-## Teknik för demon
+## Tech for the demo
 
-- Ny separat route-tree: `/studio` och `/boka`. Rör **inte** befintlig
-  `/admin`, API, MCP, Prisma-schema eller migrationer.
-- **Ingen databas för konceptet.** Fixture-data i TypeScript + state i
-  webbläsaren (React state + `localStorage`), med knappen "Återställ demo".
-  Det gör demon snabb, säker att visa och oberoende av Postgres.
-- **Kommandotolk** i två lägen:
-  1. *Utan nyckel* (standard): regelbaserad svensk tolk som klarar
-     exempelfraserna ovan och varianter.
-  2. *Med `OPENAI_API_KEY`* i `.env`: server-route `/api/concept/intent` som
-     ber modellen returnera samma JSON-struktur (åtgärd + parametrar). Faller
-     tillbaka till regeltolken vid fel. Nyckeln lämnar aldrig servern.
-- **Tal**: webbläsarens `SpeechRecognition` (sv-SE) i första hand. Med nyckel:
-  `/api/concept/transcribe` som skickar ljud till OpenAI-transkribering.
-- Bilder: använd befintliga i `public/demo` + genererade, enhetliga
-  SVG-avatarer (initialer på pastell) för kunder. Inga foton på verkliga personer.
-- Alla AI-förslag märks "Förslag" och visar exakt vad som ändras.
+- New separate route tree: `/studio` and `/boka`. Do **not** touch the existing
+  `/admin`, API, MCP, Prisma schema or migrations.
+- **No database for the concept.** Fixture data in TypeScript + state in the
+  browser (React state + `localStorage`), with a "Reset demo" button.
+  That makes the demo fast, safe to show and independent of Postgres.
+- **Command interpreter** in two modes:
+  1. *Without a key* (default): a rule-based English interpreter that handles
+     the example phrases above and variants.
+  2. *With `OPENAI_API_KEY`* in `.env`: the server route `/api/concept/intent`
+     asks the model to return the same JSON structure (action + parameters). Falls
+     back to the rule interpreter on error. The key never leaves the server.
+- **Speech**: the browser's `SpeechRecognition` (en-GB) first. With a key:
+  `/api/concept/transcribe` which sends audio to OpenAI transcription.
+- **UI strings**: all text goes through a per-area dictionary (`src/concept/i18n/en.ts`,
+  `t()` helper), never hard-coded in components, so `sv` can be added later.
+- Images: use the existing ones in `public/demo` + generated, uniform
+  SVG avatars (initials on pastel) for customers. No photos of real people.
+- All AI proposals are marked "Proposal" and show exactly what changes.
 
-## Demodata
+## Demo data
 
-Salong: **Salong Eko** (fotvård + massage), Vasastan. Två personer: Anna
-(fotterapeut, ägare) och Erik (massör). ~40 kunder med namn, telefon (fiktiv
-070-1xx xx xx), anteckningar, 3–12 besök var, några med journalanteckningar.
-Kalender fylld ~70 % kommande 3 veckor + historik 6 månader (för grafer).
-Lager: ~15 produkter (fotkräm, nagelband­olja, filar, massageolja …) varav
-2 nära slut. 3 omdömen per vecka. Dagens datum = verkligt dagens datum så
-"Idag" alltid ser levande ut.
+Salon: **Salong Eko** (foot care + massage), Vasastan, Stockholm. Two people: Anna
+(foot therapist, owner) and Erik (massage therapist). ~40 customers with names, phone (fictional
+070-1xx xx xx), notes, 3–12 visits each, some with journal entries.
+Calendar ~70% full for the coming 3 weeks + 6 months of history (for charts).
+Stock: ~15 products (foot cream, cuticle oil, files, massage oil …) of which
+2 nearly out. 3 reviews per week. Today's date = the real current date so
+"Today" always looks alive. Prices in SEK.
 
-## AI-arkitektur: byggd för att bli bättre när modellerna blir bättre
+## AI architecture: built to get better as the models get better
 
-Kärnan är **headless**: alla verksamhetsåtgärder (boka, flytta, ändra pris,
-skapa kampanj, journal, lager, publicera inlägg) är *verktyg* med tydligt
-schema. Samma verktyg används av knapparna i appen, kommandorutan, interna
-agenter och externa AI:er via MCP. UI:t är bara ett av flera sätt att anropa dem.
+The core is **headless**: every business action (book, move, change price,
+create campaign, journal, stock, publish post) is a *tool* with a clear
+schema. The same tools are used by the buttons in the app, the command box, internal
+agents and external AIs via MCP. The UI is just one of several ways to call them.
 
 ```
- Knappar · Kommandoruta · Röst · Claude/ChatGPT (MCP) · Schemalagda agenter
+ Buttons · Command box · Voice · Claude/ChatGPT (MCP) · Scheduled agents
                               │
-                  Verktyg (typade åtgärder + förslag/godkänn)
+                  Tools (typed actions + propose/approve)
                               │
-       Uppgiftsagenter (en sak var) ── Modellväljare (billig/smart/lokal)
+       Task agents (one thing each) ── Model router (cheap/smart/local)
                               │                     │
-                   Verksamhetsdata            Leverantör: OpenAI / Anthropic /
-                                              OpenRouter / egen nyckel (BYOK)
+                   Business data              Provider: OpenAI / Anthropic /
+                                              OpenRouter / own key (BYOK)
 ```
 
-- **En agent per uppgift.** Små specialister: `tolka-kommando`,
-  `strukturera-journal`, `skriv-inlägg`, `föreslå-kampanj`, `lagerprognos`,
-  `svara-kund`, `dagens-summering`. Varje uppgift har eget promptfil, egen
-  in/ut-struktur (JSON-schema) och en **modellnivå**: `snabb` (billig),
-  `smart` (dyr), `bild`, `tal`. Bättre modell = byt nivå i en tabell.
-- **Modellväljare/router.** Ett ställe som mappar nivå → leverantör + modell.
-  Standard: plattformens nycklar. Kunden kan lägga in egen nyckel (OpenAI,
-  Anthropic eller OpenRouter, som ger hundratals modeller via ett API) och
-  välja nivå per funktion. Allt OpenAI-kompatibelt anrop går genom samma klient.
-- **Kostnad syns.** Varje AI-anrop loggas med uppgift, modell och uppskattad
-  kostnad, så man ser vad features kostar och kan prissätta dem.
-- **Alltid en fallback.** Utan nyckel fungerar regelbaserade varianter.
-  AI förbättrar, men krävs aldrig.
-- **Förslag först.** Agenter ändrar aldrig direkt; de lämnar förslag som
-  människan godkänner (eller som ägaren uttryckligen har slagit på
-  "godkänn automatiskt" för, per typ).
-- **AI i bakgrunden.** Mycket AI ska inte synas: den sorterar Idag-korten,
-  fyller i fält, föreslår text, upptäcker mönster. Ingen chattbubbla i onödan.
+- **One agent per task.** Small specialists: `interpret-command`,
+  `structure-journal`, `write-post`, `suggest-campaign`, `stock-forecast`,
+  `reply-customer`, `daily-summary`. Each task has its own prompt file, its own
+  input/output structure (JSON schema) and a **model tier**: `fast` (cheap),
+  `smart` (expensive), `image`, `speech`. A better model = change the tier in a table.
+- **Model selector/router.** One place that maps tier → provider + model.
+  Default: the platform's keys. The customer can add their own key (OpenAI,
+  Anthropic or OpenRouter, which gives hundreds of models via one API) and
+  choose a tier per feature. All OpenAI-compatible calls go through the same client.
+- **Cost is visible.** Every AI call is logged with task, model and estimated
+  cost, so you can see what features cost and price them.
+- **Always a fallback.** Without a key, rule-based variants work.
+  AI improves things but is never required.
+- **Proposals first.** Agents never change anything directly; they leave proposals
+  that a human approves (or for which the owner has explicitly switched on
+  "approve automatically", per type).
+- **AI in the background.** A lot of AI should be invisible: it sorts the Today cards,
+  fills in fields, suggests text, detects patterns. No chat bubble unless needed.
 
-## Marknadsföring: en kampanj → alla kanaler
+## Marketing: one campaign → all channels
 
-- **Kampanjstudio**: välj behandling/erbjudande (eller ta ett högtidsförslag)
-  → systemet skriver text per kanal (Instagram, Facebook, TikTok, Google,
-  nyhetsbrev, SMS) och gör bild/affisch i salongens stil → granska/ändra →
-  **Publicera överallt** eller schemalägg.
-- Bilder: mallbaserade affischer (egen text på salongens foton) som standard,
-  AI-genererad bild som tillval. Många gillar inte "AI-look", så mallar och
-  egna foton först.
-- **Annonser**: "Kör detta som annons på Facebook/Instagram, 500 kr, 7 dagar"
-  → förslag på målgrupp (närområde) → godkänn.
-- **Resultat tillbaka**: räckvidd, klick och – viktigast – **bokningar som
-  kom via kampanjlänken** syns på kampanjen. Varje kampanj får spårbar länk.
-- I demon är publicering och statistik simulerade men ser verkliga ut.
+- **Campaign studio**: choose a treatment/offer (or take a holiday suggestion)
+  → the system writes text per channel (Instagram, Facebook, TikTok, Google,
+  newsletter, SMS) and makes an image/poster in the salon's style → review/edit →
+  **Publish everywhere** or schedule.
+- Images: template-based posters (own text on the salon's photos) as the default,
+  AI-generated image as an option. Many people dislike the "AI look", so templates and
+  own photos come first.
+- **Ads**: "Run this as an ad on Facebook/Instagram, 500 SEK, 7 days"
+  → suggested audience (local area) → approve.
+- **Results back**: reach, clicks and – most important – **bookings that
+  came via the campaign link** show on the campaign. Every campaign gets a trackable link.
+- In the demo, publishing and statistics are simulated but look real.
 
-## Återanvänd i stället för att uppfinna (kandidater)
+## Reuse instead of inventing (candidates)
 
-| Behov | Kandidat | Not |
+| Need | Candidate | Note |
 |---|---|---|
-| Publicera i sociala kanaler | Postiz (öppen källkod, AGPL-3.0, självhostad, API + MCP) | Samma licens som repot. Annars Ayrshare/PostPeer som betal-API. |
-| Flera AI-leverantörer i ett API | OpenRouter (OpenAI-kompatibelt), Vercel AI SDK | BYOK-stöd. Börja med enkel fetch-klient, byt till SDK vid behov. |
-| Tal till text | Webbläsarens taligenkänning → OpenAI-transkribering | Lokal Whisper senare om kostnad/integritet kräver. |
-| MCP för "äg din data" | Befintlig `src/mcp` + `/api/v1/mcp` i repot | Utöka med läsverktyg för allt. |
-| Affischer | Mall i HTML/SVG → PNG (Playwright finns redan) | AI-bild som tillval. |
-| Bokföring (senare) | Fortnox API | Kassa byggs inte nu. |
+| Publish to social channels | Postiz (open source, AGPL-3.0, self-hosted, API + MCP) | Same licence as the repo. Otherwise Ayrshare/PostPeer as a paid API. |
+| Several AI providers in one API | OpenRouter (OpenAI-compatible), Vercel AI SDK | BYOK support. Start with a simple fetch client, switch to the SDK if needed. |
+| Speech to text | Browser speech recognition → OpenAI transcription | Local Whisper later if cost/privacy requires. |
+| MCP for "own your data" | Existing `src/mcp` + `/api/v1/mcp` in the repo | Extend with read tools for everything. |
+| Posters | Template in HTML/SVG → PNG (Playwright already exists) | AI image as an option. |
+| Accounting (later) | Fortnox API | No till is built now. |
 
-Licens och kostnad kontrolleras innan något kopplas på på riktigt.
+Licence and cost are checked before anything is connected for real.
 
-## Öppna protokoll: bygg på andras standarder
+## Open protocols: build on others' standards
 
-Princip: egen kärna med typade verktyg, och **tunna adaptrar** per protokoll.
-När ett protokoll blir bättre eller ett nytt vinner, byter/lägger vi till en
-adapter, inte kärnan.
+Principle: our own core with typed tools, and **thin adapters** per protocol.
+When a protocol gets better or a new one wins, we swap/add
+an adapter, not the core.
 
-| Protokoll | Vad det gör | Status i repot |
+| Protocol | What it does | Status in the repo |
 |---|---|---|
-| MCP | AI (Claude/ChatGPT) läser data och kör verktyg | Finns (`src/mcp`, `/api/v1/mcp`). Utöka med läsverktyg för allt. |
-| A2A | Agent pratar med agent (kundens assistent ↔ salongens agent) | Lokalt prov finns (`@a2a-js/sdk`). |
-| USP (Universal Services Protocol) | Upptäckt/bokning av tjänster via agenter | Upptäcktsprofil `/.well-known/usp` + namnalias, inte full konformitet. Tidigt utkast till standard. |
-| UCP (Google/Shopify) | Agentisk handel: upptäckt, kassa, order; bygger ut mot resor/boende | Inte påbörjat. Relevant för e-handel och ev. bokning. |
-| ACP (OpenAI/Stripe) | Köp inne i ChatGPT | Inte påbörjat. Senare, när kassa finns. |
-| AP2 | Bevis på att en människa godkänt en agents betalning | Inte påbörjat. Repots mandat/godkännande-modell ligger nära idén. |
-| OAuth 2.1 + discovery, OpenAPI, llms.txt | Säker anslutning, maskinläsbar API-beskrivning | Finns (labb). |
+| MCP | AI (Claude/ChatGPT) reads data and runs tools | Exists (`src/mcp`, `/api/v1/mcp`). Extend with read tools for everything. |
+| A2A | Agent talks to agent (the customer's assistant ↔ the salon's agent) | Local trial exists (`@a2a-js/sdk`). |
+| USP (Universal Services Protocol) | Discovery/booking of services via agents | Discovery profile `/.well-known/usp` + name aliases, not full conformance. Early draft of a standard. |
+| UCP (Google/Shopify) | Agentic commerce: discovery, checkout, order; expanding towards travel/accommodation | Not started. Relevant for e-commerce and possibly booking. |
+| ACP (OpenAI/Stripe) | Purchases inside ChatGPT | Not started. Later, when a till exists. |
+| AP2 | Proof that a human approved an agent's payment | Not started. The repo's mandate/approval model is close to the idea. |
+| OAuth 2.1 + discovery, OpenAPI, llms.txt | Secure connection, machine-readable API description | Exists (lab). |
 
-Demon visar detta på Mer → Din data & AI: "Din salong kan nås av AI-assistenter
-via MCP, A2A och USP" med status per protokoll.
+The demo shows this at More → Your data & AI: "Your salon can be reached by AI assistants
+via MCP, A2A and USP" with status per protocol.
 
-## Affärsmodell: öppen kärna enligt Accounted-modellen (förslag)
+## Business model: open core following the Accounted model (proposal)
 
-Förebild: [Accounted](https://github.com/erp-mafia/accounted), svensk
-AI-native bokföring med öppen källkod (Next.js 16, AGPL, 150+ MCP-verktyg,
-agenten föreslår och människan godkänner). Deras modell, översatt hit:
+Role model: [Accounted](https://github.com/erp-mafia/accounted), Swedish
+AI-native open-source accounting (Next.js 16, AGPL, 150+ MCP tools,
+the agent proposes and the human approves). Their model, translated here:
 
-1. **Kärnan är AGPL och kan driftas fritt.** Det ger förtroende och
-   uppmärksamhet. Gratis att drifta själv, aldrig spärrat där.
-2. **Betald molnversion.** Abonnemang för den som bara vill logga in
-   (de flesta salonger).
-3. **"Connect"-tjänst, privat och betald.** Det som kräver avtal, nycklar
-   och certifikat (SMS, betalning, publicering i sociala kanaler, annonser,
-   Google-bokning, kalendersynk) körs som separat tjänst. Även den som driftar
-   själv köper den. Accounted valde detta efter att någon sålt vidare en fork.
-4. **Undantag för tillägg i licensen.** Tredjepartsmoduler som bara använder
-   det dokumenterade tilläggs-API:t får ha egen licens, så det kan växa en
-   marknadsplats.
-5. **White label.** Kedjor, franchiser och leverantörer kan köra under eget
-   varumärke.
-6. **Ingen provision per bokning.** Det är skillnaden mot kedjorna.
+1. **The core is AGPL and can be self-hosted freely.** That gives trust and
+   attention. Free to self-host, never locked down.
+2. **Paid cloud version.** A subscription for those who just want to log in
+   (most salons).
+3. **"Connect" service, private and paid.** What requires agreements, keys
+   and certificates (SMS, payment, publishing to social channels, ads,
+   Google booking, calendar sync) runs as a separate service. Even those who self-host
+   buy it. Accounted chose this after someone resold a fork.
+4. **Exception for add-ons in the licence.** Third-party modules that only use
+   the documented add-on API may have their own licence, so a
+   marketplace can grow.
+5. **White label.** Chains, franchises and suppliers can run under their own
+   brand.
+6. **No commission per booking.** That is the difference from the chains.
 
-**Bokföring byggs inte själv.** Koppla i stället till Accounted via deras
-MCP/API. Det är samma stack och samma licens, och vi slipper bygga om
-bokföring.
+**Accounting is not built in-house.** Connect to Accounted via their
+MCP/API instead. Same stack and same licence, and we avoid rebuilding
+accounting.
 
-## Drift, loggning och support: byggt för en person
+## Operations, logging and support: built for one person
 
-En person ska kunna driva detta. Därför gör systemet så mycket som möjligt
-av supporten själv, och felen ska synas innan kunden ringer.
+One person should be able to run this. So the system does as much of the
+support itself as possible, and errors should show before the customer calls.
 
-- **Strukturerad loggning från dag ett.** Varje anrop får ett request-id.
-  JSON-loggar med nivå, verksamhet, användare (pseudonymiserat), åtgärd och
-  tid. Aldrig kunddata, journaltext eller nycklar i loggar.
-- **Händelselogg per verksamhet.** Allt som ändras (av människa, AI eller
-  integration) sparas med vem, vad, före/efter och varifrån. Visas för ägaren
-  som "Vad har hänt?" och gör att man kan ångra och felsöka utan att gräva i servern.
-- **AI-logg.** Varje AI-anrop: uppgift, modell, tokens, kostnad, tid, om
-  fallback användes, om förslaget godkändes. Det är både felsökning och prissättning.
-- **Felspårning och larm.** Fel samlas (t.ex. Sentry eller öppen källkods-
-  alternativet GlitchTip) med request-id. Larm till telefonen vid fel som
-  påverkar bokning. Hälsosida för integrationer (SMS, publicering, betalning).
-- **Inbyggd support.** "Hjälp"-knapp i appen som (1) svarar med AI utifrån
-  dokumentation och kundens egna data/logg, (2) kan visa "så här gör du"
-  direkt i rätt vy, (3) skapar ett ärende med skärmbild, request-id och
-  senaste händelser när AI inte räcker. Ett ställe för alla ärenden.
-- **Självbetjäning.** Export, återställning av raderat (papperskorg),
-  ångra, statussida och kunskapsbank, så att färre behöver kontakta support.
-- **Supportläge.** Ägaren kan tidsbegränsat ge support läsåtkomst; varje
-  åtkomst loggas och syns för ägaren.
+- **Structured logging from day one.** Every call gets a request id.
+  JSON logs with level, business, user (pseudonymised), action and
+  time. Never customer data, journal text or keys in logs.
+- **Event log per business.** Everything that changes (by human, AI or
+  integration) is saved with who, what, before/after and from where. Shown to the owner
+  as "What happened?" and makes it possible to undo and debug without digging in the server.
+- **AI log.** Every AI call: task, model, tokens, cost, time, whether
+  fallback was used, whether the proposal was approved. This is both debugging and pricing.
+- **Error tracking and alerts.** Errors are collected (e.g. Sentry or the open-source
+  alternative GlitchTip) with request id. Phone alerts for errors that
+  affect booking. Health page for integrations (SMS, publishing, payment).
+- **Built-in support.** A "Help" button in the app that (1) answers with AI based on
+  documentation and the customer's own data/log, (2) can show "here is how"
+  directly in the right view, (3) creates a ticket with a screenshot, request id and
+  recent events when AI is not enough. One place for all tickets.
+- **Self-service.** Export, restoring deleted items (trash),
+  undo, status page and knowledge base, so fewer people need to contact support.
+- **Support mode.** The owner can grant support time-limited read access; every
+  access is logged and visible to the owner.
 
-## Bidrag till projektet
+## Contributing to the project
 
-- Varje bidrag kräver ett **bidragsgivaravtal (CLA)** som signeras digitalt
-  en gång (t.ex. CLA Assistant på GitHub) innan första PR kan slås ihop.
-- Varför CLA och inte bara DCO (som Accounted använder): Accounted
-  konstaterade att de inte kan ändra licens utan samtycke från alla
-  bidragsgivare. Med CLA behåller projektet möjligheten att erbjuda
-  kommersiell licens eller ändra licens senare. Kärnan förblir AGPL för alla.
-- `CONTRIBUTING.md` beskriver: CLA, kodstil, tester, syntetisk data,
-  säkerhetsrapportering (aldrig publik issue) och tilläggs-API:t.
-- Texten i CLA:n ska granskas juridiskt innan projektet blir publikt.
+- Every contribution requires a **contributor licence agreement (CLA)** signed digitally
+  once (e.g. CLA Assistant on GitHub) before the first PR can be merged.
+- Why a CLA and not just a DCO (which Accounted uses): Accounted
+  found that they cannot change licence without consent from all
+  contributors. With a CLA the project keeps the option of offering a
+  commercial licence or changing licence later. The core stays AGPL for everyone.
+- `CONTRIBUTING.md` describes: CLA, code style, tests, synthetic data,
+  security reporting (never a public issue) and the add-on API.
+- The text of the CLA must be legally reviewed before the project goes public.
 
-## Fler branscher
+## More industries
 
-Salong (fotvård/massage) är första provet. Kärnan ska passa fler: frisör,
-naglar, PT, klinik, hantverkare med bokning och e-handel. Branschen är ett
-**paket** av moduler, ord ("behandling"/"tjänst"/"produkt") och agentprompter
-– inte en egen kodbas.
+Salon (foot care/massage) is the first trial. The core should fit more: hairdresser,
+nails, PT, clinic, tradespeople with booking and e-commerce. An industry is a
+**pack** of modules, words ("treatment"/"service"/"product") and agent prompts
+– not a separate codebase.
 
-## Inte i demon (senare)
+## Not in the demo (later)
 
-Riktiga utskick (SMS/e-post), betalning/kassa, riktig bokföring, inloggning,
-GDPR-hantering av journal. Allt sådant visas som simulerat och märkt.
+Real outgoing messages (SMS/email), payment/till, real accounting, login,
+GDPR handling of journals, Swedish (`sv`) UI translation. Everything like that is shown
+as simulated and labelled.

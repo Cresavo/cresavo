@@ -1,80 +1,80 @@
-# Goal-promptar: så jobbar vi
+# Goal prompts: how we work
 
-Ett **goal** är ett avgränsat mål som en agent (Claude Code eller Codex) jobbar
-med tills det är klart, ofta över natten. Ett goal = en fil här + ett
-GitHub-issue med etiketten `goal` som länkar till filen.
+A **goal** is a bounded objective that an agent (Claude Code or Codex) works on
+until it is done, often overnight. One goal = one file here + one
+GitHub issue with the label `goal` that links to the file.
 
-## Flöde
+## Flow
 
-1. **Claude Code skriver goal-filen** (kopiera mallen nedan) och skapar issuet.
-2. **Niclas startar agenten** och klistrar in: "Läs AGENTS.md och kör
-   `docs/goals/<fil>.md` tills alla klart-kriterier är uppfyllda."
-3. **Agenten bygger**, commitar ofta, uppdaterar `docs/concept/PROGRESS.md`
-   med skärmbilder och skapar issues för allt den hittar vid sidan om.
-4. **Grok/Claude granskar** och skriver fynd som issues (eller i
+1. **Claude Code writes the goal file** (copy the template below) and creates the issue.
+2. **Niclas starts the agent** and pastes: "Read AGENTS.md and run
+   `docs/goals/<file>.md` until all done-criteria are met."
+3. **The agent builds**, commits often, updates `docs/concept/PROGRESS.md`
+   with screenshots and creates issues for everything it finds on the side.
+4. **Grok/Claude review** and write findings as issues (or in
    `docs/concept/REVIEW.md`).
-5. **Niclas tittar** på PROGRESS och skärmbilderna och säger vad som är bra/dåligt.
-6. Nästa goal skrivs. Upprepa.
+5. **Niclas looks** at PROGRESS and the screenshots and says what is good/bad.
+6. The next goal is written. Repeat.
 
-## Vilken modell?
+## Which model?
 
-| Arbete | Claude Code | Codex |
+| Work | Claude Code | Codex |
 |---|---|---|
-| Långt goal över natten, många steg | Opus | Starkaste Codex-modellen i listan, reasoning **high** (eller högsta) |
-| Planering, arkitektur, granskning | Opus | Starkaste modellen, reasoning high |
-| Avgränsat byggsteg, tydlig spec | Sonnet | Standardmodellen, reasoning medium |
-| Småfixar från issues | Sonnet eller Haiku | Snabbaste/billigaste modellen |
+| Long overnight goal, many steps | Opus | Strongest Codex model in the list, reasoning **high** (or highest) |
+| Planning, architecture, review | Opus | Strongest model, reasoning high |
+| Bounded build step, clear spec | Sonnet | Default model, reasoning medium |
+| Small fixes from issues | Sonnet or Haiku | Fastest/cheapest model |
 
-Tumregel: lägg den dyra modellen på det som är långt och oklart, den billiga
-på det som är kort och tydligt. Modellnamnen ändras ofta, så välj i listan
-utifrån "starkast" eller "snabbast" snarare än exakt namn.
+Rule of thumb: put the expensive model on what is long and unclear, the cheap
+one on what is short and clear. Model names change often, so pick from the list
+by "strongest" or "fastest" rather than exact name.
 
-## Fynd vid sidan om → issues
+## Side findings → issues
 
-Agenten fixar **inte** saker utanför sitt goal (det gör att goals drar ut och
-blir röriga). I stället skapas ett issue:
+The agent does **not** fix things outside its goal (that makes goals drag on and
+get messy). Instead an issue is created:
 
 ```bash
 gh api repos/niclasvestlund-YT/booking-lab-se/issues \
-  -f title="Kort beskrivning" \
-  -f body="Var: sökväg/sida. Vad: ... Förslag: ... Hittat under: <goal-fil>" \
-  -f "labels[]=fynd" -f "labels[]=ux"
+  -f title="Short description" \
+  -f body="Where: path/page. What: ... Suggestion: ... Found during: <goal file>" \
+  -f "labels[]=finding" -f "labels[]=ux"
 ```
 
-Etiketter: `fynd` (alltid för sidofynd), plus `bug`, `ux`, `ai`, `demo`,
-`senare`, `goal`. Saknar agenten GitHub-åtkomst: skriv fyndet under
-"Fynd" i `docs/concept/PROGRESS.md` så tar Claude upp det som issue.
+Labels: `finding` (always for side findings), plus `bug`, `ux`, `ai`, `demo`,
+`later`, `goal`. If the agent lacks GitHub access: write the finding under
+"Findings" in `docs/concept/PROGRESS.md` and Claude will raise it as an issue.
 
-Ett senare goal kan vara "beta av alla issues med etiketten `fynd` + `ux`".
+A later goal can be "beta of all issues labelled `finding` + `ux`".
 
-## Mall
+## Template
 
 ```markdown
-# Goal: <namn>
+# Goal: <name>
 
-**Issue:** #<nr> · **Gren:** <gren> · **Föreslagen modell:** <se tabell>
+**Issue:** #<nr> · **Branch:** <branch> · **Suggested model:** <see table>
 
-## Mål
-En eller två meningar: vad ska Niclas kunna göra/se när det är klart?
+## Goal
+One or two sentences: what should Niclas be able to do/see when this is done?
 
-## Läs först
-AGENTS.md, <1–3 relevanta docs>. Inget annat om det inte behövs.
+## Read first
+AGENTS.md, <1–3 relevant docs>. Nothing else unless needed.
 
-## Steg (commita och pusha efter varje)
+## Steps (commit and push after each)
 1. ...
 2. ...
 
-## Klart när
-- [ ] Konkreta, kontrollerbara kriterier (sida X visar Y, test Z grönt)
-- [ ] lint, tsc, test och build gröna
-- [ ] Skärmbilder 390 px + 1280 px i docs/concept/screens/
-- [ ] PROGRESS.md uppdaterad: klart, hur man provar, kvar
+## Done when
+- [ ] Concrete, verifiable criteria (page X shows Y, test Z green)
+- [ ] lint, tsc, test and build green
+- [ ] Screenshots 390 px + 1280 px in docs/concept/screens/
+- [ ] PROGRESS.md updated: done, how to try, remaining
 
-## Utanför målet
-Det som uttryckligen inte ska göras nu. Sidofynd → issue.
+## Out of scope
+What explicitly must not be done now. Side findings → issue.
 ```
 
 ## Goals
 
-Alla goals står i ordning i **[QUEUE.md](QUEUE.md)**. Agenter tar nästa
-lediga goal själva när ett är klart, och kör städpass när kön är tom.
+All goals are listed in order in **[QUEUE.md](QUEUE.md)**. Agents take the next
+open goal themselves when one is done, and run a cleanup pass when the queue is empty.
