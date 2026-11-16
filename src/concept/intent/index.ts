@@ -33,7 +33,7 @@ export function interpretCommand(input: string, context: IntentContext): IntentR
   const services = matchNames(text.replace(/foot treatment/g, "foot care"), context.services);
   const price = text.match(/(?:\b(?:sek|price)\s*(\d+(?:\.\d+)?)\b|\b(\d+(?:\.\d+)?)\s*(?:sek|kr)\b|\b(?:price|cost).*?\bto\s+(\d+(?:\.\d+)?))/);
   const discount = text.match(/(\d+(?:\.\d+)?)\s*(?:%|percent)\s*(?:off|discount)?/);
-  if (discount || /\b(campaign|offer)\b/.test(text) && !/cancel/.test(text) || /\b(price|cost)\b/.test(text)) {
+  if (discount || /\b(campaign|offer)\b/.test(text) && !/cancel/.test(text) || /\b(price|cost)\b/.test(text) || price && /\b(set|change|update)\b/.test(text)) {
     if (services.length !== 1) return question("Which service should the offer or price apply to?");
     params.serviceId = services[0].id;
     if (discount) {
