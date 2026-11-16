@@ -22,7 +22,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, c
           aria-checked={o.value === value}
           onClick={() => onChange(o.value)}
           className={cx(
-            "min-h-9 flex-1 rounded-lg px-3 text-center text-sm font-medium transition-colors",
+            "min-h-9 flex-1 whitespace-nowrap rounded-lg px-3 text-center text-sm font-medium transition-colors",
             o.value === value ? "bg-eko-surface text-eko-ink shadow-card" : "text-eko-muted hover:text-eko-ink",
           )}
         >

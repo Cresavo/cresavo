@@ -1,0 +1,223 @@
+"use client";
+
+import { useState } from "react";
+import { CalendarClock, CalendarX2, Phone, UserRound } from "lucide-react";
+import { formatTime } from "../../data/dates";
+import { t, tc, type MessageKey } from "../../i18n";
+import { formatDayLong, formatDuration, formatMoney } from "../../i18n/format";
+import { findCustomer, findService, fullName } from "../../selectors";
+import { dispatch, undo } from "../../store";
+import { Badge } from "../../ui/badge";
+import { Button, ButtonLink } from "../../ui/button";
+import { Chip, Switch } from "../../ui/controls";
+import { Sheet } from "../../ui/sheet";
+import { showToast } from "../../ui/toast";
+import { useStudio } from "../use-studio";
+import { SlotPicker, type Slot } from "./slot-picker";
+
+type Mode = "details" | "move" | "cancel";
+
+const CANCEL_REASONS: MessageKey[] = ["cancel.reason.customer", "cancel.reason.ill", "cancel.reason.salon", "cancel.reason.other"];
+
+/** Booking details with move and cancel flows. Mount it with `key={bookingId}`. */
+export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { bookingId: string; onClose: () => void; initialMode?: Mode }) {
+  const { state, today, minutes } = useStudio();
+  const booking = state.bookings.find((b) => b.id === bookingId);
+  const [mode, setMode] = useState<Mode>(initialMode);
+  const [date, setDate] = useState(booking?.date ?? today);
+  const [slot, setSlot] = useState<Slot | null>(null);
+  const [reason, setReason] = useState<MessageKey>(CANCEL_REASONS[0]);
+  const [offer, setOffer] = useState(true);
+  if (!booking) return null;
+
+  const customer = findCustomer(state, booking.customerId);
+  const service = findService(state, booking.serviceId);
+  const staff = state.staff.find((s) => s.id === booking.staffId)!;
+  const name = customer ? fullName(customer) : "";
+  const upcoming = booking.status === "booked" && (booking.date > today || (booking.date === today && booking.start + booking.duration > minutes));
+  const when = `${formatDayLong(booking.date)} · ${formatTime(booking.start)}–${formatTime(booking.start + booking.duration)}`;
+  const lastJournal = state.modules.journal
+    ? state.journals.filter((j) => j.customerId === booking.customerId && j.date < booking.date).at(-1)
+    : undefined;
+  const waitlist = state.customers.filter((c) => c.waitlist && c.id !== booking.customerId).length;
+
+  const confirmMove = () => {
+    if (!slot) return;
+    const moved = dispatch({ type: "booking/move", id: booking.id, date: slot.date, start: slot.start });
+    if (moved) {
+      showToast(t("booking.movedToast", { name: customer?.firstName ?? "", when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` }), {
+        label: t("common.undo"),
+        run: undo,
+      });
+    }
+    onClose();
+  };
+
+  const confirmCancel = () => {
+    dispatch({
+      type: "booking/cancel",
+      id: booking.id,
+      reason: t(reason),
+      notice: offer
+        ? {
+            kind: "system",
+            date: today,
+            time: minutes,
+            title: t("cancel.offerTitle", { time: formatTime(booking.start) }),
+            body: tc("cancel.offerBody", waitlist, { day: formatDayLong(booking.date), time: formatTime(booking.start) }),
+            read: false,
+            handled: true,
+          }
+        : undefined,
+    });
+    showToast(offer ? tc("booking.cancelledOfferedToast", waitlist) : t("booking.cancelledToast"), { label: t("common.undo"), run: undo });
+    onClose();
+  };
+
+  if (mode === "move") {
+    return (
+      <Sheet
+        open
+        onClose={onClose}
+        title={t("move.title", { name })}
+        description={`${service?.name} · ${formatDuration(booking.duration)} · ${staff.firstName}`}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setMode("details")}>{t("common.back")}</Button>
+            <Button disabled={!slot} onClick={confirmMove}>{t("move.confirm")}</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <SlotPicker
+            staffId={booking.staffId}
+            duration={booking.duration}
+            date={date}
+            onDateChange={setDate}
+            value={slot}
+            onChange={setSlot}
+            ignoreBookingId={booking.id}
+          />
+          <div className="grid grid-cols-2 gap-2 rounded-2xl bg-eko-sunken p-3 text-sm">
+            <div>
+              <p className="text-xs text-eko-muted">{t("move.before")}</p>
+              <p className="font-medium">{formatDayLong(booking.date)}</p>
+              <p className="tabular-nums">{formatTime(booking.start)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-eko-muted">{t("move.after")}</p>
+              <p className="font-medium">{slot ? formatDayLong(slot.date) : "–"}</p>
+              <p className="tabular-nums">{slot ? formatTime(slot.start) : t("move.pickTime")}</p>
+            </div>
+          </div>
+        </div>
+      </Sheet>
+    );
+  }
+
+  if (mode === "cancel") {
+    return (
+      <Sheet
+        open
+        onClose={onClose}
+        title={t("cancel.title")}
+        description={`${name} · ${when}`}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setMode("details")}>{t("common.back")}</Button>
+            <Button variant="danger" onClick={confirmCancel}>{t("cancel.confirm")}</Button>
+          </>
+        }
+      >
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <p className="text-sm font-medium">{t("cancel.reason")}</p>
+            <div className="flex flex-wrap gap-2">
+              {CANCEL_REASONS.map((r) => (
+                <Chip key={r} active={reason === r} onClick={() => setReason(r)}>{t(r)}</Chip>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-4 rounded-2xl bg-eko-accent-soft/60 p-4">
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">{t("cancel.offer")}</p>
+              <p className="text-sm text-eko-muted">{tc("cancel.offerHint", waitlist)}</p>
+            </div>
+            <Switch checked={offer} onChange={() => setOffer(!offer)} label={t("cancel.offer")} />
+          </div>
+        </div>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      title={name}
+      description={`${service?.name} · ${formatDuration(booking.duration)}`}
+      footer={
+        <>
+          {customer && (
+            <ButtonLink href={`/studio/customers/${customer.id}`} variant="ghost" icon={<UserRound size={18} />}>
+              {t("booking.customerCard")}
+            </ButtonLink>
+          )}
+          {upcoming && (
+            <>
+              <Button variant="danger" icon={<CalendarX2 size={18} />} onClick={() => setMode("cancel")}>{t("booking.cancel")}</Button>
+              <Button icon={<CalendarClock size={18} />} onClick={() => setMode("move")}>{t("booking.move")}</Button>
+            </>
+          )}
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {booking.status !== "booked" && (
+          <Badge tone={booking.status === "completed" ? "accent" : "danger"}>
+            {t(`status.${booking.status}`)}
+            {booking.cancelReason ? ` · ${booking.cancelReason}` : ""}
+          </Badge>
+        )}
+        <dl className="divide-y divide-eko-line rounded-2xl ring-1 ring-eko-line">
+          <InfoRow label={t("booking.when")} value={when} />
+          <InfoRow label={t("booking.with")} value={`${staff.firstName} ${staff.lastName}`} />
+          <InfoRow label={t("booking.price")} value={formatMoney(booking.price)} />
+          <InfoRow label={t("booking.source")} value={t(`source.${booking.source}`)} />
+          {customer?.phone && (
+            <InfoRow
+              label={t("booking.phone")}
+              value={
+                <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className="inline-flex items-center gap-1.5 text-eko-accent">
+                  <Phone size={14} />
+                  {customer.phone}
+                </a>
+              }
+            />
+          )}
+        </dl>
+        {customer?.note && (
+          <div className="rounded-2xl bg-eko-warn-soft px-4 py-3 text-sm text-eko-ink">
+            <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-eko-warn">{t("booking.note")}</p>
+            {customer.note}
+          </div>
+        )}
+        {lastJournal && (
+          <div className="rounded-2xl bg-eko-sunken px-4 py-3 text-sm">
+            <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-eko-muted">{t("booking.lastAdvice")}</p>
+            {lastJournal.advice}
+          </div>
+        )}
+      </div>
+    </Sheet>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 px-4 py-3 text-sm">
+      <dt className="text-eko-muted">{label}</dt>
+      <dd className="text-right font-medium">{value}</dd>
+    </div>
+  );
+}

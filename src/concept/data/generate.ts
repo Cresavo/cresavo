@@ -27,11 +27,11 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 3;
+export const DEMO_VERSION = 4;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
-const CUSTOMER_COUNT = 320;
+const CUSTOMER_COUNT = 360;
 const REGULAR_COUNT = 40;
 
 /** Small seeded random generator (mulberry32) so the demo looks the same every time. */
@@ -102,6 +102,8 @@ function makeCustomers(rng: Rng, today: DateKey): CustomerProfile[] {
     const sinceDays = regular ? rng.int(200, 2200) : isNew ? rng.int(3, 120) : rng.int(160, 1500);
     const since = addDays(today, -sinceDays);
     const churned = rng.chance(regular ? 0.16 : 0.12) && sinceDays > 200;
+    // Some foot care customers simply haven't rebooked yet: they show up as "due back".
+    const paused = !churned && category !== "massage" && rng.chance(0.08);
     const intervalDays =
       category === "massage"
         ? regular ? rng.int(14, 32) : rng.int(28, 70)
@@ -139,7 +141,7 @@ function makeCustomers(rng: Rng, today: DateKey): CustomerProfile[] {
       intervalDays,
       weight: regular ? 3.2 : 1,
       activeFrom: since,
-      activeUntil: churned ? addDays(today, -rng.int(75, 150)) : undefined,
+      activeUntil: churned ? addDays(today, -rng.int(75, 150)) : paused ? addDays(today, -rng.int(52, 62)) : undefined,
       favoriteService: { anna: footFavorite, erik: massageFavorite },
     });
   }
@@ -149,9 +151,9 @@ function makeCustomers(rng: Rng, today: DateKey): CustomerProfile[] {
 function occupancy(offset: number): number {
   if (offset < 0) return 0.86;
   if (offset === 0) return 0.92;
-  if (offset <= 7) return 0.86;
-  if (offset <= 14) return 0.72;
-  if (offset <= 21) return 0.56;
+  if (offset <= 7) return 0.9;
+  if (offset <= 14) return 0.78;
+  if (offset <= 21) return 0.64;
   return 0.16;
 }
 
