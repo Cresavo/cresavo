@@ -46,6 +46,12 @@ Work on branch `concept/ai-native-demo` (or a branch off it).
 (tests where logic lives, server-side validation, AI only proposes, no
 secrets or personal data in logs) and the pilot gate before real customers.
 
+## Releases and changelog
+
+Follow `docs/RELEASING.md`: Conventional Commits, and add user-visible
+changes to `CHANGELOG.md` under `[Unreleased]` as you work. Claude Code cuts
+a versioned release with notes and screenshots when a goal is done.
+
 ## Code principles
 
 - Keep it simple and readable for humans and agents: small focused files,
