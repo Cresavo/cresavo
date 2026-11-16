@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { resolve, join, sep } from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { DateTime } from "luxon";
 import { assertTestDatabase } from "../test-db-guard.mjs";
@@ -42,6 +43,8 @@ const salonEnv = { ...baseEnv, NEXT_TELEMETRY_DISABLED: "1", DATABASE_URL: proce
 const children = new Set<ChildProcess>();
 const checks: string[] = [];
 const run = `agentprov-${randomUUID()}`;
+const inboxRoot = realpathSync(tmpdir());
+const customerInbox = nativeCodex ? mkdtempSync(join(inboxRoot, "booking-consent-inbox-")) : undefined;
 let step = "START_SERVICES";
 let fault: "none" | "drop-booking" | "restart-after-access" | "fail-access" | "fail-operation" = "none";
 let savedBooking: string | undefined;
@@ -103,7 +106,8 @@ async function startSalon(mode: "split" | "standalone") {
   salon = await launch(salonPath, ["scripts/server.mjs"], {
     ...salonEnv, PORT: String(salonPort),
     BOOKING_PUBLIC_ORIGIN: nativeCodex ? `http://127.0.0.1:${salonPort}` : gatewayOrigin,
-    ...(nativeCodex ? { BOOKING_CONSENT_LAB: "1", BOOKING_RUNTIME: "local" } : {}),
+    ...(nativeCodex ? { BOOKING_CONSENT_LAB: "1", BOOKING_RUNTIME: "local",
+      BOOKING_CONSENT_DELIVERY: "separate-lab", BOOKING_CONSENT_INBOX_DIR: customerInbox } : {}),
     ...(mode === "split" ? { BOOKING_SERVICE_ROLE: "salon", GATEWAY_SERVICE_TOKEN: token } : {}),
   }, "BOOKING_SERVER_READY");
 }
@@ -242,7 +246,7 @@ try {
   if (nativeCodex) {
     step = "NATIVE_CODEX_CONSENT_PROOF";
     const { runNativeCodexProof } = await import("../agentprov/native-codex.mjs");
-    await runNativeCodexProof(gatewayOrigin, `http://127.0.0.1:${salonPort}`, pair);
+    await runNativeCodexProof(gatewayOrigin, `http://127.0.0.1:${salonPort}`, pair, customerInbox!);
     pass("NATIVE_CODEX_CONSENT_TO_CALENDAR");
   }
 } catch {
@@ -253,6 +257,12 @@ try {
   await new Promise<void>(r => proxy.close(() => r()));
   try { await cleanupRun(run); pass("OWN_FIXTURES_REMOVED"); }
   catch { process.exitCode = 1; console.error("FAIL PAIR_CLEANUP"); }
+  if (customerInbox) {
+    try {
+      assert(resolve(customerInbox).startsWith(inboxRoot + sep + "booking-consent-inbox-"));
+      rmSync(customerInbox, { recursive: true });
+    } catch { process.exitCode = 1; console.error("FAIL CUSTOMER_INBOX_CLEANUP"); }
+  }
   await db.$disconnect();
   mkdirSync(join(salonPath, "test-results"), { recursive: true });
   writeFileSync(join(salonPath, "test-results/integration-pair.json"), JSON.stringify({

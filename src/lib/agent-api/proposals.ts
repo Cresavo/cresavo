@@ -13,6 +13,7 @@ import { bookingProposalHash } from "./mandate-policy";
 import { placeForStaff } from "./place";
 import { business } from "./v1";
 import { labCustomerIdentity, requireConsentLab } from "./customer-identity";
+import { CHANNEL_CUSTOMER, CUSTOMER_CHANNEL, prepareCustomerDelivery, separateCustomerChannel } from "./customer-channel-lab";
 
 const id = z.string().trim().min(1).max(128);
 export const proposalSchema = z.object({
@@ -29,11 +30,13 @@ function view(p: AgentProposal, now: Date) {
     start: p.startsAt.toISOString(), durationMinutes: p.duration, price: { amountMinor: p.priceOre, currency: "SEK" },
     expiresAt: p.expiresAt.toISOString(), ...(p.status === "approved" ? { mandateId: p.mandateId } : {}) };
 }
-export async function createProposal(p: AgentPrincipal, body: unknown, now = new Date(), smsSender: SmsSender = simulatedSmsSender) {
+type ProposalResult = { proposal: ReturnType<typeof view>; approvalUrl?: string; approvalRequired?: boolean; approvalDelivery?: string };
+export async function createProposal(p: AgentPrincipal, body: unknown, now = new Date(), smsSender: SmsSender = simulatedSmsSender): Promise<ProposalResult> {
   requireConsentLab();
   if (!p.scopes.includes("bookings:write")) throw new AgentApiError("forbidden_scope");
   const input = proposalSchema.parse(body);
   business(p, input.business);
+  const delivery = prepareCustomerDelivery();
   const required = smsOtpRequired(p.businessId);
   if (!required && input.customerPhone !== undefined) throw new AgentApiError("invalid_request");
   const phone = required ? syntheticPhone(input.customerPhone) : null;
@@ -58,6 +61,7 @@ export async function createProposal(p: AgentPrincipal, body: unknown, now = new
     const snapshot = { businessId: p.businessId, clientId: p.clientId, serviceId: service.id,
       staffId: staff.id, ...placeForStaff(staff.id), start, duration: service.duration, priceOre: service.priceOre };
     return tx.agentProposal.create({ data: { id: proposalId, smsOtpRequired: required,
+      consentDelivery: delivery?.channel ?? null,
       ...(phone && otp ? { ...phone, otpHash: otp.hash, otpExpiresAt: new Date(+now + otpTtl * 1000), otpLastSentAt: now } : {}),
       businessId: p.businessId, clientId: p.clientId,
       serviceId: service.id, serviceVersion: service.version, serviceName: service.name,
@@ -71,6 +75,10 @@ export async function createProposal(p: AgentPrincipal, body: unknown, now = new
     await recordAudit({ event: "sms_otp.sent", outcome: "success", proposalId: row.id, clientId: row.clientId, businessId: row.businessId as "demo" | "lab-partner" });
   }
   console.info(JSON.stringify({ event: "customer_proposal", outcome: "pending" }));
+  if (delivery) {
+    delivery.send(row.id, token);
+    return { proposal: view(row, now), approvalRequired: true, approvalDelivery: "separate-synthetic-customer" };
+  }
   return { proposal: view(row, now), ...labCustomerIdentity.deliver(row.id, token) };
 }
 export async function getProposal(p: AgentPrincipal, proposalId: string, now = new Date()) {
@@ -98,7 +106,11 @@ async function customerDecisionInternal(proposalId: string, body: unknown, now?:
     if (row) { auditRow = row; expired = status(row, decisionTime) === "expired"; }
     if (!row || status(row, decisionTime) !== "pending" || row.proposalHash !== proposalHash(row))
       throw new AgentApiError("mandate_denied");
-    if (input.decision === "view") return { proposal: { ...view(row, decisionTime), ...(row.smsOtpRequired ? { smsOtpRequired: true, phoneMask: row.phoneMask } : {}) }, proposalHash: row.proposalHash, customer: labCustomerIdentity.displayName };
+    if ((row.consentDelivery !== null && row.consentDelivery !== CUSTOMER_CHANNEL) ||
+        (separateCustomerChannel() && row.consentDelivery !== CUSTOMER_CHANNEL))
+      throw new AgentApiError("mandate_denied");
+    if (input.decision === "view") return { proposal: { ...view(row, decisionTime), ...(row.smsOtpRequired ? { smsOtpRequired: true, phoneMask: row.phoneMask } : {}) }, proposalHash: row.proposalHash,
+      customer: row.consentDelivery === CUSTOMER_CHANNEL ? `${CHANNEL_CUSTOMER.name} · ${CHANNEL_CUSTOMER.email}` : labCustomerIdentity.displayName };
     const owner = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "AgentClient" WHERE "id"=${row.clientId} AND "businessId"=${row.businessId} AND "active"=true FOR SHARE`;
     if (!owner.length || +row.expiresAt <= +(now ?? new Date())) throw new AgentApiError("mandate_denied");
     const smsAudit = (event: "sms_otp.resent" | "sms_otp.denied" | "sms_otp.verified", outcome: string) => recordAuditInTransaction(tx, {
@@ -137,7 +149,7 @@ async function customerDecisionInternal(proposalId: string, body: unknown, now?:
         locationId: row.locationId, scheduleId: row.scheduleId,
         validFrom: row.startsAt, validUntil: new Date(+row.startsAt + row.duration * 60000),
         expiresAt: row.expiresAt, maxPriceOre: row.priceOre, currency: "SEK",
-        verifiedVia: row.smsOtpRequired ? "sms-otp" : null,
+        verifiedVia: row.consentDelivery === CUSTOMER_CHANNEL ? CUSTOMER_CHANNEL : row.smsOtpRequired ? "sms-otp" : null,
         origin: "customer-consent", originReference: row.id, proposalHash: row.proposalHash,
       } });
       mandateId = mandate.id; approvedMandate = mandate.id;

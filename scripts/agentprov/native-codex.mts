@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { DateTime } from "luxon";
@@ -13,6 +13,7 @@ import { assertTestDatabase } from "../test-db-guard.mjs";
 import { cleanupRun } from "./fixtures.mjs";
 import { checkSalonCalendar } from "./salon-calendar.mjs";
 import { mcpCall, safeCall, safeNote } from "./codex-events.mjs";
+import { CHANNEL_CUSTOMER, CUSTOMER_CHANNEL } from "../../src/lib/agent-api/customer-channel-lab";
 
 type Call = NonNullable<ReturnType<typeof mcpCall>>;
 const tools = ["list_services", "get_availability", "create_proposal", "get_proposal", "create_booking", "get_booking"];
@@ -82,7 +83,7 @@ async function client(origin: string, credential: string, cwd: string, prompt: s
 
 export async function runNativeCodexProof(gateway: string, salon: string, pair: {
   salon: { sha: string; dirty: boolean }; gateway: { sha: string; dirty: boolean };
-}) {
+}, customerInbox: string) {
   assertTestDatabase();
   assert(!process.env.CI && !process.env.VERCEL && !process.env.VERCEL_ENV);
   for (const origin of [gateway, salon]) assert.equal(new URL(origin).hostname, "127.0.0.1");
@@ -124,14 +125,18 @@ export async function runNativeCodexProof(gateway: string, salon: string, pair: 
     const proposals = prepare.filter(c => c.tool === "create_proposal" && !c.failed);
     assert.equal(proposals.length, 1);
     const proposed = proposals[0].result;
+    assert.equal(proposed.approvalRequired, true);
+    assert.equal(proposed.approvalDelivery, "separate-synthetic-customer");
+    assert(!("approvalUrl" in proposed));
     const row = await db.agentProposal.findUniqueOrThrow({ where: { id: proposed.proposal.id } });
     assert.equal(row.clientId, key.record.clientId); assert.equal(row.status, "pending");
     assert.equal(row.serviceId, "massage"); assert.equal(row.staffId, "staff-demo");
     assert.equal(row.duration, 30); assert(row.priceOre <= 45000);
+    assert.equal(row.consentDelivery, CUSTOMER_CHANNEL);
     assert.equal(DateTime.fromJSDate(row.startsAt).setZone("Europe/Stockholm").toISODate(), day.toISODate());
     const payload = { business: "demo", serviceId: row.serviceId, serviceVersion: row.serviceVersion,
       staffId: row.staffId, start: row.startsAt.toISOString(), confirmed: true,
-      customer: { name: "Native Client Demo", email: `${run}@example.test` } };
+      customer: { name: CHANNEL_CUSTOMER.name, email: CHANNEL_CUSTOMER.email } };
     step = "NATIVE_UNAPPROVED_BOOKING_DENIED";
     const denied = await call("POST", "/api/v1/bookings", payload);
     assert.equal(denied.status, 400);
@@ -139,11 +144,27 @@ export async function runNativeCodexProof(gateway: string, salon: string, pair: 
     assert.equal(await db.agentBooking.count({ where: { clientId: row.clientId } }), 0);
     pass("NATIVE_PROPOSAL_WITHOUT_BOOKING");
     step = "SYNTHETIC_CUSTOMER_APPROVAL";
-    const approval = new URL(proposed.approvalUrl);
+    // Operator reads a separate local customer delivery. The CLI never receives
+    // the directory, receipt or bearer link, and cannot retrieve it via MCP/REST.
+    const receiptPath = join(customerInbox, row.id + ".json");
+    const receipt = JSON.parse(readFileSync(receiptPath, "utf8"));
+    assert.equal(receipt.proposalId, row.id);
+    assert.equal(receipt.customerSubject, CHANNEL_CUSTOMER.id);
+    const approval = new URL(receipt.approvalUrl);
+    const secret = approval.hash.slice(1);
+    assert(!JSON.stringify(prepare).includes(secret));
+    unlinkSync(receiptPath);
     assert.equal(approval.origin, salon); assert.equal(approval.pathname, "/consent/" + row.id);
     const { chromium } = await import("@playwright/test");
     const browser = await chromium.launch();
     try {
+      const unapproved = await browser.newPage({ viewport: { width: 390, height: 844 } });
+      await unapproved.goto(salon + "/consent/" + row.id);
+      await unapproved.getByText("Länken är ogiltig, använd eller utgången.", { exact: true }).waitFor();
+      assert.equal(await unapproved.getByRole("button", { name: "Ja, godkänn denna bokning", exact: true }).count(), 0);
+      await unapproved.screenshot({ path: join(output, "agent-without-customer-credential.png") });
+      await unapproved.close();
+      pass("AGENT_WITHOUT_CUSTOMER_CREDENTIAL_DENIED");
       const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
       await page.goto(approval.href);
       await page.getByRole("button", { name: "Ja, godkänn denna bokning", exact: true }).waitFor();
@@ -155,6 +176,7 @@ export async function runNativeCodexProof(gateway: string, salon: string, pair: 
     } finally { await browser.close(); }
     const approved = await db.agentProposal.findUniqueOrThrow({ where: { id: row.id }, include: { mandate: true } });
     assert.equal(approved.status, "approved"); assert.equal(approved.mandate?.origin, "customer-consent");
+    assert.equal(approved.mandate?.verifiedVia, CUSTOMER_CHANNEL);
     assert.equal(approved.mandate?.originReference, row.id);
     assert.equal(approved.mandate?.maxPriceOre, row.priceOre);
     assert.equal(+approved.mandate!.validFrom, +row.startsAt);
@@ -163,6 +185,10 @@ export async function runNativeCodexProof(gateway: string, salon: string, pair: 
     const outOfBounds = await call("POST", "/api/v1/bookings", outside);
     assert.equal(outOfBounds.status, 403);
     assert.equal((await outOfBounds.json()).error.code, "mandate_denied");
+    const changedCustomer = await call("POST", "/api/v1/bookings", { ...payload,
+      mandateId: approved.mandateId, customer: { ...payload.customer, email: "other@example.test" } });
+    assert.equal(changedCustomer.status, 403);
+    assert.equal((await changedCustomer.json()).error.code, "mandate_denied");
     assert.equal(await db.agentBooking.count({ where: { clientId: row.clientId } }), 0);
     pass("SYNTHETIC_APPROVAL_AND_SERVER_BOUNDS");
     step = "NATIVE_AGENT_BOOKS_RETRIES_READS_STATUS";
@@ -170,10 +196,11 @@ export async function runNativeCodexProof(gateway: string, salon: string, pair: 
     const finished = await client(gateway, key.key, cwd,
       `Continue the booking for authorized business demo. The separate synthetic customer has approved proposal ${row.id} in the salon consent UI. ` +
       `Read it with get_proposal. Book exactly its approved scope using its server-issued mandateId and idempotencyKey ${retryKey}. ` +
-      `Use customer name Native Client Demo and email ${payload.customer.email}. ` +
+      `Use synthetic customer name ${payload.customer.name} and email ${payload.customer.email}. ` +
       "Then repeat create_booking with exactly the same payload and idempotencyKey, and read get_booking for the returned id. " +
       "Do not create a new proposal, do not select another time, and do not invent or widen authority. Report id and status.");
     const finish = finished.calls;
+    assert(!JSON.stringify(finish).includes(secret));
     notes.push(...finished.notes); trace.push(...finish.map(safeCall));
     const creates = finish.filter(c => c.tool === "create_booking");
     assert.equal(creates.length, 2); assert(creates.every(c => !c.failed));
@@ -202,7 +229,7 @@ export async function runNativeCodexProof(gateway: string, salon: string, pair: 
     } finally {
       writeFileSync(join(output, "evidence.json"), JSON.stringify({ actor: "Codex CLI, existing ChatGPT login",
         cliVersion, node: process.version, observedAt: new Date().toISOString(), pair,
-        consentActor: "automated synthetic customer; no real identity verification", checks, trace, notes,
+        consentActor: "automated synthetic customer through separate private local inbox; no real identity verification", checks, trace, notes,
         bookingId, cleaned, complete: cleaned && checks.includes("NATIVE_BOOKING_SAME_ID_IN_CALENDAR"),
         failedStep: !cleaned ? "OWN_FIXTURES_CLEANUP" : checks.includes("NATIVE_BOOKING_SAME_ID_IN_CALENDAR") ? null : step }, null, 2) + "\n");
     }

@@ -16,6 +16,10 @@ import { readAudit } from "../../src/lib/agent-api/audit-read";
 import { AGENT_API_CHANNEL } from "../../src/lib/domain";
 import { POST as consent } from "../../src/app/consent/[id]/decision/route";
 import { accessToken, labRequest, origin } from "../helpers/oauth";
+import { chmodSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve, sep } from "node:path";
+import { CHANNEL_CUSTOMER } from "../../src/lib/agent-api/customer-channel-lab";
 
 const clients: string[] = [];
 const oauthAuditClients: string[] = [];
@@ -77,6 +81,31 @@ async function approved(p: AgentPrincipal, input: Payload) {
   return { mandateId: (await getProposal(p, result.proposal.id)).proposal.mandateId!, proposalId: result.proposal.id, token };
 }
 function created(result: unknown) { return (result instanceof Created ? result.body : result) as { replayed: boolean; booking: { id: string; status: string } }; }
+
+it("separate customer contact is checked before any partner write and on an identical retry", async () => {
+  const root = realpathSync(tmpdir()), inbox = mkdtempSync(join(root, "booking-consent-inbox-"));
+  chmodSync(inbox, 0o700);
+  try {
+    vi.stubEnv("BOOKING_CONSENT_DELIVERY", "separate-lab"); vi.stubEnv("BOOKING_CONSENT_INBOX_DIR", inbox);
+    const { principal } = await actor(), input = await payload(principal);
+    const p = await createProposal(principal, input);
+    expect(p.approvalUrl).toBeUndefined();
+    const token = new URL(JSON.parse(readFileSync(join(inbox, p.proposal.id + ".json"), "utf8")).approvalUrl).hash.slice(1);
+    const viewed = await customerDecision(p.proposal.id, { token, decision: "view" });
+    await customerDecision(p.proposal.id, { token, decision: "yes", proposalHash: viewed.proposalHash });
+    const mandateId = (await getProposal(principal, p.proposal.id)).proposal.mandateId!;
+    await expect(createAgentBooking(principal, "wrong-contact", body(input, mandateId))).rejects.toMatchObject({ code: "mandate_denied" });
+    expect(server!.state.bookings.size).toBe(0);
+    const data = { ...body(input, mandateId), customer: { name: CHANNEL_CUSTOMER.name, email: CHANNEL_CUSTOMER.email } };
+    const first = created(await createAgentBooking(principal, "bound-contact", data));
+    const replay = created(await createAgentBooking(principal, "bound-contact", data));
+    expect(replay).toMatchObject({ replayed: true, booking: { id: first.booking.id } });
+    expect(server!.state.bookings.size).toBe(1);
+  } finally {
+    if (!resolve(inbox).startsWith(root + sep + "booking-consent-inbox-")) throw new Error("OWN_INBOX_REQUIRED");
+    rmSync(inbox, { recursive: true });
+  }
+});
 
 it.each([false, true])("E2E key/OAuth: provider catalog, customer yes, create, get and cancel (%s)", async oauth => {
   const { principal, key } = await actor(oauth);

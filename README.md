@@ -6,6 +6,13 @@ The `night/gateway-salon-integration` branch adds `npm run test:pair` with a pin
 separate gateway checkout and fresh local test database. Current commands, QA boundaries
 and CI results are recorded in [verification](docs/VERIFICATION.md).
 
+The optional `npm run test:pair -- --native-codex` proof now separates the
+synthetic customer's approval delivery from the agent. It uses a private local
+test inbox and a fixed server-owned dummy customer; the agent receives no
+approval credential. Run the new migrations first. See the runbook for scope,
+existing CLI login requirements and the legacy lab's different behaviour.
+This is a local synthetic proof, not verified real customer identity or pilot readiness.
+
 ## Earlier work: Agentprov 2
 
 Local branch `codex/agentprov-2` starts at frozen `e890b69` in a separate

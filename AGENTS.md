@@ -1,4 +1,19 @@
-# Aktuellt: kundgodkännandets testade gräns · 2026-11-16
+# Aktuellt: separat syntetisk kundkanal · 2026-11-16
+
+- Niclas godkände fortsatt lokalt prov. Gren feat/separate-customer-consent-lab
+  från 64b7bcb; gateway f9b8506 oförändrad. Läs GATEWAY_SPLIT och aktuella resultat.
+- Ny opt-in BOOKING_CONSENT_DELIVERY=separate-lab levererar bara till privat
+  operatörsinkorg, aldrig till agentens REST/MCP-svar. Kund är en serverbestämd
+  oföränderlig v1-fixture, inget nytt register eller verklig identifiering.
+- Migrera den nya nullable leveransprofilen före start. Historiska migrationer,
+  överlappsskydd, mandat, nyckelägarskap och idempotens ska bevaras.
+- Native-provet får använda befintlig Codex-inloggning endast uttryckligt lokalt;
+  CI vägrar fortfarande kontokörningen. Kvittot är en hemlighet, inte testbevis.
+- Legacy-labbets svaga länkkontrakt finns kvar för kompatibilitet. Ny profil
+  ger inget pilotgodkännande. Ingen deploy/mainmerge, riktig SMS eller ny tjänst.
+- Grok granskar fryst revision i egen syntetisk kopia, max två samlade fixvarv.
+
+# Historik: kundgodkännandets testade gräns · 2026-11-16
 
 - Ny riktad identitetskontroll på 13e0179: labblänkens innehavare kan själv
   godkänna i en ny browser utan kundlogin. OTP är bara simulerat/klientvald
