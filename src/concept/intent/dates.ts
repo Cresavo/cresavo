@@ -26,11 +26,13 @@ export function parseDate(text: string, context: IntentContext): string | undefi
 }
 
 export function parseTime(text: string): string | undefined {
-  const match = text.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b|\b(\d{1,2}):(\d{2})\b|\b(?:at|to|friday|monday|tuesday|wednesday|thursday|saturday|sunday)\s+(\d{1,2})\b/);
-  if (!match) return undefined;
-  let hour = Number(match[1] ?? match[4] ?? match[6]);
-  const minute = Number(match[2] ?? match[5] ?? 0);
-  if (match[3]) {
+  // A complete clock token takes precedence over a prefix followed by a bare hour.
+  const match = text.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b|\b(\d{1,2}):(\d{2})\b/);
+  const bare = match ? undefined : text.match(/\b(?:at|to|friday|monday|tuesday|wednesday|thursday|saturday|sunday)\s+(\d{1,2})\b/);
+  if (!match && !bare) return undefined;
+  let hour = Number(match?.[1] ?? match?.[4] ?? bare?.[1]);
+  const minute = Number(match?.[2] ?? match?.[5] ?? 0);
+  if (match?.[3]) {
     if (hour < 1 || hour > 12) return undefined;
     hour = hour % 12 + (match[3] === "pm" ? 12 : 0);
   }

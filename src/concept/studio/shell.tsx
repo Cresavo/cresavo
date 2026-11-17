@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { Leaf } from "lucide-react";
-import { FloatingMic } from "../command/floating-mic";
 import { HelpButton } from "./help/help-button";
 import { t } from "../i18n";
 import { unreadCount } from "../selectors";
@@ -40,7 +39,6 @@ export function StudioShell({ children }: { children: ReactNode }) {
         </div>
       </main>
       <BottomTabs state={state} pathname={pathname} />
-      {state.modules.assistant && <FloatingMic />}
       <Toaster />
     </>
   );

@@ -1,5 +1,23 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Codex · night 3 part 1: finding #12
+
+Compatible TypeScript-ESLint 8.73.0 now supports fixed minimatch 11.x. Full and production-only npm audits report zero vulnerabilities. No direct ranges, overrides, prereleases or toolchain major upgrades were introduced. See [dependency review](../DEPENDENCY_REVIEW.md).
+
+**Part 1 validation**: lint, tsc, 984 unit tests, 211 engine integration tests, production build and 49/49 offline AI evals pass. UI checked at 390/1280 px with mocked speech support. #14 remains open; goals 11/12 were not started.
+
+## 2026-11-17 · Codex · night 3 part 1: finding #15
+
+The engine MCP handler is created once per process. Its SDK factory receives only the freshly authenticated request principal; no client credentials are cached or shared. Auth, request-size limit, rate limit, scopes, read-only policy, mandates and idempotency remain enforced. Concurrent real-SDK transport tests and all 211 engine integration tests pass. Try the existing `/api/v1/mcp` tools with separate demo clients.
+
+## 2026-11-17 · Codex · night 3 part 1: finding #13
+
+The shared time parser prefers complete clock tokens before bare-hour prefixes. Regression cases cover at/to/weekday, am/pm, invalid clocks and a move to 14:30; the customer wrapper now uses the shared parser. Try “Move Anna’s appointment on Thursday to 14:30” in the command box.
+
+## 2026-11-17 · Codex · night 3 part 1: finding #16
+
+Mobile command input says “Ask Flerdo…”. The redundant floating microphone is removed; inline speech and typed fallback remain, so no floating mic can cover a button. Try `/studio` at 390/1280 px. Screenshots: [mobile](screens/polish-command-390.png), [desktop](screens/polish-command-1280.png).
+
 ## 2026-11-17 · Claude Code · goal 13 (in-repo part): Flerdo rename and front door
 
 **Done**
