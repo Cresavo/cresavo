@@ -1,5 +1,40 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Claude Code · goal 9: modules and industry packs
+
+**Done**
+
+- **Module registry** (`src/concept/modules/registry.ts`): every module has a
+  manifest (name, description, menu pages, Today cards, AI tasks, command box
+  actions, demo price). Menu, Today cards, AI task list and command box read it.
+  New modules: Waiting list and Ask Flerdo (off = no command box or mic).
+- **Features page** `/studio/more/features`: module cards with on/off and price,
+  monthly total, and the industry pack picker.
+- **Industry packs** (`src/concept/packs/`): foot care and massage, hair salon,
+  nails, personal trainer, clinic. Each defines vocabulary, services, stock,
+  journal templates, review/journal seeds and default modules. Switching pack
+  regenerates the data. `t()` swaps customer/treatment for the pack's words
+  (`term()` for code). Team is always Anna and Erik; a pack gives their titles.
+- **Onboarding** `/studio/welcome`: pack, team size, what you want help with,
+  then a summary. Settings has "Start over as a new business".
+- Demo data version 9. Tests: `tests/concept-modules.test.ts`,
+  `tests/concept-packs.test.ts`.
+
+**Try it**: More > Features: switch Stock off (menu, Today and "how much massage
+oil is left?" all drop it); "Use this pack" on Hair salon; Settings > Start over.
+
+Screenshots: [features](screens/modules-features-390.png) ·
+[stock off](screens/modules-features-stock-off-390.png) ·
+[command](screens/modules-command-stock-off-390.png) ·
+[hair today](screens/modules-hair-today-390.png) ·
+[hair services](screens/modules-hair-services-390.png) ·
+[welcome](screens/modules-welcome-1-390.png) ·
+[ready](screens/modules-welcome-ready-390.png) (also -1280).
+
+**Remains**: salon name stays Salong Eko in every pack; team is two people
+(solo or two); free-text booking and a few poster/photo labels are still
+foot/massage flavoured; AI task gating is only reflected in the task list.
+
 ## 2026-11-17 · Claude Code · goal 5: stock and purchasing
 
 **Done**

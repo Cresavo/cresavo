@@ -30,7 +30,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 6 | Finance and overview | Claude (Sonnet) | done · 2026-11-17 |
 | 7 | The AI layer for real | Codex | in progress · goal/codex-night2 (BYOK, persisted costs, tool calls) |
 | 8 | Support, log and "What happened?" | Both | open |
-| 9 | Modules and industry packs | Both | open |
+| 9 | Modules and industry packs | Claude (Sonnet) | done · 2026-11-17 |
 | 10 | Open protocols for the concept | Opus | open |
 | 11 | From demo to real engine | Opus | open |
 | 12 | Pilot readiness: quality and security | Opus (Fable for review) | open |
