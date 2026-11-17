@@ -17,6 +17,7 @@ import { Field, TextInput } from "../ui/controls";
 import { EmptyState } from "../ui/empty-state";
 import { useNow, type Now } from "../use-now";
 import { BookingActions, freeUntilText } from "./booking-actions";
+import { changeRule } from "./policy";
 import { ReviewForm } from "./review-form";
 import { recallGuest } from "./guest";
 import { BOOKING_HOME, bookingPage, myBookingsFor, rebookLink } from "./links";
@@ -141,7 +142,7 @@ function UpcomingCard({ state, now, booking }: { state: DemoState; now: Now; boo
       </div>
       <BookingActions state={state} now={now} booking={booking} />
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-eko-muted">
-        <span>{freeUntilText(booking)}</span>
+        <span>{changeRule(booking, now.today, now.minutes) === "free" ? freeUntilText(booking) : ""}</span>
         <Link href={bookingPage(booking.id)} className="font-medium text-eko-accent underline-offset-2 hover:underline">{t("booking.me.details")}</Link>
       </div>
     </Card>

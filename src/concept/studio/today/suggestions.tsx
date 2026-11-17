@@ -20,7 +20,7 @@ import type { OpenSheet } from "../booking/booking-sheets";
 import { useForecasts } from "../stock/use-forecasts";
 import { useStudio } from "../use-studio";
 
-const VISIBLE_AT_FIRST = 3;
+const VISIBLE_AT_FIRST = 2;
 const QUIET_DISCOUNT = 10;
 
 interface Suggestion {

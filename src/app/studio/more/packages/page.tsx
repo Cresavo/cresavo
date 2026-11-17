@@ -34,11 +34,13 @@ export default function PackagesPage() {
             <p className="text-sm font-medium text-eko-accent">{t("packages.deal", { visits: PACKAGE_DEAL.visits, paid: PACKAGE_DEAL.paidVisits })}</p>
             <p className="mt-1 text-sm text-eko-muted">{t("packages.dealText")}</p>
           </Card>
-          <Card className="bg-eko-accent-soft p-5 ring-eko-accent/20">
-            <p className="text-sm font-medium text-eko-accent">{t("packages.owed")}</p>
-            <p className="text-3xl font-semibold tabular-nums tracking-tight">{formatMoney(packageLiability(state))}</p>
-            <p className="mt-1 text-sm text-eko-muted">{t("packages.owedText")}</p>
-          </Card>
+          {packages.length > 0 && (
+            <Card className="bg-eko-accent-soft p-5 ring-eko-accent/20">
+              <p className="text-sm font-medium text-eko-accent">{t("packages.owed")}</p>
+              <p className="text-3xl font-semibold tabular-nums tracking-tight">{formatMoney(packageLiability(state))}</p>
+              <p className="mt-1 text-sm text-eko-muted">{t("packages.owedText")}</p>
+            </Card>
+          )}
         </div>
         {packages.length ? (
           <Card className="divide-y divide-eko-line overflow-hidden">

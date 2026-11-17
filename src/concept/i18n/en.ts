@@ -202,13 +202,11 @@ const messages = {
   "today.phoneMode": "Someone is calling",
   "today.schedule": "Today's schedule",
   "today.suggestions": "Suggestions",
-  "today.free": "Free {from}–{to} · {name}",
+  "today.free": "Free · {name}",
   "today.inProgress": "Now",
 
   "stats.revenue": "Earned today",
   "stats.revenueOf": "of {amount} booked",
-  "stats.bookings": "Bookings",
-  "stats.left": "{count} left|{count} left",
   "stats.free": "Free slots",
   "stats.fullyBooked": "Fully booked",
 
@@ -819,7 +817,6 @@ const messages = {
   "reviews.thisWeek": "{count} new this week|{count} new this week",
   "reviews.latest": "Latest",
   "reviews.unanswered": "No reply yet",
-  "reviews.noReply": "No reply yet",
   "reviews.yourReply": "Your reply:",
   "reviews.reply": "Reply",
   "reviews.replyTitle": "Reply to review",

@@ -11,10 +11,10 @@ import { ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
 import { useNow } from "../use-now";
 import { BookingActions, freeUntilText } from "./booking-actions";
+import { changeRule } from "./policy";
 import { BOOKING_HOME, myBookingsFor, rebookLink } from "./links";
 import { MessagePreviews } from "./message-previews";
 import { ReviewForm } from "./review-form";
-import { changeRule } from "./policy";
 
 /** What the customer sees after booking, and the page behind the link in their confirmation. */
 export function Confirmation({ id }: { id: string }) {
@@ -71,7 +71,7 @@ export function Confirmation({ id }: { id: string }) {
         active && (
           <div className="space-y-3">
             <BookingActions state={state} now={now} booking={booking} />
-            <p className="text-sm text-eko-muted">{freeUntilText(booking)}</p>
+            {changeRule(booking, now.today, now.minutes) === "free" && <p className="text-sm text-eko-muted">{freeUntilText(booking)}</p>}
           </div>
         )
       )}

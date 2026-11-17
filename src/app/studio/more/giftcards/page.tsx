@@ -28,13 +28,15 @@ export default function GiftCardsPage() {
       actions={<Button icon={<Plus size={18} />} onClick={() => setSheet({ kind: "sell" })}>{t("giftcards.sell")}</Button>}
     >
       <div className="space-y-6">
-        <Card className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1 bg-eko-accent-soft p-5 ring-eko-accent/20">
-          <div>
-            <p className="text-sm font-medium text-eko-accent">{t("giftcards.owed")}</p>
-            <p className="text-3xl font-semibold tabular-nums tracking-tight">{formatMoney(giftCardLiability(state))}</p>
-          </div>
-          <p className="max-w-md text-sm text-eko-muted">{t("giftcards.owedText")}</p>
-        </Card>
+        {cards.length > 0 && (
+          <Card className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1 bg-eko-accent-soft p-5 ring-eko-accent/20">
+            <div>
+              <p className="text-sm font-medium text-eko-accent">{t("giftcards.owed")}</p>
+              <p className="text-3xl font-semibold tabular-nums tracking-tight">{formatMoney(giftCardLiability(state))}</p>
+            </div>
+            <p className="max-w-md text-sm text-eko-muted">{t("giftcards.owedText")}</p>
+          </Card>
+        )}
         {cards.length ? (
           <Card className="divide-y divide-eko-line overflow-hidden">
             {cards.map((card) => (

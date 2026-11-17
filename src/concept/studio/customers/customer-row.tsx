@@ -27,7 +27,7 @@ export function CustomerRow({ customer, stats, today, late, due }: CustomerRowPr
           {late && <Badge tone="warn">{t("customers.badge.late")}</Badge>}
           {due && <Badge tone="accent">{t("customers.badge.due")}</Badge>}
         </div>
-        <p className="truncate text-sm text-eko-muted">
+        <p className="text-sm text-eko-muted">
           {stats?.lastVisit ? t("customers.lastVisit", { ago: agoText(stats.lastVisit, today) }) : t("customers.noVisits")}
           {stats?.nextBooking && ` · ${t("customers.next", { when: `${relativeDay(stats.nextBooking.date, today)} ${formatTime(stats.nextBooking.start)}` })}`}
         </p>

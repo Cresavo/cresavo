@@ -43,7 +43,7 @@ export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: S
               >
                 <StaffDot staffId={row.staffId} />
                 <span className="flex-1">
-                  {t("today.free", { name: staff.firstName, from: formatTime(row.start), to: formatTime(row.end) })}
+                  {t("today.free", { name: staff.firstName })}
                   <span className="text-eko-muted"> · {formatDuration(row.end - row.start)}</span>
                 </span>
                 <Plus size={18} />
@@ -65,9 +65,9 @@ export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: S
             <button
               onClick={() => onOpen({ kind: "booking", id: b.id })}
               className={cx(
-                "flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-2xl bg-eko-surface px-3 py-2.5 text-left shadow-card ring-1 transition-colors hover:bg-eko-sunken",
+                "flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-2xl px-3 py-2.5 text-left shadow-card ring-1 transition-colors hover:bg-eko-sunken",
+                done || cancelled ? "bg-eko-sunken" : "bg-eko-surface",
                 current ? "ring-2 ring-eko-accent" : "ring-eko-line/70",
-                (done || cancelled) && "opacity-60",
               )}
             >
               {customer && <Avatar name={fullName(customer)} size="sm" />}
@@ -75,7 +75,7 @@ export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: S
                 <span className={cx("block truncate font-medium", cancelled && "line-through")}>{customer ? fullName(customer) : ""}</span>
                 <span className="flex items-center gap-1.5 truncate text-sm text-eko-muted">
                   <StaffDot staffId={b.staffId} />
-                  {service?.name} · {formatDuration(b.duration)}
+                  {service && /\d+ min/.test(service.name) ? service.name : `${service?.name} · ${formatDuration(b.duration)}`}
                 </span>
               </span>
               {current && <Badge tone="accent">{t("today.inProgress")}</Badge>}
