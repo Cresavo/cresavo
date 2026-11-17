@@ -5,6 +5,7 @@ import { ArrowUp, Mic, Sparkles } from "lucide-react";
 import { isAiConfigured, runAiTask } from "../ai/api-client";
 import { t } from "../i18n";
 import { interpretCommand, type IntentResult } from "../intent";
+import { useRole } from "../ops/access";
 import { useStudio } from "../studio/use-studio";
 import { dispatch, undo } from "../store";
 import { cx } from "../ui/cx";
@@ -35,6 +36,7 @@ interface View {
  */
 export function CommandBox() {
   const { state, today, minutes } = useStudio();
+  const role = useRole();
   const compact = useSyncExternalStore(subscribeCompact, compactSnapshot, desktopSnapshot);
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
@@ -44,7 +46,7 @@ export function CommandBox() {
   const input = useRef<HTMLInputElement>(null);
   const latestRun = useRef(0);
   const spoken = useRef(false);
-  const examples = useMemo(() => commandExamples(state, today), [state, today]);
+  const examples = useMemo(() => commandExamples(state, today, role), [state, today, role]);
 
   useEffect(() => {
     const refresh = () => { void isAiConfigured().then(setAiReady); };
@@ -67,7 +69,7 @@ export function CommandBox() {
     const run = ++latestRun.current;
     const context = buildIntentContext(state, today, minutes);
     const show = (intent: IntentResult, source: Source, pending: boolean) =>
-      setView({ proposal: proposalFor(state, intent, command, { today, minutes }, examples), source, pending });
+      setView({ proposal: proposalFor(state, intent, command, { today, minutes }, examples, role), source, pending });
     const checkAi = aiReady;
     setOpen(true);
     show(interpretCommand(command, context), "rules", checkAi);

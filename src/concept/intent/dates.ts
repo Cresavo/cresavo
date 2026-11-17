@@ -10,12 +10,27 @@ export function clock(context: IntentContext) {
 const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 export const months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
 
+const monthPattern = months.map(name => `${name}|${name.slice(0, 3)}`).join("|");
+
+/** "24 December", "24th of dec" or "December 24": the next such day, this year or next. */
+function calendarDate(text: string, now: DateTime): string | undefined {
+  const match = text.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${monthPattern})\\b`)) ?? text.match(new RegExp(`\\b(${monthPattern})\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b`));
+  if (!match) return undefined;
+  const [day, name] = /^\d/.test(match[1]) ? [match[1], match[2]] : [match[2], match[1]];
+  const month = months.findIndex(full => full.startsWith(name.slice(0, 3)));
+  const date = DateTime.fromObject({ year: now.year, month: month + 1, day: Number(day) }, { zone: now.zone });
+  if (!date.isValid) return undefined;
+  return (date < now.startOf("day") ? date.plus({ years: 1 }) : date).toISODate()!;
+}
+
 export function parseDate(text: string, context: IntentContext): string | undefined {
   const now = clock(context).startOf("day");
   const iso = text.match(/\b(\d{4}-\d{2}-\d{2})\b/);
   if (iso) return DateTime.fromISO(iso[1]).isValid ? iso[1] : undefined;
   if (/\btomorrow\b/.test(text)) return now.plus({ days: 1 }).toISODate()!;
   if (/\btoday\b/.test(text)) return now.toISODate()!;
+  const calendar = calendarDate(text, now);
+  if (calendar) return calendar;
   const day = weekdays.findIndex(name => new RegExp(`\\b${name}\\b`).test(text));
   if (day >= 0) {
     let days = (day + 1 - now.weekday + 7) % 7;

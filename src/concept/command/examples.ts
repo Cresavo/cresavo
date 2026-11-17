@@ -1,9 +1,10 @@
 import { t } from "../i18n";
 import type { DateKey, DemoState } from "../data/types";
+import type { Role } from "../ops/access";
 import { fullName } from "../selectors";
 
 /** Three prompts the interpreter understands, using a real upcoming booking from the data. */
-export function commandExamples(state: DemoState, today: DateKey): string[] {
+export function commandExamples(state: DemoState, today: DateKey, role: Role = "owner"): string[] {
   const upcoming = state.bookings.filter((b) => b.status === "booked" && b.date > today);
   const names = new Map<string, number>();
   for (const c of state.customers) names.set(fullName(c), (names.get(fullName(c)) ?? 0) + 1);
@@ -11,8 +12,11 @@ export function commandExamples(state: DemoState, today: DateKey): string[] {
   for (const b of upcoming) bookingCount.set(b.customerId, (bookingCount.get(b.customerId) ?? 0) + 1);
   const customer = state.customers.find((c) => c.isRegular && bookingCount.get(c.id) === 1 && names.get(fullName(c)) === 1);
   const holiday = [...state.holidays].filter(h => h.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
+  const move = customer ? [`Move ${fullName(customer)} to Friday at 10:00`] : [];
+  if (role === "staff") return move;
   return [
-    ...(customer ? [`Move ${fullName(customer)} to Friday at 10:00`] : []),
+    ...move,
+    t("command.offExample", { name: state.staff[0].firstName }),
     ...(state.modules.finance ? ["What have I earned this month?"] : []),
     ...(holiday ? [t("command.holidayExample", { name: holiday.name })] : ["Which customers haven't been here since summer?"]),
   ];

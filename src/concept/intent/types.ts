@@ -8,7 +8,8 @@ export interface IntentContext {
   timezone?: string;
 }
 
-export type IntentAction = "book" | "move" | "cancel" | "campaign" | "revenue" | "inactive-customers" | "order-stock" | "sell-product" | "stock-level" | "make-poster" | "change-price";
+export type IntentAction = "book" | "move" | "cancel" | "campaign" | "revenue" | "inactive-customers" | "order-stock" | "sell-product" | "stock-level" | "make-poster" | "change-price" | "staff-off" | "close-salon" | "staff-shift";
+export type TimeOffReason = "vacation" | "sick" | "other";
 export interface IntentParams {
   customerId?: string;
   serviceId?: string;
@@ -16,6 +17,9 @@ export interface IntentParams {
   bookingId?: string;
   date?: string;
   time?: string;
+  /** End of a shift, "HH:mm". */
+  endTime?: string;
+  reason?: TimeOffReason;
   period?: "morning" | "afternoon";
   start?: string;
   end?: string;

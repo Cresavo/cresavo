@@ -1,5 +1,5 @@
 import { addDays, formatTime } from "../data/dates";
-import { freeStarts, isFree } from "../data/slots";
+import { freeStarts, isFree, needOf, type Need } from "../data/slots";
 import type { Booking, DateKey, DemoState, Service, StaffId, StockItem } from "../data/types";
 import type { DemoAction } from "../actions";
 import { t, tc } from "../i18n";
@@ -13,8 +13,10 @@ import { buildOrders, purchaseQuantity } from "../stock/purchase";
 import { sellable } from "../stock/sales";
 import { waitlistCount, waitlistNotice } from "../studio/booking/waitlist-notice";
 import { parseCampaignRequest, studioHref, type CampaignPrefill } from "../campaigns/prefill";
+import { canCommand, type Role } from "../ops/access";
 import { clarifyChoices, type Retry } from "./clarify";
 import { insightFor, type Insight } from "./insight";
+import { closeSalonProposal, shiftProposal, staffOffProposal } from "./schedule-proposal";
 
 // Turns what the interpreter understood into something the owner can review.
 // Nothing here changes data: a "change" proposal carries one store action that
@@ -58,9 +60,9 @@ interface Candidate {
 }
 
 /** Up to three free starts: closest to the wanted time, or spread through the part of the day. */
-function pickCandidates(state: DemoState, staffIds: StaffId[], duration: number, date: DateKey, clock: Clock, wanted: { near?: number; period?: "morning" | "afternoon"; ignoreId?: string }): Candidate[] {
+function pickCandidates(state: DemoState, staffIds: StaffId[], need: Need, date: DateKey, clock: Clock, wanted: { near?: number; period?: "morning" | "afternoon"; ignoreId?: string }): Candidate[] {
   const after = date === clock.today ? clock.minutes : 0;
-  const all = staffIds.flatMap((staffId) => freeStarts(state, staffId, date, duration, { after, ignoreId: wanted.ignoreId }).map((start) => ({ staffId, start })));
+  const all = staffIds.flatMap((staffId) => freeStarts(state, staffId, date, need, { after, ignoreId: wanted.ignoreId }).map((start) => ({ staffId, start })));
   const inPeriod = all.filter(({ start }) => !wanted.period || (wanted.period === "morning" ? start < NOON : start >= NOON));
   if (wanted.near !== undefined) {
     const near = wanted.near;
@@ -117,11 +119,11 @@ function bookProposal(state: DemoState, params: IntentParams, clock: Clock): Pro
   if (params.time) {
     const start = minutesOf(params.time);
     const upcoming = date > clock.today || start >= clock.minutes;
-    const staffId = upcoming ? staffIds.find((id) => isFree(state, id, date, start, service.duration)) : undefined;
+    const staffId = upcoming ? staffIds.find((id) => isFree(state, id, date, start, needOf(service))) : undefined;
     if (staffId) return build({ staffId, start });
-    return chooseSlot(state, pickCandidates(state, staffIds, service.duration, date, clock, { near: start }), t("command.pickAnother"), date, build);
+    return chooseSlot(state, pickCandidates(state, staffIds, needOf(service), date, clock, { near: start }), t("command.pickAnother"), date, build);
   }
-  return chooseSlot(state, pickCandidates(state, staffIds, service.duration, date, clock, { period: params.period }), t("command.pickTime"), date, build);
+  return chooseSlot(state, pickCandidates(state, staffIds, needOf(service), date, clock, { period: params.period }), t("command.pickTime"), date, build);
 }
 
 function bookingLine(state: DemoState, booking: Booking) {
@@ -146,8 +148,8 @@ function moveProposal(state: DemoState, params: IntentParams, clock: Clock): Pro
   });
   if (date === booking.date && wanted === booking.start) return message(t("command.alreadyThere"));
   const upcoming = date > clock.today || wanted >= clock.minutes;
-  if (upcoming && isFree(state, booking.staffId, date, wanted, booking.duration, booking.id)) return build({ staffId: booking.staffId, start: wanted });
-  const candidates = pickCandidates(state, [booking.staffId], booking.duration, date, clock, { near: wanted, ignoreId: booking.id });
+  if (upcoming && isFree(state, booking.staffId, date, wanted, booking, booking.id)) return build({ staffId: booking.staffId, start: wanted });
+  const candidates = pickCandidates(state, [booking.staffId], booking, date, clock, { near: wanted, ignoreId: booking.id });
   return chooseSlot(state, candidates, t("command.pickAnother"), date, build);
 }
 
@@ -327,13 +329,14 @@ function moduleOff(module: ModuleManifest): Proposal {
 }
 
 /** Everything the card needs for one interpreter result. `examples` fill in when the command is too vague. */
-export function proposalFor(state: DemoState, intent: IntentResult, text: string, clock: Clock, examples: string[]): Proposal {
+export function proposalFor(state: DemoState, intent: IntentResult, text: string, clock: Clock, examples: string[], role: Role = "owner"): Proposal {
   const { params } = intent;
+  if (!canCommand(role, intent.action)) return message(t("command.ownerOnly"));
   const blocker = blockingModule(state.modules, intent.action);
   if (blocker) return moduleOff(blocker);
-  const insight = ["question", "revenue"].includes(intent.action) ? insightFor(state, text, clock) : null;
+  const insight = role === "owner" && ["question", "revenue"].includes(intent.action) ? insightFor(state, text, clock) : null;
   if (insight) return insight.chart.unit === "percent" || state.modules.finance ? insight : moduleOff(moduleById("finance"));
-  const requested = ["question", "campaign", "make-poster"].includes(intent.action) ? parseCampaignRequest(text, state, clock.today) : null;
+  const requested = role === "owner" && ["question", "campaign", "make-poster"].includes(intent.action) ? parseCampaignRequest(text, state, clock.today) : null;
   if (requested) return state.modules.campaigns ? studioProposal(requested) : moduleOff(moduleById("campaigns"));
   switch (intent.action) {
     case "question": {
@@ -362,5 +365,11 @@ export function proposalFor(state: DemoState, intent: IntentResult, text: string
       return revenueProposal(state, params, clock);
     case "inactive-customers":
       return inactiveProposal(state, params, clock);
+    case "staff-off":
+      return staffOffProposal(state, params, clock);
+    case "close-salon":
+      return closeSalonProposal(state, params, clock);
+    case "staff-shift":
+      return shiftProposal(state, params, clock);
   }
 }

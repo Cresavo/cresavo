@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { clock, dateRange, parseDate, parseTime } from "./dates";
 import { matchNames } from "./match";
+import { interpretSchedule } from "./schedule";
 import type { IntentAction, IntentContext, IntentParams, IntentResult } from "./types";
 export type { IntentAction, IntentContext, IntentParams, IntentResult } from "./types";
 
@@ -13,6 +14,8 @@ export function interpretCommand(input: string, context: IntentContext): IntentR
   const proposal = (action: IntentAction, summary: string): IntentResult => ({ action, params, summary, confidence: 0.9 });
   clock(context);
   if (!text) return question("What would you like to do?");
+  const schedule = interpretSchedule(text, context);
+  if (schedule) return schedule;
   const sold = text.match(/\b(?:sold|sell)\s+(?:(\d+|an?|one|two|three)\s+)?(.+?)\s+to\s+(.+?)[.!?]*$/);
   if (sold) {
     params.product = sold[2];

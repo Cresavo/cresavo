@@ -7,7 +7,7 @@ import { commandExamples } from "@/concept/command/examples";
 import { proposalFor, type Proposal } from "@/concept/command/proposal";
 import { addDays, formatTime } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
-import { freeStarts } from "@/concept/data/slots";
+import { freeStarts, needOf, type Need } from "@/concept/data/slots";
 import { interpretCommand } from "@/concept/intent";
 import { fullName, revenueBetween } from "@/concept/selectors";
 
@@ -26,10 +26,10 @@ const upcoming = state.bookings.filter((b) => b.status === "booked" && b.date > 
 const single = upcoming.find((b) => upcoming.filter((o) => o.customerId === b.customerId).length === 1 && state.customers.filter((c) => fullName(c) === fullName(state.customers.find((x) => x.id === b.customerId)!)).length === 1)!;
 const owner = state.customers.find((c) => c.id === single.customerId)!;
 
-function freeDay(staffId: typeof single.staffId, duration: number) {
+function freeDay(staffId: typeof single.staffId, need: Need) {
   for (let i = 1; i < 30; i++) {
     const date = addDays(today, i);
-    const starts = freeStarts(state, staffId, date, duration, { ignoreId: single.id });
+    const starts = freeStarts(state, staffId, date, need, { ignoreId: single.id });
     if (starts.length) return { date, starts };
   }
   throw new Error("no free day in the demo data");
@@ -56,7 +56,7 @@ describe("buildIntentContext", () => {
 
 describe("proposals", () => {
   it("proposes a move to a free time that the store accepts", () => {
-    const { date, starts } = freeDay(single.staffId, single.duration);
+    const { date, starts } = freeDay(single.staffId, single);
     const proposal = propose(`Move ${fullName(owner)} to ${date} at ${formatTime(starts[0])}`);
     if (proposal.kind !== "change") throw new Error(`expected a change, got ${proposal.kind}`);
     expect(proposal.action).toEqual({ type: "booking/move", id: single.id, date, start: starts[0] });
@@ -80,7 +80,7 @@ describe("proposals", () => {
   });
 
   it("books by day part with up to three tappable times", () => {
-    const text = `Book ${fullName(owner)} for ${state.services[1].name} on ${freeDay("anna", state.services[1].duration).date} in the morning`;
+    const text = `Book ${fullName(owner)} for ${state.services[1].name} on ${freeDay("anna", needOf(state.services[1])).date} in the morning`;
     const proposal = propose(text);
     expect(["choose", "change", "message"]).toContain(proposal.kind);
     if (proposal.kind === "choose") expect(proposal.choices.length).toBeLessThanOrEqual(3);
@@ -180,7 +180,7 @@ describe("clarifying questions", () => {
 
 describe("example prompts", () => {
   it("are understood by the interpreter", () => {
-    expect(examples).toHaveLength(3);
+    expect(examples).toHaveLength(4);
     for (const example of examples) expect(parseCampaignRequest(example, state, today) !== null || interpretCommand(example, context).action !== "question").toBe(true);
   });
 });

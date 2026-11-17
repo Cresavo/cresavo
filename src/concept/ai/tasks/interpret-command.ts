@@ -12,6 +12,7 @@ export const intentContextSchema = z.object({
 const params = z.object({
   customerId: z.string().optional(), serviceId: z.string().optional(), staffId: z.string().optional(), bookingId: z.string().optional(),
   date: z.iso.date().optional(), time: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/).optional(),
+  endTime: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/).optional(), reason: z.enum(["vacation", "sick", "other"]).optional(),
   period: z.enum(["morning", "afternoon"]).optional(), start: z.iso.date().optional(), end: z.iso.date().optional(), since: z.iso.date().optional(),
   percentOff: z.number().min(0).max(100).optional(), priceSek: z.number().nonnegative().optional(), offerWaitingList: z.boolean().optional(), product: z.string().optional(), quantity: z.number().int().positive().optional(), occasion: z.string().optional(),
 }).strict();
@@ -31,11 +32,14 @@ export const intentOutputSchema = z.union([
   z.object({ ...common, action: z.literal("stock-level"), params: params.required({ product: true }) }).strict(),
   z.object({ ...common, action: z.literal("make-poster"), params: params.required({ occasion: true }) }).strict(),
   z.object({ ...common, action: z.literal("change-price"), params: params.required({ serviceId: true, priceSek: true }) }).strict(),
+  z.object({ ...common, action: z.literal("staff-off"), params: params.required({ staffId: true, date: true }) }).strict(),
+  z.object({ ...common, action: z.literal("close-salon"), params: params.required({ date: true }) }).strict(),
+  z.object({ ...common, action: z.literal("staff-shift"), params: params.required({ staffId: true, date: true, time: true, endTime: true }) }).strict(),
   z.object({ ...common, action: z.literal("question"), question: textField }).strict(),
 ]);
 export const interpretCommandTask = defineTask({
   id: "interpret-command", version: 1, tier: "fast",
-  prompt: "Interpret an English salon command as a proposal. Use only IDs in context. Never execute changes. A product sale needs a customer from the context; a stock question names the product. Ask a question when a customer, appointment or required parameter is unclear. Dates use the salon timezone; end dates are exclusive. Return JSON matching the schema.",
+  prompt: "Interpret an English salon command as a proposal. Use only IDs in context. Never execute changes. Someone being off, the salon closing or an extra shift is a proposal too. A product sale needs a customer from the context; a stock question names the product. Ask a question when a customer, appointment or required parameter is unclear. Dates use the salon timezone; end dates are exclusive. Return JSON matching the schema.",
   input: z.object({ text: textField, context: intentContextSchema }).strict(), output: intentOutputSchema,
   fallback: ({ text, context }) => intentOutputSchema.parse(interpretCommand(text, context)),
 });
