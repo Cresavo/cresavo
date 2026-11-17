@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { t } from "../i18n";
 import { useDemo } from "../store";
 import { useNow } from "../use-now";
+import { GiftCardBalance } from "./gift-card-balance";
 import { Hero } from "./hero";
 import { FindUs, OpeningHours, Reviews } from "./salon-info";
 import { Treatments } from "./treatments";
@@ -38,6 +39,7 @@ export function SalonPage() {
           </section>
         </div>
         <aside className="min-w-0 space-y-8">
+          <GiftCardBalance state={state} />
           <Reviews state={state} />
           <OpeningHours state={state} now={now} />
           <FindUs state={state} />

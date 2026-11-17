@@ -17,7 +17,7 @@ export function BookShell({ children }: { children: ReactNode }) {
   if (widget) return <main className="min-h-[100dvh] bg-eko-bg p-4">{state ? children : <p>{t("booking.loading")}</p>}<Toaster /></main>;
   return (
     <div className="flex min-h-[100dvh] flex-col">
-      <header className="border-b border-eko-line bg-eko-surface/80 backdrop-blur">
+      <header className="border-b print:hidden border-eko-line bg-eko-surface/80 backdrop-blur">
         <div className="mx-auto flex min-h-14 w-full max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link href={BOOKING_HOME} className="flex items-center gap-2.5 font-semibold tracking-tight">
             <span className="flex size-8 items-center justify-center rounded-lg bg-eko-accent text-eko-on-accent">
@@ -33,7 +33,7 @@ export function BookShell({ children }: { children: ReactNode }) {
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-16 pt-5 sm:px-6 lg:pt-8">
         {state ? children : <p className="animate-pulse py-24 text-center text-eko-muted">{t("booking.loading")}</p>}
       </main>
-      <footer className="border-t border-eko-line px-4 py-6 text-center text-xs text-eko-muted">
+      <footer className="border-t print:hidden border-eko-line px-4 py-6 text-center text-xs text-eko-muted">
         {t("booking.demoNote")}{" "}
         <Link href="/studio" className="font-medium text-eko-accent underline-offset-2 hover:underline">
           {t("booking.ownerView")}

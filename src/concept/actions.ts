@@ -11,6 +11,8 @@ import { grantSupport, revokeSupport, type GrantHours } from "./support/access";
 import type { NewTicket } from "./support/tickets";
 import { deleteCustomer, restoreEntry, trashBooking } from "./trash/trash";
 import { placeOrders, receiveGoods, type Delivery, type NewOrder } from "./stock/orders";
+import { redeemGiftCard, sellGiftCard } from "./giftcards/cards";
+import { sellPackage, consumePackageVisit } from "./packages/packages";
 import { sellProduct } from "./stock/sales";
 import { deduct, roundAmount, usesOfService } from "./stock/usage";
 import type {
@@ -53,6 +55,9 @@ export type DemoAction =
   | { type: "stock/receive"; orderId?: string; deliveries: Delivery[]; date: DateKey }
   | { type: "stock/update"; id: string; patch: StockPatch }
   | { type: "product/sell"; customerId: string; stockId: string; quantity: number; date: DateKey }
+  | { type: "giftcard/sell"; amount: number; recipient: string; message: string; date: DateKey }
+  | { type: "giftcard/redeem"; code: string; bookingId: string; date: DateKey }
+  | { type: "package/sell"; customerId: string; serviceId: string; date: DateKey }
   | { type: "booking/complete"; id: string }
   | { type: "inbox/read"; id: string }
   | { type: "inbox/read-all" }
@@ -218,12 +223,13 @@ function runAd(state: DemoState, id: string, ad: CampaignAd): DemoState {
   return { ...state, campaigns: updateBy(state.campaigns, id, (c) => ({ ...c, ad, stats })) };
 }
 
-/** A finished visit uses up what its treatment consumes (when stock is switched on). */
+/** A finished visit uses up what its treatment consumes (stock) and one visit of the customer's package, when those modules are on. */
 function completeBooking(state: DemoState, id: string): DemoState {
   const booking = state.bookings.find((b) => b.id === id);
   if (!booking || booking.status !== "booked") return state;
   const done = { ...state, bookings: updateBy(state.bookings, id, (b) => ({ ...b, status: "completed" as const })) };
-  return state.modules.stock ? { ...done, stock: deduct(done.stock, usesOfService(state, booking.serviceId)) } : done;
+  const stocked = state.modules.stock ? { ...done, stock: deduct(done.stock, usesOfService(state, booking.serviceId)) } : done;
+  return state.modules.packages ? consumePackageVisit(stocked, booking) : stocked;
 }
 
 function replyToInbox(state: DemoState, id: string, reply: string, slot?: SlotSuggestion): DemoState {
@@ -328,6 +334,12 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
       return receiveGoods(state, action);
     case "product/sell":
       return sellProduct(state, action);
+    case "giftcard/sell":
+      return sellGiftCard(state, action);
+    case "giftcard/redeem":
+      return redeemGiftCard(state, action);
+    case "package/sell":
+      return sellPackage(state, action);
     case "booking/complete":
       return completeBooking(state, action.id);
     case "inbox/read":

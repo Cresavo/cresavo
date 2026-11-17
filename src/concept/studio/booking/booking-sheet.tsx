@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, CalendarX2, Check, Phone, UserRound } from "lucide-react";
+import { CalendarClock, CalendarX2, Check, Gift, Phone, UserRound } from "lucide-react";
 import { formatTime } from "../../data/dates";
+import { paidWithCards } from "../../giftcards/cards";
 import { t, tc, type MessageKey } from "../../i18n";
 import { formatDayLong, formatDuration, formatMoney } from "../../i18n/format";
+import { packageFor, visitsLeft } from "../../packages/packages";
 import { findCustomer, findService, fullName } from "../../selectors";
 import { dispatch, undo } from "../../store";
 import { Badge } from "../../ui/badge";
@@ -12,11 +14,12 @@ import { Button, ButtonLink } from "../../ui/button";
 import { Chip, Switch } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
 import { showToast } from "../../ui/toast";
+import { RedeemSheet } from "../giftcards/redeem-sheet";
 import { useStudio } from "../use-studio";
 import { SlotPicker, type Slot } from "./slot-picker";
 import { waitlistCount, waitlistNotice } from "./waitlist-notice";
 
-type Mode = "details" | "move" | "cancel";
+type Mode = "details" | "move" | "cancel" | "giftcard";
 
 const CANCEL_REASONS: MessageKey[] = ["cancel.reason.customer", "cancel.reason.ill", "cancel.reason.salon", "cancel.reason.other"];
 
@@ -42,11 +45,15 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
     ? state.journals.filter((j) => j.customerId === booking.customerId && j.date < booking.date).at(-1)
     : undefined;
   const waitlist = waitlistCount(state, booking);
+  const pkg = state.modules.packages ? packageFor(state, booking) : undefined;
+  const paidByCard = paidWithCards(state, booking.id);
 
   const markDone = () => {
     if (!dispatch({ type: "booking/complete", id: booking.id })) return;
     const usesStock = state.modules.stock && !!service?.consumption?.length;
-    showToast(t(usesStock ? "booking.doneStockToast" : "booking.doneToast", { name: customer?.firstName ?? "" }), { label: t("common.undo"), run: undo });
+    const first = customer?.firstName ?? "";
+    const message = pkg ? t("booking.donePackageToast", { name: first, left: tc("packages.onLeft", visitsLeft(pkg) - 1) }) : t(usesStock ? "booking.doneStockToast" : "booking.doneToast", { name: first });
+    showToast(message, { label: t("common.undo"), run: undo });
     onClose();
   };
 
@@ -72,6 +79,8 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
     showToast(offer && state.modules.waitlist ? tc("booking.cancelledOfferedToast", waitlist) : t("booking.cancelledToast"), { label: t("common.undo"), run: undo });
     onClose();
   };
+
+  if (mode === "giftcard") return <RedeemSheet bookingId={booking.id} onBack={() => setMode("details")} onClose={onClose} />;
 
   if (mode === "move") {
     return (
@@ -188,6 +197,8 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
           <InfoRow label={t("booking.with")} value={`${staff.firstName} ${staff.lastName}`} />
           <InfoRow label={t("booking.price")} value={formatMoney(booking.price)} />
           <InfoRow label={t("booking.source")} value={t(`source.${booking.source}`)} />
+          {paidByCard > 0 && <InfoRow label={t("giftcards.paidWith")} value={formatMoney(paidByCard)} />}
+          {pkg && <InfoRow label={t("packages.on")} value={tc("packages.onLeft", visitsLeft(pkg))} />}
           {customer?.phone && (
             <InfoRow
               label={t("booking.phone")}
@@ -200,6 +211,9 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
             />
           )}
         </dl>
+        {state.modules.giftcards && booking.status === "booked" && booking.price > paidByCard && (
+          <Button variant="secondary" className="w-full" icon={<Gift size={18} />} onClick={() => setMode("giftcard")}>{t("giftcards.pay")}</Button>
+        )}
         {customer?.note && (
           <div className="rounded-2xl bg-eko-warn-soft px-4 py-3 text-sm text-eko-ink">
             <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-eko-warn">{t("booking.note")}</p>

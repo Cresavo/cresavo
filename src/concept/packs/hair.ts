@@ -55,7 +55,7 @@ export const hair: Pack = {
     { name: "Hårgrossisten", email: "orders@hargrossisten.example", leadDays: 3 },
     { name: "Colorama", email: "order@colorama.example", leadDays: 4 },
   ],
-  modules: ["journal", "stock", "campaigns", "finance", "reviews", "waitlist", "assistant"],
+  modules: ["journal", "stock", "campaigns", "finance", "reviews", "waitlist", "assistant", "giftcards", "packages"],
   journalTemplates: [
     { id: "hair-cut", category: "cut" },
     { id: "hair-colour", category: "colour" },

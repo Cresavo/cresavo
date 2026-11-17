@@ -51,7 +51,7 @@ export const nails: Pack = {
     { name: "Nagelgrossen", email: "orders@nagelgrossen.example", leadDays: 3 },
     { name: "Spagrossisten", email: "order@spagrossisten.example", leadDays: 5 },
   ],
-  modules: ["journal", "stock", "campaigns", "reviews", "waitlist", "assistant"],
+  modules: ["journal", "stock", "campaigns", "reviews", "waitlist", "assistant", "giftcards", "packages"],
   journalTemplates: [
     { id: "nails-mani", category: "manicure" },
     { id: "nails-pedi", category: "pedicure" },

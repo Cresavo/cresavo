@@ -3,9 +3,11 @@
 import { useMemo, useState } from "react";
 import { addDays } from "../../data/dates";
 import { buildOverview } from "../../finance/overview";
+import { giftCardLiability } from "../../giftcards/cards";
 import type { PeriodKey } from "../../finance/periods";
 import { t, tc } from "../../i18n";
 import { formatDayMonth, formatMoney, formatMonth, formatNumber } from "../../i18n/format";
+import { packageLiability } from "../../packages/packages";
 import { findService } from "../../selectors";
 import { Card, Section } from "../../ui/card";
 import { CompareBars, PairedColumns } from "../../ui/charts";
@@ -29,6 +31,8 @@ export function OverviewSection() {
     ? [`${formatMonth(months[0], true)} ${months[0].slice(2, 4)}`, `${formatMonth(months[months.length - 1], true)} ${months[months.length - 1].slice(2, 4)}`]
     : [formatDayMonth(ranges.current.start), formatDayMonth(lastDay)];
   const customers = current.newCustomers + current.returning;
+  const gift = state.modules.giftcards ? giftCardLiability(state) : 0;
+  const packages = state.modules.packages ? packageLiability(state) : 0;
 
   return (
     <div className="space-y-6">
@@ -59,6 +63,15 @@ export function OverviewSection() {
           </>
         )}
       </Card>
+      {gift + packages > 0 && (
+        <Card className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 p-5">
+          <div>
+            <p className="text-sm text-eko-muted">{t("finance.prepaidTitle")}</p>
+            <p className="text-2xl font-semibold tabular-nums tracking-tight">{formatMoney(gift + packages)}</p>
+          </div>
+          <p className="max-w-md text-sm text-eko-muted">{t("finance.prepaidText", { gift: formatMoney(gift), packages: formatMoney(packages) })}</p>
+        </Card>
+      )}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Section title={t("finance.occupancy")}>
           <Card className="space-y-4 p-5">

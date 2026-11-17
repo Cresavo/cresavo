@@ -49,7 +49,7 @@ export const trainer: Pack = {
     { name: "Gymgrossisten", email: "orders@gymgrossisten.example", leadDays: 3 },
     { name: "Näringsgrossen", email: "order@naringsgrossen.example", leadDays: 4 },
   ],
-  modules: ["journal", "stock", "campaigns", "finance", "reviews", "waitlist", "assistant"],
+  modules: ["journal", "stock", "campaigns", "finance", "reviews", "waitlist", "assistant", "giftcards", "packages"],
   journalTemplates: [
     { id: "trainer-session", category: "personal" },
     { id: "trainer-intake", category: "personal" },

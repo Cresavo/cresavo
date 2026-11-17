@@ -23,7 +23,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 10;
+export const DEMO_VERSION = 11;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -349,7 +349,7 @@ export interface BusinessSetup {
   modules?: ModuleKey[];
 }
 
-export const MODULE_KEYS: ModuleKey[] = ["journal", "stock", "campaigns", "finance", "reviews", "waitlist", "assistant"];
+export const MODULE_KEYS: ModuleKey[] = ["journal", "stock", "campaigns", "finance", "reviews", "waitlist", "assistant", "giftcards", "packages"];
 
 /** A solo business has only the owner, who takes over all services. */
 function buildFor(pack: Pack, solo: boolean): Build {
@@ -577,6 +577,8 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     suppliers: pack.suppliers,
     orders: [],
     sales: [],
+    giftCards: [],
+    packages: [],
     reviews,
     inbox,
     holidays: upcomingHolidays(today, pack.featured),
