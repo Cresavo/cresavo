@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArrowLeft, BellRing, Check } from "lucide-react";
 import { addDays } from "../data/dates";
 import type { DemoState } from "../data/types";
@@ -51,10 +51,12 @@ interface WizardProps {
   /** Start with this treatment already chosen (from "Book" buttons and rebooking). */
   initialServiceId?: string;
   onBooked?: (id: string) => void;
+  /** Called with true while a flow step is open, false on the first screen. */
+  onFlowChange?: (inFlow: boolean) => void;
 }
 
 /** The booking flow: describe it, or pick treatment, then time, then name and phone. */
-export function BookingWizard({ state, now, initialServiceId, onBooked }: WizardProps) {
+export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowChange }: WizardProps) {
   const [trail, setTrail] = useState<Step[]>(initialServiceId ? ["ask", "times"] : ["ask"]);
   const [serviceId, setServiceId] = useState(initialServiceId);
   const [request, setRequest] = useState<BookingRequest>();
@@ -62,6 +64,7 @@ export function BookingWizard({ state, now, initialServiceId, onBooked }: Wizard
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
   const [missed, setMissed] = useState(false);
   const step = trail[trail.length - 1];
+  useEffect(() => onFlowChange?.(step !== "ask"), [step, onFlowChange]);
   const go = (next: Step) => setTrail((current) => [...current, next]);
   const back = () => setTrail((current) => current.slice(0, -1));
   const service = state.services.find((s) => s.id === serviceId);

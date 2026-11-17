@@ -27,6 +27,7 @@ All notable changes to this project are documented here. Format follows
   showing treatments and first names only.
 
 ### Changed
+- Booking page: while a booking is under way the treatment list steps aside, so there is one obvious next action; it returns on the first screen.
 - Polish pass: Today has two number cards instead of three and two suggestions at first (the rest behind "Show more"); the schedule no longer repeats times or durations, and finished visits are shaded instead of faded.
 - Muted text, warning badges and Erik's colour are darker so they pass WCAG AA contrast; the customer day chips and calendar days no longer use faded text.
 - Empty Gift cards and Packages pages show only the empty state (the "owed to customers" card appears once something is sold); review cards no longer repeat "No reply yet" next to the Reply button.
