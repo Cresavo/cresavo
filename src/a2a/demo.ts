@@ -22,6 +22,7 @@ import {
 import { listStaff } from "../lib/workspace-config";
 import { safeFailure } from "../lib/errors";
 import { dateSchema } from "../lib/validation";
+import { BRAND } from "../concept/brand";
 
 const selection = z
   .object({
@@ -245,7 +246,7 @@ export async function startA2aDemo() {
     throw new Error("A2A_LOCAL_ADDRESS_INVALID");
   const url = `http://127.0.0.1:${address.port}`;
   const card = AgentCard.fromJSON({
-    name: "Flerdo — local synthetic customer demo",
+    name: `${BRAND.name} — local synthetic customer demo`,
     version: "0.1.0",
     description:
       "Find a time and create an explicitly confirmed synthetic booking. No owner access.",

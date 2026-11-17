@@ -8,6 +8,7 @@ import { listStaff } from "@/lib/workspace-config";
 import { getLocale } from "@/lib/locale-server";
 import { formatPrice, readableDay } from "@/lib/format";
 import styles from "./product.module.css";
+import { BRAND } from "@/concept/brand";
 
 async function findDemoVisit() {
   const [services, team] = await Promise.all([listServices(), listStaff()]);
@@ -50,7 +51,7 @@ export default async function Relay() {
       <section className={styles.hero}>
         <header className={styles.nav}>
           <Link className={styles.brand} href="/product">
-            <Leaf aria-hidden="true" /> Flerdo
+            <Leaf aria-hidden="true" /> {BRAND.name}
           </Link>
           {!isPublicReadonly() && <nav aria-label={t("Product navigation", "Produktnavigation")}>
             <Link href="/admin/overview">
@@ -133,7 +134,7 @@ export default async function Relay() {
           </p>
         </details>
         <small>
-          Flerdo · AGPL-3.0-only · {t("Private demo", "Privat demo")}
+          {BRAND.name} · AGPL-3.0-only · {t("Private demo", "Privat demo")}
         </small>
       </footer>
     </main>

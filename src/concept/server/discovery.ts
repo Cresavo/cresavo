@@ -2,6 +2,7 @@ import { USP_VERSION } from "@/lib/agent-api/discovery";
 import { SALON_TIMEZONE } from "../tools/clock";
 import { conceptTools } from "../tools/registry";
 import { toolContext } from "./demo-business";
+import { BRAND } from "../brand";
 
 // Discovery documents for the demo business: an A2A agent card and a USP
 // profile, following the engine's `src/lib/agent-api/discovery.ts`. Both say
@@ -20,11 +21,11 @@ const LIMITS = "Synthetic demo business. Customer agents can read services and f
 export function conceptAgentCard(origin: string) {
   const { state } = toolContext();
   return {
-    name: `${state.salon.name} on Flerdo (demo)`,
+    name: `${state.salon.name} on ${BRAND.name} (demo)`,
     version: "0.1.0",
     description: `Find a service and a free time at ${state.salon.name}, ${state.salon.area}. ${LIMITS}`,
     supportedInterfaces: [{ url: `${origin}${CONCEPT_PATHS.a2a}`, protocolBinding: "JSONRPC", protocolVersion: "1.0" }],
-    provider: { organization: "Flerdo (demo)", url: origin },
+    provider: { organization: `${BRAND.name} (demo)`, url: origin },
     capabilities: { streaming: false, pushNotifications: false },
     defaultInputModes: ["text/plain"],
     defaultOutputModes: ["text/plain"],
@@ -60,8 +61,8 @@ export function conceptUspProfile(origin: string) {
     "x-flerdo": {
       status: "synthetic-discovery-preview",
       tools: conceptTools.map((tool) => tool.name),
-      compatibility: "USP profile discovery only. Catalog and availability use Flerdo's own MCP tools (list_services, get_availability); canonical USP wire format, holds and direct booking are not implemented.",
-      bookings: "Agents create proposals (propose_booking); the owner approves them in Flerdo.",
+      compatibility: `USP profile discovery only. Catalog and availability use ${BRAND.name}'s own MCP tools (list_services, get_availability); canonical USP wire format, holds and direct booking are not implemented.`,
+      bookings: `Agents create proposals (propose_booking); the owner approves them in ${BRAND.name}.`,
       a2a_agent_card: `${origin}${CONCEPT_PATHS.agentCard}`,
     },
   };

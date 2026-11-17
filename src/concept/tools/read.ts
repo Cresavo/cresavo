@@ -8,6 +8,7 @@ import { buildCustomerStats, findService, fullName } from "../selectors";
 import { forecastInput, ruleForecast } from "../stock/forecast";
 import { SALON_TIMEZONE } from "./clock";
 import { field, readTool, ToolError } from "./define";
+import { BRAND } from "../brand";
 
 // Read tools. Customers are minimised: name and visit history only, never
 // phone, e-mail, birthday, notes, tags or journal entries.
@@ -60,7 +61,7 @@ export const getBusiness = readTool({
     }),
     staff: state.staff.map((s) => ({ id: s.id, name: s.firstName, title: s.title })),
     modules: Object.entries(state.modules).filter(([, on]) => on).map(([key]) => key),
-    demo: "Synthetic demo data, regenerated every day. Changes need the owner's approval in Flerdo.",
+    demo: `Synthetic demo data, regenerated every day. Changes need the owner's approval in ${BRAND.name}.`,
   }),
 });
 

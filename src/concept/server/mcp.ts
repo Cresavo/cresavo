@@ -8,6 +8,7 @@ import { createProposal, findProposal, toolContext } from "./demo-business";
 import type { RequestLogContext } from "./logger";
 import { createRateLimiter } from "./rate-limit";
 import { checkBearer } from "./token";
+import { BRAND } from "../brand";
 
 // HTTP MCP adapter for the concept: registers every tool from the shared
 // registry, checks the demo bearer token, limits calls per token and turns
@@ -45,7 +46,7 @@ function proposalView(proposal: AgentProposal): Body {
     status: proposal.status,
     title: proposal.title,
     changes: proposal.rows,
-    message: proposal.status === "pending" ? "Waiting for the owner to approve or decline in Flerdo (Inbox)." : `The owner's decision: ${proposal.status}.`,
+    message: proposal.status === "pending" ? `Waiting for the owner to approve or decline in ${BRAND.name} (Inbox).` : `The owner's decision: ${proposal.status}.`,
   };
 }
 

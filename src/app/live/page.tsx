@@ -5,10 +5,11 @@ import { liveSnapshot, type LiveSnapshot } from "@/lib/agent-api/live";
 import { getLocale } from "@/lib/locale-server";
 import { LiveBoard } from "./board";
 import "./live-global.css";
+import { BRAND } from "@/concept/brand";
 
 export const metadata: Metadata = {
-  title: "Flerdo — live agent sandbox",
-  description: "Agents booking against the Flerdo engine in real time. Synthetic data only.",
+  title: `${BRAND.name} — live agent sandbox`,
+  description: `Agents booking against the ${BRAND.name} engine in real time. Synthetic data only.`,
 };
 
 export default async function LivePage() {
