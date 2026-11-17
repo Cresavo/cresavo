@@ -57,6 +57,8 @@ export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: S
         const done = b.start + b.duration <= now;
         const current = !done && b.start <= now && b.status === "booked";
         const cancelled = b.status === "cancelled";
+        // The staff colour is a quick cue only; the name says it in words (WCAG 1.4.1).
+        const person = state.staff.length > 1 ? state.staff.find((s) => s.id === b.staffId)?.firstName : undefined;
         return (
           <li key={b.id} className="flex gap-3">
             <span className={cx("w-12 shrink-0 pt-3.5 text-right text-sm font-medium tabular-nums", done || cancelled ? "text-text-secondary" : "text-text")}>
@@ -75,7 +77,10 @@ export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: S
                 <span className={cx("block truncate font-medium", cancelled && "line-through")}>{customer ? fullName(customer) : ""}</span>
                 <span className="flex items-center gap-1.5 truncate text-sm text-text-secondary">
                   <StaffDot staffId={b.staffId} />
-                  {service && /\d+ min/.test(service.name) ? service.name : `${service?.name} · ${formatDuration(b.duration)}`}
+                  <span className="truncate">
+                    {service && /\d+ min/.test(service.name) ? service.name : `${service?.name} · ${formatDuration(b.duration)}`}
+                    {person && ` · ${person}`}
+                  </span>
                 </span>
               </span>
               {current && <Badge tone="accent">{t("today.inProgress")}</Badge>}

@@ -208,3 +208,13 @@ test("finance charts mark the period before with an outline or dashes, not colou
   expect(await previous.first().evaluate(el => getComputedStyle(el).stroke)).not.toBe("none");
   expect(await page.locator("[data-series=previous]").first().evaluate(el => getComputedStyle(el).backgroundImage)).toContain("repeating-linear-gradient");
 });
+
+test("Today names the staff member on every booking, not just a colour (#26)", async ({ page }) => {
+  const initial = createDemoState(today);
+  await page.goto("/studio");
+  for (const booking of initial.bookings.filter(b => b.date === today).slice(0, 6)) {
+    const customer = initial.customers.find(c => c.id === booking.customerId)!;
+    const staff = initial.staff.find(s => s.id === booking.staffId)!;
+    await expect(page.getByRole("button").filter({ hasText: fullName(customer) }).first()).toContainText(` · ${staff.firstName}`);
+  }
+});
