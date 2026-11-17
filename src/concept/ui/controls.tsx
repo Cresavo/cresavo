@@ -64,16 +64,13 @@ interface SwitchProps {
   label: string;
 }
 
+/** A 48 × 28 track inside a 44 px tall target. */
 export function Switch({ checked, onChange, label }: SwitchProps) {
   return (
-    <button
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={onChange}
-      className={cx("relative inline-flex h-7 w-12 shrink-0 rounded-full ring-1 ring-inset transition-colors", checked ? "bg-action ring-action" : "bg-surface-2 ring-input-border")}
-    >
-      <span className={cx("absolute top-1 size-5 rounded-full transition-transform", checked ? "translate-x-[24px] bg-on-action" : "translate-x-1 bg-text-secondary")} />
+    <button role="switch" aria-checked={checked} aria-label={label} onClick={onChange} className="inline-flex h-11 w-14 shrink-0 items-center justify-center rounded-full">
+      <span aria-hidden className={cx("relative inline-flex h-7 w-12 rounded-full ring-1 ring-inset transition-colors", checked ? "bg-action ring-action" : "bg-surface-2 ring-input-border")}>
+        <span className={cx("absolute top-1 size-5 rounded-full transition-transform", checked ? "translate-x-[24px] bg-on-action" : "translate-x-1 bg-text-secondary")} />
+      </span>
     </button>
   );
 }

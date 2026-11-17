@@ -44,6 +44,7 @@ All notable changes to this project are documented here. Format follows
 - Booking pages keep their header, content and footer clear of the notch, rounded corners and home indicator in portrait and landscape (Codex #9).
 - Finance charts draw the period before in a colour with at least 3:1 contrast and as outlined columns or dashed bars, with a legend, so it is not told apart by colour alone (Codex #10).
 - Today's schedule and a customer's bookings say who the booking is with ("· Anna") instead of relying on the staff colour dot (#26).
+- 44 px touch targets for switches (the compact track sits inside a larger target), the Ask Flerdo message box buttons and panel header, customer phone and email links, the booking page's business link and the demo banner's language select (Codex #11, #30).
 
 ## [0.3.0] - 2026-11-17
 

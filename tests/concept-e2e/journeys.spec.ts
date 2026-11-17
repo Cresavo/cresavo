@@ -218,3 +218,21 @@ test("Today names the staff member on every booking, not just a colour (#26)", a
     await expect(page.getByRole("button").filter({ hasText: fullName(customer) }).first()).toContainText(` · ${staff.firstName}`);
   }
 });
+
+test("switches, segmented options, assistant composer buttons and the booking header link are 44 px targets (Codex #11, #30)", async ({ page }) => {
+  const heights = (selector: string) => page.locator(selector).evaluateAll(els => els.filter(e => e.getBoundingClientRect().width > 0).map(e => Math.round(e.getBoundingClientRect().height)));
+  await page.goto("/studio/more/features");
+  await expect(page.getByRole("switch").first()).toBeVisible();
+  const switches = await heights("[role=switch]");
+  expect(switches.length).toBeGreaterThan(3);
+  for (const h of switches) expect(h).toBeGreaterThanOrEqual(44);
+  await page.goto("/studio/more/settings");
+  await expect(page.getByRole("radio").first()).toBeVisible();
+  for (const h of await heights("[role=radiogroup] [role=radio]")) expect(h).toBeGreaterThanOrEqual(44);
+  await page.keyboard.press("Control+K");
+  await page.getByRole("textbox", { name: "Message" }).fill("hello");
+  for (const h of await heights("dialog form button, dialog header button")) expect(h).toBeGreaterThanOrEqual(44);
+  await page.goto("/boka/salong-eko");
+  await expect(page.getByRole("heading", { name: "Salong Eko", level: 1 })).toBeVisible();
+  for (const h of await heights("header a")) expect(h).toBeGreaterThanOrEqual(44);
+});

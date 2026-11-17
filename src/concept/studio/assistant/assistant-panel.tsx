@@ -85,8 +85,8 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-2 border-b border-border bg-surface px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action text-on-action"><Sparkles size={18} /></span>
+      <header className="flex items-center gap-1 border-b border-border bg-surface px-4 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))]">
+        <span className="mr-1 flex size-10 shrink-0 items-center justify-center rounded-md bg-action text-on-action"><Sparkles size={18} /></span>
         <div className="min-w-0 flex-1 leading-tight">
           <h2 className="font-semibold tracking-tight">{t("assistant.title")}</h2>
           <p className="truncate text-xs text-text-secondary">{aiReady ? t("assistant.mode.ai") : t("assistant.mode.rules")}</p>
@@ -99,17 +99,16 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
               if (thread.speak) stopSpeaking();
               setSpeak(!thread.speak);
             }}
-            className="size-10"
           >
             {thread.speak ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </IconButton>
         )}
         {thread.messages.length > 0 && (
-          <IconButton label={t("assistant.new")} onClick={assistant.newConversation} className="size-10">
+          <IconButton label={t("assistant.new")} onClick={assistant.newConversation}>
             <SquarePen size={18} />
           </IconButton>
         )}
-        <IconButton label={t("common.close")} onClick={closeAssistant} className="-mr-1 size-10">
+        <IconButton label={t("common.close")} onClick={closeAssistant} className="-mr-1.5">
           <X size={20} />
         </IconButton>
       </header>
@@ -129,7 +128,8 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
       </div>
 
       <form onSubmit={submit} className="border-t border-border bg-surface px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-        <div className="flex items-end gap-1.5 rounded-md bg-surface p-1.5 pl-3.5 ring-1 ring-input-border focus-within:ring-2 focus-within:ring-focus">
+        {/* 44 px targets with the compact 40 px look: the buttons are 44 px, their visible part 40, inside 4 px less padding. */}
+        <div className="flex items-end gap-1 rounded-md bg-surface p-1 pl-3.5 ring-1 ring-input-border focus-within:ring-2 focus-within:ring-focus">
           <textarea
             ref={input}
             rows={1}
@@ -142,7 +142,7 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
             placeholder={speech.listening ? t("command.listening") : t("assistant.placeholder")}
             aria-label={t("assistant.message")}
             enterKeyHint="send"
-            className="bare-input max-h-32 min-h-9 flex-1 resize-none bg-transparent py-2 text-base placeholder:text-text-secondary"
+            className="bare-input max-h-32 min-h-11 flex-1 resize-none bg-transparent py-2.5 text-base placeholder:text-text-secondary"
           />
           {speech.supported && (
             <button
@@ -151,13 +151,15 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
               title={t("command.voice")}
               aria-pressed={speech.listening}
               onClick={speech.toggle}
-              className={cx("flex size-10 shrink-0 items-center justify-center rounded-md", speech.listening ? "animate-pulse bg-action-bg text-action" : "text-text-secondary hover:text-text")}
+              className={cx("flex size-11 shrink-0 items-center justify-center rounded-md", speech.listening ? "animate-pulse bg-action-bg text-action" : "text-text-secondary hover:text-text")}
             >
               <Mic size={18} />
             </button>
           )}
-          <button type="submit" aria-label={t("assistant.send")} title={t("assistant.send")} disabled={!text.trim()} className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action text-on-action disabled:opacity-40">
-            <ArrowUp size={18} />
+          <button type="submit" aria-label={t("assistant.send")} title={t("assistant.send")} disabled={!text.trim()} className="group flex size-11 shrink-0 items-center justify-center rounded-md disabled:opacity-40">
+            <span className="flex size-10 items-center justify-center rounded-md bg-action text-on-action">
+              <ArrowUp size={18} />
+            </span>
           </button>
         </div>
       </form>

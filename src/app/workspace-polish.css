@@ -23,7 +23,8 @@ body:has(.workspace-header) {
   font-size: 11px;
   letter-spacing: 0.02em;
   min-height: 28px;
-  padding: 6px 16px;
+  /* The language select is the 44 px target; the banner adds no padding around it. */
+  padding: 0 16px;
   background: var(--ui-surface-2);
   color: var(--ui-text);
 }
@@ -36,14 +37,13 @@ body:has(.workspace-header) {
   margin: 0;
   width: auto;
   padding: 4px 26px 4px 8px;
-  min-height: 32px;
+  min-height: 44px;
   font-size: 13px;
   border-color: transparent;
   background-color: transparent;
 }
 @media (pointer: coarse) {
   .language-switch select {
-    min-height: 44px;
     font-size: 16px;
   }
 }

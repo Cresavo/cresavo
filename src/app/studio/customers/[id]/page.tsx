@@ -90,13 +90,13 @@ export default function CustomerPage() {
               </div>
             </div>
             <CustomerSummary customer={customer} />
-            <div className="space-y-1 text-sm">
-              <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className="flex items-center gap-2 py-1 hover:text-action">
+            <div className="text-sm">
+              <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className="flex min-h-11 items-center gap-2 hover:text-action">
                 <Phone size={16} className="text-text-secondary" />
                 {customer.phone}
               </a>
               {customer.email && (
-                <a href={`mailto:${customer.email}`} className="flex items-center gap-2 py-1 hover:text-action">
+                <a href={`mailto:${customer.email}`} className="flex min-h-11 items-center gap-2 hover:text-action">
                   <Mail size={16} className="text-text-secondary" />
                   <span className="truncate">{customer.email}</span>
                 </a>
