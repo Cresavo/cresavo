@@ -14,7 +14,7 @@ export default defineConfig({
     { name: "desktop", use: { viewport: { width: 1280, height: 900 } } },
   ],
   webServer: {
-    command: "node scripts/server.mjs --dev", url: "http://127.0.0.1:3017/studio", timeout: 60000,
+    command: "node scripts/server.mjs --dev", url: "http://127.0.0.1:3017/studio", timeout: 180000,
     env: { PORT: "3017", DATABASE_URL: "postgresql://synthetic@127.0.0.1:1/concept_demo", OPENAI_API_KEY: "", ANTHROPIC_API_KEY: "", OPENROUTER_API_KEY: "", PUBLIC_READONLY: "", NEXT_TELEMETRY_DISABLED: "1" },
   },
 });
