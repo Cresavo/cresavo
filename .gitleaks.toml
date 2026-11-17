@@ -1,0 +1,45 @@
+# Gitleaks configuration. Extends the upstream default ruleset; only verified
+# false positives are allowlisted below. Do not add a path or regex here
+# without checking that the match is synthetic and documented in the repo.
+title = "Flerdo gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Documented synthetic demo values"
+regexes = [
+  # Public demo bearer token for the concept API; documented in
+  # .env.example and defined as DEV_TOKEN in src/concept/server/token.ts.
+  '''flerdo-demo-token''',
+  # Throwaway SESSION_SECRET used only by the CI workflow (verify.yml);
+  # the name itself says it must never be used in a deployment.
+  '''synthetic-ci-session-secret-never-use-in-deployment''',
+]
+
+# Test fixtures with fictional values (verified by reading the lines; the
+# values are obviously made up, e.g. "fictional-key-1234" or "synthetic-...").
+[[allowlists]]
+description = "Fictional test fixture values"
+condition = "AND"
+paths = ['''^tests/(concept-ai-settings|agent-preview|mcp-workspace|navigation-context)\.test\.ts$''']
+regexTarget = "line"
+regexes = ['''(key|secret|SESSION_SECRET)\s*[:=]\s*"[^"]+"''']
+
+# Recorded verification transcript: expectedToken is a 64-hex SHA-256 digest
+# of a synthetic token, not a credential.
+[[allowlists]]
+description = "Verification transcript digests"
+condition = "AND"
+paths = ['''^docs/verification/lifecycle/owner-tool-transcript\.json$''']
+regexTarget = "line"
+regexes = ['''"expectedToken":\s*"[0-9a-f]{64}"''']
+
+# Swedish prose in architecture/verification docs ("tokenhash," and
+# "Vercel-auth," are words, not secrets).
+[[allowlists]]
+description = "Prose false positives in docs"
+condition = "AND"
+paths = ['''^docs/(ARCHITECTURE|VERIFICATION)\.md$''']
+regexTarget = "line"
+regexes = ['''(tokenhash|Vercel-auth),''']

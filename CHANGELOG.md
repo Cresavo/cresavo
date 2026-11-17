@@ -7,6 +7,7 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- CI hygiene for the open-source launch: Dependabot (npm and GitHub Actions, weekly, grouped), a gitleaks full-history secret scan and an OpenSSF Scorecard workflow.
 - Everyday operations: opening hours, lunch and closed days are editable in Settings (Swedish public holidays are suggested), each person has a weekly schedule with days off, sick days and extra shifts, and rooms can be added and assigned to treatments so two bookings never share one.
 - Free times follow all of it everywhere: the customer booking page, calendar, "Someone is calling", command box and MCP tools use one availability function.
 - Today shows a "needs moving" card for bookings that no longer fit (someone is off, the salon is closed). The calendar can filter by room.
