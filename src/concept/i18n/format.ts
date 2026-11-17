@@ -64,6 +64,11 @@ export function formatNumber(value: number, digits = 0): string {
   return value.toLocaleString(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
+/** A stock amount to one decimal at most: 2.8, 14. */
+export function formatAmount(value: number): string {
+  return value.toLocaleString(locale, { maximumFractionDigits: 1 });
+}
+
 /** "16 Nov" */
 export function formatDayMonth(key: DateKey): string {
   const d = fromKey(key);

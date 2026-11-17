@@ -44,6 +44,14 @@ export interface Service {
   /** Recommended weeks between visits, used for recall reminders. */
   recallWeeks: number;
   image?: string;
+  /** Products used up by one visit; lowers the stock when the visit is marked done. */
+  consumption?: StockUse[];
+}
+
+/** An amount of a stock item, in the item's own unit (0.2 = a fifth of a tube). */
+export interface StockUse {
+  stockId: string;
+  quantity: number;
 }
 
 export interface Customer {
@@ -126,6 +134,44 @@ export interface StockItem {
   unitCost: number;
   /** Ordered but not yet delivered. */
   onOrder: number;
+  /** Price to a customer when the product is sold over the counter. */
+  salePrice?: number;
+}
+
+export interface Supplier {
+  name: string;
+  email: string;
+  /** Days from order to delivery. */
+  leadDays: number;
+}
+
+export interface OrderLine {
+  stockId: string;
+  quantity: number;
+  unitCost: number;
+  /** What actually arrived; set when the goods are received. */
+  received?: number;
+}
+
+/** A purchase approved by the owner and sent (simulated) to a supplier. */
+export interface PurchaseOrder {
+  id: string;
+  supplier: string;
+  date: DateKey;
+  lines: OrderLine[];
+  status: "open" | "received";
+  receivedOn?: DateKey;
+}
+
+/** A product sold to a customer over the counter. */
+export interface ProductSale {
+  id: string;
+  customerId: string;
+  stockId: string;
+  quantity: number;
+  /** Total paid. */
+  amount: number;
+  date: DateKey;
 }
 
 export interface Review {
@@ -245,6 +291,9 @@ export interface DemoState {
   bookings: Booking[];
   journals: JournalEntry[];
   stock: StockItem[];
+  suppliers: Supplier[];
+  orders: PurchaseOrder[];
+  sales: ProductSale[];
   reviews: Review[];
   inbox: InboxItem[];
   holidays: Holiday[];

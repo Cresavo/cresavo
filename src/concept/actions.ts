@@ -3,6 +3,9 @@ import { addAdResults, simulateStats } from "./campaigns/simulate";
 import { editJournalEntry } from "./customers/journal";
 import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visits";
 import { isFree } from "./data/slots";
+import { placeOrders, receiveGoods, type Delivery, type NewOrder } from "./stock/orders";
+import { sellProduct } from "./stock/sales";
+import { deduct, roundAmount, usesOfService } from "./stock/usage";
 import type {
   Booking,
   BookingSource,
@@ -17,6 +20,7 @@ import type {
   ModuleKey,
   SlotSuggestion,
   StaffId,
+  StockItem,
 } from "./data/types";
 
 // Every change to the demo goes through this pure reducer. Buttons use it
@@ -36,7 +40,11 @@ export type DemoAction =
   | { type: "service/recall"; id: string; weeks: number }
   | { type: "customers/import"; customers: Omit<Customer, "id">[] }
   | { type: "stock/adjust"; id: string; delta: number }
-  | { type: "stock/order"; lines: { id: string; quantity: number }[] }
+  | { type: "stock/order"; orders: NewOrder[]; at: { date: DateKey; time: number } }
+  | { type: "stock/receive"; orderId?: string; deliveries: Delivery[]; date: DateKey }
+  | { type: "stock/update"; id: string; patch: StockPatch }
+  | { type: "product/sell"; customerId: string; stockId: string; quantity: number; date: DateKey }
+  | { type: "booking/complete"; id: string }
   | { type: "inbox/read"; id: string }
   | { type: "inbox/read-all" }
   | { type: "inbox/reply"; id: string; reply: string; slot?: SlotSuggestion }
@@ -45,6 +53,9 @@ export type DemoAction =
   | { type: "customer/note"; id: string; note: string }
   | { type: "module/toggle"; key: ModuleKey }
   | { type: "card/dismiss"; id: string };
+
+/** What the owner can change about a product. */
+export type StockPatch = Partial<Pick<StockItem, "reorderAt" | "supplier" | "unitCost" | "salePrice">>;
 
 /** A campaign as the studio builds it; the reducer adds id, status and first results. */
 export type NewCampaign = Omit<Campaign, "id" | "status" | "stats" | "ad">;
@@ -185,6 +196,14 @@ function runAd(state: DemoState, id: string, ad: CampaignAd): DemoState {
   return { ...state, campaigns: updateBy(state.campaigns, id, (c) => ({ ...c, ad, stats })) };
 }
 
+/** A finished visit uses up what its treatment consumes (when stock is switched on). */
+function completeBooking(state: DemoState, id: string): DemoState {
+  const booking = state.bookings.find((b) => b.id === id);
+  if (!booking || booking.status !== "booked") return state;
+  const done = { ...state, bookings: updateBy(state.bookings, id, (b) => ({ ...b, status: "completed" as const })) };
+  return state.modules.stock ? { ...done, stock: deduct(done.stock, usesOfService(state, booking.serviceId)) } : done;
+}
+
 function replyToInbox(state: DemoState, id: string, reply: string, slot?: SlotSuggestion): DemoState {
   const item = state.inbox.find((i) => i.id === id);
   if (!item) return state;
@@ -271,15 +290,17 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
     case "journal/add":
       return { ...state, seq: state.seq + 1, journals: [...state.journals, { ...action.entry, id: nextId(state, "j") }] };
     case "stock/adjust":
-      return { ...state, stock: updateBy(state.stock, action.id, (s) => ({ ...s, inStock: Math.max(0, s.inStock + action.delta) })) };
+      return { ...state, stock: updateBy(state.stock, action.id, (s) => ({ ...s, inStock: roundAmount(Math.max(0, s.inStock + action.delta)) })) };
+    case "stock/update":
+      return { ...state, stock: updateBy(state.stock, action.id, (s) => ({ ...s, ...action.patch })) };
     case "stock/order":
-      return {
-        ...state,
-        stock: state.stock.map((s) => {
-          const line = action.lines.find((l) => l.id === s.id);
-          return line ? { ...s, onOrder: s.onOrder + line.quantity } : s;
-        }),
-      };
+      return placeOrders(state, action.orders, action.at);
+    case "stock/receive":
+      return receiveGoods(state, action);
+    case "product/sell":
+      return sellProduct(state, action);
+    case "booking/complete":
+      return completeBooking(state, action.id);
     case "inbox/read":
       return { ...state, inbox: updateBy(state.inbox, action.id, (i) => ({ ...i, read: true })) };
     case "inbox/read-all":

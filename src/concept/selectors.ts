@@ -1,6 +1,7 @@
 import { addDays, monthKey } from "./data/dates";
 import { isActive, lunchFor, openingFor, staffWorks } from "./data/slots";
-import type { Booking, Customer, DateKey, DemoState, Service, StaffId, StockItem } from "./data/types";
+import type { Booking, Customer, DateKey, DemoState, Service, StaffId } from "./data/types";
+import { salesBetween } from "./stock/sales";
 
 // Read-only views of the demo state used by several pages.
 
@@ -46,6 +47,10 @@ export function buildCustomerStats(state: DemoState, today: DateKey): Map<string
       s.nextBooking = b;
     }
   }
+  for (const sale of state.sales) {
+    const s = stats.get(sale.customerId);
+    if (s) s.spent += sale.amount;
+  }
   return stats;
 }
 
@@ -60,9 +65,10 @@ export function unreadCount(state: DemoState) {
 /** Revenue for today: what is booked in total and what has been earned so far. */
 export function todayRevenue(state: DemoState, today: DateKey, nowMinutes: number) {
   const list = dayBookings(state, today).filter((b) => b.status !== "noshow");
+  const products = salesBetween(state, today, today);
   return {
-    expected: list.reduce((sum, b) => sum + b.price, 0),
-    earned: list.filter((b) => b.start + b.duration <= nowMinutes).reduce((sum, b) => sum + b.price, 0),
+    expected: list.reduce((sum, b) => sum + b.price, 0) + products,
+    earned: list.filter((b) => b.start + b.duration <= nowMinutes).reduce((sum, b) => sum + b.price, 0) + products,
   };
 }
 
@@ -78,6 +84,10 @@ export function revenueByMonth(state: DemoState, today: DateKey, months: number)
   for (const b of state.bookings) {
     const k = monthKey(b.date);
     if (totals.has(k) && earned(b, today)) totals.set(k, totals.get(k)! + b.price);
+  }
+  for (const sale of state.sales) {
+    const k = monthKey(sale.date);
+    if (totals.has(k)) totals.set(k, totals.get(k)! + sale.amount);
   }
   return keys.map((month) => ({ month, total: totals.get(month)! }));
 }
@@ -114,6 +124,9 @@ export function averageRating(state: DemoState) {
   return state.reviews.reduce((sum, r) => sum + r.rating, 0) / state.reviews.length;
 }
 
+/** Id of the row that holds product sales in `revenueBetween`, next to the treatments. */
+export const PRODUCTS_ROW = "products";
+
 /** Revenue earned in [start, end) as of now: finished visits only, split by treatment. */
 export function revenueBetween(state: DemoState, today: DateKey, minutes: number, start: DateKey, end: DateKey) {
   const totals = new Map<string, number>();
@@ -125,11 +138,8 @@ export function revenueBetween(state: DemoState, today: DateKey, minutes: number
     visits += 1;
     totals.set(b.serviceId, (totals.get(b.serviceId) ?? 0) + b.price);
   }
+  const products = state.sales.filter((sale) => sale.date >= start && sale.date < end && sale.date <= today);
+  if (products.length) totals.set(PRODUCTS_ROW, products.reduce((sum, sale) => sum + sale.amount, 0));
   const byService = [...totals.entries()].map(([id, total]) => ({ id, total })).sort((a, b) => b.total - a.total);
   return { total: byService.reduce((sum, row) => sum + row.total, 0), visits, byService };
-}
-
-/** Enough for about four weeks plus the safety level. */
-export function suggestedOrderQuantity(item: StockItem) {
-  return Math.max(1, Math.ceil(item.usagePerWeek * 4 + item.reorderAt - item.inStock - item.onOrder));
 }

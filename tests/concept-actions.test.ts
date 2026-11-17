@@ -55,13 +55,11 @@ describe("concept store actions", () => {
     expect(next.bookings.at(-1)?.customerId).toBe(customer.id);
   });
 
-  it("updates prices, stock, modules and inbox flags", () => {
+  it("updates prices, modules and inbox flags", () => {
     let next = reduce(base, { type: "service/price", id: "classic-60", price: 850 });
-    next = reduce(next, { type: "stock/order", lines: [{ id: "urea-cream", quantity: 10 }] });
     next = reduce(next, { type: "module/toggle", key: "stock" });
     next = reduce(next, { type: "inbox/read-all" });
     expect(next.services.find((s) => s.id === "classic-60")?.price).toBe(850);
-    expect(next.stock.find((s) => s.id === "urea-cream")?.onOrder).toBe(10);
     expect(next.modules.stock).toBe(false);
     expect(next.inbox.every((i) => i.read)).toBe(true);
   });

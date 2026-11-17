@@ -8,6 +8,7 @@ import {
   SERVICES,
   STAFF,
   STOCK,
+  SUPPLIERS,
 } from "./catalog";
 import { addDays, diffDays, formatTime, weekday } from "./dates";
 import { upcomingHolidays } from "./holidays";
@@ -27,7 +28,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 6;
+export const DEMO_VERSION = 7;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -642,6 +643,9 @@ export function createDemoState(today: DateKey): DemoState {
     bookings,
     journals,
     stock: STOCK.map((s) => ({ ...s })),
+    suppliers: SUPPLIERS,
+    orders: [],
+    sales: [],
     reviews,
     inbox,
     holidays: upcomingHolidays(today),

@@ -1,4 +1,4 @@
-import type { Salon, Service, Staff, StockItem } from "./types";
+import type { Salon, Service, Staff, StockItem, Supplier } from "./types";
 
 // Fixed, fictional facts about the demo salon. No real people.
 
@@ -66,6 +66,7 @@ export const SERVICES: Service[] = [
     price: 650,
     description: "Nail care and a softening treatment for healthy feet.",
     recallWeeks: 6,
+    consumption: [{ stockId: "urea-cream", quantity: 0.2 }, { stockId: "foot-files", quantity: 0.02 }, { stockId: "cuticle-oil", quantity: 0.03 }, { stockId: "foot-bath-salt", quantity: 0.03 }, { stockId: "skin-disinfectant", quantity: 0.02 }, { stockId: "gloves", quantity: 0.02 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
   {
     id: "spa-foot-care",
@@ -76,6 +77,7 @@ export const SERVICES: Service[] = [
     price: 950,
     description: "Medical foot care with scrub, mask and a longer foot massage.",
     recallWeeks: 8,
+    consumption: [{ stockId: "urea-cream", quantity: 0.3 }, { stockId: "foot-files", quantity: 0.02 }, { stockId: "cuticle-oil", quantity: 0.03 }, { stockId: "foot-bath-salt", quantity: 0.05 }, { stockId: "skin-disinfectant", quantity: 0.02 }, { stockId: "gloves", quantity: 0.02 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
   {
     id: "ingrown-nail",
@@ -86,6 +88,7 @@ export const SERVICES: Service[] = [
     price: 450,
     description: "Treatment of ingrown nails and follow-up of nail braces.",
     recallWeeks: 4,
+    consumption: [{ stockId: "urea-cream", quantity: 0.1 }, { stockId: "scalpel-blades", quantity: 0.01 }, { stockId: "felt-padding", quantity: 0.1 }, { stockId: "corn-plasters", quantity: 0.1 }, { stockId: "skin-disinfectant", quantity: 0.02 }, { stockId: "gloves", quantity: 0.02 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
   {
     id: "classic-60",
@@ -96,6 +99,7 @@ export const SERVICES: Service[] = [
     price: 795,
     description: "Full-body massage for back, neck, shoulders and legs.",
     recallWeeks: 4,
+    consumption: [{ stockId: "massage-oil-neutral", quantity: 0.06 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
   {
     id: "classic-30",
@@ -106,6 +110,7 @@ export const SERVICES: Service[] = [
     price: 495,
     description: "Focus on back, neck and shoulders.",
     recallWeeks: 3,
+    consumption: [{ stockId: "massage-oil-neutral", quantity: 0.03 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
   {
     id: "deep-tissue",
@@ -116,6 +121,7 @@ export const SERVICES: Service[] = [
     price: 895,
     description: "Firmer pressure for tight muscles and stiffness.",
     recallWeeks: 4,
+    consumption: [{ stockId: "massage-oil-neutral", quantity: 0.07 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
   {
     id: "relax-90",
@@ -126,6 +132,7 @@ export const SERVICES: Service[] = [
     price: 1195,
     description: "Slow full-body massage with warm oil.",
     recallWeeks: 8,
+    consumption: [{ stockId: "massage-oil-eucalyptus", quantity: 0.1 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
   {
     id: "foot-calf-massage",
@@ -136,6 +143,7 @@ export const SERVICES: Service[] = [
     price: 450,
     description: "Relaxing massage of feet and calves.",
     recallWeeks: 6,
+    consumption: [{ stockId: "massage-oil-neutral", quantity: 0.02 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
 ];
 
@@ -153,8 +161,14 @@ export const STOCK: StockItem[] = [
   { id: "gloves", name: "Nitrile gloves M", category: "Hygiene", unit: "pack of 100", inStock: 7, reorderAt: 3, usagePerWeek: 1, supplier: "Medicinab", unitCost: 95, onOrder: 0 },
   { id: "skin-disinfectant", name: "Skin disinfectant", category: "Hygiene", unit: "500 ml bottle", inStock: 5, reorderAt: 2, usagePerWeek: 0.6, supplier: "Medicinab", unitCost: 119, onOrder: 0 },
   { id: "surface-disinfectant", name: "Surface disinfectant", category: "Hygiene", unit: "1 l bottle", inStock: 4, reorderAt: 2, usagePerWeek: 0.5, supplier: "Medicinab", unitCost: 99, onOrder: 0 },
-  { id: "glass-file", name: "Glass nail file (retail)", category: "Retail", unit: "each", inStock: 12, reorderAt: 4, usagePerWeek: 1, supplier: "Podoshop", unitCost: 65, onOrder: 0 },
-  { id: "home-foot-cream", name: "Home care foot cream (retail)", category: "Retail", unit: "100 ml tube", inStock: 9, reorderAt: 4, usagePerWeek: 1.2, supplier: "Podoshop", unitCost: 95, onOrder: 0 },
+  { id: "glass-file", name: "Glass nail file (retail)", category: "Retail", unit: "each", inStock: 12, reorderAt: 4, usagePerWeek: 1, supplier: "Podoshop", unitCost: 65, onOrder: 0, salePrice: 149 },
+  { id: "home-foot-cream", name: "Home care foot cream (retail)", category: "Retail", unit: "100 ml tube", inStock: 9, reorderAt: 4, usagePerWeek: 1.2, supplier: "Podoshop", unitCost: 95, onOrder: 0, salePrice: 219 },
+];
+
+export const SUPPLIERS: Supplier[] = [
+  { name: "Podoshop", email: "orders@podoshop.example", leadDays: 3 },
+  { name: "Spagrossisten", email: "order@spagrossisten.example", leadDays: 5 },
+  { name: "Medicinab", email: "kundservice@medicinab.example", leadDays: 2 },
 ];
 
 export const FIRST_NAMES_F = [
