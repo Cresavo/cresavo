@@ -29,6 +29,9 @@ export function StudioShell({ children }: { children: ReactNode }) {
   if (pathname === WELCOME_PATH) {
     return (
       <>
+        <header className="px-4 pt-4 sm:px-6">
+          <Wordmark className="w-[112px]" />
+        </header>
         <main className="px-4 pb-12 pt-5 sm:px-6">{children}</main>
         <Toaster />
       </>

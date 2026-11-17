@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { LiveEvent, LiveSnapshot } from "@/lib/agent-api/live";
 import type { Locale } from "@/lib/locale";
 import s from "./live.module.css";
-import { BRAND } from "@/concept/brand";
+import { Wordmark } from "@/concept/ui/wordmark";
 
 const POLL_MS = 4000;
 const ZONE = "Europe/Stockholm";
@@ -105,13 +105,9 @@ export function LiveBoard({ initial, locale }: { initial: LiveSnapshot | null; l
 
   return (
     <main className={s.page} data-live-page>
-      <div className={s.glow} aria-hidden />
       <header className={s.top}>
         <div className={s.brand}>
-          <span className={s.mark} aria-hidden>
-            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M5 4h9a5 5 0 0 1 0 10H9v6H5z" fill="currentColor" opacity=".9" /><circle cx="17.5" cy="18.5" r="2.5" fill="currentColor" /></svg>
-          </span>
-          <span>{BRAND.name}</span>
+          <Wordmark className="w-[104px]" />
           <span className={s.tag}>{t("Agent sandbox", "Agentsandlåda")}</span>
         </div>
         <div className={`${s.status} ${online ? "" : s.statusOff}`} role="status">

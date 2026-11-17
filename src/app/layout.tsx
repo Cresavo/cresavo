@@ -44,7 +44,7 @@ export default async function Layout({
       <body>
         <LocaleProvider locale={locale}>
           <RestoreReturnScroll />
-          <div className="demo-banner">
+          <aside className="demo-banner" aria-label={text(locale, "Demo notice", "Demoinformation")}>
             <span>
               {text(
                 locale,
@@ -53,7 +53,7 @@ export default async function Layout({
               )}
             </span>
             <LanguageSwitch />
-          </div>
+          </aside>
           {children}
         </LocaleProvider>
       </body>

@@ -1,15 +1,16 @@
 .page {
-  --bg: #07090d;
-  --panel: rgba(255, 255, 255, 0.025);
-  --line: rgba(255, 255, 255, 0.07);
-  --line-strong: rgba(255, 255, 255, 0.12);
-  --ink: #eef2f7;
-  --ink-2: #aab4c3;
-  --ink-3: #6f7a8b;
-  --ok: #5ee0a0;
-  --warn: #f5c26b;
-  --info: #7cc4ff;
-  --violet: #b59cff;
+  /* The platform's tokens (libovo-theme.css), light or dark like the rest of the platform. */
+  --bg: var(--ui-bg);
+  --panel: var(--ui-surface);
+  --line: var(--ui-border);
+  --line-strong: var(--ui-input-border);
+  --ink: var(--ui-text);
+  --ink-2: var(--ui-text-secondary);
+  --ink-3: var(--ui-text-secondary);
+  --ok: var(--ui-success);
+  --warn: var(--ui-warning);
+  --info: var(--ui-info);
+  --violet: var(--ui-action);
   position: relative;
   isolation: isolate;
   min-height: 100vh;
@@ -19,38 +20,10 @@
   overflow: hidden;
   color: var(--ink);
   background: var(--bg);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable", "Segoe UI", Inter, "Noto Sans", sans-serif;
+  font-family: var(--font-ui);
   font-feature-settings: "ss01", "cv11";
   -webkit-font-smoothing: antialiased;
 }
-.glow {
-  position: absolute;
-  inset: -20% -10% auto;
-  height: 720px;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(40% 55% at 22% 30%, rgba(94, 224, 160, 0.13), transparent 70%),
-    radial-gradient(35% 50% at 78% 12%, rgba(124, 196, 255, 0.12), transparent 70%),
-    radial-gradient(30% 40% at 55% 60%, rgba(181, 156, 255, 0.07), transparent 70%);
-  filter: blur(8px);
-  animation: drift 18s ease-in-out infinite alternate;
-}
-.glow::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--line) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: radial-gradient(60% 60% at 50% 30%, #000 20%, transparent 75%);
-  opacity: 0.35;
-}
-@keyframes drift {
-  to { transform: translate3d(2%, 3%, 0) scale(1.04); }
-}
-
 .top {
   display: flex;
   align-items: center;
@@ -69,16 +42,6 @@
   font-size: 15px;
   white-space: nowrap;
 }
-.mark {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  color: #07110c;
-  background: linear-gradient(135deg, var(--ok), #9ff0c9);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 24px -8px rgba(94, 224, 160, 0.6);
-}
 .tag {
   padding: 3px 9px;
   border: 1px solid var(--line-strong);
@@ -94,7 +57,7 @@
   padding: 7px 14px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--ui-surface);
   color: var(--ink-2);
   font-size: 13px;
   white-space: nowrap;
@@ -235,7 +198,7 @@
   transition: background 0.3s ease;
 }
 .row + .row { border-top-color: var(--line); }
-.row:hover { background: rgba(255, 255, 255, 0.02); }
+.row:hover { background: var(--ui-surface-2); }
 .rowFresh {
   animation: enter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both, flash 2.4s ease-out;
 }
@@ -244,7 +207,7 @@
   to { opacity: 1; transform: none; }
 }
 @keyframes flash {
-  from { background: rgba(94, 224, 160, 0.09); }
+  from { background: var(--ui-success-bg); }
   to { background: transparent; }
 }
 .when {
@@ -316,10 +279,10 @@
 .toneOk { color: var(--ok); }
 .toneWarn { color: var(--warn); }
 .toneInfo { color: var(--info); }
-.toneMuted { color: #9aa5b5; }
+.toneMuted { color: var(--ui-text-secondary); }
 .prov_verified_agent_proof { color: var(--ok); }
 .prov_registered_client { color: var(--info); }
-.prov_demo_script { color: #9aa5b5; }
+.prov_demo_script { color: var(--ui-text-secondary); }
 
 .empty {
   display: grid;
@@ -418,8 +381,8 @@
   padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.35);
-  color: #cfe9dc;
+  background: var(--ui-surface-2);
+  color: var(--ui-text);
   font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   font-size: 12.5px;
   line-height: 1.75;
@@ -463,5 +426,5 @@
   .slot { display: block; margin: 4px 0 0; padding: 0; border: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .glow, .pulse::after, .rowFresh { animation: none; }
+  .pulse::after, .rowFresh { animation: none; }
 }

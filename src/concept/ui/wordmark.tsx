@@ -7,10 +7,13 @@ import { cx } from "./cx";
 // (#2C242E) in the light theme and its dark variant (#FBF5F0) in the dark one.
 // Renaming the product means replacing these paths and BRAND.name.
 
-/** The full wordmark. Give it a width (110–140 px in the mobile bar, never below 92 px); the height follows. */
-export function Wordmark({ className }: { className?: string }) {
+/**
+ * The full wordmark. Give it a width (110–140 px in the mobile bar, never below 92 px); the height follows.
+ * `inverse` is the kit's white variant, for a fixed dark brand surface such as a plum hero.
+ */
+export function Wordmark({ className, inverse = false }: { className?: string; inverse?: boolean }) {
   return (
-    <svg viewBox="0 24 296.010 104" role="img" aria-label={BRAND.name} className={cx("h-auto fill-text", className)}>
+    <svg viewBox="0 24 296.010 104" role="img" aria-label={BRAND.name} className={cx("h-auto", inverse ? "fill-white" : "fill-text", className)}>
       <g transform="translate(0,118.975) scale(0.115, -0.115)">
       <path d="M242 92C193 92 182 92 182 172V750H58V121C58 49 97 -10 186 -10H231Z" transform="translate(0,0)" />
       <path d="M182 576V700H58V576ZM182 0V500H58V0Z" transform="translate(239,0)" />

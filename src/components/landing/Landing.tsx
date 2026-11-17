@@ -4,6 +4,7 @@ import Image from "next/image";
 import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, Check, CheckCheck, CircleUserRound, Command, Scissors, Sparkles, Ticket } from "lucide-react";
 import s from "../../pages/landing.module.css";
 import { BRAND } from "@/concept/brand";
+import { Wordmark } from "@/concept/ui/wordmark";
 
 const assistants = [
   { name: "Grok Bot", file: "grok-bot" },
@@ -33,7 +34,7 @@ export default function Landing({ language = "sv" }: { language?: "sv" | "en" })
       <div className={s.page} lang={language}>
         <a className={s.skip} href="#innehall">{t("Till innehållet", "Skip to content")}</a>
         <header className={s.header}>
-          <a className={s.brand} href="#" aria-label={t(`${BRAND.name}, överst på sidan`, `${BRAND.name}, top of page`)}><span className={s.brandIcon}><Command size={19} /></span> {BRAND.name}</a>
+          <a className={s.brand} href="#" aria-label={t(`${BRAND.name}, överst på sidan`, `${BRAND.name}, top of page`)}><Wordmark className="w-[112px]" /></a>
           <nav className={s.languages} aria-label={t("Språk", "Language")}><Link href="/landing" lang="sv" aria-current={!en ? "page" : undefined}>SV</Link><Link href="/en/landing" lang="en" aria-current={en ? "page" : undefined}>EN</Link></nav>
         </header>
         <main id="innehall">

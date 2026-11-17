@@ -1,7 +1,7 @@
 import { isPublicReadonly } from "@/lib/public-readonly";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, Leaf } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { DateTime } from "luxon";
 import { getAvailability, listServices } from "@/lib/domain";
 import { listStaff } from "@/lib/workspace-config";
@@ -9,6 +9,7 @@ import { getLocale } from "@/lib/locale-server";
 import { formatPrice, readableDay } from "@/lib/format";
 import styles from "./product.module.css";
 import { BRAND } from "@/concept/brand";
+import { Wordmark } from "@/concept/ui/wordmark";
 
 async function findDemoVisit() {
   const [services, team] = await Promise.all([listServices(), listStaff()]);
@@ -51,7 +52,7 @@ export default async function Relay() {
       <section className={styles.hero}>
         <header className={styles.nav}>
           <Link className={styles.brand} href="/product">
-            <Leaf aria-hidden="true" /> {BRAND.name}
+            <Wordmark inverse className="w-[112px]" />
           </Link>
           {!isPublicReadonly() && <nav aria-label={t("Product navigation", "Produktnavigation")}>
             <Link href="/admin/overview">
