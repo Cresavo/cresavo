@@ -112,11 +112,11 @@ describe("proposals", () => {
     expect(proposal.items.length).toBeLessThanOrEqual(8);
   });
 
-  it("turns a discount into a campaign and a price command into a price change", () => {
+  it("opens the campaign studio for a discount and turns a price command into a price change", () => {
     const campaign = propose(`15% off ${state.services[1].name} this month`);
-    if (campaign.kind !== "change" || campaign.action.type !== "campaign/create") throw new Error("expected a campaign");
-    expect(campaign.action.campaign.discountPercent).toBe(15);
-    expect(campaign.action.campaign).toMatchObject({ status: "active", from: today, to: "2026-11-30" });
+    if (campaign.kind !== "message" || !campaign.link) throw new Error("expected a link to the studio");
+    const query = new URL(campaign.link.href, "https://example.test").searchParams;
+    expect(Object.fromEntries(query)).toMatchObject({ percent: "15", from: today, to: "2026-11-30", services: state.services[1].id });
     const price = propose(`Set the price of ${state.services[1].name} to 700 SEK`);
     if (price.kind !== "change") throw new Error("expected a price change");
     expect(reduce(state, price.action).services[1].price).toBe(700);
@@ -129,9 +129,10 @@ describe("proposals", () => {
     expect(propose("Order moonbeams").kind).toBe("message");
   });
 
-  it("sends poster requests to Campaigns", () => {
-    const proposal = propose("Make a poster for Christmas");
-    expect(proposal).toMatchObject({ kind: "message", link: { href: "/studio/more/campaigns" } });
+  it("opens the campaign studio for poster and campaign requests", () => {
+    expect(propose("Make a poster for Christmas")).toMatchObject({ kind: "message", link: { href: expect.stringContaining("/studio/more/campaigns/new?holiday=christmas") } });
+    expect(propose("Make a Father's Day campaign")).toMatchObject({ kind: "message", link: { href: expect.stringContaining("holiday=father-s-day") } });
+    expect(propose("20% off massage all of March")).toMatchObject({ kind: "message", link: { href: expect.stringContaining("percent=20") } });
   });
 });
 

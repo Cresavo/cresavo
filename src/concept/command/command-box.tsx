@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { ArrowUp, Mic, Sparkles } from "lucide-react";
+import { parseCampaignRequest } from "../campaigns/prefill";
 import { isAiConfigured, runAiTask } from "../ai/api-client";
 import { t } from "../i18n";
 import { interpretCommand, type IntentResult } from "../intent";
@@ -56,9 +57,10 @@ export function CommandBox() {
     const context = buildIntentContext(state, today, minutes);
     const show = (intent: IntentResult, source: Source, pending: boolean) =>
       setView({ proposal: proposalFor(state, intent, command, { today, minutes }, examples), source, pending });
+    const checkAi = aiReady && !parseCampaignRequest(command, state, today);
     setOpen(true);
-    show(interpretCommand(command, context), "rules", aiReady);
-    if (!aiReady) return;
+    show(interpretCommand(command, context), "rules", checkAi);
+    if (!checkAi) return;
     try {
       const { output, log } = await runAiTask<IntentResult>("interpret-command", { text: command, context });
       if (latestRun.current !== run) return;

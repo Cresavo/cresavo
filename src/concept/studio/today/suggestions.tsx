@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { CalendarHeart, Clock, MessageSquare, Package, UserRoundCheck, X } from "lucide-react";
+import { CalendarHeart, Clock, Megaphone, MessageSquare, Package, UserRoundCheck, X } from "lucide-react";
+import { prefillForHoliday, studioHref } from "../../campaigns/prefill";
+import { quietDay } from "../../campaigns/quiet-day";
 import { diffDays } from "../../data/dates";
 import { freeGaps } from "../../data/slots";
 import { t, tc } from "../../i18n";
+import { weekdayName } from "../../i18n/format";
 import { buildCustomerStats, lowStock, recallDue } from "../../selectors";
 import { dispatch, undo } from "../../store";
 import { Button, ButtonLink, IconButton } from "../../ui/button";
@@ -14,6 +17,7 @@ import type { OpenSheet } from "../booking/booking-sheets";
 import { useStudio } from "../use-studio";
 
 const VISIBLE_AT_FIRST = 3;
+const QUIET_DISCOUNT = 10;
 
 interface Suggestion {
   id: string;
@@ -103,7 +107,25 @@ export function Suggestions({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) 
       icon: <CalendarHeart size={20} />,
       title: tc("suggest.holiday.title", diffDays(holiday.date, today), { name: holiday.name }),
       text: holiday.idea,
-      actions: <ButtonLink href="/studio/more/campaigns" size="sm">{t("suggest.holiday.open")}</ButtonLink>,
+      actions: <ButtonLink href={studioHref(prefillForHoliday(state, holiday, today), true)} size="sm">{t("suggest.holiday.open")}</ButtonLink>,
+    });
+  }
+
+  const quiet = state.modules.campaigns ? quietDay(state, today) : null;
+  if (quiet) {
+    const prefill = {
+      name: t("campaigns.name.discount", { percent: QUIET_DISCOUNT, service: quiet.service.name }),
+      serviceIds: [quiet.service.id],
+      discountPercent: QUIET_DISCOUNT,
+      from: today,
+      to: quiet.date,
+    };
+    list.push({
+      id: `quiet-${quiet.date}`,
+      icon: <Megaphone size={20} />,
+      title: t("suggest.quiet.title", { day: weekdayName(quiet.date), hours: Math.round(quiet.freeMinutes / 60) }),
+      text: t("suggest.quiet.text", { percent: QUIET_DISCOUNT, service: quiet.service.name }),
+      actions: <ButtonLink href={studioHref(prefill)} size="sm">{t("suggest.quiet.open")}</ButtonLink>,
     });
   }
 

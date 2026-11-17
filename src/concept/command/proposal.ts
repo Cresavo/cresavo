@@ -8,6 +8,7 @@ import type { IntentParams, IntentResult } from "../intent";
 import { normalize } from "../intent/match";
 import { buildCustomerStats, findCustomer, findService, fullName, revenueBetween, suggestedOrderQuantity } from "../selectors";
 import { waitlistCount, waitlistNotice } from "../studio/booking/waitlist-notice";
+import { parseCampaignRequest, studioHref, type CampaignPrefill } from "../campaigns/prefill";
 import { clarifyChoices, type Retry } from "./clarify";
 
 // Turns what the interpreter understood into something the owner can review.
@@ -34,12 +35,13 @@ export type Proposal =
   | { kind: "customers"; title: string; total: number; items: { id: string; name: string; detail: string }[] }
   | { kind: "message"; text: string; link?: { href: string; label: string } };
 
+const STUDIO_HREF = "/studio/more/campaigns/new";
 const MAX_SLOT_CHOICES = 3;
 const MAX_LISTED_CUSTOMERS = 8;
 const NOON = 12 * 60;
 
 const minutesOf = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
-const message = (text: string): Proposal => ({ kind: "message", text });
+const message = (text: string, link?: { href: string; label: string }): Proposal => ({ kind: "message", text, link });
 const whenText = (date: DateKey, start: number) => `${formatDayLong(date)} ${formatTime(start)}`;
 
 interface Candidate {
@@ -169,26 +171,28 @@ function serviceOf(state: DemoState, id: string | undefined): Service | undefine
   return findService(state, id ?? "");
 }
 
+/** Opens the campaign studio with the offer filled in, so the owner only reviews and writes the texts. */
+export function studioProposal(prefill: CampaignPrefill): Proposal {
+  const period = prefill.from === prefill.to ? formatDayMonth(prefill.from) : `${formatDayMonth(prefill.from)} – ${formatDayMonth(prefill.to)}`;
+  return {
+    kind: "message",
+    text: t("command.campaign.text", { name: prefill.name, percent: prefill.discountPercent, period }),
+    link: { href: studioHref(prefill, true), label: t("command.campaign.open") },
+  };
+}
+
 function campaignProposal(state: DemoState, params: IntentParams, clock: Clock): Proposal {
   const service = serviceOf(state, params.serviceId);
-  if (!service || params.percentOff === undefined || params.priceSek === undefined || !params.start || !params.end) return message(t("command.notUnderstood"));
+  if (!service || params.percentOff === undefined || !params.start || !params.end) return message(t("command.notUnderstood"));
   const from = params.start > clock.today ? params.start : clock.today;
   const to = params.end > from ? addDays(params.end, -1) : from;
-  const name = t("command.campaign.name", { percent: params.percentOff, service: service.name });
-  return {
-    kind: "change",
-    title: name,
-    subtitle: t("command.campaign.subtitle"),
-    rows: [
-      { label: t("command.row.price"), before: formatMoney(service.price), after: formatMoney(params.priceSek) },
-      { label: t("command.row.period"), after: from === to ? formatDayMonth(from) : `${formatDayMonth(from)} – ${formatDayMonth(to)}` },
-    ],
-    action: {
-      type: "campaign/create",
-      campaign: { name, serviceIds: [service.id], discountPercent: params.percentOff, from, to, status: from <= clock.today ? "active" : "planned", channels: ["Instagram", "Newsletter"] },
-    },
-    toast: t("command.campaign.created", { name }),
-  };
+  return studioProposal({
+    name: t("campaigns.name.discount", { percent: params.percentOff, service: service.name }),
+    serviceIds: [service.id],
+    discountPercent: params.percentOff,
+    from,
+    to,
+  });
 }
 
 function priceProposal(state: DemoState, params: IntentParams): Proposal {
@@ -272,6 +276,8 @@ function inactiveProposal(state: DemoState, params: IntentParams, clock: Clock):
 /** Everything the card needs for one interpreter result. `examples` fill in when the command is too vague. */
 export function proposalFor(state: DemoState, intent: IntentResult, text: string, clock: Clock, examples: string[]): Proposal {
   const { params } = intent;
+  const requested = ["question", "campaign", "make-poster"].includes(intent.action) ? parseCampaignRequest(text, state, clock.today) : null;
+  if (requested) return studioProposal(requested);
   switch (intent.action) {
     case "question": {
       const choices = clarifyChoices(intent.question, text, state, clock.today, examples);
@@ -290,7 +296,7 @@ export function proposalFor(state: DemoState, intent: IntentResult, text: string
     case "order-stock":
       return stockProposal(state, params);
     case "make-poster":
-      return { kind: "message", text: t("command.poster", { occasion: params.occasion ?? "" }), link: { href: "/studio/more/campaigns", label: t("command.poster.open") } };
+      return message(t("command.poster", { occasion: params.occasion ?? "" }), { href: STUDIO_HREF, label: t("command.poster.open") });
     case "revenue":
       return revenueProposal(state, params, clock);
     case "inactive-customers":
