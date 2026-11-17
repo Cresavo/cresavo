@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-17
+
 ### Added
 - CI hygiene for the open-source launch: Dependabot (npm and GitHub Actions, weekly, grouped), a gitleaks full-history secret scan and an OpenSSF Scorecard workflow.
 - Everyday operations: opening hours, lunch and closed days are editable in Settings (Swedish public holidays are suggested), each person has a weekly schedule with days off, sick days and extra shifts, and rooms can be added and assigned to treatments so two bookings never share one.
