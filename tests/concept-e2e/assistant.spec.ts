@@ -51,7 +51,8 @@ test("the assistant answers, drafts an offer, remembers a preference and suggest
   await expect(panel(page).getByText("Rules only · no AI key")).toBeVisible();
 
   await say(page, "How did last month compare with last year?");
-  await expect(panel(page).getByText(/compared with .+ \d{4}: [+−]\d+%/).first()).toBeVisible();
+  await expect(panel(page).getByText(/^\w+ \d{4} compared with \w+ \d{4}$/)).toBeVisible();
+  await expect(panel(page).getByText(/^[+−]\d+%$/)).toBeVisible();
   await expect(panel(page).getByRole("figure")).toBeVisible();
 
   const before = await state(page);

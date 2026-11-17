@@ -199,22 +199,27 @@ function MessageView({ message, assistant }: { message: Message; assistant: Retu
     );
   }
   const reply = message.reply!;
+  // A rule answer's text repeats its card (it is there to be read aloud); AI wording adds to it.
+  const repeatsCard = reply.source === "rules" && !!reply.card && ANSWERS.has(reply.card.kind);
   return (
-    <Bubble source={reply.source} text={reply.text}>
+    <Bubble source={reply.source} text={repeatsCard ? undefined : reply.text}>
       {reply.card && <ReplyCardView card={reply.card} status={reply.status} actions={cardActions(assistant, message.id, reply.undoId)} />}
       {reply.followUps && !reply.status && <FollowUps items={reply.followUps} onPick={assistant.send} />}
     </Bubble>
   );
 }
 
-function Bubble({ source, text, children }: { source: "rules" | "ai"; text: string; children?: ReactNode }) {
+/** Cards that already say in words and numbers what the reply text says. */
+const ANSWERS = new Set(["insight", "revenue", "customers", "stock", "bookings", "brief"]);
+
+function Bubble({ source, text, children }: { source: "rules" | "ai"; text?: string; children?: ReactNode }) {
   return (
     <div className="mr-4 space-y-3 rounded-2xl rounded-bl-md bg-eko-surface p-3.5 shadow-card ring-1 ring-eko-line/70">
       <span className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold", source === "ai" ? "bg-eko-accent-soft text-eko-accent" : "bg-eko-sunken text-eko-muted")}>
         {source === "ai" && <Sparkles size={11} />}
         {t(source === "ai" ? "assistant.source.ai" : "assistant.source.rules")}
       </span>
-      <p className="text-[15px] leading-snug">{text}</p>
+      {text && <p className="text-[15px] leading-snug">{text}</p>}
       {children}
     </div>
   );
