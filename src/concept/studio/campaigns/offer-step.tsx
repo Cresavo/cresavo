@@ -2,7 +2,7 @@ import { prefillForHoliday } from "../../campaigns/prefill";
 import type { Draft } from "../../campaigns/draft";
 import type { DemoState, DateKey } from "../../data/types";
 import { t } from "../../i18n";
-import { formatDayMonth } from "../../i18n/format";
+import { formatDate } from "../../i18n/format";
 import { Chip, Field, Select, TextInput } from "../../ui/controls";
 
 const DISCOUNTS = [0, 10, 15, 20, 25];
@@ -35,7 +35,7 @@ export function OfferStep({ state, today, draft, onChange }: OfferStepProps) {
         >
           <option value="">{t("campaigns.offer.noOccasion")}</option>
           {state.holidays.slice(0, HOLIDAYS_OFFERED).map((h) => (
-            <option key={h.id} value={h.id}>{`${h.name} · ${formatDayMonth(h.date)}`}</option>
+            <option key={h.id} value={h.id}>{`${h.name} · ${formatDate(h.date)}`}</option>
           ))}
         </Select>
       </Field>

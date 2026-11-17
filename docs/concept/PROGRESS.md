@@ -1,5 +1,26 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Codex · night 2 part 2: time and campaign date clarity (#8, #11)
+
+**Done**: customer suggestion cards label the smaller time “until HH:mm”.
+Campaign list/detail, posters, occasion picker, schedule controls and calendar
+labels include the year. Today ignores expired holidays; command examples and
+unqualified seasonal/holiday requests prefer the nearest upcoming occasion.
+An explicitly requested Father's Day still opens the 2027 offer.
+
+**Try it**: `/boka/salong-eko` → ask for foot care; `/studio` → Black Friday
+example or “make a seasonal holiday campaign”; `/studio/more/campaigns/new` →
+pick Father's Day → poster → publish and inspect the range.
+
+**Verified**: lint, tsc, 751 unit tests, build and 36/36 offline evals. Browser
+regressions at 390/1280 px verify the suggestion's end label and a published
+2027 campaign/poster, with no horizontal overflow or page errors.
+Screenshots (replace 390 with 1280 for desktop):
+[booking time](screens/night2-booking-time-390.png) ·
+[campaign year](screens/night2-campaign-year-390.png).
+
+**Remains**: none for #8/#11. Issues closed with REST comments after the push.
+
 ## 2026-11-17 · Codex · night 2 part 1: AI settings, tools and saved usage
 
 **Done**: encrypted per-business BYOK (OpenRouter/OpenAI/Anthropic), provider

@@ -5,7 +5,7 @@ import { monthGrid, shiftMonth, type CalendarDay } from "../../campaigns/calenda
 import { prefillForHoliday, studioHref } from "../../campaigns/prefill";
 import type { DateKey } from "../../data/types";
 import { t, words } from "../../i18n";
-import { formatDayLong, formatMonth } from "../../i18n/format";
+import { formatDate, formatMonth } from "../../i18n/format";
 import { Badge } from "../../ui/badge";
 import { ButtonLink, IconButton } from "../../ui/button";
 import { Card } from "../../ui/card";
@@ -39,7 +39,7 @@ export function ContentCalendar() {
         ))}
       </div>
       <div className="space-y-3 border-t border-eko-line p-4">
-        <p className="text-sm font-semibold">{formatDayLong(day.date)}</p>
+        <p className="text-sm font-semibold">{formatDate(day.date)}</p>
         {!day.holidays.length && !day.posts.length && <p className="text-sm text-eko-muted">{t("campaigns.calendar.empty")}</p>}
         {day.holidays.map((h) => (
           <div key={h.id} className="flex flex-wrap items-center gap-2">
@@ -71,7 +71,7 @@ function DayCell({ day, today, selected, onSelect }: { day: CalendarDay; today: 
     <button
       onClick={onSelect}
       aria-pressed={selected}
-      aria-label={formatDayLong(day.date)}
+      aria-label={formatDate(day.date)}
       className={cx(
         "flex min-h-12 flex-col items-center justify-start gap-1 rounded-xl pt-1.5 text-sm transition-colors",
         day.inMonth ? "text-eko-ink" : "text-eko-muted/50",

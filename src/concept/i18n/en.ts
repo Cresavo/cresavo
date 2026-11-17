@@ -778,6 +778,8 @@ const messages = {
   "booking.treatments": "Treatments and prices",
   "booking.category.foot": "Foot care",
   "booking.category.massage": "Massage",
+  "command.holidayExample": "Make a {name} campaign",
+  "booking.until": "until {time}",
   "booking.withStaff": "with {name}",
   "booking.book": "Book",
   "booking.bookService": "Book {service}",

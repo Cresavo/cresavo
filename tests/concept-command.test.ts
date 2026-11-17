@@ -1,3 +1,4 @@
+import { parseCampaignRequest } from "@/concept/campaigns/prefill";
 import { describe, expect, it } from "vitest";
 import { reduce } from "@/concept/actions";
 import { buildIntentContext } from "@/concept/command/intent-context";
@@ -180,6 +181,6 @@ describe("clarifying questions", () => {
 describe("example prompts", () => {
   it("are understood by the interpreter", () => {
     expect(examples).toHaveLength(3);
-    for (const example of examples) expect(interpretCommand(example, context).action).not.toBe("question");
+    for (const example of examples) expect(parseCampaignRequest(example, state, today) !== null || interpretCommand(example, context).action !== "question").toBe(true);
   });
 });

@@ -63,7 +63,9 @@ function servicesIn(text: string, state: DemoState): { ids: string[]; label: str
 export function parseCampaignRequest(input: string, state: DemoState, today: DateKey): CampaignPrefill | null {
   const text = normalize(input);
   if (!/\b(campaign|offer|poster|off|discount|promote|promotion)\b/.test(text)) return null;
-  const holiday = state.holidays.find((h) => text.includes(normalize(h.name)));
+  const upcoming = state.holidays.filter(h => h.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+  const named = upcoming.find(h => text.includes(normalize(h.name)));
+  const holiday = named ?? (/\b(next|upcoming|holiday|seasonal)\b/.test(text) ? upcoming[0] : undefined);
   if (holiday) return prefillForHoliday(state, holiday, today);
   const percent = Number(input.match(/(\d+(?:\.\d+)?)\s*(?:%|percent)/i)?.[1]);
   const services = servicesIn(text, state);

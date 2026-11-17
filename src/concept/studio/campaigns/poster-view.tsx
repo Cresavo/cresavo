@@ -1,7 +1,7 @@
 import type { Ref } from "react";
 import type { Campaign, PosterFormat, Salon } from "../../data/types";
 import { t } from "../../i18n";
-import { formatDayLong } from "../../i18n/format";
+import { formatDate } from "../../i18n/format";
 import { Poster } from "./poster";
 
 /** What a poster needs from a campaign, whether it is still a draft or already published. */
@@ -23,7 +23,7 @@ export function PosterView({ source, salon, format, ref }: PosterViewProps) {
       poster={source.poster}
       format={format}
       kicker={source.name}
-      until={t("campaigns.posterUntil", { date: formatDayLong(source.to) })}
+      until={t("campaigns.posterUntil", { date: formatDate(source.to) })}
       footer={[`${salon.name} · ${salon.address}`, t("campaigns.posterBook", { link: source.link ?? "" })]}
       label={`${source.name}: ${source.poster.headline} ${source.poster.detail}`}
     />

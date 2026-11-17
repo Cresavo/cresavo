@@ -7,6 +7,11 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Fixed
+- Booking suggestions label the end time as “until”, making each time card
+  unambiguous (#8).
+- Campaign dates and posters show the year. Generic holiday requests and command
+  suggestions use the next upcoming occasion; explicitly named holidays remain
+  available (#11).
 - Voice journal: sentences about treating skin or nails are no longer filed
   under observations.
 

@@ -7,7 +7,7 @@ import { downloadBlob, posterToPng } from "../../campaigns/export-png";
 import { postDay } from "../../campaigns/calendar";
 import type { PosterFormat } from "../../data/types";
 import { t, tc } from "../../i18n";
-import { formatDayLong, formatMoney } from "../../i18n/format";
+import { formatDate, formatMoney } from "../../i18n/format";
 import { findService } from "../../selectors";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
@@ -67,7 +67,7 @@ export function CampaignDetail({ id }: { id: string }) {
     <>
       <PageHeader
         title={campaign.name}
-        subtitle={campaign.status === "planned" ? t("campaigns.scheduledFor", { day: formatDayLong(day) }) : t("campaigns.publishedOn", { day: formatDayLong(day) })}
+        subtitle={campaign.status === "planned" ? t("campaigns.scheduledFor", { day: formatDate(day) }) : t("campaigns.publishedOn", { day: formatDate(day) })}
         back={back}
         actions={
           campaign.stats && !campaign.ad ? (
@@ -80,7 +80,7 @@ export function CampaignDetail({ id }: { id: string }) {
           <Badge tone={STATUS_TONE[campaign.status]}>{t(`campaigns.status.${campaign.status}`)}</Badge>
           {campaign.discountPercent > 0 && <Badge>{t("format.percent", { value: campaign.discountPercent })}</Badge>}
           <span className="text-sm text-eko-muted">
-            {campaign.serviceIds.map((sid) => findService(state, sid)?.name).join(", ")} · {formatDayLong(campaign.from)} – {formatDayLong(campaign.to)}
+            {campaign.serviceIds.map((sid) => findService(state, sid)?.name).join(", ")} · {formatDate(campaign.from)} – {formatDate(campaign.to)}
           </span>
         </div>
 
@@ -107,7 +107,7 @@ export function CampaignDetail({ id }: { id: string }) {
             )}
           </Section>
         ) : (
-          <EmptyState icon={<Megaphone size={22} />} title={t("campaigns.noResults")} text={t("campaigns.noResultsText", { day: formatDayLong(day) })} />
+          <EmptyState icon={<Megaphone size={22} />} title={t("campaigns.noResults")} text={t("campaigns.noResultsText", { day: formatDate(day) })} />
         )}
 
         {campaign.ad && (

@@ -93,7 +93,7 @@ export function Suggestions({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) 
   }
 
   const holiday = state.modules.campaigns
-    ? state.holidays.find((h) => diffDays(h.date, today) <= h.leadDays + 7)
+    ? [...state.holidays].sort((a, b) => a.date.localeCompare(b.date)).find((h) => h.date >= today && diffDays(h.date, today) <= h.leadDays + 7)
     : undefined;
   if (holiday) {
     list.push({
