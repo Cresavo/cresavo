@@ -24,6 +24,10 @@
 /docs/*
 !/docs/DEPENDENCY_REVIEW.md
 !/docs/agent-api-v1.openapi.yaml
+!/docs/help
+!/design
+/design/*
+!/design/brand
 .env
 .env.*
 !/.env.example
