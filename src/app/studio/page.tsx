@@ -8,6 +8,7 @@ import { formatDayLong } from "@/concept/i18n/format";
 import { dayBookings } from "@/concept/selectors";
 import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-sheets";
 import { PageHeader } from "@/concept/studio/page-header";
+import { EveningSummary } from "@/concept/studio/today/evening-summary";
 import { NextCustomer } from "@/concept/studio/today/next-customer";
 import { Suggestions } from "@/concept/studio/today/suggestions";
 import { Timeline } from "@/concept/studio/today/timeline";
@@ -53,6 +54,7 @@ export default function TodayPage() {
             </Section>
           </div>
           <div className="min-w-0 space-y-6">
+            <EveningSummary />
             <NextCustomer onOpen={setSheet} />
             <Section title={t("today.suggestions")}>
               <Suggestions onOpen={setSheet} />

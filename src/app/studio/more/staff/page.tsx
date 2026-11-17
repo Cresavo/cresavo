@@ -4,6 +4,7 @@ import { addDays } from "@/concept/data/dates";
 import { t, tc, words } from "@/concept/i18n";
 import { formatMoney, formatNumber } from "@/concept/i18n/format";
 import { dayBookings, revenueSplit, utilisation } from "@/concept/selectors";
+import { CalendarFeed, useCalendarFeeds } from "@/concept/studio/more/calendar-feed";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Badge } from "@/concept/ui/badge";
@@ -17,6 +18,7 @@ export default function StaffPage() {
   const { state, today } = useStudio();
   const monthStart = `${today.slice(0, 7)}-01`;
   const revenue = revenueSplit(state, today, monthStart, "staffId");
+  const feeds = useCalendarFeeds();
 
   return (
     <MorePage title={t("nav.staff")} subtitle={t("staff.subtitle")}>
@@ -65,6 +67,7 @@ export default function StaffPage() {
                   {state.services.filter((s) => s.staffIds.includes(person.id)).map((s) => <Badge key={s.id}>{s.name}</Badge>)}
                 </div>
               </div>
+              {feeds && <CalendarFeed name={person.firstName} path={feeds[person.id]} />}
             </Card>
           );
         })}
