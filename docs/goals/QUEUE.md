@@ -36,7 +36,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 12 | Pilot readiness: quality and security | Opus (Fable for review) | open |
 | 13 | Open-source launch: clean public repos | Opus | in progress · in-repo rename and front door done; publishing waits for Niclas |
 | 14 | Everyday operations: hours, schedules, rooms, roles | Claude (Sonnet) | in progress · 2026-11-17 |
-| 15 | Gift cards, packages, daily summary, calendar feeds, one brand constant | Claude (Sonnet) | in progress · goal/15-extras · 2026-11-17 |
+| 15 | Gift cards, packages, daily summary, calendar feeds, one brand constant | Claude (Sonnet) | done · 2026-11-17 |
 
 ---
 

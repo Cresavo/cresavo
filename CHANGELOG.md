@@ -6,6 +6,25 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+- Gift cards (More > Gift cards, switchable module): sell a card with amount,
+  recipient and message, share or print it, pay a booking with it from the
+  booking sheet, and let customers check the balance on the booking page.
+  Selling a card is not revenue; it is owed to the customer until a visit is
+  paid with it. Finance shows what customers have prepaid.
+- Packages (More > Packages, switchable module): sell "5 visits for the price
+  of 4". Marking a visit done uses one visit of the customer's package.
+- Evening summary on Today after the last booking: revenue, visits, no-shows,
+  new customers, missing journals and tomorrow's first customer, from the
+  `daily-summary` task (rule text without an AI key).
+- Calendar subscription per staff member (More > Staff): a read-only `.ics`
+  link with a secret token (`CONCEPT_ICS_SECRET`) for Google or Apple Calendar,
+  showing treatments and first names only.
+
+### Changed
+- The product name and tagline live in one constant (`src/concept/brand.ts`);
+  every user-facing mention reads from it, and a test guards that.
+
 ### Fixed
 - Development dependency audits are clean after compatible upstream fixes (#12).
 - The engine MCP transport is reused without sharing client authority or repeating setup for every request (#15).
