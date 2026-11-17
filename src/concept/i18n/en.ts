@@ -1466,7 +1466,7 @@ const messages = {
   "packages.paid": "Paid {amount}",
   "packages.on": "Package",
   "packages.onLeft": "{count} visit left|{count} visits left",
-  "booking.donePackageToast": "{name} marked as done. Package: {left} left.",
+  "booking.donePackageToast": "{name} marked as done. Package: {left}.",
 
   "summary.title": "Evening summary",
 
