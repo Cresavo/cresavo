@@ -1,6 +1,11 @@
 # Brand and naming
 
-Decided by Niclas 2026-11-17.
+Decided by Niclas 2026-11-17. **Update (goal 18): the product is now called
+Libovo** (brand kit v0.9 in `design/brand/libovo-v0.9/`, provisional and not
+trademark-cleared); the assistant keeps "Ask Flerdo" until Niclas decides.
+Both names live in `src/concept/brand.ts` (`BRAND`, `ASSISTANT`); the design
+system is in `docs/design/LIBOVO.md`. The sections below describe the earlier
+Flerdo naming and still apply to technical identifiers, which were not renamed.
 
 **Name:** Flerdo. Swedish "fler" (more) + "do". **Tagline:** "Do more, click less."
 

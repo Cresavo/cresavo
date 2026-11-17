@@ -1,5 +1,23 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Claude Code (Opus) · goal 18: Libovo brand v0.9
+
+**Done**
+
+- **Audit** with before screenshots (10 screens × 320/390/768/1440 × light/dark): [AUDIT](../design/AUDIT.md).
+- **Foundation**: the kit's tokens are the one colour/radius/spacing source (`src/concept/ui/libovo-theme.css`); `eko-*` Tailwind colours became semantic names by codemod (≈ 990 uses); light/dark/system theme saved per device and applied before paint; Inter via next/font; wordmark component; temporary icons and a manifest; shared components restyled; contrast checked on computed styles in both themes.
+- **Core**: new shell (wordmark, solid tabs, nothing covers content), the per-page command box replaced by one Ask Flerdo button + Ctrl/Cmd+K (commands run in the panel, AI reading kept), Today with bookings first, one-person day calendar on phones, wrapping filters, booking summary before confirm.
+- **Rest**: every studio page follows the tokens; home, login, product, live and landing pages too. Tenant pages keep their own theme (neutral default, Salong Eko = Forest green palette, semantic colours locked).
+- Product name via `BRAND` (Libovo); assistant name via `ASSISTANT` (Flerdo, pending the owner's decision). `DEMO_VERSION` is 15.
+
+**Try it**: `/studio` (Ctrl+K), `/studio/more/settings` (Appearance), `/studio/calendar` on a phone, `/boka/salong-eko` in light and dark.
+
+**Screens**: [before/after comparison](../design/COMPARISON.md). Guide: [LIBOVO.md](../design/LIBOVO.md).
+
+**Tests**: `brand.test.ts` (both names), page theme/CSS tests, e2e `theme.spec.ts` (persistence, first paint, tenant boundary, axe in both themes); journeys use the panel and the shortcut.
+
+**Not done / notes**: icons are temporary placeholders; the assistant name is an open decision; booking pages still show the platform favicon; Salong Eko's palette is light-only in dark mode.
+
 ## 2026-11-17 · Claude Code (Sonnet) · goal 17: your booking page, own address and own design
 
 **Done**

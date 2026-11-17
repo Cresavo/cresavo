@@ -39,6 +39,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 15 | Gift cards, packages, daily summary, calendar feeds, one brand constant | Claude (Sonnet) | done · 2026-11-17 |
 | 16 | The Flerdo assistant: conversation, memory, routines, proactive briefs | Claude (Opus) | done · 2026-11-17 |
 | 17 | Your booking page: own address and own design | Claude (Sonnet) | done · 2026-11-17 |
+| 18 | Libovo brand v0.9 implementation ([guide](../design/LIBOVO.md)) | Claude (Opus) | done · 2026-11-17 (assistant name pending owner decision) |
 
 ---
 

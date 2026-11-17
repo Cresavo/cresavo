@@ -7,6 +7,9 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Libovo brand v0.9 (provisional): the product is called Libovo through the one brand constant, with the kit's wordmark in the studio, home, product, live and landing pages, and temporary monogram icons for the browser tab, home screen and web app manifest. The assistant keeps its "Ask Flerdo" name until the owner decides.
+- Light, dark or system theme for the studio (Settings > Appearance, the sidebar, and More on phones), remembered on the device and applied before the page paints.
+- Ctrl+K (⌘K on a Mac) opens Ask Flerdo anywhere in the studio; quick commands are typed there.
 - The assistant ("Ask Flerdo" button): a conversation panel, full screen on phones and a side panel on larger screens, opened by button or straight into listening with the microphone. Replies can be read aloud.
 - Multi-turn conversation grounded in your data through the same proposals and read tools as the command box and MCP: numbers with charts, customer and booking lists, and proposal cards with Approve and Undo. Follow-ups understand "her", "them", "that day" and "the same as last time". Approvals are logged as the assistant.
 - "Send an offer to the customers who haven't been here since summer" drafts simulated texts to everyone in that group for approval.
@@ -20,6 +23,11 @@ All notable changes to this project are documented here. Format follows
 - Ask Flerdo can change the page: "make it calmer and more luxurious", "put reviews first" or "use the colours from our logo" give a proposal with a before and after preview, applied on approval and undoable from What happened?.
 
 ### Changed
+- The studio, home, login, product and live pages use the Libovo colours (aubergine and apricot), Inter, calmer corners and outlined cards, in light and dark. Buttons, fields and chips are at least 44 px tall and inputs 16 px.
+- The "Ask Flerdo…" box at the top of every page is gone: the assistant is one button (top bar, or the floating button with microphone on phones). With an AI key, the model's reading of a quick command still replaces the rules' answer before you approve.
+- Today lists today's bookings first, then what needs attention, then the brief; the two number cards are one strip. On phones the calendar shows one person's day with a staff switch.
+- New bookings in the studio show treatment, duration, staff, price and time next to the confirm button.
+- Booking pages without chosen colours now look neutral (ink on white) instead of borrowing the product's look; Salong Eko keeps its green as its own palette. The studio's theme never changes a booking page, and a business's own CSS cannot change success, warning, danger or info colours.
 - The customer page lives at `/boka/<slug>` for any slug the business picks (it was fixed to `salong-eko`); links, texts and the share code follow the slug. DEMO_VERSION is 14.
 - On phones the inline command box is replaced by the assistant button (#18); it stays on larger screens.
 
