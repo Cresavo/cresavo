@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { WIDGET_PATH } from "./share";
 import type { ReactNode } from "react";
 import { Leaf } from "lucide-react";
 import { t } from "../i18n";
@@ -11,6 +13,8 @@ import { BOOKING_HOME, MY_BOOKINGS } from "./links";
 /** Page frame for everything a customer sees: slim header, content, small footer. */
 export function BookShell({ children }: { children: ReactNode }) {
   const state = useDemo();
+  const widget = usePathname() === WIDGET_PATH;
+  if (widget) return <main className="min-h-[100dvh] bg-eko-bg p-4">{state ? children : <p>{t("booking.loading")}</p>}<Toaster /></main>;
   return (
     <div className="flex min-h-[100dvh] flex-col">
       <header className="border-b border-eko-line bg-eko-surface/80 backdrop-blur">

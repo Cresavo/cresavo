@@ -1,3 +1,5 @@
+import { sendBookingMessage, type BookingMessageAction } from "./booking/messages";
+import { applyCustomerReview, type CustomerReviewAction } from "./booking/review-actions";
 import { findCustomerByPhone, normalizePhone } from "./booking/lookup";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
 import { editJournalEntry } from "./customers/journal";
@@ -23,6 +25,8 @@ import type {
 // today; the command box and AI suggestions will dispatch the same actions.
 
 export type DemoAction =
+  | BookingMessageAction
+  | CustomerReviewAction
   | { type: "booking/move"; id: string; date: DateKey; start: number; staffId?: StaffId; notice?: Omit<InboxItem, "id"> }
   | { type: "booking/cancel"; id: string; reason?: string; notice?: Omit<InboxItem, "id"> }
   | { type: "booking/create"; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource }
@@ -123,7 +127,7 @@ function bookOnline(state: DemoState, action: Extract<DemoAction, { type: "onlin
   if (!service || !action.guest.name.trim() || !isFree(state, action.staffId, action.date, action.start, service.duration)) return state;
   const { state: withCustomer, customer } = ensureOnlineCustomer(state, action.guest, service.category, action.staffId, false);
   const booked = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" });
-  return reduce(booked, {
+  const notified = reduce(booked, {
     type: "inbox/add",
     item: {
       kind: "request",
@@ -136,6 +140,9 @@ function bookOnline(state: DemoState, action: Extract<DemoAction, { type: "onlin
       handled: true,
     },
   });
+  const bookingId = booked.bookings.at(-1)!.id;
+  const confirmed = sendBookingMessage(notified, { type: "booking-message/send", bookingId, kind: "confirmation", channel: "sms", at: action.guest.at });
+  return sendBookingMessage(confirmed, { type: "booking-message/send", bookingId, kind: "confirmation", channel: "email", at: action.guest.at });
 }
 
 function joinWaitlist(state: DemoState, action: Extract<DemoAction, { type: "online/waitlist" }>): DemoState {
@@ -235,6 +242,11 @@ function importCustomers(state: DemoState, incoming: Omit<Customer, "id">[]): De
 
 export function reduce(state: DemoState, action: DemoAction): DemoState {
   switch (action.type) {
+    case "booking-message/send":
+      return sendBookingMessage(state, action);
+    case "review/submit":
+    case "review/approve":
+      return applyCustomerReview(state, action);
     case "booking/move": {
       const moved = moveBooking(state, action.id, action.date, action.start, action.staffId);
       return action.notice && moved !== state ? reduce(moved, { type: "inbox/add", item: action.notice }) : moved;

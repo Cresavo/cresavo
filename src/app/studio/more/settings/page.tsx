@@ -5,6 +5,7 @@ import { RotateCcw } from "lucide-react";
 import { formatTime } from "@/concept/data/dates";
 import { t, words } from "@/concept/i18n";
 import { resetDemo } from "@/concept/store";
+import { BookingShare } from "@/concept/studio/more/booking-share";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Button } from "@/concept/ui/button";
@@ -54,6 +55,7 @@ export default function SettingsPage() {
             })}
           </Card>
         </Section>
+        <Section title={t("share.title")} className="lg:col-span-2"><BookingShare /></Section>
         <Section title={t("settings.demo")} className="lg:col-span-2">
           <Card className="flex flex-wrap items-center gap-4 p-4">
             <p className="min-w-0 flex-1 text-sm text-eko-muted">{t("settings.demoText")}</p>

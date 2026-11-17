@@ -1,5 +1,58 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Codex · night 2 part 3: customer messages, reviews and widget
+
+**Done**
+
+- Booking creates simulated SMS/email confirmations in Inbox. The confirmation
+  page previews either channel and confirmation/reminder text; **Simulate send**
+  adds a reminder to the owner's **Sent log**. Duplicate sends for the same
+  booking/time/channel are ignored; cancelled/past visits cannot send. No network
+  delivery occurs. Email previews intentionally use a fictional recipient.
+- **My bookings → Earlier visits → Leave a review**: 1–5 stars + text after a
+  completed visit, one review per booking. It appears in Inbox and More → Reviews
+  for approval. Both the public text and aggregate rating exclude pending reviews.
+- **More → Settings**: copy the clean Instagram bio link or iframe code. The
+  dedicated `/boka/salong-eko/widget` books inside the embed, then opens management
+  in a separate tab. Only this public widget gets a framing exception; the rest
+  of the site's frame policy stays in place.
+- Customer phrases include sports/firm massage, back rub, footcare/pedi, half/hour
+  durations, before/after lunch, day after tomorrow, short weekdays and “around
+  14:30”. Explicit time minutes are preserved in the customer wrapper.
+- Fixed the desktop Inbox's hidden mobile modal blocking approval; the sheet now
+  opens only on mobile and closes when resized to desktop. Segmented controls use
+  non-submit buttons so switching AI providers cannot submit the key form.
+
+**Try it**: `/boka/salong-eko` → book → preview/reminder; `/studio/inbox` → Sent log.
+For reviews, `/boka/salong-eko/me` → use a fixture customer's number → Earlier
+visits → review, then approve in Inbox or `/studio/more/reviews`. For an embed,
+`/studio/more/settings` → Preview widget or copy the code to a separate page.
+
+**Verified**: lint, tsc, 774 unit tests, production build (synthetic localhost
+DB URL, no connection), 36/36 offline AI evals. `npm run test:concept` adds eight
+fixed-clock, no-key Playwright journeys at 390/1280 px: booking, confirmations and
+reminders, Inbox logs, cancellation/rebooking, full-day waiting list, private →
+approved review, clipboard links/code, and booking inside a separate-origin
+iframe. The suite checks page errors and horizontal overflow. Local run uses
+`CONCEPT_BROWSER_CHANNEL=chrome`; otherwise install Playwright Chromium normally.
+
+Screenshots (390 / 1280, replace the width):
+[email confirmation](screens/night2-confirmation-email-390.png) ·
+[email reminder](screens/night2-reminder-email-390.png) ·
+[SMS reminder](screens/night2-reminder-sms-390.png) ·
+[sent Inbox](screens/night2-sent-inbox-390.png) ·
+[review form](screens/night2-review-form-390.png) ·
+[Reviews moderation](screens/night2-reviews-moderation-390.png) ·
+[Inbox approval](screens/night2-review-approval-390.png) ·
+[public review](screens/night2-review-public-390.png) ·
+[share settings](screens/night2-booking-share-390.png) ·
+[embedded booking](screens/night2-booking-widget-390.png). All PNGs below 400 kB.
+
+**Remains**: real delivery, authentication and shared cross-device persistence are
+outside the fictional browser-state demo. Goal 2 remainder is complete. Side
+finding #13 tracks the shared command time parser separately; stock/finance
+pages, actions and selectors were not changed. No merge or deployment performed.
+
 ## 2026-11-17 · Codex · night 2 part 2: time and campaign date clarity (#8, #11)
 
 **Done**: customer suggestion cards label the smaller time “until HH:mm”.

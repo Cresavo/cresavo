@@ -129,6 +129,8 @@ export interface StockItem {
 }
 
 export interface Review {
+  /** Legacy fictional reviews are already public; new customer reviews start false. */
+  approved?: boolean;
   id: string;
   customerId: string;
   bookingId?: string;
@@ -150,6 +152,8 @@ export interface SlotSuggestion {
 }
 
 export interface InboxItem {
+  /** Simulated booking delivery; never an outgoing network request. */
+  delivery?: { channel: "sms" | "email"; kind: "confirmation" | "reminder"; slot: string };
   id: string;
   kind: InboxKind;
   customerId?: string;

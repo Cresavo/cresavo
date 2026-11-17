@@ -23,7 +23,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | # | Goal | Who | Status |
 |---|---|---|---|
 | 1 | Clickable demo night 1 ([file](../concept/CODEX_GOAL_NIGHT1.md)) | Both | done (step 5b delivered in goal 4) |
-| 2 | The customer experience | Codex | in progress · booking page, My bookings, waiting list done; messages, reviews, widget left |
+| 2 | The customer experience | Codex | done · Codex · goal/codex-night2 · 2026-11-17; messages, moderated reviews, widget and customer phrases delivered |
 | 3 | Customers, journal and return visits | Claude (Sonnet) | done · 2026-11-17 |
 | 4 | The marketing studio | Claude (Sonnet) | done · 2026-11-17 |
 | 5 | Stock and purchasing | Codex | open |

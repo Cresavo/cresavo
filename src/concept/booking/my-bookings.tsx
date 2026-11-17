@@ -17,6 +17,7 @@ import { Field, TextInput } from "../ui/controls";
 import { EmptyState } from "../ui/empty-state";
 import { useNow, type Now } from "../use-now";
 import { BookingActions, freeUntilText } from "./booking-actions";
+import { ReviewForm } from "./review-form";
 import { recallGuest } from "./guest";
 import { BOOKING_HOME, bookingPage, myBookingsFor, rebookLink } from "./links";
 import { customerBookings, findCustomerByPhone } from "./lookup";
@@ -102,7 +103,8 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
             {past.map((booking) => {
               const service = state.services.find((s) => s.id === booking.serviceId);
               return (
-                <div key={booking.id} className="flex flex-wrap items-center gap-3 p-4">
+                <div key={booking.id} className="p-4">
+                  <div className="flex flex-wrap items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">{service?.name}</p>
                     <p className="text-sm text-eko-muted">{formatDayLong(booking.date)} · {formatMoney(booking.price)}</p>
@@ -110,6 +112,8 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
                   <ButtonLink href={rebookLink(booking.serviceId)} variant="secondary" size="sm" icon={<Repeat size={14} />}>
                     {t("booking.me.rebook")}
                   </ButtonLink>
+                  </div>
+                  <ReviewForm state={state} booking={booking} now={now} />
                 </div>
               );
             })}

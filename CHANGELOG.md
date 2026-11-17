@@ -7,6 +7,8 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Fixed
+- Opening an Inbox item on desktop no longer opens a hidden mobile dialog that
+  blocks clicking the message actions.
 - Booking suggestions label the end time as “until”, making each time card
   unambiguous (#8).
 - Campaign dates and posters show the year. Generic holiday requests and command
@@ -16,6 +18,14 @@ All notable changes to this project are documented here. Format follows
   under observations.
 
 ### Added
+- SMS and email previews for booking confirmations and reminders, with simulated
+  confirmation sends, retry-safe reminder sends and a Sent log in Inbox.
+- Customers can leave a 1–5 star review after a completed visit. Owners approve
+  it in Inbox or Reviews before its text or rating appears on the salon page.
+- A responsive Flerdo booking widget, plus copyable embed code and a clean
+  Instagram bio link in More → Settings.
+- More customer booking phrases, including sports massage, back rub, footcare,
+  next available, day after tomorrow, weekday abbreviations and around HH:mm.
 - Flerdo can securely save a business's own OpenRouter, OpenAI or Anthropic key
   on the demo server, choose Fast/Smart per task, and show saved usage by task
   and month. The command box uses validated provider tool proposals with rules

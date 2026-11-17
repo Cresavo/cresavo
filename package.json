@@ -25,7 +25,8 @@
     "agent-keys": "node --env-file-if-exists=.env --import tsx scripts/agent-keys.mts",
     "agent:proof": "node --import tsx scripts/agentprov/run.mts",
     "test:pair": "node --import tsx scripts/integration/run.mts",
-    "ai:eval": "node --env-file-if-exists=.env --import tsx scripts/ai-eval.mts"
+    "ai:eval": "node --env-file-if-exists=.env --import tsx scripts/ai-eval.mts",
+    "test:concept": "playwright test --config playwright.concept.config.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.4.0",
