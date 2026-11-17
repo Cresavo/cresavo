@@ -26,7 +26,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 2 | The customer experience | Codex | in progress · booking page, My bookings, waiting list done; messages, reviews, widget left |
 | 3 | Customers, journal and return visits | Claude (Sonnet) | done · 2026-11-17 |
 | 4 | The marketing studio | Claude (Sonnet) | done · 2026-11-17 |
-| 5 | Stock and purchasing | Codex | open |
+| 5 | Stock and purchasing | Codex | done · 2026-11-17 |
 | 6 | Finance and overview | Codex | open |
 | 7 | The AI layer for real | Opus | open · headless evaluations delivered on goal/7-ai-evals · 2026-11-17; UI/BYOK/live-key work remains |
 | 8 | Support, log and "What happened?" | Both | open |

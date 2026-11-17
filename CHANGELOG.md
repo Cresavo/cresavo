@@ -11,6 +11,18 @@ All notable changes to this project are documented here. Format follows
   under observations.
 
 ### Added
+- Stock and purchasing: mark a finished visit as done in the booking sheet and
+  the products it uses (foot cream, massage oil, gloves, couch paper) are
+  deducted automatically. Stock shows "runs out in about N days", Today warns
+  when a product runs low, and the purchase list (one amount per product, one
+  tap to approve) puts the order on order and saves an email draft per supplier
+  in the Inbox (simulated). Goods received adds the delivery to the stock, typed
+  in or from a "photo of delivery note" (demo result).
+- Sell a product to a customer (Stock or the customer card, or "sold a foot
+  cream to Lena" in the command box): the balance drops and the sale shows in
+  the customer's history and in revenue. "How much massage oil is left?" and
+  "order more foot cream" also work in the command box.
+- Edit a product's minimum level, supplier and prices from the Stock page.
 - Campaign studio: pick an offer or holiday, get a text for Instagram, Facebook,
   TikTok, newsletter and SMS, choose a poster (5 styles; Instagram post, story or
   A4 window poster as PNG), preview it per channel, then publish everywhere or

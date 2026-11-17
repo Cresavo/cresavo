@@ -1,5 +1,62 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Claude Code · goal 5: stock and purchasing
+
+**Done**
+
+- **Consumption**: treatments list the products one visit uses (foot care: urea
+  cream, files, gloves, couch paper; massage: oil, couch paper). A past booking
+  now has **Mark done** in the booking sheet; that sets it completed and lowers
+  the balance (once; undo works; skipped when the Stock module is off).
+- **Stock page** `/studio/more/stock`: balance, minimum level, supplier,
+  purchase price, "runs out in about N days" for products that are low. Tap a
+  product to edit minimum level, supplier and prices and to see which
+  treatments use it. Header buttons: **Sell a product**, **Goods received**.
+- **Forecast**: days left come from the last four weeks of finished visits and
+  sales (`src/concept/stock/usage.ts`) and go through the `stock-forecast` task,
+  rules first, AI wording replaces them when a key exists. The rule logic moved
+  to `stock/forecast.ts` and is the task's fallback.
+- **Purchase list** (sheet): everything at or below its minimum with about four
+  weeks of cover, grouped per supplier with delivery time, amounts adjustable,
+  **Approve and send** puts it on order and saves one email draft per supplier in
+  the Inbox (simulated). Open orders show on the Stock page.
+- **Goods received**: per open order (amounts prefilled, adjustable), or "Other
+  delivery" typed in, or **Photo of delivery note** (demo: predefined result,
+  the open order as ordered, otherwise a fixed Medicinab note). Raises the balance
+  and closes the order.
+- **Selling**: **Sell a product** on Stock and on the customer card (products with
+  a sale price: home foot cream and glass file). Lowers the balance, shows under
+  "Products bought" in the customer's History, adds to the customer's spend,
+  Today's earnings, monthly revenue and the command box revenue answer (own
+  "Products" row).
+- **Today** cards: "<product> is running low, runs out in about N days" with
+  Review order (opens the purchase list), and "Delivery from X is due" with Goods
+  received once the supplier's lead time has passed.
+- **Command box**: "order more foot cream", "how much massage oil is left?",
+  "sold a foot cream to Lena" (eight Lenas in the demo: pick one, then approve).
+  Two new intent actions, `sell-product` and `stock-level`, in the interpreter,
+  schema and evals.
+- Demo data version 7 (suppliers, orders, sales, consumption per treatment).
+- Tests: `tests/concept-stock.test.ts` (consumption, forecast and its fallback,
+  purchase list, orders and email, receiving, selling and revenue, command
+  mapping), 3 new eval cases.
+
+**Try it**: `/studio` (open a finished booking, **Mark done**) → Today card →
+Review order → Approve and send → Inbox email → More > Stock > Goods received.
+
+Screenshots (390 / 1280, replace the size): [Today](screens/stock-today-390.png) ·
+[mark done](screens/stock-mark-done-390.png) · [stock](screens/stock-390.png) ·
+[purchase list](screens/stock-purchase-list-390.png) · [email](screens/stock-email-390.png) ·
+[goods received](screens/stock-receive-note-390.png) · [after](screens/stock-received-390.png) ·
+[sell](screens/stock-sell-390.png) · [history](screens/stock-customer-history-390.png) ·
+command: [level](screens/stock-command-level-390.png) ·
+[pick](screens/stock-command-sell-pick-390.png) · [sale](screens/stock-command-sell-390.png).
+
+**Remains**: the product list is fixed (edit, but no add or delete); consumption per
+treatment is shown but not editable in the UI; the delivery-note photo is a canned
+result; no barcode scanning; usage falls back to the owner's estimate for products
+no treatment uses; the AI forecast was verified with mocks only.
+
 ## 2026-11-17 · Claude Code · goal 4: campaign studio (also goal 1 step 5b)
 
 **Done**
