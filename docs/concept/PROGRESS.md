@@ -1,5 +1,44 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Claude Code · goal 4: campaign studio (also goal 1 step 5b)
+
+**Done**
+
+- **Campaign studio** `/studio/more/campaigns/new`, four steps: Offer (opens
+  pre-filled) → Texts (one per channel: Instagram, Facebook, TikTok, newsletter,
+  SMS, from `write-post`, rules first, AI draft replaces untouched texts, length
+  counters and limits) → Poster (5 styles, 2 salon photos, editable text, formats
+  Instagram post / story / A4 window poster, client-side PNG export) → Publish
+  (preview as it looks in each channel, **Publish everywhere** or **Schedule**).
+- **Campaign page** `/studio/more/campaigns/<id>`: trackable link, simulated
+  reach, clicks, bookings via the link and revenue, reach per channel, poster
+  downloads, the texts that went out, and **Run as ad** (budget, days, local area,
+  estimated reach; adds to the results).
+- **Content calendar** (month view with holidays and planned posts) on the
+  Campaigns page, next to the list of coming holidays.
+- **Entry points**: Today holiday card ("Make a campaign"), a new Today card for
+  a quiet day ("Tuesday has 5 free hours"), and the command box: "make a
+  Father's Day campaign", "make a poster for Christmas", "20% off massage all of
+  March" open the studio pre-filled.
+- Tests: channel copy limits, link and stats simulation, ad estimate, prefill
+  parsing and studio address, store actions, calendar grid, quiet day, poster
+  layout (`tests/concept-campaigns.test.ts`).
+
+**Try it**: `/studio` → holiday card → Make a campaign; or type "make a Father's
+Day campaign" in the command box.
+
+Screenshots (390 / 1280, replace the size): [Today](screens/campaign-today-390.png) ·
+[command](screens/campaign-command-390.png) · [1 offer](screens/campaign-1-offer-390.png) ·
+[2 texts](screens/campaign-2-texts-390.png) · [3 poster](screens/campaign-3-poster-390.png) ·
+[4 publish](screens/campaign-4-publish-390.png) (previews: `campaign-4-preview-facebook|tiktok|newsletter|sms`) ·
+[result](screens/campaign-result-390.png) · [run as ad](screens/campaign-ad-390.png) ·
+[with ad](screens/campaign-result-ad-390.png) · [list + calendar](screens/campaign-list-390.png).
+
+**Remains**: results are a first-week snapshot at publish time, not updated daily;
+no real publishing, ads or link tracking (simulated); Father's Day 2026 has passed
+so the Today card shows the next holiday (the command box finds Father's Day 2027);
+AI-written texts were verified with mocks only.
+
 ## 2026-11-17 · Claude Code · command box, voice and AI section in the studio
 
 **Done**

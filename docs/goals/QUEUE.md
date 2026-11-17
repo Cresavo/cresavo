@@ -22,10 +22,10 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 
 | # | Goal | Who | Status |
 |---|---|---|---|
-| 1 | Clickable demo night 1 ([file](../concept/CODEX_GOAL_NIGHT1.md)) | Both | done except step 5b (campaign studio, moved to goal 4) |
+| 1 | Clickable demo night 1 ([file](../concept/CODEX_GOAL_NIGHT1.md)) | Both | done (step 5b delivered in goal 4) |
 | 2 | The customer experience | Codex | in progress · booking page, My bookings, waiting list done; messages, reviews, widget left |
 | 3 | Customers, journal and return visits | Claude (Sonnet) | in progress · goal/3-customers · 2026-11-17 |
-| 4 | The marketing studio | Claude (Sonnet) | in progress · concept/ai-native-demo · 2026-11-17 |
+| 4 | The marketing studio | Claude (Sonnet) | done |
 | 5 | Stock and purchasing | Codex | open |
 | 6 | Finance and overview | Codex | open |
 | 7 | The AI layer for real | Opus | open · headless evaluations delivered on goal/7-ai-evals · 2026-11-17; UI/BYOK/live-key work remains |

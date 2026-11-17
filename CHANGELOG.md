@@ -7,6 +7,15 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Campaign studio: pick an offer or holiday, get a text for Instagram, Facebook,
+  TikTok, newsletter and SMS, choose a poster (5 styles; Instagram post, story or
+  A4 window poster as PNG), preview it per channel, then publish everywhere or
+  schedule. Each campaign gets a trackable link and (simulated) reach, clicks,
+  bookings and revenue, and can be run as an ad with budget, days and local area.
+- Content calendar with holidays and planned posts on the Campaigns page.
+- Today suggests campaigns for coming holidays and quiet days; the command box
+  ("make a Father's Day campaign", "20% off massage all of March") opens the
+  studio pre-filled.
 - Command box at the top of every studio page: type or speak what you want,
   review a proposal with before/after, then approve, edit or cancel. Questions
   about earnings and lapsed customers are answered in the card.
