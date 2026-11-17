@@ -21,7 +21,7 @@ export function bookingMessage(state: DemoState, booking: Booking, kind: Booking
   const body = t(`messages.body.${kind}`, {
     salon: state.salon.name, service: service?.name ?? "", date: formatDate(booking.date),
     time: formatTime(booking.start), staff: staff?.firstName ?? "", address: state.salon.address,
-    link: bookingPage(booking.id),
+    link: bookingPage(state.salon.slug, booking.id),
   });
   return { subject, body };
 }

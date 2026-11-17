@@ -25,7 +25,7 @@ export function GiftCardSheet({ cardId, onClose }: { cardId: string; onClose: ()
   const { state } = useStudio();
   const card = state.giftCards.find((c) => c.id === cardId);
   if (!card) return null;
-  const link = giftCardLink(card);
+  const link = giftCardLink(state.salon.slug, card);
 
   return (
     <Sheet

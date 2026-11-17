@@ -4,8 +4,8 @@ import { BookShell } from "@/concept/booking/shell";
 import "../../studio/studio.css";
 
 export const metadata: Metadata = {
-  title: "Book · Salong Eko",
-  description: "Book foot care or massage at Salong Eko in Vasastan. Demo with fictional data.",
+  title: "Book online",
+  description: "Book your visit online. Demo with fictional data.",
 };
 
 export const viewport: Viewport = {

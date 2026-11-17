@@ -12,7 +12,7 @@ import { Card } from "../ui/card";
 import { useNow } from "../use-now";
 import { BookingActions, freeUntilText } from "./booking-actions";
 import { changeRule } from "./policy";
-import { BOOKING_HOME, myBookingsFor, rebookLink } from "./links";
+import { bookingHome, myBookingsFor, rebookLink } from "./links";
 import { MessagePreviews } from "./message-previews";
 import { ReviewForm } from "./review-form";
 
@@ -28,7 +28,7 @@ export function Confirmation({ id }: { id: string }) {
       <Card className="mx-auto max-w-lg space-y-4 p-6 text-center">
         <p className="text-lg font-semibold">{t("booking.notFound.title")}</p>
         <p className="text-eko-muted">{t("booking.notFound.text")}</p>
-        <ButtonLink href={BOOKING_HOME}>{t("booking.notFound.action")}</ButtonLink>
+        <ButtonLink href={bookingHome(state?.salon.slug ?? "")}>{t("booking.notFound.action")}</ButtonLink>
       </Card>
     );
   }
@@ -66,7 +66,7 @@ export function Confirmation({ id }: { id: string }) {
       </Card>
 
       {cancelled ? (
-        <ButtonLink href={rebookLink(booking.serviceId)} size="lg" className="w-full">{t("booking.bookNewTime")}</ButtonLink>
+        <ButtonLink href={rebookLink(state.salon.slug, booking.serviceId)} size="lg" className="w-full">{t("booking.bookNewTime")}</ButtonLink>
       ) : (
         active && (
           <div className="space-y-3">
@@ -80,10 +80,10 @@ export function Confirmation({ id }: { id: string }) {
       <ReviewForm state={state} booking={booking} now={now} />
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-eko-line pt-4 text-sm">
-        <Link href={myBookingsFor(booking.customerId)} className="flex min-h-11 items-center font-medium text-eko-accent underline-offset-2 hover:underline">
+        <Link href={myBookingsFor(state.salon.slug, booking.customerId)} className="flex min-h-11 items-center font-medium text-eko-accent underline-offset-2 hover:underline">
           {t("booking.seeMyBookings")}
         </Link>
-        <Link href={BOOKING_HOME} className="flex min-h-11 items-center text-eko-muted underline-offset-2 hover:underline">
+        <Link href={bookingHome(state.salon.slug)} className="flex min-h-11 items-center text-eko-muted underline-offset-2 hover:underline">
           {t("booking.backToSalon")}
         </Link>
       </div>

@@ -74,7 +74,7 @@ describe("module registry", () => {
     expect(monthlyTotal([])).toBe(CORE_PRICE_SEK);
     const stock = MODULES.find((m) => m.id === "stock")!;
     expect(monthlyTotal(["stock"])).toBe(CORE_PRICE_SEK + stock.priceSek);
-    expect(monthlyTotal(enabledModules(full.modules))).toBe(CORE_PRICE_SEK + MODULES.reduce((sum, m) => sum + m.priceSek, 0));
+    expect(monthlyTotal(enabledModules(full.modules))).toBe(CORE_PRICE_SEK + MODULES.filter((m) => full.modules[m.id]).reduce((sum, m) => sum + m.priceSek, 0));
     expect(monthlyTotal(enabledModules(without(full, "stock").modules))).toBe(monthlyTotal(enabledModules(full.modules)) - stock.priceSek);
   });
 });

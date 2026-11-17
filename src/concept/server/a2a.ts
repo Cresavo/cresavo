@@ -39,7 +39,7 @@ function answer(input: unknown, origin: string): Record<string, unknown> {
       case "book": {
         const { serviceId } = parsed.data;
         if (!context.state.services.some((s) => s.id === serviceId)) throw new ToolError("not_found", "Unknown serviceId.");
-        return { bookingUrl: `${origin}${rebookLink(serviceId)}`, note: "Open this link for the person: they pick the time and confirm on the booking page." };
+        return { bookingUrl: `${origin}${rebookLink(context.state.salon.slug, serviceId)}`, note: "Open this link for the person: they pick the time and confirm on the booking page." };
       }
     }
   } catch (error) {

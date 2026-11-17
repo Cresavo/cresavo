@@ -23,7 +23,7 @@ export function BookingWidget() {
     {booking ? <Card className="space-y-4 p-5">
       <h2 className="text-xl font-semibold text-eko-accent">{t("booking.confirmation.title")}</h2>
       <p>{state.services.find(service => service.id === booking.serviceId)?.name} · {formatDate(booking.date)} {formatTime(booking.start)}</p>
-      <a className="block font-medium text-eko-accent underline" href={bookingPage(booking.id)} target="_blank" rel="noopener noreferrer">{t("widget.manage")}</a>
+      <a className="block font-medium text-eko-accent underline" href={bookingPage(state.salon.slug, booking.id)} target="_blank" rel="noopener noreferrer">{t("widget.manage")}</a>
       <Button variant="secondary" onClick={() => setBookedId(undefined)}>{t("widget.again")}</Button>
     </Card> : <BookingWizard state={state} now={now} onBooked={setBookedId} />}
   </div>;

@@ -1,21 +1,21 @@
-// Customer-facing routes. The salon slug is fixed for the demo.
+// Customer-facing routes of one business, from its slug.
 
 import type { GiftCard } from "../data/types";
 
-export const BOOKING_HOME = "/boka/salong-eko";
-export const MY_BOOKINGS = `${BOOKING_HOME}/me`;
+export const bookingHome = (slug: string) => `/boka/${slug}`;
+export const myBookings = (slug: string) => `${bookingHome(slug)}/me`;
+export const widgetPath = (slug: string) => `${bookingHome(slug)}/widget`;
+export const giftPage = (slug: string) => `${bookingHome(slug)}/gift`;
 
-export const bookingPage = (id: string) => `${BOOKING_HOME}/booking/${id}`;
-export const myBookingsFor = (customerId: string) => `${MY_BOOKINGS}?ref=${encodeURIComponent(customerId)}`;
-export const rebookLink = (serviceId: string) => `${BOOKING_HOME}?service=${encodeURIComponent(serviceId)}#book`;
-
-export const GIFT_PAGE = `${BOOKING_HOME}/gift`;
+export const bookingPage = (slug: string, id: string) => `${bookingHome(slug)}/booking/${id}`;
+export const myBookingsFor = (slug: string, customerId: string) => `${myBookings(slug)}?ref=${encodeURIComponent(customerId)}`;
+export const rebookLink = (slug: string, serviceId: string) => `${bookingHome(slug)}?service=${encodeURIComponent(serviceId)}#book`;
 
 type SharedCard = Pick<GiftCard, "code" | "amount" | "recipient" | "message">;
 
 /** The printable card as a link. It carries only what is printed on the card, never the balance: that is checked against the business's records. */
-export const giftCardLink = (card: SharedCard) =>
-  `${GIFT_PAGE}?${new URLSearchParams({ code: card.code, amount: String(card.amount), to: card.recipient, msg: card.message })}`;
+export const giftCardLink = (slug: string, card: SharedCard) =>
+  `${giftPage(slug)}?${new URLSearchParams({ code: card.code, amount: String(card.amount), to: card.recipient, msg: card.message })}`;
 
 /** The card a shared link describes, or null when it is not complete. */
 export function giftCardFromParams(params: URLSearchParams): SharedCard | null {

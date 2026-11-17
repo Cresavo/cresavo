@@ -1,6 +1,7 @@
 import { FIRST_NAMES_F, FIRST_NAMES_M, LAST_NAMES } from "./catalog";
 import { addDays, diffDays, formatTime, weekday } from "./dates";
 import { makeMonthHistory } from "../finance/history";
+import { DEFAULT_PAGE } from "../page/config";
 import { DEFAULT_PACK, getPack } from "../packs";
 import { ROOMS } from "../packs/base";
 import type { Pack } from "../packs/types";
@@ -25,7 +26,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 13;
+export const DEMO_VERSION = 14;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -371,7 +372,7 @@ export interface BusinessSetup {
   modules?: ModuleKey[];
 }
 
-export const MODULE_KEYS: ModuleKey[] = ["journal", "stock", "campaigns", "finance", "reviews", "waitlist", "assistant", "giftcards", "packages"];
+export const MODULE_KEYS: ModuleKey[] = ["journal", "stock", "campaigns", "finance", "reviews", "waitlist", "assistant", "giftcards", "packages", "domain"];
 
 /** A solo business has only the owner, who takes over all services. */
 function buildFor(pack: Pack, solo: boolean): Build {
@@ -620,5 +621,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     tickets: [],
     memory: [],
     routines: [],
+    page: DEFAULT_PAGE,
+    domain: null,
   };
 }

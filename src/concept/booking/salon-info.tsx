@@ -1,12 +1,12 @@
 import { Clock, Mail, MapPin, Phone, Star } from "lucide-react";
 import { formatTime, weekday } from "../data/dates";
-import type { DemoState } from "../data/types";
+import type { DemoState, Review } from "../data/types";
 import { t, words } from "../i18n";
 import { formatDate } from "../i18n/format";
 import { Card, Section } from "../ui/card";
 import { cx } from "../ui/cx";
 import type { Now } from "../use-now";
-import { publicName, recentReviews } from "./reviews";
+import { publicName, recentReviews, reviewSummary } from "./reviews";
 
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
@@ -30,6 +30,7 @@ export function OpeningHours({ state, now }: { state: DemoState; now: Now }) {
 }
 
 export function FindUs({ state }: { state: DemoState }) {
+  const mapLink = `https://www.openstreetmap.org/search?query=${encodeURIComponent(`${state.salon.address}, ${state.salon.area.split(" · ")[0]}`)}`;
   const { salon } = state;
   const rows = [
     { icon: MapPin, text: `${salon.address}, ${salon.area}` },
@@ -46,13 +47,17 @@ export function FindUs({ state }: { state: DemoState }) {
             <span>{text}</span>
           </p>
         ))}
+        <a href={mapLink} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center font-medium text-eko-accent underline-offset-2 hover:underline">
+          {t("booking.openMap")}
+        </a>
       </Card>
     </Section>
   );
 }
 
-export function Reviews({ state }: { state: DemoState }) {
-  const shown = recentReviews(state.reviews, 3);
+export function Reviews({ state, variant = "cards" }: { state: DemoState; variant?: string }) {
+  const shown = recentReviews(state.reviews, variant === "quote" ? 1 : 3);
+  if (variant === "quote" && shown[0]) return <QuoteReview state={state} review={shown[0]} />;
   return (
     <Section title={t("booking.reviews")}>
       <div className="space-y-3">
@@ -74,6 +79,22 @@ export function Reviews({ state }: { state: DemoState }) {
           );
         })}
       </div>
+    </Section>
+  );
+}
+
+/** One review, large, with the average beside it. */
+function QuoteReview({ state, review }: { state: DemoState; review: Review }) {
+  const { average, count } = reviewSummary(state.reviews);
+  const customer = state.customers.find((c) => c.id === review.customerId);
+  return (
+    <Section title={t("booking.reviews")}>
+      <Card className="space-y-3 p-6 text-center">
+        <p className="text-xl font-medium leading-snug sm:text-2xl">“{review.text}”</p>
+        <p className="text-sm text-eko-muted">
+          {customer ? publicName(customer.firstName, customer.lastName) : ""} · {t("booking.reviewsAverage", { average: average.toFixed(1), count })}
+        </p>
+      </Card>
     </Section>
   );
 }

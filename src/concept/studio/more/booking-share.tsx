@@ -6,10 +6,12 @@ import { t } from "../../i18n";
 import { Button, ButtonLink } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { showToast } from "../../ui/toast";
+import { useStudio } from "../use-studio";
 
 export function BookingShare() {
   const [copied, setCopied] = useState<"link" | "code" | null>(null);
-  const share = bookingShare(window.location.origin);
+  const { state } = useStudio();
+  const share = bookingShare(window.location.origin, state.salon.slug);
   const copy = async (kind: "link" | "code") => {
     try { await navigator.clipboard.writeText(share[kind]); setCopied(kind); }
     catch { showToast(t("share.failed")); }

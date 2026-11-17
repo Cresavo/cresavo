@@ -5,6 +5,8 @@ import type { MemoryItem } from "../assistant/memory";
 import type { Routine } from "../assistant/routines";
 import type { AccountingLink, Cost, MonthFigures } from "../finance/types";
 import type { LogEntry } from "../log/types";
+import type { PageConfig } from "../page/config";
+import type { DomainConnection } from "../page/domain";
 import type { SupportGrant } from "../support/access";
 import type { Ticket } from "../support/tickets";
 import type { TrashEntry } from "../trash/trash";
@@ -356,7 +358,7 @@ export interface ServicePackage {
   usedBy: string[];
 }
 
-export type ModuleKey = "journal" | "stock" | "campaigns" | "finance" | "reviews" | "waitlist" | "assistant" | "giftcards" | "packages";
+export type ModuleKey = "journal" | "stock" | "campaigns" | "finance" | "reviews" | "waitlist" | "assistant" | "giftcards" | "packages" | "domain";
 
 export interface DemoState {
   version: number;
@@ -403,4 +405,8 @@ export interface DemoState {
   memory: MemoryItem[];
   /** Routines (skills) the owner keeps; each runs on its schedule and only proposes. */
   routines: Routine[];
+  /** How the public booking page looks: theme, sections and the owner's own CSS. */
+  page: PageConfig;
+  /** The business's own domain (a paid module), once the owner has started connecting one. */
+  domain: DomainConnection | null;
 }

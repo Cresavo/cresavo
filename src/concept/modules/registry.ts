@@ -37,6 +37,7 @@ export const MODULES: ModuleManifest[] = [
   { id: "waitlist", name: "features.waitlist", description: "features.waitlist.description", menu: [], todayCards: ["gaps"], aiTasks: [], commands: [], priceSek: 39 },
   { id: "assistant", name: "features.assistant", description: "features.assistant.description", menu: ["/studio/more/memory", "/studio/more/routines"], todayCards: [], aiTasks: ["interpret-command", "daily-summary", "assistant-reply", "phrase-brief"], commands: [], priceSek: 149 },
   { id: "giftcards", name: "features.giftcards", description: "features.giftcards.description", menu: ["/studio/more/giftcards"], todayCards: [], aiTasks: [], commands: [], priceSek: 49 },
+  { id: "domain", name: "features.domain", description: "features.domain.description", menu: [], todayCards: [], aiTasks: [], commands: [], priceSek: 49 },
   { id: "packages", name: "features.packages", description: "features.packages.description", menu: ["/studio/more/packages"], todayCards: [], aiTasks: [], commands: [], priceSek: 49 },
 ];
 

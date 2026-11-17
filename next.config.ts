@@ -34,7 +34,12 @@ const config: NextConfig = {
         ],
       },
       {
-        source: "/boka/salong-eko/widget",
+        source: "/boka/:slug",
+        // The page editor shows the booking page in a frame of its own origin.
+        headers: [{ key: "Content-Security-Policy", value: csp.replace("frame-ancestors 'none'", "frame-ancestors 'self'") }],
+      },
+      {
+        source: "/boka/:slug/widget",
         // Only the dedicated public widget may be embedded. The rest keeps its policy.
         headers: [{ key: "Content-Security-Policy", value: csp.replace("frame-ancestors 'none'", "frame-ancestors *") }],
       },

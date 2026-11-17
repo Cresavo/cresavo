@@ -89,11 +89,11 @@ describe("customer phrase variants", () => {
 });
 
 it("produces a clean bio link and iframe code with no customer or campaign parameters", () => {
-  const share = bookingShare("https://demo.example/something?ref=private");
+  const share = bookingShare("https://demo.example/something?ref=private", "salong-eko");
   expect(share.link).toBe("https://demo.example/boka/salong-eko");
   expect(share.widget).toBe("https://demo.example/boka/salong-eko/widget");
   expect(share.code).toContain(`src="${share.widget}"`);
   expect(share.code).toContain('title="Book with Flerdo"');
   expect(share.code).not.toMatch(/ref=|private|something/);
-  expect(() => bookingShare("javascript:alert(1)")).toThrow();
+  expect(() => bookingShare("javascript:alert(1)", "salong-eko")).toThrow();
 });

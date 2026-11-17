@@ -2,6 +2,7 @@ import type { DemoAction } from "../actions";
 import { formatTime } from "../data/dates";
 import type { Booking, DemoState } from "../data/types";
 import { paidWithCards } from "../giftcards/cards";
+import { changedAspects } from "../page/diff";
 import { t, tc } from "../i18n";
 import { formatDayShort, formatMoney } from "../i18n/format";
 import { findCustomer, findService, fullName } from "../selectors";
@@ -136,6 +137,16 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       return { summary: t("log.accountingConnect") };
     case "accounting/disconnect":
       return { summary: t("log.accountingDisconnect") };
+    case "page/set":
+      return { summary: t("log.pageSet", { what: changedAspects(prev.page, next.page).map((aspect) => t(`page.aspect.${aspect}`)).join(", ") }) };
+    case "salon/slug":
+      return { summary: t("log.salonSlug"), before: prev.salon.slug, after: next.salon.slug };
+    case "domain/connect":
+      return { summary: t("log.domainConnect", { host: next.domain!.host }) };
+    case "domain/check":
+      return { summary: t("log.domainCheck", { host: next.domain!.host, status: t(`domain.status.${next.domain!.status}`) }) };
+    case "domain/remove":
+      return { summary: t("log.domainRemove", { host: prev.domain!.host }) };
     case "module/toggle":
       return { summary: t(next.modules[action.key] ? "log.moduleOn" : "log.moduleOff", { module: t(`features.${action.key}`) }) };
     case "trash/restore": {

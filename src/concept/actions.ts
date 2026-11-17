@@ -9,6 +9,7 @@ import type { CostKind } from "./finance/types";
 import { isFree, needOf, pickResource } from "./data/slots";
 import { undoEntry } from "./log/undo";
 import { applyOps, type OpsAction } from "./ops/edit";
+import { applyPageAction, type PageAction } from "./page/actions";
 import { grantSupport, revokeSupport, type GrantHours } from "./support/access";
 import type { NewTicket } from "./support/tickets";
 import { deleteCustomer, restoreEntry, trashBooking } from "./trash/trash";
@@ -42,6 +43,7 @@ export type DemoAction =
   | CustomerReviewAction
   | OpsAction
   | AssistantAction
+  | PageAction
   | { type: "booking/move"; id: string; date: DateKey; start: number; staffId?: StaffId; notice?: Omit<InboxItem, "id"> }
   | { type: "booking/cancel"; id: string; reason?: string; notice?: Omit<InboxItem, "id"> }
   | { type: "booking/create"; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource }
@@ -313,6 +315,12 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
     case "routine/ran":
     case "customers/message":
       return applyAssistant(state, action);
+    case "page/set":
+    case "salon/slug":
+    case "domain/connect":
+    case "domain/check":
+    case "domain/remove":
+      return applyPageAction(state, action);
     case "booking/move": {
       const moved = moveBooking(state, action.id, action.date, action.start, action.staffId);
       return action.notice && moved !== state ? reduce(moved, { type: "inbox/add", item: action.notice }) : moved;

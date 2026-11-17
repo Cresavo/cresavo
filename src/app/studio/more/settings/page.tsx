@@ -6,6 +6,7 @@ import { t } from "@/concept/i18n";
 import { setupOf } from "@/concept/onboarding/setup";
 import { startBusiness } from "@/concept/store";
 import { BookingShare } from "@/concept/studio/more/booking-share";
+import { AddressSection } from "@/concept/studio/page/address-section";
 import { ClosedDaysSection } from "@/concept/studio/ops/closed-days";
 import { HoursSection } from "@/concept/studio/ops/hours-section";
 import { ResourcesSection } from "@/concept/studio/ops/resources-section";
@@ -45,6 +46,7 @@ export default function SettingsPage() {
         <HoursSection />
         <ClosedDaysSection />
         <ResourcesSection />
+        <AddressSection />
         <Section title={t("share.title")} className="lg:col-span-2"><BookingShare /></Section>
         <SupportAccess />
         <Section title={t("settings.demo")} className="space-y-3 lg:col-span-2">

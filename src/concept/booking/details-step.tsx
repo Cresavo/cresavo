@@ -56,7 +56,7 @@ export function DetailsStep({ state, now, serviceId, slot, onTaken, onBooked }: 
     if (!booked || !latest) return onTaken();
     rememberGuest({ name, phone, customerId: latest.customerId });
     if (onBooked) onBooked(latest.id);
-    else router.push(bookingPage(latest.id));
+    else router.push(bookingPage(state.salon.slug, latest.id));
   };
 
   return (

@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   Megaphone,
   Package,
+  PanelsTopLeft,
   PackageOpen,
   Plug,
   Repeat,
@@ -42,6 +43,7 @@ export const MORE_TAB: NavItem = { href: "/studio/more", label: "nav.more", icon
 
 export const BUSINESS_NAV: NavItem[] = [
   { href: "/studio/more/services", label: "nav.services", description: "nav.services.description", icon: Tag },
+  { href: "/studio/more/booking-page", label: "nav.bookingPage", description: "nav.bookingPage.description", icon: PanelsTopLeft },
   { href: "/studio/more/staff", label: "nav.staff", description: "nav.staff.description", icon: UserRound },
   { href: "/studio/more/stock", label: "nav.stock", description: "nav.stock.description", icon: Package },
   { href: "/studio/more/giftcards", label: "nav.giftcards", description: "nav.giftcards.description", icon: Gift },

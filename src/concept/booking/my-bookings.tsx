@@ -20,7 +20,7 @@ import { BookingActions, freeUntilText } from "./booking-actions";
 import { changeRule } from "./policy";
 import { ReviewForm } from "./review-form";
 import { recallGuest } from "./guest";
-import { BOOKING_HOME, bookingPage, myBookingsFor, rebookLink } from "./links";
+import { bookingHome, bookingPage, myBookingsFor, rebookLink } from "./links";
 import { customerBookings, findCustomerByPhone } from "./lookup";
 
 /** No login in the demo: the link carries `?ref=`, or the customer types the number they booked with. */
@@ -52,7 +52,7 @@ function Lookup({ state }: { state: DemoState }) {
         onSubmit={(event) => {
           event.preventDefault();
           const found = findCustomerByPhone(state, phone);
-          if (found) router.replace(myBookingsFor(found.id));
+          if (found) router.replace(myBookingsFor(state.salon.slug, found.id));
           else setMissing(true);
         }}
       >
@@ -93,7 +93,7 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
           <EmptyState
             icon={<CalendarCheck size={22} />}
             title={t("booking.me.noUpcoming")}
-            action={<ButtonLink href={`${BOOKING_HOME}#book`}>{t("booking.me.bookNow")}</ButtonLink>}
+            action={<ButtonLink href={`${bookingHome(state.salon.slug)}#book`}>{t("booking.me.bookNow")}</ButtonLink>}
           />
         )}
       </Section>
@@ -110,7 +110,7 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
                     <p className="font-medium">{service?.name}</p>
                     <p className="text-sm text-eko-muted">{formatDayLong(booking.date)} · {formatMoney(booking.price)}</p>
                   </div>
-                  <ButtonLink href={rebookLink(booking.serviceId)} variant="secondary" size="sm" icon={<Repeat size={14} />}>
+                  <ButtonLink href={rebookLink(state.salon.slug, booking.serviceId)} variant="secondary" size="sm" icon={<Repeat size={14} />}>
                     {t("booking.me.rebook")}
                   </ButtonLink>
                   </div>
@@ -143,7 +143,7 @@ function UpcomingCard({ state, now, booking }: { state: DemoState; now: Now; boo
       <BookingActions state={state} now={now} booking={booking} />
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-eko-muted">
         <span>{changeRule(booking, now.today, now.minutes) === "free" ? freeUntilText(booking) : ""}</span>
-        <Link href={bookingPage(booking.id)} className="font-medium text-eko-accent underline-offset-2 hover:underline">{t("booking.me.details")}</Link>
+        <Link href={bookingPage(state.salon.slug, booking.id)} className="font-medium text-eko-accent underline-offset-2 hover:underline">{t("booking.me.details")}</Link>
       </div>
     </Card>
   );

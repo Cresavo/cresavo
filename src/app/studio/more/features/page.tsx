@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BellRing, BookOpen, Gift, Megaphone, Package, PackageOpen, Sparkles, Star, TrendingUp, type LucideIcon } from "lucide-react";
+import { BellRing, BookOpen, Gift, Globe, Megaphone, Package, PackageOpen, Sparkles, Star, TrendingUp, type LucideIcon } from "lucide-react";
 import type { ModuleKey } from "@/concept/data/types";
 import { t } from "@/concept/i18n";
 import { formatNumber } from "@/concept/i18n/format";
@@ -28,6 +28,7 @@ const ICONS: Record<ModuleKey, LucideIcon> = {
   assistant: Sparkles,
   giftcards: Gift,
   packages: PackageOpen,
+  domain: Globe,
 };
 
 const price = (sek: number) => t("features.price", { price: formatNumber(sek) });
