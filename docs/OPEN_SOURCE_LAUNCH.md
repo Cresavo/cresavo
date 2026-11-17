@@ -22,14 +22,14 @@ settings. Name and structure: [BRAND.md](BRAND.md).
 
 ## Still to do in the repo (agents, before publishing)
 
-- [ ] Run gitleaks or trufflehog over full history of the tree to be published
-      and add it to CI (CI workflow changes were out of scope for this pass).
+- [x] Run gitleaks over full history and add it to CI (`secret-scan.yml`,
+      `.gitleaks.toml`). Re-run on the cleaned tree before publishing.
 - [ ] Move or delete internal docs from the published tree: `docs/history/`,
       `docs/qa/`, old `EPIC_*`, plan and report docs, Swedish `DEMO.md`,
       `docs/verification/`, personal paths and names beyond the copyright line.
       Keep a short English `docs/` that matches the code.
-- [ ] Add OpenSSF Scorecard workflow and Dependabot config (needs workflow
-      changes, so done when Niclas agrees).
+- [x] Add OpenSSF Scorecard workflow and Dependabot config (`scorecard.yml`,
+      `dependabot.yml`; Scorecard only becomes useful once the repo is public).
 - [ ] Fresh-clone check: clone, `npm ci`, lint, tsc, test, build, ai:eval.
 - [ ] Rename the engine identifiers (see "Deliberately left" below) in one
       pass at monorepo time.
