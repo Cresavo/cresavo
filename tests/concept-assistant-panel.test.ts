@@ -3,8 +3,9 @@ import { emptyContext, type Message, type Reply } from "@/concept/assistant/thre
 import type { Proposal } from "@/concept/command/proposal";
 
 // The assistant panel's card rules, without React: a model's late reading
-// never overrides what the owner already did, and Undo is only offered (and
-// only reported) when the store accepts it.
+// never overrides what the owner already did, Undo is only offered (and only
+// reported) when the store accepts it, Edit retires the old proposal, and the
+// activity log tells spoken from typed commands.
 
 const storage = new Map<string, string>();
 
@@ -23,7 +24,7 @@ async function setup() {
     const card: Proposal = { kind: "change", title: "New price", rows: [], toast: "Price changed", action: { type: "service/price", id: service.id, price: service.price + 50 } };
     const messages: Message[] = [
       { id: `q-${id}`, from: "owner", text: "raise the price", at: 1 },
-      { id, from: "assistant", text: "New price", reply: { source: "rules", text: "New price", card, ...reply }, at: 1 },
+      { id, from: "assistant", text: "New price", reply: { source: "rules", text: "New price", card, request: "raise the price", input: "typed", ...reply }, at: 1 },
     ];
     thread.addMessages(messages, { customerIds: [], date: "2026-11-18" });
     return id;
@@ -41,7 +42,7 @@ describe("model refinement (Codex #3)", () => {
     const { thread, ask, reply } = await setup();
     const id = ask({ refining: true });
     expect(thread.refineReply(id, aiReading, { ...emptyContext(), date: "2026-11-20" })).toBe(true);
-    expect(reply(id)).toMatchObject({ source: "ai", text: "AI reading" });
+    expect(reply(id)).toMatchObject({ source: "ai", text: "AI reading", request: "raise the price", input: "typed" });
     expect(reply(id).refining).toBeUndefined();
     expect(JSON.parse(storage.get("salong-eko-assistant")!).context.date).toBe("2026-11-20");
   });
@@ -97,5 +98,24 @@ describe("undo on a reply (Codex #4)", () => {
   it("is not offered when the log entry is gone", async () => {
     const { actions, ask, reply } = await setup();
     expect(actions.replyUndoable({ ...reply(ask()), undoId: "l-does-not-exist" })).toBe(false);
+  });
+});
+
+describe("edit and provenance (Codex #5)", () => {
+  it("Edit returns the owner's words and retires the proposal", async () => {
+    const { actions, ask, reply } = await setup();
+    const id = ask({ refining: true });
+    expect(actions.editReply(id)).toBe("raise the price");
+    expect(reply(id)).toMatchObject({ status: "edited" });
+    expect(reply(id).refining).toBeUndefined();
+  });
+
+  it("logs an approved spoken command as voice and a typed one as the assistant", async () => {
+    const { actions, ask, store, service } = await setup();
+    actions.approveReply(ask({ input: "voice" }), { type: "service/price", id: service.id, price: service.price + 10 });
+    expect(store.currentState()!.log[0]).toMatchObject({ actor: "ai", source: "voice", type: "service/price" });
+    actions.approveReply(ask({ input: "typed" }), { type: "service/price", id: service.id, price: service.price + 20 });
+    expect(store.currentState()!.log[0]).toMatchObject({ actor: "ai", source: "assistant", type: "service/price" });
+    expect(actions.sourceFor(undefined)).toBe("assistant");
   });
 });

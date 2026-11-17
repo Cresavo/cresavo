@@ -1641,6 +1641,8 @@ const messages = {
   "assistant.status.declined": "Left as it was",
   "assistant.status.failed": "That did not work. The time may just have been taken.",
   "assistant.status.undone": "Undone",
+  "assistant.status.edited": "Edited · your words are back in the message box",
+  "assistant.edit": "Edit",
   "assistant.fallback": "I did not catch that. I can answer questions about bookings, revenue, customers and stock, draft changes for you to approve, and remember things you tell me.",
   "assistant.reply.change": "I have drafted this for you to check.",
   "assistant.example.compare": "How did last month compare with last year?",

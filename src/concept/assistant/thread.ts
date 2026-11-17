@@ -38,13 +38,19 @@ export interface Reply {
   followUps?: string[];
   /** Short label of the subject, used when a past conversation is summarised. */
   topic?: string;
-  /** What happened to a proposal or offer in this reply. */
-  status?: "approved" | "declined" | "failed" | "undone";
+  /** What happened to a proposal or offer in this reply. "edited": the owner took the request back into the message box. */
+  status?: "approved" | "declined" | "failed" | "undone" | "edited";
   /** The activity log entry of the change this reply made, so the panel can offer Undo. */
   undoId?: string;
+  /** The owner's words this reply answers, for Edit. */
+  request?: string;
+  /** How the owner said it. Carried through approval so the activity log tells voice from typed commands. */
+  input?: InputMode;
   /** An AI model's reading of the same words is on its way and may still replace this reply. */
   refining?: boolean;
 }
+
+export type InputMode = "typed" | "voice";
 
 export interface Message {
   id: string;

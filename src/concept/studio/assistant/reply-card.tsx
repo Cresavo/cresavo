@@ -14,6 +14,8 @@ import { BriefList } from "./brief-list";
 export interface CardActions {
   onApprove: (proposal: Extract<Proposal, { kind: "change" }>) => void;
   onDecline: () => void;
+  /** Takes the request back into the message box; the proposal can then no longer be approved. */
+  onEdit?: () => void;
   onPick: (choice: Choice) => void;
   onRemember: (item: NewMemory) => void;
   onRoutine: (routine: Routine, keep: boolean) => void;
@@ -62,6 +64,7 @@ export function ReplyCardView({ card, status, actions }: { card: ReplyCard; stat
           ) : (
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant={card.destructive ? "danger" : "primary"} onClick={() => actions.onApprove(card)}>{t("command.approve")}</Button>
+              {actions.onEdit && <Button size="sm" variant="secondary" onClick={actions.onEdit}>{t("assistant.edit")}</Button>}
               <Button size="sm" variant="ghost" onClick={actions.onDecline}>{t("assistant.notNow")}</Button>
             </div>
           )}

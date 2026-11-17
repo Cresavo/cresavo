@@ -53,7 +53,7 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
   const speech = useSpeech({
     onText: (heard) => {
       setText("");
-      send(heard);
+      send(heard, "voice");
     },
   });
   const { start: startListening } = speech;
@@ -70,6 +70,12 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
   useEffect(() => {
     if (thread.messages.length) end.current?.scrollIntoView({ block: "end" });
   }, [thread.messages.length]);
+
+  /** Edit on a proposal: the owner's words come back into the box to be changed and sent again. */
+  const edit = (id: string) => {
+    setText(assistant.edit(id));
+    input.current?.focus();
+  };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -111,7 +117,7 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
       <div role="log" aria-live="polite" aria-label={t("assistant.conversation")} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
         {assistant.role === "owner" && <Opening assistant={assistant} />}
         {thread.messages.map((message) => (
-          <MessageView key={message.id} message={message} assistant={assistant} />
+          <MessageView key={message.id} message={message} assistant={assistant} onEdit={() => edit(message.id)} />
         ))}
         {!thread.messages.length && (
           <div className="space-y-2">
@@ -179,9 +185,10 @@ function Opening({ assistant }: { assistant: ReturnType<typeof useAssistant> }) 
   );
 }
 
-function cardActions(assistant: ReturnType<typeof useAssistant>, id: string, undoId?: string): CardActions {
+function cardActions(assistant: ReturnType<typeof useAssistant>, id: string, undoId?: string, onEdit?: () => void): CardActions {
   return {
     onUndo: undoId ? () => assistant.undoReply(id, undoId) : undefined,
+    onEdit,
     onApprove: (proposal) => assistant.approve(id, proposal),
     onDecline: () => assistant.decline(id),
     onPick: (choice) => assistant.pick(id, choice),
@@ -190,7 +197,7 @@ function cardActions(assistant: ReturnType<typeof useAssistant>, id: string, und
   };
 }
 
-function MessageView({ message, assistant }: { message: Message; assistant: ReturnType<typeof useAssistant> }) {
+function MessageView({ message, assistant, onEdit }: { message: Message; assistant: ReturnType<typeof useAssistant>; onEdit: () => void }) {
   if (message.from === "owner") {
     return (
       <div className="ml-10 flex flex-col items-end gap-1">
@@ -204,7 +211,13 @@ function MessageView({ message, assistant }: { message: Message; assistant: Retu
   const repeatsCard = reply.source === "rules" && !!reply.card && ANSWERS.has(reply.card.kind);
   return (
     <Bubble source={reply.source} text={repeatsCard ? undefined : reply.text}>
-      {reply.card && <ReplyCardView card={reply.card} status={reply.status} actions={cardActions(assistant, message.id, replyUndoable(reply) ? reply.undoId : undefined)} />}
+      {reply.card && (
+        <ReplyCardView
+          card={reply.card}
+          status={reply.status}
+          actions={cardActions(assistant, message.id, replyUndoable(reply) ? reply.undoId : undefined, reply.request ? onEdit : undefined)}
+        />
+      )}
       {reply.followUps && !reply.status && <FollowUps items={reply.followUps} onPick={assistant.send} />}
     </Bubble>
   );

@@ -188,3 +188,15 @@ test("the owner/staff demo switch works both ways from the top bar on a phone, a
   await page.reload();
   await expect(page.getByRole("button", { name: `Owner view. Switch to Staff · ${viewer.firstName}` })).toBeVisible();
 });
+
+test("Edit on a proposal brings the words back into the message box and retires the old proposal", async ({ page }) => {
+  await page.goto("/studio");
+  await command(page, "Anna is off on Friday");
+  const approve = page.getByRole("button", { name: "Approve", exact: true });
+  await expect(approve).toBeVisible();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Message" })).toHaveValue("Anna is off on Friday");
+  await expect(page.getByRole("textbox", { name: "Message" })).toBeFocused();
+  await expect(approve).toHaveCount(0);
+  await expect(page.getByText("Edited · your words are back in the message box")).toBeVisible();
+});

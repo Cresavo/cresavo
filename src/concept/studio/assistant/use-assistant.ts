@@ -5,7 +5,7 @@ import { isAiConfigured, runAiTask } from "../../ai/api-client";
 import { commandReply, replyRequest, respond } from "../../assistant/engine";
 import type { NewMemory } from "../../assistant/memory";
 import type { Routine } from "../../assistant/routines";
-import { threadSummary, type Message } from "../../assistant/thread";
+import { threadSummary, type InputMode, type Message } from "../../assistant/thread";
 import { commandExamples } from "../../command/examples";
 import { buildIntentContext } from "../../command/intent-context";
 import type { Choice, Proposal } from "../../command/proposal";
@@ -16,7 +16,7 @@ import type { IntentResult } from "../../intent";
 import { currentState, dispatch } from "../../store";
 import { useStudio } from "../use-studio";
 import { speak } from "./speak";
-import { applyReply, approveReply, pickReply, undoReply } from "./reply-actions";
+import { applyReply, approveReply, editReply, pickReply, sourceFor, undoReply } from "./reply-actions";
 import { addMessages, messageId, refineReply, startNewThread, updateReply, useThread } from "./thread-store";
 
 const ASSISTANT = { actor: "owner", source: "assistant" } as const;
@@ -48,19 +48,20 @@ export function useAssistant() {
     [state, today, role],
   );
 
-  const send = (raw: string) => {
+  /** `via` says whether the owner typed or spoke the words; it travels with the reply to approval and the activity log. */
+  const send = (raw: string, via: InputMode = "typed") => {
     const text = raw.trim();
     if (!text) return;
     const input = { state, text, context: thread.context, clock: { today, minutes }, role, viewer: staffViewer(state)?.id, examples };
     const outcome = respond(input);
-    const changed = outcome.effects.filter((effect) => dispatch(effect, ASSISTANT)).length > 0;
+    const changed = outcome.effects.filter((effect) => dispatch(effect, { actor: "owner", source: sourceFor(via) })).length > 0;
     const refining = !!outcome.command && aiReady;
     const question: Message = { id: messageId(), from: "owner", text, understood: outcome.understood !== text ? outcome.understood : undefined, at: Date.now() };
     const answer: Message = {
       id: messageId(),
       from: "assistant",
       text: outcome.reply.text,
-      reply: { ...outcome.reply, undoId: changed ? lastLogId() : undefined, refining: refining || undefined },
+      reply: { ...outcome.reply, undoId: changed ? lastLogId() : undefined, request: text, input: via, refining: refining || undefined },
       at: Date.now(),
     };
     const before = thread.messages;
@@ -122,5 +123,5 @@ export function useAssistant() {
     if (summary) dispatch({ type: "memory/add", item: { text: summary, kind: "thread", savedOn: today, source: "assistant" } }, ASSISTANT);
   };
 
-  return { thread, aiReady, examples, role, send, approve, decline, undoReply, pick, remember, keepRoutine, skipRoutine, newConversation };
+  return { thread, aiReady, examples, role, send, approve, decline, undoReply, edit: editReply, pick, remember, keepRoutine, skipRoutine, newConversation };
 }
