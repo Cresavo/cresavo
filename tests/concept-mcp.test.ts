@@ -6,6 +6,8 @@ import { POST as decide } from "@/app/api/concept/proposals/[id]/route";
 import { POST as a2aPost } from "@/app/api/concept/a2a/route";
 import { GET as agentCard } from "@/app/api/concept/a2a/agent-card.json/route";
 import { GET as uspProfile } from "@/app/api/concept/usp/route";
+import { GET as protocolStatus } from "@/app/api/concept/protocols/route";
+import { claudeCodeCommand, claudeDesktopConfig, shellToken } from "@/concept/studio/more/protocol-setup";
 import { addDays, formatTime } from "@/concept/data/dates";
 import { freeStarts } from "@/concept/data/slots";
 import { resetDemoBusiness, toolContext } from "@/concept/server/demo-business";
@@ -175,6 +177,31 @@ describe("MCP round trip with the SDK client", () => {
     expect(body(result).error.code).toBe("not_possible");
     expect(await pending()).toEqual([]);
     await client.close();
+  });
+});
+
+describe("setup snippets", () => {
+  const endpoint = `${URL_BASE}/api/concept/mcp`;
+  const paths = { mcp: "/api/concept/mcp", a2a: "/api/concept/a2a", agentCard: "/api/concept/a2a/agent-card.json", usp: "/api/concept/usp" };
+
+  it("puts the demo token into the Claude Code command and Claude Desktop config", () => {
+    const info = { paths, mcp: { token: "dev-default" as const, devToken: DEV_TOKEN } };
+    expect(claudeCodeCommand(endpoint, shellToken(info))).toBe(`claude mcp add --transport http flerdo-demo ${endpoint} --header "Authorization: Bearer ${DEV_TOKEN}"`);
+    const config = JSON.parse(claudeDesktopConfig(endpoint, info));
+    expect(config.mcpServers["flerdo-demo"]).toMatchObject({ command: "npx", args: ["-y", "mcp-remote", endpoint, "--header", "Authorization:${AUTH_HEADER}"], env: { AUTH_HEADER: `Bearer ${DEV_TOKEN}` } });
+  });
+
+  it("never needs a configured token: it points to the variable instead", () => {
+    const info = { paths, mcp: { token: "env" as const } };
+    expect(claudeCodeCommand(endpoint, shellToken(info))).toContain("Bearer $CONCEPT_MCP_TOKEN");
+    expect(claudeDesktopConfig(endpoint, info)).toContain("<your CONCEPT_MCP_TOKEN>");
+  });
+
+  it("the protocol status route only ever exposes the public development token", async () => {
+    vi.stubEnv("CONCEPT_MCP_TOKEN", "a-long-enough-secret-token");
+    const body = await (await call(protocolStatus, new Request(`${URL_BASE}/api/concept/protocols`))).json();
+    expect(body.mcp).toEqual({ token: "env" });
+    expect(JSON.stringify(body)).not.toContain("a-long-enough-secret-token");
   });
 });
 
