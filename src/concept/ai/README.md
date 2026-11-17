@@ -34,6 +34,15 @@ case-insensitive text checks in `contains` when adding scenarios.
 - `routeModel(tier)` in `ai/router.ts` uses OpenRouter, then OpenAI, then Anthropic when keys exist. Override with `CONCEPT_AI_FAST_PROVIDER`/`CONCEPT_AI_FAST_MODEL` (likewise SMART/IMAGE/SPEECH). The nine current tasks use text tiers; image/speech routing is reserved for separate modality adapters and this JSON client refuses those tiers. `getCostLog()`/`clearCostLog()` in `ai/cost-log.ts` expose the persisted last 1,000 calls; each route result includes its safe log entry for UI display. Costs are illustrative USD estimates (provider-reported cost preferred), null for unknown billing/failed calls, zero for rules without a provider. No keys or customer payloads are logged.
 - Verification: 86 intent cases and 57 AI/router/schema/HTTP cases, all provider calls mocked. No new dependencies, pages or UI changes. Real-provider verification is deferred until an operator adds a key. No screenshots apply to this headless delivery. The cleanup pass fixed clock-sensitive fixture failures tracked in finding #6. Full-suite tests, lint, TypeScript and production build pass.
 
+## Open protocols
+
+`src/concept/tools/` is the one registry of what outside AIs may do: read tools
+return minimised data, write tools draft the command box's proposal
+(`proposalFor`) and never change anything. `server/mcp.ts` exposes them over
+HTTP MCP at `/api/concept/mcp` (token `CONCEPT_MCP_TOKEN`); proposals wait in
+`server/demo-business.ts` until the owner approves them in the Inbox. A new
+protocol adapter should register the same tools rather than add its own.
+
 ## UI wiring
 
 `src/concept/command/` builds the interpreter context from the store (`intent-context.ts`), maps results to reviewable proposals (`proposal.ts`, `clarify.ts`) and calls `interpret-command` through `ai/api-client.ts` only when `GET /api/concept/ai` reports a configured provider. The same endpoint feeds More → Your data & AI (`ai/overview.ts`). The journal dictation calls `structure-journal` the same way.

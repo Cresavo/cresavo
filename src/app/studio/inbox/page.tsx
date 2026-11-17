@@ -5,17 +5,21 @@ import { CheckCheck, Inbox as InboxIcon, MousePointerClick } from "lucide-react"
 import type { InboxItem } from "@/concept/data/types";
 import { t, tc } from "@/concept/i18n";
 import { unreadCount } from "@/concept/selectors";
-import { dispatch } from "@/concept/store";
+import { dispatch, undo } from "@/concept/store";
+import { AgentProposalCard } from "@/concept/studio/inbox/agent-proposal-card";
+import { useAgentProposals } from "@/concept/studio/inbox/agent-proposals";
 import { InboxDetail } from "@/concept/studio/inbox/inbox-detail";
 import { senderName } from "@/concept/studio/inbox/inbox-meta";
 import { InboxRow } from "@/concept/studio/inbox/inbox-row";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Button } from "@/concept/ui/button";
-import { Card } from "@/concept/ui/card";
+import type { AgentProposal } from "@/concept/tools/agent-proposal";
+import { Card, Section } from "@/concept/ui/card";
 import { Segmented } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
 import { Sheet } from "@/concept/ui/sheet";
+import { showToast } from "@/concept/ui/toast";
 
 type Filter = "all" | "unread" | "requests" | "reviews" | "sent";
 
@@ -41,6 +45,16 @@ export default function InboxPage() {
   const items = state.inbox.filter(matches[filter]);
   const selected = state.inbox.find((i) => i.id === selectedId);
   const unread = unreadCount(state);
+  const { proposals, decide } = useAgentProposals();
+
+  const approve = (proposal: AgentProposal) => {
+    if (decide(proposal, true)) showToast(proposal.toast, { label: t("common.undo"), run: undo });
+    else showToast(t("agents.failed"));
+  };
+  const decline = (proposal: AgentProposal) => {
+    decide(proposal, false);
+    showToast(t("agents.declined"));
+  };
 
   const select = (item: InboxItem) => {
     setSelectedId(item.id);
@@ -59,6 +73,15 @@ export default function InboxPage() {
           </Button>
         }
       />
+      {proposals.length > 0 && (
+        <Section title={t("agents.title")} className="mb-6">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {proposals.map((proposal) => (
+              <AgentProposalCard key={proposal.id} proposal={proposal} onApprove={() => approve(proposal)} onDecline={() => decline(proposal)} />
+            ))}
+          </div>
+        </Section>
+      )}
       <Segmented<Filter>
         label={t("inbox.filter")}
         value={filter}

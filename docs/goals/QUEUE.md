@@ -31,7 +31,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 7 | The AI layer for real | Codex | done · 2026-11-17 (live-key check pending) |
 | 8 | Support, log and "What happened?" | Claude (Sonnet) | done · 2026-11-17 |
 | 9 | Modules and industry packs | Claude (Sonnet) | done · 2026-11-17 |
-| 10 | Open protocols for the concept | Opus | open |
+| 10 | Open protocols for the concept | Opus | done · 2026-11-17 |
 | 11 | From demo to real engine | Opus | open |
 | 12 | Pilot readiness: quality and security | Opus (Fable for review) | open |
 | 13 | Open-source launch: clean public repos | Opus | open (can run any time after goal 1) |

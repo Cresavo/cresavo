@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ArrowRight, Loader2, Sparkles, X } from "lucide-react";
+import { Loader2, Sparkles, X } from "lucide-react";
 import { t } from "../i18n";
 import { Button, buttonClass, IconButton } from "../ui/button";
 import { cx } from "../ui/cx";
 import { AnswerCard } from "./answer-card";
+import { ChangeRows } from "./change-rows";
 import type { Choice, Proposal } from "./proposal";
 
 export type Source = "ai" | "rules";
@@ -59,22 +60,7 @@ function Body({ proposal, onApprove, onPick, onEdit, onClose }: BodyProps) {
             <p className="font-semibold">{proposal.title}</p>
             {proposal.subtitle && <p className="text-sm text-eko-muted">{proposal.subtitle}</p>}
           </div>
-          <dl className="divide-y divide-eko-line rounded-xl bg-eko-sunken/60 px-3.5">
-            {proposal.rows.map((row) => (
-              <div key={row.label} className="space-y-0.5 py-2.5 text-sm">
-                <dt className="text-xs font-semibold uppercase tracking-wide text-eko-muted">{row.label}</dt>
-                <dd className="flex flex-wrap items-center gap-x-2">
-                  {row.before && (
-                    <>
-                      <span className="text-eko-muted line-through">{row.before}</span>
-                      <ArrowRight size={14} className="text-eko-muted" aria-label={t("command.becomes")} />
-                    </>
-                  )}
-                  <span className="font-medium">{row.after}</span>
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <ChangeRows rows={proposal.rows} />
           <p className="text-xs text-eko-muted">{t("command.proposalNote")}</p>
           <div className="flex flex-wrap gap-2">
             <Button variant={proposal.destructive ? "danger" : "primary"} onClick={() => onApprove(proposal)}>{t("command.approve")}</Button>
