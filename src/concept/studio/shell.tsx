@@ -13,10 +13,20 @@ import { cx } from "../ui/cx";
 import { Toaster } from "../ui/toast";
 import { BUSINESS_NAV, isActivePath, MORE_TAB, PRIMARY_NAV, SETTINGS_NAV, visibleItems, type NavItem } from "./nav";
 
+const WELCOME_PATH = "/studio/welcome";
+
 export function StudioShell({ children }: { children: ReactNode }) {
   const state = useDemo();
   const pathname = usePathname() ?? "";
   if (!state) return <LoadingScreen />;
+  if (pathname === WELCOME_PATH) {
+    return (
+      <>
+        <main className="px-4 pb-12 pt-5 sm:px-6">{children}</main>
+        <Toaster />
+      </>
+    );
+  }
   return (
     <>
       <Sidebar state={state} pathname={pathname} />
@@ -26,7 +36,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
         </div>
       </main>
       <BottomTabs state={state} pathname={pathname} />
-      <FloatingMic />
+      {state.modules.assistant && <FloatingMic />}
       <Toaster />
     </>
   );
@@ -109,7 +119,7 @@ function Sidebar({ state, pathname }: { state: DemoState; pathname: string }) {
         </span>
         <span className="min-w-0 text-sm leading-tight">
           <span className="block font-medium">{owner.firstName} {owner.lastName}</span>
-          <span className="block truncate text-xs text-eko-muted">{t("shell.ownerRole")}</span>
+          <span className="block truncate text-xs text-eko-muted">{t("shell.ownerRole")} · {owner.title.toLowerCase()}</span>
         </span>
       </div>
     </aside>

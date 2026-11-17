@@ -5,7 +5,7 @@ import { formatDayLong } from "../../i18n/format";
 
 /** Customers who would be told about the slot a cancellation frees up. */
 export function waitlistCount(state: DemoState, booking: Booking): number {
-  return state.customers.filter((c) => c.waitlist && c.id !== booking.customerId).length;
+  return state.modules.waitlist ? state.customers.filter((c) => c.waitlist && c.id !== booking.customerId).length : 0;
 }
 
 /** Inbox note recording that a freed slot was offered to the waiting list (simulated). */

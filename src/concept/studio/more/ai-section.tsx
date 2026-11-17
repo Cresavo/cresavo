@@ -7,14 +7,16 @@ import type { AiOverview } from "../../ai/overview";
 import type { TaskName } from "../../ai/registry";
 import { t, tc } from "../../i18n";
 import { formatUsd } from "../../i18n/format";
+import { taskEnabled } from "../../modules/registry";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { EmptyState } from "../../ui/empty-state";
-
+import { useStudio } from "../use-studio";
 
 /** Which AI task runs on which model, and what calls have cost since the server started. */
 export function AiSection() {
+  const { state } = useStudio();
   const [result, setResult] = useState<{ overview?: AiOverview; failed?: boolean }>({});
 
   const load = () => {
@@ -42,7 +44,7 @@ export function AiSection() {
       <Card className="space-y-4 p-5">
         <p className="text-sm text-eko-muted">{overview.configured ? t("ai.modeAi") : t("ai.modeRules")}</p>
         <ul className="divide-y divide-eko-line">
-          {tasks.map((task) => (
+          {tasks.filter((task) => taskEnabled(state.modules, task.name)).map((task) => (
             <li key={task.name} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{t(`ai.task.${task.name}`)}</p>

@@ -78,7 +78,7 @@ export default function CustomerPage() {
                 <p className="truncate text-lg font-semibold">{fullName(customer)}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {customer.tags.map((tag) => <Badge key={tag} tone={tag === "Diabetes" ? "warn" : "neutral"}>{tag}</Badge>)}
-                  {customer.waitlist && <Badge tone="accent">{t("customer.waitlist")}</Badge>}
+                  {customer.waitlist && state.modules.waitlist && <Badge tone="accent">{t("customer.waitlist")}</Badge>}
                 </div>
               </div>
             </div>

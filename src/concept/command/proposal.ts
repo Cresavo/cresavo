@@ -5,6 +5,7 @@ import type { DemoAction } from "../actions";
 import { t, tc } from "../i18n";
 import { agoText, formatAmount, formatDayLong, formatDayMonth, formatDuration, formatMoney } from "../i18n/format";
 import type { IntentParams, IntentResult } from "../intent";
+import { blockingModule, moduleById, type ModuleManifest } from "../modules/registry";
 import { buildCustomerStats, findCustomer, findService, fullName, PRODUCTS_ROW, revenueBetween } from "../selectors";
 import { forecastInput, ruleForecast, supplierOf } from "../stock/forecast";
 import { findProducts } from "../stock/match";
@@ -154,22 +155,23 @@ function cancelProposal(state: DemoState, params: IntentParams, clock: Clock): P
   const booking = state.bookings.find((b) => b.id === params.bookingId && b.status === "booked");
   const customer = findCustomer(state, booking?.customerId);
   if (!booking || !customer) return message(t("command.notUnderstood"));
-  const offered = params.offerWaitingList ? waitlistCount(state, booking) : 0;
+  const offering = !!params.offerWaitingList && state.modules.waitlist;
+  const offered = offering ? waitlistCount(state, booking) : 0;
   return {
     kind: "change",
     title: t("command.cancel.title", { name: fullName(customer) }),
     subtitle: staffName(state, booking.staffId),
     rows: [
       { label: t("command.row.booking"), before: bookingLine(state, booking), after: t("command.cancelled") },
-      ...(params.offerWaitingList ? [{ label: t("command.row.waitlist"), after: tc("command.waitlistOffer", offered) }] : []),
+      ...(offering ? [{ label: t("command.row.waitlist"), after: tc("command.waitlistOffer", offered) }] : []),
     ],
     action: {
       type: "booking/cancel",
       id: booking.id,
       reason: t("cancel.reason.other"),
-      notice: params.offerWaitingList ? waitlistNotice(booking, offered, clock) : undefined,
+      notice: offering ? waitlistNotice(booking, offered, clock) : undefined,
     },
-    toast: params.offerWaitingList ? tc("booking.cancelledOfferedToast", offered) : t("booking.cancelledToast"),
+    toast: offering ? tc("booking.cancelledOfferedToast", offered) : t("booking.cancelledToast"),
     destructive: true,
   };
 }
@@ -320,13 +322,19 @@ function inactiveProposal(state: DemoState, params: IntentParams, clock: Clock):
   };
 }
 
+function moduleOff(module: ModuleManifest): Proposal {
+  return message(t("command.moduleOff", { module: t(module.name) }), { href: "/studio/more/features", label: t("command.moduleOff.open") });
+}
+
 /** Everything the card needs for one interpreter result. `examples` fill in when the command is too vague. */
 export function proposalFor(state: DemoState, intent: IntentResult, text: string, clock: Clock, examples: string[]): Proposal {
   const { params } = intent;
+  const blocker = blockingModule(state.modules, intent.action);
+  if (blocker) return moduleOff(blocker);
   const insight = ["question", "revenue"].includes(intent.action) ? insightFor(state, text, clock) : null;
-  if (insight) return insight;
+  if (insight) return insight.chart.unit === "percent" || state.modules.finance ? insight : moduleOff(moduleById("finance"));
   const requested = ["question", "campaign", "make-poster"].includes(intent.action) ? parseCampaignRequest(text, state, clock.today) : null;
-  if (requested) return studioProposal(requested);
+  if (requested) return state.modules.campaigns ? studioProposal(requested) : moduleOff(moduleById("campaigns"));
   switch (intent.action) {
     case "question": {
       const choices = clarifyChoices(intent.question, text, state, clock.today, examples);

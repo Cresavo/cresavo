@@ -94,7 +94,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
           )}
           <TextArea value={reply} onChange={(e) => setReply(e.target.value)} aria-label={t("inbox.suggestedReply")} />
           <div className="flex flex-wrap justify-end gap-2">
-            {item.kind === "cancel" && booking && (
+            {item.kind === "cancel" && booking && state.modules.waitlist && (
               <Button
                 variant="secondary"
                 onClick={() => {
