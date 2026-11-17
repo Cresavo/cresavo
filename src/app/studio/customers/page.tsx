@@ -38,7 +38,7 @@ export default function CustomersPage() {
       <PageHeader
         title={t("customers.title")}
         subtitle={t("customers.subtitle", { count: state.customers.length, regulars: lists.regulars.length })}
-        actions={<ButtonLink href="/studio/customers/import" variant="secondary" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>}
+        actions={<ButtonLink href="/studio/customers/import" help="import-customers" variant="secondary" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>}
       />
       <div className="mb-4 space-y-3">
         <SearchInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("customers.search")} aria-label={t("customers.search")} />

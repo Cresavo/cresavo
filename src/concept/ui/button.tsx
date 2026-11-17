@@ -40,6 +40,8 @@ export function Button({ variant, size, icon, className, children, type = "butto
 
 interface ButtonLinkProps {
   href: string;
+  /** Name for the Help button's "Show me". */
+  help?: string;
   variant?: Variant;
   size?: Size;
   icon?: ReactNode;
@@ -47,9 +49,9 @@ interface ButtonLinkProps {
   children: ReactNode;
 }
 
-export function ButtonLink({ href, variant, size, icon, className, children }: ButtonLinkProps) {
+export function ButtonLink({ href, help, variant, size, icon, className, children }: ButtonLinkProps) {
   return (
-    <Link href={href} className={buttonClass(variant, size, className)}>
+    <Link href={href} data-help={help} className={buttonClass(variant, size, className)}>
       {icon}
       {children}
     </Link>

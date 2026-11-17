@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { Leaf } from "lucide-react";
 import { FloatingMic } from "../command/floating-mic";
+import { HelpButton } from "./help/help-button";
 import { t } from "../i18n";
 import { unreadCount } from "../selectors";
 import { useDemo } from "../store";
@@ -21,7 +22,10 @@ export function StudioShell({ children }: { children: ReactNode }) {
     <>
       <Sidebar state={state} pathname={pathname} />
       <main className="pb-[calc(9rem+env(safe-area-inset-bottom))] lg:pb-12 lg:pl-64">
-        <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6 lg:px-10 lg:pt-8">
+        <div className="mx-auto w-full max-w-6xl px-4 pt-3 sm:px-6 lg:px-10 lg:pt-5">
+          <div className="mb-2 flex justify-end lg:mb-1">
+            <HelpButton />
+          </div>
           <Suspense>{children}</Suspense>
         </div>
       </main>
@@ -62,6 +66,7 @@ function SidebarLink({ item, pathname, badge }: { item: NavItem; pathname: strin
   return (
     <Link
       href={item.href}
+      data-help={item.href}
       aria-current={active ? "page" : undefined}
       className={cx(
         "flex min-h-10 items-center gap-3 rounded-xl px-3 text-[15px] transition-colors",
@@ -132,6 +137,7 @@ function BottomTabs({ state, pathname }: { state: DemoState; pathname: string })
             <Link
               key={item.href}
               href={item.href}
+              data-help={item.href}
               aria-current={active ? "page" : undefined}
               className={cx("relative flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium", active ? "text-eko-accent" : "text-eko-muted")}
             >

@@ -124,3 +124,25 @@ body:has(.studio-root) .demo-banner {
 .studio-root .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* "Show me" from the Help button: a pulsing ring around the element. Drawn
+   inside the element so a scrolling parent such as the sidebar cannot clip it. */
+.studio-root .help-highlight {
+  outline: 3px solid rgb(var(--eko-accent));
+  outline-offset: -3px;
+  background-color: rgb(var(--eko-accent-soft));
+  border-radius: 12px;
+  animation: help-pulse 1.1s ease-in-out 4;
+}
+
+@keyframes help-pulse {
+  50% {
+    outline-color: rgb(var(--eko-accent) / 0.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-root .help-highlight {
+    animation: none;
+  }
+}

@@ -4,14 +4,14 @@ import type { TaskName } from "./registry";
 
 // Browser side of the AI layer: plain HTTP calls to /api/concept/ai.
 
-export async function runAiTask<Output>(task: TaskName, input: unknown): Promise<{ output: Output; log: CostEntry }> {
+export async function runAiTask<Output>(task: TaskName, input: unknown): Promise<{ output: Output; log: CostEntry; requestId: string | null }> {
   const response = await fetch(`/api/concept/ai/${task}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
   });
   if (!response.ok) throw new Error(`AI task ${task} failed`);
-  return response.json();
+  return { ...(await response.json()), requestId: response.headers.get("x-request-id") };
 }
 
 export async function fetchAiOverview(): Promise<AiOverview> {

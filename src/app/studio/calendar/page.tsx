@@ -38,7 +38,7 @@ export default function CalendarPage() {
         title={t("calendar.title")}
         subtitle={t("calendar.subtitle", { percent: formatNumber(busy * 100) })}
         actions={
-          <Button icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { date } })}>
+          <Button data-help="new-booking" icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { date } })}>
             {t("calendar.newBooking")}
           </Button>
         }
