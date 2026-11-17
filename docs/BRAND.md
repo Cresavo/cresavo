@@ -13,8 +13,15 @@ plain words.
 | Areas in the app | Plain words | Calendar, Customers, Journal, Campaigns, Stock, Finance |
 | Industry packs | "Flerdo for …" | Flerdo for salons, Flerdo for clinics, later Flerdo for shops |
 | Customer booking page | "Book with Flerdo" | `book.flerdo.com/<business>` or the business's own domain |
+| Command box / assistant | **Ask Flerdo** | Placeholder "Ask Flerdo… what would you like to do?" |
 | Paid integration service | **Flerdo Connect** | SMS, payments, social publishing, ads (private repo) |
 | Code packages | `@flerdo/*` | `@flerdo/gateway`, `@flerdo/ai`, `@flerdo/mcp` |
+
+## On "AI" in the name
+
+No "AI" in the product name: many owners are wary of AI, the product never
+requires AI, and "AI" in names dates quickly. AI shows up as "Ask Flerdo" and
+as an optional usage line in pricing. flerdo.ai is registered defensively.
 
 ## Repositories (target, see goal 13)
 
@@ -34,7 +41,7 @@ plain words.
 
 ## Owner to-dos (only Niclas)
 
-- [ ] Domain: flerdo.com (+ flerdo.app, flerdo.se)
+- [ ] Domain: flerdo.com (+ flerdo.app, flerdo.se, flerdo.ai)
 - [ ] GitHub org: github.com/flerdo
 - [ ] npm scope: @flerdo
 - [ ] Trademark search: EUIPO TMview, classes 9 and 42
