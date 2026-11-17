@@ -15,7 +15,7 @@ function MenuGroup({ title, items }: { title: string; items: NavItem[] }) {
         {items.map((item) => {
           const Icon = item.icon;
           return (
-            <Link key={item.href} href={item.href} className="flex min-h-16 items-center gap-4 px-4 py-3 hover:bg-eko-sunken">
+            <Link key={item.href} href={item.href} data-help={item.href} className="flex min-h-16 items-center gap-4 px-4 py-3 hover:bg-eko-sunken">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-eko-accent-soft text-eko-accent">
                 <Icon size={20} />
               </span>

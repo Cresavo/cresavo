@@ -6,7 +6,7 @@ import { cx } from "./cx";
 
 interface SegmentedProps<T extends string> {
   value: T;
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; /** Name for the Help button's "Show me". */ help?: string }[];
   onChange: (value: T) => void;
   label: string;
   className?: string;
@@ -20,6 +20,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, c
           key={o.value}
           role="radio"
           aria-checked={o.value === value}
+          data-help={o.help}
           onClick={() => onChange(o.value)}
           className={cx(
             "min-h-9 flex-1 whitespace-nowrap rounded-lg px-3 text-center text-sm font-medium transition-colors",

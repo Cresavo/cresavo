@@ -14,6 +14,7 @@ import { BackLink } from "@/concept/studio/back-link";
 import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-sheets";
 import { BookingList } from "@/concept/studio/customers/booking-list";
 import { CustomerSummary } from "@/concept/studio/customers/customer-summary";
+import { DeleteCustomer } from "@/concept/studio/customers/delete-customer";
 import { Journal } from "@/concept/studio/customers/journal";
 import { NextVisitCard } from "@/concept/studio/customers/next-visit-card";
 import { Notes } from "@/concept/studio/customers/notes";
@@ -129,6 +130,7 @@ export default function CustomerPage() {
             <Fact label={t("customer.lastVisit")} value={s.lastVisit ? agoText(s.lastVisit, today) : "–"} />
             <Fact label={t("customer.usually")} value={favorite?.name ?? "–"} />
           </div>
+          <DeleteCustomer customer={customer} />
         </div>
 
         <div className="min-w-0 space-y-5">

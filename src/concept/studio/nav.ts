@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  History,
   Inbox,
   LayoutGrid,
   Megaphone,
@@ -48,6 +49,7 @@ export const BUSINESS_NAV: NavItem[] = [
 export const SETTINGS_NAV: NavItem[] = [
   { href: "/studio/more/features", label: "nav.features", description: "nav.features.description", icon: ToggleRight },
   { href: "/studio/more/data", label: "nav.data", description: "nav.data.description", icon: Plug },
+  { href: "/studio/more/log", label: "nav.log", description: "nav.log.description", icon: History },
   { href: "/studio/more/settings", label: "nav.settings", description: "nav.settings.description", icon: Settings },
 ];
 

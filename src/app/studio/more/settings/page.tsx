@@ -6,6 +6,7 @@ import { formatTime } from "@/concept/data/dates";
 import { t, words } from "@/concept/i18n";
 import { resetDemo } from "@/concept/store";
 import { MorePage } from "@/concept/studio/more/more-page";
+import { SupportAccess } from "@/concept/studio/support/support-access";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Button } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
@@ -54,6 +55,7 @@ export default function SettingsPage() {
             })}
           </Card>
         </Section>
+        <SupportAccess />
         <Section title={t("settings.demo")} className="lg:col-span-2">
           <Card className="flex flex-wrap items-center gap-4 p-4">
             <p className="min-w-0 flex-1 text-sm text-eko-muted">{t("settings.demoText")}</p>
