@@ -22,6 +22,9 @@ async function startBooking(page: Page) {
   await page.getByLabel("Mobile number").fill("070-000 99 11");
   await page.getByRole("button", { name: "Confirm booking", exact: true }).click();
   await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
+  // White-label: the confirmation carries a neutral demo notice, never the platform's name (#27).
+  await expect(page.getByText(/^Fictional demo: confirmations are simulated/)).toBeVisible();
+  expect(await page.locator("body").innerText()).not.toContain(BRAND.name);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -118,7 +121,7 @@ test("copy clean share/widget code and book inside a cross-origin iframe", async
   await new Promise<void>(resolve => host.listen(0, "127.0.0.1", resolve));
   try {
     await page.goto(`http://127.0.0.1:${(host.address() as AddressInfo).port}`);
-    const frame = page.frameLocator(`iframe[title="Book with ${BRAND.name}"]`);
+    const frame = page.frameLocator('iframe[title="Book with Salong Eko"]');
     await frame.getByPlaceholder(/^For example: .+ some afternoon next week$/).fill("sports massage next available with Erik");
     await frame.getByPlaceholder(/^For example: .+ some afternoon next week$/).press("Enter");
     await frame.getByRole("button", { name: /until \d\d:\d\d/ }).first().click();

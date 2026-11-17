@@ -16,3 +16,12 @@ export const BRAND = {
 export const ASSISTANT = {
   name: "Flerdo",
 } as const;
+
+/**
+ * Product policy for tenant pages (booking page, widget, gift card, my bookings).
+ * They carry the business's identity only. Platform attribution ("Booking by …")
+ * appears there only if the product owner switches this on; it is off by default.
+ */
+export const TENANT_POLICY = {
+  attribution: false,
+} as const;

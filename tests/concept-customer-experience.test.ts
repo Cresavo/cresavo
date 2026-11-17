@@ -90,11 +90,13 @@ describe("customer phrase variants", () => {
 });
 
 it("produces a clean bio link and iframe code with no customer or campaign parameters", () => {
-  const share = bookingShare("https://demo.example/something?ref=private", "salong-eko");
+  const share = bookingShare("https://demo.example/something?ref=private", "salong-eko", 'Salong "Eko" & <Co>');
   expect(share.link).toBe("https://demo.example/boka/salong-eko");
   expect(share.widget).toBe("https://demo.example/boka/salong-eko/widget");
   expect(share.code).toContain(`src="${share.widget}"`);
-  expect(share.code).toContain(`title="Book with ${BRAND.name}"`);
+  // The business's name, escaped, never the platform's (#27).
+  expect(share.code).toContain('title="Book with Salong &quot;Eko&quot; &amp; &lt;Co&gt;"');
+  expect(share.code).not.toContain(BRAND.name);
   expect(share.code).not.toMatch(/ref=|private|something/);
-  expect(() => bookingShare("javascript:alert(1)", "salong-eko")).toThrow();
+  expect(() => bookingShare("javascript:alert(1)", "salong-eko", "Salong Eko")).toThrow();
 });

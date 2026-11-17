@@ -180,7 +180,7 @@ describe("links follow the slug", () => {
     expect(myBookingsFor("kajsa", "c 1")).toBe("/boka/kajsa/me?ref=c%201");
     expect(rebookLink("kajsa", "s-1")).toBe("/boka/kajsa?service=s-1#book");
     expect(giftCardLink("kajsa", { code: "A", amount: 100, recipient: "B", message: "" })).toMatch(/^\/boka\/kajsa\/gift\?/);
-    const share = bookingShare("https://x.example/anything", "kajsa");
+    const share = bookingShare("https://x.example/anything", "kajsa", "Kajsa");
     expect(share).toMatchObject({ link: "https://x.example/boka/kajsa", widget: "https://x.example/boka/kajsa/widget" });
   });
 });

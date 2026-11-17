@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { Leaf } from "lucide-react";
+import { TENANT_POLICY } from "../brand";
 import { t } from "../i18n";
 import { useDemo } from "../store";
 import { Toaster } from "../ui/toast";
@@ -61,6 +62,7 @@ function Frame({ children }: { children: ReactNode }) {
         <Link href="/studio" className="font-medium text-action underline-offset-2 hover:underline">
           {t("booking.ownerView")}
         </Link>
+        {TENANT_POLICY.attribution && <span className="mt-1 block">{t("booking.attribution")}</span>}
       </footer>
       <Toaster />
     </PageRoot>

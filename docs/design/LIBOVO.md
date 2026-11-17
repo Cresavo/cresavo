@@ -115,7 +115,10 @@ name, nav, theme control, user) and multi-column pages. Content max 6xl
   unknown slug and error states never show platform colours. These routes
   replace the platform's install metadata (`TENANT_METADATA`: no manifest,
   no application name, a neutral calendar icon in `public/tenant/`, or the
-  business's logo once the page has loaded). It re-declares
+  business's logo once the page has loaded). The embed code is titled "Book
+  with <business>"; platform attribution appears only if
+  `TENANT_POLICY.attribution` (in `src/concept/brand.ts`) is switched on, and
+  it is off. It re-declares
   every non-semantic token, follows the visitor's OS (never the studio's
   choice), and defaults to neutral ink/white. A palette arrives as inline
   `--ui-*` variables plus `data-scheme`. Semantic tokens are declared on
