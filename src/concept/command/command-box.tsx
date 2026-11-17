@@ -5,7 +5,7 @@ import { ArrowUp, Mic, Sparkles } from "lucide-react";
 import { isAiConfigured, runAiTask } from "../ai/api-client";
 import { t } from "../i18n";
 import { interpretCommand, type IntentResult } from "../intent";
-import { useRole } from "../ops/access";
+import { useRole } from "../ops/role";
 import { useStudio } from "../studio/use-studio";
 import { dispatch, undo } from "../store";
 import { cx } from "../ui/cx";

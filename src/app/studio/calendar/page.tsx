@@ -12,7 +12,8 @@ import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-
 import { DayGrid } from "@/concept/studio/calendar/day-grid";
 import { WeekAgenda } from "@/concept/studio/calendar/week-agenda";
 import { WeekGrid } from "@/concept/studio/calendar/week-grid";
-import { staffViewer, useRole } from "@/concept/ops/access";
+import { staffViewer } from "@/concept/ops/access";
+import { useRole } from "@/concept/ops/role";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Button, IconButton } from "@/concept/ui/button";

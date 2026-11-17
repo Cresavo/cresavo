@@ -1,6 +1,7 @@
 "use client";
 
-import { setRole, staffViewer, useRole, type Role } from "../../ops/access";
+import { staffViewer, type Role } from "../../ops/access";
+import { setRole, useRole } from "../../ops/role";
 import { t } from "../../i18n";
 import { Segmented } from "../../ui/controls";
 import { useStudio } from "../use-studio";
