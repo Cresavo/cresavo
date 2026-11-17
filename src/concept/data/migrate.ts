@@ -14,7 +14,7 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
   12: (saved) => ({ ...saved, memory: [], routines: [], version: 13 }),
   // v14 added the booking page design and the own-domain connection.
   13: (saved) => ({ ...saved, page: DEFAULT_PAGE, domain: null, version: 14 }),
-  // v15 (Libovo rebrand) changed no shape. A saved page keeps its colours as the
+  // v15 (the brand v0.9 rebrand) changed no shape. A saved page keeps its colours as the
   // owner left them; only freshly generated Salong Eko data starts on Forest.
   14: (saved) => ({ ...saved, version: 15 }),
 };
