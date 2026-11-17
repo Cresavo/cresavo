@@ -1,4 +1,4 @@
-import { buildTokens, isHex, luminance, schemeOf, type Palette, type Tokens } from "./colour";
+import { buildTokens, isHex, schemeOf, type Palette, type Tokens } from "./colour";
 
 // The look of the booking page: logo, colours, fonts, corners and photo. A
 // theme only ever becomes CSS variables and a few data attributes on the page
