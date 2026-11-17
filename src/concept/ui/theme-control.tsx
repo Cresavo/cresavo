@@ -50,7 +50,7 @@ export function ThemeControl({ compact = false, className }: { compact?: boolean
             aria-label={t(`theme.${value}`)}
             title={t(`theme.${value}`)}
             onClick={() => setTheme(value)}
-            className={cx("flex size-11 items-center justify-center rounded-sm", active ? "bg-action-bg text-text" : "text-text-secondary hover:text-text")}
+            className={cx("flex size-11 items-center justify-center rounded-sm", active ? "bg-action-bg text-text ring-1 ring-inset ring-input-border" : "text-text-secondary hover:text-text")}
           >
             <Icon size={18} aria-hidden />
           </button>
