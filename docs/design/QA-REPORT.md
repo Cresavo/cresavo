@@ -82,6 +82,8 @@ and scrolling reveals it. At 200 % zoom the pill becomes a real problem, see #25
 
 ### Open (GitHub issues, label `finding`)
 
+All six are closed by the [fix round after the Codex review](#fix-round-after-codex-review).
+
 | Severity | Issue |
 |---|---|
 | Medium | [#25](https://github.com/niclasvestlund-YT/booking-lab-se/issues/25) At 200 % zoom on a 390 px phone, the pill and tab bar cover about 27 % of the screen, tab labels overlap, and there is sideways overflow on Today, Customers, Settings and the booking page. WCAG reflow at 320 px passes. |
@@ -137,9 +139,59 @@ Observations with no issue filed:
 `422eb0e` changes only classes. Lint, tsc and unit tests passed on it, and
 I checked it visually.
 
+## Fix round after Codex review
+
+Date: 2026-11-17 (evening). Reviewer: Claude Code. Input:
+[CODEX-REVIEW.md](CODEX-REVIEW.md) (12 findings from source inspection) and
+the open QA issues. Every Codex finding was reproduced or confirmed in the
+source before it was fixed. One commit per finding, each with a regression
+test where logic is involved.
+
+| Finding | Result | Commit(s) |
+|---|---|---|
+| Codex #1 (High) v14 saves discarded by the rebrand | Fixed: saves from v12–v14 migrate in place (`src/concept/data/migrate.ts`); a migrated page keeps its colours, only new fixtures get Forest. Unit test loads a v14 save with edits, directly and through the store | `aa8bc96`, `cd5d8c4`, `6e0648f` |
+| Codex #2 (High) phone users stuck in Staff view | Fixed: compact Owner/Staff toggle in the top bar for both roles below `lg`; e2e round trip at 390 px with reloads | `a08cf2a` |
+| Codex #3 late model reading overrides the owner's choice | Fixed: refinement is marked pending, dropped once the owner picks, approves, declines, edits or moves on; reply and context commit together | `9dab689` |
+| Codex #4 Undo reports success after a rejected undo | Fixed: Undo offered only while `canUndo`; card says Undone only after a successful dispatch | `f4a4d8d` |
+| Codex #5 no Edit, no voice provenance | Fixed: Edit puts the words back in the composer and retires the proposal; approvals log `voice` vs `assistant` | `66e4bc5` |
+| Codex #6 + #23 platform branding outside the tenant wrapper | Fixed: `.booking-boundary` puts neutral tenant tokens on the whole document (canvas, unknown slug, errors); tenant routes drop the manifest and application name and use a neutral icon or the business logo | `50ecc33` (icon file moves landed in `6e0648f`) |
+| #27 "Book with Libovo", "Libovo demo" on tenant pages | Fixed: embed title "Book with <business>", "Fictional demo" notice, attribution behind `TENANT_POLICY.attribution` (off) | `59c5a12` |
+| Codex #7 tenant CSS can repaint semantic states | Fixed: `Notice` on paired backgrounds, `[data-tone]` protected, colour CSS only on branding slots, danger/success in the contrast report; hostile-CSS and #717171 tests | `1d116f2`, `004c1c6` |
+| Codex #8 + #29 browser chrome ignores the pinned theme | Fixed: theme-color pin from the head script and the control; tenant pages keep their own chrome; e2e with opposing OS and saved settings, observed at first paint | `2174bb0` |
+| Codex #9 no safe-area insets on the public header | Fixed: top and side insets (header, content, footer); e2e emulates insets in portrait and landscape over CDP | `131cddb` |
+| Codex #10 chart comparison tint 1.6:1 | Fixed: `--ui-chart-compare` (≥ 3:1 on every ground, unit tested) plus outline/dashes and legends | `e28a495` |
+| #26 staff on Today by colour only | Fixed: rows read "Anna · Medical foot care" (name first so truncation keeps it); also the customer booking list | `bd7288e`, `3fe3a8d` |
+| Codex #11 + #30 targets under 44 px | Fixed: switches, composer and panel header buttons, contact links, tenant header link, language select. Not changed: 30-min calendar blocks stay duration-high on purpose (pass AA 2.5.8) | `9dc33ba` |
+| Codex #12 kit and runtime are separate copies | Fixed: `tests/concept-tokens.test.ts` checks every runtime colour against `colors.json`, extensions listed; `THEME_COLORS` read from the JSON | `3bfc532` |
+| #25 200 % zoom on a 390 px phone | Fixed for Today, Customers, Settings and the booking page (no sideways scroll at 195 px); pill collapses to one icon, tabs are icons only. Still overflowing at that zoom, out of the issue's scope: customer card (~43 px), Finance (~8), Features (~15), booking page editor (~108). Creating a follow-up issue was blocked by the session's permission policy; listed here instead | `055900e` |
+| #28 `/landing` lang, contrast, tokens | Fixed: `_document` lang (sv/en), brand tokens only (dark mode follows the OS), animation no longer fades text | `854ea4c` |
+
+Also fixed while running the gates: the sheet focus-trap e2e depended on how
+many free times the real day had left (`e0490cb`).
+
+### Gates for this round
+
+| Check | Result |
+|---|---|
+| `npm run lint` | ✓ 0 problems |
+| `npx tsc --noEmit` | ✓ 0 errors outside the stale `.next/types/validator.ts` (14, ignored) |
+| `npm test` | ✓ 83 files, 1216 tests |
+| `npm run ai:eval` | ✓ 57/57, rules mode |
+| `npm run build` (scratch worktree at `e0490cb`, own `npm ci` + `prisma generate`, placeholder `DATABASE_URL`) | ✓ |
+| `npm run test:concept` (same worktree, Chromium from `/opt/pw-browsers`, not committed) | ✓ 67 passed, 3 skipped (desktop runs of phone-only tests) |
+| axe-core, 26 studio pages + 4 tenant pages + unknown slug, `/unknown-address`, `/landing`, at 390 and 1280, light and dark (saved theme = OS) | ✓ 0 violations in 120 runs; `/landing` also 0 with motion on |
+
+Not verified in this round: real devices (notch insets, browser chrome
+colour, iOS zoom), screen readers, Firefox/WebKit, a live AI key (the
+refinement path is unit tested, not run against a model), and the voice
+path end to end (provenance is unit tested; the microphone was not used).
+
 ## Screenshots (after, taken in this QA)
 
-Viewport shots at device scale 1, fixed demo clock 09:30.
+Viewport shots at device scale 1, fixed demo clock 09:30. Refreshed after
+the Codex fix round, together with all of `after/` (top-bar role switch,
+staff names, tenant canvas and insets). New: 200 % zoom on a phone and the
+landing page in dark.
 
 | | |
 |---|---|
@@ -147,12 +199,13 @@ Viewport shots at device scale 1, fixed demo clock 09:30.
 | Calendar at 320, light ![](qa/calendar-320-light.png) | Assistant proposal with Approve, dark ![](qa/assistant-approve-390-dark.png) |
 | Tenant page, OS light, studio pinned dark: Salong Eko's own green ![](qa/boka-390-light-studio-dark.png) | Tenant without a palette, OS dark: neutral ![](qa/boka-neutral-390-dark.png) |
 | Today, desktop, light (sidebar scrolls) ![](qa/today-1440-light.png) | Customers, desktop, dark ![](qa/customers-1440-dark.png) |
-| Settings > Appearance, tablet, dark ![](qa/settings-768-dark.png) | |
+| Settings > Appearance, tablet, dark ![](qa/settings-768-dark.png) | Today at 200 % zoom on a 390 px phone ![](qa/today-zoom200-390-light.png) |
+| Landing, dark, brand tokens ![](qa/landing-1280-dark.png) | |
 
 Compared with `before/` and `after/`, the implementer's after shots match
 what I saw. The one exception was the sidebar overlap in
-`after/today-1440-light.png`, which is fixed now. Those shots are still
-dated from before my fixes.
+`after/today-1440-light.png`, which is fixed now. All of `after/` and `qa/` were retaken after the Codex
+fix round.
 
 ## Not verified
 
