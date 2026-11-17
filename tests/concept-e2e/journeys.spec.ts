@@ -6,6 +6,7 @@ import { createDemoState } from "../../src/concept/data/generate";
 import { freeStarts } from "../../src/concept/data/slots";
 import type { DemoState } from "../../src/concept/data/types";
 import { fullName } from "../../src/concept/selectors";
+import { BRAND } from "../../src/concept/brand";
 import { DEV_TOKEN } from "../../src/concept/server/token";
 import { salonClock } from "../../src/concept/tools/clock";
 
@@ -20,7 +21,19 @@ const errors = new WeakMap<Page, string[]>();
 async function state(page: Page): Promise<DemoState> {
   return page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo")!));
 }
-const command = (page: Page) => page.getByRole("textbox", { name: "Command box" });
+/** The command box from tablet width; on phones the same request goes through the assistant panel. */
+async function command(page: Page, text: string) {
+  if (page.viewportSize()!.width < 640) {
+    await page.getByRole("button", { name: `Ask ${BRAND.name}`, exact: true }).locator("visible=true").click();
+    const message = page.getByRole("textbox", { name: "Message" });
+    await message.fill(text);
+    await message.press("Enter");
+    return;
+  }
+  const box = page.getByRole("textbox", { name: "Command box" });
+  await box.fill(text);
+  await box.press("Enter");
+}
 
 /** A booking tomorrow, and a free time that day to move it to. */
 function moveTarget(initial: DemoState) {
@@ -73,8 +86,7 @@ test("the owner moves a booking with the command box and undoes it", async ({ pa
   await page.goto("/studio");
   const { booking, date, start } = moveTarget(await state(page));
   const owner = fullName((await state(page)).customers.find(c => c.id === booking.customerId)!);
-  await command(page).fill(`Move ${owner} to ${date} at ${formatTime(start)}`);
-  await command(page).press("Enter");
+  await command(page, `Move ${owner} to ${date} at ${formatTime(start)}`);
   await page.getByRole("button", { name: "Approve", exact: true }).click();
   await expect.poll(async () => (await state(page)).bookings.find(b => b.id === booking.id)?.start).toBe(start);
   expect((await state(page)).bookings.find(b => b.id === booking.id)?.date).toBe(date);
@@ -139,8 +151,7 @@ test("a proposal from an outside AI waits in the Inbox until the owner approves 
 
 test("the owner marks Anna off on Friday and Today asks to move the affected bookings", async ({ page }) => {
   await page.goto("/studio");
-  await command(page).fill("Anna is off on Friday");
-  await command(page).press("Enter");
+  await command(page, "Anna is off on Friday");
   await page.getByRole("button", { name: "Approve", exact: true }).click();
   await page.goto("/studio");
   await expect(page.getByText(/\d+ bookings? needs? moving/)).toBeVisible();

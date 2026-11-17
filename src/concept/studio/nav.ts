@@ -1,4 +1,5 @@
 import {
+  BookMarked,
   CalendarDays,
   History,
   Gift,
@@ -8,6 +9,7 @@ import {
   Package,
   PackageOpen,
   Plug,
+  Repeat,
   Settings,
   Star,
   Sun,
@@ -50,6 +52,8 @@ export const BUSINESS_NAV: NavItem[] = [
 ];
 
 export const SETTINGS_NAV: NavItem[] = [
+  { href: "/studio/more/memory", label: "nav.memory", description: "nav.memory.description", icon: BookMarked },
+  { href: "/studio/more/routines", label: "nav.routines", description: "nav.routines.description", icon: Repeat },
   { href: "/studio/more/features", label: "nav.features", description: "nav.features.description", icon: ToggleRight },
   { href: "/studio/more/data", label: "nav.data", description: "nav.data.description", icon: Plug },
   { href: "/studio/more/log", label: "nav.log", description: "nav.log.description", icon: History },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { ArrowUp, Mic, Sparkles } from "lucide-react";
 import { isAiConfigured, runAiTask } from "../ai/api-client";
 import { t } from "../i18n";
@@ -15,13 +15,6 @@ import { commandExamples } from "./examples";
 import { proposalFor, type Choice, type Proposal } from "./proposal";
 import { ProposalCard, type Source } from "./proposal-card";
 import { useSpeech } from "./use-speech";
-function subscribeCompact(listener: () => void) {
-  const query = window.matchMedia("(max-width: 639px)");
-  query.addEventListener("change", listener);
-  return () => query.removeEventListener("change", listener);
-}
-const compactSnapshot = () => window.matchMedia("(max-width: 639px)").matches;
-const desktopSnapshot = () => false;
 
 interface View {
   proposal: Proposal;
@@ -37,7 +30,6 @@ interface View {
 export function CommandBox() {
   const { state, today, minutes } = useStudio();
   const role = useRole();
-  const compact = useSyncExternalStore(subscribeCompact, compactSnapshot, desktopSnapshot);
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View | null>(null);
@@ -154,7 +146,7 @@ export function CommandBox() {
             setView(null);
           }}
           onFocus={() => setOpen(true)}
-          placeholder={speech.listening ? t("command.listening") : t(compact ? "command.placeholderShort" : "command.placeholder")}
+          placeholder={speech.listening ? t("command.listening") : t("command.placeholder")}
           aria-label={t("command.label")}
           enterKeyHint="go"
           className="bare-input min-w-0 flex-1 bg-transparent py-3 text-[15px] placeholder:text-eko-muted"

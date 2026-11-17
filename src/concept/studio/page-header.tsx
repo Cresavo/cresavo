@@ -12,7 +12,7 @@ interface PageHeaderProps {
   back?: ReactNode;
 }
 
-/** Page title row followed by the command box. Used by every studio page. */
+/** Page title row followed by the command box (from tablet width; phones use the assistant button instead). Used by every studio page. */
 export function PageHeader({ title, subtitle, actions, back }: PageHeaderProps) {
   const { state } = useStudio();
   return (
@@ -25,7 +25,11 @@ export function PageHeader({ title, subtitle, actions, back }: PageHeaderProps) 
         </div>
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>
-      {state.modules.assistant && <CommandBox />}
+      {state.modules.assistant && (
+        <div className="hidden sm:block">
+          <CommandBox />
+        </div>
+      )}
     </header>
   );
 }

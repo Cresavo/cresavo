@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { Leaf } from "lucide-react";
+import { AssistantHeaderButton, AssistantLauncher } from "./assistant/assistant-launcher";
 import { HelpButton } from "./help/help-button";
 import { canOpen, staffViewer, type Role } from "../ops/access";
 import { useRole } from "../ops/role";
@@ -38,6 +39,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
       <main className="pb-[calc(9rem+env(safe-area-inset-bottom))] lg:pb-12 lg:pl-64">
         <div className="mx-auto w-full max-w-6xl px-4 pt-3 sm:px-6 lg:px-10 lg:pt-5">
           <div className="mb-2 flex items-center justify-end gap-2 lg:mb-1">
+            {state.modules.assistant && <AssistantHeaderButton />}
             <RoleSwitch />
             <HelpButton />
           </div>
@@ -45,6 +47,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
         </div>
       </main>
       <BottomTabs state={state} pathname={pathname} role={role} />
+      {state.modules.assistant && <AssistantLauncher />}
       <Toaster />
     </>
   );

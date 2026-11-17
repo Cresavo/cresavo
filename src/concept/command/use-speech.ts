@@ -93,5 +93,5 @@ export function useSpeech({ continuous = false, onText }: SpeechOptions) {
 
   const toggle = useCallback(() => (recognition.current ? stop() : start()), [start, stop]);
 
-  return { supported, listening, interim, toggle, stop };
+  return { supported, listening, interim, start, toggle, stop };
 }
