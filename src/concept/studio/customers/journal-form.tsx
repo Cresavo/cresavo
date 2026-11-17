@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { JOURNAL_TEMPLATES, type JournalTemplateId } from "../../customers/journal";
 import type { Category, JournalContent } from "../../data/types";
 import { t } from "../../i18n";
+import { packOf } from "../../packs";
+import type { JournalTemplateId } from "../../packs/types";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { Chip, Field, TextArea, TextInput } from "../../ui/controls";
+import { useStudio } from "../use-studio";
 import { JournalPhotoPicker } from "./journal-photos";
 
 export const BLANK_ENTRY: JournalContent = { treatment: "", observations: "", advice: "" };
@@ -30,9 +32,10 @@ interface JournalFormProps {
 
 /** Fields for one journal entry: optional template, text, and before/after photos. */
 export function JournalForm({ initial, templatesFor, onSubmit, onCancel }: JournalFormProps) {
+  const { state } = useStudio();
   const [form, setForm] = useState<JournalContent>(initial);
   const [template, setTemplate] = useState<JournalTemplateId | null>(null);
-  const templates = templatesFor ? JOURNAL_TEMPLATES.filter((tpl) => templatesFor === "both" || tpl.category === templatesFor) : [];
+  const templates = templatesFor ? packOf(state).journalTemplates.filter((tpl) => templatesFor === "both" || tpl.category === templatesFor) : [];
 
   return (
     <Card className="space-y-4 p-4">

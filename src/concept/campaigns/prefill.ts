@@ -1,5 +1,6 @@
 import { addDays, diffDays, fromKey, toKey } from "../data/dates";
-import type { Category, DateKey, DemoState, Holiday } from "../data/types";
+import type { DateKey, DemoState, Holiday } from "../data/types";
+import { packOf } from "../packs";
 import { t, words } from "../i18n";
 import { normalize } from "../intent/match";
 
@@ -46,13 +47,13 @@ function periodIn(text: string, today: DateKey): { from: DateKey; to: DateKey } 
   return { from: today, to: addDays(today, DEFAULT_RUN_DAYS - 1) };
 }
 
-/** Treatments the text asks for: a treatment by name, or everything in "massage" / "foot care". */
+/** Treatments the text asks for: a treatment by name, or everything in a category such as "massage" or "foot care". */
 function servicesIn(text: string, state: DemoState): { ids: string[]; label: string } | null {
   const named = state.services.filter((s) => text.includes(normalize(s.name)));
   if (named.length) return { ids: named.map((s) => s.id), label: named.length === 1 ? named[0].name : t("campaigns.name.several") };
-  const category: Category | null = /\bmassage\b/.test(text) ? "massage" : /\bfoot\b/.test(text) ? "foot" : null;
+  const category = packOf(state).categories.find((id) => text.includes(normalize(t(`category.${id}`))));
   if (!category) return null;
-  return { ids: state.services.filter((s) => s.category === category).map((s) => s.id), label: t(`services.category.${category}`) };
+  return { ids: state.services.filter((s) => s.category === category).map((s) => s.id), label: t(`category.${category}`) };
 }
 
 /**

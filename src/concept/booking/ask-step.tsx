@@ -9,13 +9,16 @@ import { TextInput } from "../ui/controls";
 const EXAMPLES = ["booking.example.1", "booking.example.2", "booking.example.3"] as const;
 
 interface AskStepProps {
+  /** Names of three services the examples are built around. */
+  services: [string, string, string];
   onAsk: (text: string) => void;
   onChoose: () => void;
 }
 
 /** The box at the top of the page: say what you want in your own words, or pick from the list. */
-export function AskStep({ onAsk, onChoose }: AskStepProps) {
+export function AskStep({ services, onAsk, onChoose }: AskStepProps) {
   const [text, setText] = useState("");
+  const examples = EXAMPLES.map((key, i) => ({ key, text: t(key, { service: services[i] }) }));
   return (
     <div className="space-y-5">
       <div>
@@ -33,7 +36,7 @@ export function AskStep({ onAsk, onChoose }: AskStepProps) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           aria-label={t("booking.ask.title")}
-          placeholder={t("booking.ask.placeholder")}
+          placeholder={t("booking.ask.placeholder", { service: services[0] })}
           enterKeyHint="search"
           autoComplete="off"
           className="min-h-12 text-base"
@@ -43,13 +46,13 @@ export function AskStep({ onAsk, onChoose }: AskStepProps) {
         </Button>
       </form>
       <div className="flex flex-wrap gap-2" aria-label={t("booking.ask.examples")}>
-        {EXAMPLES.map((key) => (
+        {examples.map((example) => (
           <button
-            key={key}
-            onClick={() => onAsk(t(key))}
+            key={example.key}
+            onClick={() => onAsk(example.text)}
             className="min-h-10 rounded-full bg-eko-sunken px-3.5 text-left text-sm text-eko-ink transition-colors hover:bg-eko-accent-soft"
           >
-            {t(key)}
+            {example.text}
           </button>
         ))}
       </div>

@@ -1,16 +1,16 @@
-import type { Category, DemoState } from "../data/types";
+import type { DemoState } from "../data/types";
 import { t } from "../i18n";
+import { packOf } from "../packs";
 import { Button } from "../ui/button";
 import { Card, Section } from "../ui/card";
-import { CATEGORY_LABEL, ServiceInfo } from "./service-row";
+import { ServiceInfo } from "./service-row";
 
 /** Price list. "Book" starts the booking flow with the treatment already chosen. */
 export function Treatments({ state, onBook }: { state: DemoState; onBook: (serviceId: string) => void }) {
-  const categories: Category[] = ["foot", "massage"];
   return (
     <div className="space-y-8">
-      {categories.map((category) => (
-        <Section key={category} title={t(CATEGORY_LABEL[category])}>
+      {packOf(state).categories.map((category) => (
+        <Section key={category} title={t(`category.${category}`)}>
           <Card className="divide-y divide-eko-line">
             {state.services
               .filter((s) => s.category === category)

@@ -1,16 +1,6 @@
-import type { Category, DateKey, JournalContent, JournalEntry } from "../data/types";
+import type { DateKey, JournalContent, JournalEntry } from "../data/types";
 
-// Journal helpers: templates per treatment type, demo photos and edit versions.
-
-export type JournalTemplateId = "foot" | "ingrown" | "massage" | "deep";
-
-/** Template texts live in the dictionary as `journal.template.<id>.<field>`. */
-export const JOURNAL_TEMPLATES: { id: JournalTemplateId; category: Category }[] = [
-  { id: "foot", category: "foot" },
-  { id: "ingrown", category: "foot" },
-  { id: "massage", category: "massage" },
-  { id: "deep", category: "massage" },
-];
+// Journal helpers: demo photos and edit versions. Templates come from the industry pack.
 
 /** Demo images a journal photo can use. */
 export const JOURNAL_PHOTOS = ["/demo/massage.webp", "/demo/salon.webp", "/demo/hair.webp"];

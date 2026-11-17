@@ -3,8 +3,10 @@
 import { useSyncExternalStore } from "react";
 import { reduce, type DemoAction } from "./actions";
 import { toKey } from "./data/dates";
-import { createDemoState, DEMO_VERSION } from "./data/generate";
+import { createDemoState, DEMO_VERSION, type BusinessSetup } from "./data/generate";
 import type { DemoState } from "./data/types";
+import { setVocabulary } from "./i18n";
+import { getPack } from "./packs";
 
 // Browser-side demo store: one in-memory state, mirrored to localStorage.
 // Pages read it with `useDemo()`; on the server it is `null`, so the studio
@@ -42,8 +44,14 @@ function save(next: DemoState) {
   }
 }
 
+/** The words of the business's industry pack apply as soon as its state is current. */
+function adopt(next: DemoState) {
+  setVocabulary(getPack(next.pack).vocabulary);
+  return next;
+}
+
 function setState(next: DemoState) {
-  state = next;
+  state = adopt(next);
   save(next);
   listeners.forEach((listener) => listener());
 }
@@ -54,7 +62,7 @@ function subscribe(listener: () => void) {
 }
 
 function getSnapshot(): DemoState | null {
-  if (!state && typeof window !== "undefined") state = load();
+  if (!state && typeof window !== "undefined") state = adopt(load());
   return state;
 }
 
@@ -79,9 +87,10 @@ export function undo() {
   if (previous) setState(previous);
 }
 
-export function resetDemo() {
+/** Rebuilds the demo for a business setup (industry pack, team size, modules). Without one it is the original Salong Eko. */
+export function startBusiness(setup?: BusinessSetup) {
   history = [];
-  setState(createDemoState(today()));
+  setState(createDemoState(today(), setup));
 }
 
 export function useDemo(): DemoState | null {

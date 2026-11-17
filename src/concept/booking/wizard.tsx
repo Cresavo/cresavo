@@ -3,9 +3,10 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { ArrowLeft, BellRing, Check } from "lucide-react";
 import { addDays } from "../data/dates";
-import type { Category, DemoState } from "../data/types";
+import type { DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong } from "../i18n/format";
+import { packOf } from "../packs";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { cx } from "../ui/cx";
@@ -14,7 +15,7 @@ import type { Now } from "../use-now";
 import { AskStep } from "./ask-step";
 import { DetailsStep } from "./details-step";
 import { parseBookingRequest, type BookingRequest } from "./request";
-import { CATEGORY_LABEL, ServiceInfo } from "./service-row";
+import { ServiceInfo } from "./service-row";
 import { SlotCard } from "./slot-card";
 import { suggestSlots, type OpenSlot } from "./suggest";
 import { TimePicker } from "./time-picker";
@@ -63,8 +64,11 @@ export function BookingWizard({ state, now, initialServiceId }: WizardProps) {
   const go = (next: Step) => setTrail((current) => [...current, next]);
   const back = () => setTrail((current) => current.slice(0, -1));
   const service = state.services.find((s) => s.id === serviceId);
+  const pack = packOf(state);
+  const nameOf = (id: string) => state.services.find((s) => s.id === id)?.name ?? id;
+  const askServices: [string, string, string] = [nameOf(pack.requests.returning.serviceId), nameOf(pack.requests.newClient.serviceId), nameOf(pack.featured[2])];
 
-  const ask = (text: string) => {
+  const ask =(text: string) => {
     const parsed = parseBookingRequest(text, state, now.today);
     setRequest(parsed);
     setServiceId(parsed.serviceId);
@@ -88,13 +92,13 @@ export function BookingWizard({ state, now, initialServiceId }: WizardProps) {
   };
 
   const body: Record<Step, ReactNode> = {
-    ask: <AskStep onAsk={ask} onChoose={() => go("service")} />,
+    ask: <AskStep services={askServices} onAsk={ask} onChoose={() => go("service")} />,
     service: (
       <div className="space-y-5">
         <h2 className="text-xl font-semibold tracking-tight">{missed ? t("booking.service.missed") : t("booking.service.title")}</h2>
-        {(["foot", "massage"] as Category[]).map((category) => (
+        {packOf(state).categories.map((category) => (
           <div key={category} className="space-y-2">
-            <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-eko-muted">{t(CATEGORY_LABEL[category])}</p>
+            <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-eko-muted">{t(`category.${category}`)}</p>
             {state.services
               .filter((s) => s.category === category)
               .map((s) => (
@@ -170,7 +174,7 @@ function Suggestions({ state, now, service, request, onPick, onAll, onChangeServ
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" onClick={onAll}>{t("booking.suggest.all")}</Button>
         <Button variant="ghost" onClick={onChangeService}>{t("booking.suggest.change")}</Button>
-        {!exact.length && (
+        {!exact.length && state.modules.waitlist && (
           <Button variant="secondary" icon={<BellRing size={16} />} onClick={() => onWaitlist(request.from)}>
             {t("booking.notifyMeFor", { day: formatDayLong(request.from) })}
           </Button>
