@@ -166,3 +166,25 @@ test("a sheet traps focus, closes with Escape and gives focus back", async ({ pa
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
 });
+
+test("the owner/staff demo switch works both ways from the top bar on a phone, and the choice survives a reload", async ({ page }) => {
+  test.skip(page.viewportSize()!.width >= 1024, "The top bar is the phone and tablet shell; desktop has the switch above the content");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const initial = createDemoState(today);
+  const viewer = initial.staff[1];
+  const tabs = page.getByRole("navigation", { name: "Main navigation" });
+  await page.goto("/studio");
+  await expect(tabs.getByRole("link", { name: "More" })).toBeVisible();
+
+  await page.getByRole("button", { name: `Owner view. Switch to Staff · ${viewer.firstName}` }).click();
+  await expect(tabs.getByRole("link", { name: "More" })).toHaveCount(0);
+  await page.reload();
+  const back = page.getByRole("button", { name: `${viewer.firstName} view. Switch to Owner` });
+  await expect(back).toBeVisible();
+  await expect(tabs.getByRole("link", { name: "More" })).toHaveCount(0);
+
+  await back.click();
+  await expect(tabs.getByRole("link", { name: "More" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: `Owner view. Switch to Staff · ${viewer.firstName}` })).toBeVisible();
+});

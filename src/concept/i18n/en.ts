@@ -1410,6 +1410,7 @@ const messages = {
   "role.label": "View as",
   "role.owner": "Owner",
   "role.staff": "Staff · {name}",
+  "role.switch": "{current} view. Switch to {next}",
   "role.noAccess": "Not in the staff view",
   "role.noAccessText": "This page is for the owner. Staff see their own calendar, the customers they serve and the journal.",
   "role.backToToday": "Back to Today",

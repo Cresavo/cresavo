@@ -46,6 +46,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
         </Link>
         <div className="flex items-center gap-1">
           {state.modules.assistant && <AssistantHeaderButton />}
+          <RoleSwitch compact />
           <HelpButton compact />
         </div>
       </header>
