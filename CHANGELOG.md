@@ -47,6 +47,7 @@ All notable changes to this project are documented here. Format follows
 - 44 px touch targets for switches (the compact track sits inside a larger target), the Ask Flerdo message box buttons and panel header, customer phone and email links, the booking page's business link and the demo banner's language select (Codex #11, #30).
 - A test keeps the runtime colour tokens identical to the brand kit's colors.json (documented extensions listed explicitly), and the browser chrome and manifest colours are read from that file instead of a copy (Codex #12).
 - At 200 % zoom on a phone, Today, Customers, Settings and the booking page no longer scroll sideways: buttons, badges and chips wrap, long addresses break, the Ask Flerdo pill collapses to one icon and the tab bar shows icons only (labels stay as accessible names) (#25).
+- `/landing` declares its language, uses the brand tokens (so it also follows dark mode) with a plum hero, and its animated booked slot keeps full text contrast (#28).
 
 ## [0.3.0] - 2026-11-17
 

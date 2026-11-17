@@ -75,3 +75,10 @@ describe("chart colours", () => {
     }
   });
 });
+
+describe("the landing sketch (#28)", () => {
+  it("takes its colours from the brand tokens, with no hex values of its own", () => {
+    const css = readFileSync(new URL("../src/pages/landing.module.css", import.meta.url), "utf8");
+    expect(css.match(/#[0-9a-f]{3,8}\b/gi) ?? []).toEqual([]);
+  });
+});

@@ -188,7 +188,7 @@ provisional (kerning unreviewed at small sizes).
 ## 13. Verification
 
 - axe: zero violations on all studio pages, the public booking pages and the
-  platform pages (`/`, `/product`, `/live`, `/admin`), light and dark, 390 and 1280 (`tests/concept-e2e/theme.spec.ts`
+  platform pages (`/`, `/product`, `/live`, `/admin`, `/landing`), light and dark, 390 and 1280 (`tests/concept-e2e/theme.spec.ts`
   covers the main set).
 - Contrast on computed styles (studio and tenant scope, both themes): primary
   10.66 light / 9.37 dark, input border 4.13 / 5.02, focus ring 3.49 / 10.89,
