@@ -1,10 +1,23 @@
-import { Footprints, HandHeart } from "lucide-react";
-import type { DemoState, Service } from "../data/types";
+import { Dumbbell, Footprints, Hand, HandHeart, Palette, Scissors, Stethoscope, Users, type LucideIcon } from "lucide-react";
+import type { Category, DemoState, Service } from "../data/types";
 import { t } from "../i18n";
 import { formatDuration, formatMoney } from "../i18n/format";
 
+const CATEGORY_ICON: Record<Category, LucideIcon> = {
+  foot: Footprints,
+  massage: HandHeart,
+  cut: Scissors,
+  colour: Palette,
+  manicure: Hand,
+  pedicure: Footprints,
+  personal: Dumbbell,
+  group: Users,
+  physio: Stethoscope,
+  recovery: HandHeart,
+};
+
 export function ServiceIcon({ category }: { category: Service["category"] }) {
-  const Icon = category === "foot" ? Footprints : HandHeart;
+  const Icon = CATEGORY_ICON[category];
   return (
     <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-eko-accent-soft text-eko-accent">
       <Icon size={20} />
@@ -29,4 +42,3 @@ export function ServiceInfo({ service, staff }: { service: Service; staff: DemoS
   );
 }
 
-export const CATEGORY_LABEL = { foot: "booking.category.foot", massage: "booking.category.massage" } as const;

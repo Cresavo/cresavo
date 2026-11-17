@@ -9,6 +9,7 @@ import { freeGaps } from "../../data/slots";
 import { t, tc } from "../../i18n";
 import { dueBackList } from "../../customers/return-visits";
 import { formatAmount, formatDayMonth, weekdayName } from "../../i18n/format";
+import { cardVisible, type TodayCard } from "../../modules/registry";
 import { buildCustomerStats, lowStock } from "../../selectors";
 import { overdueOrders } from "../../stock/delivery-note";
 import { dispatch, undo } from "../../store";
@@ -24,6 +25,8 @@ const QUIET_DISCOUNT = 10;
 
 interface Suggestion {
   id: string;
+  /** The module card this belongs to; cards without one are always shown. */
+  card?: TodayCard;
   icon: ReactNode;
   title: string;
   text: string;
@@ -40,13 +43,14 @@ export function Suggestions({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) 
     showToast(toast, { label: t("common.undo"), run: undo });
   };
 
-  const lowItems = state.modules.stock ? lowStock(state).slice(0, 2) : [];
+  const lowItems = cardVisible(state.modules, "stock-low") ? lowStock(state).slice(0, 2) : [];
   const forecasts = useForecasts(lowItems);
   const gaps = state.staff.flatMap((s) => freeGaps(state, s.id, today, { after: minutes, min: 30 }));
   const waitlist = state.customers.filter((c) => c.waitlist).length;
   if (gaps.length) {
     list.push({
       id: `gaps-${today}`,
+      card: "gaps",
       icon: <Clock size={20} />,
       title: tc("suggest.gaps.title", gaps.length),
       text: tc("suggest.gaps.text", waitlist),
@@ -72,26 +76,26 @@ export function Suggestions({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) 
     });
   }
 
-  if (state.modules.stock) {
-    lowItems.forEach((item, i) => {
-      const days = forecasts[i].daysRemaining ?? 0;
-      list.push({
-        id: `stock-${item.id}-${today}`,
-        icon: <Package size={20} />,
-        title: t("suggest.stock.title", { name: item.name }),
-        text: tc("suggest.stock.text", item.inStock, { count: formatAmount(item.inStock), days: Math.max(1, days) }),
-        actions: <ButtonLink href="/studio/more/stock?order=1" size="sm">{t("suggest.stock.order")}</ButtonLink>,
-      });
+  lowItems.forEach((item, i) => {
+    const days = forecasts[i].daysRemaining ?? 0;
+    list.push({
+      id: `stock-${item.id}-${today}`,
+      card: "stock-low",
+      icon: <Package size={20} />,
+      title: t("suggest.stock.title", { name: item.name }),
+      text: tc("suggest.stock.text", item.inStock, { count: formatAmount(item.inStock), days: Math.max(1, days) }),
+      actions: <ButtonLink href="/studio/more/stock?order=1" size="sm">{t("suggest.stock.order")}</ButtonLink>,
     });
-    for (const order of overdueOrders(state, today).slice(0, 1)) {
-      list.push({
-        id: `delivery-${order.id}`,
-        icon: <PackageCheck size={20} />,
-        title: t("suggest.stock.delivery.title", { supplier: order.supplier }),
-        text: t("suggest.stock.delivery.text", { date: formatDayMonth(order.date) }),
-        actions: <ButtonLink href={`/studio/more/stock?receive=${order.id}`} size="sm">{t("suggest.stock.delivery.action")}</ButtonLink>,
-      });
-    }
+  });
+  for (const order of overdueOrders(state, today).slice(0, 1)) {
+    list.push({
+      id: `delivery-${order.id}`,
+      card: "stock-delivery",
+      icon: <PackageCheck size={20} />,
+      title: t("suggest.stock.delivery.title", { supplier: order.supplier }),
+      text: t("suggest.stock.delivery.text", { date: formatDayMonth(order.date) }),
+      actions: <ButtonLink href={`/studio/more/stock?receive=${order.id}`} size="sm">{t("suggest.stock.delivery.action")}</ButtonLink>,
+    });
   }
 
   const due = dueBackList(state, buildCustomerStats(state, today), today);
@@ -105,12 +109,13 @@ export function Suggestions({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) 
     });
   }
 
-  const holiday = state.modules.campaigns
+  const holiday = cardVisible(state.modules, "holiday")
     ? state.holidays.find((h) => diffDays(h.date, today) <= h.leadDays + 7)
     : undefined;
   if (holiday) {
     list.push({
       id: `holiday-${holiday.id}`,
+      card: "holiday",
       icon: <CalendarHeart size={20} />,
       title: tc("suggest.holiday.title", diffDays(holiday.date, today), { name: holiday.name }),
       text: holiday.idea,
@@ -118,7 +123,7 @@ export function Suggestions({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) 
     });
   }
 
-  const quiet = state.modules.campaigns ? quietDay(state, today) : null;
+  const quiet = cardVisible(state.modules, "quiet-day") ? quietDay(state, today) : null;
   if (quiet) {
     const prefill = {
       name: t("campaigns.name.discount", { percent: QUIET_DISCOUNT, service: quiet.service.name }),
@@ -129,6 +134,7 @@ export function Suggestions({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) 
     };
     list.push({
       id: `quiet-${quiet.date}`,
+      card: "quiet-day",
       icon: <Megaphone size={20} />,
       title: t("suggest.quiet.title", { day: weekdayName(quiet.date), hours: Math.round(quiet.freeMinutes / 60) }),
       text: t("suggest.quiet.text", { percent: QUIET_DISCOUNT, service: quiet.service.name }),
@@ -136,7 +142,7 @@ export function Suggestions({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) 
     });
   }
 
-  const visible = list.filter((s) => !state.dismissedCards.includes(s.id));
+  const visible = list.filter((s) => (!s.card || cardVisible(state.modules, s.card)) && !state.dismissedCards.includes(s.id));
   if (!visible.length) return <p className="rounded-2xl bg-eko-sunken px-4 py-5 text-center text-sm text-eko-muted">{t("suggest.none")}</p>;
 
   const shown = showAll ? visible : visible.slice(0, VISIBLE_AT_FIRST);

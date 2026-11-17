@@ -6,6 +6,18 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+- Modules with prices: Features shows each module (Journal, Stock, Campaigns,
+  Finance, Reviews, Waiting list, Ask Flerdo) as a card with on/off, a demo
+  price and a running monthly total. Switching a module off removes it from the
+  menu, Today cards, AI task list and command box answers.
+- Industry packs: Foot care and massage, Hair salon, Nails, Personal trainer and
+  Clinic. A pack sets words (customer/client/patient, treatment/service/session),
+  services, stock, journal templates and starting modules; switching pack
+  rebuilds the demo.
+- Onboarding at `/studio/welcome` (three questions), reachable from Settings
+  via "Start over as a new business".
+
 ### Fixed
 - Voice journal: sentences about treating skin or nails are no longer filed
   under observations.

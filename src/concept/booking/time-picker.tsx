@@ -87,9 +87,11 @@ export function TimePicker({ state, serviceId, clock, onPick, onWaitlist, ignore
       ) : (
         <div className="space-y-3 rounded-2xl bg-eko-sunken p-4">
           <p className="text-[15px]">{t("booking.dayFull", { day: formatDayLong(selected.date) })}</p>
-          <Button variant="secondary" icon={<BellRing size={16} />} onClick={() => onWaitlist(selected.date)}>
-            {t("booking.notifyMe")}
-          </Button>
+          {state.modules.waitlist && (
+            <Button variant="secondary" icon={<BellRing size={16} />} onClick={() => onWaitlist(selected.date)}>
+              {t("booking.notifyMe")}
+            </Button>
+          )}
         </div>
       )}
     </div>

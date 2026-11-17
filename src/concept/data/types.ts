@@ -11,7 +11,10 @@ import type { TrashEntry } from "../trash/trash";
 export type DateKey = string;
 
 export type StaffId = "anna" | "erik";
-export type Category = "foot" | "massage";
+/** Industry pack the demo business belongs to. */
+export type PackId = "foot-massage" | "hair" | "nails" | "trainer" | "clinic";
+/** A group of services on the price list; every pack has two. */
+export type Category = "foot" | "massage" | "cut" | "colour" | "manicure" | "pedicure" | "personal" | "group" | "physio" | "recovery";
 
 export interface Salon {
   name: string;
@@ -130,7 +133,7 @@ export interface JournalEntry extends JournalContent {
 export interface StockItem {
   id: string;
   name: string;
-  category: "Foot care" | "Massage" | "Hygiene" | "Retail";
+  category: string;
   unit: string;
   inStock: number;
   reorderAt: number;
@@ -283,10 +286,11 @@ export interface Campaign {
   stats?: CampaignStats;
 }
 
-export type ModuleKey = "journal" | "stock" | "campaigns" | "finance" | "reviews";
+export type ModuleKey = "journal" | "stock" | "campaigns" | "finance" | "reviews" | "waitlist" | "assistant";
 
 export interface DemoState {
   version: number;
+  pack: PackId;
   /** Day the data was generated for. A new day regenerates the data. */
   generatedFor: DateKey;
   seq: number;

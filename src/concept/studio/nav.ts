@@ -18,14 +18,13 @@ import {
 } from "lucide-react";
 import type { MessageKey } from "../i18n";
 import type { ModuleKey } from "../data/types";
+import { menuVisible } from "../modules/registry";
 
 export interface NavItem {
   href: string;
   label: MessageKey;
   description?: MessageKey;
   icon: LucideIcon;
-  /** Hidden when this module is switched off. */
-  module?: ModuleKey;
 }
 
 export const PRIMARY_NAV: NavItem[] = [
@@ -40,10 +39,10 @@ export const MORE_TAB: NavItem = { href: "/studio/more", label: "nav.more", icon
 export const BUSINESS_NAV: NavItem[] = [
   { href: "/studio/more/services", label: "nav.services", description: "nav.services.description", icon: Tag },
   { href: "/studio/more/staff", label: "nav.staff", description: "nav.staff.description", icon: UserRound },
-  { href: "/studio/more/stock", label: "nav.stock", description: "nav.stock.description", icon: Package, module: "stock" },
-  { href: "/studio/more/campaigns", label: "nav.campaigns", description: "nav.campaigns.description", icon: Megaphone, module: "campaigns" },
-  { href: "/studio/more/finance", label: "nav.finance", description: "nav.finance.description", icon: TrendingUp, module: "finance" },
-  { href: "/studio/more/reviews", label: "nav.reviews", description: "nav.reviews.description", icon: Star, module: "reviews" },
+  { href: "/studio/more/stock", label: "nav.stock", description: "nav.stock.description", icon: Package },
+  { href: "/studio/more/campaigns", label: "nav.campaigns", description: "nav.campaigns.description", icon: Megaphone },
+  { href: "/studio/more/finance", label: "nav.finance", description: "nav.finance.description", icon: TrendingUp },
+  { href: "/studio/more/reviews", label: "nav.reviews", description: "nav.reviews.description", icon: Star },
 ];
 
 export const SETTINGS_NAV: NavItem[] = [
@@ -54,7 +53,7 @@ export const SETTINGS_NAV: NavItem[] = [
 ];
 
 export function visibleItems(items: NavItem[], modules: Record<ModuleKey, boolean>) {
-  return items.filter((item) => !item.module || modules[item.module]);
+  return items.filter((item) => menuVisible(modules, item.href));
 }
 
 export function isActivePath(pathname: string, href: string) {

@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { Pencil } from "lucide-react";
-import type { Category, Service } from "@/concept/data/types";
-import { t, type MessageKey } from "@/concept/i18n";
+import type { Service } from "@/concept/data/types";
+import { t } from "@/concept/i18n";
 import { formatDuration, formatMoney } from "@/concept/i18n/format";
+import { packOf } from "@/concept/packs";
 import { dispatch, undo } from "@/concept/store";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { StaffDot } from "@/concept/studio/staff-dot";
@@ -14,11 +15,6 @@ import { Card, Section } from "@/concept/ui/card";
 import { Field, TextInput } from "@/concept/ui/controls";
 import { Sheet } from "@/concept/ui/sheet";
 import { showToast } from "@/concept/ui/toast";
-
-const CATEGORIES: { id: Category; label: MessageKey }[] = [
-  { id: "foot", label: "services.category.foot" },
-  { id: "massage", label: "services.category.massage" },
-];
 
 export default function ServicesPage() {
   const { state } = useStudio();
@@ -35,10 +31,10 @@ export default function ServicesPage() {
   return (
     <MorePage title={t("nav.services")} subtitle={t("services.subtitle", { count: state.services.length })}>
       <div className="space-y-6">
-        {CATEGORIES.map((category) => (
-          <Section key={category.id} title={t(category.label)}>
+        {packOf(state).categories.map((category) => (
+          <Section key={category} title={t(`category.${category}`)}>
             <Card className="divide-y divide-eko-line overflow-hidden">
-              {state.services.filter((s) => s.category === category.id).map((s) => (
+              {state.services.filter((s) => s.category === category).map((s) => (
                 <div key={s.id} className="flex items-center gap-4 px-4 py-3.5">
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">{s.name}</p>

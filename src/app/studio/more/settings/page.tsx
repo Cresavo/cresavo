@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Sparkles } from "lucide-react";
 import { formatTime } from "@/concept/data/dates";
 import { t, words } from "@/concept/i18n";
-import { resetDemo } from "@/concept/store";
+import { setupOf } from "@/concept/onboarding/setup";
+import { startBusiness } from "@/concept/store";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { SupportAccess } from "@/concept/studio/support/support-access";
 import { useStudio } from "@/concept/studio/use-studio";
-import { Button } from "@/concept/ui/button";
+import { Button, ButtonLink } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
 import { Sheet } from "@/concept/ui/sheet";
 import { showToast } from "@/concept/ui/toast";
@@ -56,7 +57,11 @@ export default function SettingsPage() {
           </Card>
         </Section>
         <SupportAccess />
-        <Section title={t("settings.demo")} className="lg:col-span-2">
+        <Section title={t("settings.demo")} className="space-y-3 lg:col-span-2">
+          <Card className="flex flex-wrap items-center gap-4 p-4">
+            <p className="min-w-0 flex-1 text-sm text-eko-muted">{t("settings.startOverText")}</p>
+            <ButtonLink href="/studio/welcome" variant="secondary" icon={<Sparkles size={18} />}>{t("settings.startOver")}</ButtonLink>
+          </Card>
           <Card className="flex flex-wrap items-center gap-4 p-4">
             <p className="min-w-0 flex-1 text-sm text-eko-muted">{t("settings.demoText")}</p>
             <Button variant="danger" icon={<RotateCcw size={18} />} onClick={() => setConfirming(true)}>{t("settings.reset")}</Button>
@@ -74,7 +79,7 @@ export default function SettingsPage() {
               <Button
                 variant="danger"
                 onClick={() => {
-                  resetDemo();
+                  startBusiness(setupOf(state));
                   setConfirming(false);
                   showToast(t("settings.resetDone"));
                 }}

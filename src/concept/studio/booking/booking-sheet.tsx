@@ -67,9 +67,9 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
       type: "booking/cancel",
       id: booking.id,
       reason: t(reason),
-      notice: offer ? waitlistNotice(booking, waitlist, { today, minutes }) : undefined,
+      notice: offer && state.modules.waitlist ? waitlistNotice(booking, waitlist, { today, minutes }) : undefined,
     });
-    showToast(offer ? tc("booking.cancelledOfferedToast", waitlist) : t("booking.cancelledToast"), { label: t("common.undo"), run: undo });
+    showToast(offer && state.modules.waitlist ? tc("booking.cancelledOfferedToast", waitlist) : t("booking.cancelledToast"), { label: t("common.undo"), run: undo });
     onClose();
   };
 
@@ -137,13 +137,15 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
               ))}
             </div>
           </div>
-          <div className="flex items-center gap-4 rounded-2xl bg-eko-accent-soft/60 p-4">
-            <div className="min-w-0 flex-1">
-              <p className="font-medium">{t("cancel.offer")}</p>
-              <p className="text-sm text-eko-muted">{tc("cancel.offerHint", waitlist)}</p>
+          {state.modules.waitlist && (
+            <div className="flex items-center gap-4 rounded-2xl bg-eko-accent-soft/60 p-4">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{t("cancel.offer")}</p>
+                <p className="text-sm text-eko-muted">{tc("cancel.offerHint", waitlist)}</p>
+              </div>
+              <Switch checked={offer} onChange={() => setOffer(!offer)} label={t("cancel.offer")} />
             </div>
-            <Switch checked={offer} onChange={() => setOffer(!offer)} label={t("cancel.offer")} />
-          </div>
+          )}
         </div>
       </Sheet>
     );

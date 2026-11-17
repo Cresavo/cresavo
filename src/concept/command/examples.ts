@@ -11,7 +11,7 @@ export function commandExamples(state: DemoState, today: DateKey): string[] {
   const customer = state.customers.find((c) => c.isRegular && bookingCount.get(c.id) === 1 && names.get(fullName(c)) === 1);
   return [
     ...(customer ? [`Move ${fullName(customer)} to Friday at 10:00`] : []),
-    "What have I earned this month?",
+    ...(state.modules.finance ? ["What have I earned this month?"] : []),
     "Which customers haven't been here since summer?",
   ];
 }

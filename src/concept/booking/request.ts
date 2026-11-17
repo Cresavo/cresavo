@@ -30,8 +30,8 @@ const KEYWORDS = [
   "today", "tomorrow", "morning", "afternoon", "evening", "next", "week", "weekend",
   "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
 ];
+const FOOT_SYNONYM: [RegExp, string] = [/\b(pedicure|foot treatment|feet|toenails?)\b/g, "foot care"];
 const SYNONYMS: [RegExp, string][] = [
-  [/\b(pedicure|foot treatment|feet|toenails?)\b/g, "foot care"],
   [/\b(asap|as soon as possible|earliest|first available|soonest)\b/g, "soonest"],
   [/\b(after work|after office|late)\b/g, "evening"],
   [/\bnxt\b/g, "next"],
@@ -47,9 +47,11 @@ function fixTypos(text: string): string {
   });
 }
 
-function clean(input: string): string {
+/** Foot words only mean "foot care" where the price list has foot care; a nail studio keeps "pedicure". */
+function clean(input: string, source: Source): string {
   const lower = fixTypos(input.toLowerCase().replace(/[’']/g, "'").trim());
-  return SYNONYMS.reduce((text, [pattern, to]) => text.replace(pattern, to), lower);
+  const synonyms = source.services.some((s) => /foot care/i.test(s.name)) ? [FOOT_SYNONYM, ...SYNONYMS] : SYNONYMS;
+  return synonyms.reduce((text, [pattern, to]) => text.replace(pattern, to), lower);
 }
 
 function popularity(source: Source, serviceId: string) {
@@ -106,7 +108,7 @@ function pickTime(text: string): number | undefined {
 }
 
 export function parseBookingRequest(input: string, source: Source, today: DateKey): BookingRequest {
-  const text = clean(input);
+  const text = clean(input, source);
   return {
     ...pickService(text, source),
     staffId: pickStaff(text, source),

@@ -1,5 +1,8 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { CommandBox } from "../command/command-box";
+import { useStudio } from "./use-studio";
 
 interface PageHeaderProps {
   title: string;
@@ -11,6 +14,7 @@ interface PageHeaderProps {
 
 /** Page title row followed by the command box. Used by every studio page. */
 export function PageHeader({ title, subtitle, actions, back }: PageHeaderProps) {
+  const { state } = useStudio();
   return (
     <header className="mb-6 space-y-4">
       {back}
@@ -21,7 +25,7 @@ export function PageHeader({ title, subtitle, actions, back }: PageHeaderProps) 
         </div>
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>
-      <CommandBox />
+      {state.modules.assistant && <CommandBox />}
     </header>
   );
 }
