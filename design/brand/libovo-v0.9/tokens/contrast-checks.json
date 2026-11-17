@@ -1,0 +1,114 @@
+{
+  "light": [
+    {
+      "pair": "text/bg",
+      "ratio": 14.06,
+      "passAA_text": true,
+      "pass_nontext": true
+    },
+    {
+      "pair": "secondary/bg",
+      "ratio": 5.17,
+      "passAA_text": true,
+      "pass_nontext": true
+    },
+    {
+      "pair": "secondary/surface",
+      "ratio": 5.52,
+      "passAA_text": true,
+      "pass_nontext": true
+    },
+    {
+      "pair": "button",
+      "ratio": 10.66,
+      "passAA_text": true,
+      "pass_nontext": true
+    },
+    {
+      "pair": "control border/surface",
+      "ratio": 4.13,
+      "passAA_text": false,
+      "pass_nontext": true
+    },
+    {
+      "pair": "success/bg",
+      "ratio": 5.78,
+      "passAA_text": true,
+      "pass_nontext": true
+    },
+    {
+      "pair": "warning/bg",
+      "ratio": 5.93,
+      "passAA_text": true,
+      "pass_nontext": true
+    },
+    {
+      "pair": "danger/bg",
+      "ratio": 6.56,
+      "passAA_text": true,
+      "pass_nontext": true
+    },
+    {
+      "pair": "info/bg",
+      "ratio": 6.08,
+      "passAA_text": true,
+      "pass_nontext": true
+    }
+  ],
+  "dark": [
+    {
+      "pair": "text/bg",
+      "ratio": 16.78,
+      "passAA_text": true,
+      "pass_nontext": true
+    },
+    {
+      "pair": "secondary/bg",
+      "ratio": 9.03,
+      "passAA_text": true,
+      "pass_nontext": true
+    },
+    {
+      "pair": "secondary/surface",
+      "ratio": 7.93,
+      "passAA_text": true,
+      "pass_nontext": true
+    },
+    {
+      "pair": "button",
+      "ratio": 9.37,
+      "passAA_text": true,
+      "pass_nontext": true
+    },
+    {
+      "pair": "control border/surface",
+      "ratio": 5.02,
+      "passAA_text": true,
+      "pass_nontext": true
+    },
+    {
+      "pair": "success/bg",
+      "ratio": 9.68,
+      "passAA_text": true,
+      "pass_nontext": true
+    },
+    {
+      "pair": "warning/bg",
+      "ratio": 9.48,
+      "passAA_text": true,
+      "pass_nontext": true
+    },
+    {
+      "pair": "danger/bg",
+      "ratio": 7.81,
+      "passAA_text": true,
+      "pass_nontext": true
+    },
+    {
+      "pair": "info/bg",
+      "ratio": 7.62,
+      "passAA_text": true,
+      "pass_nontext": true
+    }
+  ]
+}

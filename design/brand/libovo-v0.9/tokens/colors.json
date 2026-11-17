@@ -1,0 +1,54 @@
+{
+  "brand": {
+    "plum": "#50364B",
+    "apricot": "#F2B184",
+    "plum-hover": "#66445E",
+    "apricot-hover": "#FFC29B"
+  },
+  "light": {
+    "background": "#FAF7F3",
+    "surface": "#FFFFFF",
+    "surface-secondary": "#F4EFEB",
+    "text-primary": "#2C242E",
+    "text-secondary": "#6F666F",
+    "border": "#E7DDD9",
+    "control-border": "#897885",
+    "primary": "#50364B",
+    "primary-hover": "#66445E",
+    "on-primary": "#FFFFFF",
+    "focus": "#AC7395",
+    "success": "#266848",
+    "success-bg": "#E6F2EA",
+    "warning": "#835115",
+    "warning-bg": "#FFF0D7",
+    "danger": "#9A3141",
+    "danger-bg": "#FFF0EF",
+    "info": "#315A99",
+    "info-bg": "#EBF1FF"
+  },
+  "dark": {
+    "background": "#18141E",
+    "surface": "#25202A",
+    "surface-secondary": "#302936",
+    "text-primary": "#FBF5F0",
+    "text-secondary": "#BEB4BD",
+    "border": "#4D414F",
+    "control-border": "#9B8C9C",
+    "primary": "#F2B184",
+    "primary-hover": "#FFC29B",
+    "on-primary": "#211820",
+    "focus": "#F5BD97",
+    "success": "#B4F0C8",
+    "success-bg": "#183A2A",
+    "warning": "#FFD59A",
+    "warning-bg": "#402D19",
+    "danger": "#FFB3BB",
+    "danger-bg": "#46272E",
+    "info": "#B5CDFF",
+    "info-bg": "#253557"
+  },
+  "tenant-example": {
+    "brand": "#2F5D50",
+    "brand-label": "Salong Eko (demo) - not platform brand"
+  }
+}
