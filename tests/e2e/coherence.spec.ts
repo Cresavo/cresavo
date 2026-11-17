@@ -413,7 +413,7 @@ test("tre tydliga huvudval och stängbara sekundärmenyer fungerar på mobil och
       .click();
     await chooseDemoSalon(page);
     await page
-      .getByRole("link", { name: "Om Booking Lab", exact: true })
+      .getByRole("link", { name: "Om Flerdo", exact: true })
       .click();
     await expect(
       page.getByRole("navigation", { name: /Product navigation|Produktnavigation/ }),

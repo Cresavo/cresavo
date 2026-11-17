@@ -25,14 +25,14 @@ export default function Landing({ language = "sv" }: { language?: "sv" | "en" })
   return (
     <>
       <Head>
-        <title>{t("Booking Lab — från assistent till bokad tid", "Booking Lab — from assistant to booked time")}</title>
-        <meta name="description" content={t("Kopplingen mellan kundens AI-assistent och salongens bokningssystem. Följ bygget av Booking Lab.", "Connecting a customer’s AI assistant to a salon’s booking system. Follow the Booking Lab build.")} />
+        <title>{t("Flerdo — från assistent till bokad tid", "Flerdo — from assistant to booked time")}</title>
+        <meta name="description" content={t("Kopplingen mellan kundens AI-assistent och salongens bokningssystem. Följ bygget av Flerdo.", "Connecting a customer’s AI assistant to a salon’s booking system. Follow the Flerdo build.")} />
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <div className={s.page} lang={language}>
         <a className={s.skip} href="#innehall">{t("Till innehållet", "Skip to content")}</a>
         <header className={s.header}>
-          <a className={s.brand} href="#" aria-label={t("Booking Lab, överst på sidan", "Booking Lab, top of page")}><span className={s.brandIcon}><Command size={19} /></span> Booking Lab</a>
+          <a className={s.brand} href="#" aria-label={t("Flerdo, överst på sidan", "Flerdo, top of page")}><span className={s.brandIcon}><Command size={19} /></span> Flerdo</a>
           <nav className={s.languages} aria-label={t("Språk", "Language")}><Link href="/landing" lang="sv" aria-current={!en ? "page" : undefined}>SV</Link><Link href="/en/landing" lang="en" aria-current={en ? "page" : undefined}>EN</Link></nav>
         </header>
         <main id="innehall">
@@ -44,7 +44,7 @@ export default function Landing({ language = "sv" }: { language?: "sv" | "en" })
               <label className={s.motionLabel} htmlFor="pause-motion"><span className={s.pauseText}>{t("Pausa animation", "Pause animation")}</span><span className={s.playText}>{t("Starta animation", "Play animation")}</span></label>
               <div className={s.scene} role="img" aria-label={t("Illustrerat framtida flöde: kundens assistent skickar ett önskemål genom en mandatkontroll till salongens kalender. En syntetisk tid bokas i demo. Kundmandat är inte verifierat idag.", "Illustrated future flow: a customer’s assistant sends a request through an approval gate to the salon calendar. A synthetic slot is booked in demo. Customer approval is not verified today.")}>
                 <div className={s.phone} aria-hidden="true"><span className={s.phoneNotch} /><span className={s.phoneLabel}>{t("KUNDENS ASSISTENT", "CUSTOMER’S ASSISTANT")}</span><div className={s.message}>{t("En klipptid på tisdag?", "A haircut on Tuesday?")}</div><div className={s.assistants}>{assistants.map(assistant => <div key={assistant.file} className={s.assistantRow}><span className={s.avatar}><Image unoptimized src={`/landing/logos/${assistant.file}.svg`} width={38} height={38} alt="" /></span><span>{assistant.name}</span></div>)}</div></div>
-                <div className={s.bridge} aria-hidden="true"><svg viewBox="0 0 300 120" preserveAspectRatio="none"><path d="M0 90 C75 90 65 30 150 30 S225 90 300 90" /></svg><span className={s.request}><ArrowRight size={20} /></span><div className={s.gate}><Check size={24}/><strong>{t("Kundens godkännande", "Customer approval")}</strong><small>{t("Senare · illustrerad kontroll", "Later · illustrated check")}</small></div><span className={s.bridgeLabel}>Booking Lab</span></div>
+                <div className={s.bridge} aria-hidden="true"><svg viewBox="0 0 300 120" preserveAspectRatio="none"><path d="M0 90 C75 90 65 30 150 30 S225 90 300 90" /></svg><span className={s.request}><ArrowRight size={20} /></span><div className={s.gate}><Check size={24}/><strong>{t("Kundens godkännande", "Customer approval")}</strong><small>{t("Senare · illustrerad kontroll", "Later · illustrated check")}</small></div><span className={s.bridgeLabel}>Flerdo</span></div>
                 <div className={s.calendar} aria-hidden="true"><div className={s.calendarHeading}><CalendarDays size={21}/>{t("En dag i salongen", "A day at the salon")}</div><div className={s.calendarColumns}>{t("TISDAG / DEMO", "TUESDAY / DEMO")}</div>{["09:00", "10:00", "11:30", "14:30"].map((time, i) => <div className={s.calendarRow} key={time}><time>{time}</time><div className={i === 3 ? s.bookedSlot : s.slot}>{i === 3 ? <><Check size={15}/>{t("Bokad i demo", "Booked in demo")}</> : t("Ledig tid", "Available")}</div></div>)}<div className={s.ticket}><Ticket size={17}/> DEMO-04 · {t("bokad i demo", "booked in demo")}</div></div>
               </div>
               <p className={s.disclaimer}>{t("Illustration. Inga integrationer med dessa assistenter idag.", "Illustration. No integrations with these assistants today.")}</p>
@@ -56,7 +56,7 @@ export default function Landing({ language = "sv" }: { language?: "sv" | "en" })
             <p className={s.eyebrow}>{t("EN ENKEL VÄG FRAM OCH TILLBAKA", "A SIMPLE WAY THERE AND BACK")}</p>
             <h2 id="flow-title">{t("Från samtal till salong.", "From conversation to salon.")}</h2>
             <ol className={s.flow}>
-              {[{ label: t("Kund", "Customer"), Icon: CircleUserRound }, { label: t("Assistent", "Assistant"), Icon: Sparkles }, { label: "Booking Lab", Icon: Command }, { label: t("Salongens system", "Salon system"), Icon: CalendarDays }].map(({ label, Icon }, i) => (
+              {[{ label: t("Kund", "Customer"), Icon: CircleUserRound }, { label: t("Assistent", "Assistant"), Icon: Sparkles }, { label: "Flerdo", Icon: Command }, { label: t("Salongens system", "Salon system"), Icon: CalendarDays }].map(({ label, Icon }, i) => (
                 <li key={label}><span className={i === 2 ? s.flowIconAccent : s.flowIcon}><Icon size={25} strokeWidth={1.5} /></span><span>{label}</span>{i < 3 && <ArrowRight className={s.flowArrow} size={18} aria-hidden="true" />}</li>
               ))}
             </ol>

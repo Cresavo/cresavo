@@ -7,7 +7,7 @@ import { text } from "@/lib/locale";
 export async function generateMetadata() {
   const locale = await getLocale();
   return {
-    title: text(locale, "Salong Eko — Booking Lab demo", "Salong Eko – boka tid"),
+    title: text(locale, "Salong Eko — Flerdo demo", "Salong Eko – boka tid"),
     description: text(locale, "Book a treatment at our fictional demo business.", "Boka en behandling hos vår demosalong."),
   };
 }

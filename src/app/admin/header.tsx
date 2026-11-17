@@ -34,7 +34,7 @@ export default async function AdminHeader({
         <a href="/admin/overview">
           <Leaf className="workspace-mark" size={24} aria-hidden="true" />
           <span className="workspace-wordmark">
-            Salong Eko<small>Booking Lab</small>
+            Salong Eko<small>Flerdo</small>
           </span>
         </a>
         <p>
@@ -124,7 +124,7 @@ export default async function AdminHeader({
         <Link prefetch={false} href="/">
           {t("Customer booking", "Visa kundbokningen")}
         </Link>
-        <a href="/product">{t("About Booking Lab", "Om Booking Lab")}</a>
+        <a href="/product">{t("About Flerdo", "Om Flerdo")}</a>
         <AdminActions mode="logout" />
       </HeaderMenu>
     </header>

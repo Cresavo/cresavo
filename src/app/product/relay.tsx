@@ -50,7 +50,7 @@ export default async function Relay() {
       <section className={styles.hero}>
         <header className={styles.nav}>
           <Link className={styles.brand} href="/product">
-            <Leaf aria-hidden="true" /> Booking Lab
+            <Leaf aria-hidden="true" /> Flerdo
           </Link>
           {!isPublicReadonly() && <nav aria-label={t("Product navigation", "Produktnavigation")}>
             <Link href="/admin/overview">
@@ -133,7 +133,7 @@ export default async function Relay() {
           </p>
         </details>
         <small>
-          Booking Lab · AGPL-3.0-only · {t("Private demo", "Privat demo")}
+          Flerdo · AGPL-3.0-only · {t("Private demo", "Privat demo")}
         </small>
       </footer>
     </main>

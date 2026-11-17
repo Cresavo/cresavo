@@ -7,8 +7,8 @@ import { LiveBoard } from "./board";
 import "./live-global.css";
 
 export const metadata: Metadata = {
-  title: "Booking Lab — live agent sandbox",
-  description: "Agents booking against the Booking Lab engine in real time. Synthetic data only.",
+  title: "Flerdo — live agent sandbox",
+  description: "Agents booking against the Flerdo engine in real time. Synthetic data only.",
 };
 
 export default async function LivePage() {

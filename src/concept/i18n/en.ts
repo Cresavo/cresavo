@@ -56,7 +56,7 @@ const messages = {
   "nav.settings.description": "Salon details and demo reset",
 
   "command.label": "Command box",
-  "command.placeholder": "What would you like to do?",
+  "command.placeholder": "Ask Flerdo… what would you like to do?",
   "command.voice": "Speak a command",
   "command.send": "Send command",
   "command.listening": "Listening…",
