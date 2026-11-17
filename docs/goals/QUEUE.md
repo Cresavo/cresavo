@@ -38,6 +38,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 14 | Everyday operations: hours, schedules, rooms, roles | Claude (Sonnet) | done · 2026-11-17 |
 | 15 | Gift cards, packages, daily summary, calendar feeds, one brand constant | Claude (Sonnet) | done · 2026-11-17 |
 | 16 | The Flerdo assistant: conversation, memory, routines, proactive briefs | Claude (Opus) | done · 2026-11-17 |
+| 17 | Your booking page: own address and own design | Claude (Sonnet) | in progress · 2026-11-17 |
 
 ---
 
@@ -351,6 +352,42 @@ been here since summer" → proposal → approve; say "remember Lena prefers
 Erik" → appears in What Flerdo remembers and is used next time Lena is
 booked; the morning brief appears on Today; a suggested routine can be
 switched on. All without an API key (rules), and with mocked AI in tests.
+
+## 17 · Your booking page: own address and own design
+
+**Goal:** every business gets its own booking address and can make the booking
+page look like theirs, without breaking the booking flow.
+
+Address:
+- Level 1 (exists): `/boka/<slug>`.
+- Level 2: subdomain `<slug>.<product domain>`; the business picks the slug in
+  Settings (validated, unique, reserved words blocked).
+- Level 3: own domain (e.g. `boka.salongeko.se`): Settings shows the exact DNS
+  record (CNAME) to add and a status (waiting for DNS / verifying / secure).
+  Simulated in the demo; a server module wraps the Vercel Domains API behind a
+  flag and env vars, off by default, with mocked tests.
+- Host → business resolution in one place (Next.js proxy/middleware or route
+  helper), tested; unknown hosts get a friendly page.
+
+Design:
+- Theme: logo, colours (with automatic contrast check), font pair from a short
+  list, photos, corner style; live preview.
+- Sections: hero, treatments, staff, reviews, gallery, map, FAQ, Instagram
+  link, gift cards; add, remove, reorder; a few style options each.
+- Say it: "make it calmer and more luxurious", "put reviews first", "use the
+  colours from our logo" → the assistant proposes a page-config change with a
+  before/after preview; approve to apply. AI edits the page config only.
+- Advanced: scoped custom CSS for the booking page (sanitised, no JavaScript,
+  no external URLs except images), and the existing embed widget/API for
+  businesses that keep their own website.
+- The booking flow itself (times, details, confirmation) keeps fixed structure
+  and accessibility; themes only change look and the surrounding sections.
+
+**Done when:** pick a subdomain and see it resolve in a test; start the
+own-domain flow and see the DNS instruction and status; change theme and
+sections with live preview and see `/boka/<slug>` change; ask the assistant
+for a calmer look and approve it; custom CSS cannot inject scripts (tested);
+axe shows no violations with the default and one custom theme.
 
 ---
 
