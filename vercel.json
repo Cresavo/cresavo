@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "regions": ["arn1"],
-  "buildCommand": "DATABASE_URL=postgresql://build@127.0.0.1:1/build_test npx prisma generate && next build",
+  "buildCommand": "export DATABASE_URL=postgresql://build@127.0.0.1:1/build_test && npx prisma generate && next build",
   "redirects": [{ "source": "/", "destination": "/landing", "permanent": false }]
 }
