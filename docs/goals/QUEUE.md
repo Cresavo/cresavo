@@ -35,6 +35,8 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 11 | From demo to real engine | Opus | open |
 | 12 | Pilot readiness: quality and security | Opus (Fable for review) | open |
 | 13 | Open-source launch: clean public repos | Opus | in progress · in-repo rename and front door done; publishing waits for Niclas |
+| 14 | Everyday operations: hours, schedules, rooms, roles | Claude (Sonnet) | in progress · 2026-11-17 |
+| 15 | Gift cards, packages, daily summary, calendar feeds, one brand constant | Claude (Sonnet) | in progress · goal/15-extras · 2026-11-17 |
 
 ---
 
@@ -263,6 +265,47 @@ archive. Niclas decides the name and flips visibility; agents never do.
 **Done when:** a checklist in `docs/OPEN_SOURCE_LAUNCH.md` is fully ticked,
 the cleaned tree builds and tests green from a fresh clone, and Niclas has
 approved making it public.
+
+## 14 · Everyday operations: hours, schedules, rooms, roles
+
+**Goal:** the owner can run the real week: when the salon is open, who works
+when, which room or chair is used, and what each person may see.
+
+- Opening hours per weekday, lunch/breaks, closed days and holidays (with the
+  Swedish holiday calendar as a suggestion), editable in Settings.
+- Staff schedules: a weekly template per person plus exceptions (vacation,
+  sick day, extra shift); free times everywhere respect them.
+- Resources: rooms/chairs/equipment per service; bookings cannot double-book a
+  resource; calendar can filter by resource.
+- Roles in the demo: switch between Owner and Staff view. Staff see their own
+  calendar, customers they serve and journal; no finance, settings or modules.
+- Command box: "Anna is off on Friday", "close the salon on 24 December",
+  "Erik works Saturday 10–14" create proposals.
+
+**Done when:** mark Anna off Friday → her free times disappear on the customer
+page and her bookings that day show a "needs moving" card; Staff view hides
+finance.
+
+## 15 · Gift cards, packages, daily summary, calendar feeds, one brand constant
+
+**Goal:** common revenue tools and daily rhythm without building a till.
+
+- Gift cards: sell (amount, recipient, message, code), print/share a nice card,
+  redeem against a booking, balance check on the customer page.
+- Packages/punch cards: e.g. "5 massages for the price of 4", sold to a
+  customer, visits deducted automatically when a booking is marked done.
+- Daily summary at closing: the `daily-summary` task turns the day into a short
+  note (revenue, visits, no-shows, journals missing, tomorrow's first
+  customer); Today shows it after the last booking.
+- Calendar feeds: per staff ICS subscription URL (read-only, secret token in
+  the URL, no customer contact details) to add the work calendar to Google or
+  Apple Calendar.
+- Brand: the product name lives in one constant (`src/concept/brand.ts` plus the
+  i18n dictionary) and every user-facing mention uses it, so a rename is one edit.
+
+**Done when:** sell a gift card and redeem it on a booking; sell a punch card
+and see a visit deducted; the evening summary appears; the ICS URL returns a
+valid calendar; changing the brand constant changes the name everywhere.
 
 ---
 
