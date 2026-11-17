@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-17
+
 ### Changed
 - The product is now called Flerdo.
 
@@ -34,19 +36,6 @@ All notable changes to this project are documented here. Format follows
   rebuilds the demo.
 - Onboarding at `/studio/welcome` (three questions), reachable from Settings
   via "Start over as a new business".
-
-### Fixed
-- Opening an Inbox item on desktop no longer opens a hidden mobile dialog that
-  blocks clicking the message actions.
-- Booking suggestions label the end time as “until”, making each time card
-  unambiguous (#8).
-- Campaign dates and posters show the year. Generic holiday requests and command
-  suggestions use the next upcoming occasion; explicitly named holidays remain
-  available (#11).
-- Voice journal: sentences about treating skin or nails are no longer filed
-  under observations.
-
-### Added
 - What happened? (More): every change with who made it (you, the assistant, a
   customer), what changed before and after, and where it came from (button,
   command box, voice, booking page). Filter the list and undo a change with one
@@ -136,6 +125,17 @@ All notable changes to this project are documented here. Format follows
 - Owner studio (`/studio`) demo: Today, Calendar, Customers, Inbox and More,
   with realistic fictional data (in progress).
 - Goal queue, agent guide, quality and security baseline, and release process.
+
+### Fixed
+- Opening an Inbox item on desktop no longer opens a hidden mobile dialog that
+  blocks clicking the message actions.
+- Booking suggestions label the end time as “until”, making each time card
+  unambiguous (#8).
+- Campaign dates and posters show the year. Generic holiday requests and command
+  suggestions use the next upcoming occasion; explicitly named holidays remain
+  available (#11).
+- Voice journal: sentences about treating skin or nails are no longer filed
+  under observations.
 
 ## [0.1.0] - 2026-11-16
 
