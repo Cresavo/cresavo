@@ -20,16 +20,16 @@ export async function fetchAiOverview(): Promise<AiOverview> {
   return response.json();
 }
 
-let configured: Promise<boolean> | null = null;
-
-/** Whether the server has an AI provider key. Asked once per page load. */
+/** Recheck after settings changes, including edits in another tab. */
 export function isAiConfigured(): Promise<boolean> {
-  configured ??= fetchAiOverview().then(
-    (overview) => overview.configured,
-    () => {
-      configured = null;
-      return false;
-    },
-  );
-  return configured;
+  return fetchAiOverview().then(overview => overview.configured, () => false);
+}
+export async function saveAiSettings(settings: { provider: string; key: string } | { task: TaskName; tier: "fast" | "smart" } | null): Promise<AiOverview> {
+  const response = await fetch("/api/concept/ai", {
+    method: settings ? "PUT" : "DELETE", headers: { "content-type": "application/json" },
+    ...(settings ? { body: JSON.stringify(settings) } : {}),
+  });
+  if (!response.ok) throw new Error("AI settings failed");
+  window.dispatchEvent(new Event("concept-ai-settings"));
+  return response.json();
 }

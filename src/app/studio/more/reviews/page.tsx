@@ -9,6 +9,7 @@ import { formatDate, formatNumber } from "@/concept/i18n/format";
 import { averageRating, findCustomer, fullName } from "@/concept/selectors";
 import { dispatch, undo } from "@/concept/store";
 import { MorePage } from "@/concept/studio/more/more-page";
+import { ApproveReview } from "@/concept/studio/reviews/approve-review";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Avatar } from "@/concept/ui/avatar";
 import { Badge } from "@/concept/ui/badge";
@@ -77,6 +78,7 @@ export default function ReviewsPage() {
                   <span className="shrink-0 text-eko-warn" aria-label={t("inbox.stars", { count: r.rating })}>{"★".repeat(r.rating)}<span className="text-eko-line">{"★".repeat(5 - r.rating)}</span></span>
                 </div>
                 <p className="text-[15px] leading-relaxed">{r.text}</p>
+                <ApproveReview review={r} />
                 {r.reply ? (
                   <p className="rounded-xl bg-eko-sunken px-3.5 py-2.5 text-sm text-eko-muted">
                     <span className="font-medium text-eko-ink">{t("reviews.yourReply")} </span>

@@ -15,6 +15,7 @@ import { TextArea } from "../../ui/controls";
 import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { InboxAvatar, KIND_LABEL, KindIcon, senderName } from "./inbox-meta";
+import { ApproveReview } from "../reviews/approve-review";
 import { liveSlot } from "./live-slot";
 
 /** One message with a drafted reply (and time) that can be sent with one tap. */
@@ -53,6 +54,8 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
         {review && <p className="mb-1 text-eko-warn" aria-label={t("inbox.stars", { count: review.rating })}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</p>}
         {item.body}
       </div>
+      {item.delivery && <Badge tone="accent">{t("common.simulated")} · {t(`messages.channel.${item.delivery.channel}`)}</Badge>}
+      {review && <ApproveReview review={review} />}
       {item.recallServiceId && (
         <ButtonLink href={bookingLink(state, item.recallServiceId)} variant="secondary" size="sm">{t("inbox.openBookingLink")}</ButtonLink>
       )}

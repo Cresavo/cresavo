@@ -58,3 +58,6 @@ next-env.d.ts
 
 # Agent worktrees (Claude Code isolation)
 .claude/worktrees/
+
+# Encrypted concept credentials and usage
+.data/

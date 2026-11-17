@@ -19,6 +19,13 @@ All notable changes to this project are documented here. Format follows
   via "Start over as a new business".
 
 ### Fixed
+- Opening an Inbox item on desktop no longer opens a hidden mobile dialog that
+  blocks clicking the message actions.
+- Booking suggestions label the end time as “until”, making each time card
+  unambiguous (#8).
+- Campaign dates and posters show the year. Generic holiday requests and command
+  suggestions use the next upcoming occasion; explicitly named holidays remain
+  available (#11).
 - Voice journal: sentences about treating skin or nails are no longer filed
   under observations.
 
@@ -59,6 +66,18 @@ All notable changes to this project are documented here. Format follows
   and SIE and CSV exports.
 - The command box answers "compare March with last year", "which treatment earns
   the most per hour?" and "how busy is Erik next week?" with a number and a chart.
+- SMS and email previews for booking confirmations and reminders, with simulated
+  confirmation sends, retry-safe reminder sends and a Sent log in Inbox.
+- Customers can leave a 1–5 star review after a completed visit. Owners approve
+  it in Inbox or Reviews before its text or rating appears on the salon page.
+- A responsive Flerdo booking widget, plus copyable embed code and a clean
+  Instagram bio link in More → Settings.
+- More customer booking phrases, including sports massage, back rub, footcare,
+  next available, day after tomorrow, weekday abbreviations and around HH:mm.
+- Flerdo can securely save a business's own OpenRouter, OpenAI or Anthropic key
+  on the demo server, choose Fast/Smart per task, and show saved usage by task
+  and month. The command box uses validated provider tool proposals with rules
+  as fallback; all features still work without keys.
 - Campaign studio: pick an offer or holiday, get a text for Instagram, Facebook,
   TikTok, newsletter and SMS, choose a poster (5 styles; Instagram post, story or
   A4 window poster as PNG), preview it per channel, then publish everywhere or
@@ -86,7 +105,7 @@ All notable changes to this project are documented here. Format follows
 - Voice journal: dictate a visit, get treatment, observations, advice and next
   visit as editable fields, and book the next visit in one tap.
 - Your data & AI shows which AI task runs on which model (or built-in rules),
-  a cost log, and a demo form for your own AI key (not stored).
+  a cost log and a form for your own AI key.
 - Customer booking page (`/boka/salong-eko`): describe what you want in your own
   words or pick a treatment, choose a time, confirm with name and phone. Includes
   add to calendar, reschedule, cancel (free until 24 hours before), "My bookings"

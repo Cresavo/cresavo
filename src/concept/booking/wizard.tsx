@@ -50,10 +50,11 @@ interface WizardProps {
   now: Now;
   /** Start with this treatment already chosen (from "Book" buttons and rebooking). */
   initialServiceId?: string;
+  onBooked?: (id: string) => void;
 }
 
 /** The booking flow: describe it, or pick treatment, then time, then name and phone. */
-export function BookingWizard({ state, now, initialServiceId }: WizardProps) {
+export function BookingWizard({ state, now, initialServiceId, onBooked }: WizardProps) {
   const [trail, setTrail] = useState<Step[]>(initialServiceId ? ["ask", "times"] : ["ask"]);
   const [serviceId, setServiceId] = useState(initialServiceId);
   const [request, setRequest] = useState<BookingRequest>();
@@ -117,7 +118,7 @@ export function BookingWizard({ state, now, initialServiceId }: WizardProps) {
         <TimePicker state={state} serviceId={service.id} clock={now} onPick={pick} onWaitlist={(date) => setWaitlist({ serviceId: service.id, date })} />
       </div>
     ),
-    details: service && slot && <DetailsStep state={state} now={now} serviceId={service.id} slot={slot} onTaken={taken} />,
+    details: service && slot && <DetailsStep state={state} now={now} serviceId={service.id} slot={slot} onTaken={taken} onBooked={onBooked} />,
   };
 
   return (

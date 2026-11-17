@@ -24,7 +24,7 @@ export function SlotCard({ slot, service, staff, today, onPick }: SlotCardProps)
     >
       <span className="flex w-20 shrink-0 flex-col items-center rounded-xl bg-eko-accent-soft py-2 text-eko-accent">
         <span className="text-xl font-semibold leading-tight">{formatTime(slot.start)}</span>
-        <span className="text-xs">{formatTime(slot.start + service.duration)}</span>
+        <span className="text-xs">{t("booking.until", { time: formatTime(slot.start + service.duration) })}</span>
       </span>
       <span className="min-w-0 flex-1">
         <span className="block font-semibold">{day === formatDayShort(slot.date) ? day : `${day} · ${formatDayShort(slot.date)}`}</span>

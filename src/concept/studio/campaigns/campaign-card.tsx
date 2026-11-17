@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CalendarClock } from "lucide-react";
 import type { Campaign, CampaignStatus } from "../../data/types";
 import { t } from "../../i18n";
-import { formatDayLong } from "../../i18n/format";
+import { formatDate } from "../../i18n/format";
 import { findService } from "../../selectors";
 import { Badge } from "../../ui/badge";
 import { Card } from "../../ui/card";
@@ -20,7 +20,7 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
           <div className="min-w-0">
             <p className="font-medium">{campaign.name}</p>
             <p className="text-sm text-eko-muted">
-              {formatDayLong(campaign.from)} – {formatDayLong(campaign.to)}
+              {formatDate(campaign.from)} – {formatDate(campaign.to)}
             </p>
           </div>
           <Badge tone={STATUS_TONE[campaign.status]}>{t(`campaigns.status.${campaign.status}`)}</Badge>
@@ -38,7 +38,7 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
           campaign.publishOn && (
             <p className="flex items-center gap-1.5 border-t border-eko-line pt-3 text-sm text-eko-muted">
               <CalendarClock size={15} />
-              {t("campaigns.scheduledFor", { day: formatDayLong(campaign.publishOn) })}
+              {t("campaigns.scheduledFor", { day: formatDate(campaign.publishOn) })}
             </p>
           )
         )}

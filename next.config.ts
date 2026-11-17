@@ -34,6 +34,11 @@ const config: NextConfig = {
         ],
       },
       {
+        source: "/boka/salong-eko/widget",
+        // Only the dedicated public widget may be embedded. The rest keeps its policy.
+        headers: [{ key: "Content-Security-Policy", value: csp.replace("frame-ancestors 'none'", "frame-ancestors *") }],
+      },
+      {
         source: "/admin/:path*",
         headers: [{ key: "Cache-Control", value: "no-store" }],
       },

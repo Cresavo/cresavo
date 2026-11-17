@@ -6,6 +6,7 @@ import { formatTime } from "@/concept/data/dates";
 import { t, words } from "@/concept/i18n";
 import { setupOf } from "@/concept/onboarding/setup";
 import { startBusiness } from "@/concept/store";
+import { BookingShare } from "@/concept/studio/more/booking-share";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { SupportAccess } from "@/concept/studio/support/support-access";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -56,6 +57,7 @@ export default function SettingsPage() {
             })}
           </Card>
         </Section>
+        <Section title={t("share.title")} className="lg:col-span-2"><BookingShare /></Section>
         <SupportAccess />
         <Section title={t("settings.demo")} className="space-y-3 lg:col-span-2">
           <Card className="flex flex-wrap items-center gap-4 p-4">

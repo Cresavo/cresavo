@@ -23,10 +23,11 @@ interface DetailsStepProps {
   slot: OpenSlot;
   /** The time was taken while the customer typed: go back and choose again. */
   onTaken: () => void;
+  onBooked?: (id: string) => void;
 }
 
 /** Last step: confirm the chosen time with name and phone number. */
-export function DetailsStep({ state, now, serviceId, slot, onTaken }: DetailsStepProps) {
+export function DetailsStep({ state, now, serviceId, slot, onTaken, onBooked }: DetailsStepProps) {
   const router = useRouter();
   const service = state.services.find((s) => s.id === serviceId)!;
   const person = state.staff.find((s) => s.id === slot.staffId)!;
@@ -54,7 +55,8 @@ export function DetailsStep({ state, now, serviceId, slot, onTaken }: DetailsSte
     const latest = currentState()?.bookings.at(-1);
     if (!booked || !latest) return onTaken();
     rememberGuest({ name, phone, customerId: latest.customerId });
-    router.push(bookingPage(latest.id));
+    if (onBooked) onBooked(latest.id);
+    else router.push(bookingPage(latest.id));
   };
 
   return (

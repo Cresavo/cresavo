@@ -121,7 +121,8 @@ describe("online booking actions", () => {
     const customer = next.customers.find((c) => c.id === booking.customerId)!;
     expect(customer).toMatchObject({ firstName: "Lisa", lastName: "Berg" });
     expect(booking).toMatchObject({ source: "online", status: "booked", date, start });
-    expect(next.inbox[0]).toMatchObject({ title: "New online booking", customerId: customer.id, bookingId: booking.id, read: false });
+    expect(next.inbox.filter(item => item.bookingId === booking.id && item.delivery).map(item => item.delivery?.channel).sort()).toEqual(["email", "sms"]);
+    expect(next.inbox.find(item => item.kind === "request" && item.bookingId === booking.id)).toMatchObject({ title: "New online booking", customerId: customer.id, bookingId: booking.id, read: false });
   });
 
   it("reuses a known customer by phone and refuses a taken slot", () => {

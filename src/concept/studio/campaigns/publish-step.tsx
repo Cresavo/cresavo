@@ -4,7 +4,7 @@ import { CHANNELS } from "../../campaigns/channels";
 import { draftLink, resolvePoster, type Draft } from "../../campaigns/draft";
 import type { Channel, DateKey, DemoState } from "../../data/types";
 import { t, tc } from "../../i18n";
-import { formatDayLong } from "../../i18n/format";
+import { formatDate } from "../../i18n/format";
 import { Button } from "../../ui/button";
 import { Chip, Field, TextInput } from "../../ui/controls";
 import { ChannelPreview } from "./channel-preview";
@@ -70,11 +70,11 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
           </Button>
           {scheduling ? (
             <div className="space-y-3 rounded-2xl bg-eko-sunken p-3.5">
-              <Field label={t("campaigns.publish.day")} hint={formatDayLong(day)}>
+              <Field label={t("campaigns.publish.day")} hint={formatDate(day)}>
                 <TextInput type="date" value={day} min={today} onChange={(event) => event.target.value && setDay(event.target.value)} />
               </Field>
               <Button className="w-full" icon={<CalendarClock size={18} />} disabled={!draft.channels.length} onClick={() => onPublish(day)}>
-                {day > today ? t("campaigns.publish.scheduleOn", { day: formatDayLong(day) }) : t("campaigns.publish.everywhere")}
+                {day > today ? t("campaigns.publish.scheduleOn", { day: formatDate(day) }) : t("campaigns.publish.everywhere")}
               </Button>
             </div>
           ) : (

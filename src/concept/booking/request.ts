@@ -30,8 +30,19 @@ const KEYWORDS = [
   "today", "tomorrow", "morning", "afternoon", "evening", "next", "week", "weekend",
   "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
 ];
-const FOOT_SYNONYM: [RegExp, string] = [/\b(pedicure|foot treatment|feet|toenails?)\b/g, "foot care"];
+const FOOT_SYNONYM: [RegExp, string] = [/\b(pedicure|pedi|footcare|foot treatment|tired feet|feet|toenails?)\b/g, "foot care"];
 const SYNONYMS: [RegExp, string][] = [
+  [/\b(half[ -]an?[ -]hour massage|half[ -]hour massage|30[ -]minute massage)\b/g, "classic massage 30 min"],
+  [/\b(hour[ -]long massage|60[ -]minute massage)\b/g, "classic massage 60 min"],
+  [/\b(sports massage|firm massage)\b/g, "deep tissue massage"],
+  [/\b(back rub|back massage|neck and shoulder massage)\b/g, "classic massage"],
+  [/\b(before lunch|before noon|early in the day)\b/g, "morning"],
+  [/\b(after lunch|after midday)\b/g, "afternoon"],
+  [/\b(after i finish work|when i finish work|on my way home)\b/g, "evening"],
+  [/\b(next available|first opening|any time available)\b/g, "soonest"],
+  [/\bmon\b/g, "monday"], [/\btues?\b/g, "tuesday"], [/\bwed\b/g, "wednesday"],
+  [/\bthu(?:rs)?\b/g, "thursday"], [/\bfri\b/g, "friday"], [/\bsat\b/g, "saturday"], [/\bsun\b/g, "sunday"],
+  [/\b(around|about)\s+(\d{1,2}(?::\d{2})?(?:\s*[ap]m)?)\b/g, "at $2"],
   [/\b(asap|as soon as possible|earliest|first available|soonest)\b/g, "soonest"],
   [/\b(after work|after office|late)\b/g, "evening"],
   [/\bnxt\b/g, "next"],
@@ -48,10 +59,11 @@ function fixTypos(text: string): string {
 }
 
 /** Foot words only mean "foot care" where the price list has foot care; a nail studio keeps "pedicure". */
-function clean(input: string, source: Source): string {
+function clean(input: string, source: Source, today: DateKey): string {
   const lower = fixTypos(input.toLowerCase().replace(/[’']/g, "'").trim());
+  const dated = lower.replace(/\b(day after tomorrow|in two days|in 2 days)\b/g, addDays(today, 2));
   const synonyms = source.services.some((s) => /foot care/i.test(s.name)) ? [FOOT_SYNONYM, ...SYNONYMS] : SYNONYMS;
-  return synonyms.reduce((text, [pattern, to]) => text.replace(pattern, to), lower);
+  return synonyms.reduce((text, [pattern, to]) => text.replace(pattern, to), dated);
 }
 
 function popularity(source: Source, serviceId: string) {
@@ -101,14 +113,15 @@ function pickPeriod(text: string): Period | undefined {
 
 /** "at 3" means 15:00 in a salon that opens at 09:00. */
 function pickTime(text: string): number | undefined {
-  const parsed = parseTime(text);
+  const explicit = text.match(/\b\d{1,2}:\d{2}\s*(?:am|pm)?\b|\b\d{1,2}\s*(?:am|pm)\b/)?.[0];
+  const parsed = parseTime(explicit ?? text);
   if (!parsed) return undefined;
   const [hour, minute] = parsed.split(":").map(Number);
-  return (hour < 8 ? hour + 12 : hour) * 60 + minute;
+  return (hour < 8 && !explicit ? hour + 12 : hour) * 60 + minute;
 }
 
 export function parseBookingRequest(input: string, source: Source, today: DateKey): BookingRequest {
-  const text = clean(input, source);
+  const text = clean(input, source, today);
   return {
     ...pickService(text, source),
     staffId: pickStaff(text, source),

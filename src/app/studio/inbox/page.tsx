@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCheck, Inbox as InboxIcon, MousePointerClick } from "lucide-react";
 import type { InboxItem } from "@/concept/data/types";
 import { t, tc } from "@/concept/i18n";
@@ -17,9 +17,10 @@ import { Segmented } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
 import { Sheet } from "@/concept/ui/sheet";
 
-type Filter = "all" | "unread" | "requests" | "reviews";
+type Filter = "all" | "unread" | "requests" | "reviews" | "sent";
 
 const matches: Record<Filter, (item: InboxItem) => boolean> = {
+  sent: item => !!item.delivery || !!item.recallServiceId,
   all: () => true,
   unread: (i) => !i.read,
   requests: (i) => i.kind === "request" || i.kind === "reschedule" || i.kind === "cancel" || i.kind === "message",
@@ -31,13 +32,19 @@ export default function InboxPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => { if (desktop.matches) setSheetOpen(false); };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
   const items = state.inbox.filter(matches[filter]);
   const selected = state.inbox.find((i) => i.id === selectedId);
   const unread = unreadCount(state);
 
   const select = (item: InboxItem) => {
     setSelectedId(item.id);
-    setSheetOpen(true);
+    setSheetOpen(!window.matchMedia("(min-width: 1024px)").matches);
     if (!item.read) dispatch({ type: "inbox/read", id: item.id });
   };
 
@@ -62,6 +69,7 @@ export default function InboxPage() {
           { value: "unread", label: t("inbox.filter.unread") },
           { value: "requests", label: t("inbox.filter.requests") },
           { value: "reviews", label: t("inbox.filter.reviews") },
+          { value: "sent", label: t("messages.log") },
         ]}
       />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">

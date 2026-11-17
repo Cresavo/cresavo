@@ -12,6 +12,8 @@ import { Card } from "../ui/card";
 import { useNow } from "../use-now";
 import { BookingActions, freeUntilText } from "./booking-actions";
 import { BOOKING_HOME, myBookingsFor, rebookLink } from "./links";
+import { MessagePreviews } from "./message-previews";
+import { ReviewForm } from "./review-form";
 import { changeRule } from "./policy";
 
 /** What the customer sees after booking, and the page behind the link in their confirmation. */
@@ -73,6 +75,9 @@ export function Confirmation({ id }: { id: string }) {
           </div>
         )
       )}
+
+      {active && !cancelled && <MessagePreviews state={state} booking={booking} now={now} />}
+      <ReviewForm state={state} booking={booking} now={now} />
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-eko-line pt-4 text-sm">
         <Link href={myBookingsFor(booking.customerId)} className="flex min-h-11 items-center font-medium text-eko-accent underline-offset-2 hover:underline">

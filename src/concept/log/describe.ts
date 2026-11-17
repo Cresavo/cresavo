@@ -94,6 +94,14 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       return { summary: t("log.inboxAdd", { title: action.item.title }) };
     case "review/reply":
       return { summary: t("log.reviewReply") };
+    case "review/submit":
+      return { summary: t("log.reviewSubmit", { rating: action.rating }) };
+    case "review/approve":
+      return { summary: t("log.reviewApprove") };
+    case "booking-message/send": {
+      const booking = bookingOf(next, action.bookingId);
+      return { summary: t(`log.message.${action.kind}`, { channel: action.channel.toUpperCase(), customer: booking ? customerName(next, booking.customerId) : "" }) };
+    }
     case "cost/add":
       return { summary: t("log.costAdd", { label: action.label.trim() }), after: formatMoney(action.amount) };
     case "cost/remove":

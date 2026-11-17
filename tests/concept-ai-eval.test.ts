@@ -82,7 +82,7 @@ describe("evaluation CLI", () => {
   it("exports JSON and selects one task without using configured keys", () => {
     const output = execFileSync(process.execPath, ["--import", "tsx", "scripts/ai-eval.mts", "--task", "stock-forecast", "--json"], { encoding: "utf8", env: { ...process.env, OPENAI_API_KEY: "fake-never-used" }, timeout: 15000 });
     const report = JSON.parse(output);
-    expect(report).toMatchObject({ total: 3, passed: 3, mode: "rules", costUsd: 0 });
+    expect(report).toMatchObject({ total: 4, passed: 4, mode: "rules", costUsd: 0 });
     expect(output).not.toContain("fake-never-used");
   });
   it("returns nonzero for invalid arguments", () => {

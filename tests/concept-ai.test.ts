@@ -19,7 +19,7 @@ const inputs = {
   "summarize-customer": { sinceYear: 2024, regular: true, visits: 9, service: "Medical foot care", intervalWeeks: 6, traits: ["sensitive skin"], prefersStaff: "Anna", timeOfDay: "afternoons", note: null },
 } as const;
 const names = Object.keys(tasks) as (keyof typeof tasks)[];
-beforeEach(clearCostLog);
+beforeEach(() => clearCostLog());
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("model router", () => {
@@ -98,7 +98,7 @@ describe("provider clients", () => {
     { action: "cancel", params: { bookingId: "invented" }, summary: "Cancel", confidence: 1 },
     { action: "revenue", params: { start: "2026-12-01", end: "2026-11-01" }, summary: "Revenue", confidence: 1 },
   ])("rejects incomplete or invented intent: $action", async output => {
-    const fetcher = vi.fn().mockResolvedValue(Response.json({ choices: [{ message: { content: JSON.stringify(output) } }] }));
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ choices: [{ message: { tool_calls: [{ type: "function", function: { name: "propose_command", arguments: JSON.stringify({ proposal: output }) } }] } }] }));
     const result = await runTask("interpret-command", inputs["interpret-command"], { env: { OPENAI_API_KEY: "fake" }, fetcher });
     expect(result.log.reason).toBe("invalid-output"); expect(result.output.action).toBe("order-stock");
   });

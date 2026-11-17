@@ -36,7 +36,7 @@ export async function evaluateCases(cases: EvaluationCase[], options: { mode?: "
   for (const test of cases) {
     const before = now();
     try {
-      const result = await runTask(test.task, test.input, { env: mode === "rules" ? {} : options.env, fetcher: options.fetcher });
+      const result = await runTask(test.task, test.input, { env: mode === "rules" ? {} : options.env, fetcher: options.fetcher, useBusinessSettings: mode !== "rules" });
       const failures = checkExpectation(test, result.output);
       if (mode === "live" && result.log.source !== "ai") failures.push("unexpected-fallback");
       results.push({ id: test.id, task: test.task, passed: failures.length === 0, failures, durationMs: Math.max(0, now() - before), log: result.log });

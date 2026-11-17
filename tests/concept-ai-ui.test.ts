@@ -1,3 +1,6 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { Segmented } from "@/concept/ui/controls";
 import { afterEach, describe, expect, it } from "vitest";
 import { clearCostLog, logCost } from "@/concept/ai/cost-log";
 import { describeAi } from "@/concept/ai/overview";
@@ -56,4 +59,9 @@ describe("suggestedWeeks", () => {
     expect(suggestedWeeks("")).toBeUndefined();
     expect(suggestedWeeks("when the heel heals")).toBeUndefined();
   });
+});
+
+it("provider segmented controls never submit the enclosing key form", () => {
+  const html = renderToStaticMarkup(createElement(Segmented, { value: "openai", options: [{ value: "openai", label: "OpenAI" }, { value: "anthropic", label: "Anthropic" }], label: "Provider", onChange: () => {} }));
+  expect(html.match(/type="button"/g)).toHaveLength(2);
 });
