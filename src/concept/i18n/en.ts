@@ -1161,6 +1161,7 @@ const messages = {
   "log.source.voice": "Voice",
   "log.source.customer-page": "Booking page",
   "log.source.campaign": "Campaign",
+  "log.source.mcp": "MCP (outside AI)",
   "log.then": "became",
   "log.undone": "Undone",
   "log.undoneToast": "Change undone",

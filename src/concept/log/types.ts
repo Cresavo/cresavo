@@ -5,7 +5,7 @@
 export type LogActor = "owner" | "staff" | "ai" | "customer" | "integration";
 
 /** Where the change came from. */
-export type LogSource = "button" | "command" | "voice" | "customer-page" | "campaign";
+export type LogSource = "button" | "command" | "voice" | "customer-page" | "campaign" | "mcp";
 
 export interface LogMeta {
   actor: LogActor;
