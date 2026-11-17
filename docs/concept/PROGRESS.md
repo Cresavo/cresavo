@@ -1,5 +1,22 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Claude Code · goal 13 (in-repo part): Flerdo rename and front door
+
+**Done**
+
+- Product renamed to Flerdo in user-facing text: landing `/`, root metadata,
+  `/product`, `/live`, admin header, A2A agent card name, command box
+  placeholder ("Ask Flerdo… what would you like to do?"). The concept UI and
+  help articles already said Flerdo.
+- Front door: CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, issue forms, PR
+  template, draft CLA in `docs/legal/CLA.md`.
+- `docs/OPEN_SOURCE_LAUNCH.md`: checklist, what needs Niclas, monorepo plan,
+  and what was deliberately not renamed (engine identifiers, history, package
+  name).
+
+**Not done (needs Niclas)**: org, domains, npm scope, trademark, lawyer review,
+GitHub security settings, CLA Assistant, visibility.
+
 ## 2026-11-17 · Claude Code (Opus) · goal 10: open protocols
 
 **Done**

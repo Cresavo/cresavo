@@ -6,7 +6,12 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+- The product is now called Flerdo.
+
 ### Added
+- Open-source front door: English CONTRIBUTING, CODE_OF_CONDUCT, SECURITY,
+  issue and pull request templates, and a draft CLA (pending legal review).
 - Open protocols for the demo business: an HTTP MCP endpoint
   (`/api/concept/mcp`, bearer token `CONCEPT_MCP_TOKEN`) with read tools for
   bookings, free times, customers (names only), services, stock, finance and
