@@ -162,6 +162,31 @@ export interface Holiday {
 }
 
 export type CampaignStatus = "active" | "planned" | "ended" | "draft";
+export type Channel = "instagram" | "facebook" | "tiktok" | "newsletter" | "sms";
+export type PosterStyle = "calm" | "bold" | "photo" | "arch" | "dusk";
+export type PosterFormat = "post" | "story" | "window";
+
+export interface CampaignPoster {
+  style: PosterStyle;
+  /** Photo in /public/demo. */
+  image: string;
+  headline: string;
+  detail: string;
+}
+
+/** Simulated results: the demo never talks to a real channel. */
+export interface CampaignStats {
+  reach: number;
+  clicks: number;
+  bookings: number;
+  revenue: number;
+}
+
+export interface CampaignAd {
+  budget: number;
+  days: number;
+  radiusKm: number;
+}
 
 export interface Campaign {
   id: string;
@@ -171,9 +196,17 @@ export interface Campaign {
   from: DateKey;
   to: DateKey;
   status: CampaignStatus;
-  channels: string[];
+  channels: Channel[];
   holidayId?: string;
-  stats?: { reach: number; clicks: number; bookings: number };
+  /** Day the posts go (or went) out. */
+  publishOn?: DateKey;
+  /** Final text per channel, including the trackable link. */
+  copy?: Partial<Record<Channel, string>>;
+  poster?: CampaignPoster;
+  /** Trackable link, e.g. "salongeko.example/c/fathers-day-7k2". */
+  link?: string;
+  ad?: CampaignAd;
+  stats?: CampaignStats;
 }
 
 export type ModuleKey = "journal" | "stock" | "campaigns" | "finance" | "reviews";

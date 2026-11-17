@@ -27,7 +27,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 4;
+export const DEMO_VERSION = 5;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -601,8 +601,10 @@ export function createDemoState(today: DateKey): DemoState {
       from: addDays(today, -78),
       to: addDays(today, -36),
       status: "ended",
-      channels: ["Instagram", "Newsletter", "SMS"],
-      stats: { reach: 2840, clicks: 212, bookings: 23 },
+      channels: ["instagram", "newsletter", "sms"],
+      publishOn: addDays(today, -78),
+      link: "salongeko.example/c/autumn-massage-4f8",
+      stats: { reach: 2840, clicks: 212, bookings: 23, revenue: 23 * 782 },
     },
     {
       id: "c-bundle",
@@ -612,8 +614,10 @@ export function createDemoState(today: DateKey): DemoState {
       from: addDays(today, -9),
       to: addDays(today, 19),
       status: "active",
-      channels: ["Instagram", "Facebook", "Booking page"],
-      stats: { reach: 1310, clicks: 96, bookings: 7 },
+      channels: ["instagram", "facebook"],
+      publishOn: addDays(today, -9),
+      link: "salongeko.example/c/foot-bundle-2k9",
+      stats: { reach: 1310, clicks: 96, bookings: 7, revenue: 7 * 840 },
     },
   ];
 

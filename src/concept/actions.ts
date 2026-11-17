@@ -1,9 +1,11 @@
 import { findCustomerByPhone } from "./booking/lookup";
+import { addAdResults, simulateStats } from "./campaigns/simulate";
 import { isFree } from "./data/slots";
 import type {
   Booking,
   BookingSource,
   Campaign,
+  CampaignAd,
   Customer,
   DateKey,
   DemoState,
@@ -24,7 +26,8 @@ export type DemoAction =
   | { type: "online/book"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId: StaffId; date: DateKey; start: number }
   | { type: "online/waitlist"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string }
   | { type: "service/price"; id: string; price: number }
-  | { type: "campaign/create"; campaign: Omit<Campaign, "id"> }
+  | { type: "campaign/launch"; campaign: NewCampaign; today: DateKey }
+  | { type: "campaign/ad"; id: string; ad: CampaignAd }
   | { type: "journal/add"; entry: Omit<JournalEntry, "id"> }
   | { type: "stock/adjust"; id: string; delta: number }
   | { type: "stock/order"; lines: { id: string; quantity: number }[] }
@@ -36,6 +39,9 @@ export type DemoAction =
   | { type: "customer/note"; id: string; note: string }
   | { type: "module/toggle"; key: ModuleKey }
   | { type: "card/dismiss"; id: string };
+
+/** A campaign as the studio builds it; the reducer adds id, status and first results. */
+export type NewCampaign = Omit<Campaign, "id" | "status" | "stats" | "ad">;
 
 /** A customer using the public booking page. `at` is the moment they acted, used for the owner's inbox. */
 export interface OnlineGuest {
@@ -144,6 +150,35 @@ function joinWaitlist(state: DemoState, action: Extract<DemoAction, { type: "onl
   });
 }
 
+/** Average full price of a campaign's treatments. */
+function averagePrice(state: DemoState, serviceIds: string[]): number {
+  const prices = state.services.filter((s) => serviceIds.includes(s.id)).map((s) => s.price);
+  return prices.length ? prices.reduce((sum, p) => sum + p, 0) / prices.length : 0;
+}
+
+/** Publishing today starts the (simulated) results at once; a later day only plans the posts. */
+function launchCampaign(state: DemoState, input: NewCampaign, today: DateKey): DemoState {
+  if (!input.name.trim() || !input.channels.length || !input.publishOn) return state;
+  const live = input.publishOn <= today;
+  const campaign: Campaign = {
+    ...input,
+    id: nextId(state, "c"),
+    status: live ? "active" : "planned",
+    stats: live
+      ? simulateStats({ seed: input.name, channels: input.channels, discountPercent: input.discountPercent, avgPrice: averagePrice(state, input.serviceIds) })
+      : undefined,
+  };
+  return { ...state, seq: state.seq + 1, campaigns: [campaign, ...state.campaigns] };
+}
+
+/** One ad per campaign: its expected results are added to the campaign's numbers. */
+function runAd(state: DemoState, id: string, ad: CampaignAd): DemoState {
+  const campaign = state.campaigns.find((c) => c.id === id);
+  if (!campaign?.stats || campaign.ad || ad.budget <= 0 || ad.days <= 0) return state;
+  const stats = addAdResults(campaign.stats, ad, averagePrice(state, campaign.serviceIds), campaign.discountPercent);
+  return { ...state, campaigns: updateBy(state.campaigns, id, (c) => ({ ...c, ad, stats })) };
+}
+
 function replyToInbox(state: DemoState, id: string, reply: string, slot?: SlotSuggestion): DemoState {
   const item = state.inbox.find((i) => i.id === id);
   if (!item) return state;
@@ -204,8 +239,10 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
       return joinWaitlist(state, action);
     case "service/price":
       return { ...state, services: updateBy(state.services, action.id, (s) => ({ ...s, price: Math.max(0, Math.round(action.price)) })) };
-    case "campaign/create":
-      return { ...state, seq: state.seq + 1, campaigns: [{ ...action.campaign, id: nextId(state, "c") }, ...state.campaigns] };
+    case "campaign/launch":
+      return launchCampaign(state, action.campaign, action.today);
+    case "campaign/ad":
+      return runAd(state, action.id, action.ad);
     case "journal/add":
       return { ...state, seq: state.seq + 1, journals: [...state.journals, { ...action.entry, id: nextId(state, "j") }] };
     case "stock/adjust":
