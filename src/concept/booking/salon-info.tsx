@@ -61,7 +61,7 @@ export function Reviews({ state }: { state: DemoState }) {
           return (
             <Card key={review.id} className="space-y-2 p-4">
               <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="flex items-center gap-0.5" aria-label={t("booking.stars", { count: review.rating })}>
+                <span role="img" className="flex items-center gap-0.5" aria-label={t("booking.stars", { count: review.rating })}>
                   {[1, 2, 3, 4, 5].map((n) => (
                     <Star key={n} size={14} className={n <= review.rating ? "fill-amber-400 text-amber-400" : "text-eko-line"} />
                   ))}

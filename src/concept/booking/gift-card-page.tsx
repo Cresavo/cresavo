@@ -15,7 +15,7 @@ export function GiftCardPage() {
   const params = useSearchParams();
   const card = params ? giftCardFromParams(params) : null;
   if (!state) return null;
-  if (!card) return <Card className="mx-auto max-w-md p-6 text-center text-eko-muted">{t("giftcards.pageInvalid")}</Card>;
+  if (!card) return <Card className="mx-auto max-w-md p-6 text-center text-eko-muted"><h1 className="text-base font-normal">{t("giftcards.pageInvalid")}</h1></Card>;
   return (
     <div className="mx-auto max-w-md space-y-6">
       <div>

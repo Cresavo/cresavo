@@ -56,9 +56,9 @@ export function TimePicker({ state, serviceId, clock, onPick, onWaitlist, ignore
                 !slots.length && !active && "text-eko-muted",
               )}
             >
-              <span className="text-xs font-medium opacity-80">{dayChipLabel(date, clock.today)}</span>
+              <span className="text-xs font-medium">{dayChipLabel(date, clock.today)}</span>
               <span className="text-lg font-semibold leading-tight">{fromKey(date).getDate()}</span>
-              <span className="text-[11px] opacity-80">{slots.length ? t("booking.times", { count: slots.length }) : t("booking.full")}</span>
+              <span className="text-[11px]">{slots.length ? t("booking.times", { count: slots.length }) : t("booking.full")}</span>
             </button>
           );
         })}

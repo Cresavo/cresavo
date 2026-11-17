@@ -12,7 +12,6 @@ import { MorePage } from "@/concept/studio/more/more-page";
 import { ApproveReview } from "@/concept/studio/reviews/approve-review";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Avatar } from "@/concept/ui/avatar";
-import { Badge } from "@/concept/ui/badge";
 import { Button } from "@/concept/ui/button";
 import { Card } from "@/concept/ui/card";
 import { Meter } from "@/concept/ui/charts";
@@ -75,7 +74,7 @@ export default function ReviewsPage() {
                     <p className="truncate font-medium">{name}</p>
                     <p className="text-xs text-eko-muted">{formatDate(r.date)} · {r.source} · {state.staff.find((s) => s.id === r.staffId)?.firstName}</p>
                   </div>
-                  <span className="shrink-0 text-eko-warn" aria-label={t("inbox.stars", { count: r.rating })}>{"★".repeat(r.rating)}<span className="text-eko-line">{"★".repeat(5 - r.rating)}</span></span>
+                  <span role="img" className="shrink-0 text-eko-warn" aria-label={t("inbox.stars", { count: r.rating })}>{"★".repeat(r.rating)}<span className="text-eko-line">{"★".repeat(5 - r.rating)}</span></span>
                 </div>
                 <p className="text-[15px] leading-relaxed">{r.text}</p>
                 <ApproveReview review={r} />
@@ -85,8 +84,7 @@ export default function ReviewsPage() {
                     {r.reply}
                   </p>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <Badge tone="warn">{t("reviews.noReply")}</Badge>
+                  <div>
                     <Button size="sm" variant="secondary" icon={<MessageCircleReply size={16} />} onClick={() => { setReplying(r); setText(draftReply(r, customer?.firstName ?? "")); }}>
                       {t("reviews.reply")}
                     </Button>

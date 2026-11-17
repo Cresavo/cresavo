@@ -74,7 +74,7 @@ function DayCell({ day, today, selected, onSelect }: { day: CalendarDay; today: 
       aria-label={formatDate(day.date)}
       className={cx(
         "flex min-h-12 flex-col items-center justify-start gap-1 rounded-xl pt-1.5 text-sm transition-colors",
-        day.inMonth ? "text-eko-ink" : "text-eko-muted/50",
+        day.inMonth ? "text-eko-ink" : "text-eko-muted",
         selected ? "bg-eko-accent-soft ring-1 ring-inset ring-eko-accent" : "hover:bg-eko-sunken",
         day.date === today && "font-semibold",
       )}
