@@ -111,7 +111,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
       <p className="mt-4 px-3 text-sm text-text-secondary">
         <span className="font-semibold text-text">{state.salon.name}</span> · {t("shell.demo")}
       </p>
-      <nav aria-label={t("shell.navigation")} className="mt-5 flex flex-1 flex-col gap-6 overflow-y-auto">
+      <nav aria-label={t("shell.navigation")} className="mt-5 flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto">
         <div className="space-y-1">
           {PRIMARY_NAV.filter((item) => canOpen(role, item.href)).map((item) => (
             <SidebarLink key={item.href} item={item} pathname={pathname} badge={item.href === "/studio/inbox" ? unread : undefined} />
