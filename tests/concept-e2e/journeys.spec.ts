@@ -200,3 +200,11 @@ test("Edit on a proposal brings the words back into the message box and retires 
   await expect(approve).toHaveCount(0);
   await expect(page.getByText("Edited · your words are back in the message box")).toBeVisible();
 });
+
+test("finance charts mark the period before with an outline or dashes, not colour alone (Codex #10)", async ({ page }) => {
+  await page.goto("/studio/more/finance");
+  const previous = page.locator("figure svg rect[fill=none]");
+  await expect(previous.first()).toBeAttached();
+  expect(await previous.first().evaluate(el => getComputedStyle(el).stroke)).not.toBe("none");
+  expect(await page.locator("[data-series=previous]").first().evaluate(el => getComputedStyle(el).backgroundImage)).toContain("repeating-linear-gradient");
+});

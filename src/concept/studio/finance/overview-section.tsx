@@ -89,6 +89,7 @@ export function OverviewSection() {
                 tone: person.id === "anna" ? "bg-staff-1" : "bg-staff-2",
               }))}
             />
+            <p className="text-xs text-text-secondary">{t("finance.barsLegend", { when })}</p>
           </Card>
         </Section>
         <Section title={t("finance.treatments")}>
@@ -98,6 +99,7 @@ export function OverviewSection() {
               format={(visits) => tc("finance.visits", visits)}
               data={overview.treatments.map((row) => ({ id: row.id, label: findService(state, row.id)?.name ?? row.id, value: row.visits, previous: row.previous }))}
             />
+            <p className="text-xs text-text-secondary">{t("finance.barsLegend", { when })}</p>
           </Card>
         </Section>
         <Section title={t("finance.cancellations")}>

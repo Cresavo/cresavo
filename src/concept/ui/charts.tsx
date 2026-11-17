@@ -1,6 +1,8 @@
 import { cx } from "./cx";
 
-// Small dependency-free charts.
+// Small dependency-free charts. The comparison series (the period before)
+// uses the chart-compare token (≥ 3:1) and a second cue: outlined columns and
+// dashed bars, so it is never told apart by colour alone.
 
 interface ColumnChartProps {
   data: { label: string; value: number; highlight?: boolean }[];
@@ -19,7 +21,7 @@ export function ColumnChart({ data, format, label, height = 160 }: ColumnChartPr
           <div key={d.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
             <span className="truncate text-[11px] font-medium tabular-nums text-text-secondary">{format(d.value)}</span>
             <div
-              className={cx("w-full max-w-12 rounded-t-sm", d.highlight ? "bg-action" : "bg-action/25")}
+              className={cx("w-full max-w-12 rounded-t-sm", d.highlight ? "bg-action" : "bg-chart-compare")}
               style={{ height: `${Math.max(3, (d.value / max) * (height - 28))}px` }}
             />
           </div>
@@ -80,7 +82,7 @@ interface PairedColumnsProps {
 
 const STEP = 10;
 
-/** Two thin columns per step, this period (dark) next to the one before (light). */
+/** Two thin columns per step: this period solid, the one before outlined. */
 export function PairedColumns({ data, labels, label, height = 110 }: PairedColumnsProps) {
   const max = Math.max(1, ...data.flatMap((d) => [d.current, d.previous]));
   const bar = (value: number) => (value / max) * (height - 4);
@@ -89,7 +91,7 @@ export function PairedColumns({ data, labels, label, height = 110 }: PairedColum
       <svg viewBox={`0 0 ${data.length * STEP} ${height}`} preserveAspectRatio="none" role="img" aria-label={label} className="w-full" style={{ height }}>
         {data.map((d, i) => (
           <g key={i}>
-            <rect x={i * STEP + 0.8} y={height - bar(d.previous)} width={4} height={bar(d.previous)} className="fill-action/25" />
+            <rect x={i * STEP + 1.3} y={height - bar(d.previous) + 0.75} width={3} height={Math.max(0, bar(d.previous) - 0.75)} fill="none" strokeWidth={1.5} vectorEffect="non-scaling-stroke" className="stroke-chart-compare" />
             <rect x={i * STEP + 4.9} y={height - bar(d.current)} width={4} height={bar(d.current)} className="fill-action" />
           </g>
         ))}
@@ -107,7 +109,7 @@ interface CompareBarsProps {
   format: (value: number) => string;
 }
 
-/** One row per item: a bar for this period with a thinner one below for the period before. */
+/** One row per item: a bar for this period with a thinner dashed one below for the period before. */
 export function CompareBars({ data, format }: CompareBarsProps) {
   const max = Math.max(1, ...data.flatMap((d) => [d.value, d.previous]));
   return (
@@ -122,8 +124,8 @@ export function CompareBars({ data, format }: CompareBarsProps) {
             <div className="h-2 overflow-hidden rounded-full bg-surface-2">
               <div className={cx("h-full rounded-full", d.tone ?? "bg-action")} style={{ width: `${(d.value / max) * 100}%` }} />
             </div>
-            <div className="h-1 overflow-hidden rounded-full bg-surface-2">
-              <div className="h-full rounded-full bg-text-secondary/40" style={{ width: `${(d.previous / max) * 100}%` }} />
+            <div className="h-1 overflow-hidden">
+              <div data-series="previous" className="h-full bg-[repeating-linear-gradient(90deg,var(--ui-chart-compare)_0_6px,transparent_6px_9px)]" style={{ width: `${(d.previous / max) * 100}%` }} />
             </div>
           </div>
         </li>

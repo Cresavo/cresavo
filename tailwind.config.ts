@@ -8,7 +8,7 @@ const names = [
   "bg", "surface", "surface-2", "text", "text-secondary", "border", "input-border",
   "action", "action-hover", "action-bg", "focus",
   "success", "success-bg", "warning", "warning-bg", "danger", "danger-bg", "info", "info-bg",
-  "staff-1", "staff-1-bg", "staff-2", "staff-2-bg",
+  "staff-1", "staff-1-bg", "staff-2", "staff-2-bg", "chart-compare",
 ];
 
 export default {

@@ -34,6 +34,10 @@
   --ui-staff-1-bg: light-dark(#e4edf3, #22303b);
   --ui-staff-2: light-dark(#5f6b2e, #c5d394);
   --ui-staff-2-bg: light-dark(#eef0e0, #2e3320);
+  /* The comparison series in charts (the period before): at least 3:1 on bg,
+     surface and surface-2 in both themes (tests/concept-tokens.test.ts), and
+     always drawn with a second cue (outlined or dashed), never by colour alone. */
+  --ui-chart-compare: light-dark(#8d7c8a, #96705c);
 
   --font-ui: var(--font-inter, "Inter"), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --radius-xs: 4px;
