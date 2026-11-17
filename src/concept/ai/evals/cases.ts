@@ -39,4 +39,6 @@ export const evaluationCases: EvaluationCase[] = [
   { id: "reply-facts", task: "reply-customer", input: { customerName: "Anna", message: "When do you close?", facts: "We close at 17:00." }, contains: { text: "17:00" } },
   { id: "daily-revenue", task: "daily-summary", input: { revenueSek: 2400, newCustomers: 2, missingJournals: 1, tomorrowFirstCustomer: "Erik" }, contains: { summary: "2400", highlights: "Erik" } },
   { id: "daily-empty", task: "daily-summary", input: { revenueSek: 0, newCustomers: 0, missingJournals: 0, tomorrowFirstCustomer: null }, contains: { summary: "0" } },
+  { id: "summary-regular", task: "summarize-customer", input: { sinceYear: 2024, regular: true, visits: 14, service: "Medical foot care", intervalWeeks: 6, traits: ["sensitive skin"], prefersStaff: "Anna", timeOfDay: "afternoons", note: null }, contains: { summary: "Regular since 2024, medical foot care every 6 weeks, sensitive skin, prefers Anna, afternoons" } },
+  { id: "summary-no-invention", task: "summarize-customer", input: { sinceYear: 2026, regular: false, visits: 0, service: null, intervalWeeks: null, traits: [], prefersStaff: null, timeOfDay: null, note: null }, contains: { summary: "Customer since 2026, no visits yet" } },
 ];
