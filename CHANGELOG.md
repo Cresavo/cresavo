@@ -36,6 +36,7 @@ All notable changes to this project are documented here. Format follows
   via "Start over as a new business".
 
 ### Fixed
+- The engine MCP transport is reused without sharing client authority or repeating setup for every request. (#15)
 - Commands retain minutes in times such as “at 14:30” and “to 09:45”. (#13)
 - Mobile command input is shorter; the duplicate floating mic no longer covers actions. (#16)
 - Opening an Inbox item on desktop no longer opens a hidden mobile dialog that

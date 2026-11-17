@@ -1,5 +1,9 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Codex · night 3 part 1: finding #15
+
+The engine MCP handler is created once per process. Its SDK factory receives only the freshly authenticated request principal; no client credentials are cached or shared. Auth, request-size limit, rate limit, scopes, read-only policy, mandates and idempotency remain enforced. Concurrent real-SDK transport tests and all 211 engine integration tests pass. Try the existing `/api/v1/mcp` tools with separate demo clients.
+
 ## 2026-11-17 · Codex · night 3 part 1: finding #13
 
 The shared time parser prefers complete clock tokens before bare-hour prefixes. Regression cases cover at/to/weekday, am/pm, invalid clocks and a move to 14:30; the customer wrapper now uses the shared parser. Try “Move Anna’s appointment on Thursday to 14:30” in the command box.
