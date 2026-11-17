@@ -218,7 +218,7 @@ test("Today names the staff member on every booking, not just a colour (#26)", a
   for (const booking of initial.bookings.filter(b => b.date === today).slice(0, 6)) {
     const customer = initial.customers.find(c => c.id === booking.customerId)!;
     const staff = initial.staff.find(s => s.id === booking.staffId)!;
-    await expect(page.getByRole("button").filter({ hasText: fullName(customer) }).first()).toContainText(` · ${staff.firstName}`);
+    await expect(page.getByRole("button").filter({ hasText: fullName(customer) }).first()).toContainText(`${staff.firstName} · `);
   }
 });
 

@@ -43,7 +43,7 @@ All notable changes to this project are documented here. Format follows
 - The browser's address and status bar follow the studio's saved theme (also against the phone's own setting) from the first frame and when the theme is changed; booking pages keep their own colour (the business's page colour, or neutral) (Codex #8, #29).
 - Booking pages keep their header, content and footer clear of the notch, rounded corners and home indicator in portrait and landscape (Codex #9).
 - Finance charts draw the period before in a colour with at least 3:1 contrast and as outlined columns or dashed bars, with a legend, so it is not told apart by colour alone (Codex #10).
-- Today's schedule and a customer's bookings say who the booking is with ("· Anna") instead of relying on the staff colour dot (#26).
+- Today's schedule and a customer's bookings say who the booking is with ("Anna ·") instead of relying on the staff colour dot (#26).
 - 44 px touch targets for switches (the compact track sits inside a larger target), the Ask Flerdo message box buttons and panel header, customer phone and email links, the booking page's business link and the demo banner's language select (Codex #11, #30).
 - A test keeps the runtime colour tokens identical to the brand kit's colors.json (documented extensions listed explicitly), and the browser chrome and manifest colours are read from that file instead of a copy (Codex #12).
 - At 200 % zoom on a phone, Today, Customers, Settings and the booking page no longer scroll sideways: buttons, badges and chips wrap, long addresses break, the Ask Flerdo pill collapses to one icon and the tab bar shows icons only (labels stay as accessible names) (#25).

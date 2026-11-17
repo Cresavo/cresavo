@@ -78,8 +78,9 @@ export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: S
                 <span className="flex items-center gap-1.5 truncate text-sm text-text-secondary">
                   <StaffDot staffId={b.staffId} />
                   <span className="truncate">
+                    {/* The name first, so a narrow row truncates the treatment, not who it is with. */}
+                    {person && `${person} · `}
                     {service && /\d+ min/.test(service.name) ? service.name : `${service?.name} · ${formatDuration(b.duration)}`}
-                    {person && ` · ${person}`}
                   </span>
                 </span>
               </span>

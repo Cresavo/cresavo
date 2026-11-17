@@ -26,8 +26,8 @@ export function BookingList({ bookings, onOpen }: { bookings: Booking[]; onOpen:
             <span className="flex min-w-0 flex-1 items-center gap-2">
               <StaffDot staffId={b.staffId} />
               <span className="truncate">
+                {state.staff.length > 1 && `${state.staff.find((s) => s.id === b.staffId)?.firstName ?? ""} · `}
                 {findService(state, b.serviceId)?.name}
-                {state.staff.length > 1 && ` · ${state.staff.find((s) => s.id === b.staffId)?.firstName ?? ""}`}
               </span>
             </span>
             {b.status === "cancelled" || b.status === "noshow" ? (
