@@ -3,7 +3,8 @@
 import { useSyncExternalStore } from "react";
 import type { DemoAction } from "./actions";
 import { toKey } from "./data/dates";
-import { createDemoState, DEMO_VERSION, type BusinessSetup } from "./data/generate";
+import { createDemoState, type BusinessSetup } from "./data/generate";
+import { migrateState } from "./data/migrate";
 import type { DemoState } from "./data/types";
 import { applyAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
@@ -30,8 +31,8 @@ function load(): DemoState {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const saved = JSON.parse(raw) as DemoState;
-      if (saved.version === DEMO_VERSION && saved.generatedFor === today()) return purgeExpired(saved, today());
+      const saved = migrateState(JSON.parse(raw));
+      if (saved && saved.generatedFor === today()) return purgeExpired(saved, today());
     }
   } catch {
     // Storage blocked or corrupt: fall back to fresh demo data.

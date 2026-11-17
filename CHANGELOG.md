@@ -31,6 +31,9 @@ All notable changes to this project are documented here. Format follows
 - The customer page lives at `/boka/<slug>` for any slug the business picks (it was fixed to `salong-eko`); links, texts and the share code follow the slug. DEMO_VERSION is 14.
 - On phones the inline command box is replaced by the assistant button (#18); it stays on larger screens.
 
+### Fixed
+- Saved demo data survives the rebrand: saves from versions 12–14 are migrated in place (bookings, customer edits, stock and the booking page design are kept) instead of being replaced by fresh data. Only new Salong Eko data starts on the Forest palette (Codex #1).
+
 ## [0.3.0] - 2026-11-17
 
 ### Added
