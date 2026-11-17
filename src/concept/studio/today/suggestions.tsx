@@ -158,7 +158,7 @@ export function Suggestions({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) 
               <p className="text-sm text-text-secondary">{s.text}</p>
               <div className="flex flex-wrap gap-2 pt-2">{s.actions}</div>
             </div>
-            <IconButton label={t("suggest.dismiss")} onClick={() => dispatch({ type: "card/dismiss", id: s.id })} className="-mr-2 -mt-2 size-9">
+            <IconButton label={t("suggest.dismiss")} onClick={() => dispatch({ type: "card/dismiss", id: s.id })} className="-mr-3 -mt-3">
               <X size={16} />
             </IconButton>
           </div>
