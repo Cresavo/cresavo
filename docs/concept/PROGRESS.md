@@ -1,5 +1,22 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Claude Code (Sonnet) · goal 14: everyday operations
+
+**Done**
+
+- **One availability function** (`src/concept/data/slots.ts`): opening hours, closed days, lunch, each person's weekly template, exceptions (time off, sick day, extra shift) and rooms. The customer page, calendar, "Someone is calling", command box, return-visit suggestions and the MCP tools all call it. `DEMO_VERSION` is 11.
+- **Settings**: edit opening hours and lunch, close days (Swedish holidays are suggested), manage rooms and which treatments use them. **Staff**: weekly schedule, mark time off, add a shift.
+- **Rooms**: a booking takes one free room of its treatment; with no room free that time is not offered. Calendar filters by room.
+- **Needs moving**: when the plan changes, affected bookings appear as a card on Today with a Move button each, and with a red outline in the calendar. Nothing is moved automatically.
+- **Owner / Staff switch** (top right): the Staff view shows own calendar, own customers and journal, no finance, settings, modules, inbox or numbers. The rule lives in `src/concept/ops/access.ts` and is read by the navigation, pages and the command box.
+- **Command box**: "Anna is off on Friday", "close the salon on 24 December", "Erik works Saturday 10–14" give proposals that say how many bookings would need moving.
+
+**Try it**: `/studio`, type "Anna is off on Friday", approve; open `/boka/salong-eko` (Anna's treatments are full on Friday) and Today (needs-moving card). Switch to Staff at the top right.
+
+**Screens**: [command](screens/ops-command-off-1280.png), [needs moving](screens/ops-today-needs-moving-1280.png) ([390](screens/ops-today-needs-moving-390.png)), [customer page](screens/ops-customer-times-1280.png), [calendar](screens/ops-calendar-off-1280.png), [room filter](screens/ops-calendar-room-filter-1280.png), [settings](screens/ops-settings-hours-1280.png), [closed days and rooms](screens/ops-settings-closed-rooms-1280.png), [hours editor](screens/ops-hours-editor-390.png), [staff schedule](screens/ops-staff-schedule-1280.png), [week editor](screens/ops-week-editor-390.png), [staff view](screens/ops-staff-view-today-1280.png), [blocked page](screens/ops-staff-view-blocked-390.png).
+
+**Not done / notes**: a lunch break applies only on days longer than six hours (as before). The role is a demo switch kept in the browser, not authentication. Existing bookings are never moved or cancelled by a plan change. MCP write tools do not yet propose schedule changes.
+
 ## 2026-11-17 · Codex · night 3 part 1: finding #12
 
 Compatible TypeScript-ESLint 8.73.0 now supports fixed minimatch 11.x. Full and production-only npm audits report zero vulnerabilities. No direct ranges, overrides, prereleases or toolchain major upgrades were introduced. See [dependency review](../DEPENDENCY_REVIEW.md).
