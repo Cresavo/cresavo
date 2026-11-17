@@ -1,5 +1,25 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Claude Code (Opus) · goal 16: the Flerdo assistant
+
+**Done**
+
+- **Two modes of Ask Flerdo**: the quick command box stays on tablet and desktop; a Flerdo button opens the assistant panel (full screen on phones, side panel from 640 px). On phones the button replaces the inline box (closes #18); its microphone half opens the panel already listening. Replies can be read aloud (speech synthesis, off by default).
+- **Conversation engine** (`src/concept/assistant/engine.ts`): one reply per message, from the same `proposalFor` proposals and `src/concept/tools` read tools the command box and MCP use. Rich replies: number + chart, customer and booking lists, proposal cards with Approve / Not now and Undo on the card. Follow-ups resolve "her", "them", "that day", "the same as last time" (`thread.ts`); the panel shows "Understood as: …". Approvals log as actor AI, source Assistant.
+- **Memory** (`memory.ts`, More > What Flerdo remembers): "remember …" saves at once (asks "Which Lena?" when several match); statements like "Lena Svensson always wants mornings" are offered, not saved. View, search, edit, forget; finished conversations leave a topic-only summary. A filter rejects health and journal text and contact details in the reducer, the page, before any AI call and in the AI task schema. A remembered preference chooses the staff member in booking proposals, the new-booking sheet and time suggestions.
+- **Routines** (`routines.ts`, More > Routines): suggested from patterns (overdue customers, repeated time suggestions, low stock), stored as SKILL.md-style records (name, when, steps, tools), switch on/off, run on schedule while the studio is open or with "Run now"; each run leaves a proposal in the panel.
+- **Briefs** (`briefs.ts`): morning brief (and weekly review on Monday mornings) on Today and at the top of the panel, closing brief after the last booking, event reactions (cancellation today, low stock, holiday within 14 days). Rules pick the items; `phrase-brief` may only reword/reorder the same ids.
+- **Models**: new tasks `assistant-reply` (smart) and `phrase-brief` (fast), both with rule fallbacks and eval cases; per-task tier in Your data & AI as before; `CONCEPT_AI_BASE_URL` (+ `CONCEPT_AI_FAST_MODEL`, optional `CONCEPT_AI_API_KEY`) for any OpenAI-compatible server such as Ollama. Every call in the cost log. Without a key everything runs on rules and the panel says "Rules only · no AI key".
+- `DEMO_VERSION` is 13 (memory and routines in the demo state).
+
+**Try it**: `/studio` → "Ask Flerdo" → "How did last month compare with last year?", then "Send an offer to the customers who haven't been here since summer" → Approve; "Remember Lena prefers Erik" → Lena Berg → `/studio/more/memory`; "Book her for classic massage 60 min on <day> at <time>" shows "Remembered". Switch on the suggested routine on Today, see `/studio/more/routines`.
+
+**Screens**: [panel 390](screens/assistant-panel-390.png), [panel 1280](screens/assistant-panel-1280.png), [memory 390](screens/assistant-memory-390.png), [memory 1280](screens/assistant-memory-1280.png), [routine 390](screens/assistant-routine-390.png), [routine 1280](screens/assistant-routine-1280.png), [brief on Today 390](screens/assistant-brief-390.png), [brief on Today 1280](screens/assistant-brief-1280.png).
+
+**Tests**: `tests/concept-assistant.test.ts` (context resolution, done-when answers, memory filter, remember/forget, routines, briefs, base-URL routing with mocked fetch); concept e2e `assistant.spec.ts` (the done-when journey at 390 and 1280, voice launch with a fake recogniser); `journeys.spec.ts` uses the panel on phones. Concept e2e: 25 passed, 1 skipped (voice test is phone-only).
+
+**Not done / notes**: routines run only while the studio is open in a browser (no server scheduler in the demo). The rule engine covers the common questions; anything else gets examples. Live-key check of the two new tasks is pending, like the other tasks.
+
 ## 2026-11-17 · Claude Code · UX findings #17, #19, #20
 
 - **Booking page (#17)**: the treatment list is hidden while a booking is under way (one next action); it returns on the first screen. [before 390](screens/ux-17-before-390.png), [after 390](screens/ux-17-after-390.png), [after 1280](screens/ux-17-after-1280.png).

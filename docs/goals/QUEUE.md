@@ -37,7 +37,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 13 | Open-source launch: clean public repos | Opus | in progress · in-repo rename and front door done; publishing waits for Niclas |
 | 14 | Everyday operations: hours, schedules, rooms, roles | Claude (Sonnet) | done · 2026-11-17 |
 | 15 | Gift cards, packages, daily summary, calendar feeds, one brand constant | Claude (Sonnet) | done · 2026-11-17 |
-| 16 | The Flerdo assistant: conversation, memory, routines, proactive briefs | Claude (Opus) | in progress · 2026-11-17 |
+| 16 | The Flerdo assistant: conversation, memory, routines, proactive briefs | Claude (Opus) | done · 2026-11-17 |
 
 ---
 
