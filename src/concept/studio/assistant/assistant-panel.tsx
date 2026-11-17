@@ -210,7 +210,7 @@ function MessageView({ message, assistant }: { message: Message; assistant: Retu
 }
 
 /** Cards that already say in words and numbers what the reply text says. */
-const ANSWERS = new Set(["insight", "revenue", "customers", "stock", "bookings", "brief"]);
+const ANSWERS = new Set(["insight", "revenue", "customers", "stock"]);
 
 function Bubble({ source, text, children }: { source: "rules" | "ai"; text?: string; children?: ReactNode }) {
   return (
