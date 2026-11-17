@@ -9,6 +9,7 @@
     "demo:record": "node --env-file=.env scripts/record-demo.mjs",
     "demo:seed": "node --env-file=.env --import tsx scripts/seed-demo.ts",
     "demo:seed:capacity": "node --env-file=.env --import tsx scripts/seed-capacity.ts",
+    "demo": "node scripts/demo.mjs",
     "dev": "node --env-file-if-exists=.env scripts/server.mjs --dev",
     "build": "next build",
     "start": "node --env-file-if-exists=.env scripts/server.mjs",

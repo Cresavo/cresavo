@@ -57,13 +57,13 @@ More screenshots: [command box](docs/concept/screens/command-move-1280.png) ·
 
 ## Try it
 
-Requires Node.js 22+.
+Requires Node.js 22+. One command installs what is needed and opens the studio:
 
 ```bash
-npm ci
-cp .env.example .env
-npm run dev
+npm run demo
 ```
+
+On Windows you can also double-click `start-demo.cmd`.
 
 Open <http://localhost:3000/studio> (owner) and
 <http://localhost:3000/boka/salong-eko> (customer). The studio keeps its demo
