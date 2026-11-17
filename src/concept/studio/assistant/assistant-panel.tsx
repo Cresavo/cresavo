@@ -9,6 +9,7 @@ import { t } from "../../i18n";
 import { IconButton } from "../../ui/button";
 import { cx } from "../../ui/cx";
 import { useStudio } from "../use-studio";
+import { replyUndoable } from "./reply-actions";
 import { ReplyCardView, type CardActions } from "./reply-card";
 import { canSpeak, stopSpeaking } from "./speak";
 import { closeAssistant, setSpeak, takePendingQuestion } from "./thread-store";
@@ -203,7 +204,7 @@ function MessageView({ message, assistant }: { message: Message; assistant: Retu
   const repeatsCard = reply.source === "rules" && !!reply.card && ANSWERS.has(reply.card.kind);
   return (
     <Bubble source={reply.source} text={repeatsCard ? undefined : reply.text}>
-      {reply.card && <ReplyCardView card={reply.card} status={reply.status} actions={cardActions(assistant, message.id, reply.undoId)} />}
+      {reply.card && <ReplyCardView card={reply.card} status={reply.status} actions={cardActions(assistant, message.id, replyUndoable(reply) ? reply.undoId : undefined)} />}
       {reply.followUps && !reply.status && <FollowUps items={reply.followUps} onPick={assistant.send} />}
     </Bubble>
   );

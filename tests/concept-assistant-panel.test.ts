@@ -3,7 +3,8 @@ import { emptyContext, type Message, type Reply } from "@/concept/assistant/thre
 import type { Proposal } from "@/concept/command/proposal";
 
 // The assistant panel's card rules, without React: a model's late reading
-// never overrides what the owner already did.
+// never overrides what the owner already did, and Undo is only offered (and
+// only reported) when the store accepts it.
 
 const storage = new Map<string, string>();
 
@@ -67,5 +68,34 @@ describe("model refinement (Codex #3)", () => {
     expect(thread.refineReply(first, aiReading, { ...emptyContext(), date: "2030-01-01" })).toBe(false);
     expect(reply(first)).toMatchObject({ source: "rules", text: "New price" });
     expect(reply(first).refining).toBeUndefined();
+  });
+});
+
+describe("undo on a reply (Codex #4)", () => {
+  it("reports Undone only when the store accepted it", async () => {
+    const { actions, ask, reply, store, service } = await setup();
+    const id = ask();
+    actions.approveReply(id, { type: "service/price", id: service.id, price: service.price + 50 });
+    expect(actions.replyUndoable(reply(id))).toBe(true);
+    expect(actions.undoReply(id, reply(id).undoId!)).toBe(true);
+    expect(reply(id)).toMatchObject({ status: "undone", undoId: undefined });
+    expect(store.currentState()!.services[0].price).toBe(service.price);
+  });
+
+  it("withdraws Undo, without claiming success, after a later edit to the same record", async () => {
+    const { actions, ask, reply, store, service } = await setup();
+    const id = ask();
+    actions.approveReply(id, { type: "service/price", id: service.id, price: service.price + 50 });
+    const undoId = reply(id).undoId!;
+    store.dispatch({ type: "service/price", id: service.id, price: service.price + 99 });
+    expect(actions.replyUndoable(reply(id))).toBe(false);
+    expect(actions.undoReply(id, undoId)).toBe(false);
+    expect(reply(id)).toMatchObject({ status: "approved", undoId: undefined });
+    expect(store.currentState()!.services[0].price).toBe(service.price + 99);
+  });
+
+  it("is not offered when the log entry is gone", async () => {
+    const { actions, ask, reply } = await setup();
+    expect(actions.replyUndoable({ ...reply(ask()), undoId: "l-does-not-exist" })).toBe(false);
   });
 });

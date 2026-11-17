@@ -16,7 +16,7 @@ import type { IntentResult } from "../../intent";
 import { currentState, dispatch } from "../../store";
 import { useStudio } from "../use-studio";
 import { speak } from "./speak";
-import { applyReply, approveReply, pickReply } from "./reply-actions";
+import { applyReply, approveReply, pickReply, undoReply } from "./reply-actions";
 import { addMessages, messageId, refineReply, startNewThread, updateReply, useThread } from "./thread-store";
 
 const ASSISTANT = { actor: "owner", source: "assistant" } as const;
@@ -101,11 +101,6 @@ export function useAssistant() {
   const approve = (id: string, proposal: Extract<Proposal, { kind: "change" }>) => approveReply(id, proposal.action);
 
   const decline = (id: string) => updateReply(id, { status: "declined" });
-
-  const undoReply = (id: string, undoId: string) => {
-    dispatch({ type: "log/undo", id: undoId });
-    updateReply(id, { status: "undone", undoId: undefined });
-  };
 
   const pick = (id: string, choice: Choice) => {
     if ("proposal" in choice) pickReply(id, choice);
