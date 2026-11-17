@@ -42,6 +42,9 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 18 | Libovo brand v0.9 implementation ([guide](../design/LIBOVO.md)) | Claude (Opus) | done · 2026-11-17 (assistant name pending owner decision) |
 | 19 | Phone answering (voice receptionist) | Opus | open |
 | 20 | Email for every business (inbox + send from own domain) | Opus | open |
+| 21 | Languages: English source, generated Swedish, tenant locale | Sonnet | open |
+| 22 | Campaigns people want to share + social media connections | Opus | open |
+| 23 | Pricing, modules and billing (open core) | Opus | open |
 
 ---
 
@@ -418,6 +421,42 @@ bookings proposed or made, and everything lands in the Inbox.
 - Full mailboxes via a partner (Google Workspace, Zoho), not our own server.
 - Provider with per-tenant domains (e.g. SES tenants, Postmark); simulated in
   the demo, real provider behind a flag.
+
+## 21 · Languages without maintaining Swedish by hand
+
+- English (`en.ts`) stays the source. `npm run i18n:sync` translates new or
+  changed keys into `sv.ts` with a cheap model, a glossary (do-not-translate:
+  product and tenant names; fixed terms like Booking → Bokning) and a tone
+  guide; unchanged keys are never re-translated.
+- CI: same keys and placeholders in every locale; missing keys fall back to
+  English; strings marked `review` (customer booking flow, confirmations,
+  reminders, primary buttons) are listed for human review.
+- Studio language per user (default: browser). Public booking pages, SMS and
+  email follow the business's locale. Dates, times and money via Intl.
+
+## 22 · Campaigns people want to share + social media connections
+
+- Designer-made templates (not AI-generated layouts) per format and channel,
+  using the business's brand, real photos and safe zones; AI writes copy only.
+  Automatic quality checks (contrast, text amount, legibility at feed size).
+- One-tap share, link previews (OG images per campaign), trackable links,
+  results back on the campaign (reach, clicks, bookings).
+- Connections: start with a publishing provider (Postiz as a separate AGPL
+  service, or a paid API) for Instagram/Facebook/TikTok/LinkedIn/Google
+  Business Profile; direct platform APIs later (Meta app review etc.).
+
+## 23 · Pricing, modules and billing (open core)
+
+- Self-hosting stays free (AGPL). The hosted service is the product: low base
+  price, switchable modules, usage-based extras at transparent cost
+  (SMS, phone minutes, AI calls; BYOK lowers the price), no booking
+  commission.
+- "Connect" services that need contracts and keys (numbers, SMS, email,
+  social, payments) are what self-hosters also pay for.
+- Billing via a payment provider (e.g. Stripe Billing), module switches tied to
+  subscription items, usage metering from the existing cost log.
+- Protect the name with a trademark; AGPL makes copies share changes; the CLA
+  keeps dual licensing possible.
 
 ---
 
