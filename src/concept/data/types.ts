@@ -1,6 +1,8 @@
 // Data model for the clickable demo. No database: everything is generated
 // deterministically in `generate.ts` and kept in the browser (see `../store.ts`).
 
+import type { MemoryItem } from "../assistant/memory";
+import type { Routine } from "../assistant/routines";
 import type { AccountingLink, Cost, MonthFigures } from "../finance/types";
 import type { LogEntry } from "../log/types";
 import type { SupportGrant } from "../support/access";
@@ -397,4 +399,8 @@ export interface DemoState {
   supportGrants: SupportGrant[];
   /** Help requests created from the Help button. */
   tickets: Ticket[];
+  /** What the assistant remembers about the business: facts, preferences, past conversations. */
+  memory: MemoryItem[];
+  /** Routines (skills) the owner keeps; each runs on its schedule and only proposes. */
+  routines: Routine[];
 }

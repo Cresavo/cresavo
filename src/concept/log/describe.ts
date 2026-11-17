@@ -7,10 +7,10 @@ import { formatDayShort, formatMoney } from "../i18n/format";
 import { findCustomer, findService, fullName } from "../selectors";
 
 /** Reading a message or dismissing a card is not a change worth logging. */
-export type LoggedAction = Exclude<DemoAction, { type: "inbox/read" | "inbox/read-all" | "card/dismiss" }>;
+export type LoggedAction = Exclude<DemoAction, { type: "inbox/read" | "inbox/read-all" | "card/dismiss" | "routine/ran" }>;
 
 export function isLogged(action: DemoAction): action is LoggedAction {
-  return action.type !== "inbox/read" && action.type !== "inbox/read-all" && action.type !== "card/dismiss";
+  return action.type !== "inbox/read" && action.type !== "inbox/read-all" && action.type !== "card/dismiss" && action.type !== "routine/ran";
 }
 
 export interface Description {
@@ -33,6 +33,20 @@ const staffFirstName = (state: DemoState, id: string) => state.staff.find((s) =>
 /** One short sentence per change. It names people and things but never quotes journal text or messages. */
 export function describeAction(action: LoggedAction, prev: DemoState, next: DemoState): Description {
   switch (action.type) {
+    case "memory/add":
+      return { summary: t("log.memoryAdd") };
+    case "memory/edit":
+      return { summary: t("log.memoryEdit") };
+    case "memory/forget":
+      return { summary: t("log.memoryForget") };
+    case "routine/add":
+      return { summary: t("log.routineAdd", { name: action.routine.name }) };
+    case "routine/toggle": {
+      const routine = next.routines.find((r) => r.id === action.id)!;
+      return { summary: t(routine.enabled ? "log.routineOn" : "log.routineOff", { name: routine.name }) };
+    }
+    case "customers/message":
+      return { summary: tc("log.customersMessage", next.inbox.length - prev.inbox.length) };
     case "booking/move": {
       const old = bookingOf(prev, action.id)!;
       const now = bookingOf(next, action.id)!;

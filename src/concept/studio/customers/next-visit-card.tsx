@@ -9,7 +9,8 @@ import { formatDate, relativeDay } from "../../i18n/format";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { useStudio } from "../use-studio";
-import { sendTimeSuggestion, suggestedTime } from "./send-suggestion";
+import { suggestedTime } from "../../customers/time-suggestion";
+import { sendTimeSuggestion } from "./send-suggestion";
 
 /** The booked visit, or the date the customer is due back with a one-tap time suggestion. */
 export function NextVisitCard({ customer, next, lastVisit }: { customer: Customer; next?: NextVisit; lastVisit?: string }) {

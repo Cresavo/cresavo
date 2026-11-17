@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { preferredStaffOf } from "../../assistant/memory";
 import { formatTime } from "../../data/dates";
 import { needOf } from "../../data/slots";
 import type { DateKey, StaffId } from "../../data/types";
@@ -30,9 +31,10 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
   const { state, today } = useStudio();
   const [customerId, setCustomerId] = useState(preset.customerId);
   const [query, setQuery] = useState("");
+  const presetCustomer = findCustomer(state, preset.customerId);
   const firstService =
     state.services.find((s) => s.id === preset.serviceId) ??
-    state.services.find((s) => s.staffIds.includes(preset.staffId ?? findCustomer(state, preset.customerId)?.preferredStaff ?? "anna"))!;
+    state.services.find((s) => s.staffIds.includes(preset.staffId ?? (presetCustomer ? preferredStaffOf(state, presetCustomer) : "anna")))!;
   const [serviceId, setServiceId] = useState(firstService.id);
   const service = state.services.find((s) => s.id === serviceId)!;
   const staffId = service.staffIds[0];

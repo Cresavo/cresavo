@@ -1,5 +1,6 @@
 import { sendBookingMessage, type BookingMessageAction } from "./booking/messages";
 import { applyCustomerReview, type CustomerReviewAction } from "./booking/review-actions";
+import { applyAssistant, type AssistantAction } from "./assistant/actions";
 import { findCustomerByPhone, normalizePhone } from "./booking/lookup";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
 import { editJournalEntry } from "./customers/journal";
@@ -40,6 +41,7 @@ export type DemoAction =
   | BookingMessageAction
   | CustomerReviewAction
   | OpsAction
+  | AssistantAction
   | { type: "booking/move"; id: string; date: DateKey; start: number; staffId?: StaffId; notice?: Omit<InboxItem, "id"> }
   | { type: "booking/cancel"; id: string; reason?: string; notice?: Omit<InboxItem, "id"> }
   | { type: "booking/create"; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource }
@@ -303,6 +305,14 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
     case "resource/remove":
     case "service/resources":
       return applyOps(state, action);
+    case "memory/add":
+    case "memory/edit":
+    case "memory/forget":
+    case "routine/add":
+    case "routine/toggle":
+    case "routine/ran":
+    case "customers/message":
+      return applyAssistant(state, action);
     case "booking/move": {
       const moved = moveBooking(state, action.id, action.date, action.start, action.staffId);
       return action.notice && moved !== state ? reduce(moved, { type: "inbox/add", item: action.notice }) : moved;

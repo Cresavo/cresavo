@@ -1,3 +1,4 @@
+import { preferredStaffOf } from "../assistant/memory";
 import { addDays, diffDays } from "../data/dates";
 import { freeStarts, needOf } from "../data/slots";
 import type { Booking, Customer, DateKey, DemoState, Service, SlotSuggestion } from "../data/types";
@@ -83,7 +84,8 @@ function usualStart(state: DemoState, customerId: string): number {
 
 /** The first free time from tomorrow, with the customer's preferred person, nearest to when they usually come. */
 export function suggestSlot(state: DemoState, customer: Customer, service: Service, today: DateKey): SlotSuggestion | undefined {
-  const staffId = service.staffIds.includes(customer.preferredStaff) ? customer.preferredStaff : service.staffIds[0];
+  const preferred = preferredStaffOf(state, customer);
+  const staffId = service.staffIds.includes(preferred) ? preferred : service.staffIds[0];
   const usual = usualStart(state, customer.id);
   for (let i = 1; i <= SEARCH_DAYS; i++) {
     const date = addDays(today, i);

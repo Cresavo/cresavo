@@ -8,6 +8,7 @@ import type { CollectionPatch, Item, StatePatch } from "./types";
 const COLLECTIONS = [
   "customers", "bookings", "journals", "stock", "orders", "sales", "giftCards", "packages", "reviews", "inbox",
   "campaigns", "services", "costs", "trash", "supportGrants", "tickets", "staff", "exceptions", "resources",
+  "memory", "routines",
 ] as const satisfies readonly (keyof DemoState)[];
 
 /** Whole values compared as a unit. */

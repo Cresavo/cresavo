@@ -16,6 +16,8 @@ const inputs = {
   "reply-customer": { customerName: "Anna", message: "Can I book tomorrow?" },
   "daily-summary": { revenueSek: 2400, visits: 4, noShows: 1, newCustomers: 2, missingJournals: 1, tomorrowFirstCustomer: "Erik" },
   "answer-help": { question: "How do I book a customer?", articles: [{ id: "new-booking", title: "Book a customer by hand", keywords: ["new booking", "book a customer"], body: "Open Calendar and tap New booking." }, { id: "stock", title: "Stock", keywords: ["order products"], body: "Stock shows what is left." }] },
+  "assistant-reply": { message: "How did last month compare with last year?", draft: "Revenue last month: +8%.", facts: ["+8%"], thread: [], memory: ["Lena Berg prefers Erik"] },
+  "phrase-brief": { kind: "morning", items: [{ id: "bookings", text: "8 bookings today.", priority: 4 }, { id: "inbox", text: "2 customers wait.", priority: 5 }] },
   "summarize-customer": { sinceYear: 2024, regular: true, visits: 9, service: "Medical foot care", intervalWeeks: 6, traits: ["sensitive skin"], prefersStaff: "Anna", timeOfDay: "afternoons", note: null },
 } as const;
 const names = Object.keys(tasks) as (keyof typeof tasks)[];

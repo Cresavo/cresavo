@@ -25,7 +25,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 12;
+export const DEMO_VERSION = 13;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -618,5 +618,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     trash: cancelled ? [{ id: "t-cancelled-today", kind: "booking", deletedOn: today, bookingId: cancelled.id }] : [],
     supportGrants: [],
     tickets: [],
+    memory: [],
+    routines: [],
   };
 }

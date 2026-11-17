@@ -7,10 +7,13 @@ import { replyCustomerTask } from "./tasks/reply-customer";
 import { dailySummaryTask } from "./tasks/daily-summary";
 import { summarizeCustomerTask } from "./tasks/summarize-customer";
 import { answerHelpTask } from "./tasks/answer-help";
+import { assistantReplyTask } from "./tasks/assistant-reply";
+import { phraseBriefTask } from "./tasks/phrase-brief";
 export const tasks = {
   "interpret-command": interpretCommandTask, "structure-journal": structureJournalTask,
   "write-post": writePostTask, "suggest-campaign": suggestCampaignTask,
   "stock-forecast": stockForecastTask, "reply-customer": replyCustomerTask, "daily-summary": dailySummaryTask, "summarize-customer": summarizeCustomerTask, "answer-help": answerHelpTask,
+  "assistant-reply": assistantReplyTask, "phrase-brief": phraseBriefTask,
 };
 export type TaskName = keyof typeof tasks;
 export function isTaskName(name: string): name is TaskName { return Object.hasOwn(tasks, name); }

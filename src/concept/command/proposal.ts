@@ -1,3 +1,4 @@
+import { preferredStaffOf, rememberedPreference } from "../assistant/memory";
 import { addDays, formatTime } from "../data/dates";
 import { freeStarts, isFree, needOf, type Need } from "../data/slots";
 import type { Booking, DateKey, DemoState, Service, StaffId, StockItem } from "../data/types";
@@ -102,9 +103,11 @@ function bookProposal(state: DemoState, params: IntentParams, clock: Clock): Pro
   const date = params.date;
   if (!customer || !service || !date) return message(t("command.notUnderstood"));
   if (date < clock.today) return message(t("command.dayPassed", { day: formatDayLong(date) }));
+  const preferred = preferredStaffOf(state, customer);
+  const remembered = rememberedPreference(state, customer.id);
   const staffIds = params.staffId
     ? service.staffIds.filter((id) => id === params.staffId)
-    : [...service.staffIds].sort((a, b) => Number(b === customer.preferredStaff) - Number(a === customer.preferredStaff));
+    : [...service.staffIds].sort((a, b) => Number(b === preferred) - Number(a === preferred));
   const build = ({ staffId, start }: Candidate): Proposal => ({
     kind: "change",
     title: t("command.book.title", { name: fullName(customer), service: service.name }),
@@ -112,6 +115,7 @@ function bookProposal(state: DemoState, params: IntentParams, clock: Clock): Pro
     rows: [
       { label: t("command.row.when"), before: t("command.free"), after: whenText(date, start) },
       { label: t("command.row.with"), after: staffName(state, staffId) },
+      ...(remembered ? [{ label: t("command.row.remembered"), after: remembered.text }] : []),
     ],
     action: { type: "booking/create", customerId: customer.id, serviceId: service.id, staffId, date, start, source: "assistant" },
     toast: t("newBooking.bookedToast", { name: customer.firstName, when: whenText(date, start) }),
@@ -302,16 +306,21 @@ function revenueProposal(state: DemoState, params: IntentParams, clock: Clock): 
   };
 }
 
-function inactiveProposal(state: DemoState, params: IntentParams, clock: Clock): Proposal {
-  const since = params.since;
-  if (!since) return message(t("command.notUnderstood"));
-  const stats = buildCustomerStats(state, clock.today);
-  const lapsed = state.customers
+/** Customers whose last visit was before `since` and who have nothing booked, most loyal first. */
+export function lapsedCustomers(state: DemoState, since: DateKey, today: DateKey) {
+  const stats = buildCustomerStats(state, today);
+  return state.customers
     .flatMap((customer) => {
       const s = stats.get(customer.id);
       return s?.lastVisit && s.lastVisit < since && !s.nextBooking ? [{ customer, visits: s.visits, lastVisit: s.lastVisit }] : [];
     })
     .sort((a, b) => b.visits - a.visits || a.lastVisit.localeCompare(b.lastVisit));
+}
+
+function inactiveProposal(state: DemoState, params: IntentParams, clock: Clock): Proposal {
+  const since = params.since;
+  if (!since) return message(t("command.notUnderstood"));
+  const lapsed = lapsedCustomers(state, since, clock.today);
   return {
     kind: "customers",
     title: t("command.customers.title", { date: formatDayMonth(since) }),
