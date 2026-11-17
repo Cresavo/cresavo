@@ -16,7 +16,7 @@ function v14Save(day = today) {
     ...fresh,
     version: 14,
     bookings: fresh.bookings.map((b) => (b.id === booking.id ? { ...b, status: "cancelled" as const } : b)),
-    customers: fresh.customers.map((c, i) => (i === 0 ? { ...c, name: "Edited Name" } : c)),
+    customers: fresh.customers.map((c, i) => (i === 0 ? { ...c, firstName: "Edited" } : c)),
     stock: fresh.stock.map((s, i) => (i === 0 ? { ...s, inStock: 99 } : s)),
     page: { ...fresh.page, theme: { ...fresh.page.theme, colors: PALETTES.rose }, css: ".hero { letter-spacing: 1px }" },
     cancelledId: booking.id,
@@ -29,7 +29,7 @@ describe("migrateState", () => {
     const migrated = migrateState(JSON.parse(JSON.stringify(saved)))!;
     expect(migrated.version).toBe(DEMO_VERSION);
     expect(migrated.bookings.find((b) => b.id === cancelledId)!.status).toBe("cancelled");
-    expect(migrated.customers[0].name).toBe("Edited Name");
+    expect(migrated.customers[0].firstName).toBe("Edited");
     expect(migrated.stock[0].inStock).toBe(99);
     expect(migrated.page.theme.colors).toEqual(PALETTES.rose);
     expect(migrated.page.css).toBe(".hero { letter-spacing: 1px }");
@@ -89,7 +89,7 @@ describe("store load", () => {
     const state = currentState()!;
     expect(state.version).toBe(DEMO_VERSION);
     expect(state.bookings.find((b) => b.id === cancelledId)!.status).toBe("cancelled");
-    expect(state.customers[0].name).toBe("Edited Name");
+    expect(state.customers[0].firstName).toBe("Edited");
     expect(state.page.theme.colors).toEqual(PALETTES.rose);
   });
 });
