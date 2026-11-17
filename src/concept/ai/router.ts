@@ -9,7 +9,11 @@ const models: Record<Provider, Record<ModelTier, string>> = {
   anthropic: { fast: "claude-haiku-4-5", smart: "claude-sonnet-4-5", image: "", speech: "" },
 };
 /** CONCEPT_AI_FAST_PROVIDER / CONCEPT_AI_FAST_MODEL (and SMART/IMAGE/SPEECH) override defaults. */
-export function routeModel(tier: ModelTier, env: AiEnvironment = process.env): ModelRoute | null {
+export function routeModel(tier: ModelTier, env: AiEnvironment = process.env, ownKey?: { provider: Provider; apiKey: string } | null): ModelRoute | null {
+  if (ownKey) {
+    const model = models[ownKey.provider][tier];
+    return model ? { ...ownKey, model, tier } : null;
+  }
   const preferred = env[`CONCEPT_AI_${tier.toUpperCase()}_PROVIDER`];
   if (preferred && !Object.hasOwn(keys, preferred)) return null;
   const providers: Provider[] = preferred ? [preferred as Provider] : ["openrouter", "openai", "anthropic"];

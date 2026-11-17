@@ -27,6 +27,7 @@ const commands: [string, string, Record<string, unknown>][] = [
 /** Fictional, fixed-clock cases; these are semantic checks, not prose snapshots. */
 export const evaluationCases: EvaluationCase[] = [
   ...commands.map(([id, text, expected]) => ({ id, task: "interpret-command" as const, input: { text, context }, expected })),
+  { id: "clarify-unknown", task: "interpret-command", input: { text: "Please book someone", context }, expected: { action: "question" } },
   { id: "journal-facts", task: "structure-journal", input: { transcript: "Foot treatment completed. Observed dry skin. Recommend cream. Next visit in six weeks." }, contains: { treatment: "Foot treatment", observations: "dry skin", recommendation: "cream", nextVisit: "six weeks" } },
   { id: "journal-no-invention", task: "structure-journal", input: { transcript: "Massage completed." }, expected: { observations: "", recommendation: "", nextVisit: "" }, contains: { treatment: "Massage" } },
   { id: "journal-treatment-with-skin", task: "structure-journal", input: { transcript: "Treated both feet and removed hard skin from the heels. Noticed a dry heel." }, contains: { treatment: "hard skin", observations: "dry heel" }, expected: { recommendation: "" } },
@@ -41,4 +42,11 @@ export const evaluationCases: EvaluationCase[] = [
   { id: "daily-empty", task: "daily-summary", input: { revenueSek: 0, newCustomers: 0, missingJournals: 0, tomorrowFirstCustomer: null }, contains: { summary: "0" } },
   { id: "summary-regular", task: "summarize-customer", input: { sinceYear: 2024, regular: true, visits: 14, service: "Medical foot care", intervalWeeks: 6, traits: ["sensitive skin"], prefersStaff: "Anna", timeOfDay: "afternoons", note: null }, contains: { summary: "Regular since 2024, medical foot care every 6 weeks, sensitive skin, prefers Anna, afternoons" } },
   { id: "summary-no-invention", task: "summarize-customer", input: { sinceYear: 2026, regular: false, visits: 0, service: null, intervalWeeks: null, traits: [], prefersStaff: null, timeOfDay: null, note: null }, contains: { summary: "Customer since 2026, no visits yet" } },
+  { id: "journal-reminder", task: "structure-journal", input: { transcript: "Massage completed. Recommend rest." }, contains: { treatment: "Massage", recommendation: "rest" }, expected: { observations: "", nextVisit: "" } },
+  { id: "post-google", task: "write-post", input: { offer: "Massage for 800 SEK", channel: "google" }, contains: { text: "800" }, expected: { hashtags: [] } },
+  { id: "campaign-price", task: "suggest-campaign", input: { occasion: "Christmas", service: "Foot care", priceSek: 600 }, expected: { percentOff: 10, priceSek: 540 }, contains: { title: "Christmas" } },
+  { id: "stock-empty", task: "stock-forecast", input: { product: "Oil", quantity: 0, dailyUsage: 1, leadTimeDays: 3 }, expected: { daysRemaining: 0, orderQuantity: 10 } },
+  { id: "reply-no-facts", task: "reply-customer", input: { customerName: "Erik", message: "Book me in" }, contains: { text: "suggestion" } },
+  { id: "daily-journals", task: "daily-summary", input: { revenueSek: 800, newCustomers: 1, missingJournals: 3, tomorrowFirstCustomer: "Anna" }, contains: { highlights: "3 missing journals", summary: "800" } },
+  { id: "summary-new", task: "summarize-customer", input: { sinceYear: 2026, regular: false, visits: 0, service: null, intervalWeeks: null, traits: [], prefersStaff: "Erik", timeOfDay: null, note: null }, contains: { summary: "prefers Erik" } },
 ];

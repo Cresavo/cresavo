@@ -1,5 +1,31 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Codex · night 2 part 1: AI settings, tools and saved usage
+
+**Done**: encrypted per-business BYOK (OpenRouter/OpenAI/Anthropic), provider
+priority over platform keys, remove/replace key, Fast/Smart per-task selector,
+persistent usage with task/month totals. Command interpretation now requests one
+structured proposal tool call and validates it before the existing approval UI;
+rules remain available on provider/schema failure and with no keys. Offline evals
+ignore saved keys. Eight new edge cases cover every task (36 total).
+
+**Try it**: `/studio/more/data`. Set `CONCEPT_KEY_SECRET` (32+ private random
+characters) on the server to enable the key form. Data lives in gitignored
+`.data/concept-ai/`; preserve the secret across restarts. Only provider and last
+four characters return to the browser. The demo uses a server-selected fictional
+business and local single-process storage; production authentication/storage is
+still future work.
+
+**Verified**: lint, tsc, 748 unit tests, production build (synthetic database URL,
+no connection), 36/36 offline evals. Every task also runs through all three mocked
+provider transports. Disk, tampering/wrong-secret, business isolation and HTTP
+validation tests pass. Browser → settings API → encrypted file → reload and
+remove/restore rules passed at 390 and 1280 px, without a real provider call.
+Screenshots: [mobile](screens/night2-ai-390.png) · [desktop](screens/night2-ai-1280.png).
+
+**Remains**: real-key verification (no key available); goal 7 retains that explicit
+pending item. Side finding: development dependency audit advisories filed as #12.
+
 ## 2026-11-17 · Claude Code · goal 4: campaign studio (also goal 1 step 5b)
 
 **Done**

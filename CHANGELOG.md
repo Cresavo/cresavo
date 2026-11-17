@@ -11,6 +11,10 @@ All notable changes to this project are documented here. Format follows
   under observations.
 
 ### Added
+- Flerdo can securely save a business's own OpenRouter, OpenAI or Anthropic key
+  on the demo server, choose Fast/Smart per task, and show saved usage by task
+  and month. The command box uses validated provider tool proposals with rules
+  as fallback; all features still work without keys.
 - Campaign studio: pick an offer or holiday, get a text for Instagram, Facebook,
   TikTok, newsletter and SMS, choose a poster (5 styles; Instagram post, story or
   A4 window poster as PNG), preview it per channel, then publish everywhere or
@@ -38,7 +42,7 @@ All notable changes to this project are documented here. Format follows
 - Voice journal: dictate a visit, get treatment, observations, advice and next
   visit as editable fields, and book the next visit in one tap.
 - Your data & AI shows which AI task runs on which model (or built-in rules),
-  a cost log, and a demo form for your own AI key (not stored).
+  a cost log and a form for your own AI key.
 - Customer booking page (`/boka/salong-eko`): describe what you want in your own
   words or pick a treatment, choose a time, confirm with name and phone. Includes
   add to calendar, reschedule, cancel (free until 24 hours before), "My bookings"

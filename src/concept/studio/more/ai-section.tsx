@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { RefreshCw, Sparkles } from "lucide-react";
-import { fetchAiOverview } from "../../ai/api-client";
+import { fetchAiOverview, saveAiSettings } from "../../ai/api-client";
 import type { AiOverview } from "../../ai/overview";
 import type { TaskName } from "../../ai/registry";
 import { t, tc } from "../../i18n";
@@ -25,6 +25,8 @@ export function AiSection() {
   };
   useEffect(() => {
     load();
+    window.addEventListener("concept-ai-settings", load);
+    return () => window.removeEventListener("concept-ai-settings", load);
   }, []);
 
   const { overview, failed } = result;
@@ -43,13 +45,18 @@ export function AiSection() {
         <p className="text-sm text-eko-muted">{overview.configured ? t("ai.modeAi") : t("ai.modeRules")}</p>
         <ul className="divide-y divide-eko-line">
           {tasks.map((task) => (
-            <li key={task.name} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3">
+            <li key={task.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-3">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{t(`ai.task.${task.name}`)}</p>
                 <p className="text-xs text-eko-muted">{t(`ai.task.${task.name}.description`)}</p>
               </div>
-              <Badge>{t(`ai.tier.${task.tier}`)}</Badge>
-              {task.provider ? <Badge tone="accent">{task.model}</Badge> : <Badge tone="neutral">{t("ai.rules")}</Badge>}
+              <select className="rounded-lg border border-eko-line bg-eko-surface p-2 text-sm" aria-label={t("ai.taskTier", { task: t(`ai.task.${task.name}`) })} value={task.tier} onChange={async event => {
+                try { setResult({ overview: await saveAiSettings({ task: task.name, tier: event.target.value as "fast" | "smart" }) }); }
+                catch { setResult({ failed: true }); }
+              }}>
+                <option value="fast">{t("ai.tier.fast")}</option><option value="smart">{t("ai.tier.smart")}</option>
+              </select>
+              <div className="col-span-2">{task.provider ? <Badge tone="accent">{task.model}</Badge> : <Badge tone="neutral">{t("ai.rules")}</Badge>}</div>
             </li>
           ))}
         </ul>
@@ -65,10 +72,17 @@ export function AiSection() {
           </div>
           <Button size="sm" variant="ghost" icon={<RefreshCw size={16} />} onClick={load}>{t("ai.refresh")}</Button>
         </div>
+        {(["byTask", "byMonth"] as const).map(group => <div key={group}>
+          <p className="text-sm font-medium">{t(group === "byTask" ? "ai.byTask" : "ai.byMonth")}</p>
+          <ul className="divide-y divide-eko-line">{overview[group].map(row => <li className="flex justify-between gap-3 py-2 text-sm" key={row.name}>
+            <span>{group === "byTask" ? t(`ai.task.${row.name as TaskName}`) : row.name} · {tc("ai.calls", row.calls)}</span>
+            <span>{formatUsd(row.costUsd)}{row.unknownCosts > 0 && ` + ${tc("ai.unknownCosts", row.unknownCosts)}`}</span>
+          </li>)}</ul>
+        </div>)}
         {costLog.length ? (
           <ul className="divide-y divide-eko-line">
-            {costLog.map((entry) => (
-              <li key={entry.timestamp + entry.task} className="flex items-center gap-3 py-2.5 text-sm">
+            {costLog.map((entry, index) => (
+              <li key={entry.id ?? `${entry.timestamp}:${index}`} className="flex items-center gap-3 py-2.5 text-sm">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{t(`ai.task.${entry.task as TaskName}`)}</p>
                   <p className="truncate text-xs text-eko-muted">
@@ -76,7 +90,7 @@ export function AiSection() {
                     {entry.source === "ai" && ` · ${entry.inputTokens + entry.outputTokens} tokens`}
                   </p>
                 </div>
-                <span className="shrink-0 tabular-nums">{entry.source === "rules" ? t("ai.free") : formatUsd(entry.costUsd)}</span>
+                <span className="shrink-0 tabular-nums">{entry.costUsd === 0 ? t("ai.free") : formatUsd(entry.costUsd)}</span>
               </li>
             ))}
           </ul>

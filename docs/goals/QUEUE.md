@@ -28,7 +28,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 4 | The marketing studio | Claude (Sonnet) | done · 2026-11-17 |
 | 5 | Stock and purchasing | Codex | open |
 | 6 | Finance and overview | Codex | open |
-| 7 | The AI layer for real | Opus | in progress · Codex · goal/codex-night2 · 2026-11-17; real-key verification deferred (no key available) |
+| 7 | The AI layer for real | Opus | in progress · Codex · goal/codex-night2 · 2026-11-17; BYOK, tiers, persistent costs and tool calls delivered; real-key verification remains (no key available) |
 | 8 | Support, log and "What happened?" | Both | open |
 | 9 | Modules and industry packs | Both | open |
 | 10 | Open protocols for the concept | Opus | open |
