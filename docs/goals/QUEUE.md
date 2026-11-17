@@ -23,12 +23,12 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | # | Goal | Who | Status |
 |---|---|---|---|
 | 1 | Clickable demo night 1 ([file](../concept/CODEX_GOAL_NIGHT1.md)) | Both | done (step 5b delivered in goal 4) |
-| 2 | The customer experience | Codex | in progress · booking page, My bookings, waiting list done; messages, reviews, widget left |
+| 2 | The customer experience | Codex | in progress · Codex goal/codex-night2 (messages, reviews, widget) |
 | 3 | Customers, journal and return visits | Claude (Sonnet) | done · 2026-11-17 |
 | 4 | The marketing studio | Claude (Sonnet) | done · 2026-11-17 |
-| 5 | Stock and purchasing | Codex | done · 2026-11-17 |
-| 6 | Finance and overview | Codex | open |
-| 7 | The AI layer for real | Opus | open · headless evaluations delivered on goal/7-ai-evals · 2026-11-17; UI/BYOK/live-key work remains |
+| 5 | Stock and purchasing | Claude (Sonnet) | done · 2026-11-17 |
+| 6 | Finance and overview | Claude (Sonnet) | done · 2026-11-17 |
+| 7 | The AI layer for real | Codex | in progress · goal/codex-night2 (BYOK, persisted costs, tool calls) |
 | 8 | Support, log and "What happened?" | Both | open |
 | 9 | Modules and industry packs | Both | open |
 | 10 | Open protocols for the concept | Opus | open |

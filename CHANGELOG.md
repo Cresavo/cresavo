@@ -23,6 +23,14 @@ All notable changes to this project are documented here. Format follows
   the customer's history and in revenue. "How much massage oil is left?" and
   "order more foot cream" also work in the command box.
 - Edit a product's minimum level, supplier and prices from the Stock page.
+- Finance overview on one screen: revenue, occupancy per person, popular
+  treatments, cancellations and no-shows, and new vs returning customers for a
+  day, week, month or year, each compared with the period before.
+- Monthly costs (rent, products, wages, fees) with the result left over each month.
+- Accounted bookkeeping card (simulated connection, preview of what would sync)
+  and SIE and CSV exports.
+- The command box answers "compare March with last year", "which treatment earns
+  the most per hour?" and "how busy is Erik next week?" with a number and a chart.
 - Campaign studio: pick an offer or holiday, get a text for Instagram, Facebook,
   TikTok, newsletter and SMS, choose a poster (5 styles; Instagram post, story or
   A4 window poster as PNG), preview it per channel, then publish everywhere or

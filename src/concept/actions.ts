@@ -2,6 +2,7 @@ import { findCustomerByPhone, normalizePhone } from "./booking/lookup";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
 import { editJournalEntry } from "./customers/journal";
 import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visits";
+import type { CostKind } from "./finance/types";
 import { isFree } from "./data/slots";
 import { placeOrders, receiveGoods, type Delivery, type NewOrder } from "./stock/orders";
 import { sellProduct } from "./stock/sales";
@@ -51,6 +52,10 @@ export type DemoAction =
   | { type: "inbox/add"; item: Omit<InboxItem, "id"> }
   | { type: "review/reply"; id: string; reply: string }
   | { type: "customer/note"; id: string; note: string }
+  | { type: "cost/add"; kind: CostKind; label: string; amount: number }
+  | { type: "cost/remove"; id: string }
+  | { type: "accounting/connect"; on: DateKey }
+  | { type: "accounting/disconnect" }
   | { type: "module/toggle"; key: ModuleKey }
   | { type: "card/dismiss"; id: string };
 
@@ -313,6 +318,18 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
       return { ...state, reviews: updateBy(state.reviews, action.id, (r) => ({ ...r, reply: action.reply })) };
     case "customer/note":
       return { ...state, customers: updateBy(state.customers, action.id, (c) => ({ ...c, note: action.note || undefined })) };
+    case "cost/add": {
+      const amount = Math.round(action.amount);
+      const label = action.label.trim();
+      if (!(amount > 0) || !label) return state;
+      return { ...state, seq: state.seq + 1, costs: [...state.costs, { id: nextId(state, "cost"), kind: action.kind, label, amount }] };
+    }
+    case "cost/remove":
+      return { ...state, costs: state.costs.filter((c) => c.id !== action.id) };
+    case "accounting/connect":
+      return { ...state, accounting: { connected: true, connectedOn: action.on } };
+    case "accounting/disconnect":
+      return { ...state, accounting: { connected: false } };
     case "module/toggle":
       return { ...state, modules: { ...state.modules, [action.key]: !state.modules[action.key] } };
     case "card/dismiss":

@@ -56,6 +56,40 @@ command: [level](screens/stock-command-level-390.png) ·
 treatment is shown but not editable in the UI; the delivery-note photo is a canned
 result; no barcode scanning; usage falls back to the owner's estimate for products
 no treatment uses; the AI forecast was verified with mocks only.
+## 2026-11-17 · Claude Code · goal 6: finance and overview
+
+**Done**
+
+- **Finance** `/studio/more/finance` is one screen: a Day / Week / Month / Year
+  switch, revenue with a day-by-day chart, occupancy per person, popular
+  treatments, cancellations and no-shows, and new vs returning customers. Every
+  figure sits next to the same stretch of the period before (this month so far
+  against the first days of last month; year = last 12 full months against the 12
+  before) with a green or amber change badge.
+- **Costs and result**: monthly costs (rent, products, wages, fees, other) can be
+  added and removed; shows what was left over last month and for the last six.
+- **Bookkeeping**: Accounted card with a simulated connection, a preview of what
+  would sync (sales per day, VAT, fees), and downloads of SIE (type 4) and CSV
+  for the last three full months.
+- **Command box** answers with a number and a small chart: "compare March with
+  last year", "which treatment earns the most per hour?", "how busy is Erik next
+  week?" (also "compare October with September", "how busy are we this week").
+- Demo data bumped to version 7: monthly totals before the bookings start (so
+  last year can be compared), default costs and the bookkeeping link.
+- Tests: periods, comparisons, per-hour earnings, occupancy, profit, SIE/CSV
+  format, command answers (`tests/concept-finance.test.ts`).
+
+**Try it**: `/studio/more/finance`; or type the questions above in the command box.
+
+Screenshots: [390](screens/finance-390.png) · [1280](screens/finance-1280.png) ·
+[connected](screens/finance-connected-390.png) · [year](screens/finance-year-390.png) ·
+[compare](screens/finance-command-compare-390.png) · [per hour](screens/finance-command-perhour-390.png) ·
+[busy](screens/finance-command-busy-390.png).
+
+**Remains**: the earlier-year totals are invented; the demo assumes 25% VAT on
+every treatment; the Accounted connection is simulated and nothing is sent;
+VAT, fees and costs are not tied to real payments; the SIE file is UTF-8 with
+ASCII text rather than PC8-encoded.
 
 ## 2026-11-17 · Claude Code · goal 4: campaign studio (also goal 1 step 5b)
 
