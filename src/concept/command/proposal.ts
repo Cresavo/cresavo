@@ -10,6 +10,7 @@ import { buildCustomerStats, findCustomer, findService, fullName, revenueBetween
 import { waitlistCount, waitlistNotice } from "../studio/booking/waitlist-notice";
 import { parseCampaignRequest, studioHref, type CampaignPrefill } from "../campaigns/prefill";
 import { clarifyChoices, type Retry } from "./clarify";
+import { insightFor, type Insight } from "./insight";
 
 // Turns what the interpreter understood into something the owner can review.
 // Nothing here changes data: a "change" proposal carries one store action that
@@ -32,6 +33,7 @@ export type Proposal =
   | { kind: "change"; title: string; subtitle?: string; rows: ChangeRow[]; action: DemoAction; toast: string; destructive?: boolean }
   | { kind: "choose"; title: string; choices: Choice[] }
   | { kind: "revenue"; title: string; range: string; total: number; visits: number; bars: { id: string; label: string; value: number }[] }
+  | Insight
   | { kind: "customers"; title: string; total: number; items: { id: string; name: string; detail: string }[] }
   | { kind: "message"; text: string; link?: { href: string; label: string } };
 
@@ -276,6 +278,8 @@ function inactiveProposal(state: DemoState, params: IntentParams, clock: Clock):
 /** Everything the card needs for one interpreter result. `examples` fill in when the command is too vague. */
 export function proposalFor(state: DemoState, intent: IntentResult, text: string, clock: Clock, examples: string[]): Proposal {
   const { params } = intent;
+  const insight = ["question", "revenue"].includes(intent.action) ? insightFor(state, text, clock) : null;
+  if (insight) return insight;
   const requested = ["question", "campaign", "make-poster"].includes(intent.action) ? parseCampaignRequest(text, state, clock.today) : null;
   if (requested) return studioProposal(requested);
   switch (intent.action) {

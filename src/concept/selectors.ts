@@ -1,4 +1,4 @@
-import { addDays, monthKey } from "./data/dates";
+import { addDays } from "./data/dates";
 import { isActive, lunchFor, openingFor, staffWorks } from "./data/slots";
 import type { Booking, Customer, DateKey, DemoState, Service, StaffId, StockItem } from "./data/types";
 
@@ -68,20 +68,6 @@ export function todayRevenue(state: DemoState, today: DateKey, nowMinutes: numbe
 
 const earned = (b: Booking, today: DateKey) => b.status === "completed" || (b.status === "booked" && b.date < today);
 
-export function revenueByMonth(state: DemoState, today: DateKey, months: number) {
-  const keys: string[] = [];
-  for (let i = months - 1; i >= 0; i--) {
-    const d = new Date(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1 - i, 1, 12);
-    keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-  }
-  const totals = new Map(keys.map((k) => [k, 0]));
-  for (const b of state.bookings) {
-    const k = monthKey(b.date);
-    if (totals.has(k) && earned(b, today)) totals.set(k, totals.get(k)! + b.price);
-  }
-  return keys.map((month) => ({ month, total: totals.get(month)! }));
-}
-
 export function revenueSplit(state: DemoState, today: DateKey, from: DateKey, by: "serviceId" | "staffId") {
   const totals = new Map<string, number>();
   for (const b of state.bookings) {
@@ -114,14 +100,18 @@ export function averageRating(state: DemoState) {
   return state.reviews.reduce((sum, r) => sum + r.rating, 0) / state.reviews.length;
 }
 
+/** A visit that has happened: marked done, or booked and over by now. */
+export function finishedVisit(b: Booking, today: DateKey, minutes: number) {
+  return b.status === "completed" || (b.status === "booked" && (b.date < today || (b.date === today && b.start + b.duration <= minutes)));
+}
+
 /** Revenue earned in [start, end) as of now: finished visits only, split by treatment. */
 export function revenueBetween(state: DemoState, today: DateKey, minutes: number, start: DateKey, end: DateKey) {
   const totals = new Map<string, number>();
   let visits = 0;
   for (const b of state.bookings) {
     if (b.date < start || b.date >= end) continue;
-    const finished = b.status === "completed" || (b.status === "booked" && (b.date < today || (b.date === today && b.start + b.duration <= minutes)));
-    if (!finished) continue;
+    if (!finishedVisit(b, today, minutes)) continue;
     visits += 1;
     totals.set(b.serviceId, (totals.get(b.serviceId) ?? 0) + b.price);
   }

@@ -1,6 +1,8 @@
 // Data model for the clickable demo. No database: everything is generated
 // deterministically in `generate.ts` and kept in the browser (see `../store.ts`).
 
+import type { AccountingLink, Cost, MonthFigures } from "../finance/types";
+
 /** Local calendar day, "YYYY-MM-DD". */
 export type DateKey = string;
 
@@ -249,6 +251,11 @@ export interface DemoState {
   inbox: InboxItem[];
   holidays: Holiday[];
   campaigns: Campaign[];
+  /** Monthly totals from before the bookings start. */
+  monthHistory: MonthFigures[];
+  /** Costs paid every month. */
+  costs: Cost[];
+  accounting: AccountingLink;
   modules: Record<ModuleKey, boolean>;
   /** Suggestion cards on Today that the owner dismissed. */
   dismissedCards: string[];

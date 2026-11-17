@@ -10,6 +10,8 @@ import {
   STOCK,
 } from "./catalog";
 import { addDays, diffDays, formatTime, weekday } from "./dates";
+import { makeMonthHistory } from "../finance/history";
+import type { Cost } from "../finance/types";
 import { upcomingHolidays } from "./holidays";
 import { freeStarts, lunchFor, openingFor, staffWorks } from "./slots";
 import type {
@@ -27,10 +29,16 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 6;
+export const DEMO_VERSION = 7;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
+const DEFAULT_COSTS: Cost[] = [
+  { id: "cost-rent", kind: "rent", label: "Rent", amount: 18000 },
+  { id: "cost-products", kind: "products", label: "Products and supplies", amount: 12500 },
+  { id: "cost-wages", kind: "wages", label: "Wages and payroll tax", amount: 110000 },
+  { id: "cost-fees", kind: "fees", label: "Card fees and software", amount: 6000 },
+];
 const CUSTOMER_COUNT = 360;
 const REGULAR_COUNT = 40;
 
@@ -646,6 +654,9 @@ export function createDemoState(today: DateKey): DemoState {
     inbox,
     holidays: upcomingHolidays(today),
     campaigns,
+    monthHistory: makeMonthHistory(bookings, today, HISTORY_DAYS, createRandom(SEED + 7).next),
+    costs: DEFAULT_COSTS.map((c) => ({ ...c })),
+    accounting: { connected: false },
     modules: { journal: true, stock: true, campaigns: true, finance: true, reviews: true },
     dismissedCards: [],
   };

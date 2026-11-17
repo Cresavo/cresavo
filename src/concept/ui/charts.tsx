@@ -69,3 +69,65 @@ export function Meter({ value, tone = "bg-eko-accent", className }: { value: num
     </div>
   );
 }
+
+interface PairedColumnsProps {
+  data: { current: number; previous: number }[];
+  /** Short text under the first and last column. */
+  labels: [string, string];
+  label: string;
+  height?: number;
+}
+
+const STEP = 10;
+
+/** Two thin columns per step, this period (dark) next to the one before (light). */
+export function PairedColumns({ data, labels, label, height = 110 }: PairedColumnsProps) {
+  const max = Math.max(1, ...data.flatMap((d) => [d.current, d.previous]));
+  const bar = (value: number) => (value / max) * (height - 4);
+  return (
+    <figure className="w-full">
+      <svg viewBox={`0 0 ${data.length * STEP} ${height}`} preserveAspectRatio="none" role="img" aria-label={label} className="w-full" style={{ height }}>
+        {data.map((d, i) => (
+          <g key={i}>
+            <rect x={i * STEP + 0.8} y={height - bar(d.previous)} width={4} height={bar(d.previous)} className="fill-eko-accent/25" />
+            <rect x={i * STEP + 4.9} y={height - bar(d.current)} width={4} height={bar(d.current)} className="fill-eko-accent" />
+          </g>
+        ))}
+      </svg>
+      <div className="mt-2 flex justify-between border-t border-eko-line pt-2 text-xs text-eko-muted">
+        <span>{labels[0]}</span>
+        <span>{labels[1]}</span>
+      </div>
+    </figure>
+  );
+}
+
+interface CompareBarsProps {
+  data: { id: string; label: string; value: number; previous: number; tone?: string }[];
+  format: (value: number) => string;
+}
+
+/** One row per item: a bar for this period with a thinner one below for the period before. */
+export function CompareBars({ data, format }: CompareBarsProps) {
+  const max = Math.max(1, ...data.flatMap((d) => [d.value, d.previous]));
+  return (
+    <ul className="space-y-4">
+      {data.map((d) => (
+        <li key={d.id} className="space-y-1.5">
+          <div className="flex justify-between gap-3 text-sm">
+            <span className="truncate">{d.label}</span>
+            <span className="shrink-0 font-medium tabular-nums">{format(d.value)}</span>
+          </div>
+          <div className="space-y-1">
+            <div className="h-2 overflow-hidden rounded-full bg-eko-sunken">
+              <div className={cx("h-full rounded-full", d.tone ?? "bg-eko-accent")} style={{ width: `${(d.value / max) * 100}%` }} />
+            </div>
+            <div className="h-1 overflow-hidden rounded-full bg-eko-sunken">
+              <div className="h-full rounded-full bg-eko-muted/40" style={{ width: `${(d.previous / max) * 100}%` }} />
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
