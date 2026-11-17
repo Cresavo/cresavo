@@ -204,3 +204,22 @@ for (const scheme of ["light", "dark"] as const) {
     }
   });
 }
+
+test("the public header keeps clear of notches in portrait and landscape (Codex #9)", async ({ page }) => {
+  const cdp = await page.context().newCDPSession(page);
+  for (const { viewport, insets } of [
+    { viewport: { width: 390, height: 844 }, insets: { top: 47, left: 0, right: 0, bottom: 34 } },
+    { viewport: { width: 844, height: 390 }, insets: { top: 0, left: 47, right: 47, bottom: 21 } },
+  ]) {
+    await page.setViewportSize(viewport);
+    await cdp.send("Emulation.setSafeAreaInsetsOverride", { insets });
+    await page.goto("/boka/salong-eko");
+    const home = page.getByRole("banner").getByRole("link", { name: "Salong Eko" });
+    const mine = page.getByRole("banner").getByRole("link", { name: "My bookings" });
+    await expect(home).toBeVisible();
+    const [a, b] = [(await home.boundingBox())!, (await mine.boundingBox())!];
+    expect(a.y, `${viewport.width} top`).toBeGreaterThanOrEqual(insets.top);
+    expect(a.x, `${viewport.width} left`).toBeGreaterThanOrEqual(insets.left);
+    expect(b.x + b.width, `${viewport.width} right`).toBeLessThanOrEqual(viewport.width - insets.right);
+  }
+});

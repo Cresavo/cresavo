@@ -37,8 +37,9 @@ function Frame({ children }: { children: ReactNode }) {
   const { logo } = page.theme;
   return (
     <PageRoot page={page} className="flex min-h-[100dvh] flex-col">
-      <header className="border-b print:hidden border-border bg-surface">
-        <div className="mx-auto flex min-h-14 w-full max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
+      {/* The route draws edge to edge (viewport-fit=cover): header, content and footer keep clear of notches and the home indicator. */}
+      <header className="border-b print:hidden border-border bg-surface pt-[env(safe-area-inset-top)]">
+        <div className="mx-auto flex min-h-14 w-full max-w-5xl items-center justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
           <Link href={bookingHome(slug)} className="flex items-center gap-2.5 font-semibold tracking-tight">
             {logo ? (
               // A small data URL chosen by the owner; there is nothing for the image optimiser to do.
@@ -56,10 +57,10 @@ function Frame({ children }: { children: ReactNode }) {
           </Link>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-16 pt-5 sm:px-6 lg:pt-8">
+      <main className="mx-auto w-full max-w-5xl flex-1 pb-16 pt-5 lg:pt-8 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
         {state ? children : <p className="animate-pulse py-24 text-center text-text-secondary">{t("booking.loading")}</p>}
       </main>
-      <footer className="border-t print:hidden border-border px-4 py-6 text-center text-xs text-text-secondary">
+      <footer className="border-t print:hidden border-border pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center text-xs text-text-secondary pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
         {t("booking.demoNote")}{" "}
         <Link href="/studio" className="font-medium text-action underline-offset-2 hover:underline">
           {t("booking.ownerView")}

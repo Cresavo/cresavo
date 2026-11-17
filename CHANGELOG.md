@@ -41,6 +41,7 @@ All notable changes to this project are documented here. Format follows
 - The embed code is titled "Book with <your business>" and the confirmation page says "Fictional demo" instead of naming the platform; platform attribution on booking pages is a product policy setting, off by default (#27).
 - Error, warning and confirmation messages on booking pages always sit on their own meaning colours, so they stay readable on any page colour. A business's own CSS can colour only branding slots (page, headings, links, buttons, header, footer, sections, images) and cannot fade or filter containers; the page editor's contrast check now lists error messages and confirmations (Codex #7).
 - The browser's address and status bar follow the studio's saved theme (also against the phone's own setting) from the first frame and when the theme is changed; booking pages keep their own colour (the business's page colour, or neutral) (Codex #8, #29).
+- Booking pages keep their header, content and footer clear of the notch, rounded corners and home indicator in portrait and landscape (Codex #9).
 
 ## [0.3.0] - 2026-11-17
 
