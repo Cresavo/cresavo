@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { CalendarPlus, Hand, Mail, MessageSquare, Phone, UserX } from "lucide-react";
+import { CalendarPlus, Hand, Mail, MessageSquare, Phone, ShoppingBag, UserX } from "lucide-react";
 import { diffDays } from "@/concept/data/dates";
 import { t, tc } from "@/concept/i18n";
 import { agoText, formatDate, formatMoney } from "@/concept/i18n/format";
@@ -17,6 +17,8 @@ import { CustomerSummary } from "@/concept/studio/customers/customer-summary";
 import { Journal } from "@/concept/studio/customers/journal";
 import { NextVisitCard } from "@/concept/studio/customers/next-visit-card";
 import { Notes } from "@/concept/studio/customers/notes";
+import { CustomerProducts } from "@/concept/studio/stock/customer-products";
+import { SellSheet } from "@/concept/studio/stock/sell-sheet";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Avatar } from "@/concept/ui/avatar";
@@ -34,6 +36,7 @@ export default function CustomerPage() {
   const { state, today, minutes } = useStudio();
   const [tab, setTab] = useState<Tab>("overview");
   const [sheet, setSheet] = useState<OpenSheet>(null);
+  const [selling, setSelling] = useState(false);
   const customer = state.customers.find((c) => c.id === id);
   const stats = useMemo(() => buildCustomerStats(state, today), [state, today]);
 
@@ -105,6 +108,11 @@ export default function CustomerPage() {
               </Button>
             </div>
           </Card>
+          {state.modules.stock && (
+            <Button variant="secondary" className="w-full" icon={<ShoppingBag size={18} />} onClick={() => setSelling(true)}>
+              {t("stock.sell")}
+            </Button>
+          )}
           <NextVisitCard customer={customer} next={next} lastVisit={s.lastVisit} />
           {late && s.lastVisit && (
             <Card className="flex gap-3 bg-eko-warn-soft p-4 ring-eko-warn/20">
@@ -160,6 +168,7 @@ export default function CustomerPage() {
               <Card className="overflow-hidden">
                 <BookingList bookings={history} onOpen={setSheet} />
               </Card>
+              {state.modules.stock && <CustomerProducts customerId={customer.id} />}
               {state.modules.journal && journalNotes.length > 0 && (
                 <Section title={t("customer.journalNotes")} action={<Button size="sm" variant="ghost" onClick={() => setTab("journal")}>{t("customer.openJournal")}</Button>}>
                   <Card className="divide-y divide-eko-line overflow-hidden">
@@ -182,6 +191,7 @@ export default function CustomerPage() {
         </div>
       </div>
       <BookingSheets sheet={sheet} onChange={setSheet} />
+      {selling && <SellSheet customerId={customer.id} onClose={() => setSelling(false)} />}
     </>
   );
 }

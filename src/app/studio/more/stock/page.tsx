@@ -1,37 +1,46 @@
 "use client";
 
 import { useState } from "react";
-import { Minus, PackageCheck, Plus, ShoppingCart } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { PackageCheck, ShoppingBag, ShoppingCart } from "lucide-react";
+import type { StockItem } from "@/concept/data/types";
 import { t, tc } from "@/concept/i18n";
-import { formatMoney } from "@/concept/i18n/format";
-import { lowStock, suggestedOrderQuantity } from "@/concept/selectors";
-import { dispatch, undo } from "@/concept/store";
+import { lowStock } from "@/concept/selectors";
+import { openOrders } from "@/concept/stock/delivery-note";
 import { MorePage } from "@/concept/studio/more/more-page";
+import { OrdersCard } from "@/concept/studio/stock/orders-card";
+import { ProductSheet } from "@/concept/studio/stock/product-sheet";
+import { PurchaseSheet } from "@/concept/studio/stock/purchase-sheet";
+import { ReceiveSheet } from "@/concept/studio/stock/receive-sheet";
+import { SellSheet } from "@/concept/studio/stock/sell-sheet";
+import { StockList } from "@/concept/studio/stock/stock-list";
 import { useStudio } from "@/concept/studio/use-studio";
-import { Badge } from "@/concept/ui/badge";
-import { Button, IconButton } from "@/concept/ui/button";
+import { Button } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
-import { Meter } from "@/concept/ui/charts";
-import { Sheet } from "@/concept/ui/sheet";
-import { showToast } from "@/concept/ui/toast";
+
+type Sheet = { kind: "purchase" } | { kind: "receive"; orderId?: string } | { kind: "sell" } | { kind: "product"; item: StockItem } | null;
 
 export default function StockPage() {
   const { state } = useStudio();
-  const [ordering, setOrdering] = useState(false);
+  const params = useSearchParams();
+  const [sheet, setSheet] = useState<Sheet>(() =>
+    params?.get("order") ? { kind: "purchase" } : params?.has("receive") ? { kind: "receive", orderId: params.get("receive") || undefined } : null,
+  );
   const low = lowStock(state);
-  const lines = low.map((item) => ({ item, quantity: suggestedOrderQuantity(item) }));
-  const total = lines.reduce((sum, l) => sum + l.quantity * l.item.unitCost, 0);
-  const suppliers = [...new Set(lines.map((l) => l.item.supplier))];
-  const categories = [...new Set(state.stock.map((s) => s.category))];
-
-  const approve = () => {
-    dispatch({ type: "stock/order", lines: lines.map((l) => ({ id: l.item.id, quantity: l.quantity })) });
-    showToast(t("stock.ordered", { suppliers: suppliers.join(", ") }), { label: t("common.undo"), run: undo });
-    setOrdering(false);
-  };
+  const orders = openOrders(state);
 
   return (
-    <MorePage title={t("nav.stock")} subtitle={tc("stock.subtitle", state.stock.length)} module="stock">
+    <MorePage
+      title={t("nav.stock")}
+      subtitle={tc("stock.subtitle", state.stock.length)}
+      module="stock"
+      actions={
+        <>
+          <Button variant="secondary" icon={<ShoppingBag size={18} />} onClick={() => setSheet({ kind: "sell" })}>{t("stock.sell")}</Button>
+          <Button variant="secondary" icon={<PackageCheck size={18} />} onClick={() => setSheet({ kind: "receive" })}>{t("stock.receive")}</Button>
+        </>
+      }
+    >
       <div className="space-y-6">
         {low.length > 0 && (
           <Card className="flex flex-wrap items-center gap-4 bg-eko-warn-soft p-4 ring-eko-warn/20">
@@ -40,83 +49,20 @@ export default function StockPage() {
               <p className="font-medium">{tc("stock.lowTitle", low.length)}</p>
               <p className="text-sm text-eko-muted">{low.map((i) => i.name).join(", ")}</p>
             </div>
-            <Button onClick={() => setOrdering(true)}>{t("stock.createOrder")}</Button>
+            <Button className="w-full sm:w-auto" onClick={() => setSheet({ kind: "purchase" })}>{t("stock.createOrder")}</Button>
           </Card>
         )}
-        {categories.map((category) => (
-          <Section key={category} title={category}>
-            <Card className="divide-y divide-eko-line overflow-hidden">
-              {state.stock.filter((s) => s.category === category).map((item) => {
-                const isLow = item.inStock <= item.reorderAt;
-                return (
-                  <div key={item.id} className="flex items-center gap-3 px-4 py-3">
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium">{item.name}</p>
-                        {isLow && <Badge tone="warn">{t("stock.low")}</Badge>}
-                        {item.onOrder > 0 && (
-                          <Badge tone="accent">
-                            <PackageCheck size={12} />
-                            {t("stock.onOrder", { count: item.onOrder })}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-eko-muted">{item.unit} · {item.supplier} · {t("stock.reorderAt", { count: item.reorderAt })}</p>
-                      <Meter value={item.inStock / (item.reorderAt * 2.5)} tone={isLow ? "bg-eko-warn" : "bg-eko-accent"} className="max-w-xs" />
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <IconButton label={t("stock.remove")} onClick={() => dispatch({ type: "stock/adjust", id: item.id, delta: -1 })} className="size-10 ring-1 ring-eko-line">
-                        <Minus size={16} />
-                      </IconButton>
-                      <span className="w-8 text-center font-semibold tabular-nums">{item.inStock}</span>
-                      <IconButton label={t("stock.add")} onClick={() => dispatch({ type: "stock/adjust", id: item.id, delta: 1 })} className="size-10 ring-1 ring-eko-line">
-                        <Plus size={16} />
-                      </IconButton>
-                    </div>
-                  </div>
-                );
-              })}
-            </Card>
+        {orders.length > 0 && (
+          <Section title={t("stock.orders")}>
+            <OrdersCard orders={orders} onReceive={(orderId) => setSheet({ kind: "receive", orderId })} />
           </Section>
-        ))}
+        )}
+        <StockList onEdit={(item) => setSheet({ kind: "product", item })} />
       </div>
-      {ordering && (
-        <Sheet
-          open
-          onClose={() => setOrdering(false)}
-          title={t("stock.orderTitle")}
-          description={t("stock.orderDescription")}
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setOrdering(false)}>{t("common.cancel")}</Button>
-              <Button disabled={!lines.length} onClick={approve}>{t("stock.approve")}</Button>
-            </>
-          }
-        >
-          {lines.length ? (
-            <div className="space-y-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-eko-accent">{t("suggest.label")}</p>
-              <ul className="divide-y divide-eko-line rounded-2xl ring-1 ring-eko-line">
-                {lines.map(({ item, quantity }) => (
-                  <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-                    <span className="min-w-0">
-                      <span className="block font-medium">{item.name}</span>
-                      <span className="block text-eko-muted">{quantity} × {item.unit} · {item.supplier}</span>
-                    </span>
-                    <span className="shrink-0 tabular-nums">{formatMoney(quantity * item.unitCost)}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="flex justify-between px-1 font-semibold">
-                <span>{t("stock.total")}</span>
-                <span className="tabular-nums">{formatMoney(total)}</span>
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm text-eko-muted">{t("stock.nothingToOrder")}</p>
-          )}
-        </Sheet>
-      )}
+      {sheet?.kind === "purchase" && <PurchaseSheet onClose={() => setSheet(null)} />}
+      {sheet?.kind === "receive" && <ReceiveSheet orderId={sheet.orderId} onClose={() => setSheet(null)} />}
+      {sheet?.kind === "sell" && <SellSheet onClose={() => setSheet(null)} />}
+      {sheet?.kind === "product" && <ProductSheet key={sheet.item.id} item={sheet.item} onClose={() => setSheet(null)} />}
     </MorePage>
   );
 }

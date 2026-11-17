@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, CalendarX2, Phone, UserRound } from "lucide-react";
+import { CalendarClock, CalendarX2, Check, Phone, UserRound } from "lucide-react";
 import { formatTime } from "../../data/dates";
 import { t, tc, type MessageKey } from "../../i18n";
 import { formatDayLong, formatDuration, formatMoney } from "../../i18n/format";
@@ -36,11 +36,19 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const staff = state.staff.find((s) => s.id === booking.staffId)!;
   const name = customer ? fullName(customer) : "";
   const upcoming = booking.status === "booked" && (booking.date > today || (booking.date === today && booking.start + booking.duration > minutes));
+  const finished = booking.status === "booked" && !upcoming;
   const when = `${formatDayLong(booking.date)} · ${formatTime(booking.start)}–${formatTime(booking.start + booking.duration)}`;
   const lastJournal = state.modules.journal
     ? state.journals.filter((j) => j.customerId === booking.customerId && j.date < booking.date).at(-1)
     : undefined;
   const waitlist = waitlistCount(state, booking);
+
+  const markDone = () => {
+    if (!dispatch({ type: "booking/complete", id: booking.id })) return;
+    const usesStock = state.modules.stock && !!service?.consumption?.length;
+    showToast(t(usesStock ? "booking.doneStockToast" : "booking.doneToast", { name: customer?.firstName ?? "" }), { label: t("common.undo"), run: undo });
+    onClose();
+  };
 
   const confirmMove = () => {
     if (!slot) return;
@@ -153,6 +161,9 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
             <ButtonLink href={`/studio/customers/${customer.id}`} variant="ghost" icon={<UserRound size={18} />}>
               {t("booking.customerCard")}
             </ButtonLink>
+          )}
+          {finished && (
+            <Button icon={<Check size={18} />} onClick={markDone}>{t("booking.markDone")}</Button>
           )}
           {upcoming && (
             <>

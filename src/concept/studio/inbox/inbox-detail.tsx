@@ -49,7 +49,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
         </Badge>
       </div>
 
-      <div className="rounded-2xl rounded-tl-md bg-eko-sunken px-4 py-3 text-[15px] leading-relaxed">
+      <div className="whitespace-pre-line rounded-2xl rounded-tl-md bg-eko-sunken px-4 py-3 text-[15px] leading-relaxed">
         {review && <p className="mb-1 text-eko-warn" aria-label={t("inbox.stars", { count: review.rating })}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</p>}
         {item.body}
       </div>

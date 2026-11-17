@@ -1,20 +1,22 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { CalendarHeart, Clock, Megaphone, MessageSquare, Package, UserRoundCheck, X } from "lucide-react";
+import { CalendarHeart, Clock, Megaphone, MessageSquare, Package, PackageCheck, UserRoundCheck, X } from "lucide-react";
 import { prefillForHoliday, studioHref } from "../../campaigns/prefill";
 import { quietDay } from "../../campaigns/quiet-day";
 import { diffDays } from "../../data/dates";
 import { freeGaps } from "../../data/slots";
 import { t, tc } from "../../i18n";
 import { dueBackList } from "../../customers/return-visits";
-import { weekdayName } from "../../i18n/format";
+import { formatAmount, formatDayMonth, weekdayName } from "../../i18n/format";
 import { buildCustomerStats, lowStock } from "../../selectors";
+import { overdueOrders } from "../../stock/delivery-note";
 import { dispatch, undo } from "../../store";
 import { Button, ButtonLink, IconButton } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { showToast } from "../../ui/toast";
 import type { OpenSheet } from "../booking/booking-sheets";
+import { useForecasts } from "../stock/use-forecasts";
 import { useStudio } from "../use-studio";
 
 const VISIBLE_AT_FIRST = 3;
@@ -38,6 +40,8 @@ export function Suggestions({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) 
     showToast(toast, { label: t("common.undo"), run: undo });
   };
 
+  const lowItems = state.modules.stock ? lowStock(state).slice(0, 2) : [];
+  const forecasts = useForecasts(lowItems);
   const gaps = state.staff.flatMap((s) => freeGaps(state, s.id, today, { after: minutes, min: 30 }));
   const waitlist = state.customers.filter((c) => c.waitlist).length;
   if (gaps.length) {
@@ -69,14 +73,23 @@ export function Suggestions({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) 
   }
 
   if (state.modules.stock) {
-    for (const item of lowStock(state).slice(0, 2)) {
-      const days = Math.max(1, Math.round((item.inStock / item.usagePerWeek) * 7));
+    lowItems.forEach((item, i) => {
+      const days = forecasts[i].daysRemaining ?? 0;
       list.push({
         id: `stock-${item.id}-${today}`,
         icon: <Package size={20} />,
         title: t("suggest.stock.title", { name: item.name }),
-        text: tc("suggest.stock.text", item.inStock, { days }),
-        actions: <ButtonLink href="/studio/more/stock" size="sm">{t("suggest.stock.order")}</ButtonLink>,
+        text: tc("suggest.stock.text", item.inStock, { count: formatAmount(item.inStock), days: Math.max(1, days) }),
+        actions: <ButtonLink href="/studio/more/stock?order=1" size="sm">{t("suggest.stock.order")}</ButtonLink>,
+      });
+    });
+    for (const order of overdueOrders(state, today).slice(0, 1)) {
+      list.push({
+        id: `delivery-${order.id}`,
+        icon: <PackageCheck size={20} />,
+        title: t("suggest.stock.delivery.title", { supplier: order.supplier }),
+        text: t("suggest.stock.delivery.text", { date: formatDayMonth(order.date) }),
+        actions: <ButtonLink href={`/studio/more/stock?receive=${order.id}`} size="sm">{t("suggest.stock.delivery.action")}</ButtonLink>,
       });
     }
   }
