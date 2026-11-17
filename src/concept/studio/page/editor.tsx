@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Save, Undo2 } from "lucide-react";
-import { t } from "../../i18n";
+import { t, tc } from "../../i18n";
 import { MAX_CSS_LENGTH, sanitizeCss } from "../../page/css";
 import { normalizePage, type PageConfig } from "../../page/config";
 import type { PageTheme } from "../../page/theme";
@@ -81,7 +81,7 @@ function CssControls({ css, onChange }: { css: string; onChange: (css: string) =
       <p className="text-sm text-eko-muted">{t("pageEditor.css.help")}</p>
       <TextArea value={css} onChange={(event) => onChange(event.target.value)} maxLength={MAX_CSS_LENGTH} spellCheck={false} autoCapitalize="none" aria-label={t("pageEditor.css.title")} placeholder={"h1 {\n  letter-spacing: 0.02em;\n}"} className="min-h-40 font-mono text-sm" />
       <p role="status" className="text-xs text-eko-muted">
-        {css.trim() ? (rules ? t("pageEditor.css.applied", { count: rules }) : t("pageEditor.css.none")) : t("pageEditor.css.empty")}
+        {css.trim() ? (rules ? tc("pageEditor.css.applied", rules) : t("pageEditor.css.none")) : t("pageEditor.css.empty")}
       </p>
     </div>
   );

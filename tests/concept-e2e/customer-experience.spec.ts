@@ -112,7 +112,7 @@ test("copy clean share/widget code and book inside a cross-origin iframe", async
   const widgetResponse = await page.request.get("/boka/salong-eko/widget");
   expect(widgetResponse.headers()["content-security-policy"]).toContain("frame-ancestors *");
   const normalResponse = await page.request.get("/boka/salong-eko");
-  expect(normalResponse.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(normalResponse.headers()["content-security-policy"]).toContain("frame-ancestors 'self'");
   const host = createServer((_request, response) => { response.setHeader("content-type", "text/html"); response.end(`<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fictional salon host</title><body style="margin:0">${code}</body></html>`); });
   await new Promise<void>(resolve => host.listen(0, "127.0.0.1", resolve));
   try {

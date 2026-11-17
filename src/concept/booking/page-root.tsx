@@ -7,7 +7,7 @@ import { cx } from "../ui/cx";
 export function PageRoot({ page, className, children }: { page: PageConfig; className?: string; children: ReactNode }) {
   const css = pageCss(page);
   return (
-    <div className={cx("booking-page", className)} data-corners={page.theme.corners} style={themeVariables(page.theme) as CSSProperties}>
+    <div className={cx("booking-theme", className)} data-corners={page.theme.corners} style={themeVariables(page.theme) as CSSProperties}>
       {css && <style dangerouslySetInnerHTML={{ __html: css }} />}
       {children}
     </div>

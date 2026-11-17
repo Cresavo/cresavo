@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { CheckCircle2, ImagePlus, Trash2 } from "lucide-react";
 import { t } from "../../i18n";
 import { buildTokens, contrastReport, type Palette } from "../../page/colour";
 import { CORNERS, FONT_PAIR_IDS, PALETTES, PALETTE_IDS, PHOTO_IDS, type PageTheme } from "../../page/theme";
 import { Button } from "../../ui/button";
-import { Chip, Field, Segmented } from "../../ui/controls";
+import { Chip, Segmented } from "../../ui/controls";
 import { showToast } from "../../ui/toast";
 import { readLogo } from "./read-logo";
 
@@ -23,19 +23,29 @@ export function ThemeControls({ theme, onChange }: Props) {
     <div className="space-y-5">
       <LogoField theme={theme} onChange={onChange} />
       <Colours theme={theme} onChange={onChange} />
-      <Field label={t("pageEditor.fonts")}>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("pageEditor.fonts")}>
+      <Group label={t("pageEditor.fonts")}>
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t("pageEditor.fonts")}>
           {FONT_PAIR_IDS.map((id) => (
             <Chip key={id} active={theme.fonts === id} onClick={() => onChange({ fonts: id })}>{t(`page.fonts.${id}`)}</Chip>
           ))}
         </div>
-      </Field>
-      <Field label={t("pageEditor.corners")}>
+      </Group>
+      <Group label={t("pageEditor.corners")}>
         <Segmented label={t("pageEditor.corners")} value={theme.corners} onChange={(corners) => onChange({ corners })} options={CORNERS.map((value) => ({ value, label: t(`page.corners.${value}`) }))} />
-      </Field>
-      <Field label={t("pageEditor.photo")}>
+      </Group>
+      <Group label={t("pageEditor.photo")}>
         <Segmented label={t("pageEditor.photo")} value={theme.heroPhoto} onChange={(heroPhoto) => onChange({ heroPhoto })} options={PHOTO_IDS.map((value) => ({ value, label: t(`page.photo.${value}`) }))} />
-      </Field>
+      </Group>
+    </div>
+  );
+}
+
+/** A labelled set of buttons. Not a `<label>`: that would rename the first button in it. */
+function Group({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-sm font-medium">{label}</p>
+      {children}
     </div>
   );
 }
@@ -73,7 +83,7 @@ function Colours({ theme, onChange }: Props) {
   return (
     <div className="space-y-3">
       <p className="text-sm font-medium">{t("pageEditor.colours")}</p>
-      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("pageEditor.colours")}>
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t("pageEditor.colours")}>
         <Chip active={!colors} onClick={() => onChange({ colors: null })}>{t("page.palette.default")}</Chip>
         {PALETTE_IDS.map((id) => (
           <Chip key={id} active={colors?.background === PALETTES[id].background && colors.accent === PALETTES[id].accent} onClick={() => onChange({ colors: PALETTES[id] })}>

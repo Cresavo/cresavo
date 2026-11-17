@@ -108,7 +108,7 @@ describe("page actions", () => {
     expect(next.page.theme.fonts).toBe("modern");
     expect(next.page.theme.logo).toBeNull();
     expect(pageCss(next.page)).toBe("");
-    expect(pageCss(reduce(state, { type: "page/set", page: { ...hostile, css: "h1 { color: red }" } }).page)).toBe(".booking-page h1{color:red}");
+    expect(pageCss(reduce(state, { type: "page/set", page: { ...hostile, css: "h1 { color: red }" } }).page)).toBe(".booking-theme h1{color:red}");
   });
 
   it("changes nothing when nothing changed", () => {

@@ -1,5 +1,24 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Claude Code (Sonnet) · goal 17: your booking page, own address and own design
+
+**Done**
+
+- **Address**: Settings > Your booking address. The slug is validated in one place (3 to 30 characters, a-z, numbers, hyphens, reserved words such as `www` and `admin`, names used by others). The page is `/boka/<slug>` and `<slug>.<product domain>`; `src/proxy.ts` asks the single resolver in `src/concept/page/resolve.ts` which business a host means and rewrites, keeps `/studio` and the API off business hosts, and shows a friendly page for unknown hosts.
+- **Own domain** (paid module "Own domain", off by default): the exact CNAME record (type, name, value) with copy buttons and a three-step status, simulated by "Check again". `src/concept/server/vercel-domains.ts` wraps the Vercel Domains API behind `CONCEPT_DOMAINS_ENABLED=1` + `VERCEL_API_TOKEN`/`VERCEL_PROJECT_ID`/`VERCEL_TEAM_ID`; tests use a mocked `fetch` and check the token never appears in results or logs.
+- **Design**: More > Booking page. Logo (made small, colours picked from it), colours with an automatic WCAG AA check and adjustment, four font pairs from system stacks, corner style, top photo; sections added, removed and reordered with two looks each; scoped custom CSS. The page in the preview is the real page in a frame fed the unsaved draft. The booking flow is not editable and cannot be hidden by custom CSS.
+- **Custom CSS** is parsed and re-written, never inserted as typed: no `@import`, no external URL, `url()` only for images from this site and only in backgrounds, no `expression()`, `javascript:`, behaviour or escapes, no `<`, a property allow-list, every rule under `.booking-theme`.
+- **Assistant**: "make it calmer and more luxurious", "put reviews first", "use the colours from our logo" become one `page/set` proposal with a before/after preview (command box and assistant panel); approval logs it as the assistant and Undo works.
+- `DEMO_VERSION` is 14.
+
+**Try it**: `/studio/more/settings` (address, then switch on "Own domain" in Features and connect `boka.yourname.se`), `/studio/more/booking-page`, then `/boka/salong-eko`. Ask Flerdo: "Make it calmer and more luxurious".
+
+**Screens**: [editor 390](screens/page-editor-390.png), [editor 1280](screens/page-editor-1280.png), [themed page 390](screens/page-themed-390.png), [themed page 1280](screens/page-themed-1280.png), [own domain 390](screens/page-domain-390.png), [own domain 1280](screens/page-domain-1280.png), [assistant proposal 390](screens/page-assistant-390.png), [assistant proposal 1280](screens/page-assistant-1280.png).
+
+**Tests**: `concept-page-address`, `-vercel`, `-theme`, `-css` (hostile inputs plus a 3000-input fuzz), `-design`; concept e2e `page.spec.ts` (address, subdomain host, own domain, live preview, custom CSS cannot run script, assistant, axe on the default and two custom themes at 390 and 1280).
+
+**Not done / notes**: the demo keeps each business in its owner's browser, so on the server only the fixture domain resolves; a subdomain such as `salong-eko.localhost` works end to end because the demo business has that slug. The live domains endpoint has no login (issue #14): leave it off. axe-core is used from `node_modules` (a dependency of the ESLint config), not added to `package.json`. The long-running dev server on port 3000 served stale modules after the route rename and needs a restart.
+
 ## 2026-11-17 · Claude Code (Opus) · goal 16: the Flerdo assistant
 
 **Done**

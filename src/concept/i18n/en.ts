@@ -1794,7 +1794,7 @@ const messages = {
   "address.level1": "Link on this site",
   "address.level2": "Your own address ({price})",
   "address.included": "included",
-  "address.level2.note": "The address under {domain} is included. The demo keeps your page in this browser, so it opens here and on the real service once you are live.",
+  "address.level2.note": "The address under {domain} is included. The demo keeps your page in this browser, so it opens here; once you are live it opens for everyone.",
   "address.copyField": "Copy {field}",
   "address.unknown.title": "No booking page here",
   "address.unknown.text": "We could not find a booking page at this address. It may have been renamed or typed with a mistake.",

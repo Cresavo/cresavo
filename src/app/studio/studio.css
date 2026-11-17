@@ -155,30 +155,30 @@ body:has(.studio-root) .demo-banner {
 
 /* The booking page wears the business's theme: its colours arrive as the same
    variables as above, fonts and corners as the rules below. */
-.booking-page {
+.booking-theme {
   background: rgb(var(--eko-bg));
   color: rgb(var(--eko-ink));
   font-family: var(--page-font-body, inherit);
 }
 
-.booking-page :is(h1, h2, h3) {
+.booking-theme :is(h1, h2, h3) {
   font-family: var(--page-font-heading, inherit);
 }
 
-.booking-page[data-corners="sharp"] :is(.rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl) {
+.booking-theme[data-corners="sharp"] :is(.rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl) {
   border-radius: 0.25rem;
 }
 
-.booking-page[data-corners="round"] :is(.rounded-lg, .rounded-xl) {
+.booking-theme[data-corners="round"] :is(.rounded-lg, .rounded-xl) {
   border-radius: 1rem;
 }
 
-.booking-page[data-corners="round"] :is(.rounded-2xl, .rounded-3xl) {
+.booking-theme[data-corners="round"] :is(.rounded-2xl, .rounded-3xl) {
   border-radius: 1.75rem;
 }
 
 /* Whatever the owner's own CSS says, the booking flow stays on the page. */
-.booking-page [data-booking-flow] {
+.booking-theme [data-booking-flow] {
   display: block !important;
   visibility: visible !important;
 }

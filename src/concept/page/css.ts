@@ -7,7 +7,7 @@
 // background images from this site, no legacy script hooks.
 
 /** The class on the element that wraps the whole booking page. */
-export const PAGE_ROOT = ".booking-page";
+export const PAGE_ROOT = ".booking-theme";
 
 export const MAX_CSS_LENGTH = 8000;
 const MAX_RULES = 200;

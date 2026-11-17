@@ -14,8 +14,13 @@ All notable changes to this project are documented here. Format follows
 - Routines (More > Routines): suggested when the assistant sees a pattern (overdue customers, low stock), stored as SKILL.md-style records with a schedule, switchable on and off; each run leaves a proposal in the assistant.
 - Morning brief and weekly review on Today and in the assistant, closing brief after the last booking, and reactions to a cancellation, low stock or an upcoming holiday. Rules choose the items; AI may only reword and reorder them.
 - Works without any AI key, clearly labelled "Rules only". With a key, two new AI tasks (`assistant-reply`, `phrase-brief`) only reword; `CONCEPT_AI_BASE_URL` points the AI layer at any OpenAI-compatible server such as a local Ollama.
+- Your own booking address: pick a name in Settings (checked for length, characters, reserved words and clashes) and the page is served at `<name>.<product domain>` as well as `/boka/<name>`. One host resolver in the proxy turns an address into a business; unknown addresses get a friendly page.
+- Own domain (paid module, off by default): Settings shows the exact CNAME record to add and the status (waiting for DNS, verifying, secure). Simulated in the demo; a server module wraps the Vercel Domains API behind `CONCEPT_DOMAINS_ENABLED`, `VERCEL_API_TOKEN`, `VERCEL_PROJECT_ID` and `VERCEL_TEAM_ID`.
+- More > Booking page: logo, colours with an automatic WCAG AA contrast check and adjustment, font pairs, corner style and top photo; add, remove and reorder sections (top of the page, treatments, team, reviews, gallery, find us, questions, Instagram, gift cards) with two looks each; live preview of the real page; scoped custom CSS. The booking flow stays fixed.
+- Ask Flerdo can change the page: "make it calmer and more luxurious", "put reviews first" or "use the colours from our logo" give a proposal with a before and after preview, applied on approval and undoable from What happened?.
 
 ### Changed
+- The customer page lives at `/boka/<slug>` for any slug the business picks (it was fixed to `salong-eko`); links, texts and the share code follow the slug. DEMO_VERSION is 14.
 - On phones the inline command box is replaced by the assistant button (#18); it stays on larger screens.
 
 ## [0.3.0] - 2026-11-17
