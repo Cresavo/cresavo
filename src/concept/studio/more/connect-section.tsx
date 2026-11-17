@@ -1,0 +1,157 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Check, Copy, PlugZap, RotateCcw } from "lucide-react";
+import { t, type MessageKey } from "../../i18n";
+import { Badge } from "../../ui/badge";
+import { Button } from "../../ui/button";
+import { Card } from "../../ui/card";
+import { Chip } from "../../ui/controls";
+import { EmptyState } from "../../ui/empty-state";
+import { showToast } from "../../ui/toast";
+import { claudeCodeCommand, claudeDesktopConfig, fetchProtocolInfo, shellToken, type ProtocolInfo } from "./protocol-setup";
+
+type Client = "claude-code" | "claude-desktop" | "chatgpt";
+type Status = "available" | "closed" | "lab" | "planned";
+
+const CLIENTS: { value: Client; label: MessageKey }[] = [
+  { value: "claude-code", label: "data.setup.code" },
+  { value: "claude-desktop", label: "data.setup.desktop" },
+  { value: "chatgpt", label: "data.setup.chatgpt" },
+];
+
+const STATUS_TONE ={ available: "accent", closed: "danger", lab: "warn", planned: "neutral" } as const;
+
+function CopyField({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      showToast(t("data.copyFailed"));
+    }
+  };
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-eko-sunken p-3 sm:flex-row sm:items-start">
+      <code className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[13px] leading-relaxed">{value}</code>
+      <Button size="sm" variant="secondary" aria-label={label} icon={copied ? <Check size={16} /> : <Copy size={16} />} onClick={copy} className="self-end sm:self-start">
+        {copied ? t("common.copied") : t("common.copy")}
+      </Button>
+    </div>
+  );
+}
+
+function Steps({ items }: { items: MessageKey[] }) {
+  return (
+    <ol className="list-decimal space-y-1 pl-5 text-sm">
+      {items.map((key) => (
+        <li key={key}>{t(key)}</li>
+      ))}
+    </ol>
+  );
+}
+
+function ClientSetup({ client, endpoint, info }: { client: Client; endpoint: string; info: ProtocolInfo }) {
+  if (client === "claude-code")
+    return (
+      <div className="space-y-3">
+        <Steps items={["data.setup.code.1", "data.setup.code.2"]} />
+        <CopyField value={claudeCodeCommand(endpoint, shellToken(info))} label={t("data.copyCommand")} />
+      </div>
+    );
+  if (client === "claude-desktop")
+    return (
+      <div className="space-y-3">
+        <Steps items={["data.setup.desktop.1", "data.setup.desktop.2", "data.setup.desktop.3"]} />
+        <CopyField value={claudeDesktopConfig(endpoint, info)} label={t("data.copyConfig")} />
+      </div>
+    );
+  return (
+    <div className="space-y-3">
+      <Steps items={["data.setup.chatgpt.1", "data.setup.chatgpt.2"]} />
+      <p className="rounded-xl bg-eko-warn-soft px-3.5 py-2.5 text-sm text-eko-warn">{t("data.setup.chatgpt.limit")}</p>
+    </div>
+  );
+}
+
+const TOKEN_TEXT: Record<ProtocolInfo["mcp"]["token"], MessageKey> = {
+  "dev-default": "data.token.dev",
+  env: "data.token.env",
+  missing: "data.token.missing",
+};
+
+/** The server's protocol paths and token status; `failed` when it could not be read. */
+export function useProtocolInfo() {
+  const [result, setResult] = useState<{ info?: ProtocolInfo; failed?: boolean }>({});
+  useEffect(() => {
+    fetchProtocolInfo().then(
+      (info) => setResult({ info }),
+      () => setResult({ failed: true }),
+    );
+  }, []);
+  return result;
+}
+
+/** How to connect Claude or ChatGPT to the demo business over MCP. */
+export function ConnectSection({ info, failed }: { info?: ProtocolInfo; failed?: boolean }) {
+  const [client, setClient] = useState<Client>("claude-code");
+  if (failed) return <EmptyState icon={<PlugZap size={22} />} title={t("data.unavailable")} />;
+  if (!info) return <Card className="h-64 animate-pulse bg-eko-sunken" aria-busy />;
+  const endpoint = `${window.location.origin}${info.paths.mcp}`;
+  return (
+    <Card className="space-y-4 p-5">
+      <p className="text-[15px]">{t("data.connectText")}</p>
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium">{t("data.endpoint")}</p>
+        <CopyField value={endpoint} label={t("data.copyEndpoint")} />
+        <p className="text-xs text-eko-muted">{t(TOKEN_TEXT[info.mcp.token], { token: info.mcp.devToken ?? "" })}</p>
+      </div>
+      <div role="group" aria-label={t("data.setup.pick")} className="flex flex-wrap gap-2">
+        {CLIENTS.map(({ value, label }) => (
+          <Chip key={value} active={client === value} onClick={() => setClient(value)}>{t(label)}</Chip>
+        ))}
+      </div>
+      <ClientSetup client={client} endpoint={endpoint} info={info} />
+      <p className="text-xs text-eko-muted">{t("data.connectNote")}</p>
+    </Card>
+  );
+}
+
+/** Each protocol with its status, and where its discovery document lives. */
+export function ProtocolList({ info }: { info?: ProtocolInfo }) {
+  const rows: { name: string; description: MessageKey; status: Status; href?: string }[] = [
+    { name: "MCP", description: "data.protocol.mcp", status: info?.mcp.token === "missing" ? "closed" : "available" },
+    { name: "A2A", description: "data.protocol.a2a", status: "lab", href: info?.paths.agentCard },
+    { name: "USP", description: "data.protocol.usp", status: "lab", href: info?.paths.usp },
+    { name: "UCP", description: "data.protocol.ucp", status: "planned" },
+    { name: "ACP", description: "data.protocol.acp", status: "planned" },
+  ];
+  const reset = async () => {
+    const response = await fetch("/api/concept/proposals", { method: "DELETE" }).catch(() => null);
+    showToast(response?.ok ? t("data.resetDone") : t("data.resetFailed"));
+  };
+  return (
+    <Card className="divide-y divide-eko-line overflow-hidden">
+      {rows.map((p) => (
+        <div key={p.name} className="flex items-start gap-3 px-4 py-3">
+          <span className="w-12 shrink-0 pt-0.5 font-semibold">{p.name}</span>
+          <div className="min-w-0 flex-1 text-sm">
+            <p className="text-eko-muted">{t(p.description)}</p>
+            {p.href && (
+              <a href={p.href} target="_blank" rel="noreferrer" className="text-xs font-medium text-eko-accent underline-offset-2 hover:underline">
+                {t("data.protocol.open", { path: p.href })}
+              </a>
+            )}
+          </div>
+          <Badge tone={STATUS_TONE[p.status]}>{t(`data.status.${p.status}`)}</Badge>
+        </div>
+      ))}
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+        <p className="min-w-0 flex-1 text-xs text-eko-muted">{t("data.resetText")}</p>
+        <Button size="sm" variant="ghost" icon={<RotateCcw size={16} />} onClick={reset}>{t("data.reset")}</Button>
+      </div>
+    </Card>
+  );
+}
