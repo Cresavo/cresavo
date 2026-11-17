@@ -1,10 +1,8 @@
-import { addDays, diffDays, monthKey } from "./data/dates";
+import { addDays, monthKey } from "./data/dates";
 import { isActive, lunchFor, openingFor, staffWorks } from "./data/slots";
 import type { Booking, Customer, DateKey, DemoState, Service, StaffId, StockItem } from "./data/types";
 
 // Read-only views of the demo state used by several pages.
-
-export const LATE_AFTER_WEEKS = 10;
 
 export function findCustomer(state: DemoState, id: string | undefined): Customer | undefined {
   return id ? state.customers.find((c) => c.id === id) : undefined;
@@ -49,26 +47,6 @@ export function buildCustomerStats(state: DemoState, today: DateKey): Map<string
     }
   }
   return stats;
-}
-
-/** Customers who have been here at least twice but not for a long time, with nothing booked. */
-export function lateCustomers(state: DemoState, stats: Map<string, CustomerStats>, today: DateKey): Customer[] {
-  return state.customers.filter((c) => {
-    const s = stats.get(c.id);
-    return !!s?.lastVisit && s.visits >= 2 && !s.nextBooking && diffDays(today, s.lastVisit) > LATE_AFTER_WEEKS * 7;
-  });
-}
-
-/** Foot care customers past their recommended return interval (but not yet "late"). */
-export function recallDue(state: DemoState, stats: Map<string, CustomerStats>, today: DateKey): Customer[] {
-  return state.customers.filter((c) => {
-    const s = stats.get(c.id);
-    if (!s?.lastVisit || s.nextBooking || !s.lastServiceId) return false;
-    const service = findService(state, s.lastServiceId);
-    if (service?.category !== "foot") return false;
-    const days = diffDays(today, s.lastVisit);
-    return days > service.recallWeeks * 7 + 7 && days <= LATE_AFTER_WEEKS * 7;
-  });
 }
 
 export function lowStock(state: DemoState) {

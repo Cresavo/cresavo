@@ -38,6 +38,43 @@ Screenshots (390 / 1280, replace the size): [Today](screens/campaign-today-390.p
 no real publishing, ads or link tracking (simulated); Father's Day 2026 has passed
 so the Today card shows the next holiday (the command box finds Father's Day 2027);
 AI-written texts were verified with mocks only.
+## 2026-11-17 · Claude Code (Sonnet) · goal 3: customers, journal and return visits
+
+**Done**
+
+- **Customer card**: one-line summary on top (new `summarize-customer` AI task,
+  tier fast, rule fallback, 2 eval cases; the rule text shows at once and the AI
+  wording replaces it when a key exists), plus a Next visit card (booked time, or
+  due date with a one-tap "Send time suggestion").
+- **Return-visit engine** (`src/concept/customers/return-visits.ts`): interval per
+  service (editable steppers on **Customers > Due back**), journal "next visit"
+  notes can override it, overdue list, suggested free time with the preferred
+  person near their usual hour. Sending adds a simulated SMS with a link to
+  `/boka/salong-eko?service=...` to the Inbox log. Today's recall card now links here.
+- **Segments** (`customers/segments.ts`, exported for the marketing studio): not seen
+  in 3 months, regulars, new this year, birthday this month. Used as Customers filters.
+  Demo customers now have birthdays (demo data version 5).
+- **Journal**: templates per treatment type, before/after demo photos, edit with
+  version history (earlier wording stays visible), journal notes in History.
+- **CSV import** (Customers > Import): mapping with guessed columns, preview with
+  skipped rows (duplicates, missing name or phone), example file
+  `public/demo/customers-example.csv`.
+- Fixed #9 (structure-journal fallback misfiled "skin"/"nail" treatment sentences).
+- Tests: summary fallback, segments, interval engine, CSV, journal versions, store
+  actions (27 new) plus a #9 regression and eval cases.
+
+**Try it**: `/studio/customers` (filters, Import), `/studio/customers/due-back`,
+any customer card > Journal.
+
+Screenshots (390 / 1280, replace the number): [card](screens/customers-card-390.png) ·
+[due back](screens/customers-due-back-390.png) · [sent](screens/customers-due-back-sent-390.png) ·
+[inbox log](screens/customers-inbox-log-390.png) · [segments](screens/customers-segments-390.png) ·
+[journal form](screens/customers-journal-form-390.png) · [versions](screens/customers-journal-versions-390.png) ·
+[dictated](screens/customers-journal-dictated-390.png) · [history](screens/customers-history-390.png) ·
+[import](screens/customers-import-390.png).
+
+**Remains**: real-key check of `summarize-customer`; photos are picked from demo
+images only; per-customer intervals; sending to everyone due in one tap.
 
 ## 2026-11-17 · Claude Code · command box, voice and AI section in the studio
 

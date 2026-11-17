@@ -16,7 +16,7 @@ import { cx } from "../../ui/cx";
 import { showToast } from "../../ui/toast";
 import { NewBookingSheet, type NewBookingPreset } from "../booking/new-booking-sheet";
 import { useStudio } from "../use-studio";
-import { suggestedWeeks } from "./next-visit";
+import { suggestedWeeks } from "../../customers/next-visit";
 
 interface Structured {
   treatment: string;

@@ -55,6 +55,8 @@ export interface Customer {
   category: Category | "both";
   preferredStaff: StaffId;
   since: DateKey;
+  /** Date of birth, used for the "birthday this month" segment. */
+  birthday?: DateKey;
   isRegular: boolean;
   note?: string;
   tags: string[];
@@ -81,16 +83,34 @@ export interface Booking {
   cancelReason?: string;
 }
 
-export interface JournalEntry {
+/** Demo photo shown in a journal entry. */
+export interface JournalPhotos {
+  before?: string;
+  after?: string;
+}
+
+/** What a journal entry says; every edit keeps the previous content as a version. */
+export interface JournalContent {
+  treatment: string;
+  observations: string;
+  advice: string;
+  nextVisit?: string;
+  photos?: JournalPhotos;
+}
+
+export interface JournalVersion extends JournalContent {
+  /** Day this content was replaced by an edit. */
+  replacedOn: DateKey;
+}
+
+export interface JournalEntry extends JournalContent {
   id: string;
   customerId: string;
   bookingId?: string;
   date: DateKey;
   staffId: StaffId;
-  treatment: string;
-  observations: string;
-  advice: string;
-  nextVisit?: string;
+  /** Earlier versions, oldest first. */
+  versions?: JournalVersion[];
 }
 
 export interface StockItem {
@@ -145,6 +165,8 @@ export interface InboxItem {
   reviewId?: string;
   /** Slot the reply can offer. */
   suggestion?: SlotSuggestion;
+  /** Set on a simulated time suggestion sent from the due-back list. */
+  recallServiceId?: string;
   /** Prefilled reply. */
   draftReply?: string;
   /** Sent reply (simulated). */

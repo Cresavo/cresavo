@@ -29,6 +29,7 @@ export const evaluationCases: EvaluationCase[] = [
   ...commands.map(([id, text, expected]) => ({ id, task: "interpret-command" as const, input: { text, context }, expected })),
   { id: "journal-facts", task: "structure-journal", input: { transcript: "Foot treatment completed. Observed dry skin. Recommend cream. Next visit in six weeks." }, contains: { treatment: "Foot treatment", observations: "dry skin", recommendation: "cream", nextVisit: "six weeks" } },
   { id: "journal-no-invention", task: "structure-journal", input: { transcript: "Massage completed." }, expected: { observations: "", recommendation: "", nextVisit: "" }, contains: { treatment: "Massage" } },
+  { id: "journal-treatment-with-skin", task: "structure-journal", input: { transcript: "Treated both feet and removed hard skin from the heels. Noticed a dry heel." }, contains: { treatment: "hard skin", observations: "dry heel" }, expected: { recommendation: "" } },
   { id: "post-instagram", task: "write-post", input: { offer: "20% off massage", channel: "instagram" }, contains: { text: "20%" } },
   { id: "post-sms", task: "write-post", input: { offer: "Foot care for 600 SEK", channel: "sms" }, contains: { text: "600" }, expected: { hashtags: [] } },
   { id: "holiday-campaign", task: "suggest-campaign", input: { occasion: "Father's Day", service: "Massage", priceSek: 800 }, contains: { title: "Father's Day", description: "Massage" } },
@@ -38,4 +39,6 @@ export const evaluationCases: EvaluationCase[] = [
   { id: "reply-facts", task: "reply-customer", input: { customerName: "Anna", message: "When do you close?", facts: "We close at 17:00." }, contains: { text: "17:00" } },
   { id: "daily-revenue", task: "daily-summary", input: { revenueSek: 2400, newCustomers: 2, missingJournals: 1, tomorrowFirstCustomer: "Erik" }, contains: { summary: "2400", highlights: "Erik" } },
   { id: "daily-empty", task: "daily-summary", input: { revenueSek: 0, newCustomers: 0, missingJournals: 0, tomorrowFirstCustomer: null }, contains: { summary: "0" } },
+  { id: "summary-regular", task: "summarize-customer", input: { sinceYear: 2024, regular: true, visits: 14, service: "Medical foot care", intervalWeeks: 6, traits: ["sensitive skin"], prefersStaff: "Anna", timeOfDay: "afternoons", note: null }, contains: { summary: "Regular since 2024, medical foot care every 6 weeks, sensitive skin, prefers Anna, afternoons" } },
+  { id: "summary-no-invention", task: "summarize-customer", input: { sinceYear: 2026, regular: false, visits: 0, service: null, intervalWeeks: null, traits: [], prefersStaff: null, timeOfDay: null, note: null }, contains: { summary: "Customer since 2026, no visits yet" } },
 ];

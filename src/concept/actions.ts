@@ -1,5 +1,7 @@
-import { findCustomerByPhone } from "./booking/lookup";
+import { findCustomerByPhone, normalizePhone } from "./booking/lookup";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
+import { editJournalEntry } from "./customers/journal";
+import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visits";
 import { isFree } from "./data/slots";
 import type {
   Booking,
@@ -10,6 +12,7 @@ import type {
   DateKey,
   DemoState,
   InboxItem,
+  JournalContent,
   JournalEntry,
   ModuleKey,
   SlotSuggestion,
@@ -29,6 +32,9 @@ export type DemoAction =
   | { type: "campaign/launch"; campaign: NewCampaign; today: DateKey }
   | { type: "campaign/ad"; id: string; ad: CampaignAd }
   | { type: "journal/add"; entry: Omit<JournalEntry, "id"> }
+  | { type: "journal/edit"; id: string; content: JournalContent; on: DateKey }
+  | { type: "service/recall"; id: string; weeks: number }
+  | { type: "customers/import"; customers: Omit<Customer, "id">[] }
   | { type: "stock/adjust"; id: string; delta: number }
   | { type: "stock/order"; lines: { id: string; quantity: number }[] }
   | { type: "inbox/read"; id: string }
@@ -214,6 +220,19 @@ function replyToInbox(state: DemoState, id: string, reply: string, slot?: SlotSu
   };
 }
 
+/** Adds imported customers, skipping any whose phone number is already known (or repeats within the list). */
+function importCustomers(state: DemoState, incoming: Omit<Customer, "id">[]): DemoState {
+  const known = new Set(state.customers.map((c) => normalizePhone(c.phone)));
+  const added: Customer[] = [];
+  for (const customer of incoming) {
+    const phone = normalizePhone(customer.phone);
+    if (phone.length < 7 || known.has(phone)) continue;
+    known.add(phone);
+    added.push({ ...customer, id: `k-${state.seq + added.length}` });
+  }
+  return added.length ? { ...state, seq: state.seq + added.length, customers: [...state.customers, ...added] } : state;
+}
+
 export function reduce(state: DemoState, action: DemoAction): DemoState {
   switch (action.type) {
     case "booking/move": {
@@ -243,6 +262,12 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
       return launchCampaign(state, action.campaign, action.today);
     case "campaign/ad":
       return runAd(state, action.id, action.ad);
+    case "service/recall":
+      return { ...state, services: updateBy(state.services, action.id, (s) => ({ ...s, recallWeeks: Math.min(MAX_INTERVAL_WEEKS, Math.max(MIN_INTERVAL_WEEKS, Math.round(action.weeks))) })) };
+    case "customers/import":
+      return importCustomers(state, action.customers);
+    case "journal/edit":
+      return { ...state, journals: updateBy(state.journals, action.id, (j) => editJournalEntry(j, action.content, action.on)) };
     case "journal/add":
       return { ...state, seq: state.seq + 1, journals: [...state.journals, { ...action.entry, id: nextId(state, "j") }] };
     case "stock/adjust":

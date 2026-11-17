@@ -2,13 +2,15 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UserSearch } from "lucide-react";
+import Link from "next/link";
+import { Upload, UserSearch } from "lucide-react";
 import { t, tc } from "@/concept/i18n";
 import { buildCustomerStats, fullName } from "@/concept/selectors";
 import { CustomerRow } from "@/concept/studio/customers/customer-row";
 import { FILTERS, filterCustomers, isFilter, type CustomerFilter } from "@/concept/studio/customers/customer-filters";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
+import { ButtonLink } from "@/concept/ui/button";
 import { Card } from "@/concept/ui/card";
 import { Chip, SearchInput } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
@@ -24,7 +26,7 @@ export default function CustomersPage() {
   const [limit, setLimit] = useState(PAGE_SIZE);
   const stats = useMemo(() => buildCustomerStats(state, today), [state, today]);
   const lists = useMemo(() => filterCustomers(state, stats, today), [state, stats, today]);
-  const late = new Set(lists.late.map((c) => c.id));
+  const late = new Set(lists.notSeen.map((c) => c.id));
   const due = new Set(lists.due.map((c) => c.id));
   const q = query.trim().toLowerCase();
   const matches = lists[filter].filter(
@@ -36,6 +38,7 @@ export default function CustomersPage() {
       <PageHeader
         title={t("customers.title")}
         subtitle={t("customers.subtitle", { count: state.customers.length, regulars: lists.regulars.length })}
+        actions={<ButtonLink href="/studio/customers/import" variant="secondary" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>}
       />
       <div className="mb-4 space-y-3">
         <SearchInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("customers.search")} aria-label={t("customers.search")} />
@@ -51,8 +54,13 @@ export default function CustomersPage() {
             </Chip>
           ))}
         </div>
-        {filter === "due" && <p className="text-sm text-eko-muted">{t("customers.dueHint")}</p>}
-        {filter === "late" && <p className="text-sm text-eko-muted">{t("customers.lateHint")}</p>}
+        {filter === "due" && (
+          <p className="text-sm text-eko-muted">
+            {t("customers.dueHint")}{" "}
+            <Link href="/studio/customers/due-back" className="font-medium text-eko-accent hover:underline">{t("customers.dueLink")}</Link>
+          </p>
+        )}
+        {filter === "notSeen" && <p className="text-sm text-eko-muted">{t("customers.notSeenHint")}</p>}
       </div>
       {matches.length ? (
         <Card className="divide-y divide-eko-line overflow-hidden">

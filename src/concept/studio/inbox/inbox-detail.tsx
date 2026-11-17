@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CalendarCheck, Send, Sparkles } from "lucide-react";
+import { bookingLink } from "../../customers/return-visits";
 import { formatTime } from "../../data/dates";
 import type { InboxItem } from "../../data/types";
 import { t, tc } from "../../i18n";
@@ -9,7 +10,7 @@ import { formatDayLong, relativeDay } from "../../i18n/format";
 import { findService } from "../../selectors";
 import { dispatch, undo } from "../../store";
 import { Badge } from "../../ui/badge";
-import { Button } from "../../ui/button";
+import { Button, ButtonLink } from "../../ui/button";
 import { TextArea } from "../../ui/controls";
 import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
@@ -52,6 +53,9 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
         {review && <p className="mb-1 text-eko-warn" aria-label={t("inbox.stars", { count: review.rating })}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</p>}
         {item.body}
       </div>
+      {item.recallServiceId && (
+        <ButtonLink href={bookingLink(state, item.recallServiceId)} variant="secondary" size="sm">{t("inbox.openBookingLink")}</ButtonLink>
+      )}
 
       {booking && (
         <p className="flex items-center gap-2 text-sm text-eko-muted">

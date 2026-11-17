@@ -3,7 +3,7 @@ import { clearCostLog, logCost } from "@/concept/ai/cost-log";
 import { describeAi } from "@/concept/ai/overview";
 import { tasks } from "@/concept/ai/registry";
 import { formatUsd } from "@/concept/i18n/format";
-import { suggestedWeeks } from "@/concept/studio/customers/next-visit";
+import { suggestedWeeks } from "@/concept/customers/next-visit";
 
 afterEach(() => clearCostLog());
 

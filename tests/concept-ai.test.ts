@@ -15,6 +15,7 @@ const inputs = {
   "stock-forecast": { product: "Foot cream", quantity: 10, dailyUsage: 2, leadTimeDays: 3 },
   "reply-customer": { customerName: "Anna", message: "Can I book tomorrow?" },
   "daily-summary": { revenueSek: 2400, newCustomers: 2, missingJournals: 1, tomorrowFirstCustomer: "Erik" },
+  "summarize-customer": { sinceYear: 2024, regular: true, visits: 9, service: "Medical foot care", intervalWeeks: 6, traits: ["sensitive skin"], prefersStaff: "Anna", timeOfDay: "afternoons", note: null },
 } as const;
 const names = Object.keys(tasks) as (keyof typeof tasks)[];
 beforeEach(clearCostLog);
@@ -55,6 +56,10 @@ describe("task contracts and deterministic rules", () => {
   it("forecasts reorder quantity", async () => expect((await runTask("stock-forecast", inputs["stock-forecast"], { env: {} })).output).toMatchObject({ daysRemaining: 5, orderQuantity: 10 }));
   it("handles zero usage", async () => expect((await runTask("stock-forecast", { ...inputs["stock-forecast"], dailyUsage: 0 }, { env: {} })).output).toMatchObject({ daysRemaining: null, orderQuantity: 0 }));
   it("preserves dictated facts and no fabricated diagnosis", async () => expect((await runTask("structure-journal", inputs["structure-journal"], { env: {} })).output).toEqual({ treatment: "Foot treatment completed.", observations: "Observed dry skin.", recommendation: "Recommend cream.", nextVisit: "Next visit in six weeks." }));
+  it("files sentences with body-part words under treatment when they describe the work done (#9)", async () => {
+    const { output } = await runTask("structure-journal", { transcript: "Treated both feet and removed hard skin from the heels. Trimmed the nails. Noticed a dry heel." }, { env: {} });
+    expect(output).toMatchObject({ treatment: "Treated both feet and removed hard skin from the heels. Trimmed the nails.", observations: "Noticed a dry heel." });
+  });
   it("handles a day with no next booking", async () => expect((await runTask("daily-summary", { ...inputs["daily-summary"], tomorrowFirstCustomer: null }, { env: {} })).output.highlights).toContain("No bookings tomorrow."));
 });
 
