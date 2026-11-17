@@ -27,6 +27,7 @@ const when = (state: DemoState, b: Booking) => `${formatDayShort(b.date)} ${form
 const productName = (state: DemoState, id: string) => state.stock.find((s) => s.id === id)?.name ?? t("log.aProduct");
 const bookingOf = (state: DemoState, id: string) => state.bookings.find((b) => b.id === id);
 const names = (list: string[]) => list.join(", ");
+const staffFirstName = (state: DemoState, id: string) => state.staff.find((s) => s.id === id)?.firstName ?? id;
 
 /** One short sentence per change. It names people and things but never quotes journal text or messages. */
 export function describeAction(action: LoggedAction, prev: DemoState, next: DemoState): Description {
@@ -124,5 +125,31 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       return { summary: t("log.supportRevoke") };
     case "ticket/create":
       return { summary: t("log.ticketCreate") };
+    case "salon/hours":
+      return { summary: t("log.salonHours") };
+    case "salon/close":
+      return { summary: t("log.salonClose", { date: formatDayShort(action.date) }), after: action.name.trim() };
+    case "salon/reopen": {
+      const closure = prev.salon.closures.find((c) => c.id === action.id)!;
+      return { summary: t("log.salonReopen", { date: formatDayShort(closure.date) }), before: closure.name };
+    }
+    case "staff/week":
+      return { summary: t("log.staffWeek", { name: staffFirstName(next, action.staffId) }) };
+    case "staff/off":
+      return { summary: t("log.staffOff", { name: staffFirstName(next, action.staffId) }), after: names([...new Set(action.dates)].map(formatDayShort)) };
+    case "staff/shift":
+      return { summary: t("log.staffShift", { name: staffFirstName(next, action.staffId) }), after: `${formatDayShort(action.date)} ${formatTime(action.start)}–${formatTime(action.end)}` };
+    case "staff/exception-remove": {
+      const exception = prev.exceptions.find((e) => e.id === action.id)!;
+      return { summary: t("log.exceptionRemove", { name: staffFirstName(prev, exception.staffId) }), before: formatDayShort(exception.date) };
+    }
+    case "resource/add":
+      return { summary: t("log.resourceAdd", { name: action.name.trim() }) };
+    case "resource/rename":
+      return { summary: t("log.resourceRename", { name: action.name.trim() }), before: prev.resources.find((r) => r.id === action.id)?.name };
+    case "resource/remove":
+      return { summary: t("log.resourceRemove", { name: prev.resources.find((r) => r.id === action.id)!.name }) };
+    case "service/resources":
+      return { summary: t("log.serviceResources", { service: serviceName(next, action.id) }) };
   }
 }

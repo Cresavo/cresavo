@@ -5,7 +5,7 @@ import type { DateKey, Holiday } from "./types";
 
 // Swedish holiday calendar with campaign ideas. The four featured services come from the industry pack.
 
-function easterSunday(year: number): Date {
+export function easterSunday(year: number): Date {
   // Anonymous Gregorian algorithm (Meeus/Jones/Butcher).
   const a = year % 19;
   const b = Math.floor(year / 100);

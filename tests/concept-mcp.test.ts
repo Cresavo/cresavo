@@ -54,7 +54,7 @@ function moveTarget() {
   const booking = state.bookings.find((b) => b.status === "booked" && b.date === today && b.start >= 10 * 60)!;
   for (let i = 1; i < 30; i++) {
     const date = addDays(today, i);
-    const starts = freeStarts(state, booking.staffId, date, booking.duration, { ignoreId: booking.id });
+    const starts = freeStarts(state, booking.staffId, date, booking, { ignoreId: booking.id });
     if (starts.length) return { booking, date, time: formatTime(starts[0]) };
   }
   throw new Error("no free day");

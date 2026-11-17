@@ -1,4 +1,4 @@
-import type { Category, Salon, Service, Staff, StaffId, StockItem, StockUse } from "../data/types";
+import type { Category, Resource, Salon, Service, Staff, StaffId, StockItem, StockUse } from "../data/types";
 
 // What every demo business has in common: Salong Eko's address and opening
 // hours, and a team of two. A pack only changes what is said about them.
@@ -13,6 +13,11 @@ const HOURS: Salon["hours"] = {
   6: { open: 10 * 60, close: 15 * 60 },
 };
 
+/** The same hours every open day, for the weekdays the person works. */
+function weekOf(workdays: number[]): Staff["week"] {
+  return Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((day) => [day, workdays.includes(day) && HOURS[day] ? { start: HOURS[day].open, end: HOURS[day].close } : null]));
+}
+
 export function salonWith(tagline: string): Salon {
   return {
     name: "Salong Eko",
@@ -25,6 +30,7 @@ export function salonWith(tagline: string): Salon {
     orgNumber: "559900-0000",
     hours: HOURS,
     lunch: { start: 12 * 60, end: 13 * 60 },
+    closures: [],
   };
 }
 
@@ -35,10 +41,16 @@ interface Person {
 
 export function teamWith(owner: Person, employee: Person): [Staff, Staff] {
   return [
-    { id: "anna", firstName: "Anna", lastName: "Ekström", role: "Owner", workdays: [1, 2, 3, 4, 5], phone: "070-174 06 51", ...owner },
-    { id: "erik", firstName: "Erik", lastName: "Holm", role: "Employee", workdays: [1, 2, 4, 5, 6], phone: "070-174 06 52", ...employee },
+    { id: "anna", firstName: "Anna", lastName: "Ekström", role: "Owner", week: weekOf([1, 2, 3, 4, 5]), phone: "070-174 06 51", ...owner },
+    { id: "erik", firstName: "Erik", lastName: "Holm", role: "Employee", week: weekOf([1, 2, 4, 5, 6]), phone: "070-174 06 52", ...employee },
   ];
 }
+
+/** The rooms of every demo business; each treatment can use either. */
+export const ROOMS: Resource[] = [
+  { id: "room-1", name: "Room 1", kind: "room" },
+  { id: "room-2", name: "Room 2", kind: "room" },
+];
 
 /** Builds the services of one team member and category: id, name, minutes, price, short text, weeks between visits, then the products used. */
 export function servicesFor(staffId: StaffId, category: Category) {

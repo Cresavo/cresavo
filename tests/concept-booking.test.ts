@@ -49,7 +49,7 @@ describe("slot suggestions", () => {
     for (const slot of slots) {
       expect(slot.start).toBeGreaterThanOrEqual(12 * 60);
       expect(slot.start).toBeLessThan(17 * 60);
-      expect(isFree(state, slot.staffId, slot.date, slot.start, 60)).toBe(true);
+      expect(isFree(state, slot.staffId, slot.date, slot.start, { serviceId: "medical-foot-care", duration: 60 })).toBe(true);
     }
   });
 
@@ -61,7 +61,7 @@ describe("slot suggestions", () => {
 
   it("prefers the time closest to the one asked for", () => {
     const [slot] = suggestSlots(state, { ...query, from: "2026-11-24", to: "2026-11-24", period: undefined, time: 15 * 60 }, clock, 1);
-    const free = freeStarts(state, "anna", "2026-11-24", 60, { step: 30 });
+    const free = freeStarts(state, "anna", "2026-11-24", { serviceId: "medical-foot-care", duration: 60 }, { step: 30 });
     const closest = [...free].sort((a, b) => Math.abs(a - 900) - Math.abs(b - 900))[0];
     expect(slot.start).toBe(closest);
   });
@@ -75,7 +75,7 @@ describe("slot suggestions", () => {
   it("returns nothing when the day is full", () => {
     const date = "2026-11-24";
     let full = state;
-    for (const start of freeStarts(state, "anna", date, 30, { step: 30 })) {
+    for (const start of freeStarts(state, "anna", date, { serviceId: "ingrown-nail", duration: 30 }, { step: 30 })) {
       full = reduce(full, { type: "booking/create", customerId: "k001", serviceId: "ingrown-nail", staffId: "anna", date, start, source: "phone" });
     }
     expect(suggestSlots(full, { serviceId: "medical-foot-care", from: date, to: date }, clock)).toEqual([]);
@@ -110,7 +110,7 @@ describe("customer lookup", () => {
 
 describe("online booking actions", () => {
   const date = "2026-11-24";
-  const [start] = freeStarts(state, "anna", date, 60, { step: 30 });
+  const [start] = freeStarts(state, "anna", date, { serviceId: "medical-foot-care", duration: 60 }, { step: 30 });
   const notice = { title: "New online booking", body: "Medical foot care" };
   const guest = { name: "Lisa Berg", phone: "073-555 01 02", at: { date: today, time: 600 } };
   const book = { type: "online/book", guest, notice, serviceId: "medical-foot-care", staffId: "anna", date, start } as const;
@@ -142,7 +142,7 @@ describe("online booking actions", () => {
   it("moves a booking with an inbox notice only when the new slot is free", () => {
     const booked = reduce(state, book);
     const booking = booked.bookings[booked.bookings.length - 1];
-    const [later] = freeStarts(booked, "anna", addDays(date, 1), 60, { step: 30 });
+    const [later] = freeStarts(booked, "anna", addDays(date, 1), { serviceId: "medical-foot-care", duration: 60 }, { step: 30 });
     const moved = reduce(booked, { type: "booking/move", id: booking.id, date: addDays(date, 1), start: later, notice: { kind: "reschedule", date: today, time: 600, title: "Moved", body: "", read: false, handled: true } });
     expect(moved.bookings.find((b) => b.id === booking.id)).toMatchObject({ date: addDays(date, 1), start: later });
     expect(moved.inbox[0].title).toBe("Moved");

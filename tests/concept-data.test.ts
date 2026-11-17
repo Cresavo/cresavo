@@ -47,11 +47,11 @@ describe("concept demo data", () => {
 
   it("finds free starts that respect lunch and existing bookings", () => {
     const date = addDays(today, 30);
-    for (const start of freeStarts(state, "anna", date, 60)) {
+    for (const start of freeStarts(state, "anna", date, { serviceId: "medical-foot-care", duration: 60 })) {
       expect(start + 60 <= 12 * 60 || start >= 13 * 60).toBe(true);
-      expect(isFree(state, "anna", date, start, 60)).toBe(true);
+      expect(isFree(state, "anna", date, start, { serviceId: "medical-foot-care", duration: 60 })).toBe(true);
     }
-    expect(freeStarts(state, "anna", "2026-11-22", 30)).toEqual([]);
+    expect(freeStarts(state, "anna", "2026-11-22", { serviceId: "ingrown-nail", duration: 30 })).toEqual([]);
   });
 });
 

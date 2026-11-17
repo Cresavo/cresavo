@@ -16,6 +16,19 @@ export type PackId = "foot-massage" | "hair" | "nails" | "trainer" | "clinic";
 /** A group of services on the price list; every pack has two. */
 export type Category = "foot" | "massage" | "cut" | "colour" | "manicure" | "pedicure" | "personal" | "group" | "physio" | "recovery";
 
+/** A span of the day, minutes from midnight. */
+export interface Interval {
+  start: number;
+  end: number;
+}
+
+/** A day the salon is closed on top of the weekly hours (holiday, training day). */
+export interface Closure {
+  id: string;
+  date: DateKey;
+  name: string;
+}
+
 export interface Salon {
   name: string;
   slug: string;
@@ -27,7 +40,9 @@ export interface Salon {
   orgNumber: string;
   /** Opening hours per weekday (0 = Sunday), minutes from midnight. null = closed. */
   hours: Record<number, { open: number; close: number } | null>;
-  lunch: { start: number; end: number };
+  /** The lunch break on long days; null = no break. */
+  lunch: Interval | null;
+  closures: Closure[];
 }
 
 export interface Staff {
@@ -36,8 +51,8 @@ export interface Staff {
   lastName: string;
   role: string;
   title: string;
-  /** Weekdays the person works (0 = Sunday). */
-  workdays: number[];
+  /** Weekly template: working hours per weekday (0 = Sunday), null = day off. */
+  week: Record<number, Interval | null>;
   bio: string;
   phone: string;
 }
@@ -55,7 +70,26 @@ export interface Service {
   image?: string;
   /** Products used up by one visit; lowers the stock when the visit is marked done. */
   consumption?: StockUse[];
+  /** Rooms or chairs the treatment can use (any one of them). Empty = needs no resource. */
+  resourceIds?: string[];
 }
+
+export type ResourceKind = "room" | "chair" | "equipment";
+
+/** Something a booking occupies besides the person: only one booking can use it at a time. */
+export interface Resource {
+  id: string;
+  name: string;
+  kind: ResourceKind;
+}
+
+export type TimeOffReason = "vacation" | "sick" | "other";
+
+/** One day that differs from a person's weekly template: time off, or a shift of their own hours. */
+export type StaffException = { id: string; staffId: StaffId; date: DateKey } & (
+  | { kind: "off"; reason: TimeOffReason }
+  | { kind: "shift"; start: number; end: number }
+);
 
 /** An amount of a stock item, in the item's own unit (0.2 = a fifth of a tube). */
 export interface StockUse {
@@ -96,6 +130,8 @@ export interface Booking {
   price: number;
   status: BookingStatus;
   source: BookingSource;
+  /** The room or chair the visit uses, picked when it is booked. */
+  resourceId?: string;
   note?: string;
   cancelReason?: string;
 }
@@ -301,6 +337,9 @@ export interface DemoState {
   salon: Salon;
   staff: Staff[];
   services: Service[];
+  resources: Resource[];
+  /** Days off and extra shifts on top of the staff members' weekly templates. */
+  exceptions: StaffException[];
   customers: Customer[];
   bookings: Booking[];
   journals: JournalEntry[];

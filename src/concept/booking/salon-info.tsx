@@ -35,7 +35,7 @@ export function FindUs({ state }: { state: DemoState }) {
     { icon: MapPin, text: `${salon.address}, ${salon.area}` },
     { icon: Phone, text: salon.phone },
     { icon: Mail, text: salon.email },
-    { icon: Clock, text: t("booking.lunchNote", { from: formatTime(salon.lunch.start), to: formatTime(salon.lunch.end) }) },
+    ...(salon.lunch ? [{ icon: Clock, text: t("booking.lunchNote", { from: formatTime(salon.lunch.start), to: formatTime(salon.lunch.end) }) }] : []),
   ];
   return (
     <Section title={t("booking.findUs")}>

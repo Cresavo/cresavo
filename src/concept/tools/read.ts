@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { addDays, diffDays, formatTime } from "../data/dates";
-import { freeStarts, openingFor } from "../data/slots";
+import { freeStarts, needOf, openingFor } from "../data/slots";
 import type { Booking, DemoState, ModuleKey, StaffId } from "../data/types";
 import { buildOverview } from "../finance/overview";
 import { words } from "../i18n";
@@ -102,7 +102,7 @@ export const getAvailability = readTool({
       date: input.date,
       open: openingFor(state.salon, input.date) !== null,
       service: { id: service.id, name: service.name, durationMin: service.duration, priceSek: service.price },
-      staff: staffIds.map((id) => ({ id, name: staffName(state, id), starts: freeStarts(state, id, input.date, service.duration, { after }).map(formatTime) })),
+      staff: staffIds.map((id) => ({ id, name: staffName(state, id), starts: freeStarts(state, id, input.date, needOf(service), { after }).map(formatTime) })),
     };
   },
 });

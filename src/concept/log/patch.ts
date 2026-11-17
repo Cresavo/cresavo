@@ -7,11 +7,11 @@ import type { CollectionPatch, Item, StatePatch } from "./types";
 /** Lists of records with an id. */
 const COLLECTIONS = [
   "customers", "bookings", "journals", "stock", "orders", "sales", "reviews", "inbox",
-  "campaigns", "services", "costs", "trash", "supportGrants", "tickets",
+  "campaigns", "services", "costs", "trash", "supportGrants", "tickets", "staff", "exceptions", "resources",
 ] as const satisfies readonly (keyof DemoState)[];
 
 /** Whole values compared as a unit. */
-const VALUES = ["accounting", "modules", "dismissedCards"] as const satisfies readonly (keyof DemoState)[];
+const VALUES = ["accounting", "modules", "dismissedCards", "salon"] as const satisfies readonly (keyof DemoState)[];
 
 const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);
 const list = (state: DemoState, key: string) => (state as unknown as Record<string, Item[]>)[key];

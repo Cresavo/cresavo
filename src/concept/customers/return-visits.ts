@@ -1,5 +1,5 @@
 import { addDays, diffDays } from "../data/dates";
-import { freeStarts } from "../data/slots";
+import { freeStarts, needOf } from "../data/slots";
 import type { Booking, Customer, DateKey, DemoState, Service, SlotSuggestion } from "../data/types";
 import { findService, type CustomerStats } from "../selectors";
 import { NOT_SEEN_DAYS } from "./segments";
@@ -87,7 +87,7 @@ export function suggestSlot(state: DemoState, customer: Customer, service: Servi
   const usual = usualStart(state, customer.id);
   for (let i = 1; i <= SEARCH_DAYS; i++) {
     const date = addDays(today, i);
-    const starts = freeStarts(state, staffId, date, service.duration);
+    const starts = freeStarts(state, staffId, date, needOf(service));
     if (starts.length) {
       const start = starts.reduce((best, s) => (Math.abs(s - usual) < Math.abs(best - usual) ? s : best));
       return { staffId, serviceId: service.id, date, start };

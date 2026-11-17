@@ -15,8 +15,8 @@ const upcoming = base.bookings.find((b) => b.status === "booked" && b.date > tod
 
 function moveAction(): DemoAction {
   let date = addDays(upcoming.date, 1);
-  while (!freeStarts(base, upcoming.staffId, date, upcoming.duration).length) date = addDays(date, 1);
-  return { type: "booking/move", id: upcoming.id, date, start: freeStarts(base, upcoming.staffId, date, upcoming.duration)[0] };
+  while (!freeStarts(base, upcoming.staffId, date, upcoming).length) date = addDays(date, 1);
+  return { type: "booking/move", id: upcoming.id, date, start: freeStarts(base, upcoming.staffId, date, upcoming)[0] };
 }
 
 describe("activity log", () => {

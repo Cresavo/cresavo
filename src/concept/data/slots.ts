@@ -1,33 +1,71 @@
 import { weekday } from "./dates";
-import type { Booking, DateKey, Salon, Staff, StaffId } from "./types";
+import type { Booking, DateKey, Interval, Resource, Salon, Service, Staff, StaffException, StaffId } from "./types";
 
-// Free time: opening hours, lunch and existing bookings per staff member.
+// The one place that knows when something can be booked: opening hours,
+// closed days, lunch, each person's weekly template and exceptions, existing
+// bookings and the rooms or chairs a treatment needs. The studio calendar, the
+// customer page, the command box, the phone sheet and the MCP tools all call
+// these functions, so they can never disagree.
 
 export interface SlotContext {
   salon: Salon;
   staff: Staff[];
+  services: Service[];
+  resources: Resource[];
+  exceptions: StaffException[];
   bookings: Booking[];
 }
 
-export interface Interval {
-  start: number;
-  end: number;
+/** What a booking needs: a treatment (for its room or chair) and how long it takes. */
+export interface Need {
+  serviceId: string;
+  duration: number;
 }
 
+export const needOf = (service: Pick<Service, "id" | "duration">): Need => ({ serviceId: service.id, duration: service.duration });
+
+/** Opening hours of a day; null when the weekday is closed or the day is a closure. */
 export function openingFor(salon: Salon, date: DateKey) {
+  if (salon.closures.some((c) => c.date === date)) return null;
   return salon.hours[weekday(date)] ?? null;
 }
 
 /** Lunch only applies to long days (not the short Saturday shift). */
 export function lunchFor(salon: Salon, date: DateKey): Interval | null {
   const hours = openingFor(salon, date);
-  if (!hours || hours.close - hours.open <= 6 * 60) return null;
+  if (!salon.lunch || !hours || hours.close - hours.open <= 6 * 60) return null;
   return { ...salon.lunch };
 }
 
-export function staffWorks(staff: Staff | undefined, salon: Salon, date: DateKey): boolean {
-  if (!staff || !openingFor(salon, date)) return false;
-  return staff.workdays.includes(weekday(date));
+/** The exception that applies to a person on a day, if any. */
+export function exceptionFor(exceptions: StaffException[], staffId: StaffId, date: DateKey): StaffException | undefined {
+  return exceptions.find((e) => e.staffId === staffId && e.date === date);
+}
+
+/** The hours a person works on a day: their template or exception, kept within opening hours. Null = not working. */
+export function workWindow(ctx: Pick<SlotContext, "salon" | "staff" | "exceptions">, staffId: StaffId, date: DateKey): Interval | null {
+  const hours = openingFor(ctx.salon, date);
+  const staff = ctx.staff.find((s) => s.id === staffId);
+  if (!hours || !staff) return null;
+  const exception = exceptionFor(ctx.exceptions, staffId, date);
+  const shift = exception ? (exception.kind === "off" ? null : { start: exception.start, end: exception.end }) : staff.week[weekday(date)];
+  if (!shift) return null;
+  const start = Math.max(shift.start, hours.open);
+  const end = Math.min(shift.end, hours.close);
+  return end > start ? { start, end } : null;
+}
+
+export function staffWorks(ctx: Pick<SlotContext, "salon" | "staff" | "exceptions">, staffId: StaffId, date: DateKey): boolean {
+  return workWindow(ctx, staffId, date) !== null;
+}
+
+/** Bookable minutes in a person's day: their working hours minus lunch. */
+export function workMinutes(ctx: Pick<SlotContext, "salon" | "staff" | "exceptions">, staffId: StaffId, date: DateKey): number {
+  const window = workWindow(ctx, staffId, date);
+  if (!window) return 0;
+  const lunch = lunchFor(ctx.salon, date);
+  const lunchMinutes = lunch ? Math.max(0, Math.min(lunch.end, window.end) - Math.max(lunch.start, window.start)) : 0;
+  return window.end - window.start - lunchMinutes;
 }
 
 export function isActive(b: Booking) {
@@ -43,60 +81,67 @@ export function busyIntervals(ctx: SlotContext, staffId: StaffId, date: DateKey,
   return list.sort((a, b) => a.start - b.start);
 }
 
-export function isFree(
-  ctx: SlotContext,
-  staffId: StaffId,
-  date: DateKey,
-  start: number,
-  duration: number,
-  ignoreId?: string,
-): boolean {
-  const staff = ctx.staff.find((s) => s.id === staffId);
-  const hours = openingFor(ctx.salon, date);
-  if (!hours || !staffWorks(staff, ctx.salon, date)) return false;
-  const end = start + duration;
-  if (start < hours.open || end > hours.close) return false;
-  return busyIntervals(ctx, staffId, date, ignoreId).every((i) => end <= i.start || start >= i.end);
+/** The room or chair a booking would use: the first one of the treatment's resources that is free. Undefined when none is free or none is needed. */
+export function pickResource(ctx: SlotContext, need: Need, date: DateKey, start: number, ignoreId?: string): string | undefined {
+  const end = start + need.duration;
+  return usableResources(ctx, need.serviceId).find(
+    (id) => !ctx.bookings.some((b) => b.resourceId === id && b.date === date && isActive(b) && b.id !== ignoreId && start < b.start + b.duration && end > b.start),
+  );
 }
 
-/** Every start time (15-minute steps) where a treatment of the given length fits. */
+function usableResources(ctx: SlotContext, serviceId: string): string[] {
+  const wanted = ctx.services.find((s) => s.id === serviceId)?.resourceIds ?? [];
+  return wanted.filter((id) => ctx.resources.some((r) => r.id === id));
+}
+
+function resourceFree(ctx: SlotContext, need: Need, date: DateKey, start: number, ignoreId?: string): boolean {
+  return usableResources(ctx, need.serviceId).length === 0 || pickResource(ctx, need, date, start, ignoreId) !== undefined;
+}
+
+export function isFree(ctx: SlotContext, staffId: StaffId, date: DateKey, start: number, need: Need, ignoreId?: string): boolean {
+  const window = workWindow(ctx, staffId, date);
+  if (!window) return false;
+  const end = start + need.duration;
+  if (start < window.start || end > window.end) return false;
+  if (!busyIntervals(ctx, staffId, date, ignoreId).every((i) => end <= i.start || start >= i.end)) return false;
+  return resourceFree(ctx, need, date, start, ignoreId);
+}
+
+/** Every start time (15-minute steps) where a treatment fits. */
 export function freeStarts(
   ctx: SlotContext,
   staffId: StaffId,
   date: DateKey,
-  duration: number,
+  need: Need,
   opts: { after?: number; ignoreId?: string; step?: number } = {},
 ): number[] {
-  const hours = openingFor(ctx.salon, date);
-  if (!hours) return [];
+  const window = workWindow(ctx, staffId, date);
+  if (!window) return [];
   const step = opts.step ?? 15;
   const out: number[] = [];
-  const first = Math.max(hours.open, opts.after ?? 0);
-  const aligned = Math.ceil(first / step) * step;
-  for (let t = aligned; t + duration <= hours.close; t += step) {
-    if (isFree(ctx, staffId, date, t, duration, opts.ignoreId)) out.push(t);
+  const aligned = Math.ceil(Math.max(window.start, opts.after ?? 0) / step) * step;
+  for (let t = aligned; t + need.duration <= window.end; t += step) {
+    if (isFree(ctx, staffId, date, t, need, opts.ignoreId)) out.push(t);
   }
   return out;
 }
 
-/** Continuous gaps of at least `min` minutes during the working day. */
+/** Continuous gaps of at least `min` minutes during a person's working day. */
 export function freeGaps(
   ctx: SlotContext,
   staffId: StaffId,
   date: DateKey,
   opts: { after?: number; min?: number } = {},
 ): Interval[] {
-  const staff = ctx.staff.find((s) => s.id === staffId);
-  const hours = openingFor(ctx.salon, date);
-  if (!hours || !staffWorks(staff, ctx.salon, date)) return [];
+  const window = workWindow(ctx, staffId, date);
+  if (!window) return [];
   const min = opts.min ?? 30;
-  const busy = busyIntervals(ctx, staffId, date);
   const gaps: Interval[] = [];
-  let cursor = Math.max(hours.open, Math.ceil((opts.after ?? 0) / 15) * 15);
-  for (const i of busy) {
-    if (i.start > cursor) gaps.push({ start: cursor, end: Math.min(i.start, hours.close) });
+  let cursor = Math.max(window.start, Math.ceil((opts.after ?? 0) / 15) * 15);
+  for (const i of busyIntervals(ctx, staffId, date)) {
+    if (i.start > cursor) gaps.push({ start: cursor, end: Math.min(i.start, window.end) });
     cursor = Math.max(cursor, i.end);
   }
-  if (cursor < hours.close) gaps.push({ start: cursor, end: hours.close });
+  if (cursor < window.end) gaps.push({ start: cursor, end: window.end });
   return gaps.filter((g) => g.end - g.start >= min);
 }

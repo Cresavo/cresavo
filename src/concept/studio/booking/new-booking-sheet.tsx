@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatTime } from "../../data/dates";
+import { needOf } from "../../data/slots";
 import type { DateKey, StaffId } from "../../data/types";
 import { t } from "../../i18n";
 import { formatDayLong, formatDuration, formatMoney } from "../../i18n/format";
@@ -134,7 +135,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
 
         <section className="space-y-2">
           <h3 className="text-sm font-medium">{t("newBooking.time")}</h3>
-          <SlotPicker staffId={staffId} duration={service.duration} date={date} onDateChange={setDate} value={slot} onChange={setSlot} />
+          <SlotPicker staffId={staffId} need={needOf(service)} date={date} onDateChange={setDate} value={slot} onChange={setSlot} />
         </section>
       </div>
     </Sheet>

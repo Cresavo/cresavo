@@ -1,5 +1,5 @@
 import { addDays } from "./data/dates";
-import { isActive, lunchFor, openingFor, staffWorks } from "./data/slots";
+import { isActive, workMinutes } from "./data/slots";
 import type { Booking, Customer, DateKey, DemoState, Service, StaffId } from "./data/types";
 import { salesBetween } from "./stock/sales";
 
@@ -17,9 +17,9 @@ export function fullName(c: Pick<Customer, "firstName" | "lastName">) {
   return `${c.firstName} ${c.lastName}`;
 }
 
-export function dayBookings(state: DemoState, date: DateKey, staffId?: StaffId): Booking[] {
+export function dayBookings(state: DemoState, date: DateKey, staffId?: StaffId, resourceId?: string): Booking[] {
   return state.bookings
-    .filter((b) => b.date === date && isActive(b) && (!staffId || b.staffId === staffId))
+    .filter((b) => b.date === date && isActive(b) && (!staffId || b.staffId === staffId) && (!resourceId || b.resourceId === resourceId))
     .sort((a, b) => a.start - b.start || a.staffId.localeCompare(b.staffId));
 }
 
@@ -89,13 +89,11 @@ export function utilisation(state: DemoState, from: DateKey, days: number, staff
   let booked = 0;
   for (let i = 0; i < days; i++) {
     const date = addDays(from, i);
-    const hours = openingFor(state.salon, date);
-    if (!hours) continue;
-    const lunch = lunchFor(state.salon, date);
     for (const staff of state.staff) {
-      if ((staffId && staff.id !== staffId) || !staffWorks(staff, state.salon, date)) continue;
-      capacity += hours.close - hours.open - (lunch ? lunch.end - lunch.start : 0);
-      booked += dayBookings(state, date, staff.id).reduce((sum, b) => sum + b.duration, 0);
+      const minutes = workMinutes(state, staff.id, date);
+      if ((staffId && staff.id !== staffId) || !minutes) continue;
+      capacity += minutes;
+      booked += Math.min(minutes, dayBookings(state, date, staff.id).reduce((sum, b) => sum + b.duration, 0));
     }
   }
   return capacity ? booked / capacity : 0;

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { addDays, formatTime } from "../../data/dates";
-import { freeStarts, staffWorks } from "../../data/slots";
+import { freeStarts, staffWorks, type Need } from "../../data/slots";
 import type { DateKey, StaffId } from "../../data/types";
 import { dayChipLabel, formatDayMonth } from "../../i18n/format";
 import { t } from "../../i18n";
@@ -16,7 +16,7 @@ export interface Slot {
 
 interface SlotPickerProps {
   staffId: StaffId;
-  duration: number;
+  need: Need;
   date: DateKey;
   onDateChange: (date: DateKey) => void;
   value: Slot | null;
@@ -26,18 +26,17 @@ interface SlotPickerProps {
 }
 
 /** Day chips plus free start times for one staff member. */
-export function SlotPicker({ staffId, duration, date, onDateChange, value, onChange, ignoreBookingId, days = 21 }: SlotPickerProps) {
+export function SlotPicker({ staffId, need, date, onDateChange, value, onChange, ignoreBookingId, days = 21 }: SlotPickerProps) {
   const { state, today, minutes } = useStudio();
-  const staff = state.staff.find((s) => s.id === staffId);
   const workdays = useMemo(() => {
     const list: DateKey[] = [];
     for (let i = 0; i < days; i++) {
       const d = addDays(today, i);
-      if (staffWorks(staff, state.salon, d)) list.push(d);
+      if (staffWorks(state, staffId, d)) list.push(d);
     }
     return list;
-  }, [days, today, staff, state.salon]);
-  const times = freeStarts(state, staffId, date, duration, {
+  }, [days, today, staffId, state]);
+  const times = freeStarts(state, staffId, date, need, {
     ignoreId: ignoreBookingId,
     after: date === today ? minutes : 0,
     step: 15,

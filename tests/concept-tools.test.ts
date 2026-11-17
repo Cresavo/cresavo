@@ -21,7 +21,7 @@ const upcoming = (context: ToolContext) => context.state.bookings.find((b) => b.
 function freeTarget(context: ToolContext, booking = upcoming(context)) {
   for (let i = 1; i < 30; i++) {
     const date = addDays(booking.date, i);
-    const starts = freeStarts(context.state, booking.staffId, date, booking.duration, { ignoreId: booking.id });
+    const starts = freeStarts(context.state, booking.staffId, date, booking, { ignoreId: booking.id });
     if (starts.length) return { date, time: formatTime(starts[0]) };
   }
   throw new Error("no free day");

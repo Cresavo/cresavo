@@ -3,6 +3,9 @@ import type { DateKey } from "./types";
 // Date maths without time zones: a DateKey is a local calendar day.
 // Display formatting lives in `src/concept/i18n/format.ts`.
 
+/** Weekdays in the order a week is shown (Monday first); 0 = Sunday. */
+export const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 export function toKey(date: Date): DateKey {
@@ -41,4 +44,9 @@ export function monthKey(key: DateKey): string {
 
 export function formatTime(minutes: number): string {
   return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
+}
+
+/** "10:30" to minutes from midnight. */
+export function toMinutes(time: string): number {
+  return Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
 }

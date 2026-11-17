@@ -2,10 +2,11 @@ import { FIRST_NAMES_F, FIRST_NAMES_M, LAST_NAMES } from "./catalog";
 import { addDays, diffDays, formatTime, weekday } from "./dates";
 import { makeMonthHistory } from "../finance/history";
 import { DEFAULT_PACK, getPack } from "../packs";
+import { ROOMS } from "../packs/base";
 import type { Pack } from "../packs/types";
 import type { Cost } from "../finance/types";
 import { upcomingHolidays } from "./holidays";
-import { freeStarts, lunchFor, openingFor, staffWorks } from "./slots";
+import { lunchFor, openingFor, pickResource, freeStarts, needOf, staffWorks, workWindow } from "./slots";
 import type {
   Booking,
   BookingSource,
@@ -17,13 +18,14 @@ import type {
   JournalEntry,
   ModuleKey,
   PackId,
+  Resource,
   Review,
   Service,
   Staff,
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 10;
+export const DEMO_VERSION = 11;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -69,6 +71,7 @@ interface Build {
   pack: Pack;
   staff: Staff[];
   services: Service[];
+  resources: Resource[];
   solo: boolean;
 }
 
@@ -180,6 +183,7 @@ function servesStaff(category: Customer["category"], staffId: StaffId, { pack, s
 function makeBookings(rng: Rng, today: DateKey, profiles: CustomerProfile[], build: Build): Booking[] {
   const { pack, staff: team, services, solo } = build;
   const salon = pack.salon;
+  const schedule = ctxOf(build, []);
   const bookings: Booking[] = [];
   let n = 1;
   for (let offset = -HISTORY_DAYS; offset <= FUTURE_DAYS; offset++) {
@@ -189,15 +193,16 @@ function makeBookings(rng: Rng, today: DateKey, profiles: CustomerProfile[], bui
     const lunch = lunchFor(salon, date);
     const bookedToday = new Set<string>();
     for (const staff of team) {
-      if (!staffWorks(staff, salon, date)) continue;
+      const window = workWindow(schedule, staff.id, date);
+      if (!window) continue;
       const staffServices = services.filter((s) => s.staffIds.includes(staff.id));
-      let cursor = hours.open;
-      while (cursor < hours.close) {
+      let cursor = window.start;
+      while (cursor < window.end) {
         if (lunch && cursor >= lunch.start && cursor < lunch.end) {
           cursor = lunch.end;
           continue;
         }
-        const windowEnd = lunch && cursor < lunch.start ? lunch.start : hours.close;
+        const windowEnd = lunch && cursor < lunch.start ? lunch.start : window.end;
         const room = windowEnd - cursor;
         if (room < 30) {
           cursor = windowEnd;
@@ -257,6 +262,23 @@ function makeBookings(rng: Rng, today: DateKey, profiles: CustomerProfile[], bui
         cursor += service.duration + (rng.chance(0.12) ? 15 : 0);
       }
     }
+  }
+  return assignResources(build, bookings);
+}
+
+/** Gives every visit the first free room, so the generated week never double-books one. */
+function assignResources(build: Build, bookings: Booking[]): Booking[] {
+  const placed: Booking[] = [];
+  const ordered = [...bookings].sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
+  let day = "";
+  for (const booking of ordered) {
+    if (booking.date !== day) {
+      day = booking.date;
+      placed.length = 0;
+    }
+    if (booking.status === "cancelled") continue;
+    booking.resourceId = pickResource(ctxOf(build, placed), { serviceId: booking.serviceId, duration: booking.duration }, booking.date, booking.start);
+    placed.push(booking);
   }
   return bookings;
 }
@@ -324,14 +346,14 @@ function makeReviews(rng: Rng, today: DateKey, bookings: Booking[], { pack, serv
   return out.sort((a, b) => b.date.localeCompare(a.date));
 }
 
-const ctxOf = (build: Build, bookings: Booking[]) => ({ salon: build.pack.salon, staff: build.staff, bookings });
+const ctxOf = (build: Build, bookings: Booking[]) => ({ salon: build.pack.salon, staff: build.staff, services: build.services, resources: build.resources, exceptions: [], bookings });
 
 /** First free slot for a service within a date range. */
 function firstFree(build: Build, bookings: Booking[], staffId: StaffId, serviceId: string, from: DateKey, days: number, after = 0) {
   const service = build.services.find((s) => s.id === serviceId)!;
   for (let i = 0; i < days; i++) {
     const date = addDays(from, i);
-    const starts = freeStarts(ctxOf(build, bookings), staffId, date, service.duration, { after, step: 15 });
+    const starts = freeStarts(ctxOf(build, bookings), staffId, date, needOf(service), { after, step: 15 });
     if (starts.length) return { staffId, serviceId, date, start: starts[0] };
   }
   return undefined;
@@ -357,7 +379,8 @@ function buildFor(pack: Pack, solo: boolean): Build {
     pack,
     solo,
     staff: solo ? [pack.staff[0]] : pack.staff,
-    services: solo ? pack.services.map((s) => ({ ...s, staffIds: ["anna"] })) : pack.services,
+    services: pack.services.map((s) => ({ ...s, resourceIds: ROOMS.map((r) => r.id), ...(solo ? { staffIds: ["anna" as StaffId] } : {}) })),
+    resources: ROOMS,
   };
 }
 
@@ -366,6 +389,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
   const build = buildFor(pack, setup.solo ?? false);
   const { staff: team, services } = build;
   const salon = pack.salon;
+  const schedule = ctxOf(build, []);
   const rng = createRandom(SEED);
   const profiles = makeCustomers(rng, today, build);
   const customers = profiles.map((p) => p.customer);
@@ -378,7 +402,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
   // Make today feel alive: one cancellation and a few gaps this afternoon.
   const inbox: InboxItem[] = [];
   let cancelled: Booking | undefined;
-  if (staffWorks(team[0], salon, today)) {
+  if (staffWorks(schedule, team[0].id, today)) {
     const afternoon = bookings
       .filter((b) => b.date === today && b.staffId === "anna" && b.start >= 13 * 60)
       .sort((a, b) => a.start - b.start);
@@ -390,7 +414,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     const drop = afternoon.find((b) => b !== cancelled && b.start >= 16 * 60);
     if (drop) bookings.splice(bookings.indexOf(drop), 1);
   }
-  if (team[1] && staffWorks(team[1], salon, today)) {
+  if (team[1] && staffWorks(schedule, team[1].id, today)) {
     const drop = bookings.find((b) => b.date === today && b.staffId === "erik" && b.start >= 14 * 60);
     if (drop) bookings.splice(bookings.indexOf(drop), 1);
   }
@@ -570,6 +594,8 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     salon,
     staff: team,
     services,
+    resources: build.resources,
+    exceptions: [],
     customers,
     bookings,
     journals,

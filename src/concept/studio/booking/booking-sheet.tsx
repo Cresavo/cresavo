@@ -90,7 +90,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
         <div className="space-y-4">
           <SlotPicker
             staffId={booking.staffId}
-            duration={booking.duration}
+            need={booking}
             date={date}
             onDateChange={setDate}
             value={slot}
@@ -186,6 +186,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
         <dl className="divide-y divide-eko-line rounded-2xl ring-1 ring-eko-line">
           <InfoRow label={t("booking.when")} value={when} />
           <InfoRow label={t("booking.with")} value={`${staff.firstName} ${staff.lastName}`} />
+          {booking.resourceId && <InfoRow label={t("booking.room")} value={state.resources.find((r) => r.id === booking.resourceId)?.name ?? ""} />}
           <InfoRow label={t("booking.price")} value={formatMoney(booking.price)} />
           <InfoRow label={t("booking.source")} value={t(`source.${booking.source}`)} />
           {customer?.phone && (

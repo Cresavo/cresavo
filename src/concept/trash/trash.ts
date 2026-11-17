@@ -1,5 +1,5 @@
 import { diffDays } from "../data/dates";
-import { isFree } from "../data/slots";
+import { isFree, pickResource } from "../data/slots";
 import type { Booking, Customer, DateKey, DemoState, InboxItem, JournalEntry, ProductSale, Review } from "../data/types";
 
 /** Days a deleted or cancelled item stays restorable. */
@@ -66,7 +66,7 @@ export function deleteCustomer(state: DemoState, id: string): DemoState {
 export function canRestore(state: DemoState, entry: TrashEntry): boolean {
   if (entry.kind === "customer") return true;
   const booking = state.bookings.find((b) => b.id === entry.bookingId);
-  return !!booking && isFree(state, booking.staffId, booking.date, booking.start, booking.duration, booking.id);
+  return !!booking && isFree(state, booking.staffId, booking.date, booking.start, booking, booking.id);
 }
 
 /** Puts an item back. Returns the same state when it cannot be restored (the time was taken meanwhile). */
@@ -75,7 +75,9 @@ export function restoreEntry(state: DemoState, id: string): DemoState {
   if (!entry || !canRestore(state, entry)) return state;
   const trash = state.trash.filter((e) => e.id !== id);
   if (entry.kind === "booking") {
-    const bookings = state.bookings.map((b) => (b.id === entry.bookingId ? { ...b, status: "booked" as const, cancelReason: undefined } : b));
+    const bookings = state.bookings.map((b) =>
+      b.id === entry.bookingId ? { ...b, status: "booked" as const, cancelReason: undefined, resourceId: pickResource(state, b, b.date, b.start, b.id) } : b,
+    );
     return { ...state, bookings, trash };
   }
   const restored: DemoState = {
@@ -89,7 +91,8 @@ export function restoreEntry(state: DemoState, id: string): DemoState {
   };
   // A time taken while the customer was in the trash must not be double-booked.
   return entry.bookings.reduce<DemoState>((acc, booking) => {
-    const clash = booking.status === "booked" && !isFree(acc, booking.staffId, booking.date, booking.start, booking.duration, booking.id);
-    return { ...acc, bookings: [...acc.bookings, clash ? { ...booking, status: "cancelled" as const, cancelReason: "Time taken" } : booking] };
+    const clash = booking.status === "booked" && !isFree(acc, booking.staffId, booking.date, booking.start, booking, booking.id);
+    const back = booking.status === "booked" ? { ...booking, resourceId: pickResource(acc, booking, booking.date, booking.start, booking.id) } : booking;
+    return { ...acc, bookings: [...acc.bookings, clash ? { ...booking, status: "cancelled" as const, cancelReason: "Time taken" } : back] };
   }, restored);
 }

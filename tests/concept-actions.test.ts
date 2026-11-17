@@ -11,8 +11,8 @@ const upcoming = base.bookings.find((b) => b.status === "booked" && b.date > tod
 describe("concept store actions", () => {
   it("moves a booking to a free slot and refuses a taken one", () => {
     let date = addDays(upcoming.date, 1);
-    while (!freeStarts(base, upcoming.staffId, date, upcoming.duration).length) date = addDays(date, 1);
-    const free = freeStarts(base, upcoming.staffId, date, upcoming.duration);
+    while (!freeStarts(base, upcoming.staffId, date, upcoming).length) date = addDays(date, 1);
+    const free = freeStarts(base, upcoming.staffId, date, upcoming);
     const moved = reduce(base, { type: "booking/move", id: upcoming.id, date, start: free[0] });
     expect(moved.bookings.find((b) => b.id === upcoming.id)).toMatchObject({ date, start: free[0] });
 
@@ -33,7 +33,7 @@ describe("concept store actions", () => {
 
   it("creates a booking only in a free slot", () => {
     const date = addDays(today, 31);
-    const [start] = freeStarts(base, "erik", date, 60);
+    const [start] = freeStarts(base, "erik", date, { serviceId: "classic-60", duration: 60 });
     const action = { type: "booking/create", customerId: "k001", serviceId: "classic-60", staffId: "erik", date, start, source: "phone" } as const;
     const next = reduce(base, action);
     expect(next.bookings).toHaveLength(base.bookings.length + 1);

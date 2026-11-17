@@ -5,8 +5,9 @@ import { addAdResults, simulateStats } from "./campaigns/simulate";
 import { editJournalEntry } from "./customers/journal";
 import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visits";
 import type { CostKind } from "./finance/types";
-import { isFree } from "./data/slots";
+import { isFree, needOf, pickResource } from "./data/slots";
 import { undoEntry } from "./log/undo";
+import { applyOps, type OpsAction } from "./ops/edit";
 import { grantSupport, revokeSupport, type GrantHours } from "./support/access";
 import type { NewTicket } from "./support/tickets";
 import { deleteCustomer, restoreEntry, trashBooking } from "./trash/trash";
@@ -36,6 +37,7 @@ import type {
 export type DemoAction =
   | BookingMessageAction
   | CustomerReviewAction
+  | OpsAction
   | { type: "booking/move"; id: string; date: DateKey; start: number; staffId?: StaffId; notice?: Omit<InboxItem, "id"> }
   | { type: "booking/cancel"; id: string; reason?: string; notice?: Omit<InboxItem, "id"> }
   | { type: "booking/create"; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource }
@@ -104,13 +106,14 @@ function createBooking(
   input: { customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource },
 ): DemoState {
   const service = state.services.find((s) => s.id === input.serviceId);
-  if (!service || !isFree(state, input.staffId, input.date, input.start, service.duration)) return state;
+  if (!service || !isFree(state, input.staffId, input.date, input.start, needOf(service))) return state;
   const booking: Booking = {
     id: nextId(state, "b"),
     ...input,
     duration: service.duration,
     price: service.price,
     status: "booked",
+    resourceId: pickResource(state, needOf(service), input.date, input.start),
   };
   return { ...state, seq: state.seq + 1, bookings: [...state.bookings, booking] };
 }
@@ -119,8 +122,9 @@ function moveBooking(state: DemoState, id: string, date: DateKey, start: number,
   const booking = state.bookings.find((b) => b.id === id);
   if (!booking) return state;
   const target = staffId ?? booking.staffId;
-  if (!isFree(state, target, date, start, booking.duration, id)) return state;
-  return { ...state, bookings: updateBy(state.bookings, id, (b) => ({ ...b, date, start, staffId: target })) };
+  if (!isFree(state, target, date, start, booking, id)) return state;
+  const resourceId = pickResource(state, booking, date, start, id);
+  return { ...state, bookings: updateBy(state.bookings, id, (b) => ({ ...b, date, start, staffId: target, resourceId })) };
 }
 
 /** The customer with this phone number, or a new one from the public booking page. */
@@ -150,7 +154,7 @@ function ensureOnlineCustomer(state: DemoState, guest: OnlineGuest, category: Cu
 
 function bookOnline(state: DemoState, action: Extract<DemoAction, { type: "online/book" }>): DemoState {
   const service = state.services.find((s) => s.id === action.serviceId);
-  if (!service || !action.guest.name.trim() || !isFree(state, action.staffId, action.date, action.start, service.duration)) return state;
+  if (!service || !action.guest.name.trim() || !isFree(state, action.staffId, action.date, action.start, needOf(service))) return state;
   const { state: withCustomer, customer } = ensureOnlineCustomer(state, action.guest, service.category, action.staffId, false);
   const booked = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" });
   const notified = reduce(booked, {
@@ -281,6 +285,18 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
     case "review/submit":
     case "review/approve":
       return applyCustomerReview(state, action);
+    case "salon/hours":
+    case "salon/close":
+    case "salon/reopen":
+    case "staff/week":
+    case "staff/off":
+    case "staff/shift":
+    case "staff/exception-remove":
+    case "resource/add":
+    case "resource/rename":
+    case "resource/remove":
+    case "service/resources":
+      return applyOps(state, action);
     case "booking/move": {
       const moved = moveBooking(state, action.id, action.date, action.start, action.staffId);
       return action.notice && moved !== state ? reduce(moved, { type: "inbox/add", item: action.notice }) : moved;
