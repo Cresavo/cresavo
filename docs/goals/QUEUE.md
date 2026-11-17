@@ -24,7 +24,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 |---|---|---|---|
 | 1 | Clickable demo night 1 ([file](../concept/CODEX_GOAL_NIGHT1.md)) | Both | done except step 5b (campaign studio, moved to goal 4) |
 | 2 | The customer experience | Codex | in progress · booking page, My bookings, waiting list done; messages, reviews, widget left |
-| 3 | Customers, journal and return visits | Claude (Sonnet) | in progress · goal/3-customers · 2026-11-17 |
+| 3 | Customers, journal and return visits | Claude (Sonnet) | done · goal/3-customers · 2026-11-17 |
 | 4 | The marketing studio | Claude (Sonnet) | in progress · concept/ai-native-demo · 2026-11-17 |
 | 5 | Stock and purchasing | Codex | open |
 | 6 | Finance and overview | Codex | open |

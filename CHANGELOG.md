@@ -6,7 +6,23 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+- Voice journal: sentences about treating skin or nails are no longer filed
+  under observations.
+
 ### Added
+- Customer card: a one-line summary at the top ("Regular since 2024, foot care
+  every 6 weeks, sensitive skin, prefers Anna, afternoons") and the next
+  suggested visit with a one-tap time suggestion.
+- Return visits (Customers > Due back): set the return interval per treatment,
+  see who is overdue and send a simulated SMS with a ready booking link that
+  lands in the Inbox.
+- Customer segments as filters: regulars, not seen in 3 months, new this year,
+  birthday this month.
+- Journal templates (foot care, ingrown nail, massage, deep tissue),
+  before/after photos and version history that keeps earlier wording after edits.
+- Customer import from CSV with column matching and preview, plus an example
+  file (`/demo/customers-example.csv`).
 - Command box at the top of every studio page: type or speak what you want,
   review a proposal with before/after, then approve, edit or cancel. Questions
   about earnings and lapsed customers are answered in the card.
