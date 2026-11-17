@@ -1,6 +1,6 @@
 import { Inter } from "next/font/google";
 import type { Viewport } from "next";
-import "@/concept/ui/libovo-theme.css";
+import "@/concept/ui/brand-theme.css";
 import "./style.css";
 import "./workspace-polish.css";
 import { RestoreReturnScroll } from "./components/context-link";

@@ -1,8 +1,8 @@
-/* Brand kit v0.9 platform tokens: the one colour, radius and spacing source for
-   the platform shell (studio, landing, login, platform settings). Values are
-   the kit's 1:1 (design/brand/libovo-v0.9/tokens/colors.json; checked by
-   tests/concept-tokens.test.ts); only the form differs: every colour is one light-dark() pair, so `color-scheme`
-   alone picks the theme. <html data-theme="light|dark"> pins it (set before
+/* Platform tokens from the brand kit: the one colour, radius and
+   spacing source for the platform shell (studio, both sites, login, platform
+   settings). Values are the kit's 1:1 (design/brand/cresavo-v0.1/tokens;
+   checked by tests/concept-tokens.test.ts). Every colour is one light-dark()
+   pair, so `color-scheme` alone picks the theme. <html data-theme="light|dark"> pins it (set before
    first paint by THEME_SCRIPT in theme.ts; "system" or no attribute
    follows the OS). Provisional until brand clearance.
 
@@ -14,22 +14,24 @@
 
   --brand-plum: #50364b;
   --brand-apricot: #f2b184;
+  /* The wordmark's ink: the kit's light variant on light grounds, its dark variant on dark ones. */
+  --brand-wordmark: light-dark(#50364b, #fbf5f0);
 
   --ui-bg: light-dark(#faf7f3, #18141e);
   --ui-surface: light-dark(#ffffff, #25202a);
   --ui-surface-2: light-dark(#f4efeb, #302936);
   --ui-text: light-dark(#2c242e, #fbf5f0);
   --ui-text-secondary: light-dark(#6f666f, #beb4bd);
-  --ui-border: light-dark(#e7ddd9, #4d414f);
+  --ui-border: light-dark(#8e8289, #897f8b);
   --ui-input-border: light-dark(#897885, #9b8c9c);
   --ui-action: light-dark(#50364b, #f2b184);
   --ui-action-hover: light-dark(#66445e, #ffc29b);
   --ui-action-text: light-dark(#ffffff, #211820);
   --ui-focus: light-dark(#ac7395, #f5bd97);
-  /* Not in the kit (see docs/design/LIBOVO.md, deviations): a quiet tint of
-     the action colour for selected rows, chips and nav items, and two staff
-     identity colours that are neither brand nor semantic. */
-  --ui-action-bg: color-mix(in srgb, var(--ui-action) 10%, var(--ui-surface));
+  /* The kit's studio extensions: a quiet neutral tint for selected rows, chips
+     and nav items (text on it is always --ui-text), and two staff identity
+     colours that are neither brand nor semantic. */
+  --ui-action-bg: light-dark(#eeebed, #3a2f33);
   --ui-staff-1: light-dark(#3d6b8a, #a8c7dd);
   --ui-staff-1-bg: light-dark(#e4edf3, #22303b);
   --ui-staff-2: light-dark(#5f6b2e, #c5d394);

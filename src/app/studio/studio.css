@@ -1,5 +1,5 @@
 /* Studio reset that neutralises the older global styles in style.css. Colours,
-   radii and the font come from the brand tokens (src/concept/ui/libovo-theme.css). `:where(.studio-root) button` has the same specificity as the
+   radii and the font come from the brand tokens (src/concept/ui/brand-theme.css). `:where(.studio-root) button` has the same specificity as the
    global `button` rule (and comes later), so Tailwind utilities still win. */
 
 .studio-root {

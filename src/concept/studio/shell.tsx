@@ -45,7 +45,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
       <Sidebar state={state} pathname={pathname} role={role} />
       <header className="flex min-h-14 items-center justify-between gap-2 px-4 pt-[env(safe-area-inset-top)] max-[299px]:gap-1 max-[299px]:px-2 sm:px-6 lg:hidden">
         <Link href="/studio" aria-label={t("shell.home")} className="-ml-1 flex min-h-11 min-w-0 items-center px-1">
-          <Wordmark className="w-[112px] max-[299px]:w-[80px]" />
+          <Wordmark className="w-[112px] max-[299px]:w-[96px]" />
         </Link>
         <div className="flex shrink-0 items-center gap-1 max-[299px]:gap-0">
           {state.modules.assistant && <AssistantHeaderButton />}

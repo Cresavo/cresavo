@@ -4,14 +4,15 @@
 // `tests/brand.test.ts` fails when either name is written out anywhere else.
 
 export const BRAND = {
-  name: "Libovo",
-  tagline: "More time. Your terms.",
+  name: "Cresavo",
+  tagline: "More time. On your terms.",
+  /** The product's own domain: the apex is the coming-soon site, `demo.` the demo, any other label a business's booking page. */
+  domain: "cresavo.com",
 } as const;
 
 /**
- * The assistant keeps the name it had before the Libovo rebrand ("Ask Flerdo")
- * until the product owner decides (pending decision, docs/design/LIBOVO.md).
- * Decoupled from BRAND so the product name can change without it.
+ * The assistant's label, decoupled from BRAND so the product name can change
+ * without it. Still the pre-rebrand name here; see docs/BRAND.md.
  */
 export const ASSISTANT = {
   name: "Flerdo",

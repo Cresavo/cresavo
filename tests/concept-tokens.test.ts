@@ -1,11 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import kit from "../design/brand/libovo-v0.9/tokens/colors.json" with { type: "json" };
+import kit from "../design/brand/cresavo-v0.1/tokens/colors.json" with { type: "json" };
 import { contrast } from "@/concept/page/colour";
 
-// The runtime tokens (src/concept/ui/libovo-theme.css) against the brand kit.
+// The runtime tokens (src/concept/ui/brand-theme.css) against the brand kit.
 
-const runtime = readFileSync(new URL("../src/concept/ui/libovo-theme.css", import.meta.url), "utf8");
+const runtime = readFileSync(new URL("../src/concept/ui/brand-theme.css", import.meta.url), "utf8");
 
 /** The light and dark value of a runtime token declared as light-dark(a, b). */
 function pair(name: string): { light: string; dark: string } {
@@ -37,8 +37,8 @@ const KIT_TO_RUNTIME: Record<keyof typeof kit.light, string> = {
   "info-bg": "info-bg",
 };
 
-/** Runtime tokens the kit does not have, each a documented deviation (docs/design/LIBOVO.md §12). */
-const EXTENSIONS = ["action-bg", "staff-1", "staff-1-bg", "staff-2", "staff-2-bg", "chart-compare"];
+/** The kit's six studio extensions (colors.json `extensions`): same names, same values. */
+const EXTENSIONS = Object.keys(kit.extensions.light) as (keyof typeof kit.extensions.light)[];
 
 describe("runtime tokens match the brand kit (Codex #12)", () => {
   it("has every kit colour, in light and dark, with the kit's value", () => {
@@ -61,7 +61,18 @@ describe("runtime tokens match the brand kit (Codex #12)", () => {
     const declared = [...new Set([...runtime.matchAll(/--ui-([a-z0-9-]+):/g)].map((m) => m[1]))];
     const known = new Set([...Object.values(KIT_TO_RUNTIME), ...EXTENSIONS]);
     expect(declared.filter((name) => !known.has(name))).toEqual([]);
-    for (const name of EXTENSIONS) expect(declared).toContain(name);
+    expect(known.size).toBe(Object.keys(KIT_TO_RUNTIME).length + EXTENSIONS.length);
+  });
+
+  it("has the kit's studio extensions with the kit's values", () => {
+    expect(Object.keys(kit.extensions.dark).sort()).toEqual([...EXTENSIONS].sort());
+    for (const name of EXTENSIONS) {
+      expect(pair(name), `--ui-${name}`).toEqual({ light: kit.extensions.light[name].toLowerCase(), dark: kit.extensions.dark[name].toLowerCase() });
+    }
+  });
+
+  it("draws the wordmark in the kit's light and dark inks", () => {
+    expect(runtime).toContain(`--brand-wordmark: light-dark(${kit.brand.plum.toLowerCase()}, ${kit.dark["text-primary"].toLowerCase()});`);
   });
 });
 

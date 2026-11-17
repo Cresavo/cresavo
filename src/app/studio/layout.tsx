@@ -6,7 +6,7 @@ import "./studio.css";
 
 export const metadata: Metadata = {
   title: `Studio · Salong Eko · ${BRAND.name}`,
-  description: `${BRAND.name}: ${BRAND.tagline} Clickable demo of an AI-native salon system. Fictional data only.`,
+  description: `${BRAND.name}: ${BRAND.tagline} A demo studio for a fictional salon. Changes stay in this browser.`,
 };
 
 export const viewport: Viewport = {

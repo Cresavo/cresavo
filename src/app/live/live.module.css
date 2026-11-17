@@ -1,5 +1,5 @@
 .page {
-  /* The platform's tokens (libovo-theme.css), light or dark like the rest of the platform. */
+  /* The platform's tokens (brand-theme.css), light or dark like the rest of the platform. */
   --bg: var(--ui-bg);
   --panel: var(--ui-surface);
   --line: var(--ui-border);

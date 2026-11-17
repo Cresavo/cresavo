@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
-// Semantic colours, radii and the UI font come from the Libovo tokens in
-// src/concept/ui/libovo-theme.css (tenant pages re-declare them in
+// Semantic colours, radii and the UI font come from the brand tokens in
+// src/concept/ui/brand-theme.css (tenant pages re-declare them in
 // tenant-theme.css). color-mix keeps opacity modifiers such as `bg-surface/80`.
 const ui = (name: string) => `color-mix(in srgb, var(--ui-${name}) calc(<alpha-value> * 100%), transparent)`;
 const names = [

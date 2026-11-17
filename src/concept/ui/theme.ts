@@ -1,5 +1,5 @@
 // Light, dark or the system's choice for the platform shell, saved per
-// browser. <html data-theme> carries it; libovo-theme.css pins light or dark
+// browser. <html data-theme> carries it; brand-theme.css pins light or dark
 // and lets "system" follow the OS. The browser chrome (theme-color) follows
 // the same choice. Tenant booking pages ignore it and keep their own chrome.
 

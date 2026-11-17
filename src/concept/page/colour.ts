@@ -1,7 +1,7 @@
 // Colour maths for the booking page theme: WCAG contrast and the nudges that
 // make a chosen palette readable. Colours are "#rrggbb" strings.
 
-import kit from "../../../design/brand/libovo-v0.9/tokens/colors.json" with { type: "json" };
+import kit from "../../../design/brand/cresavo-v0.1/tokens/colors.json" with { type: "json" };
 
 export type Rgb = [number, number, number];
 

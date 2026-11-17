@@ -3,7 +3,7 @@
    non-semantic token, so nothing of the platform's plum or apricot reaches a
    tenant page, and it follows the visitor's own light or dark setting, never
    the studio's theme choice. Success, warning, danger and info come from the
-   platform tokens (libovo-theme.css declares them on this root as well) and
+   platform tokens (brand-theme.css declares them on this root as well) and
    are never set here or by a tenant palette.
 
    Without a palette the page wears a restrained neutral ink-on-white look. A
