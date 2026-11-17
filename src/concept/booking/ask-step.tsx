@@ -50,7 +50,7 @@ export function AskStep({ services, onAsk, onChoose }: AskStepProps) {
           <button
             key={example.key}
             onClick={() => onAsk(example.text)}
-            className="min-h-10 rounded-full bg-surface-2 px-3.5 text-left text-sm text-text transition-colors hover:bg-action-bg"
+            className="min-h-11 rounded-full bg-surface-2 px-3.5 text-left text-sm text-text transition-colors hover:bg-action-bg"
           >
             {example.text}
           </button>

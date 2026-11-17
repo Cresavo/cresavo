@@ -24,7 +24,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, c
           data-help={o.help}
           onClick={() => onChange(o.value)}
           className={cx(
-            "min-h-10 flex-1 whitespace-nowrap rounded-sm px-3 text-center text-[15px] font-medium transition-colors",
+            "min-h-11 flex-1 whitespace-nowrap rounded-sm px-3 text-center text-[15px] font-medium transition-colors",
             o.value === value ? "bg-surface text-text ring-1 ring-border" : "text-text-secondary hover:text-text",
           )}
         >
