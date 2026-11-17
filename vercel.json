@@ -1,7 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "regions": ["arn1"],
-  "buildCommand": "export DATABASE_URL=postgresql://build@127.0.0.1:1/build_test && npx prisma generate && next build",
-  "redirects": [{ "source": "/", "destination": "/landing", "permanent": false }]
+  "regions": [
+    "arn1"
+  ],
+  "buildCommand": "export DATABASE_URL=postgresql://build@127.0.0.1:1/build_test NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO=1 NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN=cresavo.com && npx prisma generate && next build",
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/landing",
+      "permanent": false
+    }
+  ]
 }
