@@ -28,10 +28,10 @@ export function SectionControls({ sections, instagram, onChange, onInstagram }: 
         {rows.slice(0, top)}
         <li>
           <Card className="flex items-center gap-3 p-3 text-sm">
-            <Lock size={16} className="shrink-0 text-eko-muted" />
+            <Lock size={16} className="shrink-0 text-text-secondary" />
             <span className="min-w-0">
               <span className="block font-medium">{t("pageEditor.flow")}</span>
-              <span className="block text-xs text-eko-muted">{t("pageEditor.flow.text")}</span>
+              <span className="block text-xs text-text-secondary">{t("pageEditor.flow.text")}</span>
             </span>
           </Card>
         </li>
@@ -66,7 +66,7 @@ function Row({ section, first, last, sections, onChange }: { section: PageSectio
     <Card className="space-y-2.5 p-3">
       <div className="flex items-center gap-1">
         <p className="min-w-0 flex-1 font-medium">{name}</p>
-        {hero ? <span className="px-2 text-xs text-eko-muted">{t("pageEditor.alwaysTop")}</span> : (
+        {hero ? <span className="px-2 text-xs text-text-secondary">{t("pageEditor.alwaysTop")}</span> : (
           <>
             <IconButton label={t("pageEditor.moveUp", { section: name })} disabled={first} onClick={() => onChange(moveSection(sections, section.kind, -1))}><ArrowUp size={18} /></IconButton>
             <IconButton label={t("pageEditor.moveDown", { section: name })} disabled={last} onClick={() => onChange(moveSection(sections, section.kind, 1))}><ArrowDown size={18} /></IconButton>

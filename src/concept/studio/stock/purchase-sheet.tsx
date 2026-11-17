@@ -49,14 +49,14 @@ export function PurchaseSheet({ onClose }: { onClose: () => void }) {
               <section key={group.supplier} className="space-y-2">
                 <p className="flex items-baseline justify-between gap-3 px-1 text-sm">
                   <span className="font-semibold">{group.supplier}</span>
-                  <span className="text-eko-muted">{tc("stock.delivery", lead)}</span>
+                  <span className="text-text-secondary">{tc("stock.delivery", lead)}</span>
                 </p>
-                <ul className="divide-y divide-eko-line rounded-2xl ring-1 ring-eko-line">
+                <ul className="divide-y divide-border rounded-lg ring-1 ring-border">
                   {group.lines.map(({ item, quantity }) => (
                     <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                       <span className="min-w-0">
                         <span className="block font-medium">{item.name}</span>
-                        <span className="block text-eko-muted">{item.unit} · {formatMoney(quantity * item.unitCost)}</span>
+                        <span className="block text-text-secondary">{item.unit} · {formatMoney(quantity * item.unitCost)}</span>
                       </span>
                       <Stepper
                         value={quantity}
@@ -74,10 +74,10 @@ export function PurchaseSheet({ onClose }: { onClose: () => void }) {
             <span>{t("stock.total")}</span>
             <span className="tabular-nums">{formatMoney(total)}</span>
           </p>
-          <p className="text-xs text-eko-muted">{t("stock.listNote")}</p>
+          <p className="text-xs text-text-secondary">{t("stock.listNote")}</p>
         </div>
       ) : (
-        <p className="text-sm text-eko-muted">{t("stock.nothingToOrder")}</p>
+        <p className="text-sm text-text-secondary">{t("stock.nothingToOrder")}</p>
       )}
     </Sheet>
   );

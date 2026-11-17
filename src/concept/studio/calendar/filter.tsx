@@ -31,7 +31,7 @@ export function CalendarFilter({ staff, staffId, onStaff, rooms, roomId, onRoom 
         <div className="space-y-5 pb-1">
           {staff.length > 0 && (
             <div className="space-y-2" role="group" aria-label={t("calendar.staff")}>
-              <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-eko-muted">{t("calendar.staff")}</p>
+              <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-text-secondary">{t("calendar.staff")}</p>
               <div className="flex flex-wrap gap-2">
                 <Chip active={staffId === "all"} onClick={() => onStaff("all")}>{t("calendar.everyone")}</Chip>
                 {staff.map((s) => (
@@ -42,7 +42,7 @@ export function CalendarFilter({ staff, staffId, onStaff, rooms, roomId, onRoom 
           )}
           {rooms.length > 0 && (
             <div className="space-y-2" role="group" aria-label={t("calendar.rooms")}>
-              <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-eko-muted">{t("calendar.rooms")}</p>
+              <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-text-secondary">{t("calendar.rooms")}</p>
               <div className="flex flex-wrap gap-2">
                 <Chip active={!roomId} onClick={() => onRoom(undefined)}>{t("calendar.allRooms")}</Chip>
                 {rooms.map((r) => (

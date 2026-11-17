@@ -11,7 +11,7 @@ export function Treatments({ state, onBook, compact }: { state: DemoState; onBoo
     <div className="space-y-8">
       {packOf(state).categories.map((category) => (
         <Section key={category} title={t(`category.${category}`)}>
-          <Card className={compact ? "grid divide-y divide-eko-line sm:grid-cols-2 sm:divide-y-0" : "divide-y divide-eko-line"}>
+          <Card className={compact ? "grid divide-y divide-border sm:grid-cols-2 sm:divide-y-0" : "divide-y divide-border"}>
             {state.services
               .filter((s) => s.category === category)
               .map((service) => (

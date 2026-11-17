@@ -21,15 +21,15 @@ export function NeedsMoving({ staffId, onOpen }: { staffId?: StaffId; onOpen: (s
   if (!list.length) return null;
   const hidden = list.length - SHOWN;
   return (
-    <Card className="overflow-hidden ring-eko-warn/30">
-      <div className="flex items-start gap-3 bg-eko-warn-soft px-4 py-3">
-        <CalendarClock size={20} className="mt-0.5 shrink-0 text-eko-warn" />
+    <Card className="overflow-hidden ring-warning/30">
+      <div className="flex items-start gap-3 bg-warning-bg px-4 py-3">
+        <CalendarClock size={20} className="mt-0.5 shrink-0 text-warning" />
         <div className="min-w-0">
           <p className="font-medium leading-snug">{tc("moving.title", list.length)}</p>
-          <p className="text-sm text-eko-muted">{t("moving.text")}</p>
+          <p className="text-sm text-text-secondary">{t("moving.text")}</p>
         </div>
       </div>
-      <ul className="divide-y divide-eko-line">
+      <ul className="divide-y divide-border">
         {list.slice(0, SHOWN).map(({ booking, reason }) => {
           const customer = findCustomer(state, booking.customerId);
           const person = state.staff.find((s) => s.id === booking.staffId)?.firstName ?? "";
@@ -37,14 +37,14 @@ export function NeedsMoving({ staffId, onOpen }: { staffId?: StaffId; onOpen: (s
             <li key={booking.id} className="flex items-center gap-3 px-4 py-3">
               <div className="min-w-0 flex-1 text-sm">
                 <p className="truncate font-medium">{customer ? fullName(customer) : ""} · {findService(state, booking.serviceId)?.name}</p>
-                <p className="truncate text-eko-muted">{formatDayShort(booking.date)} {formatTime(booking.start)} · {t(`moving.reason.${reason}`, { name: person })}</p>
+                <p className="truncate text-text-secondary">{formatDayShort(booking.date)} {formatTime(booking.start)} · {t(`moving.reason.${reason}`, { name: person })}</p>
               </div>
               <Button size="sm" onClick={() => onOpen({ kind: "booking", id: booking.id, mode: "move" })}>{t("moving.move")}</Button>
             </li>
           );
         })}
       </ul>
-      {hidden > 0 && <p className="border-t border-eko-line px-4 py-2.5 text-sm text-eko-muted">{tc("moving.more", hidden)}</p>}
+      {hidden > 0 && <p className="border-t border-border px-4 py-2.5 text-sm text-text-secondary">{tc("moving.more", hidden)}</p>}
     </Card>
   );
 }

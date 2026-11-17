@@ -67,16 +67,16 @@ export function ProductSheet({ item, onClose }: { item: StockItem; onClose: () =
         <div className="space-y-2">
           <p className="text-sm font-medium">{t("stock.usedBy")}</p>
           {uses.length ? (
-            <ul className="divide-y divide-eko-line rounded-2xl ring-1 ring-eko-line">
+            <ul className="divide-y divide-border rounded-lg ring-1 ring-border">
               {uses.map(({ service, quantity }) => (
                 <li key={service.id} className="flex justify-between gap-3 px-4 py-2.5 text-sm">
                   <span>{service.name}</span>
-                  <span className="tabular-nums text-eko-muted">{t("stock.usedRow", { count: formatAmount(quantity) })}</span>
+                  <span className="tabular-nums text-text-secondary">{t("stock.usedRow", { count: formatAmount(quantity) })}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-eko-muted">{t("stock.usedNone")}</p>
+            <p className="text-sm text-text-secondary">{t("stock.usedNone")}</p>
           )}
         </div>
       </div>

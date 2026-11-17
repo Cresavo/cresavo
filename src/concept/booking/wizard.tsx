@@ -33,12 +33,12 @@ function Progress({ step }: { step: Step }) {
   return (
     <ol className="flex items-center gap-2 text-xs" aria-label={t("booking.progress")}>
       {PROGRESS_LABELS.map((label, index) => (
-        <li key={label} aria-current={index === current ? "step" : undefined} className={cx("flex items-center gap-1.5", index === current ? "font-semibold text-eko-ink" : "text-eko-muted")}>
-          <span className={cx("flex size-5 items-center justify-center rounded-full text-[11px]", index < current ? "bg-eko-accent text-eko-on-accent" : index === current ? "bg-eko-ink text-eko-bg" : "bg-eko-sunken")}>
+        <li key={label} aria-current={index === current ? "step" : undefined} className={cx("flex items-center gap-1.5", index === current ? "font-semibold text-text" : "text-text-secondary")}>
+          <span className={cx("flex size-5 items-center justify-center rounded-full text-[11px]", index < current ? "bg-action text-on-action" : index === current ? "bg-text text-bg" : "bg-surface-2")}>
             {index < current ? <Check size={12} /> : index + 1}
           </span>
           {t(label)}
-          {index < PROGRESS_LABELS.length - 1 && <span className="mx-1 h-px w-4 bg-eko-line" />}
+          {index < PROGRESS_LABELS.length - 1 && <span className="mx-1 h-px w-4 bg-border" />}
         </li>
       ))}
     </ol>
@@ -102,11 +102,11 @@ export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowCh
         <h2 className="text-xl font-semibold tracking-tight">{missed ? t("booking.service.missed") : t("booking.service.title")}</h2>
         {packOf(state).categories.map((category) => (
           <div key={category} className="space-y-2">
-            <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-eko-muted">{t(`category.${category}`)}</p>
+            <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-text-secondary">{t(`category.${category}`)}</p>
             {state.services
               .filter((s) => s.category === category)
               .map((s) => (
-                <button key={s.id} onClick={() => chooseService(s.id)} className="flex w-full rounded-2xl bg-eko-surface p-3.5 text-left ring-1 ring-inset ring-eko-line transition-colors hover:bg-eko-accent-soft hover:ring-eko-accent">
+                <button key={s.id} onClick={() => chooseService(s.id)} className="flex w-full rounded-lg bg-surface p-3.5 text-left ring-1 ring-inset ring-border transition-colors hover:bg-action-bg hover:ring-action">
                   <ServiceInfo service={s} staff={state.staff} />
                 </button>
               ))}
@@ -166,7 +166,7 @@ function Suggestions({ state, now, service, request, onPick, onAll, onChangeServ
     <div className="space-y-4">
       <div>
         <h2 className="text-xl font-semibold tracking-tight">{exact.length ? t("booking.suggest.title") : t("booking.suggest.none")}</h2>
-        <p className="mt-1 text-[15px] text-eko-muted">
+        <p className="mt-1 text-[15px] text-text-secondary">
           {exact.length ? t("booking.suggest.for", { service: service.name }) : t("booking.suggest.noneHelp", { service: service.name })}
         </p>
       </div>

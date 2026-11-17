@@ -61,7 +61,7 @@ export function SellPackageSheet({ onClose }: { onClose: () => void }) {
         <div className="space-y-2">
           <p className="text-sm font-medium">{t("packages.customer")}</p>
           {customer ? (
-            <div className="flex items-center gap-3 rounded-2xl bg-eko-sunken px-3 py-2.5">
+            <div className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5">
               <Avatar name={fullName(customer)} size="sm" />
               <span className="min-w-0 flex-1 truncate font-medium">{fullName(customer)}</span>
               <Button size="sm" variant="ghost" onClick={() => setCustomerId("")}>{t("common.change")}</Button>
@@ -70,28 +70,28 @@ export function SellPackageSheet({ onClose }: { onClose: () => void }) {
             <>
               <SearchInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("stock.searchCustomer")} aria-label={t("stock.searchCustomer")} />
               {query.trim() && (
-                <ul className="divide-y divide-eko-line rounded-2xl ring-1 ring-eko-line">
+                <ul className="divide-y divide-border rounded-lg ring-1 ring-border">
                   {matches.map((c) => (
                     <li key={c.id}>
-                      <button type="button" onClick={() => setCustomerId(c.id)} className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left hover:bg-eko-sunken">
+                      <button type="button" onClick={() => setCustomerId(c.id)} className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left hover:bg-surface-2">
                         <Avatar name={fullName(c)} size="sm" />
                         <span className="truncate">{fullName(c)}</span>
                       </button>
                     </li>
                   ))}
-                  {!matches.length && <li className="px-4 py-3 text-sm text-eko-muted">{t("stock.noCustomers")}</li>}
+                  {!matches.length && <li className="px-4 py-3 text-sm text-text-secondary">{t("stock.noCustomers")}</li>}
                 </ul>
               )}
             </>
           )}
         </div>
         {service && (
-          <div className="space-y-1 rounded-2xl bg-eko-accent-soft px-4 py-3">
+          <div className="space-y-1 rounded-lg bg-action-bg px-4 py-3">
             <p className="flex justify-between font-semibold">
               <span>{t("packages.deal", { visits: PACKAGE_DEAL.visits, paid: PACKAGE_DEAL.paidVisits })}</span>
               <span className="tabular-nums">{formatMoney(packagePrice(service))}</span>
             </p>
-            <p className="text-sm text-eko-muted">{t("packages.saves", { amount: formatMoney(service.price * PACKAGE_DEAL.visits - packagePrice(service)) })}</p>
+            <p className="text-sm text-text-secondary">{t("packages.saves", { amount: formatMoney(service.price * PACKAGE_DEAL.visits - packagePrice(service)) })}</p>
           </div>
         )}
       </div>

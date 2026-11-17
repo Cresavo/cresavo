@@ -47,19 +47,19 @@ export default function FeaturesPage() {
   return (
     <MorePage title={t("nav.features")} subtitle={t("features.subtitle")}>
       <div className="space-y-8">
-        <Card className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1 bg-eko-accent-soft p-5 ring-eko-accent/20">
+        <Card className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1 bg-action-bg p-5 ring-action/20">
           <div>
-            <p className="text-sm font-medium text-eko-accent">{t("features.total")}</p>
+            <p className="text-sm font-medium text-action">{t("features.total")}</p>
             <p className="text-3xl font-semibold tabular-nums tracking-tight" aria-live="polite">{price(monthlyTotal(enabledModules(state.modules)))}</p>
           </div>
-          <p className="text-sm text-eko-muted">{t("features.totalNote")}</p>
+          <p className="text-sm text-text-secondary">{t("features.totalNote")}</p>
         </Card>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Card className="flex items-start gap-4 p-4">
             <div className="min-w-0 flex-1">
               <p className="font-medium">{t("features.core")}</p>
-              <p className="text-sm text-eko-muted">{t("features.core.description")}</p>
+              <p className="text-sm text-text-secondary">{t("features.core.description")}</p>
             </div>
             <div className="shrink-0 text-right">
               <p className="text-sm font-medium tabular-nums">{price(CORE_PRICE_SEK)}</p>
@@ -71,12 +71,12 @@ export default function FeaturesPage() {
             const on = state.modules[module.id];
             return (
               <Card key={module.id} className="flex items-start gap-4 p-4">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-eko-accent-soft text-eko-accent">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-action">
                   <Icon size={20} />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">{t(module.name)}</p>
-                  <p className="text-sm text-eko-muted">{t(module.description)}</p>
+                  <p className="text-sm text-text-secondary">{t(module.description)}</p>
                   <p className="mt-1 text-sm font-medium tabular-nums">{price(module.priceSek)}</p>
                 </div>
                 <Switch
@@ -91,10 +91,10 @@ export default function FeaturesPage() {
             );
           })}
         </div>
-        <p className="-mt-4 text-sm text-eko-muted">{t("features.hint")}</p>
+        <p className="-mt-4 text-sm text-text-secondary">{t("features.hint")}</p>
 
         <Section title={t("features.pack.title")}>
-          <p className="text-sm text-eko-muted">{t("features.pack.text")}</p>
+          <p className="text-sm text-text-secondary">{t("features.pack.text")}</p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             {PACKS.map((pack) => {
               const current = pack.id === state.pack;
@@ -102,8 +102,8 @@ export default function FeaturesPage() {
                 <Card key={pack.id} className="flex flex-col gap-3 p-4">
                   <div className="min-w-0 flex-1 space-y-1">
                     <p className="font-medium">{packName(pack)}</p>
-                    <p className="text-sm text-eko-muted">{t(`pack.${pack.id}.description`)}</p>
-                    <p className="text-xs text-eko-muted">{t("features.pack.words", { customers: `${pack.vocabulary.customer}s`, services: `${pack.vocabulary.service}s` })}</p>
+                    <p className="text-sm text-text-secondary">{t(`pack.${pack.id}.description`)}</p>
+                    <p className="text-xs text-text-secondary">{t("features.pack.words", { customers: `${pack.vocabulary.customer}s`, services: `${pack.vocabulary.service}s` })}</p>
                   </div>
                   {current ? <Badge tone="accent" className="self-start">{t("features.pack.current")}</Badge> : <Button variant="secondary" size="sm" className="self-start" onClick={() => setSwitching(pack)}>{t("features.pack.use")}</Button>}
                 </Card>

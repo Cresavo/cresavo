@@ -78,7 +78,7 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
     >
       {done ? (
         <div className="flex items-start gap-3 py-3 text-[15px]">
-          <CheckCircle2 size={22} className="mt-0.5 shrink-0 text-eko-accent" />
+          <CheckCircle2 size={22} className="mt-0.5 shrink-0 text-action" />
           <p>{t("booking.waitlist.doneBody", { phone: guest.phone.trim() })}</p>
         </div>
       ) : (

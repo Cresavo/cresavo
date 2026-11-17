@@ -7,7 +7,7 @@ export function TimeAxis({ from, to, pxPerMin }: { from: number; to: number; pxP
   return (
     <div className="relative w-11 shrink-0" style={{ height: (to - from) * pxPerMin }}>
       {hours.map((m) => (
-        <span key={m} className="absolute right-2 -translate-y-1/2 text-[11px] tabular-nums text-eko-muted" style={{ top: (m - from) * pxPerMin }}>
+        <span key={m} className="absolute right-2 -translate-y-1/2 text-[11px] tabular-nums text-text-secondary" style={{ top: (m - from) * pxPerMin }}>
           {formatTime(m)}
         </span>
       ))}
@@ -22,7 +22,7 @@ export function HourLines({ from, to, pxPerMin }: { from: number; to: number; px
   return (
     <>
       {lines.map((m) => (
-        <div key={m} className="pointer-events-none absolute inset-x-0 border-t border-eko-line/70" style={{ top: (m - from) * pxPerMin }} />
+        <div key={m} className="pointer-events-none absolute inset-x-0 border-t border-border/70" style={{ top: (m - from) * pxPerMin }} />
       ))}
     </>
   );

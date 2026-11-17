@@ -1,4 +1,4 @@
-import { buildTokens, channels, isHex, luminance, type Palette, type Tokens } from "./colour";
+import { buildTokens, isHex, luminance, type Palette, type Tokens } from "./colour";
 
 // The look of the booking page: logo, colours, fonts, corners and photo. A
 // theme only ever becomes CSS variables and a few data attributes on the page
@@ -22,8 +22,9 @@ export const PHOTOS = { salon: "/demo/salon.webp", massage: "/demo/massage.webp"
 export type PhotoId = keyof typeof PHOTOS;
 export const PHOTO_IDS = Object.keys(PHOTOS) as PhotoId[];
 
-/** Ready-made palettes. `default` is the product's own look and sets nothing. */
+/** Ready-made palettes. No palette means the neutral default look (tenant-theme.css), never the platform's colours. */
 export const PALETTES = {
+  forest: { background: "#f7f4ef", text: "#212522", accent: "#2f5d50" },
   sand: { background: "#f6f1e9", text: "#3b3a36", accent: "#7a5c3e" },
   ink: { background: "#17181a", text: "#ece7dc", accent: "#c9a45c" },
   rose: { background: "#faf1ef", text: "#3d2f30", accent: "#a14a5b" },
@@ -41,7 +42,7 @@ export interface PageTheme {
   logo: string | null;
   /** Up to three colours picked from the logo, offered as accents. */
   logoColors: string[];
-  /** null = the product's default look, which also follows the visitor's light or dark setting. */
+  /** null = the neutral default look, which also follows the visitor's light or dark setting. */
   colors: Palette | null;
   fonts: FontPairId;
   corners: CornerStyle;
@@ -66,8 +67,8 @@ export function normalizeTheme(input: Partial<PageTheme> | undefined): PageTheme
 }
 
 const TOKEN_VARS: Record<keyof Tokens, string> = {
-  bg: "--eko-bg", surface: "--eko-surface", sunken: "--eko-sunken", line: "--eko-line", ink: "--eko-ink", muted: "--eko-muted",
-  accent: "--eko-accent", accentSoft: "--eko-accent-soft", onAccent: "--eko-on-accent",
+  bg: "--ui-bg", surface: "--ui-surface", sunken: "--ui-surface-2", line: "--ui-border", ink: "--ui-text", muted: "--ui-text-secondary",
+  accent: "--ui-action", accentSoft: "--ui-action-bg", onAccent: "--ui-action-text",
 };
 
 /** The CSS variables for the page root. Empty for the default look. */
@@ -79,7 +80,7 @@ export function themeVariables(theme: PageTheme): Record<string, string> {
   }
   if (!theme.colors) return vars;
   const { tokens } = buildTokens(theme.colors);
-  for (const key of Object.keys(TOKEN_VARS) as (keyof Tokens)[]) vars[TOKEN_VARS[key]] = channels(tokens[key]);
+  for (const key of Object.keys(TOKEN_VARS) as (keyof Tokens)[]) vars[TOKEN_VARS[key]] = tokens[key];
   vars.colorScheme = luminance(tokens.bg) > 0.4 ? "light" : "dark";
   return vars;
 }

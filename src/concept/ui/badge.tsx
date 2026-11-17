@@ -1,13 +1,17 @@
 import type { ReactNode } from "react";
 import { cx } from "./cx";
 
-type Tone = "neutral" | "accent" | "warn" | "danger";
+// Status pills. `accent` marks something as the product's own (selected, new);
+// success/warn/danger/info carry meaning and never use the brand colours.
+type Tone = "neutral" | "accent" | "success" | "info" | "warn" | "danger";
 
 const tones: Record<Tone, string> = {
-  neutral: "bg-eko-sunken text-eko-muted",
-  accent: "bg-eko-accent-soft text-eko-accent",
-  warn: "bg-eko-warn-soft text-eko-warn",
-  danger: "bg-eko-danger-soft text-eko-danger",
+  neutral: "bg-surface-2 text-text-secondary",
+  accent: "bg-action-bg text-text",
+  success: "bg-success-bg text-success",
+  info: "bg-info-bg text-info",
+  warn: "bg-warning-bg text-warning",
+  danger: "bg-danger-bg text-danger",
 };
 
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {

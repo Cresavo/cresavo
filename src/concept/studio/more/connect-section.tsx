@@ -34,7 +34,7 @@ function CopyField({ value, label }: { value: string; label: string }) {
     }
   };
   return (
-    <div className="flex flex-col gap-2 rounded-xl bg-eko-sunken p-3 sm:flex-row sm:items-start">
+    <div className="flex flex-col gap-2 rounded-md bg-surface-2 p-3 sm:flex-row sm:items-start">
       <code className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[13px] leading-relaxed">{value}</code>
       <Button size="sm" variant="secondary" aria-label={label} icon={copied ? <Check size={16} /> : <Copy size={16} />} onClick={copy} className="self-end sm:self-start">
         {copied ? t("common.copied") : t("common.copy")}
@@ -71,7 +71,7 @@ function ClientSetup({ client, endpoint, info }: { client: Client; endpoint: str
   return (
     <div className="space-y-3">
       <Steps items={["data.setup.chatgpt.1", "data.setup.chatgpt.2"]} />
-      <p className="rounded-xl bg-eko-warn-soft px-3.5 py-2.5 text-sm text-eko-warn">{t("data.setup.chatgpt.limit")}</p>
+      <p className="rounded-md bg-warning-bg px-3.5 py-2.5 text-sm text-warning">{t("data.setup.chatgpt.limit")}</p>
     </div>
   );
 }
@@ -98,7 +98,7 @@ export function useProtocolInfo() {
 export function ConnectSection({ info, failed }: { info?: ProtocolInfo; failed?: boolean }) {
   const [client, setClient] = useState<Client>("claude-code");
   if (failed) return <EmptyState icon={<PlugZap size={22} />} title={t("data.unavailable")} />;
-  if (!info) return <Card className="h-64 animate-pulse bg-eko-sunken" aria-busy />;
+  if (!info) return <Card className="h-64 animate-pulse bg-surface-2" aria-busy />;
   const endpoint = `${window.location.origin}${info.paths.mcp}`;
   return (
     <Card className="space-y-4 p-5">
@@ -106,7 +106,7 @@ export function ConnectSection({ info, failed }: { info?: ProtocolInfo; failed?:
       <div className="space-y-1.5">
         <p className="text-sm font-medium">{t("data.endpoint")}</p>
         <CopyField value={endpoint} label={t("data.copyEndpoint")} />
-        <p className="text-xs text-eko-muted">{t(TOKEN_TEXT[info.mcp.token], { token: info.mcp.devToken ?? "" })}</p>
+        <p className="text-xs text-text-secondary">{t(TOKEN_TEXT[info.mcp.token], { token: info.mcp.devToken ?? "" })}</p>
       </div>
       <div role="group" aria-label={t("data.setup.pick")} className="flex flex-wrap gap-2">
         {CLIENTS.map(({ value, label }) => (
@@ -114,7 +114,7 @@ export function ConnectSection({ info, failed }: { info?: ProtocolInfo; failed?:
         ))}
       </div>
       <ClientSetup client={client} endpoint={endpoint} info={info} />
-      <p className="text-xs text-eko-muted">{t("data.connectNote")}</p>
+      <p className="text-xs text-text-secondary">{t("data.connectNote")}</p>
     </Card>
   );
 }
@@ -133,14 +133,14 @@ export function ProtocolList({ info }: { info?: ProtocolInfo }) {
     showToast(response?.ok ? t("data.resetDone") : t("data.resetFailed"));
   };
   return (
-    <Card className="divide-y divide-eko-line overflow-hidden">
+    <Card className="divide-y divide-border overflow-hidden">
       {rows.map((p) => (
         <div key={p.name} className="flex items-start gap-3 px-4 py-3">
           <span className="w-12 shrink-0 pt-0.5 font-semibold">{p.name}</span>
           <div className="min-w-0 flex-1 text-sm">
-            <p className="text-eko-muted">{t(p.description)}</p>
+            <p className="text-text-secondary">{t(p.description)}</p>
             {p.href && (
-              <a href={p.href} target="_blank" rel="noreferrer" className="text-xs font-medium text-eko-accent underline-offset-2 hover:underline">
+              <a href={p.href} target="_blank" rel="noreferrer" className="text-xs font-medium text-action underline-offset-2 hover:underline">
                 {t("data.protocol.open", { path: p.href })}
               </a>
             )}
@@ -149,7 +149,7 @@ export function ProtocolList({ info }: { info?: ProtocolInfo }) {
         </div>
       ))}
       <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-        <p className="min-w-0 flex-1 text-xs text-eko-muted">{t("data.resetText")}</p>
+        <p className="min-w-0 flex-1 text-xs text-text-secondary">{t("data.resetText")}</p>
         <Button size="sm" variant="ghost" icon={<RotateCcw size={16} />} onClick={reset}>{t("data.reset")}</Button>
       </div>
     </Card>

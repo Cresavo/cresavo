@@ -36,17 +36,17 @@ export function CalendarFeed({ name, path }: { name: string; path: string | unde
     }
   };
   return (
-    <div className="space-y-2 border-t border-eko-line pt-4">
-      <p className="flex items-center gap-2 text-sm font-medium"><CalendarPlus size={16} className="text-eko-accent" aria-hidden />{t("feed.title")}</p>
+    <div className="space-y-2 border-t border-border pt-4">
+      <p className="flex items-center gap-2 text-sm font-medium"><CalendarPlus size={16} className="text-action" aria-hidden />{t("feed.title")}</p>
       {path ? (
         <>
-          <p className="text-sm text-eko-muted">{t("feed.text", { name })}</p>
-          <input readOnly value={url} aria-label={t("feed.title")} onFocus={(event) => event.target.select()} className="w-full rounded-xl border border-eko-line bg-eko-sunken p-3 text-xs" />
+          <p className="text-sm text-text-secondary">{t("feed.text", { name })}</p>
+          <input readOnly value={url} aria-label={t("feed.title")} onFocus={(event) => event.target.select()} className="w-full rounded-md border border-border bg-surface-2 p-3 text-xs" />
           <Button size="sm" variant="secondary" onClick={copy}>{t("feed.copy")}</Button>
-          <p className="text-xs text-eko-muted">{t("feed.how")}</p>
+          <p className="text-xs text-text-secondary">{t("feed.how")}</p>
         </>
       ) : (
-        <p className="text-sm text-eko-muted">{t("feed.off")}</p>
+        <p className="text-sm text-text-secondary">{t("feed.off")}</p>
       )}
     </div>
   );

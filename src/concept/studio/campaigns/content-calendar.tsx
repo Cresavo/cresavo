@@ -30,7 +30,7 @@ export function ContentCalendar() {
         <h3 className="font-semibold">{`${formatMonth(month)} ${month.slice(0, 4)}`}</h3>
         <IconButton label={t("campaigns.calendar.next")} onClick={() => setMonth(shiftMonth(month, 1))}><ChevronRight size={20} /></IconButton>
       </div>
-      <div className="grid grid-cols-7 border-t border-eko-line px-1.5 pt-1.5 text-center text-[11px] font-semibold uppercase text-eko-muted">
+      <div className="grid grid-cols-7 border-t border-border px-1.5 pt-1.5 text-center text-[11px] font-semibold uppercase text-text-secondary">
         {WEEKDAY_ORDER.map((wd) => <span key={wd}>{words.weekdaysShort[wd].slice(0, 2)}</span>)}
       </div>
       <div className="grid grid-cols-7 gap-0.5 p-1.5">
@@ -38,12 +38,12 @@ export function ContentCalendar() {
           <DayCell key={d.date} day={d} today={today} selected={selected === d.date} onSelect={() => setSelected(d.date)} />
         ))}
       </div>
-      <div className="space-y-3 border-t border-eko-line p-4">
+      <div className="space-y-3 border-t border-border p-4">
         <p className="text-sm font-semibold">{formatDate(day.date)}</p>
-        {!day.holidays.length && !day.posts.length && <p className="text-sm text-eko-muted">{t("campaigns.calendar.empty")}</p>}
+        {!day.holidays.length && !day.posts.length && <p className="text-sm text-text-secondary">{t("campaigns.calendar.empty")}</p>}
         {day.holidays.map((h) => (
           <div key={h.id} className="flex flex-wrap items-center gap-2">
-            <span className="flex min-w-0 flex-1 basis-40 items-center gap-2 text-sm"><CalendarHeart size={16} className="shrink-0 text-eko-accent" />{h.name}</span>
+            <span className="flex min-w-0 flex-1 basis-40 items-center gap-2 text-sm"><CalendarHeart size={16} className="shrink-0 text-action" />{h.name}</span>
             {planned.has(h.id) ? (
               <Badge tone="accent">{t("campaigns.planned")}</Badge>
             ) : (
@@ -54,7 +54,7 @@ export function ContentCalendar() {
         {day.posts.map((p) => (
           <Link key={p.campaignId} href={`/studio/more/campaigns/${p.campaignId}`} className="flex flex-wrap items-center gap-2 text-sm hover:underline">
             <span className="min-w-0 flex-1 basis-40 font-medium">{p.name}</span>
-            <span className="text-eko-muted">{p.channels.map((c) => t(`channel.${c}`)).join(", ")}</span>
+            <span className="text-text-secondary">{p.channels.map((c) => t(`channel.${c}`)).join(", ")}</span>
           </Link>
         ))}
         {day.date >= today && (
@@ -73,16 +73,16 @@ function DayCell({ day, today, selected, onSelect }: { day: CalendarDay; today: 
       aria-pressed={selected}
       aria-label={formatDate(day.date)}
       className={cx(
-        "flex min-h-12 flex-col items-center justify-start gap-1 rounded-xl pt-1.5 text-sm transition-colors",
-        day.inMonth ? "text-eko-ink" : "text-eko-muted",
-        selected ? "bg-eko-accent-soft ring-1 ring-inset ring-eko-accent" : "hover:bg-eko-sunken",
+        "flex min-h-12 flex-col items-center justify-start gap-1 rounded-md pt-1.5 text-sm transition-colors",
+        day.inMonth ? "text-text" : "text-text-secondary",
+        selected ? "bg-action-bg ring-1 ring-inset ring-action" : "hover:bg-surface-2",
         day.date === today && "font-semibold",
       )}
     >
-      <span className={cx("flex size-6 items-center justify-center rounded-full", day.date === today && "bg-eko-accent text-eko-on-accent")}>{number}</span>
+      <span className={cx("flex size-6 items-center justify-center rounded-full", day.date === today && "bg-action text-on-action")}>{number}</span>
       <span className="flex h-1.5 gap-0.5">
-        {day.holidays.length > 0 && <span className="size-1.5 rounded-full bg-eko-warn" />}
-        {day.posts.length > 0 && <span className="size-1.5 rounded-full bg-eko-accent" />}
+        {day.holidays.length > 0 && <span className="size-1.5 rounded-full bg-warning" />}
+        {day.posts.length > 0 && <span className="size-1.5 rounded-full bg-action" />}
       </span>
     </button>
   );

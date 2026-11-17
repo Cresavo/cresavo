@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { expect, test, type Page } from "@playwright/test";
-import { BRAND } from "../../src/concept/brand";
+import { ASSISTANT } from "../../src/concept/brand";
 import { createDemoState } from "../../src/concept/data/generate";
 import type { DemoState } from "../../src/concept/data/types";
 import { salonClock } from "../../src/concept/tools/clock";
@@ -162,8 +162,8 @@ test("a custom theme with other sections has no accessibility violations", async
 
 test("the assistant proposes a calmer look with a before and after, and approving applies it", async ({ page }) => {
   await page.goto("/studio");
-  await page.getByRole("button", { name: `Ask ${BRAND.name}`, exact: true }).locator("visible=true").click();
-  const panel = page.getByRole("dialog", { name: `Ask ${BRAND.name}` });
+  await page.getByRole("button", { name: `Ask ${ASSISTANT.name}`, exact: true }).locator("visible=true").click();
+  const panel = page.getByRole("dialog", { name: `Ask ${ASSISTANT.name}` });
   const message = panel.getByRole("textbox", { name: "Message" });
   await message.fill("Make it calmer and more luxurious");
   await message.press("Enter");

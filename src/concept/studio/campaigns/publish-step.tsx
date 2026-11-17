@@ -63,13 +63,13 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
             ))}
           </div>
         </div>
-        <p className="text-sm text-eko-muted">{t("campaigns.publish.link", { link: draftLink(draft) })}</p>
+        <p className="text-sm text-text-secondary">{t("campaigns.publish.link", { link: draftLink(draft) })}</p>
         <div className="space-y-2.5">
           <Button size="lg" className="w-full" icon={<Send size={18} />} disabled={!draft.channels.length} onClick={() => onPublish(today)}>
             {t("campaigns.publish.everywhere")}
           </Button>
           {scheduling ? (
-            <div className="space-y-3 rounded-2xl bg-eko-sunken p-3.5">
+            <div className="space-y-3 rounded-lg bg-surface-2 p-3.5">
               <Field label={t("campaigns.publish.day")} hint={formatDate(day)}>
                 <TextInput type="date" value={day} min={today} onChange={(event) => event.target.value && setDay(event.target.value)} />
               </Field>
@@ -83,7 +83,7 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
             </Button>
           )}
         </div>
-        <p className="text-xs text-eko-muted">{tc("campaigns.publish.note", draft.channels.length)}</p>
+        <p className="text-xs text-text-secondary">{tc("campaigns.publish.note", draft.channels.length)}</p>
       </div>
     </div>
   );

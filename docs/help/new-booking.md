@@ -4,7 +4,7 @@ keywords: new booking, book a customer, add a booking, appointment, phone call, 
 path: /studio/calendar
 show: new-booking
 ---
-Use this when a customer calls or walks in. Flerdo only offers times that are really free.
+Use this when a customer calls or walks in. {brand} only offers times that are really free.
 
 1. Open Calendar and tap New booking.
 2. Pick the customer, the treatment and who does it.

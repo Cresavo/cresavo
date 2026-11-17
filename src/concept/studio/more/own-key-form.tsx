@@ -46,18 +46,18 @@ export function OwnKeyForm() {
     <Card className="p-5">
       {overview?.ownKey && <div className="mb-4 flex flex-wrap items-center gap-3">
         <p>{overview.ownKey.provider} · ••••{overview.ownKey.last4}</p>
-        {!overview.ownKey.usable && <p className="text-sm text-eko-warn">{t("ai.keyLocked")}</p>}
+        {!overview.ownKey.usable && <p className="text-sm text-warning">{t("ai.keyLocked")}</p>}
         <Button variant="secondary" disabled={busy} onClick={remove}>{t("ai.removeKey")}</Button>
       </div>}
       <form onSubmit={submit} className="space-y-4">
         <div className="flex items-start gap-3">
-          <KeyRound size={20} className="mt-0.5 shrink-0 text-eko-accent" />
+          <KeyRound size={20} className="mt-0.5 shrink-0 text-action" />
           <div className="min-w-0">
             <p className="font-medium">{t("ai.ownKey")}</p>
-            <p className="text-sm text-eko-muted">{t("ai.ownKeyText")}</p>
+            <p className="text-sm text-text-secondary">{t("ai.ownKeyText")}</p>
           </div>
         </div>
-        <p className="rounded-xl bg-eko-warn-soft px-3.5 py-2.5 text-sm text-eko-warn">{t(overview?.keyStorageAvailable ? "ai.ownKeyDemo" : "ai.keyStorageUnavailable")}</p>
+        <p className="rounded-md bg-warning-bg px-3.5 py-2.5 text-sm text-warning">{t(overview?.keyStorageAvailable ? "ai.ownKeyDemo" : "ai.keyStorageUnavailable")}</p>
         <Segmented value={provider} options={PROVIDERS} onChange={setProvider} label={t("ai.provider")} className="w-full" />
         <Field label={t("ai.apiKey")}>
           <TextInput
@@ -73,7 +73,7 @@ export function OwnKeyForm() {
         </Field>
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" disabled={!overview?.keyStorageAvailable || key.trim().length < 8 || busy}>{t("ai.useKey")}</Button>
-          {status && <p role="status" className="text-sm text-eko-muted">{t(`ai.key.${status}`)}</p>}
+          {status && <p role="status" className="text-sm text-text-secondary">{t(`ai.key.${status}`)}</p>}
         </div>
       </form>
     </Card>

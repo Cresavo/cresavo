@@ -17,17 +17,17 @@ export function ColumnChart({ data, format, label, height = 160 }: ColumnChartPr
       <div className="flex items-end gap-2 sm:gap-3" style={{ height }}>
         {data.map((d) => (
           <div key={d.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
-            <span className="truncate text-[11px] font-medium tabular-nums text-eko-muted">{format(d.value)}</span>
+            <span className="truncate text-[11px] font-medium tabular-nums text-text-secondary">{format(d.value)}</span>
             <div
-              className={cx("w-full max-w-12 rounded-t-lg", d.highlight ? "bg-eko-accent" : "bg-eko-accent/25")}
+              className={cx("w-full max-w-12 rounded-t-sm", d.highlight ? "bg-action" : "bg-action/25")}
               style={{ height: `${Math.max(3, (d.value / max) * (height - 28))}px` }}
             />
           </div>
         ))}
       </div>
-      <div className="mt-2 flex gap-2 border-t border-eko-line pt-2 sm:gap-3">
+      <div className="mt-2 flex gap-2 border-t border-border pt-2 sm:gap-3">
         {data.map((d) => (
-          <span key={d.label} className={cx("flex-1 text-center text-xs", d.highlight ? "font-semibold" : "text-eko-muted")}>
+          <span key={d.label} className={cx("flex-1 text-center text-xs", d.highlight ? "font-semibold" : "text-text-secondary")}>
             {d.label}
           </span>
         ))}
@@ -52,8 +52,8 @@ export function BarList({ data, format }: BarListProps) {
             <span className="truncate">{d.label}</span>
             <span className="shrink-0 font-medium tabular-nums">{format(d.value)}</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-eko-sunken">
-            <div className={cx("h-full rounded-full", d.tone ?? "bg-eko-accent")} style={{ width: `${(d.value / max) * 100}%` }} />
+          <div className="h-2 overflow-hidden rounded-full bg-surface-2">
+            <div className={cx("h-full rounded-full", d.tone ?? "bg-action")} style={{ width: `${(d.value / max) * 100}%` }} />
           </div>
         </li>
       ))}
@@ -62,9 +62,9 @@ export function BarList({ data, format }: BarListProps) {
 }
 
 /** A thin progress bar, 0–1. */
-export function Meter({ value, tone = "bg-eko-accent", className }: { value: number; tone?: string; className?: string }) {
+export function Meter({ value, tone = "bg-action", className }: { value: number; tone?: string; className?: string }) {
   return (
-    <div className={cx("h-1.5 overflow-hidden rounded-full bg-eko-sunken", className)}>
+    <div className={cx("h-1.5 overflow-hidden rounded-full bg-surface-2", className)}>
       <div className={cx("h-full rounded-full", tone)} style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }} />
     </div>
   );
@@ -89,12 +89,12 @@ export function PairedColumns({ data, labels, label, height = 110 }: PairedColum
       <svg viewBox={`0 0 ${data.length * STEP} ${height}`} preserveAspectRatio="none" role="img" aria-label={label} className="w-full" style={{ height }}>
         {data.map((d, i) => (
           <g key={i}>
-            <rect x={i * STEP + 0.8} y={height - bar(d.previous)} width={4} height={bar(d.previous)} className="fill-eko-accent/25" />
-            <rect x={i * STEP + 4.9} y={height - bar(d.current)} width={4} height={bar(d.current)} className="fill-eko-accent" />
+            <rect x={i * STEP + 0.8} y={height - bar(d.previous)} width={4} height={bar(d.previous)} className="fill-action/25" />
+            <rect x={i * STEP + 4.9} y={height - bar(d.current)} width={4} height={bar(d.current)} className="fill-action" />
           </g>
         ))}
       </svg>
-      <div className="mt-2 flex justify-between border-t border-eko-line pt-2 text-xs text-eko-muted">
+      <div className="mt-2 flex justify-between border-t border-border pt-2 text-xs text-text-secondary">
         <span>{labels[0]}</span>
         <span>{labels[1]}</span>
       </div>
@@ -119,11 +119,11 @@ export function CompareBars({ data, format }: CompareBarsProps) {
             <span className="shrink-0 font-medium tabular-nums">{format(d.value)}</span>
           </div>
           <div className="space-y-1">
-            <div className="h-2 overflow-hidden rounded-full bg-eko-sunken">
-              <div className={cx("h-full rounded-full", d.tone ?? "bg-eko-accent")} style={{ width: `${(d.value / max) * 100}%` }} />
+            <div className="h-2 overflow-hidden rounded-full bg-surface-2">
+              <div className={cx("h-full rounded-full", d.tone ?? "bg-action")} style={{ width: `${(d.value / max) * 100}%` }} />
             </div>
-            <div className="h-1 overflow-hidden rounded-full bg-eko-sunken">
-              <div className="h-full rounded-full bg-eko-muted/40" style={{ width: `${(d.previous / max) * 100}%` }} />
+            <div className="h-1 overflow-hidden rounded-full bg-surface-2">
+              <div className="h-full rounded-full bg-text-secondary/40" style={{ width: `${(d.previous / max) * 100}%` }} />
             </div>
           </div>
         </li>

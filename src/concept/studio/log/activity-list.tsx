@@ -31,13 +31,13 @@ function Row({ entry, canUndo, today }: { entry: LogEntry; canUndo: boolean; tod
       <div className="min-w-0 flex-1 space-y-1">
         <p className="text-[15px] font-medium leading-snug">{entry.summary}</p>
         {(entry.before || entry.after) && (
-          <p className="text-sm text-eko-muted">
+          <p className="text-sm text-text-secondary">
             {entry.before && <span>{entry.before}</span>}
             {entry.before && entry.after && <span aria-label={t("log.then")}> → </span>}
-            {entry.after && <span className="text-eko-ink">{entry.after}</span>}
+            {entry.after && <span className="text-text">{entry.after}</span>}
           </p>
         )}
-        <p className="text-xs text-eko-muted">
+        <p className="text-xs text-text-secondary">
           {entryTime(entry.at, today)} · {t(`log.actor.${entry.actor}`)} · {t(`log.source.${entry.source}`)}
         </p>
       </div>
@@ -79,7 +79,7 @@ export function ActivityList() {
       </div>
       {shown.length ? (
         <Card>
-          <ul className="divide-y divide-eko-line">
+          <ul className="divide-y divide-border">
             {shown.map((entry) => (
               <Row key={entry.id} entry={entry} canUndo={isUndoable(state, entry)} today={today} />
             ))}

@@ -35,11 +35,11 @@ export function CustomerSummary({ customer }: { customer: Customer }) {
 
   const aiText = aiSummaries.get(key);
   return (
-    <p className="flex items-start gap-2 rounded-xl bg-eko-sunken px-3.5 py-3 text-[15px] leading-relaxed">
-      <Sparkles size={16} className="mt-1 shrink-0 text-eko-accent" aria-hidden />
+    <p className="flex items-start gap-2 rounded-md bg-surface-2 px-3.5 py-3 text-[15px] leading-relaxed">
+      <Sparkles size={16} className="mt-1 shrink-0 text-action" aria-hidden />
       <span>
         {aiText ?? summarizeFallback(facts)}
-        {aiText && <span className="ml-2 rounded-full bg-eko-accent-soft px-2 py-0.5 text-xs font-semibold text-eko-accent">{t("customer.summary.ai")}</span>}
+        {aiText && <span className="ml-2 rounded-full bg-action-bg px-2 py-0.5 text-xs font-semibold text-action">{t("customer.summary.ai")}</span>}
       </span>
     </p>
   );

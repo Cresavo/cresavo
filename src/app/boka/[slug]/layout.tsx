@@ -12,9 +12,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  // The tenant's neutral default (tenant-theme.css), never the platform's colours.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f4ef" },
-    { media: "(prefers-color-scheme: dark)", color: "#151716" },
+    { media: "(prefers-color-scheme: light)", color: "#f6f6f5" },
+    { media: "(prefers-color-scheme: dark)", color: "#141415" },
   ],
 };
 

@@ -4,7 +4,7 @@ keywords: undo, what happened, activity log, history, revert, who changed, mista
 path: /studio/more
 show: /studio/more/log
 ---
-What happened lists every change: who made it (you, a colleague, Flerdo's assistant, a customer or an integration), what changed, before and after, and where it came from.
+What happened lists every change: who made it (you, a colleague, the assistant, a customer or an integration), what changed, before and after, and where it came from.
 
 1. Open More, then What happened.
 2. Use the filters to find the change.

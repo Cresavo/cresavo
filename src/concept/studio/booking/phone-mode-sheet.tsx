@@ -44,11 +44,11 @@ export function PhoneModeSheet({ onClose, onBook, onMove }: PhoneModeProps) {
           {matches.map((c) => {
             const next = stats?.get(c.id)?.nextBooking;
             return (
-              <div key={c.id} className="flex flex-wrap items-center gap-3 rounded-2xl bg-eko-sunken p-3">
+              <div key={c.id} className="flex flex-wrap items-center gap-3 rounded-lg bg-surface-2 p-3">
                 <Avatar name={fullName(c)} />
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">{fullName(c)}</p>
-                  <p className="text-sm text-eko-muted">
+                  <p className="text-sm text-text-secondary">
                     {next ? t("phone.nextBooking", { when: `${relativeDay(next.date, today)} ${formatTime(next.start)}` }) : t("phone.noBooking")}
                   </p>
                 </div>
@@ -68,7 +68,7 @@ export function PhoneModeSheet({ onClose, onBook, onMove }: PhoneModeProps) {
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-eko-muted">{t("phone.freeTimes")}</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-text-secondary">{t("phone.freeTimes")}</h3>
           {days.map((d) => {
             const gaps = state.staff.flatMap((s) =>
               freeGaps(state, s.id, d, { after: d === today ? minutes : 0, min: 30 }).map((g) => ({ ...g, staff: s })),
@@ -83,17 +83,17 @@ export function PhoneModeSheet({ onClose, onBook, onMove }: PhoneModeProps) {
                         key={`${g.staff.id}-${g.start}`}
                         onClick={() => onBook({ staffId: g.staff.id, date: d, start: g.start })}
                         className={cx(
-                          "flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm ring-1 ring-inset hover:brightness-95",
-                          g.staff.id === "anna" ? "bg-eko-anna-soft ring-eko-anna/20" : "bg-eko-erik-soft ring-eko-erik/20",
+                          "flex min-h-11 items-center gap-2 rounded-md px-3 text-sm ring-1 ring-inset hover:brightness-95",
+                          g.staff.id === "anna" ? "bg-staff-1-bg ring-staff-1/20" : "bg-staff-2-bg ring-staff-2/20",
                         )}
                       >
                         <span className="font-semibold tabular-nums">{formatTime(g.start)}</span>
-                        <span className="text-eko-muted">{g.staff.firstName} · {formatDuration(g.end - g.start)}</span>
+                        <span className="text-text-secondary">{g.staff.firstName} · {formatDuration(g.end - g.start)}</span>
                       </button>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-eko-muted">{t("phone.fullyBooked")}</p>
+                  <p className="text-sm text-text-secondary">{t("phone.fullyBooked")}</p>
                 )}
               </div>
             );

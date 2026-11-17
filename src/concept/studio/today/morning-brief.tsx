@@ -22,9 +22,9 @@ export function MorningBrief() {
     <Section title={t(brief.kind === "weekly" ? "brief.weekly" : "brief.morning")}>
       <Card className="space-y-3 p-4" data-help="morning-brief">
         <div className="flex items-start gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-eko-accent-soft text-eko-accent"><Sun size={18} /></span>
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-action-bg text-action"><Sun size={18} /></span>
           <p className="min-w-0 flex-1 pt-1.5 font-medium">{ai ? brief.title : t("brief.intro")}</p>
-          {ai && <Sparkles size={16} className="mt-1 shrink-0 text-eko-accent" aria-label={t("assistant.source.ai")} />}
+          {ai && <Sparkles size={16} className="mt-1 shrink-0 text-action" aria-label={t("assistant.source.ai")} />}
         </div>
         <BriefList brief={brief} />
         <Button size="sm" variant="secondary" icon={<MessageCircle size={16} />} onClick={() => openAssistant()}>
@@ -34,11 +34,11 @@ export function MorningBrief() {
       {suggestion && (
         <Card className="space-y-2 p-4">
           <div className="flex gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-eko-accent-soft text-eko-accent"><Repeat size={18} /></span>
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-action-bg text-action"><Repeat size={18} /></span>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-eko-accent">{t("routine.suggested")}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-action">{t("routine.suggested")}</p>
               <p className="font-medium leading-snug">{suggestion.routine.name}</p>
-              <p className="text-sm text-eko-muted">{scheduleText(suggestion.routine)} · {suggestion.reason}</p>
+              <p className="text-sm text-text-secondary">{scheduleText(suggestion.routine)} · {suggestion.reason}</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2 pl-12">

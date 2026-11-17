@@ -44,20 +44,20 @@ export default function CampaignsPage() {
             <ContentCalendar />
           </Section>
           <Section title={t("campaigns.holidays")}>
-            <Card className="divide-y divide-eko-line overflow-hidden">
+            <Card className="divide-y divide-border overflow-hidden">
               {state.holidays.slice(0, HOLIDAYS_SHOWN).map((h) => (
                 <div key={h.id} className="flex flex-wrap items-center gap-3 px-4 py-3.5">
-                  <CalendarHeart size={18} className="shrink-0 text-eko-accent" />
+                  <CalendarHeart size={18} className="shrink-0 text-action" />
                   <div className="min-w-0 flex-1 basis-40">
                     <p className="font-medium">{h.name}</p>
-                    <p className="text-sm text-eko-muted">
+                    <p className="text-sm text-text-secondary">
                       {formatDate(h.date)} · {tc("campaigns.daysLeft", diffDays(h.date, today))}
                     </p>
                   </div>
                   {planned.has(h.id) ? (
                     <Badge tone="accent"><Check size={12} />{t("campaigns.planned")}</Badge>
                   ) : (
-                    <Link href={studioHref(prefillForHoliday(state, h, today), true)} className="text-sm font-medium text-eko-accent hover:underline">
+                    <Link href={studioHref(prefillForHoliday(state, h, today), true)} className="text-sm font-medium text-action hover:underline">
                       {t("campaigns.create")}
                     </Link>
                   )}

@@ -27,7 +27,7 @@ export function StaffSchedule({ person }: { person: Staff }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-eko-muted">{t("schedule.week")}</p>
+        <p className="text-sm text-text-secondary">{t("schedule.week")}</p>
         <Button size="sm" variant="ghost" icon={<Pencil size={16} />} onClick={() => setOpen("week")}>{t("schedule.editWeek")}</Button>
       </div>
       <div className="grid grid-cols-7 gap-1">
@@ -36,7 +36,7 @@ export function StaffSchedule({ person }: { person: Staff }) {
           return (
             <div key={d} className="min-w-0 text-center">
               <Badge tone={shift ? "accent" : "neutral"} className="w-full justify-center">{words.weekdaysShort[d]}</Badge>
-              <p className="mt-1 text-[11px] leading-tight tabular-nums text-eko-muted">{shift ? `${formatTime(shift.start).slice(0, 2)}–${formatTime(shift.end).slice(0, 2)}` : "–"}</p>
+              <p className="mt-1 text-[11px] leading-tight tabular-nums text-text-secondary">{shift ? `${formatTime(shift.start).slice(0, 2)}–${formatTime(shift.end).slice(0, 2)}` : "–"}</p>
             </div>
           );
         })}
@@ -44,10 +44,10 @@ export function StaffSchedule({ person }: { person: Staff }) {
       {exceptions.length > 0 && (
         <ul className="space-y-1.5">
           {exceptions.map((e) => (
-            <li key={e.id} className="flex items-center gap-2 rounded-xl bg-eko-sunken px-3 py-1.5 text-sm">
+            <li key={e.id} className="flex items-center gap-2 rounded-md bg-surface-2 px-3 py-1.5 text-sm">
               <span className="min-w-0 flex-1">
                 <span className="font-medium">{formatDayShort(e.date)}</span>{" "}
-                <span className="text-eko-muted">{e.kind === "off" ? t(`schedule.reason.${e.reason}`) : t("schedule.shiftText", { from: formatTime(e.start), to: formatTime(e.end) })}</span>
+                <span className="text-text-secondary">{e.kind === "off" ? t(`schedule.reason.${e.reason}`) : t("schedule.shiftText", { from: formatTime(e.start), to: formatTime(e.end) })}</span>
               </span>
               <IconButton
                 label={t("schedule.removeException", { day: formatDayShort(e.date) })}

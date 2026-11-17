@@ -28,19 +28,19 @@ export function CostsSection() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="space-y-4 p-5">
           <div>
-            <p className="text-sm text-eko-muted">{t("finance.profitIn", { month: formatMonth(last.month) })}</p>
+            <p className="text-sm text-text-secondary">{t("finance.profitIn", { month: formatMonth(last.month) })}</p>
             <p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight">{formatMoney(last.profit)}</p>
-            <p className="mt-1 text-sm text-eko-muted">{t("finance.profitNote", { revenue: formatMoney(last.revenue), costs: formatMoney(last.costs), margin: t("format.percent", { value: formatNumber(margin * 100) }) })}</p>
+            <p className="mt-1 text-sm text-text-secondary">{t("finance.profitNote", { revenue: formatMoney(last.revenue), costs: formatMoney(last.costs), margin: t("format.percent", { value: formatNumber(margin * 100) }) })}</p>
           </div>
           <ColumnChart
             label={t("finance.profitPerMonth")}
             format={(value) => t("money", { amount: `${formatNumber(value / 1000)}k` })}
             data={results.map((r, i) => ({ label: formatMonth(r.month, true), value: r.profit, highlight: i === results.length - 1 }))}
           />
-          <p className="text-xs text-eko-muted">{t("finance.profitHint")}</p>
+          <p className="text-xs text-text-secondary">{t("finance.profitHint")}</p>
         </Card>
         <Card className="space-y-4 p-5">
-          <ul className="divide-y divide-eko-line">
+          <ul className="divide-y divide-border">
             {state.costs.map((cost) => (
               <li key={cost.id} className="flex items-center gap-3 py-1.5">
                 <span className="min-w-0 flex-1">
@@ -54,12 +54,12 @@ export function CostsSection() {
               </li>
             ))}
           </ul>
-          <div className="flex items-center justify-between border-t border-eko-line pt-3 text-sm">
-            <span className="text-eko-muted">{t("finance.costsPerMonth")}</span>
+          <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
+            <span className="text-text-secondary">{t("finance.costsPerMonth")}</span>
             <span className="font-semibold tabular-nums">{formatMoney(totalCosts(state.costs))}</span>
           </div>
           {costsByKind(state.costs).length > 1 && (
-            <p className="text-xs text-eko-muted">{costsByKind(state.costs).map((row) => `${t(`finance.kind.${row.kind}`)} ${formatMoney(row.amount)}`).join(" · ")}</p>
+            <p className="text-xs text-text-secondary">{costsByKind(state.costs).map((row) => `${t(`finance.kind.${row.kind}`)} ${formatMoney(row.amount)}`).join(" · ")}</p>
           )}
           <AddCost />
         </Card>
@@ -83,7 +83,7 @@ function AddCost() {
   };
 
   return (
-    <form onSubmit={submit} className="space-y-3 border-t border-eko-line pt-4">
+    <form onSubmit={submit} className="space-y-3 border-t border-border pt-4">
       <p className="text-sm font-medium">{t("finance.addCost")}</p>
       <div className="grid grid-cols-2 gap-3">
         <Field label={t("finance.costType")}>

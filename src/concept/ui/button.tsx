@@ -5,17 +5,19 @@ import { cx } from "./cx";
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
 
+// One primary per screen; everything else is secondary or ghost. Every size
+// keeps the 44 px touch target. Disabled looks are set in studio.css.
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-colors select-none whitespace-nowrap";
+  "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors select-none whitespace-nowrap";
 const variants: Record<Variant, string> = {
-  primary: "bg-eko-accent text-eko-on-accent hover:bg-eko-accent/90",
-  secondary: "bg-eko-surface text-eko-ink ring-1 ring-inset ring-eko-line hover:bg-eko-sunken",
-  ghost: "text-eko-ink hover:bg-eko-sunken",
-  danger: "bg-eko-danger-soft text-eko-danger hover:bg-eko-danger/15",
+  primary: "bg-action text-on-action hover:bg-action-hover active:bg-action-hover",
+  secondary: "bg-surface text-text ring-1 ring-inset ring-input-border hover:bg-surface-2 active:bg-surface-2",
+  ghost: "text-text hover:bg-surface-2 active:bg-surface-2",
+  danger: "bg-danger-bg text-danger ring-1 ring-inset ring-danger/40 hover:ring-danger active:ring-danger",
 };
 const sizes: Record<Size, string> = {
-  sm: "min-h-9 px-3 text-sm",
-  md: "min-h-11 px-4 text-[15px]",
+  sm: "min-h-11 px-3 text-[15px]",
+  md: "min-h-11 px-4 text-base",
   lg: "min-h-12 px-5 text-base",
 };
 
@@ -69,7 +71,7 @@ export function IconButton({ label, className, children, type = "button", ...res
       type={type}
       aria-label={label}
       title={label}
-      className={cx("inline-flex size-11 items-center justify-center rounded-xl text-eko-muted hover:bg-eko-sunken hover:text-eko-ink", className)}
+      className={cx("inline-flex size-11 items-center justify-center rounded-md text-text-secondary hover:bg-surface-2 hover:text-text active:bg-surface-2", className)}
       {...rest}
     >
       {children}

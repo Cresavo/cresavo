@@ -19,7 +19,7 @@ const CATEGORY_ICON: Record<Category, LucideIcon> = {
 export function ServiceIcon({ category }: { category: Service["category"] }) {
   const Icon = CATEGORY_ICON[category];
   return (
-    <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-eko-accent-soft text-eko-accent">
+    <span className="flex size-11 shrink-0 items-center justify-center rounded-md bg-action-bg text-action">
       <Icon size={20} />
     </span>
   );
@@ -33,7 +33,7 @@ export function ServiceInfo({ service, staff }: { service: Service; staff: DemoS
       <ServiceIcon category={service.category} />
       <span className="min-w-0">
         <span className="block font-medium">{service.name}</span>
-        <span className="mt-0.5 block text-sm text-eko-muted">{service.description}</span>
+        <span className="mt-0.5 block text-sm text-text-secondary">{service.description}</span>
         <span className="mt-1 block text-sm">
           {formatDuration(service.duration)} · <strong className="font-semibold">{formatMoney(service.price)}</strong> · {t("booking.withStaff", { name: names })}
         </span>

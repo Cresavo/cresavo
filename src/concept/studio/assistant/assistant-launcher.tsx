@@ -18,12 +18,12 @@ import { addMessages, messageId, openAssistant } from "./thread-store";
 export function AssistantLauncher() {
   return (
     <>
-      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-40 flex items-center rounded-full bg-eko-accent text-eko-on-accent shadow-sheet sm:hidden">
+      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-40 flex items-center rounded-full bg-action text-on-action shadow-sheet sm:hidden">
         <button type="button" onClick={() => openAssistant()} className="flex min-h-12 items-center gap-2 pl-4 pr-3 text-[15px] font-semibold">
           <Sparkles size={18} />
           {t("assistant.open")}
         </button>
-        <span className="h-6 w-px bg-eko-on-accent/30" aria-hidden />
+        <span className="h-6 w-px bg-on-action/30" aria-hidden />
         <button type="button" onClick={() => openAssistant({ listen: true })} aria-label={t("assistant.openVoice")} title={t("assistant.openVoice")} className="flex size-12 items-center justify-center">
           <Mic size={18} />
         </button>
@@ -37,7 +37,7 @@ export function AssistantLauncher() {
 /** The button in the top bar on larger screens, where the inline command box stays for quick commands. */
 export function AssistantHeaderButton() {
   return (
-    <Button size="sm" variant="secondary" icon={<Sparkles size={16} className="text-eko-accent" />} onClick={() => openAssistant()} className="hidden sm:inline-flex">
+    <Button size="sm" variant="secondary" icon={<Sparkles size={16} className="text-action" />} onClick={() => openAssistant()} className="hidden sm:inline-flex">
       {t("assistant.open")}
     </Button>
   );

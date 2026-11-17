@@ -15,12 +15,12 @@ export function GiftCardPage() {
   const params = useSearchParams();
   const card = params ? giftCardFromParams(params) : null;
   if (!state) return null;
-  if (!card) return <Card className="mx-auto max-w-md p-6 text-center text-eko-muted"><h1 className="text-base font-normal">{t("giftcards.pageInvalid")}</h1></Card>;
+  if (!card) return <Card className="mx-auto max-w-md p-6 text-center text-text-secondary"><h1 className="text-base font-normal">{t("giftcards.pageInvalid")}</h1></Card>;
   return (
     <div className="mx-auto max-w-md space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t("giftcards.pageTitle", { salon: state.salon.name })}</h1>
-        <p className="mt-2 text-[15px] text-eko-muted">{t("giftcards.pageText")}</p>
+        <p className="mt-2 text-[15px] text-text-secondary">{t("giftcards.pageText")}</p>
       </div>
       <GiftCardFace salonName={state.salon.name} amount={card.amount} recipient={card.recipient} message={card.message} code={card.code} />
       <div className="flex flex-wrap gap-2 print:hidden">

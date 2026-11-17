@@ -77,9 +77,9 @@ export function ReceiveSheet({ orderId, onClose }: { orderId?: string; onClose: 
         <Button variant="secondary" className="w-full" disabled={reading} icon={reading ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />} onClick={photograph}>
           {reading ? t("stock.reading") : t("stock.photo")}
         </Button>
-        {noteFrom && <p className="rounded-xl bg-eko-accent-soft px-3.5 py-2.5 text-sm text-eko-accent">{t("stock.noteRead", { supplier: noteFrom })}</p>}
+        {noteFrom && <p className="rounded-md bg-action-bg px-3.5 py-2.5 text-sm text-action">{t("stock.noteRead", { supplier: noteFrom })}</p>}
         {ids.length > 0 && (
-          <ul className="divide-y divide-eko-line rounded-2xl ring-1 ring-eko-line">
+          <ul className="divide-y divide-border rounded-lg ring-1 ring-border">
             {ids.map((id) => {
               const item = state.stock.find((s) => s.id === id);
               if (!item) return null;
@@ -87,7 +87,7 @@ export function ReceiveSheet({ orderId, onClose }: { orderId?: string; onClose: 
                 <li key={id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                   <span className="min-w-0">
                     <span className="block font-medium">{item.name}</span>
-                    <span className="block text-eko-muted">{ordered(id) ? t("stock.orderedCount", { count: ordered(id) }) : item.unit}</span>
+                    <span className="block text-text-secondary">{ordered(id) ? t("stock.orderedCount", { count: ordered(id) }) : item.unit}</span>
                   </span>
                   <Stepper
                     value={amounts[id]}
@@ -102,7 +102,7 @@ export function ReceiveSheet({ orderId, onClose }: { orderId?: string; onClose: 
         )}
         {!order && (
           <div className="space-y-2">
-            {ids.length === 0 && <p className="text-sm text-eko-muted">{t("stock.nothingOnOrder")}</p>}
+            {ids.length === 0 && <p className="text-sm text-text-secondary">{t("stock.nothingOnOrder")}</p>}
             <Select
               aria-label={t("stock.addProduct")}
               value=""

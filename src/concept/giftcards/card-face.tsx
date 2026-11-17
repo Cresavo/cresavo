@@ -14,7 +14,7 @@ interface CardFaceProps {
 export function GiftCardFace({ salonName, amount, recipient, message, code }: CardFaceProps) {
   return (
     <div
-      className="relative aspect-[1.7/1] w-full overflow-hidden rounded-3xl p-5 text-white shadow-card sm:p-6"
+      className="relative aspect-[1.7/1] w-full overflow-hidden rounded-lg p-5 text-white sm:p-6"
       style={{ background: "linear-gradient(135deg, #2f5d50 0%, #1c3a31 100%)" }}
     >
       <div className="pointer-events-none absolute -right-10 -top-12 size-44 rounded-full bg-white/10" aria-hidden />

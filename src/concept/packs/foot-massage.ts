@@ -244,6 +244,7 @@ export const footMassage: Pack = {
   vocabulary: { customer: "customer", service: "treatment" },
   categories: ["foot", "massage"],
   salon: SALON,
+  palette: "forest",
   staff: STAFF,
   services: SERVICES,
   stock: STOCK,

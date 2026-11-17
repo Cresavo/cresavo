@@ -51,8 +51,8 @@ export function PageEditor() {
             <SectionControls sections={draft.sections} instagram={draft.instagram} onChange={(sections) => change({ sections })} onInstagram={(instagram) => change({ instagram })} />
           </Block>
           <Block title={t("pageEditor.css.title")}><CssControls css={draft.css} onChange={(css) => change({ css })} /></Block>
-          <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 flex flex-wrap items-center gap-2 rounded-2xl bg-eko-surface p-3 shadow-sheet ring-1 ring-eko-line lg:bottom-4">
-            <p className="min-w-0 flex-1 text-sm text-eko-muted">{dirty ? t("pageEditor.unsaved") : t("pageEditor.upToDate")}</p>
+          <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 flex flex-wrap items-center gap-2 rounded-lg bg-surface p-3 shadow-sheet ring-1 ring-border lg:bottom-4">
+            <p className="min-w-0 flex-1 text-sm text-text-secondary">{dirty ? t("pageEditor.unsaved") : t("pageEditor.upToDate")}</p>
             <Button variant="ghost" icon={<Undo2 size={18} />} disabled={!dirty} onClick={() => setDraft(state.page)}>{t("pageEditor.discard")}</Button>
             <Button icon={<Save size={18} />} disabled={!dirty} onClick={save}>{t("pageEditor.save")}</Button>
           </div>
@@ -78,9 +78,9 @@ function CssControls({ css, onChange }: { css: string; onChange: (css: string) =
   const rules = (applied.match(/\{/g) ?? []).length;
   return (
     <div className="space-y-2">
-      <p className="text-sm text-eko-muted">{t("pageEditor.css.help")}</p>
+      <p className="text-sm text-text-secondary">{t("pageEditor.css.help")}</p>
       <TextArea value={css} onChange={(event) => onChange(event.target.value)} maxLength={MAX_CSS_LENGTH} spellCheck={false} autoCapitalize="none" aria-label={t("pageEditor.css.title")} placeholder={"h1 {\n  letter-spacing: 0.02em;\n}"} className="min-h-40 font-mono text-sm" />
-      <p role="status" className="text-xs text-eko-muted">
+      <p role="status" className="text-xs text-text-secondary">
         {css.trim() ? (rules ? tc("pageEditor.css.applied", rules) : t("pageEditor.css.none")) : t("pageEditor.css.empty")}
       </p>
     </div>

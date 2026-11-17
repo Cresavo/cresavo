@@ -48,14 +48,14 @@ export function EveningSummary() {
     <Section title={t("summary.title")}>
       <Card className="space-y-3 p-4" data-help="evening-summary">
         <div className="flex items-start gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-eko-accent-soft text-eko-accent"><Moon size={18} /></span>
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-action-bg text-action"><Moon size={18} /></span>
           <p className="min-w-0 flex-1 pt-1.5 font-medium">{text.summary}</p>
-          {ai && <Sparkles size={16} className="mt-1 shrink-0 text-eko-accent" aria-label={t("customer.summary.ai")} />}
+          {ai && <Sparkles size={16} className="mt-1 shrink-0 text-action" aria-label={t("customer.summary.ai")} />}
         </div>
         <ul className="space-y-1 text-sm">
           {text.highlights.map((line) => (
             <li key={line} className="flex gap-2">
-              <span className="mt-2 size-1 shrink-0 rounded-full bg-eko-accent" aria-hidden />
+              <span className="mt-2 size-1 shrink-0 rounded-full bg-action" aria-hidden />
               {line}
             </li>
           ))}

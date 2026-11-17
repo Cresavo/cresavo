@@ -23,7 +23,7 @@ export function AskStep({ services, onAsk, onChoose }: AskStepProps) {
     <div className="space-y-5">
       <div>
         <h2 className="text-xl font-semibold tracking-tight">{t("booking.ask.title")}</h2>
-        <p className="mt-1 text-[15px] text-eko-muted">{t("booking.ask.help")}</p>
+        <p className="mt-1 text-[15px] text-text-secondary">{t("booking.ask.help")}</p>
       </div>
       <form
         className="space-y-3"
@@ -50,16 +50,16 @@ export function AskStep({ services, onAsk, onChoose }: AskStepProps) {
           <button
             key={example.key}
             onClick={() => onAsk(example.text)}
-            className="min-h-10 rounded-full bg-eko-sunken px-3.5 text-left text-sm text-eko-ink transition-colors hover:bg-eko-accent-soft"
+            className="min-h-10 rounded-full bg-surface-2 px-3.5 text-left text-sm text-text transition-colors hover:bg-action-bg"
           >
             {example.text}
           </button>
         ))}
       </div>
-      <div className="flex items-center gap-3 text-xs text-eko-muted">
-        <span className="h-px flex-1 bg-eko-line" />
+      <div className="flex items-center gap-3 text-xs text-text-secondary">
+        <span className="h-px flex-1 bg-border" />
         {t("booking.ask.or")}
-        <span className="h-px flex-1 bg-eko-line" />
+        <span className="h-px flex-1 bg-border" />
       </div>
       <Button variant="secondary" size="lg" className="w-full" icon={<ListChecks size={18} />} onClick={onChoose}>
         {t("booking.ask.classic")}

@@ -143,7 +143,7 @@ export function Suggestions({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) 
   }
 
   const visible = list.filter((s) => (!s.card || cardVisible(state.modules, s.card)) && !state.dismissedCards.includes(s.id));
-  if (!visible.length) return <p className="rounded-2xl bg-eko-sunken px-4 py-5 text-center text-sm text-eko-muted">{t("suggest.none")}</p>;
+  if (!visible.length) return <p className="rounded-lg bg-surface-2 px-4 py-5 text-center text-sm text-text-secondary">{t("suggest.none")}</p>;
 
   const shown = showAll ? visible : visible.slice(0, VISIBLE_AT_FIRST);
   return (
@@ -151,11 +151,11 @@ export function Suggestions({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) 
       {shown.map((s) => (
         <Card key={s.id} className="p-4">
           <div className="flex gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-eko-accent-soft text-eko-accent">{s.icon}</span>
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-action">{s.icon}</span>
             <div className="min-w-0 flex-1 space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-eko-accent">{t("suggest.label")}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-action">{t("suggest.label")}</p>
               <p className="font-medium leading-snug">{s.title}</p>
-              <p className="text-sm text-eko-muted">{s.text}</p>
+              <p className="text-sm text-text-secondary">{s.text}</p>
               <div className="flex flex-wrap gap-2 pt-2">{s.actions}</div>
             </div>
             <IconButton label={t("suggest.dismiss")} onClick={() => dispatch({ type: "card/dismiss", id: s.id })} className="-mr-2 -mt-2 size-9">

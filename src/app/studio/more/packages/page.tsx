@@ -31,19 +31,19 @@ export default function PackagesPage() {
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Card className="p-5">
-            <p className="text-sm font-medium text-eko-accent">{t("packages.deal", { visits: PACKAGE_DEAL.visits, paid: PACKAGE_DEAL.paidVisits })}</p>
-            <p className="mt-1 text-sm text-eko-muted">{t("packages.dealText")}</p>
+            <p className="text-sm font-medium text-action">{t("packages.deal", { visits: PACKAGE_DEAL.visits, paid: PACKAGE_DEAL.paidVisits })}</p>
+            <p className="mt-1 text-sm text-text-secondary">{t("packages.dealText")}</p>
           </Card>
           {packages.length > 0 && (
-            <Card className="bg-eko-accent-soft p-5 ring-eko-accent/20">
-              <p className="text-sm font-medium text-eko-accent">{t("packages.owed")}</p>
+            <Card className="bg-action-bg p-5 ring-action/20">
+              <p className="text-sm font-medium text-action">{t("packages.owed")}</p>
               <p className="text-3xl font-semibold tabular-nums tracking-tight">{formatMoney(packageLiability(state))}</p>
-              <p className="mt-1 text-sm text-eko-muted">{t("packages.owedText")}</p>
+              <p className="mt-1 text-sm text-text-secondary">{t("packages.owedText")}</p>
             </Card>
           )}
         </div>
         {packages.length ? (
-          <Card className="divide-y divide-eko-line overflow-hidden">
+          <Card className="divide-y divide-border overflow-hidden">
             {packages.map((pkg) => {
               const customer = findCustomer(state, pkg.customerId);
               const left = visitsLeft(pkg);
@@ -52,8 +52,8 @@ export default function PackagesPage() {
                   <Avatar name={customer ? fullName(customer) : "?"} size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{customer ? fullName(customer) : ""}</p>
-                    <p className="truncate text-sm text-eko-muted">{findService(state, pkg.serviceId)?.name}</p>
-                    <p className="truncate text-xs text-eko-muted">{t("packages.paid", { amount: formatMoney(pkg.price) })} · {formatDate(pkg.soldOn)}</p>
+                    <p className="truncate text-sm text-text-secondary">{findService(state, pkg.serviceId)?.name}</p>
+                    <p className="truncate text-xs text-text-secondary">{t("packages.paid", { amount: formatMoney(pkg.price) })} · {formatDate(pkg.soldOn)}</p>
                     <Meter value={pkg.usedBy.length / pkg.visits} className="mt-2 max-w-48" />
                   </div>
                   <Badge tone={left ? "accent" : "neutral"}>{left ? t("packages.left", { left, total: pkg.visits }) : t("packages.usedUp", { total: pkg.visits })}</Badge>

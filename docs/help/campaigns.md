@@ -4,7 +4,7 @@ keywords: campaign, offer, discount, poster, instagram, facebook, marketing, pub
 path: /studio/more
 show: /studio/more/campaigns
 ---
-Campaigns turn an idea into posts. Pick the treatments and the offer, let Flerdo write the texts, choose a poster and publish.
+Campaigns turn an idea into posts. Pick the treatments and the offer, let {brand} write the texts, choose a poster and publish.
 
 1. Open More, then Campaigns, and tap New campaign. Holiday ideas are prefilled.
 2. Check the offer, the texts and the poster.

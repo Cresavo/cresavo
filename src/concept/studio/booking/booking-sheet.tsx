@@ -106,14 +106,14 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
             onChange={setSlot}
             ignoreBookingId={booking.id}
           />
-          <div className="grid grid-cols-2 gap-2 rounded-2xl bg-eko-sunken p-3 text-sm">
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-surface-2 p-3 text-sm">
             <div>
-              <p className="text-xs text-eko-muted">{t("move.before")}</p>
+              <p className="text-xs text-text-secondary">{t("move.before")}</p>
               <p className="font-medium">{formatDayLong(booking.date)}</p>
               <p className="tabular-nums">{formatTime(booking.start)}</p>
             </div>
             <div>
-              <p className="text-xs text-eko-muted">{t("move.after")}</p>
+              <p className="text-xs text-text-secondary">{t("move.after")}</p>
               <p className="font-medium">{slot ? formatDayLong(slot.date) : "–"}</p>
               <p className="tabular-nums">{slot ? formatTime(slot.start) : t("move.pickTime")}</p>
             </div>
@@ -147,10 +147,10 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
             </div>
           </div>
           {state.modules.waitlist && (
-            <div className="flex items-center gap-4 rounded-2xl bg-eko-accent-soft/60 p-4">
+            <div className="flex items-center gap-4 rounded-lg bg-action-bg/60 p-4">
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{t("cancel.offer")}</p>
-                <p className="text-sm text-eko-muted">{tc("cancel.offerHint", waitlist)}</p>
+                <p className="text-sm text-text-secondary">{tc("cancel.offerHint", waitlist)}</p>
               </div>
               <Switch checked={offer} onChange={() => setOffer(!offer)} label={t("cancel.offer")} />
             </div>
@@ -192,7 +192,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
             {booking.cancelReason ? ` · ${booking.cancelReason}` : ""}
           </Badge>
         )}
-        <dl className="divide-y divide-eko-line rounded-2xl ring-1 ring-eko-line">
+        <dl className="divide-y divide-border rounded-lg ring-1 ring-border">
           <InfoRow label={t("booking.when")} value={when} />
           <InfoRow label={t("booking.with")} value={`${staff.firstName} ${staff.lastName}`} />
           {booking.resourceId && <InfoRow label={t("booking.room")} value={state.resources.find((r) => r.id === booking.resourceId)?.name ?? ""} />}
@@ -204,7 +204,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
             <InfoRow
               label={t("booking.phone")}
               value={
-                <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className="inline-flex items-center gap-1.5 text-eko-accent">
+                <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className="inline-flex items-center gap-1.5 text-action">
                   <Phone size={14} />
                   {customer.phone}
                 </a>
@@ -216,14 +216,14 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
           <Button variant="secondary" className="w-full" icon={<Gift size={18} />} onClick={() => setMode("giftcard")}>{t("giftcards.pay")}</Button>
         )}
         {customer?.note && (
-          <div className="rounded-2xl bg-eko-warn-soft px-4 py-3 text-sm text-eko-ink">
-            <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-eko-warn">{t("booking.note")}</p>
+          <div className="rounded-lg bg-warning-bg px-4 py-3 text-sm text-text">
+            <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-warning">{t("booking.note")}</p>
             {customer.note}
           </div>
         )}
         {lastJournal && (
-          <div className="rounded-2xl bg-eko-sunken px-4 py-3 text-sm">
-            <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-eko-muted">{t("booking.lastAdvice")}</p>
+          <div className="rounded-lg bg-surface-2 px-4 py-3 text-sm">
+            <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("booking.lastAdvice")}</p>
             {lastJournal.advice}
           </div>
         )}
@@ -235,7 +235,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-4 px-4 py-3 text-sm">
-      <dt className="text-eko-muted">{label}</dt>
+      <dt className="text-text-secondary">{label}</dt>
       <dd className="text-right font-medium">{value}</dd>
     </div>
   );

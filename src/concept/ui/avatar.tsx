@@ -1,23 +1,7 @@
 import { cx } from "./cx";
 
-// Generated avatars: initials on a soft pastel. No photos of people.
-
-const PALETTE = [
-  ["#E6EFE9", "#2F5D50"],
-  ["#F4E6DA", "#8A4B2C"],
-  ["#E8E6F3", "#4B4680"],
-  ["#F3E4E8", "#86405A"],
-  ["#E3EDF3", "#2E5A75"],
-  ["#F2EDD9", "#6E5A1E"],
-  ["#E9F0E1", "#4A6326"],
-  ["#EFE5F0", "#6E3F78"],
-];
-
-function hash(text: string) {
-  let h = 0;
-  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0;
-  return h;
-}
+// Generated avatars: initials on a quiet neutral circle, the same for everyone.
+// No photos of people, and no colour that could be read as a status.
 
 const sizes = { sm: 32, md: 40, lg: 56, xl: 80 } as const;
 
@@ -29,7 +13,6 @@ interface AvatarProps {
 
 export function Avatar({ name, size = "md", className }: AvatarProps) {
   const px = sizes[size];
-  const [bg, fg] = PALETTE[hash(name) % PALETTE.length];
   const initials = name
     .split(" ")
     .filter(Boolean)
@@ -45,8 +28,8 @@ export function Avatar({ name, size = "md", className }: AvatarProps) {
       aria-label={name}
       className={cx("shrink-0 rounded-full", className)}
     >
-      <circle cx="20" cy="20" r="20" fill={bg} />
-      <text x="20" y="20" dy="0.35em" textAnchor="middle" fontSize="14" fontWeight="600" fill={fg} fontFamily="inherit">
+      <circle cx="20" cy="20" r="20" className="fill-surface-2" />
+      <text x="20" y="20" dy="0.35em" textAnchor="middle" fontSize="14" fontWeight="600" className="fill-text-secondary" fontFamily="inherit">
         {initials}
       </text>
     </svg>

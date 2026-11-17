@@ -51,12 +51,12 @@ export function SlotPicker({ staffId, need, date, onDateChange, value, onChange,
             onClick={() => onDateChange(d)}
             aria-pressed={d === date}
             className={cx(
-              "flex min-h-14 min-w-[76px] shrink-0 flex-col items-center justify-center rounded-xl px-2 text-sm ring-1 ring-inset",
-              d === date ? "bg-eko-ink text-eko-bg ring-eko-ink" : "bg-eko-surface ring-eko-line hover:bg-eko-sunken",
+              "flex min-h-14 min-w-[76px] shrink-0 flex-col items-center justify-center rounded-md px-2 text-sm ring-1 ring-inset",
+              d === date ? "bg-text text-bg ring-text" : "bg-surface ring-border hover:bg-surface-2",
             )}
           >
             <span className="font-medium">{dayChipLabel(d, today)}</span>
-            <span className={cx("text-xs", d === date ? "opacity-70" : "text-eko-muted")}>{formatDayMonth(d)}</span>
+            <span className={cx("text-xs", d === date ? "opacity-70" : "text-text-secondary")}>{formatDayMonth(d)}</span>
           </button>
         ))}
       </div>
@@ -70,8 +70,8 @@ export function SlotPicker({ staffId, need, date, onDateChange, value, onChange,
                 onClick={() => onChange({ date, start })}
                 aria-pressed={selected}
                 className={cx(
-                  "min-h-11 rounded-xl text-center text-sm font-medium tabular-nums ring-1 ring-inset",
-                  selected ? "bg-eko-accent text-eko-on-accent ring-eko-accent" : "bg-eko-surface ring-eko-line hover:bg-eko-sunken",
+                  "min-h-11 rounded-md text-center text-sm font-medium tabular-nums ring-1 ring-inset",
+                  selected ? "bg-action text-on-action ring-action" : "bg-surface ring-border hover:bg-surface-2",
                 )}
               >
                 {formatTime(start)}
@@ -80,7 +80,7 @@ export function SlotPicker({ staffId, need, date, onDateChange, value, onChange,
           })}
         </div>
       ) : (
-        <p className="rounded-xl bg-eko-sunken px-4 py-3 text-sm text-eko-muted">{t("slots.noneThisDay")}</p>
+        <p className="rounded-md bg-surface-2 px-4 py-3 text-sm text-text-secondary">{t("slots.noneThisDay")}</p>
       )}
     </div>
   );

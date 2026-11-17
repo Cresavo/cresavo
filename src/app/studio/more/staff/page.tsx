@@ -30,34 +30,34 @@ export default function StaffPage() {
           return (
             <Card key={person.id} className="space-y-5 p-5">
               <div className="flex items-center gap-4">
-                <span className={cx("flex size-14 items-center justify-center rounded-full text-lg font-semibold", anna ? "bg-eko-anna-soft text-eko-anna" : "bg-eko-erik-soft text-eko-erik")}>
+                <span className={cx("flex size-14 items-center justify-center rounded-full text-lg font-semibold", anna ? "bg-staff-1-bg text-staff-1" : "bg-staff-2-bg text-staff-2")}>
                   {person.firstName[0]}
                   {person.lastName[0]}
                 </span>
                 <div className="min-w-0">
                   <p className="text-lg font-semibold">{person.firstName} {person.lastName}</p>
-                  <p className="text-sm text-eko-muted">{person.title} · {person.role}</p>
+                  <p className="text-sm text-text-secondary">{person.title} · {person.role}</p>
                 </div>
               </div>
               <p className="text-sm">{person.bio}</p>
               <StaffSchedule person={person} />
-              <div className="grid grid-cols-3 gap-3 border-t border-eko-line pt-4 text-sm">
+              <div className="grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
                 <div>
-                  <p className="text-eko-muted">{t("staff.next7")}</p>
+                  <p className="text-text-secondary">{t("staff.next7")}</p>
                   <p className="font-semibold">{tc("calendar.bookingCount", week)}</p>
                 </div>
                 <div>
-                  <p className="text-eko-muted">{t("staff.booked")}</p>
+                  <p className="text-text-secondary">{t("staff.booked")}</p>
                   <p className="font-semibold">{t("format.percent", { value: formatNumber(busy * 100) })}</p>
                   <Meter value={busy} className="mt-1.5" />
                 </div>
                 <div>
-                  <p className="text-eko-muted">{t("staff.thisMonth")}</p>
+                  <p className="text-text-secondary">{t("staff.thisMonth")}</p>
                   <p className="font-semibold">{formatMoney(revenue.find((r) => r.id === person.id)?.total ?? 0)}</p>
                 </div>
               </div>
               <div>
-                <p className="mb-2 text-sm text-eko-muted">{t("staff.services")}</p>
+                <p className="mb-2 text-sm text-text-secondary">{t("staff.services")}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {state.services.filter((s) => s.staffIds.includes(person.id)).map((s) => <Badge key={s.id}>{s.name}</Badge>)}
                 </div>

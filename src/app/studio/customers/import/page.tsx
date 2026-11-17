@@ -69,9 +69,9 @@ export default function ImportCustomersPage() {
       <PageHeader title={t("import.title")} subtitle={t("import.subtitle")} back={<BackLink href="/studio/customers" label={t("import.back")} />} />
       <div className="space-y-6">
         <Card className="space-y-4 p-5">
-          <p className="text-sm text-eko-muted">{t("import.hint")}</p>
+          <p className="text-sm text-text-secondary">{t("import.hint")}</p>
           <div className="flex flex-wrap gap-2">
-            <label className={`${buttonClass("primary")} cursor-pointer focus-within:ring-2 focus-within:ring-eko-accent`}>
+            <label className={`${buttonClass("primary")} cursor-pointer focus-within:ring-2 focus-within:ring-action`}>
               <Upload size={18} />
               {t("import.pick")}
               <input type="file" accept=".csv,text/csv" className="sr-only" onChange={onFile} />
@@ -82,14 +82,14 @@ export default function ImportCustomersPage() {
               {t("import.downloadExample")}
             </a>
           </div>
-          {error && <p role="alert" className="text-sm text-eko-danger">{t("import.empty")}</p>}
+          {error && <p role="alert" className="text-sm text-danger">{t("import.empty")}</p>}
         </Card>
 
         {table && (
           <>
             <Section title={t("import.mapping")}>
               <Card className="space-y-4 p-5">
-                <p className="text-sm text-eko-muted">{t("import.mappingHint")}</p>
+                <p className="text-sm text-text-secondary">{t("import.mappingHint")}</p>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {IMPORT_FIELDS.map(({ field, label }) => (
                     <Field key={field} label={t(label)}>
@@ -108,15 +108,15 @@ export default function ImportCustomersPage() {
 
             <Section
               title={t("import.preview")}
-              action={<span className="text-sm text-eko-muted">{t("import.summary", { ready: ready.length, skipped: rows.length - ready.length })}</span>}
+              action={<span className="text-sm text-text-secondary">{t("import.summary", { ready: ready.length, skipped: rows.length - ready.length })}</span>}
             >
               {rows.length ? (
-                <Card className="divide-y divide-eko-line overflow-hidden">
+                <Card className="divide-y divide-border overflow-hidden">
                   {rows.slice(0, PREVIEW_ROWS).map((row) => (
                     <div key={row.line} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
                       <div className="min-w-0 flex-1 basis-52">
                         <p className="truncate font-medium">{row.customer ? `${row.customer.firstName} ${row.customer.lastName}`.trim() : t("import.row", { line: row.line })}</p>
-                        <p className="truncate text-sm text-eko-muted">{row.customer ? [row.customer.phone, row.customer.email].filter(Boolean).join(" · ") : ""}</p>
+                        <p className="truncate text-sm text-text-secondary">{row.customer ? [row.customer.phone, row.customer.email].filter(Boolean).join(" · ") : ""}</p>
                       </div>
                       {row.birthdayIgnored && <Badge tone="warn">{t("import.birthdayIgnored")}</Badge>}
                       <Badge tone={row.problem ? "danger" : "accent"}>{t(row.problem ? PROBLEM_LABEL[row.problem] : "import.status.ready")}</Badge>

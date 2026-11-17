@@ -34,7 +34,7 @@ export function JournalEntryCard({ entry }: { entry: Entry }) {
       <div className="flex items-baseline justify-between gap-3">
         <p className="font-semibold">{formatDate(entry.date)}</p>
         <div className="flex items-center gap-1">
-          <p className="text-eko-muted">{state.staff.find((s) => s.id === entry.staffId)?.firstName}</p>
+          <p className="text-text-secondary">{state.staff.find((s) => s.id === entry.staffId)?.firstName}</p>
           <Button size="sm" variant="ghost" icon={<Pencil size={14} />} aria-label={`${t("journal.edit")} ${formatDate(entry.date)}`} onClick={() => setEditing(true)}>
             {t("journal.edit")}
           </Button>
@@ -43,16 +43,16 @@ export function JournalEntryCard({ entry }: { entry: Entry }) {
       <EntryText content={entry} />
       <JournalPhotoPair photos={entry.photos} />
       {versions.length > 0 && (
-        <div className="space-y-3 border-t border-eko-line pt-3">
+        <div className="space-y-3 border-t border-border pt-3">
           <Button size="sm" variant="ghost" icon={<History size={14} />} aria-expanded={showVersions} className="-ml-3" onClick={() => setShowVersions(!showVersions)}>
             {tc("journal.versions", versions.length)}
           </Button>
           {showVersions && (
             <div className="space-y-3">
-              <p className="text-xs text-eko-muted">{t("journal.versionsHint")}</p>
+              <p className="text-xs text-text-secondary">{t("journal.versionsHint")}</p>
               {[...versions].reverse().map((version, index) => (
-                <div key={index} className="space-y-2 rounded-xl bg-eko-sunken p-3">
-                  <p className="text-xs font-semibold text-eko-muted">{t("journal.versionReplaced", { date: formatDate(version.replacedOn) })}</p>
+                <div key={index} className="space-y-2 rounded-md bg-surface-2 p-3">
+                  <p className="text-xs font-semibold text-text-secondary">{t("journal.versionReplaced", { date: formatDate(version.replacedOn) })}</p>
                   <EntryText content={version} />
                   <JournalPhotoPair photos={version.photos} />
                 </div>
@@ -80,7 +80,7 @@ function JournalLine({ label, text }: { label: string; text: string }) {
   if (!text) return null;
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-eko-muted">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{label}</p>
       <p className="mt-0.5 whitespace-pre-line leading-relaxed">{text}</p>
     </div>
   );

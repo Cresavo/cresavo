@@ -6,7 +6,7 @@ import { createDemoState } from "../../src/concept/data/generate";
 import { freeStarts } from "../../src/concept/data/slots";
 import type { DemoState } from "../../src/concept/data/types";
 import { fullName } from "../../src/concept/selectors";
-import { BRAND } from "../../src/concept/brand";
+import { ASSISTANT } from "../../src/concept/brand";
 import { DEV_TOKEN } from "../../src/concept/server/token";
 import { salonClock } from "../../src/concept/tools/clock";
 
@@ -24,7 +24,7 @@ async function state(page: Page): Promise<DemoState> {
 /** The command box from tablet width; on phones the same request goes through the assistant panel. */
 async function command(page: Page, text: string) {
   if (page.viewportSize()!.width < 640) {
-    await page.getByRole("button", { name: `Ask ${BRAND.name}`, exact: true }).locator("visible=true").click();
+    await page.getByRole("button", { name: `Ask ${ASSISTANT.name}`, exact: true }).locator("visible=true").click();
     const message = page.getByRole("textbox", { name: "Message" });
     await message.fill(text);
     await message.press("Enter");

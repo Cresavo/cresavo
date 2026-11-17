@@ -33,7 +33,7 @@ export function InboxAvatar({ state, item }: { state: DemoState; item: InboxItem
   if (name && item.kind !== "system") return <Avatar name={name} />;
   const Icon = KIND_ICON[item.kind];
   return (
-    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-eko-sunken text-eko-muted">
+    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-text-secondary">
       <Icon size={18} />
     </span>
   );

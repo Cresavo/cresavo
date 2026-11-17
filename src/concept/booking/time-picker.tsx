@@ -51,9 +51,9 @@ export function TimePicker({ state, serviceId, clock, onPick, onWaitlist, ignore
               aria-checked={active}
               onClick={() => setChosen(date)}
               className={cx(
-                "flex min-h-16 w-[4.25rem] shrink-0 flex-col items-center justify-center rounded-2xl px-1 py-2 ring-1 ring-inset transition-colors",
-                active ? "bg-eko-accent text-eko-on-accent ring-eko-accent" : "bg-eko-surface ring-eko-line hover:bg-eko-sunken",
-                !slots.length && !active && "text-eko-muted",
+                "flex min-h-16 w-[4.25rem] shrink-0 flex-col items-center justify-center rounded-lg px-1 py-2 ring-1 ring-inset transition-colors",
+                active ? "bg-action text-on-action ring-action" : "bg-surface ring-border hover:bg-surface-2",
+                !slots.length && !active && "text-text-secondary",
               )}
             >
               <span className="text-xs font-medium">{dayChipLabel(date, clock.today)}</span>
@@ -74,10 +74,10 @@ export function TimePicker({ state, serviceId, clock, onPick, onWaitlist, ignore
               onClick={() => onPick(slot)}
               aria-pressed={picked?.date === slot.date && picked.start === slot.start}
               className={cx(
-                "flex min-h-12 items-center justify-center rounded-xl text-[15px] font-medium ring-1 ring-inset transition-colors",
+                "flex min-h-12 items-center justify-center rounded-md text-[15px] font-medium ring-1 ring-inset transition-colors",
                 picked?.date === slot.date && picked.start === slot.start
-                  ? "bg-eko-accent text-eko-on-accent ring-eko-accent"
-                  : "bg-eko-surface ring-eko-line hover:bg-eko-accent-soft hover:text-eko-accent hover:ring-eko-accent",
+                  ? "bg-action text-on-action ring-action"
+                  : "bg-surface ring-border hover:bg-action-bg hover:text-action hover:ring-action",
               )}
             >
               {formatTime(slot.start)}
@@ -85,7 +85,7 @@ export function TimePicker({ state, serviceId, clock, onPick, onWaitlist, ignore
           ))}
         </div>
       ) : (
-        <div className="space-y-3 rounded-2xl bg-eko-sunken p-4">
+        <div className="space-y-3 rounded-lg bg-surface-2 p-4">
           <p className="text-[15px]">{t("booking.dayFull", { day: formatDayLong(selected.date) })}</p>
           {state.modules.waitlist && (
             <Button variant="secondary" icon={<BellRing size={16} />} onClick={() => onWaitlist(selected.date)}>

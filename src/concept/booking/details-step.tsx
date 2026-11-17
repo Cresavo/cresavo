@@ -61,13 +61,13 @@ export function DetailsStep({ state, now, serviceId, slot, onTaken, onBooked }: 
 
   return (
     <div className="space-y-5">
-      <div className="space-y-2 rounded-2xl bg-eko-sunken p-4">
+      <div className="space-y-2 rounded-lg bg-surface-2 p-4">
         <p className="font-semibold">{service.name}</p>
         <p className="flex items-center gap-2 text-[15px]">
-          <CalendarCheck size={16} className="shrink-0 text-eko-accent" />
+          <CalendarCheck size={16} className="shrink-0 text-action" />
           {formatDayLong(slot.date)}, {formatTime(slot.start)}–{formatTime(slot.start + service.duration)}
         </p>
-        <p className="flex items-center gap-2 text-sm text-eko-muted">
+        <p className="flex items-center gap-2 text-sm text-text-secondary">
           <Avatar name={person.firstName} size="sm" />
           {t("booking.withStaff", { name: person.firstName })} · {formatDuration(service.duration)} · {formatMoney(service.price)}
         </p>
@@ -76,7 +76,7 @@ export function DetailsStep({ state, now, serviceId, slot, onTaken, onBooked }: 
       <Button size="lg" className="w-full" disabled={!isGuestValid(guest)} onClick={confirm}>
         {t("booking.confirm")}
       </Button>
-      <p className="text-center text-sm text-eko-muted">{isGuestValid(guest) ? t("booking.confirmNote") : t("booking.confirmDisabled")}</p>
+      <p className="text-center text-sm text-text-secondary">{isGuestValid(guest) ? t("booking.confirmNote") : t("booking.confirmDisabled")}</p>
     </div>
   );
 }

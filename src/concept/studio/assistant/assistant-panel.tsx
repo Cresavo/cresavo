@@ -37,7 +37,7 @@ export function AssistantPanel() {
         stopSpeaking();
         closeAssistant();
       }}
-      className="m-0 h-[100dvh] max-h-none w-full max-w-none bg-eko-bg p-0 text-eko-ink backdrop:bg-black/30 sm:ml-auto sm:w-[440px] sm:rounded-l-3xl sm:shadow-sheet"
+      className="m-0 h-[100dvh] max-h-none w-full max-w-none bg-bg p-0 text-text backdrop:bg-black/30 sm:ml-auto sm:w-[440px] sm:rounded-l-lg sm:shadow-sheet"
     >
       {thread.open && <PanelBody assistant={assistant} />}
     </dialog>
@@ -78,11 +78,11 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-2 border-b border-eko-line bg-eko-surface px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-eko-accent text-eko-on-accent"><Sparkles size={18} /></span>
+      <header className="flex items-center gap-2 border-b border-border bg-surface px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-action text-on-action"><Sparkles size={18} /></span>
         <div className="min-w-0 flex-1 leading-tight">
           <h2 className="font-semibold tracking-tight">{t("assistant.title")}</h2>
-          <p className="truncate text-xs text-eko-muted">{aiReady ? t("assistant.mode.ai") : t("assistant.mode.rules")}</p>
+          <p className="truncate text-xs text-text-secondary">{aiReady ? t("assistant.mode.ai") : t("assistant.mode.rules")}</p>
         </div>
         {canSpeak() && (
           <IconButton
@@ -114,15 +114,15 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
         ))}
         {!thread.messages.length && (
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-eko-muted">{t("command.try")}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("command.try")}</p>
             <FollowUps items={assistant.examples} onPick={send} />
           </div>
         )}
         <div ref={end} />
       </div>
 
-      <form onSubmit={submit} className="border-t border-eko-line bg-eko-surface px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-        <div className="flex items-end gap-1.5 rounded-2xl bg-eko-sunken/70 p-1.5 pl-3.5 ring-1 ring-eko-line/70 focus-within:ring-2 focus-within:ring-eko-accent">
+      <form onSubmit={submit} className="border-t border-border bg-surface px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+        <div className="flex items-end gap-1.5 rounded-lg bg-surface-2/70 p-1.5 pl-3.5 ring-1 ring-border/70 focus-within:ring-2 focus-within:ring-action">
           <textarea
             ref={input}
             rows={1}
@@ -135,7 +135,7 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
             placeholder={speech.listening ? t("command.listening") : t("assistant.placeholder")}
             aria-label={t("assistant.message")}
             enterKeyHint="send"
-            className="bare-input max-h-32 min-h-9 flex-1 resize-none bg-transparent py-2 text-[15px] placeholder:text-eko-muted"
+            className="bare-input max-h-32 min-h-9 flex-1 resize-none bg-transparent py-2 text-[15px] placeholder:text-text-secondary"
           />
           {speech.supported && (
             <button
@@ -144,12 +144,12 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
               title={t("command.voice")}
               aria-pressed={speech.listening}
               onClick={speech.toggle}
-              className={cx("flex size-9 shrink-0 items-center justify-center rounded-xl", speech.listening ? "animate-pulse bg-eko-accent-soft text-eko-accent" : "text-eko-muted hover:text-eko-ink")}
+              className={cx("flex size-9 shrink-0 items-center justify-center rounded-md", speech.listening ? "animate-pulse bg-action-bg text-action" : "text-text-secondary hover:text-text")}
             >
               <Mic size={18} />
             </button>
           )}
-          <button type="submit" aria-label={t("assistant.send")} title={t("assistant.send")} disabled={!text.trim()} className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-eko-accent text-eko-on-accent disabled:opacity-40">
+          <button type="submit" aria-label={t("assistant.send")} title={t("assistant.send")} disabled={!text.trim()} className="flex size-9 shrink-0 items-center justify-center rounded-md bg-action text-on-action disabled:opacity-40">
             <ArrowUp size={18} />
           </button>
         </div>
@@ -193,8 +193,8 @@ function MessageView({ message, assistant }: { message: Message; assistant: Retu
   if (message.from === "owner") {
     return (
       <div className="ml-10 flex flex-col items-end gap-1">
-        <p className="rounded-2xl rounded-br-md bg-eko-accent px-3.5 py-2 text-[15px] text-eko-on-accent">{message.text}</p>
-        {message.understood && <p className="text-xs text-eko-muted">{t("assistant.understood", { text: message.understood })}</p>}
+        <p className="rounded-lg rounded-br-sm bg-action px-3.5 py-2 text-[15px] text-on-action">{message.text}</p>
+        {message.understood && <p className="text-xs text-text-secondary">{t("assistant.understood", { text: message.understood })}</p>}
       </div>
     );
   }
@@ -214,8 +214,8 @@ const ANSWERS = new Set(["insight", "revenue", "customers", "stock"]);
 
 function Bubble({ source, text, children }: { source: "rules" | "ai"; text?: string; children?: ReactNode }) {
   return (
-    <div className="mr-4 space-y-3 rounded-2xl rounded-bl-md bg-eko-surface p-3.5 shadow-card ring-1 ring-eko-line/70">
-      <span className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold", source === "ai" ? "bg-eko-accent-soft text-eko-accent" : "bg-eko-sunken text-eko-muted")}>
+    <div className="mr-4 space-y-3 rounded-lg rounded-bl-sm bg-surface p-3.5 ring-1 ring-border/70">
+      <span className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold", source === "ai" ? "bg-action-bg text-action" : "bg-surface-2 text-text-secondary")}>
         {source === "ai" && <Sparkles size={11} />}
         {t(source === "ai" ? "assistant.source.ai" : "assistant.source.rules")}
       </span>
@@ -229,7 +229,7 @@ function FollowUps({ items, onPick }: { items: string[]; onPick: (text: string) 
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item) => (
-        <button key={item} type="button" onClick={() => onPick(item)} className="min-h-9 rounded-full bg-eko-surface px-3.5 py-1.5 text-left text-sm font-medium ring-1 ring-inset ring-eko-line hover:bg-eko-sunken">
+        <button key={item} type="button" onClick={() => onPick(item)} className="min-h-9 rounded-full bg-surface px-3.5 py-1.5 text-left text-sm font-medium ring-1 ring-inset ring-border hover:bg-surface-2">
           {item}
         </button>
       ))}

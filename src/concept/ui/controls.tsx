@@ -14,7 +14,7 @@ interface SegmentedProps<T extends string> {
 
 export function Segmented<T extends string>({ value, options, onChange, label, className }: SegmentedProps<T>) {
   return (
-    <div role="radiogroup" aria-label={label} className={cx("inline-flex rounded-xl bg-eko-sunken p-1", className)}>
+    <div role="radiogroup" aria-label={label} className={cx("inline-flex rounded-md bg-surface-2 p-0.5", className)}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -24,8 +24,8 @@ export function Segmented<T extends string>({ value, options, onChange, label, c
           data-help={o.help}
           onClick={() => onChange(o.value)}
           className={cx(
-            "min-h-9 flex-1 whitespace-nowrap rounded-lg px-3 text-center text-sm font-medium transition-colors",
-            o.value === value ? "bg-eko-surface text-eko-ink shadow-card" : "text-eko-muted hover:text-eko-ink",
+            "min-h-10 flex-1 whitespace-nowrap rounded-sm px-3 text-center text-[15px] font-medium transition-colors",
+            o.value === value ? "bg-surface text-text ring-1 ring-border" : "text-text-secondary hover:text-text",
           )}
         >
           {o.label}
@@ -48,12 +48,12 @@ export function Chip({ active, onClick, children, count }: ChipProps) {
       aria-pressed={active}
       onClick={onClick}
       className={cx(
-        "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium ring-1 ring-inset transition-colors",
-        active ? "bg-eko-ink text-eko-bg ring-eko-ink" : "bg-eko-surface text-eko-ink ring-eko-line hover:bg-eko-sunken",
+        "inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[15px] font-medium ring-1 ring-inset transition-colors",
+        active ? "bg-action-bg text-text ring-2 ring-action" : "bg-surface text-text ring-border hover:bg-surface-2",
       )}
     >
       {children}
-      {count !== undefined && <span className={cx("text-xs", active ? "opacity-70" : "text-eko-muted")}>{count}</span>}
+      {count !== undefined && <span className={cx("text-xs", active ? "text-text" : "text-text-secondary")}>{count}</span>}
     </button>
   );
 }
@@ -71,22 +71,22 @@ export function Switch({ checked, onChange, label }: SwitchProps) {
       aria-checked={checked}
       aria-label={label}
       onClick={onChange}
-      className={cx("relative inline-flex h-7 w-12 shrink-0 rounded-full transition-colors", checked ? "bg-eko-accent" : "bg-eko-line")}
+      className={cx("relative inline-flex h-7 w-12 shrink-0 rounded-full ring-1 ring-inset transition-colors", checked ? "bg-action ring-action" : "bg-surface-2 ring-input-border")}
     >
-      <span className={cx("absolute top-0.5 size-6 rounded-full bg-white shadow transition-transform", checked ? "translate-x-[22px]" : "translate-x-0.5")} />
+      <span className={cx("absolute top-1 size-5 rounded-full transition-transform", checked ? "translate-x-[24px] bg-on-action" : "translate-x-1 bg-text-secondary")} />
     </button>
   );
 }
 
 const fieldClass =
-  "w-full rounded-xl bg-eko-surface px-3.5 py-2.5 text-[15px] ring-1 ring-inset ring-eko-line placeholder:text-eko-muted focus:outline-none focus:ring-2 focus:ring-eko-accent";
+  "w-full rounded-md bg-surface px-3.5 py-2.5 text-base ring-1 ring-inset ring-input-border placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-focus disabled:bg-surface-2 disabled:text-text-secondary";
 
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return (
     <label className="block space-y-1.5">
       <span className="block text-sm font-medium">{label}</span>
       {children}
-      {hint && <span className="block text-xs text-eko-muted">{hint}</span>}
+      {hint && <span className="block text-xs text-text-secondary">{hint}</span>}
     </label>
   );
 }
@@ -110,7 +110,7 @@ export function Select({ className, children, ...rest }: SelectHTMLAttributes<HT
 export function SearchInput({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div className={cx("relative", className)}>
-      <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-eko-muted" />
+      <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary" />
       <input type="search" className={cx(fieldClass, "min-h-11 pl-10")} {...rest} />
     </div>
   );

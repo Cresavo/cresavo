@@ -29,7 +29,7 @@ export function AddressSection() {
     <>
       <Section title={t("address.title")} className="lg:col-span-2">
         <Card className="space-y-4 p-4 sm:p-5">
-          <p className="text-sm text-eko-muted">{t("address.help")}</p>
+          <p className="text-sm text-text-secondary">{t("address.help")}</p>
           <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); save(); }}>
             <Field label={t("address.slug.label")} hint={problem ?? t("address.slug.hint")}>
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -42,7 +42,7 @@ export function AddressSection() {
             <CopyField label={t("address.level1")} value={`${window.location.origin}${bookingHome(state.salon.slug)}`} />
             <CopyField label={t("address.level2", { price: t("address.included") })} value={`https://${subdomainHost(state.salon.slug)}`} />
           </div>
-          <p className="text-xs text-eko-muted">{t("address.level2.note", { domain: productDomain() })}</p>
+          <p className="text-xs text-text-secondary">{t("address.level2.note", { domain: productDomain() })}</p>
         </Card>
       </Section>
       <Section title={t("domain.title")} className="lg:col-span-2">

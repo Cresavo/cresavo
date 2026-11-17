@@ -22,17 +22,17 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
   const to = Math.max(...open.map((h) => h.close));
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-eko-surface shadow-card ring-1 ring-eko-line/70">
-      <div className="flex border-b border-eko-line">
+    <div className="overflow-hidden rounded-lg bg-surface ring-1 ring-border/70">
+      <div className="flex border-b border-border">
         <div className="w-11 shrink-0" />
         {days.map((d) => (
           <button
             key={d}
             onClick={() => onPickDay(d)}
-            className={cx("min-w-0 flex-1 px-2 py-2.5 text-center text-sm hover:bg-eko-sunken", d === today && "text-eko-accent")}
+            className={cx("min-w-0 flex-1 px-2 py-2.5 text-center text-sm hover:bg-surface-2", d === today && "text-action")}
           >
             <span className="block font-medium">{weekdayName(d).slice(0, 3)}</span>
-            <span className={cx("block text-xs", d === today ? "font-semibold" : "text-eko-muted")}>{formatDayMonth(d)}</span>
+            <span className={cx("block text-xs", d === today ? "font-semibold" : "text-text-secondary")}>{formatDayMonth(d)}</span>
           </button>
         ))}
       </div>
@@ -41,11 +41,11 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
         {days.map((d) => {
           const hours = openingFor(state.salon, d);
           return (
-            <div key={d} className={cx("relative flex min-w-0 flex-1 border-l border-eko-line/70", !hours && "bg-eko-sunken/70")} style={{ height: (to - from) * PX_PER_MIN }}>
+            <div key={d} className={cx("relative flex min-w-0 flex-1 border-l border-border/70", !hours && "bg-surface-2/70")} style={{ height: (to - from) * PX_PER_MIN }}>
               <HourLines from={from} to={to} pxPerMin={PX_PER_MIN} />
               {hours &&
                 staff.map((person) => (
-                  <div key={person.id} className={cx("relative min-w-0 flex-1", !staffWorks(state, person.id, d) && "bg-eko-sunken/50")}>
+                  <div key={person.id} className={cx("relative min-w-0 flex-1", !staffWorks(state, person.id, d) && "bg-surface-2/50")}>
                     {dayBookings(state, d, person.id, resourceId).map((b) => (
                       <BookingBlock
                         key={b.id}

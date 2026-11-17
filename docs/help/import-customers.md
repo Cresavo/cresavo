@@ -10,4 +10,4 @@ Moving from another system? Export your customers as a CSV file and import them 
 2. Choose the CSV file and match the columns.
 3. Check the preview and confirm.
 
-Customers whose phone number is already in Flerdo are skipped, so nobody ends up twice. You can undo the whole import afterwards under What happened.
+Customers whose phone number is already in {brand} are skipped, so nobody ends up twice. You can undo the whole import afterwards under What happened.

@@ -13,20 +13,20 @@ import { useStudio } from "../use-studio";
 export function OrdersCard({ orders, onReceive }: { orders: PurchaseOrder[]; onReceive: (id: string) => void }) {
   const { state, today } = useStudio();
   return (
-    <Card className="divide-y divide-eko-line overflow-hidden">
+    <Card className="divide-y divide-border overflow-hidden">
       {orders.map((order) => {
         const arrives = addDays(order.date, leadDaysOf(state, order));
         const total = order.lines.reduce((sum, l) => sum + l.quantity * l.unitCost, 0);
         return (
           <div key={order.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-            <PackageCheck size={20} className="shrink-0 text-eko-accent" />
+            <PackageCheck size={20} className="shrink-0 text-action" />
             <div className="min-w-0 flex-1">
               <p className="flex flex-wrap items-center gap-2 font-medium">
                 {order.supplier}
                 {arrives <= today && <Badge tone="warn">{t("stock.overdue")}</Badge>}
               </p>
-              <p className="text-sm text-eko-muted">{tc("stock.orderLine", order.lines.length, { date: formatDayMonth(order.date), total: formatMoney(total) })}</p>
-              <p className="text-xs text-eko-muted">{t("stock.arrives", { date: formatDayMonth(arrives) })}</p>
+              <p className="text-sm text-text-secondary">{tc("stock.orderLine", order.lines.length, { date: formatDayMonth(order.date), total: formatMoney(total) })}</p>
+              <p className="text-xs text-text-secondary">{t("stock.arrives", { date: formatDayMonth(arrives) })}</p>
             </div>
             <Button size="sm" onClick={() => onReceive(order.id)}>{t("stock.receive")}</Button>
           </div>

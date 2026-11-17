@@ -23,7 +23,7 @@ export function RoutinesPage() {
   return (
     <MorePage title={t("nav.routines")} subtitle={tc("routine.subtitle", state.routines.filter((r) => r.enabled).length)} module="assistant">
       <div className="space-y-6">
-        <p className="max-w-2xl text-[15px] text-eko-muted">{t("routine.intro")}</p>
+        <p className="max-w-2xl text-[15px] text-text-secondary">{t("routine.intro")}</p>
         {state.routines.length ? (
           <div className="space-y-3">
             {state.routines.map((routine) => <RoutineCard key={routine.id} routine={routine} />)}
@@ -37,7 +37,7 @@ export function RoutinesPage() {
               <Card key={routine.id} className="flex flex-wrap items-center gap-3 p-4">
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">{routine.name}</p>
-                  <p className="text-sm text-eko-muted">{scheduleText(routine)} · {reason}</p>
+                  <p className="text-sm text-text-secondary">{scheduleText(routine)} · {reason}</p>
                 </div>
                 <Button size="sm" onClick={() => {
                   dispatch({ type: "routine/add", routine }, ASSISTANT);
@@ -59,20 +59,20 @@ function RoutineCard({ routine }: { routine: Routine }) {
   return (
     <Card className="space-y-3 p-4">
       <div className="flex items-start gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-eko-accent-soft text-eko-accent"><Repeat size={20} /></span>
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-action"><Repeat size={20} /></span>
         <div className="min-w-0 flex-1">
           <p className="font-medium leading-snug">{routine.name}</p>
-          <p className="text-sm text-eko-muted">{scheduleText(routine)} · {t(routine.enabled ? "routine.on" : "routine.off")}</p>
+          <p className="text-sm text-text-secondary">{scheduleText(routine)} · {t(routine.enabled ? "routine.on" : "routine.off")}</p>
         </div>
         <Switch checked={routine.enabled} label={routine.name} onChange={() => dispatch({ type: "routine/toggle", id: routine.id, at: slotKey(today, minutes) }, ASSISTANT)} />
       </div>
       <p className="text-sm">{routine.description}</p>
-      <ol className="list-decimal space-y-0.5 pl-5 text-sm text-eko-muted">
+      <ol className="list-decimal space-y-0.5 pl-5 text-sm text-text-secondary">
         {routine.steps.map((step) => <li key={step}>{step}</li>)}
       </ol>
       <details className="text-sm">
-        <summary className="cursor-pointer font-medium text-eko-accent">{t("routine.skillFile")}</summary>
-        <pre className="mt-2 overflow-x-auto rounded-xl bg-eko-sunken p-3 text-xs leading-relaxed">{toSkillMd(routine)}</pre>
+        <summary className="cursor-pointer font-medium text-action">{t("routine.skillFile")}</summary>
+        <pre className="mt-2 overflow-x-auto rounded-md bg-surface-2 p-3 text-xs leading-relaxed">{toSkillMd(routine)}</pre>
       </details>
       <Button size="sm" variant="secondary" icon={<Play size={16} />} onClick={() => {
         postRoutineRun(state, routine, { today, minutes });

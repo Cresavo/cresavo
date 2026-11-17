@@ -62,10 +62,11 @@ describe("theme", () => {
     expect(themeVariables(DEFAULT_THEME)).toEqual({});
   });
 
-  it("turns a custom theme into variables, as channels, with the page's own font", () => {
+  it("turns a custom theme into the tenant's own tokens, with the page's own font", () => {
     const vars = themeVariables({ ...DEFAULT_THEME, colors: PALETTES.ink, fonts: "elegant" });
-    expect(vars["--eko-bg"]).toBe("23 24 26");
-    expect(vars["--eko-accent"]).toMatch(/^\d+ \d+ \d+$/);
+    expect(vars["--ui-bg"]).toBe("#17181a");
+    expect(vars["--ui-action"]).toMatch(/^#[0-9a-f]{6}$/);
+    expect(Object.keys(vars).some((name) => /--ui-(success|warning|danger|info)/.test(name))).toBe(false);
     expect(vars.colorScheme).toBe("dark");
     expect(vars["--page-font-heading"]).toContain("Palatino");
     expect(themeVariables({ ...DEFAULT_THEME, colors: PALETTES.sand }).colorScheme).toBe("light");

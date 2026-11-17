@@ -29,28 +29,28 @@ export default function GiftCardsPage() {
     >
       <div className="space-y-6">
         {cards.length > 0 && (
-          <Card className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1 bg-eko-accent-soft p-5 ring-eko-accent/20">
+          <Card className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1 bg-action-bg p-5 ring-action/20">
             <div>
-              <p className="text-sm font-medium text-eko-accent">{t("giftcards.owed")}</p>
+              <p className="text-sm font-medium text-action">{t("giftcards.owed")}</p>
               <p className="text-3xl font-semibold tabular-nums tracking-tight">{formatMoney(giftCardLiability(state))}</p>
             </div>
-            <p className="max-w-md text-sm text-eko-muted">{t("giftcards.owedText")}</p>
+            <p className="max-w-md text-sm text-text-secondary">{t("giftcards.owedText")}</p>
           </Card>
         )}
         {cards.length ? (
-          <Card className="divide-y divide-eko-line overflow-hidden">
+          <Card className="divide-y divide-border overflow-hidden">
             {cards.map((card) => (
-              <button key={card.id} type="button" onClick={() => setSheet({ kind: "card", id: card.id })} className="flex min-h-16 w-full items-center gap-4 px-4 py-3 text-left hover:bg-eko-sunken">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-eko-accent-soft text-eko-accent"><Gift size={20} /></span>
+              <button key={card.id} type="button" onClick={() => setSheet({ kind: "card", id: card.id })} className="flex min-h-16 w-full items-center gap-4 px-4 py-3 text-left hover:bg-surface-2">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-action"><Gift size={20} /></span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{t("giftcards.for", { name: card.recipient })}</span>
-                  <span className="block truncate font-mono text-sm text-eko-muted">{card.code}</span>
+                  <span className="block truncate font-mono text-sm text-text-secondary">{card.code}</span>
                 </span>
                 <span className="shrink-0 text-right text-sm tabular-nums">
                   <span className="block font-medium">{formatMoney(balanceOf(state, card))}</span>
-                  <span className="block text-eko-muted">/ {formatMoney(card.amount)}</span>
+                  <span className="block text-text-secondary">/ {formatMoney(card.amount)}</span>
                 </span>
-                <ChevronRight size={18} className="shrink-0 text-eko-muted" />
+                <ChevronRight size={18} className="shrink-0 text-text-secondary" />
               </button>
             ))}
           </Card>

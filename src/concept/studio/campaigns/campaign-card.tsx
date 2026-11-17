@@ -14,12 +14,12 @@ export const STATUS_TONE: Record<CampaignStatus, "accent" | "neutral" | "warn"> 
 export function CampaignCard({ campaign }: { campaign: Campaign }) {
   const { state } = useStudio();
   return (
-    <Link href={`/studio/more/campaigns/${campaign.id}`} className="block rounded-2xl focus-visible:outline-offset-2">
-      <Card className="h-full space-y-3 p-4 transition-colors hover:bg-eko-sunken/50">
+    <Link href={`/studio/more/campaigns/${campaign.id}`} className="block rounded-lg focus-visible:outline-offset-2">
+      <Card className="h-full space-y-3 p-4 transition-colors hover:bg-surface-2/50">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="font-medium">{campaign.name}</p>
-            <p className="text-sm text-eko-muted">
+            <p className="text-sm text-text-secondary">
               {formatDate(campaign.from)} – {formatDate(campaign.to)}
             </p>
           </div>
@@ -33,10 +33,10 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
           {campaign.channels.map((channel) => <Badge key={channel}>{t(`channel.${channel}`)}</Badge>)}
         </div>
         {campaign.stats ? (
-          <div className="border-t border-eko-line pt-3"><StatRow stats={campaign.stats} /></div>
+          <div className="border-t border-border pt-3"><StatRow stats={campaign.stats} /></div>
         ) : (
           campaign.publishOn && (
-            <p className="flex items-center gap-1.5 border-t border-eko-line pt-3 text-sm text-eko-muted">
+            <p className="flex items-center gap-1.5 border-t border-border pt-3 text-sm text-text-secondary">
               <CalendarClock size={15} />
               {t("campaigns.scheduledFor", { day: formatDate(campaign.publishOn) })}
             </p>

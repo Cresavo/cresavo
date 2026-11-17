@@ -33,13 +33,13 @@ export default function ServicesPage() {
       <div className="space-y-6">
         {packOf(state).categories.map((category) => (
           <Section key={category} title={t(`category.${category}`)}>
-            <Card className="divide-y divide-eko-line overflow-hidden">
+            <Card className="divide-y divide-border overflow-hidden">
               {state.services.filter((s) => s.category === category).map((s) => (
                 <div key={s.id} className="flex items-center gap-4 px-4 py-3.5">
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">{s.name}</p>
-                    <p className="text-sm text-eko-muted">{s.description}</p>
-                    <p className="mt-1 flex items-center gap-1.5 text-xs text-eko-muted">
+                    <p className="text-sm text-text-secondary">{s.description}</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-text-secondary">
                       <StaffDot staffId={s.staffIds[0]} />
                       {state.staff.find((p) => p.id === s.staffIds[0])?.firstName} · {formatDuration(s.duration)}
                     </p>

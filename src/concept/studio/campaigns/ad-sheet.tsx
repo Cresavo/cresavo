@@ -68,16 +68,16 @@ export function AdSheet({ campaign, area, open, onClose }: AdSheetProps) {
             onChange={(value) => setAd({ ...ad, radiusKm: Number(value) })}
             options={AD_RADII_KM.map((km) => ({ value: String(km), label: t("campaigns.ad.km", { km }) }))}
           />
-          <p className="text-sm text-eko-muted">{t("campaigns.ad.audience", { km: ad.radiusKm, area })}</p>
+          <p className="text-sm text-text-secondary">{t("campaigns.ad.audience", { km: ad.radiusKm, area })}</p>
         </Choice>
-        <div className="space-y-1 rounded-2xl bg-eko-accent-soft p-4 text-eko-accent">
+        <div className="space-y-1 rounded-lg bg-action-bg p-4 text-action">
           <p className="text-xs font-semibold uppercase tracking-wide">{t("campaigns.ad.estimate")}</p>
           <p className="text-xl font-semibold tabular-nums">
             {t("campaigns.ad.reach", { low: formatNumber(estimate.reachLow), high: formatNumber(estimate.reachHigh) })}
           </p>
           <p className="text-sm">{t("campaigns.ad.clicksBookings", { clicks: formatNumber(estimate.clicks), bookings: formatNumber(estimate.bookings) })}</p>
         </div>
-        <p className="text-xs text-eko-muted">{t("campaigns.ad.note")}</p>
+        <p className="text-xs text-text-secondary">{t("campaigns.ad.note")}</p>
       </div>
     </Sheet>
   );

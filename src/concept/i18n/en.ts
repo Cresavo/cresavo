@@ -1,4 +1,4 @@
-import { BRAND } from "../brand";
+import { ASSISTANT, BRAND } from "../brand";
 // English UI text for the studio. Keys are grouped by area with a dotted
 // prefix. "one|many" values are plural forms used with `tc()`.
 
@@ -57,7 +57,7 @@ const messages = {
   "nav.settings.description": "Salon details and demo reset",
 
   "command.label": "Command box",
-  "command.placeholder": `Ask ${BRAND.name}… what would you like to do?`,
+  "command.placeholder": `Ask ${ASSISTANT.name}… what would you like to do?`,
   "command.voice": "Speak a command",
   "command.send": "Send command",
   "command.listening": "Listening…",
@@ -549,7 +549,7 @@ const messages = {
   "staff.thisMonth": "This month",
   "staff.services": "Treatments",
 
-  "features.subtitle": `You pay for what you switch on. A switched-off module disappears from the menu, Today and Ask ${BRAND.name}.`,
+  "features.subtitle": `You pay for what you switch on. A switched-off module disappears from the menu, Today and Ask ${ASSISTANT.name}.`,
   "features.journal": "Journal",
   "features.journal.description": "Treatment notes per visit on the customer card",
   "features.stock": "Stock",
@@ -565,8 +565,8 @@ const messages = {
   "features.hint": "Booking, calendar, customers and inbox are always on.",
   "features.waitlist": "Waiting list",
   "features.waitlist.description": "Customers who want a time as soon as one frees up",
-  "features.assistant": `Ask ${BRAND.name}`,
-  "features.assistant.description": `Type or say what you want done. ${BRAND.name} proposes, you approve`,
+  "features.assistant": `Ask ${ASSISTANT.name}`,
+  "features.assistant.description": `Type or say what you want done. ${ASSISTANT.name} proposes, you approve`,
   "features.alwaysOn": "Always on",
   "features.core": `${BRAND.name} core`,
   "features.core.description": "Calendar, customers, inbox and your booking page",
@@ -637,7 +637,7 @@ const messages = {
   "settings.startOver": "Start over as a new business",
   "settings.startOverText": `Answer three questions and ${BRAND.name} sets up a fresh studio for your kind of business.`,
 
-  "command.moduleOff": `{module} is switched off, so Ask ${BRAND.name} cannot do that. Switch it on under Features.`,
+  "command.moduleOff": `{module} is switched off, so Ask ${ASSISTANT.name} cannot do that. Switch it on under Features.`,
   "command.moduleOff.open": "Open Features",
 
   "settings.subtitle": "Business details and the demo itself",
@@ -715,7 +715,7 @@ const messages = {
   "stock.inStock": "{count} in stock",
   "stock.soldRow": "{product} × {count}",
   "stock.customerProducts": "Products bought",
-  "stock.edit": "Edit {name}",
+  "stock.edit": "Edit",
   "stock.minLevel": "Minimum level",
   "stock.minHint": "You get a warning when the stock is at or below this.",
   "stock.supplier": "Supplier",
@@ -1242,7 +1242,7 @@ const messages = {
   "log.tab.trash": "Trash",
   "log.tab.tickets": "Support tickets",
   "log.empty": "Nothing has happened yet",
-  "log.emptyText": `Changes you, ${BRAND.name}'s assistant or your customers make show up here, with an Undo where it is possible.`,
+  "log.emptyText": `Changes you, the assistant or your customers make show up here, with an Undo where it is possible.`,
   "log.noMatch": "Nothing matches this filter",
   "log.filter.who": "Who",
   "log.filter.where": "From where",
@@ -1623,9 +1623,14 @@ const messages = {
   "log.giftcardSell": "Sold gift card {code}",
   "log.giftcardRedeem": "Paid {customer}'s {service} with a gift card",
   "log.packageSell": "Sold a {service} package to {customer}",
-  "assistant.title": `Ask ${BRAND.name}`,
-  "assistant.open": `Ask ${BRAND.name}`,
-  "assistant.openVoice": `Talk to ${BRAND.name}`,
+  "theme.label": "Appearance",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+  "theme.system": "System",
+  "theme.description": "How the studio looks on this device. System follows your phone or computer. Your booking page keeps its own colours.",
+  "assistant.title": `Ask ${ASSISTANT.name}`,
+  "assistant.open": `Ask ${ASSISTANT.name}`,
+  "assistant.openVoice": `Talk to ${ASSISTANT.name}`,
   "assistant.mode.ai": "AI wording · numbers from your data",
   "assistant.mode.rules": "Rules only · no AI key",
   "assistant.source.ai": "AI",
@@ -1753,7 +1758,7 @@ const messages = {
   "memory.source.assistant": "Noticed by the assistant",
   "memory.source.thread": "Conversation",
 
-  "nav.memory": `What ${BRAND.name} remembers`,
+  "nav.memory": `What ${ASSISTANT.name} remembers`,
   "nav.memory.description": "Facts and preferences the assistant keeps",
   "nav.routines": "Routines",
   "nav.routines.description": "Repeated jobs the assistant prepares for you",
@@ -1907,7 +1912,8 @@ const messages = {
   "page.corners.sharp": "Sharp",
   "page.corners.soft": "Soft",
   "page.corners.round": "Round",
-  "page.palette.default": "Default",
+  "page.palette.default": "Neutral",
+  "page.palette.forest": "Forest green",
   "page.palette.sand": "Calm sand",
   "page.palette.ink": "Night and gold",
   "page.palette.rose": "Warm rose",

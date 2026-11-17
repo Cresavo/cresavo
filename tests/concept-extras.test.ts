@@ -11,6 +11,7 @@ import { packageFor, packageLiability, visitsLeft } from "@/concept/packages/pac
 import { dayBookings } from "@/concept/selectors";
 import { DEV_ICS_SECRET, feedSecretSource, feedToken, validFeedToken } from "@/concept/server/feed-token";
 import { dayFacts, summaryDue } from "@/concept/summary/day";
+import { BRAND } from "@/concept/brand";
 
 const today = "2026-11-17";
 const base = createDemoState(today);
@@ -201,7 +202,7 @@ describe("calendar feed", () => {
     expect(feed).not.toMatch(/[^\r]\n/);
     for (const line of feed.split("\r\n")) expect(Buffer.byteLength(line)).toBeLessThanOrEqual(75);
     expect(unfolded).toContain("VERSION:2.0");
-    expect(unfolded).toContain("PRODID:-//Flerdo//Staff calendar//EN");
+    expect(unfolded).toContain(`PRODID:-//${BRAND.name}//Staff calendar//EN`);
   });
 
   it("has one event per booking of that person, in UTC, and none for cancelled ones", () => {

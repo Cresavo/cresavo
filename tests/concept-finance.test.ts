@@ -12,6 +12,7 @@ import { buildOverview, changeShare } from "@/concept/finance/overview";
 import { periodRanges } from "@/concept/finance/periods";
 import { costsByKind, monthResult, recentResults, totalCosts } from "@/concept/finance/profit";
 import { utilisation } from "@/concept/selectors";
+import { BRAND } from "@/concept/brand";
 
 // A Tuesday afternoon; the demo is generated for this day.
 const today = "2026-11-17";
@@ -145,7 +146,7 @@ describe("bookkeeping export", () => {
 
   it("writes a SIE file whose vouchers all balance", () => {
     const sie = sieFile(state, clock);
-    expect(sie.startsWith("#FLAGGA 0\r\n#PROGRAM \"Flerdo\" 1.0\r\n#FORMAT PC8\r\n#GEN 20261117\r\n#SIETYP 4\r\n")).toBe(true);
+    expect(sie.startsWith(`#FLAGGA 0\r\n#PROGRAM "${BRAND.name}" 1.0\r\n#FORMAT PC8\r\n#GEN 20261117\r\n#SIETYP 4\r\n`)).toBe(true);
     expect(sie).toContain("#RAR 0 20260801 20261031");
     expect(sie).toContain('#KONTO 1930 "Business account"');
     const vouchers = [...sie.matchAll(/#VER A (\d+) (\d{8}) "([^"]+)"\r\n\{\r\n([\s\S]*?)\r\n\}/g)];

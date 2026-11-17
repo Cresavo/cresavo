@@ -5,6 +5,7 @@ import { parseBookingRequest } from "@/concept/booking/request";
 import { recentReviews, reviewSummary } from "@/concept/booking/reviews";
 import { bookingShare } from "@/concept/booking/share";
 import { createDemoState } from "@/concept/data/generate";
+import { BRAND } from "@/concept/brand";
 
 const today = "2026-11-17";
 const state = createDemoState(today);
@@ -93,7 +94,7 @@ it("produces a clean bio link and iframe code with no customer or campaign param
   expect(share.link).toBe("https://demo.example/boka/salong-eko");
   expect(share.widget).toBe("https://demo.example/boka/salong-eko/widget");
   expect(share.code).toContain(`src="${share.widget}"`);
-  expect(share.code).toContain('title="Book with Flerdo"');
+  expect(share.code).toContain(`title="Book with ${BRAND.name}"`);
   expect(share.code).not.toMatch(/ref=|private|something/);
   expect(() => bookingShare("javascript:alert(1)", "salong-eko")).toThrow();
 });

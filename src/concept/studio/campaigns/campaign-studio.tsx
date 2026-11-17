@@ -72,8 +72,8 @@ export function CampaignStudio() {
               disabled={i > index}
               onClick={() => setStep(name)}
               className={cx(
-                "flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-2 text-sm font-medium",
-                i === index ? "bg-eko-accent text-eko-on-accent" : i < index ? "bg-eko-accent-soft text-eko-accent" : "bg-eko-sunken text-eko-muted",
+                "flex min-h-11 w-full items-center justify-center gap-1.5 rounded-md px-2 text-sm font-medium",
+                i === index ? "bg-action text-on-action" : i < index ? "bg-action-bg text-action" : "bg-surface-2 text-text-secondary",
               )}
             >
               {i < index ? <Check size={15} /> : <span className="tabular-nums">{i + 1}</span>}
@@ -100,7 +100,7 @@ export function CampaignStudio() {
       </div>
 
       {step !== "publish" && (
-        <div className="flex gap-2 border-t border-eko-line pt-4">
+        <div className="flex gap-2 border-t border-border pt-4">
           {index > 0 && (
             <Button variant="secondary" size="lg" icon={<ArrowLeft size={18} />} onClick={() => setStep(STEPS[index - 1])}>
               {t("common.back")}
@@ -113,7 +113,7 @@ export function CampaignStudio() {
         </div>
       )}
       {step === "publish" && (
-        <div className="border-t border-eko-line pt-4">
+        <div className="border-t border-border pt-4">
           <Button variant="secondary" size="lg" icon={<ArrowLeft size={18} />} onClick={() => setStep("poster")}>{t("common.back")}</Button>
         </div>
       )}

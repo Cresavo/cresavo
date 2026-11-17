@@ -15,10 +15,10 @@ export function ReviewForm({ state, booking, now }: { state: DemoState; booking:
   const [failed, setFailed] = useState(false);
   if (booking.status !== "completed" || !state.modules.reviews) return null;
   const existing = state.reviews.find(review => review.bookingId === booking.id);
-  if (existing) return <p role="status" className="mt-3 text-sm text-eko-accent">{t(existing.approved === false ? "customerReview.pending" : "customerReview.approved")}</p>;
+  if (existing) return <p role="status" className="mt-3 text-sm text-action">{t(existing.approved === false ? "customerReview.pending" : "customerReview.approved")}</p>;
   if (!open) return <Button className="mt-3" variant="secondary" size="sm" onClick={() => setOpen(true)}>{t("customerReview.open")}</Button>;
   return (
-    <form className="mt-4 space-y-4 border-t border-eko-line pt-4" onSubmit={event => {
+    <form className="mt-4 space-y-4 border-t border-border pt-4" onSubmit={event => {
       event.preventDefault();
       setFailed(!dispatch({ type: "review/submit", bookingId: booking.id, rating, text, at: { date: now.today, time: now.minutes } }));
     }}>
@@ -27,12 +27,12 @@ export function ReviewForm({ state, booking, now }: { state: DemoState; booking:
         <legend className="mb-2 text-sm font-medium">{t("customerReview.rating")}</legend>
         <div className="flex gap-2">{[1, 2, 3, 4, 5].map(stars => <label key={stars} className="cursor-pointer">
           <input className="peer sr-only" type="radio" name={`rating-${booking.id}`} value={stars} checked={rating === stars} onChange={() => setRating(stars)} aria-label={tc("customerReview.stars", stars)} />
-          <span className="flex size-11 items-center justify-center rounded-xl border border-eko-line text-xl peer-checked:bg-eko-accent-soft peer-checked:ring-2 peer-checked:ring-eko-accent peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-eko-accent" aria-hidden>{stars <= rating ? "★" : "☆"}</span>
+          <span className="flex size-11 items-center justify-center rounded-md border border-border text-xl peer-checked:bg-action-bg peer-checked:ring-2 peer-checked:ring-action peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-action" aria-hidden>{stars <= rating ? "★" : "☆"}</span>
         </label>)}</div>
       </fieldset>
       <Field label={t("customerReview.text")}><TextArea aria-label={t("customerReview.text")} value={text} maxLength={2000} required onChange={event => setText(event.target.value)} /></Field>
-      <p className="text-sm text-eko-muted">{t("customerReview.help")}</p>
-      {failed && <p role="alert" className="text-sm text-eko-danger">{t("customerReview.failed")}</p>}
+      <p className="text-sm text-text-secondary">{t("customerReview.help")}</p>
+      {failed && <p role="alert" className="text-sm text-danger">{t("customerReview.failed")}</p>}
       <Button type="submit" disabled={!rating || !text.trim()}>{t("customerReview.submit")}</Button>
     </form>
   );

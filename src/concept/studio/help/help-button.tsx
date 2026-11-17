@@ -14,7 +14,7 @@ export function HelpButton() {
         type="button"
         data-help="help-button"
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium text-eko-muted hover:bg-eko-sunken hover:text-eko-ink"
+        className="inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-sm font-medium text-text-secondary hover:bg-surface-2 hover:text-text"
       >
         <CircleHelp size={18} />
         {t("help.button")}

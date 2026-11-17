@@ -59,14 +59,14 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-eko-surface shadow-card ring-1 ring-eko-line/70">
-      <div className="flex border-b border-eko-line">
+    <div className="overflow-hidden rounded-lg bg-surface ring-1 ring-border/70">
+      <div className="flex border-b border-border">
         <div className="w-11 shrink-0" />
         {staff.map((person) => (
           <div key={person.id} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-3 text-sm">
             <StaffDot staffId={person.id} />
             <span className="truncate font-medium">{person.firstName}</span>
-            <span className="truncate text-xs text-eko-muted">
+            <span className="truncate text-xs text-text-secondary">
               {dayHeading(state, person.id, date, resourceId)}
             </span>
           </div>
@@ -83,15 +83,15 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
               onClick={works ? onColumnClick(person) : undefined}
               onDragOver={(event) => works && event.preventDefault()}
               onDrop={works ? onDrop(person) : undefined}
-              className={cx("relative min-w-0 flex-1 border-l border-eko-line/70", works ? "cursor-copy" : "bg-eko-sunken/70")}
+              className={cx("relative min-w-0 flex-1 border-l border-border/70", works ? "cursor-copy" : "bg-surface-2/70")}
               style={{ height }}
             >
               <HourLines from={from} to={to} pxPerMin={PX_PER_MIN} />
-              {shift && shift.start > from && <div className="pointer-events-none absolute inset-x-0 top-0 bg-eko-sunken/70" style={{ height: (shift.start - from) * PX_PER_MIN }} />}
-              {shift && shift.end < to && <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-eko-sunken/70" style={{ height: (to - shift.end) * PX_PER_MIN }} />}
+              {shift && shift.start > from && <div className="pointer-events-none absolute inset-x-0 top-0 bg-surface-2/70" style={{ height: (shift.start - from) * PX_PER_MIN }} />}
+              {shift && shift.end < to && <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-surface-2/70" style={{ height: (to - shift.end) * PX_PER_MIN }} />}
               {lunch && works && (
                 <div
-                  className="pointer-events-none absolute inset-x-0 flex items-center justify-center bg-[repeating-linear-gradient(135deg,transparent_0_6px,rgb(var(--eko-line)/0.6)_6px_7px)] text-[11px] text-eko-muted"
+                  className="pointer-events-none absolute inset-x-0 flex items-center justify-center bg-[repeating-linear-gradient(135deg,transparent_0_6px,var(--ui-border)_6px_7px)] text-[11px] text-text-secondary"
                   style={{ top: (lunch.start - from) * PX_PER_MIN, height: (lunch.end - lunch.start) * PX_PER_MIN }}
                 >
                   {t("calendar.lunch")}
@@ -108,8 +108,8 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
                   />
                 ))}
               {date === today && minutes > from && minutes < to && (
-                <div className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-eko-danger" style={{ top: (minutes - from) * PX_PER_MIN }}>
-                  <span className="absolute -left-1 -top-[5px] size-2 rounded-full bg-eko-danger" />
+                <div className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-danger" style={{ top: (minutes - from) * PX_PER_MIN }}>
+                  <span className="absolute -left-1 -top-[5px] size-2 rounded-full bg-danger" />
                 </div>
               )}
             </div>

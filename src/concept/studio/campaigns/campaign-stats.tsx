@@ -16,8 +16,8 @@ export function StatRow({ stats, large = false }: { stats: NonNullable<Campaign[
   return (
     <dl className={large ? "grid grid-cols-2 gap-3 sm:grid-cols-4" : "grid grid-cols-4 gap-2 text-sm"}>
       {items.map((item) => (
-        <div key={item.label} className={large ? "rounded-2xl bg-eko-surface p-4 shadow-card ring-1 ring-eko-line/70" : undefined}>
-          <dt className="text-xs text-eko-muted">{item.label}</dt>
+        <div key={item.label} className={large ? "rounded-lg bg-surface p-4 ring-1 ring-border/70" : undefined}>
+          <dt className="text-xs text-text-secondary">{item.label}</dt>
           <dd className={large ? "mt-1 text-2xl font-semibold tabular-nums" : "font-semibold tabular-nums"}>{item.value}</dd>
         </div>
       ))}

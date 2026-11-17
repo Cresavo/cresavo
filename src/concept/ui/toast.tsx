@@ -39,13 +39,13 @@ export function Toaster() {
   return (
     <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex flex-col items-center gap-2 px-4 lg:bottom-6">
       {list.map((toast) => (
-        <div key={toast.id} className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-2xl bg-eko-ink px-4 py-3 text-sm text-eko-bg shadow-sheet">
+        <div key={toast.id} className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-md bg-text px-4 py-3 text-[15px] text-bg shadow-sheet">
           <CheckCircle2 size={18} className="shrink-0 opacity-80" />
           <span className="min-w-0 flex-1">{toast.message}</span>
           {toast.action && (
             <button
               type="button"
-              className="rounded-lg px-2 py-1 font-semibold underline-offset-2 hover:underline"
+              className="min-h-11 rounded-sm px-2 font-semibold underline underline-offset-2"
               onClick={() => {
                 toast.action!.run();
                 dismiss(toast.id);

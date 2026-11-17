@@ -36,9 +36,9 @@ export function TrashList() {
   const restore = (entry: TrashEntry) => showToast(dispatch({ type: "trash/restore", id: entry.id }) ? t("trash.restored") : t("trash.cannotRestore"));
   return (
     <div className="space-y-3">
-      <p className="text-sm text-eko-muted">{t("trash.intro")}</p>
+      <p className="text-sm text-text-secondary">{t("trash.intro")}</p>
       <Card>
-        <ul className="divide-y divide-eko-line">
+        <ul className="divide-y divide-border">
           {state.trash.map((entry) => {
             const { title, detail } = describe(state, entry);
             const restorable = canRestore(state, entry);
@@ -46,8 +46,8 @@ export function TrashList() {
               <li key={entry.id} className="flex items-start gap-3 px-4 py-3.5">
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="text-[15px] font-medium leading-snug">{title}</p>
-                  <p className="text-sm text-eko-muted">{detail}</p>
-                  <p className="text-xs text-eko-muted">
+                  <p className="text-sm text-text-secondary">{detail}</p>
+                  <p className="text-xs text-text-secondary">
                     {t(entry.kind === "customer" ? "trash.deleted" : "trash.cancelled", { date: formatDate(entry.deletedOn) })} · {tc("trash.daysLeft", daysLeft(entry, today))}
                     {!restorable && ` · ${t("trash.timeTaken")}`}
                   </p>

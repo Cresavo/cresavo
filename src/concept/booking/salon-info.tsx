@@ -14,13 +14,13 @@ export function OpeningHours({ state, now }: { state: DemoState; now: Now }) {
   const todayIndex = weekday(now.today);
   return (
     <Section title={t("booking.hours")}>
-      <Card className="divide-y divide-eko-line">
+      <Card className="divide-y divide-border">
         {WEEK_ORDER.map((day) => {
           const hours = state.salon.hours[day];
           return (
             <div key={day} className={cx("flex items-center justify-between px-4 py-2.5 text-sm", day === todayIndex && "font-semibold")}>
               <span>{words.weekdays[day]}</span>
-              <span className={hours ? "" : "text-eko-muted"}>{hours ? `${formatTime(hours.open)}–${formatTime(hours.close)}` : t("booking.closed")}</span>
+              <span className={hours ? "" : "text-text-secondary"}>{hours ? `${formatTime(hours.open)}–${formatTime(hours.close)}` : t("booking.closed")}</span>
             </div>
           );
         })}
@@ -43,11 +43,11 @@ export function FindUs({ state }: { state: DemoState }) {
       <Card className="space-y-3 p-4 text-sm">
         {rows.map(({ icon: Icon, text }) => (
           <p key={text} className="flex items-start gap-3">
-            <Icon size={16} className="mt-0.5 shrink-0 text-eko-muted" />
+            <Icon size={16} className="mt-0.5 shrink-0 text-text-secondary" />
             <span>{text}</span>
           </p>
         ))}
-        <a href={mapLink} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center font-medium text-eko-accent underline-offset-2 hover:underline">
+        <a href={mapLink} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center font-medium text-action underline-offset-2 hover:underline">
           {t("booking.openMap")}
         </a>
       </Card>
@@ -68,13 +68,13 @@ export function Reviews({ state, variant = "cards" }: { state: DemoState; varian
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span role="img" className="flex items-center gap-0.5" aria-label={t("booking.stars", { count: review.rating })}>
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <Star key={n} size={14} className={n <= review.rating ? "fill-amber-400 text-amber-400" : "text-eko-line"} />
+                    <Star key={n} size={14} className={n <= review.rating ? "fill-amber-400 text-amber-400" : "text-border"} />
                   ))}
                 </span>
-                <span className="text-eko-muted">{formatDate(review.date)}</span>
+                <span className="text-text-secondary">{formatDate(review.date)}</span>
               </div>
               <p className="text-[15px] leading-relaxed">{review.text}</p>
-              <p className="text-xs text-eko-muted">{customer ? publicName(customer.firstName, customer.lastName) : ""} · {review.source}</p>
+              <p className="text-xs text-text-secondary">{customer ? publicName(customer.firstName, customer.lastName) : ""} · {review.source}</p>
             </Card>
           );
         })}
@@ -91,7 +91,7 @@ function QuoteReview({ state, review }: { state: DemoState; review: Review }) {
     <Section title={t("booking.reviews")}>
       <Card className="space-y-3 p-6 text-center">
         <p className="text-xl font-medium leading-snug sm:text-2xl">“{review.text}”</p>
-        <p className="text-sm text-eko-muted">
+        <p className="text-sm text-text-secondary">
           {customer ? publicName(customer.firstName, customer.lastName) : ""} · {t("booking.reviewsAverage", { average: average.toFixed(1), count })}
         </p>
       </Card>

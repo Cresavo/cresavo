@@ -29,14 +29,14 @@ export function ProposalCard({ proposal, source, pending, onApprove, onPick, onE
         <span
           className={cx(
             "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold",
-            source === "ai" ? "bg-eko-accent-soft text-eko-accent" : "bg-eko-sunken text-eko-muted",
+            source === "ai" ? "bg-action-bg text-action" : "bg-surface-2 text-text-secondary",
           )}
         >
           {source === "ai" && <Sparkles size={12} />}
           {source === "ai" ? t("command.source.ai") : t("command.source.rules")}
         </span>
         {pending && (
-          <span className="inline-flex items-center gap-1 text-xs text-eko-muted">
+          <span className="inline-flex items-center gap-1 text-xs text-text-secondary">
             <Loader2 size={12} className="animate-spin" />
             {t("command.checkingAi")}
           </span>
@@ -59,11 +59,11 @@ function Body({ proposal, onApprove, onPick, onEdit, onClose }: BodyProps) {
         <>
           <div>
             <p className="font-semibold">{proposal.title}</p>
-            {proposal.subtitle && <p className="text-sm text-eko-muted">{proposal.subtitle}</p>}
+            {proposal.subtitle && <p className="text-sm text-text-secondary">{proposal.subtitle}</p>}
           </div>
           <ChangeRows rows={proposal.rows} />
           {proposal.preview && <PagePreview preview={proposal.preview} />}
-          <p className="text-xs text-eko-muted">{t("command.proposalNote")}</p>
+          <p className="text-xs text-text-secondary">{t("command.proposalNote")}</p>
           <div className="flex flex-wrap gap-2">
             <Button variant={proposal.destructive ? "danger" : "primary"} onClick={() => onApprove(proposal)}>{t("command.approve")}</Button>
             <Button variant="secondary" onClick={onEdit}>{t("command.edit")}</Button>

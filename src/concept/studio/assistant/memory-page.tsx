@@ -25,7 +25,7 @@ export function MemoryPage() {
   return (
     <MorePage title={t("nav.memory")} subtitle={tc("memory.subtitle", state.memory.length)} module="assistant">
       <div className="space-y-6">
-        <p className="max-w-2xl text-[15px] text-eko-muted">{t("memory.intro")}</p>
+        <p className="max-w-2xl text-[15px] text-text-secondary">{t("memory.intro")}</p>
         <AddNote today={today} />
         {state.memory.length > 0 && <SearchInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("memory.search")} aria-label={t("memory.search")} />}
         {!state.memory.length ? (
@@ -33,7 +33,7 @@ export function MemoryPage() {
         ) : (
           <>
             <Section title={t("memory.notes")}>
-              {notes.length ? <NoteList items={notes} /> : <p className="text-sm text-eko-muted">{t("memory.noMatch")}</p>}
+              {notes.length ? <NoteList items={notes} /> : <p className="text-sm text-text-secondary">{t("memory.noMatch")}</p>}
             </Section>
             {threads.length > 0 && (
               <Section title={t("memory.threads")}>
@@ -66,14 +66,14 @@ function AddNote({ today }: { today: string }) {
         <TextInput value={text} onChange={(event) => { setText(event.target.value); setError(null); }} placeholder={t("memory.addPlaceholder")} aria-label={t("memory.add")} />
         <Button type="submit" disabled={!text.trim()}>{t("memory.add")}</Button>
       </div>
-      {error && <p role="alert" className="text-sm text-eko-danger">{error}</p>}
+      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
     </form>
   );
 }
 
 function NoteList({ items }: { items: MemoryItem[] }) {
   return (
-    <Card className="divide-y divide-eko-line overflow-hidden">
+    <Card className="divide-y divide-border overflow-hidden">
       {items.map((item) => <Note key={item.id} item={item} />)}
     </Card>
   );
@@ -98,11 +98,11 @@ function Note({ item }: { item: MemoryItem }) {
   const Icon = item.kind === "thread" ? MessagesSquare : BookMarked;
   return (
     <div className="flex gap-3 px-4 py-3">
-      <Icon size={18} className="mt-0.5 shrink-0 text-eko-accent" />
+      <Icon size={18} className="mt-0.5 shrink-0 text-action" />
       {editing ? (
         <form onSubmit={save} className="min-w-0 flex-1 space-y-2">
           <TextInput value={text} onChange={(event) => { setText(event.target.value); setError(null); }} aria-label={t("memory.edit")} autoFocus />
-          {error && <p role="alert" className="text-sm text-eko-danger">{error}</p>}
+          {error && <p role="alert" className="text-sm text-danger">{error}</p>}
           <div className="flex gap-2">
             <Button type="submit" size="sm">{t("common.save")}</Button>
             <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setText(item.text); setError(null); }}>{t("common.cancel")}</Button>
@@ -112,7 +112,7 @@ function Note({ item }: { item: MemoryItem }) {
         <>
           <div className="min-w-0 flex-1">
             <p className="text-[15px]">{item.text}</p>
-            <p className="text-xs text-eko-muted">{t(item.kind === "thread" ? "memory.source.thread" : `memory.source.${item.source}`)} · {formatDayMonth(item.savedOn)}</p>
+            <p className="text-xs text-text-secondary">{t(item.kind === "thread" ? "memory.source.thread" : `memory.source.${item.source}`)} · {formatDayMonth(item.savedOn)}</p>
           </div>
           <IconButton label={t("memory.edit")} onClick={() => setEditing(true)} className="-my-1 size-10"><Pencil size={16} /></IconButton>
           <IconButton label={t("memory.forget")} onClick={forget} className="-my-1 -mr-2 size-10"><Trash2 size={16} /></IconButton>

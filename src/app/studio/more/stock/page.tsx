@@ -43,11 +43,11 @@ export default function StockPage() {
     >
       <div className="space-y-6">
         {low.length > 0 && (
-          <Card className="flex flex-wrap items-center gap-4 bg-eko-warn-soft p-4 ring-eko-warn/20">
-            <ShoppingCart size={22} className="shrink-0 text-eko-warn" />
+          <Card className="flex flex-wrap items-center gap-4 bg-warning-bg p-4 ring-warning/20">
+            <ShoppingCart size={22} className="shrink-0 text-warning" />
             <div className="min-w-0 flex-1">
               <p className="font-medium">{tc("stock.lowTitle", low.length)}</p>
-              <p className="text-sm text-eko-muted">{low.map((i) => i.name).join(", ")}</p>
+              <p className="text-sm text-text-secondary">{low.map((i) => i.name).join(", ")}</p>
             </div>
             <Button className="w-full sm:w-auto" onClick={() => setSheet({ kind: "purchase" })}>{t("stock.createOrder")}</Button>
           </Card>

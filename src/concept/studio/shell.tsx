@@ -56,12 +56,12 @@ export function StudioShell({ children }: { children: ReactNode }) {
 function Logo() {
   return (
     <span className="flex items-center gap-2.5">
-      <span className="flex size-9 items-center justify-center rounded-xl bg-eko-accent text-eko-on-accent">
+      <span className="flex size-9 items-center justify-center rounded-md bg-action text-on-action">
         <Leaf size={18} />
       </span>
       <span className="leading-tight">
         <span className="block font-semibold tracking-tight">Salong Eko</span>
-        <span className="block text-xs text-eko-muted">{t("shell.demo")}</span>
+        <span className="block text-xs text-text-secondary">{t("shell.demo")}</span>
       </span>
     </span>
   );
@@ -86,13 +86,13 @@ function SidebarLink({ item, pathname, badge }: { item: NavItem; pathname: strin
       data-help={item.href}
       aria-current={active ? "page" : undefined}
       className={cx(
-        "flex min-h-10 items-center gap-3 rounded-xl px-3 text-[15px] transition-colors",
-        active ? "bg-eko-surface font-medium text-eko-ink shadow-card" : "text-eko-muted hover:bg-eko-sunken hover:text-eko-ink",
+        "flex min-h-10 items-center gap-3 rounded-md px-3 text-[15px] transition-colors",
+        active ? "bg-surface font-medium text-text" : "text-text-secondary hover:bg-surface-2 hover:text-text",
       )}
     >
       <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
       <span className="flex-1">{t(item.label)}</span>
-      {!!badge && <span className="rounded-full bg-eko-accent px-2 py-0.5 text-xs font-semibold text-eko-on-accent">{badge}</span>}
+      {!!badge && <span className="rounded-full bg-action px-2 py-0.5 text-xs font-semibold text-on-action">{badge}</span>}
     </Link>
   );
 }
@@ -106,7 +106,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
     { title: "nav.section.settings" as const, items: allowed(SETTINGS_NAV) },
   ].filter((section) => section.items.length);
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-eko-line bg-eko-bg px-4 py-6 lg:flex">
+    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-border bg-bg px-4 py-6 lg:flex">
       <Link href="/studio" className="px-2">
         <Logo />
       </Link>
@@ -118,21 +118,21 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
         </div>
         {sections.map((section) => (
           <div key={section.title} className="space-y-1">
-            <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.08em] text-eko-muted">{t(section.title)}</p>
+            <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.08em] text-text-secondary">{t(section.title)}</p>
             {section.items.map((item) => (
               <SidebarLink key={item.href} item={item} pathname={pathname} />
             ))}
           </div>
         ))}
       </nav>
-      <div className="mt-4 flex items-center gap-3 rounded-2xl bg-eko-sunken px-3 py-2.5">
-        <span className={cx("flex size-9 items-center justify-center rounded-full text-sm font-semibold", person.id === "anna" ? "bg-eko-anna-soft text-eko-anna" : "bg-eko-erik-soft text-eko-erik")}>
+      <div className="mt-4 flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5">
+        <span className={cx("flex size-9 items-center justify-center rounded-full text-sm font-semibold", person.id === "anna" ? "bg-staff-1-bg text-staff-1" : "bg-staff-2-bg text-staff-2")}>
           {person.firstName[0]}
           {person.lastName[0]}
         </span>
         <span className="min-w-0 text-sm leading-tight">
           <span className="block font-medium">{person.firstName} {person.lastName}</span>
-          <span className="block truncate text-xs text-eko-muted">{t(role === "staff" ? "shell.staffRole" : "shell.ownerRole")} · {person.title.toLowerCase()}</span>
+          <span className="block truncate text-xs text-text-secondary">{t(role === "staff" ? "shell.staffRole" : "shell.ownerRole")} · {person.title.toLowerCase()}</span>
         </span>
       </div>
     </aside>
@@ -145,7 +145,7 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
   return (
     <nav
       aria-label={t("shell.navigation")}
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-eko-line bg-eko-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
     >
       <div className="mx-auto grid max-w-lg" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
         {tabs.map((item) => {
@@ -158,14 +158,14 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
               href={item.href}
               data-help={item.href}
               aria-current={active ? "page" : undefined}
-              className={cx("relative flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium", active ? "text-eko-accent" : "text-eko-muted")}
+              className={cx("relative flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium", active ? "text-action" : "text-text-secondary")}
             >
-              <span className={cx("flex h-7 w-12 items-center justify-center rounded-full transition-colors", active && "bg-eko-accent-soft")}>
+              <span className={cx("flex h-7 w-12 items-center justify-center rounded-full transition-colors", active && "bg-action-bg")}>
                 <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
               </span>
               {t(item.label)}
               {badge > 0 && (
-                <span className="absolute left-1/2 top-1.5 ml-2 min-w-[18px] rounded-full bg-eko-danger px-1 text-center text-[10px] font-semibold leading-[18px] text-white">
+                <span className="absolute left-1/2 top-1.5 ml-2 min-w-[18px] rounded-full bg-danger px-1 text-center text-[10px] font-semibold leading-[18px] text-white">
                   {badge}
                 </span>
               )}

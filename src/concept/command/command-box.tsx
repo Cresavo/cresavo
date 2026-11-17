@@ -134,9 +134,9 @@ export function CommandBox() {
       <form
         role="search"
         onSubmit={onSubmit}
-        className="flex min-h-12 items-center gap-1 rounded-2xl bg-eko-surface pl-4 pr-1.5 shadow-card ring-1 ring-eko-line/70 focus-within:ring-2 focus-within:ring-eko-accent"
+        className="flex min-h-12 items-center gap-1 rounded-lg bg-surface pl-4 pr-1.5 ring-1 ring-border/70 focus-within:ring-2 focus-within:ring-action"
       >
-        <Sparkles size={18} className="mr-1 shrink-0 text-eko-accent" />
+        <Sparkles size={18} className="mr-1 shrink-0 text-action" />
         <input
           ref={input}
           value={speech.listening ? speech.interim : text}
@@ -149,10 +149,10 @@ export function CommandBox() {
           placeholder={speech.listening ? t("command.listening") : t("command.placeholder")}
           aria-label={t("command.label")}
           enterKeyHint="go"
-          className="bare-input min-w-0 flex-1 bg-transparent py-3 text-[15px] placeholder:text-eko-muted"
+          className="bare-input min-w-0 flex-1 bg-transparent py-3 text-[15px] placeholder:text-text-secondary"
         />
         {text.trim() && !speech.listening && (
-          <button type="submit" aria-label={t("command.send")} title={t("command.send")} className="flex size-9 items-center justify-center rounded-xl bg-eko-accent text-eko-on-accent">
+          <button type="submit" aria-label={t("command.send")} title={t("command.send")} className="flex size-9 items-center justify-center rounded-md bg-action text-on-action">
             <ArrowUp size={18} />
           </button>
         )}
@@ -164,8 +164,8 @@ export function CommandBox() {
             aria-pressed={speech.listening}
             onClick={speech.toggle}
             className={cx(
-              "flex size-9 items-center justify-center rounded-xl hover:bg-eko-sunken hover:text-eko-ink",
-              speech.listening ? "animate-pulse bg-eko-accent-soft text-eko-accent" : "text-eko-muted",
+              "flex size-9 items-center justify-center rounded-md hover:bg-surface-2 hover:text-text",
+              speech.listening ? "animate-pulse bg-action-bg text-action" : "text-text-secondary",
             )}
           >
             <Mic size={18} />
@@ -177,13 +177,13 @@ export function CommandBox() {
           role="region"
           aria-live="polite"
           aria-label={t("command.result")}
-          className="absolute inset-x-0 top-full z-30 mt-2 max-h-[70dvh] overflow-y-auto rounded-2xl bg-eko-surface shadow-sheet ring-1 ring-eko-line"
+          className="absolute inset-x-0 top-full z-30 mt-2 max-h-[70dvh] overflow-y-auto rounded-lg bg-surface shadow-sheet ring-1 ring-border"
         >
           {view ? (
             <ProposalCard proposal={view.proposal} source={view.source} pending={view.pending} onApprove={approve} onPick={pick} onEdit={edit} onClose={() => dismiss(true)} />
           ) : (
             <div className="space-y-3 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-eko-muted">{t("command.try")}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("command.try")}</p>
               <div className="flex flex-wrap gap-2">
                 {examples.map((example) => (
                   <button
@@ -193,7 +193,7 @@ export function CommandBox() {
                       setText(example);
                       void submit(example);
                     }}
-                    className="min-h-9 rounded-full bg-eko-surface px-3.5 py-1.5 text-left text-sm font-medium ring-1 ring-inset ring-eko-line hover:bg-eko-sunken"
+                    className="min-h-9 rounded-full bg-surface px-3.5 py-1.5 text-left text-sm font-medium ring-1 ring-inset ring-border hover:bg-surface-2"
                   >
                     {example}
                   </button>

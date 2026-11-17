@@ -25,8 +25,8 @@ export interface CardActions {
 function Outcome({ status, onUndo }: { status: NonNullable<Reply["status"]>; onUndo?: () => void }) {
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <p className="inline-flex items-center gap-1.5 text-sm font-medium text-eko-muted">
-        {status === "approved" && <Check size={16} className="text-eko-accent" />}
+      <p className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary">
+        {status === "approved" && <Check size={16} className="text-action" />}
         {t(`assistant.status.${status}`)}
       </p>
       {onUndo && <Button size="sm" variant="secondary" onClick={onUndo}>{t("common.undo")}</Button>}
@@ -52,11 +52,11 @@ export function ReplyCardView({ card, status, actions }: { card: ReplyCard; stat
         <div className="space-y-3">
           <div>
             <p className="font-semibold">{card.title}</p>
-            {card.subtitle && <p className="text-sm text-eko-muted">{card.subtitle}</p>}
+            {card.subtitle && <p className="text-sm text-text-secondary">{card.subtitle}</p>}
           </div>
           <ChangeRows rows={card.rows} />
           {card.preview && <PagePreview preview={card.preview} />}
-          {!status && <p className="text-xs text-eko-muted">{t("command.proposalNote")}</p>}
+          {!status && <p className="text-xs text-text-secondary">{t("command.proposalNote")}</p>}
           {status ? (
             <Outcome status={status} onUndo={actions.onUndo} />
           ) : (
@@ -84,7 +84,7 @@ export function ReplyCardView({ card, status, actions }: { card: ReplyCard; stat
       return (
         <div className="space-y-3">
           <p className="flex gap-2 text-sm">
-            <BookMarked size={16} className="mt-0.5 shrink-0 text-eko-accent" />
+            <BookMarked size={16} className="mt-0.5 shrink-0 text-action" />
             <span className="font-medium">{card.item.text}</span>
           </p>
           {card.kind === "memory-offer" ? (
@@ -103,7 +103,7 @@ export function ReplyCardView({ card, status, actions }: { card: ReplyCard; stat
             <ul className="space-y-1.5 text-sm">
               {card.items.slice(0, 8).map((item) => (
                 <li key={item.id} className="flex gap-2">
-                  <BookMarked size={14} className="mt-1 shrink-0 text-eko-accent" />
+                  <BookMarked size={14} className="mt-1 shrink-0 text-action" />
                   {item.text}
                 </li>
               ))}
@@ -119,10 +119,10 @@ export function ReplyCardView({ card, status, actions }: { card: ReplyCard; stat
       return (
         <div className="space-y-3">
           <div className="flex gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-eko-accent-soft text-eko-accent"><Repeat size={18} /></span>
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-action-bg text-action"><Repeat size={18} /></span>
             <div className="min-w-0">
               <p className="font-semibold leading-snug">{routine.name}</p>
-              <p className="text-sm text-eko-muted">{scheduleText(routine)} · {reason}</p>
+              <p className="text-sm text-text-secondary">{scheduleText(routine)} · {reason}</p>
             </div>
           </div>
           <ol className="list-decimal space-y-0.5 pl-5 text-sm">
@@ -134,13 +134,13 @@ export function ReplyCardView({ card, status, actions }: { card: ReplyCard; stat
     }
     case "bookings":
       return card.items.length ? (
-        <ul className="divide-y divide-eko-line text-sm">
+        <ul className="divide-y divide-border text-sm">
           {card.items.map((item) => (
             <li key={item.id} className="flex gap-3 py-2">
               <span className="w-12 shrink-0 font-semibold tabular-nums">{item.time}</span>
               <span className="min-w-0">
                 <span className="block truncate font-medium">{item.name}</span>
-                <span className="block truncate text-eko-muted">{item.detail}</span>
+                <span className="block truncate text-text-secondary">{item.detail}</span>
               </span>
             </li>
           ))}
@@ -153,7 +153,7 @@ export function ReplyCardView({ card, status, actions }: { card: ReplyCard; stat
 
 function MemoryLink() {
   return (
-    <Link href="/studio/more/memory" className="inline-flex items-center gap-1 text-sm font-medium text-eko-accent">
+    <Link href="/studio/more/memory" className="inline-flex items-center gap-1 text-sm font-medium text-action">
       {t("nav.memory")}
       <ChevronRight size={14} />
     </Link>

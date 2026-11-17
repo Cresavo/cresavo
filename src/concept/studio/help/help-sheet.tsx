@@ -79,14 +79,14 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
 
         {view.kind === "ask" && (
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-eko-muted">{t("help.common")}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("help.common")}</p>
             <div className="flex flex-wrap gap-2">
               {EXAMPLES.map((key) => (
                 <button
                   key={key}
                   type="button"
                   onClick={() => void ask(t(key))}
-                  className="min-h-9 rounded-full bg-eko-surface px-3.5 py-1.5 text-left text-sm font-medium ring-1 ring-inset ring-eko-line hover:bg-eko-sunken"
+                  className="min-h-9 rounded-full bg-surface px-3.5 py-1.5 text-left text-sm font-medium ring-1 ring-inset ring-border hover:bg-surface-2"
                 >
                   {t(key)}
                 </button>
@@ -95,22 +95,22 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
           </div>
         )}
 
-        {view.kind === "loading" && <p className="animate-pulse text-sm text-eko-muted">{t("help.looking")}</p>}
+        {view.kind === "loading" && <p className="animate-pulse text-sm text-text-secondary">{t("help.looking")}</p>}
 
-        {view.kind === "failed" && <p className="rounded-xl bg-eko-warn-soft p-3 text-sm text-eko-warn">{t("help.failed")}</p>}
+        {view.kind === "failed" && <p className="rounded-md bg-warning-bg p-3 text-sm text-warning">{t("help.failed")}</p>}
 
         {reply && (
           <div className="space-y-3" aria-live="polite">
             {reply.answer ? (
-              <div className="space-y-3 rounded-2xl bg-eko-sunken p-4">
+              <div className="space-y-3 rounded-lg bg-surface-2 p-4">
                 <p className="whitespace-pre-line text-[15px] leading-relaxed">{reply.answer}</p>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-eko-muted">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
                   {reply.source === "ai" && <Badge tone="accent">{t("help.byAi")}</Badge>}
                   <span>{t("help.from", { titles: reply.articles.map((article) => article.title).join(", ") })}</span>
                 </div>
               </div>
             ) : (
-              <p className="rounded-2xl bg-eko-sunken p-4 text-[15px]">{t("help.noAnswer")}</p>
+              <p className="rounded-lg bg-surface-2 p-4 text-[15px]">{t("help.noAnswer")}</p>
             )}
             {reply.articles[0]?.show && (
               <Button variant="secondary" icon={<Eye size={18} />} onClick={() => void show(reply)}>
@@ -121,8 +121,8 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
         )}
 
         {(view.kind === "answer" || view.kind === "failed") && (
-          <div className="flex flex-wrap items-center gap-3 border-t border-eko-line pt-4">
-            <p className="min-w-0 flex-1 text-sm text-eko-muted">{t("help.notEnough")}</p>
+          <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+            <p className="min-w-0 flex-1 text-sm text-text-secondary">{t("help.notEnough")}</p>
             <Button variant="ghost" icon={<LifeBuoy size={18} />} onClick={() => setTicketing(true)}>
               {t("help.createTicket")}
             </Button>

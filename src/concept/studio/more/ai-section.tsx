@@ -39,20 +39,20 @@ export function AiSection() {
     };
     return <EmptyState icon={<Sparkles size={22} />} title={t("ai.unavailable")} action={<Button size="sm" variant="secondary" onClick={retry}>{t("ai.retry")}</Button>} />;
   }
-  if (!overview) return <Card className="h-40 animate-pulse bg-eko-sunken" aria-busy />;
+  if (!overview) return <Card className="h-40 animate-pulse bg-surface-2" aria-busy />;
   const { tasks, costLog, totals } = overview;
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card className="space-y-4 p-5">
-        <p className="text-sm text-eko-muted">{overview.configured ? t("ai.modeAi") : t("ai.modeRules")}</p>
-        <ul className="divide-y divide-eko-line">
+        <p className="text-sm text-text-secondary">{overview.configured ? t("ai.modeAi") : t("ai.modeRules")}</p>
+        <ul className="divide-y divide-border">
           {tasks.filter((task) => taskEnabled(state.modules, task.name)).map((task) => (
             <li key={task.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-3">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{t(`ai.task.${task.name}`)}</p>
-                <p className="text-xs text-eko-muted">{t(`ai.task.${task.name}.description`)}</p>
+                <p className="text-xs text-text-secondary">{t(`ai.task.${task.name}.description`)}</p>
               </div>
-              <select className="rounded-lg border border-eko-line bg-eko-surface p-2 text-sm" aria-label={t("ai.taskTier", { task: t(`ai.task.${task.name}`) })} value={task.tier} onChange={async event => {
+              <select className="rounded-sm border border-border bg-surface p-2 text-sm" aria-label={t("ai.taskTier", { task: t(`ai.task.${task.name}`) })} value={task.tier} onChange={async event => {
                 try { setResult({ overview: await saveAiSettings({ task: task.name, tier: event.target.value as "fast" | "smart" }) }); }
                 catch { setResult({ failed: true }); }
               }}>
@@ -67,7 +67,7 @@ export function AiSection() {
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <p className="font-medium">{t("ai.costs")}</p>
-            <p className="text-sm text-eko-muted">
+            <p className="text-sm text-text-secondary">
               {tc("ai.totals", totals.calls, { ai: totals.aiCalls, cost: formatUsd(totals.costUsd) })}
               {totals.unknownCosts > 0 && ` ${tc("ai.unknownCosts", totals.unknownCosts)}`}
             </p>
@@ -76,18 +76,18 @@ export function AiSection() {
         </div>
         {(["byTask", "byMonth"] as const).map(group => <div key={group}>
           <p className="text-sm font-medium">{t(group === "byTask" ? "ai.byTask" : "ai.byMonth")}</p>
-          <ul className="divide-y divide-eko-line">{overview[group].map(row => <li className="flex justify-between gap-3 py-2 text-sm" key={row.name}>
+          <ul className="divide-y divide-border">{overview[group].map(row => <li className="flex justify-between gap-3 py-2 text-sm" key={row.name}>
             <span>{group === "byTask" ? t(`ai.task.${row.name as TaskName}`) : row.name} · {tc("ai.calls", row.calls)}</span>
             <span>{formatUsd(row.costUsd)}{row.unknownCosts > 0 && ` + ${tc("ai.unknownCosts", row.unknownCosts)}`}</span>
           </li>)}</ul>
         </div>)}
         {costLog.length ? (
-          <ul className="divide-y divide-eko-line">
+          <ul className="divide-y divide-border">
             {costLog.map((entry, index) => (
               <li key={entry.id ?? `${entry.timestamp}:${index}`} className="flex items-center gap-3 py-2.5 text-sm">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{t(`ai.task.${entry.task as TaskName}`)}</p>
-                  <p className="truncate text-xs text-eko-muted">
+                  <p className="truncate text-xs text-text-secondary">
                     {new Date(entry.timestamp).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })} · {entry.model}
                     {entry.source === "ai" && ` · ${entry.inputTokens + entry.outputTokens} tokens`}
                   </p>
@@ -97,9 +97,9 @@ export function AiSection() {
             ))}
           </ul>
         ) : (
-          <p className="rounded-xl bg-eko-sunken px-4 py-6 text-center text-sm text-eko-muted">{t("ai.noCalls")}</p>
+          <p className="rounded-md bg-surface-2 px-4 py-6 text-center text-sm text-text-secondary">{t("ai.noCalls")}</p>
         )}
-        <p className="text-xs text-eko-muted">{t("ai.costNote")}</p>
+        <p className="text-xs text-text-secondary">{t("ai.costNote")}</p>
       </Card>
     </div>
   );

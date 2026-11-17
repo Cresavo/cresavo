@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { BRAND } from "../../src/concept/brand";
+import { ASSISTANT } from "../../src/concept/brand";
 import { addDays, formatTime } from "../../src/concept/data/dates";
 import { createDemoState } from "../../src/concept/data/generate";
 import { freeStarts, needOf } from "../../src/concept/data/slots";
@@ -23,7 +23,7 @@ async function say(page: Page, text: string) {
   await message.press("Enter");
 }
 
-const panel = (page: Page) => page.getByRole("dialog", { name: `Ask ${BRAND.name}` });
+const panel = (page: Page) => page.getByRole("dialog", { name: `Ask ${ASSISTANT.name}` });
 
 test.beforeEach(async ({ page }) => {
   // A morning, so Today shows the morning brief rather than the closing one.
@@ -46,7 +46,7 @@ test("the assistant answers, drafts an offer, remembers a preference and suggest
   await expect(page.getByRole("textbox", { name: "Command box" })).toBeVisible({ visible: !phone });
 
   await expect(page.getByText("Here is what matters today.")).toBeVisible();
-  await page.getByRole("button", { name: `Ask ${BRAND.name}`, exact: true }).locator("visible=true").click();
+  await page.getByRole("button", { name: `Ask ${ASSISTANT.name}`, exact: true }).locator("visible=true").click();
   await expect(panel(page)).toBeVisible();
   await expect(panel(page).getByText("Rules only · no AI key")).toBeVisible();
 
@@ -113,6 +113,6 @@ test("the microphone button opens the panel listening on phones", async ({ page 
     (window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = FakeRecognition;
   });
   await page.goto("/studio");
-  await page.getByRole("button", { name: `Talk to ${BRAND.name}`, exact: true }).click();
+  await page.getByRole("button", { name: `Talk to ${ASSISTANT.name}`, exact: true }).click();
   await expect(panel(page).getByText(/bookings? \w+day \d+ \w+/).first()).toBeVisible();
 });

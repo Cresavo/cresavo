@@ -104,14 +104,14 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
             <Button variant="secondary" icon={<CalendarClock size={16} />} onClick={() => setSheet("move")}>
               {t("booking.reschedule")}
             </Button>
-            <Button variant="ghost" icon={<XCircle size={16} />} onClick={() => setSheet("cancel")} className="text-eko-danger">
+            <Button variant="ghost" icon={<XCircle size={16} />} onClick={() => setSheet("cancel")} className="text-danger">
               {t("booking.cancel")}
             </Button>
           </>
         )}
       </div>
       {rule === "late" && (
-        <p className="flex items-start gap-2 rounded-xl bg-eko-warn-soft px-3.5 py-3 text-sm text-eko-warn">
+        <p className="flex items-start gap-2 rounded-md bg-warning-bg px-3.5 py-3 text-sm text-warning">
           <Phone size={16} className="mt-0.5 shrink-0" />
           <span>{t("booking.tooLate", { phone: state.salon.phone })}</span>
         </p>
@@ -129,7 +129,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
           </>
         }
       >
-        <p className="rounded-xl bg-eko-accent-soft px-3.5 py-3 text-sm text-eko-accent">{freeUntilText(booking)}</p>
+        <p className="rounded-md bg-action-bg px-3.5 py-3 text-sm text-action">{freeUntilText(booking)}</p>
       </Sheet>
 
       <Sheet

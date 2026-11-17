@@ -97,7 +97,7 @@ export function ShiftSheet({ person, onClose }: { person: Staff; onClose: () => 
             <TimeField label={t("schedule.shiftTo")} value={end} onChange={setEnd} />
           </Field>
         </div>
-        {!valid && <p className="text-sm text-eko-danger">{t("hours.invalid")}</p>}
+        {!valid && <p className="text-sm text-danger">{t("hours.invalid")}</p>}
       </div>
     </Sheet>
   );

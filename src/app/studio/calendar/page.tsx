@@ -102,7 +102,7 @@ export default function CalendarPage() {
           </div>
         </>
       )}
-      <p className="mt-3 hidden text-sm text-eko-muted lg:block">{t("calendar.dragHint")}</p>
+      <p className="mt-3 hidden text-sm text-text-secondary lg:block">{t("calendar.dragHint")}</p>
       <BookingSheets sheet={sheet} onChange={setSheet} />
     </>
   );

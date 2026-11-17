@@ -48,7 +48,7 @@ export function RedeemSheet({ bookingId, onBack, onClose }: { bookingId: string;
           <TextInput value={code} onChange={(event) => setCode(event.target.value)} autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder="EKO-XXXX-XXXX" autoFocus />
         </Field>
         {code.trim().length >= 4 && (
-          <p role="status" className={card && amount > 0 ? "rounded-xl bg-eko-accent-soft px-3.5 py-3 text-sm font-medium text-eko-accent" : "text-sm text-eko-danger"}>
+          <p role="status" className={card && amount > 0 ? "rounded-md bg-action-bg px-3.5 py-3 text-sm font-medium text-action" : "text-sm text-danger"}>
             {!card ? t("giftcards.payNotFound") : amount > 0 ? t("giftcards.payBalance", { amount: formatMoney(balanceOf(state, card)) }) : t("giftcards.payEmpty")}
           </p>
         )}

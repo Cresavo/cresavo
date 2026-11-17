@@ -62,7 +62,7 @@ export function SellSheet({ customerId, onClose }: { customerId?: string; onClos
                 <Chip key={p.id} active={productId === p.id} onClick={() => { setProductId(p.id); setQuantity(1); }}>{p.name}</Chip>
               ))}
             </div>
-            {product && <p className="text-sm text-eko-muted">{formatMoney(product.salePrice ?? 0)} · {t("stock.inStock", { count: formatAmount(product.inStock) })}</p>}
+            {product && <p className="text-sm text-text-secondary">{formatMoney(product.salePrice ?? 0)} · {t("stock.inStock", { count: formatAmount(product.inStock) })}</p>}
           </div>
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-medium">{t("stock.quantity")}</p>
@@ -71,7 +71,7 @@ export function SellSheet({ customerId, onClose }: { customerId?: string; onClos
           <div className="space-y-2">
             <p className="text-sm font-medium">{t("stock.customer")}</p>
             {buyer ? (
-              <div className="flex items-center gap-3 rounded-2xl bg-eko-sunken px-3 py-2.5">
+              <div className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5">
                 <Avatar name={fullName(buyer)} size="sm" />
                 <span className="min-w-0 flex-1 truncate font-medium">{fullName(buyer)}</span>
                 {!customerId && <Button size="sm" variant="ghost" onClick={() => setBuyerId("")}>{t("common.change")}</Button>}
@@ -80,16 +80,16 @@ export function SellSheet({ customerId, onClose }: { customerId?: string; onClos
               <>
                 <SearchInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("stock.searchCustomer")} aria-label={t("stock.searchCustomer")} />
                 {query.trim() && (
-                  <ul className="divide-y divide-eko-line rounded-2xl ring-1 ring-eko-line">
+                  <ul className="divide-y divide-border rounded-lg ring-1 ring-border">
                     {matches.map((c) => (
                       <li key={c.id}>
-                        <button type="button" onClick={() => setBuyerId(c.id)} className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left hover:bg-eko-sunken">
+                        <button type="button" onClick={() => setBuyerId(c.id)} className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left hover:bg-surface-2">
                           <Avatar name={fullName(c)} size="sm" />
                           <span className="truncate">{fullName(c)}</span>
                         </button>
                       </li>
                     ))}
-                    {!matches.length && <li className="px-4 py-3 text-sm text-eko-muted">{t("stock.noCustomers")}</li>}
+                    {!matches.length && <li className="px-4 py-3 text-sm text-text-secondary">{t("stock.noCustomers")}</li>}
                   </ul>
                 )}
               </>
@@ -103,7 +103,7 @@ export function SellSheet({ customerId, onClose }: { customerId?: string; onClos
           )}
         </div>
       ) : (
-        <p className="text-sm text-eko-muted">{t("stock.noneForSale")}</p>
+        <p className="text-sm text-text-secondary">{t("stock.noneForSale")}</p>
       )}
     </Sheet>
   );

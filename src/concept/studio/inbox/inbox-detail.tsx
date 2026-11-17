@@ -40,7 +40,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
         <InboxAvatar state={state} item={item} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{name}</p>
-          <p className="text-sm text-eko-muted">
+          <p className="text-sm text-text-secondary">
             {relativeDay(item.date, today)} {formatTime(item.time)}
           </p>
         </div>
@@ -50,8 +50,8 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
         </Badge>
       </div>
 
-      <div className="whitespace-pre-line rounded-2xl rounded-tl-md bg-eko-sunken px-4 py-3 text-[15px] leading-relaxed">
-        {review && <p role="img" className="mb-1 text-eko-warn" aria-label={t("inbox.stars", { count: review.rating })}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</p>}
+      <div className="whitespace-pre-line rounded-lg rounded-tl-sm bg-surface-2 px-4 py-3 text-[15px] leading-relaxed">
+        {review && <p role="img" className="mb-1 text-warning" aria-label={t("inbox.stars", { count: review.rating })}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</p>}
         {item.body}
       </div>
       {item.delivery && <Badge tone="accent">{t("common.simulated")} · {t(`messages.channel.${item.delivery.channel}`)}</Badge>}
@@ -61,7 +61,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
       )}
 
       {booking && (
-        <p className="flex items-center gap-2 text-sm text-eko-muted">
+        <p className="flex items-center gap-2 text-sm text-text-secondary">
           <CalendarCheck size={16} />
           {t("inbox.aboutBooking", {
             service: findService(state, booking.serviceId)?.name ?? "",
@@ -72,21 +72,21 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
       )}
 
       {item.handled && item.reply && (
-        <div className="ml-8 rounded-2xl rounded-tr-md bg-eko-accent-soft px-4 py-3 text-[15px] leading-relaxed">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-eko-accent">{t("inbox.yourReply")}</p>
+        <div className="ml-8 rounded-lg rounded-tr-sm bg-action-bg px-4 py-3 text-[15px] leading-relaxed">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-action">{t("inbox.yourReply")}</p>
           {item.reply}
         </div>
       )}
 
       {!item.handled && item.draftReply && (
-        <div className="space-y-3 rounded-2xl p-4 ring-1 ring-eko-accent/30">
-          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-eko-accent">
+        <div className="space-y-3 rounded-lg p-4 ring-1 ring-action/30">
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-action">
             <Sparkles size={14} />
             {t("inbox.suggestedReply")}
           </p>
           {slot && staff && (
-            <div className="flex items-center gap-3 rounded-xl bg-eko-accent-soft px-3 py-2.5 text-sm">
-              <CalendarCheck size={18} className="shrink-0 text-eko-accent" />
+            <div className="flex items-center gap-3 rounded-md bg-action-bg px-3 py-2.5 text-sm">
+              <CalendarCheck size={18} className="shrink-0 text-action" />
               <span>
                 {item.kind === "reschedule" ? t("inbox.slotMove") : t("inbox.slotBook")}{" "}
                 <strong>{formatDayLong(slot.date)} {formatTime(slot.start)}</strong>

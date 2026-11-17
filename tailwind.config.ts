@@ -1,36 +1,33 @@
 import type { Config } from "tailwindcss";
 
-// `eko` colours are CSS variables set in src/app/studio/studio.css (light and dark).
-const eko = (name: string) => `rgb(var(--eko-${name}) / <alpha-value>)`;
+// Semantic colours, radii and the UI font come from the Libovo tokens in
+// src/concept/ui/libovo-theme.css (tenant pages re-declare them in
+// tenant-theme.css). color-mix keeps opacity modifiers such as `bg-surface/80`.
+const ui = (name: string) => `color-mix(in srgb, var(--ui-${name}) calc(<alpha-value> * 100%), transparent)`;
+const names = [
+  "bg", "surface", "surface-2", "text", "text-secondary", "border", "input-border",
+  "action", "action-hover", "action-bg", "focus",
+  "success", "success-bg", "warning", "warning-bg", "danger", "danger-bg", "info", "info-bg",
+  "staff-1", "staff-1-bg", "staff-2", "staff-2-bg",
+];
 
 export default {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
+    borderRadius: {
+      none: "0",
+      xs: "var(--radius-xs)",
+      sm: "var(--radius-sm)",
+      DEFAULT: "var(--radius-sm)",
+      md: "var(--radius-md)",
+      lg: "var(--radius-lg)",
+      full: "var(--radius-pill)",
+    },
     extend: {
-      colors: {
-        eko: {
-          bg: eko("bg"),
-          surface: eko("surface"),
-          sunken: eko("sunken"),
-          line: eko("line"),
-          ink: eko("ink"),
-          muted: eko("muted"),
-          accent: eko("accent"),
-          "accent-soft": eko("accent-soft"),
-          "on-accent": eko("on-accent"),
-          warn: eko("warn"),
-          "warn-soft": eko("warn-soft"),
-          danger: eko("danger"),
-          "danger-soft": eko("danger-soft"),
-          anna: eko("anna"),
-          "anna-soft": eko("anna-soft"),
-          erik: eko("erik"),
-          "erik-soft": eko("erik-soft"),
-        },
-      },
+      colors: { ...Object.fromEntries(names.map((name) => [name, ui(name)])), "on-action": ui("action-text") },
+      fontFamily: { sans: ["var(--font-ui)"] },
       boxShadow: {
-        card: "0 1px 2px rgb(40 30 20 / 0.04), 0 4px 16px rgb(40 30 20 / 0.04)",
-        sheet: "0 -8px 40px rgb(20 15 10 / 0.18)",
+        sheet: "0 -8px 40px rgb(0 0 0 / 0.18)",
       },
     },
   },

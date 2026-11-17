@@ -91,13 +91,13 @@ export default function CustomerPage() {
             </div>
             <CustomerSummary customer={customer} />
             <div className="space-y-1 text-sm">
-              <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className="flex items-center gap-2 py-1 hover:text-eko-accent">
-                <Phone size={16} className="text-eko-muted" />
+              <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className="flex items-center gap-2 py-1 hover:text-action">
+                <Phone size={16} className="text-text-secondary" />
                 {customer.phone}
               </a>
               {customer.email && (
-                <a href={`mailto:${customer.email}`} className="flex items-center gap-2 py-1 hover:text-eko-accent">
-                  <Mail size={16} className="text-eko-muted" />
+                <a href={`mailto:${customer.email}`} className="flex items-center gap-2 py-1 hover:text-action">
+                  <Mail size={16} className="text-text-secondary" />
                   <span className="truncate">{customer.email}</span>
                 </a>
               )}
@@ -122,8 +122,8 @@ export default function CustomerPage() {
           )}
           <NextVisitCard customer={customer} next={next} lastVisit={s.lastVisit} />
           {late && s.lastVisit && (
-            <Card className="flex gap-3 bg-eko-warn-soft p-4 ring-eko-warn/20">
-              <Hand size={20} className="mt-0.5 shrink-0 text-eko-warn" />
+            <Card className="flex gap-3 bg-warning-bg p-4 ring-warning/20">
+              <Hand size={20} className="mt-0.5 shrink-0 text-warning" />
               <div className="space-y-2">
                 <p className="text-sm">{tc("customer.lateText", Math.floor(diffDays(today, s.lastVisit) / 7))}</p>
                 <Button size="sm" onClick={sayHello}>{t("customer.sayHello")}</Button>
@@ -179,12 +179,12 @@ export default function CustomerPage() {
               {state.modules.stock && !viewer && <CustomerProducts customerId={customer.id} />}
               {state.modules.journal && journalNotes.length > 0 && (
                 <Section title={t("customer.journalNotes")} action={<Button size="sm" variant="ghost" onClick={() => setTab("journal")}>{t("customer.openJournal")}</Button>}>
-                  <Card className="divide-y divide-eko-line overflow-hidden">
+                  <Card className="divide-y divide-border overflow-hidden">
                     {journalNotes.slice(0, 5).map((j) => (
-                      <button key={j.id} onClick={() => setTab("journal")} className="block w-full px-4 py-3 text-left hover:bg-eko-sunken">
-                        <span className="block text-xs text-eko-muted">{formatDate(j.date)}</span>
+                      <button key={j.id} onClick={() => setTab("journal")} className="block w-full px-4 py-3 text-left hover:bg-surface-2">
+                        <span className="block text-xs text-text-secondary">{formatDate(j.date)}</span>
                         <span className="block truncate text-sm font-medium">{j.treatment}</span>
-                        {j.observations && <span className="block truncate text-sm text-eko-muted">{j.observations}</span>}
+                        {j.observations && <span className="block truncate text-sm text-text-secondary">{j.observations}</span>}
                       </button>
                     ))}
                   </Card>
@@ -207,7 +207,7 @@ export default function CustomerPage() {
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <Card className="p-3.5">
-      <p className="text-xs text-eko-muted">{label}</p>
+      <p className="text-xs text-text-secondary">{label}</p>
       <p className="mt-0.5 truncate font-semibold">{value}</p>
     </Card>
   );

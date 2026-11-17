@@ -43,7 +43,7 @@ export function AccountingSection() {
     <Section title={t("finance.bookkeeping")}>
       <Card className="space-y-5 p-5">
         <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-eko-accent-soft text-eko-accent">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-action">
             <BookCheck size={20} />
           </span>
           <div className="min-w-0 flex-1">
@@ -51,20 +51,20 @@ export function AccountingSection() {
               <p className="font-semibold">{t("finance.accounted")}</p>
               <Badge tone={connected ? "accent" : "neutral"}>{connected ? t("finance.connected") : t("finance.notConnected")}</Badge>
             </div>
-            <p className="mt-1 text-sm text-eko-muted">{connected ? t("finance.connectedText") : t("finance.accountedText")}</p>
+            <p className="mt-1 text-sm text-text-secondary">{connected ? t("finance.connectedText") : t("finance.accountedText")}</p>
           </div>
         </div>
         <div className="space-y-2">
           <p className="text-sm font-medium">{connected ? t("finance.syncs") : t("finance.wouldSync")}</p>
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-eko-muted">
+              <tr className="text-left text-xs text-text-secondary">
                 <th className="py-1 font-medium">{t("finance.day")}</th>
                 <th className="py-1 text-right font-medium">{t("finance.sales")}</th>
                 <th className="py-1 text-right font-medium">{t("finance.vat")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-eko-line">
+            <tbody className="divide-y divide-border">
               {days.map((day) => (
                 <tr key={day.date}>
                   <td className="py-1.5">{formatDayShort(day.date)}</td>
@@ -75,11 +75,11 @@ export function AccountingSection() {
               <tr>
                 <td className="py-1.5">{t("finance.feesRow")}</td>
                 <td className="py-1.5 text-right tabular-nums">{formatMoney(totalCosts(fees))}</td>
-                <td className="py-1.5 text-right text-eko-muted">{t("finance.perMonth")}</td>
+                <td className="py-1.5 text-right text-text-secondary">{t("finance.perMonth")}</td>
               </tr>
             </tbody>
           </table>
-          <p className="text-xs text-eko-muted">{t("finance.syncNote")}</p>
+          <p className="text-xs text-text-secondary">{t("finance.syncNote")}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {connected ? (
@@ -98,7 +98,7 @@ export function AccountingSection() {
             {t("finance.downloadCsv")}
           </Button>
         </div>
-        <p className="text-xs text-eko-muted">{t("finance.exportNote", { months: EXPORT_MONTHS })}</p>
+        <p className="text-xs text-text-secondary">{t("finance.exportNote", { months: EXPORT_MONTHS })}</p>
       </Card>
     </Section>
   );

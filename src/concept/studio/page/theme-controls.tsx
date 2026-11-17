@@ -65,13 +65,13 @@ function LogoField({ theme, onChange }: Props) {
         {theme.logo && (
           // A small data URL the owner just picked.
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={theme.logo} alt={t("pageEditor.logo.alt")} className="h-10 w-auto max-w-40 rounded-lg bg-eko-sunken object-contain p-1" />
+          <img src={theme.logo} alt={t("pageEditor.logo.alt")} className="h-10 w-auto max-w-40 rounded-sm bg-surface-2 object-contain p-1" />
         )}
         <Button variant="secondary" icon={<ImagePlus size={18} />} onClick={() => input.current?.click()}>{t(theme.logo ? "pageEditor.logo.change" : "pageEditor.logo.add")}</Button>
         {theme.logo && <Button variant="ghost" icon={<Trash2 size={18} />} onClick={() => onChange({ logo: null, logoColors: [] })}>{t("pageEditor.logo.remove")}</Button>}
         <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" tabIndex={-1} aria-label={t("pageEditor.logo.file")} onChange={(event) => { void pick(event.target.files?.[0]); event.target.value = ""; }} />
       </div>
-      <p className="text-xs text-eko-muted">{t("pageEditor.logo.hint")}</p>
+      <p className="text-xs text-text-secondary">{t("pageEditor.logo.hint")}</p>
     </div>
   );
 }
@@ -87,17 +87,17 @@ function Colours({ theme, onChange }: Props) {
         <Chip active={!colors} onClick={() => onChange({ colors: null })}>{t("page.palette.default")}</Chip>
         {PALETTE_IDS.map((id) => (
           <Chip key={id} active={colors?.background === PALETTES[id].background && colors.accent === PALETTES[id].accent} onClick={() => onChange({ colors: PALETTES[id] })}>
-            <span aria-hidden className="size-3.5 rounded-full ring-1 ring-eko-line" style={{ background: PALETTES[id].accent }} />
+            <span aria-hidden className="size-3.5 rounded-full ring-1 ring-border" style={{ background: PALETTES[id].accent }} />
             {t(`page.palette.${id}`)}
           </Chip>
         ))}
       </div>
       {theme.logoColors.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-eko-muted">{t("pageEditor.logoColours")}</span>
+          <span className="text-xs text-text-secondary">{t("pageEditor.logoColours")}</span>
           {theme.logoColors.map((accent) => (
             <Chip key={accent} active={colors?.accent === accent} onClick={() => set({ accent })}>
-              <span aria-hidden className="size-3.5 rounded-full ring-1 ring-eko-line" style={{ background: accent }} />
+              <span aria-hidden className="size-3.5 rounded-full ring-1 ring-border" style={{ background: accent }} />
               {accent}
             </Chip>
           ))}
@@ -109,16 +109,16 @@ function Colours({ theme, onChange }: Props) {
             {(["background", "text", "accent"] as const).map((role) => (
               <label key={role} className="space-y-1.5 text-sm font-medium">
                 <span className="block">{t(`pageEditor.colour.${role}`)}</span>
-                <input type="color" value={colors[role]} onChange={(event) => set({ [role]: event.target.value })} className="block h-11 w-full cursor-pointer rounded-xl bg-eko-surface p-1 ring-1 ring-inset ring-eko-line" />
+                <input type="color" value={colors[role]} onChange={(event) => set({ [role]: event.target.value })} className="block h-11 w-full cursor-pointer rounded-md bg-surface p-1 ring-1 ring-inset ring-border" />
               </label>
             ))}
           </div>
-          <div role="status" className="space-y-2 rounded-xl bg-eko-sunken/60 p-3 text-sm">
+          <div role="status" className="space-y-2 rounded-md bg-surface-2/60 p-3 text-sm">
             <p className="flex items-center gap-2 font-medium">
-              <CheckCircle2 size={16} className="text-eko-accent" />
+              <CheckCircle2 size={16} className="text-action" />
               {t("pageEditor.contrast.ok")}
             </p>
-            <p className="text-xs text-eko-muted">
+            <p className="text-xs text-text-secondary">
               {contrastReport(tokens).map((row) => `${t(`pageEditor.contrast.${row.label}`)} ${row.ratio.toFixed(1)}:1`).join(" · ")}
             </p>
             {adjustments.map((adjustment) => (

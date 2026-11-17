@@ -12,9 +12,6 @@ export function toRgb(hex: string): Rgb {
 
 export const toHex = ([r, g, b]: Rgb) => `#${[r, g, b].map((v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, "0")).join("")}`;
 
-/** The "r g b" form the design tokens use. */
-export const channels = (hex: string) => toRgb(hex).join(" ");
-
 export function luminance(hex: string): number {
   const [r, g, b] = toRgb(hex).map((v) => {
     const c = v / 255;

@@ -11,7 +11,7 @@ export function DayRow({ label, on, switchLabel, onToggle, children, off }: { la
     <div className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 sm:grid-cols-[6rem_auto_1fr]">
       <span className="text-sm font-medium">{label}</span>
       <Switch checked={on} label={switchLabel} onChange={onToggle} />
-      <div className="col-span-2 min-w-0 sm:col-span-1">{on ? children : <span className="hidden text-sm text-eko-muted sm:inline">{off}</span>}</div>
+      <div className="col-span-2 min-w-0 sm:col-span-1">{on ? children : <span className="hidden text-sm text-text-secondary sm:inline">{off}</span>}</div>
     </div>
   );
 }
@@ -21,7 +21,7 @@ export function TimeRange({ from, to, onChange, label }: { from: number; to: num
   return (
     <div className="flex items-center gap-2">
       <TimeField label={t("hours.from", { day: label })} value={from} onChange={(start) => onChange(start, to)} />
-      <span className="text-eko-muted">–</span>
+      <span className="text-text-secondary">–</span>
       <TimeField label={t("hours.to", { day: label })} value={to} onChange={(end) => onChange(from, end)} />
     </div>
   );

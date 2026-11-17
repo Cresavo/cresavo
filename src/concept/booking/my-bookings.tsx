@@ -45,7 +45,7 @@ function Lookup({ state }: { state: DemoState }) {
     <Card className="mx-auto max-w-md space-y-5 p-6">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">{t("booking.me.lookupTitle")}</h1>
-        <p className="mt-1 text-[15px] text-eko-muted">{t("booking.me.lookupHelp")}</p>
+        <p className="mt-1 text-[15px] text-text-secondary">{t("booking.me.lookupHelp")}</p>
       </div>
       <form
         className="space-y-4"
@@ -59,12 +59,12 @@ function Lookup({ state }: { state: DemoState }) {
         <Field label={t("booking.yourPhone")}>
           <TextInput value={phone} onChange={(e) => { setPhone(e.target.value); setMissing(false); }} type="tel" inputMode="tel" autoComplete="tel" placeholder={t("booking.phonePlaceholder")} />
         </Field>
-        {missing && <p role="alert" className="text-sm text-eko-danger">{t("booking.me.notFound")}</p>}
+        {missing && <p role="alert" className="text-sm text-danger">{t("booking.me.notFound")}</p>}
         <Button type="submit" size="lg" className="w-full" icon={<Search size={18} />} disabled={phone.trim().length < 5}>
           {t("booking.me.find")}
         </Button>
       </form>
-      {examplePhone && <p className="rounded-xl bg-eko-sunken px-3.5 py-3 text-sm text-eko-muted">{t("booking.me.demoHint", { phone: examplePhone })}</p>}
+      {examplePhone && <p className="rounded-md bg-surface-2 px-3.5 py-3 text-sm text-text-secondary">{t("booking.me.demoHint", { phone: examplePhone })}</p>}
     </Card>
   );
 }
@@ -76,7 +76,7 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
     <div className="mx-auto max-w-2xl space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t("booking.me.title", { name: customer.firstName })}</h1>
-        <p className="mt-2 flex items-start gap-2 rounded-xl bg-eko-accent-soft px-3.5 py-3 text-sm text-eko-accent">
+        <p className="mt-2 flex items-start gap-2 rounded-md bg-action-bg px-3.5 py-3 text-sm text-action">
           <Info size={16} className="mt-0.5 shrink-0" />
           {t("booking.me.rule", { phone: state.salon.phone })}
         </p>
@@ -100,7 +100,7 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
 
       {past.length > 0 && (
         <Section title={t("booking.me.past")}>
-          <Card className="divide-y divide-eko-line">
+          <Card className="divide-y divide-border">
             {past.map((booking) => {
               const service = state.services.find((s) => s.id === booking.serviceId);
               return (
@@ -108,7 +108,7 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
                   <div className="flex flex-wrap items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">{service?.name}</p>
-                    <p className="text-sm text-eko-muted">{formatDayLong(booking.date)} · {formatMoney(booking.price)}</p>
+                    <p className="text-sm text-text-secondary">{formatDayLong(booking.date)} · {formatMoney(booking.price)}</p>
                   </div>
                   <ButtonLink href={rebookLink(state.salon.slug, booking.serviceId)} variant="secondary" size="sm" icon={<Repeat size={14} />}>
                     {t("booking.me.rebook")}
@@ -134,16 +134,16 @@ function UpcomingCard({ state, now, booking }: { state: DemoState; now: Now; boo
         <div className="min-w-0">
           <p className="font-semibold">{service?.name}</p>
           <p className="mt-0.5 text-[15px]">{formatDayLong(booking.date)}, {formatTime(booking.start)}</p>
-          <p className="mt-0.5 text-sm text-eko-muted">
+          <p className="mt-0.5 text-sm text-text-secondary">
             {t("booking.withStaff", { name: person?.firstName ?? "" })} · {formatDuration(booking.duration)} · {formatMoney(booking.price)}
           </p>
         </div>
         <Badge tone="accent">{relativeDay(booking.date, now.today)}</Badge>
       </div>
       <BookingActions state={state} now={now} booking={booking} />
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-eko-muted">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-text-secondary">
         <span>{changeRule(booking, now.today, now.minutes) === "free" ? freeUntilText(booking) : ""}</span>
-        <Link href={bookingPage(state.salon.slug, booking.id)} className="font-medium text-eko-accent underline-offset-2 hover:underline">{t("booking.me.details")}</Link>
+        <Link href={bookingPage(state.salon.slug, booking.id)} className="font-medium text-action underline-offset-2 hover:underline">{t("booking.me.details")}</Link>
       </div>
     </Card>
   );

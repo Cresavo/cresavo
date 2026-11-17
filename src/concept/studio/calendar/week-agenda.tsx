@@ -25,22 +25,22 @@ export function WeekAgenda({ monday, staff, resourceId, onOpen }: { monday: Date
           <Card key={d} className="overflow-hidden">
             <div className="flex items-center gap-3 px-4 py-3">
               <div className="min-w-0 flex-1">
-                <p className={d === today ? "font-semibold text-eko-accent" : "font-semibold"}>{formatDayLong(d)}</p>
-                <p className="text-xs text-eko-muted">{closed ? t("calendar.closed") : tc("calendar.bookingCount", list.length)}</p>
+                <p className={d === today ? "font-semibold text-action" : "font-semibold"}>{formatDayLong(d)}</p>
+                <p className="text-xs text-text-secondary">{closed ? t("calendar.closed") : tc("calendar.bookingCount", list.length)}</p>
               </div>
               {!closed && <Meter value={utilisation(state, d, 1, staffId)} className="w-20" />}
             </div>
             {list.length > 0 && (
-              <ul className="divide-y divide-eko-line border-t border-eko-line">
+              <ul className="divide-y divide-border border-t border-border">
                 {list.map((b) => {
                   const customer = findCustomer(state, b.customerId);
                   return (
                     <li key={b.id}>
-                      <button onClick={() => onOpen({ kind: "booking", id: b.id })} className="flex min-h-12 w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-eko-sunken">
+                      <button onClick={() => onOpen({ kind: "booking", id: b.id })} className="flex min-h-12 w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-surface-2">
                         <span className="w-11 shrink-0 font-medium tabular-nums">{formatTime(b.start)}</span>
                         <StaffDot staffId={b.staffId} />
                         <span className="min-w-0 flex-1 truncate">{customer ? fullName(customer) : ""}</span>
-                        <span className="max-w-[40%] truncate text-eko-muted">{findService(state, b.serviceId)?.name}</span>
+                        <span className="max-w-[40%] truncate text-text-secondary">{findService(state, b.serviceId)?.name}</span>
                       </button>
                     </li>
                   );

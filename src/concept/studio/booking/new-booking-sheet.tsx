@@ -81,11 +81,11 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
         <section className="space-y-2">
           <h3 className="text-sm font-medium">{t("newBooking.customer")}</h3>
           {customer ? (
-            <div className="flex items-center gap-3 rounded-2xl bg-eko-sunken p-3">
+            <div className="flex items-center gap-3 rounded-lg bg-surface-2 p-3">
               <Avatar name={fullName(customer)} />
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{fullName(customer)}</p>
-                <p className="text-sm text-eko-muted">{customer.phone}</p>
+                <p className="text-sm text-text-secondary">{customer.phone}</p>
               </div>
               <Button variant="ghost" size="sm" onClick={() => setCustomerId(undefined)}>{t("common.change")}</Button>
             </div>
@@ -93,19 +93,19 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
             <div className="space-y-2">
               <SearchInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("newBooking.searchCustomer")} autoFocus />
               {matches.length > 0 && (
-                <ul className="divide-y divide-eko-line overflow-hidden rounded-2xl ring-1 ring-eko-line">
+                <ul className="divide-y divide-border overflow-hidden rounded-lg ring-1 ring-border">
                   {matches.map((c) => (
                     <li key={c.id}>
-                      <button onClick={() => { setCustomerId(c.id); setQuery(""); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-eko-sunken">
+                      <button onClick={() => { setCustomerId(c.id); setQuery(""); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-surface-2">
                         <Avatar name={fullName(c)} size="sm" />
                         <span className="min-w-0 flex-1 truncate">{fullName(c)}</span>
-                        <span className="text-sm text-eko-muted">{c.phone}</span>
+                        <span className="text-sm text-text-secondary">{c.phone}</span>
                       </button>
                     </li>
                   ))}
                 </ul>
               )}
-              {q && !matches.length && <p className="text-sm text-eko-muted">{t("newBooking.noMatch")}</p>}
+              {q && !matches.length && <p className="text-sm text-text-secondary">{t("newBooking.noMatch")}</p>}
             </div>
           )}
         </section>
@@ -119,17 +119,17 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
                 aria-pressed={s.id === serviceId}
                 onClick={() => { setServiceId(s.id); setSlot(null); }}
                 className={cx(
-                  "flex min-h-12 items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-sm ring-1 ring-inset",
-                  s.id === serviceId ? "bg-eko-accent-soft ring-eko-accent" : "bg-eko-surface ring-eko-line hover:bg-eko-sunken",
+                  "flex min-h-12 items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm ring-1 ring-inset",
+                  s.id === serviceId ? "bg-action-bg ring-action" : "bg-surface ring-border hover:bg-surface-2",
                 )}
               >
                 <span className="min-w-0">
                   <span className="block font-medium leading-snug">{s.name}</span>
-                  <span className="block text-xs text-eko-muted">
+                  <span className="block text-xs text-text-secondary">
                     {formatDuration(s.duration)} · {state.staff.find((p) => p.id === s.staffIds[0])?.firstName}
                   </span>
                 </span>
-                <span className="shrink-0 tabular-nums text-eko-muted">{formatMoney(s.price)}</span>
+                <span className="shrink-0 tabular-nums text-text-secondary">{formatMoney(s.price)}</span>
               </button>
             ))}
           </div>

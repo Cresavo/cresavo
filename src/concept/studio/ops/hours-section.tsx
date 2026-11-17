@@ -26,13 +26,13 @@ export function HoursSection() {
       title={t("settings.hours")}
       action={<Button size="sm" variant="secondary" icon={<Pencil size={16} />} onClick={() => setEditing(true)}>{t("common.edit")}</Button>}
     >
-      <Card className="divide-y divide-eko-line">
+      <Card className="divide-y divide-border">
         {WEEK_ORDER.map((d) => {
           const hours = salon.hours[d];
           return (
             <div key={d} className="flex justify-between px-4 py-3 text-sm">
               <span>{words.weekdays[d]}</span>
-              <span className={hours ? "font-medium tabular-nums" : "text-eko-muted"}>
+              <span className={hours ? "font-medium tabular-nums" : "text-text-secondary"}>
                 {hours ? `${formatTime(hours.open)}–${formatTime(hours.close)}` : t("calendar.closed")}
               </span>
             </div>
@@ -40,7 +40,7 @@ export function HoursSection() {
         })}
         <div className="flex justify-between px-4 py-3 text-sm">
           <span>{t("hours.lunch")}</span>
-          <span className={salon.lunch ? "font-medium tabular-nums" : "text-eko-muted"}>
+          <span className={salon.lunch ? "font-medium tabular-nums" : "text-text-secondary"}>
             {salon.lunch ? `${formatTime(salon.lunch.start)}–${formatTime(salon.lunch.end)}` : t("hours.noLunch")}
           </span>
         </div>
@@ -81,13 +81,13 @@ function HoursSheet({ salon, onClose }: { salon: Salon; onClose: () => void }) {
             </DayRow>
           );
         })}
-        <div className="border-t border-eko-line pt-4">
+        <div className="border-t border-border pt-4">
           <DayRow label={t("hours.lunch")} on={!!lunch} switchLabel={t("hours.lunchOn")} off={t("hours.noLunch")} onToggle={() => setLunch(lunch ? null : DEFAULT_LUNCH)}>
             {lunch && <TimeRange label={t("hours.lunch")} from={lunch.start} to={lunch.end} onChange={(start, end) => setLunch({ start, end })} />}
           </DayRow>
         </div>
-        <p className="text-xs text-eko-muted">{t("hours.lunchNote")}</p>
-        {!valid && <p className="text-sm text-eko-danger">{t("hours.invalid")}</p>}
+        <p className="text-xs text-text-secondary">{t("hours.lunchNote")}</p>
+        {!valid && <p className="text-sm text-danger">{t("hours.invalid")}</p>}
       </div>
     </Sheet>
   );

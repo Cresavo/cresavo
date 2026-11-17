@@ -20,15 +20,15 @@ export function StockList({ onEdit }: { onEdit: (item: StockItem) => void }) {
     <>
       {categories.map((category) => (
         <Section key={category} title={category}>
-          <Card className="divide-y divide-eko-line overflow-hidden">
+          <Card className="divide-y divide-border overflow-hidden">
             {state.stock.filter((s) => s.category === category).map((item) => {
               const isLow = item.inStock <= item.reorderAt;
               const left = days.get(item.id);
               return (
                 <div key={item.id} className="flex items-center gap-3 px-4 py-3">
-                  <button type="button" aria-label={t("stock.edit", { name: item.name })} onClick={() => onEdit(item)} className="min-w-0 flex-1 space-y-1.5 text-left">
+                  <button type="button" onClick={() => onEdit(item)} className="min-w-0 flex-1 space-y-1.5 text-left">
                     <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{item.name}</span>
+                      <span className="font-medium"><span className="sr-only">{t("stock.edit")} </span>{item.name}</span>
                       {isLow && <Badge tone="warn">{t("stock.low")}</Badge>}
                       {item.onOrder > 0 && (
                         <Badge tone="accent">
@@ -37,18 +37,18 @@ export function StockList({ onEdit }: { onEdit: (item: StockItem) => void }) {
                         </Badge>
                       )}
                     </span>
-                    <span className="block text-xs text-eko-muted">
+                    <span className="block text-xs text-text-secondary">
                       {item.unit} · {item.supplier} · {t("stock.reorderAt", { count: item.reorderAt })}
                       {isLow && left !== null && left !== undefined && ` · ${left < 1 ? t("stock.almostOut") : tc("stock.runsOut", left)}`}
                     </span>
-                    <Meter value={item.inStock / (item.reorderAt * 2.5)} tone={isLow ? "bg-eko-warn" : "bg-eko-accent"} className="max-w-xs" />
+                    <Meter value={item.inStock / (item.reorderAt * 2.5)} tone={isLow ? "bg-warning" : "bg-action"} className="max-w-xs" />
                   </button>
                   <div className="flex shrink-0 items-center gap-1">
-                    <IconButton label={t("stock.remove")} onClick={() => dispatch({ type: "stock/adjust", id: item.id, delta: -1 })} className="size-10 ring-1 ring-eko-line">
+                    <IconButton label={t("stock.remove")} onClick={() => dispatch({ type: "stock/adjust", id: item.id, delta: -1 })} className="size-10 ring-1 ring-border">
                       <Minus size={16} />
                     </IconButton>
                     <span className="w-10 text-center font-semibold tabular-nums">{formatAmount(item.inStock)}</span>
-                    <IconButton label={t("stock.add")} onClick={() => dispatch({ type: "stock/adjust", id: item.id, delta: 1 })} className="size-10 ring-1 ring-eko-line">
+                    <IconButton label={t("stock.add")} onClick={() => dispatch({ type: "stock/adjust", id: item.id, delta: 1 })} className="size-10 ring-1 ring-border">
                       <Plus size={16} />
                     </IconButton>
                   </div>

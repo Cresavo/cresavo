@@ -47,15 +47,15 @@ export function TicketForm({ question, requestId, onBack, onDone }: TicketFormPr
       </Field>
       <div className="space-y-1.5">
         <p className="text-sm font-medium">{t("ticket.attached")}</p>
-        <dl className="divide-y divide-eko-line rounded-xl bg-eko-sunken px-3 text-sm">
+        <dl className="divide-y divide-border rounded-md bg-surface-2 px-3 text-sm">
           {rows.map(([label, value]) => (
             <div key={label} className="flex justify-between gap-4 py-2">
-              <dt className="text-eko-muted">{label}</dt>
+              <dt className="text-text-secondary">{label}</dt>
               <dd className="min-w-0 break-all text-right font-medium">{value}</dd>
             </div>
           ))}
         </dl>
-        <p className="text-xs text-eko-muted">{t("ticket.demoNote")}</p>
+        <p className="text-xs text-text-secondary">{t("ticket.demoNote")}</p>
       </div>
       <div className="flex flex-wrap justify-end gap-2">
         <Button variant="ghost" onClick={onBack}>{t("common.back")}</Button>

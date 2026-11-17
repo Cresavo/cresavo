@@ -17,9 +17,9 @@ export function CopyField({ label, value }: { label: string; value: string }) {
     }
   };
   return (
-    <div className="flex items-center gap-2 rounded-xl bg-eko-sunken px-3 py-2">
+    <div className="flex items-center gap-2 rounded-md bg-surface-2 px-3 py-2">
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold uppercase tracking-wide text-eko-muted">{label}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{label}</p>
         <p className="break-all font-mono text-sm">{value}</p>
       </div>
       <Button size="sm" variant="secondary" aria-label={t("address.copyField", { field: label })} onClick={copy}>

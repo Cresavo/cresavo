@@ -79,7 +79,7 @@ export function CampaignDetail({ id }: { id: string }) {
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={STATUS_TONE[campaign.status]}>{t(`campaigns.status.${campaign.status}`)}</Badge>
           {campaign.discountPercent > 0 && <Badge>{t("format.percent", { value: campaign.discountPercent })}</Badge>}
-          <span className="text-sm text-eko-muted">
+          <span className="text-sm text-text-secondary">
             {campaign.serviceIds.map((sid) => findService(state, sid)?.name).join(", ")} · {formatDate(campaign.from)} – {formatDate(campaign.to)}
           </span>
         </div>
@@ -87,9 +87,9 @@ export function CampaignDetail({ id }: { id: string }) {
         {campaign.link && (
           <Card className="flex flex-wrap items-center gap-3 p-4">
             <div className="min-w-0 flex-1 basis-56">
-              <p className="text-xs font-semibold uppercase tracking-wide text-eko-muted">{t("campaigns.link")}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("campaigns.link")}</p>
               <p className="truncate font-medium">{campaign.link}</p>
-              <p className="text-sm text-eko-muted">{t("campaigns.linkHint")}</p>
+              <p className="text-sm text-text-secondary">{t("campaigns.linkHint")}</p>
             </div>
             <Button variant="secondary" size="sm" icon={copied ? <Check size={16} /> : <Copy size={16} />} onClick={copyLink}>
               {copied ? t("common.copied") : t("common.copy")}
@@ -101,7 +101,7 @@ export function CampaignDetail({ id }: { id: string }) {
           <Section title={t("campaigns.results")} action={<Badge>{t("common.simulated")}</Badge>}>
             <StatRow stats={campaign.stats} large />
             {campaign.stats.bookings > 0 && (
-              <p className="text-sm text-eko-muted">
+              <p className="text-sm text-text-secondary">
                 {tc("campaigns.resultsText", campaign.stats.bookings, { revenue: formatMoney(campaign.stats.revenue) })}
               </p>
             )}
@@ -113,7 +113,7 @@ export function CampaignDetail({ id }: { id: string }) {
         {campaign.ad && (
           <Card className="space-y-1 p-4">
             <p className="font-medium">{t("campaigns.ad.running")}</p>
-            <p className="text-sm text-eko-muted">
+            <p className="text-sm text-text-secondary">
               {t("campaigns.ad.summary", { budget: formatMoney(campaign.ad.budget), days: campaign.ad.days, km: campaign.ad.radiusKm, area: state.salon.area })}
             </p>
           </Card>
@@ -124,7 +124,7 @@ export function CampaignDetail({ id }: { id: string }) {
           {poster && (
             <Section title={t("campaigns.poster.title")}>
               <div className="space-y-3">
-                <div className="mx-auto w-full max-w-xs overflow-hidden rounded-2xl shadow-card">
+                <div className="mx-auto w-full max-w-xs overflow-hidden rounded-lg">
                   <PosterView ref={postSvg} source={campaign} salon={state.salon} format="post" />
                 </div>
                 <div className="flex flex-wrap justify-center gap-2">
@@ -148,7 +148,7 @@ export function CampaignDetail({ id }: { id: string }) {
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               {CHANNELS.filter((c) => campaign.copy?.[c]).map((channel) => (
                 <Card key={channel} className="space-y-1.5 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-eko-muted">{t(`channel.${channel}`)}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{t(`channel.${channel}`)}</p>
                   <p className="whitespace-pre-line text-sm">{campaign.copy?.[channel]}</p>
                 </Card>
               ))}

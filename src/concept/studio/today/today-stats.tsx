@@ -18,15 +18,15 @@ export function TodayStats() {
   return (
     <div className="grid grid-cols-2 gap-2 sm:gap-3">
       <Card className="p-3.5 sm:p-4">
-        <p className="text-xs text-eko-muted sm:text-sm">{t("stats.revenue")}</p>
+        <p className="text-xs text-text-secondary sm:text-sm">{t("stats.revenue")}</p>
         <p className="mt-1 text-lg font-semibold tabular-nums tracking-tight sm:text-2xl">{formatMoney(revenue.earned)}</p>
         <Meter value={revenue.expected ? revenue.earned / revenue.expected : 0} className="mt-2" />
-        <p className="mt-1.5 truncate text-xs text-eko-muted">{t("stats.revenueOf", { amount: formatMoney(revenue.expected) })}</p>
+        <p className="mt-1.5 truncate text-xs text-text-secondary">{t("stats.revenueOf", { amount: formatMoney(revenue.expected) })}</p>
       </Card>
       <Card className="p-3.5 sm:p-4">
-        <p className="text-xs text-eko-muted sm:text-sm">{t("stats.free")}</p>
+        <p className="text-xs text-text-secondary sm:text-sm">{t("stats.free")}</p>
         <p className="mt-1 text-lg font-semibold tabular-nums tracking-tight sm:text-2xl">{gaps.length}</p>
-        <p className="mt-3.5 truncate text-xs text-eko-muted">{freeMinutes ? formatDuration(freeMinutes) : t("stats.fullyBooked")}</p>
+        <p className="mt-3.5 truncate text-xs text-text-secondary">{freeMinutes ? formatDuration(freeMinutes) : t("stats.fullyBooked")}</p>
       </Card>
     </div>
   );

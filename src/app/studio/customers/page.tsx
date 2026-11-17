@@ -64,20 +64,20 @@ export default function CustomersPage() {
           ))}
         </div>
         {filter === "due" && (
-          <p className="text-sm text-eko-muted">
+          <p className="text-sm text-text-secondary">
             {t("customers.dueHint")}{" "}
-            <Link href="/studio/customers/due-back" className="font-medium text-eko-accent hover:underline">{t("customers.dueLink")}</Link>
+            <Link href="/studio/customers/due-back" className="font-medium text-action hover:underline">{t("customers.dueLink")}</Link>
           </p>
         )}
-        {filter === "notSeen" && <p className="text-sm text-eko-muted">{t("customers.notSeenHint")}</p>}
+        {filter === "notSeen" && <p className="text-sm text-text-secondary">{t("customers.notSeenHint")}</p>}
       </div>
       {matches.length ? (
-        <Card className="divide-y divide-eko-line overflow-hidden">
+        <Card className="divide-y divide-border overflow-hidden">
           {matches.slice(0, limit).map((c) => (
             <CustomerRow key={c.id} customer={c} stats={stats.get(c.id)} today={today} late={late.has(c.id)} due={due.has(c.id)} />
           ))}
           {matches.length > limit && (
-            <button onClick={() => setLimit(limit + PAGE_SIZE)} className="block w-full px-4 py-3.5 text-center text-sm font-medium text-eko-accent hover:bg-eko-sunken">
+            <button onClick={() => setLimit(limit + PAGE_SIZE)} className="block w-full px-4 py-3.5 text-center text-sm font-medium text-action hover:bg-surface-2">
               {tc("customers.showMore", matches.length - limit)}
             </button>
           )}

@@ -27,7 +27,7 @@ export function Confirmation({ id }: { id: string }) {
     return (
       <Card className="mx-auto max-w-lg space-y-4 p-6 text-center">
         <p className="text-lg font-semibold">{t("booking.notFound.title")}</p>
-        <p className="text-eko-muted">{t("booking.notFound.text")}</p>
+        <p className="text-text-secondary">{t("booking.notFound.text")}</p>
         <ButtonLink href={bookingHome(state?.salon.slug ?? "")}>{t("booking.notFound.action")}</ButtonLink>
       </Card>
     );
@@ -39,28 +39,28 @@ export function Confirmation({ id }: { id: string }) {
   return (
     <div className="mx-auto max-w-lg space-y-5">
       <div className="space-y-2 text-center">
-        <Icon size={44} className={cancelled ? "mx-auto text-eko-danger" : "mx-auto text-eko-accent"} />
+        <Icon size={44} className={cancelled ? "mx-auto text-danger" : "mx-auto text-action"} />
         <h1 className="text-2xl font-semibold tracking-tight">{cancelled ? t("booking.confirmation.cancelled") : t("booking.confirmation.title")}</h1>
-        <p className="text-eko-muted">{cancelled ? t("booking.confirmation.cancelledText") : t("booking.confirmation.text")}</p>
+        <p className="text-text-secondary">{cancelled ? t("booking.confirmation.cancelledText") : t("booking.confirmation.text")}</p>
       </div>
 
       <Card className="space-y-4 p-5">
         <div>
           <p className="text-lg font-semibold">{service.name}</p>
           <p className="mt-1 flex items-center gap-2 text-[15px]">
-            <CalendarCheck size={16} className="shrink-0 text-eko-accent" />
+            <CalendarCheck size={16} className="shrink-0 text-action" />
             {formatDayLong(booking.date)}, {formatTime(booking.start)}–{formatTime(booking.start + booking.duration)}
           </p>
         </div>
-        <div className="flex items-center gap-3 text-sm text-eko-muted">
+        <div className="flex items-center gap-3 text-sm text-text-secondary">
           <Avatar name={person.firstName} size="sm" />
           <span>{t("booking.withStaff", { name: `${person.firstName} ${person.lastName}` })} · {formatDuration(booking.duration)}</span>
         </div>
-        <p className="flex items-start gap-2 text-sm text-eko-muted">
+        <p className="flex items-start gap-2 text-sm text-text-secondary">
           <MapPin size={16} className="mt-0.5 shrink-0" />
           {state.salon.name}, {state.salon.address}, {state.salon.area}
         </p>
-        <p className="border-t border-eko-line pt-3 text-sm">
+        <p className="border-t border-border pt-3 text-sm">
           <strong>{formatMoney(booking.price)}</strong> · {t("booking.payAtSalon")}
         </p>
       </Card>
@@ -71,7 +71,7 @@ export function Confirmation({ id }: { id: string }) {
         active && (
           <div className="space-y-3">
             <BookingActions state={state} now={now} booking={booking} />
-            {changeRule(booking, now.today, now.minutes) === "free" && <p className="text-sm text-eko-muted">{freeUntilText(booking)}</p>}
+            {changeRule(booking, now.today, now.minutes) === "free" && <p className="text-sm text-text-secondary">{freeUntilText(booking)}</p>}
           </div>
         )
       )}
@@ -79,11 +79,11 @@ export function Confirmation({ id }: { id: string }) {
       {active && !cancelled && <MessagePreviews state={state} booking={booking} now={now} />}
       <ReviewForm state={state} booking={booking} now={now} />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-eko-line pt-4 text-sm">
-        <Link href={myBookingsFor(state.salon.slug, booking.customerId)} className="flex min-h-11 items-center font-medium text-eko-accent underline-offset-2 hover:underline">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-sm">
+        <Link href={myBookingsFor(state.salon.slug, booking.customerId)} className="flex min-h-11 items-center font-medium text-action underline-offset-2 hover:underline">
           {t("booking.seeMyBookings")}
         </Link>
-        <Link href={bookingHome(state.salon.slug)} className="flex min-h-11 items-center text-eko-muted underline-offset-2 hover:underline">
+        <Link href={bookingHome(state.salon.slug)} className="flex min-h-11 items-center text-text-secondary underline-offset-2 hover:underline">
           {t("booking.backToSalon")}
         </Link>
       </div>

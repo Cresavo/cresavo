@@ -31,15 +31,15 @@ function Option({ selected, title, text, onSelect }: { selected: boolean; title:
       onClick={onSelect}
       aria-pressed={selected}
       className={cx(
-        "flex w-full items-center gap-3 rounded-2xl bg-eko-surface p-4 text-left ring-1 ring-inset transition-colors",
-        selected ? "bg-eko-accent-soft ring-2 ring-eko-accent" : "ring-eko-line hover:bg-eko-sunken",
+        "flex w-full items-center gap-3 rounded-lg bg-surface p-4 text-left ring-1 ring-inset transition-colors",
+        selected ? "bg-action-bg ring-2 ring-action" : "ring-border hover:bg-surface-2",
       )}
     >
       <span className="min-w-0 flex-1">
         <span className="block font-medium">{title}</span>
-        {text && <span className="mt-0.5 block text-sm text-eko-muted">{text}</span>}
+        {text && <span className="mt-0.5 block text-sm text-text-secondary">{text}</span>}
       </span>
-      {selected && <Check size={20} className="shrink-0 text-eko-accent" />}
+      {selected && <Check size={20} className="shrink-0 text-action" />}
     </button>
   );
 }
@@ -76,19 +76,19 @@ export function WelcomeFlow() {
       <div className="space-y-6">
         <div className="space-y-2">
           <h1 className="text-[26px] font-semibold leading-tight tracking-tight sm:text-3xl">{t("welcome.ready.title")}</h1>
-          <p className="text-[15px] text-eko-muted">
+          <p className="text-[15px] text-text-secondary">
             {t("welcome.ready.text", { pack: t(`pack.${chosen.id}.name`), team: t(setup.solo ? "welcome.ready.team.solo" : "welcome.ready.team.team") })}
           </p>
         </div>
-        <Card className="divide-y divide-eko-line">
+        <Card className="divide-y divide-border">
           {rows.map(([label, value]) => (
             <div key={label} className="flex flex-col gap-0.5 px-4 py-3 text-sm sm:flex-row sm:justify-between sm:gap-4">
-              <span className="text-eko-muted">{label}</span>
+              <span className="text-text-secondary">{label}</span>
               <span className="font-medium sm:text-right">{value}</span>
             </div>
           ))}
           <div className="flex justify-between px-4 py-3 text-sm">
-            <span className="text-eko-muted">{t("features.total")}</span>
+            <span className="text-text-secondary">{t("features.total")}</span>
             <span className="font-medium tabular-nums">{t("features.price", { price: formatNumber(monthlyTotal(setup.modules ?? [])) })}</span>
           </div>
         </Card>
@@ -105,9 +105,9 @@ export function WelcomeFlow() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-eko-accent">{t("welcome.step", { step: step + 1, total: STEPS })}</p>
+        <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-action">{t("welcome.step", { step: step + 1, total: STEPS })}</p>
         <h1 className="text-[26px] font-semibold leading-tight tracking-tight sm:text-3xl">{t(titles[step])}</h1>
-        <p className="text-[15px] text-eko-muted">{t(texts[step])}</p>
+        <p className="text-[15px] text-text-secondary">{t(texts[step])}</p>
       </div>
       {step === 0 && (
         <div className="space-y-2.5">

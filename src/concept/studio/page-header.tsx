@@ -21,7 +21,7 @@ export function PageHeader({ title, subtitle, actions, back }: PageHeaderProps) 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-[26px] font-semibold leading-tight tracking-tight sm:text-3xl">{title}</h1>
-          {subtitle && <p className="mt-1 text-[15px] text-eko-muted">{subtitle}</p>}
+          {subtitle && <p className="mt-1 text-[15px] text-text-secondary">{subtitle}</p>}
         </div>
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>

@@ -28,7 +28,7 @@ export function DomainSection() {
 function Off() {
   return (
     <Card className="space-y-3 p-4">
-      <p className="text-sm text-eko-muted">{t("domain.off")}</p>
+      <p className="text-sm text-text-secondary">{t("domain.off")}</p>
       <ButtonLink href="/studio/more/features" variant="secondary" icon={<Globe size={18} />}>{t("domain.switchOn")}</ButtonLink>
     </Card>
   );
@@ -49,7 +49,7 @@ function Start({ live }: { live: boolean }) {
   };
   return (
     <Card className="space-y-3 p-4">
-      <p className="text-sm text-eko-muted">{t("domain.intro")}</p>
+      <p className="text-sm text-text-secondary">{t("domain.intro")}</p>
       <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); void connect(); }}>
         <Field label={t("domain.label")} hint={problem ?? t("domain.hint")}>
           <TextInput value={host} onChange={(event) => setHost(event.target.value)} placeholder={t("domain.placeholder")} autoCapitalize="none" autoComplete="off" spellCheck={false} aria-invalid={!!problem} />
@@ -86,11 +86,11 @@ function Connected({ connection, live }: { connection: DomainConnection; live: b
           <CopyField label={t("domain.record.type")} value={record.type} />
           <CopyField label={t("domain.record.name")} value={record.name} />
           <CopyField label={t("domain.record.value")} value={record.value} />
-          <p className="text-xs text-eko-muted">{t("domain.record.wait")}</p>
+          <p className="text-xs text-text-secondary">{t("domain.record.wait")}</p>
         </div>
       )}
       <Steps status={connection.status} />
-      {connection.status === "secure" && <p className="text-sm text-eko-muted">{t("domain.live", { host: connection.host })}</p>}
+      {connection.status === "secure" && <p className="text-sm text-text-secondary">{t("domain.live", { host: connection.host })}</p>}
       <div className="flex flex-wrap gap-2">
         {connection.status !== "secure" && <Button variant="secondary" disabled={busy} icon={busy ? <Loader2 size={18} className="animate-spin" /> : undefined} onClick={recheck}>{t("domain.check")}</Button>}
         <Button variant="ghost" onClick={remove}>{t("domain.remove")}</Button>
@@ -108,10 +108,10 @@ function Steps({ status }: { status: DomainStatus }) {
         const Icon = done ? CheckCircle2 : Circle;
         return (
           <li key={step} aria-current={index === current ? "step" : undefined} className="flex items-start gap-2.5 text-sm">
-            <Icon size={18} className={done ? "mt-0.5 shrink-0 text-eko-accent" : index === current ? "mt-0.5 shrink-0 text-eko-warn" : "mt-0.5 shrink-0 text-eko-muted"} />
+            <Icon size={18} className={done ? "mt-0.5 shrink-0 text-action" : index === current ? "mt-0.5 shrink-0 text-warning" : "mt-0.5 shrink-0 text-text-secondary"} />
             <span>
               <span className={index === current ? "font-semibold" : ""}>{t(`domain.status.${step}`)}</span>
-              {index === current && status !== "secure" && <span className="block text-eko-muted">{t(`domain.status.${step}.text`)}</span>}
+              {index === current && status !== "secure" && <span className="block text-text-secondary">{t(`domain.status.${step}.text`)}</span>}
             </span>
           </li>
         );

@@ -46,9 +46,9 @@ export function OverviewSection() {
       <Card className="space-y-4 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-sm text-eko-muted">{t(`finance.span.${period}`)}</p>
+            <p className="text-sm text-text-secondary">{t(`finance.span.${period}`)}</p>
             <p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight">{formatMoney(current.revenue)}</p>
-            <p className="mt-1 text-sm text-eko-muted">{t("finance.revenueBefore", { amount: formatMoney(previous.revenue), when })}</p>
+            <p className="mt-1 text-sm text-text-secondary">{t("finance.revenueBefore", { amount: formatMoney(previous.revenue), when })}</p>
           </div>
           <Delta current={current.revenue} previous={previous.revenue} />
         </div>
@@ -59,24 +59,24 @@ export function OverviewSection() {
               labels={chartLabels}
               data={series.current.map((value, i) => ({ current: value, previous: series.previous[i] ?? 0 }))}
             />
-            <p className="text-xs text-eko-muted">{t("finance.legend", { when })}</p>
+            <p className="text-xs text-text-secondary">{t("finance.legend", { when })}</p>
           </>
         )}
       </Card>
       {gift + packages > 0 && (
         <Card className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 p-5">
           <div>
-            <p className="text-sm text-eko-muted">{t("finance.prepaidTitle")}</p>
+            <p className="text-sm text-text-secondary">{t("finance.prepaidTitle")}</p>
             <p className="text-2xl font-semibold tabular-nums tracking-tight">{formatMoney(gift + packages)}</p>
           </div>
-          <p className="max-w-md text-sm text-eko-muted">{t("finance.prepaidText", { gift: formatMoney(gift), packages: formatMoney(packages) })}</p>
+          <p className="max-w-md text-sm text-text-secondary">{t("finance.prepaidText", { gift: formatMoney(gift), packages: formatMoney(packages) })}</p>
         </Card>
       )}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Section title={t("finance.occupancy")}>
           <Card className="space-y-4 p-5">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm text-eko-muted">{period === "year" ? t("finance.last90") : t("finance.occupancyNote")}</p>
+              <p className="text-sm text-text-secondary">{period === "year" ? t("finance.last90") : t("finance.occupancyNote")}</p>
               <Delta current={overview.occupancy.current.all} previous={overview.occupancy.previous.all} />
             </div>
             <CompareBars
@@ -86,14 +86,14 @@ export function OverviewSection() {
                 label: person.name,
                 value: person.value,
                 previous: overview.occupancy.previous.byStaff[i].value,
-                tone: person.id === "anna" ? "bg-eko-anna" : "bg-eko-erik",
+                tone: person.id === "anna" ? "bg-staff-1" : "bg-staff-2",
               }))}
             />
           </Card>
         </Section>
         <Section title={t("finance.treatments")}>
           <Card className="space-y-4 p-5">
-            <p className="text-sm text-eko-muted">{period === "year" ? t("finance.last90") : t("finance.treatmentsNote")}</p>
+            <p className="text-sm text-text-secondary">{period === "year" ? t("finance.last90") : t("finance.treatmentsNote")}</p>
             <CompareBars
               format={(visits) => tc("finance.visits", visits)}
               data={overview.treatments.map((row) => ({ id: row.id, label: findService(state, row.id)?.name ?? row.id, value: row.visits, previous: row.previous }))}
@@ -104,7 +104,7 @@ export function OverviewSection() {
           <Card className="grid grid-cols-2 gap-4 p-5">
             <Count label={t("finance.cancelled")} current={current.cancelled} previous={previous.cancelled} lowerIsBetter />
             <Count label={t("finance.noShows")} current={current.noShows} previous={previous.noShows} lowerIsBetter />
-            <p className="col-span-2 text-xs text-eko-muted">{t("finance.compared", { when })}</p>
+            <p className="col-span-2 text-xs text-text-secondary">{t("finance.compared", { when })}</p>
           </Card>
         </Section>
         <Section title={t("finance.customers")}>
@@ -114,12 +114,12 @@ export function OverviewSection() {
               <Count label={t("finance.returning")} current={current.returning} previous={previous.returning} />
             </div>
             {customers > 0 && (
-              <div role="img" aria-label={t("finance.customers")} className="flex h-2 overflow-hidden rounded-full bg-eko-sunken">
-                <div className="bg-eko-accent" style={{ width: `${(current.returning / customers) * 100}%` }} />
-                <div className="bg-eko-erik" style={{ width: `${(current.newCustomers / customers) * 100}%` }} />
+              <div role="img" aria-label={t("finance.customers")} className="flex h-2 overflow-hidden rounded-full bg-surface-2">
+                <div className="bg-action" style={{ width: `${(current.returning / customers) * 100}%` }} />
+                <div className="bg-staff-2" style={{ width: `${(current.newCustomers / customers) * 100}%` }} />
               </div>
             )}
-            <p className="text-xs text-eko-muted">{t("finance.customersNote", { when })}</p>
+            <p className="text-xs text-text-secondary">{t("finance.customersNote", { when })}</p>
           </Card>
         </Section>
       </div>
@@ -130,7 +130,7 @@ export function OverviewSection() {
 function Count({ label, current, previous, lowerIsBetter }: { label: string; current: number; previous: number; lowerIsBetter?: boolean }) {
   return (
     <div>
-      <p className="text-sm text-eko-muted">{label}</p>
+      <p className="text-sm text-text-secondary">{label}</p>
       <div className="mt-1 flex items-center gap-2">
         <span className="text-2xl font-semibold tabular-nums tracking-tight">{current}</span>
         <Delta current={current} previous={previous} count lowerIsBetter={lowerIsBetter} />

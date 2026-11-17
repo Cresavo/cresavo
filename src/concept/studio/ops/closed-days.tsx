@@ -23,14 +23,14 @@ export function ClosedDaysSection() {
       title={t("closed.title")}
       action={<Button size="sm" variant="secondary" icon={<Plus size={16} />} onClick={() => setAdding(true)}>{t("closed.add")}</Button>}
     >
-      <Card className="divide-y divide-eko-line">
+      <Card className="divide-y divide-border">
         {upcoming.length ? (
           upcoming.map((c) => (
             <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-              <CalendarOff size={16} className="shrink-0 text-eko-muted" />
+              <CalendarOff size={16} className="shrink-0 text-text-secondary" />
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{formatDayLong(c.date)}</span>
-                <span className="block truncate text-eko-muted">{c.name}</span>
+                <span className="block truncate text-text-secondary">{c.name}</span>
               </span>
               <IconButton
                 label={t("closed.reopen", { day: formatDayLong(c.date) })}
@@ -44,7 +44,7 @@ export function ClosedDaysSection() {
             </div>
           ))
         ) : (
-          <p className="px-4 py-4 text-sm text-eko-muted">{t("closed.none")}</p>
+          <p className="px-4 py-4 text-sm text-text-secondary">{t("closed.none")}</p>
         )}
       </Card>
       {adding && <CloseSheet onClose={() => setAdding(false)} />}

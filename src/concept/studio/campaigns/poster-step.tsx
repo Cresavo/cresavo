@@ -47,7 +47,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
           className="w-full"
           options={FORMATS.map((value) => ({ value, label: t(`campaigns.format.${value}`) }))}
         />
-        <div className={cx("mx-auto w-full overflow-hidden rounded-2xl shadow-card", format === "post" ? "max-w-sm" : "max-w-[17rem]")}>
+        <div className={cx("mx-auto w-full overflow-hidden rounded-lg", format === "post" ? "max-w-sm" : "max-w-[17rem]")}>
           <PosterView ref={svg} source={source} salon={state.salon} format={format} />
         </div>
         <Button variant="secondary" className="w-full" icon={<Download size={18} />} onClick={download}>
@@ -65,9 +65,9 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
                 aria-checked={draft.style === style}
                 aria-label={t(`campaigns.style.${style}`)}
                 onClick={() => onChange({ style })}
-                className={cx("w-[72px] shrink-0 space-y-1 rounded-xl p-1 text-center text-xs ring-2", draft.style === style ? "ring-eko-accent" : "ring-transparent hover:ring-eko-line")}
+                className={cx("w-[72px] shrink-0 space-y-1 rounded-md p-1 text-center text-xs ring-2", draft.style === style ? "ring-action" : "ring-transparent hover:ring-border")}
               >
-                <span className="pointer-events-none block overflow-hidden rounded-lg">
+                <span className="pointer-events-none block overflow-hidden rounded-sm">
                   <PosterView source={{ ...source, poster: { ...poster, style } }} salon={state.salon} format="post" />
                 </span>
                 {t(`campaigns.style.${style}`)}
@@ -84,7 +84,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
                 aria-pressed={poster.image === image}
                 aria-label={t(image.includes("massage") ? "campaigns.photo.massage" : "campaigns.photo.salon")}
                 onClick={() => edit({ image })}
-                className={cx("h-16 w-24 overflow-hidden rounded-xl bg-cover bg-center ring-2", poster.image === image ? "ring-eko-accent" : "ring-transparent hover:ring-eko-line")}
+                className={cx("h-16 w-24 overflow-hidden rounded-md bg-cover bg-center ring-2", poster.image === image ? "ring-action" : "ring-transparent hover:ring-border")}
                 style={{ backgroundImage: `url(${image})` }}
               />
             ))}

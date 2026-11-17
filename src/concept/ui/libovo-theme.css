@@ -1,0 +1,78 @@
+/* Brand kit v0.9 platform tokens: the one colour, radius and spacing source for
+   the platform shell (studio, landing, login, platform settings). Values are
+   copied 1:1 from design/brand/libovo-v0.9/tokens/libovo.tokens.css; only the
+   form differs: every colour is one light-dark() pair, so `color-scheme`
+   alone picks the theme. <html data-theme="light|dark"> pins it (set before
+   first paint by THEME_SCRIPT in theme.ts; "system" or no attribute
+   follows the OS). Provisional until brand clearance.
+
+   Tenant pages (.booking-theme) re-declare the non-semantic tokens in
+   tenant-theme.css and never inherit plum or apricot. */
+
+:root {
+  color-scheme: light dark;
+
+  --brand-plum: #50364b;
+  --brand-apricot: #f2b184;
+
+  --ui-bg: light-dark(#faf7f3, #18141e);
+  --ui-surface: light-dark(#ffffff, #25202a);
+  --ui-surface-2: light-dark(#f4efeb, #302936);
+  --ui-text: light-dark(#2c242e, #fbf5f0);
+  --ui-text-secondary: light-dark(#6f666f, #beb4bd);
+  --ui-border: light-dark(#e7ddd9, #4d414f);
+  --ui-input-border: light-dark(#897885, #9b8c9c);
+  --ui-action: light-dark(#50364b, #f2b184);
+  --ui-action-hover: light-dark(#66445e, #ffc29b);
+  --ui-action-text: light-dark(#ffffff, #211820);
+  --ui-focus: light-dark(#ac7395, #f5bd97);
+  /* Not in the kit (see docs/design/LIBOVO.md, deviations): a quiet tint of
+     the action colour for selected rows, chips and nav items, and two staff
+     identity colours that are neither brand nor semantic. */
+  --ui-action-bg: color-mix(in srgb, var(--ui-action) 10%, var(--ui-surface));
+  --ui-staff-1: light-dark(#3d6b8a, #a8c7dd);
+  --ui-staff-1-bg: light-dark(#e4edf3, #22303b);
+  --ui-staff-2: light-dark(#5f6b2e, #c5d394);
+  --ui-staff-2-bg: light-dark(#eef0e0, #2e3320);
+
+  --font-ui: var(--font-inter, "Inter"), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --touch-target: 44px;
+  --content-max: 1160px;
+}
+
+/* Semantic colours mean the same everywhere and no tenant palette may change
+   them. They are declared on the tenant root too, because light-dark() is
+   resolved where a custom property is declared: a tenant page has its own
+   colour scheme, which can differ from the studio's. */
+:root,
+.booking-theme {
+  --ui-success: light-dark(#266848, #b4f0c8);
+  --ui-success-bg: light-dark(#e6f2ea, #183a2a);
+  --ui-warning: light-dark(#835115, #ffd59a);
+  --ui-warning-bg: light-dark(#fff0d7, #402d19);
+  --ui-danger: light-dark(#9a3141, #ffb3bb);
+  --ui-danger-bg: light-dark(#fff0ef, #46272e);
+  --ui-info: light-dark(#315a99, #b5cdff);
+  --ui-info-bg: light-dark(#ebf1ff, #253557);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}

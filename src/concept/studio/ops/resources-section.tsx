@@ -23,27 +23,27 @@ export function ResourcesSection() {
       title={t("resources.title")}
       action={<Button size="sm" variant="secondary" icon={<Plus size={16} />} onClick={() => setEditing("new")}>{t("resources.add")}</Button>}
     >
-      <Card className="divide-y divide-eko-line">
+      <Card className="divide-y divide-border">
         {state.resources.length ? (
           state.resources.map((r) => {
             const Icon = ICONS[r.kind];
             const uses = state.services.filter((s) => s.resourceIds?.includes(r.id)).length;
             return (
               <div key={r.id} className="flex items-center gap-3 px-4 py-3 text-sm">
-                <Icon size={18} className="shrink-0 text-eko-muted" />
+                <Icon size={18} className="shrink-0 text-text-secondary" />
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">{r.name}</span>
-                  <span className="block text-eko-muted">{t(`resources.kind.${r.kind}`)} · {tc("resources.usedBy", uses)}</span>
+                  <span className="block text-text-secondary">{t(`resources.kind.${r.kind}`)} · {tc("resources.usedBy", uses)}</span>
                 </span>
                 <Button size="sm" variant="ghost" icon={<Pencil size={16} />} onClick={() => setEditing(r)}>{t("common.edit")}</Button>
               </div>
             );
           })
         ) : (
-          <p className="px-4 py-4 text-sm text-eko-muted">{t("resources.none")}</p>
+          <p className="px-4 py-4 text-sm text-text-secondary">{t("resources.none")}</p>
         )}
       </Card>
-      <p className="text-xs text-eko-muted">{t("resources.hint")}</p>
+      <p className="text-xs text-text-secondary">{t("resources.hint")}</p>
       {editing && <ResourceSheet resource={editing === "new" ? null : editing} onClose={() => setEditing(null)} />}
     </Section>
   );
@@ -100,7 +100,7 @@ function ResourceSheet({ resource, onClose }: { resource: Resource | null; onClo
                 <Chip key={s.id} active={users.has(s.id)} onClick={() => toggle(s.id)}>{s.name}</Chip>
               ))}
             </div>
-            <p className="text-xs text-eko-muted">{t("resources.usedForHint")}</p>
+            <p className="text-xs text-text-secondary">{t("resources.usedForHint")}</p>
           </div>
         )}
       </div>

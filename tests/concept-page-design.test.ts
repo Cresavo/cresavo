@@ -69,11 +69,11 @@ describe("design proposal", () => {
     const proposal = ask("make it calmer and more luxurious");
     if (proposal.kind !== "change") throw new Error(`expected a change, got ${proposal.kind}`);
     expect(proposal.action.type).toBe("page/set");
-    expect(proposal.preview?.before).toEqual(DEFAULT_PAGE);
+    expect(proposal.preview?.before).toEqual(state.page);
     expect(proposal.preview?.after.theme.fonts).toBe("elegant");
     expect(proposal.rows.map((row) => row.label)).toEqual(["colours", "fonts"]);
-    expect(proposal.rows[0]).toMatchObject({ before: "Default", after: "Calm sand" });
-    expect(state.page).toEqual(DEFAULT_PAGE);
+    expect(proposal.rows[0]).toMatchObject({ before: "Forest green", after: "Calm sand" });
+    expect(state.page.theme.colors).toEqual(PALETTES.forest);
   });
 
   it("lists the section order for 'put reviews first'", () => {
@@ -97,7 +97,7 @@ describe("design proposal", () => {
     expect(applied.page.theme.fonts).toBe("elegant");
     expect(applied.log[0]).toMatchObject({ type: "page/set", actor: "ai", source: "assistant", summary: "Changed the booking page: colours, fonts, corners" });
     const undone = undoEntry(applied, applied.log[0].id);
-    expect(undone.page).toEqual(DEFAULT_PAGE);
+    expect(undone.page).toEqual(state.page);
   });
 });
 
@@ -112,7 +112,7 @@ describe("page actions", () => {
   });
 
   it("changes nothing when nothing changed", () => {
-    expect(reduce(state, { type: "page/set", page: DEFAULT_PAGE })).toBe(state);
+    expect(reduce(state, { type: "page/set", page: state.page })).toBe(state);
   });
 
   it("picks a subdomain that then resolves to the business", () => {
@@ -166,10 +166,11 @@ describe("own domain module and demo data", () => {
     expect(monthlyTotal(["domain"])).toBeGreaterThan(monthlyTotal([]));
   });
 
-  it("starts with the default page and no domain, in a new demo version", () => {
-    expect(state.page).toEqual(DEFAULT_PAGE);
+  it("starts with the default page in Salong Eko's own colours and no domain, in a new demo version", () => {
+    expect(state.page).toEqual({ ...DEFAULT_PAGE, theme: { ...DEFAULT_PAGE.theme, colors: PALETTES.forest } });
+    expect(DEFAULT_PAGE.theme.colors).toBeNull();
     expect(state.domain).toBeNull();
-    expect(DEMO_VERSION).toBe(14);
+    expect(DEMO_VERSION).toBe(15);
   });
 });
 

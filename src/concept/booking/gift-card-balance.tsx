@@ -20,7 +20,7 @@ export function GiftCardBalance({ state, compact }: { state: DemoState; compact?
 
   const body = (
     <Card className="space-y-3 p-4">
-      <p className="text-sm text-eko-muted">{t("giftcards.checkHelp")}</p>
+      <p className="text-sm text-text-secondary">{t("giftcards.checkHelp")}</p>
       <form
         className="space-y-3"
         onSubmit={(event) => {
@@ -38,24 +38,24 @@ export function GiftCardBalance({ state, compact }: { state: DemoState; compact?
       {asked !== null && (
         <div role="status" aria-live="polite">
           {card ? (
-            <div className="rounded-xl bg-eko-accent-soft px-3.5 py-3">
-              <p className="text-lg font-semibold tabular-nums text-eko-accent">{t("giftcards.checkResult", { amount: formatMoney(balanceOf(state, card)) })}</p>
-              <p className="text-sm text-eko-muted">{t("giftcards.checkOf", { amount: formatMoney(card.amount) })}</p>
+            <div className="rounded-md bg-action-bg px-3.5 py-3">
+              <p className="text-lg font-semibold tabular-nums text-action">{t("giftcards.checkResult", { amount: formatMoney(balanceOf(state, card)) })}</p>
+              <p className="text-sm text-text-secondary">{t("giftcards.checkOf", { amount: formatMoney(card.amount) })}</p>
             </div>
           ) : (
-            <p className="text-sm text-eko-danger">{t("giftcards.checkNotFound")}</p>
+            <p className="text-sm text-danger">{t("giftcards.checkNotFound")}</p>
           )}
         </div>
       )}
-      {latest && <p className="rounded-xl bg-eko-sunken px-3.5 py-3 text-sm text-eko-muted">{t("giftcards.checkDemo", { code: latest.code })}</p>}
+      {latest && <p className="rounded-md bg-surface-2 px-3.5 py-3 text-sm text-text-secondary">{t("giftcards.checkDemo", { code: latest.code })}</p>}
     </Card>
   );
   if (!compact) return <Section title={t("giftcards.checkTitle")}>{body}</Section>;
   return (
     <details className="group">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-2xl bg-eko-surface px-4 font-medium ring-1 ring-eko-line/70 [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg bg-surface px-4 font-medium ring-1 ring-border/70 [&::-webkit-details-marker]:hidden">
         {t("giftcards.checkTitle")}
-        <span aria-hidden className="text-eko-muted transition-transform group-open:rotate-45">+</span>
+        <span aria-hidden className="text-text-secondary transition-transform group-open:rotate-45">+</span>
       </summary>
       <div className="mt-3">{body}</div>
     </details>

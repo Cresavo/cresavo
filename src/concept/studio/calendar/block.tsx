@@ -36,14 +36,14 @@ export function BookingBlock({ booking, top, height, compact, misfit, onOpen }: 
       onClick={onOpen}
       style={{ top, height }}
       className={cx(
-        "absolute inset-x-1 flex flex-col justify-start overflow-hidden rounded-lg border-l-[3px] px-2 py-1 text-left text-xs leading-tight transition-shadow hover:shadow-card",
-        anna ? "border-eko-anna bg-eko-anna-soft" : "border-eko-erik bg-eko-erik-soft",
-        misfit && "ring-2 ring-eko-danger",
+        "absolute inset-x-1 flex flex-col justify-start overflow-hidden rounded-sm border-l-[3px] px-2 py-1 text-left text-xs leading-tight transition-colors hover:border-l-[5px]",
+        anna ? "border-staff-1 bg-staff-1-bg" : "border-staff-2 bg-staff-2-bg",
+        misfit && "ring-2 ring-danger",
       )}
     >
       <span className="block truncate font-semibold">{customer ? (compact ? customer.firstName : fullName(customer)) : ""}</span>
       {height > 34 && (
-        <span className="block truncate text-eko-muted">
+        <span className="block truncate text-text-secondary">
           {formatTime(booking.start)}
           {!compact && ` · ${service?.name}`}
         </span>

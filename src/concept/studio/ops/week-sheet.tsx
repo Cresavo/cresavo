@@ -52,7 +52,7 @@ export function WeekSheet({ person, onClose }: { person: Staff; onClose: () => v
             </DayRow>
           );
         })}
-        {!valid && <p className="text-sm text-eko-danger">{t("hours.invalid")}</p>}
+        {!valid && <p className="text-sm text-danger">{t("hours.invalid")}</p>}
       </div>
     </Sheet>
   );

@@ -43,17 +43,17 @@ export function NextCustomer({ staffId, onOpen }: { staffId?: StaffId; onOpen: (
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center justify-between bg-eko-accent-soft/70 px-5 py-2.5 text-sm">
-        <span className="font-medium text-eko-accent">{isToday ? t("next.title") : t("next.titleLater")}</span>
-        <span className="font-semibold tabular-nums text-eko-accent">{when}</span>
+      <div className="flex items-center justify-between bg-action-bg/70 px-5 py-2.5 text-sm">
+        <span className="font-medium text-action">{isToday ? t("next.title") : t("next.titleLater")}</span>
+        <span className="font-semibold tabular-nums text-action">{when}</span>
       </div>
       <div className="space-y-4 p-5">
         <div className="flex items-center gap-4">
           <Avatar name={fullName(customer)} size="lg" />
           <div className="min-w-0">
             <p className="truncate text-lg font-semibold tracking-tight">{fullName(customer)}</p>
-            <p className="truncate text-sm text-eko-muted">{service?.name} · {formatDuration(booking.duration)}</p>
-            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-eko-muted">
+            <p className="truncate text-sm text-text-secondary">{service?.name} · {formatDuration(booking.duration)}</p>
+            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-text-secondary">
               <StaffDot staffId={staff.id} />
               {t("next.with", { name: staff.firstName, time: formatTime(booking.start) })}
             </p>
@@ -64,10 +64,10 @@ export function NextCustomer({ staffId, onOpen }: { staffId?: StaffId; onOpen: (
           {stats?.lastVisit && <Badge>{t("next.lastVisit", { ago: agoText(stats.lastVisit, today) })}</Badge>}
           {customer.tags.map((tag) => <Badge key={tag} tone={tag === "Diabetes" ? "warn" : "neutral"}>{tag}</Badge>)}
         </div>
-        {customer.note && <p className="rounded-xl bg-eko-warn-soft px-3.5 py-2.5 text-sm">{customer.note}</p>}
+        {customer.note && <p className="rounded-md bg-warning-bg px-3.5 py-2.5 text-sm">{customer.note}</p>}
         {advice && (
-          <p className="text-sm text-eko-muted">
-            <span className="font-medium text-eko-ink">{t("next.lastAdvice")} </span>
+          <p className="text-sm text-text-secondary">
+            <span className="font-medium text-text">{t("next.lastAdvice")} </span>
             {advice}
           </p>
         )}

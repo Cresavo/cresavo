@@ -20,7 +20,7 @@ export function StaffSection({ state, variant }: { state: DemoState; variant: st
       {variant === "names" ? (
         <ul className="flex flex-wrap gap-2">
           {state.staff.map((person) => (
-            <li key={person.id} className="flex items-center gap-2 rounded-full bg-eko-surface py-1 pl-1 pr-4 text-sm font-medium ring-1 ring-eko-line">
+            <li key={person.id} className="flex items-center gap-2 rounded-full bg-surface py-1 pl-1 pr-4 text-sm font-medium ring-1 ring-border">
               <Avatar name={`${person.firstName} ${person.lastName}`} size="sm" />
               {person.firstName} {person.lastName}
             </li>
@@ -34,7 +34,7 @@ export function StaffSection({ state, variant }: { state: DemoState; variant: st
                 <Avatar name={`${person.firstName} ${person.lastName}`} size="lg" />
                 <div className="min-w-0">
                   <p className="font-semibold">{person.firstName} {person.lastName}</p>
-                  <p className="text-sm text-eko-muted">{person.title}</p>
+                  <p className="text-sm text-text-secondary">{person.title}</p>
                   <p className="mt-1 text-sm">{person.bio}</p>
                 </div>
               </Card>
@@ -54,7 +54,7 @@ export function GallerySection({ variant }: { variant: string }) {
     <Section title={t("booking.gallery")}>
       <ul className={cx("grid gap-2", strip ? "grid-cols-3" : "grid-cols-2")}>
         {GALLERY.map((photo, index) => (
-          <li key={photo} className={cx("relative overflow-hidden rounded-2xl bg-eko-sunken", strip ? "aspect-[3/4]" : index === 0 ? "col-span-2 aspect-[2/1]" : "aspect-square")}>
+          <li key={photo} className={cx("relative overflow-hidden rounded-lg bg-surface-2", strip ? "aspect-[3/4]" : index === 0 ? "col-span-2 aspect-[2/1]" : "aspect-square")}>
             <Image src={PHOTOS[photo]} alt={t(`page.photo.${photo}`)} fill sizes="(min-width: 1024px) 480px, 50vw" className="object-cover" />
           </li>
         ))}
@@ -72,14 +72,14 @@ export function FaqSection({ state, variant }: { state: DemoState; variant: stri
   ];
   return (
     <Section title={t("booking.faq")}>
-      <Card className="divide-y divide-eko-line">
+      <Card className="divide-y divide-border">
         {items.map((item) => (
           <details key={item.q} open={variant === "open"} className="group px-4">
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-3 font-medium [&::-webkit-details-marker]:hidden">
               {item.q}
-              <span aria-hidden className="text-eko-muted transition-transform group-open:rotate-45">+</span>
+              <span aria-hidden className="text-text-secondary transition-transform group-open:rotate-45">+</span>
             </summary>
-            <p className="pb-4 text-[15px] text-eko-muted">{item.a}</p>
+            <p className="pb-4 text-[15px] text-text-secondary">{item.a}</p>
           </details>
         ))}
       </Card>
@@ -92,7 +92,7 @@ export function InstagramSection({ handle, variant }: { handle: string; variant:
   const href = `https://www.instagram.com/${handle}/`;
   return variant === "link" ? (
     <p className="text-sm">
-      <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 font-medium text-eko-accent underline-offset-2 hover:underline">
+      <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 font-medium text-action underline-offset-2 hover:underline">
         <AtSign size={16} />
         {t("booking.instagram.link", { handle })}
       </a>
