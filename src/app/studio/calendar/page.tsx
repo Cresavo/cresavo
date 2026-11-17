@@ -9,6 +9,7 @@ import { t } from "@/concept/i18n";
 import { formatDayLong, formatDayMonth, formatNumber } from "@/concept/i18n/format";
 import { utilisation } from "@/concept/selectors";
 import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-sheets";
+import { CalendarFilter } from "@/concept/studio/calendar/filter";
 import { DayGrid } from "@/concept/studio/calendar/day-grid";
 import { WeekAgenda } from "@/concept/studio/calendar/week-agenda";
 import { WeekGrid } from "@/concept/studio/calendar/week-grid";
@@ -17,7 +18,7 @@ import { useRole } from "@/concept/ops/role";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Button, IconButton } from "@/concept/ui/button";
-import { Chip, Segmented } from "@/concept/ui/controls";
+import { Segmented } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
 
 type View = "day" | "week";
@@ -72,24 +73,18 @@ export default function CalendarPage() {
               { value: "week", label: t("calendar.week") },
             ]}
           />
-          {!viewer && (
-            <div className="no-scrollbar flex gap-2 overflow-x-auto">
-              <Chip active={staffFilter === "all"} onClick={() => setStaffFilter("all")}>{t("calendar.everyone")}</Chip>
-              {state.staff.map((s) => (
-                <Chip key={s.id} active={staffFilter === s.id} onClick={() => setStaffFilter(s.id)}>{s.firstName}</Chip>
-              ))}
-            </div>
+          {(!viewer || state.resources.length > 0) && (
+            <CalendarFilter
+              staff={viewer ? [] : state.staff}
+              staffId={staffFilter}
+              onStaff={setStaffFilter}
+              rooms={state.resources}
+              roomId={room}
+              onRoom={setResourceId}
+            />
           )}
         </div>
       </div>
-      {state.resources.length > 0 && (
-        <div className="no-scrollbar -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="group" aria-label={t("calendar.rooms")}>
-          <Chip active={!room} onClick={() => setResourceId(undefined)}>{t("calendar.allRooms")}</Chip>
-          {state.resources.map((r) => (
-            <Chip key={r.id} active={room === r.id} onClick={() => setResourceId(r.id)}>{r.name}</Chip>
-          ))}
-        </div>
-      )}
 
       {view === "day" ? (
         openingFor(state.salon, date) ? (

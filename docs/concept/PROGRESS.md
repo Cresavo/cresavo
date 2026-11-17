@@ -1,5 +1,12 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Claude Code · UX findings #17, #19, #20
+
+- **Booking page (#17)**: the treatment list is hidden while a booking is under way (one next action); it returns on the first screen. [before 390](screens/ux-17-before-390.png), [after 390](screens/ux-17-after-390.png), [after 1280](screens/ux-17-after-1280.png).
+- **Due back (#19)**: one small send icon per row instead of 22 "Send time suggestion" buttons. [before 390](screens/ux-19-before-390.png), [after 390](screens/ux-19-after-390.png), [after 1280](screens/ux-19-after-1280.png).
+- **Calendar (#20)**: staff and room filters merged into one Filter button with a sheet. [before 390](screens/ux-20-before-390.png), [after 390](screens/ux-20-after-390.png), [sheet 390](screens/ux-20-sheet-390.png), [after 1280](screens/ux-20-after-1280.png).
+- Try: `/boka/salong-eko` (ask for a time), `/studio/customers/due-back`, `/studio/calendar`. #18 (command box placement) left for owner feedback. Concept e2e: 22 passed.
+
 ## 2026-11-17 · Claude Code · polish pass: calm, consistent, accessible
 
 **What I changed** (less is more; nothing new added)

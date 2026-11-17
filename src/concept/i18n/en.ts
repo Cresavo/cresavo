@@ -1448,6 +1448,8 @@ const messages = {
   "calendar.closedFor": "The salon is closed this day: {name}.",
   "calendar.rooms": "Rooms",
   "calendar.allRooms": "All rooms",
+  "calendar.filter": "Filter",
+  "calendar.staff": "Staff",
   "booking.room": "Room",
 
   "resources.title": "Rooms and chairs",
