@@ -6,7 +6,9 @@
 priority over platform keys, remove/replace key, Fast/Smart per-task selector,
 persistent usage with task/month totals. Command interpretation now requests one
 structured proposal tool call and validates it before the existing approval UI;
-rules remain available on provider/schema failure and with no keys. Offline evals
+rules remain available on provider/schema failure and with no keys. The command
+box refreshes provider availability immediately after settings changes, including
+campaign commands. Offline evals
 ignore saved keys. Eight new edge cases cover every task (36 total).
 
 **Try it**: `/studio/more/data`. Set `CONCEPT_KEY_SECRET` (32+ private random
