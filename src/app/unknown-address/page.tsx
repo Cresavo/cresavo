@@ -1,0 +1,14 @@
+import type { Metadata } from "next";
+import { UnknownAddress } from "@/concept/booking/unknown-address";
+import "../studio/studio.css";
+
+export const metadata: Metadata = { title: "No booking page here", robots: { index: false } };
+
+export default async function Page({ searchParams }: { searchParams: Promise<{ host?: string }> }) {
+  const { host } = await searchParams;
+  return (
+    <div className="studio-root">
+      <UnknownAddress host={host?.slice(0, 100)} />
+    </div>
+  );
+}
