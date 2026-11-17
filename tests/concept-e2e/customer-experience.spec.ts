@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect, test, type Page } from "@playwright/test";
+import { BRAND } from "../../src/concept/brand";
 import { createDemoState } from "../../src/concept/data/generate";
 import type { DemoState } from "../../src/concept/data/types";
 
@@ -117,7 +118,7 @@ test("copy clean share/widget code and book inside a cross-origin iframe", async
   await new Promise<void>(resolve => host.listen(0, "127.0.0.1", resolve));
   try {
     await page.goto(`http://127.0.0.1:${(host.address() as AddressInfo).port}`);
-    const frame = page.frameLocator('iframe[title="Book with Flerdo"]');
+    const frame = page.frameLocator(`iframe[title="Book with ${BRAND.name}"]`);
     await frame.getByPlaceholder(/^For example: .+ some afternoon next week$/).fill("sports massage next available with Erik");
     await frame.getByPlaceholder(/^For example: .+ some afternoon next week$/).press("Enter");
     await frame.getByRole("button", { name: /until \d\d:\d\d/ }).first().click();

@@ -79,7 +79,7 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-2 border-b border-border bg-surface px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-action text-on-action"><Sparkles size={18} /></span>
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action text-on-action"><Sparkles size={18} /></span>
         <div className="min-w-0 flex-1 leading-tight">
           <h2 className="font-semibold tracking-tight">{t("assistant.title")}</h2>
           <p className="truncate text-xs text-text-secondary">{aiReady ? t("assistant.mode.ai") : t("assistant.mode.rules")}</p>
@@ -122,7 +122,7 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
       </div>
 
       <form onSubmit={submit} className="border-t border-border bg-surface px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-        <div className="flex items-end gap-1.5 rounded-lg bg-surface-2/70 p-1.5 pl-3.5 ring-1 ring-border/70 focus-within:ring-2 focus-within:ring-action">
+        <div className="flex items-end gap-1.5 rounded-md bg-surface p-1.5 pl-3.5 ring-1 ring-input-border focus-within:ring-2 focus-within:ring-focus">
           <textarea
             ref={input}
             rows={1}
@@ -135,7 +135,7 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
             placeholder={speech.listening ? t("command.listening") : t("assistant.placeholder")}
             aria-label={t("assistant.message")}
             enterKeyHint="send"
-            className="bare-input max-h-32 min-h-9 flex-1 resize-none bg-transparent py-2 text-[15px] placeholder:text-text-secondary"
+            className="bare-input max-h-32 min-h-9 flex-1 resize-none bg-transparent py-2 text-base placeholder:text-text-secondary"
           />
           {speech.supported && (
             <button
@@ -144,12 +144,12 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
               title={t("command.voice")}
               aria-pressed={speech.listening}
               onClick={speech.toggle}
-              className={cx("flex size-9 shrink-0 items-center justify-center rounded-md", speech.listening ? "animate-pulse bg-action-bg text-action" : "text-text-secondary hover:text-text")}
+              className={cx("flex size-10 shrink-0 items-center justify-center rounded-md", speech.listening ? "animate-pulse bg-action-bg text-action" : "text-text-secondary hover:text-text")}
             >
               <Mic size={18} />
             </button>
           )}
-          <button type="submit" aria-label={t("assistant.send")} title={t("assistant.send")} disabled={!text.trim()} className="flex size-9 shrink-0 items-center justify-center rounded-md bg-action text-on-action disabled:opacity-40">
+          <button type="submit" aria-label={t("assistant.send")} title={t("assistant.send")} disabled={!text.trim()} className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action text-on-action disabled:opacity-40">
             <ArrowUp size={18} />
           </button>
         </div>
@@ -214,7 +214,7 @@ const ANSWERS = new Set(["insight", "revenue", "customers", "stock"]);
 
 function Bubble({ source, text, children }: { source: "rules" | "ai"; text?: string; children?: ReactNode }) {
   return (
-    <div className="mr-4 space-y-3 rounded-lg rounded-bl-sm bg-surface p-3.5 ring-1 ring-border/70">
+    <div className="mr-4 space-y-3 rounded-lg rounded-bl-sm bg-surface p-3.5 ring-1 ring-border">
       <span className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold", source === "ai" ? "bg-action-bg text-action" : "bg-surface-2 text-text-secondary")}>
         {source === "ai" && <Sparkles size={11} />}
         {t(source === "ai" ? "assistant.source.ai" : "assistant.source.rules")}
@@ -229,7 +229,7 @@ function FollowUps({ items, onPick }: { items: string[]; onPick: (text: string) 
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item) => (
-        <button key={item} type="button" onClick={() => onPick(item)} className="min-h-9 rounded-full bg-surface px-3.5 py-1.5 text-left text-sm font-medium ring-1 ring-inset ring-border hover:bg-surface-2">
+        <button key={item} type="button" onClick={() => onPick(item)} className="min-h-11 rounded-full bg-surface px-3.5 py-1.5 text-left text-[15px] font-medium ring-1 ring-inset ring-border hover:bg-surface-2">
           {item}
         </button>
       ))}

@@ -21,18 +21,13 @@ const errors = new WeakMap<Page, string[]>();
 async function state(page: Page): Promise<DemoState> {
   return page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo")!));
 }
-/** The command box from tablet width; on phones the same request goes through the assistant panel. */
+/** Quick commands go through the assistant panel: the button on phones, Ctrl+K (the keyboard shortcut) from tablet width. */
 async function command(page: Page, text: string) {
-  if (page.viewportSize()!.width < 640) {
-    await page.getByRole("button", { name: `Ask ${ASSISTANT.name}`, exact: true }).locator("visible=true").click();
-    const message = page.getByRole("textbox", { name: "Message" });
-    await message.fill(text);
-    await message.press("Enter");
-    return;
-  }
-  const box = page.getByRole("textbox", { name: "Command box" });
-  await box.fill(text);
-  await box.press("Enter");
+  if (page.viewportSize()!.width < 640) await page.getByRole("button", { name: `Ask ${ASSISTANT.name}`, exact: true }).locator("visible=true").click();
+  else await page.keyboard.press("Control+K");
+  const message = page.getByRole("textbox", { name: "Message" });
+  await message.fill(text);
+  await message.press("Enter");
 }
 
 /** A booking tomorrow, and a free time that day to move it to. */
@@ -82,7 +77,7 @@ test("a customer books online and the booking appears in the studio", async ({ p
   await expect(page.getByText(/Nova Demo/).first()).toBeVisible();
 });
 
-test("the owner moves a booking with the command box and undoes it", async ({ page }) => {
+test("the owner moves a booking with a quick command and undoes it", async ({ page }) => {
   await page.goto("/studio");
   const { booking, date, start } = moveTarget(await state(page));
   const owner = fullName((await state(page)).customers.find(c => c.id === booking.customerId)!);

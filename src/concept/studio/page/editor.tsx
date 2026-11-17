@@ -51,8 +51,8 @@ export function PageEditor() {
             <SectionControls sections={draft.sections} instagram={draft.instagram} onChange={(sections) => change({ sections })} onInstagram={(instagram) => change({ instagram })} />
           </Block>
           <Block title={t("pageEditor.css.title")}><CssControls css={draft.css} onChange={(css) => change({ css })} /></Block>
-          <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 flex flex-wrap items-center gap-2 rounded-lg bg-surface p-3 shadow-sheet ring-1 ring-border lg:bottom-4">
-            <p className="min-w-0 flex-1 text-sm text-text-secondary">{dirty ? t("pageEditor.unsaved") : t("pageEditor.upToDate")}</p>
+          <div className="sticky bottom-[calc(8.5rem+env(safe-area-inset-bottom))] sm:bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 flex flex-wrap items-center gap-2 rounded-lg bg-surface p-3 shadow-sheet ring-1 ring-border lg:bottom-4">
+            <p className="min-w-0 basis-full text-sm text-text-secondary sm:flex-1 sm:basis-auto">{dirty ? t("pageEditor.unsaved") : t("pageEditor.upToDate")}</p>
             <Button variant="ghost" icon={<Undo2 size={18} />} disabled={!dirty} onClick={() => setDraft(state.page)}>{t("pageEditor.discard")}</Button>
             <Button icon={<Save size={18} />} disabled={!dirty} onClick={save}>{t("pageEditor.save")}</Button>
           </div>

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
-import { Leaf } from "lucide-react";
 import { AssistantHeaderButton, AssistantLauncher } from "./assistant/assistant-launcher";
 import { HelpButton } from "./help/help-button";
 import { canOpen, staffViewer, type Role } from "../ops/access";
@@ -15,7 +14,9 @@ import { unreadCount } from "../selectors";
 import { useDemo } from "../store";
 import type { DemoState } from "../data/types";
 import { cx } from "../ui/cx";
+import { ThemeControl } from "../ui/theme-control";
 import { Toaster } from "../ui/toast";
+import { Wordmark } from "../ui/wordmark";
 import { BUSINESS_NAV, isActivePath, MORE_TAB, PRIMARY_NAV, SETTINGS_NAV, visibleItems, type NavItem } from "./nav";
 
 const WELCOME_PATH = "/studio/welcome";
@@ -36,9 +37,19 @@ export function StudioShell({ children }: { children: ReactNode }) {
   return (
     <>
       <Sidebar state={state} pathname={pathname} role={role} />
-      <main className="pb-[calc(9rem+env(safe-area-inset-bottom))] lg:pb-12 lg:pl-64">
-        <div className="mx-auto w-full max-w-6xl px-4 pt-3 sm:px-6 lg:px-10 lg:pt-5">
-          <div className="mb-2 flex items-center justify-end gap-2 lg:mb-1">
+      <header className="flex min-h-14 items-center justify-between gap-2 px-4 pt-[env(safe-area-inset-top)] sm:px-6 lg:hidden">
+        <Link href="/studio" aria-label={t("shell.home")} className="-ml-1 flex min-h-11 items-center px-1">
+          <Wordmark className="w-[112px]" />
+        </Link>
+        <div className="flex items-center gap-1">
+          {state.modules.assistant && <AssistantHeaderButton />}
+          <HelpButton compact />
+        </div>
+      </header>
+      {/* Room at the bottom for the tab bar and, on phones, the assistant button, so neither ever covers the last item. */}
+      <main className="pb-[calc(9.5rem+env(safe-area-inset-bottom))] sm:pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-12 lg:pl-64">
+        <div className="mx-auto w-full max-w-6xl px-4 pt-2 sm:px-6 lg:px-10 lg:pt-5">
+          <div className="mb-2 hidden items-center justify-end gap-2 lg:flex">
             {state.modules.assistant && <AssistantHeaderButton />}
             <RoleSwitch />
             <HelpButton />
@@ -53,26 +64,10 @@ export function StudioShell({ children }: { children: ReactNode }) {
   );
 }
 
-function Logo() {
-  return (
-    <span className="flex items-center gap-2.5">
-      <span className="flex size-9 items-center justify-center rounded-md bg-action text-on-action">
-        <Leaf size={18} />
-      </span>
-      <span className="leading-tight">
-        <span className="block font-semibold tracking-tight">Salong Eko</span>
-        <span className="block text-xs text-text-secondary">{t("shell.demo")}</span>
-      </span>
-    </span>
-  );
-}
-
 function LoadingScreen() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center">
-      <div className="animate-pulse">
-        <Logo />
-      </div>
+      <Wordmark className="w-[132px] animate-pulse" />
     </div>
   );
 }
@@ -86,8 +81,8 @@ function SidebarLink({ item, pathname, badge }: { item: NavItem; pathname: strin
       data-help={item.href}
       aria-current={active ? "page" : undefined}
       className={cx(
-        "flex min-h-10 items-center gap-3 rounded-md px-3 text-[15px] transition-colors",
-        active ? "bg-surface font-medium text-text" : "text-text-secondary hover:bg-surface-2 hover:text-text",
+        "flex min-h-11 items-center gap-3 rounded-md px-3 text-[15px] transition-colors",
+        active ? "bg-surface-2 font-semibold text-text" : "text-text-secondary hover:bg-surface-2 hover:text-text",
       )}
     >
       <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
@@ -106,11 +101,14 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
     { title: "nav.section.settings" as const, items: allowed(SETTINGS_NAV) },
   ].filter((section) => section.items.length);
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-border bg-bg px-4 py-6 lg:flex">
-      <Link href="/studio" className="px-2">
-        <Logo />
+    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-border bg-surface px-4 py-6 lg:flex">
+      <Link href="/studio" aria-label={t("shell.home")} className="block px-3">
+        <Wordmark className="w-[124px]" />
       </Link>
-      <nav aria-label={t("shell.navigation")} className="mt-8 flex flex-1 flex-col gap-6 overflow-y-auto">
+      <p className="mt-4 px-3 text-sm text-text-secondary">
+        <span className="font-semibold text-text">{state.salon.name}</span> · {t("shell.demo")}
+      </p>
+      <nav aria-label={t("shell.navigation")} className="mt-5 flex flex-1 flex-col gap-6 overflow-y-auto">
         <div className="space-y-1">
           {PRIMARY_NAV.filter((item) => canOpen(role, item.href)).map((item) => (
             <SidebarLink key={item.href} item={item} pathname={pathname} badge={item.href === "/studio/inbox" ? unread : undefined} />
@@ -118,14 +116,15 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
         </div>
         {sections.map((section) => (
           <div key={section.title} className="space-y-1">
-            <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.08em] text-text-secondary">{t(section.title)}</p>
+            <p className="px-3 pb-1 text-sm font-medium text-text-secondary">{t(section.title)}</p>
             {section.items.map((item) => (
               <SidebarLink key={item.href} item={item} pathname={pathname} />
             ))}
           </div>
         ))}
       </nav>
-      <div className="mt-4 flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5">
+      <ThemeControl compact className="mt-4 self-start" />
+      <div className="mt-3 flex items-center gap-3 rounded-md bg-surface-2 px-3 py-2.5">
         <span className={cx("flex size-9 items-center justify-center rounded-full text-sm font-semibold", person.id === "anna" ? "bg-staff-1-bg text-staff-1" : "bg-staff-2-bg text-staff-2")}>
           {person.firstName[0]}
           {person.lastName[0]}
@@ -145,7 +144,7 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
   return (
     <nav
       aria-label={t("shell.navigation")}
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       <div className="mx-auto grid max-w-lg" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
         {tabs.map((item) => {
@@ -158,14 +157,14 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
               href={item.href}
               data-help={item.href}
               aria-current={active ? "page" : undefined}
-              className={cx("relative flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium", active ? "text-action" : "text-text-secondary")}
+              className={cx("relative flex min-h-16 flex-col items-center justify-center gap-1 text-xs", active ? "font-semibold text-text" : "font-medium text-text-secondary")}
             >
-              <span className={cx("flex h-7 w-12 items-center justify-center rounded-full transition-colors", active && "bg-action-bg")}>
+              <span className={cx("flex h-7 w-12 items-center justify-center rounded-md transition-colors", active && "bg-action-bg")}>
                 <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
               </span>
               {t(item.label)}
               {badge > 0 && (
-                <span className="absolute left-1/2 top-1.5 ml-2 min-w-[18px] rounded-full bg-danger px-1 text-center text-[10px] font-semibold leading-[18px] text-white">
+                <span className="absolute left-1/2 top-1.5 ml-2 min-w-[18px] rounded-full bg-danger px-1 text-center text-[11px] font-semibold leading-[18px] text-bg">
                   {badge}
                 </span>
               )}

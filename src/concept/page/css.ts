@@ -19,6 +19,8 @@ const PROPERTY = new RegExp(
     "(?:min-|max-)?(?:width|height)|display|flex(?:-[a-z]+)*|grid(?:-[a-z]+)*|(?:justify|align|place)-[a-z]+|order|overflow(?:-[a-z]+)?|object-(?:fit|position)|aspect-ratio|" +
     "position|accent-color|list-style(?:-[a-z]+)?|cursor|filter|transform)$",
 );
+/** Success, warning, danger and info mean the same on every page; the owner's CSS cannot redefine them. */
+const SEMANTIC = /^--ui-(?:success|warning|danger|info)(?:-bg)?$/;
 const BANNED_VALUE = ["expression(", "javascript:", "vbscript:", "behavior", "-moz-binding", "@import", "image-set(", "src(", "element(", "data:", "<", "\\"];
 const SAFE_IMAGE = /^\/(?!\/)[\w\-./]+\.(?:png|jpe?g|webp|gif|avif|svg)$/i;
 const URL_CALL = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)"'\s]*))\s*\)/gi;
@@ -104,7 +106,7 @@ function declarations(body: string): string[] {
     const colon = declaration.indexOf(":");
     if (colon < 1) return [];
     const property = declaration.slice(0, colon).trim().toLowerCase();
-    if (!PROPERTY.test(property)) return [];
+    if (!PROPERTY.test(property) || SEMANTIC.test(property)) return [];
     const value = safeValue(property, declaration.slice(colon + 1));
     return value ? [`${property}:${value}`] : [];
   });

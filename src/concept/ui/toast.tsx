@@ -37,7 +37,7 @@ const empty: Toast[] = [];
 export function Toaster() {
   const list = useSyncExternalStore(subscribe, () => toasts, () => empty);
   return (
-    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex flex-col items-center gap-2 px-4 lg:bottom-6">
+    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-[calc(8.75rem+env(safe-area-inset-bottom))] sm:bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex flex-col items-center gap-2 px-4 lg:bottom-6">
       {list.map((toast) => (
         <div key={toast.id} className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-md bg-text px-4 py-3 text-[15px] text-bg shadow-sheet">
           <CheckCircle2 size={18} className="shrink-0 opacity-80" />

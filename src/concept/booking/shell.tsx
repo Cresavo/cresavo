@@ -31,7 +31,7 @@ function Frame({ children }: { children: ReactNode }) {
   const { logo } = page.theme;
   return (
     <PageRoot page={page} className="flex min-h-[100dvh] flex-col">
-      <header className="border-b print:hidden border-border bg-surface/80 backdrop-blur">
+      <header className="border-b print:hidden border-border bg-surface">
         <div className="mx-auto flex min-h-14 w-full max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link href={bookingHome(slug)} className="flex items-center gap-2.5 font-semibold tracking-tight">
             {logo ? (

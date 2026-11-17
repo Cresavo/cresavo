@@ -28,6 +28,7 @@ const messages = {
 
   "shell.demo": "Demo · fictional data",
   "shell.navigation": "Main navigation",
+  "shell.home": "Today, start page",
   "shell.ownerRole": "Owner",
 
   "nav.today": "Today",
@@ -56,19 +57,11 @@ const messages = {
   "nav.settings": "Settings",
   "nav.settings.description": "Salon details and demo reset",
 
-  "command.label": "Command box",
-  "command.placeholder": `Ask ${ASSISTANT.name}… what would you like to do?`,
   "command.voice": "Speak a command",
-  "command.send": "Send command",
   "command.listening": "Listening…",
   "command.try": "Try saying",
-  "command.result": "Command result",
-  "command.source.ai": "AI",
-  "command.source.rules": "Quick parse",
-  "command.checkingAi": "Checking with AI…",
   "command.proposalNote": "This is a proposal. Nothing changes until you approve it.",
   "command.approve": "Approve",
-  "command.edit": "Edit",
   "command.becomes": "becomes",
   "command.failed": "That did not work. The time may just have been taken.",
   "command.notUnderstood": "I could not turn that into a change. Try rephrasing it.",
@@ -1450,7 +1443,6 @@ const messages = {
   "calendar.closedFor": "The salon is closed this day: {name}.",
   "calendar.rooms": "Rooms",
   "calendar.allRooms": "All rooms",
-  "calendar.filter": "Filter",
   "calendar.staff": "Staff",
   "booking.room": "Room",
 

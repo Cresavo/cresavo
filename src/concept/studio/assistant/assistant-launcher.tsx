@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { Mic, Sparkles } from "lucide-react";
 import { dueRun, type Routine } from "../../assistant/routines";
 import type { DemoState } from "../../data/types";
@@ -14,18 +14,19 @@ import { useStudio } from "../use-studio";
 import { AssistantPanel } from "./assistant-panel";
 import { addMessages, messageId, openAssistant } from "./thread-store";
 
-/** The floating button on phones (with a microphone that opens the panel listening), the panel, and the routine runner. */
+/** The floating button on phones (with a microphone that opens the panel listening), the panel, Ctrl/Cmd+K, and the routine runner. */
 export function AssistantLauncher() {
+  useShortcut();
   return (
     <>
-      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-40 flex items-center rounded-full bg-action text-on-action shadow-sheet sm:hidden">
-        <button type="button" onClick={() => openAssistant()} className="flex min-h-12 items-center gap-2 pl-4 pr-3 text-[15px] font-semibold">
-          <Sparkles size={18} />
+      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-40 flex items-center rounded-lg bg-action text-on-action shadow-sheet sm:hidden">
+        <button type="button" data-help="assistant" onClick={() => openAssistant()} className="flex min-h-12 items-center gap-2 pl-4 pr-3 text-base font-semibold">
+          <Sparkles size={18} aria-hidden />
           {t("assistant.open")}
         </button>
         <span className="h-6 w-px bg-on-action/30" aria-hidden />
         <button type="button" onClick={() => openAssistant({ listen: true })} aria-label={t("assistant.openVoice")} title={t("assistant.openVoice")} className="flex size-12 items-center justify-center">
-          <Mic size={18} />
+          <Mic size={18} aria-hidden />
         </button>
       </div>
       <AssistantPanel />
@@ -34,11 +35,28 @@ export function AssistantLauncher() {
   );
 }
 
-/** The button in the top bar on larger screens, where the inline command box stays for quick commands. */
+const noChange = () => () => {};
+
+/** Ctrl+K (⌘K on a Mac) opens the panel from anywhere in the studio; quick commands are typed there. */
+function useShortcut() {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "k" || !(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+      event.preventDefault();
+      openAssistant();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+}
+
+/** The button in the top bar from tablet width, with its keyboard shortcut. A secondary action: never competes with a page's primary button. */
 export function AssistantHeaderButton() {
+  const mac = useSyncExternalStore(noChange, () => /Mac|iPhone|iPad/.test(navigator.platform), () => false);
   return (
-    <Button size="sm" variant="secondary" icon={<Sparkles size={16} className="text-action" />} onClick={() => openAssistant()} className="hidden sm:inline-flex">
+    <Button size="sm" variant="secondary" data-help="assistant" aria-keyshortcuts="Control+K Meta+K" icon={<Sparkles size={16} aria-hidden />} onClick={() => openAssistant()} className="hidden sm:inline-flex">
       {t("assistant.open")}
+      <kbd aria-hidden className="hidden rounded-xs border border-border px-1.5 font-sans text-xs text-text-secondary lg:inline">{mac ? "⌘K" : "Ctrl K"}</kbd>
     </Button>
   );
 }

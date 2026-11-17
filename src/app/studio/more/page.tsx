@@ -6,7 +6,10 @@ import { t } from "@/concept/i18n";
 import { BUSINESS_NAV, SETTINGS_NAV, visibleItems, type NavItem } from "@/concept/studio/nav";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
+import { staffViewer } from "@/concept/ops/access";
+import { RoleSwitch } from "@/concept/studio/ops/role-switch";
 import { Card, Section } from "@/concept/ui/card";
+import { ThemeControl } from "@/concept/ui/theme-control";
 
 function MenuGroup({ title, items }: { title: string; items: NavItem[] }) {
   return (
@@ -16,12 +19,10 @@ function MenuGroup({ title, items }: { title: string; items: NavItem[] }) {
           const Icon = item.icon;
           return (
             <Link key={item.href} href={item.href} data-help={item.href} className="flex min-h-16 items-center gap-4 px-4 py-3 hover:bg-surface-2">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-action">
-                <Icon size={20} />
-              </span>
+              <Icon size={22} aria-hidden className="shrink-0 text-text-secondary" />
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{t(item.label)}</span>
-                {item.description && <span className="block truncate text-sm text-text-secondary">{t(item.description)}</span>}
+                {item.description && <span className="block text-sm text-text-secondary">{t(item.description)}</span>}
               </span>
               <ChevronRight size={18} className="shrink-0 text-text-secondary" />
             </Link>
@@ -41,6 +42,26 @@ export default function MorePage() {
         <MenuGroup title={t("nav.section.business")} items={visibleItems(BUSINESS_NAV, state.modules)} />
         <MenuGroup title={t("nav.section.settings")} items={SETTINGS_NAV} />
       </div>
+      {/* On phones this page is the menu, so the shell's own controls live here (the sidebar has them on desktop). */}
+      <Card className="mt-6 divide-y divide-border lg:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <span className="font-medium">{t("theme.label")}</span>
+          <ThemeControl compact />
+        </div>
+        <RoleRow />
+      </Card>
     </>
+  );
+}
+
+/** The demo's owner/staff switch; a one-person business has no staff view. */
+function RoleRow() {
+  const { state } = useStudio();
+  if (!staffViewer(state)) return null;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+      <span className="font-medium">{t("role.label")}</span>
+      <RoleSwitch />
+    </div>
   );
 }

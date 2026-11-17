@@ -70,6 +70,14 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
       title={t("newBooking.title")}
       footer={
         <>
+          {/* What will be booked, in full, right next to the button that books it. */}
+          <p className="w-full text-[15px]" aria-live="polite">
+            <span className="font-medium">{service.name}</span>
+            <span className="text-text-secondary">
+              {" · "}{formatDuration(service.duration)} · {state.staff.find((p) => p.id === staffId)?.firstName} · {formatMoney(service.price)}
+              {slot && ` · ${formatDayLong(slot.date)} ${formatTime(slot.start)}`}
+            </span>
+          </p>
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
           <Button disabled={!customer || !slot} onClick={book}>
             {slot ? t("newBooking.confirmAt", { time: formatTime(slot.start) }) : t("newBooking.confirm")}

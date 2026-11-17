@@ -87,6 +87,12 @@ export function addMessages(messages: Message[], context?: ThreadContext) {
 }
 
 /** Changes a reply after it was shown: AI wording arrived, or the owner approved or declined its card. */
+/** A better reading arrived (the AI's): replaces the reply only while the owner has not acted on it. */
+export function refineReply(id: string, patch: Partial<Reply>) {
+  const message = snapshot().messages.find((m) => m.id === id);
+  if (message?.reply && !message.reply.status) updateReply(id, patch);
+}
+
 export function updateReply(id: string, patch: Partial<Reply>) {
   update({ messages: snapshot().messages.map((m) => (m.id === id && m.reply ? { ...m, text: patch.text ?? m.text, reply: { ...m.reply, ...patch } } : m)) });
 }

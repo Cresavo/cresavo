@@ -23,7 +23,7 @@ export function CustomerRow({ customer, stats, today, late, due }: CustomerRowPr
       <Avatar name={fullName(customer)} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="truncate font-medium">{fullName(customer)}</span>
+          <span className="min-w-0 break-words font-medium">{fullName(customer)}</span>
           {late && <Badge tone="warn">{t("customers.badge.late")}</Badge>}
           {due && <Badge tone="accent">{t("customers.badge.due")}</Badge>}
         </div>

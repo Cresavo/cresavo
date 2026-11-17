@@ -15,19 +15,20 @@ export function TodayStats() {
   const gaps = state.staff.flatMap((s) => freeGaps(state, s.id, today, { after: minutes, min: 30 }));
   const freeMinutes = gaps.reduce((sum, g) => sum + g.end - g.start, 0);
 
+  // One quiet strip rather than two big cards: the day's bookings below are what matters.
   return (
-    <div className="grid grid-cols-2 gap-2 sm:gap-3">
-      <Card className="p-3.5 sm:p-4">
-        <p className="text-xs text-text-secondary sm:text-sm">{t("stats.revenue")}</p>
-        <p className="mt-1 text-lg font-semibold tabular-nums tracking-tight sm:text-2xl">{formatMoney(revenue.earned)}</p>
-        <Meter value={revenue.expected ? revenue.earned / revenue.expected : 0} className="mt-2" />
-        <p className="mt-1.5 truncate text-xs text-text-secondary">{t("stats.revenueOf", { amount: formatMoney(revenue.expected) })}</p>
-      </Card>
-      <Card className="p-3.5 sm:p-4">
-        <p className="text-xs text-text-secondary sm:text-sm">{t("stats.free")}</p>
-        <p className="mt-1 text-lg font-semibold tabular-nums tracking-tight sm:text-2xl">{gaps.length}</p>
-        <p className="mt-3.5 truncate text-xs text-text-secondary">{freeMinutes ? formatDuration(freeMinutes) : t("stats.fullyBooked")}</p>
-      </Card>
-    </div>
+    <Card className="grid grid-cols-2 divide-x divide-border">
+      <div className="min-w-0 px-4 py-3">
+        <p className="text-sm text-text-secondary">{t("stats.revenue")}</p>
+        <p className="text-lg font-semibold tracking-tight">{formatMoney(revenue.earned)}</p>
+        <Meter value={revenue.expected ? revenue.earned / revenue.expected : 0} className="mt-1.5" />
+        <p className="mt-1 text-sm text-text-secondary">{t("stats.revenueOf", { amount: formatMoney(revenue.expected) })}</p>
+      </div>
+      <div className="min-w-0 px-4 py-3">
+        <p className="text-sm text-text-secondary">{t("stats.free")}</p>
+        <p className="text-lg font-semibold tracking-tight">{gaps.length}</p>
+        <p className="mt-3 text-sm text-text-secondary">{freeMinutes ? formatDuration(freeMinutes) : t("stats.fullyBooked")}</p>
+      </div>
+    </Card>
   );
 }

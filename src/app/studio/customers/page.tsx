@@ -51,7 +51,7 @@ export default function CustomersPage() {
       />
       <div className="mb-4 space-y-3">
         <SearchInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("customers.search")} aria-label={t("customers.search")} />
-        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div className="flex flex-wrap gap-2">
           {FILTERS.map((f) => (
             <Chip
               key={f.value}

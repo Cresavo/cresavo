@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import { expect, test, type Page } from "@playwright/test";
 import { ASSISTANT } from "../../src/concept/brand";
 import { createDemoState } from "../../src/concept/data/generate";
+import { PALETTES } from "../../src/concept/page/theme";
 import type { DemoState } from "../../src/concept/data/types";
 import { salonClock } from "../../src/concept/tools/clock";
 
@@ -107,7 +108,7 @@ test("design the booking page with a live preview, and custom CSS cannot run scr
   await page.getByRole("radio", { name: "One quote" }).click();
   await expect(page.getByText("Readable: every text and button colour passes WCAG AA.")).toBeVisible();
   await expect(page.getByText("You have changes that customers cannot see yet.")).toBeVisible();
-  expect((await state(page)).page.theme.colors).toBeNull();
+  expect((await state(page)).page.theme.colors).toEqual(PALETTES.forest);
 
   const css = "h1 { letter-spacing: 0.1em; background: url(https://evil.example/x.png) }\n</style><script>window.__pwned = 1</script>\n@import url(https://evil.example/x.css);";
   await page.getByRole("textbox", { name: "Your own CSS" }).fill(css);
@@ -117,7 +118,7 @@ test("design the booking page with a live preview, and custom CSS cannot run scr
   await expect(preview.locator(".booking-theme")).toHaveAttribute("data-corners", "sharp");
   await expect(preview.getByRole("heading", { name: "What customers say" })).toBeVisible();
   await expect(preview.getByRole("heading", { name: "Good to know" })).toBeVisible();
-  expect(await preview.locator(".booking-theme").evaluate((el) => getComputedStyle(el).getPropertyValue("--eko-bg").trim())).toBe("23 24 26");
+  expect(await preview.locator(".booking-theme").evaluate((el) => getComputedStyle(el).getPropertyValue("--ui-bg").trim())).toBe("#17181a");
   expect(await preview.locator("h1").first().evaluate((el) => getComputedStyle(el).letterSpacing)).not.toBe("normal");
   await screenshot(page, "editor");
   if (phone(page)) await page.getByRole("radio", { name: "Edit" }).click();
@@ -170,7 +171,7 @@ test("the assistant proposes a calmer look with a before and after, and approvin
   await expect(panel.getByText("Change the look of your booking page")).toBeVisible();
   await expect(panel.getByRole("group", { name: "Booking page before and after" })).toBeVisible();
   await expect(panel.getByText("Calm sand")).toBeVisible();
-  expect((await state(page)).page.theme.colors).toBeNull();
+  expect((await state(page)).page.theme.colors).toEqual(PALETTES.forest);
   await screenshot(page, "assistant", 900);
   await panel.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(panel.getByText("Done", { exact: true })).toBeVisible();
@@ -179,5 +180,5 @@ test("the assistant proposes a calmer look with a before and after, and approvin
   expect(after.log[0]).toMatchObject({ actor: "ai", source: "assistant", type: "page/set" });
 
   await page.goto("/boka/salong-eko");
-  expect(await page.locator(".booking-theme").evaluate((el) => getComputedStyle(el).getPropertyValue("--eko-bg").trim())).toBe("246 241 233");
+  expect(await page.locator(".booking-theme").evaluate((el) => getComputedStyle(el).getPropertyValue("--ui-bg").trim())).toBe("#f6f1e9");
 });

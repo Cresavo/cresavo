@@ -2,20 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { isAiConfigured, runAiTask } from "../../ai/api-client";
-import { replyRequest, respond } from "../../assistant/engine";
+import { commandReply, replyRequest, respond } from "../../assistant/engine";
 import type { NewMemory } from "../../assistant/memory";
 import type { Routine } from "../../assistant/routines";
 import { threadSummary, type Message, type ReplyCard } from "../../assistant/thread";
 import { commandExamples } from "../../command/examples";
+import { buildIntentContext } from "../../command/intent-context";
 import type { Choice, Proposal } from "../../command/proposal";
 import { t } from "../../i18n";
 import { staffViewer } from "../../ops/access";
 import { useRole } from "../../ops/role";
 import type { DemoAction } from "../../actions";
+import type { IntentResult } from "../../intent";
 import { currentState, dispatch } from "../../store";
 import { useStudio } from "../use-studio";
 import { speak } from "./speak";
-import { addMessages, messageId, startNewThread, updateReply, useThread } from "./thread-store";
+import { addMessages, messageId, refineReply, startNewThread, updateReply, useThread } from "./thread-store";
 
 const ASSISTANT = { actor: "owner", source: "assistant" } as const;
 
@@ -41,19 +43,34 @@ export function useAssistant() {
   const thread = useThread();
   const aiReady = useAiReady();
   const examples = useMemo(
-    () => (role === "owner" ? [t("assistant.example.compare"), t("assistant.example.offer"), t("assistant.example.remember")] : commandExamples(state, today, role)),
+    // The owner's examples mix questions with quick commands, since the panel is also where commands are typed (Ctrl/Cmd+K).
+    () => (role === "owner" ? [...commandExamples(state, today, role).slice(0, 2), t("assistant.example.compare"), t("assistant.example.offer"), t("assistant.example.remember")] : commandExamples(state, today, role)),
     [state, today, role],
   );
 
   const send = (raw: string) => {
     const text = raw.trim();
     if (!text) return;
-    const outcome = respond({ state, text, context: thread.context, clock: { today, minutes }, role, viewer: staffViewer(state)?.id, examples });
+    const input = { state, text, context: thread.context, clock: { today, minutes }, role, viewer: staffViewer(state)?.id, examples };
+    const outcome = respond(input);
     const changed = outcome.effects.filter((effect) => dispatch(effect, ASSISTANT)).length > 0;
     const question: Message = { id: messageId(), from: "owner", text, understood: outcome.understood !== text ? outcome.understood : undefined, at: Date.now() };
     const answer: Message = { id: messageId(), from: "assistant", text: outcome.reply.text, reply: { ...outcome.reply, undoId: changed ? lastLogId() : undefined }, at: Date.now() };
     const before = thread.messages;
     addMessages([question, answer], outcome.context);
+    if (outcome.command && aiReady) {
+      // The rules answer at once; a model's reading of the same words replaces it a moment later. Nothing changes until approved.
+      runAiTask<IntentResult>("interpret-command", { text: outcome.understood, context: buildIntentContext(state, today, minutes) })
+        .then(({ output, log }) => {
+          if (log.source !== "ai") return outcome.reply.text;
+          const reading = commandReply({ ...input, state: currentState() ?? state }, outcome.understood, output).reply;
+          refineReply(answer.id, { ...reading, source: "ai" });
+          return reading.text;
+        })
+        .catch(() => outcome.reply.text)
+        .then((spoken) => thread.speak && speak(spoken));
+      return;
+    }
     if (!aiReady || role !== "owner") {
       if (thread.speak) speak(outcome.reply.text);
       return;

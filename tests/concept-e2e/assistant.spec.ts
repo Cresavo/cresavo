@@ -42,8 +42,12 @@ test.afterEach(async ({ page }) => {
 
 test("the assistant answers, drafts an offer, remembers a preference and suggests a routine", async ({ page }) => {
   await page.goto("/studio");
-  const phone = page.viewportSize()!.width < 640;
-  await expect(page.getByRole("textbox", { name: "Command box" })).toBeVisible({ visible: !phone });
+  // No command box on the page: the assistant is one button (and Ctrl/Cmd+K) away.
+  await expect(page.getByRole("textbox", { name: "Command box" })).toHaveCount(0);
+  await page.keyboard.press("Control+K");
+  await expect(panel(page)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel(page)).toBeHidden();
 
   await expect(page.getByText("Here is what matters today.")).toBeVisible();
   await page.getByRole("button", { name: `Ask ${ASSISTANT.name}`, exact: true }).locator("visible=true").click();

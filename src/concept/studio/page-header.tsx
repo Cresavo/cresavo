@@ -1,8 +1,4 @@
-"use client";
-
 import type { ReactNode } from "react";
-import { CommandBox } from "../command/command-box";
-import { useStudio } from "./use-studio";
 
 interface PageHeaderProps {
   title: string;
@@ -12,24 +8,18 @@ interface PageHeaderProps {
   back?: ReactNode;
 }
 
-/** Page title row followed by the command box (from tablet width; phones use the assistant button instead). Used by every studio page. */
+/** Page title row, used by every studio page. The assistant is one button in the shell (or Ctrl/Cmd+K), not a box on every page. */
 export function PageHeader({ title, subtitle, actions, back }: PageHeaderProps) {
-  const { state } = useStudio();
   return (
-    <header className="mb-6 space-y-4">
+    <header className="mb-6 space-y-3">
       {back}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[26px] font-semibold leading-tight tracking-tight sm:text-3xl">{title}</h1>
-          {subtitle && <p className="mt-1 text-[15px] text-text-secondary">{subtitle}</p>}
+          <h1 className="text-[26px] font-semibold leading-tight tracking-tight sm:text-[28px]">{title}</h1>
+          {subtitle && <p className="mt-1 text-base text-text-secondary">{subtitle}</p>}
         </div>
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>
-      {state.modules.assistant && (
-        <div className="hidden sm:block">
-          <CommandBox />
-        </div>
-      )}
     </header>
   );
 }

@@ -29,7 +29,8 @@ export default function CalendarPage() {
   const [date, setDate] = useState(today);
   const role = useRole();
   const viewer = role === "staff" ? staffViewer(state) : null;
-  const [chosenStaff, setStaffFilter] = useState<StaffId | "all">("all");
+  // A phone shows one person's day as a single timeline; two columns do not fit a narrow screen.
+  const [chosenStaff, setStaffFilter] = useState<StaffId | "all">(() => (state.staff.length > 1 && window.matchMedia("(max-width: 639px)").matches ? state.staff[0].id : "all"));
   const [resourceId, setResourceId] = useState<string | undefined>();
   const [sheet, setSheet] = useState<OpenSheet>(null);
   const staffFilter = viewer?.id ?? chosenStaff;
@@ -52,16 +53,16 @@ export default function CalendarPage() {
           </Button>
         }
       />
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1">
+      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="flex w-full items-center gap-1 sm:w-auto">
           <IconButton label={t("calendar.previous")} onClick={() => setDate(addDays(date, -step))}>
             <ChevronLeft size={20} />
           </IconButton>
-          <Button variant="secondary" size="sm" onClick={() => setDate(today)}>{t("date.today")}</Button>
+          <span className="min-w-0 flex-1 text-center font-medium sm:flex-none sm:px-1">{label}</span>
           <IconButton label={t("calendar.next")} onClick={() => setDate(addDays(date, step))}>
             <ChevronRight size={20} />
           </IconButton>
-          <span className="ml-1 font-medium">{label}</span>
+          <Button variant="secondary" size="sm" onClick={() => setDate(today)} disabled={date === today && view === "day"}>{t("date.today")}</Button>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
           <Segmented<View>
@@ -73,15 +74,16 @@ export default function CalendarPage() {
               { value: "week", label: t("calendar.week") },
             ]}
           />
-          {(!viewer || state.resources.length > 0) && (
-            <CalendarFilter
-              staff={viewer ? [] : state.staff}
-              staffId={staffFilter}
-              onStaff={setStaffFilter}
-              rooms={state.resources}
-              roomId={room}
-              onRoom={setResourceId}
+          {!viewer && state.staff.length > 1 && (
+            <Segmented<StaffId | "all">
+              label={t("calendar.staff")}
+              value={staffFilter}
+              onChange={setStaffFilter}
+              options={[{ value: "all", label: t("calendar.everyone") }, ...state.staff.map((s) => ({ value: s.id, label: s.firstName }))]}
             />
+          )}
+          {state.resources.length > 0 && (
+            <CalendarFilter rooms={state.resources} roomId={room} onRoom={setResourceId} />
           )}
         </div>
       </div>

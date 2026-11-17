@@ -9,7 +9,8 @@ describe("custom CSS", () => {
     expect(clean("h1, .card > p { letter-spacing: 0.02em; margin: 0 }")).toBe(`${PAGE_ROOT} h1,${PAGE_ROOT} .card > p{letter-spacing:0.02em;margin:0}`);
     expect(clean("body { background: #fff }")).toBe(`${PAGE_ROOT}{background:#fff}`);
     expect(clean("html body h2 { color: blue }")).toBe(`${PAGE_ROOT} body h2{color:blue}`);
-    expect(clean(":root { --eko-accent: 10 20 30 }")).toBe(`${PAGE_ROOT}{--eko-accent:10 20 30}`);
+    expect(clean(":root { --ui-action: #102030 }")).toBe(`${PAGE_ROOT}{--ui-action:#102030}`);
+    expect(clean(":root { --ui-danger: #00ff00; --ui-success-bg: red; color: red }")).toBe(`${PAGE_ROOT}{color:red}`);
     expect(clean("* { box-sizing: border-box }")).toBe("");
     expect(clean("* { margin: 0 }")).toBe(`${PAGE_ROOT} *{margin:0}`);
     expect(clean('a[href^="https://x.example"] { color: red }')).toBe(`${PAGE_ROOT} a[href^="https://x.example"]{color:red}`);

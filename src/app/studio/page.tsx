@@ -47,29 +47,28 @@ export default function TodayPage() {
           </Button>
         }
       />
-      <div className="space-y-6">
-        {open && !viewer && <TodayStats />}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="order-last min-w-0 lg:order-none">
-            <Section title={t("today.schedule")}>
-              {open ? (
-                <Timeline date={today} staffId={viewer?.id} onOpen={setSheet} />
-              ) : (
-                <EmptyState icon={<CalendarOff size={22} />} title={t("today.closed")} text={t("today.closedText")} />
-              )}
-            </Section>
-          </div>
-          <div className="min-w-0 space-y-6">
-            {!viewer && <EveningSummary />}
-            {!viewer && <MorningBrief />}
-            <NeedsMoving staffId={viewer?.id} onOpen={setSheet} />
-            <NextCustomer staffId={viewer?.id} onOpen={setSheet} />
-            {!viewer && (
-              <Section title={t("today.suggestions")}>
-                <Suggestions onOpen={setSheet} />
-              </Section>
+      {/* Phones read top to bottom: today's bookings, then what needs attention, then the brief and suggestions. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="min-w-0 space-y-6">
+          {open && !viewer && <TodayStats />}
+          <Section title={t("today.schedule")}>
+            {open ? (
+              <Timeline date={today} staffId={viewer?.id} onOpen={setSheet} />
+            ) : (
+              <EmptyState icon={<CalendarOff size={22} />} title={t("today.closed")} text={t("today.closedText")} />
             )}
-          </div>
+          </Section>
+        </div>
+        <div className="min-w-0 space-y-6">
+          <NeedsMoving staffId={viewer?.id} onOpen={setSheet} />
+          <NextCustomer staffId={viewer?.id} onOpen={setSheet} />
+          {!viewer && <EveningSummary />}
+          {!viewer && <MorningBrief />}
+          {!viewer && (
+            <Section title={t("today.suggestions")}>
+              <Suggestions onOpen={setSheet} />
+            </Section>
+          )}
         </div>
       </div>
       <BookingSheets sheet={sheet} onChange={setSheet} />

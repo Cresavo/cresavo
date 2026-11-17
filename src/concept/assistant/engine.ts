@@ -40,6 +40,8 @@ export interface EngineResult {
   understood: string;
   /** Changes the owner asked for directly ("remember…", "forget…"); applied at once, with Undo. */
   effects: DemoAction[];
+  /** The reply answers a command (move, book, cancel, a question about the numbers…), which an AI model may read better than the rules. */
+  command?: boolean;
 }
 
 const rules = (text: string, extra: Partial<Reply> = {}): Reply => ({ source: "rules", text, ...extra });
@@ -156,15 +158,15 @@ function listedCustomers(state: DemoState, params: IntentParams, card: Proposal,
   return card.kind === "customers" && params.since ? lapsedCustomers(state, params.since, today).map((row) => row.customer.id) : undefined;
 }
 
-function commandReply(input: EngineInput, understood: string): EngineResult {
+/** A command answered from an intent: the rules' reading by default, or an AI model's reading of the same words. */
+export function commandReply(input: EngineInput, understood: string, intent = interpretCommand(understood, buildIntentContext(input.state, input.clock.today, input.clock.minutes))): EngineResult {
   const { state, clock, role } = input;
-  const intent = interpretCommand(understood, buildIntentContext(state, clock.today, clock.minutes));
   const card = proposalFor(state, intent, understood, clock, input.examples, role);
   const notUnderstood = intent.action === "question" && card.kind === "choose" && card.choices.every((choice) => input.examples.includes(choice.label));
-  if (notUnderstood) return result(input, understood, rules(t("assistant.fallback"), { followUps: input.examples }));
+  if (notUnderstood) return { ...result(input, understood, rules(t("assistant.fallback"), { followUps: input.examples })), command: true };
   const { text, topic, followUps } = describe(card);
   const context = nextContext(input.context, state, intent.params, card, listedCustomers(state, intent.params, card, clock.today));
-  return result(input, understood, rules(text, { card, topic, followUps }), context);
+  return { ...result(input, understood, rules(text, { card, topic, followUps }), context), command: true };
 }
 
 const ownerOnly = (input: EngineInput, understood: string) => result(input, understood, rules(t("command.ownerOnly")));
