@@ -1,5 +1,9 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Codex · night 3 part 1: finding #16
+
+Mobile command input says “Ask Flerdo…”. The redundant floating microphone is removed; inline speech and typed fallback remain, so no floating mic can cover a button. Try `/studio` at 390/1280 px. Screenshots: [mobile](screens/polish-command-390.png), [desktop](screens/polish-command-1280.png).
+
 ## 2026-11-17 · Claude Code · goal 13 (in-repo part): Flerdo rename and front door
 
 **Done**

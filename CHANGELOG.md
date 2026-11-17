@@ -36,6 +36,7 @@ All notable changes to this project are documented here. Format follows
   via "Start over as a new business".
 
 ### Fixed
+- Mobile command input is shorter; the duplicate floating mic no longer covers actions. (#16)
 - Opening an Inbox item on desktop no longer opens a hidden mobile dialog that
   blocks clicking the message actions.
 - Booking suggestions label the end time as “until”, making each time card
