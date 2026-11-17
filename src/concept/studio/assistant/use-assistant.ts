@@ -5,18 +5,18 @@ import { isAiConfigured, runAiTask } from "../../ai/api-client";
 import { commandReply, replyRequest, respond } from "../../assistant/engine";
 import type { NewMemory } from "../../assistant/memory";
 import type { Routine } from "../../assistant/routines";
-import { threadSummary, type Message, type ReplyCard } from "../../assistant/thread";
+import { threadSummary, type Message } from "../../assistant/thread";
 import { commandExamples } from "../../command/examples";
 import { buildIntentContext } from "../../command/intent-context";
 import type { Choice, Proposal } from "../../command/proposal";
 import { t } from "../../i18n";
 import { staffViewer } from "../../ops/access";
 import { useRole } from "../../ops/role";
-import type { DemoAction } from "../../actions";
 import type { IntentResult } from "../../intent";
 import { currentState, dispatch } from "../../store";
 import { useStudio } from "../use-studio";
 import { speak } from "./speak";
+import { applyReply, approveReply, pickReply } from "./reply-actions";
 import { addMessages, messageId, refineReply, startNewThread, updateReply, useThread } from "./thread-store";
 
 const ASSISTANT = { actor: "owner", source: "assistant" } as const;
@@ -54,21 +54,34 @@ export function useAssistant() {
     const input = { state, text, context: thread.context, clock: { today, minutes }, role, viewer: staffViewer(state)?.id, examples };
     const outcome = respond(input);
     const changed = outcome.effects.filter((effect) => dispatch(effect, ASSISTANT)).length > 0;
+    const refining = !!outcome.command && aiReady;
     const question: Message = { id: messageId(), from: "owner", text, understood: outcome.understood !== text ? outcome.understood : undefined, at: Date.now() };
-    const answer: Message = { id: messageId(), from: "assistant", text: outcome.reply.text, reply: { ...outcome.reply, undoId: changed ? lastLogId() : undefined }, at: Date.now() };
+    const answer: Message = {
+      id: messageId(),
+      from: "assistant",
+      text: outcome.reply.text,
+      reply: { ...outcome.reply, undoId: changed ? lastLogId() : undefined, refining: refining || undefined },
+      at: Date.now(),
+    };
     const before = thread.messages;
     addMessages([question, answer], outcome.context);
-    if (outcome.command && aiReady) {
-      // The rules answer at once; a model's reading of the same words replaces it a moment later. Nothing changes until approved.
+    if (refining) {
+      // The rules answer at once; a model's reading of the same words replaces it (and the context) a moment later,
+      // unless the owner has acted on the card or moved on. Nothing changes until approved.
       runAiTask<IntentResult>("interpret-command", { text: outcome.understood, context: buildIntentContext(state, today, minutes) })
         .then(({ output, log }) => {
-          if (log.source !== "ai") return outcome.reply.text;
-          const reading = commandReply({ ...input, state: currentState() ?? state }, outcome.understood, output).reply;
-          refineReply(answer.id, { ...reading, source: "ai" });
-          return reading.text;
+          if (log.source !== "ai") {
+            updateReply(answer.id, {});
+            return outcome.reply.text;
+          }
+          const reading = commandReply({ ...input, state: currentState() ?? state }, outcome.understood, output);
+          return refineReply(answer.id, { ...reading.reply, source: "ai" }, reading.context) ? reading.reply.text : null;
         })
-        .catch(() => outcome.reply.text)
-        .then((spoken) => thread.speak && speak(spoken));
+        .catch(() => {
+          updateReply(answer.id, {});
+          return outcome.reply.text;
+        })
+        .then((spoken) => spoken && thread.speak && speak(spoken));
       return;
     }
     if (!aiReady || role !== "owner") {
@@ -85,13 +98,7 @@ export function useAssistant() {
       .then((spoken) => thread.speak && speak(spoken));
   };
 
-  /** Applies a change the owner approved in the panel. Undo sits on the card, since a toast would hide behind the panel. */
-  const apply = (id: string, action: DemoAction, meta: Parameters<typeof dispatch>[1]) => {
-    const done = dispatch(action, meta);
-    updateReply(id, done ? { status: "approved", undoId: lastLogId() } : { status: "failed" });
-  };
-
-  const approve = (id: string, proposal: Extract<Proposal, { kind: "change" }>) => apply(id, proposal.action, { actor: "ai", source: "assistant" });
+  const approve = (id: string, proposal: Extract<Proposal, { kind: "change" }>) => approveReply(id, proposal.action);
 
   const decline = (id: string) => updateReply(id, { status: "declined" });
 
@@ -101,13 +108,13 @@ export function useAssistant() {
   };
 
   const pick = (id: string, choice: Choice) => {
-    if ("proposal" in choice) updateReply(id, { card: choice.proposal as ReplyCard });
+    if ("proposal" in choice) pickReply(id, choice);
     else send(choice.text);
   };
 
-  const remember = (id: string, item: NewMemory) => apply(id, { type: "memory/add", item }, ASSISTANT);
+  const remember = (id: string, item: NewMemory) => applyReply(id, { type: "memory/add", item }, ASSISTANT);
 
-  const keepRoutine = (id: string, routine: Routine) => apply(id, { type: "routine/add", routine }, ASSISTANT);
+  const keepRoutine = (id: string, routine: Routine) => applyReply(id, { type: "routine/add", routine }, ASSISTANT);
 
   const skipRoutine = (id: string, routine: Routine) => {
     dispatch({ type: "card/dismiss", id: `routine-${routine.id}` });

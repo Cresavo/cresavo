@@ -34,6 +34,7 @@ All notable changes to this project are documented here. Format follows
 ### Fixed
 - Saved demo data survives the rebrand: saves from versions 12–14 are migrated in place (bookings, customer edits, stock and the booking page design are kept) instead of being replaced by fresh data. Only new Salong Eko data starts on the Forest palette (Codex #1).
 - On phones and tablets the Owner/Staff demo switch is a compact button in the top bar, so a staff view can always switch back (it used to live in More, which staff cannot open) (Codex #2).
+- Ask Flerdo: a model's late reading of a quick command no longer replaces a card the owner has already picked from, approved, declined or moved past, and when it does replace the card it brings its own context, so "that day" means the day on the card (Codex #3).
 
 ## [0.3.0] - 2026-11-17
 

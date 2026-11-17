@@ -86,15 +86,35 @@ export function addMessages(messages: Message[], context?: ThreadContext) {
   update({ messages: [...snapshot().messages, ...messages], listen: false, ...(context ? { context } : {}) });
 }
 
-/** Changes a reply after it was shown: AI wording arrived, or the owner approved or declined its card. */
-/** A better reading arrived (the AI's): replaces the reply only while the owner has not acted on it. */
-export function refineReply(id: string, patch: Partial<Reply>) {
-  const message = snapshot().messages.find((m) => m.id === id);
-  if (message?.reply && !message.reply.status) updateReply(id, patch);
+/**
+ * A better reading arrived (the AI's). It replaces the reply, and its context replaces the
+ * conversation's, together and only while the refinement is still pending: the owner has not
+ * picked, approved, declined or edited, and has not moved on to another message. Otherwise it is
+ * dropped, so the card on screen and what "that day" means never disagree. Returns whether it applied.
+ */
+export function refineReply(id: string, patch: Partial<Reply>, context?: ThreadContext): boolean {
+  const { messages } = snapshot();
+  const message = messages.find((m) => m.id === id);
+  const current = messages[messages.length - 1]?.id === id;
+  if (!message?.reply?.refining || message.reply.status || !current) {
+    if (message?.reply?.refining) updateReply(id, {});
+    return false;
+  }
+  update({
+    messages: messages.map((m) => (m.id === id && m.reply ? { ...m, text: patch.text ?? m.text, reply: { ...m.reply, ...patch, refining: undefined } } : m)),
+    ...(context ? { context } : {}),
+  });
+  return true;
 }
 
+/** Changes a reply after it was shown: AI wording arrived, or the owner acted on its card. Any pending refinement is discarded. */
 export function updateReply(id: string, patch: Partial<Reply>) {
-  update({ messages: snapshot().messages.map((m) => (m.id === id && m.reply ? { ...m, text: patch.text ?? m.text, reply: { ...m.reply, ...patch } } : m)) });
+  update({ messages: snapshot().messages.map((m) => (m.id === id && m.reply ? { ...m, text: patch.text ?? m.text, reply: { ...m.reply, refining: undefined, ...patch } } : m)) });
+}
+
+/** A reply in the open conversation. */
+export function replyOf(id: string): Reply | undefined {
+  return snapshot().messages.find((m) => m.id === id)?.reply;
 }
 
 /** Clears the conversation and returns the one that ended, so it can be summarised. */

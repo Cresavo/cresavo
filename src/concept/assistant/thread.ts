@@ -42,6 +42,8 @@ export interface Reply {
   status?: "approved" | "declined" | "failed" | "undone";
   /** The activity log entry of the change this reply made, so the panel can offer Undo. */
   undoId?: string;
+  /** An AI model's reading of the same words is on its way and may still replace this reply. */
+  refining?: boolean;
 }
 
 export interface Message {
