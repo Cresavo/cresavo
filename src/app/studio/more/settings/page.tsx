@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { RotateCcw, Sparkles } from "lucide-react";
-import { formatTime } from "@/concept/data/dates";
-import { t, words } from "@/concept/i18n";
+import { t } from "@/concept/i18n";
 import { setupOf } from "@/concept/onboarding/setup";
 import { startBusiness } from "@/concept/store";
 import { BookingShare } from "@/concept/studio/more/booking-share";
+import { ClosedDaysSection } from "@/concept/studio/ops/closed-days";
+import { HoursSection } from "@/concept/studio/ops/hours-section";
+import { ResourcesSection } from "@/concept/studio/ops/resources-section";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { SupportAccess } from "@/concept/studio/support/support-access";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -14,8 +16,6 @@ import { Button, ButtonLink } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
 import { Sheet } from "@/concept/ui/sheet";
 import { showToast } from "@/concept/ui/toast";
-
-const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 export default function SettingsPage() {
   const { state } = useStudio();
@@ -42,21 +42,9 @@ export default function SettingsPage() {
             ))}
           </Card>
         </Section>
-        <Section title={t("settings.hours")}>
-          <Card className="divide-y divide-eko-line">
-            {WEEK_ORDER.map((d) => {
-              const hours = salon.hours[d];
-              return (
-                <div key={d} className="flex justify-between px-4 py-3 text-sm">
-                  <span>{words.weekdays[d]}</span>
-                  <span className={hours ? "font-medium tabular-nums" : "text-eko-muted"}>
-                    {hours ? `${formatTime(hours.open)}–${formatTime(hours.close)}` : t("calendar.closed")}
-                  </span>
-                </div>
-              );
-            })}
-          </Card>
-        </Section>
+        <HoursSection />
+        <ClosedDaysSection />
+        <ResourcesSection />
         <Section title={t("share.title")} className="lg:col-span-2"><BookingShare /></Section>
         <SupportAccess />
         <Section title={t("settings.demo")} className="space-y-3 lg:col-span-2">

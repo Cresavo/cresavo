@@ -13,13 +13,13 @@ import { StaffDot } from "../staff-dot";
 import { useStudio } from "../use-studio";
 
 /** The week as a list per day (phones). */
-export function WeekAgenda({ monday, staff, onOpen }: { monday: DateKey; staff: Staff[]; onOpen: (sheet: OpenSheet) => void }) {
+export function WeekAgenda({ monday, staff, resourceId, onOpen }: { monday: DateKey; staff: Staff[]; resourceId?: string; onOpen: (sheet: OpenSheet) => void }) {
   const { state, today } = useStudio();
   const staffId = staff.length === 1 ? staff[0].id : undefined;
   return (
     <div className="space-y-4">
       {Array.from({ length: 7 }, (_, i) => addDays(monday, i)).map((d) => {
-        const list = dayBookings(state, d, staffId);
+        const list = dayBookings(state, d, staffId, resourceId);
         const closed = !openingFor(state.salon, d);
         return (
           <Card key={d} className="overflow-hidden">

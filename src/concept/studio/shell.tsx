@@ -5,6 +5,9 @@ import { usePathname } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { Leaf } from "lucide-react";
 import { HelpButton } from "./help/help-button";
+import { canOpen, staffViewer, useRole, type Role } from "../ops/access";
+import { NoAccess } from "./ops/no-access";
+import { RoleSwitch } from "./ops/role-switch";
 import { t } from "../i18n";
 import { unreadCount } from "../selectors";
 import { useDemo } from "../store";
@@ -17,6 +20,7 @@ const WELCOME_PATH = "/studio/welcome";
 
 export function StudioShell({ children }: { children: ReactNode }) {
   const state = useDemo();
+  const role = useRole();
   const pathname = usePathname() ?? "";
   if (!state) return <LoadingScreen />;
   if (pathname === WELCOME_PATH) {
@@ -29,16 +33,17 @@ export function StudioShell({ children }: { children: ReactNode }) {
   }
   return (
     <>
-      <Sidebar state={state} pathname={pathname} />
+      <Sidebar state={state} pathname={pathname} role={role} />
       <main className="pb-[calc(9rem+env(safe-area-inset-bottom))] lg:pb-12 lg:pl-64">
         <div className="mx-auto w-full max-w-6xl px-4 pt-3 sm:px-6 lg:px-10 lg:pt-5">
-          <div className="mb-2 flex justify-end lg:mb-1">
+          <div className="mb-2 flex items-center justify-end gap-2 lg:mb-1">
+            <RoleSwitch />
             <HelpButton />
           </div>
-          <Suspense>{children}</Suspense>
+          <Suspense>{canOpen(role, pathname) ? children : <NoAccess />}</Suspense>
         </div>
       </main>
-      <BottomTabs state={state} pathname={pathname} />
+      <BottomTabs state={state} pathname={pathname} role={role} />
       <Toaster />
     </>
   );
@@ -88,9 +93,14 @@ function SidebarLink({ item, pathname, badge }: { item: NavItem; pathname: strin
   );
 }
 
-function Sidebar({ state, pathname }: { state: DemoState; pathname: string }) {
+function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string; role: Role }) {
   const unread = unreadCount(state);
-  const owner = state.staff[0];
+  const person = role === "staff" ? (staffViewer(state) ?? state.staff[0]) : state.staff[0];
+  const allowed = (items: NavItem[]) => visibleItems(items, state.modules).filter((item) => canOpen(role, item.href));
+  const sections = [
+    { title: "nav.section.business" as const, items: allowed(BUSINESS_NAV) },
+    { title: "nav.section.settings" as const, items: allowed(SETTINGS_NAV) },
+  ].filter((section) => section.items.length);
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-eko-line bg-eko-bg px-4 py-6 lg:flex">
       <Link href="/studio" className="px-2">
@@ -98,46 +108,43 @@ function Sidebar({ state, pathname }: { state: DemoState; pathname: string }) {
       </Link>
       <nav aria-label={t("shell.navigation")} className="mt-8 flex flex-1 flex-col gap-6 overflow-y-auto">
         <div className="space-y-1">
-          {PRIMARY_NAV.map((item) => (
+          {PRIMARY_NAV.filter((item) => canOpen(role, item.href)).map((item) => (
             <SidebarLink key={item.href} item={item} pathname={pathname} badge={item.href === "/studio/inbox" ? unread : undefined} />
           ))}
         </div>
-        <div className="space-y-1">
-          <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.08em] text-eko-muted">{t("nav.section.business")}</p>
-          {visibleItems(BUSINESS_NAV, state.modules).map((item) => (
-            <SidebarLink key={item.href} item={item} pathname={pathname} />
-          ))}
-        </div>
-        <div className="space-y-1">
-          <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.08em] text-eko-muted">{t("nav.section.settings")}</p>
-          {SETTINGS_NAV.map((item) => (
-            <SidebarLink key={item.href} item={item} pathname={pathname} />
-          ))}
-        </div>
+        {sections.map((section) => (
+          <div key={section.title} className="space-y-1">
+            <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.08em] text-eko-muted">{t(section.title)}</p>
+            {section.items.map((item) => (
+              <SidebarLink key={item.href} item={item} pathname={pathname} />
+            ))}
+          </div>
+        ))}
       </nav>
       <div className="mt-4 flex items-center gap-3 rounded-2xl bg-eko-sunken px-3 py-2.5">
-        <span className="flex size-9 items-center justify-center rounded-full bg-eko-anna-soft text-sm font-semibold text-eko-anna">
-          {owner.firstName[0]}
-          {owner.lastName[0]}
+        <span className={cx("flex size-9 items-center justify-center rounded-full text-sm font-semibold", person.id === "anna" ? "bg-eko-anna-soft text-eko-anna" : "bg-eko-erik-soft text-eko-erik")}>
+          {person.firstName[0]}
+          {person.lastName[0]}
         </span>
         <span className="min-w-0 text-sm leading-tight">
-          <span className="block font-medium">{owner.firstName} {owner.lastName}</span>
-          <span className="block truncate text-xs text-eko-muted">{t("shell.ownerRole")} · {owner.title.toLowerCase()}</span>
+          <span className="block font-medium">{person.firstName} {person.lastName}</span>
+          <span className="block truncate text-xs text-eko-muted">{t(role === "staff" ? "shell.staffRole" : "shell.ownerRole")} · {person.title.toLowerCase()}</span>
         </span>
       </div>
     </aside>
   );
 }
 
-function BottomTabs({ state, pathname }: { state: DemoState; pathname: string }) {
+function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: string; role: Role }) {
   const unread = unreadCount(state);
+  const tabs = [...PRIMARY_NAV, MORE_TAB].filter((item) => canOpen(role, item.href));
   return (
     <nav
       aria-label={t("shell.navigation")}
       className="fixed inset-x-0 bottom-0 z-40 border-t border-eko-line bg-eko-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-5">
-        {[...PRIMARY_NAV, MORE_TAB].map((item) => {
+      <div className="mx-auto grid max-w-lg" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+        {tabs.map((item) => {
           const active = isActivePath(pathname, item.href);
           const Icon = item.icon;
           const badge = item.href === "/studio/inbox" ? unread : 0;

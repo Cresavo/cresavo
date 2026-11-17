@@ -2,8 +2,8 @@
 
 import type { DragEvent, MouseEvent } from "react";
 import { formatTime } from "../../data/dates";
-import { lunchFor, openingFor, staffWorks } from "../../data/slots";
-import type { DateKey, Staff } from "../../data/types";
+import { lunchFor, openingFor, staffWorks, workWindow } from "../../data/slots";
+import type { DateKey, DemoState, Staff, StaffId } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { dayBookings } from "../../selectors";
 import { dispatch, undo } from "../../store";
@@ -19,8 +19,15 @@ const PX_PER_MIN = 1.25;
 
 const snap = (minutes: number) => Math.floor(minutes / 15) * 15;
 
+/** "3 bookings", or what is wrong when the person is not working but has bookings left. */
+function dayHeading(state: DemoState, staffId: StaffId, date: DateKey, resourceId?: string) {
+  const count = dayBookings(state, date, staffId, resourceId).length;
+  if (staffWorks(state, staffId, date)) return tc("calendar.bookingCount", count);
+  return count ? tc("calendar.offToMove", count) : t("calendar.off");
+}
+
 /** One column per staff member for a single day. Tap a free spot to book, drag a booking to move it. */
-export function DayGrid({ date, staff, onOpen }: { date: DateKey; staff: Staff[]; onOpen: (sheet: OpenSheet) => void }) {
+export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; staff: Staff[]; resourceId?: string; onOpen: (sheet: OpenSheet) => void }) {
   const { state, today, minutes } = useStudio();
   const hours = openingFor(state.salon, date)!;
   const lunch = lunchFor(state.salon, date);
@@ -60,7 +67,7 @@ export function DayGrid({ date, staff, onOpen }: { date: DateKey; staff: Staff[]
             <StaffDot staffId={person.id} />
             <span className="truncate font-medium">{person.firstName}</span>
             <span className="truncate text-xs text-eko-muted">
-              {staffWorks(person, state.salon, date) ? tc("calendar.bookingCount", dayBookings(state, date, person.id).length) : t("calendar.off")}
+              {dayHeading(state, person.id, date, resourceId)}
             </span>
           </div>
         ))}
@@ -68,7 +75,8 @@ export function DayGrid({ date, staff, onOpen }: { date: DateKey; staff: Staff[]
       <div className="flex py-3 pr-1">
         <TimeAxis from={from} to={to} pxPerMin={PX_PER_MIN} />
         {staff.map((person) => {
-          const works = staffWorks(person, state.salon, date);
+          const shift = workWindow(state, person.id, date);
+          const works = shift !== null;
           return (
             <div
               key={person.id}
@@ -79,6 +87,8 @@ export function DayGrid({ date, staff, onOpen }: { date: DateKey; staff: Staff[]
               style={{ height }}
             >
               <HourLines from={from} to={to} pxPerMin={PX_PER_MIN} />
+              {shift && shift.start > from && <div className="pointer-events-none absolute inset-x-0 top-0 bg-eko-sunken/70" style={{ height: (shift.start - from) * PX_PER_MIN }} />}
+              {shift && shift.end < to && <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-eko-sunken/70" style={{ height: (to - shift.end) * PX_PER_MIN }} />}
               {lunch && works && (
                 <div
                   className="pointer-events-none absolute inset-x-0 flex items-center justify-center bg-[repeating-linear-gradient(135deg,transparent_0_6px,rgb(var(--eko-line)/0.6)_6px_7px)] text-[11px] text-eko-muted"
@@ -87,11 +97,11 @@ export function DayGrid({ date, staff, onOpen }: { date: DateKey; staff: Staff[]
                   {t("calendar.lunch")}
                 </div>
               )}
-              {works &&
-                dayBookings(state, date, person.id).map((b) => (
+              {dayBookings(state, date, person.id, resourceId).map((b) => (
                   <BookingBlock
                     key={b.id}
                     booking={b}
+                    misfit={!shift || b.start < shift.start || b.start + b.duration > shift.end}
                     top={(b.start - from) * PX_PER_MIN + 1}
                     height={b.duration * PX_PER_MIN - 2}
                     onOpen={() => onOpen({ kind: "booking", id: b.id })}

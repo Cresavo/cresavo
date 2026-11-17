@@ -8,9 +8,11 @@ import { t, tc } from "@/concept/i18n";
 import { agoText, formatDate, formatMoney } from "@/concept/i18n/format";
 import { nextVisitFor } from "@/concept/customers/return-visits";
 import { notSeenInThreeMonths } from "@/concept/customers/segments";
+import { servedBy, staffViewer, useRole } from "@/concept/ops/access";
 import { buildCustomerStats, findService, fullName } from "@/concept/selectors";
 import { dispatch, undo } from "@/concept/store";
 import { BackLink } from "@/concept/studio/back-link";
+import { NoAccess } from "@/concept/studio/ops/no-access";
 import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-sheets";
 import { BookingList } from "@/concept/studio/customers/booking-list";
 import { CustomerSummary } from "@/concept/studio/customers/customer-summary";
@@ -38,6 +40,8 @@ export default function CustomerPage() {
   const [tab, setTab] = useState<Tab>("overview");
   const [sheet, setSheet] = useState<OpenSheet>(null);
   const [selling, setSelling] = useState(false);
+  const role = useRole();
+  const viewer = role === "staff" ? staffViewer(state) : null;
   const customer = state.customers.find((c) => c.id === id);
   const stats = useMemo(() => buildCustomerStats(state, today), [state, today]);
 
@@ -51,6 +55,7 @@ export default function CustomerPage() {
     );
   }
 
+  if (viewer && !servedBy(state, viewer.id).has(customer.id)) return <NoAccess />;
   const s = stats.get(customer.id)!;
   const late = notSeenInThreeMonths(state, stats, today).some((c) => c.id === customer.id);
   const next = nextVisitFor(state, customer, stats);
@@ -109,7 +114,7 @@ export default function CustomerPage() {
               </Button>
             </div>
           </Card>
-          {state.modules.stock && (
+          {state.modules.stock && !viewer && (
             <Button variant="secondary" className="w-full" icon={<ShoppingBag size={18} />} onClick={() => setSelling(true)}>
               {t("stock.sell")}
             </Button>
@@ -126,11 +131,11 @@ export default function CustomerPage() {
           )}
           <div className="grid grid-cols-2 gap-2">
             <Fact label={t("customer.visits")} value={String(s.visits)} />
-            <Fact label={t("customer.spent")} value={formatMoney(s.spent)} />
+            {!viewer && <Fact label={t("customer.spent")} value={formatMoney(s.spent)} />}
             <Fact label={t("customer.lastVisit")} value={s.lastVisit ? agoText(s.lastVisit, today) : "–"} />
             <Fact label={t("customer.usually")} value={favorite?.name ?? "–"} />
           </div>
-          <DeleteCustomer customer={customer} />
+          {!viewer && <DeleteCustomer customer={customer} />}
         </div>
 
         <div className="min-w-0 space-y-5">
@@ -170,7 +175,7 @@ export default function CustomerPage() {
               <Card className="overflow-hidden">
                 <BookingList bookings={history} onOpen={setSheet} />
               </Card>
-              {state.modules.stock && <CustomerProducts customerId={customer.id} />}
+              {state.modules.stock && !viewer && <CustomerProducts customerId={customer.id} />}
               {state.modules.journal && journalNotes.length > 0 && (
                 <Section title={t("customer.journalNotes")} action={<Button size="sm" variant="ghost" onClick={() => setTab("journal")}>{t("customer.openJournal")}</Button>}>
                   <Card className="divide-y divide-eko-line overflow-hidden">

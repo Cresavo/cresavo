@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Upload, UserSearch } from "lucide-react";
 import { t, tc } from "@/concept/i18n";
+import { servedBy, staffViewer, useRole } from "@/concept/ops/access";
 import { buildCustomerStats, fullName } from "@/concept/selectors";
 import { CustomerRow } from "@/concept/studio/customers/customer-row";
 import { FILTERS, filterCustomers, isFilter, type CustomerFilter } from "@/concept/studio/customers/customer-filters";
@@ -18,7 +19,14 @@ import { EmptyState } from "@/concept/ui/empty-state";
 const PAGE_SIZE = 60;
 
 export default function CustomersPage() {
-  const { state, today } = useStudio();
+  const { state: studio, today } = useStudio();
+  const role = useRole();
+  const viewer = role === "staff" ? staffViewer(studio) : null;
+  const state = useMemo(() => {
+    if (!viewer) return studio;
+    const served = servedBy(studio, viewer.id);
+    return { ...studio, customers: studio.customers.filter((c) => served.has(c.id)) };
+  }, [studio, viewer]);
   const router = useRouter();
   const param = useSearchParams()?.get("filter") ?? null;
   const filter: CustomerFilter = isFilter(param) ? param : "all";
@@ -38,7 +46,7 @@ export default function CustomersPage() {
       <PageHeader
         title={t("customers.title")}
         subtitle={t("customers.subtitle", { count: state.customers.length, regulars: lists.regulars.length })}
-        actions={<ButtonLink href="/studio/customers/import" help="import-customers" variant="secondary" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>}
+        actions={viewer ? undefined : <ButtonLink href="/studio/customers/import" help="import-customers" variant="secondary" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>}
       />
       <div className="mb-4 space-y-3">
         <SearchInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("customers.search")} aria-label={t("customers.search")} />

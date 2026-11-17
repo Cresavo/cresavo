@@ -2,7 +2,7 @@
 
 import { CalendarClock, Phone, UserRound } from "lucide-react";
 import { addDays, formatTime } from "../../data/dates";
-import type { Booking } from "../../data/types";
+import type { Booking, StaffId } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { agoText, formatDuration, relativeDay } from "../../i18n/format";
 import { buildCustomerStats, dayBookings, findCustomer, findService, fullName } from "../../selectors";
@@ -19,10 +19,10 @@ function findNext(bookings: Booking[], now: number) {
 }
 
 /** The next (or current) customer with the facts you need before they walk in. */
-export function NextCustomer({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) {
+export function NextCustomer({ staffId, onOpen }: { staffId?: StaffId; onOpen: (sheet: OpenSheet) => void }) {
   const { state, today, minutes } = useStudio();
-  let booking = findNext(dayBookings(state, today), minutes);
-  for (let i = 1; !booking && i < 7; i++) booking = dayBookings(state, addDays(today, i))[0];
+  let booking = findNext(dayBookings(state, today, staffId), minutes);
+  for (let i = 1; !booking && i < 7; i++) booking = dayBookings(state, addDays(today, i), staffId)[0];
   if (!booking) return null;
 
   const customer = findCustomer(state, booking.customerId);

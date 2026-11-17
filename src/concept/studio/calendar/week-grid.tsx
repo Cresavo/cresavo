@@ -14,7 +14,7 @@ import { HourLines, TimeAxis } from "./time-axis";
 const PX_PER_MIN = 0.9;
 
 /** Seven days side by side (desktop). Each day is split per selected staff member. */
-export function WeekGrid({ monday, staff, onOpen, onPickDay }: { monday: DateKey; staff: Staff[]; onOpen: (sheet: OpenSheet) => void; onPickDay: (date: DateKey) => void }) {
+export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { monday: DateKey; staff: Staff[]; resourceId?: string; onOpen: (sheet: OpenSheet) => void; onPickDay: (date: DateKey) => void }) {
   const { state, today } = useStudio();
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const open = days.map((d) => openingFor(state.salon, d)).filter((h) => h !== null);
@@ -45,8 +45,8 @@ export function WeekGrid({ monday, staff, onOpen, onPickDay }: { monday: DateKey
               <HourLines from={from} to={to} pxPerMin={PX_PER_MIN} />
               {hours &&
                 staff.map((person) => (
-                  <div key={person.id} className={cx("relative min-w-0 flex-1", !staffWorks(person, state.salon, d) && "bg-eko-sunken/50")}>
-                    {dayBookings(state, d, person.id).map((b) => (
+                  <div key={person.id} className={cx("relative min-w-0 flex-1", !staffWorks(state, person.id, d) && "bg-eko-sunken/50")}>
+                    {dayBookings(state, d, person.id, resourceId).map((b) => (
                       <BookingBlock
                         key={b.id}
                         booking={b}

@@ -1,17 +1,16 @@
 "use client";
 
 import { addDays } from "@/concept/data/dates";
-import { t, tc, words } from "@/concept/i18n";
+import { t, tc } from "@/concept/i18n";
 import { formatMoney, formatNumber } from "@/concept/i18n/format";
 import { dayBookings, revenueSplit, utilisation } from "@/concept/selectors";
+import { StaffSchedule } from "@/concept/studio/ops/staff-schedule";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Badge } from "@/concept/ui/badge";
 import { Card } from "@/concept/ui/card";
 import { Meter } from "@/concept/ui/charts";
 import { cx } from "@/concept/ui/cx";
-
-const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 export default function StaffPage() {
   const { state, today } = useStudio();
@@ -39,11 +38,7 @@ export default function StaffPage() {
                 </div>
               </div>
               <p className="text-sm">{person.bio}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {WEEK_ORDER.map((d) => (
-                  <Badge key={d} tone={person.workdays.includes(d) ? "accent" : "neutral"}>{words.weekdaysShort[d]}</Badge>
-                ))}
-              </div>
+              <StaffSchedule person={person} />
               <div className="grid grid-cols-3 gap-3 border-t border-eko-line pt-4 text-sm">
                 <div>
                   <p className="text-eko-muted">{t("staff.next7")}</p>

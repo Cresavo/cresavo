@@ -12,6 +12,7 @@ import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-
 import { DayGrid } from "@/concept/studio/calendar/day-grid";
 import { WeekAgenda } from "@/concept/studio/calendar/week-agenda";
 import { WeekGrid } from "@/concept/studio/calendar/week-grid";
+import { staffViewer, useRole } from "@/concept/ops/access";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Button, IconButton } from "@/concept/ui/button";
@@ -24,9 +25,15 @@ export default function CalendarPage() {
   const { state, today } = useStudio();
   const [view, setView] = useState<View>("day");
   const [date, setDate] = useState(today);
-  const [staffFilter, setStaffFilter] = useState<StaffId | "all">("all");
+  const role = useRole();
+  const viewer = role === "staff" ? staffViewer(state) : null;
+  const [chosenStaff, setStaffFilter] = useState<StaffId | "all">("all");
+  const [resourceId, setResourceId] = useState<string | undefined>();
   const [sheet, setSheet] = useState<OpenSheet>(null);
+  const staffFilter = viewer?.id ?? chosenStaff;
   const staff = state.staff.filter((s) => staffFilter === "all" || s.id === staffFilter);
+  const room = state.resources.some((r) => r.id === resourceId) ? resourceId : undefined;
+  const closure = state.salon.closures.find((c) => c.date === date);
   const monday = startOfWeek(date);
   const step = view === "day" ? 1 : 7;
   const label = view === "day" ? formatDayLong(date) : `${formatDayMonth(monday)} – ${formatDayMonth(addDays(monday, 6))}`;
@@ -64,28 +71,38 @@ export default function CalendarPage() {
               { value: "week", label: t("calendar.week") },
             ]}
           />
-          <div className="no-scrollbar flex gap-2 overflow-x-auto">
-            <Chip active={staffFilter === "all"} onClick={() => setStaffFilter("all")}>{t("calendar.everyone")}</Chip>
-            {state.staff.map((s) => (
-              <Chip key={s.id} active={staffFilter === s.id} onClick={() => setStaffFilter(s.id)}>{s.firstName}</Chip>
-            ))}
-          </div>
+          {!viewer && (
+            <div className="no-scrollbar flex gap-2 overflow-x-auto">
+              <Chip active={staffFilter === "all"} onClick={() => setStaffFilter("all")}>{t("calendar.everyone")}</Chip>
+              {state.staff.map((s) => (
+                <Chip key={s.id} active={staffFilter === s.id} onClick={() => setStaffFilter(s.id)}>{s.firstName}</Chip>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+      {state.resources.length > 0 && (
+        <div className="no-scrollbar -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="group" aria-label={t("calendar.rooms")}>
+          <Chip active={!room} onClick={() => setResourceId(undefined)}>{t("calendar.allRooms")}</Chip>
+          {state.resources.map((r) => (
+            <Chip key={r.id} active={room === r.id} onClick={() => setResourceId(r.id)}>{r.name}</Chip>
+          ))}
+        </div>
+      )}
 
       {view === "day" ? (
         openingFor(state.salon, date) ? (
-          <DayGrid date={date} staff={staff} onOpen={setSheet} />
+          <DayGrid date={date} staff={staff} resourceId={room} onOpen={setSheet} />
         ) : (
-          <EmptyState icon={<CalendarOff size={22} />} title={t("calendar.closed")} text={t("calendar.closedText")} />
+          <EmptyState icon={<CalendarOff size={22} />} title={t("calendar.closed")} text={closure ? t("calendar.closedFor", { name: closure.name }) : t("calendar.closedText")} />
         )
       ) : (
         <>
           <div className="hidden lg:block">
-            <WeekGrid monday={monday} staff={staff} onOpen={setSheet} onPickDay={(d) => { setDate(d); setView("day"); }} />
+            <WeekGrid monday={monday} staff={staff} resourceId={room} onOpen={setSheet} onPickDay={(d) => { setDate(d); setView("day"); }} />
           </div>
           <div className="lg:hidden">
-            <WeekAgenda monday={monday} staff={staff} onOpen={setSheet} />
+            <WeekAgenda monday={monday} staff={staff} resourceId={room} onOpen={setSheet} />
           </div>
         </>
       )}

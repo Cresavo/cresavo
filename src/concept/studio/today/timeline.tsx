@@ -18,13 +18,13 @@ type Row =
   | { kind: "booking"; start: number; booking: Booking }
   | { kind: "gap"; start: number; end: number; staffId: StaffId };
 
-/** Today's bookings for everyone, with free gaps in between. */
-export function Timeline({ date, onOpen }: { date: DateKey; onOpen: (sheet: OpenSheet) => void }) {
+/** Today's bookings for everyone (or one person), with free gaps in between. */
+export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: StaffId; onOpen: (sheet: OpenSheet) => void }) {
   const { state, today, minutes } = useStudio();
   const now = date === today ? minutes : 0;
   const rows: Row[] = [
-    ...state.bookings.filter((b) => b.date === date).map((b) => ({ kind: "booking" as const, start: b.start, booking: b })),
-    ...state.staff.flatMap((s) =>
+    ...state.bookings.filter((b) => b.date === date && (!staffId || b.staffId === staffId)).map((b) => ({ kind: "booking" as const, start: b.start, booking: b })),
+    ...state.staff.filter((s) => !staffId || s.id === staffId).flatMap((s) =>
       freeGaps(state, s.id, date, { after: now, min: 30 }).map((g) => ({ kind: "gap" as const, ...g, staffId: s.id })),
     ),
   ].sort((a, b) => a.start - b.start);
