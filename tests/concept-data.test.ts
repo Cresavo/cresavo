@@ -3,7 +3,8 @@ import { addDays } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
 import { upcomingHolidays } from "@/concept/data/holidays";
 import { freeStarts, isFree } from "@/concept/data/slots";
-import { buildCustomerStats, lateCustomers, lowStock, utilisation } from "@/concept/selectors";
+import { notSeenInThreeMonths } from "@/concept/customers/segments";
+import { buildCustomerStats, lowStock, utilisation } from "@/concept/selectors";
 
 const today = "2026-11-16";
 const state = createDemoState(today);
@@ -39,7 +40,7 @@ describe("concept demo data", () => {
 
   it("includes the story items: low stock, late customers, inbox and reviews", () => {
     expect(lowStock(state).map((s) => s.id)).toEqual(["urea-cream", "massage-oil-neutral"]);
-    expect(lateCustomers(state, buildCustomerStats(state, today), today).length).toBeGreaterThan(3);
+    expect(notSeenInThreeMonths(state, buildCustomerStats(state, today), today).length).toBeGreaterThan(3);
     expect(state.inbox.filter((i) => !i.read).length).toBeGreaterThan(3);
     expect(state.reviews.length).toBeGreaterThan(70);
   });

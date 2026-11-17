@@ -6,12 +6,16 @@ import { CalendarPlus, Hand, Mail, MessageSquare, Phone, UserX } from "lucide-re
 import { diffDays } from "@/concept/data/dates";
 import { t, tc } from "@/concept/i18n";
 import { agoText, formatDate, formatMoney } from "@/concept/i18n/format";
-import { buildCustomerStats, findService, fullName, lateCustomers } from "@/concept/selectors";
+import { nextVisitFor } from "@/concept/customers/return-visits";
+import { notSeenInThreeMonths } from "@/concept/customers/segments";
+import { buildCustomerStats, findService, fullName } from "@/concept/selectors";
 import { dispatch, undo } from "@/concept/store";
 import { BackLink } from "@/concept/studio/back-link";
 import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-sheets";
 import { BookingList } from "@/concept/studio/customers/booking-list";
+import { CustomerSummary } from "@/concept/studio/customers/customer-summary";
 import { Journal } from "@/concept/studio/customers/journal";
+import { NextVisitCard } from "@/concept/studio/customers/next-visit-card";
 import { Notes } from "@/concept/studio/customers/notes";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -44,7 +48,9 @@ export default function CustomerPage() {
   }
 
   const s = stats.get(customer.id)!;
-  const late = lateCustomers(state, stats, today).some((c) => c.id === customer.id);
+  const late = notSeenInThreeMonths(state, stats, today).some((c) => c.id === customer.id);
+  const next = nextVisitFor(state, customer, stats);
+  const journalNotes = state.journals.filter((j) => j.customerId === customer.id).sort((a, b) => b.date.localeCompare(a.date));
   const bookings = state.bookings.filter((b) => b.customerId === customer.id);
   const upcoming = bookings.filter((b) => b.status === "booked" && b.date >= today).sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
   const history = bookings.filter((b) => b.date < today || b.status !== "booked").sort((a, b) => b.date.localeCompare(a.date) || b.start - a.start);
@@ -73,6 +79,7 @@ export default function CustomerPage() {
                 </div>
               </div>
             </div>
+            <CustomerSummary customer={customer} />
             <div className="space-y-1 text-sm">
               <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className="flex items-center gap-2 py-1 hover:text-eko-accent">
                 <Phone size={16} className="text-eko-muted" />
@@ -98,6 +105,7 @@ export default function CustomerPage() {
               </Button>
             </div>
           </Card>
+          <NextVisitCard customer={customer} next={next} lastVisit={s.lastVisit} />
           {late && s.lastVisit && (
             <Card className="flex gap-3 bg-eko-warn-soft p-4 ring-eko-warn/20">
               <Hand size={20} className="mt-0.5 shrink-0 text-eko-warn" />
@@ -148,9 +156,24 @@ export default function CustomerPage() {
             </>
           )}
           {tab === "history" && (
-            <Card className="overflow-hidden">
-              <BookingList bookings={history} onOpen={setSheet} />
-            </Card>
+            <>
+              <Card className="overflow-hidden">
+                <BookingList bookings={history} onOpen={setSheet} />
+              </Card>
+              {state.modules.journal && journalNotes.length > 0 && (
+                <Section title={t("customer.journalNotes")} action={<Button size="sm" variant="ghost" onClick={() => setTab("journal")}>{t("customer.openJournal")}</Button>}>
+                  <Card className="divide-y divide-eko-line overflow-hidden">
+                    {journalNotes.slice(0, 5).map((j) => (
+                      <button key={j.id} onClick={() => setTab("journal")} className="block w-full px-4 py-3 text-left hover:bg-eko-sunken">
+                        <span className="block text-xs text-eko-muted">{formatDate(j.date)}</span>
+                        <span className="block truncate text-sm font-medium">{j.treatment}</span>
+                        {j.observations && <span className="block truncate text-sm text-eko-muted">{j.observations}</span>}
+                      </button>
+                    ))}
+                  </Card>
+                </Section>
+              )}
+            </>
           )}
           {tab === "journal" && state.modules.journal && <Journal customer={customer} />}
           {tab === "journal" && !state.modules.journal && (

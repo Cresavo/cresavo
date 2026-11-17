@@ -27,7 +27,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 4;
+export const DEMO_VERSION = 5;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -74,6 +74,15 @@ interface CustomerProfile {
 
 const ascii = (s: string) =>
   s.toLowerCase().replace(/å/g, "a").replace(/ä/g, "a").replace(/ö/g, "o").replace(/é/g, "e");
+
+/** Fictional birthday spread over the year; about seven in ten customers have one on file. */
+function birthdayFor(index: number): DateKey | undefined {
+  if (index % 10 >= 7) return undefined;
+  const year = 1948 + ((index * 13) % 52);
+  const month = ((index * 5 + 3) % 12) + 1;
+  const day = ((index * 11) % 28) + 1;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
 
 function makeCustomers(rng: Rng, today: DateKey): CustomerProfile[] {
   const used = new Set<string>();
@@ -133,6 +142,7 @@ function makeCustomers(rng: Rng, today: DateKey): CustomerProfile[] {
         category,
         preferredStaff,
         since,
+        birthday: birthdayFor(i),
         isRegular: regular,
         note,
         tags,

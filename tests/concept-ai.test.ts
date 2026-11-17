@@ -15,6 +15,7 @@ const inputs = {
   "stock-forecast": { product: "Foot cream", quantity: 10, dailyUsage: 2, leadTimeDays: 3 },
   "reply-customer": { customerName: "Anna", message: "Can I book tomorrow?" },
   "daily-summary": { revenueSek: 2400, newCustomers: 2, missingJournals: 1, tomorrowFirstCustomer: "Erik" },
+  "summarize-customer": { sinceYear: 2024, regular: true, visits: 9, service: "Medical foot care", intervalWeeks: 6, traits: ["sensitive skin"], prefersStaff: "Anna", timeOfDay: "afternoons", note: null },
 } as const;
 const names = Object.keys(tasks) as (keyof typeof tasks)[];
 beforeEach(clearCostLog);

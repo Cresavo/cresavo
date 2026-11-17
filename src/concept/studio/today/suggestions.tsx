@@ -5,7 +5,8 @@ import { CalendarHeart, Clock, MessageSquare, Package, UserRoundCheck, X } from 
 import { diffDays } from "../../data/dates";
 import { freeGaps } from "../../data/slots";
 import { t, tc } from "../../i18n";
-import { buildCustomerStats, lowStock, recallDue } from "../../selectors";
+import { dueBackList } from "../../customers/return-visits";
+import { buildCustomerStats, lowStock } from "../../selectors";
 import { dispatch, undo } from "../../store";
 import { Button, ButtonLink, IconButton } from "../../ui/button";
 import { Card } from "../../ui/card";
@@ -76,21 +77,14 @@ export function Suggestions({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) 
     }
   }
 
-  const due = recallDue(state, buildCustomerStats(state, today), today);
+  const due = dueBackList(state, buildCustomerStats(state, today), today);
   if (due.length) {
     list.push({
       id: `recall-${today}`,
       icon: <UserRoundCheck size={20} />,
       title: tc("suggest.recall.title", due.length),
       text: t("suggest.recall.text"),
-      actions: (
-        <>
-          <Button size="sm" onClick={() => notify(t("suggest.recall.sentTitle"), tc("suggest.recall.sentBody", due.length), tc("suggest.recall.toast", due.length))}>
-            {t("suggest.recall.send")}
-          </Button>
-          <ButtonLink href="/studio/customers?filter=due" size="sm" variant="ghost">{t("suggest.recall.show")}</ButtonLink>
-        </>
-      ),
+      actions: <ButtonLink href="/studio/customers/due-back" size="sm">{t("suggest.recall.review")}</ButtonLink>,
     });
   }
 
