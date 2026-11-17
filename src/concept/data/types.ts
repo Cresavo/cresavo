@@ -2,6 +2,10 @@
 // deterministically in `generate.ts` and kept in the browser (see `../store.ts`).
 
 import type { AccountingLink, Cost, MonthFigures } from "../finance/types";
+import type { LogEntry } from "../log/types";
+import type { SupportGrant } from "../support/access";
+import type { Ticket } from "../support/tickets";
+import type { TrashEntry } from "../trash/trash";
 
 /** Local calendar day, "YYYY-MM-DD". */
 export type DateKey = string;
@@ -308,4 +312,12 @@ export interface DemoState {
   modules: Record<ModuleKey, boolean>;
   /** Suggestion cards on Today that the owner dismissed. */
   dismissedCards: string[];
+  /** What happened, newest first. */
+  log: LogEntry[];
+  /** Cancelled bookings and deleted customers that can still be restored. */
+  trash: TrashEntry[];
+  /** Times the owner let support look at the account. */
+  supportGrants: SupportGrant[];
+  /** Help requests created from the Help button. */
+  tickets: Ticket[];
 }

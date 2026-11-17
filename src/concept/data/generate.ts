@@ -30,7 +30,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 8;
+export const DEMO_VERSION = 9;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -663,5 +663,9 @@ export function createDemoState(today: DateKey): DemoState {
     accounting: { connected: false },
     modules: { journal: true, stock: true, campaigns: true, finance: true, reviews: true },
     dismissedCards: [],
+    log: [],
+    trash: cancelled ? [{ id: "t-cancelled-today", kind: "booking", deletedOn: today, bookingId: cancelled.id }] : [],
+    supportGrants: [],
+    tickets: [],
   };
 }

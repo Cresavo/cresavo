@@ -4,6 +4,10 @@ import { editJournalEntry } from "./customers/journal";
 import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visits";
 import type { CostKind } from "./finance/types";
 import { isFree } from "./data/slots";
+import { undoEntry } from "./log/undo";
+import { grantSupport, revokeSupport, type GrantHours } from "./support/access";
+import type { NewTicket } from "./support/tickets";
+import { deleteCustomer, restoreEntry, trashBooking } from "./trash/trash";
 import { placeOrders, receiveGoods, type Delivery, type NewOrder } from "./stock/orders";
 import { sellProduct } from "./stock/sales";
 import { deduct, roundAmount, usesOfService } from "./stock/usage";
@@ -57,7 +61,13 @@ export type DemoAction =
   | { type: "accounting/connect"; on: DateKey }
   | { type: "accounting/disconnect" }
   | { type: "module/toggle"; key: ModuleKey }
-  | { type: "card/dismiss"; id: string };
+  | { type: "card/dismiss"; id: string }
+  | { type: "customer/delete"; id: string }
+  | { type: "trash/restore"; id: string }
+  | { type: "log/undo"; id: string }
+  | { type: "support/grant"; hours: GrantHours; at: number }
+  | { type: "support/revoke"; at: number }
+  | { type: "ticket/create"; ticket: NewTicket };
 
 /** What the owner can change about a product. */
 export type StockPatch = Partial<Pick<StockItem, "reorderAt" | "supplier" | "unitCost" | "salePrice">>;
@@ -264,7 +274,9 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
       return action.notice && moved !== state ? reduce(moved, { type: "inbox/add", item: action.notice }) : moved;
     }
     case "booking/cancel": {
-      const cancelled = { ...state, bookings: updateBy(state.bookings, action.id, (b) => ({ ...b, status: "cancelled" as const, cancelReason: action.reason })) };
+      const wasBooked = state.bookings.some((b) => b.id === action.id && b.status === "booked");
+      const marked = { ...state, bookings: updateBy(state.bookings, action.id, (b) => ({ ...b, status: "cancelled" as const, cancelReason: action.reason })) };
+      const cancelled = wasBooked ? trashBooking(marked, action.id) : marked;
       return action.notice ? reduce(cancelled, { type: "inbox/add", item: action.notice }) : cancelled;
     }
     case "booking/create":
@@ -334,5 +346,17 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
       return { ...state, modules: { ...state.modules, [action.key]: !state.modules[action.key] } };
     case "card/dismiss":
       return { ...state, dismissedCards: [...state.dismissedCards, action.id] };
+    case "customer/delete":
+      return deleteCustomer(state, action.id);
+    case "trash/restore":
+      return restoreEntry(state, action.id);
+    case "log/undo":
+      return undoEntry(state, action.id);
+    case "support/grant":
+      return grantSupport(state, action.hours, action.at);
+    case "support/revoke":
+      return revokeSupport(state, action.at);
+    case "ticket/create":
+      return { ...state, seq: state.seq + 1, tickets: [{ ...action.ticket, id: `tk-${state.seq}` }, ...state.tickets] };
   }
 }

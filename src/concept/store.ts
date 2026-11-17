@@ -1,10 +1,13 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { reduce, type DemoAction } from "./actions";
+import type { DemoAction } from "./actions";
 import { toKey } from "./data/dates";
 import { createDemoState, DEMO_VERSION } from "./data/generate";
 import type { DemoState } from "./data/types";
+import { applyAction, defaultMeta } from "./log/capture";
+import type { LogMeta } from "./log/types";
+import { purgeExpired } from "./trash/trash";
 
 // Browser-side demo store: one in-memory state, mirrored to localStorage.
 // Pages read it with `useDemo()`; on the server it is `null`, so the studio
@@ -26,7 +29,7 @@ function load(): DemoState {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const saved = JSON.parse(raw) as DemoState;
-      if (saved.version === DEMO_VERSION && saved.generatedFor === today()) return saved;
+      if (saved.version === DEMO_VERSION && saved.generatedFor === today()) return purgeExpired(saved, today());
     }
   } catch {
     // Storage blocked or corrupt: fall back to fresh demo data.
@@ -63,11 +66,16 @@ export function currentState(): DemoState | null {
   return getSnapshot();
 }
 
-/** Applies an action. Returns false when nothing changed (e.g. the slot was taken). */
-export function dispatch(action: DemoAction): boolean {
+/**
+ * Applies an action and records it in the activity log. `meta` says who and
+ * where it came from when that is not "the owner pressed a button".
+ * Returns false when nothing changed (e.g. the slot was taken).
+ */
+export function dispatch(action: DemoAction, meta?: Partial<Omit<LogMeta, "at">>): boolean {
   const current = getSnapshot();
   if (!current) return false;
-  const next = reduce(current, action);
+  const now = Date.now();
+  const next = applyAction(current, action, { ...defaultMeta(action, now), ...meta, at: now });
   if (next === current) return false;
   history = [...history.slice(-(UNDO_LIMIT - 1)), current];
   setState(next);

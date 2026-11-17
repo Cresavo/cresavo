@@ -37,6 +37,7 @@ export function CommandBox() {
   const root = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const latestRun = useRef(0);
+  const spoken = useRef(false);
   const examples = useMemo(() => commandExamples(state, today), [state, today]);
 
   useEffect(() => {
@@ -50,9 +51,10 @@ export function CommandBox() {
     if (clear) setText("");
   };
 
-  const submit = async (raw: string) => {
+  const submit = async (raw: string, voice = false) => {
     const command = raw.trim();
     if (!command) return;
+    spoken.current = voice;
     const run = ++latestRun.current;
     const context = buildIntentContext(state, today, minutes);
     const show = (intent: IntentResult, source: Source, pending: boolean) =>
@@ -72,9 +74,9 @@ export function CommandBox() {
   };
 
   const speech = useSpeech({
-    onText: (spoken) => {
-      setText(spoken);
-      void submit(spoken);
+    onText: (heard) => {
+      setText(heard);
+      void submit(heard, true);
     },
   });
 
@@ -84,10 +86,10 @@ export function CommandBox() {
   });
   useEffect(
     () =>
-      onVoiceCommand((spoken) => {
-        setText(spoken);
+      onVoiceCommand((heard) => {
+        setText(heard);
         root.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-        void submitRef.current(spoken);
+        void submitRef.current(heard, true);
       }),
     [],
   );
@@ -106,7 +108,7 @@ export function CommandBox() {
   }, [open]);
 
   const approve = (proposal: Extract<Proposal, { kind: "change" }>) => {
-    if (dispatch(proposal.action)) showToast(proposal.toast, { label: t("common.undo"), run: undo });
+    if (dispatch(proposal.action, { actor: "ai", source: spoken.current ? "voice" : "command" })) showToast(proposal.toast, { label: t("common.undo"), run: undo });
     else showToast(t("command.failed"));
     dismiss(true);
   };
@@ -139,7 +141,7 @@ export function CommandBox() {
 
   const showExamples = open && !view && !text.trim();
   return (
-    <div ref={root} className="relative" onKeyDown={onKeyDown}>
+    <div ref={root} data-help="command-box" className="relative" onKeyDown={onKeyDown}>
       <form
         role="search"
         onSubmit={onSubmit}
