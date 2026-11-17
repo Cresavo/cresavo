@@ -40,6 +40,8 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 16 | The Flerdo assistant: conversation, memory, routines, proactive briefs | Claude (Opus) | done · 2026-11-17 |
 | 17 | Your booking page: own address and own design | Claude (Sonnet) | done · 2026-11-17 |
 | 18 | Libovo brand v0.9 implementation ([guide](../design/LIBOVO.md)) | Claude (Opus) | done · 2026-11-17 (assistant name pending owner decision) |
+| 19 | Phone answering (voice receptionist) | Opus | open |
+| 20 | Email for every business (inbox + send from own domain) | Opus | open |
 
 ---
 
@@ -389,6 +391,33 @@ own-domain flow and see the DNS instruction and status; change theme and
 sections with live preview and see `/boka/<slug>` change; ask the assistant
 for a calmer look and approve it; custom CSS cannot inject scripts (tested);
 axe shows no violations with the default and one custom theme.
+
+## 19 · Phone answering (voice receptionist)
+
+**Goal:** when the salon is busy, calls are answered, questions handled and
+bookings proposed or made, and everything lands in the Inbox.
+
+- Simulated first in the demo: incoming call → transcript, summary, intent,
+  proposed booking → Inbox item with Approve / Call back.
+- Real path behind a flag: 46elks number with forwarding (busy / no answer /
+  closed) → realtime voice pipeline (Pipecat, BSD-2) → our tool registry
+  (same tools as Ask and MCP). Owner chooses: answer questions only, propose
+  times, or book directly. Recording only with caller consent.
+- Cost per minute shown in the AI cost log; paid module.
+- See docs/OPEN_SOURCE_BUILDING_BLOCKS.md.
+
+## 20 · Email for every business
+
+**Goal:** each business receives and sends email inside the product.
+
+- Inbound: `<slug>@inbox.<product domain>` plus forwarding from the business's
+  own `info@` address; messages appear in the Inbox with drafted replies.
+- Outbound from the business's own domain (confirmations, replies) after a
+  DNS guide (SPF/DKIM/DMARC) with status checks, like the own-domain flow.
+- Templates with React Email (MIT) in the tenant's brand.
+- Full mailboxes via a partner (Google Workspace, Zoho), not our own server.
+- Provider with per-tenant domains (e.g. SES tenants, Postmark); simulated in
+  the demo, real provider behind a flag.
 
 ---
 
