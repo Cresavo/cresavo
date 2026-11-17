@@ -114,7 +114,7 @@ function pickPeriod(text: string): Period | undefined {
 /** "at 3" means 15:00 in a salon that opens at 09:00. */
 function pickTime(text: string): number | undefined {
   const explicit = text.match(/\b\d{1,2}:\d{2}\s*(?:am|pm)?\b|\b\d{1,2}\s*(?:am|pm)\b/)?.[0];
-  const parsed = parseTime(explicit ?? text);
+  const parsed = parseTime(text);
   if (!parsed) return undefined;
   const [hour, minute] = parsed.split(":").map(Number);
   return (hour < 8 && !explicit ? hour + 12 : hour) * 60 + minute;

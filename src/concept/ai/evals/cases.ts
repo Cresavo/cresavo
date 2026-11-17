@@ -21,6 +21,7 @@ const context = {
   bookings: [{ id: "anna-thursday", customerId: "anna", staffId: "staff-anna", serviceId: "foot", start: "2026-11-19T10:00:00+01:00" }, { id: "erik-today", customerId: "erik", staffId: "staff-anna", serviceId: "massage", start: "2026-11-17T15:00:00+01:00" }],
 };
 const commands: [string, string, Record<string, unknown>][] = [
+  ["move-minutes", "Move Anna's appointment on Thursday to 14:30", { action: "move", "params.bookingId": "anna-thursday", "params.date": "2026-11-19", "params.time": "14:30" }],
   ["move-time", "Move Anna's appointment on Thursday to 14:00", { action: "move", "params.bookingId": "anna-thursday", "params.date": "2026-11-19", "params.time": "14:00" }],
   ["book-morning", "Book Erik for a foot treatment next Tuesday morning", { action: "book", "params.customerId": "erik", "params.serviceId": "foot", "params.date": "2026-11-24", "params.period": "morning" }],
   ["cancel-waitlist", "Cancel 15:00 today and offer the slot to the waiting list", { action: "cancel", "params.bookingId": "erik-today", "params.offerWaitingList": true }],

@@ -24,6 +24,7 @@ describe("relative salon dates", () => {
 describe("English times", () => {
   it.each([
     ["2pm", "14:00"], ["2 pm", "14:00"], ["14:00", "14:00"], ["9am", "09:00"], ["12am", "00:00"], ["12pm", "12:00"], ["2:30pm", "14:30"],
+    ["at 14:30", "14:30"], ["to 09:45", "09:45"], ["Friday 10:15", "10:15"], ["at 2:30pm", "14:30"], ["to 24:01", undefined], ["at 14:99", undefined],
     ["at 10", "10:00"], ["Friday 10", "10:00"], ["23:59", "23:59"], ["24:00", undefined], ["14:99", undefined], ["13pm", undefined], ["0am", undefined], ["morning", undefined],
   ])("%s -> %s", (text, time) => expect(parseTime(text.toLowerCase())).toBe(time));
 });
@@ -36,6 +37,7 @@ describe("booking proposals", () => {
   ])("understands %s", text => expect(interpretCommand(text, context)).toMatchObject({ action: "book", params: { customerId: "erik" } }));
   it("separates customer and staff", () => expect(interpretCommand("Book Erik for massage with Anna tomorrow morning", context)).toMatchObject({ action: "book", params: { customerId: "erik", staffId: "staff-anna" } }));
   it.each([
+    ["Move Anna's appointment on Thursday to 14:30", "2026-11-19", "14:30", "thursday"],
     ["Move Anna's appointment on Thursday to 14:00", "2026-11-19", "14:00", "thursday"],
     ["Move Anna’s appointment on Thursday to Friday 2pm", "2026-11-20", "14:00", "thursday"],
     ["move Lisa to Friday 10", "2026-11-20", "10:00", "lisa-friday"],
