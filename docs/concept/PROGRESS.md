@@ -1,5 +1,11 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Codex · night 3 part 1: finding #12
+
+Compatible TypeScript-ESLint 8.73.0 now supports fixed minimatch 11.x. Full and production-only npm audits report zero vulnerabilities. No direct ranges, overrides, prereleases or toolchain major upgrades were introduced. See [dependency review](../DEPENDENCY_REVIEW.md).
+
+**Part 1 validation**: lint, tsc, 984 unit tests, 211 engine integration tests, production build and 49/49 offline AI evals pass. UI checked at 390/1280 px with mocked speech support. #14 remains open; goals 11/12 were not started.
+
 ## 2026-11-17 · Codex · night 3 part 1: finding #15
 
 The engine MCP handler is created once per process. Its SDK factory receives only the freshly authenticated request principal; no client credentials are cached or shared. Auth, request-size limit, rate limit, scopes, read-only policy, mandates and idempotency remain enforced. Concurrent real-SDK transport tests and all 211 engine integration tests pass. Try the existing `/api/v1/mcp` tools with separate demo clients.
