@@ -340,7 +340,7 @@ const messages = {
   "dueBack.dueToday": "Due today",
   "dueBack.suggests": "Suggests {when} with {staff}",
   "dueBack.noSlot": "No free time in the next three weeks, the link lets them pick.",
-  "dueBack.send": "Send time suggestion",
+  "dueBack.send": "Send time suggestion to {name}",
   "dueBack.sent": "Sent",
   "dueBack.toast": "Time suggestion sent to {name}",
   "dueBack.logTitle": "Time suggestion sent to {name}",

@@ -14,7 +14,7 @@ import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Avatar } from "@/concept/ui/avatar";
 import { Badge } from "@/concept/ui/badge";
-import { Button, IconButton } from "@/concept/ui/button";
+import { IconButton } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
 import { EmptyState } from "@/concept/ui/empty-state";
 
@@ -37,7 +37,7 @@ export default function DueBackPage() {
               {due.map((row) => {
                 const time = suggestedTime(state, row.customer, row.service, today);
                 return (
-                  <div key={row.customer.id} className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center">
+                  <div key={row.customer.id} className="flex items-center gap-2 px-4 py-3">
                     <Link href={`/studio/customers/${row.customer.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                       <Avatar name={fullName(row.customer)} />
                       <span className="min-w-0">
@@ -51,16 +51,14 @@ export default function DueBackPage() {
                         <span className="block text-sm text-eko-muted">{time ? t("dueBack.suggests", time) : t("dueBack.noSlot")}</span>
                       </span>
                     </Link>
-                    <Button
-                      size="sm"
-                      className="self-start sm:self-center"
-                      variant={row.sent ? "secondary" : "primary"}
+                    <IconButton
+                      label={row.sent ? t("dueBack.sent") : t("dueBack.send", { name: row.customer.firstName })}
+                      className="shrink-0"
                       disabled={row.sent}
-                      icon={row.sent ? <Check size={16} /> : <Send size={16} />}
                       onClick={() => sendTimeSuggestion(state, row.customer, row.service, today, minutes)}
                     >
-                      {row.sent ? t("dueBack.sent") : t("dueBack.send")}
-                    </Button>
+                      {row.sent ? <Check size={18} /> : <Send size={18} />}
+                    </IconButton>
                   </div>
                 );
               })}
