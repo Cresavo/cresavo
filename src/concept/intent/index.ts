@@ -4,6 +4,8 @@ import { matchNames } from "./match";
 import type { IntentAction, IntentContext, IntentParams, IntentResult } from "./types";
 export type { IntentAction, IntentContext, IntentParams, IntentResult } from "./types";
 
+const QUANTITY_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3 };
+
 export function interpretCommand(input: string, context: IntentContext): IntentResult {
   const text = input.toLowerCase().replace(/’/g, "'").trim();
   const params: IntentParams = {};
@@ -11,6 +13,21 @@ export function interpretCommand(input: string, context: IntentContext): IntentR
   const proposal = (action: IntentAction, summary: string): IntentResult => ({ action, params, summary, confidence: 0.9 });
   clock(context);
   if (!text) return question("What would you like to do?");
+  const sold = text.match(/\b(?:sold|sell)\s+(?:(\d+|an?|one|two|three)\s+)?(.+?)\s+to\s+(.+?)[.!?]*$/);
+  if (sold) {
+    params.product = sold[2];
+    params.quantity = QUANTITY_WORDS[sold[1] ?? "a"] ?? Number(sold[1]);
+    const buyers = matchNames(sold[3], context.customers);
+    if (buyers.length > 1) return question("Which customer do you mean? Please use their full name.");
+    if (!buyers.length) return question("Who bought it? Please give the customer's name.");
+    params.customerId = buyers[0].id;
+    return proposal("sell-product", `Propose selling ${params.quantity} ${params.product} to ${buyers[0].name}.`);
+  }
+  const left = text.match(/\bhow (?:much|many)\s+(.+?)(?:\s+(?:is|are|do i have|have i got))?\s+(?:left|remaining|in stock)\b/) ?? text.match(/\bdo i have (?:any |enough )?(.+?)(?:\s+(?:left|in stock))?[.!?]*$/);
+  if (left) {
+    params.product = left[1];
+    return proposal("stock-level", `Show how much ${params.product} is left.`);
+  }
   if (/\b(earned|revenue|income|how much.*make|how much.*made)\b/.test(text)) {
     Object.assign(params, dateRange(text, context));
     return proposal("revenue", `Show revenue from ${params.start} to ${params.end} (exclusive).`);

@@ -1,12 +1,15 @@
 import { addDays, formatTime } from "../data/dates";
 import { freeStarts, isFree } from "../data/slots";
-import type { Booking, DateKey, DemoState, Service, StaffId } from "../data/types";
+import type { Booking, DateKey, DemoState, Service, StaffId, StockItem } from "../data/types";
 import type { DemoAction } from "../actions";
 import { t, tc } from "../i18n";
-import { agoText, formatDayLong, formatDayMonth, formatDuration, formatMoney } from "../i18n/format";
+import { agoText, formatAmount, formatDayLong, formatDayMonth, formatDuration, formatMoney } from "../i18n/format";
 import type { IntentParams, IntentResult } from "../intent";
-import { normalize } from "../intent/match";
-import { buildCustomerStats, findCustomer, findService, fullName, revenueBetween, suggestedOrderQuantity } from "../selectors";
+import { buildCustomerStats, findCustomer, findService, fullName, PRODUCTS_ROW, revenueBetween } from "../selectors";
+import { forecastInput, ruleForecast, supplierOf } from "../stock/forecast";
+import { findProducts } from "../stock/match";
+import { buildOrders, purchaseQuantity } from "../stock/purchase";
+import { sellable } from "../stock/sales";
 import { waitlistCount, waitlistNotice } from "../studio/booking/waitlist-notice";
 import { parseCampaignRequest, studioHref, type CampaignPrefill } from "../campaigns/prefill";
 import { clarifyChoices, type Retry } from "./clarify";
@@ -31,6 +34,7 @@ export type Choice = { label: string; proposal: Proposal } | Retry;
 export type Proposal =
   | { kind: "change"; title: string; subtitle?: string; rows: ChangeRow[]; action: DemoAction; toast: string; destructive?: boolean }
   | { kind: "choose"; title: string; choices: Choice[] }
+  | { kind: "stock"; title: string; items: { id: string; name: string; left: string; unit: string; detail?: string; low: boolean }[] }
   | { kind: "revenue"; title: string; range: string; total: number; visits: number; bars: { id: string; label: string; value: number }[] }
   | { kind: "customers"; title: string; total: number; items: { id: string; name: string; detail: string }[] }
   | { kind: "message"; text: string; link?: { href: string; label: string } };
@@ -38,6 +42,7 @@ export type Proposal =
 const STUDIO_HREF = "/studio/more/campaigns/new";
 const MAX_SLOT_CHOICES = 3;
 const MAX_LISTED_CUSTOMERS = 8;
+const MAX_LISTED_PRODUCTS = 6;
 const NOON = 12 * 60;
 
 const minutesOf = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
@@ -207,19 +212,18 @@ function priceProposal(state: DemoState, params: IntentParams): Proposal {
   };
 }
 
-const FILLER_WORDS = new Set(["more", "some", "the", "for", "and", "new"]);
+/** The product the owner means, or the question which one. `choose` builds the proposal for a picked product. */
+function pickProduct(items: StockItem[], text: string | undefined, build: (item: StockItem) => Proposal): Proposal {
+  const matches = findProducts(items, text ?? "");
+  if (!matches.length) return message(t("command.stock.none", { product: text ?? "" }));
+  if (matches.length === 1) return build(matches[0]);
+  return { kind: "choose", title: t("command.stock.pick"), choices: matches.slice(0, 6).map((item) => ({ label: item.name, proposal: build(item) })) };
+}
 
-function stockProposal(state: DemoState, params: IntentParams): Proposal {
-  const words = normalize(params.product ?? "")
-    .split(" ")
-    .filter((w) => w.length > 2 && !FILLER_WORDS.has(w))
-    .map((w) => (w.length > 3 ? w.replace(/s$/, "") : w));
-  const scored = state.stock.map((item) => ({ item, score: words.filter((w) => normalize(item.name).includes(w)).length }));
-  const best = Math.max(0, ...scored.map((s) => s.score));
-  const matches = scored.filter((s) => best > 0 && s.score === best).map((s) => s.item);
-  if (!matches.length) return message(t("command.stock.none", { product: params.product ?? "" }));
-  const build = (item: (typeof matches)[number]): Proposal => {
-    const quantity = suggestedOrderQuantity(item);
+function stockProposal(state: DemoState, params: IntentParams, clock: Clock): Proposal {
+  return pickProduct(state.stock, params.product, (item) => {
+    const quantity = purchaseQuantity(state, item, clock.today);
+    const lead = supplierOf(state, item)?.leadDays ?? 0;
     return {
       kind: "change",
       title: t("command.stock.title", { name: item.name }),
@@ -228,13 +232,54 @@ function stockProposal(state: DemoState, params: IntentParams): Proposal {
         { label: t("command.row.quantity"), after: t("command.stock.quantity", { count: quantity, unit: item.unit }) },
         { label: t("command.row.onOrder"), before: String(item.onOrder), after: String(item.onOrder + quantity) },
         { label: t("command.row.cost"), after: formatMoney(quantity * item.unitCost) },
+        { label: t("command.row.arrives"), after: tc("command.stock.arrives", lead) },
       ],
-      action: { type: "stock/order", lines: [{ id: item.id, quantity }] },
+      action: { type: "stock/order", orders: buildOrders(state, [{ item, quantity }], clock.today), at: { date: clock.today, time: clock.minutes } },
       toast: t("stock.ordered", { suppliers: item.supplier }),
     };
+  });
+}
+
+function stockLevelProposal(state: DemoState, params: IntentParams, clock: Clock): Proposal {
+  const matches = findProducts(state.stock, params.product ?? "");
+  if (!matches.length) return message(t("command.stock.none", { product: params.product ?? "" }));
+  return {
+    kind: "stock",
+    title: t("command.stock.levelTitle"),
+    items: matches.slice(0, MAX_LISTED_PRODUCTS).map((item) => {
+      const days = ruleForecast(forecastInput(state, item, clock.today)).daysRemaining;
+      return {
+        id: item.id,
+        name: item.name,
+        left: formatAmount(item.inStock),
+        unit: item.unit,
+        detail: days === null ? undefined : days < 1 ? t("stock.almostOut") : tc("stock.runsOut", days),
+        low: item.inStock <= item.reorderAt,
+      };
+    }),
   };
-  if (matches.length === 1) return build(matches[0]);
-  return { kind: "choose", title: t("command.stock.pick"), choices: matches.slice(0, 6).map((item) => ({ label: item.name, proposal: build(item) })) };
+}
+
+function sellProposal(state: DemoState, params: IntentParams, clock: Clock): Proposal {
+  const customer = findCustomer(state, params.customerId);
+  if (!customer) return message(t("command.notUnderstood"));
+  const quantity = params.quantity ?? 1;
+  const matches = findProducts(state.stock, params.product ?? "");
+  if (matches.length && !matches.some((item) => item.salePrice !== undefined)) return message(t("command.stock.notForSale", { product: matches[0].name }));
+  return pickProduct(sellable(state), params.product, (item) => {
+    if (item.inStock < quantity) return message(t("command.stock.outOf", { count: formatAmount(item.inStock), product: item.name }));
+    return {
+      kind: "change",
+      title: t("command.stock.sellTitle", { product: item.name, name: fullName(customer) }),
+      rows: [
+        { label: t("command.row.quantity"), after: String(quantity) },
+        { label: t("command.row.price"), after: formatMoney(quantity * (item.salePrice ?? 0)) },
+        { label: t("command.row.stock"), before: formatAmount(item.inStock), after: formatAmount(item.inStock - quantity) },
+      ],
+      action: { type: "product/sell", customerId: customer.id, stockId: item.id, quantity, date: clock.today },
+      toast: t("stock.sold", { product: item.name, name: customer.firstName }),
+    };
+  });
 }
 
 function revenueProposal(state: DemoState, params: IntentParams, clock: Clock): Proposal {
@@ -247,7 +292,7 @@ function revenueProposal(state: DemoState, params: IntentParams, clock: Clock): 
     range: last <= params.start ? formatDayLong(params.start) : `${formatDayMonth(params.start)} – ${formatDayMonth(last)}`,
     total: result.total,
     visits: result.visits,
-    bars: result.byService.slice(0, 5).map((row) => ({ id: row.id, label: findService(state, row.id)?.name ?? row.id, value: row.total })),
+    bars: result.byService.slice(0, 5).map((row) => ({ id: row.id, label: row.id === PRODUCTS_ROW ? t("stock.products") : (findService(state, row.id)?.name ?? row.id), value: row.total })),
   };
 }
 
@@ -294,7 +339,11 @@ export function proposalFor(state: DemoState, intent: IntentResult, text: string
     case "change-price":
       return priceProposal(state, params);
     case "order-stock":
-      return stockProposal(state, params);
+      return stockProposal(state, params, clock);
+    case "stock-level":
+      return stockLevelProposal(state, params, clock);
+    case "sell-product":
+      return sellProposal(state, params, clock);
     case "make-poster":
       return message(t("command.poster", { occasion: params.occasion ?? "" }), { href: STUDIO_HREF, label: t("command.poster.open") });
     case "revenue":

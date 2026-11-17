@@ -125,7 +125,7 @@ describe("proposals", () => {
   it("matches stock by product words", () => {
     const proposal = propose("Order more urea foot cream");
     if (proposal.kind !== "change" || proposal.action.type !== "stock/order") throw new Error("expected an order");
-    expect(proposal.action.lines[0].id).toBe("urea-cream");
+    expect(proposal.action.orders[0].lines[0].stockId).toBe("urea-cream");
     expect(propose("Order moonbeams").kind).toBe("message");
   });
 

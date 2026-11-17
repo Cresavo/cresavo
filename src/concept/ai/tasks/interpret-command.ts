@@ -13,7 +13,7 @@ const params = z.object({
   customerId: z.string().optional(), serviceId: z.string().optional(), staffId: z.string().optional(), bookingId: z.string().optional(),
   date: z.iso.date().optional(), time: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/).optional(),
   period: z.enum(["morning", "afternoon"]).optional(), start: z.iso.date().optional(), end: z.iso.date().optional(), since: z.iso.date().optional(),
-  percentOff: z.number().min(0).max(100).optional(), priceSek: z.number().nonnegative().optional(), offerWaitingList: z.boolean().optional(), product: z.string().optional(), occasion: z.string().optional(),
+  percentOff: z.number().min(0).max(100).optional(), priceSek: z.number().nonnegative().optional(), offerWaitingList: z.boolean().optional(), product: z.string().optional(), quantity: z.number().int().positive().optional(), occasion: z.string().optional(),
 }).strict();
 const common = { params, summary: textField, confidence: z.number().min(0).max(1) };
 export const intentOutputSchema = z.union([
@@ -27,13 +27,15 @@ export const intentOutputSchema = z.union([
   z.object({ ...common, action: z.literal("revenue"), params: params.required({ start: true, end: true }) }).strict(),
   z.object({ ...common, action: z.literal("inactive-customers"), params: params.required({ since: true }) }).strict(),
   z.object({ ...common, action: z.literal("order-stock"), params: params.required({ product: true }) }).strict(),
+  z.object({ ...common, action: z.literal("sell-product"), params: params.required({ customerId: true, product: true }) }).strict(),
+  z.object({ ...common, action: z.literal("stock-level"), params: params.required({ product: true }) }).strict(),
   z.object({ ...common, action: z.literal("make-poster"), params: params.required({ occasion: true }) }).strict(),
   z.object({ ...common, action: z.literal("change-price"), params: params.required({ serviceId: true, priceSek: true }) }).strict(),
   z.object({ ...common, action: z.literal("question"), question: textField }).strict(),
 ]);
 export const interpretCommandTask = defineTask({
   id: "interpret-command", version: 1, tier: "fast",
-  prompt: "Interpret an English salon command as a proposal. Use only IDs in context. Never execute changes. Ask a question when a customer, appointment or required parameter is unclear. Dates use the salon timezone; end dates are exclusive. Return JSON matching the schema.",
+  prompt: "Interpret an English salon command as a proposal. Use only IDs in context. Never execute changes. A product sale needs a customer from the context; a stock question names the product. Ask a question when a customer, appointment or required parameter is unclear. Dates use the salon timezone; end dates are exclusive. Return JSON matching the schema.",
   input: z.object({ text: textField, context: intentContextSchema }).strict(), output: intentOutputSchema,
   fallback: ({ text, context }) => intentOutputSchema.parse(interpretCommand(text, context)),
 });

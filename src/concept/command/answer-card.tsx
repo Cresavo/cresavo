@@ -6,7 +6,7 @@ import { Avatar } from "../ui/avatar";
 import { BarList } from "../ui/charts";
 import type { Proposal } from "./proposal";
 
-type Answer = Extract<Proposal, { kind: "revenue" | "customers" }>;
+type Answer = Extract<Proposal, { kind: "revenue" | "customers" | "stock" }>;
 
 /** Answers to questions: a number with a small chart, or a list of customers. */
 export function AnswerCard({ answer }: { answer: Answer }) {
@@ -25,6 +25,29 @@ export function AnswerCard({ answer }: { answer: Answer }) {
         ) : (
           <p className="text-sm text-eko-muted">{t("command.revenue.none")}</p>
         )}
+      </div>
+    );
+  }
+  if (answer.kind === "stock") {
+    return (
+      <div className="space-y-3">
+        <p className="font-semibold">{answer.title}</p>
+        <ul className="divide-y divide-eko-line rounded-xl bg-eko-sunken/60 px-3.5">
+          {answer.items.map((item) => (
+            <li key={item.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{item.name}</span>
+                <span className="block text-eko-muted">{item.unit}</span>
+                {item.detail && <span className={item.low ? "block text-eko-warn" : "block text-eko-muted"}>{item.detail}</span>}
+              </span>
+              <span className="shrink-0 text-right font-semibold tabular-nums">{item.left}</span>
+            </li>
+          ))}
+        </ul>
+        <Link href="/studio/more/stock" className="inline-flex items-center gap-1 text-sm font-medium text-eko-accent">
+          {t("nav.stock")}
+          <ChevronRight size={14} />
+        </Link>
       </div>
     );
   }

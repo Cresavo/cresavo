@@ -8,7 +8,7 @@ export interface IntentContext {
   timezone?: string;
 }
 
-export type IntentAction = "book" | "move" | "cancel" | "campaign" | "revenue" | "inactive-customers" | "order-stock" | "make-poster" | "change-price";
+export type IntentAction = "book" | "move" | "cancel" | "campaign" | "revenue" | "inactive-customers" | "order-stock" | "sell-product" | "stock-level" | "make-poster" | "change-price";
 export interface IntentParams {
   customerId?: string;
   serviceId?: string;
@@ -24,6 +24,7 @@ export interface IntentParams {
   priceSek?: number;
   offerWaitingList?: boolean;
   product?: string;
+  quantity?: number;
   occasion?: string;
 }
 export type IntentResult = {
