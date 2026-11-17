@@ -16,6 +16,62 @@
 **Screens**: [command](screens/ops-command-off-1280.png), [needs moving](screens/ops-today-needs-moving-1280.png) ([390](screens/ops-today-needs-moving-390.png)), [customer page](screens/ops-customer-times-1280.png), [calendar](screens/ops-calendar-off-1280.png), [room filter](screens/ops-calendar-room-filter-1280.png), [settings](screens/ops-settings-hours-1280.png), [closed days and rooms](screens/ops-settings-closed-rooms-1280.png), [hours editor](screens/ops-hours-editor-390.png), [staff schedule](screens/ops-staff-schedule-1280.png), [week editor](screens/ops-week-editor-390.png), [staff view](screens/ops-staff-view-today-1280.png), [blocked page](screens/ops-staff-view-blocked-390.png).
 
 **Not done / notes**: a lunch break applies only on days longer than six hours (as before). The role is a demo switch kept in the browser, not authentication. Existing bookings are never moved or cancelled by a plan change. MCP write tools do not yet propose schedule changes.
+## 2026-11-17 · Claude Code (Sonnet) · goal 15: extras
+
+**Done**
+
+- **Gift cards** (More > Gift cards, module "Gift cards"): sell with amount,
+  recipient, message and a readable code (`EKO-XXXX-XXXX`); the sold card opens
+  as a nice card with share link, copy code and a printable page
+  (`/boka/salong-eko/gift?...`). From a booking, "Pay with gift card" takes
+  the smaller of the balance and what the booking still needs. The customer
+  page has "Gift card balance" (code in, balance out, nothing else).
+- **Packages** (More > Packages, module "Packages"): "5 visits for the price of
+  4" for any treatment, sold to a customer. "Mark done" uses one visit (same
+  hook as the stock deduction); the booking sheet shows how many are left.
+- **Evening summary** on Today after the last booking, from the `daily-summary`
+  task (version 2: adds visits and no-shows to its input). The rule text shows
+  at once; an AI phrasing replaces it when a key exists.
+- **Calendar feeds**: More > Staff shows a read-only subscription link per
+  person: `/api/concept/calendar/<staff>.ics?token=...`. Token = HMAC of the
+  staff id under `CONCEPT_ICS_SECRET` (dev default outside production, feeds
+  closed in production until it is set). Times in UTC, first names and
+  treatments only, no contact details, cancelled and no-show visits left out.
+  The feed reads the server's demo business, so it shows the generated
+  bookings, not changes made in a browser.
+- **One brand constant**: `src/concept/brand.ts` (name and tagline). The
+  dictionary, landing, layout metadata, product, live, admin header, A2A demo,
+  MCP and discovery text read it. `tests/brand.test.ts` fails if "Flerdo" is
+  written anywhere else in `src/`, and checks that a rename flows through.
+- `DEMO_VERSION` is now 11 (saved demo data from before is regenerated).
+
+**Accounting rule (demo)**: gift cards and packages are prepaid, so selling
+one is a liability, not revenue. A gift card's balance is what is left after
+the bookings it paid for (a cancelled booking gives the money back). A package
+visit counts as revenue when the visit is marked done, at the package price
+divided by its visits. Finance shows "Prepaid by customers" next to revenue.
+
+**Try it**: `/studio/more/giftcards`, `/studio/more/packages`, `/studio`
+(summary appears after the last booking; open a booking for "Pay with gift
+card" and "Mark done"), `/boka/salong-eko` (balance check),
+`/studio/more/staff` (calendar link).
+
+Screenshots: [summary](screens/extras-today-summary-1280.png),
+[gift card](screens/extras-giftcard-card-1280.png),
+[gift cards](screens/extras-giftcards-1280.png),
+[sell gift card](screens/extras-giftcard-sell-1280.png),
+[pay with card](screens/extras-giftcard-pay-1280.png),
+[packages](screens/extras-packages-1280.png),
+[package used](screens/extras-package-used-1280.png),
+[balance check](screens/extras-balance-1280.png),
+[shared card](screens/extras-gift-page-1280.png),
+[calendar link](screens/extras-staff-feed-1280.png),
+[prepaid in finance](screens/extras-finance-prepaid-1280.png); mobile versions
+use the `-390` suffix.
+
+**Not done**: packages are not shown on the customer card or booking page; a
+deleted customer's packages stay in the list; the feed does not reflect
+changes made in the browser (needs the real engine, goal 11).
 
 ## 2026-11-17 · Codex · night 3 part 1: finding #12
 

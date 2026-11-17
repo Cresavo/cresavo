@@ -4,10 +4,11 @@ import { RestoreReturnScroll } from "./components/context-link";
 import { LocaleProvider, LanguageSwitch } from "./components/locale-provider";
 import { getLocale } from "@/lib/locale-server";
 import { text } from "@/lib/locale";
+import { BRAND } from "@/concept/brand";
 export async function generateMetadata() {
   const locale = await getLocale();
   return {
-    title: text(locale, "Salong Eko — Flerdo demo", "Salong Eko – boka tid"),
+    title: text(locale, `Salong Eko — ${BRAND.name} demo`, "Salong Eko – boka tid"),
     description: text(locale, "Book a treatment at our fictional demo business.", "Boka en behandling hos vår demosalong."),
   };
 }

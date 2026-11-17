@@ -12,6 +12,23 @@ All notable changes to this project are documented here. Format follows
 - Today shows a "needs moving" card for bookings that no longer fit (someone is off, the salon is closed). The calendar can filter by room.
 - Owner and Staff view: the Staff view shows only the person's own calendar, customers served and journal, without finance, settings or modules.
 - Command box: "Anna is off on Friday", "close the salon on 24 December" and "Erik works Saturday 10-14" create proposals.
+- Gift cards (More > Gift cards, switchable module): sell a card with amount,
+  recipient and message, share or print it, pay a booking with it from the
+  booking sheet, and let customers check the balance on the booking page.
+  Selling a card is not revenue; it is owed to the customer until a visit is
+  paid with it. Finance shows what customers have prepaid.
+- Packages (More > Packages, switchable module): sell "5 visits for the price
+  of 4". Marking a visit done uses one visit of the customer's package.
+- Evening summary on Today after the last booking: revenue, visits, no-shows,
+  new customers, missing journals and tomorrow's first customer, from the
+  `daily-summary` task (rule text without an AI key).
+- Calendar subscription per staff member (More > Staff): a read-only `.ics`
+  link with a secret token (`CONCEPT_ICS_SECRET`) for Google or Apple Calendar,
+  showing treatments and first names only.
+
+### Changed
+- The product name and tagline live in one constant (`src/concept/brand.ts`);
+  every user-facing mention reads from it, and a test guards that.
 
 ### Fixed
 - Development dependency audits are clean after compatible upstream fixes (#12).

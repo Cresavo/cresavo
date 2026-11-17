@@ -10,6 +10,7 @@ import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-
 import { staffViewer, useRole } from "@/concept/ops/access";
 import { NeedsMoving } from "@/concept/studio/today/needs-moving";
 import { PageHeader } from "@/concept/studio/page-header";
+import { EveningSummary } from "@/concept/studio/today/evening-summary";
 import { NextCustomer } from "@/concept/studio/today/next-customer";
 import { Suggestions } from "@/concept/studio/today/suggestions";
 import { Timeline } from "@/concept/studio/today/timeline";
@@ -57,6 +58,7 @@ export default function TodayPage() {
             </Section>
           </div>
           <div className="min-w-0 space-y-6">
+            {!viewer && <EveningSummary />}
             <NeedsMoving staffId={viewer?.id} onOpen={setSheet} />
             <NextCustomer staffId={viewer?.id} onOpen={setSheet} />
             {!viewer && (

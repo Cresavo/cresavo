@@ -152,7 +152,7 @@ describe("onboarding result", () => {
     const state = createDemoState(today, setupFromAnswers({ pack: "trainer", team: "solo", help: ["journal", "waitlist"] }));
     expect(state.pack).toBe("trainer");
     expect(state.staff).toHaveLength(1);
-    expect(state.modules).toEqual({ journal: true, stock: false, campaigns: false, finance: false, reviews: false, waitlist: true, assistant: true });
+    expect(state.modules).toEqual({ journal: true, stock: false, campaigns: false, finance: false, reviews: false, waitlist: true, assistant: true, giftcards: false, packages: false });
     expect(menuVisible(state.modules, "/studio/more/stock")).toBe(false);
     expect(menuVisible(state.modules, "/studio/more/finance")).toBe(false);
   });

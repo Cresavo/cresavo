@@ -326,7 +326,35 @@ export interface Campaign {
   stats?: CampaignStats;
 }
 
-export type ModuleKey = "journal" | "stock" | "campaigns" | "finance" | "reviews" | "waitlist" | "assistant";
+/** A gift card the business sold. What it still holds is derived from `redemptions` (see `../giftcards/cards.ts`). */
+export interface GiftCard {
+  id: string;
+  /** What the customer types to use or check it, e.g. "EKO-7K2Q-93XD". */
+  code: string;
+  /** Face value in SEK, paid when it was sold. */
+  amount: number;
+  recipient: string;
+  message: string;
+  soldOn: DateKey;
+  /** Booking payments made with the card. A cancelled booking gives its amount back. */
+  redemptions: { bookingId: string; amount: number; date: DateKey }[];
+}
+
+/** A punch card: visits of one treatment paid in advance. */
+export interface ServicePackage {
+  id: string;
+  customerId: string;
+  serviceId: string;
+  /** Visits the package holds in total. */
+  visits: number;
+  /** What the customer paid in SEK. */
+  price: number;
+  soldOn: DateKey;
+  /** Bookings marked done that used a visit. */
+  usedBy: string[];
+}
+
+export type ModuleKey = "journal" | "stock" | "campaigns" | "finance" | "reviews" | "waitlist" | "assistant" | "giftcards" | "packages";
 
 export interface DemoState {
   version: number;
@@ -347,6 +375,8 @@ export interface DemoState {
   suppliers: Supplier[];
   orders: PurchaseOrder[];
   sales: ProductSale[];
+  giftCards: GiftCard[];
+  packages: ServicePackage[];
   reviews: Review[];
   inbox: InboxItem[];
   holidays: Holiday[];

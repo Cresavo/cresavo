@@ -1,6 +1,7 @@
 import type { DemoAction } from "../actions";
 import { formatTime } from "../data/dates";
 import type { Booking, DemoState } from "../data/types";
+import { paidWithCards } from "../giftcards/cards";
 import { t, tc } from "../i18n";
 import { formatDayShort, formatMoney } from "../i18n/format";
 import { findCustomer, findService, fullName } from "../selectors";
@@ -89,6 +90,16 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       return { summary: t("log.stockReceive", { products: names(action.deliveries.map((d) => productName(next, d.stockId))) }) };
     case "product/sell":
       return { summary: t("log.productSell", { product: productName(next, action.stockId), customer: customerName(next, action.customerId) }) };
+    case "giftcard/sell":
+      return { summary: t("log.giftcardSell", { code: next.giftCards.at(-1)!.code }), after: formatMoney(action.amount) };
+    case "giftcard/redeem": {
+      const b = bookingOf(next, action.bookingId)!;
+      return { summary: t("log.giftcardRedeem", { customer: customerName(next, b.customerId), service: serviceName(next, b.serviceId) }), after: formatMoney(paidWithCards(next, b.id)) };
+    }
+    case "package/sell": {
+      const pkg = next.packages.at(-1)!;
+      return { summary: t("log.packageSell", { service: serviceName(next, action.serviceId), customer: customerName(next, action.customerId) }), after: formatMoney(pkg.price) };
+    }
     case "inbox/reply":
       return { summary: t("log.inboxReply") };
     case "inbox/add":

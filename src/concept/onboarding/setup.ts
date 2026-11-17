@@ -5,7 +5,7 @@ import { getPack } from "../packs";
 
 export type TeamSize = "solo" | "small" | "large";
 
-/** What a new owner can ask for help with; each wish is one module. Ask Flerdo is always on. */
+/** What a new owner can ask for help with; each wish is one module. The command box is always on. */
 export const HELP_WISHES = ["journal", "stock", "campaigns", "finance", "reviews", "waitlist"] as const satisfies readonly ModuleKey[];
 export type HelpWish = (typeof HELP_WISHES)[number];
 

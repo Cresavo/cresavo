@@ -6,7 +6,7 @@ import type { CollectionPatch, Item, StatePatch } from "./types";
 
 /** Lists of records with an id. */
 const COLLECTIONS = [
-  "customers", "bookings", "journals", "stock", "orders", "sales", "reviews", "inbox",
+  "customers", "bookings", "journals", "stock", "orders", "sales", "giftCards", "packages", "reviews", "inbox",
   "campaigns", "services", "costs", "trash", "supportGrants", "tickets", "staff", "exceptions", "resources",
 ] as const satisfies readonly (keyof DemoState)[];
 

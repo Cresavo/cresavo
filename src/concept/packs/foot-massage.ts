@@ -248,7 +248,7 @@ export const footMassage: Pack = {
   services: SERVICES,
   stock: STOCK,
   suppliers: SUPPLIERS,
-  modules: ["journal", "stock", "campaigns", "finance", "reviews", "waitlist", "assistant"],
+  modules: ["journal", "stock", "campaigns", "finance", "reviews", "waitlist", "assistant", "giftcards", "packages"],
   journalTemplates: [
     { id: "foot", category: "foot" },
     { id: "ingrown", category: "foot" },

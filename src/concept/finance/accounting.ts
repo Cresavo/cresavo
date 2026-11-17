@@ -1,3 +1,4 @@
+import { BRAND } from "../brand";
 import { addDays } from "../data/dates";
 import type { DemoState } from "../data/types";
 import { toCsv } from "../studio/more/export";
@@ -95,7 +96,7 @@ export function sieFile(state: DemoState, clock: Clock): string {
   ]);
   const lines = [
     "#FLAGGA 0",
-    '#PROGRAM "Flerdo" 1.0',
+    `#PROGRAM "${BRAND.name}" 1.0`,
     "#FORMAT PC8",
     `#GEN ${compactDate(clock.today)}`,
     "#SIETYP 4",

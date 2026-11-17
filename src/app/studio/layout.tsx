@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { BRAND } from "@/concept/brand";
 import { StudioShell } from "@/concept/studio/shell";
 import "./studio.css";
 
 export const metadata: Metadata = {
   title: "Studio · Salong Eko",
-  description: "Clickable demo of an AI-native salon system. Fictional data only.",
+  description: `${BRAND.name}: ${BRAND.tagline} Clickable demo of an AI-native salon system. Fictional data only.`,
 };
 
 export const viewport: Viewport = {

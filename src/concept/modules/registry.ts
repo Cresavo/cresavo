@@ -36,6 +36,8 @@ export const MODULES: ModuleManifest[] = [
   { id: "reviews", name: "features.reviews", description: "features.reviews.description", menu: ["/studio/more/reviews"], todayCards: [], aiTasks: ["reply-customer"], commands: [], priceSek: 39 },
   { id: "waitlist", name: "features.waitlist", description: "features.waitlist.description", menu: [], todayCards: ["gaps"], aiTasks: [], commands: [], priceSek: 39 },
   { id: "assistant", name: "features.assistant", description: "features.assistant.description", menu: [], todayCards: [], aiTasks: ["interpret-command", "daily-summary"], commands: [], priceSek: 149 },
+  { id: "giftcards", name: "features.giftcards", description: "features.giftcards.description", menu: ["/studio/more/giftcards"], todayCards: [], aiTasks: [], commands: [], priceSek: 49 },
+  { id: "packages", name: "features.packages", description: "features.packages.description", menu: ["/studio/more/packages"], todayCards: [], aiTasks: [], commands: [], priceSek: 49 },
 ];
 
 type Switches = Record<ModuleKey, boolean>;

@@ -14,7 +14,7 @@ const inputs = {
   "suggest-campaign": { occasion: "Father's Day", service: "Massage", priceSek: 800 },
   "stock-forecast": { product: "Foot cream", quantity: 10, dailyUsage: 2, leadTimeDays: 3 },
   "reply-customer": { customerName: "Anna", message: "Can I book tomorrow?" },
-  "daily-summary": { revenueSek: 2400, newCustomers: 2, missingJournals: 1, tomorrowFirstCustomer: "Erik" },
+  "daily-summary": { revenueSek: 2400, visits: 4, noShows: 1, newCustomers: 2, missingJournals: 1, tomorrowFirstCustomer: "Erik" },
   "answer-help": { question: "How do I book a customer?", articles: [{ id: "new-booking", title: "Book a customer by hand", keywords: ["new booking", "book a customer"], body: "Open Calendar and tap New booking." }, { id: "stock", title: "Stock", keywords: ["order products"], body: "Stock shows what is left." }] },
   "summarize-customer": { sinceYear: 2024, regular: true, visits: 9, service: "Medical foot care", intervalWeeks: 6, traits: ["sensitive skin"], prefersStaff: "Anna", timeOfDay: "afternoons", note: null },
 } as const;
@@ -40,7 +40,7 @@ describe("task contracts and deterministic rules", () => {
   it.each(names)("%s has a versioned prompt, schema and valid fallback", async name => {
     const fetcher = vi.fn();
     const result = await runTask(name, inputs[name], { env: {}, fetcher });
-    expect(tasks[name].version).toBe(1);
+    expect(tasks[name].version).toBe(name === "daily-summary" ? 2 : 1);
     expect(tasks[name].prompt.length).toBeGreaterThan(40);
     expect(tasks[name].schema).toHaveProperty("$schema");
     expect(validateOutput(tasks[name].output, result.output).success).toBe(true);

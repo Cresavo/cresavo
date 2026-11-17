@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { LiveEvent, LiveSnapshot } from "@/lib/agent-api/live";
 import type { Locale } from "@/lib/locale";
 import s from "./live.module.css";
+import { BRAND } from "@/concept/brand";
 
 const POLL_MS = 4000;
 const ZONE = "Europe/Stockholm";
@@ -110,7 +111,7 @@ export function LiveBoard({ initial, locale }: { initial: LiveSnapshot | null; l
           <span className={s.mark} aria-hidden>
             <svg viewBox="0 0 24 24" width="18" height="18"><path d="M5 4h9a5 5 0 0 1 0 10H9v6H5z" fill="currentColor" opacity=".9" /><circle cx="17.5" cy="18.5" r="2.5" fill="currentColor" /></svg>
           </span>
-          <span>Flerdo</span>
+          <span>{BRAND.name}</span>
           <span className={s.tag}>{t("Agent sandbox", "Agentsandlåda")}</span>
         </div>
         <div className={`${s.status} ${online ? "" : s.statusOff}`} role="status">

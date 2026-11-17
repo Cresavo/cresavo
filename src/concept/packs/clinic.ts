@@ -50,7 +50,7 @@ export const clinic: Pack = {
     { name: "Medicinab", email: "kundservice@medicinab.example", leadDays: 2 },
     { name: "Rehabgrossen", email: "order@rehabgrossen.example", leadDays: 4 },
   ],
-  modules: ["journal", "stock", "finance", "reviews", "waitlist", "assistant"],
+  modules: ["journal", "stock", "finance", "reviews", "waitlist", "assistant", "giftcards", "packages"],
   journalTemplates: [
     { id: "clinic-assessment", category: "physio" },
     { id: "clinic-followup", category: "physio" },
