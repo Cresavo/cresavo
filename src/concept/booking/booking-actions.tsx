@@ -9,6 +9,7 @@ import { formatDayLong } from "../i18n/format";
 import { findCustomer, fullName } from "../selectors";
 import { dispatch } from "../store";
 import { Button } from "../ui/button";
+import { Notice } from "../ui/notice";
 import { Sheet } from "../ui/sheet";
 import { showToast } from "../ui/toast";
 import type { Now } from "../use-now";
@@ -104,17 +105,17 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
             <Button variant="secondary" icon={<CalendarClock size={16} />} onClick={() => setSheet("move")}>
               {t("booking.reschedule")}
             </Button>
-            <Button variant="ghost" icon={<XCircle size={16} />} onClick={() => setSheet("cancel")} className="text-danger">
+            <Button variant="danger" icon={<XCircle size={16} />} onClick={() => setSheet("cancel")}>
               {t("booking.cancel")}
             </Button>
           </>
         )}
       </div>
       {rule === "late" && (
-        <p className="flex items-start gap-2 rounded-md bg-warning-bg px-3.5 py-3 text-sm text-warning">
+        <Notice tone="warning" className="flex items-start gap-2">
           <Phone size={16} className="mt-0.5 shrink-0" />
           <span>{t("booking.tooLate", { phone: state.salon.phone })}</span>
-        </p>
+        </Notice>
       )}
 
       <Sheet

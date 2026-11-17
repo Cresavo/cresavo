@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { expect, test, type Page } from "@playwright/test";
 import { createDemoState } from "../../src/concept/data/generate";
+import { contrast } from "../../src/concept/page/colour";
 import { salonClock } from "../../src/concept/tools/clock";
 
 // Brand v0.9: the studio's light / dark / system choice, applied before first
@@ -121,6 +122,33 @@ test("a business with a logo shows it as the browser tab icon", async ({ page })
   }, logo);
   await page.goto("/boka/salong-eko");
   await expect.poll(() => page.evaluate(() => document.querySelector<HTMLLinkElement>('link[rel~="icon"]')!.href)).toBe(logo);
+});
+
+test("an error message stays readable on a mid-grey page with hostile custom CSS (Codex #7)", async ({ page }) => {
+  await page.addInitScript(() => {
+    const saved = JSON.parse(localStorage.getItem("salong-eko-demo")!);
+    saved.page.theme.colors = { background: "#717171", text: "#ffffff", accent: "#ffffff" };
+    saved.page.css = "p, [role=alert], [data-tone] { color: #717171 !important; background: #717171 !important; box-shadow: inset 0 0 0 99px #717171 } body { opacity: .3 } section { filter: invert(1) }";
+    localStorage.setItem("salong-eko-demo", JSON.stringify(saved));
+  });
+  await page.goto("/boka/salong-eko/me");
+  await page.getByLabel("Mobile number").fill("070-000 00 00");
+  await page.getByRole("button", { name: "Show my bookings" }).click();
+  const alert = page.locator(".booking-theme [role=alert]");
+  await expect(alert).toBeVisible();
+  const [fg, bg] = await alert.evaluate((el) => {
+    const context = document.createElement("canvas").getContext("2d")!;
+    const hex = (colour: string) => {
+      context.clearRect(0, 0, 1, 1);
+      context.fillStyle = colour;
+      context.fillRect(0, 0, 1, 1);
+      return `#${[...context.getImageData(0, 0, 1, 1).data.slice(0, 3)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+    };
+    const style = getComputedStyle(el);
+    return [hex(style.color), hex(style.backgroundColor)];
+  });
+  expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
+  expect(await page.locator(".booking-theme").last().evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
 });
 
 for (const scheme of ["light", "dark"] as const) {

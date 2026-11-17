@@ -23,6 +23,16 @@ describe("contrast", () => {
     expect(contrast(lifted, "#111111")).toBeGreaterThanOrEqual(4.5);
   });
 
+  it("reports error and confirmation colours on their own backgrounds, in the palette's scheme (Codex #7)", () => {
+    for (const palette of [{ background: "#717171", text: "#202020", accent: "#2f5d50" }, { background: "#f6f6f5", text: "#9a3141", accent: "#266848" }, { background: "#141415", text: "#ffb3bb", accent: "#b4f0c8" }]) {
+      const rows = contrastReport(buildTokens(palette).tokens);
+      expect(rows.map((row) => row.label)).toEqual(expect.arrayContaining(["danger", "success"]));
+      for (const row of rows) expect(row.ratio, `${row.label} on ${palette.background}`).toBeGreaterThanOrEqual(4.5);
+    }
+    // The old way, danger text straight on a mid-grey page, is what the paired background avoids.
+    expect(contrast("#9a3141", "#717171")).toBeLessThan(2);
+  });
+
   it("falls back to black or white when the colours cannot be reconciled", () => {
     expect(readable("#808080", ["#7f7f7f"], 21)).toMatch(/^#(?:000000|ffffff)$/);
     expect(onColour("#ffffff")).toBe("#000000");
@@ -35,6 +45,7 @@ describe("contrast", () => {
       { background: "#000000", text: "#222222", accent: "#110011" },
       { background: "#808080", text: "#888888", accent: "#8a8a8a" },
       { background: "#ff00ff", text: "#ff44ff", accent: "#00ff00" },
+      { background: "#717171", text: "#717171", accent: "#717171" },
       ...Object.values(PALETTES),
     ];
     for (const palette of picks) {

@@ -1875,6 +1875,8 @@ const messages = {
   "pageEditor.contrast.muted": "Small text",
   "pageEditor.contrast.accent": "Links",
   "pageEditor.contrast.button": "Buttons",
+  "pageEditor.contrast.danger": "Error messages",
+  "pageEditor.contrast.success": "Confirmations",
   "pageEditor.contrast.adjusted": "The {role} {from} was too faint to read, so the page uses {to}.",
   "pageEditor.contrast.apply": "Use the adjusted colours",
   "pageEditor.flow": "Booking flow",

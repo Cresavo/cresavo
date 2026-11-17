@@ -39,7 +39,13 @@ export function Confirmation({ id }: { id: string }) {
   return (
     <div className="mx-auto max-w-lg space-y-5">
       <div className="space-y-2 text-center">
-        <Icon size={44} className={cancelled ? "mx-auto text-danger" : "mx-auto text-action"} />
+        {cancelled ? (
+          <span data-tone="danger" className="mx-auto flex size-16 items-center justify-center rounded-full bg-danger-bg text-danger">
+            <Icon size={36} />
+          </span>
+        ) : (
+          <Icon size={44} className="mx-auto text-action" />
+        )}
         <h1 className="text-2xl font-semibold tracking-tight">{cancelled ? t("booking.confirmation.cancelled") : t("booking.confirmation.title")}</h1>
         <p className="text-text-secondary">{cancelled ? t("booking.confirmation.cancelledText") : t("booking.confirmation.text")}</p>
       </div>

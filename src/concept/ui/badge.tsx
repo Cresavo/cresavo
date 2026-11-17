@@ -14,9 +14,11 @@ const tones: Record<Tone, string> = {
   danger: "bg-danger-bg text-danger",
 };
 
+const SEMANTIC: Partial<Record<Tone, string>> = { success: "success", info: "info", warn: "warning", danger: "danger" };
+
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
   return (
-    <span className={cx("inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium", tones[tone], className)}>
+    <span data-tone={SEMANTIC[tone]} className={cx("inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium", tones[tone], className)}>
       {children}
     </span>
   );

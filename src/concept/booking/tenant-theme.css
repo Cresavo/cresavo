@@ -69,3 +69,41 @@
   display: block !important;
   visibility: visible !important;
 }
+
+/* Meaning beats branding: a message, badge or button that carries a semantic
+   tone (data-tone, see ui/notice.tsx) always shows its own colour on its
+   paired background, whatever the owner's CSS or palette says. */
+.booking-theme [data-tone] {
+  opacity: 1 !important;
+  filter: none !important;
+  background-image: none !important;
+  text-shadow: none !important;
+}
+
+.booking-theme [data-tone] * {
+  color: inherit !important;
+}
+
+.booking-theme [data-tone]:not(button) {
+  box-shadow: none !important;
+}
+
+.booking-theme [data-tone="danger"] {
+  color: var(--ui-danger) !important;
+  background-color: var(--ui-danger-bg) !important;
+}
+
+.booking-theme [data-tone="success"] {
+  color: var(--ui-success) !important;
+  background-color: var(--ui-success-bg) !important;
+}
+
+.booking-theme [data-tone="warning"] {
+  color: var(--ui-warning) !important;
+  background-color: var(--ui-warning-bg) !important;
+}
+
+.booking-theme [data-tone="info"] {
+  color: var(--ui-info) !important;
+  background-color: var(--ui-info-bg) !important;
+}

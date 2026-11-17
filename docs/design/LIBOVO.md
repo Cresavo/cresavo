@@ -123,7 +123,12 @@ name, nav, theme control, user) and multi-column pages. Content max 6xl
   choice), and defaults to neutral ink/white. A palette arrives as inline
   `--ui-*` variables plus `data-scheme`. Semantic tokens are declared on
   `.booking-theme` too, so they resolve in the tenant's scheme; the owner's CSS
-  cannot redefine them (`src/concept/page/css.ts`).
+  cannot redefine them (`src/concept/page/css.ts`). Semantic messages use
+  `Notice` (`src/concept/ui/notice.tsx`) on their paired background, and
+  everything with `data-tone` is protected in `tenant-theme.css`. The owner's
+  CSS may paint colour only on branding slots (root, headings, links,
+  buttons, header, footer, nav, sections, images; no opacity or filter on
+  containers).
 - Salong Eko keeps its green as the explicit palette `forest`.
 
 ## 9. Naming and rename-back

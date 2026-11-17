@@ -7,6 +7,7 @@ import type { DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatMoney } from "../i18n/format";
 import { Button } from "../ui/button";
+import { Notice } from "../ui/notice";
 import { Card, Section } from "../ui/card";
 import { Field, TextInput } from "../ui/controls";
 
@@ -43,7 +44,7 @@ export function GiftCardBalance({ state, compact }: { state: DemoState; compact?
               <p className="text-sm text-text-secondary">{t("giftcards.checkOf", { amount: formatMoney(card.amount) })}</p>
             </div>
           ) : (
-            <p className="text-sm text-danger">{t("giftcards.checkNotFound")}</p>
+            <Notice tone="danger" role="alert">{t("giftcards.checkNotFound")}</Notice>
           )}
         </div>
       )}

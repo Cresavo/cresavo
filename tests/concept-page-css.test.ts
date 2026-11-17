@@ -168,7 +168,7 @@ describe("custom CSS", () => {
     const css = clean(`
       /* calmer headings */
       h1, h2 { font-family: "Iowan Old Style", Georgia, serif; letter-spacing: .02em; text-transform: uppercase }
-      .rounded-2xl { border-radius: 24px; box-shadow: 0 8px 24px rgb(0 0 0 / 8%) }
+      section { border-radius: 24px; box-shadow: 0 8px 24px rgb(0 0 0 / 8%) }
       a:hover { text-decoration: underline; color: #2f5d50 }
       button { background: linear-gradient(#fff, #eee); border: 1px solid rgb(10 20 30) }
     `);
@@ -176,6 +176,34 @@ describe("custom CSS", () => {
     expect(css).toContain('font-family:"Iowan Old Style", Georgia, serif');
     expect(css).toContain(`${PAGE_ROOT} a:hover{text-decoration:underline;color:#2f5d50}`);
     expect(css).toContain("box-shadow:0 8px 24px rgb(0 0 0 / 8%)");
+  });
+
+  it("keeps colour on branding slots only, so messages keep their meaning colours (Codex #7)", () => {
+    // Slots: the root, headings, links, buttons, header, footer, nav, sections, images.
+    expect(clean("body { background: #717171; color: #fff }")).toBe(`${PAGE_ROOT}{background:#717171;color:#fff}`);
+    expect(clean("h2:hover, a.cta, section > h3 { color: #2f5d50 }")).toBe(`${PAGE_ROOT} h2:hover,${PAGE_ROOT} a.cta,${PAGE_ROOT} section > h3{color:#2f5d50}`);
+    expect(clean("img { filter: grayscale(1); opacity: .9 }")).toBe(`${PAGE_ROOT} img{filter:grayscale(1);opacity:.9}`);
+    // Hostile: paint text, its background, or wash it out, on anything that is not a slot.
+    for (const css of [
+      "p { color: #717171; background: #717171 }",
+      "[role=alert] { color: transparent }",
+      "[data-tone] { background-color: #717171 !important }",
+      ".text-danger, .bg-danger-bg { color: #fff }",
+      "p[data-tone=danger] { box-shadow: inset 0 0 0 999px #717171 }",
+      "section p { text-shadow: 0 0 0 #717171; color: #717171 }",
+      "* { color: #717171 }",
+      "div, span { border-color: red; outline: 2px solid red; accent-color: red }",
+      "h1 p { background-image: linear-gradient(#717171, #717171) }",
+      ":is(a, p) { color: red }",
+      "a ~ p, a + p { color: red }",
+    ]) expect(clean(css), css).toBe("");
+    // A mixed rule keeps what is not colour; a selector list with one non-slot loses the colour for all.
+    expect(clean("p { color: red; margin: 0 }")).toBe(`${PAGE_ROOT} p{margin:0}`);
+    expect(clean("h1, p { color: red; letter-spacing: 1px }")).toBe(`${PAGE_ROOT} h1,${PAGE_ROOT} p{letter-spacing:1px}`);
+    // Containers hold messages: they may be coloured but never faded or filtered.
+    for (const css of ["body { opacity: .2 }", "section { filter: invert(1) }", ":root { filter: hue-rotate(90deg) }", "header { opacity: 0 }"]) expect(clean(css), css).toBe("");
+    // The light/dark switches and Tailwind's internals behind the semantic tokens are off limits too.
+    expect(clean(":root { --lightningcss-dark: initial; --lightningcss-light: ; --tw-ring-color: red; --ui-action: #102030 }")).toBe(`${PAGE_ROOT}{--ui-action:#102030}`);
   });
 
   it("copes with junk, huge input and strange characters", () => {

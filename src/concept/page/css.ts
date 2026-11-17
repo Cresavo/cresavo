@@ -2,7 +2,11 @@
 // as written: it is parsed, and only rules and declarations that are known to
 // be harmless are written back out, each rule under the booking page root.
 // Anything containing a backslash (CSS escapes can spell any keyword) is dropped.
-// What is not understood is dropped. No JavaScript can come out of this: there
+// What is not understood is dropped. Colour is branding: properties that paint
+// colour are kept only on the branding slots (the page root, headings, links,
+// buttons, the page's header, footer, nav and sections, images), never on the
+// text and messages inside them, so an error or a confirmation always keeps
+// its meaning colours (tenant-theme.css also protects every [data-tone]). No JavaScript can come out of this: there
 // is no `<`, no backslash, no `@import`, no external URL, no `url()` outside
 // background images from this site, no legacy script hooks.
 
@@ -19,8 +23,23 @@ const PROPERTY = new RegExp(
     "(?:min-|max-)?(?:width|height)|display|flex(?:-[a-z]+)*|grid(?:-[a-z]+)*|(?:justify|align|place)-[a-z]+|order|overflow(?:-[a-z]+)?|object-(?:fit|position)|aspect-ratio|" +
     "position|accent-color|list-style(?:-[a-z]+)?|cursor|filter|transform)$",
 );
-/** Success, warning, danger and info mean the same on every page; the owner's CSS cannot redefine them. */
-const SEMANTIC = /^--ui-(?:success|warning|danger|info)(?:-bg)?$/;
+/**
+ * Success, warning, danger and info mean the same on every page; the owner's CSS cannot redefine them,
+ * nor the compiler's light/dark switches (--lightningcss-*) or Tailwind's internals (--tw-*) they rest on.
+ */
+const SEMANTIC = /^--(?:ui-(?:success|warning|danger|info)(?:-bg)?|lightningcss-[a-z-]*|tw-[a-z-]*)$/;
+
+/** Properties that paint colour (or wash it out). Allowed only on branding slots. */
+function paintsColour(property: string): boolean {
+  if (["color", "accent-color", "box-shadow", "text-shadow", "outline", "outline-color", "text-decoration", "text-decoration-color", "opacity", "filter"].includes(property)) return true;
+  if (property.startsWith("background")) return !["background-position", "background-size", "background-repeat"].includes(property);
+  return property.startsWith("border") && !/(?:width|style|radius)$/.test(property);
+}
+
+/** Elements whose colour belongs to the business. Containers may hold messages, so they cannot fade or filter what is inside. */
+const SLOTS = new Set(["h1", "h2", "h3", "h4", "h5", "h6", "a", "button", "img", "hr", "header", "footer", "nav", "section"]);
+const CONTAINERS = new Set(["root", "header", "footer", "nav", "section"]);
+const WASHES = new Set(["opacity", "filter"]);
 const BANNED_VALUE = ["expression(", "javascript:", "vbscript:", "behavior", "-moz-binding", "@import", "image-set(", "src(", "element(", "data:", "<", "\\"];
 const SAFE_IMAGE = /^\/(?!\/)[\w\-./]+\.(?:png|jpe?g|webp|gif|avif|svg)$/i;
 const URL_CALL = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)"'\s]*))\s*\)/gi;
@@ -101,12 +120,34 @@ function safeValue(property: string, raw: string): string | null {
   return value;
 }
 
-function declarations(body: string): string[] {
+/** The element a selector styles: "root" for the page root, the tag name, or "" for anything else (a class, `*`, an attribute). */
+function subject(selector: string): string {
+  const text = selector.trim().toLowerCase();
+  if (ROOT_WORDS.test(text)) {
+    const rest = text.replace(ROOT_WORDS, "").replace(/^(?:\s+(?:html|body)(?![\w-]))+/, "");
+    if (!rest.trim() || rest.startsWith(":")) return "root";
+  }
+  let last = text;
+  for (let previous = ""; previous !== last; ) {
+    previous = last;
+    last = last.replace(/\([^()]*\)|\[[^\[\]]*\]/g, "");
+  }
+  last = last.split(/[\s>+~]+/).filter(Boolean).pop() ?? "";
+  return last.match(/^[a-z][a-z0-9-]*/)?.[0] ?? "";
+}
+
+/** Whether a rule may set `property` on everything its selectors reach. */
+function allowedOn(property: string, subjects: string[]): boolean {
+  if (!paintsColour(property)) return true;
+  return subjects.every((s) => (s === "root" || SLOTS.has(s)) && !(WASHES.has(property) && CONTAINERS.has(s)));
+}
+
+function declarations(body: string, subjects: string[]): string[] {
   return splitTop(body, ";").flatMap((declaration) => {
     const colon = declaration.indexOf(":");
     if (colon < 1) return [];
     const property = declaration.slice(0, colon).trim().toLowerCase();
-    if (!PROPERTY.test(property) || SEMANTIC.test(property)) return [];
+    if (!PROPERTY.test(property) || SEMANTIC.test(property) || !allowedOn(property, subjects)) return [];
     const value = safeValue(property, declaration.slice(colon + 1));
     return value ? [`${property}:${value}`] : [];
   });
@@ -130,8 +171,9 @@ function rules(text: string, scope: string, nested: boolean, budget: { left: num
       const inner = rules(body, scope, true, budget);
       return inner.length ? [`${prelude.replace(/\s+/g, " ")}{${inner.join("")}}`] : [];
     }
-    const selectors = splitTop(prelude, ",").map((s) => scopeSelector(s, scope));
-    const props = declarations(body);
+    const parts = splitTop(prelude, ",");
+    const selectors = parts.map((s) => scopeSelector(s, scope));
+    const props = declarations(body, parts.map(subject));
     if (!props.length || selectors.some((s) => s === null)) return [];
     budget.left--;
     return [`${selectors.join(",")}{${props.join(";")}}`];

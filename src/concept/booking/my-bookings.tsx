@@ -11,6 +11,7 @@ import { formatDayLong, formatDuration, formatMoney, relativeDay } from "../i18n
 import { findCustomer } from "../selectors";
 import { useDemo } from "../store";
 import { Badge } from "../ui/badge";
+import { Notice } from "../ui/notice";
 import { Button, ButtonLink } from "../ui/button";
 import { Card, Section } from "../ui/card";
 import { Field, TextInput } from "../ui/controls";
@@ -59,7 +60,7 @@ function Lookup({ state }: { state: DemoState }) {
         <Field label={t("booking.yourPhone")}>
           <TextInput value={phone} onChange={(e) => { setPhone(e.target.value); setMissing(false); }} type="tel" inputMode="tel" autoComplete="tel" placeholder={t("booking.phonePlaceholder")} />
         </Field>
-        {missing && <p role="alert" className="text-sm text-danger">{t("booking.me.notFound")}</p>}
+        {missing && <Notice tone="danger" role="alert">{t("booking.me.notFound")}</Notice>}
         <Button type="submit" size="lg" className="w-full" icon={<Search size={18} />} disabled={phone.trim().length < 5}>
           {t("booking.me.find")}
         </Button>

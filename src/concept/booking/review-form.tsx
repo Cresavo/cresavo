@@ -5,6 +5,7 @@ import type { Booking, DemoState } from "../data/types";
 import { t, tc } from "../i18n";
 import { dispatch } from "../store";
 import { Button } from "../ui/button";
+import { Notice } from "../ui/notice";
 import { Field, TextArea } from "../ui/controls";
 import type { Now } from "../use-now";
 
@@ -32,7 +33,7 @@ export function ReviewForm({ state, booking, now }: { state: DemoState; booking:
       </fieldset>
       <Field label={t("customerReview.text")}><TextArea aria-label={t("customerReview.text")} value={text} maxLength={2000} required onChange={event => setText(event.target.value)} /></Field>
       <p className="text-sm text-text-secondary">{t("customerReview.help")}</p>
-      {failed && <p role="alert" className="text-sm text-danger">{t("customerReview.failed")}</p>}
+      {failed && <Notice tone="danger" role="alert">{t("customerReview.failed")}</Notice>}
       <Button type="submit" disabled={!rating || !text.trim()}>{t("customerReview.submit")}</Button>
     </form>
   );

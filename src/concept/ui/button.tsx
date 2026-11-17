@@ -33,7 +33,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function Button({ variant, size, icon, className, children, type = "button", ...rest }: ButtonProps) {
   return (
-    <button type={type} className={buttonClass(variant, size, className)} {...rest}>
+    <button type={type} data-tone={variant === "danger" ? "danger" : undefined} className={buttonClass(variant, size, className)} {...rest}>
       {icon}
       {children}
     </button>

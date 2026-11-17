@@ -1,6 +1,8 @@
 // Colour maths for the booking page theme: WCAG contrast and the nudges that
 // make a chosen palette readable. Colours are "#rrggbb" strings.
 
+import kit from "../../../design/brand/libovo-v0.9/tokens/colors.json" with { type: "json" };
+
 export type Rgb = [number, number, number];
 
 export const isHex = (value: unknown): value is string => typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
@@ -118,12 +120,21 @@ export function buildTokens(palette: Palette): { tokens: Tokens; adjustments: Ad
   return contrastReport(layered.tokens).every((row) => row.ratio >= AA) ? layered : tokensFor(palette, true);
 }
 
-/** Which text/background pairs the page relies on and their ratios, for the owner-facing check. */
-export function contrastReport(tokens: Tokens): { label: "text" | "muted" | "accent" | "button"; ratio: number }[] {
+/** A palette's colour scheme: semantic colours follow it, as tenant-theme.css does with data-scheme. */
+export const schemeOf = (tokens: Pick<Tokens, "bg">) => (luminance(tokens.bg) > 0.4 ? "light" : "dark");
+
+/**
+ * Which text/background pairs the page relies on and their ratios, for the owner-facing check.
+ * Errors and confirmations always sit on their own semantic background (ui/notice.tsx), so those pairs are checked as rendered.
+ */
+export function contrastReport(tokens: Tokens): { label: "text" | "muted" | "accent" | "button" | "danger" | "success"; ratio: number }[] {
+  const semantic = kit[schemeOf(tokens)];
   return [
     { label: "text", ratio: worst(tokens.ink, [tokens.bg, tokens.surface, tokens.sunken]) },
     { label: "muted", ratio: worst(tokens.muted, [tokens.bg, tokens.surface, tokens.sunken]) },
     { label: "accent", ratio: worst(tokens.accent, [tokens.bg, tokens.surface, tokens.sunken, tokens.accentSoft]) },
     { label: "button", ratio: contrast(tokens.onAccent, tokens.accent) },
+    { label: "danger", ratio: contrast(semantic.danger, semantic["danger-bg"]) },
+    { label: "success", ratio: contrast(semantic.success, semantic["success-bg"]) },
   ];
 }
