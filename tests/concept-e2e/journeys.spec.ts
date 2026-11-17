@@ -236,3 +236,26 @@ test("switches, segmented options, assistant composer buttons and the booking he
   await expect(page.getByRole("heading", { name: "Salong Eko", level: 1 })).toBeVisible();
   for (const h of await heights("header a")) expect(h).toBeGreaterThanOrEqual(44);
 });
+
+test("at 200 % zoom on a 390 px phone the main pages fit, the assistant is one icon and tabs do not overlap (#25)", async ({ page }) => {
+  test.skip(page.viewportSize()!.width >= 1024, "A phone check; one project is enough");
+  await page.setViewportSize({ width: 195, height: 422 });
+  for (const url of ["/studio", "/studio/customers", "/studio/more/settings", "/boka/salong-eko"]) {
+    await page.goto(url);
+    await expect(page.locator("main").first()).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), url).toBeLessThanOrEqual(0);
+  }
+  await page.goto("/studio");
+  const ask = page.getByRole("button", { name: `Ask ${ASSISTANT.name}`, exact: true }).locator("visible=true");
+  expect((await ask.boundingBox())!.width).toBeLessThanOrEqual(48);
+  await expect(page.getByRole("button", { name: `Talk to ${ASSISTANT.name}` })).toBeHidden();
+  const tabs = await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link").evaluateAll(links => links.map(l => {
+    const r = l.getBoundingClientRect();
+    return { left: r.left, right: r.right, name: l.textContent };
+  }));
+  expect(tabs.map(t => t.name)).toEqual(["Today", "Calendar", "Customers", "Inbox", "More"].map(n => expect.stringContaining(n)));
+  for (let i = 1; i < tabs.length; i++) expect(tabs[i].left).toBeGreaterThanOrEqual(tabs[i - 1].right - 0.5);
+  await ask.click();
+  await expect(page.getByRole("dialog", { name: `Ask ${ASSISTANT.name}` })).toBeVisible();
+});

@@ -39,7 +39,7 @@ export default function SettingsPage() {
             {details.map(([label, value]) => (
               <div key={label} className="flex justify-between gap-4 px-4 py-3 text-sm">
                 <span className="text-text-secondary">{label}</span>
-                <span className="text-right font-medium">{value}</span>
+                <span className="min-w-0 text-right font-medium [overflow-wrap:anywhere]">{value}</span>
               </div>
             ))}
           </Card>

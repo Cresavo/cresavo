@@ -29,7 +29,7 @@ export function RoleSwitch({ compact = false }: { compact?: boolean }) {
         className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-[15px] font-medium text-text-secondary hover:bg-surface-2 hover:text-text"
       >
         <UserRound size={18} aria-hidden />
-        {current}
+        <span className="max-[299px]:sr-only">{current}</span>
       </button>
     );
   }

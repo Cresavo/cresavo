@@ -43,11 +43,11 @@ export function StudioShell({ children }: { children: ReactNode }) {
   return (
     <>
       <Sidebar state={state} pathname={pathname} role={role} />
-      <header className="flex min-h-14 items-center justify-between gap-2 px-4 pt-[env(safe-area-inset-top)] sm:px-6 lg:hidden">
-        <Link href="/studio" aria-label={t("shell.home")} className="-ml-1 flex min-h-11 items-center px-1">
-          <Wordmark className="w-[112px]" />
+      <header className="flex min-h-14 items-center justify-between gap-2 px-4 pt-[env(safe-area-inset-top)] max-[299px]:gap-1 max-[299px]:px-2 sm:px-6 lg:hidden">
+        <Link href="/studio" aria-label={t("shell.home")} className="-ml-1 flex min-h-11 min-w-0 items-center px-1">
+          <Wordmark className="w-[112px] max-[299px]:w-[80px]" />
         </Link>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1 max-[299px]:gap-0">
           {state.modules.assistant && <AssistantHeaderButton />}
           <RoleSwitch compact />
           <HelpButton compact />
@@ -164,12 +164,13 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
               href={item.href}
               data-help={item.href}
               aria-current={active ? "page" : undefined}
-              className={cx("relative flex min-h-16 flex-col items-center justify-center gap-1 text-xs", active ? "font-semibold text-text" : "font-medium text-text-secondary")}
+              className={cx("relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 text-xs", active ? "font-semibold text-text" : "font-medium text-text-secondary")}
             >
-              <span className={cx("flex h-7 w-12 items-center justify-center rounded-md transition-colors", active && "bg-action-bg")}>
+              <span className={cx("flex h-7 w-12 items-center justify-center rounded-md transition-colors max-[299px]:w-9", active && "bg-action-bg")}>
                 <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
               </span>
-              {t(item.label)}
+              {/* At 200 % zoom on a phone five labels cannot fit side by side: icons only, the label stays the accessible name. */}
+              <span className="max-[299px]:sr-only">{t(item.label)}</span>
               {badge > 0 && (
                 <span className="absolute left-1/2 top-1.5 ml-2 min-w-[18px] rounded-full bg-danger px-1 text-center text-[11px] font-semibold leading-[18px] text-bg">
                   {badge}

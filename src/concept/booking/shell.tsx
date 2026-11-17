@@ -39,8 +39,8 @@ function Frame({ children }: { children: ReactNode }) {
     <PageRoot page={page} className="flex min-h-[100dvh] flex-col">
       {/* The route draws edge to edge (viewport-fit=cover): header, content and footer keep clear of notches and the home indicator. */}
       <header className="border-b print:hidden border-border bg-surface pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex min-h-14 w-full max-w-5xl items-center justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
-          <Link href={bookingHome(slug)} className="flex min-h-11 items-center gap-2.5 font-semibold tracking-tight">
+        <div className="mx-auto flex min-h-14 w-full max-w-5xl flex-wrap items-center justify-between gap-x-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
+          <Link href={bookingHome(slug)} className="flex min-h-11 min-w-0 items-center gap-2.5 font-semibold tracking-tight">
             {logo ? (
               // A small data URL chosen by the owner; there is nothing for the image optimiser to do.
               // eslint-disable-next-line @next/next/no-img-element

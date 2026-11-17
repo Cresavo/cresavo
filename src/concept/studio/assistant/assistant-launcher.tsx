@@ -19,13 +19,14 @@ export function AssistantLauncher() {
   useShortcut();
   return (
     <>
-      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-40 flex items-center rounded-lg bg-action text-on-action shadow-sheet sm:hidden">
-        <button type="button" data-help="assistant" onClick={() => openAssistant()} className="flex min-h-12 items-center gap-2 pl-4 pr-3 text-base font-semibold">
+      {/* On very narrow screens (200 % zoom on a phone) the pill collapses to one 48 px icon button; the microphone is in the panel. */}
+      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-40 flex items-center rounded-lg bg-action text-on-action shadow-sheet max-[299px]:right-2 sm:hidden">
+        <button type="button" data-help="assistant" onClick={() => openAssistant()} className="flex min-h-12 items-center gap-2 pl-4 pr-3 text-base font-semibold max-[299px]:w-12 max-[299px]:justify-center max-[299px]:px-0">
           <Sparkles size={18} aria-hidden />
-          {t("assistant.open")}
+          <span className="max-[299px]:sr-only">{t("assistant.open")}</span>
         </button>
-        <span className="h-6 w-px bg-on-action/30" aria-hidden />
-        <button type="button" onClick={() => openAssistant({ listen: true })} aria-label={t("assistant.openVoice")} title={t("assistant.openVoice")} className="flex size-12 items-center justify-center">
+        <span className="h-6 w-px bg-on-action/30 max-[299px]:hidden" aria-hidden />
+        <button type="button" onClick={() => openAssistant({ listen: true })} aria-label={t("assistant.openVoice")} title={t("assistant.openVoice")} className="flex size-12 items-center justify-center max-[299px]:hidden">
           <Mic size={18} aria-hidden />
         </button>
       </div>

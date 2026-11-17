@@ -6,9 +6,11 @@ type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
 
 // One primary per screen; everything else is secondary or ghost. Every size
-// keeps the 44 px touch target. Disabled looks are set in studio.css.
+// keeps the 44 px touch target. Disabled looks are set in studio.css. Labels
+// stay on one line, except on very narrow screens (200 % zoom on a phone),
+// where they wrap instead of pushing the page sideways.
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors select-none whitespace-nowrap";
+  "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors select-none whitespace-nowrap max-[299px]:max-w-full max-[299px]:whitespace-normal max-[299px]:text-center max-[299px]:py-2";
 const variants: Record<Variant, string> = {
   primary: "bg-action text-on-action hover:bg-action-hover active:bg-action-hover",
   secondary: "bg-surface text-text ring-1 ring-inset ring-input-border hover:bg-surface-2 active:bg-surface-2",

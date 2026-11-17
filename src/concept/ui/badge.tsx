@@ -18,7 +18,7 @@ const SEMANTIC: Partial<Record<Tone, string>> = { success: "success", info: "inf
 
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
   return (
-    <span data-tone={SEMANTIC[tone]} className={cx("inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium", tones[tone], className)}>
+    <span data-tone={SEMANTIC[tone]} className={cx("inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium max-[299px]:whitespace-normal", tones[tone], className)}>
       {children}
     </span>
   );

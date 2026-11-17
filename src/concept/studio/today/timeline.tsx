@@ -72,7 +72,7 @@ export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: S
                 current ? "ring-2 ring-action" : "ring-border/70",
               )}
             >
-              {customer && <Avatar name={fullName(customer)} size="sm" />}
+              {customer && <Avatar name={fullName(customer)} size="sm" className="max-[299px]:hidden" />}
               <span className="min-w-0 flex-1">
                 <span className={cx("block truncate font-medium", cancelled && "line-through")}>{customer ? fullName(customer) : ""}</span>
                 <span className="flex items-center gap-1.5 truncate text-sm text-text-secondary">

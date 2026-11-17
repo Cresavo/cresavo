@@ -17,7 +17,7 @@ export function CopyField({ label, value }: { label: string; value: string }) {
     }
   };
   return (
-    <div className="flex items-center gap-2 rounded-md bg-surface-2 px-3 py-2">
+    <div className="flex flex-wrap items-center gap-2 rounded-md bg-surface-2 px-3 py-2">
       <div className="min-w-0 flex-1">
         <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{label}</p>
         <p className="break-all font-mono text-sm">{value}</p>

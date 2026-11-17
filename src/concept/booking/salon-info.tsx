@@ -44,7 +44,7 @@ export function FindUs({ state }: { state: DemoState }) {
         {rows.map(({ icon: Icon, text }) => (
           <p key={text} className="flex items-start gap-3">
             <Icon size={16} className="mt-0.5 shrink-0 text-text-secondary" />
-            <span>{text}</span>
+            <span className="min-w-0 [overflow-wrap:anywhere]">{text}</span>
           </p>
         ))}
         <a href={mapLink} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center font-medium text-action underline-offset-2 hover:underline">
