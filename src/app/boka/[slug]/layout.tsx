@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { BookShell } from "@/concept/booking/shell";
+import { TENANT_METADATA } from "@/concept/booking/tenant-metadata";
 import "../../studio/studio.css";
 
 export const metadata: Metadata = {
+  ...TENANT_METADATA,
   title: "Book online",
   description: "Book your visit online. Demo with fictional data.",
 };
@@ -21,7 +23,8 @@ export const viewport: Viewport = {
 
 export default function BookingLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="studio-root">
+    // The public route boundary: the page around the business's own theme (error and unknown-address states, the canvas) is the neutral tenant scope.
+    <div className="studio-root booking-boundary">
       <BookShell>{children}</BookShell>
     </div>
   );

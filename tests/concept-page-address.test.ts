@@ -87,6 +87,7 @@ describe("host resolution", () => {
     expect(route("/boka/kajsa/me")).toEqual({ action: "next" });
     expect(route("/_next/static/x.js")).toEqual({ action: "next" });
     expect(route("/demo/salon.webp")).toEqual({ action: "next" });
+    expect(route("/tenant/icon.svg")).toEqual({ action: "next" });
     for (const path of ["/studio", "/admin", "/api/v1/bookings", "/api/concept/ai", "/landing"]) expect(route(path)).toEqual({ action: "rewrite", path: UNKNOWN_PATH });
     expect(route("/", "boka.salongeko.se")).toEqual({ action: "rewrite", path: "/boka/salong-eko" });
   });

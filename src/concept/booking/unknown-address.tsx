@@ -1,6 +1,7 @@
 import { Compass } from "lucide-react";
 import { t } from "../i18n";
 import { Card } from "../ui/card";
+import "./tenant-theme.css";
 
 /** Shown when an address does not lead to a booking page: a mistyped slug or a domain that is not connected. */
 export function UnknownAddress({ host }: { host?: string }) {

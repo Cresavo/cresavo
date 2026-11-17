@@ -109,7 +109,13 @@ name, nav, theme control, user) and multi-column pages. Content max 6xl
 - Platform (Libovo tokens): studio, landing, login (`/admin`), product, live,
   platform settings, consent.
 - Tenant (`src/concept/booking/tenant-theme.css`, root `.booking-theme`):
-  `/boka/<slug>` and its widget, gift card, my bookings pages. It re-declares
+  `/boka/<slug>` and its widget, gift card, my bookings pages. The route
+  boundary (`.booking-boundary` on the `/boka` layout and `/unknown-address`)
+  puts the neutral tenant tokens on the whole document, so the canvas, an
+  unknown slug and error states never show platform colours. These routes
+  replace the platform's install metadata (`TENANT_METADATA`: no manifest,
+  no application name, a neutral calendar icon in `public/tenant/`, or the
+  business's logo once the page has loaded). It re-declares
   every non-semantic token, follows the visitor's OS (never the studio's
   choice), and defaults to neutral ink/white. A palette arrives as inline
   `--ui-*` variables plus `data-scheme`. Semantic tokens are declared on
@@ -122,9 +128,10 @@ name, nav, theme control, user) and multi-column pages. Content max 6xl
 - Product name: `BRAND.name` in `src/concept/brand.ts`; assistant label:
   `ASSISTANT.name` (still "Flerdo"). `tests/brand.test.ts` fails if either is
   spelled out elsewhere in `src`. Help articles use `{brand}` / `{assistant}`.
-- Assets: `src/concept/ui/wordmark.tsx` (paths), `src/app/favicon.ico`,
-  `src/app/icon.png`, `src/app/apple-icon.png`, `public/brand/libovo-placeholder-*.png`,
-  `src/app/manifest.ts`, `src/concept/ui/brand-assets.ts`.
+- Assets: `src/concept/ui/wordmark.tsx` (paths), `public/favicon.ico`,
+  `public/brand/libovo-placeholder-*.png` (declared as `PLATFORM_ICONS` in
+  `src/concept/ui/brand-assets.ts`, used by the root layout only),
+  `src/app/manifest.ts`.
 - Unchanged on purpose: domains, env vars, package name, API routes, MCP
   namespaces, localStorage keys, Prisma identifiers, file names such as
   `libovo-theme.css` are internal.
@@ -141,7 +148,6 @@ provisional (kerning unreviewed at small sizes).
 
 - **Assistant name** (owner): keep "Ask Flerdo" or rename. One edit in
   `ASSISTANT`.
-- Tenant favicon: booking pages show the platform placeholder icon.
 - Salong Eko's palette is fixed light (the old product look also had a dark
   variant); a tenant dark palette would be a new page-theme feature.
 

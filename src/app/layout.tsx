@@ -8,7 +8,7 @@ import { LocaleProvider, LanguageSwitch } from "./components/locale-provider";
 import { getLocale } from "@/lib/locale-server";
 import { text } from "@/lib/locale";
 import { BRAND } from "@/concept/brand";
-import { THEME_COLORS } from "@/concept/ui/brand-assets";
+import { PLATFORM_ICONS, THEME_COLORS } from "@/concept/ui/brand-assets";
 import { THEME_SCRIPT } from "@/concept/ui/theme";
 
 // Inter for the product UI (brand kit v0.9), self-hosted by next/font. Swedish
@@ -18,7 +18,9 @@ const inter = Inter({ subsets: ["latin", "latin-ext"], weight: ["400", "500", "6
 export async function generateMetadata() {
   const locale = await getLocale();
   return {
+    // Platform install metadata (with app/manifest.ts). Tenant routes replace it: see TENANT_METADATA.
     applicationName: BRAND.name,
+    icons: PLATFORM_ICONS,
     title: text(locale, `Salong Eko — ${BRAND.name} demo`, "Salong Eko – boka tid"),
     description: text(locale, "Book a treatment at our fictional demo business.", "Boka en behandling hos vår demosalong."),
   };

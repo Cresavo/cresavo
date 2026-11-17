@@ -88,6 +88,41 @@ test("without a palette the booking page is neutral and follows the visitor, not
   await expect.poll(() => background(page, ".booking-theme")).toBe("rgb(20, 20, 21)");
 });
 
+test("the public route boundary is the tenant's: unknown slug, canvas and install metadata", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.addInitScript(() => localStorage.setItem("ui-theme", "dark"));
+  await page.goto("/boka/no-such-business");
+  await expect(page.getByRole("heading", { name: "No booking page here" })).toBeVisible();
+  // Neutral light, as the visitor's OS says, although the studio is pinned dark; no plum anywhere.
+  await expect.poll(() => background(page, "body")).toBe("rgb(246, 246, 245)");
+  expect(await background(page, "main .rounded-full")).not.toBe("rgb(80, 54, 75)");
+  const head = await page.evaluate(() => ({
+    icons: [...document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"], link[rel="apple-touch-icon"]')].map((l) => new URL(l.href).pathname),
+    manifest: document.querySelector('link[rel="manifest"]'),
+    app: document.querySelector('meta[name="application-name"]'),
+  }));
+  expect(head).toEqual({ icons: ["/tenant/icon.svg", "/tenant/apple-icon.png"], manifest: null, app: null });
+
+  await page.goto("/boka/salong-eko");
+  await expect(page.getByRole("heading", { name: "Salong Eko", level: 1 })).toBeVisible();
+  await expect.poll(() => background(page, "body")).toBe("rgb(246, 246, 245)");
+  await page.goto("/studio");
+  const platform = await page.evaluate(() => [...document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"], link[rel="manifest"]')].map((l) => new URL(l.href).pathname));
+  expect(platform).toContain("/manifest.webmanifest");
+  expect(platform).toContain("/favicon.ico");
+});
+
+test("a business with a logo shows it as the browser tab icon", async ({ page }) => {
+  const logo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  await page.addInitScript((src) => {
+    const saved = JSON.parse(localStorage.getItem("salong-eko-demo")!);
+    saved.page.theme.logo = src;
+    localStorage.setItem("salong-eko-demo", JSON.stringify(saved));
+  }, logo);
+  await page.goto("/boka/salong-eko");
+  await expect.poll(() => page.evaluate(() => document.querySelector<HTMLLinkElement>('link[rel~="icon"]')!.href)).toBe(logo);
+});
+
 for (const scheme of ["light", "dark"] as const) {
   test(`no accessibility violations on the main pages in ${scheme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });

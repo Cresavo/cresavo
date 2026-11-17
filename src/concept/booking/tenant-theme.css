@@ -10,9 +10,16 @@
    palette arrives as inline variables on the same element (PageRoot), which
    win over the defaults below, plus data-scheme for its light or dark base.
    Never set color-scheme inline: light-dark() is compiled to switches that
-   only CSS rules with color-scheme turn on. */
+   only CSS rules with color-scheme turn on.
 
-.booking-theme {
+   The public route boundary (.booking-boundary on the /boka layout and the
+   unknown-address page) puts the same neutral tokens on the whole document,
+   so the canvas, an unknown slug and error states never show the platform's
+   colours or follow the studio's saved theme. `:root:root` outranks the
+   studio's `:root[data-theme]` pin. */
+
+.booking-theme,
+:root:root:has(.booking-boundary) {
   color-scheme: light dark;
   --ui-bg: light-dark(#f6f6f5, #141415);
   --ui-surface: light-dark(#ffffff, #1e1e20);
@@ -31,11 +38,13 @@
   font-family: var(--page-font-body, var(--font-ui));
 }
 
-.booking-theme[data-scheme="light"] {
+.booking-theme[data-scheme="light"],
+:root:root:has(.booking-theme[data-scheme="light"]) {
   color-scheme: light;
 }
 
-.booking-theme[data-scheme="dark"] {
+.booking-theme[data-scheme="dark"],
+:root:root:has(.booking-theme[data-scheme="dark"]) {
   color-scheme: dark;
 }
 

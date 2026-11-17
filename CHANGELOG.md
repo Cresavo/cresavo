@@ -37,6 +37,7 @@ All notable changes to this project are documented here. Format follows
 - Ask Flerdo: a model's late reading of a quick command no longer replaces a card the owner has already picked from, approved, declined or moved past, and when it does replace the card it brings its own context, so "that day" means the day on the card (Codex #3).
 - Ask Flerdo offers Undo on a card only while the change can still be taken back, and says "Undone" only when it was; otherwise the button goes away (Codex #4).
 - Ask Flerdo proposals have Edit again: it puts your words back in the message box and retires the old proposal. Approved spoken commands are logged as Voice, typed ones as Assistant (Codex #5).
+- Booking pages are the business's from edge to edge: the page background, an unknown address and error states use the neutral tenant look instead of the platform's colours or the studio's theme; the browser tab shows the business's logo or a neutral calendar icon, never the platform monogram, and booking pages no longer offer the platform's web app manifest (Codex #6, #23).
 
 ## [0.3.0] - 2026-11-17
 

@@ -41,7 +41,7 @@ export function resolveHost(rawHost: string | null | undefined, directory: Direc
 export const UNKNOWN_PATH = "/unknown-address";
 
 /** Public booking pages live at the root of a business's own address; everything else stays on the product host. */
-const PUBLIC_PREFIXES = ["/_next/", "/demo/", "/favicon", "/boka/"];
+const PUBLIC_PREFIXES = ["/_next/", "/demo/", "/tenant/", "/favicon", "/boka/"];
 const BOOKING_PATHS = /^\/(?:me|gift|widget|booking\/[^/]+)\/?$/;
 
 export type HostRoute = { action: "next" } | { action: "rewrite"; path: string };

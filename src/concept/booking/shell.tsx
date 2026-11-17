@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Leaf } from "lucide-react";
 import { t } from "../i18n";
 import { useDemo } from "../store";
@@ -10,6 +10,7 @@ import { Toaster } from "../ui/toast";
 import { bookingHome, myBookings, widgetPath } from "./links";
 import { PageProvider, usePage } from "./page-context";
 import { PageRoot } from "./page-root";
+import { TENANT_ICON } from "./tenant-metadata";
 import { UnknownAddress } from "./unknown-address";
 
 /** Page frame for everything a customer sees: slim header, content, small footer, wearing the business's theme. */
@@ -26,7 +27,9 @@ function Frame({ children }: { children: ReactNode }) {
   const page = usePage();
   const slug = useParams<{ slug: string }>()?.slug ?? "";
   const widget = usePathname() === widgetPath(slug);
-  if (state && state.salon.slug !== slug) return <UnknownAddress />;
+  const known = !state || state.salon.slug === slug;
+  useTenantIcon(known ? page.theme.logo : null);
+  if (!known) return <UnknownAddress />;
   if (widget) return <PageRoot page={page} className="min-h-[100dvh] p-4"><main>{state ? children : <p>{t("booking.loading")}</p>}</main><Toaster /></PageRoot>;
   const { logo } = page.theme;
   return (
@@ -62,4 +65,14 @@ function Frame({ children }: { children: ReactNode }) {
       <Toaster />
     </PageRoot>
   );
+}
+
+/** The browser tab shows the business's logo when it has one, otherwise the neutral tenant icon from the route metadata. */
+function useTenantIcon(logo: string | null) {
+  useEffect(() => {
+    const links = [...document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]')];
+    const show = (href: string, type: string) => links.forEach((link) => Object.assign(link, { href, type }));
+    if (logo) show(logo, "");
+    return () => show(TENANT_ICON, "image/svg+xml");
+  }, [logo]);
 }
