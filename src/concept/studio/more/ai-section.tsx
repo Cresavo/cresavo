@@ -52,7 +52,7 @@ export function AiSection() {
                 <p className="text-sm font-medium">{t(`ai.task.${task.name}`)}</p>
                 <p className="text-xs text-text-secondary">{t(`ai.task.${task.name}.description`)}</p>
               </div>
-              <select className="rounded-sm border border-border bg-surface p-2 text-sm" aria-label={t("ai.taskTier", { task: t(`ai.task.${task.name}`) })} value={task.tier} onChange={async event => {
+              <select className="min-h-11 rounded-md border border-input-border bg-surface px-2 text-base" aria-label={t("ai.taskTier", { task: t(`ai.task.${task.name}`) })} value={task.tier} onChange={async event => {
                 try { setResult({ overview: await saveAiSettings({ task: task.name, tier: event.target.value as "fast" | "smart" }) }); }
                 catch { setResult({ failed: true }); }
               }}>

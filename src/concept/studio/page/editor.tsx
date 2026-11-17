@@ -79,7 +79,7 @@ function CssControls({ css, onChange }: { css: string; onChange: (css: string) =
   return (
     <div className="space-y-2">
       <p className="text-sm text-text-secondary">{t("pageEditor.css.help")}</p>
-      <TextArea value={css} onChange={(event) => onChange(event.target.value)} maxLength={MAX_CSS_LENGTH} spellCheck={false} autoCapitalize="none" aria-label={t("pageEditor.css.title")} placeholder={"h1 {\n  letter-spacing: 0.02em;\n}"} className="min-h-40 font-mono text-sm" />
+      <TextArea value={css} onChange={(event) => onChange(event.target.value)} maxLength={MAX_CSS_LENGTH} spellCheck={false} autoCapitalize="none" aria-label={t("pageEditor.css.title")} placeholder={"h1 {\n  letter-spacing: 0.02em;\n}"} className="min-h-40 font-mono text-base" />
       <p role="status" className="text-xs text-text-secondary">
         {css.trim() ? (rules ? tc("pageEditor.css.applied", rules) : t("pageEditor.css.none")) : t("pageEditor.css.empty")}
       </p>

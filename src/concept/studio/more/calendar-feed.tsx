@@ -41,7 +41,7 @@ export function CalendarFeed({ name, path }: { name: string; path: string | unde
       {path ? (
         <>
           <p className="text-sm text-text-secondary">{t("feed.text", { name })}</p>
-          <input readOnly value={url} aria-label={t("feed.title")} onFocus={(event) => event.target.select()} className="w-full rounded-md border border-border bg-surface-2 p-3 text-xs" />
+          <input readOnly value={url} aria-label={t("feed.title")} onFocus={(event) => event.target.select()} className="w-full rounded-md border border-border bg-surface-2 p-3 text-base" />
           <Button size="sm" variant="secondary" onClick={copy}>{t("feed.copy")}</Button>
           <p className="text-xs text-text-secondary">{t("feed.how")}</p>
         </>
