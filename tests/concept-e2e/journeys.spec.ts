@@ -160,8 +160,11 @@ test("a sheet traps focus, closes with Escape and gives focus back", async ({ pa
   await trigger.press("Enter");
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  for (let i = 0; i < 25; i++) await page.keyboard.press("Tab");
-  expect(await page.evaluate(() => !!document.activeElement?.closest("dialog"))).toBe(true);
+  // A modal dialog lets Tab pass through the browser's own UI (focus on <body>) once per round; it never reaches the page behind.
+  for (let i = 0; i < 25; i++) {
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => document.activeElement === document.body || !!document.activeElement?.closest("dialog")), `Tab ${i + 1}`).toBe(true);
+  }
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
