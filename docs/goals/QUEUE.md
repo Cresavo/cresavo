@@ -37,6 +37,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 13 | Open-source launch: clean public repos | Opus | in progress · in-repo rename and front door done; publishing waits for Niclas |
 | 14 | Everyday operations: hours, schedules, rooms, roles | Claude (Sonnet) | done · 2026-11-17 |
 | 15 | Gift cards, packages, daily summary, calendar feeds, one brand constant | Claude (Sonnet) | done · 2026-11-17 |
+| 16 | The Flerdo assistant: conversation, memory, routines, proactive briefs | Claude (Opus) | in progress · 2026-11-17 |
 
 ---
 
@@ -306,6 +307,50 @@ finance.
 **Done when:** sell a gift card and redeem it on a booking; sell a punch card
 and see a visit deducted; the evening summary appears; the ICS URL returns a
 valid calendar; changing the brand constant changes the name everywhere.
+
+## 16 · The Flerdo assistant: conversation, memory, routines, proactive briefs
+
+**Goal:** a colleague, not a chatbot. The owner can talk to their own assistant
+about the business (by voice or text), it remembers what matters, learns
+routines and speaks up on its own, and it can only propose changes.
+
+Inspiration: Hermes Agent (Nous Research, MIT): plain-text memory, full-text
+recall with summaries, skills as `SKILL.md` (agentskills.io) refined through
+periodic self-review. Borrow the pattern; do not embed Hermes.
+
+- **Two modes of "Ask Flerdo":** the quick command box stays for one-shot
+  commands; a Flerdo button opens the assistant panel (full screen on phones,
+  side panel on desktop) for multi-turn conversation with voice. On phones the
+  big inline box is replaced by the button (resolves #18).
+- **Conversation engine:** multi-turn threads, answers grounded in live data
+  via the shared tool registry (`src/concept/tools`), rich replies (numbers,
+  charts, lists, proposal cards with Approve). Follow-up questions resolve
+  "her", "that day", "the same as last time" from the thread.
+- **Memory:** per business: facts and preferences ("Anna never before 10",
+  "Lena prefers Erik"), summarised past threads, searchable. Captured when the
+  owner says "remember…" and proposed (not silently saved) when the assistant
+  notices something. Page "What Flerdo remembers": view, edit, forget. Never
+  store journal/health text or contact details in memory.
+- **Routines (skills):** when the assistant sees a repeated pattern it proposes
+  a routine ("prepare Monday reminders for overdue customers"). Routines are
+  stored as small SKILL.md-style records (name, when, steps, tools), can be
+  switched on/off, and run on their schedule producing proposals.
+- **Proactive briefs:** morning brief, closing brief, weekly review and event
+  reactions (cancellation, low stock, upcoming holiday) appear as messages in
+  the panel and as cards on Today. Rules decide what matters (cost 0); AI only
+  phrases and prioritises.
+- **Models:** per task tier: rules first, cheap model for briefs/routines,
+  smart model on demand; BYOK incl. OpenRouter; any OpenAI-compatible base URL
+  (e.g. local Ollama) via `CONCEPT_AI_BASE_URL`. Every call in the cost log.
+- **Works without a key:** a rule-based conversation fallback answers the
+  common questions and commands, clearly labelled.
+
+**Done when:** open the panel by voice or button, ask "how did last month
+compare with last year?", then "send an offer to the customers who haven't
+been here since summer" → proposal → approve; say "remember Lena prefers
+Erik" → appears in What Flerdo remembers and is used next time Lena is
+booked; the morning brief appears on Today; a suggested routine can be
+switched on. All without an API key (rules), and with mocked AI in tests.
 
 ---
 
