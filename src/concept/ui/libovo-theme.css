@@ -1,7 +1,7 @@
 /* Brand kit v0.9 platform tokens: the one colour, radius and spacing source for
    the platform shell (studio, landing, login, platform settings). Values are
-   copied 1:1 from design/brand/libovo-v0.9/tokens/libovo.tokens.css; only the
-   form differs: every colour is one light-dark() pair, so `color-scheme`
+   the kit's 1:1 (design/brand/libovo-v0.9/tokens/colors.json; checked by
+   tests/concept-tokens.test.ts); only the form differs: every colour is one light-dark() pair, so `color-scheme`
    alone picks the theme. <html data-theme="light|dark"> pins it (set before
    first paint by THEME_SCRIPT in theme.ts; "system" or no attribute
    follows the OS). Provisional until brand clearance.

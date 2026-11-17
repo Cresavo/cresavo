@@ -9,6 +9,11 @@ before/after: [AUDIT.md](AUDIT.md), [COMPARISON.md](COMPARISON.md).
 One source: `src/concept/ui/libovo-theme.css`, imported once in
 `src/app/layout.tsx` (and `src/pages/_app.tsx` for the pages router). Values
 are the kit's, 1:1; each colour is a `light-dark()` pair.
+`tests/concept-tokens.test.ts` checks every value against the kit's
+`tokens/colors.json` and fails on any runtime token that is neither in the
+kit nor a listed extension (`action-bg`, `staff-1/2(-bg)`, `chart-compare`).
+Plain values for browser chrome and the manifest (`THEME_COLORS`) are read
+from the same JSON, not copied.
 
 | Tailwind name | CSS variable | Use |
 |---|---|---|
@@ -23,7 +28,8 @@ are the kit's, 1:1; each colour is a `light-dark()` pair.
 | `action-bg` | `--ui-action-bg` | Selected tint (chips, tab icon, highlights). Text on it is `text` |
 | `focus` | `--ui-focus` | Focus rings only |
 | `success`, `warning`, `danger`, `info` (+ `-bg`) | `--ui-…` | Meaning only. Never brand plum/apricot; tenants cannot change them |
-| `staff-1`, `staff-2` (+ `-bg`) | `--ui-staff-…` | Staff identity in calendars (not in the kit) |
+| `staff-1`, `staff-2` (+ `-bg`) | `--ui-staff-…` | Staff identity in calendars (not in the kit); always next to the name |
+| `chart-compare` | `--ui-chart-compare` | The period before in charts (not in the kit): ≥ 3:1, always outlined or dashed |
 
 Opacity modifiers work (`bg-surface/80`): Tailwind wraps the variable in
 `color-mix()`. Radii: `rounded-xs` 4, `rounded-sm` 6 (small parts),
@@ -171,6 +177,7 @@ provisional (kerning unreviewed at small sizes).
 | `[data-theme]` selectors, light by default | `light-dark()` pairs, system by default | One declaration per token; no-JS and first paint follow the OS |
 | No selected-tint token | `--ui-action-bg` (10 % action into surface) | Selected chips/nav need a quiet state that is not a second primary |
 | No staff colours | `--ui-staff-1/2` | Calendars need two identities that are neither brand nor semantic |
+| No chart comparison colour | `--ui-chart-compare` | The previous-period series needs ≥ 3:1 without competing with the primary |
 | `[data-tenant] --tenant-accent` example | Full tenant token layer on `.booking-theme` | The example would leak a global accent; tenants need bg/text/accent with contrast nudging (goal 17) |
 | Preview: bottom nav over content | Reserved space, sticky bars above floating button | Kit's own MOBILE-FIRST rule |
 | Preview: big plum hero with two equal CTAs, stat boxes | Not used in the product | One primary per screen; fewer decorative cards |

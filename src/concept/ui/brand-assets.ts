@@ -1,10 +1,17 @@
 // Where the platform's brand assets live, for metadata and the web app
 // manifest. The icons are the brand kit's TEMPORARY monogram placeholders
 // (design/brand/libovo-v0.9/icons): replace them before any external launch.
-// The colours are the kit's background tokens (libovo-theme.css), repeated here
-// only because browser chrome and the manifest need plain values.
+// Browser chrome and the manifest need plain colour values: they are read from
+// the kit's colors.json, the same source libovo-theme.css is checked against
+// (tests/concept-tokens.test.ts), so there is no second copy to keep in step.
 
-export const THEME_COLORS = { light: "#faf7f3", dark: "#18141e", action: "#50364b" } as const;
+import kit from "../../../design/brand/libovo-v0.9/tokens/colors.json" with { type: "json" };
+
+export const THEME_COLORS = {
+  light: kit.light.background.toLowerCase(),
+  dark: kit.dark.background.toLowerCase(),
+  action: kit.brand.plum.toLowerCase(),
+};
 
 /** Browser tab and home-screen icons for platform pages (root layout metadata). Tenant pages use their own (`TENANT_METADATA`). */
 export const PLATFORM_ICONS = {
