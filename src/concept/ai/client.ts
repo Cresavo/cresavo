@@ -1,4 +1,6 @@
 import type { ModelRoute } from "./router";
+/** OpenAI-compatible chat endpoints; a `compatible` route brings its own base URL. */
+const OPENAI_BASES = { openai: "https://api.openai.com/v1", openrouter: "https://openrouter.ai/api/v1" };
 export interface ModelResponse { output: unknown; inputTokens: number; outputTokens: number; costUsd?: number }
 function tokens(value: unknown): number { return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0; }
 
@@ -13,9 +15,9 @@ export async function callModel(route: ModelRoute, prompt: string, schema: unkno
   const body = anthropic
     ? { ...base, max_tokens: 2048, system, ...(commandTool ? { tools: [{ name: toolName, description: "Propose a salon action for human review. Never execute it.", input_schema: toolSchema }], tool_choice: { type: "tool", name: toolName } } : {}) }
     : { ...base, messages: [{ role: "system", content: system }, ...base.messages], ...(commandTool ? { tools: [{ type: "function", function: { name: toolName, description: "Propose a salon action for human review. Never execute it.", parameters: toolSchema } }], tool_choice: { type: "function", function: { name: toolName } }, parallel_tool_calls: false } : { response_format: { type: "json_object" } }) };
-  const response = await fetcher(anthropic ? "https://api.anthropic.com/v1/messages" : route.provider === "openrouter" ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.openai.com/v1/chat/completions", {
+  const response = await fetcher(anthropic ? "https://api.anthropic.com/v1/messages" : `${route.baseUrl ?? OPENAI_BASES[route.provider as "openai" | "openrouter"]}/chat/completions`, {
     method: "POST", signal: AbortSignal.timeout(15000),
-    headers: anthropic ? { "content-type": "application/json", "x-api-key": route.apiKey, "anthropic-version": "2023-06-01" } : { "content-type": "application/json", Authorization: `Bearer ${route.apiKey}` },
+    headers: anthropic ? { "content-type": "application/json", "x-api-key": route.apiKey, "anthropic-version": "2023-06-01" } : { "content-type": "application/json", ...(route.apiKey ? { Authorization: `Bearer ${route.apiKey}` } : {}) },
     body: JSON.stringify(body),
   });
   if (!response.ok) throw new Error("AI provider request failed");
