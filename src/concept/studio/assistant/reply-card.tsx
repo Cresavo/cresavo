@@ -5,6 +5,7 @@ import { scheduleText, type Routine } from "../../assistant/routines";
 import type { Reply, ReplyCard } from "../../assistant/thread";
 import { AnswerCard } from "../../command/answer-card";
 import { ChangeRows } from "../../command/change-rows";
+import { PagePreview } from "../../command/page-preview";
 import type { Choice, Proposal } from "../../command/proposal";
 import { t } from "../../i18n";
 import { Button, ButtonLink, buttonClass } from "../../ui/button";
@@ -54,6 +55,7 @@ export function ReplyCardView({ card, status, actions }: { card: ReplyCard; stat
             {card.subtitle && <p className="text-sm text-eko-muted">{card.subtitle}</p>}
           </div>
           <ChangeRows rows={card.rows} />
+          {card.preview && <PagePreview preview={card.preview} />}
           {!status && <p className="text-xs text-eko-muted">{t("command.proposalNote")}</p>}
           {status ? (
             <Outcome status={status} onUndo={actions.onUndo} />

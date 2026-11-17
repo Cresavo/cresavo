@@ -5,6 +5,7 @@ import { Button, buttonClass, IconButton } from "../ui/button";
 import { cx } from "../ui/cx";
 import { AnswerCard } from "./answer-card";
 import { ChangeRows } from "./change-rows";
+import { PagePreview } from "./page-preview";
 import type { Choice, Proposal } from "./proposal";
 
 export type Source = "ai" | "rules";
@@ -61,6 +62,7 @@ function Body({ proposal, onApprove, onPick, onEdit, onClose }: BodyProps) {
             {proposal.subtitle && <p className="text-sm text-eko-muted">{proposal.subtitle}</p>}
           </div>
           <ChangeRows rows={proposal.rows} />
+          {proposal.preview && <PagePreview preview={proposal.preview} />}
           <p className="text-xs text-eko-muted">{t("command.proposalNote")}</p>
           <div className="flex flex-wrap gap-2">
             <Button variant={proposal.destructive ? "danger" : "primary"} onClick={() => onApprove(proposal)}>{t("command.approve")}</Button>

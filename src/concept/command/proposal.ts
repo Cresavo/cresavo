@@ -15,8 +15,10 @@ import { sellable } from "../stock/sales";
 import { waitlistCount, waitlistNotice } from "../studio/booking/waitlist-notice";
 import { parseCampaignRequest, studioHref, type CampaignPrefill } from "../campaigns/prefill";
 import { canCommand, type Role } from "../ops/access";
+import type { PageConfig } from "../page/config";
 import { clarifyChoices, type Retry } from "./clarify";
 import { insightFor, type Insight } from "./insight";
+import { pageProposal } from "./page-proposal";
 import { closeSalonProposal, shiftProposal, staffOffProposal } from "./schedule-proposal";
 
 // Turns what the interpreter understood into something the owner can review.
@@ -37,7 +39,7 @@ export interface ChangeRow {
 export type Choice = { label: string; proposal: Proposal } | Retry;
 
 export type Proposal =
-  | { kind: "change"; title: string; subtitle?: string; rows: ChangeRow[]; action: DemoAction; toast: string; destructive?: boolean }
+  | { kind: "change"; title: string; subtitle?: string; rows: ChangeRow[]; action: DemoAction; toast: string; destructive?: boolean; /** The booking page before and after, for a design change. */ preview?: { before: PageConfig; after: PageConfig } }
   | { kind: "choose"; title: string; choices: Choice[] }
   | { kind: "stock"; title: string; items: { id: string; name: string; left: string; unit: string; detail?: string; low: boolean }[] }
   | { kind: "revenue"; title: string; range: string; total: number; visits: number; bars: { id: string; label: string; value: number }[] }
@@ -347,6 +349,8 @@ export function proposalFor(state: DemoState, intent: IntentResult, text: string
   if (insight) return insight.chart.unit === "percent" || state.modules.finance ? insight : moduleOff(moduleById("finance"));
   const requested = role === "owner" && ["question", "campaign", "make-poster"].includes(intent.action) ? parseCampaignRequest(text, state, clock.today) : null;
   if (requested) return state.modules.campaigns ? studioProposal(requested) : moduleOff(moduleById("campaigns"));
+  const designed = role === "owner" && intent.action === "question" ? pageProposal(state, text) : null;
+  if (designed) return designed;
   switch (intent.action) {
     case "question": {
       const choices = clarifyChoices(intent.question, text, state, clock.today, examples);
