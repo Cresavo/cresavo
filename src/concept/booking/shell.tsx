@@ -7,6 +7,7 @@ import { Leaf } from "lucide-react";
 import { TENANT_POLICY } from "../brand";
 import { t } from "../i18n";
 import { useDemo } from "../store";
+import { pinThemeColor } from "../ui/theme";
 import { Toaster } from "../ui/toast";
 import { bookingHome, myBookings, widgetPath } from "./links";
 import { PageProvider, usePage } from "./page-context";
@@ -30,6 +31,7 @@ function Frame({ children }: { children: ReactNode }) {
   const widget = usePathname() === widgetPath(slug);
   const known = !state || state.salon.slug === slug;
   useTenantIcon(known ? page.theme.logo : null);
+  useTenantChrome(known ? (page.theme.colors?.background ?? null) : null);
   if (!known) return <UnknownAddress />;
   if (widget) return <PageRoot page={page} className="min-h-[100dvh] p-4"><main>{state ? children : <p>{t("booking.loading")}</p>}</main><Toaster /></PageRoot>;
   const { logo } = page.theme;
@@ -67,6 +69,17 @@ function Frame({ children }: { children: ReactNode }) {
       <Toaster />
     </PageRoot>
   );
+}
+
+/**
+ * The browser chrome wears the business's page colour when it has a palette; otherwise the
+ * route's neutral theme-color tags apply. Never the studio's pinned theme, even after an in-app link.
+ */
+function useTenantChrome(background: string | null) {
+  useEffect(() => {
+    pinThemeColor(background);
+    return () => pinThemeColor(null);
+  }, [background]);
 }
 
 /** The browser tab shows the business's logo when it has one, otherwise the neutral tenant icon from the route metadata. */

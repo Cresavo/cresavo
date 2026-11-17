@@ -5,12 +5,13 @@ import { Monitor, Moon, Sun } from "lucide-react";
 import { t } from "../i18n";
 import { Segmented } from "./controls";
 import { cx } from "./cx";
-import { parseTheme, THEME_STORAGE_KEY, THEMES, type ThemePreference } from "./theme";
+import { parseTheme, pinThemeColor, studioChrome, THEME_STORAGE_KEY, THEMES, type ThemePreference } from "./theme";
 
 const EVENT = "ui-theme-change";
 
 function setTheme(theme: ThemePreference) {
   document.documentElement.dataset.theme = theme;
+  pinThemeColor(studioChrome(theme));
   try {
     localStorage.setItem(THEME_STORAGE_KEY, theme);
   } catch {

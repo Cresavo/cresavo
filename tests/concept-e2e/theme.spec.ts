@@ -58,6 +58,46 @@ test("the theme choice is saved, applied before first paint and offered in Setti
   expect(await page.evaluate(() => localStorage.getItem("ui-theme"))).toBe("system");
 });
 
+/** The browser chrome colour: the first theme-color tag whose media matches, as browsers pick it. */
+const chrome = (page: Page) =>
+  page.evaluate(() => [...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')].find((m) => !m.media || matchMedia(m.media).matches)?.content);
+
+test("browser chrome follows the saved studio theme against the OS, from the first frame; tenant pages keep their own (Codex #8, #29)", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.addInitScript(() => {
+    // Recorded when the browser reports its first paint (the page's fake clock stops animation frames).
+    new PerformanceObserver((list, observer) => {
+      if (!list.getEntriesByName("first-paint").length) return;
+      observer.disconnect();
+      const meta = [...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')].find((m) => !m.media || matchMedia(m.media).matches);
+      (window as unknown as { firstFrame: object }).firstFrame = { theme: document.documentElement.dataset.theme, chrome: meta?.content };
+    }).observe({ type: "paint", buffered: true });
+  });
+  await page.addInitScript(() => localStorage.getItem("ui-theme") ?? localStorage.setItem("ui-theme", "dark"));
+  await page.goto("/studio");
+  await expect.poll(() => page.evaluate(() => (window as unknown as { firstFrame?: object }).firstFrame)).toMatchObject({ theme: "dark", chrome: "#18141e" });
+  await expect.poll(() => background(page, "body")).toBe("rgb(24, 20, 30)");
+
+  // The control moves the chrome with it; System hands it back to the OS.
+  await page.goto("/studio/more/settings");
+  const appearance = page.getByRole("radiogroup", { name: "Appearance" }).first();
+  await appearance.getByRole("radio", { name: "Light" }).click();
+  expect(await chrome(page)).toBe("#faf7f3");
+  await page.emulateMedia({ colorScheme: "dark" });
+  expect(await chrome(page)).toBe("#faf7f3");
+  await appearance.getByRole("radio", { name: "System" }).click();
+  expect(await chrome(page)).toBe("#18141e");
+
+  // Saved dark, OS light: a tenant page keeps its own chrome (Salong Eko's light page colour), also after an in-app link.
+  await appearance.getByRole("radio", { name: "Dark" }).click();
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/boka/salong-eko");
+  await expect(page.getByRole("heading", { name: "Salong Eko", level: 1 })).toBeVisible();
+  await expect.poll(() => chrome(page)).toBe("#f7f4ef");
+  await page.getByRole("link", { name: "Open the owner's view" }).click();
+  await expect.poll(() => chrome(page)).toBe("#18141e");
+});
+
 test("a booking page keeps the business's colours whatever the studio theme is", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/boka/salong-eko");

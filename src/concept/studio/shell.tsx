@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, type ReactNode } from "react";
+import { Suspense, useEffect, type ReactNode } from "react";
 import { AssistantHeaderButton, AssistantLauncher } from "./assistant/assistant-launcher";
 import { HelpButton } from "./help/help-button";
 import { canOpen, staffViewer, type Role } from "../ops/access";
@@ -14,6 +14,7 @@ import { unreadCount } from "../selectors";
 import { useDemo } from "../store";
 import type { DemoState } from "../data/types";
 import { cx } from "../ui/cx";
+import { parseTheme, pinThemeColor, studioChrome } from "../ui/theme";
 import { ThemeControl } from "../ui/theme-control";
 import { Toaster } from "../ui/toast";
 import { Wordmark } from "../ui/wordmark";
@@ -25,6 +26,8 @@ export function StudioShell({ children }: { children: ReactNode }) {
   const state = useDemo();
   const role = useRole();
   const pathname = usePathname() ?? "";
+  // The chrome follows the studio's saved theme, also when arriving by an in-app link from a booking page.
+  useEffect(() => pinThemeColor(studioChrome(parseTheme(document.documentElement.dataset.theme))), []);
   if (!state) return <LoadingScreen />;
   if (pathname === WELCOME_PATH) {
     return (

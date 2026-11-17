@@ -40,6 +40,11 @@ decision for this file.
   (try/catch, default `system`). CSS pins `color-scheme` for light and dark;
   system follows the OS. Controls: Settings > Appearance, the sidebar
   (desktop), More (phones) – `ThemeControl` in `src/concept/ui/theme-control.tsx`.
+- Browser chrome: the root layout's `theme-color` tags follow the OS; a pinned
+  light or dark choice adds a `theme-color` pin ahead of them (`pinThemeColor`,
+  from `THEME_SCRIPT` before first paint and from `ThemeControl`). Tenant pages
+  never get the studio's pin: they pin the palette's background or fall back
+  to their neutral tags.
 - **Rule:** never set `color-scheme` inline. Next compiles `light-dark()` into
   switches that only CSS rules with `color-scheme` turn on; a scope with its
   own scheme must also re-declare the tokens it uses (see the tenant layer).

@@ -40,6 +40,7 @@ All notable changes to this project are documented here. Format follows
 - Booking pages are the business's from edge to edge: the page background, an unknown address and error states use the neutral tenant look instead of the platform's colours or the studio's theme; the browser tab shows the business's logo or a neutral calendar icon, never the platform monogram, and booking pages no longer offer the platform's web app manifest (Codex #6, #23).
 - The embed code is titled "Book with <your business>" and the confirmation page says "Fictional demo" instead of naming the platform; platform attribution on booking pages is a product policy setting, off by default (#27).
 - Error, warning and confirmation messages on booking pages always sit on their own meaning colours, so they stay readable on any page colour. A business's own CSS can colour only branding slots (page, headings, links, buttons, header, footer, sections, images) and cannot fade or filter containers; the page editor's contrast check now lists error messages and confirmations (Codex #7).
+- The browser's address and status bar follow the studio's saved theme (also against the phone's own setting) from the first frame and when the theme is changed; booking pages keep their own colour (the business's page colour, or neutral) (Codex #8, #29).
 
 ## [0.3.0] - 2026-11-17
 
