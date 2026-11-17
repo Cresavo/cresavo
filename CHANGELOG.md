@@ -11,6 +11,22 @@ All notable changes to this project are documented here. Format follows
   under observations.
 
 ### Added
+- What happened? (More): every change with who made it (you, the assistant, a
+  customer), what changed before and after, and where it came from (button,
+  command box, voice, booking page). Filter the list and undo a change with one
+  tap while nothing else has touched it.
+- Trash: cancelled bookings and deleted customers stay for 30 days and can be
+  restored, a customer with all their bookings and journal. New Delete customer
+  on the customer card.
+- Help button in the studio header: ask how to do something and get an answer
+  from 15 help articles, let it show you the right button, or create a ticket
+  with the page, a request number, a screen outline and your latest changes.
+  Tickets are listed under What happened? > Support tickets.
+- Support access in Settings: let support read the account for 1 or 24 hours and
+  stop it at any time; every grant and stop is logged.
+- Server logs for `/api/concept/*` are one JSON line per request (request id,
+  route, status, duration, task) and never contain input text, keys or personal
+  data; responses carry an `x-request-id` header.
 - Stock and purchasing: mark a finished visit as done in the booking sheet and
   the products it uses (foot cream, massage oil, gloves, couch paper) are
   deducted automatically. Stock shows "runs out in about N days", Today warns

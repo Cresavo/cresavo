@@ -1,5 +1,74 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Claude Code · goal 8: support, log and "What happened?"
+
+**Done**
+
+- **Activity log, captured centrally.** Every change goes through `dispatch()`
+  in the store, which now runs `applyAction` (`src/concept/log/capture.ts`):
+  the same pure reducer, then one log entry with who (you, colleague, assistant,
+  customer, integration), what, before/after, source (button, command box,
+  voice, booking page, campaign), time and what is needed to undo it. Pages
+  never write log entries; a new action is logged and undoable without extra
+  code. Reading a message or dismissing a card is not logged. Journal text and
+  message bodies are never copied into the log.
+- **More > What happened?** (`/studio/more/log`) with three tabs. *Activity*:
+  newest first, filter by who and from where, **Undo** per entry while nothing
+  has touched the same records since (an undo is a logged change of its own, so
+  it can be undone again). *Trash* and *Support tickets* below.
+- **Trash, 30 days.** Cancelled bookings and deleted customers (new **Delete
+  customer** on the customer card, with confirm) wait in the Trash with "N days
+  left" and **Restore**. A deleted customer takes bookings, journal, sales,
+  reviews and inbox with them and gets them all back; a booking is restored only
+  if its time is still free. Entries older than 30 days are dropped when the
+  demo loads.
+- **Help button** in the studio header: answers from 15 articles in
+  `docs/help/*.md` through the new `answer-help` AI task (rules first: keyword,
+  title and text match; an AI answer replaces it when a key exists; ids of
+  unknown articles are ignored). Five common questions are one tap. **Show me**
+  highlights the right button or menu item (going to the right page first, also
+  on a phone). **Create a ticket** shows exactly what is attached: the page, a
+  request id, a plain-text outline of the screen (headings and button labels,
+  no typed text, standing in for a screenshot) and the last 20 changes; tickets
+  are listed under *Support tickets*.
+- **Support mode** in Settings: allow support read access for 1 hour or 24 hours,
+  stop it any time; every grant and stop is logged and listed as access history.
+- **Structured server logging** for `/api/concept/*` (`src/concept/server/logger.ts`):
+  `x-request-id` on every response and one JSON line with request id, route
+  pattern, method, status, duration and task name. The logger copies a fixed
+  set of fields, so input text, keys and personal data cannot reach it.
+- Demo data version 9 (`log`, `trash`, `supportGrants`, `tickets`).
+- Tests: `tests/concept-log.test.ts` (capture, undo, stale refusal, redaction of
+  journal text, filters), `concept-trash.test.ts` (cancel/restore, customer
+  bundle, expiry), `concept-support.test.ts`, `concept-help.test.ts` (articles,
+  fallback on 11 questions, screen outline), `concept-logger.test.ts`
+  (redaction, request id). Eight help cases added to `npm run ai:eval` (40/40).
+
+**Try it**
+
+- Type "Set Classic massage 60 min to 750 SEK" in the command box, approve, then
+  More > What happened? shows it as *Assistant · Command box* with Undo.
+- Customer card > Delete customer, then What happened? > Trash > Restore.
+- Help (top right) > "How do I undo a change?" > Show me. Then Create a ticket.
+- More > Settings > Support access.
+
+**Screenshots** (`docs/concept/screens/`): `support-log-*`, `support-trash-*`,
+`support-help-*`, `support-answer-*`, `support-showme-*`, `support-ticket-*`,
+`support-tickets-*`, `support-access-*` (390 and 1280).
+
+![What happened](screens/support-log-1280.png)
+![Help answer](screens/support-answer-390.png)
+
+**Remains**
+
+- The demo has no staff login and no integrations yet, so "colleague" and
+  "integration" entries appear only once goal 11 adds them; the filters show
+  just the people who actually appear in the log.
+- Tickets and the log live in the browser. A real backend (goal 11) stores them
+  per business, with the request id tying a ticket to the server log lines.
+- Support access is a record and a log entry only; enforcing read-only access
+  needs real roles (goal 12).
+
 ## 2026-11-17 · Claude Code · goal 5: stock and purchasing
 
 **Done**
