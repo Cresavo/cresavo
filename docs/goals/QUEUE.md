@@ -223,6 +223,10 @@ and an independent review (Fable or external) has signed off in REVIEW.md.
 
 ## 13 · Open-source launch: clean public repos
 
+Name and repo structure are decided in `docs/BRAND.md` (Flerdo, org `flerdo`,
+monorepo `flerdo/flerdo`). This goal also does the one-pass rename of code,
+UI and package names from Booking Lab to Flerdo.
+
 **Goal:** booking-lab-se (and later the gateway) can be made public without
 embarrassment or risk, and gets the free security tooling public repos have.
 

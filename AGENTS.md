@@ -1,4 +1,6 @@
-# Booking Lab SE – agent guide
+# Flerdo (repo: booking-lab-se) – agent guide
+
+Product name and naming rules: `docs/BRAND.md`.
 
 Applies to Claude Code, Codex and Grok. Short on purpose: read this, then only
 the document your task points to. Older history lives in
