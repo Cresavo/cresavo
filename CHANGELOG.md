@@ -7,6 +7,18 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Open protocols for the demo business: an HTTP MCP endpoint
+  (`/api/concept/mcp`, bearer token `CONCEPT_MCP_TOKEN`) with read tools for
+  bookings, free times, customers (names only), services, stock, finance and
+  campaigns, and write tools that only create proposals.
+- Inbox shows proposals from Claude, ChatGPT or another agent under "Waiting
+  for your approval" with Approve and Decline; approved changes appear in What
+  happened? as Assistant · MCP with Undo.
+- Your data & AI: status per protocol and copy-paste setup for Claude Code,
+  Claude Desktop and ChatGPT.
+- A2A agent card and read-only A2A endpoint, plus a USP discovery profile, for
+  customer assistants (services and free times; the person books on the
+  booking page).
 - Modules with prices: Features shows each module (Journal, Stock, Campaigns,
   Finance, Reviews, Waiting list, Ask Flerdo) as a card with on/off, a demo
   price and a running monthly total. Switching a module off removes it from the

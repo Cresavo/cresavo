@@ -1,5 +1,65 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Claude Code (Opus) · goal 10: open protocols
+
+**Done**
+
+- **One tool registry** (`src/concept/tools/`): typed tools with zod inputs.
+  Read tools: `get_business`, `list_bookings`, `get_availability`,
+  `list_customers` (names and visit history only, never phone, e-mail,
+  birthday, notes, tags or journal), `list_services`, `get_stock`,
+  `get_finance`, `list_campaigns`. Write tools (`propose_booking`,
+  `propose_move`, `propose_cancel`, `propose_price`, `propose_stock_order`,
+  `propose_product_sale`) run the command box's own `proposalFor`, so slot
+  checks, module switches and wording are shared; they only return a draft.
+- **MCP endpoint** `/api/concept/mcp` (MCP SDK, stateless JSON, same pattern
+  as `/api/v1/mcp`): bearer token from `CONCEPT_MCP_TOKEN` (outside production
+  the public token `flerdo-demo-token` is used when unset; production refuses
+  until it is set), 120 calls/min per token, the tool name in the structured
+  log line, `idempotencyKey` required on every proposal (same key and
+  arguments return the same proposal, other arguments are a conflict).
+  `get_proposal` tells the agent the owner's decision.
+- **Demo state, honestly split.** The studio's data lives in the browser. The
+  server keeps its own copy of today's demo business in memory
+  (`src/concept/server/demo-business.ts`, from the same deterministic
+  generator, so ids match; lost on restart, regenerated each day, resettable
+  from Your data & AI). Proposals wait there.
+- **Inbox:** the studio polls `GET /api/concept/proposals`; proposals show at
+  the top as *From Claude / From ChatGPT / From an AI agent* (from the
+  User-Agent) with Approve and Decline. Approve runs the normal `dispatch`
+  (actor Assistant, source MCP), so it is logged in What happened? with Undo,
+  then tells the server, which applies the same action to its copy. If the
+  browser's data has moved on, the studio says so and nothing changes.
+- **A2A and USP:** agent card at `/api/concept/a2a/agent-card.json`, a minimal
+  A2A 1.0 `SendMessage` endpoint (services, free times, and a booking page link:
+  the person books themselves) and a USP discovery profile at
+  `/api/concept/usp`. Both state what is not implemented.
+- **More > Your data & AI:** status per protocol with links to the discovery
+  documents, and copy-paste setup for Claude Code (`claude mcp add --transport
+  http …`), Claude Desktop (via `mcp-remote`) and ChatGPT (honest: needs public
+  HTTPS and OAuth, so not yet in this demo).
+- Tests: `concept-tools.test.ts` (schemas, minimisation, write tools only
+  draft), `concept-mcp.test.ts` (token, rate limit, MCP round trip with the SDK
+  client, idempotency, approve/decline, A2A, discovery, setup snippets).
+
+**Try it**
+
+- `npm run dev`, then `npm run concept:mcp-demo` (lists today's bookings and
+  proposes a move), open `/studio/inbox` and press Approve, then More > What
+  happened?.
+- Or `claude mcp add --transport http flerdo-demo http://localhost:3000/api/concept/mcp --header "Authorization: Bearer flerdo-demo-token"`.
+
+**Remaining / limits**
+
+- No owner login: the decision endpoint only checks same-origin (pilot gate).
+- ChatGPT needs OAuth; the server copy and the browser copy can drift.
+
+**Screenshots** (`docs/concept/screens/`): `protocols-inbox-*`,
+`protocols-data-*`, `protocols-list-390`, `protocols-log-1280`.
+
+![Inbox proposal](screens/protocols-inbox-390.png)
+![Your data & AI](screens/protocols-data-1280.png)
+
 ## 2026-11-17 · Claude Code · goal 8: support, log and "What happened?"
 
 **Done**
