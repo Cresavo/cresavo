@@ -27,6 +27,11 @@ All notable changes to this project are documented here. Format follows
   showing treatments and first names only.
 
 ### Changed
+- Polish pass: Today has two number cards instead of three and two suggestions at first (the rest behind "Show more"); the schedule no longer repeats times or durations, and finished visits are shaded instead of faded.
+- Muted text, warning badges and Erik's colour are darker so they pass WCAG AA contrast; the customer day chips and calendar days no longer use faded text.
+- Empty Gift cards and Packages pages show only the empty state (the "owed to customers" card appears once something is sold); review cards no longer repeat "No reply yet" next to the Reply button.
+- Customer rows wrap the next visit instead of cutting it off on phones.
+- Animations and transitions in the studio and booking pages stop with "reduce motion".
 - The product name and tagline live in one constant (`src/concept/brand.ts`);
   every user-facing mention reads from it, and a test guards that.
 
@@ -35,6 +40,9 @@ All notable changes to this project are documented here. Format follows
 - The engine MCP transport is reused without sharing client authority or repeating setup for every request (#15).
 - Commands keep minutes in times such as "at 14:30" and "to 09:45" (#13).
 - Mobile command input is shorter, and the floating mic no longer covers actions (#16).
+- MCP write tools (`propose_move` and the others) failed with "The tool could not run" because the Owner/Staff rules shared a file with browser-only code; the rules and the browser's role switch are now separate files.
+- After booking inside 24 hours the confirmation said both "online changes are closed" and "free to change until" a past date; only the one that applies is shown.
+- Star ratings, the gift card page without a card and the day chips are announced correctly by screen readers.
 
 ## [0.2.0] - 2026-11-17
 

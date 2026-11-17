@@ -1,5 +1,23 @@
 # Progress · AI-native demo
 
+## 2026-11-17 · Claude Code · polish pass: calm, consistent, accessible
+
+**What I changed** (less is more; nothing new added)
+
+- **Today**: two number cards instead of three (the bookings count is already in the header), two suggestions at first with the rest behind "Show more", no repeated times in free-gap rows, no "30 min · 30 min" in the schedule, finished visits shaded instead of faded.
+- **Wording / empty states**: Gift cards and Packages show only the empty state until something is sold (the "owed to customers" card was a second, empty card); review cards no longer say "No reply yet" next to every Reply button; the booking confirmation no longer shows both "online changes are closed" and a "free until" date that is already past.
+- **Overflow**: the next visit in the customer list wraps on phones instead of being cut off.
+- **Contrast (WCAG 2.2 AA)**: muted text, warning badges, Erik's colour, the customer day chips and the campaign calendar's other-month days now pass (checked with axe-core on all studio and booking pages at 390 and 1280 px; zero violations left).
+- **Screen readers**: star ratings are images with a label, the gift card page has a heading without a card.
+- **Reduced motion**: all studio and booking animations and transitions stop with "reduce motion".
+- **Checked and already fine**: sheets use native modal dialogs (focus is trapped, Esc closes, focus returns to the button; now covered by a test), icon buttons and inputs have names, toasts are in an `aria-live` region, focus rings are visible.
+- **Real bug found**: the MCP write tools (`propose_move` and the others) failed with "The tool could not run". The Owner/Staff rules lived in a browser-only file; rules and the role switch are now separate (`ops/access.ts`, `ops/role.ts`).
+- **Tests**: `npm run test:concept` has a new `journeys.spec.ts` (customer books online and it shows in the studio; command-box move and Undo; typed journal entry saved; campaign from a Today suggestion to published; agent proposal via MCP approved in Inbox; Anna off on Friday gives the needs-moving card; sheet focus and Esc). The existing customer-experience spec was stale (placeholder text) and racy (clicked before navigation finished); both fixed.
+
+**Screens**: [Today 390](screens/polish-today-390.png), [Today 1280](screens/polish-today-1280.png), [customers 390](screens/polish-customers-390.png), [reviews 390](screens/polish-reviews-390.png), [gift cards empty 390](screens/polish-giftcards-empty-390.png), [packages empty 390](screens/polish-packages-empty-390.png) (and 1280 versions).
+
+**Findings (not done)**: see the GitHub issues labelled `finding` and `ux`.
+
 ## 2026-11-17 · Claude Code (Sonnet) · goal 14: everyday operations
 
 **Done**
