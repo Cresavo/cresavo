@@ -50,7 +50,7 @@ export default function ReviewsPage() {
               return (
                 <div key={stars} className="flex items-center gap-3 text-sm">
                   <span className="flex w-6 items-center gap-0.5 tabular-nums">{stars}<Star size={12} className="text-text-secondary" /></span>
-                  <Meter value={state.reviews.length ? count / state.reviews.length : 0} tone="bg-warning" className="flex-1" />
+                  <Meter value={state.reviews.length ? count / state.reviews.length : 0} className="flex-1" />
                   <span className="w-8 text-right tabular-nums text-text-secondary">{count}</span>
                 </div>
               );

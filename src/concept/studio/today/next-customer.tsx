@@ -7,7 +7,6 @@ import { t, tc } from "../../i18n";
 import { agoText, formatDuration, relativeDay } from "../../i18n/format";
 import { buildCustomerStats, dayBookings, findCustomer, findService, fullName } from "../../selectors";
 import { Avatar } from "../../ui/avatar";
-import { Badge } from "../../ui/badge";
 import { Button, ButtonLink, buttonClass } from "../../ui/button";
 import { Notice } from "../../ui/notice";
 import { Card, Section } from "../../ui/card";
@@ -56,11 +55,9 @@ export function NextCustomer({ staffId, onOpen }: { staffId?: StaffId; onOpen: (
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {stats && <Badge>{tc("next.visits", stats.visits)}</Badge>}
-          {stats?.lastVisit && <Badge>{t("next.lastVisit", { ago: agoText(stats.lastVisit, today) })}</Badge>}
-          {customer.tags.map((tag) => <Badge key={tag} tone={tag === "Diabetes" ? "warn" : "neutral"}>{tag}</Badge>)}
-        </div>
+        <p className="text-sm text-text-secondary">
+          {[stats && tc("next.visits", stats.visits), stats?.lastVisit && t("next.lastVisit", { ago: agoText(stats.lastVisit, today) }), ...customer.tags].filter(Boolean).join(" · ")}
+        </p>
         {customer.note && <Notice tone="warning">{customer.note}</Notice>}
         {advice && (
           <p className="text-sm text-text-secondary">

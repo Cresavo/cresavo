@@ -78,8 +78,8 @@ export function CampaignDetail({ id }: { id: string }) {
       <div className="space-y-8">
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={STATUS_TONE[campaign.status]}>{t(`campaigns.status.${campaign.status}`)}</Badge>
-          {campaign.discountPercent > 0 && <Badge>{t("format.percent", { value: campaign.discountPercent })}</Badge>}
           <span className="text-sm text-text-secondary">
+            · {campaign.discountPercent > 0 && `${t("format.percent", { value: campaign.discountPercent })} · `}
             {campaign.serviceIds.map((sid) => findService(state, sid)?.name).join(", ")} · {formatDate(campaign.from)} – {formatDate(campaign.to)}
           </span>
         </div>
