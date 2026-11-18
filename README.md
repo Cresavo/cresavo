@@ -17,9 +17,9 @@ with plain buttons and no AI at all.
 > yet; see [STATUS](docs/STATUS.md) and [QUALITY_SECURITY](docs/QUALITY_SECURITY.md).
 
 - **Live demo:** <https://demo.cresavo.com> (fictional salon "Salong Eko", no sign-up)
-- **Tour video (36 s):** [watch the tour](docs/media/cresavo-tour-16x9.mp4)
+- **Tour video (36 s):** [watch the tour](https://cresavo.com/site/tour-16x9.mp4)
 
-<a href="docs/media/cresavo-tour-16x9.mp4"><img src="docs/media/cresavo-tour-16x9-poster.jpg" alt="Poster frame of the Cresavo tour video: 'Run a salon, studio or clinic?' next to a phone full of booking messages" width="480"></a>
+<a href="https://cresavo.com/site/tour-16x9.mp4"><img src="docs/media/cresavo-tour-16x9-poster.jpg" alt="Poster frame of the Cresavo tour video: 'Run a salon, studio or clinic?' next to a phone full of booking messages" width="480"></a>
 
 ## Screenshots
 
