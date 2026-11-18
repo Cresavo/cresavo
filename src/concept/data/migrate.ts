@@ -1,6 +1,8 @@
 import { DEFAULT_PAGE } from "../page/config";
+import { getPack } from "../packs";
+import { startCategories } from "../services/categories";
 import { DEMO_VERSION } from "./generate";
-import type { DemoState } from "./types";
+import type { DemoState, PackId } from "./types";
 
 // Saved demo states from older versions are brought up to date in place, so a
 // version bump does not throw away the owner's bookings, edits and page
@@ -17,6 +19,9 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
   // v15 (the brand v0.9 rebrand) changed no shape. A saved page keeps its colours as the
   // owner left them; only freshly generated Salong Eko data starts on Forest.
   14: (saved) => ({ ...saved, version: 15 }),
+  // v16 made the price list editable: its headings became data (they were fixed per industry pack) and
+  // deleted treatments that bookings still name are kept aside.
+  15: (saved) => ({ ...saved, categories: startCategories(getPack(saved.pack as PackId)), retiredServices: [], version: 16 }),
 };
 
 /** The oldest saved version that can still be migrated. */

@@ -1,7 +1,7 @@
 import type { Proposal } from "../command/proposal";
 import type { DateKey, DemoState, StaffId } from "../data/types";
 import type { IntentParams } from "../intent";
-import { fullName } from "../selectors";
+import { findService, fullName } from "../selectors";
 import type { Brief } from "./briefs";
 import { memoryRejection, type MemoryItem, type NewMemory } from "./memory";
 import type { RoutineSuggestion } from "./routines";
@@ -91,7 +91,7 @@ export function resolveReferences(text: string, context: ThreadContext, state: D
     const name = fullName(customer);
     resolved = resolved.replace(/\b(her|him)\b(?!self)/i, name).replace(/\b(she|he)\b(?=\s)/i, name);
     const last = lastBooking(state, customer.id);
-    const service = last && state.services.find((s) => s.id === last.serviceId);
+    const service = last && findService(state, last.serviceId);
     const staff = last && state.staff.find((s) => s.id === last.staffId);
     if (service && staff) resolved = resolved.replace(/\b(?:the\s+)?same(?:\s+\w+)?\s+as\s+last\s+time\b/i, `${service.name} with ${staff.firstName}`);
   }

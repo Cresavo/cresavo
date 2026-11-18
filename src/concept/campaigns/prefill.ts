@@ -1,6 +1,5 @@
 import { addDays, diffDays, fromKey, toKey } from "../data/dates";
 import type { DateKey, DemoState, Holiday } from "../data/types";
-import { packOf } from "../packs";
 import { t, words } from "../i18n";
 import { normalize } from "../intent/match";
 
@@ -51,9 +50,9 @@ function periodIn(text: string, today: DateKey): { from: DateKey; to: DateKey } 
 function servicesIn(text: string, state: DemoState): { ids: string[]; label: string } | null {
   const named = state.services.filter((s) => text.includes(normalize(s.name)));
   if (named.length) return { ids: named.map((s) => s.id), label: named.length === 1 ? named[0].name : t("campaigns.name.several") };
-  const category = packOf(state).categories.find((id) => text.includes(normalize(t(`category.${id}`))));
+  const category = state.categories.find((c) => text.includes(normalize(c.name)));
   if (!category) return null;
-  return { ids: state.services.filter((s) => s.category === category).map((s) => s.id), label: t(`category.${category}`) };
+  return { ids: state.services.filter((s) => s.category === category.id).map((s) => s.id), label: category.name };
 }
 
 /**

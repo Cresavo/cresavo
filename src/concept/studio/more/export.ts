@@ -1,5 +1,6 @@
 import { formatTime } from "../../data/dates";
 import type { DemoState } from "../../data/types";
+import { findService } from "../../selectors";
 
 // Plain exports of the demo data. Column names stay in English on purpose:
 // they are a data format, not UI text.
@@ -29,7 +30,7 @@ export function bookingsCsv(state: DemoState): string {
       formatTime(b.start),
       b.duration,
       b.customerId,
-      state.services.find((s) => s.id === b.serviceId)?.name,
+      findService(state, b.serviceId)?.name,
       b.staffId,
       b.price,
       b.status,

@@ -5,7 +5,7 @@ import { CalendarCheck, CheckCircle2, MapPin, XCircle } from "lucide-react";
 import { formatTime } from "../data/dates";
 import { t } from "../i18n";
 import { formatDayLong, formatDuration, formatMoney } from "../i18n/format";
-import { useDemo } from "../store";
+import { usePublicDemo } from "../store";
 import { Avatar } from "../ui/avatar";
 import { ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
@@ -15,13 +15,14 @@ import { changeRule } from "./policy";
 import { bookingHome, myBookingsFor, rebookLink } from "./links";
 import { MessagePreviews } from "./message-previews";
 import { ReviewForm } from "./review-form";
+import { findService } from "../selectors";
 
 /** What the customer sees after booking, and the page behind the link in their confirmation. */
 export function Confirmation({ id }: { id: string }) {
-  const state = useDemo();
+  const state = usePublicDemo();
   const now = useNow();
   const booking = state?.bookings.find((b) => b.id === id);
-  const service = state?.services.find((s) => s.id === booking?.serviceId);
+  const service = state && findService(state, booking?.serviceId);
   const person = state?.staff.find((s) => s.id === booking?.staffId);
   if (!state || !booking || !service || !person) {
     return (

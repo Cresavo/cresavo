@@ -7,7 +7,7 @@ import { Leaf } from "lucide-react";
 import { TENANT_POLICY } from "../brand";
 import { ownerViewHref } from "../page/resolve";
 import { t } from "../i18n";
-import { useDemo } from "../store";
+import { usePublicDemo } from "../store";
 import { pinThemeColor } from "../ui/theme";
 import { Toaster } from "../ui/toast";
 import { bookingHome, myBookings, widgetPath } from "./links";
@@ -26,7 +26,7 @@ export function BookShell({ children }: { children: ReactNode }) {
 }
 
 function Frame({ children }: { children: ReactNode }) {
-  const state = useDemo();
+  const state = usePublicDemo();
   const page = usePage();
   const slug = useParams<{ slug: string }>()?.slug ?? "";
   const widget = usePathname() === widgetPath(slug);

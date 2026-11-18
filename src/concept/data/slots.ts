@@ -11,6 +11,8 @@ export interface SlotContext {
   salon: Salon;
   staff: Staff[];
   services: Service[];
+  /** Deleted treatments whose bookings may still be moved; they keep their room or chair. */
+  retiredServices?: Service[];
   resources: Resource[];
   exceptions: StaffException[];
   bookings: Booking[];
@@ -90,7 +92,7 @@ export function pickResource(ctx: SlotContext, need: Need, date: DateKey, start:
 }
 
 function usableResources(ctx: SlotContext, serviceId: string): string[] {
-  const wanted = ctx.services.find((s) => s.id === serviceId)?.resourceIds ?? [];
+  const wanted = [...ctx.services, ...(ctx.retiredServices ?? [])].find((s) => s.id === serviceId)?.resourceIds ?? [];
   return wanted.filter((id) => ctx.resources.some((r) => r.id === id));
 }
 

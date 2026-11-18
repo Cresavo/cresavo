@@ -5,6 +5,7 @@ import { field, ToolError } from "../tools/define";
 import { getAvailability, listServices } from "../tools/read";
 import { toolContext } from "./demo-business";
 import { createRateLimiter } from "./rate-limit";
+import { publicView } from "../selectors";
 
 // A minimal A2A 1.0 JSON-RPC endpoint for a customer's assistant: only
 // `SendMessage`, with one JSON text part. Read-only: it lists services and
@@ -29,7 +30,9 @@ const rpcError = (id: RpcId, code: number, message: string, status = 400) => Res
 function answer(input: unknown, origin: string): Record<string, unknown> {
   const parsed = command.safeParse(input);
   if (!parsed.success) return { error: { code: "invalid_request", message: HELP } };
-  const context = toolContext();
+  // A customer's assistant sees what the booking page shows: hidden treatments are not on offer.
+  const owner = toolContext();
+  const context = { ...owner, state: publicView(owner.state) };
   try {
     switch (parsed.data.action) {
       case "services":

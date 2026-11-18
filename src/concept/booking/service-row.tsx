@@ -1,9 +1,10 @@
-import { Dumbbell, Footprints, Hand, HandHeart, Palette, Scissors, Stethoscope, Users, type LucideIcon } from "lucide-react";
-import type { Category, DemoState, Service } from "../data/types";
+import { CircleDot, Dumbbell, Footprints, Hand, HandHeart, Palette, Scissors, Stethoscope, Users, type LucideIcon } from "lucide-react";
+import type { DemoState, Service } from "../data/types";
 import { t } from "../i18n";
 import { formatDuration, formatMoney } from "../i18n/format";
 
-const CATEGORY_ICON: Record<Category, LucideIcon> = {
+// The industry packs' own categories have a picture; a category the owner added gets a neutral one.
+const CATEGORY_ICON: Partial<Record<string, LucideIcon>> = {
   foot: Footprints,
   massage: HandHeart,
   cut: Scissors,
@@ -17,7 +18,7 @@ const CATEGORY_ICON: Record<Category, LucideIcon> = {
 };
 
 export function ServiceIcon({ category }: { category: Service["category"] }) {
-  const Icon = CATEGORY_ICON[category];
+  const Icon = CATEGORY_ICON[category] ?? CircleDot;
   return (
     <span className="flex size-11 shrink-0 items-center justify-center rounded-md bg-action-bg text-text">
       <Icon size={20} />

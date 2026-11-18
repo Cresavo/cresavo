@@ -114,7 +114,7 @@ describe("vocabulary", () => {
     expect(t("nav.services")).toBe("Treatments & prices");
     setVocabulary(getPack("trainer").vocabulary);
     expect(t("nav.services")).toBe("Sessions & prices");
-    expect(t("services.subtitle", { count: 4 })).toBe("4 sessions");
+    expect(tc("services.subtitle", 4)).toBe("4 sessions");
     setVocabulary(getPack("hair").vocabulary);
     expect(t("nav.customers")).toBe("Clients");
     expect(t("nav.services.description")).toBe("Services, durations and prices");

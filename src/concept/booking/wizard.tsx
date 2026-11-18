@@ -100,11 +100,11 @@ export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowCh
     service: (
       <div className="space-y-5">
         <h2 className="text-xl font-semibold tracking-tight">{missed ? t("booking.service.missed") : t("booking.service.title")}</h2>
-        {packOf(state).categories.map((category) => (
-          <div key={category} className="space-y-2">
-            <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-text-secondary">{t(`category.${category}`)}</p>
+        {state.categories.filter((category) => state.services.some((s) => s.category === category.id)).map((category) => (
+          <div key={category.id} className="space-y-2">
+            <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-text-secondary">{category.name}</p>
             {state.services
-              .filter((s) => s.category === category)
+              .filter((s) => s.category === category.id)
               .map((s) => (
                 <button key={s.id} onClick={() => chooseService(s.id)} className="flex w-full rounded-lg bg-surface p-3.5 text-left ring-1 ring-inset ring-hairline transition-colors hover:bg-action-bg hover:ring-action">
                   <ServiceInfo service={s} staff={state.staff} />

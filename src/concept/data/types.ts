@@ -17,8 +17,14 @@ export type DateKey = string;
 export type StaffId = "anna" | "erik";
 /** Industry pack the demo business belongs to. */
 export type PackId = "foot-massage" | "hair" | "nails" | "trainer" | "clinic";
-/** A group of services on the price list; every pack has two. */
+/** The category ids the industry packs start from; every pack has two. An owner can add their own (see `ServiceCategory`). */
 export type Category = "foot" | "massage" | "cut" | "colour" | "manicure" | "pedicure" | "personal" | "group" | "physio" | "recovery";
+
+/** A heading on the price list. The list order in the state is the order customers see. */
+export interface ServiceCategory {
+  id: string;
+  name: string;
+}
 
 /** A span of the day, minutes from midnight. */
 export interface Interval {
@@ -64,7 +70,8 @@ export interface Staff {
 export interface Service {
   id: string;
   name: string;
-  category: Category;
+  /** Id of a `ServiceCategory`. */
+  category: string;
   staffIds: StaffId[];
   duration: number;
   price: number;
@@ -76,6 +83,8 @@ export interface Service {
   consumption?: StockUse[];
   /** Rooms or chairs the treatment can use (any one of them). Empty = needs no resource. */
   resourceIds?: string[];
+  /** Kept in the studio but not offered on the booking page or to customers' assistants. */
+  hidden?: boolean;
 }
 
 export type ResourceKind = "room" | "chair" | "equipment";
@@ -107,7 +116,8 @@ export interface Customer {
   lastName: string;
   phone: string;
   email: string;
-  category: Category | "both";
+  /** The category the customer usually books (a `ServiceCategory` id), or "both". */
+  category: string;
   preferredStaff: StaffId;
   since: DateKey;
   /** Date of birth, used for the "birthday this month" segment. */
@@ -368,7 +378,12 @@ export interface DemoState {
   seq: number;
   salon: Salon;
   staff: Staff[];
+  /** The price list, in the order it is shown. */
   services: Service[];
+  /** Deleted treatments that bookings, punch cards or campaigns still refer to; never offered again. */
+  retiredServices: Service[];
+  /** Price list headings, in the order they are shown. */
+  categories: ServiceCategory[];
   resources: Resource[];
   /** Days off and extra shifts on top of the staff members' weekly templates. */
   exceptions: StaffException[];

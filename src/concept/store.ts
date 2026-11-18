@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import type { DemoAction } from "./actions";
 import { toKey } from "./data/dates";
 import { createDemoState, type BusinessSetup } from "./data/generate";
@@ -8,6 +8,7 @@ import { migrateState } from "./data/migrate";
 import type { DemoState } from "./data/types";
 import { applyAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
+import { publicView } from "./selectors";
 import { purgeExpired } from "./trash/trash";
 import { setVocabulary } from "./i18n";
 import { getPack } from "./packs";
@@ -104,4 +105,10 @@ export function startBusiness(setup?: BusinessSetup) {
 
 export function useDemo(): DemoState | null {
   return useSyncExternalStore(subscribe, getSnapshot, () => null);
+}
+
+/** The state for the booking pages: what customers may see and book (hidden treatments are not on offer). */
+export function usePublicDemo(): DemoState | null {
+  const state = useDemo();
+  return useMemo(() => state && publicView(state), [state]);
 }

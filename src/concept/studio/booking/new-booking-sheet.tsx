@@ -34,10 +34,12 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
   const presetCustomer = findCustomer(state, preset.customerId);
   const firstService =
     state.services.find((s) => s.id === preset.serviceId) ??
-    state.services.find((s) => s.staffIds.includes(preset.staffId ?? (presetCustomer ? preferredStaffOf(state, presetCustomer) : "anna")))!;
+    state.services.find((s) => s.staffIds.includes(preset.staffId ?? (presetCustomer ? preferredStaffOf(state, presetCustomer) : "anna"))) ??
+    state.services[0];
   const [serviceId, setServiceId] = useState(firstService.id);
-  const service = state.services.find((s) => s.id === serviceId)!;
-  const staffId = service.staffIds[0];
+  const service = state.services.find((s) => s.id === serviceId) ?? firstService;
+  // A treatment several people can do goes to the person the sheet was opened for, otherwise the first.
+  const staffId = service.staffIds.find((id) => id === preset.staffId) ?? service.staffIds[0];
   const [date, setDate] = useState(preset.date ?? today);
   const [slot, setSlot] = useState<Slot | null>(
     preset.date !== undefined && preset.start !== undefined ? { date: preset.date, start: preset.start } : null,

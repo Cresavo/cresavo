@@ -9,8 +9,32 @@ export function findCustomer(state: DemoState, id: string | undefined): Customer
   return id ? state.customers.find((c) => c.id === id) : undefined;
 }
 
-export function findService(state: DemoState, id: string): Service | undefined {
-  return state.services.find((s) => s.id === id);
+/** A treatment by id, also one that was deleted but is still named by a booking, punch card or campaign. */
+export function findService(state: Pick<DemoState, "services" | "retiredServices">, id: string | undefined): Service | undefined {
+  return id ? (state.services.find((s) => s.id === id) ?? state.retiredServices.find((s) => s.id === id)) : undefined;
+}
+
+/** What customers can book: the price list without the treatments the owner has hidden. */
+export function bookableServices(state: Pick<DemoState, "services">): Service[] {
+  return state.services.filter((s) => !s.hidden);
+}
+
+/**
+ * The state as the booking page and customers' assistants see it. A hidden treatment behaves like a
+ * retired one there: existing bookings still show its name, but it is not listed and cannot be booked.
+ */
+export function publicView(state: DemoState): DemoState {
+  const hidden = state.services.filter((s) => s.hidden);
+  return hidden.length ? { ...state, services: bookableServices(state), retiredServices: [...state.retiredServices, ...hidden] } : state;
+}
+
+/** The price list heading a lower-case text mentions, by its name ("foot care") or the pack's short word ("massage"). */
+export function categoryInText(state: Pick<DemoState, "categories">, text: string): string | undefined {
+  return state.categories.find((c) => text.includes(c.name.toLocaleLowerCase()) || text.includes(c.id))?.id;
+}
+
+export function categoryName(state: Pick<DemoState, "categories">, id: string): string {
+  return state.categories.find((c) => c.id === id)?.name ?? "";
 }
 
 export function fullName(c: Pick<Customer, "firstName" | "lastName">) {

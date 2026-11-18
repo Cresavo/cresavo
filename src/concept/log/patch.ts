@@ -8,7 +8,7 @@ import type { CollectionPatch, Item, StatePatch } from "./types";
 const COLLECTIONS = [
   "customers", "bookings", "journals", "stock", "orders", "sales", "giftCards", "packages", "reviews", "inbox",
   "campaigns", "services", "costs", "trash", "supportGrants", "tickets", "staff", "exceptions", "resources",
-  "memory", "routines",
+  "memory", "routines", "retiredServices", "categories",
 ] as const satisfies readonly (keyof DemoState)[];
 
 /** Whole values compared as a unit. */
@@ -28,7 +28,10 @@ function diffCollection(before: Item[], after: Item[]): CollectionPatch | null {
     }),
     removed: before.flatMap((item, index) => (current.has(item.id) ? [] : [{ index, item }])),
   };
-  return patch.added.length || patch.changed.length || patch.removed.length ? patch : null;
+  // The same records in another order (a reordered price list) is a change too.
+  const kept = (list: Item[], other: Map<string, Item>) => list.filter((item) => other.has(item.id)).map((item) => item.id);
+  if (!same(kept(before, current), kept(after, previous))) patch.order = { before: before.map((item) => item.id), after: after.map((item) => item.id) };
+  return patch.added.length || patch.changed.length || patch.removed.length || patch.order ? patch : null;
 }
 
 /** What `next` changed compared with `prev`, or null when nothing tracked changed. */
@@ -52,6 +55,7 @@ export function canApplyPatch(state: DemoState, patch: StatePatch): boolean {
     if (!diff.added.every((id) => current.has(id))) return false;
     if (!diff.changed.every(({ after }) => same(current.get(after.id), after))) return false;
     if (diff.removed.some(({ item }) => current.has(item.id))) return false;
+    if (diff.order && !same(list(state, key).map((item) => item.id), diff.order.after)) return false;
   }
   return Object.entries(patch.values).every(([key, { after }]) => same((state as unknown as Record<string, unknown>)[key], after));
 }
@@ -64,7 +68,8 @@ export function revertPatch(state: DemoState, patch: StatePatch): DemoState {
     const changed = new Map(diff.changed.map(({ before }) => [before.id, before]));
     const items = list(state, key).filter((item) => !added.has(item.id)).map((item) => changed.get(item.id) ?? item);
     for (const { index, item } of [...diff.removed].sort((a, b) => a.index - b.index)) items.splice(Math.min(index, items.length), 0, item);
-    next[key] = items;
+    const order = diff.order?.before;
+    next[key] = order ? [...items].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)) : items;
   }
   for (const [key, { before }] of Object.entries(patch.values)) next[key] = before;
   return next as unknown as DemoState;

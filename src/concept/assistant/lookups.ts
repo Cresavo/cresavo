@@ -12,7 +12,7 @@ import { balanceOf, findGiftCard } from "../giftcards/cards";
 import { parseDate, parseTime } from "../intent/dates";
 import { matchNames, normalize } from "../intent/match";
 import { canOpen, servedBy, type Role } from "../ops/access";
-import { buildCustomerStats, findCustomer, findService, fullName } from "../selectors";
+import { buildCustomerStats, categoryInText, findCustomer, findService, fullName } from "../selectors";
 import type { ReplyCard, ThreadContext } from "./thread";
 
 // Read questions an owner asks every day, answered straight from the data:
@@ -179,7 +179,7 @@ function namedServices(state: DemoState, text: string): Service[] {
   const hours = text.match(/\b(?:an?|one|1)[\s-]hour\b/);
   const length = minutes ? Number(minutes[1]) : hours ? 60 : undefined;
   if (found.length === 1 || length === undefined) return found;
-  const pool = found.length ? found : state.services.filter((s) => text.includes(s.category));
+  const pool = found.length ? found : state.services.filter((s) => s.category === categoryInText(state, text));
   const fitting = pool.filter((s) => s.duration === length);
   return fitting.length ? fitting : found;
 }
@@ -286,7 +286,7 @@ function dueBack(input: LookupInput, text: string): Lookup {
   const { state, clock } = input;
   const link = { href: "/studio/customers/due-back", label: t("assistant.lookup.dueBackOpen") };
   const services = namedServices(state, text);
-  const category = state.services.map((s) => s.category).find((c) => text.includes(c));
+  const category = categoryInText(state, text);
   const all = dueBackList(state, buildCustomerStats(state, clock.today), clock.today);
   const rows = all.filter((row) => (services.length ? services.some((s) => s.id === row.service.id) : !category || row.service.category === category));
   if (!rows.length) return message(t("assistant.lookup.dueBackNone"), link);

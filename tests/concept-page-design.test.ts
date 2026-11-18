@@ -170,7 +170,7 @@ describe("own domain module and demo data", () => {
     expect(state.page).toEqual({ ...DEFAULT_PAGE, theme: { ...DEFAULT_PAGE.theme, colors: PALETTES.forest } });
     expect(DEFAULT_PAGE.theme.colors).toBeNull();
     expect(state.domain).toBeNull();
-    expect(DEMO_VERSION).toBe(15);
+    expect(DEMO_VERSION).toBe(16);
   });
 });
 

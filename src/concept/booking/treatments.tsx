@@ -1,6 +1,5 @@
 import type { DemoState } from "../data/types";
 import { t } from "../i18n";
-import { packOf } from "../packs";
 import { Button } from "../ui/button";
 import { Card, Section } from "../ui/card";
 import { ServiceInfo } from "./service-row";
@@ -9,11 +8,11 @@ import { ServiceInfo } from "./service-row";
 export function Treatments({ state, onBook, compact }: { state: DemoState; onBook: (serviceId: string) => void; compact?: boolean }) {
   return (
     <div className="space-y-8">
-      {packOf(state).categories.map((category) => (
-        <Section key={category} title={t(`category.${category}`)}>
+      {state.categories.filter((category) => state.services.some((s) => s.category === category.id)).map((category) => (
+        <Section key={category.id} title={category.name}>
           <Card className={compact ? "grid divide-y divide-hairline sm:grid-cols-2 sm:divide-y-0" : "divide-y divide-hairline"}>
             {state.services
-              .filter((s) => s.category === category)
+              .filter((s) => s.category === category.id)
               .map((service) => (
                 <div key={service.id} className={compact ? "flex flex-col gap-3 p-4" : "flex flex-col gap-3 p-4 sm:flex-row sm:items-center"}>
                   <ServiceInfo service={service} staff={state.staff} />
