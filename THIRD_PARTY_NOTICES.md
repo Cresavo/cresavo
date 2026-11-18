@@ -2,7 +2,7 @@
 
 The application code is AGPL-3.0-only (see [LICENSE](LICENSE)). Dependencies
 keep their own licences. The Cresavo name, wordmark, symbol concepts,
-`design/brand/**` and `docs/media/**` are covered by [TRADEMARK.md](TRADEMARK.md),
+`design/brand/**`, `public/brand/**` and `docs/media/**` are covered by [TRADEMARK.md](TRADEMARK.md),
 not by this file or the AGPL.
 
 ## Demo images
