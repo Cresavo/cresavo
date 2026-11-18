@@ -1,0 +1,1 @@
+A low sun sits just off centre above a shallow arc, like the first appointment on an otherwise open day. The arc rises toward the sun, and the strip of sky between the two shapes stays visible at favicon size.

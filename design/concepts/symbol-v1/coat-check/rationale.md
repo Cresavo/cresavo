@@ -1,0 +1,1 @@
+A clipped corner, a punch hole and two thumb notches turn a block of ink into a coat-check ticket. The shape recalls the small exchange at a reception desk and can hold its own as an optional booking-page badge.
