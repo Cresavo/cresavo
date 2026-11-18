@@ -8,8 +8,8 @@ kits in `design/brand/**` and the media in `docs/media/**` are described in
 
 ## Demo images
 
-The photos in `public/demo/*.webp` (two fictional staff portraits and three
-salon still lifes) were AI-generated on 2026-11-12 for this demo. The
+The staff portraits and salon photos in `public/demo/*.webp` were AI-generated
+for this demo. The
 portraits depict fictional characters and were not intended to portray
 identifiable people; the prompts excluded brands and text. Each file, its
 prompt summary, alt text, size and SHA-256 is recorded in

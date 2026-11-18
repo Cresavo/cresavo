@@ -1,3 +1,4 @@
+import { WithStaff } from "./with-staff";
 import { ChevronRight } from "lucide-react";
 import { formatTime } from "../data/dates";
 import type { DateKey, DemoState, Service } from "../data/types";
@@ -28,7 +29,7 @@ export function SlotCard({ slot, service, staff, today, onPick }: SlotCardProps)
       </span>
       <span className="min-w-0 flex-1">
         <span className="block font-semibold">{day === formatDayShort(slot.date) ? day : `${day} · ${formatDayShort(slot.date)}`}</span>
-        <span className="mt-1 block text-sm text-text-secondary">{t("booking.withStaff", { name: person?.firstName ?? "" })}</span>
+        <span className="mt-1 block text-sm text-text-secondary">{person && <WithStaff people={[person]} />}</span>
         <span className="block text-sm text-text-secondary">{formatDuration(service.duration)} · {formatMoney(service.price)}</span>
       </span>
       <ChevronRight size={20} className="shrink-0 text-text-secondary" aria-hidden />

@@ -37,6 +37,15 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
     const untouched = JSON.stringify(page.sections) === JSON.stringify(V15_SECTIONS);
     return { ...saved, page: untouched ? { ...page, sections: DEFAULT_SECTIONS } : page, categories: startCategories(getPack(saved.pack as PackId)), retiredServices: [], version: 16 };
   },
+  // v17 adds portraits to the existing roster, including solo businesses.
+  16: (saved) => {
+    const team = getPack(saved.pack as PackId).staff;
+    const staff = (saved.staff as DemoState["staff"]).map((person) => ({
+      ...person,
+      photo: person.photo ?? team.find((member) => member.id === person.id)?.photo,
+    }));
+    return { ...saved, staff, version: 17 };
+  },
 };
 
 /** The oldest saved version that can still be migrated. */

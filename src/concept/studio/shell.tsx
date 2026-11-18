@@ -15,6 +15,7 @@ import { unreadCount } from "../selectors";
 import { isPreset } from "../modules/registry";
 import { dispatch, useDemo } from "../store";
 import type { DemoState } from "../data/types";
+import { StaffAvatar } from "../ui/avatar";
 import { cx } from "../ui/cx";
 import { parseTheme, pinThemeColor, studioChrome } from "../ui/theme";
 import { ThemeControl } from "../ui/theme-control";
@@ -159,7 +160,9 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-hairline bg-surface px-4 pb-3 pt-5 lg:flex">
       <Link href="/studio" aria-label={t("shell.home")} className="block px-3">
-        <Wordmark className="w-[124px]" />
+        <svg aria-hidden="true" width="124" viewBox="4.96 -74.73 358.98 77" className="h-auto fill-[light-dark(#4f364b,#fff)]">
+          <use href="/brand/studio-wordmark.svg#lettering" />
+        </svg>
       </Link>
       <p className="mt-3 truncate px-3 text-sm text-text-secondary">
         <span className="font-semibold text-text">{state.salon.name}</span> · {t("shell.demo")}
@@ -198,10 +201,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
       {/* The footer: who is looking (with the demo's owner/staff switch beside the name) and the appearance. */}
       <div className="mt-2 space-y-2 border-t border-hairline pt-3">
         <div className="flex items-center gap-2.5 px-1">
-          <span className={cx("flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold", person.id === "anna" ? "bg-staff-1-bg text-text" : "bg-staff-2-bg text-text")}>
-            {person.firstName[0]}
-            {person.lastName[0]}
-          </span>
+          <StaffAvatar person={person} size="md" />
           <span className="min-w-0 flex-1 text-sm leading-tight">
             <span className="block truncate font-medium">{person.firstName} {person.lastName}</span>
             <span className="block truncate text-xs text-text-secondary">{t(role === "staff" ? "shell.staffRole" : "shell.ownerRole")}</span>
