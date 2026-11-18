@@ -45,6 +45,10 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 21 | Languages: English source, generated Swedish, tenant locale | Sonnet | open |
 | 22 | Campaigns people want to share + social media connections | Opus | open |
 | 23 | Pricing, modules and billing (open core) | Opus | open |
+| 24 | Own domain onboarding ([exploration](../explore/OWN_DOMAIN.md)) | Opus | proposal · awaiting Niclas's priority |
+| 25 | Calm settings: home, search, six groups ([exploration](../explore/SETTINGS_IA.md)) | Codex | proposal · awaiting Niclas's priority |
+| 26 | Salon site template on the whole domain ([exploration](../explore/WEBSITE_SERVICE.md)) | Claude (Sonnet) | proposal · awaiting Niclas's priority |
+| 27 | Done-for-you move-in ([exploration](../explore/WEBSITE_SERVICE.md)) | Claude (Sonnet) | proposal · awaiting Niclas's priority |
 
 ---
 
@@ -457,6 +461,79 @@ bookings proposed or made, and everything lands in the Inbox.
   subscription items, usage metering from the existing cost log.
 - Protect the name with a trademark; AGPL makes copies share changes; the CLA
   keeps dual licensing possible.
+
+
+## 24 · Own domain onboarding (proposal)
+
+**Goal:** an owner connects `boka.<their domain>` in three guided steps
+without breaking email, and the server maps it safely. See
+`docs/explore/OWN_DOMAIN.md`.
+
+- Three-step flow (address, add one record, we connect it) with live status
+  "Waiting for DNS" / "Checking your address" / "Secure connection ready",
+  background polling, a Today card and Inbox message when ready.
+- A fourth state for Vercel's TXT challenge, showing the record to add.
+- Ownership proof: a per-business TXT record checked before a host is mapped.
+- Our own DNS lookup for specific errors ("points to X") and to name the DNS
+  provider; a read-only hand-off link with the records.
+- Directory backed by storage instead of the fixture, cached for the proxy.
+- Stays behind `CONCEPT_DOMAINS_ENABLED`; going live needs real login first.
+
+**Done when:** in tests (mocked Vercel and DNS), a subdomain goes through all
+states including the TXT challenge; a second business cannot claim the same
+host; the hand-off link shows only the records; axe passes on all steps.
+
+## 25 · Calm settings: home, search, six groups (proposal)
+
+**Goal:** every setting has one home and the owner finds it in seconds. See
+`docs/explore/SETTINGS_IA.md`.
+
+- `/studio/settings` home: search (synonyms, role- and module-aware, lands on
+  the control), five-item setup checklist, six groups with live summaries,
+  Your account.
+- Move pages as in the exploration's table; old URLs redirect; More keeps the
+  tools plus Settings and Help & support rows.
+- "More options" pattern for advanced controls; switched-off modules show
+  nothing; delete the duplicate Appearance control; industry pack out of
+  Features.
+
+**Done when:** searching "holiday" opens Closed days with the control
+highlighted; the checklist ticks itself from data; switching a module off
+removes it from Settings and search shows where to turn it on; no setting is
+reachable from two pages.
+
+## 26 · Salon site template on the whole domain (proposal)
+
+**Goal:** a business can use its whole domain for a one-page salon site built
+from its own data, with booking at its core. See
+`docs/explore/WEBSITE_SERVICE.md`.
+
+- Apex domains in `checkDomain` and the flow (A record plus `www`), `www`
+  redirect and per-business redirects from old page addresses in `routeHost`.
+- New sections: About us, Opening hours, Contact, a privacy page.
+- Three templates as theme and section presets.
+- Page title, description, `LocalBusiness` structured data, sitemap, Open
+  Graph image; no tracking cookies.
+- White-label rules unchanged; booking flow fixed inside every template.
+
+**Done when:** a test apex host serves the salon site at `/` and booking
+works from it; the three templates pass axe; a redirect from an old path
+works; no platform name appears on the page.
+
+## 27 · Done-for-you move-in (proposal)
+
+**Goal:** Niclas can move a business from another platform in a few hours
+with a fixed checklist. See `docs/explore/WEBSITE_SERVICE.md`.
+
+- Internal move-in checklist (questions from `OWN_DOMAIN.md` section 4,
+  DNS inventory, switch date, links to change) per business.
+- Import of future bookings and gift card and punch card balances from CSV,
+  extending the customer import from goal 3, with preview and conflict check.
+- Switch-date helper: warns about double booking while two systems are open.
+
+**Done when:** a sample export from a fictional old provider imports with a
+preview; the checklist can be followed end to end in the demo; Salong
+Solgården's real move is planned with it (no real data in the repo).
 
 ---
 
