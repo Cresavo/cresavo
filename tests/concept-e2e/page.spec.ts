@@ -145,6 +145,9 @@ test("design the booking page with a live preview, and custom CSS cannot run scr
 test("the default booking page has no accessibility violations", async ({ page }) => {
   await page.goto("/boka/salong-eko");
   await expect(page.getByRole("heading", { name: "Salong Eko", level: 1 })).toBeVisible();
+  const hero = page.getByRole("img", { name: "Inside Salong Eko" });
+  await expect(hero).toHaveAttribute("loading", "eager");
+  await expect(hero).toHaveAttribute("fetchpriority", "high");
   expect(await violations(page)).toEqual([]);
   await page.goto("/unknown-address");
   expect(await violations(page)).toEqual([]);

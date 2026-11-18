@@ -165,21 +165,28 @@ test("two tabs cannot confirm the same public booking time", async ({ context, p
     const field = tab.getByRole("textbox", { name: /What would you like to book/ });
     await field.fill(ask);
     await field.press("Enter");
-    await tab.getByRole("button", { name: /until \d\d:\d\d/ }).first().click();
+    const slot = tab.getByRole("button", { name: /until \d\d:\d\d/ }).first();
+    const time = await slot.innerText();
+    await slot.click();
     await tab.getByLabel("Your name", { exact: true }).fill(name);
     await tab.getByLabel("Mobile number").fill(phone);
-    return tab.getByRole("button", { name: "Confirm booking", exact: true });
+    return { time, confirm: tab.getByRole("button", { name: "Confirm booking", exact: true }) };
   }
   const [first, second] = await Promise.all([
     prepare(page, "First Caller", "070-000 99 61"),
     prepare(other, "Second Caller", "070-000 99 62"),
   ]);
-  await Promise.all([first.click(), second.click()]);
-  const confirmed = [page, other].map((tab) => tab.getByRole("heading", { name: "You are booked" }));
-  await expect.poll(async () => (await Promise.all(confirmed.map((heading) => heading.count()))).reduce((sum, count) => sum + count, 0)).toBe(1);
-  const rejected = await confirmed[0].count() ? other : page;
+  expect(first.time).toBe(second.time);
+  await Promise.all([first.confirm.click(), second.confirm.click()]);
+  const conflicts = [page, other].map((tab) => tab.getByText("Sorry, that time was just taken. Please choose another.", { exact: true }));
+  await expect.poll(async () => (await Promise.all(conflicts.map((message) => message.count()))).reduce((sum, count) => sum + count, 0)).toBe(1);
+  const [rejected, accepted] = await conflicts[0].count() ? [page, other] : [other, page];
+  await expect(accepted.getByRole("heading", { name: "You are booked" })).toBeVisible();
   await expect(rejected.getByRole("heading", { name: "You are booked" })).toHaveCount(0);
   await expect(rejected.getByRole("button", { name: "Show all times" })).toBeVisible();
+  const nextSlot = rejected.getByRole("button", { name: /until \d\d:\d\d/ }).first();
+  await expect(nextSlot).toBeVisible();
+  await expect(nextSlot).not.toHaveText(first.time, { useInnerText: true });
   expect(await rejected.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(rejected.viewportSize()!.width);
   const snapshot = await state(page);
   const contacts = snapshot.customers.filter((customer) => customer.lastName === "Caller");
