@@ -7,6 +7,7 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- The public pages introduce the home-salon founder story, a photographic tour of fictional Salong Eko, four interactive product views and a map of open connections.
 - The public sites now open in Salong Eko with a salon photograph and calendar clipping. An interactive channel map lets visitors write a reply, try an assistant draft, approve a booking and undo it. Both pages include the demo quick start and distinguish booking commission from card fees.
 - Both public sites end with a "Join the movement" section: star the repository, join the discussion, try the demo or pick a good first issue.
 - Both public sites compare booking fees, data ownership, branding and hosting. Their GitHub buttons show the star count when available, and visitors can expand any tour recording.

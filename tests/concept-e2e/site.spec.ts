@@ -37,7 +37,8 @@ test("the sample booking can be completed and reset offline", async ({ page, con
 test("tour clips respect visibility, a manual pause and a live motion preference", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "dark" });
   await page.goto("/landing");
-  const video = page.locator("video").nth(1);
+  await page.getByRole("combobox", { name: site["tour.choose"] }).selectOption({ label: site["tour.day"] });
+  const video = page.locator("#tour video");
   await video.scrollIntoViewIfNeeded();
   await expect(video).toHaveAttribute("poster", "/site/day-dark.webp");
   await expect(page.locator("video[src]")).toHaveCount(0);
@@ -46,7 +47,7 @@ test("tour clips respect visibility, a manual pause and a live motion preference
   await page.locator("footer").scrollIntoViewIfNeeded();
   await expect.poll(() => video.evaluate((el: HTMLVideoElement) => el.paused)).toBe(true);
   await video.scrollIntoViewIfNeeded();
-  const section = page.locator("section").filter({ has: page.getByRole("heading", { name: site["landing.day.heading"] }) });
+  const section = page.locator("#tour");
   await section.getByRole("button", { name: /Pause recording/ }).click();
   await page.locator("footer").scrollIntoViewIfNeeded();
   await video.scrollIntoViewIfNeeded();
@@ -190,3 +191,28 @@ test("a written reply survives switching modes and belongs only to its channel",
   await map.getByRole("button", { name: "Undo booking" }).click();
   await expect(field).toHaveValue("Friday at 14:30 is yours.");
 });
+
+for (const path of ["/coming-soon", "/landing"]) {
+  test(`salon photographs and product views are keyboard operable on ${path}`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(path);
+    const next = page.getByRole("button", { name: site["hero.next"] });
+    const hero = page.locator("section[aria-labelledby=promise]");
+    const first = await hero.getByRole("img").getAttribute("alt");
+    await next.focus();
+    await page.keyboard.press("Enter");
+    await expect(hero.getByRole("img")).not.toHaveAttribute("alt", first!);
+    await page.getByRole("button", { name: site["hero.previous"] }).click();
+    await expect(hero.getByRole("img")).toHaveAttribute("alt", first!);
+
+    const preview = page.getByRole("region", { name: site["studio.heading"] });
+    for (const view of ["calendar", "booking", "assistant", "today"] as const) {
+      const button = preview.getByRole("button", { name: site[`studio.${view}`], exact: true });
+      await button.focus();
+      await page.keyboard.press("Space");
+      await expect(button).toHaveAttribute("aria-pressed", "true");
+      await expect(preview.getByRole("img", { name: site[`studio.${view}.alt`] })).toBeVisible();
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(await page.evaluate(() => innerWidth));
+  });
+}

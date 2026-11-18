@@ -1,4 +1,5 @@
-import { ArrowUpRight, Star, Terminal } from "lucide-react";
+import Image from "next/image";
+import { ArrowUpRight, Star } from "lucide-react";
 import { PROJECT_REPOSITORY } from "../brand";
 import { site } from "./en";
 import e from "./editorial.module.css";
@@ -16,36 +17,13 @@ export function GitHubStar({ count }: { count: number | null }) {
   );
 }
 
-export function OpenSource() {
-  const directory = new URL(PROJECT_REPOSITORY).pathname.split("/").pop();
+export function FounderStory() {
   return (
-    <section className={e.spread}>
+    <section id="story" className={e.story} data-reveal>
+      <Image className={e.door} src="/site/salon-door.webp" width={680} height={1020} unoptimized alt={site["founder.alt"]} />
       <div>
-        <h2>{site["source.heading"]}</h2>
-        <figure className={e.terminal}>
-          <figcaption><span><Terminal size={16} aria-hidden /> {site["source.terminal"]}</span><small>{site["source.node"]}</small></figcaption>
-          <pre><code>{`git clone ${PROJECT_REPOSITORY}.git ${directory}\ncd ${directory}\nnpm run demo`}</code></pre>
-        </figure>
-      </div>
-      <dl className={e.ownership}>
-        {(["code", "run", "data", "price"] as const).map(key => (
-          <div key={key}><dt>{site[`source.${key}.title`]}</dt>
-            <dd>{key === "code" ? <a href={PROJECT_REPOSITORY}>{site["source.code.body"]} <ArrowUpRight size={15} aria-hidden /></a> : site[`source.${key}.body`]}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
-  );
-}
-
-export function OptionalAssistant() {
-  return (
-    <section className={e.spread}>
-      <h2>{site["ai.heading"]}</h2>
-      <div className={e.essay}>
-        <p>{site["ai.body"]}</p>
-        <small>{site["ai.availability"]}</small>
-        <a className={s.textLink} href={`${PROJECT_REPOSITORY}/blob/main/docs/CONNECT_AI_ASSISTANT.md`}>{site["ai.link"]} <ArrowUpRight size={16} aria-hidden /></a>
+        <h2 className={e.display}>{site["founder.first"]} <em>{site["founder.second"]}</em></h2>
+        <p>{site["founder.body"]}</p>
       </div>
     </section>
   );
@@ -53,7 +31,7 @@ export function OptionalAssistant() {
 
 export function PlatformComparison() {
   return (
-    <section className={s.platforms} aria-labelledby="platforms-heading">
+    <section data-reveal className={s.platforms} aria-labelledby="platforms-heading">
       <h2 id="platforms-heading">{site["compare.heading"]}</h2>
       <table aria-labelledby="platforms-heading">
         <thead><tr>
@@ -62,7 +40,7 @@ export function PlatformComparison() {
           <th scope="col">{site["compare.product"]}</th>
         </tr></thead>
         <tbody>
-          {(["fee", "card", "data", "page", "host", "assistant", "agents"] as const).map((key) => (
+          {(["fee", "card", "data", "page", "host"] as const).map((key) => (
             <tr key={key}>
               <th scope="row">{site[`compare.${key}`]}</th>
               <td>{site[`compare.${key}.typical`]}</td>
@@ -75,24 +53,16 @@ export function PlatformComparison() {
   );
 }
 
-export function JoinMovement({ demo }: { demo: string }) {
-  const links = [
-    ["star", PROJECT_REPOSITORY],
-    ["talk", `${PROJECT_REPOSITORY}/discussions`],
-    ["demo", demo],
-    ["code", `${PROJECT_REPOSITORY}/issues?q=is%3Aopen+label%3A%22good+first+issue%22`],
-  ] as const;
+export function JoinMovement() {
   return (
-    <section id="join" className={e.spread} aria-labelledby="join-heading">
-      <h2 id="join-heading">{site["movement.heading"]}</h2>
-      <div className={e.essay}>
+    <section id="join" className={e.movement} data-reveal>
+      <div>
+        <h2 className={e.display}>{site["movement.heading"]}</h2>
         <p>{site["movement.body"]}</p>
-        <dl className={e.ownership}>
-          {links.map(([key, href]) => (
-            <div key={key}><dt><a href={href}>{site[`movement.${key}`]} <ArrowUpRight size={15} aria-hidden /></a></dt><dd>{site[`movement.${key}.body`]}</dd></div>
-          ))}
-        </dl>
+        <a href={`${PROJECT_REPOSITORY}/discussions`}>{site["movement.talk"]} <ArrowUpRight size={16} aria-hidden /></a>
+        <a href={`${PROJECT_REPOSITORY}/issues?q=is%3Aopen+label%3A%22good+first+issue%22`}>{site["movement.code"]} <ArrowUpRight size={16} aria-hidden /></a>
       </div>
+      <Image src="/site/salon-tools.webp" alt={site["hero.tools.alt"]} width={720} height={480} unoptimized />
     </section>
   );
 }

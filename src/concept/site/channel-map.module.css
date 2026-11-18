@@ -71,3 +71,13 @@
   .slot small { grid-column: 1; }
   .slot time { grid-area: 1 / 2 / span 2; }
 }
+.map { border-radius: 7px; overflow: hidden; }
+.bar, .inboxHead { color: #fbf5f0; }
+.map .bar { background: var(--brand-plum); }
+.inbox, .slot { border-radius: 8px; overflow: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  .message blockquote { animation: incoming .32s ease-out; }
+  .wires path[data-active="true"], .mobileWires path[data-active="true"] { stroke-dasharray: 5 3; animation: transit .9s linear 2; }
+}
+@keyframes incoming { from { opacity: .35; transform: translateY(5px); } }
+@keyframes transit { to { stroke-dashoffset: -24; } }

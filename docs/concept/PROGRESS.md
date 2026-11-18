@@ -1,5 +1,9 @@
 # Progress · AI-native demo
 
+## 2026-11-18 · Public site v5
+
+Both public pages pair generated Salong Eko photographs with fresh captures of Today, Calendar, customer booking and an assistant proposal awaiting approval. The founder story and six-connection diagram replace the longer product essays.
+
 ## 2026-11-18 · Public site v4
 
 The salon photo and calendar clipping introduce both sites. Visitors can trace a fictional request through the channel map, write the reply or enable assistant drafts, then book and undo. Both sites explain hosting, data export, commission and card fees. The landing page keeps all five workflow films and its offline booking sample.

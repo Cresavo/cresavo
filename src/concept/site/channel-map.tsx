@@ -37,7 +37,7 @@ export function ChannelMap() {
   const outgoing = assistant ? channel.draft : reply.trim();
 
   return (
-    <section id="channel-map" className={m.section} aria-labelledby="map-title">
+    <section data-reveal id="channel-map" className={m.section} aria-labelledby="map-title">
       <div className={m.intro}><h2 id="map-title">{site["map.heading"]}</h2><p>{site["map.intro"]}</p></div>
       <div className={m.map}>
         <div className={m.bar}>
@@ -67,7 +67,7 @@ export function ChannelMap() {
             </div>
             <div className={m.message}>
               <small>{"comingSoon" in channel ? site["map.agentRequest"] : `${channel.name} ${site["map.request"]}`}</small>
-              <blockquote>“{channel.request}”</blockquote>
+              <blockquote key={channel.name}>“{channel.request}”</blockquote>
               {sentReply ? <div className={m.composer}>
                 <small>{site["map.sent"]}</small><p>{sentReply}</p>
                 <button className={m.action} onClick={() => setSent({ ...sent, [selected]: "" })}>{site["map.undo"]}<Undo2 size={15} aria-hidden /></button>
