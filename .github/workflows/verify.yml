@@ -1,6 +1,10 @@
 name: Verify POC
+# Runs on pull requests and on main only. Agent branches run the same gates
+# locally before pushing, so every push to a work branch doesn't spend
+# Actions minutes (private repo quota).
 on:
   push:
+    branches: [main]
     paths-ignore:
       - "docs/**"
       - "**/*.md"
@@ -73,8 +77,6 @@ jobs:
       - if: always()
         run: docker compose down
   verify:
-    # Same-repository PRs already have a push run. Fork PRs still run here.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     name: E2E ${{ matrix.mode }} / proxy ${{ matrix.proxy }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
