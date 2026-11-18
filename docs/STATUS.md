@@ -32,3 +32,7 @@ controls, backups and restore, monitoring, and a security and privacy review.
 The launch waiting list needs a storage provider and a current privacy policy
 before it can accept sign-ups. Use fictional data and simulated messages in
 the meantime. See the [pilot gate](QUALITY_SECURITY.md) and [goal queue](goals/QUEUE.md).
+
+Reminders by text and e-mail, payments and other providers have a connections
+foundation: simulated by default, live adapters behind a flag
+(`docs/integrations/README.md`).

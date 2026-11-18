@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { CalendarHeart, Clock, Megaphone, MessageSquare, Package, PackageCheck, UserRoundCheck, X } from "lucide-react";
 import { prefillForHoliday, studioHref } from "../../campaigns/prefill";
+import { textWaitlistAboutGaps } from "../../booking/waitlist-offer";
 import { quietDay } from "../../campaigns/quiet-day";
 import { diffDays } from "../../data/dates";
 import { freeGaps } from "../../data/slots";
@@ -42,6 +43,7 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
   const [showAll, setShowAll] = useState(false);
   const list: Suggestion[] = [];
   const notify = (title: string, body: string, toast: string) => {
+    if (!textWaitlistAboutGaps(state, today)) return;
     dispatch({ type: "inbox/add", item: { kind: "system", waitlistOffer: true, date: today, time: minutes, title, body, read: false, handled: true } });
     showToast(toast, { label: t("common.undo"), run: undo });
   };

@@ -66,6 +66,14 @@ describe("migrateState", () => {
     expect(migrateState({ ...fresh, version: 15, page: { ...fresh.page, sections: arranged } })!.page.sections).toEqual(arranged);
   });
 
+  it("is one linear chain: every saved version from the oldest to the current reaches DEMO_VERSION", () => {
+    const fresh = createDemoState(today);
+    expect(DEMO_VERSION).toBe(16);
+    for (let version = OLDEST_MIGRATABLE; version <= DEMO_VERSION; version++) {
+      expect(migrateState({ ...fresh, version })?.version, `from v${version}`).toBe(DEMO_VERSION);
+    }
+  });
+
   it("rejects unknown, too old, newer and malformed saves", () => {
     const fresh = createDemoState(today);
     expect(migrateState({ ...fresh, version: OLDEST_MIGRATABLE - 1 })).toBeNull();

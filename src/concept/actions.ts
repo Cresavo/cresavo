@@ -3,6 +3,8 @@ import { applyCustomerReview, type CustomerReviewAction } from "./booking/review
 import { applyAssistant, type AssistantAction } from "./assistant/actions";
 import { findCustomerByPhone, isContactPhone, isMobilePhone, normalizePhone } from "./booking/lookup";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
+import { textWaitlistAboutSlot } from "./booking/waitlist-offer";
+import { sendDemoCampaign } from "./connections/demo";
 import { editJournalEntry } from "./customers/journal";
 import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visits";
 import type { CostKind } from "./finance/types";
@@ -229,6 +231,7 @@ function launchCampaign(state: DemoState, input: NewCampaign, today: DateKey): D
       ? simulateStats({ seed: input.name, channels: input.channels, discountPercent: input.discountPercent, avgPrice: averagePrice(state, input.serviceIds) })
       : undefined,
   };
+  if (live) sendDemoCampaign(campaign);
   return { ...state, seq: state.seq + 1, campaigns: [campaign, ...state.campaigns] };
 }
 
@@ -350,6 +353,8 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
       if (!booking || booking.status === "cancelled") return state;
       const marked = { ...state, bookings: updateBy(state.bookings, action.id, (b) => ({ ...b, status: "cancelled" as const, cancelReason: action.reason })) };
       const cancelled = booking.status === "booked" ? trashBooking(marked, action.id) : marked;
+      // Only the owner's explicit offer texts the waiting list; a customer's own cancellation notice does not.
+      if (action.notice?.waitlistOffer && booking.status === "booked" && state.modules.waitlist) textWaitlistAboutSlot(state, booking);
       return action.notice ? reduce(cancelled, { type: "inbox/add", item: action.notice }) : cancelled;
     }
     case "booking/create": {

@@ -1,3 +1,4 @@
+import { sendDemoMessage } from "../connections/demo";
 import type { DateKey, DemoState } from "../data/types";
 import { alreadyRemembered, memoryRejection, type NewMemory } from "./memory";
 import type { Routine } from "./routines";
@@ -50,7 +51,9 @@ export function applyAssistant(state: DemoState, action: AssistantAction): DemoS
     case "routine/ran":
       return { ...state, routines: state.routines.map((r) => (r.id === action.id && action.at > r.lastRun ? { ...r, lastRun: action.at } : r)) };
     case "customers/message": {
-      const known = action.texts.filter((text) => state.customers.some((c) => c.id === text.customerId));
+      // Each text goes through the SMS port (simulated); one the port refuses is not shown as sent.
+      const known = action.texts.filter((text) => state.customers.some((c) => c.id === text.customerId) &&
+        sendDemoMessage({ channel: "sms", to: { customerId: text.customerId }, body: text.body, reference: `assistant-${text.customerId}-${action.at.date}-${action.at.time}` }));
       if (!known.length) return state;
       const items = known.map((text, i) => ({
         id: `i-${state.seq + i}`,

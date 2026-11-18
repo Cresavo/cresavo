@@ -1,5 +1,6 @@
 "use client";
 
+import { textWaitlistAboutSlot } from "../../booking/waitlist-offer";
 import { waitlistCount, waitlistNotice } from "../booking/waitlist-notice";
 import { useState } from "react";
 import { CalendarCheck, Send } from "lucide-react";
@@ -103,6 +104,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
                 variant="secondary"
                 onClick={() => {
                   const waitlist = waitlistCount(state, booking);
+                  if (!textWaitlistAboutSlot(state, booking)) return;
                   dispatch({ type: "inbox/add", item: waitlistNotice(booking, waitlist, { today, minutes }) });
                   showToast(tc("suggest.gaps.toast", waitlist), { label: t("common.undo"), run: undo });
                 }}

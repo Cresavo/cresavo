@@ -164,6 +164,7 @@ const messages = {
   "cancel.offer": "Offer the slot to the waiting list",
   "cancel.offerHint": "{count} customer wants to hear about free slots. (Simulated text message.)|{count} customers want to hear about free slots. (Simulated text messages.)",
   "cancel.offerTitle": "Free slot {time} offered",
+  "cancel.offerSms": "{salon}: a time just opened up, {day} at {time}. First to book gets it.",
   "cancel.offerBody": "A text went to {count} customer on the waiting list: {day} at {time} is free. (Simulated.)|A text went to {count} customers on the waiting list: {day} at {time} is free. (Simulated.)",
   "cancel.confirm": "Cancel booking",
 
@@ -234,6 +235,7 @@ const messages = {
   "suggest.gaps.show": "Show free times",
   "suggest.gaps.sentTitle": "Offer sent for today's free slots",
   "suggest.gaps.sentBody": "{count} customer on the waiting list got a text about today's free slots. (Simulated.)|{count} customers on the waiting list got a text about today's free slots. (Simulated.)",
+  "suggest.gaps.sms": "{salon}: there are free times today. Reply to this text to book one.",
   "suggest.gaps.toast": "Offer sent to {count} customer|Offer sent to {count} customers",
   "suggest.inbox.title": "{count} customer is waiting for a reply|{count} customers are waiting for a reply",
   "suggest.inbox.text": "Replies are drafted with a time already picked. Check and send.",
