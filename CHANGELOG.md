@@ -8,6 +8,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-18
+
 ### Added
 - The README now links to the demo, community, public roadmap and ways to contribute. First-time contributors have a quickstart and review guide, with simple forms for GitHub Discussions.
 - The public pages introduce the home-salon founder story, a photographic tour of fictional Salong Eko, four interactive product views and a map of open connections.
