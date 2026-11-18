@@ -207,6 +207,7 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       return { summary: t("log.serviceDelete", { service: serviceName(prev, action.id) }), after: kept ? tc("log.serviceDeleteKept", kept) : undefined };
     }
     case "service/move":
+    case "service/reorder":
       return { summary: t("log.serviceMove") };
     case "category/add":
       return { summary: t("log.categoryAdd", { name: action.name.trim() }) };
@@ -215,6 +216,7 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
     case "category/remove":
       return { summary: t("log.categoryRemove", { name: prev.categories.find((c) => c.id === action.id)!.name }) };
     case "category/move":
+    case "category/reorder":
       return { summary: t("log.categoryMove") };
   }
 }

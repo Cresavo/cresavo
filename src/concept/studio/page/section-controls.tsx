@@ -1,11 +1,13 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Lock, Plus, X } from "lucide-react";
+import type { ReactNode } from "react";
 import { t, type MessageKey } from "../../i18n";
-import { addSection, availableKinds, moveSection, removeSection, setVariant, variantsOf, type PageSection, type SectionKind } from "../../page/sections";
+import { addSection, availableKinds, moveSection, removeSection, setVariant, variantsOf, type PageSection } from "../../page/sections";
 import { Card } from "../../ui/card";
 import { Chip, Field, Segmented, TextInput } from "../../ui/controls";
 import { IconButton } from "../../ui/button";
+import { ReorderItem, ReorderList } from "../reorder";
 
 interface Props {
   sections: PageSection[];
@@ -16,27 +18,39 @@ interface Props {
 
 /** Add, remove and reorder sections and pick a look for each. The booking flow row is fixed: it is shown so the owner sees where it sits. */
 export function SectionControls({ sections, instagram, onChange, onInstagram }: Props) {
-  const top = sections[0]?.kind === "hero" ? 1 : 0;
-  const rows = sections.map((section, index) => (
-    <li key={section.kind}>
-      <Row section={section} first={index <= top} last={index === sections.length - 1} onChange={onChange} sections={sections} />
-    </li>
-  ));
+  const hero = sections[0]?.kind === "hero" ? sections[0] : undefined;
+  const movable = hero ? sections.slice(1) : sections;
+  const items = movable.map((section) => ({ section, id: section.kind, name: t(`page.section.${section.kind}`) }));
+
   return (
     <div className="space-y-4">
-      <ul className="space-y-2">
-        {rows.slice(0, top)}
-        <li>
-          <Card className="flex items-center gap-3 p-3 text-sm">
-            <Lock size={16} className="shrink-0 text-text-secondary" />
-            <span className="min-w-0">
-              <span className="block font-medium">{t("pageEditor.flow")}</span>
-              <span className="block text-xs text-text-secondary">{t("pageEditor.flow.text")}</span>
-            </span>
-          </Card>
-        </li>
-        {rows.slice(top)}
-      </ul>
+      <ReorderList
+        items={items}
+        onReorder={(items) => {
+          const ordered = items.map(({ section }) => section);
+          onChange(hero ? [hero, ...ordered] : ordered);
+        }}
+      >
+        <ul className="space-y-2">
+          {hero && <li><Row section={hero} sections={sections} onChange={onChange} /></li>}
+          <li>
+            <Card className="flex items-center gap-3 p-3 text-sm">
+              <Lock size={16} className="shrink-0 text-text-secondary" />
+              <span className="min-w-0">
+                <span className="block font-medium">{t("pageEditor.flow")}</span>
+                <span className="block text-xs text-text-secondary">{t("pageEditor.flow.text")}</span>
+              </span>
+            </Card>
+          </li>
+          {items.map(({ id, name, section }, index) => (
+            <ReorderItem key={id} id={id} name={name} as="li">
+              {(handle) => (
+                <Row section={section} handle={handle} first={index === 0} last={index === movable.length - 1} onChange={onChange} sections={sections} />
+              )}
+            </ReorderItem>
+          ))}
+        </ul>
+      </ReorderList>
       {sections.some((s) => s.kind === "instagram") && (
         <Field label={t("pageEditor.instagram")} hint={t("pageEditor.instagram.hint")}>
           <TextInput value={instagram} onChange={(event) => onInstagram(event.target.value)} placeholder="salong.eko" autoCapitalize="none" autoComplete="off" spellCheck={false} />
@@ -59,13 +73,21 @@ export function SectionControls({ sections, instagram, onChange, onInstagram }: 
   );
 }
 
-function Row({ section, first, last, sections, onChange }: { section: PageSection; first: boolean; last: boolean; sections: PageSection[]; onChange: (sections: PageSection[]) => void }) {
+function Row({ section, handle, first, last, sections, onChange }: {
+  section: PageSection;
+  handle?: ReactNode;
+  first?: boolean;
+  last?: boolean;
+  sections: PageSection[];
+  onChange: (sections: PageSection[]) => void;
+}) {
   const name = t(`page.section.${section.kind}`);
   const hero = section.kind === "hero";
   return (
     <Card className="space-y-2.5 p-3">
       <div className="flex items-center gap-1">
-        <p className="min-w-0 flex-1 font-medium">{name}</p>
+        {handle}
+        <p className="min-w-0 flex-1 break-words font-medium">{name}</p>
         {hero ? <span className="px-2 text-xs text-text-secondary">{t("pageEditor.alwaysTop")}</span> : (
           <>
             <IconButton label={t("pageEditor.moveUp", { section: name })} disabled={first} onClick={() => onChange(moveSection(sections, section.kind, -1))}><ArrowUp size={18} /></IconButton>
@@ -77,7 +99,7 @@ function Row({ section, first, last, sections, onChange }: { section: PageSectio
       <Segmented
         label={t("pageEditor.look", { section: name })}
         value={section.variant}
-        onChange={(variant) => onChange(setVariant(sections, section.kind as SectionKind, variant))}
+        onChange={(variant) => onChange(setVariant(sections, section.kind, variant))}
         options={variantsOf(section.kind).map((value) => ({ value, label: t(`page.variant.${section.kind}.${value}` as MessageKey) }))}
         className="w-full"
       />

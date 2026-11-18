@@ -34,10 +34,12 @@ export type ServiceAction =
   | { type: "service/duplicate"; id: string; name: string }
   | { type: "service/delete"; id: string }
   | { type: "service/move"; id: string; direction: Direction }
+  | { type: "service/reorder"; category: string; ids: string[] }
   | { type: "category/add"; name: string }
   | { type: "category/rename"; id: string; name: string }
   | { type: "category/remove"; id: string }
-  | { type: "category/move"; id: string; direction: Direction };
+  | { type: "category/move"; id: string; direction: Direction }
+  | { type: "category/reorder"; ids: string[] };
 
 const same = (a: string, b: string) => a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
 
@@ -94,17 +96,27 @@ export function serviceIsReferenced(state: DemoState, id: string): boolean {
 
 const clean = (draft: ServiceDraft): ServiceDraft => ({ ...draft, name: draft.name.trim(), description: draft.description.trim(), staffIds: [...draft.staffIds] });
 
-/** Swaps an item with its nearest neighbour (in that direction) that `sibling` accepts. */
-function moveWithin<T extends { id: string }>(list: T[], id: string, direction: Direction, sibling: (item: T, moved: T) => boolean): T[] {
-  const from = list.findIndex((item) => item.id === id);
-  if (from < 0) return list;
-  const step = direction === "up" ? -1 : 1;
-  let to = from + step;
-  while (to >= 0 && to < list.length && !sibling(list[to], list[from])) to += step;
-  if (to < 0 || to >= list.length) return list;
-  const next = [...list];
-  [next[from], next[to]] = [next[to], next[from]];
-  return next;
+function movedIds(items: { id: string }[], id: string, direction: Direction): string[] {
+  const ids = items.map((item) => item.id);
+  const from = ids.indexOf(id);
+  const to = from + (direction === "up" ? -1 : 1);
+  if (from >= 0 && to >= 0 && to < ids.length) [ids[from], ids[to]] = [ids[to], ids[from]];
+  return ids;
+}
+
+/** Fill the group's existing slots, preserving the order and positions of other groups. */
+function reorderWithin<T extends { id: string }>(list: T[], group: T[], ids: string[]): T[] {
+  if (!Array.isArray(ids) || ids.length !== group.length || new Set(ids).size !== group.length) return list;
+  const byId = new Map(group.map((item) => [item.id, item]));
+  const reordered: T[] = [];
+  for (const id of ids) {
+    const item = byId.get(id);
+    if (!item) return list;
+    reordered.push(item);
+  }
+  if (reordered.every((item, index) => item === group[index])) return list;
+  let index = 0;
+  return list.map((item) => byId.has(item.id) ? reordered[index++] : item);
 }
 
 function freeName(state: DemoState, wanted: string, category: string): string {
@@ -151,8 +163,13 @@ export function applyServiceAction(state: DemoState, action: ServiceAction): Dem
         retiredServices: serviceIsReferenced(state, action.id) ? [...state.retiredServices, service] : state.retiredServices,
       };
     }
-    case "service/move": {
-      const services = moveWithin(state.services, action.id, action.direction, (other, moved) => other.category === moved.category);
+    case "service/move":
+    case "service/reorder": {
+      const category = action.type === "service/reorder" ? action.category : state.services.find((s) => s.id === action.id)?.category;
+      if (!state.categories.some((c) => c.id === category)) return state;
+      const group = state.services.filter((s) => s.category === category);
+      const ids = action.type === "service/reorder" ? action.ids : movedIds(group, action.id, action.direction);
+      const services = reorderWithin(state.services, group, ids);
       return services === state.services ? state : { ...state, services };
     }
     case "category/add": {
@@ -170,8 +187,10 @@ export function applyServiceAction(state: DemoState, action: ServiceAction): Dem
       if (!state.categories.some((c) => c.id === action.id) || state.services.some((s) => s.category === action.id)) return state;
       return { ...state, categories: state.categories.filter((c) => c.id !== action.id) };
     }
-    case "category/move": {
-      const categories = moveWithin(state.categories, action.id, action.direction, () => true);
+    case "category/move":
+    case "category/reorder": {
+      const ids = action.type === "category/reorder" ? action.ids : movedIds(state.categories, action.id, action.direction);
+      const categories = reorderWithin(state.categories, state.categories, ids);
       return categories === state.categories ? state : { ...state, categories };
     }
   }
