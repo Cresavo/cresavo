@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { POST } from "@/app/api/waitlist/route";
 import { createRateLimiter, EMAIL_MAX, joinWaitlist, parseWaitlistInput, RATE_LIMIT, waitlistProvider } from "@/concept/site/waitlist";
+import { readCapped, UNVERIFIED_CLIENT, waitlistClientKey } from "@/concept/site/waitlist-server";
+import { addressProof } from "../scripts/client-address.mjs";
 import { publicReadonlyResponse } from "@/lib/public-readonly";
 import { site } from "@/concept/site/en";
 
@@ -53,11 +55,82 @@ describe("waiting list rate limit", () => {
     expect(allowed("b", 20)).toBe(true);
     expect(allowed("a", 1001)).toBe(true);
   });
+
+  it("at capacity drops the oldest window, not every counter", () => {
+    const allowed = createRateLimiter({ max: 1, windowMs: 1000 }, 2);
+    expect([allowed("a", 0), allowed("b", 0), allowed("a", 1), allowed("b", 1)]).toEqual([true, true, false, false]);
+    expect(allowed("c", 2)).toBe(true);
+    // "a" was the oldest and is gone; "b" is still counted.
+    expect(allowed("b", 3)).toBe(false);
+    expect(allowed("a", 3)).toBe(true);
+  });
+});
+
+describe("waiting list client key", () => {
+  const secret = "a".repeat(64);
+  const signed = (ip: string, extra: Record<string, string> = {}) => new Headers({ "x-booking-client-ip": ip, "x-booking-client-proof": addressProof(ip, secret), ...extra });
+
+  it("uses the address the server wrapper signed and ignores X-Forwarded-For", () => {
+    const env = { BOOKING_ADDRESS_SECRET: secret };
+    expect(waitlistClientKey(signed("203.0.113.9", { "x-forwarded-for": "198.51.100.1" }), env)).toBe("203.0.113.9");
+    expect(waitlistClientKey(signed("203.0.113.9", { "x-forwarded-for": "198.51.100.2" }), env)).toBe("203.0.113.9");
+  });
+
+  it("puts every unverified request in one shared bucket, however its headers vary", () => {
+    const env = { BOOKING_ADDRESS_SECRET: secret };
+    expect(waitlistClientKey(new Headers({ "x-forwarded-for": "198.51.100.1" }), env)).toBe(UNVERIFIED_CLIENT);
+    expect(waitlistClientKey(new Headers({ "x-booking-client-ip": "198.51.100.3", "x-booking-client-proof": "0".repeat(64) }), env)).toBe(UNVERIFIED_CLIENT);
+    expect(waitlistClientKey(signed("203.0.113.9"), {})).toBe(UNVERIFIED_CLIENT);
+  });
+
+  it("on Vercel reads only the platform's x-real-ip", () => {
+    const env = { BOOKING_RUNTIME: "vercel", VERCEL: "1" };
+    expect(waitlistClientKey(new Headers({ "x-real-ip": "203.0.113.7", "x-forwarded-for": "198.51.100.1" }), env)).toBe("203.0.113.7");
+    expect(waitlistClientKey(new Headers({ "x-forwarded-for": "198.51.100.1" }), env)).toBe(UNVERIFIED_CLIENT);
+  });
+});
+
+describe("waiting list body cap", () => {
+  const stream = (chunks: string[]) => {
+    const pulled: number[] = [];
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        const next = chunks[pulled.length];
+        pulled.push(pulled.length);
+        if (next === undefined) controller.close();
+        else controller.enqueue(new TextEncoder().encode(next));
+      },
+    });
+    return { body, pulled };
+  };
+
+  it("stops reading as soon as the cap is passed", async () => {
+    const { body, pulled } = stream(["a".repeat(8), "b".repeat(8), "c".repeat(8), "d".repeat(8)]);
+    const request = new Request("http://localhost/api/waitlist", { method: "POST", body, duplex: "half" } as RequestInit);
+    expect(await readCapped(request, 10)).toBe("too-large");
+    expect(pulled.length).toBeLessThan(4);
+  });
+
+  it("refuses a declared length over the cap without reading", async () => {
+    const request = new Request("http://localhost/api/waitlist", { method: "POST", body: "x", headers: { "content-length": "5000" } });
+    expect(await readCapped(request, 10)).toBe("too-large");
+    expect(request.bodyUsed).toBe(false);
+  });
+
+  it("returns the text when it fits, counting bytes not characters", async () => {
+    expect(await readCapped(new Request("http://localhost/", { method: "POST", body: "åäö" }), 6)).toBe("åäö");
+    expect(await readCapped(new Request("http://localhost/", { method: "POST", body: "åäöx" }), 6)).toBe("too-large");
+  });
 });
 
 describe("POST /api/waitlist", () => {
-  const post = (body: string, type = "application/json", ip = "203.0.113.1") =>
-    POST(new Request("http://localhost/api/waitlist", { method: "POST", headers: { "content-type": type, "x-forwarded-for": ip }, body }));
+  const secret = "b".repeat(64);
+  const previous = process.env.BOOKING_ADDRESS_SECRET;
+  beforeAll(() => { process.env.BOOKING_ADDRESS_SECRET = secret; });
+  afterAll(() => { process.env.BOOKING_ADDRESS_SECRET = previous; });
+  const headers = (type: string, ip: string) => ({ "content-type": type, "x-booking-client-ip": ip, "x-booking-client-proof": addressProof(ip, secret) });
+  const post = (body: BodyInit, type = "application/json", ip = "203.0.113.1") =>
+    POST(new Request("http://localhost/api/waitlist", { method: "POST", headers: headers(type, ip), body, duplex: "half" } as RequestInit));
 
   it("answers honestly with the default provider", async () => {
     const response = await post(JSON.stringify({ email: "anna@example.com", business: "salon" }));
@@ -87,6 +160,30 @@ describe("POST /api/waitlist", () => {
     for (let i = 0; i <= RATE_LIMIT.max; i++) statuses.push((await post(JSON.stringify({ email: "anna@example.com" }), undefined, "203.0.113.5")).status);
     expect(statuses.slice(0, RATE_LIMIT.max).every((status) => status === 200)).toBe(true);
     expect(statuses.at(-1)).toBe(429);
+  });
+
+  it("does not give a fresh bucket for a changed X-Forwarded-For", async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i <= RATE_LIMIT.max; i++) {
+      const request = new Request("http://localhost/api/waitlist", { method: "POST", headers: { ...headers("application/json", "203.0.113.6"), "x-forwarded-for": `198.51.100.${i}` }, body: JSON.stringify({ email: "anna@example.com" }) });
+      statuses.push((await POST(request)).status);
+    }
+    expect(statuses.at(-1)).toBe(429);
+  });
+
+  it("refuses a limited client before reading the body", async () => {
+    for (let i = 0; i < RATE_LIMIT.max; i++) await post(JSON.stringify({ email: "anna@example.com" }), undefined, "203.0.113.7");
+    let pulled = 0;
+    const body = new ReadableStream<Uint8Array>({ pull(controller) { pulled++; controller.enqueue(new TextEncoder().encode("{}")); controller.close(); } });
+    expect((await post(body, undefined, "203.0.113.7")).status).toBe(429);
+    expect(pulled).toBe(0);
+  });
+
+  it("answers 413 to an oversized body, even when the fields up front are valid", async () => {
+    const big = `email=anna%40example.com&from=%2F&pad=${"x".repeat(3000)}`;
+    const response = await post(big, "application/x-www-form-urlencoded", "203.0.113.8");
+    expect(response.status).toBe(413);
+    expect(await response.json()).toEqual({ outcome: "invalid" });
   });
 
   it("stays reachable on the read-only public demo", () => {

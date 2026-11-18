@@ -65,13 +65,18 @@ export const RATE_LIMIT = { max: 5, windowMs: 10 * 60 * 1000 };
 const MAX_TRACKED = 5000;
 
 /** A fixed-window counter per client, kept in memory: enough to slow a script down, gone on restart. */
-export function createRateLimiter({ max, windowMs } = RATE_LIMIT) {
+export function createRateLimiter({ max, windowMs } = RATE_LIMIT, capacity = MAX_TRACKED) {
   const hits = new Map<string, { count: number; resetAt: number }>();
   return (key: string, now = Date.now()): boolean => {
     const current = hits.get(key);
     if (!current || current.resetAt <= now) {
-      if (hits.size >= MAX_TRACKED) for (const [k, v] of hits) if (v.resetAt <= now) hits.delete(k);
-      if (hits.size >= MAX_TRACKED) hits.clear();
+      if (hits.size >= capacity) for (const [k, v] of hits) if (v.resetAt <= now) hits.delete(k);
+      // Still full: drop the oldest windows only, never every counter at once.
+      for (const k of hits.keys()) {
+        if (hits.size < capacity) break;
+        hits.delete(k);
+      }
+      hits.delete(key);
       hits.set(key, { count: 1, resetAt: now + windowMs });
       return true;
     }

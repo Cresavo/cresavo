@@ -13,6 +13,7 @@ note compares the options.
 | Form | `src/concept/site/waitlist-form.tsx` | Email, optional kind of business (salon, clinic, other), consent line with a link to `/privacy`. Works without JavaScript (the server redirects back with `?waitlist=<outcome>`). |
 | Route | `src/app/api/waitlist/route.ts` | JSON or form post. Stays open when `PUBLIC_READONLY=1`. |
 | Rules | `src/concept/site/waitlist.ts` | Email format and 254-character cap, honeypot field (`website`), 5 tries per 10 minutes per client in memory, provider adapter. |
+| Route helpers | `src/concept/site/waitlist-server.ts` | The rate-limit key from the verified client address (`scripts/client-address.mjs`: signed by `scripts/server.mjs`, or Vercel's `x-real-ip`; never `X-Forwarded-For`) and a streaming 2,000-byte body cap (413). |
 | Tests | `tests/site-waitlist.test.ts` | Validation, honeypot, rate limit, the `none` provider, the route, read-only mode. |
 
 Configuration is by environment only: `WAITLIST_PROVIDER = none | resend |
@@ -20,7 +21,10 @@ buttondown | loops | postgres` (unset or unknown means `none`). No keys in
 code. A provider that is named but not built yet behaves like `none`, so the
 page cannot claim an address was saved before an adapter exists. The address
 is never logged. The in-memory rate limit is per server instance (on Vercel,
-per warm function); it slows a script down and is not a guarantee.
+per warm function); it slows a script down and is not a guarantee. The route
+counts a try before it reads the body, and requests whose address cannot be
+verified share one bucket. Before a real provider is connected, also limit
+`/api/waitlist` at the platform's firewall or move the counter to a shared store.
 
 To connect a provider: add one adapter function to `ADAPTERS` in
 `waitlist.ts` that returns `"added"` after the provider accepted the address,
