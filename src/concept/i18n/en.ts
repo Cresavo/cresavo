@@ -275,7 +275,6 @@ const messages = {
   "calendar.sameStaffOnly": "This treatment is done by {name}. Drop it in their column.",
 
   "customers.title": "Customers",
-  "customers.subtitle": "{count} customers · {regulars} regulars",
   "customers.search": "Search name or phone",
   "customers.filter.all": "All",
   "customers.filter.due": "Due back",

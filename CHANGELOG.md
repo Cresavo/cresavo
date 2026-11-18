@@ -33,6 +33,7 @@ All notable changes to this project are documented here. Format follows
 - The assistant can change the page: "make it calmer and more luxurious", "put reviews first" or "use the colours from our logo" give a proposal with a before and after preview, applied on approval and undoable from What happened?.
 
 ### Changed
+- The customer list starts each row with the customer's name and shows the next booking before the last visit. The filters carry the customer counts.
 - Owners can drag treatments and categories into order with a mouse, touch or keyboard. Each drop updates the public price list and can be undone. The booking-page editor also supports dragging sections alongside its up and down buttons.
 - The studio sidebar displays the capital-C Inter Regular wordmark at 124 px. The browser tab and home-screen icons use a white lowercase c on aubergine in both themes.
 - The coming-soon page now introduces the demo with a 36-second product tour, links to the public repository and a summary of booking, daily planning and data ownership.
