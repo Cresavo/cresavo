@@ -91,6 +91,44 @@ it("reloads another tab's booking and rejects a stale attempt for the same slot"
   expect(currentState()?.bookings.at(-1)?.id).toBe(booking.id);
 });
 
+it("refuses a public booking when another tab takes the slot before the save", async () => {
+  const today = toKey(new Date());
+  const base = { ...createDemoState(today), bookings: [] };
+  const service = base.services.find((item) => item.id === "medical-foot-care")!;
+  const staffId = service.staffIds[0];
+  const need = { serviceId: service.id, duration: service.duration };
+  const date = Array.from({ length: 14 }, (_, i) => addDays(today, i + 1))
+    .find((day) => freeStarts(base, staffId, day, need).length)!;
+  const [start] = freeStarts(base, staffId, date, need);
+  const action = {
+    type: "online/book" as const, serviceId: service.id, staffId, date, start,
+    guest: { name: "First Tab", phone: "070-000 99 31", at: { date: today, time: 0 } },
+    notice: { title: "Test", body: "" },
+  };
+  const { applyAction, defaultMeta } = await import("@/concept/log/capture");
+  const booked = applyAction(base, action, defaultMeta(action, Date.now()));
+  expect(booked.bookings).toHaveLength(1);
+  const stale = JSON.stringify(base);
+  const fresh = JSON.stringify(booked);
+  let raw = stale;
+  const localStorage = { getItem: vi.fn(() => raw), setItem: vi.fn() };
+  vi.stubGlobal("window", Object.assign(new EventTarget(), { localStorage }));
+  const { useDemo, currentState, dispatch } = await import("@/concept/store");
+  useDemo();
+  expect(currentState()?.bookings).toHaveLength(0);
+
+  // The other tab commits after our first read. Its storage event has not arrived.
+  localStorage.getItem.mockImplementationOnce(() => {
+    raw = fresh;
+    return stale;
+  });
+  expect(dispatch({
+    ...action, guest: { ...action.guest, name: "Second Tab", phone: "070-000 99 32" },
+  })).toBe(false);
+  expect(localStorage.setItem).not.toHaveBeenCalled();
+  expect(currentState()?.bookings).toEqual(booked.bookings);
+});
+
 it("undoing the first customer-note toast leaves the second edit in place", async () => {
   const base = createDemoState(toKey(new Date()));
   const [first, second] = base.customers;

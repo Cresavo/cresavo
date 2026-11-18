@@ -27,7 +27,7 @@ export function Hero({ state, now, variant, photo }: HeroProps) {
     <section className="space-y-3 sm:space-y-4">
       {variant === "photo" && (
         <div className="relative aspect-[2/1] overflow-hidden rounded-lg bg-surface-2 sm:aspect-[3/1]">
-          <Image src={PHOTOS[photo]} alt={t("booking.heroAlt", { name: salon.name })} fill priority sizes="(min-width: 1024px) 1024px, 100vw" className="object-cover" />
+          <Image src={PHOTOS[photo]} alt={t("booking.heroAlt", { name: salon.name })} fill loading="eager" fetchPriority="high" sizes="(min-width: 1024px) 1024px, 100vw" className="object-cover" />
         </div>
       )}
       <div>

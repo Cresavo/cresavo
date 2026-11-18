@@ -35,14 +35,16 @@ export default async function Staff({
             {t("New team member", "Ny medarbetare")}
           </a>
         </div>
-        {params.saved === "1" && (
-          <p className="success-message" role="status">
-            {t(
-              "Team member and schedule saved.",
-              "Medarbetaren och tiderna är sparade.",
-            )}
-          </p>
-        )}
+        <div role="status">
+          {params.saved === "1" && (
+            <p className="success-message">
+              {t(
+                "Team member and schedule saved.",
+                "Medarbetaren och tiderna är sparade.",
+              )}
+            </p>
+          )}
+        </div>
         <p className="workspace-guidance">
           {t(
             "Choose a team member to manage treatments, working hours, breaks and time off.",

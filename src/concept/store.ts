@@ -41,26 +41,17 @@ function refreshFromStorage() {
   try {
     raw = window.localStorage.getItem(STORAGE_KEY);
   } catch {
-    return;
+    return false;
   }
-  if (raw === savedRaw) return;
+  if (raw === savedRaw) return false;
   savedRaw = raw;
   state = adopt(load(raw));
   listeners.forEach((listener) => listener());
+  return true;
 }
 
 function onStorage(event: StorageEvent) {
   if (event.storageArea === window.localStorage && (event.key === STORAGE_KEY || event.key === null)) refreshFromStorage();
-}
-
-function save(next: DemoState) {
-  try {
-    const raw = JSON.stringify(next);
-    window.localStorage.setItem(STORAGE_KEY, raw);
-    savedRaw = raw;
-  } catch {
-    // The demo still works in memory.
-  }
 }
 
 /** The words of the business's industry pack apply as soon as its state is current. */
@@ -69,10 +60,18 @@ function adopt(next: DemoState) {
   return next;
 }
 
-function setState(next: DemoState) {
+function setState(next: DemoState, recheckStorage = false): boolean {
+  try {
+    const raw = JSON.stringify(next);
+    if (recheckStorage && refreshFromStorage()) return false;
+    window.localStorage.setItem(STORAGE_KEY, raw);
+    savedRaw = raw;
+  } catch {
+    // The demo still works in memory.
+  }
   state = adopt(next);
-  save(next);
   listeners.forEach((listener) => listener());
+  return true;
 }
 
 function subscribe(listener: () => void) {
@@ -117,14 +116,18 @@ export function dispatchWithLog(
   canApply?: (current: DemoState) => boolean,
 ): string | null | false {
   if (typeof window !== "undefined") refreshFromStorage();
-  const current = getSnapshot();
-  if (!current || (canApply && !canApply(current))) return false;
   const now = Date.now();
-  const next = applyAction(current, action, { ...defaultMeta(action, now), ...meta, at: now });
-  if (next === current) return false;
-  setState(next);
-  const logId = next.log[0]?.id;
-  return logId !== current.log[0]?.id ? logId ?? null : null;
+  const logMeta = { ...defaultMeta(action, now), ...meta, at: now };
+  while (true) {
+    const current = getSnapshot();
+    if (!current || (canApply && !canApply(current))) return false;
+    const next = applyAction(current, action, logMeta);
+    if (next === current) return false;
+    // Run the booking rules again if another tab wrote while we prepared the save.
+    if (!setState(next, action.type === "online/book")) continue;
+    const logId = next.log[0]?.id;
+    return logId !== current.log[0]?.id ? logId ?? null : null;
+  }
 }
 
 /** Serializes booking confirmations across tabs when Web Locks are available. */

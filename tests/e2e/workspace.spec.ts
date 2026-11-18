@@ -432,6 +432,22 @@ test("the salon workspace supports booking, editing services and schedules, movi
       data,
     });
   }
+  async function saveSchedule(staffId: string) {
+    const [response] = await Promise.all([
+      page.waitForResponse((response) =>
+        new URL(response.url()).pathname === "/api/admin/staff" &&
+        response.request().method() === "POST",
+      ),
+      page.getByRole("button", { name: "Spara medarbetare" }).click(),
+    ]);
+    expect(response.ok()).toBe(true);
+    await page.waitForURL((url) =>
+      url.pathname === "/admin/staff" &&
+      url.searchParams.get("id") === staffId &&
+      url.searchParams.get("saved") === "1",
+    );
+    await expect(page.getByRole("status")).toContainText("tiderna är sparade");
+  }
   try {
     const logged = await page.request.post("/api/admin/login", {
       headers: { origin: "http://localhost:3000" },
@@ -553,8 +569,7 @@ test("the salon workspace supports booking, editing services and schedules, movi
     await weekday
       .getByRole("button", { name: "Lägg till paus", exact: true })
       .click();
-    await page.getByRole("button", { name: "Spara medarbetare" }).click();
-    await expect(page.getByRole("status")).toContainText("tiderna är sparade");
+    await saveSchedule(people[0].id);
     if (process.env.BOOKING_DEMO) {
       if (
         !(await weekday.evaluate(
@@ -578,8 +593,7 @@ test("the salon workspace supports booking, editing services and schedules, movi
     await page
       .getByRole("button", { name: "Lägg till datum", exact: true })
       .click();
-    await page.getByRole("button", { name: "Spara medarbetare" }).click();
-    await expect(page.getByRole("status")).toContainText("tiderna är sparade");
+    await saveSchedule(people[1].id);
     const holiday = await page.request.get(
       `/api/availability?serviceId=${service.id}&staffId=${people[1].id}&date=${nextDay}`,
     );
