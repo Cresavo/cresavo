@@ -8,7 +8,7 @@ import type { DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong, formatDuration, formatMoney } from "../i18n/format";
 import { currentState, dispatch, withBookingLock } from "../store";
-import { Avatar } from "../ui/avatar";
+import { StaffAvatar } from "../ui/avatar";
 import { Button } from "../ui/button";
 import type { Now } from "../use-now";
 import { GuestFields, isGuestValid, type GuestInput } from "./guest-fields";
@@ -72,7 +72,7 @@ export function DetailsStep({ state, now, serviceId, slot, guest, onGuestChange,
           {formatDayLong(slot.date)}, {formatTime(slot.start)}–{formatTime(slot.start + service.duration)}
         </p>
         <p className="flex items-center gap-2 text-sm text-text-secondary">
-          <Avatar name={person.firstName} size="sm" />
+          <StaffAvatar person={person} size="sm" />
           {t("booking.withStaff", { name: person.firstName })} · {formatDuration(service.duration)} · {formatMoney(service.price)}
         </p>
       </div>

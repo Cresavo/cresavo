@@ -9,7 +9,7 @@ import { StaffSchedule } from "@/concept/studio/ops/staff-schedule";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Card } from "@/concept/ui/card";
-import { cx } from "@/concept/ui/cx";
+import { StaffAvatar } from "@/concept/ui/avatar";
 
 export default function StaffPage() {
   const { state, today } = useStudio();
@@ -24,14 +24,10 @@ export default function StaffPage() {
           const busy = utilisation(state, today, 7, person.id);
           let week = 0;
           for (let i = 0; i < 7; i++) week += dayBookings(state, addDays(today, i), person.id).length;
-          const anna = person.id === "anna";
           return (
             <Card key={person.id} className="space-y-5 p-5">
               <div className="flex items-center gap-4">
-                <span className={cx("flex size-14 items-center justify-center rounded-full text-lg font-semibold", anna ? "bg-staff-1-bg text-text" : "bg-staff-2-bg text-text")}>
-                  {person.firstName[0]}
-                  {person.lastName[0]}
-                </span>
+                <StaffAvatar person={person} size="lg" />
                 <div className="min-w-0">
                   <p className="text-lg font-semibold">{person.firstName} {person.lastName}</p>
                   <p className="text-sm text-text-secondary">{person.title} · {person.role}</p>

@@ -41,8 +41,8 @@ interface Person {
 
 export function teamWith(owner: Person, employee: Person): [Staff, Staff] {
   return [
-    { id: "anna", firstName: "Anna", lastName: "Ekström", role: "Owner", week: weekOf([1, 2, 3, 4, 5]), phone: "070-174 06 51", ...owner },
-    { id: "erik", firstName: "Erik", lastName: "Holm", role: "Employee", week: weekOf([1, 2, 4, 5, 6]), phone: "070-174 06 52", ...employee },
+    { id: "anna", photo: "/demo/staff-anna.webp", firstName: "Anna", lastName: "Ekström", role: "Owner", week: weekOf([1, 2, 3, 4, 5]), phone: "070-174 06 51", ...owner },
+    { id: "erik", photo: "/demo/staff-erik.webp", firstName: "Erik", lastName: "Holm", role: "Employee", week: weekOf([1, 2, 4, 5, 6]), phone: "070-174 06 52", ...employee },
   ];
 }
 

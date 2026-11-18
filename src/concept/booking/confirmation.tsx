@@ -6,7 +6,7 @@ import { formatTime } from "../data/dates";
 import { t } from "../i18n";
 import { formatDayLong, formatDuration, formatMoney } from "../i18n/format";
 import { usePublicDemo } from "../store";
-import { Avatar } from "../ui/avatar";
+import { StaffAvatar } from "../ui/avatar";
 import { ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
 import { useNow } from "../use-now";
@@ -60,7 +60,7 @@ export function Confirmation({ id }: { id: string }) {
           </p>
         </div>
         <div className="flex items-center gap-3 text-sm text-text-secondary">
-          <Avatar name={person.firstName} size="sm" />
+          <StaffAvatar person={person} size="sm" />
           <span>{t("booking.withStaff", { name: `${person.firstName} ${person.lastName}` })} · {formatDuration(booking.duration)}</span>
         </div>
         <p className="flex items-start gap-2 text-sm text-text-secondary">
