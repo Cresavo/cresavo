@@ -42,7 +42,7 @@ export function SalonPage() {
         return <Hero state={state} now={now} variant={variant} photo={theme.heroPhoto} />;
       case "treatments":
         return inFlow ? null : (
-          <section className="space-y-3">
+          <section className="space-y-4">
             <h2 className="text-xl font-semibold tracking-tight">{t("booking.treatments")}</h2>
             <Treatments state={state} onBook={book} compact={variant === "compact"} />
           </section>
