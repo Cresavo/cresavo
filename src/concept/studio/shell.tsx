@@ -159,7 +159,9 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-hairline bg-surface px-4 pb-3 pt-5 lg:flex">
       <Link href="/studio" aria-label={t("shell.home")} className="block px-3">
-        <Wordmark className="w-[124px]" />
+        <svg aria-hidden="true" width="124" viewBox="4.96 -74.73 358.98 77" className="h-auto fill-[light-dark(#4f364b,#fff)]">
+          <use href="/brand/studio-wordmark.svg#lettering" />
+        </svg>
       </Link>
       <p className="mt-3 truncate px-3 text-sm text-text-secondary">
         <span className="font-semibold text-text">{state.salon.name}</span> · {t("shell.demo")}
