@@ -103,7 +103,11 @@ once the repository is public.
       video maker, together with the generator script that produced it. v5
       replaces v4 for the release assets and for social media; v4 with music
       is not used officially.
-    - The repository copy (`docs/media/cresavo-tour-9x16.mp4`) stays silent.
+    - v5 is delivered: 9:16 and 16:9, each with and without music. The
+      repository holds a compressed 16:9 copy with music
+      (`docs/media/cresavo-tour-16x9.mp4`) and the music generator
+      (`scripts/media/promo-music.py`, MIT). Attach the four full-size
+      files to the release.
 13. **Before the waiting list opens** (not needed to go public): name the
     controller (your legal name or a company) and a private contact on
     `/privacy`, and follow the GDPR notes in [WAITLIST.md](WAITLIST.md).

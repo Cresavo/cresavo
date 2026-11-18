@@ -127,3 +127,10 @@ The licence text and applicable notices must accompany the package if it is
 distributed. It is installed by npm; no source code was copied into the
 project's own files. @a2a-js/sdk was removed on 2026-11-16 together with the
 local A2A demo tool.
+
+## Tour video music
+
+The music in `docs/media/cresavo-tour-16x9.mp4` is generated in code by
+`scripts/media/promo-music.py` (MIT licence, Copyright (c) 2026 Cresavo
+contributors) from oscillators and noise, with no samples, loops or music
+services. The click and whoosh sounds are synthesized as well.
