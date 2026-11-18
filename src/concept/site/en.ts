@@ -4,8 +4,9 @@ import { BRAND } from "../brand";
 const lead = "The simple, open-source booking app for salons and clinics. Bookings, clients and everything around them, in one calm app.";
 
 export const site = {
-  "soon.title": `${BRAND.name} — ${BRAND.tagline}`,
+  "soon.title": `${BRAND.name} | Open-source booking for salons and clinics`,
   "soon.description": lead,
+  "soon.share.alt": `${BRAND.name} booking software in the sample salon`,
   "product.lead": "The simple, open-source booking app for salons and clinics.",
   "soon.nav": "Main navigation",
   "soon.github": "GitHub",
@@ -168,6 +169,7 @@ export const site = {
   "privacy.demo.body": "The demo uses fictional data. On this public demo, what you change is saved in your own browser and assistant tasks use built-in rules, so it is not sent to us or to an AI provider. The booking page can remember the last guest's name and phone number on this device. Messages and payments are simulated. Please use invented details, and clear this site's browser data to remove them. Self-hosted copies of the open-source code may be set up differently by whoever runs them.",
   "privacy.cookies.heading": "Cookies and tracking",
   "privacy.cookies.body": "These pages set no tracking cookies and load no third-party scripts.",
+  "privacy.analytics.body": "The product site uses Vercel Web Analytics to count visits and page views and see where visits come from. This measurement does not use tracking cookies. We exclude query strings and fragments from the page addresses we send. The interactive demo does not use this measurement.",
   "privacy.rights.heading": "Your rights",
   "privacy.rights.body": "Under the GDPR you can ask for access to, correction or erasure of personal data about you, and you can complain to the Swedish Authority for Privacy Protection (IMY). These pages keep no personal data, so there is usually nothing to look up. Until a private contact address is published here, you can reach the maintainer privately through the project's GitHub repository (Security, then Report a vulnerability).",
   "privacy.back": "Back",
