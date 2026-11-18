@@ -33,6 +33,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 - The coming-soon page now introduces the demo with a 36-second product tour, links to the public repository and a summary of booking, daily planning and data ownership.
+- Public booking pages give each treatment a full-width description. Prices align on the right, with the Book button below beside duration and staff.
 - The privacy note says who runs the pages, what the closed waiting-list form actually does with an address (checks it and discards it; tries are counted per network address for about ten minutes), what the public demo keeps on the device, and which rights people have. The form and its answer say plainly that the list is not open and nothing was saved.
 - Salon booking page: the price list comes first and is made to be scanned (name and price on one line); free-text search is one quiet line instead of a block with a button and example chips; the name and facts sit under the photo instead of on a darkened photo.
 - Studio on a desktop: one page frame (content starts at the sidebar and grows to a readable width instead of floating in the middle); the assistant and Help sit in each page's title row; the owner/staff demo switch moved to the sidebar footer; Business and Settings are groups in the sidebar, one open at a time, so the menu fits a laptop screen.
