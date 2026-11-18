@@ -2,7 +2,7 @@
 
 ## 2026-11-18 · Demo landing
 
-The landing shows both sides of Salong Eko’s day and links each feature to its working screen. The [landing captures](../design/cresavo/screens/) include the mobile and desktop layouts in both system themes.
+The landing pairs an offline sample booking with five recordings of the real app. Each feature links to its working screen. The [recorder instructions](../design/cresavo/COPY.md#regenerating-the-product-tour) cover the fixed demo clock, themes and encodings. The [landing captures](../design/cresavo/screens/) include the mobile and desktop layouts in both system themes.
 
 ## 2026-11-18 · Claude Code · treatments, salon page and the desktop studio
 

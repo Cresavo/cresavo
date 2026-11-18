@@ -357,6 +357,7 @@
 
 .hero {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: 28px;
   padding: 36px 0 40px;
@@ -370,7 +371,10 @@
 .devices {
   position: relative;
   isolation: isolate;
-  aspect-ratio: 1.6;
+  width: 100%;
+  min-width: 0;
+  aspect-ratio: 1.54;
+  min-height: 316px;
   background: light-dark(var(--brand-apricot), var(--brand-plum));
   border-radius: var(--radius-lg);
 }
@@ -400,12 +404,56 @@
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 .phone {
-  right: 3%;
-  bottom: 4%;
-  width: 23%;
-  border-radius: clamp(10px, 1.5vw, 18px);
+  right: 4%;
+  bottom: 5%;
+  width: clamp(164px, 33%, 204px);
+  padding: 4px;
+  border-radius: 21px;
+  background: var(--brand-plum);
 }
-.phone .screen { overflow: hidden; border-radius: clamp(6px, .9vw, 12px); }
+
+.mini {
+  overflow: hidden;
+  min-height: 249px;
+  border-radius: 16px;
+  background: var(--salon-bg);
+  color: var(--salon-text);
+  color-scheme: light;
+}
+.miniPhoto {
+  height: 62px;
+  background: var(--salon-action) url("/site/salon-preview.webp") center / cover;
+}
+.miniBody { padding: 10px 12px 12px; }
+.salonName { margin: 0 0 2px; color: var(--salon-action); font-size: .75rem; font-weight: 600; }
+.mini .miniBody h2 { font-size: 1.18rem; text-wrap: wrap; }
+.mini h2:focus { outline: none; }
+.miniChoices, .miniTimes { display: grid; gap: 5px; margin-top: 9px; }
+.mini button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid color-mix(in srgb, var(--salon-action) 36%, transparent);
+  border-radius: 7px;
+  padding: 6px 9px;
+  background: white;
+  color: var(--salon-text);
+  font: 600 .8rem/1.2 var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+}
+.mini button:hover, .mini button:focus-visible { border-color: var(--salon-action); }
+.mini button:focus-visible, .clipControl:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.mini button small { display: block; margin-top: 3px; font-size: .69rem; font-weight: 400; }
+.mini button svg { color: var(--salon-action); flex: none; }
+.miniMeta, .miniSummary { margin: 7px 0; font-size: .82rem; }
+.miniSummary { display: flex; align-items: center; gap: 5px; margin-block: 14px; }
+.miniTimes { grid-template-columns: repeat(2, 1fr); }
+.miniTimes button, .mini .miniReset { justify-content: center; gap: 6px; }
+.mini .miniReset { background: var(--salon-action); color: white; }
+.mini .miniReset svg { color: inherit; }
 
 .tour { border-top: 1px solid var(--ui-hairline); padding-bottom: 16px; }
 .feature {
@@ -426,13 +474,32 @@
   border-radius: var(--radius-lg);
   background: var(--ui-surface-2);
 }
-.plate .screen {
-  max-width: 405px;
-  overflow: hidden;
+.plate:has(.clip) { padding-bottom: 48px; }
+.clip {
+  position: relative;
+  width: 100%;
+  max-width: 452px;
   border: 1px solid var(--ui-hairline);
   border-radius: var(--radius-md);
   background: var(--ui-surface);
 }
+.clip video { display: block; width: 100%; height: auto; aspect-ratio: 928 / 760; border-radius: inherit; }
+.clipControl {
+  display: grid;
+  place-items: center;
+  position: absolute;
+  bottom: -42px;
+  right: 0;
+  min-width: 36px;
+  min-height: 36px;
+  border: 1px solid var(--ui-input-border);
+  border-radius: 50%;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  cursor: pointer;
+}
+.clipControl:hover { background: var(--ui-surface-2); }
+
 .booking { background: var(--ui-staff-2-bg); }
 .day { background: var(--ui-staff-1-bg); }
 .treatments { background: var(--ui-surface-2); }

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { MiniBooking } from "@/concept/site/mini-booking";
+import { TourClip } from "@/concept/site/tour-clip";
 import { ArrowDown, ArrowRight, BookOpen, CalendarDays, Globe, Megaphone, Tag } from "lucide-react";
 import { getSiteProps, type SiteProps } from "@/concept/site/links";
 import { site } from "@/concept/site/en";
@@ -8,29 +10,6 @@ import s from "@/concept/site/site.module.css";
 import { Wordmark } from "@/concept/ui/wordmark";
 
 export const getServerSideProps = getSiteProps;
-
-const SCREENS = {
-  studio: { width: 1420, height: 830, themed: true },
-  salon: { width: 540, height: 1031, themed: false },
-  booking: { width: 896, height: 793, themed: false },
-  day: { width: 856, height: 611, themed: true },
-  treatments: { width: 792, height: 644, themed: true },
-  campaign: { width: 756, height: 434, themed: true },
-  journal: { width: 792, height: 769, themed: true },
-} as const;
-
-// The studio follows the system theme. The booking page has the salon’s own palette.
-function Screen({ name, alt, eager = false }: { name: keyof typeof SCREENS; alt: string; eager?: boolean }) {
-  const { width, height, themed } = SCREENS[name];
-  const path = `/site/${name}`;
-  return (
-    <picture className={s.screen}>
-      {themed && <source media="(prefers-color-scheme: dark)" srcSet={`${path}-dark.webp`} />}
-      <img src={`${path}${themed ? "-light" : ""}.webp`} alt={alt} width={width} height={height}
-        loading={eager ? "eager" : "lazy"} decoding="async" />
-    </picture>
-  );
-}
 
 const FEATURES = [
   { key: "book", screen: "booking", icon: Globe, href: "/boka/salong-eko" },
@@ -63,14 +42,19 @@ export default function Landing({ links, waitlist }: SiteProps) {
             </h1>
             <p className={s.intro}>{site["landing.intro"]}</p>
             <div className={s.routes}>
-              <Link className={s.primary} href="/studio">{site["landing.studio"]} <ArrowRight size={18} aria-hidden /></Link>
-              <Link className={s.secondary} href="/boka/salong-eko">{site["landing.booking"]}</Link>
+              <Link prefetch={false} className={s.primary} href="/studio">{site["landing.studio"]} <ArrowRight size={18} aria-hidden /></Link>
+              <Link prefetch={false} className={s.secondary} href="/boka/salong-eko">{site["landing.booking"]}</Link>
             </div>
             <p className={s.note}>{site["landing.note"]}</p>
           </div>
           <div className={s.devices}>
-            <div className={s.laptop}><Screen name="studio" alt={site["landing.studio.alt"]} eager /></div>
-            <div className={s.phone}><Screen name="salon" alt={site["landing.salon.alt"]} eager /></div>
+            <div className={s.laptop}>
+              <picture className={s.screen}>
+                <source media="(prefers-color-scheme: dark)" srcSet="/site/studio-dark.webp" />
+                <img src="/site/studio-light.webp" alt={site["landing.studio.alt"]} width={1420} height={830} decoding="async" />
+              </picture>
+            </div>
+            <div className={s.phone}><MiniBooking /></div>
           </div>
         </div>
 
@@ -80,10 +64,10 @@ export default function Landing({ links, waitlist }: SiteProps) {
               <div className={s.featureText}>
                 <h2>{site[`landing.${key}.heading`]}</h2>
                 <p>{site[`landing.${key}.body`]}</p>
-                <Link href={href} className={s.textLink}><Icon size={17} strokeWidth={1.6} aria-hidden /> {site[`landing.${key}.link`]}</Link>
+                <Link prefetch={false} href={href} className={s.textLink}><Icon size={17} strokeWidth={1.6} aria-hidden /> {site[`landing.${key}.link`]}</Link>
               </div>
               <div className={`${s.plate} ${s[screen]}`}>
-                <Screen name={screen} alt={site[`landing.${key}.alt`]} />
+                <TourClip name={screen} title={site[`landing.${key}.heading`]} description={site[`landing.${key}.alt`]} />
               </div>
             </section>
           ))}
@@ -96,7 +80,7 @@ export default function Landing({ links, waitlist }: SiteProps) {
               <li key={step}>
                 <h3>{site[`landing.try.${step}.title`]}</h3>
                 <p>{site[`landing.try.${step}.body`]}</p>
-                <Link href={href} className={s.textLink}>{site[`landing.try.${step}.link`]} <ArrowRight size={16} aria-hidden /></Link>
+                <Link prefetch={false} href={href} className={s.textLink}>{site[`landing.try.${step}.link`]} <ArrowRight size={16} aria-hidden /></Link>
               </li>
             ))}
           </ol>
@@ -107,7 +91,7 @@ export default function Landing({ links, waitlist }: SiteProps) {
           <ul className={s.start}>
             {(["simple", "everything"] as const).map((mode) => (
               <li key={mode}>
-                <Link className={s.textLink} href={`/studio?start=${mode === "simple" ? "essentials" : mode}`}>
+                <Link prefetch={false} className={s.textLink} href={`/studio?start=${mode === "simple" ? "essentials" : mode}`}>
                   {site[`landing.start.${mode}`]} <ArrowRight size={18} aria-hidden />
                 </Link>
                 <p>{site[`landing.start.${mode}.note`]}</p>
