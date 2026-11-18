@@ -3,6 +3,10 @@ import { applyCustomerReview, type CustomerReviewAction } from "./booking/review
 import { applyAssistant, type AssistantAction } from "./assistant/actions";
 import { findCustomerByPhone, normalizePhone } from "./booking/lookup";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
+import { sendDemoCampaign, sendDemoMessage } from "./connections/demo";
+import { formatTime } from "./data/dates";
+import { t } from "./i18n";
+import { formatDayLong } from "./i18n/format";
 import { editJournalEntry } from "./customers/journal";
 import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visits";
 import type { CostKind } from "./finance/types";
@@ -204,6 +208,14 @@ function joinWaitlist(state: DemoState, action: Extract<DemoAction, { type: "onl
   });
 }
 
+/** The text to the waiting list about a freed slot, through the SMS port (simulated). */
+function offerToWaitlist(state: DemoState, bookingId: string) {
+  const booking = state.bookings.find((b) => b.id === bookingId);
+  if (!booking) return;
+  const body = t("cancel.offerSms", { salon: state.salon.name, day: formatDayLong(booking.date), time: formatTime(booking.start) });
+  sendDemoMessage({ channel: "sms", to: { segment: "waitlist" }, body, reference: `waitlist-${booking.id}-${booking.date}-${booking.start}` });
+}
+
 /** Average full price of a campaign's treatments. */
 function averagePrice(state: DemoState, serviceIds: string[]): number {
   const prices = state.services.filter((s) => serviceIds.includes(s.id)).map((s) => s.price);
@@ -222,6 +234,7 @@ function launchCampaign(state: DemoState, input: NewCampaign, today: DateKey): D
       ? simulateStats({ seed: input.name, channels: input.channels, discountPercent: input.discountPercent, avgPrice: averagePrice(state, input.serviceIds) })
       : undefined,
   };
+  if (live) sendDemoCampaign(campaign);
   return { ...state, seq: state.seq + 1, campaigns: [campaign, ...state.campaigns] };
 }
 
@@ -331,6 +344,7 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
       const wasBooked = state.bookings.some((b) => b.id === action.id && b.status === "booked");
       const marked = { ...state, bookings: updateBy(state.bookings, action.id, (b) => ({ ...b, status: "cancelled" as const, cancelReason: action.reason })) };
       const cancelled = wasBooked ? trashBooking(marked, action.id) : marked;
+      if (action.notice && wasBooked) offerToWaitlist(state, action.id);
       return action.notice ? reduce(cancelled, { type: "inbox/add", item: action.notice }) : cancelled;
     }
     case "booking/create":

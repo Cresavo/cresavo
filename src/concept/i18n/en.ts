@@ -162,6 +162,7 @@ const messages = {
   "cancel.offer": "Offer the slot to the waiting list",
   "cancel.offerHint": "{count} customer wants to hear about free slots. (Simulated text message.)|{count} customers want to hear about free slots. (Simulated text messages.)",
   "cancel.offerTitle": "Free slot {time} offered",
+  "cancel.offerSms": "{salon}: a time just opened up, {day} at {time}. First to book gets it.",
   "cancel.offerBody": "A text went to {count} customer on the waiting list: {day} at {time} is free. (Simulated.)|A text went to {count} customers on the waiting list: {day} at {time} is free. (Simulated.)",
   "cancel.confirm": "Cancel booking",
 
