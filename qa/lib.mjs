@@ -1,5 +1,5 @@
 // Shared helpers for the Cresavo concept-demo QA scripts.
-// Run against a production build: see docs/qa/ROUTINE.md. No test runner needed; each script is plain Node.
+// Run against a production build. Each script runs in Node without a test runner.
 import { chromium } from "@playwright/test";
 import http from "node:http";
 import https from "node:https";

@@ -12,7 +12,7 @@ test.afterAll(async () => {
   await db.$disconnect();
 });
 
-test("publik HTTP kan inte återläsa kortets bokning med dess exakta nyckel", async ({
+test("the public HTTP endpoint cannot retrieve a card booking with its exact key", async ({
   synthetic,
 }, testInfo) => {
   const serviceId = `replay-${synthetic.marker}`,

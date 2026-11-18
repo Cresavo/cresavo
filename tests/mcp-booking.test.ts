@@ -16,7 +16,7 @@ const valid = {
 };
 
 describe("Lokalt MCP-bokningskontrakt", () => {
-  it("kund-ID kräver workspace-schema och ersätter inte strikt validering", () => {
+  it("customer IDs require the workspace schema and still undergo strict validation", () => {
     const { customerName: _name, customerEmail: _email, ...rest } = valid;
     void _name;
     void _email;
@@ -35,7 +35,7 @@ describe("Lokalt MCP-bokningskontrakt", () => {
       }).success,
     ).toBe(false);
   });
-  it("återanvänder domänfält utan att begränsa befintlig HTTP-e-post", () => {
+  it("reuses domain fields without restricting existing HTTP email input", () => {
     expect(mcpBookingSchema.parse(valid)).toEqual(valid);
     expect(
       bookingSchema.safeParse({
@@ -56,10 +56,10 @@ describe("Lokalt MCP-bokningskontrakt", () => {
     { ...valid, customerEmail: "syntetisk@example.com" },
     { ...valid, customerEmail: "syntetisk@sub.example.test" },
     { ...valid, clientAddress: "spoofed" },
-  ])("avvisar otillåten MCP-indata %#", (input) => {
+  ])("rejects invalid MCP input %#", (input) => {
     expect(mcpBookingSchema.safeParse(input).success).toBe(false);
   });
-  it("kräver två uttryckliga flaggor och kvothemlighet före aktivering", () => {
+  it("requires two explicit flags and the quota secret before enabling writes", () => {
     const secret = "synthetic-test-secret-at-least-32-chars";
     expect(bookingModeAllowed([], undefined)).toBe(false);
     expect(bookingModeAllowed(["--admin"], undefined)).toBe(false);

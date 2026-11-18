@@ -3,7 +3,7 @@ import { test, expect } from "./fixtures";
 import { chooseDay, chooseSlot } from "./date-controls";
 import { DateTime } from "luxon";
 
-test("datum väljs med tryck och tangentbord, tom dag har en väg vidare", async ({
+test("date selection works by touch and keyboard and an empty day offers a next step", async ({
   page,
   synthetic,
 }) => {
@@ -51,7 +51,7 @@ test("datum väljs med tryck och tangentbord, tom dag har en väg vidare", async
   await expect(page.locator(".booking-success")).toContainText("30 min");
 });
 
-test("kalendern går att använda med tangentbord och ryms vid 320px", async ({
+test("the calendar supports keyboard navigation and fits at 320px", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 844 });
@@ -92,7 +92,7 @@ test("kalendern går att använda med tangentbord och ryms vid 320px", async ({
   });
 });
 
-test("alla arbetsytans menyer och datumval ryms på en smal telefon", async ({
+test("all workspace menus and date pickers fit on a narrow phone", async ({
   page,
   synthetic,
 }) => {
@@ -155,7 +155,7 @@ test("alla arbetsytans menyer och datumval ryms på en smal telefon", async ({
   expect((await lane.boundingBox())!.width).toBeGreaterThanOrEqual(150);
 });
 
-test("bred veckokalender behåller tidsaxeln vid sidscroll", async ({
+test("the wide weekly calendar keeps its time axis visible when scrolling horizontally", async ({
   page,
   synthetic,
 }) => {
@@ -209,7 +209,7 @@ test("bred veckokalender behåller tidsaxeln vid sidscroll", async ({
   ).toBe(true);
 });
 
-test("demoinloggning är stängd i normalt läge även med falska miljöheaders", async ({
+test("demo login stays disabled in standard mode even with forged environment headers", async ({
   request,
 }) => {
   const response = await request.post(

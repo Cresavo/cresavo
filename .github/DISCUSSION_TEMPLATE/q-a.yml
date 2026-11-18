@@ -1,0 +1,14 @@
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: What's your question?
+      description: Tell us what you're trying to do. Please keep names and booking details fictional.
+      placeholder: How do I reset the demo after making a sample booking?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: What have you tried?
+      description: If you've tried something already, tell us what happened.

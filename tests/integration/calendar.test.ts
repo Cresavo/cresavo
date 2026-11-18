@@ -12,7 +12,7 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-it("avgränsar kalendern till företag, datum, status och högst 100 rader per sida", async () => {
+it("scopes the calendar by business, date, and status and limits pages to 100 rows", async () => {
   const start = DateTime.now()
     .setZone("Europe/Stockholm")
     .plus({ days: 2 })

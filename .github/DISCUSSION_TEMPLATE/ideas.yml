@@ -1,0 +1,15 @@
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Cresavo to do?
+      description: A few lines are plenty. Please use fictional details in examples.
+      placeholder: I would like to export my appointments so I can move them to another tool.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: When would this help?
+      description: If you like, tell us what you do today or where you get stuck.
+

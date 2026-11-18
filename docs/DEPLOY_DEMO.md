@@ -1,6 +1,6 @@
 # Deploying the Cresavo demo (Vercel)
 
-The concept demo (`/studio`, `/boka/salong-eko`, the demo landing and
+The concept demo (`/studio`, `/boka/salong-eko`, and
 `/api/concept/*`) runs as a plain Next.js app on Vercel without a database or
 secrets. Demo state lives in each visitor's browser; AI tasks run their
 built-in rules unless a provider key is configured. The public instance is
@@ -34,4 +34,4 @@ built-in rules unless a provider key is configured. The public instance is
 
 The earlier engine previews used `Dockerfile.vercel` with the container
 runtime. That setup is retired for now (it predates `next.config.ts`); the
-engine needs a fresh deploy plan in goal 11.
+engine needs a deployment plan before the [pilot](ROADMAP.md#pilot-readiness).

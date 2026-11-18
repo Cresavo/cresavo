@@ -42,7 +42,7 @@ open them from this build environment.
 |---|---|---|---|---|---|
 | **Buttondown** | A small, plain newsletter tool with an API. Handles the list, the confirmation email, unsubscribe and sending the launch email. | Free for a small list (around 100 subscribers), then a low monthly fee. | US company. Offers a DPA; data is processed in the US under standard contractual clauses. | Built in, on by default. | Small: one API call per sign-up. |
 | **Loops** | Email for SaaS products: lists, simple automations ("welcome", "we launched"), transactional email later. | Free tier around 1,000 contacts, then a monthly fee that grows with contacts. | US company; DPA available. | Supported, must be switched on. | Small: one API call. |
-| **Resend Audiences** | Resend is a developer email API; Audiences is its contact list with Broadcasts for sending. Useful if Resend also sends the product's booking emails later (goal 20). | Free tier around 1,000 contacts and 3,000 emails a month, then a monthly fee. | US company; sending regions include the EU (Ireland), contact data is stored with the account in the US. DPA available. | Not built in: we would send our own confirmation email and mark the contact confirmed. | Medium: sign-up call plus our own confirmation flow. |
+| **Resend Audiences** | Resend is a developer email API; Audiences is its contact list with Broadcasts for sending. Useful if Resend also sends the product's booking emails later. | Free tier around 1,000 contacts and 3,000 emails a month, then a monthly fee. | US company; sending regions include the EU (Ireland), contact data is stored with the account in the US. DPA available. | Not built in: we would send our own confirmation email and mark the contact confirmed. | Medium: sign-up call plus our own confirmation flow. |
 | **Own Postgres (Neon, EU region)** | One table in a database we control: email, kind of business, created, confirmed, unsubscribe token. We send the launch email with any provider on the day. | Free tier is enough; then a few dollars a month. | Our choice: Neon has EU regions (Frankfurt). Neon is a US company, so a DPA still applies. | We build it: a confirmation email needs a sending provider anyway. | Largest: table, confirmation and unsubscribe links, an export, and a sender. |
 
 ## GDPR notes (before a provider is switched on)
@@ -92,7 +92,7 @@ Not legal advice; have the final texts reviewed. All of these must be done
 - The list is small and short-lived; it does not need automations (Loops) or
   our own tables (Postgres).
 - It keeps the waiting list separate from the product's future transactional
-  email, so that decision (goal 20) stays open.
+  email, so the email provider decision stays open.
 
 Choose **own Postgres in an EU region** instead if keeping all personal data
 on infrastructure we control matters more than a day of extra work. Choose

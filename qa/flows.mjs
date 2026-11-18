@@ -3,7 +3,7 @@
 // so the scripts can read it before the app's first save.
 const { createDemoState } = await import("../src/concept/data/generate.ts");
 const { toKey } = await import("../src/concept/data/dates.ts");
-import { launch, newContext, recorder, save, shot, settle, state, watch, DEMO, STATE_KEY } from "./lib.mjs";
+import { launch, newContext, recorder, save, shot, settle, state, watch, APEX, DEMO, STATE_KEY } from "./lib.mjs";
 
 const r = recorder("flows");
 const browser = await launch();
@@ -172,9 +172,9 @@ const QUESTIONS = ["Who is coming today?", "Who is coming tomorrow?", "How much 
 }
 
 // 7. Waitlist form on the landing: honest message, nothing stored.
-await r.check("waitlist on /landing: honest answer, nothing stored in the browser, no store on the server", async () => {
+await r.check("waitlist on the product page: honest answer, nothing stored in the browser, no store on the server", async () => {
   const ctx = await newContext(browser, { viewport: "mobile" }); const page = await ctx.newPage(); watch(page, issues);
-  await page.goto(DEMO + "/landing"); await settle(page);
+  await page.goto(APEX + "/"); await settle(page);
   const storageBefore = await page.evaluate(() => JSON.stringify(localStorage) + document.cookie);
   await page.locator("#waitlist").scrollIntoViewIfNeeded();
   await page.getByLabel("Email").fill("nova.demo@example.com");
@@ -189,22 +189,9 @@ await r.check("waitlist on /landing: honest answer, nothing stored in the browse
   if (body.outcome && body.outcome !== "not-open") throw new Error(`server outcome ${JSON.stringify(body)}`);
   return `HTTP ${resp.status()} ${JSON.stringify(body)}; message "${status}"`;
 });
-await r.check("waitlist on /coming-soon (apex) behaves the same", async () => {
-  const ctx = await newContext(browser, { viewport: "mobile" }); const page = await ctx.newPage(); watch(page, issues);
-  await page.goto(DEMO.replace("demo.", "") + "/"); await settle(page);
-  const form = page.locator("form").first();
-  if (!(await form.count())) { await ctx.close(); return "no form on coming-soon"; }
-  await page.getByLabel("Email").first().fill("nova.demo@example.com");
-  const [resp] = await Promise.all([page.waitForResponse(r => r.url().includes("/api/waitlist")), form.getByRole("button").first().click()]);
-  await page.waitForTimeout(300);
-  const status = (await page.locator("[role=status]").first().innerText()).trim();
-  await shot(page, "flow-waitlist-apex-390");
-  await ctx.close();
-  return `HTTP ${resp.status()} message "${status}"`;
-});
 await r.check("waitlist rejects an invalid email with a clear message", async () => {
   const ctx = await newContext(browser, { viewport: "mobile" }); const page = await ctx.newPage();
-  await page.goto(DEMO + "/landing"); await settle(page);
+  await page.goto(APEX + "/"); await settle(page);
   await page.getByLabel("Email").fill("not-an-email");
   await page.getByRole("button", { name: "Join the waitlist" }).click(); await page.waitForTimeout(500);
   const v = await page.getByLabel("Email").evaluate(el => el.validationMessage);
@@ -214,12 +201,12 @@ await r.check("waitlist rejects an invalid email with a clear message", async ()
   return `native="${v}" status="${status}"`;
 });
 
-// 8. Language switch. The concept studio, booking page and sites are English-only by design (docs/concept/CONCEPT.md §7);
+// 8. Language switch. The concept studio, booking page and sites are English-only by design;
 // the root layout's switch is hidden there and only shows on the older lab pages (/product etc.).
-await r.check("language switch: hidden on studio, booking page, landing and coming soon (English-only concept)", async () => {
+await r.check("language switch: hidden on studio, booking page and product site (English-only concept)", async () => {
   const ctx = await newContext(browser, { viewport: "desktop" }); const page = await ctx.newPage();
   const out = [];
-  for (const path of ["/studio", "/boka/salong-eko", "/landing", "/coming-soon"]) { await page.goto(DEMO + path); await settle(page); out.push(`${path}: ${await page.getByRole("combobox", { name: /Language|Språk/ }).locator("visible=true").count()}`); }
+  for (const path of ["/studio", "/boka/salong-eko", "/"]) { await page.goto((path === "/" ? APEX : DEMO) + path); await settle(page); out.push(`${path}: ${await page.getByRole("combobox", { name: /Language|Språk/ }).locator("visible=true").count()}`); }
   await ctx.close();
   return "visible switches " + out.join("; ");
 });
@@ -228,12 +215,12 @@ await r.check("a saved Svenska preference keeps English concept pages marked lan
   await ctx.addCookies([{ name: "booking-locale", value: "sv", url: DEMO }]);
   const page = await ctx.newPage();
   try {
-    for (const path of ["/studio", "/boka/salong-eko", "/landing", "/coming-soon"]) {
-      await page.goto(DEMO + path);
+    for (const path of ["/studio", "/boka/salong-eko", "/"]) {
+      await page.goto((path === "/" ? APEX : DEMO) + path);
       const lang = await page.locator("html").getAttribute("lang");
       if (lang !== "en") throw new Error(`${path} is marked lang=${lang}`);
     }
-    return "all four pages are marked lang=en";
+    return "all three pages are marked lang=en";
   } finally {
     await ctx.close();
   }

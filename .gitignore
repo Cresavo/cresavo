@@ -30,7 +30,7 @@ postgres-data/
 /data/
 
 # Dependencies, build and test output
-node_modules/
+node_modules
 .next/
 .turbo/
 .vercel/

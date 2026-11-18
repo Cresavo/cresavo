@@ -8,7 +8,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { mcpEnvironment } from "../../src/mcp/environment";
 import { db } from "../../src/lib/db";
 
-it("MCP använder exporterad DATABASE_URL även när env-filen pekar på en annan databas", async () => {
+it("MCP uses the exported DATABASE_URL even when the env file points to another database", async () => {
   const directory = await mkdtemp(join(tmpdir(), "booking-mcp-env-"));
   const file = join(directory, ".env");
   const title = `mcp-env-${randomUUID()}`;

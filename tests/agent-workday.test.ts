@@ -3,8 +3,8 @@ import { bookingCalendarFile } from "../src/mcp/time-card/calendar-file";
 import { assertOwnerCard, workdaySchema } from "../src/mcp/owner-card/data";
 import { cardHistorySchema } from "../src/mcp/time-card/recovery";
 
-describe("Kalenderfil och avgränsad ägarprofil", () => {
-  it("har stabil UID, UTC över DST-gränser och behandlingslängd utan buffert", () => {
+describe("Calendar file and restricted owner profile", () => {
+  it("uses a stable UID, UTC across DST changes, and treatment duration without buffer", () => {
     for (const start of ["2027-03-28T00:30:00Z", "2027-10-31T00:30:00Z"]) {
       const b = {
         id: "synthetic",
@@ -27,7 +27,7 @@ describe("Kalenderfil och avgränsad ägarprofil", () => {
       expect(ics).not.toMatch(/ATTENDEE|ORGANIZER|mailto|VALARM/);
     }
   });
-  it("escapar innehåll, hindrar radinjektion och viker UTF-8 korrekt", () => {
+  it("escapes content, prevents line injection, and folds UTF-8 correctly", () => {
     const ics = bookingCalendarFile({
       id: "demo",
       serviceName: "Massage, lätt; rygg\\\r\nATTENDEE:bad",
@@ -43,7 +43,7 @@ describe("Kalenderfil och avgränsad ägarprofil", () => {
     );
     expect(ics).not.toContain("�");
   });
-  it("ägarprofil kräver uttrycklig lokal opt-in och kan inte blandas med skrivprofil", () => {
+  it("requires explicit local opt-in for the owner profile and keeps it separate from the write profile", () => {
     const env = {
       BOOKING_OWNER_CARD_DEMO: "1",
       SESSION_SECRET: "synthetic".repeat(8),
@@ -70,7 +70,7 @@ describe("Kalenderfil och avgränsad ägarprofil", () => {
     ])
       expect(() => assertOwnerCard(env, args)).toThrow();
   });
-  it("tillåter inte id/e-post/aktör i återläsnings- eller ägarschema", () => {
+  it("rejects ID, email, and actor fields in the recovery and owner schemas", () => {
     for (const v of [
       { id: "known" },
       { email: "canary@example.test" },

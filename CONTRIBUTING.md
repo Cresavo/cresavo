@@ -1,10 +1,19 @@
 # Contributing to Cresavo
 
-Thanks for helping. Cresavo is an AI-native system for small service
-businesses. It is early (0.x concept stage), so small, focused changes are
-easiest to review.
+Thanks for helping. Cresavo is an open-source booking workspace for small
+service businesses, starting with salons and clinics. The concept demo is
+early, and a clear bug report or a quickstart you tried from scratch can help
+as much as a patch.
 
-## Run it
+## Your first contribution
+
+Start with the [good first issues](https://github.com/Cresavo/cresavo/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+Leave a short comment if you'd like to take one so the maintainer can confirm
+the scope and avoid duplicating work. You're welcome to ask for help in
+[Discussions](https://github.com/Cresavo/cresavo/discussions).
+
+With Node.js 22.12+ (or 24+) and a clone of this repo, run this from the
+repository root:
 
 ```bash
 npm run demo         # installs dependencies, then http://localhost:3000/studio
@@ -12,6 +21,16 @@ npm run demo         # installs dependencies, then http://localhost:3000/studio
 
 The concept demo needs no database and no AI key. See the README for the
 booking engine (Prisma, Postgres) setup.
+
+Open a small pull request and link the issue if there is one. Tell the
+maintainer what changed and how you checked it. Niclas reviews PRs in batches
+and will leave next steps in the thread. If you get stuck or need to step away,
+a short note is plenty.
+
+The [CLA](#license-and-cla) is a draft pending legal review. You can open a PR
+now, and signatures are closed while the draft is under review. External PRs
+can be reviewed but are held for merge until the reviewed agreement and
+signing process are in place.
 
 ## Check your change
 
@@ -29,6 +48,8 @@ page, also run `npm run test:concept` and add before/after screenshots
 commands are in the README.
 
 ## Code principles
+
+Cresavo uses an AI-assisted workflow documented in [AGENTS.md](AGENTS.md) and [.claude/](.claude/).
 
 Read [AGENTS.md](AGENTS.md) (short) and
 [docs/QUALITY_SECURITY.md](docs/QUALITY_SECURITY.md). In short: small

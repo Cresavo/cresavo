@@ -15,8 +15,8 @@ const enabled = {
   DATABASE_URL: url,
   BOOKING_DEMO_DATABASE: demoDatabaseFingerprint(url),
 };
-describe("snävt avgränsad demoåtkomst", () => {
-  it("kräver hela explicita previewkonfigurationen", () => {
+describe("Restricted demo access", () => {
+  it("requires all explicit preview settings", () => {
     expect(demoAccessEnabled(enabled)).toBe(true);
     for (const key of [
       "BOOKING_DEMO_ACCESS",
@@ -30,7 +30,7 @@ describe("snävt avgränsad demoåtkomst", () => {
     ])
       expect(demoAccessEnabled({ ...enabled, [key]: "" })).toBe(false);
   });
-  it("nekar produktion, annan databas/projekt och libpq-omdirigering", () => {
+  it("rejects production, another database or project, and libpq redirection", () => {
     for (const patch of [
       { VERCEL_ENV: "production" },
       { VERCEL_ENV: "development" },
@@ -46,7 +46,7 @@ describe("snävt avgränsad demoåtkomst", () => {
       demoAccessEnabled({ ...process.env, BOOKING_DEMO_ACCESS: undefined }),
     ).toBe(false);
   });
-  it("fingeravtrycket innehåller inte lösenordet och tål rotation", () => {
+  it("excludes the password from the fingerprint and supports rotation", () => {
     expect(demoDatabaseFingerprint(url)).toBe(
       demoDatabaseFingerprint(url.replace("synthetic@", "other:new-password@")),
     );

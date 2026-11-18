@@ -19,7 +19,7 @@ const call = (fn: (r: Request) => Promise<Response>, path: string, key: string) 
   fn(new Request(`http://localhost${path}`, { headers: { authorization: `Bearer ${key}` } }));
 
 describe("Agent API v1 mot PostgreSQL", () => {
-  it("lagrar bara hash, läser seedad syntetisk data och nekar återkallad nyckel", async () => {
+  it("stores only the hash, reads seeded fictional data, and rejects a revoked key", async () => {
     const { key, record } = await createAgentApiKey(
       { businessId: "demo", agentName, ownerName: "Syntetisk Ägare", ownerContact: "owner@example.test" },
       db,
@@ -48,7 +48,7 @@ describe("Agent API v1 mot PostgreSQL", () => {
     expect((await call(services, "/api/v1/services?business=demo", key)).status).toBe(401);
   });
 
-  it("databasen vägrar klartext i keyHash", async () => {
+  it("the database rejects plaintext in keyHash", async () => {
     await expect(
       db.agentApiKey.create({
         data: { client: { create: { id: `invalid-${agentName}`, businessId: "demo" } }, agentName, ownerName: "x", ownerContact: "x@example.test", keyPrefix: "plaintextxx1", keyHash: "blk_not_a_hash", scopes: [] },

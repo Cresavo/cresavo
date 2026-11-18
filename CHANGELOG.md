@@ -1,19 +1,32 @@
 # Changelog
 
+Cresavo was called Flerdo before November 2026.
+
 All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/) (`0.x` while in concept stage).
 
 ## [Unreleased]
 
+### Changed
+- The customer list starts each row with the customer's name and shows the next booking before the last visit. The filters carry the customer counts.
+
+### Changed
+- On phones, Today shows the next customer above the schedule. Inbox rows lead with the message subject and show the sender below it.
+
+## [0.4.0] - 2026-11-18
+
 ### Added
+- The README now links to the demo, community, public roadmap and ways to contribute. First-time contributors have a quickstart and review guide, with simple forms for GitHub Discussions.
+- One product page brings together the founder story, studio previews, five workflow films and an offline booking sample. All demo links open the owner studio directly.
+- A looping inbox story follows a request through owner approval, booking and customer confirmation. A connected diagram shows which tools work in the demo and which are planned.
+- Visitors can compare fees, branding, hosting and data ownership, see the GitHub star count and contribute through the community links.
 - Anna and Erik have fictional staff portraits on the booking page, throughout booking and in the studio.
-- Visitors can try a booking in the landing page’s phone and watch five short recordings from Salong Eko. Each recording has a playback control and a still for reduced motion.
 - Treatments & prices: owners add, edit, hide, duplicate, reorder and delete treatments, and add, rename, reorder and remove categories. Name, category, length and price come first; description, who can do it and visibility sit behind "More options". Deleting a treatment with upcoming bookings says how many, offers to hide it instead, and never changes the bookings. Every change is in What happened? and can be undone. The booking page, booking flows, the assistant and campaigns follow at once.
 - Salon booking page: opening hours, address with a map link, phone and e-mail links, the team with short bios, a few reviews and the cancellation rule, as one block beside the price list on wide screens.
 
 - Connections foundation (goal 28): one port per capability (SMS, email, payments, accounting, calendar, listing, social, ads) with a locale-neutral contract (minor units + ISO 4217, E.164, UTC + IANA zone). The demo's confirmations, reminders, time suggestions, waiting-list texts and campaign posts go through simulated adapters that record what would have been sent; nothing leaves the demo. Live adapters for Twilio, 46elks, Resend, Postmark, Stripe, Fortnox, Visma eAccounting, Google Calendar, Microsoft Graph, Reserve with Google and Meta are off by default behind `CONCEPT_CONNECTIONS_LIVE` and per-port provider settings; see `docs/integrations/README.md`.
-- Cresavo: the platform is named Cresavo (wordmark, tokens and copy on every platform surface). `cresavo.com` shows a coming-soon page with a launch waiting list, `demo.cresavo.com` the demo landing; the tenant booking page keeps the business's own brand.
+- Cresavo: the platform is named Cresavo (wordmark, tokens and copy on every platform surface). `cresavo.com` shows a coming-soon page with a launch waiting list, `demo.cresavo.com` opens the studio; the tenant booking page keeps the business's own brand.
 - Assistant: daily questions are answered straight from your data: who is next, when a customer is coming, what they had last time, whether a treatment fits a day (with the next day that has room), what a treatment costs, a gift card's balance, what waits in the Inbox and who is due back. Rows link to the customer.
 - Assistant: "Text Ida that I'm running 15 minutes late" drafts one simulated text for approval.
 - Features: two starting points, Essentials and Everything, as one tap each (also `/studio?start=essentials|everything`).
@@ -33,7 +46,8 @@ All notable changes to this project are documented here. Format follows
 - The assistant can change the page: "make it calmer and more luxurious", "put reviews first" or "use the colours from our logo" give a proposal with a before and after preview, applied on approval and undoable from What happened?.
 
 ### Changed
-- The customer list starts each row with the customer's name and shows the next booking before the last visit. The filters carry the customer counts.
+- The README opens with an animated product tour and links to the public roadmap. The finance demo labels its accounting connection as simulated and uses the Cresavo name for bookkeeping downloads. The local concept MCP reports the current display name.
+- The README and launch drafts tell the story of the salon at home that inspired Cresavo and explain what an open booking system would let salons do.
 - Owners can drag treatments and categories into order with a mouse, touch or keyboard. Each drop updates the public price list and can be undone. The booking-page editor also supports dragging sections alongside its up and down buttons.
 - The studio sidebar displays the capital-C Inter Regular wordmark at 124 px. The browser tab and home-screen icons use a white lowercase c on aubergine in both themes.
 - The coming-soon page now introduces the demo with a 36-second product tour, links to the public repository and a summary of booking, daily planning and data ownership.
@@ -44,7 +58,7 @@ All notable changes to this project are documented here. Format follows
 - Today: one card language. The brief no longer repeats the schedule and shares one card with the suggestions, which lost their "Suggestion" label and icon tile; "Show more" is the card's last row.
 - Status words are plain text: no tinted pills and no dots. A warning or an error is set in its semantic colour, nothing else. Plain information boxes are neutral instead of blue; progress bars are neutral.
 - Staff: no progress bars, treatments as a line of text, the calendar subscription folded and hidden when the server has none. Your data & AI: export and connecting first, the protocol table under "For developers".
-- The assistant is called "Assistant", with no persona name (it was "Ask Flerdo"). On phones it is one quiet labelled button above the tabs with the microphone inside the panel; the panel opens at the message box ("Who is coming today?") without a brief, routine offer, sparkles or "Rules · no AI" labels, and no longer saves conversation summaries to memory.
+- The assistant is called "Assistant", with no persona name. On phones it is one quiet labelled button above the tabs with the microphone inside the panel; the panel opens at the message box ("Who is coming today?") without a brief, routine offer, sparkles or "Rules · no AI" labels, and no longer saves conversation summaries to memory.
 - Today is calmer: one suggestion at a time, and routines are suggested under More > Routines instead of on Today.
 - Text on a tinted background is always neutral ink (Features, Gift cards and Packages totals, the gift card balance on the booking page).
 - The studio, home, login, product and live pages use the brand colours (aubergine and apricot), Inter, calmer corners and outlined cards, in light and dark. Buttons, fields and chips are at least 44 px tall and inputs 16 px.
@@ -135,7 +149,7 @@ All notable changes to this project are documented here. Format follows
 ## [0.2.0] - 2026-11-17
 
 ### Changed
-- The product is now called Flerdo.
+- The clickable concept introduced the first product name.
 
 ### Added
 - Open-source front door: English CONTRIBUTING, CODE_OF_CONDUCT, SECURITY,
@@ -153,7 +167,7 @@ All notable changes to this project are documented here. Format follows
   customer assistants (services and free times; the person books on the
   booking page).
 - Modules with prices: Features shows each module (Journal, Stock, Campaigns,
-  Finance, Reviews, Waiting list, Ask Flerdo) as a card with on/off, a demo
+  Finance, Reviews, Waiting list, Assistant) as a card with on/off, a demo
   price and a running monthly total. Switching a module off removes it from the
   menu, Today cards, AI task list and command box answers.
 - Industry packs: Foot care and massage, Hair salon, Nails, Personal trainer and
@@ -194,7 +208,7 @@ All notable changes to this project are documented here. Format follows
   treatments, cancellations and no-shows, and new vs returning customers for a
   day, week, month or year, each compared with the period before.
 - Monthly costs (rent, products, wages, fees) with the result left over each month.
-- Accounted bookkeeping card (simulated connection, preview of what would sync)
+- Bookkeeping card (simulated connection, preview of what would sync)
   and SIE and CSV exports.
 - The command box answers "compare March with last year", "which treatment earns
   the most per hour?" and "how busy is Erik next week?" with a number and a chart.
@@ -202,11 +216,11 @@ All notable changes to this project are documented here. Format follows
   confirmation sends, retry-safe reminder sends and a Sent log in Inbox.
 - Customers can leave a 1–5 star review after a completed visit. Owners approve
   it in Inbox or Reviews before its text or rating appears on the salon page.
-- A responsive Flerdo booking widget, plus copyable embed code and a clean
+- A responsive Cresavo booking widget, plus copyable embed code and a clean
   Instagram bio link in More → Settings.
 - More customer booking phrases, including sports massage, back rub, footcare,
   next available, day after tomorrow, weekday abbreviations and around HH:mm.
-- Flerdo can securely save a business's own OpenRouter, OpenAI or Anthropic key
+- Cresavo can securely save a business's own OpenRouter, OpenAI or Anthropic key
   on the demo server, choose Fast/Smart per task, and show saved usage by task
   and month. The command box uses validated provider tool proposals with rules
   as fallback; all features still work without keys.

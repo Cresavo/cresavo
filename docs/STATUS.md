@@ -1,11 +1,13 @@
 # Status
 
 Cresavo is a concept demo (0.x) for salons and other small service businesses.
+Start with the [demo and product tour](../README.md) or see the
+[public roadmap](ROADMAP.md).
 
 ## Available today
 
-- [demo.cresavo.com](https://demo.cresavo.com) opens the demo landing page,
-  owner studio and Salong Eko customer booking page. The studio includes the
+- The [launch plan](LAUNCH_PLAN.md) and [post drafts](launch/) cover feedback on the public concept demo and contributor onboarding. GitHub community setup and posting are owner steps.
+- [demo.cresavo.com](https://demo.cresavo.com) opens the owner studio directly. Salong Eko’s customer booking page stays at /boka/salong-eko. The studio includes the
   Assistant, campaigns, stock and purchasing, finance and configurable modules.
   The demo uses fictional fixtures and browser state. The Assistant works
   without an AI key.
@@ -23,8 +25,7 @@ Cresavo is a concept demo (0.x) for salons and other small service businesses.
   flows, same-origin tab synchronization, assistant lookups and host feedback.
   Booking undo checks availability, and the customer time picker shows salon
   contacts when no days are open. The QA runner is available through `npm run qa`.
-- Visitors can try a booking on the demo landing and watch five recorded
-  studio and customer workflows.
+- The product page includes the founder story, a looping request-to-booking example, and a diagram of available and planned connections. Its tour includes five workflow films and an offline booking sample.
 - Owners can drag to reorder treatments and categories in the studio and undo
   each move. The booking-page editor supports dragging sections in its draft.
 
@@ -35,8 +36,8 @@ requires verified tenant isolation, production authentication and access
 controls, backups and restore, monitoring, and a security and privacy review.
 The launch waiting list needs a storage provider and a current privacy policy
 before it can accept sign-ups. Use fictional data and simulated messages in
-the meantime. See the [pilot gate](QUALITY_SECURITY.md) and [goal queue](goals/QUEUE.md).
+the meantime. See the [pilot gate](QUALITY_SECURITY.md) and [roadmap](ROADMAP.md).
 
 Reminders by text and e-mail, payments and other providers have a connections
 foundation: simulated by default, live adapters behind a flag
-(`docs/integrations/README.md`).
+([connections guide](integrations/README.md)).

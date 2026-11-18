@@ -8,7 +8,7 @@ import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { mcpEnvironment } from "../../src/mcp/environment";
 
-test("kundexport laddas ner och bekräftad kontaktborttagning bevarar teknisk historik", async ({
+test("customer export downloads and confirmed contact removal preserves technical history", async ({
   page,
   request,
   synthetic,
@@ -224,7 +224,7 @@ test("kundexport laddas ner och bekräftad kontaktborttagning bevarar teknisk hi
   }
 });
 
-test("HTTP-admin och lokal MCP-kontakt minimeras först efter att kommande besök hanterats", async ({
+test("HTTP admin and local MCP minimize contact details only after upcoming visits are handled", async ({
   page,
   synthetic,
 }) => {

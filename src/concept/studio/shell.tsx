@@ -28,7 +28,7 @@ const WELCOME_PATH = "/studio/welcome";
 const PAGE_FRAME = "mx-auto w-full max-w-6xl px-4 pt-2 sm:px-6 lg:mx-0 lg:max-w-[78rem] lg:px-8 lg:pt-7";
 
 /**
- * The demo landing offers two ways in: `/studio?start=essentials` or `?start=everything`. The choice only
+ * Studio links can select a starting preset with `/studio?start=essentials` or `?start=everything`. The choice only
  * sets the module switches (More → Features changes it back); the parameter is dropped so a reload does not repeat it.
  */
 function useStartPreset(ready: boolean) {

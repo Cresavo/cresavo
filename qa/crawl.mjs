@@ -1,8 +1,8 @@
 // Crawl every internal link reachable from the main entry pages, as owner and as staff.
 // Reports non-200 documents, console errors, page errors, failed requests and hydration warnings.
-import { launch, newContext, watch, save, settle, DEMO } from "./lib.mjs";
+import { launch, newContext, watch, save, settle, APEX, DEMO } from "./lib.mjs";
 
-const STARTS = ["/landing", "/coming-soon", "/studio", "/boka/salong-eko"];
+const STARTS = [APEX + "/", "/studio", "/boka/salong-eko"];
 const MAX_PAGES = Number(process.env.QA_CRAWL_MAX ?? 220);
 const PER_PATTERN = 3; // e.g. at most 3 different /studio/customers/<id> pages
 
@@ -23,7 +23,7 @@ async function crawl(browser, role) {
     const before = issues.length;
     let status = 0, finalUrl = "";
     try {
-      const res = await page.goto(DEMO + path, { waitUntil: "domcontentloaded", timeout: 30000 });
+      const res = await page.goto(new URL(path, DEMO).href, { waitUntil: "domcontentloaded", timeout: 30000 });
       status = res?.status() ?? 0;
       await settle(page);
       await page.waitForTimeout(500); // client-rendered studio
@@ -32,8 +32,8 @@ async function crawl(browser, role) {
       for (const href of hrefs) {
         if (!href || /^(mailto:|tel:|sms:|javascript:|#)/.test(href)) continue;
         let u; try { u = new URL(href, page.url()); } catch { continue; }
-        if (u.host !== new URL(DEMO).host) continue;
-        const next = u.pathname + u.search;
+        if (![new URL(APEX).host, new URL(DEMO).host].includes(u.host)) continue;
+        const next = (u.host === new URL(APEX).host ? APEX : "") + u.pathname + u.search;
         if (!seen.has(next)) queue.push({ path: next, from: path });
       }
     } catch (e) {

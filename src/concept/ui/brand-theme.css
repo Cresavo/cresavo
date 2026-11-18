@@ -36,7 +36,7 @@
   --ui-staff-1-bg: light-dark(#e4edf3, #22303b);
   --ui-staff-2: light-dark(#5f6b2e, #c5d394);
   --ui-staff-2-bg: light-dark(#eef0e0, #2e3320);
-  /* Not in the kit (docs/design/CRESAVO.md, deviations): a quiet line for row
+  /* Runtime token outside the brand kit: a quiet line for row
      separators inside one surface and the outline of a card on the canvas.
      Decorative only; a boundary that matters uses --ui-border. */
   --ui-hairline: light-dark(#e7ddd9, #4d414f);
