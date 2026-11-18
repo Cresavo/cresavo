@@ -43,7 +43,9 @@ with plain buttons and no AI at all.
   hours and reviews; clients book, move and cancel themselves.
 - **Treatments and prices, campaigns, gift cards, packages, stock and finance**
   as modules you switch on when you need them.
-- **Undo and "What happened?":** every change is logged and can be undone.
+- **Undo and "What happened?":** changes are logged, and a change can be
+  undone as long as nothing later stands in the way (for example a new booking
+  in the same slot).
 - **Your data is yours:** export it, connect other tools through an open API
   and an MCP endpoint, or host it yourself.
 - **AI is optional:** bring your own key for OpenRouter, OpenAI or Anthropic;
@@ -67,9 +69,20 @@ Windows you can also double-click `start-demo.cmd`. Optional AI: set
 
 ## Self-hosting
 
-- **Concept demo:** a plain Next.js app with no database or secrets. Run
-  `npm run build && npm start`, or deploy to Vercel as described in
-  [DEPLOY_DEMO](docs/DEPLOY_DEMO.md).
+- **Concept demo:** a plain Next.js app with no database or secrets. Build it
+  the way the public demo is built (the database URL is a placeholder that is
+  only needed to generate the Prisma client):
+
+  ```bash
+  npm ci && npx prisma generate
+  DATABASE_URL=postgresql://build@127.0.0.1:1/build_test \
+  NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO=1 NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN=your-domain.example \
+  npm run build
+  npm start                      # http://localhost:3000
+  ```
+
+  To deploy on Vercel, see [DEPLOY_DEMO](docs/DEPLOY_DEMO.md) and change the
+  product domain in `vercel.json` to one you control.
 - **Booking engine** (`/admin`, `/api/v1`, owner MCP): needs PostgreSQL. With
   Docker Compose:
 
@@ -134,7 +147,7 @@ offer its users the corresponding source. Third-party components keep their
 own licences: [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md).
 
 **Not covered by the AGPL:** the Cresavo name, wordmark and symbol concepts,
-the brand kits in `design/brand/**`, the app icons in `public/brand/**` and
-the media in `docs/media/**`. All
-rights are reserved; see [TRADEMARK.md](TRADEMARK.md) for what you may do.
-Forks must use their own name and logo.
+the brand kits in `design/brand/**` (except the token files the build needs),
+the app icons in `public/brand/**` and the media in `docs/media/**`. All
+rights in them are reserved; see [TRADEMARK.md](TRADEMARK.md) for what you may
+do. Forks must use their own name and logo.

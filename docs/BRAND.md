@@ -16,8 +16,9 @@ were deliberately not renamed (see below).
   concepts, tokens, typography, voice). `design/brand/libovo-v0.9/` is the
   earlier kit. Both are kept verbatim; do not edit them. A new version goes
   into its own folder.
-- The design system in code is described in [design/LIBOVO.md](design/LIBOVO.md)
-  (the file name and `libovo-theme.css` are technical identifiers).
+- The design tokens in code are `src/concept/ui/brand-theme.css`, checked
+  against the kit's `tokens/colors.json`; the frontend guide is
+  [design/LIBOVO.md](design/LIBOVO.md) (its file name is from the earlier kit).
 - Use of the name, wordmark and media: [TRADEMARK.md](../TRADEMARK.md).
 
 ## How the name is used

@@ -8,9 +8,11 @@ built-in rules unless a provider key is configured. The public instance is
 
 - `vercel.json` builds with a dummy `DATABASE_URL` (Prisma client generation
   only), `NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO=1` and
-  `NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN=cresavo.com`. To deploy your own copy,
-  import the repository as a Vercel project and set the product domain to a
-  domain you control.
+  `NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN=cresavo.com` set inside `buildCommand`
+  (so a project environment variable does not override it). To deploy your
+  own copy, import the repository as a Vercel project and change that value in
+  `vercel.json` to a domain you control; do not present your copy as Cresavo
+  ([TRADEMARK.md](../TRADEMARK.md)).
 - Environment: `CONCEPT_AI_STORE_DIR=/tmp/concept-ai` (serverless file system is
   read-only elsewhere). Leave `CONCEPT_KEY_SECRET` unset: own-key storage stays
   off. `CONCEPT_MCP_TOKEN` unset means the MCP endpoint rejects all calls in

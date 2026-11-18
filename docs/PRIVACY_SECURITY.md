@@ -20,7 +20,7 @@ servern har ingen egen kvittogallring. Den fasta kundkontakten delar ordinarie
 3-bokningar-per-dag-gräns mellan klienterna. Grok bekräftade denna begränsning
 och lokal syntetisk GO på 721d445/f9b8506; se originalrapporten i VERIFICATION.
 Framtida verklig verifiering och leverans behöver bindas till avsedd kund innan
-pilot. Ett verifiedVia-värde i databasen ersätter inte detta. [Resultat](VERIFICATION.md).
+pilot. Ett verifiedVia-värde i databasen ersätter inte detta. [Resultat](archive/VERIFICATION.md) (historical).
 
 ## Kundgodkännandets identitetsgräns · verifierad 2026-11-16
 
@@ -36,7 +36,7 @@ processlokal avsändare, med telefon från klientens indata. Före verklig
 användning måste leverans och verifiering bindas till avsedd kund genom en
 oberoende, betrodd väg som agenten inte själv kan välja eller läsa. Leverantör,
 kundidentifiering, återställning och verkliga utskick är separata beslut.
-Inget sådant system införs genom denna kontroll. [Testbevis](VERIFICATION.md).
+Inget sådant system införs genom denna kontroll. [Testbevis](archive/VERIFICATION.md).
 Groks egen HTTP-/Chromium-reproduktion bekräftar gränsen. Dess förslag om
 registrerad kanal/verifiedVia är beslutsunderlag, inte en beställning av nytt
 kundregister eller auth-system. Ett icke-null verifieringsfält ersätter inte

@@ -1,4 +1,7 @@
-# Libovo design system (frontend guide)
+# Design system (frontend guide)
+
+Written for the Libovo kit v0.9; the product is now Cresavo and the tokens come
+from `design/brand/cresavo-v0.1/`. The structure below still applies.
 
 Brand kit: `design/brand/libovo-v0.9/` (read-only, provisional, not
 trademark-cleared). This file says how the kit lives in the code. Audit and
@@ -6,7 +9,7 @@ before/after: [AUDIT.md](AUDIT.md), [COMPARISON.md](COMPARISON.md).
 
 ## 1. Tokens
 
-One source: `src/concept/ui/libovo-theme.css`, imported once in
+One source: `src/concept/ui/brand-theme.css`, imported once in
 `src/app/layout.tsx` (and `src/pages/_app.tsx` for the pages router). Values
 are the kit's, 1:1; each colour is a `light-dark()` pair.
 `tests/concept-tokens.test.ts` checks every value against the kit's
@@ -145,15 +148,15 @@ name, nav, theme control, user) and multi-column pages. Content max 6xl
 ## 9. Naming and rename-back
 
 - Product name: `BRAND.name` in `src/concept/brand.ts`; assistant label:
-  `ASSISTANT.name` (still "Flerdo"). `tests/brand.test.ts` fails if either is
+  `ASSISTANT.name` ("Assistant"). `tests/brand.test.ts` fails if either is
   spelled out elsewhere in `src`. Help articles use `{brand}` / `{assistant}`.
 - Assets: `src/concept/ui/wordmark.tsx` (paths), `public/favicon.ico`,
-  `public/brand/libovo-placeholder-*.png` (declared as `PLATFORM_ICONS` in
+  `public/brand/icon-temporary-*.png` (declared as `PLATFORM_ICONS` in
   `src/concept/ui/brand-assets.ts`, used by the root layout only),
   `src/app/manifest.ts`.
 - Unchanged on purpose: domains, env vars, package name, API routes, MCP
   namespaces, localStorage keys, Prisma identifiers, file names such as
-  `libovo-theme.css` are internal.
+  `docs/design/LIBOVO.md` are internal.
 - To rename: change `BRAND.name` (and tagline), replace the wordmark paths and
   the icon files. Nothing else.
 
