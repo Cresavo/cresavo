@@ -7,6 +7,10 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Cresavo: the platform is named Cresavo (wordmark, tokens and copy on every platform surface). `cresavo.com` shows a coming-soon page with a launch waiting list, `demo.cresavo.com` the demo landing; the tenant booking page keeps the business's own brand.
+- Assistant: daily questions are answered straight from your data: who is next, when a customer is coming, what they had last time, whether a treatment fits a day (with the next day that has room), what a treatment costs, a gift card's balance, what waits in the Inbox and who is due back. Rows link to the customer.
+- Assistant: "Text Ida that I'm running 15 minutes late" drafts one simulated text for approval.
+- Features: two starting points, Essentials and Everything, as one tap each (also `/studio?start=essentials|everything`).
 - Libovo brand v0.9 (provisional): the product is called Libovo through the one brand constant, with the kit's wordmark in the studio, home, product, live and landing pages, and temporary monogram icons for the browser tab, home screen and web app manifest. The assistant keeps its "Ask Flerdo" name until the owner decides.
 - Light, dark or system theme for the studio (Settings > Appearance, the sidebar, and More on phones), remembered on the device and applied before the page paints.
 - Ctrl+K (⌘K on a Mac) opens Ask Flerdo anywhere in the studio; quick commands are typed there.
@@ -23,6 +27,9 @@ All notable changes to this project are documented here. Format follows
 - Ask Flerdo can change the page: "make it calmer and more luxurious", "put reviews first" or "use the colours from our logo" give a proposal with a before and after preview, applied on approval and undoable from What happened?.
 
 ### Changed
+- The assistant is called "Assistant", with no persona name (it was "Ask Flerdo"). On phones it is one quiet labelled button above the tabs with the microphone inside the panel; the panel opens at the message box ("Who is coming today?") without a brief, routine offer, sparkles or "Rules · no AI" labels, and no longer saves conversation summaries to memory.
+- Today is calmer: one suggestion at a time, and routines are suggested under More > Routines instead of on Today.
+- Text on a tinted background is always neutral ink (Features, Gift cards and Packages totals, the gift card balance on the booking page).
 - The studio, home, login, product and live pages use the Libovo colours (aubergine and apricot), Inter, calmer corners and outlined cards, in light and dark. Buttons, fields and chips are at least 44 px tall and inputs 16 px.
 - The "Ask Flerdo…" box at the top of every page is gone: the assistant is one button (top bar, or the floating button with microphone on phones). With an AI key, the model's reading of a quick command still replaces the rules' answer before you approve.
 - Today lists today's bookings first, then what needs attention, then the brief; the two number cards are one strip. On phones the calendar shows one person's day with a staff switch.
@@ -32,6 +39,9 @@ All notable changes to this project are documented here. Format follows
 - On phones the inline command box is replaced by the assistant button (#18); it stays on larger screens.
 
 ### Fixed
+- The read-only public demo keeps working where the server refuses writes: journal structuring and help answers run their built-in rules in the browser instead of failing, and the Data page shows one note instead of connection steps, a server reset and a key form that cannot work there.
+- Assistant: "Who is coming on Friday?" lists Friday (it listed today), yesterday's revenue is one day (it was the whole month), a stated discount is used in an offer (it was always 10%), "same as last time" means the last finished visit, and a gift card question is no longer read as a stock question.
+- Assistant: closing early, blocking part of a day, no-shows, waiting-list adds and journal notes are declined in plain words with the place to do them, instead of a wrong draft (a part-day closure used to become an all-day one) or "I did not catch that".
 - Saved demo data survives the rebrand: saves from versions 12–14 are migrated in place (bookings, customer edits, stock and the booking page design are kept) instead of being replaced by fresh data. Only new Salong Eko data starts on the Forest palette (Codex #1).
 - On phones and tablets the Owner/Staff demo switch is a compact button in the top bar, so a staff view can always switch back (it used to live in More, which staff cannot open) (Codex #2).
 - Ask Flerdo: a model's late reading of a quick command no longer replaces a card the owner has already picked from, approved, declined or moved past, and when it does replace the card it brings its own context, so "that day" means the day on the card (Codex #3).
