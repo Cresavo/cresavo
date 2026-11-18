@@ -7,6 +7,7 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- The README now links to the demo, community, public roadmap and ways to contribute. First-time contributors have a quickstart and review guide, with simple forms for GitHub Discussions.
 - Anna and Erik have fictional staff portraits on the booking page, throughout booking and in the studio.
 - Visitors can try a booking in the landing page’s phone and watch five short recordings from Salong Eko. Each recording has a playback control and a still for reduced motion.
 - Treatments & prices: owners add, edit, hide, duplicate, reorder and delete treatments, and add, rename, reorder and remove categories. Name, category, length and price come first; description, who can do it and visibility sit behind "More options". Deleting a treatment with upcoming bookings says how many, offers to hide it instead, and never changes the bookings. Every change is in What happened? and can be undone. The booking page, booking flows, the assistant and campaigns follow at once.

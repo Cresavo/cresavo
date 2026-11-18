@@ -12,6 +12,14 @@ customers and your booking page in one place. An optional assistant can
 suggest the next step, but you approve every change, and everything works
 with plain buttons and no AI at all.
 
+## Why Cresavo
+
+Booking software should belong to the salons that use it. We're building an
+open-source alternative to the big booking platforms, so a salon can keep
+booking simple, export its data and run the software on its own server.
+Cresavo's approach is to take no commission on bookings. The everyday tools
+work without AI, and the assistant is there if you choose to use it.
+
 > **Status: concept demo; work in progress; not production-ready.** The demo
 > runs on fictional data in your browser. Do not use it with real customers
 > yet; see [STATUS](docs/STATUS.md) and [QUALITY_SECURITY](docs/QUALITY_SECURITY.md).
@@ -124,6 +132,15 @@ npm run lint && npx tsc --noEmit && npm test && npm run build
 npm run test:concept           # concept demo browser tests (Playwright)
 npm run test:integration       # needs a local database whose name ends in _test
 ```
+
+## Join the movement
+
+- [Star Cresavo on GitHub](https://github.com/Cresavo/cresavo) to bookmark the project.
+- [Join GitHub Discussions](https://github.com/Cresavo/cresavo/discussions) to ask a question or tell us what would make booking fairer.
+- [Try the demo](https://demo.cresavo.com) with fictional salon data, no account needed.
+- [Check the waitlist](https://cresavo.com). The form is a preview and currently saves no email addresses.
+- [Find a good first issue](https://github.com/Cresavo/cresavo/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) and read the [contribution guide](CONTRIBUTING.md).
+- [See the public roadmap](docs/goals/QUEUE.md) for priorities and what still needs to be built.
 
 ## Contributing
 
