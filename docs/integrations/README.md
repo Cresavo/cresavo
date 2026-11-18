@@ -1,6 +1,6 @@
 # Integrations (connections)
 
-Goal 28: every outside service the product talks to goes through one **port**
+Each type of external service uses one **port**
 per capability, with a **simulated adapter** as the default and real
 **provider adapters** behind a flag. Code: `src/concept/connections/`.
 
@@ -24,8 +24,7 @@ per capability, with a **simulated adapter** as the default and real
   port, like `src/concept/ai/router.ts` picks a model, and says why.
 - **Secrets** (`server/secrets.ts`): read only on the server through a
   `SecretStore`. Today an env-backed store (one business per self-hosted
-  install); an encrypted per-business store follows with a real database
-  (goal 11). Names starting with `NEXT_PUBLIC_` are refused.
+  install). An encrypted per-business store is planned for the database-backed studio. Names starting with `NEXT_PUBLIC_` are refused.
 
 ## When is a provider live?
 
@@ -173,7 +172,7 @@ exists. Variable names are in `.env.example`.
 4. Known gap: Fortnox rotates the refresh token on every refresh. The adapter
    keeps the new one in memory, so a running server keeps working, but after a
    restart the env token is stale and you must re-consent until the
-   per-business store (goal 11) can save it (verify). Rate limit 25 requests
+   planned per-business store can save it (verify). Rate limit 25 requests
    per 5 seconds.
 
 ### Visma eAccounting / eEkonomi (accounting, Nordics)

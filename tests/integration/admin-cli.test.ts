@@ -35,7 +35,7 @@ afterEach(async () => {
   await db.$disconnect();
 });
 
-it("skapar, återställer och spärrar via stdin utan hemligheter i argument eller output", async () => {
+it("creates, resets, and disables accounts via stdin without exposing secrets in arguments or output", async () => {
   expect(run(["create", email], `${password}\n${password}\n`).status).toBe(0);
   expect(await verifyAdminCredentials({ email, password })).not.toBeNull();
   const next = `${password}-next`;
@@ -48,7 +48,7 @@ it("skapar, återställer och spärrar via stdin utan hemligheter i argument ell
   expect(await verifyAdminCredentials({ email, password: next })).toBeNull();
 });
 
-it("nekar extra argument, korta lösenord, mismatch och EOF utan att skapa konto", async () => {
+it("rejects extra arguments, short passwords, mismatches, and EOF without creating an account", async () => {
   for (const result of [
     run(["create", email, "CANARY_SECRET"]),
     run(["create", email], "short\nshort\n"),
@@ -60,7 +60,7 @@ it("nekar extra argument, korta lösenord, mismatch och EOF utan att skapa konto
   expect(await db.adminUser.count({ where: { email } })).toBe(0);
 });
 
-it("skriver statisk orsak för dubblett och saknat konto", () => {
+it("prints a fixed reason for duplicate or missing accounts", () => {
   expect(run(["create", email], `${password}\n${password}\n`).status).toBe(0);
   const duplicate = run(["create", email], `${password}\n${password}\n`);
   expect(duplicate.status).toBe(1);

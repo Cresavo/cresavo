@@ -50,7 +50,7 @@ describe("slug", () => {
 
 describe("host resolution", () => {
   it("serves local and preview hosts as the app", () => {
-    for (const host of [null, "", "localhost:3000", "127.0.0.1", "flerdo-demo-abc.vercel.app"]) {
+    for (const host of [null, "", "localhost:3000", "127.0.0.1", "cresavo-demo-abc.vercel.app"]) {
       expect(resolveHost(host, directory, product)).toEqual({ kind: "app" });
     }
   });

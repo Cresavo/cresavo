@@ -39,7 +39,7 @@ const body = (over: Record<string, unknown> = {}) =>
   });
 
 describe("Agent API v1 bokningar mot PostgreSQL", () => {
-  it("bokar, upprepar säkert, hanterar krock, skyddar andras bokningar och avbokar", async () => {
+  it("books, retries safely, handles conflicts, protects other customers' bookings, and cancels", async () => {
     const a = await createAgentApiKey({ businessId: "demo", agentName: `${tag}-a`, ownerName: "Ägare A", ownerContact: "a@example.test", kind: "demo-script" }, db);
     const b = await createAgentApiKey({ businessId: "demo", agentName: `${tag}-b`, ownerName: "Ägare B", ownerContact: "b@example.test" }, db);
     const readOnly = await createAgentApiKey({ businessId: "demo", agentName: `${tag}-ro`, ownerName: "Ägare C", ownerContact: "c@example.test", scopes: ["services:read"] }, db);

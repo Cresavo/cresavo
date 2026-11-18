@@ -91,8 +91,8 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-describe("Avgränsad bokning från MCP-kort", () => {
-  it("läsläge kan inte skriva och skrivläge exponerar inga adminverktyg", async () => {
+describe("Restricted booking from the MCP card", () => {
+  it("read mode cannot write and write mode exposes no admin tools", async () => {
     expect((await reader.listTools()).tools.map((t) => t.name).sort()).toEqual([
       "list_services",
       "show_time_picker",
@@ -113,7 +113,7 @@ describe("Avgränsad bokning från MCP-kort", () => {
     );
     expect(await db.booking.count({ where: { serviceId } })).toBe(0);
   });
-  it("kräver bekräftelse och nekar kundfält utan skrivning", async () => {
+  it("requires confirmation and rejects customer fields without writing", async () => {
     for (const patch of [
       { confirmed: false },
       { customerEmail: "canary@example.test" },
@@ -125,7 +125,7 @@ describe("Avgränsad bokning från MCP-kort", () => {
     }
     expect(await db.booking.count({ where: { serviceId } })).toBe(0);
   });
-  it("sparar samma id vid retry och visar bokningen i samma kalender", async () => {
+  it("returns the same ID on retry and shows the booking in the same calendar", async () => {
     const args = request();
     const first = await call(args),
       retry = await call(args);
@@ -160,7 +160,7 @@ describe("Avgränsad bokning från MCP-kort", () => {
       error: { status: 409 },
     });
   });
-  it("20 samtidiga retries ger exakt en bokning och ett create-event", async () => {
+  it("20 simultaneous retries produce exactly one booking and one creation event", async () => {
     const args = request();
     const results = await Promise.all(
       Array.from({ length: 20 }, () => call(args)),
@@ -184,7 +184,7 @@ describe("Avgränsad bokning från MCP-kort", () => {
       }),
     ).toBe(1);
   });
-  it("20 olika nycklar på samma tid ger en vinnare, inga överlapp", async () => {
+  it("20 different keys for one slot yield one winner without overlaps", async () => {
     const results = await Promise.all(
       Array.from({ length: 20 }, () => call(request())),
     );
@@ -207,7 +207,7 @@ describe("Avgränsad bokning från MCP-kort", () => {
     >`SELECT count(*) FROM "Booking" a JOIN "Booking" b ON a.id < b.id AND a."staffId" = b."staffId" AND tstzrange(a."startsAt",a."endsAt",'[)') && tstzrange(b."startsAt",b."endsAt",'[)') WHERE a."serviceId"=${serviceId}`;
     expect(Number(overlaps[0].count)).toBe(0);
   });
-  it("behåller e-posttaket och får inte adminbudget", async () => {
+  it("preserves the email quota and stays outside the admin quota", async () => {
     for (let i = 0; i < 3; i++)
       expect(
         (await call(request({ start: starts[i] }))).isError,
@@ -216,12 +216,12 @@ describe("Avgränsad bokning från MCP-kort", () => {
     expect(limited.structuredContent).toMatchObject({ error: { status: 429 } });
     expect(await db.booking.count({ where: { serviceId } })).toBe(3);
   });
-  it("ändrad tjänsteversion kräver nytt val före bokning", async () => {
+  it("requires a new selection before booking when the service version changes", async () => {
     const result = await call(request({ serviceVersion: 2 }));
     expect(result.structuredContent).toMatchObject({ error: { status: 409 } });
     expect(await db.booking.count({ where: { serviceId } })).toBe(0);
   });
-  it("retry efter avbokning skapar inte nytt och visar aktuell status", async () => {
+  it("retrying after cancellation returns the current status without creating a booking", async () => {
     const args = request();
     const first = await call(args);
     const id = (first.structuredContent as Record<string, unknown>)

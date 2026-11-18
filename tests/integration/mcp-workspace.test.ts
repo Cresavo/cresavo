@@ -136,7 +136,7 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-it("publicerar inte nya skrivverktyg utan separat opt-in och avvisar fel startkonfiguration", async () => {
+it("withholds new write tools until separately enabled and rejects invalid startup configuration", async () => {
   for (const flags of [[], ["--admin"], ["--admin", "--allow-bookings"]]) {
     const { client } = await connect(flags);
     const names = (await client.listTools()).tools.map((tool) => tool.name);
@@ -163,7 +163,7 @@ it("publicerar inte nya skrivverktyg utan separat opt-in och avvisar fel startko
   expect(invalid.stderr).toContain("MCP_WORKSPACE_CONFIG_INVALID");
 }, 30000);
 
-it("MCP konfigurerar samma kalender, flyttar med snapshotlängd och avbokar idempotent utan kundläckage", async () => {
+it("MCP configures the same calendar, moves with the stored duration, and cancels idempotently without exposing customer details", async () => {
   const { client } = await connect();
   const { service, staff } = await resources(client);
   const original = await booking(client, service.id, staff[0].id);
@@ -315,7 +315,7 @@ it("MCP konfigurerar samma kalender, flyttar med snapshotlängd och avbokar idem
   ).toEqual([]);
 }, 30000);
 
-it("nekar okända/främmande resurser, breda läsningar och förfalskade fält utan skrivning", async () => {
+it("rejects unknown or foreign resources, broad reads, and forged fields without writing", async () => {
   const { client, stderr } = await connect();
   const { service, staff } = await resources(client);
   const foreign = await db.service.create({
@@ -441,7 +441,7 @@ it("nekar okända/främmande resurser, breda läsningar och förfalskade fält u
   expect(stderr()).not.toMatch(/CANARY_SECRET|customerEmail|customerName/);
 }, 30000);
 
-it("20 blandade domän/MCP-flyttar ger en vinnare för ett mål och inga aktiva överlapp", async () => {
+it("20 competing domain and MCP moves produce one winner for the target and no active overlaps", async () => {
   const { client } = await connect(),
     { service, staff } = await resources(client);
   const a = await booking(client, service.id, staff[0].id, at(9)),
@@ -477,7 +477,7 @@ it("20 blandade domän/MCP-flyttar ger en vinnare för ett mål och inga aktiva 
   ).toBe(2);
 }, 30000);
 
-it("alla nya skrivverktyg kräver strikt bekräftelse och request-id över verklig stdio", async () => {
+it("all new write tools require strict confirmation and a request ID over stdio", async () => {
   const { client, stderr } = await connect(),
     { service, staff } = await resources(client);
   const existing = await booking(client, service.id, staff[0].id);

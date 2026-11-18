@@ -38,7 +38,7 @@ afterAll(async () => {
 });
 
 describe("Epic 01 QA-regression", () => {
-  it("20 omgångar med 20 blandade överlapp ger snabba domänkonflikter utan överlapp", async () => {
+  it("20 rounds of 20 mixed requests resolve conflicts quickly and leave no overlaps", async () => {
     const base = (await getAvailability("fotvard", day(35)))[0];
     const durations: number[] = [];
     for (let round = 0; round < 20; round++) {
@@ -84,7 +84,7 @@ describe("Epic 01 QA-regression", () => {
       `MIXED_CONCURRENCY_ROUNDS=20; MAX_MS=${Math.ceil(Math.max(...durations))}; OVERLAPS=0`,
     );
   }, 60000);
-  it("återger samma id vid sekventiell retry och 20 parallella idempotenta anrop", async () => {
+  it("returns the same ID on a sequential retry and 20 concurrent idempotent calls", async () => {
     const slots = await getAvailability("fotvard", day(12));
     const payload = input(slots[0], "idempotent");
     const key = `${marker}-key`;
@@ -100,7 +100,7 @@ describe("Epic 01 QA-regression", () => {
     await expect(createBooking(payload, "x".repeat(65))).rejects.toThrow();
   }, 60000);
 
-  it("högst tre nya bokningar per normaliserad e-post och Stockholm-dygn även parallellt", async () => {
+  it("allows at most three new bookings per normalized email and Stockholm calendar day even under concurrency", async () => {
     const slots = await getAvailability("massage", day(16));
     const payloads = slots.slice(0, 4).map((s) => input(s, "cap", "massage"));
     const results = await Promise.allSettled(
@@ -117,7 +117,7 @@ describe("Epic 01 QA-regression", () => {
     ).rejects.toMatchObject({ status: 429 });
   });
 
-  it("20 konkurrerande anrop och blandade 30/60-minutersintervall lämnar inga överlapp", async () => {
+  it("20 competing requests with mixed 30- and 60-minute intervals leave no overlaps", async () => {
     for (const [offset, mixed] of [
       [20, false],
       [24, true],
@@ -153,7 +153,7 @@ describe("Epic 01 QA-regression", () => {
     expect(overlaps[0].count).toBe(0n);
   }, 60000);
 
-  it("tvingat exclusion-fel mappas strukturerat till säkert domänfel", async () => {
+  it("maps a forced exclusion constraint violation to a safe structured domain error", async () => {
     const data = {
       id: `${marker}-forced`,
       businessId: "demo",
@@ -175,7 +175,7 @@ describe("Epic 01 QA-regression", () => {
     });
   });
 
-  it("admin avgränsar 150 bokningar, maskerar e-post och paginerar vid DST-dygn", async () => {
+  it("admin scopes and paginates 150 bookings on a DST day and masks email addresses", async () => {
     const first = new Date("2027-10-30T22:00:00Z"); // Stockholm 00:00; 25-hour day.
     const last = new Date("2027-10-31T23:00:00Z");
     const data = Array.from({ length: 150 }, (_, i) => ({
@@ -221,7 +221,7 @@ describe("Epic 01 QA-regression", () => {
     expect(defaults.bookings.length).toBeLessThanOrEqual(20);
   });
 
-  it("kampanjer visas endast under giltigheten och ogiltiga intervall/fält avvisas", async () => {
+  it("shows campaigns only during their active period and rejects invalid ranges and fields", async () => {
     const today = DateTime.now().setZone("Europe/Stockholm").startOf("day");
     const v = {
       title: `${marker}-campaign`,
@@ -266,7 +266,7 @@ describe("Epic 01 QA-regression", () => {
   });
 });
 
-it("begränsar en socketklient till fem nya bokningar och delar e-posttak över plus-taggar", async () => {
+it("limits a socket client to five new bookings and shares the email quota across plus tags", async () => {
   const slots = await getAvailability("massage", day(38));
   const address = "192.0.2.193";
   const results = await Promise.allSettled(

@@ -6,7 +6,7 @@ import { createBooking } from "../../src/lib/domain";
 import { cancelBooking } from "../../src/lib/booking-mutations";
 import { formatBookingTime } from "../../src/lib/format";
 
-test("avbokning till kalender, beständigt avfärdande och korrekt kampanjutkast", async ({
+test("cancellation updates the calendar, dismissals persist, and campaign drafts are correct", async ({
   page,
   request,
   synthetic,

@@ -3,7 +3,7 @@ import { DateTime } from "luxon";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 import { createBooking } from "../../src/lib/domain";
 
-test("arbetsytans navigation och filter ryms på smal mobil och bred desktop", async ({
+test("workspace navigation and filters fit on narrow phones and wide desktops", async ({
   page,
   synthetic,
 }) => {
@@ -78,7 +78,7 @@ test("arbetsytans navigation och filter ryms på smal mobil och bred desktop", a
   }
 });
 
-test("korta kalenderbesök har riktiga tryckytor och hover kan inte stjäla nästa boknings klick", async ({
+test("short calendar visits have usable tap targets and hover does not intercept a click on the next booking", async ({
   page,
   synthetic,
 }) => {

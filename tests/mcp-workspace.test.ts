@@ -10,7 +10,7 @@ import {
 import { mcpEnvironment } from "../src/mcp/environment";
 
 const confirmed = { confirmed: true, clientRequestId: "synthetic-request" };
-it("kräver separat arbetsyteopt-in, admin och kvothemlighet", () => {
+it("requires separate workspace opt-in, admin mode, and a quota secret", () => {
   const secret = "synthetic-secret-at-least-32-characters";
   expect(workspaceModeAllowed(["--admin", "--allow-bookings"], secret)).toBe(
     false,
@@ -30,7 +30,7 @@ it("kräver separat arbetsyteopt-in, admin och kvothemlighet", () => {
     process.env.SESSION_SECRET,
   );
 });
-it("kräver version och stabil nyckel och nekar okända aktörs-/företagsfält", () => {
+it("requires a version and a stable key and rejects unknown actor or business fields", () => {
   const input = {
     ...confirmed,
     id: "synthetic-booking",
@@ -56,7 +56,7 @@ it("kräver version och stabil nyckel och nekar okända aktörs-/företagsfält"
     }).success,
   ).toBe(true);
 });
-it("återanvänder konfigurationsvalidering och avgränsar schemaläsning", () => {
+it("reuses configuration validation and scopes schedule reads", () => {
   const service = {
     ...confirmed,
     name: "Syntetisk",

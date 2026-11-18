@@ -33,8 +33,8 @@ which is coming soon. Introduce optional AI after the everyday salon workflow.
   earlier kit. Both are kept verbatim; do not edit them. A new version goes
   into its own folder.
 - The design tokens in code are `src/concept/ui/brand-theme.css`, checked
-  against the kit's `tokens/colors.json`; the frontend guide is
-  [design/LIBOVO.md](design/LIBOVO.md) (its file name is from the earlier kit).
+  against the kit's `tokens/colors.json`; the application stylesheet is
+  [brand-theme.css](../src/concept/ui/brand-theme.css).
 - Use of the name, wordmark and media: [TRADEMARK.md](../TRADEMARK.md).
 
 ## How the name is used
@@ -56,29 +56,7 @@ are wary of it. The demo business stays "Salong Eko", a fictional customer.
 ## Technical identifiers were not renamed
 
 Environment variables, storage keys, API routes, MCP server names and
-namespaces (for example `flerdo-demo`, `x-flerdo`), the package name
-`booking-lab-se`, database tables, file names and the repository name keep
+namespaces, the package name `booking-lab-se` and database identifiers keep
 their earlier names. Renaming them would break stored demo state, client
 configurations and tests for no user-facing gain. A rename, if any, happens
-in one deliberate pass, never piecemeal. New user-facing text says
-"Cresavo", never "Booking Lab", "Flerdo" or "Libovo".
-
-## Decision: keep the name despite a Polish product called Cresavo
-
-Decided by Niclas on 2026-11-18.
-
-- **Finding:** a Polish product uses the name Cresavo (cresavo.pl). It
-  appears inactive.
-- **Decision:** keep Cresavo and accept the risk.
-- **Risk:** a name conflict or confusion in the EU, a later trademark claim,
-  or having to rename after launch (domains, wordmark, copy). Cresavo is not
-  registered as a trademark by this project.
-- **What would trigger a rethink:** the Polish product becoming active again;
-  a trademark filing for Cresavo by them or anyone else; or a complaint from
-  the name's other user. Any of these goes straight to Niclas, who decides
-  whether to rename.
-
-## Owner to-dos (only Niclas)
-
-- [ ] Trademark search (EUIPO TMview, classes 9 and 42) before any filing.
-- [ ] Decide whether to register the name.
+in one deliberate pass, never piecemeal. Use Cresavo in new user-facing text.

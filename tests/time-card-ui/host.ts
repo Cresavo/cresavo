@@ -41,7 +41,7 @@ export async function mountTimeCard(
     },
   );
   await page.setContent(
-    '<iframe title="MCP Apps testvärd" style="width:100%;height:1600px;border:0" sandbox="allow-scripts allow-same-origin allow-downloads"></iframe>',
+    '<iframe title="MCP Apps test host" style="width:100%;height:1600px;border:0" sandbox="allow-scripts allow-same-origin allow-downloads"></iframe>',
   );
   await page.evaluate(
     ({ html, bindingName }) => {

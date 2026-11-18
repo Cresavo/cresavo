@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { hashPassword, verifyPasswordHash } from "../src/lib/password";
 import { PasswordCapacityError } from "../src/lib/errors";
 
-it("använder saltad Argon2id och verifierar rätt/fel lösenord utan klartextlagring", async () => {
+it("uses salted Argon2id to verify correct and incorrect passwords without storing plaintext", async () => {
   const password = "Syntetiskt-lösenord-2026";
   const one = await hashPassword(password);
   const two = await hashPassword(password);
@@ -16,20 +16,20 @@ it("använder saltad Argon2id och verifierar rätt/fel lösenord utan klartextla
 });
 
 it.each(["short", "x".repeat(129)])(
-  "nekar för korta/långa nya lösenord",
+  "rejects new passwords outside the allowed length",
   async (value) => {
     await expect(hashPassword(value)).rejects.toThrow();
   },
 );
 
-it("bevarar betydelsefulla blanksteg och Unicode", async () => {
+it("preserves significant whitespace and Unicode", async () => {
   const password = " syntetisk ÅÄÖ lösenfras ";
   const encoded = await hashPassword(password);
   expect(await verifyPasswordHash(encoded, password)).toBe(true);
   expect(await verifyPasswordHash(encoded, password.trim())).toBe(false);
 });
 
-it("begränsar dyra lösenordsoperationer utan obegränsad kö och släpper kapaciteten igen", async () => {
+it("bounds concurrent password operations without an unbounded queue and releases capacity afterward", async () => {
   const results = await Promise.allSettled(
     Array.from({ length: 8 }, () => verifyPasswordHash(undefined, "wrong")),
   );

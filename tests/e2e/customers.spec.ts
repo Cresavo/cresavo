@@ -3,7 +3,7 @@ import { test, expect } from "./fixtures";
 import { chooseDay, chooseSlot } from "./date-controls";
 import { DateTime } from "luxon";
 
-test("långa kundnamn ryms på kundkort, lista och bokningsval utan mobilzoom", async ({
+test("long customer names fit in details, lists, and booking controls without mobile zoom", async ({
   page,
   synthetic,
 }) => {
@@ -55,7 +55,7 @@ test("långa kundnamn ryms på kundkort, lista och bokningsval utan mobilzoom", 
   }
 });
 
-test("kundkort, bokning, ändrade uppgifter, flytt, avbokning och återbesök hänger ihop", async ({
+test("customer details link booking, edits, rescheduling, cancellation, and a repeat visit", async ({
   page,
   synthetic,
 }) => {
@@ -166,7 +166,7 @@ test("kundkort, bokning, ändrade uppgifter, flytt, avbokning och återbesök h�
   ).toBe(true);
 });
 
-test("produktingång och kund-API behåller tydliga vägar och åtkomstskydd", async ({
+test("the product entry and customer API expose clear paths and enforce access controls", async ({
   page,
 }) => {
   for (const path of [
