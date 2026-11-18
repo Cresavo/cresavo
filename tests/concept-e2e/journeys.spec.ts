@@ -112,7 +112,8 @@ test("a journal entry typed after a visit is structured and saved", async ({ pag
 
 test("a campaign goes from a Today suggestion to published", async ({ page }) => {
   await page.goto("/studio");
-  await expect(page.getByText("Suggestion", { exact: true }).first()).toBeVisible();
+  // Suggestions are rows in the attention card: each has its own action and can be dismissed.
+  await expect(page.getByRole("button", { name: "Dismiss suggestion" }).first()).toBeVisible();
   const more = page.getByRole("button", { name: /Show \d+ more suggestions?/ });
   if (await more.isVisible()) await more.click();
   await page.getByRole("link", { name: /Make a campaign|Make an offer/ }).first().click();

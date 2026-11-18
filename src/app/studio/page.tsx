@@ -12,9 +12,8 @@ import { useRole } from "@/concept/ops/role";
 import { NeedsMoving } from "@/concept/studio/today/needs-moving";
 import { PageHeader } from "@/concept/studio/page-header";
 import { EveningSummary } from "@/concept/studio/today/evening-summary";
-import { MorningBrief } from "@/concept/studio/today/morning-brief";
+import { Attention } from "@/concept/studio/today/attention";
 import { NextCustomer } from "@/concept/studio/today/next-customer";
-import { Suggestions } from "@/concept/studio/today/suggestions";
 import { Timeline } from "@/concept/studio/today/timeline";
 import { TodayStats } from "@/concept/studio/today/today-stats";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -42,13 +41,13 @@ export default function TodayPage() {
         title={greeting(minutes, viewer?.firstName ?? "Anna")}
         subtitle={`${formatDayLong(today)} · ${open ? tc("today.bookingCount", count) : t("today.closed")}`}
         actions={
-          <Button size="lg" icon={<Phone size={18} />} onClick={() => setSheet({ kind: "phone" })}>
+          <Button icon={<Phone size={18} />} onClick={() => setSheet({ kind: "phone" })}>
             {t("today.phoneMode")}
           </Button>
         }
       />
-      {/* Phones read top to bottom: today's bookings, then what needs attention, then the brief and suggestions. */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+      {/* Phones read top to bottom: today's bookings, then who is next, then what needs attention. On a desktop the second column grows with the screen. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_clamp(20rem,30vw,26rem)] lg:gap-8">
         <div className="min-w-0 space-y-6">
           {open && !viewer && <TodayStats />}
           <Section title={t("today.schedule")}>
@@ -63,12 +62,7 @@ export default function TodayPage() {
           <NeedsMoving staffId={viewer?.id} onOpen={setSheet} />
           <NextCustomer staffId={viewer?.id} onOpen={setSheet} />
           {!viewer && <EveningSummary />}
-          {!viewer && <MorningBrief />}
-          {!viewer && (
-            <Section title={t("today.suggestions")}>
-              <Suggestions onOpen={setSheet} />
-            </Section>
-          )}
+          {!viewer && <Attention onOpen={setSheet} />}
         </div>
       </div>
       <BookingSheets sheet={sheet} onChange={setSheet} />
