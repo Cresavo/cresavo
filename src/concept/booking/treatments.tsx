@@ -1,3 +1,4 @@
+import { WithStaff } from "./with-staff";
 import type { DemoState, Service } from "../data/types";
 import { t } from "../i18n";
 import { formatDuration, formatMoney } from "../i18n/format";
@@ -8,7 +9,7 @@ import { Card } from "../ui/card";
  * "Book" starts the booking flow with the treatment already chosen. `compact` leaves the descriptions out.
  */
 export function Treatments({ state, onBook, compact }: { state: DemoState; onBook: (serviceId: string) => void; compact?: boolean }) {
-  const staffNames = (service: Service) => state.staff.filter((p) => service.staffIds.includes(p.id)).map((p) => p.firstName).join(", ");
+  const staffFor = (service: Service) => state.staff.filter((p) => service.staffIds.includes(p.id));
   return (
     <div className="space-y-8">
       {state.categories
@@ -30,7 +31,7 @@ export function Treatments({ state, onBook, compact }: { state: DemoState; onBoo
                     )}
                     <div className="mt-1.5 flex items-center justify-between gap-3">
                       <p className="min-w-0 break-words text-[13px] leading-5 text-text-secondary">
-                        {formatDuration(service.duration)} · {t("booking.withStaff", { name: staffNames(service) })}
+                        {formatDuration(service.duration)} · <WithStaff people={staffFor(service)} />
                       </p>
                       <Button variant="secondary" size="sm" className="shrink-0" onClick={() => onBook(service.id)} aria-label={t("booking.bookService", { service: service.name })}>
                         {t("booking.book")}

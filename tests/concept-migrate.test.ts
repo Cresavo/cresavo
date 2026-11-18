@@ -66,9 +66,21 @@ describe("migrateState", () => {
     expect(migrateState({ ...fresh, version: 15, page: { ...fresh.page, sections: arranged } })!.page.sections).toEqual(arranged);
   });
 
+  it("adds portraits by staff ID and preserves edited staff and solo rosters from v16", () => {
+    const fresh = createDemoState(today);
+    const staff = [...fresh.staff].reverse().map((person) => ({ ...person, photo: undefined, bio: "Edited" }));
+    const saved = { ...fresh, version: 16, staff };
+    const migrated = migrateState(saved)!;
+    expect(migrated.staff).toEqual([
+      { ...staff[0], photo: "/demo/staff-erik.webp" },
+      { ...staff[1], photo: "/demo/staff-anna.webp" },
+    ]);
+    expect(migrateState({ ...saved, staff: [staff[1]] })!.staff).toEqual([migrated.staff[1]]);
+  });
+
   it("is one linear chain: every saved version from the oldest to the current reaches DEMO_VERSION", () => {
     const fresh = createDemoState(today);
-    expect(DEMO_VERSION).toBe(16);
+    expect(DEMO_VERSION).toBe(17);
     for (let version = OLDEST_MIGRATABLE; version <= DEMO_VERSION; version++) {
       expect(migrateState({ ...fresh, version })?.version, `from v${version}`).toBe(DEMO_VERSION);
     }

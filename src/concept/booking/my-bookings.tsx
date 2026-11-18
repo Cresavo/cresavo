@@ -1,5 +1,6 @@
 "use client";
 
+import { WithStaff } from "./with-staff";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -136,7 +137,7 @@ function UpcomingCard({ state, now, booking }: { state: DemoState; now: Now; boo
           <p className="font-semibold">{service?.name}</p>
           <p className="mt-0.5 text-[15px]">{formatDayLong(booking.date)}, {formatTime(booking.start)}</p>
           <p className="mt-0.5 text-sm text-text-secondary">
-            {t("booking.withStaff", { name: person?.firstName ?? "" })} · {formatDuration(booking.duration)} · {formatMoney(booking.price)}
+            {person && <WithStaff people={[person]} />} · {formatDuration(booking.duration)} · {formatMoney(booking.price)}
           </p>
         </div>
         <Badge tone="accent">{relativeDay(booking.date, now.today)}</Badge>

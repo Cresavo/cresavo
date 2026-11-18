@@ -5,7 +5,7 @@ import type { DemoState } from "../data/types";
 import { t } from "../i18n";
 import { PHOTOS, type PhotoId } from "../page/theme";
 import { buttonClass } from "../ui/button";
-import { Avatar } from "../ui/avatar";
+import { StaffAvatar } from "../ui/avatar";
 import { Card, Section } from "../ui/card";
 import { cx } from "../ui/cx";
 import { FREE_CHANGE_HOURS } from "./policy";
@@ -21,7 +21,7 @@ export function StaffSection({ state, variant }: { state: DemoState; variant: st
         <ul className="flex flex-wrap gap-2">
           {state.staff.map((person) => (
             <li key={person.id} className="flex items-center gap-2 rounded-full bg-surface py-1 pl-1 pr-4 text-sm font-medium ring-1 ring-hairline">
-              <Avatar name={`${person.firstName} ${person.lastName}`} size="sm" />
+              <StaffAvatar person={person} size="sm" />
               {person.firstName} {person.lastName}
             </li>
           ))}
@@ -31,7 +31,7 @@ export function StaffSection({ state, variant }: { state: DemoState; variant: st
           {state.staff.map((person) => (
             <li key={person.id}>
               <Card className="flex h-full items-start gap-3 p-4">
-                <Avatar name={`${person.firstName} ${person.lastName}`} size="lg" />
+                <StaffAvatar person={person} size="lg" />
                 <div className="min-w-0">
                   <p className="font-semibold">{person.firstName} {person.lastName}</p>
                   <p className="text-sm text-text-secondary">{person.title}</p>

@@ -56,9 +56,33 @@
       "bytes": 25214,
       "sha256": "84d39a308f269802425ced2b735df067b238c75056f6b2af0d2790451fcccf5c",
       "usage": "treatment section on customer page"
+    },
+    {
+      "file": "/demo/staff-anna.webp",
+      "source": "exec-c755874f-66bb-47f0-9bf7-77bb510e0deb.png",
+      "generated": "2026-11-18",
+      "synthetic": true,
+      "tool": "built-in image_gen, no new service or subscription",
+      "promptSummary": "Fictional experienced salon owner and medical foot therapist in sage linen, loosely tied hair, soft Nordic daylight, cream plaster, pale oak and greenery. Natural skin texture, no real-person likeness, text or logos.",
+      "alt": "Anna Ekström smiling in a sage linen work tunic",
+      "bytes": 15248,
+      "sha256": "4c1f4ea840c2201d26612c8f9c67728ee81cc47fa61b9e6255e01e21fe6ac0ad",
+      "usage": "Team and booking flow on the customer page, studio Staff cards and sidebar identity"
+    },
+    {
+      "file": "/demo/staff-erik.webp",
+      "source": "exec-ca392381-5f76-4cbf-9d8b-5583c2ac3b3d.png",
+      "generated": "2026-11-18",
+      "synthetic": true,
+      "tool": "built-in image_gen, no new service or subscription",
+      "promptSummary": "Fictional classic and sports massage therapist with short auburn hair and stubble, flax linen shirt, soft Nordic daylight, cream plaster, pale oak and greenery. Natural skin texture, no real-person likeness, text or logos.",
+      "alt": "Erik Holm smiling in a light linen shirt",
+      "bytes": 16522,
+      "sha256": "b42d0eb58ec3362426d5732f398cf712e1cef75cc959ec98f311f5ce5be1189b",
+      "usage": "Team and booking flow on the customer page, studio Staff cards and sidebar identity"
     }
   ],
-  "optimization": "Existing FFmpeg libwebp quality78, portraits480px, salon1200px, details720px; no npm dependency added. Original generated PNGs preserved outside repo.",
+  "optimization": "Existing FFmpeg libwebp quality78, portraits480px, salon1200px, details720px; no npm dependency added. Original generated PNGs preserved outside repo. Anna and Erik: 512px WebP, quality 85.",
   "productScreenshots": [
     {
       "file": "/demo/workspace.png",
