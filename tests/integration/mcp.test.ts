@@ -100,7 +100,7 @@ afterAll(async () => {
   await db.workspaceRequest.deleteMany({
     where: { businessId: "demo", result: { path: ["title"], equals: marker } },
   });
-  await db.campaign.deleteMany({ where: { title: marker } });
+  await db.campaign.deleteMany({ where: { title: { startsWith: marker } } });
   await db.$disconnect();
 });
 
@@ -183,8 +183,10 @@ describe("Local MCP permissions and data minimization", () => {
       "list_workspace_bookings",
       "list_workspace_services",
     ]);
-    await expect(createDraft(admin, campaign)).rejects.toThrow();
-    expect(await db.campaign.count({ where: { title: marker } })).toBe(0);
+    // Its own title, so a workspace-write test that runs first cannot affect the count.
+    const readOnlyTitle = `${marker}-read-only`;
+    await expect(createDraft(admin, { ...campaign, title: readOnlyTitle })).rejects.toThrow();
+    expect(await db.campaign.count({ where: { title: readOnlyTitle } })).toBe(0);
   });
 
   it("requires confirmation and a request ID to save a workspace campaign draft", async () => {
