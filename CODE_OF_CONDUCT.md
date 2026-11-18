@@ -62,9 +62,14 @@ Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported privately to the community leaders responsible for enforcement.
 Contact the maintainers via a private security advisory: open the
 repository's **Security** tab, choose **Report a vulnerability**, and start
-the title with "Conduct:". Only the maintainers can see such a report. Do not
-report conduct issues in public issues or discussions. All complaints will be
-reviewed and investigated promptly and fairly.
+the title with "Conduct:". The report starts privately: you, the people with
+the relevant permissions on this repository and anyone invited to the
+advisory can see it. We handle it privately and never publish it as a
+vulnerability advisory. Do not report conduct issues in public issues or
+discussions. If the report concerns the maintainer and involves content or
+behavior on GitHub, you can also report it directly to GitHub
+(<https://docs.github.com/en/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam>).
+All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the
 reporter of any incident.
@@ -120,6 +125,10 @@ community.
 This Code of Conduct is adapted from the [Contributor Covenant][homepage],
 version 2.1, available at
 [https://www.contributor-covenant.org/version/2/1/code_of_conduct.html][v2.1].
+
+Contributor Covenant version 2.1 is licensed under the
+[Creative Commons Attribution 4.0 International licence](https://creativecommons.org/licenses/by/4.0/).
+Cresavo adapted the reporting and enforcement-contact instructions.
 
 Community Impact Guidelines were inspired by
 [Mozilla's code of conduct enforcement ladder][Mozilla CoC].
