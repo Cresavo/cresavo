@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cresavo · Lettering studies, round three</title>
+<style>
+* { box-sizing: border-box }
+:root { --plum:#50364b; --apricot:#f2b184; --paper:#faf7f3; --stock:#f4efeb; --muted:#6f666f; color:var(--plum); background:var(--stock); font:15px/1.4 Arial, sans-serif; }
+body { margin:0 }
+main { max-width:1440px; margin:auto; padding:0 40px 30px }
+header { padding:30px 0 28px; border-bottom:1px solid var(--plum) }
+.topline,.headline,.section-head,.caption,.strip,.sizes,.furniture,.booking header,.booking footer,.service { display:flex; align-items:center; justify-content:space-between }
+.topline,.caption,.kicker,figcaption,.folio { font:11px/1.3 "Courier New", monospace; }
+.topline,.caption { letter-spacing:.045em }
+.topline { border-bottom:1px solid #50364b36; padding-bottom:14px }
+.headline { align-items:end; margin-top:22px; gap:20px }
+h1,h2,h3,p,figure { margin:0 }
+h1,h2,h3,.tag,.shop { font-family:Georgia,"Liberation Serif",serif; font-weight:normal }
+h1 { font-size:76px; line-height:1; letter-spacing:-.055em }
+.tag { text-align:right; font-size:29px; font-style:italic; letter-spacing:-.03em }
+.pair { display:grid; grid-template-columns:1fr 1fr; column-gap:18px }
+.option { min-width:0 }
+.section-head { padding:24px 0 16px; justify-content:start; gap:12px }
+.section-head .kicker { border-bottom:1px solid; padding-bottom:2px }
+h2 { font-size:28px; letter-spacing:-.04em }
+.intro { background:var(--paper); padding:23px 25px 20px; border-top:3px solid var(--plum) }
+h3 { font-size:38px; line-height:1.05; letter-spacing:-.04em }
+.intro p { margin-top:8px; color:var(--muted); font-size:14px }
+.proof { --ink:var(--plum); --quiet:var(--muted); --line:#50364b2b; --card:var(--paper); color:var(--ink); padding:17px 24px 22px; background:var(--paper); border-top:1px solid var(--line) }
+.dark { --ink:#fbf5f0; --quiet:#beb4bd; --line:#fbf5f02c; --card:#25202a; background:#18141e }
+.caption { color:var(--quiet) }
+.hero { display:flex; justify-content:center; align-items:center; height:120px }
+.hero img { height:60px; max-width:95% }
+.strip { align-items:start; gap:20px; border-top:1px solid var(--line); padding-top:19px }
+img { display:block }
+.app img { width:180px; height:180px }
+figcaption { margin-top:7px; color:var(--quiet); white-space:nowrap }
+.details { flex:1; min-width:0 }
+.sizes { align-items:end; gap:10px }
+.sizes figure { text-align:center }
+.sizes img { margin:auto }
+.sizes .round { margin-left:auto }
+.mono { display:flex; align-items:center; justify-content:space-between; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:7px 0; margin-top:12px; color:var(--quiet); font:11px/1.3 "Courier New", monospace }
+.mono img { height:16px }
+.dark .mono img { filter:invert(1) }
+.booking { background:var(--card); border:1px solid var(--line); margin-top:12px; border-radius:9px; overflow:hidden }
+.booking header { padding:7px 9px; border-bottom:1px solid var(--line) }
+.shop { font-size:17px; line-height:1; letter-spacing:-.04em }
+.booking header small { font-size:9px; color:var(--quiet) }
+.service { padding:7px 9px; font-size:11px }
+.service span:last-child { font-size:10px; color:var(--quiet) }
+.booking footer { border-top:1px solid var(--line); padding:5px 9px; gap:4px; justify-content:end; color:var(--quiet); font-size:10px }
+.booking footer img { height:14px }
+.folio { text-align:right; padding:20px 0 0; color:var(--muted) }
+@media(max-width:1050px) { main { padding:0 16px 20px } .pair { column-gap:10px } .proof { padding:14px } .strip { gap:12px } }
+@media(max-width:890px) { .pair { grid-template-columns:1fr } main { max-width:700px } .headline { flex-wrap:wrap } h1 { font-size:54px } }
+@media(max-width:495px) { .strip { flex-wrap:wrap } .details { flex-basis:100% } .hero img { max-width:100%; object-fit:contain } }
+</style>
+</head>
+<body><main>
+<header><div class="topline"><span>Cresavo &nbsp;/&nbsp; Visual identity</span><span>Round three</span></div>
+<div class="headline"><h1>Lettering studies</h1><p class="tag">More time. On your terms.</p></div></header>
+<div id="studies"></div>
+<p class="folio">Cresavo &nbsp;/&nbsp; Logo concepts &nbsp;·&nbsp; Round three</p>
+</main>
+<script>
+const pairs = [
+  [
+    ['a1-pen-note','Pen note','A forward lean and an open, rising finish on the c.'],
+    ['b1-apron-tie','Apron tie','A loose loop of thread, paired with Pen note.']
+  ], [
+    ['a2-sunday','Sunday','Upright bowls, a tilted e and a softly rounded v.'],
+    ['b2-palm','Palm','An upturned hand, paired with Sunday.']
+  ]
+];
+function image(folder, asset, alt, size) {
+  return `<img src="./${folder}/${asset}.svg" alt="${alt}" ${size ? `width="${size}" height="${size}"` : ''}>`;
+}
+function proof(folder, name, theme) {
+  const sample = (asset, alt, size, caption, cls='') =>
+    `<figure class="${cls}">${image(folder, asset, alt, size)}<figcaption>${caption}</figcaption></figure>`;
+  const lockup = image(folder, 'lockup-'+theme, 'Cresavo');
+  const sizes = [16,32,64].map(s => sample('mark-'+theme, name, s, s+' px')).join('');
+  return `<section class="proof ${theme}" aria-label="${name}, ${theme}">
+    <div class="caption"><span>Horizontal lockup</span><span>${theme === 'light' ? 'Light' : 'Dark'}</span></div>
+    <div class="hero">${lockup}</div>
+    <div class="strip">
+      ${sample('app-icon-'+theme, name+' app icon',180,'App icon · 180 px','app')}
+      <div class="details">
+        <div class="sizes">${sizes}${sample('avatar-'+theme, name+' avatar',48,'Avatar · 48','round')}</div>
+        <div class="mono"><span>Mono</span>${image(folder,'lockup-mono','Cresavo in one ink')}</div>
+        <div class="booking" aria-label="Booking page mock with platform attribution">
+          <header><span class="shop">Salong Eko</span><small>Book a visit</small></header>
+          <div class="service"><span>Cut &amp; finish</span><span>45 min</span></div>
+          <footer>Booked with ${lockup}</footer>
+        </div>
+      </div>
+    </div></section>`;
+}
+function option([folder,name,note], column, row) {
+  const code = (column ? 'B' : 'A') + (row+1);
+  return `<article class="option"><div class="section-head"><span class="kicker">${code}</span>
+    <h2>${column ? 'Wordmark + symbol' : 'Wordmark only'}</h2></div>
+    <div class="intro"><h3>${name}</h3><p>${note}</p></div>
+    ${proof(folder,name,'light')}${proof(folder,name,'dark')}</article>`;
+}
+document.querySelector('#studies').innerHTML = pairs.map((pair,row) =>
+  `<div class="pair">${pair.map((o,col) => option(o,col,row)).join('')}</div>`).join('');
+</script></body></html>
