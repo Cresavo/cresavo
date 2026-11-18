@@ -1,107 +1,140 @@
-# Cresavo (repo: booking-lab-se)
+# Cresavo
 
-**More time. On your terms.** An AI-native system for small service businesses,
-starting with salons and clinics: you say what you want and approve the
-proposal. Everything also works with plain buttons, and AI is never required.
+**More time. On your terms.**
 
-> **Status: concept demo (0.x).** The studio and customer pages run on
-> fictional data in your browser. The booking engine underneath is a tested
-> local proof of concept with synthetic data. Nothing here is ready for real
-> customers yet; see [STATUS](docs/STATUS.md) and
-> [QUALITY_SECURITY](docs/QUALITY_SECURITY.md).
+[![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
+[![Verify POC](https://github.com/niclasvestlund-YT/booking-lab-se/actions/workflows/verify.yml/badge.svg)](https://github.com/niclasvestlund-YT/booking-lab-se/actions/workflows/verify.yml)
+[![Secret scan](https://github.com/niclasvestlund-YT/booking-lab-se/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/niclasvestlund-YT/booking-lab-se/actions/workflows/secret-scan.yml)
 
-- Live demo: <https://demo.cresavo.com> (read-only, fictional data)
-- Product site: <https://cresavo.com> (coming soon and waiting list)
+Cresavo is a calm, open-source booking and business workspace for small
+service businesses, starting with salons and clinics. Your calendar, your
+customers and your booking page in one place. An optional assistant can
+suggest the next step, but you approve every change, and everything works
+with plain buttons and no AI at all.
 
-![The owner's day at a glance](docs/concept/screens/today-1280.png)
+> **Status: concept demo; work in progress; not production-ready.** The demo
+> runs on fictional data in your browser. Do not use it with real customers
+> yet; see [STATUS](docs/STATUS.md) and [QUALITY_SECURITY](docs/QUALITY_SECURITY.md).
 
-The public agent gateway (REST/MCP for external agents) lives in the separate
-repository [booking-lab-gateway](https://github.com/niclasvestlund-YT/booking-lab-gateway);
-the contract is in [GATEWAY_SPLIT](docs/GATEWAY_SPLIT.md).
+- **Live demo:** <https://demo.cresavo.com> (fictional salon "Salong Eko", no sign-up)
+- **Tour video (36 s, silent):** [watch the tour](docs/media/cresavo-tour-9x16.mp4)
 
-## Try the demo locally
+<a href="docs/media/cresavo-tour-9x16.mp4"><img src="docs/media/cresavo-tour-9x16-poster.jpg" alt="Poster frame of the Cresavo tour video: 'Bookings eat your day.' above a phone full of booking messages" width="220"></a>
 
-Requires Node.js 22.12+ (or 24+). One command installs what is needed and opens
-the studio:
+## Screenshots
+
+| The owner's day | Dark mode |
+|---|---|
+| ![Today view: the day's schedule, the next customer and a short morning brief](docs/design/cresavo/screens/studio-today-desktop-after.jpg) | ![Today view in dark mode](docs/design/cresavo/screens/studio-today-desktop-dark-after.jpg) |
+
+| Landing page | Customer booking page (mobile) |
+|---|---|
+| <img src="docs/design/cresavo/screens/landing-v2-desktop-light.png" alt="Cresavo landing page with the tagline and product sections" width="420"> | <img src="docs/design/cresavo/screens/booking-page-mobile-after.jpg" alt="Salong Eko's booking page on a phone: treatments, team, reviews and opening hours" width="200"> |
+
+## Features
+
+- **Today:** the day's schedule, the next customer and free slots at a glance;
+  book a caller in a few taps ("Someone is calling").
+- **Calendar:** drag a visit to move it; opening hours and lunch breaks per business.
+- **Customers and journal:** visit history, preferences and treatment notes.
+- **Inbox:** booking requests, cancellations and reviews, with drafted replies
+  you check before sending.
+- **Booking page:** each business gets its own page with treatments, team,
+  hours and reviews; clients book, move and cancel themselves.
+- **Treatments and prices, campaigns, gift cards, packages, stock and finance**
+  as modules you switch on when you need them.
+- **Undo and "What happened?":** every change is logged and can be undone.
+- **Your data is yours:** export it, connect other tools through an open API
+  and an MCP endpoint, or host it yourself.
+- **AI is optional:** bring your own key for OpenRouter, OpenAI or Anthropic;
+  without a key every task runs built-in rules.
+
+## Quick start
+
+Requires Node.js 22.12+ (or 24+).
 
 ```bash
-npm run demo                   # on Windows you can also double-click start-demo.cmd
+git clone https://github.com/niclasvestlund-YT/booking-lab-se.git cresavo
+cd cresavo
+npm run demo        # installs dependencies and opens the studio
 ```
 
 Open <http://localhost:3000/studio> (owner) and
-<http://localhost:3000/boka/salong-eko> (customer booking page). The studio
-keeps its demo state in your browser; **More → Settings → Reset demo** starts
-over. Optional AI: set `OPENROUTER_API_KEY`, `OPENAI_API_KEY` or
-`ANTHROPIC_API_KEY` in `.env`; without a key every task runs its built-in rules.
+<http://localhost:3000/boka/salong-eko> (customer booking page). Demo state
+lives in your browser; **More → Settings → Reset demo** starts over. On
+Windows you can also double-click `start-demo.cmd`. Optional AI: set
+`OPENROUTER_API_KEY`, `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` in `.env`.
 
-## Booking engine (PostgreSQL)
+## Self-hosting
 
-The engine behind `/admin`, `/api/v1` and the owner MCP needs Docker with
-Compose and free ports 5432 and 3000:
+- **Concept demo:** a plain Next.js app with no database or secrets. Run
+  `npm run build && npm start`, or deploy to Vercel as described in
+  [DEPLOY_DEMO](docs/DEPLOY_DEMO.md).
+- **Booking engine** (`/admin`, `/api/v1`, owner MCP): needs PostgreSQL. With
+  Docker Compose:
 
-```bash
-cp -n .env.example .env        # set SESSION_SECRET (at least 32 random characters)
-docker compose up -d --wait
-npm ci
-npx prisma generate
-npm run db:migrate
-npm run db:seed
-npm run admin:manage -- create admin@example.test
-npm run dev                    # always use the npm scripts, not next dev directly
-```
+  ```bash
+  cp -n .env.example .env        # set SESSION_SECRET (at least 32 random characters)
+  docker compose up -d --wait
+  npm ci && npx prisma generate
+  npm run db:migrate && npm run db:seed
+  npm run admin:manage -- create admin@example.test
+  npm run dev                    # use the npm scripts, not next dev directly
+  ```
 
-Owner MCP (local only, the server does not listen on the network):
+  The owner MCP is local only: `npm run mcp:client` (read-only) or
+  `npm run mcp:client -- --admin --workspace` (every write asks for "yes").
 
-```bash
-npm run mcp:client                         # read-only: services and free times
-npm run mcp:client -- --admin --workspace  # workspace, every write requires "yes"
-```
+The booking engine is a tested proof of concept with synthetic data, not a
+hardened production service.
+
+## Architecture
+
+- **Next.js 16 + TypeScript.** The concept demo (`src/app/studio`,
+  `src/app/boka`, `src/concept/`) runs on fixture data and browser state;
+  `src/proxy.ts` routes the product domain, the demo subdomain and business
+  addresses.
+- **Booking engine:** Prisma and PostgreSQL. Booking rules live once in
+  `src/lib/domain.ts` and are shared by the web, the REST API and the MCP.
+- **Agent gateway:** the public REST/MCP entry for external agents lives in a
+  separate repository, `booking-lab-gateway`, which is not public yet
+  (contract: [GATEWAY_SPLIT](docs/GATEWAY_SPLIT.md)).
+- More: [ARCHITECTURE](docs/ARCHITECTURE.md), [DATA_FLOWS](docs/DATA_FLOWS.md),
+  [PRIVACY_SECURITY](docs/PRIVACY_SECURITY.md), [ROADMAP](docs/ROADMAP.md),
+  [CHANGELOG](CHANGELOG.md). Some engine docs are still in Swedish; moving
+  them to English is planned.
 
 ## Checks
 
 ```bash
-npm run lint
-npx tsc --noEmit
-npm test                       # unit tests
-npm run test:concept           # concept demo browser tests
-npm run qa                     # QA scripts against a running demo build (QA_BASE_URL defaults to http://localhost:3100)
+npm run lint && npx tsc --noEmit && npm test && npm run build
+npm run test:concept           # concept demo browser tests (Playwright)
 npm run test:integration       # needs a local database whose name ends in _test
-npx playwright install chromium && npm run test:e2e
-npm run build
-npm run ai:eval                # AI tasks against fixed scenarios
 ```
 
-Integration and E2E tests refuse to run against anything but a local database
-whose name ends in `_test` or `_demo`.
+## Contributing
 
-## Where things are
+Contributions are welcome. Read [CONTRIBUTING](CONTRIBUTING.md) and
+[AGENTS.md](AGENTS.md) (how we work; it applies to people and AI agents
+alike). Pull requests need the [Contributor License Agreement](docs/legal/CLA.md)
+(individual or entity), confirmed through the CLA Assistant bot. Please follow
+the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-| Path | Contents |
-|---|---|
-| `src/app/studio/`, `src/app/boka/` | Concept demo: owner studio and customer booking page |
-| `src/concept/` | Concept logic: brand, fixtures, AI tasks, site pages, host routing |
-| `src/pages/` | Product site: demo landing, coming soon, privacy |
-| `src/proxy.ts` | Host routing: product domain, demo subdomain, business addresses |
-| `src/app/admin/`, `src/app/page.tsx` | Booking engine web: workspace and legacy customer booking |
-| `src/lib/domain.ts` | Booking rules shared by web, API and MCP |
-| `src/mcp/`, `src/lib/agent-api/` | Owner MCP and agent rules: keys, mandates, proposals, log |
-| `prisma/` | Data model and migrations |
-| `tests/` | Unit, integration, E2E and concept tests |
+## Security
 
-## Documentation
+Report vulnerabilities privately through GitHub Security Advisories, never in
+a public issue. See [SECURITY](SECURITY.md).
 
-- [STATUS](docs/STATUS.md) and [ROADMAP](docs/ROADMAP.md)
-- [Concept](docs/concept/CONCEPT.md) · [Progress log](docs/concept/PROGRESS.md) ·
-  [Goal queue](docs/goals/QUEUE.md) · [Changelog](CHANGELOG.md)
-- [Brand](docs/BRAND.md) · [Deploying the demo](docs/DEPLOY_DEMO.md) ·
-  [Waiting list](docs/WAITLIST.md)
-- [ARCHITECTURE](docs/ARCHITECTURE.md) · [DATA_FLOWS](docs/DATA_FLOWS.md) ·
-  [PRIVACY_SECURITY](docs/PRIVACY_SECURITY.md) ·
-  [ENGINEERING_PRINCIPLES](docs/ENGINEERING_PRINCIPLES.md)
-- [docs/archive](docs/archive/README.md) and [docs/history](docs/history/):
-  earlier plans, QA reports and evidence (history only, no assignments)
+## Licence and trademark
 
-## Licence
+The source code is licensed under the
+[GNU Affero General Public License v3.0 only](LICENSE) (AGPL-3.0-only).
+If you run a modified version as a network service, the AGPL requires you to
+offer its users the corresponding source. Third-party components keep their
+own licences: [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md).
 
-AGPL-3.0-only, see [LICENSE](LICENSE) and [CONTRIBUTING](CONTRIBUTING.md). Read
-[AGENTS.md](AGENTS.md) for how we work; it applies to people as much as to AI agents.
+**Not covered by the AGPL:** the Cresavo name, wordmark and symbol concepts,
+the brand kits in `design/brand/**`, the app icons in `public/brand/**` and
+the media in `docs/media/**`. All
+rights are reserved; see [TRADEMARK.md](TRADEMARK.md) for what you may do.
+Forks must use their own name and logo.
