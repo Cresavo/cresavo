@@ -1,10 +1,16 @@
-# Cresavo logo studies · round three
+# Cresavo identity · selected artwork
 
-[Open the contact sheet at full size](contact-sheet.svg) · [Compare the two refinements](refinements.svg)
+**Cresavo** is set in [Inter Regular](https://github.com/rsms/inter) (400), with a capital C and the remaining letters lowercase. The app icon keeps the previously selected white lowercase c on aubergine (`#4f364b`) in both colour schemes.
 
-![Four Cresavo identities in light and dark. The left column shows the Linen and Reed wordmarks. The right column pairs them with an open palm and a folded leaf.](contact-sheet.svg)
+[Aubergine wordmark](selected-inter-regular/wordmark.svg) · [Black wordmark](selected-inter-regular/wordmark-black.svg) · [White wordmark](selected-inter-regular/wordmark-white.svg) · [App icon for both modes](selected-inter-regular/app-icon.svg) · [Round avatar](selected-inter-regular/avatar.svg)
 
-**Selected direction: A2, Reed.** The [app icon](a2-reed/app-icon.svg) uses the wordmark's opening c in white (`#ffffff`) on aubergine (`#4f364b`) in both light and dark mode.
+[View the contact sheet at full size](contact-sheet.svg). The first two panels show the selected artwork in light and dark mode. The wordmark uses outlines from the site's Inter font with the spacing from the header preview (−0.035 em). Inter is licensed under the [SIL Open Font License 1.1](https://github.com/rsms/inter/blob/master/LICENSE.txt).
+
+![The selected Inter Regular wordmark and white c app icon on aubergine in both themes, followed by the earlier logo studies.](contact-sheet.svg)
+
+## Earlier directions
+
+[Compare the original drawings and the two refinements](refinements.svg).
 
 | Direction | What to look for | Trade-off |
 | --- | --- | --- |
@@ -18,7 +24,7 @@
 1. **First refinement.** The original upright lettering felt crowded around the e. We lightened the line, lifted the e crossbar and opened the spacing. Reed's r had a doubled-back shoulder that looked like a dark knot. Redrawing the shoulder as a clean branch removed it. In the palm we took out a small hooked return.
 2. **Second refinement.** The simplified palm still looked like two nested curves. We lifted the thumb and opened the wrist. The leaf's outer edge met its inner fold when reduced, so we shortened the upper contour. We adjusted Linen's opening c and widened the small-size outlines in all four directions. The contact sheet uses these optical versions at 16 and 32 px. The 64 px and 180 px examples show the lighter display outline.
 
-## Using the files
+## Reading the earlier studies
 
 Each folder contains a horizontal wordmark or symbol pairing in aubergine, solid black and solid white, a standalone mark, a favicon, and square app and round avatar artwork for light and dark settings. The favicon responds to the device's colour scheme. The app artwork is drawn at 180 px and scales as vector artwork. The tiny footer examples use the exact line “Booked with Cresavo”.
 
