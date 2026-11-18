@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, useEffect, type ReactNode } from "react";
+import { Suspense, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 import { AssistantHeaderButton, AssistantLauncher } from "./assistant/assistant-launcher";
 import { HelpButton } from "./help/help-button";
 import { canOpen, staffViewer, type Role } from "../ops/access";
@@ -20,8 +21,10 @@ import { ThemeControl } from "../ui/theme-control";
 import { showToast, Toaster } from "../ui/toast";
 import { Wordmark } from "../ui/wordmark";
 import { BUSINESS_NAV, isActivePath, MORE_TAB, PRIMARY_NAV, SETTINGS_NAV, visibleItems, type NavItem } from "./nav";
+import type { MessageKey } from "../i18n";
 
 const WELCOME_PATH = "/studio/welcome";
+const PAGE_FRAME = "mx-auto w-full max-w-6xl px-4 pt-2 sm:px-6 lg:mx-0 lg:max-w-[78rem] lg:px-8 lg:pt-7";
 
 /**
  * The demo landing offers two ways in: `/studio?start=essentials` or `?start=everything`. The choice only
@@ -74,12 +77,10 @@ export function StudioShell({ children }: { children: ReactNode }) {
       </header>
       {/* Room at the bottom for the tab bar and, on phones, the assistant button, so neither ever covers the last item. */}
       <main className="pb-[calc(9.5rem+env(safe-area-inset-bottom))] sm:pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-12 lg:pl-64">
-        <div className="mx-auto w-full max-w-6xl px-4 pt-2 sm:px-6 lg:px-10 lg:pt-5">
-          <div className="mb-2 hidden items-center justify-end gap-2 lg:flex">
-            {state.modules.assistant && <AssistantHeaderButton />}
-            <RoleSwitch />
-            <HelpButton />
-          </div>
+        {/* One frame for every page. On a desktop the content starts a fixed gutter from the sidebar and grows to a
+            readable maximum; it is never centred in the space that is left, so pages do not float. The assistant
+            and Help sit in each page's title row (PageHeader), on the same right edge as the content. */}
+        <div className={PAGE_FRAME}>
           <Suspense>{canOpen(role, pathname) ? children : <NoAccess />}</Suspense>
         </div>
       </main>
@@ -107,7 +108,7 @@ function SidebarLink({ item, pathname, badge }: { item: NavItem; pathname: strin
       data-help={item.href}
       aria-current={active ? "page" : undefined}
       className={cx(
-        "flex min-h-11 items-center gap-3 rounded-md px-3 text-[15px] transition-colors",
+        "flex min-h-10 items-center gap-3 rounded-md px-3 text-[15px] transition-colors",
         active ? "bg-surface-2 font-semibold text-text" : "text-text-secondary hover:bg-surface-2 hover:text-text",
       )}
     >
@@ -118,47 +119,96 @@ function SidebarLink({ item, pathname, badge }: { item: NavItem; pathname: strin
   );
 }
 
+type GroupId = "business" | "settings";
+
+const inGroup = (items: NavItem[], pathname: string) => items.some((item) => isActivePath(pathname, item.href));
+
+/** The group that is open by itself: the one the page is in. On the main pages that is Business, when the screen is tall enough for it. */
+function groupOf(pathname: string, tall: boolean): GroupId | null {
+  if (inGroup(SETTINGS_NAV, pathname)) return "settings";
+  return tall || inGroup(BUSINESS_NAV, pathname) ? "business" : null;
+}
+
+const SHORT_SCREEN = "(max-height: 859px)";
+
+function useTallScreen(): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      const query = window.matchMedia(SHORT_SCREEN);
+      query.addEventListener("change", listener);
+      return () => query.removeEventListener("change", listener);
+    },
+    () => !window.matchMedia(SHORT_SCREEN).matches,
+    () => true,
+  );
+}
+
 function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string; role: Role }) {
   const unread = unreadCount(state);
   const person = role === "staff" ? (staffViewer(state) ?? state.staff[0]) : state.staff[0];
   const allowed = (items: NavItem[]) => visibleItems(items, state.modules).filter((item) => canOpen(role, item.href));
-  const sections = [
-    { title: "nav.section.business" as const, items: allowed(BUSINESS_NAV) },
-    { title: "nav.section.settings" as const, items: allowed(SETTINGS_NAV) },
-  ].filter((section) => section.items.length);
+  const groups: { id: GroupId; title: MessageKey; items: NavItem[] }[] = [
+    { id: "business" as const, title: "nav.section.business" as const, items: allowed(BUSINESS_NAV) },
+    { id: "settings" as const, title: "nav.section.settings" as const, items: allowed(SETTINGS_NAV) },
+  ].filter((group) => group.items.length);
+  // One group is open at a time, so the whole menu fits a laptop screen without a scrollbar of its own.
+  // The page you are on decides which; a choice made by hand lasts until you go somewhere else.
+  const [choice, setChoice] = useState<{ pathname: string; open: GroupId | null } | null>(null);
+  const tall = useTallScreen();
+  const open = choice?.pathname === pathname ? choice.open : groupOf(pathname, tall);
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-hairline bg-surface px-4 py-6 lg:flex">
+    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-hairline bg-surface px-4 pb-3 pt-5 lg:flex">
       <Link href="/studio" aria-label={t("shell.home")} className="block px-3">
         <Wordmark className="w-[124px]" />
       </Link>
-      <p className="mt-4 px-3 text-sm text-text-secondary">
+      <p className="mt-3 truncate px-3 text-sm text-text-secondary">
         <span className="font-semibold text-text">{state.salon.name}</span> · {t("shell.demo")}
       </p>
-      <nav aria-label={t("shell.navigation")} className="mt-5 flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto">
-        <div className="space-y-1">
+      <nav aria-label={t("shell.navigation")} className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+        <div className="space-y-0.5">
           {PRIMARY_NAV.filter((item) => canOpen(role, item.href)).map((item) => (
             <SidebarLink key={item.href} item={item} pathname={pathname} badge={item.href === "/studio/inbox" ? unread : undefined} />
           ))}
         </div>
-        {sections.map((section) => (
-          <div key={section.title} className="space-y-1">
-            <p className="px-3 pb-1 text-sm font-medium text-text-secondary">{t(section.title)}</p>
-            {section.items.map((item) => (
-              <SidebarLink key={item.href} item={item} pathname={pathname} />
-            ))}
-          </div>
-        ))}
+        {groups.map((group) => {
+          const expanded = open === group.id;
+          return (
+            <div key={group.id} className="border-t border-hairline pt-2">
+              <button
+                type="button"
+                aria-expanded={expanded}
+                aria-controls={`nav-${group.id}`}
+                onClick={() => setChoice({ pathname, open: expanded ? null : group.id })}
+                className="flex min-h-10 w-full items-center justify-between rounded-md px-3 text-sm font-medium text-text-secondary hover:bg-surface-2 hover:text-text"
+              >
+                {t(group.title)}
+                <ChevronDown size={16} aria-hidden className={cx("transition-transform", expanded && "rotate-180")} />
+              </button>
+              {expanded && (
+                <div id={`nav-${group.id}`} className="space-y-0.5 pt-0.5">
+                  {group.items.map((item) => (
+                    <SidebarLink key={item.href} item={item} pathname={pathname} />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </nav>
-      <ThemeControl compact className="mt-4 self-start" />
-      <div className="mt-3 flex items-center gap-3 rounded-md bg-surface-2 px-3 py-2.5">
-        <span className={cx("flex size-9 items-center justify-center rounded-full text-sm font-semibold", person.id === "anna" ? "bg-staff-1-bg text-text" : "bg-staff-2-bg text-text")}>
-          {person.firstName[0]}
-          {person.lastName[0]}
-        </span>
-        <span className="min-w-0 text-sm leading-tight">
-          <span className="block font-medium">{person.firstName} {person.lastName}</span>
-          <span className="block truncate text-xs text-text-secondary">{t(role === "staff" ? "shell.staffRole" : "shell.ownerRole")} · {person.title.toLowerCase()}</span>
-        </span>
+      {/* The footer: who is looking (with the demo's owner/staff switch beside the name) and the appearance. */}
+      <div className="mt-2 space-y-2 border-t border-hairline pt-3">
+        <div className="flex items-center gap-2.5 px-1">
+          <span className={cx("flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold", person.id === "anna" ? "bg-staff-1-bg text-text" : "bg-staff-2-bg text-text")}>
+            {person.firstName[0]}
+            {person.lastName[0]}
+          </span>
+          <span className="min-w-0 flex-1 text-sm leading-tight">
+            <span className="block truncate font-medium">{person.firstName} {person.lastName}</span>
+            <span className="block truncate text-xs text-text-secondary">{t(role === "staff" ? "shell.staffRole" : "shell.ownerRole")}</span>
+          </span>
+          <RoleSwitch compact iconOnly />
+        </div>
+        <ThemeControl compact />
       </div>
     </aside>
   );
