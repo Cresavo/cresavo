@@ -36,7 +36,7 @@ case-insensitive text checks in `contains` when adding scenarios.
 
 ## Assistant
 
-`src/concept/assistant/` is the conversation behind the Ask Flerdo panel
+`src/concept/assistant/` is the conversation behind the Assistant panel
 (`studio/assistant/`). `engine.ts` answers each message with rules from the
 same proposals (`proposalFor`) and read tools as the command box and MCP; the
 `assistant-reply` task may only reword that reply, and `phrase-brief` may only

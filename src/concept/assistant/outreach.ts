@@ -23,13 +23,13 @@ const names = (state: DemoState, texts: OutgoingText[]) => {
 };
 
 /** A simulated text with a welcome-back offer to each customer. */
-export function offerProposal(state: DemoState, customerIds: string[], clock: Clock): Proposal {
+export function offerProposal(state: DemoState, customerIds: string[], clock: Clock, percent = OFFER_PERCENT): Proposal {
   const customers = customerIds.flatMap((id) => findCustomer(state, id) ?? []);
   if (!customers.length) return { kind: "message", text: t("assistant.offer.nobody") };
   const texts: OutgoingText[] = customers.map((customer) => ({
     customerId: customer.id,
     title: t("assistant.offer.logTitle", { name: customer.firstName }),
-    body: t("assistant.offer.sms", { name: customer.firstName, salon: state.salon.name, percent: OFFER_PERCENT, link: bookingPageLink(state) }),
+    body: t("assistant.offer.sms", { name: customer.firstName, salon: state.salon.name, percent, link: bookingPageLink(state) }),
   }));
   return {
     kind: "change",
@@ -37,7 +37,7 @@ export function offerProposal(state: DemoState, customerIds: string[], clock: Cl
     subtitle: t("assistant.offer.subtitle"),
     rows: [
       { label: t("assistant.row.to"), after: names(state, texts) },
-      { label: t("assistant.row.offer"), after: t("assistant.offer.what", { percent: OFFER_PERCENT }) },
+      { label: t("assistant.row.offer"), after: t("assistant.offer.what", { percent }) },
       { label: t("assistant.row.message"), after: texts[0].body },
     ],
     action: { type: "customers/message", texts, at: { date: clock.today, time: clock.minutes } },

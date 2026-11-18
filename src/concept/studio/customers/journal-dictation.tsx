@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarPlus, Loader2, Mic, Sparkles } from "lucide-react";
+import { CalendarPlus, ListChecks, Loader2, Mic } from "lucide-react";
 import { runAiTask } from "../../ai/api-client";
 import { useSpeech } from "../../command/use-speech";
 import { addDays } from "../../data/dates";
@@ -83,7 +83,6 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
         <p className="font-semibold">{t("journal.dictate")}</p>
         {fields && (
           <span className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold", fields.source === "ai" ? "bg-action-bg text-text" : "bg-surface-2 text-text-secondary")}>
-            {fields.source === "ai" && <Sparkles size={12} />}
             {fields.source === "ai" ? t("journal.source.ai") : t("journal.source.rules")}
           </span>
         )}
@@ -106,7 +105,7 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
                 {speech.listening ? t("journal.stopDictating") : t("journal.startDictating")}
               </Button>
             )}
-            <Button disabled={!transcript.trim() || busy} icon={busy ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />} onClick={structure}>
+            <Button disabled={!transcript.trim() || busy} icon={busy ? <Loader2 size={18} className="animate-spin" /> : <ListChecks size={18} />} onClick={structure}>
               {t("journal.structure")}
             </Button>
           </div>

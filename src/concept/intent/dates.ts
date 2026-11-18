@@ -29,6 +29,7 @@ export function parseDate(text: string, context: IntentContext): string | undefi
   if (iso) return DateTime.fromISO(iso[1]).isValid ? iso[1] : undefined;
   if (/\btomorrow\b/.test(text)) return now.plus({ days: 1 }).toISODate()!;
   if (/\btoday\b/.test(text)) return now.toISODate()!;
+  if (/\byesterday\b/.test(text)) return now.minus({ days: 1 }).toISODate()!;
   const calendar = calendarDate(text, now);
   if (calendar) return calendar;
   const day = weekdays.findIndex(name => new RegExp(`\\b${name}\\b`).test(text));
@@ -58,6 +59,11 @@ export function parseTime(text: string): string | undefined {
 export function dateRange(text: string, context: IntentContext) {
   const now = clock(context);
   const month = months.findIndex(name => new RegExp(`\\b${name}\\b`).test(text));
+  // "Yesterday" is one day, never the month it falls in.
+  if (/\byesterday\b/.test(text)) {
+    const day = now.startOf("day").minus({ days: 1 });
+    return { start: day.toISODate()!, end: day.plus({ days: 1 }).toISODate()! };
+  }
   const unit = /\byear\b/.test(text) ? "year" : /\bweek\b/.test(text) ? "week" : /\btoday|\bday\b/.test(text) ? "day" : "month";
   let start = month >= 0 ? now.set({ month: month + 1, day: 1 }).startOf("day") : now.startOf(unit);
   if (month >= 0 && start < now.startOf("month") && !/last|earned|make|revenue/.test(text)) start = start.plus({ years: 1 });

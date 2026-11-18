@@ -5,7 +5,7 @@ import { isAiConfigured, runAiTask } from "../../ai/api-client";
 import { commandReply, replyRequest, respond } from "../../assistant/engine";
 import type { NewMemory } from "../../assistant/memory";
 import type { Routine } from "../../assistant/routines";
-import { threadSummary, type InputMode, type Message } from "../../assistant/thread";
+import { type InputMode, type Message } from "../../assistant/thread";
 import { commandExamples } from "../../command/examples";
 import { buildIntentContext } from "../../command/intent-context";
 import type { Choice, Proposal } from "../../command/proposal";
@@ -44,7 +44,7 @@ export function useAssistant() {
   const aiReady = useAiReady();
   const examples = useMemo(
     // The owner's examples mix questions with quick commands, since the panel is also where commands are typed (Ctrl/Cmd+K).
-    () => (role === "owner" ? [...commandExamples(state, today, role).slice(0, 2), t("assistant.example.compare"), t("assistant.example.offer"), t("assistant.example.remember")] : commandExamples(state, today, role)),
+    () => (role === "owner" ? [t("assistant.example.next"), t("assistant.example.room", { service: state.services[0]?.name ?? "" }), ...commandExamples(state, today, role).slice(0, 2), t("assistant.example.compare")] : [t("assistant.example.next"), ...commandExamples(state, today, role)]),
     [state, today, role],
   );
 
@@ -117,11 +117,8 @@ export function useAssistant() {
     updateReply(id, { status: "declined" });
   };
 
-  /** Ends the conversation; its topics (never its words) go into memory as a summary. */
-  const newConversation = () => {
-    const summary = threadSummary(startNewThread());
-    if (summary) dispatch({ type: "memory/add", item: { text: summary, kind: "thread", savedOn: today, source: "assistant" } }, ASSISTANT);
-  };
+  /** Ends the conversation. Nothing from it is kept: the assistant remembers only what the owner asks it to. */
+  const newConversation = () => void startNewThread();
 
   return { thread, aiReady, examples, role, send, approve, decline, undoReply, edit: editReply, pick, remember, keepRoutine, skipRoutine, newConversation };
 }

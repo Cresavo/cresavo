@@ -1,16 +1,17 @@
 import type { DemoAction } from "../actions";
 import { buildIntentContext } from "../command/intent-context";
 import { lapsedCustomers, proposalFor, type Proposal } from "../command/proposal";
-import { addDays } from "../data/dates";
 import type { DemoState, StaffId } from "../data/types";
 import type { Clock } from "../finance/types";
 import { t, tc } from "../i18n";
 import { formatDayLong, formatMoney } from "../i18n/format";
 import { interpretCommand, type IntentParams } from "../intent";
+import { parseDate } from "../intent/dates";
 import { canCommand, type Role } from "../ops/access";
 import { fullName } from "../selectors";
 import { listBookings } from "../tools/read";
 import { closingBrief, morningBrief, weeklyBrief, type Brief } from "./briefs";
+import { lookup } from "./lookups";
 import { memoryFor, memoryRejection, memorySubject, noticedFact, rememberRequest, safeMemory, searchMemory } from "./memory";
 import { offerProposal } from "./outreach";
 import { suggestedRoutines } from "./routines";
@@ -108,7 +109,8 @@ function offerReply(input: EngineInput, understood: string): EngineResult {
   if (!customerIds.length) {
     return result(input, understood, rules(t("assistant.offer.who"), { followUps: [t("assistant.example.inactive")] }));
   }
-  const card = offerProposal(state, customerIds, clock);
+  const percent = Number(understood.match(/(\d{1,2})\s*(?:%|percent)/)?.[1]);
+  const card = offerProposal(state, customerIds, clock, percent >= 1 ? percent : undefined);
   return result(input, understood, rules(t("assistant.reply.change"), { card, topic: tc("assistant.topic.offer", customerIds.length) }), { ...context, customerIds });
 }
 
@@ -122,14 +124,14 @@ interface ToolBooking {
   staff: { name: string };
 }
 
-/** "Who is coming today?" through the shared `list_bookings` read tool. Staff only see their own bookings. */
+/** "Who is coming on Friday?" through the shared `list_bookings` read tool. Staff only see their own bookings. */
 function bookingsReply(input: EngineInput, understood: string): EngineResult {
   const { state, clock } = input;
-  const date = /\btomorrow\b/i.test(understood) ? addDays(clock.today, 1) : clock.today;
+  const date = parseDate(understood.toLowerCase(), buildIntentContext(state, clock.today, clock.minutes)) ?? clock.today;
   const data = listBookings.run({ state, clock }, { from: date, staffId: input.role === "staff" ? input.viewer : undefined }) as { bookings: ToolBooking[] };
   const booked = data.bookings.filter((b) => b.status === "booked" || b.status === "completed");
   const title = tc("assistant.bookings.title", booked.length, { day: formatDayLong(date) });
-  const card: ReplyCard = { kind: "bookings", title, items: booked.map((b) => ({ id: b.id, time: b.start, name: b.customer.name, detail: `${b.service.name} · ${b.staff.name}` })) };
+  const card: ReplyCard = { kind: "bookings", title, items: booked.map((b) => ({ id: b.id, time: b.start, name: b.customer.name, detail: `${b.service.name} · ${b.staff.name}`, href: `/studio/customers/${b.customer.id}` })) };
   return result(input, understood, rules(title, { card, topic: title }), { ...input.context, date, customerIds: booked.map((b) => b.customer.id) });
 }
 
@@ -197,7 +199,10 @@ export function respond(input: EngineInput): EngineResult {
   }
   if (/\broutines?\b/.test(lower)) return owner ? routinesReply(input, understood) : ownerOnly(input, understood);
   if (/\b(send|text|sms|message|email)\b.*\b(offer|greeting|discount|deal)\b/.test(lower)) return owner ? offerReply(input, understood) : ownerOnly(input, understood);
-  if (/\bwho(?:'s| is)? (?:coming|in|booked)\b|\bwhat(?:'s| is) on\b/.test(lower)) return bookingsReply(input, understood);
+  if (/\bwho(?:'s| is| was| were)? (?:coming|in|booked|here)\b|\bwhat(?:'s| is) on\b/.test(lower)) return bookingsReply(input, understood);
+
+  const found = lookup({ state: input.state, clock: input.clock, context: input.context, viewer: input.role === "staff" ? input.viewer : undefined, owner }, understood);
+  if (found) return result(input, understood, rules(found.text, { card: found.card, followUps: found.followUps, topic: found.topic }), { ...input.context, ...found.context });
 
   const fact = noticedFact(understood);
   if (fact && owner && !memoryRejection(fact, input.state)) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarCheck, Send, Sparkles } from "lucide-react";
+import { CalendarCheck, Send } from "lucide-react";
 import { bookingLink } from "../../customers/return-visits";
 import { formatTime } from "../../data/dates";
 import type { InboxItem } from "../../data/types";
@@ -81,7 +81,6 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
       {!item.handled && item.draftReply && (
         <div className="space-y-3 rounded-lg p-4 ring-1 ring-action/30">
           <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-action">
-            <Sparkles size={14} />
             {t("inbox.suggestedReply")}
           </p>
           {slot && staff && (

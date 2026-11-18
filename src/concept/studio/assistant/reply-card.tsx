@@ -81,7 +81,7 @@ export function ReplyCardView({ card, status, actions }: { card: ReplyCard; stat
         </div>
       );
     case "message":
-      return card.link ? <ButtonLink href={card.link.href} size="sm">{card.link.label}</ButtonLink> : null;
+      return card.link ? <ButtonLink href={card.link.href} size="sm" variant="secondary">{card.link.label}</ButtonLink> : null;
     case "memory-saved":
     case "memory-offer":
       return (
@@ -137,17 +137,28 @@ export function ReplyCardView({ card, status, actions }: { card: ReplyCard; stat
     }
     case "bookings":
       return card.items.length ? (
-        <ul className="divide-y divide-hairline text-sm">
-          {card.items.map((item) => (
-            <li key={item.id} className="flex gap-3 py-2">
-              <span className="w-12 shrink-0 font-semibold tabular-nums">{item.time}</span>
-              <span className="min-w-0">
-                <span className="block truncate font-medium">{item.name}</span>
-                <span className="block truncate text-text-secondary">{item.detail}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-3">
+          <ul className="divide-y divide-hairline text-sm">
+            {card.items.map((item) => {
+              const row = (
+                <>
+                  <span className="w-12 shrink-0 font-semibold tabular-nums">{item.time}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{item.name}</span>
+                    <span className="block truncate text-text-secondary">{item.detail}</span>
+                  </span>
+                  {item.href && <ChevronRight size={16} aria-hidden className="mt-0.5 shrink-0 text-text-secondary" />}
+                </>
+              );
+              return (
+                <li key={item.id}>
+                  {item.href ? <Link href={item.href} className="flex min-h-11 gap-3 py-2 hover:bg-surface-2">{row}</Link> : <div className="flex gap-3 py-2">{row}</div>}
+                </li>
+              );
+            })}
+          </ul>
+          {card.link && <ButtonLink href={card.link.href} size="sm" variant="secondary">{card.link.label}</ButtonLink>}
+        </div>
       ) : null;
     default:
       return <AnswerCard answer={card} />;

@@ -163,8 +163,8 @@ test("a custom theme with other sections has no accessibility violations", async
 
 test("the assistant proposes a calmer look with a before and after, and approving applies it", async ({ page }) => {
   await page.goto("/studio");
-  await page.getByRole("button", { name: `Ask ${ASSISTANT.name}`, exact: true }).locator("visible=true").click();
-  const panel = page.getByRole("dialog", { name: `Ask ${ASSISTANT.name}` });
+  await page.getByRole("button", { name: ASSISTANT.name, exact: true }).locator("visible=true").click();
+  const panel = page.getByRole("dialog", { name: ASSISTANT.name });
   const message = panel.getByRole("textbox", { name: "Message" });
   await message.fill("Make it calmer and more luxurious");
   await message.press("Enter");

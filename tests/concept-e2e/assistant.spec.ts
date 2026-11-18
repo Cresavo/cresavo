@@ -23,7 +23,7 @@ async function say(page: Page, text: string) {
   await message.press("Enter");
 }
 
-const panel = (page: Page) => page.getByRole("dialog", { name: `Ask ${ASSISTANT.name}` });
+const panel = (page: Page) => page.getByRole("dialog", { name: ASSISTANT.name });
 
 test.beforeEach(async ({ page }) => {
   // A morning, so Today shows the morning brief rather than the closing one.
@@ -49,10 +49,18 @@ test("the assistant answers, drafts an offer, remembers a preference and suggest
   await page.keyboard.press("Escape");
   await expect(panel(page)).toBeHidden();
 
-  await expect(page.getByText("Here is what matters today.")).toBeVisible();
-  await page.getByRole("button", { name: `Ask ${ASSISTANT.name}`, exact: true }).locator("visible=true").click();
+  // The brief lives on Today; the panel opens at the message box with nothing said for the owner.
+  await expect(page.getByRole("heading", { name: "Morning brief" })).toBeVisible();
+  await page.getByRole("button", { name: ASSISTANT.name, exact: true }).locator("visible=true").click();
   await expect(panel(page)).toBeVisible();
-  await expect(panel(page).getByText("Rules only · no AI key")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Message" })).toBeFocused();
+  await expect(page.getByRole("textbox", { name: "Message" })).toHaveAttribute("placeholder", "Who is coming today?");
+  await expect(panel(page).getByRole("log").getByText("Morning brief")).toHaveCount(0);
+
+  // A daily question is answered from the data, and its row leads to the customer.
+  await say(page, "Who is coming today?");
+  await expect(panel(page).getByText(/^\d+ bookings? \w+day \d+ \w+$/).first()).toBeVisible();
+  await expect(panel(page).getByRole("log").getByRole("link").first()).toHaveAttribute("href", /\/studio\/customers\//);
 
   await say(page, "How did last month compare with last year?");
   await expect(panel(page).getByText(/^\w+ \d{4} compared with \w+ \d{4}$/)).toBeVisible();
@@ -99,8 +107,7 @@ test("the assistant answers, drafts an offer, remembers a preference and suggest
   await expect(page.getByRole("switch", { name: "Prepare Monday reminders for overdue customers" })).toBeChecked();
 });
 
-test("the microphone button opens the panel listening on phones", async ({ page }) => {
-  test.skip(page.viewportSize()!.width >= 640, "The voice button is the phone launcher");
+test("the microphone inside the panel sends what was said", async ({ page }) => {
   await page.addInitScript(() => {
     class FakeRecognition {
       lang = ""; continuous = false; interimResults = false;
@@ -117,6 +124,9 @@ test("the microphone button opens the panel listening on phones", async ({ page 
     (window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = FakeRecognition;
   });
   await page.goto("/studio");
-  await page.getByRole("button", { name: `Talk to ${ASSISTANT.name}`, exact: true }).click();
+  // One quiet launcher on phones: the microphone is in the panel, not beside it.
+  await expect(page.getByRole("button", { name: "Talk to the assistant" })).toHaveCount(0);
+  await page.keyboard.press("Control+K");
+  await panel(page).getByRole("button", { name: "Speak a command", exact: true }).click();
   await expect(panel(page).getByText(/bookings? \w+day \d+ \w+/).first()).toBeVisible();
 });

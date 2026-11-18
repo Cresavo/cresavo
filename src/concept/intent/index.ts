@@ -31,7 +31,7 @@ export function interpretCommand(input: string, context: IntentContext): IntentR
     params.product = left[1];
     return proposal("stock-level", `Show how much ${params.product} is left.`);
   }
-  if (/\b(earned|revenue|income|how much.*make|how much.*made)\b/.test(text)) {
+  if (/\b(earn|earned|earnings|revenue|income|takings|how much.*make|how much.*made)\b/.test(text)) {
     Object.assign(params, dateRange(text, context));
     return proposal("revenue", `Show revenue from ${params.start} to ${params.end} (exclusive).`);
   }

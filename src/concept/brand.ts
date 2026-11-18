@@ -9,11 +9,12 @@ export const BRAND = {
 } as const;
 
 /**
- * The assistant's label, decoupled from BRAND so the product name can change
- * without it. Still the pre-rebrand name here; see docs/BRAND.md.
+ * The assistant has no persona name: it is a tool, labelled in plain words
+ * ("Assistant", Swedish "Assistent"), and the product brand stays the one name
+ * owners learn. Decided after docs/design/ASSISTANT-AUDIT.md.
  */
 export const ASSISTANT = {
-  name: "Flerdo",
+  name: "Assistant",
 } as const;
 
 /**

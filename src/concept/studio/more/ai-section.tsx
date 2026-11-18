@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RefreshCw, Sparkles } from "lucide-react";
+import { CircleAlert, RefreshCw } from "lucide-react";
 import { fetchAiOverview, PUBLIC_DEMO, saveAiSettings } from "../../ai/api-client";
 import type { AiOverview } from "../../ai/overview";
 import type { TaskName } from "../../ai/registry";
@@ -37,7 +37,7 @@ export function AiSection() {
       setResult({});
       load();
     };
-    return <EmptyState icon={<Sparkles size={22} />} title={t("ai.unavailable")} action={<Button size="sm" variant="secondary" onClick={retry}>{t("ai.retry")}</Button>} />;
+    return <EmptyState icon={<CircleAlert size={22} />} title={t("ai.unavailable")} action={<Button size="sm" variant="secondary" onClick={retry}>{t("ai.retry")}</Button>} />;
   }
   if (!overview) return <Card className="h-40 animate-pulse bg-surface-2" aria-busy />;
   const { tasks, costLog, totals } = overview;

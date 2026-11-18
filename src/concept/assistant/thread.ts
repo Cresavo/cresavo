@@ -27,7 +27,7 @@ export type ReplyCard =
   | { kind: "memory-list"; items: MemoryItem[]; query: string }
   | { kind: "brief"; brief: Brief }
   | { kind: "routine-offer"; suggestion: RoutineSuggestion }
-  | { kind: "bookings"; title: string; items: { id: string; time: string; name: string; detail: string }[] };
+  | { kind: "bookings"; title: string; items: { id: string; time: string; name: string; detail: string; /** Where the row leads: the customer card or the Inbox. */ href?: string }[]; link?: { href: string; label: string } };
 
 export interface Reply {
   /** "rules" when no AI model was used; the panel labels it. */
@@ -70,11 +70,11 @@ export const emptyContext = (): ThreadContext => ({ customerIds: [] });
 
 const one = (context: ThreadContext) => (context.customerIds.length === 1 ? context.customerIds[0] : undefined);
 
-/** The customer's latest booking (done or coming), for "the same as last time". */
+/** The customer's last finished visit (else their latest booking), for "the same as last time". */
 function lastBooking(state: DemoState, customerId: string) {
   return state.bookings
     .filter((b) => b.customerId === customerId && b.status !== "cancelled")
-    .sort((a, b) => b.date.localeCompare(a.date) || b.start - a.start)[0];
+    .sort((a, b) => Number(b.status === "completed") - Number(a.status === "completed") || b.date.localeCompare(a.date) || b.start - a.start)[0];
 }
 
 /**

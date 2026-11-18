@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Moon, Sparkles } from "lucide-react";
+import { Moon } from "lucide-react";
 import { isAiConfigured, runAiTask } from "../../ai/api-client";
 import { dailySummaryTask } from "../../ai/tasks/daily-summary";
 import { t } from "../../i18n";
@@ -50,7 +50,7 @@ export function EveningSummary() {
         <div className="flex items-start gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-action-bg text-text"><Moon size={18} /></span>
           <p className="min-w-0 flex-1 pt-1.5 font-medium">{text.summary}</p>
-          {ai && <Sparkles size={16} className="mt-1 shrink-0 text-action" aria-label={t("customer.summary.ai")} />}
+          {ai && <span className="mt-1 shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold text-text-secondary">{t("customer.summary.ai")}</span>}
         </div>
         <ul className="space-y-1 text-sm">
           {text.highlights.map((line) => (

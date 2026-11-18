@@ -57,13 +57,13 @@ const minutesOf = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.
 const message = (text: string, link?: { href: string; label: string }): Proposal => ({ kind: "message", text, link });
 const whenText = (date: DateKey, start: number) => `${formatDayLong(date)} ${formatTime(start)}`;
 
-interface Candidate {
+export interface Candidate {
   staffId: StaffId;
   start: number;
 }
 
 /** Up to three free starts: closest to the wanted time, or spread through the part of the day. */
-function pickCandidates(state: DemoState, staffIds: StaffId[], need: Need, date: DateKey, clock: Clock, wanted: { near?: number; period?: "morning" | "afternoon"; ignoreId?: string }): Candidate[] {
+export function pickCandidates(state: DemoState, staffIds: StaffId[], need: Need, date: DateKey, clock: Clock, wanted: { near?: number; period?: "morning" | "afternoon"; ignoreId?: string }): Candidate[] {
   const after = date === clock.today ? clock.minutes : 0;
   const all = staffIds.flatMap((staffId) => freeStarts(state, staffId, date, need, { after, ignoreId: wanted.ignoreId }).map((start) => ({ staffId, start })));
   const inPeriod = all.filter(({ start }) => !wanted.period || (wanted.period === "morning" ? start < NOON : start >= NOON));

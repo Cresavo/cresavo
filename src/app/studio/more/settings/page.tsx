@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { RotateCcw, Sparkles } from "lucide-react";
+import { Compass, RotateCcw } from "lucide-react";
 import { t } from "@/concept/i18n";
 import { setupOf } from "@/concept/onboarding/setup";
 import { startBusiness } from "@/concept/store";
@@ -59,7 +59,7 @@ export default function SettingsPage() {
         <Section title={t("settings.demo")} className="space-y-3 lg:col-span-2">
           <Card className="flex flex-wrap items-center gap-4 p-4">
             <p className="min-w-0 flex-1 text-sm text-text-secondary">{t("settings.startOverText")}</p>
-            <ButtonLink href="/studio/welcome" variant="secondary" icon={<Sparkles size={18} />}>{t("settings.startOver")}</ButtonLink>
+            <ButtonLink href="/studio/welcome" variant="secondary" icon={<Compass size={18} />}>{t("settings.startOver")}</ButtonLink>
           </Card>
           <Card className="flex flex-wrap items-center gap-4 p-4">
             <p className="min-w-0 flex-1 text-sm text-text-secondary">{t("settings.demoText")}</p>

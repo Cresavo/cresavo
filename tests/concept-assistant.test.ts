@@ -52,7 +52,8 @@ function bothFree(state: DemoState, service: Service) {
 
 describe("thread context", () => {
   it("fills in her, that day and the same as last time from the conversation", () => {
-    const last = base.bookings.filter((b) => b.customerId === lenaBerg.id && b.status !== "cancelled").sort((a, b) => b.date.localeCompare(a.date) || b.start - a.start)[0];
+    // "Last time" is the last finished visit, never a booking still to come.
+    const last = base.bookings.filter((b) => b.customerId === lenaBerg.id && b.status === "completed").sort((a, b) => b.date.localeCompare(a.date) || b.start - a.start)[0];
     const service = base.services.find((s) => s.id === last.serviceId)!.name;
     const staff = base.staff.find((s) => s.id === last.staffId)!.firstName;
     const context = { customerIds: [lenaBerg.id], date: "2026-11-20" };
@@ -312,5 +313,121 @@ describe("models for the assistant", () => {
     const fetcher = vi.fn();
     await expect(runTask("assistant-reply", { message: "Hi", draft: "Hi", facts: [], thread: [], memory: ["Karin has diabetes"] }, { env: ollama, fetcher })).rejects.toThrow();
     expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
+
+// The daily questions from docs/design/ASSISTANT-AUDIT.md, on a fixed clock: each is answered
+// from the data or declined in plain words, never met with a plausible wrong answer.
+describe("read questions", () => {
+  const at = { today, minutes: 10 * 60 };
+  const ask = (text: string, context: ThreadContext = emptyContext(), role: EngineInput["role"] = "owner") =>
+    respond({ state: base, text, context, clock: at, role, viewer: "erik", examples: ["What have I earned this month?"] });
+  const name = (id: string) => fullName(base.customers.find((c) => c.id === id)!);
+  const later = base.bookings.filter((b) => b.date === today && b.status === "booked" && b.start > at.minutes).sort((a, b) => a.start - b.start);
+  const unique = later.find((b) => base.customers.filter((c) => fullName(c) === name(b.customerId)).length === 1)!;
+
+  it("says who is next, with a link to the customer", () => {
+    const { reply, context } = ask("Who's next?");
+    expect(reply.text).toContain(`Next is ${name(later[0].customerId)} at ${formatTime(later[0].start)}.`);
+    expect(reply.card).toMatchObject({ kind: "bookings" });
+    const items = (reply.card as { items: { href?: string }[] }).items;
+    expect(items.at(-1)!.href).toBe(`/studio/customers/${later[0].customerId}`);
+    expect(context.customerIds).toEqual([later[0].customerId]);
+    // Staff see their own day only.
+    const mine = later.find((b) => b.staffId === "erik");
+    if (mine) expect(ask("Who is next?", emptyContext(), "staff").reply.text).toContain(name(mine.customerId));
+  });
+
+  it("lists the day that was asked for, not always today", () => {
+    const friday = ask("Who is coming on Friday?");
+    expect(friday.context.date).toBe("2026-11-20");
+    expect(friday.reply.text).toContain("Friday 20 November");
+    expect(ask("Who was in yesterday?").context.date).toBe("2026-11-16");
+    expect(ask("Who is coming today?").context.date).toBe(today);
+  });
+
+  it("looks up a named customer's next appointment instead of starting a booking", () => {
+    const { reply, context } = ask(`When is ${name(unique.customerId)}'s next appointment?`);
+    expect(reply.text).toBe(`${name(unique.customerId)} is booked Tuesday 17 November at ${formatTime(unique.start)}.`);
+    expect(reply.card).toMatchObject({ kind: "bookings" });
+    expect(context.customerIds).toEqual([unique.customerId]);
+  });
+
+  it("tells what the last visit was and leaves the notes in the journal", () => {
+    const done = base.bookings.filter((b) => b.customerId === unique.customerId && b.status === "completed").sort((a, b) => b.date.localeCompare(a.date))[0];
+    const { reply } = ask(`What did we do for ${name(unique.customerId)} last time?`);
+    expect(reply.text).toContain(base.services.find((s) => s.id === done.serviceId)!.name);
+    expect(reply.text).toContain("journal");
+    expect(reply.card).toMatchObject({ kind: "message", link: { href: `/studio/customers/${unique.customerId}` } });
+  });
+
+  it("finds real free times for a treatment, or the next day that has some", () => {
+    const service = base.services[0];
+    const { reply, context } = ask(`Any room for ${service.name} tomorrow?`);
+    expect(context.serviceId).toBe(service.id);
+    const day = context.date!;
+    expect(day >= addDays(today, 1)).toBe(true);
+    const times = reply.text.match(/\b\d\d:\d\d\b/g)!;
+    expect(times.length).toBeGreaterThan(0);
+    const free = service.staffIds.flatMap((id) => freeStarts(base, id, day, needOf(service)).map(formatTime));
+    for (const time of times) expect(free).toContain(time);
+    // Two treatments fit "a 60-minute massage": it asks which.
+    expect(ask("Any room for a 60-minute massage tomorrow afternoon?").reply.card).toMatchObject({ kind: "choose" });
+  });
+
+  it("answers price and duration from the price list, without touching prices", () => {
+    const service = base.services[0];
+    const { reply, effects } = ask(`What does ${service.name} cost, and how long does it take?`);
+    expect(reply.text).toContain(service.name);
+    expect(reply.text).toContain("795");
+    expect(reply.card?.kind).toBe("message");
+    expect(effects).toEqual([]);
+    // A price change is still a proposal.
+    expect(ask(`Change the price of ${service.name} to 900 SEK`).reply.card).toMatchObject({ kind: "change" });
+  });
+
+  it("shows what waits in the Inbox and who is due back", () => {
+    const waiting = base.inbox.filter((i) => !i.handled && (i.kind === "request" || i.kind === "reschedule")).length;
+    expect(ask("What's waiting in the inbox?").reply.text).toContain(String(waiting));
+    const due = ask("Who's due back for foot care?");
+    expect(due.reply.card).toMatchObject({ kind: "customers" });
+    expect(due.context.customerIds.length).toBeGreaterThan(0);
+  });
+
+  it("answers a gift card question about gift cards, not stock", () => {
+    const { reply } = ask("How much is left on gift card EKO-1234?");
+    expect(reply.text).toBe("I could not find a gift card with the code EKO-1234.");
+    const sold = reduce(base, { type: "giftcard/sell", amount: 500, recipient: "Nova Demo", message: "", date: today });
+    const card = sold.giftCards[0];
+    expect(respond({ state: sold, text: `How much is left on gift card ${card.code}?`, context: emptyContext(), clock: at, role: "owner", examples: [] }).reply.text).toContain(card.code);
+  });
+
+  it("drafts a running-late text for approval", () => {
+    const { reply, effects } = ask(`Text ${name(unique.customerId)} that I'm running 15 minutes late.`);
+    expect(effects).toEqual([]);
+    expect(reply.card).toMatchObject({ kind: "change", action: { type: "customers/message", texts: [{ customerId: unique.customerId }] } });
+    expect(JSON.stringify(reply.card)).toContain("15 minutes late");
+  });
+
+  it("reads yesterday's revenue as one day and a stated discount as stated", () => {
+    const intent = interpretCommand("What did I earn yesterday?", buildIntentContext(base, today, at.minutes));
+    expect(intent).toMatchObject({ action: "revenue", params: { start: "2026-11-16", end: today } });
+    const { replies } = converse(base, ["Which customers haven't been here since summer?", "Send them a 15% welcome-back offer."]);
+    expect(JSON.stringify(replies[1].reply.card)).toContain("15% off");
+  });
+
+  it("declines what it cannot do exactly, and changes nothing", () => {
+    for (const text of ["Close the salon early tomorrow at 15:00", "Block 13:00 to 14:00 tomorrow for lunch.", `Mark ${name(unique.customerId)}'s 09:00 today as a no-show.`, `Put ${name(unique.customerId)} on the waiting list for a Saturday morning cut.`, `Save a journal note for ${name(unique.customerId)}: used a softer file.`]) {
+      const { reply, effects } = ask(text);
+      expect(reply.card?.kind, text).toBe("message");
+      expect(effects, text).toEqual([]);
+    }
+    // A whole-day closure is still a proposal.
+    expect(ask("Close the salon on Friday.").reply.card).toMatchObject({ kind: "change" });
+  });
+
+  it("does not mistake a colleague's name for a customer", () => {
+    expect(ask("When is Anna working next?").reply.card?.kind).not.toBe("bookings");
   });
 });

@@ -1,21 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { ArrowUp, Mic, SquarePen, Sparkles, Volume2, VolumeX, X } from "lucide-react";
-import { suggestedRoutines } from "../../assistant/routines";
+import { ArrowUp, Mic, SquarePen, Volume2, VolumeX, X } from "lucide-react";
 import type { Message } from "../../assistant/thread";
 import { useSpeech } from "../../command/use-speech";
 import { t } from "../../i18n";
 import { IconButton } from "../../ui/button";
 import { cx } from "../../ui/cx";
-import { useStudio } from "../use-studio";
 import { replyUndoable } from "./reply-actions";
 import { ReplyCardView, type CardActions } from "./reply-card";
 import { canSpeak, stopSpeaking } from "./speak";
 import { closeAssistant, setSpeak, takePendingQuestion } from "./thread-store";
 import { useAssistant } from "./use-assistant";
-import { useBrief } from "./use-brief";
-import { BriefList } from "./brief-list";
 
 /** The conversation with the assistant: full screen on phones, a side panel on larger screens. */
 export function AssistantPanel() {
@@ -46,7 +42,7 @@ export function AssistantPanel() {
 }
 
 function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }) {
-  const { thread, aiReady, send } = assistant;
+  const { thread, send } = assistant;
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -86,11 +82,7 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-1 border-b border-hairline bg-surface px-4 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))]">
-        <span className="mr-1 flex size-10 shrink-0 items-center justify-center rounded-md bg-action text-on-action"><Sparkles size={18} /></span>
-        <div className="min-w-0 flex-1 leading-tight">
-          <h2 className="font-semibold tracking-tight">{t("assistant.title")}</h2>
-          <p className="truncate text-xs text-text-secondary">{aiReady ? t("assistant.mode.ai") : t("assistant.mode.rules")}</p>
-        </div>
+        <h2 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">{t("assistant.title")}</h2>
         {canSpeak() && (
           <IconButton
             label={thread.speak ? t("assistant.speakOff") : t("assistant.speakOn")}
@@ -113,8 +105,16 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
         </IconButton>
       </header>
 
-      <div role="log" aria-live="polite" aria-label={t("assistant.conversation")} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-        {assistant.role === "owner" && <Opening assistant={assistant} />}
+      {/* A link in a reply leads to another page: the panel steps aside. */}
+      <div
+        role="log"
+        aria-live="polite"
+        aria-label={t("assistant.conversation")}
+        onClick={(event) => {
+          if ((event.target as HTMLElement).closest("a[href]")) closeAssistant();
+        }}
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4"
+      >
         {thread.messages.map((message) => (
           <MessageView key={message.id} message={message} assistant={assistant} onEdit={() => edit(message.id)} />
         ))}
@@ -167,26 +167,6 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
   );
 }
 
-/** The brief of the moment and a routine worth switching on, as the assistant's first words. */
-function Opening({ assistant }: { assistant: ReturnType<typeof useAssistant> }) {
-  const { state, today, minutes } = useStudio();
-  const { brief, ai } = useBrief();
-  const [suggestion] = suggestedRoutines(state, { today, minutes });
-  const actions = cardActions(assistant, "");
-  return (
-    <>
-      <Bubble source={ai ? "ai" : "rules"} text={brief.title}>
-        <BriefList brief={brief} />
-      </Bubble>
-      {suggestion && (
-        <Bubble source="rules" text={t("assistant.routine.suggest")}>
-          <ReplyCardView card={{ kind: "routine-offer", suggestion }} actions={actions} />
-        </Bubble>
-      )}
-    </>
-  );
-}
-
 function cardActions(assistant: ReturnType<typeof useAssistant>, id: string, undoId?: string, onEdit?: () => void): CardActions {
   return {
     onUndo: undoId ? () => assistant.undoReply(id, undoId) : undefined,
@@ -231,12 +211,10 @@ const ANSWERS = new Set(["insight", "revenue", "customers", "stock"]);
 function Bubble({ source, text, children }: { source: "rules" | "ai"; text?: string; children?: ReactNode }) {
   return (
     <div className="mr-4 space-y-3 rounded-lg rounded-bl-sm bg-surface p-3.5 ring-1 ring-hairline">
-      <span className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold", source === "ai" ? "bg-action-bg text-text" : "bg-surface-2 text-text-secondary")}>
-        {source === "ai" && <Sparkles size={11} />}
-        {t(source === "ai" ? "assistant.source.ai" : "assistant.source.rules")}
-      </span>
       {text && <p className="text-[15px] leading-snug">{text}</p>}
       {children}
+      {/* Wording by a model is said in plain words; the numbers and proposals always come from the data. */}
+      {source === "ai" && <p className="text-xs text-text-secondary">{t("assistant.source.ai")}</p>}
     </div>
   );
 }
