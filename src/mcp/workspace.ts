@@ -69,7 +69,7 @@ export function registerCapacityTools(server: McpServer, allowWrites: boolean) {
     "list_capacity_suggestions",
     {
       description:
-        "Avbokningar inom högst sju lokala dagar, aktuell bokningsbarhet och sparade beslut. Högst20/sida, inga kunduppgifter. Fortsätt med nextCursor som cursor och samma datumintervall. Lokal administratör.",
+        "List cancellations within up to seven local days, current availability and saved decisions. Up to 20 per page without customer details. Use nextCursor as cursor with the same date range. Local administrators only.",
       inputSchema: safeToolSchema(capacityListSchema),
     },
     async (v) => reply(() => listCapacity(v, actor)),
@@ -78,7 +78,7 @@ export function registerCapacityTools(server: McpServer, allowWrites: boolean) {
     "inspect_capacity_suggestion",
     {
       description:
-        "Kontrollera att ett förslag fortfarande är aktuellt före kalenderöppning. Reserverar ingen tid.",
+        "Check whether a suggestion is still current before opening the calendar. This does not reserve a time.",
       inputSchema: safeToolSchema(capacitySourceSchema),
     },
     async (v) => reply(() => inspectCapacity(v, actor)),
@@ -90,7 +90,7 @@ export function registerCapacityTools(server: McpServer, allowWrites: boolean) {
       "dismiss_capacity_suggestion",
       {
         description:
-          "Avfärda ett aktuellt förslag beständigt. Betrodd lokal --admin --allow-workspace. confirmed är klientens försäkran, inte bevis för mänskligt godkännande.",
+          "Permanently dismiss a current suggestion. Requires trusted local --admin --allow-workspace. The confirmed flag records the client’s assertion of approval.",
         inputSchema: safeToolSchema(dismissSchema),
       },
       async (v) =>
@@ -102,7 +102,7 @@ export function registerCapacityTools(server: McpServer, allowWrites: boolean) {
       "create_capacity_campaign_draft",
       {
         description:
-          "Spara högst ett kampanjutkast per förslag. Kräver uttryckligt valda villkor och rabatt. Kampanjen gäller tjänsten under datumintervallet, alla utförare/tider, inte en exklusiv lucka. Ingen reservation/publicering/utskick. Betrodd lokal --admin --allow-workspace; confirmed är inget mänskligt mandatbevis.",
+          "Save up to one campaign draft per suggestion. Requires explicit terms and a discount. Applies to the service across all staff and times in the date range. This does not reserve a time, publish or send anything. Requires trusted local --admin --allow-workspace. The confirmed flag alone does not establish human approval.",
         inputSchema: safeToolSchema(draftSchema),
       },
       async (v) =>
@@ -122,7 +122,7 @@ export function registerWorkspaceTools(
     "list_workspace_services",
     {
       description:
-        "Högst 50 tjänster, inklusive inaktiva och deras redigeringsversion. Endast lokal administratör.",
+        "List up to 50 services, including inactive services and their edit versions. Local administrators only.",
       inputSchema: safeToolSchema(z.object({}).strict()),
     },
     async () =>
@@ -144,7 +144,7 @@ export function registerWorkspaceTools(
     "list_staff",
     {
       description:
-        "Högst 20 medarbetare, tjänsttilldelning, aktiv status och version. Inga kunduppgifter eller fullständiga scheman.",
+        "List up to 20 team members with service assignments, active status and version. Customer details and full schedules are excluded.",
       inputSchema: safeToolSchema(z.object({}).strict()),
     },
     async () =>
@@ -164,7 +164,7 @@ export function registerWorkspaceTools(
     "get_staff_schedule",
     {
       description:
-        "Veckoschema och datumundantag för högst 31 dagar i Stockholm, en medarbetare.",
+        "Show a team member’s weekly schedule and date exceptions for up to 31 days in Stockholm.",
       inputSchema: safeToolSchema(staffScheduleSchema),
     },
     async (v) =>
@@ -185,7 +185,7 @@ export function registerWorkspaceTools(
     "get_staff_configuration",
     {
       description:
-        "Läs en medarbetares kompletta redigeringsunderlag: version, tjänsttilldelning, högst 7 veckodagar och 60 datumundantag. Använd detta före ersättning av exceptions; tidsfönstret i get_staff_schedule är inte hela konfigurationen.",
+        "Read a team member’s full edit data, including version, service assignments, up to seven weekdays and 60 date exceptions. Use this before replacing exceptions. get_staff_schedule shows only a date range.",
       inputSchema: safeToolSchema(z.object({ staffId: id }).strict()),
     },
     async (v) =>
@@ -199,7 +199,7 @@ export function registerWorkspaceTools(
     "list_workspace_bookings",
     {
       description:
-        "Minimerad kalender med status/version. Högst 31 dagar och 100 bokningar/sida. Inga kundnamn eller e-post.",
+        "Read limited calendar details with status and version. Up to 31 days and 100 bookings per page. Customer names and emails are excluded.",
       inputSchema: safeToolSchema(calendarSchema),
     },
     async (v) =>
@@ -233,7 +233,7 @@ export function registerWorkspaceTools(
     "get_booking",
     {
       description:
-        "Bokningens lagrade behandling, tid, status/version och senaste 20 händelser. Inga kundnamn eller e-post.",
+        "Read the saved treatment, time, status, version and last 20 events for a booking. Customer names and emails are excluded.",
       inputSchema: safeToolSchema(z.object({ id }).strict()),
     },
     async (v) => reply(() => getBooking(v.id)),
@@ -242,7 +242,7 @@ export function registerWorkspaceTools(
     "get_move_availability",
     {
       description:
-        "Lediga tider för en befintlig boknings lagrade längd/buffert, en utförare och ett datum i Stockholm.",
+        "List availability for the saved duration and buffer of an existing booking, for one team member and a date in Stockholm.",
       inputSchema: safeToolSchema(
         z.object({ id, staffId: id, date: dateSchema }).strict(),
       ),
@@ -254,7 +254,7 @@ export function registerWorkspaceTools(
     "move_booking",
     {
       description:
-        "Flytta syntetisk bokning atomärt. Kräver aktuell version, stabil clientRequestId och confirmed=true. Endast uttryckligt lokalt skrivläge.",
+        "Reschedule a fictional booking atomically. Requires the current version, a stable clientRequestId, confirmed=true and explicit local write mode.",
       inputSchema: safeToolSchema(mcpMoveSchema),
     },
     async (v) =>
@@ -264,7 +264,7 @@ export function registerWorkspaceTools(
     "cancel_booking",
     {
       description:
-        "Avboka spårbart, frigör tid och behåll historik. Aktuell version och stabil clientRequestId krävs. confirmed är inte mänskligt samtycke.",
+        "Cancel a booking, release its slot and retain its history. Requires the current version and a stable clientRequestId. The confirmed flag alone does not establish human consent.",
       inputSchema: safeToolSchema(mcpCancelSchema),
     },
     async (v) =>
@@ -274,7 +274,7 @@ export function registerWorkspaceTools(
     "save_service",
     {
       description:
-        "Skapa, ändra eller inaktivera tjänst. Befintlig tjänst kräver id/expectedVersion. Pris i ören; gamla bokningar bevaras. Stabil clientRequestId och confirmed=true krävs.",
+        "Create, edit or deactivate a service. Existing services require id and expectedVersion. Prices are in öre. Existing bookings are retained. Requires a stable clientRequestId and confirmed=true.",
       inputSchema: safeToolSchema(mcpServiceSchema),
     },
     async (v) =>
@@ -284,7 +284,7 @@ export function registerWorkspaceTools(
     "save_staff",
     {
       description:
-        "Skapa/ändra/inaktivera syntetisk personal och ersätt veckoschema. Datumundantag ersätts bara om fältet skickas; inga medicinska skäl. Aktuell version och stabil clientRequestId krävs.",
+        "Create, edit or deactivate fictional staff and replace their weekly schedule. Date exceptions are replaced only when provided. Exclude medical reasons. Requires the current version and a stable clientRequestId.",
       inputSchema: safeToolSchema(mcpStaffSchema),
     },
     async (v) =>

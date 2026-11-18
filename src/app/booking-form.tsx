@@ -143,7 +143,7 @@ export default function BookingForm({
         );
       } else {
         setMessage(
-          result.error === "Tiden är inte tillgänglig"
+          result.error === "That time is no longer available. Choose another time."
             ? t(
                 "That time is no longer available. Choose another time.",
                 "Tiden är inte längre tillgänglig. Välj en annan ledig tid.",

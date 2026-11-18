@@ -1,0 +1,50 @@
+name: Bug report
+description: Something does not work as expected
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Use fictional data only: no real names, phone numbers, emails or keys.
+        **Security problems do not belong here.** Report them privately as described in SECURITY.md.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: And what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open /studio\n2. Choose ...\n3. See ..."
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Live demo (demo.cresavo.com)
+        - Local demo (npm run demo)
+        - Booking engine (/admin, /api/v1, MCP)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: "v0.4.0 or a commit SHA"
+  - type: input
+    id: env
+    attributes:
+      label: Browser, device and OS
+      placeholder: "Firefox 140, macOS 15"
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or logs
+      description: Optional. Check that nothing personal or secret is visible.

@@ -5,7 +5,7 @@ import { createAdminUser } from "../../src/lib/admin-accounts";
 import { db } from "../../src/lib/db";
 import { assertTestDatabase } from "../test-db-guard.mjs";
 
-export async function checkSalonCalendar(address: string, gateway: URL, bookingId: string, start: string, agentKey: string) {
+export async function checkSalonCalendar(address: string, gateway: URL, bookingId: string, start: string, agentKey: string, screenshotPath?: string) {
   assertTestDatabase();
   const salon = new URL(address);
   assert.equal(salon.protocol, "http:");
@@ -59,6 +59,7 @@ export async function checkSalonCalendar(address: string, gateway: URL, bookingI
       await page.locator(`a[href^="${bookingPath}"]:visible`).first().click();
       await page.waitForURL(url => url.origin === salon.origin && url.pathname === bookingPath);
       await page.getByRole("heading", { name: /^(Booking|Bokning)$/ }).waitFor();
+      if (screenshotPath) await page.screenshot({ path: screenshotPath, fullPage: false });
     } finally {
       await browser.close();
     }

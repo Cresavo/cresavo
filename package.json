@@ -1,6 +1,6 @@
 {
   "name": "booking-lab-se",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "type": "module",
   "private": true,
   "license": "AGPL-3.0-only",
@@ -9,6 +9,7 @@
     "demo:record": "node --env-file=.env scripts/record-demo.mjs",
     "demo:seed": "node --env-file=.env --import tsx scripts/seed-demo.ts",
     "demo:seed:capacity": "node --env-file=.env --import tsx scripts/seed-capacity.ts",
+    "demo": "node scripts/demo.mjs",
     "dev": "node --env-file-if-exists=.env scripts/server.mjs --dev",
     "build": "next build",
     "start": "node --env-file-if-exists=.env scripts/server.mjs",
@@ -22,7 +23,12 @@
     "test:integration": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts",
     "test:e2e:production": "node --env-file=.env scripts/run-production-e2e.mjs",
     "agent-keys": "node --env-file-if-exists=.env --import tsx scripts/agent-keys.mts",
-    "agent:proof": "node --import tsx scripts/agentprov/run.mts"
+    "agent:proof": "node --import tsx scripts/agentprov/run.mts",
+    "test:pair": "node --import tsx scripts/integration/run.mts",
+    "ai:eval": "node --env-file-if-exists=.env --import tsx scripts/ai-eval.mts",
+    "qa": "node qa/run-all.mjs",
+    "test:concept": "playwright test --config playwright.concept.config.ts",
+    "concept:mcp-demo": "node --env-file-if-exists=.env --import tsx scripts/concept-mcp-demo.mts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.4.0",

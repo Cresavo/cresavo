@@ -166,7 +166,7 @@ describe("Beständig lokal demobokning och arbetsdag", () => {
       expect(result.content).toEqual([
         {
           type: "text",
-          text: "Bokningen kan inte visas med den här demoprofilen.",
+          text: "This demo profile cannot access the booking.",
         },
       ]);
       expect(JSON.stringify(result)).not.toContain(
@@ -514,7 +514,10 @@ describe("Beständig lokal demobokning och arbetsdag", () => {
       nextVisit: { serviceName: "Demo återhämtning" },
     });
     expect(JSON.stringify(result)).not.toMatch(
-      /customer|email|Tidkort Demo|requestHash|clientKey/i,
+      // Customer fields and contact data must never appear. The English notice
+      // ("does not receive customer contact details") names the policy, so
+      // match field names and values rather than the bare word.
+      /customer(?:Name|Email|Phone|Id)|"customer"|email|@|Tidkort Demo|requestHash|clientKey/i,
     );
     expect(
       (await call(owner, "show_workday", { date: "invalid" })).isError,

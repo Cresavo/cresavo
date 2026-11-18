@@ -8,7 +8,7 @@
       "generated": "2026-11-12",
       "tool": "built-in image_gen, no new service or subscription",
       "promptSummary": "Fictional adult female practitioner Sofia,35,brown hair,sage linen,cream/oak/plant background,Nordic daylight,no real-person resemblance or text",
-      "alt": "Fiktiva Sofia i grön linnetröja",
+      "alt": "Fictional Sofia in a green linen top",
       "bytes": 15832,
       "sha256": "ec4d361dcb77da9b754d15f1ae125f745e565c1ab8e5966d9eaf725503f4e2e3",
       "usage": "synthetic staff section on customer page"
@@ -19,7 +19,7 @@
       "generated": "2026-11-12",
       "tool": "built-in image_gen, no new service or subscription",
       "promptSummary": "Fictional adult male practitioner Elias,40,short dark hair,sage linen,cream/oak/plant background,Nordic daylight,no real-person resemblance or text",
-      "alt": "Fiktiva Elias i grön linneskjorta",
+      "alt": "Fictional Elias in a green linen shirt",
       "bytes": 18248,
       "sha256": "1c0bfa019a3a2161f292db90cd9dc40cc3ecea65c90d0f65e9aa3490475c739d",
       "usage": "synthetic staff section on customer page"
@@ -30,7 +30,7 @@
       "generated": "2026-11-12",
       "tool": "built-in image_gen, no new service or subscription",
       "promptSummary": "Fictional Scandinavian salon interior,cream plaster,pale oak,sage linen,plants,treatment couch,Nordic daylight,no people or logos",
-      "alt": "Påhittad salong med ljus ek, gröna textilier och behandlingsbänk",
+      "alt": "Fictional salon with pale oak, green textiles and a treatment couch",
       "bytes": 105376,
       "sha256": "7705744e1dba622838c4c4a54b00e9b6a122efb9c2218c4bcf1c9a5e6a3b8222",
       "usage": "customer page and product page"
@@ -41,7 +41,7 @@
       "generated": "2026-11-12",
       "tool": "built-in image_gen, no new service or subscription",
       "promptSummary": "Editorial still life of cream towels,unbranded amber oil bottle,greenery,pale oak,sage linen,Nordic daylight,no people or text",
-      "alt": "Handdukar och omärkt massageolja i demosalongen",
+      "alt": "Towels and unbranded massage oil in the demo salon",
       "bytes": 31248,
       "sha256": "e7c58af417f0a989092cdf008c8754abba65690a92b96cca9c460be5865c66a5",
       "usage": "treatment section on customer page"
@@ -52,7 +52,7 @@
       "generated": "2026-11-12",
       "tool": "built-in image_gen, no new service or subscription",
       "promptSummary": "Editorial hairdressing still life,clean scissors and dark comb,cream linen,pale oak,mirror,sage chair,plants,Nordic daylight,no people or text",
-      "alt": "Frisörsax och kam på en ljus arbetsbänk",
+      "alt": "Hairdressing scissors and a comb on a light workbench",
       "bytes": 25214,
       "sha256": "84d39a308f269802425ced2b735df067b238c75056f6b2af0d2790451fcccf5c",
       "usage": "treatment section on customer page"

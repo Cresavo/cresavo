@@ -68,12 +68,12 @@ export function mapAgentError(error: unknown): { code: AgentApiErrorCode; retryA
   if (error instanceof DomainError) {
     if (isPublicReadonly() && error.status === 403) return { code: "forbidden_scope" };
     if (error.status === 429) return { code: "rate_limited", retryAfter: error.retryAfter };
-    if (error.message === "Tjänsten finns inte") return { code: "service_not_found" };
-    if (error.message === "Medarbetaren kan inte utföra behandlingen") return { code: "staff_not_found" };
-    if (error.message === "Tiden är inte tillgänglig") return { code: "slot_unavailable" };
-    if (error.message === "Uppgifterna har ändrats. Läs in på nytt.") return { code: "stale_service" };
-    if (error.message === "Bokningsnyckeln har redan använts med andra uppgifter.") return { code: "idempotency_conflict" };
-    if (error.message === "Bokningen finns inte") return { code: "booking_not_found" };
+    if (error.message === "This treatment is no longer available.") return { code: "service_not_found" };
+    if (error.message === "This team member does not provide the selected treatment.") return { code: "staff_not_found" };
+    if (error.message === "That time is no longer available. Choose another time.") return { code: "slot_unavailable" };
+    if (error.message === "The details have changed. Refresh and review them again.") return { code: "stale_service" };
+    if (error.message === "This booking attempt was already used with different details.") return { code: "idempotency_conflict" };
+    if (error.message === "Booking not found. Return to the calendar.") return { code: "booking_not_found" };
     if (error.status === 400) return { code: "invalid_request" };
   }
   if (error instanceof ZodError || error instanceof SyntaxError) return { code: "invalid_request" };
@@ -112,6 +112,11 @@ async function agentRouteInternal(
   scope: AgentScope | readonly AgentScope[],
   handler: AgentHandler,
 ) {
+  // A restart into standalone mode must also refuse an operation whose access
+  // check succeeded on the previous split process. Check before any handler.
+  if (route !== "GET /api/v1/access" && request.headers.has("x-booking-gateway-token") &&
+      process.env.BOOKING_SERVICE_ROLE !== "salon")
+    return agentErrorResponse("provider_configuration_invalid");
   if (process.env.BOOKING_SERVICE_ROLE === "salon") {
     const token = process.env.GATEWAY_SERVICE_TOKEN;
     const presented = request.headers.get("x-booking-gateway-token");

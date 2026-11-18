@@ -30,9 +30,9 @@ export function fixtureStaff() {
 export function fixtureAvailability(serviceId: string, day: string, staffId: string, now: DateTime = DateTime.now()) {
   dateSchema.parse(day);
   const service = fixtureServices().find((s) => s.id === serviceId);
-  if (!service) throw new DomainError("Tjänsten finns inte");
+  if (!service) throw new DomainError("This treatment is no longer available.");
   const staff = fixtureStaff().find((s) => s.id === staffId && s.serviceIds.includes(serviceId));
-  if (!staff) throw new DomainError("Medarbetaren kan inte utföra behandlingen");
+  if (!staff) throw new DomainError("This team member does not provide the selected treatment.");
   return scheduledSlots(staff.weekly, staff.exceptions, day, service.duration + service.buffer, now);
 }
 

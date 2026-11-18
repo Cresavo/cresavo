@@ -32,12 +32,12 @@ export async function timeCardData(input: unknown, bookingEnabled = false) {
   const date = args.date ?? today.toISODate()!;
   const day = DateTime.fromISO(date, { zone: "Europe/Stockholm" });
   if (day < today || day > today.plus({ days: 27 }))
-    throw new DomainError("Välj en dag inom de kommande 28 dagarna.");
+    throw new DomainError("Choose a date within the next 28 days.");
   const services = await timeCardServices();
   const service = services.find(
     ({ id }) => id === (args.serviceId ?? services[0]?.id),
   );
-  if (!service) throw new DomainError("Välj en tillgänglig behandling.");
+  if (!service) throw new DomainError("Choose an available treatment.");
   const staff = await db.staff.findMany({
     where: {
       businessId: DEMO_BUSINESS_ID,
@@ -52,7 +52,7 @@ export async function timeCardData(input: unknown, bookingEnabled = false) {
     ({ id }) => id === (args.staffId ?? staff[0]?.id),
   );
   if (!selectedStaff)
-    throw new DomainError("Ingen utförare finns för den valda behandlingen.");
+    throw new DomainError("No team member provides the selected treatment.");
   const starts = await getAvailability(service.id, date, db, selectedStaff.id);
   return {
     demo: true,
@@ -84,6 +84,6 @@ export async function timeCardData(input: unknown, bookingEnabled = false) {
         .toISO()!,
     })),
     checkedAt: DateTime.now().toUTC().toISO()!,
-    notice: "Endast tidsval. Ingen tid reserveras och ingen bokning skapas.",
+    notice: "Time selection only. Selecting a time does not reserve it or create a booking.",
   };
 }

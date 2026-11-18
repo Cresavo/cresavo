@@ -132,7 +132,7 @@ describe("Lokal MCP-behörighet och dataminimering", () => {
         const result = await client.callTool({ name, arguments: args });
         expect(result.isError).toBe(true);
         expect(result.content).toEqual([
-          { type: "text", text: "Ett fel inträffade" },
+          { type: "text", text: "Something went wrong. Try again." },
         ]);
       }
     } finally {

@@ -1,0 +1,45 @@
+export interface IntentContext {
+  customers: { id: string; name: string }[];
+  services: { id: string; name: string; durationMin: number; priceSek: number }[];
+  staff: { id: string; name: string }[];
+  bookings: { id: string; customerId: string; staffId: string; serviceId: string; start: string }[];
+  /** ISO instant; all relative dates use the salon timezone, never the host timezone. */
+  now: string;
+  timezone?: string;
+}
+
+export type IntentAction = "book" | "move" | "cancel" | "campaign" | "revenue" | "inactive-customers" | "order-stock" | "sell-product" | "stock-level" | "make-poster" | "change-price" | "staff-off" | "close-salon" | "staff-shift";
+export type TimeOffReason = "vacation" | "sick" | "other";
+export interface IntentParams {
+  customerId?: string;
+  serviceId?: string;
+  staffId?: string;
+  bookingId?: string;
+  date?: string;
+  time?: string;
+  /** End of a shift, "HH:mm". */
+  endTime?: string;
+  reason?: TimeOffReason;
+  period?: "morning" | "afternoon";
+  start?: string;
+  end?: string;
+  since?: string;
+  percentOff?: number;
+  priceSek?: number;
+  offerWaitingList?: boolean;
+  product?: string;
+  quantity?: number;
+  occasion?: string;
+}
+export type IntentResult = {
+  action: IntentAction;
+  params: IntentParams;
+  summary: string;
+  confidence: number;
+} | {
+  action: "question";
+  params: IntentParams;
+  summary: string;
+  confidence: number;
+  question: string;
+};

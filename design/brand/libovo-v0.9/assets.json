@@ -1,0 +1,19 @@
+{
+  "version": "0.9",
+  "status": "provisional-design-system-not-trademark-cleared",
+  "primaryLogo": "logo/libovo-wordmark-light.svg",
+  "inverseLogo": "logo/libovo-wordmark-dark.svg",
+  "monochromeBlack": "logo/libovo-wordmark-black.svg",
+  "monochromeWhite": "logo/libovo-wordmark-white.svg",
+  "iconStatus": "TEMPORARY MONOGRAM – do not register/use as final trademark",
+  "favicon": "icons/favicon.ico",
+  "faviconPng": "icons/libovo-placeholder-32.png",
+  "appleTouchIcon": "icons/libovo-placeholder-180.png",
+  "pwa192": "icons/libovo-placeholder-192.png",
+  "pwa512": "icons/libovo-placeholder-512.png",
+  "ogImage": "social/libovo-og-1200x630.png",
+  "profileAvatar": "social/profile-avatar-placeholder-1024.png",
+  "fontBinaryShipped": false,
+  "primaryUIColorScheme": "light and dark separate semantic tokens",
+  "usage": "Brand identity may be replaced after final identity legal + visual clearance."
+}

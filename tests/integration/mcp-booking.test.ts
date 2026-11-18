@@ -131,7 +131,7 @@ describe("Verklig lokal MCP-bokning", () => {
     expect(conflict.content).toEqual([
       {
         type: "text",
-        text: "Bokningsnyckeln har redan använts med andra uppgifter.",
+        text: "This booking attempt was already used with different details.",
       },
     ]);
     const admin = await listBookings({ from: date, to: date });
@@ -165,7 +165,7 @@ describe("Verklig lokal MCP-bokning", () => {
       const result = await call(client, bad);
       expect(result.isError).toBe(true);
       expect(result.content).toEqual([
-        { type: "text", text: "Kontrollera uppgifterna" },
+        { type: "text", text: "Check the details and try again." },
       ]);
     }
     for (const bad of [
@@ -215,7 +215,7 @@ describe("Verklig lokal MCP-bokning", () => {
           const result = await call(client, v);
           if (result.isError)
             expect(result.content).toEqual([
-              { type: "text", text: "Tiden är inte tillgänglig" },
+              { type: "text", text: "That time is no longer available. Choose another time." },
             ]);
           return !result.isError;
         }
@@ -261,7 +261,7 @@ describe("Verklig lokal MCP-bokning", () => {
       data(await call(client, payload(starts[i], String(i))));
     const rejected = await call(client, payload(starts[5], "six"));
     expect(rejected.content).toEqual([
-      { type: "text", text: "För många försök. Försök igen senare." },
+      { type: "text", text: "Too many attempts. Please try again later." },
     ]);
     expect(rejected.isError).toBe(true);
     await client.close();
@@ -288,7 +288,7 @@ describe("Verklig lokal MCP-bokning", () => {
       payload(day.set({ hour: 9, minute: 0 }).toUTC().toISO()!),
     );
     expect(result.content).toEqual([
-      { type: "text", text: "Ett fel inträffade" },
+      { type: "text", text: "Something went wrong. Try again." },
     ]);
     expect(result.isError).toBe(true);
     expect(stderr()).toContain("BOOKING_INTERNAL_ERROR");

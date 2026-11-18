@@ -80,7 +80,7 @@ export async function mountTimeCard(
   );
   const frame = page.frameLocator("iframe");
   await expect(frame.getByRole("status")).toContainText(
-    hooks.kind === "workday" ? "Hämtar arbetsdagen" : "Hämtar lediga demotider",
+    hooks.kind === "workday" ? "Loading your workday" : "Loading available demo times",
   );
   await page.evaluate(
     (result) =>
@@ -96,7 +96,7 @@ export async function mountTimeCard(
   );
   await expect(
     frame.getByRole("heading", {
-      name: hooks.kind === "workday" ? "Min arbetsdag" : "En stund för dig.",
+      name: hooks.kind === "workday" ? "My workday" : "A moment for yourself.",
     }),
   ).toBeVisible();
   return { frame, contexts, calls };

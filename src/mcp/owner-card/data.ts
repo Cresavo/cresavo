@@ -68,7 +68,7 @@ export async function ownerWorkday(input: unknown) {
   const day = parseDay(v.date ?? today.toISODate()!);
   if (day < today.minus({ days: 7 }) || day > today.plus({ days: 27 }))
     throw new DomainError(
-      "Välj en dag från förra veckan till de kommande 28 dagarna.",
+      "Choose a date from the past week through the next 28 days.",
     );
   const date = day.toISODate()!,
     now = new Date();
@@ -79,7 +79,7 @@ export async function ownerWorkday(input: unknown) {
     serviceIds,
   }));
   const person = staff.find((s) => s.id === (v.staffId ?? staff[0]?.id));
-  if (v.staffId && !person) throw new DomainError("Välj en aktiv medarbetare.");
+  if (v.staffId && !person) throw new DomainError("Choose an active team member.");
   const treatments = services
     .filter((s) => person?.serviceIds.includes(s.id))
     .map(({ id, name, duration, priceOre }) => ({
@@ -92,7 +92,7 @@ export async function ownerWorkday(input: unknown) {
     (s) => s.id === (v.serviceId ?? treatments[0]?.id),
   );
   if (v.serviceId && !service)
-    throw new DomainError("Välj en behandling som medarbetaren utför.");
+    throw new DomainError("Choose a treatment this team member provides.");
   const calendar = person
     ? await listCalendar({
         from: date,
@@ -144,7 +144,7 @@ export async function ownerWorkday(input: unknown) {
   return {
     demo: true,
     timezone: "Europe/Stockholm",
-    actor: "Betrodd lokal ägarprofil – demo",
+    actor: "Trusted local owner profile (demo)",
     date,
     today: today.toISODate()!,
     firstDate: today.minus({ days: 7 }).toISODate()!,
@@ -179,6 +179,6 @@ export async function ownerWorkday(input: unknown) {
     },
     checkedAt: DateTime.now().toUTC().toISO()!,
     notice:
-      "Endast läsning. Vanlig individuell admininloggning krävs för ändringar. Inga kundkontakter lämnas till assistenten.",
+      "Read-only. Sign in with an individual admin account to make changes. The assistant does not receive customer contact details.",
   };
 }

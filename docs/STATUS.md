@@ -1,41 +1,40 @@
 # Status
 
-Senast uppdaterad 2026-11-16. Håll den här filen kort: ersätt innehållet när
-läget ändras, och lägg detaljerade testbevis i commit-meddelanden eller CI.
+Cresavo is a concept demo (0.x) for salons and other small service businesses.
 
-## Läge
+## Available today
 
-Lokal prototyp med syntetiska data. Ingen produktionsdrift, ingen kundpilot.
+- [demo.cresavo.com](https://demo.cresavo.com) opens the demo landing page,
+  owner studio and Salong Eko customer booking page. The studio includes the
+  Assistant, campaigns, stock and purchasing, finance and configurable modules.
+  The demo uses fictional fixtures and browser state. The Assistant works
+  without an AI key.
+- [cresavo.com](https://cresavo.com) shows the coming-soon page. Its launch
+  waiting-list form is a placeholder and does not store sign-ups.
+- Host routing serves the product site, demo and business booking pages at
+  different addresses. The demo resolves fixture businesses and simulates
+  custom-domain setup. Live domain changes are disabled until owner and
+  domain ownership can be verified on the server.
+- The separate booking engine uses Prisma and PostgreSQL. The web workspace,
+  provider API and local owner MCP share booking rules, including idempotency
+  and protection against double-booking. The public agent gateway lives in
+  the separate `booking-lab-gateway` repository.
+- The concept demo includes the November QA fixes for booking and caller
+  flows, same-origin tab synchronization, assistant lookups and host feedback.
+  Booking undo checks availability, and the customer time picker shows salon
+  contacts when no days are open. The QA runner is available through `npm run qa`.
+- Visitors can try a booking on the demo landing and watch five recorded
+  studio and customer workflows.
 
-- Salongen (detta repo) och gatewayen (`booking-lab-gateway`) är separata repon,
-  båda integrerade på `main`.
-- Efter städningen och borttaget av gamla demoytor (2026-11-16, lokalt mot
-  PostgreSQL 18): 385 enhetstester, 202 integrationstester, 64/64 webbtester
-  (desktop och mobil, dev-läge), lint, typkontroll och build. Gateway `e1830fe`: 10/10.
-- Kända öppna fynd: sju måttliga sårbarheter i utvecklingsberoenden (inga i
-  produktionsberoenden) och några Info-fynd från tidigare granskningar.
+## Before a real pilot
 
-## Det här fungerar
+The studio still needs to connect to the booking engine. Real customer use
+requires verified tenant isolation, production authentication and access
+controls, backups and restore, monitoring, and a security and privacy review.
+The launch waiting list needs a storage provider and a current privacy policy
+before it can accept sign-ups. Use fictional data and simulated messages in
+the meantime. See the [pilot gate](QUALITY_SECURITY.md) and [goal queue](goals/QUEUE.md).
 
-- Kundbokning på webben med lediga tider, idempotens och skydd mot dubbelbokning
-  i databasen.
-- Salongens arbetsyta: översikt, kalender, kunder, tjänster, personal och kampanjer.
-- Lokal ägar-MCP: lista, flytta och avboka bokningar, scheman, tjänster,
-  kapacitetsförslag och kampanjutkast.
-- Agentförslag och mandat som kräver godkännande, med granskningslogg.
-- Provider-API `/api/v1` som gatewayen anropar.
-- Grund för flera språk (svenska och engelska delvis).
-
-## Det här saknas för riktig användning
-
-1. Fjärranslutning till MCP med OAuth (Claude/ChatGPT/mobil). Idag bara lokalt.
-2. Flera verksamheter med riktig dataseparering. `businessId` är inte tenant-isolering.
-3. Inloggning för ägare och personal med återställning och MFA.
-4. Drift: deploy, backup, övervakning, säkerhetsgranskning.
-5. Påminnelser via sms/mejl, import från andra bokningssystem, betalning.
-6. Tidszon och valuta per verksamhet (idag fast `Europe/Stockholm` och SEK).
-
-## Regler som gäller tills vidare
-
-- Endast syntetiska data. Inga riktiga kunder eller utskick.
-- Ingen push, merge, deploy, ny molnresurs eller betaltjänst utan Niclas uttryckliga godkännande.
+Reminders by text and e-mail, payments and other providers have a connections
+foundation: simulated by default, live adapters behind a flag
+(`docs/integrations/README.md`).

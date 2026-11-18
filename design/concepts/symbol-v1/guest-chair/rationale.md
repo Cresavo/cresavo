@@ -1,0 +1,1 @@
+One continuous strip bends from backrest to seat and folds under itself to form a cantilever. The small triangle of air below the seat gives the chair its profile and connects the mark to the place where a customer spends an appointment.

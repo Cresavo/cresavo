@@ -1,0 +1,115 @@
+/* Studio reset that neutralises the older global styles in style.css. Colours,
+   radii and the font come from the brand tokens (src/concept/ui/brand-theme.css). `:where(.studio-root) button` has the same specificity as the
+   global `button` rule (and comes later), so Tailwind utilities still win. */
+
+.studio-root {
+  font-family: var(--font-ui);
+  font-size: 16px;
+  font-feature-settings: "cv11", "ss01";
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  min-height: 100dvh;
+}
+
+body:has(.studio-root) {
+  background: var(--ui-bg);
+}
+
+body:has(.studio-root) .demo-banner {
+  display: none;
+}
+
+:where(.studio-root) button {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  min-height: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:where(.studio-root) button:disabled {
+  opacity: 1;
+  filter: none;
+  cursor: not-allowed;
+  background: var(--ui-surface-2);
+  color: var(--ui-text-secondary);
+}
+
+:where(.studio-root) button:hover {
+  filter: none;
+}
+
+:where(.studio-root) input,
+:where(.studio-root) select,
+:where(.studio-root) textarea {
+  width: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+:where(.studio-root) a {
+  color: inherit;
+  text-decoration: none;
+}
+
+:where(.studio-root) label {
+  display: inline;
+  margin: 0;
+  font-weight: inherit;
+}
+
+:where(.studio-root) :where(h1, h2, h3, h4, p) {
+  margin: 0;
+}
+
+.studio-root :focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 2px;
+}
+
+/* Inputs inside a container that draws its own focus ring (the command box). */
+.studio-root .bare-input:focus-visible {
+  outline: none;
+}
+
+.studio-root .no-scrollbar {
+  scrollbar-width: none;
+}
+
+.studio-root .no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* "Show me" from the Help button: a pulsing ring around the element. Drawn
+   inside the element so a scrolling parent such as the sidebar cannot clip it. */
+.studio-root .help-highlight {
+  outline: 3px solid var(--ui-focus);
+  outline-offset: -3px;
+  background-color: var(--ui-action-bg);
+  border-radius: var(--radius-md);
+  animation: help-pulse 1.1s ease-in-out 4;
+}
+
+@keyframes help-pulse {
+  50% {
+    outline-color: color-mix(in srgb, var(--ui-focus) 30%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-root,
+  .studio-root *,
+  .studio-root *::before,
+  .studio-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -62,21 +62,21 @@ for (const width of [320, 390, 1024]) {
       },
     );
     await expect(
-      frame.getByRole("heading", { name: "En stund för dig." }),
+      frame.getByRole("heading", { name: "A moment for yourself." }),
     ).toBeVisible();
     await expect(
-      frame.getByText("30 minuter · Ordinarie pris", { exact: false }),
+      frame.getByText("30 minutes · Regular price", { exact: false }),
     ).toBeVisible();
     const slots = frame
-      .getByRole("group", { name: "Lediga tider" })
+      .getByRole("group", { name: "Available times" })
       .getByRole("button");
     await expect(slots.first()).toBeVisible();
     await slots.first().click();
     await frame
-      .getByRole("button", { name: "Kontrollera mitt tidsval" })
+      .getByRole("button", { name: "Check my selected time" })
       .click();
     await expect(frame.getByRole("status")).toHaveText(
-      "Tiden är fortfarande ledig. Ingen bokning har skapats.",
+      "The time is still available. No booking has been created.",
     );
     const chosen = (
       initial.structuredContent as { slots: { start: string; end: string }[] }
@@ -97,17 +97,17 @@ for (const width of [320, 390, 1024]) {
       },
     });
     await frame
-      .getByRole("button", { name: "Kontrollera mitt tidsval" })
+      .getByRole("button", { name: "Check my selected time" })
       .click();
     await expect(frame.getByRole("status")).toHaveText(
-      "Tiden är inte längre ledig. Välj en annan tid här ovanför.",
+      "That time is no longer available. Choose another time above.",
     );
     await expect(frame.locator("#selection")).toBeHidden();
     await expect
       .poll(() => contexts.at(-1))
       .toMatchObject({ structuredContent: { start: null } });
     const sunday = DateTime.fromISO(monday).plus({ days: 6 }).toISODate()!;
-    const day = new Intl.DateTimeFormat("sv-SE", {
+    const day = new Intl.DateTimeFormat("en-GB", {
       weekday: "long",
       day: "numeric",
       month: "long",
@@ -115,23 +115,23 @@ for (const width of [320, 390, 1024]) {
     }).format(new Date(sunday + "T12:00Z"));
     await frame.getByRole("button", { name: day, exact: true }).click();
     await expect(
-      frame.getByText("Inga lediga tider den här dagen."),
+      frame.getByText("No times are available on this date."),
     ).toBeVisible();
-    await frame.getByRole("button", { name: "Prova nästa dag" }).click();
+    await frame.getByRole("button", { name: "Try the next day" }).click();
     await expect(slots.first()).toBeVisible();
     await slots.first().click();
     await frame
-      .getByLabel("Behandling", { exact: true })
+      .getByLabel("Treatment", { exact: true })
       .selectOption("fotvard");
     await expect(frame.locator("#selection")).toBeHidden();
-    await expect(frame.locator("#details")).toContainText("60 minuter");
+    await expect(frame.locator("#details")).toContainText("60 minutes");
     fail = true;
-    await frame.getByRole("button", { name: "Nästa sju dagar" }).click();
+    await frame.getByRole("button", { name: "Next seven days" }).click();
     await expect(frame.getByRole("alert")).toContainText(
-      "Tiderna kunde inte hämtas",
+      "Could not load available times",
     );
     fail = false;
-    await frame.getByRole("button", { name: "Försök igen" }).click();
+    await frame.getByRole("button", { name: "Try again" }).click();
     await expect(frame.getByRole("alert")).toBeEmpty();
     const overflow = await frame
       .locator("body")

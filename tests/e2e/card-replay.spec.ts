@@ -98,7 +98,7 @@ test("publik HTTP kan inte återläsa kortets bokning med dess exakta nyckel", a
     for (const response of replays) {
       expect(response.status()).toBe(403);
       expect(await response.json()).toEqual({
-        error: "Bokningen kan inte visas med den här demoprofilen.",
+        error: "This demo profile cannot access the booking.",
       });
     }
     const ownReplay = await card.callTool({

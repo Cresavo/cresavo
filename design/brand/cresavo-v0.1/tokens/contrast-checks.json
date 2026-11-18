@@ -1,0 +1,673 @@
+{
+  "method": "WCAG 2.2 relative luminance, opaque sRGB. Linearise each normalised channel c at 0.04045, using c/12.92 below or at the breakpoint and ((c+0.055)/1.055)^2.4 above. L = 0.2126R + 0.7152G + 0.0722B. Ratio = (lighter L + 0.05)/(darker L + 0.05). Evaluate before rounding to six decimals.",
+  "source": "https://www.w3.org/WAI/WCAG22/Techniques/general/G18",
+  "keys": "Token keys resolve in colors.json under the theme, then extensions[theme]. Literal hex keys are fixed artwork or the tenant example. Each group lists the complete allowed pairs for that role. Each ratio is foreground against the named adjacent background.",
+  "thresholds": {
+    "text": 4.5,
+    "non-text": 3
+  },
+  "light": [
+    {
+      "use": "Headings, body, secondary and ghost button labels, selected chip labels",
+      "kind": "text",
+      "foreground": "text-primary",
+      "ratios": {
+        "background": 14.056307,
+        "surface": 15.011833,
+        "surface-secondary": 13.148116,
+        "action-bg": 12.682602,
+        "success-bg": 13.048539,
+        "warning-bg": 13.365746,
+        "danger-bg": 13.555281,
+        "info-bg": 13.266567,
+        "staff-1-bg": 12.657609,
+        "staff-2-bg": 12.992976
+      }
+    },
+    {
+      "use": "Metadata, placeholders, disabled labels and icons",
+      "kind": "text",
+      "foreground": "text-secondary",
+      "ratios": {
+        "background": 5.166414,
+        "surface": 5.517619,
+        "surface-secondary": 4.832607,
+        "action-bg": 4.661507,
+        "success-bg": 4.796008,
+        "warning-bg": 4.912598,
+        "danger-bg": 4.982261,
+        "info-bg": 4.876144,
+        "staff-1-bg": 4.652321,
+        "staff-2-bg": 4.775585
+      }
+    },
+    {
+      "use": "Underlined link, normal or hover/active",
+      "kind": "text",
+      "foreground": "primary",
+      "ratios": {
+        "background": 9.979549,
+        "surface": 10.657944,
+        "surface-secondary": 9.334761,
+        "action-bg": 9.00426
+      }
+    },
+    {
+      "use": "Filled button silhouette and selected outline",
+      "kind": "non-text",
+      "foreground": "primary",
+      "ratios": {
+        "background": 9.979549,
+        "surface": 10.657944,
+        "surface-secondary": 9.334761,
+        "action-bg": 9.00426,
+        "success-bg": 9.264064,
+        "warning-bg": 9.489272,
+        "danger-bg": 9.623836,
+        "info-bg": 9.418857,
+        "staff-1-bg": 8.986516,
+        "staff-2-bg": 9.224616
+      }
+    },
+    {
+      "use": "Underlined link, normal or hover/active",
+      "kind": "text",
+      "foreground": "primary-hover",
+      "ratios": {
+        "background": 7.70073,
+        "surface": 8.224214,
+        "surface-secondary": 7.203179,
+        "action-bg": 6.948148
+      }
+    },
+    {
+      "use": "Filled button silhouette and selected outline",
+      "kind": "non-text",
+      "foreground": "primary-hover",
+      "ratios": {
+        "background": 7.70073,
+        "surface": 8.224214,
+        "surface-secondary": 7.203179,
+        "action-bg": 6.948148,
+        "success-bg": 7.148626,
+        "warning-bg": 7.322408,
+        "danger-bg": 7.426244,
+        "info-bg": 7.268072,
+        "staff-1-bg": 6.934455,
+        "staff-2-bg": 7.118186
+      }
+    },
+    {
+      "use": "Primary button and icon, including hover/pressed",
+      "kind": "text",
+      "foreground": "on-primary",
+      "ratios": {
+        "primary": 10.657944,
+        "primary-hover": 8.224214
+      }
+    },
+    {
+      "use": "Divider or card edge",
+      "kind": "non-text",
+      "foreground": "border",
+      "ratios": {
+        "background": 3.447021,
+        "surface": 3.681344,
+        "surface-secondary": 3.224306,
+        "action-bg": 3.110148,
+        "success-bg": 3.199887,
+        "warning-bg": 3.277675,
+        "danger-bg": 3.324155,
+        "info-bg": 3.253353,
+        "staff-1-bg": 3.104019,
+        "staff-2-bg": 3.186261
+      }
+    },
+    {
+      "use": "Outlined button and field edge, inside and outside",
+      "kind": "non-text",
+      "foreground": "control-border",
+      "ratios": {
+        "background": 3.863922,
+        "surface": 4.126586,
+        "surface-secondary": 3.614271,
+        "action-bg": 3.486306,
+        "success-bg": 3.586898,
+        "warning-bg": 3.674095,
+        "danger-bg": 3.726196,
+        "info-bg": 3.646832,
+        "staff-1-bg": 3.479436,
+        "staff-2-bg": 3.571625
+      }
+    },
+    {
+      "use": "2 px focus outline with a 2 px gap showing the surrounding ground",
+      "kind": "non-text",
+      "foreground": "focus",
+      "ratios": {
+        "background": 3.48615,
+        "surface": 3.723134,
+        "surface-secondary": 3.260907,
+        "action-bg": 3.145453,
+        "success-bg": 3.23621,
+        "warning-bg": 3.314882,
+        "danger-bg": 3.361889,
+        "info-bg": 3.290284,
+        "staff-1-bg": 3.139255,
+        "staff-2-bg": 3.22243
+      }
+    },
+    {
+      "use": "Status label and icon, including danger button label",
+      "kind": "text",
+      "foreground": "success",
+      "ratios": {
+        "background": 6.230227,
+        "surface": 6.653749,
+        "surface-secondary": 5.827686,
+        "action-bg": 5.621355,
+        "success-bg": 5.783551
+      }
+    },
+    {
+      "use": "Status outline, including danger button outline",
+      "kind": "non-text",
+      "foreground": "success",
+      "ratios": {
+        "background": 6.230227,
+        "surface": 6.653749,
+        "surface-secondary": 5.827686,
+        "action-bg": 5.621355,
+        "success-bg": 5.783551
+      }
+    },
+    {
+      "use": "Status label and icon, including danger button label",
+      "kind": "text",
+      "foreground": "warning",
+      "ratios": {
+        "background": 6.236662,
+        "surface": 6.660621,
+        "surface-secondary": 5.833705,
+        "action-bg": 5.627161,
+        "warning-bg": 5.930266
+      }
+    },
+    {
+      "use": "Status outline, including danger button outline",
+      "kind": "non-text",
+      "foreground": "warning",
+      "ratios": {
+        "background": 6.236662,
+        "surface": 6.660621,
+        "surface-secondary": 5.833705,
+        "action-bg": 5.627161,
+        "warning-bg": 5.930266
+      }
+    },
+    {
+      "use": "Status label and icon, including danger button label",
+      "kind": "text",
+      "foreground": "danger",
+      "ratios": {
+        "background": 6.804715,
+        "surface": 7.267289,
+        "surface-secondary": 6.365056,
+        "action-bg": 6.139698,
+        "danger-bg": 6.562166
+      }
+    },
+    {
+      "use": "Status outline, including danger button outline",
+      "kind": "non-text",
+      "foreground": "danger",
+      "ratios": {
+        "background": 6.804715,
+        "surface": 7.267289,
+        "surface-secondary": 6.365056,
+        "action-bg": 6.139698,
+        "danger-bg": 6.562166
+      }
+    },
+    {
+      "use": "Status label and icon, including danger button label",
+      "kind": "text",
+      "foreground": "info",
+      "ratios": {
+        "background": 6.440568,
+        "surface": 6.878388,
+        "surface-secondary": 6.024437,
+        "action-bg": 5.811139,
+        "info-bg": 6.078711
+      }
+    },
+    {
+      "use": "Status outline, including danger button outline",
+      "kind": "non-text",
+      "foreground": "info",
+      "ratios": {
+        "background": 6.440568,
+        "surface": 6.878388,
+        "surface-secondary": 6.024437,
+        "action-bg": 5.811139,
+        "info-bg": 6.078711
+      }
+    },
+    {
+      "use": "Staff name or marker, always accompanied by the name",
+      "kind": "text",
+      "foreground": "staff-1",
+      "ratios": {
+        "background": 5.360052,
+        "surface": 5.724421,
+        "surface-secondary": 5.013734,
+        "staff-1-bg": 4.826691
+      }
+    },
+    {
+      "use": "Staff name or marker, always accompanied by the name",
+      "kind": "text",
+      "foreground": "staff-2",
+      "ratios": {
+        "background": 5.418222,
+        "surface": 5.786545,
+        "surface-secondary": 5.068146,
+        "staff-2-bg": 5.008345
+      }
+    },
+    {
+      "use": "Previous series, paired with dashed outline or legend",
+      "kind": "non-text",
+      "foreground": "chart-compare",
+      "ratios": {
+        "background": 3.653126,
+        "surface": 3.90146,
+        "surface-secondary": 3.417094
+      }
+    },
+    {
+      "use": "Current series",
+      "kind": "non-text",
+      "foreground": "primary",
+      "ratios": {
+        "background": 9.979549,
+        "surface": 10.657944,
+        "surface-secondary": 9.334761
+      }
+    },
+    {
+      "use": "Wordmark on matching shell grounds",
+      "kind": "text",
+      "foreground": "#50364B",
+      "ratios": {
+        "background": 9.979549,
+        "surface": 10.657944,
+        "surface-secondary": 9.334761
+      }
+    },
+    {
+      "use": "Single-ink artwork",
+      "kind": "text",
+      "foreground": "#000000",
+      "ratios": {
+        "#FFFFFF": 21.0
+      }
+    },
+    {
+      "use": "Reverse wordmark and temporary monogram on fixed plum",
+      "kind": "text",
+      "foreground": "#FFFFFF",
+      "ratios": {
+        "#50364B": 10.657944
+      }
+    },
+    {
+      "use": "Forest tenant example button and label, fixed palette",
+      "kind": "text",
+      "foreground": "#FFFFFF",
+      "ratios": {
+        "#2F5D50": 7.493456
+      }
+    },
+    {
+      "use": "Legacy tenant button hook on neutral page",
+      "kind": "text",
+      "foreground": "#FFFFFF",
+      "ratios": {
+        "#1D1D1F": 16.829972
+      }
+    }
+  ],
+  "dark": [
+    {
+      "use": "Headings, body, secondary and ghost button labels, selected chip labels",
+      "kind": "text",
+      "foreground": "text-primary",
+      "ratios": {
+        "background": 16.776313,
+        "surface": 14.727418,
+        "surface-secondary": 12.980959,
+        "action-bg": 11.883287,
+        "success-bg": 11.577427,
+        "warning-bg": 12.082362,
+        "danger-bg": 12.213912,
+        "info-bg": 11.255141,
+        "staff-1-bg": 12.497864,
+        "staff-2-bg": 12.058608
+      }
+    },
+    {
+      "use": "Metadata, placeholders, disabled labels and icons",
+      "kind": "text",
+      "foreground": "text-secondary",
+      "ratios": {
+        "background": 9.029307,
+        "surface": 7.926556,
+        "surface-secondary": 6.986581,
+        "action-bg": 6.395794,
+        "success-bg": 6.231175,
+        "warning-bg": 6.50294,
+        "danger-bg": 6.573742,
+        "info-bg": 6.057715,
+        "staff-1-bg": 6.72657,
+        "staff-2-bg": 6.490155
+      }
+    },
+    {
+      "use": "Underlined link, normal or hover/active",
+      "kind": "text",
+      "foreground": "primary",
+      "ratios": {
+        "background": 9.845389,
+        "surface": 8.64297,
+        "surface-secondary": 7.618038,
+        "action-bg": 6.973856
+      }
+    },
+    {
+      "use": "Filled button silhouette and selected outline",
+      "kind": "non-text",
+      "foreground": "primary",
+      "ratios": {
+        "background": 9.845389,
+        "surface": 8.64297,
+        "surface-secondary": 7.618038,
+        "action-bg": 6.973856,
+        "success-bg": 6.794358,
+        "warning-bg": 7.090685,
+        "danger-bg": 7.167887,
+        "info-bg": 6.605221,
+        "staff-1-bg": 7.334528,
+        "staff-2-bg": 7.076745
+      }
+    },
+    {
+      "use": "Underlined link, normal or hover/active",
+      "kind": "text",
+      "foreground": "primary-hover",
+      "ratios": {
+        "background": 11.611498,
+        "surface": 10.193383,
+        "surface-secondary": 8.984595,
+        "action-bg": 8.224856
+      }
+    },
+    {
+      "use": "Filled button silhouette and selected outline",
+      "kind": "non-text",
+      "foreground": "primary-hover",
+      "ratios": {
+        "background": 11.611498,
+        "surface": 10.193383,
+        "surface-secondary": 8.984595,
+        "action-bg": 8.224856,
+        "success-bg": 8.01316,
+        "warning-bg": 8.362643,
+        "danger-bg": 8.453694,
+        "info-bg": 7.790094,
+        "staff-1-bg": 8.650228,
+        "staff-2-bg": 8.346203
+      }
+    },
+    {
+      "use": "Primary button and icon, including hover/pressed",
+      "kind": "text",
+      "foreground": "on-primary",
+      "ratios": {
+        "primary": 9.371574,
+        "primary-hover": 11.052688
+      }
+    },
+    {
+      "use": "Divider or card edge",
+      "kind": "non-text",
+      "foreground": "border",
+      "ratios": {
+        "background": 4.727031,
+        "surface": 4.149718,
+        "surface-secondary": 3.657621,
+        "action-bg": 3.348332,
+        "success-bg": 3.262151,
+        "warning-bg": 3.404425,
+        "danger-bg": 3.441492,
+        "info-bg": 3.171341,
+        "staff-1-bg": 3.521501,
+        "staff-2-bg": 3.397732
+      }
+    },
+    {
+      "use": "Outlined button and field edge, inside and outside",
+      "kind": "non-text",
+      "foreground": "control-border",
+      "ratios": {
+        "background": 5.722816,
+        "surface": 5.023887,
+        "surface-secondary": 4.428127,
+        "action-bg": 4.053684,
+        "success-bg": 3.949347,
+        "warning-bg": 4.121593,
+        "danger-bg": 4.166468,
+        "info-bg": 3.839408,
+        "staff-1-bg": 4.263331,
+        "staff-2-bg": 4.11349
+      }
+    },
+    {
+      "use": "2 px focus outline with a 2 px gap showing the surrounding ground",
+      "kind": "non-text",
+      "foreground": "focus",
+      "ratios": {
+        "background": 10.891401,
+        "surface": 9.561232,
+        "surface-secondary": 8.427408,
+        "action-bg": 7.714784,
+        "success-bg": 7.516216,
+        "warning-bg": 7.844027,
+        "danger-bg": 7.929431,
+        "info-bg": 7.306984,
+        "staff-1-bg": 8.113776,
+        "staff-2-bg": 7.828606
+      }
+    },
+    {
+      "use": "Status label and icon, including danger button label",
+      "kind": "text",
+      "foreground": "success",
+      "ratios": {
+        "background": 14.027341,
+        "surface": 12.314178,
+        "surface-secondary": 10.853895,
+        "action-bg": 9.936087,
+        "success-bg": 9.680346
+      }
+    },
+    {
+      "use": "Status outline, including danger button outline",
+      "kind": "non-text",
+      "foreground": "success",
+      "ratios": {
+        "background": 14.027341,
+        "surface": 12.314178,
+        "surface-secondary": 10.853895,
+        "action-bg": 9.936087,
+        "success-bg": 9.680346
+      }
+    },
+    {
+      "use": "Status label and icon, including danger button label",
+      "kind": "text",
+      "foreground": "warning",
+      "ratios": {
+        "background": 13.161445,
+        "surface": 11.554035,
+        "surface-secondary": 10.183893,
+        "action-bg": 9.322741,
+        "warning-bg": 9.478921
+      }
+    },
+    {
+      "use": "Status outline, including danger button outline",
+      "kind": "non-text",
+      "foreground": "warning",
+      "ratios": {
+        "background": 13.161445,
+        "surface": 11.554035,
+        "surface-secondary": 10.183893,
+        "action-bg": 9.322741,
+        "warning-bg": 9.478921
+      }
+    },
+    {
+      "use": "Status label and icon, including danger button label",
+      "kind": "text",
+      "foreground": "danger",
+      "ratios": {
+        "background": 10.726587,
+        "surface": 9.416547,
+        "surface-secondary": 8.29988,
+        "action-bg": 7.598041,
+        "danger-bg": 7.809439
+      }
+    },
+    {
+      "use": "Status outline, including danger button outline",
+      "kind": "non-text",
+      "foreground": "danger",
+      "ratios": {
+        "background": 10.726587,
+        "surface": 9.416547,
+        "surface-secondary": 8.29988,
+        "action-bg": 7.598041,
+        "danger-bg": 7.809439
+      }
+    },
+    {
+      "use": "Status label and icon, including danger button label",
+      "kind": "text",
+      "foreground": "info",
+      "ratios": {
+        "background": 11.351708,
+        "surface": 9.965321,
+        "surface-secondary": 8.783578,
+        "action-bg": 8.040837,
+        "info-bg": 7.615802
+      }
+    },
+    {
+      "use": "Status outline, including danger button outline",
+      "kind": "non-text",
+      "foreground": "info",
+      "ratios": {
+        "background": 11.351708,
+        "surface": 9.965321,
+        "surface-secondary": 8.783578,
+        "action-bg": 8.040837,
+        "info-bg": 7.615802
+      }
+    },
+    {
+      "use": "Staff name or marker, always accompanied by the name",
+      "kind": "text",
+      "foreground": "staff-1",
+      "ratios": {
+        "background": 10.260829,
+        "surface": 9.007672,
+        "surface-secondary": 7.939492,
+        "staff-1-bg": 7.644019
+      }
+    },
+    {
+      "use": "Staff name or marker, always accompanied by the name",
+      "kind": "text",
+      "foreground": "staff-2",
+      "ratios": {
+        "background": 11.332801,
+        "surface": 9.948724,
+        "surface-secondary": 8.768949,
+        "staff-2-bg": 8.145879
+      }
+    },
+    {
+      "use": "Previous series, paired with dashed outline or legend",
+      "kind": "non-text",
+      "foreground": "chart-compare",
+      "ratios": {
+        "background": 4.119574,
+        "surface": 3.616449,
+        "surface-secondary": 3.187591
+      }
+    },
+    {
+      "use": "Current series",
+      "kind": "non-text",
+      "foreground": "primary",
+      "ratios": {
+        "background": 9.845389,
+        "surface": 8.64297,
+        "surface-secondary": 7.618038
+      }
+    },
+    {
+      "use": "Wordmark on matching shell grounds",
+      "kind": "text",
+      "foreground": "text-primary",
+      "ratios": {
+        "background": 16.776313,
+        "surface": 14.727418,
+        "surface-secondary": 12.980959
+      }
+    },
+    {
+      "use": "Single-ink artwork",
+      "kind": "text",
+      "foreground": "#FFFFFF",
+      "ratios": {
+        "#000000": 21.0
+      }
+    },
+    {
+      "use": "Reverse wordmark and temporary monogram on fixed plum",
+      "kind": "text",
+      "foreground": "#FFFFFF",
+      "ratios": {
+        "#50364B": 10.657944
+      }
+    },
+    {
+      "use": "Forest tenant example button and label, fixed palette",
+      "kind": "text",
+      "foreground": "#FFFFFF",
+      "ratios": {
+        "#2F5D50": 7.493456
+      }
+    },
+    {
+      "use": "Legacy tenant button hook on neutral page",
+      "kind": "text",
+      "foreground": "#141415",
+      "ratios": {
+        "#F2F2F3": 16.456191
+      }
+    }
+  ]
+}

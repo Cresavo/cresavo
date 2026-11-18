@@ -1,0 +1,71 @@
+/* Libovo v0.9 – controlled platform colors. Provisional until brand clearance. */
+:root, [data-theme="light"] {
+  color-scheme: light;
+  --brand-plum: #50364B;
+  --brand-apricot: #F2B184;
+  --ui-bg: #FAF7F3;
+  --ui-surface: #FFFFFF;
+  --ui-surface-2: #F4EFEB;
+  --ui-text: #2C242E;
+  --ui-text-secondary: #6F666F;
+  --ui-border: #E7DDD9;
+  --ui-input-border: #897885;
+  --ui-action: #50364B;
+  --ui-action-hover: #66445E;
+  --ui-action-text: #FFFFFF;
+  --ui-focus: #AC7395;
+  --ui-success: #266848;
+  --ui-success-bg: #E6F2EA;
+  --ui-warning: #835115;
+  --ui-warning-bg: #FFF0D7;
+  --ui-danger: #9A3141;
+  --ui-danger-bg: #FFF0EF;
+  --ui-info: #315A99;
+  --ui-info-bg: #EBF1FF;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+  --brand-plum: #50364B;
+  --brand-apricot: #F2B184;
+  --ui-bg: #18141E;
+  --ui-surface: #25202A;
+  --ui-surface-2: #302936;
+  --ui-text: #FBF5F0;
+  --ui-text-secondary: #BEB4BD;
+  --ui-border: #4D414F;
+  --ui-input-border: #9B8C9C;
+  --ui-action: #F2B184;
+  --ui-action-hover: #FFC29B;
+  --ui-action-text: #211820;
+  --ui-focus: #F5BD97;
+  --ui-success: #B4F0C8;
+  --ui-success-bg: #183A2A;
+  --ui-warning: #FFD59A;
+  --ui-warning-bg: #402D19;
+  --ui-danger: #FFB3BB;
+  --ui-danger-bg: #46272E;
+  --ui-info: #B5CDFF;
+  --ui-info-bg: #253557;
+}
+:root {
+  --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --touch-target: 44px;
+  --content-max: 1160px;
+}
+/* Tenant brand colors are a separate layer and may only override approved public-facing components. */
+[data-tenant] { --tenant-accent: #2F5D50; }
+[data-tenant] .tenant-button { --button-background: var(--tenant-accent); }
+/* Never globally overwrite --ui-action with an arbitrary tenant color. */

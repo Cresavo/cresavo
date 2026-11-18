@@ -13,10 +13,17 @@ const csp = [
   `connect-src 'self'${production ? "" : " ws://localhost:* ws://127.0.0.1:*"}`,
 ].join("; ");
 const config: NextConfig = {
-  outputFileTracingIncludes: { "/api/v1/openapi": ["./docs/agent-api-v1.openapi.yaml"] },
+  outputFileTracingIncludes: {
+    "/api/v1/openapi": ["./docs/agent-api-v1.openapi.yaml"],
+    "/api/concept/help": ["./docs/help/*.md"],
+  },
   turbopack: { root: process.cwd() },
   poweredByHeader: false,
   devIndicators: false,
+  async redirects() {
+    // The English landing moved to /landing when the site became English only; old links keep working.
+    return [{ source: "/en/landing", destination: "/landing", permanent: true }];
+  },
   async headers() {
     return [
       {
@@ -29,6 +36,16 @@ const config: NextConfig = {
             ? [{ key: "Strict-Transport-Security", value: "max-age=31536000" }]
             : []),
         ],
+      },
+      {
+        source: "/boka/:slug",
+        // The page editor shows the booking page in a frame of its own origin.
+        headers: [{ key: "Content-Security-Policy", value: csp.replace("frame-ancestors 'none'", "frame-ancestors 'self'") }],
+      },
+      {
+        source: "/boka/:slug/widget",
+        // Only the dedicated public widget may be embedded. The rest keeps its policy.
+        headers: [{ key: "Content-Security-Policy", value: csp.replace("frame-ancestors 'none'", "frame-ancestors *") }],
       },
       {
         source: "/admin/:path*",

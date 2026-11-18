@@ -15,7 +15,7 @@ export const cardHistorySchema = z
 // The private local profile authorises ONE demo channel, not individual humans.
 // Arguments, booking IDs and model claims can never choose/upgrade this scope.
 export function cardScope() {
-  if (!timeCardBookingsEnabled()) throw new DomainError("Åtkomst nekad", 403);
+  if (!timeCardBookingsEnabled()) throw new DomainError("Access denied.", 403);
   return createHmac("sha256", process.env.SESSION_SECRET!)
     .update(`${businessId}:time-card-recovery:v1`)
     .digest("hex");
@@ -29,7 +29,7 @@ function channelKey() {
 export function assertCardBookingChannel(clientKey: string | null) {
   if (clientKey !== channelKey())
     throw new DomainError(
-      "Bokningen kan inte visas med den här demoprofilen.",
+      "This demo profile cannot access the booking.",
       403,
     );
 }
@@ -128,12 +128,12 @@ export async function rememberCardAttempt(input: unknown) {
           JSON.stringify(args)
         )
           throw new DomainError(
-            "Bokningsnyckeln har redan använts med andra uppgifter.",
+            "This booking attempt was already used with different details.",
             409,
           );
         if (existing.outcome === "failed")
           throw new DomainError(
-            "Det tidigare försöket nekades. Välj en ny tid och bekräfta igen.",
+            "The previous attempt was declined. Choose another time and confirm again.",
             409,
           );
         return;
@@ -156,9 +156,9 @@ export async function rememberCardAttempt(input: unknown) {
             previous.start === args.start &&
             previous.staffId === args.staffId
           )
-            throw new DomainError("Tiden är inte tillgänglig");
+            throw new DomainError("That time is no longer available. Choose another time.");
           throw new DomainError(
-            "Kontrollera det tidigare bokningsförsöket först.",
+            "Check the previous booking attempt first.",
             409,
           );
         }
@@ -186,7 +186,7 @@ export async function rememberCardAttempt(input: unknown) {
   );
   if (denied)
     throw new DomainError(
-      "Bokningen kan inte visas med den här demoprofilen.",
+      "This demo profile cannot access the booking.",
       403,
     );
 }
@@ -228,7 +228,7 @@ export async function readCardBookings(input: unknown) {
     pending?.requestId !== args.requestId
   )
     throw new DomainError(
-      "Bokningen kan inte visas med den här demoprofilen.",
+      "This demo profile cannot access the booking.",
       403,
     );
   const rows = [
@@ -253,10 +253,10 @@ export async function readCardBookings(input: unknown) {
   }
   return {
     demo: true,
-    channel: "Lokal Tidkort Demo",
+    channel: "Local time card demo",
     items,
     historyLimit: 20,
     notice:
-      "Endast denna betrodda lokala demokanals försök. Ingen kundinloggning eller fullständig historik.",
+      "Shows attempts from this trusted local demo channel only. Customer sign-in and full history are unavailable.",
   };
 }

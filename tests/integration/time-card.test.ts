@@ -85,7 +85,7 @@ describe("Tidvalskort via verklig stdio MCP", () => {
     });
     expect(result.content[0]).toMatchObject({
       type: "text",
-      text: expect.stringContaining("Ingen tid reserveras"),
+      text: expect.stringContaining("Selecting a time does not reserve it"),
     });
     expect(JSON.stringify(result)).not.toMatch(
       /customerEmail|customerName|emailCapKey|requestHash|idempotencyKey/,
@@ -141,7 +141,7 @@ describe("Tidvalskort via verklig stdio MCP", () => {
       });
       expect(result.isError).toBe(true);
       expect(result.content[0]).toMatchObject({
-        text: "Välj en dag inom de kommande 28 dagarna.",
+        text: "Choose a date within the next 28 days.",
       });
     }
   });

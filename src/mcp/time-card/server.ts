@@ -62,9 +62,9 @@ serveStdio(() => {
     server.registerTool(
       "read_demo_bookings",
       {
-        title: "Mina lokala demobokningar",
+        title: "My local demo bookings",
         description:
-          "Återläs högst 20 försök och eventuellt pågående försök i den betrodda lokala demokanalen. Ingen kundinloggning eller kontaktinformation.",
+          "Retrieve up to 20 attempts and any in-progress attempt from the trusted local demo channel. No customer sign-in or contact information.",
         inputSchema: safeToolSchema(cardHistorySchema),
         annotations: { readOnlyHint: true, openWorldHint: false },
         _meta: appOnly,
@@ -87,9 +87,9 @@ serveStdio(() => {
     server.registerTool(
       "get_demo_calendar_file",
       {
-        title: "Hämta kalenderfil",
+        title: "Download calendar file",
         description:
-          "Kalenderfil för egen aktiv syntetisk bokning. Ingen insättning eller automatisk synk.",
+          "Download a calendar file for your active fictional booking. Import it manually. Changes do not sync.",
         inputSchema: safeToolSchema(calendarFileSchema),
         annotations: { readOnlyHint: true, openWorldHint: false },
         _meta: appOnly,
@@ -113,9 +113,9 @@ serveStdio(() => {
   server.registerTool(
     "show_time_picker",
     {
-      title: "Välj en demotid",
+      title: "Choose a demo time",
       description:
-        "Visa ett interaktivt svenskt tidvalskort för syntetiska behandlingar. Endast läsning: ett tidsval är aldrig en bokning. Sök högst 28 dagar från idag. Omittera staffId vid byte av serviceId.",
+        "Show an interactive demo time picker for fictional treatments. Selecting a time does not create a booking. Search up to 28 days from today. Omit staffId when changing serviceId.",
       inputSchema: safeToolSchema(timeCardSchema),
       annotations: {
         readOnlyHint: true,
@@ -137,7 +137,7 @@ serveStdio(() => {
           content: [
             {
               type: "text" as const,
-              text: `${result.service.name}, ${result.service.duration} minuter, ${result.service.priceOre / 100} SEK hos ${result.selectedStaff.name}. ${result.date}: ${result.slots.map(({ start }) => start).join(", ") || "Inga lediga tider denna dag; välj nästa dag."} ${result.notice}`,
+              text: `${result.service.name}, ${result.service.duration} minutes, ${result.service.priceOre / 100} SEK with ${result.selectedStaff.name}. ${result.date}: ${result.slots.map(({ start }) => start).join(", ") || "No available times on this date. Try the next day."} ${result.notice}`,
             },
           ],
         };
@@ -155,9 +155,9 @@ serveStdio(() => {
     server.registerTool(
       "book_demo_time",
       {
-        title: "Bekräfta en testbokning",
+        title: "Confirm a test booking",
         description:
-          "Skapa uttryckligen bekräftad lokal testbokning för en fast påhittad kund. Samma clientRequestId och payload vid retry. Ingen betalning eller utskick.",
+          "Create an explicitly confirmed local test booking for a fixed fictional customer. Retry with the same clientRequestId and payload. No payments or messages.",
         inputSchema: safeToolSchema(cardBookingSchema),
         annotations: {
           readOnlyHint: false,
@@ -175,7 +175,7 @@ serveStdio(() => {
             content: [
               {
                 type: "text" as const,
-                text: `Testbokning skapad: ${result.serviceName}, ${result.startsAt}. Boknings-id ${result.id}.`,
+                text: `Test booking created: ${result.serviceName}, ${result.startsAt}. Booking ID ${result.id}.`,
               },
             ],
           };
@@ -188,10 +188,10 @@ serveStdio(() => {
               bookingCreated: failure.status >= 500 ? "unknown" : false,
               error: {
                 code:
-                  failure.message === "Tiden är inte tillgänglig"
+                  failure.message === "That time is no longer available. Choose another time."
                     ? "slot_unavailable"
                     : failure.message ===
-                        "Kontrollera det tidigare bokningsförsöket först."
+                        "Check the previous booking attempt first."
                       ? "previous_attempt_pending"
                       : "booking_failed",
                 status: failure.status,
@@ -206,7 +206,7 @@ serveStdio(() => {
   server.registerTool(
     "list_services",
     {
-      description: "Lista demobehandlingar utan kunddata",
+      description: "List demo treatments without customer data",
       inputSchema: z.object({}).strict(),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },

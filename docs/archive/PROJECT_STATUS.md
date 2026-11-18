@@ -1,3 +1,133 @@
+# Aktuellt · separat syntetisk kundkanal · 2026-11-16
+
+Produkt/provkod `721d445`, gren `feat/separate-customer-consent-lab`, gateway
+`f9b8506` oförändrad. Ny opt-in-profil, inga verkliga mottagare eller utskick.
+
+- Agentens REST/MCP-svar innehåller bara förslag/status och leveransmetadata,
+  ingen godkännandehemlighet, kundkontakt eller inkorgsadress.
+- Separat testoperatör tar kundkvittot från privat lokal inkorg. Agent utan
+  hemligheten kan inte godkänna. Efter testkundens godkännande bokar riktig
+  Codex CLI, återförsöker och läser status; samma id öppnades i kalendern.
+- Serverbestämd v1-dummy-kund kan inte bytas genom JSON eller senare ändrad
+  leveranskonfiguration. Både native- och mockleverantörsvägen kontrolleras.
+- Lokalt: 423 unit/211 integration PASS, lint/tsc/build PASS. Ren slutkörning
+  på 721d445/f9b8506 gav 25 pair-PASS inklusive verklig Codex och privat leverans.
+- CI 43845636237 på exakt 721d445 är SUCCESS: 423 unit, 211 integration,
+  64 webb-E2E och 13 MCP-kort i dev/proxy0 samt npm ci/lint/build/tsc.
+  Grok ger scoped lokalt GO på samma 721d445/f9b8506: egna 423/211,
+  19 pair och egen Chromium/REST/MCP. Extraprobe 31/33; två fall stoppades av
+  den fasta kontaktens dagskvot och är öppet redovisade, inga blockerare.
+
+En ny migration sparar leveransprofilen; inga historiska migrationer,
+överlappsskydd eller beroenden ändras. Vanlig kund-/adminbokning består.
+Legacy-labbet har fortfarande sin dokumenterade identitetsbegränsning.
+Ny profil verifierar separerad syntetisk leverans, inte en verklig person.
+Pilot NO-GO. Ingen deploy/mainmerge. [Provväg](GATEWAY_SPLIT.md) ·
+[Exakta resultat, mellanresultat och NOT RUN](VERIFICATION.md).
+
+Efter QA synkas bara dokumentation: gatewaydocs 1617de1 beskriver befintliga
+proposalvägar på /api/v1/openapi. Salonens pair-pin pekar på den; runtimekoden
+är oförändrad från det granskade paret. Ren 13adc8e/1617de1 gav 19 pair-PASS
+och generate/migrate/seed/build/tsc0. Gateway-CI43850785900 är grönt på1617de1,
+gren `docs/separate-customer-consent-contract`. Salon-CI43850868544 blev grönt
+i försök2 på13adc8e:423/211/13kort/64webb/lint/tsc/build. Försök1 var63/64,
+timeout i oförändrat mobilkundval. Fem lokala upprepningar passerade; orsaken
+är inte fastställd och observationen kvarstår. Se VERIFICATION. Grok har inte
+omgranskat dokumentationsdeltat. Slutlig resultatcommit ändrar bara Markdown;
+ingen ny CI/Grok-prövning av produktkod görs för den.
+
+---
+
+# Tidigare kontroll · kundgodkännandets identitetsgräns · 2026-11-16
+
+Riktad kontroll av oförändrad salong `13e0179` och gateway `f9b8506`.
+Rapportgren `proof/customer-approval-boundary`; inga produktändringar.
+
+- **Inte uppfyllt:** agenten ska inte kunna godkänna sitt eget förslag. Den som
+  fått labblänken genom HTTP-MCP kunde öppna en ny Chromium-session utan
+  kundinloggning, godkänna och därefter boka med servermandatet.
+- **Verifierat:** förfalskat/främmande/utgånget/återkallat/använt mandat nekas;
+  20 samtidiga godkännanden ger ett mandat; retry ger samma bokning och en rad.
+- OTP-labbet stoppar godkännande utan kod, men simulerad leverans och klientvalt
+  telefonnummer verifierar ingen avsedd verklig kund. Inga SMS har skickats.
+- Nykört: 77/77 riktade unit, 41/41 integration och 12 diagnostiska PASS-grupper.
+  Detta gör inte det misslyckade identitetskriteriet godkänt.
+- Grok reproducerade bristen med egen rå HTTP och Chromium: identitetskriteriet
+  FAIL. Egna 83 unit, 41 integration och 20 diagnostiska kontroller PASS.
+  [Oförändrat originaladdendum](qa/QA-REPORT-native-codex-consent-boundary-13e0179.md).
+
+Labbet är lokalt, opt-in och test-DB-skyddat; detta är en avsiktligt svag
+syntetisk identitetsmodell, ingen ny regression eller öppnad publik server.
+Tidigare GO gäller den syntetiska POC:n. Pilot fortsatt NO-GO.
+Nästa beslut: hur kundens godkännande levereras och binds till rätt kund utan
+att agenten får samma bevis. Ingen ny identifierings- eller utskickstjänst vald.
+[Faktiska testbevis och avgränsning](VERIFICATION.md).
+
+---
+
+# Tidigare verifiering · riktig Codex-klient till salongens kalender · 2026-11-16
+
+Gren `proof/native-codex-consent`, fryst provkod `6aed511` ovanpå föregående
+leverans `e6702c5`. Gateway `f9b8506` är oförändrad. Produktkod, kontrakt,
+migrationer och beroenden är oförändrade; leveransen är ett frivilligt acceptansprov.
+
+- Testat: riktig Codex CLI via HTTP-MCP läser tider, skapar förslag, läser separat
+  syntetiskt kundgodkännande, bokar, återförsöker och läser bekräftad status.
+- Acceptans: inget mandat → `400 mandate_required`; utanför godkänd tid →
+  `403 mandate_denied`; identiskt återförsök → samma id och exakt en bokning.
+  Samma id öppnades genom salongens individuella admininloggning och kalender.
+- Ren slutkörning: 408/408 unit, 205/205 integration, lint/tsc/build och
+  24 PASS-koder i `test:pair -- --native-codex`. Egna fixtures städade.
+- Groks oberoende kopia: 408 unit, 41 relevanta integrationstester, vanlig
+  pair 19/19 och 15 egna HTTP-prov. Avgränsat lokalt GO utan blockerare.
+  Grok körde inte Codex-kontot; det verkliga klientprovet är Codex egen observation.
+- CI på exakt 6aed511: 43819669674 SUCCESS, 408 unit, 205 integration,
+  64/64 webb-E2E och 13/13 MCP-kort i dev/proxy0 samt npm ci/lint/build/tsc.
+
+Skillnad mot föregående omgång: transportprovet har nu kompletterats med en
+verklig modellstyrd klient. Kundgodkännandet var automatiserat och syntetiskt,
+inte en autentiserad riktig kund. ChatGPT webb/mobil och fysisk iPhone är inte provade.
+Ingen preview/deploy eller mainmerge. Testbokningen är städad och finns inte kvar
+i en användbar preview. Pilot fortsatt NO-GO; audit 7 moderate/dev, 0 produktion.
+
+[Resultat och första timeouten](VERIFICATION.md) · [provväg](GATEWAY_SPLIT.md) ·
+[Groks oförändrade original](qa/QA-REPORT-native-codex-6aed511.md).
+Tidigare leveranser och deras verifieringsrevisioner följer nedan som historik.
+
+---
+
+<!-- NIGHT_PAIR_STATUS_START -->
+# Aktuellt · verifierat tvårepoprov · 2026-11-16
+
+Arbetsgren i båda privata repona: `night/gateway-salon-integration`.
+Salongsprodukt `0a88ac2`, gateway `f9b8506` (produkt `ab07b6c`).
+Nya tester startar separata produktionsprocesser mot en ny isolerad testdatabas.
+
+- Fungerar och lokalt testat: REST + riktig HTTP-MCP-SDK → bokning → samma id
+  i inloggad Chromium-kalender; retry efter tappat sparat svar ger en bokning;
+  20 samtidiga försök ger en vinnare; främmande och återkallad klient nekas.
+- Säkerhet: fyra GS3-fynd stängda av Grok. Omstart till standalone mitt i ett
+  anrop ger ingen bokning. Providerfel saneras. Avstängt labb ger kontrollerat 403.
+- Ren npm ci, 402 enhets- och 205 integrationstester samt lint, tsc och build PASS.
+  Det gemensamma provet gav 19 PASS-koder.
+- CI: full körning 43781899181 på 0a88ac2 SUCCESS. Gateway 43781813963 på f9b8506 SUCCESS.
+- CI gav 64/64 E2E i fyra lägen och 13/13 MCP-kort samt godkänt revisionspar.
+- Ingen ny produktmodul, UI-förändring, deploy eller mainmerge. Inga migrations-
+  eller npm-beroendeändringar. Tidigare arbete bevarat.
+
+[Verifiering](VERIFICATION.md) · [provsteg och kompatibilitet](GATEWAY_SPLIT.md) ·
+[Groks original](qa/QA-REPORT-night-f9b8506-0a88ac2.md).
+Grok körde samma automatisering men gjorde ingen extra egen jämförelse av
+kalender-id/SQL-överlapp efter städning. Verkliga assistentkonton, fysisk iPhone
+samt drift är inte verifierade i detta uppdrag.
+
+Pilot fortsatt NO-GO. Sju moderate dev-fynd kvar, produktion/gateway 0.
+NIGHT-QA-1 om temporär dispatch-källa och tidigare GS1-QA-2 är backlogg.
+Nästa beslut gäller pilotgrindarna i PRIVACY_SECURITY, inte fler epics automatiskt.
+<!-- NIGHT_PAIR_STATUS_END -->
+
+---
+
 # Aktuellt · två privata repon på main · 2026-11-16
 
 Båda leveranserna är granskade och integrerade med fast-forward.
@@ -244,7 +374,7 @@ operatörsåtkomst. Kundpilot och fjärrautentisering återstår.
 
 Produktrevision `9a8350a7d68a0a14d7b345bca3e53f5ace76d823` på `design/mobile-booking-story`. På produktsidan illustrerar frågan kundens begäran. Svaret hämtar en bokningsbar tid. I den isolerade demodatabasen följde vi tiden 16.00 den 16 november från förval till bekräftelse och samma boknings-id i Elias kalender. [Bokningsprov](assets/mobile-story/booking-proof.json). I WebKit vid 320, 390 och 1440 px behöll bokningen samma förval och rymdes utan sidscroll. I Chromium gick alla tre returrutter tillbaka med rätt sammanhang och fokus. Förkortad mobilvy gav åtkomst till Spara, Avbryt och Stäng. På Sofias fullbokade måndag gav tillgänglighets-API:t noll tider. I WebKit ledde knappen för nästa lediga dag vidare till tolv tider på tisdagen. Fysisk iPhone återstår.
 
-[Öppna produktsidan](https://booking-lab-se-preview.vercel.app/product). Samma skyddade alias kör den [verifierade revisionen](assets/mobile-story/preview-final.json). Anonym åtkomst till HTML, API och resurser kräver Vercel-inloggning. Åtta datatabeller jämfördes före och efter leveransen, inklusive 94 bokningar. [Skydd](assets/mobile-story/preview-anonymous-alias.json) · [HTTP-kontroller](assets/mobile-story/preview-http-proof-alias.json) · [Datakontroll](assets/mobile-story/preview-db-proof.json).
+[Öppna produktsidan](<redacted-preview-url>/product). Samma skyddade alias kör den [verifierade revisionen](assets/mobile-story/preview-final.json). Anonym åtkomst till HTML, API och resurser kräver Vercel-inloggning. Åtta datatabeller jämfördes före och efter leveransen, inklusive 94 bokningar. [Skydd](assets/mobile-story/preview-anonymous-alias.json) · [HTTP-kontroller](assets/mobile-story/preview-http-proof-alias.json) · [Datakontroll](assets/mobile-story/preview-db-proof.json).
 
 Alla fyra CI-jobb gav 62/62 webbtester vardera. Dessutom passerade 114 enhets-, 125 integrations- och 13 korttester. [CI-underlag](assets/mobile-story/ci-proof.json). Grok godkände de oberoende klickproven på den frysta slutrevisionen. [Originalrapport](qa/QA-REPORT-mobile-story-9a8350a.md). Exempelfrågan kan märkas tydligare och utförarens demosuffix bryts i svensk mobilvy. Vid framåtnavigering kan fokus landa på sidan. Begriplighet på fyra sekunder och fysisk iPhone med tangentbord behöver fortfarande bedömas av en människa.
 
@@ -259,12 +389,12 @@ Alla fyra CI-jobb gav 62/62 webbtester vardera. Dessutom passerade 114 enhets-, 
 
 ## Bred översikt · 14 november 2026
 
-[Öppna den skyddade översikten](https://booking-lab-se-preview.vercel.app/admin/overview). Produktrevision `4b02f26ae5240cc80c09bb71e4e7bb1688f0e9f5`, branch `design/international-agent-ready`. Tre kolumner från 1680 CSS-px, med innehållet centrerat bredvid sidomenyn. [Före](assets/premium/overview-4b02f26/overview-wide-before.png) och [driftsatt vid 2880 px](assets/premium/overview-4b02f26/cloud-overview.png).
+[Öppna den skyddade översikten](<redacted-preview-url>/admin/overview). Produktrevision `4b02f26ae5240cc80c09bb71e4e7bb1688f0e9f5`, branch `design/international-agent-ready`. Tre kolumner från 1680 CSS-px, med innehållet centrerat bredvid sidomenyn. [Före](assets/premium/overview-4b02f26/overview-wide-before.png) och [driftsatt vid 2880 px](assets/premium/overview-4b02f26/cloud-overview.png).
 
 [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43573515733) gav 62 godkända webbtester i varje matrisjobb, 114 enhets-, 125 integrations- och 13 korttester. [Grok](qa/QA-REPORT-premium-f1-4b02f26.md) utförde 205 godkända Chromium-kontroller. Vid återgång bevaras scrollpositionen men tangentbordsfokus hamnar på sidan. Fysisk Safari återstår. [Verifierad deployment](assets/premium/overview-4b02f26/preview-final.json), [åtkomstskydd](assets/premium/overview-4b02f26/preview-anonymous-alias.json) och [datakontroll](assets/premium/overview-4b02f26/preview-db-proof.json). Codex öppnade demoarbetsytan och den färdigladdade översikten på det fasta aliaset.
 
 
-**[Öppna den skyddade premiumdemon](https://booking-lab-se-preview.vercel.app/product)**. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43546809210): 62/62 webbtester i vart och ett av fyra gröna jobb. [Driftbevis](assets/premium/preview-final.json), [CI-loggarnas kontrollsummor](assets/premium/ci-final-proof.json) och [Groks original](qa/QA-REPORT-premium-5212b7a.md).
+**[Öppna den skyddade premiumdemon](<redacted-preview-url>/product)**. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43546809210): 62/62 webbtester i vart och ett av fyra gröna jobb. [Driftbevis](assets/premium/preview-final.json), [CI-loggarnas kontrollsummor](assets/premium/ci-final-proof.json) och [Groks original](qa/QA-REPORT-premium-5212b7a.md).
 
 Vercel `dpl_<redacted>`, fra1. Fast alias och immutable preview kontrollerades: anonyma HTML/API/resurser stoppades; behörig Vercel-session utan appinloggning fick 403 för admin-API. Direktport 3000 gick inte att nå. Egen Chrome-klick: öppna demoadmin utan extra lösenord, välj gårdagens bokningar och läs bokningsdetaljen. [Alla åtta datatabeller oförändrade](assets/premium/preview-db-proof.json), inklusive 94 bokningar. Ingen mainmerge. Pilot och fysisk Safari ej godkända.
 
@@ -284,7 +414,7 @@ Grok scoped GO på samma SHA: 139 egna Chromium-kontroller, inga Medium/High.
 Verifierat 2026-11-14. Branch **ui/salon-polish**, från 2c74a4b/produkt 51d54d4.
 Produkt, slutlig Grok-revision, CI och deploy: **9840309df4d8addc3e4bf5f6c5da0f3802eb4a2d**.
 Senare dokumentationscommit ändrar ingen produktkod. Main b000481 är orörd.
-[Samma skyddade preview](https://booking-lab-se-preview.vercel.app/admin), deployment `dpl_<redacted>`, fra1.
+[Samma skyddade preview](<redacted-preview-url>/admin), deployment `dpl_<redacted>`, fra1.
 Vercel-inloggning vid behov → **Öppna demoadmin**, inget andra lösenord.
 
 | Acceptanskriterium | Faktiskt resultat |
@@ -316,7 +446,7 @@ Uppdraget avslutat inom scope; inga fler epics eller fixloopar automatiskt.
 Verifierat 2026-11-13. Branch **feature/coherent-salon-workspace**, bas 3273934 /
 produkt 05e5eaf. Produkt, slutlig Grok-revision, full CI och deploy:
 **51d54d4696dd5fee51449acbd096f8529fbd3c5c**. Senare dokumentation är ingen ny produktrevision.
-[Skyddad preview](https://booking-lab-se-preview.vercel.app/admin), deployment `dpl_<redacted>`, Frankfurt.
+[Skyddad preview](<redacted-preview-url>/admin), deployment `dpl_<redacted>`, Frankfurt.
 
 | Acceptanskriterium | Faktiskt verifierat läge |
 | --- | --- |
@@ -462,7 +592,7 @@ Dokumentation/bilder därefter är separata. Ingen mainmerge eller ny Epic.
 | Automatisk gallring och kontakt-MCP av                         | PASS. Inga kontaktverktyg, modellnycklar eller nya agentintegrationer.                                                                                                                                              |
 | Privat CI och samma skyddade preview                           | PASS [Actions43393207291](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43393207291):4×46/46 på95f8071. Stabil skyddad alias kör dpl_<redacted>, READY Preview/fra1.           |
 
-[Öppna skyddad kundarbetsyta](https://booking-lab-se-preview.vercel.app/admin/customers). Vercel vid behov, sedan demoknapp. Endast påhittade uppgifter.
+[Öppna skyddad kundarbetsyta](<redacted-preview-url>/admin/customers). Vercel vid behov, sedan demoknapp. Endast påhittade uppgifter.
 
 Slutmatris EFTER fix1: **79unit/99integration/46E2E×4**, lint/tsc/build PASS.
 Ren npmci571Windows,9migrate/seed på6nya miljöer,8→9med legacykvot/återseed
@@ -494,7 +624,7 @@ Produkt, Groks återkontroll och driftsatt kod:
 ändrar ingen produktkod. Bas28a48fe efter avslutat kalenderprov; main är
 fortfarande b000481 och har inte mergats.
 
-[Öppna skyddad demo](https://booking-lab-se-preview.vercel.app/product) →
+[Öppna skyddad demo](<redacted-preview-url>/product) →
 **Prova salongens arbetsyta → Översikt**. Endast påhittade uppgifter.
 
 | Acceptanskriterium                                                        | Faktiskt verifierat / produktkvalitet                                                                                                               |
@@ -535,7 +665,7 @@ inte nattens implementation. Nattmålet är avslutat; inga fler epics startas.
 ## Föregående leverans — Epic 06 skyddad syntetisk demo
 
 Verifierad 2026-11-12. Branch **feature/epic06-customers-demo-product**; granskad och driftsatt produktkod
-**7c1407dce66910ef8ab304c882c90d90c173ca72**. Senare dokument-/bildcommit ändrar inte denna kod. [Öppna produkten](https://booking-lab-se-preview.vercel.app/product).
+**7c1407dce66910ef8ab304c882c90d90c173ca72**. Senare dokument-/bildcommit ändrar inte denna kod. [Öppna produkten](<redacted-preview-url>/product).
 
 | Funktion och observerbart acceptanskriterium                                            | Utfall och kvalitet                                                                                                                                   |
 | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -596,7 +726,7 @@ Ny branch feature/epic06-customers-demo-product från16dae9a/6acd2ef, produktbas
 
 Full audit fortsatt **FAIL7moderate**, omit-dev **PASS0**. Ingen säker publicerad stabil rättningskedja verifierad; inga paket, produktfunktioner eller UI ändrade. Rättning är upstream-blockerad, inte klar. Nya lint/tsc/build,75unit och75integration på ny lokal syntetisk DB PASS. Inga nya E2E/CI/deploy i denna dokumentationsbatch. [Beroendebeslut och faktiska data](../DEPENDENCY_REVIEW.md#audit-återkontroll-2026-11-12--rättning-blockerad-av-stabil-upstream). Driftsatt kod och senaste fungerande preview är fortsatt d7bc47f. Grok bekräftar slutsatsen i [originalrapporten](qa/AUDIT-REPORT-6acd2ef-minimatch.md); ingen stabil säker rättning finns ännu.
 
-**Aktuell UI-leverans 2026-11-12:** [Öppna skyddad demo](https://booking-lab-se-preview.vercel.app). Logga vid behov in i Vercel och tryck **Öppna demoadmin**; inget ytterligare lösenord behövs. Endast syntetiska uppgifter, endast Niclas. Branch `ui/epic05-booking-usability`, granskad och driftsatt produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**. Senare dokumentationscommit ändrar inte previewkoden.
+**Aktuell UI-leverans 2026-11-12:** [Öppna skyddad demo](<redacted-preview-url>). Logga vid behov in i Vercel och tryck **Öppna demoadmin**; inget ytterligare lösenord behövs. Endast syntetiska uppgifter, endast Niclas. Branch `ui/epic05-booking-usability`, granskad och driftsatt produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**. Senare dokumentationscommit ändrar inte previewkoden.
 
 Tappbar svensk kalender och lediga tider, nästa lediga dag, tydlig sammanfattning/bekräftelse, bibehållna kundutkast och mobil arbetsdag med skapa/flytta/avboka. Tjänster, scheman, pauser, ledighet och kampanjer använder befintliga funktioner. Separat demo-DB med 3 aktiva behandlingar, 2 medarbetare och 33 seedbokningar; efter faktisk molnprovning 35 bokningar inklusive en avbokad. Inga utskick eller verkliga kunduppgifter.
 
@@ -608,7 +738,7 @@ Kvar: fysisk iPhone/Safari och Niclas UX-godkännande; full audit FAIL7moderate,
 
 # Projektstatus — Epic05 QA-godkänd lokal produktalpha
 
-**Skyddad mobilpreview levererad 2026-11-12:** [Öppna preview](https://booking-lab-se-preview-i9pv3ji3h-<redacted-vercel-team>.vercel.app). Branch preview/epic05-vercel-review, faktiskt driftsatt kod f2fdac700125df2d212e824555758b8ed6d6a7a7, deployment dpl_<redacted> (Preview/fra1). Senare dokumentationscommits ändrar inte driftsatt kod. Endast Niclas via Vercel Authentication på alla deployments, dessutom individuell appadmin. Inga nya betalda abonnemang/tillägg; befintlig Pro-förbrukning kan kosta några få dollar, Neon Free. [Drift och lokal hantering av adminuppgifter](DEMO.md).
+**Skyddad mobilpreview levererad 2026-11-12:** [Öppna preview](<redacted-preview-url>). Branch preview/epic05-vercel-review, faktiskt driftsatt kod f2fdac700125df2d212e824555758b8ed6d6a7a7, deployment dpl_<redacted> (Preview/fra1). Senare dokumentationscommits ändrar inte driftsatt kod. Endast Niclas via Vercel Authentication på alla deployments, dessutom individuell appadmin. Inga nya betalda abonnemang/tillägg; befintlig Pro-förbrukning kan kosta några få dollar, Neon Free. [Drift och lokal hantering av adminuppgifter](DEMO.md).
 
 Codex:72unit/72integration/24E2E×4, lint/tsc/build PASS. Grok GO för kod/paketering efter1samlat fixvarv, [originalrapport](qa/QA-REPORT-preview-vercel-f2fdac7.md). [Actions43243542749](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43243542749): alla4jobb gröna på exakt f2fdac7. Faktisk drift: perimeter HTML/API/resurs, TLS1.3, headers, stängd appport, login/logout/copierad-cookie-replay, kundbokning, mobilkalender, tjänster/personal, flytt/avbokning och spoofing-spärr PASS. Kallstart bekräftad i Vercellogg, samma session och bokning bevarade. Ny krypterad backup återläst lokalt,10tabellers innehåll identiskt.
 

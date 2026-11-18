@@ -14,7 +14,7 @@ describe("Kortets replaygräns vid vanliga bokningsingångar", () => {
     };
     expect(() => assertCardReplayChannel(booking, address)).not.toThrow();
     expect(() => assertCardReplayChannel(booking, "foreign-client")).toThrow(
-      "Bokningen kan inte visas med den här demoprofilen.",
+      "This demo profile cannot access the booking.",
     );
     vi.stubEnv("SESSION_SECRET", "different-synthetic-secret".repeat(3));
     expect(() => assertCardReplayChannel(booking, address)).toThrow();

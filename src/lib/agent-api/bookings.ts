@@ -14,6 +14,7 @@ import { assertCurrentAgent, lockMandate } from "./mandates";
 import { assertMandatedBooking } from "./mandate-policy";
 import { proposalHash } from "./proposals";
 import { placeForStaff } from "./place";
+import { assertCustomerChannelBinding } from "./customer-channel-lab";
 
 import { createPartnerAgentBooking } from "./partner-bookings";
 import { nativeBookingProvider } from "./provider/native";
@@ -172,6 +173,7 @@ export async function createAgentBooking(principal: AgentPrincipal, rawKey: stri
             if (!proposal || proposal.status !== "approved" || proposal.mandateId !== mandate.id ||
                 proposal.proposalHash !== mandate.proposalHash || proposalHash(proposal) !== mandate.proposalHash)
               throw new AgentApiError("mandate_denied");
+            assertCustomerChannelBinding(proposal, mandate, input.customer);
           }
           if (await tx.agentBooking.findUnique({ where: { mandateId: input.mandateId! } }))
             throw new AgentApiError("mandate_denied");

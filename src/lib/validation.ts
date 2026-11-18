@@ -8,7 +8,7 @@ export const dateSchema = z.string().refine((value) => {
   } catch {
     return false;
   }
-}, "Ogiltigt datum");
+}, "Invalid date");
 
 export const idempotencyKeySchema = z
   .string()

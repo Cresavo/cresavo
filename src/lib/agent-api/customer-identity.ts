@@ -10,9 +10,12 @@ export interface CustomerIdentityProvider {
   deliver(proposalId: string, token: string): { approvalUrl?: string };
 }
 export function requireConsentLab() {
-  const origin = discoveryOrigin();
-  if (process.env.BOOKING_CONSENT_LAB !== "1" || process.env.BOOKING_RUNTIME === "vercel" ||
-      !["127.0.0.1", "localhost", "[::1]"].includes(new URL(origin).hostname))
+  if (process.env.BOOKING_CONSENT_LAB !== "1" || process.env.BOOKING_RUNTIME === "vercel")
+    throw new AgentApiError("mandate_denied");
+  let origin: string;
+  try { origin = discoveryOrigin(); }
+  catch { throw new AgentApiError("mandate_denied"); }
+  if (!["127.0.0.1", "localhost", "[::1]"].includes(new URL(origin).hostname))
     throw new AgentApiError("mandate_denied");
   assertTestDatabase();
   return origin;

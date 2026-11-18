@@ -7,6 +7,7 @@ import { formatPrice } from "@/lib/format";
 import BookingForm from "./booking-form";
 import { useLocale } from "./components/locale-provider";
 import styles from "./two-track-lab.module.css";
+import { BRAND } from "@/concept/brand";
 
 type Track = "customer" | "agent";
 export default function TwoTrackLab({ children, demoDate, readOnly }: { children: ReactNode; demoDate: string; readOnly: boolean }) {
@@ -33,7 +34,7 @@ export default function TwoTrackLab({ children, demoDate, readOnly }: { children
   }
   return <div className={styles.lab}>
     <section className={styles.hero}>
-      <p className="eyebrow">{t("Booking Lab / fictional salons", "Booking Lab / påhittade salonger")}</p>
+      <p className="eyebrow">{t(`${BRAND.name} / fictional salons`, `${BRAND.name} / påhittade salonger`)}</p>
       <h1>{t("A little time for you.", "Lite tid för dig.")}<br /><span>{t("Two ways to find it.", "Två sätt att hitta den.")}</span></h1>
       <p>{t("Find your salon. Choose a time yourself, or explore how an agent could help — with you in control.", "Hitta din salong. Välj en tid själv, eller utforska hur en agent kan hjälpa till — med dig vid rodret.")}</p>
       <div className={styles.heroActions}>

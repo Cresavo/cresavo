@@ -262,7 +262,7 @@ test("HTTP och MCP delar idempotens och stoppar 20 blandade överlapp", async ({
           });
           if (result.isError)
             expect(result.content).toEqual([
-              { type: "text", text: "Tiden är inte tillgänglig" },
+              { type: "text", text: "That time is no longer available. Choose another time." },
             ]);
           return !result.isError;
         }
@@ -273,7 +273,7 @@ test("HTTP och MCP delar idempotens och stoppar 20 blandade överlapp", async ({
         expect([201, 400]).toContain(result.status());
         if (result.status() === 400)
           expect(await result.json()).toEqual({
-            error: "Tiden är inte tillgänglig",
+            error: "That time is no longer available. Choose another time.",
           });
         return result.status() === 201;
       }),
@@ -322,7 +322,7 @@ test("HTTP avvisar obehöriga anrop och ogiltig JSON utan feldetaljer", async ({
     headers: { ...origin, "content-type": "application/json" },
   });
   expect(malformed.status()).toBe(400);
-  expect(await malformed.json()).toEqual({ error: "Kontrollera uppgifterna" });
+  expect(await malformed.json()).toEqual({ error: "Check the details and try again." });
   const denied = await request.post("/api/admin/login", {
     data: { email: synthetic.admin.email, password: synthetic.admin.password },
     headers: { origin: "http://foreign.test" },
@@ -542,7 +542,7 @@ test("QA HTTP: limiter, idempotens och daglig gräns", async ({
     expect(result.status()).toBe(429);
     expect(Number(result.headers()["retry-after"])).toBeGreaterThan(0);
     expect(await result.json()).toEqual({
-      error: "För många försök. Försök igen senare.",
+      error: "Too many attempts. Please try again later.",
     });
   }
   const lockedLogin = await request.post("/api/admin/login", {

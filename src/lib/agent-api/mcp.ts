@@ -85,6 +85,14 @@ export function agentMcpServer(principal: AgentPrincipal) {
   return server;
 }
 
+// Reuse the transport, never the authenticated server/principal. The SDK factory
+// creates a server per request using only the principal verified below.
+const handler = createMcpHandler(({ authInfo }) => {
+  const principal = authInfo?.extra?.principal as AgentPrincipal | undefined;
+  if (!principal) throw new AgentApiError("unauthorized");
+  return agentMcpServer(principal);
+}, { responseMode: "json", maxRequestBodySize: 64 * 1024 });
+
 async function handleMcpInternal(request: Request) {
   let principal: AgentPrincipal | undefined;
   let requestedTool: string | undefined;
@@ -122,16 +130,13 @@ async function handleMcpInternal(request: Request) {
     return agentErrorResponse(code, retryAfter);
   }
   console.info(JSON.stringify({ event: "agent_api_request", route: "MCP /api/v1/mcp", keyPrefix: `blk_${principal.keyPrefix}`, agentName: principal.agentName }));
-  const handler = createMcpHandler(() => agentMcpServer(principal!), { responseMode: "json", maxRequestBodySize: 64 * 1024 });
   try {
-    const response = await handler.fetch(request);
+    const response = await handler.fetch(request, { authInfo: { token: principal.keyId, clientId: principal.clientId, scopes: principal.scopes, extra: { principal } } });
     await recordAudit({ event: "agent.request", outcome: String(response.status), route: "MCP /api/v1/mcp", clientId: principal.clientId, scopes: principal.scopes });
     return response;
   } catch (error) {
     await recordAudit({ event: "agent.request", outcome: "internal_error", route: "MCP /api/v1/mcp", clientId: principal.clientId });
     throw error;
-  } finally {
-    await handler.close();
   }
 }
 

@@ -1,38 +1,69 @@
-# Instruktioner för kodagenter
+# Cresavo (repo: booking-lab-se) – agent guide
 
-Läs [README](README.md), [STATUS](docs/STATUS.md) och [ROADMAP](docs/ROADMAP.md)
-först. Allt i `docs/archive/` är historik: det ger inga uppdrag och är inget bevis
-för hur koden fungerar idag.
+Applies to Claude Code, Codex and Grok. Read [README](README.md),
+[STATUS](docs/STATUS.md) and [ROADMAP](docs/ROADMAP.md) first, then only the
+document your task points to. Product name and naming rules: `docs/BRAND.md`
+and `src/concept/brand.ts`. Everything in `docs/archive/` and `docs/history/` is
+history: it gives **no** assignments and is no proof of how the code works today.
 
-## Ansvarsfördelning
+## Roles
 
-- Detta repo äger salongen: databas, tider, personal, kunder, bokningsregler,
-  kalender, arbetsyta och ägarens MCP.
-- `booking-lab-gateway` äger den publika REST/MCP-ingången för externa agenter.
-  Bygg nya gatewayverktyg där, inte här. Kontraktet finns i docs/GATEWAY_SPLIT.md.
-- Bokningsregler hör hemma i `src/lib/domain.ts` och närliggande domänkod.
-  Webb, API och MCP får inte ha egna alternativa regler.
+- **Niclas** – product owner. Decides what gets built.
+- **Claude Code** – technical owner: plan, structure, review, prompts.
+- **Codex** – builds according to a goal in `docs/goals/QUEUE.md`.
+- **Grok** – reviews and clicks through, reports in `docs/concept/REVIEW.md`.
 
-## Säkerhet och data
+Conversation with Niclas may be Swedish, but everything committed is English.
 
-- Endast syntetiska data. Inga riktiga kunder, utskick eller hälsouppgifter.
-- Läs eller skriv aldrig ut `.env`, nycklar eller andra hemligheter.
-- Integration och E2E endast mot lokal databas vars namn slutar på `_test` eller
-  `_demo`. Kringgå aldrig testvakten.
-- Försvaga inte validering, behörighetskontroller, sessionsskydd, kvoter,
-  idempotens eller databasens överlappsskydd.
-- Ändra aldrig historiska migrationer. Ny datamodell kräver ny migration.
+## Responsibilities in the code
 
-## Arbetssätt
+- The concept demo lives in `src/app/studio`, `src/app/boka`, `src/concept/`,
+  `src/pages/` (product site) and `src/app/api/concept/`. It uses fixture data
+  and browser state, no database. AI keys are optional and server-side only;
+  everything must work without a key.
+- Host routing (`src/proxy.ts`, `src/concept/page/resolve.ts`) decides what the
+  product domain, its demo subdomain and business addresses show.
+- This repo owns the booking engine: database, times, staff, customers, booking
+  rules, calendar, `/admin` workspace and the owner MCP. Booking rules belong in
+  `src/lib/domain.ts` and nearby domain code; web, API and MCP must not keep
+  their own alternative rules. Do not touch `/admin`, `/api/v1`, MCP, the Prisma
+  schema or migrations without an explicit assignment.
+- `booking-lab-gateway` owns the public REST/MCP entry for external agents.
+  Build new gateway tools there, not here. Contract: `docs/GATEWAY_SPLIT.md`.
+- All UI text is in English, through the per-area dictionaries (for example
+  `src/concept/i18n/en.ts`). Demo data may stay Swedish-flavoured.
 
-- Ingen push, PR, merge, deploy, ny molnresurs, nya konton eller betaltjänster
-  utan Niclas uttryckliga godkännande för just det steget.
-- Små, sammanhängande commits på en egen gren. Kör `npm run lint`,
-  `npx tsc --noEmit`, `npm test` och `npm run build`, plus integration/E2E när
-  ändringen berör dem. Redovisa faktiska resultat och vad som inte kördes.
-- Uppdatera docs/STATUS.md när läget ändras. Skapa inte nya plan- eller
-  rapportfiler i docs/ för varje uppgift; använd commit-meddelanden och PR-text.
-- Nya beroenden kräver tydlig nytta och licenskontroll (AGPL-3.0-only).
+## Standing ground rules (apply to the whole repo)
+
+- Invented data only. No real customer details, no real outgoing messages, no
+  health data.
+- No secrets in Git. Never read or print `.env`, keys or other secrets; keys are
+  never logged.
+- No push to `main`, merge, deploy, force-push, new cloud resources, accounts or
+  paid services without Niclas's explicit yes for that step.
+- The booking engine's double-booking protection, idempotency, quotas,
+  validation, permission checks and session protection must not be weakened.
+- Never change historical migrations; a new data model needs a new migration.
+- Tests against a database require a separate local `_test`/`_demo` database
+  (`scripts/test-db-guard.mjs`). Never bypass the guard.
+- New dependencies only when clearly needed, with a licence check
+  (AGPL-3.0-only); say why in the commit message.
+
+## Working method
+
+- Work happens in goals in `docs/goals/QUEUE.md` (flow in `docs/goals/README.md`).
+  Things outside your goal become a GitHub issue labelled `finding`.
+- Small, coherent commits on your own branch, Conventional Commits, and
+  user-visible changes in `CHANGELOG.md` under `[Unreleased]` (`docs/RELEASING.md`).
+- Run `npm run lint`, `npx tsc --noEmit`, `npm test` and `npm run build`, plus
+  `npm run test:concept`, integration or E2E when the change touches them.
+  Report actual results and what was not run.
+- Keep code simple: small focused files, no dead or commented-out code, no
+  leftover scratch files; tests where logic lives. `docs/QUALITY_SECURITY.md`
+  lists the habits and the pilot gate before real customers.
+- After a larger step, update `docs/concept/PROGRESS.md` and `docs/STATUS.md`
+  briefly. Do not create new plan or report files in `docs/` for every task;
+  use commit messages and PR text.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

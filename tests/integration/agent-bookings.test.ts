@@ -54,7 +54,7 @@ describe("Agent API v1 bokningar mot PostgreSQL", () => {
 
     expect((await book(req("/api/v1/bookings", a.key, { method: "POST", body: body() }))).status).toBe(400); // no Idempotency-Key
     expect((await (await book(req("/api/v1/bookings", a.key, { method: "POST", body: body({ confirmed: false }) }, "k0"))).json()).error.code).toBe("confirmation_required");
-    expect((await (await book(req("/api/v1/bookings", a.key, { method: "POST", body: body({ customer: { name: "Riktig Person", email: "real@gmail.com" } }) }, "k0"))).json()).error.code).toBe("synthetic_contact_required");
+    expect((await (await book(req("/api/v1/bookings", a.key, { method: "POST", body: body({ customer: { name: "Riktig Person", email: "real@example.org" } }) }, "k0"))).json()).error.code).toBe("synthetic_contact_required");
     expect((await book(req("/api/v1/bookings", readOnly.key, { method: "POST", body: body() }, "k1"))).status).toBe(403);
     expect((await (await book(req("/api/v1/bookings", a.key, { method: "POST", body: body() }, "no-mandate"))).json()).error.code).toBe("mandate_required");
     expect((await book(req("/api/v1/bookings", b.key, { method: "POST", body: payloadA }, "stolen-mandate"))).status).toBe(403);

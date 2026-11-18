@@ -28,7 +28,7 @@ export const cardBookingSchema = mcpBookingSchema
 
 export async function bookDemoTime(input: unknown) {
   assertWritable();
-  if (!timeCardBookingsEnabled()) throw new DomainError("Åtkomst nekad", 403);
+  if (!timeCardBookingsEnabled()) throw new DomainError("Access denied.", 403);
   const args = cardBookingSchema.parse(input);
   await rememberCardAttempt(args);
   let booking;

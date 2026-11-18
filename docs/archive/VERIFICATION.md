@@ -1,3 +1,461 @@
+# Aktuella resultat · separat syntetisk kundkanal · 2026-11-16
+
+Fryst produkt/prov `721d445b651f0e08eac1219e1d710b70b1632bed`, gren
+`feat/separate-customer-consent-lab` från 64b7bcb. Gateway
+`f9b8506cee3e3cd21bd279e01addf761cd3db1ed` oförändrad. Inga nya beroenden,
+historiska migrationsändringar, verkliga mottagare, deploy eller mainmerge.
+
+| Faktiskt kört | Resultat |
+| --- | --- |
+| npx prisma generate; npm run db:migrate; npm run db:seed | exit 0 på ny loopback PostgreSQL, inklusive ny migration |
+| npm run lint | PASS/exit 0 |
+| npx tsc --noEmit | PASS/exit 0 |
+| npm test | PASS 423/423, 44 filer |
+| npm run test:integration | PASS 211/211, 38 filer |
+| npm run build | PASS/exit 0 |
+| Ren slutkörning: generate/migrate/seed/build/tsc | PASS/exit 0 på 721d445, ny testDB |
+| npm run test:pair -- --native-codex | PASS/exit 0, 25 PASS-koder, båda dirty=false |
+| OpenAPI YAML-parse och verklig gateway-HTTP | PASS 1.4.1, matchande proposal-schema/giltiga refs, ingen ny dependency |
+| Ren docs/pin-pair 13adc8e/1617de1 | PASS 19/19, generate/migrate/seed/build/tsc0, båda rena |
+| Gateway-CI43850785900 på1617de1 | SUCCESS: npm ci/build och12/12 |
+| npm audit --json | exit 1, 7 moderate/dev, 0 high/critical |
+| npm audit --omit=dev --json | exit 0, 0 fynd |
+| CI 43845636237 på 721d445 | SUCCESS: npm ci/lint/build/tsc, 423 unit, 211 integration, 64 E2E och 13 MCP-kort |
+| CI43850868544 på13adc8e, försök2 | SUCCESS: npm ci/lint/build/tsc, 423 unit, 211 integration, 64 E2E och13 MCP-kort; försök1 var63/64 |
+| Grok på fryst 721d445/f9b8506 | Scoped lokal GO: egna 423 unit/211 integration/19 pair, lint/tsc/build; egen probe 31/33, två 429-fel redovisade nedan |
+
+[CI 43845636237](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43845636237)
+är SUCCESS på exakt 721d445. Jobbet körde dev/proxy0 enligt featurepolicyn,
+inklusive nya lokala kanalintegrationer. Pair-jobbet var SKIPPED (kräver manuell
+dispatch), inte ett godkänt nytt CI-pair-prov. Modellen/kontot kördes inte i CI.
+Övriga tre E2E-lägen beställdes inte i denna omgång. Full logg:
+`<local-scratch>/separate-consent-qa/ci-43845636237.log`.
+
+## Oberoende QA och efterföljande kontraktsdokumentation
+
+Grok körde en separat syntetisk Linux-kopia av **721d445/f9b8506**:
+423/423 unit, 211/211 integration, 19/19 ordinarie pair, generate/migrate(19)/seed,
+lint/tsc/build PASS. Egna REST/MCP SDK-klienter och Chromium reproducerade
+separat leverans, ingen godkännandeknapp utan credential, godkännande, bokning,
+retry/samma id/en rad och nekad främmande kundkontakt. Ingen riktig modellklient
+kördes av Grok. Dess extra probe blev **31/33 PASS, 2 FAIL**: den fasta kontakten
+nådde ordinarie 3-bokningar-per-dag-gränsen. Fallen kördes inte om; befintliga
+kvoter sänktes inte. Detta är labbets begränsning, inte ett godkänt provresultat.
+
+[Originalrapport](qa/QA-REPORT-native-codex-separate-channel-721d445.md):
+11 661 byte, SHA-256 5f6c23e070e8f14c267f2c21e67fc34db0d70c9ac39e6f535a439fc16b466617.
+[Originaltillägg](qa/QA-REPORT-native-codex-separate-channel-openapi-721d445.md):
+2 370 byte, SHA-256 02e599eccb0bd27401775c3446b087efb717961b89ae2f9a848f01af8f4380af.
+Båda bytebevarade. Dess hänvisningar till ”Niclas” avser våra skickade
+Codex-resultat, inte en påstådd manuell körning av produktägaren. Grok läste
+inte CI eller körde native; dessa bevis är Codex egna enligt tabellen ovan.
+
+Ingen blockerare för lokalt syntetiskt bruk. SC-QA-1 (delad kontaktkvot),
+SC-QA-2 (inkorgens samma-uid/TOCTOU-gräns) och SC-QA-3 (pending-rad vid
+leveransfel) är Low-backlogg, inte nya rättningsloopar. Pilot NO-GO.
+SC-QA-4/5 rättas efter fryst QA enbart i kontraktsdokumentation: provider-GET
+får 429/500; gatewayens exponerade spec får befintliga proposalvägar, samma
+leveransschema och sina statiska 502/503-fel. Gatewaydocs **1617de1** från f9b8506
+ändrar bara README/openapi, ingen runtimekod, transport, auth eller dependency.
+Salonens följdcommit ändrar dokumentation, originalrapporter och exakt pair-pin,
+inte produktkoden. Detta doc/pin-delta är inte självständigt omgranskat av Grok.
+
+Nykört efter docsändringen: gateway `npm test` **12/12**, `npm run build` exit0.
+HTTP-kontroll av verklig `/api/v1/openapi`: 1.4.1, egen origin, proposalvägar,
+svarsschema identiskt med salongens, alla lokala refs giltiga, ingen `/live`-route
+som gatewayen inte exponerar. PASS. Logg `<local-scratch>/separate-consent-qa/openapi-check.txt`.
+Ren slutkontroll av dokumentationsparet **13adc8e/1617de1**: generate, 19
+migrationer, seed, build och tsc exit0 på en ny isolerad loopback-testDB.
+`npm run test:pair` exit0, **19 PASS**, båda dirty=false. Manifest observerat
+2026-11-16T10:41:49.240Z, passed=true, failedStep=null; egna fixtures och
+processer städade, pg_ctl stop exit0. Loggar:
+`<local-state>/codex/separate-consent-contract-n0sv088y/`; sanerat manifest
+`<local-scratch>/separate-consent-qa/contract-pair-evidence.json`.
+Ingen ny native-modellkörning för detta docs/pin-delta. **25 native-PASS och
+Grok-GO gäller exakt 721d445/f9b8506**, inte nya egna Grok-prov på dokumentationen.
+Gateway-CI [43850785900](https://github.com/niclasvestlund-YT/booking-lab-gateway/actions/runs/43850785900)
+SUCCESS på exakt1617de1: npm ci/build och12/12 tester,0 rapporterade auditfynd
+vid ci-installationen. Salon-CI [43850868544](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43850868544)
+**SUCCESS i försök2 på exakt13adc8e**: npm ci, lint,423unit,211integration,
+build,13MCP-kort,64webb ochtsc PASS. Ett ben dev/proxy0; pair-jobbet SKIPPED,
+inte ett nytt pair-PASS i CI. Inga nya kontokörningar. Loggar:
+`<local-scratch>/separate-consent-qa/ci-43850868544-attempt2.log` samt
+försök1 i `ci-43850868544.log`. Övriga tre E2E-lägen kördes inte.
+Slutlig resultatcommit efter13adc8e är bara Markdown, inte ny produktkod eller
+en ny Grok-granskad revision. Workflowets paths-ignore utlöser inga tester för den.
+
+### CI-fel och riktad reproduktion efter dokumentationssynk
+
+CI43850868544, försök1 på13adc8e, **FAIL**: 63/64 webbtester. Mobiltestet
+`tests/e2e/customers.spec.ts:6` fick 60000ms timeout när det efter ”Byt kund”
+väntade på `#booking-customer-search` (:46). Unit423, integration211, MCP-kort13,
+lint/build passerade; tsc-steget i detta CI-försök var SKIPPED. Det tidigare
+produkt-CI721d445 var grönt64/64. Varken kundkomponenten eller testet ändrades
+mellan revisionerna (diff kontrollerad). CI laddar inte upp webbtracen i detta
+workflow; den faktiska felsidans tillstånd kunde därför inte granskas.
+Orsaken är **inte fastställd**; timing/hydrering är endast en hypotes.
+
+Första lokala reproduktionskommandot `npm run test:e2e -- --project=mobile
+--grep "långa kundnamn" --repeat-each=5` startade **0 tester**, exit9: skriptet
+kräver `.env`, som inte finns. Ingen sådan fil lästes eller skapades. PostgreSQL
+stoppades normalt. Loggar i `<local-state>/codex/separate-consent-ci-repro-v5pgnf2w/`.
+Därefter samma Playwright/config direkt med exporterad syntetisk miljö:
+`node node_modules/@playwright/test/cli.js test --project=mobile --grep "långa
+kundnamn" --repeat-each=5`: **5/5 PASS**, exit0,2.4min. Ny loopback-testDB,
+generate/migrate/seed/build/tsc0, ordinarie DB-vakt, städning och pg_ctl stop0.
+Loggar `<local-state>/codex/separate-consent-ci-repro-jbzsfob7/`. Inga ändrade
+assertions, timeouter, retries eller produktfiler. Fem gröna lokala upprepningar
+är inget bevis för att ett intermittent CI-fel är löst.
+
+En enda riktad CI-omkörning av misslyckat jobb på samma13adc8e beställdes med
+`gh run rerun 43850868544 --failed`. **Försök2 blev SUCCESS** på samma13adc8e:
+423/211/13/64, lint/build/tsc ochstädning PASS. Ingen ny push eller kodändring
+gjordes mellan försöken. Den första röda körningen bevaras här. Intermittent
+kundval/CI är en öppen observation med okänd orsak, inte en åtgärdad bugg.
+
+Lokala fulla kontroller: `<local-state>/codex/separate-consent-check-p8wceos2/`,
+precommit med samma produktlogik som 721d445. Därefter lades bara transaktions-
+wrap i den nya migrationen och två negativa native-harnesskontroller till.
+Lint/tsc kördes igen efter detta. Rena slutkörningens färska migration/build
+och native-prov finns i `<local-state>/codex/separate-consent-final-fn8qdec8/`.
+PostgreSQL stoppades med pg_ctl (exit 0); egna app-/browser-/CLI-processer avslutades.
+
+Slutmanifest observerat 2026-11-16T10:03:47.973Z, Node v24.16.0,
+Codex CLI 0.153.2 med befintlig ChatGPT-inloggning. Båda exakta rena SHA ovan,
+complete=true, cleaned=true, failedStep=null. Förslag
+`42343d1e-119e-4afc-942b-c72f2fd38f32`, bokning
+`e6c6ba9c-0d37-4f6b-bbbc-174810c847b8`: Massage Anna 17 november 10:30–11:00,
+450 SEK, serverbestämd Separat Demokund. Samma id vid två create-anrop,
+status confirmed och inloggat kalenderklick; en rad före egen städning.
+
+```text
+PAIR salon=721d445b651f0e08eac1219e1d710b70b1632bed gateway=f9b8506cee3e3cd21bd279e01addf761cd3db1ed dirty=false
+PASS NATIVE_PROPOSAL_WITHOUT_BOOKING
+PASS AGENT_WITHOUT_CUSTOMER_CREDENTIAL_DENIED
+PASS SYNTHETIC_APPROVAL_AND_SERVER_BOUNDS
+PASS NATIVE_BOOKING_RETRY_STATUS_ONE_ROW
+PASS NATIVE_BOOKING_SAME_ID_IN_CALENDAR
+PASS NATIVE_CODEX_CONSENT_TO_CALENDAR
+PASS OWN_FIXTURES_REMOVED
+```
+
+Hemligheten gick bara till en privat lokal kundinkorg, inte till REST/MCP-svar,
+modellprompt eller modellens miljö. Manifest/trace innehåller inga kvitton.
+En ny browser utan kundcredential kunde inte visa godkännandeknappen. Separat
+automatiserad syntetisk kund fick kvittot via operatören och godkände i Chromium.
+Försök utanför tiden och med annan kundkontakt gav 403 mandate_denied och inga
+bokningar. Native- och partnerintegration testar kontaktbindning före skrivning,
+configbyte, parallella beslut, främmande klient och DB-CHECK för metod/origin.
+Detta verifierar inte verklig kundidentitet eller motstånd mot server-OS-/DB-ägaren.
+
+Bilder: `test-results/native-codex/agent-without-customer-credential.png`,
+`consent-before.png`, `consent-after.png`, `calendar.png`; sanerat evidence.json.
+Kopia i `<local-scratch>/separate-consent-qa/final-evidence/`. Gitignorerat.
+Själva hemliga kundkvittot togs bort; inkorgen städades av runnerns finally.
+Legacy-agent-link är ett annat, fortfarande svagt lokalt labbkontrakt.
+Det nya lägets opt-in/guard/bindning är inte en generell identitets- eller pilot-GO.
+
+Mellanresultat: första lint föll på en gammal gitignorerad engångsprobe under
+test-results. Den genererade katalogen undantas nu, inte underhållna tests/scripts.
+Första integrationen gav 206/211: nya metodvärdet nekades av gamla verifiedVia-CHECK.
+Den nya migrationen lägger nu till det snäva värdet med oförändrat origin-krav;
+ingen gammal migration skrevs om. Nästa 211/211 passerade. Build fångade sedan
+en testimport .mts och två unknown-typfel i testkod; rättade utan assertionssänkning.
+Slutlig full körning och ren slutbuild ovan passerade. Initialt YAML-verktyg
+saknades; redan installerade js-yaml användes för parse, inget paket installerades.
+
+NOT RUN lokalt: ny npm ci, hela webb-E2E/fyrmatrisen, separat MCP-kortsvit,
+Docker, demo:record, ChatGPT webb/mobil, Claude, fysisk iPhone/Safari,
+moln/TLS/backup/deploy, riktiga utskick eller kundidentifieringsleverantör.
+Ingen ny frontenddesign att spela in. Audit är separat och fortfarande röd i dev.
+Pilot NO-GO. Tidigare resultat nedan gäller sina historiska revisioner/profiler.
+
+---
+
+# Tidigare kontroll · kundgodkännandets identitetsgräns · 2026-11-16
+
+Oförändrad salong `13e01799427e9fa7e8617479cc6e61941a528d07`, gateway
+`f9b8506cee3e3cd21bd279e01addf761cd3db1ed`. Rapportgren
+`proof/customer-approval-boundary`. Inga produkt-, schema-, beroende- eller
+migrationsändringar. Befintliga assertions och testtimeouts är orörda.
+
+| Faktiskt kört | Resultat |
+| --- | --- |
+| npx prisma generate | exit 0 |
+| npm run db:migrate; npm run db:seed | exit 0, ny isolerad loopback PostgreSQL |
+| node node_modules/vitest/vitest.mjs run tests/customer-consent.test.ts tests/customer-consent-flow.test.ts tests/agent-mandate.test.ts tests/sms-otp.test.ts | 77/77 PASS, 4 filer |
+| node node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts tests/integration/customer-consent.test.ts tests/integration/sms-otp.test.ts tests/integration/agent-usp.test.ts tests/integration/agent-bookings.test.ts tests/integration/agent-audit.test.ts tests/integration/mock-partner-gateway.test.ts | 41/41 PASS, 6 filer |
+| node --import tsx test-results/consent-boundary/probe.mts | exit 0, 12 diagnostiska PASS-grupper, 2 ej uppfyllda identitetskriterier |
+| pg_ctl -m fast -w stop | exit 0; egna server-/browser-/MCP-processer avslutade |
+
+## Direkt observerat kund-/agentglapp
+
+Testklienten skapade ett förslag genom verklig HTTP-MCP-SDK och fick labbets
+approvalUrl. Med agentens Authorization-header nekades kund-POST (403).
+Samma länk öppnades sedan i en ny Chromium 390×844 med noll initiala cookies
+och utan kundinloggning. Klick på Ja skapade mandatet; klienten kunde därefter
+boka via gatewayen (201) och återförsöka (200, replayed=true, samma id, en rad).
+Boknings-id `99eda0bb-76c0-4e1e-acaa-41ab9e052bb5` är därefter städat.
+Mandatet hade `origin=customer-consent`, `verifiedVia=null`.
+
+**FAIL: oberoende kundgodkännande/agenten kan inte självgodkänna.**
+Agentens tillgång till bearer-länken ger samma möjlighet som labbets syntetiska
+kund. En avstängd approve-tool eller nekad API-header löser inte denna
+identitetsfråga. Det befintliga integrationstestet med namn "agent cannot
+approve" provar auth-header/MCP, inte agentens möjlighet att använda länken
+utan header i en vanlig webbläsare. Ingen testassertion ändrades för utfallet.
+
+Detta är ett testprogram som simulerar agentens browserförmåga. Det är varken
+en ny verklig modellkörning eller en fysisk iPhone-kontroll. Produktens labb
+beskriver redan att länken lämnas till anroparen och bevisar ingen riktig
+identitet; fyndet är en bekräftad pilotgräns, inte en ny produktregression.
+
+## Skydd som höll och OTP-gränsen
+
+- Fel token eller agent-Authorization: 403. Annan klient kan inte läsa förslag
+  (404) eller använda mandatet (403).
+- Identiskt booking-retry ger samma id och en rad. Ny nyckel kan inte använda
+  det förbrukade mandatet (403); använd godkännandelänk nekas också (403).
+- 20 samtidiga kundbeslut: en 200, nitton 403, ett mandat.
+- Utgången länk skapar inget mandat. Återkallat/utgånget mandat nekas (403).
+  Vidgat JSON och en annan länks token nekas före nytt mandat.
+- OTP-labb på: saknad/fel kod nekas (403) även med giltig länk. Agentens
+  statusvy exponerar inte kod-/hashfälten. De 41 integrationstesterna omfattar
+  även fem försök, resend/expiry, samtidig verifiering och avgränsad loggning.
+- Labb av: skapande av förslag och godkännande nekas (403).
+
+**Ej verifierad kundidentitet även med OTP:** avsändaren är en processlokal
+SimulatedSmsSender. Telefonnumret kommer från agentens JSON och saknar
+oberoende bindning till avsedd kund. Simulerade koder och ett labbnummer
+användes; inga externa utskick, konton eller leverantörer kontaktades.
+En framtida riktig OTP bevisar kontroll över vald mottagare, inte i sig att
+mottagaren är den avsedda kunden. Leverans och kundbindning måste lösas tillsammans.
+
+Loggar: `<local-state>/codex/consent-boundary-1_0z6gwm/`.
+Sanerat manifest och två verkliga bilder: `test-results/consent-boundary/`.
+Manifestet anger 2026-11-16T08:44:50.061Z, completed=true, cleaned=true,
+failedStep=null, men de två identitetskriterierna met=false. Diagnostikens
+exit 0 betyder reproducerade observationer, inte godkänd kundidentifiering.
+Lokal kopia av probe/bilder/manifest: `<local-scratch>/consent-boundary/`.
+Tillfällig probe SHA-256
+`039c70c0c32cb4096756e30677401493feedb73239a48a869bcf6fc3caa2c9ba`.
+Proben är en engångsdiagnostik, gitignorerad och låst till ovanstående SHA;
+det är inte en ny underhållen testsvit eller ett nytt produktverktyg.
+
+Grok körde egen minimal probe efter formateringsförlust av delad kod i chatten.
+Det körde inte Codex engångsprobe. [Originaladdendum](qa/QA-REPORT-native-codex-consent-boundary-13e0179.md):
+9804 byte, SHA-256 `035add6fe28c89d75c21dfa0574b9a68e6a83c002c32c09791bdaf1ce07b4783`.
+Egen rå HTTP OCH färsk headless Chromium bekräftade länkinnehavarens godkännande
+och efterföljande bokning/retry. Egna 83/83 unit (fem filer, våra fyra plus sex
+native-parserprov), 41/41 integration och 20/20 diagnostiska kontroller passerade.
+Build kördes för serverstart, exit 0. Identitetskriteriet är fortfarande FAIL.
+Grok verifierade också engångsbruk, 20 samtidiga beslut, fel hash/JSON/token,
+främmande klient, återkallat mandat, OTP utan kod och avstängt labb. Det körde
+inte utgånget mandats expiresAt eller rätt OTP i HTTP-servern; dessa delar
+skiljs från våra egna tester. Dess fulla NOT RUN och kommandon står i originalet.
+
+Groks gamla "agent kan inte godkänna" avgränsas i addendum till auth-header
+och saknat approve-MCP. Bredare påståenden om oberoende kundgodkännande stöds
+inte. Ingen regression och ingen FIX-REQUEST; framtida kundidentifiering och
+leverans är produkt-/säkerhetsbeslut, inte redan godkänd pilot eller ny uppgift.
+En markerad verifiedVia-sträng är inte i sig autentisering eller rätt kundbindning.
+
+NOT RUN denna omgång: ny npm ci, full lint/tsc/unit/integration/build,
+hela webb-E2E/fyrmatrisen, native Codex-klient, ny CI, audit, Docker, moln,
+riktiga SMS/mejl/kunder, kundidentifiering hos extern leverantör, fysisk iPhone.
+Befintligt produktionsbygge återanvändes efter kontroll att produktkoden var
+oförändrad. Tidigare CI 43820748911 på exakt 13e0179 är SUCCESS
+(408/205/64/13, lint/build/tsc/npm ci); det ersätter inte denna acceptansbedömning.
+Inga skydd, testkrav eller datarestriktioner har försvagats. Pilot NO-GO.
+
+---
+
+# Tidigare verifiering · native Codex-prov · 2026-11-16
+
+Fryst salongs-/harness-SHA `6aed5110e44c0247d93c470e8d2ef6f95072afbe` på
+`proof/native-codex-consent`; gateway `f9b8506cee3e3cd21bd279e01addf761cd3db1ed`.
+Produktkoden är oförändrad från 0a88ac2/ab07b6c. Båda arbetskopiorna var rena
+under slutprovet. Node v24.16.0, Codex CLI 0.153.2, befintlig ChatGPT-inloggning.
+Efterföljande dokumentationscommit ingår inte i den frysta provrevisionen.
+
+| Faktiskt kört kommando/kontroll | Codex ren slutkörning | Groks separata kopia |
+| --- | --- | --- |
+| npm ci | NOT RUN lokalt denna omgång; beroenden/låsfil oförändrade | PASS båda repona |
+| npx prisma generate | PASS/exit 0 | PASS |
+| npm run db:migrate, npm run db:seed | PASS/exit 0, ny isolerad loopback PostgreSQL | PASS egna nya testDB, 18 migrationer |
+| npm run lint | PASS/exit 0 | PASS/exit 0 |
+| npx tsc --noEmit | PASS/exit 0 | PASS/exit 0 |
+| npm test | PASS 408/408, 43 filer | PASS 408/408 |
+| npm run test:integration | PASS 205/205, 37 filer, 142.87 s | Full svit NOT RUN; relevant urval PASS 41/41, 6 filer |
+| npm run build | PASS/exit 0 | PASS/exit 0 |
+| npm run test:pair -- --native-codex | PASS/exit 0, 24 PASS-koder, båda dirty=false | NOT RUN; ingen användning av Niclas konto |
+| npm run test:pair utan flagga | Ingår med standardkontroller i native-provet, annan lokal discovery-origin | PASS/exit 0, 19 PASS-koder, dirty=false |
+| Egna consent-HTTP-prober | Två negativa HTTP-kontroller i native-provet | PASS 15/15; rå HTTP, ingen assistent |
+| npm audit --json | exit 1, 7 moderate/dev, 0 high/critical | samma utfall enligt Grok |
+| npm audit --omit=dev --json | PASS/exit 0, 0 fynd | PASS/0 fynd enligt Grok |
+| GitHub Actions på 6aed511 | SUCCESS 43819669674; npm ci/lint/build/tsc, 408 unit, 205 integration, 64 E2E och 13 MCP-kort | NOT RUN av Grok |
+
+[CI 43819669674](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43819669674)
+är SUCCESS på exakt 6aed511. Jobbet körde dev/proxy0 enligt befintlig featurepolicy.
+Webb-E2E gav `64 passed (3.6m)`, kortprovet `13 passed (25.4s)`.
+Pair-jobbet var SKIPPED (kräver manuell dispatch), inte ett godkänt CI-pair-prov.
+Inget modellkonto eller native-flagga användes i CI. De tre övriga E2E-lägena
+beställdes inte på nytt för oförändrad produkt. Full jobblogg finns i
+`<local-scratch>/native-client-qa/ci-43819669674.log`.
+
+Slutloggar: `<local-state>/codex/native-client-final-8oot14yh/`.
+Den egna PostgreSQL-klustern startades med initdb/pg_ctl och stoppades med
+`pg_ctl -m fast -w stop` (exit 0). Inga .env-värden lästes eller nya paket installerades.
+Aktiva servers/testfixtures städades av provet. Append-only audit behåller sina
+lagringsregler i den isolerade testdatabasen.
+
+Sanerat `test-results/native-codex/evidence.json` (gitignorerat) anger
+observerat `2026-11-16T06:48:08.556Z`, båda exakta rena SHA ovan,
+`complete=true`, `cleaned=true`, `failedStep=null`. Det innehåller sju lyckade
+native MCP-anrop: list_services, get_availability, create_proposal,
+get_proposal, create_booking, create_booking, get_booking. Förslag
+`7842beb0-9a92-4ef5-918a-bacb3a3d8e9b`; bokning
+`38609997-b174-4b80-b723-47fb49d36e55`. Samma id i båda create och get,
+exakt en AgentBooking med rätt servermandat och samma id öppnat efter riktig
+admininloggning och kalenderklick. Massage hos Anna 17 november 10:30–11:00,
+450 SEK. Testbokningen är därefter borttagen, inte kvar i en användbar preview.
+
+```text
+PAIR salon=6aed5110e44c0247d93c470e8d2ef6f95072afbe gateway=f9b8506cee3e3cd21bd279e01addf761cd3db1ed dirty=false
+PASS NATIVE_PROPOSAL_WITHOUT_BOOKING
+PASS SYNTHETIC_APPROVAL_AND_SERVER_BOUNDS
+PASS NATIVE_BOOKING_RETRY_STATUS_ONE_ROW
+PASS NATIVE_BOOKING_SAME_ID_IN_CALENDAR
+PASS NATIVE_CODEX_CONSENT_TO_CALENDAR
+PASS OWN_FIXTURES_REMOVED
+```
+
+Kundgodkännandet utfördes av en separat automatiserad syntetisk Chromium-kund,
+inte en människa eller verifierad riktig kund. Servern nekade utan mandat
+med 400 mandate_required och utanför tidsfönstret med 403 mandate_denied.
+Klienten kunde inte få DB/session/tjänstehemligheter genom miljöallowlisten.
+Varken global Codex-konfiguration, befintligt plugin, preview eller produktkontrakt ändrades.
+Riktiga bilder: `test-results/native-codex/consent-before.png`, `consent-after.png`
+och `calendar.png`. Lokal kopia inklusive manifest:
+`<local-scratch>/native-client-qa/final-evidence/`. Inga bilder eller JSON-resultat i Git.
+
+[Groks original](qa/QA-REPORT-native-codex-6aed511.md), 15810 byte,
+SHA-256 `25843111f82f12e3c2be4b0e06ba346c1cbb973411f3508cc470a3e4c2e3427a`.
+Avgränsat GO för syntetisk lokal harness, inga blockerare och ingen FIX-REQUEST.
+Det verkliga Codex-provet är granskat som kod och delat bevis, inte eget klientprov.
+Grok jämförde första manifestet, som saknade CLI/tid/SHA; slutmanifestet ovan
+har dessa fält men var inte självt granskat av Grok. Originalets sluttid 07:55
+är fel enligt Groks eftermeddelande (rapport klar 07:47). Originalet bevaras orört.
+NC-QA-1..6 Low/Info: striktare JSONL-/verktygssekvens, replayed i beviset,
+allowlist-assertion, retention/processgrupp och discovery-origin i native-läge.
+De är backlogg, inte produktionsgodkännanden eller nya fixbeställningar.
+
+## Mellanresultat och begränsningar
+
+Första rena matrisen i `native-client-final-j_3708i8/` gav 408/408 unit och lint0,
+men integration 204/205: `agent-workday.test.ts:142` nådde Vitests 5000 ms-timeout.
+Det testet startar tre stdio-MCP-klienter och gör parallella replay-anrop.
+Build/tsc/native-pair hann inte köras i den matrisen. Nästa fulla matris mot ny
+testDB passerade 205/205 utan kod-, timeout- eller assertionsändring. Detta
+bevisar inte att den befintliga timeoutkänsligheten aldrig kan återkomma.
+Grok körde inte den filen; dess regressionsbedömning är statisk.
+
+Tidiga förberedelseförsök föll på testklientens verktygsgodkännande, harnessens
+felaktiga förväntan 403 i stället för kontraktets 400 och tappad business-kontext
+i andra prompten. Den frysta 6aed511 innehåller rättningarna och metadata.
+De förberedande försöken ersätter inte den rena slutkörningen ovan.
+
+NOT RUN lokalt denna omgång: ny npm ci, full webb-E2E/fyrmatris, MCP-kortsvit,
+Docker, demo:record, ChatGPT webb/mobil, Claude-klient, fysisk iPhone/Safari,
+moln/TLS/backup/deploy och verklig kundidentitet. För oförändrad produkt finns
+föregående fyrmatris på 0a88ac2 nedan; den är inte ny bevisning för harnessen.
+Audit redovisas separat. Pilot fortsatt NO-GO enligt PRIVACY_SECURITY.
+Tidigare leveransers resultat följer nedan som historik.
+
+---
+
+<!-- NIGHT_PAIR_VERIFICATION_START -->
+# Tvårepoprov · aktuella resultat · 2026-11-16
+
+Salong `0a88ac27482aef377ecce86892b5bfbb897cc181`,
+gateway `f9b8506cee3e3cd21bd279e01addf761cd3db1ed` (produkt ab07b6c).
+Båda `night/gateway-salon-integration`. Båda rena under slutprovet.
+Inga nya beroenden, overrides, migrationsändringar eller produktmoduler.
+
+| Faktiskt kört kommando/kontroll | Codex lokalt | Groks separata kopia |
+| --- | --- | --- |
+| npm ci, båda repona | PASS/exit 0, salong 572/573 paket, gateway 3/4 | PASS enligt original |
+| npx prisma generate | PASS/exit 0 | PASS |
+| npm run db:migrate, npm run db:seed | PASS/exit 0, ny isolerad PostgreSQL | PASS, egna nya testDB |
+| npm run lint | PASS/exit 0 | PASS/exit 0 |
+| npx tsc --noEmit | PASS/exit 0 | PASS/exit 0 |
+| npm test, salong | PASS 402/402, 42 filer | PASS 402/402 |
+| npm run test:integration | PASS 205/205, 37 filer | PASS 205/205 |
+| npm run build, salong | PASS/exit 0 | PASS/exit 0 |
+| npm test + npm run build, gateway | PASS 12/12 + exit 0 | PASS 12/12 + exit 0 |
+| npm run test:pair | PASS/exit 0, 19 PASS-koder, dirty=false | PASS/exit 0, 19 PASS-koder, dirty=false |
+| CI fyrfältsmatris + låst revisionspar | PASS 43781899181 på exakt 0a88ac2; 64/64 × 4 + 13/13 MCP-kort + 19 pair-koder | NOT RUN av Grok |
+| npm audit, salong | exit 1, 7 moderate, 0 high/critical | samma utfall |
+| npm audit --omit=dev, salong | PASS/exit 0, 0 fynd | PASS/0 fynd |
+| npm audit, gateway | PASS/exit 0, 0 fynd | PASS/0 fynd |
+| npm audit fix --dry-run --ignore-scripts --json | exit 1, added 0 / removed 0 / changed 0 | NOT RUN |
+
+Lokala råloggar: <local-state>/codex/night-pair-4kqfj_q6/.
+Sanerat revisionsmanifest: test-results/integration-pair.json (genererat, ignorerat).
+Första precommit-provet föll på testproxyns komprimeringsheaders; därefter rättat.
+Den slutliga rena körningen ovan passerade. Historiska mellanresultat ersätter
+inte slutresultatet. Lokalt användes inbäddad PostgreSQL på loopback, inte Docker.
+
+Tvårepoprovet gav bland annat exakt:
+
+```text
+PAIR salon=0a88ac27482aef377ecce86892b5bfbb897cc181 gateway=f9b8506cee3e3cd21bd279e01addf761cd3db1ed dirty=false
+PASS SEPARATE_SALON_AUTHENTICATED_CALENDAR
+PASS LOST_SUCCESS_RETRY_ONE_BOOKING
+PASS RESTART_RACE_REFUSED_AND_RECOVERED
+PASS TWENTY_REQUESTS_ONE_WINNER
+PASS PROVIDER_ERRORS_REDACTED
+PASS REVOKED_CREDENTIAL_DENIED
+PASS OWN_FIXTURES_REMOVED
+```
+
+[Groks original](qa/QA-REPORT-night-f9b8506-0a88ac2.md): 10 983 byte,
+sha256 `78fc8ec1f4326370e9d75a9afaf9ce519a544d4c5ec9d5cf254a433414fbefcd`.
+GS3-QA-1..4 STÄNGDA, scoped GO för lokal syntetisk användning, inga blockerare.
+Grok körde även 28/28 stubprober och 15/16 egna prober; dess Q3e hade felaktig
+förväntan och bedömdes som harnessfel. Rapportens begränsningar behålls:
+ingen ytterligare egen kalender-id-jämförelse eller SQL-överlapp efter städning.
+Codex runner kontrollerar samma id och kräver 0 överlapp med SQL i körningen.
+NIGHT-QA-1, Info om temporär dispatch-källa, går till backlogg utan ny fixloop.
+
+[Full salongs-CI 43781899181](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43781899181)
+är SUCCESS på exakt salongsprodukt 0a88ac2. Dev/proxy 0: 64/64, dev/proxy 1: 64/64,
+production/proxy 0: 64/64 och production/proxy 1: 64/64. Huvudjobbet gav också
+402/402 unit, 205/205 integration, 13/13 MCP-kort samt lint/build/tsc.
+Det separata pair-jobbet verifierade bundle, körde ny Docker-PostgreSQL,
+Prisma generate/migrate/seed/build och gav 19 PASS med båda dirty=false.
+Hämtad CI-artefakt anger salong 0a88ac2 / gateway f9b8506 och passed=true, Node 24.22.2.
+[Gateway-CI 43781813963](https://github.com/niclasvestlund-YT/booking-lab-gateway/actions/runs/43781813963)
+är SUCCESS på exakt f9b8506, 12/12 och build/npm ci. Råa jobbloggar och artefakten
+finns lokalt i <local-scratch>/night-pair-ci/.
+Push-jobbet 43781819976 avbröts av workflowets befintliga concurrency när den
+fulla manuella körningen på samma SHA startade. Inga tester sänktes eller slopades.
+Efterföljande status/handoff/QA-commit ändrar endast Markdown. Denna fulla CI
+avser produkt-SHA ovan; en docs-push ignoreras av det befintliga workflowet.
+
+En separat temporär lokal källkodsutcheckning fick read-only Git-packfiler kvar
+när städningen nekades av automatisk säkerhetsgranskning (policyblockering).
+Inget kringgående gjordes. Den innehåller endast committad källa och ligger
+utanför repot. Produktprocesserna och den egna PostgreSQL-klustern är stoppade.
+
+NOT RUN i detta uppdrag lokalt: full webb-E2E/fyrmatris, Docker, demo:record,
+slutanvändares ChatGPT/Claude-konto, fysisk iPhone/Safari, moln/TLS/backup/deploy.
+Ingen ny synlig produktförändring att spela in. Äldre demo är inte nytt bevis.
+Audit är separat från funktionstesterna. Pilot är fortsatt NO-GO, se PRIVACY_SECURITY.
+<!-- NIGHT_PAIR_VERIFICATION_END -->
+
+---
+
 # Två privata repon · main integrerad · 2026-11-16
 
 Niclas godkände granskning och integration till båda huvudgrenarna.
@@ -540,7 +998,7 @@ reproducerades inte i Groks rena kopia. Fjärr-/native-klientprov och pilot
 ingår inte i godkännandet.
 
 
-**[Öppna den skyddade premiumdemon](https://booking-lab-se-preview.vercel.app/product)**. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43546809210): 62/62 webbtester i vart och ett av fyra gröna jobb. [Driftbevis](assets/premium/preview-final.json), [CI-loggarnas kontrollsummor](assets/premium/ci-final-proof.json) och [Groks original](qa/QA-REPORT-premium-5212b7a.md).
+**[Öppna den skyddade premiumdemon](<redacted-preview-url>/product)**. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43546809210): 62/62 webbtester i vart och ett av fyra gröna jobb. [Driftbevis](assets/premium/preview-final.json), [CI-loggarnas kontrollsummor](assets/premium/ci-final-proof.json) och [Groks original](qa/QA-REPORT-premium-5212b7a.md).
 
 Vercel `dpl_<redacted>`, fra1. Fast alias och immutable preview kontrollerades: anonyma HTML/API/resurser stoppades; behörig Vercel-session utan appinloggning fick 403 för admin-API. Direktport 3000 gick inte att nå. Egen Chrome-klick: öppna demoadmin utan extra lösenord, välj gårdagens bokningar och läs bokningsdetaljen. [Alla åtta datatabeller oförändrade](assets/premium/preview-db-proof.json), inklusive 94 bokningar. Ingen mainmerge. Pilot och fysisk Safari ej godkända.
 
@@ -615,7 +1073,7 @@ för scroll eller fysisk iPhone/Safari. Bilder i `.vercel/premium-evidence/`.
 Verifierat 2026-11-14. Branch **ui/salon-polish**, från 2c74a4b/produkt 51d54d4.
 Produkt, slutlig Grok-revision, CI och deploy: **9840309df4d8addc3e4bf5f6c5da0f3802eb4a2d**.
 Senare dokumentationscommit ändrar ingen produktkod. Main b000481 är orörd.
-[Samma skyddade preview](https://booking-lab-se-preview.vercel.app/admin), deployment `dpl_<redacted>`, fra1.
+[Samma skyddade preview](<redacted-preview-url>/admin), deployment `dpl_<redacted>`, fra1.
 Vercel-inloggning vid behov → **Öppna demoadmin**, inget andra lösenord.
 
 **Funktionstester och avgränsad QA PASS; full audit FAIL; pilot NO-GO.**

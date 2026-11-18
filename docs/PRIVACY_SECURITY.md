@@ -1,5 +1,47 @@
 # Integritets- och säkerhetsprinciper
 
+## Separat syntetisk kundkanal · nytt lokalt prov 2026-11-16
+
+Opt-in separate-lab på 721d445 lämnar ingen godkännandecredential till agenten.
+En serverbestämd v1-fixture får kvittot genom en privat temporär operatörsinkorg,
+utanför webbrot och HTTP/MCP. Sparad leveransprofil och samma verifiedVia-metod
+binder agentbokningen till exakt dummy-namn/e-post även efter configbyte.
+Klient-JSON kan inte välja mottagare. Gamla labbläget finns kvar och har gränsen
+nedan. Det nya läget får inte säljas som verifierad riktig kundidentitet.
+
+Inkorgen är en testcredentialkanal. POSIX-permissions kontrolleras, Windows ACL
+är inte oberoende kvalificerad. Angripare med serverns filsystem-/DB-rättigheter
+ligger utanför provets agentbehörighet. Inga kvitton/länkar får delas med modeller,
+Git eller vanliga loggar. Ingen ny extern mottagare, leverantör eller utskick.
+Agentklienten i detta prov får inte ha filverktyg eller annan åtkomst under
+serverns uid: en sådan process kan läsa kundkvittot. Detta är en uttrycklig
+begränsning, inte en OS-isolerad kundkanal. Operatören måste radera sina kvitton;
+servern har ingen egen kvittogallring. Den fasta kundkontakten delar ordinarie
+3-bokningar-per-dag-gräns mellan klienterna. Grok bekräftade denna begränsning
+och lokal syntetisk GO på 721d445/f9b8506; se originalrapporten i VERIFICATION.
+Framtida verklig verifiering och leverans behöver bindas till avsedd kund innan
+pilot. Ett verifiedVia-värde i databasen ersätter inte detta. [Resultat](archive/VERIFICATION.md) (historical).
+
+## Kundgodkännandets identitetsgräns · verifierad 2026-11-16
+
+Det lokala consent-labbet lämnar en bearer-länk till anropande agent.
+Innehavaren kan använda länken i en ny webbläsare utan kundinloggning och
+skapa ett exakt, bokningsbart mandat. Agent-header på kundrutten nekas,
+men innehavaren behöver inte skicka den. Detta är observerat på 13e0179,
+ingen ny regression. `origin=customer-consent` anger labbets beslutsväg,
+inte autentiserad kundidentitet. Tidigare syntetiska GO ger inget pilotmandat.
+
+Det befintliga SMS-OTP-labbet kräver separat kod men har bara en simulerad
+processlokal avsändare, med telefon från klientens indata. Före verklig
+användning måste leverans och verifiering bindas till avsedd kund genom en
+oberoende, betrodd väg som agenten inte själv kan välja eller läsa. Leverantör,
+kundidentifiering, återställning och verkliga utskick är separata beslut.
+Inget sådant system införs genom denna kontroll. [Testbevis](archive/VERIFICATION.md).
+Groks egen HTTP-/Chromium-reproduktion bekräftar gränsen. Dess förslag om
+registrerad kanal/verifiedVia är beslutsunderlag, inte en beställning av nytt
+kundregister eller auth-system. Ett icke-null verifieringsfält ersätter inte
+den underliggande verifieringen eller bindningen till avsedd kund.
+
 ## Agentprov 1 · syntetiskt mandat, inte verkligt kundsamtycke
 
 Gatewayens klientbehörighet och kundens godkännande är skilda frågor.

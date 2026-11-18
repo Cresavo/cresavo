@@ -32,7 +32,7 @@ it("app mutation capabilities always throw", () => {
   expect(() => auditMutations.delete()).toThrow("AGENT_AUDIT_APPEND_ONLY");
 });
 it.each([{}, { authorization: "Bearer synthetic-token" }, { "x-api-key": "synthetic-key" }])("requires an admin session before reading filters (%j)", async headers => {
-  state.admin.mockRejectedValue(new DomainError("Åtkomst nekad", 403));
+  state.admin.mockRejectedValue(new DomainError("Access denied.", 403));
   const response = await GET(new Request("http://localhost/api/admin/audit?bookingId=private", { headers: headers as HeadersInit }));
   expect(response.status).toBe(403); expect(await response.text()).not.toContain("private");
 });

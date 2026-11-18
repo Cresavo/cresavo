@@ -1,9 +1,9 @@
 import { DateTime } from "luxon";
 export const ZONE = "Europe/Stockholm";
 export function parseDay(day: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("Ogiltigt datum");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("Invalid date");
   const d = DateTime.fromISO(day, { zone: ZONE });
-  if (!d.isValid || d.toISODate() !== day) throw new Error("Ogiltigt datum");
+  if (!d.isValid || d.toISODate() !== day) throw new Error("Invalid date");
   return d.startOf("day");
 }
 export function slotsForDay(
@@ -13,7 +13,7 @@ export function slotsForDay(
 ) {
   const d = parseDay(day);
   if (!Number.isInteger(duration) || duration <= 0 || duration > 480)
-    throw new Error("Ogiltig längd");
+    throw new Error("Invalid duration");
   if (
     d.weekday > 5 ||
     d < now.setZone(ZONE).startOf("day") ||

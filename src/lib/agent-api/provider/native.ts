@@ -48,7 +48,7 @@ export const nativeBookingProvider = {
       await authorize?.(tx);
       const [current] = await tx.$queryRaw<ProviderBooking[]>`
         SELECT * FROM "Booking" WHERE "id" = ${id} AND "businessId" = ${DEMO_BUSINESS_ID} FOR UPDATE`;
-      if (!current) throw new DomainError("Bokningen finns inte");
+      if (!current) throw new DomainError("Booking not found. Return to the calendar.");
       if (current.status === "cancelled") return { row: current, already: true };
       const row = await tx.booking.update({
         where: { id: current.id },

@@ -12,6 +12,7 @@ import Link from "next/link";
 import TwoTrackLab from "./two-track-lab";
 import { getLocale } from "@/lib/locale-server";
 import { text } from "@/lib/locale";
+import { Wordmark } from "@/concept/ui/wordmark";
 export const dynamic = "force-dynamic";
 export default async function Home({
   searchParams,
@@ -29,8 +30,10 @@ export default async function Home({
   const readOnly = isPublicReadonly();
   return <main className="two-track-page">
     <header className="customer-header">
-      <Link className="salon-brand" href="/">BOOKING LAB<span>{t("Find a salon. Make time.", "Hitta salong. Ta dig tid.")}</span></Link>
+      <Link className="salon-brand" href="/"><Wordmark className="w-[112px]" /><span>{t("Find a salon. Make time.", "Hitta salong. Ta dig tid.")}</span></Link>
       <nav aria-label={t("About and workspace", "Om och arbetsyta")}>
+        <Link href="/boka/salong-eko">{t("Customer page demo", "Kundsida (demo)")}</Link>
+        <Link href="/studio">{t("Owner studio demo", "Ägarstudio (demo)")}</Link>
         {!readOnly && (demoAccessEnabled() ? <DemoEntry /> : <a className="quiet-button" href="/admin">{t("Owner workspace", "Salongens arbetsyta")}</a>)}
       </nav>
     </header>

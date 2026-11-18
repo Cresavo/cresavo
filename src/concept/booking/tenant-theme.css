@@ -1,0 +1,138 @@
+/* The tenant layer: everything a customer sees on a business's booking page
+   (/boka/<slug>, the widget, the gift card page). It re-declares every
+   non-semantic token, so nothing of the platform's plum or apricot reaches a
+   tenant page, and it follows the visitor's own light or dark setting, never
+   the studio's theme choice. Success, warning, danger and info come from the
+   platform tokens (brand-theme.css declares them on this root as well) and
+   are never set here or by a tenant palette.
+
+   Without a palette the page wears a restrained neutral ink-on-white look. A
+   palette arrives as inline variables on the same element (PageRoot), which
+   win over the defaults below, plus data-scheme for its light or dark base.
+   Never set color-scheme inline: light-dark() is compiled to switches that
+   only CSS rules with color-scheme turn on.
+
+   The public route boundary (.booking-boundary on the /boka layout and the
+   unknown-address page) puts the same neutral tokens on the whole document,
+   so the canvas, an unknown slug and error states never show the platform's
+   colours or follow the studio's saved theme. `:root:root` outranks the
+   studio's `:root[data-theme]` pin. */
+
+.booking-theme,
+:root:root:has(.booking-boundary) {
+  color-scheme: light dark;
+  --ui-bg: light-dark(#f6f6f5, #141415);
+  --ui-surface: light-dark(#ffffff, #1e1e20);
+  --ui-surface-2: light-dark(#efefee, #2a2a2d);
+  --ui-text: light-dark(#1d1d1f, #f2f2f3);
+  --ui-text-secondary: light-dark(#5c5c60, #a9a9ae);
+  --ui-border: light-dark(#e0e0df, #3a3a3e);
+  --ui-hairline: var(--ui-border);
+  --ui-action: light-dark(#1d1d1f, #f2f2f3);
+  --ui-action-text: light-dark(#ffffff, #141415);
+  --ui-action-bg: color-mix(in srgb, var(--ui-action) 10%, var(--ui-surface));
+  --ui-action-hover: color-mix(in srgb, var(--ui-action) 85%, var(--ui-bg));
+  --ui-input-border: color-mix(in srgb, var(--ui-text) 62%, var(--ui-surface));
+  --ui-focus: var(--ui-action);
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-family: var(--page-font-body, var(--font-ui));
+}
+
+.booking-theme[data-scheme="light"],
+:root:root:has(.booking-theme[data-scheme="light"]) {
+  color-scheme: light;
+}
+
+.booking-theme[data-scheme="dark"],
+:root:root:has(.booking-theme[data-scheme="dark"]) {
+  color-scheme: dark;
+}
+
+.booking-theme :is(h1, h2, h3) {
+  font-family: var(--page-font-heading, inherit);
+}
+
+.booking-theme[data-corners="sharp"] :is(.rounded-sm, .rounded-md, .rounded-lg) {
+  border-radius: var(--radius-xs);
+}
+
+.booking-theme[data-corners="round"] .rounded-md {
+  border-radius: 1rem;
+}
+
+.booking-theme[data-corners="round"] .rounded-lg {
+  border-radius: 1.75rem;
+}
+
+/* Whatever the owner's own CSS says, the booking flow stays on the page. */
+.booking-theme [data-booking-flow] {
+  display: block !important;
+  visibility: visible !important;
+}
+
+/* Meaning beats branding: a message, badge or button that carries a semantic
+   tone (data-tone, see ui/notice.tsx) always shows on its paired background
+   with neutral ink, whatever the owner's CSS or palette says. The tone itself
+   is in the mark (an icon or dot, data-tone-mark), never in same-hue text. */
+.booking-theme [data-tone] {
+  opacity: 1 !important;
+  filter: none !important;
+  background-image: none !important;
+  text-shadow: none !important;
+  color: var(--ui-text) !important;
+}
+
+.booking-theme [data-tone] * {
+  color: inherit !important;
+}
+
+.booking-theme [data-tone] [data-tone-mark] {
+  color: var(--tone-mark) !important;
+}
+
+.booking-theme [data-tone]:not(button) {
+  box-shadow: none !important;
+}
+
+.booking-theme [data-tone="danger"] {
+  --tone-mark: var(--ui-danger);
+  background-color: var(--ui-danger-bg) !important;
+}
+
+.booking-theme [data-tone="success"] {
+  --tone-mark: var(--ui-success);
+  background-color: var(--ui-success-bg) !important;
+}
+
+.booking-theme [data-tone="warning"] {
+  --tone-mark: var(--ui-warning);
+  background-color: var(--ui-warning-bg) !important;
+}
+
+.booking-theme [data-tone="info"] {
+  --tone-mark: var(--ui-info);
+  background-color: var(--ui-info-bg) !important;
+}
+
+/* A status word (ui/badge.tsx) carries its meaning in the text colour alone: no fill to restyle. */
+.booking-theme [data-status] {
+  opacity: 1 !important;
+  filter: none !important;
+  background: none !important;
+  text-shadow: none !important;
+}
+
+.booking-theme [data-status="warning"] {
+  color: var(--ui-warning) !important;
+}
+
+.booking-theme [data-status="danger"] {
+  color: var(--ui-danger) !important;
+}
+
+/* A destructive button is outlined: its label in the danger colour on the plain surface. */
+.booking-theme button[data-tone="danger"] {
+  color: var(--ui-danger) !important;
+  background-color: var(--ui-surface) !important;
+}

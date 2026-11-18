@@ -1,13 +1,14 @@
 name: Verify POC
+# Runs on pull requests and on main only. Agent branches run the same gates
+# locally before pushing. Pull requests always run, also for docs-only
+# changes, so a required status check never waits for a run that was skipped.
 on:
   push:
+    branches: [main]
     paths-ignore:
       - "docs/**"
       - "**/*.md"
   pull_request:
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
   workflow_dispatch:
 permissions:
   contents: read
@@ -16,8 +17,6 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
   verify:
-    # Same-repository PRs already have a push run. Fork PRs still run here.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     name: E2E ${{ matrix.mode }} / proxy ${{ matrix.proxy }}
     runs-on: ubuntu-latest
     timeout-minutes: 20

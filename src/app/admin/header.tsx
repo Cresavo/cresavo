@@ -13,6 +13,7 @@ import HeaderMenu from "./header-menu";
 import { demoAccessEnabled, DEMO_ADMIN_EMAIL } from "@/lib/demo-access";
 import { getLocale } from "@/lib/locale-server";
 import { text } from "@/lib/locale";
+import { BRAND } from "@/concept/brand";
 export default async function AdminHeader({
   email,
   active,
@@ -34,7 +35,7 @@ export default async function AdminHeader({
         <a href="/admin/overview">
           <Leaf className="workspace-mark" size={24} aria-hidden="true" />
           <span className="workspace-wordmark">
-            Salong Eko<small>Booking Lab</small>
+            Salong Eko<small>{BRAND.name}</small>
           </span>
         </a>
         <p>

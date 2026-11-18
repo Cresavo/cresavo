@@ -302,6 +302,7 @@ model AgentProposal {
   priceOre Int
   proposalHash String
   tokenHash String @unique
+  consentDelivery String?
   smsOtpRequired Boolean @default(false)
   phoneHash String?
   phoneMask String?

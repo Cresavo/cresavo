@@ -1,5 +1,36 @@
 # Third-party notices
 
+The application code is AGPL-3.0-only (see [LICENSE](LICENSE)), including the
+token files and artwork it needs to build and run. Dependencies keep their own
+licences. Trademark rights in the Cresavo name and logo, the standalone brand
+kits in `design/brand/**` and the media in `docs/media/**` are described in
+[TRADEMARK.md](TRADEMARK.md).
+
+## Demo images
+
+The photos in `public/demo/*.webp` (two fictional staff portraits and three
+salon still lifes) were AI-generated on 2026-11-12 for this demo. The
+portraits depict fictional characters and were not intended to portray
+identifiable people; the prompts excluded brands and text. Each file, its
+prompt summary, alt text, size and SHA-256 is recorded in
+[public/demo/manifest.json](public/demo/manifest.json). To the extent any
+copyright exists in them, they are distributed under AGPL-3.0-only with the
+code. `public/demo/*.png` are screenshots of the demo itself, and
+`public/site/**` holds screen recordings and stills of the demo, all with
+fictional data; see [TRADEMARK.md](TRADEMARK.md) for the brand they show.
+
+## Fonts
+
+**Inter** (Copyright 2016 The Inter Project Authors,
+<https://github.com/rsms/inter>) is loaded through `next/font/google` and
+self-hosted at build time, so a build serves the font files. Inter is licensed
+under the [SIL Open Font License 1.1](https://openfontlicense.org/open-font-license-official-text/);
+the upstream copyright notice and licence are in
+[Inter's LICENSE.txt](https://github.com/rsms/inter/blob/master/LICENSE.txt),
+and the served font files carry the copyright notice and a link to the OFL in
+their metadata (checked on a 2026-11-18 build). The font is not committed to
+this repository; anyone distributing a build should include the OFL text.
+
 ## Epic 06 icon subset
 
 `lucide-react` 1.72.0: ISC; Feather-derived icons retain the additional MIT
@@ -83,15 +114,23 @@ Booking Lab SE uses this unmodified dependency in its build/browser-compatibilit
 
 ## Other direct dependencies and tooling
 
-Next.js, React, React DOM, Luxon and Zod declare MIT; Prisma and MCP SDK declare Apache-2.0. Exact versions and transitive dependencies are locked in package-lock.json. See docs/OPEN_SOURCE_REVIEW.md for the earlier inventory and limits. Do not replace the packages' actual license texts with this summary.
+Next.js, React, React DOM, Luxon and Zod declare MIT; Prisma and MCP SDK declare Apache-2.0. Exact versions and transitive dependencies are locked in package-lock.json. See [docs/archive/OPEN_SOURCE_REVIEW.md](docs/archive/OPEN_SOURCE_REVIEW.md) (historical) for the earlier inventory and limits. Do not replace the packages' actual license texts with this summary.
 
-Prettier **3.6.2**, copyright James Long and contributors, **MIT**, was installed only in a separate local tooling directory to perform the requested formatting. Its LICENSE was read; its separate npm audit reported **0 vulnerabilities**. No Prettier dependency or runtime package was added to this project. All existing application dependency advisories remain separately reported in docs/VERIFICATION.md.
+Prettier **3.6.2**, copyright James Long and contributors, **MIT**, was installed only in a separate local tooling directory to perform the requested formatting. Its LICENSE was read; its separate npm audit reported **0 vulnerabilities**. No Prettier dependency or runtime package was added to this project. All existing application dependency advisories remain separately reported in [docs/archive/VERIFICATION.md](docs/archive/VERIFICATION.md) (historical).
 
 
-## jose (transitivt beroende)
+## jose (transitive dependency)
 
 jose 6.2.17, MIT, Copyright (c) 2018 Filip Skokan.
-Originallicens finns i node_modules/jose/LICENSE.md.
-Licenstexten och tillämpliga notices ska följa med om paketet distribueras.
-Det installeras av npm; ingen källkod har kopierats till projektets egna filer.
-@a2a-js/sdk togs bort 2026-11-16 tillsammans med det lokala A2A-demoverktyget.
+The original licence is in node_modules/jose/LICENSE.md.
+The licence text and applicable notices must accompany the package if it is
+distributed. It is installed by npm; no source code was copied into the
+project's own files. @a2a-js/sdk was removed on 2026-11-16 together with the
+local A2A demo tool.
+
+## Tour video music
+
+The music in `docs/media/cresavo-tour-16x9.mp4` is generated in code by
+`scripts/media/promo-music.py` (MIT licence, Copyright (c) 2026 Cresavo
+contributors) from oscillators and noise, with no samples, loops or music
+services. The click and whoosh sounds are synthesized as well.

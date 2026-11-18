@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { DateTime } from "luxon";
 import { NextRequest } from "next/server";
 import { fixtureAvailability, fixtureBookingDate, fixtureServices, fixtureStaff } from "../src/lib/public-fixtures";
@@ -13,7 +13,17 @@ vi.mock("../src/lib/workspace-config", async () => {
   const { fixtureStaff } = await import("../src/lib/public-fixtures");
   return { listStaff: async () => fixtureStaff() };
 });
+beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-15T12:00:00Z")); });
 afterEach(() => { vi.unstubAllEnvs(); vi.useRealTimers(); });
+
+it("keeps the injected scheduling clock independent of wall time", () => {
+  vi.setSystemTime(new Date("2027-06-01T12:00:00Z"));
+  const now = DateTime.fromISO("2026-11-15T12:00:00Z");
+  const day = fixtureBookingDate({}, now);
+  expect(day).toBe("2026-11-16");
+  expect(fixtureAvailability("fotvard", day, "staff-demo", now).length).toBeGreaterThan(0);
+  expect(fixtureAvailability("fotvard", day, "staff-demo")).toEqual([]);
+});
 
 // Inspect rendered props/children without serializing framework component types.
 const snapshot = (node: unknown) => JSON.stringify(node, (key, value) =>
@@ -40,12 +50,22 @@ it("honours explicit closed/open dates and safely falls back for invalid dates/s
     expect(fixtureBookingDate({ date, service: "missing", staff: "missing" }, now)).toBe("2026-11-16");
 });
 
-it.each(["/", "/future-page", "/admin"])("adds shared noindex header only in read-only mode: %s", async (path) => {
+it.each(["/", "/landing", "/future-page", "/admin"])("adds shared noindex header only in read-only mode: %s", async (path) => {
   const { proxy } = await import("../src/proxy");
   vi.stubEnv("PUBLIC_READONLY", "1");
   expect(proxy(new NextRequest(`http://localhost${path}`)).headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
   vi.stubEnv("PUBLIC_READONLY", "0");
   expect(proxy(new NextRequest(`http://localhost${path}`)).headers.has("X-Robots-Tag")).toBe(false);
+});
+
+it("lets search engines list only the product domain's front page in read-only mode", async () => {
+  const { proxy } = await import("../src/proxy");
+  vi.stubEnv("PUBLIC_READONLY", "1");
+  vi.stubEnv("NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN", "cresavo.com");
+  const robots = (url: string) => proxy(new NextRequest(url, { headers: { host: new URL(url).host } })).headers.get("X-Robots-Tag");
+  expect(robots("https://cresavo.com/")).toBeNull();
+  expect(robots("https://www.cresavo.com/")).toBeNull();
+  for (const url of ["https://cresavo.com/studio", "https://demo.cresavo.com/", "https://demo.cresavo.com/studio", "https://salong-eko.cresavo.com/"]) expect(robots(url), url).toBe("noindex, nofollow");
 });
 
 it("hides admin entries only in public mode and passes the fixture default to the form", async () => {

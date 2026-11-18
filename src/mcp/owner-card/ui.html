@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="sv">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -7,7 +7,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'none';script-src 'unsafe-inline';style-src 'unsafe-inline';connect-src 'none';img-src 'none';base-uri 'none';form-action 'none'"
     />
-    <title>Booking Lab – min arbetsdag</title>
+    <title>Booking Lab – my workday</title>
     <style>
       * {
         box-sizing: border-box;
@@ -163,63 +163,63 @@
   <body>
     <main>
       <header>
-        <div class="muted">BOOKING LAB / ÄGARENS ASSISTENT</div>
-        <div class="badge">Demo – endast påhittade uppgifter</div>
-        <h1>Min arbetsdag</h1>
+        <div class="muted">BOOKING LAB / OWNER ASSISTANT</div>
+        <div class="badge">Demo – fictional data only</div>
+        <h1>My workday</h1>
         <p id="actor" class="muted">
-          Betrodd lokal ägarprofil. Endast läsning.
+          Trusted local owner profile. Read-only.
         </p>
       </header>
       <div class="body">
-        <p id="status" role="status">Hämtar arbetsdagen…</p>
+        <p id="status" role="status">Loading your workday…</p>
         <p id="error" role="alert"></p>
-        <button id="retry" hidden>Försök igen</button>
+        <button id="retry" hidden>Try again</button>
         <div id="content" hidden>
           <h2 id="day" tabindex="-1"></h2>
           <div class="row">
-            <button id="previous" aria-label="Föregående dag">←</button
-            ><button id="today">Idag</button
-            ><button id="next" aria-label="Nästa dag">→</button
-            ><button id="refresh">Uppdatera</button>
+            <button id="previous" aria-label="Previous day">←</button
+            ><button id="today">Today</button
+            ><button id="next" aria-label="Next day">→</button
+            ><button id="refresh">Refresh</button>
           </div>
           <div class="fields">
             <div>
-              <label for="staff">Medarbetare</label
+              <label for="staff">Team member</label
               ><select id="staff"></select>
             </div>
             <div>
-              <label for="service">Behandling för lediga tider</label
+              <label for="service">Treatment to check</label
               ><select id="service"></select>
             </div>
           </div>
-          <h2>Nästa eller pågående besök</h2>
+          <h2>Next or ongoing visit</h2>
           <div id="next-visit" class="next"></div>
-          <h2>Dagens bokningar</h2>
+          <h2>Today’s bookings</h2>
           <p class="muted">
-            För vald medarbetare. Högst 20 bokningar per sida, utan
-            kundkontakter.
+            For the selected team member. Up to 20 bookings per page, with no
+            customer contact details.
           </p>
           <ul id="bookings"></ul>
-          <button id="more" hidden>Nästa sida bokningar</button
-          ><button id="first" hidden>Till första sidan</button>
-          <h2>Lediga tider</h2>
+          <button id="more" hidden>Next page of bookings</button
+          ><button id="first" hidden>Back to the first page</button>
+          <h2>Available times</h2>
           <p id="availability-label" class="muted"></p>
           <div id="slots"></div>
           <p class="muted">
-            Tillgängligheten kan ändras. Öppna kalendern för att skapa eller
-            ändra en bokning.
+            Availability can change. Open the calendar to create or change a
+            booking.
           </p>
-          <h2>Kapacitetsförslag</h2>
+          <h2>Capacity suggestions</h2>
           <p id="capacity"></p>
-          <nav class="row" aria-label="Öppna arbetsytan">
-            <a id="calendar">Öppna kalendern</a
-            ><a id="overview">Öppna översikten</a>
+          <nav class="row" aria-label="Open the workspace">
+            <a id="calendar">Open the calendar</a
+            ><a id="overview">Open the overview</a>
           </nav>
         </div>
       </div>
       <footer>
-        Vanlig individuell admininloggning krävs i arbetsytan. Inga bokningar
-        ändras genom detta kort.
+        Sign in with an individual admin account to change bookings in the
+        workspace. This card is read-only.
       </footer>
     </main>
     <script>
@@ -232,14 +232,14 @@
           busy = false,
           last = {};
         const clock = (s) =>
-          new Intl.DateTimeFormat("sv-SE", {
+          new Intl.DateTimeFormat("en-GB", {
             timeZone: "Europe/Stockholm",
             hour: "2-digit",
             minute: "2-digit",
             hourCycle: "h23",
           }).format(new Date(s));
         const dateText = (s) =>
-          new Intl.DateTimeFormat("sv-SE", {
+          new Intl.DateTimeFormat("en-GB", {
             timeZone: "Europe/Stockholm",
             weekday: "long",
             day: "numeric",
@@ -301,8 +301,8 @@
           $("previous").disabled = data.date <= data.firstDate;
           $("next").disabled = data.date >= data.lastDate;
           $("next-visit").textContent = data.nextVisit
-            ? `${clock(data.nextVisit.startsAt)} · ${data.nextVisit.serviceName} · ${data.nextVisit.duration} min hos ${data.selectedStaff.name}`
-            : "Inget kommande eller pågående besök för medarbetaren denna dag.";
+            ? `${clock(data.nextVisit.startsAt)} · ${data.nextVisit.serviceName} · ${data.nextVisit.duration} min with ${data.selectedStaff.name}`
+            : "No upcoming or ongoing visits for this team member on this date.";
           $("bookings").replaceChildren();
           for (const b of data.bookings) {
             const li = document.createElement("li"),
@@ -313,12 +313,12 @@
             $("bookings").append(li);
           }
           if (!data.bookings.length)
-            $("bookings").textContent = "Inga bokningar på den här sidan.";
+            $("bookings").textContent = "No bookings on this page.";
           $("more").hidden = !data.nextCursor;
           $("first").hidden = !last.cursor;
           $("availability-label").textContent = data.selectedService
-            ? `${data.selectedService.name} hos ${data.selectedStaff.name}, ${data.selectedService.duration} minuter. ${data.moreSlots ? "De första 12 tiderna visas; fler finns i kalendern." : ""}`
-            : "Ingen aktiv behandling eller personal finns att visa.";
+            ? `${data.selectedService.name} with ${data.selectedStaff.name}, ${data.selectedService.duration} minutes. ${data.moreSlots ? "Showing the first 12 times. Open the calendar for more." : ""}`
+            : "There are no active treatments or team members to show.";
           $("slots").replaceChildren();
           for (const start of data.slots) {
             const s = document.createElement("span");
@@ -328,17 +328,17 @@
           if (!data.slots.length)
             $("slots").textContent =
               data.date < data.today
-                ? "Dagen har passerat. Välj idag eller en kommande dag."
-                : "Inga lediga tider för detta val. Prova nästa dag eller annan behandling.";
+                ? "This date is in the past. Choose today or a future date."
+                : "No times are available for this selection. Try the next day or a different treatment.";
           $("capacity").textContent = !data.capacity
-            ? "Förslag visas bara för idag och de kommande sex dagarna."
+            ? "Suggestions are available for today and the next six days."
             : data.capacity.suggestions.length
-              ? `${data.capacity.suggestions.filter((s) => s.available).length} aktuella förslag bland högst tre källor för salongen denna dag. ${data.capacity.hasMore ? "Fler källor finns i översikten." : ""} Öppna översikten för omfattning och beslut.`
-              : "Inga kapacitetsförslag för salongen denna dag. Välj annan dag eller öppna kalendern.";
+              ? `${data.capacity.suggestions.filter((s) => s.available).length} current suggestions from up to three sources for this salon on this date. ${data.capacity.hasMore ? "The overview shows more sources." : ""} Open the overview for details and decisions.`
+              : "No capacity suggestions for this salon on this date. Choose another date or open the calendar.";
           safeLink($("calendar"), data.links.calendar);
           safeLink($("overview"), data.links.overview);
           $("status").textContent =
-            `Stockholmstid · ${data.selectedStaff?.name ?? "Ingen aktiv personal"} · uppdaterat ${clock(data.checkedAt)}.`;
+            `Stockholm time · ${data.selectedStaff?.name ?? "No active team members"} · updated at ${clock(data.checkedAt)}.`;
         }
         async function load(patch = {}) {
           if (busy) return;
@@ -356,7 +356,7 @@
             .querySelectorAll("button,select")
             .forEach((el) => (el.disabled = true));
           $("content").hidden = true;
-          $("status").textContent = "Hämtar arbetsdagen…";
+          $("status").textContent = "Loading your workday…";
           $("error").textContent = "";
           $("retry").hidden = true;
           try {
@@ -374,8 +374,8 @@
             $("day").focus();
           } catch {
             $("error").textContent =
-              "Arbetsdagen kunde inte hämtas. Försök igen eller öppna den vanliga arbetsytan.";
-            $("status").textContent = "Ingen ändring har gjorts.";
+              "Could not load the workday. Try again or open the workspace.";
+            $("status").textContent = "No changes were made.";
             $("retry").hidden = false;
             $("retry").disabled = false;
           } finally {
@@ -438,7 +438,7 @@
           )
           .catch(() => {
             $("status").textContent =
-              "Öppna genom den betrodda lokala ägarprofilen.";
+              "Open this card through the trusted local owner profile.";
           });
         let height = 0;
         new ResizeObserver(() => {

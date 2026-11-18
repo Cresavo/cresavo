@@ -1,4 +1,81 @@
-# Beroendesäkerhet
+# Dependency security review
+
+## 2026-11-17 · finding #12: compatible remediation applied
+
+`npm audit fix --ignore-scripts` updates the existing TypeScript-ESLint chain
+from 8.72.2 to stable 8.73.0 within the current dependency requirements. Upstream
+now supports minimatch `^11.0.1`; the lockfile resolves 11.0.9. The previous
+seven moderate entries were one advisory (GHSA-g3hv-75wg-m249) and its dependency
+chain. Full `npm audit` and `npm audit --omit=dev` now report **zero vulnerabilities**.
+
+No direct dependency range changed. No override, prerelease, forced peer install,
+ESLint major upgrade or disabled audit was used. Minimatch's transitive major
+change is supported by the upstream TypeScript-ESLint minor release. Its new
+transitive `@isaacs/nonrecursive-glob-match` 1.1.0 (BlueOak-1.0.0 per package
+metadata) is a development-only dependency needed by that upstream fix. Other
+changed packages stay within their existing compatible ranges.
+
+ESLint 9 is retained: its replacement requires a separate plugin compatibility
+review; an ESLint major is neither required nor used to fix this advisory.
+The earlier blocked conclusions below are historical and superseded by this
+published upstream release. No production or pilot readiness is implied.
+
+## Uppföljning: stödd rättning fortfarande blockerad · 2026-11-16
+
+Ny läsande kontroll från leverans e6702c5, produkt 0a88ac2. Den granskade
+nattgrenen och gateway f9b8506 lämnas oförändrade. Separat dokumentationsgren
+`chore/dependency-readiness-check`. Inga paket, låsfiler eller overrides ändras.
+
+| Faktiskt kört | Utfall |
+| --- | --- |
+| Salong: `npm audit --json` | exit 1, 7 moderate, 0 high/critical |
+| Salong: `npm audit --omit=dev` | exit 0, 0 fynd |
+| Gateway: `npm audit --json` | exit 0, 0 fynd |
+| `npm audit fix --dry-run --ignore-scripts --json` | exit 1, added 0 / removed 0 / changed 0 |
+| `npm ls minimatch typescript-eslint eslint eslint-config-next --depth=4` | exit 0, minimatch 10.2.6 via TypeScript-ESLint 8.72.2 och Next ESLint-config 16.4.6 |
+
+[Upstreams advisory GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)
+anger påverkat intervall >=7.0.0 och <11.0.1, rättat från 11.0.1.
+Alla sju auditposter kommer från detta enda advisory och dess beroendekedja.
+Registret verifierades med `npm view`: stabil typescript-eslint och
+@typescript-eslint/typescript-estree är 8.72.2; estree kräver minimatch ^10.2.2.
+Senaste 10.x är 10.2.6 och omfattas fortfarande av advisoryt. Auditens
+`fixAvailable: true` innebär därmed inte att npm kan rätta den nuvarande
+låsta kedjan inom dess versionskrav; den faktiska torrkörningen ändrar inget.
+
+ESLint 10.15.0 finns och Next-config 16.4.6 anger peer >=9.0.0, men följande
+installerade pluginers peer-intervall utesluter ESLint 10: eslint-plugin-react
+7.37.5, eslint-plugin-jsx-a11y 6.10.2 och eslint-plugin-import 2.32.0.
+En ESLint-major löser inte i sig minimatch-kedjan. Tvingad peer-installation,
+override, betaversion eller inaktiverad audit införs inte.
+
+Villkor för nästa verkliga rättning: upstream släpper en stödd TypeScript-ESLint-
+version som använder rättad minimatch, eller en verifierad patch för 10.x.
+Gör då en liten låsfilsändring och kör ren npm ci, lint, tsc, unit/integration,
+build och det frysta tvårepoprovet innan privat push/QA. ESLint-majoren kräver
+dessutom dokumenterad kompatibilitet med alla plugins och separat avgränsning.
+
+Ingen produktkod ändrades i denna uppföljning. Full testmatris och ny Grok-QA
+är NOT RUN; senaste kodbevis på 0a88ac2/f9b8506 i VERIFICATION gäller fortsatt
+oförändrad produkt. Råa audit-/dry-run-resultat finns lokalt under
+<local-scratch>/dependency-followup-*.json. Pilot är fortsatt NO-GO.
+
+## Tvårepoprov · 2026-11-16
+
+Inga nya npm-beroenden, lockfilsändringar, overrides eller migrationer.
+Ren npm ci: salong 572 installerade/573 granskade paket, gateway 3/4.
+Faktisk full audit i salongen: exit1, 7 moderate, 0 high/critical.
+Audit utan dev: exit0, 0 fynd. Gatewayens fulla audit: exit0, 0 fynd.
+Grok reproducerade auditresultaten oberoende. Sju räknade paket i samma
+minimatch/TypeScript-ESLint-kedja betyder inte sju fristående advisories.
+
+`npm audit fix --dry-run --ignore-scripts --json` gav added 0 / removed 0 / changed 0.
+Registret angav stabil TypeScript-ESLint 8.72.2 med minimatch ^10.2.2 och
+senaste minimatch 11.0.8. Vi tvingar inte in en annan huvudversion utanför
+upstreams intervall. Fynden förblir öppna i väntan på stödd rättning.
+Ren installation varnar också att eslint 9.39.5 inte längre stöds. Ingen
+oplanerad ESLint-/ramverksmigrering ingår. Verktygskedjan behöver separat
+kompatibilitetskontroll inför nästa stödda uppgradering och före distribution.
 
 ## Premiumdemo, pågående 2026-11-14
 
@@ -78,7 +155,7 @@ Inget generellt UI-byte, ingen Tailwind- eller React-/Next-major följer av dett
 
 Ny avgränsad genomgång från 6acd2efdb909aff86245fc021e7c0c8cbc9541d4; produktkod d7bc47f och manifest/låsfil oförändrade. UI, molnpreview och dummydata ändras inte. Arbetsbranch chore/audit-review-2026-11-12. Ingen ny dependency, override, prerelease, borttagen lintregel eller ändrad licens.
 
-- **Full audit FAIL exit1:**7moderate,0high/critical. Det är en advisory plus sex kedjeeffekter, inte sju oberoende sårbarheter. **Omit-dev PASS exit0:**0fynd. [Rådata och exitkoder](archive/qa/evidence-audit-2026-11-12).
+- **Full audit FAIL exit1:**7moderate,0high/critical. Det är en advisory plus sex kedjeeffekter, inte sju oberoende sårbarheter. **Omit-dev PASS exit0:**0fynd. (Raw output removed before the public release.)
 - Publicerat latest typescript-eslint / typescript-estree **8.72.2** kräver minimatch **^10.2.2**; installerat10.2.6. Senaste publicerade10.x är10.2.6. [Advisoryn](https://github.com/advisories/GHSA-g3hv-75wg-m249) anger drabbade>=7.0.0 <11.0.1 och rättad11.0.1.
 - Upstream [main-manifest](https://github.com/typescript-eslint/typescript-eslint/blob/main/packages/typescript-estree/package.json) har ändrats till^11.0.1. Det är inte samma sak som en publicerad stabil tarball: registry-manifest/integrity och den faktiska npm pack-tarballens package.json kräver ännu10.x (MIT, oförändrad licens). Canary8.72.3-alpha.8 använder11.x, men förhandsversion väljs inte i denna försiktiga batch.
 - **npm audit fix --dry-run --ignore-scripts --json** gav0added/changed/removed och kvar7moderate trots fixAvailable:true. Flaggan är därför inte bevis för en genomförbar kompatibel rättning. Inget riktigt audit fix/--force kördes.
