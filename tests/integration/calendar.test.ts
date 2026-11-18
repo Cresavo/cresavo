@@ -88,5 +88,5 @@ it("avgränsar kalendern till företag, datum, status och högst 100 rader per s
   await expect(listCalendar({ from, to, limit: 101 })).rejects.toThrow();
   await expect(
     listCalendar({ from: to, to, staffId: marker, cursor: rows[0].id }),
-  ).rejects.toThrow("Ogiltig sidmarkör");
+  ).rejects.toThrow("This page does not match the date range");
 });
