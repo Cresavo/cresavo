@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cresavo">
+  <rect width="64" height="64" rx="14" fill="#F2B184"/>
+  <g transform="translate(4 4) scale(.875)">
+  <path fill="#50364B" d="M5 52V28C5 14 15 5 29 5 36 5 41 7 45 11L36 17C34 15 32 15 29 15 21 15 16 20 16 29V44H34L26 52Z"/>
+  <path fill="#50364B" d="M40 23 58 11V47L40 59Z"/>
+  </g>
+</svg>
