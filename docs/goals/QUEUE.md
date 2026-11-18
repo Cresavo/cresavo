@@ -45,6 +45,12 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 21 | Languages: English source, generated Swedish, tenant locale | Sonnet | open |
 | 22 | Campaigns people want to share + social media connections | Opus | open |
 | 23 | Pricing, modules and billing (open core) | Opus | open |
+| 24 | Own domain onboarding ([exploration](../explore/OWN_DOMAIN.md)) | Opus | proposal · awaiting Niclas's priority |
+| 25 | Calm settings: home, search, six groups ([exploration](../explore/SETTINGS_IA.md)) | Codex | proposal · awaiting Niclas's priority |
+| 26 | Salon site template on the whole domain ([exploration](../explore/WEBSITE_SERVICE.md)) | Claude (Sonnet) | proposal · awaiting Niclas's priority |
+| 27 | Done-for-you move-in ([exploration](../explore/WEBSITE_SERVICE.md)) | Claude (Sonnet) | proposal · awaiting Niclas's priority |
+| 29 | International by default and an open-source best-practice baseline | Opus | open · after the QA fixes, before goal 28's UI |
+| 28 | Connections: Cresavo-managed or bring your own provider | Opus | open · after the desktop redesign and the QA fixes |
 
 ---
 
@@ -457,6 +463,162 @@ bookings proposed or made, and everything lands in the Inbox.
   subscription items, usage metering from the existing cost log.
 - Protect the name with a trademark; AGPL makes copies share changes; the CLA
   keeps dual licensing possible.
+
+
+## 24 · Own domain onboarding (proposal)
+
+**Goal:** an owner connects `boka.<their domain>` in three guided steps
+without breaking email, and the server maps it safely. See
+`docs/explore/OWN_DOMAIN.md`.
+
+- Three-step flow (address, add one record, we connect it) with live status
+  "Waiting for DNS" / "Checking your address" / "Secure connection ready",
+  background polling, a Today card and Inbox message when ready.
+- A fourth state for Vercel's TXT challenge, showing the record to add.
+- Ownership proof: a per-business TXT record checked before a host is mapped.
+- Our own DNS lookup for specific errors ("points to X") and to name the DNS
+  provider; a read-only hand-off link with the records.
+- Directory backed by storage instead of the fixture, cached for the proxy.
+- Stays behind `CONCEPT_DOMAINS_ENABLED`; going live needs real login first.
+
+**Done when:** in tests (mocked Vercel and DNS), a subdomain goes through all
+states including the TXT challenge; a second business cannot claim the same
+host; the hand-off link shows only the records; axe passes on all steps.
+
+## 25 · Calm settings: home, search, six groups (proposal)
+
+**Goal:** every setting has one home and the owner finds it in seconds. See
+`docs/explore/SETTINGS_IA.md`.
+
+- `/studio/settings` home: search (synonyms, role- and module-aware, lands on
+  the control), five-item setup checklist, six groups with live summaries,
+  Your account.
+- Move pages as in the exploration's table; old URLs redirect; More keeps the
+  tools plus Settings and Help & support rows.
+- "More options" pattern for advanced controls; switched-off modules show
+  nothing; delete the duplicate Appearance control; industry pack out of
+  Features.
+
+**Done when:** searching "holiday" opens Closed days with the control
+highlighted; the checklist ticks itself from data; switching a module off
+removes it from Settings and search shows where to turn it on; no setting is
+reachable from two pages.
+
+## 26 · Salon site template on the whole domain (proposal)
+
+**Goal:** a business can use its whole domain for a one-page salon site built
+from its own data, with booking at its core. See
+`docs/explore/WEBSITE_SERVICE.md`.
+
+- Apex domains in `checkDomain` and the flow (A record plus `www`), `www`
+  redirect and per-business redirects from old page addresses in `routeHost`.
+- New sections: About us, Opening hours, Contact, a privacy page.
+- Three templates as theme and section presets.
+- Page title, description, `LocalBusiness` structured data, sitemap, Open
+  Graph image; no tracking cookies.
+- White-label rules unchanged; booking flow fixed inside every template.
+
+**Done when:** a test apex host serves the salon site at `/` and booking
+works from it; the three templates pass axe; a redirect from an old path
+works; no platform name appears on the page.
+
+## 27 · Done-for-you move-in (proposal)
+
+**Goal:** Niclas can move a business from another platform in a few hours
+with a fixed checklist. See `docs/explore/WEBSITE_SERVICE.md`.
+
+- Internal move-in checklist (questions from `OWN_DOMAIN.md` section 4,
+  DNS inventory, switch date, links to change) per business.
+- Import of future bookings and gift card and punch card balances from CSV,
+  extending the customer import from goal 3, with preview and conflict check.
+- Switch-date helper: warns about double booking while two systems are open.
+
+**Done when:** a sample export from a fictional old provider imports with a
+preview; the checklist can be followed end to end in the demo; Salong
+Solgården's real move is planned with it (no real data in the repo).
+
+---
+
+## 29 · International by default and an open-source best-practice baseline
+
+**Goal:** Cresavo is an international product that happens to start in Sweden,
+not a Swedish product translated later. Decided by Niclas 2026-11-18.
+
+- **Locale per business:** country (ISO 3166), currency (ISO 4217, money as
+  integer minor units), time zone (IANA), language (BCP 47), first day of the
+  week, and the 12/24-hour clock. All formatting goes through one `Intl`-based
+  helper. Remove the hardcoded `SEK`, `sv-SE`, `Europe/Stockholm` and "kr"
+  (about 140 places in `src/`). Phone numbers are stored in E.164 and entered
+  with a country picker.
+- **Public URLs in English:** `/book/<slug>` becomes the canonical booking path,
+  with `/boka/<slug>` kept as a permanent redirect so existing links keep
+  working. Update host routing, tests and docs.
+- **English everywhere in code and docs:** engine error messages
+  (`Åtkomst nekad` and similar in `src/lib`, `src/mcp`), `docs/STATUS.md` and
+  `docs/ROADMAP.md`. Swedish exists only as a generated UI locale (goal 21) and
+  in demo data.
+- **A second demo business** in another country (e.g. a London nail studio in
+  GBP, Europe/London, en-GB) next to Salong Eko, to prove the locale model.
+  Switchable in the demo.
+- **Regional, not core:** Swedish providers (46elks, Swish, Fortnox, Visma,
+  Bokio) are regional adapters (goal 28); global defaults come first.
+- **Legal and privacy written for the EU first and stated generally:** GDPR
+  basics (data export, deletion, processor list), with CCPA/UK GDPR notes.
+  No country-specific legal claims in the product.
+- **Open-source best-practice baseline** (check what exists, add what is
+  missing, keep each item small):
+  - semantic versioning with GitHub releases and a changelog (exists: keep)
+  - Conventional Commits (exists)
+  - CODEOWNERS, issue and PR templates (check)
+  - architecture decision records in `docs/adr/`, the first one recording this
+    goal's decisions
+  - Dependabot (exists), gitleaks and OpenSSF Scorecard (exist), an SBOM at
+    release time, and license checks for dependencies in CI
+  - WCAG 2.2 AA as the stated accessibility target (axe in CI from the QA
+    routine)
+  - a supported-versions table in SECURITY.md
+  - `docs/legal/CLA.md` (currently referenced but missing) and `TRADEMARK.md`
+    drafts, both marked pending legal review
+
+**Done when:** Salong Eko and the second demo business both look right in
+their own currency, time zone and language with no Swedish hardcodes left in
+`src/` outside demo data and the sv locale; `/book/<slug>` works and
+`/boka/<slug>` redirects; engine errors and all docs are English; the baseline
+items exist or have an issue; an ADR records the decisions.
+
+---
+
+## 28 · Connections: Cresavo-managed or bring your own provider
+
+**Goal:** every feature that needs an outside provider plugs into one shared
+port. Per feature, a business chooses "Let Cresavo handle it" (paid, one
+click) or "Use your own" (free, its own key). A new or cheaper provider later
+means one new adapter and nothing else changes. Decided by Niclas 2026-11-18.
+
+- One port (interface) per capability, following the pattern of the AI
+  router in `src/concept/ai`: SMS, email, payments, social publishing, ads.
+  Each port has a simulated adapter that the demo uses today, and a typed
+  contract (send, status, cost, errors) with tests.
+- Candidate real adapters, interfaces only until a real business needs them:
+  SMS (46elks, Twilio), email (Resend, SMTP), payments (Stripe, Swish via a
+  provider), social (Meta), ads (Google, Meta). Verify licences and terms
+  before adding SDKs; prefer plain HTTP.
+- A "Connections" page under Settings, in the "Booking rules & messages"
+  group from `docs/explore/SETTINGS_IA.md`. Each capability shows its current
+  choice, a short guide on where to find a key, a "Send a test" button and a
+  status line. Keys are entered in a form, stored server-side only, never
+  shown again and never logged. The public demo shows the page simulated.
+- Campaigns, reminders and receipts call the ports, never a provider directly.
+- Usage and cost per capability shown at cost price (ties into goal 23).
+- Self-hosting guide: which keys exist, environment variable names, where to
+  put them, what works without them.
+
+**Done when:** all outbound sends in the concept go through the ports and
+their simulated adapters; the Connections page works on 390 px and 1280 px in
+light and dark mode; one real adapter (SMS or email) is implemented behind a
+flag and verified with a test key in a local environment only; no key is
+ever in Git, logs or the browser; the self-hosting guide is updated.
+No real messages are sent and no paid accounts are opened without Niclas's yes.
 
 ---
 
