@@ -150,6 +150,31 @@ test("the default booking page has no accessibility violations", async ({ page }
   expect(await violations(page)).toEqual([]);
 });
 
+test("dragging a section keeps the booking flow fixed and follows the editor's save and undo", async ({ page }) => {
+  await page.goto("/studio/more/booking-page");
+  const before = (await state(page)).page.sections;
+  const handle = page.getByRole("button", { name: "Reorder Team", exact: true });
+  const list = handle.locator("xpath=ancestor::ul[1]");
+  await handle.scrollIntoViewIfNeeded();
+  await handle.focus();
+  await page.keyboard.press("Space");
+  await expect(page.getByRole("status").filter({ hasText: "Picked up Team, position 2" })).toBeVisible();
+  await page.keyboard.press("ArrowUp");
+  await expect(list.locator("[data-drop-edge]")).toBeVisible();
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("Space");
+
+  const rows = list.getByRole("listitem");
+  await expect(rows.nth(0)).toContainText("Top of the page");
+  await expect(rows.nth(1)).toContainText("Booking flow");
+  await expect(rows.nth(2)).toContainText("Team");
+  expect((await state(page)).page.sections).toEqual(before);
+  await page.getByRole("button", { name: "Save changes" }).click();
+  expect((await state(page)).page.sections.slice(0, 3).map(({ kind }) => kind)).toEqual(["hero", "staff", "treatments"]);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  expect((await state(page)).page.sections).toEqual(before);
+});
+
 test("a custom theme with other sections has no accessibility violations", async ({ page }) => {
   await page.goto("/studio/more/booking-page");
   await page.getByRole("button", { name: "Warm rose" }).click();

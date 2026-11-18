@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { createDemoState } from "../../src/concept/data/generate";
 import type { DemoState } from "../../src/concept/data/types";
 import { salonClock } from "../../src/concept/tools/clock";
@@ -12,6 +12,16 @@ const errors = new WeakMap<Page, string[]>();
 
 async function state(page: Page): Promise<DemoState> {
   return page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo")!));
+}
+
+async function pickUpWithKeyboard(handle: Locator) {
+  await handle.focus();
+  await handle.press("Space");
+  await expect(handle).toHaveAttribute("aria-pressed", "true");
+  // The keyboard sensor attaches its listeners and measures targets after pickup.
+  await handle.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
 }
 
 test.beforeEach(async ({ page }) => {
@@ -48,7 +58,7 @@ test("a treatment is added, appears on the booking page, is hidden and then dele
   await sheet.getByRole("button", { name: "Anna" }).click();
   await sheet.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Hot stone massage added")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Edit Hot stone massage" })).toContainText("SEK 990");
+  await expect(page.getByRole("button", { name: "Edit Hot stone massage" })).toHaveAccessibleDescription(/SEK 990/);
   const added = (await state(page)).services.at(-1)!;
   expect(added).toMatchObject({ name: "Hot stone massage", category: "massage", duration: 75, price: 990, staffIds: ["erik"] });
   expect((await state(page)).log[0].summary).toBe("Added the treatment Hot stone massage");
@@ -65,7 +75,7 @@ test("a treatment is added, appears on the booking page, is hidden and then dele
   await sheet.getByText("More options").click();
   await sheet.getByRole("switch", { name: "Show on the booking page" }).click();
   await sheet.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("button", { name: "Edit Hot stone massage" })).toContainText("Hidden");
+  await expect(page.getByRole("button", { name: "Edit Hot stone massage" })).toHaveAccessibleDescription(/Hidden/);
   await expect(page.getByText("10 treatments · 1 hidden")).toBeVisible();
   await page.goto("/boka/salong-eko");
   await expect(page.getByRole("button", { name: "Book Classic massage 60 min" })).toBeVisible();
@@ -111,4 +121,70 @@ test("deleting a booked treatment says what happens and keeps the bookings", asy
   await page.getByRole("button", { name: "Undo" }).click();
   const undone = await state(page);
   expect(undone.services.map(s => s.id)).toEqual(before.services.map(s => s.id));
+});
+
+test("a mouse or keyboard reorder changes the public price list and can be undone", async ({ page }) => {
+  await page.goto("/studio/more/services");
+  const before = await state(page);
+  const [category] = before.categories;
+  const [first, second] = before.services.filter((service) => service.category === category.id);
+  const list = page.getByRole("region", { name: category.name });
+  const rows = list.getByRole("button", { name: /^Edit / });
+  const handle = list.getByRole("button", { name: `Reorder ${second.name}` });
+  const firstHandle = list.getByRole("button", { name: `Reorder ${first.name}` });
+  await expect(rows.first()).toHaveAccessibleName(`Edit ${first.name}`);
+  await handle.scrollIntoViewIfNeeded();
+  const from = (await handle.boundingBox())!;
+  const to = (await firstHandle.boundingBox())!;
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
+  await expect(list.locator("[data-drop-edge]")).toBeVisible();
+  await page.mouse.up();
+  await expect(rows.first()).toHaveAccessibleName(`Edit ${second.name}`);
+  await expect(page.getByText(`Moved ${second.name}`, { exact: true })).toBeVisible();
+  const after = await state(page);
+  expect(after.log).toHaveLength(before.log.length + 1);
+
+  const booking = await page.context().newPage();
+  await booking.goto("/boka/salong-eko");
+  const publicRows = booking.getByRole("region", { name: category.name }).getByRole("button", { name: /^Book / });
+  await expect(publicRows.first()).toHaveAccessibleName(`Book ${second.name}`);
+
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(rows.first()).toHaveAccessibleName(`Edit ${first.name}`);
+  await expect(publicRows.first()).toHaveAccessibleName(`Book ${first.name}`);
+  await booking.close();
+
+  await page.bringToFront();
+  await pickUpWithKeyboard(handle);
+  await expect(page.getByText(`Picked up ${second.name}, position 2 of`, { exact: false })).toBeVisible();
+  await page.keyboard.press("ArrowUp");
+  await expect(list.locator("[data-drop-edge]")).toBeVisible();
+  await page.keyboard.press("Space");
+  await expect(rows.first()).toHaveAccessibleName(`Edit ${second.name}`);
+  await expect(handle).toBeFocused();
+  await expect(page.getByText(`Moved ${second.name}`, { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Reorder", exact: true }).click();
+  await list.getByRole("button", { name: `Move ${second.name} down` }).click();
+  await expect(rows.first()).toHaveAccessibleName(`Edit ${first.name}`);
+});
+
+test("a category handle moves the entire category and leaves its treatments in order", async ({ page }) => {
+  await page.goto("/studio/more/services");
+  const before = await state(page);
+  const headings = page.getByRole("heading", { level: 2 });
+  await expect(headings.first()).toHaveText("Foot care");
+  const handle = page.getByRole("button", { name: "Reorder Massage", exact: true });
+  await handle.scrollIntoViewIfNeeded();
+  await pickUpWithKeyboard(handle);
+  await page.keyboard.press("ArrowUp");
+  await expect(page.locator("[data-drop-edge]")).toBeVisible();
+  await page.keyboard.press("Space");
+  await expect(headings.first()).toHaveText("Massage");
+  expect((await state(page)).services).toEqual(before.services);
+  await expect(page.getByText("Moved Massage", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(headings.first()).toHaveText("Foot care");
 });

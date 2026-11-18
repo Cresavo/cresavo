@@ -27,6 +27,8 @@ Cresavo is a concept demo (0.x) for salons and other small service businesses.
   captured demo views and an interactive five-channel inbox. The connection
   diagram links to self-hosting and assistant setup. On the demo landing,
   visitors can also try an offline booking and choose from five workflow films.
+- Owners can drag to reorder treatments and categories in the studio and undo
+  each move. The booking-page editor supports dragging sections in its draft.
 
 ## Before a real pilot
 

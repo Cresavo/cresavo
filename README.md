@@ -17,9 +17,9 @@ with plain buttons and no AI at all.
 > yet; see [STATUS](docs/STATUS.md) and [QUALITY_SECURITY](docs/QUALITY_SECURITY.md).
 
 - **Live demo:** <https://demo.cresavo.com> (fictional salon "Salong Eko", no sign-up)
-- **Tour video (36 s):** [watch the tour](docs/media/cresavo-tour-16x9.mp4)
+- **Tour video (36 s):** [watch the tour](https://cresavo.com/site/tour-16x9.mp4)
 
-<a href="docs/media/cresavo-tour-16x9.mp4"><img src="docs/media/cresavo-tour-16x9-poster.jpg" alt="Poster frame of the Cresavo tour video: 'Run a salon, studio or clinic?' next to a phone full of booking messages" width="480"></a>
+<a href="https://cresavo.com/site/tour-16x9.mp4"><img src="docs/media/cresavo-tour-16x9-poster.jpg" alt="Poster frame of the Cresavo tour video: 'Run a salon, studio or clinic?' next to a phone full of booking messages" width="480"></a>
 
 ## Screenshots
 
@@ -50,6 +50,13 @@ with plain buttons and no AI at all.
   and an MCP endpoint, or host it yourself.
 - **AI is optional:** bring your own key for OpenRouter, OpenAI or Anthropic;
   without a key every task runs built-in rules.
+
+## Works with your AI assistant
+
+Connect a compatible assistant to a local Cresavo test database to look up
+treatments and open times. Try approved changes with the bundled walkthrough,
+or review fictional proposals in a local copy of the demo studio.
+[Connect your AI assistant](docs/CONNECT_AI_ASSISTANT.md).
 
 ## Quick start
 
