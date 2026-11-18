@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { site } from "./en";
 import s from "./site.module.css";
 import { BUSINESS_KINDS, EMAIL_MAX, HONEYPOT_FIELD, WAITLIST_OUTCOMES, type WaitlistOutcome } from "./waitlist";
@@ -10,13 +10,18 @@ const isOutcome = (value: unknown): value is WaitlistOutcome => WAITLIST_OUTCOME
  * The launch waiting list: one email field, an optional kind of business and the consent line.
  * It is a plain form post that also works without JavaScript (the server sends the visitor back
  * with `?waitlist=<outcome>`, passed in as `initial`); with JavaScript the answer appears in place.
+ * The status line is always mounted, so screen readers announce the answer; when the answer replaces
+ * the form (and the button that had focus), focus moves to it.
  */
 export function WaitlistForm({ from, initial, className }: { from: string; initial?: string; className?: string }) {
   const [outcome, setOutcome] = useState<WaitlistOutcome | null>(isOutcome(initial) ? initial : null);
   const [busy, setBusy] = useState(false);
+  const result = useRef<HTMLParagraphElement>(null);
+  const submitted = useRef(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    submitted.current = true;
     setBusy(true);
     try {
       const response = await fetch("/api/waitlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))) });
@@ -31,6 +36,9 @@ export function WaitlistForm({ from, initial, className }: { from: string; initi
   }
 
   const done = outcome === "not-open" || outcome === "added";
+  useEffect(() => {
+    if (done && submitted.current) result.current?.focus();
+  }, [done]);
   return (
     <section id="waitlist" className={`${s.waitlist} ${className ?? ""}`} aria-labelledby="waitlist-heading">
       <h2 id="waitlist-heading">{site["waitlist.heading"]}</h2>
@@ -58,7 +66,7 @@ export function WaitlistForm({ from, initial, className }: { from: string; initi
           <button type="submit" className={s.outlined} disabled={busy}>{site["waitlist.submit"]}</button>
         </form>
       )}
-      <p role="status" className={outcome ? s.waitlistAnswer : undefined}>{outcome && site[`waitlist.outcome.${outcome}`]}</p>
+      <p ref={result} role="status" tabIndex={-1} className={s.waitlistAnswer}>{outcome && site[`waitlist.outcome.${outcome}`]}</p>
       {!done && (
         <p id="waitlist-consent" className={s.note}>
           {site["waitlist.consent"]} <Link href="/privacy">{site["waitlist.privacy"]}</Link>

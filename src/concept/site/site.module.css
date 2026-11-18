@@ -206,8 +206,22 @@
   font-weight: 500;
 }
 
-.waitlist p:empty {
+/* The status line stays mounted (and in the accessibility tree) while empty, so its answer is announced. */
+.waitlist p:empty:not([role="status"]) {
   display: none;
+}
+
+.waitlistAnswer:empty {
+  margin: 0;
+}
+
+.waitlistAnswer:focus {
+  outline: none;
+}
+
+.waitlistAnswer:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
 }
 
 .waitlist .note a {
