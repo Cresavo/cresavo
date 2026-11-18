@@ -153,7 +153,7 @@ describe("registry", () => {
   it("stays simulated with the master switch off, an unknown provider or a missing secret, and names what is missing", async () => {
     expect(await registry({ CONCEPT_CONNECTIONS_LIVE: "0" }).registry.resolve("sms", "b")).toMatchObject({ live: false, reason: "live-off", selected: "twilio" });
     expect(await registry({ CONCEPT_SMS_PROVIDER: "carrier-pigeon" }).registry.resolve("sms", "b")).toMatchObject({ live: false, reason: "unknown-provider" });
-    const { TWILIO_AUTH_TOKEN: _omit, ...partial } = SECRETS;
+    const partial = Object.fromEntries(Object.entries(SECRETS).filter(([name]) => name !== "TWILIO_AUTH_TOKEN"));
     const missing = await registry({}, partial).registry.resolve("sms", "b");
     expect(missing).toMatchObject({ live: false, reason: "missing-secret", missing: ["TWILIO_AUTH_TOKEN"] });
     assertClean("resolution", { ...missing, adapter: missing.adapter.info });
