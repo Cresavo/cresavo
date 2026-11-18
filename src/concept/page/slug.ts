@@ -12,6 +12,8 @@ export const RESERVED_SLUGS: readonly string[] = [
   "signin", "signup", "register", "account", "accounts", "billing", "pay", "payments", "static", "assets", "cdn",
   "demo", "test", "staging", "dev", "preview", "localhost", "root", "system", "security", "abuse", "postmaster",
   "webmaster", "hostmaster", "noreply", "info", "welcome", "landing", "widget", "me", "gift", "unknown-address",
+  "inbox", "email", "web", "site", "home", "about", "legal", "privacy", "terms", "pricing", "press", "jobs", "careers",
+  "partners", "developers", "auth", "sso", "get", "try", "beta", "sandbox", "coming-soon",
 ];
 
 export type SlugProblem = "empty" | "short" | "long" | "characters" | "edges" | "reserved" | "taken";

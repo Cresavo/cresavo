@@ -30,7 +30,8 @@ it("requires the exact flag value", () => {
 // Every exported mutation, plus all admin reads, must refuse BEFORE auth/body parsing.
 const routes = import.meta.glob<Record<string, unknown>>("../src/app/api/**/route.ts");
 for (const [file, load] of Object.entries(routes)) {
-  if (file.endsWith("/locale/route.ts")) continue;
+  // The language switch and the launch waiting list stay open on the read-only demo (the list has its own validation and rate limit: tests/site-waitlist.test.ts).
+  if (file.endsWith("/locale/route.ts") || file.endsWith("/waitlist/route.ts")) continue;
   it(`locks direct handlers: ${file.replace("../src/app", "")}`, async () => {
     const routeModule = await load();
     for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE"]) {

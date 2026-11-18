@@ -50,12 +50,22 @@ it("honours explicit closed/open dates and safely falls back for invalid dates/s
     expect(fixtureBookingDate({ date, service: "missing", staff: "missing" }, now)).toBe("2026-11-16");
 });
 
-it.each(["/", "/product", "/landing", "/en/landing", "/future-page", "/admin", "/live"])("adds shared noindex header only in read-only mode: %s", async (path) => {
+it.each(["/", "/product", "/landing", "/future-page", "/admin", "/live"])("adds shared noindex header only in read-only mode: %s", async (path) => {
   const { proxy } = await import("../src/proxy");
   vi.stubEnv("PUBLIC_READONLY", "1");
   expect(proxy(new NextRequest(`http://localhost${path}`)).headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
   vi.stubEnv("PUBLIC_READONLY", "0");
   expect(proxy(new NextRequest(`http://localhost${path}`)).headers.has("X-Robots-Tag")).toBe(false);
+});
+
+it("lets search engines list only the product domain's front page in read-only mode", async () => {
+  const { proxy } = await import("../src/proxy");
+  vi.stubEnv("PUBLIC_READONLY", "1");
+  vi.stubEnv("NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN", "cresavo.com");
+  const robots = (url: string) => proxy(new NextRequest(url, { headers: { host: new URL(url).host } })).headers.get("X-Robots-Tag");
+  expect(robots("https://cresavo.com/")).toBeNull();
+  expect(robots("https://www.cresavo.com/")).toBeNull();
+  for (const url of ["https://cresavo.com/studio", "https://demo.cresavo.com/", "https://demo.cresavo.com/studio", "https://salong-eko.cresavo.com/"]) expect(robots(url), url).toBe("noindex, nofollow");
 });
 
 it("hides admin entries only in public mode and passes the fixture default to the form", async () => {
@@ -76,8 +86,3 @@ it("hides admin entries only in public mode and passes the fixture default to th
   expect(snapshot(await product())).toContain('"href":"/admin/overview"');
 });
 
-it("uses honest synthetic-demo footer copy in both landing languages", async () => {
-  const { default: landing } = await import("../src/components/landing/Landing");
-  expect(snapshot(landing({ language: "sv" }))).toContain("Läs-demo med påhittade data – inga riktiga bokningar");
-  expect(snapshot(landing({ language: "en" }))).toContain("Read-only demo with synthetic data — no real bookings");
-});

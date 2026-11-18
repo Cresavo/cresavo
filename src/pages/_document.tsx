@@ -1,9 +1,9 @@
-import { Head, Html, Main, NextScript, type DocumentProps } from "next/document";
+import { Head, Html, Main, NextScript } from "next/document";
 
-// The pages router serves the landing sketch: Swedish at /landing, English under /en.
-export default function Document({ __NEXT_DATA__ }: DocumentProps) {
+// The pages router serves the platform's two public sites (coming soon and the demo landing), both in English.
+export default function Document() {
   return (
-    <Html lang={__NEXT_DATA__.page.startsWith("/en/") ? "en" : "sv"}>
+    <Html lang="en">
       <Head />
       <body>
         <Main />

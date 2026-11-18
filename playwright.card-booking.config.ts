@@ -18,7 +18,7 @@ export default defineConfig({
     command: "npm run start -- --hostname 127.0.0.1",
     url: "http://localhost:3187",
     reuseExistingServer: false,
-    env: { PORT: "3187", TRUST_PROXY_IP: "0", NEXT_TELEMETRY_DISABLED: "1" },
+    env: { PORT: "3187", TRUST_PROXY_IP: "0", NEXT_TELEMETRY_DISABLED: "1", LEGACY_HOME: "1" },
     timeout: 120000,
   },
 });

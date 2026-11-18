@@ -191,8 +191,8 @@ test("an error message stays readable on a mid-grey page with hostile custom CSS
   expect(await page.locator(".booking-theme").last().evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
 });
 
-test("the landing sketch has a page language and no accessibility violations in either theme (#28)", async ({ page }) => {
-  for (const [url, lang] of [["/landing", "sv"], ["/en/landing", "en"]]) {
+test("the public sites have a page language and no accessibility violations in either theme", async ({ page }) => {
+  for (const [url, lang] of [["/", "en"], ["/coming-soon", "en"]]) {
     for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
       await page.goto(url);

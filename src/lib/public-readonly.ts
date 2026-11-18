@@ -15,11 +15,12 @@ export function readonlyForbidden() {
 }
 
 // Also used before page rendering. Block every mutation, including future routes.
+// The launch waiting list is the one public write that stays open: it has its own validation and rate limit.
 export function publicReadonlyResponse(request: Request) {
   if (!isPublicReadonly()) return;
   const path = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
   if (/^\/(?:admin|api\/admin|live|api\/v1\/live)(?:\/|$)/.test(path) ||
       (!["GET", "HEAD", "OPTIONS"].includes(request.method) &&
-       !(request.method === "POST" && path === "/api/locale")))
+       !(request.method === "POST" && (path === "/api/locale" || path === "/api/waitlist"))))
     return readonlyForbidden();
 }

@@ -1,0 +1,492 @@
+/* The platform's two public sites: coming soon and the demo landing. Brand
+   tokens only (brand-theme.css), no colour values of its own; the pages follow
+   the visitor's system scheme. One left edge, flat opaque surfaces, and the
+   site type scale from the brand kit (typography.md). */
+
+.page {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 32px;
+  width: 100%;
+  max-width: calc(var(--content-max) + 96px);
+  min-height: 100svh;
+  margin: 0 auto;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+}
+
+.page *,
+.page *::before,
+.page *::after {
+  box-sizing: border-box;
+}
+
+.page a:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.masthead {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+}
+
+.home {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+}
+
+.wordmark {
+  display: block;
+  width: 144px;
+  height: auto;
+  fill: var(--brand-wordmark);
+}
+
+.promise,
+.heading {
+  margin: 0;
+  font-size: clamp(2.5rem, 0.9rem + 5vw, 4.5rem);
+  font-weight: 500;
+  line-height: 1.07;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.promise span {
+  display: block;
+}
+
+.intro {
+  max-width: 52ch;
+  margin: 20px 0 0;
+  font-size: 1.125rem;
+  line-height: 1.45;
+}
+
+.primary {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  background: var(--ui-action);
+  color: var(--ui-action-text);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.primary:hover,
+.primary:active {
+  background: var(--ui-action-hover);
+}
+
+.secondary {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  color: var(--ui-text);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.secondary:hover {
+  text-decoration-thickness: 2px;
+}
+
+.footer {
+  color: var(--ui-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.43;
+}
+
+/* Coming soon: the text and its one action sit together, centred between header and footer. */
+
+.soonMain {
+  align-self: center;
+}
+
+.soonMain .primary {
+  margin-top: 24px;
+}
+
+/* The waiting list: labelled fields on the page's left edge, one outlined button (the page's filled action is the demo). */
+
+.waitlist h2 {
+  margin: 0 0 12px;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+.waitlistForm {
+  display: grid;
+  gap: 12px;
+  max-width: 30rem;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.43;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid var(--ui-input-border);
+  border-radius: var(--radius-md);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.field input::placeholder {
+  color: var(--ui-text-secondary);
+  opacity: 1;
+}
+
+.field input:focus-visible,
+.field select:focus-visible,
+.outlined:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 2px;
+}
+
+.outlined {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  padding: 10px 20px;
+  border: 1px solid var(--ui-input-border);
+  border-radius: var(--radius-md);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.outlined:hover,
+.outlined:active {
+  background: var(--ui-surface-2);
+}
+
+.outlined:disabled {
+  color: var(--ui-text-secondary);
+  cursor: default;
+}
+
+.honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.waitlistAnswer {
+  max-width: 30rem;
+  margin: 12px 0 0;
+  font-weight: 500;
+}
+
+.waitlist p:empty {
+  display: none;
+}
+
+.waitlist .note a {
+  color: var(--ui-text);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.soonMain .waitlist {
+  margin-top: 40px;
+}
+
+/* Demo landing: a hero, then one rule per block with its heading on the left edge and its text in a second column. */
+
+.landing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+}
+
+.hero {
+  display: grid;
+  gap: 40px;
+  padding-bottom: 56px;
+}
+
+.routes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  margin-top: 24px;
+}
+
+.note {
+  max-width: 52ch;
+  margin: 16px 0 0;
+  color: var(--ui-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.43;
+}
+
+.figure,
+.figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.figure img,
+img.figure {
+  border: 1px solid var(--ui-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--ui-surface);
+}
+
+.bookingFigure {
+  max-width: 358px;
+  margin-top: 24px;
+}
+
+.block {
+  display: grid;
+  gap: 12px;
+  padding: 32px 0 40px;
+  border-top: 1px solid var(--ui-border);
+}
+
+.block h2 {
+  margin: 0;
+  font-size: clamp(1.75rem, 1.3rem + 1.4vw, 2.5rem);
+  font-weight: 500;
+  line-height: 1.18;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.block p {
+  max-width: 52ch;
+  margin: 0;
+}
+
+.block p.note {
+  margin-top: 12px;
+}
+
+/* Three numbered steps: the number on a common left edge, then what to do. */
+.steps {
+  display: grid;
+  max-width: 58ch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.steps li {
+  position: relative;
+  padding: 0 0 20px 2.5rem;
+  counter-increment: step;
+}
+
+.steps li::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  content: counter(step);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.steps h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.steps a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  color: var(--ui-text);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+/* A short text page (privacy). */
+.prose {
+  max-width: 58ch;
+}
+
+.prose h1 {
+  margin: 0 0 16px;
+  font-size: clamp(1.75rem, 1.3rem + 1.4vw, 2.5rem);
+  font-weight: 500;
+  line-height: 1.18;
+  letter-spacing: -0.03em;
+}
+
+.prose h2 {
+  margin: 32px 0 8px;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.prose p {
+  margin: 0;
+}
+
+/* Two ways into the studio: the link on a common left edge, what it shows in a second column. */
+.start {
+  display: grid;
+  max-width: 58ch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.start li {
+  display: grid;
+  grid-template-columns: 10.5rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.start li + li {
+  border-top: 1px solid var(--ui-hairline);
+}
+
+.start a,
+.landingFooter a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  color: var(--ui-text);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.start a:hover,
+.landingFooter a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.landingFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 24px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ui-border);
+}
+
+@media (max-width: 479px) {
+  .start li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding-bottom: 12px;
+  }
+}
+
+@media (max-width: 359px) {
+  .page {
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-left: max(16px, env(safe-area-inset-left));
+  }
+}
+
+@media (min-width: 768px) {
+  .page {
+    padding: 48px;
+  }
+
+  .wordmark {
+    width: 176px;
+  }
+
+  .intro {
+    margin-top: 24px;
+    font-size: 1.25rem;
+    line-height: 1.5;
+  }
+
+  .soonMain .primary {
+    margin-top: 32px;
+  }
+
+  .soonMain .waitlistForm {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: end;
+    max-width: 44rem;
+  }
+
+  .routes {
+    margin-top: 32px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero,
+  .block {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: 24px;
+  }
+
+  .hero {
+    align-items: center;
+    padding: 32px 0 96px;
+  }
+
+  .hero > :first-child {
+    grid-column: 1 / span 6;
+  }
+
+  .hero > :last-child {
+    grid-column: 8 / span 5;
+  }
+
+  .block > :first-child {
+    grid-column: 1 / span 5;
+  }
+
+  .block > :last-child {
+    grid-column: 7 / span 6;
+  }
+
+  .block {
+    padding: 40px 0 72px;
+  }
+
+  .block > :last-child {
+    padding-top: 8px;
+  }
+}

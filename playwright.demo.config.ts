@@ -11,7 +11,7 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: false,
     timeout: 120000,
-    env: { TRUST_PROXY_IP: "0", NEXT_TELEMETRY_DISABLED: "1" },
+    env: { TRUST_PROXY_IP: "0", NEXT_TELEMETRY_DISABLED: "1", LEGACY_HOME: "1" },
   },
   use: { ...base.use, video: "on", trace: "off" },
 });

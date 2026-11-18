@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checkOwnSlug, subdomainHost } from "@/concept/page/address";
 import { advanceStatus, checkDomain, CNAME_TARGET, dnsInstruction, DOMAIN_STEPS } from "@/concept/page/domain";
-import { normalizeHost, resolveHost, routeHost, UNKNOWN_PATH, type Directory } from "@/concept/page/resolve";
+import { COMING_SOON_PATH, LANDING_PATH, normalizeHost, resolveHost, routeHost, siteLinks, UNKNOWN_PATH, type Directory } from "@/concept/page/resolve";
 import { checkSlug, RESERVED_SLUGS, slugify } from "@/concept/page/slug";
 
 const product = "book.example";
@@ -49,10 +49,55 @@ describe("slug", () => {
 });
 
 describe("host resolution", () => {
-  it("serves the product's own hosts as the app", () => {
-    for (const host of [null, "", product, `www.${product}`, "localhost:3000", "127.0.0.1", "flerdo-demo-abc.vercel.app"]) {
+  it("serves local and preview hosts as the app", () => {
+    for (const host of [null, "", "localhost:3000", "127.0.0.1", "flerdo-demo-abc.vercel.app"]) {
       expect(resolveHost(host, directory, product)).toEqual({ kind: "app" });
     }
+  });
+
+  it("knows the platform's two sites", () => {
+    for (const host of ["cresavo.com", "www.cresavo.com", "WWW.Cresavo.com:443", "cresavo.com."]) {
+      expect(resolveHost(host, directory, "cresavo.com")).toEqual({ kind: "site", site: "apex" });
+    }
+    expect(resolveHost("demo.cresavo.com", directory, "cresavo.com")).toEqual({ kind: "site", site: "demo" });
+    expect(resolveHost("salong-eko.cresavo.com", directory, "cresavo.com")).toEqual({ kind: "business", slug: "salong-eko", via: "subdomain" });
+  });
+
+  it("never hands a platform label to a business", () => {
+    for (const label of ["demo", "www", "app", "api", "mail", "inbox", "admin", "studio", "status", "help", "docs", "login", "billing", "support"]) {
+      expect(checkSlug(label), label).toEqual({ ok: false, problem: "reserved" });
+      if (label !== "demo" && label !== "www") expect(resolveHost(`${label}.cresavo.com`, directory, "cresavo.com"), label).toEqual({ kind: "unknown", reason: "reserved" });
+    }
+  });
+
+  it("shows coming soon on the product domain and the demo landing on its demo host", () => {
+    const route = (host: string, path: string, legacyHome = false) => routeHost(host, path, directory, "cresavo.com", legacyHome);
+    expect(route("cresavo.com", "/")).toEqual({ action: "rewrite", path: COMING_SOON_PATH });
+    expect(route("www.cresavo.com", "/")).toEqual({ action: "rewrite", path: COMING_SOON_PATH });
+    expect(route("demo.cresavo.com", "/")).toEqual({ action: "rewrite", path: LANDING_PATH });
+    for (const path of ["/studio", "/boka/salong-eko", "/coming-soon", "/landing", "/_next/static/x.js"]) {
+      expect(route("demo.cresavo.com", path)).toEqual({ action: "next" });
+      expect(route("cresavo.com", path)).toEqual({ action: "next" });
+    }
+    expect(route("salong-eko.cresavo.com", "/")).toEqual({ action: "rewrite", path: "/boka/salong-eko" });
+    expect(route("salong-eko.cresavo.com", "/coming-soon")).toEqual({ action: "rewrite", path: UNKNOWN_PATH });
+    expect(route("app.cresavo.com", "/")).toEqual({ action: "rewrite", path: UNKNOWN_PATH });
+  });
+
+  it("previews the demo landing at / locally and on preview deployments, unless the legacy home is asked for", () => {
+    for (const host of ["localhost:3000", "127.0.0.1:3000", "cresavo-abc.vercel.app"]) {
+      expect(routeHost(host, "/", directory, "cresavo.com")).toEqual({ action: "rewrite", path: LANDING_PATH });
+      expect(routeHost(host, "/coming-soon", directory, "cresavo.com")).toEqual({ action: "next" });
+      expect(routeHost(host, "/", directory, "cresavo.com", true)).toEqual({ action: "next" });
+    }
+    expect(routeHost("demo.cresavo.com", "/", directory, "cresavo.com", true)).toEqual({ action: "rewrite", path: LANDING_PATH });
+    expect(routeHost("cresavo.com", "/", directory, "cresavo.com", true)).toEqual({ action: "rewrite", path: COMING_SOON_PATH });
+  });
+
+  it("links the two sites absolutely on the real hosts and by path elsewhere", () => {
+    const real = { apex: "https://cresavo.com/", demo: "https://demo.cresavo.com/" };
+    for (const host of ["cresavo.com", "www.cresavo.com", "demo.cresavo.com"]) expect(siteLinks(host, "cresavo.com")).toEqual(real);
+    for (const host of ["localhost:3000", "cresavo-abc.vercel.app", null]) expect(siteLinks(host, "cresavo.com")).toEqual({ apex: COMING_SOON_PATH, demo: "/" });
   });
 
   it("resolves a picked subdomain to its business", () => {

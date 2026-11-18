@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import kit from "../design/brand/cresavo-v0.1/tokens/colors.json" with { type: "json" };
 import { contrast } from "@/concept/page/colour";
@@ -40,6 +41,9 @@ const KIT_TO_RUNTIME: Record<keyof typeof kit.light, string> = {
 /** The kit's six studio extensions (colors.json `extensions`): same names, same values. */
 const EXTENSIONS = Object.keys(kit.extensions.light) as (keyof typeof kit.extensions.light)[];
 
+/** Runtime tokens the kit does not have, each a documented deviation (docs/design/CRESAVO.md). */
+const DEVIATIONS = ["hairline"];
+
 describe("runtime tokens match the brand kit (Codex #12)", () => {
   it("has every kit colour, in light and dark, with the kit's value", () => {
     for (const [kitName, token] of Object.entries(KIT_TO_RUNTIME)) {
@@ -59,9 +63,9 @@ describe("runtime tokens match the brand kit (Codex #12)", () => {
 
   it("declares nothing beyond the kit except the documented extensions", () => {
     const declared = [...new Set([...runtime.matchAll(/--ui-([a-z0-9-]+):/g)].map((m) => m[1]))];
-    const known = new Set([...Object.values(KIT_TO_RUNTIME), ...EXTENSIONS]);
+    const known = new Set([...Object.values(KIT_TO_RUNTIME), ...EXTENSIONS, ...DEVIATIONS]);
     expect(declared.filter((name) => !known.has(name))).toEqual([]);
-    expect(known.size).toBe(Object.keys(KIT_TO_RUNTIME).length + EXTENSIONS.length);
+    for (const name of DEVIATIONS) expect(declared).toContain(name);
   });
 
   it("has the kit's studio extensions with the kit's values", () => {
@@ -87,9 +91,31 @@ describe("chart colours", () => {
   });
 });
 
-describe("the landing sketch (#28)", () => {
-  it("takes its colours from the brand tokens, with no hex values of its own", () => {
-    const css = readFileSync(new URL("../src/pages/landing.module.css", import.meta.url), "utf8");
+describe("the public sites", () => {
+  it("take their colours from the brand tokens, with no hex values of their own", () => {
+    const css = readFileSync(new URL("../src/concept/site/site.module.css", import.meta.url), "utf8");
     expect(css.match(/#[0-9a-f]{3,8}\b/gi) ?? []).toEqual([]);
+  });
+});
+
+describe("no same-hue text on a tinted ground (docs/design/CRESAVO.md, colour rule)", () => {
+  const TONES = "success|warning|danger|info|action|staff-1|staff-2";
+  const files = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = path.join(dir, entry.name);
+      return entry.isDirectory() ? files(full) : /\.tsx?$/.test(entry.name) ? [full] : [];
+    });
+
+  it("never pairs a tint with text in the tint's own colour in one class list", () => {
+    const root = path.join(__dirname, "..", "src");
+    const offenders: string[] = [];
+    for (const file of [...files(path.join(root, "concept")), ...files(path.join(root, "app", "studio")), ...files(path.join(root, "app", "boka"))]) {
+      // One string literal is one class list (cx() arguments are separate literals for separate states).
+      for (const [literal] of readFileSync(file, "utf8").matchAll(/"[^"\n]*"|`[^`]*`/g)) {
+        const tint = literal.match(new RegExp(`(?<![\\w:-])bg-(${TONES})-bg\\b`));
+        if (tint && new RegExp(`(?<![\\w-])text-${tint[1]}(?![\\w-])`).test(literal)) offenders.push(`${path.relative(root, file)}: ${literal.slice(0, 80)}`);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });
