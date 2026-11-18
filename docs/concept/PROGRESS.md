@@ -1,5 +1,9 @@
 # Progress · AI-native demo
 
+## 2026-11-18 · Drag to reorder
+
+Owners can drag treatments within a category and reorder category cards with a mouse, touch or keyboard. Each drop updates the public price list and adds one undoable activity entry. The Reorder button reveals stepwise treatment controls. Booking-page sections can also be dragged in the draft, alongside the existing arrow controls. The booking flow and hero stay fixed. [Mobile screenshots](../design/cresavo/screens/drag-reorder-mobile.jpg), [desktop screenshots](../design/cresavo/screens/drag-reorder-desktop.jpg).
+
 ## 2026-11-18 · Coming-soon page
 
 The apex page pairs the demo invitation with the 36-second tour, a self-hosting note and the public repository. Visitors can pause the film or turn on its music. Reduced motion starts with the poster. The [screenshots](../design/cresavo/screens/) include both system themes at mobile and desktop widths.

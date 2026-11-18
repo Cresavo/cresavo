@@ -116,6 +116,8 @@ Booking Lab SE uses this unmodified dependency in its build/browser-compatibilit
 
 Next.js, React, React DOM, Luxon and Zod declare MIT; Prisma and MCP SDK declare Apache-2.0. Exact versions and transitive dependencies are locked in package-lock.json. See [docs/archive/OPEN_SOURCE_REVIEW.md](docs/archive/OPEN_SOURCE_REVIEW.md) (historical) for the earlier inventory and limits. Do not replace the packages' actual license texts with this summary.
 
+**dnd-kit**: `@dnd-kit/core` 6.3.1, `@dnd-kit/sortable` 10.0.0, `@dnd-kit/utilities` 3.2.2 and the transitive `@dnd-kit/accessibility` 3.1.1 are **MIT**, Copyright (c) 2021, Claudéric Demers. Installed metadata and LICENSE files agree. Cresavo uses them for pointer, touch and keyboard sorting with live screen reader announcements. [Upstream source and licence](https://github.com/clauderic/dnd-kit).
+
 Prettier **3.6.2**, copyright James Long and contributors, **MIT**, was installed only in a separate local tooling directory to perform the requested formatting. Its LICENSE was read; its separate npm audit reported **0 vulnerabilities**. No Prettier dependency or runtime package was added to this project. All existing application dependency advisories remain separately reported in [docs/archive/VERIFICATION.md](docs/archive/VERIFICATION.md) (historical).
 
 
