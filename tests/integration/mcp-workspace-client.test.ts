@@ -97,7 +97,7 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-it("nekar arbetsyteklienten utan admin och tillsammans med det äldre bokningsläget", () => {
+it("rejects the workspace client without admin mode or when the legacy booking mode is enabled", () => {
   for (const flags of [["--workspace"], ["--admin", "--workspace", "--book"]]) {
     const result = spawnSync(
       process.execPath,
@@ -112,7 +112,7 @@ it("nekar arbetsyteklienten utan admin och tillsammans med det äldre bokningsl�
   }
 }, 30000);
 
-it("arbetsyteklienten skriver ingenting om operatören nekar första åtgärden", async () => {
+it("the workspace client writes nothing when the operator declines the first action", async () => {
   const before = {
     services: await db.service.count(),
     staff: await db.staff.count(),
@@ -129,7 +129,7 @@ it("arbetsyteklienten skriver ingenting om operatören nekar första åtgärden"
   }).toEqual(before);
 }, 30000);
 
-it("kräver sju separata bekräftelser och lämnar spårbar syntetisk historik", async () => {
+it("requires seven separate confirmations and leaves a traceable synthetic history", async () => {
   const result = await run(Array.from({ length: 7 }, () => "ja" as const));
   expect(result.code).toBe(0);
   expect(result.prompts).toBe(7);
@@ -163,7 +163,7 @@ it.each([
   { answers: ["ja", null], serviceCount: 1, prompts: 2 },
   { answers: ["ja", "nej"], serviceCount: 1, prompts: 2 },
 ] as const)(
-  "stoppar vid EOF/nej och bevarar endast tidigare bekräftade ändringar: $answers",
+  "stops at EOF or a refusal and keeps only previously confirmed changes ($answers)",
   async ({ answers, serviceCount, prompts }) => {
     const before = {
       services: await db.service.count(),

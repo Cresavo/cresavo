@@ -34,4 +34,4 @@ built-in rules unless a provider key is configured. The public instance is
 
 The earlier engine previews used `Dockerfile.vercel` with the container
 runtime. That setup is retired for now (it predates `next.config.ts`); the
-engine needs a fresh deploy plan in goal 11.
+engine needs a deployment plan before the [pilot](ROADMAP.md#pilot-readiness).

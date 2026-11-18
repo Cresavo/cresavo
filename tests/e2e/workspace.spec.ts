@@ -9,7 +9,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { mcpEnvironment } from "../../src/mcp/environment";
 import { socketClient } from "./http-client";
 
-test("manuella adminbokningar har egen budget och kan inte kringgå kundskyddet", async ({
+test("manual admin bookings use a separate quota and cannot bypass customer safeguards", async ({
   page,
   synthetic,
 }, testInfo) => {
@@ -90,7 +90,7 @@ test("manuella adminbokningar har egen budget och kan inte kringgå kundskyddet"
   }
 });
 
-test("HTTP och lokal MCP delar flytt/avbokning vid blandad samtidig trafik", async ({
+test("HTTP and local MCP share move and cancellation rules under mixed concurrent traffic", async ({
   page,
   synthetic,
 }) => {
@@ -250,7 +250,7 @@ test("HTTP och lokal MCP delar flytt/avbokning vid blandad samtidig trafik", asy
   }
 });
 
-test("manuell bokning bevarar utkast och request-id vid nätverksfel", async ({
+test("manual booking preserves the draft and request ID after a network failure", async ({
   page,
   synthetic,
 }) => {
@@ -328,7 +328,7 @@ test("manuell bokning bevarar utkast och request-id vid nätverksfel", async ({
   }
 });
 
-test("arbetsytans API nekar obehörig åtkomst, främmande origin och för bred läsning", async ({
+test("the workspace API rejects unauthorized access, foreign origins, and broad reads", async ({
   request,
   synthetic,
 }) => {
@@ -397,7 +397,7 @@ test("arbetsytans API nekar obehörig åtkomst, främmande origin och för bred 
   );
 });
 
-test("Epic05 salongsarbetsyta: boka, ändra tjänst/schema, flytta och avboka", async ({
+test("the salon workspace supports booking, editing services and schedules, moving, and cancelling", async ({
   page,
   synthetic,
 }, testInfo) => {

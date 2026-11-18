@@ -1,7 +1,6 @@
 # Launch checklist (owner steps)
 
-The repository is prepared for its public release (goal 13,
-[OPEN_SOURCE_LAUNCH.md](OPEN_SOURCE_LAUNCH.md)). These steps are GitHub
+The [open-source launch guide](OPEN_SOURCE_LAUNCH.md) summarizes the preparation. These steps are GitHub
 settings and decisions that only Niclas makes; agents never change settings
 or visibility. Do them in this order. Click paths are for github.com as of
 November 2026; items marked **(verify)** may be worded differently in the

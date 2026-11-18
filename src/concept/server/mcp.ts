@@ -97,7 +97,12 @@ function register(server: McpServer, tool: ConceptTool, caller: Caller) {
 }
 
 export function conceptMcpServer(caller: Caller) {
-  const server = new McpServer({ name: "flerdo-concept-demo", version: "0.1.0" });
+  const server = new McpServer({
+    name: "flerdo-concept-demo",
+    title: `${BRAND.name} concept demo`,
+    description: `Read fictional salon data and draft changes for the owner to review in ${BRAND.name}.`,
+    version: "0.1.0",
+  });
   for (const tool of conceptTools) register(server, tool, caller);
   server.registerTool(
     "get_proposal",

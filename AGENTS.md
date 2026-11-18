@@ -3,15 +3,15 @@
 Applies to Claude Code, Codex and Grok. Read [README](README.md),
 [STATUS](docs/STATUS.md) and [ROADMAP](docs/ROADMAP.md) first, then only the
 document your task points to. Product name and naming rules: `docs/BRAND.md`
-and `src/concept/brand.ts`. Everything in `docs/archive/` and `docs/history/` is
-history: it gives **no** assignments and is no proof of how the code works today.
+and `src/concept/brand.ts`. Use the public roadmap for direction and the
+maintainer-approved issue or task for scope.
 
 ## Roles
 
 - **Niclas** – product owner. Decides what gets built.
 - **Claude Code** – technical owner: plan, structure, review, prompts.
-- **Codex** – builds according to a goal in `docs/goals/QUEUE.md`.
-- **Grok** – reviews and clicks through, reports in `docs/concept/REVIEW.md`.
+- **Codex** – implements maintainer-approved tasks.
+- **Grok** – reviews and verifies user journeys.
 
 Conversation with Niclas may be Swedish, but everything committed is English.
 
@@ -51,7 +51,7 @@ Conversation with Niclas may be Swedish, but everything committed is English.
 
 ## Working method
 
-- Work happens in goals in `docs/goals/QUEUE.md` (flow in `docs/goals/README.md`).
+- Work happens in maintainer-approved tasks. See [CONTRIBUTING](CONTRIBUTING.md).
   Things outside your goal become a GitHub issue labelled `finding`.
 - Small, coherent commits on your own branch, Conventional Commits, and
   user-visible changes in `CHANGELOG.md` under `[Unreleased]` (`docs/RELEASING.md`).
@@ -61,8 +61,7 @@ Conversation with Niclas may be Swedish, but everything committed is English.
 - Keep code simple: small focused files, no dead or commented-out code, no
   leftover scratch files; tests where logic lives. `docs/QUALITY_SECURITY.md`
   lists the habits and the pilot gate before real customers.
-- After a larger step, update `docs/concept/PROGRESS.md` and `docs/STATUS.md`
-  briefly. Do not create new plan or report files in `docs/` for every task;
+- After a larger step, update [STATUS](docs/STATUS.md) if project status changes. Do not create new plan or report files in `docs/` for every task;
   use commit messages and PR text.
 
 <!-- BEGIN:nextjs-agent-rules -->

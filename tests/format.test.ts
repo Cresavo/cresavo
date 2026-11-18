@@ -6,7 +6,7 @@ it.each([
   ["2027-03-29T07:00:00Z", "2027-03-29"],
   ["2027-11-01T08:00:00Z", "2027-11-01"],
 ])(
-  "gemensam webb-/MCP-formattering visar Stockholm 09:00 för %s",
+  "shared web and MCP formatting shows 09:00 Stockholm time for %s",
   (instant, date) => {
     const formatted = formatBookingTime(instant);
     expect(formatted).toContain(date);

@@ -21,7 +21,7 @@ interface DemoBusiness {
   keys: Map<string, { fingerprint: string; proposalId: string }>;
 }
 
-const holder = globalThis as typeof globalThis & { flerdoConceptBusiness?: DemoBusiness };
+const holder = globalThis as typeof globalThis & { cresavoConceptBusiness?: DemoBusiness };
 
 function fresh(today: string): DemoBusiness {
   return { state: createDemoState(today), proposals: [], keys: new Map() };
@@ -30,8 +30,8 @@ function fresh(today: string): DemoBusiness {
 /** The business for today; a new day starts over, like the studio does. */
 function business(now = new Date()): DemoBusiness {
   const { today } = salonClock(now);
-  if (holder.flerdoConceptBusiness?.state.generatedFor !== today) holder.flerdoConceptBusiness = fresh(today);
-  return holder.flerdoConceptBusiness;
+  if (holder.cresavoConceptBusiness?.state.generatedFor !== today) holder.cresavoConceptBusiness = fresh(today);
+  return holder.cresavoConceptBusiness;
 }
 
 export function toolContext(now = new Date()): ToolContext {
@@ -40,7 +40,7 @@ export function toolContext(now = new Date()): ToolContext {
 
 /** Back to freshly generated data with no proposals. */
 export function resetDemoBusiness(now = new Date()) {
-  holder.flerdoConceptBusiness = fresh(salonClock(now).today);
+  holder.cresavoConceptBusiness = fresh(salonClock(now).today);
 }
 
 export type CreateResult = { proposal: AgentProposal; replayed: boolean } | { conflict: true };

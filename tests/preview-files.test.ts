@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { previewFiles } from "../scripts/preview-files.mjs";
 
-it.each([".vercelignore", ".dockerignore"])("%s inkluderar runtime-schemat men aldrig hemligheter/tester/andra dokument", (ignoreFile) => {
+it.each([".vercelignore", ".dockerignore"])("%s includes the runtime schema and excludes secrets, tests and other docs", (ignoreFile) => {
   const root = mkdtempSync(join(tmpdir(), "booking-preview-fixture-"));
   try {
     copyFileSync(ignoreFile, join(root, ".vercelignore"));
@@ -63,7 +63,7 @@ it.each([".vercelignore", ".dockerignore"])("%s inkluderar runtime-schemat men a
   }
 });
 
-it("kopierar OpenAPI-filen till containerns runtime där routen läser den", () => {
+it("copies the OpenAPI file to the container runtime path used by the route", () => {
   const runtime = readFileSync("Dockerfile.vercel", "utf8").replace(/\r\n/g, "\n").split(/^FROM /m).at(-1)!;
   expect(runtime).toMatch(/^COPY --from=build --chown=node:node \/app\/docs\/agent-api-v1\.openapi\.yaml \.\/docs\/agent-api-v1\.openapi\.yaml$/m);
 });

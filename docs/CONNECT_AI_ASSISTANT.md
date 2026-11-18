@@ -264,7 +264,6 @@ connection still needs an end-to-end test.
 | Grok | Coming soon · no release date | A Cresavo connection with a verified setup for Grok. |
 | Gemini | Coming soon · no release date | A Cresavo connection with a verified setup for Gemini. |
 
-See the [Cresavo roadmap](ROADMAP.md) and
-[open protocols goal](goals/QUEUE.md#10--open-protocols-for-the-concept).
+See the [Cresavo roadmap](ROADMAP.md) and [gateway contract](GATEWAY_SPLIT.md).
 The [demo discovery code](../src/concept/server/discovery.ts) describes
 what the A2A card and USP profile expose today.

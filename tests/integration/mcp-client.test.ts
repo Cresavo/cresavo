@@ -62,7 +62,7 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-it("standardklienten läser utan skrivning och den explicita miljön vitlistas", async () => {
+it("the default client is read-only and receives only allowlisted environment variables", async () => {
   const before = await db.booking.count();
   const campaigns = await db.campaign.count();
   const result = await runClient(false);
@@ -78,7 +78,7 @@ it("standardklienten läser utan skrivning och den explicita miljön vitlistas",
 }, 30000);
 
 it.each(["nej", null])(
-  "testklienten avbryter utan skrivning för %s",
+  "the test client stops without writing for %s",
   async (answer) => {
     const before = await db.booking.count();
     const result = await runClient(true, answer);
@@ -89,7 +89,7 @@ it.each(["nej", null])(
   30000,
 );
 
-it("testklienten kräver ja efter sammanfattning och skriver bara minimerat resultat", async () => {
+it("the test client requires confirmation after the summary and prints a minimized result", async () => {
   const result = await runClient(true, "ja");
   expect(result.code).toBe(0);
   expect(result.output).toContain("Test booking: Fotvård");

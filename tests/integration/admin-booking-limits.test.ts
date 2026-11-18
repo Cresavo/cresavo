@@ -36,7 +36,7 @@ afterEach(async () => {
   await db.$disconnect();
 });
 
-it("sex adminbokningar delar varken IP- eller e-postbudget med publika kunder", async () => {
+it("six admin bookings use IP and email quotas separate from public bookings", async () => {
   const actor = await account("separate");
   const slots = await getAvailability("massage", day(21));
   const address = `synthetic-admin-caps-${randomUUID()}`;
@@ -73,7 +73,7 @@ it("sex adminbokningar delar varken IP- eller e-postbudget med publika kunder", 
   ).resolves.toMatchObject({ status: "confirmed" });
 });
 
-it("admintaket är 100 per konto/skapandedag och retry/auth gäller även vid taket", async () => {
+it("caps admin bookings at 100 per account and creation day and enforces retry and auth rules at the cap", async () => {
   const actor = await account("bounded");
   const other = await account("other");
   const first = DateTime.now()

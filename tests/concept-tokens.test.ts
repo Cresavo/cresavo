@@ -41,7 +41,7 @@ const KIT_TO_RUNTIME: Record<keyof typeof kit.light, string> = {
 /** The kit's six studio extensions (colors.json `extensions`): same names, same values. */
 const EXTENSIONS = Object.keys(kit.extensions.light) as (keyof typeof kit.extensions.light)[];
 
-/** Runtime tokens the kit does not have, each a documented deviation (docs/design/CRESAVO.md). */
+/** Runtime tokens the kit does not have, used for runtime layout and subdued text. */
 const DEVIATIONS = ["hairline"];
 
 describe("runtime tokens match the brand kit (Codex #12)", () => {
@@ -98,7 +98,7 @@ describe("the public sites", () => {
   });
 });
 
-describe("no same-hue text on a tinted ground (docs/design/CRESAVO.md, colour rule)", () => {
+describe("neutral text on tinted backgrounds", () => {
   const TONES = "success|warning|danger|info|action|staff-1|staff-2";
   const files = (dir: string): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

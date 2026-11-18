@@ -40,7 +40,7 @@ test.afterAll(async () => {
 });
 
 for (const width of [320, 390, 1024]) {
-  test(`verklig MCP-resurs: tryckbara val och stale vid ${width}px`, async ({
+  test(`MCP resource renders actionable choices and handles stale slots at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });

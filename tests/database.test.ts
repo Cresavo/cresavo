@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { expect, it } from "vitest";
 import { createDatabaseClient } from "../scripts/database.mjs";
 
-it("kräver uttrycklig databas utan att autoläsa projektets .env", () => {
+it("requires an explicit database URL without automatically loading the project .env file", () => {
   const env = { ...process.env };
   delete env.DATABASE_URL;
   const child = spawnSync(
@@ -21,7 +21,7 @@ it("kräver uttrycklig databas utan att autoläsa projektets .env", () => {
   expect(child.stderr).toBe("");
 });
 
-it("kan konstruera och stänga klient utan databasanslutning", async () => {
+it("can create and close the client without a database connection", async () => {
   const client = createDatabaseClient(
     "postgresql://synthetic@127.0.0.1:1/unreachable_test",
   );
@@ -29,7 +29,7 @@ it("kan konstruera och stänga klient utan databasanslutning", async () => {
 });
 
 it.each(["not-a-url", "https://synthetic.invalid/database"])(
-  "avvisar ogiltig databas-URL utan att spegla indata: %s",
+  "rejects an invalid database URL without echoing it (%s)",
   (url) => {
     expect(() => createDatabaseClient(url)).toThrow("DATABASE_CONFIG_INVALID");
   },

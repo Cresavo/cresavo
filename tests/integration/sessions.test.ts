@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "../../src/lib/db";
 import { pruneSessions } from "../../src/lib/auth";
 
-it("gallrar utgångna/återkallade sessioner i avgränsade batcher och behåller aktiva", async () => {
+it("prunes expired and revoked sessions in bounded batches and retains active sessions", async () => {
   const marker = `session-${randomUUID()}`;
   const now = new Date();
   const future = new Date(now.getTime() + 60000);
