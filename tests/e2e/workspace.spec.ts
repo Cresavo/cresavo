@@ -168,7 +168,7 @@ test("HTTP och lokal MCP delar flytt/avbokning vid blandad samtidig trafik", asy
               {
                 type: "text",
                 text: expect.stringMatching(
-                  /^(Uppgifterna har ändrats\. Läs in på nytt\.|Tiden är inte tillgänglig)$/,
+                  /^(The details have changed\. Refresh and review them again\.|That time is no longer available\. Choose another time\.)$/,
                 ),
               },
             ]);
@@ -208,11 +208,11 @@ test("HTTP och lokal MCP delar flytt/avbokning vid blandad samtidig trafik", asy
     expect([200, 409]).toContain(httpCancel.status());
     if (httpCancel.status() === 409)
       expect(await httpCancel.json()).toEqual({
-        error: "Uppgifterna har ändrats. Läs in på nytt.",
+        error: "The details have changed. Refresh and review them again.",
       });
     if (mcpCancel.isError)
       expect(mcpCancel.content).toEqual([
-        { type: "text", text: "Uppgifterna har ändrats. Läs in på nytt." },
+        { type: "text", text: "The details have changed. Refresh and review them again." },
       ]);
     expect(
       Number(httpCancel.status() === 200) + Number(!mcpCancel.isError),

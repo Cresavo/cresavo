@@ -109,7 +109,7 @@ it("adminfilter faller tillbaka och kampanjfel har skilda statiska meddelanden",
     { from: "2026-11-12", to: "2027-02-01" },
     { from: "2026-11-15", to: "2026-11-12" },
   ])
-    expect(adminBookingFilter(input).error).toContain("Ogiltigt datumfilter");
+    expect(adminBookingFilter(input).error).toContain("Showing the default range");
   expect(log).not.toHaveBeenCalled();
   log.mockRestore();
   const draft = {
@@ -121,8 +121,8 @@ it("adminfilter faller tillbaka och kampanjfel har skilda statiska meddelanden",
   };
   expect(campaignSchema.safeParse(draft).success).toBe(true);
   for (const [validUntil, message] of [
-    ["2025-12-31", "Slutdatum får inte vara före startdatum."],
-    ["2026-04-01", "Kampanjen får gälla högst 90 kalenderdagar."],
+    ["2025-12-31", "The end date cannot be before the start date."],
+    ["2026-04-01", "A campaign can last up to 90 calendar days."],
   ]) {
     const result = campaignSchema.safeParse({ ...draft, validUntil });
     expect(result.success).toBe(false);

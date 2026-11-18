@@ -33,7 +33,7 @@ async function main() {
   await client.connect(transport);
   try {
     const tools = await client.listTools();
-    console.log("Verktyg:", tools.tools.map((t) => t.name).join(", "));
+    console.log("Tools:", tools.tools.map((t) => t.name).join(", "));
     if (workspace) {
       await runWorkspaceDemo(client);
       return;
@@ -73,15 +73,15 @@ async function main() {
     }
     if (book) {
       if (!available.length) {
-        console.log("Ingen ledig tid för testbokningen. Ingen bokning skapad.");
+        console.log("There are no available times for a test booking.");
         return;
       }
       const start = available[0];
       const key = randomUUID();
-      console.log("Testbokning: Fotvård");
-      console.log(`Tid: ${formatBookingTime(start)} (${ZONE})`);
-      console.log("Kund: Syntetisk MCP-testkund (example.test)");
-      console.log(`Bokningsnyckel: ${key}`);
+      console.log("Test booking: Fotvård");
+      console.log(`Time: ${formatBookingTime(start)} (${ZONE})`);
+      console.log("Customer: Syntetisk MCP-testkund (example.test)");
+      console.log(`Booking key: ${key}`);
       const readline = createInterface({
         input: process.stdin,
         output: process.stdout,
@@ -89,11 +89,11 @@ async function main() {
       const answer = await new Promise<string>((resolve) => {
         readline.once("line", resolve);
         readline.once("close", () => resolve(""));
-        process.stdout.write("Bekräfta testbokning genom att skriva ja: ");
+        process.stdout.write("Type ja to confirm the test booking: ");
       });
       readline.close();
       if (answer.trim().toLowerCase() !== "ja") {
-        console.log("Avbruten. Ingen bokning skapad.");
+        console.log("Cancelled before creating the booking.");
         return;
       }
       const result = await client.callTool({

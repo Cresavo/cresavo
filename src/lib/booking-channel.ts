@@ -17,7 +17,7 @@ export function assertCardReplayChannel(
       createHmac("sha256", secret).update(clientAddress).digest("hex")
   )
     throw new DomainError(
-      "Bokningen kan inte visas med den här demoprofilen.",
+      "This demo profile cannot access the booking.",
       403,
     );
 }

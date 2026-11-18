@@ -58,7 +58,7 @@ type Source = Prisma.BookingGetPayload<{ select: typeof sourceSelect }>;
 const hash = (input: unknown) =>
   createHash("sha256").update(JSON.stringify(input)).digest("hex");
 const stale = () =>
-  new DomainError("Förslaget är inte aktuellt. Uppdatera översikten.", 409);
+  new DomainError("This suggestion is out of date. Refresh the overview.", 409);
 
 // Public projections never select customer fields. The cancelled booking is a
 // stable source, not a reservation. Current capacity is always recomputed.
@@ -137,9 +137,9 @@ async function project(
     sourceVersion: source.version,
     expectedToken: token,
     serviceId: source.serviceId,
-    serviceName: service?.name ?? "Behandlingen är inte tillgänglig",
+    serviceName: service?.name ?? "Treatment unavailable",
     staffId: source.staffId,
-    staffName: staff?.name ?? "Medarbetaren är inte tillgänglig",
+    staffName: staff?.name ?? "Team member unavailable",
     startsAt: source.startsAt.toISOString(),
     endsAt: new Date(
       source.startsAt.getTime() +
@@ -153,8 +153,8 @@ async function project(
     available,
     status: decision?.outcome ?? "new",
     reason: available
-      ? "En framtida avbokning har lämnat en bokningsbar tid."
-      : "Tiden är inte längre bokningsbar med aktuella regler.",
+      ? "A cancellation has opened a future time slot."
+      : "Current booking rules prevent booking this time.",
     calendarHref: `/admin?date=${localDay(source.startsAt)}&view=day&staffId=${encodeURIComponent(source.staffId)}`,
     campaign: decision?.campaign ?? null,
     decidedAt: decision?.createdAt.toISOString() ?? null,
@@ -204,7 +204,7 @@ export async function listCapacity(input: unknown, actor: WorkspaceActor) {
           })
         : null;
       if (v.cursor && !cursor)
-        throw new DomainError("Ogiltig sidmarkör för datumintervallet");
+        throw new DomainError("This page does not match the date range. Showing the first page.");
       const sources = await tx.booking.findMany({
         where: {
           ...where,
@@ -318,7 +318,7 @@ export async function decideCapacity(
           existing.payloadHash !== payloadHash
         )
           throw new DomainError(
-            "Förslaget har redan hanterats med andra villkor.",
+            "This suggestion was already handled with different terms. Refresh the overview.",
             409,
           );
         return {

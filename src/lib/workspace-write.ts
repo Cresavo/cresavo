@@ -39,7 +39,7 @@ export async function assertWorkspaceActor(
     }))
   )
     return;
-  throw new DomainError("Åtkomst nekad", 403);
+  throw new DomainError("Access denied.", 403);
 }
 
 // A bounded, explicit mutation ledger; results contain no customer fields or secrets.
@@ -72,7 +72,7 @@ export async function workspaceWrite<T extends Prisma.InputJsonValue>(
       if (existing) {
         if (existing.requestHash !== requestHash)
           throw new DomainError(
-            "Bokningsnyckeln har redan använts med andra uppgifter.",
+            "This booking attempt was already used with different details.",
             409,
           );
         return existing.result as T;

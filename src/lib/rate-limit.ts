@@ -37,7 +37,7 @@ export function checkRateLimit(
   const limit = route === "login" ? 5 : route === "admin-bookings" ? 60 : route === "agent-api" ? 300 : 30;
   if (bucket.count >= limit)
     throw new DomainError(
-      "För många försök. Försök igen senare.",
+      "Too many attempts. Please try again later.",
       429,
       Math.max(1, Math.ceil((bucket.until - now) / 1000)),
     );

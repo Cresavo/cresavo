@@ -52,7 +52,7 @@ export async function getStaff(id: string) {
   const row = await db.staff.findFirst({
     where: { id: z.string().min(1).max(128).parse(id), businessId },
   });
-  if (!row) throw new DomainError("Medarbetaren kan inte utföra behandlingen");
+  if (!row) throw new DomainError("This team member does not provide the selected treatment.");
   return parsedStaff(row);
 }
 export async function listStaff(serviceId?: string, includeInactive = false) {
@@ -85,7 +85,7 @@ export async function saveService(
       const { id, expectedVersion, ...data } = v;
       if (!id) {
         if ((await tx.service.count({ where: { businessId } })) >= 50)
-          throw new DomainError("För många resurser");
+          throw new DomainError("This POC has reached its resource limit.");
         const row = await tx.service.create({
           data: { ...data, id: randomUUID(), businessId },
         });
@@ -96,7 +96,7 @@ export async function saveService(
         data: { ...data, version: { increment: 1 } },
       });
       if (!result.count)
-        throw new DomainError("Uppgifterna har ändrats. Läs in på nytt.", 409);
+        throw new DomainError("The details have changed. Refresh and review them again.", 409);
       return { id, version: expectedVersion! + 1 };
     },
   );
@@ -115,11 +115,11 @@ export async function saveStaff(
         where: { businessId, id: { in: v.serviceIds } },
       })) !== v.serviceIds.length
     )
-      throw new DomainError("Tjänsten finns inte");
+      throw new DomainError("This treatment is no longer available.");
     const { id, expectedVersion, ...data } = v;
     if (!id) {
       if ((await tx.staff.count({ where: { businessId } })) >= 20)
-        throw new DomainError("För många resurser");
+        throw new DomainError("This POC has reached its resource limit.");
       const row = await tx.staff.create({
         data: { ...data, id: randomUUID(), businessId },
       });
@@ -129,7 +129,7 @@ export async function saveStaff(
       where: { id, businessId, version: expectedVersion },
     });
     if (!existing)
-      throw new DomainError("Uppgifterna har ändrats. Läs in på nytt.", 409);
+      throw new DomainError("The details have changed. Refresh and review them again.", 409);
     const upcoming = await tx.booking.findMany({
       where: {
         businessId,
@@ -152,7 +152,7 @@ export async function saveStaff(
       )
     )
       throw new DomainError(
-        "Ändringen berör bokade tider. Flytta eller avboka dem först.",
+        "This change affects existing bookings. Reschedule or cancel them first.",
         409,
       );
     await tx.staff.update({

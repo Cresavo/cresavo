@@ -100,17 +100,17 @@ for (const scenario of ["double-390", "double-1024", "taken", "lost-reply"]) {
         },
       );
       const times = frame
-        .getByRole("group", { name: "Lediga tider" })
+        .getByRole("group", { name: "Available times" })
         .getByRole("button");
       await times.first().click();
       await expect(
         frame.getByRole("button", {
-          name: "Bekräfta testbokning",
+          name: "Confirm test booking",
           exact: true,
         }),
       ).toBeDisabled();
       await expect(frame.locator("#summary")).toContainText("450,50");
-      await expect(frame.locator("#window")).toContainText("Demot visar");
+      await expect(frame.locator("#window")).toContainText("The demo shows");
       if (scenario === "taken") {
         await db.booking.create({
           data: {
@@ -124,56 +124,56 @@ for (const scenario of ["double-390", "double-1024", "taken", "lost-reply"]) {
           },
         });
       }
-      await frame.getByLabel("Jag vill skapa den här testbokningen").check();
+      await frame.getByLabel("I want to create this test booking").check();
       if (scenario.startsWith("double")) {
         await frame
-          .getByRole("button", { name: "Bekräfta testbokning", exact: true })
+          .getByRole("button", { name: "Confirm test booking", exact: true })
           .evaluate((el) => {
             (el as HTMLButtonElement).click();
             (el as HTMLButtonElement).click();
           });
       } else {
         await frame
-          .getByRole("button", { name: "Bekräfta testbokning", exact: true })
+          .getByRole("button", { name: "Confirm test booking", exact: true })
           .click();
       }
       if (scenario === "taken") {
         await expect(frame.getByRole("alert")).toContainText(
-          "Tiden hann bli bokad",
+          "That time was booked",
         );
         await expect(frame.locator("#receipt")).toBeHidden();
         await times.first().click();
         await expect(
-          frame.getByLabel("Jag vill skapa den här testbokningen"),
+          frame.getByLabel("I want to create this test booking"),
         ).not.toBeChecked();
-        await frame.getByLabel("Jag vill skapa den här testbokningen").check();
+        await frame.getByLabel("I want to create this test booking").check();
         await frame
-          .getByRole("button", { name: "Bekräfta testbokning", exact: true })
+          .getByRole("button", { name: "Confirm test booking", exact: true })
           .click();
       }
       if (scenario === "lost-reply") {
         await expect(frame.getByRole("status")).toContainText(
-          "Bokningen kan ha skapats",
+          "The booking may exist",
         );
         await expect(
-          frame.getByLabel("Behandling", { exact: true }),
+          frame.getByLabel("Treatment", { exact: true }),
         ).toBeDisabled();
         expect(await db.booking.count({ where: { serviceId } })).toBe(1);
         await frame
-          .getByRole("button", { name: "Kontrollera samma bokningsförsök" })
+          .getByRole("button", { name: "Check the same booking attempt" })
           .click();
       }
       await expect(
-        frame.getByRole("region", { name: "Bokningsbekräftelse" }),
+        frame.getByRole("region", { name: "Booking confirmation" }),
       ).toBeVisible();
-      await expect(frame.locator("#receipt-title")).toHaveText("Din testbokning är klar");
-      await expect(frame.getByRole("status")).toContainText("Testbokningen är sparad");
+      await expect(frame.locator("#receipt-title")).toHaveText("Your test booking is confirmed");
+      await expect(frame.getByRole("status")).toContainText("Your test booking is saved");
       await expect(frame.locator("#receipt-summary")).toContainText(
-        "Demo kortmassage hos Demo Kortpersonal",
+        "Demo kortmassage with Demo Kortpersonal",
       );
       await expect(frame.locator("#receipt-summary")).toContainText("450,50");
       await expect(frame.locator("#receipt-time")).toContainText(
-        "Stockholmstid",
+        "Stockholm time",
       );
       const writes = calls.filter((c) => c.name === "book_demo_time");
       expect(writes).toHaveLength(

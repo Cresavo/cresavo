@@ -13,7 +13,7 @@ export const mcpBookingSchema = bookingSchema
   .extend({
     customerEmail: bookingSchema.shape.customerEmail.refine(
       (email) => email.endsWith("@example.test"),
-      "Endast syntetiska example.test-adresser tillåts",
+      "Use a fictional example.test email address.",
     ),
     clientRequestId: idempotencyKeySchema,
     confirmed: z.literal(true),

@@ -23,6 +23,12 @@ export type HostResolution =
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
+/** True for a missing host or a loopback address, i.e. when the public host is unknown. */
+export function isLocalHost(rawHost: string | null | undefined): boolean {
+  const host = normalizeHost(rawHost);
+  return !host || LOCAL_HOSTS.has(host);
+}
+
 /** `Host` header to a bare lower-case name: no port, no trailing dot. */
 export function normalizeHost(host: string | null | undefined): string {
   return (host ?? "").trim().toLowerCase().replace(/:\d+$/, "").replace(/\.$/, "");
@@ -51,6 +57,17 @@ export const LANDING_PATH = "/landing";
 // The product domain is the coming-soon page; its demo subdomain, preview deployments and a
 // local server show the demo landing at `/`, so both sites can be seen without DNS (the
 // coming-soon page is at COMING_SOON_PATH on every platform host).
+
+/** The product front door can also arrive at its rewritten path on an internal host. */
+export function isProductHome(rawHost: string | null | undefined, pathname: string): boolean {
+  const host = normalizeHost(rawHost);
+  const resolution = resolveHost(host);
+  if (resolution.kind === "site" && resolution.site === "apex") {
+    return pathname === "/" || pathname === COMING_SOON_PATH;
+  }
+  return pathname === COMING_SOON_PATH &&
+    Boolean(process.env.NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN) && (!host || LOCAL_HOSTS.has(host));
+}
 
 /** Where the two sites link to each other: absolute on the real hosts, paths of the same deployment everywhere else. */
 export function siteLinks(rawHost: string | null | undefined, product = productDomain()): { apex: string; demo: string } {

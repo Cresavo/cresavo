@@ -15,6 +15,9 @@ describe("presentation locales", () => {
     expect(presentationError("Tiden är inte tillgänglig", "en")).toContain(
       "Choose another time",
     );
+    const engineMessage = "That time is no longer available. Choose another time.";
+    expect(presentationError(engineMessage, "en")).toBe(engineMessage);
+    expect(presentationError(engineMessage, "sv")).toBe("Tiden är inte tillgänglig");
     expect(presentationError("private SQL detail", "en")).not.toContain("SQL");
     expect(typeof presentationError("__proto__", "en")).toBe("string");
     expect(presentationError("Tiden är inte tillgänglig", "sv")).toBe(

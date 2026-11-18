@@ -122,7 +122,7 @@ it("lagrar bokad tjänst/pris/längd och ändrar bara nya bokningar", async () =
   );
   await expect(
     createBooking(input(s.id, p.id, "15:00"), randomUUID()),
-  ).rejects.toThrow("Tjänsten finns inte");
+  ).rejects.toThrow("This treatment is no longer available.");
   expect(await db.booking.count({ where: { id: booking.id } })).toBe(1);
 });
 
@@ -309,7 +309,7 @@ it("nekar främmande tjänst och direkt DB-överlapp; avbokad rad kan ligga kvar
   ids.services.push(foreign.id);
   await expect(
     saveStaff({ name: marker, serviceIds: [foreign.id], weekly }, key(), actor),
-  ).rejects.toThrow("Tjänsten finns inte");
+  ).rejects.toThrow("This treatment is no longer available.");
   const booking = await createBooking(input(s.id, p.id), randomUUID());
   const duplicate = {
     businessId: "demo",

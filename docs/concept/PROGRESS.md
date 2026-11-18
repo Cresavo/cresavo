@@ -1,5 +1,12 @@
 # Progress · AI-native demo
 
+## Product-site QA
+
+The coming-soon and demo landing pages use the configured product domain for
+cross-site links when a rewrite leaves only the internal host. The read-only
+robots policy allows indexing on the product home while keeping the demo out
+of search results.
+
 ## 2026-11-17 · Claude Code (Opus) · goal 18: Libovo brand v0.9
 
 **Done**

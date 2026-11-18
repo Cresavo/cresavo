@@ -73,7 +73,7 @@ serveStdio(() => {
   server.registerTool(
     "list_services",
     {
-      description: "Lista demosalongens behandlingar",
+      description: "List the demo salon’s treatments",
       inputSchema: z.object({}),
     },
     async () => reply(() => listServices()),
@@ -82,7 +82,7 @@ serveStdio(() => {
     "get_availability",
     {
       description:
-        "Lediga tider för en behandling och ett lokalt datum YYYY-MM-DD",
+        "List available times for a treatment on a local date (YYYY-MM-DD)",
       inputSchema: safeToolSchema(
         z
           .object({
@@ -106,7 +106,7 @@ serveStdio(() => {
           "create_booking",
           {
             description:
-              "Skapa en bekräftad syntetisk testbokning. Endast betrodd lokal operatör, example.test-kunder och stabil clientRequestId för retries. Gemensamt dagstak för den lokala MCP-kanalen.",
+              "Create a confirmed fictional test booking. Requires a trusted local operator, an example.test customer address and a stable clientRequestId for retries. The local MCP channel shares a daily limit.",
             inputSchema: allowWorkspace
               ? safeToolSchema(mcpWorkspaceBookingSchema)
               : mcpBookingToolSchema,
@@ -133,7 +133,7 @@ serveStdio(() => {
         "list_bookings",
         {
           description:
-            "Lista minimerade bokningar i ett datumintervall; endast betrodd lokal administratör",
+            "List limited booking details for a date range. Trusted local administrators only.",
           inputSchema: bookingListSchema,
         },
         async (v) => reply(() => listBookingsForMcp(v)),
@@ -142,7 +142,7 @@ serveStdio(() => {
         "create_campaign_draft",
         {
           description:
-            "Skapa opublicerat erbjudande. Datum anges YYYY-MM-DD; publicering sker manuellt i administrationen.",
+            "Create an unpublished offer. Enter dates as YYYY-MM-DD. Publish it manually in the admin workspace.",
           inputSchema: campaignSchema,
         },
         async (v) => reply(() => createCampaign(v)),

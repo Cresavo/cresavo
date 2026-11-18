@@ -107,10 +107,10 @@ for (const scenario of [
           },
         );
         await expect(
-          frame.getByText("Inga bokningar på den här sidan."),
+          frame.getByText("No bookings on this page."),
         ).toBeVisible();
         await expect(
-          frame.getByRole("link", { name: "Öppna kalendern" }),
+          frame.getByRole("link", { name: "Open the calendar" }),
         ).toHaveAttribute("href", new RegExp(`/admin\\?date=${date}&staffId=`));
         const starts = (initial.structuredContent as { slots: string[] }).slots;
         await db.booking.createMany({
@@ -129,36 +129,36 @@ for (const scenario of [
           })),
         });
         await frame
-          .getByRole("button", { name: "Uppdatera", exact: true })
+          .getByRole("button", { name: "Refresh", exact: true })
           .click();
         await expect(frame.getByRole("alert")).toContainText(
-          "Arbetsdagen kunde inte hämtas",
+          "Could not load the workday",
         );
         await frame
-          .getByRole("button", { name: "Försök igen", exact: true })
+          .getByRole("button", { name: "Try again", exact: true })
           .click();
         await expect(frame.locator("#bookings li")).toHaveCount(2);
         await expect(frame.locator("#next-visit")).toContainText(
           "Demo lugn massage",
         );
         await frame
-          .getByRole("button", { name: "Nästa dag", exact: true })
+          .getByRole("button", { name: "Next day", exact: true })
           .click();
         await expect(
-          frame.getByText("Inga bokningar på den här sidan."),
+          frame.getByText("No bookings on this page."),
         ).toBeVisible();
-        await expect(frame.getByRole("status")).toContainText("Stockholmstid");
+        await expect(frame.getByRole("status")).toContainText("Stockholm time");
         await frame
-          .getByRole("button", { name: "Uppdatera", exact: true })
+          .getByRole("button", { name: "Refresh", exact: true })
           .click();
         await frame
-          .getByRole("button", { name: "Föregående dag", exact: true })
+          .getByRole("button", { name: "Previous day", exact: true })
           .click();
         await expect(frame.locator("#bookings li")).toHaveCount(2);
         await expect(frame.locator("#day")).toBeFocused();
         expect(calls.every((c) => c.name === "show_workday")).toBe(true);
         await expect(
-          frame.getByRole("button", { name: "Bekräfta testbokning" }),
+          frame.getByRole("button", { name: "Confirm test booking" }),
         ).toHaveCount(0);
         expect(
           await frame
@@ -206,42 +206,42 @@ for (const scenario of [
           },
         );
         await mounted.frame
-          .getByRole("group", { name: "Lediga tider" })
+          .getByRole("group", { name: "Available times" })
           .getByRole("button")
           .first()
           .click();
         await mounted.frame
-          .getByLabel("Jag vill skapa den här testbokningen")
+          .getByLabel("I want to create this test booking")
           .check();
         await mounted.frame
-          .getByRole("button", { name: "Bekräfta testbokning", exact: true })
+          .getByRole("button", { name: "Confirm test booking", exact: true })
           .click();
         if (scenario !== "reopen-390")
           await expect(mounted.frame.getByRole("status")).toContainText(
-            "Bokningen kan ha skapats",
+            "The booking may exist",
           );
         else await expect(mounted.frame.locator("#receipt")).toBeVisible();
         await page.goto("/");
         mounted = await mountTimeCard(page, client, resource.text, initial);
         if (scenario === "lost-before") {
           await expect(mounted.frame.getByRole("status")).toContainText(
-            "Tidigare försök",
+            "Previous attempt",
           );
           await expect(
-            mounted.frame.getByLabel("Behandling", { exact: true }),
+            mounted.frame.getByLabel("Treatment", { exact: true }),
           ).toBeDisabled();
           await mounted.frame
-            .getByRole("button", { name: "Kontrollera samma bokningsförsök" })
+            .getByRole("button", { name: "Check the same booking attempt" })
             .click();
         }
         await expect(mounted.frame.locator("#receipt")).toBeVisible();
         expect(await db.booking.count({ where: { serviceId } })).toBe(1);
         await mounted.frame
-          .getByRole("button", { name: "Lägg i min kalender" })
+          .getByRole("button", { name: "Add to my calendar" })
           .click();
         const downloadPromise = page.waitForEvent("download");
         await mounted.frame
-          .getByRole("link", { name: "Hämta kalenderfil" })
+          .getByRole("link", { name: "Download calendar file" })
           .click();
         const download = await downloadPromise;
         const content = await readFile((await download.path())!, "utf8");
@@ -249,7 +249,7 @@ for (const scenario of [
         expect(content).toContain("BEGIN:VCALENDAR");
         expect(content).not.toContain("tidkort@example.test");
         await expect(mounted.frame.locator("#calendar-notice")).toContainText(
-          "Ingen insättning",
+          "Changes do not sync automatically",
         );
         const booking = await db.booking.findFirstOrThrow({
           where: { serviceId },
@@ -259,13 +259,13 @@ for (const scenario of [
           data: { status: "cancelled", version: { increment: 1 } },
         });
         await mounted.frame
-          .getByRole("button", { name: "Uppdatera bokningsstatus" })
+          .getByRole("button", { name: "Refresh booking status" })
           .click();
         await expect(mounted.frame.locator("#receipt-title")).toHaveText(
-          "Din testbokning är avbokad",
+          "Your test booking is cancelled",
         );
         await expect(
-          mounted.frame.getByRole("button", { name: "Lägg i min kalender" }),
+          mounted.frame.getByRole("button", { name: "Add to my calendar" }),
         ).toBeDisabled();
         await page.screenshot({
           path: `demo-artifacts/agent-workday/${scenario}.png`,

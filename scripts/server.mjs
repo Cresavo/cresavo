@@ -37,6 +37,13 @@ try {
         req.headers["x-real-ip"],
         trusted,
       );
+      // Forwarded host uses the same socket allowlist as forwarded client addresses.
+      delete req.headers["x-booking-forwarded-host"];
+      const forwardedHost = req.headers["x-forwarded-host"];
+      if (runtime === "local" && trusted(req.socket.remoteAddress) &&
+          typeof forwardedHost === "string") {
+        req.headers["x-booking-forwarded-host"] = forwardedHost;
+      }
       // Always overwrite client-supplied internal headers; no unsigned fallback in routes.
       req.headers["x-booking-client-ip"] = ip;
       req.headers["x-booking-client-proof"] = addressProof(

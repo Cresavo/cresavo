@@ -34,9 +34,9 @@ async function runClient(book: boolean, answer: string | null = null) {
       });
       child.stdout.on("data", (chunk) => {
         output += String(chunk);
-        const key = output.match(/Bokningsnyckel: ([a-f0-9-]{36})/)?.[1];
+        const key = output.match(/Booking key: ([a-f0-9-]{36})/)?.[1];
         if (key) keys.add(key);
-        if (book && !answered && output.includes("Bekräfta testbokning")) {
+        if (book && !answered && output.includes("Type ja to confirm the test booking")) {
           answered = true;
           child.stdin.end(answer === null ? undefined : `${answer}\n`);
         }
@@ -83,7 +83,7 @@ it.each(["nej", null])(
     const before = await db.booking.count();
     const result = await runClient(true, answer);
     expect(result.code).toBe(0);
-    expect(result.output).toContain("Avbruten. Ingen bokning skapad.");
+    expect(result.output).toContain("Cancelled before creating the booking.");
     expect(await db.booking.count()).toBe(before);
   },
   30000,
@@ -92,7 +92,7 @@ it.each(["nej", null])(
 it("testklienten kräver ja efter sammanfattning och skriver bara minimerat resultat", async () => {
   const result = await runClient(true, "ja");
   expect(result.code).toBe(0);
-  expect(result.output).toContain("Testbokning: Fotvård");
+  expect(result.output).toContain("Test booking: Fotvård");
   expect(result.output).toContain("(Europe/Stockholm)");
   expect(result.output).toContain("Syntetisk MCP-testkund (example.test)");
   expect(result.output).not.toMatch(

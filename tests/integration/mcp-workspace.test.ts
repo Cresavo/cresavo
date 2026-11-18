@@ -537,7 +537,7 @@ it("alla nya skrivverktyg kräver strikt bekräftelse och request-id över verkl
       });
       expect(response.isError).toBe(true);
       expect(response.content).toEqual([
-        { type: "text", text: "Kontrollera uppgifterna" },
+        { type: "text", text: "Check the details and try again." },
       ]);
     }
   }

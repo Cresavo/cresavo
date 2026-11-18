@@ -111,8 +111,8 @@ describe("Säkra felgränser", () => {
     );
     const response = failure(error);
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "Ett fel inträffade" });
-    expect(() => pageDataFailure(error)).toThrow("Ett fel inträffade");
+    expect(await response.json()).toEqual({ error: "Something went wrong. Try again." });
+    expect(() => pageDataFailure(error)).toThrow("Something went wrong. Try again.");
     expect(log.mock.calls).toEqual([
       ["BOOKING_INTERNAL_ERROR"],
       ["BOOKING_INTERNAL_ERROR"],
@@ -120,9 +120,9 @@ describe("Säkra felgränser", () => {
   });
   it("behåller säkra domänfel och minimerar validerings- och JSON-fel", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    const domain = failure(new DomainError("Tiden är inte tillgänglig"));
+    const domain = failure(new DomainError("That time is no longer available. Choose another time."));
     expect(domain.status).toBe(400);
-    expect(await domain.json()).toEqual({ error: "Tiden är inte tillgänglig" });
+    expect(await domain.json()).toEqual({ error: "That time is no longer available. Choose another time." });
     for (const error of [
       z.string().safeParse(42).error,
       new SyntaxError("CANARY"),
@@ -130,7 +130,7 @@ describe("Säkra felgränser", () => {
       const response = failure(error);
       expect(response.status).toBe(400);
       expect(await response.json()).toEqual({
-        error: "Kontrollera uppgifterna",
+        error: "Check the details and try again.",
       });
     }
     expect(log).not.toHaveBeenCalled();
@@ -371,7 +371,7 @@ describe("Missbruksskydd och testgrind", () => {
     expect(response.status).toBe(429);
     expect(response.headers.get("Retry-After")).toBe("1");
     expect(await response.json()).toEqual({
-      error: "För många försök. Försök igen senare.",
+      error: "Too many attempts. Please try again later.",
     });
   });
   it("behåller verkliga fel och återlämnar inte andra 429-fel som kapacitetsavslag", async () => {
@@ -387,7 +387,7 @@ describe("Missbruksskydd och testgrind", () => {
       ).rejects.toBeInstanceOf(PasswordCapacityError);
     await expect(
       checkLoginAttempt("real-errors-unit", async () => {
-        throw new DomainError("För många försök. Försök igen senare.", 429, 1);
+        throw new DomainError("Too many attempts. Please try again later.", 429, 1);
       }),
     ).rejects.toBeInstanceOf(DomainError);
     const correct = vi.fn(async () => true);

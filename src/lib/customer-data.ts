@@ -31,10 +31,10 @@ export const customerContactRemovalSchema = customerDataSchema
   .extend({ expectedToken: token, confirmed: z.literal(true) })
   .strict();
 const changed = () =>
-  new DomainError("Underlaget har ändrats. Förhandsgranska igen.", 409);
+  new DomainError("The details have changed. Preview them again before confirming.", 409);
 
 function webAdmin(actor: WorkspaceActor) {
-  if (actor.kind !== "admin") throw new DomainError("Åtkomst nekad", 403);
+  if (actor.kind !== "admin") throw new DomainError("Access denied.", 403);
   return actor;
 }
 async function scope(
@@ -44,10 +44,10 @@ async function scope(
   const customer = await tx.customer.findFirst({
     where: { id: value.id, businessId },
   });
-  if (!customer) throw new DomainError("Kunden finns inte", 404);
+  if (!customer) throw new DomainError("Customer not found. Return to customers.", 404);
   if (!customer.email.endsWith("@example.test"))
     throw new DomainError(
-      "POC-flödet tillåter endast syntetiska testadresser.",
+      "Use a fictional example.test email address in this demo.",
       403,
     );
   if (customer.version !== value.expectedVersion) throw changed();
@@ -65,7 +65,7 @@ async function scope(
   });
   if (bookings.length > 1000)
     throw new DomainError(
-      "Underlaget är för stort för POC-flödet. Högst 1000 kopplade bokningar stöds.",
+      "This POC supports up to 1,000 linked bookings. This record exceeds that limit.",
       413,
     );
   const expectedToken = createHash("sha256")
@@ -118,7 +118,7 @@ export async function exportCustomerData(
   const admin = webAdmin(actor),
     value = customerExportSchema.parse(input);
   if (value.cursor && !value.expectedToken)
-    throw new DomainError("Fortsättningen kräver samma exportunderlag.");
+    throw new DomainError("The export has changed. Start a new export to continue.");
   return db.$transaction(
     async (tx) => {
       await lockConfiguration(tx, true);
@@ -127,7 +127,7 @@ export async function exportCustomerData(
       if (value.expectedToken && value.expectedToken !== expectedToken)
         throw changed();
       if (value.cursor && !bookings.some((b) => b.id === value.cursor))
-        throw new DomainError("Ogiltig sidmarkör för kundexporten.");
+        throw new DomainError("This export page is no longer valid. Start a new export.");
       const page = await tx.booking.findMany({
         where: {
           businessId,
@@ -184,9 +184,9 @@ export async function exportCustomerData(
         expectedToken,
         nextCursor: page.length > value.limit ? rows.at(-1)!.id : null,
         limitations: [
-          "Endast valt kundkort och uttryckligen kopplade bokningar.",
-          "Varje fil innehåller högst 100 bokningar; fortsättning krävs om nextCursor finns.",
-          "Fristående bokningar, åtgärds-/driftloggar, backups och andra system ingår inte. Inte ett fullständigt GDPR-registerutdrag.",
+          "Includes the selected customer record and bookings linked to it.",
+          "Each file contains up to 100 bookings. Use nextCursor to continue when present.",
+          "This export excludes standalone bookings, activity and operations logs, backups and other systems. It covers only part of a GDPR access request.",
         ],
       };
     },
@@ -221,7 +221,7 @@ export async function removeCustomerContact(
         bookings.some((b) => b.status === "confirmed" && b.endsAt > new Date())
       )
         throw new DomainError(
-          "Hantera kommande eller pågående bokningar innan kontaktuppgifterna tas bort.",
+          "Handle upcoming or ongoing bookings before removing contact details.",
           409,
         );
       const now = new Date();

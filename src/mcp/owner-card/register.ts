@@ -33,9 +33,9 @@ export function registerOwnerCard(server: McpServer) {
   server.registerTool(
     "show_workday",
     {
-      title: "Min arbetsdag",
+      title: "My workday",
       description:
-        "Läs en vald medarbetares arbetsdag, nästa besök och lediga tider för vald behandling i lokal syntetisk demo. Max20 bokningar/sida. Inga kontaktuppgifter eller skrivningar.",
+        "View a team member’s workday, next visit and availability for the selected treatment in the local demo. Up to 20 bookings per page, with no contact details or writes.",
       inputSchema: safeToolSchema(workdaySchema),
       annotations: {
         readOnlyHint: true,
@@ -56,7 +56,7 @@ export function registerOwnerCard(server: McpServer) {
           content: [
             {
               type: "text" as const,
-              text: `${result.date}: ${result.bookings.length} bokningar på denna sida för ${result.selectedStaff?.name ?? "ingen aktiv personal"}. ${result.nextCursor ? "Fler bokningar finns." : ""} ${result.notice}`,
+              text: `${result.date}: ${result.bookings.length} bookings on this page for ${result.selectedStaff?.name ?? "no active team member"}. ${result.nextCursor ? "More bookings are available." : ""} ${result.notice}`,
             },
           ],
         };

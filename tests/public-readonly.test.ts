@@ -89,7 +89,7 @@ it("refuses domain, key, mandate and MCP card writes before validating input", a
     () => bookDemoTime({}), () => login({ id: "fiction", credentialVersion: 1 }), () => verifyAdminCredentials({}),
   ]) await expect(operation()).rejects.toMatchObject({ status: 403 });
   const { reply } = await import("../src/mcp/reply");
-  expect(await reply(() => createBooking({}))).toMatchObject({ isError: true, content: [{ text: "Åtkomst nekad" }] });
+  expect(await reply(() => createBooking({}))).toMatchObject({ isError: true, content: [{ text: "Access denied." }] });
 });
 
 it.each([undefined, "postgresql://synthetic@127.0.0.1:1/unused_test"])(
@@ -122,7 +122,7 @@ it.each([undefined, "postgresql://synthetic@127.0.0.1:1/unused_test"])(
     const { checkRateLimit } = await import("../src/lib/rate-limit");
     expect(await checkRateLimit("agent-api", "fixture")).toBeGreaterThan(0);
     const { db } = await import("../src/lib/db");
-    expect(() => db.service).toThrow("Åtkomst nekad");
+    expect(() => db.service).toThrow("Access denied.");
   },
 );
 
