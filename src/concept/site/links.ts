@@ -1,5 +1,6 @@
 import type { GetServerSidePropsContext } from "next";
 import { getStarCount } from "./github-stars";
+import { productSiteOrigin } from "./origin";
 import { siteRequestHost } from "./request-host";
 import { isLocalHost, siteLinks } from "../page/resolve";
 
@@ -8,6 +9,8 @@ export interface SiteProps {
   links: { apex: string; demo: string };
   /** The answer to a waiting-list form posted without JavaScript (`?waitlist=`). */
   waitlist: string | null;
+  origin: string | null;
+  analyticsEnabled: boolean;
 }
 
 /** The two sites share one deployment, so each page learns from the request's host how to reach the other. */
@@ -20,8 +23,14 @@ export async function getSiteProps({ req, query }: GetServerSidePropsContext) {
   const linksHost = isLocalHost(host) && process.env.NODE_ENV !== "development"
     ? process.env.NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN
     : host;
+  const origin = productSiteOrigin(linksHost);
   return {
-    props: { links: siteLinks(linksHost), waitlist: typeof query.waitlist === "string" ? query.waitlist : null },
+    props: {
+      links: siteLinks(linksHost),
+      waitlist: typeof query.waitlist === "string" ? query.waitlist : null,
+      origin,
+      analyticsEnabled: origin !== null && process.env.VERCEL_ENV === "production",
+    } satisfies SiteProps,
   };
 }
 

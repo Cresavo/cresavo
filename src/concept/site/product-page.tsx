@@ -51,7 +51,7 @@ function FilmTour() {
   );
 }
 
-export function ProductPage({ links, waitlist, stars }: ProductSiteProps) {
+export function ProductPage({ links, waitlist, stars, origin }: ProductSiteProps) {
   const main = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!main.current || !("IntersectionObserver" in window)) return;
@@ -66,7 +66,7 @@ export function ProductPage({ links, waitlist, stars }: ProductSiteProps) {
   }, []);
   return (
     <div className={`${s.page} ${e.canvas}`}>
-      <SiteHead title={site["soon.title"]} description={site["soon.description"]} />
+      <SiteHead title={site["soon.title"]} description={site["soon.description"]} productOrigin={origin} />
       <ProductHeader demo={links.demo} />
       <main ref={main} className={s.landing}>
         <ProductHero demo={links.demo} stars={stars} />
