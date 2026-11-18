@@ -2,8 +2,15 @@ import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import config from "../next.config";
 import { site } from "@/concept/site/en";
 import { WaitlistForm } from "@/concept/site/waitlist-form";
+
+describe("old links", () => {
+  it("sends /en/landing permanently to /landing", async () => {
+    expect(await config.redirects!()).toContainEqual({ source: "/en/landing", destination: "/landing", permanent: true });
+  });
+});
 
 describe("waiting list status line", () => {
   const status = (html: string) => html.match(/<p[^>]*role="status"[^>]*>(.*?)<\/p>/);

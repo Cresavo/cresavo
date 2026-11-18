@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { site } from "../../src/concept/site/en";
 
-// The demo landing's waiting list. Invented address only; the default provider stores nothing.
+// The demo landing's waiting list and its old English address. Invented address only; the default provider stores nothing.
 
 test("the waiting list answer is announced and takes focus when it replaces the form", async ({ page }) => {
   await page.goto("/landing");
@@ -13,4 +13,10 @@ test("the waiting list answer is announced and takes focus when it replaces the 
   await expect(status).toHaveText(site["waitlist.outcome.not-open"]);
   await expect(page.locator("#waitlist form")).toHaveCount(0);
   await expect(status).toBeFocused();
+});
+
+test("/en/landing moves permanently to /landing", async ({ request }) => {
+  const response = await request.get("/en/landing", { maxRedirects: 0 });
+  expect(response.status()).toBe(308);
+  expect(response.headers().location).toMatch(/\/landing$/);
 });
