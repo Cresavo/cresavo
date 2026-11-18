@@ -46,11 +46,11 @@ await check("C02", "booking on the salon subdomain is invisible in the demo stud
   await shot(p, "verify-C02-demo-inbox");
   return { verdict: confirmText && !seen ? "REPRO" : "NO-REPRO", observed: `confirmation claims owner's Inbox: ${confirmText > 0}; demo-host Inbox shows it: ${seen > 0} (each origin has its own localStorage)` };
 });
-await check("C03", "apex 'Explore the demo' loops back to the coming-soon page", async (p) => {
+await check("C03", "apex 'Try the demo' loops back to the coming-soon page", async (p) => {
   const html = (await get(PRODUCT, "/")).body;
-  const href = (html.match(/href="([^"]*)"[^>]*>[^<]*Explore the demo/) ?? [])[1];
+  const href = (html.match(/href="([^"]*)"[^>]*>[^<]*Try the demo/) ?? [])[1];
   await go(p, APEX + "/");
-  await p.getByRole("link", { name: /Explore the demo/ }).first().click(); await settle(p);
+  await p.getByRole("link", { name: /Try the demo/ }).first().click(); await settle(p);
   await shot(p, "verify-C03-after-explore");
   return { verdict: href === "/" ? "REPRO" : "NO-REPRO", observed: `server-rendered href=${JSON.stringify(href)}; after click url=${p.url()} title=${await p.title()}` };
 });

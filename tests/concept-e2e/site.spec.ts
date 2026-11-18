@@ -65,3 +65,24 @@ test("tour clips respect visibility, a manual pause and a live motion preference
   await expect(section.getByRole("button", { name: /Play recording/ })).toBeVisible();
   await expect(video).not.toHaveAttribute("src");
 });
+
+test("the apex tour keeps the poster until requested under reduced motion and exposes its music control", async ({ page }) => {
+  const videoRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith(".mp4")) videoRequests.push(request.url());
+  });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/coming-soon");
+  const film = page.getByLabel(site["soon.tour.description"]);
+  await film.scrollIntoViewIfNeeded();
+  await expect(film).toHaveAttribute("preload", "none");
+  await expect(film).not.toHaveAttribute("src");
+  expect(videoRequests).toHaveLength(0);
+
+  await page.getByRole("button", { name: /Play recording/ }).click();
+  await expect.poll(() => film.evaluate((v: HTMLVideoElement) => !v.paused && v.muted)).toBe(true);
+  await page.getByRole("button", { name: site["soon.tour.unmute"] }).click();
+  await expect.poll(() => film.evaluate((v: HTMLVideoElement) => v.muted)).toBe(false);
+  await page.getByRole("button", { name: /Pause recording/ }).click();
+  await expect(film).not.toHaveAttribute("src");
+});
