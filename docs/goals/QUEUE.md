@@ -49,6 +49,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 25 | Calm settings: home, search, six groups ([exploration](../explore/SETTINGS_IA.md)) | Codex | proposal · awaiting Niclas's priority |
 | 26 | Salon site template on the whole domain ([exploration](../explore/WEBSITE_SERVICE.md)) | Claude (Sonnet) | proposal · awaiting Niclas's priority |
 | 27 | Done-for-you move-in ([exploration](../explore/WEBSITE_SERVICE.md)) | Claude (Sonnet) | proposal · awaiting Niclas's priority |
+| 28 | Connections: Cresavo-managed or bring your own provider | Opus | open · after the desktop redesign and the QA fixes |
 
 ---
 
@@ -534,6 +535,40 @@ with a fixed checklist. See `docs/explore/WEBSITE_SERVICE.md`.
 **Done when:** a sample export from a fictional old provider imports with a
 preview; the checklist can be followed end to end in the demo; Salong
 Solgården's real move is planned with it (no real data in the repo).
+
+---
+
+## 28 · Connections: Cresavo-managed or bring your own provider
+
+**Goal:** every feature that needs an outside provider plugs into one shared
+port. Per feature, a business chooses "Let Cresavo handle it" (paid, one
+click) or "Use your own" (free, its own key). A new or cheaper provider later
+means one new adapter and nothing else changes. Decided by Niclas 2026-11-18.
+
+- One port (interface) per capability, following the pattern of the AI
+  router in `src/concept/ai`: SMS, email, payments, social publishing, ads.
+  Each port has a simulated adapter that the demo uses today, and a typed
+  contract (send, status, cost, errors) with tests.
+- Candidate real adapters, interfaces only until a real business needs them:
+  SMS (46elks, Twilio), email (Resend, SMTP), payments (Stripe, Swish via a
+  provider), social (Meta), ads (Google, Meta). Verify licences and terms
+  before adding SDKs; prefer plain HTTP.
+- A "Connections" page under Settings, in the "Booking rules & messages"
+  group from `docs/explore/SETTINGS_IA.md`. Each capability shows its current
+  choice, a short guide on where to find a key, a "Send a test" button and a
+  status line. Keys are entered in a form, stored server-side only, never
+  shown again and never logged. The public demo shows the page simulated.
+- Campaigns, reminders and receipts call the ports, never a provider directly.
+- Usage and cost per capability shown at cost price (ties into goal 23).
+- Self-hosting guide: which keys exist, environment variable names, where to
+  put them, what works without them.
+
+**Done when:** all outbound sends in the concept go through the ports and
+their simulated adapters; the Connections page works on 390 px and 1280 px in
+light and dark mode; one real adapter (SMS or email) is implemented behind a
+flag and verified with a test key in a local environment only; no key is
+ever in Git, logs or the browser; the self-hosting guide is updated.
+No real messages are sent and no paid accounts are opened without Niclas's yes.
 
 ---
 
