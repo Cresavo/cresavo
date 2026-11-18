@@ -1,10 +1,11 @@
 import { Inter } from "next/font/google";
+import { headers } from "next/headers";
 import type { Viewport } from "next";
 import "@/concept/ui/brand-theme.css";
 import "./style.css";
 import "./workspace-polish.css";
 import { RestoreReturnScroll } from "./components/context-link";
-import { LocaleProvider, LanguageSwitch } from "./components/locale-provider";
+import { DocumentLanguage, LocaleProvider, LanguageSwitch } from "./components/locale-provider";
 import { getLocale } from "@/lib/locale-server";
 import { text } from "@/lib/locale";
 import { BRAND } from "@/concept/brand";
@@ -36,15 +37,17 @@ export const viewport: Viewport = {
 export default async function Layout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const locale = await getLocale();
+  const [locale, requestHeaders] = await Promise.all([getLocale(), headers()]);
+  const lang = requestHeaders.has("x-concept-english") ? "en" : locale;
   return (
     // The theme script sets data-theme before React hydrates.
-    <html lang={locale} className={inter.variable} suppressHydrationWarning>
+    <html lang={lang} className={inter.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>
         <LocaleProvider locale={locale}>
+          <DocumentLanguage locale={locale} />
           <RestoreReturnScroll />
           <aside className="demo-banner" aria-label={text(locale, "Demo notice", "Demoinformation")}>
             <span>

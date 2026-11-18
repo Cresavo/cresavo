@@ -1,9 +1,10 @@
 "use client";
 
+import { waitlistCount, waitlistNotice } from "../booking/waitlist-notice";
 import { useState } from "react";
 import { CalendarCheck, Send } from "lucide-react";
 import { bookingLink } from "../../customers/return-visits";
-import { formatTime } from "../../data/dates";
+import { formatTime, inboxTimestamp } from "../../data/dates";
 import type { InboxItem } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { formatDayLong, relativeDay } from "../../i18n/format";
@@ -21,6 +22,7 @@ import { liveSlot } from "./live-slot";
 /** One message with a drafted reply (and time) that can be sent with one tap. */
 export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => void }) {
   const { state, today, minutes } = useStudio();
+  const at = inboxTimestamp(item, today, minutes);
   const [reply, setReply] = useState(item.draftReply ?? "");
   const slot = item.suggestion && !item.handled ? liveSlot(state, item.suggestion, today, minutes, item.bookingId) : undefined;
   const staff = slot ? state.staff.find((s) => s.id === slot.staffId) : undefined;
@@ -41,7 +43,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{name}</p>
           <p className="text-sm text-text-secondary">
-            {relativeDay(item.date, today)} {formatTime(item.time)}
+            {relativeDay(at.date, today)} {formatTime(at.time)}
           </p>
         </div>
         <Badge>
@@ -96,23 +98,12 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
           )}
           <TextArea value={reply} onChange={(e) => setReply(e.target.value)} aria-label={t("inbox.suggestedReply")} />
           <div className="flex flex-wrap justify-end gap-2">
-            {item.kind === "cancel" && booking && state.modules.waitlist && (
+            {item.kind === "cancel" && booking && waitlistCount(state, booking) > 0 && (
               <Button
                 variant="secondary"
                 onClick={() => {
-                  const waitlist = state.customers.filter((c) => c.waitlist).length;
-                  dispatch({
-                    type: "inbox/add",
-                    item: {
-                      kind: "system",
-                      date: today,
-                      time: minutes,
-                      title: t("cancel.offerTitle", { time: formatTime(booking.start) }),
-                      body: tc("cancel.offerBody", waitlist, { day: formatDayLong(booking.date), time: formatTime(booking.start) }),
-                      read: false,
-                      handled: true,
-                    },
-                  });
+                  const waitlist = waitlistCount(state, booking);
+                  dispatch({ type: "inbox/add", item: waitlistNotice(booking, waitlist, { today, minutes }) });
                   showToast(tc("suggest.gaps.toast", waitlist), { label: t("common.undo"), run: undo });
                 }}
               >

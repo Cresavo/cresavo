@@ -1,18 +1,21 @@
 "use client";
 
+import { customerDraft, isContactPhone, phoneMatches } from "../../booking/lookup";
 import { useState } from "react";
 import { preferredStaffOf } from "../../assistant/memory";
+import { GuestFields } from "../../booking/guest-fields";
 import { formatTime } from "../../data/dates";
-import { needOf } from "../../data/slots";
+import { isFree, needOf } from "../../data/slots";
 import type { DateKey, StaffId } from "../../data/types";
 import { t } from "../../i18n";
 import { formatDayLong, formatDuration, formatMoney } from "../../i18n/format";
 import { findCustomer, fullName } from "../../selectors";
-import { dispatch, undo } from "../../store";
+import { dispatch, undo, withBookingLock } from "../../store";
 import { Avatar } from "../../ui/avatar";
 import { Button } from "../../ui/button";
-import { SearchInput } from "../../ui/controls";
+import { Field, SearchInput, TextInput } from "../../ui/controls";
 import { cx } from "../../ui/cx";
+import { Notice } from "../../ui/notice";
 import { Sheet } from "../../ui/sheet";
 import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
@@ -20,6 +23,8 @@ import { SlotPicker, type Slot } from "./slot-picker";
 
 export interface NewBookingPreset {
   customerId?: string;
+  customerQuery?: string;
+  newCustomer?: { name: string; phone: string };
   serviceId?: string;
   staffId?: StaffId;
   date?: DateKey;
@@ -28,41 +33,61 @@ export interface NewBookingPreset {
 
 /** Book a customer: pick customer, treatment and a free time. */
 export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset; onClose: () => void }) {
-  const { state, today } = useStudio();
+  const { state, today, minutes } = useStudio();
   const [customerId, setCustomerId] = useState(preset.customerId);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(preset.customerQuery ?? "");
+  const [adding, setAdding] = useState(!!preset.newCustomer);
+  const [guest, setGuest] = useState(preset.newCustomer ?? { name: "", phone: "" });
+  const [email, setEmail] = useState("");
+  const [failed, setFailed] = useState(false);
+  const [pending, setPending] = useState(false);
   const presetCustomer = findCustomer(state, preset.customerId);
   const firstService =
     state.services.find((s) => s.id === preset.serviceId) ??
+    state.services.find((s) => preset.staffId && preset.date && preset.start !== undefined &&
+      s.staffIds.includes(preset.staffId) && isFree(state, preset.staffId, preset.date, preset.start, needOf(s))) ??
     state.services.find((s) => s.staffIds.includes(preset.staffId ?? (presetCustomer ? preferredStaffOf(state, presetCustomer) : "anna"))) ??
     state.services[0];
-  const [serviceId, setServiceId] = useState(firstService.id);
+  const [serviceId, setServiceId] = useState(firstService?.id);
   const service = state.services.find((s) => s.id === serviceId) ?? firstService;
   // A treatment several people can do goes to the person the sheet was opened for, otherwise the first.
-  const staffId = service.staffIds.find((id) => id === preset.staffId) ?? service.staffIds[0];
+  const staffId = service?.staffIds.find((id) => id === preset.staffId) ?? service?.staffIds[0];
   const [date, setDate] = useState(preset.date ?? today);
-  const [slot, setSlot] = useState<Slot | null>(
-    preset.date !== undefined && preset.start !== undefined ? { date: preset.date, start: preset.start } : null,
+  const [slot, setSlot] = useState<(Slot & { staffId?: StaffId }) | null>(
+    preset.date !== undefined && preset.start !== undefined ? { date: preset.date, start: preset.start, staffId: preset.staffId } : null,
   );
   const customer = findCustomer(state, customerId);
   const q = query.trim().toLowerCase();
   const matches = q
-    ? state.customers.filter((c) => fullName(c).toLowerCase().includes(q) || c.phone.replace(/\s/g, "").includes(q.replace(/\s/g, ""))).slice(0, 6)
+    ? state.customers.filter((c) => fullName(c).toLowerCase().includes(q) || phoneMatches(c.phone, q)).slice(0, 6)
     : [];
 
-  const book = () => {
-    if (!customer || !slot) return;
-    const ok = dispatch({ type: "booking/create", customerId: customer.id, serviceId, staffId, date: slot.date, start: slot.start, source: "phone" });
-    if (ok) {
-      showToast(t("newBooking.bookedToast", { name: customer.firstName, when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` }), {
-        label: t("common.undo"),
-        run: undo,
-      });
-      onClose();
-    } else {
-      showToast(t("newBooking.slotTaken"));
-      setSlot(null);
+  if (!service || !staffId) {
+    return <Sheet open onClose={onClose} title={t("newBooking.title")}><Notice tone="info">{t("newBooking.noTreatments")}</Notice></Sheet>;
+  }
+
+  const fits = !!slot && (!slot.staffId || slot.staffId === staffId) && slot.date >= today && (slot.date !== today || slot.start >= minutes) &&
+    isFree(state, staffId, slot.date, slot.start, needOf(service));
+  const contactValid = guest.name.trim().length >= 2 && isContactPhone(guest.phone);
+  const emailValid = !email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const guestValid = contactValid && emailValid;
+  const reason = failed ? t("newBooking.slotTaken") : slot && !fits ? t("newBooking.doesNotFit") : undefined;
+
+  const book = async () => {
+    if (pending || !slot || !fits || (!customer && (!adding || !guestValid))) return;
+    const contact = customer ? { customerId: customer.id } : { newCustomer: { ...guest, email, since: today } };
+    setPending(true);
+    const ok = await withBookingLock(() => dispatch({ type: "booking/create", ...contact, serviceId: service.id, staffId, date: slot.date, start: slot.start, source: "phone" }));
+    setPending(false);
+    if (!ok) {
+      setFailed(true);
+      return;
     }
+    showToast(t("newBooking.bookedToast", { name: customer?.firstName ?? guest.name.trim().split(/\s+/)[0], when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` }), {
+      label: t("common.undo"),
+      run: undo,
+    });
+    onClose();
   };
 
   return (
@@ -80,8 +105,9 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
               {slot && ` · ${formatDayLong(slot.date)} ${formatTime(slot.start)}`}
             </span>
           </p>
+          {reason && <Notice tone="info" role="status" className="w-full">{reason}</Notice>}
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button disabled={!customer || !slot} onClick={book}>
+          <Button disabled={pending || !fits || failed || (!customer && (!adding || !guestValid))} onClick={book}>
             {slot ? t("newBooking.confirmAt", { time: formatTime(slot.start) }) : t("newBooking.confirm")}
           </Button>
         </>
@@ -98,6 +124,14 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
                 <p className="text-sm text-text-secondary">{customer.phone}</p>
               </div>
               <Button variant="ghost" size="sm" onClick={() => setCustomerId(undefined)}>{t("common.change")}</Button>
+            </div>
+          ) : adding ? (
+            <div className="space-y-3">
+              <GuestFields staffEntry value={guest} onChange={setGuest} />
+              <Field label={t("newBooking.emailOptional")} hint={emailValid ? undefined : t("newBooking.invalidEmail")}>
+                <TextInput type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </Field>
+              <Button variant="ghost" size="sm" onClick={() => setAdding(false)}>{t("newBooking.findExisting")}</Button>
             </div>
           ) : (
             <div className="space-y-2">
@@ -116,6 +150,10 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
                 </ul>
               )}
               {q && !matches.length && <p className="text-sm text-text-secondary">{t("newBooking.noMatch")}</p>}
+              <Button variant="secondary" size="sm" onClick={() => {
+                setGuest(customerDraft(query));
+                setAdding(true);
+              }}>{t("newBooking.addCustomer")}</Button>
             </div>
           )}
         </section>
@@ -126,11 +164,11 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
             {state.services.map((s) => (
               <button
                 key={s.id}
-                aria-pressed={s.id === serviceId}
-                onClick={() => { setServiceId(s.id); setSlot(null); }}
+                aria-pressed={s.id === service.id}
+                onClick={() => { setServiceId(s.id); setFailed(false); }}
                 className={cx(
                   "flex min-h-12 items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm ring-1 ring-inset",
-                  s.id === serviceId ? "bg-action-bg ring-action" : "bg-surface ring-hairline hover:bg-surface-2",
+                  s.id === service.id ? "bg-action-bg ring-action" : "bg-surface ring-hairline hover:bg-surface-2",
                 )}
               >
                 <span className="min-w-0">
@@ -147,7 +185,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
 
         <section className="space-y-2">
           <h3 className="text-sm font-medium">{t("newBooking.time")}</h3>
-          <SlotPicker staffId={staffId} need={needOf(service)} date={date} onDateChange={setDate} value={slot} onChange={setSlot} />
+          <SlotPicker staffId={staffId} need={needOf(service)} date={date} onDateChange={(next) => { setDate(next); setSlot(null); setFailed(false); }} value={slot} onChange={(next) => { setSlot({ ...next, staffId }); setFailed(false); }} />
         </section>
       </div>
     </Sheet>

@@ -1,5 +1,11 @@
 # Progress · AI-native demo
 
+## 2026-11-18 · Codex · concept QA fixes
+
+- Caller booking creates a customer and visit together, and the booking sheet explains unavailable times. The assistant brief and everyday lookups use current demo data.
+- Studio and booking tabs on the same origin reload browser state. Bookings on separate salon addresses remain local to those origins and confirm that scope.
+- Run `npm run qa` against a running demo build. `QA_BASE_URL` defaults to `http://localhost:3100`.
+
 ## 2026-11-18 · Claude Code · treatments, salon page and the desktop studio
 
 **Done**

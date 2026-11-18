@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { reduce } from "@/concept/actions";
 import { buildIcs } from "@/concept/booking/ics";
-import { customerBookings, findCustomerByPhone, normalizePhone } from "@/concept/booking/lookup";
+import { customerBookings, findCustomerByPhone, isMobilePhone, normalizePhone, phoneMatches } from "@/concept/booking/lookup";
 import { changeRule } from "@/concept/booking/policy";
 import { parseBookingRequest } from "@/concept/booking/request";
 import { openSlots, suggestSlots } from "@/concept/booking/suggest";
@@ -160,5 +160,25 @@ describe("calendar file", () => {
     expect(ics).toContain("SUMMARY:" + service.name);
     expect(ics).toContain("LOCATION:Salong Eko\\, Dalagatan 34");
     expect(ics.split("\r\n")[0]).toBe("BEGIN:VCALENDAR");
+  });
+});
+
+describe("phone input and search", () => {
+  it.each(["070-173 74 60", "0701737460", "+46 70 173 74 60", "0046 70 173 74 60", "1737460"])("matches %s", (query) => {
+    expect(phoneMatches("070-173 74 60", query)).toBe(true);
+  });
+
+  it("matches an international contact with its national number", () => {
+    expect(phoneMatches("+44 7700 900123", "07700 900123")).toBe(true);
+    expect(phoneMatches("07700 900123", "+44 7700 900123")).toBe(true);
+    expect(phoneMatches("+44 7700 900123", "name 900123")).toBe(false);
+  });
+
+  it.each(["070-173 74 60", "+46 70 173 74 60", "0046 70 173 74 60", "+44 7700 900123", "078-123 45 67"])("accepts %s as a mobile", (phone) => {
+    expect(isMobilePhone(phone)).toBe(true);
+  });
+
+  it.each(["00000000", "070-000 00 00", "078-323 45 67", "12345678", "+0000000000", "+10000000000", "0701737460abc", "+4612345678901234"])("rejects %s as a mobile", (phone) => {
+    expect(isMobilePhone(phone)).toBe(false);
   });
 });

@@ -26,6 +26,7 @@
     "agent:proof": "node --import tsx scripts/agentprov/run.mts",
     "test:pair": "node --import tsx scripts/integration/run.mts",
     "ai:eval": "node --env-file-if-exists=.env --import tsx scripts/ai-eval.mts",
+    "qa": "node qa/run-all.mjs",
     "test:concept": "playwright test --config playwright.concept.config.ts",
     "concept:mcp-demo": "node --env-file-if-exists=.env --import tsx scripts/concept-mcp-demo.mts"
   },

@@ -22,28 +22,46 @@ const UNDO_LIMIT = 20;
 
 let state: DemoState | null = null;
 let history: DemoState[] = [];
+let savedRaw: string | null | undefined;
 const listeners = new Set<() => void>();
 
 function today() {
   return toKey(new Date());
 }
 
-function load(): DemoState {
+function load(raw: string | null): DemoState {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const saved = migrateState(JSON.parse(raw));
-      if (saved && saved.generatedFor === today()) return purgeExpired(saved, today());
-    }
+    const saved = raw && migrateState(JSON.parse(raw));
+    if (saved && saved.generatedFor === today()) return purgeExpired(saved, today());
   } catch {
-    // Storage blocked or corrupt: fall back to fresh demo data.
+    // A corrupt snapshot falls back to fresh demo data.
   }
   return createDemoState(today());
 }
 
+function refreshFromStorage() {
+  let raw: string | null;
+  try {
+    raw = window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return;
+  }
+  if (raw === savedRaw) return;
+  savedRaw = raw;
+  history = [];
+  state = adopt(load(raw));
+  listeners.forEach((listener) => listener());
+}
+
+function onStorage(event: StorageEvent) {
+  if (event.storageArea === window.localStorage && (event.key === STORAGE_KEY || event.key === null)) refreshFromStorage();
+}
+
 function save(next: DemoState) {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    const raw = JSON.stringify(next);
+    window.localStorage.setItem(STORAGE_KEY, raw);
+    savedRaw = raw;
   } catch {
     // The demo still works in memory.
   }
@@ -62,12 +80,20 @@ function setState(next: DemoState) {
 }
 
 function subscribe(listener: () => void) {
+  if (!listeners.size) window.addEventListener("storage", onStorage);
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  refreshFromStorage();
+  return () => {
+    listeners.delete(listener);
+    if (!listeners.size) window.removeEventListener("storage", onStorage);
+  };
 }
 
 function getSnapshot(): DemoState | null {
-  if (!state && typeof window !== "undefined") state = adopt(load());
+  if (!state && typeof window !== "undefined") {
+    refreshFromStorage();
+    state ??= adopt(load(null));
+  }
   return state;
 }
 
@@ -82,6 +108,7 @@ export function currentState(): DemoState | null {
  * Returns false when nothing changed (e.g. the slot was taken).
  */
 export function dispatch(action: DemoAction, meta?: Partial<Omit<LogMeta, "at">>): boolean {
+  if (typeof window !== "undefined") refreshFromStorage();
   const current = getSnapshot();
   if (!current) return false;
   const now = Date.now();
@@ -92,7 +119,13 @@ export function dispatch(action: DemoAction, meta?: Partial<Omit<LogMeta, "at">>
   return true;
 }
 
+/** Serializes booking confirmations across tabs when Web Locks are available. */
+export async function withBookingLock<T>(confirm: () => T): Promise<T> {
+  return navigator.locks ? navigator.locks.request(STORAGE_KEY, confirm) : confirm();
+}
+
 export function undo() {
+  refreshFromStorage();
   const previous = history.pop();
   if (previous) setState(previous);
 }

@@ -31,7 +31,7 @@ describe("trash", () => {
   it("refuses to restore a booking whose time was taken", () => {
     const cancelled = reduce(base, { type: "booking/cancel", id: upcoming.id });
     const entry = cancelled.trash[0];
-    const taken = reduce(cancelled, { type: "booking/create", customerId: customerWithBookings.id, serviceId: "classic-60", staffId: upcoming.staffId, date: upcoming.date, start: upcoming.start, source: "phone" });
+    const taken = reduce(cancelled, { type: "booking/create", customerId: customerWithBookings.id, serviceId: upcoming.serviceId, staffId: upcoming.staffId, date: upcoming.date, start: upcoming.start, source: "phone" });
     expect(taken.bookings.length).toBe(cancelled.bookings.length + 1);
     expect(canRestore(taken, entry)).toBe(false);
     expect(restoreEntry(taken, entry.id)).toBe(taken);

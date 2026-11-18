@@ -5,9 +5,9 @@ import { CalendarOff, CalendarPlus, ChevronLeft, ChevronRight } from "lucide-rea
 import { addDays, startOfWeek } from "@/concept/data/dates";
 import { openingFor } from "@/concept/data/slots";
 import type { StaffId } from "@/concept/data/types";
-import { t } from "@/concept/i18n";
+import { t, tc } from "@/concept/i18n";
 import { formatDayLong, formatDayMonth, formatNumber } from "@/concept/i18n/format";
-import { utilisation } from "@/concept/selectors";
+import { dayBookings, utilisation } from "@/concept/selectors";
 import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-sheets";
 import { CalendarFilter } from "@/concept/studio/calendar/filter";
 import { DayGrid } from "@/concept/studio/calendar/day-grid";
@@ -40,13 +40,17 @@ export default function CalendarPage() {
   const monday = startOfWeek(date);
   const step = view === "day" ? 1 : 7;
   const label = view === "day" ? formatDayLong(date) : `${formatDayMonth(monday)} – ${formatDayMonth(addDays(monday, 6))}`;
-  const busy = utilisation(state, view === "day" ? date : monday, view === "day" ? 1 : 7, staffFilter === "all" ? undefined : staffFilter);
+  const periodStart = view === "day" ? date : monday;
+  const staffId = staffFilter === "all" ? undefined : staffFilter;
+  const subtitle = room
+    ? tc("calendar.bookingCount", Array.from({ length: step }, (_, day) => dayBookings(state, addDays(periodStart, day), staffId, room).length).reduce((sum, count) => sum + count, 0))
+    : t("calendar.subtitle", { percent: formatNumber(utilisation(state, periodStart, step, staffId) * 100) });
 
   return (
     <>
       <PageHeader
         title={t("calendar.title")}
-        subtitle={t("calendar.subtitle", { percent: formatNumber(busy * 100) })}
+        subtitle={subtitle}
         actions={
           <Button data-help="new-booking" icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { date } })}>
             {t("calendar.newBooking")}

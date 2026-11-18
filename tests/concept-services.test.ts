@@ -17,7 +17,7 @@ const today = "2026-11-16";
 const base = createDemoState(today);
 const meta: LogMeta = { actor: "owner", source: "button", at: Date.UTC(2026, 10, 16, 9, 30) };
 const draft: ServiceDraft = { name: "Hot stone massage", category: "massage", duration: 75, price: 990, description: "Warm stones and slow strokes.", staffIds: ["erik"] };
-const guest = { name: "Test Person", phone: "070-000 00 00", at: { date: today, time: 600 } };
+const guest = { name: "Test Person", phone: "070-000 00 01", at: { date: today, time: 600 } };
 const notice = { title: "New booking", body: "" };
 const ids = (state: DemoState, category?: string) => state.services.filter((s) => !category || s.category === category).map((s) => s.id);
 

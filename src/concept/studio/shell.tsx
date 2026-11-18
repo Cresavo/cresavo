@@ -75,8 +75,8 @@ export function StudioShell({ children }: { children: ReactNode }) {
           <HelpButton compact />
         </div>
       </header>
-      {/* Room at the bottom for the tab bar and, on phones, the assistant button, so neither ever covers the last item. */}
-      <main className="pb-[calc(9.5rem+env(safe-area-inset-bottom))] sm:pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-12 lg:pl-64">
+      {/* Keep the last item clear of the tab bar. */}
+      <main className="pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-12 lg:pl-64">
         {/* One frame for every page. On a desktop the content starts a fixed gutter from the sidebar and grows to a
             readable maximum; it is never centred in the space that is left, so pages do not float. The assistant
             and Help sit in each page's title row (PageHeader), on the same right edge as the content. */}

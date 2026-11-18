@@ -1,6 +1,6 @@
 import { dailySummaryTask } from "../ai/tasks/daily-summary";
 import { addDays, diffDays, formatTime, startOfWeek, weekday } from "../data/dates";
-import { freeGaps, openingFor } from "../data/slots";
+import { freeGaps, isFree, openingFor } from "../data/slots";
 import type { DemoState } from "../data/types";
 import { buildCustomerStats, dayBookings, findCustomer, lowStock, utilisation } from "../selectors";
 import { dueBackList } from "../customers/return-visits";
@@ -39,7 +39,7 @@ const byPriority = (items: BriefItem[]) => [...items].sort((a, b) => b.priority 
 /** Things that just happened or are about to: a cancellation today, stock running out, a holiday coming up. */
 export function eventReactions(state: DemoState, clock: Clock): BriefItem[] {
   const items: BriefItem[] = [];
-  const cancelled = state.bookings.filter((b) => b.status === "cancelled" && b.date === clock.today && b.start >= clock.minutes);
+  const cancelled = state.bookings.filter((b) => b.status === "cancelled" && b.date === clock.today && b.start >= clock.minutes && isFree(state, b.staffId, b.date, b.start, b));
   for (const booking of cancelled.slice(0, 2)) {
     const name = findCustomer(state, booking.customerId)?.firstName ?? "";
     items.push({ id: `cancel-${booking.id}`, text: t("brief.cancelled", { name, time: formatTime(booking.start) }), priority: 5, href: "/studio/calendar" });

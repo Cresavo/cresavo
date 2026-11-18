@@ -18,6 +18,9 @@ Cresavo is a concept demo (0.x) for salons and other small service businesses.
   provider API and local owner MCP share booking rules, including idempotency
   and protection against double-booking. The public agent gateway lives in
   the separate `booking-lab-gateway` repository.
+- The concept demo includes the November QA fixes for booking and caller
+  flows, same-origin tab synchronization, assistant lookups and host feedback.
+  The QA runner is available through `npm run qa`.
 
 ## Before a real pilot
 

@@ -2,17 +2,17 @@ import type { Proposal } from "../command/proposal";
 import { pickCandidates } from "../command/proposal";
 import { buildIntentContext } from "../command/intent-context";
 import { dueBackList } from "../customers/return-visits";
-import { addDays, formatTime } from "../data/dates";
-import { freeStarts, needOf } from "../data/slots";
+import { addDays, formatTime, inboxTimestamp } from "../data/dates";
+import { freeGaps, freeStarts, needOf, openingFor, staffWorks } from "../data/slots";
 import type { Booking, Customer, DateKey, DemoState, Service, StaffId } from "../data/types";
 import type { Clock } from "../finance/types";
 import { t, tc } from "../i18n";
-import { agoText, formatDayLong, formatDuration, formatMoney, relativeDay } from "../i18n/format";
+import { agoText, formatAmount, formatDayLong, formatDuration, formatMoney, relativeDay } from "../i18n/format";
 import { balanceOf, findGiftCard } from "../giftcards/cards";
 import { parseDate, parseTime } from "../intent/dates";
 import { matchNames, normalize } from "../intent/match";
 import { canOpen, servedBy, type Role } from "../ops/access";
-import { buildCustomerStats, categoryInText, findCustomer, findService, fullName } from "../selectors";
+import { buildCustomerStats, categoryInText, findCustomer, findService, fullName, lowStock } from "../selectors";
 import type { ReplyCard, ThreadContext } from "./thread";
 
 // Read questions an owner asks every day, answered straight from the data:
@@ -184,6 +184,50 @@ function namedServices(state: DemoState, text: string): Service[] {
   return fitting.length ? fitting : found;
 }
 
+function staffAvailability(input: LookupInput, text: string, name: string): Lookup | null {
+  const { state, clock } = input;
+  const staff = state.staff.find((person) => [person.firstName, fullName(person)].some((value) => normalize(value) === normalize(name)));
+  if (!staff) return null;
+  if (!input.owner && input.viewer !== staff.id) return ownerOnly();
+  const date = parseDate(text, buildIntentContext(state, clock.today, clock.minutes)) ?? clock.today;
+  const values = { name: staff.firstName, day: formatDayLong(date) };
+  const calendar = { href: "/studio/calendar", label: t("nav.calendar") };
+  if (date < clock.today) return message(t("command.dayPassed", values), calendar);
+  if (!staffWorks(state, staff.id, date)) return message(t("assistant.lookup.staffOff", values), calendar);
+  const afternoon = /\b(?:afternoon|after lunch)\b/.test(text);
+  const morning = /\bmorning\b/.test(text);
+  const from = Math.max(date === clock.today ? clock.minutes : 0, afternoon ? 12 * 60 : 0);
+  const until = morning ? 12 * 60 : 24 * 60;
+  const gaps = freeGaps(state, staff.id, date, { after: from, min: 15 })
+    .map(({ start, end }) => ({ start, end: Math.min(end, until) }))
+    .filter(({ start, end }) => end - start >= 15);
+  const times = gaps.slice(0, MAX_ROWS).map(({ start, end }) => `${formatTime(start)}–${formatTime(end)}`).join(", ");
+  return { ...message(times ? t("assistant.lookup.staffFree", { ...values, times }) : t("assistant.lookup.staffBusy", values), calendar), context: { date } };
+}
+
+function openingHours(input: LookupInput, text: string): Lookup {
+  const { state, clock } = input;
+  const date = parseDate(text, buildIntentContext(state, clock.today, clock.minutes)) ?? clock.today;
+  const hours = openingFor(state.salon, date);
+  const day = formatDayLong(date);
+  return { ...message(hours
+    ? t("assistant.lookup.hours", { day, open: formatTime(hours.open), close: formatTime(hours.close) })
+    : t("assistant.lookup.closed", { day })), context: { date } };
+}
+
+function lowStockReply(input: LookupInput): Lookup {
+  const items = input.state.modules.stock ? lowStock(input.state) : [];
+  if (!input.state.modules.stock) return message(t("assistant.lookup.stockDisabled"));
+  const title = items.length ? t("assistant.lookup.stockLow") : t("assistant.lookup.stockFine");
+  if (!items.length) return message(title, { href: "/studio/more/stock", label: t("nav.stock") });
+  return {
+    text: title,
+    card: { kind: "stock", title, items: items.map((item) => ({
+      id: item.id, name: item.name, left: formatAmount(item.inStock), unit: item.unit, low: true,
+    })) },
+  };
+}
+
 function availability(input: LookupInput, text: string, question: string): Lookup {
   const { state, clock } = input;
   const services = namedServices(state, text);
@@ -274,7 +318,7 @@ function inbox(input: LookupInput): Lookup {
   const title = tc("assistant.lookup.inbox", waiting.length);
   const items = waiting.slice(0, MAX_ROWS).map((i) => ({
     id: i.id,
-    time: formatTime(i.time),
+    time: formatTime(inboxTimestamp(i, clock.today, clock.minutes).time),
     name: (i.customerId ? fullName(findCustomer(state, i.customerId) ?? { firstName: i.fromName ?? "", lastName: "" }) : i.fromName ?? "").trim() || i.title,
     detail: `${dayText(i.date, clock.today)} · ${i.title}`,
     href: link.href,
@@ -367,6 +411,13 @@ export function lookup(input: LookupInput, understood: string): Lookup | null {
   if (cannot) return cannot;
   // Each answer is gated by the page it stands for, the same rule the studio's navigation uses.
   const may = (href: string) => canOpen(role(input), href);
+  if (/\bopening hours\b|^(?:are|is) (?:you|we|the salon) open\b/.test(text)) return openingHours(input, text);
+  if (/\brunning low\b|\blow (?:in|on) stock\b/.test(text)) return may("/studio/more/stock") ? lowStockReply(input) : ownerOnly();
+  const staffQuestion = text.match(/^is (.+?) (?:free|available)(?=\s|[?.!]|$)/);
+  if (staffQuestion) {
+    const answer = staffAvailability(input, text, staffQuestion[1]);
+    if (answer) return answer;
+  }
   if (/\bgift ?cards?\b/.test(text) && /\b(left|balance|worth|remaining|how much)\b/.test(text)) return may("/studio/more/giftcards") ? giftCard(input, text) : ownerOnly();
   if (/\b(?:running|be|i'm|i am)\b.*\blate\b|\bdelayed\b/.test(text) && /\b(text|sms|tell|message|let)\b/.test(text)) return runningLate(input, text);
   if (/\bwho(?:'s| is| comes)? (?:up )?next\b|\bnext (?:client|customer|booking|appointment|visit)\b(?!.*\b(?:for|with)\b)/.test(text) && !/\bwhen\b/.test(text) && !/\b(book|move|cancel)\b/.test(text)) return nextClient(input);

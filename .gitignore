@@ -61,3 +61,6 @@ next-env.d.ts
 
 # Encrypted concept credentials and usage
 .data/
+
+# QA round output (screenshots, JSON results)
+qa/out/
