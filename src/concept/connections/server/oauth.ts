@@ -16,23 +16,28 @@ export interface OAuthClient {
 }
 
 const cache = new Map<string, { token: string; expiresAt: number }>();
+// Rotated refresh tokens, by the configured one. Kept in memory only: a restart falls back to the configured
+// token, which a rotating provider (Fortnox, Visma) has invalidated. TODO(goal 11): persist in the secret store.
+const rotated = new Map<string, string>();
 const keyOf = (client: OAuthClient) => createHash("sha256").update(`${client.tokenUrl}\n${client.clientId}\n${client.refreshToken}`).digest("hex");
 
 export function clearTokenCache() {
   cache.clear();
+  rotated.clear();
 }
 
 export async function accessToken(client: OAuthClient, port: PortName, provider: string, fetcher: Fetcher, now = Date.now()): Promise<{ ok: true; token: string } | { ok: false; error: ConnectionError }> {
   const key = keyOf(client);
   const cached = cache.get(key);
   if (cached && cached.expiresAt > now + 60_000) return { ok: true, token: cached.token };
+  const refreshToken = rotated.get(key) ?? client.refreshToken;
   const body = form({
     grant_type: "refresh_token",
-    refresh_token: client.refreshToken,
+    refresh_token: refreshToken,
     ...(client.clientAuth === "body" ? { client_id: client.clientId, client_secret: client.clientSecret } : {}),
     scope: client.scope,
   });
-  const result = await request({ port, provider, fetch: fetcher, secrets: [client.clientSecret, client.refreshToken] }, client.tokenUrl, {
+  const result = await request({ port, provider, fetch: fetcher, secrets: [client.clientSecret, client.refreshToken, refreshToken] }, client.tokenUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded", ...(client.clientAuth === "basic" ? { Authorization: basicAuth(client.clientId, client.clientSecret) } : {}) },
     body,
@@ -41,7 +46,8 @@ export async function accessToken(client: OAuthClient, port: PortName, provider:
   const token = text(field(result.data, "access_token"));
   const expiresIn = Number(field(result.data, "expires_in"));
   if (!token) return { ok: false, error: connectionError(port, provider, "unknown") };
-  // verify: providers that rotate refresh tokens (Fortnox, Visma) return a new one here; persisting it needs the per-business store (goal 11).
+  const next = text(field(result.data, "refresh_token"));
+  if (next && next !== refreshToken) rotated.set(key, next);
   cache.set(key, { token, expiresAt: now + (Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 300) * 1000 });
   return { ok: true, token };
 }

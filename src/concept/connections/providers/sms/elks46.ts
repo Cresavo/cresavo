@@ -6,12 +6,16 @@
 // - Delivery reports: https://46elks.com/docs/sms-delivery-reports, callback IPs: https://46elks.com/docs/ip-addresses
 // - Price: https://46elks.se/pricing/se-sek (SEK 0.52 per segment excl. VAT, verify)
 // Errors are plain text, so only the HTTP status is mapped. Throughput 100 SMS/minute/account (queued beyond).
-// verify: 46elks does not sign delivery reports. We require a shared token in the callback URL
-// (?token=...) and recommend allowlisting their callback IPs at the proxy. No idempotency key (verify).
+// verify: 46elks does not sign delivery reports. They support Basic auth credentials in the callback URL
+// (https://46elks:<token>@host/...), so the token travels in the Authorization header, not the query string
+// (which proxies log). Also allowlist their callback IPs at the proxy. No idempotency key (verify).
 import { connectionError, fail, isE164, ok, type DeliveryStatus } from "../../core";
 import { smsSegments, type SmsPort } from "../../ports/sms";
 import { safeEqual } from "../../server/crypto";
 import { basicAuth, field, form, request, text, type Fetcher } from "../../server/http";
+
+/** User name in the callback URL's Basic credentials. */
+export const ELKS_WEBHOOK_USER = "46elks";
 import type { ProviderDefinition } from "../definition";
 
 const PROVIDER = "46elks";
@@ -30,7 +34,7 @@ export function elksSms(options: { username: string; password: string; from?: st
         method: "POST",
         headers: { Authorization: basicAuth(options.username, options.password), "Content-Type": "application/x-www-form-urlencoded" },
         body: form({ to: message.to, from, message: message.body, whendelivered: message.statusCallbackUrl }),
-      });
+      }, undefined, { idempotent: false });
       if (!result.ok) return fail(result.error);
       const id = text(field(result.data, "id"));
       if (!id) return fail(connectionError("sms", PROVIDER, "unknown"));
@@ -40,13 +44,10 @@ export function elksSms(options: { username: string; password: string; from?: st
       return ok({ id, to: message.to, segments: Number(field(result.data, "parts")) || smsSegments(message.body) }, STATUS[String(field(result.data, "status"))] ?? "queued", cost, id);
     },
     async verifyWebhook(webhook) {
-      let token: string | null = null;
-      try {
-        token = new URL(webhook.url).searchParams.get("token");
-      } catch {
-        token = null;
+      const given = webhook.headers.authorization;
+      if (!options.webhookToken || options.webhookToken.length < 16 || !given || !safeEqual(given, basicAuth(ELKS_WEBHOOK_USER, options.webhookToken))) {
+        return fail(connectionError("sms", PROVIDER, "invalid_signature"));
       }
-      if (!options.webhookToken || options.webhookToken.length < 16 || !token || !safeEqual(token, options.webhookToken)) return fail(connectionError("sms", PROVIDER, "invalid_signature"));
       const params = new URLSearchParams(webhook.rawBody);
       const providerId = params.get("id");
       if (!providerId) return fail(connectionError("sms", PROVIDER, "invalid_input"));
@@ -61,6 +62,7 @@ export const definition: ProviderDefinition<"sms"> = {
   secrets: ["ELKS_API_USERNAME", "ELKS_API_PASSWORD"],
   optionalSecrets: ["ELKS_WEBHOOK_TOKEN"],
   settings: ["ELKS_FROM", "ELKS_CURRENCY"],
+  missingSettings: (s) => (s.ELKS_FROM ? [] : ["ELKS_FROM"]),
   create: ({ secrets, settings, fetch }) =>
     elksSms({ username: secrets.ELKS_API_USERNAME, password: secrets.ELKS_API_PASSWORD, webhookToken: secrets.ELKS_WEBHOOK_TOKEN, from: settings.ELKS_FROM, currency: settings.ELKS_CURRENCY, fetch }),
 };

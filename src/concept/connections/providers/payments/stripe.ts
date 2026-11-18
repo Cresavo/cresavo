@@ -83,7 +83,8 @@ export function stripePayments(options: { secretKey: string; webhookSecret?: str
     async createCheckout(input) {
       if (!configured()) return fail(connectionError("payments", PROVIDER, "not_configured"));
       if (!validCheckout(input) || !/^https:\/\//.test(input.successUrl) || !/^https:\/\//.test(input.cancelUrl)) return fail(connectionError("payments", PROVIDER, "invalid_input"));
-      const body = new URLSearchParams({ mode: "payment", success_url: input.successUrl, cancel_url: input.cancelUrl, client_reference_id: input.reference, "metadata[reference]": input.reference });
+      // The reference goes on the PaymentIntent too: Stripe does not copy Session metadata there.
+      const body = new URLSearchParams({ mode: "payment", success_url: input.successUrl, cancel_url: input.cancelUrl, client_reference_id: input.reference, "metadata[reference]": input.reference, "payment_intent_data[metadata][reference]": input.reference });
       lineItem(body, input);
       (input.methods ?? []).forEach((method, i) => body.set(`allowed_payment_method_types[${i}]`, method));
       if (input.customerEmail) body.set("customer_email", input.customerEmail);
@@ -99,7 +100,7 @@ export function stripePayments(options: { secretKey: string; webhookSecret?: str
     async createPaymentLink(input) {
       if (!configured()) return fail(connectionError("payments", PROVIDER, "not_configured"));
       if (!validCheckout(input) || (input.successUrl && !/^https:\/\//.test(input.successUrl))) return fail(connectionError("payments", PROVIDER, "invalid_input"));
-      const body = new URLSearchParams({ "metadata[reference]": input.reference });
+      const body = new URLSearchParams({ "metadata[reference]": input.reference, "payment_intent_data[metadata][reference]": input.reference });
       lineItem(body, input);
       (input.methods ?? []).forEach((method, i) => body.set(`payment_method_types[${i}]`, method)); // verify: Payment Links still take payment_method_types
       if (input.successUrl) {

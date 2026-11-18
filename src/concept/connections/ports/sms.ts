@@ -40,7 +40,8 @@ const GSM = /^[@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤
 
 export function smsSegments(body: string): number {
   const gsm = GSM.test(body);
-  const length = gsm ? [...body].reduce((n, c) => n + ("^{}\\[~]|€".includes(c) ? 2 : 1), 0) : [...body].length;
+  // UCS-2 counts UTF-16 code units, so an emoji outside the BMP takes two.
+  const length = gsm ? [...body].reduce((n, c) => n + ("^{}\\[~]|€".includes(c) ? 2 : 1), 0) : body.length;
   const single = gsm ? 160 : 70;
   const multi = gsm ? 153 : 67;
   return length <= single ? 1 : Math.ceil(length / multi);

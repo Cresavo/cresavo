@@ -18,5 +18,7 @@ export interface ProviderDefinition<P extends PortName = PortName> {
   optionalSecrets?: readonly string[];
   /** Non-secret configuration read from the business configuration. */
   settings: readonly string[];
+  /** Names of settings still missing (e.g. a sender), so the registry does not report a provider live that cannot work. */
+  missingSettings?(settings: Record<string, string | undefined>): string[];
   create(input: ProviderInput): PortMap[P];
 }

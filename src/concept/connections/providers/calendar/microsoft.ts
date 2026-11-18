@@ -11,7 +11,7 @@
 // Permission: Calendars.ReadWrite (delegated, offline_access for a refresh token).
 // Times are sent as UTC wall time with timeZone "UTC" (always accepted); the display zone is the mailbox's own.
 // verify: v1.0 delta only covers the primary calendar (/users/{id}/calendarView/delta); other calendars need beta.
-import { connectionError, fail, isTimeZone, isUtc, ok } from "../../core";
+import { connectionError, fail, isBefore, isTimeZone, isUtc, ok } from "../../core";
 import type { BusyEvent, CalendarPort } from "../../ports/calendar";
 import { field, request, text, type Fetcher } from "../../server/http";
 import { accessToken, type OAuthClient } from "../../server/oauth";
@@ -24,7 +24,7 @@ const MAX_PAGES = 10;
 const SAFE_SEGMENT = /^[A-Za-z0-9@._=-]{1,256}$/;
 
 const codeOf = (data: unknown) => ({ providerCode: field(data, "error", "code") });
-const wall = (utc: string) => utc.replace(/Z$/, "").replace(/(\.\d+)?$/, "");
+const wall = (utc: string) => utc.replace(/Z$/, "");
 const toUtc = (value: unknown) => (typeof value === "string" && value ? `${value.replace(/\.\d+$/, "").replace(/Z$/, "")}Z` : undefined);
 
 export function microsoftCalendar(options: { oauth: OAuthClient; user: string; fetch: Fetcher }): CalendarPort {
@@ -41,7 +41,7 @@ export function microsoftCalendar(options: { oauth: OAuthClient; user: string; f
     info: definition.info,
     async pushEvent(calendarId, event) {
       if (!configured()) return fail(connectionError("calendar", PROVIDER, "not_configured"));
-      if (!SAFE_SEGMENT.test(calendarId) || !event.id || !isUtc(event.start) || !isUtc(event.end) || event.end <= event.start || !isTimeZone(event.timeZone) || !event.title.trim()) {
+      if (!SAFE_SEGMENT.test(calendarId) || !event.id || !isUtc(event.start) || !isUtc(event.end) || !isBefore(event.start, event.end) || !isTimeZone(event.timeZone) || !event.title.trim()) {
         return fail(connectionError("calendar", PROVIDER, "invalid_input"));
       }
       const path = calendarId === "primary" ? `${GRAPH}/users/${user}/events` : `${GRAPH}/users/${user}/calendars/${encodeURIComponent(calendarId)}/events`;
@@ -70,21 +70,25 @@ export function microsoftCalendar(options: { oauth: OAuthClient; user: string; f
     },
     async pullEvents(input) {
       if (!configured()) return fail(connectionError("calendar", PROVIDER, "not_configured"));
+      // verify: v1.0 delta covers the primary calendar only; refuse others rather than return the wrong calendar.
+      if (input.calendarId !== "primary") return fail(connectionError("calendar", PROVIDER, "not_supported"));
+      if (input.pageToken && !input.pageToken.startsWith(`${GRAPH}/`)) return fail(connectionError("calendar", PROVIDER, "invalid_input"));
       // A delta link is a full URL from Graph. Only follow links back to Graph, so a forged cursor cannot send our token elsewhere.
       if (input.syncToken && !input.syncToken.startsWith(`${GRAPH}/`)) return fail(connectionError("calendar", PROVIDER, "invalid_input"));
       if (!input.syncToken && (!input.from || !input.to || !isUtc(input.from) || !isUtc(input.to))) return fail(connectionError("calendar", PROVIDER, "invalid_input"));
-      let url = input.syncToken ?? `${GRAPH}/users/${user}/calendarView/delta?${new URLSearchParams({ startDateTime: input.from!, endDateTime: input.to! })}`;
+      let url = input.pageToken ?? input.syncToken ?? `${GRAPH}/users/${user}/calendarView/delta?${new URLSearchParams({ startDateTime: input.from!, endDateTime: input.to! })}`;
       const events: BusyEvent[] = [];
       for (let page = 0; page < MAX_PAGES; page++) {
         const result = await authed(url, { method: "GET" });
         if (!result.ok && (result.error.httpStatus === 410 || result.error.providerCode === "syncStateNotFound")) return ok({ events: [], fullResyncRequired: true }, "delivered");
         if (!result.ok) return fail(result.error);
         const items = field(result.data, "value");
-        for (const item of Array.isArray(items) ? items : []) {
+        if (!Array.isArray(items)) return fail(connectionError("calendar", PROVIDER, "unknown"));
+        for (const item of items) {
           const providerEventId = text(field(item, "id"));
           if (!providerEventId) continue;
-          const removed = field(item, "@removed") !== undefined || field(item, "isCancelled") === true;
-          if (!removed && field(item, "showAs") === "free") continue;
+          // Removed, cancelled or "free" events no longer block time; report them so a stale block is removed.
+          const removed = field(item, "@removed") !== undefined || field(item, "isCancelled") === true || field(item, "showAs") === "free";
           events.push({ providerEventId, start: toUtc(field(item, "start", "dateTime")) ?? "", end: toUtc(field(item, "end", "dateTime")) ?? "", cancelled: removed });
         }
         const next = text(field(result.data, "@odata.nextLink"));
@@ -95,7 +99,7 @@ export function microsoftCalendar(options: { oauth: OAuthClient; user: string; f
         }
         return ok({ events, ...(delta?.startsWith(`${GRAPH}/`) ? { nextSyncToken: delta } : {}), fullResyncRequired: false }, "delivered");
       }
-      return ok({ events, fullResyncRequired: true }, "delivered");
+      return ok({ events, nextPageToken: url, fullResyncRequired: false }, "delivered");
     },
   };
 }
@@ -104,6 +108,7 @@ export const definition: ProviderDefinition<"calendar"> = {
   info: { port: "calendar", provider: PROVIDER, kind: "live", capabilities: ["push", "pull", "incremental-sync", "idempotency"], secrets: ["MS_GRAPH_CLIENT_ID", "MS_GRAPH_CLIENT_SECRET", "MS_GRAPH_REFRESH_TOKEN"] },
   secrets: ["MS_GRAPH_CLIENT_ID", "MS_GRAPH_CLIENT_SECRET", "MS_GRAPH_REFRESH_TOKEN"],
   settings: ["MS_GRAPH_TENANT", "MS_GRAPH_USER"],
+  missingSettings: (s) => (s.MS_GRAPH_USER ? [] : ["MS_GRAPH_USER"]),
   create: ({ secrets, settings, fetch }) => {
     const tenant = /^[A-Za-z0-9.-]{1,128}$/.test(settings.MS_GRAPH_TENANT ?? "") ? settings.MS_GRAPH_TENANT : "common";
     return microsoftCalendar({

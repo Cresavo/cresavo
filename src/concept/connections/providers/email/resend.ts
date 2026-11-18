@@ -13,7 +13,7 @@ import { verifySvix } from "../../server/svix";
 import type { ProviderDefinition } from "../definition";
 
 const PROVIDER = "resend";
-const EVENTS: Record<string, DeliveryStatus> = { "email.sent": "sent", "email.delivered": "delivered", "email.bounced": "failed", "email.failed": "failed", "email.delivery_delayed": "queued" };
+const EVENTS: Record<string, DeliveryStatus> = { "email.sent": "sent", "email.delivered": "delivered", "email.bounced": "failed", "email.failed": "failed", "email.suppressed": "failed", "email.delivery_delayed": "queued" };
 const TAG = /^[A-Za-z0-9_-]{1,256}$/;
 
 const codeOf = (data: unknown, status: number) => {
@@ -46,7 +46,7 @@ export function resendEmail(options: { apiKey: string; webhookSecret?: string; f
           ...(message.replyTo ? { reply_to: message.replyTo } : {}),
           ...(message.tags ? { tags: Object.entries(message.tags).map(([name, value]) => ({ name, value })) } : {}),
         }),
-      }, codeOf);
+      }, codeOf, { idempotent: !!message.idempotencyKey });
       if (!result.ok) return fail(result.error);
       const id = text(field(result.data, "id"));
       return id ? ok({ id, to: message.to }, "queued", null, id) : fail(connectionError("email", PROVIDER, "unknown"));

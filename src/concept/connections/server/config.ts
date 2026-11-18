@@ -23,9 +23,13 @@ export interface ConnectionConfig {
 export const LIVE_FLAG = "CONCEPT_CONNECTIONS_LIVE";
 export const providerVariable = (port: PortName) => `CONCEPT_${port.toUpperCase()}_PROVIDER`;
 
+// Read directly so Next inlines the build-time value (vercel.json sets it in the build command):
+// no runtime setting, such as PUBLIC_READONLY=0, can turn a public-demo build live.
+const PUBLIC_DEMO_BUILD = process.env.NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO === "1";
+
 /** The public demo build or a read-only deployment never sends anything real. */
 export function isPublicDemo(env: Env): boolean {
-  return env.NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO === "1" || env.PUBLIC_READONLY === "1";
+  return PUBLIC_DEMO_BUILD || env.NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO === "1" || env.PUBLIC_READONLY === "1";
 }
 
 export function configFromEnv(env: Env = process.env): ConnectionConfig {

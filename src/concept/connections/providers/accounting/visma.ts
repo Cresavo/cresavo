@@ -10,7 +10,7 @@
 // verify: POST /v2/vouchers is used by integrations but not readable in the official reference; /v2/voucherdrafts + /convert is the documented alternative.
 // verify: no idempotency key; our reference goes into VoucherText.
 import { connectionError, fail, majorString, ok } from "../../core";
-import { isBalanced, type AccountingPort } from "../../ports/accounting";
+import { describeVoucher as describe, isBalanced, type AccountingPort } from "../../ports/accounting";
 import { field, request, text, type Fetcher } from "../../server/http";
 import { accessToken, type OAuthClient } from "../../server/oauth";
 import type { ProviderDefinition } from "../definition";
@@ -28,7 +28,7 @@ export function vismaAccounting(options: { oauth: OAuthClient; fetch: Fetcher })
     info: definition.info,
     async postVoucher(voucher) {
       if (voucher.currency !== "SEK" && voucher.currency !== "NOK") return fail(connectionError("accounting", PROVIDER, "not_supported")); // verify: home currency per market
-      if (!isBalanced(voucher.rows) || !/^\d{4}-\d{2}-\d{2}$/.test(voucher.date) || !voucher.reference || voucher.rows.some((r) => !/^\d{4}$/.test(r.account))) {
+      if (!isBalanced(voucher.rows) || !/^\d{4}-\d{2}-\d{2}$/.test(voucher.date) || !voucher.reference || voucher.rows.some((r) => !/^\d{4}$/.test(r.account)) || voucher.reference.length > 60) {
         return fail(connectionError("accounting", PROVIDER, "invalid_input"));
       }
       const token = await accessToken(options.oauth, "accounting", PROVIDER, options.fetch);
@@ -39,14 +39,14 @@ export function vismaAccounting(options: { oauth: OAuthClient; fetch: Fetcher })
         headers: { Authorization: `Bearer ${token.token}`, "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
           VoucherDate: voucher.date,
-          VoucherText: `${voucher.description} [${voucher.reference}]`.slice(0, 200),
+          VoucherText: describe(voucher),
           Rows: voucher.rows.map((row) => ({
             AccountNumber: Number(row.account),
             ...(row.debitMinor > 0 ? { DebitAmount: amount(row.debitMinor) } : { CreditAmount: amount(row.creditMinor) }),
             ...(row.description ? { TransactionText: row.description.slice(0, 60) } : {}),
           })),
         }),
-      }, codeOf);
+      }, codeOf, { idempotent: false });
       if (!result.ok) return fail(result.error);
       const id = text(field(result.data, "Id"));
       return id ? ok({ id }, "delivered", null, id) : fail(connectionError("accounting", PROVIDER, "unknown"));

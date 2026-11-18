@@ -44,7 +44,7 @@ export function postmarkEmail(options: { serverToken: string; webhookUser?: stri
           ...(tags.length ? { Tag: tags[0][1], Metadata: Object.fromEntries(tags) } : {}),
           MessageStream: "outbound",
         }),
-      }, codeOf);
+      }, codeOf, { idempotent: false });
       if (!result.ok) return fail(result.error);
       const id = text(field(result.data, "MessageID"));
       return id && field(result.data, "ErrorCode") === 0 ? ok({ id, to: message.to }, "queued", null, id) : fail(connectionError("email", PROVIDER, "unknown"));

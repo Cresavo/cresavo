@@ -1,4 +1,5 @@
 import type { Campaign } from "../data/types";
+import { stableHash } from "./core";
 import type { Outbox, OutboxEntry } from "./simulated/outbox";
 import { createOutbox } from "./simulated/outbox";
 import { simulatedEmail, simulatedSms, simulatedSocial } from "./simulated/adapters";
@@ -33,7 +34,8 @@ const recipient = (to: DemoMessage["to"]) => ("customerId" in to ? `customer:${t
 /** Sends one simulated message and returns what was recorded, or null when the port refused the input. */
 export function sendDemoMessage(message: DemoMessage): OutboxEntry | null {
   const to = recipient(message.to);
-  const idempotencyKey = message.reference;
+  // The body is part of the key: the same logical send with new text (a renamed salon) is a new message, not a conflict.
+  const idempotencyKey = `${message.reference}-${stableHash(`${message.subject ?? ""}\n${message.body}`)}`;
   const result = message.channel === "sms"
     ? sms.deliver({ to, body: message.body, reference: message.reference, idempotencyKey })
     : email.deliver({ to: [to], from: "demo@salon.invalid", subject: message.subject ?? "", text: message.body, idempotencyKey });
@@ -49,9 +51,9 @@ export function sendDemoCampaign(campaign: Pick<Campaign, "id" | "name" | "chann
     if (channel === "instagram" || channel === "facebook") {
       void social.publish({ channel, caption: copy.slice(0, 2200), imageUrl: `https://media.invalid/campaigns/${campaign.id}.png`, reference });
     } else if (channel === "sms") {
-      sms.deliver({ to: `segment:campaign-${campaign.id}`, body: copy.slice(0, 1600), reference, idempotencyKey: reference });
+      sms.deliver({ to: `segment:campaign-${campaign.id}`, body: copy.slice(0, 1600), reference, idempotencyKey: `${reference}-${stableHash(copy)}` });
     } else if (channel === "newsletter") {
-      email.deliver({ to: [`segment:campaign-${campaign.id}`], from: "demo@salon.invalid", subject: campaign.name, text: copy, idempotencyKey: reference });
+      email.deliver({ to: [`segment:campaign-${campaign.id}`], from: "demo@salon.invalid", subject: campaign.name, text: copy, idempotencyKey: `${reference}-${stableHash(copy)}` });
     }
   }
 }

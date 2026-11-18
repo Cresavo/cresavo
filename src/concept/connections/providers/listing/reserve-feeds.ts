@@ -20,7 +20,8 @@ export function buildReserveFeeds(snapshot: ListingSnapshot, generatedAt: string
     processing_instruction: "PROCESS_AS_COMPLETE",
     shard_number: 0,
     total_shards: 1,
-    nonce: stableHash(`${kind}:${merchant.id}:${generatedAt}`),
+    // A 64-bit integer in the proto; decimal text in JSON.
+    nonce: String(parseInt(stableHash(`${kind}:${merchant.id}:${generatedAt}`), 36)),
     generation_timestamp: seconds(generatedAt),
   });
   const file = (name: string, body: unknown): FeedFile => ({ name, contentType: "application/json", body: JSON.stringify(body) });

@@ -57,6 +57,12 @@ export function dailySalesVoucher(day: DailySales): Voucher {
   return { date: day.date, description: `Daily sales ${day.date}`, currency: day.currency, rows, reference: day.reference };
 }
 
+/** Description with the reference kept whole: the description is cut, never the reference. */
+export function describeVoucher(voucher: Pick<Voucher, "description" | "reference">, max = 200): string {
+  const suffix = ` [${voucher.reference}]`;
+  return `${voucher.description.slice(0, Math.max(0, max - suffix.length))}${suffix}`;
+}
+
 export function isBalanced(rows: VoucherRow[]): boolean {
   const debit = rows.reduce((sum, r) => sum + r.debitMinor, 0);
   const credit = rows.reduce((sum, r) => sum + r.creditMinor, 0);

@@ -41,8 +41,19 @@ describe("webhook endpoint", () => {
     expect((await handleWebhook(signed(body), "simulated", "b", registry(live), {})).status).toBe(404);
   });
 
-  it("refuses oversized bodies", async () => {
+  it("refuses oversized bodies, also streamed without Content-Length and counted in bytes", async () => {
     expect((await handleWebhook(signed("x".repeat(300 * 1024)), "stripe", "b", registry(live), {})).status).toBe(413);
+    let sent = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        sent += 1;
+        if (sent > 1000) controller.close();
+        else controller.enqueue(new TextEncoder().encode("ö".repeat(512)));
+      },
+    });
+    const request = new Request("https://salon.example/h", { method: "POST", body: stream, duplex: "half" } as RequestInit);
+    expect((await handleWebhook(request, "stripe", "b", registry(live), {})).status).toBe(413);
+    expect(sent).toBeLessThan(1000);
   });
 });
 

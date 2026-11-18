@@ -1,3 +1,4 @@
+import { readCapped } from "../../site/waitlist-server";
 import type { PortName } from "../core";
 import type { WebhookRequest } from "../ports/webhook";
 import { PROVIDERS } from "../providers";
@@ -32,10 +33,9 @@ export async function handleWebhook(request: Request, provider: string, business
   const resolution = await registry.resolve(definition.info.port, business);
   const adapter = resolution.adapter as { info: { provider: string }; verifyWebhook?: (webhook: WebhookRequest) => Promise<{ ok: boolean }> };
   if (!resolution.live || adapter.info.provider !== provider || !adapter.verifyWebhook) return notFound();
-  const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > MAX_BODY) return Response.json({ error: "Too large" }, { status: 413 });
-  const rawBody = await request.text();
-  if (rawBody.length > MAX_BODY) return Response.json({ error: "Too large" }, { status: 413 });
+  // Bytes are counted while streaming, so a body without Content-Length is never buffered past the cap.
+  const rawBody = await readCapped(request, MAX_BODY);
+  if (rawBody === "too-large") return Response.json({ error: "Too large" }, { status: 413 });
   const headers: Record<string, string> = {};
   request.headers.forEach((value, key) => { headers[key.toLowerCase()] = value; });
   const verified = await adapter.verifyWebhook({ url: publicUrl(request, env), method: request.method, headers, rawBody });

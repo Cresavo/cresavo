@@ -30,6 +30,7 @@ describe("Stripe payments", () => {
       cancel_url: "https://salon.example/cancel",
       client_reference_id: "b-123",
       "metadata[reference]": "b-123",
+      "payment_intent_data[metadata][reference]": "b-123",
       "line_items[0][quantity]": "1",
       "line_items[0][price_data][currency]": "sek",
       "line_items[0][price_data][unit_amount]": "49900",

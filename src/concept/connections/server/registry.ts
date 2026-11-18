@@ -11,15 +11,15 @@ import { envSecretStore, type SecretStore } from "./secrets";
 // model. Every path that is not explicitly live returns the simulated adapter,
 // and the reason says why, so a settings page can explain it.
 
-export type ResolutionReason = "public-demo" | "live-off" | "not-selected" | "unknown-provider" | "missing-secret" | "interface-only" | "live";
+export type ResolutionReason = "public-demo" | "live-off" | "not-selected" | "unknown-provider" | "missing-secret" | "missing-setting" | "interface-only" | "live";
 
 export interface Resolution<P extends PortName> {
   adapter: PortMap[P];
   live: boolean;
   reason: ResolutionReason;
-  /** The provider that was asked for, also when it fell back. */
+  /** The provider that was asked for, also when it fell back. Only a known provider id, never a raw setting. */
   selected?: string;
-  /** Names (never values) of secrets that are missing. */
+  /** Names (never values) of secrets or settings that are missing. */
   missing?: string[];
 }
 
@@ -41,11 +41,12 @@ export function createRegistry(options: RegistryOptions = {}) {
   async function resolve<P extends PortName>(port: P, business: string): Promise<Resolution<P>> {
     const config = configFor(business);
     const choice = config.ports[port];
-    const fallback = (reason: ResolutionReason, extra: Partial<Resolution<P>> = {}): Resolution<P> => ({ adapter: simulated[port], live: false, reason, ...(choice ? { selected: choice.provider } : {}), ...extra });
+    const definition = choice ? (providerDefinition(port, choice.provider) as ProviderDefinition<P> | undefined) : undefined;
+    // An unknown value is never echoed: it could be a credential pasted into the wrong variable.
+    const fallback = (reason: ResolutionReason, extra: Partial<Resolution<P>> = {}): Resolution<P> => ({ adapter: simulated[port], live: false, reason, ...(definition ? { selected: definition.info.provider } : {}), ...extra });
     if (config.publicDemo) return fallback("public-demo");
     if (!choice) return fallback("not-selected");
     if (!config.live) return fallback("live-off");
-    const definition = providerDefinition(port, choice.provider) as ProviderDefinition<P> | undefined;
     if (!definition) return fallback("unknown-provider");
     const values: Record<string, string> = {};
     const missing: string[] = [];
@@ -60,6 +61,8 @@ export function createRegistry(options: RegistryOptions = {}) {
     }
     if (missing.length) return fallback("missing-secret", { missing });
     const settings = Object.fromEntries(definition.settings.map((name) => [name, choice.settings[name]?.trim() || undefined]));
+    const missingSettings = definition.missingSettings?.(settings) ?? [];
+    if (missingSettings.length) return fallback("missing-setting", { missing: missingSettings });
     const adapter = definition.create({ secrets: values, settings, fetch: options.fetch ?? globalThis.fetch });
     const live = definition.info.kind === "live";
     return { adapter, live, reason: live ? "live" : "interface-only", selected: choice.provider };

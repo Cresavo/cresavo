@@ -38,6 +38,19 @@ describe("OAuth refresh", () => {
     expect(Object.fromEntries(new URLSearchParams(calls[0].body))).toEqual({ grant_type: "refresh_token", refresh_token: "SECRETrefreshtoken" });
   });
 
+  it("uses a rotated refresh token on the next refresh", async () => {
+    const { fetch, calls } = scriptedFetch(
+      { status: 200, body: { access_token: "SECRETaccess1", refresh_token: "SECRETrotated", expires_in: 1 } },
+      { status: 201, body: { Voucher: { VoucherNumber: 1, VoucherSeries: "A" } } },
+      { status: 200, body: { access_token: "SECRETaccess2", expires_in: 3600 } },
+      { status: 201, body: { Voucher: { VoucherNumber: 2, VoucherSeries: "A" } } },
+    );
+    const adapter = fortnoxAccounting({ oauth: oauth("https://apps.fortnox.se/oauth-v1/token", "basic"), fetch });
+    await adapter.postVoucher(voucher);
+    await adapter.postVoucher({ ...voucher, reference: "day-2" });
+    expect(new URLSearchParams(calls[2].body).get("refresh_token")).toBe("SECRETrotated");
+  });
+
   it("maps invalid_grant to unauthorized without calling the API", async () => {
     const { fetch, calls } = scriptedFetch({ status: 400, body: { error: "invalid_grant", error_description: "Token SECRETrefreshtoken expired" } });
     const result = await fortnoxAccounting({ oauth: oauth("https://apps.fortnox.se/oauth-v1/token", "basic"), fetch }).postVoucher(voucher);
@@ -65,6 +78,14 @@ describe("Fortnox vouchers", () => {
       },
     });
     expect(result).toMatchObject({ ok: true, value: { id: "A12", series: "A" } });
+  });
+
+  it("keeps the whole reference when a long description is cut", async () => {
+    const { fetch, calls } = scriptedFetch(token, { status: 201, body: { Voucher: { VoucherNumber: 1, VoucherSeries: "A" } } });
+    await fortnoxAccounting({ oauth: oauth("https://apps.fortnox.se/oauth-v1/token", "basic"), fetch }).postVoucher({ ...voucher, description: "x".repeat(300) });
+    const description = JSON.parse(calls[1].body).Voucher.Description;
+    expect(description).toHaveLength(200);
+    expect(description.endsWith(" [day-2026-11-16]")).toBe(true);
   });
 
   it("refuses unbalanced vouchers and other currencies before any request", async () => {
@@ -111,14 +132,16 @@ describe("Google Calendar", () => {
   const calendar = (fetch: typeof globalThis.fetch) => googleCalendar({ oauth: oauth("https://oauth2.googleapis.com/token", "body"), fetch });
   const event = { id: "b-123", title: "Haircut", start: "2026-11-18T09:00:00Z", end: "2026-11-18T09:45:00Z", timeZone: "Europe/Stockholm" };
 
-  it("inserts with a deterministic base32hex id and treats 409 duplicate as already done", async () => {
-    const { fetch, calls } = scriptedFetch(token, { status: 409, body: { error: { code: 409, message: "The requested identifier already exists.", errors: [{ reason: "duplicate" }] } } });
+  it("inserts with a deterministic base32hex id and updates the existing event on 409 duplicate", async () => {
+    const { fetch, calls } = scriptedFetch(token, { status: 409, body: { error: { code: 409, message: "The requested identifier already exists.", errors: [{ reason: "duplicate" }] } } }, { status: 200, body: { id: googleEventId("b-123") } });
     const result = await calendar(fetch).pushEvent("primary", event);
     expect(Object.fromEntries(new URLSearchParams(calls[0].body))).toMatchObject({ grant_type: "refresh_token", client_id: "client-1", client_secret: "SECRETclientsecret" });
     expect(calls[1].url).toBe("https://www.googleapis.com/calendar/v3/calendars/primary/events");
     const body = JSON.parse(calls[1].body);
     expect(body).toMatchObject({ id: googleEventId("b-123"), summary: "Haircut", start: { dateTime: event.start, timeZone: "Europe/Stockholm" }, extendedProperties: { private: { cresavoId: "b-123" } } });
     expect(body.id).toMatch(/^[0-9a-v]{5,1024}$/);
+    expect(calls[2]).toMatchObject({ method: "PUT", url: `https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId("b-123")}` });
+    expect(JSON.parse(calls[2].body)).toMatchObject({ start: { dateTime: event.start }, end: { dateTime: event.end } });
     expect(result).toMatchObject({ ok: true, value: { providerEventId: googleEventId("b-123") } });
   });
 
@@ -126,15 +149,31 @@ describe("Google Calendar", () => {
     const { fetch, calls } = scriptedFetch(
       token,
       { status: 200, body: { items: [{ id: "e1", status: "confirmed", start: { dateTime: "2026-11-18T10:00:00+01:00" }, end: { dateTime: "2026-11-18T11:00:00+01:00" } }], nextPageToken: "p2" } },
-      { status: 200, body: { items: [{ id: "e2", status: "cancelled" }, { id: "e3", transparency: "transparent", start: { dateTime: "2026-11-18T12:00:00Z" }, end: { dateTime: "2026-11-18T13:00:00Z" } }], nextSyncToken: "sync-2" } },
+      { status: 200, body: { timeZone: "Europe/Stockholm", items: [{ id: "e2", status: "cancelled" }, { id: "e3", transparency: "transparent", start: { dateTime: "2026-11-18T12:00:00Z" }, end: { dateTime: "2026-11-18T13:00:00Z" } }, { id: "e4", start: { date: "2026-11-19" }, end: { date: "2026-11-20" } }], nextSyncToken: "sync-2" } },
       { status: 410, body: { error: { code: 410, errors: [{ reason: "fullSyncRequired" }] } } },
     );
     const adapter = calendar(fetch);
     const pulled = await adapter.pullEvents({ calendarId: "primary", syncToken: "sync-1" });
-    expect(pulled).toMatchObject({ ok: true, value: { events: [{ providerEventId: "e1", start: "2026-11-18T09:00:00Z", end: "2026-11-18T10:00:00Z", cancelled: false }, { providerEventId: "e2", cancelled: true }], nextSyncToken: "sync-2", fullResyncRequired: false } });
+    expect(pulled).toMatchObject({ ok: true, value: { events: [{ providerEventId: "e1", start: "2026-11-18T09:00:00Z", end: "2026-11-18T10:00:00Z", cancelled: false }, { providerEventId: "e2", cancelled: true }, { providerEventId: "e3", cancelled: true }, { providerEventId: "e4", start: "2026-11-18T23:00:00Z", end: "2026-11-19T23:00:00Z", cancelled: false }], nextSyncToken: "sync-2", fullResyncRequired: false } });
     expect(new URL(calls[2].url).searchParams.get("pageToken")).toBe("p2");
     expect(new URL(calls[2].url).searchParams.get("syncToken")).toBe("sync-1");
     expect(await adapter.pullEvents({ calendarId: "primary", syncToken: "sync-2" })).toMatchObject({ ok: true, value: { fullResyncRequired: true } });
+  });
+
+  it("fails a pull whose body is unreadable instead of reporting a free calendar", async () => {
+    const { fetch } = scriptedFetch(token, { status: 200, body: "{\"items\": [" });
+    expect(await calendar(fetch).pullEvents({ calendarId: "primary", from: "2026-11-18T00:00:00Z", to: "2026-11-19T00:00:00Z" })).toMatchObject({ ok: false, error: { code: "unknown" } });
+  });
+
+  it("returns a page token instead of looping when there are more pages than one call reads", async () => {
+    const page = { status: 200, body: { items: [], nextPageToken: "more" } };
+    const { fetch } = scriptedFetch(token, ...Array.from({ length: 10 }, () => page));
+    expect(await calendar(fetch).pullEvents({ calendarId: "primary", from: "2026-11-18T00:00:00Z", to: "2026-11-19T00:00:00Z" })).toMatchObject({ ok: true, value: { nextPageToken: "more", fullResyncRequired: false } });
+  });
+
+  it("compares times as instants", async () => {
+    const { fetch } = scriptedFetch(token, { status: 200, body: { id: "x" } });
+    expect(await calendar(fetch).pushEvent("primary", { ...event, start: "2026-11-18T09:00:00Z", end: "2026-11-18T09:00:00.500Z" })).toMatchObject({ ok: true });
   });
 
   it("maps 403 rateLimitExceeded to rate_limited", async () => {
@@ -154,6 +193,12 @@ describe("Microsoft Graph calendar", () => {
     expect(JSON.parse(calls[1].body)).toMatchObject({ subject: "Haircut", start: { dateTime: "2026-11-18T09:00:00", timeZone: "UTC" }, end: { dateTime: "2026-11-18T09:45:00", timeZone: "UTC" } });
     expect(JSON.parse(calls[1].body).transactionId).toMatch(/^[0-9a-f]{36}$/);
     expect(result).toMatchObject({ ok: true, value: { providerEventId: "AAMkAG" } });
+  });
+
+  it("refuses to pull a secondary calendar instead of returning the primary one", async () => {
+    const { fetch, calls } = scriptedFetch(token);
+    expect(await calendar(fetch).pullEvents({ calendarId: "staff-erik", from: "2026-11-18T00:00:00Z", to: "2026-11-25T00:00:00Z" })).toMatchObject({ ok: false, error: { code: "not_supported" } });
+    expect(calls).toHaveLength(0);
   });
 
   it("follows delta links only back to Graph", async () => {
@@ -196,17 +241,25 @@ describe("Reserve with Google booking server", () => {
 describe("Meta publishing", () => {
   const TOKEN = "EAASECRETpageaccesstoken0123456789";
   const APP_SECRET = "SECRETappsecret";
-  const social = (fetch: typeof globalThis.fetch) => metaSocial({ pageAccessToken: TOKEN, appSecret: APP_SECRET, pageId: "1234567890", instagramUserId: "17841400000000000", fetch });
+  const social = (fetch: typeof globalThis.fetch) => metaSocial({ pageAccessToken: TOKEN, appSecret: APP_SECRET, pageId: "1234567890", instagramUserId: "17841400000000000", fetch, wait: async () => {} });
   const post = { caption: "Autumn offer", imageUrl: "https://salon.example/poster.jpg", reference: "c-1" };
 
-  it("publishes to Instagram in two steps with the token and proof in the body, never the URL", async () => {
-    const { fetch, calls } = scriptedFetch({ status: 200, body: { id: "container-1" } }, { status: 200, body: { id: "media-1" } });
+  it("publishes to Instagram once the container is ready, with the token never in a URL", async () => {
+    const { fetch, calls } = scriptedFetch({ status: 200, body: { id: "17900000000000001" } }, { status: 200, body: { status_code: "IN_PROGRESS" } }, { status: 200, body: { status_code: "FINISHED" } }, { status: 200, body: { id: "media-1" } });
     expect(await social(fetch).publish({ ...post, channel: "instagram" })).toMatchObject({ ok: true, value: { postId: "media-1" } });
-    expect(calls.map((c) => c.url)).toEqual(["https://graph.facebook.com/v27.0/17841400000000000/media", "https://graph.facebook.com/v27.0/17841400000000000/media_publish"]);
+    expect(calls.map((c) => new URL(c.url).pathname)).toEqual(["/v27.0/17841400000000000/media", "/v27.0/17900000000000001", "/v27.0/17900000000000001", "/v27.0/17841400000000000/media_publish"]);
+    expect(calls[1].headers.authorization).toBe(`Bearer ${TOKEN}`);
     const first = Object.fromEntries(new URLSearchParams(calls[0].body));
     expect(first).toEqual({ image_url: post.imageUrl, caption: post.caption, access_token: TOKEN, appsecret_proof: createHmac("sha256", APP_SECRET).update(TOKEN).digest("hex") });
-    expect(new URLSearchParams(calls[1].body).get("creation_id")).toBe("container-1");
+    expect(new URLSearchParams(calls[3].body).get("creation_id")).toBe("17900000000000001");
     expect(calls.every((c) => !c.url.includes(TOKEN))).toBe(true);
+  });
+
+  it("gives up on a container that never finishes, without marking it retryable", async () => {
+    const pending = { status: 200, body: { status_code: "IN_PROGRESS" } };
+    const { fetch, calls } = scriptedFetch({ status: 200, body: { id: "17900000000000001" } }, pending, pending, pending, pending, pending);
+    expect(await social(fetch).publish({ ...post, channel: "instagram" })).toMatchObject({ ok: false, error: { code: "provider_unavailable", providerCode: "IN_PROGRESS", retryable: false } });
+    expect(calls.some((c) => c.url.endsWith("/media_publish"))).toBe(false);
   });
 
   it("posts a Facebook Page photo", async () => {

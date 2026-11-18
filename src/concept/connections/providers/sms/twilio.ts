@@ -21,9 +21,15 @@ const STATUS: Record<string, DeliveryStatus> = { accepted: "queued", scheduled: 
 
 /** Twilio's request signature: HMAC-SHA1 over the URL plus every POST field name and value, sorted by name, base64. */
 export function twilioSignature(authToken: string, url: string, params: URLSearchParams): string {
-  const names = [...new Set(params.keys())].sort();
+  // One pass over the fields: getAll per name would rescan the body each time.
+  const grouped = new Map<string, string[]>();
+  for (const [name, value] of params) {
+    const values = grouped.get(name);
+    if (values) values.push(value);
+    else grouped.set(name, [value]);
+  }
   let data = url;
-  for (const name of names) for (const value of [...params.getAll(name)].sort()) data += name + value;
+  for (const name of [...grouped.keys()].sort()) for (const value of grouped.get(name)!.sort()) data += name + value;
   return hmac("sha1", authToken, data, "base64");
 }
 
@@ -42,7 +48,7 @@ export function twilioSms(options: { accountSid: string; authToken: string; from
         method: "POST",
         headers: { Authorization: basicAuth(options.accountSid, options.authToken), "Content-Type": "application/x-www-form-urlencoded" },
         body: form({ To: message.to, Body: message.body, From: options.messagingServiceSid && !message.from ? undefined : sender, MessagingServiceSid: message.from ? undefined : options.messagingServiceSid, StatusCallback: message.statusCallbackUrl }),
-      }, codeOf);
+      }, codeOf, { idempotent: false });
       if (!result.ok) return fail(result.error);
       const sid = text(field(result.data, "sid"));
       if (!sid) return fail(connectionError("sms", PROVIDER, "unknown"));
@@ -51,6 +57,7 @@ export function twilioSms(options: { accountSid: string; authToken: string; from
     },
     async verifyWebhook(webhook: WebhookRequest) {
       const signature = webhook.headers["x-twilio-signature"];
+      if (webhook.rawBody.length > 64 * 1024) return fail(connectionError("sms", PROVIDER, "invalid_input"));
       const params = new URLSearchParams(webhook.rawBody);
       if (!signature || webhook.method !== "POST" || !safeEqual(twilioSignature(options.authToken, webhook.url, params), signature)) {
         return fail(connectionError("sms", PROVIDER, "invalid_signature"));
@@ -66,6 +73,7 @@ export const definition: ProviderDefinition<"sms"> = {
   info: { port: "sms", provider: PROVIDER, kind: "live", capabilities: ["send", "alphanumeric-sender", "delivery-webhook"], secrets: ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"] },
   secrets: ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"],
   settings: ["TWILIO_FROM", "TWILIO_MESSAGING_SERVICE_SID"],
+  missingSettings: (s) => (s.TWILIO_FROM || s.TWILIO_MESSAGING_SERVICE_SID ? [] : ["TWILIO_FROM"]),
   create: ({ secrets, settings, fetch }) =>
     twilioSms({ accountSid: secrets.TWILIO_ACCOUNT_SID, authToken: secrets.TWILIO_AUTH_TOKEN, from: settings.TWILIO_FROM, messagingServiceSid: settings.TWILIO_MESSAGING_SERVICE_SID, fetch }),
 };

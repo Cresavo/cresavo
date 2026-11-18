@@ -22,6 +22,7 @@ export interface BusyEvent {
   providerEventId: string;
   start: UtcTimestamp;
   end: UtcTimestamp;
+  /** True when the time is free again: deleted, cancelled, or marked free/transparent. */
   cancelled: boolean;
   /** Our id when the event was pushed by us (so pulls do not double-block). */
   ownId?: string;
@@ -34,11 +35,15 @@ export interface PullInput {
   /** First pull: window start and end. */
   from?: UtcTimestamp;
   to?: UtcTimestamp;
+  /** Continue a pull that returned `nextPageToken`, with the same syncToken or window. */
+  pageToken?: string;
 }
 
 export interface PullResult {
   events: BusyEvent[];
   nextSyncToken?: string;
+  /** More pages remain: call again with this as `pageToken`. No sync token until the last page. */
+  nextPageToken?: string;
   /** The provider expired the cursor; pull again without it. */
   fullResyncRequired: boolean;
 }

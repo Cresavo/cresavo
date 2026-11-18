@@ -9,7 +9,7 @@
 // verify: no idempotency key for vouchers. Our reference goes into the description so a duplicate can be found and reversed.
 // verify: Fortnox rotates refresh tokens on every use; without a writable per-business store (goal 11) the new one is lost.
 import { connectionError, fail, majorString, ok } from "../../core";
-import { isBalanced, type AccountingPort } from "../../ports/accounting";
+import { describeVoucher as describe, isBalanced, type AccountingPort } from "../../ports/accounting";
 import { field, request, text, type Fetcher } from "../../server/http";
 import { accessToken, type OAuthClient } from "../../server/oauth";
 import type { ProviderDefinition } from "../definition";
@@ -24,7 +24,7 @@ export function fortnoxAccounting(options: { oauth: OAuthClient; series?: string
     info: definition.info,
     async postVoucher(voucher) {
       if (voucher.currency !== "SEK") return fail(connectionError("accounting", PROVIDER, "not_supported")); // Fortnox books in SEK.
-      if (!isBalanced(voucher.rows) || !/^\d{4}-\d{2}-\d{2}$/.test(voucher.date) || !voucher.reference || voucher.rows.some((r) => !/^\d{4}$/.test(r.account))) {
+      if (!isBalanced(voucher.rows) || !/^\d{4}-\d{2}-\d{2}$/.test(voucher.date) || !voucher.reference || voucher.rows.some((r) => !/^\d{4}$/.test(r.account)) || voucher.reference.length > 60) {
         return fail(connectionError("accounting", PROVIDER, "invalid_input"));
       }
       const token = await accessToken(options.oauth, "accounting", PROVIDER, options.fetch);
@@ -37,7 +37,7 @@ export function fortnoxAccounting(options: { oauth: OAuthClient; series?: string
           Voucher: {
             VoucherSeries: series,
             TransactionDate: voucher.date,
-            Description: `${voucher.description} [${voucher.reference}]`.slice(0, 200),
+            Description: describe(voucher),
             VoucherRows: voucher.rows.map((row) => ({
               Account: Number(row.account),
               Debit: Number(majorString({ amountMinor: row.debitMinor, currency: "SEK" })),
@@ -46,7 +46,7 @@ export function fortnoxAccounting(options: { oauth: OAuthClient; series?: string
             })),
           },
         }),
-      }, codeOf);
+      }, codeOf, { idempotent: false });
       if (!result.ok) return fail(result.error);
       const number = field(result.data, "Voucher", "VoucherNumber");
       const returned = text(field(result.data, "Voucher", "VoucherSeries")) ?? series;

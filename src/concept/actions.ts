@@ -344,7 +344,7 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
       const wasBooked = state.bookings.some((b) => b.id === action.id && b.status === "booked");
       const marked = { ...state, bookings: updateBy(state.bookings, action.id, (b) => ({ ...b, status: "cancelled" as const, cancelReason: action.reason })) };
       const cancelled = wasBooked ? trashBooking(marked, action.id) : marked;
-      if (action.notice && wasBooked) offerToWaitlist(state, action.id);
+      if (action.notice?.waitlistOffer && wasBooked && state.modules.waitlist) offerToWaitlist(state, action.id);
       return action.notice ? reduce(cancelled, { type: "inbox/add", item: action.notice }) : cancelled;
     }
     case "booking/create":

@@ -41,8 +41,10 @@ describe("shared contract helpers", () => {
   it("counts SMS segments for GSM and Unicode text", () => {
     expect(smsSegments("a".repeat(160))).toBe(1);
     expect(smsSegments("a".repeat(161))).toBe(2);
-    expect(smsSegments("🙂".repeat(70))).toBe(1);
-    expect(smsSegments("🙂".repeat(71))).toBe(2);
+    expect(smsSegments("ö".repeat(160))).toBe(1);
+    expect(smsSegments("ж".repeat(70))).toBe(1);
+    expect(smsSegments("🙂".repeat(35))).toBe(1); // two UTF-16 units each
+    expect(smsSegments("🙂".repeat(36))).toBe(2);
   });
 
   it("builds a balanced daily sales voucher and refuses an unbalanced one", () => {
@@ -90,8 +92,14 @@ describe("simulated adapters", () => {
     expect((await ports.accounting.postVoucher({ date: "2026-11-16", description: "Day", currency: "SEK", reference: "d", rows: [{ account: "1580", debitMinor: 100, creditMinor: 0 }, { account: "3001", debitMinor: 0, creditMinor: 100 }] })).ok).toBe(true);
     const pushed = await ports.calendar.pushEvent("primary", { id: "b-1", title: "Haircut", start: "2026-11-18T09:00:00Z", end: "2026-11-18T09:45:00Z", timeZone: "Europe/Stockholm" });
     expect(pushed.ok).toBe(true);
-    const pulled = await ports.calendar.pullEvents({ calendarId: "primary" });
+    const pulled = await ports.calendar.pullEvents({ calendarId: "primary", from: "2026-11-18T00:00:00Z", to: "2026-11-19T00:00:00Z" });
     expect(pulled.ok && pulled.value.events[0].ownId).toBe("b-1");
+    expect(await ports.calendar.pullEvents({ calendarId: "other", from: "2026-11-18T00:00:00Z", to: "2026-11-19T00:00:00Z" })).toMatchObject({ ok: true, value: { events: [] } });
+    expect(await ports.calendar.pullEvents({ calendarId: "primary", from: "2026-11-20T00:00:00Z", to: "2026-11-21T00:00:00Z" })).toMatchObject({ ok: true, value: { events: [] } });
+    if (pulled.ok) {
+      await ports.calendar.deleteEvent("primary", pulled.value.events[0].providerEventId);
+      expect(await ports.calendar.pullEvents({ calendarId: "primary", syncToken: pulled.value.nextSyncToken })).toMatchObject({ ok: true, value: { events: [{ cancelled: true }] } });
+    }
     expect((await ports.social.publish({ channel: "instagram", caption: "Autumn offer", imageUrl: "https://media.invalid/x.png", reference: "c-1" })).ok).toBe(true);
     expect((await ports.social.publish({ channel: "instagram", caption: "x", imageUrl: "http://plain.example/x.png", reference: "c-1" })).ok).toBe(false);
     expect((await ports.ads.createDraft({ name: "Autumn", objective: "traffic", dailyBudget: { amountMinor: 10000, currency: "SEK" }, start: "2026-11-18T00:00:00Z", end: "2026-11-25T00:00:00Z", country: "SE", radiusKm: 5, reference: "c-1" }))).toMatchObject({ ok: true, value: { state: "paused" } });
@@ -102,7 +110,19 @@ describe("simulated adapters", () => {
     }, "2026-11-18T00:00:00Z");
     expect(feeds.ok && feeds.value.map((f) => f.name)).toEqual(["merchant_2026-11-18.json", "service_2026-11-18.json", "availability_2026-11-18.json"]);
     if (feeds.ok) expect(JSON.parse(feeds.value[1].body).service[0].price).toEqual({ price_micros: "499000000", currency_code: "SEK" });
+    if (feeds.ok) expect(JSON.parse(feeds.value[0].body).metadata).toMatchObject({ processing_instruction: "PROCESS_AS_COMPLETE", nonce: expect.stringMatching(/^\d+$/), generation_timestamp: "1794960000" });
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("treats reuse of an idempotency key with other content as a conflict, like a live provider", async () => {
+    const sms = simulatedSms({ outbox: createOutbox() });
+    expect(sms.deliver({ to: "+46700000001", body: "A", idempotencyKey: "k" }).ok).toBe(true);
+    expect(sms.deliver({ to: "+46700000001", body: "A", idempotencyKey: "k" }).ok).toBe(true);
+    expect(sms.deliver({ to: "+46700000001", body: "B", idempotencyKey: "k" })).toMatchObject({ ok: false, error: { code: "conflict" } });
+    const payments = simulatedAdapters({ outbox: createOutbox() }).payments;
+    const input = { amount: { amountMinor: 100, currency: "SEK" }, description: "x", reference: "r", successUrl: "https://a.example", cancelUrl: "https://a.example", idempotencyKey: "pay" };
+    expect((await payments.createCheckout(input)).ok).toBe(true);
+    expect(await payments.createCheckout({ ...input, amount: { amountMinor: 200, currency: "SEK" } })).toMatchObject({ ok: false, error: { code: "conflict" } });
   });
 
   it("accepts recipient references only in simulation", () => {
@@ -125,12 +145,22 @@ describe("demo sends go through the ports", () => {
   });
 
   it("texts the waiting list when a cancellation offers the slot", () => {
-    const notice = { kind: "system" as const, date: today, time: 540, title: "t", body: "b", read: false, handled: true };
+    const notice = { kind: "system" as const, date: today, time: 540, title: "t", body: "b", read: false, handled: true, waitlistOffer: true };
     reduce({ ...state, modules: { ...state.modules, waitlist: true } }, { type: "booking/cancel", id: booking.id, reason: "other", notice });
     expect(demoOutbox.list("sms")).toEqual([expect.objectContaining({ to: "segment:waitlist", body: expect.stringContaining(state.salon.name) })]);
     demoOutbox.clear();
     reduce(state, { type: "booking/cancel", id: booking.id, reason: "other" });
+    // A customer's own cancellation carries a notice for the owner, not an offer: nobody is texted.
+    reduce({ ...state, modules: { ...state.modules, waitlist: true } }, { type: "booking/cancel", id: booking.id, reason: "other", notice: { ...notice, waitlistOffer: undefined } });
+    reduce({ ...state, modules: { ...state.modules, waitlist: false } }, { type: "booking/cancel", id: booking.id, reason: "other", notice });
     expect(demoOutbox.list()).toHaveLength(0);
+  });
+
+  it("records assistant-approved texts through the SMS port", () => {
+    const customer = state.customers[0];
+    const next = reduce(state, { type: "customers/message", texts: [{ customerId: customer.id, title: "Time suggestion", body: "Hi, a time is free on Friday." }], at });
+    expect(next.inbox[0]).toMatchObject({ customerId: customer.id, body: "Hi, a time is free on Friday." });
+    expect(demoOutbox.list("sms")).toEqual([expect.objectContaining({ to: `customer:${customer.id}`, body: "Hi, a time is free on Friday." })]);
   });
 
   it("posts a campaign that goes live today to each channel, and nothing for a planned one", () => {

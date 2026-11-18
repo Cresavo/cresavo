@@ -153,6 +153,8 @@ export const isCurrency = (value: string): boolean => ISO_CURRENCY.test(value);
 export const isCountry = (value: string): boolean => ISO_COUNTRY.test(value);
 export const isUtc = (value: string): boolean => UTC.test(value) && !Number.isNaN(Date.parse(value));
 export const isLanguageTag = (value: string): boolean => BCP47.test(value);
+/** True when UTC timestamp `a` is strictly before `b`, compared as instants (precision may differ). */
+export const isBefore = (a: string, b: string): boolean => Date.parse(a) < Date.parse(b);
 export const isMoney = (value: Money): boolean => Number.isSafeInteger(value.amountMinor) && value.amountMinor >= 0 && isCurrency(value.currency);
 export function isTimeZone(value: string): boolean {
   try {

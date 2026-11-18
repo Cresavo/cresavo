@@ -43,8 +43,9 @@ describe("Twilio SMS", () => {
     if (code === "rate_limited") expect(result).toMatchObject({ error: { retryAfterSeconds: 2, retryable: true } });
   });
 
-  it("maps timeouts and network failures", async () => {
-    expect(await sms(scriptedFetch(timeoutError()).fetch).send({ to: "+46700000001", body: "Hi" })).toMatchObject({ ok: false, error: { code: "timeout", retryable: true } });
+  it("maps timeouts and network failures, never retryable for a send that may have gone out", async () => {
+    expect(await sms(scriptedFetch(timeoutError()).fetch).send({ to: "+46700000001", body: "Hi" })).toMatchObject({ ok: false, error: { code: "timeout", retryable: false } });
+    expect(await sms(scriptedFetch({ status: 500, body: {} }).fetch).send({ to: "+46700000001", body: "Hi" })).toMatchObject({ ok: false, error: { code: "provider_unavailable", retryable: false } });
     expect(await sms(scriptedFetch(networkError()).fetch).send({ to: "+46700000001", body: "Hi" })).toMatchObject({ ok: false, error: { code: "network" } });
   });
 
@@ -52,6 +53,15 @@ describe("Twilio SMS", () => {
     // https://www.twilio.com/docs/usage/security#explore-the-algorithm-yourself
     const params = new URLSearchParams({ CallSid: "CA1234567890ABCDE", Caller: "+14158675310", Digits: "1234", From: "+14158675310", To: "+18005551212" });
     expect(twilioSignature("12345", "https://example.com/myapp.php?foo=1&bar=2", params)).toBe("L/OH5YylLD5NRKLltdqwSvS0BnU=");
+  });
+
+  it("signs repeated fields like Twilio's validator, in linear time", () => {
+    const params = new URLSearchParams("b=2&a=1&b=1");
+    expect(twilioSignature("k", "https://x.example/h", params)).toBe(createHmac("sha1", "k").update("https://x.example/ha1b1b2").digest("base64"));
+    const many = new URLSearchParams(Array.from({ length: 5000 }, (_, i) => [`f${i}`, "v"]));
+    const started = performance.now();
+    twilioSignature("k", "https://x.example/h", many);
+    expect(performance.now() - started).toBeLessThan(500);
   });
 
   it("verifies a status callback and rejects a tampered one", async () => {
@@ -82,13 +92,14 @@ describe("46elks SMS", () => {
     expect(await sms(fetch).send({ to: "+46700000001", body: "Hej" })).toMatchObject({ ok: false, error: { code: "forbidden", httpStatus: 403 } });
   });
 
-  it("accepts a delivery report only with the shared callback token", async () => {
+  it("accepts a delivery report only with the callback's Basic credentials, never a query token", async () => {
     const token = "tok0123456789abcdef";
     const adapter = sms(scriptedFetch().fetch, token);
-    const report = { method: "POST", headers: {}, rawBody: "id=s17a6dafb12d7&status=delivered&delivered=2026-11-18T09%3A00%3A00Z" };
-    expect(await adapter.verifyWebhook!({ ...report, url: `https://salon.example/hooks/46elks?token=${token}` })).toMatchObject({ ok: true, value: { status: "delivered" } });
-    expect(await adapter.verifyWebhook!({ ...report, url: "https://salon.example/hooks/46elks?token=guess" })).toMatchObject({ ok: false, error: { code: "invalid_signature" } });
-    expect(await sms(scriptedFetch().fetch).verifyWebhook!({ ...report, url: "https://salon.example/hooks/46elks" })).toMatchObject({ ok: false });
+    const report = { method: "POST", url: "https://salon.example/hooks/46elks", rawBody: "id=s17a6dafb12d7&status=delivered&delivered=2026-11-18T09%3A00%3A00Z" };
+    expect(await adapter.verifyWebhook!({ ...report, headers: { authorization: basic("46elks", token) } })).toMatchObject({ ok: true, value: { status: "delivered" } });
+    expect(await adapter.verifyWebhook!({ ...report, headers: { authorization: basic("46elks", "guess") } })).toMatchObject({ ok: false, error: { code: "invalid_signature" } });
+    expect(await adapter.verifyWebhook!({ ...report, url: `${report.url}?token=${token}`, headers: {} })).toMatchObject({ ok: false, error: { code: "invalid_signature" } });
+    expect(await sms(scriptedFetch().fetch).verifyWebhook!({ ...report, headers: { authorization: basic("46elks", token) } })).toMatchObject({ ok: false });
   });
 });
 
@@ -110,6 +121,8 @@ describe("Resend email", () => {
     expect(await email(scriptedFetch({ status: 429, body: { name: "rate_limit_exceeded" }, headers: { "retry-after": "1" } }).fetch).send(message)).toMatchObject({ ok: false, error: { code: "rate_limited", retryAfterSeconds: 1 } });
     expect(await email(scriptedFetch({ status: 409, body: { name: "invalid_idempotent_request" } }).fetch).send(message)).toMatchObject({ ok: false, error: { code: "conflict" } });
     expect(await email(scriptedFetch({ status: 422, body: { name: "validation_error" } }).fetch).send(message)).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+    expect(await email(scriptedFetch(timeoutError()).fetch).send(message)).toMatchObject({ ok: false, error: { code: "timeout", retryable: true } });
+    expect(await email(scriptedFetch(timeoutError()).fetch).send({ ...message, idempotencyKey: undefined })).toMatchObject({ ok: false, error: { code: "timeout", retryable: false } });
   });
 
   it("matches Svix's documented example signature", () => {
@@ -119,6 +132,14 @@ describe("Resend email", () => {
     expect(verifySvix("whsec_plJ3nmyCDGBKInavdOK15jsl", headers, body, 1731705121)).toBe(true);
     expect(verifySvix("whsec_plJ3nmyCDGBKInavdOK15jsl", headers, body, 1731705121 + 301)).toBe(false);
     expect(verifySvix("whsec_plJ3nmyCDGBKInavdOK15jsl", headers, body.replace("true", "false"), 1731705121)).toBe(false);
+  });
+
+  it("treats a suppressed message as failed", async () => {
+    const secret = "whsec_" + Buffer.from("invented-webhook-key").toString("base64");
+    const rawBody = JSON.stringify({ type: "email.suppressed", data: { email_id: "4ef9" } });
+    const signature = createHmac("sha256", Buffer.from("invented-webhook-key")).update(`msg_2.1800000000.${rawBody}`).digest("base64");
+    const headers = { "svix-id": "msg_2", "svix-timestamp": "1800000000", "svix-signature": `v1,${signature}` };
+    expect(await email(scriptedFetch().fetch, secret).verifyWebhook!({ url: "https://salon.example/h", method: "POST", headers, rawBody, nowSeconds: 1800000000 })).toMatchObject({ ok: true, value: { status: "failed" } });
   });
 
   it("parses a verified delivery event", async () => {

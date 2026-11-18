@@ -1,4 +1,4 @@
-import { connectionError, fail, isCountry, isE164, isEmail, isMoney, isRecipientRef, isTimeZone, isUtc, ok, stableHash, type Money, type PortName, type PortResult } from "../core";
+import { connectionError, fail, isBefore, isCountry, isE164, isEmail, isMoney, isRecipientRef, isTimeZone, isUtc, ok, stableHash, type Money, type PortName, type PortResult } from "../core";
 import { isBalanced } from "../ports/accounting";
 import type { AccountingPort } from "../ports/accounting";
 import type { AdsPort } from "../ports/ads";
@@ -20,6 +20,19 @@ const PROVIDER = "simulated";
 const invalid = (port: PortName) => fail(connectionError(port, PROVIDER, "invalid_input"));
 const idFor = (port: PortName, action: string, input: unknown) => `sim-${port}-${stableHash(`${action}:${JSON.stringify(input)}`)}`;
 const zero = (currency: string): Money => ({ amountMinor: 0, currency });
+
+/** Like the live providers: one idempotency key, one request. Reusing a key with other content is a conflict. */
+function keyGuard(port: PortName) {
+  const seen = new Map<string, string>();
+  return (key: string | undefined, fingerprint: unknown) => {
+    if (!key) return null;
+    const print = stableHash(JSON.stringify(fingerprint));
+    const known = seen.get(key);
+    if (known && known !== print) return fail<never>(connectionError(port, PROVIDER, "conflict"));
+    seen.set(key, print);
+    return null;
+  };
+}
 const isHttps = (value: string) => {
   try {
     return new URL(value).protocol === "https:";
@@ -44,8 +57,11 @@ export interface SimulatedEmail extends EmailPort {
 }
 
 export function simulatedSms({ outbox, currency = "EUR" }: SimulatedOptions): SimulatedSms {
+  const guard = keyGuard("sms");
   const deliver = (message: SmsMessage): PortResult<SmsReceipt> => {
     if (!(isE164(message.to) || isRecipientRef(message.to)) || !message.body.trim() || message.body.length > 1600) return invalid("sms");
+    const conflict = guard(message.idempotencyKey, [message.to, message.body]);
+    if (conflict) return conflict;
     const id = idFor("sms", "send", [message.to, message.body, message.reference, message.idempotencyKey]);
     const cost = zero(currency);
     outbox.record({ id, port: "sms", action: "send", to: message.to, body: message.body, reference: message.reference, cost });
@@ -59,9 +75,12 @@ export function simulatedSms({ outbox, currency = "EUR" }: SimulatedOptions): Si
 }
 
 export function simulatedEmail({ outbox, currency = "EUR" }: SimulatedOptions): SimulatedEmail {
+  const guard = keyGuard("email");
   const deliver = (message: EmailMessage): PortResult<EmailReceipt> => {
     const recipients = message.to.length > 0 && message.to.length <= 50 && message.to.every((to) => isEmail(to) || isRecipientRef(to));
     if (!recipients || !message.subject.trim() || !message.text.trim()) return invalid("email");
+    const conflict = guard(message.idempotencyKey, [message.to, message.subject, message.text]);
+    if (conflict) return conflict;
     const id = idFor("email", "send", [message.to, message.subject, message.text, message.idempotencyKey]);
     const cost = zero(currency);
     outbox.record({ id, port: "email", action: "send", to: message.to.join(", "), subject: message.subject, body: message.text, cost });
@@ -75,8 +94,11 @@ export function simulatedEmail({ outbox, currency = "EUR" }: SimulatedOptions): 
 }
 
 export function simulatedPayments({ outbox }: SimulatedOptions): PaymentsPort {
+  const guard = keyGuard("payments");
   const session = (action: string, input: { amount: Money; description: string; reference: string; idempotencyKey: string }) => {
     if (!isMoney(input.amount) || input.amount.amountMinor === 0 || !input.description.trim() || !input.reference || !input.idempotencyKey) return invalid("payments");
+    const conflict = guard(input.idempotencyKey, [action, input.amount, input.reference, input.description]);
+    if (conflict) return conflict;
     const id = idFor("payments", action, [input.amount, input.reference, input.idempotencyKey]);
     // A reserved .invalid host: the link can never resolve to a real payment page.
     outbox.record({ id, port: "payments", action, body: input.description, reference: input.reference, cost: input.amount });
@@ -88,6 +110,8 @@ export function simulatedPayments({ outbox }: SimulatedOptions): PaymentsPort {
     createPaymentLink: async (input) => session("payment-link", input),
     async refund(input) {
       if (!input.paymentId || !input.idempotencyKey || (input.amount && !isMoney(input.amount))) return invalid("payments");
+      const conflict = guard(input.idempotencyKey, ["refund", input.paymentId, input.amount]);
+      if (conflict) return conflict;
       const id = idFor("payments", "refund", [input.paymentId, input.amount, input.idempotencyKey]);
       outbox.record({ id, port: "payments", action: "refund", body: input.paymentId, cost: input.amount ?? null });
       return ok({ id, amount: input.amount ?? null, state: "succeeded" }, "simulated", null, id);
@@ -110,26 +134,42 @@ export function simulatedAccounting({ outbox }: SimulatedOptions): AccountingPor
 }
 
 export function simulatedCalendar({ outbox }: SimulatedOptions): CalendarPort {
-  const events = new Map<string, BusyEvent>();
+  // Per calendar: events plus a change counter, so a sync token returns only what changed since it.
+  const calendars = new Map<string, { version: number; events: Map<string, BusyEvent & { version: number }> }>();
+  const calendarOf = (id: string) => {
+    let calendar = calendars.get(id);
+    if (!calendar) calendars.set(id, (calendar = { version: 0, events: new Map() }));
+    return calendar;
+  };
   return {
     info: { port: "calendar", provider: PROVIDER, kind: "simulated", capabilities: ["push", "pull", "incremental-sync", "idempotency"], secrets: [] },
     async pushEvent(calendarId, event) {
-      if (!isUtc(event.start) || !isUtc(event.end) || event.end <= event.start || !isTimeZone(event.timeZone) || !event.id) return invalid("calendar");
+      if (!calendarId || !isUtc(event.start) || !isUtc(event.end) || !isBefore(event.start, event.end) || !isTimeZone(event.timeZone) || !event.id) return invalid("calendar");
+      const calendar = calendarOf(calendarId);
       const providerEventId = idFor("calendar", "event", [calendarId, event.id]);
-      events.set(providerEventId, { providerEventId, start: event.start, end: event.end, cancelled: false, ownId: event.id });
+      calendar.version += 1;
+      calendar.events.set(providerEventId, { providerEventId, start: event.start, end: event.end, cancelled: false, ownId: event.id, version: calendar.version });
       outbox.record({ id: idFor("calendar", "push", [calendarId, event]), port: "calendar", action: "push", body: event.title, reference: event.id, cost: null });
       return ok({ providerEventId }, "simulated", null, providerEventId);
     },
     async deleteEvent(calendarId, providerEventId) {
-      const event = events.get(providerEventId);
+      const calendar = calendarOf(calendarId);
+      const event = calendar.events.get(providerEventId);
       if (!event) return fail(connectionError("calendar", PROVIDER, "not_found"));
-      events.set(providerEventId, { ...event, cancelled: true });
-      outbox.record({ id: idFor("calendar", "delete", [calendarId, providerEventId]), port: "calendar", action: "delete", body: providerEventId, cost: null });
+      calendar.version += 1;
+      calendar.events.set(providerEventId, { ...event, cancelled: true, version: calendar.version });
+      outbox.record({ id: idFor("calendar", "delete", [calendarId, providerEventId, calendar.version]), port: "calendar", action: "delete", body: providerEventId, cost: null });
       return ok({ deleted: true }, "simulated");
     },
-    async pullEvents() {
-      const list = [...events.values()];
-      return ok({ events: list, nextSyncToken: `sim-${list.length}`, fullResyncRequired: false }, "simulated");
+    async pullEvents(input) {
+      const since = input.syncToken?.match(/^sim-(\d+)$/)?.[1];
+      if (input.syncToken && since === undefined) return ok({ events: [], fullResyncRequired: true }, "simulated");
+      if (!input.syncToken && (!input.from || !input.to || !isUtc(input.from) || !isUtc(input.to))) return invalid("calendar");
+      const calendar = calendarOf(input.calendarId);
+      const events = [...calendar.events.values()]
+        .filter((e) => (since !== undefined ? e.version > Number(since) : !e.cancelled && isBefore(e.start, input.to!) && isBefore(input.from!, e.end)))
+        .map((e): BusyEvent => ({ providerEventId: e.providerEventId, start: e.start, end: e.end, cancelled: e.cancelled, ...(e.ownId ? { ownId: e.ownId } : {}) }));
+      return ok({ events, nextSyncToken: `sim-${calendar.version}`, fullResyncRequired: false }, "simulated");
     },
   };
 }
@@ -163,7 +203,7 @@ export function simulatedAds({ outbox }: SimulatedOptions): AdsPort {
   return {
     info: { port: "ads", provider: PROVIDER, kind: "simulated", capabilities: ["campaign-draft"], secrets: [] },
     async createDraft(draft) {
-      if (!isMoney(draft.dailyBudget) || !isCountry(draft.country) || !isUtc(draft.start) || !isUtc(draft.end) || draft.end <= draft.start || !draft.name.trim()) return invalid("ads");
+      if (!isMoney(draft.dailyBudget) || !isCountry(draft.country) || !isUtc(draft.start) || !isUtc(draft.end) || !isBefore(draft.start, draft.end) || !draft.name.trim()) return invalid("ads");
       const id = idFor("ads", "draft", [draft.reference, draft.name, draft.dailyBudget]);
       outbox.record({ id, port: "ads", action: "draft", body: draft.name, reference: draft.reference, cost: null });
       return ok({ draftId: id, state: "paused" }, "simulated", null, id);

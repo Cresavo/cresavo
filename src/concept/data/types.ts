@@ -264,6 +264,8 @@ export interface InboxItem {
   reviewId?: string;
   /** Slot the reply can offer. */
   suggestion?: SlotSuggestion;
+  /** Set on the note for a freed slot that was offered to the waiting list. */
+  waitlistOffer?: boolean;
   /** Set on a simulated time suggestion sent from the due-back list. */
   recallServiceId?: string;
   /** Prefilled reply. */

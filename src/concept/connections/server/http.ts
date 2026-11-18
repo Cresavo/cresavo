@@ -15,6 +15,18 @@ export interface HttpContext {
   secrets?: readonly string[];
 }
 
+export interface RequestOptions {
+  /**
+   * False for a write the provider cannot de-duplicate (an SMS without an
+   * idempotency key). A timeout, dropped connection or 5xx may then have been
+   * carried out, so the error is not marked retryable: a retry could send twice.
+   */
+  idempotent?: boolean;
+}
+
+const failure = (error: ConnectionError, idempotent: boolean): HttpOutcome =>
+  ({ ok: false, error: idempotent || error.code === "rate_limited" ? error : { ...error, retryable: false } });
+
 export type HttpOutcome = { ok: true; status: number; data: unknown; headers: Headers } | { ok: false; error: ConnectionError };
 
 export function statusCode(status: number): ConnectionError["code"] {
@@ -38,8 +50,7 @@ export function retryAfter(headers: Headers): number | undefined {
   return Number.isNaN(date) ? undefined : Math.max(0, Math.min(Math.ceil((date - Date.now()) / 1000), 3600));
 }
 
-async function readBody(response: Response): Promise<unknown> {
-  const text = await response.text();
+function parse(text: string): unknown {
   if (!text) return null;
   try {
     return JSON.parse(text);
@@ -48,31 +59,36 @@ async function readBody(response: Response): Promise<unknown> {
   }
 }
 
+const transportCode = (error: unknown): ConnectionError["code"] => {
+  const name = (error as { name?: string })?.name;
+  return name === "TimeoutError" || name === "AbortError" ? "timeout" : "network";
+};
+
 export async function request(
   context: HttpContext,
   url: string,
   init: RequestInit,
   codeOf: (data: unknown, status: number) => { code?: ConnectionError["code"]; providerCode?: unknown } = () => ({}),
+  { idempotent = true }: RequestOptions = {},
 ): Promise<HttpOutcome> {
   let response: Response;
+  let body: string;
   try {
     response = await context.fetch(url, { ...init, redirect: "error", signal: AbortSignal.timeout(context.timeoutMs ?? 10_000) });
+    // A body that fails half way is a transport failure, never an empty success.
+    body = await response.text();
   } catch (error) {
-    const name = (error as { name?: string })?.name;
-    return { ok: false, error: connectionError(context.port, context.provider, name === "TimeoutError" || name === "AbortError" ? "timeout" : "network") };
+    return failure(connectionError(context.port, context.provider, transportCode(error)), idempotent);
   }
-  const data = await readBody(response).catch(() => null);
+  const data = parse(body);
   if (response.ok) return { ok: true, status: response.status, data, headers: response.headers };
   const mapped = codeOf(data, response.status);
-  return {
-    ok: false,
-    error: connectionError(context.port, context.provider, mapped.code ?? statusCode(response.status), {
-      httpStatus: response.status,
-      retryAfterSeconds: response.status === 429 || response.status === 503 ? retryAfter(response.headers) : undefined,
-      providerCode: mapped.providerCode,
-      secrets: context.secrets,
-    }),
-  };
+  return failure(connectionError(context.port, context.provider, mapped.code ?? statusCode(response.status), {
+    httpStatus: response.status,
+    retryAfterSeconds: response.status === 429 || response.status === 503 ? retryAfter(response.headers) : undefined,
+    providerCode: mapped.providerCode,
+    secrets: context.secrets,
+  }), idempotent);
 }
 
 export const form = (fields: Record<string, string | number | undefined>): string => {

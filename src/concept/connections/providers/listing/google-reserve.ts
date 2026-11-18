@@ -58,5 +58,6 @@ export const definition: ProviderDefinition<"listing"> = {
   info: { port: "listing", provider: PROVIDER, kind: "live", capabilities: ["feeds", "booking-server"], secrets: ["GOOGLE_RESERVE_BOOKING_PASSWORD"] },
   secrets: ["GOOGLE_RESERVE_BOOKING_PASSWORD"],
   settings: ["GOOGLE_RESERVE_BOOKING_USER"],
+  missingSettings: (s) => (s.GOOGLE_RESERVE_BOOKING_USER ? [] : ["GOOGLE_RESERVE_BOOKING_USER"]),
   create: ({ secrets, settings }) => googleReserve({ username: settings.GOOGLE_RESERVE_BOOKING_USER ?? "", password: secrets.GOOGLE_RESERVE_BOOKING_PASSWORD }),
 };

@@ -2,12 +2,14 @@
 // Sources (checked 2026-11):
 // - Insert: https://developers.google.com/workspace/calendar/api/v3/reference/events/insert
 // - Event resource and id rules: https://developers.google.com/workspace/calendar/api/v3/reference/events
+// - Update (PUT, used when the id already exists): https://developers.google.com/workspace/calendar/api/v3/reference/events/update
 // - Client-supplied ids and 409 duplicate: https://developers.google.com/workspace/calendar/api/guides/create-events
 // - List and sync tokens (410 Gone): https://developers.google.com/workspace/calendar/api/v3/reference/events/list, https://developers.google.com/workspace/calendar/api/guides/sync
 // - Errors and quotas (403/429 rateLimitExceeded): https://developers.google.com/workspace/calendar/api/guides/errors, https://developers.google.com/workspace/calendar/api/guides/quota
 // - OAuth token endpoint: https://developers.google.com/identity/protocols/oauth2/web-server#offline
 // Scope: https://www.googleapis.com/auth/calendar.events
-import { connectionError, fail, isTimeZone, isUtc, ok } from "../../core";
+import { DateTime } from "luxon";
+import { connectionError, fail, isBefore, isTimeZone, isUtc, ok } from "../../core";
 import type { BusyEvent, CalendarPort } from "../../ports/calendar";
 import { field, request, text, type Fetcher } from "../../server/http";
 import { accessToken, type OAuthClient } from "../../server/oauth";
@@ -30,6 +32,13 @@ const utc = (value: unknown) => {
   return Number.isNaN(ms) ? undefined : new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
 };
 
+/** An all-day boundary ("2026-11-18") is local midnight in the calendar's zone; Google's end date is exclusive. */
+const dayStart = (date: unknown, zone: string) => {
+  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return undefined;
+  const local = DateTime.fromISO(date, { zone });
+  return local.isValid ? local.toUTC().toISO({ suppressMilliseconds: true })! : undefined;
+};
+
 export function googleCalendar(options: { oauth: OAuthClient; fetch: Fetcher }): CalendarPort {
   const context = { port: "calendar" as const, provider: PROVIDER, fetch: options.fetch, secrets: [options.oauth.clientSecret, options.oauth.refreshToken] };
   const authed = async (url: string, init: RequestInit) => {
@@ -42,27 +51,25 @@ export function googleCalendar(options: { oauth: OAuthClient; fetch: Fetcher }):
   return {
     info: definition.info,
     async pushEvent(calendarId, event) {
-      if (!calendarId || !event.id || !isUtc(event.start) || !isUtc(event.end) || event.end <= event.start || !isTimeZone(event.timeZone) || !event.title.trim()) {
+      if (!calendarId || !event.id || !isUtc(event.start) || !isUtc(event.end) || !isBefore(event.start, event.end) || !isTimeZone(event.timeZone) || !event.title.trim()) {
         return fail(connectionError("calendar", PROVIDER, "invalid_input"));
       }
       const id = googleEventId(event.id);
-      const result = await authed(calendarPath(calendarId), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id,
-          summary: event.title,
-          ...(event.description ? { description: event.description } : {}),
-          ...(event.location ? { location: event.location } : {}),
-          start: { dateTime: event.start, timeZone: event.timeZone },
-          end: { dateTime: event.end, timeZone: event.timeZone },
-          extendedProperties: { private: { cresavoId: event.id } },
-        }),
-      });
-      // A retry of the same booking hits the same id: the event already exists.
-      if (!result.ok && result.error.code === "conflict") return ok({ providerEventId: id }, "delivered", null, id);
-      if (!result.ok) return fail(result.error);
-      return ok({ providerEventId: text(field(result.data, "id")) ?? id }, "delivered", null, id);
+      const fields = {
+        summary: event.title,
+        description: event.description ?? "",
+        location: event.location ?? "",
+        start: { dateTime: event.start, timeZone: event.timeZone },
+        end: { dateTime: event.end, timeZone: event.timeZone },
+        extendedProperties: { private: { cresavoId: event.id } },
+        status: "confirmed",
+      };
+      const result = await authed(calendarPath(calendarId), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...fields }) });
+      if (result.ok) return ok({ providerEventId: text(field(result.data, "id")) ?? id }, "delivered", null, id);
+      if (result.error.code !== "conflict") return fail(result.error);
+      // The booking's event already exists (a retry or a moved booking): bring it up to date.
+      const updated = await authed(`${calendarPath(calendarId)}/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) });
+      return updated.ok ? ok({ providerEventId: id }, "delivered", null, id) : fail(updated.error);
     },
     async deleteEvent(calendarId, providerEventId) {
       if (!/^[0-9a-v_]{5,1024}$/.test(providerEventId)) return fail(connectionError("calendar", PROVIDER, "invalid_input"));
@@ -73,7 +80,7 @@ export function googleCalendar(options: { oauth: OAuthClient; fetch: Fetcher }):
     async pullEvents(input) {
       if (!input.syncToken && (!input.from || !input.to || !isUtc(input.from) || !isUtc(input.to))) return fail(connectionError("calendar", PROVIDER, "invalid_input"));
       const events: BusyEvent[] = [];
-      let pageToken: string | undefined;
+      let pageToken = input.pageToken;
       for (let page = 0; page < MAX_PAGES; page++) {
         const query = new URLSearchParams({ singleEvents: "true", maxResults: "250" });
         if (input.syncToken) query.set("syncToken", input.syncToken);
@@ -86,12 +93,15 @@ export function googleCalendar(options: { oauth: OAuthClient; fetch: Fetcher }):
         if (!result.ok && result.error.httpStatus === 410) return ok({ events: [], fullResyncRequired: true }, "delivered");
         if (!result.ok) return fail(result.error);
         const items = field(result.data, "items");
-        for (const item of Array.isArray(items) ? items : []) {
+        if (!Array.isArray(items)) return fail(connectionError("calendar", PROVIDER, "unknown"));
+        const zone = text(field(result.data, "timeZone")) ?? "UTC";
+        for (const item of items) {
           const providerEventId = text(field(item, "id"));
-          if (!providerEventId || field(item, "transparency") === "transparent") continue;
-          const cancelled = field(item, "status") === "cancelled";
-          const start = utc(field(item, "start", "dateTime")) ?? utc(field(item, "start", "date"));
-          const end = utc(field(item, "end", "dateTime")) ?? utc(field(item, "end", "date"));
+          if (!providerEventId) continue;
+          // A cancelled or "free" (transparent) event no longer blocks time; report it so a stale block is removed.
+          const cancelled = field(item, "status") === "cancelled" || field(item, "transparency") === "transparent";
+          const start = utc(field(item, "start", "dateTime")) ?? dayStart(field(item, "start", "date"), zone);
+          const end = utc(field(item, "end", "dateTime")) ?? dayStart(field(item, "end", "date"), zone);
           if (!cancelled && (!start || !end)) continue;
           const ownId = text(field(item, "extendedProperties", "private", "cresavoId"));
           events.push({ providerEventId, start: start ?? "", end: end ?? "", cancelled, ...(ownId ? { ownId } : {}) });
@@ -100,8 +110,8 @@ export function googleCalendar(options: { oauth: OAuthClient; fetch: Fetcher }):
         const nextSyncToken = text(field(result.data, "nextSyncToken"));
         if (!pageToken) return ok({ events, ...(nextSyncToken ? { nextSyncToken } : {}), fullResyncRequired: false }, "delivered");
       }
-      // Too many pages for one call: keep what we have and ask for a fresh window rather than loop forever.
-      return ok({ events, fullResyncRequired: true }, "delivered");
+      // More pages than one call reads: hand back where to continue.
+      return ok({ events, nextPageToken: pageToken, fullResyncRequired: false }, "delivered");
     },
   };
 }

@@ -152,11 +152,26 @@ describe("registry", () => {
 
   it("stays simulated with the master switch off, an unknown provider or a missing secret, and names what is missing", async () => {
     expect(await registry({ CONCEPT_CONNECTIONS_LIVE: "0" }).registry.resolve("sms", "b")).toMatchObject({ live: false, reason: "live-off", selected: "twilio" });
-    expect(await registry({ CONCEPT_SMS_PROVIDER: "carrier-pigeon" }).registry.resolve("sms", "b")).toMatchObject({ live: false, reason: "unknown-provider" });
+    const unknown = await registry({ CONCEPT_SMS_PROVIDER: "sk_live_pastedintowrongvariable" }).registry.resolve("sms", "b");
+    expect(unknown).toMatchObject({ live: false, reason: "unknown-provider" });
+    expect(unknown).not.toHaveProperty("selected");
+    expect(await registry({ TWILIO_FROM: "" }).registry.resolve("sms", "b")).toMatchObject({ live: false, reason: "missing-setting", missing: ["TWILIO_FROM"] });
     const partial = Object.fromEntries(Object.entries(SECRETS).filter(([name]) => name !== "TWILIO_AUTH_TOKEN"));
     const missing = await registry({}, partial).registry.resolve("sms", "b");
     expect(missing).toMatchObject({ live: false, reason: "missing-secret", missing: ["TWILIO_AUTH_TOKEN"] });
     assertClean("resolution", { ...missing, adapter: missing.adapter.info });
+  });
+
+  it("a public-demo build stays simulated even when runtime settings say otherwise", async () => {
+    vi.resetModules();
+    vi.stubEnv("NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO", "1");
+    try {
+      const config = await import("@/concept/connections/server/config");
+      expect(config.configFromEnv({ ...env, PUBLIC_READONLY: "0", NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO: "0" }).publicDemo).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
   });
 
   it("an interface-only provider can never send", async () => {

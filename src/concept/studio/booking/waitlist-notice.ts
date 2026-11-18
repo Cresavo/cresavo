@@ -18,5 +18,6 @@ export function waitlistNotice(booking: Booking, count: number, now: { today: st
     body: tc("cancel.offerBody", count, { day: formatDayLong(booking.date), time: formatTime(booking.start) }),
     read: false,
     handled: true,
+    waitlistOffer: true,
   };
 }
