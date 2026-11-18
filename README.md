@@ -3,8 +3,8 @@
 **More time. On your terms.**
 
 [![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
-[![Verify POC](https://github.com/niclasvestlund-YT/booking-lab-se/actions/workflows/verify.yml/badge.svg)](https://github.com/niclasvestlund-YT/booking-lab-se/actions/workflows/verify.yml)
-[![Secret scan](https://github.com/niclasvestlund-YT/booking-lab-se/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/niclasvestlund-YT/booking-lab-se/actions/workflows/secret-scan.yml)
+[![Verify POC](https://github.com/Cresavo/cresavo/actions/workflows/verify.yml/badge.svg)](https://github.com/Cresavo/cresavo/actions/workflows/verify.yml)
+[![Secret scan](https://github.com/Cresavo/cresavo/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/Cresavo/cresavo/actions/workflows/secret-scan.yml)
 
 Cresavo is a calm, open-source booking and business workspace for small
 service businesses, starting with salons and clinics. Your calendar, your
@@ -56,7 +56,7 @@ with plain buttons and no AI at all.
 Requires Node.js 22.12+ (or 24+).
 
 ```bash
-git clone https://github.com/niclasvestlund-YT/booking-lab-se.git cresavo
+git clone https://github.com/Cresavo/cresavo.git cresavo
 cd cresavo
 npm run demo        # installs dependencies and opens the studio
 ```

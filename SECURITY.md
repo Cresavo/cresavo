@@ -5,7 +5,7 @@
 Please report vulnerabilities **privately** through GitHub Security
 Advisories (private vulnerability reporting): go to the repository's
 **Security** tab, choose **Report a vulnerability**, or open
-<https://github.com/niclasvestlund-YT/booking-lab-se/security/advisories/new>.
+<https://github.com/Cresavo/cresavo/security/advisories/new>.
 The report starts privately on GitHub: you, the people with the relevant
 permissions on this repository and anyone invited to the advisory can see it,
 and we can discuss and fix it there before anything is public. Include only
