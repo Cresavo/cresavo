@@ -33,6 +33,7 @@ Lokal prototyp med syntetiska data. Ingen produktionsdrift, ingen kundpilot.
 3. Inloggning för ägare och personal med återställning och MFA.
 4. Drift: deploy, backup, övervakning, säkerhetsgranskning.
 5. Påminnelser via sms/mejl, import från andra bokningssystem, betalning.
+   (Connections foundation in place, simulated by default; live adapters behind a flag: `docs/integrations/README.md`.)
 6. Tidszon och valuta per verksamhet (idag fast `Europe/Stockholm` och SEK).
 
 ## Regler som gäller tills vidare

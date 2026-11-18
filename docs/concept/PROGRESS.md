@@ -1,5 +1,15 @@
 # Progress · AI-native demo
 
+## 2026-11-18 · Claude Code (Opus) · goal 28: connections foundation
+
+**Done**: ports, shared contract, simulated adapters with an outbox, registry and env secret store in `src/concept/connections/`; the demo's sends routed through the simulated ports with unchanged UI; live adapters behind a flag (Twilio, 46elks, Resend, Postmark, Stripe, Fortnox, Visma, Google Calendar, Microsoft Graph, Reserve with Google, Meta); SMTP, Bokio and Meta ads drafts interface only; `GET /api/concept/connections` and a webhook verification route. Guide and status table: [integrations](../integrations/README.md).
+
+**Try it**: nothing new to click; `GET /api/concept/connections` shows every port simulated.
+
+**Tests**: `concept-connections-*` (contract tests with a scripted fetch, Twilio and Svix published signature vectors, a shared key-leak test over every adapter's outputs and logs).
+
+**Not done / notes**: no adapter has run against a real account. Event handling after webhook verification, the Reserve booking-server routes, the per-business encrypted secret store (goal 11) and the Connections settings page come later. The demo has no receipts yet, so none are routed.
+
 ## 2026-11-17 · Claude Code (Opus) · goal 18: Libovo brand v0.9
 
 **Done**
