@@ -19,7 +19,7 @@ connectors. Cresavo is open source and there’s a long way to go.
 If you run a salon or work in development, design or payments, I’d love
 your help. What would you want to connect to a booking system first?
 
-You can [try the early concept demo](https://demo.cresavo.com) with fictional data.
+You can [try the early concept demo](https://demo.cresavo.com/studio) with fictional data.
 Use Ideas for suggestions and Q&A if you're stuck. For a reproducible bug,
 [open an issue](https://github.com/Cresavo/cresavo/issues/new/choose). Please
 keep examples fictional and [report vulnerabilities privately](https://github.com/Cresavo/cresavo/security).

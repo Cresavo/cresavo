@@ -1,97 +1,86 @@
-import { useState } from "react";
-import { ArrowRight, Camera, Check, Globe, MessagesSquare, Phone, Repeat2, Undo2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, CalendarDays, Camera, Check, CheckCheck, Globe, Inbox, MessageCircle, Pause, PhoneCall, Play, Sparkles } from "lucide-react";
 import { channelExamples, site } from "./en";
+import e from "./editorial.module.css";
 import m from "./channel-map.module.css";
 
-const icons = [MessagesSquare, Camera, Phone, Globe, Repeat2];
-
-function ChannelWires({ selected }: { selected: number }) {
-  return (
-    <>
-      <svg className={m.wires} viewBox="0 0 100 250" preserveAspectRatio="none" aria-hidden="true">
-        {channelExamples.map(({ name }, index) => {
-          const y = 25 + index * 50;
-          return <path key={name} data-active={index === selected}
-            d={`M0 ${y} C55 ${y} 40 125 90 125 H100`} vectorEffect="non-scaling-stroke" />;
-        })}
-      </svg>
-      <svg className={m.mobileWires} viewBox="0 0 250 28" preserveAspectRatio="none" aria-hidden="true">
-        {channelExamples.map(({ name }, index) => {
-          const x = 25 + index * 50;
-          return <path key={name} data-active={index === selected}
-            d={`M${x} 0 C${x} 18 125 9 125 28`} vectorEffect="non-scaling-stroke" />;
-        })}
-      </svg>
-    </>
-  );
-}
+const icons = [MessageCircle, Camera, PhoneCall, Globe, Sparkles];
+type Mode = "auto" | "review" | "booked";
 
 export function ChannelMap() {
+  const board = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
   const [selected, select] = useState(0);
   const [assistant, setAssistant] = useState(false);
-  const [replies, setReplies] = useState<Partial<Record<number, string>>>({});
-  const [sent, setSent] = useState<Partial<Record<number, string>>>({});
+  const [mode, setMode] = useState<Mode>("auto");
+  const [paused, setPaused] = useState(false);
   const channel = channelExamples[selected];
-  const reply = replies[selected] ?? "";
-  const sentReply = sent[selected];
-  const outgoing = assistant ? channel.draft : reply.trim();
+  const Icon = icons[selected];
+  useEffect(() => {
+    if (!board.current || !("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting));
+    observer.observe(board.current);
+    return () => observer.disconnect();
+  }, []);
 
+  function takeOver(index: number) {
+    select(index);
+    setMode("review");
+  }
+
+  const stopped = paused || mode !== "auto";
   return (
-    <section data-reveal id="channel-map" className={m.section} aria-labelledby="map-title">
-      <div className={m.intro}><h2 id="map-title">{site["map.heading"]}</h2><p>{site["map.intro"]}</p></div>
-      <div className={m.map}>
-        <div className={m.bar}>
-          <span>{site["mini.salon"]} <i aria-hidden>/</i> {site["map.nav"]}</span>
-          <small>{site["map.preview"]}</small>
+    <section id="channel-map" className={m.section} aria-labelledby="map-title">
+      <div className={e.intro}><h2 id="map-title" className={e.display}>{site["map.heading"]}</h2><p>{site["map.intro"]}</p></div>
+      <div ref={board} className={m.board} data-mode={mode} data-running={visible && !paused}>
+        <div className={m.toolbar}>
+          <div className={m.channels} role="group" aria-label={site["map.incoming"]}>
+            {channelExamples.map(({ name }, i) => {
+              const ChannelIcon = icons[i];
+              return <button key={name} aria-pressed={selected === i} onClick={() => takeOver(i)}>
+                <ChannelIcon size={15} aria-hidden />{name}{"comingSoon" in channelExamples[i] && <small>{site["map.soon"]}</small>}
+              </button>;
+            })}
+          </div>
+          <button className={m.play} aria-label={site[stopped ? "map.play" : "map.pause"]} onClick={() => {
+            setPaused(!stopped);
+            setMode("auto");
+          }}>{stopped ? <Play size={15} /> : <Pause size={15} />}</button>
         </div>
-        <div className={m.flow}>
-          <div className={m.inputs} role="group" aria-label={site["map.incoming"]}>
-            <small className={m.inputLabel}>{site["map.incoming"]}</small>
-            <div className={m.channelList}>
-              {channelExamples.map(({ name }, index) => {
-                const Icon = icons[index];
-                return <button key={name} type="button" aria-pressed={index === selected} onClick={() => select(index)}>
-                  <Icon size={16} strokeWidth={1.65} aria-hidden />{name}
-                </button>;
-              })}
+        <div className={m.sequence} key={channel.name}>
+          <div className={m.scene}>
+            <h3><Icon size={18} aria-hidden />{channel.source}</h3>
+            <div className={m.origin} data-channel={selected}>
+              <span className={m.source}><i><Icon size={16} aria-hidden /></i>{channel.name}</span>
+              <p>{channel.request}</p>
             </div>
           </div>
-          <ChannelWires selected={selected} />
-          <div className={m.inbox}>
-            <div className={m.inboxHead}>
-              <strong>{site["map.inbox"]}</strong>
-              <button type="button" role="switch" aria-checked={assistant} aria-label={site["map.assistant"]}
-                onClick={() => setAssistant(!assistant)}>
-                {site["map.assistant"]}: {site[assistant ? "map.on" : "map.off"]}<span aria-hidden />
-              </button>
-            </div>
-            <div className={m.message}>
-              <small>{"comingSoon" in channel ? site["map.agentRequest"] : `${channel.name} ${site["map.request"]}`}</small>
-              <blockquote key={channel.name}>“{channel.request}”</blockquote>
-              {sentReply ? <div className={m.composer}>
-                <small>{site["map.sent"]}</small><p>{sentReply}</p>
-                <button className={m.action} onClick={() => setSent({ ...sent, [selected]: "" })}>{site["map.undo"]}<Undo2 size={15} aria-hidden /></button>
-              </div> : <div className={m.composer}>
-                {assistant ? <><small>{site["map.draft"]}</small><p>“{channel.draft}”</p></> :
-                  <label><small>{site["map.reply"]}</small>
-                    <textarea rows={2} value={reply} placeholder={site["map.placeholder"]}
-                      onChange={event => setReplies({ ...replies, [selected]: event.target.value })} />
-                  </label>}
-                <button className={m.action} disabled={!outgoing} onClick={() => setSent({ ...sent, [selected]: outgoing })}>
-                  {site[assistant ? "map.approve" : "map.send"]}<ArrowRight size={16} aria-hidden />
-                </button>
-              </div>}
+          <ArrowRight className={m.arrow} size={20} aria-hidden />
+          <div className={m.scene}>
+            <h3><Inbox size={18} aria-hidden />{site["map.inbox"]}</h3>
+            <div className={m.thread}>
+              <div className={m.settings}><button role="switch" aria-checked={assistant} onClick={() => {
+                setAssistant(!assistant);
+                takeOver(selected);
+              }}>{site["map.assistant"]}<i aria-hidden /></button></div>
+              <div className={m.received}><Icon size={13} aria-hidden />{channel.request}</div>
+              <div className={m.reply}><small>{site[assistant ? "map.draft" : "map.reply"]}</small><span>{channel.reply}</span></div>
+              <button className={m.book} onClick={() => setMode("booked")}>{site["map.book"]}<Check size={14} aria-hidden /></button>
             </div>
           </div>
-          <div className={m.arrow} aria-hidden><ArrowRight size={20} /></div>
-          <div className={m.slot} data-booked={!!sentReply} aria-live="polite" aria-atomic="true">
-            <strong>{site["hero.calendar"]}</strong>
-            <div><small>{channel.day}</small><time>{channel.time}</time><span>{channel.service}</span></div>
-            <p className={m.slotStatus}>{sentReply && <Check size={15} aria-hidden />}{site[sentReply ? "map.booked" : "map.proposed"]}</p>
+          <ArrowRight className={m.arrow} size={20} aria-hidden />
+          <div className={m.scene}>
+            <h3><CalendarDays size={18} aria-hidden />{site["hero.calendar"]}</h3>
+            <div className={m.diary}>
+              <div className={m.day}>{channel.day}</div>
+              <div className={m.slot}><div><time>{channel.time}</time><b><Check size={12} aria-hidden />{site["map.booked"]}</b></div><span>{channel.service}</span></div>
+            </div>
+            <div className={m.receipt} aria-live={mode === "auto" ? "off" : "polite"}><CheckCheck size={19} aria-hidden /><div><small>{site["map.confirmed"]}</small><span>{site["map.confirmationText"]} {channel.time}.</span></div></div>
           </div>
+          <span className={m.clock} aria-hidden onAnimationEnd={() => select((selected + 1) % channelExamples.length)} />
         </div>
+        <ol className={m.steps}>{(["arrive", "respond", "finish"] as const).map(step => <li key={step}>{site[`map.${step}`]}</li>)}</ol>
       </div>
-      <p className={m.footnote}>{site["map.agentSoon"]}</p>
     </section>
   );
 }

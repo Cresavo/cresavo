@@ -7,11 +7,10 @@ Play two roles at once:
 How to drive the app: write Node ESM Playwright scripts in the folder qa-codex/ (this folder only) and run them with `node qa-codex/<name>.mjs`. Use `import { chromium } from "playwright"` and ALWAYS launch like this (the bundled browser version is missing, use this binary, and map the hosts):
   chromium.launch({ executablePath: "/opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell", args: ["--host-resolver-rules=MAP cresavo.com 127.0.0.1:3100, MAP *.cresavo.com 127.0.0.1:3100"] })
 Then use these addresses (plain http):
-  - http://demo.cresavo.com/            the demo landing (start here as the owner would)
+  - http://cresavo.com/                 the product page (start here as the owner would)
   - http://demo.cresavo.com/studio      the owner's studio (also /studio/calendar, /studio/customers, /studio/inbox, /studio/more, ...)
   - http://demo.cresavo.com/boka/salong-eko   the salon's public booking page (customer view)
   - http://salong-eko.cresavo.com/      the same booking page on the salon's own subdomain
-  - http://cresavo.com/                 the product's coming-soon page
 Use browser contexts with deviceScaleFactor: 1, locale "en-GB", timezoneId "Europe/Stockholm"; viewports 390x844 and 1280x900; also try colorScheme "dark". Save screenshots to qa-codex/shots/ with descriptive file names (e.g. F03-calendar-overflow-390.png). Look at your screenshots (they are PNG files; inspect them) — visual problems count.
 
 Do not contact any host except these local ones. Do not install packages. Spend roughly 45-60 minutes of effort, then stop.

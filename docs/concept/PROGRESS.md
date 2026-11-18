@@ -2,6 +2,11 @@
 
 The [30-day launch plan](../LAUNCH_PLAN.md) gives the owner a schedule for sharing
 the fictional salon demo, gathering feedback and welcoming contributors.
+
+## 2026-11-18 · One product page
+
+The product site leads straight to the studio. Visitors can follow a fictional request through the inbox to a calendar entry and customer confirmation, see which connections work today, and try a booking or watch a workflow in the tour.
+
 ## 2026-11-18 · Public site v5
 
 Both public pages pair generated Salong Eko photographs with fresh captures of Today, Calendar, customer booking and an assistant proposal awaiting approval. The founder story and six-connection diagram replace the longer product essays.

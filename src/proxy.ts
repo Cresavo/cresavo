@@ -7,11 +7,16 @@ import { isProductHome, routeHost, UNKNOWN_PATH } from "./concept/page/resolve";
 
 /**
  * One deployment, several addresses: the product domain shows the coming-soon page, its demo
- * subdomain the demo landing, a business's own address (subdomain or own domain) its booking
+ * subdomain the studio, a business's own address (subdomain or own domain) its booking
  * page, and an address that leads nowhere the friendly page.
  */
 function hostResponse(request: NextRequest, host: string | null | undefined) {
   const route = routeHost(host, request.nextUrl.pathname, undefined, undefined, process.env.LEGACY_HOME === "1");
+  if (route.action === "redirect") {
+    // routeHost only redirects a recognized demo host. Keep its public authority behind a proxy.
+    const url = new URL(route.path + request.nextUrl.search, `${request.nextUrl.protocol}//${host}`);
+    return NextResponse.redirect(url);
+  }
   const requestHeaders = new Headers(request.headers);
   requestHeaders.delete("x-concept-address");
   requestHeaders.delete("x-concept-english");

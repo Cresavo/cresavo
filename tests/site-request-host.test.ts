@@ -14,7 +14,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllEnvs());
 
-const publicLinks = { apex: "https://cresavo.com/", demo: "https://demo.cresavo.com/" };
+const publicLinks = { apex: "https://cresavo.com/", demo: "https://demo.cresavo.com/studio" };
 const internalHost = { host: "localhost:3100" };
 
 function siteProps(headers: Record<string, string>) {
@@ -33,9 +33,14 @@ it("uses the configured links and allows the rewritten coming-soon page to be in
   expect(routed("/coming-soon", { host: "cresavo-preview.vercel.app" }).get("X-Robots-Tag")).toBe("noindex, nofollow");
 });
 
+it("keeps local development in the same studio even with a product domain configured", async () => {
+  vi.stubEnv("NODE_ENV", "development");
+  await expect(siteProps(internalHost)).resolves.toMatchObject({ props: { links: { demo: "/studio" } } });
+});
+
 it("keeps same-deployment links on a preview deployment", async () => {
   await expect(siteProps({ host: "cresavo-preview.vercel.app" })).resolves
-    .toMatchObject({ props: { links: { apex: "/coming-soon", demo: "/" } } });
+    .toMatchObject({ props: { links: { apex: "/coming-soon", demo: "/studio" } } });
 });
 
 it("prefers Vercel's forwarded host for links and host routing", async () => {
@@ -47,13 +52,13 @@ it("prefers Vercel's forwarded host for links and host routing", async () => {
   await expect(siteProps(demo)).resolves.toMatchObject({ props: { links: publicLinks } });
   expect(routed("/", apex).get("x-middleware-rewrite")).toBe("http://localhost:3100/coming-soon");
   expect(routed("/", apex).get("X-Robots-Tag")).toBeNull();
-  expect(routed("/", demo).get("x-middleware-rewrite")).toBe("http://localhost:3100/landing");
+  expect(routed("/?from=home", demo).get("location")).toBe("http://demo.cresavo.com/studio?from=home");
   expect(routed("/", demo).get("X-Robots-Tag")).toBe("noindex, nofollow");
   expect(routed("/", { ...internalHost, "x-forwarded-host": "cresavo.com, demo.cresavo.com" }).get("X-Robots-Tag")).toBe("noindex, nofollow");
 
   vi.stubEnv("NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN", undefined);
   await expect(siteProps({ ...internalHost, "x-forwarded-host": "demo.book.example" })).resolves
-    .toMatchObject({ props: { links: { apex: "https://book.example/", demo: "https://demo.book.example/" } } });
+    .toMatchObject({ props: { links: { apex: "https://book.example/", demo: "https://demo.book.example/studio" } } });
 });
 
 it("requires the socket server's verified forwarding in local mode", async () => {
@@ -68,6 +73,6 @@ it("requires the socket server's verified forwarding in local mode", async () =>
 it("keeps links local when a product domain is unset and forwarding is untrusted", async () => {
   vi.stubEnv("NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN", undefined);
   const headers = { ...internalHost, "x-forwarded-host": "book.example", "x-booking-forwarded-host": "book.example" };
-  await expect(siteProps(headers)).resolves.toMatchObject({ props: { links: { apex: "/coming-soon", demo: "/" } } });
+  await expect(siteProps(headers)).resolves.toMatchObject({ props: { links: { apex: "/coming-soon", demo: "/studio" } } });
   expect(routed("/", headers).get("X-Robots-Tag")).toBe("noindex, nofollow");
 });

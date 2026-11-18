@@ -25,5 +25,5 @@ konto. Jag har långt kvar och tar gärna emot hjälp från dig som driver
 salong eller jobbar med utveckling, design eller betalningar. Vad skulle
 du helst vilja koppla ihop ditt bokningssystem med?
 
-https://demo.cresavo.com
+https://demo.cresavo.com/studio
 

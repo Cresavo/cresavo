@@ -25,7 +25,7 @@ without an account. I’m a long way from done. If you run a salon or work in
 development, design or payments, I’d love your help. What would you want
 your booking system to connect to first?
 
-https://demo.cresavo.com
+https://demo.cresavo.com/studio
 
 More time. On your terms.
 

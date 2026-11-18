@@ -5,8 +5,7 @@ Cresavo is a concept demo (0.x) for salons and other small service businesses.
 ## Available today
 
 - The [launch plan](LAUNCH_PLAN.md) and [post drafts](launch/) cover feedback on the public concept demo and contributor onboarding. GitHub community setup and posting are owner steps.
-- [demo.cresavo.com](https://demo.cresavo.com) opens the demo landing page,
-  owner studio and Salong Eko customer booking page. The studio includes the
+- [demo.cresavo.com](https://demo.cresavo.com) opens the owner studio directly. Salong Eko’s customer booking page stays at /boka/salong-eko. The studio includes the
   Assistant, campaigns, stock and purchasing, finance and configurable modules.
   The demo uses fictional fixtures and browser state. The Assistant works
   without an AI key.
@@ -24,10 +23,7 @@ Cresavo is a concept demo (0.x) for salons and other small service businesses.
   flows, same-origin tab synchronization, assistant lookups and host feedback.
   Booking undo checks availability, and the customer time picker shows salon
   contacts when no days are open. The QA runner is available through `npm run qa`.
-- Both public pages show the founder story, Salong Eko photographs, four
-  captured demo views and an interactive five-channel inbox. The connection
-  diagram links to self-hosting and assistant setup. On the demo landing,
-  visitors can also try an offline booking and choose from five workflow films.
+- The product page includes the founder story, a looping request-to-booking example, and a diagram of available and planned connections. Its tour includes five workflow films and an offline booking sample.
 - Owners can drag to reorder treatments and categories in the studio and undo
   each move. The booking-page editor supports dragging sections in its draft.
 

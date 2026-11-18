@@ -22,7 +22,7 @@ export its data, access it through an API or use it with its own AI tools
 through MCP. It should be able to connect its own website and choose its
 own POS and payment providers through connectors.
 
-The [early concept demo](https://demo.cresavo.com) uses fictional data, and
+The [early concept demo](https://demo.cresavo.com/studio) uses fictional data, and
 everyday booking works without AI. The project is a long way from done.
 [Source code](https://github.com/Cresavo/cresavo)
 

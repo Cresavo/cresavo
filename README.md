@@ -30,7 +30,7 @@ payments, he’d love your help making booking software fairer.
 > runs on fictional data in your browser. Do not use it with real customers
 > yet; see [STATUS](docs/STATUS.md) and [QUALITY_SECURITY](docs/QUALITY_SECURITY.md).
 
-- **Live demo:** <https://demo.cresavo.com> (fictional salon "Salong Eko", no sign-up)
+- **Live demo:** <https://demo.cresavo.com/studio> (fictional salon "Salong Eko", no sign-up)
 - **Tour video (36 s):** [watch the tour](https://cresavo.com/site/tour-16x9.mp4)
 
 <a href="https://cresavo.com/site/tour-16x9.mp4"><img src="docs/media/cresavo-tour-16x9-poster.jpg" alt="Poster frame of the Cresavo tour video: 'Run a salon, studio or clinic?' next to a phone full of booking messages" width="480"></a>
@@ -43,7 +43,7 @@ payments, he’d love your help making booking software fairer.
 
 | Landing page | Customer booking page (mobile) |
 |---|---|
-| <img src="docs/design/cresavo/screens/landing-v2-desktop-light.png" alt="Cresavo landing page with the tagline and product sections" width="420"> | <img src="docs/design/cresavo/screens/booking-page-mobile-after.jpg" alt="Salong Eko's booking page on a phone: treatments, team, reviews and opening hours" width="200"> |
+| <img src="docs/design/cresavo/screens/site-v6-full-1440-light.jpg" alt="Cresavo landing page with the tagline and product sections" width="420"> | <img src="docs/design/cresavo/screens/booking-page-mobile-after.jpg" alt="Salong Eko's booking page on a phone: treatments, team, reviews and opening hours" width="200"> |
 
 ## Features
 
@@ -150,7 +150,7 @@ npm run test:integration       # needs a local database whose name ends in _test
 
 - [Star Cresavo on GitHub](https://github.com/Cresavo/cresavo) to bookmark the project.
 - [Join GitHub Discussions](https://github.com/Cresavo/cresavo/discussions) to ask a question or tell us what would make booking fairer.
-- [Try the demo](https://demo.cresavo.com) with fictional salon data, no account needed.
+- [Try the demo](https://demo.cresavo.com/studio) with fictional salon data, no account needed.
 - [Check the waitlist](https://cresavo.com). The form is a preview and currently saves no email addresses.
 - [Find a good first issue](https://github.com/Cresavo/cresavo/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) and read the [contribution guide](CONTRIBUTING.md).
 - [See the public roadmap](docs/goals/QUEUE.md) for priorities and what still needs to be built.

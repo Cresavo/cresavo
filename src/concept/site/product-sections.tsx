@@ -24,6 +24,7 @@ export function FounderStory() {
       <div>
         <h2 className={e.display}>{site["founder.first"]} <em>{site["founder.second"]}</em></h2>
         <p>{site["founder.body"]}</p>
+        <p>{site["founder.goal"]}</p>
       </div>
     </section>
   );
@@ -53,12 +54,13 @@ export function PlatformComparison() {
   );
 }
 
-export function JoinMovement() {
+export function JoinMovement({ demo }: { demo: string }) {
   return (
     <section id="join" className={e.movement} data-reveal>
       <div>
         <h2 className={e.display}>{site["movement.heading"]}</h2>
         <p>{site["movement.body"]}</p>
+        <a href={demo}>{site["soon.demo"]} <ArrowUpRight size={16} aria-hidden /></a>
         <a href={`${PROJECT_REPOSITORY}/discussions`}>{site["movement.talk"]} <ArrowUpRight size={16} aria-hidden /></a>
         <a href={`${PROJECT_REPOSITORY}/issues?q=is%3Aopen+label%3A%22good+first+issue%22`}>{site["movement.code"]} <ArrowUpRight size={16} aria-hidden /></a>
       </div>

@@ -1,4 +1,4 @@
-// Host routing: apex -> coming soon, demo -> landing, unknown host -> friendly not-found, tenant isolation.
+// Host routing: apex -> coming soon, demo -> studio, unknown host -> friendly not-found, tenant isolation.
 import { APEX, DEMO, OWN_DOMAIN, TENANT, UNKNOWN as UNKNOWN_ORIGIN, getHost as get, hostOrigin, launch, newContext, recorder, save, shot, PRODUCT, settle } from "./lib.mjs";
 
 const expectEq = (a, b, what) => { if (a !== b) throw new Error(`${what}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); return `${what}=${JSON.stringify(a)}`; };
@@ -6,24 +6,26 @@ const expectMatch = (a, re, what) => { if (!re.test(a)) throw new Error(`${what}
 
 const r = recorder("hosts");
 const P = PRODUCT;
-const COMING = /More time\. On your terms\./, LANDING = /booking and customers for salons/, UNKNOWN = /No booking page here/, BOOK = /Book online/;
+const COMING = /More time\. On your terms\./, UNKNOWN = /No booking page here/, BOOK = /Book online/;
 
 await r.check(`${P}/ serves the coming-soon page`, async () => { const x = await get(P); return [expectEq(x.status, 200, "status"), expectMatch(x.title, COMING, "title")].join(" "); });
 await r.check(`www.${P}/ serves the coming-soon page`, async () => expectMatch((await get(`www.${P}`)).title, COMING, "title"));
 await r.check(`${P}/ is indexable (no X-Robots-Tag noindex)`, async () => { const x = await get(P); if (x.headers["x-robots-tag"]) throw new Error(`X-Robots-Tag: ${x.headers["x-robots-tag"]}`); });
-await r.check(`demo.${P}/ serves the demo landing`, async () => expectMatch((await get(`demo.${P}`)).title, LANDING, "title"));
+for (const path of ["/", "/coming-soon"]) await r.check(`demo.${P}${path} redirects to the studio`, async () => {
+  const response = await get(`demo.${P}`, path);
+  expectEq(response.status, 307, "status");
+  return expectEq(new URL(response.headers.location, DEMO).pathname, "/studio", "location");
+});
 await r.check(`demo.${P}/ is noindex`, async () => expectEq((await get(`demo.${P}`)).headers["x-robots-tag"], "noindex, nofollow", "x-robots-tag"));
-await r.check(`demo.${P}/coming-soon also serves the coming-soon page`, async () => expectMatch((await get(`demo.${P}`, "/coming-soon")).title, COMING, "title"));
 for (const host of ["some-unknown-salon.example", `admin.${P}`, `x--y.${P}`, `-bad.${P}`])
   await r.check(`${host}/ shows the friendly not-found page`, async () => { const x = await get(host); return expectMatch(x.title, UNKNOWN, "title") + ` status=${x.status}`; });
 await r.check(`unknown host answers with 404 status (soft-404 check)`, async () => expectEq((await get("some-unknown-salon.example")).status, 404, "status"));
 await r.check(`unknown host on a deep path shows not-found`, async () => expectMatch((await get("some-unknown-salon.example", "/studio")).title, UNKNOWN, "title"));
 await r.check(`salong-eko.${P}/ serves the salon booking page`, async () => expectMatch((await get(`salong-eko.${P}`)).title, BOOK, "title"));
 for (const path of ["/me", "/gift", "/widget"]) await r.check(`salong-eko.${P}${path} is served`, async () => expectEq((await get(`salong-eko.${P}`, path)).status, 200, "status"));
-for (const path of ["/studio", "/studio/customers", "/landing", "/coming-soon", "/boka/other-salon", "/api/concept/proposals", "/admin"])
+for (const path of ["/studio", "/studio/customers", "/coming-soon", "/boka/other-salon", "/api/concept/proposals", "/admin"])
   await r.check(`tenant isolation: salong-eko.${P}${path} does not leak`, async () => { const x = await get(`salong-eko.${P}`, path); if (x.status === 200 && !UNKNOWN.test(x.title)) throw new Error(`status ${x.status}, title ${x.title}`); return `status=${x.status} title=${x.title}`; });
 await r.check(`demo.${P}/no-such-page returns 404`, async () => expectEq((await get(`demo.${P}`, "/no-such-page")).status, 404, "status"));
-await r.check(`/en/landing redirects to /landing`, async () => { const x = await get(`demo.${P}`, "/en/landing"); return expectEq(x.status, 308, "status") + " " + x.headers.location; });
 
 // Visual: what a visitor sees on each host.
 const browser = await launch();

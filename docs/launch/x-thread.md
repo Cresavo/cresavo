@@ -24,5 +24,5 @@ https://github.com/Cresavo/cresavo
 There’s a long way to go. You can try the early concept demo with a
 fictional salon and no account. If you run a salon or work in development,
 design or payments, I’d love your help. What would you connect first?
-https://demo.cresavo.com
+https://demo.cresavo.com/studio
 
