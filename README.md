@@ -51,6 +51,13 @@ with plain buttons and no AI at all.
 - **AI is optional:** bring your own key for OpenRouter, OpenAI or Anthropic;
   without a key every task runs built-in rules.
 
+## Works with your AI assistant
+
+Connect a compatible assistant to a local Cresavo test database to look up
+treatments and open times. Try approved changes with the bundled walkthrough,
+or review fictional proposals in a local copy of the demo studio.
+[Connect your AI assistant](docs/CONNECT_AI_ASSISTANT.md).
+
 ## Quick start
 
 Requires Node.js 22.12+ (or 24+).
