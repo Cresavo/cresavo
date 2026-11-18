@@ -1,15 +1,26 @@
 # Cresavo's first 30 days in public
 
-> **Before posting anything:** the drafts assume personal details, such as a partner who runs a foot-care salon. Confirm or remove each one. Every post should be rewritten in your own words.
+Cresavo started with one salon at home, run by Niclas’s partner, and he’s
+sharing it with every salon. Niclas recently got hooked on building software
+with AI coding tools. His partner’s booking platform gives her a hosted
+page and a way to manage bookings, but has no open API or data export. The
+website he built for her can only link to that page, and there’s no way to
+connect AI assistants to help her. Some of the big platforms also charge
+extra each month for API access to a salon’s own data.
 
-**More time. On your terms.** Booking software should belong to the salons
-that use it. Cresavo is an open-source alternative for salons and clinics that
-want simple day-to-day booking, control of their data, the option to self-host
-and no commission on bookings. Lead with the calendar and customer booking
-page for salon owners. Lead with AGPL-3.0-only, the local quickstart and the
-data model for developers. AI is optional. ChatGPT and Claude can connect
-through MCP in a configured setup. The public invitation is to use the
-[concept demo](https://demo.cresavo.com) with fictional data and no account.
+The goal is one open, fair place to run a salon’s bookings. Cresavo is open
+source, and the aim is for salons to get their data out through export, an
+API or MCP into their own AI tools, connect their own website, and choose
+their own POS and payment providers through connectors. Niclas wants AI
+assistants to be able to help salon owners and, eventually, for customers’
+agents to be able to book. AI is optional.
+
+The public invitation is to try an [early concept demo](https://demo.cresavo.com)
+with fictional data and no account. Show salon owners the calendar and
+customer booking page. Point developers to the AGPL-3.0-only source and the
+local quickstart. There’s a long way to go, and feedback from salon owners,
+developers, designers and people who work in payments can help shape the
+project.
 
 Day 1 is Niclas's next available workday. The plan takes 3–5 hours a week,
 uses existing accounts and assets, and costs nothing in promotion. Keep one
@@ -33,11 +44,10 @@ Discussion.
   Prepare up to two small starter issues, such as checking the local
   quickstart or reproducing a confusing demo label. Put the expected outcome
   and CLA status in each before labelling it `good first issue`.
-- **60 min, late week.** Resolve the personal details in the [LinkedIn founder
-  story](launch/linkedin.md) with your partner. Publish the [Swedish
-  version](launch/linkedin-sv.md) or the English one based on your existing
-  network. Ask what part of booking costs owners time and invite them to try
-  the demo.
+- **60 min, late week.** Share the founder story in [Swedish](launch/linkedin-sv.md)
+  or [English](launch/linkedin.md) based on your existing network. Ask which
+  parts of a booking system salon owners wish they could connect to their
+  other tools, and invite them to try the demo.
 - **30 min, Friday.** Post the first weekly build update and reply to early
   feedback.
 
@@ -48,9 +58,9 @@ Discussion.
   working demo path to show and verify its direct URL yourself.
 - **120 min, midweek.** Submit a human-written Show HN during a weekday block
   when you can stay online. Link to the [working studio](https://demo.cresavo.com/studio).
-  Write the first comment yourself using the facts in the
-  [Show HN brief](launch/show-hn.md). Answer questions in the thread, with a
-  short return visit the next day. If the demo breaks or you lose reply time,
+  Use the facts in the [Show HN brief](launch/show-hn.md) and write the
+  submission, first comment and replies in your own words. Make a short
+  return visit the next day. If the demo breaks or you lose reply time,
   move Show HN to next week.
 - **75 min, late week.** Share the [short thread](launch/x-thread.md) on X or
   Bluesky wherever you already talk with people. Use the demo link and one
@@ -73,9 +83,9 @@ Discussion.
   phone, and put the demo link in the profile where available.
 - **75 min, late week.** If eligible, post one top-level comment in the active
   [r/selfhosted New Project Megathread](launch/reddit-selfhosted.md). Use the
-  slot for local-install feedback. If ineligible, answer self-hosting
-  questions in GitHub Q&A. Skip r/opensource and leave r/SaaS to ordinary
-  participation this month.
+  slot for local-install feedback and reply in the same thread when a setup
+  step improves. If ineligible, answer self-hosting questions in GitHub Q&A.
+  Skip r/opensource and leave r/SaaS to ordinary participation this month.
 - **30 min, Friday.** Post the build update with one salon workflow you
   learned about and one question you still have.
 
@@ -210,8 +220,3 @@ release notes with permission.
   codebase and welcomed smaller contributions. Give each starter issue a
   file pointer and a way to check the result.
   [Formbricks' community guide](https://formbricks.com/blog/join-the-formtribe)
-- **Cal.com**, then Calendso, reached early users on Product Hunt and was
-  publicly discussing self-hosting friction with community members. Make
-  setup feedback a first-class topic and close the loop when a step improves.
-  [Cal.com's early account](https://site.cal.com/blog/seed),
-  [Co-founder's self-hosting reply](https://www.reddit.com/r/selfhosted/comments/pm8505/)

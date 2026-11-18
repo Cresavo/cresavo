@@ -1,27 +1,29 @@
 # LinkedIn founder story
 
-> For Niclas. Confirm the bracketed details with your partner. Use a
-> non-identifying example you both feel comfortable sharing.
+I’m building Cresavo for one salon at home, run by my partner. I’m sharing
+it with every salon that wants more say in how it takes bookings.
 
-My partner runs a foot-care salon. One thing that made me think about
-booking software differently was [a specific moment involving a booking,
-rescheduling or finding a slot]. It was a small thing, but it meant
-[what it cost in time or attention].
+I recently learned to build software with AI coding tools and got hooked.
+I built my partner a website, but all I can do is link to the booking page
+her platform hosts for her. Her booking platform handles appointments, but
+it has no open API and gives her no way to get her own data out. Some of
+the big platforms even charge extra every month for API access to your
+own data.
 
-I started building Cresavo here in Sweden with a simple idea. Booking
-software should belong to the salons that use it.
+I want AI assistants to be able to help her with the salon and, eventually,
+for customers’ agents to be able to book. Her booking platform gives those
+tools no way in.
 
-For me, that means a calendar you can work with during a busy day and a
-booking page your clients can use on their own. You should be able to take
-your data with you, run the software yourself if you want to, and keep what
-you earn on each booking. The source is open. If you prefer to do everything
-with the calendar and a few buttons, you can.
+With Cresavo, I want to build one open, fair place to run a salon’s bookings.
+The code is open source. A salon should be able to export its data, access
+it through an API or bring it into its own AI tools through MCP. It should
+be able to connect its own website and choose the POS and payment providers
+it uses through connectors.
 
-I'm building Cresavo on my own. There's an early concept demo you can try
-with a fictional salon, with no account needed.
-
-If you run a salon or clinic, where does booking take up more of your day
-than it should?
+There’s an early concept demo with a fictional salon that you can try
+without an account. I’m a long way from done. If you run a salon or work in
+development, design or payments, I’d love your help. What would you want
+your booking system to connect to first?
 
 https://demo.cresavo.com
 

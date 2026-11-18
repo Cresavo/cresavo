@@ -1,27 +1,29 @@
 # LinkedIn på svenska
 
-> För Niclas. Stäm av uppgifterna inom hakparentes med din partner. Välj en
-> händelse som ni båda vill dela och som ingen kund kan kännas igen i.
+Min partner driver en salong hemma. Det är för henne jag bygger Cresavo,
+och jag vill dela det med alla salonger som vill bestämma mer själva.
 
-Min partner driver en fotvårdssalong. Jag började fundera på hur bokningen
-skulle kunna fungera bättre när [berätta kort om ett tillfälle då en tid
-skulle bokas, flyttas eller hittas]. Det låter kanske som en småsak, men
-[vad det innebar i extra tid eller avbrott].
+Jag lärde mig nyligen att bygga program med hjälp av AI-verktyg och fastnade
+för det. Jag har byggt en egen webbplats åt min partner, men därifrån kan
+jag bara länka vidare till sidan där hennes kunder bokar.
+Plattformen sköter bokningarna, men det finns inget öppet API och hon kan
+inte få ut sina egna uppgifter. Hos vissa stora plattformar kostar det till
+och med extra varje månad att komma åt sina egna uppgifter via ett API.
 
-Det är en av anledningarna till att jag bygger Cresavo. Jag tycker att ett
-bokningssystem ska tillhöra salongerna som använder det.
+Jag vill att AI-assistenter ska kunna hjälpa henne med salongen och att
+kundernas egna AI-agenter så småningom ska kunna boka tider. Det går inte
+med hennes bokningsplattform i dag.
 
-Jag vill att det ska vara lätt att se dagens tider och att kunderna ska
-kunna boka själva. Salongen ska kunna ta med sig sina uppgifter om den vill
-byta system, och den som vill ska kunna driva systemet själv. Koden är öppen
-och tanken är att Cresavo inte ska ta provision på bokningarna. Vill du
-sköta allt med kalendern och vanliga knappar går det bra.
+Med Cresavo vill jag samla bokningarna på ett ställe och göra systemet
+öppet och rättvist. Källkoden är öppen. Du ska kunna exportera dina
+uppgifter, komma åt dem via ett API eller använda dem i dina egna
+AI-verktyg via MCP. Du ska också kunna koppla in din egen webbplats och
+ansluta det kassasystem och den betaltjänst du själv väljer.
 
-Jag bygger Cresavo själv här i Sverige. Det finns en tidig demo med en
-påhittad salong som du kan prova utan konto.
-
-Du som driver salong eller mottagning, vad tar mest onödig tid när du ska
-hålla ordning på bokningarna?
+Det finns en tidig konceptdemo med en påhittad salong som du kan prova utan
+konto. Jag har långt kvar och tar gärna emot hjälp från dig som driver
+salong eller jobbar med utveckling, design eller betalningar. Vad skulle
+du helst vilja koppla ihop ditt bokningssystem med?
 
 https://demo.cresavo.com
 

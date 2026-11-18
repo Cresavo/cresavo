@@ -5,16 +5,21 @@
 
 ## Welcome to Cresavo
 
-Hi, I'm Niclas. I'm building Cresavo in Sweden because booking software
-should belong to the salons that use it. Thanks for stopping by.
+Hi, I’m Niclas. I’m building Cresavo for my partner’s salon at home and
+sharing it with every salon. I got hooked on building software with AI coding
+tools, but her booking platform gives her no way to get her data out or
+connect an AI assistant. The website I built for her can only link to its
+booking page.
 
-**What would you want from a fair booking platform?**
+I want salons to be able to export their data, access it through an API or
+bring it into their own AI tools through MCP. They should be able to connect
+their own website and choose their POS and payment providers through
+connectors. Cresavo is open source and there’s a long way to go.
 
-If you run a salon or clinic, I'd like to hear which everyday task you would
-make simpler. If you self-host or help a business with its tools, I'd like
-to hear what would make it easier to get started or switch away later.
+If you run a salon or work in development, design or payments, I’d love
+your help. What would you want to connect to a booking system first?
 
-You can [try the concept demo](https://demo.cresavo.com) with fictional data.
+You can [try the early concept demo](https://demo.cresavo.com) with fictional data.
 Use Ideas for suggestions and Q&A if you're stuck. For a reproducible bug,
 [open an issue](https://github.com/Cresavo/cresavo/issues/new/choose). Please
 keep examples fictional and [report vulnerabilities privately](https://github.com/Cresavo/cresavo/security).
@@ -24,9 +29,10 @@ the weekly updates.
 
 ## Seed 1 · Ideas · What should a salon be able to export?
 
-Imagine you decide to change booking software on Friday. What would you
+My partner runs a salon at home and can’t export her data from her booking
+platform. If you were switching booking systems on Friday, what would you
 need to take with you to open on Monday? Which fields or file formats would
-make that export useful to you?
+make an export useful to you?
 
 ## Seed 2 · Q&A · How do I run the demo without AI or a database?
 

@@ -11,17 +11,20 @@ What should a salon be able to take with it when it changes booking systems?
 
 ## Post
 
-I'm Niclas, the solo maintainer of Cresavo in Sweden. I'm building an
-AGPL-3.0-only booking workspace for salons and clinics. Booking software should
-belong to the salons that use it. For me, that means a calendar that's easy to
-use, an export a salon can use elsewhere, the option to self-host and no
-commission on bookings.
+I’m Niclas. I’m building Cresavo for my partner’s salon at home and sharing
+it with every salon. I recently got hooked on building software with AI
+coding tools. Her booking platform gives her a hosted booking page, but
+she can’t export her data or connect an AI assistant, and the website I
+built for her can only link to that page.
 
-The public repo is at https://github.com/Cresavo/cresavo and the concept demo
-is at https://demo.cresavo.com. It uses fictional data and is still a work in
-progress. Everyday booking works without AI. There's an optional assistant
-and a configurable MCP connection, and AI tools helped build parts of the
-project.
+Cresavo is open source under AGPL-3.0-only. I want a salon to be able to
+export its data, access it through an API or use it with its own AI tools
+through MCP. It should be able to connect its own website and choose its
+own POS and payment providers through connectors.
+
+The [early concept demo](https://demo.cresavo.com) uses fictional data, and
+everyday booking works without AI. The project is a long way from done.
+[Source code](https://github.com/Cresavo/cresavo)
 
 If you've helped a small business move to an open-source tool, what made
 its data export useful in practice? I'd like to hear what mattered beyond a

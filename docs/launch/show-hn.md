@@ -15,22 +15,24 @@ https://demo.cresavo.com/studio
 
 ## First comment
 
-Hi HN, I'm Niclas, the solo maintainer of Cresavo in Sweden. My partner runs
-a foot-care salon, and I wanted to see what booking software would look like
-if it were built around a small salon's day. I think booking software should
-belong to the salons that use it.
+I’m building Cresavo for my partner’s salon at home and sharing it with
+other salons. I recently learned to build software with AI coding tools and
+got hooked. Her booking platform gives her a hosted page, but the site I
+built for her can only link to it. She can’t export her data or connect an
+AI assistant to help with the salon.
 
-You can open the studio, use “Someone is calling” to enter a fictional
-appointment, or try the customer side at
-https://demo.cresavo.com/boka/salong-eko. There's no sign-up. This is a
-concept demo with fictional data and browser state.
+In the early concept demo, you can use “Someone is calling” to enter a
+fictional appointment, or try the customer side at
+https://demo.cresavo.com/boka/salong-eko. There’s no sign-up. It runs on
+fictional data and browser state.
 
-The code is AGPL-3.0-only at https://github.com/Cresavo/cresavo. From a clone,
-`npm run demo` starts the studio without a database or an AI key. The booking
-engine uses Postgres and is still separate from the studio. There's an
-optional MCP connection for clients such as ChatGPT and Claude in a
-configured setup. The calendar and booking flow work without it.
+The source is AGPL-3.0-only. From a clone, `npm run demo` starts the studio
+without a database or an AI key. The Postgres booking engine is still
+separate from the studio. https://github.com/Cresavo/cresavo
 
-I'd like to hear from anyone who's moved a small business off a booking
-platform. Which records and details did you need to bring with you?
+I want salons to be able to export their data, access it through an API or
+use it with their own AI tools through MCP. I also want them to be able to
+connect their own website and choose their POS and payment providers through
+connectors. There’s a long way to go. If you’ve moved a small business off
+a booking platform, I’d appreciate hearing what you needed to take with you.
 

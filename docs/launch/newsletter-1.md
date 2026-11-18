@@ -11,21 +11,25 @@
 
 Hi,
 
-Thanks for joining the Cresavo waitlist. I'm Niclas, and I'm building an
-open-source booking workspace for salons and clinics here in Sweden.
+I’m Niclas. I started building Cresavo for my partner’s salon at home, and
+I’m sharing it with every salon. Thanks for joining the waitlist.
 
-Booking software should belong to the salons that use it. I want a salon to
-be able to see today's appointments, give clients a simple way to book and
-take its data with it if it changes tools. The everyday booking flow works
-without AI.
+I got hooked on building software with AI coding tools and wanted AI
+assistants to be able to help my partner with the salon. Her booking
+platform gives her no way to connect those tools or get her data out. The
+website I built for her can only link to the platform’s booking page.
 
-You can try an appointment in the fictional Salong Eko at
-https://demo.cresavo.com. Cresavo is still a concept demo, so please use
-fictional details. The site also has a 36-second tour if you'd rather
-watch.
+Cresavo is open source. My goal is for you to be able to export your data,
+access it through an API or use it in your own AI tools through MCP. I also
+want you to be able to connect your own website and choose your own POS and
+payment providers through connectors.
 
-If there's one part of booking you'd like to make simpler, you're welcome
-to reply. A sentence is plenty.
+There’s an early concept demo at https://demo.cresavo.com. You can try
+booking an appointment at the fictional Salong Eko with made-up details or
+watch the 36-second tour. I’m a long way from done and would welcome help
+from people who run salons or work in development, design or payments.
+If there’s something you wish your booking system could connect to, just
+reply to this email. A sentence is plenty.
 
 Thanks for taking a look,
 
