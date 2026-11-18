@@ -18,12 +18,16 @@ settings or visibility. Name and naming rules: [BRAND.md](BRAND.md).
       Covenant 2.1, reports through GitHub's private channels, no personal
       email), SECURITY (supported versions, private vulnerability reporting).
 - [x] Issue forms (`bug.yml`, `feature.yml`, `config.yml` with blank issues
-      off and security reports routed to SECURITY.md), PR template with the
-      CLA tick, tests and screenshots, and `CODEOWNERS`.
+      off and security reports routed to SECURITY.md), PR template that asks
+      for tests and screenshots and points to the draft CLA, and `CODEOWNERS`.
 - [x] Draft individual and entity CLA ([legal/CLA.md](legal/CLA.md)) and draft
       trademark policy ([TRADEMARK.md](../TRADEMARK.md)), both marked
-      "Draft, pending legal review". TRADEMARK.md also states that the brand
-      assets and `docs/media/**` are not covered by the AGPL.
+      "Draft, pending legal review"; signatures are not collected yet and
+      external PRs are held for merge. TRADEMARK.md also states which brand
+      files and media are outside the AGPL and which build inputs are inside.
+- [x] Legal-quality review by Codex Astra (2026-11-18) applied: CLA timing,
+      patent scope and signature records; trademark terms within AGPL
+      section 7; privacy note and waitlist copy match what the code does.
 - [x] Third-party notices, including the AI-generated demo images
       (`public/demo/manifest.json`).
 - [x] gitleaks in CI (`secret-scan.yml`, `.gitleaks.toml`), OpenSSF Scorecard
