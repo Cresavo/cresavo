@@ -1,5 +1,9 @@
 # Progress · AI-native demo
 
+## 2026-11-18 · Demo landing
+
+The landing shows both sides of Salong Eko’s day and links each feature to its working screen. The [landing captures](../design/cresavo/screens/) include the mobile and desktop layouts in both system themes.
+
 ## 2026-11-18 · Claude Code · treatments, salon page and the desktop studio
 
 **Done**

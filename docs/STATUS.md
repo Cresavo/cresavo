@@ -5,6 +5,8 @@ läget ändras, och lägg detaljerade testbevis i commit-meddelanden eller CI.
 
 ## Läge
 
+The demo landing now includes a visual tour of the studio and customer booking flow.
+
 Lokal prototyp med syntetiska data. Ingen produktionsdrift, ingen kundpilot.
 
 - Salongen (detta repo) och gatewayen (`booking-lab-gateway`) är separata repon,
