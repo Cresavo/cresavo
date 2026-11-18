@@ -4,7 +4,7 @@
 
 ![Four Cresavo identities in light and dark. The left column shows the Linen and Reed wordmarks. The right column pairs them with an open palm and a folded leaf.](contact-sheet.svg)
 
-**I would choose A2, Reed.** Its slightly uneven rhythm comes from the way the letters are drawn. The rising shoulder of the r, the turn at the foot of the a and the leaning o give it the feel of a personal signature. The seven letters stay separate even at a small width. B1 is the alternative if a distinct symbol matters more than seeing the initial in the app icon.
+**Selected direction: A2, Reed.** The [app icon](a2-reed/app-icon.svg) uses the wordmark's opening c in white (`#ffffff`) on aubergine (`#4f364b`) in both light and dark mode.
 
 | Direction | What to look for | Trade-off |
 | --- | --- | --- |
@@ -22,4 +22,4 @@
 
 Each folder contains a horizontal wordmark or symbol pairing in aubergine, solid black and solid white, a standalone mark, a favicon, and square app and round avatar artwork for light and dark settings. The favicon responds to the device's colour scheme. The app artwork is drawn at 180 px and scales as vector artwork. The tiny footer examples use the exact line “Booked with Cresavo”.
 
-The light grounds use warm neutral **#faf7f3** with aubergine **#4f364b** lettering. The reverse examples use a charcoal ground with near-white lettering and a charcoal mark on an apricot **#f0b084** tile. All artwork, including the lettering in the contact sheet, is made of closed SVG paths. The two wordmarks were drawn for these studies. Specimen labels use outlines from [Manrope](https://github.com/google/fonts/tree/main/ofl/manrope) and [Fraunces](https://github.com/google/fonts/tree/main/ofl/fraunces).
+The light grounds use warm neutral **#faf7f3** with aubergine **#4f364b** lettering. The dark panels use near-white lettering on charcoal. Apricot **#f0b084** appears in the alternate icon studies and the round avatar samples. All artwork, including the lettering in the contact sheet, is made of closed SVG paths. The two wordmarks were drawn for these studies. Specimen labels use outlines from [Manrope](https://github.com/google/fonts/tree/main/ofl/manrope) and [Fraunces](https://github.com/google/fonts/tree/main/ofl/fraunces).
