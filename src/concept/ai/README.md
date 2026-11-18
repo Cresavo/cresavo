@@ -42,7 +42,11 @@ same proposals (`proposalFor`) and read tools as the command box and MCP; the
 `assistant-reply` task may only reword that reply, and `phrase-brief` may only
 reword and reorder the brief items rules picked (`briefs.ts`). Memory notes
 (`memory.ts`) pass `memoryRejection` before they are saved and before they are
-sent to a model; the task schema rejects them too. Routines (`routines.ts`)
+sent to a model; the task schema rejects them too. Replies about named
+customers (lookups such as who is coming, a customer's next appointment or last
+treatment, a running-late text) are marked `local` and never sent for
+rewording, and `replyRequest` redacts customer names from every provider-bound
+field. Lookups follow the staff view's role policy (`ops/access.ts`). Routines (`routines.ts`)
 are SKILL.md-style records whose runs only produce proposals (`outreach.ts`).
 
 ## Open protocols

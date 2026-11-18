@@ -85,7 +85,8 @@ export function useAssistant() {
         .then((spoken) => spoken && thread.speak && speak(spoken));
       return;
     }
-    if (!aiReady || role !== "owner") {
+    // A reply about named customers stays on this device: it is never sent for rephrasing.
+    if (!aiReady || role !== "owner" || outcome.local) {
       if (thread.speak) speak(outcome.reply.text);
       return;
     }

@@ -4,16 +4,16 @@ import { lapsedCustomers, proposalFor, type Proposal } from "../command/proposal
 import type { DemoState, StaffId } from "../data/types";
 import type { Clock } from "../finance/types";
 import { t, tc } from "../i18n";
-import { formatDayLong, formatMoney } from "../i18n/format";
+import { formatDayLong, formatDayShort, formatMoney } from "../i18n/format";
 import { interpretCommand, type IntentParams } from "../intent";
-import { parseDate } from "../intent/dates";
+import { parseDays } from "../intent/dates";
 import { canCommand, type Role } from "../ops/access";
 import { fullName } from "../selectors";
 import { listBookings } from "../tools/read";
 import { closingBrief, morningBrief, weeklyBrief, type Brief } from "./briefs";
 import { lookup } from "./lookups";
 import { memoryFor, memoryRejection, memorySubject, noticedFact, rememberRequest, safeMemory, searchMemory } from "./memory";
-import { offerProposal } from "./outreach";
+import { OFFER_PERCENT_RANGE, offerProposal } from "./outreach";
 import { suggestedRoutines } from "./routines";
 import { meansThoseCustomers, nextContext, resolveReferences, type Message, type Reply, type ReplyCard, type ThreadContext } from "./thread";
 
@@ -43,6 +43,11 @@ export interface EngineResult {
   effects: DemoAction[];
   /** The reply answers a command (move, book, cancel, a question about the numbers…), which an AI model may read better than the rules. */
   command?: boolean;
+  /**
+   * The reply is about named customers (who is coming, a customer's appointment or last treatment, a text to them):
+   * it stays local and is never sent to an AI provider for rephrasing.
+   */
+  local?: boolean;
 }
 
 const rules = (text: string, extra: Partial<Reply> = {}): Reply => ({ source: "rules", text, ...extra });
@@ -109,14 +114,20 @@ function offerReply(input: EngineInput, understood: string): EngineResult {
   if (!customerIds.length) {
     return result(input, understood, rules(t("assistant.offer.who"), { followUps: [t("assistant.example.inactive")] }));
   }
-  const percent = Number(understood.match(/(\d{1,2})\s*(?:%|percent)/)?.[1]);
-  const card = offerProposal(state, customerIds, clock, percent >= 1 ? percent : undefined);
+  // The whole stated number ("100%", "12.5 percent"); one outside the range gets a question, never a silent default.
+  const stated = understood.match(/(\d+(?:[.,]\d+)?)\s*(?:%|percent\b|per cent\b)/i)?.[1];
+  const percent = stated === undefined ? undefined : Number(stated.replace(",", "."));
+  if (percent !== undefined && !(percent >= OFFER_PERCENT_RANGE.min && percent <= OFFER_PERCENT_RANGE.max)) {
+    return result(input, understood, rules(t("assistant.offer.percentRange", OFFER_PERCENT_RANGE)), { ...context, customerIds });
+  }
+  const card = offerProposal(state, customerIds, clock, percent);
   return result(input, understood, rules(t("assistant.reply.change"), { card, topic: tc("assistant.topic.offer", customerIds.length) }), { ...context, customerIds });
 }
 
 /** A booking as the `list_bookings` tool returns it. */
 interface ToolBooking {
   id: string;
+  date: string;
   start: string;
   status: string;
   customer: { id: string; name: string };
@@ -124,15 +135,21 @@ interface ToolBooking {
   staff: { name: string };
 }
 
-/** "Who is coming on Friday?" through the shared `list_bookings` read tool. Staff only see their own bookings. */
+/** "Who is coming on Friday?", "Who was here last Friday?", "Who is coming next week?" through the shared `list_bookings` read tool. Staff only see their own bookings. */
 function bookingsReply(input: EngineInput, understood: string): EngineResult {
   const { state, clock } = input;
-  const date = parseDate(understood.toLowerCase(), buildIntentContext(state, clock.today, clock.minutes)) ?? clock.today;
-  const data = listBookings.run({ state, clock }, { from: date, staffId: input.role === "staff" ? input.viewer : undefined }) as { bookings: ToolBooking[] };
+  if (input.role === "staff" && !input.viewer) return ownerOnly(input, understood);
+  const days = parseDays(understood.toLowerCase(), buildIntentContext(state, clock.today, clock.minutes)) ?? { from: clock.today, to: clock.today };
+  const data = listBookings.run({ state, clock }, { ...days, staffId: input.role === "staff" ? input.viewer : undefined }) as { bookings: ToolBooking[] };
   const booked = data.bookings.filter((b) => b.status === "booked" || b.status === "completed");
-  const title = tc("assistant.bookings.title", booked.length, { day: formatDayLong(date) });
-  const card: ReplyCard = { kind: "bookings", title, items: booked.map((b) => ({ id: b.id, time: b.start, name: b.customer.name, detail: `${b.service.name} · ${b.staff.name}`, href: `/studio/customers/${b.customer.id}` })) };
-  return result(input, understood, rules(title, { card, topic: title }), { ...input.context, date, customerIds: booked.map((b) => b.customer.id) });
+  const range = days.from !== days.to;
+  const title = tc("assistant.bookings.title", booked.length, { day: range ? `${formatDayShort(days.from)} – ${formatDayShort(days.to)}` : formatDayLong(days.from) });
+  const card: ReplyCard = {
+    kind: "bookings",
+    title,
+    items: booked.map((b) => ({ id: b.id, time: b.start, name: b.customer.name, detail: [range ? formatDayShort(b.date) : null, b.service.name, b.staff.name].filter(Boolean).join(" · "), href: `/studio/customers/${b.customer.id}` })),
+  };
+  return { ...result(input, understood, rules(title, { card, topic: title }), { ...input.context, date: days.from, customerIds: booked.map((b) => b.customer.id) }), local: true };
 }
 
 /** The reply text for a proposal or answer from the command box. */
@@ -202,7 +219,7 @@ export function respond(input: EngineInput): EngineResult {
   if (/\bwho(?:'s| is| was| were)? (?:coming|in|booked|here)\b|\bwhat(?:'s| is) on\b/.test(lower)) return bookingsReply(input, understood);
 
   const found = lookup({ state: input.state, clock: input.clock, context: input.context, viewer: input.role === "staff" ? input.viewer : undefined, owner }, understood);
-  if (found) return result(input, understood, rules(found.text, { card: found.card, followUps: found.followUps, topic: found.topic }), { ...input.context, ...found.context });
+  if (found) return { ...result(input, understood, rules(found.text, { card: found.card, followUps: found.followUps, topic: found.topic }), { ...input.context, ...found.context }), local: true };
 
   const fact = noticedFact(understood);
   if (fact && owner && !memoryRejection(fact, input.state)) {
@@ -236,16 +253,31 @@ function cardFacts(card: ReplyCard | undefined): string[] {
   }
 }
 
-/** Input for the `assistant-reply` task: the rule reply as a draft plus the filtered memory. Nothing the memory filter rejects is sent. */
+/** Every customer's full and first name, longest first, as whole-word patterns. */
+function customerNames(state: DemoState): RegExp[] {
+  const names = new Set<string>();
+  for (const c of state.customers) for (const name of [fullName(c), c.lastName, c.firstName]) if (name.trim().length > 1) names.add(name.trim());
+  return [...names].sort((a, b) => b.length - a.length).map((name) => new RegExp(`(?<![\\p{L}\\p{N}])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:'s)?(?![\\p{L}\\p{N}])`, "giu"));
+}
+
+/** Customer names in provider-bound text become "the customer": a model rephrases the wording, it never needs who. */
+export function redactCustomers(state: DemoState, text: string): string {
+  return customerNames(state).reduce((out, pattern) => out.replace(pattern, (word) => (/'s$/i.test(word) ? "the customer's" : "the customer")), text);
+}
+
+/**
+ * Input for the `assistant-reply` task: the rule reply as a draft plus the filtered memory. Nothing the memory filter
+ * rejects is sent, and customer names are redacted from every field. Replies marked `local` are never sent at all.
+ */
 export function replyRequest(state: DemoState, messages: Message[], understood: string, reply: Reply) {
   return {
-    message: understood.slice(0, 500),
-    draft: reply.text.slice(0, 1200),
-    facts: cardFacts(reply.card).map((fact) => fact.slice(0, 300)).slice(0, 12),
+    message: redactCustomers(state, understood.slice(0, 500)),
+    draft: redactCustomers(state, reply.text.slice(0, 1200)),
+    facts: cardFacts(reply.card).map((fact) => redactCustomers(state, fact.slice(0, 300))).slice(0, 12),
     thread: messages
       .filter((m) => !["contact", "health", "journal"].includes(memoryRejection(m.text, state) ?? ""))
       .slice(-MAX_TURNS)
-      .map((m) => ({ from: m.from, text: m.text.slice(0, 500) })),
+      .map((m) => ({ from: m.from, text: redactCustomers(state, m.text.slice(0, 500)) })),
     memory: safeMemory(state.memory, state).filter((item) => item.kind !== "thread").slice(0, MAX_MEMORY).map((item) => item.text),
   };
 }

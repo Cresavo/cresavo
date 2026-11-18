@@ -41,6 +41,29 @@ export function parseDate(text: string, context: IntentContext): string | undefi
   if (/\bnext week\b/.test(text)) return now.plus({ weeks: 1 }).startOf("week").toISODate()!;
 }
 
+/**
+ * The days a "who is coming / who was here" question covers: a week ("this week", "next week", "last week"),
+ * a past weekday ("last Friday", or "who was here on Friday?"), or one day as `parseDate` reads it.
+ */
+export function parseDays(text: string, context: IntentContext): { from: string; to: string } | undefined {
+  const now = clock(context).startOf("day");
+  const week = text.match(/\b(this|next|last|past) week\b/);
+  if (week) {
+    const monday = now.startOf("week").plus({ weeks: week[1] === "next" ? 1 : week[1] === "this" ? 0 : -1 });
+    return { from: monday.toISODate()!, to: monday.plus({ days: 6 }).toISODate()! };
+  }
+  const day = weekdays.findIndex(name => new RegExp(`\\b${name}\\b`).test(text));
+  const past = /\b(?:last|past|previous)\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/.test(text) ||
+    (/\b(?:was|were|did|came)\b/.test(text) && !/\b(?:next|this|coming)\b/.test(text));
+  if (day >= 0 && past && !/\d{4}-\d{2}-\d{2}/.test(text)) {
+    const back = (now.weekday - (day + 1) + 7) % 7 || 7;
+    const date = now.minus({ days: back }).toISODate()!;
+    return { from: date, to: date };
+  }
+  const date = parseDate(text, context);
+  return date ? { from: date, to: date } : undefined;
+}
+
 export function parseTime(text: string): string | undefined {
   // A complete clock token takes precedence over a prefix followed by a bare hour.
   const match = text.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b|\b(\d{1,2}):(\d{2})\b/);

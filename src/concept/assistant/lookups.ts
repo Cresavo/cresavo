@@ -3,13 +3,15 @@ import { pickCandidates } from "../command/proposal";
 import { buildIntentContext } from "../command/intent-context";
 import { dueBackList } from "../customers/return-visits";
 import { addDays, formatTime } from "../data/dates";
-import { needOf } from "../data/slots";
+import { freeStarts, needOf } from "../data/slots";
 import type { Booking, Customer, DateKey, DemoState, Service, StaffId } from "../data/types";
 import type { Clock } from "../finance/types";
 import { t, tc } from "../i18n";
 import { agoText, formatDayLong, formatDuration, formatMoney, relativeDay } from "../i18n/format";
-import { parseDate } from "../intent/dates";
+import { balanceOf, findGiftCard } from "../giftcards/cards";
+import { parseDate, parseTime } from "../intent/dates";
 import { matchNames, normalize } from "../intent/match";
+import { canOpen, servedBy, type Role } from "../ops/access";
 import { buildCustomerStats, findCustomer, findService, fullName } from "../selectors";
 import type { ReplyCard, ThreadContext } from "./thread";
 
@@ -18,6 +20,10 @@ import type { ReplyCard, ThreadContext } from "./thread";
 // treatment fits, what something costs, what is waiting. Nothing here changes
 // anything, and a question the rules cannot answer exactly gets an honest
 // "I cannot do that here" with the place to do it, never a guess.
+//
+// The studio's role policy applies before any lookup: a staff member gets
+// only what the staff view would show (`canOpen` for the page an answer links
+// to, and only the customers they serve, with their own bookings).
 
 export interface LookupInput {
   state: DemoState;
@@ -37,6 +43,19 @@ export interface Lookup {
 }
 
 const MAX_ROWS = 8;
+const role = (input: LookupInput): Role => (input.owner ? "owner" : "staff");
+const ownerOnly = (): Lookup => ({ text: t("command.ownerOnly") });
+const notServed = (): Lookup => ({ text: t("assistant.lookup.notServed") });
+
+/** The customers this viewer may see: everyone for the owner, the ones they serve for staff (the customer page's own rule). */
+function visible(input: LookupInput): (id: string) => boolean {
+  if (input.owner) return () => true;
+  const served = input.viewer ? servedBy(input.state, input.viewer) : new Set<string>();
+  return (id) => served.has(id);
+}
+
+/** The bookings this viewer may see: all for the owner, their own for staff. */
+const mine = (input: LookupInput) => (b: Booking) => input.owner || (!!input.viewer && b.staffId === input.viewer);
 const SEARCH_DAYS = 21;
 
 const customerHref = (id: string) => `/studio/customers/${id}`;
@@ -55,8 +74,23 @@ function bookingRow(state: DemoState, booking: Booking, withDay?: DateKey) {
   };
 }
 
-/** The one customer the words name, the candidates when several fit, or nothing. Falls back on who the conversation is about. */
-function namedCustomer(input: LookupInput, text: string): { customer?: Customer; several?: Customer[] } {
+/**
+ * The one customer the words name, the candidates when several fit, or nothing. Falls back on who the conversation is about.
+ * `denied` when the words name only customers this viewer may not see.
+ */
+function namedCustomer(input: LookupInput, text: string): { customer?: Customer; several?: Customer[]; denied?: true } {
+  const found = anyNamedCustomer(input, text);
+  const may = visible(input);
+  if (found.customer) return may(found.customer.id) ? found : { denied: true };
+  if (found.several) {
+    const allowed = found.several.filter((c) => may(c.id));
+    if (!allowed.length) return { denied: true };
+    return allowed.length === 1 ? { customer: allowed[0] } : { several: allowed };
+  }
+  return found;
+}
+
+function anyNamedCustomer(input: LookupInput, text: string): { customer?: Customer; several?: Customer[] } {
   const words = normalize(text).split(" ");
   const said = (name: string) => normalize(name).split(" ").some((part) => words.includes(part) || words.includes(`${part}s`));
   // A near miss ("Anna" for Hanna) does not count when the word is a colleague's name.
@@ -91,11 +125,13 @@ function nextClient(input: LookupInput): Lookup {
 }
 
 function nextAppointment(input: LookupInput, text: string): Lookup | null {
-  const { customer, several } = namedCustomer(input, text);
+  const { customer, several, denied } = namedCustomer(input, text);
+  if (denied) return notServed();
   if (several) return whichCustomer(text, several);
   if (!customer) return null;
   const { state, clock } = input;
   const upcoming = state.bookings
+    .filter(mine(input))
     .filter((b) => b.customerId === customer.id && b.status === "booked" && (b.date > clock.today || (b.date === clock.today && b.start + b.duration > clock.minutes)))
     .sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
   const context = { customerIds: [customer.id] };
@@ -109,11 +145,13 @@ function nextAppointment(input: LookupInput, text: string): Lookup | null {
 }
 
 function lastVisit(input: LookupInput, text: string): Lookup | null {
-  const { customer, several } = namedCustomer(input, text);
+  const { customer, several, denied } = namedCustomer(input, text);
+  if (denied) return notServed();
   if (several) return whichCustomer(text, several);
   if (!customer) return null;
   const { state, clock } = input;
   const last = state.bookings
+    .filter(mine(input))
     .filter((b) => b.customerId === customer.id && b.status === "completed")
     .sort((a, b) => b.date.localeCompare(a.date) || b.start - a.start)[0];
   const link = { href: customerHref(customer.id), label: t("assistant.lookup.openCustomer", { name: customer.firstName }) };
@@ -159,23 +197,40 @@ function availability(input: LookupInput, text: string, question: string): Looku
   const asked = parseDate(text, intent) ?? clock.today;
   if (asked < clock.today) return message(t("command.dayPassed", { day: formatDayLong(asked) }));
   const period = /morning/.test(text) ? "morning" : /afternoon|after lunch|after work/.test(text) ? "afternoon" : undefined;
+  // A clock time only ("16:00", "4pm", "at 16"), never a length ("60-minute") or a date ("Friday 20 November").
+  const timeWords = text.replace(/\b\d{2,3}[\s-]*(?:min|minutes?)\b/g, "").replace(/\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)?\s*\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b/g, "");
+  const at = /\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*(?:am|pm)\b|\bat\s+\d{1,2}\b/.test(timeWords) ? parseTime(timeWords) : undefined;
+  const wanted = at ? Number(at.slice(0, 2)) * 60 + Number(at.slice(3)) : undefined;
   const staff = matchNames(text, state.staff.map((s) => ({ id: s.id, name: s.firstName })));
   const staffIds = service.staffIds.filter((id) => staff.length !== 1 || id === staff[0].id);
-  const starts = (date: DateKey) => pickCandidates(state, staffIds, needOf(service), date, clock, { period });
+  const calendar = { href: "/studio/calendar", label: t("nav.calendar") };
+  const slotText = (c: { staffId: StaffId; start: number }) => (staffIds.length > 1 ? t("command.slotWith", { time: formatTime(c.start), name: staffName(state, c.staffId) }) : formatTime(c.start));
+
+  // A stated time is checked first, exactly; anything else offered is labelled an alternative.
+  let exact: { staffId: StaffId; start: number }[] = [];
+  if (wanted !== undefined) {
+    const after = asked === clock.today ? clock.minutes : 0;
+    exact = staffIds.filter((id) => freeStarts(state, id, asked, needOf(service), { after }).includes(wanted)).map((staffId) => ({ staffId, start: wanted }));
+  }
+  const starts = (date: DateKey) => pickCandidates(state, staffIds, needOf(service), date, clock, { period, near: date === asked ? wanted : undefined });
   let date = asked;
-  let found = starts(date);
+  let found = exact.length ? exact : starts(date);
   for (let i = 1; !found.length && i <= SEARCH_DAYS; i++) {
     date = addDays(asked, i);
     found = starts(date);
   }
-  const calendar = { href: "/studio/calendar", label: t("nav.calendar") };
   if (!found.length) return message(t("assistant.lookup.noRoom", { service: service.name, day: formatDayLong(asked) }), calendar);
-  const times = found.map((c) => (staffIds.length > 1 ? t("command.slotWith", { time: formatTime(c.start), name: staffName(state, c.staffId) }) : formatTime(c.start)));
-  const lead = date === asked
-    ? t("assistant.lookup.room", { service: service.name, duration: formatDuration(service.duration), day: formatDayLong(date) })
-    : t("assistant.lookup.roomLater", { service: service.name, asked: formatDayLong(asked), day: formatDayLong(date) });
+  const times = found.map(slotText);
+  let answer: string;
+  if (exact.length) answer = `${t("assistant.lookup.roomAt", { service: service.name, duration: formatDuration(service.duration), day: formatDayLong(asked), time: formatTime(wanted!) })}${staffIds.length > 1 ? ` (${exact.map((c) => staffName(state, c.staffId)).join(", ")})` : ""}.`;
+  else if (wanted !== undefined) answer = `${t("assistant.lookup.notAt", { service: service.name, day: formatDayLong(asked), time: formatTime(wanted) })} ${t("assistant.lookup.alternatives", { day: formatDayLong(date) })} ${times.join(", ")}.`;
+  else {
+    const lead = date === asked
+      ? t("assistant.lookup.room", { service: service.name, duration: formatDuration(service.duration), day: formatDayLong(date) })
+      : t("assistant.lookup.roomLater", { service: service.name, asked: formatDayLong(asked), day: formatDayLong(date) });
+    answer = `${lead} ${times.join(", ")}.`;
+  }
   const context = { serviceId: service.id, date };
-  const answer = `${lead} ${times.join(", ")}.`;
   // With one customer in the conversation, each time is a tap away from a booking proposal.
   const customer = input.owner && input.context.customerIds.length === 1 ? findCustomer(state, input.context.customerIds[0]) : undefined;
   if (!customer) return { text: answer, card: { kind: "message", text: answer, link: calendar }, context, topic: question };
@@ -205,10 +260,10 @@ function giftCard(input: LookupInput, text: string): Lookup {
   const link = { href: "/studio/more/giftcards", label: t("nav.giftcards") };
   const code = text.match(/\b[a-z]{2,4}(?:-[a-z0-9]{3,5}){1,3}\b/i)?.[0].toUpperCase();
   if (!code) return message(t("assistant.lookup.giftCode"), link);
-  const card = input.state.giftCards.find((g) => g.code.toUpperCase() === code);
+  // The same lookup and balance as the booking page and the Gift cards page: a cancelled booking gives its money back.
+  const card = findGiftCard(input.state, code);
   if (!card) return message(t("assistant.lookup.giftUnknown", { code }), link);
-  const used = card.redemptions.reduce((sum, r) => sum + r.amount, 0);
-  return message(t("assistant.lookup.giftBalance", { code: card.code, left: formatMoney(card.amount - used), amount: formatMoney(card.amount) }), link);
+  return message(t("assistant.lookup.giftBalance", { code: card.code, left: formatMoney(balanceOf(input.state, card)), amount: formatMoney(card.amount) }), link);
 }
 
 function inbox(input: LookupInput): Lookup {
@@ -246,14 +301,25 @@ function dueBack(input: LookupInput, text: string): Lookup {
 }
 
 function journal(input: LookupInput, text: string): Lookup {
-  const { customer, several } = namedCustomer(input, text);
+  const { customer, several, denied } = namedCustomer(input, text);
+  if (denied) return notServed();
   if (several) return whichCustomer(text, several);
   if (!customer) return message(t("assistant.lookup.journalWho"), { href: "/studio/customers", label: t("nav.customers") });
   const answer = t("assistant.lookup.journal", { name: fullName(customer) });
   return { text: answer, card: { kind: "message", text: answer, link: { href: customerHref(customer.id), label: t("assistant.lookup.openCustomer", { name: customer.firstName }) } }, context: { customerIds: [customer.id] } };
 }
 
-/** "Text Ida that I'm running 15 minutes late": one simulated text to approve, about her booking today. */
+/** Words that ask for whoever is next, not a named person: "tell the next customer", "text my next client". */
+const NEXT_RECIPIENT = /\b(?:the |my |our )?next (?:customer|client|one|booking|appointment|person)\b/;
+/** Who the words address: "text Ida that…", "tell Ida Ek I'm…", "let Ida know…". Undefined when no one is addressed. */
+function addressed(text: string): string | undefined {
+  return text.match(/\b(?:text|sms|tell|message|email|let)\s+(.+?)(?:\s+(?:know|that|i'm|i am|we're|we are|i'll|we'll|about|i|we)\b|[,.!?]|$)/)?.[1]?.trim();
+}
+
+/**
+ * "Text Ida that I'm running 15 minutes late": one simulated text to approve, about her booking today.
+ * Only an explicit "next customer" falls back on whoever is next; a name that matches nobody gets a question, never a guess.
+ */
 function runningLate(input: LookupInput, text: string): Lookup | null {
   if (!input.owner) return null;
   const { state, clock } = input;
@@ -261,9 +327,15 @@ function runningLate(input: LookupInput, text: string): Lookup | null {
   const named = namedCustomer({ ...input, context: { customerIds: [] } }, text);
   if (named.several) return whichCustomer(text, named.several);
   const upcoming = state.bookings.filter((b) => b.status === "booked" && b.date === clock.today && b.start + b.duration > clock.minutes).sort((a, b) => a.start - b.start);
+  const today = { href: "/studio", label: t("nav.today") };
+  const toNext = !named.customer && NEXT_RECIPIENT.test(text);
+  if (!named.customer && !toNext) {
+    const said = addressed(text)?.replace(/\b\p{L}/gu, (c) => c.toUpperCase());
+    return message(said && !/^(?:them|him|her|the customer|the client)$/i.test(said) ? t("assistant.lookup.lateUnknown", { name: said }) : t("assistant.lookup.lateWhich"), today);
+  }
   const booking = named.customer ? upcoming.find((b) => b.customerId === named.customer!.id) : upcoming[0];
   const customer = named.customer ?? (booking ? findCustomer(state, booking.customerId) : undefined);
-  if (!customer || !booking) return message(t(named.customer ? "assistant.lookup.lateNoBooking" : "assistant.lookup.lateWho", { name: named.customer ? fullName(named.customer) : "" }), { href: "/studio", label: t("nav.today") });
+  if (!customer || !booking) return message(t(named.customer ? "assistant.lookup.lateNoBooking" : "assistant.lookup.lateWho", { name: named.customer ? fullName(named.customer) : "" }), today);
   const body = t("assistant.late.sms", { name: customer.firstName, salon: state.salon.name, minutes, time: formatTime(booking.start + minutes) });
   const card: Proposal = {
     kind: "change",
@@ -293,7 +365,9 @@ export function lookup(input: LookupInput, understood: string): Lookup | null {
   const text = understood.toLowerCase().replace(/’/g, "'").trim();
   const cannot = notHere(text);
   if (cannot) return cannot;
-  if (/\bgift ?cards?\b/.test(text) && /\b(left|balance|worth|remaining|how much)\b/.test(text)) return giftCard(input, text);
+  // Each answer is gated by the page it stands for, the same rule the studio's navigation uses.
+  const may = (href: string) => canOpen(role(input), href);
+  if (/\bgift ?cards?\b/.test(text) && /\b(left|balance|worth|remaining|how much)\b/.test(text)) return may("/studio/more/giftcards") ? giftCard(input, text) : ownerOnly();
   if (/\b(?:running|be|i'm|i am)\b.*\blate\b|\bdelayed\b/.test(text) && /\b(text|sms|tell|message|let)\b/.test(text)) return runningLate(input, text);
   if (/\bwho(?:'s| is| comes)? (?:up )?next\b|\bnext (?:client|customer|booking|appointment|visit)\b(?!.*\b(?:for|with)\b)/.test(text) && !/\bwhen\b/.test(text) && !/\b(book|move|cancel)\b/.test(text)) return nextClient(input);
   if (/\bwhen (?:is|does|are)\b.*\b(?:next|coming|booked|back|appointment|booking|visit)\b|\b(?:next|upcoming) (?:appointment|booking|visit)\b/.test(text) && !/\b(book|move|cancel|reschedule)\b(?! ?ed)/.test(text.replace(/\bbooked\b/g, ""))) {
@@ -307,10 +381,10 @@ export function lookup(input: LookupInput, understood: string): Lookup | null {
   if (/\b(?:any|is there|have we got|do (?:we|i) have) (?:a )?(?:room|space|free|time|times|slot|slots|availability|gap|opening)\b|\bcan (?:i|we) (?:fit|squeeze)\b|\bfree (?:time|times|slot|slots)\b|\bavailab(?:le|ility)\b|\bwhen can\b.*\b(?:come|fit)\b/.test(text) && !/\b(left|in stock)\b/.test(text)) return availability(input, text, understood);
   if (/\b(?:what does|what do|how much (?:is|does|for)|what(?:'s| is) the price|price (?:of|for)|how long (?:is|does|do)|cost of)\b/.test(text) && !/\b(left|remaining|in stock|set|change|update|raise|lower|earn|earned|make|made)\b/.test(text) && !/\d\s*(?:sek|kr|%)/.test(text)) {
     const answer = servicePrice(input, text);
-    if (answer) return answer;
+    if (answer) return may("/studio/more/services") ? answer : ownerOnly();
   }
-  if (/\binbox\b|\b(?:anything|what(?:'s| is)|who(?:'s| is)) (?:waiting|unanswered)\b|\bwaiting for (?:a |an )?(?:reply|answer)\b/.test(text)) return inbox(input);
-  if (/\bdue (?:back|for)\b|\boverdue\b|\bshould (?:be|come) back\b/.test(text)) return input.owner ? dueBack(input, text) : null;
+  if (/\binbox\b|\b(?:anything|what(?:'s| is)|who(?:'s| is)) (?:waiting|unanswered)\b|\bwaiting for (?:a |an )?(?:reply|answer)\b/.test(text)) return may("/studio/inbox") ? inbox(input) : ownerOnly();
+  if (/\bdue (?:back|for)\b|\boverdue\b|\bshould (?:be|come) back\b/.test(text)) return may("/studio/customers/due-back") ? dueBack(input, text) : ownerOnly();
   if (/\bjournal\b/.test(text)) return journal(input, text);
   return null;
 }

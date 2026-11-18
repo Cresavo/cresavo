@@ -15,6 +15,8 @@ import type { Routine } from "./routines";
 // proposal with one store action, approved like any other.
 
 export const OFFER_PERCENT = 10;
+/** The discounts an assistant offer may carry, the same ceiling as a campaign. */
+export const OFFER_PERCENT_RANGE = { min: 1, max: 90 } as const;
 const PREVIEW_NAMES = 3;
 
 const names = (state: DemoState, texts: OutgoingText[]) => {
