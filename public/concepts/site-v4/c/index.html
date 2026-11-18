@@ -1,0 +1,1408 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>One inbox, every channel. | Cresavo</title>
+    <style>
+      /* Cresavo v0.1 · platform shell. System by default, explicit theme wins. */
+      :root {
+        color-scheme: light dark;
+      }
+      [data-theme="system"] {
+        color-scheme: light dark;
+      }
+      [data-theme="light"] {
+        color-scheme: light;
+      }
+      [data-theme="dark"] {
+        color-scheme: dark;
+      }
+
+      :root,
+      [data-theme] {
+        --brand-plum: #50364b;
+        --brand-apricot: #f2b184;
+        --ui-bg: light-dark(#faf7f3, #18141e);
+        --ui-surface: light-dark(#ffffff, #25202a);
+        --ui-surface-2: light-dark(#f4efeb, #302936);
+        --ui-text: light-dark(#2c242e, #fbf5f0);
+        --ui-text-secondary: light-dark(#6f666f, #beb4bd);
+        --ui-border: light-dark(#8e8289, #897f8b);
+        --ui-input-border: light-dark(#897885, #9b8c9c);
+        --ui-action: light-dark(#50364b, #f2b184);
+        --ui-action-hover: light-dark(#66445e, #ffc29b);
+        --ui-action-text: light-dark(#ffffff, #211820);
+        --ui-focus: light-dark(#ac7395, #f5bd97);
+        /* Studio-only selected tint, calendar identities and previous chart series. */
+        --ui-action-bg: light-dark(#eeebed, #3a2f33);
+        --ui-staff-1: light-dark(#3d6b8a, #a8c7dd);
+        --ui-staff-1-bg: light-dark(#e4edf3, #22303b);
+        --ui-staff-2: light-dark(#5f6b2e, #c5d394);
+        --ui-staff-2-bg: light-dark(#eef0e0, #2e3320);
+        --ui-chart-compare: light-dark(#8d7c8a, #96705c);
+      }
+
+      /* Resolve status in the local scheme, including inside the public booking flow. */
+      :root,
+      [data-theme],
+      .booking-theme {
+        --ui-success: light-dark(#266848, #b4f0c8);
+        --ui-success-bg: light-dark(#e6f2ea, #183a2a);
+        --ui-warning: light-dark(#835115, #ffd59a);
+        --ui-warning-bg: light-dark(#fff0d7, #402d19);
+        --ui-danger: light-dark(#9a3141, #ffb3bb);
+        --ui-danger-bg: light-dark(#fff0ef, #46272e);
+        --ui-info: light-dark(#315a99, #b5cdff);
+        --ui-info-bg: light-dark(#ebf1ff, #253557);
+      }
+
+      :root {
+        --font-ui:
+          var(--font-inter, "Inter"), system-ui, -apple-system,
+          BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --radius-xs: 4px;
+        --radius-sm: 6px;
+        --radius-md: 10px;
+        --radius-lg: 14px;
+        --radius-pill: 999px;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 20px;
+        --space-6: 24px;
+        --space-8: 32px;
+        --space-12: 48px;
+        --touch-target: 44px;
+        --content-max: 1160px;
+      }
+
+      /* Optional legacy hooks for an explicitly branded tenant button. The public booking
+   layer supplies tenant colours. Plain tenants fall back to neutral ink. */
+      [data-tenant] {
+        --tenant-accent: light-dark(#1d1d1f, #f2f2f3);
+      }
+      [data-tenant] .tenant-button {
+        --button-background: var(--tenant-accent);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        background: var(--ui-bg);
+        color: var(--ui-text);
+        font: 16px/1.5 var(--font-ui);
+        -webkit-font-smoothing: antialiased;
+      }
+      img {
+        display: block;
+        max-width: 100%;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+        text-underline-offset: 4px;
+      }
+      button,
+      input {
+        font: inherit;
+        color: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible {
+        outline: 3px solid var(--ui-focus);
+        outline-offset: 3px;
+      }
+      h1,
+      h2,
+      h3,
+      p,
+      figure,
+      blockquote {
+        margin: 0;
+      }
+      h1,
+      h2,
+      h3 {
+        font-weight: 500;
+      }
+      h1,
+      h2 {
+        line-height: 0.98;
+        letter-spacing: -0.06em;
+      }
+      h1,
+      h2,
+      .display {
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      .wrap {
+        width: min(100% - 112px, 1392px);
+        margin-inline: auto;
+      }
+      .mast,
+      nav,
+      footer,
+      .inputrow,
+      .star {
+        display: flex;
+        align-items: center;
+      }
+      .mast {
+        justify-content: space-between;
+        min-height: 84px;
+        border-bottom: 1px solid var(--line);
+      }
+      .wordmark {
+        width: 160px;
+        height: auto;
+      }
+      .home,
+      nav a,
+      footer a {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+      }
+      nav {
+        gap: 30px;
+        font-size: 14px;
+        font-weight: 550;
+      }
+      .join {
+        gap: 20px;
+        border: 1px solid currentColor;
+        border-radius: 999px;
+        padding: 0 20px;
+      }
+      .mono {
+        font:
+          12px/1.4 ui-monospace,
+          "Courier New",
+          monospace;
+        letter-spacing: 0.025em;
+      }
+      .small {
+        font-size: 14px;
+      }
+      .sr,
+      .skip:not(:focus) {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+      }
+      .skip:focus {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background: white;
+        color: black;
+        z-index: 100;
+        padding: 10px;
+      }
+      .comparison,
+      .wait {
+        display: grid;
+        grid-template-columns: minmax(0, 0.76fr) minmax(0, 1.24fr);
+        gap: 7%;
+        padding-block: 90px;
+        border-top: 1px solid var(--line);
+      }
+      h2 {
+        font-size: clamp(42px, 4.6vw, 74px);
+      }
+      .compareintro p {
+        margin: 24px 0;
+        max-width: 34ch;
+        color: var(--ui-text-secondary);
+      }
+      .star {
+        width: fit-content;
+        gap: 9px;
+        min-height: 44px;
+        padding: 3px 15px;
+        border-radius: 6px;
+        border: 1px solid var(--ui-border);
+        font-size: 14px;
+      }
+      .star span:first-child {
+        font-size: 21px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        text-align: left;
+        align-self: start;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+      th,
+      td {
+        vertical-align: top;
+        padding: 13px 10px;
+        border-bottom: 1px solid var(--line);
+      }
+      tr > :first-child {
+        padding-left: 0;
+      }
+      thead th {
+        font-weight: 550;
+        border-bottom: 1px solid var(--ui-text);
+        color: var(--ui-text-secondary);
+      }
+      thead th:last-child {
+        color: var(--ui-text);
+      }
+      tbody th {
+        font-weight: 550;
+      }
+      td:nth-child(2) {
+        color: var(--ui-text-secondary);
+      }
+      td:last-child {
+        font-weight: 550;
+      }
+      .wait {
+        align-items: center;
+      }
+      form label {
+        display: block;
+        font-size: 14px;
+        margin-bottom: 8px;
+        font-weight: 550;
+      }
+      .inputrow {
+        border-bottom: 1px solid var(--ui-text);
+        gap: 12px;
+        padding-bottom: 8px;
+      }
+      .inputrow input {
+        min-width: 0;
+        flex: 1;
+        padding: 10px 0;
+        background: transparent;
+        border: 0;
+        font-size: 19px;
+      }
+      .inputrow button {
+        border: 0;
+        background: var(--brand-plum);
+        color: white;
+        padding: 12px 17px;
+        border-radius: 4px;
+        min-height: 46px;
+      }
+      .formnote {
+        font-size: 13px;
+        margin-top: 11px;
+        color: var(--ui-text-secondary);
+      }
+      footer {
+        border-top: 1px solid var(--line);
+        justify-content: space-between;
+        gap: 16px;
+        min-height: 85px;
+        font-size: 13px;
+      }
+      footer .wordmark {
+        width: 102px;
+      }
+      .b h1,
+      .b h2,
+      .serif {
+        font-family: Georgia, "Times New Roman", serif;
+      }
+      .b h2 {
+        letter-spacing: -0.055em;
+      }
+      @media (max-width: 900px) {
+        .wrap {
+          width: calc(100% - 56px);
+        }
+        .comparison,
+        .wait {
+          gap: 5%;
+          grid-template-columns: 0.75fr 1.25fr;
+        }
+        .comparison {
+          grid-template-columns: 1fr;
+        }
+        .compareintro {
+          margin-bottom: 10px;
+        }
+      }
+      @media (max-width: 640px) {
+        .wrap {
+          width: calc(100% - 36px);
+        }
+        .mast {
+          min-height: 68px;
+        }
+        .wordmark {
+          width: 144px;
+        }
+        nav {
+          gap: 8px;
+          font-size: 13px;
+        }
+        nav .sectionlink,
+        nav .demolink {
+          display: none;
+        }
+        .join {
+          padding: 0 14px;
+          gap: 12px;
+        }
+        .comparison,
+        .wait {
+          grid-template-columns: 1fr;
+          gap: 26px;
+          padding-block: 50px;
+        }
+        .compareintro p {
+          margin: 15px 0;
+        }
+        .comparison table {
+          font-size: 13px;
+          line-height: 1.35;
+          table-layout: fixed;
+        }
+        th,
+        td {
+          padding: 11px 5px;
+          overflow-wrap: break-word;
+        }
+        thead th:first-child {
+          width: 26%;
+        }
+        thead th:nth-child(2) {
+          width: 35%;
+        }
+        .inputrow {
+          flex-wrap: wrap;
+        }
+        .inputrow input {
+          font-size: 16px;
+        }
+        .inputrow button {
+          font-size: 14px;
+          padding-inline: 12px;
+        }
+        footer {
+          flex-wrap: wrap;
+          justify-content: flex-start;
+          gap: 4px 16px;
+          padding: 14px 0;
+        }
+        footer a:last-child {
+          margin-left: auto;
+        }
+        footer .wordmark {
+          width: 96px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition-duration: 0s !important;
+          scroll-behavior: auto !important;
+        }
+      }
+
+      .c {
+        --line: #bcb7b3;
+      }
+      .mapground {
+        background: #f5e3d2;
+        border-bottom: 1px solid var(--ui-text);
+      }
+      .c .mast {
+        --line: #a7988c;
+        min-height: 76px;
+      }
+      .c .join {
+        background: var(--ui-text);
+        color: white;
+        border-color: var(--ui-text);
+        border-radius: 4px;
+      }
+      .c-lead {
+        padding: 49px 0 31px;
+      }
+      .c h1 {
+        font-weight: 600;
+        font-size: clamp(60px, 6.75vw, 110px);
+        letter-spacing: -0.078em;
+        line-height: 1.03;
+      }
+      .c-lead p {
+        margin-top: 17px;
+        font-size: 20px;
+        letter-spacing: -0.025em;
+      }
+      .switchboard {
+        padding-bottom: 36px;
+      }
+      .mapbar,
+      .mapcaption {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .mapbar {
+        background: var(--ui-text);
+        color: white;
+        padding: 10px 19px;
+      }
+      .mapbar strong {
+        font-size: 15px;
+        font-weight: 550;
+      }
+      .mapbar strong span {
+        color: var(--brand-apricot);
+        margin: 0 6px;
+      }
+      .mapbar .mono {
+        color: #e4dcd9;
+      }
+      .routing {
+        display: grid;
+        grid-template-columns: minmax(125px, 1fr) 0.78fr minmax(
+            240px,
+            1.78fr
+          ) 0.49fr minmax(175px, 1.12fr);
+        align-items: center;
+        background: var(--ui-bg);
+        border: 1px solid var(--ui-text);
+        border-top: 0;
+        padding: 31px clamp(22px, 4.3vw, 72px) 31px;
+        min-height: 320px;
+      }
+      .rowlabel {
+        font:
+          12px/1.2 ui-monospace,
+          monospace;
+        margin: 0 0 8px;
+        color: var(--ui-text-secondary);
+      }
+      .sourcebuttons {
+        display: grid;
+        grid-template-rows: repeat(5, 50px);
+      }
+      .sourcebuttons button {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        border: 0;
+        border-bottom: 1px solid #d1c8c2;
+        background: transparent;
+        text-align: left;
+        color: var(--ui-text);
+        font-size: 15px;
+        padding: 0 10px;
+        position: relative;
+      }
+      .sourcebuttons button::after {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border: 1px solid #968e89;
+        background: var(--ui-bg);
+        border-radius: 50%;
+        position: absolute;
+        right: -3px;
+        top: calc(50% - 4px);
+        z-index: 2;
+      }
+      .sourcebuttons button[aria-pressed="true"] {
+        background: var(--brand-apricot);
+        border-color: var(--ui-text);
+        border-radius: 3px;
+        font-weight: 650;
+      }
+      .sourcebuttons button[aria-pressed="true"]::after {
+        background: var(--ui-text);
+        border-color: var(--ui-text);
+      }
+      .glyph {
+        font:
+          19px/1 Georgia,
+          serif;
+        width: 23px;
+        text-align: center;
+      }
+      .wires {
+        height: 250px;
+        margin-top: 22px;
+      }
+      .wires svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+      }
+      .wires .tallwire {
+        display: none;
+      }
+      .wires path {
+        stroke: #b4a9ab;
+        vector-effect: non-scaling-stroke;
+      }
+      .wires .selected {
+        stroke: var(--brand-plum);
+        stroke-width: 2.7;
+      }
+      .wires .signal {
+        stroke: var(--brand-apricot);
+        stroke-width: 3;
+        stroke-dasharray: 8 92;
+        animation: packet 2.7s linear infinite;
+      }
+      @keyframes packet {
+        from {
+          stroke-dashoffset: 8;
+        }
+        to {
+          stroke-dashoffset: -92;
+        }
+      }
+      .hub {
+        border: 1px solid var(--ui-text);
+        background: white;
+        position: relative;
+      }
+      .hubcap,
+      .calcap,
+      .logtitle {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .hubcap {
+        background: var(--brand-plum);
+        color: white;
+        padding: 8px 17px;
+        font-size: 15px;
+      }
+      .hubcap span {
+        font-size: 11px;
+        color: var(--brand-apricot);
+      }
+      .hubbody {
+        padding: 15px 17px;
+      }
+      .hubbody .mono,
+      .calleaf .mono {
+        color: var(--ui-text-secondary);
+        font-size: 11px;
+      }
+      .hubbody blockquote {
+        font:
+          500 clamp(17px, 1.5vw, 24px)/1.24 Arial,
+          sans-serif;
+        letter-spacing: -0.035em;
+        margin: 4px 0 14px;
+        min-height: 2.48em;
+      }
+      .draft {
+        padding: 8px 0;
+        border-top: 1px solid #d0c7cc;
+      }
+      .draft p {
+        font-size: 15px;
+        min-height: 3em;
+      }
+      .hub button {
+        width: 100%;
+        min-height: 44px;
+        border: 1px solid var(--ui-text);
+        background: var(--ui-bg);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 7px 10px;
+        font-size: 13px;
+      }
+      .hub button:disabled {
+        opacity: 1;
+        cursor: default;
+        background: var(--ui-success-bg);
+      }
+      .outwire {
+        border-top: 2px solid var(--brand-plum);
+        position: relative;
+      }
+      .outwire span {
+        position: absolute;
+        right: -2px;
+        top: 0;
+        font-size: 25px;
+        line-height: 0;
+        font-family: Arial, sans-serif;
+      }
+      .destination {
+        border: 1px solid var(--ui-text);
+        background: white;
+        box-shadow:
+          3px 3px 0 var(--ui-bg),
+          4px 4px 0 #5f545a;
+      }
+      .calcap {
+        padding: 8px 12px;
+        background: var(--brand-apricot);
+        border-bottom: 1px solid var(--ui-text);
+        font-size: 14px;
+        font-weight: 550;
+      }
+      .binding {
+        width: 6px;
+        height: 6px;
+        background: var(--ui-text);
+        border-radius: 50%;
+      }
+      .calleaf {
+        padding: 21px 16px;
+      }
+      .calleaf strong {
+        display: block;
+        font:
+          500 clamp(46px, 4.65vw, 75px)/1.15 Arial,
+          sans-serif;
+        letter-spacing: -0.075em;
+      }
+      .calleaf p {
+        font-size: 14px;
+      }
+      .calstatus {
+        border-top: 1px dashed var(--ui-input-border);
+        padding: 8px 16px;
+        font-size: 12px;
+      }
+      .mapcaption {
+        font-size: 12px;
+        margin-top: 8px;
+        color: var(--ui-text);
+      }
+      .operator {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10%;
+        align-items: center;
+        padding-block: 73px;
+      }
+      .operator > div > p:not(.log p) {
+        max-width: 44ch;
+        margin: 17px 0;
+        font-size: 18px;
+      }
+      .log {
+        border-block: 1px solid var(--ui-text);
+      }
+      .logtitle {
+        padding: 12px 0;
+      }
+      .log > div:not(.logtitle) {
+        display: flex;
+        gap: 24px;
+        border-top: 1px solid var(--line);
+        padding: 12px 0;
+      }
+      .log time {
+        font:
+          13px/1.8 ui-monospace,
+          monospace;
+        color: var(--ui-text-secondary);
+      }
+      .log p {
+        border-top: 1px dashed var(--ui-input-border);
+        padding: 12px 0;
+        font-size: 14px;
+        color: var(--ui-text-secondary);
+      }
+      .c .star,
+      .c .inputrow button {
+        border-radius: 2px;
+      }
+      @media (max-width: 960px) {
+        .routing {
+          grid-template-columns: 1fr 0.33fr 1.5fr 0.22fr 1fr;
+          padding: 24px 18px;
+        }
+        .sourcebuttons button {
+          padding: 0 6px;
+          gap: 5px;
+          font-size: 13px;
+        }
+        .calleaf {
+          padding: 16px 10px;
+        }
+        .hubbody {
+          padding: 12px;
+        }
+        .hubcap {
+          padding: 8px 12px;
+        }
+      }
+      @media (max-width: 720px) {
+        .routing {
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          padding: 15px 12px 19px;
+        }
+        .c-lead {
+          padding: 26px 0 19px;
+        }
+        .c h1 {
+          font-size: clamp(54px, 12vw, 82px);
+          line-height: 0.93;
+        }
+        .c-lead p {
+          font-size: 16px;
+          margin-top: 14px;
+        }
+        .mapbar {
+          padding: 9px 12px;
+          gap: 6px;
+        }
+        .mapbar strong {
+          font-size: 13px;
+        }
+        .mapbar .mono {
+          font-size: 10px;
+        }
+        .rowlabel {
+          margin-bottom: 6px;
+        }
+        .sourcebuttons {
+          grid-template-columns: repeat(5, 1fr);
+          grid-template-rows: auto;
+        }
+        .sourcebuttons button {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          padding: 4px 1px;
+          gap: 3px;
+          text-align: center;
+          font-size: 11px;
+          min-height: 49px;
+          line-height: 1.2;
+        }
+        .sourcebuttons button::after {
+          right: calc(50% - 4px);
+          top: auto;
+          bottom: -4px;
+        }
+        .wires {
+          height: 32px;
+          margin: 0;
+        }
+        .wires .widewire {
+          display: none;
+        }
+        .wires .tallwire {
+          display: block;
+        }
+        .hubbody {
+          padding: 10px 13px;
+        }
+        .hubbody blockquote {
+          font-size: 17px;
+          min-height: 0;
+          margin: 2px 0 8px;
+        }
+        .draft {
+          padding: 5px 0;
+        }
+        .draft p {
+          min-height: 0;
+        }
+        .hub button {
+          margin-top: 5px;
+        }
+        .outwire {
+          border: 0;
+          border-left: 2px solid var(--brand-plum);
+          height: 24px;
+          align-self: center;
+        }
+        .outwire span {
+          display: none;
+        }
+        .destination {
+          display: grid;
+          grid-template-columns: auto 1fr auto;
+          align-items: stretch;
+        }
+        .calcap {
+          writing-mode: vertical-rl;
+          font-size: 10px;
+          padding: 4px 5px;
+          border: 0;
+          border-right: 1px solid var(--ui-text);
+          justify-content: center;
+        }
+        .binding {
+          display: none;
+        }
+        .calleaf {
+          padding: 6px 10px;
+        }
+        .calleaf strong {
+          font-size: 37px;
+          line-height: 1;
+        }
+        .calleaf p {
+          font-size: 12px;
+        }
+        .calstatus {
+          border-top: 0;
+          border-left: 1px dashed var(--ui-input-border);
+          align-self: center;
+          max-width: 80px;
+          padding: 6px 8px;
+        }
+        .mapcaption {
+          font-size: 10px;
+          gap: 9px;
+          align-items: start;
+        }
+        .mapcaption span {
+          flex: 1;
+        }
+        .mapcaption span:last-child {
+          text-align: right;
+        }
+        .operator {
+          grid-template-columns: 1fr;
+          gap: 27px;
+          padding-block: 45px;
+        }
+        .switchboard {
+          padding-bottom: 23px;
+        }
+      }
+      .destination .calleaf,
+      .destination .calstatus {
+        background: transparent;
+      }
+      .destination {
+        background: var(--ui-bg);
+        border-style: dashed;
+      }
+      .destination .calstatus {
+        font-weight: 600;
+      }
+      .destination.booked {
+        background: white;
+        border-style: solid;
+      }
+      .destination.booked .calstatus {
+        background: var(--ui-success-bg);
+      }
+      .sourcebuttons button {
+        font-size: 16px;
+      }
+      .calleaf strong {
+        font-weight: 550;
+      }
+      .operator h2 br {
+        display: none;
+      }
+      .operator h2 br:after {
+        content: " ";
+      }
+      .c .comparison {
+        display: block;
+      }
+      .c .compareintro {
+        display: grid;
+        grid-template-columns: 1.35fr 1fr auto;
+        align-items: end;
+        gap: 5%;
+        margin-bottom: 30px;
+      }
+      .c .compareintro p {
+        margin: 0;
+      }
+      .c .comparison h2 br {
+        display: none;
+      }
+      .c .comparison h2 br:after {
+        content: " ";
+      }
+      .c table {
+        font-size: 16px;
+      }
+      .c thead th {
+        background: var(--ui-text);
+        color: white;
+      }
+      .c thead th:last-child {
+        color: white;
+      }
+      .c th,
+      .c td {
+        padding: 13px 14px;
+      }
+      .c table th:first-child {
+        width: 23%;
+      }
+      .c table th:nth-child(2) {
+        width: 37%;
+      }
+      @media (max-width: 900px) {
+        .c .compareintro {
+          display: block;
+        }
+        .c .compareintro p {
+          margin: 16px 0;
+        }
+      }
+      @media (max-width: 720px) {
+        .sourcebuttons button {
+          font-size: 11px;
+        }
+        .c table {
+          font-size: 13px;
+        }
+        .c th,
+        .c td {
+          padding: 11px 5px;
+        }
+      }
+      .c header {
+        background: #f5e3d2;
+      }
+      .calstatus {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 7px;
+        min-height: 46px;
+      }
+      .calstatus button {
+        background: transparent;
+        border: 0;
+        padding: 1px 3px;
+        min-height: 44px;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        font-size: 12px;
+      }
+      .calstatus button[hidden] {
+        display: none;
+      }
+      .wires .signal {
+        animation: packet 2.4s linear 2;
+      }
+      .routing:has(.booked) .outwire:after {
+        content: "";
+        position: absolute;
+        top: -4px;
+        left: 0;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--brand-plum);
+        animation: arrive 0.4s ease-out forwards;
+      }
+      @keyframes arrive {
+        from {
+          left: 0;
+        }
+        to {
+          left: 100%;
+        }
+      }
+      .c .comparison h2 {
+        font-size: clamp(43px, 3.6vw, 63px);
+      }
+      .c .compareintro {
+        grid-template-columns: 1.6fr 1fr auto;
+      }
+      @media (max-width: 720px) {
+        .calstatus {
+          flex-direction: column;
+          justify-content: center;
+          align-items: start;
+          min-height: 54px;
+        }
+        .routing:has(.booked) .outwire:after {
+          animation: none;
+        }
+        .calstatus button {
+          line-height: 1.1;
+        }
+        .c .calleaf .mono {
+          font-size: 10px;
+        }
+      }
+    </style>
+  </head>
+  <body class="c">
+    <a href="#main" class="skip">Skip to content</a>
+    <header id="top">
+      <div class="mast wrap">
+        <a class="home" href="#top"
+          ><img
+            class="wordmark"
+            src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjYyIC0xMDgxIDY5OTIgMTEwNyIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsPSJDcmVzYXZvIj4KICA8dGl0bGU+Q3Jlc2F2bzwvdGl0bGU+CiAgPGcgZmlsbD0iIzUwMzY0QiI+CiAgICA8cGF0aCBkPSJNNTc5IDI0Qzg0NiAyNCAxMDQwIC0xNDggMTA1OCAtMzc5TDgwOSAtMzc5Qzc4NSAtMjYyIDcxNCAtMTg2IDU4MiAtMTg2QzQxNiAtMTg2IDMxOCAtMzE5IDMxOCAtNTI3QzMxOCAtNzM2IDQxNyAtODcwIDU4MiAtODcwQzcxMyAtODcwIDc5MiAtNzkxIDgxMSAtNjc4TDEwNTggLTY3OEMxMDM2IC05MTMgODQ0IC0xMDgwIDU3OSAtMTA4MEMyNzAgLTEwODAgNjMgLTg1MyA2MyAtNTI3QzYzIC0yMDEgMjcwIDI0IDU3OSAyNFoiLz4KICAgIDxwYXRoIGQ9Ik0xMTgxLjk0NCAwTDE0MzMuOTQ0IDBMMTQzMy45NDQgLTU5OEMxNDMzLjk0NCAtNzYzIDE1MjYuOTQ0IC04NDYgMTY0Ni45NDQgLTg0NkMxNjk2Ljk0NCAtODQ2IDE3NDYuOTQ0IC04NDEgMTc2NS45NDQgLTgzOEwxNzY1Ljk0NCAtMTA2MkMxNzQ1Ljk0NCAtMTA2NCAxNzE3Ljk0NCAtMTA2NiAxNjgzLjk0NCAtMTA2NkMxNTQ3Ljk0NCAtMTA2NiAxNDY2Ljk0NCAtMTAwMiAxNDI3Ljk0NCAtODgxTDE0MjQuOTQ0IC04ODFMMTQyNC45NDQgLTEwNTZMMTE4MS45NDQgLTEwNTZMMTE4MS45NDQgMFoiLz4KICAgIDxwYXRoIGQ9Ik0yMzAyLjUwNCAyNEMyNTQ5LjUwNCAyNCAyNzQ1LjUwNCAtMTE5IDI3ODUuNTA0IC0zMjZMMjU0OS41MDQgLTMyNkMyNTIwLjUwNCAtMjM2IDI0MzUuNTA0IC0xNzUgMjMwOC41MDQgLTE3NUMyMTM4LjUwNCAtMTc1IDIwNDAuNTA0IC0yOTAgMjAzNC41MDQgLTQ2MkwyNzk4LjUwNCAtNDYyTDI3OTguNTA0IC01MzFDMjc5OC41MDQgLTg1NSAyNTk2LjUwNCAtMTA4MCAyMjkyLjUwNCAtMTA4MEMxOTk2LjUwNCAtMTA4MCAxNzg3LjUwNCAtODQ4IDE3ODcuNTA0IC01MjdDMTc4Ny41MDQgLTIwNyAxOTg1LjUwNCAyNCAyMzAyLjUwNCAyNFpNMjAzNi41MDQgLTYzNkMyMDUzLjUwNCAtNzg3IDIxNTAuNTA0IC04ODAgMjI5Ni41MDQgLTg4MEMyNDQyLjUwNCAtODgwIDI1NDAuNTA0IC03ODcgMjU1Ni41MDQgLTYzNkwyMDM2LjUwNCAtNjM2WiIvPgogICAgPHBhdGggZD0iTTMzNTAuNzM2IDI1QzM2MTEuNzM2IDI1IDM3OTguNzM2IC0xMDUgMzc5OC43MzYgLTMxMUMzNzk4LjczNiAtNDY2IDM3MDEuNzM2IC01NTggMzQ5Mi43MzYgLTYwMkwzMzAyLjczNiAtNjQxQzMyMTQuNzM2IC02NjAgMzE2Mi43MzYgLTY5OSAzMTYyLjczNiAtNzYyQzMxNjIuNzM2IC04MzQgMzIzMC43MzYgLTg5MCAzMzQxLjczNiAtODkwQzM0NTYuNzM2IC04OTAgMzUzMy43MzYgLTgyMSAzNTM1LjczNiAtNzI3TDM3NzIuNzM2IC03MjdDMzc2Ni43MzYgLTk0NCAzNTkxLjczNiAtMTA3OSAzMzM1LjczNiAtMTA3OUMzMDc3LjczNiAtMTA3OSAyOTEwLjczNiAtOTQ4IDI5MTAuNzM2IC03NTRDMjkxMC43MzYgLTU5NCAzMDE2LjczNiAtNDkxIDMyMTguNzM2IC00NDlMMzM5OC43MzYgLTQxMkMzNDg3LjczNiAtMzkzIDM1NDIuNzM2IC0zNTYgMzU0Mi43MzYgLTI5MkMzNTQyLjczNiAtMjE3IDM0NjguNzM2IC0xNjQgMzM0Ni43MzYgLTE2NEMzMjIwLjczNiAtMTY0IDMxNDYuNzM2IC0yMjMgMzEzNS43MzYgLTMyNkwyODg2LjczNiAtMzI2QzI5MDIuNzM2IC05OSAzMDkzLjczNiAyNSAzMzUwLjczNiAyNVoiLz4KICAgIDxwYXRoIGQ9Ik00MzMzLjY4IDIxQzQ0NzEuNjggMjEgNDU4Ni42OCAtMzkgNDY1Mi42OCAtMTU5TDQ2NTUuNjggLTE1OUw0NjU1LjY4IDBMNDkwMi42OCAwTDQ5MDIuNjggLTEwNTZMNDY1NS42OCAtMTA1Nkw0NjU1LjY4IC05MDlMNDY1MS42OCAtOTA5QzQ1ODYuNjggLTEwMjEgNDQ2OC42OCAtMTA3NyA0MzMxLjY4IC0xMDc3QzQwNjAuNjggLTEwNzcgMzg3Ni42OCAtODU0IDM4NzYuNjggLTUyOUMzODc2LjY4IC0yMDAgNDA1Ny42OCAyMSA0MzMzLjY4IDIxWk00MzkyLjY4IC0xOTBDNDIzNi42OCAtMTkwIDQxMzEuNjggLTMxMCA0MTMxLjY4IC01MjlDNDEzMS42OCAtNzQ3IDQyMzYuNjggLTg2OCA0MzkyLjY4IC04NjhDNDU1Ny42OCAtODY4IDQ2NjUuNjggLTczNCA0NjY1LjY4IC01MjlDNDY2NS42OCAtMzIzIDQ1NTcuNjggLTE5MCA0MzkyLjY4IC0xOTBaIi8+CiAgICA8cGF0aCBkPSJNNTM2MC4wNDggMEw1NjM2LjA0OCAwTDYwMzMuMDQ4IC0xMDU2TDU3NjkuMDQ4IC0xMDU2TDU1NzkuMDQ4IC01MDZDNTU1Mi4wNDggLTQyMyA1NTI3LjA0OCAtMzM5IDU1MDIuMDQ4IC0yNTZDNTQ3Ni4wNDggLTMzOSA1NDUwLjA0OCAtNDIzIDU0MjMuMDQ4IC01MDZMNTIzMC4wNDggLTEwNTZMNDk2My4wNDggLTEwNTZMNTM2MC4wNDggMFoiLz4KICAgIDxwYXRoIGQ9Ik02NTMxLjUxMiAyNEM2ODQyLjUxMiAyNCA3MDUyLjUxMiAtMTk5IDcwNTIuNTEyIC01MjdDNzA1Mi41MTIgLTg1NSA2ODQyLjUxMiAtMTA4MCA2NTMxLjUxMiAtMTA4MEM2MjIwLjUxMiAtMTA4MCA2MDEwLjUxMiAtODU1IDYwMTAuNTEyIC01MjdDNjAxMC41MTIgLTE5OSA2MjIwLjUxMiAyNCA2NTMxLjUxMiAyNFpNNjUzMS41MTIgLTE4N0M2MzY4LjUxMiAtMTg3IDYyNjUuNTEyIC0zMTYgNjI2NS41MTIgLTUyN0M2MjY1LjUxMiAtNzM5IDYzNjkuNTEyIC04NjkgNjUzMS41MTIgLTg2OUM2NjkyLjUxMiAtODY5IDY3OTYuNTEyIC03MzggNjc5Ni41MTIgLTUyN0M2Nzk2LjUxMiAtMzE3IDY2OTMuNTEyIC0xODcgNjUzMS41MTIgLTE4N1oiLz4KICA8L2c+Cjwvc3ZnPgo="
+            alt="Cresavo"
+        /></a>
+        <nav aria-label="Main navigation">
+          <a class="sectionlink" href="#story">Channel map</a
+          ><a class="demolink" href="https://demo.cresavo.com">Explore demo ↗</a
+          ><a class="join" href="#waitlist"
+            >Waitlist <span aria-hidden="true">↓</span></a
+          >
+        </nav>
+      </div>
+    </header>
+    <main id="main">
+      <div class="mapground">
+        <div class="wrap">
+          <div class="c-lead">
+            <h1>One inbox, every channel.</h1>
+            <p>
+              Five ways to reach your salon. Your own AI drafts a reply. You
+              approve what goes into the calendar.
+            </p>
+          </div>
+          <section
+            id="story"
+            class="switchboard"
+            aria-label="Interactive channel map"
+          >
+            <div class="mapbar">
+              <strong>Salong Eko <span>/</span> Channel map</strong
+              ><span class="mono">Interactive preview</span>
+            </div>
+            <div class="routing">
+              <div class="sources">
+                <div class="rowlabel">Incoming requests</div>
+                <div class="sourcebuttons">
+                  <button data-channel="0" aria-pressed="true">
+                    <span class="glyph">•••</span><span>SMS</span>
+                  </button>
+                  <button data-channel="1" aria-pressed="false">
+                    <span class="glyph">◎</span><span>Instagram</span>
+                  </button>
+                  <button data-channel="2" aria-pressed="false">
+                    <span class="glyph">☎</span><span>Phone</span>
+                  </button>
+                  <button data-channel="3" aria-pressed="false">
+                    <span class="glyph">▤</span><span>Booking page</span>
+                  </button>
+                  <button data-channel="4" aria-pressed="false">
+                    <span class="glyph">⇄</span><span>AI agents</span>
+                  </button>
+                </div>
+              </div>
+              <div class="wires" aria-hidden="true">
+                <svg
+                  class="widewire"
+                  viewBox="0 0 150 250"
+                  preserveAspectRatio="none"
+                >
+                  <g fill="none" stroke-width="1.7">
+                    <path d="M0 25 H24 C75 25 60 125 118 125 H150" />
+                    <path d="M0 75 H24 C75 75 60 125 118 125 H150" />
+                    <path d="M0 125 H150" />
+                    <path d="M0 175 H24 C75 175 60 125 118 125 H150" />
+                    <path d="M0 225 H24 C75 225 60 125 118 125 H150" />
+                  </g>
+                </svg>
+                <svg
+                  class="tallwire"
+                  viewBox="0 0 100 36"
+                  preserveAspectRatio="none"
+                >
+                  <g fill="none" stroke-width="1.3">
+                    <path d="M10 0 V5 Q10 17 21 17 H41 Q50 17 50 30 V36" />
+                    <path d="M30 0 V6 Q30 17 39 17 H41 Q50 17 50 30 V36" />
+                    <path d="M50 0 V36" />
+                    <path d="M70 0 V6 Q70 17 61 17 H59 Q50 17 50 30 V36" />
+                    <path d="M90 0 V5 Q90 17 79 17 H59 Q50 17 50 30 V36" />
+                  </g>
+                </svg>
+              </div>
+              <div class="hub">
+                <div class="hubcap">
+                  <strong>Cresavo inbox</strong><span>●</span>
+                </div>
+                <div class="hubbody">
+                  <span class="mono sourceid">SMS request</span>
+                  <blockquote id="query">
+                    “Can I get foot care on Friday?”
+                  </blockquote>
+                  <div class="draft">
+                    <span class="mono">Assistant’s draft</span>
+                    <p id="draft">“I can offer you 14:30 with Anna.”</p>
+                  </div>
+                  <button id="route-approve">
+                    Approve reply &amp; booking <span>→</span>
+                  </button>
+                </div>
+              </div>
+              <div class="outwire" aria-hidden="true"><span>→</span></div>
+              <div class="destination" id="destination">
+                <div class="calcap">
+                  <span class="binding"></span>Studio calendar<span
+                    class="binding"
+                  ></span>
+                </div>
+                <div class="calleaf">
+                  <span class="mono">FRIDAY AFTERNOON</span
+                  ><strong id="slot">14:30</strong>
+                  <p id="service">Foot care · 45 min</p>
+                </div>
+                <div class="calstatus">
+                  <span id="calstatus" role="status">Proposed time</span
+                  ><button id="undo" hidden>Undo booking</button>
+                </div>
+              </div>
+            </div>
+            <div class="mapcaption">
+              <span>Select a channel, then approve its booking.</span
+              ><span>Customer-agent booking · Coming soon</span>
+            </div>
+          </section>
+        </div>
+      </div>
+      <section class="operator wrap" id="assistant">
+        <div>
+          <h2>Bring your <br />own AI.</h2>
+          <p>
+            Connect ChatGPT or Claude today via MCP. Your assistant drafts
+            replies using the calendar you already keep. Grok and others are
+            coming soon.
+          </p>
+          <a class="star" href="https://demo.cresavo.com">Try the studio ↗</a>
+        </div>
+        <div class="log">
+          <div class="logtitle">
+            <b>Studio activity</b><span class="mono">Salong Eko</span>
+          </div>
+          <div>
+            <time>14:02</time><span>Your assistant drafted a reply.</span>
+          </div>
+          <div><time>14:03</time><span>Anna approved the change.</span></div>
+          <div>
+            <time>14:03</time><span>Booking added to the calendar.</span>
+          </div>
+          <p>
+            Your calendar, clients, journal, campaigns, stock and gift cards
+            share one workspace. Every change is logged and undoable.
+          </p>
+        </div>
+      </section>
+      <section class="comparison wrap" id="terms">
+        <div class="compareintro">
+          <h2>Your studio. <br />Your rules.</h2>
+          <p>
+            Open source for salons and clinics. Here’s what to look for when
+            choosing a booking platform.
+          </p>
+          <a class="star" href="https://github.com/Cresavo/cresavo"
+            ><span aria-hidden="true">☆</span> Star on GitHub
+            <span aria-hidden="true">↗</span></a
+          >
+        </div>
+        <table>
+          <caption class="sr">
+            How booking platforms compare
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">What to compare</th>
+              <th scope="col">Typical platforms</th>
+              <th scope="col">Cresavo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Booking commission</th>
+              <td>May vary by booking source</td>
+              <td>Zero commission on bookings</td>
+            </tr>
+            <tr>
+              <th scope="row">Card payments</th>
+              <td>Check the processing terms</td>
+              <td>Card fee shown up front</td>
+            </tr>
+            <tr>
+              <th scope="row">Data export</th>
+              <td>Check what you can take</td>
+              <td>Export everything</td>
+            </tr>
+            <tr>
+              <th scope="row">Booking page</th>
+              <td>Check branding restrictions</td>
+              <td>Your name and brand</td>
+            </tr>
+            <tr>
+              <th scope="row">Hosting</th>
+              <td>Usually provider-hosted</td>
+              <td>Self-host or use hosted Cresavo</td>
+            </tr>
+            <tr>
+              <th scope="row">Owner’s assistant</th>
+              <td>Usually the platform’s choice</td>
+              <td>Bring your own AI via MCP</td>
+            </tr>
+            <tr>
+              <th scope="row">Customer’s AI agent</th>
+              <td>Check external booking access</td>
+              <td>Agent booking · coming soon</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      <section id="waitlist" class="wait wrap">
+        <div>
+          <h2>Join the<br />waitlist.</h2>
+        </div>
+        <form>
+          <label for="email">Email address</label>
+          <div class="inputrow">
+            <input
+              id="email"
+              type="email"
+              required
+              autocomplete="email"
+              placeholder="you@example.com"
+            /><button>
+              Join the waitlist <span aria-hidden="true">↗</span>
+            </button>
+          </div>
+          <p class="formnote" role="status">
+            This is a waitlist preview. Your email stays in this page.
+          </p>
+        </form>
+      </section>
+    </main>
+    <footer class="wrap">
+      <a class="home" href="#top"
+        ><img
+          class="wordmark"
+          src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjYyIC0xMDgxIDY5OTIgMTEwNyIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsPSJDcmVzYXZvIj4KICA8dGl0bGU+Q3Jlc2F2bzwvdGl0bGU+CiAgPGcgZmlsbD0iIzUwMzY0QiI+CiAgICA8cGF0aCBkPSJNNTc5IDI0Qzg0NiAyNCAxMDQwIC0xNDggMTA1OCAtMzc5TDgwOSAtMzc5Qzc4NSAtMjYyIDcxNCAtMTg2IDU4MiAtMTg2QzQxNiAtMTg2IDMxOCAtMzE5IDMxOCAtNTI3QzMxOCAtNzM2IDQxNyAtODcwIDU4MiAtODcwQzcxMyAtODcwIDc5MiAtNzkxIDgxMSAtNjc4TDEwNTggLTY3OEMxMDM2IC05MTMgODQ0IC0xMDgwIDU3OSAtMTA4MEMyNzAgLTEwODAgNjMgLTg1MyA2MyAtNTI3QzYzIC0yMDEgMjcwIDI0IDU3OSAyNFoiLz4KICAgIDxwYXRoIGQ9Ik0xMTgxLjk0NCAwTDE0MzMuOTQ0IDBMMTQzMy45NDQgLTU5OEMxNDMzLjk0NCAtNzYzIDE1MjYuOTQ0IC04NDYgMTY0Ni45NDQgLTg0NkMxNjk2Ljk0NCAtODQ2IDE3NDYuOTQ0IC04NDEgMTc2NS45NDQgLTgzOEwxNzY1Ljk0NCAtMTA2MkMxNzQ1Ljk0NCAtMTA2NCAxNzE3Ljk0NCAtMTA2NiAxNjgzLjk0NCAtMTA2NkMxNTQ3Ljk0NCAtMTA2NiAxNDY2Ljk0NCAtMTAwMiAxNDI3Ljk0NCAtODgxTDE0MjQuOTQ0IC04ODFMMTQyNC45NDQgLTEwNTZMMTE4MS45NDQgLTEwNTZMMTE4MS45NDQgMFoiLz4KICAgIDxwYXRoIGQ9Ik0yMzAyLjUwNCAyNEMyNTQ5LjUwNCAyNCAyNzQ1LjUwNCAtMTE5IDI3ODUuNTA0IC0zMjZMMjU0OS41MDQgLTMyNkMyNTIwLjUwNCAtMjM2IDI0MzUuNTA0IC0xNzUgMjMwOC41MDQgLTE3NUMyMTM4LjUwNCAtMTc1IDIwNDAuNTA0IC0yOTAgMjAzNC41MDQgLTQ2MkwyNzk4LjUwNCAtNDYyTDI3OTguNTA0IC01MzFDMjc5OC41MDQgLTg1NSAyNTk2LjUwNCAtMTA4MCAyMjkyLjUwNCAtMTA4MEMxOTk2LjUwNCAtMTA4MCAxNzg3LjUwNCAtODQ4IDE3ODcuNTA0IC01MjdDMTc4Ny41MDQgLTIwNyAxOTg1LjUwNCAyNCAyMzAyLjUwNCAyNFpNMjAzNi41MDQgLTYzNkMyMDUzLjUwNCAtNzg3IDIxNTAuNTA0IC04ODAgMjI5Ni41MDQgLTg4MEMyNDQyLjUwNCAtODgwIDI1NDAuNTA0IC03ODcgMjU1Ni41MDQgLTYzNkwyMDM2LjUwNCAtNjM2WiIvPgogICAgPHBhdGggZD0iTTMzNTAuNzM2IDI1QzM2MTEuNzM2IDI1IDM3OTguNzM2IC0xMDUgMzc5OC43MzYgLTMxMUMzNzk4LjczNiAtNDY2IDM3MDEuNzM2IC01NTggMzQ5Mi43MzYgLTYwMkwzMzAyLjczNiAtNjQxQzMyMTQuNzM2IC02NjAgMzE2Mi43MzYgLTY5OSAzMTYyLjczNiAtNzYyQzMxNjIuNzM2IC04MzQgMzIzMC43MzYgLTg5MCAzMzQxLjczNiAtODkwQzM0NTYuNzM2IC04OTAgMzUzMy43MzYgLTgyMSAzNTM1LjczNiAtNzI3TDM3NzIuNzM2IC03MjdDMzc2Ni43MzYgLTk0NCAzNTkxLjczNiAtMTA3OSAzMzM1LjczNiAtMTA3OUMzMDc3LjczNiAtMTA3OSAyOTEwLjczNiAtOTQ4IDI5MTAuNzM2IC03NTRDMjkxMC43MzYgLTU5NCAzMDE2LjczNiAtNDkxIDMyMTguNzM2IC00NDlMMzM5OC43MzYgLTQxMkMzNDg3LjczNiAtMzkzIDM1NDIuNzM2IC0zNTYgMzU0Mi43MzYgLTI5MkMzNTQyLjczNiAtMjE3IDM0NjguNzM2IC0xNjQgMzM0Ni43MzYgLTE2NEMzMjIwLjczNiAtMTY0IDMxNDYuNzM2IC0yMjMgMzEzNS43MzYgLTMyNkwyODg2LjczNiAtMzI2QzI5MDIuNzM2IC05OSAzMDkzLjczNiAyNSAzMzUwLjczNiAyNVoiLz4KICAgIDxwYXRoIGQ9Ik00MzMzLjY4IDIxQzQ0NzEuNjggMjEgNDU4Ni42OCAtMzkgNDY1Mi42OCAtMTU5TDQ2NTUuNjggLTE1OUw0NjU1LjY4IDBMNDkwMi42OCAwTDQ5MDIuNjggLTEwNTZMNDY1NS42OCAtMTA1Nkw0NjU1LjY4IC05MDlMNDY1MS42OCAtOTA5QzQ1ODYuNjggLTEwMjEgNDQ2OC42OCAtMTA3NyA0MzMxLjY4IC0xMDc3QzQwNjAuNjggLTEwNzcgMzg3Ni42OCAtODU0IDM4NzYuNjggLTUyOUMzODc2LjY4IC0yMDAgNDA1Ny42OCAyMSA0MzMzLjY4IDIxWk00MzkyLjY4IC0xOTBDNDIzNi42OCAtMTkwIDQxMzEuNjggLTMxMCA0MTMxLjY4IC01MjlDNDEzMS42OCAtNzQ3IDQyMzYuNjggLTg2OCA0MzkyLjY4IC04NjhDNDU1Ny42OCAtODY4IDQ2NjUuNjggLTczNCA0NjY1LjY4IC01MjlDNDY2NS42OCAtMzIzIDQ1NTcuNjggLTE5MCA0MzkyLjY4IC0xOTBaIi8+CiAgICA8cGF0aCBkPSJNNTM2MC4wNDggMEw1NjM2LjA0OCAwTDYwMzMuMDQ4IC0xMDU2TDU3NjkuMDQ4IC0xMDU2TDU1NzkuMDQ4IC01MDZDNTU1Mi4wNDggLTQyMyA1NTI3LjA0OCAtMzM5IDU1MDIuMDQ4IC0yNTZDNTQ3Ni4wNDggLTMzOSA1NDUwLjA0OCAtNDIzIDU0MjMuMDQ4IC01MDZMNTIzMC4wNDggLTEwNTZMNDk2My4wNDggLTEwNTZMNTM2MC4wNDggMFoiLz4KICAgIDxwYXRoIGQ9Ik02NTMxLjUxMiAyNEM2ODQyLjUxMiAyNCA3MDUyLjUxMiAtMTk5IDcwNTIuNTEyIC01MjdDNzA1Mi41MTIgLTg1NSA2ODQyLjUxMiAtMTA4MCA2NTMxLjUxMiAtMTA4MEM2MjIwLjUxMiAtMTA4MCA2MDEwLjUxMiAtODU1IDYwMTAuNTEyIC01MjdDNjAxMC41MTIgLTE5OSA2MjIwLjUxMiAyNCA2NTMxLjUxMiAyNFpNNjUzMS41MTIgLTE4N0M2MzY4LjUxMiAtMTg3IDYyNjUuNTEyIC0zMTYgNjI2NS41MTIgLTUyN0M2MjY1LjUxMiAtNzM5IDYzNjkuNTEyIC04NjkgNjUzMS41MTIgLTg2OUM2NjkyLjUxMiAtODY5IDY3OTYuNTEyIC03MzggNjc5Ni41MTIgLTUyN0M2Nzk2LjUxMiAtMzE3IDY2OTMuNTEyIC0xODcgNjUzMS41MTIgLTE4N1oiLz4KICA8L2c+Cjwvc3ZnPgo="
+          alt="Cresavo" /></a
+      ><span>More time. On your terms.</span
+      ><a href="#top" aria-label="Back to top">Back to top ↑</a>
+    </footer>
+
+    <script>
+      document.querySelector("form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        document.querySelector(".formnote").textContent =
+          "Thanks for trying the preview. Sign-ups haven’t opened yet, and your email hasn’t been saved.";
+      });
+      const channels = [
+        [
+          "SMS request",
+          "Can I get foot care on Friday?",
+          "I can offer you 14:30 with Anna.",
+          "14:30",
+          "Foot care · 45 min",
+        ],
+        [
+          "Instagram message",
+          "Is there room for a trim on Friday?",
+          "Sofia has 13:00 free for a trim.",
+          "13:00",
+          "Trim · 30 min",
+        ],
+        [
+          "Phone enquiry",
+          "Could you move my visit later?",
+          "We can move your visit to 15:00.",
+          "15:00",
+          "Foot care · 45 min",
+        ],
+        [
+          "Booking page request",
+          "Could I book a massage on Friday?",
+          "There’s a massage opening at 13:30.",
+          "13:30",
+          "Massage · 45 min",
+        ],
+        [
+          "AI agent · Coming soon",
+          "Find a Friday foot care slot for Alex.",
+          "Anna can see Alex at 14:30.",
+          "14:30",
+          "Foot care · 45 min",
+        ],
+      ];
+      const routeApprove = document.getElementById("route-approve");
+      function selectChannel(index) {
+        const [label, request, reply, time, service] = channels[index];
+        document.querySelector(".sourceid").textContent = label;
+        document.getElementById("query").textContent = "“" + request + "”";
+        document.getElementById("draft").textContent = "“" + reply + "”";
+        document.getElementById("slot").textContent = time;
+        document.getElementById("service").textContent = service;
+        document.getElementById("calstatus").textContent = "Proposed time";
+        document.getElementById("destination").classList.remove("booked");
+        document.getElementById("undo").hidden = true;
+        routeApprove.innerHTML = "Approve reply &amp; booking <span>→</span>";
+        routeApprove.disabled = false;
+        document
+          .querySelectorAll("[data-channel]")
+          .forEach((b, i) => b.setAttribute("aria-pressed", i === index));
+        document.querySelectorAll(".wires g").forEach((group) => {
+          group.querySelector(".signal")?.remove();
+          const paths = [...group.children];
+          paths.forEach((p, i) => p.classList.toggle("selected", i === index));
+          const signal = paths[index].cloneNode();
+          signal.setAttribute("class", "signal");
+          signal.setAttribute("pathLength", "100");
+          group.append(signal);
+        });
+      }
+      document
+        .querySelectorAll("[data-channel]")
+        .forEach(
+          (button, index) => (button.onclick = () => selectChannel(index)),
+        );
+      routeApprove.onclick = () => {
+        routeApprove.textContent = "✓ Owner approved";
+        document.getElementById("undo").hidden = false;
+        routeApprove.disabled = true;
+        document.getElementById("destination").classList.add("booked");
+        document.getElementById("calstatus").textContent = "Booked · Logged";
+      };
+      document.getElementById("undo").onclick = () => {
+        selectChannel(
+          Number(
+            document.querySelector('[data-channel][aria-pressed="true"]')
+              .dataset.channel,
+          ),
+        );
+        document.getElementById("calstatus").textContent = "Booking undone";
+        routeApprove.focus();
+      };
+      selectChannel(0);
+    </script>
+  </body>
+</html>
