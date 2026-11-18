@@ -86,7 +86,7 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
                   key={key}
                   type="button"
                   onClick={() => void ask(t(key))}
-                  className="min-h-9 rounded-full bg-surface px-3.5 py-1.5 text-left text-sm font-medium ring-1 ring-inset ring-border hover:bg-surface-2"
+                  className="min-h-9 rounded-full bg-surface px-3.5 py-1.5 text-left text-sm font-medium ring-1 ring-inset ring-hairline hover:bg-surface-2"
                 >
                   {t(key)}
                 </button>
@@ -97,7 +97,7 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
 
         {view.kind === "loading" && <p className="animate-pulse text-sm text-text-secondary">{t("help.looking")}</p>}
 
-        {view.kind === "failed" && <p className="rounded-md bg-warning-bg p-3 text-sm text-warning">{t("help.failed")}</p>}
+        {view.kind === "failed" && <p className="rounded-md bg-warning-bg p-3 text-sm text-text">{t("help.failed")}</p>}
 
         {reply && (
           <div className="space-y-3" aria-live="polite">
@@ -121,7 +121,7 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
         )}
 
         {(view.kind === "answer" || view.kind === "failed") && (
-          <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+          <div className="flex flex-wrap items-center gap-3 border-t border-hairline pt-4">
             <p className="min-w-0 flex-1 text-sm text-text-secondary">{t("help.notEnough")}</p>
             <Button variant="ghost" icon={<LifeBuoy size={18} />} onClick={() => setTicketing(true)}>
               {t("help.createTicket")}

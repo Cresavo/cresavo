@@ -71,7 +71,7 @@ export default function FeaturesPage() {
             const on = state.modules[module.id];
             return (
               <Card key={module.id} className="flex items-start gap-4 p-4">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-action">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-text">
                   <Icon size={20} />
                 </span>
                 <div className="min-w-0 flex-1">

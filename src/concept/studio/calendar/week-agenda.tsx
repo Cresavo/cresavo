@@ -31,7 +31,7 @@ export function WeekAgenda({ monday, staff, resourceId, onOpen }: { monday: Date
               {!closed && <Meter value={utilisation(state, d, 1, staffId)} className="w-20" />}
             </div>
             {list.length > 0 && (
-              <ul className="divide-y divide-border border-t border-border">
+              <ul className="divide-y divide-hairline border-t border-hairline">
                 {list.map((b) => {
                   const customer = findCustomer(state, b.customerId);
                   return (

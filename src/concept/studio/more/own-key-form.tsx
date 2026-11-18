@@ -57,7 +57,7 @@ export function OwnKeyForm() {
             <p className="text-sm text-text-secondary">{t("ai.ownKeyText")}</p>
           </div>
         </div>
-        <p className="rounded-md bg-warning-bg px-3.5 py-2.5 text-sm text-warning">{t(overview?.keyStorageAvailable ? "ai.ownKeyDemo" : "ai.keyStorageUnavailable")}</p>
+        <p className="rounded-md bg-warning-bg px-3.5 py-2.5 text-sm text-text">{t(overview?.keyStorageAvailable ? "ai.ownKeyDemo" : "ai.keyStorageUnavailable")}</p>
         <Segmented value={provider} options={PROVIDERS} onChange={setProvider} label={t("ai.provider")} className="w-full" />
         <Field label={t("ai.apiKey")}>
           <TextInput

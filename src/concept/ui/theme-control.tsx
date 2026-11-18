@@ -38,7 +38,7 @@ export function ThemeControl({ compact = false, className }: { compact?: boolean
     return <Segmented label={t("theme.label")} value={theme} onChange={setTheme} options={THEMES.map((value) => ({ value, label: t(`theme.${value}`) }))} className={className} />;
   }
   return (
-    <div role="radiogroup" aria-label={t("theme.label")} className={cx("inline-flex rounded-md border border-border p-0.5", className)}>
+    <div role="radiogroup" aria-label={t("theme.label")} className={cx("inline-flex rounded-md border border-hairline p-0.5", className)}>
       {THEMES.map((value) => {
         const Icon = ICONS[value];
         const active = value === theme;

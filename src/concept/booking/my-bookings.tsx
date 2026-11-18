@@ -77,7 +77,7 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
     <div className="mx-auto max-w-2xl space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t("booking.me.title", { name: customer.firstName })}</h1>
-        <p className="mt-2 flex items-start gap-2 rounded-md bg-action-bg px-3.5 py-3 text-sm text-action">
+        <p className="mt-2 flex items-start gap-2 rounded-md bg-action-bg px-3.5 py-3 text-sm text-text">
           <Info size={16} className="mt-0.5 shrink-0" />
           {t("booking.me.rule", { phone: state.salon.phone })}
         </p>
@@ -101,7 +101,7 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
 
       {past.length > 0 && (
         <Section title={t("booking.me.past")}>
-          <Card className="divide-y divide-border">
+          <Card className="divide-y divide-hairline">
             {past.map((booking) => {
               const service = state.services.find((s) => s.id === booking.serviceId);
               return (

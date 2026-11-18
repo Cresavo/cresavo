@@ -82,7 +82,7 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
       <div className="flex items-center gap-2">
         <p className="font-semibold">{t("journal.dictate")}</p>
         {fields && (
-          <span className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold", fields.source === "ai" ? "bg-action-bg text-action" : "bg-surface-2 text-text-secondary")}>
+          <span className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold", fields.source === "ai" ? "bg-action-bg text-text" : "bg-surface-2 text-text-secondary")}>
             {fields.source === "ai" && <Sparkles size={12} />}
             {fields.source === "ai" ? t("journal.source.ai") : t("journal.source.rules")}
           </span>

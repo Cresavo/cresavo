@@ -25,7 +25,7 @@ function Avatar({ size = 32 }: { size?: number }) {
   );
 }
 
-const frame = "mx-auto w-full max-w-sm overflow-hidden rounded-lg bg-surface text-[13px] leading-snug ring-1 ring-border";
+const frame = "mx-auto w-full max-w-sm overflow-hidden rounded-lg bg-surface text-[13px] leading-snug ring-1 ring-hairline";
 
 export function ChannelPreview({ channel, text, subject, salonName, post, story }: PreviewProps) {
   const handle = salonName.toLowerCase().replace(/\s+/g, "_");
@@ -62,7 +62,7 @@ export function ChannelPreview({ channel, text, subject, salonName, post, story 
           </div>
           <p className="whitespace-pre-line px-3 pb-2.5">{text}</p>
           {post}
-          <div className="flex justify-around border-t border-border py-2 text-xs font-medium text-text-secondary">
+          <div className="flex justify-around border-t border-hairline py-2 text-xs font-medium text-text-secondary">
             <span className="flex items-center gap-1.5"><ThumbsUp size={14} />{t("campaigns.preview.like")}</span>
             <span className="flex items-center gap-1.5"><MessageCircle size={14} />{t("campaigns.preview.comment")}</span>
             <span className="flex items-center gap-1.5"><Share2 size={14} />{t("campaigns.preview.share")}</span>
@@ -71,7 +71,7 @@ export function ChannelPreview({ channel, text, subject, salonName, post, story 
       );
     case "tiktok":
       return (
-        <div className="relative mx-auto w-52 overflow-hidden rounded-lg bg-black ring-1 ring-border">
+        <div className="relative mx-auto w-52 overflow-hidden rounded-lg bg-black ring-1 ring-hairline">
           {story}
           <div className="absolute inset-x-0 bottom-0 space-y-1 bg-gradient-to-t from-black/85 to-transparent px-3 pb-3 pt-10 text-[11px] leading-snug text-white">
             <p className="font-semibold">@{handle}</p>
@@ -83,7 +83,7 @@ export function ChannelPreview({ channel, text, subject, salonName, post, story 
     case "newsletter":
       return (
         <div className={frame}>
-          <div className="space-y-0.5 border-b border-border px-3 py-2.5">
+          <div className="space-y-0.5 border-b border-hairline px-3 py-2.5">
             <p className="font-semibold">{subject}</p>
             <p className="text-xs text-text-secondary">{t("campaigns.preview.from", { name: salonName })}</p>
           </div>

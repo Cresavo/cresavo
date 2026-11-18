@@ -5,7 +5,7 @@ import type { Config } from "tailwindcss";
 // tenant-theme.css). color-mix keeps opacity modifiers such as `bg-surface/80`.
 const ui = (name: string) => `color-mix(in srgb, var(--ui-${name}) calc(<alpha-value> * 100%), transparent)`;
 const names = [
-  "bg", "surface", "surface-2", "text", "text-secondary", "border", "input-border",
+  "bg", "surface", "surface-2", "text", "text-secondary", "border", "hairline", "input-border",
   "action", "action-hover", "action-bg", "focus",
   "success", "success-bg", "warning", "warning-bg", "danger", "danger-bg", "info", "info-bg",
   "staff-1", "staff-1-bg", "staff-2", "staff-2-bg", "chart-compare",

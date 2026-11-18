@@ -38,10 +38,10 @@ export default function GiftCardsPage() {
           </Card>
         )}
         {cards.length ? (
-          <Card className="divide-y divide-border overflow-hidden">
+          <Card className="divide-y divide-hairline overflow-hidden">
             {cards.map((card) => (
               <button key={card.id} type="button" onClick={() => setSheet({ kind: "card", id: card.id })} className="flex min-h-16 w-full items-center gap-4 px-4 py-3 text-left hover:bg-surface-2">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-action"><Gift size={20} /></span>
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-text"><Gift size={20} /></span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{t("giftcards.for", { name: card.recipient })}</span>
                   <span className="block truncate font-mono text-sm text-text-secondary">{card.code}</span>

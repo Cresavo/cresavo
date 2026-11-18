@@ -11,16 +11,34 @@ import { NoAccess } from "./ops/no-access";
 import { RoleSwitch } from "./ops/role-switch";
 import { t } from "../i18n";
 import { unreadCount } from "../selectors";
-import { useDemo } from "../store";
+import { isPreset } from "../modules/registry";
+import { dispatch, useDemo } from "../store";
 import type { DemoState } from "../data/types";
 import { cx } from "../ui/cx";
 import { parseTheme, pinThemeColor, studioChrome } from "../ui/theme";
 import { ThemeControl } from "../ui/theme-control";
-import { Toaster } from "../ui/toast";
+import { showToast, Toaster } from "../ui/toast";
 import { Wordmark } from "../ui/wordmark";
 import { BUSINESS_NAV, isActivePath, MORE_TAB, PRIMARY_NAV, SETTINGS_NAV, visibleItems, type NavItem } from "./nav";
 
 const WELCOME_PATH = "/studio/welcome";
+
+/**
+ * The demo landing offers two ways in: `/studio?start=essentials` or `?start=everything`. The choice only
+ * sets the module switches (More → Features changes it back); the parameter is dropped so a reload does not repeat it.
+ */
+function useStartPreset(ready: boolean) {
+  useEffect(() => {
+    if (!ready) return;
+    const url = new URL(window.location.href);
+    const preset = url.searchParams.get("start");
+    if (!isPreset(preset)) return;
+    url.searchParams.delete("start");
+    window.history.replaceState(window.history.state, "", url);
+    dispatch({ type: "module/preset", preset });
+    showToast(t(`features.preset.${preset}.started`));
+  }, [ready]);
+}
 
 export function StudioShell({ children }: { children: ReactNode }) {
   const state = useDemo();
@@ -28,6 +46,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
   // The chrome follows the studio's saved theme, also when arriving by an in-app link from a booking page.
   useEffect(() => pinThemeColor(studioChrome(parseTheme(document.documentElement.dataset.theme))), []);
+  useStartPreset(!!state);
   if (!state) return <LoadingScreen />;
   if (pathname === WELCOME_PATH) {
     return (
@@ -108,7 +127,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
     { title: "nav.section.settings" as const, items: allowed(SETTINGS_NAV) },
   ].filter((section) => section.items.length);
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-border bg-surface px-4 py-6 lg:flex">
+    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-hairline bg-surface px-4 py-6 lg:flex">
       <Link href="/studio" aria-label={t("shell.home")} className="block px-3">
         <Wordmark className="w-[124px]" />
       </Link>
@@ -132,7 +151,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
       </nav>
       <ThemeControl compact className="mt-4 self-start" />
       <div className="mt-3 flex items-center gap-3 rounded-md bg-surface-2 px-3 py-2.5">
-        <span className={cx("flex size-9 items-center justify-center rounded-full text-sm font-semibold", person.id === "anna" ? "bg-staff-1-bg text-staff-1" : "bg-staff-2-bg text-staff-2")}>
+        <span className={cx("flex size-9 items-center justify-center rounded-full text-sm font-semibold", person.id === "anna" ? "bg-staff-1-bg text-text" : "bg-staff-2-bg text-text")}>
           {person.firstName[0]}
           {person.lastName[0]}
         </span>
@@ -151,7 +170,7 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
   return (
     <nav
       aria-label={t("shell.navigation")}
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       <div className="mx-auto grid max-w-lg" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
         {tabs.map((item) => {

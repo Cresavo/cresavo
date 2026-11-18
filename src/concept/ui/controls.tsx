@@ -49,7 +49,7 @@ export function Chip({ active, onClick, children, count }: ChipProps) {
       onClick={onClick}
       className={cx(
         "inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[15px] font-medium ring-1 ring-inset transition-colors max-[299px]:shrink",
-        active ? "bg-action-bg text-text ring-2 ring-action" : "bg-surface text-text ring-border hover:bg-surface-2",
+        active ? "bg-action-bg text-text ring-2 ring-action" : "bg-surface text-text ring-hairline hover:bg-surface-2",
       )}
     >
       {children}

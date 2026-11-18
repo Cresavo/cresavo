@@ -97,7 +97,7 @@ export default function InboxPage() {
       />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
         {items.length ? (
-          <Card className="divide-y divide-border self-start overflow-hidden">
+          <Card className="divide-y divide-hairline self-start overflow-hidden">
             {items.map((item) => (
               <InboxRow key={item.id} state={state} item={item} today={today} selected={item.id === selectedId} onSelect={() => select(item)} />
             ))}

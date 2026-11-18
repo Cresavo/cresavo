@@ -45,7 +45,7 @@ export function Preview({ page, slug }: { page: PageConfig; slug: string }) {
           title={t("pageEditor.previewTitle")}
           src={`${bookingHome(slug)}?preview=1`}
           onLoad={send}
-          className={cx("h-[34rem] max-w-full rounded-md bg-surface ring-1 ring-border lg:h-[calc(100dvh-14rem)] lg:min-h-[34rem]", device === "phone" ? "w-[390px]" : "w-full")}
+          className={cx("h-[34rem] max-w-full rounded-md bg-surface ring-1 ring-hairline lg:h-[calc(100dvh-14rem)] lg:min-h-[34rem]", device === "phone" ? "w-[390px]" : "w-full")}
         />
       </div>
     </div>

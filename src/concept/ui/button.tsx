@@ -15,7 +15,7 @@ const variants: Record<Variant, string> = {
   primary: "bg-action text-on-action hover:bg-action-hover active:bg-action-hover",
   secondary: "bg-surface text-text ring-1 ring-inset ring-input-border hover:bg-surface-2 active:bg-surface-2",
   ghost: "text-text hover:bg-surface-2 active:bg-surface-2",
-  danger: "bg-danger-bg text-danger ring-1 ring-inset ring-danger/40 hover:ring-danger active:ring-danger",
+  danger: "bg-surface text-danger ring-1 ring-inset ring-danger hover:bg-surface-2 active:bg-surface-2",
 };
 const sizes: Record<Size, string> = {
   sm: "min-h-11 px-3 text-[15px]",

@@ -20,7 +20,7 @@ export function StaffSection({ state, variant }: { state: DemoState; variant: st
       {variant === "names" ? (
         <ul className="flex flex-wrap gap-2">
           {state.staff.map((person) => (
-            <li key={person.id} className="flex items-center gap-2 rounded-full bg-surface py-1 pl-1 pr-4 text-sm font-medium ring-1 ring-border">
+            <li key={person.id} className="flex items-center gap-2 rounded-full bg-surface py-1 pl-1 pr-4 text-sm font-medium ring-1 ring-hairline">
               <Avatar name={`${person.firstName} ${person.lastName}`} size="sm" />
               {person.firstName} {person.lastName}
             </li>
@@ -72,7 +72,7 @@ export function FaqSection({ state, variant }: { state: DemoState; variant: stri
   ];
   return (
     <Section title={t("booking.faq")}>
-      <Card className="divide-y divide-border">
+      <Card className="divide-y divide-hairline">
         {items.map((item) => (
           <details key={item.q} open={variant === "open"} className="group px-4">
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-3 font-medium [&::-webkit-details-marker]:hidden">

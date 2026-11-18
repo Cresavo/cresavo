@@ -47,7 +47,7 @@ export function TicketForm({ question, requestId, onBack, onDone }: TicketFormPr
       </Field>
       <div className="space-y-1.5">
         <p className="text-sm font-medium">{t("ticket.attached")}</p>
-        <dl className="divide-y divide-border rounded-md bg-surface-2 px-3 text-sm">
+        <dl className="divide-y divide-hairline rounded-md bg-surface-2 px-3 text-sm">
           {rows.map(([label, value]) => (
             <div key={label} className="flex justify-between gap-4 py-2">
               <dt className="text-text-secondary">{label}</dt>

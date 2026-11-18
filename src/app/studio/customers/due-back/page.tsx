@@ -34,7 +34,7 @@ export default function DueBackPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0">
           {due.length ? (
-            <Card className="divide-y divide-border overflow-hidden">
+            <Card className="divide-y divide-hairline overflow-hidden">
               {due.map((row) => {
                 const time = suggestedTime(state, row.customer, row.service, today);
                 return (
@@ -69,7 +69,7 @@ export default function DueBackPage() {
           )}
         </div>
         <Section title={t("dueBack.intervals")} className="min-w-0 self-start">
-          <Card className="divide-y divide-border overflow-hidden">
+          <Card className="divide-y divide-hairline overflow-hidden">
             <p className="px-4 py-3 text-sm text-text-secondary">{t("dueBack.intervalsHint")}</p>
             {state.services.map((service) => (
               <div key={service.id} className="flex items-center gap-2 px-4 py-2.5">

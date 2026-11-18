@@ -22,7 +22,7 @@ export function HourLines({ from, to, pxPerMin }: { from: number; to: number; px
   return (
     <>
       {lines.map((m) => (
-        <div key={m} className="pointer-events-none absolute inset-x-0 border-t border-border/70" style={{ top: (m - from) * pxPerMin }} />
+        <div key={m} className="pointer-events-none absolute inset-x-0 border-t border-hairline" style={{ top: (m - from) * pxPerMin }} />
       ))}
     </>
   );

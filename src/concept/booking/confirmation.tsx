@@ -40,8 +40,8 @@ export function Confirmation({ id }: { id: string }) {
     <div className="mx-auto max-w-lg space-y-5">
       <div className="space-y-2 text-center">
         {cancelled ? (
-          <span data-tone="danger" className="mx-auto flex size-16 items-center justify-center rounded-full bg-danger-bg text-danger">
-            <Icon size={36} />
+          <span data-tone="danger" className="mx-auto flex size-16 items-center justify-center rounded-full bg-danger-bg text-text">
+            <Icon data-tone-mark size={36} className="text-danger" />
           </span>
         ) : (
           <Icon size={44} className="mx-auto text-action" />
@@ -66,7 +66,7 @@ export function Confirmation({ id }: { id: string }) {
           <MapPin size={16} className="mt-0.5 shrink-0" />
           {state.salon.name}, {state.salon.address}, {state.salon.area}
         </p>
-        <p className="border-t border-border pt-3 text-sm">
+        <p className="border-t border-hairline pt-3 text-sm">
           <strong>{formatMoney(booking.price)}</strong> · {t("booking.payAtSalon")}
         </p>
       </Card>
@@ -85,7 +85,7 @@ export function Confirmation({ id }: { id: string }) {
       {active && !cancelled && <MessagePreviews state={state} booking={booking} now={now} />}
       <ReviewForm state={state} booking={booking} now={now} />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline pt-4 text-sm">
         <Link href={myBookingsFor(state.salon.slug, booking.customerId)} className="flex min-h-11 items-center font-medium text-action underline-offset-2 hover:underline">
           {t("booking.seeMyBookings")}
         </Link>

@@ -7,11 +7,11 @@ import { t } from "../../i18n";
 export function BriefList({ brief }: { brief: Brief }) {
   if (!brief.items.length) return <p className="text-sm text-text-secondary">{t("assistant.brief.quiet")}</p>;
   return (
-    <ul className="-mx-1 divide-y divide-border">
+    <ul className="-mx-1 divide-y divide-hairline">
       {brief.items.map((item) => {
         const body = (
           <>
-            <span className="mt-2 size-1.5 shrink-0 rounded-full bg-action" aria-hidden />
+            <span className="mt-2 size-1.5 shrink-0 rounded-full bg-text-secondary" aria-hidden />
             <span className="min-w-0 flex-1">{item.text}</span>
             {item.href && <ChevronRight size={16} className="mt-0.5 shrink-0 text-text-secondary" />}
           </>

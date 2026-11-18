@@ -40,7 +40,7 @@ export function AnswerCard({ answer }: { answer: Answer }) {
     return (
       <div className="space-y-3">
         <p className="font-semibold">{answer.title}</p>
-        <ul className="divide-y divide-border rounded-md bg-surface-2/60 px-3.5">
+        <ul className="divide-y divide-hairline rounded-md bg-surface-2/60 px-3.5">
           {answer.items.map((item) => (
             <li key={item.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
               <span className="min-w-0">
@@ -83,7 +83,7 @@ export function AnswerCard({ answer }: { answer: Answer }) {
         <p className="text-sm text-text-secondary">{tc("command.customers.count", answer.total)}</p>
       </div>
       {answer.items.length > 0 && (
-        <ul className="-mx-2 divide-y divide-border">
+        <ul className="-mx-2 divide-y divide-hairline">
           {answer.items.map((item) => (
             <li key={item.id}>
               <Link href={`/studio/customers/${item.id}`} className="flex min-h-14 items-center gap-3 rounded-md px-2 py-2 hover:bg-surface-2">

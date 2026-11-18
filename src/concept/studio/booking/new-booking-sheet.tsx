@@ -101,7 +101,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
             <div className="space-y-2">
               <SearchInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("newBooking.searchCustomer")} autoFocus />
               {matches.length > 0 && (
-                <ul className="divide-y divide-border overflow-hidden rounded-lg ring-1 ring-border">
+                <ul className="divide-y divide-hairline overflow-hidden rounded-lg ring-1 ring-hairline">
                   {matches.map((c) => (
                     <li key={c.id}>
                       <button onClick={() => { setCustomerId(c.id); setQuery(""); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-surface-2">
@@ -128,7 +128,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
                 onClick={() => { setServiceId(s.id); setSlot(null); }}
                 className={cx(
                   "flex min-h-12 items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm ring-1 ring-inset",
-                  s.id === serviceId ? "bg-action-bg ring-action" : "bg-surface ring-border hover:bg-surface-2",
+                  s.id === serviceId ? "bg-action-bg ring-action" : "bg-surface ring-hairline hover:bg-surface-2",
                 )}
               >
                 <span className="min-w-0">

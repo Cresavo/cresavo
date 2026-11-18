@@ -23,7 +23,7 @@ export function ResourcesSection() {
       title={t("resources.title")}
       action={<Button size="sm" variant="secondary" icon={<Plus size={16} />} onClick={() => setEditing("new")}>{t("resources.add")}</Button>}
     >
-      <Card className="divide-y divide-border">
+      <Card className="divide-y divide-hairline">
         {state.resources.length ? (
           state.resources.map((r) => {
             const Icon = ICONS[r.kind];

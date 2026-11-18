@@ -70,7 +70,7 @@ export function SellPackageSheet({ onClose }: { onClose: () => void }) {
             <>
               <SearchInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("stock.searchCustomer")} aria-label={t("stock.searchCustomer")} />
               {query.trim() && (
-                <ul className="divide-y divide-border rounded-lg ring-1 ring-border">
+                <ul className="divide-y divide-hairline rounded-lg ring-1 ring-hairline">
                   {matches.map((c) => (
                     <li key={c.id}>
                       <button type="button" onClick={() => setCustomerId(c.id)} className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left hover:bg-surface-2">

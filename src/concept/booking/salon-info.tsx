@@ -14,7 +14,7 @@ export function OpeningHours({ state, now }: { state: DemoState; now: Now }) {
   const todayIndex = weekday(now.today);
   return (
     <Section title={t("booking.hours")}>
-      <Card className="divide-y divide-border">
+      <Card className="divide-y divide-hairline">
         {WEEK_ORDER.map((day) => {
           const hours = state.salon.hours[day];
           return (

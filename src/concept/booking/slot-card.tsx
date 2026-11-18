@@ -20,9 +20,9 @@ export function SlotCard({ slot, service, staff, today, onPick }: SlotCardProps)
   return (
     <button
       onClick={onPick}
-      className="flex w-full items-center gap-4 rounded-lg bg-surface p-4 text-left ring-1 ring-inset ring-border transition-colors hover:bg-action-bg hover:ring-action"
+      className="flex w-full items-center gap-4 rounded-lg bg-surface p-4 text-left ring-1 ring-inset ring-hairline transition-colors hover:bg-action-bg hover:ring-action"
     >
-      <span className="flex w-20 shrink-0 flex-col items-center rounded-md bg-action-bg py-2 text-action">
+      <span className="flex w-20 shrink-0 flex-col items-center rounded-md bg-action-bg py-2 text-text">
         <span className="text-xl font-semibold leading-tight">{formatTime(slot.start)}</span>
         <span className="text-xs">{t("booking.until", { time: formatTime(slot.start + service.duration) })}</span>
       </span>

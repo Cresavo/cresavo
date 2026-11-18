@@ -43,7 +43,7 @@ export default function PackagesPage() {
           )}
         </div>
         {packages.length ? (
-          <Card className="divide-y divide-border overflow-hidden">
+          <Card className="divide-y divide-hairline overflow-hidden">
             {packages.map((pkg) => {
               const customer = findCustomer(state, pkg.customerId);
               const left = visitsLeft(pkg);

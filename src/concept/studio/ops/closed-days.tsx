@@ -23,7 +23,7 @@ export function ClosedDaysSection() {
       title={t("closed.title")}
       action={<Button size="sm" variant="secondary" icon={<Plus size={16} />} onClick={() => setAdding(true)}>{t("closed.add")}</Button>}
     >
-      <Card className="divide-y divide-border">
+      <Card className="divide-y divide-hairline">
         {upcoming.length ? (
           upcoming.map((c) => (
             <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">

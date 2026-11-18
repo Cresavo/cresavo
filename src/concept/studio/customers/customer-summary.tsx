@@ -39,7 +39,7 @@ export function CustomerSummary({ customer }: { customer: Customer }) {
       <Sparkles size={16} className="mt-1 shrink-0 text-action" aria-hidden />
       <span>
         {aiText ?? summarizeFallback(facts)}
-        {aiText && <span className="ml-2 rounded-full bg-action-bg px-2 py-0.5 text-xs font-semibold text-action">{t("customer.summary.ai")}</span>}
+        {aiText && <span className="ml-2 rounded-full bg-action-bg px-2 py-0.5 text-xs font-semibold text-text">{t("customer.summary.ai")}</span>}
       </span>
     </p>
   );

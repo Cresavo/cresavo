@@ -16,7 +16,7 @@ function sourceFiles(dir: string): string[] {
 
 describe("one brand constant", () => {
   it("names the product, its tagline and the assistant", () => {
-    expect(BRAND).toEqual({ name: "Cresavo", tagline: "More time. On your terms.", domain: "cresavo.com" });
+    expect(BRAND).toEqual({ name: "Cresavo", tagline: "More time. On your terms."});
     // The assistant keeps its own name until the product owner decides.
     expect(ASSISTANT).toEqual({ name: "Flerdo" });
   });

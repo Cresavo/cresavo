@@ -30,7 +30,7 @@ export default function StaffPage() {
           return (
             <Card key={person.id} className="space-y-5 p-5">
               <div className="flex items-center gap-4">
-                <span className={cx("flex size-14 items-center justify-center rounded-full text-lg font-semibold", anna ? "bg-staff-1-bg text-staff-1" : "bg-staff-2-bg text-staff-2")}>
+                <span className={cx("flex size-14 items-center justify-center rounded-full text-lg font-semibold", anna ? "bg-staff-1-bg text-text" : "bg-staff-2-bg text-text")}>
                   {person.firstName[0]}
                   {person.lastName[0]}
                 </span>
@@ -41,7 +41,7 @@ export default function StaffPage() {
               </div>
               <p className="text-sm">{person.bio}</p>
               <StaffSchedule person={person} />
-              <div className="grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
+              <div className="grid grid-cols-3 gap-3 border-t border-hairline pt-4 text-sm">
                 <div>
                   <p className="text-text-secondary">{t("staff.next7")}</p>
                   <p className="font-semibold">{tc("calendar.bookingCount", week)}</p>

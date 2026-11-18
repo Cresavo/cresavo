@@ -72,7 +72,7 @@ export default function CustomersPage() {
         {filter === "notSeen" && <p className="text-sm text-text-secondary">{t("customers.notSeenHint")}</p>}
       </div>
       {matches.length ? (
-        <Card className="divide-y divide-border overflow-hidden">
+        <Card className="divide-y divide-hairline overflow-hidden">
           {matches.slice(0, limit).map((c) => (
             <CustomerRow key={c.id} customer={c} stats={stats.get(c.id)} today={today} late={late.has(c.id)} due={due.has(c.id)} />
           ))}

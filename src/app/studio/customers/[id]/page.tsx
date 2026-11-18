@@ -179,7 +179,7 @@ export default function CustomerPage() {
               {state.modules.stock && !viewer && <CustomerProducts customerId={customer.id} />}
               {state.modules.journal && journalNotes.length > 0 && (
                 <Section title={t("customer.journalNotes")} action={<Button size="sm" variant="ghost" onClick={() => setTab("journal")}>{t("customer.openJournal")}</Button>}>
-                  <Card className="divide-y divide-border overflow-hidden">
+                  <Card className="divide-y divide-hairline overflow-hidden">
                     {journalNotes.slice(0, 5).map((j) => (
                       <button key={j.id} onClick={() => setTab("journal")} className="block w-full px-4 py-3 text-left hover:bg-surface-2">
                         <span className="block text-xs text-text-secondary">{formatDate(j.date)}</span>

@@ -57,7 +57,7 @@ export function AssistantHeaderButton() {
   return (
     <Button size="sm" variant="secondary" data-help="assistant" aria-keyshortcuts="Control+K Meta+K" icon={<Sparkles size={16} aria-hidden />} onClick={() => openAssistant()} className="hidden sm:inline-flex">
       {t("assistant.open")}
-      <kbd aria-hidden className="hidden rounded-xs border border-border px-1.5 font-sans text-xs text-text-secondary lg:inline">{mac ? "⌘K" : "Ctrl K"}</kbd>
+      <kbd aria-hidden className="hidden rounded-xs border border-hairline px-1.5 font-sans text-xs text-text-secondary lg:inline">{mac ? "⌘K" : "Ctrl K"}</kbd>
     </Button>
   );
 }

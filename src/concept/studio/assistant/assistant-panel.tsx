@@ -85,7 +85,7 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-1 border-b border-border bg-surface px-4 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))]">
+      <header className="flex items-center gap-1 border-b border-hairline bg-surface px-4 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))]">
         <span className="mr-1 flex size-10 shrink-0 items-center justify-center rounded-md bg-action text-on-action"><Sparkles size={18} /></span>
         <div className="min-w-0 flex-1 leading-tight">
           <h2 className="font-semibold tracking-tight">{t("assistant.title")}</h2>
@@ -127,7 +127,7 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
         <div ref={end} />
       </div>
 
-      <form onSubmit={submit} className="border-t border-border bg-surface px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+      <form onSubmit={submit} className="border-t border-hairline bg-surface px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
         {/* 44 px targets with the compact 40 px look: the buttons are 44 px, their visible part 40, inside 4 px less padding. */}
         <div className="flex items-end gap-1 rounded-md bg-surface p-1 pl-3.5 ring-1 ring-input-border focus-within:ring-2 focus-within:ring-focus">
           <textarea
@@ -151,7 +151,7 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
               title={t("command.voice")}
               aria-pressed={speech.listening}
               onClick={speech.toggle}
-              className={cx("flex size-11 shrink-0 items-center justify-center rounded-md", speech.listening ? "animate-pulse bg-action-bg text-action" : "text-text-secondary hover:text-text")}
+              className={cx("flex size-11 shrink-0 items-center justify-center rounded-md", speech.listening ? "animate-pulse bg-action-bg text-text" : "text-text-secondary hover:text-text")}
             >
               <Mic size={18} />
             </button>
@@ -230,8 +230,8 @@ const ANSWERS = new Set(["insight", "revenue", "customers", "stock"]);
 
 function Bubble({ source, text, children }: { source: "rules" | "ai"; text?: string; children?: ReactNode }) {
   return (
-    <div className="mr-4 space-y-3 rounded-lg rounded-bl-sm bg-surface p-3.5 ring-1 ring-border">
-      <span className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold", source === "ai" ? "bg-action-bg text-action" : "bg-surface-2 text-text-secondary")}>
+    <div className="mr-4 space-y-3 rounded-lg rounded-bl-sm bg-surface p-3.5 ring-1 ring-hairline">
+      <span className={cx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold", source === "ai" ? "bg-action-bg text-text" : "bg-surface-2 text-text-secondary")}>
         {source === "ai" && <Sparkles size={11} />}
         {t(source === "ai" ? "assistant.source.ai" : "assistant.source.rules")}
       </span>
@@ -245,7 +245,7 @@ function FollowUps({ items, onPick }: { items: string[]; onPick: (text: string) 
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item) => (
-        <button key={item} type="button" onClick={() => onPick(item)} className="min-h-11 rounded-full bg-surface px-3.5 py-1.5 text-left text-[15px] font-medium ring-1 ring-inset ring-border hover:bg-surface-2">
+        <button key={item} type="button" onClick={() => onPick(item)} className="min-h-11 rounded-full bg-surface px-3.5 py-1.5 text-left text-[15px] font-medium ring-1 ring-inset ring-hairline hover:bg-surface-2">
           {item}
         </button>
       ))}

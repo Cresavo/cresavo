@@ -71,7 +71,7 @@ function ClientSetup({ client, endpoint, info }: { client: Client; endpoint: str
   return (
     <div className="space-y-3">
       <Steps items={["data.setup.chatgpt.1", "data.setup.chatgpt.2"]} />
-      <p className="rounded-md bg-warning-bg px-3.5 py-2.5 text-sm text-warning">{t("data.setup.chatgpt.limit")}</p>
+      <p className="rounded-md bg-warning-bg px-3.5 py-2.5 text-sm text-text">{t("data.setup.chatgpt.limit")}</p>
     </div>
   );
 }
@@ -133,7 +133,7 @@ export function ProtocolList({ info }: { info?: ProtocolInfo }) {
     showToast(response?.ok ? t("data.resetDone") : t("data.resetFailed"));
   };
   return (
-    <Card className="divide-y divide-border overflow-hidden">
+    <Card className="divide-y divide-hairline overflow-hidden">
       {rows.map((p) => (
         <div key={p.name} className="flex items-start gap-3 px-4 py-3">
           <span className="w-12 shrink-0 pt-0.5 font-semibold">{p.name}</span>

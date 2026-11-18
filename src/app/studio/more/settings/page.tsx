@@ -35,7 +35,7 @@ export default function SettingsPage() {
     <MorePage title={t("nav.settings")} subtitle={t("settings.subtitle")}>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Section title={t("settings.salon")}>
-          <Card className="divide-y divide-border">
+          <Card className="divide-y divide-hairline">
             {details.map(([label, value]) => (
               <div key={label} className="flex justify-between gap-4 px-4 py-3 text-sm">
                 <span className="text-text-secondary">{label}</span>

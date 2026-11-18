@@ -6,8 +6,6 @@
 export const BRAND = {
   name: "Cresavo",
   tagline: "More time. On your terms.",
-  /** The product's own domain: the apex is the coming-soon site, `demo.` the demo, any other label a business's booking page. */
-  domain: "cresavo.com",
 } as const;
 
 /**

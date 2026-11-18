@@ -151,7 +151,7 @@ export function Suggestions({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) 
       {shown.map((s) => (
         <Card key={s.id} className="p-4">
           <div className="flex gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-action">{s.icon}</span>
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-text">{s.icon}</span>
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-action">{t("suggest.label")}</p>
               <p className="font-medium leading-snug">{s.title}</p>

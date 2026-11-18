@@ -20,7 +20,7 @@ export function StockList({ onEdit }: { onEdit: (item: StockItem) => void }) {
     <>
       {categories.map((category) => (
         <Section key={category} title={category}>
-          <Card className="divide-y divide-border overflow-hidden">
+          <Card className="divide-y divide-hairline overflow-hidden">
             {state.stock.filter((s) => s.category === category).map((item) => {
               const isLow = item.inStock <= item.reorderAt;
               const left = days.get(item.id);
@@ -44,11 +44,11 @@ export function StockList({ onEdit }: { onEdit: (item: StockItem) => void }) {
                     <Meter value={item.inStock / (item.reorderAt * 2.5)} tone={isLow ? "bg-warning" : "bg-action"} className="max-w-xs" />
                   </button>
                   <div className="flex shrink-0 items-center gap-1">
-                    <IconButton label={t("stock.remove")} onClick={() => dispatch({ type: "stock/adjust", id: item.id, delta: -1 })} className="size-10 ring-1 ring-border">
+                    <IconButton label={t("stock.remove")} onClick={() => dispatch({ type: "stock/adjust", id: item.id, delta: -1 })} className="size-10 ring-1 ring-hairline">
                       <Minus size={16} />
                     </IconButton>
                     <span className="w-10 text-center font-semibold tabular-nums">{formatAmount(item.inStock)}</span>
-                    <IconButton label={t("stock.add")} onClick={() => dispatch({ type: "stock/adjust", id: item.id, delta: 1 })} className="size-10 ring-1 ring-border">
+                    <IconButton label={t("stock.add")} onClick={() => dispatch({ type: "stock/adjust", id: item.id, delta: 1 })} className="size-10 ring-1 ring-hairline">
                       <Plus size={16} />
                     </IconButton>
                   </div>

@@ -8,7 +8,7 @@ export function UnknownAddress({ host }: { host?: string }) {
   return (
     <main className="mx-auto flex min-h-[100dvh] max-w-lg items-center px-4 py-10">
       <Card className="w-full space-y-4 p-6 text-center">
-        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-action-bg text-action">
+        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-action-bg text-text">
           <Compass size={22} />
         </span>
         <h1 className="text-xl font-semibold tracking-tight">{t("address.unknown.title")}</h1>

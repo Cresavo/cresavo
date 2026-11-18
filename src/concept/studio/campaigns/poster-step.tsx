@@ -65,7 +65,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
                 aria-checked={draft.style === style}
                 aria-label={t(`campaigns.style.${style}`)}
                 onClick={() => onChange({ style })}
-                className={cx("w-[72px] shrink-0 space-y-1 rounded-md p-1 text-center text-xs ring-2", draft.style === style ? "ring-action" : "ring-transparent hover:ring-border")}
+                className={cx("w-[72px] shrink-0 space-y-1 rounded-md p-1 text-center text-xs ring-2", draft.style === style ? "ring-action" : "ring-transparent hover:ring-hairline")}
               >
                 <span className="pointer-events-none block overflow-hidden rounded-sm">
                   <PosterView source={{ ...source, poster: { ...poster, style } }} salon={state.salon} format="post" />
@@ -84,7 +84,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
                 aria-pressed={poster.image === image}
                 aria-label={t(image.includes("massage") ? "campaigns.photo.massage" : "campaigns.photo.salon")}
                 onClick={() => edit({ image })}
-                className={cx("h-16 w-24 overflow-hidden rounded-md bg-cover bg-center ring-2", poster.image === image ? "ring-action" : "ring-transparent hover:ring-border")}
+                className={cx("h-16 w-24 overflow-hidden rounded-md bg-cover bg-center ring-2", poster.image === image ? "ring-action" : "ring-transparent hover:ring-hairline")}
                 style={{ backgroundImage: `url(${image})` }}
               />
             ))}

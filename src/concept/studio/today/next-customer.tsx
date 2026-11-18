@@ -9,7 +9,8 @@ import { buildCustomerStats, dayBookings, findCustomer, findService, fullName } 
 import { Avatar } from "../../ui/avatar";
 import { Badge } from "../../ui/badge";
 import { Button, ButtonLink, buttonClass } from "../../ui/button";
-import { Card } from "../../ui/card";
+import { Notice } from "../../ui/notice";
+import { Card, Section } from "../../ui/card";
 import type { OpenSheet } from "../booking/booking-sheets";
 import { StaffDot } from "../staff-dot";
 import { useStudio } from "../use-studio";
@@ -42,12 +43,8 @@ export function NextCustomer({ staffId, onOpen }: { staffId?: StaffId; onOpen: (
   const advice = state.modules.journal ? state.journals.filter((j) => j.customerId === customer.id).at(-1)?.advice : undefined;
 
   return (
-    <Card className="overflow-hidden">
-      <div className="flex items-center justify-between bg-action-bg/70 px-5 py-2.5 text-sm">
-        <span className="font-medium text-action">{isToday ? t("next.title") : t("next.titleLater")}</span>
-        <span className="font-semibold tabular-nums text-action">{when}</span>
-      </div>
-      <div className="space-y-4 p-5">
+    <Section title={isToday ? t("next.title") : t("next.titleLater")} action={<span className="text-[15px] font-medium tabular-nums text-text-secondary">{when}</span>}>
+      <Card className="space-y-4 p-5">
         <div className="flex items-center gap-4">
           <Avatar name={fullName(customer)} size="lg" />
           <div className="min-w-0">
@@ -64,7 +61,7 @@ export function NextCustomer({ staffId, onOpen }: { staffId?: StaffId; onOpen: (
           {stats?.lastVisit && <Badge>{t("next.lastVisit", { ago: agoText(stats.lastVisit, today) })}</Badge>}
           {customer.tags.map((tag) => <Badge key={tag} tone={tag === "Diabetes" ? "warn" : "neutral"}>{tag}</Badge>)}
         </div>
-        {customer.note && <p className="rounded-md bg-warning-bg px-3.5 py-2.5 text-sm">{customer.note}</p>}
+        {customer.note && <Notice tone="warning">{customer.note}</Notice>}
         {advice && (
           <p className="text-sm text-text-secondary">
             <span className="font-medium text-text">{t("next.lastAdvice")} </span>
@@ -83,7 +80,7 @@ export function NextCustomer({ staffId, onOpen }: { staffId?: StaffId; onOpen: (
             {t("next.call")}
           </a>
         </div>
-      </div>
-    </Card>
+      </Card>
+    </Section>
   );
 }

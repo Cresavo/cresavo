@@ -59,7 +59,7 @@ function RoutineCard({ routine }: { routine: Routine }) {
   return (
     <Card className="space-y-3 p-4">
       <div className="flex items-start gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-action"><Repeat size={20} /></span>
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-text"><Repeat size={20} /></span>
         <div className="min-w-0 flex-1">
           <p className="font-medium leading-snug">{routine.name}</p>
           <p className="text-sm text-text-secondary">{scheduleText(routine)} · {t(routine.enabled ? "routine.on" : "routine.off")}</p>

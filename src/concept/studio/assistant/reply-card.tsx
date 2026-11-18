@@ -122,7 +122,7 @@ export function ReplyCardView({ card, status, actions }: { card: ReplyCard; stat
       return (
         <div className="space-y-3">
           <div className="flex gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-action-bg text-action"><Repeat size={18} /></span>
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-action-bg text-text"><Repeat size={18} /></span>
             <div className="min-w-0">
               <p className="font-semibold leading-snug">{routine.name}</p>
               <p className="text-sm text-text-secondary">{scheduleText(routine)} · {reason}</p>
@@ -137,7 +137,7 @@ export function ReplyCardView({ card, status, actions }: { card: ReplyCard; stat
     }
     case "bookings":
       return card.items.length ? (
-        <ul className="divide-y divide-border text-sm">
+        <ul className="divide-y divide-hairline text-sm">
           {card.items.map((item) => (
             <li key={item.id} className="flex gap-3 py-2">
               <span className="w-12 shrink-0 font-semibold tabular-nums">{item.time}</span>

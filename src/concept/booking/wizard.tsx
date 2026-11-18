@@ -106,7 +106,7 @@ export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowCh
             {state.services
               .filter((s) => s.category === category)
               .map((s) => (
-                <button key={s.id} onClick={() => chooseService(s.id)} className="flex w-full rounded-lg bg-surface p-3.5 text-left ring-1 ring-inset ring-border transition-colors hover:bg-action-bg hover:ring-action">
+                <button key={s.id} onClick={() => chooseService(s.id)} className="flex w-full rounded-lg bg-surface p-3.5 text-left ring-1 ring-inset ring-hairline transition-colors hover:bg-action-bg hover:ring-action">
                   <ServiceInfo service={s} staff={state.staff} />
                 </button>
               ))}

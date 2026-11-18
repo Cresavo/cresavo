@@ -32,7 +32,7 @@ function Option({ selected, title, text, onSelect }: { selected: boolean; title:
       aria-pressed={selected}
       className={cx(
         "flex w-full items-center gap-3 rounded-lg bg-surface p-4 text-left ring-1 ring-inset transition-colors",
-        selected ? "bg-action-bg ring-2 ring-action" : "ring-border hover:bg-surface-2",
+        selected ? "bg-action-bg ring-2 ring-action" : "ring-hairline hover:bg-surface-2",
       )}
     >
       <span className="min-w-0 flex-1">
@@ -80,7 +80,7 @@ export function WelcomeFlow() {
             {t("welcome.ready.text", { pack: t(`pack.${chosen.id}.name`), team: t(setup.solo ? "welcome.ready.team.solo" : "welcome.ready.team.team") })}
           </p>
         </div>
-        <Card className="divide-y divide-border">
+        <Card className="divide-y divide-hairline">
           {rows.map(([label, value]) => (
             <div key={label} className="flex flex-col gap-0.5 px-4 py-3 text-sm sm:flex-row sm:justify-between sm:gap-4">
               <span className="text-text-secondary">{label}</span>

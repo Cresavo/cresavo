@@ -43,7 +43,7 @@ export function AccountingSection() {
     <Section title={t("finance.bookkeeping")}>
       <Card className="space-y-5 p-5">
         <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-action">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-text">
             <BookCheck size={20} />
           </span>
           <div className="min-w-0 flex-1">
@@ -64,7 +64,7 @@ export function AccountingSection() {
                 <th className="py-1 text-right font-medium">{t("finance.vat")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-hairline">
               {days.map((day) => (
                 <tr key={day.date}>
                   <td className="py-1.5">{formatDayShort(day.date)}</td>

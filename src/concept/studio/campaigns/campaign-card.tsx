@@ -33,10 +33,10 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
           {campaign.channels.map((channel) => <Badge key={channel}>{t(`channel.${channel}`)}</Badge>)}
         </div>
         {campaign.stats ? (
-          <div className="border-t border-border pt-3"><StatRow stats={campaign.stats} /></div>
+          <div className="border-t border-hairline pt-3"><StatRow stats={campaign.stats} /></div>
         ) : (
           campaign.publishOn && (
-            <p className="flex items-center gap-1.5 border-t border-border pt-3 text-sm text-text-secondary">
+            <p className="flex items-center gap-1.5 border-t border-hairline pt-3 text-sm text-text-secondary">
               <CalendarClock size={15} />
               {t("campaigns.scheduledFor", { day: formatDate(campaign.publishOn) })}
             </p>

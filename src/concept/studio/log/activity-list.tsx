@@ -79,7 +79,7 @@ export function ActivityList() {
       </div>
       {shown.length ? (
         <Card>
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-hairline">
             {shown.map((entry) => (
               <Row key={entry.id} entry={entry} canUndo={isUndoable(state, entry)} today={today} />
             ))}

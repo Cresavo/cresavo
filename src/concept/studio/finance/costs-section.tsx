@@ -40,7 +40,7 @@ export function CostsSection() {
           <p className="text-xs text-text-secondary">{t("finance.profitHint")}</p>
         </Card>
         <Card className="space-y-4 p-5">
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-hairline">
             {state.costs.map((cost) => (
               <li key={cost.id} className="flex items-center gap-3 py-1.5">
                 <span className="min-w-0 flex-1">
@@ -54,7 +54,7 @@ export function CostsSection() {
               </li>
             ))}
           </ul>
-          <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
+          <div className="flex items-center justify-between border-t border-hairline pt-3 text-sm">
             <span className="text-text-secondary">{t("finance.costsPerMonth")}</span>
             <span className="font-semibold tabular-nums">{formatMoney(totalCosts(state.costs))}</span>
           </div>
@@ -83,7 +83,7 @@ function AddCost() {
   };
 
   return (
-    <form onSubmit={submit} className="space-y-3 border-t border-border pt-4">
+    <form onSubmit={submit} className="space-y-3 border-t border-hairline pt-4">
       <p className="text-sm font-medium">{t("finance.addCost")}</p>
       <div className="grid grid-cols-2 gap-3">
         <Field label={t("finance.costType")}>

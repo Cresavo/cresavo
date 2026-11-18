@@ -44,7 +44,7 @@ export default function CampaignsPage() {
             <ContentCalendar />
           </Section>
           <Section title={t("campaigns.holidays")}>
-            <Card className="divide-y divide-border overflow-hidden">
+            <Card className="divide-y divide-hairline overflow-hidden">
               {state.holidays.slice(0, HOLIDAYS_SHOWN).map((h) => (
                 <div key={h.id} className="flex flex-wrap items-center gap-3 px-4 py-3.5">
                   <CalendarHeart size={18} className="shrink-0 text-action" />

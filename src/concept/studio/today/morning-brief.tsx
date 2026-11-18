@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle, Repeat, Sparkles, Sun } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { scheduleText, suggestedRoutines } from "../../assistant/routines";
 import { t } from "../../i18n";
 import { dispatch, undo } from "../../store";
@@ -21,11 +21,7 @@ export function MorningBrief() {
   return (
     <Section title={t(brief.kind === "weekly" ? "brief.weekly" : "brief.morning")}>
       <Card className="space-y-3 p-4" data-help="morning-brief">
-        <div className="flex items-start gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-action-bg text-action"><Sun size={18} /></span>
-          <p className="min-w-0 flex-1 pt-1.5 font-medium">{ai ? brief.title : t("brief.intro")}</p>
-          {ai && <Sparkles size={16} className="mt-1 shrink-0 text-action" aria-label={t("assistant.source.ai")} />}
-        </div>
+        {ai && <p className="font-medium">{brief.title}</p>}
         <BriefList brief={brief} />
         <Button size="sm" variant="secondary" icon={<MessageCircle size={16} />} onClick={() => openAssistant()}>
           {t("brief.ask")}
@@ -33,17 +29,15 @@ export function MorningBrief() {
       </Card>
       {suggestion && (
         <Card className="space-y-2 p-4">
-          <div className="flex gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-action-bg text-action"><Repeat size={18} /></span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-action">{t("routine.suggested")}</p>
-              <p className="font-medium leading-snug">{suggestion.routine.name}</p>
-              <p className="text-sm text-text-secondary">{scheduleText(suggestion.routine)} · {suggestion.reason}</p>
-            </div>
+          <div className="min-w-0">
+            <p className="text-sm text-text-secondary">{t("routine.suggested")}</p>
+            <p className="font-medium leading-snug">{suggestion.routine.name}</p>
+            <p className="text-sm text-text-secondary">{scheduleText(suggestion.routine)} · {suggestion.reason}</p>
           </div>
-          <div className="flex flex-wrap gap-2 pl-12">
+          <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
+              variant="secondary"
               onClick={() => {
                 dispatch({ type: "routine/add", routine: suggestion.routine }, { actor: "owner", source: "assistant" });
                 showToast(t("assistant.routine.on", { name: suggestion.routine.name }), { label: t("common.undo"), run: undo });

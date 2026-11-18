@@ -27,6 +27,7 @@
   --ui-text: light-dark(#1d1d1f, #f2f2f3);
   --ui-text-secondary: light-dark(#5c5c60, #a9a9ae);
   --ui-border: light-dark(#e0e0df, #3a3a3e);
+  --ui-hairline: var(--ui-border);
   --ui-action: light-dark(#1d1d1f, #f2f2f3);
   --ui-action-text: light-dark(#ffffff, #141415);
   --ui-action-bg: color-mix(in srgb, var(--ui-action) 10%, var(--ui-surface));
@@ -71,17 +72,23 @@
 }
 
 /* Meaning beats branding: a message, badge or button that carries a semantic
-   tone (data-tone, see ui/notice.tsx) always shows its own colour on its
-   paired background, whatever the owner's CSS or palette says. */
+   tone (data-tone, see ui/notice.tsx) always shows on its paired background
+   with neutral ink, whatever the owner's CSS or palette says. The tone itself
+   is in the mark (an icon or dot, data-tone-mark), never in same-hue text. */
 .booking-theme [data-tone] {
   opacity: 1 !important;
   filter: none !important;
   background-image: none !important;
   text-shadow: none !important;
+  color: var(--ui-text) !important;
 }
 
 .booking-theme [data-tone] * {
   color: inherit !important;
+}
+
+.booking-theme [data-tone] [data-tone-mark] {
+  color: var(--tone-mark) !important;
 }
 
 .booking-theme [data-tone]:not(button) {
@@ -89,21 +96,27 @@
 }
 
 .booking-theme [data-tone="danger"] {
-  color: var(--ui-danger) !important;
+  --tone-mark: var(--ui-danger);
   background-color: var(--ui-danger-bg) !important;
 }
 
 .booking-theme [data-tone="success"] {
-  color: var(--ui-success) !important;
+  --tone-mark: var(--ui-success);
   background-color: var(--ui-success-bg) !important;
 }
 
 .booking-theme [data-tone="warning"] {
-  color: var(--ui-warning) !important;
+  --tone-mark: var(--ui-warning);
   background-color: var(--ui-warning-bg) !important;
 }
 
 .booking-theme [data-tone="info"] {
-  color: var(--ui-info) !important;
+  --tone-mark: var(--ui-info);
   background-color: var(--ui-info-bg) !important;
+}
+
+/* A destructive button is outlined: its label in the danger colour on the plain surface. */
+.booking-theme button[data-tone="danger"] {
+  color: var(--ui-danger) !important;
+  background-color: var(--ui-surface) !important;
 }

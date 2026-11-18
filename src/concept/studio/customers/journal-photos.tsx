@@ -23,7 +23,7 @@ export function JournalPhotoPair({ photos }: { photos?: JournalPhotos }) {
     <div className="grid grid-cols-2 gap-2">
       {SLOTS.map((slot) => (
         <figure key={slot} className="space-y-1">
-          {photos[slot] ? <Photo src={photos[slot]} slot={slot} /> : <div className="aspect-[4/3] rounded-md border border-dashed border-border" />}
+          {photos[slot] ? <Photo src={photos[slot]} slot={slot} /> : <div className="aspect-[4/3] rounded-md border border-dashed border-hairline" />}
           <figcaption className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{t(`journal.photo.${slot}`)}</figcaption>
         </figure>
       ))}
@@ -54,7 +54,7 @@ export function JournalPhotoPicker({ value, onChange }: { value: JournalPhotos; 
                   </button>
                 </div>
               ) : (
-                <div className="flex aspect-[4/3] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-text-secondary">
+                <div className="flex aspect-[4/3] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-hairline text-text-secondary">
                   <ImagePlus size={20} />
                   <span className="text-xs">{t("journal.photo.add", { which })}</span>
                 </div>
@@ -67,7 +67,7 @@ export function JournalPhotoPicker({ value, onChange }: { value: JournalPhotos; 
                     aria-label={`${t("journal.photo.choose", { which })} ${index + 1}`}
                     aria-pressed={value[slot] === src}
                     onClick={() => onChange({ ...value, [slot]: src })}
-                    className={cx("relative size-11 overflow-hidden rounded-sm ring-1 ring-border", value[slot] === src && "ring-2 ring-action")}
+                    className={cx("relative size-11 overflow-hidden rounded-sm ring-1 ring-hairline", value[slot] === src && "ring-2 ring-action")}
                   >
                     <Image src={src} alt="" fill sizes="44px" className="object-cover" />
                   </button>

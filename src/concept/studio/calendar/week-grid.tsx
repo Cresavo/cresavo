@@ -22,8 +22,8 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
   const to = Math.max(...open.map((h) => h.close));
 
   return (
-    <div className="overflow-hidden rounded-lg bg-surface ring-1 ring-border/70">
-      <div className="flex border-b border-border">
+    <div className="overflow-hidden rounded-lg bg-surface ring-1 ring-hairline">
+      <div className="flex border-b border-hairline">
         <div className="w-11 shrink-0" />
         {days.map((d) => (
           <button
@@ -41,7 +41,7 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
         {days.map((d) => {
           const hours = openingFor(state.salon, d);
           return (
-            <div key={d} className={cx("relative flex min-w-0 flex-1 border-l border-border/70", !hours && "bg-surface-2/70")} style={{ height: (to - from) * PX_PER_MIN }}>
+            <div key={d} className={cx("relative flex min-w-0 flex-1 border-l border-hairline", !hours && "bg-surface-2/70")} style={{ height: (to - from) * PX_PER_MIN }}>
               <HourLines from={from} to={to} pxPerMin={PX_PER_MIN} />
               {hours &&
                 staff.map((person) => (

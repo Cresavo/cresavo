@@ -23,9 +23,9 @@ export function MessagePreviews({ state, booking, now }: { state: DemoState; boo
       <p className="text-sm text-text-secondary">{t("messages.note")}</p>
       <Segmented value={kind} onChange={setKind} label={t("messages.kind")} options={(["confirmation", "reminder"] as const).map(value => ({ value, label: t(`messages.kind.${value}`) }))} className="w-full" />
       <Segmented value={channel} onChange={setChannel} label={t("messages.channel")} options={(["sms", "email"] as const).map(value => ({ value, label: t(`messages.channel.${value}`) }))} className="w-full" />
-      <div className={channel === "sms" ? "rounded-lg bg-surface-2 p-4" : "rounded-md border border-border p-4"}>
+      <div className={channel === "sms" ? "rounded-lg bg-surface-2 p-4" : "rounded-md border border-hairline p-4"}>
         <p className="text-xs font-semibold text-action">{t("messages.from", { salon: state.salon.name })}</p>
-        {channel === "email" && <div className="my-3 space-y-1 border-b border-border pb-3 text-sm">
+        {channel === "email" && <div className="my-3 space-y-1 border-b border-hairline pb-3 text-sm">
           <p className="text-text-secondary">{t("messages.to")}</p><p className="font-medium">{t("messages.subject", { subject: message.subject })}</p>
         </div>}
         <p className="mt-2 whitespace-pre-line break-words text-sm leading-relaxed">{message.body}</p>

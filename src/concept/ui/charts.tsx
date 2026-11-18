@@ -27,7 +27,7 @@ export function ColumnChart({ data, format, label, height = 160 }: ColumnChartPr
           </div>
         ))}
       </div>
-      <div className="mt-2 flex gap-2 border-t border-border pt-2 sm:gap-3">
+      <div className="mt-2 flex gap-2 border-t border-hairline pt-2 sm:gap-3">
         {data.map((d) => (
           <span key={d.label} className={cx("flex-1 text-center text-xs", d.highlight ? "font-semibold" : "text-text-secondary")}>
             {d.label}
@@ -96,7 +96,7 @@ export function PairedColumns({ data, labels, label, height = 110 }: PairedColum
           </g>
         ))}
       </svg>
-      <div className="mt-2 flex justify-between border-t border-border pt-2 text-xs text-text-secondary">
+      <div className="mt-2 flex justify-between border-t border-hairline pt-2 text-xs text-text-secondary">
         <span>{labels[0]}</span>
         <span>{labels[1]}</span>
       </div>

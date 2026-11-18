@@ -44,7 +44,7 @@ export function SupportAccess() {
       <Card data-help="support-access" className="space-y-4 p-4">
         <p className="text-sm text-text-secondary">{t("support.text")}</p>
         {active ? (
-          <div className="flex flex-wrap items-center gap-3 rounded-md bg-action-bg p-3 text-action">
+          <div className="flex flex-wrap items-center gap-3 rounded-md bg-action-bg p-3 text-text">
             <ShieldCheck size={20} className="shrink-0" />
             <p className="min-w-0 flex-1 text-sm font-medium">{t("support.active", { until: clock(active.until, today) })}</p>
             <Button variant="secondary" size="sm" icon={<ShieldOff size={16} />} onClick={revoke}>{t("support.stop")}</Button>
@@ -58,7 +58,7 @@ export function SupportAccess() {
         {state.supportGrants.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-medium">{t("support.history")}</p>
-            <ul className="divide-y divide-border rounded-md bg-surface-2 px-3 text-sm">
+            <ul className="divide-y divide-hairline rounded-md bg-surface-2 px-3 text-sm">
               {state.supportGrants.map((grantItem) => {
                 const status = grantStatus(grantItem, now);
                 const hours = Math.round((grantItem.until - grantItem.grantedAt) / 3_600_000);

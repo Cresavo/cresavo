@@ -149,6 +149,8 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       return { summary: t("log.domainRemove", { host: prev.domain!.host }) };
     case "module/toggle":
       return { summary: t(next.modules[action.key] ? "log.moduleOn" : "log.moduleOff", { module: t(`features.${action.key}`) }) };
+    case "module/preset":
+      return { summary: t(`log.preset.${action.preset}`) };
     case "trash/restore": {
       const entry = prev.trash.find((e) => e.id === action.id)!;
       return { summary: t("log.trashRestore", { what: entry.kind === "customer" ? fullName(entry.customer) : customerName(prev, bookingOf(prev, entry.bookingId)?.customerId) }) };

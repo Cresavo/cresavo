@@ -70,7 +70,7 @@ export function AdSheet({ campaign, area, open, onClose }: AdSheetProps) {
           />
           <p className="text-sm text-text-secondary">{t("campaigns.ad.audience", { km: ad.radiusKm, area })}</p>
         </Choice>
-        <div className="space-y-1 rounded-lg bg-action-bg p-4 text-action">
+        <div className="space-y-1 rounded-lg bg-action-bg p-4 text-text">
           <p className="text-xs font-semibold uppercase tracking-wide">{t("campaigns.ad.estimate")}</p>
           <p className="text-xl font-semibold tabular-nums">
             {t("campaigns.ad.reach", { low: formatNumber(estimate.reachLow), high: formatNumber(estimate.reachHigh) })}

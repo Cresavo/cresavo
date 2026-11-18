@@ -111,7 +111,7 @@ export default function ImportCustomersPage() {
               action={<span className="text-sm text-text-secondary">{t("import.summary", { ready: ready.length, skipped: rows.length - ready.length })}</span>}
             >
               {rows.length ? (
-                <Card className="divide-y divide-border overflow-hidden">
+                <Card className="divide-y divide-hairline overflow-hidden">
                   {rows.slice(0, PREVIEW_ROWS).map((row) => (
                     <div key={row.line} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
                       <div className="min-w-0 flex-1 basis-52">

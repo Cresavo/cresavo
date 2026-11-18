@@ -13,14 +13,14 @@ function Mini({ page, label }: { page: PageConfig; label: string }) {
   return (
     <figure className="min-w-0 space-y-1.5">
       <figcaption className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{label}</figcaption>
-      <PageRoot page={{ ...page, css: "" }} className="space-y-1.5 rounded-md p-2 ring-1 ring-border">
+      <PageRoot page={{ ...page, css: "" }} className="space-y-1.5 rounded-md p-2 ring-1 ring-hairline">
         {hero && (
           <div className="rounded-sm bg-action-bg p-2.5">
             <p className="text-sm font-semibold leading-tight">{t("page.preview.name")}</p>
             <p className="text-[11px] text-text-secondary">{t("page.preview.tagline")}</p>
           </div>
         )}
-        <div className="flex items-center justify-between gap-2 rounded-sm bg-surface p-2 ring-1 ring-border">
+        <div className="flex items-center justify-between gap-2 rounded-sm bg-surface p-2 ring-1 ring-hairline">
           <span className="text-[11px] font-medium">{t("booking.ask.title")}</span>
           <span className="rounded-sm bg-action px-2 py-1 text-[10px] font-semibold text-on-action">{t("booking.book")}</span>
         </div>

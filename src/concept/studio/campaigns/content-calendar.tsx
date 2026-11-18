@@ -30,7 +30,7 @@ export function ContentCalendar() {
         <h3 className="font-semibold">{`${formatMonth(month)} ${month.slice(0, 4)}`}</h3>
         <IconButton label={t("campaigns.calendar.next")} onClick={() => setMonth(shiftMonth(month, 1))}><ChevronRight size={20} /></IconButton>
       </div>
-      <div className="grid grid-cols-7 border-t border-border px-1.5 pt-1.5 text-center text-[11px] font-semibold uppercase text-text-secondary">
+      <div className="grid grid-cols-7 border-t border-hairline px-1.5 pt-1.5 text-center text-[11px] font-semibold uppercase text-text-secondary">
         {WEEKDAY_ORDER.map((wd) => <span key={wd}>{words.weekdaysShort[wd].slice(0, 2)}</span>)}
       </div>
       <div className="grid grid-cols-7 gap-0.5 p-1.5">
@@ -38,7 +38,7 @@ export function ContentCalendar() {
           <DayCell key={d.date} day={d} today={today} selected={selected === d.date} onSelect={() => setSelected(d.date)} />
         ))}
       </div>
-      <div className="space-y-3 border-t border-border p-4">
+      <div className="space-y-3 border-t border-hairline p-4">
         <p className="text-sm font-semibold">{formatDate(day.date)}</p>
         {!day.holidays.length && !day.posts.length && <p className="text-sm text-text-secondary">{t("campaigns.calendar.empty")}</p>}
         {day.holidays.map((h) => (

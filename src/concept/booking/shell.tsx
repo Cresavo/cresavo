@@ -38,7 +38,7 @@ function Frame({ children }: { children: ReactNode }) {
   return (
     <PageRoot page={page} className="flex min-h-[100dvh] flex-col">
       {/* The route draws edge to edge (viewport-fit=cover): header, content and footer keep clear of notches and the home indicator. */}
-      <header className="border-b print:hidden border-border bg-surface pt-[env(safe-area-inset-top)]">
+      <header className="border-b print:hidden border-hairline bg-surface pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex min-h-14 w-full max-w-5xl flex-wrap items-center justify-between gap-x-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
           <Link href={bookingHome(slug)} className="flex min-h-11 min-w-0 items-center gap-2.5 font-semibold tracking-tight">
             {logo ? (
@@ -52,7 +52,7 @@ function Frame({ children }: { children: ReactNode }) {
             )}
             {state?.salon.name}
           </Link>
-          <Link href={myBookings(slug)} className="flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-action hover:bg-action-bg">
+          <Link href={myBookings(slug)} className="flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-text hover:bg-action-bg">
             {t("booking.myBookings")}
           </Link>
         </div>
@@ -60,7 +60,7 @@ function Frame({ children }: { children: ReactNode }) {
       <main className="mx-auto w-full max-w-5xl flex-1 pb-16 pt-5 lg:pt-8 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
         {state ? children : <p className="animate-pulse py-24 text-center text-text-secondary">{t("booking.loading")}</p>}
       </main>
-      <footer className="border-t print:hidden border-border pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center text-xs text-text-secondary pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
+      <footer className="border-t print:hidden border-hairline pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center text-xs text-text-secondary pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
         {t("booking.demoNote")}{" "}
         <Link href="/studio" className="font-medium text-action underline-offset-2 hover:underline">
           {t("booking.ownerView")}

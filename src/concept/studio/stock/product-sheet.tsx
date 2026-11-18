@@ -67,7 +67,7 @@ export function ProductSheet({ item, onClose }: { item: StockItem; onClose: () =
         <div className="space-y-2">
           <p className="text-sm font-medium">{t("stock.usedBy")}</p>
           {uses.length ? (
-            <ul className="divide-y divide-border rounded-lg ring-1 ring-border">
+            <ul className="divide-y divide-hairline rounded-lg ring-1 ring-hairline">
               {uses.map(({ service, quantity }) => (
                 <li key={service.id} className="flex justify-between gap-3 px-4 py-2.5 text-sm">
                   <span>{service.name}</span>

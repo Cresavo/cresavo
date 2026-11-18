@@ -26,7 +26,7 @@ export function HoursSection() {
       title={t("settings.hours")}
       action={<Button size="sm" variant="secondary" icon={<Pencil size={16} />} onClick={() => setEditing(true)}>{t("common.edit")}</Button>}
     >
-      <Card className="divide-y divide-border">
+      <Card className="divide-y divide-hairline">
         {WEEK_ORDER.map((d) => {
           const hours = salon.hours[d];
           return (
@@ -81,7 +81,7 @@ function HoursSheet({ salon, onClose }: { salon: Salon; onClose: () => void }) {
             </DayRow>
           );
         })}
-        <div className="border-t border-border pt-4">
+        <div className="border-t border-hairline pt-4">
           <DayRow label={t("hours.lunch")} on={!!lunch} switchLabel={t("hours.lunchOn")} off={t("hours.noLunch")} onToggle={() => setLunch(lunch ? null : DEFAULT_LUNCH)}>
             {lunch && <TimeRange label={t("hours.lunch")} from={lunch.start} to={lunch.end} onChange={(start, end) => setLunch({ start, end })} />}
           </DayRow>

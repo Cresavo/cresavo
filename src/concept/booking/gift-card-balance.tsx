@@ -54,7 +54,7 @@ export function GiftCardBalance({ state, compact }: { state: DemoState; compact?
   if (!compact) return <Section title={t("giftcards.checkTitle")}>{body}</Section>;
   return (
     <details className="group">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg bg-surface px-4 font-medium ring-1 ring-border/70 [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg bg-surface px-4 font-medium ring-1 ring-hairline [&::-webkit-details-marker]:hidden">
         {t("giftcards.checkTitle")}
         <span aria-hidden className="text-text-secondary transition-transform group-open:rotate-45">+</span>
       </summary>

@@ -43,6 +43,25 @@ export const MODULES: ModuleManifest[] = [
 
 type Switches = Record<ModuleKey, boolean>;
 
+/**
+ * Two starting points for the switches. Essentials is the core alone (Today, Calendar,
+ * Customers, Inbox and the booking page); Everything switches every module on.
+ */
+export type PresetId = "essentials" | "everything";
+export const PRESET_IDS: readonly PresetId[] = ["essentials", "everything"];
+
+export const isPreset = (value: unknown): value is PresetId => PRESET_IDS.includes(value as PresetId);
+
+export function presetModules(preset: PresetId): Switches {
+  return Object.fromEntries(MODULES.map((manifest) => [manifest.id, preset === "everything"])) as Switches;
+}
+
+/** The preset the switches match right now, or null when the owner has mixed their own. */
+export function presetOf(modules: Switches): PresetId | null {
+  const on = MODULES.filter((manifest) => modules[manifest.id]).length;
+  return on === 0 ? "essentials" : on === MODULES.length ? "everything" : null;
+}
+
 export const moduleById = (id: ModuleKey) => MODULES.find((manifest) => manifest.id === id)!;
 
 const ownerOf = <T>(list: (manifest: ModuleManifest) => T[], item: T) => MODULES.find((manifest) => list(manifest).includes(item));

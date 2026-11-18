@@ -87,7 +87,7 @@ function Colours({ theme, onChange }: Props) {
         <Chip active={!colors} onClick={() => onChange({ colors: null })}>{t("page.palette.default")}</Chip>
         {PALETTE_IDS.map((id) => (
           <Chip key={id} active={colors?.background === PALETTES[id].background && colors.accent === PALETTES[id].accent} onClick={() => onChange({ colors: PALETTES[id] })}>
-            <span aria-hidden className="size-3.5 rounded-full ring-1 ring-border" style={{ background: PALETTES[id].accent }} />
+            <span aria-hidden className="size-3.5 rounded-full ring-1 ring-hairline" style={{ background: PALETTES[id].accent }} />
             {t(`page.palette.${id}`)}
           </Chip>
         ))}
@@ -97,7 +97,7 @@ function Colours({ theme, onChange }: Props) {
           <span className="text-xs text-text-secondary">{t("pageEditor.logoColours")}</span>
           {theme.logoColors.map((accent) => (
             <Chip key={accent} active={colors?.accent === accent} onClick={() => set({ accent })}>
-              <span aria-hidden className="size-3.5 rounded-full ring-1 ring-border" style={{ background: accent }} />
+              <span aria-hidden className="size-3.5 rounded-full ring-1 ring-hairline" style={{ background: accent }} />
               {accent}
             </Chip>
           ))}
@@ -109,7 +109,7 @@ function Colours({ theme, onChange }: Props) {
             {(["background", "text", "accent"] as const).map((role) => (
               <label key={role} className="space-y-1.5 text-sm font-medium">
                 <span className="block">{t(`pageEditor.colour.${role}`)}</span>
-                <input type="color" value={colors[role]} onChange={(event) => set({ [role]: event.target.value })} className="block h-11 w-full cursor-pointer rounded-md bg-surface p-1 ring-1 ring-inset ring-border" />
+                <input type="color" value={colors[role]} onChange={(event) => set({ [role]: event.target.value })} className="block h-11 w-full cursor-pointer rounded-md bg-surface p-1 ring-1 ring-inset ring-hairline" />
               </label>
             ))}
           </div>

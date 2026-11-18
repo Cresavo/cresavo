@@ -51,7 +51,7 @@ export function PurchaseSheet({ onClose }: { onClose: () => void }) {
                   <span className="font-semibold">{group.supplier}</span>
                   <span className="text-text-secondary">{tc("stock.delivery", lead)}</span>
                 </p>
-                <ul className="divide-y divide-border rounded-lg ring-1 ring-border">
+                <ul className="divide-y divide-hairline rounded-lg ring-1 ring-hairline">
                   {group.lines.map(({ item, quantity }) => (
                     <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                       <span className="min-w-0">

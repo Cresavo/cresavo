@@ -192,7 +192,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
             {booking.cancelReason ? ` · ${booking.cancelReason}` : ""}
           </Badge>
         )}
-        <dl className="divide-y divide-border rounded-lg ring-1 ring-border">
+        <dl className="divide-y divide-hairline rounded-lg ring-1 ring-hairline">
           <InfoRow label={t("booking.when")} value={when} />
           <InfoRow label={t("booking.with")} value={`${staff.firstName} ${staff.lastName}`} />
           {booking.resourceId && <InfoRow label={t("booking.room")} value={state.resources.find((r) => r.id === booking.resourceId)?.name ?? ""} />}

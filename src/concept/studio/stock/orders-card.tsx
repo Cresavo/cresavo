@@ -13,7 +13,7 @@ import { useStudio } from "../use-studio";
 export function OrdersCard({ orders, onReceive }: { orders: PurchaseOrder[]; onReceive: (id: string) => void }) {
   const { state, today } = useStudio();
   return (
-    <Card className="divide-y divide-border overflow-hidden">
+    <Card className="divide-y divide-hairline overflow-hidden">
       {orders.map((order) => {
         const arrives = addDays(order.date, leadDaysOf(state, order));
         const total = order.lines.reduce((sum, l) => sum + l.quantity * l.unitCost, 0);

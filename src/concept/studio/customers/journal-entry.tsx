@@ -43,7 +43,7 @@ export function JournalEntryCard({ entry }: { entry: Entry }) {
       <EntryText content={entry} />
       <JournalPhotoPair photos={entry.photos} />
       {versions.length > 0 && (
-        <div className="space-y-3 border-t border-border pt-3">
+        <div className="space-y-3 border-t border-hairline pt-3">
           <Button size="sm" variant="ghost" icon={<History size={14} />} aria-expanded={showVersions} className="-ml-3" onClick={() => setShowVersions(!showVersions)}>
             {tc("journal.versions", versions.length)}
           </Button>

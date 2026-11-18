@@ -38,7 +38,7 @@ export function TrashList() {
     <div className="space-y-3">
       <p className="text-sm text-text-secondary">{t("trash.intro")}</p>
       <Card>
-        <ul className="divide-y divide-border">
+        <ul className="divide-y divide-hairline">
           {state.trash.map((entry) => {
             const { title, detail } = describe(state, entry);
             const restorable = canRestore(state, entry);

@@ -15,7 +15,7 @@ import { useStudio } from "../use-studio";
 export function BookingList({ bookings, onOpen }: { bookings: Booking[]; onOpen: (sheet: OpenSheet) => void }) {
   const { state } = useStudio();
   return (
-    <ul className="divide-y divide-border">
+    <ul className="divide-y divide-hairline">
       {bookings.map((b) => (
         <li key={b.id}>
           <button onClick={() => onOpen({ kind: "booking", id: b.id })} className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-surface-2">

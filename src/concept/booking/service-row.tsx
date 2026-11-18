@@ -19,7 +19,7 @@ const CATEGORY_ICON: Record<Category, LucideIcon> = {
 export function ServiceIcon({ category }: { category: Service["category"] }) {
   const Icon = CATEGORY_ICON[category];
   return (
-    <span className="flex size-11 shrink-0 items-center justify-center rounded-md bg-action-bg text-action">
+    <span className="flex size-11 shrink-0 items-center justify-center rounded-md bg-action-bg text-text">
       <Icon size={20} />
     </span>
   );

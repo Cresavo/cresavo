@@ -8,6 +8,7 @@ import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visit
 import type { CostKind } from "./finance/types";
 import { isFree, needOf, pickResource } from "./data/slots";
 import { undoEntry } from "./log/undo";
+import { MODULES, presetModules, type PresetId } from "./modules/registry";
 import { applyOps, type OpsAction } from "./ops/edit";
 import { applyPageAction, type PageAction } from "./page/actions";
 import { grantSupport, revokeSupport, type GrantHours } from "./support/access";
@@ -76,6 +77,7 @@ export type DemoAction =
   | { type: "accounting/connect"; on: DateKey }
   | { type: "accounting/disconnect" }
   | { type: "module/toggle"; key: ModuleKey }
+  | { type: "module/preset"; preset: PresetId }
   | { type: "card/dismiss"; id: string }
   | { type: "customer/delete"; id: string }
   | { type: "trash/restore"; id: string }
@@ -402,6 +404,10 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
       return { ...state, accounting: { connected: false } };
     case "module/toggle":
       return { ...state, modules: { ...state.modules, [action.key]: !state.modules[action.key] } };
+    case "module/preset": {
+      const modules = presetModules(action.preset);
+      return MODULES.every((manifest) => state.modules[manifest.id] === modules[manifest.id]) ? state : { ...state, modules };
+    }
     case "card/dismiss":
       return { ...state, dismissedCards: [...state.dismissedCards, action.id] };
     case "customer/delete":

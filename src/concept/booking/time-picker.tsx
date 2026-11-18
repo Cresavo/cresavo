@@ -52,7 +52,7 @@ export function TimePicker({ state, serviceId, clock, onPick, onWaitlist, ignore
               onClick={() => setChosen(date)}
               className={cx(
                 "flex min-h-16 w-[4.25rem] shrink-0 flex-col items-center justify-center rounded-lg px-1 py-2 ring-1 ring-inset transition-colors",
-                active ? "bg-action text-on-action ring-action" : "bg-surface ring-border hover:bg-surface-2",
+                active ? "bg-action text-on-action ring-action" : "bg-surface ring-hairline hover:bg-surface-2",
                 !slots.length && !active && "text-text-secondary",
               )}
             >
@@ -77,7 +77,7 @@ export function TimePicker({ state, serviceId, clock, onPick, onWaitlist, ignore
                 "flex min-h-12 items-center justify-center rounded-md text-[15px] font-medium ring-1 ring-inset transition-colors",
                 picked?.date === slot.date && picked.start === slot.start
                   ? "bg-action text-on-action ring-action"
-                  : "bg-surface ring-border hover:bg-action-bg hover:text-action hover:ring-action",
+                  : "bg-surface ring-hairline hover:bg-action-bg hover:text-text hover:ring-action",
               )}
             >
               {formatTime(slot.start)}

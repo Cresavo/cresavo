@@ -29,7 +29,7 @@ export function NeedsMoving({ staffId, onOpen }: { staffId?: StaffId; onOpen: (s
           <p className="text-sm text-text-secondary">{t("moving.text")}</p>
         </div>
       </div>
-      <ul className="divide-y divide-border">
+      <ul className="divide-y divide-hairline">
         {list.slice(0, SHOWN).map(({ booking, reason }) => {
           const customer = findCustomer(state, booking.customerId);
           const person = state.staff.find((s) => s.id === booking.staffId)?.firstName ?? "";
@@ -44,7 +44,7 @@ export function NeedsMoving({ staffId, onOpen }: { staffId?: StaffId; onOpen: (s
           );
         })}
       </ul>
-      {hidden > 0 && <p className="border-t border-border px-4 py-2.5 text-sm text-text-secondary">{tc("moving.more", hidden)}</p>}
+      {hidden > 0 && <p className="border-t border-hairline px-4 py-2.5 text-sm text-text-secondary">{tc("moving.more", hidden)}</p>}
     </Card>
   );
 }

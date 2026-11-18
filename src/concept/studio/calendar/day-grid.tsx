@@ -59,8 +59,8 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
   };
 
   return (
-    <div className="overflow-hidden rounded-lg bg-surface ring-1 ring-border/70">
-      <div className="flex border-b border-border">
+    <div className="overflow-hidden rounded-lg bg-surface ring-1 ring-hairline">
+      <div className="flex border-b border-hairline">
         <div className="w-11 shrink-0" />
         {staff.map((person) => (
           <div key={person.id} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-3 text-sm">
@@ -83,7 +83,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
               onClick={works ? onColumnClick(person) : undefined}
               onDragOver={(event) => works && event.preventDefault()}
               onDrop={works ? onDrop(person) : undefined}
-              className={cx("relative min-w-0 flex-1 border-l border-border/70", works ? "cursor-copy" : "bg-surface-2/70")}
+              className={cx("relative min-w-0 flex-1 border-l border-hairline", works ? "cursor-copy" : "bg-surface-2/70")}
               style={{ height }}
             >
               <HourLines from={from} to={to} pxPerMin={PX_PER_MIN} />

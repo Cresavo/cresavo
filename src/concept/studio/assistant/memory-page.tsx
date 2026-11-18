@@ -73,7 +73,7 @@ function AddNote({ today }: { today: string }) {
 
 function NoteList({ items }: { items: MemoryItem[] }) {
   return (
-    <Card className="divide-y divide-border overflow-hidden">
+    <Card className="divide-y divide-hairline overflow-hidden">
       {items.map((item) => <Note key={item.id} item={item} />)}
     </Card>
   );

@@ -130,7 +130,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
           </>
         }
       >
-        <p className="rounded-md bg-action-bg px-3.5 py-3 text-sm text-action">{freeUntilText(booking)}</p>
+        <p className="rounded-md bg-action-bg px-3.5 py-3 text-sm text-text">{freeUntilText(booking)}</p>
       </Sheet>
 
       <Sheet

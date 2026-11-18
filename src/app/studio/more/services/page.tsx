@@ -33,7 +33,7 @@ export default function ServicesPage() {
       <div className="space-y-6">
         {packOf(state).categories.map((category) => (
           <Section key={category} title={t(`category.${category}`)}>
-            <Card className="divide-y divide-border overflow-hidden">
+            <Card className="divide-y divide-hairline overflow-hidden">
               {state.services.filter((s) => s.category === category).map((s) => (
                 <div key={s.id} className="flex items-center gap-4 px-4 py-3.5">
                   <div className="min-w-0 flex-1">
