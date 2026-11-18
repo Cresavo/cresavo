@@ -24,7 +24,7 @@ import { showToast } from "@/concept/ui/toast";
 type Filter = "all" | "unread" | "requests" | "reviews" | "sent";
 
 const matches: Record<Filter, (item: InboxItem) => boolean> = {
-  sent: item => !!item.delivery || !!item.recallServiceId,
+  sent: item => !!item.delivery || !!item.recallServiceId || !!item.waitlistOffer,
   all: () => true,
   unread: (i) => !i.read,
   requests: (i) => i.kind === "request" || i.kind === "reschedule" || i.kind === "cancel" || i.kind === "message",
@@ -32,7 +32,7 @@ const matches: Record<Filter, (item: InboxItem) => boolean> = {
 };
 
 export default function InboxPage() {
-  const { state, today } = useStudio();
+  const { state, today, minutes } = useStudio();
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -99,7 +99,7 @@ export default function InboxPage() {
         {items.length ? (
           <Card className="divide-y divide-hairline self-start overflow-hidden">
             {items.map((item) => (
-              <InboxRow key={item.id} state={state} item={item} today={today} selected={item.id === selectedId} onSelect={() => select(item)} />
+              <InboxRow key={item.id} state={state} item={item} today={today} minutes={minutes} selected={item.id === selectedId} onSelect={() => select(item)} />
             ))}
           </Card>
         ) : (

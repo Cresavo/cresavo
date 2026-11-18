@@ -59,7 +59,7 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
     }
     case "booking/create": {
       const made = next.bookings[next.bookings.length - 1];
-      return { summary: t("log.bookingCreate", { customer: customerName(next, action.customerId), service: serviceName(next, action.serviceId) }), after: when(next, made) };
+      return { summary: t("log.bookingCreate", { customer: customerName(next, made.customerId), service: serviceName(next, action.serviceId) }), after: when(next, made) };
     }
     case "online/book": {
       const made = next.bookings[next.bookings.length - 1];

@@ -46,8 +46,9 @@ interface BookingActionsProps {
 /** Add to calendar, reschedule and cancel. Inside the 24 h window the customer is asked to call. */
 export function BookingActions({ state, now, booking }: BookingActionsProps) {
   const [sheet, setSheet] = useState<"move" | "cancel" | null>(null);
-  const [target, setTarget] = useState<OpenSlot>();
+  const [picked, setTarget] = useState<OpenSlot>();
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
+  const target = picked && (picked.date !== booking.date || picked.start !== booking.start) ? picked : undefined;
   const rule = changeRule(booking, now.today, now.minutes);
   const service = findService(state, booking.serviceId);
   const customer = findCustomer(state, booking.customerId);
@@ -102,7 +103,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
         </Button>
         {rule === "free" && (
           <>
-            <Button variant="secondary" icon={<CalendarClock size={16} />} onClick={() => setSheet("move")}>
+            <Button variant="secondary" icon={<CalendarClock size={16} />} onClick={() => { setTarget(undefined); setSheet("move"); }}>
               {t("booking.reschedule")}
             </Button>
             <Button variant="danger" icon={<XCircle size={16} />} onClick={() => setSheet("cancel")}>

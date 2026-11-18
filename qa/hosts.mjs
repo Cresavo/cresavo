@@ -1,15 +1,6 @@
 // Host routing: apex -> coming soon, demo -> landing, unknown host -> friendly not-found, tenant isolation.
-import http from "node:http";
-import { launch, newContext, recorder, save, shot, PORT, PRODUCT, settle } from "./lib.mjs";
+import { APEX, DEMO, OWN_DOMAIN, TENANT, UNKNOWN as UNKNOWN_ORIGIN, getHost as get, hostOrigin, launch, newContext, recorder, save, shot, PRODUCT, settle } from "./lib.mjs";
 
-function get(host, path = "/") {
-  return new Promise((resolve, reject) => {
-    http.get({ host: "127.0.0.1", port: PORT, path, headers: { host } }, res => {
-      let body = ""; res.setEncoding("utf8"); res.on("data", d => (body += d));
-      res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body, title: (body.match(/<title[^>]*>([^<]*)/) ?? [])[1] ?? "" }));
-    }).on("error", reject);
-  });
-}
 const expectEq = (a, b, what) => { if (a !== b) throw new Error(`${what}: expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); return `${what}=${JSON.stringify(a)}`; };
 const expectMatch = (a, re, what) => { if (!re.test(a)) throw new Error(`${what}: ${JSON.stringify(a.slice(0, 120))} !~ ${re}`); return `${what}=${JSON.stringify(a.slice(0, 80))}`; };
 
@@ -39,11 +30,11 @@ const browser = await launch();
 const ctx = await newContext(browser, { viewport: "mobile" });
 const page = await ctx.newPage();
 const h1 = async url => { await page.goto(url); await settle(page); await page.waitForTimeout(500); return (await page.locator("h1").first().innerText().catch(() => "(no h1)")).trim(); };
-await r.check(`salong-eko.${P}/ shows Salong Eko`, async () => expectMatch(await h1(`http://salong-eko.${P}/`), /Salong Eko/, "h1"));
-await r.check(`own domain boka.salong-eko.example shows Salong Eko`, async () => expectMatch(await h1("http://boka.salong-eko.example/"), /Salong Eko/, "h1"));
-await r.check(`a second tenant subdomain (annas-fotvard.${P}) does not show Salong Eko`, async () => { const t = await h1(`http://annas-fotvard.${P}/`); if (/Salong Eko/.test(await page.locator("body").innerText())) throw new Error(`h1 "${t}", page shows Salong Eko`); return `h1=${t}`; });
-await r.check(`demo.${P}/boka/does-not-exist does not show Salong Eko`, async () => { const t = await h1(`http://demo.${P}/boka/does-not-exist`); if (/Salong Eko/.test(await page.locator("body").innerText())) throw new Error(`h1 "${t}", page shows Salong Eko`); return `h1=${t}`; });
-for (const [name, url] of [["host-apex", `http://${P}/`], ["host-demo", `http://demo.${P}/`], ["host-tenant", `http://salong-eko.${P}/`], ["host-unknown", "http://some-unknown-salon.example/"], ["host-second-tenant", `http://annas-fotvard.${P}/`]]) {
+await r.check(`salong-eko.${P}/ shows Salong Eko`, async () => expectMatch(await h1(TENANT + "/"), /Salong Eko/, "h1"));
+await r.check(`own domain boka.salong-eko.example shows Salong Eko`, async () => expectMatch(await h1(OWN_DOMAIN + "/"), /Salong Eko/, "h1"));
+await r.check(`a second tenant subdomain (annas-fotvard.${P}) does not show Salong Eko`, async () => { const t = await h1(hostOrigin(`annas-fotvard.${P}`) + "/"); if (/Salong Eko/.test(await page.locator("body").innerText())) throw new Error(`h1 "${t}", page shows Salong Eko`); return `h1=${t}`; });
+await r.check(`demo.${P}/boka/does-not-exist does not show Salong Eko`, async () => { const t = await h1(DEMO + "/boka/does-not-exist"); if (/Salong Eko/.test(await page.locator("body").innerText())) throw new Error(`h1 "${t}", page shows Salong Eko`); return `h1=${t}`; });
+for (const [name, url] of [["host-apex", APEX + "/"], ["host-demo", DEMO + "/"], ["host-tenant", TENANT + "/"], ["host-unknown", UNKNOWN_ORIGIN + "/"], ["host-second-tenant", hostOrigin(`annas-fotvard.${P}`) + "/"]]) {
   await page.goto(url); await settle(page); await shot(page, `${name}-390`);
 }
 await browser.close();

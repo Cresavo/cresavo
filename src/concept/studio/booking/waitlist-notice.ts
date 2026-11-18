@@ -12,6 +12,7 @@ export function waitlistCount(state: DemoState, booking: Booking): number {
 export function waitlistNotice(booking: Booking, count: number, now: { today: string; minutes: number }): Omit<InboxItem, "id"> {
   return {
     kind: "system",
+    waitlistOffer: true,
     date: now.today,
     time: now.minutes,
     title: t("cancel.offerTitle", { time: formatTime(booking.start) }),

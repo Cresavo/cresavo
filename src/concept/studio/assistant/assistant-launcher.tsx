@@ -14,21 +14,11 @@ import { useStudio } from "../use-studio";
 import { AssistantPanel } from "./assistant-panel";
 import { addMessages, messageId, openAssistant } from "./thread-store";
 
-/** The launcher on phones (quiet and labelled, above the tabs; the microphone is inside the panel), the panel, Ctrl/Cmd+K, and the routine runner. */
+/** Mounts the assistant panel, keyboard shortcut and routine runner. */
 export function AssistantLauncher() {
   useShortcut();
   return (
     <>
-      {/* A secondary tool: a surface-coloured pill, never the page's primary action. On very narrow screens (200 % zoom on a phone) it collapses to one 48 px icon button. */}
-      <button
-        type="button"
-        data-help="assistant"
-        onClick={() => openAssistant()}
-        className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-40 flex min-h-12 items-center gap-2 rounded-full bg-surface pl-3.5 pr-4 text-[15px] font-medium text-text shadow-card ring-1 ring-divider max-[299px]:right-2 max-[299px]:w-12 max-[299px]:justify-center max-[299px]:px-0 sm:hidden"
-      >
-        <MessageCircle size={18} aria-hidden className="text-text-secondary" />
-        <span className="max-[299px]:sr-only">{t("assistant.open")}</span>
-      </button>
       <AssistantPanel />
       <RoutineRunner />
     </>
@@ -54,8 +44,8 @@ function useShortcut() {
 export function AssistantHeaderButton() {
   const mac = useSyncExternalStore(noChange, () => /Mac|iPhone|iPad/.test(navigator.platform), () => false);
   return (
-    <Button size="sm" variant="secondary" data-help="assistant" aria-keyshortcuts="Control+K Meta+K" icon={<MessageCircle size={16} aria-hidden />} onClick={() => openAssistant()} className="hidden sm:inline-flex">
-      {t("assistant.open")}
+    <Button size="sm" variant="secondary" data-help="assistant" aria-keyshortcuts="Control+K Meta+K" icon={<MessageCircle size={16} aria-hidden />} onClick={() => openAssistant()} className="max-sm:w-11 max-sm:justify-center max-sm:px-0">
+      <span className="max-sm:sr-only">{t("assistant.open")}</span>
       <kbd aria-hidden className="hidden rounded-xs border border-hairline px-1.5 font-sans text-xs text-text-secondary lg:inline">{mac ? "⌘K" : "Ctrl K"}</kbd>
     </Button>
   );

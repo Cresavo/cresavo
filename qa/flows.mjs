@@ -223,33 +223,27 @@ await r.check("language switch: hidden on studio, booking page, landing and comi
   await ctx.close();
   return "visible switches " + out.join("; ");
 });
-await r.check("language switch on /product: Svenska translates, and the choice does not mislabel the English studio", async () => {
-  const ctx = await newContext(browser, { viewport: "desktop" }); const page = await ctx.newPage(); watch(page, issues);
-  await page.goto(DEMO + "/product"); await settle(page);
-  const select = page.getByRole("combobox", { name: /Language|Språk/ });
-  const en = await page.locator("body").innerText();
-  await select.selectOption("sv"); await page.waitForTimeout(1500); await settle(page);
-  const sv = await page.locator("body").innerText();
-  await shot(page, "flow-lang-product-sv");
-  await page.goto(DEMO + "/studio"); await settle(page);
-  const studioLang = await page.evaluate(() => document.documentElement.lang);
-  const studioText = (await page.locator("main").innerText()).slice(0, 80).replace(/\s+/g, " ");
-  await shot(page, "flow-lang-studio-after-sv");
-  await page.goto(DEMO + "/product"); await settle(page);
-  await page.getByRole("combobox", { name: /Language|Språk/ }).selectOption("en"); await page.waitForTimeout(1500);
-  const back = await page.evaluate(() => document.documentElement.lang);
-  await ctx.close();
-  const detail = `product changed=${en !== sv}; studio html lang=${studioLang} text="${studioText}"; back to lang=${back}`;
-  if (en === sv) throw new Error("product page did not change: " + detail);
-  if (studioLang !== "en") throw new Error("English studio is marked lang=" + studioLang + ": " + detail);
-  return detail;
+await r.check("a saved Svenska preference keeps English concept pages marked lang=en", async () => {
+  const ctx = await newContext(browser, { viewport: "desktop" });
+  await ctx.addCookies([{ name: "booking-locale", value: "sv", url: DEMO }]);
+  const page = await ctx.newPage();
+  try {
+    for (const path of ["/studio", "/boka/salong-eko", "/landing", "/coming-soon"]) {
+      await page.goto(DEMO + path);
+      const lang = await page.locator("html").getAttribute("lang");
+      if (lang !== "en") throw new Error(`${path} is marked lang=${lang}`);
+    }
+    return "all four pages are marked lang=en";
+  } finally {
+    await ctx.close();
+  }
 });
 
 // 9. The customer side: book on the public page and find it in the studio.
 await r.check("public booking page: free text request -> time -> confirm -> visible in studio", async () => {
   const ctx = await newContext(browser, { viewport: "mobile" }); const page = await ctx.newPage(); watch(page, issues);
   await page.goto(DEMO + "/boka/salong-eko"); await settle(page);
-  const ask = page.getByPlaceholder(/^For example: /);
+  const ask = page.getByRole("textbox", { name: "What would you like to book?" });
   await ask.fill("Foot care day after tomorrow with Anna"); await ask.press("Enter");
   await page.getByRole("button", { name: /until \d\d:\d\d/ }).first().click();
   await page.getByLabel("Your name", { exact: true }).fill("Nova Demo");

@@ -1,5 +1,6 @@
 "use client";
 
+import { customerDraft, phoneMatches } from "../../booking/lookup";
 import { useState } from "react";
 import { CalendarClock, CalendarPlus } from "lucide-react";
 import { addDays, formatTime } from "../../data/dates";
@@ -28,7 +29,7 @@ export function PhoneModeSheet({ onClose, onBook, onMove }: PhoneModeProps) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   const stats = q ? buildCustomerStats(state, today) : null;
-  const matches = q ? state.customers.filter((c) => fullName(c).toLowerCase().includes(q) || c.phone.replace(/\s/g, "").includes(q.replace(/\s/g, ""))).slice(0, 4) : [];
+  const matches = q ? state.customers.filter((c) => fullName(c).toLowerCase().includes(q) || phoneMatches(c.phone, q)).slice(0, 4) : [];
 
   const days: DateKey[] = [];
   for (let i = 0; days.length < 5 && i < 14; i++) {
@@ -41,6 +42,9 @@ export function PhoneModeSheet({ onClose, onBook, onMove }: PhoneModeProps) {
       <div className="space-y-6">
         <div className="space-y-2">
           <SearchInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("phone.search")} autoFocus />
+          <Button variant="secondary" size="sm" onClick={() => onBook({ newCustomer: customerDraft(query) })}>
+            {t("newBooking.addCustomer")}
+          </Button>
           {matches.map((c) => {
             const next = stats?.get(c.id)?.nextBooking;
             return (
@@ -81,7 +85,7 @@ export function PhoneModeSheet({ onClose, onBook, onMove }: PhoneModeProps) {
                     {gaps.map((g) => (
                       <button
                         key={`${g.staff.id}-${g.start}`}
-                        onClick={() => onBook({ staffId: g.staff.id, date: d, start: g.start })}
+                        onClick={() => onBook({ staffId: g.staff.id, date: d, start: g.start, customerId: matches.length === 1 ? matches[0].id : undefined, customerQuery: query })}
                         className={cx(
                           "flex min-h-11 items-center gap-2 rounded-md px-3 text-sm ring-1 ring-inset hover:brightness-95",
                           g.staff.id === "anna" ? "bg-staff-1-bg ring-staff-1/20" : "bg-staff-2-bg ring-staff-2/20",

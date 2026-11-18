@@ -1,6 +1,6 @@
 # Status
 
-Senast uppdaterad 2026-11-16. Håll den här filen kort: ersätt innehållet när
+Senast uppdaterad 2026-11-18. Håll den här filen kort: ersätt innehållet när
 läget ändras, och lägg detaljerade testbevis i commit-meddelanden eller CI.
 
 ## Läge
@@ -16,6 +16,8 @@ Lokal prototyp med syntetiska data. Ingen produktionsdrift, ingen kundpilot.
   produktionsberoenden) och några Info-fynd från tidigare granskningar.
 
 ## Det här fungerar
+
+- The concept demo includes the November QA fixes for booking and caller flows, same-origin tab synchronization, assistant lookups, and host feedback. The QA runner is available through `npm run qa`.
 
 - Kundbokning på webben med lediga tider, idempotens och skydd mot dubbelbokning
   i databasen.

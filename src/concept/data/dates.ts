@@ -50,3 +50,10 @@ export function formatTime(minutes: number): string {
 export function toMinutes(time: string): number {
   return Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
 }
+
+
+/** An inbox item remains readable even when a fixture or a changed clock dates it in the future. */
+export function inboxTimestamp(item: { date: DateKey; time: number }, today: DateKey, minutes: number) {
+  if (item.date > today || (item.date === today && item.time > minutes)) return { date: today, time: minutes };
+  return item;
+}

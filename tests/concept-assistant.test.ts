@@ -541,3 +541,49 @@ describe("read questions", () => {
     expect(ask("When is Anna working next?").reply.card?.kind).not.toBe("bookings");
   });
 });
+
+describe("everyday data questions", () => {
+  it("reports Erik's Friday gaps and respects a day off", () => {
+    const friday = "2026-11-20";
+    const erik = base.staff.find((person) => person.id === "erik")!;
+    const working = {
+      ...base,
+      bookings: [],
+      exceptions: [{ id: "working-friday", staffId: erik.id, date: friday, kind: "shift" as const, start: 13 * 60, end: 15 * 60 }],
+    };
+    const { replies } = converse(working, ["Is Erik free on Friday?", "Is Erik free on Friday afternoon?"]);
+    for (const answer of replies) {
+      expect(answer.reply.text).toContain("13:00–15:00");
+      expect(answer.context.date).toBe(friday);
+    }
+    const off = { ...working, exceptions: [{ id: "off-friday", staffId: erik.id, date: friday, kind: "off" as const, reason: "other" as const }] };
+    expect(converse(off, ["Is Erik free on Friday?"]).replies[0].reply.text).toContain("Erik is off");
+  });
+
+  it.each(["What is running low?", "what is low in stock", "What is running low in stock?"])("answers %s from current stock", (question) => {
+    const [product] = base.stock;
+    const stock = [{ ...product, inStock: 0, onOrder: 0 }];
+    expect(converse({ ...base, stock }, [question]).replies[0].reply.card).toMatchObject({
+      kind: "stock", items: [{ id: product.id, left: "0", low: true }],
+    });
+    stock[0].inStock = product.reorderAt + 1;
+    expect(converse({ ...base, stock }, [question]).replies[0].reply.text).toBe("Nothing is low in stock.");
+  });
+
+  it.each(["Are you open on Saturday?", "What are the opening hours on Saturday?"])("answers %s from the salon schedule and closures", (question) => {
+    const saturday = "2026-11-21";
+    const salon = { ...base.salon, hours: { ...base.salon.hours, 6: { open: 10 * 60, close: 14 * 60 } } };
+    expect(converse({ ...base, salon }, [question]).replies[0].reply.text).toContain("10:00–14:00");
+    salon.closures = [...salon.closures, { id: "closed-saturday", date: saturday, name: "Test closure" }];
+    expect(converse({ ...base, salon }, [question]).replies[0].reply.text).toContain("We are closed");
+  });
+
+  it("removes a cancellation alert as soon as its time is occupied", () => {
+    const cancelled = base.bookings.find((booking) => booking.date === today && booking.status === "cancelled")!;
+    const id = `cancel-${cancelled.id}`;
+    const brief = (state: DemoState) => morningBrief(state, clock).items.map((item) => item.id);
+    expect(brief(base)).toContain(id);
+    const booked = { ...base, bookings: [...base.bookings, { ...cancelled, id: "replacement", status: "booked" as const, start: cancelled.start - 15 }] };
+    expect(brief(booked)).not.toContain(id);
+  });
+});

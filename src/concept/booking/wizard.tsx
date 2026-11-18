@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ArrowLeft, BellRing, Check } from "lucide-react";
 import { addDays } from "../data/dates";
 import type { DemoState } from "../data/types";
-import { t } from "../i18n";
+import { t, tc } from "../i18n";
 import { formatDayLong } from "../i18n/format";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
@@ -12,6 +12,7 @@ import { cx } from "../ui/cx";
 import { showToast } from "../ui/toast";
 import type { Now } from "../use-now";
 import { AskStep } from "./ask-step";
+import { recallGuest } from "./guest";
 import { DetailsStep } from "./details-step";
 import { parseBookingRequest, type BookingRequest } from "./request";
 import { ServiceInfo } from "./service-row";
@@ -61,6 +62,10 @@ export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowCh
   const [trail, setTrail] = useState<Step[]>(initialServiceId ? ["ask", "times"] : ["ask"]);
   const [serviceId, setServiceId] = useState(initialServiceId);
   const [request, setRequest] = useState<BookingRequest>();
+  const [guest, setGuest] = useState(() => {
+    const known = recallGuest();
+    return { name: known?.name ?? "", phone: known?.phone ?? "" };
+  });
   const [slot, setSlot] = useState<OpenSlot>();
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
   const [missed, setMissed] = useState(false);
@@ -118,7 +123,7 @@ export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowCh
         <TimePicker state={state} serviceId={service.id} clock={now} onPick={pick} onWaitlist={(date) => setWaitlist({ serviceId: service.id, date })} />
       </div>
     ),
-    details: service && slot && <DetailsStep state={state} now={now} serviceId={service.id} slot={slot} onTaken={taken} onBooked={onBooked} />,
+    details: service && slot && <DetailsStep state={state} now={now} serviceId={service.id} slot={slot} guest={guest} onGuestChange={setGuest} onTaken={taken} onBooked={onBooked} />,
   };
 
   // Idle, the flow is one quiet line above the price list; a card appears once a booking is under way.
@@ -162,7 +167,7 @@ function Suggestions({ state, now, service, request, onPick, onAll, onChangeServ
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-semibold tracking-tight">{exact.length ? t("booking.suggest.title") : t("booking.suggest.none")}</h2>
+        <h2 className="text-xl font-semibold tracking-tight">{exact.length ? tc("booking.suggest.title", exact.length) : t("booking.suggest.none")}</h2>
         <p className="mt-1 text-[15px] text-text-secondary">
           {exact.length ? t("booking.suggest.for", { service: service.name }) : t("booking.suggest.noneHelp", { service: service.name })}
         </p>
@@ -176,8 +181,8 @@ function Suggestions({ state, now, service, request, onPick, onAll, onChangeServ
         <Button variant="secondary" onClick={onAll}>{t("booking.suggest.all")}</Button>
         <Button variant="ghost" onClick={onChangeService}>{t("booking.suggest.change")}</Button>
         {!exact.length && state.modules.waitlist && (
-          <Button variant="secondary" icon={<BellRing size={16} />} onClick={() => onWaitlist(request.from)}>
-            {t("booking.notifyMeFor", { day: formatDayLong(request.from) })}
+          <Button variant="secondary" className="max-w-full" icon={<BellRing size={16} className="shrink-0" />} onClick={() => onWaitlist(request.from)}>
+            <span className="whitespace-normal text-center">{t("booking.notifyMeFor", { day: formatDayLong(request.from) })}</span>
           </Button>
         )}
       </div>

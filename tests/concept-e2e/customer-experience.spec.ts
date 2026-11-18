@@ -155,3 +155,34 @@ test("join a fully booked day's waiting list and find the request in Inbox", asy
   await page.goto("/studio/inbox");
   await expect(page.getByRole("button", { name: /Waiting Demo.*Waiting list/ })).toBeVisible();
 });
+
+test("two tabs cannot confirm the same public booking time", async ({ context, page }) => {
+  const other = await context.newPage();
+  await other.clock.install({ time: new Date("2026-11-17T10:00:00+01:00") });
+  const ask = "Footcare day after tomorrow with Anna";
+  async function prepare(tab: Page, name: string, phone: string) {
+    await tab.goto("/boka/salong-eko");
+    const field = tab.getByRole("textbox", { name: /What would you like to book/ });
+    await field.fill(ask);
+    await field.press("Enter");
+    await tab.getByRole("button", { name: /until \d\d:\d\d/ }).first().click();
+    await tab.getByLabel("Your name", { exact: true }).fill(name);
+    await tab.getByLabel("Mobile number").fill(phone);
+    return tab.getByRole("button", { name: "Confirm booking", exact: true });
+  }
+  const [first, second] = await Promise.all([
+    prepare(page, "First Caller", "070-000 99 61"),
+    prepare(other, "Second Caller", "070-000 99 62"),
+  ]);
+  await Promise.all([first.click(), second.click()]);
+  const confirmed = [page, other].map((tab) => tab.getByRole("heading", { name: "You are booked" }));
+  await expect.poll(async () => (await Promise.all(confirmed.map((heading) => heading.count()))).reduce((sum, count) => sum + count, 0)).toBe(1);
+  const rejected = await confirmed[0].count() ? other : page;
+  await expect(rejected.getByRole("heading", { name: "You are booked" })).toHaveCount(0);
+  await expect(rejected.getByRole("button", { name: "Show all times" })).toBeVisible();
+  expect(await rejected.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(rejected.viewportSize()!.width);
+  const snapshot = await state(page);
+  const contacts = snapshot.customers.filter((customer) => customer.lastName === "Caller");
+  expect(contacts).toHaveLength(1);
+  expect(snapshot.bookings.filter((booking) => booking.customerId === contacts[0].id)).toHaveLength(1);
+});

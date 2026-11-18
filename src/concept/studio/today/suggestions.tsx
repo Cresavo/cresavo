@@ -42,7 +42,7 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
   const [showAll, setShowAll] = useState(false);
   const list: Suggestion[] = [];
   const notify = (title: string, body: string, toast: string) => {
-    dispatch({ type: "inbox/add", item: { kind: "system", date: today, time: minutes, title, body, read: false, handled: true } });
+    dispatch({ type: "inbox/add", item: { kind: "system", waitlistOffer: true, date: today, time: minutes, title, body, read: false, handled: true } });
     showToast(toast, { label: t("common.undo"), run: undo });
   };
 

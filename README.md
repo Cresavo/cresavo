@@ -64,6 +64,7 @@ npm run lint
 npx tsc --noEmit
 npm test                       # unit tests
 npm run test:concept           # concept demo browser tests
+npm run qa                     # QA scripts against a running demo build (QA_BASE_URL defaults to http://localhost:3100)
 npm run test:integration       # needs a local database whose name ends in _test
 npx playwright install chromium && npm run test:e2e
 npm run build

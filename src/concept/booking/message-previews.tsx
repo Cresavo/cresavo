@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Booking, DemoState } from "../data/types";
+import { ownerViewHref } from "../page/resolve";
 import { t } from "../i18n";
 import { dispatch } from "../store";
 import { Badge } from "../ui/badge";
@@ -16,6 +17,8 @@ export function MessagePreviews({ state, booking, now }: { state: DemoState; boo
   const [kind, setKind] = useState<BookingMessageKind>("confirmation");
   const [channel, setChannel] = useState<MessageChannel>("sms");
   const message = bookingMessage(state, booking, kind);
+  const ownerOrigin = new URL(ownerViewHref(window.location.host, window.location.protocol), window.location.href).origin;
+  const sentText = t(ownerOrigin === window.location.origin ? "messages.sent" : "messages.sentLocally");
   const sent = messageWasSent(state, booking, kind, channel);
   return (
     <Card className="space-y-4 p-5">
@@ -30,9 +33,9 @@ export function MessagePreviews({ state, booking, now }: { state: DemoState; boo
         </div>}
         <p className="mt-2 whitespace-pre-line break-words text-sm leading-relaxed">{message.body}</p>
       </div>
-      {sent ? <p role="status" className="text-sm text-action">{t("messages.sent")}</p> : <Button variant="secondary" onClick={() => {
+      {sent ? <p role="status" className="text-sm text-action">{sentText}</p> : <Button variant="secondary" onClick={() => {
         const ok = dispatch({ type: "booking-message/send", bookingId: booking.id, kind, channel, at: { date: now.today, time: now.minutes } });
-        showToast(ok ? t("messages.sent") : t("command.failed"));
+        showToast(ok ? sentText : t("command.failed"));
       }}>{t("messages.simulate")}</Button>}
       <Badge>{t("common.simulated")}</Badge>
     </Card>

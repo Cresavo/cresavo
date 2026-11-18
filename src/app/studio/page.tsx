@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CalendarOff, Phone } from "lucide-react";
-import { openingFor } from "@/concept/data/slots";
+import { openingFor, staffWorks } from "@/concept/data/slots";
 import { t, tc } from "@/concept/i18n";
 import { formatDayLong } from "@/concept/i18n/format";
 import { dayBookings } from "@/concept/selectors";
@@ -33,13 +33,14 @@ export default function TodayPage() {
   const role = useRole();
   const viewer = role === "staff" ? staffViewer(state) : null;
   const open = !!openingFor(state.salon, today);
+  const off = !!viewer && !staffWorks(state, viewer.id, today);
   const count = dayBookings(state, today, viewer?.id).length;
 
   return (
     <>
       <PageHeader
         title={greeting(minutes, viewer?.firstName ?? "Anna")}
-        subtitle={`${formatDayLong(today)} · ${open ? tc("today.bookingCount", count) : t("today.closed")}`}
+        subtitle={`${formatDayLong(today)} · ${!open ? t("today.closed") : off ? t("today.dayOff") : tc("today.bookingCount", count)}`}
         actions={
           <Button icon={<Phone size={18} />} onClick={() => setSheet({ kind: "phone" })}>
             {t("today.phoneMode")}
@@ -51,10 +52,12 @@ export default function TodayPage() {
         <div className="min-w-0 space-y-6">
           {open && !viewer && <TodayStats />}
           <Section title={t("today.schedule")}>
-            {open ? (
-              <Timeline date={today} staffId={viewer?.id} onOpen={setSheet} />
-            ) : (
+            {!open ? (
               <EmptyState icon={<CalendarOff size={22} />} title={t("today.closed")} text={t("today.closedText")} />
+            ) : off && count === 0 ? (
+              <EmptyState icon={<CalendarOff size={22} />} title={t("today.dayOff")} />
+            ) : (
+              <Timeline date={today} staffId={viewer?.id} onOpen={setSheet} />
             )}
           </Section>
         </div>

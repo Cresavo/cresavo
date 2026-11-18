@@ -71,6 +71,7 @@ test("pick an address, resolve it by host and start an own domain", async ({ pag
   await page.goto("http://salong-eko.localhost:3017/studio");
   await expect(page.getByRole("heading", { name: "No booking page here" })).toBeVisible();
   const unknown = await request.get("/", { headers: { host: "nobody.example.org" } });
+  expect(unknown.status()).toBe(404);
   expect(await unknown.text()).toContain("No booking page here");
   expect(await unknown.text()).toContain("nobody.example.org");
 

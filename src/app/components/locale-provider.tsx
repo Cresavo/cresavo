@@ -1,6 +1,8 @@
 "use client";
-import { createContext, useContext, useState } from "react";
-import { useRouter } from "next/navigation";
+import { createContext, useContext, useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { resolveHost } from "@/concept/page/resolve";
+import { englishConceptPath } from "@/concept/page/language";
 import { text, type Locale } from "@/lib/locale";
 
 const LocaleContext = createContext<Locale>("sv");
@@ -17,6 +19,18 @@ export function LocaleProvider({
 }
 export function useLocale() {
   return useContext(LocaleContext);
+}
+
+/** The root layout persists across client navigation. Keep its language in sync with the page. */
+export function DocumentLanguage({ locale }: { locale: Locale }) {
+  const path = usePathname();
+  useEffect(() => {
+    // A rewritten tenant URL can be "/", "/me", or another public path.
+    const host = resolveHost(window.location.host);
+    const concept = englishConceptPath(path ?? "") || host.kind === "business" || host.kind === "unknown";
+    document.documentElement.lang = concept ? "en" : locale;
+  }, [path, locale]);
+  return null;
 }
 
 export function LanguageSwitch() {

@@ -1,4 +1,4 @@
-import { formatTime } from "../../data/dates";
+import { formatTime, inboxTimestamp } from "../../data/dates";
 import type { DateKey, DemoState, InboxItem } from "../../data/types";
 import { t } from "../../i18n";
 import { relativeDay } from "../../i18n/format";
@@ -9,11 +9,13 @@ interface InboxRowProps {
   state: DemoState;
   item: InboxItem;
   today: DateKey;
+  minutes: number;
   selected: boolean;
   onSelect: () => void;
 }
 
-export function InboxRow({ state, item, today, selected, onSelect }: InboxRowProps) {
+export function InboxRow({ state, item, today, minutes, selected, onSelect }: InboxRowProps) {
+  const at = inboxTimestamp(item, today, minutes);
   return (
     <button
       onClick={onSelect}
@@ -25,7 +27,7 @@ export function InboxRow({ state, item, today, selected, onSelect }: InboxRowPro
         <div className="flex items-baseline gap-2">
           <p className={cx("min-w-0 flex-1 truncate", item.read ? "font-medium" : "font-semibold")}>{senderName(state, item) ?? t("inbox.system")}</p>
           <span className="shrink-0 text-xs tabular-nums text-text-secondary">
-            {item.date === today ? formatTime(item.time) : relativeDay(item.date, today)}
+            {at.date === today ? formatTime(at.time) : relativeDay(at.date, today)}
           </span>
         </div>
         <p className={cx("truncate text-sm", item.read ? "text-text-secondary" : "font-medium")}>{item.title}</p>

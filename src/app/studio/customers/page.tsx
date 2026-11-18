@@ -1,5 +1,6 @@
 "use client";
 
+import { phoneMatches } from "@/concept/booking/lookup";
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -39,7 +40,7 @@ export default function CustomersPage() {
   const due = new Set(lists.due.map((c) => c.id));
   const q = query.trim().toLowerCase();
   const matches = lists[filter].filter(
-    (c) => !q || fullName(c).toLowerCase().includes(q) || c.phone.replace(/\s/g, "").includes(q.replace(/\s/g, "")),
+    (c) => !q || fullName(c).toLowerCase().includes(q) || phoneMatches(c.phone, q),
   );
 
   return (

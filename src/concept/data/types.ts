@@ -257,6 +257,8 @@ export interface SlotSuggestion {
 }
 
 export interface InboxItem {
+  /** A simulated outgoing offer to the waiting list. */
+  waitlistOffer?: boolean;
   /** Simulated booking delivery; never an outgoing network request. */
   delivery?: { channel: "sms" | "email"; kind: "confirmation" | "reminder"; slot: string };
   id: string;

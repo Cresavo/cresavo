@@ -1,7 +1,6 @@
 // Reproduces each candidate finding of this round (own + Codex) in a fresh browser context and records what happened.
 // Each check returns an observation; "REPRO" means the problem shows, "NO-REPRO" means it does not.
-import http from "node:http";
-import { launch, newContext, save, settle, shot, state, DEMO, TENANT, APEX, PORT } from "./lib.mjs";
+import { launch, newContext, save, settle, shot, state, DEMO, TENANT, APEX, PRODUCT, getHost as get } from "./lib.mjs";
 
 const browser = await launch();
 const results = [];
@@ -10,6 +9,7 @@ const dlg = p => p.getByRole("dialog").last();
 async function check(id, title, fn, viewport = "mobile") {
   const ctx = await newContext(browser, { viewport });
   const page = await ctx.newPage(); page.setDefaultTimeout(8000);
+  await page.clock.setFixedTime(new Date("2026-11-18T08:00:00+01:00"));
   try { const r = await fn(page, ctx); results.push({ id, title, ...r }); console.log(`${r.verdict} ${id} ${title} :: ${r.observed}`); }
   catch (e) { results.push({ id, title, verdict: "ERROR", observed: String(e.message).split("\n")[0] }); console.log(`ERROR ${id} ${title} :: ${String(e.message).split("\n")[0]}`); await shot(page, `verify-${id}-error`).catch(() => {}); }
   finally { await ctx.close(); }
@@ -24,7 +24,6 @@ async function publicBook(p, origin, name, phone, time = "13:00", confirm = true
   await p.getByPlaceholder("070-123 45 67").fill(phone);
   if (confirm) { await b(p, "Confirm booking").click(); await p.waitForTimeout(600); }
 }
-const get = (host, path) => new Promise((res, rej) => http.get({ host: "127.0.0.1", port: PORT, path, headers: { host } }, r => { let d = ""; r.on("data", c => (d += c)); r.on("end", () => res({ status: r.statusCode, headers: r.headers, body: d })); }).on("error", rej));
 
 // ---- Codex findings ----
 await check("C01", "second tab overwrites a confirmed booking", async (p, ctx) => {
@@ -33,10 +32,11 @@ await check("C01", "second tab overwrites a confirmed booking", async (p, ctx) =
   await publicBook(q, "/boka/salong-eko", "Tab Two Demo", "070-000 22 22", "13:00", false);
   await b(p, "Confirm booking").click(); await p.waitForTimeout(600);
   await b(q, "Confirm booking").click(); await q.waitForTimeout(600);
+  const secondConfirmed = await q.getByRole("heading", { name: "You are booked" }).count();
   const s = await state(q);
   const names = s.customers.filter(c => /Tab (One|Two) Demo/.test(`${c.firstName} ${c.lastName}`)).map(c => `${c.firstName} ${c.lastName}`);
   await shot(q, "verify-C01-second-tab");
-  return { verdict: names.length < 2 ? "REPRO" : "NO-REPRO", observed: `both tabs confirmed; customers in saved state: ${JSON.stringify(names)}` };
+  return { verdict: secondConfirmed || !names.includes("Tab One Demo") ? "REPRO" : "NO-REPRO", observed: `second tab confirmed: ${!!secondConfirmed}; customers in saved state: ${JSON.stringify(names)}` };
 });
 await check("C02", "booking on the salon subdomain is invisible in the demo studio", async (p) => {
   await publicBook(p, TENANT + "/", "Subdomain Demo", "070-000 33 33");
@@ -44,10 +44,10 @@ await check("C02", "booking on the salon subdomain is invisible in the demo stud
   await go(p, "/studio/inbox");
   const seen = await p.getByText(/Subdomain Demo/).count();
   await shot(p, "verify-C02-demo-inbox");
-  return { verdict: seen ? "NO-REPRO" : "REPRO", observed: `confirmation claims owner's Inbox: ${confirmText > 0}; demo-host Inbox shows it: ${seen > 0} (each origin has its own localStorage)` };
+  return { verdict: confirmText && !seen ? "REPRO" : "NO-REPRO", observed: `confirmation claims owner's Inbox: ${confirmText > 0}; demo-host Inbox shows it: ${seen > 0} (each origin has its own localStorage)` };
 });
 await check("C03", "apex 'Explore the demo' loops back to the coming-soon page", async (p) => {
-  const html = (await get("cresavo.com", "/")).body;
+  const html = (await get(PRODUCT, "/")).body;
   const href = (html.match(/href="([^"]*)"[^>]*>[^<]*Explore the demo/) ?? [])[1];
   await go(p, APEX + "/");
   await p.getByRole("link", { name: /Explore the demo/ }).first().click(); await settle(p);
@@ -95,7 +95,11 @@ await check("C06", "a free 45-min gap preselects a 60-min treatment", async (p) 
   return { verdict: enabled && /1 h/.test(pressed) ? "REPRO" : "NO-REPRO", observed: `gap "${label.replace(/\s+/g, " ")}"; preselected "${pressed.replace(/\s+/g, " ")}"; "No free times" shown: ${noFree > 0}; Book enabled: ${enabled}; after click: "${after}"` };
 });
 await check("C07", "public booking accepts an all-zero mobile number", async (p) => {
-  await publicBook(p, "/boka/salong-eko", "Zero Phone Demo", "00000000");
+  await publicBook(p, "/boka/salong-eko", "Zero Phone Demo", "00000000", "13:00", false);
+  const confirm = b(p, "Confirm booking");
+  if (await confirm.isDisabled()) return { verdict: "NO-REPRO", observed: "Confirmation is disabled for 00000000." };
+  await confirm.click();
+  await p.waitForTimeout(600);
   const ok = await p.getByRole("heading", { name: "You are booked" }).count();
   await shot(p, "verify-C07-zero-phone");
   return { verdict: ok ? "REPRO" : "NO-REPRO", observed: ok ? "booking confirmed with 00000000" : "rejected" };
@@ -121,12 +125,14 @@ await check("C09", "room filter shows 0 bookings under an unqualified '81% booke
   const t = (await p.locator("main").innerText()).replace(/\s+/g, " ");
   await shot(p, "verify-C09-room2");
   const pct = t.match(/\d+% booked/)?.[0], n = t.match(/\d+ bookings?/)?.[0];
-  return { verdict: pct && /^0 /.test(n ?? "") ? "REPRO" : "CHECK", observed: `header "${pct}", column "${n}"` };
+  return { verdict: pct && /^0 /.test(n ?? "") ? "REPRO" : "NO-REPRO", observed: `header "${pct}", column "${n}"` };
 });
 await check("C10", "public reschedule to the same time says 'moved'", async (p) => {
   await publicBook(p, "/boka/salong-eko", "Same Time Demo", "070-000 44 44");
   await p.getByText("Reschedule", { exact: true }).first().click(); await p.waitForTimeout(300);
-  await b(p, "13:00").click();
+  const currentTime = b(p, "13:00");
+  if (!await currentTime.count()) return { verdict: "NO-REPRO", observed: "The current slot is excluded from the move picker." };
+  await currentTime.click();
   const confirm = p.getByRole("button", { name: /^Move to / });
   const enabled = await confirm.isEnabled();
   if (enabled) await confirm.click();
@@ -152,8 +158,9 @@ await check("C12", "floating Assistant button covers the 15:00 'Cancelled' badge
 });
 await check("C13", "'three times' heading above two suggestions", async (p) => {
   await go(p, "/boka/salong-eko");
-  await p.getByText("Ingrown nail treatment tomorrow after work").click();
-  await b(p, "Find times").click().catch(() => {}); await p.waitForTimeout(800);
+  const ask = p.getByRole("textbox", { name: "What would you like to book?" });
+  await ask.fill("Ingrown nail treatment tomorrow after work");
+  await ask.press("Enter");
   const head = (await p.locator("body").innerText()).match(/Here are [^\n]*/)?.[0] ?? "";
   const cards = await p.getByRole("button", { name: /until \d\d:\d\d/ }).count();
   await shot(p, "verify-C13-three-times");
@@ -171,7 +178,7 @@ await check("C14", "cancel offers the slot to the waiting list by default; offer
   await p.getByRole("radio", { name: "Sent log", exact: true }).click(); await p.waitForTimeout(300);
   const sent = (await p.locator("main").innerText()).replace(/\s+/g, " ");
   await shot(p, "verify-C14-sent-log");
-  return { verdict: defaultOn === true && !/offered/i.test(sent) ? "REPRO" : "PARTIAL", observed: `waiting-list offer default on: ${defaultOn}; 'offered' items in All: ${inAll}; Sent log mentions offer: ${/offered/i.test(sent)}` };
+  return { verdict: defaultOn === true ? "REPRO" : "NO-REPRO", observed: `waiting-list offer default on: ${defaultOn}; 'offered' items in All: ${inAll}; Sent log mentions offer: ${/offered/i.test(sent)}` };
 });
 await check("C15", "Staff Today shows a bare schedule on a day off", async (p) => {
   await go(p, "/studio");
@@ -204,7 +211,7 @@ await check("O02", "inbox shows today's messages with future timestamps early in
   return { verdict: times.some(t => t > "06:30") ? "REPRO" : "NO-REPRO", observed: `clock 06:30, message times ${times.join(", ")}` };
 });
 await check("O03", "coming-soon page on the apex is served with X-Robots-Tag noindex", async () => {
-  const r = await get("cresavo.com", "/");
+  const r = await get(PRODUCT, "/");
   return { verdict: r.headers["x-robots-tag"] ? "REPRO" : "NO-REPRO", observed: `x-robots-tag=${r.headers["x-robots-tag"]}; x-middleware-rewrite=${r.headers["x-middleware-rewrite"]}` };
 });
 await check("O04", "unknown host friendly page answers 200 (soft 404)", async () => {
@@ -215,13 +222,12 @@ await check("O05", "'Your data & AI' links to discovery documents that answer 50
   await go(p, "/studio/more/data");
   const hrefs = await p.locator('a[href*="/api/concept/"]').evaluateAll(as => as.map(a => a.getAttribute("href")));
   const st = [];
-  for (const h of hrefs) st.push(`${h} ${(await get(`demo.cresavo.com`, h)).status}`);
+  for (const h of hrefs) st.push(`${h} ${(await get(`demo.${PRODUCT}`, h)).status}`);
   await shot(p, "verify-O05-data-page", { fullPage: true });
   return { verdict: st.some(s => / 503$/.test(s)) ? "REPRO" : "NO-REPRO", observed: st.join("; ") + " (needs BOOKING_PUBLIC_ORIGIN; check the Vercel env)" };
 }, "desktop");
-await check("O06", "choosing Svenska on /product marks the English studio lang=sv", async (p) => {
-  await go(p, "/product");
-  await p.getByRole("combobox", { name: /Language|Språk/ }).selectOption("sv"); await p.waitForTimeout(1500);
+await check("O06", "a saved Svenska preference marks the English studio lang=sv", async (p, ctx) => {
+  await ctx.addCookies([{ name: "booking-locale", value: "sv", url: DEMO }]);
   await go(p, "/studio");
   const lang = await p.evaluate(() => document.documentElement.lang);
   const greet = (await p.locator("h1").first().innerText());

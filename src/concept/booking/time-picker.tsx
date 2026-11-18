@@ -20,7 +20,7 @@ interface TimePickerProps {
   onPick: (slot: OpenSlot) => void;
   /** Called when the chosen day has no free time. */
   onWaitlist: (date: DateKey) => void;
-  /** A booking being moved: its own time counts as free. */
+  /** A booking being moved: its capacity is reusable, but its current time is excluded. */
   ignoreId?: string;
   /** Highlights the time the customer already tapped. */
   selected?: OpenSlot;
@@ -28,16 +28,22 @@ interface TimePickerProps {
 
 /** Two rows: pick a day, then a time. Full days say so and offer the waiting list. */
 export function TimePicker({ state, serviceId, clock, onPick, onWaitlist, ignoreId, selected: picked }: TimePickerProps) {
+  const current = state.bookings.find((booking) => booking.id === ignoreId);
   const days = useMemo(() => {
     const list: { date: DateKey; slots: OpenSlot[] }[] = [];
     for (let i = 0; list.length < DAYS_SHOWN && i < DAYS_SHOWN * 2; i++) {
       const date = addDays(clock.today, i);
-      if (openingFor(state.salon, date)) list.push({ date, slots: openSlots(state, serviceId, date, clock, { ignoreId }) });
+      if (!openingFor(state.salon, date)) continue;
+      const slots = openSlots(state, serviceId, date, clock, { ignoreId }).filter((slot) =>
+        !current || date !== current.date || slot.start !== current.start);
+      list.push({ date, slots });
     }
     return list;
-  }, [state, serviceId, clock, ignoreId]);
+  }, [state, serviceId, clock, ignoreId, current]);
   const [chosen, setChosen] = useState<DateKey>();
   const selected = days.find((d) => d.date === chosen) ?? days.find((d) => d.slots.length) ?? days[0];
+
+  if (!selected) return <p className="text-sm text-text-secondary">{t("slots.noneThisDay")}</p>;
 
   return (
     <div className="space-y-4">

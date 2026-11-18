@@ -64,3 +64,24 @@ describe("concept store actions", () => {
     expect(next.inbox.every((i) => i.read)).toBe(true);
   });
 });
+
+describe("first-time caller booking", () => {
+  it("creates the customer with the booking and leaves state untouched when the slot is taken", () => {
+    const service = base.services.find((item) => item.id === upcoming.serviceId)!;
+    const action = {
+      type: "booking/create" as const,
+      newCustomer: { name: "QA Newcaller", phone: "070-000 99 31", email: "qa@example.test", since: today },
+      serviceId: service.id,
+      staffId: upcoming.staffId,
+      source: "phone" as const,
+      date: upcoming.date,
+      start: upcoming.start,
+    };
+    expect(reduce(base, action)).toBe(base);
+    const cancelled = reduce(base, { type: "booking/cancel", id: upcoming.id });
+    const booked = reduce(cancelled, action);
+    const customer = booked.customers.at(-1);
+    expect(customer).toMatchObject({ firstName: "QA", lastName: "Newcaller", email: "qa@example.test" });
+    expect(booked.bookings.at(-1)).toMatchObject({ customerId: customer?.id, start: upcoming.start });
+  });
+});

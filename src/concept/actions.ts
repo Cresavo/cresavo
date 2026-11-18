@@ -1,7 +1,7 @@
 import { sendBookingMessage, type BookingMessageAction } from "./booking/messages";
 import { applyCustomerReview, type CustomerReviewAction } from "./booking/review-actions";
 import { applyAssistant, type AssistantAction } from "./assistant/actions";
-import { findCustomerByPhone, normalizePhone } from "./booking/lookup";
+import { findCustomerByPhone, isContactPhone, isMobilePhone, normalizePhone } from "./booking/lookup";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
 import { editJournalEntry } from "./customers/journal";
 import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visits";
@@ -50,7 +50,7 @@ export type DemoAction =
   | PageAction
   | { type: "booking/move"; id: string; date: DateKey; start: number; staffId?: StaffId; notice?: Omit<InboxItem, "id"> }
   | { type: "booking/cancel"; id: string; reason?: string; notice?: Omit<InboxItem, "id"> }
-  | { type: "booking/create"; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource }
+  | ({ type: "booking/create"; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource } & ({ customerId: string } | { newCustomer: GuestContact & { since: DateKey } }))
   | { type: "online/book"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId: StaffId; date: DateKey; start: number }
   | { type: "online/waitlist"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string }
   | { type: "service/price"; id: string; price: number }
@@ -96,9 +96,13 @@ export type StockPatch = Partial<Pick<StockItem, "reorderAt" | "supplier" | "uni
 export type NewCampaign = Omit<Campaign, "id" | "status" | "stats" | "ad">;
 
 /** A customer using the public booking page. `at` is the moment they acted, used for the owner's inbox. */
-export interface OnlineGuest {
+interface GuestContact {
   name: string;
   phone: string;
+  email?: string;
+}
+
+export interface OnlineGuest extends GuestContact {
   at: { date: DateKey; time: number };
 }
 
@@ -120,7 +124,7 @@ function createBooking(
   input: { customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource },
 ): DemoState {
   const service = state.services.find((s) => s.id === input.serviceId);
-  if (!service || !isFree(state, input.staffId, input.date, input.start, needOf(service))) return state;
+  if (!service || !service.staffIds.includes(input.staffId) || !isFree(state, input.staffId, input.date, input.start, needOf(service))) return state;
   const booking: Booking = {
     id: nextId(state, "b"),
     ...input,
@@ -142,7 +146,7 @@ function moveBooking(state: DemoState, id: string, date: DateKey, start: number,
 }
 
 /** The customer with this phone number, or a new one from the public booking page. */
-function ensureOnlineCustomer(state: DemoState, guest: OnlineGuest, category: Customer["category"], staffId: StaffId, waitlist: boolean): { state: DemoState; customer: Customer } {
+function ensureCustomer(state: DemoState, guest: GuestContact, since: DateKey, category: Customer["category"], staffId: StaffId, waitlist: boolean): { state: DemoState; customer: Customer } {
   const existing = findCustomerByPhone(state, guest.phone);
   if (existing) {
     if (existing.waitlist || !waitlist) return { state, customer: existing };
@@ -155,10 +159,10 @@ function ensureOnlineCustomer(state: DemoState, guest: OnlineGuest, category: Cu
     firstName,
     lastName: rest.join(" "),
     phone: guest.phone.trim(),
-    email: "",
+    email: guest.email?.trim() ?? "",
     category,
     preferredStaff: staffId,
-    since: guest.at.date,
+    since,
     isRegular: false,
     tags: ["New"],
     waitlist,
@@ -168,8 +172,8 @@ function ensureOnlineCustomer(state: DemoState, guest: OnlineGuest, category: Cu
 
 function bookOnline(state: DemoState, action: Extract<DemoAction, { type: "online/book" }>): DemoState {
   const service = bookableServices(state).find((s) => s.id === action.serviceId);
-  if (!service || !action.guest.name.trim() || !isFree(state, action.staffId, action.date, action.start, needOf(service))) return state;
-  const { state: withCustomer, customer } = ensureOnlineCustomer(state, action.guest, service.category, action.staffId, false);
+  if (!service || !service.staffIds.includes(action.staffId) || !action.guest.name.trim() || !isMobilePhone(action.guest.phone) || !isFree(state, action.staffId, action.date, action.start, needOf(service))) return state;
+  const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, action.staffId, false);
   const booked = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" });
   const notified = reduce(booked, {
     type: "inbox/add",
@@ -191,8 +195,8 @@ function bookOnline(state: DemoState, action: Extract<DemoAction, { type: "onlin
 
 function joinWaitlist(state: DemoState, action: Extract<DemoAction, { type: "online/waitlist" }>): DemoState {
   const service = bookableServices(state).find((s) => s.id === action.serviceId);
-  if (!service || !action.guest.name.trim()) return state;
-  const { state: withCustomer, customer } = ensureOnlineCustomer(state, action.guest, service.category, service.staffIds[0], true);
+  if (!service || !action.guest.name.trim() || !isMobilePhone(action.guest.phone)) return state;
+  const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, service.staffIds[0], true);
   return reduce(withCustomer, {
     type: "inbox/add",
     item: {
@@ -342,20 +346,25 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
       return action.notice && moved !== state ? reduce(moved, { type: "inbox/add", item: action.notice }) : moved;
     }
     case "booking/cancel": {
-      const wasBooked = state.bookings.some((b) => b.id === action.id && b.status === "booked");
+      const booking = state.bookings.find((b) => b.id === action.id);
+      if (!booking || booking.status === "cancelled") return state;
       const marked = { ...state, bookings: updateBy(state.bookings, action.id, (b) => ({ ...b, status: "cancelled" as const, cancelReason: action.reason })) };
-      const cancelled = wasBooked ? trashBooking(marked, action.id) : marked;
+      const cancelled = booking.status === "booked" ? trashBooking(marked, action.id) : marked;
       return action.notice ? reduce(cancelled, { type: "inbox/add", item: action.notice }) : cancelled;
     }
-    case "booking/create":
-      return createBooking(state, {
-        customerId: action.customerId,
-        serviceId: action.serviceId,
-        staffId: action.staffId,
-        date: action.date,
-        start: action.start,
-        source: action.source,
-      });
+    case "booking/create": {
+      const { serviceId, staffId, date, start, source } = action;
+      const input = { serviceId, staffId, date, start, source };
+      if ("customerId" in action) {
+        return state.customers.some((c) => c.id === action.customerId) ? createBooking(state, { ...input, customerId: action.customerId }) : state;
+      }
+      const service = state.services.find((s) => s.id === serviceId);
+      const guest = action.newCustomer;
+      if (!service || guest.name.trim().length < 2 || !isContactPhone(guest.phone)) return state;
+      const next = ensureCustomer(state, guest, guest.since, service.category, staffId, false);
+      const booked = createBooking(next.state, { ...input, customerId: next.customer.id });
+      return booked === next.state ? state : booked;
+    }
     case "online/book":
       return bookOnline(state, action);
     case "online/waitlist":

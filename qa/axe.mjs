@@ -1,8 +1,8 @@
 // axe-core on every main page: light 1280, dark 1280, light 390. WCAG 2.x A/AA rules + best practices.
-import { launch, newContext, save, settle, axeSource, DEMO, APEX, TENANT } from "./lib.mjs";
+import { UNKNOWN, launch, newContext, save, settle, axeSource, DEMO, APEX, TENANT } from "./lib.mjs";
 
 const PAGES = [
-  `${APEX}/`, `${DEMO}/`, `${DEMO}/privacy`, `${TENANT}/`, "http://some-unknown-salon.example/",
+  `${APEX}/`, `${DEMO}/`, `${DEMO}/privacy`, `${TENANT}/`, `${UNKNOWN}/`,
   ...["/studio", "/studio/calendar", "/studio/customers", "/studio/customers/k209", "/studio/inbox", "/studio/more", "/studio/more/services",
     "/studio/more/booking-page", "/studio/more/staff", "/studio/more/stock", "/studio/more/giftcards", "/studio/more/packages", "/studio/more/campaigns",
     "/studio/more/campaigns/new", "/studio/more/finance", "/studio/more/reviews", "/studio/more/memory", "/studio/more/routines", "/studio/more/features",

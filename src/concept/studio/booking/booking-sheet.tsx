@@ -31,7 +31,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const [date, setDate] = useState(booking?.date ?? today);
   const [slot, setSlot] = useState<Slot | null>(null);
   const [reason, setReason] = useState<MessageKey>(CANCEL_REASONS[0]);
-  const [offer, setOffer] = useState(true);
+  const [offer, setOffer] = useState(false);
   if (!booking) return null;
 
   const customer = findCustomer(state, booking.customerId);
@@ -70,13 +70,14 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   };
 
   const confirmCancel = () => {
-    dispatch({
+    const sendOffer = offer && waitlist > 0;
+    if (!dispatch({
       type: "booking/cancel",
       id: booking.id,
       reason: t(reason),
-      notice: offer && state.modules.waitlist ? waitlistNotice(booking, waitlist, { today, minutes }) : undefined,
-    });
-    showToast(offer && state.modules.waitlist ? tc("booking.cancelledOfferedToast", waitlist) : t("booking.cancelledToast"), { label: t("common.undo"), run: undo });
+      notice: sendOffer ? waitlistNotice(booking, waitlist, { today, minutes }) : undefined,
+    })) return;
+    showToast(sendOffer ? tc("booking.cancelledOfferedToast", waitlist) : t("booking.cancelledToast"), { label: t("common.undo"), run: undo });
     onClose();
   };
 
@@ -146,8 +147,8 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
               ))}
             </div>
           </div>
-          {state.modules.waitlist && (
-            <div className="flex items-center gap-4 rounded-lg bg-action-bg/60 p-4">
+          {waitlist > 0 && (
+            <div className="flex items-center gap-4 rounded-lg bg-surface-2 p-4">
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{t("cancel.offer")}</p>
                 <p className="text-sm text-text-secondary">{tc("cancel.offerHint", waitlist)}</p>
@@ -178,7 +179,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
           )}
           {upcoming && (
             <>
-              <Button variant="danger" icon={<CalendarX2 size={18} />} onClick={() => setMode("cancel")}>{t("booking.cancel")}</Button>
+              <Button variant="danger" icon={<CalendarX2 size={18} />} onClick={() => { setOffer(false); setMode("cancel"); }}>{t("booking.cancel")}</Button>
               <Button icon={<CalendarClock size={18} />} onClick={() => setMode("move")}>{t("booking.move")}</Button>
             </>
           )}

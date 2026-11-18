@@ -1,42 +1,58 @@
 // Shared helpers for the Cresavo concept-demo QA scripts.
-// Run against a production build: see QA-ROUTINE.md. No test runner needed; each script is plain Node.
-import { chromium } from "playwright";
+// Run against a production build: see docs/qa/ROUTINE.md. No test runner needed; each script is plain Node.
+import { chromium } from "@playwright/test";
+import http from "node:http";
+import https from "node:https";
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
-export const PORT = Number(process.env.QA_PORT ?? 3100);
+export const BASE_URL = new URL(process.env.QA_BASE_URL ?? `http://localhost:${process.env.QA_PORT ?? 3100}`);
 export const PRODUCT = process.env.QA_PRODUCT_DOMAIN ?? "cresavo.com";
-export const DEMO = `http://demo.${PRODUCT}`;
-export const APEX = `http://${PRODUCT}`;
-export const TENANT = `http://salong-eko.${PRODUCT}`;
-export const UNKNOWN = "http://some-unknown-salon.example";
+export const hostOrigin = (host) => `${BASE_URL.protocol}//${host}`;
+export const DEMO = hostOrigin(`demo.${PRODUCT}`);
+export const APEX = hostOrigin(PRODUCT);
+export const TENANT = hostOrigin(`salong-eko.${PRODUCT}`);
+export const UNKNOWN = hostOrigin("some-unknown-salon.example");
+export const OWN_DOMAIN = hostOrigin("boka.salong-eko.example");
 export const OUT = process.env.QA_OUT ?? path.resolve(path.dirname(new URL(import.meta.url).pathname), "out");
 mkdirSync(path.join(OUT, "shots"), { recursive: true });
 
-// Every host the scripts use resolves to the local server: no /etc/hosts edits, no DNS.
-const RESOLVER = `MAP ${PRODUCT} 127.0.0.1:${PORT}, MAP *.${PRODUCT} 127.0.0.1:${PORT}, MAP some-unknown-salon.example 127.0.0.1:${PORT}, MAP boka.salong-eko.example 127.0.0.1:${PORT}`;
+// Map the QA hostnames to the running server while preserving Host and browser storage origins.
+const target = `${BASE_URL.hostname}:${BASE_URL.port || (BASE_URL.protocol === "https:" ? "443" : "80")}`;
+const mapped = [PRODUCT, `*.${PRODUCT}`, new URL(UNKNOWN).hostname, new URL(OWN_DOMAIN).hostname];
+const resolver = mapped.map((host) => `MAP ${host} ${target}`).join(", ");
 
-/** Playwright's own browser if installed, else a preinstalled Chromium under PLAYWRIGHT_BROWSERS_PATH (sandbox images). */
+export function getHost(host, route = "/") {
+  const client = BASE_URL.protocol === "https:" ? https : http;
+  return new Promise((resolve, reject) => {
+    client.get(new URL(route, BASE_URL), { headers: { host } }, (response) => {
+      let body = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => { body += chunk; });
+      response.on("end", () => resolve({ status: response.statusCode, headers: response.headers, body, title: body.match(/<title[^>]*>([^<]*)/)?.[1] ?? "" }));
+      response.on("error", reject);
+    }).on("error", reject);
+  });
+}
+
 function fallbackChromium() {
-  try { if (existsSync(chromium.executablePath())) return undefined; } catch {}
-  const root = process.env.PLAYWRIGHT_BROWSERS_PATH ?? "/opt/pw-browsers";
+  const root = "/opt/pw-browsers";
   try {
-    // Full Chromium first: the headless shell ignores --unsafely-treat-insecure-origin-as-secure.
-    for (const dir of readdirSync(root).filter(d => /^chromium-\d+$/.test(d)).sort().reverse()) {
-      const exe = path.join(root, dir, "chrome-linux64", "chrome");
-      if (existsSync(exe)) return exe;
-    }
-  } catch {}
-  return undefined;
+    const versions = readdirSync(root).filter((dir) => /^chromium-\d+$/.test(dir));
+    versions.sort((a, b) => Number(b.slice(9)) - Number(a.slice(9)));
+    return versions.map((dir) => path.join(root, dir, "chrome-linux64", "chrome")).find(existsSync);
+  } catch {
+    return undefined;
+  }
 }
 
 export async function launch() {
-  const executablePath = process.env.QA_CHROMIUM || fallbackChromium();
-  // Plain http to mapped hosts is not a secure context; production is https. Treat the mapped origins as secure so
-  // Sec-Fetch-* headers, the clipboard API etc. behave as they do on the real https site.
-  const secure = [APEX, DEMO, TENANT, UNKNOWN].join(",");
-  return chromium.launch({ executablePath, args: [`--host-resolver-rules=${RESOLVER}`, `--unsafely-treat-insecure-origin-as-secure=${secure}`] });
+  // Use full Chromium so mapped http origins behave as secure contexts.
+  const executablePath = process.env.QA_CHROMIUM ||
+    (existsSync(chromium.executablePath()) ? undefined : fallbackChromium());
+  const secure = [APEX, DEMO, TENANT, UNKNOWN, OWN_DOMAIN, hostOrigin(`annas-fotvard.${PRODUCT}`)].join(",");
+  return chromium.launch({ channel: "chromium", executablePath, args: [`--host-resolver-rules=${resolver}`, `--unsafely-treat-insecure-origin-as-secure=${secure}`] });
 }
 
 export const VIEWPORTS = { mobile: { width: 390, height: 844 }, desktop: { width: 1280, height: 900 } };
