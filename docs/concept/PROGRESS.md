@@ -6,6 +6,10 @@
 - Studio and booking tabs on the same origin reload browser state. Bookings on separate salon addresses remain local to those origins and confirm that scope.
 - Run `npm run qa` against a running demo build. `QA_BASE_URL` defaults to `http://localhost:3100`.
 
+## 2026-11-18 · Demo landing
+
+The landing pairs an offline sample booking with five recordings of the real app. Each feature links to its working screen. The [recorder instructions](../design/cresavo/COPY.md#regenerating-the-product-tour) cover the fixed demo clock, themes and encodings. The [landing captures](../design/cresavo/screens/) include the mobile and desktop layouts in both system themes.
+
 ## 2026-11-18 · Claude Code · treatments, salon page and the desktop studio
 
 **Done**

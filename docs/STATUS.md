@@ -21,6 +21,8 @@ Cresavo is a concept demo (0.x) for salons and other small service businesses.
 - The concept demo includes the November QA fixes for booking and caller
   flows, same-origin tab synchronization, assistant lookups and host feedback.
   The QA runner is available through `npm run qa`.
+- Visitors can try a booking on the demo landing and watch five recorded
+  studio and customer workflows.
 
 ## Before a real pilot
 
