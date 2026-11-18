@@ -43,3 +43,22 @@ condition = "AND"
 paths = ['''^docs/(ARCHITECTURE|VERIFICATION)\.md$''']
 regexTarget = "line"
 regexes = ['''(tokenhash|Vercel-auth),''']
+
+# Connections contract tests (branch feat/connections-foundation, 2026-11-18):
+# fictional provider keys passed to adapters and the secret-leak test.
+# Reviewed one by one: none matches a real credential format (wrong length
+# or charset for Stripe sk_/whsec_, Twilio, 46elks, Resend and Svix),
+# most contain ascending runs such as "abcd"/"1234", and they were written
+# in a sandbox with no provider credentials or provider network access.
+# Scoped to the three commits that introduced them AND these four files,
+# so the same values anywhere else, or new keys in these files in later
+# commits, are still reported.
+[[allowlists]]
+description = "Fictional keys in connections contract tests"
+condition = "AND"
+commits = [
+  "e834791f4c3ee9c5ddd4a092c5cfe46da16c083d",
+  "b49a3f4943c8d42e1b62fed84be5686f7e458c20",
+  "5a90e377b4ddcab6fda49f75a9c935a55ac1b360",
+]
+paths = ['''^tests/concept-connections-(secrets|routes|payments|messaging)\.test\.ts$''']
