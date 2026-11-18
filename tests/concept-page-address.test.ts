@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checkOwnSlug, subdomainHost } from "@/concept/page/address";
 import { advanceStatus, checkDomain, CNAME_TARGET, dnsInstruction, DOMAIN_STEPS } from "@/concept/page/domain";
-import { COMING_SOON_PATH, LANDING_PATH, normalizeHost, resolveHost, routeHost, siteLinks, UNKNOWN_PATH, type Directory } from "@/concept/page/resolve";
+import { COMING_SOON_PATH, LANDING_PATH, normalizeHost, ownerViewHref, resolveHost, routeHost, siteLinks, UNKNOWN_PATH, type Directory } from "@/concept/page/resolve";
 import { checkSlug, RESERVED_SLUGS, slugify } from "@/concept/page/slug";
 
 const product = "book.example";
@@ -135,6 +135,26 @@ describe("host resolution", () => {
     expect(route("/tenant/icon.svg")).toEqual({ action: "next" });
     for (const path of ["/studio", "/admin", "/api/v1/bookings", "/api/concept/ai", "/landing"]) expect(route(path)).toEqual({ action: "rewrite", path: UNKNOWN_PATH });
     expect(route("/", "boka.salongeko.se")).toEqual({ action: "rewrite", path: "/boka/salong-eko" });
+  });
+
+  it("serves only the business's own /boka paths on its address", () => {
+    const route = (path: string, host = `kajsa.${product}`) => routeHost(host, path, directory, product);
+    expect(route("/boka/kajsa")).toEqual({ action: "next" });
+    expect(route("/boka/kajsa/widget")).toEqual({ action: "next" });
+    for (const path of ["/boka/salong-eko", "/boka/salong-eko/me", "/boka/kajsa-x", "/boka/"]) expect(route(path), path).toEqual({ action: "rewrite", path: UNKNOWN_PATH });
+    expect(route("/boka/salong-eko", "boka.salongeko.se")).toEqual({ action: "next" });
+    expect(route("/boka/kajsa", "boka.salongeko.se")).toEqual({ action: "rewrite", path: UNKNOWN_PATH });
+    // The product's own hosts still serve every booking page by path.
+    expect(routeHost("localhost:3000", "/boka/salong-eko", directory, product)).toEqual({ action: "next" });
+  });
+
+  it("points the demo-only owner link at the demo site from a business's address", () => {
+    expect(ownerViewHref("localhost:3000", "http:", "cresavo.com")).toBe("/studio");
+    expect(ownerViewHref("demo.cresavo.com", "https:", "cresavo.com")).toBe("/studio");
+    expect(ownerViewHref("cresavo-abc.vercel.app", "https:", "cresavo.com")).toBe("/studio");
+    expect(ownerViewHref("salong-eko.cresavo.com", "https:", "cresavo.com")).toBe("https://demo.cresavo.com/studio");
+    expect(ownerViewHref("boka.salongeko.se", "http:", "cresavo.com")).toBe("https://demo.cresavo.com/studio");
+    expect(ownerViewHref("salong-eko.localhost:3017", "http:", "localhost")).toBe("http://demo.localhost:3017/studio");
   });
 
   it("gives unknown hosts the friendly page and leaves the product host alone", () => {

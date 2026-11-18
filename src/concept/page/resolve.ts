@@ -58,8 +58,22 @@ export function siteLinks(rawHost: string | null | undefined, product = productD
   return resolution.kind === "site" ? { apex: `https://${product}/`, demo: `https://demo.${product}/` } : { apex: COMING_SOON_PATH, demo: "/" };
 }
 
+/**
+ * Where the demo-only "Open the owner's view" link on a booking page goes. On the platform's own hosts the
+ * studio is a path of the same deployment; on a business's address (subdomain or own domain) there is no
+ * studio, so the link goes to the demo site.
+ */
+export function ownerViewHref(rawHost: string | null | undefined, protocol = "https:", product = productDomain()): string {
+  const resolution = resolveHost(rawHost, { domains: {} }, product);
+  if (resolution.kind === "app" || resolution.kind === "site") return "/studio";
+  // A subdomain of the product keeps the scheme and port it was opened with (a local server); an own domain is always https.
+  const underProduct = normalizeHost(rawHost).endsWith(`.${product}`);
+  const port = underProduct ? (rawHost ?? "").trim().match(/:(\d+)$/)?.[1] : undefined;
+  return `${underProduct ? protocol : "https:"}//demo.${product}${port ? `:${port}` : ""}/studio`;
+}
+
 /** Public booking pages live at the root of a business's own address; everything else stays on the product host. */
-const PUBLIC_PREFIXES = ["/_next/", "/demo/", "/tenant/", "/favicon", "/boka/"];
+const PUBLIC_PREFIXES = ["/_next/", "/demo/", "/tenant/", "/favicon"];
 const BOOKING_PATHS = /^\/(?:me|gift|widget|booking\/[^/]+)\/?$/;
 
 export type HostRoute = { action: "next" } | { action: "rewrite"; path: string };
@@ -74,6 +88,11 @@ export function routeHost(rawHost: string | null | undefined, pathname: string, 
     return resolution.kind === "app" && legacyHome ? { action: "next" } : { action: "rewrite", path: LANDING_PATH };
   }
   if (resolution.kind === "unknown") return pathname.startsWith("/_next/") ? { action: "next" } : { action: "rewrite", path: UNKNOWN_PATH };
+  // A business's address serves its own booking paths only, never another business's `/boka/<slug>`.
+  if (pathname.startsWith("/boka/")) {
+    const own = `/boka/${resolution.slug}`;
+    return pathname === own || pathname.startsWith(`${own}/`) ? { action: "next" } : { action: "rewrite", path: UNKNOWN_PATH };
+  }
   if (PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return { action: "next" };
   if (pathname === "/" || pathname === "") return { action: "rewrite", path: `/boka/${resolution.slug}` };
   if (BOOKING_PATHS.test(pathname)) return { action: "rewrite", path: `/boka/${resolution.slug}${pathname.replace(/\/$/, "")}` };

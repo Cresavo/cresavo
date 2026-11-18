@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { Leaf } from "lucide-react";
 import { TENANT_POLICY } from "../brand";
+import { ownerViewHref } from "../page/resolve";
 import { t } from "../i18n";
 import { useDemo } from "../store";
 import { pinThemeColor } from "../ui/theme";
@@ -30,6 +31,7 @@ function Frame({ children }: { children: ReactNode }) {
   const slug = useParams<{ slug: string }>()?.slug ?? "";
   const widget = usePathname() === widgetPath(slug);
   const known = !state || state.salon.slug === slug;
+  const ownerView = useOwnerView();
   useTenantIcon(known ? page.theme.logo : null);
   useTenantChrome(known ? (page.theme.colors?.background ?? null) : null);
   if (!known) return <UnknownAddress />;
@@ -62,7 +64,7 @@ function Frame({ children }: { children: ReactNode }) {
       </main>
       <footer className="border-t print:hidden border-hairline pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center text-xs text-text-secondary pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
         {t("booking.demoNote")}{" "}
-        <Link href="/studio" className="font-medium text-action underline-offset-2 hover:underline">
+        <Link href={ownerView} className="font-medium text-action underline-offset-2 hover:underline">
           {t("booking.ownerView")}
         </Link>
         {TENANT_POLICY.attribution && <span className="mt-1 block">{t("booking.attribution")}</span>}
@@ -70,6 +72,13 @@ function Frame({ children }: { children: ReactNode }) {
       <Toaster />
     </PageRoot>
   );
+}
+
+const noSubscription = () => () => {};
+
+/** The demo-only owner link: a path on the platform's hosts, the demo site's studio on a business's own address. */
+function useOwnerView(): string {
+  return useSyncExternalStore(noSubscription, () => ownerViewHref(window.location.host, window.location.protocol), () => "/studio");
 }
 
 /**
