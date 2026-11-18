@@ -168,8 +168,8 @@ de ändrar inte en redan driftsatt instans. Inga hemligheter i klientkod eller U
 
 Endast syntetisk data och redan godkänd ägare får finnas bakom denna förenkling.
 Utökad åtkomst, kunddrift eller annan miljö kräver separat beslut. Aktuell
-drift/stopp beskrivs i [DEMO](DEMO.md); kända låga begränsningar och testbevis i
-[UI_USABILITY_REVIEW](UI_USABILITY_REVIEW.md) och [VERIFICATION](VERIFICATION.md).
+drift/stopp beskrivs i [DEMO](archive/DEMO.md); kända låga begränsningar och testbevis i
+[UI_USABILITY_REVIEW](archive/UI_USABILITY_REVIEW.md) och [VERIFICATION](archive/VERIFICATION.md).
 
 ## Tidigare skyddad Vercel-preview f2fdac7, 2026-11-12
 
@@ -239,7 +239,7 @@ Den globala standardbucketen är borttagen. Riktig socketadress används, och fo
 
 Logout återkallar nu serverraden, även kopierade cookies nekas. Global versionshöjning kvarstår. Databasfel i sessionskontrollen nekar åtkomst med statisk fellogg. Konton/roller och automatisk sessionsgallring saknas. Detta ersätter tidigare beskrivningar av gemensam bucket och browserlogout längre ned.
 
-Datakartan omfattar clientKey, emailCapKey och sessionshashar. Ingen GDPR-export, radering eller retention införs. Punkt 6 (Visa e-post) är uttryckligen undantagen. Audit, CSP unsafe-inline och obegränsad kampanjlista kvarstår. Testad POC innebär inte godkänd pilot; P0/P1-grindarna nedan består. Aktuella resultat: [VERIFICATION](VERIFICATION.md).
+Datakartan omfattar clientKey, emailCapKey och sessionshashar. Ingen GDPR-export, radering eller retention införs. Punkt 6 (Visa e-post) är uttryckligen undantagen. Audit, CSP unsafe-inline och obegränsad kampanjlista kvarstår. Testad POC innebär inte godkänd pilot; P0/P1-grindarna nedan består. Aktuella resultat: [VERIFICATION](archive/VERIFICATION.md).
 
 Senast granskad 2026-11-11. **POC:n är endast för syntetiska uppgifter och är inte klar för riktiga kunder eller kommersiell drift.** Detta är ett tekniskt underlag, inte ett bevis på GDPR-efterlevnad eller ett färdigt juridiskt beslut. Faktisk behandling måste bedömas med verksamhetens personuppgiftsansvariga och vid behov juridisk/dataskyddskompetens. Se [datakartan](DATA_FLOWS.md) för observerade flöden och osäkerheter.
 
@@ -278,11 +278,11 @@ Senast granskad 2026-11-11. **POC:n är endast för syntetiska uppgifter och är
 
 ## Verifieringsgräns
 
-Granskningen omfattade lokala projektfiler, migration/schema, npm-manifestet, projektets logg- och nätverksanrop samt lokal Next-telemetristatus. Den inkluderade inte fullständig kodrevision av alla tredjepartspaket, aktivt intrångstest, kontroll av faktisk drift, avtal eller mätning av utgående trafik. Inga produktionsuppgifter eller hemligheter behövdes. Tidigare testresultat finns i [VERIFICATION.md](VERIFICATION.md).
+Granskningen omfattade lokala projektfiler, migration/schema, npm-manifestet, projektets logg- och nätverksanrop samt lokal Next-telemetristatus. Den inkluderade inte fullständig kodrevision av alla tredjepartspaket, aktivt intrångstest, kontroll av faktisk drift, avtal eller mätning av utgående trafik. Inga produktionsuppgifter eller hemligheter behövdes. Tidigare testresultat finns i [VERIFICATION.md](archive/VERIFICATION.md).
 
 ## Verifierade förbättringar i Epic 01 QA-batchen
 
-Datum 2026-11-11, kod 26ea617. Processlokal rate limit, transaktionssäkrat dagstak, browserlogout/global versionsåterkallelse, avgränsad adminlista/maskerad e-post, testdatabasgrind och säkerhetsheaders är testade enligt [VERIFICATION](VERIFICATION.md). Detta slutför inte P0-/P1-grindarna ovan.
+Datum 2026-11-11, kod 26ea617. Processlokal rate limit, transaktionssäkrat dagstak, browserlogout/global versionsåterkallelse, avgränsad adminlista/maskerad e-post, testdatabasgrind och säkerhetsheaders är testade enligt [VERIFICATION](archive/VERIFICATION.md). Detta slutför inte P0-/P1-grindarna ovan.
 
 TRUST_PROXY_IP får bara aktiveras bakom en proxy som överskriver X-Real-IP och förhindrar direktåtkomst. Utan detta används gemensam konservativ bucket. In-process-räknaren skyddar inte flera processer eller omstarter. E-posttak bevisar inte kundidentitet. Höj aldrig tillbaka ADMIN_SESSION_VERSION; starta om alla instanser för global återkallelse. Logout stoppar inte en redan kopierad cookie individuellt.
 

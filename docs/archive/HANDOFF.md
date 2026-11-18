@@ -167,7 +167,7 @@ Salongens integrerade 4de4d3e har grön CI 43772631817:
 64/64 webbtester i alla fyra lägen, 394 unit, 205 integration och 13 MCP-kort,
 samt lint/build/tsc. Efterföljande commit ändrar endast dokumentation.
 [Verifiering och exakta revisioner](VERIFICATION.md).
-[Lokalt tvårepoprov](GATEWAY_SPLIT.md). Ingen deploy har gjorts.
+[Lokalt tvårepoprov](../GATEWAY_SPLIT.md). Ingen deploy har gjorts.
 Kända audit- och Info-fynd kvarstår. Pilot är fortsatt NO-GO.
 
 ---
@@ -217,7 +217,7 @@ Sekretesskontrollerna använder nu hela nyckelhemligheten och ett reproducerbart
 `_o`-fall i enhetstesterna. Codex verifierade 392/392 unit, 205/205 integration,
 lint, typkontroll, build och 10/10 agent:proof mot en ny isolerad lokal databas.
 
-Kör provet enligt [GATEWAY_SPLIT](GATEWAY_SPLIT.md).
+Kör provet enligt [GATEWAY_SPLIT](../GATEWAY_SPLIT.md).
 Kommandoutfall, NOT RUN och skillnaden mellan Groks produktgranskning och den
 senare testrättningen finns i [VERIFICATION](VERIFICATION.md).
 [Groks originalrapport](qa/QA-REPORT-GS-QA-1-a239275-c7eeda6.md) behåller sina två
@@ -855,7 +855,7 @@ prisma/schema.prisma och ny20261112190000_customers. De 6 äldre migrationerna
 Kund-/seed-/E2E-regressioner i tests. Enda nya paketet är lucide-react 1.72.0,
 ISC plus bevarad Feather/MIT-notis, inga egna runtime-beroenden. React 19.3.1
 och Next 16.4.6 verifierade; inga befintliga paketversioner uppgraderades.
-[Beroendebeslut](DEPENDENCY_REVIEW.md), [arkitektur](ARCHITECTURE.md).
+[Beroendebeslut](../DEPENDENCY_REVIEW.md), [arkitektur](../ARCHITECTURE.md).
 
 Molnet: samma skyddade projekt och isolerade booking_ui_preview_demo.
 Backup före migration verifierad genom återläsning. Alla35 äldre snapshots
@@ -894,7 +894,7 @@ Ny branch feature/epic06-customers-demo-product från16dae9a/6acd2ef, produktbas
 
 ## Avgränsad auditomgång 2026-11-12
 
-Full audit fortsatt **FAIL7moderate**, omit-dev **PASS0**. Ingen säker publicerad stabil rättningskedja verifierad; inga paket, produktfunktioner eller UI ändrade. Rättning är upstream-blockerad, inte klar. Nya lint/tsc/build,75unit och75integration på ny lokal syntetisk DB PASS. Inga nya E2E/CI/deploy i denna dokumentationsbatch. [Beroendebeslut och faktiska data](DEPENDENCY_REVIEW.md#audit-återkontroll-2026-11-12--rättning-blockerad-av-stabil-upstream). Driftsatt kod och senaste fungerande preview är fortsatt d7bc47f. Grok bekräftar slutsatsen i [originalrapporten](qa/AUDIT-REPORT-6acd2ef-minimatch.md); ingen stabil säker rättning finns ännu.
+Full audit fortsatt **FAIL7moderate**, omit-dev **PASS0**. Ingen säker publicerad stabil rättningskedja verifierad; inga paket, produktfunktioner eller UI ändrade. Rättning är upstream-blockerad, inte klar. Nya lint/tsc/build,75unit och75integration på ny lokal syntetisk DB PASS. Inga nya E2E/CI/deploy i denna dokumentationsbatch. [Beroendebeslut och faktiska data](../DEPENDENCY_REVIEW.md#audit-återkontroll-2026-11-12--rättning-blockerad-av-stabil-upstream). Driftsatt kod och senaste fungerande preview är fortsatt d7bc47f. Grok bekräftar slutsatsen i [originalrapporten](qa/AUDIT-REPORT-6acd2ef-minimatch.md); ingen stabil säker rättning finns ännu.
 
 **Aktuell UI-leverans 2026-11-12:** [Öppna skyddad demo](https://booking-lab-se-preview.vercel.app). Logga vid behov in i Vercel och tryck **Öppna demoadmin**; inget ytterligare lösenord behövs. Endast syntetiska uppgifter, endast Niclas. Branch `ui/epic05-booking-usability`, granskad och driftsatt produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**. Senare dokumentationscommit ändrar inte previewkoden.
 

@@ -57,7 +57,6 @@ export const site = {
   "landing.open.body": `${BRAND.name} is open source, so you can host it yourself. Your data is yours to export, and other tools can connect through an open API.`,
 
   "landing.about": `About ${BRAND.name}`,
-  "landing.developers": "For developers",
   "landing.footer": "Demo with fictional data. Messages and payments are simulated.",
 
   "waitlist.heading": "Hear when it opens.",

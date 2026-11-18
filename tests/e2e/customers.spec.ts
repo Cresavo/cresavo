@@ -186,27 +186,7 @@ test("produktingång och kund-API behåller tydliga vägar och åtkomstskydd", a
       })
     ).status(),
   ).toBe(403);
-  await page.goto("/product");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    /Book through your AI assistant|Boka med din AI-assistent/,
-  );
-  await expect(
-    page.getByRole("link", {
-      name: /Open workspace|Öppna arbetsytan/,
-      exact: true,
-    }),
-  ).toHaveAttribute("href", "/admin/overview");
-  for (const image of await page.locator("img").all()) {
-    await image.scrollIntoViewIfNeeded();
-    await expect(image).toHaveJSProperty("complete", true);
-    expect(
-      await image.evaluate((node) => (node as HTMLImageElement).naturalWidth),
-    ).toBeGreaterThan(0);
-  }
-  await page
-    .getByRole("link")
-    .filter({ hasText: /Try the booking demo|Prova bokningen/ })
-    .click();
+  await page.goto("/");
   await chooseDemoSalon(page);
   expect(
     await page.evaluate(

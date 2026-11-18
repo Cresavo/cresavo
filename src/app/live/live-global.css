@@ -1,4 +1,0 @@
-/* Scoped to the live page only: the page background reaches the edges. */
-body:has([data-live-page]) {
-  background: var(--ui-bg);
-}

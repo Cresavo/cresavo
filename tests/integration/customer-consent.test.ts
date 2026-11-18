@@ -6,7 +6,6 @@ import { authenticateAgent, createAgentApiKey, type AgentPrincipal } from "../..
 import { customerDecision, createProposal, getProposal, proposalHash } from "../../src/lib/agent-api/proposals";
 import { readAudit } from "../../src/lib/agent-api/audit-read";
 import { cancelBookingV1, createAgentBooking } from "../../src/lib/agent-api/bookings";
-import { liveSnapshot } from "../../src/lib/agent-api/live";
 import { POST as propose } from "../../src/app/api/v1/proposals/route";
 import { GET as getStatus } from "../../src/app/api/v1/proposals/[id]/route";
 import { POST as consent } from "../../src/app/consent/[id]/decision/route";
@@ -151,7 +150,7 @@ it("customer HTTP yes and logs/live do not expose the consent token", async () =
   const seen = await customerDecision(r.proposal.id, { token: r.token, decision: "view" });
   const response = await consent(labRequest(`${origin}/consent/${r.proposal.id}/decision`, { method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify({ token: r.token, decision: "yes", proposalHash: seen.proposalHash }) }), { params: Promise.resolve({ id: r.proposal.id }) });
   expect(response.status).toBe(200);
-  const output = JSON.stringify({ logs: logs.mock.calls, live: await liveSnapshot(), status: await getProposal(principal, r.proposal.id) });
+  const output = JSON.stringify({ logs: logs.mock.calls, status: await getProposal(principal, r.proposal.id) });
   for (const secret of [r.token, key, "PRIVATE KEY", "consent@example.test"]) expect(output).not.toContain(secret);
 });
 

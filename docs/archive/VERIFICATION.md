@@ -477,7 +477,7 @@ Båda repona är privata. Läsande Vercel-kontroll fann ingen Git-koppling för
 Booking Labs fyra projekt; ingen deploy startades eller driftinställning ändrades.
 Ingen kod, migration, behörighet, miljöfil eller kunddata ändrades av integrationen.
 De gamla arbetsgrenarna och andra worktrees är bevarade.
-Fortsätt från aktuell main i respektive repo, se [kontrakt och lokalt prov](GATEWAY_SPLIT.md).
+Fortsätt från aktuell main i respektive repo, se [kontrakt och lokalt prov](../GATEWAY_SPLIT.md).
 
 Groks granskning av produktrevisionerna finns i
 [originalrapporten](qa/QA-REPORT-provider-mode-b37d414-09f0a0d.md).
@@ -1739,7 +1739,7 @@ Pilot för riktiga kunder är fortsatt NO-GO.
 
 ## Avgränsad auditomgång 2026-11-12
 
-Full audit fortsatt **FAIL7moderate**, omit-dev **PASS0**. Ingen säker publicerad stabil rättningskedja verifierad; inga paket, produktfunktioner eller UI ändrade. Rättning är upstream-blockerad, inte klar. Nya lint/tsc/build,75unit och75integration på ny lokal syntetisk DB PASS. Inga nya E2E/CI/deploy i denna dokumentationsbatch. [Beroendebeslut och faktiska data](DEPENDENCY_REVIEW.md#audit-återkontroll-2026-11-12--rättning-blockerad-av-stabil-upstream). Driftsatt kod och senaste fungerande preview är fortsatt d7bc47f. Grok bekräftar slutsatsen i [originalrapporten](qa/AUDIT-REPORT-6acd2ef-minimatch.md); ingen stabil säker rättning finns ännu.
+Full audit fortsatt **FAIL7moderate**, omit-dev **PASS0**. Ingen säker publicerad stabil rättningskedja verifierad; inga paket, produktfunktioner eller UI ändrade. Rättning är upstream-blockerad, inte klar. Nya lint/tsc/build,75unit och75integration på ny lokal syntetisk DB PASS. Inga nya E2E/CI/deploy i denna dokumentationsbatch. [Beroendebeslut och faktiska data](../DEPENDENCY_REVIEW.md#audit-återkontroll-2026-11-12--rättning-blockerad-av-stabil-upstream). Driftsatt kod och senaste fungerande preview är fortsatt d7bc47f. Grok bekräftar slutsatsen i [originalrapporten](qa/AUDIT-REPORT-6acd2ef-minimatch.md); ingen stabil säker rättning finns ännu.
 
 2026-11-12. Produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**, branch ui/epic05-booking-usability. Enbart dokumentation/bilder tillkommer efter fryst QA. Alla kommandoutdata finns utanför Git i C:/Users/<user>/booking-lab-pg-test/ui-usability. Utvalda maskinresultat i [evidence-ui](qa/evidence-ui).
 
@@ -1963,7 +1963,7 @@ Faktisk E2E-proxy är **127.0.0.10/32**, hårdkodad testfixture matchande socket
 | Grok-QA / Actions / CI-kostnadsacceptans                 | QA skickad till verifierad befintlig bot; Grok bekräftade faktisk mottagning7fc0e86, alla169filhashar/bas/demo och separat DB i egen miljö. Originalslutrapport inväntas. Implementationpush/Actions NOT RUN. Feature≤5min och docs-ignore ej externt bevisade. Veckoschema kräver default-branch, ingen mainmerge.                                                                                            |
 | Privat mobilpreview / fysisk iPhone/Safari / skarp drift | BLOCKERAD miljöbeslut respektive NOT RUN. [Konkreta miljö-/kostnads-/åtkomstval](DEMO.md). Ingen deploy/tunnel. Kundpilot NO-GO.                                                                                                                                                                                                                                                                               |
 
-Exporterad DATABASE_URL går före .env. Kör en matris åt gången, exportera TRUSTED_PROXY_IPS=127.0.0.1,::1 och växla TRUST_PROXY_IP=0/1 samt E2E_PRODUCTION tom/1. Bygg före produktion. Historik/testkategorier och låsbeslut i [WORKPLAN](WORKPLAN.md), [arkitektur](ARCHITECTURE.md). Lokala råutdata: C:/Users/<user>/booking-lab-pg-test/epic05-final-_.log/json, epic05-candidate-_.log/json, epic05-demo-record-1.log och epic05-video-check.json. Käll-ZIP från7fc0e86:169filer, SHA256 **154dda086409cd810049cfb72b3f19b993fdb1d959f4d892b98a2bf0e74ed458**. Innehåll inventerat, inga .env/hemligheter/buildfiler/data.
+Exporterad DATABASE_URL går före .env. Kör en matris åt gången, exportera TRUSTED_PROXY_IPS=127.0.0.1,::1 och växla TRUST_PROXY_IP=0/1 samt E2E_PRODUCTION tom/1. Bygg före produktion. Historik/testkategorier och låsbeslut i [WORKPLAN](WORKPLAN.md), [arkitektur](../ARCHITECTURE.md). Lokala råutdata: C:/Users/<user>/booking-lab-pg-test/epic05-final-_.log/json, epic05-candidate-_.log/json, epic05-demo-record-1.log och epic05-video-check.json. Käll-ZIP från7fc0e86:169filer, SHA256 **154dda086409cd810049cfb72b3f19b993fdb1d959f4d892b98a2bf0e74ed458**. Innehåll inventerat, inga .env/hemligheter/buildfiler/data.
 
 ## Bilaga — tidigare Epic05-delkörningar och FAIL
 
@@ -2069,7 +2069,7 @@ QA bekräftade även poolens max 5 vid återanslutning, explicit env utan Prisma
 - Första externa licensinventering använde ConvertFrom-Json utan -AsHashtable på npm:s tomma rotkey; metadata kom inte fram. Korrigerad inventering har 129 ändrade poster. Saknad LICENSE i @prisma/dev-rot dokumenteras, ingen full bundled-licensklarering påstås.
 - pg_dump/pg_restore-proben gav exit 1 eftersom binärerna saknas. Ingen backup/restore är verifierad. Egen testfixture städades; templatekopian genomfördes sedan med PASS. Loggar för båda finns kvar.
 - ESLint9 deprecation och NO_COLOR/FORCE_COLOR-varning kvar. Vites tidigare CJS/ESM-configvarning uppträder inte efter type:module. Audit 7 moderate är kvar/upstreamblockerat, inte grönt.
-- Ingen nätverksfångst, full OS-processisolering, skarp backup/rollback eller binär/containerlicensgranskning. [Beslut och risker](DEPENDENCY_REVIEW.md).
+- Ingen nätverksfångst, full OS-processisolering, skarp backup/rollback eller binär/containerlicensgranskning. [Beslut och risker](../DEPENDENCY_REVIEW.md).
 
 ## Bilaga — Epic 02 verifieringshistorik
 
@@ -2116,7 +2116,7 @@ Grok körde därutöver egna prober (60 MCP- och 160 blandade HTTP/MCP-omgångar
 - Första riktade nya E2E-körningen blev 0/2: desktop såg ännu loginformen efter UI-klick; mobilens förväntade datumtext matchade inte adminvyns svenska fullformat. Det fokuserade MCP→admin-testet väntar nu på verifierad API-login och navigerar sedan till admin; befintlig UI-login/utloggning i fullflödet är kvar. Datumförväntan använder rätt visningsformat. Därefter riktat 2/2 och samtliga fulla matriser PASS. Första feltraces skrevs över av efterföljande testkörning; sammanfattningen kommer från faktiskt observerad output, inte en bevarad tracefil.
 - Första fulla demo på 18b2ac5 blev FAIL 1/4 vid desktopens nya screenshot, efter godkända funktionella kontroller. Ingen produktions-/bokningsregel ändrades för inspelningen. Riktad diagnostik av samma flöde PASS; rotorsaken är inte fastställd. [Detaljer och partiella artefakter](EPIC_02_QA_FOLLOWUP.md).
 - Slutdemon på 7a65aee blev 4/4 PASS utan ändrade timeoutgränser eller någon inspelningsspecifik produktändring. [Galleri](../demo-artifacts/2026-11-12T00-27-19-502Z/index.html) och [manifest](../demo-artifacts/2026-11-12T00-27-19-502Z/manifest.json). Desktop/mobilens 07-bilder visuellt granskade: syntetisk agentkund, rätt Stockholmstid, maskerad e-post, SEK och ingen utvecklarbadge. Videorna är **inte genomtittade i sin helhet**. Efter demo: 0 bokningar/kampanjer/sessioner och 0 deadlocks i demodatabasen. Första inspelningsfelets rotorsak är fortsatt okänd; den lyckade körningen bevisar inte att felet är permanent löst.
-- Prisma kan autoläsa .env trots explicit miljövitlistning; ingen processisolering påstås. Gemensam idempotensnamnrymd är avsiktlig i denna POC. [Arkitektur](ARCHITECTURE.md).
+- Prisma kan autoläsa .env trots explicit miljövitlistning; ingen processisolering påstås. Gemensam idempotensnamnrymd är avsiktlig i denna POC. [Arkitektur](../ARCHITECTURE.md).
 - Vites befintliga configLoader-varning och Playwrights NO_COLOR/FORCE_COLOR-varning kvarstår. Ingen varning har dolts genom ändrade testgränser.
 
 ## Bilaga A — Epic 01 och tidigare körningar
@@ -2296,7 +2296,7 @@ Audit-output sparades lokalt utanför repot i `C:\Users\<user>\booking-lab-pg-te
 { "info": 0, "low": 0, "moderate": 7, "high": 3, "critical": 0, "total": 10 }
 ```
 
-Inga nya dependencies, overrides eller major-uppgraderingar. Advisoryanalys och licensbegränsningar från tidigare granskning består. Se [Prisma 7-plan](PRISMA_7_PLAN.md) och [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md).
+Inga nya dependencies, overrides eller major-uppgraderingar. Advisoryanalys och licensbegränsningar från tidigare granskning består. Se [Prisma 7-plan](PRISMA_7_PLAN.md) och [THIRD_PARTY_NOTICES](../../THIRD_PARTY_NOTICES.md).
 
 ## Rättade fel under denna arbetsomgång
 
@@ -2403,7 +2403,7 @@ Vite varnar för framtida native configLoader/ESM, ESLint 9 gav versionsvarning 
 
 Full svit i produktionsläge har inte körts; produktionsdemon återanvänder de två fullflödestesterna, medan samtliga sex E2E kördes mot dev. Ingen Docker/PostgreSQL 16, extern CI, andra webbläsare än Chromium, verklig reverse proxy/TLS, distribuerat rate limiting, penetrations-/lasttest eller backup/restore har verifierats. Manuell `mcp:client` har inte körts igen i denna batch; riktig stdio-klient används automatiskt i integration och E2E. Simulerat saknat Git är unit-testat, men alla demofelkoder har inte var för sig framkallats. Inget externt repo, deploy eller publicering.
 
-Rate limiter är processlokal och använder gemensam konservativ bucket utan betrodd proxy-IP. CSP tillåter unsafe-inline för Next; ingen nonce-policy. Utloggning raderar browsercookien, inte en redan stulen kopia; höj ADMIN_SESSION_VERSION och starta om alla processer för global återkallelse. Individuella konton, gallring, flerföretagsisolering och drift-/GDPR-beslut återstår. Se [PRIVACY_SECURITY](PRIVACY_SECURITY.md).
+Rate limiter är processlokal och använder gemensam konservativ bucket utan betrodd proxy-IP. CSP tillåter unsafe-inline för Next; ingen nonce-policy. Utloggning raderar browsercookien, inte en redan stulen kopia; höj ADMIN_SESSION_VERSION och starta om alla processer för global återkallelse. Individuella konton, gallring, flerföretagsisolering och drift-/GDPR-beslut återstår. Se [PRIVACY_SECURITY](../PRIVACY_SECURITY.md).
 
 ## Bilaga – tidigare verifieringar (historik, inte aktuell status)
 

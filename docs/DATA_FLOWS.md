@@ -184,8 +184,8 @@ kontaktuppgifter kopieras till demoseed eller Grok. Bara påhittade namn och
 reserverade example.test-adresser. Källkod/bilder för Grok kommer från egen
 lokal syntetisk kopia; Grok får inga molnhemligheter eller driftåtkomster.
 Ingen ny extern telemetri, utskick eller betaltjänst införs av UI-ändringen.
-Aktuell faktisk drift, revision och verifiering finns i [DEMO](DEMO.md) och
-[VERIFICATION](VERIFICATION.md); grinden i [UI-granskningen](UI_USABILITY_REVIEW.md).
+Aktuell faktisk drift, revision och verifiering finns i [DEMO](archive/DEMO.md) och
+[VERIFICATION](archive/VERIFICATION.md); grinden i [UI-granskningen](archive/UI_USABILITY_REVIEW.md).
 
 ## Tidigare privat Vercel-preview f2fdac7, 2026-11-12
 
@@ -245,7 +245,7 @@ Adminens nya bokningar har en kontoanknuten clientKey-HMAC i stället för IP-HM
 | Skyddad adminvy | Den inloggades egen e-postidentifierare | Ingen ny kund-e-post lämnas ut. API-fel och CLI-koder innehåller inga identifierare/hashar. |
 | MCP / externa tjänster | Inga nya kontofält till MCP och ingen ny extern mottagare | Lokal --admin behåller sin särskilda tillitsmodell. Nativepaket installeras från npm; appen konfigurerar ingen ny extern tjänst. Ingen nätverksfångst gjord. |
 
-Konton/provsessioner skapas och städas av egna testfixtures. Endast syntetiska data; ingen GDPR-funktion för riktiga konton tillkommer. Nedanstående beskrivningar av delat ADMIN_PASSWORD är historiska. [Säkerhetsbeslut](ADR_004_ADMIN_IDENTITY.md).
+Konton/provsessioner skapas och städas av egna testfixtures. Endast syntetiska data; ingen GDPR-funktion för riktiga konton tillkommer. Nedanstående beskrivningar av delat ADMIN_PASSWORD är historiska. [Säkerhetsbeslut](decisions/ADR_004_ADMIN_IDENTITY.md).
 
 
 ## Epic 03: explicit databasmiljö

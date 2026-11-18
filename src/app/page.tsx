@@ -12,7 +12,6 @@ import Link from "next/link";
 import TwoTrackLab from "./two-track-lab";
 import { getLocale } from "@/lib/locale-server";
 import { text } from "@/lib/locale";
-import { BRAND } from "@/concept/brand";
 import { Wordmark } from "@/concept/ui/wordmark";
 export const dynamic = "force-dynamic";
 export default async function Home({
@@ -33,7 +32,6 @@ export default async function Home({
     <header className="customer-header">
       <Link className="salon-brand" href="/"><Wordmark className="w-[112px]" /><span>{t("Find a salon. Make time.", "Hitta salong. Ta dig tid.")}</span></Link>
       <nav aria-label={t("About and workspace", "Om och arbetsyta")}>
-        <Link href="/product">{t(`About ${BRAND.name}`, `Om ${BRAND.name}`)}</Link>
         <Link href="/boka/salong-eko">{t("Customer page demo", "Kundsida (demo)")}</Link>
         <Link href="/studio">{t("Owner studio demo", "Ägarstudio (demo)")}</Link>
         {!readOnly && (demoAccessEnabled() ? <DemoEntry /> : <a className="quiet-button" href="/admin">{t("Owner workspace", "Salongens arbetsyta")}</a>)}

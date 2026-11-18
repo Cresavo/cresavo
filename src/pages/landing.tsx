@@ -98,7 +98,6 @@ export default function Landing({ links, waitlist }: SiteProps) {
       </main>
       <footer className={`${s.footer} ${s.landingFooter}`}>
         <a href={links.apex}>{site["landing.about"]}</a>
-        <Link href="/product">{site["landing.developers"]}</Link>
         <span>{site["landing.footer"]}</span>
       </footer>
     </div>
