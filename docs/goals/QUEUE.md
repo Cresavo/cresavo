@@ -49,6 +49,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 25 | Calm settings: home, search, six groups ([exploration](../explore/SETTINGS_IA.md)) | Codex | proposal · awaiting Niclas's priority |
 | 26 | Salon site template on the whole domain ([exploration](../explore/WEBSITE_SERVICE.md)) | Claude (Sonnet) | proposal · awaiting Niclas's priority |
 | 27 | Done-for-you move-in ([exploration](../explore/WEBSITE_SERVICE.md)) | Claude (Sonnet) | proposal · awaiting Niclas's priority |
+| 29 | International by default and an open-source best-practice baseline | Opus | open · after the QA fixes, before goal 28's UI |
 | 28 | Connections: Cresavo-managed or bring your own provider | Opus | open · after the desktop redesign and the QA fixes |
 
 ---
@@ -535,6 +536,55 @@ with a fixed checklist. See `docs/explore/WEBSITE_SERVICE.md`.
 **Done when:** a sample export from a fictional old provider imports with a
 preview; the checklist can be followed end to end in the demo; Salong
 Solgården's real move is planned with it (no real data in the repo).
+
+---
+
+## 29 · International by default and an open-source best-practice baseline
+
+**Goal:** Cresavo is an international product that happens to start in Sweden,
+not a Swedish product translated later. Decided by Niclas 2026-11-18.
+
+- **Locale per business:** country (ISO 3166), currency (ISO 4217, money as
+  integer minor units), time zone (IANA), language (BCP 47), first day of the
+  week, and the 12/24-hour clock. All formatting goes through one `Intl`-based
+  helper. Remove the hardcoded `SEK`, `sv-SE`, `Europe/Stockholm` and "kr"
+  (about 140 places in `src/`). Phone numbers are stored in E.164 and entered
+  with a country picker.
+- **Public URLs in English:** `/book/<slug>` becomes the canonical booking path,
+  with `/boka/<slug>` kept as a permanent redirect so existing links keep
+  working. Update host routing, tests and docs.
+- **English everywhere in code and docs:** engine error messages
+  (`Åtkomst nekad` and similar in `src/lib`, `src/mcp`), `docs/STATUS.md` and
+  `docs/ROADMAP.md`. Swedish exists only as a generated UI locale (goal 21) and
+  in demo data.
+- **A second demo business** in another country (e.g. a London nail studio in
+  GBP, Europe/London, en-GB) next to Salong Eko, to prove the locale model.
+  Switchable in the demo.
+- **Regional, not core:** Swedish providers (46elks, Swish, Fortnox, Visma,
+  Bokio) are regional adapters (goal 28); global defaults come first.
+- **Legal and privacy written for the EU first and stated generally:** GDPR
+  basics (data export, deletion, processor list), with CCPA/UK GDPR notes.
+  No country-specific legal claims in the product.
+- **Open-source best-practice baseline** (check what exists, add what is
+  missing, keep each item small):
+  - semantic versioning with GitHub releases and a changelog (exists: keep)
+  - Conventional Commits (exists)
+  - CODEOWNERS, issue and PR templates (check)
+  - architecture decision records in `docs/adr/`, the first one recording this
+    goal's decisions
+  - Dependabot (exists), gitleaks and OpenSSF Scorecard (exist), an SBOM at
+    release time, and license checks for dependencies in CI
+  - WCAG 2.2 AA as the stated accessibility target (axe in CI from the QA
+    routine)
+  - a supported-versions table in SECURITY.md
+  - `docs/legal/CLA.md` (currently referenced but missing) and `TRADEMARK.md`
+    drafts, both marked pending legal review
+
+**Done when:** Salong Eko and the second demo business both look right in
+their own currency, time zone and language with no Swedish hardcodes left in
+`src/` outside demo data and the sv locale; `/book/<slug>` works and
+`/boka/<slug>` redirects; engine errors and all docs are English; the baseline
+items exist or have an issue; an ADR records the decisions.
 
 ---
 
