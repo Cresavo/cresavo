@@ -1,13 +1,27 @@
 import { isActive, isFree, pickResource } from "../data/slots";
+import { cardsCovered } from "../giftcards/cards";
 import type { DemoState } from "../data/types";
 import { canApplyPatch, revertPatch } from "./patch";
 import type { LogEntry } from "./types";
 
-type UndoBlockReason = "changed" | "time-taken";
+export type UndoBlockReason = "changed" | "time-taken" | "customer-in-use" | "gift-card";
+
+/** True when the undo would remove a customer that a record left in the state still points to. */
+function orphansCustomer(state: DemoState, reverted: DemoState): boolean {
+  const kept = new Set(reverted.customers.map((customer) => customer.id));
+  const removed = state.customers.filter((customer) => !kept.has(customer.id)).map((customer) => customer.id);
+  if (!removed.length) return false;
+  const gone = new Set(removed);
+  return Object.values(reverted).some(
+    (value) => Array.isArray(value) && value.some((item) => typeof item?.customerId === "string" && gone.has(item.customerId)),
+  );
+}
 
 function previewUndo(state: DemoState, entry?: LogEntry): DemoState | UndoBlockReason {
   if (!entry?.patch || entry.undone || !canApplyPatch(state, entry.patch)) return "changed";
   const reverted = revertPatch(state, entry.patch);
+  if (orphansCustomer(state, reverted)) return "customer-in-use";
+  if (!cardsCovered(reverted)) return "gift-card";
   if (!entry.patch.collections.bookings) return reverted;
 
   const current = new Map(state.bookings.map((booking) => [booking.id, booking]));

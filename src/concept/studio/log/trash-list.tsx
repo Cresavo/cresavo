@@ -7,7 +7,7 @@ import { t, tc } from "../../i18n";
 import { formatDate, formatDayShort } from "../../i18n/format";
 import { findCustomer, findService, fullName } from "../../selectors";
 import { dispatch } from "../../store";
-import { canRestore, daysLeft, type TrashEntry } from "../../trash/trash";
+import { daysLeft, restoreBlockReason, type TrashEntry } from "../../trash/trash";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { EmptyState } from "../../ui/empty-state";
@@ -41,7 +41,8 @@ export function TrashList() {
         <ul className="divide-y divide-hairline">
           {state.trash.map((entry) => {
             const { title, detail } = describe(state, entry);
-            const restorable = canRestore(state, entry);
+            const blocked = restoreBlockReason(state, entry);
+            const restorable = !blocked;
             return (
               <li key={entry.id} className="flex items-start gap-3 px-4 py-3.5">
                 <div className="min-w-0 flex-1 space-y-1">
@@ -49,7 +50,8 @@ export function TrashList() {
                   <p className="text-sm text-text-secondary">{detail}</p>
                   <p className="text-xs text-text-secondary">
                     {t(entry.kind === "customer" ? "trash.deleted" : "trash.cancelled", { date: formatDate(entry.deletedOn) })} · {tc("trash.daysLeft", daysLeft(entry, today))}
-                    {!restorable && ` · ${t("trash.timeTaken")}`}
+                    {blocked === "time-taken" && ` · ${t("trash.timeTaken")}`}
+                    {blocked === "gift-card" && ` · ${t("trash.giftCardUsed")}`}
                   </p>
                 </div>
                 <Button size="sm" variant="secondary" icon={<RotateCcw size={16} />} disabled={!restorable} onClick={() => restore(entry)}>

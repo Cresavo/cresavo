@@ -12,6 +12,7 @@ import { ReplyCardView, type CardActions } from "./reply-card";
 import { canSpeak, stopSpeaking } from "./speak";
 import { closeAssistant, setSpeak, takePendingQuestion } from "./thread-store";
 import { useAssistant } from "./use-assistant";
+import { undoBlockMessage } from "../log/undo-toast";
 
 /** The conversation with the assistant: full screen on phones, a side panel on larger screens. */
 export function AssistantPanel() {
@@ -202,7 +203,7 @@ function MessageView({ message, assistant, onEdit }: { message: Message; assista
           actions={cardActions(assistant, message.id, undoReason ? undefined : reply.undoId, reply.request ? onEdit : undefined)}
         />
       )}
-      {undoReason === "time-taken" && <p className="text-sm text-text-secondary">{t("log.undoTimeTaken")}</p>}
+      {undoBlockMessage(undoReason) && <p className="text-sm text-text-secondary">{undoBlockMessage(undoReason)}</p>}
       {reply.followUps && !reply.status && <FollowUps items={reply.followUps} onPick={assistant.send} />}
     </Bubble>
   );

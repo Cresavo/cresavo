@@ -49,7 +49,8 @@ export function replyUndoBlockReason(reply: Pick<Reply, "undoId">) {
 export function undoReply(id: string, undoId: string): boolean {
   const done = dispatch({ type: "log/undo", id: undoId });
   if (done) updateReply(id, { status: "undone", undoId: undefined });
-  else if (replyUndoBlockReason({ undoId }) !== "time-taken") updateReply(id, { undoId: undefined });
+  // A conflict (time taken, customer in use, card spent) can clear again, so the undo stays offered.
+  else if (replyUndoBlockReason({ undoId }) === "changed") updateReply(id, { undoId: undefined });
   return done;
 }
 

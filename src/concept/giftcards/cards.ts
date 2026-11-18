@@ -39,6 +39,12 @@ export function usedAmount(state: DemoState, card: GiftCard): number {
 
 export const balanceOf = (state: DemoState, card: GiftCard) => card.amount - usedAmount(state, card);
 
+/**
+ * False when a card would pay more than it holds. That happens if a cancelled
+ * booking comes back (restore or undo) after its refunded balance was spent.
+ */
+export const cardsCovered = (state: DemoState) => state.giftCards.every((card) => balanceOf(state, card) >= 0);
+
 /** What all gift cards still hold: money the business owes its customers. */
 export function giftCardLiability(state: DemoState): number {
   return state.giftCards.reduce((sum, card) => sum + balanceOf(state, card), 0);

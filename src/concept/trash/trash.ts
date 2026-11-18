@@ -1,5 +1,6 @@
 import { diffDays } from "../data/dates";
 import { isFree, pickResource } from "../data/slots";
+import { cardsCovered } from "../giftcards/cards";
 import type { Booking, Customer, DateKey, DemoState, InboxItem, JournalEntry, ProductSale, Review } from "../data/types";
 
 /** Days a deleted or cancelled item stays restorable. */
@@ -62,11 +63,29 @@ export function deleteCustomer(state: DemoState, id: string): DemoState {
   };
 }
 
-/** A cancelled booking can come back only if its time is still free. */
-export function canRestore(state: DemoState, entry: TrashEntry): boolean {
-  if (entry.kind === "customer") return true;
+export type RestoreBlockReason = "missing" | "time-taken" | "gift-card";
+
+/** Puts a booking back as booked, in a free room. */
+const rebook = (state: DemoState, booking: Booking): Booking => ({
+  ...booking,
+  status: "booked",
+  cancelReason: undefined,
+  resourceId: pickResource(state, booking, booking.date, booking.start, booking.id),
+});
+
+/** Why a cancelled booking cannot come back: its time was taken, or its gift card balance was spent meanwhile. */
+export function restoreBlockReason(state: DemoState, entry: TrashEntry): RestoreBlockReason | undefined {
+  if (entry.kind === "customer") return undefined;
   const booking = state.bookings.find((b) => b.id === entry.bookingId);
-  return !!booking && isFree(state, booking.staffId, booking.date, booking.start, booking, booking.id);
+  if (!booking) return "missing";
+  if (!isFree(state, booking.staffId, booking.date, booking.start, booking, booking.id)) return "time-taken";
+  const back = { ...state, bookings: state.bookings.map((b) => (b.id === booking.id ? rebook(state, b) : b)) };
+  return cardsCovered(back) ? undefined : "gift-card";
+}
+
+/** A cancelled booking can come back only if its time is still free and its gift card payment is still covered. */
+export function canRestore(state: DemoState, entry: TrashEntry): boolean {
+  return !restoreBlockReason(state, entry);
 }
 
 /** Puts an item back. Returns the same state when it cannot be restored (the time was taken meanwhile). */
@@ -75,9 +94,7 @@ export function restoreEntry(state: DemoState, id: string): DemoState {
   if (!entry || !canRestore(state, entry)) return state;
   const trash = state.trash.filter((e) => e.id !== id);
   if (entry.kind === "booking") {
-    const bookings = state.bookings.map((b) =>
-      b.id === entry.bookingId ? { ...b, status: "booked" as const, cancelReason: undefined, resourceId: pickResource(state, b, b.date, b.start, b.id) } : b,
-    );
+    const bookings = state.bookings.map((b) => (b.id === entry.bookingId ? rebook(state, b) : b));
     return { ...state, bookings, trash };
   }
   const restored: DemoState = {
@@ -89,10 +106,15 @@ export function restoreEntry(state: DemoState, id: string): DemoState {
     inbox: [...state.inbox, ...entry.inbox],
     trash,
   };
-  // A time taken while the customer was in the trash must not be double-booked.
+  // A time taken while the customer was in the trash must not be double-booked,
+  // and a gift card balance spent meanwhile must not be spent twice.
   return entry.bookings.reduce<DemoState>((acc, booking) => {
-    const clash = booking.status === "booked" && !isFree(acc, booking.staffId, booking.date, booking.start, booking, booking.id);
-    const back = booking.status === "booked" ? { ...booking, resourceId: pickResource(acc, booking, booking.date, booking.start, booking.id) } : booking;
-    return { ...acc, bookings: [...acc.bookings, clash ? { ...booking, status: "cancelled" as const, cancelReason: "Time taken" } : back] };
+    if (booking.status !== "booked") return { ...acc, bookings: [...acc.bookings, booking] };
+    if (!isFree(acc, booking.staffId, booking.date, booking.start, booking, booking.id))
+      return { ...acc, bookings: [...acc.bookings, { ...booking, status: "cancelled" as const, cancelReason: "Time taken" }] };
+    const back = { ...acc, bookings: [...acc.bookings, rebook(acc, booking)] };
+    return cardsCovered(back)
+      ? back
+      : { ...acc, bookings: [...acc.bookings, { ...booking, status: "cancelled" as const, cancelReason: "Gift card balance used" }] };
   }, restored);
 }

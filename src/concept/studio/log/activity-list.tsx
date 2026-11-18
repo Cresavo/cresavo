@@ -15,7 +15,7 @@ import { Card } from "../../ui/card";
 import { Chip } from "../../ui/controls";
 import { EmptyState } from "../../ui/empty-state";
 import { useStudio } from "../use-studio";
-import { undoWithToast } from "./undo-toast";
+import { undoBlockMessage, undoWithToast } from "./undo-toast";
 
 /** "Today 10:42", "Mon 16 Nov 10:42". */
 function entryTime(at: number, today: string): string {
@@ -38,7 +38,7 @@ function Row({ entry, reason, today }: { entry: LogEntry; reason: ReturnType<typ
         <p className="text-xs text-text-secondary">
           {entryTime(entry.at, today)} · {t(`log.actor.${entry.actor}`)} · {t(`log.source.${entry.source}`)}
         </p>
-        {reason === "time-taken" && <p className="text-sm text-text-secondary">{t("log.undoTimeTaken")}</p>}
+        {undoBlockMessage(reason) && <p className="text-sm text-text-secondary">{undoBlockMessage(reason)}</p>}
       </div>
       {entry.undone ? (
         <Badge>{t("log.undone")}</Badge>

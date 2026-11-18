@@ -1,8 +1,19 @@
 import type { DemoAction } from "../../actions";
 import { t } from "../../i18n";
-import { undoBlockReason } from "../../log/undo";
+import { undoBlockReason, type UndoBlockReason } from "../../log/undo";
 import { currentState, dispatch, dispatchWithLog } from "../../store";
 import { showToast } from "../../ui/toast";
+
+const REASON_KEYS = {
+  "time-taken": "log.undoTimeTaken",
+  "customer-in-use": "log.undoCustomerInUse",
+  "gift-card": "log.undoGiftCard",
+} as const;
+
+/** The message that explains why an undo is blocked, or undefined when there is nothing specific to say. */
+export function undoBlockMessage(reason: UndoBlockReason | null | undefined): string | undefined {
+  return reason && reason !== "changed" ? t(REASON_KEYS[reason]) : undefined;
+}
 
 export function undoWithToast(id: string) {
   if (dispatch({ type: "log/undo", id })) {
@@ -11,7 +22,7 @@ export function undoWithToast(id: string) {
   }
   const state = currentState();
   const reason = state && undoBlockReason(state, state.log.find((entry) => entry.id === id));
-  showToast(t(reason === "time-taken" ? "log.undoTimeTaken" : "log.cannotUndo"));
+  showToast(undoBlockMessage(reason) ?? t("log.cannotUndo"));
 }
 
 export function dispatchWithUndoToast(action: DemoAction, message: string) {
