@@ -37,7 +37,8 @@ test("the sample booking can be completed and reset offline", async ({ page, con
 test("tour clips respect visibility, a manual pause and a live motion preference", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "dark" });
   await page.goto("/landing");
-  const video = page.locator("video").nth(1);
+  await page.getByRole("combobox", { name: site["tour.choose"] }).selectOption({ label: site["tour.day"] });
+  const video = page.locator("#tour video");
   await video.scrollIntoViewIfNeeded();
   await expect(video).toHaveAttribute("poster", "/site/day-dark.webp");
   await expect(page.locator("video[src]")).toHaveCount(0);
@@ -46,7 +47,7 @@ test("tour clips respect visibility, a manual pause and a live motion preference
   await page.locator("footer").scrollIntoViewIfNeeded();
   await expect.poll(() => video.evaluate((el: HTMLVideoElement) => el.paused)).toBe(true);
   await video.scrollIntoViewIfNeeded();
-  const section = page.locator("section").filter({ has: page.getByRole("heading", { name: site["landing.day.heading"] }) });
+  const section = page.locator("#tour");
   await section.getByRole("button", { name: /Pause recording/ }).click();
   await page.locator("footer").scrollIntoViewIfNeeded();
   await video.scrollIntoViewIfNeeded();
@@ -86,3 +87,132 @@ test("the apex tour keeps the poster until requested under reduced motion and ex
   await page.getByRole("button", { name: /Pause recording/ }).click();
   await expect(film).not.toHaveAttribute("src");
 });
+
+for (const path of ["/coming-soon", "/landing"]) {
+  test(`Expand opens and closes the tour dialog on ${path}`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(path);
+    const expand = page.getByRole("button", { name: site["clip.expand"], exact: true }).first();
+    await expand.click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    const close = dialog.getByRole("button", { name: site["clip.close"] });
+    await expect(close).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press("Tab");
+      expect(await dialog.evaluate(el => el.contains(document.activeElement))).toBe(true);
+    }
+    const large = dialog.locator("video");
+    await expect.poll(() => large.evaluate((v: HTMLVideoElement) => v.paused && !v.muted && v.controls)).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(expand).toBeFocused();
+
+    await page.getByRole("button", { name: /^Expand —/ }).first().click();
+    await close.click();
+    await expect(dialog).toHaveCount(0);
+    const inline = page.locator("video").first();
+    await expect.poll(() => inline.evaluate((v: HTMLVideoElement) => v.paused && v.muted)).toBe(true);
+  });
+}
+
+test("the expanded film keeps the playhead and returns muted on a backdrop click", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/coming-soon");
+  const inline = page.locator("figure video");
+  await inline.scrollIntoViewIfNeeded();
+  await expect.poll(() => inline.evaluate((v: HTMLVideoElement) => v.readyState >= 2 && !v.paused)).toBe(true);
+  await inline.evaluate((v: HTMLVideoElement) => { v.currentTime = 9; });
+  await inline.click();
+  const dialog = page.getByRole("dialog");
+  const large = dialog.locator("video");
+  await expect.poll(() => large.evaluate((v: HTMLVideoElement) => !v.paused && !v.muted && v.currentTime >= 9)).toBe(true);
+  await expect.poll(() => inline.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
+  await large.evaluate((v: HTMLVideoElement) => { v.currentTime = 18; });
+  await page.mouse.click(2, 2);
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(() => inline.evaluate((v: HTMLVideoElement) => v.muted && !v.paused && v.currentTime >= 18)).toBe(true);
+  await expect(page.getByRole("button", { name: /^Expand —/ })).toBeFocused();
+});
+
+for (const path of ["/coming-soon", "/landing"]) {
+  test(`channel selections change the request, draft and calendar proposal on ${path}`, async ({ page }) => {
+    await page.goto(path);
+    const map = page.locator("#channel-map");
+    const assistant = map.getByRole("switch", { name: "Assistant" });
+    await expect(assistant).not.toBeChecked();
+    await assistant.click();
+    await expect(assistant).toBeChecked();
+    const examples = [
+      ["SMS", "Can I get foot care on Friday?", "I can offer you 14:30 with Anna.", "14:30"],
+      ["Instagram", "Do you have a manicure after lunch?", "Yes, Erik has time at 13:15 on Tuesday.", "13:15"],
+      ["Phone", "Is there an opening this afternoon?", "Anna can see you at 14:45 today.", "14:45"],
+      ["Booking page", "Could I book a brow shape before work?", "We have 08:30 with Erik on Thursday.", "08:30"],
+      ["AI agents", "Does Anna have a spa appointment for my client?", "Anna has an opening at 10:00 on Monday.", "10:00"],
+    ];
+    for (const [channel, request, draft, time] of examples) {
+      const input = map.getByRole("button", { name: channel, exact: true });
+      await input.click();
+      await expect(input).toHaveAttribute("aria-pressed", "true");
+      await expect(map.getByText(request, { exact: false })).toBeVisible();
+      await expect(map.getByText(draft, { exact: false })).toBeVisible();
+      await expect(map.locator("time")).toHaveText(time);
+      await expect(map.getByText("Proposed time")).toBeVisible();
+    }
+    await expect(map.getByText(/Customer-agent booking · Coming soon/)).toBeVisible();
+    await map.getByRole("button", { name: "Approve reply & booking" }).click();
+    await expect(map.getByText("Booked in the preview")).toBeVisible();
+    await map.getByRole("button", { name: "Undo booking" }).click();
+    await expect(map.getByText("Proposed time")).toBeVisible();
+  });
+}
+
+test("a written reply survives switching modes and belongs only to its channel", async ({ page }) => {
+  await page.goto("/coming-soon");
+  const map = page.locator("#channel-map");
+  const send = map.getByRole("button", { name: "Send reply & book" });
+  const field = map.getByRole("textbox", { name: "Your reply" });
+  await field.fill("  ");
+  await expect(send).toBeDisabled();
+  await field.fill("Friday at 14:30 is yours.");
+  const assistant = map.getByRole("switch", { name: "Assistant" });
+  await assistant.click();
+  await expect(field).toHaveCount(0);
+  await assistant.click();
+  await expect(field).toHaveValue("Friday at 14:30 is yours.");
+  await send.click();
+  await expect(map.getByText("Booked in the preview")).toBeVisible();
+  await map.getByRole("button", { name: "Phone", exact: true }).click();
+  await expect(send).toBeDisabled();
+  await expect(map.getByText("Proposed time")).toBeVisible();
+  await map.getByRole("button", { name: "SMS", exact: true }).click();
+  await expect(map.getByText("Friday at 14:30 is yours.")).toBeVisible();
+  await map.getByRole("button", { name: "Undo booking" }).click();
+  await expect(field).toHaveValue("Friday at 14:30 is yours.");
+});
+
+for (const path of ["/coming-soon", "/landing"]) {
+  test(`salon photographs and product views are keyboard operable on ${path}`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(path);
+    const next = page.getByRole("button", { name: site["hero.next"] });
+    const hero = page.locator("section[aria-labelledby=promise]");
+    const first = await hero.getByRole("img").getAttribute("alt");
+    await next.focus();
+    await page.keyboard.press("Enter");
+    await expect(hero.getByRole("img")).not.toHaveAttribute("alt", first!);
+    await page.getByRole("button", { name: site["hero.previous"] }).click();
+    await expect(hero.getByRole("img")).toHaveAttribute("alt", first!);
+
+    const preview = page.getByRole("region", { name: site["studio.heading"] });
+    for (const view of ["calendar", "booking", "assistant", "today"] as const) {
+      const button = preview.getByRole("button", { name: site[`studio.${view}`], exact: true });
+      await button.focus();
+      await page.keyboard.press("Space");
+      await expect(button).toHaveAttribute("aria-pressed", "true");
+      await expect(preview.getByRole("img", { name: site[`studio.${view}.alt`] })).toBeVisible();
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(await page.evaluate(() => innerWidth));
+  });
+}

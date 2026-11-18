@@ -2,6 +2,17 @@
 
 The [30-day launch plan](../LAUNCH_PLAN.md) gives the owner a schedule for sharing
 the fictional salon demo, gathering feedback and welcoming contributors.
+## 2026-11-18 · Public site v5
+
+Both public pages pair generated Salong Eko photographs with fresh captures of Today, Calendar, customer booking and an assistant proposal awaiting approval. The founder story and six-connection diagram replace the longer product essays.
+
+## 2026-11-18 · Public site v4
+
+The salon photo and calendar clipping introduce both sites. Visitors can trace a fictional request through the channel map, write the reply or enable assistant drafts, then book and undo. Both sites explain hosting, data export, commission and card fees. The landing page keeps all five workflow films and its offline booking sample.
+
+## 2026-11-18 · Public site messaging and tour
+
+Both sites share the salon introduction, four value points and a platform comparison. Visitors can open each film at its current position and use native video controls. Repository stars load on the server.
 ## 2026-11-18 · Drag to reorder
 
 Owners can drag treatments within a category and reorder category cards with a mouse, touch or keyboard. Each drop updates the public price list and adds one undoable activity entry. The Reorder button reveals stepwise treatment controls. Booking-page sections can also be dragged in the draft, alongside the existing arrow controls. The booking flow and hero stay fixed. [Mobile screenshots](../design/cresavo/screens/drag-reorder-mobile.jpg), [desktop screenshots](../design/cresavo/screens/drag-reorder-desktop.jpg).

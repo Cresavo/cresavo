@@ -1,0 +1,11 @@
+{
+  "salon": "Salong Eko (fictional)",
+  "tool": "Built-in image_gen",
+  "aiGenerated": true,
+  "images": [
+    { "file": "salon-chair.webp", "responsiveVariant": "salon-chair-small.webp", "promptSummary": "Cognac treatment chair by a linen-curtained window with a shadowed wall to the left." },
+    { "file": "salon-tools.webp", "promptSummary": "Hands gathering a comb and scissors from a linen towel on an oak counter." },
+    { "file": "salon-phone.webp", "responsiveVariant": "salon-phone-wide.webp", "promptSummary": "Phone showing a 14:30 booking confirmation in warm window light." },
+    { "file": "salon-door.webp", "promptSummary": "View through a half-open home doorway into the quiet salon." }
+  ]
+}

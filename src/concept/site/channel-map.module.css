@@ -1,0 +1,83 @@
+.section { border-top: 1px solid var(--ui-border); padding: clamp(34px, 4.3vw, 68px) 0; }
+.intro { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 14px 24px; margin-bottom: 28px; }
+.section .intro h2 { margin: 0; font: 500 clamp(2.35rem, 4.3vw, 4.3rem)/1.04 var(--font-ui); letter-spacing: -.065em; }
+.intro p { margin: 0; max-width: 45ch; color: var(--ui-text-secondary); line-height: 1.5; }
+.map { border: 1px solid var(--ui-border); }
+.bar, .inboxHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bar { padding: 11px clamp(12px, 2vw, 28px); background: light-dark(var(--ui-text), var(--ui-surface-2)); color: var(--paper); }
+.bar i { font-style: normal; color: var(--brand-apricot); padding: 0 5px; }
+.map small { font: .74rem/1.4 ui-monospace, monospace; }
+.bar small { font-size: .68rem; }
+.flow { padding: 30px clamp(10px, 3.2vw, 50px); }
+.inputs { position: relative; }
+.inputLabel, .message small, .slot small { color: var(--ui-text-secondary); }
+.inputLabel { display: block; margin-bottom: 7px; }
+.channelList { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); }
+.channelList button, .inboxHead button, .action { font: inherit; cursor: pointer; color: inherit; }
+.section button:focus-visible, .section textarea:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; z-index: 1; }
+.channelList button { display: flex; gap: 5px; align-items: center; justify-content: flex-start; flex-direction: column; padding: 8px 2px; background: transparent; border: 0; border-bottom: 1px solid var(--ui-border); font-size: .77rem; line-height: 1.2; }
+.channelList button[aria-pressed="true"] { background: var(--brand-apricot); color: var(--ink); font-weight: 650; }
+.channelList button:hover:not([aria-pressed="true"]) { background: var(--ui-surface-2); }
+.wires, .mobileWires { fill: none; stroke: var(--ui-border); }
+.wires path[data-active="true"], .mobileWires path[data-active="true"] { stroke: var(--ui-action); stroke-width: 2; }
+.wires { display: none; }
+.mobileWires { display: block; width: 100%; height: 28px; }
+.inbox { background: var(--ui-surface); border: 1px solid var(--ui-border); margin-top: 0; }
+.inboxHead { min-height: 44px; padding-inline: 13px; background: var(--brand-plum); color: var(--paper); font-size: .88rem; }
+.inboxHead button { display: inline-flex; gap: 6px; align-items: center; min-height: 44px; border: 0; background: transparent; font-size: .77rem; }
+.inboxHead button span { width: 26px; height: 15px; border: 1px solid currentColor; border-radius: 12px; padding: 2px; }
+.inboxHead button span::after { content: ""; display: block; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.inboxHead button[aria-checked="true"] span { background: var(--brand-apricot); color: var(--ink); }
+.inboxHead button[aria-checked="true"] span::after { margin-left: auto; }
+.message { padding: 16px; }
+.message blockquote { margin: 6px 0 16px; min-height: 2.4em; font-size: clamp(1.18rem, 1.6vw, 1.55rem); letter-spacing: -.04em; line-height: 1.2; }
+.composer { padding-top: 12px; border-top: 1px solid var(--ui-hairline); }
+.composer small { display: block; }
+.composer p, .composer textarea { margin: 6px 0 12px; min-height: 3em; }
+.composer p { overflow-wrap: anywhere; }
+.composer textarea { display: block; resize: vertical; width: 100%; min-height: 50px; background: var(--ui-bg); color: var(--ui-text); border: 1px solid var(--ui-input-border); padding: 8px; border-radius: 3px; font: inherit; font-size: 1rem; }
+.action { width: 100%; min-height: 44px; padding: 9px 12px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--ui-input-border); background: var(--ui-bg); font-size: .85rem; }
+.action:hover:enabled { background: var(--ui-action-bg); }
+.action:disabled { color: var(--ui-text-secondary); cursor: default; }
+.arrow { display: flex; align-items: center; justify-content: center; height: 27px; }
+.arrow svg { transform: rotate(90deg); }
+.slot { border: 1px dashed var(--ui-border); box-shadow: 3px 3px 0 var(--ui-hairline); background: var(--ui-bg); }
+.slot[data-booked="true"] { border-style: solid; }
+.slot strong, .slotStatus { display: flex; align-items: center; gap: 6px; padding: 9px 14px; font-size: .8rem; }
+.slot strong { justify-content: center; background: var(--brand-apricot); color: var(--ink); }
+.slot > div { display: grid; gap: 5px 12px; padding: 16px; }
+.slot time { font-size: clamp(2.5rem, 3.9vw, 4rem); line-height: 1.1; font-weight: 550; letter-spacing: -.065em; }
+.slotStatus { margin: 0; border-top: 1px dashed var(--ui-border); }
+.footnote { margin: 9px 0 0; text-align: right; font-size: .79rem; color: var(--ui-text-secondary); }
+@media (min-width: 800px) {
+  .flow { display: grid; align-items: center; grid-template-columns: minmax(135px, 1fr) .56fr minmax(280px, 1.9fr) .35fr minmax(160px, 1fr); padding-block: 38px; }
+  .inputLabel { position: absolute; bottom: 100%; }
+  .channelList { grid-template-columns: 1fr; }
+  .channelList button { height: 50px; flex-direction: row; gap: 12px; padding: 0 10px; font-size: .95rem; position: relative; text-align: left; }
+  .channelList button::after { content: ""; position: absolute; right: -3px; width: 6px; height: 6px; border: 1px solid var(--ui-border); border-radius: 50%; background: var(--ui-bg); }
+  .channelList button[aria-pressed="true"]::after { background: var(--ink); }
+  .wires { display: block; width: 100%; height: 250px; }
+  .mobileWires { display: none; }
+  .inbox { margin: 0; }
+  .arrow { height: 1px; background: var(--ui-border); justify-content: flex-end; }
+  .arrow svg { transform: none; }
+}
+@media (max-width: 799px) {
+  .flow { padding-block: 18px; }
+  .message blockquote { min-height: 0; }
+  .bar { font-size: .81rem; }
+  .bar small { text-align: right; }
+  .slot > div { grid-template-columns: 1fr auto; align-items: end; }
+  .slot small { grid-column: 1; }
+  .slot time { grid-area: 1 / 2 / span 2; }
+}
+.map { border-radius: 7px; overflow: hidden; }
+.bar, .inboxHead { color: #fbf5f0; }
+.map .bar { background: var(--brand-plum); }
+.inbox, .slot { border-radius: 8px; overflow: hidden; }
+@media (prefers-reduced-motion: no-preference) {
+  .message blockquote { animation: incoming .32s ease-out; }
+  .wires path[data-active="true"], .mobileWires path[data-active="true"] { stroke-dasharray: 5 3; animation: transit .9s linear 2; }
+}
+@keyframes incoming { from { opacity: .35; transform: translateY(5px); } }
+@keyframes transit { to { stroke-dashoffset: -24; } }

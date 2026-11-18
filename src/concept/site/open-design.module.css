@@ -1,0 +1,26 @@
+.section { padding-block: var(--section-space); border-top: 1px solid var(--ui-hairline); }
+.diagram { position: relative; isolation: isolate; display: grid; grid-template: repeat(3, 1fr) / minmax(0, 1fr) 32% minmax(0, 1fr); grid-auto-flow: column; align-items: stretch; padding: 28px clamp(14px,5%,72px); background: radial-gradient(circle, var(--ui-hairline) 1px, transparent 1px) 0 0 / 12px 12px, var(--ui-surface-2); border: 1px solid var(--ui-hairline); border-radius: 5px; }
+.wires { position: absolute; z-index: -1; inset: 28px 30%; width: 40%; height: calc(100% - 56px); fill: none; stroke: var(--ui-input-border); }
+.wires path { vector-effect: non-scaling-stroke; stroke-width: 1.5; }
+.hub { grid-column: 2; grid-row: 1 / 4; place-self: center; display: grid; place-items: center; width: clamp(76px, 10vw, 146px); aspect-ratio: 1; border-radius: 50%; background: var(--brand-plum); box-shadow: 0 0 0 6px var(--ui-surface-2), 0 0 0 7px var(--ui-hairline); }
+.hub svg { width: 75%; fill: var(--paper); }
+.node { align-self: center; display: flex; align-items: center; gap: 12px; min-height: 64px; margin: 8px 0; padding: 9px 14px; border-radius: 8px; background: var(--ui-surface); border: 1px solid var(--ui-hairline); }
+.node svg { flex: none; color: var(--ui-action); }
+.node a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.node a svg { width: 12px; height: 12px; vertical-align: middle; }
+.node small, .node strong { display: block; line-height: 1.3; }
+.node strong { font-size: .95rem; }
+.node small { margin-top: 3px; color: var(--ui-text-secondary); font-size: .8rem; }
+@media (prefers-reduced-motion: no-preference) {
+  [data-entered] .wires path { stroke-dasharray: 1; animation: connect 1.15s ease-in-out both; }
+}
+@keyframes connect { from { stroke-dashoffset: 1; } }
+@media (max-width: 650px) {
+  .diagram { grid-template-columns: minmax(0,1fr) 18% minmax(0,1fr); padding: 13px 6px; }
+  .wires { inset: 13px 29%; width: 42%; height: calc(100% - 26px); }
+  .hub { width: 52px; }
+  .node { flex-direction: column; align-items: flex-start; justify-content: center; gap: 5px; min-height: 90px; margin: 3px 0; padding: 8px; }
+  .node svg { width: 15px; height: 15px; }
+  .node strong { font-size: .81rem; }
+  .node small { font-size: .72rem; }
+}

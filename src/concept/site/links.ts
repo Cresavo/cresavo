@@ -1,4 +1,5 @@
-import type { GetServerSideProps } from "next";
+import type { GetServerSidePropsContext } from "next";
+import { getStarCount } from "./github-stars";
 import { siteRequestHost } from "./request-host";
 import { isLocalHost, resolveHost, siteLinks } from "../page/resolve";
 
@@ -10,7 +11,7 @@ export interface SiteProps {
 }
 
 /** The two sites share one deployment, so each page learns from the request's host how to reach the other. */
-export const getSiteProps: GetServerSideProps<SiteProps> = async ({ req, query }) => {
+export async function getSiteProps({ req, query }: GetServerSidePropsContext) {
   const host = siteRequestHost((name) => {
     const value = req.headers[name];
     return typeof value === "string" ? value : undefined;
@@ -23,4 +24,11 @@ export const getSiteProps: GetServerSideProps<SiteProps> = async ({ req, query }
   return {
     props: { links: siteLinks(linksHost), waitlist: typeof query.waitlist === "string" ? query.waitlist : null },
   };
-};
+}
+
+export type ProductSiteProps = SiteProps & { stars: number | null };
+
+export async function getProductSiteProps(context: GetServerSidePropsContext) {
+  const { props } = await getSiteProps(context);
+  return { props: { ...props, stars: await getStarCount() } };
+}
