@@ -7,6 +7,8 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Treatments & prices: owners add, edit, hide, duplicate, reorder and delete treatments, and add, rename, reorder and remove categories. Name, category, length and price come first; description, who can do it and visibility sit behind "More options". Deleting a treatment with upcoming bookings says how many, offers to hide it instead, and never changes the bookings. Every change is in What happened? and can be undone. The booking page, booking flows, the assistant and campaigns follow at once.
+- Salon booking page: opening hours, address with a map link, phone and e-mail links, the team with short bios, a few reviews and the cancellation rule, as one block beside the price list on wide screens.
 - Cresavo: the platform is named Cresavo (wordmark, tokens and copy on every platform surface). `cresavo.com` shows a coming-soon page with a launch waiting list, `demo.cresavo.com` the demo landing; the tenant booking page keeps the business's own brand.
 - Assistant: daily questions are answered straight from your data: who is next, when a customer is coming, what they had last time, whether a treatment fits a day (with the next day that has room), what a treatment costs, a gift card's balance, what waits in the Inbox and who is due back. Rows link to the customer.
 - Assistant: "Text Ida that I'm running 15 minutes late" drafts one simulated text for approval.
@@ -27,6 +29,11 @@ All notable changes to this project are documented here. Format follows
 - Ask Flerdo can change the page: "make it calmer and more luxurious", "put reviews first" or "use the colours from our logo" give a proposal with a before and after preview, applied on approval and undoable from What happened?.
 
 ### Changed
+- Salon booking page: the price list comes first and is made to be scanned (name and price on one line); free-text search is one quiet line instead of a block with a button and example chips; the name and facts sit under the photo instead of on a darkened photo.
+- Studio on a desktop: one page frame (content starts at the sidebar and grows to a readable width instead of floating in the middle); the assistant and Help sit in each page's title row; the owner/staff demo switch moved to the sidebar footer; Business and Settings are groups in the sidebar, one open at a time, so the menu fits a laptop screen.
+- Today: one card language. The brief no longer repeats the schedule and shares one card with the suggestions, which lost their "Suggestion" label and icon tile; "Show more" is the card's last row.
+- Status words are plain text: no tinted pills and no dots. A warning or an error is set in its semantic colour, nothing else. Plain information boxes are neutral instead of blue; progress bars are neutral.
+- Staff: no progress bars, treatments as a line of text, the calendar subscription folded and hidden when the server has none. Your data & AI: export and connecting first, the protocol table under "For developers".
 - The assistant is called "Assistant", with no persona name (it was "Ask Flerdo"). On phones it is one quiet labelled button above the tabs with the microphone inside the panel; the panel opens at the message box ("Who is coming today?") without a brief, routine offer, sparkles or "Rules · no AI" labels, and no longer saves conversation summaries to memory.
 - Today is calmer: one suggestion at a time, and routines are suggested under More > Routines instead of on Today.
 - Text on a tinted background is always neutral ink (Features, Gift cards and Packages totals, the gift card balance on the booking page).

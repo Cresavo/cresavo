@@ -5,6 +5,7 @@ import { DEFAULT_PAGE } from "../page/config";
 import { PALETTES } from "../page/theme";
 import { DEFAULT_PACK, getPack } from "../packs";
 import { ROOMS } from "../packs/base";
+import { startCategories } from "../services/categories";
 import type { Pack } from "../packs/types";
 import type { Cost } from "../finance/types";
 import { upcomingHolidays } from "./holidays";
@@ -27,7 +28,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 15;
+export const DEMO_VERSION = 16;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -596,6 +597,8 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     salon,
     staff: team,
     services,
+    retiredServices: [],
+    categories: startCategories(pack),
     resources: build.resources,
     exceptions: [],
     customers,

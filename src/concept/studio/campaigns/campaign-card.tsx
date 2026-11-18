@@ -9,7 +9,7 @@ import { Card } from "../../ui/card";
 import { useStudio } from "../use-studio";
 import { StatRow } from "./campaign-stats";
 
-export const STATUS_TONE: Record<CampaignStatus, "accent" | "neutral" | "warn"> = { active: "accent", planned: "warn", draft: "neutral", ended: "neutral" };
+export const STATUS_TONE: Record<CampaignStatus, "accent" | "neutral" | "warn"> = { active: "accent", planned: "neutral", draft: "neutral", ended: "neutral" };
 
 export function CampaignCard({ campaign }: { campaign: Campaign }) {
   const { state } = useStudio();
@@ -29,9 +29,7 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
           {campaign.discountPercent > 0 && `${t("format.percent", { value: campaign.discountPercent })} · `}
           {campaign.serviceIds.map((id) => findService(state, id)?.name).join(", ")}
         </p>
-        <div className="flex flex-wrap gap-1.5">
-          {campaign.channels.map((channel) => <Badge key={channel}>{t(`channel.${channel}`)}</Badge>)}
-        </div>
+        <p className="text-[13px] text-text-secondary">{campaign.channels.map((channel) => t(`channel.${channel}`)).join(" · ")}</p>
         {campaign.stats ? (
           <div className="border-t border-hairline pt-3"><StatRow stats={campaign.stats} /></div>
         ) : (

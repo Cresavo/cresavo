@@ -21,7 +21,8 @@ const CLIENTS: { value: Client; label: MessageKey }[] = [
   { value: "chatgpt", label: "data.setup.chatgpt" },
 ];
 
-const STATUS_TONE ={ available: "accent", closed: "danger", lab: "warn", planned: "neutral" } as const;
+// A protocol's status is a plain word; only the one that works today is set in the primary ink.
+const STATUS_TONE = { available: "accent", closed: "neutral", lab: "neutral", planned: "neutral" } as const;
 
 function CopyField({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);

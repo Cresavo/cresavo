@@ -115,6 +115,22 @@
   background-color: var(--ui-info-bg) !important;
 }
 
+/* A status word (ui/badge.tsx) carries its meaning in the text colour alone: no fill to restyle. */
+.booking-theme [data-status] {
+  opacity: 1 !important;
+  filter: none !important;
+  background: none !important;
+  text-shadow: none !important;
+}
+
+.booking-theme [data-status="warning"] {
+  color: var(--ui-warning) !important;
+}
+
+.booking-theme [data-status="danger"] {
+  color: var(--ui-danger) !important;
+}
+
 /* A destructive button is outlined: its label in the danger colour on the plain surface. */
 .booking-theme button[data-tone="danger"] {
   color: var(--ui-danger) !important;

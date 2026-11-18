@@ -1,6 +1,9 @@
-import { DEFAULT_PAGE } from "../page/config";
+import { DEFAULT_PAGE, type PageConfig } from "../page/config";
+import { DEFAULT_SECTIONS, type PageSection } from "../page/sections";
+import { getPack } from "../packs";
+import { startCategories } from "../services/categories";
 import { DEMO_VERSION } from "./generate";
-import type { DemoState } from "./types";
+import type { DemoState, PackId } from "./types";
 
 // Saved demo states from older versions are brought up to date in place, so a
 // version bump does not throw away the owner's bookings, edits and page
@@ -8,6 +11,14 @@ import type { DemoState } from "./types";
 // version introduced; anything older than the oldest step starts fresh.
 
 type Saved = Record<string, unknown> & { version: number };
+
+const V15_SECTIONS: PageSection[] = [
+  { kind: "hero", variant: "photo" },
+  { kind: "treatments", variant: "list" },
+  { kind: "giftcards", variant: "check" },
+  { kind: "reviews", variant: "cards" },
+  { kind: "map", variant: "full" },
+];
 
 const STEPS: Record<number, (saved: Saved) => Saved> = {
   // v13 added the assistant's memory and routines.
@@ -17,6 +28,15 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
   // v15 (the brand v0.9 rebrand) changed no shape. A saved page keeps its colours as the
   // owner left them; only freshly generated Salong Eko data starts on Forest.
   14: (saved) => ({ ...saved, version: 15 }),
+  // v16 made the price list editable: its headings became data (they were fixed per industry pack) and
+  // deleted treatments that bookings still name are kept aside.
+  // A booking page still on the old default sections gets the new default (team and reviews
+  // after the price list, gift cards folded at the end); one the owner arranged is left alone.
+  15: (saved) => {
+    const page = saved.page as PageConfig;
+    const untouched = JSON.stringify(page.sections) === JSON.stringify(V15_SECTIONS);
+    return { ...saved, page: untouched ? { ...page, sections: DEFAULT_SECTIONS } : page, categories: startCategories(getPack(saved.pack as PackId)), retiredServices: [], version: 16 };
+  },
 };
 
 /** The oldest saved version that can still be migrated. */

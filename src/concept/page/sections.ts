@@ -25,9 +25,10 @@ export interface PageSection {
 export const DEFAULT_SECTIONS: PageSection[] = [
   { kind: "hero", variant: "photo" },
   { kind: "treatments", variant: "list" },
-  { kind: "giftcards", variant: "check" },
+  { kind: "staff", variant: "cards" },
   { kind: "reviews", variant: "cards" },
   { kind: "map", variant: "full" },
+  { kind: "giftcards", variant: "compact" },
 ];
 
 /** The hero is always the first section: it is the top of the page. */

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Category, JournalContent } from "../../data/types";
+import type { JournalContent } from "../../data/types";
 import { t } from "../../i18n";
 import { packOf } from "../../packs";
 import type { JournalTemplateId } from "../../packs/types";
@@ -25,7 +25,7 @@ function fromTemplate(id: JournalTemplateId): JournalContent {
 interface JournalFormProps {
   initial: JournalContent;
   /** Show template chips for this kind of customer. Omit when editing an existing entry. */
-  templatesFor?: Category | "both";
+  templatesFor?: string;
   onSubmit: (content: JournalContent) => void;
   onCancel: () => void;
 }

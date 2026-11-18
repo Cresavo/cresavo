@@ -3,6 +3,7 @@ import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDate } from "../i18n/format";
 import { bookingPage } from "./links";
+import { findService } from "../selectors";
 
 export type MessageChannel = "sms" | "email";
 export type BookingMessageKind = "confirmation" | "reminder";
@@ -15,7 +16,7 @@ export interface BookingMessageAction {
 }
 export function messageSlot(booking: Booking) { return `${booking.date}:${booking.start}:${booking.staffId}`; }
 export function bookingMessage(state: DemoState, booking: Booking, kind: BookingMessageKind) {
-  const service = state.services.find(service => service.id === booking.serviceId);
+  const service = findService(state, booking.serviceId);
   const staff = state.staff.find(staff => staff.id === booking.staffId);
   const subject = t(`messages.subject.${kind}`, { salon: state.salon.name });
   const body = t(`messages.body.${kind}`, {

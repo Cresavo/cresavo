@@ -6,7 +6,7 @@ import { addDays, formatTime } from "../data/dates";
 import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong } from "../i18n/format";
-import { findCustomer, fullName } from "../selectors";
+import { findCustomer, findService, fullName } from "../selectors";
 import { dispatch } from "../store";
 import { Button } from "../ui/button";
 import { Notice } from "../ui/notice";
@@ -25,7 +25,7 @@ export function freeUntilText(booking: Booking): string {
 }
 
 function downloadCalendar(state: DemoState, booking: Booking) {
-  const service = state.services.find((s) => s.id === booking.serviceId);
+  const service = findService(state, booking.serviceId);
   const staff = state.staff.find((s) => s.id === booking.staffId);
   if (!service || !staff) return;
   const ics = buildIcs({ booking, service, staff, salon: state.salon, createdAt: icsTimestamp(new Date()) });
@@ -49,7 +49,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
   const [target, setTarget] = useState<OpenSlot>();
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
   const rule = changeRule(booking, now.today, now.minutes);
-  const service = state.services.find((s) => s.id === booking.serviceId);
+  const service = findService(state, booking.serviceId);
   const customer = findCustomer(state, booking.customerId);
   if (rule === "past" || !service || !customer) return null;
   const staff = state.staff.find((s) => s.id === booking.staffId);

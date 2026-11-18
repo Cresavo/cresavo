@@ -26,7 +26,7 @@ import { SellSheet } from "@/concept/studio/stock/sell-sheet";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Avatar } from "@/concept/ui/avatar";
-import { Badge } from "@/concept/ui/badge";
+import { Tag } from "@/concept/ui/badge";
 import { Button, ButtonLink, buttonClass } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
 import { Segmented } from "@/concept/ui/controls";
@@ -84,8 +84,8 @@ export default function CustomerPage() {
               <div className="min-w-0 space-y-1.5">
                 <p className="truncate text-lg font-semibold">{fullName(customer)}</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {customer.tags.map((tag) => <Badge key={tag} tone={tag === "Diabetes" ? "warn" : "neutral"}>{tag}</Badge>)}
-                  {customer.waitlist && state.modules.waitlist && <Badge tone="accent">{t("customer.waitlist")}</Badge>}
+                  {customer.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}
+                  {customer.waitlist && state.modules.waitlist && <Tag>{t("customer.waitlist")}</Tag>}
                 </div>
               </div>
             </div>

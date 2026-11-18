@@ -8,8 +8,8 @@ import { formatTime } from "../data/dates";
 import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong, formatDuration, formatMoney, relativeDay } from "../i18n/format";
-import { findCustomer } from "../selectors";
-import { useDemo } from "../store";
+import { findCustomer, findService } from "../selectors";
+import { usePublicDemo } from "../store";
 import { Badge } from "../ui/badge";
 import { Notice } from "../ui/notice";
 import { Button, ButtonLink } from "../ui/button";
@@ -26,7 +26,7 @@ import { customerBookings, findCustomerByPhone } from "./lookup";
 
 /** No login in the demo: the link carries `?ref=`, or the customer types the number they booked with. */
 export function MyBookings() {
-  const state = useDemo();
+  const state = usePublicDemo();
   const now = useNow();
   const ref = useSearchParams()?.get("ref");
   const [remembered] = useState(() => recallGuest()?.customerId);
@@ -103,7 +103,7 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
         <Section title={t("booking.me.past")}>
           <Card className="divide-y divide-hairline">
             {past.map((booking) => {
-              const service = state.services.find((s) => s.id === booking.serviceId);
+              const service = findService(state, booking.serviceId);
               return (
                 <div key={booking.id} className="p-4">
                   <div className="flex flex-wrap items-center gap-3">
@@ -127,7 +127,7 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
 }
 
 function UpcomingCard({ state, now, booking }: { state: DemoState; now: Now; booking: Booking }) {
-  const service = state.services.find((s) => s.id === booking.serviceId);
+  const service = findService(state, booking.serviceId);
   const person = state.staff.find((s) => s.id === booking.staffId);
   return (
     <Card className="space-y-4 p-4">

@@ -3,6 +3,7 @@ import { BRAND } from "../brand";
 import { addDays } from "../data/dates";
 import type { Booking, DemoState, StaffId } from "../data/types";
 import { SALON_TIMEZONE } from "../tools/clock";
+import { findService } from "../selectors";
 
 // A read-only calendar feed of one person's work, for Google or Apple Calendar
 // to subscribe to. It carries the treatment, the customer's FIRST name and the
@@ -37,7 +38,7 @@ function fold(line: string): string {
 }
 
 function event(state: DemoState, booking: Booking, stamp: string): string[] {
-  const service = state.services.find((s) => s.id === booking.serviceId);
+  const service = findService(state, booking.serviceId);
   const firstName = state.customers.find((c) => c.id === booking.customerId)?.firstName ?? "";
   const title = [service?.name ?? "Booking", firstName].filter(Boolean).join(" · ");
   return [

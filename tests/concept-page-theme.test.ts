@@ -127,8 +127,8 @@ describe("logo colours", () => {
 describe("sections", () => {
   const kinds = (list: { kind: string }[]) => list.map((s) => s.kind);
 
-  it("starts with the page the booking site always had", () => {
-    expect(kinds(DEFAULT_SECTIONS)).toEqual(["hero", "treatments", "giftcards", "reviews", "map"]);
+  it("starts with the price list first, then the team, reviews, where to find us and gift cards", () => {
+    expect(kinds(DEFAULT_SECTIONS)).toEqual(["hero", "treatments", "staff", "reviews", "map", "giftcards"]);
     expect(DEFAULT_PAGE.sections).toBe(DEFAULT_SECTIONS);
   });
 
@@ -136,23 +136,23 @@ describe("sections", () => {
     const withFaq = addSection(DEFAULT_SECTIONS, "faq");
     expect(withFaq.at(-1)).toEqual({ kind: "faq", variant: "open" });
     expect(addSection(withFaq, "faq")).toEqual(withFaq);
-    expect(availableKinds(DEFAULT_SECTIONS)).toEqual(["staff", "gallery", "faq", "instagram"]);
+    expect(availableKinds(DEFAULT_SECTIONS)).toEqual(["gallery", "faq", "instagram"]);
     expect(availableKinds(withFaq)).not.toContain("faq");
   });
 
   it("removes and reorders without losing or duplicating anything", () => {
-    expect(kinds(removeSection(DEFAULT_SECTIONS, "reviews"))).toEqual(["hero", "treatments", "giftcards", "map"]);
-    expect(kinds(moveSection(DEFAULT_SECTIONS, "reviews", -1))).toEqual(["hero", "treatments", "reviews", "giftcards", "map"]);
-    expect(kinds(moveSection(DEFAULT_SECTIONS, "reviews", 1))).toEqual(["hero", "treatments", "giftcards", "map", "reviews"]);
-    expect(kinds(moveSection(DEFAULT_SECTIONS, "map", 1))).toEqual(kinds(DEFAULT_SECTIONS));
+    expect(kinds(removeSection(DEFAULT_SECTIONS, "reviews"))).toEqual(["hero", "treatments", "staff", "map", "giftcards"]);
+    expect(kinds(moveSection(DEFAULT_SECTIONS, "reviews", -1))).toEqual(["hero", "treatments", "reviews", "staff", "map", "giftcards"]);
+    expect(kinds(moveSection(DEFAULT_SECTIONS, "reviews", 1))).toEqual(["hero", "treatments", "staff", "map", "reviews", "giftcards"]);
+    expect(kinds(moveSection(DEFAULT_SECTIONS, "giftcards", 1))).toEqual(kinds(DEFAULT_SECTIONS));
     expect(kinds(moveSection(DEFAULT_SECTIONS, "faq", 1))).toEqual(kinds(DEFAULT_SECTIONS));
   });
 
   it("keeps the hero on top, whatever is moved", () => {
     expect(kinds(moveSection(DEFAULT_SECTIONS, "treatments", -1))).toEqual(kinds(DEFAULT_SECTIONS));
-    expect(kinds(moveToFirst(DEFAULT_SECTIONS, "reviews"))).toEqual(["hero", "reviews", "treatments", "giftcards", "map"]);
-    expect(kinds(moveToFirst(removeSection(DEFAULT_SECTIONS, "hero"), "map"))).toEqual(["map", "treatments", "giftcards", "reviews"]);
-    expect(kinds(moveToFirst(DEFAULT_SECTIONS, "gallery"))).toEqual(["hero", "gallery", "treatments", "giftcards", "reviews", "map"]);
+    expect(kinds(moveToFirst(DEFAULT_SECTIONS, "reviews"))).toEqual(["hero", "reviews", "treatments", "staff", "map", "giftcards"]);
+    expect(kinds(moveToFirst(removeSection(DEFAULT_SECTIONS, "hero"), "map"))).toEqual(["map", "treatments", "staff", "reviews", "giftcards"]);
+    expect(kinds(moveToFirst(DEFAULT_SECTIONS, "gallery"))).toEqual(["hero", "gallery", "treatments", "staff", "reviews", "map", "giftcards"]);
   });
 
   it("changes a look only to one the section has", () => {

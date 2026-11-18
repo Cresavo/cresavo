@@ -8,8 +8,10 @@ import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visit
 import type { CostKind } from "./finance/types";
 import { isFree, needOf, pickResource } from "./data/slots";
 import { undoEntry } from "./log/undo";
+import { bookableServices } from "./selectors";
 import { MODULES, presetModules, type PresetId } from "./modules/registry";
 import { applyOps, type OpsAction } from "./ops/edit";
+import { applyServiceAction, type ServiceAction } from "./services/edit";
 import { applyPageAction, type PageAction } from "./page/actions";
 import { grantSupport, revokeSupport, type GrantHours } from "./support/access";
 import type { NewTicket } from "./support/tickets";
@@ -43,6 +45,7 @@ export type DemoAction =
   | BookingMessageAction
   | CustomerReviewAction
   | OpsAction
+  | ServiceAction
   | AssistantAction
   | PageAction
   | { type: "booking/move"; id: string; date: DateKey; start: number; staffId?: StaffId; notice?: Omit<InboxItem, "id"> }
@@ -164,7 +167,7 @@ function ensureOnlineCustomer(state: DemoState, guest: OnlineGuest, category: Cu
 }
 
 function bookOnline(state: DemoState, action: Extract<DemoAction, { type: "online/book" }>): DemoState {
-  const service = state.services.find((s) => s.id === action.serviceId);
+  const service = bookableServices(state).find((s) => s.id === action.serviceId);
   if (!service || !action.guest.name.trim() || !isFree(state, action.staffId, action.date, action.start, needOf(service))) return state;
   const { state: withCustomer, customer } = ensureOnlineCustomer(state, action.guest, service.category, action.staffId, false);
   const booked = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" });
@@ -187,7 +190,7 @@ function bookOnline(state: DemoState, action: Extract<DemoAction, { type: "onlin
 }
 
 function joinWaitlist(state: DemoState, action: Extract<DemoAction, { type: "online/waitlist" }>): DemoState {
-  const service = state.services.find((s) => s.id === action.serviceId);
+  const service = bookableServices(state).find((s) => s.id === action.serviceId);
   if (!service || !action.guest.name.trim()) return state;
   const { state: withCustomer, customer } = ensureOnlineCustomer(state, action.guest, service.category, service.staffIds[0], true);
   return reduce(withCustomer, {
@@ -309,6 +312,17 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
     case "resource/remove":
     case "service/resources":
       return applyOps(state, action);
+    case "service/add":
+    case "service/update":
+    case "service/visibility":
+    case "service/duplicate":
+    case "service/delete":
+    case "service/move":
+    case "category/add":
+    case "category/rename":
+    case "category/remove":
+    case "category/move":
+      return applyServiceAction(state, action);
     case "memory/add":
     case "memory/edit":
     case "memory/forget":

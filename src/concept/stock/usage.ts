@@ -8,7 +8,7 @@ const USAGE_WINDOW_DAYS = 28;
 
 /** Everything one visit of this treatment uses up. */
 export function usesOfService(state: DemoState, serviceId: string): StockUse[] {
-  return state.services.find((s) => s.id === serviceId)?.consumption ?? [];
+  return [...state.services, ...state.retiredServices].find((s) => s.id === serviceId)?.consumption ?? [];
 }
 
 /** The treatments that use this product, with the amount per visit. */

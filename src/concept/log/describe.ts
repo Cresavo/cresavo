@@ -4,7 +4,7 @@ import type { Booking, DemoState } from "../data/types";
 import { paidWithCards } from "../giftcards/cards";
 import { changedAspects } from "../page/diff";
 import { t, tc } from "../i18n";
-import { formatDayShort, formatMoney } from "../i18n/format";
+import { formatDayShort, formatDuration, formatMoney } from "../i18n/format";
 import { findCustomer, findService, fullName } from "../selectors";
 
 /** Reading a message or dismissing a card is not a change worth logging. */
@@ -189,5 +189,32 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       return { summary: t("log.resourceRemove", { name: prev.resources.find((r) => r.id === action.id)!.name }) };
     case "service/resources":
       return { summary: t("log.serviceResources", { service: serviceName(next, action.id) }) };
+    case "service/add":
+      return { summary: t("log.serviceAdd", { service: action.service.name.trim() }), after: `${formatDuration(action.service.duration)} · ${formatMoney(action.service.price)}` };
+    case "service/update": {
+      const line = (state: DemoState) => {
+        const service = findService(state, action.id)!;
+        return `${service.name} · ${formatDuration(service.duration)} · ${formatMoney(service.price)}`;
+      };
+      return { summary: t("log.serviceUpdate", { service: serviceName(next, action.id) }), before: line(prev), after: line(next) };
+    }
+    case "service/visibility":
+      return { summary: t(action.hidden ? "log.serviceHide" : "log.serviceShow", { service: serviceName(next, action.id) }) };
+    case "service/duplicate":
+      return { summary: t("log.serviceDuplicate", { service: serviceName(prev, action.id) }), after: next.services.find((s) => !prev.services.some((old) => old.id === s.id))!.name };
+    case "service/delete": {
+      const kept = prev.bookings.filter((b) => b.serviceId === action.id && b.status === "booked" && b.date >= prev.generatedFor).length;
+      return { summary: t("log.serviceDelete", { service: serviceName(prev, action.id) }), after: kept ? tc("log.serviceDeleteKept", kept) : undefined };
+    }
+    case "service/move":
+      return { summary: t("log.serviceMove") };
+    case "category/add":
+      return { summary: t("log.categoryAdd", { name: action.name.trim() }) };
+    case "category/rename":
+      return { summary: t("log.categoryRename", { name: action.name.trim() }), before: prev.categories.find((c) => c.id === action.id)!.name };
+    case "category/remove":
+      return { summary: t("log.categoryRemove", { name: prev.categories.find((c) => c.id === action.id)!.name }) };
+    case "category/move":
+      return { summary: t("log.categoryMove") };
   }
 }

@@ -6,7 +6,6 @@ import { addDays } from "../data/dates";
 import type { DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong } from "../i18n/format";
-import { packOf } from "../packs";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { cx } from "../ui/cx";
@@ -53,10 +52,12 @@ interface WizardProps {
   onBooked?: (id: string) => void;
   /** Called with true while a flow step is open, false on the first screen. */
   onFlowChange?: (inFlow: boolean) => void;
+  /** The page already shows the price list, so the first screen need not offer one. */
+  listOnPage?: boolean;
 }
 
 /** The booking flow: describe it, or pick treatment, then time, then name and phone. */
-export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowChange }: WizardProps) {
+export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowChange, listOnPage }: WizardProps) {
   const [trail, setTrail] = useState<Step[]>(initialServiceId ? ["ask", "times"] : ["ask"]);
   const [serviceId, setServiceId] = useState(initialServiceId);
   const [request, setRequest] = useState<BookingRequest>();
@@ -68,10 +69,6 @@ export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowCh
   const go = (next: Step) => setTrail((current) => [...current, next]);
   const back = () => setTrail((current) => current.slice(0, -1));
   const service = state.services.find((s) => s.id === serviceId);
-  const pack = packOf(state);
-  const nameOf = (id: string) => state.services.find((s) => s.id === id)?.name ?? id;
-  const askServices: [string, string, string] = [nameOf(pack.requests.returning.serviceId), nameOf(pack.requests.newClient.serviceId), nameOf(pack.featured[2])];
-
   const ask =(text: string) => {
     const parsed = parseBookingRequest(text, state, now.today);
     setRequest(parsed);
@@ -96,15 +93,15 @@ export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowCh
   };
 
   const body: Record<Step, ReactNode> = {
-    ask: <AskStep services={askServices} onAsk={ask} onChoose={() => go("service")} />,
+    ask: <AskStep onAsk={ask} onChoose={listOnPage ? undefined : () => go("service")} />,
     service: (
       <div className="space-y-5">
         <h2 className="text-xl font-semibold tracking-tight">{missed ? t("booking.service.missed") : t("booking.service.title")}</h2>
-        {packOf(state).categories.map((category) => (
-          <div key={category} className="space-y-2">
-            <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-text-secondary">{t(`category.${category}`)}</p>
+        {state.categories.filter((category) => state.services.some((s) => s.category === category.id)).map((category) => (
+          <div key={category.id} className="space-y-2">
+            <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-text-secondary">{category.name}</p>
             {state.services
-              .filter((s) => s.category === category)
+              .filter((s) => s.category === category.id)
               .map((s) => (
                 <button key={s.id} onClick={() => chooseService(s.id)} className="flex w-full rounded-lg bg-surface p-3.5 text-left ring-1 ring-inset ring-hairline transition-colors hover:bg-action-bg hover:ring-action">
                   <ServiceInfo service={s} staff={state.staff} />
@@ -124,16 +121,16 @@ export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowCh
     details: service && slot && <DetailsStep state={state} now={now} serviceId={service.id} slot={slot} onTaken={taken} onBooked={onBooked} />,
   };
 
+  // Idle, the flow is one quiet line above the price list; a card appears once a booking is under way.
+  if (step === "ask") return body.ask;
   return (
     <Card className="space-y-5 p-5 sm:p-6">
-      {step !== "ask" && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Button variant="ghost" size="sm" icon={<ArrowLeft size={16} />} onClick={back} className="-ml-2">
-            {t("common.back")}
-          </Button>
-          <Progress step={step} />
-        </div>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button variant="ghost" size="sm" icon={<ArrowLeft size={16} />} onClick={back} className="-ml-2">
+          {t("common.back")}
+        </Button>
+        <Progress step={step} />
+      </div>
       {body[step]}
       <WaitlistSheet state={state} now={now} request={waitlist} onClose={() => setWaitlist(null)} />
     </Card>

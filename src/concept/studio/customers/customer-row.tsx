@@ -25,7 +25,7 @@ export function CustomerRow({ customer, stats, today, late, due }: CustomerRowPr
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="min-w-0 break-words font-medium">{fullName(customer)}</span>
           {late && <Badge tone="warn">{t("customers.badge.late")}</Badge>}
-          {due && <Badge tone="accent">{t("customers.badge.due")}</Badge>}
+          {due && <Badge>{t("customers.badge.due")}</Badge>}
         </div>
         <p className="text-sm text-text-secondary">
           {stats?.lastVisit ? t("customers.lastVisit", { ago: agoText(stats.lastVisit, today) }) : t("customers.noVisits")}

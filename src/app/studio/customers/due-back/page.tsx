@@ -44,7 +44,7 @@ export default function DueBackPage() {
                       <span className="min-w-0">
                         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <span className="truncate font-medium">{fullName(row.customer)}</span>
-                          <Badge tone={row.overdueDays ? "warn" : "accent"}>
+                          <Badge tone={row.overdueDays ? "warn" : "neutral"}>
                             {row.overdueDays ? tc("dueBack.overdue", row.overdueDays) : t("dueBack.dueToday")}
                           </Badge>
                         </span>

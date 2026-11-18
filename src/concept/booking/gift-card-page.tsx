@@ -4,14 +4,14 @@ import { useSearchParams } from "next/navigation";
 import { Printer } from "lucide-react";
 import { GiftCardFace } from "../giftcards/card-face";
 import { t } from "../i18n";
-import { useDemo } from "../store";
+import { usePublicDemo } from "../store";
 import { Button, ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
 import { bookingHome, giftCardFromParams } from "./links";
 
 /** `/boka/salong-eko/gift?...`: the card a customer shares or prints. It shows what is on the card; the balance is checked on the booking page. */
 export function GiftCardPage() {
-  const state = useDemo();
+  const state = usePublicDemo();
   const params = useSearchParams();
   const card = params ? giftCardFromParams(params) : null;
   if (!state) return null;

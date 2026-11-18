@@ -24,6 +24,8 @@ export interface CollectionPatch {
   added: string[];
   changed: { before: Item; after: Item }[];
   removed: { index: number; item: Item }[];
+  /** Set when the change reordered the list: the ids in order, before and after. */
+  order?: { before: string[]; after: string[] };
 }
 
 /** What a change did to the state, kept so it can be taken back. */

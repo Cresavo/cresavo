@@ -7,7 +7,6 @@ import type { Staff } from "../../data/types";
 import { t, words } from "../../i18n";
 import { formatDayShort } from "../../i18n/format";
 import { dispatch, undo } from "../../store";
-import { Badge } from "../../ui/badge";
 import { Button, IconButton } from "../../ui/button";
 import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
@@ -30,13 +29,13 @@ export function StaffSchedule({ person }: { person: Staff }) {
         <p className="text-sm text-text-secondary">{t("schedule.week")}</p>
         <Button size="sm" variant="ghost" icon={<Pencil size={16} />} onClick={() => setOpen("week")}>{t("schedule.editWeek")}</Button>
       </div>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-1 rounded-md bg-surface-2 py-2">
         {WEEK_ORDER.map((d) => {
           const shift = person.week[d];
           return (
             <div key={d} className="min-w-0 text-center">
-              <Badge tone={shift ? "accent" : "neutral"} className="w-full justify-center">{words.weekdaysShort[d]}</Badge>
-              <p className="mt-1 text-[11px] leading-tight tabular-nums text-text-secondary">{shift ? `${formatTime(shift.start).slice(0, 2)}–${formatTime(shift.end).slice(0, 2)}` : "–"}</p>
+              <p className={shift ? "text-[13px] font-medium" : "text-[13px] text-text-secondary"}>{words.weekdaysShort[d]}</p>
+              <p className="mt-0.5 text-[11px] leading-tight tabular-nums text-text-secondary">{shift ? `${formatTime(shift.start).slice(0, 2)}–${formatTime(shift.end).slice(0, 2)}` : "–"}</p>
             </div>
           );
         })}

@@ -41,7 +41,7 @@ export function StockList({ onEdit }: { onEdit: (item: StockItem) => void }) {
                       {item.unit} · {item.supplier} · {t("stock.reorderAt", { count: item.reorderAt })}
                       {isLow && left !== null && left !== undefined && ` · ${left < 1 ? t("stock.almostOut") : tc("stock.runsOut", left)}`}
                     </span>
-                    <Meter value={item.inStock / (item.reorderAt * 2.5)} tone={isLow ? "bg-warning" : "bg-action"} className="max-w-xs" />
+                    <Meter value={item.inStock / (item.reorderAt * 2.5)} className="max-w-xs" />
                   </button>
                   <div className="flex shrink-0 items-center gap-1">
                     <IconButton label={t("stock.remove")} onClick={() => dispatch({ type: "stock/adjust", id: item.id, delta: -1 })} className="size-10 ring-1 ring-hairline">

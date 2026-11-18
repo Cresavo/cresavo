@@ -1,5 +1,24 @@
 # Progress · AI-native demo
 
+## 2026-11-18 · Claude Code · treatments, salon page and the desktop studio
+
+**Done**
+
+- **Treatments & prices** (`src/concept/services/edit.ts`, `src/concept/studio/services/`): add, edit, hide, duplicate, reorder and delete treatments; add, rename, reorder and remove categories. Pure reducer actions (`service/*`, `category/*`) with validation, log entries and undo; the undo patch now records a reorder. Categories are data (`state.categories`); a deleted treatment that bookings, punch cards or campaigns name moves to `state.retiredServices`, so nothing is rewritten. Customers see `publicView(state)`: hidden treatments are not listed or bookable. `DEMO_VERSION` is 16, with a migration from 15.
+- **Salon booking page**: price list first, search as one line, photo with the facts under it, hours / address with map link / contact / cancellation rule as a column beside the list, team and reviews on by default.
+- **Desktop studio**: one page frame for every page, title row with the assistant and Help, sidebar groups that fit 1440×900, demo role switch in the sidebar footer. Today's right column is Next customer plus one attention card. Staff and Your data & AI rebalanced.
+- **Status words**: `Badge` is plain text (semantic colour only for warning and danger), `Tag` is a hairline chip for labels, info notices are neutral.
+
+**Design review**: Codex Astra critiqued the old layout (unanchored frame, the same fact four times on Today, two header rows, sidebar length, pills) and judged the rendered result afterwards; its follow-ups on the phone hero, the folded calendar link and the short-screen sidebar are in.
+
+**Try it**: `/studio/more/services`, `/boka/salong-eko`, `/studio` at 1280 to 1680 wide in light and dark.
+
+**Screens**: `docs/design/cresavo/screens/*-before.jpg` and `*-after.jpg`.
+
+**Tests**: `concept-services.test.ts` (every action and validation, migration), `concept-badge.test.ts` (markup and AA contrast), e2e `treatments.spec.ts`.
+
+**Not done / notes**: a treatment has no buffer or preparation time (the model has none); staff still cannot open Treatments & prices (the existing role policy), the page itself is read-only for them; on Today a cancelled visit is still its own row inside the free slot it left; Calendar still gives a person with a day off a full column; the sidebar scrolls on screens lower than about 860 px when a group is open.
+
 ## Product-site QA
 
 The coming-soon and demo landing pages use the configured product domain for

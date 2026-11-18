@@ -58,6 +58,14 @@ describe("migrateState", () => {
     expect(migrated.bookings).toEqual(fresh.bookings);
   });
 
+  it("moves a v15 page that was still on the old default sections to the new default, and leaves an arranged one alone", () => {
+    const fresh = createDemoState(today);
+    const old = [{ kind: "hero", variant: "photo" }, { kind: "treatments", variant: "list" }, { kind: "giftcards", variant: "check" }, { kind: "reviews", variant: "cards" }, { kind: "map", variant: "full" }];
+    expect(migrateState({ ...fresh, version: 15, page: { ...fresh.page, sections: old } })!.page.sections).toEqual(DEFAULT_PAGE.sections);
+    const arranged = [...old].reverse();
+    expect(migrateState({ ...fresh, version: 15, page: { ...fresh.page, sections: arranged } })!.page.sections).toEqual(arranged);
+  });
+
   it("rejects unknown, too old, newer and malformed saves", () => {
     const fresh = createDemoState(today);
     expect(migrateState({ ...fresh, version: OLDEST_MIGRATABLE - 1 })).toBeNull();

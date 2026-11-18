@@ -1,84 +1,114 @@
-import { Clock, Mail, MapPin, Phone, Star } from "lucide-react";
+import { Mail, MapPin, Phone, Star } from "lucide-react";
 import { formatTime, weekday } from "../data/dates";
 import type { DemoState, Review } from "../data/types";
-import { t, words } from "../i18n";
+import { t, tc, words } from "../i18n";
 import { formatDate } from "../i18n/format";
 import { Card, Section } from "../ui/card";
 import { cx } from "../ui/cx";
 import type { Now } from "../use-now";
+import { FREE_CHANGE_HOURS } from "./policy";
 import { publicName, recentReviews, reviewSummary } from "./reviews";
 
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
+/** The week at a glance, today in bold, with the lunch break as a note under it. */
 export function OpeningHours({ state, now }: { state: DemoState; now: Now }) {
   const todayIndex = weekday(now.today);
+  const { lunch } = state.salon;
   return (
     <Section title={t("booking.hours")}>
-      <Card className="divide-y divide-hairline">
-        {WEEK_ORDER.map((day) => {
-          const hours = state.salon.hours[day];
-          return (
-            <div key={day} className={cx("flex items-center justify-between px-4 py-2.5 text-sm", day === todayIndex && "font-semibold")}>
-              <span>{words.weekdays[day]}</span>
-              <span className={hours ? "" : "text-text-secondary"}>{hours ? `${formatTime(hours.open)}–${formatTime(hours.close)}` : t("booking.closed")}</span>
-            </div>
-          );
-        })}
+      <Card className="px-4 py-2">
+        <dl className="divide-y divide-hairline text-sm">
+          {WEEK_ORDER.map((day) => {
+            const hours = state.salon.hours[day];
+            return (
+              <div key={day} className={cx("flex items-center justify-between py-2", day === todayIndex && "font-semibold")}>
+                <dt>{words.weekdays[day]}</dt>
+                <dd className={hours ? "tabular-nums" : "text-text-secondary"}>{hours ? `${formatTime(hours.open)}–${formatTime(hours.close)}` : t("booking.closed")}</dd>
+              </div>
+            );
+          })}
+        </dl>
+        {lunch && <p className="border-t border-hairline py-2 text-sm text-text-secondary">{t("booking.lunchNote", { from: formatTime(lunch.start), to: formatTime(lunch.end) })}</p>}
       </Card>
     </Section>
   );
 }
 
+const linkClass = "font-medium text-action underline-offset-2 hover:underline";
+
+/** Address with a plain link to a map (no embed, no third-party script), and how to reach the business. */
 export function FindUs({ state }: { state: DemoState }) {
-  const mapLink = `https://www.openstreetmap.org/search?query=${encodeURIComponent(`${state.salon.address}, ${state.salon.area.split(" · ")[0]}`)}`;
   const { salon } = state;
-  const rows = [
-    { icon: MapPin, text: `${salon.address}, ${salon.area}` },
-    { icon: Phone, text: salon.phone },
-    { icon: Mail, text: salon.email },
-    ...(salon.lunch ? [{ icon: Clock, text: t("booking.lunchNote", { from: formatTime(salon.lunch.start), to: formatTime(salon.lunch.end) }) }] : []),
-  ];
+  const mapLink = `https://www.openstreetmap.org/search?query=${encodeURIComponent(`${salon.address}, ${salon.area.split(" · ")[0]}`)}`;
   return (
     <Section title={t("booking.findUs")}>
-      <Card className="space-y-3 p-4 text-sm">
-        {rows.map(({ icon: Icon, text }) => (
-          <p key={text} className="flex items-start gap-3">
-            <Icon size={16} className="mt-0.5 shrink-0 text-text-secondary" />
-            <span className="min-w-0 [overflow-wrap:anywhere]">{text}</span>
-          </p>
-        ))}
-        <a href={mapLink} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center font-medium text-action underline-offset-2 hover:underline">
-          {t("booking.openMap")}
+      <Card id="find-us" className="scroll-mt-4 divide-y divide-hairline px-4 text-sm">
+        <div className="flex items-start gap-3 py-3">
+          <MapPin aria-hidden size={16} className="mt-0.5 shrink-0 text-text-secondary" />
+          <address className="min-w-0 flex-1 not-italic">
+            <span className="block">{salon.address}</span>
+            <span className="block text-text-secondary">{salon.area}</span>
+            <a href={mapLink} target="_blank" rel="noopener noreferrer" className={cx(linkClass, "mt-1 inline-flex min-h-11 items-center")}>
+              {t("booking.openMap")}
+            </a>
+          </address>
+        </div>
+        <a href={`tel:${salon.phone.replace(/[^\d+]/g, "")}`} className="flex min-h-12 items-center gap-3">
+          <Phone aria-hidden size={16} className="shrink-0 text-text-secondary" />
+          <span className={linkClass}>{salon.phone}</span>
+        </a>
+        <a href={`mailto:${salon.email}`} className="flex min-h-12 items-center gap-3">
+          <Mail aria-hidden size={16} className="shrink-0 text-text-secondary" />
+          <span className={cx(linkClass, "min-w-0 [overflow-wrap:anywhere]")}>{salon.email}</span>
         </a>
       </Card>
     </Section>
   );
 }
 
+/** What changing or cancelling costs, said once and plainly where a customer looks for it. */
+export function CancellationPolicy({ state }: { state: DemoState }) {
+  return (
+    <Section title={t("booking.policy.title")}>
+      <p className="text-sm text-text-secondary">
+        {t("booking.policy.free", { hours: FREE_CHANGE_HOURS })} {t("booking.policy.late", { phone: state.salon.phone })}
+      </p>
+    </Section>
+  );
+}
+
+function Stars({ rating }: { rating: number }) {
+  return (
+    <span role="img" className="flex items-center gap-0.5" aria-label={t("booking.stars", { count: rating })}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Star key={n} size={13} className={n <= rating ? "fill-text text-text" : "text-border"} />
+      ))}
+    </span>
+  );
+}
+
 export function Reviews({ state, variant = "cards" }: { state: DemoState; variant?: string }) {
   const shown = recentReviews(state.reviews, variant === "quote" ? 1 : 3);
-  if (variant === "quote" && shown[0]) return <QuoteReview state={state} review={shown[0]} />;
+  const { average, count } = reviewSummary(state.reviews);
+  if (!shown.length) return null;
+  if (variant === "quote") return <QuoteReview state={state} review={shown[0]} />;
   return (
-    <Section title={t("booking.reviews")}>
-      <div className="space-y-3">
+    <Section title={t("booking.reviews")} action={<span className="text-right text-sm text-text-secondary">{average.toFixed(1)} · {tc("booking.reviewCount", count)}</span>}>
+      <Card id="reviews" className="scroll-mt-4 divide-y divide-hairline px-4">
         {shown.map((review) => {
           const customer = state.customers.find((c) => c.id === review.customerId);
           return (
-            <Card key={review.id} className="space-y-2 p-4">
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <span role="img" className="flex items-center gap-0.5" aria-label={t("booking.stars", { count: review.rating })}>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <Star key={n} size={14} className={n <= review.rating ? "fill-amber-400 text-amber-400" : "text-border"} />
-                  ))}
-                </span>
-                <span className="text-text-secondary">{formatDate(review.date)}</span>
-              </div>
-              <p className="text-[15px] leading-relaxed">{review.text}</p>
-              <p className="text-xs text-text-secondary">{customer ? publicName(customer.firstName, customer.lastName) : ""} · {review.source}</p>
-            </Card>
+            <figure key={review.id} className="space-y-1.5 py-3.5">
+              <blockquote className="text-[15px] leading-relaxed">{review.text}</blockquote>
+              <figcaption className="flex flex-wrap items-center gap-x-2 text-xs text-text-secondary">
+                <Stars rating={review.rating} />
+                {customer ? publicName(customer.firstName, customer.lastName) : ""} · {formatDate(review.date)} · {review.source}
+              </figcaption>
+            </figure>
           );
         })}
-      </div>
+      </Card>
     </Section>
   );
 }
@@ -89,7 +119,7 @@ function QuoteReview({ state, review }: { state: DemoState; review: Review }) {
   const customer = state.customers.find((c) => c.id === review.customerId);
   return (
     <Section title={t("booking.reviews")}>
-      <Card className="space-y-3 p-6 text-center">
+      <Card id="reviews" className="scroll-mt-4 space-y-3 p-6 text-center">
         <p className="text-xl font-medium leading-snug sm:text-2xl">“{review.text}”</p>
         <p className="text-sm text-text-secondary">
           {customer ? publicName(customer.firstName, customer.lastName) : ""} · {t("booking.reviewsAverage", { average: average.toFixed(1), count })}
