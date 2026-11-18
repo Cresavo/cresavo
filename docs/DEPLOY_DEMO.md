@@ -1,6 +1,6 @@
 # Deploying the Cresavo demo (Vercel)
 
-The concept demo (`/studio`, `/boka/salong-eko`, the demo landing and
+The concept demo (`/studio`, `/boka/salong-eko`, and
 `/api/concept/*`) runs as a plain Next.js app on Vercel without a database or
 secrets. Demo state lives in each visitor's browser; AI tasks run their
 built-in rules unless a provider key is configured. The public instance is

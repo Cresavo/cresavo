@@ -86,4 +86,4 @@ export function createRateLimiter({ max, windowMs } = RATE_LIMIT, capacity = MAX
 }
 
 /** The pages that carry the form; a form post without JavaScript is sent back to one of them. */
-export const WAITLIST_PAGES = ["/", "/coming-soon", "/landing"] as const;
+export const WAITLIST_PAGES = ["/", "/coming-soon"] as const;

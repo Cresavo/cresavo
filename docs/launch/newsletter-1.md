@@ -24,7 +24,7 @@ access it through an API or use it in your own AI tools through MCP. I also
 want you to be able to connect your own website and choose your own POS and
 payment providers through connectors.
 
-There’s an early concept demo at https://demo.cresavo.com. You can try
+There’s an early concept demo at https://demo.cresavo.com/studio. You can try
 booking an appointment at the fictional Salong Eko with made-up details or
 watch the 36-second tour. I’m a long way from done and would welcome help
 from people who run salons or work in development, design or payments.

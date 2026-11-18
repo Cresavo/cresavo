@@ -1,6 +1,6 @@
 // Same-hue text on tinted backgrounds (e.g. green text on a green chip): passes AA maybe, but reads poorly.
 // Flags text whose colour has the background's hue, on a visibly tinted background, with contrast below QA_TINT_LIMIT (default 5.5:1).
-import { launch, newContext, save, settle, shot, DEMO } from "./lib.mjs";
+import { launch, newContext, save, settle, shot, APEX, DEMO } from "./lib.mjs";
 import { MAIN_PAGES } from "./pages.mjs";
 
 const LIMIT = Number(process.env.QA_TINT_LIMIT ?? 5.5);
@@ -10,7 +10,7 @@ for (const mode of [{ name: "light", dark: false }, { name: "dark", dark: true }
   const ctx = await newContext(browser, { viewport: "desktop", dark: mode.dark });
   const page = await ctx.newPage();
   for (const path of MAIN_PAGES) {
-    await page.goto(DEMO + path); await settle(page);
+    await page.goto((path === "/" ? APEX : DEMO) + path); await settle(page);
     const hits = await page.evaluate((LIMIT) => {
       const parse = c => { const srgb = c.startsWith("color(srgb"); const m = c.replace("color(srgb", "").match(/[\d.]+(e-?\d+)?/g)?.map(Number) ?? [0, 0, 0, 0]; const k = srgb ? 255 : 1; return { r: m[0] * k, g: m[1] * k, b: m[2] * k, a: m.length > 3 ? m[3] : 1 }; };
       const over = (top, under) => ({ r: top.r * top.a + under.r * (1 - top.a), g: top.g * top.a + under.g * (1 - top.a), b: top.b * top.a + under.b * (1 - top.a), a: 1 });

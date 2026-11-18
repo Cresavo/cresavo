@@ -1,7 +1,7 @@
 import type { GetServerSidePropsContext } from "next";
 import { getStarCount } from "./github-stars";
 import { siteRequestHost } from "./request-host";
-import { isLocalHost, resolveHost, siteLinks } from "../page/resolve";
+import { isLocalHost, siteLinks } from "../page/resolve";
 
 export interface SiteProps {
   /** Where the coming-soon page and the demo live for this visitor's host. */
@@ -16,11 +16,10 @@ export async function getSiteProps({ req, query }: GetServerSidePropsContext) {
     const value = req.headers[name];
     return typeof value === "string" ? value : undefined;
   });
-  // Behind a server that hides the public host (localhost), fall back to the product domain;
-  // preview deployments keep same-deployment links so a preview links to itself.
-  const linksHost = resolveHost(host).kind === "site" || !isLocalHost(host)
-    ? host
-    : process.env.NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN;
+  // A production proxy can hide the public host behind loopback. Development and previews keep local links.
+  const linksHost = isLocalHost(host) && process.env.NODE_ENV !== "development"
+    ? process.env.NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN
+    : host;
   return {
     props: { links: siteLinks(linksHost), waitlist: typeof query.waitlist === "string" ? query.waitlist : null },
   };

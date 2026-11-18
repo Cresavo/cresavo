@@ -52,11 +52,6 @@ export function resolveHost(rawHost: string | null | undefined, directory: Direc
 
 export const UNKNOWN_PATH = "/unknown-address";
 export const COMING_SOON_PATH = "/coming-soon";
-export const LANDING_PATH = "/landing";
-
-// The product domain is the coming-soon page; its demo subdomain, preview deployments and a
-// local server show the demo landing at `/`, so both sites can be seen without DNS (the
-// coming-soon page is at COMING_SOON_PATH on every platform host).
 
 /** The product front door can also arrive at its rewritten path on an internal host. */
 export function isProductHome(rawHost: string | null | undefined, pathname: string): boolean {
@@ -72,7 +67,7 @@ export function isProductHome(rawHost: string | null | undefined, pathname: stri
 /** Where the two sites link to each other: absolute on the real hosts, paths of the same deployment everywhere else. */
 export function siteLinks(rawHost: string | null | undefined, product = productDomain()): { apex: string; demo: string } {
   const resolution = resolveHost(rawHost, { domains: {} }, product);
-  return resolution.kind === "site" ? { apex: `https://${product}/`, demo: `https://demo.${product}/` } : { apex: COMING_SOON_PATH, demo: "/" };
+  return resolution.kind === "site" ? { apex: `https://${product}/`, demo: `https://demo.${product}/studio` } : { apex: COMING_SOON_PATH, demo: "/studio" };
 }
 
 /**
@@ -93,16 +88,18 @@ export function ownerViewHref(rawHost: string | null | undefined, protocol = "ht
 const PUBLIC_PREFIXES = ["/_next/", "/demo/", "/tenant/", "/favicon"];
 const BOOKING_PATHS = /^\/(?:me|gift|widget|booking\/[^/]+)\/?$/;
 
-export type HostRoute = { action: "next" } | { action: "rewrite"; path: string };
+export type HostRoute = { action: "next" } | { action: "rewrite" | "redirect"; path: string };
 
-/** What the proxy does with this request: serve it as is, or serve another path under the same address. */
+/** Resolve public entry points before the app handles its own routes. */
 export function routeHost(rawHost: string | null | undefined, pathname: string, directory: Directory = DEMO_DIRECTORY, product = productDomain(), legacyHome = false): HostRoute {
   const resolution = resolveHost(rawHost, directory, product);
   if (resolution.kind === "app" || resolution.kind === "site") {
-    if (pathname !== "/" && pathname !== "") return { action: "next" };
-    if (resolution.kind === "site" && resolution.site === "apex") return { action: "rewrite", path: COMING_SOON_PATH };
-    // `legacyHome` keeps the older lab home at `/` for its own test suites (LEGACY_HOME=1); it never applies to the real sites.
-    return resolution.kind === "app" && legacyHome ? { action: "next" } : { action: "rewrite", path: LANDING_PATH };
+    const root = pathname === "/" || pathname === "";
+    if (resolution.kind === "site" && resolution.site === "demo" && (root || pathname === COMING_SOON_PATH)) {
+      return { action: "redirect", path: "/studio" };
+    }
+    if (root && !(resolution.kind === "app" && legacyHome)) return { action: "rewrite", path: COMING_SOON_PATH };
+    return { action: "next" };
   }
   if (resolution.kind === "unknown") return pathname.startsWith("/_next/") ? { action: "next" } : { action: "rewrite", path: UNKNOWN_PATH };
   // A business's address serves its own booking paths only, never another business's `/boka/<slug>`.

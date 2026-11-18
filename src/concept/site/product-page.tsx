@@ -25,23 +25,33 @@ const films = [
   { key: "journal", label: "tour.journal", alt: "landing.card.alt" },
 ] as const;
 
-function FilmTour({ studio }: { studio: boolean }) {
+function FilmTour() {
   const [index, setIndex] = useState(0);
+  const [booking, setBooking] = useState(false);
   const film = films[index];
   return (
     <section id="tour" className={e.film} data-reveal>
       <div>
         <h2 className={e.display}>{site["film.heading"]}</h2>
-        {studio && <select className={e.filmSelect} aria-label={site["tour.choose"]} value={index} onChange={event => setIndex(Number(event.target.value))}>
+        <div className={e.filmModes}>
+          <button aria-pressed={!booking} onClick={() => setBooking(false)}>{site["tour.watch"]}</button>
+          <button aria-pressed={booking} onClick={() => setBooking(true)}>{site["mini.pickTreatment"]}</button>
+        </div>
+        {!booking && <select className={e.filmSelect} aria-label={site["tour.choose"]} value={index} onChange={event => setIndex(Number(event.target.value))}>
           {films.map(({ key, label }, i) => <option value={i} key={key}>{site[label]}</option>)}
         </select>}
       </div>
-      <div className={e.screening}><TourClip key={film.key} name={film.key} title={site[film.label]} description={site[film.alt]} /></div>
+      <div className={e.screening}>
+        {booking ? <>
+          <MiniBooking />
+          <Link prefetch={false} className={s.textLink} href="/boka/salong-eko">{site["landing.book.link"]}<ArrowUpRight size={16} aria-hidden /></Link>
+        </> : <TourClip key={film.key} name={film.key} title={site[film.label]} description={site[film.alt]} />}
+      </div>
     </section>
   );
 }
 
-export function ProductPage({ links, waitlist, stars, studio }: ProductSiteProps & { studio: boolean }) {
+export function ProductPage({ links, waitlist, stars }: ProductSiteProps) {
   const main = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!main.current || !("IntersectionObserver" in window)) return;
@@ -56,27 +66,21 @@ export function ProductPage({ links, waitlist, stars, studio }: ProductSiteProps
   }, []);
   return (
     <div className={`${s.page} ${e.canvas}`}>
-      <SiteHead title={site[studio ? "landing.title" : "soon.title"]} description={site[studio ? "landing.description" : "soon.description"]} />
-      <ProductHeader home={studio ? links.apex : undefined} />
+      <SiteHead title={site["soon.title"]} description={site["soon.description"]} />
+      <ProductHeader demo={links.demo} />
       <main ref={main} className={s.landing}>
-        <ProductHero demo={studio ? "/studio" : links.demo} stars={stars} studio={studio} />
+        <ProductHero demo={links.demo} stars={stars} />
         <StudioPreview />
         <FounderStory />
         <ChannelMap />
         <OpenDesign />
-        <FilmTour studio={studio} />
-        {studio && <div className={e.bookingSample}>
-          <div><h2 className={e.display}>{site["landing.book.heading"]}</h2>
-          <Link prefetch={false} className={s.textLink} href="/boka/salong-eko">{site["landing.book.link"]}<ArrowUpRight size={16} aria-hidden /></Link></div>
-          <MiniBooking />
-        </div>}
+        <FilmTour />
         <PlatformComparison />
-        <JoinMovement />
-        <WaitlistForm from={studio ? "/landing" : "/coming-soon"} initial={waitlist ?? undefined} className={s.block} />
+        <JoinMovement demo={links.demo} />
+        <WaitlistForm from="/" initial={waitlist ?? undefined} className={s.block} />
       </main>
       <footer className={`${s.footer} ${s.landingFooter} ${s.soonFooter}`}>
-        <span>{site[studio ? "landing.footer" : "soon.footer"]}</span>
-        {studio && <a href={links.apex}>{site["landing.about"]}</a>}
+        <span>{site["soon.footer"]}</span>
         <Link prefetch={false} href="/privacy">{site["waitlist.privacy"]}</Link>
         <a href={PROJECT_REPOSITORY}>{site["soon.github"]}</a>
       </footer>

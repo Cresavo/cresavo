@@ -19,7 +19,7 @@ Cresavo is open source under AGPL-3.0-only. I want salons to be able to
 export their data, access it through an API or use it in their own AI tools
 through MCP. The goal is to let salons run the software themselves, connect
 their own website and choose their own POS and payment providers through
-connectors. There’s an early concept demo at https://demo.cresavo.com with
+connectors. There’s an early concept demo at https://demo.cresavo.com/studio with
 a fictional salon and no account needed. There’s a long way to go.
 
 **Deployment:** Clone the repo and run `npm run demo` with Node.js 22.12+

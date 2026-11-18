@@ -12,17 +12,15 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 - The README now links to the demo, community, public roadmap and ways to contribute. First-time contributors have a quickstart and review guide, with simple forms for GitHub Discussions.
-- The public pages introduce the home-salon founder story, a photographic tour of fictional Salong Eko, four interactive product views and a map of open connections.
-- The public sites now open in Salong Eko with a salon photograph and calendar clipping. An interactive channel map lets visitors write a reply, try an assistant draft, approve a booking and undo it. Both pages include the demo quick start and distinguish booking commission from card fees.
-- Both public sites end with a "Join the movement" section: star the repository, join the discussion, try the demo or pick a good first issue.
-- Both public sites compare booking fees, data ownership, branding and hosting. Their GitHub buttons show the star count when available, and visitors can expand any tour recording.
-- Visitors can try a booking on the landing page and watch five short recordings from Salong Eko. Each recording has a playback control and a still for reduced motion.
+- One product page brings together the founder story, studio previews, five workflow films and an offline booking sample. All demo links open the owner studio directly.
+- A looping inbox story follows a request through owner approval, booking and customer confirmation. A connected diagram shows which tools work in the demo and which are planned.
+- Visitors can compare fees, branding, hosting and data ownership, see the GitHub star count and contribute through the community links.
 - Anna and Erik have fictional staff portraits on the booking page, throughout booking and in the studio.
 - Treatments & prices: owners add, edit, hide, duplicate, reorder and delete treatments, and add, rename, reorder and remove categories. Name, category, length and price come first; description, who can do it and visibility sit behind "More options". Deleting a treatment with upcoming bookings says how many, offers to hide it instead, and never changes the bookings. Every change is in What happened? and can be undone. The booking page, booking flows, the assistant and campaigns follow at once.
 - Salon booking page: opening hours, address with a map link, phone and e-mail links, the team with short bios, a few reviews and the cancellation rule, as one block beside the price list on wide screens.
 
 - Connections foundation (goal 28): one port per capability (SMS, email, payments, accounting, calendar, listing, social, ads) with a locale-neutral contract (minor units + ISO 4217, E.164, UTC + IANA zone). The demo's confirmations, reminders, time suggestions, waiting-list texts and campaign posts go through simulated adapters that record what would have been sent; nothing leaves the demo. Live adapters for Twilio, 46elks, Resend, Postmark, Stripe, Fortnox, Visma eAccounting, Google Calendar, Microsoft Graph, Reserve with Google and Meta are off by default behind `CONCEPT_CONNECTIONS_LIVE` and per-port provider settings; see `docs/integrations/README.md`.
-- Cresavo: the platform is named Cresavo (wordmark, tokens and copy on every platform surface). `cresavo.com` shows a coming-soon page with a launch waiting list, `demo.cresavo.com` the demo landing; the tenant booking page keeps the business's own brand.
+- Cresavo: the platform is named Cresavo (wordmark, tokens and copy on every platform surface). `cresavo.com` shows a coming-soon page with a launch waiting list, `demo.cresavo.com` opens the studio; the tenant booking page keeps the business's own brand.
 - Assistant: daily questions are answered straight from your data: who is next, when a customer is coming, what they had last time, whether a treatment fits a day (with the next day that has room), what a treatment costs, a gift card's balance, what waits in the Inbox and who is due back. Rows link to the customer.
 - Assistant: "Text Ida that I'm running 15 minutes late" drafts one simulated text for approval.
 - Features: two starting points, Essentials and Everything, as one tap each (also `/studio?start=essentials|everything`).

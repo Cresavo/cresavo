@@ -1,5 +1,5 @@
 // Navigation: tab bar at 390 px, sidebar at 1280 px, back/forward, deep links + reload, dark mode, overflow.
-import { launch, newContext, recorder, save, shot, settle, watch, DEMO } from "./lib.mjs";
+import { launch, newContext, recorder, save, shot, settle, watch, APEX, DEMO } from "./lib.mjs";
 
 import { MAIN_PAGES } from "./pages.mjs";
 
@@ -30,7 +30,7 @@ const overflow = page => page.evaluate(() => document.documentElement.scrollWidt
       return `h1=${await h1(page)}`;
     });
   for (const path of MAIN_PAGES) {
-    await page.goto(DEMO + path); await settle(page);
+    await page.goto((path === "/" ? APEX : DEMO) + path); await settle(page);
     await r.check(`390: no horizontal overflow on ${path}`, async () => { const o = await overflow(page); if (o > 0) throw new Error(`scrollWidth exceeds viewport by ${o}px`); });
     await shot(page, `nav-390-${slug(path)}`, { fullPage: true });
   }
@@ -71,13 +71,13 @@ const overflow = page => page.evaluate(() => document.documentElement.scrollWidt
   });
   for (const path of ["/studio/customers/k209", "/studio/more/finance", "/studio/more/campaigns/c-autumn", "/studio/calendar", "/boka/salong-eko/me"])
     await r.check(`deep link + reload: ${path}`, async () => {
-      await page.goto(DEMO + path); await settle(page); const a = await h1(page);
+      await page.goto((path === "/" ? APEX : DEMO) + path); await settle(page); const a = await h1(page);
       await page.reload(); await settle(page); const b = await h1(page);
       if (a === "(no h1)" || a !== b) throw new Error(`h1 "${a}" then "${b}"`);
       return `h1=${a}`;
     });
   for (const path of MAIN_PAGES) {
-    await page.goto(DEMO + path); await settle(page);
+    await page.goto((path === "/" ? APEX : DEMO) + path); await settle(page);
     await r.check(`1280: no horizontal overflow on ${path}`, async () => { const o = await overflow(page); if (o > 0) throw new Error(`overflow ${o}px`); });
     await shot(page, `nav-1280-${slug(path)}`, { fullPage: true });
   }
@@ -88,7 +88,7 @@ const overflow = page => page.evaluate(() => document.documentElement.scrollWidt
 for (const viewport of ["mobile", "desktop"]) {
   const ctx = await newContext(browser, { viewport, dark: true }); const page = await ctx.newPage(); watch(page, issues);
   for (const path of MAIN_PAGES) {
-    await page.goto(DEMO + path); await settle(page);
+    await page.goto((path === "/" ? APEX : DEMO) + path); await settle(page);
     // A salon's booking page keeps the salon's own colours (Salong Eko's theme is light) by design: screenshot only.
     if (path.startsWith("/boka/")) { await shot(page, `dark-${viewport === "mobile" ? 390 : 1280}-${slug(path)}`, { fullPage: true }); continue; }
     await r.check(`dark ${viewport}: ${path} renders with a dark background`, async () => {

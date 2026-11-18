@@ -1,26 +1,40 @@
 .section { padding-block: var(--section-space); border-top: 1px solid var(--ui-hairline); }
-.diagram { position: relative; isolation: isolate; display: grid; grid-template: repeat(3, 1fr) / minmax(0, 1fr) 32% minmax(0, 1fr); grid-auto-flow: column; align-items: stretch; padding: 28px clamp(14px,5%,72px); background: radial-gradient(circle, var(--ui-hairline) 1px, transparent 1px) 0 0 / 12px 12px, var(--ui-surface-2); border: 1px solid var(--ui-hairline); border-radius: 5px; }
-.wires { position: absolute; z-index: -1; inset: 28px 30%; width: 40%; height: calc(100% - 56px); fill: none; stroke: var(--ui-input-border); }
-.wires path { vector-effect: non-scaling-stroke; stroke-width: 1.5; }
-.hub { grid-column: 2; grid-row: 1 / 4; place-self: center; display: grid; place-items: center; width: clamp(76px, 10vw, 146px); aspect-ratio: 1; border-radius: 50%; background: var(--brand-plum); box-shadow: 0 0 0 6px var(--ui-surface-2), 0 0 0 7px var(--ui-hairline); }
-.hub svg { width: 75%; fill: var(--paper); }
-.node { align-self: center; display: flex; align-items: center; gap: 12px; min-height: 64px; margin: 8px 0; padding: 9px 14px; border-radius: 8px; background: var(--ui-surface); border: 1px solid var(--ui-hairline); }
-.node svg { flex: none; color: var(--ui-action); }
-.node a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
-.node a svg { width: 12px; height: 12px; vertical-align: middle; }
-.node small, .node strong { display: block; line-height: 1.3; }
-.node strong { font-size: .95rem; }
-.node small { margin-top: 3px; color: var(--ui-text-secondary); font-size: .8rem; }
+.diagram { --line: var(--ui-border); position: relative; isolation: isolate; display: grid; grid-template-columns: 1fr 29% 1fr; grid-template-rows: repeat(3,1fr); padding: clamp(12px,2.5vw,42px); border: 1px solid var(--ui-hairline); border-radius: 14px; background: radial-gradient(circle, var(--ui-hairline) 1px, transparent 1px) 0 0/15px 15px, var(--ui-surface-2); }
+.wires,.hub { grid-area: 1/2/4/3; align-self: stretch; }
+.wires { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; overflow: visible; }
+.wires path { fill: none; stroke: var(--line); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.wires .pulse { stroke: var(--ui-action); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 4 106; stroke-dashoffset: 10; }
+.hub { position: relative; place-self: center; display: grid; place-items: center; width: min(76%,140px); aspect-ratio: 1; border-radius: 50%; background: var(--brand-plum); outline: 1px solid var(--line); outline-offset: 5px; }
+.hub svg { width: 76%; fill: #fbf5f0; }
+.node { grid-column: 1; position: relative; align-self: stretch; margin-block: 7px; padding: 14px 18px; background: var(--ui-surface); border: 1px solid var(--ui-hairline); border-radius: 9px; }
+.node:nth-of-type(even) { grid-column: 3; }
+.node::after { content: ""; position: absolute; right: -4px; top: calc(50% - 4px); width: 8px; height: 8px; border-radius: 50%; background: var(--ui-action); }
+.node:nth-of-type(even)::after { left: -4px; right: auto; }
+.title { display: flex; align-items: center; gap: 9px; }
+.title > svg { color: var(--ui-action); flex: none; }
+.node h3 { margin: 0; font-size: 1rem; line-height: 1.25; }
+.node a { color: inherit; text-underline-offset: 3px; }
+.node p { margin: 5px 0 9px; font-size: .85rem; line-height: 1.42; color: var(--ui-text-secondary); }
+.node small { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border-radius: 12px; background: var(--ui-success-bg); color: var(--ui-success); font-size: .68rem; font-weight: 600; }
+.node small[data-planned="true"] { background: var(--ui-surface-2); color: var(--ui-text-secondary); }
 @media (prefers-reduced-motion: no-preference) {
-  [data-entered] .wires path { stroke-dasharray: 1; animation: connect 1.15s ease-in-out both; }
+  .pulse { animation: transmit 3.5s linear infinite; }
+  @keyframes transmit { to { stroke-dashoffset: -100; } }
 }
-@keyframes connect { from { stroke-dashoffset: 1; } }
-@media (max-width: 650px) {
-  .diagram { grid-template-columns: minmax(0,1fr) 18% minmax(0,1fr); padding: 13px 6px; }
-  .wires { inset: 13px 29%; width: 42%; height: calc(100% - 26px); }
-  .hub { width: 52px; }
-  .node { flex-direction: column; align-items: flex-start; justify-content: center; gap: 5px; min-height: 90px; margin: 3px 0; padding: 8px; }
-  .node svg { width: 15px; height: 15px; }
-  .node strong { font-size: .81rem; }
-  .node small { font-size: .72rem; }
+@media (max-width: 720px) {
+  .diagram { grid-template-columns: 1fr 24px 1fr; grid-template-rows: auto repeat(3,1fr); padding: 14px 10px; }
+  .wires { display: none; }
+  .hub { grid-area: 1/1/2/4; width: 92px; margin: 5px 0 12px; }
+  .node { margin-block: 5px; padding: 11px 9px; }
+  .title { flex-direction: column; align-items: start; gap: 6px; }
+  .node small { font-size: .65rem; white-space: nowrap; padding-inline: 4px; }
+  .node p { font-size: .8rem; }
+  .diagram::before { content: ""; grid-area: 2/2/5/3; background: var(--line); width: 2px; justify-self: center; margin-top: -12px; height: calc(83.333% + 12px); }
+  .node::before { content: ""; position: absolute; left: 100%; top: calc(50% - 1px); width: 13px; height: 2px; background: var(--line); }
+  .node:nth-of-type(even)::before { left: auto; right: 100%; }
+  @media (prefers-reduced-motion: no-preference) {
+    .node::before { background: linear-gradient(90deg, transparent,var(--ui-action), transparent) 0/50% 100% no-repeat,var(--line); animation: signal 2.8s ease infinite; }
+    .node:nth-of-type(even)::before { animation-direction: reverse; }
+    @keyframes signal { from { background-position: 180%; } to { background-position: -80%; } }
+  }
 }

@@ -24,7 +24,7 @@ uppgifter när du testar. Jag tar gärna emot hjälp och synpunkter från er
 som jobbar i salong. Finns det något ni skulle vilja koppla ihop med
 bokningarna som inte går i dag?
 
-https://demo.cresavo.com
+https://demo.cresavo.com/studio
 
 Tack! Svara gärna här i tråden.
 

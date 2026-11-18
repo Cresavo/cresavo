@@ -11,13 +11,13 @@ Cresavo is an open-source booking app for salons and clinics that brings appoint
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Cresavo/cresavo/verify.yml?branch=main&label=CI)](https://github.com/Cresavo/cresavo/actions/workflows/verify.yml)
 [![License AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
-[![Live demo](https://img.shields.io/badge/demo-try%20it-65445e.svg)](https://demo.cresavo.com)
+[![Live demo](https://img.shields.io/badge/demo-try%20it-65445e.svg)](https://demo.cresavo.com/studio)
 
 > **Early concept demo.** Use fictional data only. Cresavo is still being built and is not ready for real customers. See [project status](docs/STATUS.md).
 
 [![Cresavo tour preview showing customer booking, assistant approval and undo](docs/media/cresavo-tour-preview.webp)](https://cresavo.com/site/tour-16x9.mp4)
 
-[Try the demo](https://demo.cresavo.com) · [Watch the 36-second tour](https://cresavo.com/site/tour-16x9.mp4) · [Join Discussions](https://github.com/Cresavo/cresavo/discussions) · [Roadmap](docs/ROADMAP.md)
+[Try the demo](https://demo.cresavo.com/studio) · [Watch the 36-second tour](https://cresavo.com/site/tour-16x9.mp4) · [Join Discussions](https://github.com/Cresavo/cresavo/discussions) · [Roadmap](docs/ROADMAP.md)
 
 ## Why Cresavo
 
@@ -70,7 +70,7 @@ tries a fast-forward update before starting the local demo.
 
 | Landing page | Customer booking page (mobile) |
 |---|---|
-| <img src="docs/design/cresavo/screens/site-v5-landing-1440-light.jpg" alt="Cresavo landing page with the tagline and product sections" width="420"> | <img src="docs/design/cresavo/screens/booking-page-mobile-after.jpg" alt="Salong Eko's booking page on a phone: treatments, team, reviews and opening hours" width="200"> |
+| <img src="docs/design/cresavo/screens/site-v6-full-1440-light.jpg" alt="Cresavo landing page with the tagline and product sections" width="420"> | <img src="docs/design/cresavo/screens/booking-page-mobile-after.jpg" alt="Salong Eko's booking page on a phone: treatments, team, reviews and opening hours" width="200"> |
 
 ## Self-hosting
 

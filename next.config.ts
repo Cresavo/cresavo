@@ -20,10 +20,6 @@ const config: NextConfig = {
   turbopack: { root: process.cwd() },
   poweredByHeader: false,
   devIndicators: false,
-  async redirects() {
-    // The English landing moved to /landing when the site became English only; old links keep working.
-    return [{ source: "/en/landing", destination: "/landing", permanent: true }];
-  },
   async headers() {
     return [
       {

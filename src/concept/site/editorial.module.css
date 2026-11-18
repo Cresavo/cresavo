@@ -37,19 +37,22 @@
 .canvas main > section:global([aria-labelledby="platforms-heading"]) h2, .canvas main > section:global(#waitlist) h2 {
   margin: 0; font: 400 clamp(2.7rem,4.6vw,4.8rem)/1.02 var(--display); letter-spacing: -.06em; text-wrap: balance;
 }
-.canvas main > section:not(.hero), .bookingSample { margin-inline: var(--inset); }
+.canvas main > section:not(.hero) { margin-inline: var(--inset); }
 .intro { display: flex; align-items: end; justify-content: space-between; gap: 16px 30px; margin-bottom: 28px; }
 .intro p, .story p, .movement p { max-width: 42ch; margin: 0; line-height: 1.55; color: var(--ui-text-secondary); }
-.story, .film, .movement, .bookingSample { display: grid; align-items: center; gap: clamp(24px, 6.5vw, 108px); padding-block: var(--section-space); border-top: 1px solid var(--ui-hairline); }
+.story, .film, .movement { display: grid; align-items: center; gap: clamp(24px, 6.5vw, 108px); padding-block: var(--section-space); border-top: 1px solid var(--ui-hairline); }
 .story { grid-template-columns: .82fr 1.3fr; }
 .door { display: block; width: 100%; height: clamp(330px, 31vw, 470px); object-fit: cover; object-position: 50% 57%; border-radius: 3px; }
 .story .display { max-width: 17ch; }
 .story em { display: block; color: var(--ui-action); font-weight: inherit; }
 .story p { margin-top: 22px; }
-.film, .bookingSample { grid-template-columns: .85fr 1.15fr; }
+.film { grid-template-columns: .85fr 1.15fr; }
 .screening { display: grid; justify-items: center; min-width: 0; }
+.filmModes { display: flex; gap: 4px; margin: 18px 0 0; }
+.filmModes button { cursor: pointer; border: 1px solid var(--ui-border); border-radius: 22px; padding: 9px 15px; font: inherit; font-size: .86rem; background: transparent; color: inherit; }
+.filmModes button[aria-pressed="true"] { color: var(--ui-action-text); background: var(--ui-action); border-color: var(--ui-action); }
 .filmSelect { margin-top: 20px; border: 1px solid var(--ui-input-border); border-radius: 999px; padding: 10px 20px; background: var(--ui-surface); color: inherit; font: inherit; }
-.bookingSample > section { width: min(100%, 380px); justify-self: center; border: 1px solid var(--ui-border); }
+.screening > section { width: min(100%, 380px); justify-self: center; border: 1px solid var(--ui-border); }
 .canvas .movement { grid-template-columns: 1.05fr 1fr; gap: 0; padding: 0; overflow: hidden; background: var(--brand-plum); color: var(--paper); border-radius: 4px; }
 .movement p { margin-top: 16px; color: var(--paper); }
 .movement a { display: inline-flex; align-items: center; margin: 9px 20px 0 0; border-bottom: 1px solid #cbbabd; }
@@ -69,13 +72,14 @@
   }
 }
 @keyframes photo-in { from { opacity: 0; } }
-@keyframes reveal { from { transform: translateY(12px); opacity: .65; } }
+@keyframes reveal { from { transform: translateY(12px); } }
 @keyframes drift { to { transform: translateY(5%) scale(1.1); } }
 @media (min-width: 731px) {
   .hero[data-photo="phone"] .heroArt img { left: auto; right: 0; width: 66%; }
   .hero[data-photo="phone"]::before { background: linear-gradient(90deg,#30212c 24%,rgba(48,33,44,.94) 34%,rgba(48,33,44,.6) 44%, transparent 64%),linear-gradient(0deg,#20161dbb,transparent 24%); }
 }
 @media (max-width: 730px) {
+  .canvas { --inset: 0px; }
   .masthead { min-height: 62px; }
   .masthead svg { width: 108px; }
   .masthead nav { gap: 14px; }
@@ -90,7 +94,7 @@
   .gallery .plateNumber { font-size: .64rem; }
   .gallery i { padding: 0; }
   .gallery button { width: 38px; height: 38px; }
-  .intro, .story, .film, .bookingSample, .movement { display: grid; grid-template-columns: 1fr; gap: 20px; }
+  .intro, .story, .film, .movement { display: grid; grid-template-columns: 1fr; gap: 20px; }
   .door { height: 248px; }
   .story .display { max-width: 18ch; }
   .story p { margin-top: 15px; }

@@ -1,7 +1,7 @@
 # Captions for the vertical tour
 
 > Attach the delivered v5 9:16 tour (36 seconds). Check that the text is
-> legible with sound off. Use https://demo.cresavo.com as the profile link
+> legible with sound off. Use https://demo.cresavo.com/studio as the profile link
 > where available and remove “link in bio” where the profile has no link.
 
 ## Instagram Reels
