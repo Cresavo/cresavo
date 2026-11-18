@@ -10,16 +10,16 @@ import type { DateKey, StaffId } from "../../data/types";
 import { t } from "../../i18n";
 import { formatDayLong, formatDuration, formatMoney } from "../../i18n/format";
 import { findCustomer, fullName } from "../../selectors";
-import { dispatch, undo, withBookingLock } from "../../store";
+import { dispatchWithLog, withBookingLock } from "../../store";
 import { Avatar } from "../../ui/avatar";
 import { Button } from "../../ui/button";
 import { Field, SearchInput, TextInput } from "../../ui/controls";
 import { cx } from "../../ui/cx";
 import { Notice } from "../../ui/notice";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { SlotPicker, slotOnDate, type Slot } from "./slot-picker";
+import { showUndoToast } from "../log/undo-toast";
 
 export interface NewBookingPreset {
   customerId?: string;
@@ -78,16 +78,13 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
     if (pending || !slot || !fits || (!customer && (!adding || !guestValid))) return;
     const contact = customer ? { customerId: customer.id } : { newCustomer: { ...guest, email, since: today } };
     setPending(true);
-    const ok = await withBookingLock(() => dispatch({ type: "booking/create", ...contact, serviceId: service.id, staffId, date: slot.date, start: slot.start, source: "phone" }));
+    const logId = await withBookingLock(() => dispatchWithLog({ type: "booking/create", ...contact, serviceId: service.id, staffId, date: slot.date, start: slot.start, source: "phone" }));
     setPending(false);
-    if (!ok) {
+    if (logId === false) {
       setFailed(true);
       return;
     }
-    showToast(t("newBooking.bookedToast", { name: customer?.firstName ?? guest.name.trim().split(/\s+/)[0], when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` }), {
-      label: t("common.undo"),
-      run: undo,
-    });
+    showUndoToast(t("newBooking.bookedToast", { name: customer?.firstName ?? guest.name.trim().split(/\s+/)[0], when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` }), logId);
     onClose();
   };
 

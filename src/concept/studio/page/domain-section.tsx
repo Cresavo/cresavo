@@ -17,11 +17,13 @@ import { addLiveDomain, checkLiveDomain, liveDomainsEnabled, removeLiveDomain } 
 /** Level 3: the business's own domain. Shows the one DNS record to add and where the connection stands. */
 export function DomainSection() {
   const { state } = useStudio();
-  const [live, setLive] = useState(false);
+  const [live, setLive] = useState<boolean | null>();
   useEffect(() => {
     void liveDomainsEnabled().then(setLive);
   }, []);
   if (!state.modules.domain) return <Off />;
+  if (live === undefined) return <p role="status">{t("domain.loading")}</p>;
+  if (live === null) return <p role="status">{t("domain.statusUnavailable")}</p>;
   return state.domain ? <Connected connection={state.domain} live={live} /> : <Start live={live} />;
 }
 
@@ -40,11 +42,11 @@ function Start({ live }: { live: boolean }) {
   const check = checkDomain(host);
   const problem = host.trim() && !check.ok ? t(`domain.problem.${check.problem}`) : undefined;
   const connect = async () => {
-    if (!check.ok) return;
+    if (!check.ok || busy) return;
     setBusy(true);
-    const status = live ? await addLiveDomain(check.host) : null;
-    dispatch({ type: "domain/connect", host: check.host });
-    if (status) dispatch({ type: "domain/check", status });
+    const status = live ? await addLiveDomain(check.host) : undefined;
+    if (live && !status) showToast(t("domain.operationFailed"));
+    else dispatch({ type: "domain/connect", host: check.host, status });
     setBusy(false);
   };
   return (
@@ -64,15 +66,20 @@ function Connected({ connection, live }: { connection: DomainConnection; live: b
   const [busy, setBusy] = useState(false);
   const record = dnsInstruction(connection.host);
   const recheck = async () => {
+    if (busy) return;
     setBusy(true);
-    const status = live ? await checkLiveDomain(connection.host) : null;
-    dispatch(status ? { type: "domain/check", status } : { type: "domain/check" });
+    const status = live ? await checkLiveDomain(connection.host) : undefined;
+    if (live && !status) showToast(t("domain.operationFailed"));
+    else dispatch({ type: "domain/check", host: connection.host, status });
     setBusy(false);
   };
-  const remove = () => {
-    if (live) void removeLiveDomain(connection.host);
-    dispatch({ type: "domain/remove" });
-    showToast(t("domain.removed"));
+  const remove = async () => {
+    if (busy) return;
+    setBusy(true);
+    const removed = !live || await removeLiveDomain(connection.host);
+    if (!removed) showToast(t("domain.operationFailed"));
+    else if (dispatch({ type: "domain/remove", host: connection.host })) showToast(t("domain.removed"));
+    setBusy(false);
   };
   return (
     <Card className="space-y-4 p-4">
@@ -93,7 +100,7 @@ function Connected({ connection, live }: { connection: DomainConnection; live: b
       {connection.status === "secure" && <p className="text-sm text-text-secondary">{t("domain.live", { host: connection.host })}</p>}
       <div className="flex flex-wrap gap-2">
         {connection.status !== "secure" && <Button variant="secondary" disabled={busy} icon={busy ? <Loader2 size={18} className="animate-spin" /> : undefined} onClick={recheck}>{t("domain.check")}</Button>}
-        <Button variant="ghost" onClick={remove}>{t("domain.remove")}</Button>
+        <Button variant="ghost" disabled={busy} onClick={remove}>{t("domain.remove")}</Button>
       </div>
     </Card>
   );

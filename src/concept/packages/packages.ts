@@ -1,4 +1,5 @@
 import type { Booking, DateKey, DemoState, Service, ServicePackage } from "../data/types";
+import { paidWithCards } from "../giftcards/cards";
 
 // A package (punch card) is prepaid like a gift card: selling it is not
 // revenue. Each visit that uses it is marked done and counts as revenue for
@@ -18,7 +19,11 @@ export function activePackage(state: DemoState, customerId: string, serviceId: s
 }
 
 /** The package a booking that is not done yet would use. */
-export const packageFor = (state: DemoState, booking: Booking) => (booking.status === "booked" ? activePackage(state, booking.customerId, booking.serviceId) : undefined);
+/** An existing gift-card payment takes precedence over using a package visit. */
+export const packageFor = (state: DemoState, booking: Booking) =>
+  booking.status === "booked" && paidWithCards(state, booking.id) === 0
+    ? activePackage(state, booking.customerId, booking.serviceId)
+    : undefined;
 
 /** What the unused visits are worth: money the business owes its customers. */
 export function packageLiability(state: DemoState): number {
@@ -42,7 +47,7 @@ export function sellPackage(state: DemoState, input: { customerId: string; servi
 
 /** Uses one visit of the customer's package for a booking being marked done, if there is one. The visit then earns its share of the package price. */
 export function consumePackageVisit(state: DemoState, booking: Booking): DemoState {
-  const pkg = activePackage(state, booking.customerId, booking.serviceId);
+  const pkg = packageFor(state, booking);
   if (!pkg) return state;
   return {
     ...state,

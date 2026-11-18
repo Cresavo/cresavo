@@ -6,15 +6,15 @@ import { t, tc } from "../../i18n";
 import { MAX_CSS_LENGTH, sanitizeCss } from "../../page/css";
 import { normalizePage, type PageConfig } from "../../page/config";
 import type { PageTheme } from "../../page/theme";
-import { dispatch, undo } from "../../store";
+import { dispatchWithLog } from "../../store";
 import { Button } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
 import { Segmented, TextArea } from "../../ui/controls";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { Preview } from "./preview";
 import { SectionControls } from "./section-controls";
 import { ThemeControls } from "./theme-controls";
+import { showUndoToast } from "../log/undo-toast";
 
 /** Booking page editor: controls on one side, the real page with the draft on the other. Nothing changes for customers until Save. */
 export function PageEditor() {
@@ -27,9 +27,10 @@ export function PageEditor() {
   const theme = (patch: Partial<PageTheme>) => setDraft((current) => ({ ...current, theme: { ...current.theme, ...patch } }));
 
   const save = () => {
-    if (!dispatch({ type: "page/set", page: draft })) return;
+    const logId = dispatchWithLog({ type: "page/set", page: draft });
+    if (logId === false) return;
     setDraft(normalizePage(draft));
-    showToast(t("pageEditor.saved"), { label: t("common.undo"), run: () => { undo(); setDraft(JSON.parse(saved) as PageConfig); } });
+    showUndoToast(t("pageEditor.saved"), logId, () => setDraft(JSON.parse(saved) as PageConfig));
   };
 
   return (

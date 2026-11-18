@@ -13,12 +13,12 @@ import { formatAmount, formatDayMonth, weekdayName } from "../../i18n/format";
 import { cardVisible, type TodayCard } from "../../modules/registry";
 import { buildCustomerStats, lowStock } from "../../selectors";
 import { overdueOrders } from "../../stock/delivery-note";
-import { dispatch, undo } from "../../store";
+import { dispatch } from "../../store";
 import { Button, ButtonLink, IconButton } from "../../ui/button";
-import { showToast } from "../../ui/toast";
 import type { OpenSheet } from "../booking/booking-sheets";
 import { useForecasts } from "../stock/use-forecasts";
 import { useStudio } from "../use-studio";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 // The two most pressing at first: the rest are a tap away, so Today stays the schedule.
 const VISIBLE_AT_FIRST = 2;
@@ -44,8 +44,7 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
   const list: Suggestion[] = [];
   const notify = (title: string, body: string, toast: string) => {
     if (!textWaitlistAboutGaps(state, today)) return;
-    dispatch({ type: "inbox/add", item: { kind: "system", waitlistOffer: true, date: today, time: minutes, title, body, read: false, handled: true } });
-    showToast(toast, { label: t("common.undo"), run: undo });
+    dispatchWithUndoToast({ type: "inbox/add", item: { kind: "system", waitlistOffer: true, date: today, time: minutes, title, body, read: false, handled: true } }, toast);
   };
 
   const lowItems = cardVisible(state.modules, "stock-low") ? lowStock(state).slice(0, 2) : [];

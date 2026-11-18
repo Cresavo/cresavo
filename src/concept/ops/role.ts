@@ -18,7 +18,7 @@ function read(): Role {
   }
 }
 
-function snapshot(): Role {
+export function currentRole(): Role {
   role ??= read();
   return role;
 }
@@ -39,7 +39,7 @@ export function useRole(): Role {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    snapshot,
+    currentRole,
     () => "owner",
   );
 }

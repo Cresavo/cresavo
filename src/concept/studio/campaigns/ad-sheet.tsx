@@ -3,11 +3,10 @@ import { AD_BUDGETS, AD_DAYS, AD_RADII_KM, estimateAd } from "../../campaigns/si
 import type { Campaign, CampaignAd } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { formatMoney, formatNumber } from "../../i18n/format";
-import { dispatch, undo } from "../../store";
 import { Button } from "../../ui/button";
 import { Segmented } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 interface AdSheetProps {
   campaign: Campaign;
@@ -24,7 +23,7 @@ export function AdSheet({ campaign, area, open, onClose }: AdSheetProps) {
   const estimate = estimateAd(ad);
 
   const start = () => {
-    if (dispatch({ type: "campaign/ad", id: campaign.id, ad })) showToast(t("campaigns.ad.started", { name: campaign.name }), { label: t("common.undo"), run: undo });
+    dispatchWithUndoToast({ type: "campaign/ad", id: campaign.id, ad }, t("campaigns.ad.started", { name: campaign.name }));
     onClose();
   };
 

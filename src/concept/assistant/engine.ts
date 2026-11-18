@@ -7,7 +7,7 @@ import { t, tc } from "../i18n";
 import { formatDayLong, formatDayShort, formatMoney } from "../i18n/format";
 import { interpretCommand, type IntentParams } from "../intent";
 import { parseDays } from "../intent/dates";
-import { canCommand, type Role } from "../ops/access";
+import { canChangeBooking, canCommand, type Role } from "../ops/access";
 import { fullName } from "../selectors";
 import { listBookings } from "../tools/read";
 import { closingBrief, morningBrief, weeklyBrief, type Brief } from "./briefs";
@@ -184,6 +184,9 @@ export function commandReply(input: EngineInput, understood: string, intent = in
   const notUnderstood = intent.action === "question" && card.kind === "choose" && card.choices.every((choice) => input.examples.includes(choice.label));
   if (notUnderstood) return { ...result(input, understood, rules(t("assistant.fallback"), { followUps: input.examples })), command: true };
   const { text, topic, followUps } = describe(card);
+  if ((intent.action === "move" || intent.action === "cancel") && !canChangeBooking(state, role, intent.params.bookingId ?? "")) {
+    return { ...result(input, understood, rules(text, { card })), command: true };
+  }
   const context = nextContext(input.context, state, intent.params, card, listedCustomers(state, intent.params, card, clock.today));
   return { ...result(input, understood, rules(text, { card, topic, followUps }), context), command: true };
 }

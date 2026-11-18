@@ -4,14 +4,13 @@ import { useState } from "react";
 import { Mic, NotebookPen } from "lucide-react";
 import type { Customer, JournalContent } from "../../data/types";
 import { t } from "../../i18n";
-import { dispatch, undo } from "../../store";
 import { Button } from "../../ui/button";
 import { EmptyState } from "../../ui/empty-state";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { BLANK_ENTRY, JournalForm } from "./journal-form";
 import { JournalEntryCard } from "./journal-entry";
 import { JournalDictation } from "./journal-dictation";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 /** Journal entries for a customer plus ways to add one: write (with templates and photos) or dictate. */
 export function Journal({ customer }: { customer: Customer }) {
@@ -21,8 +20,7 @@ export function Journal({ customer }: { customer: Customer }) {
   const [dictating, setDictating] = useState(false);
 
   const save = (content: JournalContent) => {
-    dispatch({ type: "journal/add", entry: { customerId: customer.id, date: today, staffId: customer.preferredStaff, ...content, nextVisit: content.nextVisit?.trim() || undefined } });
-    showToast(t("journal.saved"), { label: t("common.undo"), run: undo });
+    dispatchWithUndoToast({ type: "journal/add", entry: { customerId: customer.id, date: today, staffId: customer.preferredStaff, ...content, nextVisit: content.nextVisit?.trim() || undefined } }, t("journal.saved"));
     setWriting(false);
   };
 

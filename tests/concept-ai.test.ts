@@ -6,6 +6,8 @@ import { InvalidTaskInput, runTask } from "../src/concept/ai/run-task";
 import { clearCostLog, estimateCost, getCostLog, logCost } from "../src/concept/ai/cost-log";
 import { validateOutput } from "../src/concept/ai/task";
 import { POST } from "../src/app/api/concept/ai/[task]/route";
+import { addressProof } from "../scripts/client-address.mjs";
+import { DEV_TOKEN } from "@/concept/server/token";
 
 const inputs = {
   "interpret-command": { text: "Order more foot cream", context: { customers: [], staff: [], services: [], bookings: [], now: "2026-11-17T09:00:00Z" } },
@@ -115,10 +117,39 @@ describe("cost log", () => {
 });
 
 describe("HTTP task route", () => {
-  const invoke = (task: string, body: string) => POST(new Request("http://localhost/api/concept/ai/" + task, { method: "POST", body }), { params: Promise.resolve({ task }) });
+  const invoke = (task: string, body: string, headers?: HeadersInit) => POST(new Request("http://localhost/api/concept/ai/" + task, { method: "POST", body, headers }), { params: Promise.resolve({ task }) });
   beforeEach(() => { for (const key of ["OPENAI_API_KEY", "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY"]) vi.stubEnv(key, ""); });
   it("returns a validated fallback with no keys", async () => { const response = await invoke("write-post", JSON.stringify(inputs["write-post"])); expect(response.status).toBe(200); expect(await response.json()).toMatchObject({ log: { source: "rules", costUsd: 0 } }); });
   it("returns 404 for unknown tasks", async () => expect((await invoke("constructor", "{}")).status).toBe(404));
   it("returns 400 for malformed JSON", async () => expect((await invoke("write-post", "{")).status).toBe(400));
   it("returns 400 for invalid task input", async () => expect((await invoke("write-post", "{}")).status).toBe(400));
+
+  it("spends the configured AI key only for an authorized caller within its verified address budget", async () => {
+    const token = "fictional-concept-owner-token";
+    const secret = "fictional-address-signing-secret";
+    vi.stubEnv("CONCEPT_MCP_TOKEN", token);
+    vi.stubEnv("BOOKING_ADDRESS_SECRET", secret);
+    vi.stubEnv("BOOKING_RUNTIME", "local");
+    vi.stubEnv("CONCEPT_AI_FAST_PROVIDER", "openai");
+    vi.stubEnv("OPENAI_API_KEY", "fictional-provider-key");
+    const fetcher = vi.fn(() => Response.json({ choices: [{ message: { content: '{"text":"AI draft"}' } }] }));
+    vi.stubGlobal("fetch", fetcher);
+    const signed = (ip: string) => ({ "x-booking-client-ip": ip, "x-booking-client-proof": addressProof(ip, secret) });
+    const authorized = { origin: "http://localhost", authorization: `Bearer ${token}`, ...signed("203.0.113.4") };
+    const run = async (headers: HeadersInit) => {
+      const response = await invoke("reply-customer", JSON.stringify(inputs["reply-customer"]), headers);
+      expect(response.status).toBe(200);
+      return (await response.json()).log.source;
+    };
+
+    expect(await run({ origin: authorized.origin, ...signed("203.0.113.4") })).toBe("rules");
+    expect(await run({ ...authorized, authorization: `Bearer ${DEV_TOKEN}` })).toBe("rules");
+    expect(await run({ ...authorized, origin: "https://other.example" })).toBe("rules");
+    expect(await run({ ...authorized, "x-booking-client-ip": "203.0.113.5" })).toBe("rules");
+    expect(fetcher).not.toHaveBeenCalled();
+    for (let i = 0; i < 8; i++) expect(await run(authorized)).toBe("ai");
+    expect(await run({ ...authorized, "x-forwarded-for": "203.0.113.5" })).toBe("rules");
+    expect(await run({ ...authorized, ...signed("203.0.113.5") })).toBe("ai");
+    expect(fetcher).toHaveBeenCalledTimes(9);
+  });
 });

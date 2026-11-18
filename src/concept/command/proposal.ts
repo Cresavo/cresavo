@@ -14,7 +14,7 @@ import { buildOrders, purchaseQuantity } from "../stock/purchase";
 import { sellable } from "../stock/sales";
 import { waitlistCount, waitlistNotice } from "../studio/booking/waitlist-notice";
 import { parseCampaignRequest, studioHref, type CampaignPrefill } from "../campaigns/prefill";
-import { canCommand, type Role } from "../ops/access";
+import { canChangeBooking, canCommand, type Role } from "../ops/access";
 import type { PageConfig } from "../page/config";
 import { clarifyChoices, type Retry } from "./clarify";
 import { insightFor, type Insight } from "./insight";
@@ -343,6 +343,9 @@ function moduleOff(module: ModuleManifest): Proposal {
 export function proposalFor(state: DemoState, intent: IntentResult, text: string, clock: Clock, examples: string[], role: Role = "owner"): Proposal {
   const { params } = intent;
   if (!canCommand(role, intent.action)) return message(t("command.ownerOnly"));
+  if ((intent.action === "move" || intent.action === "cancel") && !canChangeBooking(state, role, params.bookingId ?? "")) {
+    return message(t("command.notUnderstood"));
+  }
   const blocker = blockingModule(state.modules, intent.action);
   if (blocker) return moduleOff(blocker);
   const insight = role === "owner" && ["question", "revenue"].includes(intent.action) ? insightFor(state, text, clock) : null;

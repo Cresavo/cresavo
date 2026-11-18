@@ -50,6 +50,10 @@ All notable changes to this project are documented here. Format follows
 - On phones the inline command box is replaced by the assistant button (#18); it stays on larger screens.
 
 ### Fixed
+- Concept AI requests need a configured bearer token and a verified client address to use a provider, with a per-address budget. Custom-domain setup stays simulated.
+- Stripe partial refunds validate the original payment currency. A gift-card payment preserves the customer's package visit, and deleting and restoring a customer moves their packages with them.
+- Staff assistant conversations are scoped to the active role, and staff can only move or cancel visits in their own calendar.
+- Undo actions stay tied to their activity log entry and preserve records that later changes rely on.
 - Studio booking sheets only confirm times on the selected day. Undo checks staff and resource availability before restoring a booking.
 - The customer time picker shows salon contact links when there are no open days in the four-week window.
 - Preserve links between the product site and demo after a proxy rewrite and allow indexing of the product home.

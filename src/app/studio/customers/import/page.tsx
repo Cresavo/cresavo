@@ -6,7 +6,7 @@ import { Download, FileSpreadsheet, Upload } from "lucide-react";
 import { buildImportRows, guessMapping, IMPORT_FIELDS, parseCsv, type ImportProblem, type Mapping } from "@/concept/customers/csv";
 import { t, tc } from "@/concept/i18n";
 import type { MessageKey } from "@/concept/i18n";
-import { dispatch, undo } from "@/concept/store";
+import { dispatchWithUndoToast } from "@/concept/studio/log/undo-toast";
 import { BackLink } from "@/concept/studio/back-link";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -15,7 +15,6 @@ import { Button, buttonClass } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
 import { Field, Select } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
-import { showToast } from "@/concept/ui/toast";
 
 const EXAMPLE = "/demo/customers-example.csv";
 const PREVIEW_ROWS = 12;
@@ -59,8 +58,7 @@ export default function ImportCustomersPage() {
   const ready = rows.flatMap((row) => (row.customer ? [row.customer] : []));
 
   const runImport = () => {
-    dispatch({ type: "customers/import", customers: ready });
-    showToast(tc("import.done", ready.length), { label: t("common.undo"), run: undo });
+    dispatchWithUndoToast({ type: "customers/import", customers: ready }, tc("import.done", ready.length));
     router.push("/studio/customers?filter=newThisYear");
   };
 

@@ -8,6 +8,8 @@ const REASON_KEYS = {
   "time-taken": "log.undoTimeTaken",
   "customer-in-use": "log.undoCustomerInUse",
   "gift-card": "log.undoGiftCard",
+  "created-changed": "log.undoCreatedChanged",
+  "record-in-use": "log.undoRecordInUse",
 } as const;
 
 /** The message that explains why an undo is blocked, or undefined when there is nothing specific to say. */
@@ -15,19 +17,23 @@ export function undoBlockMessage(reason: UndoBlockReason | null | undefined): st
   return reason && reason !== "changed" ? t(REASON_KEYS[reason]) : undefined;
 }
 
-export function undoWithToast(id: string) {
+export function undoWithToast(id: string): boolean {
   if (dispatch({ type: "log/undo", id })) {
     showToast(t("log.undoneToast"));
-    return;
+    return true;
   }
   const state = currentState();
   const reason = state && undoBlockReason(state, state.log.find((entry) => entry.id === id));
   showToast(undoBlockMessage(reason) ?? t("log.cannotUndo"));
+  return false;
 }
 
-export function dispatchWithUndoToast(action: DemoAction, message: string) {
-  const id = dispatchWithLog(action);
+export function showUndoToast(message: string, id: ReturnType<typeof dispatchWithLog>, onUndo?: () => void): boolean {
   if (id === false) return false;
-  showToast(message, id ? { label: t("common.undo"), run: () => undoWithToast(id) } : undefined);
+  showToast(message, id ? { label: t("common.undo"), run: () => { if (undoWithToast(id)) onUndo?.(); } } : undefined);
   return true;
+}
+
+export function dispatchWithUndoToast(action: DemoAction, message: string, meta?: Parameters<typeof dispatchWithLog>[1]) {
+  return showUndoToast(message, dispatchWithLog(action, meta));
 }

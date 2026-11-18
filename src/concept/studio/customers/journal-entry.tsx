@@ -5,13 +5,13 @@ import { History, Pencil } from "lucide-react";
 import type { JournalContent, JournalEntry as Entry } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { formatDate } from "../../i18n/format";
-import { dispatch, undo } from "../../store";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { JournalForm } from "./journal-form";
 import { JournalPhotoPair } from "./journal-photos";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 /** One journal entry. Edits keep the earlier wording under "Earlier versions". */
 export function JournalEntryCard({ entry }: { entry: Entry }) {
@@ -22,8 +22,9 @@ export function JournalEntryCard({ entry }: { entry: Entry }) {
 
   if (editing) {
     const save = (content: JournalContent) => {
-      const changed = dispatch({ type: "journal/edit", id: entry.id, content, on: today });
-      showToast(changed ? t("journal.edited") : t("journal.unchanged"), changed ? { label: t("common.undo"), run: undo } : undefined);
+      if (!dispatchWithUndoToast({ type: "journal/edit", id: entry.id, content, on: today }, t("journal.edited"))) {
+        showToast(t("journal.unchanged"));
+      }
       setEditing(false);
     };
     return <JournalForm initial={entry} onSubmit={save} onCancel={() => setEditing(false)} />;

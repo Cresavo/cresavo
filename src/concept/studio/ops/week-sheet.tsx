@@ -4,12 +4,11 @@ import { useState } from "react";
 import { WEEK_ORDER } from "../../data/dates";
 import type { Staff } from "../../data/types";
 import { t, words } from "../../i18n";
-import { dispatch, undo } from "../../store";
 import { Button } from "../../ui/button";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { DayRow, TimeRange } from "./day-row";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 
 /** The weekly template: hours per weekday, or a day off. Starts from the salon's opening hours. */
@@ -18,7 +17,7 @@ export function WeekSheet({ person, onClose }: { person: Staff; onClose: () => v
   const [week, setWeek] = useState(person.week);
   const valid = Object.values(week).every((d) => !d || d.start < d.end);
   const save = () => {
-    if (dispatch({ type: "staff/week", staffId: person.id, week })) showToast(t("schedule.weekSaved", { name: person.firstName }), { label: t("common.undo"), run: undo });
+    dispatchWithUndoToast({ type: "staff/week", staffId: person.id, week }, t("schedule.weekSaved", { name: person.firstName }));
     onClose();
   };
   return (

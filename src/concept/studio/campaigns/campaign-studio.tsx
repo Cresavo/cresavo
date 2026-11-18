@@ -8,7 +8,7 @@ import { prefillFromQuery } from "../../campaigns/prefill";
 import { addDays } from "../../data/dates";
 import type { DateKey } from "../../data/types";
 import { t } from "../../i18n";
-import { currentState, dispatch, undo } from "../../store";
+import { currentState, dispatchWithLog } from "../../store";
 import { Button } from "../../ui/button";
 import { cx } from "../../ui/cx";
 import { showToast } from "../../ui/toast";
@@ -19,6 +19,7 @@ import { OfferStep } from "./offer-step";
 import { PosterStep } from "./poster-step";
 import { PublishStep } from "./publish-step";
 import { TextsStep } from "./texts-step";
+import { showUndoToast } from "../log/undo-toast";
 
 const STEPS = ["offer", "texts", "poster", "publish"] as const;
 type Step = (typeof STEPS)[number];
@@ -34,7 +35,7 @@ export function CampaignStudio() {
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
 
   const publish = (publishOn: DateKey) => {
-    const ok = dispatch({
+    const logId = dispatchWithLog({
       type: "campaign/launch",
       today,
       campaign: {
@@ -52,8 +53,8 @@ export function CampaignStudio() {
       },
     });
     const created = currentState()?.campaigns[0];
-    if (!ok || !created) return showToast(t("command.failed"));
-    showToast(publishOn <= today ? t("campaigns.publish.done", { name: created.name }) : t("campaigns.publish.scheduled", { name: created.name }), { label: t("common.undo"), run: undo });
+    if (logId === false || !created) return showToast(t("command.failed"));
+    showUndoToast(publishOn <= today ? t("campaigns.publish.done", { name: created.name }) : t("campaigns.publish.scheduled", { name: created.name }), logId);
     router.push(`/studio/more/campaigns/${created.id}`);
   };
 

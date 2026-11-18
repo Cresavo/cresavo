@@ -6,12 +6,11 @@ import { balanceOf, findGiftCard, paidWithCards, redeemable } from "../../giftca
 import { t } from "../../i18n";
 import { formatMoney } from "../../i18n/format";
 import { findCustomer } from "../../selectors";
-import { dispatch, undo } from "../../store";
 import { Button } from "../../ui/button";
 import { Field, TextInput } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 /** Pay a booking with a gift card: type the code, see the balance, pay what the booking still needs. */
 export function RedeemSheet({ bookingId, onBack, onClose }: { bookingId: string; onBack: () => void; onClose: () => void }) {
@@ -25,8 +24,7 @@ export function RedeemSheet({ bookingId, onBack, onClose }: { bookingId: string;
   const name = findCustomer(state, booking.customerId)?.firstName ?? "";
 
   const pay = () => {
-    if (!dispatch({ type: "giftcard/redeem", code, bookingId, date: today })) return;
-    showToast(t("giftcards.paid", { amount: formatMoney(amount) }), { label: t("common.undo"), run: undo });
+    if (!dispatchWithUndoToast({ type: "giftcard/redeem", code, bookingId, date: today }, t("giftcards.paid", { amount: formatMoney(amount) }))) return;
     onClose();
   };
 

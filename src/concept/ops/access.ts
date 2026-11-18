@@ -32,3 +32,10 @@ const STAFF_COMMANDS: (IntentAction | "question")[] = ["book", "move", "cancel",
 export function canCommand(role: Role, action: IntentAction | "question"): boolean {
   return role === "owner" || STAFF_COMMANDS.includes(action);
 }
+
+/** Staff changes to an existing booking must stay in their own calendar. */
+export function canChangeBooking(state: DemoState, role: Role, id: string): boolean {
+  if (role === "owner") return true;
+  const staff = staffViewer(state);
+  return !!staff && state.bookings.some((booking) => booking.id === id && booking.staffId === staff.id);
+}

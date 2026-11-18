@@ -7,6 +7,7 @@ import { balanceOf } from "@/concept/giftcards/cards";
 import { applyAction } from "@/concept/log/capture";
 import type { LogMeta } from "@/concept/log/types";
 import { undoBlockReason } from "@/concept/log/undo";
+import { undoBlockMessage } from "@/concept/studio/log/undo-toast";
 import { canRestore, restoreBlockReason, restoreEntry } from "@/concept/trash/trash";
 
 // Regressions for two Codex review findings on PR #31: undo must not orphan a
@@ -17,6 +18,31 @@ const today = "2026-11-16";
 const base = createDemoState(today);
 const meta: LogMeta = { actor: "owner", source: "button", at: 0 };
 const upcoming = base.bookings.filter((b) => b.status === "booked" && b.date > today && b.price >= 100);
+
+it("blocks undoing a gift-card sale after redemption changed the created card", () => {
+  const sold = applyAction(base, { type: "giftcard/sell", amount: 100, recipient: "Demo Card", message: "", date: today }, meta);
+  const card = sold.giftCards.at(-1)!;
+  expect(undoBlockReason(sold, sold.log[0])).toBeUndefined();
+  const redeemed = applyAction(sold, { type: "giftcard/redeem", code: card.code, bookingId: upcoming[0].id, date: today }, meta);
+  const reason = undoBlockReason(redeemed, sold.log[0]);
+  expect(reason).toBe("created-changed");
+  expect(undoBlockMessage(reason)).toBeTruthy();
+  expect(applyAction(redeemed, { type: "log/undo", id: sold.log[0].id }, meta)).toBe(redeemed);
+});
+
+it("blocks undoing a treatment creation after a booking references it", () => {
+  const sample = upcoming[0];
+  const service = base.services.find((candidate) => candidate.id === sample.serviceId)!;
+  const created = applyAction(base, { type: "service/duplicate", id: service.id, name: "Demo treatment" }, meta);
+  const added = created.services.find((candidate) => candidate.name === "Demo treatment")!;
+  const slot = freeTime(created, { ...sample, serviceId: added.id }, addDays(today, 1));
+  const booked = applyAction(created, { type: "booking/create", customerId: sample.customerId, serviceId: added.id, staffId: sample.staffId, source: "phone", ...slot }, meta);
+  expect(booked.bookings.at(-1)?.serviceId).toBe(added.id);
+  const reason = undoBlockReason(booked, created.log[0]);
+  expect(reason).toBe("record-in-use");
+  expect(undoBlockMessage(reason)).toBeTruthy();
+  expect(applyAction(booked, { type: "log/undo", id: created.log[0].id }, meta)).toBe(booked);
+});
 
 /** A free time for the same staff member and treatment as `like`, from `from` on. */
 function freeTime(state: DemoState, like: (typeof upcoming)[number], from: string) {

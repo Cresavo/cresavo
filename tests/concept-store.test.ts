@@ -3,11 +3,12 @@ import { createDemoState } from "@/concept/data/generate";
 import { addDays, toKey } from "@/concept/data/dates";
 import { freeStarts } from "@/concept/data/slots";
 
-const { changed, showToast, unsubscribe } = vi.hoisted(() => ({
-  changed: vi.fn(), showToast: vi.fn(), unsubscribe: { current: () => {} },
+const { changed, showToast, unsubscribe, note } = vi.hoisted(() => ({
+  changed: vi.fn(), showToast: vi.fn(), unsubscribe: { current: () => {} }, note: { draft: "" },
 }));
 vi.mock("@/concept/ui/toast", () => ({ showToast }));
 vi.mock("react", () => ({
+  useState: () => [note.draft, vi.fn()],
   useSyncExternalStore: (subscribe: (notify: () => void) => () => void, read: () => unknown) => {
     unsubscribe.current = subscribe(changed);
     return read();
@@ -56,7 +57,7 @@ it("reloads another tab's booking and rejects a stale attempt for the same slot"
   const localStorage = { getItem: () => raw, setItem: (_key: string, value: string) => { raw = value; } };
   const tab = Object.assign(new EventTarget(), { localStorage });
   vi.stubGlobal("window", tab);
-  const { useDemo, currentState, dispatch, undo } = await import("@/concept/store");
+  const { useDemo, currentState, dispatch, dispatchWithLog } = await import("@/concept/store");
   useDemo();
   changed.mockClear();
 
@@ -81,10 +82,35 @@ it("reloads another tab's booking and rejects a stale attempt for the same slot"
   expect(JSON.parse(raw).bookings.at(-1).id).toBe(booking.id);
 
   // A further write can arrive before the storage event is delivered.
-  const first = base.inbox[0];
   raw = JSON.stringify({ ...JSON.parse(raw), dismissedCards: ["another-tab"] });
-  expect(dispatch({ type: "inbox/read", id: first.id })).toBe(true);
+  const id = dispatchWithLog({ type: "customer/note", id: base.customers[0].id, note: "Local note" });
+  expect(typeof id).toBe("string");
   expect(currentState()?.dismissedCards).toContain("another-tab");
-  undo();
+  if (typeof id !== "string") throw new Error("Expected a log entry");
+  expect(dispatch({ type: "log/undo", id })).toBe(true);
   expect(currentState()?.bookings.at(-1)?.id).toBe(booking.id);
+});
+
+it("undoing the first customer-note toast leaves the second edit in place", async () => {
+  const base = createDemoState(toKey(new Date()));
+  const [first, second] = base.customers;
+  let raw = JSON.stringify(base);
+  const localStorage = { getItem: () => raw, setItem: (_key: string, value: string) => { raw = value; } };
+  vi.stubGlobal("window", Object.assign(new EventTarget(), { localStorage }));
+  showToast.mockClear();
+  const { Notes } = await import("@/concept/studio/customers/notes");
+  const { currentState } = await import("@/concept/store");
+  const save = (customer: typeof first, draft: string) => {
+    note.draft = draft;
+    const notes = Notes({ customer });
+    notes.props.children[1].props.children[1].props.onClick();
+  };
+
+  save(first, "First edited note");
+  save(second, "Second edited note");
+  expect(showToast).toHaveBeenCalledTimes(2);
+  showToast.mock.calls[0][1].run();
+  const customers = currentState()!.customers;
+  expect(customers.find((customer) => customer.id === first.id)?.note).toBe(first.note);
+  expect(customers.find((customer) => customer.id === second.id)?.note).toBe("Second edited note");
 });

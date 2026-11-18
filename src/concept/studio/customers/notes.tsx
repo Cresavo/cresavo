@@ -3,10 +3,9 @@
 import { useState } from "react";
 import type { Customer } from "../../data/types";
 import { t } from "../../i18n";
-import { dispatch, undo } from "../../store";
 import { Button } from "../../ui/button";
 import { TextArea } from "../../ui/controls";
-import { showToast } from "../../ui/toast";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 /** Free-text note about the customer, shown before every visit. */
 export function Notes({ customer }: { customer: Customer }) {
@@ -21,8 +20,7 @@ export function Notes({ customer }: { customer: Customer }) {
           <Button
             size="sm"
             onClick={() => {
-              dispatch({ type: "customer/note", id: customer.id, note: text.trim() });
-              showToast(t("notes.saved"), { label: t("common.undo"), run: undo });
+              dispatchWithUndoToast({ type: "customer/note", id: customer.id, note: text.trim() }, t("notes.saved"));
             }}
           >
             {t("common.save")}

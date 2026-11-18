@@ -5,12 +5,13 @@ import { Copy, Trash2 } from "lucide-react";
 import type { DemoState, Service, StaffId } from "../../data/types";
 import { t } from "../../i18n";
 import { DURATION_STEP, MAX_DESCRIPTION, MAX_DURATION, MAX_NAME, MIN_DURATION, serviceIssues, type ServiceDraft, type ServiceIssue } from "../../services/edit";
-import { dispatch, undo } from "../../store";
+import { dispatchWithLog } from "../../store";
 import { Button } from "../../ui/button";
 import { Chip, Field, Select, Switch, TextArea, TextInput } from "../../ui/controls";
 import { Notice } from "../../ui/notice";
 import { Sheet } from "../../ui/sheet";
 import { showToast } from "../../ui/toast";
+import { dispatchWithUndoToast, showUndoToast } from "../log/undo-toast";
 
 interface ServiceSheetProps {
   state: DemoState;
@@ -21,8 +22,6 @@ interface ServiceSheetProps {
   onClose: () => void;
   onDelete: (service: Service) => void;
 }
-
-const undoAction = () => ({ label: t("common.undo"), run: undo });
 
 /**
  * Add or edit a treatment. Name, category, length and price are all most treatments need;
@@ -51,20 +50,19 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
     if (issues.length) return;
     const label = name.trim();
     if (service) {
-      const changed = dispatch({ type: "service/update", id: service.id, service: draft });
-      const toggled = dispatch({ type: "service/visibility", id: service.id, hidden: !visible });
-      if (changed || toggled) showToast(t("services.saved", { name: label }), changed !== toggled ? undoAction() : undefined);
+      const changed = dispatchWithLog({ type: "service/update", id: service.id, service: draft });
+      const toggled = dispatchWithLog({ type: "service/visibility", id: service.id, hidden: !visible });
+      if (changed && toggled) showToast(t("services.saved", { name: label }));
+      else showUndoToast(t("services.saved", { name: label }), changed || toggled);
     } else {
-      dispatch({ type: "service/add", service: draft });
-      showToast(t("services.added", { name: label }), undoAction());
+      dispatchWithUndoToast({ type: "service/add", service: draft }, t("services.added", { name: label }));
     }
     onClose();
   };
 
   const duplicate = () => {
     if (!service) return;
-    dispatch({ type: "service/duplicate", id: service.id, name: t("services.copyName", { name: service.name }) });
-    showToast(t("services.duplicated", { name: service.name }), undoAction());
+    dispatchWithUndoToast({ type: "service/duplicate", id: service.id, name: t("services.copyName", { name: service.name }) }, t("services.duplicated", { name: service.name }));
     onClose();
   };
 

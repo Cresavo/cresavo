@@ -1,7 +1,7 @@
 import { diffDays } from "../data/dates";
 import { isFree, pickResource } from "../data/slots";
 import { cardsCovered } from "../giftcards/cards";
-import type { Booking, Customer, DateKey, DemoState, InboxItem, JournalEntry, ProductSale, Review } from "../data/types";
+import type { Booking, Customer, DateKey, DemoState, InboxItem, JournalEntry, ProductSale, Review, ServicePackage } from "../data/types";
 
 /** Days a deleted or cancelled item stays restorable. */
 export const TRASH_DAYS = 30;
@@ -14,6 +14,8 @@ export interface CustomerBundle {
   sales: ProductSale[];
   reviews: Review[];
   inbox: InboxItem[];
+  /** Optional for customers already in the trash when packages were bundled. */
+  packages?: ServicePackage[];
 }
 
 export type TrashEntry =
@@ -27,8 +29,17 @@ export function daysLeft(entry: TrashEntry, today: DateKey): number {
 
 /** Drops entries older than 30 days. A cancelled booking stays in the history; a deleted customer is gone. */
 export function purgeExpired(state: DemoState, today: DateKey): DemoState {
-  const trash = state.trash.filter((entry) => daysLeft(entry, today) > 0);
-  return trash.length === state.trash.length ? state : { ...state, trash };
+  const legacyCustomers = new Set<string>();
+  const trash = state.trash.flatMap((entry) => {
+    if (entry.kind === "customer" && !entry.packages) {
+      const customerId = entry.customer.id;
+      legacyCustomers.add(customerId);
+      entry = { ...entry, packages: state.packages.filter((pkg) => pkg.customerId === customerId) };
+    }
+    return daysLeft(entry, today) > 0 ? [entry] : [];
+  });
+  if (trash.length === state.trash.length && legacyCustomers.size === 0) return state;
+  return { ...state, trash, packages: state.packages.filter((pkg) => !legacyCustomers.has(pkg.customerId)) };
 }
 
 /** A booking is added to the trash when it is cancelled. */
@@ -49,6 +60,7 @@ export function deleteCustomer(state: DemoState, id: string): DemoState {
     sales: state.sales.filter(mine),
     reviews: state.reviews.filter(mine),
     inbox: state.inbox.filter(mine),
+    packages: state.packages.filter(mine),
   };
   return {
     ...state,
@@ -59,6 +71,7 @@ export function deleteCustomer(state: DemoState, id: string): DemoState {
     sales: rest(state.sales),
     reviews: rest(state.reviews),
     inbox: rest(state.inbox),
+    packages: rest(state.packages),
     trash: [{ id: `t-${state.seq}`, kind: "customer", deletedOn: state.generatedFor, ...bundle }, ...state.trash],
   };
 }
@@ -104,6 +117,7 @@ export function restoreEntry(state: DemoState, id: string): DemoState {
     sales: [...state.sales, ...entry.sales],
     reviews: [...state.reviews, ...entry.reviews],
     inbox: [...state.inbox, ...entry.inbox],
+    packages: [...state.packages, ...(entry.packages ?? [])],
     trash,
   };
   // A time taken while the customer was in the trash must not be double-booked,

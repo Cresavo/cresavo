@@ -37,7 +37,7 @@ export function AssistantPanel() {
       }}
       className="m-0 h-[100dvh] max-h-none w-full max-w-none bg-bg p-0 text-text backdrop:bg-black/30 sm:ml-auto sm:w-[440px] sm:rounded-l-lg sm:shadow-sheet"
     >
-      {thread.open && <PanelBody assistant={assistant} />}
+      {thread.open && <PanelBody key={assistant.role} assistant={assistant} />}
     </dialog>
   );
 }
@@ -54,6 +54,8 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
     },
   });
   const { start: startListening } = speech;
+
+  useEffect(() => stopSpeaking, []);
 
   useEffect(() => {
     const question = takePendingQuestion();

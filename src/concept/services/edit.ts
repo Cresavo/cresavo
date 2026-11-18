@@ -88,7 +88,7 @@ export function serviceUsage(state: DemoState, id: string, today: DateKey): Serv
 }
 
 /** True when a record somewhere still needs the treatment's name, price or rooms. */
-function isReferenced(state: DemoState, id: string): boolean {
+export function serviceIsReferenced(state: DemoState, id: string): boolean {
   return state.bookings.some((b) => b.serviceId === id) || state.packages.some((p) => p.serviceId === id) || state.campaigns.some((c) => c.serviceIds.includes(id));
 }
 
@@ -148,7 +148,7 @@ export function applyServiceAction(state: DemoState, action: ServiceAction): Dem
         ...state,
         services: state.services.filter((s) => s.id !== action.id),
         // Bookings keep their own time, length and price; the retired copy keeps their name and room readable.
-        retiredServices: isReferenced(state, action.id) ? [...state.retiredServices, service] : state.retiredServices,
+        retiredServices: serviceIsReferenced(state, action.id) ? [...state.retiredServices, service] : state.retiredServices,
       };
     }
     case "service/move": {

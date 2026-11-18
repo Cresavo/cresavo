@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { dispatch } from "../../store";
+import { dispatchWithLog } from "../../store";
 import type { AgentProposal } from "../../tools/agent-proposal";
 
 // Proposals from outside AIs (MCP) live on the server; the studio's data lives
@@ -40,17 +40,17 @@ export function useAgentProposals() {
     };
   }, []);
 
-  /** Applies (or declines) one proposal. Returns false when the change no longer fits the studio's data. */
-  const decide = (proposal: AgentProposal, approve: boolean): boolean => {
-    const applied = approve && dispatch(proposal.action, { actor: "ai", source: "mcp" });
-    const decision = !approve ? "declined" : applied ? "approved" : "failed";
+  /** Applies or declines a proposal and returns the resulting log ID, if any. */
+  const decide = (proposal: AgentProposal, approve: boolean) => {
+    const logId = approve ? dispatchWithLog(proposal.action, { actor: "ai", source: "mcp" }) : null;
+    const decision = !approve ? "declined" : logId !== false ? "approved" : "failed";
     setDecided((ids) => [...ids, proposal.id]);
     void fetch(`${ENDPOINT}/${encodeURIComponent(proposal.id)}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ decision }),
     }).catch(() => undefined);
-    return !approve || applied;
+    return logId;
   };
 
   return { proposals: proposals.filter((p) => !decided.includes(p.id)), decide };

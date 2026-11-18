@@ -11,7 +11,7 @@ import { notSeenInThreeMonths } from "@/concept/customers/segments";
 import { servedBy, staffViewer } from "@/concept/ops/access";
 import { useRole } from "@/concept/ops/role";
 import { buildCustomerStats, findService, fullName } from "@/concept/selectors";
-import { dispatch, undo } from "@/concept/store";
+import { dispatchWithUndoToast } from "@/concept/studio/log/undo-toast";
 import { BackLink } from "@/concept/studio/back-link";
 import { NoAccess } from "@/concept/studio/ops/no-access";
 import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-sheets";
@@ -66,11 +66,10 @@ export default function CustomerPage() {
   const history = bookings.filter((b) => b.date < today || b.status !== "booked").sort((a, b) => b.date.localeCompare(a.date) || b.start - a.start);
   const favorite = findService(state, s.lastServiceId ?? "");
   const sayHello = () => {
-    dispatch({
+    dispatchWithUndoToast({
       type: "inbox/add",
       item: { kind: "system", customerId: customer.id, date: today, time: minutes, title: t("customer.helloTitle", { name: customer.firstName }), body: t("customer.helloBody"), read: false, handled: true },
-    });
-    showToast(t("customer.helloToast", { name: customer.firstName }), { label: t("common.undo"), run: undo });
+    }, t("customer.helloToast", { name: customer.firstName }));
   };
 
   return (

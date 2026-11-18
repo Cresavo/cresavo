@@ -1,7 +1,6 @@
 import { clientLimitKey, vercelClientAddress, verifiedClientAddress } from "../../../scripts/client-address.mjs";
 
-// Server-only helpers for POST /api/waitlist: whose bucket a request counts against, and a body
-// read that stops at a byte cap. Kept apart from waitlist.ts, which the form's client bundle imports.
+// Shared server-only request helpers. Kept apart from waitlist.ts, which the form's client bundle imports.
 
 /** Requests whose client address cannot be verified share one bucket: they can slow each other down, never escape the limit. */
 export const UNVERIFIED_CLIENT = "unverified";
@@ -33,7 +32,7 @@ export async function readCapped(request: Request, limit: number): Promise<strin
     if (done) break;
     size += value.byteLength;
     if (size > limit) {
-      await reader.cancel().catch(() => undefined);
+      void reader.cancel().catch(() => undefined);
       return "too-large";
     }
     chunks.push(value);

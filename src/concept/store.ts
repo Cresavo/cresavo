@@ -18,10 +18,7 @@ import { getPack } from "./packs";
 // renders a loading shell first and the real UI only in the browser.
 
 const STORAGE_KEY = "salong-eko-demo";
-const UNDO_LIMIT = 20;
-
 let state: DemoState | null = null;
-let history: DemoState[] = [];
 let savedRaw: string | null | undefined;
 const listeners = new Set<() => void>();
 
@@ -48,7 +45,6 @@ function refreshFromStorage() {
   }
   if (raw === savedRaw) return;
   savedRaw = raw;
-  history = [];
   state = adopt(load(raw));
   listeners.forEach((listener) => listener());
 }
@@ -111,15 +107,21 @@ export function dispatch(action: DemoAction, meta?: Partial<Omit<LogMeta, "at">>
   return dispatchWithLog(action, meta) !== false;
 }
 
-/** Returns the new log entry id, null for an unlogged change, or false on refusal. */
-export function dispatchWithLog(action: DemoAction, meta?: Partial<Omit<LogMeta, "at">>): string | null | false {
+/**
+ * Returns the new log entry ID, null for an unlogged change, or false on refusal.
+ * A caller's guard runs against the same refreshed state as the action.
+ */
+export function dispatchWithLog(
+  action: DemoAction,
+  meta?: Partial<Omit<LogMeta, "at">>,
+  canApply?: (current: DemoState) => boolean,
+): string | null | false {
   if (typeof window !== "undefined") refreshFromStorage();
   const current = getSnapshot();
-  if (!current) return false;
+  if (!current || (canApply && !canApply(current))) return false;
   const now = Date.now();
   const next = applyAction(current, action, { ...defaultMeta(action, now), ...meta, at: now });
   if (next === current) return false;
-  history = [...history.slice(-(UNDO_LIMIT - 1)), current];
   setState(next);
   const logId = next.log[0]?.id;
   return logId !== current.log[0]?.id ? logId ?? null : null;
@@ -130,15 +132,8 @@ export async function withBookingLock<T>(confirm: () => T): Promise<T> {
   return navigator.locks ? navigator.locks.request(STORAGE_KEY, confirm) : confirm();
 }
 
-export function undo() {
-  refreshFromStorage();
-  const previous = history.pop();
-  if (previous) setState(previous);
-}
-
 /** Rebuilds the demo for a business setup (industry pack, team size, modules). Without one it is the original Salong Eko. */
 export function startBusiness(setup?: BusinessSetup) {
-  history = [];
   setState(createDemoState(today(), setup));
 }
 

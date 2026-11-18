@@ -1,6 +1,7 @@
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { isPublicReadonly, readonlyForbidden } from "@/lib/public-readonly";
+import { readCapped } from "../site/waitlist-server";
 import { clientFromUserAgent, type AgentClient, type AgentProposal } from "../tools/agent-proposal";
 import { ToolError } from "../tools/define";
 import { conceptTools, findTool, type ConceptTool } from "../tools/registry";
@@ -124,9 +125,7 @@ const jsonError = (status: number, message: string, headers: Record<string, stri
   Response.json({ error: message }, { status, headers: { "Cache-Control": "no-store", ...headers } });
 
 /** The called tool's name, for the log line. Only names in the registry are reported. */
-async function calledTool(request: Request): Promise<string | undefined | null> {
-  const text = await request.clone().text();
-  if (text.length > MAX_BODY) return null;
+function calledTool(text: string): string | undefined {
   try {
     const rpc = JSON.parse(text) as { method?: unknown; params?: { name?: unknown } };
     const name = rpc.method === "tools/call" ? rpc.params?.name : undefined;
@@ -147,9 +146,11 @@ export async function handleConceptMcp(request: Request, log: RequestLogContext)
   const limit = takeCall(auth.caller);
   if (!limit.ok) return jsonError(429, "Too many calls, try again shortly", { "Retry-After": String(limit.retryAfter) });
   if (request.method === "POST") {
-    const tool = await calledTool(request);
-    if (tool === null) return jsonError(413, "Request too large");
-    log.tool = tool;
+    const body = await readCapped(request, MAX_BODY).catch(() => null);
+    if (body === "too-large") return jsonError(413, "Request too large");
+    if (body === null) return jsonError(400, "Unable to read request body");
+    log.tool = calledTool(body);
+    request = new Request(request.url, { method: request.method, headers: request.headers, signal: request.signal, body });
   }
   // authInfo carries the token's hash and the kind of client to the factory, never the token itself.
   return handler.fetch(request, { authInfo: { token: auth.caller, clientId: clientFromUserAgent(request.headers.get("user-agent")), scopes: [] } });

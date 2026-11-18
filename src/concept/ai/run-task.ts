@@ -9,13 +9,13 @@ import { intentContextSchema, intentOutputSchema } from "./tasks/interpret-comma
 import { hasValidIntentReferences } from "./validate-intent";
 
 export class InvalidTaskInput extends Error {}
-export async function runTask<T extends TaskName>(name: T, rawInput: unknown, options: { env?: AiEnvironment; fetcher?: typeof fetch; business?: string; useBusinessSettings?: boolean } = {}): Promise<{ output: z.infer<(typeof tasks)[T]["output"]>; log: CostEntry }> {
+export async function runTask<T extends TaskName>(name: T, rawInput: unknown, options: { env?: AiEnvironment; fetcher?: typeof fetch; business?: string; useBusinessSettings?: boolean; allowProvider?: boolean } = {}): Promise<{ output: z.infer<(typeof tasks)[T]["output"]>; log: CostEntry }> {
   const task = tasks[name];
   const parsed = task.input.safeParse(rawInput);
   if (!parsed.success) throw new InvalidTaskInput("Input does not match the task schema");
   const business = options.business ?? DEMO_BUSINESS;
-  const settings = options.useBusinessSettings === false ? null : readBusinessAi(business);
-  const route = routeModel(settings?.tiers[name] ?? task.tier, options.env, settings ? businessKey(business, options.env) : null);
+  const settings = options.allowProvider === false || options.useBusinessSettings === false ? null : readBusinessAi(business);
+  const route = options.allowProvider === false ? null : routeModel(settings?.tiers[name] ?? task.tier, options.env, settings ? businessKey(business, options.env) : null);
   let reason: CostEntry["reason"] = "no-key";
   let inputTokens = 0; let outputTokens = 0; let costUsd: number | null = 0;
   if (route) {
@@ -31,5 +31,7 @@ export async function runTask<T extends TaskName>(name: T, rawInput: unknown, op
   }
   // The same registry entry validates its input before its fallback is invoked.
   const output = task.output.parse(task.fallback(parsed.data as never));
-  return { output: output as z.infer<(typeof tasks)[T]["output"]>, log: logCost({ task: name, version: task.version, provider: route?.provider ?? "rules", model: route?.model ?? "rules", source: "rules", reason, inputTokens, outputTokens, costUsd }, business) };
+  const entry = { task: name, version: task.version, provider: route?.provider ?? "rules", model: route?.model ?? "rules", source: "rules" as const, reason, inputTokens, outputTokens, costUsd };
+  const log = options.allowProvider === false ? { ...entry, timestamp: new Date().toISOString() } : logCost(entry, business);
+  return { output: output as z.infer<(typeof tasks)[T]["output"]>, log };
 }

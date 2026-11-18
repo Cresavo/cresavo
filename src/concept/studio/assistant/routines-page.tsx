@@ -3,16 +3,16 @@
 import { Play, Repeat } from "lucide-react";
 import { scheduleText, slotKey, suggestedRoutines, toSkillMd, type Routine } from "../../assistant/routines";
 import { t, tc } from "../../i18n";
-import { dispatch, undo } from "../../store";
+import { dispatch } from "../../store";
 import { Button } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
 import { Switch } from "../../ui/controls";
 import { EmptyState } from "../../ui/empty-state";
-import { showToast } from "../../ui/toast";
 import { MorePage } from "../more/more-page";
 import { useStudio } from "../use-studio";
 import { postRoutineRun } from "./assistant-launcher";
 import { openAssistant } from "./thread-store";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 const ASSISTANT = { actor: "owner", source: "assistant" } as const;
 
@@ -40,8 +40,7 @@ export function RoutinesPage() {
                   <p className="text-sm text-text-secondary">{scheduleText(routine)} · {reason}</p>
                 </div>
                 <Button size="sm" onClick={() => {
-                  dispatch({ type: "routine/add", routine }, ASSISTANT);
-                  showToast(t("assistant.routine.on", { name: routine.name }), { label: t("common.undo"), run: undo });
+                  dispatchWithUndoToast({ type: "routine/add", routine }, t("assistant.routine.on", { name: routine.name }), ASSISTANT);
                 }}>
                   {t("assistant.routine.switchOn")}
                 </Button>

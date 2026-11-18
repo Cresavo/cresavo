@@ -5,12 +5,11 @@ import type { StockItem } from "../../data/types";
 import { t } from "../../i18n";
 import { formatAmount } from "../../i18n/format";
 import { usesOfProduct } from "../../stock/usage";
-import { dispatch, undo } from "../../store";
 import { Button } from "../../ui/button";
 import { Field, Select, TextInput } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 const toNumber = (text: string) => (text.trim() === "" ? undefined : Math.max(0, Number(text)));
 
@@ -25,12 +24,11 @@ export function ProductSheet({ item, onClose }: { item: StockItem; onClose: () =
   const valid = [toNumber(minimum), toNumber(cost)].every((n) => n !== undefined && Number.isFinite(n)) && (price.trim() === "" || Number.isFinite(toNumber(price)));
 
   const save = () => {
-    dispatch({
+    dispatchWithUndoToast({
       type: "stock/update",
       id: item.id,
       patch: { reorderAt: toNumber(minimum), unitCost: toNumber(cost), supplier, salePrice: toNumber(price) },
-    });
-    showToast(t("stock.saved", { name: item.name }), { label: t("common.undo"), run: undo });
+    }, t("stock.saved", { name: item.name }));
     onClose();
   };
 

@@ -6,13 +6,12 @@ import { PACKAGE_DEAL, packagePrice } from "../../packages/packages";
 import { t } from "../../i18n";
 import { formatMoney } from "../../i18n/format";
 import { findCustomer, fullName } from "../../selectors";
-import { dispatch, undo } from "../../store";
 import { Avatar } from "../../ui/avatar";
 import { Button } from "../../ui/button";
 import { Chip, SearchInput } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 const MAX_RESULTS = 5;
 
@@ -30,9 +29,7 @@ export function SellPackageSheet({ onClose }: { onClose: () => void }) {
 
   const sell = () => {
     if (!service || !customer) return;
-    if (dispatch({ type: "package/sell", customerId: customer.id, serviceId: service.id, date: today })) {
-      showToast(t("packages.sold", { name: customer.firstName }), { label: t("common.undo"), run: undo });
-    }
+    dispatchWithUndoToast({ type: "package/sell", customerId: customer.id, serviceId: service.id, date: today }, t("packages.sold", { name: customer.firstName }));
     onClose();
   };
 

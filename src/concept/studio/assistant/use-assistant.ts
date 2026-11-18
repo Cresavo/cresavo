@@ -11,18 +11,15 @@ import { buildIntentContext } from "../../command/intent-context";
 import type { Choice, Proposal } from "../../command/proposal";
 import { t } from "../../i18n";
 import { staffViewer } from "../../ops/access";
-import { useRole } from "../../ops/role";
+import { currentRole, useRole } from "../../ops/role";
 import type { IntentResult } from "../../intent";
-import { currentState, dispatch } from "../../store";
+import { currentState, dispatch, dispatchWithLog } from "../../store";
 import { useStudio } from "../use-studio";
 import { speak } from "./speak";
 import { applyReply, approveReply, editReply, pickReply, sourceFor, undoReply } from "./reply-actions";
-import { addMessages, messageId, refineReply, startNewThread, updateReply, useThread } from "./thread-store";
+import { addMessages, messageId, refineReply, replyOf, startNewThread, updateReply, useThread } from "./thread-store";
 
 const ASSISTANT = { actor: "owner", source: "assistant" } as const;
-
-/** The activity log entry the last dispatch wrote. */
-const lastLogId = () => currentState()?.log[0]?.id;
 
 /** Whether the server has an AI model; rechecked when settings change. */
 export function useAiReady(): boolean {
@@ -40,7 +37,7 @@ export function useAiReady(): boolean {
 export function useAssistant() {
   const { state, today, minutes } = useStudio();
   const role = useRole();
-  const thread = useThread();
+  const thread = useThread(role);
   const aiReady = useAiReady();
   const examples = useMemo(
     // The owner's examples mix questions with quick commands, since the panel is also where commands are typed (Ctrl/Cmd+K).
@@ -51,53 +48,57 @@ export function useAssistant() {
   /** `via` says whether the owner typed or spoke the words; it travels with the reply to approval and the activity log. */
   const send = (raw: string, via: InputMode = "typed") => {
     const text = raw.trim();
-    if (!text) return;
+    if (!text || currentRole() !== role) return;
     const input = { state, text, context: thread.context, clock: { today, minutes }, role, viewer: staffViewer(state)?.id, examples };
     const outcome = respond(input);
-    const changed = outcome.effects.filter((effect) => dispatch(effect, { actor: "owner", source: sourceFor(via) })).length > 0;
-    const refining = !!outcome.command && aiReady;
+    const logIds = outcome.effects.map((effect) => dispatchWithLog(effect, { actor: role, source: sourceFor(via) }));
+    const undoId = logIds.findLast((id) => typeof id === "string");
+    const refining = role === "owner" && !!outcome.command && aiReady;
+    const speakReply = (spoken: string | null) => {
+      if (spoken && thread.speak && currentRole() === role) speak(spoken);
+    };
     const question: Message = { id: messageId(), from: "owner", text, understood: outcome.understood !== text ? outcome.understood : undefined, at: Date.now() };
     const answer: Message = {
       id: messageId(),
       from: "assistant",
       text: outcome.reply.text,
-      reply: { ...outcome.reply, undoId: changed ? lastLogId() : undefined, request: text, input: via, refining: refining || undefined },
+      reply: { ...outcome.reply, undoId, request: text, input: via, refining: refining || undefined },
       at: Date.now(),
     };
     const before = thread.messages;
-    addMessages([question, answer], outcome.context);
+    addMessages([question, answer], outcome.context, role);
     if (refining) {
       // The rules answer at once; a model's reading of the same words replaces it (and the context) a moment later,
       // unless the owner has acted on the card or moved on. Nothing changes until approved.
       runAiTask<IntentResult>("interpret-command", { text: outcome.understood, context: buildIntentContext(state, today, minutes) })
         .then(({ output, log }) => {
           if (log.source !== "ai") {
-            updateReply(answer.id, {});
+            updateReply(answer.id, {}, role);
             return outcome.reply.text;
           }
           const reading = commandReply({ ...input, state: currentState() ?? state }, outcome.understood, output);
-          return refineReply(answer.id, { ...reading.reply, source: "ai" }, reading.context) ? reading.reply.text : null;
+          return refineReply(answer.id, { ...reading.reply, source: "ai" }, reading.context, role) ? reading.reply.text : null;
         })
         .catch(() => {
-          updateReply(answer.id, {});
+          updateReply(answer.id, {}, role);
           return outcome.reply.text;
         })
-        .then((spoken) => spoken && thread.speak && speak(spoken));
+        .then(speakReply);
       return;
     }
     // A reply about named customers stays on this device: it is never sent for rephrasing.
     if (!aiReady || role !== "owner" || outcome.local) {
-      if (thread.speak) speak(outcome.reply.text);
+      speakReply(outcome.reply.text);
       return;
     }
     runAiTask<{ reply: string }>("assistant-reply", replyRequest(currentState() ?? state, [...before, question], outcome.understood, outcome.reply))
       .then(({ output, log }) => {
         if (log.source !== "ai") return outcome.reply.text;
-        updateReply(answer.id, { text: output.reply, source: "ai" });
+        updateReply(answer.id, { text: output.reply, source: "ai" }, role);
         return output.reply;
       })
       .catch(() => outcome.reply.text)
-      .then((spoken) => thread.speak && speak(spoken));
+      .then(speakReply);
   };
 
   const approve = (id: string, proposal: Extract<Proposal, { kind: "change" }>) => approveReply(id, proposal.action);
@@ -114,6 +115,7 @@ export function useAssistant() {
   const keepRoutine = (id: string, routine: Routine) => applyReply(id, { type: "routine/add", routine }, ASSISTANT);
 
   const skipRoutine = (id: string, routine: Routine) => {
+    if (currentRole() !== "owner" || replyOf(id)?.card?.kind !== "routine-offer") return;
     dispatch({ type: "card/dismiss", id: `routine-${routine.id}` });
     updateReply(id, { status: "declined" });
   };

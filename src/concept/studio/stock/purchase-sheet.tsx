@@ -6,12 +6,11 @@ import { t, tc } from "../../i18n";
 import { formatMoney } from "../../i18n/format";
 import { buildOrders, groupBySupplier, purchaseList } from "../../stock/purchase";
 import { supplierOf } from "../../stock/forecast";
-import { dispatch, undo } from "../../store";
 import { Button } from "../../ui/button";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { Stepper } from "./stepper";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 /** The purchase list: what is low, a proposed amount each, one tap to approve and send (simulated). */
 export function PurchaseSheet({ onClose }: { onClose: () => void }) {
@@ -23,8 +22,7 @@ export function PurchaseSheet({ onClose }: { onClose: () => void }) {
 
   const approve = () => {
     const orders = buildOrders(state, lines, today);
-    dispatch({ type: "stock/order", orders, at: { date: today, time: minutes } });
-    showToast(t("stock.ordered", { suppliers: orders.map((o) => o.supplier).join(", ") }), { label: t("common.undo"), run: undo });
+    dispatchWithUndoToast({ type: "stock/order", orders, at: { date: today, time: minutes } }, t("stock.ordered", { suppliers: orders.map((o) => o.supplier).join(", ") }));
     onClose();
   };
 

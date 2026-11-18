@@ -10,10 +10,10 @@ import { advanceStatus, checkDomain, type DomainStatus } from "./domain";
 export type PageAction =
   | { type: "page/set"; page: PageConfig }
   | { type: "salon/slug"; slug: string }
-  | { type: "domain/connect"; host: string }
+  | { type: "domain/connect"; host: string; status?: DomainStatus }
   /** One more check of the DNS record. The live module passes the status it found; the demo moves one step on. */
-  | { type: "domain/check"; status?: DomainStatus }
-  | { type: "domain/remove" };
+  | { type: "domain/check"; host?: string; status?: DomainStatus }
+  | { type: "domain/remove"; host?: string };
 
 export function applyPageAction(state: DemoState, action: PageAction): DemoState {
   switch (action.type) {
@@ -28,14 +28,14 @@ export function applyPageAction(state: DemoState, action: PageAction): DemoState
     case "domain/connect": {
       const check = checkDomain(action.host);
       if (!state.modules.domain || !check.ok || state.domain?.host === check.host) return state;
-      return { ...state, domain: { host: check.host, status: "waiting-dns" } };
+      return { ...state, domain: { host: check.host, status: action.status ?? "waiting-dns" } };
     }
     case "domain/check": {
-      if (!state.domain) return state;
+      if (!state.domain || (action.host && state.domain.host !== action.host)) return state;
       const status = action.status ?? advanceStatus(state.domain.status);
       return status === state.domain.status ? state : { ...state, domain: { ...state.domain, status } };
     }
     case "domain/remove":
-      return state.domain ? { ...state, domain: null } : state;
+      return state.domain && (!action.host || state.domain.host === action.host) ? { ...state, domain: null } : state;
   }
 }

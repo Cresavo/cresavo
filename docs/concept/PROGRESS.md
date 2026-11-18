@@ -1,5 +1,11 @@
 # Progress · AI-native demo
 
+## 2026-11-18 · Codex · PR #31 review
+
+- Live AI tasks require a configured bearer token and a verified client address with a per-process budget. Custom-domain setup stays simulated until the server can verify ownership.
+- Assistant conversations and approvals follow the active role. Undo uses the originating log entry and checks later edits and references before removing created records.
+- Stripe partial refunds verify payment currency. Gift-card payments preserve prepaid package visits, and deleted customers' packages move with them into the trash.
+
 ## 2026-11-18 · Codex · concept QA fixes
 
 - Caller booking creates a customer and visit together, and the booking sheet explains unavailable times. The assistant brief and everyday lookups use current demo data.

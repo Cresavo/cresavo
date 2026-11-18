@@ -121,6 +121,17 @@ describe("packages", () => {
     expect(packageLiability(done)).toBe(Math.round((pkg.price * 4) / 5));
   });
 
+  it("preserves the package visit and the booking price when a gift card paid part of the visit", () => {
+    const sold = reduce(withPackage, { type: "giftcard/sell", amount: 100, recipient: "Demo gift", message: "", date: today });
+    const paid = reduce(sold, { type: "giftcard/redeem", code: sold.giftCards[0].code, bookingId: booking.id, date: today });
+    expect(paid.giftCards[0].redemptions).toMatchObject([{ bookingId: booking.id, amount: 100 }]);
+    const done = reduce(paid, { type: "booking/complete", id: booking.id });
+    expect(done.packages).toEqual(withPackage.packages);
+    expect(done.giftCards).toEqual(paid.giftCards);
+    expect(done.bookings.find((b) => b.id === booking.id)).toMatchObject({ status: "completed", price: booking.price });
+    expect(packageFor(paid, booking)).toBeUndefined();
+  });
+
   it("leaves other treatments and other customers alone", () => {
     const other = base.services.find((s) => s.id !== service.id)!;
     const otherBooking = base.bookings.find((b) => b.status === "booked" && b.serviceId === other.id && b.customerId !== booking.customerId)!;

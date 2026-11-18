@@ -9,6 +9,7 @@ import { addDays, formatTime } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
 import { freeStarts, needOf, type Need } from "@/concept/data/slots";
 import { interpretCommand } from "@/concept/intent";
+import { staffViewer } from "@/concept/ops/access";
 import { fullName, revenueBetween } from "@/concept/selectors";
 
 // Monday. The demo is generated for this day, and the clock is fixed at 09:00.
@@ -55,6 +56,22 @@ describe("buildIntentContext", () => {
 });
 
 describe("proposals", () => {
+  it.each(["move", "cancel"] as const)("scopes staff %s proposals to the staff member's own calendar", (action) => {
+    const staff = staffViewer(state)!;
+    const own = upcoming.find((booking) => booking.staffId === staff.id)!;
+    const other = upcoming.find((booking) => booking.staffId !== staff.id)!;
+    const proposeFor = (booking: typeof own, role: "staff" | "owner") => {
+      const { date, starts } = freeDay(booking.staffId, booking);
+      return proposalFor(state, { action, params: { bookingId: booking.id, date, time: formatTime(starts[0]) }, summary: action, confidence: 1 }, action, clock, [], role);
+    };
+    expect(proposeFor(other, "staff").kind).toBe("message");
+    expect(proposeFor(other, "owner").kind).toBe("change");
+    expect(proposeFor(own, "staff").kind).toBe("change");
+    expect(proposalFor({ ...state, staff: state.staff.slice(0, 1) }, {
+      action, params: { bookingId: other.id }, summary: action, confidence: 1,
+    }, action, clock, [], "staff").kind).toBe("message");
+  });
+
   it("proposes a move to a free time that the store accepts", () => {
     const { date, starts } = freeDay(single.staffId, single);
     const proposal = propose(`Move ${fullName(owner)} to ${date} at ${formatTime(starts[0])}`);

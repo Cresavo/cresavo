@@ -5,13 +5,12 @@ import { Pencil } from "lucide-react";
 import { formatTime, WEEK_ORDER } from "../../data/dates";
 import type { Salon } from "../../data/types";
 import { t, words } from "../../i18n";
-import { dispatch, undo } from "../../store";
 import { Button } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { DayRow, TimeRange } from "./day-row";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 const DEFAULT_OPEN = { open: 9 * 60, close: 17 * 60 };
 const DEFAULT_LUNCH = { start: 12 * 60, end: 13 * 60 };
@@ -55,7 +54,7 @@ function HoursSheet({ salon, onClose }: { salon: Salon; onClose: () => void }) {
   const [lunch, setLunch] = useState(salon.lunch);
   const valid = Object.values(hours).every((h) => !h || h.open < h.close) && (!lunch || lunch.start < lunch.end);
   const save = () => {
-    if (dispatch({ type: "salon/hours", hours, lunch })) showToast(t("hours.saved"), { label: t("common.undo"), run: undo });
+    dispatchWithUndoToast({ type: "salon/hours", hours, lunch }, t("hours.saved"));
     onClose();
   };
   return (

@@ -13,7 +13,8 @@ Cresavo is a concept demo (0.x) for salons and other small service businesses.
   waiting-list form is a placeholder and does not store sign-ups.
 - Host routing serves the product site, demo and business booking pages at
   different addresses. The demo resolves fixture businesses and simulates
-  custom-domain setup.
+  custom-domain setup. Live domain changes are disabled until owner and
+  domain ownership can be verified on the server.
 - The separate booking engine uses Prisma and PostgreSQL. The web workspace,
   provider API and local owner MCP share booking rules, including idempotency
   and protection against double-booking. The public agent gateway lives in

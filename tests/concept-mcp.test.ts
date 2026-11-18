@@ -11,6 +11,7 @@ import { claudeCodeCommand, claudeDesktopConfig, shellToken } from "@/concept/st
 import { addDays, formatTime } from "@/concept/data/dates";
 import { freeStarts } from "@/concept/data/slots";
 import { resetDemoBusiness, toolContext } from "@/concept/server/demo-business";
+import { handleConceptMcp } from "@/concept/server/mcp";
 import { createRateLimiter } from "@/concept/server/rate-limit";
 import { checkBearer, DEV_TOKEN, tokenSource } from "@/concept/server/token";
 import type { AgentProposal } from "@/concept/tools/agent-proposal";
@@ -108,6 +109,26 @@ describe("rate limit", () => {
 });
 
 describe("MCP round trip with the SDK client", () => {
+  it("stops reading an oversized UTF-8 MCP stream before logging its tool", async () => {
+    const chunks = ['{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_bookings","extra":"',
+      "å".repeat(20_000), "å".repeat(15_000), '"}}'];
+    const encoder = new TextEncoder();
+    const pull = vi.fn((controller: ReadableStreamDefaultController<Uint8Array>) => {
+      const chunk = chunks.shift();
+      if (chunk === undefined) controller.close();
+      else controller.enqueue(encoder.encode(chunk));
+    });
+    const cancel = vi.fn();
+    const stream = new ReadableStream({ pull, cancel }, { highWaterMark: 0 });
+    const init = { method: "POST", duplex: "half", headers: { authorization: `Bearer ${DEV_TOKEN}`, "content-type": "application/json", accept: "application/json, text/event-stream" }, body: stream };
+    const log = {};
+    const response = await handleConceptMcp(new Request(`${URL_BASE}/api/concept/mcp`, init), log);
+    expect(response.status).toBe(413);
+    expect(log).not.toHaveProperty("tool");
+    expect(pull).toHaveBeenCalledTimes(3);
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
   it("lists every registry tool, plus proposal status", async () => {
     const client = await connect();
     const { tools } = await client.listTools();

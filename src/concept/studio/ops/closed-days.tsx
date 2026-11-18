@@ -5,13 +5,12 @@ import { CalendarOff, Plus, X } from "lucide-react";
 import { t } from "../../i18n";
 import { formatDayLong } from "../../i18n/format";
 import { closureSuggestions } from "../../ops/holidays";
-import { dispatch, undo } from "../../store";
 import { Button, IconButton } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
 import { Chip, Field, TextInput } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 /** Days the salon is closed on top of the weekly hours, with the Swedish holidays as suggestions. */
 export function ClosedDaysSection() {
@@ -36,7 +35,7 @@ export function ClosedDaysSection() {
                 label={t("closed.reopen", { day: formatDayLong(c.date) })}
                 className="size-9"
                 onClick={() => {
-                  if (dispatch({ type: "salon/reopen", id: c.id })) showToast(t("closed.reopened"), { label: t("common.undo"), run: undo });
+                  dispatchWithUndoToast({ type: "salon/reopen", id: c.id }, t("closed.reopened"));
                 }}
               >
                 <X size={16} />
@@ -58,7 +57,7 @@ function CloseSheet({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
   const suggestions = closureSuggestions(state.salon, today).filter((h) => !state.salon.closures.some((c) => c.date === h.date));
   const save = () => {
-    if (dispatch({ type: "salon/close", date, name })) showToast(t("closed.saved", { day: formatDayLong(date) }), { label: t("common.undo"), run: undo });
+    dispatchWithUndoToast({ type: "salon/close", date, name }, t("closed.saved", { day: formatDayLong(date) }));
     onClose();
   };
   return (

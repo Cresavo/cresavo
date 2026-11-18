@@ -5,13 +5,12 @@ import { Camera, Loader2 } from "lucide-react";
 import { t, tc } from "../../i18n";
 import { formatDayMonth } from "../../i18n/format";
 import { openOrders, readDeliveryNote } from "../../stock/delivery-note";
-import { dispatch, undo } from "../../store";
 import { Button } from "../../ui/button";
 import { Chip, Select } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { Stepper } from "./stepper";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 const OTHER = "other";
 const READING_MS = 900;
@@ -47,8 +46,7 @@ export function ReceiveSheet({ orderId, onClose }: { orderId?: string; onClose: 
   const ids = Object.keys(amounts);
   const received = ids.filter((id) => amounts[id] > 0).length;
   const confirm = () => {
-    dispatch({ type: "stock/receive", orderId: order?.id, deliveries: ids.map((id) => ({ stockId: id, quantity: amounts[id] })), date: today });
-    showToast(tc("stock.receivedToast", received), { label: t("common.undo"), run: undo });
+    dispatchWithUndoToast({ type: "stock/receive", orderId: order?.id, deliveries: ids.map((id) => ({ stockId: id, quantity: amounts[id] })), date: today }, tc("stock.receivedToast", received));
     onClose();
   };
 

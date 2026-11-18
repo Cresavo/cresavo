@@ -3,9 +3,12 @@
 import type { DemoAction } from "../../actions";
 import type { InputMode, Reply } from "../../assistant/thread";
 import type { Choice, Proposal } from "../../command/proposal";
+import type { DemoState } from "../../data/types";
 import { undoBlockReason } from "../../log/undo";
 import type { LogMeta } from "../../log/types";
-import { currentState, dispatch } from "../../store";
+import { canChangeBooking, staffViewer } from "../../ops/access";
+import { currentRole } from "../../ops/role";
+import { currentState, dispatch, dispatchWithLog } from "../../store";
 import { replyOf, updateReply } from "./thread-store";
 
 // What the owner can do with a reply card in the panel. Plain functions over
@@ -16,19 +19,29 @@ type Meta = Partial<Omit<LogMeta, "at">>;
 /** Where a change the owner asked for came from: spoken commands are logged as voice, typed ones as the assistant. */
 export const sourceFor = (input: InputMode | undefined): LogMeta["source"] => (input === "voice" ? "voice" : "assistant");
 
-/** The activity log entry the last dispatch wrote. */
-const lastLogId = () => currentState()?.log[0]?.id;
+function canApplyReply(state: DemoState, action: DemoAction): boolean {
+  const role = currentRole();
+  if (role === "owner" || action.type === "booking/create") return true;
+  if (action.type === "booking/cancel") return canChangeBooking(state, role, action.id);
+  return action.type === "booking/move" && canChangeBooking(state, role, action.id) &&
+    (!action.staffId || action.staffId === staffViewer(state)?.id);
+}
 
 /** Applies a change the owner approved on a reply. Undo sits on the card, since a toast would hide behind the panel. */
 export function applyReply(id: string, action: DemoAction, meta: Meta) {
-  const done = dispatch(action, meta);
-  updateReply(id, done ? { status: "approved", undoId: lastLogId() } : { status: "failed" });
-  return done;
+  const reply = replyOf(id);
+  if (!reply || reply.status) return false;
+  const logId = dispatchWithLog(action, meta, (state) => canApplyReply(state, action));
+  updateReply(id, logId !== false ? { status: "approved", undoId: logId ?? undefined } : { status: "failed" });
+  return logId !== false;
 }
 
 /** Approves a proposal with the provenance of the words that asked for it. */
 export function approveReply(id: string, action: DemoAction) {
-  return applyReply(id, action, { actor: "ai", source: sourceFor(replyOf(id)?.input) });
+  const reply = replyOf(id);
+  return reply?.card?.kind === "change" && reply.card.action === action
+    ? applyReply(id, action, { actor: "ai", source: sourceFor(reply.input) })
+    : false;
 }
 
 /** Whether the panel should offer Undo for a reply: only while the store would accept it. */
@@ -47,6 +60,7 @@ export function replyUndoBlockReason(reply: Pick<Reply, "undoId">) {
  * A booking conflict stays visible on the reply while the original time is unavailable.
  */
 export function undoReply(id: string, undoId: string): boolean {
+  if (replyOf(id)?.undoId !== undoId) return false;
   const done = dispatch({ type: "log/undo", id: undoId });
   if (done) updateReply(id, { status: "undone", undoId: undefined });
   // A conflict (time taken, customer in use, card spent) can clear again, so the undo stays offered.

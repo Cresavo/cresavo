@@ -7,6 +7,7 @@ import type { DemoState } from "../../data/types";
 import type { Clock } from "../../finance/types";
 import { runRoutine } from "../../assistant/outreach";
 import { t } from "../../i18n";
+import { currentRole, useRole } from "../../ops/role";
 import { dispatch } from "../../store";
 import { Button } from "../../ui/button";
 import { showToast } from "../../ui/toast";
@@ -54,20 +55,22 @@ export function AssistantHeaderButton() {
 /** Runs switched-on routines on their schedule while the studio is open. Each run leaves a proposal in the panel. */
 function RoutineRunner() {
   const { state, today, minutes } = useStudio();
+  const role = useRole();
   useEffect(() => {
+    if (role !== "owner") return;
     for (const routine of state.routines) {
       const slot = dueRun(routine, { today, minutes });
       if (!slot) continue;
       dispatch({ type: "routine/ran", id: routine.id, at: slot });
       postRoutineRun(state, routine, { today, minutes });
-      showToast(t("assistant.routine.ran", { name: routine.name }), { label: t("assistant.routine.show"), run: () => openAssistant() });
+      showToast(t("assistant.routine.ran", { name: routine.name }), { label: t("assistant.routine.show"), run: () => { if (currentRole() === "owner") openAssistant(); } });
     }
-  }, [state, today, minutes]);
+  }, [state, today, minutes, role]);
   return null;
 }
 
 /** Puts what a routine prepared into the conversation as a proposal to approve. */
 export function postRoutineRun(state: DemoState, routine: Routine, clock: Clock) {
   const text = t("assistant.routine.ran", { name: routine.name });
-  addMessages([{ id: messageId(), from: "assistant", text, reply: { source: "rules", text, card: runRoutine(state, routine, clock), topic: routine.name }, at: Date.now() }]);
+  addMessages([{ id: messageId(), from: "assistant", text, reply: { source: "rules", text, card: runRoutine(state, routine, clock), topic: routine.name }, at: Date.now() }], undefined, "owner");
 }

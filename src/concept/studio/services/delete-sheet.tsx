@@ -3,11 +3,10 @@
 import type { DateKey, DemoState, Service } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { serviceUsage } from "../../services/edit";
-import { dispatch, undo } from "../../store";
 import { Button } from "../../ui/button";
 import { Notice } from "../../ui/notice";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 /**
  * Deleting says what it means before it happens. Upcoming bookings are never cancelled or
@@ -16,16 +15,13 @@ import { showToast } from "../../ui/toast";
 export function DeleteServiceSheet({ state, today, service, onClose }: { state: DemoState; today: DateKey; service: Service; onClose: () => void }) {
   const usage = serviceUsage(state, service.id, today);
   const last = state.services.length === 1;
-  const undoAction = { label: t("common.undo"), run: undo };
 
   const remove = () => {
-    dispatch({ type: "service/delete", id: service.id });
-    showToast(t("services.deleted", { name: service.name }), undoAction);
+    dispatchWithUndoToast({ type: "service/delete", id: service.id }, t("services.deleted", { name: service.name }));
     onClose();
   };
   const hide = () => {
-    dispatch({ type: "service/visibility", id: service.id, hidden: true });
-    showToast(t("services.hiddenToast", { name: service.name }), undoAction);
+    dispatchWithUndoToast({ type: "service/visibility", id: service.id, hidden: true }, t("services.hiddenToast", { name: service.name }));
     onClose();
   };
 

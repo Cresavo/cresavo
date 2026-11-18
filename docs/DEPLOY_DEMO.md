@@ -19,12 +19,17 @@ built-in rules unless a provider key is configured. The public instance is
   production, which is intended for the public demo.
 - Addresses: `NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN` is the domain business
   subdomains hang under (default `book.example`; needs a wildcard DNS record and
-  wildcard domain on the Vercel project). Own domains stay simulated unless
-  `CONCEPT_DOMAINS_ENABLED=1` plus `VERCEL_API_TOKEN`, `VERCEL_PROJECT_ID` and
-  `VERCEL_TEAM_ID` are set; the endpoint has no login yet (issue #14), so keep it
-  off until real authentication exists. The demo keeps each page in its owner's
-  browser, so only the fixture domain in `src/concept/page/directory.ts` resolves
-  on the server.
+  wildcard domain on the Vercel project). Own domains are simulation-only,
+  even with `CONCEPT_DOMAINS_ENABLED=1` and Vercel credentials. Live changes
+  require server-side owner authentication and business-to-domain ownership
+  checks (issue #14). The server resolves fixture domains from
+  `src/concept/page/directory.ts`.
+- AI task requests use rules by default, including requests from the studio.
+  A writable deployment can use a configured provider through
+  `/api/concept/ai/[task]` only with the matching `Origin`, a server-configured
+  `CONCEPT_MCP_TOKEN` as a bearer token, and a verified client address from
+  the supported server wrapper or trusted Vercel ingress. Each address can
+  make eight provider calls per minute per process.
 - Not for real customers: see issue #14 and `docs/QUALITY_SECURITY.md`.
 
 The earlier engine previews used `Dockerfile.vercel` with the container

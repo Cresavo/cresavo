@@ -20,8 +20,8 @@ export interface Item {
 }
 
 export interface CollectionPatch {
-  /** Ids the change created. */
-  added: string[];
+  /** Created records as written. Older log entries stored only their IDs. */
+  added: (Item | string)[];
   changed: { before: Item; after: Item }[];
   removed: { index: number; item: Item }[];
   /** Set when the change reordered the list: the ids in order, before and after. */

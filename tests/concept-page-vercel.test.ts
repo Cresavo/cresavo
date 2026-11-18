@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { DELETE, GET, PATCH, POST } from "@/app/api/concept/domains/route";
 import { connectDomain, disconnectDomain, domainStatus, domainsConfig, statusFrom } from "@/concept/server/vercel-domains";
 
 const TOKEN = "tok_super_secret_value_123";
@@ -15,7 +16,29 @@ function mockFetch(routes: Record<string, Response | (() => Response)>) {
   }) as unknown as typeof fetch & ReturnType<typeof vi.fn>;
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
+
+it("keeps the domain route simulated even with Vercel credentials and a demo bearer token", async () => {
+  vi.stubEnv("PUBLIC_READONLY", "0");
+  for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
+  vi.stubEnv("CONCEPT_MCP_TOKEN", "fictional-concept-token");
+  const fetcher = vi.fn().mockResolvedValue(Response.json({}));
+  vi.stubGlobal("fetch", fetcher);
+  for (const [method, handler] of Object.entries({ GET, POST, PATCH, DELETE })) {
+    const response = await handler(new Request("https://studio.example/api/concept/domains", {
+      method,
+      headers: { origin: "https://studio.example", authorization: "Bearer fictional-concept-token" },
+      body: method === "GET" ? undefined : JSON.stringify({ host: "boka.other.example" }),
+    }), {});
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ enabled: false });
+  }
+  expect(fetcher).not.toHaveBeenCalled();
+});
 
 describe("Vercel domains module", () => {
   it("is off unless the flag and all keys are set", () => {

@@ -1341,6 +1341,8 @@ const messages = {
   "log.undoTimeTaken": "Can't undo: that time is no longer available.",
   "log.undoCustomerInUse": "Can't undo: this customer has bookings or notes made after this change.",
   "log.undoGiftCard": "Can't undo: the gift card balance has been used since.",
+  "log.undoCreatedChanged": "Can't undo: something created by this action has changed, or its original version is missing.",
+  "log.undoRecordInUse": "Can't undo: another record still uses something this change created.",
   "log.undid": "Undid: {what}",
   "log.someone": "someone",
   "log.aTreatment": "a treatment",
@@ -1699,6 +1701,7 @@ const messages = {
   "packages.paid": "Paid {amount}",
   "packages.on": "Package",
   "packages.onLeft": "{count} visit left|{count} visits left",
+  "packages.giftCardInstead": "If you use a gift card for this visit, the package visit stays available.",
   "booking.donePackageToast": "{name} marked as done. Package: {left}.",
 
   "summary.title": "Evening summary",
@@ -1956,6 +1959,7 @@ const messages = {
   "domain.hint": "Use a subdomain, for example boka.yourname.se.",
   "domain.placeholder": "boka.yourname.se",
   "domain.connect": "Connect domain",
+  "domain.loading": "Loading domain setup…",
   "domain.problem.empty": "Type the address you want to use.",
   "domain.problem.format": "That does not look like a web address. Example: boka.yourname.se.",
   "domain.problem.address": "Use a name, not a number.",
@@ -1978,6 +1982,8 @@ const messages = {
   "domain.check": "Check again",
   "domain.remove": "Remove domain",
   "domain.removed": "Domain removed",
+  "domain.operationFailed": "The domain update could not be confirmed. Try again.",
+  "domain.statusUnavailable": "Domain setup is currently unavailable.",
 
   "pageEditor.subtitle": "Make the page yours. The booking flow itself always stays the same.",
   "pageEditor.open": "Open page",

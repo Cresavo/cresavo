@@ -53,16 +53,36 @@ describe("Stripe payments", () => {
   it("creates a payment link and a partial refund with idempotency keys", async () => {
     const { fetch, calls } = scriptedFetch(
       { status: 200, body: { id: "plink_1", url: "https://buy.stripe.com/test_1" } },
+      { status: 200, body: { id: "pi_123", currency: "sek" } },
       { status: 200, body: { id: "re_1", status: "pending", amount: 10000, currency: "sek" } },
     );
     const adapter = payments(fetch);
     expect(await adapter.createPaymentLink({ ...checkout, methods: ["card"] })).toMatchObject({ ok: true, value: { url: "https://buy.stripe.com/test_1" } });
     expect(calls[0].url).toBe("https://api.stripe.com/v1/payment_links");
     expect(await adapter.refund({ paymentId: "pi_123", amount: { amountMinor: 10000, currency: "SEK" }, idempotencyKey: "b-123-refund-1" })).toEqual({ ok: true, value: { id: "re_1", amount: { amountMinor: 10000, currency: "SEK" }, state: "pending" }, status: "sent", cost: null, providerId: "re_1" });
-    expect(Object.fromEntries(new URLSearchParams(calls[1].body))).toEqual({ payment_intent: "pi_123", amount: "10000" });
-    expect(calls[1].headers["idempotency-key"]).toBe("b-123-refund-1");
+    expect(calls[1]).toMatchObject({ method: "GET", url: "https://api.stripe.com/v1/payment_intents/pi_123" });
+    expect(Object.fromEntries(new URLSearchParams(calls[2].body))).toEqual({ payment_intent: "pi_123", amount: "10000" });
+    expect(calls[2].headers["idempotency-key"]).toBe("b-123-refund-1");
   });
 
+  it("rejects a partial refund in a different currency before posting to Stripe", async () => {
+    const { fetch, calls } = scriptedFetch({ status: 200, body: { id: "pi_123", currency: "jpy" } });
+    expect(await payments(fetch).refund({ paymentId: "pi_123", amount: { amountMinor: 100, currency: "SEK" }, idempotencyKey: "wrong-currency" }))
+      .toMatchObject({ ok: false, error: { code: "invalid_input" } });
+    expect(calls).toMatchObject([{ method: "GET", url: "https://api.stripe.com/v1/payment_intents/pi_123" }]);
+  });
+
+  it("normalizes a failed currency lookup and still allows full refunds without one", async () => {
+    const { fetch, calls } = scriptedFetch(
+      { status: 503, body: { error: { type: "api_error" } } },
+      { status: 200, body: { id: "re_2", status: "succeeded", amount: 100, currency: "jpy" } },
+    );
+    const partial = { paymentId: "pi_123", amount: { amountMinor: 100, currency: "JPY" }, idempotencyKey: "partial" };
+    expect(await payments(fetch).refund(partial)).toMatchObject({ ok: false, error: { code: "provider_unavailable" } });
+    expect(await payments(fetch).refund({ paymentId: partial.paymentId, idempotencyKey: "full" })).toMatchObject({ ok: true });
+    expect(calls.map(({ method }) => method)).toEqual(["GET", "POST"]);
+    expect(new URLSearchParams(calls[1].body).has("amount")).toBe(false);
+  });
   it.each([
     [402, { error: { type: "card_error", code: "card_declined", message: "Your card was declined." } }, "rejected", "card_declined"],
     [400, { error: { type: "idempotency_error", message: "Keys for idempotent requests can only be used with the same parameters" } }, "conflict", "idempotency_error"],

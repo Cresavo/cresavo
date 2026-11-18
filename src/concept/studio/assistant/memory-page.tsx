@@ -5,14 +5,14 @@ import { BookMarked, MessagesSquare, Pencil, Trash2 } from "lucide-react";
 import { memoryRejection, searchMemory, type MemoryItem } from "../../assistant/memory";
 import { t, tc } from "../../i18n";
 import { formatDayMonth } from "../../i18n/format";
-import { dispatch, undo } from "../../store";
+import { dispatch } from "../../store";
 import { Button, IconButton } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
 import { SearchInput, TextInput } from "../../ui/controls";
 import { EmptyState } from "../../ui/empty-state";
-import { showToast } from "../../ui/toast";
 import { MorePage } from "../more/more-page";
 import { useStudio } from "../use-studio";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 /** "What … remembers": every note the assistant keeps, to search, edit and forget. */
 export function MemoryPage() {
@@ -55,8 +55,7 @@ function AddNote({ today }: { today: string }) {
     event.preventDefault();
     const rejection = memoryRejection(text, state);
     if (rejection) return setError(t(`assistant.memory.rejected.${rejection}`));
-    if (dispatch({ type: "memory/add", item: { text, kind: "fact", savedOn: today, source: "owner" } })) {
-      showToast(t("assistant.memory.saved"), { label: t("common.undo"), run: undo });
+    if (dispatchWithUndoToast({ type: "memory/add", item: { text, kind: "fact", savedOn: today, source: "owner" } }, t("assistant.memory.saved"))) {
       setText("");
     }
   };
@@ -92,8 +91,7 @@ function Note({ item }: { item: MemoryItem }) {
     setEditing(false);
   };
   const forget = () => {
-    dispatch({ type: "memory/forget", id: item.id });
-    showToast(t("memory.forgotten"), { label: t("common.undo"), run: undo });
+    dispatchWithUndoToast({ type: "memory/forget", id: item.id }, t("memory.forgotten"));
   };
   const Icon = item.kind === "thread" ? MessagesSquare : BookMarked;
   return (

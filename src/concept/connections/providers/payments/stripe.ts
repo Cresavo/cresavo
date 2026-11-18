@@ -70,10 +70,11 @@ const amountOf = (data: unknown, key: string, currencyKey = "currency"): Money |
 
 export function stripePayments(options: { secretKey: string; webhookSecret?: string; fetch: Fetcher }): PaymentsPort {
   const context = { port: "payments" as const, provider: PROVIDER, fetch: options.fetch, secrets: [options.secretKey, options.webhookSecret ?? ""] };
+  const headers = { Authorization: `Bearer ${options.secretKey}`, "Stripe-Version": STRIPE_VERSION };
   const post = (path: string, body: URLSearchParams, idempotencyKey: string) =>
     request(context, `https://api.stripe.com${path}`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${options.secretKey}`, "Content-Type": "application/x-www-form-urlencoded", "Stripe-Version": STRIPE_VERSION, "Idempotency-Key": idempotencyKey },
+      headers: { ...headers, "Content-Type": "application/x-www-form-urlencoded", "Idempotency-Key": idempotencyKey },
       body: body.toString(),
     }, codeOf);
   const configured = () => SECRET_KEY.test(options.secretKey);
@@ -119,7 +120,14 @@ export function stripePayments(options: { secretKey: string; webhookSecret?: str
         return fail(connectionError("payments", PROVIDER, "invalid_input"));
       }
       const body = new URLSearchParams({ payment_intent: input.paymentId });
-      if (input.amount) body.set("amount", String(input.amount.amountMinor));
+      if (input.amount) {
+        const payment = await request(context, `https://api.stripe.com/v1/payment_intents/${input.paymentId}`, { method: "GET", headers }, codeOf);
+        if (!payment.ok) return fail(payment.error);
+        const currency = text(field(payment.data, "currency"));
+        if (!currency || !/^[a-z]{3}$/i.test(currency)) return fail(connectionError("payments", PROVIDER, "unknown"));
+        if (currency.toUpperCase() !== input.amount.currency) return fail(connectionError("payments", PROVIDER, "invalid_input"));
+        body.set("amount", String(input.amount.amountMinor));
+      }
       if (input.reason) body.set("reason", input.reason);
       const result = await post("/v1/refunds", body, input.idempotencyKey);
       if (!result.ok) return fail(result.error);

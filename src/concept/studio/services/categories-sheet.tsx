@@ -5,11 +5,11 @@ import { ArrowDown, ArrowUp, Check, Pencil, Plus, Trash2, X } from "lucide-react
 import type { DemoState } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { categoryIssues, MAX_NAME } from "../../services/edit";
-import { dispatch, undo } from "../../store";
+import { dispatch } from "../../store";
 import { Button, IconButton } from "../../ui/button";
 import { TextInput } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 const NEW = "new";
 
@@ -19,7 +19,6 @@ export function CategoriesSheet({ state, onClose }: { state: DemoState; onClose:
   const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState("");
   const issue = editing ? categoryIssues(state, name, editing === NEW ? undefined : editing)[0] : undefined;
-  const undoAction = { label: t("common.undo"), run: undo };
 
   const start = (id: string, current: string) => {
     setEditing(id);
@@ -28,15 +27,14 @@ export function CategoriesSheet({ state, onClose }: { state: DemoState; onClose:
   const save = () => {
     if (!editing || issue) return;
     if (editing === NEW) {
-      dispatch({ type: "category/add", name });
-      showToast(t("services.category.added", { name: name.trim() }), undoAction);
-    } else if (dispatch({ type: "category/rename", id: editing, name })) {
-      showToast(t("services.category.renamed", { name: name.trim() }), undoAction);
+      dispatchWithUndoToast({ type: "category/add", name }, t("services.category.added", { name: name.trim() }));
+    } else {
+      dispatchWithUndoToast({ type: "category/rename", id: editing, name }, t("services.category.renamed", { name: name.trim() }));
     }
     setEditing(null);
   };
   const remove = (id: string, label: string) => {
-    if (dispatch({ type: "category/remove", id })) showToast(t("services.category.removed", { name: label }), undoAction);
+    dispatchWithUndoToast({ type: "category/remove", id }, t("services.category.removed", { name: label }));
   };
 
   const editor = (label: string) => (

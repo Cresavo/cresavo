@@ -5,14 +5,13 @@ import { checkOwnSlug, productDomain, subdomainHost } from "../../page/address";
 import { slugify } from "../../page/slug";
 import { bookingHome } from "../../booking/links";
 import { t } from "../../i18n";
-import { dispatch, undo } from "../../store";
 import { Button } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
 import { Field, TextInput } from "../../ui/controls";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { CopyField } from "./copy-field";
 import { DomainSection } from "./domain-section";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 /** Where customers find the booking page: the address on this site, a name under the product domain, and an own domain. */
 export function AddressSection() {
@@ -22,8 +21,8 @@ export function AddressSection() {
   const problem = !check.ok && slug.trim() ? t(`address.slug.${check.problem}`) : undefined;
   const changed = check.ok && check.slug !== state.salon.slug;
   const save = () => {
-    if (!check.ok || !dispatch({ type: "salon/slug", slug: check.slug })) return;
-    showToast(t("address.slug.saved", { address: subdomainHost(check.slug) }), { label: t("common.undo"), run: undo });
+    if (!check.ok) return;
+    dispatchWithUndoToast({ type: "salon/slug", slug: check.slug }, t("address.slug.saved", { address: subdomainHost(check.slug) }));
   };
   return (
     <>

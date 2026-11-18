@@ -6,12 +6,11 @@ import { formatTime, WEEK_ORDER } from "../../data/dates";
 import type { Staff } from "../../data/types";
 import { t, words } from "../../i18n";
 import { formatDayShort } from "../../i18n/format";
-import { dispatch, undo } from "../../store";
 import { Button, IconButton } from "../../ui/button";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { OffSheet, ShiftSheet } from "./exception-sheets";
 import { WeekSheet } from "./week-sheet";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 export 
 type Open = "week" | "off" | "shift" | null;
@@ -52,7 +51,7 @@ export function StaffSchedule({ person }: { person: Staff }) {
                 label={t("schedule.removeException", { day: formatDayShort(e.date) })}
                 className="size-8"
                 onClick={() => {
-                  if (dispatch({ type: "staff/exception-remove", id: e.id })) showToast(t("schedule.exceptionRemoved"), { label: t("common.undo"), run: undo });
+                  dispatchWithUndoToast({ type: "staff/exception-remove", id: e.id }, t("schedule.exceptionRemoved"));
                 }}
               >
                 <X size={14} />

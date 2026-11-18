@@ -7,7 +7,7 @@ import type { Review } from "@/concept/data/types";
 import { t, tc } from "@/concept/i18n";
 import { formatDate, formatNumber } from "@/concept/i18n/format";
 import { averageRating, findCustomer, fullName } from "@/concept/selectors";
-import { dispatch, undo } from "@/concept/store";
+import { dispatchWithUndoToast } from "@/concept/studio/log/undo-toast";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { ApproveReview } from "@/concept/studio/reviews/approve-review";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -17,7 +17,6 @@ import { Card } from "@/concept/ui/card";
 import { Meter } from "@/concept/ui/charts";
 import { Chip, TextArea } from "@/concept/ui/controls";
 import { Sheet } from "@/concept/ui/sheet";
-import { showToast } from "@/concept/ui/toast";
 
 const SHOWN = 20;
 
@@ -107,8 +106,7 @@ export default function ReviewsPage() {
               <Button
                 disabled={!text.trim()}
                 onClick={() => {
-                  dispatch({ type: "review/reply", id: replying.id, reply: text.trim() });
-                  showToast(t("reviews.replied"), { label: t("common.undo"), run: undo });
+                  dispatchWithUndoToast({ type: "review/reply", id: replying.id, reply: text.trim() }, t("reviews.replied"));
                   setReplying(null);
                 }}
               >

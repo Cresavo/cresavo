@@ -206,7 +206,10 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
           )}
         </dl>
         {state.modules.giftcards && booking.status === "booked" && booking.price > paidByCard && (
-          <Button variant="secondary" className="w-full" icon={<Gift size={18} />} onClick={() => setMode("giftcard")}>{t("giftcards.pay")}</Button>
+          <div className="space-y-2">
+            <Button variant="secondary" className="w-full" icon={<Gift size={18} />} onClick={() => setMode("giftcard")}>{t("giftcards.pay")}</Button>
+            {pkg && <p className="text-sm text-text-secondary">{t("packages.giftCardInstead")}</p>}
+          </div>
         )}
         {customer?.note && (
           <div className="rounded-lg bg-warning-bg px-4 py-3 text-sm text-text">

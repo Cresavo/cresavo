@@ -10,15 +10,14 @@ import type { InboxItem } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { formatDayLong, relativeDay } from "../../i18n/format";
 import { findService } from "../../selectors";
-import { dispatch, undo } from "../../store";
 import { Badge } from "../../ui/badge";
 import { Button, ButtonLink } from "../../ui/button";
 import { TextArea } from "../../ui/controls";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { InboxAvatar, KIND_LABEL, KindIcon, senderName } from "./inbox-meta";
 import { ApproveReview } from "../reviews/approve-review";
 import { liveSlot } from "./live-slot";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 /** One message with a drafted reply (and time) that can be sent with one tap. */
 export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => void }) {
@@ -32,8 +31,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
   const name = senderName(state, item) ?? t("inbox.system");
 
   const send = () => {
-    dispatch({ type: "inbox/reply", id: item.id, reply: reply.trim(), slot });
-    showToast(slot ? t("inbox.sentWithBooking", { name: name.split(" ")[0] }) : t("inbox.sent"), { label: t("common.undo"), run: undo });
+    dispatchWithUndoToast({ type: "inbox/reply", id: item.id, reply: reply.trim(), slot }, slot ? t("inbox.sentWithBooking", { name: name.split(" ")[0] }) : t("inbox.sent"));
     onDone?.();
   };
 
@@ -105,8 +103,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
                 onClick={() => {
                   const waitlist = waitlistCount(state, booking);
                   if (!textWaitlistAboutSlot(state, booking)) return;
-                  dispatch({ type: "inbox/add", item: waitlistNotice(booking, waitlist, { today, minutes }) });
-                  showToast(tc("suggest.gaps.toast", waitlist), { label: t("common.undo"), run: undo });
+                  dispatchWithUndoToast({ type: "inbox/add", item: waitlistNotice(booking, waitlist, { today, minutes }) }, tc("suggest.gaps.toast", waitlist));
                 }}
               >
                 {t("inbox.offerSlot")}

@@ -6,14 +6,13 @@ import { t } from "../../i18n";
 import { formatAmount, formatMoney } from "../../i18n/format";
 import { sellable } from "../../stock/sales";
 import { findCustomer, fullName } from "../../selectors";
-import { dispatch, undo } from "../../store";
 import { Avatar } from "../../ui/avatar";
 import { Button } from "../../ui/button";
 import { Chip, SearchInput } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { Stepper } from "./stepper";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 const MAX_RESULTS = 5;
 
@@ -34,9 +33,7 @@ export function SellSheet({ customerId, onClose }: { customerId?: string; onClos
 
   const sell = () => {
     if (!product || !buyer) return;
-    if (dispatch({ type: "product/sell", customerId: buyer.id, stockId: product.id, quantity, date: today })) {
-      showToast(t("stock.sold", { product: product.name, name: buyer.firstName }), { label: t("common.undo"), run: undo });
-    }
+    dispatchWithUndoToast({ type: "product/sell", customerId: buyer.id, stockId: product.id, quantity, date: today }, t("stock.sold", { product: product.name, name: buyer.firstName }));
     onClose();
   };
 

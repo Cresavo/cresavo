@@ -5,6 +5,7 @@ import type { LogMeta } from "@/concept/log/types";
 import { canRestore, daysLeft, purgeExpired, restoreEntry, TRASH_DAYS } from "@/concept/trash/trash";
 import { reduce } from "@/concept/actions";
 import { addDays } from "@/concept/data/dates";
+import { packageLiability } from "@/concept/packages/packages";
 
 const today = "2026-11-16";
 const base = createDemoState(today);
@@ -48,6 +49,19 @@ describe("trash", () => {
     expect(restored.bookings.length).toBe(base.bookings.length);
     expect(restored.journals.length).toBe(base.journals.length);
     expect(restored.trash.some((e) => e.id === entry.id)).toBe(false);
+  });
+
+  it("moves a deleted customer's packages out of live liabilities and restores them with the customer", () => {
+    const { id } = customerWithBookings;
+    const sold = reduce(base, { type: "package/sell", customerId: id, serviceId: upcoming.serviceId, date: today });
+    const deleted = applyAction(sold, { type: "customer/delete", id }, meta);
+    const bundle = deleted.trash[0];
+    expect(packageLiability(sold)).toBeGreaterThan(0);
+    expect(packageLiability(deleted)).toBe(0);
+    expect(deleted.packages).toEqual([]);
+    expect(bundle).toMatchObject({ kind: "customer", packages: sold.packages });
+    expect(restoreEntry(deleted, bundle.id).packages).toEqual(sold.packages);
+    expect(reduce(deleted, { type: "log/undo", id: deleted.log[0].id }).packages).toEqual(sold.packages);
   });
 
   it("cancels, rather than double-books, a restored booking whose time was taken meanwhile", () => {

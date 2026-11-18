@@ -6,12 +6,12 @@ import { MAX_AMOUNT, MIN_AMOUNT } from "../../giftcards/cards";
 import type { GiftCard } from "../../data/types";
 import { t } from "../../i18n";
 import { formatMoney } from "../../i18n/format";
-import { currentState, dispatch, undo } from "../../store";
+import { currentState, dispatchWithLog } from "../../store";
 import { Button } from "../../ui/button";
 import { Chip, Field, TextArea, TextInput } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
+import { showUndoToast } from "../log/undo-toast";
 
 const PRESETS = [300, 500, 800, 1000];
 
@@ -24,9 +24,10 @@ export function SellGiftCardSheet({ onClose, onSold }: { onClose: () => void; on
   const valid = Number.isInteger(amount) && amount >= MIN_AMOUNT && amount <= MAX_AMOUNT && recipient.trim().length > 0;
 
   const sell = () => {
-    if (!dispatch({ type: "giftcard/sell", amount, recipient, message, date: today })) return;
+    const logId = dispatchWithLog({ type: "giftcard/sell", amount, recipient, message, date: today });
+    if (logId === false) return;
     const card = currentState()!.giftCards.at(-1)!;
-    showToast(t("giftcards.sold", { code: card.code }), { label: t("common.undo"), run: undo });
+    showUndoToast(t("giftcards.sold", { code: card.code }), logId);
     onSold(card);
   };
 

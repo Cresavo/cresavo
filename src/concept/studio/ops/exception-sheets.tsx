@@ -4,13 +4,12 @@ import { useState } from "react";
 import { addDays, diffDays } from "../../data/dates";
 import type { DateKey, Staff, TimeOffReason } from "../../data/types";
 import { t } from "../../i18n";
-import { dispatch, undo } from "../../store";
 import { Button } from "../../ui/button";
 import { Field, Segmented, TextInput } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { TimeField } from "./time-field";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 const REASONS: TimeOffReason[] = ["vacation", "sick", "other"];
 const MAX_DAYS = 60;
@@ -28,7 +27,7 @@ export function OffSheet({ person, onClose }: { person: Staff; onClose: () => vo
   const [reason, setReason] = useState<TimeOffReason>("vacation");
   const dates = daysBetween(from, to);
   const save = () => {
-    if (dispatch({ type: "staff/off", staffId: person.id, dates, reason })) showToast(t("schedule.offSaved", { name: person.firstName }), { label: t("common.undo"), run: undo });
+    dispatchWithUndoToast({ type: "staff/off", staffId: person.id, dates, reason }, t("schedule.offSaved", { name: person.firstName }));
     onClose();
   };
   return (
@@ -67,9 +66,7 @@ export function ShiftSheet({ person, onClose }: { person: Staff; onClose: () => 
   const [end, setEnd] = useState(14 * 60);
   const valid = !!date && start < end;
   const save = () => {
-    if (dispatch({ type: "staff/shift", staffId: person.id, date, start, end })) {
-      showToast(t("schedule.shiftSaved", { name: person.firstName }), { label: t("common.undo"), run: undo });
-    }
+    dispatchWithUndoToast({ type: "staff/shift", staffId: person.id, date, start, end }, t("schedule.shiftSaved", { name: person.firstName }));
     onClose();
   };
   return (

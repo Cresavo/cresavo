@@ -5,12 +5,13 @@ import { CheckCheck, Inbox as InboxIcon, MousePointerClick } from "lucide-react"
 import type { InboxItem } from "@/concept/data/types";
 import { t, tc } from "@/concept/i18n";
 import { unreadCount } from "@/concept/selectors";
-import { dispatch, undo } from "@/concept/store";
+import { dispatch } from "@/concept/store";
 import { AgentProposalCard } from "@/concept/studio/inbox/agent-proposal-card";
 import { useAgentProposals } from "@/concept/studio/inbox/agent-proposals";
 import { InboxDetail } from "@/concept/studio/inbox/inbox-detail";
 import { senderName } from "@/concept/studio/inbox/inbox-meta";
 import { InboxRow } from "@/concept/studio/inbox/inbox-row";
+import { showUndoToast } from "@/concept/studio/log/undo-toast";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Button } from "@/concept/ui/button";
@@ -48,8 +49,7 @@ export default function InboxPage() {
   const { proposals, decide } = useAgentProposals();
 
   const approve = (proposal: AgentProposal) => {
-    if (decide(proposal, true)) showToast(proposal.toast, { label: t("common.undo"), run: undo });
-    else showToast(t("agents.failed"));
+    if (!showUndoToast(proposal.toast, decide(proposal, true))) showToast(t("agents.failed"));
   };
   const decline = (proposal: AgentProposal) => {
     decide(proposal, false);

@@ -8,7 +8,6 @@ import { addDays } from "../../data/dates";
 import { openingFor } from "../../data/slots";
 import type { Customer, DateKey, Salon } from "../../data/types";
 import { t } from "../../i18n";
-import { dispatch, undo } from "../../store";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { Field, TextArea, TextInput } from "../../ui/controls";
@@ -17,6 +16,7 @@ import { showToast } from "../../ui/toast";
 import { NewBookingSheet, type NewBookingPreset } from "../booking/new-booking-sheet";
 import { useStudio } from "../use-studio";
 import { suggestedWeeks } from "../../customers/next-visit";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 interface Structured {
   treatment: string;
@@ -64,11 +64,10 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
   const save = (thenBook: boolean) => {
     if (!fields) return;
     const { treatment, observations, advice, nextVisit } = fields;
-    dispatch({
+    dispatchWithUndoToast({
       type: "journal/add",
       entry: { customerId: customer.id, date: today, staffId: customer.preferredStaff, treatment, observations, advice, nextVisit: nextVisit.trim() || undefined },
-    });
-    showToast(t("journal.saved"), { label: t("common.undo"), run: undo });
+    }, t("journal.saved"));
     if (thenBook && weeks) {
       const lastService = state.bookings.filter((b) => b.customerId === customer.id && b.status === "completed").at(-1)?.serviceId;
       setBooking({ customerId: customer.id, serviceId: lastService, date: nextOpenDay(state.salon, addDays(today, weeks * 7)) });
