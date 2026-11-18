@@ -8,6 +8,8 @@ export const BRAND = {
   tagline: "More time. On your terms.",
 } as const;
 
+export const PROJECT_REPOSITORY = "https://github.com/Cresavo/cresavo";
+
 /**
  * The assistant has no persona name: it is a tool, labelled in plain words
  * ("Assistant", Swedish "Assistent"), and the product brand stays the one name

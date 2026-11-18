@@ -9,7 +9,7 @@ Cresavo is a concept demo (0.x) for salons and other small service businesses.
   Assistant, campaigns, stock and purchasing, finance and configurable modules.
   The demo uses fictional fixtures and browser state. The Assistant works
   without an AI key.
-- [cresavo.com](https://cresavo.com) shows the coming-soon page. Its launch
+- [cresavo.com](https://cresavo.com) shows the coming-soon page with a product tour and links to the demo and public repository. Its launch
   waiting-list form is a placeholder and does not store sign-ups.
 - Host routing serves the product site, demo and business booking pages at
   different addresses. The demo resolves fixture businesses and simulates
