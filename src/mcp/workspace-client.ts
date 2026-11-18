@@ -28,12 +28,12 @@ export async function runWorkspaceDemo(client: Client) {
   ): Promise<T | null> {
     const clientRequestId = randomUUID();
     console.log(`\n${summary}`);
-    console.log(`Åtgärdsnyckel: ${clientRequestId}`);
-    process.stdout.write(`Bekräfta ${name} genom att skriva ja: `);
+    console.log(`Request key: ${clientRequestId}`);
+    process.stdout.write(`Type ja to confirm ${name}: `);
     const answer = await answers.next();
     if (answer.done || answer.value.trim().toLowerCase() !== "ja") {
       console.log(
-        "Avbruten. Ingen ytterligare ändring görs. Tidigare bekräftade ändringar ligger kvar.",
+        "Stopped. Earlier confirmed changes are still saved.",
       );
       return null;
     }
@@ -52,7 +52,7 @@ export async function runWorkspaceDemo(client: Client) {
     const service = await write<Identity>(
       "save_service",
       { name, priceOre, duration: 30, buffer: 0 },
-      `Skapa ${name}, 30 min, ${formatPrice(priceOre)}, ingen buffert.`,
+      `Create ${name}, 30 min, ${formatPrice(priceOre)}, with no buffer.`,
     );
     if (!service) return;
     const weekly = [1, 2, 3, 4, 5].map((weekday) => ({
@@ -68,7 +68,7 @@ export async function runWorkspaceDemo(client: Client) {
         weekly,
         exceptions: [],
       },
-      `Skapa syntetisk utförare för tjänst ${service.id}, måndag–fredag 09–17 (${ZONE}), inga pauser/undantag.`,
+      `Create a fictional team member for service ${service.id}, Monday to Friday 09:00–17:00 (${ZONE}), with no breaks or exceptions.`,
     );
     if (!staff) return;
     let day = DateTime.now().setZone(ZONE).plus({ days: 1 });
@@ -90,7 +90,7 @@ export async function runWorkspaceDemo(client: Client) {
         customerName: "Syntetisk agentkund",
         customerEmail: `mcp-workspace-demo-${randomUUID()}@example.test`,
       },
-      `Boka syntetisk kund: ${name}, ${formatBookingTime(slots[0])} (${ZONE}), utförare ${staff.id}.`,
+      `Book a fictional customer: ${name}, ${formatBookingTime(slots[0])} (${ZONE}), with staff member ${staff.id}.`,
     );
     if (!booking) return;
     const details = await read<Identity>("get_booking", { id: booking.id });
@@ -109,13 +109,13 @@ export async function runWorkspaceDemo(client: Client) {
         staffId: staff.id,
         start,
       },
-      `Flytta bokning ${booking.id}, version ${details.version}, till ${formatBookingTime(start)} (${ZONE}).`,
+      `Reschedule booking ${booking.id}, version ${details.version}, to ${formatBookingTime(start)} (${ZONE}).`,
     );
     if (!moved) return;
     const cancelled = await write<Identity>(
       "cancel_booking",
       { id: booking.id, expectedVersion: moved.version },
-      `Avboka ${booking.id}, version ${moved.version}. Tiden frigörs och historiken bevaras.`,
+      `Cancel booking ${booking.id}, version ${moved.version}. This frees the time and keeps the booking history.`,
     );
     if (!cancelled) return;
     const inactiveStaff = await write<Identity>(
@@ -128,7 +128,7 @@ export async function runWorkspaceDemo(client: Client) {
         serviceIds: [service.id],
         weekly,
       },
-      `Inaktivera demoutförare ${staff.id}, version ${staff.version}; bevara schemat och historiken.`,
+      `Deactivate demo team member ${staff.id}, version ${staff.version}. Keep their schedule and history.`,
     );
     if (!inactiveStaff) return;
     const inactiveService = await write<Identity>(
@@ -142,11 +142,11 @@ export async function runWorkspaceDemo(client: Client) {
         buffer: 0,
         active: false,
       },
-      `Inaktivera demotjänst ${service.id}, version ${service.version}; bevara bokningshistoriken.`,
+      `Deactivate demo service ${service.id}, version ${service.version}. Keep the booking history.`,
     );
     if (!inactiveService) return;
     console.log(
-      "Arbetsytedemo klar. Syntetisk avbokning och inaktiva demoresurser är kvar för granskning i admin.",
+      "Workspace demo complete. Review the fictional cancellation and inactive demo resources in the admin workspace.",
     );
   } finally {
     terminal.close();

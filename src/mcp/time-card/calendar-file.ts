@@ -57,8 +57,8 @@ export function bookingCalendarFile(
     `SEQUENCE:${b.version}`,
     `DTSTART:${utc(b.startsAt)}`,
     `DTEND:${utc(end)}`,
-    `SUMMARY:${escapeText(`${b.serviceName} hos ${b.staffName} – DEMO`)}`,
-    `DESCRIPTION:${escapeText("Endast påhittade uppgifter. Ingen betalning eller utskick. Importerad kalenderpost uppdateras inte automatiskt; kontrollera bokningsstatus i Booking Lab.")}`,
+    `SUMMARY:${escapeText(`${b.serviceName} with ${b.staffName} – DEMO`)}`,
+    `DESCRIPTION:${escapeText("Fictional data only. No payments or messages. Check the booking status in Booking Lab because imported calendar entries do not update automatically.")}`,
     "STATUS:CONFIRMED",
     "END:VEVENT",
     "END:VCALENDAR",
@@ -74,13 +74,13 @@ export async function getCardCalendarFile(input: unknown) {
   const item = history.items.find((i) => i.requestId === args.requestId);
   const receipt = item && "receipt" in item ? item.receipt : null;
   if (!receipt || receipt.status !== "confirmed")
-    throw new DomainError("Ingen aktiv bokning att lägga i kalendern.", 409);
+    throw new DomainError("There is no active booking to add to the calendar.", 409);
   return {
     demo: true,
     filename: "booking-lab-demo.ics",
     mimeType: "text/calendar;charset=utf-8",
     content: bookingCalendarFile(receipt),
     notice:
-      "Kalenderfil, inte automatisk synk. Ingen kalenderinsättning är bekräftad.",
+      "Import the calendar file manually. Changes do not sync.",
   };
 }

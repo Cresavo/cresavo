@@ -39,6 +39,8 @@ All notable changes to this project are documented here. Format follows
 - On phones the inline command box is replaced by the assistant button (#18); it stays on larger screens.
 
 ### Fixed
+- Preserve links between the product site and demo after a proxy rewrite and allow indexing of the product home.
+- Return English booking-engine errors and owner MCP messages.
 - The read-only public demo keeps working where the server refuses writes: journal structuring and help answers run their built-in rules in the browser instead of failing, and the Data page shows one note instead of connection steps, a server reset and a key form that cannot work there.
 - Assistant: "Who is coming on Friday?" lists Friday (it listed today), yesterday's revenue is one day (it was the whole month), a stated discount is used in an offer (it was always 10%), "same as last time" means the last finished visit, and a gift card question is no longer read as a stock question.
 - Assistant: closing early, blocking part of a day, no-shows, waiting-list adds and journal notes are declined in plain words with the place to do them, instead of a wrong draft (a part-day closure used to become an all-day one) or "I did not catch that".

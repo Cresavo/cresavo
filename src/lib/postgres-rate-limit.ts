@@ -34,7 +34,7 @@ export async function reserveRateLimit(
     const active = previous && previous.expiresAt > now ? previous : null;
     if (active && active.count >= limit)
       throw new DomainError(
-        "För många försök. Försök igen senare.",
+        "Too many attempts. Please try again later.",
         429,
         Math.max(1, Math.ceil((active.expiresAt.getTime() - now.getTime()) / 1000)),
       );

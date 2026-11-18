@@ -15,7 +15,7 @@ import { demoAccessEnabled, DEMO_ADMIN_EMAIL } from "./demo-access";
 function secret() {
   const s = process.env.SESSION_SECRET;
   if (!s || s.length < 32)
-    throw new Error("SESSION_SECRET måste vara minst 32 tecken");
+    throw new Error("SESSION_SECRET must be at least 32 characters");
   return s;
 }
 

@@ -1,6 +1,6 @@
-# Contributing to Flerdo
+# Contributing to Cresavo
 
-Thanks for helping. Flerdo is an AI-native system for small service
+Thanks for helping. Cresavo is an AI-native system for small service
 businesses. It is early (0.x concept stage), so small, focused changes are
 easiest to review.
 
@@ -51,11 +51,12 @@ compatible license.
 
 ## License and CLA
 
-Flerdo is AGPL-3.0-only. Before we can merge your first pull request you
-must agree to the Contributor License Agreement (individual, or entity if you
-contribute on behalf of an employer). The CLA Assistant bot will ask you on
-the pull request. The text is in [docs/legal/CLA.md](docs/legal/CLA.md)
-(currently a draft pending legal review).
+Cresavo is AGPL-3.0-only. Once the [Contributor License Agreement](docs/legal/CLA.md)
+is approved and in use, contributors will need to accept it before their first
+pull request can be merged. Use the individual form for contributions you own
+and the entity form for contributions made on behalf of an organization.
+
+The [draft trademark policy](TRADEMARK.md) covers use of the Cresavo name and logo.
 
 ## Security
 

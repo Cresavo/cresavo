@@ -166,7 +166,7 @@ describe("Beständig lokal demobokning och arbetsdag", () => {
       expect(result.content).toEqual([
         {
           type: "text",
-          text: "Bokningen kan inte visas med den här demoprofilen.",
+          text: "This demo profile cannot access the booking.",
         },
       ]);
       expect(JSON.stringify(result)).not.toContain(

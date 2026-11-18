@@ -42,7 +42,7 @@ async function run(answers: readonly ("ja" | "nej" | null)[]) {
     });
     child.stdout.on("data", (chunk) => {
       output += String(chunk);
-      for (const match of output.matchAll(/Åtgärdsnyckel: ([a-f0-9-]{36})/g))
+      for (const match of output.matchAll(/Request key: ([a-f0-9-]{36})/g))
         keys.add(match[1]);
       for (const match of output.matchAll(
         /\n(save_service|save_staff) (\{[^\n]+\})/g,
@@ -52,7 +52,7 @@ async function run(answers: readonly ("ja" | "nej" | null)[]) {
       }
       const count = [
         ...output.matchAll(
-          /Bekräfta (?:save_service|save_staff|create_booking|move_booking|cancel_booking) genom att skriva ja:/g,
+          /Type ja to confirm (?:save_service|save_staff|create_booking|move_booking|cancel_booking):/g,
         ),
       ].length;
       while (prompts < count) {
@@ -121,7 +121,7 @@ it("arbetsyteklienten skriver ingenting om operatören nekar första åtgärden"
   const result = await run(["nej"]);
   expect(result.code).toBe(0);
   expect(result.prompts).toBe(1);
-  expect(result.output).toContain("Ingen ytterligare ändring görs");
+  expect(result.output).toContain("Stopped.");
   expect({
     services: await db.service.count(),
     staff: await db.staff.count(),
@@ -133,7 +133,7 @@ it("kräver sju separata bekräftelser och lämnar spårbar syntetisk historik",
   const result = await run(Array.from({ length: 7 }, () => "ja" as const));
   expect(result.code).toBe(0);
   expect(result.prompts).toBe(7);
-  expect(result.output).toContain("Arbetsytedemo klar");
+  expect(result.output).toContain("Workspace demo complete");
   expect(result.output + result.errors).not.toMatch(
     /customerName|customerEmail|SESSION_SECRET|@example\.test|Prisma|stack/,
   );
@@ -174,7 +174,7 @@ it.each([
     expect(result.code).toBe(0);
     expect(result.prompts).toBe(prompts);
     expect(result.output).toContain(
-      "Tidigare bekräftade ändringar ligger kvar",
+      "Earlier confirmed changes are still saved",
     );
     expect(await db.service.count()).toBe(before.services + serviceCount);
     expect(await db.staff.count()).toBe(before.staff);

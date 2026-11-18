@@ -27,7 +27,7 @@ export async function listCalendar(input: unknown) {
       select: { id: true },
     }))
   )
-    throw new DomainError("Ogiltig sidmarkör för datumintervallet");
+    throw new DomainError("This page does not match the date range. Showing the first page.");
   const rows = await db.booking.findMany({
     where,
     orderBy: [{ startsAt: "asc" }, { id: "asc" }],

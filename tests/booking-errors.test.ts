@@ -28,7 +28,7 @@ it.each(["23P01", "40P01", "40001"])(
       }),
     );
     await expect(insertBooking(db, data)).rejects.toEqual(
-      new DomainError("Tiden är inte tillgänglig"),
+      new DomainError("That time is no longer available. Choose another time."),
     );
   },
 );
@@ -53,7 +53,7 @@ it.each(["23P01", "40P01", "40001"])(
       }),
     );
     await expect(insertBooking(db, data)).rejects.toEqual(
-      new DomainError("Tiden är inte tillgänglig"),
+      new DomainError("That time is no longer available. Choose another time."),
     );
   },
 );

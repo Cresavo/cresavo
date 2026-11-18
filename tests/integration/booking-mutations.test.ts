@@ -101,7 +101,7 @@ it("flyttar över personal/dygn med bokad snapshot och bevarar originalet vid ko
       request(),
       actor,
     ),
-  ).rejects.toThrow("Tiden är inte tillgänglig");
+  ).rejects.toThrow("That time is no longer available. Choose another time.");
   const unchanged = await db.booking.findUniqueOrThrow({
     where: { id: booking.id },
   });
@@ -282,7 +282,7 @@ it("20 konkurrerande flyttar till samma tid ger en vinnare och noll aktiva över
   expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
   for (const result of results)
     if (result.status === "rejected")
-      expect(result.reason.message).toBe("Tiden är inte tillgänglig");
+      expect(result.reason.message).toBe("That time is no longer available. Choose another time.");
   const overlap = await db.$queryRaw<
     Array<{ n: bigint }>
   >`SELECT count(*) AS n FROM "Booking" a JOIN "Booking" b ON a.id<b.id AND a."businessId"=b."businessId" AND a."staffId"=b."staffId" AND tstzrange(a."startsAt",a."endsAt",'[)') && tstzrange(b."startsAt",b."endsAt",'[)') WHERE a."serviceId"=${c.serviceId} AND a."status"='confirmed' AND b."status"='confirmed'`;

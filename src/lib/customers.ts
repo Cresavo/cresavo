@@ -92,14 +92,14 @@ export async function editCustomer(
       const [row] = await tx.$queryRaw<
         Customer[]
       >`SELECT * FROM "Customer" WHERE "businessId"=${businessId} AND "id"=${value.id} FOR UPDATE`;
-      if (!row) throw new DomainError("Kunden finns inte", 404);
+      if (!row) throw new DomainError("Customer not found. Return to customers.", 404);
       if (row.contactRemovedAt)
         throw new DomainError(
-          "Kontaktuppgifterna är borttagna. Skapa ett nytt kundkort för en ny kontakt.",
+          "Contact details were removed. Create a new customer record for a new contact.",
           409,
         );
       if (row.version !== value.expectedVersion)
-        throw new DomainError("Uppgifterna har ändrats. Läs in på nytt.", 409);
+        throw new DomainError("The details have changed. Refresh and review them again.", 409);
       const updated = await tx.customer.update({
         where: { id: row.id },
         data: {
@@ -116,11 +116,11 @@ export async function editCustomer(
 }
 async function customerById(tx: Prisma.TransactionClient, value: string) {
   if (!id.safeParse(value).success)
-    throw new DomainError("Kunden finns inte", 404);
+    throw new DomainError("Customer not found. Return to customers.", 404);
   const row = await tx.customer.findFirst({
     where: { id: id.parse(value), businessId },
   });
-  if (!row) throw new DomainError("Kunden finns inte", 404);
+  if (!row) throw new DomainError("Customer not found. Return to customers.", 404);
   return row;
 }
 export async function getCustomer(value: string, actor: WorkspaceActor) {
@@ -167,7 +167,7 @@ export async function listCustomers(input: unknown, actor: WorkspaceActor) {
         select: { id: true },
       }))
     )
-      throw new DomainError("Sökningen har ändrats. Börja från första sidan.");
+      throw new DomainError("The search has changed. Return to the first page.");
     const rows = await tx.customer.findMany({
       where,
       orderBy: [{ name: "asc" }, { id: "asc" }],
@@ -240,7 +240,7 @@ export async function customerBookings(
         select: { id: true },
       }))
     )
-      throw new DomainError("Historiken har ändrats. Börja från första sidan.");
+      throw new DomainError("The history has changed. Return to the first page.");
     const direction = value.view === "upcoming" ? "asc" : "desc";
     const rows = await tx.booking.findMany({
       where,

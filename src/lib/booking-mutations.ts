@@ -36,7 +36,7 @@ export async function getBooking(id: string, includeCustomer = false) {
   const row = await db.booking.findFirst({
     where: { id: z.string().min(1).max(128).parse(id), businessId },
   });
-  if (!row) throw new DomainError("Bokningen finns inte");
+  if (!row) throw new DomainError("Booking not found. Return to the calendar.");
   const events = await db.bookingEvent.findMany({
     where: { bookingId: row.id },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -75,9 +75,9 @@ export async function getMoveAvailability(
   const row = await db.booking.findFirst({
     where: { id: z.string().min(1).max(128).parse(id), businessId },
   });
-  if (!row) throw new DomainError("Bokningen finns inte");
+  if (!row) throw new DomainError("Booking not found. Return to the calendar.");
   if (row.status !== "confirmed")
-    throw new DomainError("Bokningen är avbokad och kan inte flyttas.", 409);
+    throw new DomainError("This booking is cancelled and cannot be rescheduled.", 409);
   return getAvailability(row.serviceId, day, db, staffId, {
     ignoreBookingId: row.id,
     duration: row.duration,
@@ -93,7 +93,7 @@ function resourceKeys(staffId: string, start: Date, end: Date) {
     day <= last;
     day = day.plus({ days: 1 })
   ) {
-    if (keys.length >= 31) throw new DomainError("Tiden är inte tillgänglig");
+    if (keys.length >= 31) throw new DomainError("That time is no longer available. Choose another time.");
     keys.push(`${businessId}:staff:${staffId}:${day.toISODate()}`);
   }
   return keys;
@@ -105,7 +105,7 @@ async function lockedBooking(
   next?: { staffId: string; start: Date; end: Date },
 ) {
   const before = await tx.booking.findFirst({ where: { id, businessId } });
-  if (!before) throw new DomainError("Bokningen finns inte");
+  if (!before) throw new DomainError("Booking not found. Return to the calendar.");
   const keys = resourceKeys(before.staffId, before.startsAt, before.endsAt);
   if (next) keys.push(...resourceKeys(next.staffId, next.start, next.end));
   for (const key of [...new Set(keys)].sort())
@@ -113,9 +113,9 @@ async function lockedBooking(
   const [current] = await tx.$queryRaw<
     Booking[]
   >`SELECT * FROM "Booking" WHERE "id"=${id} AND "businessId"=${businessId} FOR UPDATE`;
-  if (!current) throw new DomainError("Bokningen finns inte");
+  if (!current) throw new DomainError("Booking not found. Return to the calendar.");
   if (current.version !== expectedVersion)
-    throw new DomainError("Uppgifterna har ändrats. Läs in på nytt.", 409);
+    throw new DomainError("The details have changed. Refresh and review them again.", 409);
   return current;
 }
 
@@ -136,7 +136,7 @@ export async function moveBooking(
       const existing = await tx.booking.findFirst({
         where: { id: v.id, businessId },
       });
-      if (!existing) throw new DomainError("Bokningen finns inte");
+      if (!existing) throw new DomainError("Booking not found. Return to the calendar.");
       const start = new Date(v.start);
       const end = new Date(
         start.getTime() + (existing.duration + existing.buffer) * 60000,
@@ -148,7 +148,7 @@ export async function moveBooking(
       });
       if (current.status !== "confirmed")
         throw new DomainError(
-          "Bokningen är avbokad och kan inte flyttas.",
+          "This booking is cancelled and cannot be rescheduled.",
           409,
         );
       const slots = await getAvailability(
@@ -163,7 +163,7 @@ export async function moveBooking(
         },
       );
       if (!slots.includes(start.toISOString()))
-        throw new DomainError("Tiden är inte tillgänglig");
+        throw new DomainError("That time is no longer available. Choose another time.");
       let updated: Booking;
       try {
         [updated] = await tx.$queryRaw<

@@ -1,6 +1,6 @@
 import type { Locale } from "./locale";
 
-// UI translations only. The server's public error strings and status codes stay stable.
+// The legacy UI still emits some localized errors. Map approved copy in both directions.
 const english: Record<string, string> = {
   "Underlaget har ändrats. Förhandsgranska igen.": "The details have changed. Preview them again before confirming.",
   "Underlaget är för stort för POC-flödet. Högst 1000 kopplade bokningar stöds.": "This POC supports up to 1,000 linked bookings. This record exceeds that limit.",
@@ -20,6 +20,7 @@ const english: Record<string, string> = {
   "Slutdatum får inte vara före startdatum.": "The end date cannot be before the start date.",
   "Kampanjen får gälla högst 90 kalenderdagar.": "A campaign can last up to 90 calendar days.",
   "Ogiltig sidmarkör för datumintervallet": "This page does not match the date range. Showing the first page.",
+  "Ogiltigt datumfilter. Visar standardintervallet; ange högst 31 dagar i rätt ordning.": "Showing the default range. Enter a range of up to 31 days with the start date first.",
   "Ogiltigt datum. Visar idag.": "Invalid date. Showing today.",
   "Medarbetaren finns inte i den här kalendern.": "This team member is not in this calendar.",
   "Utkastet finns inte": "Draft not found. Refresh the campaign list.",
@@ -64,12 +65,15 @@ const english: Record<string, string> = {
   "Inga lediga tider inom de närmaste 60 dagarna. Välj en annan behandling eller medarbetare.":
     "No available times in the next 60 days. Try another treatment or team member.",
 };
+const swedish = new Map(Object.entries(english).map(([sv, en]) => [en, sv]));
+
 export function presentationError(message: unknown, locale: Locale): string {
   if (typeof message !== "string")
     return locale === "en"
       ? "Something went wrong. Try again."
       : "Ett fel inträffade";
-  if (locale === "sv") return message;
+  if (locale === "sv") return swedish.get(message) ?? message;
+  if (swedish.has(message)) return message;
   return Object.hasOwn(english, message)
     ? english[message]
     : "Could not complete this request. Check the details and try again.";

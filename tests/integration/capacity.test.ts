@@ -351,7 +351,7 @@ it("keeps the eleventh actionable source reachable beyond ten handled sources", 
   expect(next.hasMore).toBe(false);
   for (const cursor of ["foreign-source", bookingIds[0]])
     await expect(listCapacity({ ...query, cursor }, actor)).rejects.toThrow(
-      "Ogiltig sidmarkör för datumintervallet",
+      "This page does not match the date range. Showing the first page.",
     );
   expect(JSON.stringify(next)).not.toMatch(/customer|hemligt namn|@example/);
 }, 15000);

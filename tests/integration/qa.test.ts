@@ -64,7 +64,7 @@ describe("Epic 01 QA-regression", () => {
         for (const result of results)
           if (result.status === "rejected") {
             expect(result.reason).toBeInstanceOf(DomainError);
-            expect(result.reason.message).toBe("Tiden är inte tillgänglig");
+            expect(result.reason.message).toBe("That time is no longer available. Choose another time.");
           }
         expect(elapsed).toBeLessThan(2000);
         const overlaps = await db.$queryRaw<
@@ -170,7 +170,7 @@ describe("Epic 01 QA-regression", () => {
     await expect(
       insertBooking(db, { ...data, id: `${marker}-forced-2` }),
     ).rejects.toMatchObject({
-      message: "Tiden är inte tillgänglig",
+      message: "That time is no longer available. Choose another time.",
       status: 400,
     });
   });

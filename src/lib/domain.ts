@@ -40,12 +40,12 @@ export const campaignSchema = z
       if (to < from)
         ctx.addIssue({
           code: "custom",
-          message: "Slutdatum får inte vara före startdatum.",
+          message: "The end date cannot be before the start date.",
         });
       else if (to > from.plus({ days: 89 }))
         ctx.addIssue({
           code: "custom",
-          message: "Kampanjen får gälla högst 90 kalenderdagar.",
+          message: "A campaign can last up to 90 calendar days.",
         });
     } catch {
       /* The field validators report invalid dates. */
@@ -72,7 +72,7 @@ export const adminBookingSchema = bookingSchema
     customerEmail: bookingSchema.shape.customerEmail.optional(),
   })
   .refine((v) => !!v.customerId || (!!v.customerName && !!v.customerEmail), {
-    message: "Välj en kund eller fyll i namn och e-post.",
+    message: "Choose a customer or enter a name and email address.",
   });
 
 export async function listServices(includeInactive = false) {
@@ -92,7 +92,7 @@ async function serviceById(
   const service = await client.service.findFirst({
     where: { id, businessId, ...(!includeInactive && { active: true }) },
   });
-  if (!service) throw new DomainError("Tjänsten finns inte");
+  if (!service) throw new DomainError("This treatment is no longer available.");
   return service;
 }
 
@@ -110,7 +110,7 @@ export async function getAvailability(
     where: { id: selectedStaff, businessId, active: true },
   });
   if (!staff || !staff.serviceIds.includes(serviceId))
-    throw new DomainError("Medarbetaren kan inte utföra behandlingen");
+    throw new DomainError("This team member does not provide the selected treatment.");
   const minutes = internal
     ? internal.duration + internal.buffer
     : service.duration + service.buffer;
@@ -206,7 +206,7 @@ export function bookingDatabaseError(e: unknown): never {
     e.code === "P2010" &&
     ["23P01", "40P01", "40001"].includes(String(sqlState))
   )
-    throw new DomainError("Tiden är inte tillgänglig");
+    throw new DomainError("That time is no longer available. Choose another time.");
   throw e;
 }
 
@@ -293,7 +293,7 @@ export async function createBooking(
           if (existing.requestHash !== requestHash) {
             if (budgetAddress) await checkRateLimit(rateRoute, budgetAddress);
             throw new DomainError(
-              "Bokningsnyckeln har redan använts med andra uppgifter.",
+              "This booking attempt was already used with different details.",
               409,
             );
           }
@@ -313,13 +313,13 @@ export async function createBooking(
           )[0]
         : undefined;
       if (selectedCustomerId && (!customer || customer.archived))
-        throw new DomainError("Välj ett aktivt kundkort.", 409);
+        throw new DomainError("Choose an active customer record.", 409);
       if (
         actor?.kind === "local-mcp" &&
         customer &&
         !customer.email.endsWith("@example.test")
       )
-        throw new DomainError("Välj ett aktivt kundkort.", 409);
+        throw new DomainError("Choose an active customer record.", 409);
       const customerName = customer?.name ?? v.customerName!;
       const customerEmail = customer?.email ?? v.customerEmail!;
       const emailKey = emailCapKey(customerEmail);
@@ -340,7 +340,7 @@ export async function createBooking(
           })) >= (admin ? 100 : 5)
         )
           throw new DomainError(
-            "För många försök. Försök igen senare.",
+            "Too many attempts. Please try again later.",
             429,
             retryAfter,
           );
@@ -358,7 +358,7 @@ export async function createBooking(
         });
         if (count >= 3)
           throw new DomainError(
-            "För många försök. Försök igen senare.",
+            "Too many attempts. Please try again later.",
             429,
             retryAfter,
           );
@@ -368,7 +368,7 @@ export async function createBooking(
         v.serviceVersion !== undefined &&
         v.serviceVersion !== service.version
       )
-        throw new DomainError("Uppgifterna har ändrats. Läs in på nytt.", 409);
+        throw new DomainError("The details have changed. Refresh and review them again.", 409);
       const selectedStaff = v.staffId ?? staffId;
       if (hooks) await hooks.beforeInsert(tx, service);
       // Lock order: idempotency, client/day, email/day, staff/booking day.
@@ -379,7 +379,7 @@ export async function createBooking(
           await getAvailability(service.id, localDay(start), tx, selectedStaff)
         ).includes(start.toISOString())
       )
-        throw new DomainError("Tiden är inte tillgänglig");
+        throw new DomainError("That time is no longer available. Choose another time.");
       const booking = await insertBooking(tx, {
         id: randomUUID(),
         businessId,
@@ -436,10 +436,10 @@ export async function createBooking(
 export const bookingListSchema = z
   .object({
     from: date.describe(
-      "Första datum YYYY-MM-DD i Europe/Stockholm, inklusive",
+      "First date in Europe/Stockholm, inclusive (YYYY-MM-DD)",
     ),
     to: date.describe(
-      "Sista datum YYYY-MM-DD i Europe/Stockholm, inklusive; högst 31 dagar",
+      "Last date in Europe/Stockholm, inclusive (YYYY-MM-DD). Maximum range of 31 days.",
     ),
     limit: z
       .number()
@@ -453,7 +453,7 @@ export const bookingListSchema = z
       .min(1)
       .max(128)
       .optional()
-      .describe("nextCursor från föregående sida för samma datumintervall"),
+      .describe("nextCursor from the previous page for the same date range"),
   })
   .strict()
   .refine((v) => {
@@ -464,7 +464,7 @@ export const bookingListSchema = z
     } catch {
       return false;
     }
-  }, "Ogiltigt datumintervall; ange högst 31 dagar");
+  }, "Enter a valid date range of up to 31 days.");
 
 async function bookingListQuery(input: unknown) {
   const { from, to, limit, cursor } = bookingListSchema.parse(input);
@@ -479,7 +479,7 @@ async function bookingListQuery(input: unknown) {
       select: { id: true },
     });
     if (!previous)
-      throw new DomainError("Ogiltig sidmarkör för datumintervallet");
+      throw new DomainError("This page does not match the date range. Showing the first page.");
   }
 
   return {
@@ -595,7 +595,7 @@ export async function publishCampaign(id: string) {
     where: { id, businessId },
     data: { published: true },
   });
-  if (!result.count) throw new DomainError("Utkastet finns inte");
+  if (!result.count) throw new DomainError("Draft not found. Refresh the campaign list.");
 }
 
 export function adminBookingFilter(input: {
@@ -613,6 +613,6 @@ export function adminBookingFilter(input: {
     : {
         filter: { ...defaultBookingRange(), limit: 100 },
         error:
-          "Ogiltigt datumfilter. Visar standardintervallet; ange högst 31 dagar i rätt ordning.",
+          "Showing the default range. Enter a range of up to 31 days with the start date first.",
       };
 }
