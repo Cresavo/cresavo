@@ -67,7 +67,7 @@ afterEach(async () => {
   users.length = 0;
   await db.$disconnect();
 });
-it("nekar defaultläge, produktion och främmande origin utan sessionsskrivning", async () => {
+it("rejects default mode, production, and a foreign origin without creating a session", async () => {
   expect((await POST(request())).status).toBe(403);
   configure();
   vi.stubEnv("VERCEL_ENV", "production");
@@ -79,7 +79,7 @@ it("nekar defaultläge, produktion och främmande origin utan sessionsskrivning"
   expect((await POST(request())).status).toBe(403);
   expect(state.cookie).toBe("");
 });
-it("ger märkt demoaktör en vanlig återkallelig session och återanvänder den", async () => {
+it("issues and reuses a revocable session for the designated demo actor", async () => {
   configure();
   const user = await createAdminUser(
     DEMO_ADMIN_EMAIL,
@@ -107,7 +107,7 @@ it("ger märkt demoaktör en vanlig återkallelig session och återanvänder den
   state.cookie = copied;
   expect(await getAdminContext()).toBeNull();
 });
-it("nekar saknad/inaktiverad demoaktör och påverkar inte vanlig adminsession", async () => {
+it("rejects missing or disabled demo actors and preserves regular admin sessions", async () => {
   configure();
   expect((await POST(request())).status).toBe(403);
   const demo = await createAdminUser(

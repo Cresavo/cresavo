@@ -15,7 +15,7 @@ import {
 import { safeFailure } from "../src/lib/errors";
 
 describe("Socketbaserad klientidentitet", () => {
-  it("avvisar för breda och ogiltiga proxy-prefix", () => {
+  it("rejects overly broad or invalid proxy prefixes", () => {
     for (const cidr of [
       "0.0.0.0/0",
       "::/0",
@@ -34,7 +34,7 @@ describe("Socketbaserad klientidentitet", () => {
     expect(trusted("::1")).toBe(true);
     expect(trusted("192.0.2.5")).toBe(false);
   });
-  it("varnar en gång utan adresser vid sammanfallen proxyidentitet", () => {
+  it("warns once without printing addresses when clients share a proxy identity", () => {
     for (const mode of ["0", "1"]) {
       const log = vi.fn();
       const warn = proxyWarning(mode, proxyPolicy(mode, "127.0.0.10/32"), log);
@@ -46,7 +46,7 @@ describe("Socketbaserad klientidentitet", () => {
       expect(log.mock.calls).toEqual([["PROXY_CLIENT_IDENTITY_COLLAPSED"]]);
     }
   });
-  it("grupperar IPv6 per /64 men behåller separata nät och IPv4", () => {
+  it("groups IPv6 by /64 and keeps separate networks and IPv4 distinct", () => {
     expect(clientLimitKey("2001:db8:1:2::1")).toBe("2001:db8:1:2::/64");
     expect(clientLimitKey("2001:0db8:0001:0002:ffff:abcd:1234:ffff")).toBe(
       clientLimitKey("2001:db8:1:2::1"),
@@ -69,7 +69,7 @@ describe("Socketbaserad klientidentitet", () => {
       ),
     ).toBe("2001:db8:1:2::/64");
   });
-  it("använder socket i standardläge och accepterar forwarding endast från listad proxy/CIDR", () => {
+  it("uses the socket by default and trusts forwarded addresses only from an allowlisted proxy or CIDR", () => {
     expect(
       resolveClientAddress("::ffff:127.0.0.2", "192.0.2.1", proxyPolicy("0")),
     ).toBe("127.0.0.2");
@@ -89,7 +89,7 @@ describe("Socketbaserad klientidentitet", () => {
     expect(() => proxyPolicy("1", "")).toThrow();
     expect(() => proxyPolicy("1", "127.0.0.1/banana")).toThrow();
   });
-  it("verifierar intern adress och stänger utan serverns hemlighet", () => {
+  it("verifies the internal address and fails closed without the server secret", () => {
     const secret = "synthetic-proof",
       ip = "127.0.0.2";
     const headers = new Headers({
@@ -102,7 +102,7 @@ describe("Socketbaserad klientidentitet", () => {
     expect(() => verifiedClientAddress(headers, secret)).toThrow();
   });
 });
-it("adminfilter faller tillbaka och kampanjfel har skilda statiska meddelanden", () => {
+it("falls back on invalid admin filters and uses distinct fixed messages for campaign errors", () => {
   const log = vi.spyOn(console, "error");
   for (const input of [
     { from: "garbage" },

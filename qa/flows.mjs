@@ -201,7 +201,7 @@ await r.check("waitlist rejects an invalid email with a clear message", async ()
   return `native="${v}" status="${status}"`;
 });
 
-// 8. Language switch. The concept studio, booking page and sites are English-only by design (docs/concept/CONCEPT.md §7);
+// 8. Language switch. The concept studio, booking page and sites are English-only by design;
 // the root layout's switch is hidden there and only shows on the older lab pages (/product etc.).
 await r.check("language switch: hidden on studio, booking page and product site (English-only concept)", async () => {
   const ctx = await newContext(browser, { viewport: "desktop" }); const page = await ctx.newPage();

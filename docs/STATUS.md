@@ -1,6 +1,8 @@
 # Status
 
 Cresavo is a concept demo (0.x) for salons and other small service businesses.
+Start with the [demo and product tour](../README.md) or see the
+[public roadmap](ROADMAP.md).
 
 ## Available today
 
@@ -34,8 +36,8 @@ requires verified tenant isolation, production authentication and access
 controls, backups and restore, monitoring, and a security and privacy review.
 The launch waiting list needs a storage provider and a current privacy policy
 before it can accept sign-ups. Use fictional data and simulated messages in
-the meantime. See the [pilot gate](QUALITY_SECURITY.md) and [goal queue](goals/QUEUE.md).
+the meantime. See the [pilot gate](QUALITY_SECURITY.md) and [roadmap](ROADMAP.md).
 
 Reminders by text and e-mail, payments and other providers have a connections
 foundation: simulated by default, live adapters behind a flag
-(`docs/integrations/README.md`).
+([connections guide](integrations/README.md)).

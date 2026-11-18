@@ -32,7 +32,7 @@ afterAll(async () => {
 });
 
 describe("Tidvalskort via verklig stdio MCP", () => {
-  it("stoppar en felkonfigurerad process före databasanrop", () => {
+  it("stops a misconfigured process before it calls the database", () => {
     const result = spawnSync(
       process.execPath,
       ["--import", "tsx", "src/mcp/time-card/server.ts"],
@@ -52,7 +52,7 @@ describe("Tidvalskort via verklig stdio MCP", () => {
     expect(result.stdout).toBe("");
     expect(result.stderr.trim()).toBe("TIME_CARD_DEMO_REFUSED");
   });
-  it("exponerar bara två läsverktyg och en sandboxad UI-resurs", async () => {
+  it("exposes only two read tools and a sandboxed UI resource", async () => {
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([
       "list_services",
@@ -70,7 +70,7 @@ describe("Tidvalskort via verklig stdio MCP", () => {
       client.callTool({ name: "create_booking", arguments: {} }),
     ).rejects.toThrow();
   });
-  it("har strukturerade kundfria resultat och textfallback", async () => {
+  it("returns structured results and fallback text without customer details", async () => {
     const result = await client.callTool({
       name: "show_time_picker",
       arguments: { serviceId: "massage", staffId: "staff-demo", date: monday },
@@ -91,7 +91,7 @@ describe("Tidvalskort via verklig stdio MCP", () => {
       /customerEmail|customerName|emailCapKey|requestHash|idempotencyKey/,
     );
   });
-  it("döljer nybokad tid genom samma domänregler, utan skrivning från verktyget", async () => {
+  it("uses the same domain rules to hide newly booked times without tool writes", async () => {
     const args = { serviceId: "massage", staffId: "staff-demo", date: monday };
     const before = await timeCardData(args);
     const slot = before.slots[0];
@@ -119,7 +119,7 @@ describe("Tidvalskort via verklig stdio MCP", () => {
     expect(body.slots.some((s) => s.start === slot.start)).toBe(false);
     expect(await db.booking.count({ where: { id: marker } })).toBe(1);
   });
-  it("hanterar stängd söndag och sätter en 28-dagarsgräns", async () => {
+  it("handles Sunday closure and enforces a 28-day limit", async () => {
     const date = DateTime.fromISO(monday).plus({ days: 6 }).toISODate()!;
     expect(
       (
@@ -145,7 +145,7 @@ describe("Tidvalskort via verklig stdio MCP", () => {
       });
     }
   });
-  it("sanerar ogiltiga och obehöriga indata", async () => {
+  it("sanitizes invalid and unauthorized input", async () => {
     const result = await client.callTool({
       name: "show_time_picker",
       arguments: { customerEmail: "DO_NOT_ECHO@example.test", date: "garbage" },

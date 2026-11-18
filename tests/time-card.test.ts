@@ -7,8 +7,8 @@ const local = {
   BOOKING_TIME_CARD_DEMO: "1",
   DATABASE_URL: "postgresql://synthetic@127.0.0.1:55451/card_demo",
 };
-describe("Tidvalskortets lokala gräns", () => {
-  it("är opt-in och vägrar produktions- och Vercelmiljö", () => {
+describe("Local time picker boundaries", () => {
+  it("requires opt-in and rejects production and Vercel environments", () => {
     expect(() => assertTimeCardDemo(local, [])).not.toThrow();
     for (const env of [
       { ...local, BOOKING_TIME_CARD_DEMO: "0" },
@@ -24,7 +24,7 @@ describe("Tidvalskortets lokala gräns", () => {
         "TIME_CARD_DEMO_REFUSED",
       );
   });
-  it("kräver separat opt-in, båda flaggor och hemlighet för bokningsprovet", () => {
+  it("requires separate opt-in, both flags, and a secret for the booking trial", () => {
     const enabled = {
       ...local,
       BOOKING_TIME_CARD_BOOKINGS: "1",
@@ -49,7 +49,7 @@ describe("Tidvalskortets lokala gräns", () => {
       ]),
     ).toThrow("TIME_CARD_DEMO_REFUSED");
   });
-  it("tar inte emot kontaktuppgifter, obekräftade anrop eller fria retry-nycklar", () => {
+  it("rejects contact details, unconfirmed calls, and arbitrary retry keys", () => {
     const input = {
       serviceId: "massage",
       staffId: "staff-demo",
@@ -74,7 +74,7 @@ describe("Tidvalskortets lokala gräns", () => {
         false,
       );
   });
-  it("vägrar fjärrdatabas och alternativa hostparametrar", () => {
+  it("rejects remote databases and alternate host parameters", () => {
     for (const DATABASE_URL of [
       "postgresql://synthetic@remote.test/card_demo",
       "postgresql://synthetic@localhost/customer",
@@ -84,13 +84,13 @@ describe("Tidvalskortets lokala gräns", () => {
         "TIME_CARD_DEMO_REFUSED",
       );
   });
-  it("kan inte aktivera admin- eller skrivverktyg", () => {
+  it("cannot enable admin or write tools", () => {
     for (const flag of ["--admin", "--allow-bookings", "--allow-workspace"])
       expect(() => assertTimeCardDemo(local, [flag])).toThrow(
         "TIME_CARD_DEMO_REFUSED",
       );
   });
-  it("avvisar extra fält, personuppgifter och omöjliga datum", () => {
+  it("rejects extra fields, personal details, and impossible dates", () => {
     expect(timeCardSchema.safeParse({}).success).toBe(true);
     for (const args of [
       { date: "2027-02-30" },

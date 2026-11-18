@@ -8,6 +8,7 @@ import { GET as agentCard } from "@/app/api/concept/a2a/agent-card.json/route";
 import { GET as uspProfile } from "@/app/api/concept/usp/route";
 import { GET as protocolStatus } from "@/app/api/concept/protocols/route";
 import { claudeCodeCommand, claudeDesktopConfig, shellToken } from "@/concept/studio/more/protocol-setup";
+import { BRAND } from "@/concept/brand";
 import { addDays, formatTime } from "@/concept/data/dates";
 import { freeStarts } from "@/concept/data/slots";
 import { resetDemoBusiness, toolContext } from "@/concept/server/demo-business";
@@ -129,8 +130,13 @@ describe("MCP round trip with the SDK client", () => {
     expect(cancel).toHaveBeenCalledOnce();
   });
 
-  it("lists every registry tool, plus proposal status", async () => {
+  it("uses the current brand in its metadata and lists every registry tool plus proposal status", async () => {
     const client = await connect();
+    expect(client.getServerVersion()).toMatchObject({
+      name: "flerdo-concept-demo",
+      title: `${BRAND.name} concept demo`,
+      description: expect.stringContaining(BRAND.name),
+    });
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([...conceptTools.map((t) => t.name), "get_proposal"].sort());
     expect(tools.find((t) => t.name === "list_bookings")?.annotations?.readOnlyHint).toBe(true);

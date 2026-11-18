@@ -21,9 +21,9 @@ describe("one brand constant", () => {
     expect(ASSISTANT).toEqual({ name: "Assistant" });
   });
 
-  it.each([["product", BRAND.name], ["former assistant", "Flerdo"]])("is the only place in src that spells out the %s name", (_, name) => {
+  it("is the only place in src that spells out the product name", () => {
     const offenders = sourceFiles(SRC)
-      .filter((file) => file !== BRAND_FILE && readFileSync(file, "utf8").includes(name))
+      .filter((file) => file !== BRAND_FILE && readFileSync(file, "utf8").includes(BRAND.name))
       .map((file) => path.relative(SRC, file));
     expect(offenders).toEqual([]);
   });

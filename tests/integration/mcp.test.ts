@@ -48,7 +48,7 @@ type Page = {
 function readPage(result: Awaited<ReturnType<typeof list>>): Page {
   expect(result.isError).not.toBeTruthy();
   const block = result.content[0];
-  if (block.type !== "text") throw new Error("Förväntade textsvar");
+  if (block.type !== "text") throw new Error("Expected a text response");
   return JSON.parse(block.text) as Page;
 }
 
@@ -95,8 +95,8 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-describe("Lokal MCP-behörighet och dataminimering", () => {
-  it("sanerar verkliga databasfel innan MCP-klienten får svaret", async () => {
+describe("Local MCP permissions and data minimization", () => {
+  it("sanitizes actual database errors before returning them to the MCP client", async () => {
     const client = new Client({ name: "failure-test", version: "1" });
     const transport = new StdioClientTransport({
       command: process.execPath,
@@ -141,7 +141,7 @@ describe("Lokal MCP-behörighet och dataminimering", () => {
     expect(stderr).not.toMatch(/CANARY|postgresql:|PrismaClient|canary/);
     expect(stderr).toContain("BOOKING_INTERNAL_ERROR");
   });
-  it("erbjuder inte adminverktyg utan uttryckligt adminläge", async () => {
+  it("exposes admin tools only in explicit admin mode", async () => {
     const client = await connect(false);
     try {
       const { tools } = await client.listTools();
@@ -160,7 +160,7 @@ describe("Lokal MCP-behörighet och dataminimering", () => {
     }
   });
 
-  it("ger högst 20 minimerade bokningar som standard inom lokalt datum", async () => {
+  it("returns at most 20 minimized bookings by default for the local date", async () => {
     const page = readPage(await list(day));
     expect(page.bookings).toHaveLength(20);
     expect(page.nextCursor).toBe(page.bookings[19].id);
@@ -177,7 +177,7 @@ describe("Lokal MCP-behörighet och dataminimering", () => {
     }
   });
 
-  it("paginera stabilt utan dubbletter och håll verksamhet och datumgränser", async () => {
+  it("paginates without duplicates and preserves business and date boundaries", async () => {
     const found: Page["bookings"] = [];
     let cursor: string | null = null;
     do {
@@ -207,7 +207,7 @@ describe("Lokal MCP-behörighet och dataminimering", () => {
     ).toHaveLength(100);
   });
 
-  it("avvisar för stora sidor, felaktiga datum och ogiltiga markörer", async () => {
+  it("rejects oversized pages, invalid dates, and invalid cursors", async () => {
     const draft = await admin.callTool({
       name: "create_campaign_draft",
       arguments: {

@@ -7,7 +7,7 @@ import { createBooking, getAvailability } from "../../src/lib/domain";
 import { moveBooking } from "../../src/lib/booking-mutations";
 import { LOCAL_WORKSPACE_ACTOR } from "../../src/lib/workspace-write";
 
-test("historiken skiljer lokalt A2A-prov från publik bokning utan att skriva om äldre händelser", async ({
+test("activity history distinguishes the local A2A trial from public bookings and preserves older events", async ({
   page,
   synthetic,
 }, testInfo) => {
@@ -85,7 +85,7 @@ test("historiken skiljer lokalt A2A-prov från publik bokning utan att skriva om
   }
 });
 
-test("kalender, bokning och kundkort behåller datum, filter, sökning och returposition", async ({
+test("calendar, booking, and customer details preserve date, filters, search, and return position", async ({
   page,
   synthetic,
 }, testInfo) => {
@@ -288,7 +288,7 @@ test("kalender, bokning och kundkort behåller datum, filter, sökning och retur
   }
 });
 
-test("riktiga ändringar skyddas, återställda värden och Avbryt sparar ingenting", async ({
+test("protects unsaved edits and saves nothing after reverting values or choosing Cancel", async ({
   page,
   synthetic,
 }) => {
@@ -356,7 +356,7 @@ test("riktiga ändringar skyddas, återställda värden och Avbryt sparar ingent
   }
 });
 
-test("tre tydliga huvudval och stängbara sekundärmenyer fungerar på mobil och desktop", async ({
+test("three primary actions and dismissible secondary menus work on mobile and desktop", async ({
   page,
   synthetic,
 }) => {

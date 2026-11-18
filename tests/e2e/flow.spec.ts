@@ -15,7 +15,7 @@ import {
 } from "../../src/lib/admin-accounts";
 const db = createDatabaseClient();
 
-test("separata administratörer, återkallelse och ingen delad lösenordsfallback", async ({
+test("separate admin accounts support revocation and have no shared password fallback", async ({
   request,
   synthetic,
 }, testInfo) => {
@@ -113,7 +113,7 @@ function bookingTransport() {
     ],
   });
 }
-test("lokal MCP-bokning visas i skyddad admin med Stockholmstid", async ({
+test("a local MCP booking appears in the protected admin workspace in Stockholm time", async ({
   page,
   synthetic,
 }, testInfo) => {
@@ -192,7 +192,7 @@ test("lokal MCP-bokning visas i skyddad admin med Stockholmstid", async ({
     await db.$disconnect();
   }
 });
-test("HTTP och MCP delar idempotens och stoppar 20 blandade överlapp", async ({
+test("HTTP and MCP share idempotency and prevent overlaps across 20 mixed requests", async ({
   request,
   synthetic,
 }) => {
@@ -294,7 +294,7 @@ test("HTTP och MCP delar idempotens och stoppar 20 blandade överlapp", async ({
   }
 });
 
-test("HTTP avvisar obehöriga anrop och ogiltig JSON utan feldetaljer", async ({
+test("HTTP rejects unauthorized requests and invalid JSON without error details", async ({
   synthetic,
 }, testInfo) => {
   const request = socketClient(
@@ -334,7 +334,7 @@ test("HTTP avvisar obehöriga anrop och ogiltig JSON utan feldetaljer", async ({
   });
   expect(publish.status()).toBe(403);
 });
-test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
+test("booking, protected administration, and publishing an MCP draft", async ({
   page,
   request,
   synthetic,
@@ -515,7 +515,7 @@ test("bokning, skyddad administration och MCP-utkast som publiceras", async ({
   }
 });
 
-test("QA HTTP: limiter, idempotens och daglig gräns", async ({
+test("HTTP rate limiting, idempotency, and daily quota", async ({
   synthetic,
 }, testInfo) => {
   const address =
@@ -691,7 +691,7 @@ test("QA HTTP: limiter, idempotens och daglig gräns", async ({
     ).toBe(i < 5 ? 401 : 429);
 });
 
-test("UI återanvänder bokningsnyckeln vid dubbelsubmit och tappat svar", async ({
+test("the UI reuses the booking key for duplicate submissions and lost responses", async ({
   page,
   synthetic,
 }) => {

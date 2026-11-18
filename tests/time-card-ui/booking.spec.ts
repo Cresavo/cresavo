@@ -17,7 +17,7 @@ test.afterAll(async () => {
 });
 
 for (const scenario of ["double-390", "double-1024", "taken", "lost-reply"]) {
-  test(`MCP-kort till vanlig admin: ${scenario}`, async ({
+  test(`MCP card booking appears in the standard admin workspace for ${scenario}`, async ({
     page,
     synthetic,
   }) => {

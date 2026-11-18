@@ -49,6 +49,8 @@ commands are in the README.
 
 ## Code principles
 
+Cresavo uses an AI-assisted workflow documented in [AGENTS.md](AGENTS.md) and [.claude/](.claude/).
+
 Read [AGENTS.md](AGENTS.md) (short) and
 [docs/QUALITY_SECURITY.md](docs/QUALITY_SECURITY.md). In short: small
 readable files, validate on the server, AI only proposes and the person

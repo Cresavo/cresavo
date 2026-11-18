@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { DateTime } from "luxon";
 import { parseDay, slotsForDay } from "../src/lib/time";
-describe("Stockholm och öppettider", () => {
-  it("tolkar samma klockslag med rätt sommar- och vinteroffset", () => {
+describe("Stockholm time and opening hours", () => {
+  it("interprets the same clock time with the correct summer and winter offsets", () => {
     expect(parseDay("2027-03-26").plus({ hours: 9 }).toUTC().toISO()).toContain(
       "08:00",
     );
@@ -13,7 +13,7 @@ describe("Stockholm och öppettider", () => {
       "08:00",
     );
   });
-  it("respekterar längd, veckoslut och bokningshorisont", () => {
+  it("respects duration, weekends, and the booking horizon", () => {
     const now = DateTime.fromISO("2027-03-25T08:00", {
       zone: "Europe/Stockholm",
     });
@@ -21,7 +21,7 @@ describe("Stockholm och öppettider", () => {
     expect(slotsForDay("2027-03-29", 30, now)).toHaveLength(16);
     expect(slotsForDay("2027-03-28", 30, now)).toHaveLength(0);
   });
-  it("avvisar ogiltiga datum och längder", () => {
+  it("rejects invalid dates and durations", () => {
     expect(() => parseDay("2027-02-30")).toThrow();
     expect(() => slotsForDay("2027-03-29", 0)).toThrow();
   });

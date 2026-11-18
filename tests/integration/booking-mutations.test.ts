@@ -83,7 +83,7 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-it("flyttar över personal/dygn med bokad snapshot och bevarar originalet vid konflikt", async () => {
+it("moves bookings across staff or days using the booked snapshot and preserves the original on conflict", async () => {
   const c = await setup(60);
   const booking = await createBooking(input(c.serviceId, c.a), randomUUID());
   const blocker = await createBooking(
@@ -155,7 +155,7 @@ it("flyttar över personal/dygn med bokad snapshot och bevarar originalet vid ko
   expect(detail.events.map((e) => e.action)).toContain("move");
 });
 
-it("20 parallella flyttretries ger ett resultat, en versionshöjning och en händelse", async () => {
+it("20 concurrent move retries produce one result, one version increment, and one event", async () => {
   const c = await setup();
   const booking = await createBooking(input(c.serviceId, c.a), randomUUID());
   const v = {
@@ -180,7 +180,7 @@ it("20 parallella flyttretries ger ett resultat, en versionshöjning och en hän
   ).rejects.toMatchObject({ status: 409 });
 });
 
-it("avbokar spårbart, frigör tid och bevarar skapandedagens e-posttak", async () => {
+it("records the cancellation, frees the slot, and preserves the email quota for the creation day", async () => {
   const c = await setup();
   const email = `${marker}-daily@example.test`;
   for (let i = 0; i < 3; i++) {
@@ -231,7 +231,7 @@ it("avbokar spårbart, frigör tid och bevarar skapandedagens e-posttak", async 
   ).rejects.toMatchObject({ status: 429 });
 });
 
-it("samtidig flytt/avbokning av samma version ger exakt en vinnare", async () => {
+it("exactly one concurrent move or cancellation succeeds for the same version", async () => {
   const c = await setup();
   const booking = await createBooking(input(c.serviceId, c.a), randomUUID());
   const results = await Promise.allSettled([
@@ -257,7 +257,7 @@ it("samtidig flytt/avbokning av samma version ger exakt en vinnare", async () =>
   ).toBe(2);
 });
 
-it("20 konkurrerande flyttar till samma tid ger en vinnare och noll aktiva överlapp", async () => {
+it("20 competing moves to one slot produce one winner and leave no active overlaps", async () => {
   const c = await setup();
   const bookings = [];
   for (let i = 0; i < 20; i++) {

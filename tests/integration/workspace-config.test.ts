@@ -69,7 +69,7 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-it("lagrar bokad tjänst/pris/längd och ändrar bara nya bokningar", async () => {
+it("stores the booked service, price, and duration and applies changes only to new bookings", async () => {
   const s = await service(),
     p = await staff(s.id);
   const request = input(s.id, p.id);
@@ -126,7 +126,7 @@ it("lagrar bokad tjänst/pris/längd och ändrar bara nya bokningar", async () =
   expect(await db.booking.count({ where: { id: booking.id } })).toBe(1);
 });
 
-it("nekar ett gammalt visat tjänstepris men bevarar en redan skapad requests replay", async () => {
+it("rejects a stale displayed price while preserving replay for an existing booking request", async () => {
   const s = await service(),
     p = await staff(s.id);
   const value = { ...input(s.id, p.id), serviceVersion: 1 },
@@ -153,7 +153,7 @@ it("nekar ett gammalt visat tjänstepris men bevarar en redan skapad requests re
   expect(await db.booking.count({ where: { serviceId: s.id } })).toBe(1);
 });
 
-it("håller isär två personaler, pauser och ledighet utan hårdkodad vardagsstängning", async () => {
+it("keeps two staff schedules, breaks, and time off separate without hardcoded weekday closures", async () => {
   const s = await service(),
     a = await staff(s.id),
     b = await staff(s.id, `${marker} B`);
@@ -177,7 +177,7 @@ it("håller isär två personaler, pauser och ledighet utan hårdkodad vardagsst
   expect(await getAvailability(s.id, day, db, b.id)).toEqual([]);
 });
 
-it("bevarar utelämnad buffert, inaktivering och datumundantag vid uppdatering", async () => {
+it("preserves the existing buffer, inactive state, and date exceptions when omitted from an update", async () => {
   const s = await service(),
     p = await staff(s.id);
   await saveService(
@@ -237,7 +237,7 @@ it("bevarar utelämnad buffert, inaktivering och datumundantag vid uppdatering",
   ).toMatchObject({ exceptions, active: false, version: 3 });
 });
 
-it("nekar schemaändring som gömmer en bokning och nekar gammal resursversion", async () => {
+it("rejects a schedule change that hides a booking and a stale resource version", async () => {
   const s = await service(),
     p = await staff(s.id);
   const booking = await createBooking(input(s.id, p.id), randomUUID());
@@ -271,7 +271,7 @@ it("nekar schemaändring som gömmer en bokning och nekar gammal resursversion",
   ).rejects.toMatchObject({ status: 409 });
 });
 
-it("gör konfigurationsretries idempotenta men nekar ändrad payload och obehörig replay", async () => {
+it("retries configuration changes idempotently and rejects changed payloads and unauthorized replays", async () => {
   const requestId = key(),
     value = { name: marker, priceOre: 45000, duration: 30 };
   const first = await saveService(value, requestId, actor);
@@ -294,7 +294,7 @@ it("gör konfigurationsretries idempotenta men nekar ändrad payload och obehör
   ).rejects.toMatchObject({ status: 403 });
 });
 
-it("nekar främmande tjänst och direkt DB-överlapp; avbokad rad kan ligga kvar utan att blockera", async () => {
+it("rejects a foreign service and overlapping writes while allowing cancelled rows to remain", async () => {
   const s = await service(),
     p = await staff(s.id);
   const foreign = await db.service.create({

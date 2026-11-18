@@ -72,8 +72,8 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-describe("Verklig lokal MCP-bokning", () => {
-  it("nekar skrivning i standardläge och enbart adminläge", async () => {
+describe("Local MCP booking", () => {
+  it("rejects writes in default mode and in admin-only mode", async () => {
     const before = await db.booking.count();
     for (const flags of [[], ["--admin"]]) {
       const { client } = await connect(flags);
@@ -87,7 +87,7 @@ describe("Verklig lokal MCP-bokning", () => {
     expect(await db.booking.count()).toBe(before);
   }, 30000);
 
-  it("stoppar felaktig startkonfiguration med statiskt fel före verktyg", () => {
+  it("rejects invalid startup configuration with a fixed error before exposing tools", () => {
     for (const [flags, secret] of [
       [["--allow-bookings"], "synthetic-secret-at-least-32-characters"],
       [["--admin", "--allow-bookings"], ""],
@@ -111,7 +111,7 @@ describe("Verklig lokal MCP-bokning", () => {
     }
   }, 30000);
 
-  it("skapar bokning i adminfrågan, minimerar svar och återanvänder nyckel", async () => {
+  it("creates a booking visible in the admin query, minimizes the response, and reuses the key", async () => {
     const { client } = await connect();
     const input = payload((await getAvailability("massage", date))[0]);
     const original = data(await call(client, input));
@@ -143,7 +143,7 @@ describe("Verklig lokal MCP-bokning", () => {
     ).toBe(1);
   }, 30000);
 
-  it("avvisar obekräftad, förfalskad och otillåten indata utan skrivning", async () => {
+  it("rejects unconfirmed, forged, or unauthorized input without writing", async () => {
     const { client, stderr } = await connect();
     const tool = (await client.listTools()).tools.find(
       (t) => t.name === "create_booking",
@@ -186,7 +186,7 @@ describe("Verklig lokal MCP-bokning", () => {
     );
   }, 30000);
 
-  it("20 parallella MCP-retries ger en rad och samma id", async () => {
+  it("20 concurrent MCP retries create one row and return the same ID", async () => {
     const { client } = await connect();
     const input = payload((await getAvailability("massage", date))[0]);
     const results = await Promise.all(
@@ -198,7 +198,7 @@ describe("Verklig lokal MCP-bokning", () => {
     ).toBe(1);
   }, 30000);
 
-  it("blandade 30/60-minuters MCP- och domänanrop har exakt en vinnare utan överlapp", async () => {
+  it("mixed 30- and 60-minute MCP and domain calls produce exactly one winner with no overlaps", async () => {
     const { client } = await connect();
     const starts = await getAvailability("massage", date);
     const input = payload(starts[0]);
@@ -235,7 +235,7 @@ describe("Verklig lokal MCP-bokning", () => {
     expect(Number(overlap[0].count)).toBe(0);
   }, 30000);
 
-  it("behåller e-post- och kanaltak mellan processer och tillåter retry efter tak", async () => {
+  it("enforces email and channel quotas across processes and permits replay at the cap", async () => {
     const { client } = await connect();
     const starts = await getAvailability("massage", date);
     const input = payload(starts[0]);
@@ -277,7 +277,7 @@ describe("Verklig lokal MCP-bokning", () => {
     ).toBe(5);
   }, 30000);
 
-  it("sanerar databasfel i skrivverktyget och loggar ingen hemlighet", async () => {
+  it("sanitizes database errors from the write tool and logs no secrets", async () => {
     const { client, stderr } = await connect(undefined, {
       ...mcpEnvironment({ booking: true }),
       DATABASE_URL:

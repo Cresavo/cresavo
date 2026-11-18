@@ -99,8 +99,8 @@ afterEach(() => {
   state.sessions.clear();
 });
 
-describe("Säkra felgränser", () => {
-  it("lämnar inte ut feltext, cause eller metadata via HTTP, SSR eller loggar", async () => {
+describe("Safe error boundaries", () => {
+  it("keeps raw errors, causes, and metadata out of HTTP, SSR, and logs", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const error = Object.assign(
       new Error("finns inte CANARY@example.test postgres://CANARY"),
@@ -118,7 +118,7 @@ describe("Säkra felgränser", () => {
       ["BOOKING_INTERNAL_ERROR"],
     ]);
   });
-  it("behåller säkra domänfel och minimerar validerings- och JSON-fel", async () => {
+  it("preserves safe domain errors and minimizes validation and JSON errors", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const domain = failure(new DomainError("That time is no longer available. Choose another time."));
     expect(domain.status).toBe(400);
@@ -150,7 +150,7 @@ describe("Lokal admins session", () => {
     const value = `${id}.${expiry}`;
     return `${value}.${createHmac("sha256", secret).update(`1:${value}`).digest("hex")}`;
   }
-  it("kräver giltig signatur, exakt format och högst åtta timmar", async () => {
+  it("requires a valid signature, exact format, and at most eight hours", async () => {
     vi.stubEnv("SESSION_SECRET", secret);
     const valid = token(Date.now() + 60_000);
     state.cookie = valid;
@@ -173,7 +173,7 @@ describe("Lokal admins session", () => {
     state.cookie = valid;
     expect(await isAdmin()).toBe(false);
   });
-  it("nekar session vid databasfel utan råa feldetaljer", async () => {
+  it("rejects the session after a database error without exposing raw details", async () => {
     vi.stubEnv("SESSION_SECRET", secret);
     state.cookie = token(Date.now() + 60000);
     vi.spyOn(db.adminSession, "findFirst").mockRejectedValueOnce(
@@ -183,7 +183,7 @@ describe("Lokal admins session", () => {
     expect(await isAdmin()).toBe(false);
     expect(log.mock.calls).toEqual([["BOOKING_INTERNAL_ERROR"]]);
   });
-  it("sätter säkra cookieflaggor och återkallar kopierad cookie", async () => {
+  it("sets secure cookie flags and revokes a copied cookie", async () => {
     vi.stubEnv("SESSION_SECRET", secret);
     vi.stubEnv("NODE_ENV", "production");
     state.set.mockImplementation((_name, value) => {
@@ -212,7 +212,7 @@ describe("Lokal admins session", () => {
       expect.objectContaining({ maxAge: 0 }),
     );
   });
-  it("avvisar saknat, främmande och ogiltigt origin", async () => {
+  it("rejects missing, foreign, and invalid origins", async () => {
     for (const origin of [null, "http://other.test", "invalid"]) {
       state.headers = new Headers({ host: "localhost:3000" });
       if (origin) state.headers.set("origin", origin);
@@ -221,7 +221,7 @@ describe("Lokal admins session", () => {
     state.headers.set("origin", "http://localhost:3000");
     expect(await sameOrigin()).toBe(true);
   });
-  it("gallrar högst 100 utgångna/återkallade sessioner vid login och bevarar aktiva", async () => {
+  it("prunes at most 100 expired or revoked sessions at login and retains active sessions", async () => {
     vi.stubEnv("SESSION_SECRET", secret);
     for (let i = 0; i < 105; i++)
       state.sessions.set(`old-${i}`, {
@@ -261,8 +261,8 @@ describe("Lokal admins session", () => {
   });
 });
 
-describe("Missbruksskydd och testgrind", () => {
-  it("adminens 60-försöksfönster är separat från kundernas 30-försöksfönster", () => {
+describe("Abuse protection and test database guard", () => {
+  it("keeps the 60-attempt admin window separate from the 30-attempt customer window", () => {
     const now = Date.now(),
       id = "unit-admin-booking-budget";
     for (let i = 0; i < 60; i++)
@@ -278,14 +278,14 @@ describe("Missbruksskydd och testgrind", () => {
       DomainError,
     );
   });
-  it("demo kan rapportera okänd revision utan Git", () => {
+  it("the demo can report an unknown revision without Git", () => {
     expect(
       demoRevision(() => {
         throw new Error("synthetic unavailable git");
       }),
     ).toEqual({ revision: "unknown", dirty: null });
   });
-  it("stoppar sjätte försöket, håller isär rutter/IP och släpper efter fönstret", () => {
+  it("blocks the sixth attempt, isolates routes and IPs, and resets after the window", () => {
     const now = Date.now();
     for (let i = 0; i < 5; i++) checkRateLimit("login", "unit-ip", true, now);
     expect(() => checkRateLimit("login", "unit-ip", false, now)).toThrow(
@@ -306,7 +306,7 @@ describe("Missbruksskydd och testgrind", () => {
       checkRateLimit("login", "unit-ip", true, now + 900001),
     ).not.toThrow();
   });
-  it("avvisar osignerade identitetsheaders även i proxyläge", () => {
+  it("rejects unsigned identity headers even in proxy mode", () => {
     vi.stubEnv("TRUST_PROXY_IP", "1");
     vi.stubEnv("BOOKING_ADDRESS_SECRET", "synthetic-proof-secret");
     expect(() =>
@@ -319,7 +319,7 @@ describe("Missbruksskydd och testgrind", () => {
       ),
     ).toThrow();
   });
-  it("kontrollerar aldrig lösenord från spärrad klient, även vid samtidighet", async () => {
+  it("never checks a blocked client's password, even with concurrent attempts", async () => {
     const wrong = vi.fn(() => false);
     const attempts = await Promise.allSettled(
       Array.from({ length: 20 }, () => checkLoginAttempt("locked-unit", wrong)),
@@ -333,7 +333,7 @@ describe("Missbruksskydd och testgrind", () => {
     expect(correct).not.toHaveBeenCalled();
     expect(await checkLoginAttempt("other-unit", correct)).toBe(true);
   });
-  it("evikterar äldsta bucket vid kapacitet utan att neka ny klient", () => {
+  it("evicts the oldest bucket at capacity and admits a new client", () => {
     const now = Date.now() + 1800000;
     for (let i = 0; i < 10001; i++)
       checkRateLimit("login", `capacity-${i}`, true, now);
@@ -341,7 +341,7 @@ describe("Missbruksskydd och testgrind", () => {
       checkRateLimit("login", "legitimate-new", true, now),
     ).not.toThrow();
   });
-  it("väntar på asynkront falskt verifieringsresultat och begränsar 300 samtidiga försök", async () => {
+  it("awaits a failed async verification and throttles 300 concurrent attempts", async () => {
     const verify = vi.fn(async () => {
       await Promise.resolve();
       return false;
@@ -357,7 +357,7 @@ describe("Missbruksskydd och testgrind", () => {
     ).toHaveLength(5);
     expect(results.filter((r) => r.status === "rejected")).toHaveLength(295);
   });
-  it("återlämnar kapacitetsavslag så korrekt login fungerar efter fler än fem avslag", async () => {
+  it("refunds capacity rejections so a valid login succeeds after more than five rejections", async () => {
     for (let i = 0; i < 8; i++)
       await expect(
         checkLoginAttempt("capacity-refund-unit", async () => {
@@ -374,7 +374,7 @@ describe("Missbruksskydd och testgrind", () => {
       error: "Too many attempts. Please try again later.",
     });
   });
-  it("behåller verkliga fel och återlämnar inte andra 429-fel som kapacitetsavslag", async () => {
+  it("keeps real errors and does not refund unrelated 429 responses", async () => {
     for (let i = 0; i < 4; i++)
       expect(
         await checkLoginAttempt("real-errors-unit", async () => false),
@@ -396,7 +396,7 @@ describe("Missbruksskydd och testgrind", () => {
     ).rejects.toMatchObject({ status: 429, retryAfter: expect.any(Number) });
     expect(correct).not.toHaveBeenCalled();
   });
-  it("återlämnar en evikterad reservation utan att sänka en ny buckets spärr", async () => {
+  it("refunds an evicted reservation without weakening the new bucket's limit", async () => {
     let reject!: (reason: unknown) => void;
     const pending = checkLoginAttempt(
       "evicted-refund-unit",
@@ -411,7 +411,7 @@ describe("Missbruksskydd och testgrind", () => {
       DomainError,
     );
   });
-  it("hanterar att en väntande lyckad reservation evikteras utan 500 eller felaktig ny bucket", async () => {
+  it("handles eviction during a successful attempt without a 500 or an incorrect new bucket", async () => {
     let finish!: (value: boolean) => void;
     const login = checkLoginAttempt(
       "evicted-success-unit",
@@ -425,7 +425,7 @@ describe("Missbruksskydd och testgrind", () => {
     finish(true);
     await expect(login).resolves.toBe(true);
   });
-  it("avvisar osäkra databasadresser före dataåtkomst", () => {
+  it("rejects unsafe database URLs before data access", () => {
     vi.stubEnv("DATABASE_URL", undefined);
     for (const value of [
       undefined,

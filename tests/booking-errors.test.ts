@@ -18,7 +18,7 @@ const data = {
   requestHash: null,
 };
 it.each(["23P01", "40P01", "40001"])(
-  "mappar SQLSTATE %s till säker bokningskonflikt",
+  "maps SQLSTATE %s to a safe booking conflict",
   async (code) => {
     vi.spyOn(db, "$queryRaw").mockRejectedValueOnce(
       new Prisma.PrismaClientKnownRequestError("synthetic", {
@@ -32,7 +32,7 @@ it.each(["23P01", "40P01", "40001"])(
     );
   },
 );
-it("döljer inte andra databasfel som bokningskonflikter", async () => {
+it("does not disguise unrelated database errors as booking conflicts", async () => {
   const error = new Prisma.PrismaClientKnownRequestError("synthetic", {
     code: "P2010",
     clientVersion: "6",
@@ -58,7 +58,7 @@ it.each(["23P01", "40P01", "40001"])(
   },
 );
 
-it("döljer inte andra adapterfel även om meddelandet innehåller en SQLSTATE", async () => {
+it("does not disguise unrelated adapter errors even when the message contains a SQLSTATE", async () => {
   const error = new Prisma.PrismaClientKnownRequestError("23P01", {
     code: "P2010",
     clientVersion: "7",

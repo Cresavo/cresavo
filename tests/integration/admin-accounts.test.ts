@@ -47,7 +47,7 @@ afterEach(async () => {
   await db.$disconnect();
 });
 
-it("lagrar hash, normaliserar identifierare och nekar ogiltig/duplicerad indata", async () => {
+it("stores a hash, normalizes identifiers, and rejects invalid or duplicate input", async () => {
   const a = await account("valid");
   const row = await db.adminUser.findUniqueOrThrow({ where: { id: a.id } });
   expect(row.passwordHash).toMatch(/^\$argon2id\$/);
@@ -76,7 +76,7 @@ it("lagrar hash, normaliserar identifierare och nekar ogiltig/duplicerad indata"
   expect(await db.adminSession.count({ where: { userId: a.id } })).toBe(0);
 });
 
-it("kopplar minimerad identitet till tokenhash och logout påverkar bara rätt session", async () => {
+it("links minimal identity to the token hash and revokes only the matching session on logout", async () => {
   const a = await account("logout-a"),
     b = await account("logout-b");
   const cookieA = await signIn(a.email);
@@ -97,7 +97,7 @@ it("kopplar minimerad identitet till tokenhash och logout påverkar bara rätt s
   expect(await isAdmin()).toBe(true);
 });
 
-it("återställer ett kontos lösenord och nekar gamla verifieringar/cookies utan att röra andra", async () => {
+it("resets one account password and rejects old verifications and cookies while preserving other accounts", async () => {
   const a = await account("reset-a"),
     b = await account("reset-b");
   const oldIdentity = await verifyAdminCredentials({
@@ -116,7 +116,7 @@ it("återställer ett kontos lösenord och nekar gamla verifieringar/cookies uta
   expect(await isAdmin()).toBe(true);
 });
 
-it("spärrar konto och gamla sessioner förblir ogiltiga även efter direkt återaktivering", async () => {
+it("disables the account and keeps old sessions invalid after immediate reactivation", async () => {
   const a = await account("disabled"),
     b = await account("still-active");
   const oldIdentity = await verifyAdminCredentials({
@@ -136,7 +136,7 @@ it("spärrar konto och gamla sessioner förblir ogiltiga även efter direkt åte
   expect(await isAdmin()).toBe(true);
 });
 
-it("nekar främmande verksamhet, gamla konto-lösa cookies och ADMIN_PASSWORD-fallback", async () => {
+it("rejects a foreign business, legacy cookies without an account, and ADMIN_PASSWORD fallback", async () => {
   const a = await account("foreign");
   const cookie = await signIn(a.email);
   const identity = await verifyAdminCredentials({ email: a.email, password });
@@ -165,7 +165,7 @@ it("nekar främmande verksamhet, gamla konto-lösa cookies och ADMIN_PASSWORD-fa
   }
 });
 
-it("samtidig reset och login lämnar aldrig gammal session giltig efter reset", async () => {
+it("a concurrent reset and login never leave an old session valid after reset", async () => {
   const a = await account("race");
   const identity = await verifyAdminCredentials({ email: a.email, password });
   await Promise.all([

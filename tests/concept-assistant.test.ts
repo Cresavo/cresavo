@@ -321,7 +321,7 @@ describe("models for the assistant", () => {
 });
 
 
-// The daily questions from docs/design/ASSISTANT-AUDIT.md, on a fixed clock: each is answered
+// Run the daily questions on a fixed clock. Each is answered
 // from the data or declined in plain words, never met with a plausible wrong answer.
 describe("read questions", () => {
   const at = { today, minutes: 10 * 60 };

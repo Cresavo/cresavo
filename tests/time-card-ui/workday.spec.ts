@@ -24,7 +24,7 @@ for (const scenario of [
   "owner-390",
   "owner-1024",
 ]) {
-  test(`Beständigt agentflöde: ${scenario}`, async ({ page, synthetic }) => {
+  test(`Persistent agent workflow for ${scenario}`, async ({ page, synthetic }) => {
     const serviceId = `workday-${synthetic.marker}`,
       staffId = `workday-staff-${synthetic.marker}`;
     await db.service.create({

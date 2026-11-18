@@ -23,7 +23,7 @@ afterEach(async () => {
 });
 afterAll(() => rateLimitDatabase.$disconnect());
 
-it("reserverar högst fem lösenordskontroller mellan fyra riktiga processer", async () => {
+it("reserves at most five password checks across four processes", async () => {
   const client = identity();
   const script = `import { checkLoginAttempt } from './src/lib/rate-limit.ts';
     let checked=0, blocked=0;
@@ -65,7 +65,7 @@ it("reserverar högst fem lösenordskontroller mellan fyra riktiga processer", a
   expect(await checkLoginAttempt(identity(), correct)).toBe(true);
 }, 30000);
 
-it("refundar bara lyckade eller kapacitetsnekade reservationer, aldrig ett nytt fönster", async () => {
+it("refunds only successful or capacity-rejected attempts within the same window", async () => {
   vi.stubEnv("RATE_LIMIT_STORE", "postgres");
   const client = identity();
   for (let i = 0; i < 7; i++) {
@@ -89,7 +89,7 @@ it("refundar bara lyckade eller kapacitetsnekade reservationer, aldrig ett nytt 
   expect((await rateLimitDatabase.rateLimitBucket.findUniqueOrThrow({ where: { key: expired.key } })).count).toBe(5);
 });
 
-it("håller rutterna åtskilda, använder databasens klocka och lagrar inga råa identiteter", async () => {
+it("isolates routes, uses the database clock, and stores no raw client identities", async () => {
   vi.stubEnv("RATE_LIMIT_STORE", "postgres");
   const client = identity("bookings");
   for (let i = 0; i < 30; i++) await checkRateLimit("bookings", client);
@@ -103,7 +103,7 @@ it("håller rutterna åtskilda, använder databasens klocka och lagrar inga råa
   await expect(checkRateLimit("bookings", client)).resolves.toBe(1);
 });
 
-it("begränsar lagret till10000rader och nekar inte en ny legitim klient vid kapacitet", async () => {
+it("limits storage to 10,000 rows and admits a new legitimate client at capacity", async () => {
   const marker = randomUUID();
   const existing = await rateLimitDatabase.rateLimitBucket.count();
   if (existing > 10000) throw new Error("PREVIEW_CAP_FIXTURE_NOT_ISOLATED");
@@ -117,13 +117,13 @@ it("begränsar lagret till10000rader och nekar inte en ny legitim klient vid kap
   expect(await rateLimitDatabase.rateLimitBucket.count()).toBeLessThanOrEqual(10000);
 }, 30000);
 
-it("vägrar lokal minnesspärr när processen kör i Vercel", () => {
+it("rejects in-memory rate limiting on Vercel", () => {
   vi.stubEnv("VERCEL", "1");
   vi.stubEnv("RATE_LIMIT_STORE", "memory");
   expect(() => checkRateLimit("login", "synthetic")).toThrow("RATE_LIMIT_CONFIG_INVALID");
 });
 
-it("en refund väntar på en annan anslutnings reservation och försvinner inte i dess uppdatering", async () => {
+it("a refund waits for another connection's reservation and survives its update", async () => {
   const reservation = await reserveRateLimit("login", identity());
   const other = createDatabaseClient(undefined, 1);
   let locked!: () => void, release!: () => void;

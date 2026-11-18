@@ -11,8 +11,8 @@ afterAll(async () => {
   await db.booking.deleteMany({ where: { customerEmail: email } });
   await db.$disconnect();
 });
-describe("PostgreSQL och bokningsdomän", () => {
-  it("databasen stoppar två samtidiga direkta writes utan tillgänglighetskontroll", async () => {
+describe("PostgreSQL and the booking domain", () => {
+  it("the database rejects overlapping direct writes even without an availability check", async () => {
     const data = {
       businessId: "demo",
       staffId: email,
@@ -38,7 +38,7 @@ describe("PostgreSQL och bokningsdomän", () => {
       }),
     ).resolves.toBeDefined();
   });
-  it("avvisar ogiltiga indata", async () => {
+  it("rejects invalid input", async () => {
     await expect(
       createBooking({
         serviceId: "fotvard",
@@ -57,7 +57,7 @@ describe("PostgreSQL och bokningsdomän", () => {
       }),
     ).rejects.toThrow();
   });
-  it("släpper bara igenom en av två samtidiga bokningar samt blockerar överlapp", async () => {
+  it("accepts only one of two concurrent bookings and blocks overlaps", async () => {
     let day = DateTime.now()
       .setZone("Europe/Stockholm")
       .plus({ days: 3 })
