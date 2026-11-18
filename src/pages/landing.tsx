@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { MiniBooking } from "@/concept/site/mini-booking";
 import { TourClip } from "@/concept/site/tour-clip";
-import { ArrowDown, ArrowRight, BookOpen, CalendarDays, Globe, Megaphone, Tag } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarDays, Globe, Megaphone, Tag } from "lucide-react";
 import { getProductSiteProps, type ProductSiteProps } from "@/concept/site/links";
 import { site } from "@/concept/site/en";
-import { GitHubStar, PlatformComparison, ProductValues } from "@/concept/site/product-sections";
+import { JoinMovement, OpenSource, OptionalAssistant, PlatformComparison } from "@/concept/site/product-sections";
 import { SiteHead } from "@/concept/site/site-head";
 import { WaitlistForm } from "@/concept/site/waitlist-form";
 import s from "@/concept/site/site.module.css";
-import { Wordmark } from "@/concept/ui/wordmark";
+import { ProductHeader, ProductHero } from "@/concept/site/product-hero";
+import { ChannelMap } from "@/concept/site/channel-map";
+import e from "@/concept/site/editorial.module.css";
 
 export const getServerSideProps = getProductSiteProps;
 
@@ -23,50 +25,14 @@ const STEPS = [["1", "/studio"], ["2", "/studio/calendar"], ["3", "/boka/salong-
 
 export default function Landing({ links, waitlist, stars }: ProductSiteProps) {
   return (
-    <div className={`${s.page} ${s.demoPage}`}>
+    <div className={`${s.page} ${e.canvas}`}>
       <SiteHead title={site["landing.title"]} description={site["landing.description"]} />
-      <header className={`${s.masthead} ${s.demoHeader}`}>
-        <a className={s.home} href={links.apex}>
-          <Wordmark className={s.wordmark} label={site["landing.home"]} />
-        </a>
-        <nav aria-label={site["landing.nav"]}>
-          <div className={s.sectionLinks}>
-            <a href="#tour">{site["landing.tour"]}</a>
-            <a href="#waitlist">{site["landing.waitlist"]} <ArrowDown size={14} aria-hidden /></a>
-          </div>
-          <GitHubStar count={stars} />
-        </nav>
-      </header>
+      <ProductHeader home={links.apex} />
       <main className={s.landing}>
-        <div className={s.hero}>
-          <div>
-            <h1 className={s.promise}>
-              <span>{site["promise.first"]}</span>{" "}
-              <span>{site["promise.second"]}</span>
-            </h1>
-            <p className={s.intro}>{site["product.lead"]}</p>
-            <div className={s.routes}>
-              <Link prefetch={false} className={s.primary} href="/studio">{site["landing.studio"]} <ArrowRight size={18} aria-hidden /></Link>
-              <GitHubStar count={stars} />
-            </div>
-            <div className={s.bookingRoute}>
-              <Link prefetch={false} className={s.secondary} href="/boka/salong-eko">{site["landing.booking"]}</Link>
-            </div>
-            <p className={s.note}>{site["landing.note"]}</p>
-          </div>
-          <div className={s.devices}>
-            <div className={s.laptop}>
-              <picture className={s.screen}>
-                <source media="(prefers-color-scheme: dark)" srcSet="/site/studio-dark.webp" />
-                <img src="/site/studio-light.webp" alt={site["landing.studio.alt"]} width={1420} height={830} decoding="async" />
-              </picture>
-            </div>
-            <div className={s.phone}><MiniBooking /></div>
-          </div>
-        </div>
-
-        <ProductValues />
-
+        <ProductHero demo="/studio" stars={stars} />
+        <ChannelMap />
+        <OpenSource />
+        <OptionalAssistant />
         <div id="tour" className={s.tour}>
           {FEATURES.map(({ key, screen, icon: Icon, href }) => (
             <section key={key} className={s.feature}>
@@ -74,6 +40,7 @@ export default function Landing({ links, waitlist, stars }: ProductSiteProps) {
                 <h2>{site[`landing.${key}.heading`]}</h2>
                 <p>{site[`landing.${key}.body`]}</p>
                 <Link prefetch={false} href={href} className={s.textLink}><Icon size={17} strokeWidth={1.6} aria-hidden /> {site[`landing.${key}.link`]}</Link>
+                {key === "book" && <div className={e.sample}><MiniBooking /></div>}
               </div>
               <div className={`${s.plate} ${s[screen]}`}>
                 <TourClip name={screen} title={site[`landing.${key}.heading`]} description={site[`landing.${key}.alt`]} />
@@ -110,11 +77,8 @@ export default function Landing({ links, waitlist, stars }: ProductSiteProps) {
           <p className={s.note}>{site["landing.start.switch"]}</p>
         </section>
 
-        <section className={s.openSource}>
-          <h2>{site["landing.open.heading"]}</h2>
-          <p>{site["landing.open.body"]}</p>
-        </section>
         <PlatformComparison />
+        <JoinMovement demo={"/studio"} />
         <WaitlistForm from="/landing" initial={waitlist ?? undefined} className={s.block} />
       </main>
       <footer className={`${s.footer} ${s.landingFooter}`}>

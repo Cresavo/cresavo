@@ -4,7 +4,7 @@ import { ClipLightbox } from "./clip-lightbox";
 import { site } from "./en";
 import s from "./site.module.css";
 
-export const TOUR_POSTER = "/site/tour-16x9-poster.jpg";
+const TOUR_POSTER = "/site/tour-16x9-poster.jpg";
 
 type Clip = "tour-16x9" | "booking" | "day" | "treatments" | "campaign" | "journal";
 
@@ -26,7 +26,7 @@ export function TourClip({ name, description, title }: { name: Clip; description
   const [muted, setMuted] = useState(true);
   const isTour = name === "tour-16x9";
   const prefix = `/site/${name}${isTour || name === "booking" ? "" : dark ? "-dark" : "-light"}`;
-  const poster = isTour ? TOUR_POSTER : near ? prefix + ".webp" : undefined;
+  const poster = near ? (isTour ? TOUR_POSTER : prefix + ".webp") : undefined;
   function expand(button: HTMLButtonElement) {
     const video = ref.current!;
     video.pause();

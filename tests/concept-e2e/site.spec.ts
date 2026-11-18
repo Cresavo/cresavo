@@ -134,3 +134,59 @@ test("the expanded film keeps the playhead and returns muted on a backdrop click
   await expect.poll(() => inline.evaluate((v: HTMLVideoElement) => v.muted && !v.paused && v.currentTime >= 18)).toBe(true);
   await expect(page.getByRole("button", { name: /^Expand —/ })).toBeFocused();
 });
+
+for (const path of ["/coming-soon", "/landing"]) {
+  test(`channel selections change the request, draft and calendar proposal on ${path}`, async ({ page }) => {
+    await page.goto(path);
+    const map = page.locator("#channel-map");
+    const assistant = map.getByRole("switch", { name: "Assistant" });
+    await expect(assistant).not.toBeChecked();
+    await assistant.click();
+    await expect(assistant).toBeChecked();
+    const examples = [
+      ["SMS", "Can I get foot care on Friday?", "I can offer you 14:30 with Anna.", "14:30"],
+      ["Instagram", "Do you have a manicure after lunch?", "Yes, Erik has time at 13:15 on Tuesday.", "13:15"],
+      ["Phone", "Is there an opening this afternoon?", "Anna can see you at 14:45 today.", "14:45"],
+      ["Booking page", "Could I book a brow shape before work?", "We have 08:30 with Erik on Thursday.", "08:30"],
+      ["AI agents", "Does Anna have a spa appointment for my client?", "Anna has an opening at 10:00 on Monday.", "10:00"],
+    ];
+    for (const [channel, request, draft, time] of examples) {
+      const input = map.getByRole("button", { name: channel, exact: true });
+      await input.click();
+      await expect(input).toHaveAttribute("aria-pressed", "true");
+      await expect(map.getByText(request, { exact: false })).toBeVisible();
+      await expect(map.getByText(draft, { exact: false })).toBeVisible();
+      await expect(map.locator("time")).toHaveText(time);
+      await expect(map.getByText("Proposed time")).toBeVisible();
+    }
+    await expect(map.getByText(/Customer-agent booking · Coming soon/)).toBeVisible();
+    await map.getByRole("button", { name: "Approve reply & booking" }).click();
+    await expect(map.getByText("Booked in the preview")).toBeVisible();
+    await map.getByRole("button", { name: "Undo booking" }).click();
+    await expect(map.getByText("Proposed time")).toBeVisible();
+  });
+}
+
+test("a written reply survives switching modes and belongs only to its channel", async ({ page }) => {
+  await page.goto("/coming-soon");
+  const map = page.locator("#channel-map");
+  const send = map.getByRole("button", { name: "Send reply & book" });
+  const field = map.getByRole("textbox", { name: "Your reply" });
+  await field.fill("  ");
+  await expect(send).toBeDisabled();
+  await field.fill("Friday at 14:30 is yours.");
+  const assistant = map.getByRole("switch", { name: "Assistant" });
+  await assistant.click();
+  await expect(field).toHaveCount(0);
+  await assistant.click();
+  await expect(field).toHaveValue("Friday at 14:30 is yours.");
+  await send.click();
+  await expect(map.getByText("Booked in the preview")).toBeVisible();
+  await map.getByRole("button", { name: "Phone", exact: true }).click();
+  await expect(send).toBeDisabled();
+  await expect(map.getByText("Proposed time")).toBeVisible();
+  await map.getByRole("button", { name: "SMS", exact: true }).click();
+  await expect(map.getByText("Friday at 14:30 is yours.")).toBeVisible();
+  await map.getByRole("button", { name: "Undo booking" }).click();
+  await expect(field).toHaveValue("Friday at 14:30 is yours.");
+});

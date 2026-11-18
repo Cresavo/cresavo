@@ -9,11 +9,19 @@ were deliberately not renamed (see below).
 
 ## Messaging
 
-Keep it simple. Use short words and give each idea its own line. Let people ask for the details.
+Give equal weight to two promises: **simple for the salon** and **open source and truly yours**.
+Lead with the owner's day. Use the tagline “More time. On your terms.” and the introduction
+“The simple, open-source booking app for salons and clinics. Bookings, clients and everything
+around them, in one calm app.” Invite the reader to try the demo and see the code on GitHub.
 
-Cresavo is the simple, open-source alternative to the big booking platforms.
-Run your salon in one calm app. Your data and your brand stay yours.
-Pay no commission on bookings. Your AI assistant can draft changes. You approve.
+“Open source. Truly yours.” means the AGPL-3.0-only source is public, owners can self-host
+or choose hosting, and they can export their data at any time. Describe hosted booking as a
+fixed monthly price with no booking commission. Card payment fees are separate and shown up front.
+
+**AI-ready, never AI-required.** Plain controls work throughout the app. An owner can connect
+ChatGPT, Claude or their own agent to look things up and draft changes. The owner approves
+changes and can use Undo. Distinguish today's owner MCP connection from customer-agent booking,
+which is coming soon. Introduce optional AI after the everyday salon workflow.
 
 ## Where the brand lives
 

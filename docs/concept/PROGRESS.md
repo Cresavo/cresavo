@@ -1,5 +1,9 @@
 # Progress · AI-native demo
 
+## 2026-11-18 · Public site v4
+
+The salon photo and calendar clipping introduce both sites. Visitors can trace a fictional request through the channel map, write the reply or enable assistant drafts, then book and undo. Both sites explain hosting, data export, commission and card fees. The landing page keeps all five workflow films and its offline booking sample.
+
 ## 2026-11-18 · Public site messaging and tour
 
 Both sites share the salon introduction, four value points and a platform comparison. Visitors can open each film at its current position and use native video controls. Repository stars load on the server.
