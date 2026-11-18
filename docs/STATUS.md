@@ -23,8 +23,10 @@ Cresavo is a concept demo (0.x) for salons and other small service businesses.
   flows, same-origin tab synchronization, assistant lookups and host feedback.
   Booking undo checks availability, and the customer time picker shows salon
   contacts when no days are open. The QA runner is available through `npm run qa`.
-- Visitors can try a booking on the demo landing and watch five recorded
-  studio and customer workflows.
+- Both public pages show the founder story, Salong Eko photographs, four
+  captured demo views and an interactive five-channel inbox. The connection
+  diagram links to self-hosting and assistant setup. On the demo landing,
+  visitors can also try an offline booking and choose from five workflow films.
 - Owners can drag to reorder treatments and categories in the studio and undo
   each move. The booking-page editor supports dragging sections in its draft.
 
