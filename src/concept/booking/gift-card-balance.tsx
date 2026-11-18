@@ -40,7 +40,7 @@ export function GiftCardBalance({ state, compact }: { state: DemoState; compact?
         <div role="status" aria-live="polite">
           {card ? (
             <div className="rounded-md bg-action-bg px-3.5 py-3">
-              <p className="text-lg font-semibold tabular-nums text-action">{t("giftcards.checkResult", { amount: formatMoney(balanceOf(state, card)) })}</p>
+              <p className="text-lg font-semibold tabular-nums text-text">{t("giftcards.checkResult", { amount: formatMoney(balanceOf(state, card)) })}</p>
               <p className="text-sm text-text-secondary">{t("giftcards.checkOf", { amount: formatMoney(card.amount) })}</p>
             </div>
           ) : (

@@ -5,7 +5,7 @@ import { BellRing, MessageCircle, BookOpen, Gift, Globe, Megaphone, Package, Pac
 import type { ModuleKey } from "@/concept/data/types";
 import { t } from "@/concept/i18n";
 import { formatNumber } from "@/concept/i18n/format";
-import { CORE_PRICE_SEK, enabledModules, MODULES, monthlyTotal } from "@/concept/modules/registry";
+import { CORE_PRICE_SEK, enabledModules, MODULES, monthlyTotal, PRESET_IDS, presetOf } from "@/concept/modules/registry";
 import { setupOf } from "@/concept/onboarding/setup";
 import { PACKS, type Pack } from "@/concept/packs";
 import { dispatch, startBusiness } from "@/concept/store";
@@ -14,7 +14,7 @@ import { useStudio } from "@/concept/studio/use-studio";
 import { Badge } from "@/concept/ui/badge";
 import { Button } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
-import { Switch } from "@/concept/ui/controls";
+import { Chip, Switch } from "@/concept/ui/controls";
 import { Sheet } from "@/concept/ui/sheet";
 import { showToast } from "@/concept/ui/toast";
 
@@ -49,11 +49,28 @@ export default function FeaturesPage() {
       <div className="space-y-8">
         <Card className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1 bg-action-bg p-5 ring-action/20">
           <div>
-            <p className="text-sm font-medium text-action">{t("features.total")}</p>
+            <p className="text-sm font-medium text-text-secondary">{t("features.total")}</p>
             <p className="text-3xl font-semibold tabular-nums tracking-tight" aria-live="polite">{price(monthlyTotal(enabledModules(state.modules)))}</p>
           </div>
           <p className="text-sm text-text-secondary">{t("features.totalNote")}</p>
         </Card>
+
+        {/* Two starting points; any switch below then makes it the owner's own mix. */}
+        <div role="group" aria-label={t("features.preset.label")} className="flex flex-wrap items-center gap-2">
+          <p className="mr-1 text-sm text-text-secondary">{t("features.preset.label")}</p>
+          {PRESET_IDS.map((preset) => (
+            <Chip
+              key={preset}
+              active={presetOf(state.modules) === preset}
+              onClick={() => {
+                dispatch({ type: "module/preset", preset });
+                showToast(t(`features.preset.${preset}.applied`));
+              }}
+            >
+              {t(`features.preset.${preset}`)}
+            </Chip>
+          ))}
+        </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Card className="flex items-start gap-4 p-4">

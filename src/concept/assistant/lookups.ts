@@ -178,8 +178,12 @@ function availability(input: LookupInput, text: string, question: string): Looku
   const answer = `${lead} ${times.join(", ")}.`;
   // With one customer in the conversation, each time is a tap away from a booking proposal.
   const customer = input.owner && input.context.customerIds.length === 1 ? findCustomer(state, input.context.customerIds[0]) : undefined;
-  const followUps = customer ? found.map((c) => `Book ${fullName(customer)} for ${service.name} on ${date} at ${formatTime(c.start)} with ${staffName(state, c.staffId)}`) : undefined;
-  return { text: answer, card: { kind: "message", text: answer, link: calendar }, context, followUps, topic: question };
+  if (!customer) return { text: answer, card: { kind: "message", text: answer, link: calendar }, context, topic: question };
+  const choices = found.map((c) => ({
+    label: t("assistant.lookup.bookAt", { name: customer.firstName, time: formatTime(c.start) }),
+    text: `Book ${fullName(customer)} for ${service.name} on ${date} at ${formatTime(c.start)} with ${staffName(state, c.staffId)}`,
+  }));
+  return { text: answer, card: { kind: "choose", title: answer, choices }, context, topic: question };
 }
 
 /** The day and part of the day from the question, to repeat it for another service. */

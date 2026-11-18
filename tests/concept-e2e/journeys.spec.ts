@@ -24,8 +24,12 @@ async function state(page: Page): Promise<DemoState> {
 /** Quick commands go through the assistant panel: the button on phones, Ctrl+K (the keyboard shortcut) from tablet width. */
 async function command(page: Page, text: string) {
   if (page.viewportSize()!.width < 640) await page.getByRole("button", { name: ASSISTANT.name, exact: true }).locator("visible=true").click();
-  else await page.keyboard.press("Control+K");
   const message = page.getByRole("textbox", { name: "Message" });
+  // The shortcut only works once the studio has hydrated: press until the panel is there.
+  if (page.viewportSize()!.width >= 640) await expect(async () => {
+    await page.keyboard.press("Control+K");
+    await expect(message).toBeVisible({ timeout: 1000 });
+  }).toPass();
   await message.fill(text);
   await message.press("Enter");
 }

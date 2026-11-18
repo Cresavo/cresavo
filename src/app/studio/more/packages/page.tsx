@@ -36,7 +36,7 @@ export default function PackagesPage() {
           </Card>
           {packages.length > 0 && (
             <Card className="bg-action-bg p-5 ring-action/20">
-              <p className="text-sm font-medium text-action">{t("packages.owed")}</p>
+              <p className="text-sm font-medium text-text-secondary">{t("packages.owed")}</p>
               <p className="text-3xl font-semibold tabular-nums tracking-tight">{formatMoney(packageLiability(state))}</p>
               <p className="mt-1 text-sm text-text-secondary">{t("packages.owedText")}</p>
             </Card>

@@ -20,7 +20,8 @@ import type { OpenSheet } from "../booking/booking-sheets";
 import { useForecasts } from "../stock/use-forecasts";
 import { useStudio } from "../use-studio";
 
-const VISIBLE_AT_FIRST = 2;
+// One suggestion at a time: the rest are a tap away, so Today stays the schedule.
+const VISIBLE_AT_FIRST = 1;
 const QUIET_DISCOUNT = 10;
 
 interface Suggestion {

@@ -31,7 +31,7 @@ export default function GiftCardsPage() {
         {cards.length > 0 && (
           <Card className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1 bg-action-bg p-5 ring-action/20">
             <div>
-              <p className="text-sm font-medium text-action">{t("giftcards.owed")}</p>
+              <p className="text-sm font-medium text-text-secondary">{t("giftcards.owed")}</p>
               <p className="text-3xl font-semibold tabular-nums tracking-tight">{formatMoney(giftCardLiability(state))}</p>
             </div>
             <p className="max-w-md text-sm text-text-secondary">{t("giftcards.owedText")}</p>

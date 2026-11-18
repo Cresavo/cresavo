@@ -44,8 +44,11 @@ test("the assistant answers, drafts an offer, remembers a preference and suggest
   await page.goto("/studio");
   // No command box on the page: the assistant is one button (and Ctrl/Cmd+K) away.
   await expect(page.getByRole("textbox", { name: "Command box" })).toHaveCount(0);
-  await page.keyboard.press("Control+K");
-  await expect(panel(page)).toBeVisible();
+  // The shortcut works once the studio has hydrated.
+  await expect(async () => {
+    await page.keyboard.press("Control+K");
+    await expect(panel(page)).toBeVisible({ timeout: 1000 });
+  }).toPass();
   await page.keyboard.press("Escape");
   await expect(panel(page)).toBeHidden();
 
@@ -99,11 +102,14 @@ test("the assistant answers, drafts an offer, remembers a preference and suggest
   await page.goto("/studio/more/memory");
   await expect(page.getByText("Lena Berg prefers Erik")).toBeVisible();
 
+  // Routines are suggested where they are managed, not on Today.
   await page.goto("/studio");
+  await expect(page.getByRole("heading", { name: "Morning brief" })).toBeVisible();
+  await expect(page.getByText("Prepare Monday reminders for overdue customers")).toHaveCount(0);
+  await page.goto("/studio/more/routines");
   await expect(page.getByText("Prepare Monday reminders for overdue customers")).toBeVisible();
   await page.getByRole("button", { name: "Switch on", exact: true }).first().click();
   await expect.poll(async () => (await state(page)).routines.map(r => [r.id, r.enabled])).toEqual([["monday-reminders", true]]);
-  await page.goto("/studio/more/routines");
   await expect(page.getByRole("switch", { name: "Prepare Monday reminders for overdue customers" })).toBeChecked();
 });
 
@@ -126,7 +132,10 @@ test("the microphone inside the panel sends what was said", async ({ page }) => 
   await page.goto("/studio");
   // One quiet launcher on phones: the microphone is in the panel, not beside it.
   await expect(page.getByRole("button", { name: "Talk to the assistant" })).toHaveCount(0);
-  await page.keyboard.press("Control+K");
+  await expect(async () => {
+    await page.keyboard.press("Control+K");
+    await expect(panel(page)).toBeVisible({ timeout: 1000 });
+  }).toPass();
   await panel(page).getByRole("button", { name: "Speak a command", exact: true }).click();
   await expect(panel(page).getByText(/bookings? \w+day \d+ \w+/).first()).toBeVisible();
 });

@@ -58,7 +58,8 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
     const question = takePendingQuestion();
     if (question) send(question);
     else if (thread.listen) startListening();
-    else input.current?.focus();
+    // The dialog opens (and focuses its first button) after this effect: the message box takes focus once it has.
+    else window.setTimeout(() => input.current?.focus(), 0);
     // Only when the panel opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
