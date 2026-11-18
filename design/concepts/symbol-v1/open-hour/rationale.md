@@ -1,0 +1,1 @@
+A rounded doorway opens into a sweep of empty space, giving shape to a gap the owner can keep in their day. Its outer curve follows the bowls of the wordmark, while the angled foot suggests a door standing ajar.

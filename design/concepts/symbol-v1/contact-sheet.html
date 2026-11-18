@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cresavo symbol studies</title>
+<style>
+  * { box-sizing: border-box }
+  body { margin: 0; background: #faf7f3 }
+  main > svg { display: block; width: 100%; height: auto }
+</style>
+<main aria-label="Cresavo symbol contact sheet"></main>
+<script>
+const studies = [
+  ['cutaway-c', 'Cutaway c', 'A diagonal cut opens the first letter.'],
+  ['daybreak', 'Daybreak', 'A sun rests above a shallow, rising arc.'],
+  ['guest-chair', 'Guest chair', 'One bent strip makes a place to sit.'],
+  ['open-hour', 'Open hour', 'An entrance widens toward the floor.'],
+  ['coat-check', 'Coat check', 'A punched ticket you could hold between two fingers.'],
+];
+
+const themes = [
+  { name: 'Light', bg: '#FAF7F3', ink: '#50364B', muted: '#6F666F', tile: '#F2B184', suffix: '' },
+  { name: 'Dark', bg: '#18141E', ink: '#FBF5F0', muted: '#BEB4BD', tile: '#50364B', suffix: '-dark' },
+];
+
+function label(x, y, words, size, fill, weight = 400) {
+  return `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}" font-weight="${weight}">${words}</text>`;
+}
+function panel(x, y, w, h, color, r = 0) {
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${color}"/>`;
+}
+function art(x, y, w, h, file) {
+  return `<image x="${x}" y="${y}" width="${w}" height="${h}" xlink:href="${file}"/>`;
+}
+function tile(x, y, size, file, theme, circle = false) {
+  const inset = size * 0.14;
+  return panel(x, y, size, size, theme.tile, size * (circle ? 0.5 : 0.23))
+    + art(x + inset, y + inset, size - 2 * inset, size - 2 * inset, file);
+}
+function specimens(slug, theme, x, y) {
+  const symbol = slug + '/symbol' + theme.suffix + '.svg';
+  const lockup = slug + '/lockup' + theme.suffix + '.svg';
+  const rail = 569;
+  return `<g transform="translate(${x} ${y})">` + [
+    panel(0, 0, 836, 602, theme.bg),
+    label(32, 34, theme.name, 19, theme.ink, 600),
+    tile(32, 54, 512, symbol, theme),
+    label(32, 588, 'App icon · 512 px', 15, theme.muted),
+    label(rail, 67, 'Wordmark lockup', 15, theme.muted),
+    art(rail, 83, 224, 224 * 40 / 184, lockup),
+    label(rail, 185, 'Favicons', 15, theme.muted),
+    art(rail, 212, 16, 16, symbol), art(rail + 77, 204, 32, 32, symbol),
+    label(rail, 260, '16 px', 14, theme.muted), label(rail + 77, 260, '32 px', 14, theme.muted),
+    label(rail, 310, 'App icon · 180 px', 15, theme.muted),
+    tile(rail, 324, 180, symbol, theme),
+    tile(rail, 526, 52, symbol, theme, true),
+    label(rail + 66, 558, 'Circle crop · 52 px', 15, theme.muted),
+  ].join('') + '</g>';
+}
+
+const header = 125, row = 686, width = 1672, height = header + studies.length * row;
+let content = panel(0, 0, width, height, '#FAF7F3')
+  + art(32, 31, 168, 27, '../../brand/cresavo-v0.1/wordmark/cresavo-wordmark-light.svg')
+  + label(32, 94, 'Symbol studies', 29, '#50364B')
+  + label(1291, 72, 'More time. On your terms.', 25, '#50364B');
+studies.forEach(([slug, name, description], index) => {
+  const y = header + index * row;
+  content += panel(0, y, width, 84, '#F4EFEB')
+    + panel(0, y, width, 1, '#8E8289')
+    + label(32, y + 53, name, 35, '#50364B', 600)
+    + label(568, y + 51, description, 22, '#50364B')
+    + themes.map((theme, i) => specimens(slug, theme, i * 836, y + 84)).join('');
+});
+document.querySelector('main').innerHTML =
+  `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Five Cresavo symbol studies, shown on light and dark grounds" font-family="Inter, DejaVu Sans, sans-serif">${content}</svg>`;
+</script>
+</html>
