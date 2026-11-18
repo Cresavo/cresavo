@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { CalendarOff, Phone } from "lucide-react";
 import { openingFor, staffWorks } from "@/concept/data/slots";
 import { t, tc } from "@/concept/i18n";
@@ -21,6 +21,14 @@ import { Button } from "@/concept/ui/button";
 import { Section } from "@/concept/ui/card";
 import { EmptyState } from "@/concept/ui/empty-state";
 
+const DESKTOP_LAYOUT = "(min-width: 1024px)";
+
+function subscribeToLayout(onChange: () => void) {
+  const query = window.matchMedia(DESKTOP_LAYOUT);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
 function greeting(minutes: number, name: string) {
   if (minutes < 11 * 60) return t("today.greeting.morning", { name });
   if (minutes < 17 * 60) return t("today.greeting.afternoon", { name });
@@ -30,11 +38,13 @@ function greeting(minutes: number, name: string) {
 export default function TodayPage() {
   const { state, today, minutes } = useStudio();
   const [sheet, setSheet] = useState<OpenSheet>(null);
+  const desktop = useSyncExternalStore(subscribeToLayout, () => window.matchMedia(DESKTOP_LAYOUT).matches, () => false);
   const role = useRole();
   const viewer = role === "staff" ? staffViewer(state) : null;
   const open = !!openingFor(state.salon, today);
   const off = !!viewer && !staffWorks(state, viewer.id, today);
   const count = dayBookings(state, today, viewer?.id).length;
+  const nextCustomer = <NextCustomer staffId={viewer?.id} onOpen={setSheet} />;
 
   return (
     <>
@@ -47,10 +57,11 @@ export default function TodayPage() {
           </Button>
         }
       />
-      {/* Phones read top to bottom: today's bookings, then who is next, then what needs attention. On a desktop the second column grows with the screen. */}
+      {/* Keep the next customer above the schedule on phones and beside it on desktop. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_clamp(20rem,30vw,26rem)] lg:gap-8">
         <div className="min-w-0 space-y-6">
           {open && !viewer && <TodayStats />}
+          {!desktop && nextCustomer}
           <Section title={t("today.schedule")}>
             {!open ? (
               <EmptyState icon={<CalendarOff size={22} />} title={t("today.closed")} text={t("today.closedText")} />
@@ -63,7 +74,7 @@ export default function TodayPage() {
         </div>
         <div className="min-w-0 space-y-6">
           <NeedsMoving staffId={viewer?.id} onOpen={setSheet} />
-          <NextCustomer staffId={viewer?.id} onOpen={setSheet} />
+          {desktop && nextCustomer}
           {!viewer && <EveningSummary />}
           {!viewer && <Attention onOpen={setSheet} />}
         </div>
