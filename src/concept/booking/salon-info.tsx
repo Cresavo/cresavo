@@ -94,7 +94,7 @@ export function Reviews({ state, variant = "cards" }: { state: DemoState; varian
   if (!shown.length) return null;
   if (variant === "quote") return <QuoteReview state={state} review={shown[0]} />;
   return (
-    <Section title={t("booking.reviews")} action={<span className="shrink-0 text-sm text-text-secondary">{average.toFixed(1)} · {tc("booking.reviewCount", count)}</span>}>
+    <Section title={t("booking.reviews")} action={<span className="text-right text-sm text-text-secondary">{average.toFixed(1)} · {tc("booking.reviewCount", count)}</span>}>
       <Card id="reviews" className="scroll-mt-4 divide-y divide-hairline px-4">
         {shown.map((review) => {
           const customer = state.customers.find((c) => c.id === review.customerId);

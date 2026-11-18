@@ -21,9 +21,9 @@ export function Treatments({ state, onBook, compact }: { state: DemoState; onBoo
               {state.services
                 .filter((s) => s.category === category.id)
                 .map((service) => (
-                  <div key={service.id} className="flex items-center gap-3 px-4 py-3.5">
+                  <div key={service.id} className="flex items-center gap-3 px-4 py-3.5 max-[299px]:flex-wrap">
                     <div className="min-w-0 flex-1">
-                      <p className="flex items-baseline justify-between gap-x-3">
+                      <p className="flex items-baseline justify-between gap-x-3 max-[299px]:flex-wrap">
                         <span className="min-w-0 font-medium">{service.name}</span>
                         <strong className="shrink-0 font-semibold tabular-nums">{formatMoney(service.price)}</strong>
                       </p>

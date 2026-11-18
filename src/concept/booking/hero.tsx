@@ -6,6 +6,7 @@ import type { DemoState } from "../data/types";
 import { t, tc } from "../i18n";
 import { PHOTOS, type PhotoId } from "../page/theme";
 import type { Now } from "../use-now";
+import { cx } from "../ui/cx";
 import { reviewSummary } from "./reviews";
 
 interface HeroProps {
@@ -23,9 +24,9 @@ export function Hero({ state, now, variant, photo }: HeroProps) {
   const hours = openingFor(salon, now.today);
   const open = !!hours && now.minutes >= hours.open && now.minutes < hours.close;
   return (
-    <section className="space-y-4">
+    <section className="space-y-3 sm:space-y-4">
       {variant === "photo" && (
-        <div className="relative aspect-[16/9] overflow-hidden rounded-lg bg-surface-2 sm:aspect-[3/1]">
+        <div className="relative aspect-[2/1] overflow-hidden rounded-lg bg-surface-2 sm:aspect-[3/1]">
           <Image src={PHOTOS[photo]} alt={t("booking.heroAlt", { name: salon.name })} fill priority sizes="(min-width: 1024px) 1024px, 100vw" className="object-cover" />
         </div>
       )}
@@ -48,8 +49,9 @@ export function Hero({ state, now, variant, photo }: HeroProps) {
           </a>
           {hours && (
             <>
-              <span aria-hidden>·</span>
-              <span className={open ? "font-medium text-text" : undefined}>{open ? t("booking.openNow", { until: formatTime(hours.close) }) : t("booking.closedNow")}</span>
+              {/* On a phone the opening status is a line of its own, so no separator is left dangling. */}
+              <span aria-hidden className="hidden sm:inline">·</span>
+              <span className={cx("w-full sm:w-auto", open && "font-medium text-text")}>{open ? t("booking.openNow", { until: formatTime(hours.close) }) : t("booking.closedNow")}</span>
             </>
           )}
         </p>
