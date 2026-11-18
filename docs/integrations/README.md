@@ -8,6 +8,9 @@ per capability, with a **simulated adapter** as the default and real
   resolves to a `PortResult` with `status`, `cost` and a normalised
   `ConnectionError` (fixed message, `retryable`, optional `retryAfterSeconds`,
   sanitised `providerCode`). Adapters never throw for provider failures.
+  `retryable` is only true when a retry cannot do the thing twice: a timeout,
+  dropped connection or 5xx on a write without an idempotency key (Twilio,
+  46elks, Postmark, Fortnox, Visma, Meta publishing) is not retryable.
 - **Locale-neutral contract** (`core.ts`): money is integer minor units plus an
   ISO 4217 currency (`{ amountMinor: 4900, currency: "SEK" }`), phone numbers
   E.164, timestamps UTC ISO 8601 plus an IANA time zone, countries ISO 3166-1
@@ -29,15 +32,19 @@ per capability, with a **simulated adapter** as the default and real
 All of these must hold, otherwise the port is simulated:
 
 1. The deployment is not the public demo (`NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO=1`
-   or `PUBLIC_READONLY=1` force simulation, whatever else is set).
+   at build time, or `PUBLIC_READONLY=1`, force simulation whatever else is
+   set; the build-time flag is inlined, so no runtime setting can undo it).
 2. `CONCEPT_CONNECTIONS_LIVE=1` (the master switch, off by default).
 3. The port's provider is selected, for example `CONCEPT_SMS_PROVIDER=twilio`.
-4. Every required secret for that provider is set.
+4. Every required secret and setting for that provider is set (for example a
+   sender for SMS).
 
 `GET /api/concept/connections` shows, per port, the adapter in use, the reason
 (`public-demo`, `live-off`, `not-selected`, `unknown-provider`,
-`missing-secret`, `interface-only`, `live`) and the names of missing secrets.
-It never returns a value.
+`missing-secret`, `missing-setting`, `interface-only`, `live`) and the names
+of missing secrets or settings. It never returns a value, and an unknown
+provider value is not echoed (it could be a key pasted into the wrong
+variable).
 
 Webhooks arrive at `POST /api/concept/connections/webhooks/<provider>`. Only a
 live, selected provider is verified; anything else answers 404. A verified
@@ -117,8 +124,10 @@ exists. Variable names are in `.env.example`.
    `CONCEPT_SMS_PROVIDER=46elks`.
 3. 46elks does not sign delivery reports. Set `ELKS_WEBHOOK_TOKEN` (16+
    random characters) and use
-   `https://<host>/api/concept/connections/webhooks/46elks?token=<token>` as
-   `whendelivered`; also allowlist 46elks' callback IPs at your proxy.
+   `https://46elks:<token>@<host>/api/concept/connections/webhooks/46elks` as
+   `whendelivered`: 46elks sends the credentials as Basic auth, so the token
+   never sits in a query string that proxies log. Also allowlist 46elks'
+   callback IPs at your proxy.
 
 ### Resend (email)
 
@@ -161,9 +170,11 @@ exists. Variable names are in `.env.example`.
 3. Set `FORTNOX_CLIENT_ID`, `FORTNOX_CLIENT_SECRET`, `FORTNOX_REFRESH_TOKEN`,
    optionally `FORTNOX_VOUCHER_SERIES` (default `A`);
    `CONCEPT_ACCOUNTING_PROVIDER=fortnox`.
-4. Known gap: Fortnox rotates the refresh token on every refresh. Until the
-   per-business store (goal 11) can save the new one, the env token works for
-   one refresh only (verify). Rate limit 25 requests per 5 seconds.
+4. Known gap: Fortnox rotates the refresh token on every refresh. The adapter
+   keeps the new one in memory, so a running server keeps working, but after a
+   restart the env token is stale and you must re-consent until the
+   per-business store (goal 11) can save it (verify). Rate limit 25 requests
+   per 5 seconds.
 
 ### Visma eAccounting / eEkonomi (accounting, Nordics)
 
@@ -182,9 +193,12 @@ exists. Variable names are in `.env.example`.
    `https://www.googleapis.com/auth/calendar.events` to get a refresh token.
 3. Set `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
    `GOOGLE_CALENDAR_REFRESH_TOKEN`; `CONCEPT_CALENDAR_PROVIDER=google-calendar`.
-4. Events get a deterministic id from the booking id, so a retried push
-   answers 409 and is treated as done. Pulls use sync tokens; a 410 asks for a
-   full resync.
+4. Events get a deterministic id from the booking id; a push that answers 409
+   (a retry or a moved booking) updates the existing event. Pulls use sync
+   tokens; a 410 asks for a full resync, and `nextPageToken` continues a pull
+   with more pages than one call reads. All-day events are read in the
+   calendar's own time zone; cancelled and "free" events are reported as
+   `cancelled` so a stale block is removed.
 
 ### Microsoft Graph (Outlook calendar)
 
@@ -194,7 +208,8 @@ exists. Variable names are in `.env.example`.
 3. Set `MS_GRAPH_CLIENT_ID`, `MS_GRAPH_CLIENT_SECRET`, `MS_GRAPH_REFRESH_TOKEN`,
    `MS_GRAPH_TENANT` (tenant id or `common`) and `MS_GRAPH_USER` (user id or
    address); `CONCEPT_CALENDAR_PROVIDER=microsoft-graph`.
-4. v1.0 delta sync covers the primary calendar only (verify).
+4. v1.0 delta sync covers the primary calendar only (verify); pulling another
+   calendar answers `not_supported`.
 
 ### Reserve with Google (listing)
 
@@ -221,9 +236,10 @@ exists. Variable names are in `.env.example`.
 3. Get a long-lived Page access token. Set `META_PAGE_ACCESS_TOKEN`,
    `META_APP_SECRET`, `META_PAGE_ID`, `META_INSTAGRAM_USER_ID`;
    `CONCEPT_SOCIAL_PROVIDER=meta`.
-4. Every call sends `appsecret_proof`; the token travels in the POST body,
-   never in the URL. Images must be public HTTPS JPEG/PNG. Publishing is not
-   idempotent.
+4. Every call sends `appsecret_proof`; the token travels in the POST body or
+   the Authorization header, never in the URL. Images must be public HTTPS
+   JPEG/PNG. The adapter waits (bounded) for the media container to finish
+   before publishing. Publishing is not idempotent.
 
 ## Add a new provider
 
@@ -244,7 +260,9 @@ model.
      capabilities, `region` for regional providers, secret names), required
      and optional `secrets`, non-secret `settings`, and `create`;
    - all HTTP through `request()` in `server/http.ts`, with a `codeOf` that
-     maps provider error bodies to codes and a `secrets` list in the context;
+     maps provider error bodies to codes, a `secrets` list in the context, and
+     `{ idempotent: false }` for writes the provider cannot de-duplicate;
+   - `missingSettings` for required non-secret settings (a sender, a user id);
    - validate input before any request (E.164, ISO currency, UTC times,
      balanced vouchers) and return `invalid_input` or `not_configured`;
    - send the provider's idempotency key when it has one;
