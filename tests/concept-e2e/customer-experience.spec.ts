@@ -15,8 +15,8 @@ async function screenshot(page: Page, name: string) {
 async function state(page: Page): Promise<DemoState> { return page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo")!)); }
 async function startBooking(page: Page) {
   await page.goto("/boka/salong-eko");
-  await page.getByPlaceholder(/^For example: .+ some afternoon next week$/).fill("Footcare day after tomorrow with Anna");
-  await page.getByPlaceholder(/^For example: .+ some afternoon next week$/).press("Enter");
+  await page.getByRole("textbox", { name: /What would you like to book/ }).fill("Footcare day after tomorrow with Anna");
+  await page.getByRole("textbox", { name: /What would you like to book/ }).press("Enter");
   await page.getByRole("button", { name: /until \d\d:\d\d/ }).first().click();
   await page.getByLabel("Your name", { exact: true }).fill("Nova Demo");
   await page.getByLabel("Mobile number").fill("070-000 99 11");
@@ -73,7 +73,7 @@ test("book, preview both channels, simulate reminders, inspect Inbox, rebook and
 
 test("review a completed visit, keep it private, approve in Inbox and publish on salon page", async ({ page }) => {
   await page.goto("/boka/salong-eko");
-  await page.getByPlaceholder(/^For example: .+ some afternoon next week$/).waitFor();
+  await page.getByRole("textbox", { name: /What would you like to book/ }).waitFor();
   const saved = await state(page);
   const eligible = saved.bookings.filter(booking => booking.status === "completed" && !saved.reviews.some(review => review.bookingId === booking.id)).sort((a, b) => b.date.localeCompare(a.date))[0];
   const reviewText = "A lovely fictional visit, with time to relax.";
@@ -122,8 +122,8 @@ test("copy clean share/widget code and book inside a cross-origin iframe", async
   try {
     await page.goto(`http://127.0.0.1:${(host.address() as AddressInfo).port}`);
     const frame = page.frameLocator('iframe[title="Book with Salong Eko"]');
-    await frame.getByPlaceholder(/^For example: .+ some afternoon next week$/).fill("sports massage next available with Erik");
-    await frame.getByPlaceholder(/^For example: .+ some afternoon next week$/).press("Enter");
+    await frame.getByRole("textbox", { name: /What would you like to book/ }).fill("sports massage next available with Erik");
+    await frame.getByRole("textbox", { name: /What would you like to book/ }).press("Enter");
     await frame.getByRole("button", { name: /until \d\d:\d\d/ }).first().click();
     await frame.getByLabel("Your name", { exact: true }).fill("Widget Demo");
     await frame.getByLabel("Mobile number").fill("070-000 99 22");
@@ -136,7 +136,7 @@ test("copy clean share/widget code and book inside a cross-origin iframe", async
 
 test("join a fully booked day's waiting list and find the request in Inbox", async ({ page }) => {
   await page.goto("/boka/salong-eko");
-  await page.getByPlaceholder(/^For example: .+ some afternoon next week$/).waitFor();
+  await page.getByRole("textbox", { name: /What would you like to book/ }).waitFor();
   // A controlled full-day fixture exercises the public no-availability path.
   await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem("salong-eko-demo")!) as DemoState;
@@ -145,8 +145,8 @@ test("join a fully booked day's waiting list and find the request in Inbox", asy
     localStorage.setItem("salong-eko-demo", JSON.stringify(saved));
   });
   await page.reload();
-  await page.getByPlaceholder(/^For example: .+ some afternoon next week$/).fill("foot care on 2026-11-24");
-  await page.getByPlaceholder(/^For example: .+ some afternoon next week$/).press("Enter");
+  await page.getByRole("textbox", { name: /What would you like to book/ }).fill("foot care on 2026-11-24");
+  await page.getByRole("textbox", { name: /What would you like to book/ }).press("Enter");
   await page.getByRole("button", { name: "Notify me about Tuesday 24 November" }).click();
   await page.getByLabel("Your name", { exact: true }).fill("Waiting Demo");
   await page.getByLabel("Mobile number").fill("070-000 99 33");

@@ -153,7 +153,7 @@ test("a custom theme with other sections has no accessibility violations", async
   await page.goto("/studio/more/booking-page");
   await page.getByRole("button", { name: "Warm rose" }).click();
   await page.getByRole("radio", { name: "Round" }).click();
-  for (const name of ["Team", "Gallery", "Questions"]) await page.getByRole("button", { name: new RegExp(`^${name}$`) }).click();
+  for (const name of ["Gallery", "Questions"]) await page.getByRole("button", { name: new RegExp(`^${name}$`) }).click();
   await page.getByRole("button", { name: "Save changes" }).click();
   await page.goto("/boka/salong-eko");
   await expect(page.getByRole("heading", { name: "Meet the team" })).toBeVisible();

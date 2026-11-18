@@ -42,8 +42,8 @@ describe("page design requests", () => {
 
   it("puts a section first, adds and removes sections", () => {
     const first = designRequest("Put reviews first", DEFAULT_PAGE) as { page: typeof DEFAULT_PAGE };
-    expect(kinds(first.page)).toEqual(["hero", "reviews", "treatments", "giftcards", "map"]);
-    expect(kinds((designRequest("show the gallery at the top", DEFAULT_PAGE) as { page: typeof DEFAULT_PAGE }).page)).toEqual(["hero", "gallery", "treatments", "giftcards", "reviews", "map"]);
+    expect(kinds(first.page)).toEqual(["hero", "reviews", "treatments", "staff", "map", "giftcards"]);
+    expect(kinds((designRequest("show the gallery at the top", DEFAULT_PAGE) as { page: typeof DEFAULT_PAGE }).page)).toEqual(["hero", "gallery", "treatments", "staff", "reviews", "map", "giftcards"]);
     expect(kinds((designRequest("add an FAQ to the page", DEFAULT_PAGE) as { page: typeof DEFAULT_PAGE }).page)).toContain("faq");
     expect(kinds((designRequest("remove the gift cards", DEFAULT_PAGE) as { page: typeof DEFAULT_PAGE }).page)).not.toContain("giftcards");
     expect(designRequest("put reviews first", first.page)).toBeNull();
@@ -79,7 +79,7 @@ describe("design proposal", () => {
   it("lists the section order for 'put reviews first'", () => {
     const proposal = ask("put reviews first");
     if (proposal.kind !== "change") throw new Error("expected a change");
-    expect(proposal.rows).toEqual([{ label: "sections", before: expect.stringContaining("Treatments and prices, Gift cards, Reviews"), after: expect.stringContaining("Top of the page, Reviews, Treatments") }]);
+    expect(proposal.rows).toEqual([{ label: "sections", before: expect.stringContaining("Treatments and prices, Team, Reviews"), after: expect.stringContaining("Top of the page, Reviews, Treatments") }]);
   });
 
   it("points to the editor when the logo is missing", () => {

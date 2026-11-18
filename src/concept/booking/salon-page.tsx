@@ -10,15 +10,16 @@ import { useNow, type Now } from "../use-now";
 import { GiftCardBalance } from "./gift-card-balance";
 import { Hero } from "./hero";
 import { usePage } from "./page-context";
-import { FindUs, OpeningHours, Reviews } from "./salon-info";
+import { CancellationPolicy, FindUs, OpeningHours, Reviews } from "./salon-info";
 import { FaqSection, GallerySection, InstagramSection, StaffSection } from "./sections";
 import { Treatments } from "./treatments";
 import { BookingWizard } from "./wizard";
 
 /**
  * `/boka/<slug>`: the sections the owner chose, in their order, around the
- * booking flow, which is always the same and sits right after the hero. The
- * price list steps aside while a booking is under way (one next action).
+ * booking flow, which is always the same and sits right after the hero: one
+ * quiet line until a booking starts. The price list steps aside while a
+ * booking is under way (one next action).
  */
 export function SalonPage() {
   const state = usePublicDemo();
@@ -41,7 +42,7 @@ export function SalonPage() {
         return <Hero state={state} now={now} variant={variant} photo={theme.heroPhoto} />;
       case "treatments":
         return inFlow ? null : (
-          <section className="space-y-4">
+          <section className="space-y-3">
             <h2 className="text-xl font-semibold tracking-tight">{t("booking.treatments")}</h2>
             <Treatments state={state} onBook={book} compact={variant === "compact"} />
           </section>
@@ -67,17 +68,31 @@ export function SalonPage() {
   const topIsHero = first?.kind === "hero";
   const flow = (
     <section id="book" data-booking-flow className="scroll-mt-4" aria-label={t("booking.ask.title")}>
-      <BookingWizard key={preset?.count ?? 0} state={state} now={now} initialServiceId={initial} onFlowChange={setInFlow} />
+      <BookingWizard key={preset?.count ?? 0} state={state} now={now} initialServiceId={initial} onFlowChange={setInFlow} listOnPage={sections.some((s) => s.kind === "treatments")} />
     </section>
   );
+  const policy = <CancellationPolicy state={state} />;
+  // The practical facts (where, when, how to reach us, what cancelling costs) are one block: in the
+  // owner's order on a phone, a column of its own beside the price list on a wide screen.
+  const body = (topIsHero ? rest : sections).flatMap((section) => {
+    const node = render(section);
+    return node ? [{ key: section.kind as string, node: section.kind === "map" ? <div className="space-y-6">{node}{policy}</div> : node, aside: section.kind === "map" }] : [];
+  });
+  if (!body.some((item) => item.aside)) body.push({ key: "policy", node: policy, aside: true });
+  const main = body.filter((item) => !item.aside).length + 1;
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      {topIsHero && <div className="lg:-mx-12">{render(first)}</div>}
-      {flow}
-      {(topIsHero ? rest : sections).map((section) => {
-        const node = render(section);
-        return node ? <div key={section.kind}>{node}</div> : null;
-      })}
+    <div className="mx-auto max-w-3xl space-y-6 lg:max-w-none lg:space-y-8">
+      {topIsHero && render(first)}
+      <div className="space-y-8 lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-x-12 lg:gap-y-8 lg:space-y-0">
+        <div className="min-w-0 lg:col-start-1">{flow}</div>
+        {body.map((item) =>
+          item.aside ? (
+            <aside key={item.key} className="lg:sticky lg:top-6 lg:col-start-2 lg:row-start-1" style={{ gridRowEnd: `span ${main}` }}>{item.node}</aside>
+          ) : (
+            <div key={item.key} className="min-w-0 lg:col-start-1">{item.node}</div>
+          ),
+        )}
+      </div>
     </div>
   );
 }
@@ -85,9 +100,9 @@ export function SalonPage() {
 /** Address and contact, with the opening hours when the section asks for the full look. */
 function Location({ state, now, variant }: { state: DemoState; now: Now; variant: string }) {
   return (
-    <div className="space-y-8">
-      <FindUs state={state} />
+    <div className="space-y-6">
       {variant === "full" && <OpeningHours state={state} now={now} />}
+      <FindUs state={state} />
     </div>
   );
 }
