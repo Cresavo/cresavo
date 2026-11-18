@@ -4,9 +4,21 @@
 
 This agreement applies between the contributor identified below and the legal
 person or entity identified as the Cresavo project maintainer (the
-**Maintainer**). It applies to Contributions submitted on or after
-acceptance. Before using this draft, identify the Maintainer and confirm
-the applicable law, venue and handling of contributor signature records.
+**Maintainer**). It applies to Contributions you intentionally submit after
+you accept it, and also to the Contributions in the pull request or patch
+for which you accept it (including commits you added to it before
+accepting). Earlier work outside that pull request needs a separate
+agreement. Before using this draft, identify the Maintainer, give the
+agreement a version identifier, and confirm the applicable law, venue and
+handling of contributor signature records.
+
+**Status:** this is a draft for comment. The project is not collecting
+signatures on it yet.
+
+In plain words: you keep ownership of your work. The grant below lets the
+Maintainer also offer your Contribution under commercial or proprietary
+terms. Everyone who already received it under an open-source licence keeps
+that licence.
 
 ## 1. Contributions
 
@@ -32,17 +44,20 @@ received under their applicable licenses.
 
 ## 3. Patent license
 
-You grant the Maintainer and recipients of software distributed by or on
-behalf of the Maintainer a worldwide, perpetual, non-exclusive, royalty-free
-patent license, irrevocable except as stated below, to make, have made, use,
-offer to sell, sell, import and
-otherwise transfer the Contribution and the project as it existed when
-you submitted it. The license covers only patent claims you can license
-that are necessarily infringed by your Contribution alone or by combining
-it with that version of the project. If a recipient brings patent litigation
-alleging that a Contribution or the project incorporating it directly or
-indirectly infringes a patent, the patent licenses this agreement grants to
-that recipient for the project terminate on the date the claim is filed.
+You grant the Maintainer and everyone who receives the Contribution, directly
+or indirectly, from or through the Maintainer (including in later versions of
+the project) a worldwide, perpetual, non-exclusive, royalty-free patent
+license, irrevocable except as stated below, to make, have made, use, offer
+to sell, sell, import and otherwise transfer the Contribution and the project
+as it existed when you submitted it. The license covers only patent claims
+you can license that are necessarily infringed by your Contribution alone or
+by combining it with that version of the project; later changes to the
+project do not expand the set of covered claims. If a recipient brings patent
+litigation alleging that a Contribution or the project incorporating it
+directly or indirectly infringes a patent, the patent licenses this agreement
+grants to that recipient for the project terminate on the date the claim is
+filed. This termination applies only to the patent license granted in this
+section.
 
 ## 4. Authority and third-party material
 
@@ -79,9 +94,26 @@ use any Contribution.
 - Authorized contributors and their contribution accounts ____________________
 - Signature and date ____________________
 
-The entity's representative confirms their authority to bind the entity.
-The entity may update its list of authorized contributors by written notice.
-Updates apply to future submissions.
+The entity's representative confirms their authority to bind the entity. A
+GitHub login alone does not show that authority: an entity signs through its
+representative, privately, not in a public pull request or gist. The entity
+may update its list of authorized contributors by private written notice to
+the Maintainer at [private channel to be decided]. Updates apply to future
+submissions. Each individual contributor separately grants any rights they
+hold personally.
+
+## 7. Signature records
+
+Do not post a completed form or contact details in a pull request, issue or
+gist. Individual contributors accept through the CLA signing tool on the pull
+request, which records the GitHub account, the agreement version and the
+date. The Maintainer ([name to be filled in], the controller of these
+records) keeps the account name, agreement version, acceptance date and, for
+entities, the signed form, for as long as the Contributions are distributed,
+to document the right to distribute them. Recipients: [signing tool provider
+and hosting, to be filled in]. You can ask for access, correction or erasure
+where applicable through [private channel to be decided], and you can
+complain to the Swedish Authority for Privacy Protection (IMY).
 
 This draft follows the structure of the Apache Software Foundation's
 individual and corporate agreements and adds express relicensing rights.

@@ -7,8 +7,7 @@ easiest to review.
 ## Run it
 
 ```bash
-npm install
-npm run dev          # http://localhost:3000, studio at /studio
+npm run demo         # installs dependencies, then http://localhost:3000/studio
 ```
 
 The concept demo needs no database and no AI key. See the README for the
@@ -24,7 +23,9 @@ npm run ai:eval      # AI task scenarios
 npm run build
 ```
 
-Add or update tests where logic lives. Playwright and integration test
+Add or update tests where logic lives. For changes to the studio or booking
+page, also run `npm run test:concept` and add before/after screenshots
+(390 px and 1280 px) to the pull request. Playwright and integration test
 commands are in the README.
 
 ## Code principles
@@ -51,12 +52,21 @@ compatible license.
 
 ## License and CLA
 
-Cresavo is AGPL-3.0-only. Once the [Contributor License Agreement](docs/legal/CLA.md)
-is approved and in use, contributors will need to accept it before their first
-pull request can be merged. Use the individual form for contributions you own
-and the entity form for contributions made on behalf of an organization.
+Cresavo is AGPL-3.0-only. Contributions will need the
+[Contributor License Agreement](docs/legal/CLA.md): the individual form for
+contributions you own, the entity form for contributions made on behalf of an
+organization. In short, you keep ownership, and the agreement also lets the
+maintainer offer your contribution under commercial terms; everyone who
+received it under the AGPL keeps that licence.
 
-The [draft trademark policy](TRADEMARK.md) covers use of the Cresavo name and logo.
+**The CLA is a draft, pending legal review. The project is not collecting
+signatures on it yet.** You can open pull requests and comment on the draft,
+but external pull requests are held for merge until the reviewed agreement and
+its signing process (a bot on the pull request) are in place. Never post a
+completed form or personal details in a pull request.
+
+The [draft trademark policy](TRADEMARK.md) covers the Cresavo name, logo and
+brand media, which are not covered by the AGPL.
 
 ## Security
 

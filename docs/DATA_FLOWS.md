@@ -22,7 +22,7 @@ eller demoartefakt. Inget rått kvitto i modellunderlaget. Inga riktiga SMS/mejl
 eller nya externa tjänster. Native-Codex-provet använder befintligt modellkonto
 med syntetiska katalog-/bokningsuppgifter enligt samma avgränsning som tidigare.
 Ingen Windows-/OS-isolering mot en serveradministratör eller verklig kundidentitet
-är verifierad. Se [PRIVACY_SECURITY](PRIVACY_SECURITY.md) och [VERIFICATION](VERIFICATION.md).
+är verifierad. Se [PRIVACY_SECURITY](PRIVACY_SECURITY.md) och [VERIFICATION](archive/VERIFICATION.md) (historical).
 
 ---
 

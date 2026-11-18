@@ -998,7 +998,7 @@ reproducerades inte i Groks rena kopia. Fjärr-/native-klientprov och pilot
 ingår inte i godkännandet.
 
 
-**[Öppna den skyddade premiumdemon](https://booking-lab-se-preview.vercel.app/product)**. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43546809210): 62/62 webbtester i vart och ett av fyra gröna jobb. [Driftbevis](assets/premium/preview-final.json), [CI-loggarnas kontrollsummor](assets/premium/ci-final-proof.json) och [Groks original](qa/QA-REPORT-premium-5212b7a.md).
+**[Öppna den skyddade premiumdemon](<redacted-preview-url>/product)**. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43546809210): 62/62 webbtester i vart och ett av fyra gröna jobb. [Driftbevis](assets/premium/preview-final.json), [CI-loggarnas kontrollsummor](assets/premium/ci-final-proof.json) och [Groks original](qa/QA-REPORT-premium-5212b7a.md).
 
 Vercel `dpl_<redacted>`, fra1. Fast alias och immutable preview kontrollerades: anonyma HTML/API/resurser stoppades; behörig Vercel-session utan appinloggning fick 403 för admin-API. Direktport 3000 gick inte att nå. Egen Chrome-klick: öppna demoadmin utan extra lösenord, välj gårdagens bokningar och läs bokningsdetaljen. [Alla åtta datatabeller oförändrade](assets/premium/preview-db-proof.json), inklusive 94 bokningar. Ingen mainmerge. Pilot och fysisk Safari ej godkända.
 
@@ -1073,7 +1073,7 @@ för scroll eller fysisk iPhone/Safari. Bilder i `.vercel/premium-evidence/`.
 Verifierat 2026-11-14. Branch **ui/salon-polish**, från 2c74a4b/produkt 51d54d4.
 Produkt, slutlig Grok-revision, CI och deploy: **9840309df4d8addc3e4bf5f6c5da0f3802eb4a2d**.
 Senare dokumentationscommit ändrar ingen produktkod. Main b000481 är orörd.
-[Samma skyddade preview](https://booking-lab-se-preview.vercel.app/admin), deployment `dpl_<redacted>`, fra1.
+[Samma skyddade preview](<redacted-preview-url>/admin), deployment `dpl_<redacted>`, fra1.
 Vercel-inloggning vid behov → **Öppna demoadmin**, inget andra lösenord.
 
 **Funktionstester och avgränsad QA PASS; full audit FAIL; pilot NO-GO.**

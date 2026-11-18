@@ -1,7 +1,7 @@
 {
   "revision": "7c1407dce66910ef8ab304c882c90d90c173ca72",
   "deploymentId": "dpl_<redacted>",
-  "origin": "https://booking-lab-se-preview.vercel.app",
+  "origin": "<redacted-preview-url>",
   "date": "2026-11-12T21:02:35.798Z",
   "syntheticOnly": true,
   "engine": "automated Chromium",

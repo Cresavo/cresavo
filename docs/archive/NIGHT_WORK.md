@@ -39,7 +39,7 @@ Slut-QA: Grok gav GO 02:25 CET på 18a4d73; originalrapport i docs/qa. 51 unit, 
 
 C: och D: hade cirka 4 GB ledigt vid preflight. Ingen bred cache-/temprensning görs. Stoppa berörd körning vid utrymmesfel och dokumentera; radera inte andra projekts filer eller aktiva verktygs tempkataloger.
 
-På separat uttryckligt uppdrag inventerade en underagent diskutrymmet. npm:s stödda cacheunderhåll (`npm cache clean --force --cache D:\VibeTube-arbete\npm-cache`) avslutades med exit 0 och frigjorde 1,843 GiB på D: enligt agentens mätning. Agenten rapporterade C: 4,502 GiB och D: 5,775 GiB ledigt efteråt. Ingen projektkod, databas eller aktiv tempmapp rensades. Ett första direkt PowerShell-raderingsförsök nekades före körning av exekveringspolicyn; den stödda npm-körningen accepterades. C:-cachen ccache (cirka 0,448 GiB) lämnades orörd.
+På separat uttryckligt uppdrag inventerade en underagent diskutrymmet. npm:s stödda cacheunderhåll (`npm cache clean --force --cache <local-drive>\npm-cache`) avslutades med exit 0 och frigjorde 1,843 GiB på D: enligt agentens mätning. Agenten rapporterade C: 4,502 GiB och D: 5,775 GiB ledigt efteråt. Ingen projektkod, databas eller aktiv tempmapp rensades. Ett första direkt PowerShell-raderingsförsök nekades före körning av exekveringspolicyn; den stödda npm-körningen accepterades. C:-cachen ccache (cirka 0,448 GiB) lämnades orörd.
 
 ## Körgräns och kvarvarande grind
 
