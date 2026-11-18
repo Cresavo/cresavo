@@ -86,3 +86,51 @@ test("the apex tour keeps the poster until requested under reduced motion and ex
   await page.getByRole("button", { name: /Pause recording/ }).click();
   await expect(film).not.toHaveAttribute("src");
 });
+
+for (const path of ["/coming-soon", "/landing"]) {
+  test(`Expand opens and closes the tour dialog on ${path}`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(path);
+    const expand = page.getByRole("button", { name: site["clip.expand"], exact: true }).first();
+    await expand.click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    const close = dialog.getByRole("button", { name: site["clip.close"] });
+    await expect(close).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press("Tab");
+      expect(await dialog.evaluate(el => el.contains(document.activeElement))).toBe(true);
+    }
+    const large = dialog.locator("video");
+    await expect.poll(() => large.evaluate((v: HTMLVideoElement) => v.paused && !v.muted && v.controls)).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(expand).toBeFocused();
+
+    await page.getByRole("button", { name: /^Expand —/ }).first().click();
+    await close.click();
+    await expect(dialog).toHaveCount(0);
+    const inline = page.locator("video").first();
+    await expect.poll(() => inline.evaluate((v: HTMLVideoElement) => v.paused && v.muted)).toBe(true);
+  });
+}
+
+test("the expanded film keeps the playhead and returns muted on a backdrop click", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/coming-soon");
+  const inline = page.locator("figure video");
+  await inline.scrollIntoViewIfNeeded();
+  await expect.poll(() => inline.evaluate((v: HTMLVideoElement) => v.readyState >= 2 && !v.paused)).toBe(true);
+  await inline.evaluate((v: HTMLVideoElement) => { v.currentTime = 9; });
+  await inline.click();
+  const dialog = page.getByRole("dialog");
+  const large = dialog.locator("video");
+  await expect.poll(() => large.evaluate((v: HTMLVideoElement) => !v.paused && !v.muted && v.currentTime >= 9)).toBe(true);
+  await expect.poll(() => inline.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
+  await large.evaluate((v: HTMLVideoElement) => { v.currentTime = 18; });
+  await page.mouse.click(2, 2);
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(() => inline.evaluate((v: HTMLVideoElement) => v.muted && !v.paused && v.currentTime >= 18)).toBe(true);
+  await expect(page.getByRole("button", { name: /^Expand —/ })).toBeFocused();
+});

@@ -7,6 +7,14 @@ Flerdo and then Libovo (November 2026), and has been Cresavo since the brand
 concept v0.1 of 2026-11-17. Technical identifiers from the earlier names
 were deliberately not renamed (see below).
 
+## Messaging
+
+Keep it simple. Use short words and give each idea its own line. Let people ask for the details.
+
+Cresavo is the simple, open-source alternative to the big booking platforms.
+Run your salon in one calm app. Your data and your brand stay yours.
+Pay no commission on bookings. Your AI assistant can draft changes. You approve.
+
 ## Where the brand lives
 
 - `src/concept/brand.ts` holds the product name and tagline (`BRAND`) and the

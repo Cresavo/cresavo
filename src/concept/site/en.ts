@@ -1,32 +1,47 @@
 import { BRAND } from "../brand";
 
-// English copy for the platform's public sites (the coming-soon page on the
-// product domain, the demo landing and the privacy note). One dictionary per
-// area, so another language is one more file. The coming-soon copy is the
-// brand kit's (design/brand/cresavo-v0.1/site); the landing's choices are
-// explained in docs/design/cresavo/COPY.md.
+// Shared English copy for the public product pages and privacy note.
+const lead = "The simple, open-source way to run your salon. Bookings, clients and everything around them, in one calm app.";
 
 export const site = {
   "soon.title": `${BRAND.name} — ${BRAND.tagline}`,
-  "soon.description": "A workspace for small service businesses. Explore a day at a fictional Stockholm salon.",
+  "soon.description": lead,
   "soon.status": "Coming soon",
-  "soon.body": "Your bookings and clients in one place.",
+  "product.lead": lead,
   "soon.nav": "Main navigation",
   "soon.nav.demo": "Demo",
   "soon.github": "GitHub",
   "soon.demo": "Try the demo",
-  "soon.repo": "View on GitHub",
+  "github.star": "Star on GitHub",
   "soon.tour": "Product tour",
   "soon.tour.duration": "36 sec",
   "soon.tour.description": "A salon owner handles bookings and plans the day in the studio. Background music only.",
   "soon.tour.mute": "Mute tour music",
   "soon.tour.unmute": "Unmute tour music",
-  "soon.book.heading": "Clients book themselves",
-  "soon.book.body": "Even after you close, clients can find a time or move their visit on your booking page.",
-  "soon.day.heading": "Your day on one screen",
-  "soon.day.body": "See who’s next and where there’s room when someone calls for a time.",
-  "soon.data.heading": "Your data stays yours",
-  "soon.data.body": "Take your records with you and connect the tools you like to use.",
+  "value.simple.heading": "Simple.",
+  "value.simple.body": "Up and running in minutes. Book, move and reply in a tap.",
+  "value.all.heading": "All in one.",
+  "value.all.body": "Calendar, clients, journal, campaigns, stock and gift cards. One app instead of five.",
+  "value.yours.heading": "Yours.",
+  "value.yours.body": "Export everything, any time. Run it yourself or let us host it. No lock-in.",
+  "value.assistant.heading": "Works with your AI assistant.",
+  "value.assistant.body": "ChatGPT and Claude can look things up and draft changes. You approve.",
+  "value.assistant.soon": "Grok and Gemini: coming soon",
+  "compare.heading": "Why not the big booking platforms?",
+  "compare.typical": "Typical booking platforms",
+  "compare.product": BRAND.name,
+  "compare.fee": "Commission per booking",
+  "compare.fee.typical": "Often",
+  "compare.fee.product": "Never",
+  "compare.data": "Your data",
+  "compare.data.typical": "Locked in",
+  "compare.data.product": "Export any time",
+  "compare.page": "Your booking page",
+  "compare.page.typical": "Their brand",
+  "compare.page.product": "Your brand",
+  "compare.host": "Run it yourself",
+  "compare.host.typical": "No",
+  "compare.host.product": "Yes, open source",
   "soon.open.heading": "Open source",
   "soon.open.body": "Explore the code, follow along, or self-host your own workspace.",
   "soon.open.license": "AGPL-3.0",
@@ -39,7 +54,6 @@ export const site = {
   "landing.title": `${BRAND.name} — booking and customers for salons and clinics`,
   "landing.description": "Your calendar, your customers and your own booking page in one calm place. Try a day at a fictional Stockholm salon.",
   "landing.home": `${BRAND.name} home`,
-  "landing.intro": "Your calendar, your customers and your booking page in one place. Less time at the desk. More with the person in your chair.",
   "landing.studio": "Open the demo",
   "landing.booking": "See a booking page",
   "landing.note": "Visit Salong Eko, a fictional Stockholm salon. No sign-up.",
@@ -57,9 +71,10 @@ export const site = {
   "mini.pickTime": "Pick a time",
   "mini.booked": "You are booked",
   "mini.reset": "Start again",
+  "clip.expand": "Expand",
+  "clip.close": "Close",
   "clip.play": "Play recording",
   "clip.pause": "Pause recording",
-
 
   "landing.book.heading": "Clients book themselves.",
   "landing.book.body": "Your page carries your name and colours. Even after you close, clients can pick a treatment, find a time and book. They can move their own visit, too.",

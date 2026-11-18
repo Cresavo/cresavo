@@ -24,7 +24,7 @@ Cresavo is a concept demo (0.x) for salons and other small service businesses.
   Booking undo checks availability, and the customer time picker shows salon
   contacts when no days are open. The QA runner is available through `npm run qa`.
 - Visitors can try a booking on the demo landing and watch five recorded
-  studio and customer workflows.
+  studio and customer workflows. Both public sites now offer an expanded player, a booking-platform comparison and a GitHub star button.
 
 ## Before a real pilot
 

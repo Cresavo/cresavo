@@ -1,24 +1,19 @@
 import Head from "next/head";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, CalendarCheck, PanelsTopLeft, FolderOpen, GitFork, Star } from "lucide-react";
+import { ArrowRight, GitFork, Star } from "lucide-react";
 import { PROJECT_REPOSITORY } from "@/concept/brand";
-import { getSiteProps, type SiteProps } from "@/concept/site/links";
+import { getProductSiteProps, type ProductSiteProps } from "@/concept/site/links";
 import { site } from "@/concept/site/en";
+import { GitHubStar, PlatformComparison, ProductValues } from "@/concept/site/product-sections";
 import { SiteHead } from "@/concept/site/site-head";
 import s from "@/concept/site/site.module.css";
 import { TOUR_POSTER, TourClip } from "@/concept/site/tour-clip";
 import { WaitlistForm } from "@/concept/site/waitlist-form";
 import { Wordmark } from "@/concept/ui/wordmark";
 
-export const getServerSideProps = getSiteProps;
+export const getServerSideProps = getProductSiteProps;
 
-const values = [
-  { key: "book", Icon: CalendarCheck },
-  { key: "day", Icon: PanelsTopLeft },
-  { key: "data", Icon: FolderOpen },
-] as const;
-
-export default function ComingSoon({ links, waitlist }: SiteProps) {
+export default function ComingSoon({ links, waitlist, stars }: ProductSiteProps) {
   return (
     <div className={`${s.page} ${s.soonPage}`}>
       <SiteHead title={site["soon.title"]} description={site["soon.description"]} />
@@ -27,7 +22,7 @@ export default function ComingSoon({ links, waitlist }: SiteProps) {
         <Wordmark className={s.wordmark} />
         <nav aria-label={site["soon.nav"]}>
           <a href={links.demo}>{site["soon.nav.demo"]}</a>
-          <a href={PROJECT_REPOSITORY}>{site["soon.github"]} <ArrowUpRight size={14} aria-hidden /></a>
+          <GitHubStar count={stars} />
         </nav>
       </header>
       <main>
@@ -38,25 +33,16 @@ export default function ComingSoon({ links, waitlist }: SiteProps) {
               <span>{site["promise.first"]}</span>{" "}
               <span>{site["promise.second"]}</span>
             </h1>
-            <p className={s.intro}>{site["soon.body"]}</p>
+            <p className={s.intro}>{site["product.lead"]}</p>
             <div className={s.routes}>
               <a className={s.primary} href={links.demo}>{site["soon.demo"]} <ArrowRight size={17} aria-hidden /></a>
-              <a className={s.textLink} href={PROJECT_REPOSITORY}>{site["soon.repo"]} <ArrowUpRight size={15} aria-hidden /></a>
+              <GitHubStar count={stars} />
             </div>
           </div>
           <TourClip name="tour-16x9" title={site["soon.tour"]} description={site["soon.tour.description"]} />
         </section>
-        <ul className={s.soonValues}>
-          {values.map(({ key, Icon }) => (
-            <li key={key}>
-              <Icon size={25} strokeWidth={1.5} aria-hidden />
-              <div>
-                <h2>{site[`soon.${key}.heading`]}</h2>
-                <p>{site[`soon.${key}.body`]}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <ProductValues />
+        <PlatformComparison />
         <section className={s.soonSource}>
           <div className={s.sourceTitle}>
             <GitFork className={s.fork} strokeWidth={1.5} aria-hidden />

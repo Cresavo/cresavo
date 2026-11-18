@@ -1,5 +1,9 @@
 # Progress · AI-native demo
 
+## 2026-11-18 · Public site messaging and tour
+
+Both sites share the salon introduction, four value points and a platform comparison. Visitors can open each film at its current position and use native video controls. Repository stars load on the server.
+
 ## 2026-11-18 · Coming-soon page
 
 The apex page pairs the demo invitation with the 36-second tour, a self-hosting note and the public repository. Visitors can pause the film or turn on its music. Reduced motion starts with the poster. The [screenshots](../design/cresavo/screens/) include both system themes at mobile and desktop widths.

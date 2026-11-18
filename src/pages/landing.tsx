@@ -2,14 +2,15 @@ import Link from "next/link";
 import { MiniBooking } from "@/concept/site/mini-booking";
 import { TourClip } from "@/concept/site/tour-clip";
 import { ArrowDown, ArrowRight, BookOpen, CalendarDays, Globe, Megaphone, Tag } from "lucide-react";
-import { getSiteProps, type SiteProps } from "@/concept/site/links";
+import { getProductSiteProps, type ProductSiteProps } from "@/concept/site/links";
 import { site } from "@/concept/site/en";
+import { GitHubStar, PlatformComparison, ProductValues } from "@/concept/site/product-sections";
 import { SiteHead } from "@/concept/site/site-head";
 import { WaitlistForm } from "@/concept/site/waitlist-form";
 import s from "@/concept/site/site.module.css";
 import { Wordmark } from "@/concept/ui/wordmark";
 
-export const getServerSideProps = getSiteProps;
+export const getServerSideProps = getProductSiteProps;
 
 const FEATURES = [
   { key: "book", screen: "booking", icon: Globe, href: "/boka/salong-eko" },
@@ -20,7 +21,7 @@ const FEATURES = [
 ] as const;
 const STEPS = [["1", "/studio"], ["2", "/studio/calendar"], ["3", "/boka/salong-eko"]] as const;
 
-export default function Landing({ links, waitlist }: SiteProps) {
+export default function Landing({ links, waitlist, stars }: ProductSiteProps) {
   return (
     <div className={`${s.page} ${s.demoPage}`}>
       <SiteHead title={site["landing.title"]} description={site["landing.description"]} />
@@ -29,20 +30,26 @@ export default function Landing({ links, waitlist }: SiteProps) {
           <Wordmark className={s.wordmark} label={site["landing.home"]} />
         </a>
         <nav aria-label={site["landing.nav"]}>
-          <a href="#tour">{site["landing.tour"]}</a>
-          <a href="#waitlist">{site["landing.waitlist"]} <ArrowDown size={14} aria-hidden /></a>
+          <div className={s.sectionLinks}>
+            <a href="#tour">{site["landing.tour"]}</a>
+            <a href="#waitlist">{site["landing.waitlist"]} <ArrowDown size={14} aria-hidden /></a>
+          </div>
+          <GitHubStar count={stars} />
         </nav>
       </header>
       <main className={s.landing}>
         <div className={s.hero}>
           <div>
             <h1 className={s.promise}>
-              <span>{site["promise.first"]}</span>
+              <span>{site["promise.first"]}</span>{" "}
               <span>{site["promise.second"]}</span>
             </h1>
-            <p className={s.intro}>{site["landing.intro"]}</p>
+            <p className={s.intro}>{site["product.lead"]}</p>
             <div className={s.routes}>
               <Link prefetch={false} className={s.primary} href="/studio">{site["landing.studio"]} <ArrowRight size={18} aria-hidden /></Link>
+              <GitHubStar count={stars} />
+            </div>
+            <div className={s.bookingRoute}>
               <Link prefetch={false} className={s.secondary} href="/boka/salong-eko">{site["landing.booking"]}</Link>
             </div>
             <p className={s.note}>{site["landing.note"]}</p>
@@ -57,6 +64,8 @@ export default function Landing({ links, waitlist }: SiteProps) {
             <div className={s.phone}><MiniBooking /></div>
           </div>
         </div>
+
+        <ProductValues />
 
         <div id="tour" className={s.tour}>
           {FEATURES.map(({ key, screen, icon: Icon, href }) => (
@@ -105,6 +114,7 @@ export default function Landing({ links, waitlist }: SiteProps) {
           <h2>{site["landing.open.heading"]}</h2>
           <p>{site["landing.open.body"]}</p>
         </section>
+        <PlatformComparison />
         <WaitlistForm from="/landing" initial={waitlist ?? undefined} className={s.block} />
       </main>
       <footer className={`${s.footer} ${s.landingFooter}`}>

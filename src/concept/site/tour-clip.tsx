@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { Maximize2, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { ClipLightbox } from "./clip-lightbox";
 import { site } from "./en";
 import s from "./site.module.css";
 
@@ -7,8 +8,15 @@ export const TOUR_POSTER = "/site/tour-16x9-poster.jpg";
 
 type Clip = "tour-16x9" | "booking" | "day" | "treatments" | "campaign" | "journal";
 
+function clipSource(video: HTMLVideoElement, prefix: string, isTour: boolean) {
+  return prefix + (!isTour && video.canPlayType("video/webm; codecs=vp9") ? ".webm" : ".mp4");
+}
+
 export function TourClip({ name, description, title }: { name: Clip; description: string; title: string }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const trigger = useRef<HTMLButtonElement | null>(null);
+  const position = useRef(0);
+  const [expanded, setExpanded] = useState<{ src: string; start: number } | null>(null);
   const [near, setNear] = useState(false);
   const [fraction, setFraction] = useState(0);
   const [dark, setDark] = useState(false);
@@ -18,6 +26,25 @@ export function TourClip({ name, description, title }: { name: Clip; description
   const [muted, setMuted] = useState(true);
   const isTour = name === "tour-16x9";
   const prefix = `/site/${name}${isTour || name === "booking" ? "" : dark ? "-dark" : "-light"}`;
+  const poster = isTour ? TOUR_POSTER : near ? prefix + ".webp" : undefined;
+  function expand(button: HTMLButtonElement) {
+    const video = ref.current!;
+    video.pause();
+    trigger.current = button;
+    setExpanded({ src: clipSource(video, prefix, isTour), start: video.hasAttribute("src") ? video.currentTime : position.current });
+  }
+
+  function close(time: number) {
+    position.current = time;
+    const video = ref.current!;
+    if (video.hasAttribute("src")) video.currentTime = time;
+    video.muted = true;
+    setMuted(true);
+    if (reduced) setChoice(null);
+    setExpanded(null);
+    trigger.current?.focus({ preventScroll: true });
+  }
+
   const shouldPlay = choice === "play" ? fraction > 0 : !reduced && choice !== "pause" && fraction >= .65;
 
   useEffect(() => {
@@ -50,12 +77,16 @@ export function TourClip({ name, description, title }: { name: Clip; description
   useEffect(() => {
     const video = ref.current!;
     const sync = () => {
+      if (expanded) return;
       if (shouldPlay && !document.hidden) {
         // Let the hero poster, fonts and page assets finish before starting the film.
         if (isTour && choice !== "play" && document.readyState !== "complete") return;
         // Attach one supported encoding only when the clip actually needs to play.
-        const src = prefix + (!isTour && video.canPlayType("video/webm; codecs=vp9") ? ".webm" : ".mp4");
-        if (video.getAttribute("src") !== src) video.setAttribute("src", src);
+        const src = clipSource(video, prefix, isTour);
+        if (video.getAttribute("src") !== src) {
+          video.setAttribute("src", src);
+          video.currentTime = position.current;
+        }
         void video.play().catch((error: DOMException) => {
           if (error.name === "NotAllowedError") setChoice("pause");
         });
@@ -64,6 +95,7 @@ export function TourClip({ name, description, title }: { name: Clip; description
         if (document.hidden && reduced) setChoice(null);
         const src = video.getAttribute("src");
         if (src && ((reduced && choice !== "play") || !src.startsWith(prefix + "."))) {
+          position.current = video.currentTime;
           video.removeAttribute("src");
           video.load(); // restore the themed poster, including on a live motion preference change
         }
@@ -76,36 +108,37 @@ export function TourClip({ name, description, title }: { name: Clip; description
       document.removeEventListener("visibilitychange", sync);
       window.removeEventListener("load", sync);
     };
-  }, [shouldPlay, reduced, choice, prefix, isTour]);
-
-  const video = (
-    <video ref={ref} muted={muted} playsInline loop preload="none"
-      width={isTour ? 960 : 928} height={isTour ? 540 : 760} aria-label={description}
-      poster={isTour ? TOUR_POSTER : near ? prefix + ".webp" : undefined}
-      onPlaying={() => setPlaying(true)} onPause={() => setPlaying(false)} onEmptied={() => setPlaying(false)} />
-  );
-  const playButton = (
-    <button type="button" className={isTour ? s.tourButton : s.clipControl}
-      aria-label={`${site[playing ? "clip.pause" : "clip.play"]} — ${title}`}
-      onClick={() => setChoice(playing ? "pause" : "play")}>
-      {playing ? <Pause size={16} aria-hidden /> : <Play size={16} aria-hidden />}
-      {isTour && title}
-    </button>
-  );
-
-  if (!isTour) return <div className={s.clip}>{video}{playButton}</div>;
+  }, [shouldPlay, reduced, choice, prefix, isTour, expanded]);
 
   return (
-    <figure className={s.tourFrame}>
-      {video}
-      <figcaption>
-        {playButton}
-        <span className={s.tourDuration}>{site["soon.tour.duration"]}</span>
-        <button type="button" className={s.tourButton} aria-label={site[muted ? "soon.tour.unmute" : "soon.tour.mute"]}
-          onClick={() => setMuted(!muted)}>
-          {muted ? <VolumeX size={17} aria-hidden /> : <Volume2 size={17} aria-hidden />}
+    <>
+      <figure className={isTour ? s.tourFrame : s.clip}>
+        <button type="button" className={s.videoTrigger} aria-label={`${site["clip.expand"]} — ${title}`}
+          onClick={(event) => expand(event.currentTarget)}>
+          <video ref={ref} muted={muted} playsInline loop preload="none"
+            width={isTour ? 960 : 928} height={isTour ? 540 : 760} aria-label={description} poster={poster}
+            onPlaying={() => setPlaying(true)} onPause={() => setPlaying(false)} onEmptied={() => setPlaying(false)} />
         </button>
-      </figcaption>
-    </figure>
+        <figcaption className={s.clipBar}>
+          <button type="button" className={s.tourButton}
+            aria-label={`${site[playing ? "clip.pause" : "clip.play"]} — ${title}`}
+            onClick={() => setChoice(playing ? "pause" : "play")}>
+            {playing ? <Pause size={16} aria-hidden /> : <Play size={16} aria-hidden />}
+            {isTour && title}
+          </button>
+          {isTour && <>
+            <span className={s.tourDuration}>{site["soon.tour.duration"]}</span>
+            <button type="button" className={s.tourButton} aria-label={site[muted ? "soon.tour.unmute" : "soon.tour.mute"]}
+              onClick={() => setMuted(!muted)}>
+              {muted ? <VolumeX size={17} aria-hidden /> : <Volume2 size={17} aria-hidden />}
+            </button>
+          </>}
+          <button type="button" className={s.tourButton} onClick={(event) => expand(event.currentTarget)}>
+            <Maximize2 size={16} aria-hidden />{site["clip.expand"]}
+          </button>
+        </figcaption>
+      </figure>
+      {expanded && <ClipLightbox {...expanded} ratio={isTour ? 16 / 9 : 928 / 760} poster={poster} title={title} description={description} onClose={close} />}
+    </>
   );
 }
