@@ -3,6 +3,7 @@
 import { Download } from "lucide-react";
 import { t } from "@/concept/i18n";
 import { bookingsCsv, customersCsv, download } from "@/concept/studio/more/export";
+import { PUBLIC_DEMO } from "@/concept/ai/api-client";
 import { AiSection } from "@/concept/studio/more/ai-section";
 import { ConnectSection, ProtocolList, useProtocolInfo } from "@/concept/studio/more/connect-section";
 import { MorePage } from "@/concept/studio/more/more-page";
@@ -10,6 +11,7 @@ import { OwnKeyForm } from "@/concept/studio/more/own-key-form";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Button } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
+import { Notice } from "@/concept/ui/notice";
 
 export default function DataPage() {
   const { state, today } = useStudio();
@@ -24,7 +26,8 @@ export default function DataPage() {
     <MorePage title={t("nav.data")} subtitle={t("data.subtitle")}>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Section title={t("data.connect")}>
-          <ConnectSection info={info} failed={failed} />
+          {/* The public demo's server only reads: no outside assistant can connect, so the setup steps would lead nowhere. */}
+          {PUBLIC_DEMO ? <Notice tone="info">{t("data.publicDemo")}</Notice> : <ConnectSection info={info} failed={failed} />}
         </Section>
         <div className="space-y-6">
           <Section title={t("data.protocols")}>
@@ -46,9 +49,11 @@ export default function DataPage() {
         <Section title={t("data.ai")}>
           <AiSection />
         </Section>
-        <Section title={t("ai.ownKeySection")}>
-          <OwnKeyForm />
-        </Section>
+        {!PUBLIC_DEMO && (
+          <Section title={t("ai.ownKeySection")}>
+            <OwnKeyForm />
+          </Section>
+        )}
       </div>
     </MorePage>
   );

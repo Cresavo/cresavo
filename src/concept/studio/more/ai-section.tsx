@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { RefreshCw, Sparkles } from "lucide-react";
-import { fetchAiOverview, saveAiSettings } from "../../ai/api-client";
+import { fetchAiOverview, PUBLIC_DEMO, saveAiSettings } from "../../ai/api-client";
 import type { AiOverview } from "../../ai/overview";
 import type { TaskName } from "../../ai/registry";
 import { t, tc } from "../../i18n";
@@ -44,7 +44,7 @@ export function AiSection() {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card className="space-y-4 p-5">
-        <p className="text-sm text-text-secondary">{overview.configured ? t("ai.modeAi") : t("ai.modeRules")}</p>
+        <p className="text-sm text-text-secondary">{PUBLIC_DEMO ? t("ai.modeDemo") : overview.configured ? t("ai.modeAi") : t("ai.modeRules")}</p>
         <ul className="divide-y divide-hairline">
           {tasks.filter((task) => taskEnabled(state.modules, task.name)).map((task) => (
             <li key={task.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-3">
@@ -52,7 +52,7 @@ export function AiSection() {
                 <p className="text-sm font-medium">{t(`ai.task.${task.name}`)}</p>
                 <p className="text-xs text-text-secondary">{t(`ai.task.${task.name}.description`)}</p>
               </div>
-              <select className="min-h-11 rounded-md border border-input-border bg-surface px-2 text-base" aria-label={t("ai.taskTier", { task: t(`ai.task.${task.name}`) })} value={task.tier} onChange={async event => {
+              <select disabled={PUBLIC_DEMO} className="min-h-11 rounded-md border border-input-border bg-surface px-2 text-base" aria-label={t("ai.taskTier", { task: t(`ai.task.${task.name}`) })} value={task.tier} onChange={async event => {
                 try { setResult({ overview: await saveAiSettings({ task: task.name, tier: event.target.value as "fast" | "smart" }) }); }
                 catch { setResult({ failed: true }); }
               }}>

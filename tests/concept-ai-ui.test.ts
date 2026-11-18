@@ -1,7 +1,8 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Segmented } from "@/concept/ui/controls";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { runAiTask } from "@/concept/ai/api-client";
 import { clearCostLog, logCost } from "@/concept/ai/cost-log";
 import { describeAi } from "@/concept/ai/overview";
 import { tasks } from "@/concept/ai/registry";
@@ -64,4 +65,21 @@ describe("suggestedWeeks", () => {
 it("provider segmented controls never submit the enclosing key form", () => {
   const html = renderToStaticMarkup(createElement(Segmented, { value: "openai", options: [{ value: "openai", label: "OpenAI" }, { value: "anthropic", label: "Anthropic" }], label: "Provider", onChange: () => {} }));
   expect(html.match(/type="button"/g)).toHaveLength(2);
+});
+
+describe("runAiTask against a read-only server", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("runs the task's own rules in the browser when the server refuses the write", async () => {
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ error: "denied" }), { status: 403 }));
+    const { output, log } = await runAiTask<{ treatment: string; nextVisit: string }>("structure-journal", { transcript: "Did the usual foot care. Next visit in 6 weeks." });
+    expect(output.treatment).toBe("Did the usual foot care.");
+    expect(output.nextVisit).toBe("Next visit in 6 weeks.");
+    expect(log).toMatchObject({ source: "rules", costUsd: 0 });
+  });
+
+  it("still reports a real server failure", async () => {
+    vi.stubGlobal("fetch", async () => new Response("{}", { status: 500 }));
+    await expect(runAiTask("structure-journal", { transcript: "Anything." })).rejects.toThrow();
+  });
 });

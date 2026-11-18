@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Check, Copy, PlugZap, RotateCcw } from "lucide-react";
+import { PUBLIC_DEMO } from "../../ai/api-client";
 import { t, type MessageKey } from "../../i18n";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
@@ -122,7 +123,7 @@ export function ConnectSection({ info, failed }: { info?: ProtocolInfo; failed?:
 /** Each protocol with its status, and where its discovery document lives. */
 export function ProtocolList({ info }: { info?: ProtocolInfo }) {
   const rows: { name: string; description: MessageKey; status: Status; href?: string }[] = [
-    { name: "MCP", description: "data.protocol.mcp", status: info?.mcp.token === "missing" ? "closed" : "available" },
+    { name: "MCP", description: "data.protocol.mcp", status: PUBLIC_DEMO || info?.mcp.token === "missing" ? "closed" : "available" },
     { name: "A2A", description: "data.protocol.a2a", status: "lab", href: info?.paths.agentCard },
     { name: "USP", description: "data.protocol.usp", status: "lab", href: info?.paths.usp },
     { name: "UCP", description: "data.protocol.ucp", status: "planned" },
@@ -148,10 +149,12 @@ export function ProtocolList({ info }: { info?: ProtocolInfo }) {
           <Badge tone={STATUS_TONE[p.status]}>{t(`data.status.${p.status}`)}</Badge>
         </div>
       ))}
-      <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-        <p className="min-w-0 flex-1 text-xs text-text-secondary">{t("data.resetText")}</p>
-        <Button size="sm" variant="ghost" icon={<RotateCcw size={16} />} onClick={reset}>{t("data.reset")}</Button>
-      </div>
+      {!PUBLIC_DEMO && (
+        <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+          <p className="min-w-0 flex-1 text-xs text-text-secondary">{t("data.resetText")}</p>
+          <Button size="sm" variant="ghost" icon={<RotateCcw size={16} />} onClick={reset}>{t("data.reset")}</Button>
+        </div>
+      )}
     </Card>
   );
 }

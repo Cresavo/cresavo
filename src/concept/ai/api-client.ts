@@ -4,12 +4,30 @@ import type { TaskName } from "./registry";
 
 // Browser side of the AI layer: plain HTTP calls to /api/concept/ai.
 
+/**
+ * The read-only public demo (flag inlined at build, see vercel.json) refuses every
+ * write, AI tasks included. Each task carries its own rule-based fallback, so the
+ * browser runs that instead: the studio keeps working and nothing is sent.
+ */
+export const PUBLIC_DEMO = process.env.NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO === "1";
+
+async function runLocally<Output>(task: TaskName, input: unknown): Promise<{ output: Output; log: CostEntry; requestId: string | null }> {
+  const { tasks } = await import("./registry");
+  const definition = tasks[task];
+  const output = definition.output.parse(definition.fallback(definition.input.parse(input) as never)) as Output;
+  const log: CostEntry = { task, version: definition.version, provider: "rules", model: "rules", source: "rules", reason: "no-key", inputTokens: 0, outputTokens: 0, costUsd: 0, timestamp: new Date().toISOString() };
+  return { output, log, requestId: null };
+}
+
 export async function runAiTask<Output>(task: TaskName, input: unknown): Promise<{ output: Output; log: CostEntry; requestId: string | null }> {
+  if (PUBLIC_DEMO) return runLocally(task, input);
   const response = await fetch(`/api/concept/ai/${task}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
   });
+  // A server that only reads (PUBLIC_READONLY set at runtime) answers 403: same fallback.
+  if (response.status === 403) return runLocally(task, input);
   if (!response.ok) throw new Error(`AI task ${task} failed`);
   return { ...(await response.json()), requestId: response.headers.get("x-request-id") };
 }
