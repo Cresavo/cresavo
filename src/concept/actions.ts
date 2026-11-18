@@ -325,10 +325,12 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
     case "service/duplicate":
     case "service/delete":
     case "service/move":
+    case "service/reorder":
     case "category/add":
     case "category/rename":
     case "category/remove":
     case "category/move":
+    case "category/reorder":
       return applyServiceAction(state, action);
     case "memory/add":
     case "memory/edit":

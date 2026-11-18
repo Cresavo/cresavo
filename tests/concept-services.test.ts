@@ -161,6 +161,28 @@ describe("treatment actions", () => {
     expect(applyAction(base, { type: "service/move", id: first, direction: "up" }, meta)).toBe(base);
     expect(applyAction(base, { type: "service/move", id: ids(base, "massage").at(-1)!, direction: "down" }, meta)).toBe(base);
   });
+
+  it("applies a full treatment order once and exposes it on the booking page", () => {
+    const group = ids(base, "massage");
+    const before = reduce(base, { type: "service/visibility", id: group[1], hidden: true });
+    const order = [group.at(-1)!, ...group.slice(0, -1)];
+    const { next, entry } = logged(before, { type: "service/reorder", category: "massage", ids: order });
+    expect(ids(next, "massage")).toEqual(order);
+    expect(ids(next, "foot")).toEqual(ids(before, "foot"));
+    expect(next.log).toHaveLength(before.log.length + 1);
+    expect(ids(publicView(next), "massage")).toEqual(order.filter((id) => id !== group[1]));
+    expect(reduce(next, { type: "log/undo", id: entry.id }).services).toEqual(before.services);
+  });
+
+  it("rejects missing, duplicate, unknown and cross-category treatment ids", () => {
+    const [first, ...rest] = ids(base, "massage");
+    const invalidOrders = [rest, [rest[0], ...rest], ["unknown", ...rest], [ids(base, "foot")[0], ...rest], [first, first, ...rest]];
+    for (const order of invalidOrders) {
+      expect(applyAction(base, { type: "service/reorder", category: "massage", ids: order }, meta)).toBe(base);
+    }
+    expect(applyAction(base, { type: "service/reorder", category: "unknown", ids: [] }, meta)).toBe(base);
+    expect(applyAction(base, { type: "service/reorder", category: "massage", ids: [first, ...rest] }, meta)).toBe(base);
+  });
 });
 
 describe("deleting a treatment", () => {
@@ -260,6 +282,22 @@ describe("categories", () => {
     expect(next.categories.map((c) => c.id)).toEqual(["massage", "foot"]);
     expect(reduce(next, { type: "log/undo", id: entry.id }).categories).toEqual(base.categories);
     expect(applyAction(base, { type: "category/move", id: "foot", direction: "up" }, meta)).toBe(base);
+  });
+
+  it("applies a full category order once and exposes it on the booking page", () => {
+    const order = ["massage", "foot"];
+    const { next, entry } = logged(base, { type: "category/reorder", ids: order });
+    expect(next.categories.map((category) => category.id)).toEqual(order);
+    expect(next.services).toBe(base.services);
+    expect(next.log).toHaveLength(base.log.length + 1);
+    expect(publicView(next).categories.map((category) => category.id)).toEqual(order);
+    expect(reduce(next, { type: "log/undo", id: entry.id }).categories).toEqual(base.categories);
+  });
+
+  it("rejects missing, duplicate and unknown category ids and ignores the current order", () => {
+    for (const order of [["massage"], ["massage", "massage"], ["massage", "unknown"], ["foot", "massage"]]) {
+      expect(applyAction(base, { type: "category/reorder", ids: order }, meta)).toBe(base);
+    }
   });
 });
 

@@ -2,6 +2,9 @@
 
 The [30-day launch plan](../LAUNCH_PLAN.md) gives the owner a schedule for sharing
 the fictional salon demo, gathering feedback and welcoming contributors.
+## 2026-11-18 · Drag to reorder
+
+Owners can drag treatments within a category and reorder category cards with a mouse, touch or keyboard. Each drop updates the public price list and adds one undoable activity entry. The Reorder button reveals stepwise treatment controls. Booking-page sections can also be dragged in the draft, alongside the existing arrow controls. The booking flow and hero stay fixed. [Mobile screenshots](../design/cresavo/screens/drag-reorder-mobile.jpg), [desktop screenshots](../design/cresavo/screens/drag-reorder-desktop.jpg).
 
 ## 2026-11-18 · Coming-soon page
 

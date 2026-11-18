@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import Link from "next/link";
 import { cx } from "./cx";
 
@@ -65,6 +65,7 @@ export function ButtonLink({ href, help, variant, size, icon, className, childre
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   label: string;
   children: ReactNode;
+  ref?: Ref<HTMLButtonElement>;
 }
 
 export function IconButton({ label, className, children, type = "button", ...rest }: IconButtonProps) {
