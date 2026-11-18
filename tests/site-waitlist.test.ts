@@ -39,7 +39,7 @@ describe("waiting list provider", () => {
 
   it("none stores nothing and never claims the address was added", async () => {
     expect(await joinWaitlist({ email: "anna@example.com" }, "none")).toBe("not-open");
-    expect(site["waitlist.outcome.not-open"]).toBe("Thanks! The list opens in a few days. Come back soon.");
+    expect(site["waitlist.outcome.not-open"]).toBe("Thanks! The list isn’t open yet, so your address was not saved. Please come back later.");
     expect(site["waitlist.outcome.not-open"]).not.toMatch(/added|on the list|subscribed|we'll email/i);
   });
 

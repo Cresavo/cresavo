@@ -2,8 +2,8 @@
 
 The form is on cresavo.com (coming soon) and at the end of the demo landing.
 It posts to `POST /api/waitlist`. **Today nothing is stored**: the provider is
-`none`, and the page says "Thanks! The list opens in a few days. Come back
-soon." It never claims the person was added. The owner picks a provider; this
+`none`, and the page says "Thanks! The list isn't open yet, so your address
+was not saved. Please come back later." It never claims the person was added. The owner picks a provider; this
 note compares the options.
 
 ## What is built
@@ -45,27 +45,42 @@ open them from this build environment.
 | **Resend Audiences** | Resend is a developer email API; Audiences is its contact list with Broadcasts for sending. Useful if Resend also sends the product's booking emails later (goal 20). | Free tier around 1,000 contacts and 3,000 emails a month, then a monthly fee. | US company; sending regions include the EU (Ireland), contact data is stored with the account in the US. DPA available. | Not built in: we would send our own confirmation email and mark the contact confirmed. | Medium: sign-up call plus our own confirmation flow. |
 | **Own Postgres (Neon, EU region)** | One table in a database we control: email, kind of business, created, confirmed, unsubscribe token. We send the launch email with any provider on the day. | Free tier is enough; then a few dollars a month. | Our choice: Neon has EU regions (Frankfurt). Neon is a US company, so a DPA still applies. | We build it: a confirmation email needs a sending provider anyway. | Largest: table, confirmation and unsubscribe links, an export, and a sender. |
 
-## GDPR notes
+## GDPR notes (before a provider is switched on)
 
-- **Lawful basis is consent.** The consent line next to the button says what
-  the address is used for ("only about the launch") and that people can
-  unsubscribe. Keep the purpose that narrow, or ask again later.
-- **Double opt-in is recommended** (and expected practice in Sweden and
-  Germany): it proves the owner of the address asked, and keeps typos and
-  malicious sign-ups off the list.
-- **Collect little.** Email and the optional kind of business only. No names,
-  no IP address stored with the entry, no tracking pixels in the launch email
-  unless the policy says so.
-- **EU hosting is preferable but not required.** A US processor needs a signed
-  DPA with standard contractual clauses (or Data Privacy Framework
-  certification) and must be named in the privacy policy.
-- **Every email needs an unsubscribe link**, and removal must be prompt. A
-  hosted list tool does this for us.
-- **Retention:** delete the list a set time after launch (for example six
-  months) unless people opted in to more.
-- `/privacy` is a short stub today and says honestly that nothing is stored.
-  It must become a real policy (controller identity, contact, processor,
-  retention, rights) **before** a provider is switched on.
+Not legal advice; have the final texts reviewed. All of these must be done
+**before** the first real sign-up is accepted:
+
+- **Controller and contact.** `/privacy` must name the controller (the
+  maintainer's full legal name, an individual in Sweden, or a company) and a
+  working private contact. Neither exists in the repository yet.
+- **Lawful basis is consent**, given by a clearly labelled, voluntary submit
+  action. Change the button to "Email me when Cresavo launches" and the line
+  next to it to: "I agree that [controller] may use my email to confirm this
+  request and send me one launch announcement. I can withdraw at any time
+  through the link in every email." After submitting, show "Check your inbox
+  to confirm your request."
+- **Double opt-in and evidence.** Treat a provider's "accepted" as
+  unconfirmed. Record the sign-up time, the notice version and the
+  confirmation state, and delete unconfirmed entries after a set period (for
+  example 30 days). Swedish marketing law requires prior consent for this kind
+  of email.
+- **Collect little.** Email only; keep the optional kind of business only if
+  `/privacy` explains why. No names and no IP address stored with the entry.
+- **Processor and transfers.** Sign the provider's data processing agreement
+  (GDPR Article 28) and, separately, verify where data is processed and which
+  transfer mechanism applies (Chapter V: adequacy such as the EU-US Data
+  Privacy Framework only if the provider is actually certified, otherwise
+  standard contractual clauses). Name the provider or its category on
+  `/privacy`.
+- **No tracking.** Disable open and click tracking for this list; mentioning
+  a tracking pixel in the policy does not make it allowed.
+- **Every email needs an unsubscribe link**, and removal must be prompt.
+- **Retention:** delete confirmed entries at a set time after launch (for
+  example six months) or at withdrawal, and keep only a minimal suppression
+  record if one is needed, with its own period.
+- **Rights.** `/privacy` must explain access, correction, erasure,
+  restriction, portability and objection where they apply, that withdrawal
+  does not affect earlier processing, and the right to complain to IMY.
 
 ## Recommendation
 

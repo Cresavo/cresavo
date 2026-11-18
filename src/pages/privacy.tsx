@@ -6,7 +6,7 @@ import { Wordmark } from "@/concept/ui/wordmark";
 
 export const getServerSideProps = getSiteProps;
 
-const SECTIONS = ["waitlist", "demo", "cookies"] as const;
+const SECTIONS = ["waitlist", "demo", "cookies", "rights"] as const;
 
 // A short, honest privacy note for the pre-launch sites. Not a full policy.
 export default function Privacy({ links }: SiteProps) {
