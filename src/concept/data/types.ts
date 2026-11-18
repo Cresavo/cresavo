@@ -57,6 +57,7 @@ export interface Salon {
 
 export interface Staff {
   id: StaffId;
+  photo?: string;
   firstName: string;
   lastName: string;
   role: string;
