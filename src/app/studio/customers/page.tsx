@@ -47,7 +47,6 @@ export default function CustomersPage() {
     <>
       <PageHeader
         title={t("customers.title")}
-        subtitle={t("customers.subtitle", { count: state.customers.length, regulars: lists.regulars.length })}
         actions={viewer ? undefined : <ButtonLink href="/studio/customers/import" help="import-customers" variant="secondary" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>}
       />
       <div className="mb-4 space-y-3">
