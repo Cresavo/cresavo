@@ -4,7 +4,7 @@ import { withRequestLog } from "@/concept/server/logger";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** USP discovery profile for the demo business (discovery only, see x-flerdo). */
+/** USP discovery profile for the demo business. */
 export const GET = withRequestLog("/api/concept/usp", () => {
   try {
     return Response.json(conceptUspProfile(discoveryOrigin()), { headers: { "Cache-Control": DISCOVERY_CACHE } });

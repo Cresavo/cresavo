@@ -138,8 +138,8 @@ afterAll(async () => {
   await db.service.deleteMany({ where: { id: serviceId } });
   await db.$disconnect();
 });
-describe("Beständig lokal demobokning och arbetsdag", () => {
-  it("äldre MCP med annan hemlighet kan inte återläsa kortets bokning", async () => {
+describe("Persistent local demo bookings and workday", () => {
+  it("legacy MCP with a different secret cannot retrieve the card booking", async () => {
     const a = await connect(),
       foreign = await connect(false, "other-synthetic-secret".repeat(3), {
         legacy: true,
@@ -187,7 +187,7 @@ describe("Beständig lokal demobokning och arbetsdag", () => {
       }),
     ).toBe(1);
   });
-  it("en redan förbrukad främmande nyckel avslutar eget pending före 403", async () => {
+  it("clears its own pending attempt before returning 403 for a key already consumed by another profile", async () => {
     const a = await connect(),
       b = await connect(false, "other-synthetic-secret".repeat(3), {
         legacy: true,
@@ -217,7 +217,7 @@ describe("Beständig lokal demobokning och arbetsdag", () => {
     ).not.toBeTruthy();
     expect(await db.booking.count({ where: { serviceId } })).toBe(2);
   });
-  it("korsprofilrace med samma UUID lämnar bara rätt kanal ett kvitto", async () => {
+  it("only the authorized channel receives a receipt when profiles race with the same UUID", async () => {
     const marker = randomUUID(),
       nameA = `card-A-${marker}`,
       nameB = `card-B-${marker}`;
@@ -248,7 +248,7 @@ describe("Beständig lokal demobokning och arbetsdag", () => {
     ).toMatchObject({ items: [] });
     expect(await db.booking.count({ where: { serviceId } })).toBe(1);
   });
-  it("en annan profil kan inte förbruka ett beständigt oavslutat UUID", async () => {
+  it("another profile cannot consume a persisted pending UUID", async () => {
     const a = await connect(),
       b = await connect(false, "other-synthetic-secret".repeat(3)),
       args = request();
@@ -275,7 +275,7 @@ describe("Beständig lokal demobokning och arbetsdag", () => {
     ).toBe(0);
     expect(await db.booking.count({ where: { serviceId } })).toBe(2);
   });
-  it("domänreplay från annan äldre kanal läcker inte och lämnar inte pending låst", async () => {
+  it("a replay from another legacy channel returns no booking details and clears the pending lock", async () => {
     const marker = randomUUID(),
       nameA = `card-A-${marker}`,
       nameB = `legacy-B-${marker}`;
@@ -316,7 +316,7 @@ describe("Beständig lokal demobokning och arbetsdag", () => {
     ).not.toBeTruthy();
     expect(await db.booking.count({ where: { serviceId } })).toBe(2);
   });
-  it("begränsar historiken men tappar aldrig ett äldre oklart försök", async () => {
+  it("limits history while retaining older unresolved attempts", async () => {
     const c = await connect();
     const scope = createHmac("sha256", process.env.SESSION_SECRET!)
       .update("demo:time-card-recovery:v1")
@@ -360,7 +360,7 @@ describe("Beständig lokal demobokning och arbetsdag", () => {
       }),
     ).rejects.toThrow();
   });
-  it("återläser efter MCP-processomstart, utan id- eller e-postuppslag", async () => {
+  it("recovers after an MCP restart without looking up an ID or email address", async () => {
     let c = await connect();
     const args = request();
     const first = await call(c, "book_demo_time", args);
@@ -388,7 +388,7 @@ describe("Beständig lokal demobokning och arbetsdag", () => {
       ).isError,
     ).toBe(true);
   });
-  it("annan profil kan inte läsa eller återspela känd nyckel", async () => {
+  it("another profile cannot read or replay a known key", async () => {
     const c = await connect(),
       args = request();
     await call(c, "book_demo_time", args);
@@ -406,7 +406,7 @@ describe("Beständig lokal demobokning och arbetsdag", () => {
     ).toMatchObject({ items: [] });
     expect(await db.booking.count({ where: { serviceId } })).toBe(1);
   });
-  it("återhämtar beständigt försök före write och blockerar annan tid tills retry", async () => {
+  it("recovers an attempt persisted before the write and blocks other slots until retry", async () => {
     const c = await connect(),
       args = request();
     await call(c, "book_demo_time", args);
@@ -439,7 +439,7 @@ describe("Beständig lokal demobokning och arbetsdag", () => {
     expect(results.every((r) => !r.isError)).toBe(true);
     expect(await db.booking.count({ where: { serviceId } })).toBe(1);
   });
-  it("visar aktuellt flyttat/avbokat kvitto och nekar kalenderfil efter avbokning", async () => {
+  it("shows the current rescheduled or cancelled booking and rejects calendar export after cancellation", async () => {
     const c = await connect(),
       args = request();
     const result = await call(c, "book_demo_time", args),
@@ -494,7 +494,7 @@ describe("Beständig lokal demobokning och arbetsdag", () => {
       ).isError,
     ).toBe(true);
   });
-  it("ägarkortet är enbart läsande, korrekt avgränsat och kontaktfritt", async () => {
+  it("the owner card is read-only, scoped correctly, and excludes contact details", async () => {
     const c = await connect(),
       args = request();
     await call(c, "book_demo_time", args);
@@ -525,7 +525,7 @@ describe("Beständig lokal demobokning och arbetsdag", () => {
     await expect(call(c, "show_workday", {})).rejects.toThrow();
     expect(await db.booking.count({ where: { serviceId } })).toBe(1);
   });
-  it("paginering över 20 bokningar och främmande markör", async () => {
+  it("paginates over 20 bookings and rejects a foreign cursor", async () => {
     const owner = await connect(true);
     const base = DateTime.fromISO(date, { zone: "Europe/Stockholm" });
     await db.booking.createMany({

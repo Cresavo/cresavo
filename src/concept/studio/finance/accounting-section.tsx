@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BookCheck, Download, Loader2, Unplug } from "lucide-react";
+import { BRAND } from "../../brand";
 import { addDays } from "../../data/dates";
 import { EXPORT_MONTHS, salesCsv, salesPerDay, sieFile } from "../../finance/accounting";
 import { totalCosts } from "../../finance/profit";
@@ -18,6 +19,7 @@ import { useStudio } from "../use-studio";
 const PREVIEW_DAYS = 14;
 const PREVIEW_ROWS = 5;
 const CONNECT_DELAY_MS = 1400;
+const EXPORT_PREFIX = BRAND.name.toLowerCase();
 
 /** Simulated bookkeeping connection with a preview of what would sync, and plain file exports. */
 export function AccountingSection() {
@@ -48,10 +50,10 @@ export function AccountingSection() {
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="font-semibold">{t("finance.accounted")}</p>
+              <p className="font-semibold">{t("finance.connection")}</p>
               <Badge tone={connected ? "accent" : "neutral"}>{connected ? t("finance.connected") : t("finance.notConnected")}</Badge>
             </div>
-            <p className="mt-1 text-sm text-text-secondary">{connected ? t("finance.connectedText") : t("finance.accountedText")}</p>
+            <p className="mt-1 text-sm text-text-secondary">{connected ? t("finance.connectedText") : t("finance.connectionText")}</p>
           </div>
         </div>
         <div className="space-y-2">
@@ -91,10 +93,10 @@ export function AccountingSection() {
               {connecting ? t("finance.connecting") : t("finance.connect")}
             </Button>
           )}
-          <Button variant="secondary" icon={<Download size={16} />} onClick={() => download("flerdo-bookkeeping.sie", sieFile(state, clock), "text/plain")}>
+          <Button variant="secondary" icon={<Download size={16} />} onClick={() => download(`${EXPORT_PREFIX}-bookkeeping.sie`, sieFile(state, clock), "text/plain")}>
             {t("finance.downloadSie")}
           </Button>
-          <Button variant="secondary" icon={<Download size={16} />} onClick={() => download("flerdo-sales.csv", salesCsv(state, clock), "text/csv")}>
+          <Button variant="secondary" icon={<Download size={16} />} onClick={() => download(`${EXPORT_PREFIX}-sales.csv`, salesCsv(state, clock), "text/csv")}>
             {t("finance.downloadCsv")}
           </Button>
         </div>

@@ -2,8 +2,8 @@
 
 The demo is allowed to be a demo. This file defines what must be true before
 **real customers** use the product, and which habits we keep from day one so
-we never have to retrofit them. Detailed legacy analysis lives in
-`docs/PRIVACY_SECURITY.md` and `docs/DATA_FLOWS.md`.
+we never have to retrofit them. See the [privacy and security overview](PRIVACY_SECURITY.md) and
+[data flows](DATA_FLOWS.md) for the current implementation.
 
 ## From day one (applies to all code now, including the demo)
 
@@ -67,4 +67,4 @@ Quality
 - [ ] Accessibility check (WCAG 2.2 AA) on customer booking and core owner views.
 - [ ] Test coverage reported in CI for domain and permissions code.
 
-The pilot gate is tracked as goal 12 in `docs/goals/QUEUE.md`.
+The [roadmap](ROADMAP.md#pilot-readiness) tracks pilot readiness.

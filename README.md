@@ -1,27 +1,68 @@
 # Cresavo
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/concepts/logo-v3-codex/selected-inter-regular/wordmark-white.svg">
+  <img src="public/brand/studio-wordmark.svg" alt="Cresavo" width="220">
+</picture>
+
 **More time. On your terms.**
 
-[![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
+Cresavo is an open-source booking app for salons and clinics that brings appointments, clients and daily operations together.
+
 [![CI](https://img.shields.io/github/actions/workflow/status/Cresavo/cresavo/verify.yml?branch=main&label=CI)](https://github.com/Cresavo/cresavo/actions/workflows/verify.yml)
-[![Secret scan](https://img.shields.io/github/actions/workflow/status/Cresavo/cresavo/secret-scan.yml?branch=main&label=secret%20scan)](https://github.com/Cresavo/cresavo/actions/workflows/secret-scan.yml)
+[![License AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
+[![Live demo](https://img.shields.io/badge/demo-try%20it-65445e.svg)](https://demo.cresavo.com)
 
-Cresavo is a calm, open-source booking and business workspace for small
-service businesses, starting with salons and clinics. Your calendar, your
-customers and your booking page in one place. An optional assistant can
-suggest the next step, but you approve every change, and everything works
-with plain buttons and no AI at all.
+> **Early concept demo.** Use fictional data only. Cresavo is still being built and is not ready for real customers. See [project status](docs/STATUS.md).
 
-> **Status: concept demo; work in progress; not production-ready.** The demo
-> runs on fictional data in your browser. Do not use it with real customers
-> yet; see [STATUS](docs/STATUS.md) and [QUALITY_SECURITY](docs/QUALITY_SECURITY.md).
+[![Cresavo tour preview showing customer booking, assistant approval and undo](docs/media/cresavo-tour-preview.webp)](https://cresavo.com/site/tour-16x9.mp4)
 
-- **Live demo:** <https://demo.cresavo.com> (fictional salon "Salong Eko", no sign-up)
-- **Tour video (36 s):** [watch the tour](https://cresavo.com/site/tour-16x9.mp4)
+[Try the demo](https://demo.cresavo.com) · [Watch the 36-second tour](https://cresavo.com/site/tour-16x9.mp4) · [Join Discussions](https://github.com/Cresavo/cresavo/discussions) · [Roadmap](docs/ROADMAP.md)
 
-<a href="https://cresavo.com/site/tour-16x9.mp4"><img src="docs/media/cresavo-tour-16x9-poster.jpg" alt="Poster frame of the Cresavo tour video: 'Run a salon, studio or clinic?' next to a phone full of booking messages" width="480"></a>
+## Why Cresavo
 
-## Screenshots
+Niclas started building Cresavo for his partner, who runs a salon at home.
+He learned to build software with AI coding tools and made her a website
+that could only link out to her booking page. Her platform handles appointments,
+but she can't export her data or connect the tools she wants to use. He's
+building an open-source booking app where salon owners can take their data
+with them, connect their own website or AI assistant, and choose their
+checkout and payment tools. If you run a salon or work in software, design
+or payments, he'd love your help making booking software fairer.
+
+## Quick start
+
+Requires Git and Node.js 22.12+ or 24+.
+
+```bash
+git clone https://github.com/Cresavo/cresavo.git
+cd cresavo
+npm run demo
+```
+
+Open the [owner studio](http://localhost:3000/studio) and the [customer booking page](http://localhost:3000/boka/salong-eko).
+The demo saves changes in your browser. Use **More → Settings → Reset demo**
+to start over. On Windows, the [demo launcher](scripts/windows/start-demo.cmd)
+tries a fast-forward update before starting the local demo.
+
+## Features
+
+- **Today** shows the day’s schedule, the next customer and free slots.
+  Use “Someone is calling” to book a caller in a few taps.
+- **Calendar** supports drag-to-reschedule, opening hours and lunch breaks.
+- **Customers and journal** keep visit history, preferences and treatment notes together.
+- **Inbox** collects booking requests, cancellations and reviews. Review
+  drafted replies before sending.
+- **Booking pages** show treatments, staff, hours and reviews under the
+  business’s own brand. Clients can book, reschedule and cancel.
+- **Treatments and prices, campaigns, gift cards, packages, stock and finance**
+  as modules you switch on when you need them.
+- **Undo and activity history** let owners see what changed and undo actions
+  when later changes still allow it.
+- **Data export and open interfaces** let owners download data or connect
+  tools through the project’s API or MCP.
+- **AI is optional.** Try the built-in rules or bring your own key for
+  OpenRouter, OpenAI or Anthropic.
 
 | The owner's day | Dark mode |
 |---|---|
@@ -29,63 +70,19 @@ with plain buttons and no AI at all.
 
 | Landing page | Customer booking page (mobile) |
 |---|---|
-| <img src="docs/design/cresavo/screens/landing-v2-desktop-light.png" alt="Cresavo landing page with the tagline and product sections" width="420"> | <img src="docs/design/cresavo/screens/booking-page-mobile-after.jpg" alt="Salong Eko's booking page on a phone: treatments, team, reviews and opening hours" width="200"> |
-
-## Features
-
-- **Today:** the day's schedule, the next customer and free slots at a glance;
-  book a caller in a few taps ("Someone is calling").
-- **Calendar:** drag a visit to move it; opening hours and lunch breaks per business.
-- **Customers and journal:** visit history, preferences and treatment notes.
-- **Inbox:** booking requests, cancellations and reviews, with drafted replies
-  you check before sending.
-- **Booking page:** each business gets its own page with treatments, team,
-  hours and reviews; clients book, move and cancel themselves.
-- **Treatments and prices, campaigns, gift cards, packages, stock and finance**
-  as modules you switch on when you need them.
-- **Undo and "What happened?":** changes are logged, and a change can be
-  undone as long as nothing later stands in the way (for example a new booking
-  in the same slot).
-- **Your data is yours:** export it, connect other tools through an open API
-  and an MCP endpoint, or host it yourself.
-- **AI is optional:** bring your own key for OpenRouter, OpenAI or Anthropic;
-  without a key every task runs built-in rules.
-
-## Works with your AI assistant
-
-Connect a compatible assistant to a local Cresavo test database to look up
-treatments and open times. Try approved changes with the bundled walkthrough,
-or review fictional proposals in a local copy of the demo studio.
-[Connect your AI assistant](docs/CONNECT_AI_ASSISTANT.md).
-
-## Quick start
-
-Requires Node.js 22.12+ (or 24+).
-
-```bash
-git clone https://github.com/Cresavo/cresavo.git cresavo
-cd cresavo
-npm run demo        # installs dependencies and opens the studio
-```
-
-Open <http://localhost:3000/studio> (owner) and
-<http://localhost:3000/boka/salong-eko> (customer booking page). Demo state
-lives in your browser; **More → Settings → Reset demo** starts over. On
-Windows you can also double-click `start-demo.cmd`. Optional AI: set
-`OPENROUTER_API_KEY`, `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` in `.env`.
+| <img src="docs/design/cresavo/screens/site-v5-landing-1440-light.jpg" alt="Cresavo landing page with the tagline and product sections" width="420"> | <img src="docs/design/cresavo/screens/booking-page-mobile-after.jpg" alt="Salong Eko's booking page on a phone: treatments, team, reviews and opening hours" width="200"> |
 
 ## Self-hosting
 
 - **Concept demo:** a plain Next.js app with no database or secrets. Build it
-  the way the public demo is built (the database URL is a placeholder that is
-  only needed to generate the Prisma client):
+  with a placeholder database URL for the build tooling.
 
   ```bash
-  npm ci && npx prisma generate
-  DATABASE_URL=postgresql://build@127.0.0.1:1/build_test \
-  NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO=1 NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN=your-domain.example \
-  npm run build
-  npm start                      # http://localhost:3000
+  npm ci
+  export DATABASE_URL=postgresql://build@127.0.0.1:1/build_test
+  npx prisma generate
+  NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO=1 NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN=your-domain.example npm run build
+  PUBLIC_READONLY=1 npm start
   ```
 
   To deploy on Vercel, see [DEPLOY_DEMO](docs/DEPLOY_DEMO.md) and change the
@@ -102,29 +99,28 @@ Windows you can also double-click `start-demo.cmd`. Optional AI: set
   npm run dev                    # use the npm scripts, not next dev directly
   ```
 
-  The owner MCP is local only: `npm run mcp:client` (read-only) or
-  `npm run mcp:client -- --admin --workspace` (every write asks for "yes").
-
-The booking engine is a tested proof of concept with synthetic data, not a
-hardened production service.
-
 ## Architecture
 
-- **Next.js 16 + TypeScript.** The concept demo (`src/app/studio`,
-  `src/app/boka`, `src/concept/`) runs on fixture data and browser state;
-  `src/proxy.ts` routes the product domain, the demo subdomain and business
-  addresses.
+- **Next.js 16 and TypeScript** power the concept demo. It runs on fixture
+  data and browser state. Host routing serves the product site, demo and
+  business booking pages.
 - **Booking engine:** Prisma and PostgreSQL. Booking rules live once in
   `src/lib/domain.ts` and are shared by the web, the REST API and the MCP.
 - **Agent gateway:** the public REST/MCP entry for external agents lives in a
   separate repository, `booking-lab-gateway`, which is not public yet
   (contract: [GATEWAY_SPLIT](docs/GATEWAY_SPLIT.md)).
-- More: [ARCHITECTURE](docs/ARCHITECTURE.md), [DATA_FLOWS](docs/DATA_FLOWS.md),
-  [PRIVACY_SECURITY](docs/PRIVACY_SECURITY.md), [ROADMAP](docs/ROADMAP.md),
-  [CHANGELOG](CHANGELOG.md). Some engine docs are still in Swedish; moving
-  them to English is planned.
+[Architecture](docs/ARCHITECTURE.md) · [Data flows](docs/DATA_FLOWS.md) ·
+[Privacy and security](docs/PRIVACY_SECURITY.md) · [Changelog](CHANGELOG.md)
 
-## Checks
+## Connect your AI assistant
+
+Use the local owner MCP to look up treatments and open times from a fictional
+PostgreSQL database. Run `npm run mcp:client` for read-only access or
+`npm run mcp:client -- --admin --workspace` for the approval walkthrough.
+The local concept server also demonstrates proposals you can review in the
+studio Inbox. [Connect your AI assistant](docs/CONNECT_AI_ASSISTANT.md).
+
+## Testing
 
 ```bash
 npm run lint && npx tsc --noEmit && npm test && npm run build
@@ -134,9 +130,8 @@ npm run test:integration       # needs a local database whose name ends in _test
 
 ## Contributing
 
-Contributions are welcome. Read [CONTRIBUTING](CONTRIBUTING.md) and
-[AGENTS.md](AGENTS.md) (how we work; it applies to people and AI agents
-alike). Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+Contributions are welcome. Browse [good first issues](https://github.com/Cresavo/cresavo/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22),
+read the [contribution guide](CONTRIBUTING.md) and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 Contributions will need a [Contributor License Agreement](docs/legal/CLA.md)
 (individual or entity). It is a **draft, pending legal review**, and the

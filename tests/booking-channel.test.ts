@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { assertCardReplayChannel } from "../src/lib/booking-channel";
 
 afterEach(() => vi.unstubAllEnvs());
-describe("Kortets replaygräns vid vanliga bokningsingångar", () => {
-  it("kontrollerar faktisk kanal efter domänens replay, även vid känd UUID", () => {
+describe("Card booking replay at standard booking entry points", () => {
+  it("checks the actual channel after a domain replay, even with a known UUID", () => {
     const secret = "synthetic-replay-secret".repeat(3),
       address = "local-card";
     vi.stubEnv("SESSION_SECRET", secret);
@@ -21,7 +21,7 @@ describe("Kortets replaygräns vid vanliga bokningsingångar", () => {
     vi.stubEnv("SESSION_SECRET", "");
     expect(() => assertCardReplayChannel(booking, address)).toThrow();
   });
-  it("behåller äldre kontrakt för andra nycklar och saknad nyckel", () => {
+  it("preserves the previous contract for other keys and for a missing key", () => {
     for (const idempotencyKey of [null, "ordinary-key", "admin-hashed-key"])
       expect(() =>
         assertCardReplayChannel({ idempotencyKey, clientKey: null }, "other"),

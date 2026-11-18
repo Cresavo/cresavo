@@ -17,7 +17,7 @@ const allWeek = weeklySchema.parse(
   })),
 );
 const now = DateTime.fromISO("2027-03-01T00:00:00", { zone: ZONE });
-it("använder veckodag, paus, varaktighet och ersättande datumundantag", () => {
+it("uses weekday, breaks, duration, and overriding date exceptions", () => {
   const slots = scheduledSlots(allWeek, [], "2027-03-02", 60, now).map((s) =>
     DateTime.fromISO(s).setZone(ZONE).toFormat("HH:mm"),
   );
@@ -37,7 +37,7 @@ it("använder veckodag, paus, varaktighet och ersättande datumundantag", () => 
   ).toEqual([]);
   expect(scheduledSlots(allWeek, [], "2027-05-20", 30, now)).toEqual([]);
 });
-it("skapar inga fiktiva eller tvetydiga lokala starttider vid DST", () => {
+it("avoids nonexistent or ambiguous local start times during DST changes", () => {
   const weekly = weeklySchema.parse([
     { weekday: 7, periods: [{ start: "01:00", end: "05:00" }] },
   ]);
@@ -58,7 +58,7 @@ it("skapar inga fiktiva eller tvetydiga lokala starttider vid DST", () => {
     "2027-11-01T08:00:00.000Z",
   );
 });
-it("tillåter ett slut vid midnatt men inte ett skift över nästa dygn", () => {
+it("allows a shift to end at midnight and rejects shifts that run into the next day", () => {
   const weekly = weeklySchema.parse([
     { weekday: 2, periods: [{ start: "22:00", end: "24:00" }] },
   ]);
@@ -80,7 +80,7 @@ it("tillåter ett slut vid midnatt men inte ett skift över nästa dygn", () => 
     ),
   ).toBe(false);
 });
-it("nekar överlappande/reverserade perioder, paus utanför arbetstid och duplicerade datum", () => {
+it("rejects overlapping or reversed periods, breaks outside working hours, and duplicate dates", () => {
   expect(() =>
     weeklySchema.parse([
       { weekday: 1, periods: [{ start: "12:00", end: "09:00" }] },

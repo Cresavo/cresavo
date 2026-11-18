@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, it } from "vitest";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 
-it("bevarar UTC-instanter vid rå SQL och ORM runt sommartid även med annan sessionsinställning i URL", async () => {
+it("preserves UTC instants in raw SQL and the ORM around DST with a different session setting in the URL", async () => {
   const url = new URL(process.env.DATABASE_URL!);
   url.searchParams.set("options", "-c timezone=Europe/Stockholm");
   const db = createDatabaseClient(url.href);

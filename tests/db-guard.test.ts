@@ -13,7 +13,7 @@ for (const [label, args] of [
   ],
   ["E2E", ["node_modules/@playwright/test/cli.js", "test", "--list"]],
 ] as const) {
-  it(`${label} avslutas före testinsamling med en osäker databasadress`, () => {
+  it(`${label} exits before collecting tests when given an unsafe database URL`, () => {
     const result = spawnSync(process.execPath, [...args], {
       encoding: "utf8",
       timeout: 20000,
