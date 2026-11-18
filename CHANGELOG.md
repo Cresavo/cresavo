@@ -33,6 +33,7 @@ All notable changes to this project are documented here. Format follows
 - The assistant can change the page: "make it calmer and more luxurious", "put reviews first" or "use the colours from our logo" give a proposal with a before and after preview, applied on approval and undoable from What happened?.
 
 ### Changed
+- The studio sidebar displays the capital-C Inter Regular wordmark at 124 px. The browser tab and home-screen icons use a white lowercase c on aubergine in both themes.
 - The coming-soon page now introduces the demo with a 36-second product tour, links to the public repository and a summary of booking, daily planning and data ownership.
 - Public booking pages give each treatment a full-width description. Prices align on the right, with the Book button below beside duration and staff.
 - The privacy note says who runs the pages, what the closed waiting-list form actually does with an address (checks it and discards it; tries are counted per network address for about ten minutes), what the public demo keeps on the device, and which rights people have. The form and its answer say plainly that the list is not open and nothing was saved.

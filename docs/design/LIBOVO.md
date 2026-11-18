@@ -150,21 +150,21 @@ name, nav, theme control, user) and multi-column pages. Content max 6xl
 - Product name: `BRAND.name` in `src/concept/brand.ts`; assistant label:
   `ASSISTANT.name` ("Assistant"). `tests/brand.test.ts` fails if either is
   spelled out elsewhere in `src`. Help articles use `{brand}` / `{assistant}`.
-- Assets: `src/concept/ui/wordmark.tsx` (paths), `public/favicon.ico`,
-  `public/brand/icon-temporary-*.png` (declared as `PLATFORM_ICONS` in
-  `src/concept/ui/brand-assets.ts`, used by the root layout only),
-  `src/app/manifest.ts`.
+- The desktop studio sidebar uses `public/brand/studio-wordmark.svg` at 124 px.
+  Other wordmark placements use `src/concept/ui/wordmark.tsx`.
+- `src/concept/ui/brand-assets.ts` points the platform metadata and web app
+  manifest to `public/favicon.ico` and `public/brand/icon-*.png`.
 - Unchanged on purpose: domains, env vars, package name, API routes, MCP
   namespaces, localStorage keys, Prisma identifiers, file names such as
   `docs/design/LIBOVO.md` are internal.
 - To rename: change `BRAND.name` (and tagline), replace the wordmark paths and
   the icon files. Nothing else.
 
-## 10. Temporary assets
+## 10. Sidebar and app artwork
 
-Favicon, apple-touch and PWA icons are the kit's **temporary `lv` monogram
-placeholders**. Replace before any external launch. The wordmark is
-provisional (kerning unreviewed at small sizes).
+The [selected artwork](../../design/concepts/logo-v3-codex/selected-inter-regular/)
+provides the Inter Regular sidebar lettering and the white lowercase c on
+aubergine for the favicon, Apple touch icon and installed web app in both themes.
 
 ## 11. Pending decisions
 
