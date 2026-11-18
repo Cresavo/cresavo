@@ -1,5 +1,9 @@
 # Progress · AI-native demo
 
+## 2026-11-18 · Coming-soon page
+
+The apex page pairs the demo invitation with the 36-second tour, a self-hosting note and the public repository. Visitors can pause the film or turn on its music. Reduced motion starts with the poster. The [screenshots](../design/cresavo/screens/) include both system themes at mobile and desktop widths.
+
 ## 2026-11-18 · Codex · PR #31 review
 
 - Live AI tasks require a configured bearer token and a verified client address with a per-process budget. Custom-domain setup stays simulated until the server can verify ownership.
