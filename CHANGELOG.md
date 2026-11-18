@@ -8,6 +8,9 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+- On phones, Today shows the next customer above the schedule. Inbox rows lead with the message subject and show the sender below it.
+
 ## [0.4.0] - 2026-11-18
 
 ### Added
