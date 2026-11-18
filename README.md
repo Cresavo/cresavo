@@ -12,6 +12,20 @@ customers and your booking page in one place. An optional assistant can
 suggest the next step, but you approve every change, and everything works
 with plain buttons and no AI at all.
 
+## Why Cresavo
+
+Cresavo started with one salon at home, run by Niclas’s partner, and he’s
+sharing it with every salon. Niclas recently learned to build software with
+AI coding tools and got hooked. Her booking platform gives her a booking
+page, but she can’t get her data out or connect her own AI tools, and the
+website he built for her can only link to that page. He’s building an
+open-source booking system where salons can export their data, access it
+through an API or use it in their own AI tools through MCP, connect their
+own website, and choose their own checkout system (POS) and payment
+provider through connectors. There’s an early concept demo to try, and
+there’s a long way to go. If you run a salon or work in software, design or
+payments, he’d love your help making booking software fairer.
+
 > **Status: concept demo; work in progress; not production-ready.** The demo
 > runs on fictional data in your browser. Do not use it with real customers
 > yet; see [STATUS](docs/STATUS.md) and [QUALITY_SECURITY](docs/QUALITY_SECURITY.md).
@@ -131,6 +145,15 @@ npm run lint && npx tsc --noEmit && npm test && npm run build
 npm run test:concept           # concept demo browser tests (Playwright)
 npm run test:integration       # needs a local database whose name ends in _test
 ```
+
+## Join the movement
+
+- [Star Cresavo on GitHub](https://github.com/Cresavo/cresavo) to bookmark the project.
+- [Join GitHub Discussions](https://github.com/Cresavo/cresavo/discussions) to ask a question or tell us what would make booking fairer.
+- [Try the demo](https://demo.cresavo.com) with fictional salon data, no account needed.
+- [Check the waitlist](https://cresavo.com). The form is a preview and currently saves no email addresses.
+- [Find a good first issue](https://github.com/Cresavo/cresavo/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) and read the [contribution guide](CONTRIBUTING.md).
+- [See the public roadmap](docs/goals/QUEUE.md) for priorities and what still needs to be built.
 
 ## Contributing
 

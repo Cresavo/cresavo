@@ -7,6 +7,7 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- The README now links to the demo, community, public roadmap and ways to contribute. First-time contributors have a quickstart and review guide, with simple forms for GitHub Discussions.
 - The public pages introduce the home-salon founder story, a photographic tour of fictional Salong Eko, four interactive product views and a map of open connections.
 - The public sites now open in Salong Eko with a salon photograph and calendar clipping. An interactive channel map lets visitors write a reply, try an assistant draft, approve a booking and undo it. Both pages include the demo quick start and distinguish booking commission from card fees.
 - Both public sites end with a "Join the movement" section: star the repository, join the discussion, try the demo or pick a good first issue.
@@ -37,6 +38,7 @@ All notable changes to this project are documented here. Format follows
 - The assistant can change the page: "make it calmer and more luxurious", "put reviews first" or "use the colours from our logo" give a proposal with a before and after preview, applied on approval and undoable from What happened?.
 
 ### Changed
+- The README and launch drafts tell the story of the salon at home that inspired Cresavo and explain what an open booking system would let salons do.
 - Owners can drag treatments and categories into order with a mouse, touch or keyboard. Each drop updates the public price list and can be undone. The booking-page editor also supports dragging sections alongside its up and down buttons.
 - The studio sidebar displays the capital-C Inter Regular wordmark at 124 px. The browser tab and home-screen icons use a white lowercase c on aubergine in both themes.
 - The coming-soon page now introduces the demo with a 36-second product tour, links to the public repository and a summary of booking, daily planning and data ownership.

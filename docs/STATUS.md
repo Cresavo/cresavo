@@ -4,6 +4,7 @@ Cresavo is a concept demo (0.x) for salons and other small service businesses.
 
 ## Available today
 
+- The [launch plan](LAUNCH_PLAN.md) and [post drafts](launch/) cover feedback on the public concept demo and contributor onboarding. GitHub community setup and posting are owner steps.
 - [demo.cresavo.com](https://demo.cresavo.com) opens the demo landing page,
   owner studio and Salong Eko customer booking page. The studio includes the
   Assistant, campaigns, stock and purchasing, finance and configurable modules.
