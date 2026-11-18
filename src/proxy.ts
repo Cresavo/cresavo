@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { isPublicReadonly, publicReadonlyResponse } from "./lib/public-readonly";
+import { productSiteOrigin } from "./concept/site/origin";
 import { siteRequestHost } from "./concept/site/request-host";
 import { englishConceptPath } from "./concept/page/language";
 import { isProductHome, routeHost, UNKNOWN_PATH } from "./concept/page/resolve";
@@ -37,8 +38,10 @@ function hostResponse(request: NextRequest, host: string | null | undefined) {
 export function proxy(request: NextRequest) {
   const host = siteRequestHost((name) => request.headers.get(name));
   const response = publicReadonlyResponse(request) ?? hostResponse(request, host);
-  // The product domain's front page is the one page of the read-only demo deployment that search engines may list.
-  if (isPublicReadonly() && !isProductHome(host, request.nextUrl.pathname)) {
+  const { pathname } = request.nextUrl;
+  const discoveryFile = (pathname === "/robots.txt" || pathname === "/sitemap.xml") && productSiteOrigin(host);
+  // The product front page is the only page of the read-only deployment intended for search.
+  if (isPublicReadonly() && !isProductHome(host, pathname) && !discoveryFile) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
   return response;

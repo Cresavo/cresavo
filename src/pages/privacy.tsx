@@ -9,7 +9,7 @@ export const getServerSideProps = getSiteProps;
 const SECTIONS = ["waitlist", "demo", "cookies", "rights"] as const;
 
 // A short, honest privacy note for the pre-launch sites. Not a full policy.
-export default function Privacy({ links }: SiteProps) {
+export default function Privacy({ links, analyticsEnabled }: SiteProps) {
   return (
     <div className={s.page}>
       <SiteHead title={site["privacy.title"]} description={site["privacy.intro"]} />
@@ -24,7 +24,7 @@ export default function Privacy({ links }: SiteProps) {
         {SECTIONS.map((section) => (
           <section key={section}>
             <h2>{site[`privacy.${section}.heading`]}</h2>
-            <p>{site[`privacy.${section}.body`]}</p>
+            <p>{section === "cookies" && analyticsEnabled ? site["privacy.analytics.body"] : site[`privacy.${section}.body`]}</p>
           </section>
         ))}
       </main>
