@@ -23,8 +23,14 @@ regexes = [
 description = "Fictional test fixture values"
 condition = "AND"
 paths = ['''^tests/(concept-ai-settings|agent-preview|mcp-workspace|navigation-context)\.test\.ts$''']
-regexTarget = "line"
-regexes = ['''(key|secret|SESSION_SECRET)\s*[:=]\s*"[^"]+"''']
+regexTarget = "match"
+# Only these exact literals; any other value in these files is still reported.
+regexes = [
+  '''key: "fictional-key-1234"''',
+  '''SESSION_SECRET: "synthetic-test-placeholder-32-characters"''',
+  '''key = "a9c446e7-ccba-48ad-b729-de703edc847c"''',
+  '''secret = "synthetic-secret-at-least-32-characters"''',
+]
 
 # Recorded verification transcript (removed from the tree before the public
 # release; kept so full-history scans stay clean): expectedToken is a 64-hex SHA-256 digest
