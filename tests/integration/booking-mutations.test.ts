@@ -219,7 +219,7 @@ it("avbokar spårbart, frigör tid och bevarar skapandedagens e-posttak", async 
         request(),
         actor,
       ),
-    ).rejects.toThrow("Bokningen är avbokad");
+    ).rejects.toThrow("This booking is cancelled");
   }
   expect(
     await db.booking.count({
