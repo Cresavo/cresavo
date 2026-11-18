@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { contrast } from "@/concept/page/colour";
@@ -18,7 +17,7 @@ function pair(name: string): { light: string; dark: string } {
   return { light: match[1], dark: match[2] };
 }
 
-const html = (tone?: "neutral" | "accent" | "warn" | "danger") => renderToStaticMarkup(createElement(Badge, { tone, children: "Status" }));
+const html = (tone?: "neutral" | "accent" | "warn" | "danger") => renderToStaticMarkup(Badge({ tone, children: "Status" }));
 
 describe("status badges", () => {
   it("are plain text by default: no background, no outline, no dot", () => {
@@ -56,7 +55,7 @@ describe("status badges", () => {
   });
 
   it("have an outlined, unfilled chip for labels that are not a status", () => {
-    const markup = renderToStaticMarkup(createElement(Tag, { children: "Regular" }));
+    const markup = renderToStaticMarkup(Tag({ children: "Regular" }));
     expect(markup).toContain("ring-hairline");
     expect(markup).not.toMatch(/\bbg-/);
   });
@@ -64,10 +63,10 @@ describe("status badges", () => {
 
 describe("notices", () => {
   it("show plain information on the neutral surface, and keep the semantic tint for real states", () => {
-    const info = renderToStaticMarkup(createElement(Notice, { tone: "info", children: "Note" }));
+    const info = renderToStaticMarkup(Notice({ tone: "info", children: "Note" }));
     expect(info).toContain("bg-surface-2");
     expect(info).not.toContain("data-tone=");
-    const warning = renderToStaticMarkup(createElement(Notice, { tone: "warning", children: "Careful" }));
+    const warning = renderToStaticMarkup(Notice({ tone: "warning", children: "Careful" }));
     expect(warning).toContain('data-tone="warning"');
     expect(warning).toContain("bg-warning-bg");
     expect(warning).toContain("text-text");
