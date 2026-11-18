@@ -50,7 +50,7 @@ Ingen nästa leverans startas automatiskt.
 <!-- POLISH_CURRENT_START -->
 # Produktägarrapport — polerad arbetsyta
 
-**[Här öppnar du förbättrade Booking Lab](https://booking-lab-se-preview.vercel.app/admin).** Samma skyddade länk.
+**[Här öppnar du förbättrade Booking Lab](<redacted-preview-url>/admin).** Samma skyddade länk.
 Vercel vid behov → Öppna demoadmin. Bara syntetiska uppgifter.
 
 Nu finns en sammanhållen desktoparbetsyta med sidomeny och en kompakt mobilvy.
@@ -74,7 +74,7 @@ separat prioritering av pilotgrindar/audit. Inget av detta startas automatiskt.
 <!-- COHERENT_CURRENT_START -->
 # Produktägarrapport — sammanhängande salongsupplevelse
 
-**[Prova förbättrade Booking Lab](https://booking-lab-se-preview.vercel.app/admin)**. Vercel-inloggning vid behov,
+**[Prova förbättrade Booking Lab](<redacted-preview-url>/admin)**. Vercel-inloggning vid behov,
 sedan Öppna demoadmin utan ett extra lösenord. Samma skyddade länk som tidigare.
 
 Byggt: tre tydliga användarlägen och gemensam arbetsyta. Översikt/Kalender/Kunder

@@ -1,7 +1,7 @@
 name: Verify POC
 # Runs on pull requests and on main only. Agent branches run the same gates
-# locally before pushing, so every push to a work branch doesn't spend
-# Actions minutes (private repo quota).
+# locally before pushing. Pull requests always run, also for docs-only
+# changes, so a required status check never waits for a run that was skipped.
 on:
   push:
     branches: [main]
@@ -9,73 +9,13 @@ on:
       - "docs/**"
       - "**/*.md"
   pull_request:
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
   workflow_dispatch:
-    inputs:
-      gateway_revision:
-        description: "Pinned gateway commit from scripts/integration/pair.json (optional pair proof)"
-        type: string
-        required: false
-      gateway_bundle_hash:
-        description: "SHA-256 of the private gateway Git bundle"
-        type: string
-        required: false
-      gateway_bundle:
-        description: "Base64 source bundle from scripts/integration/dispatch.mjs; never credentials"
-        type: string
-        required: false
 permissions:
   contents: read
 concurrency:
   group: verify-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
-  pair:
-    if: github.event_name == 'workflow_dispatch' && inputs.gateway_bundle != ''
-    name: Pinned gateway and salon integration
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      DATABASE_URL: postgresql://booking:booking@127.0.0.1:5432/booking_pair_test
-      SESSION_SECRET: synthetic-pair-ci-session-secret-never-use-in-deployment
-      NEXT_TELEMETRY_DISABLED: "1"
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: "24"
-          cache: npm
-      - name: Verify and unpack pinned gateway
-        id: gateway
-        run: node scripts/integration/unpack-gateway.mjs
-      - run: npm ci
-      - run: npm ci
-        working-directory: ${{ steps.gateway.outputs.path }}
-      - run: |
-          docker compose up -d --wait
-          docker compose exec -T db createdb -U booking booking_pair_test
-          npx prisma generate
-          npm run db:migrate
-          npm run db:seed
-          npx playwright install --with-deps chromium
-          npm run build
-      - name: Prove the frozen pair through real HTTP services
-        run: npm run test:pair
-        env:
-          GATEWAY_PATH: ${{ steps.gateway.outputs.path }}
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always()
-        with:
-          name: integration-pair-result
-          path: test-results/integration-pair.json
-          retention-days: 7
-          if-no-files-found: warn
-      - if: always()
-        run: docker compose down
   verify:
     name: E2E ${{ matrix.mode }} / proxy ${{ matrix.proxy }}
     runs-on: ubuntu-latest

@@ -1,7 +1,7 @@
 # Gitleaks configuration. Extends the upstream default ruleset; only verified
 # false positives are allowlisted below. Do not add a path or regex here
 # without checking that the match is synthetic and documented in the repo.
-title = "Flerdo gitleaks config"
+title = "Cresavo gitleaks config"
 
 [extend]
 useDefault = true
@@ -23,15 +23,22 @@ regexes = [
 description = "Fictional test fixture values"
 condition = "AND"
 paths = ['''^tests/(concept-ai-settings|agent-preview|mcp-workspace|navigation-context)\.test\.ts$''']
-regexTarget = "line"
-regexes = ['''(key|secret|SESSION_SECRET)\s*[:=]\s*"[^"]+"''']
+regexTarget = "match"
+# Only these exact literals; any other value in these files is still reported.
+regexes = [
+  '''key: "fictional-key-1234"''',
+  '''SESSION_SECRET: "synthetic-test-placeholder-32-characters"''',
+  '''key = "a9c446e7-ccba-48ad-b729-de703edc847c"''',
+  '''secret = "synthetic-secret-at-least-32-characters"''',
+]
 
-# Recorded verification transcript: expectedToken is a 64-hex SHA-256 digest
+# Recorded verification transcript (removed from the tree before the public
+# release; kept so full-history scans stay clean): expectedToken is a 64-hex SHA-256 digest
 # of a synthetic token, not a credential.
 [[allowlists]]
 description = "Verification transcript digests"
 condition = "AND"
-paths = ['''^docs/verification/lifecycle/owner-tool-transcript\.json$''']
+paths = ['''^docs/(archive/)?verification/lifecycle/owner-tool-transcript\.json$''']
 regexTarget = "line"
 regexes = ['''"expectedToken":\s*"[0-9a-f]{64}"''']
 
@@ -40,7 +47,7 @@ regexes = ['''"expectedToken":\s*"[0-9a-f]{64}"''']
 [[allowlists]]
 description = "Prose false positives in docs"
 condition = "AND"
-paths = ['''^docs/(ARCHITECTURE|VERIFICATION)\.md$''']
+paths = ['''^docs/(archive/)?(ARCHITECTURE|VERIFICATION)\.md$''']
 regexTarget = "line"
 regexes = ['''(tokenhash|Vercel-auth),''']
 

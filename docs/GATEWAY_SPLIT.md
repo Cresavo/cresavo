@@ -124,27 +124,14 @@ befintliga lagringsregler. Ta bort hela den isolerade testdatabasen efter provet
 tidpunkt och statiska testkoder. Inga nycklar, kunduppgifter eller råa anropsloggar.
 Provets klienter är testscripts och MCP SDK, inte certifierade personliga assistenter.
 
-### Privat CI utan nya åtkomstnycklar
+### Pair proof in CI (removed)
 
-Befintlig GitHub-token kan inte hämta det andra privata repot och inga repo-secrets
-finns för detta. Ordinarie push-CI behålls. Det gemensamma provet startas uttryckligen
-efter privat push, via operatörens befintliga gh-inloggning:
-
-```powershell
-node scripts/integration/dispatch.mjs ../booking-lab-gateway night/gateway-salon-integration
-```
-
-Skriptet kräver ren gateway på exakt låst SHA och skickar en Git-bundle av den
-committade källan till det privata salongsworkflowets manuella körning.
-Inga tokens eller miljöfiler ingår. CI kontrollerar SHA-256, låst commit och bundle,
-checkar ut gatewayen separat och kör `test:pair` mot ny lokal Docker-PostgreSQL.
-Samma körning behåller den fulla befintliga fyrfältsmatrisen. Endast det sanerade
-resultatmanifestet laddas upp som artefakt i sju dagar.
-
-Detta är en manuell revisionsparskörning. Automatisk hämtning från det andra privata
-repot vid varje push kräver ett separat beslut om snävt avgränsad läsbehörighet.
-Bundlegränsen är 60 000 base64-tecken; när repot växer behövs den lösningen.
-Ingen schemalagd körning, deploy eller utökad behörighet införs här.
+The manual CI pair run, which sent a Git bundle of the private gateway's
+source to this repository's workflow as a dispatch input, was removed on
+2026-11-18 before the repository went public: workflow inputs of a public
+repository are not private. Run the pair proof locally with `npm run test:pair`.
+Running it in CI again needs a private runner or narrowly scoped read access
+to the gateway repository.
 
 ## Verifierat revisionspar och kompatibilitet · 2026-11-16
 
@@ -170,10 +157,7 @@ antal och avvisningar. Det gjorde ingen ytterligare fristående jämförelse av
 kalender-id eller SQL-överlapp efter att runnern städat. Dessa två kontroller
 finns i den körda automatiseringen och ska inte beskrivas som separat manuell QA.
 
-Kvar i backlogg: NIGHT-QA-1, Info, `dispatch.mjs` lämnar sin tillfälliga
-källkodsbundle/request.json efter utskick. Inga nycklar ingår. Begränsa
-åtkomst till operatörens temporära katalog och lägg till ägd finally-städning
-vid nästa lilla verktygsändring. Äldre GS1-QA-2 om rate-begränsad loggning
+Äldre GS1-QA-2 om rate-begränsad loggning
 vid nekad tjänsteidentitet ingick inte i nattens fyra fynd och är fortsatt öppet.
 
 ## Frivilligt prov med riktig Codex-klient och syntetiskt kundgodkännande

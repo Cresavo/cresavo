@@ -2,7 +2,7 @@
   "revision": "8843d06350c6478e375fb640579cb3ac4f7fe3dc",
   "deployment": "dpl_<redacted>",
   "capturedAt": "2026-11-13",
-  "alias": "https://booking-lab-se-preview.vercel.app",
+  "alias": "<redacted-preview-url>",
   "syntheticOnly": true,
   "reviewedLoadedViews": true,
   "notes": "Overview, selected calendar, actual campaign scope, stale retained draft; first loading capture excluded. CUA20% preview not saved; automated15% saved and rebooked.",

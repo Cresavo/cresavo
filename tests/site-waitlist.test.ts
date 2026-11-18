@@ -10,10 +10,10 @@ describe("waiting list input", () => {
   it("accepts a plain address, trims and lower-cases it, and keeps a known business kind", () => {
     expect(parseWaitlistInput({ email: "  Anna@Example.COM ", business: "salon" })).toEqual({ ok: true, entry: { email: "anna@example.com", business: "salon" } });
     expect(parseWaitlistInput({ email: "a.b+c@sub.example.se" })).toEqual({ ok: true, entry: { email: "a.b+c@sub.example.se", business: undefined } });
-    expect(parseWaitlistInput({ email: "a@b.se", business: "spaceship" })).toEqual({ ok: true, entry: { email: "a@b.se", business: undefined } });
+    expect(parseWaitlistInput({ email: "a@b.example", business: "spaceship" })).toEqual({ ok: true, entry: { email: "a@b.example", business: undefined } });
   });
 
-  it.each([null, undefined, "a@b.se", 42, {}, { email: 7 }, { email: "" }, { email: "anna" }, { email: "anna@" }, { email: "@example.com" }, { email: "anna@example" }, { email: "an na@example.com" }, { email: "anna@exa mple.com" }, { email: "anna@@example.com" }, { email: "anna@example..com" }, { email: "anna@-example.com" }, { email: "<anna@example.com>" }, { email: "a@b.se\nbcc: x@y.se" }])("refuses %j", (raw) => {
+  it.each([null, undefined, "a@b.example", 42, {}, { email: 7 }, { email: "" }, { email: "anna" }, { email: "anna@" }, { email: "@example.com" }, { email: "anna@example" }, { email: "an na@example.com" }, { email: "anna@exa mple.com" }, { email: "anna@@example.com" }, { email: "anna@example..com" }, { email: "anna@-example.com" }, { email: "<anna@example.com>" }, { email: "a@b.example\nbcc: x@y.example" }])("refuses %j", (raw) => {
     expect(parseWaitlistInput(raw)).toEqual({ ok: false, reason: "invalid" });
   });
 
@@ -39,7 +39,7 @@ describe("waiting list provider", () => {
 
   it("none stores nothing and never claims the address was added", async () => {
     expect(await joinWaitlist({ email: "anna@example.com" }, "none")).toBe("not-open");
-    expect(site["waitlist.outcome.not-open"]).toBe("Thanks! The list opens in a few days. Come back soon.");
+    expect(site["waitlist.outcome.not-open"]).toBe("Thanks! The list isn’t open yet, so your address was not saved. Please come back later.");
     expect(site["waitlist.outcome.not-open"]).not.toMatch(/added|on the list|subscribed|we'll email/i);
   });
 

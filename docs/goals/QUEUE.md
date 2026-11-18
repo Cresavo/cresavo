@@ -34,7 +34,7 @@ All UI text is English and goes through the dictionary (see AGENTS.md).
 | 10 | Open protocols for the concept | Opus | done · 2026-11-17 |
 | 11 | From demo to real engine | Opus | open |
 | 12 | Pilot readiness: quality and security | Opus (Fable for review) | open |
-| 13 | Open-source launch: clean public repos | Opus | in progress · in-repo rename and front door done; publishing waits for Niclas |
+| 13 | Open-source launch: clean public repos | Opus | ready for launch; owner steps in docs/LAUNCH_CHECKLIST.md |
 | 14 | Everyday operations: hours, schedules, rooms, roles | Claude (Sonnet) | done · 2026-11-17 |
 | 15 | Gift cards, packages, daily summary, calendar feeds, one brand constant | Claude (Sonnet) | done · 2026-11-17 |
 | 16 | The Flerdo assistant: conversation, memory, routines, proactive briefs | Claude (Opus) | done · 2026-11-17 |
@@ -238,6 +238,10 @@ done or has an explicit, documented decision. Run after goal 11.
 and an independent review (Fable or external) has signed off in REVIEW.md.
 
 ## 13 · Open-source launch: clean public repos
+
+**Status 2026-11-18: ready for launch; owner steps in [docs/LAUNCH_CHECKLIST.md](../LAUNCH_CHECKLIST.md).**
+The repository is published in place under the Cresavo name (no new org or
+monorepo for now); the plan below is kept as history.
 
 Name and repo structure are decided in `docs/BRAND.md` (Flerdo, org `flerdo`,
 monorepo `flerdo/flerdo`). This goal also does the one-pass rename of code,

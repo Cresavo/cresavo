@@ -155,7 +155,7 @@ Inget generellt UI-byte, ingen Tailwind- eller React-/Next-major följer av dett
 
 Ny avgränsad genomgång från 6acd2efdb909aff86245fc021e7c0c8cbc9541d4; produktkod d7bc47f och manifest/låsfil oförändrade. UI, molnpreview och dummydata ändras inte. Arbetsbranch chore/audit-review-2026-11-12. Ingen ny dependency, override, prerelease, borttagen lintregel eller ändrad licens.
 
-- **Full audit FAIL exit1:**7moderate,0high/critical. Det är en advisory plus sex kedjeeffekter, inte sju oberoende sårbarheter. **Omit-dev PASS exit0:**0fynd. [Rådata och exitkoder](archive/qa/evidence-audit-2026-11-12).
+- **Full audit FAIL exit1:**7moderate,0high/critical. Det är en advisory plus sex kedjeeffekter, inte sju oberoende sårbarheter. **Omit-dev PASS exit0:**0fynd. (Raw output removed before the public release.)
 - Publicerat latest typescript-eslint / typescript-estree **8.72.2** kräver minimatch **^10.2.2**; installerat10.2.6. Senaste publicerade10.x är10.2.6. [Advisoryn](https://github.com/advisories/GHSA-g3hv-75wg-m249) anger drabbade>=7.0.0 <11.0.1 och rättad11.0.1.
 - Upstream [main-manifest](https://github.com/typescript-eslint/typescript-eslint/blob/main/packages/typescript-estree/package.json) har ändrats till^11.0.1. Det är inte samma sak som en publicerad stabil tarball: registry-manifest/integrity och den faktiska npm pack-tarballens package.json kräver ännu10.x (MIT, oförändrad licens). Canary8.72.3-alpha.8 använder11.x, men förhandsversion väljs inte i denna försiktiga batch.
 - **npm audit fix --dry-run --ignore-scripts --json** gav0added/changed/removed och kvar7moderate trots fixAvailable:true. Flaggan är därför inte bevis för en genomförbar kompatibel rättning. Inget riktigt audit fix/--force kördes.
