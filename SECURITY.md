@@ -2,10 +2,13 @@
 
 ## Reporting a vulnerability
 
-Please report vulnerabilities **privately** using GitHub's private
-vulnerability reporting: go to the repository's **Security** tab and choose
-**Report a vulnerability**. Do not open a public issue, discussion or pull
-request for a security problem.
+Please report vulnerabilities **privately** through GitHub Security
+Advisories (private vulnerability reporting): go to the repository's
+**Security** tab, choose **Report a vulnerability**, or open
+<https://github.com/niclasvestlund-YT/booking-lab-se/security/advisories/new>.
+Only the maintainers can see the report, and we can discuss and fix it there
+before anything is public. Do not open a public issue, discussion or pull
+request for a security problem, and do not send reports by email.
 
 Include what you found, how to reproduce it, and the impact you expect. Use
 synthetic data only; do not access data that is not yours.
@@ -34,5 +37,14 @@ We do not offer a bug bounty at this stage.
 
 ## Supported versions
 
-Only the latest release on `main` is supported while the project is in the
-0.x concept stage.
+Cresavo is a concept demo in the 0.x stage and is not production-ready. Only
+the latest release receives security fixes; fixes land on `main` and ship in
+the next release.
+
+| Version | Supported |
+|---|---|
+| Latest 0.x release and `main` | Yes |
+| Older 0.x releases | No |
+
+Do not use Cresavo with real customer data yet; see
+[docs/QUALITY_SECURITY.md](docs/QUALITY_SECURITY.md).

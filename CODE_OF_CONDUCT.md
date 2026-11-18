@@ -59,9 +59,12 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement at
-**conduct@flerdo.com**. All complaints will be reviewed and investigated
-promptly and fairly.
+reported privately to the community leaders responsible for enforcement.
+Contact the maintainers via a private security advisory: open the
+repository's **Security** tab, choose **Report a vulnerability**, and start
+the title with "Conduct:". Only the maintainers can see such a report. Do not
+report conduct issues in public issues or discussions. All complaints will be
+reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the
 reporter of any incident.

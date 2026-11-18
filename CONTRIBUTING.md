@@ -7,8 +7,7 @@ easiest to review.
 ## Run it
 
 ```bash
-npm install
-npm run dev          # http://localhost:3000, studio at /studio
+npm run demo         # installs dependencies, then http://localhost:3000/studio
 ```
 
 The concept demo needs no database and no AI key. See the README for the
@@ -24,7 +23,9 @@ npm run ai:eval      # AI task scenarios
 npm run build
 ```
 
-Add or update tests where logic lives. Playwright and integration test
+Add or update tests where logic lives. For changes to the studio or booking
+page, also run `npm run test:concept` and add before/after screenshots
+(390 px and 1280 px) to the pull request. Playwright and integration test
 commands are in the README.
 
 ## Code principles
@@ -51,12 +52,14 @@ compatible license.
 
 ## License and CLA
 
-Cresavo is AGPL-3.0-only. Once the [Contributor License Agreement](docs/legal/CLA.md)
-is approved and in use, contributors will need to accept it before their first
-pull request can be merged. Use the individual form for contributions you own
-and the entity form for contributions made on behalf of an organization.
+Cresavo is AGPL-3.0-only. Before your first pull request can be merged you
+need to accept the [Contributor License Agreement](docs/legal/CLA.md); the
+CLA Assistant bot asks you to confirm on the pull request. Use the individual
+form for contributions you own and the entity form for contributions made on
+behalf of an organization. The CLA text is a draft pending legal review.
 
-The [draft trademark policy](TRADEMARK.md) covers use of the Cresavo name and logo.
+The [draft trademark policy](TRADEMARK.md) covers the Cresavo name, logo and
+brand media, which are not covered by the AGPL.
 
 ## Security
 
