@@ -3,8 +3,8 @@
 **More time. On your terms.**
 
 [![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
-[![Verify POC](https://github.com/Cresavo/cresavo/actions/workflows/verify.yml/badge.svg)](https://github.com/Cresavo/cresavo/actions/workflows/verify.yml)
-[![Secret scan](https://github.com/Cresavo/cresavo/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/Cresavo/cresavo/actions/workflows/secret-scan.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/Cresavo/cresavo/verify.yml?branch=main&label=CI)](https://github.com/Cresavo/cresavo/actions/workflows/verify.yml)
+[![Secret scan](https://img.shields.io/github/actions/workflow/status/Cresavo/cresavo/secret-scan.yml?branch=main&label=secret%20scan)](https://github.com/Cresavo/cresavo/actions/workflows/secret-scan.yml)
 
 Cresavo is a calm, open-source booking and business workspace for small
 service businesses, starting with salons and clinics. Your calendar, your
