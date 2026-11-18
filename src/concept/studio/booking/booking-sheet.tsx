@@ -8,15 +8,14 @@ import { t, tc, type MessageKey } from "../../i18n";
 import { formatDayLong, formatDuration, formatMoney } from "../../i18n/format";
 import { packageFor, visitsLeft } from "../../packages/packages";
 import { findCustomer, findService, fullName } from "../../selectors";
-import { dispatch, undo } from "../../store";
 import { Badge } from "../../ui/badge";
 import { Button, ButtonLink } from "../../ui/button";
 import { Chip, Switch } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
 import { RedeemSheet } from "../giftcards/redeem-sheet";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 import { useStudio } from "../use-studio";
-import { SlotPicker, type Slot } from "./slot-picker";
+import { SlotPicker, slotOnDate, type Slot } from "./slot-picker";
 import { waitlistCount, waitlistNotice } from "./waitlist-notice";
 
 type Mode = "details" | "move" | "cancel" | "giftcard";
@@ -29,7 +28,8 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const booking = state.bookings.find((b) => b.id === bookingId);
   const [mode, setMode] = useState<Mode>(initialMode);
   const [date, setDate] = useState(booking?.date ?? today);
-  const [slot, setSlot] = useState<Slot | null>(null);
+  const [picked, setSlot] = useState<Slot | null>(null);
+  const slot = slotOnDate(picked, date);
   const [reason, setReason] = useState<MessageKey>(CANCEL_REASONS[0]);
   const [offer, setOffer] = useState(false);
   if (!booking) return null;
@@ -49,36 +49,28 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const paidByCard = paidWithCards(state, booking.id);
 
   const markDone = () => {
-    if (!dispatch({ type: "booking/complete", id: booking.id })) return;
     const usesStock = state.modules.stock && !!service?.consumption?.length;
     const first = customer?.firstName ?? "";
     const message = pkg ? t("booking.donePackageToast", { name: first, left: tc("packages.onLeft", visitsLeft(pkg) - 1) }) : t(usesStock ? "booking.doneStockToast" : "booking.doneToast", { name: first });
-    showToast(message, { label: t("common.undo"), run: undo });
-    onClose();
+    if (dispatchWithUndoToast({ type: "booking/complete", id: booking.id }, message)) onClose();
   };
 
   const confirmMove = () => {
     if (!slot) return;
-    const moved = dispatch({ type: "booking/move", id: booking.id, date: slot.date, start: slot.start });
-    if (moved) {
-      showToast(t("booking.movedToast", { name: customer?.firstName ?? "", when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` }), {
-        label: t("common.undo"),
-        run: undo,
-      });
-    }
+    const message = t("booking.movedToast", { name: customer?.firstName ?? "", when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` });
+    dispatchWithUndoToast({ type: "booking/move", id: booking.id, date: slot.date, start: slot.start }, message);
     onClose();
   };
 
   const confirmCancel = () => {
     const sendOffer = offer && waitlist > 0;
-    if (!dispatch({
+    const message = sendOffer ? tc("booking.cancelledOfferedToast", waitlist) : t("booking.cancelledToast");
+    if (dispatchWithUndoToast({
       type: "booking/cancel",
       id: booking.id,
       reason: t(reason),
       notice: sendOffer ? waitlistNotice(booking, waitlist, { today, minutes }) : undefined,
-    })) return;
-    showToast(sendOffer ? tc("booking.cancelledOfferedToast", waitlist) : t("booking.cancelledToast"), { label: t("common.undo"), run: undo });
-    onClose();
+    }, message)) onClose();
   };
 
   if (mode === "giftcard") return <RedeemSheet bookingId={booking.id} onBack={() => setMode("details")} onClose={onClose} />;

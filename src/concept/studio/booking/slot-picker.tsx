@@ -14,6 +14,10 @@ export interface Slot {
   start: number;
 }
 
+export function slotOnDate<T extends Slot>(slot: T | null, date: DateKey): T | null {
+  return slot?.date === date ? slot : null;
+}
+
 interface SlotPickerProps {
   staffId: StaffId;
   need: Need;

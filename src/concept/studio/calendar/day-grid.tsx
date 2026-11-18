@@ -6,10 +6,10 @@ import { lunchFor, openingFor, staffWorks, workWindow } from "../../data/slots";
 import type { DateKey, DemoState, Staff, StaffId } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { dayBookings } from "../../selectors";
-import { dispatch, undo } from "../../store";
 import { cx } from "../../ui/cx";
 import { showToast } from "../../ui/toast";
 import type { OpenSheet } from "../booking/booking-sheets";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 import { StaffDot } from "../staff-dot";
 import { useStudio } from "../use-studio";
 import { BookingBlock, DRAG_TYPE } from "./block";
@@ -51,9 +51,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
       return;
     }
     const start = minuteAt(event);
-    if (dispatch({ type: "booking/move", id, date, start })) {
-      showToast(t("calendar.movedTo", { time: formatTime(start) }), { label: t("common.undo"), run: undo });
-    } else {
+    if (!dispatchWithUndoToast({ type: "booking/move", id, date, start }, t("calendar.movedTo", { time: formatTime(start) }))) {
       showToast(t("calendar.slotTaken"));
     }
   };

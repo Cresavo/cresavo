@@ -3,7 +3,7 @@
 import type { DemoAction } from "../../actions";
 import type { InputMode, Reply } from "../../assistant/thread";
 import type { Choice, Proposal } from "../../command/proposal";
-import { canUndo } from "../../log/undo";
+import { undoBlockReason } from "../../log/undo";
 import type { LogMeta } from "../../log/types";
 import { currentState, dispatch } from "../../store";
 import { replyOf, updateReply } from "./thread-store";
@@ -33,17 +33,23 @@ export function approveReply(id: string, action: DemoAction) {
 
 /** Whether the panel should offer Undo for a reply: only while the store would accept it. */
 export function replyUndoable(reply: Reply): boolean {
+  return !replyUndoBlockReason(reply);
+}
+
+export function replyUndoBlockReason(reply: Pick<Reply, "undoId">) {
+  if (!reply.undoId) return "changed";
   const state = currentState();
-  return !!reply.undoId && !!state && canUndo(state, reply.undoId);
+  return state ? undoBlockReason(state, state.log.find((entry) => entry.id === reply.undoId)) : "changed";
 }
 
 /**
  * Takes back the change a reply made. The card says "Undone" only when the store accepted it;
- * otherwise Undo is withdrawn (a later edit touched the same records, or the entry is gone).
+ * A booking conflict stays visible on the reply while the original time is unavailable.
  */
 export function undoReply(id: string, undoId: string): boolean {
   const done = dispatch({ type: "log/undo", id: undoId });
-  updateReply(id, done ? { status: "undone", undoId: undefined } : { undoId: undefined });
+  if (done) updateReply(id, { status: "undone", undoId: undefined });
+  else if (replyUndoBlockReason({ undoId }) !== "time-taken") updateReply(id, { undoId: undefined });
   return done;
 }
 

@@ -108,6 +108,11 @@ export function currentState(): DemoState | null {
  * Returns false when nothing changed (e.g. the slot was taken).
  */
 export function dispatch(action: DemoAction, meta?: Partial<Omit<LogMeta, "at">>): boolean {
+  return dispatchWithLog(action, meta) !== false;
+}
+
+/** Returns the new log entry id, null for an unlogged change, or false on refusal. */
+export function dispatchWithLog(action: DemoAction, meta?: Partial<Omit<LogMeta, "at">>): string | null | false {
   if (typeof window !== "undefined") refreshFromStorage();
   const current = getSnapshot();
   if (!current) return false;
@@ -116,7 +121,8 @@ export function dispatch(action: DemoAction, meta?: Partial<Omit<LogMeta, "at">>
   if (next === current) return false;
   history = [...history.slice(-(UNDO_LIMIT - 1)), current];
   setState(next);
-  return true;
+  const logId = next.log[0]?.id;
+  return logId !== current.log[0]?.id ? logId ?? null : null;
 }
 
 /** Serializes booking confirmations across tabs when Web Locks are available. */

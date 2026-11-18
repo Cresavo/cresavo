@@ -19,7 +19,7 @@ import { Notice } from "../../ui/notice";
 import { Sheet } from "../../ui/sheet";
 import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
-import { SlotPicker, type Slot } from "./slot-picker";
+import { SlotPicker, slotOnDate, type Slot } from "./slot-picker";
 
 export interface NewBookingPreset {
   customerId?: string;
@@ -53,9 +53,10 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
   // A treatment several people can do goes to the person the sheet was opened for, otherwise the first.
   const staffId = service?.staffIds.find((id) => id === preset.staffId) ?? service?.staffIds[0];
   const [date, setDate] = useState(preset.date ?? today);
-  const [slot, setSlot] = useState<(Slot & { staffId?: StaffId }) | null>(
+  const [picked, setSlot] = useState<(Slot & { staffId?: StaffId }) | null>(
     preset.date !== undefined && preset.start !== undefined ? { date: preset.date, start: preset.start, staffId: preset.staffId } : null,
   );
+  const slot = slotOnDate(picked, date);
   const customer = findCustomer(state, customerId);
   const q = query.trim().toLowerCase();
   const matches = q

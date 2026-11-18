@@ -5,7 +5,7 @@ import { createDemoState } from "@/concept/data/generate";
 import { freeStarts } from "@/concept/data/slots";
 import { applyAction, defaultMeta, LOG_LIMIT } from "@/concept/log/capture";
 import { filterLog, present } from "@/concept/log/filter";
-import { isUndoable } from "@/concept/log/undo";
+import { canUndo, isUndoable, undoBlockReason, undoEntry } from "@/concept/log/undo";
 import type { LogMeta } from "@/concept/log/types";
 
 const today = "2026-11-16";
@@ -63,6 +63,64 @@ describe("activity log", () => {
     const undone = applyAction(moved, { type: "log/undo", id: moved.log[0].id }, meta);
     const redone = applyAction(undone, { type: "log/undo", id: undone.log[0].id }, meta);
     expect(redone.bookings.find((b) => b.id === upcoming.id)).toEqual(moved.bookings.find((b) => b.id === upcoming.id));
+  });
+
+  it.each([
+    ["a cancellation", { type: "booking/cancel", id: upcoming.id }],
+    ["a move", moveAction()],
+    ["a customer deletion", { type: "customer/delete", id: upcoming.customerId }],
+  ] as const)(
+    "refuses to undo %s after another customer books the original time",
+    (_label, action) => {
+      const changed = applyAction(base, action, meta);
+      const [entry] = changed.log;
+      const customer = base.customers.find((c) => c.id !== upcoming.customerId)!;
+      const rebooked = applyAction(changed, {
+        type: "booking/create", customerId: customer.id, serviceId: upcoming.serviceId,
+        staffId: upcoming.staffId, date: upcoming.date, start: upcoming.start, source: "phone",
+      }, meta);
+      expect(rebooked.bookings.at(-1)).toMatchObject({ customerId: customer.id, start: upcoming.start });
+      expect(undoBlockReason(rebooked, entry)).toBe("time-taken");
+      expect(canUndo(rebooked, entry.id)).toBe(false);
+      expect(undoEntry(rebooked, entry.id)).toBe(rebooked);
+      expect(applyAction(rebooked, { type: "log/undo", id: entry.id }, meta)).toBe(rebooked);
+      if (action.type === "booking/cancel") {
+        expect(rebooked.bookings.find((b) => b.id === upcoming.id)?.status).toBe("cancelled");
+      }
+    },
+  );
+
+  it("undoes a cancellation when the original time is still free", () => {
+    const cancelled = applyAction(base, { type: "booking/cancel", id: upcoming.id }, meta);
+    const [entry] = cancelled.log;
+    expect(canUndo(cancelled, entry.id)).toBe(true);
+    const undone = applyAction(cancelled, { type: "log/undo", id: entry.id }, meta);
+    expect(undone.bookings.find((b) => b.id === upcoming.id)).toMatchObject({ status: "booked", date: upcoming.date, start: upcoming.start });
+  });
+
+  it("checks room availability and assigns a free room when undoing a cancellation", () => {
+    const [firstRoom, secondRoom] = base.resources;
+    const state = { ...base, bookings: [] };
+    const date = addDays(today, 1);
+    const start = 600;
+    const booked = applyAction(state, {
+      type: "booking/create", customerId: base.customers[0].id, serviceId: "medical-foot-care", staffId: "anna", date, start, source: "phone",
+    }, meta);
+    const [booking] = booked.bookings;
+    expect(booking.resourceId).toBe(firstRoom.id);
+    const cancelled = applyAction(booked, { type: "booking/cancel", id: booking.id }, meta);
+    const [entry] = cancelled.log;
+    const roomTaken = applyAction(cancelled, {
+      type: "booking/create", customerId: base.customers[1].id, serviceId: "classic-60", staffId: "erik", date, start, source: "phone",
+    }, meta);
+    expect(roomTaken.bookings.at(-1)?.resourceId).toBe(firstRoom.id);
+
+    const oneRoom = { ...roomTaken, resources: [firstRoom] };
+    expect(canUndo(oneRoom, entry.id)).toBe(false);
+    expect(undoEntry(oneRoom, entry.id)).toBe(oneRoom);
+    expect(undoEntry(roomTaken, entry.id).bookings.find((b) => b.id === booking.id)).toMatchObject({
+      status: "booked", resourceId: secondRoom.id,
+    });
   });
 
   it("refuses to undo when something changed the same record afterwards", () => {

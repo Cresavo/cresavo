@@ -3,7 +3,10 @@ import { createDemoState } from "@/concept/data/generate";
 import { addDays, toKey } from "@/concept/data/dates";
 import { freeStarts } from "@/concept/data/slots";
 
-const { changed, unsubscribe } = vi.hoisted(() => ({ changed: vi.fn(), unsubscribe: { current: () => {} } }));
+const { changed, showToast, unsubscribe } = vi.hoisted(() => ({
+  changed: vi.fn(), showToast: vi.fn(), unsubscribe: { current: () => {} },
+}));
+vi.mock("@/concept/ui/toast", () => ({ showToast }));
 vi.mock("react", () => ({
   useSyncExternalStore: (subscribe: (notify: () => void) => () => void, read: () => unknown) => {
     unsubscribe.current = subscribe(changed);
@@ -14,6 +17,35 @@ vi.mock("react", () => ({
 afterEach(() => {
   unsubscribe.current();
   vi.unstubAllGlobals();
+});
+
+it("the cancellation toast reports a conflict after another tab takes the slot", async () => {
+  const today = toKey(new Date());
+  const base = createDemoState(today);
+  const booking = base.bookings.find((b) => b.status === "booked" && b.date > today)!;
+  const customer = base.customers.find((c) => c.id !== booking.customerId)!;
+  let raw = JSON.stringify(base);
+  const localStorage = { getItem: () => raw, setItem: (_key: string, value: string) => { raw = value; } };
+  vi.stubGlobal("window", Object.assign(new EventTarget(), { localStorage }));
+  showToast.mockClear();
+  const { applyAction } = await import("@/concept/log/capture");
+  const { dispatchWithUndoToast } = await import("@/concept/studio/log/undo-toast");
+
+  expect(dispatchWithUndoToast({ type: "booking/cancel", id: booking.id }, "Booking cancelled")).toBe(true);
+  const action = showToast.mock.calls[0][1];
+  expect(action.label).toBe("Undo");
+  const taken = applyAction(JSON.parse(raw), {
+    type: "booking/create", customerId: customer.id, serviceId: booking.serviceId,
+    staffId: booking.staffId, date: booking.date, start: booking.start, source: "phone",
+  }, { actor: "owner", source: "button", at: Date.now() });
+  expect(taken.bookings.at(-1)?.customerId).toBe(customer.id);
+  const rebooked = JSON.stringify(taken);
+  raw = rebooked;
+
+  action.run();
+
+  expect(showToast).toHaveBeenLastCalledWith("Can't undo: that time is no longer available.");
+  expect(raw).toBe(rebooked);
 });
 
 it("reloads another tab's booking and rejects a stale attempt for the same slot", async () => {

@@ -8,15 +8,14 @@ import { t } from "../../i18n";
 import { relativeDay } from "../../i18n/format";
 import { filterLog, present, type LogFilter } from "../../log/filter";
 import type { LogEntry } from "../../log/types";
-import { isUndoable } from "../../log/undo";
-import { dispatch } from "../../store";
+import { undoBlockReason } from "../../log/undo";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { Chip } from "../../ui/controls";
 import { EmptyState } from "../../ui/empty-state";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
+import { undoWithToast } from "./undo-toast";
 
 /** "Today 10:42", "Mon 16 Nov 10:42". */
 function entryTime(at: number, today: string): string {
@@ -24,8 +23,7 @@ function entryTime(at: number, today: string): string {
   return `${relativeDay(toKey(date), today)} ${formatTime(date.getHours() * 60 + date.getMinutes())}`;
 }
 
-function Row({ entry, canUndo, today }: { entry: LogEntry; canUndo: boolean; today: string }) {
-  const undo = () => showToast(dispatch({ type: "log/undo", id: entry.id }) ? t("log.undoneToast") : t("log.cannotUndo"));
+function Row({ entry, reason, today }: { entry: LogEntry; reason: ReturnType<typeof undoBlockReason>; today: string }) {
   return (
     <li className="flex items-start gap-3 px-4 py-3.5">
       <div className="min-w-0 flex-1 space-y-1">
@@ -40,11 +38,12 @@ function Row({ entry, canUndo, today }: { entry: LogEntry; canUndo: boolean; tod
         <p className="text-xs text-text-secondary">
           {entryTime(entry.at, today)} · {t(`log.actor.${entry.actor}`)} · {t(`log.source.${entry.source}`)}
         </p>
+        {reason === "time-taken" && <p className="text-sm text-text-secondary">{t("log.undoTimeTaken")}</p>}
       </div>
       {entry.undone ? (
         <Badge>{t("log.undone")}</Badge>
-      ) : canUndo ? (
-        <Button size="sm" variant="secondary" icon={<Undo2 size={16} />} onClick={undo}>{t("common.undo")}</Button>
+      ) : !reason ? (
+        <Button size="sm" variant="secondary" icon={<Undo2 size={16} />} onClick={() => undoWithToast(entry.id)}>{t("common.undo")}</Button>
       ) : null}
     </li>
   );
@@ -81,7 +80,7 @@ export function ActivityList() {
         <Card>
           <ul className="divide-y divide-hairline">
             {shown.map((entry) => (
-              <Row key={entry.id} entry={entry} canUndo={isUndoable(state, entry)} today={today} />
+              <Row key={entry.id} entry={entry} reason={undoBlockReason(state, entry)} today={today} />
             ))}
           </ul>
         </Card>

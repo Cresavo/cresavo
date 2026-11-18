@@ -6,10 +6,9 @@ import { Trash2 } from "lucide-react";
 import type { Customer } from "../../data/types";
 import { t } from "../../i18n";
 import { TRASH_DAYS } from "../../trash/trash";
-import { dispatch, undo } from "../../store";
 import { Button } from "../../ui/button";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 /** Deleting a customer moves them to the Trash for 30 days instead of removing them. */
 export function DeleteCustomer({ customer }: { customer: Customer }) {
@@ -17,10 +16,10 @@ export function DeleteCustomer({ customer }: { customer: Customer }) {
   const router = useRouter();
 
   const remove = () => {
-    if (!dispatch({ type: "customer/delete", id: customer.id })) return;
+    const message = t("customer.deletedToast", { name: customer.firstName, days: TRASH_DAYS });
+    if (!dispatchWithUndoToast({ type: "customer/delete", id: customer.id }, message)) return;
     setConfirming(false);
     router.push("/studio/customers");
-    showToast(t("customer.deletedToast", { name: customer.firstName, days: TRASH_DAYS }), { label: t("common.undo"), run: undo });
   };
 
   return (

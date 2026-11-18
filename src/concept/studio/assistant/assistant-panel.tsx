@@ -7,7 +7,7 @@ import { useSpeech } from "../../command/use-speech";
 import { t } from "../../i18n";
 import { IconButton } from "../../ui/button";
 import { cx } from "../../ui/cx";
-import { replyUndoable } from "./reply-actions";
+import { replyUndoBlockReason } from "./reply-actions";
 import { ReplyCardView, type CardActions } from "./reply-card";
 import { canSpeak, stopSpeaking } from "./speak";
 import { closeAssistant, setSpeak, takePendingQuestion } from "./thread-store";
@@ -190,6 +190,7 @@ function MessageView({ message, assistant, onEdit }: { message: Message; assista
     );
   }
   const reply = message.reply!;
+  const undoReason = replyUndoBlockReason(reply);
   // A rule answer's text repeats its card (it is there to be read aloud); AI wording adds to it.
   const repeatsCard = reply.source === "rules" && !!reply.card && ANSWERS.has(reply.card.kind);
   return (
@@ -198,9 +199,10 @@ function MessageView({ message, assistant, onEdit }: { message: Message; assista
         <ReplyCardView
           card={reply.card}
           status={reply.status}
-          actions={cardActions(assistant, message.id, replyUndoable(reply) ? reply.undoId : undefined, reply.request ? onEdit : undefined)}
+          actions={cardActions(assistant, message.id, undoReason ? undefined : reply.undoId, reply.request ? onEdit : undefined)}
         />
       )}
+      {undoReason === "time-taken" && <p className="text-sm text-text-secondary">{t("log.undoTimeTaken")}</p>}
       {reply.followUps && !reply.status && <FollowUps items={reply.followUps} onPick={assistant.send} />}
     </Bubble>
   );

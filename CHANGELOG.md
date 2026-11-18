@@ -49,6 +49,8 @@ All notable changes to this project are documented here. Format follows
 - On phones the inline command box is replaced by the assistant button (#18); it stays on larger screens.
 
 ### Fixed
+- Studio booking sheets only confirm times on the selected day. Undo checks staff and resource availability before restoring a booking.
+- The customer time picker shows salon contact links when there are no open days in the four-week window.
 - Preserve links between the product site and demo after a proxy rewrite and allow indexing of the product home.
 - Return English booking-engine errors and owner MCP messages.
 - Demo bookings: book a new caller with contact details, start from a treatment that fits the selected gap, and preserve public booking details when changing times. Phone search handles local and international formatting, and public booking validates mobile numbers.

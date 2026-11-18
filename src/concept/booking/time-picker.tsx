@@ -43,7 +43,20 @@ export function TimePicker({ state, serviceId, clock, onPick, onWaitlist, ignore
   const [chosen, setChosen] = useState<DateKey>();
   const selected = days.find((d) => d.date === chosen) ?? days.find((d) => d.slots.length) ?? days[0];
 
-  if (!selected) return <p className="text-sm text-text-secondary">{t("slots.noneThisDay")}</p>;
+  if (!selected) {
+    const { phone, email } = state.salon;
+    return (
+      <div className="space-y-2 rounded-lg bg-surface-2 p-4">
+        <p className="text-[15px]">{t("booking.noOpenDays")}</p>
+        {(phone || email) && (
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-action">
+            {phone && <a className="underline" href={`tel:${phone.replace(/[^\d+]/g, "")}`}>{phone}</a>}
+            {email && <a className="underline [overflow-wrap:anywhere]" href={`mailto:${email}`}>{email}</a>}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
