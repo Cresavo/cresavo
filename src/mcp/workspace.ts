@@ -1,6 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { bookingListSchema, listServices } from "../lib/domain";
+import {
+  bookingListSchema,
+  campaignSchema,
+  createCampaign,
+  listServices,
+} from "../lib/domain";
 import { listCalendar, calendarSchema } from "../lib/calendar";
 import {
   getBooking,
@@ -18,7 +23,10 @@ import {
   serviceEditSchema,
   staffEditSchema,
 } from "../lib/workspace-config";
-import { LOCAL_WORKSPACE_ACTOR as actor } from "../lib/workspace-write";
+import {
+  LOCAL_WORKSPACE_ACTOR as actor,
+  workspaceWrite,
+} from "../lib/workspace-write";
 import { dateSchema, idempotencyKeySchema } from "../lib/validation";
 import { safeToolSchema, reply } from "./reply";
 import {
@@ -250,6 +258,26 @@ export function registerWorkspaceTools(
     async (v) => reply(() => getMoveAvailability(v.id, v.date, v.staffId)),
   );
   if (!allowWrites) return;
+  server.registerTool(
+    "create_campaign_draft",
+    {
+      description:
+        "Save an unpublished offer after explicit approval. Requires --admin --allow-workspace, confirmed=true and a stable clientRequestId for safe retries. Enter dates as YYYY-MM-DD. Publish it manually in the admin workspace.",
+      inputSchema: safeToolSchema(campaignSchema.safeExtend(writeFields)),
+    },
+    async (v) =>
+      reply(() => {
+        const input = mutationInput(v);
+        return workspaceWrite(
+          "create_campaign_draft",
+          input,
+          v.clientRequestId,
+          actor,
+          false,
+          (tx) => createCampaign(input, tx),
+        );
+      }),
+  );
   server.registerTool(
     "move_booking",
     {
