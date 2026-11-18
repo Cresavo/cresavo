@@ -1,90 +1,54 @@
-# Open-source launch checklist (goal 13)
+# Open-source launch (goal 13)
 
-Status 2026-11-17: in-repo rename and front door done. Publishing waits for
-Niclas. Agents never create repositories, change visibility or touch GitHub
-settings. Name and structure: [BRAND.md](BRAND.md).
+Status 2026-11-18: **ready for launch.** The repository is prepared to be
+made public as it is (`niclasvestlund-YT/booking-lab-se`, published under the
+Cresavo name). The remaining steps are GitHub settings and decisions that only
+Niclas can make; they are listed in order, with click paths, in
+[LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md). Agents never change repository
+settings or visibility. Name and naming rules: [BRAND.md](BRAND.md).
 
 ## Done in the repo
 
-- [x] Product renamed from Booking Lab to Flerdo in user-facing text (landing
-      `/`, root layout title, `/product`, `/live`, admin header, A2A agent card
-      name, concept UI). Command box placeholder is "Ask Flerdo… what would you
-      like to do?". Demo business stays "Salong Eko".
-- [x] README (what, why, screenshots, quick start), LICENSE (AGPL-3.0).
-- [x] `CONTRIBUTING.md` (English), `CODE_OF_CONDUCT.md` (Contributor Covenant
-      2.1, contact `conduct@flerdo.com`), `SECURITY.md`.
-- [x] Issue forms (`bug.yml`, `feature.yml`, `config.yml`) and
-      `.github/pull_request_template.md`.
-- [x] Draft individual and entity CLA: [legal/CLA.md](legal/CLA.md)
-      (not usable before lawyer review).
-- [x] First pattern scan of full history for both repos, 2026-11-16: no keys.
-- [x] Fixtures are synthetic, avatars generated, demo data clearly fictional.
+- [x] Product name Cresavo in all user-facing text; technical identifiers keep
+      their earlier names on purpose ([BRAND.md](BRAND.md)).
+- [x] README for the public: what it is, live demo, tour video, screenshots,
+      status, quick start, self-hosting, architecture, contributing, security,
+      licence and trademark.
+- [x] LICENSE (AGPL-3.0-only), CONTRIBUTING, CODE_OF_CONDUCT (Contributor
+      Covenant 2.1, reports through GitHub's private channels, no personal
+      email), SECURITY (supported versions, private vulnerability reporting).
+- [x] Issue forms (`bug.yml`, `feature.yml`, `config.yml` with blank issues
+      off and security reports routed to SECURITY.md), PR template with the
+      CLA tick, tests and screenshots, and `CODEOWNERS`.
+- [x] Draft individual and entity CLA ([legal/CLA.md](legal/CLA.md)) and draft
+      trademark policy ([TRADEMARK.md](../TRADEMARK.md)), both marked
+      "Draft, pending legal review". TRADEMARK.md also states that the brand
+      assets and `docs/media/**` are not covered by the AGPL.
+- [x] Third-party notices, including the AI-generated demo images
+      (`public/demo/manifest.json`).
+- [x] gitleaks in CI (`secret-scan.yml`, `.gitleaks.toml`), OpenSSF Scorecard
+      and Dependabot config. Tree and full history scanned 2026-11-18: no leaks.
+- [x] Public-readiness sweep 2026-11-18: raw evidence logs removed from
+      `docs/archive/`; private preview URLs, deployment IDs, local paths and
+      the owner's surname redacted in the remaining archive. Fixtures are
+      synthetic, the demo photos are AI-generated, demo data is fictional.
 
-## Still to do in the repo (agents, before publishing)
+## Known limits (accepted for a concept demo)
 
-- [x] Run gitleaks over full history and add it to CI (`secret-scan.yml`,
-      `.gitleaks.toml`). Re-run on the cleaned tree before publishing.
-- [ ] Move or delete internal docs from the published tree: `docs/history/`,
-      `docs/qa/`, old `EPIC_*`, plan and report docs, Swedish `DEMO.md`,
-      `docs/verification/`, personal paths and names beyond the copyright line.
-      Keep a short English `docs/` that matches the code.
-- [x] Add OpenSSF Scorecard workflow and Dependabot config (`scorecard.yml`,
-      `dependabot.yml`; Scorecard only becomes useful once the repo is public).
-- [ ] Fresh-clone check: clone, `npm ci`, lint, tsc, test, build, ai:eval.
-- [ ] Rename the engine identifiers (see "Deliberately left" below) in one
-      pass at monorepo time.
+- Many internal docs (`docs/ARCHITECTURE.md`, `docs/DATA_FLOWS.md`,
+  `docs/STATUS.md`, `docs/archive/**`) are still in Swedish. Goal 29 moves the
+  current docs to English; the archive stays as history.
+- Git history still contains the removed evidence files and 13 commits
+  authored with a personal email address; see the decision in
+  [LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md).
 
-## Needs Niclas
-
-- [ ] GitHub org `flerdo` and repo `flerdo/flerdo` (new public repo, fresh
-      short history squashed from the cleaned tree; current repo stays private
-      as the archive).
-- [ ] Domains: flerdo.com (+ flerdo.app, flerdo.se, flerdo.ai).
-- [ ] npm scope `@flerdo`.
-- [ ] Trademark search (EUIPO TMview, classes 9 and 42).
-- [ ] Lawyer review of [legal/CLA.md](legal/CLA.md) (and the AGPL extension
-      exception question for proprietary add-ons, plus the contact addresses
-      `conduct@flerdo.com` and a security contact).
-- [ ] Enable on the public repo: secret scanning with push protection, CodeQL
-      code scanning, Dependabot alerts and updates, private vulnerability
-      reporting (SECURITY.md assumes it).
-- [ ] Branch protection on `main` (pull request and green CI required).
-- [ ] Install the CLA Assistant GitHub app with the reviewed CLA text.
-- [ ] Final approval, then flip visibility / publish. Agents do not do this.
-
-## Monorepo move plan (next step)
-
-Target `flerdo/flerdo`:
-
-- `apps/web`: this repo (studio, customer pages, API, concept demo).
-- `packages/gateway`: from booking-lab-gateway (REST, MCP, A2A, USP).
-- `packages/ai`: tasks, router, evals (today `src/concept/ai` and
-  `scripts/ai-eval.mts`).
-- `docs/`: cleaned English docs.
-
-Steps: (1) clean the tree per the list above; (2) set up npm workspaces and
-one CI; (3) move with `git mv` so blame survives, then squash into the new
-repo; (4) rename package names to `@flerdo/*` and engine identifiers; (5) one
-changelog and release; (6) archive `booking-lab-se` and `booking-lab-gateway`
-as private. Paid integration service stays private as `flerdo/connect`.
-
-## Deliberately left as "Booking Lab" (rename at monorepo time)
+## Deliberately left with earlier names
 
 - `package.json` name and `package-lock.json`; plugin folder
   `plugins/booking-lab-time-card` and its manifest.
 - Engine identifiers and descriptions: `src/lib/agent-api/*` (`/api/v1`,
-  discovery text, OpenRPC title), `src/mcp/*` (MCP server names, owner/time
-  card UI titles), `src/lib/postgres-rate-limit.ts`, A2A auth realm
-  `booking-lab-local-demo`.
-- Customer data export download filename `booking-lab-kunddata-del-*.json`
-  (admin engine UI, Swedish) and the iCalendar `PRODID`.
-- Scripts and integration pairing (`scripts/integration/*`, `record-demo.mjs`,
-  `capture-landing.mjs`, `agent-mcp-smoke.mts`), Dockerfile, `.gitignore`.
-- Tests that assert engine identifiers (`tests/agent-*`, `tests/integration/*`,
-  `tests/time-card-ui/*`).
-- Historical and engine docs: `docs/history`, `docs/qa`, `docs/verification`,
-  EPIC and plan docs, reports, `DEMO.md`, `HANDOFF.md`, `GATEWAY_SPLIT.md`,
-  `WORKPLAN.md`, `PROJECT_STATUS.md`, `PRODUCT_ROADMAP.md`, `DATA_FLOWS.md`,
-  `docs/concept/CODEX_GOAL_NIGHT1.md`, and repo names in `docs/goals`.
-- The Swedish half of the old `/product`, `/live` and admin pages is Swedish
-  copy for the engine demo; only the brand word changed there.
+  discovery text, OpenRPC title), `src/mcp/*` (MCP server names), the A2A auth
+  realm, concept MCP names (`flerdo-demo`, `x-flerdo`), storage keys and
+  export file names.
+- Scripts, Dockerfile, `.gitignore` and the tests that assert these identifiers.
+- History in `docs/archive/`, `docs/history/` and `design/brand/`.

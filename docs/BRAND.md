@@ -1,52 +1,67 @@
 # Brand and naming
 
-Decided by Niclas 2026-11-17. **Update (goal 18): the product is now called
-Libovo** (brand kit v0.9 in `design/brand/libovo-v0.9/`, provisional and not
-trademark-cleared); the assistant keeps "Ask Flerdo" until Niclas decides.
-Both names live in `src/concept/brand.ts` (`BRAND`, `ASSISTANT`); the design
-system is in `docs/design/LIBOVO.md`. The sections below describe the earlier
-Flerdo naming and still apply to technical identifiers, which were not renamed.
+**Name:** Cresavo. **Tagline:** "More time. On your terms."
 
-**Name:** Flerdo. Swedish "fler" (more) + "do". **Tagline:** "Do more, click less."
+History in one line: the project started as Booking Lab, was briefly called
+Flerdo and then Libovo (November 2026), and has been Cresavo since the brand
+concept v0.1 of 2026-11-17. Technical identifiers from the earlier names
+were deliberately not renamed (see below).
 
-One brand. No sub-brands towards customers: inside the product, areas use
+## Where the brand lives
+
+- `src/concept/brand.ts` holds the product name and tagline (`BRAND`) and the
+  assistant label (`ASSISTANT`). Every user-facing mention reads from there;
+  `tests/brand.test.ts` fails if the name is written out anywhere else in `src/`.
+- `design/brand/cresavo-v0.1/` is the brand concept (wordmark, symbol
+  concepts, tokens, typography, voice). `design/brand/libovo-v0.9/` is the
+  earlier kit. Both are kept verbatim; do not edit them. A new version goes
+  into its own folder.
+- The design system in code is described in [design/LIBOVO.md](design/LIBOVO.md)
+  (the file name and `libovo-theme.css` are technical identifiers).
+- Use of the name, wordmark and media: [TRADEMARK.md](../TRADEMARK.md).
+
+## How the name is used
+
+One brand, no sub-brands towards customers. Inside the product, areas use
 plain words.
 
 | Level | Name | Example |
 |---|---|---|
-| Product | **Flerdo** | "Flerdo – do more, click less" |
-| Areas in the app | Plain words | Calendar, Customers, Journal, Campaigns, Stock, Finance |
-| Industry packs | "Flerdo for …" | Flerdo for salons, Flerdo for clinics, later Flerdo for shops |
-| Customer booking page | "Book with Flerdo" | `book.flerdo.com/<business>` or the business's own domain |
-| Command box / assistant | **Ask Flerdo** | Placeholder "Ask Flerdo… what would you like to do?" |
-| Paid integration service | **Flerdo Connect** | SMS, payments, social publishing, ads (private repo) |
-| Code packages | `@flerdo/*` | `@flerdo/gateway`, `@flerdo/ai`, `@flerdo/mcp` |
+| Product | **Cresavo** | "Cresavo: more time. On your terms." |
+| Areas in the app | Plain words | Today, Calendar, Customers, Inbox, Finance |
+| Assistant | **Assistant** (no persona name) | The "Assistant" button in the studio |
+| Customer booking page | The business's own brand | Platform attribution is off by default (`TENANT_POLICY`) |
+| Domains | `cresavo.com` (coming soon, waiting list), `demo.cresavo.com` (demo) | |
 
-## On "AI" in the name
+No "AI" in the product name: the product never requires AI, and many owners
+are wary of it. The demo business stays "Salong Eko", a fictional customer.
 
-No "AI" in the product name: many owners are wary of AI, the product never
-requires AI, and "AI" in names dates quickly. AI shows up as "Ask Flerdo" and
-as an optional usage line in pricing. flerdo.ai is registered defensively.
+## Technical identifiers were not renamed
 
-## Repositories (target, see goal 13)
+Environment variables, storage keys, API routes, MCP server names and
+namespaces (for example `flerdo-demo`, `x-flerdo`), the package name
+`booking-lab-se`, database tables, file names and the repository name keep
+their earlier names. Renaming them would break stored demo state, client
+configurations and tests for no user-facing gain. A rename, if any, happens
+in one deliberate pass, never piecemeal. New user-facing text says
+"Cresavo", never "Booking Lab", "Flerdo" or "Libovo".
 
-- GitHub org `flerdo`, public monorepo `flerdo/flerdo`:
-  `apps/web` (studio, customer pages, API), `packages/gateway` (REST, MCP,
-  A2A, USP; today's booking-lab-gateway), `packages/ai` (tasks, router, evals),
-  `docs/`.
-- Private `flerdo/connect` for the paid integration service.
-- `booking-lab-se` and `booking-lab-gateway` become private archives.
+## Decision: keep the name despite a Polish product called Cresavo
 
-## Rules for agents
+Decided by Niclas on 2026-11-18.
 
-- New user-facing text says "Flerdo", never "Booking Lab".
-- The demo business stays "Salong Eko" (a fictional customer of Flerdo).
-- The rename of existing code, UI and package names happens in goal 13, in
-  one pass, not piecemeal.
+- **Finding:** a Polish product uses the name Cresavo (cresavo.pl). It
+  appears inactive.
+- **Decision:** keep Cresavo and accept the risk.
+- **Risk:** a name conflict or confusion in the EU, a later trademark claim,
+  or having to rename after launch (domains, wordmark, copy). Cresavo is not
+  registered as a trademark by this project.
+- **What would trigger a rethink:** the Polish product becoming active again;
+  a trademark filing for Cresavo by them or anyone else; or a complaint from
+  the name's other user. Any of these goes straight to Niclas, who decides
+  whether to rename.
 
 ## Owner to-dos (only Niclas)
 
-- [ ] Domain: flerdo.com (+ flerdo.app, flerdo.se, flerdo.ai)
-- [ ] GitHub org: github.com/flerdo
-- [ ] npm scope: @flerdo
-- [ ] Trademark search: EUIPO TMview, classes 9 and 42
+- [ ] Trademark search (EUIPO TMview, classes 9 and 42) before any filing.
+- [ ] Decide whether to register the name.
