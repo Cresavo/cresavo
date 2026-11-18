@@ -47,20 +47,6 @@ async function main() {
     for (const [name, args] of [
       ["list_services", {}],
       ["get_availability", { serviceId: "fotvard", date: day.toISODate() }],
-      ...(admin && !book
-        ? [
-            [
-              "create_campaign_draft",
-              {
-                serviceId: "fotvard",
-                title: "Fotvårdserbjudande",
-                discountPercent: 20,
-                validFrom: day.toISODate(),
-                validUntil: day.plus({ days: 6 }).toISODate(),
-              },
-            ],
-          ]
-        : []),
     ] as [string, Record<string, unknown>][]) {
       const result = await client.callTool({ name, arguments: args });
       if (result.isError) throw new Error(JSON.stringify(result));
