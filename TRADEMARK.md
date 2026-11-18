@@ -2,52 +2,66 @@
 
 # Cresavo trademark, brand and media policy
 
-The [AGPL-3.0-only license](LICENSE) covers the project's source code. It does
-not grant any right to the Cresavo brand or to the media listed below. Cresavo
-is a provisional name and is not registered as a trademark.
+Cresavo is a provisional name and is not registered as a trademark. This
+policy covers two things the code licence does not: the **Cresavo brand**
+(trademark rights) and a few **standalone brand and media files**
+(copyright). Nothing in it limits what the AGPL lets you do with the code, or
+uses permitted by applicable law.
 
-## What this policy covers
+## 1. What the AGPL covers
 
-The following are **not** licensed under the AGPL, and all rights in them are
-reserved by the project maintainer:
+The application source is licensed under [AGPL-3.0-only](LICENSE). That
+includes the files the software needs to build and run, even where they show
+the brand:
 
-- the name **Cresavo** and the tagline "More time. On your terms." when used
-  as brand identifiers;
-- the Cresavo **wordmark** and the **symbol concepts**;
-- the brand kits in `design/brand/**` (wordmarks, icons, tokens, typography
-  notes, site artwork and earlier kits such as Libovo) and the app icons in
-  `public/brand/**`;
-- the media in `docs/media/**` (for example the product tour video and its
-  poster).
+- the design token files the code imports (`design/brand/*/tokens/**`, for
+  example `colors.json`);
+- the wordmark artwork written into source files (for example
+  `src/concept/ui/wordmark.tsx`) and the app icons in `public/brand/**`;
+- the AI-generated demo photos in `public/demo/` (see
+  [public/demo/manifest.json](public/demo/manifest.json)), to the extent any
+  copyright exists in them, and the screenshots and screen recordings of the
+  product in `public/site/**`, `public/demo/*.png`, `docs/design/**` and
+  `docs/concept/screens/**`.
 
-The demo screenshots elsewhere in the repository show the brand as it
-appears in the product. Including them unchanged in a copy of this repository
-is fine; using them to promote another product or service is not.
+The AGPL gives copyright permission only. It grants no trademark rights in the
+Cresavo name or logo (AGPL section 7(e)).
 
-## What you may do
+## 2. What is not covered by the AGPL (all rights reserved)
 
-- Redistribute unmodified copies of this repository or official releases,
-  including the files above, with their original name and logo.
-- Refer accurately to Cresavo by name in documentation, articles, reviews,
-  talks and comparisons.
-- Say your product "works with Cresavo" or "is based on Cresavo" if that is
-  true, in plain text and without the logo.
-- Show the tour video or screenshots unchanged when writing or talking about
-  the Cresavo project itself, with a link to this repository.
+- the brand kits in `design/brand/**` as standalone artwork and documents
+  (wordmark and symbol files, icon sets, typography and voice notes, site
+  artwork and earlier kits such as Libovo), except the token files in
+  section 1;
+- the media in `docs/media/**` (the product tour video and its poster).
 
-Use these permissions without implying sponsorship, endorsement or affiliation.
+You may keep these files, unchanged, in a copy or fork of this repository, and
+show the tour video or poster unchanged when writing or talking about the
+Cresavo project, with a link to this repository. Any other use needs written
+permission.
 
-## What you may not do
+## 3. Using the Cresavo name and logo
 
-- Name a fork, product or hosted service "Cresavo" or something confusingly
-  similar, or use the Cresavo wordmark or symbol to identify it. Use your own
-  name and logo for those offerings, and remove the Cresavo brand from the
-  user interface (`src/concept/brand.ts` and the brand assets) before you
-  offer a modified version to others.
-- Modify the wordmark, symbols or media, or use them in a way that suggests
-  your version is the official one.
-- Register domain names, social media accounts or trademarks that contain the
+You may:
+
+- fork the repository, keep its attribution and notices, and develop your
+  changes in public;
+- redistribute unmodified copies of the repository or official releases under
+  their original name and logo;
+- refer accurately to Cresavo in documentation, articles, reviews, talks and
+  comparisons;
+- say truthfully that your work "is based on Cresavo" or "works with Cresavo".
+
+Please do not:
+
+- use a name or logo for an independently offered modified product or hosted
+  service that is the same as, or confusingly similar to, Cresavo. Give such
+  an offering its own public-facing name and logo (in this code, the name
+  lives in `src/concept/brand.ts` and the logo in the brand assets);
+- use the marks in a way that suggests your version is an official release,
+  or that the project sponsors or endorses you;
+- register domain names, social media accounts or trademarks that contain the
   Cresavo name.
 
-Ask the project maintainer for written permission for any other brand use,
-for example by opening a discussion or issue in this repository.
+For any other brand use, ask the maintainer, for example in a GitHub
+discussion or issue.

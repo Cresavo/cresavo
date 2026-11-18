@@ -129,9 +129,13 @@ npm run test:integration       # needs a local database whose name ends in _test
 
 Contributions are welcome. Read [CONTRIBUTING](CONTRIBUTING.md) and
 [AGENTS.md](AGENTS.md) (how we work; it applies to people and AI agents
-alike). Pull requests need the [Contributor License Agreement](docs/legal/CLA.md)
-(individual or entity), confirmed through the CLA Assistant bot. Please follow
-the [Code of Conduct](CODE_OF_CONDUCT.md).
+alike). Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+Contributions will need a [Contributor License Agreement](docs/legal/CLA.md)
+(individual or entity). It is a **draft, pending legal review**, and the
+project is not collecting signatures yet: you are welcome to open issues and
+pull requests and to comment on the draft, but external pull requests are held
+for merge until the reviewed signing process is available.
 
 ## Security
 
@@ -141,13 +145,18 @@ a public issue. See [SECURITY](SECURITY.md).
 ## Licence and trademark
 
 The source code is licensed under the
-[GNU Affero General Public License v3.0 only](LICENSE) (AGPL-3.0-only).
-If you run a modified version as a network service, the AGPL requires you to
-offer its users the corresponding source. Third-party components keep their
-own licences: [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md).
+[GNU Affero General Public License v3.0 only](LICENSE) (AGPL-3.0-only),
+including the design-token files and artwork the application needs to build
+and run. If you modify Cresavo and users interact with it over a network,
+prominently offer those users a free download of the Corresponding Source of
+the version they are using, including the files and scripts needed to build
+and run it. Third-party components keep their own licences:
+[THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md).
 
-**Not covered by the AGPL:** the Cresavo name, wordmark and symbol concepts,
-the brand kits in `design/brand/**` (except the token files the build needs),
-the app icons in `public/brand/**` and the media in `docs/media/**`. All
-rights in them are reserved; see [TRADEMARK.md](TRADEMARK.md) for what you may
-do. Forks must use their own name and logo.
+**Not covered by the AGPL:** trademark rights in the Cresavo name and logo,
+the standalone brand kits in `design/brand/**` (except the token files the
+build needs) and the media in `docs/media/**`; all rights in those are
+reserved. You may fork the repository, keep its attribution and say truthfully
+that your work is based on Cresavo. Use a distinct name and logo for an
+independently offered modified product or service, and do not suggest it is
+official. Details: [TRADEMARK.md](TRADEMARK.md) (draft, pending legal review).

@@ -1,24 +1,35 @@
 # Third-party notices
 
-The application code is AGPL-3.0-only (see [LICENSE](LICENSE)). Dependencies
-keep their own licences. The Cresavo name, wordmark, symbol concepts,
-`design/brand/**`, `public/brand/**` and `docs/media/**` are covered by [TRADEMARK.md](TRADEMARK.md),
-not by this file or the AGPL.
+The application code is AGPL-3.0-only (see [LICENSE](LICENSE)), including the
+token files and artwork it needs to build and run. Dependencies keep their own
+licences. Trademark rights in the Cresavo name and logo, the standalone brand
+kits in `design/brand/**` and the media in `docs/media/**` are described in
+[TRADEMARK.md](TRADEMARK.md).
 
 ## Demo images
 
 The photos in `public/demo/*.webp` (two fictional staff portraits and three
-salon still lifes) were AI-generated on 2026-11-12 for this demo. They are
-synthetic and show no real people, brands or text. Each file, its prompt
-summary, alt text, size and SHA-256 is recorded in
-[public/demo/manifest.json](public/demo/manifest.json). `public/demo/*.png`
-are screenshots of the demo itself with fictional data.
+salon still lifes) were AI-generated on 2026-11-12 for this demo. The
+portraits depict fictional characters and were not intended to portray
+identifiable people; the prompts excluded brands and text. Each file, its
+prompt summary, alt text, size and SHA-256 is recorded in
+[public/demo/manifest.json](public/demo/manifest.json). To the extent any
+copyright exists in them, they are distributed under AGPL-3.0-only with the
+code. `public/demo/*.png` are screenshots of the demo itself, and
+`public/site/**` holds screen recordings and stills of the demo, all with
+fictional data; see [TRADEMARK.md](TRADEMARK.md) for the brand they show.
 
 ## Fonts
 
-**Inter** is loaded through `next/font/google` and self-hosted at build time.
-Inter is licensed under the [SIL Open Font License 1.1](https://openfontlicense.org/);
-it is not committed to this repository.
+**Inter** (Copyright 2016 The Inter Project Authors,
+<https://github.com/rsms/inter>) is loaded through `next/font/google` and
+self-hosted at build time, so a build serves the font files. Inter is licensed
+under the [SIL Open Font License 1.1](https://openfontlicense.org/open-font-license-official-text/);
+the upstream copyright notice and licence are in
+[Inter's LICENSE.txt](https://github.com/rsms/inter/blob/master/LICENSE.txt),
+and the served font files carry the copyright notice and a link to the OFL in
+their metadata (checked on a 2026-11-18 build). The font is not committed to
+this repository; anyone distributing a build should include the OFL text.
 
 ## Epic 06 icon subset
 

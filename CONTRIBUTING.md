@@ -52,11 +52,18 @@ compatible license.
 
 ## License and CLA
 
-Cresavo is AGPL-3.0-only. Before your first pull request can be merged you
-need to accept the [Contributor License Agreement](docs/legal/CLA.md); the
-CLA Assistant bot asks you to confirm on the pull request. Use the individual
-form for contributions you own and the entity form for contributions made on
-behalf of an organization. The CLA text is a draft pending legal review.
+Cresavo is AGPL-3.0-only. Contributions will need the
+[Contributor License Agreement](docs/legal/CLA.md): the individual form for
+contributions you own, the entity form for contributions made on behalf of an
+organization. In short, you keep ownership, and the agreement also lets the
+maintainer offer your contribution under commercial terms; everyone who
+received it under the AGPL keeps that licence.
+
+**The CLA is a draft, pending legal review. The project is not collecting
+signatures on it yet.** You can open pull requests and comment on the draft,
+but external pull requests are held for merge until the reviewed agreement and
+its signing process (a bot on the pull request) are in place. Never post a
+completed form or personal details in a pull request.
 
 The [draft trademark policy](TRADEMARK.md) covers the Cresavo name, logo and
 brand media, which are not covered by the AGPL.

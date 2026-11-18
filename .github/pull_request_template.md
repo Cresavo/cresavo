@@ -13,4 +13,4 @@
 - [ ] Screenshots added above for visible changes
 - [ ] User-visible change added to `CHANGELOG.md` under `[Unreleased]`
 - [ ] Fictional data only; no secrets or personal data
-- [ ] I have read and agree to the [Contributor License Agreement](https://github.com/niclasvestlund-YT/booking-lab-se/blob/main/docs/legal/CLA.md) (the CLA Assistant bot will ask you to confirm)
+- [ ] I have read the [Contributor License Agreement](https://github.com/niclasvestlund-YT/booking-lab-se/blob/main/docs/legal/CLA.md). It is a draft pending legal review; signatures are not collected yet, and external pull requests are held for merge until its signing process is in place
