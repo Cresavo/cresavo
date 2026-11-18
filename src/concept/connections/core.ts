@@ -83,15 +83,18 @@ export interface ConnectionError {
   providerCode?: string;
 }
 
-const SAFE_CODE = /^[A-Za-z0-9_.-]{1,48}$/;
+// Provider codes are short numbers ("20429", "190.463") or words ("card_declined", "rateLimitExceeded").
+// Anything mixing letters and digits is dropped, because that is what tokens look like.
+const SAFE_CODE = /^(?:\d{1,10}(?:\.\d{1,10})?|[A-Za-z]{2,40}(?:[_.-][A-Za-z]{1,40}){0,5})$/;
 
 export function connectionError(
   port: PortName,
   provider: string,
   code: ConnectionErrorCode,
-  extra: { httpStatus?: number; retryAfterSeconds?: number; providerCode?: unknown } = {},
+  extra: { httpStatus?: number; retryAfterSeconds?: number; providerCode?: unknown; secrets?: readonly string[] } = {},
 ): ConnectionError {
-  const providerCode = extra.providerCode === undefined || extra.providerCode === null ? undefined : String(extra.providerCode);
+  const raw = extra.providerCode === undefined || extra.providerCode === null ? undefined : String(extra.providerCode);
+  const providerCode = raw && raw.length <= 64 && !(extra.secrets ?? []).some((secret) => secret.length >= 4 && (raw.includes(secret) || secret.includes(raw) && raw.length >= 8)) ? raw : undefined;
   return {
     code,
     message: MESSAGES[code],
