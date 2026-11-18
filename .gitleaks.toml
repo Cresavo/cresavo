@@ -64,8 +64,8 @@ regexes = ['''(tokenhash|Vercel-auth),''']
 description = "Fictional keys in connections contract tests"
 condition = "AND"
 commits = [
-  "e834791f4c3ee9c5ddd4a092c5cfe46da16c083d",
-  "b49a3f4943c8d42e1b62fed84be5686f7e458c20",
-  "5a90e377b4ddcab6fda49f75a9c935a55ac1b360",
+  "71858e216cd0abfad93a3bdf314519b4a8daec24",
+  "11966a6bd90723ffdcc1322c5ace918ff1505544",
+  "ebcd4ad1b754b632647082daf931792147db46a5",
 ]
 paths = ['''^tests/concept-connections-(secrets|routes|payments|messaging)\.test\.ts$''']
