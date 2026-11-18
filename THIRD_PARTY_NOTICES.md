@@ -1,5 +1,25 @@
 # Third-party notices
 
+The application code is AGPL-3.0-only (see [LICENSE](LICENSE)). Dependencies
+keep their own licences. The Cresavo name, wordmark, symbol concepts,
+`design/brand/**` and `docs/media/**` are covered by [TRADEMARK.md](TRADEMARK.md),
+not by this file or the AGPL.
+
+## Demo images
+
+The photos in `public/demo/*.webp` (two fictional staff portraits and three
+salon still lifes) were AI-generated on 2026-11-12 for this demo. They are
+synthetic and show no real people, brands or text. Each file, its prompt
+summary, alt text, size and SHA-256 is recorded in
+[public/demo/manifest.json](public/demo/manifest.json). `public/demo/*.png`
+are screenshots of the demo itself with fictional data.
+
+## Fonts
+
+**Inter** is loaded through `next/font/google` and self-hosted at build time.
+Inter is licensed under the [SIL Open Font License 1.1](https://openfontlicense.org/);
+it is not committed to this repository.
+
 ## Epic 06 icon subset
 
 `lucide-react` 1.72.0: ISC; Feather-derived icons retain the additional MIT
@@ -88,10 +108,11 @@ Next.js, React, React DOM, Luxon and Zod declare MIT; Prisma and MCP SDK declare
 Prettier **3.6.2**, copyright James Long and contributors, **MIT**, was installed only in a separate local tooling directory to perform the requested formatting. Its LICENSE was read; its separate npm audit reported **0 vulnerabilities**. No Prettier dependency or runtime package was added to this project. All existing application dependency advisories remain separately reported in docs/VERIFICATION.md.
 
 
-## jose (transitivt beroende)
+## jose (transitive dependency)
 
 jose 6.2.17, MIT, Copyright (c) 2018 Filip Skokan.
-Originallicens finns i node_modules/jose/LICENSE.md.
-Licenstexten och tillämpliga notices ska följa med om paketet distribueras.
-Det installeras av npm; ingen källkod har kopierats till projektets egna filer.
-@a2a-js/sdk togs bort 2026-11-16 tillsammans med det lokala A2A-demoverktyget.
+The original licence is in node_modules/jose/LICENSE.md.
+The licence text and applicable notices must accompany the package if it is
+distributed. It is installed by npm; no source code was copied into the
+project's own files. @a2a-js/sdk was removed on 2026-11-16 together with the
+local A2A demo tool.
