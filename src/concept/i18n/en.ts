@@ -53,6 +53,8 @@ const messages = {
   "nav.features": "Features",
   "nav.features.description": "Switch modules on or off",
   "nav.data": "Your data & AI",
+  "data.developers": "For developers",
+  "data.developersText": "The open protocols an integration or another assistant can use, and where each stands.",
   "nav.data.description": "Connect Claude or ChatGPT, export everything",
   "nav.settings": "Settings",
   "nav.settings.description": "Salon details and demo reset",
@@ -214,7 +216,6 @@ const messages = {
   "next.call": "Call",
   "next.profile": "Profile",
 
-  "suggest.label": "Suggestion",
   "suggest.dismiss": "Dismiss suggestion",
   "suggest.more": "Show {count} more suggestion|Show {count} more suggestions",
   "suggest.none": "Nothing needs your attention right now.",
@@ -1051,7 +1052,6 @@ const messages = {
   "data.export.all": "Everything (JSON)",
   "data.export.customers": "Customers (CSV)",
   "data.export.bookings": "Bookings (CSV)",
-  "data.protocols": "Open protocols",
   "data.protocol.mcp": "Your AI assistant reads everything and proposes changes for you to approve",
   "data.protocol.a2a": "A customer's assistant finds services and free times; the person books on the booking page",
   "data.protocol.usp": "Discovery profile for booking agents; catalog and free times only",
@@ -1691,7 +1691,6 @@ const messages = {
   "feed.copy": "Copy calendar link",
   "feed.copied": "Calendar link copied",
   "feed.how": "In Google Calendar choose Other calendars, then From URL. In Apple Calendar choose File, then New Calendar Subscription.",
-  "feed.off": "Calendar links are switched off on this server.",
 
   "finance.prepaidTitle": "Prepaid by customers",
   "finance.prepaidText": "{gift} in gift cards and {packages} in packages not used yet. This is not revenue until the cards and visits are used.",

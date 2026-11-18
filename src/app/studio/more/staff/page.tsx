@@ -8,9 +8,7 @@ import { CalendarFeed, useCalendarFeeds } from "@/concept/studio/more/calendar-f
 import { StaffSchedule } from "@/concept/studio/ops/staff-schedule";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { useStudio } from "@/concept/studio/use-studio";
-import { Badge } from "@/concept/ui/badge";
 import { Card } from "@/concept/ui/card";
-import { Meter } from "@/concept/ui/charts";
 import { cx } from "@/concept/ui/cx";
 
 export default function StaffPage() {
@@ -21,7 +19,7 @@ export default function StaffPage() {
 
   return (
     <MorePage title={t("nav.staff")} subtitle={t("staff.subtitle")}>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
         {state.staff.map((person) => {
           const busy = utilisation(state, today, 7, person.id);
           let week = 0;
@@ -49,7 +47,6 @@ export default function StaffPage() {
                 <div>
                   <p className="text-text-secondary">{t("staff.booked")}</p>
                   <p className="font-semibold">{t("format.percent", { value: formatNumber(busy * 100) })}</p>
-                  <Meter value={busy} className="mt-1.5" />
                 </div>
                 <div>
                   <p className="text-text-secondary">{t("staff.thisMonth")}</p>
@@ -57,12 +54,11 @@ export default function StaffPage() {
                 </div>
               </div>
               <div>
-                <p className="mb-2 text-sm text-text-secondary">{t("staff.services")}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {state.services.filter((s) => s.staffIds.includes(person.id)).map((s) => <Badge key={s.id}>{s.name}</Badge>)}
-                </div>
+                <p className="mb-1 text-sm text-text-secondary">{t("staff.services")}</p>
+                <p className="text-sm">{state.services.filter((s) => s.staffIds.includes(person.id)).map((s) => s.name).join(", ")}</p>
               </div>
-              {feeds && <CalendarFeed name={person.firstName} path={feeds[person.id]} />}
+              {/* Only when this server hands out calendar links: "switched off" is nothing the owner can act on. */}
+              {feeds?.[person.id] && <CalendarFeed name={person.firstName} path={feeds[person.id]} />}
             </Card>
           );
         })}
