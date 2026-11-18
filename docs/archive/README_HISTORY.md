@@ -44,7 +44,7 @@ Svensk agentredo boknings-POC med syntetiska uppgifter. Gemensam arbetsyta med
 Sidomeny på desktop, kompakt mobilnav. Webb och befintlig lokal MCP behåller samma
 verksamhetsregler. Inga nya agentanslutningar eller produktmoduler i denna leverans.
 
-[Skyddad demo](https://booking-lab-se-preview.vercel.app/admin) · [provsteg/bilder](DEMO.md) ·
+[Skyddad demo](<redacted-preview-url>/admin) · [provsteg/bilder](DEMO.md) ·
 [tester](VERIFICATION.md) · [status](PROJECT_STATUS.md).
 Vercel vid behov → Öppna demoadmin utan extra lösenord, endast isolerad demo.
 
@@ -65,7 +65,7 @@ uppgifter. Översikt, Kalender och Kunder är huvudval; Salongen samlar tjänste
 personal och kampanjer. Kundbokning och produktsida har tydliga egna ingångar.
 Befintlig lokal MCP använder samma verksamhetsregler.
 
-[Öppna skyddad demo](https://booking-lab-se-preview.vercel.app/admin) · [fem provflöden och bilder](DEMO.md) ·
+[Öppna skyddad demo](<redacted-preview-url>/admin) · [fem provflöden och bilder](DEMO.md) ·
 [status](PROJECT_STATUS.md) · [testresultat](VERIFICATION.md).
 Vercel-inloggning vid behov, därefter Öppna demoadmin utan ett extra lösenord.
 
@@ -132,7 +132,7 @@ Ingen kundpilot, ny molndeploy eller mainmerge. Ingen ny epic startas automatisk
 
 ## Kunddata och verkligt ägaragentprov — levererad syntetisk POC
 
-[Öppna skyddade kundarbetsytan](https://booking-lab-se-preview.vercel.app/admin/customers).
+[Öppna skyddade kundarbetsytan](<redacted-preview-url>/admin/customers).
 Kundkort → Kunddata: begränsad export och uttryckligen bekräftad kontakt-
 borttagning med bokningshistorik kvar. Kommande aktiva besök hanteras först.
 Automatisk gallring av; inte full anonymisering eller komplett GDPR-utdrag.
@@ -147,7 +147,7 @@ Fysisk iPhone/Safari och pilot är inte godkända. Senare docs/bilder ändrar in
 
 ## Tidigare leverans: proaktiv kapacitetsöversikt
 
-[Öppna den skyddade demon](https://booking-lab-se-preview.vercel.app/product),
+[Öppna den skyddade demon](<redacted-preview-url>/product),
 välj arbetsytan och **Översikt**. Framtida avbokningar kontrolleras mot samma
 bokningsmotor; öppna rätt kalenderdag, avfärda eller välj villkor och spara ett
 beständigt kampanjutkast. Ingen automatisk publicering eller modellanslutning.
@@ -163,7 +163,7 @@ Ingen ny drift, extern MCP eller betald tjänst behövs för det lokala provet.
 
 ## Epic 06 — levererad skyddad syntetisk demo
 
-[Öppna Booking Lab](https://booking-lab-se-preview.vercel.app/product) · [demoadmin](https://booking-lab-se-preview.vercel.app/admin) · [kundbokning](https://booking-lab-se-preview.vercel.app/).
+[Öppna Booking Lab](<redacted-preview-url>/product) · [demoadmin](<redacted-preview-url>/admin) · [kundbokning](<redacted-preview-url>/).
 Kod7c1407d är QA-/CI-godkänd för avgränsad demo. Vercel-inloggning vid behov,
 sedan demoknapp utan extra lösenord. Inte kundpilot. [Prova och se riktiga bilder](DEMO.md).
 
@@ -185,7 +185,7 @@ Cloudflaggan `--preview` är endast för den befintliga pinnade operatörsmiljö
 
 ## Epic 05 — QA-godkänd lokal produktalpha
 
-Den här branchen bygger på den godkända Epic04-POC:n. Migrera och seeda före start. Adminens huvudvy är nu en dag-/veckokalender med personalfilter; öppna ett bokningsblock för att flytta eller avboka, eller välj Ny bokning. Tjänster och Personal & tider har separata redigeringsvyer; tidigare kampanjflöde finns på `/admin/campaigns`. Endast syntetiska uppgifter. [Aktuell verifiering](VERIFICATION.md) och [återstående godkänd omfattning](EPIC_05_PLAN.md): MCP-paritet, ren installation/uppgraderingskopia och produktionsdemo är testade; Grok godkände4fc98d3 efter en avgränsad fix av adminens bokningsbudget; privat leveransc12b98a har grön fullmatris i Actions. [Exakt CI-bevis](CI_DELIVERY_2026_11_12.md). [Stegvis provguide](LOCAL_DEMO_WINDOWS.md). En separat [skyddad syntetisk mobilpreview](https://booking-lab-se-preview-i9pv3ji3h-<redacted-vercel-team>.vercel.app) är verifierad på kod f2fdac7; Vercel-inloggning och individuell appadmin krävs. [Prova och stoppa preview](DEMO.md). Fysisk iPhone/Safari återstår; ingen kundpilot.
+Den här branchen bygger på den godkända Epic04-POC:n. Migrera och seeda före start. Adminens huvudvy är nu en dag-/veckokalender med personalfilter; öppna ett bokningsblock för att flytta eller avboka, eller välj Ny bokning. Tjänster och Personal & tider har separata redigeringsvyer; tidigare kampanjflöde finns på `/admin/campaigns`. Endast syntetiska uppgifter. [Aktuell verifiering](VERIFICATION.md) och [återstående godkänd omfattning](EPIC_05_PLAN.md): MCP-paritet, ren installation/uppgraderingskopia och produktionsdemo är testade; Grok godkände4fc98d3 efter en avgränsad fix av adminens bokningsbudget; privat leveransc12b98a har grön fullmatris i Actions. [Exakt CI-bevis](CI_DELIVERY_2026_11_12.md). [Stegvis provguide](LOCAL_DEMO_WINDOWS.md). En separat [skyddad syntetisk mobilpreview](<redacted-preview-url>) är verifierad på kod f2fdac7; Vercel-inloggning och individuell appadmin krävs. [Prova och stoppa preview](DEMO.md). Fysisk iPhone/Safari återstår; ingen kundpilot.
 
 ## Epic 04 — individuell lokal adminåtkomst
 

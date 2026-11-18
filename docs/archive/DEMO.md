@@ -1,6 +1,6 @@
 # Prova Booking Labs premiumdemo
 
-**[Öppna produkten](https://booking-lab-se-preview.vercel.app/product)** · [Kundbokning](https://booking-lab-se-preview.vercel.app/) · [Arbetsytan](https://booking-lab-se-preview.vercel.app/admin/overview).
+**[Öppna produkten](<redacted-preview-url>/product)** · [Kundbokning](<redacted-preview-url>/) · [Arbetsytan](<redacted-preview-url>/admin/overview).
 Vercel-inloggning vid behov, sedan **Open demo workspace**. Endast syntetiska uppgifter.
 Verifierad previewrevision `5212b7afb439ec22e36116f226b6db504cc7c5c3`, branch `design/international-agent-ready`.
 [Driftsatt produktsida](assets/premium/product-cloud-5212b7a.png) och [driftsatt kalender](assets/premium/calendar-cloud-5212b7a.png) är faktiska Chrome-bilder.
@@ -48,13 +48,13 @@ slutliga UX-godkännande återstår.
 <!-- POLISH_CURRENT_START -->
 # Prova den polerade arbetsytan
 
-**[Öppna Booking Lab](https://booking-lab-se-preview.vercel.app/admin).** Vercel vid behov → Öppna demoadmin.
+**[Öppna Booking Lab](<redacted-preview-url>/admin).** Vercel vid behov → Öppna demoadmin.
 Demo – endast påhittade uppgifter. Inga betalningar eller utskick.
 
 Verifierat 2026-11-14. Branch **ui/salon-polish**, från 2c74a4b/produkt 51d54d4.
 Produkt, slutlig Grok-revision, CI och deploy: **9840309df4d8addc3e4bf5f6c5da0f3802eb4a2d**.
 Senare dokumentationscommit ändrar ingen produktkod. Main b000481 är orörd.
-[Samma skyddade preview](https://booking-lab-se-preview.vercel.app/admin), deployment `dpl_<redacted>`, fra1.
+[Samma skyddade preview](<redacted-preview-url>/admin), deployment `dpl_<redacted>`, fra1.
 Vercel-inloggning vid behov → **Öppna demoadmin**, inget andra lösenord.
 
 ## Fem saker att prova
@@ -121,7 +121,7 @@ Pilot, fysisk Safari och ditt UX-godkännande är fortsatt separata.
 <!-- COHERENT_CURRENT_START -->
 # Prova den sammanhängande salongsupplevelsen
 
-**[Öppna den förbättrade skyddade demon](https://booking-lab-se-preview.vercel.app/admin).**
+**[Öppna den förbättrade skyddade demon](<redacted-preview-url>/admin).**
 Vercel-inloggning vid behov, därefter **Öppna demoadmin**. Inget extra
 adminlösenord behövs i denna uttryckligt isolerade demo. Vanlig produktinloggning
 finns kvar. Bara påhittade uppgifter, inga betalningar eller utskick.
@@ -135,7 +135,7 @@ klick. Senare dokumentationscommit ändrar inte den driftsatta koden.
 
 1. **Hitta rätt läge.** Arbetsytan har Översikt, Kalender, Kunder. Salongen har
    tjänster, personal och kampanjer. Konto visar identitet, kundbokning, produktsida
-   och Logga ut. [Produktsidan](https://booking-lab-se-preview.vercel.app/product) har tydliga ingångar.
+   och Logga ut. [Produktsidan](<redacted-preview-url>/product) har tydliga ingångar.
 2. **Följ en bokning.** Välj dag och personal i Kalender, öppna en bokning med
    kopplat kundkort, öppna kortet och gå tillbaka. Samma dag/filter finns kvar.
    Prova vanlig Bakåt. På desktop bevaras även veckokalenderns sidscroll.
@@ -184,7 +184,7 @@ Inga nya planer, tillägg, domäner, behörigheter eller betalabonnemang.
 Vanlig Vercelförbrukning kan tillkomma enligt godkänd ram; fakturabelopp är inte
 mätt här. För stopp: pausa befintliga previewprojektet i Vercel; behåll SSO-skyddet
 på. Gör inga databasraderingar. Tidigare verifierad rollbackadress är
-booking-lab-se-preview-37wcqseut-<redacted-vercel-team>.vercel.app
+<redacted-preview-host>
 (`dpl_<redacted>`,95f8071); om alias återställs ska skydd och
 faktisk revision kontrolleras på nytt. Ingen rollback eller paus är utförd nu.
 
@@ -242,7 +242,7 @@ För att stänga av kortets skrivprov: återställ den sparade tidigare läsprof
 
 Ingen bokning eller migration ska raderas för att återställa profilen. Gamla runtimekataloger/profilbackup finns kvar. Privat envfil och SQL-roller återanvänder befintlig lokalt skyddad databas; ingen publik listener har öppnats.
 
-localhost fungerar bara på PC:n. [Befintlig skyddad webbpreview](https://booking-lab-se-preview.vercel.app/admin) är oförändrad och är inte fjärr-MCP. Detta är en betrodd lokal syntetisk demokanal, inte individuell kundautentisering. Ingen fjärr-MCP, ny drift, ny kostnad, riktiga uppgifter, utskick eller betalning. Ingen mainmerge. Mobil fjärranslutning, fysisk iPhone/Safari och verklig kalenderimport är **inte verifierade**. Kalenderfilen synkas inte vid senare ändringar. Pilot är fortsatt NO-GO.
+localhost fungerar bara på PC:n. [Befintlig skyddad webbpreview](<redacted-preview-url>/admin) är oförändrad och är inte fjärr-MCP. Detta är en betrodd lokal syntetisk demokanal, inte individuell kundautentisering. Ingen fjärr-MCP, ny drift, ny kostnad, riktiga uppgifter, utskick eller betalning. Ingen mainmerge. Mobil fjärranslutning, fysisk iPhone/Safari och verklig kalenderimport är **inte verifierade**. Kalenderfilen synkas inte vid senare ändringar. Pilot är fortsatt NO-GO.
 
 <!-- AGENT_WORKDAY_CURRENT_END -->
 
@@ -353,8 +353,8 @@ publik tunnel eller extern publicering. Fysisk iPhone/Safari ingår inte här.
 
 # Demo — kunddata och verkligt lokalt ägaragentprov, 2026-11-13
 
-[Öppna skyddade kundarbetsytan](https://booking-lab-se-preview.vercel.app/admin/customers)
-· [produktingång](https://booking-lab-se-preview.vercel.app/product) · [kundbokning](https://booking-lab-se-preview.vercel.app/).
+[Öppna skyddade kundarbetsytan](<redacted-preview-url>/admin/customers)
+· [produktingång](<redacted-preview-url>/product) · [kundbokning](<redacted-preview-url>/).
 Vercel-inloggning vid behov, sedan demoknapp utan extra adminlösenord.
 **Demo – endast påhittade uppgifter.** Fysisk iPhone/Safari inte verifierad.
 
@@ -375,7 +375,7 @@ Vercel-inloggning vid behov, sedan demoknapp utan extra adminlösenord.
    arkiverat och kan inte återaktiveras. I listan: Visa även arkiverade för att
    hitta det igen. Automatisk gallring är avstängd.
 
-Det redan genomförda [egna molnprovkortet](https://booking-lab-se-preview.vercel.app/admin/customers/cmwepygwe000001o2y7dqxij5?view=history)
+Det redan genomförda [egna molnprovkortet](<redacted-preview-url>/admin/customers/cmwepygwe000001o2y7dqxij5?view=history)
 visar bevarad Avslappnande massage16nov16.30/450kr, nu avbokad och utan kontakt.
 Ändra inte äldre demokort för provet; skapa ett eget. Ingen automatisk radering
 eller återseed har gjorts. Exportfiler och äldre backups kan innehålla tidigare
@@ -455,10 +455,10 @@ av efterföljande kontaktåtgärder innan åtkomst öppnas. Inget stopp utförde
 
 ### Demo — proaktiv kapacitetsöversikt, 2026-11-13
 
-[Öppna Booking Lab](https://booking-lab-se-preview.vercel.app/product) ·
-[översikten](https://booking-lab-se-preview.vercel.app/admin/overview) ·
-[kalendern](https://booking-lab-se-preview.vercel.app/admin) ·
-[kundbokning](https://booking-lab-se-preview.vercel.app/).
+[Öppna Booking Lab](<redacted-preview-url>/product) ·
+[översikten](<redacted-preview-url>/admin/overview) ·
+[kalendern](<redacted-preview-url>/admin) ·
+[kundbokning](<redacted-preview-url>/).
 Vercel-inloggning vid behov, sedan **Prova salongens arbetsyta** eller
 **Öppna demoadmin**. Demoägare, endast påhittade uppgifter. Hela sajten,
 API och resurser omfattas fortsatt av befintligt Vercelskydd; inga nya konton.
@@ -510,7 +510,7 @@ Actions och driftsatt revision **8843d06350c6478e375fb640579cb3ac4f7fe3dc**.
 Senare dokument-/bildcommit ändrar inte detta bygge.
 Deployment **dpl_<redacted>**, READY Preview(target=null),
 runtimefra1; buildcle1/USA. Immutable URL:
-https://booking-lab-se-preview-nfwi9mosj-<redacted-vercel-team>.vercel.app.
+<redacted-preview-url>.
 Vercel-API:s sourceRevision och stabil alias→deployment-id verifierade.
 
 [Actions43353236981](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43353236981)
@@ -578,7 +578,7 @@ Den stabila länken kör nu bygget ovan.
 
 ## Föregående Epic 06, skyddad syntetisk preview
 
-[Öppna Booking Labs produktsida](https://booking-lab-se-preview.vercel.app/product) · [demoadmin](https://booking-lab-se-preview.vercel.app/admin) · [kundbokningen](https://booking-lab-se-preview.vercel.app/).
+[Öppna Booking Labs produktsida](<redacted-preview-url>/product) · [demoadmin](<redacted-preview-url>/admin) · [kundbokningen](<redacted-preview-url>/).
 Använd Niclas befintliga Vercel-inloggning vid behov. Tryck **Prova salongens
 arbetsyta** eller **Öppna demoadmin**; inget ytterligare lösenord behövs.
 Aktören är tydligt Demoägare, inte en påhittad verifierad Vercelanvändare.
@@ -612,7 +612,7 @@ automatiserad Chromium390×844. Färdigladdade vyer; inte fysisk iPhone/Safari.
 
 Branch **feature/epic06-customers-demo-product**, produkt-/QA-/deploykod **7c1407dce66910ef8ab304c882c90d90c173ca72**. Deployment
 **dpl_<redacted>**, READY Preview(target=null), fra1;
-immutable URL https://booking-lab-se-preview-jhaiomi7c-<redacted-vercel-team>.vercel.app.
+immutable URL <redacted-preview-url>.
 Den stabila aliasen verifierades via Vercel-API till exakt detta deployment-id.
 [Actions43301797796](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43301797796):4 gröna jobb; [Groks originalrapport](qa/QA-REPORT-epic06-fix1-7c1407d.md):GO endast syntetisk skyddad preview.
 Dokumentation/bilder efter fryst QA ändrar inte den driftsatta produktkoden.
@@ -657,7 +657,7 @@ Fysisk iPhone/Safari och Niclas eget UX-godkännande återstår. Pilot NO-GO.
 
 ### Demo — förbättrad skyddad mobilpreview
 
-**Aktuell UI-leverans 2026-11-12:** [Öppna skyddad demo](https://booking-lab-se-preview.vercel.app). Logga vid behov in i Vercel och tryck **Öppna demoadmin**; inget ytterligare lösenord behövs. Endast syntetiska uppgifter, endast Niclas. Branch `ui/epic05-booking-usability`, granskad och driftsatt produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**. Senare dokumentationscommit ändrar inte previewkoden.
+**Aktuell UI-leverans 2026-11-12:** [Öppna skyddad demo](<redacted-preview-url>). Logga vid behov in i Vercel och tryck **Öppna demoadmin**; inget ytterligare lösenord behövs. Endast syntetiska uppgifter, endast Niclas. Branch `ui/epic05-booking-usability`, granskad och driftsatt produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**. Senare dokumentationscommit ändrar inte previewkoden.
 
 Tappbar svensk kalender och lediga tider, nästa lediga dag, tydlig sammanfattning/bekräftelse, bibehållna kundutkast och mobil arbetsdag med skapa/flytta/avboka. Tjänster, scheman, pauser, ledighet och kampanjer använder befintliga funktioner. Separat demo-DB med 3 aktiva behandlingar, 2 medarbetare och 33 seedbokningar; efter faktisk molnprovning 35 bokningar inklusive en avbokad. Inga utskick eller verkliga kunduppgifter.
 
@@ -675,7 +675,7 @@ Kvar: fysisk iPhone/Safari och Niclas UX-godkännande; full audit FAIL7moderate,
 
 ## Exakt miljö och åtkomst
 
-Stabil alias https://booking-lab-se-preview.vercel.app pekar på dpl_<redacted>. Immutable https://booking-lab-se-preview-6bk2naol8-<redacted-vercel-team>.vercel.app. Produktkod d7bc47f5596cc8be06e58603fe2f32457c6b0fa0; Preview target=null, project prj_<redacted>. Alias är manuellt tilldelad; deployment.alias kan vara tom trots korrekt alias-API. Ingen Productionpromotion/Git-autodeploy/DNS-ändring. Image sha256:4b9dfae99b5a67624e8be7c63957eddc685fd705e8f657cc2f7ad8bf0e64477b.
+Stabil alias <redacted-preview-url> pekar på dpl_<redacted>. Immutable <redacted-preview-url>. Produktkod d7bc47f5596cc8be06e58603fe2f32457c6b0fa0; Preview target=null, project prj_<redacted>. Alias är manuellt tilldelad; deployment.alias kan vara tom trots korrekt alias-API. Ingen Productionpromotion/Git-autodeploy/DNS-ändring. Image sha256:4b9dfae99b5a67624e8be7c63957eddc685fd705e8f657cc2f7ad8bf0e64477b.
 
 Separat booking_ui_preview_demo på samma befintliga Neon Free-resurs i Frankfurt. Begränsad ny approll, nytt sessionshemligt värde; gamla neondb och gamla previewn är bevarade och används inte av nya demon. Inga nya betalda abonnemang/tillägg; redan godkänd Vercelförbrukning kan tillkomma. Inte verifierat EU-exklusivt: runtime/DB Frankfurt men build cle1/USA.
 
@@ -695,7 +695,7 @@ Additiv seed: npm run demo:seed kräver uttrycklig opt-in och isolerad \*\_demo-
 
 ## Skyddad mobilpreview — verifierad 2026-11-12
 
-[Öppna Booking Lab SE](https://booking-lab-se-preview-i9pv3ji3h-<redacted-vercel-team>.vercel.app). Använd Niclas befintliga Vercel-konto.
+[Öppna Booking Lab SE](<redacted-preview-url>). Använd Niclas befintliga Vercel-konto.
 Hela webbplatsen (även API och resurser) kräver Vercel Authentication.
 Därefter kräver /admin individuell appinloggning: niclas@example.test.
 Lösenordet finns enbart på operatörens PC i ignorerad

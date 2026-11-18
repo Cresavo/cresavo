@@ -414,7 +414,7 @@ Jämförelsen gjordes mot 9a8350a eftersom föregående dokumentationsarkiv
 
 ## Prova det mobila bokningsflödet
 
-[Öppna den skyddade demon](https://booking-lab-se-preview.vercel.app/product). För hela vägen till rätt kalenderdag, öppna först demoarbetsytan en gång i samma webbläsare. Demoinloggning från en ny session landar på standardkalendern. [Groks originalrapport](qa/QA-REPORT-mobile-story-9a8350a.md).
+[Öppna den skyddade demon](<redacted-preview-url>/product). För hela vägen till rätt kalenderdag, öppna först demoarbetsytan en gång i samma webbläsare. Demoinloggning från en ny session landar på standardkalendern. [Groks originalrapport](qa/QA-REPORT-mobile-story-9a8350a.md).
 
 Checka ut `design/mobile-booking-story` och använd projektets lokala demostart med en isolerad syntetisk databas. Öppna `/product`, följ **Try the booking demo**, kontrollera tid och utförare och bekräfta med en adress på `example.test`. Följ sedan **See this time in the demo calendar** med en behörig demosession. Öppna en bokning med kopplad kund, besök kundkortet och gå tillbaka två gånger. Datum och personalfilter ska finnas kvar. På mobilen ligger Översikt, Kalender och Kunder vid nederkanten.
 
@@ -423,12 +423,12 @@ Checka ut `design/mobile-booking-story` och använd projektets lokala demostart 
 
 ## Bred översikt · 14 november 2026
 
-[Öppna den skyddade översikten](https://booking-lab-se-preview.vercel.app/admin/overview). Produktrevision `4b02f26ae5240cc80c09bb71e4e7bb1688f0e9f5`, branch `design/international-agent-ready`. Tre kolumner från 1680 CSS-px, med innehållet centrerat bredvid sidomenyn. [Före](assets/premium/overview-4b02f26/overview-wide-before.png) och [driftsatt vid 2880 px](assets/premium/overview-4b02f26/cloud-overview.png).
+[Öppna den skyddade översikten](<redacted-preview-url>/admin/overview). Produktrevision `4b02f26ae5240cc80c09bb71e4e7bb1688f0e9f5`, branch `design/international-agent-ready`. Tre kolumner från 1680 CSS-px, med innehållet centrerat bredvid sidomenyn. [Före](assets/premium/overview-4b02f26/overview-wide-before.png) och [driftsatt vid 2880 px](assets/premium/overview-4b02f26/cloud-overview.png).
 
 [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43573515733) gav 62 godkända webbtester i varje matrisjobb, 114 enhets-, 125 integrations- och 13 korttester. [Grok](qa/QA-REPORT-premium-f1-4b02f26.md) utförde 205 godkända Chromium-kontroller. Vid återgång bevaras scrollpositionen men tangentbordsfokus hamnar på sidan. Fysisk Safari återstår. [Verifierad deployment](assets/premium/overview-4b02f26/preview-final.json), [åtkomstskydd](assets/premium/overview-4b02f26/preview-anonymous-alias.json) och [datakontroll](assets/premium/overview-4b02f26/preview-db-proof.json). Codex öppnade demoarbetsytan och den färdigladdade översikten på det fasta aliaset.
 
 
-**[Öppna den skyddade premiumdemon](https://booking-lab-se-preview.vercel.app/product)**. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43546809210): 62/62 webbtester i vart och ett av fyra gröna jobb. [Driftbevis](assets/premium/preview-final.json), [CI-loggarnas kontrollsummor](assets/premium/ci-final-proof.json) och [Groks original](qa/QA-REPORT-premium-5212b7a.md).
+**[Öppna den skyddade premiumdemon](<redacted-preview-url>/product)**. [Actions](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43546809210): 62/62 webbtester i vart och ett av fyra gröna jobb. [Driftbevis](assets/premium/preview-final.json), [CI-loggarnas kontrollsummor](assets/premium/ci-final-proof.json) och [Groks original](qa/QA-REPORT-premium-5212b7a.md).
 
 Vercel `dpl_<redacted>`, fra1. Fast alias och immutable preview kontrollerades: anonyma HTML/API/resurser stoppades; behörig Vercel-session utan appinloggning fick 403 för admin-API. Direktport 3000 gick inte att nå. Egen Chrome-klick: öppna demoadmin utan extra lösenord, välj gårdagens bokningar och läs bokningsdetaljen. [Alla åtta datatabeller oförändrade](assets/premium/preview-db-proof.json), inklusive 94 bokningar. Ingen mainmerge. Pilot och fysisk Safari ej godkända.
 
@@ -473,7 +473,7 @@ Plan och acceptanskriterier: [PREMIUM_DEMO_PLAN](PREMIUM_DEMO_PLAN.md).
 Verifierat 2026-11-14. Branch **ui/salon-polish**, från 2c74a4b/produkt 51d54d4.
 Produkt, slutlig Grok-revision, CI och deploy: **9840309df4d8addc3e4bf5f6c5da0f3802eb4a2d**.
 Senare dokumentationscommit ändrar ingen produktkod. Main b000481 är orörd.
-[Samma skyddade preview](https://booking-lab-se-preview.vercel.app/admin), deployment `dpl_<redacted>`, fra1.
+[Samma skyddade preview](<redacted-preview-url>/admin), deployment `dpl_<redacted>`, fra1.
 Vercel-inloggning vid behov → **Öppna demoadmin**, inget andra lösenord.
 
 Byggt: systemfont och enhetliga ytor/fält, desktopsidebar, mobilnav, samlad
@@ -508,7 +508,7 @@ Mindre förbättringar till backlogg; inget tredje varv eller nästa Epic automa
 
 Klart som privat syntetisk POC på **51d54d4696dd5fee51449acbd096f8529fbd3c5c**,
 branch **feature/coherent-salon-workspace** från 3273934/05e5eaf. Main b000481
-är orörd. [Preview](https://booking-lab-se-preview.vercel.app/admin), `dpl_<redacted>`, region fra1.
+är orörd. [Preview](<redacted-preview-url>/admin), `dpl_<redacted>`, region fra1.
 Senare dokumentationscommit skiljs från denna produkt-/QA-/CI-/driftrevision.
 
 - Tre lägen och gemensam ram. Översikt/Kalender/Kunder; Salongen samlar tjänster,
@@ -740,7 +740,7 @@ fjärrmandat/OAuth, och confirmed=true bevisar inte mänskligt samtycke.
 [Grok original95f8071](qa/QA-REPORT-lifecycle-fix1-95f8071.md), SHA2561a07d93fb6eff74a8996882883537303ee33bcf7b5bb0cf3971bb14a2f7b4a9b. Egna79/99/46prod, LC-prob23/0, katalog27/0 och riktig8843→95fuppgradering med gammal MCP-råkvot. Underlagsgranskning av Codex-provet; inte ett eget Codex-/PC-/molnprov. Fixvarv2 behövdes inte. Ett Low/fleraInfo ligger i roadmap, inga nya uppdrag.
 
 Fryst QA-kod ändrades inte medan Grok granskade. Privata profiler, exporter,
-nycklar, databaser och node_modules finns utanför Git och QA-paketen. **Drift verifierad:** samma https://booking-lab-se-preview.vercel.app/admin/customers, dpl_<redacted>, sourceRevision95f8071, READY Preview(target=null), runtimefra1/NeonFrankfurt, buildcle1/USA. SSOall kvar,5READY-adresser+stabil alias skyddade förHTML/API/resurser. TLS1.3, headers/no-store, ingen port3000anslutning inom5s (inte full pentest). Minimerad API/auth/origin/strict/bounds, riktig exportdownload, framtidabesökblock, en kontaktåtgärd/20retries och cookie-revocation PASS i molnet. Egen CUA på stabilalias såg samma borttagna kort/450kr-historik. [Bilder/provsteg](DEMO.md).
+nycklar, databaser och node_modules finns utanför Git och QA-paketen. **Drift verifierad:** samma <redacted-preview-url>/admin/customers, dpl_<redacted>, sourceRevision95f8071, READY Preview(target=null), runtimefra1/NeonFrankfurt, buildcle1/USA. SSOall kvar,5READY-adresser+stabil alias skyddade förHTML/API/resurser. TLS1.3, headers/no-store, ingen port3000anslutning inom5s (inte full pentest). Minimerad API/auth/origin/strict/bounds, riktig exportdownload, framtidabesökblock, en kontaktåtgärd/20retries och cookie-revocation PASS i molnet. Egen CUA på stabilalias såg samma borttagna kort/450kr-historik. [Bilder/provsteg](DEMO.md).
 
 Migration9 bevarade alla äldre kolumnvärden i11tabeller. Efter testet: ursprungliga92bokningar/33kort/107events/4kampanjer/3beslut/6tjänster/5personal oförändrade. Endast ett eget nytt syntetiskt kort och en senare avbokad bokning tillkom:93bokningar/34kort,1remove/3exports,0överlapp. Den lokala agentkampanjen kopierades inte till molnet. Backup före12och efter13tabeller AES-GCM återläst med identiska radhashar; befintlig separat nyckel bevarad. Operatörs-PC, inte automatisk offsite.
 
@@ -787,7 +787,7 @@ kod-/konfig-/assetfiler matchar Gitarchive8843d06; källändringar gjordes bara 
 har4gröna42/42jobb på exakt SHA. Pushens enbenskörning43353218140 avbröts av
 den manuella fullmatrisen enligt befintlig concurrency, inte ett kodfel.
 
-**Faktisk preview:** https://booking-lab-se-preview.vercel.app/product,
+**Faktisk preview:** <redacted-preview-url>/product,
 dpl_<redacted>, READY Preview(target=null), fra1.
 Vercel-API:s sourceRevision och alias verifierade. Oförändrat SSO på alla
 deployments; ingen Production-promote. Build cle1/USA, runtime/DB Frankfurt.
@@ -834,7 +834,7 @@ Levererat: kundregister med sökning/paginering, kundkort och aktuell kontakt,
 versionerad redigering/arkivering, bevarade bokningssnapshots och uttrycklig
 kundkoppling i bokning/återbesök. Ingen automatisk matchning på e-post, inga
 nya MCP-exporter. Syntetisk seed och fem optimerade bildassets används i UI.
-Separat [produktsida](https://booking-lab-se-preview.vercel.app/product), [demoadmin](https://booking-lab-se-preview.vercel.app/admin) och [kundbokning](https://booking-lab-se-preview.vercel.app/).
+Separat [produktsida](<redacted-preview-url>/product), [demoadmin](<redacted-preview-url>/admin) och [kundbokning](<redacted-preview-url>/).
 
 - Branch **feature/epic06-customers-demo-product**, produkt-/QA-/deploy-SHA **7c1407dce66910ef8ab304c882c90d90c173ca72**.
 - Bas16dae9a/6acd2ef, produktbas d7bc47f. Initial Epic06-kod024796f;
@@ -896,7 +896,7 @@ Ny branch feature/epic06-customers-demo-product från16dae9a/6acd2ef, produktbas
 
 Full audit fortsatt **FAIL7moderate**, omit-dev **PASS0**. Ingen säker publicerad stabil rättningskedja verifierad; inga paket, produktfunktioner eller UI ändrade. Rättning är upstream-blockerad, inte klar. Nya lint/tsc/build,75unit och75integration på ny lokal syntetisk DB PASS. Inga nya E2E/CI/deploy i denna dokumentationsbatch. [Beroendebeslut och faktiska data](../DEPENDENCY_REVIEW.md#audit-återkontroll-2026-11-12--rättning-blockerad-av-stabil-upstream). Driftsatt kod och senaste fungerande preview är fortsatt d7bc47f. Grok bekräftar slutsatsen i [originalrapporten](qa/AUDIT-REPORT-6acd2ef-minimatch.md); ingen stabil säker rättning finns ännu.
 
-**Aktuell UI-leverans 2026-11-12:** [Öppna skyddad demo](https://booking-lab-se-preview.vercel.app). Logga vid behov in i Vercel och tryck **Öppna demoadmin**; inget ytterligare lösenord behövs. Endast syntetiska uppgifter, endast Niclas. Branch `ui/epic05-booking-usability`, granskad och driftsatt produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**. Senare dokumentationscommit ändrar inte previewkoden.
+**Aktuell UI-leverans 2026-11-12:** [Öppna skyddad demo](<redacted-preview-url>). Logga vid behov in i Vercel och tryck **Öppna demoadmin**; inget ytterligare lösenord behövs. Endast syntetiska uppgifter, endast Niclas. Branch `ui/epic05-booking-usability`, granskad och driftsatt produktkod **d7bc47f5596cc8be06e58603fe2f32457c6b0fa0**. Senare dokumentationscommit ändrar inte previewkoden.
 
 Tappbar svensk kalender och lediga tider, nästa lediga dag, tydlig sammanfattning/bekräftelse, bibehållna kundutkast och mobil arbetsdag med skapa/flytta/avboka. Tjänster, scheman, pauser, ledighet och kampanjer använder befintliga funktioner. Separat demo-DB med 3 aktiva behandlingar, 2 medarbetare och 33 seedbokningar; efter faktisk molnprovning 35 bokningar inklusive en avbokad. Inga utskick eller verkliga kunduppgifter.
 
@@ -908,7 +908,7 @@ Kvar: fysisk iPhone/Safari och Niclas UX-godkännande; full audit FAIL7moderate,
 
 # Handoff — Epic05 QA-godkänd lokal produktalpha
 
-**Skyddad mobilpreview levererad 2026-11-12:** [Öppna preview](https://booking-lab-se-preview-i9pv3ji3h-<redacted-vercel-team>.vercel.app). Branch preview/epic05-vercel-review, faktiskt driftsatt kod f2fdac700125df2d212e824555758b8ed6d6a7a7, deployment dpl_<redacted> (Preview/fra1). Senare dokumentationscommits ändrar inte driftsatt kod. Endast Niclas via Vercel Authentication på alla deployments, dessutom individuell appadmin. Inga nya betalda abonnemang/tillägg; befintlig Pro-förbrukning kan kosta några få dollar, Neon Free. [Drift och lokal hantering av adminuppgifter](DEMO.md).
+**Skyddad mobilpreview levererad 2026-11-12:** [Öppna preview](<redacted-preview-url>). Branch preview/epic05-vercel-review, faktiskt driftsatt kod f2fdac700125df2d212e824555758b8ed6d6a7a7, deployment dpl_<redacted> (Preview/fra1). Senare dokumentationscommits ändrar inte driftsatt kod. Endast Niclas via Vercel Authentication på alla deployments, dessutom individuell appadmin. Inga nya betalda abonnemang/tillägg; befintlig Pro-förbrukning kan kosta några få dollar, Neon Free. [Drift och lokal hantering av adminuppgifter](DEMO.md).
 
 Codex:72unit/72integration/24E2E×4, lint/tsc/build PASS. Grok GO för kod/paketering efter1samlat fixvarv, [originalrapport](qa/QA-REPORT-preview-vercel-f2fdac7.md). [Actions43243542749](https://github.com/niclasvestlund-YT/booking-lab-se/actions/runs/43243542749): alla4jobb gröna på exakt f2fdac7. Faktisk drift: perimeter HTML/API/resurs, TLS1.3, headers, stängd appport, login/logout/copierad-cookie-replay, kundbokning, mobilkalender, tjänster/personal, flytt/avbokning och spoofing-spärr PASS. Kallstart bekräftad i Vercellogg, samma session och bokning bevarade. Ny krypterad backup återläst lokalt,10tabellers innehåll identiskt.
 
