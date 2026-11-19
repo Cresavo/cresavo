@@ -51,7 +51,9 @@ current UI or docs.
    **Delete workflow run**. An agent can list the run IDs for you.
 7. **Turn on Dependabot alerts.** **Settings** → **Advanced Security** (older
    UI: **Code security and analysis**) → **Dependabot alerts** → **Enable**.
-   **(verify)** Also enable **Dependabot security updates** there.
+   **(verify)** Also enable **Dependabot security updates** there. Make sure
+   **Dependency graph** is enabled: without it the `Dependency review` check
+   fails with `403 Forbidden` (seen on PR #65, 2026-11-19).
 
 ## Go public
 

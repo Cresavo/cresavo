@@ -40,7 +40,8 @@ we never have to retrofit them. See the [privacy and security overview](PRIVACY_
 | OpenSSF Scorecard (`scorecard.yml`) | Pushes to `main`, Mondays, manual | **Security** → **Code scanning** (tool Scorecard) | No. Its SARIF upload is not a CodeQL analysis |
 | Dependabot (`dependabot.yml`) | Weekly | Pull requests | No |
 
-CodeQL uses an advanced workflow, so CodeQL *default setup* in the repository
+Dependency review needs the repository's **Dependency graph** setting; while
+it is off, the check fails with `403 Forbidden`. CodeQL uses an advanced workflow, so CodeQL *default setup* in the repository
 settings must stay off. A green `Analyze` job means the analysis ran, not that
 it found nothing. Findings block a PR only through a **Code scanning results**
 rule in the `main` ruleset (security severity high or higher, alerts error);
