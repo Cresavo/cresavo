@@ -4,6 +4,8 @@ export default defineConfig({
   testDir: "./tests/concept-e2e",
   timeout: 60000,
   workers: 1,
+  // One retry in CI absorbs a cold dev-server compile; a test that needs it still shows as flaky.
+  retries: process.env.CI ? 1 : 0,
   reporter: "list",
   use: {
     baseURL: "http://127.0.0.1:3017", browserName: "chromium", channel: process.env.CONCEPT_BROWSER_CHANNEL,
