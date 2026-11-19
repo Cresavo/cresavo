@@ -43,12 +43,12 @@ export default function SettingsPage() {
         <Card className="overflow-hidden p-1">
           <ul className="divide-y divide-hairline">{pages.map(row)}</ul>
         </Card>
-        <div id="appearance" className="scroll-mt-4">
+        <div id="appearance" className="scroll-mt-4 md:max-w-form">
           <Section title={t("settings.section.appearance")}>
             <Card className="space-y-3 p-4">
               <StudioLanguageSetting />
               <p className="text-body text-text-secondary">{t("theme.description")}</p>
-              <ThemeControl className="w-full sm:w-auto" />
+              <ThemeControl />
             </Card>
           </Section>
         </div>

@@ -168,7 +168,7 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
       ))}
       {limit.more && shown.length < visible.length && (
         <div>
-          <Button variant="tertiary" className="w-full rounded-none text-text-secondary" onClick={() => setShowAll(true)}>
+          <Button variant="tertiary" width="responsive" className="rounded-none text-text-secondary" onClick={() => setShowAll(true)}>
             {tc("suggest.more", visible.length - shown.length)}
           </Button>
         </div>

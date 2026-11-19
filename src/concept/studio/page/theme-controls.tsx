@@ -105,7 +105,7 @@ function Colours({ theme, onChange }: Props) {
       )}
       {colors && (
         <>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid gap-3 min-[320px]:grid-cols-3">
             {(["background", "text", "accent"] as const).map((role) => (
               <label key={role} className="space-y-2 text-sm font-medium">
                 <span className="block">{t(`pageEditor.colour.${role}`)}</span>

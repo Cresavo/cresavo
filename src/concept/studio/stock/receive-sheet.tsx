@@ -59,7 +59,7 @@ export function ReceiveSheet({ orderId, onClose }: { orderId?: string; onClose: 
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button disabled={!received || reading} onClick={confirm}>{t("stock.confirmReceive")}</Button>
+          <Button width="responsive" disabled={!received || reading} onClick={confirm}>{t("stock.confirmReceive")}</Button>
         </>
       }
     >
@@ -72,7 +72,7 @@ export function ReceiveSheet({ orderId, onClose }: { orderId?: string; onClose: 
           ))}
           <Chip active={choice === OTHER} onClick={() => pick(OTHER)}>{t("stock.otherDelivery")}</Chip>
         </div>
-        <Button variant="secondary" className="w-full" disabled={reading} icon={reading ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />} onClick={photograph}>
+        <Button variant="secondary" width="responsive" disabled={reading} icon={reading ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />} onClick={photograph}>
           {reading ? t("stock.reading") : t("stock.photo")}
         </Button>
         {noteFrom && <p className="rounded-md bg-action-bg px-4 py-3 text-sm text-text">{t("stock.noteRead", { supplier: noteFrom })}</p>}
@@ -82,7 +82,7 @@ export function ReceiveSheet({ orderId, onClose }: { orderId?: string; onClose: 
               const item = state.stock.find((s) => s.id === id);
               if (!item) return null;
               return (
-                <li key={id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                <li key={id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
                   <span className="min-w-0">
                     <span className="block font-medium">{item.name}</span>
                     <span className="block text-text-secondary">{ordered(id) ? t("stock.orderedCount", { count: ordered(id) }) : item.unit}</span>
@@ -102,6 +102,7 @@ export function ReceiveSheet({ orderId, onClose }: { orderId?: string; onClose: 
           <div className="space-y-2">
             {ids.length === 0 && <p className="text-sm text-text-secondary">{t("stock.nothingOnOrder")}</p>}
             <Select
+              width="short"
               aria-label={t("stock.addProduct")}
               value=""
               onChange={(event) => event.target.value && setAmounts({ ...amounts, [event.target.value]: amounts[event.target.value] ?? 1 })}

@@ -176,26 +176,36 @@ test("a sheet traps focus, closes with Escape and gives focus back", async ({ pa
   await expect(trigger).toBeFocused();
 });
 
-test("the owner/staff demo switch works both ways from the top bar on a phone, and the choice survives a reload", async ({ page }) => {
-  test.skip(page.viewportSize()!.width >= 1024, "The top bar is the phone and tablet shell; desktop has the switch above the content");
+test("staff preview starts in Advanced, works both ways on a phone and survives a reload", async ({ page }) => {
+  test.skip(page.viewportSize()!.width >= 1024, "Checks the phone navigation");
   await page.setViewportSize({ width: 390, height: 844 });
   const initial = createDemoState(today);
   const viewer = initial.staff[1];
   const tabs = page.getByRole("navigation", { name: "Main navigation" });
+  const preview = page.getByRole("button", { name: "Preview the staff view", exact: true });
   await page.goto("/studio");
   await expect(tabs.getByRole("link", { name: "More" })).toBeVisible();
+  await expect(preview).toHaveCount(0);
+  await expect(page.locator('[data-help="role-switch"]')).toHaveCount(0);
 
-  await page.getByRole("button", { name: `Owner view. Switch to Staff · ${viewer.firstName}` }).click();
+  await tabs.getByRole("link", { name: "More" }).click();
+  await page.getByRole("main").getByRole("link", { name: /^Advanced/ }).click();
+  await preview.click();
+  await expect(page).toHaveURL(/\/studio$/);
   await expect(tabs.getByRole("link", { name: "More" })).toHaveCount(0);
   await page.reload();
-  const back = page.getByRole("button", { name: `${viewer.firstName} view. Switch to Owner` });
+  await expect(page.getByText(`Staff preview · ${viewer.firstName}`, { exact: true })).toBeVisible();
+  const back = page.getByRole("button", { name: "Back to the owner view", exact: true });
   await expect(back).toBeVisible();
   await expect(tabs.getByRole("link", { name: "More" })).toHaveCount(0);
 
   await back.click();
   await expect(tabs.getByRole("link", { name: "More" })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("button", { name: `Owner view. Switch to Staff · ${viewer.firstName}` })).toBeVisible();
+  await expect(tabs.getByRole("link", { name: "More" })).toBeVisible();
+  await expect(back).toHaveCount(0);
+  await page.goto("/studio/more/advanced");
+  await expect(preview).toBeVisible();
 });
 
 test("Edit on a proposal brings the words back into the message box and retires the old proposal", async ({ page }) => {
@@ -212,10 +222,23 @@ test("Edit on a proposal brings the words back into the message box and retires 
 
 test("finance charts mark the period before with an outline or dashes, not colour alone (Codex #10)", async ({ page }) => {
   await page.goto("/studio/more/finance");
+  await expect(page.getByRole("heading", { name: "Left over this month" })).toBeVisible();
+  await expect(page.getByText(/^vs .+ at this point last month$/)).toBeVisible();
   const previous = page.locator("figure svg rect[fill=none]");
   await expect(previous.first()).toBeAttached();
   expect(await previous.first().evaluate(el => getComputedStyle(el).stroke)).not.toBe("none");
   expect(await page.locator("[data-series=previous]").first().evaluate(el => getComputedStyle(el).backgroundImage)).toContain("repeating-linear-gradient");
+  await page.getByRole("button", { name: "Send to my accountant" }).click();
+  const sheet = page.getByRole("dialog", { name: "Send to my accountant" });
+  await expect(sheet.getByText(/^The files cover /)).toBeVisible();
+  for (const [name, filename] of [
+    ["Download bookkeeping file", "cresavo-bookkeeping.sie"],
+    ["Download sales spreadsheet", "cresavo-sales.csv"],
+  ]) {
+    const downloading = page.waitForEvent("download");
+    await sheet.getByRole("button", { name }).click();
+    expect((await downloading).suggestedFilename()).toBe(filename);
+  }
 });
 
 test("Today names the staff member on every booking, not just a colour (#26)", async ({ page }) => {

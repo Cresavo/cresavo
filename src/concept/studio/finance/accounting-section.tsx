@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookCheck, Download, Loader2, Unplug } from "lucide-react";
-import { BRAND } from "../../brand";
+import { BookCheck, Loader2, Unplug } from "lucide-react";
 import { addDays } from "../../data/dates";
-import { EXPORT_MONTHS, salesCsv, salesPerDay, sieFile } from "../../finance/accounting";
+import { salesPerDay } from "../../finance/accounting";
 import { totalCosts } from "../../finance/profit";
 import { t } from "../../i18n";
 import { formatDayShort, formatMoney } from "../../i18n/format";
@@ -13,15 +12,13 @@ import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
 import { showToast } from "../../ui/toast";
-import { download } from "../more/export";
 import { useStudio } from "../use-studio";
 
 const PREVIEW_DAYS = 14;
 const PREVIEW_ROWS = 5;
 const CONNECT_DELAY_MS = 1400;
-const EXPORT_PREFIX = BRAND.name.toLowerCase();
 
-/** Simulated bookkeeping connection with a preview of what would sync, and plain file exports. */
+/** Simulated bookkeeping connection with a preview of what would sync. */
 export function AccountingSection() {
   const { state, today, minutes } = useStudio();
   const clock = { today, minutes };
@@ -93,14 +90,7 @@ export function AccountingSection() {
               {connecting ? t("finance.connecting") : t("finance.connect")}
             </Button>
           )}
-          <Button variant="secondary" icon={<Download size={16} />} onClick={() => download(`${EXPORT_PREFIX}-bookkeeping.sie`, sieFile(state, clock), "text/plain")}>
-            {t("finance.downloadSie")}
-          </Button>
-          <Button variant="secondary" icon={<Download size={16} />} onClick={() => download(`${EXPORT_PREFIX}-sales.csv`, salesCsv(state, clock), "text/csv")}>
-            {t("finance.downloadCsv")}
-          </Button>
         </div>
-        <p className="text-xs text-text-secondary">{t("finance.exportNote", { months: EXPORT_MONTHS })}</p>
       </Card>
     </Section>
   );

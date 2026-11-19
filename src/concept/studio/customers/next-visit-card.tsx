@@ -49,7 +49,7 @@ export function NextVisitCard({ customer, next, lastVisit }: { customer: Custome
       {due && (
         <Button
           size="sm"
-          className="w-full"
+          width="responsive"
           variant="secondary"
           disabled={sent}
           icon={sent ? <Check size={16} /> : <Send size={16} />}

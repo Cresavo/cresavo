@@ -41,24 +41,24 @@ export function ProductSheet({ item, onClose }: { item: StockItem; onClose: () =
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button disabled={!valid} onClick={save}>{t("common.save")}</Button>
+          <Button width="responsive" disabled={!valid} onClick={save}>{t("common.save")}</Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label={t("stock.minLevel")} hint={t("stock.minHint")}>
+        <Field width="number" label={t("stock.minLevel")} hint={t("stock.minHint")}>
           <TextInput inputMode="decimal" value={minimum} onChange={(event) => setMinimum(event.target.value)} />
         </Field>
-        <Field label={t("stock.supplier")}>
+        <Field width="short" label={t("stock.supplier")}>
           <Select value={supplier} onChange={(event) => setSupplier(event.target.value)}>
             {state.suppliers.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
           </Select>
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={t("stock.purchasePrice")}>
+        <div className="grid gap-3 min-[360px]:flex">
+          <Field width="number" label={t("stock.purchasePrice")}>
             <TextInput inputMode="decimal" value={cost} onChange={(event) => setCost(event.target.value)} />
           </Field>
-          <Field label={t("stock.salePrice")} hint={t("stock.saleHint")}>
+          <Field width="number" label={t("stock.salePrice")} hint={t("stock.saleHint")}>
             <TextInput inputMode="decimal" value={price} onChange={(event) => setPrice(event.target.value)} />
           </Field>
         </div>

@@ -60,7 +60,7 @@ export function TreatmentList({ state, canEdit, showMoveButtons, onEdit, onAdd }
                       {!services.length && <p className="px-4 py-4 text-sm text-text-secondary">{t("services.empty")}</p>}
                       {canEdit && (
                         <div>
-                          <Button variant="tertiary" align="start" aria-label={t("services.addInCategory", { category: category.name })} onClick={() => onAdd(category.id)} className="w-full !pl-12 text-text-secondary hover:text-text">
+                          <Button variant="tertiary" align="start" width="responsive" aria-label={t("services.addInCategory", { category: category.name })} onClick={() => onAdd(category.id)} className="!pl-12 text-text-secondary hover:text-text">
                             <Plus aria-hidden size={16} />
                             {t("services.add")}
                           </Button>

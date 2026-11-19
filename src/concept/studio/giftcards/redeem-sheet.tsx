@@ -47,13 +47,13 @@ export function RedeemSheet({ bookingId, onBack, onClose }: { bookingId: string;
       footer={
         <>
           <Button variant="ghost" onClick={onBack}>{t("common.back")}</Button>
-          <Button disabled={amount <= 0} icon={<Gift size={18} />} onClick={pay}>{t("giftcards.payConfirm", { amount: money(amount) })}</Button>
+          <Button width="responsive" disabled={amount <= 0} icon={<Gift size={18} />} onClick={pay}>{t("giftcards.payConfirm", { amount: money(amount) })}</Button>
         </>
       }
     >
       <div className="space-y-3">
         <p className="text-sm text-text-secondary">{t("payment.simulated")}</p>
-        <Field label={t("giftcards.payCode")}>
+        <Field width="short" label={t("giftcards.payCode")}>
           <TextInput value={code} onChange={(event) => {
             setCode(event.target.value);
             setLookupId(undefined);

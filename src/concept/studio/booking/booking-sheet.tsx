@@ -1,5 +1,6 @@
 "use client";
 
+import { moduleEnabled } from "../../modules/registry";
 import { useState } from "react";
 import { CalendarClock, CalendarX2, Check, Gift, Phone, UserRound } from "lucide-react";
 import { paidWithCards, remainingForCards } from "../../giftcards/cards";
@@ -56,7 +57,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
     ? state.journals.filter((j) => j.customerId === booking.customerId && j.date < booking.date).at(-1)
     : undefined;
   const waitlist = waitlistCount(state, booking);
-  const pkg = state.modules.packages ? packageFor(state, booking) : undefined;
+  const pkg = moduleEnabled(state.modules, "packages") ? packageFor(state, booking) : undefined;
   const protection = booking.protection;
   const salonCancellation = salonCancellationOnly(booking, clock.instant ?? 0);
   const paidByCard = paidWithCards(state, booking.id);
@@ -230,9 +231,9 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
           )}
         </dl>
         <FeeDecisionPanel state={state} booking={booking} />
-        {state.modules.giftcards && booking.status === "booked" && remainingForCards(state, booking) > 0 && (
+        {moduleEnabled(state.modules, "giftcards") && booking.status === "booked" && remainingForCards(state, booking) > 0 && (
           <div className="space-y-2">
-            <Button variant="secondary" className="w-full" icon={<Gift size={18} />} onClick={() => go("giftcard")}>{t("giftcards.pay")}</Button>
+            <Button variant="secondary" width="responsive" icon={<Gift size={18} />} onClick={() => go("giftcard")}>{t("giftcards.pay")}</Button>
             {pkg && <p className="text-sm text-text-secondary">{t("packages.giftCardInstead")}</p>}
           </div>
         )}

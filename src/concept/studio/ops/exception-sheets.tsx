@@ -39,16 +39,16 @@ export function OffSheet({ person, onClose }: { person: Staff; onClose: () => vo
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button disabled={!dates.length} onClick={save}>{t("common.save")}</Button>
+          <Button width="responsive" disabled={!dates.length} onClick={save}>{t("common.save")}</Button>
         </>
       }
     >
       <div className="space-y-5">
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={t("schedule.from")}>
+        <div className="grid gap-3 min-[360px]:flex">
+          <Field width="date" label={t("schedule.from")}>
             <TextInput type="date" min={today} value={from} onChange={(e) => { setFrom(e.target.value); if (e.target.value > to) setTo(e.target.value); }} />
           </Field>
-          <Field label={t("schedule.to")}>
+          <Field width="date" label={t("schedule.to")}>
             <TextInput type="date" min={from} value={to} onChange={(e) => setTo(e.target.value)} />
           </Field>
         </div>
@@ -78,19 +78,19 @@ export function ShiftSheet({ person, onClose }: { person: Staff; onClose: () => 
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button disabled={!valid} onClick={save}>{t("common.save")}</Button>
+          <Button width="responsive" disabled={!valid} onClick={save}>{t("common.save")}</Button>
         </>
       }
     >
       <div className="space-y-5">
-        <Field label={t("schedule.date")}>
+        <Field width="date" label={t("schedule.date")}>
           <TextInput type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={t("schedule.shiftFrom")}>
+        <div className="grid gap-3 min-[360px]:flex">
+          <Field width="date" label={t("schedule.shiftFrom")}>
             <TimeField label={t("schedule.shiftFrom")} value={start} onChange={setStart} />
           </Field>
-          <Field label={t("schedule.shiftTo")}>
+          <Field width="date" label={t("schedule.shiftTo")}>
             <TimeField label={t("schedule.shiftTo")} value={end} onChange={setEnd} />
           </Field>
         </div>

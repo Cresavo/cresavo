@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { getActiveLocale } from "../i18n";
+import { useLocale } from "@/app/components/locale-provider";
 import { studioSalonCopy } from "../i18n/salon-eko-copy";
 import { useDemo } from "../store";
 import { useNow } from "../use-now";
@@ -9,7 +9,7 @@ import { useNow } from "../use-now";
 /** Demo state plus the current day and minute. Only used inside the loaded studio shell. */
 export function useStudio() {
   const saved = useDemo();
-  const language = getActiveLocale();
+  const language = useLocale();
   const state = useMemo(() => saved && studioSalonCopy(saved, language), [saved, language]);
   const now = useNow();
   if (!state) throw new Error("useStudio() was called before the demo state loaded");

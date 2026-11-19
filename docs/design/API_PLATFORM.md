@@ -55,8 +55,8 @@ Regenerate after declaration changes with `node --import tsx scripts/api-parity-
 | assistant | assistant-memory | planned | planned | planned | planned |
 | assistant | assistant-routines | planned | planned | planned | planned |
 | giftcards | gift-cards | planned | planned | planned | planned |
+| giftcards | packages | planned | planned | planned | planned |
 | domain | domains | planned | planned | planned | planned |
-| packages | packages | planned | planned | planned | planned |
 <!-- api-parity:end -->
 
 ## Sandbox

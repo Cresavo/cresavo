@@ -1,5 +1,6 @@
 "use client";
 
+import { moduleEnabled } from "../modules/registry";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, BellRing, Check } from "lucide-react";
@@ -134,7 +135,7 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
     if (onBooked) onBooked(booking.id);
     else router.push(bookingPage(state.salon.slug, booking.id));
   };
-  if (hold) return <Card className="booking-step p-4 sm:p-6"><DepositCheckout hold={hold} now={now} phone={state.salon.phone} packagesEnabled={state.modules.packages}
+  if (hold) return <Card className="booking-step p-4 sm:p-6"><DepositCheckout hold={hold} now={now} phone={state.salon.phone} packagesEnabled={moduleEnabled(state.modules, "packages")}
     serviceName={state.services.find(s => s.id === hold.serviceId)?.name ?? ""}
     onPaid={finish} onRelease={() => selectHold()} /></Card>;
 

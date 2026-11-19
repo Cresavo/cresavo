@@ -1,5 +1,6 @@
 "use client";
 
+import { moduleEnabled } from "../modules/registry";
 import { useState } from "react";
 import { Search } from "lucide-react";
 import { balanceOf, findGiftCard } from "../giftcards/cards";
@@ -15,7 +16,7 @@ import { Field, TextInput } from "../ui/controls";
 export function GiftCardBalance({ state, compact }: { state: DemoState; compact?: boolean }) {
   const [code, setCode] = useState("");
   const [asked, setAsked] = useState<string | null>(null);
-  if (!state.modules.giftcards) return null;
+  if (!moduleEnabled(state.modules, "giftcards")) return null;
   const card = asked ? findGiftCard(state, asked) : undefined;
   const latest = state.giftCards.at(-1);
 

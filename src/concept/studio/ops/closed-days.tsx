@@ -69,7 +69,7 @@ function CloseSheet({ onClose }: { onClose: () => void }) {
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button disabled={!date || !name.trim()} onClick={save}>{t("common.save")}</Button>
+          <Button width="responsive" disabled={!date || !name.trim()} onClick={save}>{t("common.save")}</Button>
         </>
       }
     >
@@ -86,10 +86,10 @@ function CloseSheet({ onClose }: { onClose: () => void }) {
             </div>
           </div>
         )}
-        <Field label={t("closed.date")}>
+        <Field width="date" label={t("closed.date")}>
           <TextInput type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} />
         </Field>
-        <Field label={t("closed.name")}>
+        <Field width="short" label={t("closed.name")}>
           <TextInput value={name} maxLength={60} placeholder={t("closed.namePlaceholder")} onChange={(e) => setName(e.target.value)} />
         </Field>
       </div>

@@ -19,9 +19,9 @@ export function DayRow({ label, on, switchLabel, onToggle, children, off }: { la
 /** Two time fields: from and to, in minutes from midnight. `label` names the day for screen readers. */
 export function TimeRange({ from, to, onChange, label }: { from: number; to: number; onChange: (from: number, to: number) => void; label: string }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 max-[319px]:flex-col max-[319px]:items-stretch">
       <TimeField label={t("hours.from", { day: label })} value={from} onChange={(start) => onChange(start, to)} />
-      <span className="text-text-secondary">–</span>
+      <span className="hidden text-text-secondary min-[320px]:block">–</span>
       <TimeField label={t("hours.to", { day: label })} value={to} onChange={(end) => onChange(from, end)} />
     </div>
   );

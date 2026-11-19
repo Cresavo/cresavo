@@ -33,14 +33,14 @@ export function SetupTreatments({ list, currency, language, change }: Props) {
         const label = item.name.trim() || t("setup.treatment", { number: i + 1 });
         const issue = treatmentIssue(list, i);
         if (editing === i) return <div key={i} role="group" aria-label={label} className="space-y-3 p-4">
-          <Field label={t("setup.treatmentName")} error={issue === "name" ? t("setup.issue.name") : issue === "nameTaken" ? t("services.issue.nameTaken") : undefined}>
+          <Field width="short" label={t("setup.treatmentName")} error={issue === "name" ? t("setup.issue.name") : issue === "nameTaken" ? t("services.issue.nameTaken") : undefined}>
             <TextInput required maxLength={MAX_NAME} value={item.name} onChange={e => edit(i, { name: e.target.value })} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={t("setup.price", { currency })} error={issue === "price" ? t("setup.issue.price") : undefined}>
+          <div className="grid gap-3 min-[360px]:flex">
+            <Field width="number" label={t("setup.price", { currency })} error={issue === "price" ? t("setup.issue.price") : undefined}>
               <TextInput type="number" inputMode="numeric" required min={0} max={MAX_PRICE} value={Number.isFinite(item.price) ? item.price : ""} onChange={e => edit(i, { price: e.target.valueAsNumber })} />
             </Field>
-            <Field label={t("services.duration")} error={issue === "duration" ? t("setup.issue.duration") : undefined}>
+            <Field width="number" label={t("services.duration")} error={issue === "duration" ? t("setup.issue.duration") : undefined}>
               <TextInput type="number" inputMode="numeric" required min={MIN_DURATION} max={MAX_DURATION} step={DURATION_STEP} value={Number.isFinite(item.duration) ? item.duration : ""} onChange={e => edit(i, { duration: e.target.valueAsNumber })} />
             </Field>
           </div>

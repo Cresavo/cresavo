@@ -68,8 +68,12 @@ for (const role of ["owner", "staff"] as const) {
   test(`the ${role} can book the first team visit onto the colleague's calendar`, async ({ page }) => {
     await page.clock.setFixedTime(new Date("2026-11-23T08:00:00+01:00"));
     await seed(page, ["Lo Demo", "Kim Demo"]);
+    if (role === "staff") {
+      await page.goto("/studio/more/advanced");
+      await page.getByRole("button", { name: "Preview the staff view", exact: true }).click();
+      await expect(page).toHaveURL(/\/studio$/);
+    }
     await page.goto("/studio/calendar");
-    if (role === "staff") await page.locator('[data-help="role-switch"]:visible').click();
     await page.getByRole("button", { name: "New booking", exact: true }).click();
     const sheet = page.getByRole("dialog", { name: "New booking" });
     const assignee = sheet.getByRole("combobox", { name: "Staff", exact: true });
@@ -90,8 +94,9 @@ test("opening a solo salon booking link from demo staff view restores owner acce
   await seed(page);
   await page.goto("/boka/salong-eko");
   await expect(page.getByRole("link", { name: "Salong Eko", exact: true })).toBeVisible();
-  await page.goto("/studio/calendar");
-  await page.locator('[data-help="role-switch"]:visible').click();
+  await page.goto("/studio/more/advanced");
+  await page.getByRole("button", { name: "Preview the staff view", exact: true }).click();
+  await expect(page).toHaveURL(/\/studio$/);
   await page.goto("/boka/studio-vide");
   await page.getByRole("link", { name: "Open the owner's view" }).click();
   await expect(page.getByRole("button", { name: "Back to the demo salon" })).toBeVisible();

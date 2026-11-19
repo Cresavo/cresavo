@@ -50,7 +50,7 @@ export function SellSheet({ customerId, onClose }: { customerId?: string; onClos
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button disabled={!canSell} icon={<Check size={18} />} onClick={sell}>{t("stock.confirmSell")}</Button>
+          <Button width="responsive" disabled={!canSell} icon={<Check size={18} />} onClick={sell}>{t("stock.confirmSell")}</Button>
         </>
       }
     >

@@ -49,7 +49,7 @@ export default function MorePage() {
           />
         </li>
       </ul>
-      {/* On phones this page is the menu, so the theme control lives here (the sidebar has it on desktop). The role switch is in the top bar, where staff can reach it too. */}
+      {/* On phones the theme control lives in More. On desktop it lives in the sidebar. */}
       <Card className="mt-6 lg:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
           <span className="font-medium">{t("theme.label")}</span>

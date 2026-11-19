@@ -33,9 +33,9 @@ export default function StaffPage() {
                   <p className="text-sm text-text-secondary">{person.title} · {person.role}</p>
                 </div>
               </div>
-              <p className="text-sm">{person.bio}</p>
+              <p className="max-w-reading text-sm">{person.bio}</p>
               <StaffSchedule person={person} />
-              <div className="grid grid-cols-3 gap-3 border-t border-hairline pt-4 text-sm">
+              <div className="grid gap-3 border-t border-hairline pt-4 text-sm min-[320px]:grid-cols-3">
                 <div>
                   <p className="text-text-secondary">{t("staff.next7")}</p>
                   <p className="font-semibold">{tc("calendar.bookingCount", week)}</p>

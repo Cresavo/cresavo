@@ -24,7 +24,7 @@ export function DeleteCustomer({ customer }: { customer: Customer }) {
 
   return (
     <>
-      <Button variant="ghost" className="w-full text-danger" icon={<Trash2 size={18} />} onClick={() => setConfirming(true)}>
+      <Button variant="ghost" width="responsive" className="text-danger" icon={<Trash2 size={18} />} onClick={() => setConfirming(true)}>
         {t("customer.delete")}
       </Button>
       <Sheet

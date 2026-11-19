@@ -7,6 +7,7 @@ import { changedDetails } from "../ops/salon-details";
 import { t, tc } from "../i18n";
 import { formatDayShort, formatDuration, formatMoney } from "../i18n/format";
 import { findCustomer, findService, fullName } from "../selectors";
+import { moduleById, moduleEnabled } from "../modules/registry";
 
 /** Reading a message or dismissing a card is not a change worth logging. */
 export type LoggedAction = Exclude<DemoAction, { type: "inbox/read" | "inbox/read-all" | "card/dismiss" | "routine/ran" }>;
@@ -171,7 +172,7 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
     case "domain/remove":
       return { summary: t("log.domainRemove", { host: prev.domain!.host }) };
     case "module/toggle":
-      return { summary: t(next.modules[action.key] ? "log.moduleOn" : "log.moduleOff", { module: t(`features.${action.key}`) }) };
+      return { summary: t(moduleEnabled(next.modules, action.key) ? "log.moduleOn" : "log.moduleOff", { module: t(moduleById(action.key).name) }) };
     case "module/preset":
       return { summary: t(`log.preset.${action.preset}`) };
     case "trash/restore": {

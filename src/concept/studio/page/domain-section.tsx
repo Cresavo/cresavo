@@ -53,10 +53,10 @@ function Start({ live }: { live: boolean }) {
     <Card className="space-y-3 p-4">
       <p className="text-sm text-text-secondary">{t("domain.intro")}</p>
       <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); void connect(); }}>
-        <Field label={t("domain.label")} hint={problem ?? t("domain.hint")}>
+        <Field width="short" label={t("domain.label")} hint={problem ?? t("domain.hint")}>
           <TextInput value={host} onChange={(event) => setHost(event.target.value)} placeholder={t("domain.placeholder")} autoCapitalize="none" autoComplete="off" spellCheck={false} aria-invalid={!!problem} />
         </Field>
-        <Button type="submit" disabled={!check.ok || busy} icon={busy ? <Loader2 size={18} className="animate-spin" /> : <Globe size={18} />}>{t("domain.connect")}</Button>
+        <Button width="responsive" type="submit" disabled={!check.ok || busy} icon={busy ? <Loader2 size={18} className="animate-spin" /> : <Globe size={18} />}>{t("domain.connect")}</Button>
       </form>
     </Card>
   );

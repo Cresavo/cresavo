@@ -120,7 +120,7 @@ export default function CustomerPage() {
             </div>
           </Card>
           {state.modules.stock && !viewer && (
-            <Button variant="secondary" className="w-full" icon={<ShoppingBag size={18} />} onClick={() => setSelling(true)}>
+            <Button variant="secondary" width="responsive" icon={<ShoppingBag size={18} />} onClick={() => setSelling(true)}>
               {t("stock.sell")}
             </Button>
           )}
@@ -148,7 +148,6 @@ export default function CustomerPage() {
             label={t("customer.sections")}
             value={tab}
             onChange={setTab}
-            className="w-full sm:w-auto"
             options={[
               { value: "overview", label: t("customer.tab.overview") },
               { value: "history", label: tc("customer.tab.history", history.length) },

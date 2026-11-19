@@ -3,7 +3,7 @@ import { renderToStaticMarkup as render } from "react-dom/server";
 import { afterEach, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
-import { Button, IconButton } from "@/concept/ui/button";
+import { Button, ButtonLink, IconButton } from "@/concept/ui/button";
 import { Field, Input, Select, Switch, Textarea } from "@/concept/ui/controls";
 import { PageHeader } from "@/concept/ui/page-header";
 import { ListRow } from "@/concept/ui/list-row";
@@ -32,6 +32,20 @@ it("associates hint and error with each field and preserves other descriptions",
     expect(html).toContain('aria-invalid="true"');
     expect(html).toMatch(/<label[^>]*>.*Name.*<(input|select|textarea)/);
   }
+});
+
+it.each(["date", "number", "short"] as const)("caps %s fields from md while keeping them fluid below it", (width) => {
+  const control = h(Input);
+  const field = render(h(Field, { label: "Value", width, children: control }));
+  expect(field).toMatch(new RegExp(`^<div class="[^"]*w-full [^"]*md:max-w-field-${width}`));
+  expect(render(h(Input, { width }))).toContain(`md:max-w-field-${width}`);
+  expect(render(h(Field, { label: "Value", children: control }))).not.toContain("max-w-field");
+});
+
+it("lets form actions fill the row below sm and fit their content from sm", () => {
+  expect(render(h(Button, { width: "responsive" }, "Save"))).toContain("w-full sm:w-fit");
+  expect(render(h(ButtonLink, { href: "/studio", width: "responsive", children: "Continue" }))).toContain("w-full sm:w-fit");
+  expect(render(h(Button, {}, "Save"))).not.toMatch(/ w-full[ "]/);
 });
 
 it("renders one primary header action and one native target for each list row", () => {

@@ -22,16 +22,10 @@ export const ADVANCED_KEY_PREFIXES = [
   "pageEditor.css.", // own styling for the booking page (Advanced)
 ] as const;
 
-/**
- * Not yet simplified: the finance add-on's accountant export (SIE, CSV). It is off by default and
- * moves to "Send to my accountant" in a later round. Remove these when that ships.
- */
-const LATER = ["finance.downloadSie", "finance.downloadCsv", "finance.exportNote"] as const;
-
 /** Help search keywords are matched against questions and never shown, so owners may type the words they know. */
 const shown = (key: string) => !key.endsWith(".keywords");
 
-const allowed = (key: string) => ADVANCED_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)) || (LATER as readonly string[]).includes(key);
+const allowed = (key: string) => ADVANCED_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
 
 describe("no developer jargon in the default studio", () => {
   for (const [language, dictionary] of [["en", en.messages], ["sv", sv.messages]] as const) {
@@ -46,7 +40,7 @@ describe("no developer jargon in the default studio", () => {
 
   it("keeps every allowlisted prefix in use, so the list stays honest", () => {
     const keys = Object.keys(en.messages);
-    for (const prefix of [...ADVANCED_KEY_PREFIXES, ...LATER]) expect(keys.some((key) => key.startsWith(prefix)), prefix).toBe(true);
+    for (const prefix of ADVANCED_KEY_PREFIXES) expect(keys.some((key) => key.startsWith(prefix)), prefix).toBe(true);
   });
 
   it("catches the words it is meant to catch", () => {

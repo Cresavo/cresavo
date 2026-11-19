@@ -52,7 +52,7 @@ export function SalonPage() {
       case "staff":
         return <StaffSection state={state} variant={variant} />;
       case "reviews":
-        return <Reviews state={state} variant={variant} />;
+        return state.modules.reviews ? <Reviews state={state} variant={variant} /> : null;
       case "gallery":
         return <GallerySection variant={variant} />;
       case "map":

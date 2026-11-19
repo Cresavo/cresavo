@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { ToggleRight } from "lucide-react";
 import type { ModuleKey } from "../../data/types";
 import { t } from "../../i18n";
+import { moduleEnabled } from "../../modules/registry";
 import { ButtonLink } from "../../ui/button";
 import { EmptyState } from "../../ui/empty-state";
 import { BackLink } from "../back-link";
@@ -24,7 +25,7 @@ interface MorePageProps {
 /** Frame for pages under More: back link on phones, header, module check. */
 export function MorePage({ title, subtitle, actions, module, parent, children }: MorePageProps) {
   const { state } = useStudio();
-  const off = module && !state.modules[module];
+  const off = module && !moduleEnabled(state.modules, module);
   return (
     <>
       <PageHeader

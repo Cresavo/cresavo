@@ -79,10 +79,10 @@ export function SalonWizard() {
       <span className="inline-flex size-12 items-center justify-center rounded-full bg-action-bg text-text"><Check aria-hidden /></span>
       <PageHeader tools={false} titleRef={title} title={t("setup.ready")} subtitle={t("setup.readyHint")} />
       <div className="flex flex-col gap-2">
-        <Link href={path} onClick={() => recordPageSeen(state.salon.slug)} className={buttonClass("primary", "lg", "w-full")}>
+        <Link href={path} onClick={() => recordPageSeen(state.salon.slug)} className={buttonClass("primary", "lg", "w-full sm:w-fit")}>
           <Globe size={18} aria-hidden />{t("setup.seePage")}
         </Link>
-        <ButtonLink href="/studio" variant="secondary" size="lg" icon={<Sun size={18} aria-hidden />} className="w-full">{t("setup.goToDay")}</ButtonLink>
+        <ButtonLink href="/studio" variant="secondary" size="lg" icon={<Sun size={18} aria-hidden />} width="responsive">{t("setup.goToDay")}</ButtonLink>
       </div>
       <p className="text-meta text-text-secondary">{t("trial.notice")}</p>
       <ReturnToDemo />
@@ -94,7 +94,7 @@ export function SalonWizard() {
     <SetupProgress number={step + 1} />
     <PageHeader tools={false} titleRef={title} title={t(`setup.${question}`)} subtitle={t(`setup.${question}Hint`)} />
     {step === 0 && <div className="space-y-5">
-      <Field label={t("settings.name")}><TextInput autoComplete="organization" maxLength={80} value={draft.name} placeholder={t("setup.defaultName")} onChange={e => update({ name: e.target.value })} /></Field>
+      <Field width="short" label={t("settings.name")}><TextInput autoComplete="organization" maxLength={80} value={draft.name} placeholder={t("setup.defaultName")} onChange={e => update({ name: e.target.value })} /></Field>
       <div className="space-y-2">
         <p className="text-body font-medium">{t("setup.type")}</p>
         <ChoiceCards<SetupType> label={t("setup.type")} value={draft.industry as SetupType}
@@ -103,9 +103,9 @@ export function SalonWizard() {
       </div>
     </div>}
     {step === 1 && <SetupTreatments list={draft.treatments} currency={draft.currency} language={language} change={treatments => update({ treatments })} />}
-    <div className="flex flex-wrap items-center gap-2 border-t border-hairline pt-4">
+    <div className="flex flex-wrap items-center gap-2 border-t border-hairline pt-4 sm:justify-end">
       {step > 0 && <IconButton label={t("welcome.back")} onClick={() => setStep(step - 1)}><ArrowLeft size={18} /></IconButton>}
-      <Button type="submit" size="lg" className="flex-1" loading={saving} disabled={!valid}>
+      <Button type="submit" size="lg" width="responsive" loading={saving} disabled={!valid}>
         {t(step === STEPS.length - 1 ? "setup.create" : "welcome.next")}<ArrowRight size={16} aria-hidden />
       </Button>
     </div>
