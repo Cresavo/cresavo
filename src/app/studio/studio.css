@@ -102,18 +102,6 @@ body:has(.studio-root) .demo-banner {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .studio-root,
-  .studio-root *,
-  .studio-root *::before,
-  .studio-root *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
 .studio-root [data-tour-active] {
   outline: 2px solid var(--ui-action);
   outline-offset: 2px;

@@ -76,7 +76,7 @@ it("names the practitioner in a shared week agenda", () => {
 it("tabs to the selected segment and wraps arrow-key focus and selection together", () => {
   const onChange = vi.fn();
   const group = Segmented({ label: "View", value: "week", options: [{ value: "day", label: "Day" }, { value: "week", label: "Week" }], onChange });
-  const buttons = group.props.children;
+  const buttons = group.props.children.props.children;
   expect(buttons.map((button: { props: { tabIndex: number } }) => button.props.tabIndex)).toEqual([-1, 0]);
   const targets = [{ focus: vi.fn() }, { focus: vi.fn() }];
   const event = { currentTarget: { parentElement: { querySelectorAll: () => targets } }, preventDefault: vi.fn() };

@@ -119,3 +119,38 @@ describe("neutral text on tinted backgrounds", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("foundation scales", () => {
+  it("maps the layout, type, depth and motion scales to runtime tokens", async () => {
+    const { default: config } = await import("../tailwind.config");
+    const theme = config.theme.extend;
+    const cssValue = (token: string) => runtime.match(new RegExp(token + ": ([^;]+);"))?.[1];
+    for (const n of [1, 2, 3, 4, 6, 8]) {
+      expect(Reflect.get(theme.spacing, n)).toBe(`var(--space-${n})`);
+      expect(cssValue(`--space-${n}`)).toBe(`${4 * n}px`);
+    }
+    for (const [role, px] of Object.entries({ h1: 28, h2: 20, h3: 16, body: 15, meta: 13, min: 12 })) {
+      expect(cssValue("--type-" + role)).toBe(px / 16 + "rem");
+      expect(theme.fontSize[role === "min" ? "minimum" : role as keyof typeof theme.fontSize][0]).toBe(`var(--type-${role})`);
+    }
+    for (const [index, duration] of [120, 200, 280].entries()) expect(cssValue("--dur-" + (index + 1))).toBe(duration + "ms");
+    expect(cssValue("--ease-out")).toBe("cubic-bezier(.2,.8,.2,1)");
+    for (const scale of [theme.boxShadow, theme.zIndex, theme.transitionTimingFunction, theme.transitionDuration]) {
+      for (const value of Object.values(scale)) expect(cssValue(value.slice(4, -1))).toBeTruthy();
+    }
+    expect(cssValue("--touch-target")).toBe("44px");
+    expect(runtime).toMatch(/prefers-reduced-motion: reduce[\s\S]*animation-duration: .01ms/);
+  });
+
+  it("keeps control labels, secondary copy and focus indicators readable in both themes", () => {
+    for (const scheme of ["light", "dark"] as const) {
+      const ratio = (a: string, b: string) => contrast(pair(a)[scheme], pair(b)[scheme]);
+      for (const surface of ["bg", "surface", "surface-2", "action-bg"]) {
+        expect(ratio("text-secondary", surface)).toBeGreaterThanOrEqual(4.5);
+        expect(ratio("focus", surface)).toBeGreaterThanOrEqual(3);
+        expect(ratio("input-border", surface)).toBeGreaterThanOrEqual(3);
+      }
+      for (const fill of ["action", "action-hover"]) expect(ratio("action-text", fill)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+});

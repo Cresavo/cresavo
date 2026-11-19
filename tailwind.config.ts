@@ -26,8 +26,20 @@ export default {
     extend: {
       colors: { ...Object.fromEntries(names.map((name) => [name, ui(name)])), "on-action": ui("action-text") },
       fontFamily: { sans: ["var(--font-ui)"] },
+      spacing: {
+        ...Object.fromEntries([1, 2, 3, 4, 6, 8].map(n => [n, `var(--space-${n})`])),
+        target: "var(--touch-target)",
+      },
+      fontSize: {
+        h1: ["var(--type-h1)", "1.2"], h2: ["var(--type-h2)", "1.3"],
+        h3: ["var(--type-h3)", "1.4"], body: ["var(--type-body)", "1.5"],
+        meta: ["var(--type-meta)", "1.5"], minimum: ["var(--type-min)", "1.5"],
+      },
+      zIndex: { sticky: "var(--z-sticky)", popover: "var(--z-popover)", toast: "var(--z-toast)" },
+      transitionDuration: { quick: "var(--dur-1)", normal: "var(--dur-2)", slow: "var(--dur-3)" },
+      transitionTimingFunction: { enter: "var(--ease-out)", exit: "var(--ease-in)" },
       boxShadow: {
-        sheet: "0 -8px 40px rgb(0 0 0 / 0.18)",
+        raised: "var(--elevation-raised)", sheet: "var(--elevation-sheet)",
       },
     },
   },

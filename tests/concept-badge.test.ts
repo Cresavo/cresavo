@@ -5,8 +5,7 @@ import { contrast } from "@/concept/page/colour";
 import { Badge, Tag } from "@/concept/ui/badge";
 import { Notice } from "@/concept/ui/notice";
 
-// Status words are quiet: text only. No fill, no dot, and the one signal a
-// warning or an error gets is its semantic colour on the text.
+// Status badges pair a readable word with a decorative icon.
 
 const runtime = readFileSync(new URL("../src/concept/ui/brand-theme.css", import.meta.url), "utf8");
 const tenant = readFileSync(new URL("../src/concept/booking/tenant-theme.css", import.meta.url), "utf8");
@@ -20,17 +19,18 @@ function pair(name: string): { light: string; dark: string } {
 const html = (tone?: "neutral" | "accent" | "warn" | "danger") => renderToStaticMarkup(Badge({ tone, children: "Status" }));
 
 describe("status badges", () => {
-  it("are plain text by default: no background, no outline, no dot", () => {
+  it("pair text and an icon without a fill or border", () => {
     for (const tone of [undefined, "neutral", "accent", "warn", "danger"] as const) {
       const markup = html(tone);
       expect(markup).not.toMatch(/\bbg-|\bring-|rounded-full|size-1\.5/);
-      expect(markup.match(/<span/g)).toHaveLength(1);
+      expect(markup).toContain("<svg");
+      expect(markup).toContain(">Status</span>");
     }
     expect(html()).toContain("text-text-secondary");
     expect(html("accent")).toContain("text-text");
   });
 
-  it("give a warning or an error exactly one signal: the semantic colour on the text", () => {
+  it("preserve the semantic ink for warning and error labels", () => {
     expect(html("warn")).toContain("text-warning");
     expect(html("warn")).toContain('data-status="warning"');
     expect(html("danger")).toContain("text-danger");
