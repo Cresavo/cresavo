@@ -57,7 +57,7 @@ function InboxPageContent() {
   const { proposals, decide } = useAgentProposals(!state.industry);
 
   const approve = (proposal: AgentProposal) => {
-    if (!showUndoToast(proposal.toast, decide(proposal, true))) showActionFailure(t("agents.failed"), proposal.id);
+    if (!showUndoToast(proposal.toast, decide(proposal, true))) showActionFailure("agents.failed", proposal.id);
   };
   const decline = (proposal: AgentProposal) => {
     decide(proposal, false);

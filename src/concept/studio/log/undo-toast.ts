@@ -13,9 +13,9 @@ const REASON_KEYS = {
   "record-in-use": "log.undoRecordInUse",
 } as const;
 
-/** The message that explains why an undo is blocked, or undefined when there is nothing specific to say. */
-export function undoBlockMessage(reason: UndoBlockReason | null | undefined): string | undefined {
-  return reason && reason !== "changed" ? t(REASON_KEYS[reason]) : undefined;
+/** The message key that explains why an undo is blocked, when there is a specific reason. */
+export function undoBlockMessageKey(reason: UndoBlockReason | null | undefined) {
+  return reason && reason !== "changed" ? REASON_KEYS[reason] : undefined;
 }
 
 export function undoWithToast(id: string): boolean {
@@ -26,9 +26,9 @@ export function undoWithToast(id: string): boolean {
   const state = currentState();
   const entry = state?.log.find(row => row.id === id);
   const reason = state && undoBlockReason(state, entry);
-  const message = undoBlockMessage(reason) ?? t("log.cannotUndo");
-  if (entry && isBookingOrPaymentAction(entry.type)) showActionFailure(message);
-  else showToast(message);
+  const key = undoBlockMessageKey(reason) ?? "log.cannotUndo";
+  if (entry && isBookingOrPaymentAction(entry.type)) showActionFailure(key);
+  else showToast(t(key));
   return false;
 }
 

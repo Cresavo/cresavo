@@ -47,12 +47,13 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
     const booking = state.bookings.find((b) => b.id === id);
     if (!booking) return;
     if (booking.staffId !== person.id) {
-      showActionFailure(t("calendar.sameStaffOnly", { name: state.staff.find((s) => s.id === booking.staffId)!.firstName }));
+      const name = state.staff.find((s) => s.id === booking.staffId)!.firstName;
+      showActionFailure("reference.sameStaffOnly", undefined, "studio", t("calendar.sameStaffOnly", { name }));
       return;
     }
     const start = minuteAt(event);
     if (!dispatchWithUndoToast({ type: "booking/move", id, date, start }, t("calendar.movedTo", { time: formatTime(start) }))) {
-      showActionFailure(t("calendar.slotTaken"));
+      showActionFailure("calendar.slotTaken");
     }
   };
 

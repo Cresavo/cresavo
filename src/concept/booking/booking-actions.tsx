@@ -50,6 +50,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
   const [moveFailure, setMoveFailure] = useState<ActionFailureInfo>();
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
   const rule = changeRule(booking, now.today, now.minutes);
+  const moveOpen = rule === "free" && sheet === "move";
   const service = findService(state, booking.serviceId);
   const customer = findCustomer(state, booking.customerId);
   if (rule === "past" || !service || !customer) return null;
@@ -87,7 +88,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
     }, undefined, canChange)).catch(() => false as const);
     setPending(false);
     setSheet(null);
-    if (result === false) showActionFailure(t("booking.visitChanged"), requestId, "booking");
+    if (result === false) showActionFailure("booking.visitChanged", requestId, "booking");
     else showToast(t("booking.cancel.done"));
   };
 
@@ -108,11 +109,11 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
     }).some(slot => slot.start === target.start))).catch(() => false as const);
     setPending(false);
     if (result === false) {
-      const message = t("booking.move.failed");
+      const reason = "booking.move.failed";
       const latest = currentState()?.bookings.find(entry => entry.id === booking.id);
       const clock = salonClock();
-      if (!latest || changeRule(latest, clock.today, clock.minutes) === "past") showActionFailure(message, requestId, "booking");
-      else setMoveFailure({ requestId, message });
+      if (!latest || changeRule(latest, clock.today, clock.minutes) === "past") showActionFailure(reason, requestId, "booking");
+      else setMoveFailure({ requestId, reason });
       return;
     }
     setSheet(null);
@@ -124,7 +125,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       <div className="flex flex-wrap gap-2">
         {rule === "free" && (
           <>
-            <Button variant="secondary" icon={<CalendarClock size={16} />} onClick={() => { setMoveFailure(undefined); setSheet("move"); }}>
+            <Button variant="secondary" icon={<CalendarClock size={16} />} onClick={() => setSheet("move")}>
               {t("booking.reschedule")}
             </Button>
             <Button variant="danger" icon={<XCircle size={16} />} onClick={() => setSheet("cancel")}>
@@ -139,7 +140,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
           <span>{t(state.salon.phone ? "booking.tooLate" : "booking.tooLateNoPhone", { phone: state.salon.phone })}</span>
         </Notice>
       )}
-      {rule !== "free" && moveFailure && <ActionFailure failure={moveFailure} audience="booking" />}
+      {!moveOpen && moveFailure && <ActionFailure failure={moveFailure} audience="booking" />}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="secondary" icon={<CalendarPlus size={16} />} onClick={() => downloadCalendar(state, booking)}>
@@ -166,7 +167,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       </Sheet>
 
       <Sheet
-        open={rule === "free" && sheet === "move"}
+        open={moveOpen}
         onClose={() => setSheet(null)}
         title={t("booking.move.title")}
         description={t("booking.move.commitHint", { service: service.name, when })}

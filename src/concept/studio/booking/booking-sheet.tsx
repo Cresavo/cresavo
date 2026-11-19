@@ -36,7 +36,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const [failure, setFailure] = useState<ActionFailureInfo>();
   if (!booking) return null;
   const go = (next: Mode) => { setFailure(undefined); setMode(next); };
-  const report = (message: string) => setFailure({ message, requestId: newActionRequestId() });
+  const report = (reason: MessageKey) => setFailure({ reason, requestId: newActionRequestId() });
   const failureNotice = failure && <ActionFailure failure={failure} />;
 
   const customer = findCustomer(state, booking.customerId);
@@ -58,14 +58,14 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
     const first = customer?.firstName ?? "";
     const message = pkg ? t("booking.donePackageToast", { name: first, left: tc("packages.onLeft", visitsLeft(pkg) - 1) }) : t(usesStock ? "booking.doneStockToast" : "booking.doneToast", { name: first });
     if (dispatchWithUndoToast({ type: "booking/complete", id: booking.id }, message)) onClose();
-    else report(t("booking.completeFailed"));
+    else report("booking.completeFailed");
   };
 
   const confirmMove = () => {
     if (!slot) return;
     const message = t("booking.movedToast", { name: customer?.firstName ?? "", when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` });
     if (dispatchWithUndoToast({ type: "booking/move", id: booking.id, date: slot.date, start: slot.start }, message)) onClose();
-    else report(t("booking.move.failed"));
+    else report("booking.move.failed");
   };
 
   const confirmCancel = () => {
@@ -77,7 +77,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
       reason: t(reason),
       notice: sendOffer ? waitlistNotice(booking, waitlist, { today, minutes }) : undefined,
     }, message)) onClose();
-    else report(t("booking.visitChanged"));
+    else report("booking.visitChanged");
   };
 
   if (mode === "giftcard") return <RedeemSheet bookingId={booking.id} onBack={() => go("details")} onClose={onClose} />;

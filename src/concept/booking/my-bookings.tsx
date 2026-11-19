@@ -57,7 +57,7 @@ function Lookup({ state }: { state: DemoState }) {
           event.preventDefault();
           const found = findCustomerByPhone(state, phone);
           if (found) router.replace(myBookingsFor(state.salon.slug, found.id));
-          else setFailure({ requestId: newActionRequestId(), message: t("booking.me.notFound") });
+          else setFailure({ requestId: newActionRequestId(), reason: "booking.me.notFound" });
         }}
       >
         <Field label={t("booking.yourPhone")}>

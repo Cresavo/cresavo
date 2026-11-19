@@ -30,14 +30,21 @@ export function Confirmation({ id }: { id: string }) {
     return (
       <Card className="mx-auto max-w-lg space-y-4 p-6 text-center">
         <p className="text-lg font-semibold">{t("booking.notFound.title")}</p>
-        <ActionFailure failure={{ requestId: id, message: t("booking.notFound.text") }} audience="booking" />
+        <ActionFailure failure={{ requestId: id, reason: "booking.notFound.text" }} audience="booking" />
         <ButtonLink href={bookingHome(state?.salon.slug ?? "")}>{t("booking.notFound.action")}</ButtonLink>
       </Card>
     );
   }
 
   const cancelled = booking.status === "cancelled";
-  const active = changeRule(booking, now.today, now.minutes) !== "past";
+  const rule = changeRule(booking, now.today, now.minutes);
+  const active = rule !== "past";
+  const title = active ? "booking.confirmation.title" : ({
+    booked: "booking.confirmation.past",
+    completed: "booking.confirmation.completed",
+    cancelled: "booking.confirmation.cancelled",
+    noshow: "booking.confirmation.noshow",
+  } as const)[booking.status];
   const Icon = cancelled ? XCircle : CheckCircle2;
   return (
     <div className="mx-auto max-w-lg space-y-5">
@@ -49,8 +56,8 @@ export function Confirmation({ id }: { id: string }) {
         ) : (
           <Icon size={44} className="mx-auto text-action" />
         )}
-        <h1 className="text-2xl font-semibold tracking-tight">{cancelled ? t("booking.confirmation.cancelled") : t("booking.confirmation.title")}</h1>
-        <p className="text-text-secondary">{cancelled ? t("booking.confirmation.cancelledText") : t("booking.confirmation.text")}</p>
+        <h1 className="text-2xl font-semibold tracking-tight">{t(title)}</h1>
+        {(active || cancelled) && <p className="text-text-secondary">{t(cancelled ? "booking.confirmation.cancelledText" : "booking.confirmation.text")}</p>}
       </div>
 
       <Card className="space-y-4 p-5">
@@ -70,7 +77,8 @@ export function Confirmation({ id }: { id: string }) {
           {[state.salon.name, state.salon.address, state.salon.area].filter(Boolean).join(", ")}
         </p>
         <p className="border-t border-hairline pt-3 text-sm">
-          <strong>{formatMoney(booking.price)}</strong> · {t("booking.payAtSalon")}
+          <strong>{formatMoney(booking.price, state.localization.currency)}</strong>
+          {active && <> · {t(state.modules.packages ? "booking.payAtSalonWithPackages" : "booking.payAtSalon")}</>}
         </p>
       </Card>
 
@@ -80,7 +88,7 @@ export function Confirmation({ id }: { id: string }) {
       </div>
       <div id="manage" className="scroll-mt-4 space-y-3">
         {active && <BookingActions state={state} now={now} booking={booking} />}
-        {changeRule(booking, now.today, now.minutes) === "free" && <p className="text-sm text-text-secondary">{freeUntilText(booking)}</p>}
+        {rule === "free" && <p className="text-sm text-text-secondary">{freeUntilText(booking)}</p>}
       </div>
 
       {active && !cancelled && <MessagePreviews state={state} booking={booking} now={now} />}

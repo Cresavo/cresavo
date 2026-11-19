@@ -33,7 +33,7 @@ export function SellPackageSheet({ onClose }: { onClose: () => void }) {
   const sell = () => {
     if (!service || !customer) return;
     if (dispatchWithUndoToast({ type: "package/sell", customerId: customer.id, serviceId: service.id, date: today }, t("packages.sold", { name: customer.firstName }))) onClose();
-    else setFailure({ requestId: newActionRequestId(), message: t("payment.saleFailed") });
+    else setFailure({ requestId: newActionRequestId(), reason: "payment.saleFailed" });
   };
 
   return (

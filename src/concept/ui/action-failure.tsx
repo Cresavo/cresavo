@@ -1,26 +1,32 @@
 "use client";
 
-import { useState } from "react";
-import { t } from "../i18n";
-import { actionReference } from "../support/action-reference";
+import { useEffect, useState } from "react";
+import { t, type MessageKey } from "../i18n";
+import { currentState } from "../store";
+import { actionReference, recordActionFailure } from "../support/action-reference";
 import { Button } from "./button";
 import { Notice } from "./notice";
 
 export interface ActionFailureInfo {
-  message: string;
   requestId: string;
+  reason: MessageKey;
+  message?: string;
 }
 
 export function ActionFailure({ failure, audience = "studio" }: {
   failure: ActionFailureInfo; audience?: "booking" | "studio";
 }) {
-  const reference = actionReference(failure.requestId);
+  const { requestId, reason } = failure;
+  const reference = actionReference(requestId);
   const [copy, setCopy] = useState<{ reference: string; ok: boolean }>();
   const copied = copy?.reference === reference && copy.ok;
+  useEffect(() => {
+    recordActionFailure(Boolean(currentState()?.industry), requestId, reason);
+  }, [requestId, reason]);
   return (
     <div className="w-full space-y-1 rounded-md bg-surface text-sm text-text">
       <Notice tone="danger" role="alert">
-        <span className="block">{failure.message}</span>
+        <span className="block">{failure.message ?? t(reason)}</span>
         <span className="mt-1 block">{t(audience === "booking" ? "reference.salonHint" : "reference.supportHint")} <code className="select-all font-mono font-semibold">{reference}</code></span>
       </Notice>
       <div className="flex flex-wrap items-center gap-x-2 px-2 pb-1">

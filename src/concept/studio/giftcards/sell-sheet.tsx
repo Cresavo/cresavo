@@ -29,7 +29,7 @@ export function SellGiftCardSheet({ onClose, onSold }: { onClose: () => void; on
   const sell = () => {
     const logId = dispatchWithLog({ type: "giftcard/sell", amount, recipient, message, date: today });
     if (logId === false) {
-      setFailure({ requestId: newActionRequestId(), message: t("payment.saleFailed") });
+      setFailure({ requestId: newActionRequestId(), reason: "payment.saleFailed" });
       return;
     }
     const card = currentState()!.giftCards.at(-1)!;

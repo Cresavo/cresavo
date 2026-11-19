@@ -45,7 +45,7 @@ it("the cancellation toast reports a conflict after another tab takes the slot",
 
   action.run();
 
-  expect(showActionFailure).toHaveBeenLastCalledWith("Can't undo: that time is no longer available.");
+  expect(showActionFailure).toHaveBeenLastCalledWith("log.undoTimeTaken");
   expect(raw).toBe(rebooked);
 });
 

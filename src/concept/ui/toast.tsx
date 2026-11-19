@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { CheckCircle2, X } from "lucide-react";
-import { t } from "../i18n";
+import { t, type MessageKey } from "../i18n";
 import { newActionRequestId } from "../support/action-reference";
 import { ActionFailure, type ActionFailureInfo } from "./action-failure";
 import { IconButton } from "./button";
@@ -27,8 +27,8 @@ export function showToast(message: string, action?: ToastAction) {
   window.setTimeout(() => dismiss(id), 6000);
 }
 
-export function showActionFailure(message: string, requestId = newActionRequestId(), audience: "studio" | "booking" = "studio") {
-  toasts = [...toasts.slice(-2), { id: ++counter, failure: { message, requestId }, audience }];
+export function showActionFailure(reason: MessageKey, requestId = newActionRequestId(), audience: "studio" | "booking" = "studio", message?: string) {
+  toasts = [...toasts.slice(-2), { id: ++counter, failure: { reason, requestId, message }, audience }];
   emit();
 }
 

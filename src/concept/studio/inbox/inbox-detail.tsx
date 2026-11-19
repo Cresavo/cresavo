@@ -36,7 +36,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
   const send = () => {
     const sent = dispatchWithUndoToast({ type: "inbox/reply", id: item.id, reply: reply.trim(), slot }, slot ? t("inbox.sentWithBooking", { name: name.split(" ")[0] }) : t("inbox.sent"));
     if (sent) onDone?.();
-    else setFailure({ requestId: newActionRequestId(), message: t(slot ? "inbox.sendBookingFailed" : "messages.failed") });
+    else setFailure({ requestId: newActionRequestId(), reason: slot ? "inbox.sendBookingFailed" : "messages.failed" });
   };
 
   return (
@@ -108,7 +108,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
                 onClick={() => {
                   const waitlist = waitlistCount(state, booking);
                   if (!textWaitlistAboutSlot(state, booking) || !dispatchWithUndoToast({ type: "inbox/add", item: waitlistNotice(booking, waitlist, { today, minutes }) }, tc("suggest.gaps.toast", waitlist))) {
-                    setFailure({ requestId: newActionRequestId(), message: t("messages.failed") });
+                    setFailure({ requestId: newActionRequestId(), reason: "messages.failed" });
                   }
                 }}
               >

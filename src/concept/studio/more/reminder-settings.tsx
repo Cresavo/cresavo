@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { monthlySmsEstimate, smsPriceOre } from "../../booking/reminders";
+import { MAX_SMS_PRICE_ORE, monthlySmsEstimate, smsPriceOre } from "../../booking/reminders";
 import type { MessageChannel } from "../../booking/messages";
 import type { DateKey, DemoState } from "../../data/types";
 import { locale, t } from "../../i18n";
@@ -10,12 +10,10 @@ import { ButtonLink } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
 import { Field, Segmented, TextInput } from "../../ui/controls";
 
-function formatSek(ore: number) {
-  return new Intl.NumberFormat(locale, { style: "currency", currency: "SEK" }).format(ore / 100);
-}
-
 export function ReminderSettings({ state, today }: { state: DemoState; today: DateKey }) {
   const settings = state.reminderSettings;
+  const { currency } = state.localization;
+  const money = new Intl.NumberFormat(locale, { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const [draft, setDraft] = useState<string>();
   const draftPrice = draft === undefined ? settings.smsPriceOre : smsPriceOre(draft);
   const estimate = monthlySmsEstimate(state, today, { ...settings, smsPriceOre: draftPrice ?? settings.smsPriceOre });
@@ -27,7 +25,8 @@ export function ReminderSettings({ state, today }: { state: DemoState; today: Da
         <Segmented<MessageChannel> label={t("reminders.channel")} value={settings.channel}
           options={(["sms", "email"] as const).map(value => ({ value, label: t(`messages.channel.${value}`) }))}
           onChange={channel => dispatch({ type: "reminder/settings", settings: { channel } })} />
-        <Field label={t("reminders.smsPrice")} hint={draftPrice === undefined ? t("reminders.invalidPrice") : undefined}>
+        <Field label={t("reminders.smsPrice", { currency })}
+          hint={draftPrice === undefined ? t("reminders.invalidPrice", { max: money.format(MAX_SMS_PRICE_ORE / 100) }) : undefined}>
           <TextInput inputMode="decimal" value={draft ?? formatNumber(settings.smsPriceOre / 100, 2)}
             aria-invalid={draftPrice === undefined || undefined}
             onChange={event => setDraft(event.target.value)}
@@ -38,9 +37,9 @@ export function ReminderSettings({ state, today }: { state: DemoState; today: Da
             }} />
         </Field>
         <div className="space-y-1 rounded-md bg-surface-2 p-3" aria-live="polite">
-          <p className="font-semibold">{t("reminders.estimate")}{draftPrice !== undefined && <> · {formatSek(estimate.totalOre)}</>}</p>
+          <p className="font-semibold">{t("reminders.estimate")}{draftPrice !== undefined && <> · {money.format(estimate.totalOre / 100)}</>}</p>
           {draftPrice !== undefined && <p className="text-sm text-text-secondary">{t("reminders.formula", {
-            messages: formatNumber(estimate.smsPerBooking), bookings: formatNumber(estimate.bookings), price: formatSek(draftPrice),
+            messages: formatNumber(estimate.smsPerBooking), bookings: formatNumber(estimate.bookings), price: money.format(draftPrice / 100),
           })}</p>}
           <p className="text-sm text-text-secondary">{t("reminders.assumptions")}</p>
         </div>

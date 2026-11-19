@@ -14,7 +14,7 @@ import { ReplyCardView, type CardActions } from "./reply-card";
 import { canSpeak, stopSpeaking } from "./speak";
 import { closeAssistant, setSpeak, takePendingQuestion } from "./thread-store";
 import { useAssistant } from "./use-assistant";
-import { undoBlockMessage } from "../log/undo-toast";
+import { undoBlockMessageKey } from "../log/undo-toast";
 
 /** The conversation with the assistant: full screen on phones, a side panel on larger screens. */
 export function AssistantPanel() {
@@ -196,9 +196,9 @@ function MessageView({ message, assistant, onEdit }: { message: Message; assista
   }
   const reply = message.reply!;
   const undoReason = replyUndoBlockReason(reply);
-  const undoMessage = undoBlockMessage(undoReason);
+  const undoKey = undoBlockMessageKey(undoReason);
   const bookingOrPayment = reply.card?.kind === "change" && isBookingOrPaymentAction(reply.card.action.type);
-  const failure = reply.status === "failed" && bookingOrPayment ? { requestId: message.id, message: t("assistant.status.failed") } : undefined;
+  const failure = reply.status === "failed" && bookingOrPayment ? { requestId: message.id, reason: "assistant.status.failed" as const } : undefined;
   // A rule answer's text repeats its card (it is there to be read aloud); AI wording adds to it.
   const repeatsCard = reply.source === "rules" && !!reply.card && ANSWERS.has(reply.card.kind);
   return (
@@ -211,9 +211,9 @@ function MessageView({ message, assistant, onEdit }: { message: Message; assista
           actions={cardActions(assistant, message.id, undoReason ? undefined : reply.undoId, reply.request ? onEdit : undefined)}
         />
       )}
-      {undoMessage && (bookingOrPayment
-        ? <ActionFailure failure={{ requestId: message.id, message: undoMessage }} />
-        : <p className="text-sm text-text-secondary">{undoMessage}</p>)}
+      {undoKey && (bookingOrPayment
+        ? <ActionFailure failure={{ requestId: `${message.id}/undo`, reason: undoKey }} />
+        : <p className="text-sm text-text-secondary">{t(undoKey)}</p>)}
       {reply.followUps && !reply.status && <FollowUps items={reply.followUps} onPick={assistant.send} />}
     </Bubble>
   );

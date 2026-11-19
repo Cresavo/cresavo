@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Gift } from "lucide-react";
-import { balanceOf, findGiftCard, paidWithCards, redeemable } from "../../giftcards/cards";
+import { balanceOf, findGiftCard, normalizeCode, paidWithCards, redeemable } from "../../giftcards/cards";
 import { t } from "../../i18n";
 import { formatMoney } from "../../i18n/format";
 import { findCustomer } from "../../selectors";
@@ -29,7 +29,7 @@ export function RedeemSheet({ bookingId, onBack, onClose }: { bookingId: string;
 
   const pay = () => {
     if (!dispatchWithUndoToast({ type: "giftcard/redeem", code, bookingId, date: today }, t("giftcards.paid", { amount: formatMoney(amount) }))) {
-      setFailure({ requestId: newActionRequestId(), message: t("payment.failed") });
+      setFailure({ requestId: newActionRequestId(), reason: "payment.failed" });
       return;
     }
     onClose();
@@ -52,16 +52,17 @@ export function RedeemSheet({ bookingId, onBack, onClose }: { bookingId: string;
         <p className="text-sm text-text-secondary">{t("payment.simulated")}</p>
         <Field label={t("giftcards.payCode")}>
           <TextInput value={code} onChange={(event) => {
-            const next = event.target.value;
-            setCode(next);
-            setLookupId(next.trim().length >= 4 ? newActionRequestId() : undefined);
+            setCode(event.target.value);
+            setLookupId(undefined);
             setFailure(undefined);
+          }} onBlur={() => {
+            if (!lookupId && !failure && amount <= 0 && normalizeCode(code)) setLookupId(newActionRequestId());
           }} autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder={t("giftcards.codeExample")} autoFocus />
         </Field>
-        {failure ? <ActionFailure failure={failure} /> : lookupId && (
+        {failure ? <ActionFailure failure={failure} /> : (
           card && amount > 0
             ? <p role="status" className="rounded-md bg-action-bg px-3.5 py-3 text-sm font-medium text-text">{t("giftcards.payBalance", { amount: formatMoney(balanceOf(state, card)) })}</p>
-            : <ActionFailure failure={{ requestId: lookupId, message: t(card ? "giftcards.payEmpty" : "giftcards.payNotFound") }} />
+            : lookupId && <ActionFailure failure={{ requestId: lookupId, reason: card ? "giftcards.payEmpty" : "giftcards.payNotFound" }} />
         )}
       </div>
     </Sheet>

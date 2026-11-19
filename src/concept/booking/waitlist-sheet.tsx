@@ -66,7 +66,7 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
       },
     });
     if (!joined) {
-      setFailure({ requestId: newActionRequestId(), message: t("booking.waitlist.failed") });
+      setFailure({ requestId: newActionRequestId(), reason: "booking.waitlist.failed" });
       return;
     }
     const customer = findCustomerByPhone(currentState() ?? state, phone);

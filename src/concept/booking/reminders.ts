@@ -4,6 +4,7 @@ import type { MessageChannel } from "./messages";
 
 export interface ReminderSettings {
   channel: MessageChannel;
+  /** The per-message rate in the salon currency's minor units. */
   smsPriceOre: number;
 }
 

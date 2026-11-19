@@ -87,7 +87,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
     const logId = await withBookingLock(() => dispatchWithLog({ type: "booking/create", ...contact, serviceId: service.id, staffId, date: slot.date, start: slot.start, source: "phone" })).catch(() => false as const);
     setPending(false);
     if (logId === false) {
-      setFailure({ requestId, message: t("newBooking.slotTaken") });
+      setFailure({ requestId, reason: "newBooking.slotTaken" });
       return;
     }
     showUndoToast(t("newBooking.bookedToast", { name: customer?.firstName ?? guest.name.trim().split(/\s+/)[0], when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` }), logId);

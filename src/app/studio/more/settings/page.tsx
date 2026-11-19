@@ -22,9 +22,11 @@ import { Card, Section } from "@/concept/ui/card";
 import { Sheet } from "@/concept/ui/sheet";
 import { ThemeControl } from "@/concept/ui/theme-control";
 import { showToast } from "@/concept/ui/toast";
+import { useSalonNow } from "@/concept/use-now";
 
 export default function SettingsPage() {
-  const { state, today } = useStudio();
+  const { state } = useStudio();
+  const salonNow = useSalonNow();
   const [confirming, setConfirming] = useState(false);
   const { salon, localization } = state;
   const details = [
@@ -83,7 +85,7 @@ export default function SettingsPage() {
             </label>
           </Card>
         </Section>
-        <ReminderSettings key={salon.slug} state={state} today={today} />
+        <ReminderSettings key={salon.slug} state={state} today={salonNow.today} />
         <div id="hours"><HoursSection /></div>
         <ClosedDaysSection />
         <ResourcesSection />

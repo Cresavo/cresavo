@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarCheck } from "lucide-react";
 import type { DemoState } from "../data/types";
-import { t } from "../i18n";
+import { t, type MessageKey } from "../i18n";
 import { formatDayLong, formatDuration, formatTime } from "../i18n/format";
 import { currentState, dispatchWithLog, withBookingLock } from "../store";
 import { newActionRequestId } from "../support/action-reference";
@@ -48,7 +48,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
     const phone = guest.phone.trim();
     const day = formatDayLong(slot.date);
     const requestId = newActionRequestId();
-    let failureMessage = t("booking.slotTaken");
+    let reason: MessageKey = "booking.slotTaken";
     setPending(true);
     const latest = await withBookingLock(() => {
       const clock = salonClock();
@@ -68,13 +68,13 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
         const treatment = current.services.find(item => item.id === serviceId);
         if (!treatment) return false;
         if (treatment.price === service.price && treatment.duration === service.duration && current.localization.currency === state.localization.currency) return true;
-        failureMessage = t("booking.summary.changed");
+        reason = "booking.summary.changed";
         return false;
       });
       return booked !== false ? currentState()?.bookings.at(-1) : undefined;
     }).catch(() => false as const);
     setPending(false);
-    if (!latest) return onTaken({ requestId, message: failureMessage });
+    if (!latest) return onTaken({ requestId, reason });
     saveContact(latest.customerId);
     if (onBooked) onBooked(latest.id);
     else router.push(bookingPage(state.salon.slug, latest.id));
@@ -98,7 +98,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
       <form className="space-y-3" onSubmit={event => { event.preventDefault(); void confirm(); }}>
         <GuestFields value={guest} onChange={setGuest} />
         <RememberContact checked={remember} onChange={chooseRemember} />
-        <BookingSummary slot={slot} price={service.price} currency={state.localization.currency} late={late} phone={state.salon.phone} />
+        <BookingSummary slot={slot} price={service.price} currency={state.localization.currency} late={late} phone={state.salon.phone} packagesEnabled={state.modules.packages} />
         <Button type="submit" size="lg" className="w-full" disabled={pending || !isGuestValid(guest)}>
           {t("booking.confirm")}
         </Button>
