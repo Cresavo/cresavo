@@ -90,7 +90,7 @@ export async function bookingScene(page, film, siteOrigin = origin) {
   const guest = page.getByLabel(/^(Your name|Ditt namn)$/);
   await film.shot(guest, 6);
   await film.type(guest, "Nova Demo");
-  await film.type(page.getByLabel(/^(Mobile number|Mobilnummer)$/), "0700009912");
+  await film.type(page.getByLabel(/^(Mobile number|Mobilnummer)/), "0700009912");
   await film.click(button(page, /^(Confirm booking|Bekräfta bokning)$/));
   await film.shot(page.getByRole("heading", { name: /^(You are booked|Din tid är bokad)$/ }), 30);
 }
