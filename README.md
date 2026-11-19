@@ -17,7 +17,7 @@ Cresavo is an open-source booking app for salons and clinics that brings appoint
 
 [![Cresavo tour preview showing customer booking, assistant approval and undo](docs/media/cresavo-tour-preview.webp)](https://cresavo.com/site/tour-16x9.mp4)
 
-[Try the demo](https://demo.cresavo.com/studio) · [Watch the 36-second tour](https://cresavo.com/site/tour-16x9.mp4) · [Join Discussions](https://github.com/Cresavo/cresavo/discussions) · [Roadmap](docs/ROADMAP.md)
+[Try the demo](https://demo.cresavo.com/studio) · [Watch the 36-second tour](https://cresavo.com/site/tour-16x9.mp4) · [Join Discussions](https://github.com/Cresavo/cresavo/discussions) · [Roadmap](docs/ROADMAP.md) · [Releases](https://github.com/Cresavo/cresavo/releases)
 
 ## Why Cresavo
 
