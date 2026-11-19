@@ -148,7 +148,7 @@ describe("page actions", () => {
 
   it("logs the address and domain changes", () => {
     const slug = applyAction(state, { type: "salon/slug", slug: "kajsa" }, meta);
-    expect(slug.log[0]).toMatchObject({ summary: "Changed the booking address", before: "salong-eko", after: "kajsa" });
+    expect(slug.log[0]).toMatchObject({ summary: "Changed the booking link", before: "salong-eko", after: "kajsa" });
     expect(undoEntry(slug, slug.log[0].id).salon.slug).toBe("salong-eko");
     const on = reduce(state, { type: "module/toggle", key: "domain" });
     const added = applyAction(on, { type: "domain/connect", host: "boka.salongeko.se" }, meta);

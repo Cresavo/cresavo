@@ -23,7 +23,7 @@ export function FirstSteps() {
   const href: Record<ChecklistRow, string> = {
     addServices: "/studio/more/services",
     bookingPage: bookingHome(slug),
-    share: "/studio/more/settings#share",
+    share: "/studio/more/settings/link",
     testBooking: bookingHome(slug) + "#book",
   };
   const done = CHECKLIST_ROWS.filter(row => progress[row]).length;

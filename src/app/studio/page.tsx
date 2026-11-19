@@ -41,6 +41,7 @@ export default function TodayPage() {
   const empty = !!state.industry && !state.bookings.length;
   // Figures about the day only mean something once there are real bookings, not just examples.
   const hasRealBookings = state.bookings.some((booking) => !booking.example);
+  const phonePrimary = !state.industry || hasRealBookings;
   const person = viewer ?? state.staff[0];
   const ownerName = person && person.firstName !== state.salon.name ? person.firstName : undefined;
   return (
@@ -49,7 +50,8 @@ export default function TodayPage() {
         title={greeting(minutes, ownerName)}
         subtitle={`${formatDayLong(today)} · ${!open ? t("today.closed") : off ? t("today.dayOff") : tc("today.bookingCount", count)}`}
         actions={
-          !empty && <Button icon={<Phone size={18} />} onClick={() => setSheet({ kind: "phone" })}>
+          // Phone mode leads the demo salon's day; a new salon with only example bookings keeps it as a quieter button.
+          !empty && <Button variant={phonePrimary ? "primary" : "secondary"} icon={<Phone size={18} />} onClick={() => setSheet({ kind: "phone" })}>
             {t("today.phoneMode")}
           </Button>
         }

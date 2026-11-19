@@ -8,7 +8,6 @@ import { Button } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
 import { Switch } from "../../ui/controls";
 import { EmptyState } from "../../ui/empty-state";
-import { MorePage } from "../more/more-page";
 import { useStudio } from "../use-studio";
 import { postRoutineRun } from "./assistant-launcher";
 import { openAssistant } from "./thread-store";
@@ -17,13 +16,12 @@ import { dispatchWithUndoToast } from "../log/undo-toast";
 const ASSISTANT = { actor: "owner", source: "assistant" } as const;
 
 /** Routines the owner keeps (switch on/off, run now, read as SKILL.md) and the ones the assistant suggests. */
-export function RoutinesPage() {
+export function RoutinesPanel() {
   const { state, today, minutes } = useStudio();
   const suggestions = suggestedRoutines(state, { today, minutes });
   return (
-    <MorePage title={t("nav.routines")} subtitle={tc("routine.subtitle", state.routines.filter((r) => r.enabled).length)} module="assistant">
       <div className="space-y-6">
-        <p className="max-w-2xl text-[15px] text-text-secondary">{t("routine.intro")}</p>
+        <p className="max-w-2xl text-body text-text-secondary">{tc("routine.subtitle", state.routines.filter((r) => r.enabled).length)} · {t("routine.intro")}</p>
         {state.routines.length ? (
           <div className="space-y-3">
             {state.routines.map((routine) => <RoutineCard key={routine.id} routine={routine} />)}
@@ -49,7 +47,6 @@ export function RoutinesPage() {
           </Section>
         )}
       </div>
-    </MorePage>
   );
 }
 

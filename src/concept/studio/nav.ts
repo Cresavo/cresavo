@@ -1,18 +1,22 @@
 import {
-  BookMarked,
+  BellRing,
   CalendarDays,
-  History,
+  Clock,
   Gift,
   Inbox,
   LayoutGrid,
+  Link2,
   Megaphone,
+  MessageCircle,
+  Palette,
   Package,
   PanelsTopLeft,
   PackageOpen,
   Plug,
-  Repeat,
   Settings,
+  SlidersHorizontal,
   Star,
+  Store,
   Sun,
   Tag,
   ToggleRight,
@@ -53,31 +57,53 @@ export const BUSINESS_NAV: NavItem[] = [
   { href: "/studio/more/reviews", label: "nav.reviews", description: "nav.reviews.description", icon: Star },
 ];
 
+/** The assistant's page holds what it remembers and its routines, as two tabs. */
+export const ASSISTANT_PAGE = "/studio/more/assistant";
+
 export const SETTINGS_NAV: NavItem[] = [
-  { href: "/studio/more/memory", label: "nav.memory", description: "nav.memory.description", icon: BookMarked },
-  { href: "/studio/more/routines", label: "nav.routines", description: "nav.routines.description", icon: Repeat },
+  { href: ASSISTANT_PAGE, label: "nav.assistant", description: "nav.assistant.description", icon: MessageCircle },
   { href: "/studio/more/features", label: "nav.features", description: "nav.features.description", icon: ToggleRight },
   { href: "/studio/more/data", label: "nav.data", description: "nav.data.description", icon: Plug },
-  { href: "/studio/more/log", label: "nav.log", description: "nav.log.description", icon: History },
   { href: "/studio/more/settings", label: "nav.settings", description: "nav.settings.description", icon: Settings },
+];
+
+/** "History and undo" lives under Help (the header's help menu), not in More. */
+export const HISTORY_PAGE = "/studio/more/log";
+
+/** One quiet entry at the bottom of More and of Settings for what most salons never need. */
+export const ADVANCED_PAGE = "/studio/more/advanced";
+/** Under Advanced: connecting assistants and tools, keys, models, costs and the open protocols. */
+export const DEVELOPERS_PAGE = "/studio/more/advanced/developers";
+export const ADVANCED_NAV: NavItem = { href: ADVANCED_PAGE, label: "nav.advanced", description: "nav.advanced.description", icon: SlidersHorizontal };
+
+export interface SettingsSection extends NavItem {
+  id: "salon" | "hours" | "reminders" | "link" | "appearance" | "advanced";
+  /** Shown in place on the Settings overview rather than on a page of its own. */
+  inline?: boolean;
+}
+
+/**
+ * The Settings overview: a short list of sections, each its own page (Appearance is small enough to
+ * sit in place). Modules never add a section here; their settings live on their own pages.
+ */
+export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
+  { id: "salon", href: "/studio/more/settings/salon", label: "settings.section.salon", description: "settings.section.salon.description", icon: Store },
+  { id: "hours", href: "/studio/more/settings/hours", label: "settings.section.hours", description: "settings.section.hours.description", icon: Clock },
+  { id: "reminders", href: "/studio/more/settings/reminders", label: "settings.section.reminders", description: "settings.section.reminders.description", icon: BellRing },
+  { id: "link", href: "/studio/more/settings/link", label: "settings.section.link", description: "settings.section.link.description", icon: Link2 },
+  { id: "appearance", href: "/studio/more/settings#appearance", label: "settings.section.appearance", description: "settings.section.appearance.description", icon: Palette, inline: true },
+  { id: "advanced", ...ADVANCED_NAV },
 ];
 
 export function visibleItems(items: NavItem[], modules: Record<ModuleKey, boolean>) {
   return items.filter((item) => menuVisible(modules, item.href));
 }
 
-const LOG_PAGE = "/studio/more/log";
-
-/**
- * What More (and the desktop sidebar's groups) list for a business: pages of switched-off modules
- * are left out. In a new salon of your own, "What happened?" waits until something has happened
- * that it could show; the demo salon always lists it.
- */
-export function moreMenu(state: Pick<DemoState, "industry" | "modules" | "log" | "trash">) {
-  const history = !state.industry || state.log.length > 0 || state.trash.length > 0;
+/** What More (and the desktop sidebar's groups) list for a business: pages of switched-off modules are left out. */
+export function moreMenu(state: Pick<DemoState, "modules">) {
   return {
     business: visibleItems(BUSINESS_NAV, state.modules),
-    settings: visibleItems(SETTINGS_NAV, state.modules).filter((item) => item.href !== LOG_PAGE || history),
+    settings: visibleItems(SETTINGS_NAV, state.modules),
   };
 }
 

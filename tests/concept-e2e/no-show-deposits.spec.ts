@@ -34,7 +34,7 @@ test("owner configures a deposit and the customer resumes checkout by simulated 
   const deposit = formatMinor(15000, currency);
   const balance = formatMinor(service.price * 100 - 15000, currency);
   const guest = { name: "Fictional Guest", phone: "0700009928" };
-  await openDemo(page, initial, "/studio/more/settings");
+  await openDemo(page, initial, "/studio/more/settings/reminders");
   const treatment = page.getByLabel(label("protection.treatment"));
   const rules = page.locator("form").filter({ has: treatment });
   await treatment.selectOption(service.id);

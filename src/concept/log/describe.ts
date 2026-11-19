@@ -3,6 +3,7 @@ import { formatTime } from "../data/dates";
 import type { Booking, DemoState } from "../data/types";
 import { paidWithCards } from "../giftcards/cards";
 import { changedAspects } from "../page/diff";
+import { changedDetails } from "../ops/salon-details";
 import { t, tc } from "../i18n";
 import { formatDayShort, formatDuration, formatMoney } from "../i18n/format";
 import { findCustomer, findService, fullName } from "../selectors";
@@ -44,6 +45,15 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       return { summary: t(action.incident === "late" ? "protection.late" : "status.noshow"), after: t(action.outcome === "waive" ? "protection.waived" : "protection.charged") };
     case "salon/language":
       return { summary: t("log.bookingLanguage") };
+    case "salon/details": {
+      const fields = changedDetails(prev.salon, next.salon);
+      const renamed = fields.includes("name");
+      return {
+        summary: t("log.salonDetails", { what: fields.map((field) => t(`salonDetails.${field}`).toLowerCase()).join(", ") }),
+        before: renamed ? prev.salon.name : undefined,
+        after: renamed ? next.salon.name : undefined,
+      };
+    }
     case "reminder/settings":
       return { summary: t("log.reminderSettings") };
     case "memory/add":

@@ -55,7 +55,7 @@ describe("help rule fallback", () => {
 
   it.each([
     ["Hur bokar jag en kund?", "new-booking", "När en kund ringer"],
-    ["Hur ångrar jag en ändring?", "undo-changes", "Under Vad hände?"],
+    ["Hur ångrar jag en ändring?", "undo-changes", "Under Historik och ångra"],
     ["Jag avbokade en tid av misstag. Kan jag få tillbaka den?", "trash-restore", "papperskorgen"],
     ["Hur beställer jag fler produkter?", "stock", "Under Lager"],
     ["Hur ger jag supporten åtkomst till min studio?", "support-access", "begränsad tid"],

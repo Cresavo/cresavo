@@ -23,7 +23,7 @@ async function seed(page: Page, people = ["Lo Demo"], currency = "SEK", modules:
 
 test("a demo booking tab leaves the open salon hours form and its save in the owner tab", async ({ page, context }) => {
   await seed(page);
-  await page.goto("/studio/more/settings");
+  await page.goto("/studio/more/settings/hours");
   await page.locator("#hours").getByRole("button", { name: "Edit" }).click();
   const dialog = page.getByRole("dialog", { name: "Opening hours" });
   await dialog.getByLabel("Monday from").selectOption("630");
@@ -41,10 +41,10 @@ test("a demo booking tab leaves the open salon hours form and its save in the ow
   expect(opens[1]).toBe(630);
 });
 
-test("setup steers clear of a renamed demo address and both salons reserve each other's address in Settings", async ({ page }) => {
-  await page.goto("/studio/more/settings");
-  const address = page.getByLabel("Your name in the address");
-  const save = page.getByRole("button", { name: "Save address" });
+test("setup steers clear of a renamed demo link and both salons reserve each other's link in Settings", async ({ page }) => {
+  await page.goto("/studio/more/settings/link");
+  const address = page.getByLabel("Name in your booking link");
+  const save = page.getByRole("button", { name: "Save link" });
   await address.fill("studio-fern");
   await save.click();
   await expect(save).toBeDisabled();
@@ -53,12 +53,13 @@ test("setup steers clear of a renamed demo address and both salons reserve each 
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await page.getByRole("button", { name: "Create my salon" }).click();
   await expect(page.getByRole("link", { name: "See your booking page" })).toHaveAttribute("href", "/boka/studio-fern-2");
-  await page.goto("/studio/more/settings");
+  await page.goto("/studio/more/settings/link");
   await address.fill("studio-fern");
   await expect(save).toBeDisabled();
+  await page.goto("/studio/more/settings");
   await page.getByRole("button", { name: "Back to the demo salon" }).click();
   await expect(page).toHaveURL(/\/studio$/);
-  await page.goto("/studio/more/settings");
+  await page.goto("/studio/more/settings/link");
   await address.fill("studio-fern-2");
   await expect(save).toBeDisabled();
 });
@@ -132,7 +133,7 @@ test("local AI settings show browser rules without contacting the server AI sett
   await seed(page);
   const requests: string[] = [];
   page.on("request", request => { if (new URL(request.url()).pathname.startsWith("/api/concept/ai")) requests.push(request.url()); });
-  await page.goto("/studio/more/data");
+  await page.goto("/studio/more/advanced/developers");
   await expect(page.getByText("This salon uses built-in rules in your browser.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your own AI key" })).toHaveCount(0);
   expect(requests).toEqual([]);
