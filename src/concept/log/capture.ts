@@ -1,3 +1,4 @@
+import { demoPaymentLedger } from "../connections/demo";
 import { reduce, type DemoAction } from "../actions";
 import type { DemoState } from "../data/types";
 import { describeAction, isLogged } from "./describe";
@@ -23,8 +24,15 @@ export function defaultMeta(action: DemoAction, at: number): LogMeta {
  * what is needed to undo it. Pages never write log entries themselves.
  */
 export function applyAction(state: DemoState, action: DemoAction, meta: LogMeta): DemoState {
+  const batch = demoPaymentLedger.stage();
+  const next = prepareAction(state, action, meta, batch);
+  if (next !== state) batch.publish();
+  return next;
+}
+
+export function prepareAction(state: DemoState, action: DemoAction, meta: LogMeta, batch: ReturnType<typeof demoPaymentLedger.stage>): DemoState {
   if ((action.type === "salon/policy" || action.type === "booking/fee") && meta.actor !== "owner") return state;
-  const next = reduce(state, action, meta.at);
+  const next = reduce(state, action, meta.at, batch.payments);
   if (next === state || !isLogged(action)) return next;
   const patch = diffStates(state, next);
   if (!patch) return next;
@@ -36,7 +44,7 @@ export function applyAction(state: DemoState, action: DemoAction, meta: LogMeta)
     summary,
     before,
     after,
-    patch: NOT_UNDOABLE.has(action.type) || (action.type === "booking/cancel" && next.bookings.find(b => b.id === action.id)?.protection?.refund) ? undefined : patch,
+    patch: NOT_UNDOABLE.has(action.type) || batch.hasPayments() ? undefined : patch,
   };
   return { ...next, seq: next.seq + 1, log: [entry, ...next.log].slice(0, LOG_LIMIT) };
 }

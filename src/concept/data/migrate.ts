@@ -1,4 +1,5 @@
-import { DEFAULT_POLICY } from "../booking/protection";
+import { returnRedemptions } from "../giftcards/cards";
+import { DEFAULT_POLICY, hasSettlement } from "../booking/protection";
 import { defaultBusinessLocalization } from "../i18n/business";
 import { DEFAULT_PAGE, type PageConfig } from "../page/config";
 import { DEFAULT_SECTIONS, type PageSection } from "../page/sections";
@@ -23,6 +24,12 @@ const V15_SECTIONS: PageSection[] = [
 ];
 
 const STEPS: Record<number, (saved: Saved) => Saved> = {
+  21: (saved) => {
+    const state = saved as unknown as DemoState;
+    const visits = [...state.bookings, ...state.trash.flatMap(entry => entry.kind === "customer" ? entry.bookings : [])];
+    const settled = new Set(visits.filter(hasSettlement).map(booking => booking.id));
+    return { ...saved, giftCards: returnRedemptions(state.giftCards, settled), version: 22 };
+  },
   20: (saved) => ({ ...saved, cancellationPolicy: DEFAULT_POLICY, checkoutHolds: [], version: 21 }),
   // v13 added the assistant's memory and routines.
   12: (saved) => ({ ...saved, memory: [], routines: [], version: 13 }),

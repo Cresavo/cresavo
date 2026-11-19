@@ -2,6 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reduce, type DemoAction } from "@/concept/actions";
 import { DEFAULT_POLICY, feeMinor, paymentBalance, quote, settleFee } from "@/concept/booking/protection";
 import { changeRule, deadline, visitTime } from "@/concept/booking/policy";
+import { salonCancellationOnly } from "@/concept/booking/settlement";
+import { checkoutReference, resumeCheckout } from "@/concept/booking/deposit-checkout";
+import { recallGuest, rememberHeldGuest } from "@/concept/booking/guest";
+import { depositMethods } from "@/concept/connections/ports/payments";
+import { balanceOf } from "@/concept/giftcards/cards";
+import { migrateState } from "@/concept/data/migrate";
+import { purgeExpired } from "@/concept/trash/trash";
+import { readSalonNow, subscribeSalonClock } from "@/concept/use-now";
+import { t } from "@/concept/i18n";
 import { demoOutbox } from "@/concept/connections/demo";
 import { createDemoState } from "@/concept/data/generate";
 import { isFree, needOf, pickResource } from "@/concept/data/slots";
@@ -65,7 +74,10 @@ describe("booking protection actions", () => {
     vi.setSystemTime(now + run++ * 1000);
     demoOutbox.clear();
   });
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
 
   it("logs and undoes a policy change while preserving a booking's agreed terms", () => {
     const booked = paid();
@@ -177,5 +189,110 @@ describe("booking protection actions", () => {
     expect(cancelled.log[0].patch).toBeUndefined();
     expect(reduce(cancelled, action)).toBe(cancelled);
     expect(demoOutbox.list("payments").filter(p => p.action === "refund")).toHaveLength(1);
+  });
+
+  it("refunds a paid visit once when restoring a customer whose slot was taken", () => {
+    const booked = paid();
+    const visit = booked.bookings[0];
+    const deleted = reduce(booked, { type: "customer/delete", id: visit.customerId });
+    const taken = reduce(deleted, { type: "booking/create", date: visit.date, start: visit.start,
+      serviceId: visit.serviceId, staffId: visit.staffId, customerId: deleted.customers[0].id, source: "phone" });
+    const action = { type: "trash/restore", id: taken.trash[0].id } as const;
+    const restored = applyAction(taken, action, defaultMeta(action, now));
+    expect(restored.bookings.find(b => b.id === visit.id)).toMatchObject({
+      status: "cancelled", protection: { refund: { amountMinor: visit.protection!.terms.depositMinor } },
+    });
+    expect(restored.log[0].patch).toBeUndefined();
+    expect(reduce(restored, action)).toBe(restored);
+    expect(demoOutbox.list("payments").map(p => p.action)).toEqual(["checkout", "refund"]);
+  });
+
+  it("allows a customer reason and full refund through the free-cancellation deadline", () => {
+    const booked = paid();
+    const visit = booked.bookings[0];
+    const cutoff = deadline(visit, policy.freeHours).toMillis();
+    expect(salonCancellationOnly(visit, cutoff)).toBe(false);
+    expect(salonCancellationOnly(visit, cutoff + 1)).toBe(true);
+    const reason = t("cancel.reason.customer");
+    const cancelled = reduce(booked, { type: "booking/cancel", id: visit.id, reason }, cutoff);
+    expect(cancelled.bookings[0]).toMatchObject({ cancelReason: reason, protection: { refund: { amountMinor: 20000 } } });
+  });
+
+  it("keeps returned credit spent on a second visit intact through deletion, migration and purge", () => {
+    const booked = paid();
+    const first = booked.bookings[0];
+    const second = { ...first, id: "other-visit", customerId: booked.customers[0].id };
+    const sold = reduce({ ...booked, bookings: [first, second] }, {
+      type: "giftcard/sell", recipient: "Demo Guest", message: "", date: today, amount: 100,
+    });
+    const card = sold.giftCards[0];
+    const redeem = { type: "giftcard/redeem", code: card.code, bookingId: first.id, date: today } as const;
+    const used = reduce(sold, redeem);
+    const decided = reduce(used, { type: "booking/fee", id: first.id, incident: "noshow", outcome: "charge" }, visitTime(first).toMillis());
+    expect(balanceOf(decided, decided.giftCards[0])).toBe(100);
+    const spent = reduce(decided, { ...redeem, bookingId: second.id });
+    const deleted = reduce(spent, { type: "customer/delete", id: first.customerId });
+    expect(deleted.giftCards[0].redemptions[0].returned).toBe(true);
+    expect(balanceOf(deleted, deleted.giftCards[0])).toBe(0);
+    const legacy = { ...deleted, version: 21, giftCards: [{ ...card, redemptions: deleted.giftCards[0].redemptions.map(r =>
+      ({ date: r.date, amount: r.amount, bookingId: r.bookingId })) }] };
+    for (const snapshot of [deleted, migrateState(legacy)!]) {
+      const purged = purgeExpired(snapshot, "2027-01-01");
+      expect(purged.trash).toHaveLength(0);
+      expect(purged.giftCards[0].redemptions[0].returned).toBe(true);
+      expect(balanceOf(purged, purged.giftCards[0])).toBe(0);
+    }
+  });
+
+  it("refreshes free cancellation at the exact cutoff and again when it has passed", () => {
+    const visit = paid().bookings[0];
+    const cutoff = deadline(visit, policy.freeHours).toMillis();
+    vi.setSystemTime(cutoff - 15_000);
+    vi.stubGlobal("window", { setTimeout, clearTimeout });
+    const displayed = () => {
+      const clock = readSalonNow();
+      return changeRule(visit, clock.today, clock.minutes, clock.instant);
+    };
+    const refresh = vi.fn(displayed);
+    const stop = subscribeSalonClock(refresh);
+    expect(displayed()).toBe("free");
+    vi.advanceTimersByTime(15_000);
+    expect(refresh).toHaveLastReturnedWith("free");
+    vi.advanceTimersByTime(1);
+    expect(refresh).toHaveLastReturnedWith("late");
+    vi.advanceTimersByTime(14_999);
+    expect(displayed()).toBe(changeRule(visit, today, 600, Date.now()));
+    stop();
+  });
+
+  it.each([[100, false], [299, false], [300, true], [15_000_000, true], [15_000_001, false]] as const)(
+    "offers and accepts Swish consistently for a SEK deposit of %i minor units", (depositMinor, eligible) => {
+      const pending = reduce({ ...initial, services: [{ ...service, price: 200000 }],
+        cancellationPolicy: { ...policy, deposits: { [service.id]: depositMinor } } }, request);
+      const hold = pending.checkoutHolds[0];
+      expect(depositMethods(depositMinor, "SEK").includes("swish")).toBe(eligible);
+      const result = reduce(pending, { type: "online/pay", id: hold.id, method: "swish" });
+      expect(result !== pending).toBe(eligible);
+      expect(demoOutbox.list("payments")).toHaveLength(eligible ? 1 : 0);
+    },
+  );
+
+  it.each([false, true])("restores only the held guest's contact choice (%s) after reload", optedIn => {
+    const storage = new Map<string, string>();
+    vi.stubGlobal("window", { localStorage: {
+      getItem: (key: string) => storage.get(key), removeItem: (key: string) => storage.delete(key),
+      setItem: (key: string, value: string) => storage.set(key, value),
+    } });
+    const pending = held();
+    const hold = pending.checkoutHolds[0];
+    const reference = checkoutReference(hold, optedIn);
+    expect(reference).not.toContain(hold.guest.phone);
+    expect(resumeCheckout([], reference)).toEqual({ hold: undefined, remember: false });
+    expect(resumeCheckout([hold], `${hold.id}/${hold.expiresAt}`).remember).toBe(false);
+    const resumed = resumeCheckout(pending.checkoutHolds, reference);
+    const booked = reduce(pending, { type: "online/pay", id: resumed.hold!.id, method: "card" });
+    const { customerId } = booked.bookings[0];
+    if (resumed.remember) rememberHeldGuest(initial.salon.slug, resumed.hold!, customerId);
+    expect(recallGuest(initial.salon.slug)).toEqual(optedIn ? { name: hold.guest.name, phone: hold.guest.phone, customerId } : undefined);
   });
 });

@@ -32,10 +32,17 @@ export function findGiftCard(state: DemoState, code: string): GiftCard | undefin
   return wanted ? state.giftCards.find((card) => normalizeCode(card.code) === wanted) : undefined;
 }
 
+/** A final fee decision or deposit refund permanently returns gift-card credit. */
+export function returnRedemptions(cards: GiftCard[], bookingIds: ReadonlySet<string>): GiftCard[] {
+  return cards.map(card => card.redemptions.some(r => !r.returned && bookingIds.has(r.bookingId))
+    ? { ...card, redemptions: card.redemptions.map(r => bookingIds.has(r.bookingId) ? { ...r, returned: true } : r) }
+    : card);
+}
+
 /** What the card paid for bookings that still stand. */
 export function usedAmount(state: DemoState, card: GiftCard): number {
-  const cancelled = new Set(state.bookings.filter((b) => b.status === "cancelled" || !!b.protection?.decision).map((b) => b.id));
-  return card.redemptions.filter((r) => !cancelled.has(r.bookingId)).reduce((sum, r) => sum + r.amount, 0);
+  const cancelled = new Set(state.bookings.filter((b) => b.status === "cancelled").map((b) => b.id));
+  return card.redemptions.filter((r) => !r.returned && !cancelled.has(r.bookingId)).reduce((sum, r) => sum + r.amount, 0);
 }
 
 export const balanceOf = (state: DemoState, card: GiftCard) => card.amount - usedAmount(state, card);
@@ -53,7 +60,7 @@ export function giftCardLiability(state: DemoState): number {
 
 /** What a booking has already been paid with gift cards. */
 export function paidWithCards(state: DemoState, bookingId: string): number {
-  return state.giftCards.reduce((sum, card) => sum + card.redemptions.filter((r) => r.bookingId === bookingId).reduce((s, r) => s + r.amount, 0), 0);
+  return state.giftCards.reduce((sum, card) => sum + card.redemptions.filter((r) => !r.returned && r.bookingId === bookingId).reduce((s, r) => s + r.amount, 0), 0);
 }
 
 export function remainingForCards(state: DemoState, booking: Booking) {

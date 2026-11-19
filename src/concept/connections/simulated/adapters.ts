@@ -10,7 +10,7 @@ import type { CheckoutInput, CheckoutSession, PaymentsPort, Refund, RefundInput 
 import { smsSegments, type SmsMessage, type SmsPort, type SmsReceipt } from "../ports/sms";
 import type { SocialPort } from "../ports/social";
 import { buildReserveFeeds } from "../providers/listing/reserve-feeds";
-import type { Outbox } from "./outbox";
+import { createOutbox, type Outbox } from "./outbox";
 
 // The default adapter for every port and the only one the public demo uses.
 // Deterministic (ids are hashes of the input), no network, no clock, no
@@ -22,12 +22,11 @@ const idFor = (port: PortName, action: string, input: unknown) => `sim-${port}-$
 const zero = (currency: string): Money => ({ amountMinor: 0, currency });
 
 /** Like the live providers: one idempotency key, one request. Reusing a key with other content is a conflict. */
-function keyGuard(port: PortName) {
-  const seen = new Map<string, string>();
+function keyGuard(port: PortName, seen = new Map<string, string>(), committed?: ReadonlyMap<string, string>) {
   return (key: string | undefined, fingerprint: unknown) => {
     if (!key) return null;
     const print = stableHash(JSON.stringify(fingerprint));
-    const known = seen.get(key);
+    const known = seen.get(key) ?? committed?.get(key);
     if (known && known !== print) return fail<never>(connectionError(port, PROVIDER, "conflict"));
     seen.set(key, print);
     return null;
@@ -98,8 +97,27 @@ interface SimulatedPayments extends PaymentsPort {
   refundNow(input: RefundInput): PortResult<Refund>;
 }
 
-export function simulatedPayments({ outbox }: SimulatedOptions): SimulatedPayments {
-  const guard = keyGuard("payments");
+/** Each browser write previews receipts and idempotency keys together. */
+export function paymentLedger(outbox: Outbox) {
+  const committed = new Map<string, string>();
+  return {
+    direct: simulatedPayments({ outbox }, keyGuard("payments", committed)),
+    stage() {
+      const pending = createOutbox(Infinity);
+      const keys = new Map<string, string>();
+      return {
+        payments: simulatedPayments({ outbox: pending }, keyGuard("payments", keys, committed)),
+        hasPayments: () => keys.size > 0,
+        publish() {
+          keys.forEach((value, key) => committed.set(key, value));
+          pending.list().forEach(entry => outbox.record(entry));
+        },
+      };
+    },
+  };
+}
+
+export function simulatedPayments({ outbox }: SimulatedOptions, guard = keyGuard("payments")): SimulatedPayments {
   const session = (action: string, input: Pick<CheckoutInput, "amount" | "description" | "reference" | "methods" | "idempotencyKey">) => {
     if (!isMoney(input.amount) || input.amount.amountMinor === 0 || !input.description.trim() || !input.reference || !input.idempotencyKey) return invalid("payments");
     const conflict = guard(input.idempotencyKey, [action, input.amount, input.reference, input.description, input.methods]);

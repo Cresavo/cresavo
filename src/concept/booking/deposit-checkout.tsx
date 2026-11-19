@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { depositMethods } from "../connections/ports/payments";
 import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong, formatTime } from "../i18n/format";
@@ -11,22 +12,30 @@ import { showToast } from "../ui/toast";
 import { type CheckoutHold, type DemoMethod } from "./protection";
 import { formatMinor, PolicySummary } from "./policy-summary";
 
-/** Keep only the hold reference in this tab so a checkout can survive a reload. */
+/** Legacy references have no consent flag. Contact details stay on the hold. */
+export function checkoutReference(hold: CheckoutHold, remember: boolean) {
+  return `${hold.id}/${hold.expiresAt}${remember ? "/remember" : ""}`;
+}
+
+export function resumeCheckout(holds: CheckoutHold[], reference: string | null) {
+  const remember = reference?.endsWith("/remember") === true;
+  const hold = holds.find(h => checkoutReference(h, remember) === reference);
+  return { hold, remember: !!hold && remember };
+}
 export function useCheckoutHold(state: DemoState) {
   const key = `booking-checkout:${state.salon.slug}`;
   const [reference, setReference] = useState(() => {
     try { return sessionStorage.getItem(key); } catch { return null; }
   });
-  const hold = state.checkoutHolds.find(h => `${h.id}/${h.expiresAt}` === reference);
-  function selectHold(next?: CheckoutHold) {
-    const value = next ? `${next.id}/${next.expiresAt}` : null;
+  function selectHold(next?: CheckoutHold, remember = false) {
+    const value = next ? checkoutReference(next, remember) : null;
     setReference(value);
     try {
       if (value) sessionStorage.setItem(key, value);
       else sessionStorage.removeItem(key);
     } catch { /* In-memory checkout works in an embedded widget. */ }
   }
-  return { hold, selectHold };
+  return { ...resumeCheckout(state.checkoutHolds, reference), selectHold };
 }
 
 export function DepositCheckout({ hold, serviceName, onPaid, onRelease }: {
@@ -65,7 +74,7 @@ export function DepositCheckout({ hold, serviceName, onPaid, onRelease }: {
     <p role="status">{t("protection.holdUntil", { time: formatTime(expiry.minutes) })}</p>
     <PolicySummary terms={hold.terms} visit={hold} />
     <fieldset className="flex gap-4"><legend>{t("protection.method")}</legend>
-      {(["card", "swish"] as const).filter(m => m === "card" || hold.terms.currency === "SEK").map(m =>
+      {depositMethods(hold.terms.depositMinor, hold.terms.currency).map(m =>
         <label key={m} className="inline-flex min-h-11 items-center gap-2">
           <input type="radio" name="deposit-method" checked={method === m} onChange={() => setMethod(m)} /> {t(`protection.${m}`)}
         </label>)}

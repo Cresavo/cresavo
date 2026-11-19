@@ -18,7 +18,7 @@ const messages = {
   "protection.preview": "Så ser villkoren ut för en ny kund",
   "protection.returning": "Återkommande kunder betalar på salongen.",
   "protection.terms": "Du kan avboka gratis fram till {hours} timmar före besöket. Därefter kan salongen ta ut {late} % av behandlingspriset. Om du uteblir kan avgiften bli upp till {missed} %.",
-  "protection.due": "Betala {deposit} i förskott för att bekräfta tiden. Du betalar resterande {balance} på salongen. Förskottet räknas av från en eventuell avgift. Du får tillbaka överskottet, eller hela förskottet om salongen avbokar.",
+  "protection.due": "Betala {deposit} i förskott för att bekräfta tiden. Du betalar resterande {balance} på salongen. Förskottet räknas av från en eventuell avgift. Du får tillbaka överskottet, eller hela förskottet om du avbokar i tid eller om salongen avbokar.",
   "protection.noDeposit": "Du behöver inte betala något i förskott. Du betalar på salongen.",
   "protection.saved": "Bokningsreglerna har sparats",
   "protection.changed": "Bokningsvillkoren har ändrats. Läs igenom dem och försök igen.",

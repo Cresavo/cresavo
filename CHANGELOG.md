@@ -22,6 +22,8 @@ All notable changes to this project are documented here. Format follows
 - On phones, Today shows the next customer above the schedule. Inbox rows lead with the message subject and show the sender below it.
 
 ### Fixed
+- Deposit and refund records follow the saved booking, including after a customer is restored. Customers can reopen settled visits from My Bookings, and gift cards retain returned credit after customer deletion.
+- Deposit checkout respects Swish amount limits and remembers a guest’s contact choice across reloads. Gift-card redemptions show the exact amount due, and calendar exports and cancellation deadlines use the same salon clock.
 - Opening a booking link keeps other studio tabs on their selected salon. Local salons keep their own saved edits, booking address and browser-only AI settings.
 - Owners can change the studio language during setup and keep their answers. Setup offers to reopen an existing salon. First bookings respect the selected team member, finance exports use the salon currency and campaign links open the salon’s booking page.
 - The local owner MCP server keeps `--admin` read-only. Saving campaign drafts requires workspace write access, explicit confirmation and a request ID for safe retries.

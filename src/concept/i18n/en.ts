@@ -18,7 +18,7 @@ const messages = {
   "protection.preview": "What a new customer sees",
   "protection.returning": "Returning customers pay at the salon.",
   "protection.terms": "You can cancel for free until {hours} hours before your visit. After that, the salon may charge {late}% of the treatment price. If you miss your visit, the fee can be up to {missed}%.",
-  "protection.due": "Pay a deposit of {deposit} to confirm. The remaining {balance} is due at the salon. The deposit counts towards any fee. We refund any excess, or the full deposit if the salon cancels.",
+  "protection.due": "Pay a deposit of {deposit} to confirm. The remaining {balance} is due at the salon. The deposit counts towards any fee. We refund any excess, or the full deposit if you cancel on time or the salon cancels.",
   "protection.noDeposit": "No deposit is due. You pay at the salon.",
   "protection.saved": "Booking rules saved",
   "protection.changed": "The booking terms have changed. Review them and try again.",

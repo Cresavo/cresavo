@@ -77,6 +77,10 @@ export function quote(policy: CancellationPolicy, service: Pick<Service, "id" | 
   };
 }
 
+export function hasSettlement(booking: Booking) {
+  return !!(booking.protection?.decision || booking.protection?.refund);
+}
+
 /** Older visits retain the fee-free terms under which they were booked. */
 export function termsOf(booking: Booking, state: Pick<DemoState, "localization">) {
   return booking.protection?.terms ?? quote(DEFAULT_POLICY, { id: booking.serviceId, price: booking.price }, state.localization.currency, false);

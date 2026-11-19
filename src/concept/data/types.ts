@@ -360,7 +360,7 @@ export interface GiftCard {
   message: string;
   soldOn: DateKey;
   /** Booking payments made with the card. A cancelled booking gives its amount back. */
-  redemptions: { bookingId: string; amount: number; date: DateKey }[];
+  redemptions: { bookingId: string; amount: number; date: DateKey; returned?: boolean }[];
 }
 
 /** A punch card: visits of one treatment paid in advance. */

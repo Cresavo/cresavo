@@ -6,7 +6,8 @@ import { toKey } from "./data/dates";
 import { createDemoState, type BusinessSetup } from "./data/generate";
 import { migrateState } from "./data/migrate";
 import type { DemoState } from "./data/types";
-import { applyAction, defaultMeta } from "./log/capture";
+import { demoPaymentLedger } from "./connections/demo";
+import { prepareAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
 import { publicView } from "./selectors";
 import { purgeExpired } from "./trash/trash";
@@ -113,7 +114,7 @@ function onStorage(event: StorageEvent) {
   notify();
 }
 
-function setState(next: DemoState, recheckStorage = false): boolean {
+function setState(next: DemoState, recheckStorage = false, afterWrite?: () => void): boolean {
   const snapshot = snapshots[active];
   try {
     const raw = JSON.stringify(next);
@@ -125,6 +126,7 @@ function setState(next: DemoState, recheckStorage = false): boolean {
     // The demo still works in memory.
   }
   snapshot.state = next;
+  afterWrite?.();
   notify();
   return true;
 }
@@ -185,14 +187,15 @@ export function dispatchWithLog(
   while (true) {
     const current = getSnapshot();
     if (!current || active !== workspace || (canApply && !canApply(current))) return false;
-    const next = applyAction(current, action, logMeta);
+    const batch = demoPaymentLedger.stage();
+    const next = prepareAction(current, action, logMeta, batch);
     if (next === current) return false;
     // Includes undo, which can restore a previously free address.
     if (next.salon.slug !== current.salon.slug && next.salon.slug === workspaceSlug(active === "demo" ? "own" : "demo")) return false;
     // Run the booking rules again if another tab wrote while we prepared the save.
     const recheck = !!canApply || action.type.startsWith("online/") || action.type === "salon/policy" ||
-      action.type === "booking/fee" || action.type === "booking/cancel";
-    if (!setState(next, recheck)) continue;
+      action.type === "booking/fee" || action.type === "booking/cancel" || action.type === "trash/restore";
+    if (!setState(next, recheck, batch.publish)) continue;
     const logId = next.log[0]?.id;
     return logId !== current.log[0]?.id ? logId ?? null : null;
   }

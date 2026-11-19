@@ -76,7 +76,7 @@ test("Swedish booking, confirmation and management", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Omboka", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Avboka", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Boka igen", exact: true })).toBeVisible();
-  await expect(page.locator("p").filter({ hasText: /betalas i salongen/ })).toContainText(/\bkr\b/);
+  await expect(page.locator("p").filter({ hasText: /betalas (i|på) salongen/ })).toContainText(/\bkr\b/);
   const manageLink = page.getByRole("link", { name: "Hantera din bokning", exact: true });
   await expect(manageLink).toHaveAttribute("href", /\/booking\/[^/]+#manage$/);
   await manageLink.click();

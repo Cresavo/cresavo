@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { createDemoState } from "@/concept/data/generate";
 import { addDays, toKey } from "@/concept/data/dates";
-import { freeStarts } from "@/concept/data/slots";
+import { freeStarts, needOf } from "@/concept/data/slots";
 
 const { changed, showToast, unsubscribe, note } = vi.hoisted(() => ({
   changed: vi.fn(), showToast: vi.fn(), unsubscribe: { current: () => {} }, note: { draft: "" },
@@ -188,4 +188,44 @@ it("undoing the first customer-note toast leaves the second edit in place", asyn
   const customers = currentState()!.customers;
   expect(customers.find((customer) => customer.id === first.id)?.note).toBe(first.note);
   expect(customers.find((customer) => customer.id === second.id)?.note).toBe("Second edited note");
+});
+
+it("publishes only the payment from a committed checkout after a storage race", async () => {
+  const today = toKey(new Date());
+  const base = { ...createDemoState(today), bookings: [] };
+  const service = base.services[0];
+  const staffId = service.staffIds[0];
+  const date = Array.from({ length: 14 }, (_, i) => addDays(today, i + 1))
+    .find(day => freeStarts(base, staffId, day, needOf(service)).length)!;
+  const [start] = freeStarts(base, staffId, date, needOf(service));
+  const { reduce } = await import("@/concept/actions");
+  const { demoOutbox } = await import("@/concept/connections/demo");
+  const pending = reduce({ ...base, cancellationPolicy: { ...base.cancellationPolicy, deposits: { [service.id]: 15000 } } }, {
+    type: "online/hold", date, start, serviceId: service.id, staffId,
+    guest: { name: "Demo Guest", phone: "0700009928", at: { date: today, time: 600 } },
+    notice: { title: "Demo request", body: "Demo visit" },
+  });
+  const closed = reduce(pending, { type: "salon/close", date, name: "Closed" });
+  let raw = JSON.stringify(pending);
+  const localStorage = { getItem: vi.fn(() => raw), setItem: vi.fn((_key: string, value: string) => {
+    expect(demoOutbox.list("payments")).toHaveLength(0);
+    raw = value;
+  }) };
+  vi.stubGlobal("window", Object.assign(new EventTarget(), { localStorage }));
+  const { useDemo, dispatch } = await import("@/concept/store");
+  useDemo();
+  demoOutbox.clear();
+  localStorage.getItem.mockImplementationOnce(() => {
+    const stale = raw;
+    raw = JSON.stringify(closed);
+    return stale;
+  });
+  const id = pending.checkoutHolds[0].id;
+  expect(dispatch({ type: "online/pay", id, method: "card" })).toBe(false);
+  expect(demoOutbox.list("payments")).toHaveLength(0);
+  expect(localStorage.setItem).not.toHaveBeenCalled();
+  raw = JSON.stringify(pending);
+  // The discarded attempt must also leave its idempotency key free.
+  expect(dispatch({ type: "online/pay", id, method: "swish" })).toBe(true);
+  expect(demoOutbox.list("payments").map(p => p.id)).toEqual([JSON.parse(raw).bookings[0].protection.deposit.id]);
 });

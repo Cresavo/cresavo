@@ -23,10 +23,16 @@ export function readNow(): Now {
   return cached;
 }
 
-function readSalonNow(): Now {
-  const instant = Math.floor(Date.now() / 60_000) * 60_000;
-  if (!cachedSalon || cachedSalon.instant !== instant) cachedSalon = { ...salonClock(new Date(instant)), instant };
-  return cachedSalon;
+export function readSalonNow(): Now {
+  const instant = Date.now();
+  const minute = Math.floor(instant / 60_000) * 60_000;
+  // Deadlines are on minute boundaries and free cancellation includes the exact cutoff.
+  // Cache a stable snapshot on each side of that instant for useSyncExternalStore.
+  const previous = cachedSalon?.instant;
+  if (previous === undefined || previous < minute || previous > instant || (previous === minute && instant > minute)) {
+    cachedSalon = { ...salonClock(new Date(instant)), instant };
+  }
+  return cachedSalon!;
 }
 
 function subscribe(listener: () => void) {
@@ -40,6 +46,19 @@ export function useNow(): Now {
   return useSyncExternalStore(subscribe, readNow, () => serverNow);
 }
 
+export function subscribeSalonClock(listener: () => void) {
+  let timer: number;
+  function schedule() {
+    const elapsed = Date.now() % 60_000;
+    timer = window.setTimeout(() => {
+      schedule();
+      listener();
+    }, elapsed === 0 ? 1 : 60_000 - elapsed);
+  }
+  schedule();
+  return () => window.clearTimeout(timer);
+}
+
 export function useSalonNow(): Now {
-  return useSyncExternalStore(subscribe, readSalonNow, () => serverNow);
+  return useSyncExternalStore(subscribeSalonClock, readSalonNow, () => serverNow);
 }

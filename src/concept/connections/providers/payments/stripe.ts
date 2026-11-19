@@ -14,7 +14,7 @@
 // - Klarna: https://docs.stripe.com/payments/klarna
 // - Pricing (Sweden): https://stripe.com/en-se/pricing (verify)
 import { connectionError, fail, isMoney, ok, type Money } from "../../core";
-import type { CheckoutInput, PaymentEvent, PaymentsPort } from "../../ports/payments";
+import { swishEligible, type CheckoutInput, type PaymentEvent, type PaymentsPort } from "../../ports/payments";
 import { hmac, safeEqual } from "../../server/crypto";
 import { field, request, text, type Fetcher } from "../../server/http";
 import type { ProviderDefinition } from "../definition";
@@ -58,7 +58,7 @@ function validCheckout(input: Omit<CheckoutInput, "successUrl" | "cancelUrl">): 
   if (!isMoney(input.amount) || input.amount.amountMinor <= 0 || !input.description.trim() || !input.reference || input.reference.length > 200) return false;
   if (!input.idempotencyKey || input.idempotencyKey.length > 255 || methods.some((m) => !METHODS.has(m))) return false;
   // Swish is SEK only and 3-150,000 SEK (verify against https://docs.stripe.com/payments/swish).
-  if (methods.includes("swish") && (input.amount.currency !== "SEK" || input.amount.amountMinor < 300 || input.amount.amountMinor > 15_000_000)) return false;
+  if (methods.includes("swish") && !swishEligible(input.amount)) return false;
   return true;
 }
 

@@ -2,7 +2,7 @@ import type { Campaign } from "../data/types";
 import { stableHash } from "./core";
 import type { Outbox, OutboxEntry } from "./simulated/outbox";
 import { createOutbox } from "./simulated/outbox";
-import { simulatedEmail, simulatedPayments, simulatedSms, simulatedSocial } from "./simulated/adapters";
+import { simulatedEmail, paymentLedger, simulatedSms, simulatedSocial } from "./simulated/adapters";
 
 // The concept demo's sends go through the ports here, always with the
 // simulated adapters: the browser never holds a key and never picks a live
@@ -13,7 +13,8 @@ import { simulatedEmail, simulatedPayments, simulatedSms, simulatedSocial } from
 const DEMO_CURRENCY = "SEK";
 
 export const demoOutbox: Outbox = createOutbox();
-export const demoPayments = simulatedPayments({ outbox: demoOutbox });
+export const demoPaymentLedger = paymentLedger(demoOutbox);
+export const demoPayments = demoPaymentLedger.direct;
 const sms = simulatedSms({ outbox: demoOutbox, currency: DEMO_CURRENCY });
 const email = simulatedEmail({ outbox: demoOutbox, currency: DEMO_CURRENCY });
 const social = simulatedSocial({ outbox: demoOutbox, currency: DEMO_CURRENCY });

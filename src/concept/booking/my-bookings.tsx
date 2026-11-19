@@ -18,6 +18,7 @@ import { Field, TextInput } from "../ui/controls";
 import { EmptyState } from "../ui/empty-state";
 import { useSalonNow, type Now } from "../use-now";
 import { BookingActions, freeUntilText } from "./booking-actions";
+import { hasSettlement } from "./protection";
 import { changeRule } from "./policy";
 import { ReviewForm } from "./review-form";
 import { recallGuest } from "./guest";
@@ -72,7 +73,7 @@ function Lookup({ state }: { state: DemoState }) {
 
 function Overview({ state, now, customerId }: { state: DemoState; now: Now; customerId: string }) {
   const customer = findCustomer(state, customerId)!;
-  const { upcoming, past } = customerBookings(state, customerId, now.today, now.minutes);
+  const { upcoming, past } = customerBookings(state, customerId, now.today, now.minutes, now.instant);
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div>
@@ -111,6 +112,11 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
                       <p className="font-medium">{service?.name}</p>
                       <p className="text-sm text-text-secondary">{formatDayLong(booking.date)} · {formatMoney(booking.price)}</p>
                     </div>
+                    {hasSettlement(booking) && (
+                      <ButtonLink href={bookingPage(state.salon.slug, booking.id)} variant="secondary" size="sm">
+                        {t("booking.me.details")}
+                      </ButtonLink>
+                    )}
                     {state.services.some(s => s.id === booking.serviceId) && (
                       <ButtonLink href={rebookLink(state.salon.slug, booking.serviceId, booking.staffId)} variant="secondary" size="sm" icon={<Repeat size={14} />}>
                         {t("booking.me.rebook")}

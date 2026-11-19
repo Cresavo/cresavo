@@ -1,4 +1,5 @@
 import { salonClock } from "./tools/clock";
+import { depositMethods } from "./connections/ports/payments";
 import { majorString } from "./connections/core";
 import { quote, validPolicy, type BookingProtection, type CancellationPolicy, type DemoMethod } from "./booking/protection";
 import { collect, decideFee, refundCancellation, type FeeDecision } from "./booking/settlement";
@@ -10,7 +11,7 @@ import { applyAssistant, type AssistantAction } from "./assistant/actions";
 import { findCustomerByPhone, isContactPhone, isMobilePhone, normalizePhone } from "./booking/lookup";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
 import { textWaitlistAboutSlot } from "./booking/waitlist-offer";
-import { sendDemoCampaign } from "./connections/demo";
+import { demoPayments, sendDemoCampaign } from "./connections/demo";
 import { editJournalEntry } from "./customers/journal";
 import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visits";
 import type { CostKind } from "./finance/types";
@@ -25,7 +26,7 @@ import { grantSupport, revokeSupport, type GrantHours } from "./support/access";
 import type { NewTicket } from "./support/tickets";
 import { deleteCustomer, restoreEntry, trashBooking } from "./trash/trash";
 import { placeOrders, receiveGoods, type Delivery, type NewOrder } from "./stock/orders";
-import { redeemGiftCard, sellGiftCard } from "./giftcards/cards";
+import { redeemGiftCard, returnRedemptions, sellGiftCard } from "./giftcards/cards";
 import { sellPackage, consumePackageVisit } from "./packages/packages";
 import { sellProduct } from "./stock/sales";
 import { deduct, roundAmount, usesOfService } from "./stock/usage";
@@ -202,13 +203,13 @@ function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoS
   return { ...state, seq: state.seq + 1, checkoutHolds: [...state.checkoutHolds.filter(h => h.expiresAt > now), hold] };
 }
 
-function payHold(state: DemoState, action: Extract<DemoAction, { type: "online/pay" }>, now: number) {
+function payHold(state: DemoState, action: Extract<DemoAction, { type: "online/pay" }>, now: number, payments: typeof demoPayments) {
   const hold = state.checkoutHolds.find(h => h.id === action.id && h.expiresAt > now);
-  if (!hold || (action.method !== "card" && !(action.method === "swish" && hold.terms.currency === "SEK"))) return state;
+  if (!hold || !depositMethods(hold.terms.depositMinor, hold.terms.currency).includes(action.method)) return state;
   const service = bookableServices(state).find(s => s.id === hold.serviceId && s.staffIds.includes(hold.staffId));
   const released = { ...state, checkoutHolds: state.checkoutHolds.filter(h => h.id !== hold.id) };
   if (!service || service.duration !== hold.duration || !isFree(released, hold.staffId, hold.date, hold.start, needOf(service))) return state;
-  const id = collect(`${state.salon.slug}-${hold.id}-${hold.expiresAt}`, hold.terms.depositMinor, hold.terms.currency, "deposit", action.method);
+  const id = collect(`${state.salon.slug}-${hold.id}-${hold.expiresAt}`, hold.terms.depositMinor, hold.terms.currency, "deposit", action.method, payments);
   if (!id) return state;
   const clock = salonClock(new Date(now));
   const guest = { ...hold.guest, at: { date: clock.today, time: clock.minutes } };
@@ -343,15 +344,15 @@ function importCustomers(state: DemoState, incoming: Omit<Customer, "id">[]): De
   return added.length ? { ...state, seq: state.seq + added.length, customers: [...state.customers, ...added] } : state;
 }
 
-export function reduce(state: DemoState, action: DemoAction, now = Date.now()): DemoState {
+export function reduce(state: DemoState, action: DemoAction, now = Date.now(), payments = demoPayments): DemoState {
   switch (action.type) {
     case "salon/policy":
       if (!validPolicy(action.policy) || action.policy.version !== state.cancellationPolicy.version || JSON.stringify(action.policy) === JSON.stringify(state.cancellationPolicy)) return state;
       return { ...state, seq: state.seq + 1, cancellationPolicy: { ...action.policy, version: state.seq + 1 } };
     case "booking/fee":
-      return decideFee(state, action, now);
+      return decideFee(state, action, now, payments);
     case "online/pay":
-      return payHold(state, action, now);
+      return payHold(state, action, now, payments);
     case "online/release":
       return state.checkoutHolds.some(h => h.id === action.id) ? { ...state, checkoutHolds: state.checkoutHolds.filter(h => h.id !== action.id) } : state;
     case "salon/language": {
@@ -411,9 +412,10 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now()): 
     case "booking/cancel": {
       const booking = state.bookings.find((b) => b.id === action.id);
       if (!booking || booking.status === "cancelled" || booking.protection?.decision || (booking.protection?.deposit && booking.status !== "booked")) return state;
-      const refunded = refundCancellation(booking);
+      const refunded = refundCancellation(booking, payments);
       if (!refunded) return state;
-      const marked = { ...state, bookings: updateBy(state.bookings, action.id, () => ({ ...refunded, status: "cancelled" as const, cancelReason: action.reason })) };
+      const giftCards = refunded.protection?.refund ? returnRedemptions(state.giftCards, new Set([booking.id])) : state.giftCards;
+      const marked = { ...state, giftCards, bookings: updateBy(state.bookings, action.id, () => ({ ...refunded, status: "cancelled" as const, cancelReason: action.reason })) };
       const cancelled = booking.status === "booked" && !refunded.protection?.refund ? trashBooking(marked, action.id) : marked;
       // Only the owner's explicit offer texts the waiting list; a customer's own cancellation notice does not.
       if (action.notice?.waitlistOffer && booking.status === "booked" && state.modules.waitlist) textWaitlistAboutSlot(state, booking);
@@ -504,7 +506,7 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now()): 
     case "customer/delete":
       return deleteCustomer(state, action.id);
     case "trash/restore":
-      return restoreEntry(state, action.id);
+      return restoreEntry(state, action.id, payments);
     case "log/undo":
       return undoEntry(state, action.id);
     case "support/grant":

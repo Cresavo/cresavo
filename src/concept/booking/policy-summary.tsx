@@ -7,7 +7,10 @@ import { deadline } from "./policy";
 import { paymentBalance, toMinor, type BookingTerms } from "./protection";
 
 export function formatMinor(amountMinor: number, currency: string) {
-  return new Intl.NumberFormat(locale, { style: "currency", currency }).format(Number(majorString({ amountMinor, currency })));
+  const major = Number(majorString({ amountMinor, currency }));
+  // Whole amounts read like the price list (795 kr); fractional amounts keep the currency's precision.
+  const whole = Number.isInteger(major) ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {};
+  return new Intl.NumberFormat(locale, { style: "currency", currency, ...whole }).format(major);
 }
 
 export function deadlineText(visit: Pick<Booking, "date" | "start">, freeHours: number) {
@@ -41,6 +44,9 @@ export function PaymentSummary({ booking, state }: { booking: Booking; state: De
   const ended = booking.status === "noshow" || booking.status === "cancelled";
   const balance = paymentBalance(protection, ended, toMinor(paidWithCards(state, booking.id), currency));
   const money = (n: number) => formatMinor(n, currency);
+  if (!balance.deposit && !balance.paid && !balance.refund && !protection.decision) {
+    return <p className="border-t border-hairline pt-3 text-sm"><strong>{money(balance.remaining)}</strong> · {t("booking.payAtSalon")}</p>;
+  }
   return <div className="space-y-1 text-sm">
     <p>{t("protection.balance", { deposit: money(balance.deposit), paid: money(balance.paid), remaining: money(balance.remaining) })}</p>
     {protection.decision && <p>{t("protection.feeTotal", { amount: money(protection.decision.outcome === "charge" ? protection.decision.proposedMinor : 0) })}</p>}

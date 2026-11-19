@@ -6,6 +6,14 @@ export type PaymentsCapability = "checkout" | "payment-link" | "refund" | "webho
 /** Methods the business may offer. Availability depends on provider, account country and currency. */
 export type PaymentMethod = "card" | "klarna" | "swish" | "mobilepay" | "vipps" | "ideal" | "bancontact" | "apple_pay" | "google_pay";
 
+export function swishEligible({ currency, amountMinor }: Money) {
+  return currency === "SEK" && Number.isSafeInteger(amountMinor) && amountMinor >= 300 && amountMinor <= 15_000_000;
+}
+
+export function depositMethods(amountMinor: number, currency: string): readonly ("card" | "swish")[] {
+  return swishEligible({ amountMinor, currency }) ? ["card", "swish"] : ["card"];
+}
+
 export interface CheckoutInput {
   amount: Money;
   /** Line shown to the customer, e.g. "Haircut 45 min". */

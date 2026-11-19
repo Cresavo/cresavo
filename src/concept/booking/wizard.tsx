@@ -13,7 +13,7 @@ import { cx } from "../ui/cx";
 import { showToast } from "../ui/toast";
 import type { Now } from "../use-now";
 import { AskStep } from "./ask-step";
-import { useGuestContact } from "./guest";
+import { rememberHeldGuest, useGuestContact } from "./guest";
 import { DepositCheckout, useCheckoutHold } from "./deposit-checkout";
 import { bookingPage } from "./links";
 import { DetailsStep } from "./details-step";
@@ -74,7 +74,7 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
   const [serviceId, setServiceId] = useState(initialService?.id);
   const [request, setRequest] = useState<BookingRequest>();
   const router = useRouter();
-  const { hold, selectHold } = useCheckoutHold(state);
+  const { hold, remember, selectHold } = useCheckoutHold(state);
   const contact = useGuestContact(state.salon.slug);
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
   const [missed, setMissed] = useState(false);
@@ -120,7 +120,11 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
   }, [step]);
 
   const finish = (booking: Booking) => {
-    if (!hold || contact.guest.phone.trim() === hold.guest.phone) contact.saveContact(booking.customerId);
+    if (hold && remember) {
+      rememberHeldGuest(state.salon.slug, hold, booking.customerId);
+    } else if (!hold || (contact.guest.phone.trim() === hold.guest.phone && contact.guest.name.trim() === hold.guest.name)) {
+      contact.saveContact(booking.customerId);
+    }
     selectHold();
     if (onBooked) onBooked(booking.id);
     else router.push(bookingPage(state.salon.slug, booking.id));
@@ -133,7 +137,7 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
     <DetailsStep
       state={state} now={now} serviceId={service.id} slot={slot}
       contact={contact}
-      suggested={step === "next" && !alternative} onTaken={taken} onBooked={finish} onHeld={selectHold}
+      suggested={step === "next" && !alternative} onTaken={taken} onBooked={finish} onHeld={next => selectHold(next, contact.explicitlyRemembers())}
       timeControl={step === "next" && (
         <OtherTimes state={state} serviceId={service.id} staffId={staffId} selected={alternative ? slot : undefined} clock={now}
           onPick={chosen => { setSlot(chosen); setAlternative(true); }}
