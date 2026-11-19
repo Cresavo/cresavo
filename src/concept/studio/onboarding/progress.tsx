@@ -1,11 +1,10 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { preferredLocale } from "@/lib/locale";
 import { salonDraft } from "../../onboarding/salon";
 
 function useProgress() {
-  const [draft, setDraft] = useState(() => salonDraft(preferredLocale(null, typeof navigator === "undefined" ? "" : navigator.language)));
+  const [draft, setDraft] = useState(() => salonDraft());
   const [step, setStep] = useState(0);
   return { draft, setDraft, step, setStep };
 }

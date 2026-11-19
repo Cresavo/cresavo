@@ -4,12 +4,12 @@ import { parseLocale, preferredLocale } from "../src/lib/locale";
 import { presentationError } from "../src/lib/presentation-errors";
 
 describe("presentation locales", () => {
-  it("uses an explicit preference, then Swedish browser preference, otherwise English", () => {
+  it("defaults to English for any browser language and honors an explicit preference", () => {
     expect(preferredLocale("en", "sv-SE,sv;q=0.9")).toBe("en");
     expect(preferredLocale("sv", "en-US")).toBe("sv");
-    expect(preferredLocale(undefined, "sv-SE,sv;q=0.9")).toBe("sv");
-    expect(preferredLocale("invalid", null)).toBe("en");
-    expect(preferredLocale(undefined, "svelte")).toBe("en");
+    expect(preferredLocale(undefined, "sv-SE,sv;q=0.9")).toBe("en");
+    expect(preferredLocale("invalid", "sv")).toBe("en");
+    expect(preferredLocale(undefined, null)).toBe("en");
   });
   it("keeps known API errors actionable and never echoes unknown English errors", () => {
     expect(presentationError("Tiden är inte tillgänglig", "en")).toContain(
@@ -40,11 +40,11 @@ describe("presentation locales", () => {
       );
     }
   });
-  it("localizes the presentation without changing currency or Swedish defaults", () => {
-    expect(readableDay("2026-11-16", "en")).toBe("Monday 16 November 2026");
-    expect(readableDay("2026-11-16")).toBe("måndag 16 november 2026");
-    expect(formatPrice(45000, "en")).toContain("SEK");
-    expect(formatPrice(45000)).toContain("450,00");
+  it("defaults to English and keeps explicit Swedish formatting for SEK", () => {
+    expect(readableDay("2026-11-16")).toBe("Monday 16 November 2026");
+    expect(readableDay("2026-11-16", "sv")).toBe("måndag 16 november 2026");
+    expect(formatPrice(45000)).toContain("SEK");
+    expect(formatPrice(45000, "sv")).toContain("450,00");
     expect(readableDay("invalid", "en")).toBe("Choose a day");
   });
 });

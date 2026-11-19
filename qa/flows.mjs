@@ -201,26 +201,32 @@ await r.check("waitlist rejects an invalid email with a clear message", async ()
   return `native="${v}" status="${status}"`;
 });
 
-// 8. Language switch. The concept studio, booking page and sites are English-only by design;
-// the root layout's switch is hidden there and only shows on the older lab pages (/product etc.).
-await r.check("language switch: hidden on studio, booking page and product site (English-only concept)", async () => {
+// 8. The studio and demo booking page have separate language switches.
+await r.check("language switch: visible in studio settings and on the demo booking page", async () => {
   const ctx = await newContext(browser, { viewport: "desktop" }); const page = await ctx.newPage();
-  const out = [];
-  for (const path of ["/studio", "/boka/salong-eko", "/"]) { await page.goto((path === "/" ? APEX : DEMO) + path); await settle(page); out.push(`${path}: ${await page.getByRole("combobox", { name: /Language|Språk/ }).locator("visible=true").count()}`); }
-  await ctx.close();
-  return "visible switches " + out.join("; ");
+  try {
+    for (const [path, expected] of [["/studio/more/settings", 1], ["/boka/salong-eko", 1], ["/", 0]]) {
+      await page.goto((path === "/" ? APEX : DEMO) + path); await settle(page);
+      const count = await page.getByRole("combobox", { name: "Language", exact: true }).count();
+      if (count !== expected) throw new Error(`${path} shows ${count} switches, expected ${expected}`);
+    }
+    return "one studio switch and one visitor switch";
+  } finally {
+    await ctx.close();
+  }
 });
-await r.check("a saved Svenska preference keeps English concept pages marked lang=en", async () => {
+await r.check("a saved Swedish studio preference leaves the booking page in English", async () => {
   const ctx = await newContext(browser, { viewport: "desktop" });
   await ctx.addCookies([{ name: "booking-locale", value: "sv", url: DEMO }]);
   const page = await ctx.newPage();
   try {
-    for (const path of ["/studio", "/boka/salong-eko", "/"]) {
+    for (const [path, expected] of [["/studio", "sv"], ["/boka/salong-eko", "en"], ["/", "en"]]) {
       await page.goto((path === "/" ? APEX : DEMO) + path);
+      await settle(page);
       const lang = await page.locator("html").getAttribute("lang");
-      if (lang !== "en") throw new Error(`${path} is marked lang=${lang}`);
+      if (lang !== expected) throw new Error(`${path} is marked lang=${lang}, expected ${expected}`);
     }
-    return "all three pages are marked lang=en";
+    return "the studio is Swedish and the booking and product pages are English";
   } finally {
     await ctx.close();
   }

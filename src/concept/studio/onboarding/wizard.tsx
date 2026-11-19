@@ -3,7 +3,6 @@
 import { ArrowLeft, ArrowRight, Check, Link2, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { bookingHome, rebookLink } from "../../booking/links";
-import { preferredLocale } from "@/lib/locale";
 import { formatDuration, formatMoney } from "../../i18n/format";
 import { t, translate } from "../../i18n";
 import { INDUSTRIES, checkNewSlug, salonDraft, suggestedSlug, suggestedTreatments, type Industry, type SalonDraft } from "../../onboarding/salon";
@@ -54,7 +53,7 @@ export function SalonWizard() {
     if (saving) return;
     let nextDraft = draft;
     if (skip) {
-      const defaults = salonDraft(preferredLocale(null, navigator.language));
+      const defaults = salonDraft();
       const patches: Partial<SalonDraft>[] = [
         { name: "", industry: defaults.industry, slug: "", treatments: suggestedTreatments(defaults.industry, draft.language) }, { language: defaults.language, currency: defaults.currency }, { hours: {} },
         { treatments: [] }, { people: [""] }, { slug: suggestedSlug(draft, state.salon.slug) },
@@ -68,7 +67,7 @@ export function SalonWizard() {
       try {
         if (await switchSalon("own", nextDraft)) {
           setStep(0);
-          setDraft(salonDraft(preferredLocale(null, navigator.language)));
+          setDraft(salonDraft());
         } else showToast(t("setup.switchFailed"));
       } finally { setSaving(false); }
     } else {

@@ -44,7 +44,7 @@ test("language changes preserve booking details and selected day", async ({
 });
 
 test.describe("English workspace", () => {
-  test.use({ locale: "en-GB" });
+  test.use({ bookingLocale: null, locale: "sv-SE" });
   test("opens existing administration and keeps the locale across navigation", async ({
     page,
     synthetic,

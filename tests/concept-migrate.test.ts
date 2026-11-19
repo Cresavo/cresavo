@@ -3,6 +3,7 @@ import { toKey } from "@/concept/data/dates";
 import { createDemoState, DEMO_VERSION } from "@/concept/data/generate";
 import { migrateState, OLDEST_MIGRATABLE } from "@/concept/data/migrate";
 import type { DemoState } from "@/concept/data/types";
+import { createSalon, salonDraft } from "@/concept/onboarding/salon";
 import { DEFAULT_PAGE } from "@/concept/page/config";
 import { PALETTES } from "@/concept/page/theme";
 
@@ -78,17 +79,32 @@ describe("migrateState", () => {
     expect(migrateState({ ...saved, staff: [staff[1]] })!.staff).toEqual([migrated.staff[1]]);
   });
 
-  it("adds the Swedish booking default to a v17 Salong Eko save", () => {
+  it("adds the current booking defaults to a v17 Salong Eko save", () => {
     const saved: Partial<DemoState> = { ...createDemoState(today), version: 17 };
     delete saved.localization;
     const migrated = migrateState(saved)!;
-    expect(migrated.localization).toEqual({ language: "sv", bilingual: false, currency: "SEK" });
+    expect(migrated.localization).toEqual({ language: "en", bilingual: true, currency: "SEK" });
     expect(migrated.bookings).toEqual(saved.bookings);
+  });
+
+  it("updates the booking defaults on a v19 Salong Eko save while preserving its other edits", () => {
+    const { cancelledId, ...edited } = v14Save();
+    const saved = { ...edited, version: 19, localization: { language: "sv", bilingual: false, currency: "SEK" } };
+    const migrated = migrateState(saved)!;
+    expect(migrated.version).toBe(20);
+    expect(migrated.localization).toEqual({ language: "en", bilingual: true, currency: "SEK" });
+    expect(migrated.bookings.find((b) => b.id === cancelledId)?.status).toBe("cancelled");
+    expect(migrated.page).toEqual(saved.page);
+  });
+
+  it("preserves an owner's salon and localization when migrating from v19", () => {
+    const own = createSalon(today, { ...salonDraft("sv"), industry: "foot", currency: "EUR" });
+    const saved = { ...own, version: 19 };
+    expect(migrateState(saved)).toEqual({ ...saved, version: 20 });
   });
 
   it("is one linear chain: every saved version from the oldest to the current reaches DEMO_VERSION", () => {
     const fresh = createDemoState(today);
-    expect(DEMO_VERSION).toBe(19);
     for (let version = OLDEST_MIGRATABLE; version <= DEMO_VERSION; version++) {
       expect(migrateState({ ...fresh, version })?.version, `from v${version}`).toBe(DEMO_VERSION);
     }

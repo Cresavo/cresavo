@@ -1,5 +1,6 @@
-import { intlLocale, type Locale } from "./locale";
-export function formatPrice(ore: number, locale: Locale = "sv") {
+import { DateTime } from "luxon";
+import { DEFAULT_LOCALE, intlLocale, type Locale } from "./locale";
+export function formatPrice(ore: number, locale: Locale = DEFAULT_LOCALE) {
   return new Intl.NumberFormat(intlLocale(locale), {
     style: "currency",
     currency: "SEK",
@@ -7,7 +8,7 @@ export function formatPrice(ore: number, locale: Locale = "sv") {
   }).format(ore / 100);
 }
 
-export function formatBookingTime(value: string | Date, locale: Locale = "sv") {
+export function formatBookingTime(value: string | Date, locale: Locale = DEFAULT_LOCALE) {
   return new Intl.DateTimeFormat(intlLocale(locale), {
     timeZone: "Europe/Stockholm",
     year: "numeric",
@@ -18,8 +19,7 @@ export function formatBookingTime(value: string | Date, locale: Locale = "sv") {
     hour12: false,
   }).format(new Date(value));
 }
-import { DateTime } from "luxon";
-export function readableDay(value: string, locale: Locale = "sv") {
+export function readableDay(value: string, locale: Locale = DEFAULT_LOCALE) {
   const d = DateTime.fromISO(value, { zone: "Europe/Stockholm" });
   return d.isValid
     ? d.setLocale(locale).toFormat("cccc d MMMM yyyy")

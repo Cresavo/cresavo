@@ -4,6 +4,7 @@ import { createDatabaseClient } from "../../scripts/database.mjs";
 import { createAdminUser } from "../../src/lib/admin-accounts";
 
 export const test = base.extend<{
+  bookingLocale: "sv" | null;
   synthetic: {
     marker: string;
     title: string;
@@ -13,8 +14,12 @@ export const test = base.extend<{
     admin: { email: string; password: string; id: string };
   };
 }>({
+  bookingLocale: ["sv", { option: true }],
   synthetic: [
-    async ({ page }, provide) => {
+    async ({ page, baseURL, bookingLocale }, provide) => {
+      if (baseURL && bookingLocale) {
+        await page.context().addCookies([{ name: "booking-locale", value: bookingLocale, url: baseURL }]);
+      }
       const marker = process.env.CLEANUP_PROBE_MARKER ?? `e2e-${randomUUID()}`;
       const title = process.env.BOOKING_DEMO
         ? "Demoerbjudande – 20 % på fotvård"

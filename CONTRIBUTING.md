@@ -59,6 +59,9 @@ personal data in logs.
 
 ## Adding a language
 
+English is the default for the studio and new booking pages. Choose Swedish
+explicitly in tests that exercise Swedish UI or booking copy.
+
 1. Add new UI keys to `src/concept/i18n/en.ts` first. Use `t()` for copy,
    `tc()` for counts and the format helpers for dates, times and money.
 2. In the new dictionary, match every English key and keep the placeholders

@@ -41,8 +41,8 @@ describe("UI return context never grants access or redirects externally", () => 
         "/admin",
       ),
     ).toBe(calendar + "#return-" + key);
-    expect(returnLabel(booking)).toBe("Till bokningen");
-    expect(returnLabel(customer)).toBe("Till kundkortet");
+    expect(returnLabel(booking)).toBe("Back to booking");
+    expect(returnLabel(customer, "sv")).toBe("Till kundkortet");
   });
   it("ignores malformed scroll keys while retaining a safe direct-link fallback", () => {
     expect(

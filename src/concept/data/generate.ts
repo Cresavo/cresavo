@@ -31,7 +31,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 19;
+export const DEMO_VERSION = 20;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;

@@ -85,7 +85,7 @@ function Frame({ children, slug, widget, switchLanguage }: {
           <div className="flex items-center gap-1">
             {switchLanguage && (
               <select
-                className="min-h-11 max-w-24 rounded-md bg-surface px-1 text-sm text-text"
+                className="min-h-11 max-w-24 rounded-md border border-input-border bg-surface px-2 text-sm text-text"
                 aria-label={t("language.label")}
                 value={switchLanguage.language}
                 onChange={(event) => {
@@ -93,8 +93,8 @@ function Frame({ children, slug, widget, switchLanguage }: {
                   if (language) switchLanguage.change(language);
                 }}
               >
-                <option value="sv" lang="sv">{t("language.sv")}</option>
                 <option value="en" lang="en">{t("language.en")}</option>
+                <option value="sv" lang="sv">{t("language.sv")}</option>
               </select>
             )}
             <Link href={myBookings(slug)} className="flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-text hover:bg-action-bg">

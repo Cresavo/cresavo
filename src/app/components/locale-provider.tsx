@@ -3,10 +3,10 @@ import { createContext, useContext, useEffect, useState, useSyncExternalStore } 
 import { usePathname, useRouter } from "next/navigation";
 import { resolveHost } from "@/concept/page/resolve";
 import { conceptRoute } from "@/concept/page/language";
-import { text, type Locale } from "@/lib/locale";
+import { DEFAULT_LOCALE, text, type Locale } from "@/lib/locale";
 
 const noSubscription = () => () => {};
-const LocaleContext = createContext<Locale>("sv");
+const LocaleContext = createContext<Locale>(DEFAULT_LOCALE);
 export function LocaleProvider({
   locale,
   children,

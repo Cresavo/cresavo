@@ -25,19 +25,20 @@ data at this stage. See [project status](STATUS.md) and [data flows](DATA_FLOWS.
 
 ### Studio and booking languages
 
-English is the source dictionary and Swedish uses the same keys, placeholders
-and plural forms. The studio reads the device's existing language cookie or
-the browser language on the first visit. Both the demo banner and **Settings →
-Appearance → Language** update that preference.
+English is the source dictionary and the default language. Swedish uses the
+same keys, placeholders and plural forms. The studio uses the device's saved
+language cookie when there is one. The setup header and **Settings →
+Appearance → Language** both update that preference.
 
-The business chooses its default under **Settings → Booking language**.
-Salong Eko starts in Swedish with SEK. A business can allow visitors to switch
-the booking page to the other language. Confirmation, booking management,
+New salons start with English as the booking language. Owners can choose
+Swedish in step 2 of setup or change the setting later under **Settings →
+Booking language**. Salong Eko starts in English with SEK and lets visitors
+switch to Swedish on its booking page. Confirmation, booking management,
 calendar downloads and outbound message templates use the business default.
-The demo stores these settings in the browser and upgrades saved state from
-version 17 in place. A visitor's language choice lasts while the booking layout
-is open. Business settings on another origin start from that origin's demo
-fixtures.
+The demo stores these settings in the browser. The version 20 upgrade applies
+the new localization defaults to the demo and preserves each owner's salon
+settings. A visitor's language choice lasts while the booking layout is open.
+Business settings on another origin start from that origin's demo fixtures.
 
 The client route boundary selects the active dictionary and formatting
 locale and updates the document language. Server rendering uses the device

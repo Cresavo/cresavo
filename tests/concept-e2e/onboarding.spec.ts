@@ -38,12 +38,20 @@ for (const language of ["sv", "en"] as const) {
       const frame = async (i: number) => { await audit(page); if (pictures) await capture(page, frames[i]); };
       const next = () => page.getByRole("button", { name: m("welcome.next"), exact: true }).click();
       await page.goto("/studio");
-      await page.getByRole("link", { name: m("setup.entry") }).click();
+      await expect(page.locator("html")).toHaveAttribute("lang", "en");
+      await page.getByRole("link", { name: translate("en", "setup.entry") }).click();
+      if (language === "sv") {
+        await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("sv");
+        await expect(page.locator("html")).toHaveAttribute("lang", "sv");
+      }
       await page.getByLabel(m("settings.name"), { exact: true }).fill("Studio Vide");
       await page.getByLabel(m("setup.type")).selectOption("beauty");
       await frame(0);
       await next();
-      await expect(page.getByLabel(m("language.businessDefault"))).toHaveValue(language);
+      const bookingLanguage = page.getByLabel(m("language.businessDefault"));
+      await expect(bookingLanguage).toHaveValue("en");
+      if (language === "sv") await bookingLanguage.selectOption({ label: "Svenska" });
+      await expect(bookingLanguage).toHaveValue(language);
       await expect(page.getByLabel(m("setup.currency"))).toHaveValue("SEK");
       if (language === "en") await page.getByLabel(m("setup.currency")).selectOption("EUR");
       await frame(1);

@@ -26,6 +26,14 @@ test.beforeEach(async ({ page }, testInfo) => {
 });
 
 test("Swedish studio Today and rules-only assistant", async ({ page }) => {
+  const response = await page.goto("/studio");
+  expect(await response?.text()).toMatch(/<html\b[^>]*\blang="en"/);
+  await expect(page.getByRole("heading", { name: "Good morning, Anna" })).toBeVisible();
+  await page.goto("/studio/more/settings");
+  const studioLanguage = page.getByRole("combobox", { name: "Language", exact: true });
+  await expect(studioLanguage).toHaveValue("en");
+  await studioLanguage.selectOption("sv");
+  await expect(page.getByRole("combobox", { name: "Språk", exact: true })).toHaveValue("sv");
   await page.goto("/studio");
   await expect(page.getByRole("heading", { name: "God morgon, Anna" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Dagens schema" })).toBeVisible();
@@ -42,6 +50,12 @@ test("Swedish studio Today and rules-only assistant", async ({ page }) => {
 });
 
 test("Swedish booking, confirmation and management", async ({ page }) => {
+  await page.goto("/studio/more/settings");
+  await page.getByRole("combobox", { name: "Default booking language" }).selectOption("sv");
+  await page.getByRole("checkbox", { name: "Let visitors switch between English and Swedish" }).uncheck();
+  await page.reload();
+  await expect(page.getByRole("combobox", { name: "Default booking language" })).toHaveValue("sv");
+
   await page.goto(bookingUrl);
   await expect(page.locator("html")).toHaveAttribute("lang", "sv");
   await expect(page.getByRole("link", { name: "Mina bokningar", exact: true })).toBeVisible();
@@ -82,23 +96,34 @@ test("Swedish booking, confirmation and management", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("lang", "sv");
 });
 
-test("studio preference and optional visitor switch are independent", async ({ page }) => {
+test("the bilingual demo starts in English and lets visitors switch to Swedish independently of the studio", async ({ page }) => {
   await page.goto("/studio/more/settings");
-  await page.getByRole("main").getByRole("combobox", { name: "Språk", exact: true }).selectOption("en");
-  await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
-  await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await page.getByRole("checkbox", { name: "Let visitors switch between English and Swedish" }).check();
-  await page.reload();
-  await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Default booking language" })).toHaveValue("sv");
-
-  await page.goto(bookingUrl);
+  await expect(page.getByRole("combobox", { name: "Default booking language" })).toHaveValue("en");
+  await expect(page.getByRole("checkbox", { name: "Let visitors switch between English and Swedish" })).toBeChecked();
+  await page.getByRole("main").getByRole("combobox", { name: "Language", exact: true }).selectOption("sv");
   await expect(page.locator("html")).toHaveAttribute("lang", "sv");
-  await page.getByRole("combobox", { name: "Språk", exact: true }).selectOption("en");
+  await page.reload();
+  await expect(page.getByRole("combobox", { name: "Ordinarie bokningsspråk" })).toHaveValue("en");
+
+  const response = await page.goto(bookingUrl);
+  const html = await response?.text();
+  expect(html).toMatch(/<html\b[^>]*\blang="en"/);
+  expect(html).toContain("<title>Book online</title>");
+  expect(html).toContain("Book your visit online. Demo with fictional data.");
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", "Book your visit online. Demo with fictional data.");
   await expect(page.getByRole("textbox", { name: "What would you like to book?" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await page.getByRole("link", { name: "My bookings", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Hitta dina bokningar", exact: true })).toBeVisible();
+  const visitorLanguage = page.getByRole("banner").getByRole("combobox", { name: "Language", exact: true });
+  await expect(visitorLanguage).toHaveValue("en");
+  await expect(visitorLanguage).toBeInViewport({ ratio: 1 });
+  expect((await visitorLanguage.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await visitorLanguage.selectOption({ label: "Svenska" });
+  await expect(page.getByRole("textbox", { name: "Vad vill du boka?" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "sv");
-  await expect(page.getByRole("combobox", { name: "Språk", exact: true })).toHaveCount(0);
+  await expect(page).toHaveTitle("Boka tid");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width);
+  await page.getByRole("link", { name: "Mina bokningar", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Find your bookings", exact: true })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.getByRole("combobox", { name: "Language", exact: true })).toHaveCount(0);
 });

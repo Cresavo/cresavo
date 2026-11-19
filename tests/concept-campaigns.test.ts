@@ -186,7 +186,9 @@ describe("campaign store actions", () => {
   });
 
   it("builds a draft's offer sentence and poster from the offer, with the owner's edits on top", () => {
-    expect(draftOffer(state, draft)).toBe("Test offer: 10 % rabatt på Medicinsk fotvård till 29 november 2026.");
+    expect(draftOffer(state, draft)).toBe("Test offer: 10% off Medical foot care until 29 Nov 2026.");
+    const swedish = { ...state, localization: { ...state.localization, language: "sv" as const } };
+    expect(draftOffer(swedish, draft)).toBe("Test offer: 10 % rabatt på Medicinsk fotvård till 29 november 2026.");
     const poster = resolvePoster(state, draft);
     expect(poster).toMatchObject({ style: "calm", image: "/demo/salon.webp", headline: "−10%", detail: state.services[0].name });
     expect(resolvePoster(state, { ...draft, serviceIds: ["deep-tissue"], posterEdits: { headline: "Gift" } })).toMatchObject({ image: "/demo/massage.webp", headline: "Gift" });
