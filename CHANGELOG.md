@@ -13,8 +13,12 @@ All notable changes to this project are documented here. Format follows
 - A `StudioStore` interface defines how the studio and server read and change a salon. It covers versions, idempotency keys, effects published after commit and an append-only action log. An in-memory reference store, an adapter over the existing browser store and a shared contract suite back it. The studio behaves as before. See docs/design/STUDIO_STORE.md.
 - A staged `PostgresStudioStore` keeps each salon in a `tenant_state` row behind a row lock, with the database clock, 24-hour idempotency keys fingerprinted by HMAC, an append-only `tenant_action` log and a `tenant_effect` outbox written in the same transaction. Effects are delivered one at a time in commit order, so a refund never overtakes its checkout. Booking cutoffs and support grants follow the store clock, and activity text uses the salon's language and currency. A new migration adds the four tables. The intended role grants and a check of the role's effective privileges are in `prisma/grants/`. It passes the shared contract suite against a disposable database. Nothing in the app uses it yet.
 
+- Four ready-made booking page designs, Eko, Atelier, Noir and Studio, can be picked in the booking page editor and adjusted afterwards. A design sets colours, fonts, corners, top photo and sections and keeps the owner's logo, Instagram name and own CSS. Adding `?design=<name>` to a booking page address shows the page in that design without saving anything.
+- The top of the booking page has two more looks: the name on a tall photo, and name and photo side by side. Both carry a Book a time button. There are four more font choices, two more colour palettes and two more demo photos.
+
 ### Changed
 
+- Salong Eko wears the Eko design: the name on the photo and warmer headings. A saved demo that still had the old look is moved over; a page that was changed is left alone.
 - The staff preview starts in Advanced, with a return to the owner view available while previewing.
 - Finance opens with what is left this month and a comparison with last month. Send to my accountant explains the two download options and the dates they cover.
 - Gift cards and packages share one add-on and one More entry with two tabs. Owners can approve and reply to reviews from the Inbox.

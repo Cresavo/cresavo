@@ -1,5 +1,5 @@
 import type { Campaign, Category, ModuleKey, PackId, Salon, Service, Staff, StockItem, Supplier } from "../data/types";
-import type { PaletteId } from "../page/theme";
+import type { TemplateId } from "../page/templates";
 
 /** Journal templates, as in `journal.template.<id>.*` in the dictionary. */
 export type JournalTemplateId =
@@ -43,8 +43,8 @@ export interface Pack {
   vocabulary: Vocabulary;
   categories: [Category, Category];
   salon: Salon;
-  /** The demo business's own booking page colours; none means the neutral default look. */
-  palette?: PaletteId;
+  /** The ready-made design the demo business's booking page wears; none means the neutral default look. */
+  template?: TemplateId;
   staff: [Staff, Staff];
   services: Service[];
   stock: StockItem[];

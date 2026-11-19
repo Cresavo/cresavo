@@ -5,6 +5,7 @@ import { migrateState, OLDEST_MIGRATABLE } from "@/concept/data/migrate";
 import type { DemoState } from "@/concept/data/types";
 import { createSalon, salonDraft } from "@/concept/onboarding/salon";
 import { DEFAULT_PAGE } from "@/concept/page/config";
+import { applyTemplate } from "@/concept/page/templates";
 import { PALETTES } from "@/concept/page/theme";
 
 const today = "2026-11-17";
@@ -128,11 +129,19 @@ describe("migrateState", () => {
     });
   });
 
-  it("lifts a v22 salon to v23 and keeps its modules, bookings and reminder preferences", () => {
+  it("lifts a v22 salon to the current version and keeps its modules, bookings, page and reminder preferences", () => {
     const own = createSalon(today, { ...salonDraft("en"), name: "Studio Vide" }, { examplesAfter: 0 });
     const saved = { ...own, version: 22, modules: { ...own.modules, finance: true, campaigns: true } };
-    expect(migrateState(saved)).toEqual({ ...saved, version: 23 });
+    expect(migrateState(saved)).toEqual({ ...saved, version: DEMO_VERSION });
     expect(migrateState(saved)!.bookings.every((booking) => booking.example)).toBe(true);
+  });
+
+  it("gives the demo salon the Eko design in v24, unless its page was changed", () => {
+    const fresh = createDemoState(today);
+    const untouched = { ...DEFAULT_PAGE, theme: { ...DEFAULT_PAGE.theme, colors: PALETTES.forest } };
+    expect(migrateState({ ...fresh, version: 23, page: untouched })!.page).toEqual(applyTemplate(DEFAULT_PAGE, "eko"));
+    const edited = { ...untouched, theme: { ...untouched.theme, corners: "round" as const } };
+    expect(migrateState({ ...fresh, version: 23, page: edited })!.page).toEqual(edited);
   });
 
   it("is one linear chain: every saved version from the oldest to the current reaches DEMO_VERSION", () => {

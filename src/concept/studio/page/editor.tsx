@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Save, Undo2 } from "lucide-react";
 import { t } from "../../i18n";
 import { normalizePage, type PageConfig } from "../../page/config";
+import { applyTemplate } from "../../page/templates";
 import type { PageSection } from "../../page/sections";
 import type { PageTheme } from "../../page/theme";
 import { dispatchWithLog } from "../../store";
@@ -16,6 +17,7 @@ import { ADVANCED_PAGE } from "../nav";
 import { useStudio } from "../use-studio";
 import { Preview } from "./preview";
 import { SectionControls } from "./section-controls";
+import { TemplatePicker } from "./template-picker";
 import { ThemeControls } from "./theme-controls";
 import { showUndoToast } from "../log/undo-toast";
 
@@ -68,6 +70,7 @@ export function PageEditor() {
             <Button width="responsive" icon={<Save size={18} />} disabled={!dirty} onClick={save}>{t("pageEditor.save")}</Button>
           </>}>
             <div className="space-y-6">
+              <Block title={t("pageEditor.templates.title")}><TemplatePicker page={draft} onPick={(id) => setDraft((current) => applyTemplate(current, id))} /></Block>
               <Block title={t("pageEditor.look.title")}><ThemeControls theme={draft.theme} onChange={theme} /></Block>
               <Block title={t("pageEditor.sections.title")}>
                 <SectionControls sections={visibleSections} reviewsEnabled={state.modules.reviews} instagram={draft.instagram} onChange={changeSections} onInstagram={(instagram) => change({ instagram })} />

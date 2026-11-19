@@ -121,6 +121,9 @@ body:has(.studio-root) .demo-banner {
 
 .studio-month-grid { min-width: calc(7 * var(--touch-target) + 2 * var(--space-1)); }
 
+/* A design's name in its own heading font (the swatch wears the design's theme). */
+.studio-template-name { font-family: var(--page-font-heading, inherit); }
+
 .studio-preview-frame { height: 34rem; }
 .studio-preview-phone { width: 390px; }
 

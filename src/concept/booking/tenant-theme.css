@@ -49,8 +49,47 @@
   color-scheme: dark;
 }
 
-.booking-theme :is(h1, h2, h3) {
+.booking-theme :is(h1, h2, h3, .booking-display) {
   font-family: var(--page-font-heading, inherit);
+}
+
+/* The large name of the "cover" and "split" tops. */
+.booking-hero-title {
+  font-size: clamp(2.25rem, 1.5rem + 3.4vw, 3.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+/* "cover": the name sits on the photo. The shade and its ink are fixed, never
+   the palette's, so the name reads on any photo and in any theme. */
+.booking-hero-cover {
+  min-height: min(26rem, 70dvh);
+}
+
+.booking-theme .booking-hero-shade {
+  color: #ffffff;
+  padding-top: var(--space-12);
+  background: linear-gradient(to top, rgb(0 0 0 / 0.82), rgb(0 0 0 / 0.55) 55%, rgb(0 0 0 / 0));
+}
+
+.booking-theme .booking-hero-cta,
+.booking-theme .booking-hero-cta:hover {
+  background: #ffffff;
+  color: #17181a;
+}
+
+.booking-theme .booking-hero-cta:hover {
+  background: #ececec;
+}
+
+/* On a phone the cover runs edge to edge, right under the header. */
+@media (max-width: 639px) {
+  .booking-theme .booking-hero-cover {
+    margin: calc(-1 * var(--space-5)) calc(-1 * max(var(--booking-gutter), env(safe-area-inset-left))) 0;
+    margin-right: calc(-1 * max(var(--booking-gutter), env(safe-area-inset-right)));
+    border-radius: 0;
+  }
 }
 
 .booking-gutters {

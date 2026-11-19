@@ -13,7 +13,8 @@ import { subdomainHost } from "@/concept/page/address";
 import { DEFAULT_PAGE, normalizePage, pageCss } from "@/concept/page/config";
 import { designRequest } from "@/concept/page/design-request";
 import { resolveHost } from "@/concept/page/resolve";
-import { PALETTES } from "@/concept/page/theme";
+import { applyTemplate, isTemplateId, TEMPLATE_IDS, TEMPLATES, templateIdOf } from "@/concept/page/templates";
+import { FONT_PAIRS, PALETTES, PHOTOS } from "@/concept/page/theme";
 
 const today = "2026-11-17";
 const clock = { today, minutes: 10 * 60 };
@@ -61,6 +62,45 @@ describe("page design requests", () => {
     for (const text of ["book Lena for a massage tomorrow", "how much did we earn last month", "what is on today", "cancel the 10:00 booking", ""]) {
       expect(designRequest(text, DEFAULT_PAGE), text).toBeNull();
     }
+  });
+});
+
+describe("ready-made designs", () => {
+  it("are pages an owner could have built by hand: known sections, fonts, photos and corners", () => {
+    for (const id of TEMPLATE_IDS) {
+      const page = applyTemplate(DEFAULT_PAGE, id);
+      expect(page.sections, id).toEqual(TEMPLATES[id].sections);
+      expect(page.theme, id).toMatchObject(TEMPLATES[id].theme);
+      expect(FONT_PAIRS[page.theme.fonts], id).toBeDefined();
+      expect(PHOTOS[page.theme.heroPhoto], id).toBeDefined();
+      expect(kinds(page)[0], id).toBe("hero");
+      expect(kinds(page), id).toContain("treatments");
+    }
+  });
+
+  it("look different from each other", () => {
+    expect(new Set(TEMPLATE_IDS.map((id) => JSON.stringify(TEMPLATES[id].theme.colors))).size).toBe(TEMPLATE_IDS.length);
+    expect(new Set(TEMPLATE_IDS.map((id) => TEMPLATES[id].theme.fonts)).size).toBe(TEMPLATE_IDS.length);
+  });
+
+  it("keep what is the owner's: logo, logo colours, Instagram name and own CSS", () => {
+    const logo = "data:image/png;base64,AAAA";
+    const own = normalizePage({ ...DEFAULT_PAGE, theme: { ...DEFAULT_PAGE.theme, logo, logoColors: ["#8a3b5c"] }, instagram: "salong.eko", css: "h1 { color: red }" });
+    const next = applyTemplate(own, "noir");
+    expect(next.theme).toMatchObject({ logo, logoColors: ["#8a3b5c"], colors: PALETTES.ink, corners: "sharp" });
+    expect(next).toMatchObject({ instagram: "salong.eko", css: "h1 { color: red }" });
+  });
+
+  it("are recognised until the owner changes something", () => {
+    const noir = applyTemplate(DEFAULT_PAGE, "noir");
+    expect(templateIdOf(noir)).toBe("noir");
+    expect(templateIdOf({ ...noir, theme: { ...noir.theme, corners: "round" } })).toBeNull();
+    expect(templateIdOf(DEFAULT_PAGE)).toBeNull();
+  });
+
+  it("only accept known names from a link", () => {
+    expect(isTemplateId("atelier")).toBe(true);
+    for (const value of ["", "toString", "__proto__", "Noir", null, undefined, 3]) expect(isTemplateId(value), String(value)).toBe(false);
   });
 });
 
@@ -166,8 +206,9 @@ describe("own domain module and demo data", () => {
     expect(monthlyTotal(["domain"])).toBeGreaterThan(monthlyTotal([]));
   });
 
-  it("starts with the default page in Salong Eko's own colours and no domain, in a new demo version", () => {
-    expect(state.page).toEqual({ ...DEFAULT_PAGE, theme: { ...DEFAULT_PAGE.theme, colors: PALETTES.forest } });
+  it("starts with Salong Eko in the Eko design and no domain, in a new demo version", () => {
+    expect(state.page).toEqual(applyTemplate(DEFAULT_PAGE, "eko"));
+    expect(state.page.theme.colors).toEqual(PALETTES.forest);
     expect(DEFAULT_PAGE.theme.colors).toBeNull();
     expect(state.domain).toBeNull();
     expect(state.version).toBe(DEMO_VERSION);

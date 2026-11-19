@@ -31,6 +31,14 @@ and the served font files carry the copyright notice and a link to the OFL in
 their metadata (checked on a 2026-11-18 build). The font is not committed to
 this repository; anyone distributing a build should include the OFL text.
 
+The ready-made booking page designs load four more families the same way
+(`src/app/page-fonts.ts`), all under the SIL Open Font License 1.1 and none
+committed to this repository:
+**Fraunces** (Copyright 2018 The Fraunces Project Authors, <https://github.com/undercasetype/Fraunces>),
+**Playfair Display** (Copyright 2017 The Playfair Project Authors, <https://github.com/clauseggers/Playfair>),
+**Bodoni Moda** (Copyright 2020 The Bodoni Moda Project Authors, <https://github.com/indestructible-type/Bodoni>) and
+**Outfit** (Copyright 2021 The Outfit Project Authors, <https://github.com/Outfitio/Outfit-Fonts>).
+
 ## Epic 06 icon subset
 
 `lucide-react` 1.72.0: ISC; Feather-derived icons retain the additional MIT

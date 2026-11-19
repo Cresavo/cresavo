@@ -58,6 +58,28 @@
       "usage": "treatment section on customer page"
     },
     {
+      "file": "/demo/barber.webp",
+      "source": "barber.png",
+      "generated": "2026-11-20",
+      "tool": "built-in image_gen, no new service or subscription",
+      "promptSummary": "Fictional premium barbershop at dusk,charcoal walls,vintage leather chair,brass,warm tungsten light,mirror,razor and brush,no people,text or logos",
+      "alt": "Fictional dark barbershop with a leather chair and brass lamp",
+      "bytes": 49404,
+      "sha256": "bed8e4b915ced092ec8561c8d0a49fd578d22a167ff20c6862e36a9d0c11d91a",
+      "usage": "top photo of a ready-made booking page design"
+    },
+    {
+      "file": "/demo/nails.webp",
+      "source": "nails.png",
+      "generated": "2026-11-20",
+      "tool": "built-in image_gen, no new service or subscription",
+      "promptSummary": "Fictional bright nail and lash studio,blush pink and cream,manicure table,row of unbranded polish bottles,velvet chair,dried flowers,daylight,no people,text or logos",
+      "alt": "Fictional pink nail studio with a manicure table and velvet chair",
+      "bytes": 37458,
+      "sha256": "6d4bbd14b3524afbaced68a7a8f279c5b74ee258a6bd7f999837bb7a4964f82b",
+      "usage": "top photo of a ready-made booking page design"
+    },
+    {
       "file": "/demo/staff-anna.webp",
       "source": "exec-c755874f-66bb-47f0-9bf7-77bb510e0deb.png",
       "generated": "2026-11-18",

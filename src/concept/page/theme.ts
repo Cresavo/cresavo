@@ -4,11 +4,18 @@ import { buildTokens, isHex, mix, onColour, schemeOf, type Palette, type Tokens 
 // theme only ever becomes CSS variables and a few data attributes on the page
 // root; it cannot change the structure of the booking flow.
 
+const INTER = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
+
 export const FONT_PAIRS = {
   modern: { heading: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif', body: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' },
   classic: { heading: 'Georgia, "Times New Roman", Times, serif', body: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' },
   soft: { heading: 'ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", Quicksand, system-ui, sans-serif', body: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' },
   elegant: { heading: '"Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif', body: 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif' },
+  // The four below use web fonts that the booking and studio layouts load (app/page-fonts.ts); the rest of each stack is what shows until they arrive.
+  warm: { heading: 'var(--font-fraunces), "Iowan Old Style", Georgia, serif', body: INTER },
+  couture: { heading: 'var(--font-playfair), "Didot", "Bodoni MT", Georgia, serif', body: INTER },
+  statement: { heading: 'var(--font-bodoni), "Didot", "Bodoni MT", Georgia, serif', body: INTER },
+  friendly: { heading: `var(--font-outfit), ${INTER}`, body: `var(--font-outfit), ${INTER}` },
 } as const;
 
 export type FontPairId = keyof typeof FONT_PAIRS;
@@ -18,7 +25,7 @@ export const CORNERS = ["sharp", "soft", "round"] as const;
 export type CornerStyle = (typeof CORNERS)[number];
 
 /** Photos from `public/demo` the page can use. */
-export const PHOTOS = { salon: "/demo/salon.webp", massage: "/demo/massage.webp", hair: "/demo/hair.webp" } as const;
+export const PHOTOS = { salon: "/demo/salon.webp", massage: "/demo/massage.webp", hair: "/demo/hair.webp", barber: "/demo/barber.webp", nails: "/demo/nails.webp" } as const;
 export type PhotoId = keyof typeof PHOTOS;
 export const PHOTO_IDS = Object.keys(PHOTOS) as PhotoId[];
 
@@ -29,6 +36,8 @@ export const PALETTES = {
   ink: { background: "#17181a", text: "#ece7dc", accent: "#c9a45c" },
   rose: { background: "#faf1ef", text: "#3d2f30", accent: "#a14a5b" },
   sky: { background: "#f1f6fa", text: "#1f2f3b", accent: "#2d6a9f" },
+  linen: { background: "#faf7f2", text: "#24201c", accent: "#2b2622" },
+  peony: { background: "#fff4f1", text: "#3a2430", accent: "#b93a66" },
 } as const satisfies Record<string, Palette>;
 
 export type PaletteId = keyof typeof PALETTES;
