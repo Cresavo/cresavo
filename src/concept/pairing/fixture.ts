@@ -35,6 +35,7 @@ function project(state: DemoState, includeHistory = false): PairState {
     stock: [], suppliers: [], orders: [], sales: [], giftCards: [], packages: [], holidays: [], campaigns: [],
     monthHistory: includeHistory ? state.monthHistory : [], costs: [], accounting: { connected: false }, dismissedCards: [], supportGrants: [], tickets: [], domain: null,
     reminderSettings: state.reminderSettings,
+    cancellationPolicy: state.cancellationPolicy, checkoutHolds: [],
   };
 }
 

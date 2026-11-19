@@ -1,3 +1,5 @@
+import { returnRedemptions } from "../giftcards/cards";
+import { DEFAULT_POLICY, hasSettlement } from "../booking/protection";
 import { defaultBusinessLocalization } from "../i18n/business";
 import { DEFAULT_REMINDER_SETTINGS } from "../booking/reminders";
 import { DEFAULT_PAGE, type PageConfig } from "../page/config";
@@ -53,6 +55,17 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
   // The demo salon became English by default, with Swedish offered to visitors. Own salons keep their choice.
   19: (saved) => (saved.industry ? { ...saved, version: 20 } : { ...saved, localization: defaultBusinessLocalization(saved.pack as PackId), version: 20 }),
   20: (saved) => ({ ...saved, reminderSettings: { ...DEFAULT_REMINDER_SETTINGS }, version: 21 }),
+  21: (saved) => {
+    const state = saved as unknown as DemoState;
+    const visits = [...state.bookings, ...state.trash.flatMap(entry => entry.kind === "customer" ? entry.bookings : [])];
+    const settled = new Set(visits.filter(hasSettlement).map(booking => booking.id));
+    return {
+      ...saved, version: 22,
+      cancellationPolicy: state.cancellationPolicy ?? DEFAULT_POLICY,
+      checkoutHolds: state.checkoutHolds ?? [],
+      giftCards: returnRedemptions(state.giftCards, settled),
+    };
+  },
 };
 
 /** The oldest saved version that can still be migrated. */
@@ -67,5 +80,7 @@ export function migrateState(saved: unknown): DemoState | null {
     if (!step) return null;
     current = step(current);
   }
+  // Deposit-branch snapshots could already be v21 or v22 before reminder settings existed.
+  if (current.version === 22 && !current.reminderSettings) current = { ...current, reminderSettings: { ...DEFAULT_REMINDER_SETTINGS } };
   return current.version === DEMO_VERSION ? (current as unknown as DemoState) : null;
 }

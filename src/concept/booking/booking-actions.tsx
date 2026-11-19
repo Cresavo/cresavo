@@ -18,7 +18,7 @@ import { Sheet } from "../ui/sheet";
 import { showActionFailure, showToast } from "../ui/toast";
 import type { Now } from "../use-now";
 import { buildIcs, googleCalendarLink, icsTimestamp } from "./ics";
-import { changeRule } from "./policy";
+import { FREE_CHANGE_HOURS, changeRule } from "./policy";
 import { freeUntilText } from "./deadline-text";
 import { openSlots, type OpenSlot } from "./suggest";
 import { TimePicker } from "./time-picker";
@@ -39,6 +39,15 @@ function downloadCalendar(state: DemoState, booking: Booking) {
   URL.revokeObjectURL(url);
 }
 
+/** Recheck the customer's original visit and its deadline under the booking lock. */
+function canChangeBooking(latest: DemoState, booking: Booking) {
+  const current = latest.bookings.find(b => b.id === booking.id);
+  const instant = new Date();
+  const clock = salonClock(instant);
+  return !!current && current.date === booking.date && current.start === booking.start &&
+    current.staffId === booking.staffId && changeRule(current, clock.today, clock.minutes, instant.getTime()) === "free";
+}
+
 interface BookingActionsProps {
   state: DemoState;
   now: Now;
@@ -51,7 +60,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
   const [pending, setPending] = useState(false);
   const [moveFailure, setMoveFailure] = useState<ActionFailureInfo>();
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
-  const rule = changeRule(booking, now.today, now.minutes);
+  const rule = changeRule(booking, now.today, now.minutes, now.instant);
   const moveOpen = rule === "free" && sheet === "move";
   const service = findService(state, booking.serviceId);
   const customer = findCustomer(state, booking.customerId);
@@ -70,14 +79,6 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
   });
   const when = `${formatDayLong(booking.date)} ${formatTime(booking.start)}`;
 
-  // Compare the visit the customer saw with the refreshed record inside the write lock.
-  const canChange = (latest: DemoState) => {
-    const current = latest.bookings.find(b => b.id === booking.id);
-    const clock = salonClock();
-    return !!current && current.date === booking.date && current.start === booking.start &&
-      current.staffId === booking.staffId && changeRule(current, clock.today, clock.minutes) === "free";
-  };
-
   const cancel = async () => {
     if (pending) return;
     const requestId = newActionRequestId();
@@ -87,7 +88,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       id: booking.id,
       reason: t("booking.cancel.reason"),
       notice: notice("cancel", t("booking.cancel.inboxTitle"), t("booking.cancel.inboxBody", { name: fullName(customer), service: service.name, when })),
-    }, CUSTOMER_PAGE, canChange)).catch(() => false as const);
+    }, CUSTOMER_PAGE, latest => canChangeBooking(latest, booking))).catch(() => false as const);
     setPending(false);
     setSheet(null);
     if (result === false) showActionFailure("booking.visitChanged", requestId, "booking");
@@ -106,7 +107,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       start: target.start,
       staffId: target.staffId,
       notice: notice("reschedule", t("booking.move.inboxTitle"), t("booking.move.inboxBody", { name: fullName(customer), service: service.name, from: when, to: `${formatDayLong(target.date)} ${formatTime(target.start)}` })),
-    }, CUSTOMER_PAGE, latest => canChange(latest) && openSlots(latest, service.id, target.date, salonClock(), {
+    }, CUSTOMER_PAGE, latest => canChangeBooking(latest, booking) && openSlots(latest, service.id, target.date, salonClock(), {
       ignoreId: booking.id, staffId: target.staffId,
     }).some(slot => slot.start === target.start))).catch(() => false as const);
     setPending(false);
@@ -139,7 +140,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       {rule === "late" && (
         <Notice tone="warning" className="flex items-start gap-2">
           <Phone size={16} className="mt-0.5 shrink-0" />
-          <span>{t(state.salon.phone ? "booking.tooLate" : "booking.tooLateNoPhone", { phone: state.salon.phone })}</span>
+          <span>{t(state.salon.phone ? "booking.tooLate" : "booking.tooLateNoPhone", { hours: booking.protection?.terms.freeHours ?? FREE_CHANGE_HOURS, phone: state.salon.phone })}</span>
         </Notice>
       )}
       {!moveOpen && moveFailure && <ActionFailure failure={moveFailure} audience="booking" />}

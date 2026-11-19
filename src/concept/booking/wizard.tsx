@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, BellRing, Check } from "lucide-react";
 import { addDays } from "../data/dates";
-import type { DemoState, StaffId } from "../data/types";
+import type { Booking, DemoState, StaffId } from "../data/types";
 import { t, tc } from "../i18n";
 import { formatDayLong } from "../i18n/format";
 import { ActionFailure, type ActionFailureInfo } from "../ui/action-failure";
@@ -12,7 +13,9 @@ import { Card } from "../ui/card";
 import { cx } from "../ui/cx";
 import type { Now } from "../use-now";
 import { AskStep } from "./ask-step";
-import { useGuestContact } from "./guest";
+import { rememberHeldGuest, useGuestContact } from "./guest";
+import { DepositCheckout, useCheckoutHold } from "./deposit-checkout";
+import { bookingPage } from "./links";
 import { DetailsStep } from "./details-step";
 import { parseBookingRequest, type BookingRequest } from "./request";
 import { ServiceInfo } from "./service-row";
@@ -70,12 +73,15 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
   const [staffId, setStaffId] = useState(preferredStaff);
   const [serviceId, setServiceId] = useState(initialService?.id);
   const [request, setRequest] = useState<BookingRequest>();
+  const router = useRouter();
+  const { hold, remember, selectHold } = useCheckoutHold(state);
   const contact = useGuestContact(state.salon.slug);
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
   const [missed, setMissed] = useState(false);
   const [failure, setFailure] = useState<ActionFailureInfo>();
   const step = trail[trail.length - 1];
-  useEffect(() => onFlowChange?.(step !== "ask"), [step, onFlowChange]);
+  const inFlow = !!hold || step !== "ask";
+  useEffect(() => onFlowChange?.(inFlow), [inFlow, onFlowChange]);
   const go = (next: Step) => setTrail((current) => [...current, next]);
   const back = () => {
     setFailure(undefined);
@@ -118,11 +124,25 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
     if (step !== "ask") stepPanel.current?.focus({ preventScroll: true });
   }, [step]);
 
+  const finish = (booking: Booking) => {
+    if (hold && remember) {
+      rememberHeldGuest(state.salon.slug, hold, booking.customerId);
+    } else if (!hold || (contact.guest.phone.trim() === hold.guest.phone && contact.guest.name.trim() === hold.guest.name)) {
+      contact.saveContact(booking.customerId);
+    }
+    selectHold();
+    if (onBooked) onBooked(booking.id);
+    else router.push(bookingPage(state.salon.slug, booking.id));
+  };
+  if (hold) return <Card className="p-5 sm:p-6"><DepositCheckout hold={hold} now={now} phone={state.salon.phone} packagesEnabled={state.modules.packages}
+    serviceName={state.services.find(s => s.id === hold.serviceId)?.name ?? ""}
+    onPaid={finish} onRelease={() => selectHold()} /></Card>;
+
   const details = service && slot && (
     <DetailsStep
       state={state} now={now} serviceId={service.id} slot={slot}
       contact={contact}
-      suggested={step === "next" && !alternative} onTaken={taken} onBooked={onBooked}
+      suggested={step === "next" && !alternative} onTaken={taken} onBooked={finish} onHeld={next => selectHold(next, contact.explicitlyRemembers())}
       timeControl={step === "next" && (
         <OtherTimes state={state} serviceId={service.id} staffId={staffId} selected={alternative ? slot : undefined} clock={now}
           onPick={chosen => { setSlot(chosen); setAlternative(true); }}

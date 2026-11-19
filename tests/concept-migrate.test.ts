@@ -103,10 +103,29 @@ describe("migrateState", () => {
     expect(migrateState(saved)).toEqual({ ...saved, version: DEMO_VERSION });
   });
 
-  it("adds reminder defaults to an existing v20 save without changing its bookings or salon settings", () => {
-    const saved: Partial<DemoState> = { ...createDemoState(today), version: 20 };
+  it.each([20, 21])("migrates a v%i salon to fee-free terms and preserves reminder preferences", version => {
+    const saved: Partial<DemoState> = { ...createDemoState(today), version };
+    delete saved.cancellationPolicy;
+    delete saved.checkoutHolds;
+    if (version === 20) delete saved.reminderSettings;
+    else saved.reminderSettings = { channel: "email", smsPriceOre: 70 };
+    const migrated = migrateState(saved)!;
+    expect(migrated).toEqual({
+      ...saved, version: 22, checkoutHolds: [],
+      cancellationPolicy: { version: 1, freeHours: 24, noShowPercent: 0, latePercent: 0, deposits: {}, newCustomersOnly: false, exemptServices: [] },
+      reminderSettings: saved.reminderSettings ?? { channel: "sms", smsPriceOre: 45 },
+    });
+  });
+
+  it.each([21, 22])("preserves a deposit-branch v%i save that predates reminder settings", version => {
+    const fresh = createDemoState(today);
+    const saved: Partial<DemoState> = { ...fresh, version, cancellationPolicy: {
+      ...fresh.cancellationPolicy, version: 3, freeHours: 48, deposits: { [fresh.services[0].id]: 12550 },
+    } };
     delete saved.reminderSettings;
-    expect(migrateState(saved)).toEqual({ ...saved, version: DEMO_VERSION, reminderSettings: { channel: "sms", smsPriceOre: 45 } });
+    expect(migrateState(saved)).toEqual({
+      ...saved, version: DEMO_VERSION, reminderSettings: { channel: "sms", smsPriceOre: 45 },
+    });
   });
 
   it("is one linear chain: every saved version from the oldest to the current reaches DEMO_VERSION", () => {

@@ -1,3 +1,4 @@
+import { DEFAULT_POLICY } from "../booking/protection";
 import type { Locale } from "@/lib/locale";
 import { DEFAULT_REMINDER_SETTINGS } from "../booking/reminders";
 import { WEEK_ORDER } from "../data/dates";
@@ -77,6 +78,7 @@ export function createSalon(today: string, draft: SalonDraft): DemoState {
     return [{ id: `staff-${index + 1}`, firstName, lastName: rest.join(" "), role: "", title: "", bio: "", phone: "", week }];
   });
   const state: DemoState = {
+    cancellationPolicy: DEFAULT_POLICY, checkoutHolds: [],
     version: DEMO_VERSION, industry: draft.industry, pack: pack.id, generatedFor: today, seq: 1,
     localization: { language, currency, bilingual: false },
     reminderSettings: { ...DEFAULT_REMINDER_SETTINGS },

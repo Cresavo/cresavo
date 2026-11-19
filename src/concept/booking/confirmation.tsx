@@ -10,6 +10,7 @@ import { StaffAvatar } from "../ui/avatar";
 import { ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
 import { useSalonNow } from "../use-now";
+import { PaymentSummary, policyText } from "./policy-summary";
 import { BookingActions } from "./booking-actions";
 import { freeUntilText } from "./deadline-text";
 import { changeRule } from "./policy";
@@ -37,7 +38,8 @@ export function Confirmation({ id }: { id: string }) {
   }
 
   const cancelled = booking.status === "cancelled";
-  const rule = changeRule(booking, now.today, now.minutes);
+  const missed = booking.status === "noshow";
+  const rule = changeRule(booking, now.today, now.minutes, now.instant);
   const active = rule !== "past";
   const title = active ? "booking.confirmation.title" : ({
     booked: "booking.confirmation.past",
@@ -45,11 +47,11 @@ export function Confirmation({ id }: { id: string }) {
     cancelled: "booking.confirmation.cancelled",
     noshow: "booking.confirmation.noshow",
   } as const)[booking.status];
-  const Icon = cancelled ? XCircle : CheckCircle2;
+  const Icon = cancelled || missed ? XCircle : CheckCircle2;
   return (
     <div className="mx-auto max-w-lg space-y-5">
       <div className="space-y-2 text-center">
-        {cancelled ? (
+        {cancelled || missed ? (
           <span data-tone="danger" className="mx-auto flex size-16 items-center justify-center rounded-full bg-danger-bg text-text">
             <Icon data-tone-mark size={36} className="text-danger" />
           </span>
@@ -76,10 +78,10 @@ export function Confirmation({ id }: { id: string }) {
           <MapPin size={16} className="mt-0.5 shrink-0" />
           {[state.salon.name, state.salon.address, state.salon.area].filter(Boolean).join(", ")}
         </p>
-        <p className="border-t border-hairline pt-3 text-sm">
+        {booking.protection ? <PaymentSummary booking={booking} state={state} active={active} /> : <p className="border-t border-hairline pt-3 text-sm">
           <strong>{formatMoney(booking.price, state.localization.currency)}</strong>
           {active && <> · {t(state.modules.packages ? "booking.payAtSalonWithPackages" : "booking.payAtSalon")}</>}
-        </p>
+        </p>}
       </Card>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -89,6 +91,7 @@ export function Confirmation({ id }: { id: string }) {
       <div id="manage" className="scroll-mt-4 space-y-3">
         {active && <BookingActions state={state} now={now} booking={booking} />}
         {rule === "free" && <p className="text-sm text-text-secondary">{freeUntilText(booking)}</p>}
+        {active && booking.protection && <p className="text-sm text-text-secondary">{policyText(booking.protection.terms)}</p>}
       </div>
 
       {active && !cancelled && <MessagePreviews state={state} booking={booking} now={now} />}
