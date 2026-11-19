@@ -2,7 +2,8 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import type { bookingView, itemView, proposalView } from "../../src/concept/pairing/appointments";
 
-export const base = "http://127.0.0.1:3740";
+import { base } from "./server";
+export { base };
 export const resource = base + "/mcp/owner";
 
 export type Tokens = { access_token: string; refresh_token: string };

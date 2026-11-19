@@ -1,3 +1,4 @@
+import { configuredPairingOrigin } from "../../../scripts/pairing-config.mjs";
 import { siteRequestHost } from "../site/request-host";
 
 export const SCOPES = ["bookings:read", "inbox:read", "bookings:propose"] as const;
@@ -9,9 +10,8 @@ export const PUBLIC_WRITES = new Set([
 
 export function pairingOrigin(headers: Headers) {
   if (process.env.ASSISTANT_PAIRING !== "1") return null;
-  const host = siteRequestHost(name => headers.get(name));
-  if (host === "demo.cresavo.com") return "https://demo.cresavo.com";
-  if (process.env.NODE_ENV !== "production" && host && /^(localhost|127\.0\.0\.1)(:\d{1,5})?$/.test(host))
-    return `http://${host}`;
-  return null;
+  const origin = configuredPairingOrigin(process.env.PAIRING_ORIGIN);
+  return origin && siteRequestHost(name => headers.get(name)) === new URL(origin).host ? origin : null;
 }
+
+export const pairingIssuer = (origin: string) => origin + "/oauth";

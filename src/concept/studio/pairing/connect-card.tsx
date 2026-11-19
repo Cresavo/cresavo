@@ -18,9 +18,16 @@ export function ConnectCard() {
       <div className="flex gap-3"><Link2 className="mt-1 shrink-0 text-action" aria-hidden />
         <p>{t(workspace ? "pair.label" : "pair.intro")}</p></div>
       {workspace ? <>
-        <p role="status" className="font-medium">{workspace.client ? t("pair.connected", { client: workspace.client.clientName }) : t("pair.waiting")}
-          {" · "}{t("pair.expires", { minutes: pairing.minutesLeft })}</p>
-        {workspace.client && <p className="text-sm text-text-secondary">{SCOPES.filter(scope => workspace.client?.scopes.split(" ").includes(scope)).map(scope => t(`pair.${scope}`)).join(" · ")}</p>}
+        <p role="status" className="font-medium">{!workspace.grants.length && t("pair.waiting") + " · "}
+          {t("pair.expires", { minutes: pairing.minutesLeft })}</p>
+        <ul>{workspace.grants.map(grant => <li key={grant.id} className="space-y-1 py-2">
+          <p>{t("pair.connected", { client: grant.clientName })}</p>
+          <p className="break-all text-sm">{t("pair.grant", { id: grant.id.slice(0, 8), client: grant.clientId })}</p>
+          <p className="text-sm">{SCOPES.filter(scope => grant.scopes.split(" ").includes(scope)).map(scope => t(`pair.${scope}`)).join(" · ")}</p>
+          <Button variant="secondary" disabled={busy} onClick={() => void command("session", {
+            action: "revoke", workspaceId: workspace.id, grantId: grant.id,
+          })}>{t("pair.revoke")}</Button>
+        </li>)}</ul>
         <div className="flex flex-wrap items-center gap-2 rounded-md bg-surface-2 p-3">
           <code className="flex-1 break-all text-sm">{url}</code>
           <Button variant="secondary" icon={<Copy size={16}/>} onClick={() => {

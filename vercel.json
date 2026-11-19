@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [{ "path": "/api/pairing/sweep", "schedule": "15 3 * * *" }],
   "framework": "nextjs",
   "regions": [
     "arn1"

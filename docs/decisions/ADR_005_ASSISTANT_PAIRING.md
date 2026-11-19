@@ -23,9 +23,13 @@ HTTP with JSON responses. Use the installed MCP SDK for protocol negotiation,
 discovery and tool calls. Keep the transport stateless between requests.
 
 Use the canonical endpoint URL as the resource indicator and token audience.
-Bind the issuer to the demo origin. Development also supports a loopback
-origin. Derive discovery links from the permitted origin. Treat forwarded
-headers according to the app's trusted proxy policy.
+Configure the canonical origin with PAIRING_ORIGIN. The pairing issuer is
+that origin plus /oauth. Publish its document at
+/.well-known/oauth-authorization-server/oauth and its resource document at
+/.well-known/oauth-protected-resource/mcp/owner. The root documents serve the
+engine. Match the request host against the configured authority using the
+app's trusted proxy policy. Support HTTP on configured loopback origins.
+[RFC 8414 issuer metadata](https://www.rfc-editor.org/rfc/rfc8414.html#section-3.1)
 
 The customer gateway retains customer mandates and provider credentials.
 The engine's local owner MCP retains its operator trust model.
@@ -36,8 +40,9 @@ A future production owner resource will have a separate issuer or audience.
 ## Starting a workspace
 
 Start pairing is an explicit same-origin POST from Your data & AI.
-Create one Salong Eko snapshot with the existing fixture factory and salon
-clock. Store the fixture day, schema version, public workspace identifier and
+Prepare a daily hair-salon template outside the creation transaction.
+Project upcoming bookings and fictional names into it, discard journals,
+notes, tags and generated threads, and supply two neutral Inbox fixtures. Store the fixture day, schema version, public workspace identifier and
 initial revision. Give exposed booking and Inbox records workspace-specific IDs.
 Seed a Friday reschedule request pointing at a booked fictional appointment.
 
@@ -49,7 +54,7 @@ The public workspace ID, copied URL and revision confer no authority.
 The workspace expires after sixty minutes of inactivity. Activity may extend
 the expiry up to twenty-four hours after creation. Check both deadlines
 during every authenticated operation, including refresh and owner decisions.
-Closing a tab leaves the workspace available in the same browser until expiry.
+Automatic polls check both deadlines without renewing them. Closing a tab leaves the workspace available in the same browser until expiry.
 
 Disconnect deletes the workspace. Foreign keys cascade to its authorizations,
 tokens and proposals. The browser discards the workspace cache. Other tabs
@@ -71,16 +76,19 @@ Ignore optional logos and other embedded URLs.
 Offer public-client dynamic registration at POST /oauth/register. Use generated
 opaque registration IDs. Display the supplied client name as unverified and
 show the callback host. Registration alone grants no access to a workspace.
-Validate callback URLs, then compare their original strings exactly on every
-authorization and code exchange. Never redirect an invalid request.
+Compare registered callback strings exactly during authorization, allowing
+only the port to vary for native HTTP callbacks on 127.0.0.1 or [::1].
+Bind the code to the exact callback used for authorization. Never redirect an invalid request.
+[RFC 8252 loopback redirects](https://www.rfc-editor.org/rfc/rfc8252.html#section-7.3)
 
 GET /oauth/authorize validates response type, resource, scopes, redirect URI
 and the S256 challenge. The live browser session identifies the visitor.
 When the cookie is missing, link to the studio to start pairing and ask the
 visitor to restart sign-in there. Cross-device pairing is deferred.
 
-The screen says “Allow <client name> to read and draft changes for Salong Eko
-(demo workspace)”. Explain which permissions the client requests:
+The consent heading identifies the callback host. Label the DCR name as
+unverified and strip control and bidirectional formatting characters before
+display. Explain the requested permissions.
 
 - bookings:read reads fictional appointment details and compatible times.
 - inbox:read reads the fictional request and its linked booking reference.
@@ -91,13 +99,13 @@ owner decides changes in Cresavo. The form has explicit Allow and Decline
 buttons, frame protection and an origin-only referrer policy. Escape all client strings.
 Bind a short-lived single-use consent handle to the reviewed request and
 owner session. Require an exact Origin on the form POST.
-OAuth state belongs to the client and is returned unchanged.
+Return OAuth state and the configured issuer in the authorization response.
 
 ## Authorization code and token handling
 
 The installed MCP SDK handles transport. The existing OAuth lab is tied to
 loopback and process memory. The project has no hosted authorization-server
-dependency. Keep the preview provider limited to two grants, using Node
+dependency. Keep the preview provider limited to the code and refresh grant types, using Node
 crypto, Zod and database transactions. Revisit the provider choice before
 introducing production identity.
 
@@ -115,7 +123,18 @@ logs, studio snapshots, browser storage and tool results.
 Rotate refresh and access credentials in a transaction. Detect reuse of a
 rotated refresh token and invalidate its family. Revoke a grant at
 /oauth/revoke. Unknown tokens receive the same successful revocation response.
-Recheck workspace expiry and audience even when a token itself is unexpired.
+A repeated code with the original client, redirect and PKCE proof revokes
+the grant it issued. Recheck workspace expiry and audience on every use.
+
+## Grant identity and phase 2
+
+Each token references a Grant. Its subject is the owner, its tenant is the
+salon, and it records the client, scopes and resource. The demo uses the
+workspace ID for its tenant and a workspace-scoped demo owner for its subject.
+Phase-2 consent requires owner sign-in and authorization for the selected
+salon. A tenant can have multiple grants, including two consents for the same
+client. List each in the studio Connect card with independent revocation.
+Disconnecting the workspace removes all its grants.
 
 ## State, commands and polling
 
@@ -132,10 +151,16 @@ Support a direct owner move in the paired calendar using the same validation.
 Return a bounded projection to the studio with a revision, expiry and pending
 proposals. Cache only under a workspace-specific key. Authenticate before
 displaying cached data. Poll while visible every 2.5 seconds, refresh on focus
-and reconnect, and use an ETag containing workspace and revision. A matching
+and reconnect, and use an ETag containing workspace, revision and Stockholm day.
+Back off exponentially on 429 and 503 responses and honor Retry-After. A matching
 validator avoids transferring the snapshot. Recover with a full fetch.
 
 ## Proposals and contention
+
+The OwnerWorkspace interface exposes booking and Inbox reads, slot lookup,
+and proposal creation, status and decisions. Its first adapter uses the
+PostgreSQL-backed fixture snapshot. A future salon adapter can enforce the same
+contract over the booking engine. Only the owner surface calls decide.
 
 The only draft operation is a same-staff reschedule. Read tools expose a
 workday summary, Inbox and thread, booking details/search, available move
@@ -144,15 +169,17 @@ Limit returned fields and result counts. Return machine-readable results,
 read-only annotations and errors that tell the caller how to recover.
 
 Use the existing concept slot functions and move proposal builder. Persist
-the exact requested move, expected booking state and rendered before/after
+the typed booking/move action, per-booking version precondition and rendered before/after
 diff. A draft increments the revision and has status pending. Creating it
 does not change the appointment. Persist an idempotency key scoped to
 workspace and client. An identical retry returns its original result.
 Reusing the key with different arguments produces a conflict.
 
 Approve and Decline are same-origin POST commands authenticated with the owner
-cookie. Require the displayed workspace and revision on decisions. No tool,
-scope, host confirmation or customer message can authorize a decision.
+cookie. Bind decisions to the immutable proposal ID and displayed workspace.
+Concurrent drafts and grant exchanges can advance the workspace revision.
+Decisions check the target booking version and current slot. A move followed
+by a move back still changes the booking version.
 Lock the workspace row, check the expected appointment, revalidate the
 requested slot and apply through the concept reducer. Commit snapshot,
 revision and terminal status together. Return applied only after commit.
@@ -161,7 +188,16 @@ A stale booking or occupied slot requires a fresh proposal.
 
 ## Untrusted text and abuse budgets
 
-Customer-written titles and bodies are explicitly tagged as untrusted data.
+The following invariants apply to every adapter and future owner surface.
+
+- Assistants supply only IDs and enumerated choices for Inbox changes. They
+  can select validated slot coordinates. They cannot insert free text into the Inbox.
+- Tag every customer-authored field as untrusted, including names, thread
+  text and derived display text such as a proposal title or service label.
+- No scope can approve a proposal.
+- Approval belongs to any first-party authenticated owner surface. The preview
+  implements approval in the studio Inbox.
+
 Server instructions tell the assistant to treat them as quoted material and
 to use the owner's directions when considering a tool. Include a fictional
 message asking the assistant to disregard instructions as a regression fixture.
@@ -171,18 +207,22 @@ of the tool vocabulary. Treat client names as unverified display text.
 Use a trusted source address, with a shared fallback bucket if unavailable.
 Hash the address for short-term accounting. Bound workspace creation per IP,
 global active workspaces, request bursts, registration and proposal counts.
-Allow six live workspaces per IP, twelve starts per IP per hour and 250 live
-workspaces overall. Permit 180 HTTP requests per IP and 3,000 overall per
-minute, including up to 100 MCP requests per workspace. Cap consent requests
-at 20 per workspace per minute, DCR at 30 per IP per hour and 2,000 per day
-overall. Limit refresh rotations to 360 per workspace per day. Store up to 50 changes per workspace, including manual moves.
+Allow six live workspaces per IP, twelve starts per IP per hour and 2,000 live
+workspaces overall. Check live deadlines under the creation lock. Bound the
+public bucket at 180 requests per IP and 30,000 overall per minute. Charge
+authenticated polling and MCP traffic separately at 180 and 100 requests per
+workspace per minute respectively. Cap consent at 20 per workspace per minute.
+Reuse a live registration for the same name and redirect set. Bound new
+registrations at 600 per IP per hour and 20,000 overall per day. Charge token
+issuance at 60 per grant per minute and refresh rotation at 360 per grant per
+day. Store up to 50 changes per workspace, including manual moves.
 Bound inbound bodies before parsing. Serialize quota checks across instances.
 Return HTTP 429 for exhausted HTTP budgets and an actionable tool error for
 the workspace proposal cap. Retain idempotency records until workspace deletion.
 
-Sweep expired workspaces, registrations and rate buckets during use. Supply
-an operator cleanup command for a periodic timer when traffic stops. Enforce
-access expiry independently of the sweep schedule.
+Run daily cleanup through the CRON_SECRET-protected sweep route on Vercel.
+Self-hosted installations can schedule the cleanup script. Enforce access
+expiry on read and exclude expired workspaces from live quotas between sweeps.
 
 ## Release and verification
 

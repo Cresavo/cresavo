@@ -1,3 +1,4 @@
+import { configuredPairingOrigin, pairingDatabaseUrl } from "./pairing-config.mjs";
 import { BlockList, isIP } from "node:net";
 import { createHmac, timingSafeEqual, randomBytes } from "node:crypto";
 
@@ -12,6 +13,12 @@ export function runtimePolicy(env) {
   // Pairing IP budgets must use the same keyed digest on every instance.
   if (env.ASSISTANT_PAIRING === "1" && (env.SESSION_SECRET?.length ?? 0) < 32)
     throw new Error("PAIRING_SESSION_SECRET_REQUIRED");
+  if (env.ASSISTANT_PAIRING === "1") {
+    const database = URL.parse(pairingDatabaseUrl(env) ?? "");
+    if (!database || !["postgres:", "postgresql:"].includes(database.protocol) ||
+        !database.hostname || database.pathname.length < 2) throw new Error("PAIRING_DATABASE_REQUIRED");
+    if (!configuredPairingOrigin(env.PAIRING_ORIGIN)) throw new Error("PAIRING_ORIGIN_INVALID");
+  }
   if (readonly && !env.SESSION_SECRET) env.SESSION_SECRET = randomBytes(32).toString("hex");
   const runtime = env.BOOKING_RUNTIME ?? "local";
   if (!["memory", "postgres"].includes(env.RATE_LIMIT_STORE ?? "memory"))

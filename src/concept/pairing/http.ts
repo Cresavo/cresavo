@@ -1,8 +1,9 @@
+import { constants } from "node:os";
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import { publicReadonlyResponse } from "../../lib/public-readonly";
 import { z } from "zod";
 import { readCapped, waitlistClientKey } from "../site/waitlist-server";
-import { pairingDb, sweep, type Tx } from "./db";
+import { pairingDb, type Tx } from "./db";
 import { COOKIE, pairingOrigin } from "./policy";
 
 export const minute = 60_000;
@@ -50,29 +51,43 @@ export async function budget(tx: Tx, bucket: string, limit: number, period: numb
   requirePair(row, "rate_limited", 429);
 }
 
+// Charge failed credentials separately so anonymous traffic cannot consume workspace budgets.
+export async function publicBudget(request: Request) {
+  await pairingDb().$transaction(async tx => {
+    await budget(tx, "public:" + ipKey(request), 180, minute);
+    await budget(tx, "public", 30000, minute);
+  });
+}
+
+export function logFailure(err: unknown) {
+  const failure = err as { code?: unknown; errorCode?: unknown } | null;
+  const code = failure?.code ?? failure?.errorCode;
+  console.error(typeof code === "string" && (/^[0-9A-Z]{5}$/.test(code) || Object.hasOwn(constants.errno, code))
+    ? code : "PAIRING_UNAVAILABLE");
+}
+
+// Credential routes charge valid identities themselves. MCP also handles its own anonymous challenge.
 type Handler = (request: Request, origin: string) => Promise<Response> | Response;
-export function endpoint(handle: Handler) {
+export function endpoint(handle: Handler, budgetMode: "public" | "credential" | "handler" = "public") {
   return async (request: Request) => {
     const origin = pairingOrigin(request.headers);
     if (!origin) return publicReadonlyResponse(request) ?? new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
     try {
-      await pairingDb().$transaction(async tx => {
-        await budget(tx, "global", 3000, minute);
-        await budget(tx, ipKey(request), 180, minute);
-        const tick = await tx.pairBudget.createMany({ data: {
-          key: "sweep:" + Math.floor(Date.now() / minute), count: 1, expiresAt: new Date(Date.now() + minute),
-        }, skipDuplicates: true });
-        if (tick.count) await sweep(tx);
-      });
+      if (budgetMode === "public") await publicBudget(request);
       const response = await handle(request, origin);
       response.headers.set("Cache-Control", "no-store");
       response.headers.set("Referrer-Policy", "no-referrer");
       return response;
     } catch (err) {
-      const known = err instanceof PairError;
+      if (budgetMode === "credential" && (err instanceof SyntaxError || err instanceof z.ZodError ||
+          (err instanceof PairError && err.status < 500 && err.status !== 429))) {
+        try { await publicBudget(request); } catch (limit) { err = limit; }
+      }
+      const known = err instanceof PairError ? err : null;
       const invalid = err instanceof z.ZodError || err instanceof SyntaxError;
-      const status = known ? err.status : invalid ? 400 : 503;
-      return Response.json({ error: known ? err.code : invalid ? "invalid_request" : "temporarily_unavailable" }, {
+      if (!known && !invalid) logFailure(err);
+      const status = known ? known.status : invalid ? 400 : 503;
+      return Response.json({ error: known ? known.code : invalid ? "invalid_request" : "temporarily_unavailable" }, {
         status, headers: { "Cache-Control": "no-store", ...(status === 429 ? { "Retry-After": "60" } : {}) },
       });
     }

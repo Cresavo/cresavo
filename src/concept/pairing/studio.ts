@@ -1,28 +1,36 @@
 import { z } from "zod";
-import { applyAction, defaultMeta } from "../log/capture";
+import { defaultMeta } from "../log/capture";
 import { ToolError, field } from "../tools/define";
 import { salonClock } from "../tools/clock";
-import { bookingView, buildMove, itemView, proposalView } from "./appointments";
+import { applyMove, bookingView, buildMove, itemView, proposalView } from "./appointments";
 import { jsonValue, pairingDb } from "./db";
-import { body, ownerHash, PairError, requirePair, sameOrigin } from "./http";
+import { body, budget, minute, publicBudget, ownerHash, PairError, requirePair, sameOrigin } from "./http";
 import { COOKIE } from "./policy";
-import { decide } from "./proposals";
-import { bump, owner, snapshot, start } from "./workspace";
+import { cleanClientName } from "./clients";
+import { revokeGrant } from "./tokens";
+import { snapshotWorkspace } from "./owner-workspace";
+import { freshSnapshot, snapshot } from "./fixture";
+import { bump, owner, start } from "./workspace";
 
-const headersFor = (id: string, revision: number, expiry: Date) => ({
-  ETag: `"pair-${id}-${revision}"`, "X-Pair-Expiry": expiry.toISOString(),
+const headersFor = (id: string, revision: number, expiry: Date, day: string) => ({
+  ETag: `"pair-${id}-${revision}-${day}"`, "X-Pair-Expiry": expiry.toISOString(),
 });
 export async function session(request: Request) {
-  if (!ownerHash(request)) return Response.json(null);
+  if (!ownerHash(request)) {
+    await publicBudget(request);
+    return Response.json(null);
+  }
   return pairingDb().$transaction(async tx => {
-    const w = await owner(tx, request);
-    const headers = headersFor(w.id, w.revision, w.expiresAt);
+    const w = await owner(tx, request, false);
+    await budget(tx, "poll:" + w.id, 180, minute);
+    const day = salonClock().today;
+    const headers = headersFor(w.id, w.revision, w.expiresAt, day);
     if (request.headers.get("if-none-match") === headers.ETag) return new Response(null, { status: 304, headers });
     const state = snapshot(await tx.pairWorkspace.findUniqueOrThrow({ where: { id: w.id } }));
-    const token = await tx.pairToken.findFirst({ where: { workspaceId: w.id, rotated: false }, select: { clientName: true, scopes: true } });
+    const grants = await tx.pairGrant.findMany({ where: { workspaceId: w.id, revoked: false }, orderBy: { id: "asc" }, select: { id: true, clientId: true, clientName: true, scopes: true } });
     const proposals = await tx.pairProposal.findMany({ where: { workspaceId: w.id, status: "pending" }, orderBy: { createdAt: "desc" } });
-    const day = salonClock().today;
-    return Response.json({ id: w.id, revision: w.revision, expiresAt: w.expiresAt, client: token,
+    return Response.json({ id: w.id, revision: w.revision, expiresAt: w.expiresAt,
+      grants: grants.map(g => ({ ...g, clientName: cleanClientName(g.clientName) })),
       items: state.inbox.slice(0, 25).map(item => itemView(item, true)),
       bookings: state.bookings.filter(b => b.status === "booked" && b.date >= day).map(b => bookingView(state, b)),
       proposals: proposals.map(proposalView),
@@ -31,26 +39,33 @@ export async function session(request: Request) {
 }
 
 const manage = z.discriminatedUnion("action", [
+  z.strictObject({ action: z.literal("revoke"), workspaceId: z.uuid(), grantId: z.uuid() }),
   z.strictObject({ action: z.literal("start") }), z.strictObject({ action: z.literal("disconnect"), workspaceId: z.uuid() }),
 ]);
 const cookieFlags = "; Path=/; HttpOnly; Secure; SameSite=Lax";
 export async function manageSession(request: Request, origin: string) {
   sameOrigin(request, origin);
   const input = manage.parse(JSON.parse(await body(request, "application/json")));
-  if (input.action === "disconnect") {
+  if (input.action !== "start") {
     await pairingDb().$transaction(async tx => {
       const w = await owner(tx, request);
       requirePair(w.id === input.workspaceId, "workspace_changed", 409);
+      if (input.action === "revoke") {
+        requirePair(await revokeGrant(tx, w.id, input.grantId), "grant_not_found", 404);
+        return;
+      }
       await tx.pairWorkspace.delete({ where: { id: w.id }, select: { id: true } });
     });
-    return new Response(null, { status: 204, headers: { "Set-Cookie": COOKIE + "=; Max-Age=0" + cookieFlags } });
+    return new Response(null, { status: 204, headers: input.action === "disconnect" ? { "Set-Cookie": COOKIE + "=; Max-Age=0" + cookieFlags } : {} });
   }
+  const day = salonClock().today;
+  const prepared = jsonValue(freshSnapshot(day));
   const token = await pairingDb().$transaction(async tx => {
     if (ownerHash(request)) {
       try { await owner(tx, request); return null; }
       catch (err) { if (!(err instanceof PairError && err.status === 401)) throw err; }
     }
-    return start(tx, request);
+    return start(tx, request, day, prepared);
   });
   return new Response(null, { status: 204, headers: token ? { "Set-Cookie": COOKIE + "=" + token + "; Max-Age=86400" + cookieFlags } : {} });
 }
@@ -58,12 +73,13 @@ export async function manageSession(request: Request, origin: string) {
 const version = { workspaceId: z.uuid(), revision: z.number().int().positive() };
 export async function decision(request: Request, origin: string) {
   sameOrigin(request, origin);
-  const input = z.strictObject({ ...version, proposalId: z.uuid(), decision: z.enum(["approve", "decline"]) })
+  const input = z.strictObject({ workspaceId: z.uuid(), revision: version.revision.optional(), proposalId: z.uuid(), decision: z.enum(["approve", "decline"]) })
     .parse(JSON.parse(await body(request, "application/json")));
   return pairingDb().$transaction(async tx => {
     const w = await owner(tx, request);
     requirePair(w.id === input.workspaceId, "workspace_changed", 409);
-    return Response.json(await decide(tx, w.id, input.revision, input.proposalId, input.decision === "approve"));
+    const workspace = snapshotWorkspace(tx, await tx.pairWorkspace.findUniqueOrThrow({ where: { id: w.id } }));
+    return Response.json(await workspace.decide(input.proposalId, input.decision === "approve"));
   });
 }
 export async function manualMove(request: Request, origin: string) {
@@ -85,7 +101,7 @@ export async function manualMove(request: Request, origin: string) {
     const state = snapshot(await tx.pairWorkspace.findUniqueOrThrow({ where: { id: w.id } }));
     try {
       const draft = buildMove(state, input);
-      const next = applyAction(state, draft.action, defaultMeta(draft.action, Date.now()));
+      const next = applyMove(state, draft.action, defaultMeta(draft.action, Date.now()));
       requirePair(next !== state, "choose_another_slot", 409);
       await bump(tx, w.id, next);
       await tx.pairProposal.create({ data: { ...scoped, fingerprint, before: {}, draft: jsonValue(draft), status: "applied" } });

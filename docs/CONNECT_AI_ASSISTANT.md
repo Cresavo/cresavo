@@ -34,7 +34,8 @@ demo remains available separately.
    compare the old and new times and choose **Approve** or **Decline**.
    **View paired calendar** shows the appointment. Ask Claude to check the
    proposal status to confirm the decision.
-6. Use **Disconnect** on the connection card to delete the fictional workspace.
+6. The connection card lists each grant and its permissions. Use **Revoke access**
+   to remove one grant or **Disconnect** to delete the whole fictional workspace.
    It expires after 60 minutes of inactivity and always closes within 24 hours.
 
 For an eligible ChatGPT workspace, use **Plugins → Add custom MCP server**,
@@ -46,24 +47,52 @@ check from the local SDK and browser tests. [Claude setup](https://support.claud
 
 ### Operating the preview
 
-Apply the new Prisma migration, configure the runtime PostgreSQL connection
-and a stable server-side `SESSION_SECRET` of at least 32 characters, then enable
-the flag. Build with `NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN=cresavo.com` as in
-`vercel.json`, so the demo host reaches the studio. Keep `PUBLIC_READONLY=1`
-on the public deployment. Grant the runtime
-database role access to the pairing tables only. On Vercel, use the project's
-trusted ingress configuration. Schedule `node --import tsx scripts/cleanup-pairing.mts`
-every five minutes with the same database and flag for cleanup during quiet
-periods. Regular traffic also sweeps expired records.
+Configure the following server-side variables for the preview.
 
-For local verification, run migrations against the designated loopback
-`_test` database, generate the Prisma client, then run the dev server with
-`PORT=3740 ASSISTANT_PAIRING=1 PUBLIC_READONLY=1 npm run dev`.
-With the same test database and flag in the test process, run
-`npx vitest run --config vitest.integration.config.ts tests/integration/assistant-pairing.test.ts`
-and `npx playwright test --config playwright.pairing.config.ts`.
-The browser test can refresh the three design screenshots with
-`PAIRING_SCREENSHOTS=1`. [Pairing decision](decisions/ADR_005_ASSISTANT_PAIRING.md).
+| Variable | Value or purpose |
+| --- | --- |
+| `ASSISTANT_PAIRING` | Set to `1` to enable pairing. The default is off. |
+| `PAIRING_ORIGIN` | Exact canonical origin, such as `https://demo.cresavo.com`, without a trailing slash. Local testing uses `http://127.0.0.1:3740`. The pairing issuer is this origin plus `/oauth`. |
+| `PAIRING_DATABASE_URL` | Preferred PostgreSQL connection for pairing. The runtime falls back to `DATABASE_URL`. Grant the runtime role access to pairing tables only. |
+| `SESSION_SECRET` | Stable server-side secret of at least 32 characters, shared across instances for IP budgets. |
+| `CRON_SECRET` | Random secret shared with Vercel Cron. Vercel sends it in the Authorization bearer header. |
+| `PUBLIC_READONLY` | Set to `1` on the public demo. Keep the Vercel trusted ingress settings and build with `NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN=cresavo.com`. |
+
+Apply Prisma migrations with the migration process's `DATABASE_URL` pointing
+to the selected pairing database, then generate the client. The grant
+migration adds two pairing tables and copies existing token families. For an
+already active preview, pause pairing during the copy and provider switch.
+Code-replay revocation covers exchanges made by the new provider. Previously
+consumed codes have no stored digest linking them to a legacy grant.
+
+The production cron in `vercel.json` invokes `GET /api/pairing/sweep` daily
+at 03:15 UTC. A valid run returns 204. Check the function logs for the
+scheduled invocation. A missing or incorrect bearer returns 401 while pairing
+is enabled. Expired workspaces lose access immediately, including between
+sweeps. Self-hosters can schedule `node --import tsx scripts/cleanup-pairing.mts`
+daily with the same database and flag. [Vercel Cron authentication](https://vercel.com/docs/cron-jobs/manage-cron-jobs)
+
+In the Vercel project firewall, create a custom rate-limit rule for the
+configured demo host, method `POST`, path `/api/pairing/session`. Start
+with a fixed window of 60 requests per IP per minute and select **Too Many Requests (429)**. This
+protects workspace creation at ingress. If the plan supports a second rule, use
+`POST /oauth/register` with a higher burst threshold, initially 600 per IP per
+minute, and review firewall events against actual connector traffic. Scope
+both rules to those exact methods and paths so shared vendor egress can
+serve authenticated MCP and token traffic. [Vercel WAF rate limiting](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting)
+
+For verification, set `DATABASE_URL` to a loopback database ending in
+`_test`, apply migrations, generate the client, and set `ASSISTANT_PAIRING=1`.
+Run these suites separately with port 3740 free. Each starts a dedicated
+server bound to the guarded database.
+
+```bash
+npx vitest run --config vitest.integration.config.ts tests/integration/assistant-pairing.test.ts
+npx playwright test --config playwright.pairing.config.ts
+```
+
+Set `PAIRING_SCREENSHOTS=1` to refresh the browser walkthrough images.
+[Pairing decision](decisions/ADR_005_ASSISTANT_PAIRING.md).
 
 ## What works today
 

@@ -368,6 +368,7 @@ model PairWorkspace {
   expiresAt   DateTime
   hardExpiry  DateTime
   codes       PairCode[]
+  grants      PairGrant[]
   tokens      PairToken[]
   proposals   PairProposal[]
   @@index([expiresAt])
@@ -399,6 +400,7 @@ model PairCode {
   @@index([expiresAt])
 }
 
+/// Legacy families copied into PairGrant and PairGrantToken by the additive migration.
 model PairToken {
   accessHash   String @id
   refreshHash  String @unique
@@ -434,4 +436,29 @@ model PairBudget {
   count     Int
   expiresAt DateTime
   @@index([expiresAt])
+}
+
+model PairGrant {
+  id          String @id @default(uuid())
+  workspaceId String
+  workspace   PairWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subject     String
+  clientId    String
+  clientName  String
+  scopes      String
+  audience    String
+  codeHash    String? @unique
+  revoked     Boolean @default(false)
+  tokens      PairGrantToken[]
+  @@index([workspaceId])
+}
+
+model PairGrantToken {
+  accessHash  String @id
+  refreshHash String @unique
+  grantId     String
+  grant       PairGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  rotated     Boolean @default(false)
+  expiresAt   DateTime
+  @@index([grantId])
 }

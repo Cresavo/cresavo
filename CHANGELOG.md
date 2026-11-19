@@ -17,6 +17,7 @@ All notable changes to this project are documented here. Format follows
 - On phones, Today shows the next customer above the schedule. Inbox rows lead with the message subject and show the sender below it.
 
 ### Fixed
+- Paired demo workspaces support independent assistant grants, native loopback callbacks and revocation in the studio. Idle tabs expire, and open calendar edits stay bound to their original booking.
 - The large photo on public booking pages starts loading right away.
 - Screen readers can announce when a team member's schedule is saved.
 - If another tab books the time you picked, the demo asks you to choose another time.

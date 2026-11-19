@@ -6,13 +6,13 @@ import { z } from "zod";
 import { pairingDb } from "./db";
 import { body, budget, hour, ipKey, PairError, requirePair } from "./http";
 
-export function secureUrl(raw: string, developmentCallback = false) {
+export function secureUrl(raw: string, callback = false) {
   requirePair(raw.length <= 2048 && !/[\s\\#]/.test(raw));
   const url = URL.canParse(raw) ? new URL(raw) : null;
-  const local = developmentCallback && process.env.NODE_ENV !== "production" &&
-    url?.protocol === "http:" && url.hostname === "127.0.0.1";
+  const local = callback &&
+    url?.protocol === "http:" && ["127.0.0.1", "[::1]"].includes(url.hostname) && loopbackParts(raw) !== null;
   requirePair(url && (url.protocol === "https:" || local) && !url.username && !url.password);
-  requirePair(url.hostname.length <= 253 && url.hostname.split(".").every(
+  requirePair(local || url.hostname.length <= 253 && url.hostname.split(".").every(
     label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label),
   ));
   return url;
@@ -70,13 +70,28 @@ export async function fetchDocument(id: string) {
   }
 }
 
+// Preserve the exact registered spelling of every component except the ephemeral port.
+function loopbackParts(uri: string) {
+  return /^http:\/\/(127\.0\.0\.1|\[::1\])(?::[0-9]+)?([/?][^#]*)?$/.exec(uri);
+}
+
+export function exactRedirect(registered: string[], requested: string) {
+  const loop = loopbackParts(requested);
+  return registered.some(uri => {
+    if (uri === requested) return true;
+    const other = loopbackParts(uri);
+    return !!loop && !!other && loop[1] === other[1] && loop[2] === other[2];
+  });
+}
+
+export const cleanClientName = (name: string) => name.replace(/[\p{Cc}\p{Cf}]/gu, "").trim();
+
 const metadata = z.object({
   client_id: z.string().optional(),
-  client_name: z.string().trim().min(1).max(100),
+  client_name: z.string().max(100).transform(cleanClientName).pipe(z.string().min(1)),
   redirect_uris: z.array(z.string().max(2048)).min(1).max(16),
   token_endpoint_auth_method: z.literal("none").optional(),
 });
-export const exactRedirect = (registered: string[], requested: string) => registered.includes(requested);
 
 export async function resolveClient(id: string) {
   if (id.startsWith("https://")) {
@@ -86,17 +101,25 @@ export async function resolveClient(id: string) {
   }
   const client = await pairingDb().pairClient.findUnique({ where: { id } });
   requirePair(client && client.expiresAt > new Date(), "invalid_client");
-  return client;
+  return { ...client, name: cleanClientName(client.name) };
 }
 
 export async function register(request: Request) {
   const doc = metadata.parse(JSON.parse(await body(request, "application/json")));
   doc.redirect_uris.forEach(uri => secureUrl(uri, true));
-  const id = randomUUID();
-  await pairingDb().$transaction(async tx => {
-    await budget(tx, "dcr:" + ipKey(request), 30, hour);
-    await budget(tx, "registrations", 2000, 24 * hour);
-    await tx.pairClient.create({ data: { id, name: doc.client_name, redirects: doc.redirect_uris, expiresAt: new Date(Date.now() + 24 * hour) } });
+  const redirects = [...new Set(doc.redirect_uris)].sort();
+  const id = await pairingDb().$transaction(async tx => {
+    const identity = JSON.stringify([doc.client_name, redirects]);
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${identity}, 7923))`;
+    const existing = await tx.pairClient.findFirst({ where: {
+      name: doc.client_name, redirects: { equals: redirects }, expiresAt: { gt: new Date() },
+    }, select: { id: true } });
+    if (existing) return existing.id;
+    const id = randomUUID();
+    await budget(tx, "dcr:" + ipKey(request), 600, hour);
+    await budget(tx, "registrations", 20000, 24 * hour);
+    await tx.pairClient.create({ data: { id, name: doc.client_name, redirects, expiresAt: new Date(Date.now() + 24 * hour) } });
+    return id;
   });
   return Response.json({ client_id: id, client_name: doc.client_name, redirect_uris: doc.redirect_uris,
     token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"] }, { status: 201 });

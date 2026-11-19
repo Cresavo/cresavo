@@ -1,3 +1,6 @@
+import { applyAction } from "../log/capture";
+import type { LogMeta } from "../log/types";
+import type { PairState } from "./fixture";
 import type { PairProposal } from "@prisma/client";
 import { addDays, formatTime } from "../data/dates";
 import { freeStarts } from "../data/slots";
@@ -16,8 +19,8 @@ export function bookingById(state: DemoState, id: string) {
 export function bookingView(state: DemoState, b: Booking) {
   const customer = state.customers.find(c => c.id === b.customerId);
   return { bookingId: b.id, date: b.date, time: formatTime(b.start), staffId: b.staffId,
-    duration: b.duration, status: b.status, customer: customer ? fullName(customer) : "",
-    service: state.services.find(s => s.id === b.serviceId)?.name ?? b.serviceId };
+    duration: b.duration, status: b.status, untrustedCustomerText: { customer: customer ? fullName(customer) : "",
+    service: state.services.find(s => s.id === b.serviceId)?.name ?? b.serviceId } };
 }
 export function itemView(item: InboxItem, withBody = false) {
   return { itemId: item.id, bookingId: item.bookingId, date: item.date,
@@ -51,9 +54,15 @@ export function buildMove(state: DemoState, move: Move) {
   const draft = proposeMove.draft({ state, clock }, move);
   requirePair(draft.action.type === "booking/move" && draft.action.date === move.date &&
     formatTime(draft.action.start) === move.time, "choose_another_slot", 409);
-  return draft;
+  return { ...draft, action: draft.action };
+}
+
+export function applyMove(state: PairState, action: ReturnType<typeof buildMove>["action"], meta: LogMeta): PairState {
+  const next = applyAction(state, action, meta);
+  if (next === state) return state;
+  return { ...next, bookingVersions: { ...state.bookingVersions, [action.id]: (state.bookingVersions?.[action.id] ?? 0) + 1 } };
 }
 export function proposalView(row: PairProposal) {
   const draft = row.draft as unknown as ChangeDraft;
-  return { proposalId: row.id, status: row.status, title: draft.title, changes: draft.rows };
+  return { proposalId: row.id, status: row.status, untrustedCustomerText: { title: draft.title }, changes: draft.rows };
 }

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { assertTestDatabase } from "../../scripts/test-db-guard.mjs";
+import { startPairingServer } from "../pairing/server";
 import { pairingDb, sweep } from "../../src/concept/pairing/db";
 import { base, call, connectRequest, form, jsonPost, moveArgs, resource, sdk, type Booking, type Item, type Proposal, type Tokens } from "../pairing/client";
 
@@ -35,17 +36,23 @@ async function grant(cookie: string, otherCookie?: string, scope?: string) {
   const code = url.searchParams.get("code")!;
   expect((await connection.redeem(code, { redirect_uri: "https://assistant.example.test/callback/" })).status).toBe(400);
   expect((await connection.redeem(code, { resource: base + "/api/concept/mcp" })).status).toBe(400);
-  const attempts = await Promise.all([connection.redeem(code), connection.redeem(code)]);
-  expect(attempts.map(r => r.status).sort()).toEqual([200, 400]);
-  const issued = attempts.find(r => r.ok)!;
-  return { clientId: connection.client_id, tokens: await issued.json() as Tokens };
+  expect(url.searchParams.get("iss")).toBe(base + "/oauth");
+  const issued = await connection.redeem(code);
+  expect(issued.status).toBe(200);
+  return { clientId: connection.client_id, replay: () => connection.redeem(code), tokens: await issued.json() as Tokens };
 }
 
 describe.skipIf(process.env.ASSISTANT_PAIRING !== "1")("paired fictional demo on port 3740", () => {
+  let stop: (() => Promise<void>) | undefined;
+  beforeAll(async () => { stop = await startPairingServer(); }, 120000);
+  afterAll(async () => { await stop?.(); });
+
   it("isolates both callers throughout discovery, drafts, decisions, refresh, revocation and expiry", async () => {
     expect((await fetch(resource)).status).toBe(401);
-    expect(await (await fetch(base + "/.well-known/oauth-protected-resource")).json()).toMatchObject({ resource, authorization_servers: [base] });
-    expect(await (await fetch(base + "/.well-known/oauth-authorization-server")).json()).toMatchObject({ registration_endpoint: base + "/oauth/register" });
+    expect(await (await fetch(base + "/.well-known/oauth-protected-resource")).json()).toMatchObject({ resource: base + "/api/v1/mcp" });
+    expect(await (await fetch(base + "/.well-known/oauth-authorization-server")).json()).toMatchObject({ token_endpoint: base + "/token" });
+    expect(await (await fetch(base + "/.well-known/oauth-protected-resource/mcp/owner")).json()).toMatchObject({ resource, authorization_servers: [base + "/oauth"] });
+    expect(await (await fetch(base + "/.well-known/oauth-authorization-server/oauth")).json()).toMatchObject({ registration_endpoint: base + "/oauth/register" });
     expect(await (await fetch(base + "/oauth/authorize")).text()).toContain("Start pairing in the studio");
     const a = await pair(), b = await pair();
     const first = await grant(a.cookie, b.cookie), second = await grant(b.cookie);
@@ -82,7 +89,7 @@ describe.skipIf(process.env.ASSISTANT_PAIRING !== "1")("paired fictional demo on
       const view = await pending.json();
       expect(await (await session(b.cookie)).json()).toMatchObject({ id: b.id, proposals: [] });
       expect((await session(a.cookie, pending.headers.get("etag")!)).status).toBe(304);
-      const command = { workspaceId: a.id, revision: view.revision, proposalId: draft.proposalId, decision: "approve" };
+      const command = { workspaceId: a.id, revision: 1, proposalId: draft.proposalId, decision: "approve" };
       expect((await jsonPost("/api/pairing/decision", command, b.cookie)).status).toBe(409);
       expect((await jsonPost("/api/pairing/decision", { ...command, workspaceId: b.id }, b.cookie)).status).toBe(404);
       expect((await jsonPost("/api/pairing/decision", command, a.cookie, "https://elsewhere.example.test")).status).toBe(403);
@@ -99,7 +106,7 @@ describe.skipIf(process.env.ASSISTANT_PAIRING !== "1")("paired fictional demo on
       expect(await (await jsonPost("/api/pairing/decision", { ...command, revision: updated.revision + 2, proposalId: pendingAgain.proposalId }, a.cookie)).json()).toMatchObject({ status: "conflict" });
       const disconnect = { action: "disconnect", workspaceId: a.id };
       expect((await jsonPost("/api/pairing/session", disconnect, b.cookie)).status).toBe(409);
-      const refresh = (token: string) => form("/oauth/token", { client_id: first.clientId, grant_type: "refresh_token", refresh_token: token });
+      const refresh = (token: string) => form("/oauth/token", { client_id: first.clientId, grant_type: "refresh_token", refresh_token: token, scope: "inbox:read bookings:propose bookings:read" });
       const renewed = await refresh(first.tokens.refresh_token);
       expect(renewed.status).toBe(200);
       const rotated = await renewed.json() as Tokens;
@@ -134,20 +141,32 @@ describe.skipIf(process.env.ASSISTANT_PAIRING !== "1")("paired fictional demo on
         expect((await jsonPost("/api/pairing/session", { action: "start" })).status).toBe(429);
       } finally { await db.pairWorkspace.deleteMany({ where: { id: { in: extra } } }); }
       await db.pairWorkspace.update({ where: { id }, data: { expiresAt: new Date(Date.now() + 60000), hardExpiry: deadline }, select: { id: true } });
-      expect((await (await session(cookie)).json()).expiresAt).toBe(deadline.toISOString());
+      const idle = await session(cookie);
+      expect(Date.parse((await idle.json()).expiresAt)).toBeLessThan(deadline.getTime());
+      expect((await session(cookie, idle.headers.get("ETag")!)).headers.get("x-pair-expiry")).toBe(idle.headers.get("x-pair-expiry"));
       const readGrant = await grant(cookie, undefined, "inbox:read");
       const reader = await sdk(readGrant.tokens);
       expect((await reader.listTools()).tools.map(t => t.name).sort()).toEqual(["get_inbox_thread", "list_inbox_items"]);
       await expect(reader.callTool({ name: "find_bookings", arguments: {} })).rejects.toThrow(/not found/);
       await reader.close();
       const { tokens } = await grant(cookie);
+      const grantList = (await (await session(cookie)).json()).grants;
+      expect(grantList).toHaveLength(2);
+      expect((await readGrant.replay()).status).toBe(400);
+      expect((await fetch(resource, { headers: { Authorization: "Bearer " + readGrant.tokens.access_token } })).status).toBe(401);
+      expect((await (await session(cookie)).json()).grants).toHaveLength(1);
+      const third = await grant(cookie, undefined, "bookings:read");
+      const list = (await (await session(cookie)).json()).grants as { id: string; scopes: string }[];
+      const target = list.find(g => g.scopes === "bookings:read")!;
+      expect((await jsonPost("/api/pairing/session", { action: "revoke", workspaceId: id, grantId: target.id }, cookie)).status).toBe(204);
+      expect((await fetch(resource, { headers: { Authorization: "Bearer " + third.tokens.access_token } })).status).toBe(401);
       const client = await sdk(tokens);
       try {
         const args = await moveArgs(client);
         const draft = await call<Proposal>(client, "propose_reschedule_booking", args);
         const view = await (await session(cookie)).json();
         const decision = { workspaceId: id, revision: view.revision, proposalId: draft.proposalId, decision: "decline" };
-        expect((await jsonPost("/api/pairing/decision", { ...decision, revision: 1 }, cookie)).status).toBe(409);
+        expect((await jsonPost("/api/pairing/decision", { ...decision, revision: 1 }, cookie)).status).toBe(200);
         expect(await (await jsonPost("/api/pairing/decision", decision, cookie)).json()).toMatchObject({ status: "declined" });
         await db.pairProposal.createMany({ data: Array.from({ length: 49 }, () => ({
           workspaceId: id, clientId: "fixture", key: randomUUID(), fingerprint: "{}", draft: {}, before: {}, status: "declined",
@@ -165,7 +184,7 @@ describe.skipIf(process.env.ASSISTANT_PAIRING !== "1")("paired fictional demo on
         expect((await fetch(resource, { headers: { Authorization: "Bearer " + tokens.access_token } })).status).toBe(401);
         await db.$transaction(tx => sweep(tx));
         expect(await db.pairProposal.count({ where: { workspaceId: id } })).toBe(0);
-        expect(await db.pairToken.count({ where: { workspaceId: id } })).toBe(0);
+        expect(await db.pairGrant.count({ where: { workspaceId: id } })).toBe(0);
       } finally { await client.close(); }
     } finally {
       await db.pairWorkspace.deleteMany({ where: { id } });

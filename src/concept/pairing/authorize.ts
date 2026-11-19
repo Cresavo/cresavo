@@ -1,9 +1,9 @@
 import { BRAND } from "../brand";
 import { t } from "../i18n";
-import { exactRedirect, resolveClient, secureUrl } from "./clients";
+import { cleanClientName, exactRedirect, resolveClient, secureUrl } from "./clients";
 import { pairingDb } from "./db";
 import { body, budget, digest, minute, ownerHash, PairError, params, requirePair, sameOrigin, secret } from "./http";
-import { SCOPES } from "./policy";
+import { pairingIssuer, SCOPES } from "./policy";
 import { owner } from "./workspace";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, v => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[v]!);
@@ -54,8 +54,8 @@ export async function authorize(request: Request, origin: string) {
       state: q.state ?? "", audience: resource, expiresAt: new Date(Date.now() + 5 * minute),
     } });
   });
-  return page(t("pair.consent", { client: client.name }), `
-<p>${esc(t("pair.identify", { host: redirect.host }))}</p>
+  return page(t("pair.consent", { host: redirect.host }), `
+<p>${esc(t(client.id.startsWith("https://") ? "pair.publishedClient" : "pair.identify", { client: cleanClientName(client.name) }))}</p>
 <ul>${SCOPES.filter(s => scopes.includes(s)).map(s => "<li>" + esc(t(`pair.${s}`)) + "</li>").join("")}</ul>
 <p>${esc(t("pair.privacy"))}</p>
 <form method="post" action="/oauth/authorize"><input type="hidden" name="consent" value="${handle}">
@@ -78,7 +78,7 @@ export async function consent(request: Request, origin: string) {
       await tx.pairCode.create({ data: { ...record, hash: digest(code), consent: false, expiresAt: new Date(Date.now() + 5 * minute) } });
       url.searchParams.set("code", code);
     } else url.searchParams.set("error", "access_denied");
-    url.searchParams.set("iss", origin);
+    url.searchParams.set("iss", pairingIssuer(origin));
     return url.href;
   });
   return new Response(null, { status: 303, headers: { Location: callback } });

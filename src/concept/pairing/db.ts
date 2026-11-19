@@ -1,3 +1,4 @@
+import { pairingDatabaseUrl } from "../../../scripts/pairing-config.mjs";
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
@@ -6,9 +7,10 @@ const shared = globalThis as typeof globalThis & { pairingDb?: PrismaClient };
 
 /** Lazy even when building the public studio. Pairing queries use only Pair* tables. */
 export function pairingDb() {
-  if (process.env.ASSISTANT_PAIRING !== "1" || !process.env.DATABASE_URL) throw new Error("PAIRING_DISABLED");
+  const connectionString = pairingDatabaseUrl(process.env);
+  if (process.env.ASSISTANT_PAIRING !== "1" || !connectionString) throw new Error("PAIRING_DISABLED");
   return shared.pairingDb ??= new PrismaClient({ adapter: new PrismaPg({
-    connectionString: process.env.DATABASE_URL, max: 4, connectionTimeoutMillis: 5000,
+    connectionString, max: 4, connectionTimeoutMillis: 5000,
     options: "-c timezone=UTC",
   }) });
 }
