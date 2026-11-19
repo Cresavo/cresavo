@@ -51,7 +51,10 @@ current UI or docs.
    **Delete workflow run**. An agent can list the run IDs for you.
 7. **Turn on Dependabot alerts.** **Settings** → **Advanced Security** (older
    UI: **Code security and analysis**) → **Dependabot alerts** → **Enable**.
-   **(verify)** Also enable **Dependabot security updates** there.
+   **(verify)** Also enable **Dependabot security updates** there. Keep
+   **Dependency graph** on (confirmed 2026-11-19); `Dependency review` needs
+   it. **Automatic dependency submission** is not needed: npm dependencies
+   come from `package-lock.json`.
 
 ## Go public
 
@@ -66,21 +69,28 @@ once the repository is public.
 
 9. **Private vulnerability reporting.** **Settings** → **Advanced Security**
    → **Private vulnerability reporting** → **Enable**. SECURITY.md, the issue
-   config and the Code of Conduct all rely on it. While you are there, enable
-   **Secret scanning** with **Push protection**, and **CodeQL analysis**
-   (**Set up** → **Default**).
-10. **Branch protection for `main`.** **Settings** → **Branches** → **Add
-   classic branch protection rule** (or **Rules** → **Rulesets** → **New
-   branch ruleset** **(verify)**) → Branch name pattern `main` →
-   - tick **Require a pull request before merging**;
-   - tick **Require status checks to pass before merging**, then search and
-     add the checks from **Verify POC** (`E2E dev / proxy 0`) and **Secret
-     scan** (`Gitleaks (full history)`). The checks only appear in the search
-     after they have run once in the last week;
-   - leave **Allow force pushes** and **Allow deletions** unticked;
-   - **Create**.
-   Verify POC runs on every pull request, docs-only ones included, so the
-   required check always reports.
+   config and the Code of Conduct all rely on it. **Secret scanning** and
+   **Push protection** were confirmed enabled on 2026-11-19. Leave **CodeQL
+   analysis** default setup **off**: CodeQL runs from `codeql.yml` (advanced
+   setup), and both cannot be active at once.
+10. **Required checks for `main`.** The active ruleset **Protect main**
+   (ID 27584925, **Settings** → **Rules** → **Rulesets**) already requires a
+   pull request and the status checks `E2E dev / proxy 0` (Verify POC) and
+   `Gitleaks (full history)` (Secret scan). Extend that ruleset; do not add a
+   second one. Keep its existing rules. In this order:
+   1. Done 2026-11-19: dependency graph on, `Dependency review` passed on
+      PR #65.
+   2. Done 2026-11-19: `Dependency review (high/critical gate)`,
+      `Analyze (javascript-typescript)` and `Analyze (actions)` are required
+      status checks (source GitHub Actions). Keep **Block force pushes** on
+      in the same ruleset.
+   3. Once the pull request that adds `codeql.yml` is approved and merged,
+      verify the first CodeQL analysis on `main` (**Actions** → **CodeQL**,
+      and **Security** → **Code scanning** shows results for `main`).
+   4. Then add **Require code scanning results** → tool **CodeQL** →
+      security alerts **High or higher**, alerts **Errors** **(verify)**.
+   All these workflows run on every pull request to `main` without path
+   filters, so the required checks always report.
 11. **CLA Assistant (after legal review).** The CLA is a draft, and the
     README, CONTRIBUTING and the PR template say that signatures are not
     collected yet and external PRs are held for merge. When you are ready:

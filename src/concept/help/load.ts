@@ -16,9 +16,9 @@ const ARTICLES = [
   { id: "move-cancel-booking", path: "/studio/calendar", show: "/studio/calendar" },
   { id: "new-booking", path: "/studio/calendar", show: "new-booking" },
   { id: "stock", path: "/studio/more", show: "/studio/more/stock" },
-  { id: "support-access", path: "/studio/more/settings", show: "support-access" },
+  { id: "support-access", path: "/studio/more/advanced", show: "support-access" },
   { id: "trash-restore", path: "/studio/more/log", show: "log-tab-trash" },
-  { id: "undo-changes", path: "/studio/more", show: "/studio/more/log" },
+  { id: "undo-changes", path: "/studio", show: "help-button" },
 ] as const;
 
 /** The same articles and screen targets are available in each studio language. */

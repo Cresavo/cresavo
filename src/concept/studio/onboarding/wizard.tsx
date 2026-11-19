@@ -11,6 +11,7 @@ import { switchSalon, useWorkspaceSlug } from "../../store";
 import { showToast } from "../../ui/toast";
 import { Button, ButtonLink, IconButton, buttonClass } from "../../ui/button";
 import { ChoiceCards, Field, TextInput } from "../../ui/controls";
+import { PageHeader } from "../page-header";
 import { useStudio } from "../use-studio";
 import { recordPageSeen } from "./checklist";
 import { SalonEntry } from "./entry";
@@ -76,10 +77,7 @@ export function SalonWizard() {
     return <div className="space-y-5">
       <SetupProgress number={TOTAL} />
       <span className="inline-flex size-12 items-center justify-center rounded-full bg-action-bg text-text"><Check aria-hidden /></span>
-      <div className="space-y-2">
-        <h1 ref={title} tabIndex={-1} className="text-h1 font-semibold tracking-tight">{t("setup.ready")}</h1>
-        <p className="text-body text-text-secondary">{t("setup.readyHint")}</p>
-      </div>
+      <PageHeader tools={false} titleRef={title} title={t("setup.ready")} subtitle={t("setup.readyHint")} />
       <div className="flex flex-col gap-2">
         <Link href={path} onClick={() => recordPageSeen(state.salon.slug)} className={buttonClass("primary", "lg", "w-full")}>
           <Globe size={18} aria-hidden />{t("setup.seePage")}
@@ -90,14 +88,11 @@ export function SalonWizard() {
       <ReturnToDemo />
     </div>;
   }
-  if (savedSalon) return <SalonEntry />;
+  if (savedSalon) return <SalonEntry standalone />;
   const question = STEPS[step];
   return <form onSubmit={e => { e.preventDefault(); next(); }} className="space-y-6">
     <SetupProgress number={step + 1} />
-    <div className="space-y-2">
-      <h1 tabIndex={-1} ref={title} className="text-h1 font-semibold tracking-tight">{t(`setup.${question}`)}</h1>
-      <p className="text-body text-text-secondary">{t(`setup.${question}Hint`)}</p>
-    </div>
+    <PageHeader tools={false} titleRef={title} title={t(`setup.${question}`)} subtitle={t(`setup.${question}Hint`)} />
     {step === 0 && <div className="space-y-5">
       <Field label={t("settings.name")}><TextInput autoComplete="organization" maxLength={80} value={draft.name} placeholder={t("setup.defaultName")} onChange={e => update({ name: e.target.value })} /></Field>
       <div className="space-y-2">

@@ -42,7 +42,7 @@ export function OfferStep({ state, today, draft, onChange }: OfferStepProps) {
       <Field label={t("campaigns.offer.name")}>
         <TextInput value={draft.name} onChange={(event) => onChange({ name: event.target.value })} maxLength={60} />
       </Field>
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <span className="block text-sm font-medium">{t("campaigns.offer.services")}</span>
         <div className="flex flex-wrap gap-2">
           {state.services.map((s) => (
@@ -52,7 +52,7 @@ export function OfferStep({ state, today, draft, onChange }: OfferStepProps) {
           ))}
         </div>
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <span className="block text-sm font-medium">{t("campaigns.offer.discount")}</span>
         <div className="flex flex-wrap gap-2">
           {discounts.map((percent) => (

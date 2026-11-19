@@ -2,10 +2,14 @@
 
 import { useState, type FormEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Eye, LifeBuoy, Send } from "lucide-react";
+import { ChevronRight, Eye, History, LifeBuoy, Send } from "lucide-react";
 import { askHelp, type HelpReply } from "../../help/client";
 import { showMe } from "../../help/show-me";
 import { t } from "../../i18n";
+import { canOpen } from "../../ops/access";
+import { useRole } from "../../ops/role";
+import { ListRow } from "../../ui/list-row";
+import { HISTORY_PAGE } from "../nav";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { TextInput } from "../../ui/controls";
@@ -28,6 +32,7 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
   const [requestId, setRequestId] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname() ?? "";
+  const role = useRole();
 
   const ask = async (text: string) => {
     const trimmed = text.trim();
@@ -84,16 +89,24 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
             <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("help.common")}</p>
             <div className="flex flex-wrap gap-2">
               {EXAMPLES.map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => void ask(t(key))}
-                  className="min-h-9 rounded-full bg-surface px-3.5 py-1.5 text-left text-sm font-medium ring-1 ring-inset ring-hairline hover:bg-surface-2"
-                >
+                <Button key={key} variant="secondary" size="sm" align="start" onClick={() => void ask(t(key))}>
                   {t(key)}
-                </button>
+                </Button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* History and undo lives here, under Help, rather than in More. */}
+        {view.kind === "ask" && canOpen(role, HISTORY_PAGE) && (
+          <div data-help="history" className="border-t border-hairline pt-2">
+            <ListRow
+              onClick={() => { close(); router.push(HISTORY_PAGE); }}
+              title={t("nav.log")}
+              meta={t("nav.log.description")}
+              leading={<History size={22} aria-hidden className="shrink-0 text-text-secondary" />}
+              trailing={<ChevronRight size={18} aria-hidden className="shrink-0 text-text-secondary" />}
+            />
           </div>
         )}
 
@@ -105,14 +118,14 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
           <div className="space-y-3" aria-live="polite">
             {reply.answer ? (
               <div className="space-y-3 rounded-lg bg-surface-2 p-4">
-                <p className="whitespace-pre-line text-[15px] leading-relaxed">{reply.answer}</p>
+                <p className="whitespace-pre-line text-body leading-relaxed">{reply.answer}</p>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
                   {reply.source === "ai" && <Badge tone="accent">{t("help.byAi")}</Badge>}
                   <span>{t("help.from", { titles: reply.articles.map((article) => article.title).join(", ") })}</span>
                 </div>
               </div>
             ) : (
-              <p className="rounded-lg bg-surface-2 p-4 text-[15px]">{t("help.noAnswer")}</p>
+              <p className="rounded-lg bg-surface-2 p-4 text-body">{t("help.noAnswer")}</p>
             )}
             {reply.articles[0]?.show && (
               <Button variant="secondary" icon={<Eye size={18} />} onClick={() => void show(reply)}>

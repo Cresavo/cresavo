@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "../../ui/button";
 import { useMemo } from "react";
 import { addDays } from "../../data/dates";
 import { freeStarts, staffWorks, type Need } from "../../data/slots";
@@ -50,18 +51,18 @@ export function SlotPicker({ staffId, need, date, onDateChange, value, onChange,
     <div className="space-y-4">
       <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
         {workdays.map((d) => (
-          <button
+          <Button variant="secondary" size="sm"
             key={d}
             onClick={() => onDateChange(d)}
             aria-pressed={d === date}
             className={cx(
-              "flex min-h-14 min-w-[76px] shrink-0 flex-col items-center justify-center rounded-md px-2 text-sm ring-1 ring-inset",
-              d === date ? "bg-text text-bg ring-text" : "bg-surface ring-hairline hover:bg-surface-2",
+              "min-h-14 min-w-20 shrink-0 flex-col !gap-0",
+              d === date && "aria-pressed:bg-action-bg aria-pressed:ring-action",
             )}
           >
             <span className="font-medium">{dayChipLabel(d, today)}</span>
-            <span className={cx("text-xs", d === date ? "opacity-70" : "text-text-secondary")}>{formatDayMonth(d)}</span>
-          </button>
+            <span className="text-meta text-text-secondary">{formatDayMonth(d)}</span>
+          </Button>
         ))}
       </div>
       {times.length ? (
@@ -69,17 +70,17 @@ export function SlotPicker({ staffId, need, date, onDateChange, value, onChange,
           {times.map((start) => {
             const selected = value?.date === date && value.start === start;
             return (
-              <button
+              <Button variant="secondary" size="sm"
                 key={start}
                 onClick={() => onChange({ date, start })}
                 aria-pressed={selected}
                 className={cx(
-                  "min-h-11 rounded-md text-center text-sm font-medium tabular-nums ring-1 ring-inset",
-                  selected ? "bg-action text-on-action ring-action" : "bg-surface ring-hairline hover:bg-surface-2",
+                  "tabular-nums !px-1",
+                  selected && "aria-pressed:bg-action-bg aria-pressed:ring-action",
                 )}
               >
                 {formatTime(start)}
-              </button>
+              </Button>
             );
           })}
         </div>

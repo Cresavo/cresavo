@@ -1,5 +1,6 @@
 "use client";
 
+import { Input } from "../../ui/controls";
 import { useEffect, useState } from "react";
 import { CalendarPlus, ChevronDown } from "lucide-react";
 import { t } from "../../i18n";
@@ -44,7 +45,7 @@ export function CalendarFeed({ name, path }: { name: string; path: string }) {
       </summary>
       <div className="space-y-2 pb-1">
         <p className="text-sm text-text-secondary">{t("feed.text", { name })}</p>
-        <input readOnly value={url} aria-label={t("feed.title")} onFocus={(event) => event.target.select()} className="w-full rounded-md border border-hairline bg-surface-2 p-3 text-base" />
+        <Input readOnly value={url} aria-label={t("feed.title")} onFocus={(event) => event.target.select()} />
         <Button size="sm" variant="secondary" onClick={copy}>{t("feed.copy")}</Button>
         <p className="text-xs text-text-secondary">{t("feed.how")}</p>
       </div>

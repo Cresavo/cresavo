@@ -50,9 +50,11 @@ test("Swedish studio Today and rules-only assistant", async ({ page }) => {
 });
 
 test("Swedish booking, confirmation and management", async ({ page }) => {
-  await page.goto("/studio/more/settings");
+  await page.goto("/studio/more/advanced");
   await page.getByRole("combobox", { name: "Default booking language" }).selectOption("sv");
-  await page.getByRole("checkbox", { name: "Let visitors switch between English and Swedish" }).uncheck();
+  const both = page.getByRole("switch", { name: "Let visitors switch between English and Swedish" });
+  await both.click();
+  await expect(both).not.toBeChecked();
   await page.reload();
   await expect(page.getByRole("combobox", { name: "Default booking language" })).toHaveValue("sv");
 
@@ -97,12 +99,13 @@ test("Swedish booking, confirmation and management", async ({ page }) => {
 });
 
 test("the bilingual demo starts in English and lets visitors switch to Swedish independently of the studio", async ({ page }) => {
-  await page.goto("/studio/more/settings");
+  await page.goto("/studio/more/advanced");
   await expect(page.getByRole("combobox", { name: "Default booking language" })).toHaveValue("en");
-  await expect(page.getByRole("checkbox", { name: "Let visitors switch between English and Swedish" })).toBeChecked();
+  await expect(page.getByRole("switch", { name: "Let visitors switch between English and Swedish" })).toBeChecked();
+  await page.goto("/studio/more/settings");
   await page.getByRole("main").getByRole("combobox", { name: "Language", exact: true }).selectOption("sv");
   await expect(page.locator("html")).toHaveAttribute("lang", "sv");
-  await page.reload();
+  await page.goto("/studio/more/advanced");
   await expect(page.getByRole("combobox", { name: "Ordinarie bokningsspråk" })).toHaveValue("en");
 
   const response = await page.goto(bookingUrl);

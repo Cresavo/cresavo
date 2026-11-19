@@ -13,7 +13,7 @@ import { useStudio } from "@/concept/studio/use-studio";
 import { Badge } from "@/concept/ui/badge";
 import { Button, buttonClass } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
-import { Field, Select } from "@/concept/ui/controls";
+import { Field, Input, Select } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
 
 const EXAMPLE = "/demo/customers-example.csv";
@@ -69,10 +69,10 @@ export default function ImportCustomersPage() {
         <Card className="space-y-4 p-5">
           <p className="text-sm text-text-secondary">{t("import.hint")}</p>
           <div className="flex flex-wrap gap-2">
-            <label className={`${buttonClass("primary")} cursor-pointer focus-within:ring-2 focus-within:ring-action`}>
+            <label className={`${buttonClass(table ? "secondary" : "primary")} cursor-pointer focus-within:ring-2 focus-within:ring-action`}>
               <Upload size={18} />
               {t("import.pick")}
-              <input type="file" accept=".csv,text/csv" className="sr-only" onChange={onFile} />
+              <Input type="file" accept=".csv,text/csv" className="sr-only" onChange={onFile} />
             </label>
             <Button variant="secondary" icon={<FileSpreadsheet size={18} />} onClick={useExample}>{t("import.useExample")}</Button>
             <a href={EXAMPLE} download className={buttonClass("ghost")}>

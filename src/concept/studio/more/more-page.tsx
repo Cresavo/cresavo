@@ -16,11 +16,13 @@ interface MorePageProps {
   actions?: ReactNode;
   /** When set, the page is replaced by a hint if the module is switched off. */
   module?: ModuleKey;
+  /** A page inside another one (Settings, Advanced): its back link shows on every screen size. */
+  parent?: { href: string; label: string };
   children: ReactNode;
 }
 
 /** Frame for pages under More: back link on phones, header, module check. */
-export function MorePage({ title, subtitle, actions, module, children }: MorePageProps) {
+export function MorePage({ title, subtitle, actions, module, parent, children }: MorePageProps) {
   const { state } = useStudio();
   const off = module && !state.modules[module];
   return (
@@ -29,7 +31,7 @@ export function MorePage({ title, subtitle, actions, module, children }: MorePag
         title={title}
         subtitle={subtitle}
         actions={off ? undefined : actions}
-        back={<BackLink href="/studio/more" label={t("nav.more")} className="lg:hidden" />}
+        back={parent ? <BackLink href={parent.href} label={parent.label} /> : <BackLink href="/studio/more" label={t("nav.more")} className="lg:hidden" />}
       />
       {off ? (
         <EmptyState

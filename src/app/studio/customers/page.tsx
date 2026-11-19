@@ -15,7 +15,7 @@ import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Button, ButtonLink } from "@/concept/ui/button";
 import { Card } from "@/concept/ui/card";
-import { Chip, SearchInput } from "@/concept/ui/controls";
+import { SearchInput, SegmentedControl } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
 
 const PAGE_SIZE = 60;
@@ -56,26 +56,20 @@ export default function CustomersPage() {
     <>
       <PageHeader
         title={t("customers.title")}
-        actions={viewer ? undefined : <ButtonLink href="/studio/customers/import" help="import-customers" variant="secondary" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>}
+        actions={viewer ? undefined : <ButtonLink href="/studio/customers/import" help="import-customers" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>}
       />
       <div className="mb-4 space-y-3">
         <SearchInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("customers.search")} aria-label={t("customers.search")} />
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map((f) => (
-            <Chip
-              key={f.value}
-              active={filter === f.value}
-              count={lists[f.value].length}
-              onClick={() => router.replace(f.value === "all" ? "/studio/customers" : `/studio/customers?filter=${f.value}`, { scroll: false })}
-            >
-              {t(f.label)}
-            </Chip>
-          ))}
-        </div>
+        <SegmentedControl<CustomerFilter>
+          label={t("customers.filter")}
+          value={filter}
+          onChange={(next) => router.replace(next === "all" ? "/studio/customers" : `/studio/customers?filter=${next}`, { scroll: false })}
+          options={FILTERS.map((f) => ({ value: f.value, label: t(f.label), count: lists[f.value].length }))}
+        />
         {filter === "due" && (
           <p className="text-sm text-text-secondary">
             {t("customers.dueHint")}{" "}
-            <Link href="/studio/customers/due-back" className="font-medium text-action hover:underline">{t("customers.dueLink")}</Link>
+            <Link href="/studio/customers/due-back" className="inline-flex min-h-target min-w-target items-center font-medium text-action hover:underline">{t("customers.dueLink")}</Link>
           </p>
         )}
         {filter === "notSeen" && <p className="text-sm text-text-secondary">{t("customers.notSeenHint")}</p>}
@@ -86,9 +80,9 @@ export default function CustomersPage() {
             <CustomerRow key={c.id} customer={c} stats={stats.get(c.id)} today={today} late={late.has(c.id)} due={due.has(c.id)} />
           ))}
           {matches.length > limit && (
-            <button onClick={() => setLimit(limit + PAGE_SIZE)} className="block w-full px-4 py-3.5 text-center text-sm font-medium text-action hover:bg-surface-2">
+            <Button variant="tertiary" onClick={() => setLimit(limit + PAGE_SIZE)} className="w-full">
               {tc("customers.showMore", matches.length - limit)}
-            </button>
+            </Button>
           )}
         </Card>
       ) : (

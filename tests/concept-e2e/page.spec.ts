@@ -44,16 +44,16 @@ test.afterEach(async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
 });
 
-test("pick an address, resolve it by host and start an own domain", async ({ page, request, baseURL }) => {
-  await page.goto("/studio/more/settings");
-  const slug = page.getByLabel("Your name in the address");
+test("pick a booking link, resolve it by host and start an own domain", async ({ page, request, baseURL }) => {
+  await page.goto("/studio/more/settings/link");
+  const slug = page.getByLabel("Name in your booking link");
   await slug.fill("admin");
   await expect(page.getByText("That name is kept for the system. Choose another.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Save address" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Save link" })).toBeDisabled();
   await slug.fill("klippet");
   await expect(page.getByText("Someone already uses that name. Choose another.")).toBeVisible();
   await slug.fill("kajsa-fotvard");
-  await page.getByRole("button", { name: "Save address" }).click();
+  await page.getByRole("button", { name: "Save link" }).click();
   await expect(page.getByText("Your booking page is now at kajsa-fotvard.localhost")).toBeVisible();
   expect((await state(page)).salon.slug).toBe("kajsa-fotvard");
 
@@ -63,9 +63,9 @@ test("pick an address, resolve it by host and start an own domain", async ({ pag
   await expect(page.getByRole("heading", { name: "No booking page here" })).toBeVisible();
 
   // A business's own address is resolved by the proxy: the subdomain serves its booking page and nothing else.
-  await page.goto("/studio/more/settings");
+  await page.goto("/studio/more/settings/link");
   await slug.fill("salong-eko");
-  await page.getByRole("button", { name: "Save address" }).click();
+  await page.getByRole("button", { name: "Save link" }).click();
   const salonUrl = new URL("/", baseURL);
   salonUrl.hostname = "salong-eko.localhost";
   await page.goto(salonUrl.href);
@@ -77,11 +77,12 @@ test("pick an address, resolve it by host and start an own domain", async ({ pag
   expect(await unknown.text()).toContain("No booking page here");
   expect(await unknown.text()).toContain("nobody.example.org");
 
-  await page.goto("/studio/more/settings");
+  // The own domain lives under Advanced.
+  await page.goto("/studio/more/advanced");
   await expect(page.getByText("Use your own web address, such as boka.yourname.se")).toBeVisible();
   await page.goto("/studio/more/features");
   await page.getByRole("switch", { name: "Own domain" }).click();
-  await page.goto("/studio/more/settings");
+  await page.goto("/studio/more/advanced");
   const domain = page.getByLabel("Your web address");
   await domain.fill("salongeko.se");
   await expect(page.getByText("Use a subdomain such as boka.yourname.se.")).toBeVisible();
@@ -101,7 +102,17 @@ test("pick an address, resolve it by host and start an own domain", async ({ pag
 });
 
 test("design the booking page with a live preview, and custom CSS cannot run script", async ({ page }) => {
+  // Own CSS is an expert tool under Advanced; the editor's preview shows it once saved.
+  await page.goto("/studio/more/advanced");
+  const css = "h1 { letter-spacing: 0.1em; background: url(https://evil.example/x.png) }\n</style><script>window.__pwned = 1</script>\n@import url(https://evil.example/x.css);";
+  await page.getByRole("textbox", { name: "Your own CSS" }).fill(css);
+  await expect(page.getByText("1 rule applied")).toBeVisible();
+  await page.getByRole("button", { name: "Save styling" }).click();
+  await expect(page.getByText("Booking page updated").first()).toBeVisible();
+  expect((await state(page)).page.css).toBe(css);
+
   await page.goto("/studio/more/booking-page");
+  await expect(page.getByRole("textbox", { name: "Your own CSS" })).toHaveCount(0);
   if (phone(page)) await expect(page.getByRole("radio", { name: "Edit" })).toBeChecked();
   await page.getByRole("button", { name: "Night and gold" }).click();
   await page.getByRole("button", { name: "Elegant" }).click();
@@ -113,9 +124,6 @@ test("design the booking page with a live preview, and custom CSS cannot run scr
   await expect(page.getByText("You have changes that customers cannot see yet.")).toBeVisible();
   expect((await state(page)).page.theme.colors).toEqual(PALETTES.forest);
 
-  const css = "h1 { letter-spacing: 0.1em; background: url(https://evil.example/x.png) }\n</style><script>window.__pwned = 1</script>\n@import url(https://evil.example/x.css);";
-  await page.getByRole("textbox", { name: "Your own CSS" }).fill(css);
-  await expect(page.getByText("1 rule applied")).toBeVisible();
   if (phone(page)) await page.getByRole("radio", { name: "Preview" }).click();
   const preview = frame(page);
   await expect(preview.locator(".booking-theme")).toHaveAttribute("data-corners", "sharp");

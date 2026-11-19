@@ -45,7 +45,7 @@ export function TicketForm({ question, requestId, onBack, onDone }: TicketFormPr
       <Field label={t("ticket.question")}>
         <TextArea value={text} onChange={(event) => setText(event.target.value)} maxLength={1000} />
       </Field>
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <p className="text-sm font-medium">{t("ticket.attached")}</p>
         <dl className="divide-y divide-hairline rounded-md bg-surface-2 px-3 text-sm">
           {rows.map(([label, value]) => (

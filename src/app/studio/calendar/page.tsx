@@ -12,7 +12,7 @@ import { t, tc } from "@/concept/i18n";
 import { formatDayLong, formatDayMonth, formatNumber } from "@/concept/i18n/format";
 import { dayBookings, utilisation } from "@/concept/selectors";
 import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-sheets";
-import { CalendarFilter } from "@/concept/studio/calendar/filter";
+import { CalendarOverflow } from "@/concept/studio/calendar/filter";
 import { DayGrid } from "@/concept/studio/calendar/day-grid";
 import { WeekAgenda } from "@/concept/studio/calendar/week-agenda";
 import { WeekGrid } from "@/concept/studio/calendar/week-grid";
@@ -20,8 +20,9 @@ import { staffViewer } from "@/concept/ops/access";
 import { useRole } from "@/concept/ops/role";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
+import { Badge } from "@/concept/ui/badge";
 import { Button, ButtonLink, IconButton } from "@/concept/ui/button";
-import { Segmented } from "@/concept/ui/controls";
+import { SegmentedControl } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
 
 type View = "day" | "week";
@@ -74,6 +75,16 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
     </>;
   }
 
+  const staffControl = !viewer && state.staff.length > 1 && (
+    <SegmentedControl<StaffId | "all">
+      label={t("calendar.staff")}
+      value={staffFilter}
+      onChange={setStaffFilter}
+      options={[{ value: "all", label: t("calendar.everyone") }, ...state.staff.map((s) => ({ value: s.id, label: s.firstName }))]}
+    />
+  );
+  const chosenRoom = state.resources.find((r) => r.id === room);
+
   return (
     <>
       <PageHeader
@@ -88,19 +99,21 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
           </>
         }
       />
-      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="flex w-full items-center gap-1 sm:w-auto">
-          <IconButton label={t("calendar.previous")} onClick={() => setDate(addDays(date, -step))}>
-            <ChevronLeft size={20} />
-          </IconButton>
-          <span className="min-w-0 flex-1 text-center font-medium sm:flex-none sm:px-1">{label}</span>
-          <IconButton label={t("calendar.next")} onClick={() => setDate(addDays(date, step))}>
-            <ChevronRight size={20} />
-          </IconButton>
-          <Button variant="secondary" size="sm" onClick={() => setDate(today)} disabled={date === today && view === "day"}>{t("date.today")}</Button>
+      <div className="mb-4 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-h2 font-semibold">{label}</h2>
+          {chosenRoom && <Badge>{chosenRoom.name}</Badge>}
         </div>
-        <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
-          <Segmented<View>
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex shrink-0 items-center">
+            <IconButton label={t("calendar.previous")} onClick={() => setDate(addDays(date, -step))}>
+              <ChevronLeft size={20} aria-hidden />
+            </IconButton>
+            <IconButton label={t("calendar.next")} onClick={() => setDate(addDays(date, step))}>
+              <ChevronRight size={20} aria-hidden />
+            </IconButton>
+          </div>
+          <SegmentedControl<View>
             label={t("calendar.view")}
             value={view}
             onChange={setView}
@@ -109,17 +122,14 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
               { value: "week", label: t("calendar.week") },
             ]}
           />
-          {!viewer && state.staff.length > 1 && (
-            <Segmented<StaffId | "all">
-              label={t("calendar.staff")}
-              value={staffFilter}
-              onChange={setStaffFilter}
-              options={[{ value: "all", label: t("calendar.everyone") }, ...state.staff.map((s) => ({ value: s.id, label: s.firstName }))]}
-            />
-          )}
-          {state.resources.length > 0 && (
-            <CalendarFilter rooms={state.resources} roomId={room} onRoom={setResourceId} />
-          )}
+          {staffControl && <div className="hidden min-w-0 xl:block">{staffControl}</div>}
+          <CalendarOverflow rooms={state.resources} roomId={room} onRoom={setResourceId}
+            onToday={() => setDate(today)} atToday={date === today && view === "day"}>
+            {staffControl && <div className="space-y-2 xl:hidden">
+              <p className="text-body font-medium">{t("calendar.staff")}</p>
+              {staffControl}
+            </div>}
+          </CalendarOverflow>
         </div>
       </div>
 

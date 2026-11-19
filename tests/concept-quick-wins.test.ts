@@ -1,7 +1,7 @@
 import { Children, createElement, isValidElement, useState, type ComponentProps, type Dispatch, type ReactElement, type ReactNode, type SetStateAction } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, expect, it, vi } from "vitest";
-import SettingsPage from "@/app/studio/more/settings/page";
+import AdvancedPage from "@/app/studio/more/advanced/page";
 import { BookingActions } from "@/concept/booking/booking-actions";
 import { BookingSummary } from "@/concept/booking/booking-summary";
 import { Confirmation } from "@/concept/booking/confirmation";
@@ -16,7 +16,7 @@ import { formatMoney } from "@/concept/i18n/format";
 import { createSalon, salonDraft } from "@/concept/onboarding/salon";
 import { currentState, dispatch, usePublicDemo, withBookingLock } from "@/concept/store";
 import { RedeemSheet } from "@/concept/studio/giftcards/redeem-sheet";
-import { ReminderSettings } from "@/concept/studio/more/reminder-settings";
+import { SmsPriceSettings } from "@/concept/studio/more/reminder-settings";
 import { useStudio } from "@/concept/studio/use-studio";
 import { salonClock } from "@/concept/tools/clock";
 import { ActionFailure } from "@/concept/ui/action-failure";
@@ -92,7 +92,7 @@ it("uses the fixture vocabulary in the summary and in the migration labels", () 
   const salon = createSalon(now.today, { ...salonDraft(), name: "Studio Linden", slug: "studio-linden" });
   const salonCopy = fixtureText(salon);
   expect(copy("booking.summary.total")).toBe("Treatment total");
-  expect(salonCopy("data.export.customers")).toBe("Clients (CSV)");
+  expect(salonCopy("data.export.customers")).toBe("Clients (spreadsheet)");
   expect(salonCopy("import.title")).toBe("Import clients");
 });
 
@@ -180,16 +180,16 @@ it("shows a refused move on the page when its sheet was closed during the write"
   expect(renderToStaticMarkup(render())).toContain(t("booking.move.failed"));
 });
 
-it("uses December in reminder settings when it is still November on the owner's device", () => {
+it("uses December in the SMS price estimate when it is still November on the owner's device", () => {
   const state = {
     ...fixture,
     bookings: [booking, { ...booking, date: "2026-11-30" }, { ...booking, date: "2026-12-01" }],
   };
   vi.mocked(useStudio).mockReturnValue({ state, today: "2026-11-30", minutes: 1110 });
   vi.mocked(useSalonNow).mockReturnValue(salonClock(new Date("2026-11-30T23:30:00Z")));
-  const [props] = propsOf(stateful(SettingsPage)(), ReminderSettings);
+  const [props] = propsOf(stateful(AdvancedPage)(), SmsPriceSettings);
   expect(props.today).toBe("2026-12-01");
-  expect(renderToStaticMarkup(createElement(ReminderSettings, props))).toContain(copy("reminders.formula", {
+  expect(renderToStaticMarkup(createElement(SmsPriceSettings, props))).toContain(copy("reminders.formula", {
     messages: 1, bookings: 1, price: "SEK\u00a00.45",
   }));
 });
@@ -200,7 +200,7 @@ it.each(["EUR", "GBP", "USD"])("uses %s for reminder prices, monthly cost and va
     bookings: [booking, { ...booking, date: "2026-11-30" }],
   };
   const money = new Intl.NumberFormat("en-GB", { currency, style: "currency" });
-  const render = stateful(() => ReminderSettings({ state, today: now.today }));
+  const render = stateful(() => SmsPriceSettings({ state, today: now.today }));
   expect(propsOf(render(), Field)[0].label).toBe(copy("reminders.smsPrice", { currency }));
   expect(renderToStaticMarkup(render())).toContain(money.format(0.45));
   expect(renderToStaticMarkup(render())).toContain(money.format(0.90));

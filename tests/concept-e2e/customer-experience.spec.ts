@@ -126,12 +126,15 @@ test("review a completed visit, keep it private, approve in Inbox and publish on
 
 test("copy clean share/widget code and book inside a cross-origin iframe", async ({ page, context, baseURL }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.goto("/studio/more/settings");
+  await page.goto("/studio/more/settings/link");
   await page.getByLabel("Instagram bio link", { exact: true }).waitFor();
   const link = await page.getByLabel("Instagram bio link", { exact: true }).inputValue();
   expect(link).toBe(`${baseURL}/boka/salong-eko`);
   await page.getByRole("button", { name: "Copy booking link", exact: true }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(link);
+  // The embed code is for whoever runs the salon's website: it lives under Advanced.
+  await expect(page.getByLabel("Embed code", { exact: true })).toHaveCount(0);
+  await page.goto("/studio/more/advanced");
   const code = await page.getByLabel("Embed code", { exact: true }).inputValue();
   await page.getByRole("button", { name: "Copy embed code", exact: true }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(code);

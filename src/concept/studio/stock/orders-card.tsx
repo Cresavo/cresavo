@@ -6,6 +6,7 @@ import { formatDayMonth, formatMoney } from "../../i18n/format";
 import { leadDaysOf } from "../../stock/delivery-note";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
+import { ListRow } from "../../ui/list-row";
 import { Card } from "../../ui/card";
 import { useStudio } from "../use-studio";
 
@@ -18,18 +19,17 @@ export function OrdersCard({ orders, onReceive }: { orders: PurchaseOrder[]; onR
         const arrives = addDays(order.date, leadDaysOf(state, order));
         const total = order.lines.reduce((sum, l) => sum + l.quantity * l.unitCost, 0);
         return (
-          <div key={order.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-            <PackageCheck size={20} className="shrink-0 text-action" />
-            <div className="min-w-0 flex-1">
-              <p className="flex flex-wrap items-center gap-2 font-medium">
-                {order.supplier}
-                {arrives <= today && <Badge tone="warn">{t("stock.overdue")}</Badge>}
-              </p>
-              <p className="text-sm text-text-secondary">{tc("stock.orderLine", order.lines.length, { date: formatDayMonth(order.date), total: formatMoney(total) })}</p>
-              <p className="text-xs text-text-secondary">{t("stock.arrives", { date: formatDayMonth(arrives) })}</p>
-            </div>
-            <Button size="sm" onClick={() => onReceive(order.id)}>{t("stock.receive")}</Button>
-          </div>
+          <ListRow key={order.id}
+            leading={<PackageCheck size={20} aria-hidden className="shrink-0 text-action" />}
+            title={<span className="flex flex-wrap items-center gap-2">
+              <span className="min-w-0 break-words">{order.supplier}</span>
+              {arrives <= today && <Badge tone="warn">{t("stock.overdue")}</Badge>}
+            </span>}
+            meta={<>
+              <span className="block">{tc("stock.orderLine", order.lines.length, { date: formatDayMonth(order.date), total: formatMoney(total) })}</span>
+              <span className="block">{t("stock.arrives", { date: formatDayMonth(arrives) })}</span>
+            </>}
+            trailing={<Button variant="secondary" size="sm" onClick={() => onReceive(order.id)}>{t("stock.receive")}</Button>} />
         );
       })}
     </Card>

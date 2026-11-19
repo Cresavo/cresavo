@@ -23,7 +23,7 @@ export function FirstSteps() {
   const href: Record<ChecklistRow, string> = {
     addServices: "/studio/more/services",
     bookingPage: bookingHome(slug),
-    share: "/studio/more/settings#share",
+    share: "/studio/more/settings/link",
     testBooking: bookingHome(slug) + "#book",
   };
   const done = CHECKLIST_ROWS.filter(row => progress[row]).length;
@@ -34,7 +34,7 @@ export function FirstSteps() {
       </h2>
       <ul className="flex flex-wrap gap-x-4">{CHECKLIST_ROWS.map(row => <li key={row}>
         <Link href={href[row]} onClick={row === "bookingPage" ? () => recordPageSeen(slug) : undefined}
-          className="flex min-h-target items-center gap-1.5 text-meta font-medium hover:underline">
+          className="flex min-h-target items-center gap-2 text-meta font-medium hover:underline">
           {progress[row] ? <><Check aria-hidden size={16} className="text-action" /><span className="sr-only">{t("setup.done")} </span></>
             : <Circle aria-hidden size={16} className="text-text-secondary" />}
           <span className={progress[row] ? "text-text-secondary line-through" : undefined}>{t(`setup.${row}`)}</span>

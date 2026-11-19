@@ -7,6 +7,7 @@ import { StaffSchedule } from "@/concept/studio/ops/staff-schedule";
 import { NextCustomer } from "@/concept/studio/today/next-customer";
 import { WeekAgenda } from "@/concept/studio/calendar/week-agenda";
 import { NewBookingSheet } from "@/concept/studio/booking/new-booking-sheet";
+import { ThemeControls } from "@/concept/studio/page/theme-controls";
 import { Segmented } from "@/concept/ui/controls";
 import CustomersPage from "@/app/studio/customers/page";
 import CustomerPage from "@/app/studio/customers/[id]/page";
@@ -71,6 +72,12 @@ it("names the practitioner in a shared week agenda", () => {
   const agenda = (staff: typeof state.staff) => renderToStaticMarkup(createElement(WeekAgenda, { monday: today, staff, onOpen: vi.fn() }));
   expect(agenda(state.staff)).toContain(">Kim<");
   expect(agenda([person])).not.toContain(">Kim<");
+});
+
+it("keeps the logo file picker out of layout and offers the Add logo button", () => {
+  const html = renderToStaticMarkup(createElement(ThemeControls, { theme: base.page.theme, onChange: vi.fn() }));
+  expect(html).toMatch(/<input\b(?=[^>]*\btype="file")(?=[^>]*\shidden="")[^>]*>/);
+  expect(html).toContain(`${t("pageEditor.logo.add")}</button>`);
 });
 
 it("tabs to the selected segment and wraps arrow-key focus and selection together", () => {

@@ -1,0 +1,29 @@
+name: Dependency review
+# Blocks pull requests that add or change dependencies (package.json,
+# package-lock.json, workflow actions) with known high or critical
+# vulnerabilities. Runs on every pull request to main without path filters,
+# so a required check always reports. It reads the dependency graph through
+# the API and never checks out or runs pull request code.
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: dependency-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  dependency-review:
+    name: Dependency review (high/critical gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
+        with:
+          fail-on-severity: high
+          # Development dependencies run in CI and on contributors' machines,
+          # so they are not exempt.
+          fail-on-scopes: runtime, development, unknown
+          # The summary goes to the job summary; no pull-requests: write needed.
+          comment-summary-in-pr: never
+          show-patched-versions: true

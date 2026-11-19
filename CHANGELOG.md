@@ -9,7 +9,16 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+
 - The product page shows the three latest releases with their highlights, when the code was last updated, and links to all releases and the release feed. The data comes from GitHub, is cached for an hour and the section is hidden if GitHub cannot be reached.
+
+### Changed
+
+- The owner studio uses shared controls, page headers, status badges and list rows. Calendar groups its secondary tools in an options sheet and gives appointments larger touch targets.
+
+### Fixed
+
+- Fixed unwanted horizontal scrolling in the studio at high zoom and in the booking-page editor.
 
 ## [0.5.0] - 2026-11-19
 
@@ -25,6 +34,7 @@ All notable changes to this project are documented here. Format follows
 - Start a browser-local salon from Today or Settings with a short setup in Swedish or English. New salons have their own bookable page, empty studio views and a first-run checklist. A short guided tour introduces the demo salon.
 - The studio and Salong Eko booking flow support Swedish and English. Owners choose a studio language per device and a business language for confirmations and customer messages. The rules assistant understands common Swedish booking and scheduling commands.
 - The public product site publishes a sitemap and search metadata. Its production deployment uses cookie-free Vercel Web Analytics to measure visits.
+- CodeQL analyses the JavaScript/TypeScript code and the GitHub Actions workflows on pull requests, on `main` and weekly. Pull requests run Dependency Review, which fails on new dependencies with high or critical advisories. [Quality and security](docs/QUALITY_SECURITY.md#security-checks) lists every security check and what blocks merge.
 
 ### Changed
 - Trying Cresavo with your own salon takes about two minutes. Setup has three screens: the salon's name and type (hair, beauty, nails, lashes & brows, massage or skin care), then suggested treatments with typical prices that you edit in place, then "Your salon is ready" with links to your booking page and your day. Opening hours (Monday to Friday 9–17), currency, address and staff get defaults and stay editable in Settings. A few example bookings, clearly marked, keep Today from being empty. New salons start with every add-on off.
@@ -36,6 +46,11 @@ All notable changes to this project are documented here. Format follows
 - Customers can confirm the next available visit from the treatment list, opt in to contact prefill, and book the same treatment and practitioner again. The confirmation links to appointment management, calendar downloads and Google Calendar. Shared gift cards show their remaining balance when available.
 - The customer list starts each row with the customer's name and shows the next booking before the last visit. The filters carry the customer counts.
 - On phones, Today shows the next customer above the schedule. Inbox rows lead with the message subject and show the sender below it.
+- Settings is a short overview with six sections, each on its own page: Salon, Opening hours and closed days, Reminders and cancellations, Your booking link, Appearance and language, and Advanced. Owners can now edit the salon's name, phone, email, address and area; the change is listed in History and can be undone.
+- An Advanced area at the end of More and Settings holds what most salons never need: the developer details from Your data & AI (connecting an outside assistant, AI models and costs, own keys and the open protocols), the website embed code and own domain, the booking language, the SMS price, own CSS for the booking page, rooms and chairs, support access and the error reference lookup, the industry pack and the demo reset. Your data keeps three plain cards: Download my data, Import customers and Connect an assistant. Existing addresses keep working.
+- Features is now Add-ons: a plain list with one line and a switch per add-on, without prices or packs. Gift cards and packages explain prepaid money before they are switched on.
+- "What happened?" is now History and undo, under Help instead of More. What the assistant remembers and its routines are two tabs on the assistant's page, shown while the assistant is on.
+- Today keeps "Someone is calling" as a secondary button until a new salon has real bookings. Text outside Advanced avoids developer words, and a unit test keeps it that way.
 
 ### Fixed
 - Closing a sheet with Escape, its close button or its backdrop returns focus to the opener. Settings section headers wrap on very narrow screens.

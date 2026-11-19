@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/concept/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
@@ -28,11 +29,11 @@ import { TrialRemoved } from "./onboarding/trial-notice";
 import type { MessageKey } from "../i18n";
 
 const WELCOME_PATH = "/studio/welcome";
-const PAGE_FRAME = "mx-auto w-full max-w-6xl px-4 pt-2 sm:px-6 lg:mx-0 lg:max-w-[78rem] lg:px-8 lg:pt-7";
+const PAGE_FRAME = "mx-auto w-full max-w-6xl px-4 pt-2 lg:mx-0 lg:max-w-7xl lg:px-8 lg:pt-8";
 
 /**
  * Studio links can select a starting preset with `/studio?start=essentials` or `?start=everything`. The choice only
- * sets the module switches (More → Features changes it back); the parameter is dropped so a reload does not repeat it.
+ * sets the module switches (More → Add-ons changes it back); the parameter is dropped so a reload does not repeat it.
  */
 function useStartPreset(ready: boolean) {
   useEffect(() => {
@@ -63,14 +64,14 @@ export function StudioShell({ children }: { children: ReactNode }) {
   if (removed || pathname === WELCOME_PATH || isSetup) {
     return (
       <>
-        <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 sm:px-6">
-          <Wordmark className="w-[112px]" />
+        <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 lg:px-8">
+          <Wordmark className="w-28" />
           <div className="flex flex-wrap items-center gap-3">
             <DemoBadge short />
             {(isSetup || removed) && <StudioLanguageSwitch />}
           </div>
         </header>
-        <main className="px-4 pb-12 pt-5 sm:px-6">{removed ? <TrialRemoved /> : children}</main>
+        <main className="studio-content px-4 pt-4 lg:px-8">{removed ? <TrialRemoved /> : children}</main>
         <Toaster />
       </>
     );
@@ -78,11 +79,11 @@ export function StudioShell({ children }: { children: ReactNode }) {
   return (
     <>
       <Sidebar state={state} pathname={pathname} role={role} />
-      <header className="flex min-h-14 items-center justify-between gap-2 px-4 pt-[env(safe-area-inset-top)] max-[299px]:gap-1 max-[299px]:px-2 sm:px-6 lg:hidden">
-        <Link href="/studio" aria-label={t("shell.home")} className="-ml-1 flex min-h-11 min-w-0 items-center px-1">
-          <Wordmark className="w-[112px] max-[299px]:w-[96px]" />
+      <header className="studio-safe-top flex min-h-14 items-center justify-between gap-2 px-4 max-[374px]:gap-1 max-[299px]:flex-wrap max-[299px]:px-2 lg:hidden">
+        <Link href="/studio" aria-label={t("shell.home")} className="-ml-1 flex min-h-target min-w-target items-center px-1 max-[374px]:px-0">
+          <Wordmark label="" className="w-28 max-[374px]:w-24" />
         </Link>
-        <div className="flex shrink-0 items-center gap-1 max-[299px]:gap-0">
+        <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1 max-[374px]:gap-0">
           <DemoBadge short />
           {state.modules.assistant && <AssistantHeaderButton />}
           <RoleSwitch compact />
@@ -90,7 +91,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
         </div>
       </header>
       {/* Keep the last item clear of the tab bar. */}
-      <main className="pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-12 lg:pl-64">
+      <main className="studio-content lg:pb-12 lg:pl-64">
         {/* One frame for every page. On a desktop the content starts a fixed gutter from the sidebar and grows to a
             readable maximum; it is never centred in the space that is left, so pages do not float. The assistant
             and Help sit in each page's title row (PageHeader), on the same right edge as the content. */}
@@ -107,8 +108,8 @@ export function StudioShell({ children }: { children: ReactNode }) {
 
 function LoadingScreen() {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center">
-      <Wordmark className="w-[132px] animate-pulse" />
+    <div className="flex min-h-dvh items-center justify-center">
+      <Wordmark className="w-32 animate-pulse" />
     </div>
   );
 }
@@ -122,13 +123,13 @@ function SidebarLink({ item, pathname, badge }: { item: NavItem; pathname: strin
       data-help={item.href}
       aria-current={active ? "page" : undefined}
       className={cx(
-        "flex min-h-10 items-center gap-3 rounded-md px-3 text-[15px] transition-colors",
+        "flex min-h-target items-center gap-3 rounded-md px-3 text-body transition-colors",
         active ? "bg-surface-2 font-semibold text-text" : "text-text-secondary hover:bg-surface-2 hover:text-text",
       )}
     >
       <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
       <span className="flex-1">{t(item.label)}</span>
-      {!!badge && <span className="rounded-full bg-action px-2 py-0.5 text-xs font-semibold text-on-action">{badge}</span>}
+      {!!badge && <span className="rounded-full bg-action px-2 py-1 text-xs font-semibold text-on-action">{badge}</span>}
     </Link>
   );
 }
@@ -173,15 +174,13 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
   const open = choice?.pathname === pathname ? choice.open : groupOf(pathname, tall);
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-hairline bg-surface px-4 pb-3 pt-5 lg:flex">
-      <Link href="/studio" aria-label={t("shell.home")} className="block px-3">
-        <svg aria-hidden="true" width="124" viewBox="4.96 -74.73 358.98 77" className="h-auto fill-[light-dark(#4f364b,#fff)]">
-          <use href="/brand/studio-wordmark.svg#lettering" />
-        </svg>
+      <Link href="/studio" aria-label={t("shell.home")} className="flex min-h-target items-center px-3">
+        <Wordmark label="" className="w-32" />
       </Link>
       <p className="mt-3 truncate px-3 text-sm font-semibold">{state.salon.name}</p>
       <p className="mt-1 px-3"><DemoBadge /></p>
       <nav aria-label={t("shell.navigation")} className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           {PRIMARY_NAV.filter((item) => canOpen(role, item.href)).map((item) => (
             <SidebarLink key={item.href} item={item} pathname={pathname} badge={item.href === "/studio/inbox" ? unread : undefined} />
           ))}
@@ -190,18 +189,18 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
           const expanded = open === group.id;
           return (
             <div key={group.id} className="border-t border-hairline pt-2">
-              <button
+              <Button variant="tertiary" size="sm" align="between"
                 type="button"
                 aria-expanded={expanded}
                 aria-controls={`nav-${group.id}`}
                 onClick={() => setChoice({ pathname, open: expanded ? null : group.id })}
-                className="flex min-h-10 w-full items-center justify-between rounded-md px-3 text-sm font-medium text-text-secondary hover:bg-surface-2 hover:text-text"
+                className="w-full text-text-secondary hover:text-text"
               >
                 {t(group.title)}
                 <ChevronDown size={16} aria-hidden className={cx("transition-transform", expanded && "rotate-180")} />
-              </button>
+              </Button>
               {expanded && (
-                <div id={`nav-${group.id}`} className="space-y-0.5 pt-0.5">
+                <div id={`nav-${group.id}`} className="space-y-1 pt-1">
                   {group.items.map((item) => (
                     <SidebarLink key={item.href} item={item} pathname={pathname} />
                   ))}
@@ -213,7 +212,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
       </nav>
       {/* The footer: who is looking (with the demo's owner/staff switch beside the name) and the appearance. */}
       <div className="mt-2 space-y-2 border-t border-hairline pt-3">
-        <div className="flex items-center gap-2.5 px-1">
+        <div className="flex items-center gap-3 px-1">
           <StaffAvatar person={person} size="md" />
           <span className="min-w-0 flex-1 text-sm leading-tight">
             <span className="block truncate font-medium">{person.firstName} {person.lastName}</span>
@@ -233,7 +232,7 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
   return (
     <nav
       aria-label={t("shell.navigation")}
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-surface studio-safe-bottom lg:hidden"
     >
       <div className="mx-auto grid max-w-lg" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
         {tabs.map((item) => {
@@ -254,7 +253,7 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
               {/* At 200 % zoom on a phone five labels cannot fit side by side: icons only, the label stays the accessible name. */}
               <span className="max-[299px]:sr-only">{t(item.label)}</span>
               {badge > 0 && (
-                <span className="absolute left-1/2 top-1.5 ml-2 min-w-[18px] rounded-full bg-danger px-1 text-center text-[11px] font-semibold leading-[18px] text-bg">
+                <span className="absolute left-1/2 top-1.5 ml-2 min-w-5 rounded-full bg-danger px-1 text-center text-minimum font-semibold leading-normal text-bg">
                   {badge}
                 </span>
               )}

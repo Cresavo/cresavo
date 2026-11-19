@@ -42,7 +42,7 @@ export function AgentProposalCard({ proposal, onApprove, onDecline }: AgentPropo
       <ChangeRows rows={proposal.rows} />
       <p className="text-xs text-text-secondary">{t("agents.note")}</p>
       <div className="flex flex-wrap gap-2">
-        <Button variant={proposal.destructive ? "danger" : "primary"} onClick={onApprove}>{t("agents.approve")}</Button>
+        <Button variant={proposal.destructive ? "danger" : "secondary"} onClick={onApprove}>{t("agents.approve")}</Button>
         <Button variant="secondary" onClick={onDecline}>{t("agents.decline")}</Button>
       </div>
     </Card>

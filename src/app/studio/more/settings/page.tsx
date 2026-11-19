@@ -1,140 +1,60 @@
 "use client";
 
-import { usePairing } from "@/concept/studio/pairing/session";
-import { ConnectCard } from "@/concept/studio/pairing/connect-card";
-
-import { useState } from "react";
-import { Compass, RotateCcw } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { bookingHome } from "@/concept/booking/links";
 import { t } from "@/concept/i18n";
-import { setupOf } from "@/concept/onboarding/setup";
-import { dispatch, startBusiness } from "@/concept/store";
 import { SalonEntry } from "@/concept/studio/onboarding/entry";
-import { BookingShare } from "@/concept/studio/more/booking-share";
-import { AddressSection } from "@/concept/studio/page/address-section";
-import { ClosedDaysSection } from "@/concept/studio/ops/closed-days";
-import { BookingRules } from "@/concept/studio/ops/booking-rules";
-import { HoursSection } from "@/concept/studio/ops/hours-section";
-import { ResourcesSection } from "@/concept/studio/ops/resources-section";
 import { MorePage } from "@/concept/studio/more/more-page";
-import { ReminderSettings } from "@/concept/studio/more/reminder-settings";
-import { SupportAccess } from "@/concept/studio/support/support-access";
-import { parseLocale } from "@/lib/locale";
+import { SETTINGS_SECTIONS, type SettingsSection } from "@/concept/studio/nav";
 import { StudioLanguageSetting } from "@/concept/studio/studio-language";
 import { useStudio } from "@/concept/studio/use-studio";
-import { Button, ButtonLink } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
-import { Sheet } from "@/concept/ui/sheet";
+import { ListRow } from "@/concept/ui/list-row";
 import { ThemeControl } from "@/concept/ui/theme-control";
-import { showToast } from "@/concept/ui/toast";
-import { useSalonNow } from "@/concept/use-now";
 
+/** Settings is a short overview: one row per section, each opening a page of its own. Appearance is small enough to sit here. */
 export default function SettingsPage() {
-  const pairing = usePairing();
   const { state } = useStudio();
-  const salonNow = useSalonNow();
-  const [confirming, setConfirming] = useState(false);
-  const { salon, localization } = state;
-  const details = [
-    [t("settings.name"), salon.name],
-    [t("settings.address"), [salon.address, salon.area].filter(Boolean).join(", ")],
-    [t("settings.phone"), salon.phone],
-    [t("settings.email"), salon.email],
-    [t("settings.orgNumber"), salon.orgNumber],
-  ];
+  const meta: Partial<Record<SettingsSection["id"], string>> = {
+    salon: state.salon.name,
+    link: bookingHome(state.salon.slug),
+  };
+  const row = (section: SettingsSection) => {
+    const Icon = section.icon;
+    return (
+      <li key={section.id}>
+        <ListRow
+          href={section.href}
+          title={t(section.label)}
+          meta={meta[section.id] ?? (section.description && t(section.description))}
+          leading={<Icon size={22} aria-hidden className="shrink-0 text-text-secondary" />}
+          trailing={<ChevronRight size={18} aria-hidden className="shrink-0 text-text-secondary" />}
+        />
+      </li>
+    );
+  };
+  const pages = SETTINGS_SECTIONS.filter((section) => !section.inline && section.id !== "advanced");
+  const advanced = SETTINGS_SECTIONS.filter((section) => section.id === "advanced");
 
   return (
     <MorePage title={t("nav.settings")} subtitle={t("settings.subtitle")}>
-      <ConnectCard />
       <SalonEntry />
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Section title={t("settings.salon")}>
-          <Card className="divide-y divide-hairline">
-            {details.filter(([, value]) => value).map(([label, value]) => (
-              <div key={label} className="flex justify-between gap-4 px-4 py-3 text-sm">
-                <span className="text-text-secondary">{label}</span>
-                <span className="min-w-0 text-right font-medium [overflow-wrap:anywhere]">{value}</span>
-              </div>
-            ))}
-          </Card>
-        </Section>
-        <Section title={t("theme.label")}>
-          <Card className="space-y-3 p-4">
-            <StudioLanguageSetting />
-            <p className="text-[15px] text-text-secondary">{t("theme.description")}</p>
-            <ThemeControl className="w-full sm:w-auto" />
-          </Card>
-        </Section>
-        <Section title={t("language.businessTitle")}>
-          <Card className="space-y-3 p-4">
-            <p className="text-sm text-text-secondary">{t("language.businessHint")}</p>
-            <label className="flex flex-wrap items-center justify-between gap-3">
-              <span className="font-medium">{t("language.businessDefault")}</span>
-              <select
-                className="rounded-md border border-hairline bg-surface px-3 py-2"
-                value={localization.language}
-                onChange={(event) => {
-                  const language = parseLocale(event.currentTarget.value);
-                  if (language) dispatch({ type: "salon/language", language, bilingual: localization.bilingual });
-                }}
-              >
-                <option value="sv" lang="sv">{t("language.sv")}</option>
-                <option value="en" lang="en">{t("language.en")}</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={localization.bilingual}
-                onChange={(event) => dispatch({ type: "salon/language", language: localization.language, bilingual: event.currentTarget.checked })}
-              />
-              {t("language.allowBoth")}
-            </label>
-          </Card>
-        </Section>
-        <BookingRules key={state.cancellationPolicy.version} state={state} />
-        <ReminderSettings key={salon.slug} state={state} today={salonNow.today} />
-        <div id="hours"><HoursSection /></div>
-        <ClosedDaysSection />
-        <ResourcesSection />
-        <AddressSection />
-        <Section title={t("share.title")} className="lg:col-span-2"><div id="share"><BookingShare /></div></Section>
-        <SupportAccess />
-        {!state.industry && <Section title={t("settings.demo")} className="space-y-3 lg:col-span-2">
-          <Card className="flex flex-wrap items-center gap-4 p-4">
-            <p className="min-w-0 flex-1 text-sm text-text-secondary">{t("settings.startOverText")}</p>
-            <ButtonLink href="/studio/welcome" variant="secondary" icon={<Compass size={18} />}>{t("settings.startOver")}</ButtonLink>
-          </Card>
-          <Card className="flex flex-wrap items-center gap-4 p-4">
-            <p className="min-w-0 flex-1 text-sm text-text-secondary">{t("settings.demoText")}</p>
-            <Button variant="danger" icon={<RotateCcw size={18} />} onClick={() => setConfirming(true)}>{t("settings.reset")}</Button>
-          </Card>
-        </Section>}
+      <div className="max-w-3xl space-y-6">
+        <Card className="overflow-hidden p-1">
+          <ul className="divide-y divide-hairline">{pages.map(row)}</ul>
+        </Card>
+        <div id="appearance" className="scroll-mt-4">
+          <Section title={t("settings.section.appearance")}>
+            <Card className="space-y-3 p-4">
+              <StudioLanguageSetting />
+              <p className="text-body text-text-secondary">{t("theme.description")}</p>
+              <ThemeControl className="w-full sm:w-auto" />
+            </Card>
+          </Section>
+        </div>
+        {/* Advanced is one quiet row at the end: everything most salons never need. */}
+        <ul aria-label={t("nav.advanced")} className="rounded-lg">{advanced.map(row)}</ul>
       </div>
-      {confirming && (
-        <Sheet
-          open
-          onClose={() => setConfirming(false)}
-          title={t("settings.resetTitle")}
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setConfirming(false)}>{t("common.cancel")}</Button>
-              <Button
-                variant="danger"
-                onClick={async () => {
-                  if (pairing?.workspace && !await pairing.command("session", { action: "disconnect", workspaceId: pairing.workspace.id })) return;
-                  setConfirming(false);
-                  await startBusiness(setupOf(state));
-                  showToast(t("settings.resetDone"));
-                }}
-              >
-                {t("settings.reset")}
-              </Button>
-            </>
-          }
-        >
-          <p className="text-[15px]">{t("settings.resetText")}</p>
-        </Sheet>
-      )}
     </MorePage>
   );
 }

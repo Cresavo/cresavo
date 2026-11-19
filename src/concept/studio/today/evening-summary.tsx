@@ -49,8 +49,8 @@ export function EveningSummary() {
       <Card className="space-y-3 p-4" data-help="evening-summary">
         <div className="flex items-start gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-action-bg text-text"><Moon size={18} /></span>
-          <p className="min-w-0 flex-1 pt-1.5 font-medium">{text.summary}</p>
-          {ai && <span className="mt-1 shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold text-text-secondary">{t("customer.summary.ai")}</span>}
+          <p className="min-w-0 flex-1 pt-2 font-medium">{text.summary}</p>
+          {ai && <span className="mt-1 shrink-0 rounded-full bg-surface-2 px-2 py-1 text-xs font-semibold text-text-secondary">{t("customer.summary.ai")}</span>}
         </div>
         <ul className="space-y-1 text-sm">
           {text.highlights.map((line) => (

@@ -1,4 +1,11 @@
 import { formatTime } from "../../i18n/format";
+import type { Booking } from "../../data/types";
+
+/** Keep the time grid proportional when a short appointment needs more space. */
+export function calendarScale(defaultScale: number, bookings: readonly Booking[], minHeight = 44) {
+  // Reserve the touch target plus the two one-pixel gaps between events.
+  return bookings.reduce((scale, booking) => Math.max(scale, (minHeight + 2) / booking.duration), defaultScale);
+}
 
 /** Hour labels down the left side of a calendar grid. */
 export function TimeAxis({ from, to, pxPerMin }: { from: number; to: number; pxPerMin: number }) {
@@ -7,7 +14,7 @@ export function TimeAxis({ from, to, pxPerMin }: { from: number; to: number; pxP
   return (
     <div className="relative w-11 shrink-0" style={{ height: (to - from) * pxPerMin }}>
       {hours.map((m) => (
-        <span key={m} className="absolute right-2 -translate-y-1/2 text-[11px] tabular-nums text-text-secondary" style={{ top: (m - from) * pxPerMin }}>
+        <span key={m} className="absolute right-2 -translate-y-1/2 text-minimum tabular-nums text-text-secondary" style={{ top: (m - from) * pxPerMin }}>
           {formatTime(m)}
         </span>
       ))}

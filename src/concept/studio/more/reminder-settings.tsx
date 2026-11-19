@@ -10,7 +10,24 @@ import { ButtonLink } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
 import { Field, Segmented, TextInput } from "../../ui/controls";
 
-export function ReminderSettings({ state, today }: { state: DemoState; today: DateKey }) {
+/** How reminders go out by default. The SMS price and its estimate are under Advanced. */
+export function ReminderSettings({ state }: { state: DemoState }) {
+  const settings = state.reminderSettings;
+  return (
+    <Section title={t("reminders.title")} action={<Badge>{t("common.simulated")}</Badge>}>
+      <Card className="space-y-4 p-4">
+        <p className="text-sm text-text-secondary">{t("reminders.simulated")}</p>
+        <Segmented<MessageChannel> label={t("reminders.channel")} value={settings.channel}
+          options={(["sms", "email"] as const).map(value => ({ value, label: t(`messages.channel.${value}`) }))}
+          onChange={channel => dispatch({ type: "reminder/settings", settings: { channel } })} />
+        <ButtonLink href="/studio/inbox?filter=sent" variant="secondary">{t("messages.log")}</ButtonLink>
+      </Card>
+    </Section>
+  );
+}
+
+/** What one SMS costs the salon, and what this month's reminders would cost with it. */
+export function SmsPriceSettings({ state, today }: { state: DemoState; today: DateKey }) {
   const settings = state.reminderSettings;
   const { currency } = state.localization;
   const money = new Intl.NumberFormat(locale, { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -19,12 +36,8 @@ export function ReminderSettings({ state, today }: { state: DemoState; today: Da
   const estimate = monthlySmsEstimate(state, today, { ...settings, smsPriceOre: draftPrice ?? settings.smsPriceOre });
 
   return (
-    <Section title={t("reminders.title")} action={<Badge>{t("common.simulated")}</Badge>}>
+    <Section title={t("reminders.smsTitle")} action={<Badge>{t("common.simulated")}</Badge>}>
       <Card className="space-y-4 p-4">
-        <p className="text-sm text-text-secondary">{t("reminders.simulated")}</p>
-        <Segmented<MessageChannel> label={t("reminders.channel")} value={settings.channel}
-          options={(["sms", "email"] as const).map(value => ({ value, label: t(`messages.channel.${value}`) }))}
-          onChange={channel => dispatch({ type: "reminder/settings", settings: { channel } })} />
         <Field label={t("reminders.smsPrice", { currency })}
           hint={draftPrice === undefined ? t("reminders.invalidPrice", { max: money.format(MAX_SMS_PRICE_ORE / 100) }) : undefined}>
           <TextInput inputMode="decimal" value={draft ?? formatNumber(settings.smsPriceOre / 100, 2)}
@@ -43,7 +56,6 @@ export function ReminderSettings({ state, today }: { state: DemoState; today: Da
           })}</p>}
           <p className="text-sm text-text-secondary">{t("reminders.assumptions")}</p>
         </div>
-        <ButtonLink href="/studio/inbox?filter=sent" variant="secondary">{t("messages.log")}</ButtonLink>
       </Card>
     </Section>
   );

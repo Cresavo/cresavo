@@ -24,7 +24,7 @@ export function HoursSection() {
   return (
     <Section
       title={t("settings.hours")}
-      action={<Button size="sm" variant="secondary" icon={<Pencil size={16} />} onClick={() => setEditing(true)}>{t("common.edit")}</Button>}
+      action={<Button size="sm" icon={<Pencil size={16} />} onClick={() => setEditing(true)}>{t("common.edit")}</Button>}
     >
       <Card className="divide-y divide-hairline">
         {WEEK_ORDER.map((d) => {

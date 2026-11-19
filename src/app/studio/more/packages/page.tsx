@@ -13,6 +13,7 @@ import { Avatar } from "@/concept/ui/avatar";
 import { Badge } from "@/concept/ui/badge";
 import { Button } from "@/concept/ui/button";
 import { Card } from "@/concept/ui/card";
+import { ListRow } from "@/concept/ui/list-row";
 import { Meter } from "@/concept/ui/charts";
 import { EmptyState } from "@/concept/ui/empty-state";
 
@@ -48,16 +49,14 @@ export default function PackagesPage() {
               const customer = findCustomer(state, pkg.customerId);
               const left = visitsLeft(pkg);
               return (
-                <div key={pkg.id} className="flex min-h-16 items-center gap-4 px-4 py-3">
-                  <Avatar name={customer ? fullName(customer) : "?"} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{customer ? fullName(customer) : ""}</p>
-                    <p className="truncate text-sm text-text-secondary">{findService(state, pkg.serviceId)?.name}</p>
-                    <p className="truncate text-xs text-text-secondary">{t("packages.paid", { amount: formatMoney(pkg.price) })} · {formatDate(pkg.soldOn)}</p>
+                <ListRow key={pkg.id} leading={<Avatar name={customer ? fullName(customer) : "?"} size="sm" />}
+                  title={customer ? fullName(customer) : ""}
+                  meta={<>
+                    <span className="block">{findService(state, pkg.serviceId)?.name}</span>
+                    <span className="block">{t("packages.paid", { amount: formatMoney(pkg.price) })} · {formatDate(pkg.soldOn)}</span>
                     <Meter value={pkg.usedBy.length / pkg.visits} className="mt-2 max-w-48" />
-                  </div>
-                  <Badge tone={left ? "accent" : "neutral"}>{left ? t("packages.left", { left, total: pkg.visits }) : t("packages.usedUp", { total: pkg.visits })}</Badge>
-                </div>
+                  </>}
+                  trailing={<Badge tone={left ? "accent" : "neutral"}>{left ? t("packages.left", { left, total: pkg.visits }) : t("packages.usedUp", { total: pkg.visits })}</Badge>} />
               );
             })}
           </Card>

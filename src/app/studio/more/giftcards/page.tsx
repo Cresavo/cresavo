@@ -1,5 +1,6 @@
 "use client";
 
+import { ListRow } from "@/concept/ui/list-row";
 import { useState } from "react";
 import { ChevronRight, Gift, Plus } from "lucide-react";
 import { balanceOf, giftCardLiability } from "@/concept/giftcards/cards";
@@ -40,18 +41,17 @@ export default function GiftCardsPage() {
         {cards.length ? (
           <Card className="divide-y divide-hairline overflow-hidden">
             {cards.map((card) => (
-              <button key={card.id} type="button" onClick={() => setSheet({ kind: "card", id: card.id })} className="flex min-h-16 w-full items-center gap-4 px-4 py-3 text-left hover:bg-surface-2">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg text-text"><Gift size={20} /></span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{t("giftcards.for", { name: card.recipient })}</span>
-                  <span className="block truncate font-mono text-sm text-text-secondary">{card.code}</span>
-                </span>
-                <span className="shrink-0 text-right text-sm tabular-nums">
-                  <span className="block font-medium">{formatMoney(balanceOf(state, card))}</span>
-                  <span className="block text-text-secondary">/ {formatMoney(card.amount)}</span>
-                </span>
-                <ChevronRight size={18} className="shrink-0 text-text-secondary" />
-              </button>
+              <ListRow key={card.id} onClick={() => setSheet({ kind: "card", id: card.id })}
+                leading={<span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-action-bg"><Gift size={20} aria-hidden /></span>}
+                title={t("giftcards.for", { name: card.recipient })}
+                meta={<span className="font-mono break-all">{card.code}</span>}
+                trailing={<>
+                  <span className="shrink-0 text-right text-meta tabular-nums">
+                    <span className="block font-medium">{formatMoney(balanceOf(state, card))}</span>
+                    <span className="block text-text-secondary">/ {formatMoney(card.amount)}</span>
+                  </span>
+                  <ChevronRight size={18} aria-hidden className="shrink-0 text-text-secondary" />
+                </>} />
             ))}
           </Card>
         ) : (

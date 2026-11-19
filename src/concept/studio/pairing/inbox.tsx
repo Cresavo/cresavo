@@ -28,7 +28,7 @@ export function PairedInbox() {
         </div>}
         <ChangeRows rows={p.untrustedCustomerText.changes} />
         <div className="flex gap-2">{(["approve", "decline"] as const).map(decision =>
-          <Button key={decision} disabled={busy} variant={decision === "approve" ? "primary" : "secondary"}
+          <Button key={decision} disabled={busy} variant={decision === "approve" ? "secondary" : "tertiary"}
             onClick={() => void command("decision", { workspaceId: w.id, proposalId: p.proposalId, decision })}>
             {t(decision === "approve" ? "agents.approve" : "agents.decline")}
           </Button>)}</div>

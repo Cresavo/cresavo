@@ -9,6 +9,7 @@ import type { Booking, DemoState } from "../../data/types";
 import { locale, t } from "../../i18n";
 import { dispatchWithLog, withBookingLock } from "../../store";
 import { SALON_TIMEZONE } from "../../tools/clock";
+import { DemoBadge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Field, TextInput } from "../../ui/controls";
 import { showActionFailure } from "../../ui/toast";
@@ -49,8 +50,11 @@ export function FeeDecisionPanel({ state, booking }: { state: DemoState; booking
     {role === "owner" && incident && (open ? <div className="space-y-3 rounded-md bg-surface-2 p-4">
       <h3 className="font-semibold">{t(incident === "noshow" ? "status.noshow" : "protection.late")}</h3>
       <p>{t("protection.proposal", { fee: money(fee), extra: money(settlement.additional), refund: money(settlement.refund) })}</p>
-      <p className="text-sm">{t("protection.simulated")}</p>
-      <Button disabled={pending} onClick={() => decide("charge")}>{t("protection.charge")}</Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <DemoBadge short />
+        <p className="text-meta">{t("protection.simulated")}</p>
+      </div>
+      <Button variant={booking.status === "booked" ? "secondary" : "primary"} disabled={pending} onClick={() => decide("charge")}>{t("protection.charge")}</Button>
       <Field label={t("protection.reason")}><TextInput maxLength={200} value={reason} onChange={e => setReason(e.target.value)} /></Field>
       <Button variant="secondary" disabled={!reason.trim() || pending} onClick={() => decide("waive")}>{t("protection.waive")}</Button>
     </div> : <Button variant="secondary" onClick={() => setOpen(true)}>{t(incident === "noshow" ? "protection.markMissed" : "protection.markLate")}</Button>)}

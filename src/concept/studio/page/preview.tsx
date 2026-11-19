@@ -28,7 +28,7 @@ export function Preview({ page, slug }: { page: PageConfig; slug: string }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-text-secondary">{t("pageEditor.preview")}</h2>
+        <h2 className="text-meta font-semibold uppercase tracking-wider text-text-secondary">{t("pageEditor.preview")}</h2>
         <Segmented
           label={t("pageEditor.device")}
           value={device}
@@ -45,7 +45,7 @@ export function Preview({ page, slug }: { page: PageConfig; slug: string }) {
           title={t("pageEditor.previewTitle")}
           src={`${bookingHome(slug)}?preview=1`}
           onLoad={send}
-          className={cx("h-[34rem] max-w-full rounded-md bg-surface ring-1 ring-hairline lg:h-[calc(100dvh-14rem)] lg:min-h-[34rem]", device === "phone" ? "w-[390px]" : "w-full")}
+          className={cx("studio-preview-frame max-w-full rounded-md bg-surface ring-1 ring-hairline", device === "phone" ? "studio-preview-phone" : "w-full")}
         />
       </div>
     </div>

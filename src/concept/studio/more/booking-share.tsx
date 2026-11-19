@@ -1,37 +1,68 @@
 "use client";
 
+import { Input, Textarea } from "../../ui/controls";
 import { useState } from "react";
 import { bookingShare } from "../../booking/share";
 import { t } from "../../i18n";
 import { recordShare } from "../onboarding/booking-link";
 import { Button, ButtonLink } from "../../ui/button";
-import { Card } from "../../ui/card";
+import { Card, Section } from "../../ui/card";
 import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 
-export function BookingShare() {
-  const [copied, setCopied] = useState<"link" | "code" | null>(null);
+function useShare() {
   const { state } = useStudio();
   const share = bookingShare(window.location.origin, state.salon.slug, state.salon.name, state.localization.language);
-  const copy = async (kind: "link" | "code") => {
-    try {
-      await navigator.clipboard.writeText(share[kind]);
-      setCopied(kind);
-      if (state.industry && kind === "link") recordShare(state.salon.slug);
-    } catch { showToast(t("share.failed")); }
+  return { state, share };
+}
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    showToast(t("share.failed"));
+    return false;
+  }
+}
+
+/** The salon's booking link, to copy into an Instagram bio or a message, and to open. */
+export function BookingShare() {
+  const [copied, setCopied] = useState(false);
+  const { state, share } = useShare();
+  const copy = async () => {
+    if (!await copyText(share.link)) return;
+    setCopied(true);
+    if (state.industry) recordShare(state.salon.slug);
   };
   return <Card className="space-y-4 p-5">
     <p className="text-sm text-text-secondary">{t(state.industry ? "setup.local" : "share.help")}</p>
     <div className="space-y-2">
       <label className="block text-sm font-medium" htmlFor="booking-bio-link">{t("share.bio")}</label>
-      <input className="w-full rounded-md border border-hairline bg-surface-2 p-3 text-base" id="booking-bio-link" readOnly value={share.link} onFocus={event => event.target.select()} />
-      <Button size="sm" variant="secondary" onClick={() => copy("link")}>{t(copied === "link" ? "common.copied" : "share.copyLink")}</Button>
+      <Input id="booking-bio-link" readOnly value={share.link} onFocus={event => event.target.select()} />
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="secondary" onClick={copy}>{t(copied ? "common.copied" : "share.copyLink")}</Button>
+        <ButtonLink size="sm" href={share.link} variant="secondary">{t("share.open")}</ButtonLink>
+      </div>
     </div>
-    <div className="space-y-2">
-      <label className="block text-sm font-medium" htmlFor="booking-widget-code">{t("share.code")}</label>
-      <textarea className="min-h-36 w-full rounded-md border border-hairline bg-surface-2 p-3 font-mono text-base" id="booking-widget-code" readOnly value={share.code} onFocus={event => event.target.select()} />
-      <Button size="sm" variant="secondary" onClick={() => copy("code")}>{t(copied === "code" ? "common.copied" : "share.copyCode")}</Button>
-    </div>
-    <div className="flex flex-wrap gap-2"><ButtonLink href={share.link} variant="secondary">{t("share.open")}</ButtonLink><ButtonLink href={share.widget} variant="secondary">{t("share.preview")}</ButtonLink></div>
   </Card>;
+}
+
+/** Advanced: the code that puts the booking page on the salon's own website. */
+export function EmbedCode() {
+  const [copied, setCopied] = useState(false);
+  const { share } = useShare();
+  return <Section title={t("share.title")}>
+    <Card className="space-y-4 p-5">
+      <p className="text-sm text-text-secondary">{t("share.codeHelp")}</p>
+      <div className="space-y-2">
+        <label className="block text-sm font-medium" htmlFor="booking-widget-code">{t("share.code")}</label>
+        <Textarea className="font-mono" id="booking-widget-code" readOnly value={share.code} onFocus={event => event.target.select()} />
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="secondary" onClick={async () => setCopied(await copyText(share.code))}>{t(copied ? "common.copied" : "share.copyCode")}</Button>
+          <ButtonLink size="sm" href={share.widget} variant="secondary">{t("share.preview")}</ButtonLink>
+        </div>
+      </div>
+    </Card>
+  </Section>;
 }

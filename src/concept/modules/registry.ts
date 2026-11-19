@@ -23,8 +23,10 @@ export interface ModuleManifest {
   aiTasks: TaskName[];
   /** What the command box can do for it. */
   commands: IntentAction[];
-  /** Demo price in SEK per month. */
+  /** Demo price in SEK per month. Not shown on the Add-ons page; kept for the pricing model. */
   priceSek: number;
+  /** An add-on that takes money from customers asks before it is switched on. */
+  consent?: { summary: MessageKey; grants: readonly MessageKey[] };
 }
 
 /** Calendar, customers, inbox and the booking page are always on. */
@@ -68,7 +70,7 @@ export const MODULES: ModuleManifest[] = [
     ],
   },
   {
-    id: "assistant", name: "features.assistant", description: "features.assistant.description", menu: ["/studio/more/memory", "/studio/more/routines"], todayCards: [], aiTasks: ["interpret-command", "daily-summary", "assistant-reply", "phrase-brief"], commands: [], priceSek: 149,
+    id: "assistant", name: "features.assistant", description: "features.assistant.description", menu: ["/studio/more/assistant", "/studio/more/memory", "/studio/more/routines"], todayCards: [], aiTasks: ["interpret-command", "daily-summary", "assistant-reply", "phrase-brief"], commands: [], priceSek: 149,
     api: [
       { resource: "assistant-settings", read: "available", write: "available", mcp: "planned", events: "planned" },
       { resource: "assistant-memory", read: "planned", write: "planned", mcp: "planned", events: "planned" },
@@ -77,6 +79,7 @@ export const MODULES: ModuleManifest[] = [
   },
   {
     id: "giftcards", name: "features.giftcards", description: "features.giftcards.description", menu: ["/studio/more/giftcards"], todayCards: [], aiTasks: [], commands: [], priceSek: 49,
+    consent: { summary: "addons.consent.giftcards", grants: ["addons.consent.prepaid", "addons.consent.refunds", "addons.consent.demo"] },
     api: [
       { resource: "gift-cards", read: "planned", write: "planned", mcp: "planned", events: "planned" },
     ],
@@ -89,6 +92,7 @@ export const MODULES: ModuleManifest[] = [
   },
   {
     id: "packages", name: "features.packages", description: "features.packages.description", menu: ["/studio/more/packages"], todayCards: [], aiTasks: [], commands: [], priceSek: 49,
+    consent: { summary: "addons.consent.packages", grants: ["addons.consent.prepaid", "addons.consent.refunds", "addons.consent.demo"] },
     api: [
       { resource: "packages", read: "planned", write: "planned", mcp: "planned", events: "planned" },
     ],
@@ -117,6 +121,9 @@ export function presetOf(modules: Switches): PresetId | null {
 }
 
 export const moduleById = (id: ModuleKey) => MODULES.find((manifest) => manifest.id === id)!;
+
+/** What switching this add-on on asks the owner to agree to, if anything. */
+export const moduleConsent = (id: ModuleKey) => moduleById(id).consent;
 
 const ownerOf = <T>(list: (manifest: ModuleManifest) => T[], item: T) => MODULES.find((manifest) => list(manifest).includes(item));
 

@@ -1,25 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import type { AnimationEvent, ReactNode } from "react";
+import type { AnimationEvent, AriaAttributes, ReactNode } from "react";
+import { cx } from "./cx";
 
-type ListRowProps = {
-  title: string;
-  meta?: string;
+type ListRowProps = Pick<AriaAttributes, "aria-label" | "aria-current" | "aria-describedby" | "aria-pressed"> & {
+  title: ReactNode;
+  meta?: ReactNode;
   leading?: ReactNode;
   trailing?: ReactNode;
   motion?: "enter" | "exit";
   onExited?: () => void;
-} & ({ href: string; onClick?: never } | { onClick: () => void; href?: never });
+  className?: string;
+  /** Name for the Help button's "Show me". */
+  help?: string;
+} & ({ href: string; onClick?: never } | { onClick?: () => void; href?: never });
 
-export function ListRow({ title, meta, leading, trailing, href, onClick, motion, onExited }: ListRowProps) {
+export function ListRow({ title, meta, leading, trailing, href, onClick, motion, onExited, className, help, ...aria }: ListRowProps) {
   const row = {
+    ...aria,
+    "data-help": help,
     "data-row-motion": motion,
     inert: motion === "exit" || undefined,
     onAnimationEnd: (event: AnimationEvent) => {
       if (motion === "exit" && event.target === event.currentTarget) onExited?.();
     },
-    className: "flex min-h-14 w-full items-center gap-3 rounded-md px-4 py-2 text-left hover:bg-surface-2",
+    className: cx("flex min-h-14 w-full min-w-0 items-center gap-3 rounded-md px-4 py-2 text-left", (href !== undefined || onClick) && "hover:bg-surface-2", className),
   };
   const content = <>
     {leading}
@@ -29,7 +35,7 @@ export function ListRow({ title, meta, leading, trailing, href, onClick, motion,
     </span>
     {trailing}
   </>;
-  return href !== undefined
-    ? <Link {...row} href={href}>{content}</Link>
-    : <button type="button" {...row} onClick={onClick}>{content}</button>;
+  if (href !== undefined) return <Link {...row} href={href}>{content}</Link>;
+  if (onClick) return <button type="button" {...row} onClick={onClick}>{content}</button>;
+  return <div {...row}>{content}</div>;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { ListRow } from "../../ui/list-row";
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { PACKAGE_DEAL, packagePrice } from "../../packages/packages";
@@ -63,7 +64,7 @@ export function SellPackageSheet({ onClose }: { onClose: () => void }) {
         <div className="space-y-2">
           <p className="text-sm font-medium">{t("packages.customer")}</p>
           {customer ? (
-            <div className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5">
+            <div className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-3">
               <Avatar name={fullName(customer)} size="sm" />
               <span className="min-w-0 flex-1 truncate font-medium">{fullName(customer)}</span>
               <Button size="sm" variant="ghost" onClick={() => setCustomerId("")}>{t("common.change")}</Button>
@@ -75,10 +76,7 @@ export function SellPackageSheet({ onClose }: { onClose: () => void }) {
                 <ul className="divide-y divide-hairline rounded-lg ring-1 ring-hairline">
                   {matches.map((c) => (
                     <li key={c.id}>
-                      <button type="button" onClick={() => setCustomerId(c.id)} className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left hover:bg-surface-2">
-                        <Avatar name={fullName(c)} size="sm" />
-                        <span className="truncate">{fullName(c)}</span>
-                      </button>
+                      <ListRow onClick={() => setCustomerId(c.id)} title={fullName(c)} leading={<Avatar name={fullName(c)} size="sm" />} />
                     </li>
                   ))}
                   {!matches.length && <li className="px-4 py-3 text-sm text-text-secondary">{t("stock.noCustomers")}</li>}
