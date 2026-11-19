@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState, useSyncExternalStore, type ReactNode } f
 import { ChevronDown } from "lucide-react";
 import { AssistantHeaderButton, AssistantLauncher } from "./assistant/assistant-launcher";
 import { HelpButton } from "./help/help-button";
+import { StudioLanguageSwitch } from "./studio-language";
 import { canOpen, staffViewer, type Role } from "../ops/access";
 import { useRole } from "../ops/role";
 import { NoAccess } from "./ops/no-access";
@@ -48,15 +49,17 @@ export function StudioShell({ children }: { children: ReactNode }) {
   const state = useDemo();
   const role = useRole();
   const pathname = usePathname() ?? "";
+  const isSetup = pathname === "/studio/setup" && role === "owner";
   // The chrome follows the studio's saved theme, also when arriving by an in-app link from a booking page.
   useEffect(() => pinThemeColor(studioChrome(parseTheme(document.documentElement.dataset.theme))), []);
   useStartPreset(!!state);
   if (!state) return <LoadingScreen />;
-  if (pathname === WELCOME_PATH) {
+  if (pathname === WELCOME_PATH || isSetup) {
     return (
       <>
-        <header className="px-4 pt-4 sm:px-6">
+        <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 sm:px-6">
           <Wordmark className="w-[112px]" />
+          {isSetup && <StudioLanguageSwitch />}
         </header>
         <main className="px-4 pb-12 pt-5 sm:px-6">{children}</main>
         <Toaster />

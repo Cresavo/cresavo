@@ -10,7 +10,7 @@ import { parseLocale, type Locale } from "@/lib/locale";
 import { t, translate } from "../i18n";
 import { ConceptLanguage } from "../i18n/boundary";
 import { DEFAULT_BOOKING_LANGUAGE, DEFAULT_CURRENCY } from "../i18n/business";
-import { usePublicDemo } from "../store";
+import { openBookingWorkspace, usePublicDemo, useWorkspaceSlug } from "../store";
 import { pinThemeColor } from "../ui/theme";
 import { Toaster } from "../ui/toast";
 import { bookingHome, myBookings, widgetPath } from "./links";
@@ -25,6 +25,10 @@ export function BookShell({ children }: { children: ReactNode }) {
   const slug = useParams<{ slug: string }>()?.slug ?? "";
   const path = usePathname()?.replace(/\/$/, "") || "/";
   const widget = path === widgetPath(slug) || path === "/widget";
+  const otherSlug = useWorkspaceSlug(state?.industry ? "demo" : "own");
+  useEffect(() => {
+    if (slug === otherSlug) openBookingWorkspace(slug);
+  }, [slug, otherSlug]);
   const home = path === "/" || path === `/boka/${slug}`;
   const allowSwitch = home && state?.salon.slug === slug && state.localization.bilingual;
   const [choice, setChoice] = useState<{ slug: string; language: Locale }>();

@@ -48,6 +48,7 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
     return { ...saved, staff, version: 17 };
   },
   17: (saved) => ({ ...saved, localization: defaultBusinessLocalization(saved.pack as PackId), version: 18 }),
+  18: (saved) => ({ ...saved, industry: null, version: 19 }),
 };
 
 /** The oldest saved version that can still be migrated. */

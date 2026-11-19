@@ -28,6 +28,7 @@ export function buttonClass(variant: Variant = "primary", size: Size = "md", cla
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  ref?: Ref<HTMLButtonElement>;
   variant?: Variant;
   size?: Size;
   icon?: ReactNode;

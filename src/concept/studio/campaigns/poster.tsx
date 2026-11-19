@@ -88,8 +88,10 @@ export function Poster({ poster, format, kicker, until, footer, label, ref }: Po
     { lines: wrapText(poster.detail, align === "middle" ? 26 : 30, 3), size: 50, weight: 600, fill: light ? "#FFFFFF" : INK, gap: 8 },
     { lines: [until], size: 36, fill: light ? "#E6DFD3" : "#4A524D", gap: 18 },
   ];
-  const foot = (fill: string): Item[] => [{ lines: footer.flatMap((line) => wrapText(line, 52, 2)), size: 30, fill }];
-  const footerY = bottom - margin * 0.9 - footer.length * 40;
+  const footerLines = footer.flatMap(line => wrapText(line, 52, 2));
+  const footerSize = Math.min(30, ...footerLines.map(line => fitFontSize(line, inner, 30)));
+  const foot = (fill: string): Item[] => [{ lines: footerLines, size: footerSize, fill }];
+  const footerY = bottom - margin * 0.9 - footerLines.length * footerSize * LINE_HEIGHT;
   const image = poster.image;
   // Styles that end with a text block anchor it above the footer, so long texts grow upwards.
   const bodyY = (items: Item[]) => footerY - 50 - stackHeight(items);

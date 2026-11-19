@@ -450,7 +450,7 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
       return MODULES.every((manifest) => state.modules[manifest.id] === modules[manifest.id]) ? state : { ...state, modules };
     }
     case "card/dismiss":
-      return { ...state, dismissedCards: [...state.dismissedCards, action.id] };
+      return state.dismissedCards.includes(action.id) ? state : { ...state, dismissedCards: [...state.dismissedCards, action.id] };
     case "customer/delete":
       return deleteCustomer(state, action.id);
     case "trash/restore":

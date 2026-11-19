@@ -12,75 +12,118 @@ import { publicView } from "./selectors";
 import { purgeExpired } from "./trash/trash";
 import { getActiveLocale, setVocabulary } from "./i18n";
 import { publicSalonCopy } from "./i18n/salon-eko-copy";
+import { checkNewSlug, createSalon, suggestedSlug, type SalonDraft } from "./onboarding/salon";
 import { setupOf } from "./onboarding/setup";
 import { getPack } from "./packs";
 
-// Browser-side demo store: one in-memory state, mirrored to localStorage.
+// Browser-side demo store: each workspace has its own shared snapshot.
 // Pages read it with `useDemo()`; on the server it is `null`, so the studio
 // renders a loading shell first and the real UI only in the browser.
 
 const STORAGE_KEY = "salong-eko-demo";
 interface BookingReceipt { day: string; seq: number }
-let state: DemoState | null = null;
-let savedRaw: string | null | undefined;
-let savedVersion: BookingReceipt | undefined;
-let lastWrittenVersion: BookingReceipt | undefined;
+type Workspace = "demo" | "own";
+interface WorkspaceSnapshot {
+  state?: DemoState | null;
+  raw?: string | null;
+  version?: BookingReceipt;
+  lastWrite?: BookingReceipt;
+}
+const snapshots: Record<Workspace, WorkspaceSnapshot> = { demo: {}, own: {} };
+const SELECTION_KEY = "salong-eko-workspace";
+let primary: Workspace | undefined;
+let active: Workspace = "demo";
+
+// Older versions put the selected salon at STORAGE_KEY. Keep that snapshot in
+// place, even when quota would prevent copying it to a new key.
+function initialize() {
+  if (primary || typeof window === "undefined") return;
+  primary = "demo";
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw && JSON.parse(raw)?.industry) primary = "own";
+  } catch { /* Fresh demo or unavailable storage. */ }
+  active = primary;
+  try {
+    const selection = window.sessionStorage.getItem(SELECTION_KEY);
+    if (selection === "own" || selection === "demo") active = selection;
+  } catch { /* The selection still lasts for this tab. */ }
+}
+
+function storageKey(workspace: Workspace) {
+  return workspace === primary ? STORAGE_KEY : `${STORAGE_KEY}-${workspace}`;
+}
 const listeners = new Set<() => void>();
 
 function today() {
   return toKey(new Date());
 }
 
-function load(raw: string | null): DemoState {
+function load(raw: string | null, workspace: Workspace): DemoState | null {
   try {
     const saved = raw && migrateState(JSON.parse(raw));
-    if (saved) {
-      if (saved.generatedFor === today()) return purgeExpired(saved, today());
-      return createDemoState(today(), setupOf(saved));
+    if (saved && Boolean(saved.industry) === (workspace === "own")) {
+      if (saved.industry) return purgeExpired({ ...saved, generatedFor: today() }, today());
+      const demo = saved.generatedFor === today() ? purgeExpired(saved, today()) : createDemoState(today(), setupOf(saved));
+      // An older setup could give both salons the same address. Keep the
+      // published local link and restore the demo's fixture address in that case.
+      const fixtureSlug = getPack(demo.pack).salon.slug;
+      const conflict = saved.salon.slug !== fixtureSlug && saved.salon.slug === workspaceSlug("own");
+      return { ...demo, salon: { ...demo.salon, slug: conflict ? fixtureSlug : saved.salon.slug } };
     }
   } catch {
     // A corrupt snapshot falls back to fresh demo data.
   }
-  return createDemoState(today());
+  return workspace === "demo" ? createDemoState(today()) : null;
 }
 
-function refreshFromStorage() {
-  let raw: string | null;
-  try {
-    raw = window.localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return false;
-  }
-  if (raw === savedRaw) return false;
-  savedRaw = raw;
-  state = adopt(load(raw));
-  savedVersion = raw ? { day: state.generatedFor, seq: state.seq } : undefined;
-  listeners.forEach((listener) => listener());
+function refresh(workspace: Workspace) {
+  const snapshot = snapshots[workspace];
+  let raw = snapshot.raw ?? null;
+  try { raw = window.localStorage.getItem(storageKey(workspace)); }
+  catch { /* Use the snapshot in memory. */ }
+  if (raw === snapshot.raw) return false;
+  snapshot.raw = raw;
+  snapshot.state = load(raw, workspace);
+  snapshot.version = raw && snapshot.state ? { day: snapshot.state.generatedFor, seq: snapshot.state.seq } : undefined;
   return true;
 }
 
-function onStorage(event: StorageEvent) {
-  if (event.storageArea === window.localStorage && (event.key === STORAGE_KEY || event.key === null)) refreshFromStorage();
+function notify() {
+  const state = snapshots[active].state;
+  if (state) setVocabulary(getPack(state.pack).vocabulary);
+  listeners.forEach(listener => listener());
 }
 
-/** The words of the business's industry pack apply as soon as its state is current. */
-function adopt(next: DemoState) {
-  setVocabulary(getPack(next.pack).vocabulary);
-  return next;
+function refreshFromStorage() {
+  if (typeof window === "undefined") return false;
+  initialize();
+  const changed = refresh(active);
+  if (changed) notify();
+  return changed;
+}
+
+function onStorage(event: StorageEvent) {
+  if (event.storageArea !== window.localStorage) return;
+  const workspaces = (["demo", "own"] as const).filter(workspace => event.key === null || event.key === storageKey(workspace));
+  if (!workspaces.length) return;
+  workspaces.forEach(refresh);
+  notify();
 }
 
 function setState(next: DemoState, recheckStorage = false): boolean {
+  const snapshot = snapshots[active];
   try {
     const raw = JSON.stringify(next);
     if (recheckStorage && refreshFromStorage()) return false;
-    window.localStorage.setItem(STORAGE_KEY, raw);
-    savedRaw = raw;
-    savedVersion = lastWrittenVersion = { day: next.generatedFor, seq: next.seq };
+    window.localStorage.setItem(storageKey(active), raw);
+    snapshot.raw = raw;
+    snapshot.version = snapshot.lastWrite = { day: next.generatedFor, seq: next.seq };
   } catch {
     // The demo still works in memory.
   }
-  state = adopt(next);
-  listeners.forEach((listener) => listener());
+  snapshot.state = next;
+  notify();
   return true;
 }
 
@@ -95,11 +138,18 @@ function subscribe(listener: () => void) {
 }
 
 function getSnapshot(): DemoState | null {
-  if (!state && typeof window !== "undefined") {
-    refreshFromStorage();
-    state ??= adopt(load(null));
+  if (typeof window === "undefined") return snapshots[active].state ?? null;
+  initialize();
+  if (!snapshots[active].state) {
+    refresh(active);
+    if (!snapshots[active].state) {
+      active = "demo";
+      refresh(active);
+    }
+    const state = snapshots[active].state;
+    if (state) setVocabulary(getPack(state.pack).vocabulary);
   }
-  return state;
+  return snapshots[active].state ?? null;
 }
 
 /** The current state outside React, for code that just dispatched and needs the result. */
@@ -125,14 +175,18 @@ export function dispatchWithLog(
   meta?: Partial<Omit<LogMeta, "at">>,
   canApply?: (current: DemoState) => boolean,
 ): string | null | false {
-  if (typeof window !== "undefined") refreshFromStorage();
+  initialize();
+  const workspace = active;
+  refreshFromStorage();
   const now = Date.now();
   const logMeta = { ...defaultMeta(action, now), ...meta, at: now };
   while (true) {
     const current = getSnapshot();
-    if (!current || (canApply && !canApply(current))) return false;
+    if (!current || active !== workspace || (canApply && !canApply(current))) return false;
     const next = applyAction(current, action, logMeta);
     if (next === current) return false;
+    // Includes undo, which can restore a previously free address.
+    if (next.salon.slug !== current.salon.slug && next.salon.slug === workspaceSlug(active === "demo" ? "own" : "demo")) return false;
     // Run the booking rules again if another tab wrote while we prepared the save.
     if (!setState(next, action.type === "online/book" || !!canApply)) continue;
     const logId = next.log[0]?.id;
@@ -152,28 +206,34 @@ async function bookingReceipts(): Promise<Cache | undefined> {
 }
 
 async function withBookingReceipt<T>(write: (required?: BookingReceipt) => T, reset = false): Promise<T | false> {
+  initialize();
+  const workspace = active;
+  const snapshot = snapshots[workspace];
   if (typeof window === "undefined" || !navigator.locks) return write();
-  return navigator.locks.request(STORAGE_KEY, async () => {
+  return navigator.locks.request(storageKey(workspace), async () => {
     const receipts = await bookingReceipts();
+    if (workspace !== active) return false;
     if (!receipts) return write();
-    const receiptKey = new URL("/concept-booking-sequence", window.location.origin).href;
+    const receiptKey = new URL(workspace === primary ? "/concept-booking-sequence" : `/concept-booking-sequence-${workspace}`, window.location.origin).href;
     const receipt = await receipts.match(receiptKey).catch(() => undefined);
     const latest: BookingReceipt | undefined = await receipt?.json().catch(() => undefined);
     const required = latest?.day === today() ? latest : undefined;
     if (required && !reset) {
       // A missing snapshot can still be an older renderer's view of storage.
       for (let attempt = 0; ; attempt++) {
+        if (workspace !== active) return false;
         refreshFromStorage();
-        if (savedVersion?.day === required.day && savedVersion.seq >= required.seq) break;
+        if (snapshot.version?.day === required.day && snapshot.version.seq >= required.seq) break;
         if (attempt === 40) return false;
         await new Promise(resolve => window.setTimeout(resolve, 25));
       }
     }
-    const before = lastWrittenVersion;
+    if (workspace !== active) return false;
+    const before = snapshot.lastWrite;
     const result = write(required);
-    if (lastWrittenVersion && lastWrittenVersion !== before) {
+    if (snapshot.lastWrite && snapshot.lastWrite !== before) {
       // A storage quota error must not hide an appointment already saved.
-      await receipts.put(receiptKey, Response.json(lastWrittenVersion)).catch(() => undefined);
+      await receipts.put(receiptKey, Response.json(snapshot.lastWrite)).catch(() => undefined);
     }
     return result;
   });
@@ -183,16 +243,68 @@ export function withBookingLock<T>(confirm: () => T): Promise<T | false> {
   return withBookingReceipt(confirm);
 }
 
-/** Rebuilds the demo for a business setup (industry pack, team size, modules). Without one it is the original Salong Eko. */
+function workspaceSlug(workspace: Workspace) {
+  initialize();
+  refresh(workspace);
+  return snapshots[workspace].state?.salon.slug;
+}
+
+export function useWorkspaceSlug(workspace: Workspace) {
+  return useSyncExternalStore(subscribe, () => workspaceSlug(workspace), () => undefined);
+}
+
+function select(workspace: Workspace) {
+  active = workspace;
+  try { window.sessionStorage.setItem(SELECTION_KEY, workspace); }
+  catch { /* Keep the selection in memory. */ }
+  notify();
+}
+
+/** The existing sample-business chooser and explicit demo reset. */
 export async function startBusiness(setup?: BusinessSetup): Promise<void> {
+  initialize();
+  if (active !== "demo") select("demo");
   await withBookingReceipt(required => {
+    refreshFromStorage();
     const next = createDemoState(today(), setup);
-    if (typeof window !== "undefined") refreshFromStorage();
-    // Supersede the previous receipt so stale tabs must also wait for this reset.
-    const currentSeq = state?.generatedFor === next.generatedFor ? state.seq : 0;
-    next.seq = Math.max(next.seq, currentSeq + 1, (required?.seq ?? 0) + 1);
-    setState(next);
+    next.seq = Math.max(next.seq, (snapshots.demo.state?.seq ?? 0) + 1, (required?.seq ?? 0) + 1);
+    return setState(next);
   }, true);
+}
+
+/** Serialize address allocation across setup and the address editor in both workspaces. */
+export function withAddressLock<T>(change: () => T): Promise<T | false> {
+  initialize();
+  const workspace = active;
+  if (!navigator.locks) return Promise.resolve(change());
+  return navigator.locks.request("concept-salon-address", () => workspace === active ? change() : false);
+}
+
+export async function switchSalon(to: Workspace, draft?: SalonDraft) {
+  initialize();
+  const open = () => {
+    refresh(to);
+    if (snapshots[to].state && draft) return false;
+    if (!snapshots[to].state) {
+      if (to !== "own" || !draft) return false;
+      if (!checkNewSlug(draft.slug || suggestedSlug(draft), workspaceSlug("demo")).ok) return false;
+      const next = createSalon(today(), draft);
+      const raw = JSON.stringify(next);
+      try { window.localStorage.setItem(storageKey(to), raw); }
+      catch { return false; }
+      snapshots[to] = { raw, state: next, version: { day: next.generatedFor, seq: next.seq } };
+    }
+    select(to);
+    return true;
+  };
+  return draft ? withAddressLock(open) : open();
+}
+
+/** The booking URL selects its workspace only in the tab opening the link. */
+export function openBookingWorkspace(slug: string) {
+  if (getSnapshot()?.salon.slug === slug) return;
+  const other = active === "demo" ? "own" : "demo";
+  if (workspaceSlug(other) === slug) select(other);
 }
 
 export function useDemo(): DemoState | null {

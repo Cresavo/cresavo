@@ -6,13 +6,15 @@ import { preferredStaffOf } from "../../assistant/memory";
 import { GuestFields } from "../../booking/guest-fields";
 import { isFree, needOf } from "../../data/slots";
 import type { DateKey, StaffId } from "../../data/types";
+import { staffViewer } from "../../ops/access";
+import { useRole } from "../../ops/role";
 import { t } from "../../i18n";
 import { formatDayLong, formatDuration, formatMoney, formatTime } from "../../i18n/format";
 import { findCustomer, fullName } from "../../selectors";
 import { dispatchWithLog, withBookingLock } from "../../store";
 import { Avatar } from "../../ui/avatar";
 import { Button } from "../../ui/button";
-import { Field, SearchInput, TextInput } from "../../ui/controls";
+import { Field, SearchInput, Select, TextInput } from "../../ui/controls";
 import { cx } from "../../ui/cx";
 import { Notice } from "../../ui/notice";
 import { Sheet } from "../../ui/sheet";
@@ -41,16 +43,18 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
   const [failed, setFailed] = useState(false);
   const [pending, setPending] = useState(false);
   const presetCustomer = findCustomer(state, preset.customerId);
+  const viewer = useRole() === "staff" ? staffViewer(state) : null;
+  const services = viewer ? state.services.filter(service => service.staffIds.includes(viewer.id)) : state.services;
   const firstService =
-    state.services.find((s) => s.id === preset.serviceId) ??
-    state.services.find((s) => preset.staffId && preset.date && preset.start !== undefined &&
+    services.find((s) => s.id === preset.serviceId) ??
+    services.find((s) => preset.staffId && preset.date && preset.start !== undefined &&
       s.staffIds.includes(preset.staffId) && isFree(state, preset.staffId, preset.date, preset.start, needOf(s))) ??
-    state.services.find((s) => s.staffIds.includes(preset.staffId ?? (presetCustomer ? preferredStaffOf(state, presetCustomer) : "anna"))) ??
-    state.services[0];
+    services.find((s) => s.staffIds.includes(preset.staffId ?? (presetCustomer ? preferredStaffOf(state, presetCustomer) : "anna"))) ??
+    services[0];
   const [serviceId, setServiceId] = useState(firstService?.id);
-  const service = state.services.find((s) => s.id === serviceId) ?? firstService;
-  // A treatment several people can do goes to the person the sheet was opened for, otherwise the first.
-  const staffId = service?.staffIds.find((id) => id === preset.staffId) ?? service?.staffIds[0];
+  const service = services.find((s) => s.id === serviceId) ?? firstService;
+  const [chosenStaff, setChosenStaff] = useState<string | undefined>(preset.staffId);
+  const staffId = viewer?.id ?? service?.staffIds.find(id => id === chosenStaff) ?? service?.staffIds[0];
   const [date, setDate] = useState(preset.date ?? today);
   const [picked, setSlot] = useState<(Slot & { staffId?: StaffId }) | null>(
     preset.date !== undefined && preset.start !== undefined ? { date: preset.date, start: preset.start, staffId: preset.staffId } : null,
@@ -158,7 +162,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
         <section className="space-y-2">
           <h3 className="text-sm font-medium">{t("newBooking.treatment")}</h3>
           <div className="grid gap-2 sm:grid-cols-2">
-            {state.services.map((s) => (
+            {services.map((s) => (
               <button
                 key={s.id}
                 aria-pressed={s.id === service.id}
@@ -171,7 +175,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
                 <span className="min-w-0">
                   <span className="block font-medium leading-snug">{s.name}</span>
                   <span className="block text-xs text-text-secondary">
-                    {formatDuration(s.duration)} · {state.staff.find((p) => p.id === s.staffIds[0])?.firstName}
+                    {formatDuration(s.duration)} · {state.staff.filter(p => s.staffIds.includes(p.id) && (!viewer || p.id === viewer.id)).map(p => p.firstName).join(", ")}
                   </span>
                 </span>
                 <span className="shrink-0 tabular-nums text-text-secondary">{formatMoney(s.price)}</span>
@@ -180,6 +184,12 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
           </div>
         </section>
 
+        {!viewer && service.staffIds.length > 1 && <Field label={t("calendar.staff")}>
+          <Select value={staffId} onChange={e => { setChosenStaff(e.target.value); setSlot(null); setFailed(false); }}>
+            {state.staff.filter(person => service.staffIds.includes(person.id)).map(person =>
+              <option key={person.id} value={person.id}>{fullName(person)}</option>)}
+          </Select>
+        </Field>}
         <section className="space-y-2">
           <h3 className="text-sm font-medium">{t("newBooking.time")}</h3>
           <SlotPicker staffId={staffId} need={needOf(service)} date={date} onDateChange={(next) => { setDate(next); setSlot(null); setFailed(false); }} value={slot} onChange={(next) => { setSlot({ ...next, staffId }); setFailed(false); }} />

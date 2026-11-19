@@ -72,7 +72,7 @@ export function CancellationPolicy({ state }: { state: DemoState }) {
   return (
     <Section title={t("booking.policy.title")}>
       <p className="text-sm text-text-secondary">
-        {t("booking.policy.free", { hours: FREE_CHANGE_HOURS })} {t("booking.policy.late", { phone: state.salon.phone })}
+        {t("booking.policy.free", { hours: FREE_CHANGE_HOURS })} {state.salon.phone && t("booking.policy.late", { phone: state.salon.phone })}
       </p>
     </Section>
   );

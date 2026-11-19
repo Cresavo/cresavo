@@ -12,6 +12,7 @@ const aiSummaries = new Map<string, string>();
 /** One line about the customer. The rule text shows at once; an AI phrasing replaces it when a key is configured. */
 export function CustomerSummary({ customer }: { customer: Customer }) {
   const { state } = useStudio();
+  const localOnly = !!state.industry;
   const facts = useMemo(() => buildCustomerFacts(state, customer), [state, customer]);
   const key = JSON.stringify(facts);
   const [, refresh] = useState(0);
@@ -19,8 +20,8 @@ export function CustomerSummary({ customer }: { customer: Customer }) {
   useEffect(() => {
     if (aiSummaries.has(key)) return;
     let current = true;
-    isAiConfigured()
-      .then((configured) => (configured ? runAiTask<{ summary: string }>("summarize-customer", facts) : null))
+    isAiConfigured(localOnly)
+      .then((configured) => (configured ? runAiTask<{ summary: string }>("summarize-customer", facts, localOnly) : null))
       .then((result) => {
         if (!current || !result || result.log.source !== "ai") return;
         aiSummaries.set(key, result.output.summary);
@@ -30,9 +31,9 @@ export function CustomerSummary({ customer }: { customer: Customer }) {
     return () => {
       current = false;
     };
-  }, [key, facts]);
+  }, [key, facts, localOnly]);
 
-  const aiText = aiSummaries.get(key);
+  const aiText = localOnly ? undefined : aiSummaries.get(key);
   return (
     <p className="flex items-start gap-2 rounded-md bg-surface-2 px-3.5 py-3 text-[15px] leading-relaxed">
       <span>

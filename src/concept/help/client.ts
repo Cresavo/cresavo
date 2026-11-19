@@ -25,10 +25,10 @@ function fetchArticles(): Promise<HelpArticle[]> {
 }
 
 /** Asks the `answer-help` task. Only ids of known articles are accepted from the answer. */
-export async function askHelp(question: string): Promise<HelpReply> {
+export async function askHelp(question: string, localOnly: boolean): Promise<HelpReply> {
   const all = await fetchArticles();
   const articles = all.map(({ id, title, keywords, body }) => ({ id, title, keywords, body }));
-  const { output, log, requestId } = await runAiTask<{ answer: string; articleIds: string[] }>("answer-help", { question, articles });
+  const { output, log, requestId } = await runAiTask<{ answer: string; articleIds: string[] }>("answer-help", { question, articles }, localOnly);
   const used = output.articleIds.flatMap((id) => all.find((article) => article.id === id) ?? []);
   return { answer: used.length ? output.answer : "", articles: used, source: log.source, requestId };
 }

@@ -43,6 +43,15 @@ export default function CustomersPage() {
     (c) => !q || fullName(c).toLowerCase().includes(q) || phoneMatches(c.phone, q),
   );
 
+  if (state.industry && !studio.customers.length) {
+    return <>
+      <PageHeader title={t("customers.title")} />
+      <EmptyState icon={<UserSearch size={22} />} title={t("setup.empty.customers")} action={viewer
+        ? <ButtonLink href="/studio/calendar">{t("nav.calendar")}</ButtonLink>
+        : <ButtonLink href="/studio/customers/import">{t("customers.import")}</ButtonLink>} />
+    </>;
+  }
+
   return (
     <>
       <PageHeader

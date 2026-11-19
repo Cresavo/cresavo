@@ -1,7 +1,8 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { Role } from "./access";
+import { currentState } from "../store";
+import { staffViewer, type Role } from "./access";
 
 // The demo's Owner / Staff switch, kept in the browser. Not authentication.
 
@@ -19,6 +20,8 @@ function read(): Role {
 }
 
 export function currentRole(): Role {
+  const salon = currentState();
+  if (salon && !staffViewer(salon)) return "owner";
   role ??= read();
   return role;
 }

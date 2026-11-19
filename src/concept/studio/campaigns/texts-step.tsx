@@ -30,14 +30,14 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
     const current = latest.current;
     if (current.copyFor === signature) return;
     const offer = draftOffer(state, current);
-    const link = draftLink(current);
+    const link = draftLink(state, current);
     const copy = Object.fromEntries(CHANNELS.map((channel) => [channel, rulesCopy(channel, offer, link, language)])) as Record<Channel, string>;
     onChange({ copy, copyFor: signature });
     let cancelled = false;
-    void isAiConfigured().then((ready) => {
+    void isAiConfigured(!!state.industry).then((ready) => {
       if (!ready) return;
       for (const channel of CHANNELS) {
-        runAiTask<{ text: string; hashtags: string[] }>("write-post", { offer, channel, locale: language })
+        runAiTask<{ text: string; hashtags: string[] }>("write-post", { offer, channel, locale: language }, !!state.industry)
           .then(({ output, log }) => {
             const now = latest.current;
             if (cancelled || log.source !== "ai" || now.copyFor !== signature || now.copy[channel] !== copy[channel]) return;
@@ -55,7 +55,7 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
 
   const rewrite = () => {
     const offer = draftOffer(state, draft);
-    const link = draftLink(draft);
+    const link = draftLink(state, draft);
     onChange({ copy: Object.fromEntries(CHANNELS.map((channel) => [channel, rulesCopy(channel, offer, link, language)])), copyFor: signature });
   };
 

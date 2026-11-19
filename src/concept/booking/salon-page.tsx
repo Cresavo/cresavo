@@ -42,7 +42,7 @@ export function SalonPage() {
       case "hero":
         return <Hero state={state} now={now} variant={variant} photo={theme.heroPhoto} />;
       case "treatments":
-        return inFlow ? null : (
+        return inFlow || !state.services.length ? null : (
           <section className="space-y-4">
             <h2 className="text-xl font-semibold tracking-tight">{t("booking.treatments")}</h2>
             <Treatments state={state} onBook={book} compact={variant === "compact"} />
@@ -69,7 +69,7 @@ export function SalonPage() {
   const topIsHero = first?.kind === "hero";
   const flow = (
     <section id="book" data-booking-flow className="scroll-mt-4" aria-label={t("booking.ask.title")}>
-      <BookingWizard key={preset?.count ?? params?.toString()} state={state} now={now} initialServiceId={initial} initialStaffId={preset ? undefined : state.staff.find(person => person.id === params?.get("staff"))?.id} onFlowChange={setInFlow} listOnPage={sections.some((s) => s.kind === "treatments")} />
+      {!state.services.length ? <p className="rounded-lg bg-surface p-4">{t("booking.menuSoon")}</p> : <BookingWizard key={preset?.count ?? params?.toString()} state={state} now={now} initialServiceId={initial} initialStaffId={preset ? undefined : state.staff.find(person => person.id === params?.get("staff"))?.id} onFlowChange={setInFlow} listOnPage={sections.some((s) => s.kind === "treatments")} />}
     </section>
   );
   const policy = <CancellationPolicy state={state} />;
@@ -103,7 +103,7 @@ function Location({ state, now, variant }: { state: DemoState; now: Now; variant
   return (
     <div className="space-y-6">
       {variant === "full" && <OpeningHours state={state} now={now} />}
-      <FindUs state={state} />
+      {state.salon.address && <FindUs state={state} />}
     </div>
   );
 }

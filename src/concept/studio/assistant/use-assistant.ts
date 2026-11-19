@@ -22,15 +22,15 @@ import { addMessages, messageId, refineReply, replyOf, startNewThread, updateRep
 const ASSISTANT = { actor: "owner", source: "assistant" } as const;
 
 /** Whether the server has an AI model; rechecked when settings change. */
-export function useAiReady(): boolean {
+export function useAiReady(localOnly: boolean): boolean {
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    const refresh = () => void isAiConfigured().then(setReady);
+    const refresh = () => void isAiConfigured(localOnly).then(setReady);
     refresh();
     window.addEventListener("concept-ai-settings", refresh);
     return () => window.removeEventListener("concept-ai-settings", refresh);
-  }, []);
-  return ready;
+  }, [localOnly]);
+  return !localOnly && ready;
 }
 
 /** Everything the panel does: send a message, approve or decline a card, remember, switch on a routine. */
@@ -38,7 +38,8 @@ export function useAssistant() {
   const { state, today, minutes } = useStudio();
   const role = useRole();
   const thread = useThread(role);
-  const aiReady = useAiReady();
+  const localOnly = !!state.industry;
+  const aiReady = useAiReady(localOnly);
   const examples = useMemo(
     // The owner's examples mix questions with quick commands, since the panel is also where commands are typed (Ctrl/Cmd+K).
     () => (role === "owner" ? [t("assistant.example.next"), t("assistant.example.room", { service: state.services[0]?.name ?? "" }), ...commandExamples(state, today, role).slice(0, 2), t("assistant.example.compare")] : [t("assistant.example.next"), ...commandExamples(state, today, role)]),
@@ -70,7 +71,7 @@ export function useAssistant() {
     if (refining) {
       // The rules answer at once; a model's reading of the same words replaces it (and the context) a moment later,
       // unless the owner has acted on the card or moved on. Nothing changes until approved.
-      runAiTask<IntentResult>("interpret-command", { text: outcome.understood, context: buildIntentContext(state, today, minutes) })
+      runAiTask<IntentResult>("interpret-command", { text: outcome.understood, context: buildIntentContext(state, today, minutes) }, localOnly)
         .then(({ output, log }) => {
           if (log.source !== "ai") {
             updateReply(answer.id, {}, role);
@@ -91,7 +92,7 @@ export function useAssistant() {
       speakReply(outcome.reply.text);
       return;
     }
-    runAiTask<{ reply: string }>("assistant-reply", replyRequest(currentState() ?? state, [...before, question], outcome.understood, outcome.reply))
+    runAiTask<{ reply: string }>("assistant-reply", replyRequest(state, [...before, question], outcome.understood, outcome.reply), localOnly)
       .then(({ output, log }) => {
         if (log.source !== "ai") return outcome.reply.text;
         updateReply(answer.id, { text: output.reply, source: "ai" }, role);

@@ -1,3 +1,4 @@
+import type { Industry } from "../onboarding/salon";
 import type { BusinessLocalization } from "../i18n/business";
 // Data model for the clickable demo. No database: everything is generated
 // deterministically in `generate.ts` and kept in the browser (see `../store.ts`).
@@ -15,7 +16,7 @@ import type { TrashEntry } from "../trash/trash";
 /** Local calendar day, "YYYY-MM-DD". */
 export type DateKey = string;
 
-export type StaffId = "anna" | "erik";
+export type StaffId = "anna" | "erik" | `staff-${number}`;
 /** Industry pack the demo business belongs to. */
 export type PackId = "foot-massage" | "hair" | "nails" | "trainer" | "clinic";
 /** The category ids the industry packs start from; every pack has two. An owner can add their own (see `ServiceCategory`). */
@@ -377,9 +378,11 @@ export interface ServicePackage {
 export type ModuleKey = "journal" | "stock" | "campaigns" | "finance" | "reviews" | "waitlist" | "assistant" | "giftcards" | "packages" | "domain";
 
 export interface DemoState {
+  /** Null for generated example businesses. */
+  industry: Industry | null;
   version: number;
   pack: PackId;
-  /** Day the data was generated for. A new day regenerates the data. */
+  /** Date of the snapshot. Only sample businesses regenerate on a new day. */
   generatedFor: DateKey;
   seq: number;
   salon: Salon;

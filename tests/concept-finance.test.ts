@@ -6,6 +6,7 @@ import { buildIntentContext } from "@/concept/command/intent-context";
 import { commandExamples } from "@/concept/command/examples";
 import { proposalFor } from "@/concept/command/proposal";
 import { createDemoState } from "@/concept/data/generate";
+import { bookingsCsv } from "@/concept/studio/more/export";
 import { exportRange, salesCsv, salesPerDay, sieFile, vatIn } from "@/concept/finance/accounting";
 import { earningsPerHour, figuresFromBookings, monthFigures, occupancy } from "@/concept/finance/figures";
 import { buildOverview, changeShare } from "@/concept/finance/overview";
@@ -142,6 +143,14 @@ describe("bookkeeping export", () => {
     expect(lines[0]).toBe("date,visits,sales_ex_vat_sek,vat_sek,total_sek");
     expect(lines).toHaveLength(salesPerDay(state, exportRange(clock), clock).length + 1);
     expect(lines[1]).toMatch(/^2026-08-\d\d,\d+,\d+\.\d\d,\d+\.\d\d,\d+\.\d\d$/);
+  });
+
+  it.each(["EUR", "GBP", "USD"])("labels booking and accounting exports in %s", currency => {
+    const salon = { ...state, localization: { ...state.localization, currency } };
+    const unit = currency.toLowerCase();
+    expect(bookingsCsv(salon).split("\n")[0]).toContain(`,price_${unit},`);
+    expect(salesCsv(salon, clock).split("\n")[0]).toBe(`date,visits,sales_ex_vat_${unit},vat_${unit},total_${unit}`);
+    expect(sieFile(salon, clock)).toContain(`#VALUTA ${currency}\r\n`);
   });
 
   it("writes a SIE file whose vouchers all balance", () => {

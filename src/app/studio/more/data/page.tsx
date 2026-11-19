@@ -9,6 +9,7 @@ import { ConnectSection, ProtocolList, useProtocolInfo } from "@/concept/studio/
 import { MorePage } from "@/concept/studio/more/more-page";
 import { OwnKeyForm } from "@/concept/studio/more/own-key-form";
 import { useStudio } from "@/concept/studio/use-studio";
+import { dispatchWithUndoToast } from "@/concept/studio/log/undo-toast";
 import { Button } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
 
@@ -16,9 +17,9 @@ export default function DataPage() {
   const { state, today } = useStudio();
   const { info, failed } = useProtocolInfo();
   const exports = [
-    { label: t("data.export.all"), run: () => download(`salong-eko-${today}.json`, JSON.stringify(state, null, 2), "application/json") },
-    { label: t("data.export.customers"), run: () => download(`salong-eko-customers-${today}.csv`, customersCsv(state), "text/csv") },
-    { label: t("data.export.bookings"), run: () => download(`salong-eko-bookings-${today}.csv`, bookingsCsv(state), "text/csv") },
+    { label: t("data.export.all"), run: () => download(`${state.salon.slug}-${today}.json`, JSON.stringify(state, null, 2), "application/json") },
+    { label: t("data.export.customers"), run: () => download(`${state.salon.slug}-customers-${today}.csv`, customersCsv(state), "text/csv") },
+    { label: t("data.export.bookings"), run: () => download(`${state.salon.slug}-bookings-${today}.csv`, bookingsCsv(state), "text/csv") },
   ];
 
   return (
@@ -35,16 +36,21 @@ export default function DataPage() {
             </div>
           </Card>
         </Section>
-        <Section title={t("data.connect")}>
+        <div id="connect"><Section title={t("data.connect")}>
           {/* The public demo's server only reads: no outside assistant can connect, so the setup steps would lead nowhere. */}
-          {PUBLIC_DEMO ? <Card className="p-5 text-[15px] text-text-secondary">{t("data.publicDemo")}</Card> : <ConnectSection info={info} failed={failed} />}
-        </Section>
+          {state.industry ? <Card className="space-y-3 p-5">
+            <p>{t("setup.assistantHint")}</p>
+            <Button variant="secondary" disabled={state.modules.assistant} onClick={() => dispatchWithUndoToast({ type: "module/toggle", key: "assistant" }, t("setup.assistantReady"))}>
+              {t(state.modules.assistant ? "setup.assistantReady" : "setup.enableAssistant")}
+            </Button>
+          </Card> : PUBLIC_DEMO ? <Card className="p-5 text-[15px] text-text-secondary">{t("data.publicDemo")}</Card> : <ConnectSection info={info} failed={failed} />}
+        </Section></div>
       </div>
       <div className="mt-8 space-y-8">
         <Section title={t("data.ai")}>
-          <AiSection />
+          {state.industry ? <Card className="p-5">{t("ai.localRules")}</Card> : <AiSection />}
         </Section>
-        {!PUBLIC_DEMO && (
+        {!state.industry && !PUBLIC_DEMO && (
           <Section title={t("ai.ownKeySection")}>
             <OwnKeyForm />
           </Section>

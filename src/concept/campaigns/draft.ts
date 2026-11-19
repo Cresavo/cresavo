@@ -4,7 +4,8 @@ import { t } from "../i18n";
 import { serviceCopy } from "../i18n/salon-eko-copy";
 import { CHANNELS } from "./channels";
 import { listServices, offerText } from "./copy";
-import { trackingLink } from "./links";
+import { bookingHome } from "../booking/links";
+import { campaignCode, trackingLink } from "./links";
 import type { CampaignPrefill } from "./prefill";
 
 /** A campaign being made in the studio, before it is published. */
@@ -27,8 +28,8 @@ export function newDraft(prefill: CampaignPrefill): Draft {
 export function defaultPrefill(state: DemoState, today: DateKey): CampaignPrefill {
   const service = state.services[0];
   return {
-    name: t("campaigns.name.discount", { percent: 10, service: service.name }),
-    serviceIds: [service.id],
+    name: service ? t("campaigns.name.discount", { percent: 10, service: service.name }) : "",
+    serviceIds: service ? [service.id] : [],
     discountPercent: 10,
     from: today,
     to: addDays(today, 13),
@@ -39,7 +40,12 @@ export function serviceNames(state: DemoState, draft: Pick<Draft, "serviceIds">)
   return state.services.filter((s) => draft.serviceIds.includes(s.id)).map((s) => s.name);
 }
 
-export function draftLink(draft: Pick<Draft, "name" | "from">): string {
+export function draftLink(state: DemoState, draft: Pick<Draft, "name" | "from">, origin?: string): string {
+  if (state.industry) {
+    const url = new URL(bookingHome(state.salon.slug), origin ?? window.location.origin);
+    url.searchParams.set("campaign", campaignCode(draft.name, draft.from));
+    return url.href;
+  }
   return trackingLink(draft.name, draft.from);
 }
 
@@ -51,7 +57,7 @@ export function draftOffer(state: DemoState, draft: Draft): string {
 }
 
 export function offerSignature(state: DemoState, draft: Draft): string {
-  return `${state.localization.language}|${draftOffer(state, draft)}|${draftLink(draft)}`;
+  return `${state.localization.language}|${draftOffer(state, draft)}|${draftLink(state, draft)}`;
 }
 
 /** The poster as shown: the owner's edits on top of what follows from the offer. */

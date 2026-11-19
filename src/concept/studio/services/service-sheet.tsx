@@ -94,7 +94,7 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
           <Field label={t("services.duration")}>
             <TextInput type="number" inputMode="numeric" min={MIN_DURATION} max={MAX_DURATION} step={DURATION_STEP} value={duration} onChange={(e) => setDuration(e.target.value)} aria-invalid={!!problem("duration")} />
           </Field>
-          <Field label={t("services.price")}>
+          <Field label={t("setup.price", { currency: state.localization.currency })}>
             <TextInput type="number" inputMode="numeric" min={0} step={5} value={price} onChange={(e) => setPrice(e.target.value)} aria-invalid={!!problem("price")} />
           </Field>
         </div>

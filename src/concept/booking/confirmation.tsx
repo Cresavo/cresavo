@@ -64,7 +64,7 @@ export function Confirmation({ id }: { id: string }) {
         </div>
         <p className="flex items-start gap-2 text-sm text-text-secondary">
           <MapPin size={16} className="mt-0.5 shrink-0" />
-          {state.salon.name}, {state.salon.address}, {state.salon.area}
+          {[state.salon.name, state.salon.address, state.salon.area].filter(Boolean).join(", ")}
         </p>
         <p className="border-t border-hairline pt-3 text-sm">
           <strong>{formatMoney(booking.price)}</strong> · {t("booking.payAtSalon")}
