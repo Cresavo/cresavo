@@ -8,6 +8,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-19
+
 ### Added
 - The studio now has shared accessible controls, form feedback, consent dialogs and motion for both themes, with a development-only component gallery.
 - The API platform plan and architecture decisions document current REST and MCP coverage. API parity tests require every module to declare its resources and keep the published coverage table in sync.
