@@ -28,17 +28,17 @@ export function StaffSchedule({ person }: { person: Staff }) {
         <p className="text-sm text-text-secondary">{t("schedule.week")}</p>
         <Button size="sm" variant="ghost" icon={<Pencil size={16} />} onClick={() => setOpen("week")}>{t("schedule.editWeek")}</Button>
       </div>
-      <div className="grid grid-cols-7 gap-1 rounded-md bg-surface-2 py-2">
+      <dl className="grid grid-cols-[repeat(auto-fit,minmax(6rem,1fr))] gap-x-3 gap-y-2 rounded-md bg-surface-2 p-3">
         {WEEK_ORDER.map((d) => {
           const shift = person.week[d];
           return (
-            <div key={d} className="min-w-0 text-center">
-              <p className={shift ? "text-[13px] font-medium" : "text-[13px] text-text-secondary"}>{words.weekdaysShort[d]}</p>
-              <p className="mt-0.5 text-[11px] leading-tight tabular-nums text-text-secondary">{shift ? `${formatTime(shift.start).slice(0, 2)}–${formatTime(shift.end).slice(0, 2)}` : "–"}</p>
+            <div key={d}>
+              <dt className="text-sm font-medium">{words.weekdaysShort[d]}</dt>
+              <dd className="text-sm tabular-nums text-text-secondary">{shift ? `${formatTime(shift.start)}–${formatTime(shift.end)}` : t("calendar.off")}</dd>
             </div>
           );
         })}
-      </div>
+      </dl>
       {exceptions.length > 0 && (
         <ul className="space-y-1.5">
           {exceptions.map((e) => (

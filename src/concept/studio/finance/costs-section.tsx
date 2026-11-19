@@ -13,6 +13,7 @@ import { Card, Section } from "../../ui/card";
 import { ColumnChart } from "../../ui/charts";
 import { Field, Select, TextInput } from "../../ui/controls";
 import { useStudio } from "../use-studio";
+import { dispatchWithUndoToast } from "../log/undo-toast";
 
 const MONTHS_SHOWN = 6;
 
@@ -48,7 +49,7 @@ export function CostsSection() {
                   <Badge className="mt-0.5">{t(`finance.kind.${cost.kind}`)}</Badge>
                 </span>
                 <span className="shrink-0 text-sm font-medium tabular-nums">{formatMoney(cost.amount)}</span>
-                <IconButton label={t("finance.removeCost", { name: cost.label })} onClick={() => dispatch({ type: "cost/remove", id: cost.id })}>
+                <IconButton label={t("finance.removeCost", { name: cost.label })} onClick={() => dispatchWithUndoToast({ type: "cost/remove", id: cost.id }, t("log.costRemove", { label: cost.label }))}>
                   <X size={16} />
                 </IconButton>
               </li>

@@ -50,7 +50,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
     services.find((s) => preset.staffId && preset.date && preset.start !== undefined &&
       s.staffIds.includes(preset.staffId) && isFree(state, preset.staffId, preset.date, preset.start, needOf(s))) ??
     services.find((s) => s.staffIds.includes(preset.staffId ?? (presetCustomer ? preferredStaffOf(state, presetCustomer) : "anna"))) ??
-    services[0];
+    (preset.staffId && !viewer ? undefined : services[0]);
   const [serviceId, setServiceId] = useState(firstService?.id);
   const service = services.find((s) => s.id === serviceId) ?? firstService;
   const [chosenStaff, setChosenStaff] = useState<string | undefined>(preset.staffId);
@@ -67,7 +67,10 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
     : [];
 
   if (!service || !staffId) {
-    return <Sheet open onClose={onClose} title={t("newBooking.title")}><Notice tone="info">{t("newBooking.noTreatments")}</Notice></Sheet>;
+    const person = viewer ?? state.staff.find((person) => person.id === preset.staffId);
+    return <Sheet open onClose={onClose} title={t("newBooking.title")}>
+      <Notice tone="info">{person ? t("newBooking.noStaffTreatments", { name: person.firstName }) : t("newBooking.noTreatments")}</Notice>
+    </Sheet>;
   }
 
   const fits = !!slot && (!slot.staffId || slot.staffId === staffId) && slot.date >= today && (slot.date !== today || slot.start >= minutes) &&

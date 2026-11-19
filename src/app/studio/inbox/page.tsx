@@ -94,7 +94,10 @@ export default function InboxPage() {
       <Segmented<Filter>
         label={t("inbox.filter")}
         value={filter}
-        onChange={setFilter}
+        onChange={(next) => {
+          if (next !== filter && selected && !matches[next](selected)) setSelectedId(null);
+          setFilter(next);
+        }}
         className="mb-4 w-full sm:w-auto"
         options={[
           { value: "all", label: t("inbox.filter.all") },
@@ -119,7 +122,7 @@ export default function InboxPage() {
             <Card className="p-6">
               <InboxDetail key={selected.id} item={selected} />
             </Card>
-          ) : (
+          ) : items.length > 0 && (
             <EmptyState icon={<MousePointerClick size={22} />} title={t("inbox.pick")} text={t("inbox.pickText")} />
           )}
         </div>

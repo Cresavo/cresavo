@@ -141,7 +141,7 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
             readOnly={speech.listening}
             onChange={(event) => setText(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) submit(event);
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) submit(event);
             }}
             placeholder={speech.listening ? t("command.listening") : t("assistant.placeholder")}
             aria-label={t("assistant.message")}
