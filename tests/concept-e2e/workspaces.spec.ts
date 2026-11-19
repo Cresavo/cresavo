@@ -1,13 +1,16 @@
 import { expect, test, type Page } from "@playwright/test";
+import type { DemoState } from "../../src/concept/data/types";
 import { createDemoState } from "../../src/concept/data/generate";
 import { createSalon, salonDraft } from "../../src/concept/onboarding/salon";
 import { salonClock } from "../../src/concept/tools/clock";
 
 const today = salonClock().today;
 
-async function seed(page: Page, people = ["Lo Demo"], currency = "SEK") {
+async function seed(page: Page, people = ["Lo Demo"], currency = "SEK", modules: Partial<DemoState["modules"]> = {}) {
   const demo = createDemoState(today);
-  const own = createSalon(today, { ...salonDraft("en"), name: "Studio Vide", people, currency });
+  const created = createSalon(today, { ...salonDraft("en"), name: "Studio Vide", people, currency });
+  // New salons start with every add-on off; a test that needs one switches it on, as the owner would.
+  const own = { ...created, modules: { ...created.modules, ...modules } };
   await page.addInitScript(({ demo, own }) => {
     if (localStorage.getItem("salong-eko-demo")) return;
     localStorage.setItem("salong-eko-demo", JSON.stringify(demo));
@@ -136,7 +139,7 @@ test("local AI settings show browser rules without contacting the server AI sett
 });
 
 test("the first cost uses the salon currency and campaign copy and poster use its booking URL", async ({ page }) => {
-  await seed(page, ["Lo Demo"], "EUR");
+  await seed(page, ["Lo Demo"], "EUR", { finance: true, campaigns: true });
   await page.goto("/studio/more/finance");
   await page.getByRole("button", { name: "Add a monthly cost" }).click();
   await page.getByLabel("Per month (EUR)").fill("75");

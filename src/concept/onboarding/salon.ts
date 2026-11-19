@@ -111,7 +111,8 @@ export function createSalon(today: string, draft: SalonDraft, options: CreateOpt
   const roster = draft.people.length ? draft.people : [""];
   const staff = roster.flatMap((person, index): Staff[] => {
     if (index && !person.trim()) return [];
-    const [firstName, ...rest] = (person.trim() || name).split(/\s+/);
+    // Without a person's name the owner is shown as the salon ("With Studio Linnea"), never as its first word.
+    const [firstName, ...rest] = person.trim() ? person.trim().split(/\s+/) : [name];
     return [{ id: `staff-${index + 1}`, firstName, lastName: rest.join(" "), role: "", title: "", bio: "", phone: "", week }];
   });
   const state: DemoState = {
