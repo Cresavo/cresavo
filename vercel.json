@@ -1,8 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [{ "path": "/api/pairing/sweep", "schedule": "15 3 * * *" }],
   "framework": "nextjs",
   "regions": [
     "arn1"
   ],
-  "buildCommand": "export DATABASE_URL=postgresql://build@127.0.0.1:1/build_test NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO=1 NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN=cresavo.com && npx prisma generate && next build"
+  "buildCommand": "export DATABASE_URL=postgresql://build@127.0.0.1:1/build_test NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO=1 NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN=cresavo.com && if [ \"$ASSISTANT_PAIRING\" = 1 ] && [ -n \"$PAIRING_DATABASE_URL_UNPOOLED\" ]; then npx prisma migrate deploy --config prisma.pairing.config.ts; fi && npx prisma generate && next build"
 }

@@ -50,6 +50,7 @@ describe("concept languages", () => {
     expect(formatTime(14 * 60)).toBe("14:00");
     expect(formatNumber(1234.5, 1)).toBe("1\u00a0234,5");
     expect(formatMoney(795)).toBe("795\u00a0kr");
+    expect(formatMoney(795.55)).toBe("795,55\u00a0kr");
     setCurrency("EUR");
     expect(formatMoney(795)).toBe("795\u00a0€");
     setLocale("en");

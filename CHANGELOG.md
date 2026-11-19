@@ -10,6 +10,8 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 - Owners can configure cancellation fees and treatment deposits. Customers see the deadline and can pay a simulated deposit, and the studio records fee decisions, balances and refunds.
+- The paired salon assistant can read calendars, customers, treatments, staff and finance, and draft bookings, blocks, cancellations, treatment changes and simulated Inbox replies for owner review. OAuth consent lists permissions by area.
+- A flag-controlled demo lets visitors connect an assistant to a temporary fictional salon, review proposed booking moves live in the studio Inbox and see approved times in the paired calendar.
 - The demo shows the service total, payment split and salon-local cancellation deadline before booking. Studio settings estimate monthly reminder SMS costs and link to the simulated Sent log. Getting started links to a checklist for exporting data and importing customers. Failed booking and payment actions show a copyable reference code.
 - Releases are published automatically when a release pull request merges, with readable notes from `docs/releases/`. [Releasing](docs/RELEASING.md) explains the cadence and how to follow along.
 - The Swedish product page and privacy note live at `/sv` and `/sv/privacy`. The Swedish site links into the demo in Swedish, and the Swedish domains redirect to the main site.
@@ -28,6 +30,11 @@ All notable changes to this project are documented here. Format follows
 ### Fixed
 - Deposit and refund records follow the saved booking, including after a customer is restored. Customers can reopen settled visits from My Bookings, and gift cards retain returned credit after customer deletion.
 - Deposit checkout respects Swish amount limits and remembers a guest’s contact choice across reloads. Gift-card redemptions show the exact amount due, and calendar exports and cancellation deadlines use the same salon clock.
+- The hosted pairing demo uses a dedicated database connection, and Vercel applies pending Prisma migrations through its direct connection when pairing is enabled.
+- Paired assistants need fresh consent to draft new bookings, cancellations and calendar blocks. The studio blocks cancellations once a visit has finished and uses finished visits to calculate when customers are due back.
+- The paired Inbox shows the customer’s message alongside a drafted reply and keeps proposal review working in already-open tabs. Availability proposals name the paired workspace they affect.
+- Treatment prices retain their decimal amounts through approval, activity history and later edits.
+- Paired demo workspaces support independent assistant grants, native loopback callbacks and revocation in the studio. Idle tabs expire, and open calendar edits stay bound to their original booking.
 - Booking summaries account for prepaid packages, past visits show their status, and failed moves stay visible after the time picker closes. Simulated previews keep the management link and separate confirmation channel choices from reminder defaults.
 - Reminder pricing follows the salon’s currency and calendar month. Demo error references can be looked up in browser-local Support access, and gift card lookup errors wait until the code field loses focus.
 - New bookings respect the calendar’s staff filter. Staff schedules show exact shift times, and the mobile week view names each practitioner. Owners can undo a removed cost, clear an empty customer filter and switch studio views with the arrow keys.

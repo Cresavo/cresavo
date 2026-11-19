@@ -55,14 +55,14 @@ export interface CustomerStats {
   nextBooking?: Booking;
 }
 
-export function buildCustomerStats(state: DemoState, today: DateKey): Map<string, CustomerStats> {
+export function buildCustomerStats(state: DemoState, today: DateKey, minutes = 0): Map<string, CustomerStats> {
   const stats = new Map<string, CustomerStats>();
   for (const c of state.customers) stats.set(c.id, { visits: 0, spent: 0 });
   const sorted = [...state.bookings].sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
   for (const b of sorted) {
     const s = stats.get(b.customerId);
     if (!s) continue;
-    if (b.status === "completed") {
+    if (finishedVisit(b, today, minutes)) {
       s.visits += 1;
       s.spent += b.price;
       s.lastVisit = b.date;

@@ -5,6 +5,9 @@ import { translate } from "@/concept/i18n";
 import { BRAND } from "@/concept/brand";
 import { StudioLanguage } from "@/concept/studio/studio-language";
 import { StudioShell } from "@/concept/studio/shell";
+import { headers } from "next/headers";
+import { pairingOrigin } from "@/concept/pairing/policy";
+import { PairingProvider } from "@/concept/studio/pairing/session";
 import "./studio.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -21,11 +24,12 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function StudioLayout({ children }: { children: ReactNode }) {
+export default async function StudioLayout({ children }: { children: ReactNode }) {
+  const enabled = !!pairingOrigin(await headers());
   return (
     <StudioLanguage>
       <div className="studio-root">
-        <StudioShell>{children}</StudioShell>
+        <StudioShell>{enabled ? <PairingProvider>{children}</PairingProvider> : children}</StudioShell>
       </div>
     </StudioLanguage>
   );

@@ -46,6 +46,10 @@ const same = (a: string, b: string) => a.trim().toLocaleLowerCase() === b.trim()
 const nameTaken = (state: DemoState, name: string, category: string, ignoreId?: string) =>
   state.services.some((s) => s.id !== ignoreId && s.category === category && same(s.name, name));
 
+export function validServicePrice(price: number): boolean {
+  return price >= 0 && price <= MAX_PRICE && price === Math.round(price * 100) / 100;
+}
+
 /** What stops a treatment from being saved; empty when it is fine. `ignoreId` is the treatment being edited. */
 export function serviceIssues(state: DemoState, draft: ServiceDraft, ignoreId?: string): ServiceIssue[] {
   const issues: ServiceIssue[] = [];
@@ -54,7 +58,7 @@ export function serviceIssues(state: DemoState, draft: ServiceDraft, ignoreId?: 
   else if (nameTaken(state, name, draft.category, ignoreId)) issues.push("nameTaken");
   if (!state.categories.some((c) => c.id === draft.category)) issues.push("category");
   if (!Number.isInteger(draft.duration) || draft.duration < MIN_DURATION || draft.duration > MAX_DURATION || draft.duration % DURATION_STEP !== 0) issues.push("duration");
-  if (!Number.isInteger(draft.price) || draft.price < 0 || draft.price > MAX_PRICE) issues.push("price");
+  if (!validServicePrice(draft.price)) issues.push("price");
   if (!draft.staffIds.length || new Set(draft.staffIds).size !== draft.staffIds.length || !draft.staffIds.every((id) => state.staff.some((p) => p.id === id))) issues.push("staff");
   if (draft.description.trim().length > MAX_DESCRIPTION) issues.push("description");
   return issues;

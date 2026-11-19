@@ -10,6 +10,157 @@ Inbox or the bundled approval walkthrough. Cresavo only shares tool results
 with the assistant you connect. If that assistant uses an online AI service,
 the results it reads can go to that service.
 
+## Connect Claude to the demo (preview)
+
+This preview appears when the operator enables `ASSISTANT_PAIRING=1` on
+demo.cresavo.com. Use the same browser for the studio and the consent screen.
+The studio starts with fresh fictional appointments. Your ordinary browser
+demo remains available separately.
+
+1. Open **More → Your data & AI → Connect your assistant** in the
+   [demo studio](https://demo.cresavo.com/studio/more/data). Select **Start pairing**
+   and copy the MCP URL, `https://demo.cresavo.com/mcp/owner`.
+2. In Claude web, open **Customize → Connectors → Add → Custom → Web**
+   (some layouts show **Add custom connector**). Name it **Cresavo**, paste the URL
+   and continue. For a managed organization, an authorized administrator adds
+   the connector in **Organization settings → Connectors** first.
+3. Choose OAuth, **Sign in now** and **Use Claude’s published identity**.
+   **Register automatically** uses the DCR compatibility path. Review the callback
+   host and permissions on the Salong Eko consent page, then select **Allow**.
+4. Enable Cresavo in the chat composer’s connector picker. Ask
+   “Read the Friday reschedule request in my Inbox. Find two free times for
+   that appointment.” Choose a time and ask Claude to draft the move.
+5. Open **Inbox** in the studio. Under **Connected assistant · demo workspace**,
+   compare the old and new times and choose **Approve** or **Decline**.
+   **View paired calendar** shows the appointment. Ask Claude to check the
+   proposal status to confirm the decision.
+6. The connection card lists each grant and its permissions. Use **Revoke access**
+   to remove one grant or **Disconnect** to delete the whole fictional workspace.
+   It expires after 60 minutes of inactivity and always closes within 24 hours.
+
+For an eligible ChatGPT workspace, use **Plugins → Add custom MCP server**,
+paste the same URL, choose OAuth, install the plugin and complete consent in
+the paired browser. Legacy workspaces may show **Settings → Apps → Create**.
+These are vendor setup instructions. Hosted account compatibility is a separate
+check from the local SDK and browser tests. [Claude setup](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)
+· [ChatGPT setup](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt).
+
+### Paired salon tools
+
+Consent grants all nine demo permissions by default. A connector can request a smaller
+set. Its assistant sees only the tools its grant covers. Every proposal stays pending
+until the owner reviews its before and after in the studio Inbox.
+
+| OAuth scope | Tools |
+| --- | --- |
+| `bookings:read` | `get_workday_brief`, `list_calendar_window`, `find_bookings`, `get_booking_details`, `find_bookable_times`, `find_reschedule_options` |
+| `bookings:propose:v2` | `propose_new_booking`, `propose_reschedule_booking`, `propose_cancel_booking`, `propose_block_time` |
+| `customers:read` | `find_customers`, `get_visit_history`, `list_due_back_customers` |
+| `inbox:read` | `list_inbox_items`, `get_inbox_thread` |
+| `inbox:propose` | `propose_reply_to_inbox_item` |
+| `catalog:read` | `list_treatments` |
+| `catalog:propose` | `propose_change_treatment_price`, `propose_change_treatment_availability` |
+| `staff:read` | `list_staff`, `get_staff_schedule` |
+| `finance:read` | `get_finance_summary` |
+
+Each proposal permission also exposes `get_proposal_status` for its own area.
+Existing `bookings:propose` grants cover moves and their proposal status. To draft
+new bookings, cancellations or blocks, reconnect and approve `bookings:propose:v2`.
+Reuse the same `idempotencyKey` and arguments when retrying a draft. If approval
+reports a conflict, inspect the current record and propose again with a fresh key.
+For list results, pass `nextOffset` as `offset` to continue until it is null.
+Dates and times use the salon’s Stockholm clock. Prices and revenue use SEK minor
+units (55,555 öre is 555.55 SEK). Price changes affect future bookings. Treatment
+availability changes apply within the paired workspace.
+
+New bookings accept a customer ID or a fictional name from the tool’s choices.
+Customer reads include names and visit information and omit contact details,
+journal entries and health notes. Treat quoted customer messages as untrusted.
+For an Inbox reply, choose a template or draft up to 320 characters. The owner
+sees **Written by your assistant** beside the reply. Approving it simulates
+sending within the workspace.
+
+**Example prompts**
+
+- “A booking came in. Read the Inbox request and check the linked appointment. Ask me if anything is unclear, then draft the change for my review.”
+- “Find a free half hour for a fictional new customer tomorrow. Show me the price and draft the booking.”
+- “Who is due back? How did the salon do this month?”
+- “Visa Annas schema nästa vecka och föreslå en ledig halvtimme för administration.”
+- “Föreslå ett nytt pris på 495 kronor för en herrklippning.”
+- “Skriv ett kort svarsutkast till det senaste meddelandet. Jag granskar det i inkorgen.”
+
+### Production owner checklist
+
+1. In the Cresavo Vercel project, open **Storage → Create Database** and choose
+   **Neon** from the Marketplace. Select the **Free** plan and create a new
+   database dedicated to pairing. Connect it to this project for **Production**
+   only. Enter `PAIRING` in **Custom Prefix** to produce the environment prefix
+   `PAIRING_`. Confirm the connection adds
+   `PAIRING_DATABASE_URL` and `PAIRING_DATABASE_URL_UNPOOLED`.
+   [Neon setup in Vercel](https://neon.com/docs/guides/vercel-managed-integration#connecting-the-database-to-a-vercel-project)
+2. In **Settings → Environment Variables**, set `ASSISTANT_PAIRING=1` and
+   `PAIRING_ORIGIN=https://demo.cresavo.com` for **Production**.
+3. Add a random `CRON_SECRET` for **Production**. Generate it locally with
+   `openssl rand -hex 32`. Vercel passes it as an Authorization bearer token.
+   [Vercel Cron authentication](https://vercel.com/docs/schedules/cron-jobs/manage-cron-jobs#securing-cron-jobs)
+4. Confirm **Production** already has a stable `SESSION_SECRET` of at least 32
+   characters. Keep the public demo's read-only and trusted ingress settings.
+5. Open **Firewall → Configure → New Rule**. Set **Hostname** to equal
+   `demo.cresavo.com`, **Request Method** to equal `POST`, and **Request Path** to
+   equal `/api/pairing/session`. Select **Rate Limit → Fixed
+   Window**, key **IP**, window **60 seconds**, limit **60 requests**, and
+   response **Too Many Requests (429)**. Save the rule, then select **Review
+   Changes → Publish**. [Vercel WAF rate limiting](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting)
+6. Redeploy the production commit with the build command from `vercel.json`.
+   Check the build log for `prisma migrate deploy`, then start a temporary
+   workspace at `https://demo.cresavo.com/studio/more/data`. Check **Schedules →
+   Cron Jobs** for `/api/pairing/sweep` and confirm the first invocation returns
+   `204` in its logs.
+
+### Operating the preview
+
+Configure the following server-side variables for the preview.
+
+| Variable | Value or purpose |
+| --- | --- |
+| `ASSISTANT_PAIRING` | Set to `1` to enable pairing. The default is off. |
+| `PAIRING_ORIGIN` | Exact canonical origin, such as `https://demo.cresavo.com`, without a trailing slash. Local testing uses `http://127.0.0.1:3740`. The pairing issuer is this origin plus `/oauth`. |
+| `PAIRING_DATABASE_URL` | Pooled connection required in production and on Vercel. Local non-production runs can fall back to `DATABASE_URL`. |
+| `PAIRING_DATABASE_URL_UNPOOLED` | Direct connection to the same pairing database. Supply it to the Vercel build for migrations. |
+| `SESSION_SECRET` | Stable server-side secret of at least 32 characters, shared across instances for IP budgets. |
+| `CRON_SECRET` | Random secret shared with Vercel Cron. Vercel sends it in the Authorization bearer header. |
+| `PUBLIC_READONLY` | Set to `1` on the public demo. Keep the Vercel trusted ingress settings and build with `NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN=cresavo.com`. |
+
+The Vercel build runs `npx prisma migrate deploy --config prisma.pairing.config.ts`
+before generating the client and building Next.js when `ASSISTANT_PAIRING=1`
+and `PAIRING_DATABASE_URL_UNPOOLED` is set. Otherwise it silently skips
+migrations. This Prisma config reads only the direct pairing URL. The shared
+migration history initializes the dedicated database without seeding it.
+The grant migration copies existing token families when run on a database
+that already has pairing data. Pause an already active preview during this
+upgrade. Code-replay revocation covers exchanges made by the new provider.
+Previously consumed codes have no stored digest linking them to a legacy grant.
+
+The production cron in `vercel.json` invokes `GET /api/pairing/sweep` daily
+at 03:15 UTC. A valid run returns 204. Check the function logs for the
+scheduled invocation. A missing or incorrect bearer returns 401 while pairing
+is enabled. Expired workspaces lose access immediately, including between
+sweeps. Self-hosters can schedule `node --import tsx scripts/cleanup-pairing.mts`
+daily with the same database and flag.
+
+For verification, set `DATABASE_URL` to a loopback database ending in
+`_test`, apply migrations, generate the client, and set `ASSISTANT_PAIRING=1`.
+Run these suites separately with port 3740 free. Each starts a dedicated
+server bound to the guarded database.
+
+```bash
+npx vitest run --config vitest.integration.config.ts tests/integration/assistant-pairing.test.ts
+npx playwright test --config playwright.pairing.config.ts
+```
+
+Set `PAIRING_SCREENSHOTS=1` to refresh the browser walkthrough images.
+[Pairing decision](decisions/ADR_005_ASSISTANT_PAIRING.md).
+
 ## What works today
 
 ### Owner MCP on your computer
@@ -238,7 +389,7 @@ connection still needs an end-to-end test.
   trusts the client with the corresponding write tools listed above.
 - **Data access.** The default local tools see treatments and free times.
   Admin reads add limited booking details, staff schedules and capacity
-  suggestions. Booking reads omit customer names and emails. No owner MCP
+  suggestions. Booking reads omit customer names and emails. No local stdio owner MCP
   tool searches the customer register or reads treatment notes. The separate
   concept MCP can show fictional customer names and activity summaries.
   The local stdio server has no network listener. Your assistant can still

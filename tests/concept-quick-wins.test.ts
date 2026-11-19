@@ -39,6 +39,7 @@ vi.mock("@/concept/store", () => ({
 }));
 vi.mock("@/concept/studio/use-studio", () => ({ useStudio: vi.fn() }));
 vi.mock("@/concept/use-now", () => ({ useSalonNow: vi.fn() }));
+vi.mock("@/concept/studio/pairing/session", () => ({ usePairing: () => null }));
 
 const fixture = englishDemoState("2026-11-17");
 const copy = fixtureText(fixture);

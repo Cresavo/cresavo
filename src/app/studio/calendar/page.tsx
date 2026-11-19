@@ -1,5 +1,8 @@
 "use client";
 
+import { usePairing } from "@/concept/studio/pairing/session";
+import { PairedCalendar } from "@/concept/studio/pairing/calendar";
+
 import { useState } from "react";
 import { CalendarOff, CalendarPlus, ChevronLeft, ChevronRight } from "lucide-react";
 import { addDays, startOfWeek } from "@/concept/data/dates";
@@ -24,6 +27,20 @@ import { EmptyState } from "@/concept/ui/empty-state";
 type View = "day" | "week";
 
 export default function CalendarPage() {
+  const pairing = usePairing();
+  const [local, setLocal] = useState(false);
+  if (!pairing?.workspace) return <LocalCalendar />;
+  const switchCalendar = <Button variant="secondary" onClick={() => setLocal(!local)}>
+    {t(local ? "pair.calendar" : "pair.localCalendar")}
+  </Button>;
+  if (local) return <LocalCalendar switchCalendar={switchCalendar} />;
+  return <>
+    <PageHeader title={t("calendar.title")} actions={switchCalendar} />
+    <PairedCalendar />
+  </>;
+}
+
+function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode }) {
   const { state, today } = useStudio();
   const [view, setView] = useState<View>("day");
   const [date, setDate] = useState(today);
@@ -48,7 +65,7 @@ export default function CalendarPage() {
 
   if (state.industry && !state.bookings.length) {
     return <>
-      <PageHeader title={t("calendar.title")} />
+      <PageHeader title={t("calendar.title")} actions={switchCalendar} />
       <EmptyState icon={<CalendarPlus size={22} />} title={t("setup.empty.calendar")}
         action={state.services.length
           ? <Button onClick={() => setSheet({ kind: "new", preset: { date, staffId: viewer?.id } })}>{t("calendar.newBooking")}</Button>
@@ -63,9 +80,12 @@ export default function CalendarPage() {
         title={t("calendar.title")}
         subtitle={subtitle}
         actions={
-          <Button data-help="new-booking" icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { date, staffId } })}>
-            {t("calendar.newBooking")}
-          </Button>
+          <>
+            {switchCalendar}
+            <Button data-help="new-booking" icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { date, staffId } })}>
+              {t("calendar.newBooking")}
+            </Button>
+          </>
         }
       />
       <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">

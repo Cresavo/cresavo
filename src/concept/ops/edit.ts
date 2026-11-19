@@ -1,10 +1,12 @@
-import type { DateKey, DemoState, Resource, ResourceKind, Salon, Staff, StaffException, StaffId, TimeOffReason } from "../data/types";
+import { canBlock } from "../data/slots";
+import type { StaffBlock, DateKey, DemoState, Resource, ResourceKind, Salon, Staff, StaffException, StaffId, TimeOffReason } from "../data/types";
 
 // Changes to when the business is open, who works when and which rooms exist.
 // They only edit the plan: bookings that no longer fit stay where they are and
 // show up as "needs moving" (see needs-moving.ts) for the owner to decide.
 
 export type OpsAction =
+  | ({ type: "staff/block" } & Omit<StaffBlock, "id">)
   | { type: "salon/hours"; hours: Salon["hours"]; lunch: Salon["lunch"] }
   | { type: "salon/close"; date: DateKey; name: string }
   | { type: "salon/reopen"; id: string }
@@ -56,6 +58,12 @@ export function applyOps(state: DemoState, action: OpsAction): DemoState {
     }
     case "salon/reopen":
       return { ...state, salon: { ...state.salon, closures: state.salon.closures.filter((c) => c.id !== action.id) } };
+    case "staff/block": {
+      const { staffId, date, start, end, reason } = action;
+      if (!validDate(date) || !canBlock(state, staffId, date, start, end)) return state;
+      const block = { id: `block-${state.seq}`, staffId, date, start, end, reason };
+      return { ...state, seq: state.seq + 1, blocks: [...(state.blocks ?? []), block] };
+    }
     case "staff/week": {
       if (!state.staff.some((s) => s.id === action.staffId) || !Object.values(action.week).every((day) => !day || validSpan(day.start, day.end))) return state;
       return { ...state, staff: state.staff.map((s) => (s.id === action.staffId ? { ...s, week: action.week } : s)) };

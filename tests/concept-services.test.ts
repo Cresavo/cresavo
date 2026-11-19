@@ -10,6 +10,7 @@ import type { LogMeta } from "@/concept/log/types";
 import { isUndoable } from "@/concept/log/undo";
 import { lookup } from "@/concept/assistant/lookups";
 import { parseCampaignRequest } from "@/concept/campaigns/prefill";
+import { proposalFor } from "@/concept/command/proposal";
 import { bookableServices, findService, publicView } from "@/concept/selectors";
 import { categoryIssues, serviceIssues, serviceUsage, type ServiceDraft } from "@/concept/services/edit";
 
@@ -55,9 +56,28 @@ describe("price list validation", () => {
     for (const duration of [5, 60, 480]) expect(serviceIssues(base, { ...draft, duration })).toEqual([]);
   });
 
-  it("takes a whole price of zero or more", () => {
-    for (const price of [-1, 99.5, 100_001, Number.NaN]) expect(serviceIssues(base, { ...draft, price })).toEqual(["price"]);
-    expect(serviceIssues(base, { ...draft, price: 0 })).toEqual([]);
+  it("takes prices to the nearest öre within the allowed range", () => {
+    for (const price of [-1, 99.555, 100_001, Number.NaN]) expect(serviceIssues(base, { ...draft, price })).toEqual(["price"]);
+    for (const price of [0, 0.29, 555.55, 100_000]) expect(serviceIssues(base, { ...draft, price })).toEqual([]);
+  });
+
+  it("shows the exact AI-proposed price in approval and history and lets the owner edit the treatment", () => {
+    const serviceId = "classic-60";
+    const propose = (priceSek: number) => proposalFor(base, {
+      action: "change-price", params: { serviceId, priceSek }, summary: "", confidence: 1,
+    }, "", { today, minutes: 9 * 60 }, []);
+    const proposal = propose(555.55);
+    expect(proposal.kind).toBe("change");
+    if (proposal.kind !== "change") throw new Error("Expected a price proposal");
+    expect(proposal.rows[0].after).toBe("SEK\u00a0555.55");
+    const { next, entry } = logged(base, proposal.action);
+    expect(entry.after).toBe("SEK\u00a0555.55");
+    const service = next.services.find(s => s.id === serviceId)!;
+    expect(service.price).toBe(555.55);
+    const edited = reduce(next, { type: "service/update", id: serviceId, service: { ...service, name: "Renamed treatment" } });
+    expect(edited.services.find(s => s.id === serviceId)).toMatchObject({ name: "Renamed treatment", price: 555.55 });
+    expect(propose(555.555).kind).toBe("message");
+    expect(reduce(base, { type: "service/price", id: serviceId, price: 555.555 })).toBe(base);
   });
 
   it("needs a known category, someone on the team and a short description", () => {

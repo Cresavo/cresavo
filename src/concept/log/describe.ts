@@ -184,6 +184,8 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       const closure = prev.salon.closures.find((c) => c.id === action.id)!;
       return { summary: t("log.salonReopen", { date: formatDayShort(closure.date) }), before: closure.name };
     }
+    case "staff/block":
+      return { summary: t("pair.block", { staff: staffFirstName(next, action.staffId) }), after: `${action.date} ${formatTime(action.start)}–${formatTime(action.end)}` };
     case "staff/week":
       return { summary: t("log.staffWeek", { name: staffFirstName(next, action.staffId) }) };
     case "staff/off":

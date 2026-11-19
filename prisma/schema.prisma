@@ -355,3 +355,110 @@ model PartnerBookingAttempt {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   @@unique([businessId, mandateId, clientId])
 }
+
+model PairWorkspace {
+  id          String @id @default(uuid())
+  ownerHash   String @unique
+  ipKey       String
+  seedDay     String
+  version     Int @default(1)
+  revision    Int @default(1)
+  snapshot    Json
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+  hardExpiry  DateTime
+  codes       PairCode[]
+  grants      PairGrant[]
+  tokens      PairToken[]
+  proposals   PairProposal[]
+  @@index([expiresAt])
+  @@index([ipKey])
+}
+
+model PairClient {
+  id           String @id
+  name         String
+  redirects    String[]
+  expiresAt    DateTime
+  @@index([expiresAt])
+}
+
+model PairCode {
+  hash         String @id
+  consent      Boolean
+  workspaceId  String
+  workspace    PairWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  clientId     String
+  clientName   String
+  redirectUri  String
+  challenge    String
+  audience     String
+  scopes       String
+  state        String
+  expiresAt    DateTime
+  @@index([workspaceId])
+  @@index([expiresAt])
+}
+
+/// Legacy families copied into PairGrant and PairGrantToken by the additive migration.
+model PairToken {
+  accessHash   String @id
+  refreshHash  String @unique
+  family       String
+  rotated      Boolean @default(false)
+  workspaceId  String
+  workspace    PairWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  clientId     String
+  clientName   String
+  audience     String
+  scopes       String
+  expiresAt    DateTime
+  @@index([workspaceId])
+  @@index([family])
+}
+
+model PairProposal {
+  id           String @id @default(uuid())
+  workspaceId  String
+  workspace    PairWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  clientId     String
+  key          String
+  fingerprint  String
+  draft        Json
+  before       Json
+  status       String @default("pending")
+  createdAt    DateTime @default(now())
+  @@unique([workspaceId, clientId, key])
+}
+
+model PairBudget {
+  key       String @id
+  count     Int
+  expiresAt DateTime
+  @@index([expiresAt])
+}
+
+model PairGrant {
+  id          String @id @default(uuid())
+  workspaceId String
+  workspace   PairWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subject     String
+  clientId    String
+  clientName  String
+  scopes      String
+  audience    String
+  codeHash    String? @unique
+  revoked     Boolean @default(false)
+  tokens      PairGrantToken[]
+  @@index([workspaceId])
+}
+
+model PairGrantToken {
+  accessHash  String @id
+  refreshHash String @unique
+  grantId     String
+  grant       PairGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  rotated     Boolean @default(false)
+  expiresAt   DateTime
+  @@index([grantId])
+}

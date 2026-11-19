@@ -8,6 +8,7 @@ import { agoText, formatAmount, formatDayLong, formatDayMonth, formatDuration, f
 import type { IntentParams, IntentResult } from "../intent";
 import { blockingModule, moduleById, type ModuleManifest } from "../modules/registry";
 import { buildCustomerStats, findCustomer, findService, fullName, PRODUCTS_ROW, revenueBetween } from "../selectors";
+import { validServicePrice } from "../services/edit";
 import { forecastInput, ruleForecast, supplierOf } from "../stock/forecast";
 import { findProducts } from "../stock/match";
 import { buildOrders, purchaseQuantity } from "../stock/purchase";
@@ -216,6 +217,7 @@ function campaignProposal(state: DemoState, params: IntentParams, clock: Clock):
 function priceProposal(state: DemoState, params: IntentParams): Proposal {
   const service = serviceOf(state, params.serviceId);
   if (!service || params.priceSek === undefined) return message(t("command.notUnderstood"));
+  if (!validServicePrice(params.priceSek)) return message(t("services.issue.price"));
   return {
     kind: "change",
     title: t("command.price.title", { service: service.name }),
