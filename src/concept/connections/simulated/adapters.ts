@@ -55,8 +55,7 @@ export interface SimulatedEmail extends EmailPort {
   deliver(message: EmailMessage): PortResult<EmailReceipt>;
 }
 
-export function simulatedSms({ outbox, currency = "EUR" }: SimulatedOptions): SimulatedSms {
-  const guard = keyGuard("sms");
+export function simulatedSms({ outbox, currency = "EUR" }: SimulatedOptions, guard = keyGuard("sms")): SimulatedSms {
   const deliver = (message: SmsMessage): PortResult<SmsReceipt> => {
     if (!(isE164(message.to) || isRecipientRef(message.to)) || !message.body.trim() || message.body.length > 1600) return invalid("sms");
     const conflict = guard(message.idempotencyKey, [message.to, message.body]);
@@ -73,8 +72,7 @@ export function simulatedSms({ outbox, currency = "EUR" }: SimulatedOptions): Si
   };
 }
 
-export function simulatedEmail({ outbox, currency = "EUR" }: SimulatedOptions): SimulatedEmail {
-  const guard = keyGuard("email");
+export function simulatedEmail({ outbox, currency = "EUR" }: SimulatedOptions, guard = keyGuard("email")): SimulatedEmail {
   const deliver = (message: EmailMessage): PortResult<EmailReceipt> => {
     const recipients = message.to.length > 0 && message.to.length <= 50 && message.to.every((to) => isEmail(to) || isRecipientRef(to));
     if (!recipients || !message.subject.trim() || !message.text.trim()) return invalid("email");
@@ -110,6 +108,36 @@ export function paymentLedger(outbox: Outbox) {
         hasPayments: () => keys.size > 0,
         publish() {
           keys.forEach((value, key) => committed.set(key, value));
+          pending.list().forEach(entry => outbox.record(entry));
+        },
+      };
+    },
+  };
+}
+
+/**
+ * Like `paymentLedger`, for every port a reducer can call: each stage records
+ * payments, SMS, email and social posts in a pending outbox and claims
+ * idempotency keys only when it is published. Used by stores that commit
+ * first and publish after (see src/concept/store).
+ */
+export function channelLedger(outbox: Outbox, currency?: string) {
+  const committed = { payments: new Map<string, string>(), sms: new Map<string, string>(), email: new Map<string, string>() };
+  return {
+    outbox,
+    stage() {
+      const pending = createOutbox(Infinity);
+      const keys = { payments: new Map<string, string>(), sms: new Map<string, string>(), email: new Map<string, string>() };
+      const options = { outbox: pending, currency };
+      return {
+        outbox: pending,
+        payments: simulatedPayments(options, keyGuard("payments", keys.payments, committed.payments)),
+        sms: simulatedSms(options, keyGuard("sms", keys.sms, committed.sms)),
+        email: simulatedEmail(options, keyGuard("email", keys.email, committed.email)),
+        social: simulatedSocial(options),
+        hasPayments: () => keys.payments.size > 0,
+        publish() {
+          for (const port of ["payments", "sms", "email"] as const) keys[port].forEach((value, key) => committed[port].set(key, value));
           pending.list().forEach(entry => outbox.record(entry));
         },
       };
