@@ -1,3 +1,4 @@
+import { pairingOrigin, PUBLIC_WRITES } from "../concept/pairing/policy";
 import { DomainError } from "./errors";
 
 export function isPublicReadonly(env: Record<string, string | undefined> = process.env) {
@@ -19,6 +20,7 @@ export function readonlyForbidden() {
 export function publicReadonlyResponse(request: Request) {
   if (!isPublicReadonly()) return;
   const path = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
+  if (request.method === "POST" && PUBLIC_WRITES.has(path) && pairingOrigin(request.headers)) return;
   if (/^\/(?:admin|api\/admin)(?:\/|$)/.test(path) ||
       (!["GET", "HEAD", "OPTIONS"].includes(request.method) &&
        !(request.method === "POST" && (path === "/api/locale" || path === "/api/waitlist"))))

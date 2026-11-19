@@ -1,5 +1,7 @@
 "use client";
 
+import { PairedInbox } from "@/concept/studio/pairing/inbox";
+
 import { useEffect, useState } from "react";
 import { CheckCheck, Inbox as InboxIcon, MousePointerClick } from "lucide-react";
 import type { InboxItem } from "@/concept/data/types";
@@ -73,6 +75,7 @@ export default function InboxPage() {
           </Button>
         }
       />
+      <PairedInbox />
       {proposals.length > 0 && (
         <Section title={t("agents.title")} className="mb-6">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

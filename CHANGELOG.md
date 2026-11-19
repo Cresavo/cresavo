@@ -9,6 +9,7 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- A flag-controlled demo lets visitors connect an assistant to a temporary fictional salon, review proposed booking moves live in the studio Inbox and see approved times in the paired calendar.
 - The public product site publishes a sitemap and search metadata. Its production deployment uses cookie-free Vercel Web Analytics to measure visits.
 
 ### Changed

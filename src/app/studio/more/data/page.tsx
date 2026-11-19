@@ -1,5 +1,8 @@
 "use client";
 
+import { usePairing } from "@/concept/studio/pairing/session";
+import { ConnectCard } from "@/concept/studio/pairing/connect-card";
+
 import { ChevronRight, Download } from "lucide-react";
 import { t } from "@/concept/i18n";
 import { bookingsCsv, customersCsv, download } from "@/concept/studio/more/export";
@@ -13,6 +16,7 @@ import { Button } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
 
 export default function DataPage() {
+  const pairing = usePairing();
   const { state, today } = useStudio();
   const { info, failed } = useProtocolInfo();
   const exports = [
@@ -23,6 +27,7 @@ export default function DataPage() {
 
   return (
     <MorePage title={t("nav.data")} subtitle={t("data.subtitle")}>
+      <ConnectCard />
       {/* What an owner comes here for first: getting the data out, and letting an assistant in. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
         <Section title={t("data.export")}>
@@ -35,10 +40,10 @@ export default function DataPage() {
             </div>
           </Card>
         </Section>
-        <Section title={t("data.connect")}>
+        {(!pairing || !PUBLIC_DEMO) && <Section title={t("data.connect")}>
           {/* The public demo's server only reads: no outside assistant can connect, so the setup steps would lead nowhere. */}
           {PUBLIC_DEMO ? <Card className="p-5 text-[15px] text-text-secondary">{t("data.publicDemo")}</Card> : <ConnectSection info={info} failed={failed} />}
-        </Section>
+        </Section>}
       </div>
       <div className="mt-8 space-y-8">
         <Section title={t("data.ai")}>

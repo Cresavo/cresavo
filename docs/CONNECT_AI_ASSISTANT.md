@@ -10,6 +10,61 @@ Inbox or the bundled approval walkthrough. Cresavo only shares tool results
 with the assistant you connect. If that assistant uses an online AI service,
 the results it reads can go to that service.
 
+## Connect Claude to the demo (preview)
+
+This preview appears when the operator enables `ASSISTANT_PAIRING=1` on
+demo.cresavo.com. Use the same browser for the studio and the consent screen.
+The studio starts with fresh fictional appointments. Your ordinary browser
+demo remains available separately.
+
+1. Open **More → Your data & AI → Connect your assistant** in the
+   [demo studio](https://demo.cresavo.com/studio/more/data). Select **Start pairing**
+   and copy the MCP URL, `https://demo.cresavo.com/mcp/owner`.
+2. In Claude web, open **Customize → Connectors → Add → Custom → Web**
+   (some layouts show **Add custom connector**). Name it **Cresavo**, paste the URL
+   and continue. For a managed organization, an authorized administrator adds
+   the connector in **Organization settings → Connectors** first.
+3. Choose OAuth, **Sign in now** and **Use Claude’s published identity**.
+   **Register automatically** uses the DCR compatibility path. Review the callback
+   host and permissions on the Salong Eko consent page, then select **Allow**.
+4. Enable Cresavo in the chat composer’s connector picker. Ask
+   “Read the Friday reschedule request in my Inbox. Find two free times for
+   that appointment.” Choose a time and ask Claude to draft the move.
+5. Open **Inbox** in the studio. Under **Connected assistant · demo workspace**,
+   compare the old and new times and choose **Approve** or **Decline**.
+   **View paired calendar** shows the appointment. Ask Claude to check the
+   proposal status to confirm the decision.
+6. Use **Disconnect** on the connection card to delete the fictional workspace.
+   It expires after 60 minutes of inactivity and always closes within 24 hours.
+
+For an eligible ChatGPT workspace, use **Plugins → Add custom MCP server**,
+paste the same URL, choose OAuth, install the plugin and complete consent in
+the paired browser. Legacy workspaces may show **Settings → Apps → Create**.
+These are vendor setup instructions. Hosted account compatibility is a separate
+check from the local SDK and browser tests. [Claude setup](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)
+· [ChatGPT setup](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt).
+
+### Operating the preview
+
+Apply the new Prisma migration, configure the runtime PostgreSQL connection
+and a stable server-side `SESSION_SECRET` of at least 32 characters, then enable
+the flag. Build with `NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN=cresavo.com` as in
+`vercel.json`, so the demo host reaches the studio. Keep `PUBLIC_READONLY=1`
+on the public deployment. Grant the runtime
+database role access to the pairing tables only. On Vercel, use the project's
+trusted ingress configuration. Schedule `node --import tsx scripts/cleanup-pairing.mts`
+every five minutes with the same database and flag for cleanup during quiet
+periods. Regular traffic also sweeps expired records.
+
+For local verification, run migrations against the designated loopback
+`_test` database, generate the Prisma client, then run the dev server with
+`PORT=3740 ASSISTANT_PAIRING=1 PUBLIC_READONLY=1 npm run dev`.
+With the same test database and flag in the test process, run
+`npx vitest run --config vitest.integration.config.ts tests/integration/assistant-pairing.test.ts`
+and `npx playwright test --config playwright.pairing.config.ts`.
+The browser test can refresh the three design screenshots with
+`PAIRING_SCREENSHOTS=1`. [Pairing decision](decisions/ADR_005_ASSISTANT_PAIRING.md).
+
 ## What works today
 
 ### Owner MCP on your computer

@@ -1,5 +1,8 @@
 "use client";
 
+import { usePairing } from "@/concept/studio/pairing/session";
+import { ConnectCard } from "@/concept/studio/pairing/connect-card";
+
 import { useState } from "react";
 import { Compass, RotateCcw } from "lucide-react";
 import { t } from "@/concept/i18n";
@@ -20,6 +23,7 @@ import { ThemeControl } from "@/concept/ui/theme-control";
 import { showToast } from "@/concept/ui/toast";
 
 export default function SettingsPage() {
+  const pairing = usePairing();
   const { state } = useStudio();
   const [confirming, setConfirming] = useState(false);
   const { salon } = state;
@@ -33,6 +37,7 @@ export default function SettingsPage() {
 
   return (
     <MorePage title={t("nav.settings")} subtitle={t("settings.subtitle")}>
+      <ConnectCard />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Section title={t("settings.salon")}>
           <Card className="divide-y divide-hairline">
@@ -77,7 +82,8 @@ export default function SettingsPage() {
               <Button variant="ghost" onClick={() => setConfirming(false)}>{t("common.cancel")}</Button>
               <Button
                 variant="danger"
-                onClick={() => {
+                onClick={async () => {
+                  if (pairing?.workspace && !await pairing.command("session", { action: "disconnect", workspaceId: pairing.workspace.id })) return;
                   startBusiness(setupOf(state));
                   setConfirming(false);
                   showToast(t("settings.resetDone"));
