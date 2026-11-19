@@ -6,7 +6,8 @@ import { toKey } from "./data/dates";
 import { createDemoState, type BusinessSetup } from "./data/generate";
 import { migrateState } from "./data/migrate";
 import type { DemoState } from "./data/types";
-import { applyAction, defaultMeta } from "./log/capture";
+import { demoPaymentLedger } from "./connections/demo";
+import { prepareAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
 import { publicView } from "./selectors";
 import { purgeExpired } from "./trash/trash";
@@ -61,8 +62,10 @@ function today() {
 
 function load(raw: string | null, workspace: Workspace): DemoState | null {
   try {
-    const saved = raw && migrateState(JSON.parse(raw));
+    let saved = raw && migrateState(JSON.parse(raw));
     if (saved && Boolean(saved.industry) === (workspace === "own")) {
+      const validHolds = saved.checkoutHolds.filter(hold => hold.expiresAt > Date.now());
+      if (validHolds.length !== saved.checkoutHolds.length) saved = { ...saved, checkoutHolds: validHolds };
       if (saved.industry) return purgeExpired({ ...saved, generatedFor: today() }, today());
       const demo = saved.generatedFor === today()
         ? purgeExpired(saved, today())
@@ -113,7 +116,7 @@ function onStorage(event: StorageEvent) {
   notify();
 }
 
-function setState(next: DemoState, recheckStorage = false): boolean {
+function setState(next: DemoState, recheckStorage = false, afterWrite?: () => void): boolean {
   const snapshot = snapshots[active];
   try {
     const raw = JSON.stringify(next);
@@ -125,6 +128,7 @@ function setState(next: DemoState, recheckStorage = false): boolean {
     // The demo still works in memory.
   }
   snapshot.state = next;
+  afterWrite?.();
   notify();
   return true;
 }
@@ -185,12 +189,15 @@ export function dispatchWithLog(
   while (true) {
     const current = getSnapshot();
     if (!current || active !== workspace || (canApply && !canApply(current))) return false;
-    const next = applyAction(current, action, logMeta);
+    const batch = demoPaymentLedger.stage();
+    const next = prepareAction(current, action, logMeta, batch);
     if (next === current) return false;
     // Includes undo, which can restore a previously free address.
     if (next.salon.slug !== current.salon.slug && next.salon.slug === workspaceSlug(active === "demo" ? "own" : "demo")) return false;
     // Run the booking rules again if another tab wrote while we prepared the save.
-    if (!setState(next, action.type === "online/book" || !!canApply)) continue;
+    const recheck = !!canApply || action.type.startsWith("online/") || action.type === "salon/policy" ||
+      action.type === "booking/fee" || action.type === "booking/cancel" || action.type === "trash/restore";
+    if (!setState(next, recheck, batch.publish)) continue;
     const logId = next.log[0]?.id;
     return logId !== current.log[0]?.id ? logId ?? null : null;
   }

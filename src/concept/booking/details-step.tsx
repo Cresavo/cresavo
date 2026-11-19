@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import { CalendarCheck } from "lucide-react";
-import type { DemoState } from "../data/types";
+import type { Booking, DemoState } from "../data/types";
 import { t, type MessageKey } from "../i18n";
 import { formatDayLong, formatDuration, formatTime } from "../i18n/format";
 import { currentState, dispatchWithLog, withBookingLock } from "../store";
@@ -14,10 +13,11 @@ import { Button } from "../ui/button";
 import { salonClock } from "../tools/clock";
 import type { Now } from "../use-now";
 import { GuestFields, RememberContact, isGuestValid } from "./guest-fields";
-import { changeRule, hoursUntil, LEAD_MINUTES } from "./policy";
+import { hoursUntil, LEAD_MINUTES } from "./policy";
+import { quote, type CheckoutHold } from "./protection";
 import { BookingSummary } from "./booking-summary";
+import { findCustomerByPhone } from "./lookup";
 import type { useGuestContact } from "./guest";
-import { bookingPage } from "./links";
 import type { OpenSlot } from "./suggest";
 
 interface DetailsStepProps {
@@ -30,18 +30,19 @@ interface DetailsStepProps {
   timeControl?: ReactNode;
   /** The time was taken while the customer typed: go back and choose again. */
   onTaken: (failure: ActionFailureInfo) => void;
-  onBooked?: (id: string) => void;
+  onBooked: (booking: Booking) => void;
+  onHeld: (hold: CheckoutHold) => void;
 }
 
 /** Last step: confirm the chosen time with name and phone number. */
-export function DetailsStep({ state, now, serviceId, slot, contact, suggested, timeControl, onTaken, onBooked }: DetailsStepProps) {
-  const { guest, setGuest, remember, chooseRemember, saveContact } = contact;
-  const router = useRouter();
+export function DetailsStep({ state, now, serviceId, slot, contact, suggested, timeControl, onTaken, onBooked, onHeld }: DetailsStepProps) {
+  const { guest, setGuest, remember, chooseRemember } = contact;
   const service = state.services.find((s) => s.id === serviceId)!;
   const person = state.staff.find((s) => s.id === slot.staffId)!;
   const [pending, setPending] = useState(false);
 
-  const late = changeRule({ ...slot, status: "booked" }, now.today, now.minutes) !== "free";
+  const terms = quote(state.cancellationPolicy, service, state.localization.currency, !findCustomerByPhone(state, guest.phone));
+
   const confirm = async () => {
     if (pending || !isGuestValid(guest)) return;
     const name = guest.name.trim();
@@ -52,32 +53,36 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
     setPending(true);
     const latest = await withBookingLock(() => {
       const clock = salonClock();
-      if (hoursUntil(slot, clock.today, clock.minutes) * 60 < LEAD_MINUTES) return;
-      const booked = dispatchWithLog({
-        type: "online/book",
+      if (hoursUntil(slot, clock.today, clock.minutes, Math.floor(Date.now() / 60_000) * 60_000) * 60 < LEAD_MINUTES) return;
+      const result = dispatchWithLog({
+        type: terms.depositMinor ? "online/hold" : "online/book",
         guest: { name, phone, at: { date: clock.today, time: clock.minutes } },
-        serviceId,
-        staffId: slot.staffId,
-        date: slot.date,
-        start: slot.start,
+        serviceId, staffId: slot.staffId, date: slot.date, start: slot.start,
         notice: {
           title: t("booking.inboxTitle"),
           body: t("booking.inboxBody", { service: service.name, staff: person.firstName, day, time: formatTime(slot.start) }),
         },
       }, undefined, current => {
-        const treatment = current.services.find(item => item.id === serviceId);
-        if (!treatment) return false;
-        if (treatment.price === service.price && treatment.duration === service.duration && current.localization.currency === state.localization.currency) return true;
-        reason = "booking.summary.changed";
-        return false;
+        const offering = current.services.find(s => s.id === serviceId);
+        if (!offering || current.salon.slug !== state.salon.slug) return false;
+        if (offering.duration !== service.duration || offering.price !== service.price || current.localization.currency !== terms.currency) {
+          reason = "booking.summary.changed";
+          return false;
+        }
+        const fresh = quote(current.cancellationPolicy, offering, current.localization.currency, !findCustomerByPhone(current, phone));
+        if (JSON.stringify(fresh) !== JSON.stringify(terms)) {
+          reason = "protection.changed";
+          return false;
+        }
+        return true;
       });
-      return booked !== false ? currentState()?.bookings.at(-1) : undefined;
+      if (result === false) return;
+      return terms.depositMinor ? currentState()?.checkoutHolds.at(-1) : currentState()?.bookings.at(-1);
     }).catch(() => false as const);
     setPending(false);
     if (!latest) return onTaken({ requestId, reason });
-    saveContact(latest.customerId);
-    if (onBooked) onBooked(latest.id);
-    else router.push(bookingPage(state.salon.slug, latest.id));
+    if ("expiresAt" in latest) onHeld(latest);
+    else onBooked(latest);
   };
 
   return (
@@ -98,9 +103,9 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
       <form className="space-y-3" onSubmit={event => { event.preventDefault(); void confirm(); }}>
         <GuestFields value={guest} onChange={setGuest} />
         <RememberContact checked={remember} onChange={chooseRemember} />
-        <BookingSummary slot={slot} price={service.price} currency={state.localization.currency} late={late} phone={state.salon.phone} packagesEnabled={state.modules.packages} />
+        <BookingSummary slot={slot} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={state.modules.packages} />
         <Button type="submit" size="lg" className="w-full" disabled={pending || !isGuestValid(guest)}>
-          {t("booking.confirm")}
+          {t(terms.depositMinor ? "protection.continue" : "booking.confirm")}
         </Button>
         {!isGuestValid(guest) && <p className="text-sm text-text-secondary">{t("booking.confirmDisabled")}</p>}
       </form>

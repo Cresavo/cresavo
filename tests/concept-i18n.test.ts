@@ -77,9 +77,9 @@ describe("concept languages", () => {
 
   it("includes the full date, local time and salon zone in both deadline translations", () => {
     const slot = { date: "2027-01-01", start: 855 };
-    expect(freeUntilText(slot)).toContain("31 Dec 2026 at 14:15 (Europe/Stockholm)");
+    expect(freeUntilText(slot, 24, Date.parse("2026-12-30T00:00Z"))).toContain("31 Dec 2026 at 14:15 (Europe/Stockholm)");
     setLocale("sv");
-    expect(freeUntilText(slot)).toContain("31 december 2026 kl. 14:15 (Europe/Stockholm)");
+    expect(freeUntilText(slot, 24, Date.parse("2026-12-30T00:00Z"))).toContain("31 december 2026 kl. 14:15 (Europe/Stockholm)");
   });
 
   it("keeps the saved booking language independent and makes it undoable", () => {

@@ -1,6 +1,9 @@
+import { refundCancellation } from "../booking/settlement";
+import { demoPayments } from "../connections/demo";
+import { t } from "../i18n";
 import { diffDays } from "../data/dates";
 import { isFree, pickResource } from "../data/slots";
-import { cardsCovered } from "../giftcards/cards";
+import { cardsCovered, returnRedemptions } from "../giftcards/cards";
 import type { Booking, Customer, DateKey, DemoState, InboxItem, JournalEntry, ProductSale, Review, ServicePackage } from "../data/types";
 
 /** Days a deleted or cancelled item stays restorable. */
@@ -102,7 +105,7 @@ export function canRestore(state: DemoState, entry: TrashEntry): boolean {
 }
 
 /** Puts an item back. Returns the same state when it cannot be restored (the time was taken meanwhile). */
-export function restoreEntry(state: DemoState, id: string): DemoState {
+export function restoreEntry(state: DemoState, id: string, payments = demoPayments): DemoState {
   const entry = state.trash.find((e) => e.id === id);
   if (!entry || !canRestore(state, entry)) return state;
   const trash = state.trash.filter((e) => e.id !== id);
@@ -122,13 +125,24 @@ export function restoreEntry(state: DemoState, id: string): DemoState {
   };
   // A time taken while the customer was in the trash must not be double-booked,
   // and a gift card balance spent meanwhile must not be spent twice.
-  return entry.bookings.reduce<DemoState>((acc, booking) => {
-    if (booking.status !== "booked") return { ...acc, bookings: [...acc.bookings, booking] };
-    if (!isFree(acc, booking.staffId, booking.date, booking.start, booking, booking.id))
-      return { ...acc, bookings: [...acc.bookings, { ...booking, status: "cancelled" as const, cancelReason: "Time taken" }] };
-    const back = { ...acc, bookings: [...acc.bookings, rebook(acc, booking)] };
-    return cardsCovered(back)
-      ? back
-      : { ...acc, bookings: [...acc.bookings, { ...booking, status: "cancelled" as const, cancelReason: "Gift card balance used" }] };
-  }, restored);
+  for (const booking of entry.bookings) {
+    if (booking.status !== "booked") {
+      restored.bookings = [...restored.bookings, booking];
+      continue;
+    }
+    const available = isFree(restored, booking.staffId, booking.date, booking.start, booking, booking.id);
+    if (available) {
+      const bookings = [...restored.bookings, rebook(restored, booking)];
+      if (cardsCovered({ ...restored, bookings })) {
+        restored.bookings = bookings;
+        continue;
+      }
+    }
+    const refunded = refundCancellation(booking, payments);
+    if (!refunded) return state;
+    if (refunded.protection?.refund) restored.giftCards = returnRedemptions(restored.giftCards, new Set([booking.id]));
+    restored.bookings = [...restored.bookings, { ...refunded, status: "cancelled",
+      cancelReason: t(available ? "trash.giftCardUsed" : "trash.timeTaken") }];
+  }
+  return restored;
 }

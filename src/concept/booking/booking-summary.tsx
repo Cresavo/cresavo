@@ -1,25 +1,33 @@
 import { t } from "../i18n";
-import { formatMoney } from "../i18n/format";
+import type { Now } from "../use-now";
 import { freeUntilText } from "./deadline-text";
+import { hoursUntil, visitTime } from "./policy";
+import { formatMinor } from "./policy-summary";
+import type { BookingTerms } from "./protection";
 import type { OpenSlot } from "./suggest";
 
-export function BookingSummary({ slot, price, currency, late, phone, packagesEnabled }: {
-  slot: OpenSlot; price: number; currency: string; late: boolean; phone: string; packagesEnabled: boolean;
+export function BookingSummary({ slot, terms, now, phone, packagesEnabled }: {
+  slot: OpenSlot; terms: BookingTerms; now: Now; phone: string; packagesEnabled: boolean;
 }) {
-  const total = formatMoney(price, currency);
+  const { priceMinor, currency, depositMinor, freeHours, latePercent, noShowPercent } = terms;
+  const instant = now.instant ?? visitTime({ date: now.today, start: now.minutes }).toMillis();
+  const late = hoursUntil(slot, now.today, now.minutes, instant) < freeHours;
+  const money = (amount: number) => formatMinor(amount, currency);
   return (
     <div className="space-y-2 rounded-lg bg-surface-2 p-4 text-sm">
       <dl className="space-y-1">
-        <div className="flex flex-wrap justify-between gap-x-3 font-semibold"><dt>{t("booking.summary.total")}</dt><dd>{total}</dd></div>
-        <div className="flex flex-wrap justify-between gap-x-3"><dt>{t("booking.summary.dueNow")}</dt><dd>{formatMoney(0, currency)}</dd></div>
+        <div className="flex flex-wrap justify-between gap-x-3 font-semibold"><dt>{t("booking.summary.total")}</dt><dd>{money(priceMinor)}</dd></div>
+        <div className="flex flex-wrap justify-between gap-x-3"><dt>{t("booking.summary.dueNow")}</dt><dd>{money(depositMinor)}</dd></div>
         <div className="flex flex-wrap justify-between gap-x-3">
-          <dt>{t(packagesEnabled ? "booking.summary.atSalonWithPackages" : "booking.summary.atSalon")}</dt><dd>{total}</dd>
+          <dt>{t(packagesEnabled && !depositMinor ? "booking.summary.atSalonWithPackages" : "booking.summary.atSalon")}</dt><dd>{money(priceMinor - depositMinor)}</dd>
         </div>
       </dl>
-      <p className="text-text-secondary">{t("booking.summary.simulated")}</p>
+      {depositMinor > 0 && <p>{t("booking.summary.depositRefund")}</p>}
+      <p className="text-text-secondary">{t(depositMinor ? "protection.simulated" : "booking.summary.simulated")}</p>
       <div className="space-y-1 border-t border-hairline pt-2">
-        <p>{freeUntilText(slot)}</p>
-        {late && <p className="text-text-secondary">{phone ? t("booking.summary.deadlinePassedPhone", { phone }) : t("booking.summary.deadlinePassed")}</p>}
+        <p>{freeUntilText(slot, freeHours, instant)}</p>
+        {late && <p>{phone ? t("booking.summary.deadlinePassedPhone", { phone }) : t("booking.summary.deadlinePassed")}</p>}
+        <p>{latePercent || noShowPercent ? t("booking.summary.fees", { late: latePercent, missed: noShowPercent }) : t("booking.summary.noFees")}</p>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CalendarClock, CalendarX2, Check, Gift, Phone, UserRound } from "lucide-react";
-import { paidWithCards } from "../../giftcards/cards";
+import { paidWithCards, remainingForCards } from "../../giftcards/cards";
 import { t, tc, type MessageKey } from "../../i18n";
 import { formatDayLong, formatDuration, formatMoney, formatTime } from "../../i18n/format";
 import { packageFor, visitsLeft } from "../../packages/packages";
@@ -10,12 +10,17 @@ import { findCustomer, findService, fullName } from "../../selectors";
 import { newActionRequestId } from "../../support/action-reference";
 import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Badge } from "../../ui/badge";
+import { dispatchWithLog, withBookingLock } from "../../store";
 import { Button, ButtonLink } from "../../ui/button";
 import { Chip, Switch } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
 import { RedeemSheet } from "../giftcards/redeem-sheet";
-import { dispatchWithUndoToast } from "../log/undo-toast";
+import { dispatchWithUndoToast, showUndoToast } from "../log/undo-toast";
 import { useStudio } from "../use-studio";
+import { salonCancellationOnly } from "../../booking/settlement";
+import { useSalonNow } from "../../use-now";
+import { formatMinor } from "../../booking/policy-summary";
+import { FeeDecisionPanel } from "./fee-decision";
 import { SlotPicker, slotOnDate, type Slot } from "./slot-picker";
 import { waitlistCount, waitlistNotice } from "./waitlist-notice";
 
@@ -26,6 +31,7 @@ const CANCEL_REASONS: MessageKey[] = ["cancel.reason.customer", "cancel.reason.i
 /** Booking details with move and cancel flows. Mount it with `key={bookingId}`. */
 export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { bookingId: string; onClose: () => void; initialMode?: Mode }) {
   const { state, today, minutes } = useStudio();
+  const clock = useSalonNow();
   const booking = state.bookings.find((b) => b.id === bookingId);
   const [mode, setMode] = useState<Mode>(initialMode);
   const [date, setDate] = useState(booking?.date ?? today);
@@ -51,6 +57,8 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
     : undefined;
   const waitlist = waitlistCount(state, booking);
   const pkg = state.modules.packages ? packageFor(state, booking) : undefined;
+  const protection = booking.protection;
+  const salonCancellation = salonCancellationOnly(booking, clock.instant ?? 0);
   const paidByCard = paidWithCards(state, booking.id);
 
   const markDone = () => {
@@ -68,15 +76,20 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
     else report("booking.move.failed");
   };
 
-  const confirmCancel = () => {
+  const confirmCancel = async () => {
     const sendOffer = offer && waitlist > 0;
     const message = sendOffer ? tc("booking.cancelledOfferedToast", waitlist) : t("booking.cancelledToast");
-    if (dispatchWithUndoToast({
+    const result = await withBookingLock(() => dispatchWithLog({
       type: "booking/cancel",
       id: booking.id,
-      reason: t(reason),
+      reason: t(salonCancellation ? "cancel.reason.salon" : reason),
       notice: sendOffer ? waitlistNotice(booking, waitlist, { today, minutes }) : undefined,
-    }, message)) onClose();
+    }, undefined, latest => {
+      const current = latest.bookings.find(b => b.id === booking.id);
+      return current?.status === "booked" && salonCancellationOnly(current, Date.now()) === salonCancellation &&
+        current.date === booking.date && current.start === booking.start && current.staffId === booking.staffId;
+    })).catch(() => false as const);
+    if (showUndoToast(message, result)) onClose();
     else report("booking.visitChanged");
   };
 
@@ -129,7 +142,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
       <Sheet
         open
         onClose={onClose}
-        title={t("cancel.title")}
+        title={t(salonCancellation ? "protection.salonCancel" : "cancel.title")}
         description={`${name} · ${when}`}
         footer={
           <>
@@ -140,14 +153,15 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
         }
       >
         <div className="space-y-5">
-          <div className="space-y-2">
+          {protection?.deposit && <p>{t("protection.returnDeposit", { amount: formatMinor(protection.terms.depositMinor, protection.terms.currency) })}</p>}
+          {!salonCancellation && <div className="space-y-2">
             <p className="text-sm font-medium">{t("cancel.reason")}</p>
             <div className="flex flex-wrap gap-2">
               {CANCEL_REASONS.map((r) => (
                 <Chip key={r} active={reason === r} onClick={() => setReason(r)}>{t(r)}</Chip>
               ))}
             </div>
-          </div>
+          </div>}
           {waitlist > 0 && (
             <div className="flex items-center gap-4 rounded-lg bg-surface-2 p-4">
               <div className="min-w-0 flex-1">
@@ -181,7 +195,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
           )}
           {upcoming && (
             <>
-              <Button variant="danger" icon={<CalendarX2 size={18} />} onClick={() => { setOffer(false); go("cancel"); }}>{t("booking.cancel")}</Button>
+              <Button variant="danger" icon={<CalendarX2 size={18} />} onClick={() => { setOffer(false); go("cancel"); }}>{t(salonCancellation ? "protection.salonCancel" : "booking.cancel")}</Button>
               <Button icon={<CalendarClock size={18} />} onClick={() => go("move")}>{t("booking.move")}</Button>
             </>
           )}
@@ -215,7 +229,8 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
             />
           )}
         </dl>
-        {state.modules.giftcards && booking.status === "booked" && booking.price > paidByCard && (
+        <FeeDecisionPanel state={state} booking={booking} />
+        {state.modules.giftcards && booking.status === "booked" && remainingForCards(state, booking) > 0 && (
           <div className="space-y-2">
             <Button variant="secondary" className="w-full" icon={<Gift size={18} />} onClick={() => go("giftcard")}>{t("giftcards.pay")}</Button>
             {pkg && <p className="text-sm text-text-secondary">{t("packages.giftCardInstead")}</p>}

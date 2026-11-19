@@ -1,3 +1,4 @@
+import type { CheckoutHold } from "./protection";
 import { useRef, useState } from "react";
 
 // Contact prefill is separate from the salon's fictional booking records.
@@ -30,6 +31,10 @@ export function rememberGuest(slug: string, guest?: Guest) {
   }
 }
 
+export function rememberHeldGuest(slug: string, hold: CheckoutHold, customerId: string) {
+  rememberGuest(slug, { name: hold.guest.name, phone: hold.guest.phone, customerId });
+}
+
 /** Both guest forms use the same opt-in and forget the prefill immediately on opt-out. */
 export function useGuestContact(slug: string) {
   const [known] = useState(() => recallGuest(slug));
@@ -48,5 +53,5 @@ export function useGuestContact(slug: string) {
     const allowed = latestChoice.current ?? (sameContact && recallGuest(slug)?.customerId === known?.customerId);
     rememberGuest(slug, allowed ? { name: guest.name.trim(), phone: guest.phone.trim(), customerId } : undefined);
   }
-  return { guest, setGuest, remember, chooseRemember, saveContact };
+  return { guest, setGuest, remember, chooseRemember, saveContact, explicitlyRemembers: () => latestChoice.current === true };
 }
