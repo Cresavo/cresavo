@@ -2,6 +2,8 @@ import type { AppProps } from "next/app";
 import { Inter } from "next/font/google";
 import { inject, type BeforeSend } from "@vercel/analytics";
 import { useEffect } from "react";
+import { SiteLocale } from "@/concept/site/copy";
+import { siteLocale } from "@/concept/site/language";
 import type { SiteProps } from "@/concept/site/links";
 import "@/concept/ui/brand-theme.css";
 import "@/concept/site/site-base.css";
@@ -14,7 +16,9 @@ const removeUrlParameters: BeforeSend = (event) => {
   return { ...event, url: `${url.origin}${url.pathname}` };
 };
 
-export default function App({ Component, pageProps }: AppProps<Partial<SiteProps>>) {
+export default function App({ Component, pageProps, router }: AppProps<Partial<SiteProps>>) {
+  const locale = siteLocale(router.pathname);
+  useEffect(() => { document.documentElement.lang = locale; }, [locale]);
   const analyticsOrigin = pageProps.analyticsEnabled ? pageProps.origin : null;
   useEffect(() => {
     // The server can see loopback after a rewrite. Measure only the actual public origin.
@@ -28,7 +32,9 @@ export default function App({ Component, pageProps }: AppProps<Partial<SiteProps
 
   return (
     <div className={`${inter.variable} site`}>
-      <Component {...pageProps} />
+      <SiteLocale.Provider value={locale}>
+        <Component {...pageProps} />
+      </SiteLocale.Provider>
     </div>
   );
 }

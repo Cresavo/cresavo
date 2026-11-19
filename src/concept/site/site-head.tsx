@@ -1,11 +1,14 @@
+import { sitePath } from "./language";
 import Head from "next/head";
 import { BRAND } from "../brand";
 import { PLATFORM_ICONS, THEME_COLORS } from "../ui/brand-assets";
-import { site } from "./en";
+import { useSiteCopy } from "./copy";
 
 /** Document metadata for a site page: title, description, social preview text, platform icons and browser chrome that follows the visitor's scheme. */
-export function SiteHead({ title, description, productOrigin }: { title: string; description: string; productOrigin?: string | null }) {
-  const image = `${productOrigin}/site/tour-16x9-poster.jpg`;
+export function SiteHead({ title, description, productOrigin, page = "home" }: { title: string; description: string; productOrigin?: string | null; page?: "home" | "privacy" }) {
+  const { site, locale } = useSiteCopy();
+  const url = (lang: "en" | "sv") => (productOrigin ?? "") + sitePath(lang, page);
+  const image = `${productOrigin ?? ""}/site/tour-16x9-poster.jpg`;
   return (
     <Head>
       <title>{title}</title>
@@ -14,12 +17,16 @@ export function SiteHead({ title, description, productOrigin }: { title: string;
       <meta name="application-name" content={BRAND.name} />
       <meta property="og:type" content="website" />
       <meta property="og:site_name" content={BRAND.name} />
+      <meta property="og:locale" content={locale === "sv" ? "sv_SE" : "en_GB"} />
+      <link rel="canonical" href={url(locale)} />
+      <link rel="alternate" hrefLang="en" href={url("en")} />
+      <link rel="alternate" hrefLang="sv" href={url("sv")} />
+      <link rel="alternate" hrefLang="x-default" href={url("en")} />
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta name="twitter:card" content={productOrigin ? "summary_large_image" : "summary"} />
       {productOrigin && <>
-        <link rel="canonical" href={`${productOrigin}/`} />
-        <meta property="og:url" content={`${productOrigin}/`} />
+        <meta property="og:url" content={url(locale)} />
         <meta property="og:image" content={image} />
         <meta property="og:image:width" content="960" />
         <meta property="og:image:height" content="540" />

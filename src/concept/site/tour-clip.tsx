@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Maximize2, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { ClipLightbox } from "./clip-lightbox";
-import { site } from "./en";
+import { useSiteCopy } from "./copy";
 import s from "./site.module.css";
 
 const TOUR_POSTER = "/site/tour-16x9-poster.jpg";
@@ -13,6 +13,7 @@ function clipSource(video: HTMLVideoElement, prefix: string, isTour: boolean) {
 }
 
 export function TourClip({ name, description, title }: { name: Clip; description: string; title: string }) {
+  const { site } = useSiteCopy();
   const ref = useRef<HTMLVideoElement>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
   const position = useRef(0);

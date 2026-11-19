@@ -13,7 +13,7 @@ maintainer-approved issue or task for scope.
 - **Codex** – implements maintainer-approved tasks.
 - **Grok** – reviews and verifies user journeys.
 
-Conversation with Niclas may be Swedish, but everything committed is English.
+Conversation with Niclas may be Swedish.
 
 ## Responsibilities in the code
 
@@ -30,8 +30,21 @@ Conversation with Niclas may be Swedish, but everything committed is English.
   schema or migrations without an explicit assignment.
 - `booking-lab-gateway` owns the public REST/MCP entry for external agents.
   Build new gateway tools there, not here. Contract: `docs/GATEWAY_SPLIT.md`.
-- All UI text is in English, through the per-area dictionaries (for example
-  `src/concept/i18n/en.ts`). Demo data may stay Swedish-flavoured.
+- Demo data may stay Swedish-flavoured.
+
+## Languages
+
+English is the source language for code, documentation and UI. Every user-facing
+string goes through its area's dictionary. Add or update the Swedish translation
+in the same PR as the English text. Parity tests check keys and placeholders.
+Self-hosted installations default to English and offer Swedish as a choice.
+Country-specific features such as Swish belong in connectors or market settings
+selected by the business's country or currency. Both site languages describe
+the same product.
+
+Set `CONCEPT_SITE_SV_DOMAINS` on the server to override the comma-separated list
+of exact hosts that redirect to the Swedish site. It defaults to
+`cresavo.se,www.cresavo.se` in production and an empty list elsewhere.
 
 ## Standing ground rules (apply to the whole repo)
 

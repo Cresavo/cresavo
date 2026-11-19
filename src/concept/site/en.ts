@@ -10,6 +10,7 @@ export const site = {
   "product.lead": "The simple, open-source booking app for salons and clinics.",
   "soon.nav": "Main navigation",
   "soon.github": "GitHub",
+  "language.switch": "På svenska",
   "soon.demo": "Try the demo",
   "github.star": "Star on GitHub",
   "soon.tour.duration": "36 sec",
@@ -162,16 +163,16 @@ export const site = {
 
   "privacy.title": `Privacy · ${BRAND.name}`,
   "privacy.heading": "Privacy",
-  "privacy.intro": `This is a short note for the time before ${BRAND.name} launches. ${BRAND.name} is an open-source project, and these pages are run by its maintainer, an individual in Sweden. A full policy, with a private contact address, will replace this note before the waiting list or the product opens.`,
+  "privacy.intro": `This is a short note for the time before ${BRAND.name} launches. ${BRAND.name} is an open-source project, and these pages are run by its maintainer, an individual in Sweden. The controller is Niclas Vestlund. You can reach them at info@cresavo.com. A full policy will replace this note before the waiting list or the product opens.`,
   "privacy.waitlist.heading": "The waiting list",
-  "privacy.waitlist.body": "The waiting list is not open yet. If you submit the form today, your email address and the optional kind of business are checked on the server and then discarded: the application does not store them or send them anywhere. To slow down abuse, the server counts tries per network address in memory for about ten minutes, without your email. Like any web host, our host (Vercel) may keep standard request logs. When the list opens, this page will first name the list provider, how long addresses are kept and how to withdraw; we will use your address only to tell you about the launch, and every email will have an unsubscribe link.",
+  "privacy.waitlist.body": "The waiting list is not open yet. If you submit the form today, your email address, the form language and the optional kind of business are checked on the server and then discarded: the application does not store them or send them anywhere. To slow down abuse, the server counts tries per network address in memory for about ten minutes, without your email. Like any web host, our host (Vercel) may keep standard request logs. When the list opens, this page will first name the list provider, how long addresses are kept and how to withdraw; we will use your address only to tell you about the launch, and every email will have an unsubscribe link.",
   "privacy.demo.heading": "The demo",
   "privacy.demo.body": "The demo uses fictional data. On this public demo, what you change is saved in your own browser and assistant tasks use built-in rules, so it is not sent to us or to an AI provider. The booking page can remember the last guest's name and phone number on this device. Messages and payments are simulated. Please use invented details, and clear this site's browser data to remove them. Self-hosted copies of the open-source code may be set up differently by whoever runs them.",
   "privacy.cookies.heading": "Cookies and tracking",
   "privacy.cookies.body": "These pages set no tracking cookies and load no third-party scripts.",
   "privacy.analytics.body": "The product site uses Vercel Web Analytics to count visits and page views and see where visits come from. This measurement does not use tracking cookies. We exclude query strings and fragments from the page addresses we send. The interactive demo does not use this measurement.",
   "privacy.rights.heading": "Your rights",
-  "privacy.rights.body": "Under the GDPR you can ask for access to, correction or erasure of personal data about you, and you can complain to the Swedish Authority for Privacy Protection (IMY). These pages keep no personal data, so there is usually nothing to look up. Until a private contact address is published here, you can reach the maintainer privately through the project's GitHub repository (Security, then Report a vulnerability).",
+  "privacy.rights.body": "Under the GDPR you can ask for access to, correction or erasure of personal data about you, and you can complain to the Swedish Authority for Privacy Protection (IMY). The closed waiting list keeps no sign-ups. For privacy questions or requests, contact info@cresavo.com.",
   "privacy.back": "Back",
 } as const;
 
@@ -183,3 +184,5 @@ export const channelExamples = [
   { name: "Booking page", source: "Booking request", request: "A brow appointment before work?", reply: "Thursday at 08:30 works!", day: "Thursday", time: "08:30", service: "Brow shape · 20 min" },
   { name: "AI agent", source: "Agent request", request: "A spa visit for my client on Monday?", reply: "Yes, there’s a spot at 10:00.", day: "Monday", time: "10:00", service: "Spa visit · 60 min", comingSoon: true },
 ] as const;
+
+export type ChannelExample = Record<keyof (typeof channelExamples)[number], string> & { comingSoon?: true };

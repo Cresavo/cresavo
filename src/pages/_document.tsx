@@ -1,9 +1,9 @@
-import { Head, Html, Main, NextScript } from "next/document";
+import { siteLocale } from "@/concept/site/language";
+import { type DocumentProps, Head, Html, Main, NextScript } from "next/document";
 
-// The pages router serves the public product site in English.
-export default function Document() {
+export default function Document({ __NEXT_DATA__ }: DocumentProps) {
   return (
-    <Html lang="en">
+    <Html lang={siteLocale(__NEXT_DATA__.page)}>
       <Head />
       <body>
         <Main />

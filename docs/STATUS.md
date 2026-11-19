@@ -11,7 +11,7 @@ Start with the [demo and product tour](../README.md) or see the
   Assistant, campaigns, stock and purchasing, finance and configurable modules.
   The demo uses fictional fixtures and browser state. The Assistant works
   without an AI key.
-- [cresavo.com](https://cresavo.com) shows the coming-soon page with a product tour and links to the demo and public repository. Its launch
+- [cresavo.com](https://cresavo.com) shows the product page in English and [Swedish](https://cresavo.com/sv), with a product tour and links to the demo and public repository. Its launch
   waiting-list form is a placeholder and does not store sign-ups.
 - Host routing serves the product site, demo and business booking pages at
   different addresses. The demo resolves fixture businesses and simulates

@@ -1,3 +1,6 @@
+import { cookies } from "next/headers";
+import { parseLocale } from "@/lib/locale";
+import { DEMO_VISITOR_COOKIE } from "@/lib/locale-cookie";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { translate } from "@/concept/i18n";
@@ -23,11 +26,12 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function BookingLayout({ children }: { children: ReactNode }) {
+export default async function BookingLayout({ children }: { children: ReactNode }) {
+  const visitorLanguage = parseLocale((await cookies()).get(DEMO_VISITOR_COOKIE)?.value);
   return (
     // The public route boundary: the page around the business's own theme (error and unknown-address states, the canvas) is the neutral tenant scope.
     <div className="studio-root booking-boundary">
-      <BookShell>{children}</BookShell>
+      <BookShell visitorLanguage={visitorLanguage}>{children}</BookShell>
     </div>
   );
 }

@@ -20,7 +20,7 @@ import { TENANT_ICON } from "./tenant-metadata";
 import { UnknownAddress } from "./unknown-address";
 
 /** Page frame for everything a customer sees: slim header, content, small footer, wearing the business's theme. */
-export function BookShell({ children }: { children: ReactNode }) {
+export function BookShell({ children, visitorLanguage }: { children: ReactNode; visitorLanguage: Locale | null }) {
   const state = usePublicDemo();
   const slug = useParams<{ slug: string }>()?.slug ?? "";
   const path = usePathname()?.replace(/\/$/, "") || "/";
@@ -33,7 +33,9 @@ export function BookShell({ children }: { children: ReactNode }) {
   const allowSwitch = home && state?.salon.slug === slug && state.localization.bilingual;
   const [choice, setChoice] = useState<{ slug: string; language: Locale }>();
   const businessLanguage = state?.localization.language ?? DEFAULT_BOOKING_LANGUAGE;
-  const language = allowSwitch && choice?.slug === slug ? choice.language : businessLanguage;
+  const demoLanguage = !state?.industry && slug === "salong-eko" ? visitorLanguage : null;
+  const selectedLanguage = choice?.slug === slug ? choice.language : demoLanguage;
+  const language = allowSwitch && selectedLanguage ? selectedLanguage : businessLanguage;
   useEffect(() => {
     document.title = translate(language, "language.bookingTitle");
     document.querySelector('meta[name="description"]')?.setAttribute("content", translate(language, "language.bookingDescription"));

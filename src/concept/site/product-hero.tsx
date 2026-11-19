@@ -3,12 +3,13 @@ import Image from "next/image";
 import { useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Wordmark } from "../ui/wordmark";
-import { site } from "./en";
+import { useSiteCopy } from "./copy";
 import { GitHubStar } from "./product-sections";
 import s from "./site.module.css";
 import e from "./editorial.module.css";
 
 export function ProductHeader({ demo }: { demo: string }) {
+  const { site } = useSiteCopy();
   return (
     <header className={e.masthead}>
       <Wordmark className={s.wordmark} />
@@ -21,15 +22,16 @@ export function ProductHeader({ demo }: { demo: string }) {
   );
 }
 
-const frames = [
-  { name: "chair", alt: site["hero.alt"], caption: site["hero.chair"] },
-  { name: "tools", alt: site["hero.tools.alt"], caption: site["hero.tools"] },
-  { name: "phone", alt: site["hero.phone.alt"], caption: site["hero.phone"] },
-] as const;
 const chairSet = "/site/salon-chair-small.webp 768w, /site/salon-chair.webp 1536w";
 const sizes = "(min-width: 1600px) 1512px, 98vw";
 
 export function ProductHero({ demo, stars }: { demo: string; stars: number | null }) {
+  const { site } = useSiteCopy();
+  const frames = [
+    { name: "chair", alt: site["hero.alt"], caption: site["hero.chair"] },
+    { name: "tools", alt: site["hero.tools.alt"], caption: site["hero.tools"] },
+    { name: "phone", alt: site["hero.phone.alt"], caption: site["hero.phone"] },
+  ] as const;
   const [current, setCurrent] = useState(0);
   const frame = frames[current];
   const cover = frames[0];

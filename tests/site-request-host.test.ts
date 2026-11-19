@@ -47,13 +47,13 @@ it("keeps same-deployment links on a preview deployment", async () => {
   await expect(siteProps({ host: "cresavo.com" })).resolves.toMatchObject({ props: { analyticsEnabled: false } });
 });
 
-it("publishes only the canonical product homepage in the public sitemap", async () => {
+it("publishes both canonical product homepages in the public sitemap", async () => {
   const request = (host: string) => new Request(`https://${host}`, { headers: { host } });
   const apex = request("cresavo.com");
   const demo = request("demo.cresavo.com");
 
   expect(await robots(apex).text()).toContain("Sitemap: https://cresavo.com/sitemap.xml");
-  expect((await sitemap(apex).text()).match(/<loc>(.*?)<\/loc>/g)).toEqual(["<loc>https://cresavo.com/</loc>"]);
+  expect((await sitemap(apex).text()).match(/<loc>(.*?)<\/loc>/g)).toEqual(["<loc>https://cresavo.com/</loc>", "<loc>https://cresavo.com/sv</loc>"]);
   expect(await robots(demo).text()).not.toContain("Sitemap:");
   expect(sitemap(demo).status).toBe(404);
 });
@@ -68,6 +68,8 @@ it("prefers Vercel's forwarded host for links and host routing", async () => {
   await expect(siteProps(demo)).resolves.toMatchObject({ props: { links: publicLinks, origin: null, analyticsEnabled: false } });
   expect(routed("/", apex).get("x-middleware-rewrite")).toBe("http://localhost:3100/coming-soon");
   expect(routed("/", apex).get("X-Robots-Tag")).toBeNull();
+  expect(routed("/sv", apex).get("X-Robots-Tag")).toBeNull();
+  expect(routed("/sv", demo).get("X-Robots-Tag")).toBe("noindex, nofollow");
   expect(routed("/?from=home", demo).get("location")).toBe("http://demo.cresavo.com/studio?from=home");
   expect(routed("/", demo).get("X-Robots-Tag")).toBe("noindex, nofollow");
   expect(routed("/sitemap.xml", apex).get("X-Robots-Tag")).toBeNull();
@@ -93,4 +95,25 @@ it("keeps links local when a product domain is unset and forwarding is untrusted
   const headers = { ...internalHost, "x-forwarded-host": "book.example", "x-booking-forwarded-host": "book.example" };
   await expect(siteProps(headers)).resolves.toMatchObject({ props: { links: { apex: "/coming-soon", demo: "/studio" } } });
   expect(routed("/", headers).get("X-Robots-Tag")).toBe("noindex, nofollow");
+});
+
+it("permanently redirects the Swedish aliases to the configured HTTPS product origin", () => {
+  vi.stubEnv("CONCEPT_SITE_SV_DOMAINS", "cresavo.se, www.cresavo.se");
+  for (const host of ["cresavo.se", "www.cresavo.se"]) {
+    const response = proxy(new NextRequest("http://localhost/privacy?source=demo", { headers: { host } }));
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe("https://cresavo.com/sv/privacy?source=demo");
+  }
+});
+
+it("consumes a demo language hint without overwriting a saved studio language", () => {
+  const visit = (query: string, cookie = "") => proxy(new NextRequest(`https://demo.cresavo.com/studio?${query}`, {
+    headers: { host: "demo.cresavo.com", cookie },
+  }));
+  const first = visit("lang=sv&tour=1");
+  expect(first.headers.get("location")).toBe("https://demo.cresavo.com/studio?tour=1");
+  expect(first.headers.get("set-cookie")).toContain("booking-locale=sv");
+  expect(first.headers.get("set-cookie")).toContain("demo-booking-language=sv");
+  expect(visit("lang=sv", "booking-locale=en").headers.get("set-cookie")).not.toContain("booking-locale=");
+  expect(visit("lang=other").headers.get("set-cookie")).toBeNull();
 });
