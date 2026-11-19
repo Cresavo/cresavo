@@ -7,7 +7,8 @@ const { changed, showToast, showActionFailure, unsubscribe, note } = vi.hoisted(
   changed: vi.fn(), showToast: vi.fn(), showActionFailure: vi.fn(), unsubscribe: { current: () => {} }, note: { draft: "" },
 }));
 vi.mock("@/concept/ui/toast", () => ({ showToast, showActionFailure }));
-vi.mock("react", () => ({
+vi.mock("react", async importOriginal => ({
+  ...await importOriginal<typeof import("react")>(),
   useState: () => [note.draft, vi.fn()],
   useSyncExternalStore: (subscribe: (notify: () => void) => () => void, read: () => unknown) => {
     unsubscribe.current = subscribe(changed);

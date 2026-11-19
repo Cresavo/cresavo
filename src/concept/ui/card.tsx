@@ -16,11 +16,15 @@ interface SectionProps {
 export function Section({ title, action, children, className }: SectionProps) {
   return (
     <section className={cx("space-y-3", className)}>
-      <div className="flex min-h-9 items-center justify-between gap-3">
-        <h2 className="text-[17px] font-semibold tracking-tight">{title}</h2>
+      <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <h2 className="min-w-0 break-words text-h2 font-semibold tracking-tight">{title}</h2>
         {action}
       </div>
       {children}
     </section>
   );
+}
+
+export function Stat({ label, value }: { label: string; value: string }) {
+  return <dl><dt className="text-meta text-text-secondary">{label}</dt><dd className="text-h2 font-semibold">{value}</dd></dl>;
 }

@@ -3,8 +3,8 @@
 import { chromium } from "@playwright/test";
 import http from "node:http";
 import https from "node:https";
-import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from "node:fs";
-import { createRequire } from "node:module";
+import { mkdirSync, writeFileSync, existsSync, readdirSync } from "node:fs";
+export { axeSource } from "./axe-source.mjs";
 import path from "node:path";
 
 export const BASE_URL = new URL(process.env.QA_BASE_URL ?? `http://localhost:${process.env.QA_PORT ?? 3100}`);
@@ -100,13 +100,6 @@ export const state = page => page.evaluate(k => JSON.parse(localStorage.getItem(
 export async function settle(page) {
   await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
   await page.waitForTimeout(300);
-}
-
-export function axeSource() {
-  const candidates = [process.env.QA_AXE, "axe-core/axe.min.js"].filter(Boolean);
-  const require = createRequire(import.meta.url);
-  for (const c of candidates) { try { return readFileSync(existsSync(c) ? c : require.resolve(c), "utf8"); } catch {} }
-  throw new Error("axe-core not found: npm i -D axe-core, or set QA_AXE=/path/axe.min.js");
 }
 
 /** A tiny result recorder: check(name, ok, detail). */

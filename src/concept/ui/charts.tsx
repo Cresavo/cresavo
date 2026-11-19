@@ -19,7 +19,7 @@ export function ColumnChart({ data, format, label, height = 160 }: ColumnChartPr
       <div className="flex items-end gap-2 sm:gap-3" style={{ height }}>
         {data.map((d) => (
           <div key={d.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
-            <span className="truncate text-[11px] font-medium tabular-nums text-text-secondary">{format(d.value)}</span>
+            <span className="truncate text-minimum font-medium tabular-nums text-text-secondary">{format(d.value)}</span>
             <div
               className={cx("w-full max-w-12 rounded-t-sm", d.highlight ? "bg-action" : "bg-chart-compare")}
               style={{ height: `${Math.max(3, (d.value / max) * (height - 28))}px` }}

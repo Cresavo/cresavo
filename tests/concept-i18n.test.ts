@@ -270,7 +270,7 @@ function studioLiterals(file: string, content: string): string[] {
 }
 
 it("gets studio JSX copy, accessible labels and toast strings from the dictionary", () => {
-  const roots = ["src/app/studio", "src/concept/studio", "src/concept/ui", "src/concept/command"];
+  const roots = ["src/app/(development)/studio/%5Fgallery", "src/app/studio", "src/concept/studio", "src/concept/ui", "src/concept/command"];
   const findings = roots.flatMap((dir) => readdirSync(dir, { encoding: "utf8", recursive: true })
     .filter((file) => file.endsWith(".tsx"))
     .flatMap((file) => {

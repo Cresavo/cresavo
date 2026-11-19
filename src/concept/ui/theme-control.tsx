@@ -4,7 +4,6 @@ import { useSyncExternalStore } from "react";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { t } from "../i18n";
 import { Segmented } from "./controls";
-import { cx } from "./cx";
 import { parseTheme, pinThemeColor, studioChrome, THEME_STORAGE_KEY, THEMES, type ThemePreference } from "./theme";
 
 const EVENT = "ui-theme-change";
@@ -34,29 +33,12 @@ const ICONS = { light: Sun, dark: Moon, system: Monitor } as const;
 /** Light, dark or system. `compact` shows icons only (with names for screen readers), for the shell. */
 export function ThemeControl({ compact = false, className }: { compact?: boolean; className?: string }) {
   const theme = useThemePreference();
-  if (!compact) {
-    return <Segmented label={t("theme.label")} value={theme} onChange={setTheme} options={THEMES.map((value) => ({ value, label: t(`theme.${value}`) }))} className={className} />;
-  }
   return (
-    <div role="radiogroup" aria-label={t("theme.label")} className={cx("inline-flex rounded-md border border-hairline p-0.5", className)}>
-      {THEMES.map((value) => {
+    <Segmented label={t("theme.label")} value={theme} onChange={setTheme} className={className}
+      options={THEMES.map(value => {
         const Icon = ICONS[value];
-        const active = value === theme;
-        return (
-          <button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            aria-label={t(`theme.${value}`)}
-            title={t(`theme.${value}`)}
-            onClick={() => setTheme(value)}
-            className={cx("flex size-11 items-center justify-center rounded-sm", active ? "bg-action-bg text-text ring-1 ring-inset ring-input-border" : "text-text-secondary hover:text-text")}
-          >
-            <Icon size={18} aria-hidden />
-          </button>
-        );
+        return { value, label: t(`theme.${value}`), icon: compact ? <Icon size={18} aria-hidden /> : undefined };
       })}
-    </div>
+    />
   );
 }

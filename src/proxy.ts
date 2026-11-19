@@ -5,6 +5,7 @@ import { LOCALE_COOKIE, setDemoVisitorCookie, setLocaleCookie } from "./lib/loca
 import { isPublicReadonly, publicReadonlyResponse } from "./lib/public-readonly";
 import { productSiteOrigin } from "./concept/site/origin";
 import { siteRequestHost } from "./concept/site/request-host";
+import { galleryAvailable } from "./concept/server/gallery";
 import { conceptRoute } from "./concept/page/language";
 import { isProductHome, routeHost, UNKNOWN_PATH, type HostRoute } from "./concept/page/resolve";
 
@@ -64,6 +65,9 @@ function hostResponse(request: NextRequest, host: string | null | undefined, rou
 export function proxy(request: NextRequest) {
   const host = siteRequestHost((name) => request.headers.get(name));
   const { pathname } = request.nextUrl;
+  if (/^\/studio\/(?:_|%5[fF])gallery\/?$/.test(pathname) && !galleryAvailable(host)) {
+    return new NextResponse(null, { status: 404 });
+  }
   const route = routeHost(host, pathname, undefined, undefined, process.env.LEGACY_HOME === "1");
   // An alias serves no pages or assets of its own.
   if (route.action === "redirect" && route.targetHost) {

@@ -1,4 +1,5 @@
 // axe-core on every main page: light 1280, dark 1280, light 390. WCAG 2.x A/AA rules + best practices.
+import { axeTags } from "./axe-source.mjs";
 import { UNKNOWN, launch, newContext, save, settle, axeSource, DEMO, APEX, TENANT } from "./lib.mjs";
 
 const PAGES = [
@@ -18,7 +19,7 @@ for (const mode of MODES) {
   for (const url of PAGES) {
     await page.goto(url); await settle(page); await page.waitForTimeout(400);
     await page.evaluate(source); // evaluate, not a <script> tag: no CSP change needed
-    const res = await page.evaluate(() => window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"] }, resultTypes: ["violations", "incomplete"] }));
+    const res = await page.evaluate(tags => window.axe.run(document, { runOnly: { type: "tag", values: tags }, resultTypes: ["violations", "incomplete"] }), axeTags);
     for (const v of res.incomplete.filter(i => i.id === "color-contrast"))
       review.push({ mode: mode.name, url: url.replace(/^http:\/\//, ""), count: v.nodes.length, nodes: v.nodes.slice(0, 3).map(n => `${n.target.join(" ")} :: ${(n.any?.[0]?.message ?? "").slice(0, 120)}`) });
     for (const v of res.violations)

@@ -9,6 +9,7 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- The studio now has shared accessible controls, form feedback, consent dialogs and motion for both themes, with a development-only component gallery.
 - The API platform plan and architecture decisions document current REST and MCP coverage. API parity tests require every module to declare its resources and keep the published coverage table in sync.
 - Owners can configure cancellation fees and treatment deposits. Customers see the deadline and can pay a simulated deposit, and the studio records fee decisions, balances and refunds.
 - The paired salon assistant can read calendars, customers, treatments, staff and finance, and draft bookings, blocks, cancellations, treatment changes and simulated Inbox replies for owner review. OAuth consent lists permissions by area.
@@ -29,6 +30,7 @@ All notable changes to this project are documented here. Format follows
 - On phones, Today shows the next customer above the schedule. Inbox rows lead with the message subject and show the sender below it.
 
 ### Fixed
+- Closing a sheet with Escape, its close button or its backdrop returns focus to the opener. Settings section headers wrap on very narrow screens.
 - Deposit and refund records follow the saved booking, including after a customer is restored. Customers can reopen settled visits from My Bookings, and gift cards retain returned credit after customer deletion.
 - Deposit checkout respects Swish amount limits and remembers a guest’s contact choice across reloads. Gift-card redemptions show the exact amount due, and calendar exports and cancellation deadlines use the same salon clock.
 - The hosted pairing demo uses a dedicated database connection, and Vercel applies pending Prisma migrations through its direct connection when pairing is enabled.
