@@ -2,10 +2,14 @@
 
 import { useState, type FormEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Eye, LifeBuoy, Send } from "lucide-react";
+import { ChevronRight, Eye, History, LifeBuoy, Send } from "lucide-react";
 import { askHelp, type HelpReply } from "../../help/client";
 import { showMe } from "../../help/show-me";
 import { t } from "../../i18n";
+import { canOpen } from "../../ops/access";
+import { useRole } from "../../ops/role";
+import { ListRow } from "../../ui/list-row";
+import { HISTORY_PAGE } from "../nav";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { TextInput } from "../../ui/controls";
@@ -28,6 +32,7 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
   const [requestId, setRequestId] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname() ?? "";
+  const role = useRole();
 
   const ask = async (text: string) => {
     const trimmed = text.trim();
@@ -94,6 +99,19 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* History and undo lives here, under Help, rather than in More. */}
+        {view.kind === "ask" && canOpen(role, HISTORY_PAGE) && (
+          <div data-help="history" className="border-t border-hairline pt-2">
+            <ListRow
+              onClick={() => { close(); router.push(HISTORY_PAGE); }}
+              title={t("nav.log")}
+              meta={t("nav.log.description")}
+              leading={<History size={22} aria-hidden className="shrink-0 text-text-secondary" />}
+              trailing={<ChevronRight size={18} aria-hidden className="shrink-0 text-text-secondary" />}
+            />
           </div>
         )}
 

@@ -33,6 +33,11 @@ All notable changes to this project are documented here. Format follows
 - Customers can confirm the next available visit from the treatment list, opt in to contact prefill, and book the same treatment and practitioner again. The confirmation links to appointment management, calendar downloads and Google Calendar. Shared gift cards show their remaining balance when available.
 - The customer list starts each row with the customer's name and shows the next booking before the last visit. The filters carry the customer counts.
 - On phones, Today shows the next customer above the schedule. Inbox rows lead with the message subject and show the sender below it.
+- Settings is a short overview with six sections, each on its own page: Salon, Opening hours and closed days, Reminders and cancellations, Your booking link, Appearance and language, and Advanced. Owners can now edit the salon's name, phone, email, address and area; the change is listed in History and can be undone.
+- An Advanced area at the end of More and Settings holds what most salons never need: the developer details from Your data & AI (connecting an outside assistant, AI models and costs, own keys and the open protocols), the website embed code and own domain, the booking language, the SMS price, own CSS for the booking page, rooms and chairs, support access and the error reference lookup, the industry pack and the demo reset. Your data keeps three plain cards: Download my data, Import customers and Connect an assistant. Existing addresses keep working.
+- Features is now Add-ons: a plain list with one line and a switch per add-on, without prices or packs. Gift cards and packages explain prepaid money before they are switched on.
+- "What happened?" is now History and undo, under Help instead of More. What the assistant remembers and its routines are two tabs on the assistant's page, shown while the assistant is on.
+- Today keeps "Someone is calling" as a secondary button until a new salon has real bookings. Text outside Advanced avoids developer words, and a unit test keeps it that way.
 
 ### Fixed
 - Closing a sheet with Escape, its close button or its backdrop returns focus to the opener. Settings section headers wrap on very narrow screens.

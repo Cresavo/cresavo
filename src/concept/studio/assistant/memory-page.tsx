@@ -10,12 +10,11 @@ import { Button, IconButton } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
 import { SearchInput, TextInput } from "../../ui/controls";
 import { EmptyState } from "../../ui/empty-state";
-import { MorePage } from "../more/more-page";
 import { useStudio } from "../use-studio";
 import { dispatchWithUndoToast } from "../log/undo-toast";
 
-/** "What … remembers": every note the assistant keeps, to search, edit and forget. */
-export function MemoryPage() {
+/** "What … remembers": every note the assistant keeps, to search, edit and forget. A tab on the assistant's page. */
+export function MemoryPanel() {
   const { state, today } = useStudio();
   const [query, setQuery] = useState("");
   const found = searchMemory(state.memory, query);
@@ -23,9 +22,8 @@ export function MemoryPage() {
   const threads = found.filter((item) => item.kind === "thread");
 
   return (
-    <MorePage title={t("nav.memory")} subtitle={tc("memory.subtitle", state.memory.length)} module="assistant">
       <div className="space-y-6">
-        <p className="max-w-2xl text-[15px] text-text-secondary">{t("memory.intro")}</p>
+        <p className="max-w-2xl text-body text-text-secondary">{tc("memory.subtitle", state.memory.length)} · {t("memory.intro")}</p>
         <AddNote today={today} />
         {state.memory.length > 0 && <SearchInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("memory.search")} aria-label={t("memory.search")} />}
         {!state.memory.length ? (
@@ -43,7 +41,6 @@ export function MemoryPage() {
           </>
         )}
       </div>
-    </MorePage>
   );
 }
 

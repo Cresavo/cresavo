@@ -54,6 +54,12 @@ Existing imports including `Segmented`, `TextInput`, `TextArea`, the `ghost` but
 - Pair press scale (.97) with a tint. Move the segmented thumb and switch knob with transforms. Slide and fade sheets and toasts, entering more slowly than exiting. Reveal the check through a transformed clip. Use transform and opacity for motion. Keep layout, colour and shadow changes immediate.
 - With reduced motion, remove travel, continuous pulsing, repeated animation and smooth scrolling. Preserve a brief opacity-only transition for entering or leaving overlays. Preserve final selection, loading and success cues.
 
+## Settings and Advanced
+
+- Settings is an overview of at most six sections, each a `ListRow` that opens its own page with a back link to Settings. Only a section as small as Appearance sits in place. Modules never add a section; their settings live on their own pages. `SETTINGS_SECTIONS` in `src/concept/studio/nav.ts` is the list, and the complexity-budget test holds it to six.
+- Advanced is one quiet row at the end of More and of Settings. It holds what a salon can run without: developer details, embed code and own domain, booking language, SMS price, own CSS, rooms, support access, pack switching and the demo reset. Move something there rather than delete it, and keep its old address working.
+- Primary screens use salon words: "Your booking link", "Download my data", "History and undo". Technical words (MCP, API, CSV, slug, localhost, token, UTC, CSS, iframe, SIE) are allowed only under the dictionary prefixes listed in `tests/concept-jargon.test.ts`.
+
 ## Accessibility and performance
 
 Target WCAG 2.2 AA. Use a visible focus ring and native activation, labelling, modal focus management and disabled semantics. Text and secondary text need at least 4.5:1 contrast. Large text and meaningful graphical boundaries need at least 3:1. Maintain 44 × 44 px targets, check 200 % zoom and reflow at 320 px. Check both languages, both themes and keyboard-only operation.
@@ -70,7 +76,7 @@ Budget at most **2 KB gzipped per component** and **5 KB per feature** of increm
 - [ ] No horizontal page scroll, nothing hidden by bars.
 - [ ] Shared components.
 - [ ] Never colour alone.
-- [ ] No jargon (MCP, API, CSV, slug, localhost, token, UTC) in primary views.
+- [ ] No jargon (MCP, API, CSV, slug, localhost, token, UTC, CSS, iframe, SIE) in primary views; Advanced only.
 - [ ] Demo label on anything simulated.
 - [ ] Standard empty states.
 - [ ] Long, empty and dark cases checked on mobile and desktop.

@@ -1,0 +1,17 @@
+"use client";
+
+import { t } from "@/concept/i18n";
+import { BookingShare } from "@/concept/studio/more/booking-share";
+import { BookingLinkSection } from "@/concept/studio/page/address-section";
+import { SettingsSubPage } from "@/concept/studio/settings/settings-page";
+
+export default function BookingLinkPage() {
+  return (
+    <SettingsSubPage title={t("settings.section.link")} subtitle={t("settings.section.link.description")}>
+      <div className="max-w-3xl space-y-6">
+        <div id="share"><BookingShare /></div>
+        <BookingLinkSection />
+      </div>
+    </SettingsSubPage>
+  );
+}

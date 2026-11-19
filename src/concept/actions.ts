@@ -22,6 +22,7 @@ import { undoEntry } from "./log/undo";
 import { bookableServices } from "./selectors";
 import { MODULES, presetModules, type PresetId } from "./modules/registry";
 import { applyOps, type OpsAction } from "./ops/edit";
+import { applySalonDetails, type SalonDetails } from "./ops/salon-details";
 import { applyServiceAction, validServicePrice, type ServiceAction } from "./services/edit";
 import { applyPageAction, type PageAction } from "./page/actions";
 import { grantSupport, revokeSupport, type GrantHours } from "./support/access";
@@ -55,6 +56,7 @@ import type {
 export type DemoAction =
   | { type: "salon/language"; language: BusinessLocalization["language"]; bilingual: boolean }
   | { type: "salon/policy"; policy: CancellationPolicy }
+  | { type: "salon/details"; details: Partial<SalonDetails> }
   | FeeDecision
   | { type: "online/hold"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId: StaffId; date: DateKey; start: number }
   | { type: "online/pay"; id: string; method: DemoMethod }
@@ -373,6 +375,8 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
       return payHold(state, action, now, payments);
     case "online/release":
       return state.checkoutHolds.some(h => h.id === action.id) ? { ...state, checkoutHolds: state.checkoutHolds.filter(h => h.id !== action.id) } : state;
+    case "salon/details":
+      return applySalonDetails(state, action.details);
     case "salon/language": {
       const language = parseLocale(action.language);
       if (!language || typeof action.bilingual !== "boolean") return state;

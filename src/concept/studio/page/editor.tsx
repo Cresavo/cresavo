@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import Link from "next/link";
 import { Save, Undo2 } from "lucide-react";
-import { t, tc } from "../../i18n";
-import { MAX_CSS_LENGTH, sanitizeCss } from "../../page/css";
+import { t } from "../../i18n";
 import { normalizePage, type PageConfig } from "../../page/config";
 import type { PageTheme } from "../../page/theme";
 import { dispatchWithLog } from "../../store";
 import { Button } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
-import { Segmented, TextArea } from "../../ui/controls";
+import { Segmented } from "../../ui/controls";
+import { ADVANCED_PAGE } from "../nav";
 import { useStudio } from "../use-studio";
 import { Preview } from "./preview";
 import { SectionControls } from "./section-controls";
@@ -51,7 +52,7 @@ export function PageEditor() {
           <Block title={t("pageEditor.sections.title")}>
             <SectionControls sections={draft.sections} instagram={draft.instagram} onChange={(sections) => change({ sections })} onInstagram={(instagram) => change({ instagram })} />
           </Block>
-          <Block title={t("pageEditor.css.title")}><CssControls css={draft.css} onChange={(css) => change({ css })} /></Block>
+          <p className="text-meta text-text-secondary">{t("pageEditor.cssMoved")} <Link href={`${ADVANCED_PAGE}#styling`} className="font-medium text-text underline">{t("nav.advanced")}</Link></p>
           <div className="sticky bottom-[calc(8.5rem+env(safe-area-inset-bottom))] sm:bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 flex flex-wrap items-center gap-2 rounded-lg bg-surface p-3 shadow-sheet ring-1 ring-hairline lg:bottom-4">
             <p className="min-w-0 basis-full text-sm text-text-secondary sm:flex-1 sm:basis-auto">{dirty ? t("pageEditor.unsaved") : t("pageEditor.upToDate")}</p>
             <Button variant="ghost" icon={<Undo2 size={18} />} disabled={!dirty} onClick={() => setDraft(state.page)}>{t("pageEditor.discard")}</Button>
@@ -71,19 +72,5 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
     <Section title={title}>
       <Card className="p-4">{children}</Card>
     </Section>
-  );
-}
-
-function CssControls({ css, onChange }: { css: string; onChange: (css: string) => void }) {
-  const applied = sanitizeCss(css);
-  const rules = (applied.match(/\{/g) ?? []).length;
-  return (
-    <div className="space-y-2">
-      <p className="text-sm text-text-secondary">{t("pageEditor.css.help")}</p>
-      <TextArea value={css} onChange={(event) => onChange(event.target.value)} maxLength={MAX_CSS_LENGTH} spellCheck={false} autoCapitalize="none" aria-label={t("pageEditor.css.title")} placeholder={t("pageEditor.cssExample")} className="min-h-40 font-mono text-base" />
-      <p role="status" className="text-xs text-text-secondary">
-        {css.trim() ? (rules ? tc("pageEditor.css.applied", rules) : t("pageEditor.css.none")) : t("pageEditor.css.empty")}
-      </p>
-    </div>
   );
 }

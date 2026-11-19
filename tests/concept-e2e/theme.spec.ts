@@ -205,7 +205,7 @@ for (const scheme of ["light", "dark"] as const) {
   test(`no accessibility violations on the main pages in ${scheme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
     await page.addInitScript((value) => localStorage.setItem("ui-theme", value), scheme);
-    const pages = ["/studio", "/studio/calendar", "/studio/customers", `/studio/customers/${initial.customers[0].id}`, "/studio/inbox", "/studio/more", "/studio/more/booking-page", "/studio/more/settings", "/boka/salong-eko", `/boka/salong-eko?service=${initial.services[0].id}`];
+    const pages = ["/studio", "/studio/calendar", "/studio/customers", `/studio/customers/${initial.customers[0].id}`, "/studio/inbox", "/studio/more", "/studio/more/booking-page", "/studio/more/settings", "/studio/more/settings/salon", "/studio/more/advanced", "/boka/salong-eko", `/boka/salong-eko?service=${initial.services[0].id}`];
     for (const url of pages) {
       await page.goto(url);
       await expect(page.locator("main").first()).toBeVisible();

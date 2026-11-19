@@ -57,33 +57,38 @@ test("shows the payment split and salon deadline before confirmation, then offer
 });
 
 test("persists reminder settings, chooses the preview channel and links straight to Sent", async ({ page }) => {
-  await page.goto("/studio/more/settings");
-  const reminders = page.getByRole("heading", { name: copy("reminders.title") }).locator("../..");
-  const price = reminders.getByLabel(copy("reminders.smsPrice", { currency }));
+  // The SMS price and its estimate are under Advanced; the default channel is under Settings → Reminders.
+  await page.goto("/studio/more/advanced");
+  const sms = page.getByRole("heading", { name: copy("reminders.smsTitle") }).locator("../..");
+  const price = sms.getByLabel(copy("reminders.smsPrice", { currency }));
   const money = new Intl.NumberFormat(intlLocale(language), { style: "currency", currency });
   const estimate = monthlySmsEstimate(fixture, today, fixture.reminderSettings);
   await expect(price).toHaveValue("0.45");
   await price.fill("0.70");
   const formula = (messages: number) => copy("reminders.formula", { messages, bookings: estimate.bookings, price: money.format(0.70) });
-  await expect(reminders.getByText(formula(1), { exact: true })).toBeVisible();
+  await expect(sms.getByText(formula(1), { exact: true })).toBeVisible();
+  await price.blur();
+  await page.goto("/studio/more/settings/reminders");
+  const reminders = page.getByRole("heading", { name: copy("reminders.title") }).locator("../..");
   await reminders.getByRole("radio", { name: copy("messages.channel.email") }).click();
-  await expect(reminders.getByText(formula(0), { exact: true })).toBeVisible();
   await page.reload();
-  await expect(price).toHaveValue("0.70");
   await expect(reminders.getByRole("radio", { name: copy("messages.channel.email") })).toBeChecked();
+  await page.goto("/studio/more/advanced");
+  await expect(price).toHaveValue("0.70");
+  await expect(sms.getByText(formula(0), { exact: true })).toBeVisible();
   const booking = fixture.bookings.find(item => item.date > today && item.status === "booked")!;
   await page.goto(`${home}/booking/${booking.id}`);
   await page.getByRole("radio", { name: copy("messages.kind.reminder"), exact: true }).click();
   await expect(page.getByRole("radio", { name: copy("messages.channel.email"), exact: true })).toBeChecked();
   await page.getByRole("button", { name: copy("messages.simulate") }).click();
-  await page.goto("/studio/more/settings");
+  await page.goto("/studio/more/settings/reminders");
   await reminders.getByRole("link", { name: copy("messages.log") }).click();
   await expect(page.getByRole("radio", { name: copy("messages.log") })).toBeChecked();
   const subject = copy("messages.subject.reminder", { salon: fixture.salon.name });
   await expect(page.getByText(copy("messages.sentTitle", { channel: copy("messages.channel.email"), subject }), { exact: true })).toBeVisible();
 });
 
-test("opens the migration checklist from Your data and leads to the existing import", async ({ page }) => {
+test("downloads from Your data and leads to the existing import", async ({ page }) => {
   await page.goto("/studio");
   const salon = createSalon(today, { ...salonDraft(), name: "Studio Linden", slug: "studio-linden" });
   await page.evaluate(initial => {
@@ -115,7 +120,7 @@ test("copies a booking error reference for the salon", async ({ page }) => {
   await alert.locator("..").getByRole("button", { name: copy("common.copy"), exact: true }).click();
   const reference = await code.innerText();
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(reference);
-  await page.goto("/studio/more/settings");
+  await page.goto("/studio/more/advanced");
   await page.getByLabel(copy("reference.lookupCode")).fill(reference);
   await page.getByRole("button", { name: copy("reference.lookup") }).click();
   await expect(page.getByRole("status").filter({ hasText: copy("booking.me.notFound") })).toBeVisible();
