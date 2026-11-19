@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- The product page shows the three latest releases with their highlights, when the code was last updated, and links to all releases and the release feed. The data comes from GitHub, is cached for an hour and the section is hidden if GitHub cannot be reached.
+
 ### Changed
 
 - The owner studio uses shared controls, page headers, status badges and list rows. Calendar groups its secondary tools in an options sheet and gives appointments larger touch targets.

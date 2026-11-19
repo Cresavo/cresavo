@@ -9,6 +9,7 @@ import type { ProductSiteProps } from "./links";
 import { MiniBooking } from "./mini-booking";
 import { OpenDesign } from "./open-design";
 import { ProductHeader, ProductHero } from "./product-hero";
+import { ReleaseFeed } from "./release-feed";
 import { FounderStory, JoinMovement, PlatformComparison } from "./product-sections";
 import { SiteHead } from "./site-head";
 import { StudioPreview } from "./studio-preview";
@@ -53,7 +54,7 @@ function FilmTour() {
   );
 }
 
-export function ProductPage({ links, waitlist, stars, origin }: ProductSiteProps) {
+export function ProductPage({ links, waitlist, stars, origin, activity }: ProductSiteProps) {
   const { site, locale } = useSiteCopy();
   const demo = locale === "sv" ? `${links.demo}?lang=sv` : links.demo;
   const otherLocale = locale === "sv" ? "en" : "sv";
@@ -81,6 +82,7 @@ export function ProductPage({ links, waitlist, stars, origin }: ProductSiteProps
         <OpenDesign />
         <FilmTour />
         <PlatformComparison />
+        {activity && <ReleaseFeed activity={activity} />}
         <JoinMovement demo={demo} />
         <WaitlistForm from={sitePath(locale)} initial={waitlist ?? undefined} className={s.block} />
       </main>

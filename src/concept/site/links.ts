@@ -1,5 +1,6 @@
 import type { GetServerSidePropsContext } from "next";
-import { getStarCount } from "./github-stars";
+import { getReleases, type ReleaseSummary } from "./github-releases";
+import { getRepositorySummary } from "./github-stars";
 import { productSiteOrigin } from "./origin";
 import { siteRequestHost } from "./request-host";
 import { isLocalHost, siteLinks } from "../page/resolve";
@@ -34,9 +35,17 @@ export async function getSiteProps({ req, query }: GetServerSidePropsContext) {
   };
 }
 
-export type ProductSiteProps = SiteProps & { stars: number | null };
+export interface ProjectActivity {
+  releases: ReleaseSummary[];
+  pushedAt: string | null;
+  /** The server's clock, so "updated today" renders the same on the server and in the browser. */
+  now: string;
+}
+
+export type ProductSiteProps = SiteProps & { stars: number | null; activity: ProjectActivity | null };
 
 export async function getProductSiteProps(context: GetServerSidePropsContext) {
-  const { props } = await getSiteProps(context);
-  return { props: { ...props, stars: await getStarCount() } };
+  const [{ props }, repository, releases] = await Promise.all([getSiteProps(context), getRepositorySummary(), getReleases()]);
+  const activity = releases ? { releases, pushedAt: repository?.pushedAt ?? null, now: new Date().toISOString() } : null;
+  return { props: { ...props, stars: repository?.stars ?? null, activity } satisfies ProductSiteProps };
 }
