@@ -24,7 +24,7 @@ import { getPack } from "./packs";
 
 const STORAGE_KEY = "salong-eko-demo";
 interface BookingReceipt { day: string; seq: number }
-type Workspace = "demo" | "own";
+export type Workspace = "demo" | "own";
 interface WorkspaceSnapshot {
   state?: DemoState | null;
   raw?: string | null;
@@ -59,6 +59,18 @@ function storageKey(workspace: Workspace) {
   return workspace === primary ? STORAGE_KEY : `${STORAGE_KEY}-${workspace}`;
 }
 const listeners = new Set<() => void>();
+const removalListeners = new Set<(workspace: Workspace) => void>();
+
+/** Tells `BrowserStudioStore` that a workspace's salon was deleted or replaced, so its records for it end. */
+function salonRemoved(workspace: Workspace) {
+  removalListeners.forEach(listener => listener(workspace));
+}
+
+/** Called when a workspace's salon is deleted (trial expiry, "Delete now", another tab) or replaced (a new sample business). */
+export function onSalonRemoved(listener: (workspace: Workspace) => void): () => void {
+  removalListeners.add(listener);
+  return () => { removalListeners.delete(listener); };
+}
 
 // The own salon's last use is kept beside its snapshot, so reading it never touches the salon itself.
 const lastUseKey = () => `${storageKey("own")}-last-used`;
@@ -69,6 +81,7 @@ function removeOwnSalon(announce: boolean) {
     window.localStorage.removeItem(lastUseKey());
   } catch { /* Nothing more to remove. */ }
   snapshots.own = {};
+  salonRemoved("own");
   if (active === "own") {
     active = "demo";
     try { window.sessionStorage.setItem(SELECTION_KEY, "demo"); }
@@ -156,7 +169,9 @@ function refresh(workspace: Workspace) {
   catch { /* Use the snapshot in memory. */ }
   if (raw === snapshot.raw) return false;
   snapshot.raw = raw;
+  const had = !!snapshot.state;
   snapshot.state = load(raw, workspace);
+  if (had && !snapshot.state) salonRemoved(workspace);
   snapshot.version = raw && snapshot.state ? { day: snapshot.state.generatedFor, seq: snapshot.state.seq } : undefined;
   return true;
 }
@@ -234,6 +249,16 @@ export function currentState(): DemoState | null {
 export function latestState(): DemoState | null {
   refreshFromStorage();
   return getSnapshot();
+}
+
+/** The saved text behind the current state as last read or written, for freshness checks. */
+export function currentRaw(): string | null {
+  return snapshots[active].raw ?? null;
+}
+
+/** The store's own change notifications (writes here, other tabs, workspace switches), outside React. */
+export function subscribeStore(listener: () => void): () => void {
+  return subscribe(listener);
 }
 
 /**
@@ -352,6 +377,7 @@ export async function startBusiness(setup?: BusinessSetup): Promise<void> {
     refreshFromStorage();
     const next = createDemoState(today(), setup);
     next.seq = Math.max(next.seq, (snapshots.demo.state?.seq ?? 0) + 1, (required?.seq ?? 0) + 1);
+    salonRemoved("demo");
     return setState(next);
   }, true);
 }

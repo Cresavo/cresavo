@@ -1,5 +1,6 @@
 import type { DemoAction } from "../actions";
 import type { OutboxEntry } from "../connections/simulated/outbox";
+import { migrateState } from "../data/migrate";
 import type { DemoState } from "../data/types";
 import type { LogActor, LogSource } from "../log/types";
 
@@ -44,13 +45,18 @@ export interface ApplyOptions {
 }
 
 /**
- * Something a committed change asks the outside world to do. Today only the
- * simulated payment ledger stages calls; messages are still sent from inside
- * the reducer (see docs/design/STUDIO_STORE.md, open questions).
+ * Something a committed change asks the outside world to do: a payment, or a
+ * message or post. `MemoryStudioStore` stages both; the browser store stages
+ * payments only, since its messages are still sent from inside the reducer
+ * (see docs/design/STUDIO_STORE.md, open questions).
  */
 export interface StoreEffect {
-  kind: "payment";
+  kind: "payment" | "message";
   record: OutboxEntry;
+}
+
+export function effectOf(record: OutboxEntry): StoreEffect {
+  return { kind: record.port === "payments" ? "payment" : "message", record };
 }
 
 /** One committed change in the append-only action log (`tenant_action` in step 2). */
@@ -69,7 +75,7 @@ export interface TenantAction {
 }
 
 export type ApplyFailure =
-  /** `expectedVersion` was stale. Nothing changed; reload and decide again. */
+  /** `expectedVersion` was stale, or (browser) this tab could not confirm it had the latest write in time. Nothing changed; reload and retry. */
   | "conflict"
   /** The reducer refused the action or it changed nothing (slot taken, unknown id, invalid input). */
   | "rejected"
@@ -83,7 +89,11 @@ export type ApplyResult =
       ok: true;
       state: DemoState;
       version: number;
-      /** Effects of this change, published once after the commit. On a replay they are the original ones and are not published again. */
+      /**
+       * Effects of this change, published once after the commit. On a replay,
+       * `state`, `version`, `entry` and `effects` are those of the original
+       * commit, even if later changes followed, and nothing is published again.
+       */
       effects: StoreEffect[];
       entry: TenantAction;
       /** True when an earlier apply with the same idempotency key is being returned. */
@@ -132,6 +142,9 @@ export interface HistoryPage {
  *   changed or removed by the store.
  * - **Isolation.** Nothing in one tenant's state, log, keys or effects is
  *   visible through another tenant's id.
+ * - **Detached values.** Everything returned or passed to a listener is a
+ *   copy, and the store copies the action it is given: editing a result can
+ *   never change the stored state or log.
  * - **Migration.** `load` returns the state at the current `DEMO_VERSION`,
  *   migrating an older saved document first.
  */
@@ -159,20 +172,46 @@ export function actionFingerprint(action: DemoAction): string {
   return JSON.stringify(canonical(action));
 }
 
-/** Shared paging over an ascending, gap-free log. */
-export function pageHistory(log: readonly TenantAction[], query: HistoryQuery): HistoryPage {
-  const limit = Math.max(1, Math.min(HISTORY_MAX_LIMIT, Math.floor(query.limit)));
-  const after = query.after ?? 0;
-  const entries = log.filter((entry) => entry.seq > after).slice(0, limit);
-  const last = entries.at(-1);
-  return { entries, next: last && log.some((entry) => entry.seq > last.seq) ? last.seq : null };
+/** A deep copy, so callers and the store never share mutable objects. */
+export function detach<T>(value: T): T {
+  return structuredClone(value);
 }
 
-/** Calls each listener, so one failing subscriber cannot undo or block a commit. */
+/** Paging over a log whose entry `i` has `seq` i + 1; O(page), not O(log). Entries are copies. */
+export function pageHistory(log: readonly TenantAction[], query: HistoryQuery): HistoryPage {
+  const limit = Math.max(1, Math.min(HISTORY_MAX_LIMIT, Math.floor(query.limit) || 1));
+  const after = Math.max(0, Math.floor(query.after ?? 0));
+  const entries = log.slice(after, after + limit).map(detach);
+  const last = entries.at(-1);
+  return { entries, next: last && last.seq < log.length ? last.seq : null };
+}
+
+/**
+ * True when two states hold the same data apart from the counter `seq`.
+ * Catches reducer no-ops that return a fresh but identical object.
+ */
+export function sameContent(a: DemoState, b: DemoState): boolean {
+  return a === b || JSON.stringify({ ...a, seq: 0 }) === JSON.stringify({ ...b, seq: 0 });
+}
+
+const ARRAYS = ["staff", "services", "customers", "bookings", "checkoutHolds", "inbox", "log", "trash", "categories", "resources", "exceptions"] as const;
+
+/** A saved document migrated to the current version, or null when it is too old, malformed or not a state at all. */
+export function migrateSaved(saved: unknown): DemoState | null {
+  try {
+    const state = migrateState(saved);
+    if (!state || typeof state.salon !== "object" || !state.salon || typeof state.localization !== "object") return null;
+    return ARRAYS.every((key) => Array.isArray(state[key])) ? state : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Calls each listener with its own copy, so one failing or mutating subscriber cannot affect the commit or the others. */
 export function notifyAll(listeners: Iterable<(change: StoreChange) => void>, change: StoreChange) {
-  for (const listener of listeners) {
+  for (const listener of [...listeners]) {
     try {
-      listener(change);
+      listener(detach(change));
     } catch {
       // A subscriber's error is its own; the change is already committed.
     }

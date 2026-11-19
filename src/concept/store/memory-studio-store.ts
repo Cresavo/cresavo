@@ -1,13 +1,18 @@
 import type { DemoAction } from "../actions";
-import { paymentLedger } from "../connections/simulated/adapters";
-import { createOutbox, type Outbox } from "../connections/simulated/outbox";
-import { migrateState } from "../data/migrate";
+import { DEMO_CHANNEL_CURRENCY, withDemoChannels } from "../connections/demo";
+import { channelLedger } from "../connections/simulated/adapters";
+import { createOutbox, type OutboxEntry } from "../connections/simulated/outbox";
+import { withSlotClock } from "../data/slots";
 import type { DemoState } from "../data/types";
 import { defaultMeta, prepareAction } from "../log/capture";
 import {
   actionFingerprint,
+  detach,
+  effectOf,
+  migrateSaved,
   notifyAll,
   pageHistory,
+  sameContent,
   type ApplyMeta,
   type ApplyOptions,
   type ApplyResult,
@@ -22,8 +27,18 @@ import {
 } from "./studio-store";
 
 // The reference StudioStore: plain memory, an injectable clock and one
-// payment ledger per tenant, so runs are deterministic and tenants share
-// nothing. The Postgres store is held to the same contract suite.
+// simulated ledger per tenant for payments, SMS, email and social posts, so
+// runs are deterministic and tenants share nothing. Every send is staged
+// while the reducer runs and published only after the commit. The Postgres
+// store is held to the same contract suite.
+
+interface Remembered {
+  fingerprint: string;
+  seq: number;
+  /** The committed state, kept for an exact replay. Never handed out without a copy. */
+  state: DemoState;
+  effects: StoreEffect[];
+}
 
 interface Tenant {
   /** The saved document until the first read migrates it. */
@@ -31,9 +46,8 @@ interface Tenant {
   state?: DemoState;
   version: number;
   log: TenantAction[];
-  keys: Map<string, { fingerprint: string; seq: number; effects: StoreEffect[] }>;
-  outbox: Outbox;
-  ledger: ReturnType<typeof paymentLedger>;
+  keys: Map<string, Remembered>;
+  ledger: ReturnType<typeof channelLedger>;
   /** Serializes applies, like the row lock in step 2. */
   queue: Promise<unknown>;
 }
@@ -41,7 +55,7 @@ interface Tenant {
 export interface MemoryStudioStoreOptions {
   /** Saved documents by tenant id, in any version `migrateState` accepts. */
   tenants?: Record<TenantId, unknown>;
-  /** Epoch milliseconds; defaults to `Date.now`. */
+  /** Epoch milliseconds; defaults to `Date.now`. Also judges checkout-hold expiry. */
   now?: () => number;
 }
 
@@ -57,28 +71,32 @@ export class MemoryStudioStore implements StudioStore {
 
   /** Adds or replaces a tenant from a saved document (copied, as a database would store it). */
   seed(tenantId: TenantId, saved: unknown) {
-    const outbox = createOutbox(Infinity);
+    let copy: unknown;
+    try {
+      copy = JSON.parse(JSON.stringify(saved) ?? "null");
+    } catch {
+      copy = null;
+    }
     this.tenants.set(tenantId, {
-      saved: JSON.parse(JSON.stringify(saved)) as unknown,
+      saved: copy,
       version: 0,
       log: [],
       keys: new Map(),
-      outbox,
-      ledger: paymentLedger(outbox),
+      ledger: channelLedger(createOutbox(Infinity), DEMO_CHANNEL_CURRENCY),
       queue: Promise.resolve(),
     });
   }
 
-  /** Every effect published for a tenant, oldest first. */
-  publishedEffects(tenantId: TenantId): StoreEffect[] {
-    return (this.tenants.get(tenantId)?.outbox.list("payments") ?? []).map((record) => ({ kind: "payment", record }));
+  /** Everything published for a tenant (payments, messages, posts), oldest first. */
+  published(tenantId: TenantId): OutboxEntry[] {
+    return detach(this.tenants.get(tenantId)?.ledger.outbox.list() ?? []);
   }
 
   private open(tenantId: TenantId): (Tenant & { state: DemoState }) | undefined {
     const tenant = this.tenants.get(tenantId);
     if (!tenant) return undefined;
     if (!tenant.state && tenant.saved !== undefined) {
-      tenant.state = migrateState(tenant.saved) ?? undefined;
+      tenant.state = migrateSaved(tenant.saved) ?? undefined;
       tenant.saved = undefined;
     }
     return tenant.state ? (tenant as Tenant & { state: DemoState }) : undefined;
@@ -86,13 +104,15 @@ export class MemoryStudioStore implements StudioStore {
 
   async load(tenantId: TenantId): Promise<StoreSnapshot | null> {
     const tenant = this.open(tenantId);
-    return tenant ? { state: tenant.state, version: tenant.version } : null;
+    return tenant ? { state: detach(tenant.state), version: tenant.version } : null;
   }
 
   apply(tenantId: TenantId, action: DemoAction, meta: ApplyMeta = {}, options: ApplyOptions = {}): Promise<ApplyResult> {
     const tenant = this.tenants.get(tenantId);
     if (!tenant) return Promise.resolve({ ok: false, reason: "not-found" });
-    const run = tenant.queue.then(() => this.applyNow(tenantId, action, meta, options));
+    // Copied now: the caller may change its object while the apply waits in the queue.
+    const own = detach(action);
+    const run = tenant.queue.then(() => this.applyNow(tenantId, own, meta, options));
     tenant.queue = run.catch(() => undefined);
     return run;
   }
@@ -105,7 +125,7 @@ export class MemoryStudioStore implements StudioStore {
     if (known) {
       if (known.fingerprint !== fingerprint) return { ok: false, reason: "idempotency-mismatch", version: tenant.version };
       const entry = tenant.log[known.seq - 1];
-      return { ok: true, state: tenant.state, version: entry.resultingVersion, effects: known.effects, entry, replayed: true };
+      return { ok: true, state: detach(known.state), version: entry.resultingVersion, effects: detach(known.effects), entry: detach(entry), replayed: true };
     }
     if (options.expectedVersion !== undefined && options.expectedVersion !== tenant.version) {
       return { ok: false, reason: "conflict", version: tenant.version };
@@ -113,11 +133,11 @@ export class MemoryStudioStore implements StudioStore {
     const at = meta.at ?? this.now();
     const defaults = defaultMeta(action, at);
     const logMeta = { actor: meta.actor ?? defaults.actor, source: meta.source ?? defaults.source, at };
-    const batch = tenant.ledger.stage();
-    const next = prepareAction(tenant.state, action, logMeta, batch);
-    if (next === tenant.state) return { ok: false, reason: "rejected", version: tenant.version };
+    const stage = tenant.ledger.stage();
+    const next = withSlotClock(at, () => withDemoChannels(stage, () => prepareAction(tenant.state, action, logMeta, stage)));
+    if (next === tenant.state || sameContent(next, tenant.state)) return { ok: false, reason: "rejected", version: tenant.version };
 
-    // Commit, then publish: the staged payments reach the outbox only now.
+    // Commit, then publish: staged payments and messages reach the outbox only now.
     const entry: TenantAction = {
       seq: tenant.log.length + 1,
       tenantId,
@@ -131,12 +151,12 @@ export class MemoryStudioStore implements StudioStore {
     tenant.state = next;
     tenant.version = entry.resultingVersion;
     tenant.log.push(entry);
-    const before = new Set(tenant.outbox.list().map((record) => record.id));
-    batch.publish();
-    const effects: StoreEffect[] = tenant.outbox.list().filter((record) => !before.has(record.id)).map((record) => ({ kind: "payment", record }));
-    if (options.idempotencyKey !== undefined) tenant.keys.set(options.idempotencyKey, { fingerprint, seq: entry.seq, effects });
+    const before = new Set(tenant.ledger.outbox.list().map((record) => record.id));
+    stage.publish();
+    const effects = tenant.ledger.outbox.list().filter((record) => !before.has(record.id)).map(effectOf);
+    if (options.idempotencyKey !== undefined) tenant.keys.set(options.idempotencyKey, { fingerprint, seq: entry.seq, state: next, effects });
     notifyAll(this.listeners.get(tenantId) ?? [], { tenantId, version: tenant.version, entry, effects });
-    return { ok: true, state: next, version: tenant.version, effects, entry, replayed: false };
+    return { ok: true, state: detach(next), version: tenant.version, effects: detach(effects), entry: detach(entry), replayed: false };
   }
 
   subscribe(tenantId: TenantId, listener: (change: StoreChange) => void): () => void {

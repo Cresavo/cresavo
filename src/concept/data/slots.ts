@@ -77,9 +77,25 @@ export function isActive(b: Booking) {
   return b.status !== "cancelled";
 }
 
+let fixedNow: number | undefined;
+
+/**
+ * Runs a synchronous check or reducer call with checkout holds judged at `now`
+ * instead of the wall clock, for stores with their own clock.
+ */
+export function withSlotClock<T>(now: number, run: () => T): T {
+  const previous = fixedNow;
+  fixedNow = now;
+  try {
+    return run();
+  } finally {
+    fixedNow = previous;
+  }
+}
+
 function activeHolds(ctx: SlotContext, date: DateKey) {
   if (!ctx.checkoutHolds?.length) return [];
-  const now = Date.now();
+  const now = fixedNow ?? Date.now();
   return ctx.checkoutHolds.filter(h => h.date === date && h.expiresAt > now);
 }
 

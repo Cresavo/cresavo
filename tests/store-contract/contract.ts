@@ -8,6 +8,7 @@ import { freeStarts, needOf } from "@/concept/data/slots";
 import type { DemoState, Service, StaffId } from "@/concept/data/types";
 import { createSalon, salonDraft } from "@/concept/onboarding/salon";
 import { bookableServices } from "@/concept/selectors";
+import type { OutboxEntry } from "@/concept/connections/simulated/outbox";
 import type { StoreChange, StudioStore, TenantId } from "@/concept/store/studio-store";
 
 // The behaviour every StudioStore must have. Each implementation runs it with
@@ -28,6 +29,8 @@ export interface ContractHarness {
    * browser tab). A no-op for stores that serve every tenant at once.
    */
   open(tenantId: TenantId): Promise<void>;
+  /** Every payment the store has actually published for this tenant (the recording sink), oldest first. */
+  payments(tenantId: TenantId): OutboxEntry[];
 }
 
 export type MakeStore = (seeds: ContractSeeds) => Promise<ContractHarness>;
@@ -140,27 +143,37 @@ export function runStudioStoreContract(name: string, makeStore: MakeStore) {
     });
 
     it("replays an idempotency key: same result, one log entry, the card is charged once", async () => {
-      const { store, a, initial } = await setup();
+      const harness = await setup();
+      const { store, a, initial } = harness;
       const { pay } = await heldPayment(store, a, initial.state);
       const changes: StoreChange[] = [];
       store.subscribe(a, (change) => changes.push(change));
+      const sunk = harness.payments(a).length;
       const first = await store.apply(a, pay, {}, { idempotencyKey: "pay-1" });
+      expect(harness.payments(a)).toHaveLength(sunk + 1);
+      // A later commit must not leak into the replayed result.
+      expect((await store.apply(a, { type: "card/dismiss", id: "in-between" })).ok).toBe(true);
       const again = await store.apply(a, pay, {}, { idempotencyKey: "pay-1" });
       expect(first.ok && again.ok).toBe(true);
       if (!first.ok || !again.ok) return;
       expect(again.replayed).toBe(true);
       expect(again.version).toBe(first.version);
+      expect(JSON.stringify(again.state)).toBe(JSON.stringify(first.state));
+      expect(again.state.dismissedCards).not.toContain("in-between");
       expect(again.entry).toEqual(first.entry);
       expect(again.effects.map((e) => e.record.id)).toEqual(first.effects.map((e) => e.record.id));
       expect(first.effects.length).toBeGreaterThan(0);
-      expect(changes).toHaveLength(1);
+      expect(harness.payments(a)).toHaveLength(sunk + 1);
+      expect(harness.payments(a).at(-1)?.id).toBe(first.effects.find((e) => e.kind === "payment")?.record.id);
+      expect(changes).toHaveLength(2);
       const log = (await store.history(a, { limit: 10 })).entries;
       expect(log.filter((entry) => entry.action.type === "online/pay")).toHaveLength(1);
-      expect(log.at(-1)?.idempotencyKey).toBe("pay-1");
-      expect((await store.load(a))?.version).toBe(first.version);
+      expect(log.find((entry) => entry.action.type === "online/pay")?.idempotencyKey).toBe("pay-1");
+      expect((await store.load(a))?.version).toBe(first.version + 1);
       // Without the key the reducer still refuses to charge a spent hold again.
       expect(await store.apply(a, pay)).toMatchObject({ ok: false, reason: "rejected" });
-      expect(changes).toHaveLength(1);
+      expect(changes).toHaveLength(2);
+      expect(harness.payments(a)).toHaveLength(sunk + 1);
     });
 
     it("refuses an idempotency key reused for a different action", async () => {
@@ -194,8 +207,12 @@ export function runStudioStoreContract(name: string, makeStore: MakeStore) {
         { type: "booking/cancel", id: "no-such-booking" },
         create(second.id, plain, slot),
         { type: "booking/create", customerId: second.id, serviceId: "no-such-service", ...slot, source: "phone" },
+        // A valid price for a treatment that does not exist: the reducer returns an identical copy.
+        { type: "service/price", id: "no-such-service", price: 500 },
       ];
-      for (const action of refusals) expect(await store.apply(a, action)).toMatchObject({ ok: false, reason: "rejected" });
+      for (const [i, action] of refusals.entries()) {
+        expect(await store.apply(a, action, {}, { idempotencyKey: `refused-${i}` })).toMatchObject({ ok: false, reason: "rejected" });
+      }
       const after = await store.load(a);
       expect(after?.version).toBe(before?.version);
       expect(JSON.stringify(after?.state)).toBe(JSON.stringify(before?.state));
@@ -204,8 +221,10 @@ export function runStudioStoreContract(name: string, makeStore: MakeStore) {
     });
 
     it("publishes effects only after the commit, and never for a conflict or refusal", async () => {
-      const { store, a, initial } = await setup();
+      const harness = await setup();
+      const { store, a, initial } = harness;
       const { held, pay } = await heldPayment(store, a, initial.state);
+      const sunk = harness.payments(a).length;
       const changes: StoreChange[] = [];
       let seenByListener: Promise<unknown> | undefined;
       store.subscribe(a, (change) => {
@@ -215,10 +234,12 @@ export function runStudioStoreContract(name: string, makeStore: MakeStore) {
       expect(await store.apply(a, pay, {}, { expectedVersion: held.version - 1 })).toMatchObject({ ok: false, reason: "conflict" });
       expect(await store.apply(a, { ...pay, id: "no-such-hold" })).toMatchObject({ ok: false, reason: "rejected" });
       expect(changes).toHaveLength(0);
+      expect(harness.payments(a)).toHaveLength(sunk);
       const paid = await store.apply(a, pay, {}, { expectedVersion: held.version });
       expect(paid.ok).toBe(true);
       if (!paid.ok) return;
-      expect(paid.effects).toEqual([expect.objectContaining({ kind: "payment", record: expect.objectContaining({ port: "payments", action: "checkout" }) })]);
+      expect(paid.effects.filter((e) => e.kind === "payment")).toEqual([expect.objectContaining({ kind: "payment", record: expect.objectContaining({ port: "payments", action: "checkout" }) })]);
+      expect(harness.payments(a).slice(sunk)).toEqual([paid.effects.find((e) => e.kind === "payment")!.record]);
       expect(changes).toEqual([{ tenantId: a, version: paid.version, entry: paid.entry, effects: paid.effects }]);
       // The listener already reads the committed state.
       const loaded = (await seenByListener) as Awaited<ReturnType<StudioStore["load"]>>;
@@ -310,6 +331,42 @@ export function runStudioStoreContract(name: string, makeStore: MakeStore) {
       expect(aAfter?.state.dismissedCards).not.toContain("only-b");
       expect((await store.history(a, { limit: 10 })).entries.map((e) => e.tenantId)).toEqual([a]);
       expect((await store.history(b, { limit: 10 })).entries.map((e) => e.tenantId)).toEqual([b]);
+    });
+
+    it("hands out copies: editing results, actions, history or notifications changes nothing stored", async () => {
+      const { store, a, initial, plain, first } = await setup();
+      const slot = freeSlot(initial.state, plain);
+      const action = create(first.id, plain, slot) as Extract<DemoAction, { type: "booking/create" }>;
+      const payloads: StoreChange[] = [];
+      store.subscribe(a, (change) => {
+        payloads.push(change);
+        (change.entry!.action as { start: number }).start = -1;
+      });
+      store.subscribe(a, (change) => payloads.push(change));
+      const result = await store.apply(a, action, {}, { idempotencyKey: "copy" });
+      if (!result.ok) throw new Error("booking refused");
+      const before = JSON.stringify((await store.load(a))!.state);
+      action.start = 0;
+      result.state.bookings.length = 0;
+      (result.entry.action as { start: number }).start = 1;
+      const loaded = (await store.load(a))!;
+      loaded.state.customers[0].firstName = "Changed";
+      loaded.state.bookings.push({ ...loaded.state.bookings[0], id: "smuggled" });
+      const page = await store.history(a, { limit: 10 });
+      (page.entries[0].action as { start: number }).start = 2;
+      expect(payloads[1].entry?.action).toMatchObject({ start: slot.start });
+      expect(JSON.stringify((await store.load(a))!.state)).toBe(before);
+      expect((await store.history(a, { limit: 10 })).entries[0].action).toMatchObject({ start: slot.start });
+      const replay = await store.apply(a, { ...create(first.id, plain, slot) }, {}, { idempotencyKey: "copy" });
+      expect(replay.ok && replay.replayed && at(replay.state, slot)).toHaveLength(1);
+    });
+
+    it("never throws on a malformed saved document", async () => {
+      const harness = await makeStore({ a: { version: 21 }, b: ownSeed() });
+      const loaded = await harness.store.load(harness.tenants.a);
+      expect(loaded === null || loaded.state.version === DEMO_VERSION).toBe(true);
+      const applied = await harness.store.apply(harness.tenants.a, { type: "card/dismiss", id: "x" });
+      expect(applied.ok || ["not-found", "rejected"].includes(applied.reason)).toBe(true);
     });
 
     it("migrates an older saved state on load and keeps the owner's data", async () => {
