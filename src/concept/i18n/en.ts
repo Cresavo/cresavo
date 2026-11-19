@@ -27,6 +27,7 @@ const messages = {
   "protection.held": "Your time is held for ten minutes while you pay the deposit.",
   "protection.released": "Checkout hold released",
   "protection.checkout": "Pay your deposit",
+  "protection.alreadyLate": "Your visit is less than {hours} hours away, so you can no longer change or cancel it for free online.",
   "protection.simulated": "Payments and refunds are simulated in the demo.",
   "protection.method": "Payment method",
   "protection.card": "Card",

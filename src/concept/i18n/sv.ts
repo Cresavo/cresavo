@@ -27,6 +27,7 @@ const messages = {
   "protection.held": "Vi håller tiden åt dig i tio minuter medan du betalar förskottet.",
   "protection.released": "Reservationen har släppts",
   "protection.checkout": "Betala ditt förskott",
+  "protection.alreadyLate": "Det är mindre än {hours} timmar kvar till besöket, så du kan inte längre omboka eller avboka kostnadsfritt online.",
   "protection.simulated": "Betalningar och återbetalningar är simulerade i demon.",
   "protection.method": "Betalsätt",
   "protection.card": "Kort",

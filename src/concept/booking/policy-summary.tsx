@@ -15,6 +15,7 @@ export function formatMinor(amountMinor: number, currency: string) {
 
 export function deadlineText(visit: Pick<Booking, "date" | "start">, freeHours: number) {
   const until = deadline(visit, freeHours);
+  if (until.toMillis() <= Date.now()) return t("protection.alreadyLate", { hours: freeHours });
   return t("booking.freeUntil", { day: formatDate(until.toISODate()!), time: formatTime(until.hour * 60 + until.minute) });
 }
 
