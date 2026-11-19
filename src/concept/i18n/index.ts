@@ -29,6 +29,10 @@ export function setVocabulary(next: Vocabulary) {
   vocabulary = next;
 }
 
+export function getVocabulary(): Vocabulary {
+  return vocabulary;
+}
+
 const SWEDISH = {
   customer: ["kund", "kunder", "kunden", "kunderna", "kunds", "kunders", "kundens", "kundernas"],
   service: ["behandling", "behandlingar", "behandlingen", "behandlingarna", "behandlings", "behandlingars", "behandlingens", "behandlingarnas"],

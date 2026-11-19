@@ -1,8 +1,9 @@
+import { jsonEqual } from "../data/json-equal";
 import type { PageConfig } from "./config";
 
 export type PageAspect = "logo" | "colours" | "fonts" | "corners" | "photo" | "sections" | "instagram" | "css";
 
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const same = jsonEqual;
 
 /** What differs between two configs, in the order the editor shows it. */
 export function changedAspects(before: PageConfig, after: PageConfig): PageAspect[] {
