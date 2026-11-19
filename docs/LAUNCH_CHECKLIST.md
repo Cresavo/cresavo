@@ -80,11 +80,10 @@ once the repository is public.
    second one. Keep its existing rules. In this order:
    1. Done 2026-11-19: dependency graph on, `Dependency review` passed on
       PR #65.
-   2. After successful runs, add the status checks
-      `Dependency review (high/critical gate)`,
-      `Analyze (javascript-typescript)` and `Analyze (actions)` to
-      **Require status checks to pass**. Checks only appear in the search
-      after they have run recently.
+   2. Done 2026-11-19: `Dependency review (high/critical gate)`,
+      `Analyze (javascript-typescript)` and `Analyze (actions)` are required
+      status checks (source GitHub Actions). Keep **Block force pushes** on
+      in the same ruleset.
    3. Once the pull request that adds `codeql.yml` is approved and merged,
       verify the first CodeQL analysis on `main` (**Actions** → **CodeQL**,
       and **Security** → **Code scanning** shows results for `main`).

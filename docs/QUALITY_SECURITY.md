@@ -32,17 +32,19 @@ we never have to retrofit them. See the [privacy and security overview](PRIVACY_
 
 | Check (workflow → check name) | Runs | Results | Blocks merge? |
 |---|---|---|---|
-| CodeQL (`codeql.yml`) → `Analyze (javascript-typescript)`, `Analyze (actions)` | PRs to `main`, pushes to `main`, Mondays, manual | **Security** → **Code scanning**, and as PR annotations | Not yet. Planned: required status checks and a code scanning results rule in the **Protect main** ruleset (see below) |
-| Dependency review (`dependency-review.yml`) → `Dependency review (high/critical gate)` | Every PR to `main` | Job summary of the PR check | Fails on new or changed dependencies (runtime and development) with a high or critical advisory. Not yet a required check |
+| CodeQL (`codeql.yml`) → `Analyze (javascript-typescript)`, `Analyze (actions)` | PRs to `main`, pushes to `main`, Mondays, manual | **Security** → **Code scanning**, and as PR annotations | Both jobs are required by **Protect main**. Blocking on findings: code scanning results rule (see below) |
+| Dependency review (`dependency-review.yml`) → `Dependency review (high/critical gate)` | Every PR to `main` | Job summary of the PR check | Fails on new or changed dependencies (runtime and development) with a high or critical advisory. Required by **Protect main** |
 | Secret scan (`secret-scan.yml`) → `Gitleaks (full history)` | PRs, pushes to `main`, manual | Job log (matches are redacted) | Yes, required by **Protect main** |
 | GitHub secret scanning and push protection | Every push (repository setting) | **Security** → **Secret scanning** | Push protection rejects a push with a recognised token |
 | Weekly dependency audit (`dependency-audit.yml`) | Mondays, manual | Job summary | No; a failed run is fixed before new features |
 | OpenSSF Scorecard (`scorecard.yml`) | Pushes to `main`, Mondays, manual | **Security** → **Code scanning** (tool Scorecard) | No. Its SARIF upload is not a CodeQL analysis |
 | Dependabot (`dependabot.yml`) | Weekly | Pull requests | No |
 
-`Verify POC` → `E2E dev / proxy 0` is also required by **Protect main**
-(ruleset 27584925). The CodeQL and Dependency review checks are not required
-yet; the maintainer adds them in the order in the
+**Protect main** (ruleset 27584925) requires a pull request, blocks deletion
+and requires five status checks: `E2E dev / proxy 0` (Verify POC),
+`Gitleaks (full history)`, `Dependency review (high/critical gate)`,
+`Analyze (javascript-typescript)` and `Analyze (actions)`. It should also
+block force pushes. The remaining steps are in the
 [launch checklist](LAUNCH_CHECKLIST.md#right-after-publishing), step 10.
 
 Dependency review reads the dependency graph through the GitHub API, so the
@@ -60,7 +62,8 @@ Whether findings block merge depends on a required code scanning results
 check. GitHub supports that through a ruleset or through branch protection.
 The chosen solution here is a **Require code scanning results** rule in
 **Protect main** (tool CodeQL, security alerts high or higher, alerts
-errors). Until it is enabled, findings are reported but do not block merge.
+errors), added after the first CodeQL analysis on `main`. Until it is
+enabled, findings are reported but do not block merge.
 
 Handling a finding:
 
