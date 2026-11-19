@@ -1,7 +1,7 @@
 import { configuredPairingOrigin } from "../../../scripts/pairing-config.mjs";
 import { siteRequestHost } from "../site/request-host";
 
-export const SCOPES = ["bookings:read", "inbox:read", "bookings:propose"] as const;
+export const SCOPES = ["bookings:read", "bookings:propose", "customers:read", "inbox:read", "inbox:propose", "catalog:read", "catalog:propose", "staff:read", "finance:read"] as const;
 export const COOKIE = "__Host-cresavo-pair";
 export const PUBLIC_WRITES = new Set([
   "/api/pairing/session", "/api/pairing/decision", "/api/pairing/move",

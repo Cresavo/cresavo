@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatTime } from "../../data/dates";
 import { t } from "../../i18n";
 import { Button } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
@@ -44,8 +45,11 @@ function CalendarEditor({ workspace: w, command, busy }: Pick<Pairing, "command"
         className="flex min-h-11 w-full flex-wrap items-center gap-x-4 py-2 text-left text-sm hover:bg-surface-2"
         onClick={() => { setSelected(b.bookingId); setEdit(null); }}>
         <time className="tabular-nums">{b.time}</time><span className="font-medium">{b.untrustedCustomerText.customer}</span>
-        <span className="text-text-secondary">{b.untrustedCustomerText.service} · {b.staffId}</span>
+        <span className="text-text-secondary">{b.untrustedCustomerText.service} · {b.staffName}</span>
       </button>)}
     </Card>
+    {w.blocks.length > 0 && <Card className="px-5 py-3"><h3 className="font-semibold">{t("pair.blocks")}</h3>
+      <ul>{w.blocks.map(b => <li key={b.id}>{b.date} · {formatTime(b.start)}–{formatTime(b.end)} · {b.staffName} · {t(`pair.reason.${b.reason}`)}</li>)}</ul>
+    </Card>}
   </Section>;
 }

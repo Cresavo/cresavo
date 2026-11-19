@@ -8,14 +8,14 @@ import type { CollectionPatch, Item, StatePatch } from "./types";
 const COLLECTIONS = [
   "customers", "bookings", "journals", "stock", "orders", "sales", "giftCards", "packages", "reviews", "inbox",
   "campaigns", "services", "costs", "trash", "supportGrants", "tickets", "staff", "exceptions", "resources",
-  "memory", "routines", "retiredServices", "categories",
+  "memory", "routines", "retiredServices", "categories", "blocks",
 ] as const satisfies readonly (keyof DemoState)[];
 
 /** Whole values compared as a unit. */
 const VALUES = ["accounting", "modules", "dismissedCards", "salon", "page", "domain"] as const satisfies readonly (keyof DemoState)[];
 
 const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);
-const list = (state: DemoState, key: string) => (state as unknown as Record<string, Item[]>)[key];
+const list = (state: DemoState, key: string) => (state as unknown as Record<string, Item[]>)[key] ?? [];
 
 function diffCollection(before: Item[], after: Item[]): CollectionPatch | null {
   const previous = new Map(before.map((item) => [item.id, item]));

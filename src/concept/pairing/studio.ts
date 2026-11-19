@@ -33,6 +33,7 @@ export async function session(request: Request) {
       grants: grants.map(g => ({ ...g, clientName: cleanClientName(g.clientName) })),
       items: state.inbox.slice(0, 25).map(item => itemView(item, true)),
       bookings: state.bookings.filter(b => b.status === "booked" && b.date >= day).map(b => bookingView(state, b)),
+      blocks: (state.blocks ?? []).map(b => ({ ...b, staffName: state.staff.find(s => s.id === b.staffId)?.firstName ?? b.staffId })),
       proposals: proposals.map(proposalView),
     }, { headers });
   });

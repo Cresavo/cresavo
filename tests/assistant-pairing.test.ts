@@ -237,7 +237,7 @@ it("projects a legacy snapshot before exposing its bookings or threads", async (
   const legacyThread = state.inbox.find(i => i.body.includes("fever"))!;
   state.inbox.unshift(...incoming);
   const workspace = snapshotWorkspace({} as Parameters<typeof snapshotWorkspace>[0],
-    { version: 1, snapshot: state } as unknown as Parameters<typeof snapshotWorkspace>[1]);
+    { id: randomUUID(), version: 1, snapshot: state } as unknown as Parameters<typeof snapshotWorkspace>[1]);
   expect(workspace.booking(booked.id).untrustedCustomerText.service).toBe("Salon appointment");
   expect(workspace.inbox().items.map(i => workspace.thread(i.itemId).untrustedCustomerText.body)).toEqual(incoming.map(i => i.body));
   expect(() => workspace.thread(legacyThread.id)).toThrow("item_not_found");

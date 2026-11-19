@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { addDays } from "../../src/concept/data/dates";
 import { assertTestDatabase } from "../../scripts/test-db-guard.mjs";
 import { startPairingServer } from "../pairing/server";
 import { pairingDb, sweep } from "../../src/concept/pairing/db";
@@ -59,7 +60,7 @@ describe.skipIf(process.env.ASSISTANT_PAIRING !== "1")("paired fictional demo on
     const assistant = await sdk(first.tokens), other = await sdk(second.tokens);
     try {
       const discovered = await assistant.listTools();
-      expect(discovered.tools).toHaveLength(8);
+      expect(discovered.tools).toHaveLength(23);
       expect(discovered.tools.every(t => t.annotations?.destructiveHint === false)).toBe(true);
       for (const client of [assistant, other]) expect(await call(client, "get_workday_brief")).toMatchObject({ salon: "Salong Eko" });
       const { items } = await call<{ items: Item[] }>(assistant, "list_inbox_items");
@@ -106,7 +107,7 @@ describe.skipIf(process.env.ASSISTANT_PAIRING !== "1")("paired fictional demo on
       expect(await (await jsonPost("/api/pairing/decision", { ...command, revision: updated.revision + 2, proposalId: pendingAgain.proposalId }, a.cookie)).json()).toMatchObject({ status: "conflict" });
       const disconnect = { action: "disconnect", workspaceId: a.id };
       expect((await jsonPost("/api/pairing/session", disconnect, b.cookie)).status).toBe(409);
-      const refresh = (token: string) => form("/oauth/token", { client_id: first.clientId, grant_type: "refresh_token", refresh_token: token, scope: "inbox:read bookings:propose bookings:read" });
+      const refresh = (token: string) => form("/oauth/token", { client_id: first.clientId, grant_type: "refresh_token", refresh_token: token });
       const renewed = await refresh(first.tokens.refresh_token);
       expect(renewed.status).toBe(200);
       const rotated = await renewed.json() as Tokens;
@@ -125,6 +126,47 @@ describe.skipIf(process.env.ASSISTANT_PAIRING !== "1")("paired fictional demo on
       await pairingDb().pairWorkspace.deleteMany({ where: { id: { in: [a.id, b.id] } } });
     }
   }, 180000);
+
+  it("reviews a new booking, a price change and a simulated reply in the studio", async () => {
+    const { cookie, id } = await pair();
+    const { tokens } = await grant(cookie);
+    const assistant = await sdk(tokens);
+    try {
+      const { today } = await call<{ today: string }>(assistant, "get_workday_brief");
+      const { treatments } = await call<{ treatments: { serviceId: string; priceMinor: number }[] }>(assistant, "list_treatments");
+      const { serviceId, priceMinor } = treatments[0];
+      const { slots } = await call<{ slots: { staffId: string; date: string; time: string }[] }>(assistant, "find_bookable_times",
+        { serviceId, from: today, to: addDays(today, 7) });
+      const slot = slots[0];
+      const { customers } = await call<{ customers: { customerId: string }[] }>(assistant, "find_customers", { query: "", limit: 1 });
+      const { items } = await call<{ items: Item[] }>(assistant, "list_inbox_items");
+      const itemId = items[1].itemId;
+      const replyText = "Thank you. We will check the calendar.";
+      for (const [name, args] of [
+        ["propose_new_booking", { ...slot, serviceId, customerId: customers[0].customerId }],
+        ["propose_change_treatment_price", { serviceId, newPrice: priceMinor + 125 }],
+        ["propose_reply_to_inbox_item", { itemId, replyText }],
+      ] as const) {
+        for (const decision of ["decline", "approve"]) {
+          const draft = await call<Proposal>(assistant, name, { ...args, idempotencyKey: randomUUID() });
+          const studio = await (await session(cookie)).json();
+          expect(studio.proposals).toContainEqual(draft);
+          expect(draft.status).toBe("pending");
+          const result = await jsonPost("/api/pairing/decision", { workspaceId: id, proposalId: draft.proposalId, decision }, cookie);
+          expect(result.status).toBe(200);
+          const status = decision === "approve" ? "applied" : "declined";
+          expect(await call(assistant, "get_proposal_status", { proposalId: draft.proposalId })).toMatchObject({ status });
+        }
+      }
+      const calendar = await call<{ bookings: Booking[] }>(assistant, "find_bookings", { date: slot.date, limit: 50 });
+      expect(calendar.bookings).toContainEqual(expect.objectContaining({ ...slot, serviceId, customerId: customers[0].customerId }));
+      expect(await call(assistant, "list_treatments")).toMatchObject({ treatments: expect.arrayContaining([expect.objectContaining({ serviceId, priceMinor: priceMinor + 125 })]) });
+      expect(await call(assistant, "get_inbox_thread", { itemId })).toMatchObject({ handled: true, untrustedAssistantText: { reply: replyText } });
+    } finally {
+      await assistant.close();
+      await pairingDb().pairWorkspace.deleteMany({ where: { id } });
+    }
+  }, 90000);
 
   it("enforces scopes, decline, proposal and request caps, rolling expiry and cleanup", async () => {
     const { cookie, id } = await pair();

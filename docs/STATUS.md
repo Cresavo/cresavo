@@ -7,8 +7,9 @@ Start with the [demo and product tour](../README.md) or see the
 ## Available today
 
 - A flag-controlled assistant pairing preview creates a temporary fictional
-  workspace with its own Inbox and calendar. An assistant can draft a booking
-  move over MCP and the visitor approves it in the studio. The public rollout
+  workspace with its own Inbox and calendar. An assistant can read the salon schedule, customer visits,
+  catalogue, staff and financial summaries. Visitors review proposed bookings, blocks,
+  treatment changes and simulated replies in the studio Inbox. The public rollout
   and hosted assistant account checks are pending. [Connection guide](CONNECT_AI_ASSISTANT.md#connect-claude-to-the-demo-preview).
 
 - The [launch plan](LAUNCH_PLAN.md) and [post drafts](launch/) cover feedback on the public concept demo and contributor onboarding. GitHub community setup and posting are owner steps.

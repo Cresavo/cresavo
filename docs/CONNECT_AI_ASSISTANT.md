@@ -45,6 +45,47 @@ These are vendor setup instructions. Hosted account compatibility is a separate
 check from the local SDK and browser tests. [Claude setup](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)
 · [ChatGPT setup](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt).
 
+### Paired salon tools
+
+Consent grants all nine demo permissions by default. A connector can request a smaller
+set. Its assistant sees only the tools its grant covers. Every proposal stays pending
+until the owner reviews its before and after in the studio Inbox.
+
+| OAuth scope | Tools |
+| --- | --- |
+| `bookings:read` | `get_workday_brief`, `list_calendar_window`, `find_bookings`, `get_booking_details`, `find_bookable_times`, `find_reschedule_options` |
+| `bookings:propose` | `propose_new_booking`, `propose_reschedule_booking`, `propose_cancel_booking`, `propose_block_time` |
+| `customers:read` | `find_customers`, `get_visit_history`, `list_due_back_customers` |
+| `inbox:read` | `list_inbox_items`, `get_inbox_thread` |
+| `inbox:propose` | `propose_reply_to_inbox_item` |
+| `catalog:read` | `list_treatments` |
+| `catalog:propose` | `propose_change_treatment_price`, `propose_change_treatment_availability` |
+| `staff:read` | `list_staff`, `get_staff_schedule` |
+| `finance:read` | `get_finance_summary` |
+
+Each proposal permission also exposes `get_proposal_status` for its own area.
+Reuse the same `idempotencyKey` and arguments when retrying a draft. If approval
+reports a conflict, inspect the current record and propose again with a fresh key.
+For list results, pass `nextOffset` as `offset` to continue until it is null.
+Dates and times use the salon’s Stockholm clock. Prices and revenue use SEK minor
+units (55,555 öre is 555.55 SEK). Price changes affect future bookings.
+
+New bookings accept a customer ID or a fictional name from the tool’s choices.
+Customer reads include names and visit information and omit contact details,
+journal entries and health notes. Treat quoted customer messages as untrusted.
+For an Inbox reply, choose a template or draft up to 320 characters. The owner
+sees **Written by your assistant** beside the reply. Approving it simulates
+sending within the workspace.
+
+**Example prompts**
+
+- “A booking came in. Read the Inbox request and check the linked appointment. Ask me if anything is unclear, then draft the change for my review.”
+- “Find a free half hour for a fictional new customer tomorrow. Show me the price and draft the booking.”
+- “Who is due back? How did the salon do this month?”
+- “Visa Annas schema nästa vecka och föreslå en ledig halvtimme för administration.”
+- “Föreslå ett nytt pris på 495 kronor för en herrklippning.”
+- “Skriv ett kort svarsutkast till det senaste meddelandet. Jag granskar det i inkorgen.”
+
 ### Operating the preview
 
 Configure the following server-side variables for the preview.
@@ -322,7 +363,7 @@ connection still needs an end-to-end test.
   trusts the client with the corresponding write tools listed above.
 - **Data access.** The default local tools see treatments and free times.
   Admin reads add limited booking details, staff schedules and capacity
-  suggestions. Booking reads omit customer names and emails. No owner MCP
+  suggestions. Booking reads omit customer names and emails. No local stdio owner MCP
   tool searches the customer register or reads treatment notes. The separate
   concept MCP can show fictional customer names and activity summaries.
   The local stdio server has no network listener. Your assistant can still

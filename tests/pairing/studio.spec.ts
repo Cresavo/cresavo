@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { test, expect, type Page } from "@playwright/test";
@@ -6,7 +7,7 @@ import { call, connectRequest, moveArgs, sdk, type Proposal } from "./client";
 const capture = (page: Page, name: string) => process.env.PAIRING_SCREENSHOTS === "1"
   ? page.screenshot({ path: `docs/design/cresavo/screens/pairing-${name}.jpg`, type: "jpeg", quality: 73 }) : undefined;
 
-test("an owner connects, receives a live move, approves it and disconnects", async ({ page, context }) => {
+test("an owner connects, approves a booking move and a simulated Inbox reply, then disconnects", async ({ page, context }) => {
   await page.goto("/studio/more/data");
   await page.getByRole("button", { name: "Start pairing" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Waiting for assistant" })).toBeVisible();
@@ -25,6 +26,9 @@ test("an owner connects, receives a live move, approves it and disconnects", asy
   await authPage.goto(registration.authorization.href);
   await expect(authPage.getByRole("heading", { name: `Allow 127.0.0.1:${port} to read and draft changes for Salong Eko (demo workspace)` })).toBeVisible();
   await expect(authPage.getByText("Unverified registered client · Studio test assistant")).toBeVisible();
+  await expect(authPage.getByRole("listitem")).toHaveCount(9);
+  await expect(authPage.getByText("Draft replies for review and simulated sending")).toBeVisible();
+  await expect(authPage.getByText("Read aggregate financial figures")).toBeVisible();
   await capture(authPage, "consent");
   try {
     await authPage.getByRole("button", { name: "Allow", exact: true }).click();
@@ -46,6 +50,15 @@ test("an owner connects, receives a live move, approves it and disconnects", asy
     await capture(page, "inbox");
     await page.getByRole("button", { name: "Approve", exact: true }).click();
     await expect.poll(async () => (await call<Proposal>(client, "get_proposal_status", { proposalId: draft.proposalId })).status).toBe("applied");
+    const { items } = await call<{ items: { itemId: string }[] }>(client, "list_inbox_items");
+    const replyText = "Thanks for writing. We will follow up soon.";
+    const reply = await call<Proposal>(client, "propose_reply_to_inbox_item", { itemId: items[1].itemId, replyText, idempotencyKey: randomUUID() });
+    await expect(page.getByRole("heading", { name: reply.untrustedCustomerText.title })).toBeVisible({ timeout: 12000 });
+    await expect(page.getByText("Written by your assistant", { exact: true })).toBeVisible();
+    await expect(page.getByText(replyText, { exact: true })).toBeVisible();
+    await expect(page.getByText("Simulate sending in this Inbox", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Approve", exact: true }).click();
+    await expect.poll(async () => (await call<Proposal>(client, "get_proposal_status", { proposalId: reply.proposalId })).status).toBe("applied");
     await page.getByRole("link", { name: "View paired calendar" }).click();
     await expect(page.getByLabel("Paired appointment")).toHaveValue(move.bookingId);
     await expect(page.locator("p").filter({ hasText: move.date + " · " + move.time })).toBeVisible();

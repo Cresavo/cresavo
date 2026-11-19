@@ -248,3 +248,23 @@ Real tenants, admin sign-in, engine writes, finance, journals, messages,
 provider integrations, voice, autonomous policies, remote approval, directory
 listings, cross-device challenges and production identity are later decisions.
 The preview requests no assistant API key and sends no outgoing notifications.
+
+## Demo catalogue extension
+
+The expanded fictional preview uses area-specific read and propose scopes.
+The snapshot adapter now includes a minimised projection of hair-salon visit
+history and aggregate finance figures. Every record reference is resolved in
+the granted workspace. The studio continues to own every approval.
+
+Booking creation, cancellation, time blocks, treatment prices and visibility,
+and simulated Inbox replies follow the same decision transaction as a move.
+Approval checks versions for the affected records plus current booking rules.
+A booking or block also checks changes to its staff interval since drafting.
+The price shown for a new booking is bound to the treatment version.
+
+A short reply draft is the only free-form write input. The studio attributes
+it to the assistant and shows the exact text before approval. Approval records
+a simulated reply on the fictional thread. A new booking accepts an existing
+customer ID or an enumerated fictional name. Customer names, thread text and
+derived display strings are quoted as untrusted. The connected assistant has
+no approval tool, outbound messaging or access to journal entries.

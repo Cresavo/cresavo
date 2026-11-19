@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { bookingView, itemView, proposalView } from "../../pairing/appointments";
+import type { StaffBlock } from "../../data/types";
 import { t } from "../../i18n";
 import { showToast } from "../../ui/toast";
 
@@ -10,6 +11,7 @@ export interface Workspace {
   revision: number;
   expiresAt: string;
   grants: { id: string; clientId: string; clientName: string; scopes: string }[];
+  blocks: (StaffBlock & { staffName: string })[];
   bookings: ReturnType<typeof bookingView>[];
   items: ReturnType<typeof itemView>[];
   proposals: ReturnType<typeof proposalView>[];

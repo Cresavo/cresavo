@@ -1,15 +1,16 @@
 import type { PairProposal } from "@prisma/client";
-import { formatTime } from "../data/dates";
+import { buildDraft, revalidate, type ProposalInput } from "./changes";
+import { applyVersioned, preconditions } from "./versions";
 import { ToolError, type ChangeDraft } from "../tools/define";
-import { applyMove, bookingById, bookingView, buildMove, proposalView, type Move } from "./appointments";
+import { bookingById, bookingView, proposalView } from "./appointments";
 import { jsonValue, type Tx } from "./db";
 import { PairError, requirePair } from "./http";
-import { legacyServiceId, type PairState } from "./fixture";
+import { legacyServiceId, scopedRef, type PairState } from "./fixture";
 import { bump } from "./workspace";
 
-export async function propose(tx: Tx, workspaceId: string, state: PairState, clientId: string, key: string, input: Move) {
-  const { bookingId, date, time } = input;
-  const fingerprint = JSON.stringify({ bookingId, date, time });
+export async function propose(tx: Tx, workspaceId: string, state: PairState, clientId: string, key: string, input: ProposalInput) {
+  const fingerprint = "kind" in input ? JSON.stringify(input, Object.keys(input).sort()) :
+    JSON.stringify({ bookingId: input.bookingId, date: input.date, time: input.time });
   const scoped = { workspaceId, clientId, key };
   const prior = await tx.pairProposal.findUnique({ where: { workspaceId_clientId_key: scoped } });
   if (prior) {
@@ -17,22 +18,22 @@ export async function propose(tx: Tx, workspaceId: string, state: PairState, cli
     return proposalView(prior);
   }
   requirePair(await tx.pairProposal.count({ where: { workspaceId } }) < 50, "proposal_limit", 429);
-  const draft = buildMove(state, input);
-  const before = { bookingVersion: state.bookingVersions?.[bookingId] ?? 0 };
+  const draft = buildDraft(state, input);
+  const before = { entities: preconditions(state, draft.action) };
   const row = await tx.pairProposal.create({ data: { ...scoped, fingerprint, before, draft: jsonValue(draft) } });
   await bump(tx, workspaceId);
   return proposalView(row);
 }
 
-function matchesBefore(state: PairState, bookingId: string, value: PairProposal["before"]) {
+function matchesBefore(workspaceId: string, state: PairState, bookingId: string, value: PairProposal["before"]) {
   const before = value as { bookingVersion?: number; date?: string; time?: string; staffId?: string; duration?: number; service?: string };
   const version = state.bookingVersions?.[bookingId] ?? 0;
   if (before.bookingVersion !== undefined) return before.bookingVersion === version;
   // First-generation pending proposals stored the original booking projection.
   const booking = bookingById(state, bookingId);
   const current = bookingView(state, booking);
-  return version === 0 && before.date === current.date && before.time === current.time && before.staffId === current.staffId &&
-    before.duration === current.duration && typeof before.service === "string" && booking.serviceId === legacyServiceId(before.service);
+  return version === 0 && before.date === current.date && before.time === current.time && before.staffId === booking.staffId &&
+    before.duration === current.duration && typeof before.service === "string" && booking.serviceId === scopedRef(workspaceId, "service", legacyServiceId(before.service));
 }
 
 export async function decide(tx: Tx, workspaceId: string, state: PairState, proposalId: string, approve: boolean) {
@@ -44,12 +45,15 @@ export async function decide(tx: Tx, workspaceId: string, state: PairState, prop
   if (approve) {
     status = "conflict";
     const { action } = row.draft as unknown as ChangeDraft;
-    requirePair(action.type === "booking/move", "unsupported_proposal", 409);
+    const before = row.before as { entities?: Record<string, number> };
     try {
-      if (matchesBefore(state, action.id, row.before)) {
-        const input = { bookingId: action.id, date: action.date, time: formatTime(action.start) };
-        const draft = buildMove(state, input);
-        next = applyMove(state, draft.action, { at: Date.now(), actor: "ai", source: "mcp" });
+      const current = preconditions(state, action);
+      const matches = before.entities
+        ? Object.entries(current).every(([key, version]) => before.entities?.[key] === version)
+        : action.type === "booking/move" && matchesBefore(workspaceId, state, action.id, row.before);
+      if (matches) {
+        revalidate(state, action);
+        next = applyVersioned(state, action, { at: Date.now(), actor: "ai", source: "mcp" });
         if (next !== state) status = "applied";
       }
     } catch (err) {

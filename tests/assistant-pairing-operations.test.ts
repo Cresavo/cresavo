@@ -80,7 +80,7 @@ it("charges valid polls and bearer requests only to their workspace", async () =
       return [row];
     },
     pairGrantToken: { findFirst: async () => ({ grant }) },
-    pairWorkspace: { findUniqueOrThrow: async () => ({ version: 2, snapshot: { inbox: [], bookings: [] } }) },
+    pairWorkspace: { findUniqueOrThrow: async () => ({ id: row.id, version: 2, snapshot: { customers: [], services: [], inbox: [], bookings: [] } }) },
     pairGrant: { findMany: async () => [] }, pairProposal: { findMany: async () => [] },
   });
   expect((await poll(req("/api/pairing/session", { cookie: COOKIE + "=" + "x".repeat(43) }))).status).toBe(200);

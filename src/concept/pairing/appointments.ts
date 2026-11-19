@@ -1,4 +1,4 @@
-import { applyAction } from "../log/capture";
+import { applyVersioned } from "./versions";
 import type { LogMeta } from "../log/types";
 import type { PairState } from "./fixture";
 import type { PairProposal } from "@prisma/client";
@@ -16,14 +16,16 @@ export function bookingById(state: DemoState, id: string) {
   requirePair(booking, "booking_not_found", 404);
   return booking;
 }
-export function bookingView(state: DemoState, b: Booking) {
+export function bookingView(state: PairState, b: Booking) {
   const customer = state.customers.find(c => c.id === b.customerId);
-  return { bookingId: b.id, date: b.date, time: formatTime(b.start), staffId: b.staffId,
+  return { bookingId: b.id, date: b.date, time: formatTime(b.start), staffId: state.staffRefs?.[b.staffId] ?? b.staffId,
+    staffName: state.staff.find(s => s.id === b.staffId)?.firstName ?? b.staffId,
+    customerId: b.customerId, serviceId: b.serviceId,
     duration: b.duration, status: b.status, untrustedCustomerText: { customer: customer ? fullName(customer) : "",
     service: state.services.find(s => s.id === b.serviceId)?.name ?? b.serviceId } };
 }
 export function itemView(item: InboxItem, withBody = false) {
-  return { itemId: item.id, bookingId: item.bookingId, date: item.date,
+  return { itemId: item.id, bookingId: item.bookingId, handled: item.handled, ...(withBody && item.reply ? { untrustedAssistantText: { reply: item.reply } } : {}), date: item.date,
     untrustedCustomerText: { title: item.title, ...(withBody ? { body: item.body } : {}) } };
 }
 export function options(state: DemoState, booking: Booking, day?: string) {
@@ -33,7 +35,7 @@ export function options(state: DemoState, booking: Booking, day?: string) {
   const last = addDays(clock.today, 90);
   requirePair(first >= clock.today && first <= last, "choose_upcoming_date");
   const slots: { date: string; time: string }[] = [];
-  for (let offset = 0; offset < (day ? 1 : 7) && slots.length < 12; offset++) {
+  for (let offset = 0; offset < (day ? 1 : 7); offset++) {
     const date = addDays(first, offset);
     if (date > last) break;
     const starts = freeStarts(state, booking.staffId, date, booking, {
@@ -41,7 +43,6 @@ export function options(state: DemoState, booking: Booking, day?: string) {
     });
     for (const start of starts) {
       if (booking.date !== date || booking.start !== start) slots.push({ date, time: formatTime(start) });
-      if (slots.length === 12) break;
     }
   }
   return slots;
@@ -58,11 +59,12 @@ export function buildMove(state: DemoState, move: Move) {
 }
 
 export function applyMove(state: PairState, action: ReturnType<typeof buildMove>["action"], meta: LogMeta): PairState {
-  const next = applyAction(state, action, meta);
-  if (next === state) return state;
-  return { ...next, bookingVersions: { ...state.bookingVersions, [action.id]: (state.bookingVersions?.[action.id] ?? 0) + 1 } };
+  return applyVersioned(state, action, meta);
 }
 export function proposalView(row: PairProposal) {
   const draft = row.draft as unknown as ChangeDraft;
-  return { proposalId: row.id, status: row.status, untrustedCustomerText: { title: draft.title }, changes: draft.rows };
+  return { proposalId: row.id, status: row.status,
+    // Earlier clients read move rows here. Their only values are approved date/time coordinates.
+    ...(draft.action?.type === "booking/move" ? { changes: draft.rows } : {}),
+    untrustedCustomerText: { title: draft.title, changes: draft.rows } };
 }
