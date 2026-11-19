@@ -48,9 +48,9 @@ export default function DataPage() {
       </div>
       <div className="mt-8 space-y-8">
         <Section title={t("data.ai")}>
-          <AiSection />
+          {state.industry ? <Card className="p-5">{t("ai.localRules")}</Card> : <AiSection />}
         </Section>
-        {!PUBLIC_DEMO && (
+        {!state.industry && !PUBLIC_DEMO && (
           <Section title={t("ai.ownKeySection")}>
             <OwnKeyForm />
           </Section>

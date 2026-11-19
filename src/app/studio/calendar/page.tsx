@@ -51,7 +51,7 @@ export default function CalendarPage() {
       <PageHeader title={t("calendar.title")} />
       <EmptyState icon={<CalendarPlus size={22} />} title={t("setup.empty.calendar")}
         action={state.services.length
-          ? <Button onClick={() => setSheet({ kind: "new", preset: { date } })}>{t("calendar.newBooking")}</Button>
+          ? <Button onClick={() => setSheet({ kind: "new", preset: { date, staffId: viewer?.id } })}>{t("calendar.newBooking")}</Button>
           : <ButtonLink href="/studio/more/services">{t("services.add")}</ButtonLink>} />
       <BookingSheets sheet={sheet} onChange={setSheet} />
     </>;
@@ -63,7 +63,7 @@ export default function CalendarPage() {
         title={t("calendar.title")}
         subtitle={subtitle}
         actions={
-          <Button data-help="new-booking" icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { date } })}>
+          <Button data-help="new-booking" icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { date, staffId: viewer?.id } })}>
             {t("calendar.newBooking")}
           </Button>
         }

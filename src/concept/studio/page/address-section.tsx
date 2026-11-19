@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { checkOwnSlug, productDomain, subdomainHost } from "../../page/address";
 import { slugify } from "../../page/slug";
+import { useWorkspaceSlug, withAddressLock } from "../../store";
 import { bookingHome } from "../../booking/links";
 import { t } from "../../i18n";
 import { Button } from "../../ui/button";
@@ -18,12 +19,13 @@ import { dispatchWithUndoToast } from "../log/undo-toast";
 export function AddressSection() {
   const { state } = useStudio();
   const [slug, setSlug] = useState(state.salon.slug);
-  const check = checkOwnSlug(slug, state.salon.slug, !!state.industry);
+  const otherSlug = useWorkspaceSlug(state.industry ? "demo" : "own");
+  const check = checkOwnSlug(slug, state.salon.slug, !!state.industry, otherSlug);
   const problem = !check.ok && slug.trim() ? t(`address.slug.${check.problem}`) : undefined;
   const changed = check.ok && check.slug !== state.salon.slug;
   const save = () => {
     if (!check.ok) return;
-    dispatchWithUndoToast({ type: "salon/slug", slug: check.slug }, t("address.slug.saved", { address: state.industry ? bookingHome(check.slug) : subdomainHost(check.slug) }));
+    void withAddressLock(() => dispatchWithUndoToast({ type: "salon/slug", slug: check.slug }, t("address.slug.saved", { address: state.industry ? bookingHome(check.slug) : subdomainHost(check.slug) })));
   };
   return (
     <>

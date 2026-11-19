@@ -52,11 +52,13 @@ export function salonDraft(language: Locale): SalonDraft {
     people: [""], treatments: suggestedTreatments("hair", language), slug: "" };
 }
 
-export const checkNewSlug = (value: string) => checkOwnSlug(value, "", true);
+export const checkNewSlug = (value: string, demoSlug?: string) => checkOwnSlug(value, "", true, demoSlug);
 
-export function suggestedSlug(draft: SalonDraft) {
+export function suggestedSlug(draft: SalonDraft, demoSlug?: string) {
   const slug = slugify(draft.name);
-  return checkNewSlug(slug).ok ? slug : slugify(translate(draft.language, "setup.defaultName"));
+  if (checkNewSlug(slug, demoSlug).ok) return slug;
+  const fallback = slugify(translate(draft.language, "setup.defaultName"));
+  return fallback === demoSlug ? `${fallback}-2` : fallback;
 }
 
 export function createSalon(today: string, draft: SalonDraft): DemoState {

@@ -24,7 +24,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
   const [format, setFormat] = useState<PosterFormat>("post");
   const svg = useRef<SVGSVGElement>(null);
   const poster = resolvePoster(state, draft);
-  const source = { name: draft.name, to: draft.to, link: draftLink(draft), poster };
+  const source = { name: draft.name, to: draft.to, link: draftLink(state, draft), poster };
   const edit = (patch: Draft["posterEdits"]) => onChange({ posterEdits: { ...draft.posterEdits, ...patch } });
 
   const download = async () => {

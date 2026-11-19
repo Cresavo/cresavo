@@ -7,14 +7,15 @@ import { preferredLocale } from "@/lib/locale";
 import { formatDuration, formatMoney } from "../../i18n/format";
 import { t, translate } from "../../i18n";
 import { INDUSTRIES, checkNewSlug, salonDraft, suggestedSlug, suggestedTreatments, type Industry, type SalonDraft } from "../../onboarding/salon";
-import { switchSalon } from "../../store";
+import { useSetupProgress } from "./progress";
+import { switchSalon, useWorkspaceSlug } from "../../store";
 import { showToast } from "../../ui/toast";
 import { Button, ButtonLink, IconButton } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { Field, Segmented, Select, TextInput } from "../../ui/controls";
 import { useStudio } from "../use-studio";
 import { CopyBookingLink } from "./booking-link";
-import { ReturnToDemo } from "./entry";
+import { ReturnToDemo, SalonEntry } from "./entry";
 import { SetupHours } from "./hours";
 import { SetupTreatments } from "./treatments";
 
@@ -31,8 +32,8 @@ function SetupProgress({ number }: { number: number }) {
 
 export function SalonWizard() {
   const { state } = useStudio();
-  const [draft, setDraft] = useState(() => salonDraft(preferredLocale(null, navigator.language)));
-  const [step, setStep] = useState(0);
+  const { draft, setDraft, step, setStep } = useSetupProgress();
+  const savedSalon = useWorkspaceSlug("own");
   const [saving, setSaving] = useState(false);
   const title = useRef<HTMLHeadingElement>(null);
   const live = !!state.industry;
@@ -43,7 +44,7 @@ export function SalonWizard() {
 
   const update = (patch: Partial<SalonDraft>) => setDraft({ ...draft, ...patch });
   const slug = draft.slug;
-  const check = checkNewSlug(slug);
+  const check = checkNewSlug(slug, state.salon.slug);
   const name = draft.name.trim() || translate(draft.language, "setup.defaultName");
   const names = draft.treatments.map(item => item.name.trim().toLowerCase());
   const duplicate = new Set(names).size < names.length;
@@ -56,7 +57,7 @@ export function SalonWizard() {
       const defaults = salonDraft(preferredLocale(null, navigator.language));
       const patches: Partial<SalonDraft>[] = [
         { name: "", industry: defaults.industry, slug: "", treatments: suggestedTreatments(defaults.industry, draft.language) }, { language: defaults.language, currency: defaults.currency }, { hours: {} },
-        { treatments: [] }, { people: [""] }, { slug: suggestedSlug(draft) },
+        { treatments: [] }, { people: [""] }, { slug: suggestedSlug(draft, state.salon.slug) },
       ];
       nextDraft = { ...draft, ...patches[step] };
       if (step === 1 && draft.language !== defaults.language) nextDraft.treatments = suggestedTreatments(draft.industry, defaults.language);
@@ -65,10 +66,13 @@ export function SalonWizard() {
     if (step === steps.length - 1) {
       setSaving(true);
       try {
-        if (!await switchSalon("own", nextDraft)) showToast(t("setup.switchFailed"));
+        if (await switchSalon("own", nextDraft)) {
+          setStep(0);
+          setDraft(salonDraft(preferredLocale(null, navigator.language)));
+        } else showToast(t("setup.switchFailed"));
       } finally { setSaving(false); }
     } else {
-      if (step === 4 && !nextDraft.slug) setDraft({ ...nextDraft, slug: suggestedSlug(nextDraft) });
+      if (step === 4 && !nextDraft.slug) setDraft({ ...nextDraft, slug: suggestedSlug(nextDraft, state.salon.slug) });
       setStep(step + 1);
     }
   };
@@ -91,6 +95,7 @@ export function SalonWizard() {
       <ReturnToDemo />
     </div>;
   }
+  if (savedSalon) return <SalonEntry />;
   const question = steps[step];
   return <form onSubmit={e => { e.preventDefault(); if (valid) void next(); }} className="space-y-6">
     <SetupProgress number={step + 1} />

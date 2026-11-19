@@ -3,7 +3,7 @@ import { reduce } from "@/concept/actions";
 import { monthGrid, postDay, shiftMonth } from "@/concept/campaigns/calendar";
 import { assembleCopy, CHANNEL_LIMIT, CHANNELS, isOverLimit } from "@/concept/campaigns/channels";
 import { listServices, offerText, rulesCopy } from "@/concept/campaigns/copy";
-import { defaultPrefill, draftOffer, newDraft, resolvePoster } from "@/concept/campaigns/draft";
+import { defaultPrefill, draftLink, draftOffer, newDraft, resolvePoster } from "@/concept/campaigns/draft";
 import { campaignCode, trackingLink } from "@/concept/campaigns/links";
 import { fitFontSize, wrapText } from "@/concept/campaigns/poster-layout";
 import { parseCampaignRequest, prefillForHoliday, prefillFromQuery, studioHref } from "@/concept/campaigns/prefill";
@@ -234,4 +234,12 @@ describe("quiet days and poster layout", () => {
     expect(fitFontSize("−15%", 900, 160)).toBe(160);
     expect(fitFontSize("A very long headline indeed", 900, 160)).toBeLessThan(60);
   });
+});
+
+it("links a local campaign to its salon's booking page on this origin", () => {
+  const offer = { name: "Autumn offer", from: today };
+  const salon = { ...state, industry: "hair" as const, salon: { ...state.salon, slug: "studio-vide" } };
+  const origin = "https://studio.example";
+  expect(draftLink(salon, offer, origin)).toBe(`${origin}/boka/studio-vide?campaign=${campaignCode(offer.name, today)}`);
+  expect(draftLink(state, offer, origin)).toBe(trackingLink(offer.name, today));
 });

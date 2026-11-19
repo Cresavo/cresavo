@@ -69,6 +69,14 @@ for (const language of ["sv", "en"] as const) {
       await next();
       const slug = page.getByRole("textbox");
       await expect(slug).toHaveValue("studio-vide");
+      await slug.fill("vide-studio");
+      const otherLanguage = language === "en" ? "sv" : "en";
+      await page.getByRole("combobox", { name: m("language.label"), exact: true }).selectOption(otherLanguage);
+      await expect(page.getByRole("heading", { name: translate(otherLanguage, "setup.address") })).toBeVisible();
+      await expect(slug).toHaveValue("vide-studio");
+      await page.getByRole("combobox", { name: translate(otherLanguage, "language.label"), exact: true }).selectOption(language);
+      await expect(page.getByRole("heading", { name: m("setup.address") })).toBeVisible();
+      await expect(slug).toHaveValue("vide-studio");
       await slug.fill("admin");
       await expect(page.getByRole("button", { name: m("setup.publish") })).toBeDisabled();
       await slug.fill("studio-vide");
@@ -98,7 +106,8 @@ for (const language of ["sv", "en"] as const) {
       await page.getByRole("button", { name: m("setup.hide") }).click();
       await page.getByRole("button", { name: m("setup.demo") }).click();
       await expect(page.getByRole("button", { name: m("setup.resume") })).toBeVisible();
-      await page.reload();
+      await page.goto("/studio/setup");
+      await expect(page.getByLabel(m("settings.name"), { exact: true })).toHaveCount(0);
       await page.getByRole("button", { name: m("setup.resume") }).click();
       await expect(page.getByRole("button", { name: m("setup.demo") })).toBeVisible();
       await expect(page.getByRole("heading", { name: m("setup.checklist") })).toHaveCount(0);

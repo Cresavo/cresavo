@@ -1,4 +1,3 @@
-import { currentState } from "../store";
 import type { CostEntry } from "./cost-log";
 import type { AiOverview } from "./overview";
 import type { TaskName } from "./registry";
@@ -20,8 +19,8 @@ async function runLocally<Output>(task: TaskName, input: unknown): Promise<{ out
   return { output, log, requestId: null };
 }
 
-export async function runAiTask<Output>(task: TaskName, input: unknown): Promise<{ output: Output; log: CostEntry; requestId: string | null }> {
-  if (PUBLIC_DEMO || (typeof window !== "undefined" && currentState()?.industry)) return runLocally(task, input);
+export async function runAiTask<Output>(task: TaskName, input: unknown, localOnly: boolean): Promise<{ output: Output; log: CostEntry; requestId: string | null }> {
+  if (PUBLIC_DEMO || localOnly) return runLocally(task, input);
   const response = await fetch(`/api/concept/ai/${task}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -40,7 +39,8 @@ export async function fetchAiOverview(): Promise<AiOverview> {
 }
 
 /** Recheck after settings changes, including edits in another tab. */
-export function isAiConfigured(): Promise<boolean> {
+export function isAiConfigured(localOnly: boolean): Promise<boolean> {
+  if (localOnly || PUBLIC_DEMO) return Promise.resolve(false);
   return fetchAiOverview().then(overview => overview.configured, () => false);
 }
 export async function saveAiSettings(settings: { provider: string; key: string } | { task: TaskName; tier: "fast" | "smart" } | null): Promise<AiOverview> {
