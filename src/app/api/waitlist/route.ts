@@ -44,14 +44,19 @@ export async function POST(request: Request) {
   const form = !type.includes("application/json");
   const answer = (outcome: WaitlistOutcome, from?: unknown, status = STATUS[outcome]) => {
     if (!form || status === 413) return NextResponse.json({ outcome }, { status, headers: NO_STORE });
-    const back = new URL(WAITLIST_PAGES.find((page) => page === from) ?? "/", request.url);
+    // Return to the host the visitor used: in local development request.url can name "localhost" instead.
+    const origin = new URL(request.url);
+    const host = request.headers.get("host");
+    if (host) origin.host = host;
+    const back = new URL(WAITLIST_PAGES.find((page) => page === from) ?? "/", origin);
     back.searchParams.set("waitlist", outcome);
     back.hash = "waitlist";
     return NextResponse.redirect(back, 303);
   };
   if (!allowed(waitlistClientKey(request.headers))) {
     await request.body?.cancel().catch(() => undefined);
-    return answer("limited");
+    // The limit is checked before reading form fields. Use the allowlisted return page in the action URL.
+    return answer("limited", new URL(request.url).searchParams.get("from"));
   }
   const text = await readCapped(request, MAX_BODY);
   if (text === "too-large") return answer("invalid", undefined, 413);

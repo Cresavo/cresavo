@@ -57,6 +57,16 @@ readable files, validate on the server, AI only proposes and the person
 approves, all UI text in the i18n dictionary (English first), no secrets or
 personal data in logs.
 
+## Languages
+
+English is the source language for code, documentation and UI. Every user-facing
+string goes through its area's dictionary. Add or update the Swedish translation
+in the same PR as the English text. Parity tests check keys and placeholders.
+Self-hosted installations default to English and offer Swedish as a choice.
+Country-specific features such as Swish belong in connectors or market settings
+selected by the business's country or currency. Both site languages describe
+the same product.
+
 ## Adding a language
 
 English is the default for the studio and new booking pages. Choose Swedish

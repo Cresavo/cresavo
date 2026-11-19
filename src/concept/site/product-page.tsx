@@ -1,9 +1,10 @@
+import { sitePath } from "./language";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { PROJECT_REPOSITORY } from "../brand";
 import { ChannelMap } from "./channel-map";
-import { site } from "./en";
+import { useSiteCopy } from "./copy";
 import type { ProductSiteProps } from "./links";
 import { MiniBooking } from "./mini-booking";
 import { OpenDesign } from "./open-design";
@@ -26,6 +27,7 @@ const films = [
 ] as const;
 
 function FilmTour() {
+  const { site, locale } = useSiteCopy();
   const [index, setIndex] = useState(0);
   const [booking, setBooking] = useState(false);
   const film = films[index];
@@ -44,7 +46,7 @@ function FilmTour() {
       <div className={e.screening}>
         {booking ? <>
           <MiniBooking />
-          <Link prefetch={false} className={s.textLink} href="/boka/salong-eko">{site["landing.book.link"]}<ArrowUpRight size={16} aria-hidden /></Link>
+          <Link prefetch={false} className={s.textLink} href={locale === "sv" ? "/boka/salong-eko?lang=sv" : "/boka/salong-eko"}>{site["landing.book.link"]}<ArrowUpRight size={16} aria-hidden /></Link>
         </> : <TourClip key={film.key} name={film.key} title={site[film.label]} description={site[film.alt]} />}
       </div>
     </section>
@@ -52,6 +54,9 @@ function FilmTour() {
 }
 
 export function ProductPage({ links, waitlist, stars, origin }: ProductSiteProps) {
+  const { site, locale } = useSiteCopy();
+  const demo = locale === "sv" ? `${links.demo}?lang=sv` : links.demo;
+  const otherLocale = locale === "sv" ? "en" : "sv";
   const main = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!main.current || !("IntersectionObserver" in window)) return;
@@ -67,21 +72,22 @@ export function ProductPage({ links, waitlist, stars, origin }: ProductSiteProps
   return (
     <div className={`${s.page} ${e.canvas}`}>
       <SiteHead title={site["soon.title"]} description={site["soon.description"]} productOrigin={origin} />
-      <ProductHeader demo={links.demo} />
+      <ProductHeader demo={demo} />
       <main ref={main} className={s.landing}>
-        <ProductHero demo={links.demo} stars={stars} />
+        <ProductHero demo={demo} stars={stars} />
         <StudioPreview />
         <FounderStory />
         <ChannelMap />
         <OpenDesign />
         <FilmTour />
         <PlatformComparison />
-        <JoinMovement demo={links.demo} />
-        <WaitlistForm from="/" initial={waitlist ?? undefined} className={s.block} />
+        <JoinMovement demo={demo} />
+        <WaitlistForm from={sitePath(locale)} initial={waitlist ?? undefined} className={s.block} />
       </main>
       <footer className={`${s.footer} ${s.landingFooter} ${s.soonFooter}`}>
         <span>{site["soon.footer"]}</span>
-        <Link prefetch={false} href="/privacy">{site["waitlist.privacy"]}</Link>
+        <Link prefetch={false} href={sitePath(locale, "privacy")}>{site["waitlist.privacy"]}</Link>
+        <a href={sitePath(otherLocale)} lang={otherLocale} hrefLang={otherLocale}>{site["language.switch"]}</a>
         <a href={PROJECT_REPOSITORY}>{site["soon.github"]}</a>
       </footer>
     </div>

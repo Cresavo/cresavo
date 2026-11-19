@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { checkOwnSlug, subdomainHost } from "@/concept/page/address";
 import { advanceStatus, checkDomain, CNAME_TARGET, dnsInstruction, DOMAIN_STEPS } from "@/concept/page/domain";
 import { COMING_SOON_PATH, normalizeHost, ownerViewHref, resolveHost, routeHost, siteLinks, UNKNOWN_PATH, type Directory } from "@/concept/page/resolve";
@@ -166,6 +166,42 @@ describe("host resolution", () => {
 
   it("shows the subdomain as it will be served", () => {
     expect(subdomainHost("kajsa", product)).toBe("kajsa.book.example");
+  });
+});
+
+describe("Swedish site aliases", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("recognizes exact production aliases and preserves translated paths", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", undefined);
+    vi.stubEnv("CONCEPT_SITE_SV_DOMAINS", undefined);
+    for (const host of ["cresavo.se", "WWW.CRESAVO.SE:443"]) {
+      expect(resolveHost(host, directory, product)).toEqual({ kind: "site", site: "swedish-alias" });
+      for (const path of ["/", "/sv", "/untranslated"]) {
+        expect(routeHost(host, path, directory, product)).toEqual({ action: "redirect", targetHost: product, path: "/sv" });
+      }
+      for (const path of ["/privacy", "/sv/privacy/"]) {
+        expect(routeHost(host, path, directory, product)).toEqual({ action: "redirect", targetHost: product, path: "/sv/privacy" });
+      }
+    }
+    expect(resolveHost("else.cresavo.se", directory, product).kind).toBe("unknown");
+    expect(routeHost("else.cresavo.se", "/sv", directory, product)).toEqual({ action: "rewrite", path: UNKNOWN_PATH });
+  });
+
+  it("keeps development and previews local and accepts explicit host aliases", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("CONCEPT_SITE_SV_DOMAINS", undefined);
+    expect(resolveHost("cresavo.se", directory, product).kind).toBe("unknown");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    expect(resolveHost("cresavo.se", directory, product).kind).toBe("unknown");
+    vi.stubEnv("CONCEPT_SITE_SV_DOMAINS", " swedish.example, www.swedish.example ");
+    expect(resolveHost("www.swedish.example", directory, product).kind).toBe("site");
+    for (const host of ["localhost:3017", "preview.vercel.app"]) {
+      expect(routeHost(host, "/sv", directory, product)).toEqual({ action: "next" });
+      expect(resolveHost(host, directory, product)).toEqual({ kind: "app" });
+    }
   });
 });
 

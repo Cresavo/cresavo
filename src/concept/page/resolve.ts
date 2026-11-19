@@ -13,7 +13,7 @@ export interface Directory {
 export type UnknownReason = "reserved" | "invalid" | "not-connected";
 
 /** The platform's two public sites: the product domain itself (coming soon) and its demo. */
-export type PlatformSite = "apex" | "demo";
+export type PlatformSite = "apex" | "demo" | "swedish-alias";
 
 export type HostResolution =
   | { kind: "app" }
@@ -34,11 +34,19 @@ export function normalizeHost(host: string | null | undefined): string {
   return (host ?? "").trim().toLowerCase().replace(/:\d+$/, "").replace(/\.$/, "");
 }
 
+function isSwedishAlias(host: string) {
+  if (typeof window !== "undefined") return false;
+  const production = process.env.NODE_ENV === "production" && (!process.env.VERCEL_ENV || process.env.VERCEL_ENV === "production");
+  const aliases = process.env.CONCEPT_SITE_SV_DOMAINS ?? (production ? "cresavo.se,www.cresavo.se" : "");
+  return aliases.split(",").some(alias => normalizeHost(alias) === host);
+}
+
 export function resolveHost(rawHost: string | null | undefined, directory: Directory = DEMO_DIRECTORY, product = productDomain()): HostResolution {
   const host = normalizeHost(rawHost);
   if (!host || LOCAL_HOSTS.has(host) || host.endsWith(".vercel.app")) return { kind: "app" };
   if (host === product || host === `www.${product}`) return { kind: "site", site: "apex" };
   if (host === `demo.${product}`) return { kind: "site", site: "demo" };
+  if (isSwedishAlias(host)) return { kind: "site", site: "swedish-alias" };
   const own = directory.domains[host];
   if (own) return { kind: "business", slug: own, via: "domain" };
   if (host.endsWith(`.${product}`)) {
@@ -58,9 +66,9 @@ export function isProductHome(rawHost: string | null | undefined, pathname: stri
   const host = normalizeHost(rawHost);
   const resolution = resolveHost(host);
   if (resolution.kind === "site" && resolution.site === "apex") {
-    return pathname === "/" || pathname === COMING_SOON_PATH;
+    return pathname === "/" || pathname === "/sv" || pathname === COMING_SOON_PATH;
   }
-  return pathname === COMING_SOON_PATH &&
+  return (pathname === COMING_SOON_PATH || pathname === "/sv") &&
     Boolean(process.env.NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN) && (!host || LOCAL_HOSTS.has(host));
 }
 
@@ -88,12 +96,19 @@ export function ownerViewHref(rawHost: string | null | undefined, protocol = "ht
 const PUBLIC_PREFIXES = ["/_next/", "/demo/", "/tenant/", "/favicon"];
 const BOOKING_PATHS = /^\/(?:me|gift|widget|booking\/[^/]+)\/?$/;
 
-export type HostRoute = { action: "next" } | { action: "rewrite" | "redirect"; path: string };
+export type HostRoute =
+  | { action: "next" }
+  | { action: "rewrite"; path: string }
+  | { action: "redirect"; path: string; targetHost?: string };
 
 /** Resolve public entry points before the app handles its own routes. */
 export function routeHost(rawHost: string | null | undefined, pathname: string, directory: Directory = DEMO_DIRECTORY, product = productDomain(), legacyHome = false): HostRoute {
   const resolution = resolveHost(rawHost, directory, product);
   if (resolution.kind === "app" || resolution.kind === "site") {
+    if (resolution.kind === "site" && resolution.site === "swedish-alias") {
+      const privacy = /^\/(?:sv\/)?privacy\/?$/.test(pathname);
+      return { action: "redirect", targetHost: product, path: privacy ? "/sv/privacy" : "/sv" };
+    }
     const root = pathname === "/" || pathname === "";
     if (resolution.kind === "site" && resolution.site === "demo" && (root || pathname === COMING_SOON_PATH)) {
       return { action: "redirect", path: "/studio" };

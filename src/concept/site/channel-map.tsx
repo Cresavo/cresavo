@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, CalendarDays, Camera, Check, CheckCheck, Globe, Inbox, MessageCircle, Pause, PhoneCall, Play, Sparkles } from "lucide-react";
-import { channelExamples, site } from "./en";
+import { useSiteCopy } from "./copy";
 import e from "./editorial.module.css";
 import m from "./channel-map.module.css";
 
@@ -8,6 +8,7 @@ const icons = [MessageCircle, Camera, PhoneCall, Globe, Sparkles];
 type Mode = "auto" | "review" | "booked";
 
 export function ChannelMap() {
+  const { site, channelExamples } = useSiteCopy();
   const board = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [selected, select] = useState(0);

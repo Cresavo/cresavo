@@ -1,3 +1,5 @@
+import { DEFAULT_LOCALE, parseLocale, type Locale } from "@/lib/locale";
+
 // The launch waiting list behind POST /api/waitlist: validation, a small
 // in-memory rate limit and a provider adapter. The default provider, "none",
 // is honest: it stores nothing and says so. Nothing here ever logs an address.
@@ -10,6 +12,7 @@ export type BusinessKind = (typeof BUSINESS_KINDS)[number];
 
 export interface WaitlistEntry {
   email: string;
+  locale: Locale;
   business?: BusinessKind;
 }
 
@@ -37,7 +40,7 @@ export function parseWaitlistInput(raw: unknown): WaitlistInput {
   const email = typeof fields.email === "string" ? fields.email.trim() : "";
   if (!email || email.length > EMAIL_MAX || !EMAIL.test(email) || email.includes("..")) return { ok: false, reason: "invalid" };
   const business = BUSINESS_KINDS.find((kind) => kind === fields.business);
-  return { ok: true, entry: { email: email.toLowerCase(), business } };
+  return { ok: true, entry: { email: email.toLowerCase(), business, locale: parseLocale(fields.locale) ?? DEFAULT_LOCALE } };
 }
 
 /** The configured provider; unset or unknown means "none". Keys for real providers are read from the environment only. */
@@ -86,4 +89,4 @@ export function createRateLimiter({ max, windowMs } = RATE_LIMIT, capacity = MAX
 }
 
 /** The pages that carry the form; a form post without JavaScript is sent back to one of them. */
-export const WAITLIST_PAGES = ["/", "/coming-soon"] as const;
+export const WAITLIST_PAGES = ["/", "/coming-soon", "/sv"] as const;
