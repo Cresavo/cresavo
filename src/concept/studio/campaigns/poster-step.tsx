@@ -38,19 +38,18 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
   };
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div className="space-y-4">
         <Segmented<PosterFormat>
           label={t("campaigns.poster.format")}
           value={format}
           onChange={setFormat}
-          className="w-full"
           options={FORMATS.map((value) => ({ value, label: t(`campaigns.format.${value}`) }))}
         />
         <div className={cx("mx-auto w-full overflow-hidden rounded-lg", format === "post" ? "max-w-sm" : "max-w-64")}>
           <PosterView ref={svg} source={source} salon={state.salon} format={format} />
         </div>
-        <Button variant="secondary" className="w-full" icon={<Download size={18} />} onClick={download}>
+        <Button variant="secondary" width="responsive" icon={<Download size={18} />} onClick={download}>
           {t("campaigns.poster.download", { size: `${POSTER_FORMATS[format].width * POSTER_FORMATS[format].exportScale} × ${POSTER_FORMATS[format].height * POSTER_FORMATS[format].exportScale}` })}
         </Button>
       </div>
@@ -77,7 +76,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
         </div>
         <div className="space-y-2">
           <span className="block text-sm font-medium">{t("campaigns.poster.photo")}</span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {POSTER_IMAGES.map((image) => (
               <Button variant="secondary" size="sm"
                 key={image}
@@ -90,7 +89,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
             ))}
           </div>
         </div>
-        <Field label={t("campaigns.poster.headline")}>
+        <Field width="short" label={t("campaigns.poster.headline")}>
           <TextInput value={poster.headline} maxLength={24} onChange={(event) => edit({ headline: event.target.value })} />
         </Field>
         <Field label={t("campaigns.poster.detail")}>

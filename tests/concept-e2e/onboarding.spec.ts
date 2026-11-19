@@ -74,7 +74,6 @@ for (const language of ["sv", "en"] as const) {
       await expect(page.getByRole("heading", { name: new RegExp(m("setup.checklist")) })).toContainText(m("setup.progress", { done: 1, total: 4 }));
       await expect(page.getByText(m("setup.example.tag"), { exact: true }).first()).toBeVisible();
       await expect(page.getByText(m("trial.notice"))).toBeVisible();
-      await expect(page.locator('[data-help="role-switch"]')).toHaveCount(0);
       await audit(page);
       if (pictures) {
         await capture(page, "checklist");
@@ -82,6 +81,9 @@ for (const language of ["sv", "en"] as const) {
         execFileSync("convert", ["-delay", "120", ...frames.map(f => `${screens}-${f}.jpg`), "-loop", "0", "-layers", "Optimize", gif]);
         expect((await stat(gif)).size).toBeLessThan(3_000_000);
       }
+      await page.goto("/studio/more/advanced");
+      await expect(page.getByRole("heading", { name: m("nav.advanced"), exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: m("role.preview"), exact: true })).toHaveCount(0);
       await page.goto("/studio/setup");
       await page.getByRole("link", { name: m("setup.seePage") }).click();
       await expect(page).toHaveURL(/\/boka\/studio-vide$/);

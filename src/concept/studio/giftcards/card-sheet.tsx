@@ -36,10 +36,10 @@ export function GiftCardSheet({ cardId, onClose }: { cardId: string; onClose: ()
     >
       <div className="space-y-5">
         <GiftCardFace salonName={state.salon.name} amount={card.amount} recipient={card.recipient} message={card.message} code={card.code} />
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Button variant="secondary" icon={<Link2 size={18} />} onClick={() => copy(`${window.location.origin}${link}`, t("giftcards.linkCopied"))}>{t("giftcards.copyLink")}</Button>
-          <Button variant="secondary" icon={<Copy size={18} />} onClick={() => copy(card.code, t("giftcards.codeCopied"))}>{t("giftcards.copyCode")}</Button>
-          <ButtonLink href={link} variant="secondary" icon={<ExternalLink size={18} />} className="sm:col-span-2">{t("giftcards.openCard")}</ButtonLink>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" width="responsive" icon={<Link2 size={18} />} onClick={() => copy(`${window.location.origin}${link}`, t("giftcards.linkCopied"))}>{t("giftcards.copyLink")}</Button>
+          <Button variant="secondary" width="responsive" icon={<Copy size={18} />} onClick={() => copy(card.code, t("giftcards.codeCopied"))}>{t("giftcards.copyCode")}</Button>
+          <ButtonLink href={link} variant="secondary" icon={<ExternalLink size={18} />} width="responsive">{t("giftcards.openCard")}</ButtonLink>
         </div>
       </div>
     </Sheet>

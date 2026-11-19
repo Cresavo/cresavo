@@ -40,14 +40,14 @@ export function SalonDetailsForm() {
   };
 
   return (
-    <Card className="max-w-2xl p-4 sm:p-5">
+    <Card className="p-4 sm:p-5 md:max-w-form">
       <form className="space-y-4" noValidate onSubmit={submit}>
         <p className="text-body text-text-secondary">{t("salonDetails.help")}</p>
         {SALON_DETAIL_FIELDS.map((field) => {
           const problem = problems[field];
           const shown = problem && (tried || draft[field].trim() !== saved[field]) ? t(`salonDetails.problem.${problem}`) : undefined;
           return (
-            <Field key={field} label={t(`salonDetails.${field}`)} hint={field === "name" ? undefined : t("salonDetails.optional")} error={shown}>
+            <Field width={field === "address" ? "full" : "short"} key={field} label={t(`salonDetails.${field}`)} hint={field === "name" ? undefined : t("salonDetails.optional")} error={shown}>
               <TextInput
                 {...INPUT[field]}
                 name={field}
@@ -59,7 +59,7 @@ export function SalonDetailsForm() {
           );
         })}
         {state.salon.orgNumber && <p className="text-meta text-text-secondary">{t("salonDetails.orgNumber", { number: state.salon.orgNumber })}</p>}
-        <Button type="submit" disabled={!dirty}>{t("salonDetails.save")}</Button>
+        <Button type="submit" width="responsive" disabled={!dirty}>{t("salonDetails.save")}</Button>
       </form>
     </Card>
   );

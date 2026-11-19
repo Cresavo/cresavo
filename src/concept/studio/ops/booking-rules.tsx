@@ -26,13 +26,13 @@ export function BookingRules({ state }: { state: DemoState }) {
     }}>
       <p className="text-sm text-text-secondary">{t("protection.version", { version: state.cancellationPolicy.version })}</p>
       {(["freeHours", "latePercent", "noShowPercent"] as const).map(key =>
-        <Field key={key} label={t(`protection.${key}`)}><TextInput type="number" required min="0" max={key === "freeHours" ? 8760 : 100}
+        <Field width="number" key={key} label={t(`protection.${key}`)}><TextInput type="number" required min="0" max={key === "freeHours" ? 8760 : 100}
           value={Number.isFinite(draft[key]) ? draft[key] : ""} onChange={e => setDraft({ ...draft, [key]: e.target.valueAsNumber })} /></Field>)}
-      {state.services.length > 0 && <Field label={t("protection.treatment")}><Select value={serviceId} onChange={e => setService(e.target.value)}>
+      {state.services.length > 0 && <Field width="short" label={t("protection.treatment")}><Select value={serviceId} onChange={e => setService(e.target.value)}>
         {state.services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
       </Select></Field>}
       {service && <>
-        <Field label={t("protection.depositInput", { currency })}><TextInput key={serviceId} type="number" min="0" required
+        <Field width="number" label={t("protection.depositInput", { currency })}><TextInput key={serviceId} type="number" min="0" required
           step={10 ** -minorDigits(currency)} defaultValue={majorString({ amountMinor: draft.deposits[serviceId] ?? 0, currency })}
           onChange={e => setDraft({ ...draft, deposits: { ...draft.deposits, [serviceId]: toMinor(e.target.valueAsNumber, currency) } })} /></Field>
         <Checkbox label={t("protection.exempt")} checked={exempt} onChange={e => setDraft({ ...draft,
@@ -45,7 +45,7 @@ export function BookingRules({ state }: { state: DemoState }) {
         <PolicySummary terms={quote(draft, service, currency, true)} />
         {draft.newCustomersOnly && <p className="text-sm">{t("protection.returning")}</p>}
       </div>}
-      <Button type="submit" disabled={!dirty}>{t("common.save")}</Button>
+      <Button type="submit" width="responsive" disabled={!dirty}>{t("common.save")}</Button>
     </form>
   </Card></Section>;
 }

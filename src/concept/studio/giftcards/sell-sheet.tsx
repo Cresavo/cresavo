@@ -46,7 +46,7 @@ export function SellGiftCardSheet({ onClose, onSold }: { onClose: () => void; on
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button disabled={!valid} icon={<Check size={18} />} onClick={sell}>{t("giftcards.sellConfirm")}</Button>
+          <Button width="responsive" disabled={!valid} icon={<Check size={18} />} onClick={sell}>{t("giftcards.sellConfirm")}</Button>
         </>
       }
     >
@@ -59,11 +59,11 @@ export function SellGiftCardSheet({ onClose, onSold }: { onClose: () => void; on
               <Chip key={preset} active={amount === preset} onClick={() => setAmount(preset)}>{formatMoney(preset)}</Chip>
             ))}
           </div>
-          <Field label={t("giftcards.amountOther")} hint={t("giftcards.amountHint", { min: MIN_AMOUNT, max: MAX_AMOUNT })}>
+          <Field width="number" label={t("giftcards.amountOther")} hint={t("giftcards.amountHint", { min: MIN_AMOUNT, max: MAX_AMOUNT })}>
             <TextInput type="number" inputMode="numeric" min={MIN_AMOUNT} max={MAX_AMOUNT} step={50} value={Number.isNaN(amount) ? "" : amount} onChange={(event) => setAmount(event.target.valueAsNumber)} />
           </Field>
         </div>
-        <Field label={t("giftcards.recipient")}>
+        <Field width="short" label={t("giftcards.recipient")}>
           <TextInput value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder={t("giftcards.recipientPlaceholder")} maxLength={80} />
         </Field>
         <Field label={t("giftcards.message")}>

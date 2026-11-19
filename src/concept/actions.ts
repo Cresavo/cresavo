@@ -20,8 +20,8 @@ import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visit
 import type { CostKind } from "./finance/types";
 import { isFree, needOf, pickResource } from "./data/slots";
 import { undoEntry } from "./log/undo";
-import { bookableServices } from "./selectors";
-import { MODULES, presetModules, type PresetId } from "./modules/registry";
+import { bookableServices, inboxItemVisible } from "./selectors";
+import { moduleById, moduleEnabled, moduleKeys, presetModules, type PresetId } from "./modules/registry";
 import { applyOps, type OpsAction } from "./ops/edit";
 import { applySalonDetails, type SalonDetails } from "./ops/salon-details";
 import { applyServiceAction, validServicePrice, type ServiceAction } from "./services/edit";
@@ -308,12 +308,12 @@ function completeBooking(state: DemoState, id: string): DemoState {
   if (!booking || booking.status !== "booked") return state;
   const done = { ...state, bookings: updateBy(state.bookings, id, (b) => ({ ...b, status: "completed" as const })) };
   const stocked = state.modules.stock ? { ...done, stock: deduct(done.stock, usesOfService(state, booking.serviceId)) } : done;
-  return state.modules.packages ? consumePackageVisit(stocked, booking) : stocked;
+  return moduleEnabled(state.modules, "packages") ? consumePackageVisit(stocked, booking) : stocked;
 }
 
 function replyToInbox(state: DemoState, id: string, reply: string, slot?: SlotSuggestion): DemoState {
   const item = state.inbox.find((i) => i.id === id);
-  if (!item || (slot && item.handled)) return state;
+  if (!item || !inboxItemVisible(state, item) || (slot && item.handled)) return state;
   let next = state;
   if (slot && item.kind === "reschedule") {
     const booking = state.bookings.find(entry => entry.id === item.bookingId);
@@ -508,13 +508,18 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
     case "inbox/read":
       return { ...state, inbox: updateBy(state.inbox, action.id, (i) => ({ ...i, read: true })) };
     case "inbox/read-all":
-      return { ...state, inbox: state.inbox.map((i) => ({ ...i, read: true })) };
+      return { ...state, inbox: state.inbox.map((i) => inboxItemVisible(state, i) ? { ...i, read: true } : i) };
     case "inbox/reply":
       return replyToInbox(state, action.id, action.reply, action.slot);
     case "inbox/add":
       return { ...state, seq: state.seq + 1, inbox: [{ ...action.item, id: nextId(state, "i") }, ...state.inbox] };
     case "review/reply":
-      return { ...state, reviews: updateBy(state.reviews, action.id, (r) => ({ ...r, reply: action.reply })) };
+      if (!state.modules.reviews || !state.reviews.some((review) => review.id === action.id)) return state;
+      return {
+        ...state,
+        reviews: updateBy(state.reviews, action.id, (review) => ({ ...review, reply: action.reply })),
+        inbox: state.inbox.map((item) => item.reviewId === action.id ? { ...item, reply: action.reply, read: true, handled: true } : item),
+      };
     case "customer/note":
       return { ...state, customers: updateBy(state.customers, action.id, (c) => ({ ...c, note: action.note || undefined })) };
     case "cost/add": {
@@ -529,11 +534,15 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
       return { ...state, accounting: { connected: true, connectedOn: action.on } };
     case "accounting/disconnect":
       return { ...state, accounting: { connected: false } };
-    case "module/toggle":
-      return { ...state, modules: { ...state.modules, [action.key]: !state.modules[action.key] } };
+    case "module/toggle": {
+      const enabled = !moduleEnabled(state.modules, action.key);
+      const modules = { ...state.modules };
+      for (const key of moduleKeys(moduleById(action.key))) modules[key] = enabled;
+      return { ...state, modules };
+    }
     case "module/preset": {
       const modules = presetModules(action.preset);
-      return MODULES.every((manifest) => state.modules[manifest.id] === modules[manifest.id]) ? state : { ...state, modules };
+      return (Object.keys(modules) as ModuleKey[]).every((key) => state.modules[key] === modules[key]) ? state : { ...state, modules };
     }
     case "card/dismiss":
       return state.dismissedCards.includes(action.id) ? state : { ...state, dismissedCards: [...state.dismissedCards, action.id] };

@@ -46,7 +46,6 @@ export function AdSheet({ campaign, area, open, onClose }: AdSheetProps) {
         <Choice label={t("campaigns.ad.budget")}>
           <Segmented<string>
             label={t("campaigns.ad.budget")}
-            className="w-full"
             value={String(ad.budget)}
             onChange={(value) => setAd({ ...ad, budget: Number(value) })}
             options={AD_BUDGETS.map((budget) => ({ value: String(budget), label: formatMoney(budget) }))}
@@ -55,7 +54,6 @@ export function AdSheet({ campaign, area, open, onClose }: AdSheetProps) {
         <Choice label={t("campaigns.ad.days")}>
           <Segmented<string>
             label={t("campaigns.ad.days")}
-            className="w-full"
             value={String(ad.days)}
             onChange={(value) => setAd({ ...ad, days: Number(value) })}
             options={AD_DAYS.map((days) => ({ value: String(days), label: tc("campaigns.ad.daysOption", days) }))}
@@ -64,7 +62,6 @@ export function AdSheet({ campaign, area, open, onClose }: AdSheetProps) {
         <Choice label={t("campaigns.ad.area")}>
           <Segmented<string>
             label={t("campaigns.ad.area")}
-            className="w-full"
             value={String(ad.radiusKm)}
             onChange={(value) => setAd({ ...ad, radiusKm: Number(value) })}
             options={AD_RADII_KM.map((km) => ({ value: String(km), label: t("campaigns.ad.km", { km }) }))}

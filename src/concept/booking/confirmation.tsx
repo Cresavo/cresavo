@@ -1,5 +1,6 @@
 "use client";
 
+import { moduleEnabled } from "../modules/registry";
 import Link from "next/link";
 import { CalendarCheck, CheckCircle2, MapPin, XCircle } from "lucide-react";
 import { t } from "../i18n";
@@ -81,7 +82,7 @@ export function Confirmation({ id }: { id: string }) {
         </p>
         {booking.protection ? <PaymentSummary booking={booking} state={state} active={active} /> : <p className="border-t border-hairline pt-3 text-meta">
           <strong>{formatMoney(booking.price, state.localization.currency)}</strong>
-          {active && <> · {t(state.modules.packages ? "booking.payAtSalonWithPackages" : "booking.payAtSalon")}</>}
+          {active && <> · {t(moduleEnabled(state.modules, "packages") ? "booking.payAtSalonWithPackages" : "booking.payAtSalon")}</>}
         </p>}
       </Card>
 

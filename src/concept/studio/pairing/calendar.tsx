@@ -22,23 +22,27 @@ function CalendarEditor({ workspace: w, command, busy }: Pick<Pairing, "command"
   if (!booking) return null;
   const schedule = w.bookings.filter(b => b.date === booking.date)
     .sort((a, b) => a.time.localeCompare(b.time) || a.staffId.localeCompare(b.staffId));
-  return <Section title={t("pair.label")} className="mb-5"><Card className="space-y-3 p-5">
-    <Field label={t("pair.appointment")}>
+  return <Section title={t("pair.label")} className="mb-5 md:max-w-form"><Card className="space-y-3 p-5">
+    <Field width="short" label={t("pair.appointment")}>
       <Select
         value={booking.bookingId} onChange={e => { setSelected(e.target.value); setEdit(null); }}>
         {w.bookings.map(b => <option key={b.bookingId} value={b.bookingId}>{b.date} · {b.time} · {b.untrustedCustomerText.customer}</option>)}
       </Select></Field>
     <p>{booking.date} · {booking.time} · {booking.untrustedCustomerText.customer} · {booking.untrustedCustomerText.service}</p>
-    {edit && edit.bookingId === booking.bookingId ? <form className="flex flex-wrap items-end gap-3" onSubmit={async e => {
+    {edit && edit.bookingId === booking.bookingId ? <form className="space-y-3" onSubmit={async e => {
       e.preventDefault();
       const form = new FormData(e.currentTarget);
       await command("move", { ...edit, date: form.get("date"), time: form.get("time") });
       setEdit(null);
     }}>
-      <Field label={t("pair.date")}><Input required type="date" name="date" defaultValue={booking.date} /></Field>
-      <Field label={t("pair.time")}><Input required type="time" name="time" defaultValue={booking.time} /></Field>
-      <Button type="submit" disabled={busy}>{t("common.save")}</Button>
-      <Button variant="ghost" onClick={() => setEdit(null)}>{t("common.cancel")}</Button>
+      <div className="grid gap-3 min-[360px]:flex">
+        <Field width="date" label={t("pair.date")}><Input required type="date" name="date" defaultValue={booking.date} /></Field>
+        <Field width="date" label={t("pair.time")}><Input required type="time" name="time" defaultValue={booking.time} /></Field>
+      </div>
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button variant="ghost" onClick={() => setEdit(null)}>{t("common.cancel")}</Button>
+        <Button type="submit" width="responsive" disabled={busy}>{t("common.save")}</Button>
+      </div>
     </form> : <Button size="sm" onClick={() => setEdit({ workspaceId: w.id, bookingId: booking.bookingId, revision: w.revision, idempotencyKey: crypto.randomUUID() })}>{t("pair.move")}</Button>}
   </Card>
     <Card className="divide-y divide-hairline px-5">

@@ -6,6 +6,7 @@ export type CustomerReviewAction =
   | { type: "review/approve"; id: string };
 
 export function applyCustomerReview(state: DemoState, action: CustomerReviewAction): DemoState {
+  if (!state.modules.reviews) return state;
   if (action.type === "review/approve") {
     if (!state.reviews.some(review => review.id === action.id && review.approved === false)) return state;
     return {

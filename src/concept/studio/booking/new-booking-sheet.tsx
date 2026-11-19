@@ -136,7 +136,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
           ) : adding ? (
             <div className="space-y-3">
               <GuestFields staffEntry value={guest} onChange={setGuest} />
-              <Field label={t("newBooking.emailOptional")} hint={emailValid ? undefined : t("newBooking.invalidEmail")}>
+              <Field width="short" label={t("newBooking.emailOptional")} hint={emailValid ? undefined : t("newBooking.invalidEmail")}>
                 <TextInput type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
               </Field>
               <Button variant="ghost" size="sm" onClick={() => setAdding(false)}>{t("newBooking.findExisting")}</Button>
@@ -191,7 +191,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
           </div>
         </section>
 
-        {!viewer && service.staffIds.length > 1 && <Field label={t("calendar.staff")}>
+        {!viewer && service.staffIds.length > 1 && <Field width="short" label={t("calendar.staff")}>
           <Select value={staffId} onChange={e => { setChosenStaff(e.target.value); setSlot(null); setFailure(undefined); }}>
             {state.staff.filter(person => service.staffIds.includes(person.id)).map(person =>
               <option key={person.id} value={person.id}>{fullName(person)}</option>)}

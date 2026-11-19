@@ -29,7 +29,7 @@ export function WeekSheet({ person, onClose }: { person: Staff; onClose: () => v
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button disabled={!valid} onClick={save}>{t("common.save")}</Button>
+          <Button width="responsive" disabled={!valid} onClick={save}>{t("common.save")}</Button>
         </>
       }
     >

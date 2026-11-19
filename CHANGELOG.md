@@ -15,11 +15,15 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- The staff preview starts in Advanced, with a return to the owner view available while previewing.
+- Finance opens with what is left this month and a comparison with last month. Send to my accountant explains the two download options and the dates they cover.
+- Gift cards and packages share one add-on and one More entry with two tabs. Owners can approve and reply to reviews from the Inbox.
 - The owner studio uses shared controls, page headers, status badges and list rows. Calendar groups its secondary tools in an options sheet and gives appointments larger touch targets.
 - The public booking pages and product site use shared controls. Booking keeps the salon's colours, makes treatment actions and review ratings easier to see, and keeps the checkout summary beside the form on wide screens.
 
 ### Fixed
 
+- Studio forms, step controls and actions use content-appropriate widths on desktop. Campaign treatments follow the studio language.
 - Fixed unwanted horizontal scrolling in the studio at high zoom and in the booking-page editor.
 
 ## [0.5.0] - 2026-11-19

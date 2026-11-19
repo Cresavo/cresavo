@@ -25,7 +25,7 @@ export function InboxRow({ state, item, today, minutes, selected, onSelect }: In
       title={<span className="flex items-baseline gap-2">
         <span className={item.read ? "min-w-0 flex-1" : "min-w-0 flex-1 font-semibold"}>{item.title}</span>
         <span className="shrink-0 text-meta font-normal tabular-nums text-text-secondary">
-          {at.date === today ? formatTime(at.time) : relativeDay(at.date, today)}
+          {at.date === today && item.kind !== "review" ? formatTime(at.time) : relativeDay(at.date, today)}
         </span>
       </span>}
       meta={<>

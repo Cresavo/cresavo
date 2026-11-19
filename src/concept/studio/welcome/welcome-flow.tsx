@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { formatNumber } from "../../i18n/format";
 import { t, term } from "../../i18n";
-import { monthlyTotal, MODULES } from "../../modules/registry";
+import { monthlyTotal, moduleKeys, MODULES } from "../../modules/registry";
 import { HELP_WISHES, setupFromAnswers, type Answers, type HelpWish, type TeamSize } from "../../onboarding/setup";
 import { getPack, PACKS } from "../../packs";
 import { startBusiness } from "../../store";
@@ -59,7 +59,7 @@ export function WelcomeFlow() {
   if (step === STEPS && answers) {
     const setup = setupFromAnswers(answers);
     const chosen = getPack(answers.pack);
-    const on = MODULES.filter((module) => setup.modules?.includes(module.id));
+    const on = MODULES.filter((module) => moduleKeys(module).some((key) => setup.modules?.includes(key)));
     const rows: [string, string][] = [
       [t("welcome.ready.words"), t("welcome.ready.wordsValue", { customers: term("customer", { plural: true, vocabulary: chosen.vocabulary }), services: term("service", { plural: true, vocabulary: chosen.vocabulary }) })],
       [t("welcome.ready.services"), chosen.services.slice(0, 4).map((service) => service.name).join(", ")],
@@ -81,9 +81,9 @@ export function WelcomeFlow() {
             <span className="font-medium tabular-nums">{t("features.price", { price: formatNumber(monthlyTotal(setup.modules ?? [])) })}</span>
           </div>
         </Card>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 sm:justify-end">
           <Button variant="ghost" onClick={() => setStep(STEPS - 1)}>{t("welcome.back")}</Button>
-          <Button size="lg" className="flex-1" onClick={open}>{t("welcome.ready.open")}</Button>
+          <Button size="lg" width="responsive" onClick={open}>{t("welcome.ready.open")}</Button>
         </div>
       </div>
     );
@@ -116,9 +116,9 @@ export function WelcomeFlow() {
           ))}
         </div>
       )}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2 sm:justify-end">
         {step > 0 && <Button variant="ghost" onClick={() => setStep(step - 1)}>{t("welcome.back")}</Button>}
-        <Button size="lg" className="flex-1" disabled={!canContinue} onClick={() => setStep(step + 1)}>{t("welcome.next")}</Button>
+        <Button size="lg" width="responsive" disabled={!canContinue} onClick={() => setStep(step + 1)}>{t("welcome.next")}</Button>
       </div>
     </div>
   );

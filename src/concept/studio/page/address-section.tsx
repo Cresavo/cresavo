@@ -31,12 +31,10 @@ export function BookingLinkSection() {
       <Card className="space-y-4 p-4 sm:p-5">
         <p className="text-sm text-text-secondary">{t(state.industry ? "setup.local" : "address.help")}</p>
         <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); save(); }}>
-          <Field label={t("address.slug.label")} hint={problem ?? t("address.slug.hint")}>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <TextInput value={slug} onChange={(event) => setSlug(event.target.value.toLowerCase())} onBlur={() => setSlug((value) => slugify(value) || value)} autoCapitalize="none" autoComplete="off" spellCheck={false} aria-invalid={!!problem} className="sm:max-w-xs" />
-              <Button type="submit" disabled={!changed}>{t("address.slug.save")}</Button>
-            </div>
+          <Field width="short" label={t("address.slug.label")} hint={problem ?? t("address.slug.hint")}>
+            <TextInput value={slug} onChange={(event) => setSlug(event.target.value.toLowerCase())} onBlur={() => setSlug((value) => slugify(value) || value)} autoCapitalize="none" autoComplete="off" spellCheck={false} aria-invalid={!!problem} />
           </Field>
+          <Button type="submit" width="responsive" disabled={!changed}>{t("address.slug.save")}</Button>
         </form>
       </Card>
     </Section>

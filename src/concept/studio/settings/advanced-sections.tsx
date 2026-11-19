@@ -26,7 +26,7 @@ export function BookingLanguageSection() {
     <Section title={t("language.businessTitle")}>
       <Card className="space-y-4 p-4">
         <p className="text-sm text-text-secondary">{t("language.businessHint")}</p>
-        <Field label={t("language.businessDefault")}>
+        <Field width="short" label={t("language.businessDefault")}>
           <Select
             value={localization.language}
             onChange={(event) => {
@@ -66,7 +66,7 @@ export function CustomStylingSection() {
         <p role="status" className="text-xs text-text-secondary">
           {css.trim() ? (rules ? tc("pageEditor.css.applied", rules) : t("pageEditor.css.none")) : t("pageEditor.css.empty")}
         </p>
-        <Button variant="secondary" disabled={!dirty} onClick={() => {
+        <Button variant="secondary" width="responsive" disabled={!dirty} onClick={() => {
           if (!dispatchWithUndoToast({ type: "page/set", page: { ...state.page, css } }, t("pageEditor.saved"))) setCss(state.page.css);
         }}>
           {t("pageEditor.css.save")}

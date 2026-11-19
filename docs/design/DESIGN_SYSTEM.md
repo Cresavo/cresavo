@@ -57,6 +57,10 @@ Use `Input type="radio"` with a full-height label for native form choices. `Inpu
 ## Layout and motion
 
 - Use 16 px phone gutters and 32 px desktop gutters. Stack the title, description, choices and fields in reading order. Let long labels increase row height.
+- Left-align studio forms and form-like flows in the page column. Apply `md:max-w-form` to the form surface to cap it at 40rem (640 px) from `md` up. Lists, cards and data tables can use the full page column. Use `max-w-reading` (70ch) for running text.
+- Use `width` on `Field` to size the label, control and feedback together, or on a standalone `Input` or `Select`. Use `date` (14rem) for dates and times, `number` (10rem) for numbers, currency and percentages, and `short` (24rem) for names, phone numbers and other short values. The default `full` suits long text. These caps start at `md`. Stack fields when the viewport is too narrow for a row.
+- Use `width="responsive"` on form actions built with `Button` or `ButtonLink`. They use the available width below `sm` and fit their labels from `sm` up. Put the primary action on the form's left edge or in a right-aligned action row. The `StickyActionBar` footer aligns actions to the right on desktop.
+- Keep step tabs and segmented controls at their natural width. Allow step rows and chip groups to wrap, and let a segmented control scroll within its own width when its options need more room. Each chip sizes to its label.
 - In booking checkout, place the price and policy summary above confirmation on narrow screens and in a sticky side column when the layout has room. Treatment rows use a tenant-accent Book button alongside the service details.
 - Reserve at least 96 px plus the bottom safe area below Studio content on phones. Keep Calendar's navigation and view controls on one toolbar row and use the options sheet for secondary controls.
 - Use one scrollport for the content beside a persistent action bar. Give the scrollport an accessible label. On phones include the bottom safe area and allow actions to wrap. Keep keyboard focus in view.
@@ -66,8 +70,10 @@ Use `Input type="radio"` with a full-height label for native form choices. `Inpu
 ## Settings and Advanced
 
 - Settings is an overview of at most six sections, each a `ListRow` that opens its own page with a back link to Settings. Only a section as small as Appearance sits in place. Modules never add a section; their settings live on their own pages. `SETTINGS_SECTIONS` in `src/concept/studio/nav.ts` is the list, and the complexity-budget test holds it to six.
-- Advanced is one quiet row at the end of More and of Settings. It holds what a salon can run without: developer details, embed code and own domain, booking language, SMS price, own CSS, rooms, support access, pack switching and the demo reset. Move something there rather than delete it, and keep its old address working.
+- Advanced is one quiet row at the end of More and of Settings. It holds developer details, embed code and own domain, booking language, SMS price, own CSS, rooms, support access, pack switching, the staff preview and the demo reset. Keep old addresses working when moving a feature. Give staff preview a way back to the owner view in the page content.
 - Primary screens use salon words: "Your booking link", "Download my data", "History and undo". Technical words (MCP, API, CSV, slug, localhost, token, UTC, CSS, iframe, SIE) are allowed only under the dictionary prefixes listed in `tests/concept-jargon.test.ts`.
+- Lead with the number owners come to Finance for and put the period comparison next to it. Group accountant downloads in one sheet that names the dates, what each file includes and how the accountant can open it.
+- Use one More entry with tabs for gift cards and packages. Put review moderation and replies in the Inbox, with the Reviews filter available while the add-on is on.
 
 ## Accessibility and performance
 

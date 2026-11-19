@@ -49,7 +49,7 @@ export default function StockPage() {
               <p className="font-medium">{tc("stock.lowTitle", low.length)}</p>
               <p className="text-sm text-text-secondary">{low.map((i) => i.name).join(", ")}</p>
             </div>
-            <Button className="w-full sm:w-auto" onClick={() => setSheet({ kind: "purchase" })}>{t("stock.createOrder")}</Button>
+            <Button width="responsive" onClick={() => setSheet({ kind: "purchase" })}>{t("stock.createOrder")}</Button>
           </Card>
         )}
         {orders.length > 0 && (

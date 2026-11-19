@@ -25,7 +25,7 @@ export function OfferStep({ state, today, draft, onChange }: OfferStepProps) {
 
   return (
     <div className="space-y-5">
-      <Field label={t("campaigns.offer.occasion")}>
+      <Field width="short" label={t("campaigns.offer.occasion")}>
         <Select
           value={draft.holidayId ?? ""}
           onChange={(event) => {
@@ -39,7 +39,7 @@ export function OfferStep({ state, today, draft, onChange }: OfferStepProps) {
           ))}
         </Select>
       </Field>
-      <Field label={t("campaigns.offer.name")}>
+      <Field width="short" label={t("campaigns.offer.name")}>
         <TextInput value={draft.name} onChange={(event) => onChange({ name: event.target.value })} maxLength={60} />
       </Field>
       <div className="space-y-2">
@@ -62,11 +62,11 @@ export function OfferStep({ state, today, draft, onChange }: OfferStepProps) {
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label={t("campaigns.offer.from")}>
+      <div className="grid gap-3 min-[360px]:flex">
+        <Field width="date" label={t("campaigns.offer.from")}>
           <TextInput type="date" value={draft.from} onChange={(event) => event.target.value && onChange({ from: event.target.value, to: draft.to < event.target.value ? event.target.value : draft.to })} />
         </Field>
-        <Field label={t("campaigns.offer.to")}>
+        <Field width="date" label={t("campaigns.offer.to")}>
           <TextInput type="date" value={draft.to} min={draft.from} onChange={(event) => event.target.value && onChange({ to: event.target.value })} />
         </Field>
       </div>

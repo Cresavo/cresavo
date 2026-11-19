@@ -1,5 +1,6 @@
 "use client";
 
+import { moduleEnabled } from "../modules/registry";
 import { useState, type ReactNode } from "react";
 import { CalendarCheck } from "lucide-react";
 import type { Booking, DemoState } from "../data/types";
@@ -105,7 +106,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
           <GuestFields value={guest} onChange={setGuest} />
           <RememberContact checked={remember} onChange={chooseRemember} />
         </div>
-        <BookingSummary slot={slot} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={state.modules.packages} />
+        <BookingSummary slot={slot} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={moduleEnabled(state.modules, "packages")} />
         <div className="space-y-2">
           <Button type="submit" size="lg" className="w-full" disabled={pending || !isGuestValid(guest)}>
             {t(terms.depositMinor ? "protection.continue" : "booking.confirm")}

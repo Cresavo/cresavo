@@ -16,7 +16,7 @@ interface SegmentedProps<T extends string> {
 export function Segmented<T extends string>({ value, options, onChange, label, className }: SegmentedProps<T>) {
   const selectedIndex = options.findIndex(option => option.value === value);
   return (
-    <div className={cx("inline-block min-w-0 max-w-full overflow-x-auto rounded-md bg-surface-2 p-1 align-middle", className)}>
+    <div className={cx("inline-block w-fit min-w-0 max-w-full overflow-x-auto rounded-md bg-surface-2 p-1 align-middle", className)}>
       <div role="radiogroup" aria-label={label} data-unselected={selectedIndex < 0 || undefined} className="ui-segments" style={{
         "--segment-count": Math.max(1, options.length), "--segment-index": selectedIndex,
       } as CSSProperties}>
@@ -68,7 +68,7 @@ interface ChoiceCardsProps<T extends string> {
 export function ChoiceCards<T extends string>({ value, options, onChange, label }: ChoiceCardsProps<T>) {
   const selectedIndex = Math.max(0, options.findIndex(option => option.value === value));
   return (
-    <div role="radiogroup" aria-label={label} className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <div role="radiogroup" aria-label={label} className="grid gap-2 min-[320px]:grid-cols-2 sm:grid-cols-3">
       {options.map((o, index) => {
         const checked = o.value === value;
         return (
@@ -115,7 +115,7 @@ export function Chip({ active, onClick, children, count }: ChipProps) {
       aria-pressed={active}
       onClick={onClick}
       className={cx(
-        "inline-flex min-h-target min-w-target shrink-0 items-center gap-2 rounded-full px-3 text-body font-medium ring-1 ring-inset max-[299px]:shrink",
+        "inline-flex w-fit min-h-target min-w-target max-w-full items-center gap-2 rounded-full px-3 text-left text-body font-medium ring-1 ring-inset [overflow-wrap:anywhere]",
         active ? "bg-action-bg text-text ring-2 ring-action" : "bg-surface text-text ring-hairline hover:bg-surface-2",
       )}
     >
@@ -147,7 +147,15 @@ export function Switch({ checked, disabled, onChange, label, showLabel = false }
 }
 
 const fieldClass =
-  "w-full rounded-md bg-surface px-3 py-2 text-body ring-1 ring-inset ring-input-border placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-focus disabled:bg-surface-2 disabled:text-text-secondary";
+  "w-full min-w-0 rounded-md bg-surface px-3 py-2 text-body ring-1 ring-inset ring-input-border placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-focus disabled:bg-surface-2 disabled:text-text-secondary";
+
+type FieldWidth = "number" | "date" | "short" | "full";
+const fieldWidths: Record<FieldWidth, string> = {
+  number: "md:max-w-field-number",
+  date: "md:max-w-field-date",
+  short: "md:max-w-field-short",
+  full: "",
+};
 
 type FieldAria = Pick<AriaAttributes, "aria-describedby" | "aria-invalid">;
 const FieldContext = createContext<FieldAria>({});
@@ -160,12 +168,14 @@ function useFieldAria(props: FieldAria) {
   };
 }
 
-export function Field({ label, children, hint, error }: { label: string; children: ReactNode; hint?: string; error?: string }) {
+export function Field({ label, children, hint, error, width = "full" }: {
+  label: string; children: ReactNode; hint?: string; error?: string; width?: FieldWidth;
+}) {
   const id = useId();
   const hintId = hint ? id + "-hint" : undefined;
   const errorId = error ? id + "-error" : undefined;
   return (
-    <div className="space-y-1">
+    <div className={cx("w-full min-w-0 space-y-1 break-words", fieldWidths[width])}>
       <label className="block space-y-1">
         <span className="block text-body font-medium">{label}</span>
         <FieldContext.Provider value={{ "aria-describedby": cx(hintId, errorId), "aria-invalid": error ? true : undefined }}>
@@ -187,10 +197,10 @@ export function Checkbox({ label, ...rest }: Omit<InputHTMLAttributes<HTMLInputE
   );
 }
 
-export function TextInput({ className, type, ...rest }: ComponentPropsWithRef<"input">) {
+export function TextInput({ className, type, width = "full", ...rest }: Omit<ComponentPropsWithRef<"input">, "width"> & { width?: FieldWidth }) {
   const fieldAria = useFieldAria(rest);
   if (type === "hidden") return <input type={type} {...rest} />;
-  const appearance = type === "radio" ? "size-4 shrink-0 accent-action" : cx(fieldClass, "min-h-target", type === "color" && "cursor-pointer !p-1");
+  const appearance = type === "radio" ? "size-4 shrink-0 accent-action" : cx(fieldClass, fieldWidths[width], "min-h-target", type === "color" && "cursor-pointer !p-1");
   return <input type={type} className={cx(appearance, className)} {...rest} {...fieldAria} />;
 }
 
@@ -203,9 +213,9 @@ export function TextArea({ className, variant = "field", ...rest }: ComponentPro
   )} {...rest} {...useFieldAria(rest)} />;
 }
 
-export function Select({ className, children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
+export function Select({ className, children, width = "full", ...rest }: SelectHTMLAttributes<HTMLSelectElement> & { width?: FieldWidth }) {
   return (
-    <select className={cx(fieldClass, "min-h-target pr-3", className)} {...rest} {...useFieldAria(rest)}>
+    <select className={cx(fieldClass, fieldWidths[width], "min-h-target pr-3", className)} {...rest} {...useFieldAria(rest)}>
       {children}
     </select>
   );

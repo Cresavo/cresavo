@@ -5,10 +5,13 @@ import { cx } from "./cx";
 type Variant = "primary" | "secondary" | "tertiary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
 type Align = "center" | "start" | "between";
+type Width = "responsive";
+
+const responsiveWidth = "w-full sm:w-fit";
 
 // The ghost spelling remains available for existing callers.
 const base =
-  "ui-press inline-flex min-h-target min-w-target max-w-full items-center gap-2 rounded-md font-medium select-none";
+  "ui-press inline-flex min-h-target min-w-target max-w-full items-center gap-2 rounded-md font-medium select-none [overflow-wrap:anywhere]";
 const alignment: Record<Align, string> = {
   center: "justify-center text-center",
   start: "justify-start text-left",
@@ -38,11 +41,12 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: Size;
   icon?: ReactNode;
   align?: Align;
+  width?: Width;
 }
 
-export function Button({ variant, size, icon, className, children, loading, disabled, type = "button", align, ...rest }: ButtonProps) {
+export function Button({ variant, size, icon, className, children, loading, disabled, type = "button", align, width, ...rest }: ButtonProps) {
   return (
-    <button type={type} data-tone={variant === "danger" ? "danger" : undefined} className={buttonClass(variant, size, className, align)} {...rest} disabled={disabled || loading} aria-busy={loading || rest["aria-busy"]}>
+    <button type={type} data-tone={variant === "danger" ? "danger" : undefined} className={buttonClass(variant, size, cx(width && responsiveWidth, className), align)} {...rest} disabled={disabled || loading} aria-busy={loading || rest["aria-busy"]}>
       {loading ? <LoadingMark /> : icon}
       {children}
     </button>
@@ -57,12 +61,13 @@ interface ButtonLinkProps {
   size?: Size;
   icon?: ReactNode;
   className?: string;
+  width?: Width;
   children: ReactNode;
 }
 
-export function ButtonLink({ href, help, variant, size, icon, className, children }: ButtonLinkProps) {
+export function ButtonLink({ href, help, variant, size, icon, className, children, width }: ButtonLinkProps) {
   return (
-    <Link href={href} data-help={help} className={buttonClass(variant, size, className)}>
+    <Link href={href} data-help={help} className={buttonClass(variant, size, cx(width && responsiveWidth, className))}>
       {icon}
       {children}
     </Link>

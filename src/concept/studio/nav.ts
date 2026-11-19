@@ -11,11 +11,9 @@ import {
   Palette,
   Package,
   PanelsTopLeft,
-  PackageOpen,
   Plug,
   Settings,
   SlidersHorizontal,
-  Star,
   Store,
   Sun,
   Tag,
@@ -50,11 +48,9 @@ export const BUSINESS_NAV: NavItem[] = [
   { href: "/studio/more/booking-page", label: "nav.bookingPage", description: "nav.bookingPage.description", icon: PanelsTopLeft },
   { href: "/studio/more/staff", label: "nav.staff", description: "nav.staff.description", icon: UserRound },
   { href: "/studio/more/stock", label: "nav.stock", description: "nav.stock.description", icon: Package },
-  { href: "/studio/more/giftcards", label: "nav.giftcards", description: "nav.giftcards.description", icon: Gift },
-  { href: "/studio/more/packages", label: "nav.packages", description: "nav.packages.description", icon: PackageOpen },
+  { href: "/studio/more/giftcards", label: "features.giftcards", description: "features.giftcards.description", icon: Gift },
   { href: "/studio/more/campaigns", label: "nav.campaigns", description: "nav.campaigns.description", icon: Megaphone },
   { href: "/studio/more/finance", label: "nav.finance", description: "nav.finance.description", icon: TrendingUp },
-  { href: "/studio/more/reviews", label: "nav.reviews", description: "nav.reviews.description", icon: Star },
 ];
 
 /** The assistant's page holds what it remembers and its routines, as two tabs. */

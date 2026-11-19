@@ -86,7 +86,7 @@ export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: S
         })}
       </ol>
       {rows.length < all.length && (
-        <Button variant="tertiary" className="w-full" onClick={() => setShowAll(true)}>{t("today.showAll", { count: all.length })}</Button>
+        <Button variant="tertiary" width="responsive" onClick={() => setShowAll(true)}>{t("today.showAll", { count: all.length })}</Button>
       )}
     </div>
   );

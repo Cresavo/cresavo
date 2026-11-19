@@ -1,6 +1,5 @@
-import type { BusinessSetup } from "../data/generate";
+import { MODULE_KEYS, type BusinessSetup } from "../data/generate";
 import type { DemoState, ModuleKey, PackId } from "../data/types";
-import { enabledModules } from "../modules/registry";
 import { getPack } from "../packs";
 
 export type TeamSize = "solo" | "small" | "large";
@@ -31,6 +30,6 @@ export function setupOf(state: DemoState): BusinessSetup {
     pack: state.pack,
     localization: state.localization,
     solo: state.staff.length === 1,
-    modules: enabledModules(state.modules),
+    modules: MODULE_KEYS.filter((key) => state.modules[key]),
   };
 }

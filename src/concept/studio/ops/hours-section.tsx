@@ -67,7 +67,7 @@ function HoursSheet({ salon, onClose }: { salon: Salon; onClose: () => void }) {
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button disabled={!valid} onClick={save}>{t("common.save")}</Button>
+          <Button width="responsive" disabled={!valid} onClick={save}>{t("common.save")}</Button>
         </>
       }
     >

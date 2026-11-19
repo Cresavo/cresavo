@@ -111,17 +111,36 @@ test("review a completed visit, keep it private, approve in Inbox and publish on
   await page.goto("/boka/salong-eko");
   await expect(page.getByText(reviewText, { exact: true })).toHaveCount(0);
   await page.goto("/studio/more/reviews");
+  await expect(page).toHaveURL(/\/studio\/inbox\?filter=reviews$/);
+  await expect(page.getByRole("radio", { name: "Reviews", exact: true })).toBeChecked();
+  await page.getByRole("button", { name: /New review · approval needed/ }).click();
   await expect(page.getByRole("button", { name: "Approve for salon page", exact: true })).toBeVisible();
   await screenshot(page, "reviews-moderation");
   await page.goto("/studio/inbox");
+  await page.getByRole("radio", { name: "Reviews", exact: true }).click();
   await page.getByRole("button", { name: /New review · approval needed/ }).click();
   const approve = page.getByRole("button", { name: "Approve for salon page", exact: true });
   await expect(approve).toBeVisible();
   await screenshot(page, "review-approval");
   await approve.click();
+  const reply = "Thank you for coming in!";
+  await page.getByRole("textbox", { name: "Suggested reply", exact: true }).fill(reply);
+  await page.getByRole("button", { name: "Publish reply", exact: true }).click();
+  await expect.poll(async () => (await state(page)).reviews.find(review => review.text === reviewText)?.reply).toBe(reply);
   await page.goto("/boka/salong-eko");
   await expect(page.getByText(reviewText, { exact: true })).toBeVisible();
   await screenshot(page, "review-public");
+  await page.goto("/studio/more/features");
+  const reviews = page.getByRole("switch", { name: "Reviews", exact: true });
+  await reviews.click();
+  await expect(reviews).not.toBeChecked();
+  await page.goto("/studio/more/reviews");
+  await expect(page.getByRole("heading", { name: "Inbox", exact: true })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Reviews", exact: true })).toHaveCount(0);
+  await expect(page.getByText(reviewText)).toHaveCount(0);
+  await page.goto("/boka/salong-eko");
+  await expect(page.getByText(reviewText, { exact: true })).toHaveCount(0);
+  await expect(page.locator('a[href="#reviews"]')).toHaveCount(0);
 });
 
 test("copy clean share/widget code and book inside a cross-origin iframe", async ({ page, context, baseURL }) => {

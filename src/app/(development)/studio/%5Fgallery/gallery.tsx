@@ -49,15 +49,16 @@ function ActionExamples({ save }: { save: () => void }) {
     <h3 className="text-h3 font-medium">{t("gallery.sizes")}</h3>
     <div className={wrap}>{(["sm", "md", "lg"] as const).map(size =>
       <Button key={size} size={size} variant="secondary" icon={<Plus size={16} />} onClick={save}>{t("common.save")}</Button>)}</div>
-    <Button align="start" variant="secondary" className="w-full" onClick={save} icon={<Plus size={16} />}>{t("common.save")}</Button>
-    <Button align="between" variant="tertiary" className="w-full" onClick={save}>{t("nav.calendar")}<ChevronRight size={16} aria-hidden /></Button>
+    <Button align="start" variant="secondary" width="responsive" onClick={save} icon={<Plus size={16} />}>{t("common.save")}</Button>
+    <Button align="between" variant="tertiary" width="responsive" onClick={save}>{t("nav.calendar")}<ChevronRight size={16} aria-hidden /></Button>
   </Section>;
 }
 
-function Fields() {
-  return <Section title={t("gallery.fields")} className="max-w-lg">
-    <Field label={t("services.name")} hint={t("gallery.hint")}><Input /></Field>
-    <Field label={t("services.name")} error={t("gallery.error")}><Input required /></Field>
+function Fields({ save }: { save: () => void }) {
+  return <Section title={t("gallery.fields")} className="md:max-w-form">
+    <p className="max-w-reading text-body text-text-secondary">{t("gallery.fieldWidths")}</p>
+    <Field width="short" label={t("services.name")} hint={t("gallery.hint")}><Input /></Field>
+    <Field width="short" label={t("services.name")} error={t("gallery.error")}><Input required /></Field>
     <Field label={t("gallery.disabled")}><Input disabled /></Field>
     <Field label={t("gallery.search")}><SearchInput /></Field>
     <SearchInput aria-label={t("booking.ask.title")} placeholder={t("booking.ask.placeholder")}
@@ -69,8 +70,9 @@ function Fields() {
           {views.map(view => <option value={view} key={view}>{t(`calendar.${view}`)}</option>)}
         </Select>
       </Field>)}
-    <Field label={t("schedule.date")}><Input type="date" /></Field>
-    <Field label={t("gallery.time")}><Input type="time" /></Field>
+    <Field width="date" label={t("schedule.date")}><Input type="date" /></Field>
+    <Field width="date" label={t("gallery.time")}><Input type="time" /></Field>
+    <Field width="number" label={t("services.duration")}><Input type="number" min={0} /></Field>
     <Field label={t("pageEditor.colour.accent")}><Input type="color" /></Field>
     <Checkbox label={t("protection.newOnly")} />
     <fieldset>
@@ -83,6 +85,7 @@ function Fields() {
       <Field key={state} label={t("gallery.notes")} error={state === "invalid" ? t("gallery.enterNotes") : undefined}>
         <Textarea disabled={state === "disabled"} />
       </Field>)}
+    <Button width="responsive" onClick={save}>{t("common.save")}</Button>
   </Section>;
 }
 
@@ -133,9 +136,9 @@ export function Gallery() {
         disabled={disabled} onChange={() => setChecked(!checked)} label={t(disabled ? "gallery.disabled" : "gallery.switch")} />)}</div>
       <Switch showLabel checked={checked} onChange={() => setChecked(!checked)} label={t("protection.newOnly")} />
     </Section>
-    <Fields />
+    <Fields save={save} />
     <Section title={t("gallery.layout")}>
-      <Card style={{ "--action-layout-height": "calc(4 * var(--touch-target))" } as CSSProperties}><StickyActionBar label={t("gallery.layout")} actions={<Button variant="secondary" onClick={save}>{t("common.save")}</Button>}>
+      <Card style={{ "--action-layout-height": "calc(4 * var(--touch-target))" } as CSSProperties}><StickyActionBar label={t("gallery.layout")} actions={<Button variant="secondary" width="responsive" onClick={save}>{t("common.save")}</Button>}>
         <ListRow title={t("gallery.row")} meta={t("gallery.neutral")} leading={<CalendarDays aria-hidden size={24} />}
           trailing={<ChevronRight aria-hidden size={18} />} onClick={() => setDialog("sheet")} />
         {row !== "hidden" && <ListRow title={t("gallery.confirm")} meta={t("gallery.row")} motion={row}

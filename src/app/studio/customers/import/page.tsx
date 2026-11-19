@@ -66,10 +66,10 @@ export default function ImportCustomersPage() {
     <>
       <PageHeader title={t("import.title")} subtitle={t("import.subtitle")} back={<BackLink href="/studio/customers" label={t("import.back")} />} />
       <div className="space-y-6">
-        <Card className="space-y-4 p-5">
+        <Card className="space-y-4 p-5 md:max-w-form">
           <p className="text-sm text-text-secondary">{t("import.hint")}</p>
           <div className="flex flex-wrap gap-2">
-            <label className={`${buttonClass(table ? "secondary" : "primary")} cursor-pointer focus-within:ring-2 focus-within:ring-action`}>
+            <label className={`${buttonClass(table ? "secondary" : "primary", "md", "w-full sm:w-fit")} cursor-pointer focus-within:ring-2 focus-within:ring-action`}>
               <Upload size={18} />
               {t("import.pick")}
               <Input type="file" accept=".csv,text/csv" className="sr-only" onChange={onFile} />
@@ -85,12 +85,12 @@ export default function ImportCustomersPage() {
 
         {table && (
           <>
-            <Section title={t("import.mapping")}>
+            <Section title={t("import.mapping")} className="md:max-w-form">
               <Card className="space-y-4 p-5">
                 <p className="text-sm text-text-secondary">{t("import.mappingHint")}</p>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {IMPORT_FIELDS.map(({ field, label }) => (
-                    <Field key={field} label={t(label)}>
+                    <Field width="short" key={field} label={t(label)}>
                       <Select
                         value={mapping[field] ?? ""}
                         onChange={(e) => setMapping({ ...mapping, [field]: e.target.value === "" ? undefined : Number(e.target.value) })}
@@ -126,7 +126,7 @@ export default function ImportCustomersPage() {
               )}
               <div className="flex flex-wrap justify-end gap-2">
                 <Button variant="ghost" onClick={() => setTable(null)}>{t("import.another")}</Button>
-                <Button disabled={!ready.length} onClick={runImport}>{tc("import.button", ready.length)}</Button>
+                <Button width="responsive" disabled={!ready.length} onClick={runImport}>{tc("import.button", ready.length)}</Button>
               </div>
             </Section>
           </>

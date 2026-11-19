@@ -20,7 +20,7 @@ interface HeroProps {
 /** The top of the page: a photo, then the name and the three facts a customer checks first (rating, where, open now). */
 export function Hero({ state, now, variant, photo }: HeroProps) {
   const { salon } = state;
-  const { average, count } = reviewSummary(state.reviews);
+  const { average, count } = reviewSummary(state.modules.reviews ? state.reviews : []);
   const hours = openingFor(salon, now.today);
   const open = !!hours && now.minutes >= hours.open && now.minutes < hours.close;
   return (

@@ -41,8 +41,8 @@ export function BookingShare() {
       <label className="block text-sm font-medium" htmlFor="booking-bio-link">{t("share.bio")}</label>
       <Input id="booking-bio-link" readOnly value={share.link} onFocus={event => event.target.select()} />
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="secondary" onClick={copy}>{t(copied ? "common.copied" : "share.copyLink")}</Button>
-        <ButtonLink size="sm" href={share.link} variant="secondary">{t("share.open")}</ButtonLink>
+        <Button size="sm" width="responsive" variant="secondary" onClick={copy}>{t(copied ? "common.copied" : "share.copyLink")}</Button>
+        <ButtonLink size="sm" width="responsive" href={share.link} variant="secondary">{t("share.open")}</ButtonLink>
       </div>
     </div>
   </Card>;
@@ -59,8 +59,8 @@ export function EmbedCode() {
         <label className="block text-sm font-medium" htmlFor="booking-widget-code">{t("share.code")}</label>
         <Textarea className="font-mono" id="booking-widget-code" readOnly value={share.code} onFocus={event => event.target.select()} />
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="secondary" onClick={async () => setCopied(await copyText(share.code))}>{t(copied ? "common.copied" : "share.copyCode")}</Button>
-          <ButtonLink size="sm" href={share.widget} variant="secondary">{t("share.preview")}</ButtonLink>
+          <Button size="sm" width="responsive" variant="secondary" onClick={async () => setCopied(await copyText(share.code))}>{t(copied ? "common.copied" : "share.copyCode")}</Button>
+          <ButtonLink size="sm" width="responsive" href={share.widget} variant="secondary">{t("share.preview")}</ButtonLink>
         </div>
       </div>
     </Card>
