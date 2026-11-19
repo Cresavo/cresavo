@@ -11,24 +11,25 @@ import { Field, TextInput } from "../../ui/controls";
 import { useStudio } from "../use-studio";
 import { CopyField } from "./copy-field";
 import { DomainSection } from "./domain-section";
+import { recordShare } from "../onboarding/booking-link";
 import { dispatchWithUndoToast } from "../log/undo-toast";
 
 /** Where customers find the booking page: the address on this site, a name under the product domain, and an own domain. */
 export function AddressSection() {
   const { state } = useStudio();
   const [slug, setSlug] = useState(state.salon.slug);
-  const check = checkOwnSlug(slug, state.salon.slug);
+  const check = checkOwnSlug(slug, state.salon.slug, !!state.industry);
   const problem = !check.ok && slug.trim() ? t(`address.slug.${check.problem}`) : undefined;
   const changed = check.ok && check.slug !== state.salon.slug;
   const save = () => {
     if (!check.ok) return;
-    dispatchWithUndoToast({ type: "salon/slug", slug: check.slug }, t("address.slug.saved", { address: subdomainHost(check.slug) }));
+    dispatchWithUndoToast({ type: "salon/slug", slug: check.slug }, t("address.slug.saved", { address: state.industry ? bookingHome(check.slug) : subdomainHost(check.slug) }));
   };
   return (
     <>
       <Section title={t("address.title")} className="lg:col-span-2">
         <Card className="space-y-4 p-4 sm:p-5">
-          <p className="text-sm text-text-secondary">{t("address.help")}</p>
+          <p className="text-sm text-text-secondary">{t(state.industry ? "setup.local" : "address.help")}</p>
           <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); save(); }}>
             <Field label={t("address.slug.label")} hint={problem ?? t("address.slug.hint")}>
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -37,16 +38,16 @@ export function AddressSection() {
               </div>
             </Field>
           </form>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <CopyField label={t("address.level1")} value={`${window.location.origin}${bookingHome(state.salon.slug)}`} />
-            <CopyField label={t("address.level2", { price: t("address.included") })} value={`https://${subdomainHost(state.salon.slug)}`} />
+          <div className={state.industry ? "" : "grid gap-2 sm:grid-cols-2"}>
+            <CopyField onCopied={state.industry ? () => recordShare(state.salon.slug) : undefined} label={t("address.level1")} value={`${window.location.origin}${bookingHome(state.salon.slug)}`} />
+            {!state.industry && <CopyField label={t("address.level2", { price: t("address.included") })} value={`https://${subdomainHost(state.salon.slug)}`} />}
           </div>
-          <p className="text-xs text-text-secondary">{t("address.level2.note", { domain: productDomain() })}</p>
+          {!state.industry && <p className="text-xs text-text-secondary">{t("address.level2.note", { domain: productDomain() })}</p>}
         </Card>
       </Section>
-      <Section title={t("domain.title")} className="lg:col-span-2">
+      {!state.industry && <Section title={t("domain.title")} className="lg:col-span-2">
         <DomainSection />
-      </Section>
+      </Section>}
     </>
   );
 }

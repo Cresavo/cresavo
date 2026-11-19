@@ -23,7 +23,7 @@ export function bookingMessage(state: DemoState, booking: Booking, kind: Booking
   const service = stored && serviceCopy(stored, language);
   const staff = state.staff.find(staff => staff.id === booking.staffId);
   const subject = customerText(state, `messages.subject.${kind}`, { salon: state.salon.name });
-  const details = customerText(state, `messages.body.${kind}`, {
+  const details = customerText(state, state.salon.address ? `messages.body.${kind}` : `messages.noAddress.${kind}`, {
     salon: state.salon.name, service: service?.name ?? "", date: formatDate(booking.date, language),
     time: formatTime(booking.start, language), staff: staff?.firstName ?? "", address: state.salon.address,
   });

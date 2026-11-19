@@ -113,3 +113,8 @@ body:has(.studio-root) .demo-banner {
     scroll-behavior: auto !important;
   }
 }
+
+.studio-root [data-tour-active] {
+  outline: 2px solid var(--ui-action);
+  outline-offset: 2px;
+}

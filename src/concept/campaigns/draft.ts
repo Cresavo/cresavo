@@ -27,8 +27,8 @@ export function newDraft(prefill: CampaignPrefill): Draft {
 export function defaultPrefill(state: DemoState, today: DateKey): CampaignPrefill {
   const service = state.services[0];
   return {
-    name: t("campaigns.name.discount", { percent: 10, service: service.name }),
-    serviceIds: [service.id],
+    name: service ? t("campaigns.name.discount", { percent: 10, service: service.name }) : "",
+    serviceIds: service ? [service.id] : [],
     discountPercent: 10,
     from: today,
     to: addDays(today, 13),

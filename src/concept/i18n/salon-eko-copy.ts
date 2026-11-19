@@ -33,7 +33,7 @@ export function serviceCopy(service: Service, language: Locale): Service {
 
 function staffCopy(person: Staff, language: Locale): Staff {
   const original = eko.staff.find(({ id }) => id === person.id);
-  if (!original) return person;
+  if (!original || (person.id !== "anna" && person.id !== "erik")) return person;
   return {
     ...person,
     title: person.title === original.title ? translate(language, `fixture.eko.staff.${person.id}.title`) : person.title,

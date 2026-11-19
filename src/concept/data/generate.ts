@@ -31,7 +31,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 18;
+export const DEMO_VERSION = 19;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -598,6 +598,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
 
   return {
     version: DEMO_VERSION,
+    industry: null,
     pack: pack.id,
     generatedFor: today,
     seq: 1,

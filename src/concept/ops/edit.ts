@@ -17,6 +17,11 @@ export type OpsAction =
   | { type: "resource/remove"; id: string }
   | { type: "service/resources"; id: string; resourceIds: string[] };
 
+export function weekFromHours(hours: Salon["hours"]): Staff["week"] {
+  return Object.fromEntries(Object.entries(hours).map(([day, span]) =>
+    [day, span ? { start: span.open, end: span.close } : null]));
+}
+
 const DAY = 24 * 60;
 
 const validSpan = (from: number, to: number) => Number.isInteger(from) && Number.isInteger(to) && from >= 0 && to <= DAY && from < to;
@@ -34,7 +39,13 @@ export function applyOps(state: DemoState, action: OpsAction): DemoState {
     case "salon/hours": {
       const hoursOk = Object.values(action.hours).every((day) => !day || validSpan(day.open, day.close));
       if (!hoursOk || (action.lunch && !validSpan(action.lunch.start, action.lunch.end))) return state;
-      return { ...state, salon: { ...state.salon, hours: action.hours, lunch: action.lunch } };
+      // Follow the salon's hours until the owner gives a person an individual schedule.
+      const staff = state.industry ? state.staff.map(person => {
+        const followsSalon = [0, 1, 2, 3, 4, 5, 6].every(day =>
+          person.week[day]?.start === state.salon.hours[day]?.open && person.week[day]?.end === state.salon.hours[day]?.close);
+        return followsSalon ? { ...person, week: weekFromHours(action.hours) } : person;
+      }) : state.staff;
+      return { ...state, staff, salon: { ...state.salon, hours: action.hours, lunch: action.lunch } };
     }
     case "salon/close": {
       const name = action.name.trim();

@@ -6,12 +6,13 @@ import { Button } from "../../ui/button";
 import { showToast } from "../../ui/toast";
 
 /** A value the owner has to copy somewhere else (a DNS record, an address). */
-export function CopyField({ label, value }: { label: string; value: string }) {
+export function CopyField({ label, value, onCopied }: { label: string; value: string; onCopied?: () => void }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
+      onCopied?.();
     } catch {
       showToast(t("share.failed"));
     }

@@ -1,3 +1,4 @@
+import { currentState } from "../store";
 import type { CostEntry } from "./cost-log";
 import type { AiOverview } from "./overview";
 import type { TaskName } from "./registry";
@@ -20,7 +21,7 @@ async function runLocally<Output>(task: TaskName, input: unknown): Promise<{ out
 }
 
 export async function runAiTask<Output>(task: TaskName, input: unknown): Promise<{ output: Output; log: CostEntry; requestId: string | null }> {
-  if (PUBLIC_DEMO) return runLocally(task, input);
+  if (PUBLIC_DEMO || (typeof window !== "undefined" && currentState()?.industry)) return runLocally(task, input);
   const response = await fetch(`/api/concept/ai/${task}`, {
     method: "POST",
     headers: { "content-type": "application/json" },

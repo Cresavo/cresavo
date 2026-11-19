@@ -126,7 +126,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       {rule === "late" && (
         <Notice tone="warning" className="flex items-start gap-2">
           <Phone size={16} className="mt-0.5 shrink-0" />
-          <span>{t("booking.tooLate", { phone: state.salon.phone })}</span>
+          <span>{t(state.salon.phone ? "booking.tooLate" : "booking.tooLateNoPhone", { phone: state.salon.phone })}</span>
         </Notice>
       )}
 

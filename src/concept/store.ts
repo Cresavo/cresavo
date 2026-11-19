@@ -12,6 +12,7 @@ import { publicView } from "./selectors";
 import { purgeExpired } from "./trash/trash";
 import { getActiveLocale, setVocabulary } from "./i18n";
 import { publicSalonCopy } from "./i18n/salon-eko-copy";
+import { createSalon, type SalonDraft } from "./onboarding/salon";
 import { setupOf } from "./onboarding/setup";
 import { getPack } from "./packs";
 
@@ -35,6 +36,7 @@ function load(raw: string | null): DemoState {
   try {
     const saved = raw && migrateState(JSON.parse(raw));
     if (saved) {
+      if (saved.industry) return purgeExpired({ ...saved, generatedFor: today() }, today());
       if (saved.generatedFor === today()) return purgeExpired(saved, today());
       return createDemoState(today(), setupOf(saved));
     }
@@ -183,16 +185,69 @@ export function withBookingLock<T>(confirm: () => T): Promise<T | false> {
   return withBookingReceipt(confirm);
 }
 
-/** Rebuilds the demo for a business setup (industry pack, team size, modules). Without one it is the original Salong Eko. */
-export async function startBusiness(setup?: BusinessSetup): Promise<void> {
-  await withBookingReceipt(required => {
-    const next = createDemoState(today(), setup);
+type Workspace = "demo" | "own";
+const parked: Partial<Record<Workspace, DemoState>> = {};
+
+function storedWorkspace(workspace: Workspace): DemoState | null {
+  try {
+    const raw = window.localStorage.getItem(`${STORAGE_KEY}-${workspace}`);
+    if (raw) {
+      const saved = migrateState(JSON.parse(raw));
+      const memory = parked[workspace];
+      if (memory && memory.seq > (saved?.seq ?? 0)) return memory;
+      if (saved && Boolean(saved.industry) === (workspace === "own")) return load(raw);
+    }
+  } catch { /* Storage can be unavailable in private browsing. */ }
+  return parked[workspace] ?? null;
+}
+
+export function hasOwnSalon() {
+  return !!storedWorkspace("own")?.industry;
+}
+
+function park(current: DemoState) {
+  const key = current.industry ? "own" : "demo";
+  parked[key] = current;
+  try { window.localStorage.setItem(`${STORAGE_KEY}-${key}`, JSON.stringify(current)); }
+  catch { /* Keep the workspace available in this session. */ }
+}
+
+async function replaceWorkspace(build: (current: DemoState | null) => DemoState | null, reset = false) {
+  return withBookingReceipt(required => {
     if (typeof window !== "undefined") refreshFromStorage();
-    // Supersede the previous receipt so stale tabs must also wait for this reset.
-    const currentSeq = state?.generatedFor === next.generatedFor ? state.seq : 0;
-    next.seq = Math.max(next.seq, currentSeq + 1, (required?.seq ?? 0) + 1);
-    setState(next);
+    const next = build(state);
+    if (!next) return true;
+    next.generatedFor = today();
+    next.seq = Math.max(next.seq, (state?.seq ?? 0) + 1, (required?.seq ?? 0) + 1);
+    return setState(next);
+  }, reset);
+}
+
+/** The existing sample-business chooser and explicit demo reset. */
+export async function startBusiness(setup?: BusinessSetup): Promise<void> {
+  await replaceWorkspace(current => {
+    if (current?.industry) park(current);
+    return createDemoState(today(), setup);
   }, true);
+}
+
+/** Keep both workspaces when switching. A second tab finishing setup resumes the first one's salon. */
+export function switchSalon(to: Workspace, draft?: SalonDraft) {
+  return replaceWorkspace(current => {
+    if (current && Boolean(current.industry) === (to === "own")) return null;
+    const next = storedWorkspace(to) ?? (to === "demo" ? createDemoState(today()) : draft && createSalon(today(), draft));
+    if (!next) return null;
+    if (current) park(current);
+    return next;
+  });
+}
+
+/** Opening a saved booking link after exploring the other workspace restores its salon. */
+export function openBookingWorkspace(slug: string) {
+  const current = getSnapshot();
+  if (!current || current.salon.slug === slug) return;
+  const to = current.industry ? "demo" : "own";
+  if (storedWorkspace(to)?.salon.slug === slug) return switchSalon(to);
 }
 
 export function useDemo(): DemoState | null {

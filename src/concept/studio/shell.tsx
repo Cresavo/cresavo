@@ -52,7 +52,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
   useEffect(() => pinThemeColor(studioChrome(parseTheme(document.documentElement.dataset.theme))), []);
   useStartPreset(!!state);
   if (!state) return <LoadingScreen />;
-  if (pathname === WELCOME_PATH) {
+  if (pathname === WELCOME_PATH || (pathname === "/studio/setup" && role === "owner")) {
     return (
       <>
         <header className="px-4 pt-4 sm:px-6">

@@ -87,7 +87,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
       <form className="space-y-3" onSubmit={event => { event.preventDefault(); void confirm(); }}>
         <GuestFields value={guest} onChange={setGuest} />
         <RememberContact checked={remember} onChange={chooseRemember} />
-        <p className="text-sm text-text-secondary">{late ? t("booking.beforeConfirmLate", { phone: state.salon.phone, hours: FREE_CHANGE_HOURS }) : t("booking.beforeConfirm", { hours: FREE_CHANGE_HOURS })}</p>
+        <p className="text-sm text-text-secondary">{late && state.salon.phone ? t("booking.beforeConfirmLate", { phone: state.salon.phone, hours: FREE_CHANGE_HOURS }) : t("booking.beforeConfirm", { hours: FREE_CHANGE_HOURS })}</p>
         <Button type="submit" size="lg" className="w-full" disabled={pending || !isGuestValid(guest)}>
           {t("booking.confirm")}
         </Button>

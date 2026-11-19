@@ -10,6 +10,7 @@ import { DeleteServiceSheet } from "@/concept/studio/services/delete-sheet";
 import { ServiceSheet } from "@/concept/studio/services/service-sheet";
 import { TreatmentList } from "@/concept/studio/services/treatment-list";
 import { useStudio } from "@/concept/studio/use-studio";
+import { EmptyState } from "@/concept/ui/empty-state";
 import { Button } from "@/concept/ui/button";
 import { Notice } from "@/concept/ui/notice";
 
@@ -24,12 +25,13 @@ export default function ServicesPage() {
   const hidden = state.services.filter((s) => s.hidden).length;
   const target = open && "id" in open ? state.services.find((s) => s.id === open.id) : undefined;
 
+  const empty = state.industry && !state.services.length;
   return (
     <MorePage
       title={t("nav.services")}
       subtitle={[tc("services.subtitle", state.services.length), hidden ? t("services.subtitleHidden", { count: hidden }) : ""].filter(Boolean).join(" · ")}
       actions={
-        canEdit && (
+        canEdit && !empty && (
           <>
             <Button variant="ghost" size="sm" className="aria-pressed:bg-surface-2" aria-pressed={showMoveButtons} onClick={() => setShowMoveButtons((current) => !current)}>
               {t("services.reorder")}
@@ -41,13 +43,14 @@ export default function ServicesPage() {
       }
     >
       {!canEdit && <Notice tone="info" className="mb-5">{t("services.readOnly")}</Notice>}
-      <TreatmentList
+      {empty ? <EmptyState icon={<Plus size={22} />} title={t("setup.empty.treatments")}
+        action={canEdit && <Button onClick={() => setOpen({ kind: "add" })}>{t("services.add")}</Button>} /> : <TreatmentList
         state={state}
         canEdit={canEdit}
         showMoveButtons={canEdit && showMoveButtons}
         onEdit={(id) => setOpen({ kind: "edit", id })}
         onAdd={(category) => setOpen({ kind: "add", category })}
-      />
+      />}
       {open?.kind === "add" && <ServiceSheet state={state} category={open.category} onClose={() => setOpen(null)} onDelete={() => undefined} />}
       {open?.kind === "edit" && target && <ServiceSheet key={target.id} state={state} service={target} onClose={() => setOpen(null)} onDelete={(service) => setOpen({ kind: "delete", id: service.id })} />}
       {open?.kind === "delete" && target && <DeleteServiceSheet state={state} today={today} service={target} onClose={() => setOpen(null)} />}

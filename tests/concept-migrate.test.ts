@@ -88,7 +88,7 @@ describe("migrateState", () => {
 
   it("is one linear chain: every saved version from the oldest to the current reaches DEMO_VERSION", () => {
     const fresh = createDemoState(today);
-    expect(DEMO_VERSION).toBe(18);
+    expect(DEMO_VERSION).toBe(19);
     for (let version = OLDEST_MIGRATABLE; version <= DEMO_VERSION; version++) {
       expect(migrateState({ ...fresh, version })?.version, `from v${version}`).toBe(DEMO_VERSION);
     }

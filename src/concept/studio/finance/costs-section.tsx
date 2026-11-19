@@ -68,7 +68,7 @@ export function CostsSection() {
   );
 }
 
-function AddCost() {
+export function AddCost() {
   const [kind, setKind] = useState<CostKind>("rent");
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");

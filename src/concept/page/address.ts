@@ -17,4 +17,5 @@ export const subdomainHost = (slug: string, domain = productDomain()) => `${slug
 export const OTHER_BUSINESS_SLUGS: readonly string[] = ["klippet", "nagelstudion", "fotterapin", "rorelsehuset"];
 
 /** Whether this slug may be picked by the business that currently has `own`. */
-export const checkOwnSlug = (input: string, own: string) => checkSlug(input, OTHER_BUSINESS_SLUGS.filter((slug) => slug !== own));
+export const checkOwnSlug = (input: string, own: string, localSalon = false) =>
+  checkSlug(input, [...OTHER_BUSINESS_SLUGS, ...(localSalon ? ["salong-eko"] : [])].filter(slug => slug !== own));
