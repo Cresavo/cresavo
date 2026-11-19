@@ -51,11 +51,10 @@ current UI or docs.
    **Delete workflow run**. An agent can list the run IDs for you.
 7. **Turn on Dependabot alerts.** **Settings** → **Advanced Security** (older
    UI: **Code security and analysis**) → **Dependabot alerts** → **Enable**.
-   **(verify)** Also enable **Dependabot security updates** there. Check that
-   **Dependency graph** is enabled. The `Dependency review` check on PR #65
-   failed with `403 Forbidden` (2026-11-19); a disabled dependency graph is a
-   possible cause to verify, but token permissions and API limits can also
-   return 403.
+   **(verify)** Also enable **Dependabot security updates** there. Keep
+   **Dependency graph** on (confirmed 2026-11-19); `Dependency review` needs
+   it. **Automatic dependency submission** is not needed: npm dependencies
+   come from `package-lock.json`.
 
 ## Go public
 
@@ -79,8 +78,8 @@ once the repository is public.
    pull request and the status checks `E2E dev / proxy 0` (Verify POC) and
    `Gitleaks (full history)` (Secret scan). Extend that ruleset; do not add a
    second one. Keep its existing rules. In this order:
-   1. Verify the dependency graph (step 7) and re-run `Dependency review` on
-      an open pull request until it succeeds.
+   1. Done 2026-11-19: dependency graph on, `Dependency review` passed on
+      PR #65.
    2. After successful runs, add the status checks
       `Dependency review (high/critical gate)`,
       `Analyze (javascript-typescript)` and `Analyze (actions)` to

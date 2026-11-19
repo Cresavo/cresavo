@@ -45,12 +45,13 @@ we never have to retrofit them. See the [privacy and security overview](PRIVACY_
 yet; the maintainer adds them in the order in the
 [launch checklist](LAUNCH_CHECKLIST.md#right-after-publishing), step 10.
 
-Dependency review reads the dependency graph through the GitHub API. On PR #65
-it failed with `403 Forbidden`; the cause is not established yet. A disabled
-**Dependency graph** setting is one possible cause to verify; token
-permissions and API limits can also return 403. The workflow keeps its
-minimal permissions (`contents: read`) until there is evidence that another
-fix is needed.
+Dependency review reads the dependency graph through the GitHub API, so the
+repository's **Dependency graph** setting must be on (confirmed on
+2026-11-19). On PR #65 the first runs failed with `403 Forbidden`; after the
+setting was confirmed on, a re-run of the same commit passed. Whether the
+setting was off before is not known. If a 403 comes back, check that setting
+first, then token permissions and API limits. The workflow keeps its minimal
+permissions (`contents: read`).
 
 CodeQL uses an advanced workflow, so CodeQL *default setup* in the repository
 settings must stay off. Successful `Analyze` jobs show that the CodeQL
