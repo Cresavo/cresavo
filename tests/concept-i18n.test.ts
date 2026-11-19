@@ -53,12 +53,19 @@ describe("concept languages", () => {
   });
 
   it("uses the business language for new messages independently of the studio", () => {
-    const booking = base.bookings.find((b) => b.status === "booked")!;
+    const booking = { ...base.bookings.find((b) => b.status === "booked")!, date: "2026-12-01", start: 600 };
     expect(base.localization).toEqual({ language: "sv", currency: "SEK", bilingual: false });
-    expect(bookingMessage(base, booking, "confirmation").subject).toBe("Bokningsbekräftelse · Salong Eko");
+    const swedish = bookingMessage(base, booking, "confirmation");
+    expect(swedish.subject).toBe("Bokningsbekräftelse · Salong Eko");
+    expect(swedish.details).toContain("1 december 2026 kl. 10:00");
+    expect(swedish.details).not.toContain(swedish.path);
+    expect(swedish.body).toBe(`${swedish.details} Se, omboka eller avboka din tid här: ${swedish.path}`);
     setLocale("sv");
     const english = { ...base, localization: { ...base.localization, language: "en" as const } };
-    expect(bookingMessage(english, booking, "reminder").subject).toBe("Your visit · Salong Eko");
+    const reminder = bookingMessage(english, booking, "reminder");
+    expect(reminder.subject).toBe("Your visit · Salong Eko");
+    expect(reminder.details).toContain("1 Dec 2026 at 10:00");
+    expect(reminder.body).toBe(`${reminder.details} Manage your booking: ${reminder.path}`);
     expect(t("nav.today")).toBe("Idag");
   });
 
@@ -101,7 +108,7 @@ describe("concept languages", () => {
 
   it("reads a Swedish request on the booking page", () => {
     expect(parseBookingRequest("Fotvård i övermorgon hos Anna", base, day)).toMatchObject({
-      staffId: "anna", from: "2026-11-19", to: "2026-11-19", soonest: false,
+      serviceId: "medical-foot-care", staffId: "anna", from: "2026-11-19", to: "2026-11-19", soonest: false,
     });
     expect(parseBookingRequest("Fotvård imorgon hos Anna", base, day).serviceCandidates).toContain("medical-foot-care");
   });

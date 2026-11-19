@@ -1,25 +1,25 @@
 "use client";
 
-import { serviceCopy } from "../i18n/salon-eko-copy";
-import { customerText } from "../i18n/customer-text";
-
 import { useState } from "react";
 import { BellRing, CheckCircle2 } from "lucide-react";
+import type { DateKey, DemoState, StaffId } from "../data/types";
 import { t } from "../i18n";
+import { customerText } from "../i18n/customer-text";
 import { formatDayLong } from "../i18n/format";
+import { serviceCopy } from "../i18n/salon-eko-copy";
 import { findService } from "../selectors";
 import { currentState, dispatch } from "../store";
-import type { DateKey, DemoState } from "../data/types";
 import { Button } from "../ui/button";
 import type { Now } from "../use-now";
 import { Sheet } from "../ui/sheet";
-import { GuestFields, isGuestValid, type GuestInput } from "./guest-fields";
+import { GuestFields, RememberContact, isGuestValid } from "./guest-fields";
 import { findCustomerByPhone } from "./lookup";
-import { recallGuest, rememberGuest } from "./guest";
+import { useGuestContact } from "./guest";
 
 export interface WaitlistRequest {
   serviceId: string;
   date: DateKey;
+  staffId?: StaffId;
 }
 
 interface WaitlistSheetProps {
@@ -31,12 +31,11 @@ interface WaitlistSheetProps {
 
 /** "Notify me if something opens up": leaves a request in the owner's Inbox. */
 export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetProps) {
-  const [guest, setGuest] = useState<GuestInput>(() => {
-    const known = recallGuest();
-    return { name: known?.name ?? "", phone: known?.phone ?? "" };
-  });
+  const { guest, setGuest, remember, chooseRemember, saveContact } = useGuestContact(state.salon.slug);
   const [done, setDone] = useState(false);
   const service = request ? findService(state, request.serviceId) : undefined;
+  const person = state.staff.find(s => s.id === request?.staffId);
+  const serviceLabel = service && (person ? t("booking.waitlist.withStaff", { service: service.name, staff: person.firstName }) : service.name);
 
   const close = () => {
     setDone(false);
@@ -44,22 +43,28 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
   };
 
   const submit = () => {
-    if (!request || !service) return;
+    if (!request || !service || !serviceLabel) return;
     const day = formatDayLong(request.date);
+    const name = guest.name.trim();
     const phone = guest.phone.trim();
     const treatment = serviceCopy(service, state.localization.language).name;
-    dispatch({
+    const replyService = person
+      ? customerText(state, "booking.waitlist.withStaff", { service: treatment, staff: person.firstName })
+      : treatment;
+    const joined = dispatch({
       type: "online/waitlist",
-      guest: { name: guest.name, phone, at: { date: now.today, time: now.minutes } },
+      guest: { name, phone, at: { date: now.today, time: now.minutes } },
       serviceId: service.id,
+      staffId: request.staffId,
       notice: {
         title: t("booking.waitlist.inboxTitle", { service: service.name }),
-        body: t("booking.waitlist.inboxBody", { name: guest.name.trim(), service: service.name, day, phone }),
-        draftReply: customerText(state, "booking.waitlist.inboxReply", { name: guest.name.trim().split(/\s+/)[0], service: treatment }),
+        body: t("booking.waitlist.inboxBody", { name, service: serviceLabel, day, phone }),
+        draftReply: customerText(state, "booking.waitlist.inboxReply", { name: name.split(/\s+/)[0], service: replyService }),
       },
     });
+    if (!joined) return;
     const customer = findCustomerByPhone(currentState() ?? state, phone);
-    if (customer) rememberGuest({ name: guest.name.trim(), phone, customerId: customer.id });
+    if (customer) saveContact(customer.id);
     setDone(true);
   };
 
@@ -68,7 +73,7 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
       open={!!request}
       onClose={close}
       title={done ? t("booking.waitlist.doneTitle") : t("booking.waitlist.title")}
-      description={!done && service && request ? t("booking.waitlist.intro", { service: service.name, day: formatDayLong(request.date) }) : undefined}
+      description={!done && serviceLabel && request ? t("booking.waitlist.intro", { service: serviceLabel, day: formatDayLong(request.date) }) : undefined}
       footer={
         done ? (
           <Button onClick={close}>{t("booking.waitlist.close")}</Button>
@@ -88,6 +93,7 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
       ) : (
         <div className="pt-2">
           <GuestFields value={guest} onChange={setGuest} />
+          <RememberContact checked={remember} onChange={chooseRemember} />
         </div>
       )}
     </Sheet>

@@ -4,10 +4,11 @@ import { useMemo, useState } from "react";
 import { BellRing } from "lucide-react";
 import { addDays, fromKey } from "../data/dates";
 import { openingFor } from "../data/slots";
-import type { DateKey, DemoState } from "../data/types";
+import type { DateKey, DemoState, StaffId } from "../data/types";
 import { t } from "../i18n";
 import { dayChipLabel, formatDayLong, formatTime } from "../i18n/format";
 import { Button } from "../ui/button";
+import { Select } from "../ui/controls";
 import { cx } from "../ui/cx";
 import { openSlots, type Clock, type OpenSlot } from "./suggest";
 
@@ -16,30 +17,57 @@ const DAYS_SHOWN = 14;
 interface TimePickerProps {
   state: DemoState;
   serviceId: string;
+  staffId?: StaffId;
   clock: Clock;
   onPick: (slot: OpenSlot) => void;
   /** Called when the chosen day has no free time. */
   onWaitlist: (date: DateKey) => void;
   /** A booking being moved: its capacity is reusable, but its current time is excluded. */
   ignoreId?: string;
-  /** Highlights the time the customer already tapped. */
-  selected?: OpenSlot;
+  disabled?: boolean;
+}
+
+function availableDays(state: DemoState, serviceId: string, clock: Clock, staffId?: StaffId, ignoreId?: string) {
+  const current = ignoreId ? state.bookings.find(booking => booking.id === ignoreId) : undefined;
+  const list: { date: DateKey; slots: OpenSlot[] }[] = [];
+  for (let i = 0; list.length < DAYS_SHOWN && i < DAYS_SHOWN * 2; i++) {
+    const date = addDays(clock.today, i);
+    if (!openingFor(state.salon, date)) continue;
+    const slots = openSlots(state, serviceId, date, clock, { ignoreId, staffId }).filter((slot) =>
+      !current || date !== current.date || slot.start !== current.start);
+    list.push({ date, slots });
+  }
+  return list;
+}
+
+/** A single native chooser keeps alternative dates reachable from the contact form. */
+export function OtherTimes({ state, serviceId, staffId, clock, selected, onPick, onWaitlist }: TimePickerProps & { selected?: OpenSlot }) {
+  const days = useMemo(() => availableDays(state, serviceId, clock, staffId), [state, serviceId, clock, staffId]);
+  return (
+    <Select aria-label={t("booking.changeTime")} value={selected ? `${selected.date}/${selected.start}` : ""} onChange={event => {
+      const [date, time] = event.target.value.split("/");
+      const slot = days.find(day => day.date === date)?.slots.find(slot => slot.start === Number(time));
+      if (time === "wait") onWaitlist(date);
+      else if (slot) onPick(slot);
+    }}>
+      <option value="" disabled>{t("booking.changeTime")}</option>
+      {days.map(({ date, slots }) => (
+        <optgroup key={date} label={formatDayLong(date)}>
+          {slots.map(slot => <option key={slot.start} value={`${date}/${slot.start}`}>
+            {t("booking.slotOption", { time: formatTime(slot.start), staff: state.staff.find(person => person.id === slot.staffId)?.firstName ?? "" })}
+          </option>)}
+          {!slots.length && <option value={`${date}/wait`} disabled={!state.modules.waitlist}>
+            {t(state.modules.waitlist ? "booking.notifyMe" : "booking.full")}
+          </option>}
+        </optgroup>
+      ))}
+    </Select>
+  );
 }
 
 /** Two rows: pick a day, then a time. Full days say so and offer the waiting list. */
-export function TimePicker({ state, serviceId, clock, onPick, onWaitlist, ignoreId, selected: picked }: TimePickerProps) {
-  const current = state.bookings.find((booking) => booking.id === ignoreId);
-  const days = useMemo(() => {
-    const list: { date: DateKey; slots: OpenSlot[] }[] = [];
-    for (let i = 0; list.length < DAYS_SHOWN && i < DAYS_SHOWN * 2; i++) {
-      const date = addDays(clock.today, i);
-      if (!openingFor(state.salon, date)) continue;
-      const slots = openSlots(state, serviceId, date, clock, { ignoreId }).filter((slot) =>
-        !current || date !== current.date || slot.start !== current.start);
-      list.push({ date, slots });
-    }
-    return list;
-  }, [state, serviceId, clock, ignoreId, current]);
+export function TimePicker({ state, serviceId, staffId, clock, onPick, onWaitlist, ignoreId, disabled }: TimePickerProps) {
+  const days = useMemo(() => availableDays(state, serviceId, clock, staffId, ignoreId), [state, serviceId, clock, staffId, ignoreId]);
   const [chosen, setChosen] = useState<DateKey>();
   const selected = days.find((d) => d.date === chosen) ?? days.find((d) => d.slots.length) ?? days[0];
 
@@ -91,15 +119,13 @@ export function TimePicker({ state, serviceId, clock, onPick, onWaitlist, ignore
             <button
               key={slot.start}
               onClick={() => onPick(slot)}
-              aria-pressed={picked?.date === slot.date && picked.start === slot.start}
-              className={cx(
-                "flex min-h-12 items-center justify-center rounded-md text-[15px] font-medium ring-1 ring-inset transition-colors",
-                picked?.date === slot.date && picked.start === slot.start
-                  ? "bg-action text-on-action ring-action"
-                  : "bg-surface ring-hairline hover:bg-action-bg hover:text-text hover:ring-action",
-              )}
+              disabled={disabled}
+              className="flex min-h-12 flex-col items-center justify-center rounded-md bg-surface px-1 py-2 text-sm font-medium ring-1 ring-inset ring-hairline hover:bg-action-bg hover:text-text"
             >
-              {formatTime(slot.start)}
+              {ignoreId ? <>
+                {t("booking.move.confirm", { when: formatTime(slot.start) })}
+                <span className="text-xs text-text-secondary">{state.staff.find(person => person.id === slot.staffId)?.firstName}</span>
+              </> : formatTime(slot.start)}
             </button>
           ))}
         </div>

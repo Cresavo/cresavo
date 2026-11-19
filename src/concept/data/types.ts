@@ -273,6 +273,8 @@ export interface InboxItem {
   read: boolean;
   handled: boolean;
   bookingId?: string;
+  /** Practitioner requested by a customer joining the waiting list. */
+  requestedStaffId?: StaffId;
   reviewId?: string;
   /** Slot the reply can offer. */
   suggestion?: SlotSuggestion;

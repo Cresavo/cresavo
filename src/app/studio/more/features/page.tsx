@@ -38,10 +38,10 @@ export default function FeaturesPage() {
   const [switching, setSwitching] = useState<Pack | null>(null);
   const packName = (pack: Pack) => t(`pack.${pack.id}.name`);
 
-  const switchPack = (pack: Pack) => {
-    startBusiness({ ...setupOf(state), pack: pack.id, modules: undefined });
-    showToast(t("features.pack.switched", { pack: packName(pack) }));
+  const switchPack = async (pack: Pack) => {
     setSwitching(null);
+    await startBusiness({ ...setupOf(state), pack: pack.id, modules: undefined });
+    showToast(t("features.pack.switched", { pack: packName(pack) }));
   };
 
   return (

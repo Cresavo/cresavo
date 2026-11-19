@@ -57,7 +57,7 @@ export type DemoAction =
   | { type: "booking/cancel"; id: string; reason?: string; notice?: Omit<InboxItem, "id"> }
   | ({ type: "booking/create"; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource } & ({ customerId: string } | { newCustomer: GuestContact & { since: DateKey } }))
   | { type: "online/book"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId: StaffId; date: DateKey; start: number }
-  | { type: "online/waitlist"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string }
+  | { type: "online/waitlist"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId?: StaffId }
   | { type: "service/price"; id: string; price: number }
   | { type: "campaign/launch"; campaign: NewCampaign; today: DateKey }
   | { type: "campaign/ad"; id: string; ad: CampaignAd }
@@ -201,12 +201,14 @@ function bookOnline(state: DemoState, action: Extract<DemoAction, { type: "onlin
 function joinWaitlist(state: DemoState, action: Extract<DemoAction, { type: "online/waitlist" }>): DemoState {
   const service = bookableServices(state).find((s) => s.id === action.serviceId);
   if (!service || !action.guest.name.trim() || !isMobilePhone(action.guest.phone)) return state;
-  const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, service.staffIds[0], true);
+  if (action.staffId && !service.staffIds.includes(action.staffId)) return state;
+  const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, action.staffId ?? service.staffIds[0], true);
   return reduce(withCustomer, {
     type: "inbox/add",
     item: {
       kind: "request",
       customerId: customer.id,
+      requestedStaffId: action.staffId,
       date: action.guest.at.date,
       time: action.guest.at.time,
       ...action.notice,

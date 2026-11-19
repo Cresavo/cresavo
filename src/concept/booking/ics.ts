@@ -1,45 +1,64 @@
+import { DateTime } from "luxon";
 import type { Locale } from "@/lib/locale";
-import { translate } from "../i18n";
 import { formatTime } from "../data/dates";
 import type { Booking, Salon, Service, Staff } from "../data/types";
+import { translate } from "../i18n";
+import { serviceCopy } from "../i18n/salon-eko-copy";
+import { SALON_TIMEZONE } from "../tools/clock";
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const local = (key: string, minutes: number) => `${key.replace(/-/g, "")}T${formatTime(minutes).replace(":", "")}00`;
-const escape = (text: string) => text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+const escape = (text: string) => text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r\n|\r|\n/g, "\\n");
 
 export function icsTimestamp(date: Date): string {
-  return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`;
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
-interface IcsInput {
+interface CalendarVisit {
   booking: Booking;
   service: Service;
-  staff: Staff;
   salon: Salon;
-  /** UTC timestamp from `icsTimestamp()`. */
-  createdAt: string;
   language?: Locale;
 }
 
-/** A one-event calendar file in local ("floating") time with a reminder one hour before. */
-export function buildIcs({ booking, service, staff, salon, createdAt, language = "en" }: IcsInput): string {
+function eventDetails({ booking, service, salon, language = "en" }: CalendarVisit) {
+  const start = DateTime.fromISO(`${booking.date}T${formatTime(booking.start)}`, { zone: SALON_TIMEZONE });
+  return {
+    start: icsTimestamp(start.toJSDate()),
+    end: icsTimestamp(start.plus({ minutes: booking.duration }).toJSDate()),
+    title: translate(language, "booking.calendarTitle", { service: serviceCopy(service, language).name, salon: salon.name }),
+    location: `${salon.name}, ${salon.address}, ${salon.area}`,
+  };
+}
+
+export function googleCalendarLink(visit: CalendarVisit): string {
+  const event = eventDetails(visit);
+  const query = new URLSearchParams({
+    action: "TEMPLATE", text: event.title, dates: `${event.start}/${event.end}`,
+    stz: SALON_TIMEZONE, etz: SALON_TIMEZONE, location: event.location,
+  });
+  return `https://calendar.google.com/calendar/r/eventedit?${query}`;
+}
+
+/** A one-event calendar file with absolute timestamps and a reminder one hour before. */
+export function buildIcs(input: CalendarVisit & { staff: Staff; createdAt: string }): string {
+  const event = eventDetails(input);
+  const { booking, salon, staff, createdAt, language = "en" } = input;
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Salong Eko//Booking demo//EN",
+    "PRODID:-//Booking//Appointment//EN",
     "CALSCALE:GREGORIAN",
     "BEGIN:VEVENT",
     `UID:${booking.id}@${salon.slug}.example`,
     `DTSTAMP:${createdAt}`,
-    `DTSTART:${local(booking.date, booking.start)}`,
-    `DTEND:${local(booking.date, booking.start + booking.duration)}`,
-    `SUMMARY:${escape(translate(language, "booking.ics.summary", { service: service.name, salon: salon.name }))}`,
+    `DTSTART:${event.start}`,
+    `DTEND:${event.end}`,
+    `SUMMARY:${escape(event.title)}`,
     `DESCRIPTION:${escape(translate(language, "booking.ics.description", { staff: staff.firstName }))}`,
-    `LOCATION:${escape(`${salon.name}, ${salon.address}, ${salon.area}`)}`,
+    `LOCATION:${escape(event.location)}`,
     "BEGIN:VALARM",
     "TRIGGER:-PT1H",
     "ACTION:DISPLAY",
-    `DESCRIPTION:${translate(language, "booking.ics.reminder")}`,
+    `DESCRIPTION:${escape(translate(language, "booking.calendarReminder"))}`,
     "END:VALARM",
     "END:VEVENT",
     "END:VCALENDAR",

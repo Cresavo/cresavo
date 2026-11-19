@@ -13,13 +13,16 @@ All notable changes to this project are documented here. Format follows
 - The public product site publishes a sitemap and search metadata. Its production deployment uses cookie-free Vercel Web Analytics to measure visits.
 
 ### Changed
+- Customers can confirm the next available visit from the treatment list, opt in to contact prefill, and book the same treatment and practitioner again. The confirmation links to appointment management, calendar downloads and Google Calendar. Shared gift cards show their remaining balance when available.
 - The customer list starts each row with the customer's name and shows the next booking before the last visit. The filters carry the customer counts.
 - On phones, Today shows the next customer above the schedule. Inbox rows lead with the message subject and show the sender below it.
 
 ### Fixed
 - The large photo on public booking pages starts loading right away.
 - Screen readers can announce when a team member's schedule is saved.
-- If another tab books the time you picked, the demo asks you to choose another time.
+- If another tab books the time you picked, the demo asks you to choose another time, even during the first booking on a device.
+- Online booking and change cutoffs follow the same salon time as calendar exports. Turning off contact prefill while a booking is confirming clears the saved details.
+- Repeat booking keeps the requested practitioner on waiting-list requests. If a past treatment is unavailable, the widget lets you choose a new one.
 
 ## [0.4.0] - 2026-11-18
 

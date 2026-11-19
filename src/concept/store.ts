@@ -20,8 +20,11 @@ import { getPack } from "./packs";
 // renders a loading shell first and the real UI only in the browser.
 
 const STORAGE_KEY = "salong-eko-demo";
+interface BookingReceipt { day: string; seq: number }
 let state: DemoState | null = null;
 let savedRaw: string | null | undefined;
+let savedVersion: BookingReceipt | undefined;
+let lastWrittenVersion: BookingReceipt | undefined;
 const listeners = new Set<() => void>();
 
 function today() {
@@ -51,6 +54,7 @@ function refreshFromStorage() {
   if (raw === savedRaw) return false;
   savedRaw = raw;
   state = adopt(load(raw));
+  savedVersion = raw ? { day: state.generatedFor, seq: state.seq } : undefined;
   listeners.forEach((listener) => listener());
   return true;
 }
@@ -71,6 +75,7 @@ function setState(next: DemoState, recheckStorage = false): boolean {
     if (recheckStorage && refreshFromStorage()) return false;
     window.localStorage.setItem(STORAGE_KEY, raw);
     savedRaw = raw;
+    savedVersion = lastWrittenVersion = { day: next.generatedFor, seq: next.seq };
   } catch {
     // The demo still works in memory.
   }
@@ -129,20 +134,65 @@ export function dispatchWithLog(
     const next = applyAction(current, action, logMeta);
     if (next === current) return false;
     // Run the booking rules again if another tab wrote while we prepared the save.
-    if (!setState(next, action.type === "online/book")) continue;
+    if (!setState(next, action.type === "online/book" || !!canApply)) continue;
     const logId = next.log[0]?.id;
     return logId !== current.log[0]?.id ? logId ?? null : null;
   }
 }
 
-/** Serializes booking confirmations across tabs when Web Locks are available. */
-export async function withBookingLock<T>(confirm: () => T): Promise<T> {
-  return navigator.locks ? navigator.locks.request(STORAGE_KEY, confirm) : confirm();
+// Web Locks serialize callbacks, but another renderer can still read an older
+// localStorage snapshot after acquiring the lock. Cache Storage supplies a
+// shared receipt for the last saved sequence. It contains no booking details.
+async function bookingReceipts(): Promise<Cache | undefined> {
+  try {
+    return await window.caches.open("concept-booking-sequence");
+  } catch {
+    // Embedded or private contexts can deny persistent storage.
+  }
+}
+
+async function withBookingReceipt<T>(write: (required?: BookingReceipt) => T, reset = false): Promise<T | false> {
+  if (typeof window === "undefined" || !navigator.locks) return write();
+  return navigator.locks.request(STORAGE_KEY, async () => {
+    const receipts = await bookingReceipts();
+    if (!receipts) return write();
+    const receiptKey = new URL("/concept-booking-sequence", window.location.origin).href;
+    const receipt = await receipts.match(receiptKey).catch(() => undefined);
+    const latest: BookingReceipt | undefined = await receipt?.json().catch(() => undefined);
+    const required = latest?.day === today() ? latest : undefined;
+    if (required && !reset) {
+      // A missing snapshot can still be an older renderer's view of storage.
+      for (let attempt = 0; ; attempt++) {
+        refreshFromStorage();
+        if (savedVersion?.day === required.day && savedVersion.seq >= required.seq) break;
+        if (attempt === 40) return false;
+        await new Promise(resolve => window.setTimeout(resolve, 25));
+      }
+    }
+    const before = lastWrittenVersion;
+    const result = write(required);
+    if (lastWrittenVersion && lastWrittenVersion !== before) {
+      // A storage quota error must not hide an appointment already saved.
+      await receipts.put(receiptKey, Response.json(lastWrittenVersion)).catch(() => undefined);
+    }
+    return result;
+  });
+}
+
+export function withBookingLock<T>(confirm: () => T): Promise<T | false> {
+  return withBookingReceipt(confirm);
 }
 
 /** Rebuilds the demo for a business setup (industry pack, team size, modules). Without one it is the original Salong Eko. */
-export function startBusiness(setup?: BusinessSetup) {
-  setState(createDemoState(today(), setup));
+export async function startBusiness(setup?: BusinessSetup): Promise<void> {
+  await withBookingReceipt(required => {
+    const next = createDemoState(today(), setup);
+    if (typeof window !== "undefined") refreshFromStorage();
+    // Supersede the previous receipt so stale tabs must also wait for this reset.
+    const currentSeq = state?.generatedFor === next.generatedFor ? state.seq : 0;
+    next.seq = Math.max(next.seq, currentSeq + 1, (required?.seq ?? 0) + 1);
+    setState(next);
+  }, true);
 }
 
 export function useDemo(): DemoState | null {

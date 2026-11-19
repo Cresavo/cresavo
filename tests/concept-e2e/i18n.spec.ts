@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 
 test.use({ locale: "sv-SE", colorScheme: "light" });
@@ -60,7 +61,21 @@ test("Swedish booking, confirmation and management", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("lang", "sv");
   await expect(page.getByRole("button", { name: "Omboka", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Avboka", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Boka igen", exact: true })).toBeVisible();
   await expect(page.locator("p").filter({ hasText: /betalas i salongen/ })).toContainText(/\bkr\b/);
+  const manageLink = page.getByRole("link", { name: "Hantera din bokning", exact: true });
+  await expect(manageLink).toHaveAttribute("href", /\/booking\/[^/]+#manage$/);
+  await manageLink.click();
+  await expect(page).toHaveURL(/#manage$/);
+  const google = new URL((await page.getByRole("link", { name: "Google Kalender" }).getAttribute("href"))!);
+  expect(google.searchParams.get("text")).toBe("Medicinsk fotvård hos Salong Eko");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Lägg till i kalendern" }).click();
+  const file = await readFile(await (await download).path(), "utf8");
+  expect(file).toContain("SUMMARY:Medicinsk fotvård hos Salong Eko");
+  expect(file).toContain("DESCRIPTION:Du har en bokad tid om en timme");
+  const [start, end] = google.searchParams.get("dates")!.split("/");
+  expect(file).toContain(`DTSTART:${start}\r\nDTEND:${end}`);
   await capture(page, "confirmation");
   await page.getByRole("link", { name: "Se alla mina bokningar" }).click();
   await expect(page.getByRole("heading", { name: "Hej Nova, här är dina bokningar" })).toBeVisible();
