@@ -68,7 +68,7 @@ export default function ReviewsPage() {
                   <Avatar name={name} size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{name}</p>
-                    <p className="text-xs text-text-secondary">{formatDate(r.date)} · {r.source} · {state.staff.find((s) => s.id === r.staffId)?.firstName}</p>
+                    <p className="text-xs text-text-secondary">{formatDate(r.date)} · {t(r.source === "Google" ? "reviews.source.google" : "reviews.source.bookingPage")} · {state.staff.find((s) => s.id === r.staffId)?.firstName}</p>
                   </div>
                   <span role="img" className="shrink-0 text-warning" aria-label={t("inbox.stars", { count: r.rating })}>{"★".repeat(r.rating)}<span className="text-border">{"★".repeat(5 - r.rating)}</span></span>
                 </div>

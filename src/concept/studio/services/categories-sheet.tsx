@@ -28,7 +28,7 @@ export function CategoriesSheet({ state, onClose }: { state: DemoState; onClose:
     if (!editing || issue) return;
     if (editing === NEW) {
       dispatchWithUndoToast({ type: "category/add", name }, t("services.category.added", { name: name.trim() }));
-    } else {
+    } else if (name.trim() !== state.categories.find(({ id }) => id === editing)?.name) {
       dispatchWithUndoToast({ type: "category/rename", id: editing, name }, t("services.category.renamed", { name: name.trim() }));
     }
     setEditing(null);

@@ -56,20 +56,20 @@ export function interpretCommand(input: string, context: IntentContext): IntentR
     return params.occasion ? proposal("make-poster", `Propose a poster for ${params.occasion}.`) : question("command.question.poster");
   }
   const services = matchNames(text.replace(/foot treatment/g, "foot care"), context.services);
-  const price = text.match(/(?:\b(?:sek|price)\s*(\d+(?:\.\d+)?)\b|\b(\d+(?:\.\d+)?)\s*(?:sek|kr)\b|\b(?:price|cost).*?\bto\s+(\d+(?:\.\d+)?))/);
-  const discount = text.match(/(\d+(?:\.\d+)?)\s*(?:%|percent)\s*(?:off|discount)?/);
+  const price = text.match(/(?:\b(?:sek|price)\s*(\d+(?:[.,]\d+)?)\b|\b(\d+(?:[.,]\d+)?)\s*(?:sek|kr)\b|\b(?:price|cost).*?\bto\s+(\d+(?:[.,]\d+)?))/);
+  const discount = text.match(/(\d+(?:[.,]\d+)?)\s*(?:%|percent)\s*(?:off|discount)?/);
   if (discount || /\b(campaign|offer)\b/.test(text) && !/cancel/.test(text) || /\b(price|cost)\b/.test(text) || price && /\b(set|change|update)\b/.test(text)) {
     if (services.length !== 1) return question("command.question.offerService");
     params.serviceId = services[0].id;
     if (discount) {
-      params.percentOff = Number(discount[1]);
+      params.percentOff = Number(discount[1].replace(",", "."));
       if (params.percentOff <= 0 || params.percentOff > 100) return question("command.question.discountRange");
       params.priceSek = Math.round(services[0].priceSek * (1 - params.percentOff / 100) * 100) / 100;
       Object.assign(params, dateRange(text, context));
       return proposal("campaign", `Propose ${params.percentOff}% off ${services[0].name}: ${params.priceSek} SEK.`);
     }
     if (price) {
-      params.priceSek = Number(price[1] ?? price[2] ?? price[3]);
+      params.priceSek = Number((price[1] ?? price[2] ?? price[3]).replace(",", "."));
       return proposal("change-price", `Propose ${services[0].name} at ${params.priceSek} SEK.`);
     }
     return question("command.question.discountPrice");
