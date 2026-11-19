@@ -123,12 +123,12 @@ export function ConnectSection({ info, failed }: { info?: ProtocolInfo; failed?:
 
 /** Each protocol with its status, and where its discovery document lives. */
 export function ProtocolList({ info }: { info?: ProtocolInfo }) {
-  const rows: { name: string; description: MessageKey; status: Status; href?: string }[] = [
-    { name: "MCP", description: "data.protocol.mcp", status: PUBLIC_DEMO || info?.mcp.token === "missing" ? "closed" : "available" },
-    { name: "A2A", description: "data.protocol.a2a", status: "lab", href: info?.paths.agentCard },
-    { name: "USP", description: "data.protocol.usp", status: "lab", href: info?.paths.usp },
-    { name: "UCP", description: "data.protocol.ucp", status: "planned" },
-    { name: "ACP", description: "data.protocol.acp", status: "planned" },
+  const rows: { name: MessageKey; description: MessageKey; status: Status; href?: string }[] = [
+    { name: "data.protocol.name.mcp", description: "data.protocol.mcp", status: PUBLIC_DEMO || info?.mcp.token === "missing" ? "closed" : "available" },
+    { name: "data.protocol.name.a2a", description: "data.protocol.a2a", status: "lab", href: info?.paths.agentCard },
+    { name: "data.protocol.name.usp", description: "data.protocol.usp", status: "lab", href: info?.paths.usp },
+    { name: "data.protocol.name.ucp", description: "data.protocol.ucp", status: "planned" },
+    { name: "data.protocol.name.acp", description: "data.protocol.acp", status: "planned" },
   ];
   const reset = async () => {
     const response = await fetch("/api/concept/proposals", { method: "DELETE" }).catch(() => null);
@@ -138,7 +138,7 @@ export function ProtocolList({ info }: { info?: ProtocolInfo }) {
     <Card className="divide-y divide-hairline overflow-hidden">
       {rows.map((p) => (
         <div key={p.name} className="flex items-start gap-3 px-4 py-3">
-          <span className="w-12 shrink-0 pt-0.5 font-semibold">{p.name}</span>
+          <span className="w-12 shrink-0 pt-0.5 font-semibold">{t(p.name)}</span>
           <div className="min-w-0 flex-1 text-sm">
             <p className="text-text-secondary">{t(p.description)}</p>
             {p.href && (

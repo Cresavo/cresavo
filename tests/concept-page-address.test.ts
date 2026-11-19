@@ -220,8 +220,12 @@ describe("own domain model", () => {
   });
 
   it("gives the exact CNAME record", () => {
-    expect(dnsInstruction("boka.salongeko.se")).toEqual({ type: "CNAME", name: "boka", host: "boka.salongeko.se", value: CNAME_TARGET });
+    expect(dnsInstruction("boka.salongeko.se")).toEqual({ type: "CNAME", name: "boka.salongeko.se.", host: "boka.salongeko.se", value: CNAME_TARGET });
     expect(CNAME_TARGET).toBe("cname.vercel-dns.com");
+  });
+
+  it.each(["book.eu.salon.example", "book.eu.salon.co.uk"])("keeps every DNS label in the record for %s", (host) => {
+    expect(dnsInstruction(host).name).toBe(`${host}.`);
   });
 
   it("moves through waiting, verifying and secure, and stays secure", () => {

@@ -4,28 +4,27 @@ import { customerText } from "../i18n/customer-text";
 
 import { useState } from "react";
 import { CalendarClock, CalendarPlus, Phone, XCircle } from "lucide-react";
-import { addDays } from "../data/dates";
 import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong, formatTime } from "../i18n/format";
 import { findCustomer, findService, fullName } from "../selectors";
-import { dispatchWithLog, withBookingLock } from "../store";
+import { currentState, dispatchWithLog, withBookingLock } from "../store";
+import { newActionRequestId } from "../support/action-reference";
 import { salonClock } from "../tools/clock";
 import { Button, buttonClass } from "../ui/button";
+import { ActionFailure, type ActionFailureInfo } from "../ui/action-failure";
 import { Notice } from "../ui/notice";
 import { Sheet } from "../ui/sheet";
-import { showToast } from "../ui/toast";
+import { showActionFailure, showToast } from "../ui/toast";
 import type { Now } from "../use-now";
 import { buildIcs, googleCalendarLink, icsTimestamp } from "./ics";
 import { changeRule } from "./policy";
+import { freeUntilText } from "./deadline-text";
 import { openSlots, type OpenSlot } from "./suggest";
 import { TimePicker } from "./time-picker";
 import { WaitlistSheet, type WaitlistRequest } from "./waitlist-sheet";
 
-/** The moment 24 hours before the visit, as shown to the customer. */
-export function freeUntilText(booking: Booking): string {
-  return t("booking.freeUntil", { day: formatDayLong(addDays(booking.date, -1)), time: formatTime(booking.start) });
-}
+const CUSTOMER_PAGE = { actor: "customer", source: "customer-page" } as const;
 
 function downloadCalendar(state: DemoState, booking: Booking) {
   const service = findService(state, booking.serviceId);
@@ -50,8 +49,10 @@ interface BookingActionsProps {
 export function BookingActions({ state, now, booking }: BookingActionsProps) {
   const [sheet, setSheet] = useState<"move" | "cancel" | null>(null);
   const [pending, setPending] = useState(false);
+  const [moveFailure, setMoveFailure] = useState<ActionFailureInfo>();
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
   const rule = changeRule(booking, now.today, now.minutes);
+  const moveOpen = rule === "free" && sheet === "move";
   const service = findService(state, booking.serviceId);
   const customer = findCustomer(state, booking.customerId);
   if (rule === "past" || !service || !customer) return null;
@@ -79,20 +80,24 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
 
   const cancel = async () => {
     if (pending) return;
+    const requestId = newActionRequestId();
     setPending(true);
     const result = await withBookingLock(() => dispatchWithLog({
       type: "booking/cancel",
       id: booking.id,
       reason: t("booking.cancel.reason"),
       notice: notice("cancel", t("booking.cancel.inboxTitle"), t("booking.cancel.inboxBody", { name: fullName(customer), service: service.name, when })),
-    }, undefined, canChange));
+    }, CUSTOMER_PAGE, canChange)).catch(() => false as const);
     setPending(false);
     setSheet(null);
-    showToast(t(result === false ? "booking.visitChanged" : "booking.cancel.done"));
+    if (result === false) showActionFailure("booking.visitChanged", requestId, "booking");
+    else showToast(t("booking.cancel.done"));
   };
 
   const move = async (target: OpenSlot) => {
     if (pending) return;
+    const requestId = newActionRequestId();
+    setMoveFailure(undefined);
     setPending(true);
     const result = await withBookingLock(() => dispatchWithLog({
       type: "booking/move",
@@ -101,12 +106,20 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       start: target.start,
       staffId: target.staffId,
       notice: notice("reschedule", t("booking.move.inboxTitle"), t("booking.move.inboxBody", { name: fullName(customer), service: service.name, from: when, to: `${formatDayLong(target.date)} ${formatTime(target.start)}` })),
-    }, undefined, latest => canChange(latest) && openSlots(latest, service.id, target.date, salonClock(), {
+    }, CUSTOMER_PAGE, latest => canChange(latest) && openSlots(latest, service.id, target.date, salonClock(), {
       ignoreId: booking.id, staffId: target.staffId,
-    }).some(slot => slot.start === target.start)));
+    }).some(slot => slot.start === target.start))).catch(() => false as const);
     setPending(false);
-    if (result !== false) setSheet(null);
-    showToast(t(result === false ? "booking.slotTaken" : "booking.move.done"));
+    if (result === false) {
+      const reason = "booking.move.failed";
+      const latest = currentState()?.bookings.find(entry => entry.id === booking.id);
+      const clock = salonClock();
+      if (!latest || changeRule(latest, clock.today, clock.minutes) === "past") showActionFailure(reason, requestId, "booking");
+      else setMoveFailure({ requestId, reason });
+      return;
+    }
+    setSheet(null);
+    showToast(t("booking.move.done"));
   };
 
   return (
@@ -129,6 +142,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
           <span>{t(state.salon.phone ? "booking.tooLate" : "booking.tooLateNoPhone", { phone: state.salon.phone })}</span>
         </Notice>
       )}
+      {!moveOpen && moveFailure && <ActionFailure failure={moveFailure} audience="booking" />}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="secondary" icon={<CalendarPlus size={16} />} onClick={() => downloadCalendar(state, booking)}>
@@ -155,12 +169,13 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       </Sheet>
 
       <Sheet
-        open={rule === "free" && sheet === "move"}
+        open={moveOpen}
         onClose={() => setSheet(null)}
         title={t("booking.move.title")}
         description={t("booking.move.commitHint", { service: service.name, when })}
       >
-        <div className="pt-3">
+        <div className="space-y-3 pt-3">
+          {moveFailure && <ActionFailure failure={moveFailure} audience="booking" />}
           <TimePicker
             state={state}
             serviceId={service.id}

@@ -1,5 +1,6 @@
 import type { Industry } from "../onboarding/salon";
 import type { BusinessLocalization } from "../i18n/business";
+import type { ReminderSettings } from "../booking/reminders";
 // Data model for the clickable demo. No database: everything is generated
 // deterministically in `generate.ts` and kept in the browser (see `../store.ts`).
 
@@ -394,6 +395,7 @@ export interface DemoState {
   seq: number;
   salon: Salon;
   localization: BusinessLocalization;
+  reminderSettings: ReminderSettings;
   staff: Staff[];
   /** The price list, in the order it is shown. */
   services: Service[];

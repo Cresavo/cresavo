@@ -9,10 +9,11 @@ import { type InputMode, type Message } from "../../assistant/thread";
 import { commandExamples } from "../../command/examples";
 import { buildIntentContext } from "../../command/intent-context";
 import type { Choice, Proposal } from "../../command/proposal";
-import { t } from "../../i18n";
+import { getActiveLocale, t } from "../../i18n";
 import { staffViewer } from "../../ops/access";
 import { currentRole, useRole } from "../../ops/role";
 import type { IntentResult } from "../../intent";
+import { studioSalonCopy } from "../../i18n/salon-eko-copy";
 import { currentState, dispatch, dispatchWithLog } from "../../store";
 import { useStudio } from "../use-studio";
 import { speak } from "./speak";
@@ -77,7 +78,8 @@ export function useAssistant() {
             updateReply(answer.id, {}, role);
             return outcome.reply.text;
           }
-          const reading = commandReply({ ...input, state: currentState() ?? state }, outcome.understood, output);
+          const saved = currentState();
+          const reading = commandReply({ ...input, state: saved ? studioSalonCopy(saved, getActiveLocale()) : state }, outcome.understood, output);
           return refineReply(answer.id, { ...reading.reply, source: "ai" }, reading.context, role) ? reading.reply.text : null;
         })
         .catch(() => {

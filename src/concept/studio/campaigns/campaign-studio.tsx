@@ -65,9 +65,9 @@ export function CampaignStudio() {
         subtitle={t("campaigns.studio.subtitle")}
         back={<BackLink href="/studio/more/campaigns" label={t("nav.campaigns")} />}
       />
-      <ol className="mb-6 flex gap-1.5 overflow-x-auto" aria-label={t("campaigns.studio.steps")}>
+      <ol className="mb-6 grid grid-cols-2 gap-1.5 sm:grid-cols-4" aria-label={t("campaigns.studio.steps")}>
         {STEPS.map((name, i) => (
-          <li key={name} className="min-w-0 flex-1">
+          <li key={name} className="min-w-0">
             <button
               aria-current={i === index ? "step" : undefined}
               disabled={i > index}
@@ -78,7 +78,7 @@ export function CampaignStudio() {
               )}
             >
               {i < index ? <Check size={15} /> : <span className="tabular-nums">{i + 1}</span>}
-              <span className={i === index ? "" : "hidden sm:inline"}>{t(`campaigns.step.${name}`)}</span>
+              <span>{t(`campaigns.step.${name}`)}</span>
             </button>
           </li>
         ))}

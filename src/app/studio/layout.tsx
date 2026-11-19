@@ -13,7 +13,7 @@ import "./studio.css";
 export async function generateMetadata(): Promise<Metadata> {
   const language = await getLocale();
   return {
-    title: `Studio · Salong Eko · ${BRAND.name}`,
+    title: translate(language, "language.studioTitle", { brand: BRAND.name }),
     description: translate(language, "language.studioDescription"),
   };
 }

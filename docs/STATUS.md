@@ -24,7 +24,7 @@ Start with the [demo and product tour](../README.md) or see the
   custom-domain setup. Live domain changes are disabled until owner and
   domain ownership can be verified on the server.
 - Owners can now set up a separate browser-local salon from Today or Settings, try their own booking page and switch back to the sample business. A first-run checklist and a short demo tour guide the first visit.
-- The studio and booking flow support Swedish and English, with a separate business language for confirmations and customer messages. The built-in assistant answers in the studio language and understands common Swedish commands.
+- The studio and booking flow support Swedish and English, with a separate business language for confirmations and customer messages. Salong Eko’s sample data and the studio help follow the selected language. The built-in assistant understands common Swedish commands for bookings, prices, stock, campaigns and booking-page design.
 - The separate booking engine uses Prisma and PostgreSQL. The web workspace,
   provider API and local owner MCP share booking rules, including idempotency
   and protection against double-booking. The public agent gateway lives in

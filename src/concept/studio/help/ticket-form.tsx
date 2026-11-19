@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { summarizeScreen } from "../../help/dom-summary";
-import { t, tc } from "../../i18n";
+import { getActiveLocale, t, tc } from "../../i18n";
 import { buildTicket, TICKET_ACTIVITY } from "../../support/tickets";
 import { dispatch } from "../../store";
 import { Button } from "../../ui/button";
@@ -24,7 +24,7 @@ export function TicketForm({ question, requestId, onBack, onDone }: TicketFormPr
   const path = usePathname() ?? "";
   const [text, setText] = useState(question);
   // The outline is taken once, when the form opens, before this window covers the page.
-  const [screen] = useState(() => summarizeScreen(document.querySelector("main") ?? document));
+  const [screen] = useState(() => summarizeScreen(document.querySelector("main") ?? document, getActiveLocale()));
   const [id] = useState(() => requestId ?? crypto.randomUUID());
 
   const save = () => {

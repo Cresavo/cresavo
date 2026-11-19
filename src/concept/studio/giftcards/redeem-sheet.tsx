@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { Gift } from "lucide-react";
-import { balanceOf, findGiftCard, paidWithCards, redeemable } from "../../giftcards/cards";
+import { balanceOf, findGiftCard, normalizeCode, paidWithCards, redeemable } from "../../giftcards/cards";
 import { t } from "../../i18n";
 import { formatMoney } from "../../i18n/format";
 import { findCustomer } from "../../selectors";
+import { newActionRequestId } from "../../support/action-reference";
+import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Button } from "../../ui/button";
 import { Field, TextInput } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
@@ -16,6 +18,8 @@ import { dispatchWithUndoToast } from "../log/undo-toast";
 export function RedeemSheet({ bookingId, onBack, onClose }: { bookingId: string; onBack: () => void; onClose: () => void }) {
   const { state, today } = useStudio();
   const [code, setCode] = useState("");
+  const [lookupId, setLookupId] = useState<string>();
+  const [failure, setFailure] = useState<ActionFailureInfo>();
   const booking = state.bookings.find((b) => b.id === bookingId);
   if (!booking) return null;
   const card = findGiftCard(state, code);
@@ -24,7 +28,10 @@ export function RedeemSheet({ bookingId, onBack, onClose }: { bookingId: string;
   const name = findCustomer(state, booking.customerId)?.firstName ?? "";
 
   const pay = () => {
-    if (!dispatchWithUndoToast({ type: "giftcard/redeem", code, bookingId, date: today }, t("giftcards.paid", { amount: formatMoney(amount) }))) return;
+    if (!dispatchWithUndoToast({ type: "giftcard/redeem", code, bookingId, date: today }, t("giftcards.paid", { amount: formatMoney(amount) }))) {
+      setFailure({ requestId: newActionRequestId(), reason: "payment.failed" });
+      return;
+    }
     onClose();
   };
 
@@ -42,13 +49,20 @@ export function RedeemSheet({ bookingId, onBack, onClose }: { bookingId: string;
       }
     >
       <div className="space-y-3">
+        <p className="text-sm text-text-secondary">{t("payment.simulated")}</p>
         <Field label={t("giftcards.payCode")}>
-          <TextInput value={code} onChange={(event) => setCode(event.target.value)} autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder={t("giftcards.codeExample")} autoFocus />
+          <TextInput value={code} onChange={(event) => {
+            setCode(event.target.value);
+            setLookupId(undefined);
+            setFailure(undefined);
+          }} onBlur={() => {
+            if (!lookupId && !failure && amount <= 0 && normalizeCode(code)) setLookupId(newActionRequestId());
+          }} autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder={t("giftcards.codeExample")} autoFocus />
         </Field>
-        {code.trim().length >= 4 && (
-          <p role="status" className={card && amount > 0 ? "rounded-md bg-action-bg px-3.5 py-3 text-sm font-medium text-text" : "text-sm text-danger"}>
-            {!card ? t("giftcards.payNotFound") : amount > 0 ? t("giftcards.payBalance", { amount: formatMoney(balanceOf(state, card)) }) : t("giftcards.payEmpty")}
-          </p>
+        {failure ? <ActionFailure failure={failure} /> : (
+          card && amount > 0
+            ? <p role="status" className="rounded-md bg-action-bg px-3.5 py-3 text-sm font-medium text-text">{t("giftcards.payBalance", { amount: formatMoney(balanceOf(state, card)) })}</p>
+            : lookupId && <ActionFailure failure={{ requestId: lookupId, reason: card ? "giftcards.payEmpty" : "giftcards.payNotFound" }} />
         )}
       </div>
     </Sheet>

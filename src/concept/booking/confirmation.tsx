@@ -5,15 +5,18 @@ import { CalendarCheck, CheckCircle2, MapPin, XCircle } from "lucide-react";
 import { t } from "../i18n";
 import { formatDayLong, formatDuration, formatMoney, formatTime } from "../i18n/format";
 import { usePublicDemo } from "../store";
+import { ActionFailure } from "../ui/action-failure";
 import { StaffAvatar } from "../ui/avatar";
 import { ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
 import { useSalonNow } from "../use-now";
-import { BookingActions, freeUntilText } from "./booking-actions";
+import { BookingActions } from "./booking-actions";
+import { freeUntilText } from "./deadline-text";
 import { changeRule } from "./policy";
-import { bookingHome, myBookingsFor, rebookLink } from "./links";
+import { bookingHome, bookingPage, myBookingsFor } from "./links";
 import { MessagePreviews } from "./message-previews";
 import { ReviewForm } from "./review-form";
+import { RepeatBookingLink } from "./repeat-booking-link";
 import { findService } from "../selectors";
 
 /** What the customer sees after booking, and the page behind the link in their confirmation. */
@@ -27,17 +30,24 @@ export function Confirmation({ id }: { id: string }) {
     return (
       <Card className="mx-auto max-w-lg space-y-4 p-6 text-center">
         <p className="text-lg font-semibold">{t("booking.notFound.title")}</p>
-        <p className="text-text-secondary">{t("booking.notFound.text")}</p>
+        <ActionFailure failure={{ requestId: id, reason: "booking.notFound.text" }} audience="booking" />
         <ButtonLink href={bookingHome(state?.salon.slug ?? "")}>{t("booking.notFound.action")}</ButtonLink>
       </Card>
     );
   }
 
   const cancelled = booking.status === "cancelled";
-  const active = changeRule(booking, now.today, now.minutes) !== "past";
+  const rule = changeRule(booking, now.today, now.minutes);
+  const active = rule !== "past";
+  const title = active ? "booking.confirmation.title" : ({
+    booked: "booking.confirmation.past",
+    completed: "booking.confirmation.completed",
+    cancelled: "booking.confirmation.cancelled",
+    noshow: "booking.confirmation.noshow",
+  } as const)[booking.status];
   const Icon = cancelled ? XCircle : CheckCircle2;
   return (
-    <div id="manage" className="mx-auto max-w-lg space-y-5">
+    <div className="mx-auto max-w-lg space-y-5">
       <div className="space-y-2 text-center">
         {cancelled ? (
           <span data-tone="danger" className="mx-auto flex size-16 items-center justify-center rounded-full bg-danger-bg text-text">
@@ -46,8 +56,8 @@ export function Confirmation({ id }: { id: string }) {
         ) : (
           <Icon size={44} className="mx-auto text-action" />
         )}
-        <h1 className="text-2xl font-semibold tracking-tight">{cancelled ? t("booking.confirmation.cancelled") : t("booking.confirmation.title")}</h1>
-        <p className="text-text-secondary">{cancelled ? t("booking.confirmation.cancelledText") : t("booking.confirmation.text")}</p>
+        <h1 className="text-2xl font-semibold tracking-tight">{t(title)}</h1>
+        {(active || cancelled) && <p className="text-text-secondary">{t(cancelled ? "booking.confirmation.cancelledText" : "booking.confirmation.text")}</p>}
       </div>
 
       <Card className="space-y-4 p-5">
@@ -67,18 +77,18 @@ export function Confirmation({ id }: { id: string }) {
           {[state.salon.name, state.salon.address, state.salon.area].filter(Boolean).join(", ")}
         </p>
         <p className="border-t border-hairline pt-3 text-sm">
-          <strong>{formatMoney(booking.price)}</strong> · {t("booking.payAtSalon")}
+          <strong>{formatMoney(booking.price, state.localization.currency)}</strong>
+          {active && <> · {t(state.modules.packages ? "booking.payAtSalonWithPackages" : "booking.payAtSalon")}</>}
         </p>
       </Card>
 
-      <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <RepeatBookingLink state={state} booking={booking} />
+        {active && <ButtonLink href={`${bookingPage(state.salon.slug, booking.id)}#manage`} variant="secondary">{t("booking.manageLink")}</ButtonLink>}
+      </div>
+      <div id="manage" className="scroll-mt-4 space-y-3">
         {active && <BookingActions state={state} now={now} booking={booking} />}
-        {changeRule(booking, now.today, now.minutes) === "free" && <p className="text-sm text-text-secondary">{freeUntilText(booking)}</p>}
-        {state.services.some(s => s.id === service.id) && (
-          <ButtonLink href={rebookLink(state.salon.slug, booking.serviceId, booking.staffId)} variant="secondary" className="w-full">
-            {t("booking.me.rebook")}
-          </ButtonLink>
-        )}
+        {rule === "free" && <p className="text-sm text-text-secondary">{freeUntilText(booking)}</p>}
       </div>
 
       {active && !cancelled && <MessagePreviews state={state} booking={booking} now={now} />}

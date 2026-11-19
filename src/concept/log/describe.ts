@@ -36,6 +36,8 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
   switch (action.type) {
     case "salon/language":
       return { summary: t("log.bookingLanguage") };
+    case "reminder/settings":
+      return { summary: t("log.reminderSettings") };
     case "memory/add":
       return { summary: t("log.memoryAdd") };
     case "memory/edit":

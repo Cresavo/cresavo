@@ -11,12 +11,16 @@ All notable changes to this project are documented here. Format follows
 ### Added
 - The paired salon assistant can read calendars, customers, treatments, staff and finance, and draft bookings, blocks, cancellations, treatment changes and simulated Inbox replies for owner review. OAuth consent lists permissions by area.
 - A flag-controlled demo lets visitors connect an assistant to a temporary fictional salon, review proposed booking moves live in the studio Inbox and see approved times in the paired calendar.
+- The demo shows the service total, payment split and salon-local cancellation deadline before booking. Studio settings estimate monthly reminder SMS costs and link to the simulated Sent log. Getting started links to a checklist for exporting data and importing customers. Failed booking and payment actions show a copyable reference code.
+- Releases are published automatically when a release pull request merges, with readable notes from `docs/releases/`. [Releasing](docs/RELEASING.md) explains the cadence and how to follow along.
 - The Swedish product page and privacy note live at `/sv` and `/sv/privacy`. The Swedish site links into the demo in Swedish, and the Swedish domains redirect to the main site.
 - Start a browser-local salon from Today or Settings with a seven-step setup in Swedish or English. New salons have their own bookable page, empty studio views and a first-run checklist. A short guided tour introduces the demo salon.
 - The studio and Salong Eko booking flow support Swedish and English. Owners choose a studio language per device and a business language for confirmations and customer messages. The rules assistant understands common Swedish booking and scheduling commands.
 - The public product site publishes a sitemap and search metadata. Its production deployment uses cookie-free Vercel Web Analytics to measure visits.
 
 ### Changed
+- Book again sits beside booking management on confirmations and in My bookings, and keeps the original treatment and practitioner when available.
+- Salong Eko’s sample treatments, team profiles, reviews and inbox messages follow the language of each view. Studio help is available in Swedish, and the built-in assistant understands more Swedish price, stock, campaign and booking-page requests.
 - English is the default language; Salong Eko offers Swedish to visitors.
 - Customers can confirm the next available visit from the treatment list, opt in to contact prefill, and book the same treatment and practitioner again. The confirmation links to appointment management, calendar downloads and Google Calendar. Shared gift cards show their remaining balance when available.
 - The customer list starts each row with the customer's name and shows the next booking before the last visit. The filters carry the customer counts.
@@ -28,6 +32,9 @@ All notable changes to this project are documented here. Format follows
 - The paired Inbox shows the customer’s message alongside a drafted reply and keeps proposal review working in already-open tabs. Availability proposals name the paired workspace they affect.
 - Treatment prices retain their decimal amounts through approval, activity history and later edits.
 - Paired demo workspaces support independent assistant grants, native loopback callbacks and revocation in the studio. Idle tabs expire, and open calendar edits stay bound to their original booking.
+- Booking summaries account for prepaid packages, past visits show their status, and failed moves stay visible after the time picker closes. Simulated previews keep the management link and separate confirmation channel choices from reminder defaults.
+- Reminder pricing follows the salon’s currency and calendar month. Demo error references can be looked up in browser-local Support access, and gift card lookup errors wait until the code field loses focus.
+- New bookings respect the calendar’s staff filter. Staff schedules show exact shift times, and the mobile week view names each practitioner. Owners can undo a removed cost, clear an empty customer filter and switch studio views with the arrow keys.
 - Opening a booking link keeps other studio tabs on their selected salon. Local salons keep their own saved edits, booking address and browser-only AI settings.
 - Owners can change the studio language during setup and keep their answers. Setup offers to reopen an existing salon. First bookings respect the selected team member, finance exports use the salon currency and campaign links open the salon’s booking page.
 - The local owner MCP server keeps `--admin` read-only. Saving campaign drafts requires workspace write access, explicit confirmation and a request ID for safe retries.
@@ -36,6 +43,12 @@ All notable changes to this project are documented here. Format follows
 - If another tab books the time you picked, the demo asks you to choose another time, even during the first booking on a device.
 - Online booking and change cutoffs follow the same salon time as calendar exports. Turning off contact prefill while a booking is confirming clears the saved details.
 - Repeat booking keeps the requested practitioner on waiting-list requests. If a past treatment is unavailable, the widget lets you choose a new one.
+- Own-domain setup shows the full DNS record name for nested booking addresses. (#4)
+- The booking wizard searches the specific date you name, including December 24 in English and Swedish. (#6)
+- Online booking enforces the minimum lead time when saving a confirmed appointment. (#7)
+- The activity log credits customers for cancelling or moving their own bookings. (#12)
+- Assistant clarification questions follow the studio language and industry terms. (#13)
+- The booking-page browser tests use the port from the configured base URL.
 
 ## [0.4.0] - 2026-11-18
 

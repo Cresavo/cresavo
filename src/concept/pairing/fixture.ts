@@ -34,6 +34,7 @@ function project(state: DemoState, includeHistory = false): PairState {
     exceptions: [], retiredServices: [], journals: [], reviews: [], log: [], trash: [], memory: [], routines: [],
     stock: [], suppliers: [], orders: [], sales: [], giftCards: [], packages: [], holidays: [], campaigns: [],
     monthHistory: includeHistory ? state.monthHistory : [], costs: [], accounting: { connected: false }, dismissedCards: [], supportGrants: [], tickets: [], domain: null,
+    reminderSettings: state.reminderSettings,
   };
 }
 

@@ -82,7 +82,7 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
         actions={
           <>
             {switchCalendar}
-            <Button data-help="new-booking" icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { date, staffId: viewer?.id } })}>
+            <Button data-help="new-booking" icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { date, staffId } })}>
               {t("calendar.newBooking")}
             </Button>
           </>

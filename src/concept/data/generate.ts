@@ -1,4 +1,5 @@
 import { translate } from "../i18n";
+import { DEFAULT_REMINDER_SETTINGS } from "../booking/reminders";
 import { formatDayLong, formatMoney } from "../i18n/format";
 import { defaultBusinessLocalization, type BusinessLocalization } from "../i18n/business";
 import { FIRST_NAMES_F, FIRST_NAMES_M, LAST_NAMES } from "./catalog";
@@ -31,15 +32,15 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 20;
+export const DEMO_VERSION = 21;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
 const DEFAULT_COSTS: Cost[] = [
-  { id: "cost-rent", kind: "rent", label: "Rent", amount: 18000 },
-  { id: "cost-products", kind: "products", label: "Products and supplies", amount: 12500 },
-  { id: "cost-wages", kind: "wages", label: "Wages and payroll tax", amount: 110000 },
-  { id: "cost-fees", kind: "fees", label: "Card fees and software", amount: 6000 },
+  { id: "cost-rent", kind: "rent", label: translate("en", "fixture.cost.cost-rent"), amount: 18000 },
+  { id: "cost-products", kind: "products", label: translate("en", "fixture.cost.cost-products"), amount: 12500 },
+  { id: "cost-wages", kind: "wages", label: translate("en", "fixture.cost.cost-wages"), amount: 110000 },
+  { id: "cost-fees", kind: "fees", label: translate("en", "fixture.cost.cost-fees"), amount: 6000 },
 ];
 const CUSTOMER_COUNT = 360;
 const REGULAR_COUNT = 40;
@@ -344,7 +345,7 @@ function makeReviews(rng: Rng, today: DateKey, bookings: Booking[], { pack, serv
         text: rng.pick(pack.reviews[service.category === pack.categories[0] ? 0 : 1][rating]),
         source: rng.chance(0.6) ? "Google" : "Booking page",
         reply: week > 1 && rng.chance(rating >= 4 ? 0.5 : 0.9)
-          ? rating >= 4 ? "Thank you for the kind words! You are always welcome back. /Anna" : "Thank you for telling us – we take it to heart and hope to show our best side next time. /Anna"
+          ? rating >= 4 ? translate("en", "fixture.review.reply.happy") : translate("en", "fixture.review.reply.unhappy")
           : undefined,
       });
     }
@@ -453,7 +454,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       reviewId: "r-ny-1",
       date: today,
       time: 7 * 60 + 41,
-      title: "New review ★★★★★",
+      title: translate("en", "fixture.inbox.reviewTitle", { stars: "★★★★★" }),
       body: pack.freshReviews.happy,
       read: false,
       handled: false,
@@ -478,7 +479,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       reviewId: "r-ny-2",
       date: addDays(today, -1),
       time: 18 * 60 + 40,
-      title: "New review ★★★☆☆",
+      title: translate("en", "fixture.inbox.reviewTitle", { stars: "★★★☆☆" }),
       body: pack.freshReviews.meh,
       read: false,
       handled: false,
@@ -494,8 +495,8 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       bookingId: cancelled.id,
       date: today,
       time: 7 * 60 + 48,
-      title: `Cancelled today ${formatTime(cancelled.start)}`,
-      body: "Hi Anna! I woke up with a fever and have to cancel my appointment today. Sorry for the short notice.",
+      title: translate("en", "fixture.inbox.cancelTitle", { time: formatTime(cancelled.start) }),
+      body: translate("en", "fixture.inbox.cancelBody"),
       read: false,
       handled: false,
       draftReply: translate(language, "fixture.reply.cancel", { name: name(cancelled.customerId).first }, pack.vocabulary),
@@ -516,7 +517,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       customerId: asker.id,
       date: today,
       time: 7 * 60 + 12,
-      title: "Asking for a time",
+      title: translate("en", "fixture.inbox.requestTitle"),
       body: `${pack.requests.returning.body} /${asker.firstName}`,
       read: false,
       handled: false,
@@ -538,8 +539,8 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       bookingId: tomorrowBooking.id,
       date: today,
       time: 6 * 60 + 55,
-      title: "Wants to reschedule",
-      body: "Hi! A meeting has come up that clashes. Could I move my appointment to later in the week, ideally after lunch?",
+      title: translate("en", "fixture.inbox.moveTitle"),
+      body: translate("en", "fixture.inbox.moveBody"),
       read: false,
       handled: false,
       suggestion,
@@ -556,7 +557,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       customerId: customers.find((c) => c.category === pack.categories[1] && c.isRegular)?.id,
       date: addDays(today, -1),
       time: 14 * 60 + 2,
-      title: "Question about gift cards",
+      title: translate("en", "fixture.inbox.giftTitle"),
       body: `Hi! Do you sell gift cards? I would like to give my dad ${pack.giftIdea} for Christmas.`,
       read: false,
       handled: false,
@@ -568,7 +569,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       fromName: pack.requests.newClient.name,
       date: addDays(today, -1),
       time: 20 * 60 + 15,
-      title: "New customer wants to book",
+      title: translate("en", "fixture.inbox.newTitle"),
       body: pack.requests.newClient.body,
       read: true,
       handled: false,
@@ -581,8 +582,8 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       kind: "system",
       date: today,
       time: 7 * 60,
-      title: "Reminders sent",
-      body: `${bookings.filter((b) => b.date === addDays(today, 1) && b.status === "booked").length} customers got a text reminder about tomorrow. (Simulated – the demo never sends real texts.)`,
+      title: translate("en", "fixture.inbox.remindersTitle"),
+      body: translate("en", "fixture.inbox.remindersBody", { count: bookings.filter((b) => b.date === addDays(today, 1) && b.status === "booked").length }),
       read: true,
       handled: true,
     },
@@ -604,6 +605,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     seq: 1,
     salon,
     localization,
+    reminderSettings: { ...DEFAULT_REMINDER_SETTINGS },
     staff: team,
     services,
     retiredServices: [],

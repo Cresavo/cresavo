@@ -1,133 +1,138 @@
+import { translate, type MessageKey } from "../i18n";
 import type { Service, StockItem, Supplier } from "../data/types";
 import { salonWith, teamWith } from "./base";
 import type { JournalText, Pack, ReviewTexts } from "./types";
 
+type FixtureSuffix<Key> = Key extends `fixture.eko.${infer Suffix}` ? Suffix : never;
+const copy = (key: FixtureSuffix<MessageKey>) =>
+  translate("en", `fixture.eko.${key}`);
+
 // Foot care and massage: the original demo business. Fictional, no real people.
 
-const SALON = salonWith("Foot care and massage in Vasastan");
+const SALON = salonWith(copy("tagline"));
 
 const STAFF = teamWith(
-  { title: "Medical foot therapist", bio: "Qualified medical foot therapist since 2012. Opened Salong Eko in 2019." },
-  { title: "Massage therapist", bio: "Classic and sports massage. Has worked at Eko since 2022." },
+  { title: copy("staff.anna.title"), bio: copy("staff.anna.bio") },
+  { title: copy("staff.erik.title"), bio: copy("staff.erik.bio") },
 );
 
 const SERVICES: Service[] = [
   {
     id: "medical-foot-care",
-    name: "Medical foot care",
+    name: copy("service.medical.name"),
     category: "foot",
     staffIds: ["anna"],
     duration: 60,
     price: 795,
-    description: "Nail trimming and filing, removal of calluses and corns, foot bath and foot cream.",
+    description: copy("service.medical.description"),
     recallWeeks: 6,
   },
   {
     id: "basic-foot-care",
-    name: "Basic foot care",
+    name: copy("service.basic.name"),
     category: "foot",
     staffIds: ["anna"],
     duration: 45,
     price: 650,
-    description: "Nail care and a softening treatment for healthy feet.",
+    description: copy("service.basic.description"),
     recallWeeks: 6,
     consumption: [{ stockId: "urea-cream", quantity: 0.2 }, { stockId: "foot-files", quantity: 0.02 }, { stockId: "cuticle-oil", quantity: 0.03 }, { stockId: "foot-bath-salt", quantity: 0.03 }, { stockId: "skin-disinfectant", quantity: 0.02 }, { stockId: "gloves", quantity: 0.02 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
   {
     id: "spa-foot-care",
-    name: "Spa foot care",
+    name: copy("service.spa.name"),
     category: "foot",
     staffIds: ["anna"],
     duration: 75,
     price: 950,
-    description: "Medical foot care with scrub, mask and a longer foot massage.",
+    description: copy("service.spa.description"),
     recallWeeks: 8,
     consumption: [{ stockId: "urea-cream", quantity: 0.3 }, { stockId: "foot-files", quantity: 0.02 }, { stockId: "cuticle-oil", quantity: 0.03 }, { stockId: "foot-bath-salt", quantity: 0.05 }, { stockId: "skin-disinfectant", quantity: 0.02 }, { stockId: "gloves", quantity: 0.02 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
   {
     id: "ingrown-nail",
-    name: "Ingrown nail treatment",
+    name: copy("service.ingrown.name"),
     category: "foot",
     staffIds: ["anna"],
     duration: 30,
     price: 450,
-    description: "Treatment of ingrown nails and follow-up of nail braces.",
+    description: copy("service.ingrown.description"),
     recallWeeks: 4,
     consumption: [{ stockId: "urea-cream", quantity: 0.1 }, { stockId: "scalpel-blades", quantity: 0.01 }, { stockId: "felt-padding", quantity: 0.1 }, { stockId: "corn-plasters", quantity: 0.1 }, { stockId: "skin-disinfectant", quantity: 0.02 }, { stockId: "gloves", quantity: 0.02 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
   {
     id: "classic-60",
-    name: "Classic massage 60 min",
+    name: copy("service.classic60.name"),
     category: "massage",
     staffIds: ["erik"],
     duration: 60,
     price: 795,
-    description: "Full-body massage for back, neck, shoulders and legs.",
+    description: copy("service.classic60.description"),
     recallWeeks: 4,
     consumption: [{ stockId: "massage-oil-neutral", quantity: 0.06 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
   {
     id: "classic-30",
-    name: "Classic massage 30 min",
+    name: copy("service.classic30.name"),
     category: "massage",
     staffIds: ["erik"],
     duration: 30,
     price: 495,
-    description: "Focus on back, neck and shoulders.",
+    description: copy("service.classic30.description"),
     recallWeeks: 3,
     consumption: [{ stockId: "massage-oil-neutral", quantity: 0.03 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
   {
     id: "deep-tissue",
-    name: "Deep tissue massage",
+    name: copy("service.deep.name"),
     category: "massage",
     staffIds: ["erik"],
     duration: 60,
     price: 895,
-    description: "Firmer pressure for tight muscles and stiffness.",
+    description: copy("service.deep.description"),
     recallWeeks: 4,
     consumption: [{ stockId: "massage-oil-neutral", quantity: 0.07 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
   {
     id: "relax-90",
-    name: "Relaxing massage 90 min",
+    name: copy("service.relax.name"),
     category: "massage",
     staffIds: ["erik"],
     duration: 90,
     price: 1195,
-    description: "Slow full-body massage with warm oil.",
+    description: copy("service.relax.description"),
     recallWeeks: 8,
     consumption: [{ stockId: "massage-oil-eucalyptus", quantity: 0.1 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
   {
     id: "foot-calf-massage",
-    name: "Foot and calf massage",
+    name: copy("service.footCalf.name"),
     category: "massage",
     staffIds: ["erik"],
     duration: 30,
     price: 450,
-    description: "Relaxing massage of feet and calves.",
+    description: copy("service.footCalf.description"),
     recallWeeks: 6,
     consumption: [{ stockId: "massage-oil-neutral", quantity: 0.02 }, { stockId: "couch-roll", quantity: 0.025 }],
   },
 ];
 
 const STOCK: StockItem[] = [
-  { id: "urea-cream", name: "Foot cream urea 10%", category: "Foot care", unit: "75 ml tube", inStock: 3, reorderAt: 8, usagePerWeek: 5, supplier: "Podoshop", unitCost: 89, onOrder: 0 },
-  { id: "massage-oil-neutral", name: "Massage oil, unscented", category: "Massage", unit: "1 l bottle", inStock: 1, reorderAt: 3, usagePerWeek: 1.5, supplier: "Spagrossisten", unitCost: 245, onOrder: 0 },
-  { id: "cuticle-oil", name: "Cuticle oil", category: "Foot care", unit: "15 ml bottle", inStock: 14, reorderAt: 5, usagePerWeek: 1, supplier: "Podoshop", unitCost: 59, onOrder: 0 },
-  { id: "foot-files", name: "Disposable foot files", category: "Foot care", unit: "pack of 50", inStock: 6, reorderAt: 2, usagePerWeek: 0.6, supplier: "Podoshop", unitCost: 210, onOrder: 0 },
-  { id: "scalpel-blades", name: "Scalpel blades no. 15", category: "Foot care", unit: "pack of 100", inStock: 4, reorderAt: 1, usagePerWeek: 0.3, supplier: "Medicinab", unitCost: 320, onOrder: 0 },
-  { id: "felt-padding", name: "Pressure relief felt", category: "Foot care", unit: "sheet", inStock: 22, reorderAt: 8, usagePerWeek: 2, supplier: "Podoshop", unitCost: 35, onOrder: 0 },
-  { id: "corn-plasters", name: "Corn plasters", category: "Foot care", unit: "pack of 10", inStock: 9, reorderAt: 4, usagePerWeek: 1, supplier: "Medicinab", unitCost: 48, onOrder: 0 },
-  { id: "foot-bath-salt", name: "Foot bath salt", category: "Foot care", unit: "1 kg jar", inStock: 5, reorderAt: 2, usagePerWeek: 0.5, supplier: "Spagrossisten", unitCost: 129, onOrder: 0 },
-  { id: "massage-oil-eucalyptus", name: "Massage oil, eucalyptus", category: "Massage", unit: "500 ml bottle", inStock: 6, reorderAt: 2, usagePerWeek: 0.7, supplier: "Spagrossisten", unitCost: 189, onOrder: 0 },
-  { id: "couch-roll", name: "Couch paper roll", category: "Hygiene", unit: "roll", inStock: 11, reorderAt: 4, usagePerWeek: 1.5, supplier: "Medicinab", unitCost: 79, onOrder: 0 },
-  { id: "gloves", name: "Nitrile gloves M", category: "Hygiene", unit: "pack of 100", inStock: 7, reorderAt: 3, usagePerWeek: 1, supplier: "Medicinab", unitCost: 95, onOrder: 0 },
-  { id: "skin-disinfectant", name: "Skin disinfectant", category: "Hygiene", unit: "500 ml bottle", inStock: 5, reorderAt: 2, usagePerWeek: 0.6, supplier: "Medicinab", unitCost: 119, onOrder: 0 },
-  { id: "surface-disinfectant", name: "Surface disinfectant", category: "Hygiene", unit: "1 l bottle", inStock: 4, reorderAt: 2, usagePerWeek: 0.5, supplier: "Medicinab", unitCost: 99, onOrder: 0 },
-  { id: "glass-file", name: "Glass nail file (retail)", category: "Retail", unit: "each", inStock: 12, reorderAt: 4, usagePerWeek: 1, supplier: "Podoshop", unitCost: 65, onOrder: 0, salePrice: 149 },
-  { id: "home-foot-cream", name: "Home care foot cream (retail)", category: "Retail", unit: "100 ml tube", inStock: 9, reorderAt: 4, usagePerWeek: 1.2, supplier: "Podoshop", unitCost: 95, onOrder: 0, salePrice: 219 },
+  { id: "urea-cream", name: copy("stock.urea-cream"), category: copy("stockCategory.foot"), unit: copy("stockUnit.tube75"), inStock: 3, reorderAt: 8, usagePerWeek: 5, supplier: "Podoshop", unitCost: 89, onOrder: 0 },
+  { id: "massage-oil-neutral", name: copy("stock.massage-oil-neutral"), category: copy("stockCategory.massage"), unit: copy("stockUnit.bottle1l"), inStock: 1, reorderAt: 3, usagePerWeek: 1.5, supplier: "Spagrossisten", unitCost: 245, onOrder: 0 },
+  { id: "cuticle-oil", name: copy("stock.cuticle-oil"), category: copy("stockCategory.foot"), unit: copy("stockUnit.bottle15"), inStock: 14, reorderAt: 5, usagePerWeek: 1, supplier: "Podoshop", unitCost: 59, onOrder: 0 },
+  { id: "foot-files", name: copy("stock.foot-files"), category: copy("stockCategory.foot"), unit: copy("stockUnit.pack50"), inStock: 6, reorderAt: 2, usagePerWeek: 0.6, supplier: "Podoshop", unitCost: 210, onOrder: 0 },
+  { id: "scalpel-blades", name: copy("stock.scalpel-blades"), category: copy("stockCategory.foot"), unit: copy("stockUnit.pack100"), inStock: 4, reorderAt: 1, usagePerWeek: 0.3, supplier: "Medicinab", unitCost: 320, onOrder: 0 },
+  { id: "felt-padding", name: copy("stock.felt-padding"), category: copy("stockCategory.foot"), unit: copy("stockUnit.sheet"), inStock: 22, reorderAt: 8, usagePerWeek: 2, supplier: "Podoshop", unitCost: 35, onOrder: 0 },
+  { id: "corn-plasters", name: copy("stock.corn-plasters"), category: copy("stockCategory.foot"), unit: copy("stockUnit.pack10"), inStock: 9, reorderAt: 4, usagePerWeek: 1, supplier: "Medicinab", unitCost: 48, onOrder: 0 },
+  { id: "foot-bath-salt", name: copy("stock.foot-bath-salt"), category: copy("stockCategory.foot"), unit: copy("stockUnit.jar1kg"), inStock: 5, reorderAt: 2, usagePerWeek: 0.5, supplier: "Spagrossisten", unitCost: 129, onOrder: 0 },
+  { id: "massage-oil-eucalyptus", name: copy("stock.massage-oil-eucalyptus"), category: copy("stockCategory.massage"), unit: copy("stockUnit.bottle500"), inStock: 6, reorderAt: 2, usagePerWeek: 0.7, supplier: "Spagrossisten", unitCost: 189, onOrder: 0 },
+  { id: "couch-roll", name: copy("stock.couch-roll"), category: copy("stockCategory.hygiene"), unit: copy("stockUnit.roll"), inStock: 11, reorderAt: 4, usagePerWeek: 1.5, supplier: "Medicinab", unitCost: 79, onOrder: 0 },
+  { id: "gloves", name: copy("stock.gloves"), category: copy("stockCategory.hygiene"), unit: copy("stockUnit.pack100"), inStock: 7, reorderAt: 3, usagePerWeek: 1, supplier: "Medicinab", unitCost: 95, onOrder: 0 },
+  { id: "skin-disinfectant", name: copy("stock.skin-disinfectant"), category: copy("stockCategory.hygiene"), unit: copy("stockUnit.bottle500"), inStock: 5, reorderAt: 2, usagePerWeek: 0.6, supplier: "Medicinab", unitCost: 119, onOrder: 0 },
+  { id: "surface-disinfectant", name: copy("stock.surface-disinfectant"), category: copy("stockCategory.hygiene"), unit: copy("stockUnit.bottle1l"), inStock: 4, reorderAt: 2, usagePerWeek: 0.5, supplier: "Medicinab", unitCost: 99, onOrder: 0 },
+  { id: "glass-file", name: copy("stock.glass-file"), category: copy("stockCategory.retail"), unit: copy("stockUnit.each"), inStock: 12, reorderAt: 4, usagePerWeek: 1, supplier: "Podoshop", unitCost: 65, onOrder: 0, salePrice: 149 },
+  { id: "home-foot-cream", name: copy("stock.home-foot-cream"), category: copy("stockCategory.retail"), unit: copy("stockUnit.tube100"), inStock: 9, reorderAt: 4, usagePerWeek: 1.2, supplier: "Podoshop", unitCost: 95, onOrder: 0, salePrice: 219 },
 ];
 
 const SUPPLIERS: Supplier[] = [
@@ -209,33 +214,33 @@ const JOURNAL_MASSAGE: JournalText[] = [
 const REVIEW_TEXT: { foot: ReviewTexts; massage: ReviewTexts } = {
   foot: {
     5: [
-      "Anna is so thorough and calm. My feet feel brand new!",
-      "Best foot care I have ever had. Clean, warm and professional.",
-      "Finally someone who takes my diabetic feet seriously. Thank you!",
-      "Cosy salon and Anna explains everything she does. Will be back.",
-      "The corn is gone after two visits. Fantastic.",
+      copy("review.foot.5.1"),
+      copy("review.foot.5.2"),
+      copy("review.foot.5.3"),
+      copy("review.foot.5.4"),
+      copy("review.foot.5.5"),
     ],
     4: [
-      "Very good treatment, just a bit hard to find parking.",
-      "Skilled foot therapist. Would love more evening slots.",
-      "Lovely and thorough, a little pricey but worth it.",
+      copy("review.foot.4.1"),
+      copy("review.foot.4.2"),
+      copy("review.foot.4.3"),
     ],
-    3: ["Good treatment but I waited 15 minutes for my appointment.", "Fine, but it felt a bit rushed this time."],
-    2: ["Long wait and it felt rushed."],
+    3: [copy("review.foot.3.1"), copy("review.foot.3.2")],
+    2: [copy("review.foot.2.1")],
   },
   massage: {
     5: [
-      "Erik found exactly the right spots in my shoulders. Walked out a new person.",
-      "Calm room, warm oil and perfect pressure.",
-      "Best massage in Vasastan. Already booked the next one.",
-      "My calves thank you for the deep tissue massage before the race!",
+      copy("review.massage.5.1"),
+      copy("review.massage.5.2"),
+      copy("review.massage.5.3"),
+      copy("review.massage.5.4"),
     ],
     4: [
-      "Really nice massage. The room was a little cold at first.",
-      "Good pressure and friendly welcome. Would have liked a bit more time.",
+      copy("review.massage.4.1"),
+      copy("review.massage.4.2"),
     ],
-    3: ["Good massage but the pressure was too light for me.", "Okay, but the music was too loud."],
-    2: ["Had hoped for more focus on my neck as I asked."],
+    3: [copy("review.massage.3.1"), copy("review.massage.3.2")],
+    2: [copy("review.massage.2.1")],
   },
 };
 
@@ -270,16 +275,16 @@ export const footMassage: Pack = {
   journalFor: { "spa-foot-care": JOURNAL_FOOT[4], "ingrown-nail": JOURNAL_FOOT[2] },
   reviews: [REVIEW_TEXT.foot, REVIEW_TEXT.massage],
   freshReviews: {
-    happy: "Such a calm place. Anna took her time and explained why I get calluses. Warmly recommended!",
-    meh: "Lovely massage, but I waited almost 15 minutes before we got started.",
+    happy: copy("review.happy"),
+    meh: copy("review.meh"),
   },
   featured: ["spa-foot-care", "medical-foot-care", "relax-90", "classic-60"],
   requests: {
-    returning: { serviceId: "medical-foot-care", body: "Hi! Do you have a foot care slot on Thursday afternoon? It is that time again." },
+    returning: { serviceId: "medical-foot-care", body: copy("inbox.returning") },
     newClient: {
       name: "Tove Sjölund",
-      body: "Hi, my big toenail has been sore for a week. Could I come in soon? Tove, 070-188 21 07",
-      reply: "Hi Tove! That sounds like an ingrown nail – I can help with that. I have a slot for you, see below. /Anna",
+      body: copy("inbox.new"),
+      reply: copy("inbox.newReply"),
       serviceId: "ingrown-nail",
     },
   },
@@ -287,7 +292,7 @@ export const footMassage: Pack = {
   campaigns: [
     {
       id: "c-autumn",
-      name: "Autumn massage −15%",
+      name: copy("campaign.autumn"),
       serviceIds: ["classic-60", "deep-tissue"],
       discountPercent: 15,
       startsInDays: -78,
@@ -299,7 +304,7 @@ export const footMassage: Pack = {
     },
     {
       id: "c-bundle",
-      name: "Foot care + calf massage bundle",
+      name: copy("campaign.bundle"),
       serviceIds: ["medical-foot-care", "foot-calf-massage"],
       discountPercent: 10,
       startsInDays: -9,

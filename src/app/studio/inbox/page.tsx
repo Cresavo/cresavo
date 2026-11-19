@@ -2,7 +2,8 @@
 
 import { PairedInbox } from "@/concept/studio/pairing/inbox";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCheck, Inbox as InboxIcon, MousePointerClick } from "lucide-react";
 import type { InboxItem } from "@/concept/data/types";
 import { t, tc } from "@/concept/i18n";
@@ -23,7 +24,7 @@ import { Card, Section } from "@/concept/ui/card";
 import { Segmented } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
 import { Sheet } from "@/concept/ui/sheet";
-import { showToast } from "@/concept/ui/toast";
+import { showActionFailure, showToast } from "@/concept/ui/toast";
 
 type Filter = "all" | "unread" | "requests" | "reviews" | "sent";
 
@@ -36,8 +37,14 @@ const matches: Record<Filter, (item: InboxItem) => boolean> = {
 };
 
 export default function InboxPage() {
+  return <Suspense><InboxPageContent /></Suspense>;
+}
+
+function InboxPageContent() {
   const { state, today, minutes } = useStudio();
-  const [filter, setFilter] = useState<Filter>("all");
+  const router = useRouter();
+  const param = useSearchParams()?.get("filter");
+  const filter = param && Object.hasOwn(matches, param) ? param as Filter : "all";
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   useEffect(() => {
@@ -52,7 +59,7 @@ export default function InboxPage() {
   const { proposals, decide } = useAgentProposals(!state.industry);
 
   const approve = (proposal: AgentProposal) => {
-    if (!showUndoToast(proposal.toast, decide(proposal, true))) showToast(t("agents.failed"));
+    if (!showUndoToast(proposal.toast, decide(proposal, true))) showActionFailure("agents.failed", proposal.id);
   };
   const decline = (proposal: AgentProposal) => {
     decide(proposal, false);
@@ -65,7 +72,7 @@ export default function InboxPage() {
     if (!item.read) dispatch({ type: "inbox/read", id: item.id });
   };
 
-  if (state.industry && !state.inbox.length && !proposals.length) {
+  if (filter !== "sent" && state.industry && !state.inbox.length && !proposals.length) {
     return <>
       <PageHeader title={t("inbox.title")} />
       <PairedInbox />
@@ -98,7 +105,10 @@ export default function InboxPage() {
       <Segmented<Filter>
         label={t("inbox.filter")}
         value={filter}
-        onChange={setFilter}
+        onChange={(next) => {
+          if (next !== filter && selected && !matches[next](selected)) setSelectedId(null);
+          router.replace(next === "all" ? "/studio/inbox" : `/studio/inbox?filter=${next}`, { scroll: false });
+        }}
         className="mb-4 w-full sm:w-auto"
         options={[
           { value: "all", label: t("inbox.filter.all") },
@@ -123,7 +133,7 @@ export default function InboxPage() {
             <Card className="p-6">
               <InboxDetail key={selected.id} item={selected} />
             </Card>
-          ) : (
+          ) : items.length > 0 && (
             <EmptyState icon={<MousePointerClick size={22} />} title={t("inbox.pick")} text={t("inbox.pickText")} />
           )}
         </div>

@@ -5,7 +5,7 @@ import { Copy, Trash2 } from "lucide-react";
 import type { DemoState, Service, StaffId } from "../../data/types";
 import { t } from "../../i18n";
 import { DURATION_STEP, MAX_DESCRIPTION, MAX_DURATION, MAX_NAME, MAX_PRICE, MIN_DURATION, serviceIssues, type ServiceDraft, type ServiceIssue } from "../../services/edit";
-import { dispatchWithLog } from "../../store";
+import { currentState, dispatchWithLog } from "../../store";
 import { Button } from "../../ui/button";
 import { Chip, Field, Select, Switch, TextArea, TextInput } from "../../ui/controls";
 import { Notice } from "../../ui/notice";
@@ -50,7 +50,13 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
     if (issues.length) return;
     const label = name.trim();
     if (service) {
-      const changed = dispatchWithLog({ type: "service/update", id: service.id, service: draft });
+      const stored = currentState()?.services.find(({ id }) => id === service.id);
+      const change = {
+        ...draft,
+        name: draft.name.trim() === service.name ? stored?.name ?? draft.name : draft.name,
+        description: draft.description.trim() === service.description ? stored?.description ?? draft.description : draft.description,
+      };
+      const changed = dispatchWithLog({ type: "service/update", id: service.id, service: change });
       const toggled = dispatchWithLog({ type: "service/visibility", id: service.id, hidden: !visible });
       if (changed && toggled) showToast(t("services.saved", { name: label }));
       else showUndoToast(t("services.saved", { name: label }), changed || toggled);

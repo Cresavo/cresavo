@@ -65,17 +65,17 @@ export function NextCustomer({ staffId, onOpen }: { staffId?: StaffId; onOpen: (
             {advice}
           </p>
         )}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="flex flex-wrap gap-2 [&>*]:flex-1">
           <ButtonLink href={`/studio/customers/${customer.id}`} variant="secondary" size="sm" className="px-2" icon={<UserRound size={16} />}>
             {t("next.profile")}
           </ButtonLink>
           <Button variant="secondary" size="sm" className="px-2" icon={<CalendarClock size={16} />} onClick={() => onOpen({ kind: "booking", id: booking.id, mode: "move" })}>
             {t("booking.move")}
           </Button>
-          <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className={buttonClass("secondary", "sm", "px-2")}>
+          {customer.phone.trim() && <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className={buttonClass("secondary", "sm", "px-2")}>
             <Phone size={16} />
             {t("next.call")}
-          </a>
+          </a>}
         </div>
       </Card>
     </Section>

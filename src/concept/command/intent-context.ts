@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import type { DateKey, DemoState } from "../data/types";
+import { fixtureServiceAliases } from "../i18n/salon-eko-copy";
 import type { IntentContext } from "../intent";
 import { fullName } from "../selectors";
 
@@ -17,7 +18,10 @@ function instant(date: DateKey, minutes: number): string {
 export function buildIntentContext(state: DemoState, today: DateKey, minutes: number): IntentContext {
   return {
     customers: state.customers.map((c) => ({ id: c.id, name: fullName(c) })),
-    services: state.services.map((s) => ({ id: s.id, name: s.name, durationMin: s.duration, priceSek: s.price })),
+    services: state.services.map((s) => ({
+      id: s.id, name: s.name, durationMin: s.duration, priceSek: s.price,
+      aliases: state.industry ? undefined : fixtureServiceAliases(s).filter((name) => name !== s.name),
+    })),
     staff: state.staff.map((s) => ({ id: s.id, name: s.firstName })),
     bookings: state.bookings
       .filter((b) => b.status === "booked" && b.date >= today)
