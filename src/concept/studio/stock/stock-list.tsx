@@ -1,3 +1,4 @@
+import { ListRow } from "../../ui/list-row";
 import { Minus, PackageCheck, Plus } from "lucide-react";
 import type { StockItem } from "../../data/types";
 import { t, tc } from "../../i18n";
@@ -25,30 +26,26 @@ export function StockList({ onEdit }: { onEdit: (item: StockItem) => void }) {
               const isLow = item.inStock <= item.reorderAt;
               const left = days.get(item.id);
               return (
-                <div key={item.id} className="flex items-center gap-3 px-4 py-3">
-                  <button type="button" onClick={() => onEdit(item)} className="min-w-0 flex-1 space-y-1.5 text-left">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium"><span className="sr-only">{t("stock.edit")} </span>{item.name}</span>
+                <div key={item.id} className="flex items-center gap-2 pr-2">
+                  <ListRow className="flex-1" onClick={() => onEdit(item)}
+                    title={<span className="flex flex-wrap items-center gap-2">
+                      <span><span className="sr-only">{t("stock.edit")} </span>{item.name}</span>
                       {isLow && <Badge tone="warn">{t("stock.low")}</Badge>}
-                      {item.onOrder > 0 && (
-                        <Badge tone="accent">
-                          <PackageCheck size={12} />
-                          {t("stock.onOrder", { count: item.onOrder })}
-                        </Badge>
-                      )}
-                    </span>
-                    <span className="block text-xs text-text-secondary">
-                      {item.unit} · {item.supplier} · {t("stock.reorderAt", { count: item.reorderAt })}
-                      {isLow && left !== null && left !== undefined && ` · ${left < 1 ? t("stock.almostOut") : tc("stock.runsOut", left)}`}
-                    </span>
-                    <Meter value={item.inStock / (item.reorderAt * 2.5)} className="max-w-xs" />
-                  </button>
+                      {item.onOrder > 0 && <Badge tone="accent" icon={PackageCheck}>{t("stock.onOrder", { count: item.onOrder })}</Badge>}
+                    </span>}
+                    meta={<>
+                      <span className="block">
+                        {item.unit} · {item.supplier} · {t("stock.reorderAt", { count: item.reorderAt })}
+                        {isLow && left !== null && left !== undefined && ` · ${left < 1 ? t("stock.almostOut") : tc("stock.runsOut", left)}`}
+                      </span>
+                      <Meter value={item.inStock / (item.reorderAt * 2.5)} className="max-w-xs" />
+                    </>} />
                   <div className="flex shrink-0 items-center gap-1">
-                    <IconButton label={t("stock.remove")} onClick={() => dispatch({ type: "stock/adjust", id: item.id, delta: -1 })} className="size-10 ring-1 ring-hairline">
+                    <IconButton label={t("stock.remove")} onClick={() => dispatch({ type: "stock/adjust", id: item.id, delta: -1 })} className="ring-1 ring-hairline">
                       <Minus size={16} />
                     </IconButton>
                     <span className="w-10 text-center font-semibold tabular-nums">{formatAmount(item.inStock)}</span>
-                    <IconButton label={t("stock.add")} onClick={() => dispatch({ type: "stock/adjust", id: item.id, delta: 1 })} className="size-10 ring-1 ring-hairline">
+                    <IconButton label={t("stock.add")} onClick={() => dispatch({ type: "stock/adjust", id: item.id, delta: 1 })} className="ring-1 ring-hairline">
                       <Plus size={16} />
                     </IconButton>
                   </div>

@@ -1,3 +1,4 @@
+import { IconButton } from "../../ui/button";
 import Image from "next/image";
 import { ImagePlus, X } from "lucide-react";
 import { JOURNAL_PHOTOS } from "../../customers/journal";
@@ -40,18 +41,17 @@ export function JournalPhotoPicker({ value, onChange }: { value: JournalPhotos; 
         {SLOTS.map((slot) => {
           const which = t(`journal.photo.${slot}`).toLowerCase();
           return (
-            <div key={slot} className="space-y-1.5">
+            <div key={slot} className="space-y-2">
               {value[slot] ? (
                 <div className="relative">
                   <Photo src={value[slot]} slot={slot} />
-                  <button
-                    type="button"
-                    aria-label={t("journal.photo.remove", { which })}
+                  <IconButton
+                    label={t("journal.photo.remove", { which })}
                     onClick={() => onChange({ ...value, [slot]: undefined })}
-                    className="absolute right-1.5 top-1.5 flex size-8 items-center justify-center rounded-full bg-black/55 text-white"
+                    className="!absolute right-2 top-2 bg-surface text-text"
                   >
                     <X size={16} />
-                  </button>
+                  </IconButton>
                 </div>
               ) : (
                 <div className="flex aspect-[4/3] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-hairline text-text-secondary">
@@ -59,18 +59,17 @@ export function JournalPhotoPicker({ value, onChange }: { value: JournalPhotos; 
                   <span className="text-xs">{t("journal.photo.add", { which })}</span>
                 </div>
               )}
-              <div className="flex gap-1.5" role="group" aria-label={t("journal.photo.choose", { which })}>
+              <div className="flex gap-2" role="group" aria-label={t("journal.photo.choose", { which })}>
                 {JOURNAL_PHOTOS.map((src, index) => (
-                  <button
+                  <IconButton
                     key={src}
-                    type="button"
-                    aria-label={`${t("journal.photo.choose", { which })} ${index + 1}`}
+                    label={`${t("journal.photo.choose", { which })} ${index + 1}`}
                     aria-pressed={value[slot] === src}
                     onClick={() => onChange({ ...value, [slot]: src })}
                     className={cx("relative size-11 overflow-hidden rounded-sm ring-1 ring-hairline", value[slot] === src && "ring-2 ring-action")}
                   >
                     <Image src={src} alt="" fill sizes="44px" className="object-cover" />
-                  </button>
+                  </IconButton>
                 ))}
               </div>
             </div>

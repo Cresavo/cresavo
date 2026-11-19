@@ -40,9 +40,9 @@ export function StaffSchedule({ person }: { person: Staff }) {
         })}
       </dl>
       {exceptions.length > 0 && (
-        <ul className="space-y-1.5">
+        <ul className="space-y-2">
           {exceptions.map((e) => (
-            <li key={e.id} className="flex items-center gap-2 rounded-md bg-surface-2 px-3 py-1.5 text-sm">
+            <li key={e.id} className="flex items-center gap-2 rounded-md bg-surface-2 px-3 py-2 text-sm">
               <span className="min-w-0 flex-1">
                 <span className="font-medium">{formatDayShort(e.date)}</span>{" "}
                 <span className="text-text-secondary">{e.kind === "off" ? t(`schedule.reason.${e.reason}`) : t("schedule.shiftText", { from: formatTime(e.start), to: formatTime(e.end) })}</span>

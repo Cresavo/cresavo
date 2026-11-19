@@ -37,7 +37,7 @@ export function RoutinesPanel() {
                   <p className="font-medium">{routine.name}</p>
                   <p className="text-sm text-text-secondary">{scheduleText(routine)} · {reason}</p>
                 </div>
-                <Button size="sm" onClick={() => {
+                <Button variant="secondary" size="sm" onClick={() => {
                   dispatchWithUndoToast({ type: "routine/add", routine }, t("assistant.routine.on", { name: routine.name }), ASSISTANT);
                 }}>
                   {t("assistant.routine.switchOn")}
@@ -63,11 +63,11 @@ function RoutineCard({ routine }: { routine: Routine }) {
         <Switch checked={routine.enabled} label={routine.name} onChange={() => dispatch({ type: "routine/toggle", id: routine.id, at: slotKey(today, minutes) }, ASSISTANT)} />
       </div>
       <p className="text-sm">{routine.description}</p>
-      <ol className="list-decimal space-y-0.5 pl-5 text-sm text-text-secondary">
+      <ol className="list-decimal space-y-1 pl-5 text-sm text-text-secondary">
         {routine.steps.map((step) => <li key={step}>{step}</li>)}
       </ol>
       <details className="text-sm">
-        <summary className="cursor-pointer font-medium text-action">{t("routine.skillFile")}</summary>
+        <summary className="min-h-target cursor-pointer py-3 font-medium text-action">{t("routine.skillFile")}</summary>
         <pre className="mt-2 overflow-x-auto rounded-md bg-surface-2 p-3 text-xs leading-relaxed">{toSkillMd(routine)}</pre>
       </details>
       <Button size="sm" variant="secondary" icon={<Play size={16} />} onClick={() => {

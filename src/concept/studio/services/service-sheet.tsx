@@ -110,7 +110,7 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
         {service && <p className="text-xs text-text-secondary">{t("services.priceHint")}</p>}
 
         <details className="group border-t border-hairline pt-2" open={!!moreIssue || undefined}>
-          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-[15px] font-medium [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-body font-medium [&::-webkit-details-marker]:hidden">
             {t("services.moreOptions")}
             <span aria-hidden className="text-text-secondary transition-transform group-open:rotate-90">›</span>
           </summary>
@@ -119,7 +119,7 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
               <TextArea value={description} maxLength={MAX_DESCRIPTION} onChange={(e) => setDescription(e.target.value)} />
             </Field>
             {state.staff.length > 1 && (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <p className="text-sm font-medium">{t("services.staff")}</p>
                 <div className="flex flex-wrap gap-2">
                   {state.staff.map((person) => (

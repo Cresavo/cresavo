@@ -43,9 +43,9 @@ export function TrashList() {
             const blocked = restoreBlockReason(state, entry);
             const restorable = !blocked;
             return (
-              <li key={entry.id} className="flex items-start gap-3 px-4 py-3.5">
+              <li key={entry.id} className="flex items-start gap-3 px-4 py-4">
                 <div className="min-w-0 flex-1 space-y-1">
-                  <p className="text-[15px] font-medium leading-snug">{title}</p>
+                  <p className="text-body font-medium leading-snug">{title}</p>
                   <p className="text-sm text-text-secondary">{detail}</p>
                   <p className="text-xs text-text-secondary">
                     {t(entry.kind === "customer" ? "trash.deleted" : "trash.cancelled", { date: formatDate(entry.deletedOn) })} · {tc("trash.daysLeft", daysLeft(entry, today))}

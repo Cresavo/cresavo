@@ -1,5 +1,6 @@
 "use client";
 
+import { ListRow } from "../../ui/list-row";
 import { addDays } from "../../data/dates";
 import { openingFor } from "../../data/slots";
 import type { DateKey, Staff } from "../../data/types";
@@ -7,6 +8,7 @@ import { t, tc } from "../../i18n";
 import { formatDayLong, formatTime } from "../../i18n/format";
 import { dayBookings, findCustomer, findService, fullName, utilisation } from "../../selectors";
 import { Card } from "../../ui/card";
+import { Badge } from "../../ui/badge";
 import { Meter } from "../../ui/charts";
 import type { OpenSheet } from "../booking/booking-sheets";
 import { StaffDot } from "../staff-dot";
@@ -26,7 +28,8 @@ export function WeekAgenda({ monday, staff, resourceId, onOpen }: { monday: Date
             <div className="flex items-center gap-3 px-4 py-3">
               <div className="min-w-0 flex-1">
                 <p className={d === today ? "font-semibold text-action" : "font-semibold"}>{formatDayLong(d)}</p>
-                <p className="text-xs text-text-secondary">{closed ? t("calendar.closed") : tc("calendar.bookingCount", list.length)}</p>
+                {closed ? <Badge>{t("calendar.closed")}</Badge>
+                  : <p className="text-meta text-text-secondary">{tc("calendar.bookingCount", list.length)}</p>}
               </div>
               {!closed && <Meter value={utilisation(state, d, 1, staffId)} className="w-20" />}
             </div>
@@ -36,15 +39,11 @@ export function WeekAgenda({ monday, staff, resourceId, onOpen }: { monday: Date
                   const customer = findCustomer(state, b.customerId);
                   return (
                     <li key={b.id}>
-                      <button onClick={() => onOpen({ kind: "booking", id: b.id })} className="flex min-h-12 w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-surface-2">
-                        <span className="w-11 shrink-0 font-medium tabular-nums">{formatTime(b.start)}</span>
-                        <StaffDot staffId={b.staffId} />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate">{customer ? fullName(customer) : ""}</span>
-                          {staff.length > 1 && <span className="block text-sm text-text-secondary">{staff.find((person) => person.id === b.staffId)?.firstName}</span>}
-                        </span>
-                        <span className="max-w-[40%] truncate text-text-secondary">{findService(state, b.serviceId)?.name}</span>
-                      </button>
+                      <ListRow onClick={() => onOpen({ kind: "booking", id: b.id })}
+                        leading={<><span className="w-12 shrink-0 font-medium tabular-nums">{formatTime(b.start)}</span><StaffDot staffId={b.staffId} /></>}
+                        title={customer ? fullName(customer) : ""}
+                        meta={staff.length > 1 ? staff.find((person) => person.id === b.staffId)?.firstName : undefined}
+                        trailing={<span className="max-w-24 break-words text-meta text-text-secondary">{findService(state, b.serviceId)?.name}</span>} />
                     </li>
                   );
                 })}

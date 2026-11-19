@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import Link from "next/link";
 import { Check, Minus, Plus, Send, UserRoundCheck } from "lucide-react";
 import { dueBackList, MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "@/concept/customers/return-visits";
 import { t, tc } from "@/concept/i18n";
@@ -17,6 +16,7 @@ import { Avatar } from "@/concept/ui/avatar";
 import { Badge } from "@/concept/ui/badge";
 import { IconButton } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
+import { ListRow } from "@/concept/ui/list-row";
 import { EmptyState } from "@/concept/ui/empty-state";
 
 export default function DueBackPage() {
@@ -38,20 +38,19 @@ export default function DueBackPage() {
               {due.map((row) => {
                 const time = suggestedTime(state, row.customer, row.service, today);
                 return (
-                  <div key={row.customer.id} className="flex items-center gap-2 px-4 py-3">
-                    <Link href={`/studio/customers/${row.customer.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                      <Avatar name={fullName(row.customer)} />
-                      <span className="min-w-0">
-                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="truncate font-medium">{fullName(row.customer)}</span>
-                          <Badge tone={row.overdueDays ? "warn" : "neutral"}>
-                            {row.overdueDays ? tc("dueBack.overdue", row.overdueDays) : t("dueBack.dueToday")}
-                          </Badge>
-                        </span>
-                        <span className="block text-sm text-text-secondary">{t("dueBack.due", { service: row.service.name, date: formatDate(row.dueDate) })}</span>
-                        <span className="block text-sm text-text-secondary">{time ? t("dueBack.suggests", time) : t("dueBack.noSlot")}</span>
-                      </span>
-                    </Link>
+                  <div key={row.customer.id} className="flex items-center gap-2 pr-2">
+                    <ListRow href={`/studio/customers/${row.customer.id}`} className="flex-1"
+                      leading={<Avatar name={fullName(row.customer)} />}
+                      title={<span className="flex flex-wrap items-center gap-2">
+                        <span className="min-w-0 break-words">{fullName(row.customer)}</span>
+                        <Badge tone={row.overdueDays ? "warn" : "neutral"}>
+                          {row.overdueDays ? tc("dueBack.overdue", row.overdueDays) : t("dueBack.dueToday")}
+                        </Badge>
+                      </span>}
+                      meta={<>
+                        <span className="block">{t("dueBack.due", { service: row.service.name, date: formatDate(row.dueDate) })}</span>
+                        <span className="block">{time ? t("dueBack.suggests", time) : t("dueBack.noSlot")}</span>
+                      </>} />
                     <IconButton
                       label={row.sent ? t("dueBack.sent") : t("dueBack.send", { name: row.customer.firstName })}
                       className="shrink-0"
@@ -72,7 +71,7 @@ export default function DueBackPage() {
           <Card className="divide-y divide-hairline overflow-hidden">
             <p className="px-4 py-3 text-sm text-text-secondary">{t("dueBack.intervalsHint")}</p>
             {state.services.map((service) => (
-              <div key={service.id} className="flex items-center gap-2 px-4 py-2.5">
+              <div key={service.id} className="flex items-center gap-2 px-4 py-3">
                 <span className="min-w-0 flex-1 truncate text-sm">{service.name}</span>
                 <IconButton
                   label={t("dueBack.shorter", { service: service.name })}

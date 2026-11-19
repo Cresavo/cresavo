@@ -1,13 +1,13 @@
 "use client";
 
 import { useId, useContext, createContext, type CSSProperties, type AriaAttributes } from "react";
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type { ComponentPropsWithRef, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
 import { Search } from "lucide-react";
 import { cx } from "./cx";
 
 interface SegmentedProps<T extends string> {
   value: T;
-  options: { value: T; label: string; icon?: ReactNode; /** Name for the Help button's "Show me". */ help?: string }[];
+  options: { value: T; label: string; icon?: ReactNode; count?: number; /** Name for the Help button's "Show me". */ help?: string }[];
   onChange: (value: T) => void;
   label: string;
   className?: string;
@@ -27,7 +27,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, c
             role="radio"
             aria-checked={o.value === value}
             tabIndex={index === Math.max(0, selectedIndex) ? 0 : -1}
-            aria-label={o.icon ? o.label : undefined}
+            aria-label={o.icon ? (o.count === undefined ? o.label : `${o.label} ${o.count}`) : undefined}
             title={o.icon ? o.label : undefined}
             data-help={o.help}
             onClick={() => onChange(o.value)}
@@ -42,11 +42,12 @@ export function Segmented<T extends string>({ value, options, onChange, label, c
               onChange(options[next].value);
             }}
             className={cx(
-              "inline-flex min-h-target min-w-target items-center justify-center whitespace-nowrap rounded-sm px-3 text-body font-medium",
+              "inline-flex min-h-target min-w-target items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 text-body font-medium",
               o.value === value ? "text-on-action" : "text-text-secondary hover:text-text",
             )}
           >
             {o.icon ?? o.label}
+            {o.count !== undefined && <span className="text-meta">{o.count}</span>}
           </button>
         ))}
       </div>
@@ -174,12 +175,26 @@ export function Field({ label, children, hint, error }: { label: string; childre
   );
 }
 
-export function TextInput({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cx(fieldClass, "min-h-target", className)} {...rest} {...useFieldAria(rest)} />;
+export function Checkbox({ label, ...rest }: Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "className"> & { label: string }) {
+  return (
+    <label className="flex min-h-target cursor-pointer items-center gap-3 text-body">
+      <input {...rest} {...useFieldAria(rest)} type="checkbox" className="size-4 shrink-0 accent-action" />
+      {label}
+    </label>
+  );
 }
 
-export function TextArea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cx(fieldClass, "min-h-24 resize-y leading-relaxed", className)} {...rest} {...useFieldAria(rest)} />;
+export function TextInput({ className, type, ...rest }: ComponentPropsWithRef<"input">) {
+  return <input type={type} className={cx(fieldClass, "min-h-target", type === "color" && "cursor-pointer !p-1", className)} {...rest} {...useFieldAria(rest)} />;
+}
+
+export function TextArea({ className, variant = "field", ...rest }: ComponentPropsWithRef<"textarea"> & { variant?: "field" | "composer" }) {
+  return <textarea className={cx(
+    variant === "composer"
+      ? "ui-composer-input min-h-target min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-body placeholder:text-text-secondary"
+      : cx(fieldClass, "min-h-24 resize-y leading-relaxed"),
+    className,
+  )} {...rest} {...useFieldAria(rest)} />;
 }
 
 export function Select({ className, children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {

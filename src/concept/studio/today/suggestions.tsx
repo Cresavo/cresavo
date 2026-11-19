@@ -154,9 +154,9 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
   return (
     <>
       {shown.map((s) => (
-        <div key={s.id} className="flex gap-3 py-3.5 pl-4 pr-1">
-          <span aria-hidden className="mt-0.5 shrink-0 text-text-secondary">{s.icon}</span>
-          <div className="min-w-0 flex-1 space-y-0.5">
+        <div key={s.id} className="flex gap-3 py-4 pl-4 pr-1">
+          <span aria-hidden className="mt-1 shrink-0 text-text-secondary">{s.icon}</span>
+          <div className="min-w-0 flex-1 space-y-1">
             <p className="font-medium leading-snug">{s.title}</p>
             <p className="text-sm text-text-secondary">{s.text}</p>
             <div className="flex flex-wrap gap-2 pt-2">{s.actions}</div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "../../ui/controls";
 import { useEffect, useState } from "react";
 import { CircleAlert, RefreshCw } from "lucide-react";
 import { fetchAiOverview, PUBLIC_DEMO, saveAiSettings } from "../../ai/api-client";
@@ -52,12 +53,12 @@ export function AiSection() {
                 <p className="text-sm font-medium">{t(`ai.task.${task.name}`)}</p>
                 <p className="text-xs text-text-secondary">{t(`ai.task.${task.name}.description`)}</p>
               </div>
-              <select disabled={PUBLIC_DEMO} className="min-h-11 rounded-md border border-input-border bg-surface px-2 text-base" aria-label={t("ai.taskTier", { task: t(`ai.task.${task.name}`) })} value={task.tier} onChange={async event => {
+              <Select disabled={PUBLIC_DEMO} className="max-w-40" aria-label={t("ai.taskTier", { task: t(`ai.task.${task.name}`) })} value={task.tier} onChange={async event => {
                 try { setResult({ overview: await saveAiSettings({ task: task.name, tier: event.target.value as "fast" | "smart" }) }); }
                 catch { setResult({ failed: true }); }
               }}>
                 <option value="fast">{t("ai.tier.fast")}</option><option value="smart">{t("ai.tier.smart")}</option>
-              </select>
+              </Select>
               <div className="col-span-2">{task.provider ? <Badge tone="accent">{task.model}</Badge> : <Badge tone="neutral">{t("ai.rules")}</Badge>}</div>
             </li>
           ))}
@@ -84,7 +85,7 @@ export function AiSection() {
         {costLog.length ? (
           <ul className="divide-y divide-hairline">
             {costLog.map((entry, index) => (
-              <li key={entry.id ?? `${entry.timestamp}:${index}`} className="flex items-center gap-3 py-2.5 text-sm">
+              <li key={entry.id ?? `${entry.timestamp}:${index}`} className="flex items-center gap-3 py-3 text-sm">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{t(`ai.task.${entry.task as TaskName}`)}</p>
                   <p className="truncate text-xs text-text-secondary">

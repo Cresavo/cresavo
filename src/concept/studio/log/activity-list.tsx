@@ -12,7 +12,8 @@ import { undoBlockReason } from "../../log/undo";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
-import { Chip } from "../../ui/controls";
+import { SegmentedControl } from "../../ui/controls";
+import { ListRow } from "../../ui/list-row";
 import { EmptyState } from "../../ui/empty-state";
 import { useStudio } from "../use-studio";
 import { undoBlockMessageKey, undoWithToast } from "./undo-toast";
@@ -26,26 +27,23 @@ function entryTime(at: number, today: string): string {
 function Row({ entry, reason, today }: { entry: LogEntry; reason: ReturnType<typeof undoBlockReason>; today: string }) {
   const undoMessage = undoBlockMessageKey(reason);
   return (
-    <li className="flex items-start gap-3 px-4 py-3.5">
-      <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-[15px] font-medium leading-snug">{entry.summary}</p>
+    <li>
+      <ListRow title={entry.summary} meta={<>
         {(entry.before || entry.after) && (
-          <p className="text-sm text-text-secondary">
+          <span className="block">
             {entry.before && <span>{entry.before}</span>}
             {entry.before && entry.after && <span aria-label={t("log.then")}> → </span>}
             {entry.after && <span className="text-text">{entry.after}</span>}
-          </p>
+          </span>
         )}
-        <p className="text-xs text-text-secondary">
+        <span className="block">
           {entryTime(entry.at, today)} · {t(`log.actor.${entry.actor}`)} · {t(`log.source.${entry.source}`)}
-        </p>
-        {undoMessage && <p className="text-sm text-text-secondary">{t(undoMessage)}</p>}
-      </div>
-      {entry.undone ? (
-        <Badge>{t("log.undone")}</Badge>
-      ) : !reason ? (
+        </span>
+        {undoMessage && <span className="block">{t(undoMessage)}</span>}
+      </>}
+      trailing={entry.undone ? <Badge>{t("log.undone")}</Badge> : !reason && (
         <Button size="sm" variant="secondary" icon={<Undo2 size={16} />} onClick={() => undoWithToast(entry.id)}>{t("common.undo")}</Button>
-      ) : null}
+      )} />
     </li>
   );
 }
@@ -61,20 +59,14 @@ export function ActivityList() {
   if (!state.log.length) return <EmptyState icon={<History size={22} />} title={t("log.empty")} text={t("log.emptyText")} />;
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <div className="flex flex-wrap gap-2" role="group" aria-label={t("log.filter.who")}>
-          <Chip active={!filter.actor} onClick={() => setFilter({ ...filter, actor: undefined })}>{t("log.filter.all")}</Chip>
-          {actors.map((actor) => (
-            <Chip key={actor} active={filter.actor === actor} onClick={() => setFilter({ ...filter, actor })}>{t(`log.actor.${actor}`)}</Chip>
-          ))}
-        </div>
+      <div className="flex flex-wrap gap-2">
+        <SegmentedControl label={t("log.filter.who")} value={filter.actor ?? ""}
+          onChange={actor => setFilter({ ...filter, actor: actor || undefined })}
+          options={[{ value: "", label: t("log.filter.all") }, ...actors.map(value => ({ value, label: t(`log.actor.${value}`) }))]} />
         {sources.length > 1 && (
-          <div className="flex flex-wrap gap-2" role="group" aria-label={t("log.filter.where")}>
-            <Chip active={!filter.source} onClick={() => setFilter({ ...filter, source: undefined })}>{t("log.filter.anywhere")}</Chip>
-            {sources.map((source) => (
-              <Chip key={source} active={filter.source === source} onClick={() => setFilter({ ...filter, source })}>{t(`log.source.${source}`)}</Chip>
-            ))}
-          </div>
+          <SegmentedControl label={t("log.filter.where")} value={filter.source ?? ""}
+            onChange={source => setFilter({ ...filter, source: source || undefined })}
+            options={[{ value: "", label: t("log.filter.anywhere") }, ...sources.map(value => ({ value, label: t(`log.source.${value}`) }))]} />
         )}
       </div>
       {shown.length ? (

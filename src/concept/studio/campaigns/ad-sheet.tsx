@@ -3,6 +3,7 @@ import { AD_BUDGETS, AD_DAYS, AD_RADII_KM, estimateAd } from "../../campaigns/si
 import type { Campaign, CampaignAd } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { formatMoney, formatNumber } from "../../i18n/format";
+import { DemoBadge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Segmented } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
@@ -35,6 +36,7 @@ export function AdSheet({ campaign, area, open, onClose }: AdSheetProps) {
       description={t("campaigns.ad.subtitle")}
       footer={
         <>
+          <DemoBadge short />
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
           <Button onClick={start}>{t("campaigns.ad.start", { budget: formatMoney(ad.budget) })}</Button>
         </>

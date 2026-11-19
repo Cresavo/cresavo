@@ -21,23 +21,23 @@ export function TicketsList() {
           {state.tickets.map((ticket) => {
             const date = new Date(ticket.createdAt);
             return (
-              <li key={ticket.id} className="space-y-2 px-4 py-3.5">
+              <li key={ticket.id} className="space-y-2 px-4 py-4">
                 <div className="flex items-start justify-between gap-3">
-                  <p className="min-w-0 text-[15px] font-medium leading-snug">{ticket.question}</p>
+                  <p className="min-w-0 text-body font-medium leading-snug">{ticket.question}</p>
                   <Badge tone="accent">{t("tickets.open")}</Badge>
                 </div>
                 <p className="text-xs text-text-secondary">
                   {relativeDay(toKey(date), today)} {formatTime(date.getHours() * 60 + date.getMinutes())} · {ticket.path} · {t("tickets.request", { id: ticket.requestId.slice(0, 8) })}
                 </p>
                 <details className="text-sm">
-                  <summary className="cursor-pointer text-text-secondary hover:text-text">
+                  <summary className="min-h-target cursor-pointer py-3 text-text-secondary hover:text-text">
                     {t("tickets.attached", { screen: tc("ticket.lines", ticket.screen.length), activity: tc("ticket.changes", ticket.activity.length) })}
                   </summary>
                   <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                    <ul className="space-y-0.5 text-xs text-text-secondary">
+                    <ul className="space-y-1 text-xs text-text-secondary">
                       {ticket.screen.map((line) => <li key={line}>{line}</li>)}
                     </ul>
-                    <ul className="space-y-0.5 text-xs text-text-secondary">
+                    <ul className="space-y-1 text-xs text-text-secondary">
                       {ticket.activity.map((a) => <li key={`${a.at}-${a.summary}`}>{a.summary}</li>)}
                     </ul>
                   </div>

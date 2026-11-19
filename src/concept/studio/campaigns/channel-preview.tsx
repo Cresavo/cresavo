@@ -25,7 +25,7 @@ function Avatar({ size = 32 }: { size?: number }) {
   );
 }
 
-const frame = "mx-auto w-full max-w-sm overflow-hidden rounded-lg bg-surface text-[13px] leading-snug ring-1 ring-hairline";
+const frame = "mx-auto w-full max-w-sm overflow-hidden rounded-lg bg-surface text-meta leading-snug ring-1 ring-hairline";
 
 export function ChannelPreview({ channel, text, subject, salonName, post, story }: PreviewProps) {
   const handle = salonName.toLowerCase().replace(/\s+/g, "_");
@@ -33,12 +33,12 @@ export function ChannelPreview({ channel, text, subject, salonName, post, story 
     case "instagram":
       return (
         <div className={frame}>
-          <div className="flex items-center gap-2.5 px-3 py-2.5">
+          <div className="flex items-center gap-3 px-3 py-3">
             <Avatar />
             <span className="font-semibold">{handle}</span>
           </div>
           {post}
-          <div className="flex gap-3 px-3 pt-2.5 text-text">
+          <div className="flex gap-3 px-3 pt-3 text-text">
             <Heart size={20} />
             <MessageCircle size={20} />
             <Send size={20} />
@@ -51,7 +51,7 @@ export function ChannelPreview({ channel, text, subject, salonName, post, story 
     case "facebook":
       return (
         <div className={frame}>
-          <div className="flex items-center gap-2.5 px-3 py-2.5">
+          <div className="flex items-center gap-3 px-3 py-3">
             <Avatar size={36} />
             <span>
               <span className="block font-semibold">{salonName}</span>
@@ -60,12 +60,12 @@ export function ChannelPreview({ channel, text, subject, salonName, post, story 
               </span>
             </span>
           </div>
-          <p className="whitespace-pre-line px-3 pb-2.5">{text}</p>
+          <p className="whitespace-pre-line px-3 pb-3">{text}</p>
           {post}
           <div className="flex justify-around border-t border-hairline py-2 text-xs font-medium text-text-secondary">
-            <span className="flex items-center gap-1.5"><ThumbsUp size={14} />{t("campaigns.preview.like")}</span>
-            <span className="flex items-center gap-1.5"><MessageCircle size={14} />{t("campaigns.preview.comment")}</span>
-            <span className="flex items-center gap-1.5"><Share2 size={14} />{t("campaigns.preview.share")}</span>
+            <span className="flex items-center gap-2"><ThumbsUp size={14} />{t("campaigns.preview.like")}</span>
+            <span className="flex items-center gap-2"><MessageCircle size={14} />{t("campaigns.preview.comment")}</span>
+            <span className="flex items-center gap-2"><Share2 size={14} />{t("campaigns.preview.share")}</span>
           </div>
         </div>
       );
@@ -73,7 +73,7 @@ export function ChannelPreview({ channel, text, subject, salonName, post, story 
       return (
         <div className="relative mx-auto w-52 overflow-hidden rounded-lg bg-black ring-1 ring-hairline">
           {story}
-          <div className="absolute inset-x-0 bottom-0 space-y-1 bg-gradient-to-t from-black/85 to-transparent px-3 pb-3 pt-10 text-[11px] leading-snug text-white">
+          <div className="absolute inset-x-0 bottom-0 space-y-1 bg-gradient-to-t from-black/85 to-transparent px-3 pb-3 pt-12 text-minimum leading-snug text-white">
             <p className="font-semibold">@{handle}</p>
             <p className="line-clamp-4 whitespace-pre-line">{text}</p>
             <p className="flex items-center gap-1 text-white/80"><Music2 size={11} />{t("campaigns.preview.sound")}</p>
@@ -83,22 +83,22 @@ export function ChannelPreview({ channel, text, subject, salonName, post, story 
     case "newsletter":
       return (
         <div className={frame}>
-          <div className="space-y-0.5 border-b border-hairline px-3 py-2.5">
+          <div className="space-y-1 border-b border-hairline px-3 py-3">
             <p className="font-semibold">{subject}</p>
             <p className="text-xs text-text-secondary">{t("campaigns.preview.from", { name: salonName })}</p>
           </div>
           {post}
-          <p className="whitespace-pre-line px-3.5 py-3">{text}</p>
-          <p className="px-3.5 pb-4">
+          <p className="whitespace-pre-line px-4 py-3">{text}</p>
+          <p className="px-4 pb-4">
             <span className="inline-block rounded-md bg-action px-4 py-2 text-sm font-medium text-on-action">{t("campaigns.preview.bookButton")}</span>
           </p>
         </div>
       );
     case "sms":
       return (
-        <div className="mx-auto w-full max-w-xs space-y-1.5 rounded-lg bg-surface-2 p-3">
+        <div className="mx-auto w-full max-w-xs space-y-2 rounded-lg bg-surface-2 p-3">
           <p className="text-center text-xs text-text-secondary">{salonName}</p>
-          <p className="whitespace-pre-line rounded-lg rounded-tl-sm bg-surface px-3.5 py-2.5 text-[14px] leading-snug">{text}</p>
+          <p className="whitespace-pre-line rounded-lg rounded-tl-sm bg-surface px-4 py-3 text-meta leading-snug">{text}</p>
         </div>
       );
   }

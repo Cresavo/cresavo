@@ -10,6 +10,7 @@ import { dispatchWithLog } from "../../store";
 import { Button } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
 import { Segmented } from "../../ui/controls";
+import { StickyActionBar } from "../../ui/sticky-action-bar";
 import { ADVANCED_PAGE } from "../nav";
 import { useStudio } from "../use-studio";
 import { Preview } from "./preview";
@@ -47,17 +48,22 @@ export function PageEditor() {
         className="w-full lg:hidden"
       />
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        <div className={view === "edit" ? "space-y-6" : "hidden space-y-6 lg:block"}>
-          <Block title={t("pageEditor.look.title")}><ThemeControls theme={draft.theme} onChange={theme} /></Block>
-          <Block title={t("pageEditor.sections.title")}>
-            <SectionControls sections={draft.sections} instagram={draft.instagram} onChange={(sections) => change({ sections })} onInstagram={(instagram) => change({ instagram })} />
-          </Block>
-          <p className="text-meta text-text-secondary">{t("pageEditor.cssMoved")} <Link href={`${ADVANCED_PAGE}#styling`} className="font-medium text-text underline">{t("nav.advanced")}</Link></p>
-          <div className="sticky bottom-[calc(8.5rem+env(safe-area-inset-bottom))] sm:bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 flex flex-wrap items-center gap-2 rounded-lg bg-surface p-3 shadow-sheet ring-1 ring-hairline lg:bottom-4">
-            <p className="min-w-0 basis-full text-sm text-text-secondary sm:flex-1 sm:basis-auto">{dirty ? t("pageEditor.unsaved") : t("pageEditor.upToDate")}</p>
+        <div className={view === "edit" ? "studio-page-editor min-w-0" : "studio-page-editor hidden min-w-0 lg:block"}>
+          <StickyActionBar label={t("pageEditor.view.edit")} actions={<>
+            <p className="min-w-0 basis-full text-meta text-text-secondary sm:flex-1 sm:basis-auto">{dirty ? t("pageEditor.unsaved") : t("pageEditor.upToDate")}</p>
             <Button variant="ghost" icon={<Undo2 size={18} />} disabled={!dirty} onClick={() => setDraft(state.page)}>{t("pageEditor.discard")}</Button>
             <Button icon={<Save size={18} />} disabled={!dirty} onClick={save}>{t("pageEditor.save")}</Button>
-          </div>
+          </>}>
+            <div className="space-y-6">
+              <Block title={t("pageEditor.look.title")}><ThemeControls theme={draft.theme} onChange={theme} /></Block>
+              <Block title={t("pageEditor.sections.title")}>
+                <SectionControls sections={draft.sections} instagram={draft.instagram} onChange={(sections) => change({ sections })} onInstagram={(instagram) => change({ instagram })} />
+              </Block>
+              <p className="text-meta text-text-secondary">
+                {t("pageEditor.cssMoved")} <Link href={`${ADVANCED_PAGE}#styling`} className="inline-flex min-h-target min-w-target items-center font-medium text-text underline">{t("nav.advanced")}</Link>
+              </p>
+            </div>
+          </StickyActionBar>
         </div>
         <div className={view === "preview" ? "lg:sticky lg:top-4" : "hidden lg:sticky lg:top-4 lg:block"}>
           <Preview page={draft} slug={state.salon.slug} />

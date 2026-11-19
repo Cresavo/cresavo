@@ -6,7 +6,7 @@ import type { Channel, DateKey, DemoState } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { formatDate } from "../../i18n/format";
 import { Button } from "../../ui/button";
-import { Chip, Field, TextInput } from "../../ui/controls";
+import { Chip, Field, SegmentedControl, TextInput } from "../../ui/controls";
 import { ChannelPreview } from "./channel-preview";
 import { PosterView } from "./poster-view";
 
@@ -34,13 +34,8 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="space-y-4">
-        <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label={t("campaigns.publish.preview")}>
-          {draft.channels.map((channel) => (
-            <Chip key={channel} active={preview === channel} onClick={() => setSelected(channel)}>
-              {t(`channel.${channel}`)}
-            </Chip>
-          ))}
-        </div>
+        {preview && <SegmentedControl label={t("campaigns.publish.preview")} value={preview} onChange={setSelected}
+          options={draft.channels.map(value => ({ value, label: t(`channel.${value}`) }))} />}
         {preview && (
           <ChannelPreview
             channel={preview}
@@ -53,7 +48,7 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
         )}
       </div>
       <div className="space-y-5 lg:pt-1">
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <span className="block text-sm font-medium">{t("campaigns.publish.where")}</span>
           <div className="flex flex-wrap gap-2">
             {CHANNELS.map((channel) => (
@@ -64,16 +59,16 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
           </div>
         </div>
         <p className="text-sm text-text-secondary">{t("campaigns.publish.link", { link: draftLink(state, draft) })}</p>
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           <Button size="lg" className="w-full" icon={<Send size={18} />} disabled={!draft.channels.length} onClick={() => onPublish(today)}>
             {t("campaigns.publish.everywhere")}
           </Button>
           {scheduling ? (
-            <div className="space-y-3 rounded-lg bg-surface-2 p-3.5">
+            <div className="space-y-3 rounded-lg bg-surface-2 p-4">
               <Field label={t("campaigns.publish.day")} hint={formatDate(day)}>
                 <TextInput type="date" value={day} min={today} onChange={(event) => event.target.value && setDay(event.target.value)} />
               </Field>
-              <Button className="w-full" icon={<CalendarClock size={18} />} disabled={!draft.channels.length} onClick={() => onPublish(day)}>
+              <Button variant="secondary" className="w-full" icon={<CalendarClock size={18} />} disabled={!draft.channels.length} onClick={() => onPublish(day)}>
                 {day > today ? t("campaigns.publish.scheduleOn", { day: formatDate(day) }) : t("campaigns.publish.everywhere")}
               </Button>
             </div>

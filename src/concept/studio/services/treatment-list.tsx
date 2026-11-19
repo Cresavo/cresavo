@@ -1,10 +1,12 @@
+import { ListRow } from "../../ui/list-row";
 import { ArrowDown, ArrowUp, ChevronRight, Plus } from "lucide-react";
 import { useId } from "react";
 import type { DemoState, Service } from "../../data/types";
 import { t } from "../../i18n";
 import { formatDuration, formatMoney } from "../../i18n/format";
 import type { Direction } from "../../services/edit";
-import { IconButton } from "../../ui/button";
+import { Button, IconButton } from "../../ui/button";
+import { Badge } from "../../ui/badge";
 import { Card } from "../../ui/card";
 import { dispatchWithUndoToast } from "../log/undo-toast";
 import { ReorderItem, ReorderList } from "../reorder";
@@ -27,7 +29,7 @@ export function TreatmentList({ state, canEdit, showMoveButtons, onEdit, onAdd }
       enabled={canEdit}
       onReorder={(items, { name }) => dispatchWithUndoToast({ type: "category/reorder", ids: items.map((item) => item.id) }, t("reorder.moved", { name }))}
     >
-      <div className="space-y-7">
+      <div className="space-y-8">
         {state.categories.map((category) => {
           const services = state.services.filter((s) => s.category === category.id);
           return (
@@ -36,7 +38,7 @@ export function TreatmentList({ state, canEdit, showMoveButtons, onEdit, onAdd }
                 <section aria-label={category.name} className="space-y-2">
                   <div className="flex min-h-9 items-center">
                     {handle}
-                    <h2 className="text-[17px] font-semibold tracking-tight">{category.name}</h2>
+                    <h2 className="text-h3 font-semibold tracking-tight">{category.name}</h2>
                   </div>
                   <ReorderList
                     items={services}
@@ -55,13 +57,13 @@ export function TreatmentList({ state, canEdit, showMoveButtons, onEdit, onAdd }
                           )}
                         </ReorderItem>
                       ))}
-                      {!services.length && <p className="px-4 py-3.5 text-sm text-text-secondary">{t("services.empty")}</p>}
+                      {!services.length && <p className="px-4 py-4 text-sm text-text-secondary">{t("services.empty")}</p>}
                       {canEdit && (
                         <div>
-                          <button type="button" aria-label={t("services.addInCategory", { category: category.name })} onClick={() => onAdd(category.id)} className="flex min-h-11 w-full items-center gap-2 rounded-b-lg pl-11 pr-4 text-left text-[15px] font-medium text-text-secondary transition-colors hover:bg-surface-2 hover:text-text">
+                          <Button variant="tertiary" align="start" aria-label={t("services.addInCategory", { category: category.name })} onClick={() => onAdd(category.id)} className="w-full !pl-12 text-text-secondary hover:text-text">
                             <Plus aria-hidden size={16} />
                             {t("services.add")}
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </Card>
@@ -96,30 +98,23 @@ function TreatmentRow({ service, staff, onEdit }: { service: Service; staff: str
   const describedBy = [detailsId, priceId, service.hidden ? hiddenId : null].filter(Boolean).join(" ");
 
   return (
-    <div className={`relative flex min-w-0 flex-1 items-center gap-2 self-stretch py-3.5 sm:gap-4 ${onEdit ? "rounded-md pr-3 transition-colors hover:bg-surface-2 motion-reduce:transition-none sm:pr-4" : "px-4"}`}>
-      <span className="min-w-0 flex-1 break-words">
-        <span className="block font-medium">
-          {service.name}
-          {service.hidden && <span id={hiddenId} className="ml-2 text-sm font-normal text-text-secondary">· {t("services.hidden")}</span>}
-        </span>
-        <span id={detailsId} className="block">
-          {service.description && <span className="mt-0.5 block text-sm text-text-secondary">{service.description}</span>}
-          <span className="mt-1 block text-sm text-text-secondary">{formatDuration(service.duration)} · {staff}</span>
-        </span>
-      </span>
-      <span id={priceId} className="shrink-0 whitespace-nowrap font-semibold tabular-nums">{formatMoney(service.price)}</span>
-      {onEdit && (
-        <>
-          <ChevronRight aria-hidden size={16} className="shrink-0 text-text-secondary" />
-          <button
-            type="button"
-            className="absolute inset-0 rounded-md"
-            aria-label={t("services.edit", { name: service.name })}
-            aria-describedby={describedBy}
-            onClick={onEdit}
-          />
-        </>
-      )}
-    </div>
+    <ListRow
+      className="flex-1"
+      onClick={onEdit}
+      aria-label={onEdit ? t("services.edit", { name: service.name }) : undefined}
+      aria-describedby={onEdit ? describedBy : undefined}
+      title={<span className="flex flex-wrap items-center gap-2">
+        {service.name}
+        {service.hidden && <Badge className="font-normal"><span id={hiddenId}>{t("services.hidden")}</span></Badge>}
+      </span>}
+      meta={<span id={detailsId} className="block">
+        {service.description && <span className="block">{service.description}</span>}
+        <span className="block">{formatDuration(service.duration)} · {staff}</span>
+      </span>}
+      trailing={<>
+        <span id={priceId} className="shrink-0 text-meta font-semibold tabular-nums">{formatMoney(service.price)}</span>
+        {onEdit && <ChevronRight aria-hidden size={16} className="shrink-0 text-text-secondary" />}
+      </>}
+    />
   );
 }

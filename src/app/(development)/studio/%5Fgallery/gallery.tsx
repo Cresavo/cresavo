@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
-import { CalendarDays, ChevronRight, Plus } from "lucide-react";
+import { useRef, useState, type CSSProperties } from "react";
+import { ArrowUp, CalendarDays, ChevronRight, Plus } from "lucide-react";
 import { t } from "@/concept/i18n";
 import { teamWith } from "@/concept/packs/base";
 import { fullName } from "@/concept/selectors";
@@ -10,7 +10,7 @@ import { Button, ButtonLink, IconButton } from "@/concept/ui/button";
 import { Badge, DemoBadge, Tag } from "@/concept/ui/badge";
 import { Card, Section, Stat } from "@/concept/ui/card";
 import { BarList, ColumnChart, CompareBars, Meter, PairedColumns } from "@/concept/ui/charts";
-import { Chip, Field, Input, SearchInput, SegmentedControl, Select, Switch, Textarea } from "@/concept/ui/controls";
+import { Checkbox, Chip, Field, Input, SearchInput, SegmentedControl, Select, Switch, Textarea } from "@/concept/ui/controls";
 import { ConsentSheet } from "@/concept/ui/consent-sheet";
 import { ConfirmDialog } from "@/concept/ui/confirm-dialog";
 import { EmptyState } from "@/concept/ui/empty-state";
@@ -30,7 +30,7 @@ const wrap = "flex flex-wrap items-center gap-3";
 const variants = ["primary", "secondary", "tertiary", "danger"] as const;
 const states = ["normal", "disabled", "loading"] as const;
 const views = ["day", "week"] as const;
-type Dialog = "sheet" | "consent" | "highRisk" | "confirm" | "confirmSave";
+type Dialog = "sheet" | "side" | "consent" | "highRisk" | "confirm" | "confirmSave";
 
 function ActionExamples({ save }: { save: () => void }) {
   return <Section title={t("gallery.actions")}>
@@ -48,6 +48,8 @@ function ActionExamples({ save }: { save: () => void }) {
     <h3 className="text-h3 font-medium">{t("gallery.sizes")}</h3>
     <div className={wrap}>{(["sm", "md", "lg"] as const).map(size =>
       <Button key={size} size={size} variant="secondary" icon={<Plus size={16} />} onClick={save}>{t("common.save")}</Button>)}</div>
+    <Button align="start" variant="secondary" className="w-full" onClick={save} icon={<Plus size={16} />}>{t("common.save")}</Button>
+    <Button align="between" variant="tertiary" className="w-full" onClick={save}>{t("nav.calendar")}<ChevronRight size={16} aria-hidden /></Button>
   </Section>;
 }
 
@@ -66,6 +68,8 @@ function Fields() {
       </Field>)}
     <Field label={t("schedule.date")}><Input type="date" /></Field>
     <Field label={t("gallery.time")}><Input type="time" /></Field>
+    <Field label={t("pageEditor.colour.accent")}><Input type="color" /></Field>
+    <Checkbox label={t("protection.newOnly")} />
     {(["normal", "invalid", "disabled"] as const).map(state =>
       <Field key={state} label={t("gallery.notes")} error={state === "invalid" ? t("gallery.enterNotes") : undefined}>
         <Textarea disabled={state === "disabled"} />
@@ -86,6 +90,7 @@ function Charts() {
 }
 
 export function Gallery() {
+  const title = useRef<HTMLHeadingElement>(null);
   const [view, setView] = useState("day");
   const [checked, setChecked] = useState(false);
   const [chip, setChip] = useState(false);
@@ -99,7 +104,7 @@ export function Gallery() {
   const finish = () => { close(); save(); };
   const note = t("gallery.empty");
   return <div className="mx-auto max-w-4xl space-y-8 px-4 py-6 text-body lg:px-8">
-    <PageHeader title={t("gallery.title")} subtitle={t("gallery.subtitle")}
+    <PageHeader title={t("gallery.title")} titleRef={title} subtitle={t("gallery.subtitle")}
       back={<ButtonLink href="/studio" variant="tertiary">{t("common.back")}</ButtonLink>}
       primaryAction={{ label: t("gallery.preview"), onClick: () => setDialog("sheet") }} />
     <ThemeControl />
@@ -108,7 +113,7 @@ export function Gallery() {
     <Section title={t("gallery.controls")}>
       <SegmentedControl value={view} onChange={setView} options={options} label={t("gallery.select")} />
       <SegmentedControl value={view} onChange={setView} label={t("gallery.row")}
-        options={[{ value: "day", label: t("gallery.row") }, { value: "week", label: t("gallery.sheet") }]} />
+        options={[{ value: "day", label: t("gallery.row"), count: 2 }, { value: "week", label: t("gallery.sheet"), count: 0 }]} />
       <div className={wrap}><Chip active={chip} onClick={() => setChip(!chip)} count={0}>{t("calendar.day")}</Chip>
         <Chip active={!chip} onClick={() => setChip(!chip)}>{t("calendar.week")}</Chip></div>
       <div className={wrap}>{[false, true].map(disabled => <Switch key={String(disabled)} checked={disabled ? !checked : checked}
@@ -122,6 +127,7 @@ export function Gallery() {
         {row !== "hidden" && <ListRow title={t("gallery.confirm")} meta={t("gallery.row")} motion={row}
           onClick={() => setDialog("confirm")} onExited={() => setRow("hidden")} />}
         <ListRow title={t("nav.calendar")} href="/studio/calendar" />
+        <ListRow title={t("nav.settings")} meta={<Badge tone="accent">{t("gallery.accent")}</Badge>} />
       </StickyActionBar></Card>
       {row === "hidden" && <Button variant="secondary" onClick={() => setRow("enter")}>{t("common.undo")}</Button>}
       <EmptyState icon={<CalendarDays aria-hidden />} title={note}
@@ -143,9 +149,20 @@ export function Gallery() {
     </Section>
     <Section title={t("gallery.dialogs")}>
       <div className={wrap}>{(["sheet", "consent", "highRisk", "confirm", "confirmSave"] as const).map(kind =>
-        <Button variant="secondary" key={kind} onClick={() => setDialog(kind)}>{t(`gallery.${kind}`)}</Button>)}</div>
+        <Button variant="secondary" key={kind} onClick={() => setDialog(kind)}>{t(`gallery.${kind}`)}</Button>)}
+        <Button variant="secondary" onClick={() => setDialog("side")}>{t("assistant.open")}</Button>
+      </div>
       <Sheet title={t("gallery.sheet")} description={t("gallery.row")} open={dialog === "sheet"} onClose={close}
         footer={<Button onClick={finish}>{t("common.save")}</Button>}><DemoBadge /></Sheet>
+      <Sheet variant="side" title={t("assistant.title")} open={dialog === "side"} onClose={close}>
+        <div className="flex min-h-0 flex-1 flex-col justify-between p-4">
+          <DemoBadge />
+          <div className="flex items-end gap-1 rounded-md bg-surface p-1 ring-1 ring-input-border focus-within:ring-2 focus-within:ring-focus">
+            <Textarea variant="composer" rows={1} aria-label={t("assistant.message")} placeholder={t("assistant.placeholder")} />
+            <IconButton label={t("assistant.send")} variant="primary" onClick={finish}><ArrowUp size={18} aria-hidden /></IconButton>
+          </div>
+        </div>
+      </Sheet>
       {(["consent", "highRisk"] as const).map(kind => <ConsentSheet key={kind} open={dialog === kind} onClose={close} onConfirm={finish}
         title={t(`gallery.${kind}`)} summary={t("gallery.summary")} highRisk={kind === "highRisk"} verb={t("gallery.allow")}
         grants={kind === "highRisk" ? [t("gallery.grantRead"), t("gallery.grantWrite")] : [t("gallery.grantRead")]} />)}

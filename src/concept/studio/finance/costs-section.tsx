@@ -43,10 +43,10 @@ export function CostsSection() {
         <Card className="space-y-4 p-5">
           <ul className="divide-y divide-hairline">
             {state.costs.map((cost) => (
-              <li key={cost.id} className="flex items-center gap-3 py-1.5">
+              <li key={cost.id} className="flex items-center gap-3 py-2">
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm">{cost.label}</span>
-                  <Badge className="mt-0.5">{t(`finance.kind.${cost.kind}`)}</Badge>
+                  <Badge className="mt-1">{t(`finance.kind.${cost.kind}`)}</Badge>
                 </span>
                 <span className="shrink-0 text-sm font-medium tabular-nums">{formatMoney(cost.amount)}</span>
                 <IconButton label={t("finance.removeCost", { name: cost.label })} onClick={() => dispatchWithUndoToast({ type: "cost/remove", id: cost.id }, t("log.costRemove", { label: cost.label }))}>
@@ -102,7 +102,7 @@ export function AddCost() {
       <Field label={t("finance.costLabel")}>
         <TextInput value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t(`finance.kind.${kind}`)} />
       </Field>
-      <Button type="submit" variant="secondary" icon={<Plus size={16} />} disabled={!(Number(amount) > 0)}>
+      <Button type="submit" icon={<Plus size={16} />} disabled={!(Number(amount) > 0)}>
         {t("finance.addCostButton")}
       </Button>
     </form>

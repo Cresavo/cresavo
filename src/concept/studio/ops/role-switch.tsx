@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "../../ui/button";
 import { ArrowLeftRight, UserRound } from "lucide-react";
 import { staffViewer, type Role } from "../../ops/access";
 import { setRole, useRole } from "../../ops/role";
@@ -22,17 +23,17 @@ export function RoleSwitch({ compact = false, iconOnly = false }: { compact?: bo
     const current = role === "owner" ? t("role.owner") : viewer.firstName;
     const next = role === "owner" ? t("role.staff", { name: viewer.firstName }) : t("role.owner");
     return (
-      <button
+      <Button variant="tertiary" size="sm"
         type="button"
         data-help="role-switch"
         onClick={() => setRole(role === "owner" ? "staff" : "owner")}
         aria-label={t("role.switch", { current, next })}
         title={t("role.switch", { current, next })}
-        className={cx("inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-md text-[15px] font-medium text-text-secondary hover:bg-surface-2 hover:text-text", iconOnly ? "min-w-11 justify-center" : "px-2")}
+        className={cx("shrink-0 text-text-secondary hover:text-text", iconOnly ? "size-target !p-0" : "!px-2")}
       >
         {iconOnly ? <ArrowLeftRight size={18} aria-hidden /> : <UserRound size={18} aria-hidden />}
-        {!iconOnly && <span className="max-[299px]:sr-only">{current}</span>}
-      </button>
+        {!iconOnly && <span className="max-[374px]:sr-only">{current}</span>}
+      </Button>
     );
   }
   return (

@@ -73,7 +73,7 @@ export function JournalForm({ initial, templatesFor, onSubmit, onCancel }: Journ
       <JournalPhotoPicker value={form.photos ?? {}} onChange={(photos) => setForm({ ...form, photos })} />
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onCancel}>{t("common.cancel")}</Button>
-        <Button disabled={!form.treatment.trim()} onClick={() => onSubmit(form)}>{t("common.save")}</Button>
+        <Button variant="secondary" disabled={!form.treatment.trim()} onClick={() => onSubmit(form)}>{t("common.save")}</Button>
       </div>
     </Card>
   );

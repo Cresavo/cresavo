@@ -82,7 +82,7 @@ function JournalLine({ label, text }: { label: string; text: string }) {
   return (
     <div>
       <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{label}</p>
-      <p className="mt-0.5 whitespace-pre-line leading-relaxed">{text}</p>
+      <p className="mt-1 whitespace-pre-line leading-relaxed">{text}</p>
     </div>
   );
 }

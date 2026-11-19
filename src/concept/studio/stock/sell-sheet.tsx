@@ -1,5 +1,6 @@
 "use client";
 
+import { ListRow } from "../../ui/list-row";
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { t } from "../../i18n";
@@ -72,7 +73,7 @@ export function SellSheet({ customerId, onClose }: { customerId?: string; onClos
           <div className="space-y-2">
             <p className="text-sm font-medium">{t("stock.customer")}</p>
             {buyer ? (
-              <div className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5">
+              <div className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-3">
                 <Avatar name={fullName(buyer)} size="sm" />
                 <span className="min-w-0 flex-1 truncate font-medium">{fullName(buyer)}</span>
                 {!customerId && <Button size="sm" variant="ghost" onClick={() => setBuyerId("")}>{t("common.change")}</Button>}
@@ -84,10 +85,7 @@ export function SellSheet({ customerId, onClose }: { customerId?: string; onClos
                   <ul className="divide-y divide-hairline rounded-lg ring-1 ring-hairline">
                     {matches.map((c) => (
                       <li key={c.id}>
-                        <button type="button" onClick={() => setBuyerId(c.id)} className="flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left hover:bg-surface-2">
-                          <Avatar name={fullName(c)} size="sm" />
-                          <span className="truncate">{fullName(c)}</span>
-                        </button>
+                        <ListRow onClick={() => setBuyerId(c.id)} title={fullName(c)} leading={<Avatar name={fullName(c)} size="sm" />} />
                       </li>
                     ))}
                     {!matches.length && <li className="px-4 py-3 text-sm text-text-secondary">{t("stock.noCustomers")}</li>}

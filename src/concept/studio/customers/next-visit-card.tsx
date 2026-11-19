@@ -18,10 +18,10 @@ export function NextVisitCard({ customer, next, lastVisit }: { customer: Custome
   if (!next) {
     return (
       <Card className="flex items-start gap-3 p-4">
-        <CalendarClock size={20} className="mt-0.5 shrink-0 text-text-secondary" />
+        <CalendarClock size={20} className="mt-1 shrink-0 text-text-secondary" />
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("customer.next.title")}</p>
-          <p className="mt-0.5 text-sm">{t("customer.next.none")}</p>
+          <p className="mt-1 text-sm">{t("customer.next.none")}</p>
         </div>
       </Card>
     );
@@ -38,10 +38,10 @@ export function NextVisitCard({ customer, next, lastVisit }: { customer: Custome
   return (
     <Card className="space-y-3 p-4">
       <div className="flex items-start gap-3">
-        <CalendarClock size={20} className="mt-0.5 shrink-0 text-action" />
+        <CalendarClock size={20} className="mt-1 shrink-0 text-action" />
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("customer.next.title")}</p>
-          <p className="mt-0.5 font-semibold">{headline}</p>
+          <p className="mt-1 font-semibold">{headline}</p>
           <p className="text-sm text-text-secondary">{t("customer.next.interval", { service: next.service.name, weeks: next.weeks })}</p>
           {due && time && <p className="mt-1 text-sm">{t("dueBack.suggests", time)}</p>}
         </div>
@@ -50,7 +50,7 @@ export function NextVisitCard({ customer, next, lastVisit }: { customer: Custome
         <Button
           size="sm"
           className="w-full"
-          variant={sent ? "secondary" : "primary"}
+          variant="secondary"
           disabled={sent}
           icon={sent ? <Check size={16} /> : <Send size={16} />}
           onClick={() => sendTimeSuggestion(state, customer, next.service, today, minutes)}

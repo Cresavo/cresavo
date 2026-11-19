@@ -9,7 +9,7 @@ import { PagePreview } from "../../command/page-preview";
 import type { Choice, Proposal } from "../../command/proposal";
 import { t } from "../../i18n";
 import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
-import { Button, ButtonLink, buttonClass } from "../../ui/button";
+import { Button, ButtonLink } from "../../ui/button";
 import { BriefList } from "./brief-list";
 
 export interface CardActions {
@@ -28,7 +28,7 @@ export interface CardActions {
 function Outcome({ status, onUndo }: { status: NonNullable<Reply["status"]>; onUndo?: () => void }) {
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <p className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary">
+      <p className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary">
         {status === "approved" && <Check size={16} className="text-action" />}
         {t(`assistant.status.${status}`)}
       </p>
@@ -41,7 +41,7 @@ function Decision({ status, onUndo, approve, decline, approveLabel }: { status?:
   if (status) return <Outcome status={status} onUndo={onUndo} />;
   return (
     <div className="flex flex-wrap gap-2">
-      <Button size="sm" onClick={approve}>{approveLabel}</Button>
+      <Button variant="secondary" size="sm" onClick={approve}>{approveLabel}</Button>
       <Button size="sm" variant="ghost" onClick={decline}>{t("assistant.notNow")}</Button>
     </div>
   );
@@ -64,7 +64,7 @@ export function ReplyCardView({ card, status, actions, failure }: { card: ReplyC
             <Outcome status={status} onUndo={actions.onUndo} />
           ) : (
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant={card.destructive ? "danger" : "primary"} onClick={() => actions.onApprove(card)}>{t("command.approve")}</Button>
+              <Button size="sm" variant={card.destructive ? "danger" : "secondary"} onClick={() => actions.onApprove(card)}>{t("command.approve")}</Button>
               {actions.onEdit && <Button size="sm" variant="secondary" onClick={actions.onEdit}>{t("assistant.edit")}</Button>}
               <Button size="sm" variant="ghost" onClick={actions.onDecline}>{t("assistant.notNow")}</Button>
             </div>
@@ -75,9 +75,9 @@ export function ReplyCardView({ card, status, actions, failure }: { card: ReplyC
       return (
         <div className="flex flex-wrap gap-2">
           {card.choices.map((choice) => (
-            <button key={choice.label} type="button" onClick={() => actions.onPick(choice)} className={buttonClass("secondary", "sm", "whitespace-normal text-left")}>
+            <Button key={choice.label} variant="secondary" size="sm" align="start" onClick={() => actions.onPick(choice)}>
               {choice.label}
-            </button>
+            </Button>
           ))}
         </div>
       );
@@ -88,7 +88,7 @@ export function ReplyCardView({ card, status, actions, failure }: { card: ReplyC
       return (
         <div className="space-y-3">
           <p className="flex gap-2 text-sm">
-            <BookMarked size={16} className="mt-0.5 shrink-0 text-action" />
+            <BookMarked size={16} className="mt-1 shrink-0 text-action" />
             <span className="font-medium">{card.item.text}</span>
           </p>
           {card.kind === "memory-offer" ? (
@@ -104,7 +104,7 @@ export function ReplyCardView({ card, status, actions, failure }: { card: ReplyC
       return (
         <div className="space-y-3">
           {card.items.length > 0 && (
-            <ul className="space-y-1.5 text-sm">
+            <ul className="space-y-2 text-sm">
               {card.items.slice(0, 8).map((item) => (
                 <li key={item.id} className="flex gap-2">
                   <BookMarked size={14} className="mt-1 shrink-0 text-action" />
@@ -129,7 +129,7 @@ export function ReplyCardView({ card, status, actions, failure }: { card: ReplyC
               <p className="text-sm text-text-secondary">{scheduleText(routine)} · {reason}</p>
             </div>
           </div>
-          <ol className="list-decimal space-y-0.5 pl-5 text-sm">
+          <ol className="list-decimal space-y-1 pl-5 text-sm">
             {routine.steps.map((step) => <li key={step}>{step}</li>)}
           </ol>
           <Decision status={status} onUndo={actions.onUndo} approve={() => actions.onRoutine(routine, true)} decline={() => actions.onRoutine(routine, false)} approveLabel={t("assistant.routine.switchOn")} />
@@ -148,7 +148,7 @@ export function ReplyCardView({ card, status, actions, failure }: { card: ReplyC
                     <span className="block truncate font-medium">{item.name}</span>
                     <span className="block truncate text-text-secondary">{item.detail}</span>
                   </span>
-                  {item.href && <ChevronRight size={16} aria-hidden className="mt-0.5 shrink-0 text-text-secondary" />}
+                  {item.href && <ChevronRight size={16} aria-hidden className="mt-1 shrink-0 text-text-secondary" />}
                 </>
               );
               return (
@@ -168,7 +168,7 @@ export function ReplyCardView({ card, status, actions, failure }: { card: ReplyC
 
 function MemoryLink() {
   return (
-    <Link href="/studio/more/memory" className="inline-flex items-center gap-1 text-sm font-medium text-action">
+    <Link href="/studio/more/memory" className="inline-flex min-h-target min-w-target items-center gap-1 text-meta font-medium text-action">
       {t("nav.memory")}
       <ChevronRight size={14} />
     </Link>

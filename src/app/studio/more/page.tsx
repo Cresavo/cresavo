@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { t } from "@/concept/i18n";
 import { ADVANCED_NAV, moreMenu, type NavItem } from "@/concept/studio/nav";
@@ -17,14 +16,10 @@ function MenuGroup({ title, items }: { title: string; items: NavItem[] }) {
         {items.map((item) => {
           const Icon = item.icon;
           return (
-            <Link key={item.href} href={item.href} data-help={item.href} className="flex min-h-16 items-center gap-4 px-4 py-3 hover:bg-surface-2">
-              <Icon size={22} aria-hidden className="shrink-0 text-text-secondary" />
-              <span className="min-w-0 flex-1">
-                <span className="block font-medium">{t(item.label)}</span>
-                {item.description && <span className="block text-sm text-text-secondary">{t(item.description)}</span>}
-              </span>
-              <ChevronRight size={18} className="shrink-0 text-text-secondary" />
-            </Link>
+            <ListRow key={item.href} href={item.href} help={item.href} title={t(item.label)}
+              meta={item.description && t(item.description)}
+              leading={<Icon size={22} aria-hidden className="shrink-0 text-text-secondary" />}
+              trailing={<ChevronRight size={18} aria-hidden className="shrink-0 text-text-secondary" />} />
           );
         })}
       </Card>

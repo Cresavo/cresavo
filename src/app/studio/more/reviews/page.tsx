@@ -16,7 +16,7 @@ import { Avatar } from "@/concept/ui/avatar";
 import { Button } from "@/concept/ui/button";
 import { Card } from "@/concept/ui/card";
 import { Meter } from "@/concept/ui/charts";
-import { Chip, TextArea } from "@/concept/ui/controls";
+import { SegmentedControl, TextArea } from "@/concept/ui/controls";
 import { Sheet } from "@/concept/ui/sheet";
 
 const SHOWN = 20;
@@ -37,7 +37,7 @@ export default function ReviewsPage() {
         <Card className="space-y-4 self-start p-5">
           <div className="flex items-end gap-3">
             <p className="text-5xl font-semibold tracking-tight">{formatNumber(average, 1)}</p>
-            <p className="pb-1.5 text-warning">{"★".repeat(Math.round(average))}</p>
+            <p className="pb-2 text-warning">{"★".repeat(Math.round(average))}</p>
           </div>
           <p className="text-sm text-text-secondary">{tc("reviews.basedOn", state.reviews.length)}</p>
           <div className="space-y-2">
@@ -45,7 +45,7 @@ export default function ReviewsPage() {
               const count = state.reviews.filter((r) => r.rating === stars).length;
               return (
                 <div key={stars} className="flex items-center gap-3 text-sm">
-                  <span className="flex w-6 items-center gap-0.5 tabular-nums">{stars}<Star size={12} className="text-text-secondary" /></span>
+                  <span className="flex w-6 items-center gap-1 tabular-nums">{stars}<Star size={12} className="text-text-secondary" /></span>
                   <Meter value={state.reviews.length ? count / state.reviews.length : 0} className="flex-1" />
                   <span className="w-8 text-right tabular-nums text-text-secondary">{count}</span>
                 </div>
@@ -55,10 +55,13 @@ export default function ReviewsPage() {
           {thisWeek > 0 && <p className="text-xs text-text-secondary">{tc("reviews.thisWeek", thisWeek)}</p>}
         </Card>
         <div className="min-w-0 space-y-4">
-          <div className="flex gap-2">
-            <Chip active={!onlyUnanswered} onClick={() => setOnlyUnanswered(false)}>{t("reviews.latest")}</Chip>
-            <Chip active={onlyUnanswered} count={unanswered.length} onClick={() => setOnlyUnanswered(true)}>{t("reviews.unanswered")}</Chip>
-          </div>
+          <SegmentedControl label={t("nav.reviews")} value={onlyUnanswered ? "unanswered" : "latest"}
+            onChange={next => setOnlyUnanswered(next === "unanswered")}
+            options={[
+              { value: "latest", label: t("reviews.latest") },
+              { value: "unanswered", label: t("reviews.unanswered"), count: unanswered.length },
+            ]}
+          />
           {list.map((r) => {
             const customer = findCustomer(state, r.customerId);
             const name = customer ? fullName(customer) : "";
@@ -68,14 +71,14 @@ export default function ReviewsPage() {
                   <Avatar name={name} size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{name}</p>
-                    <p className="text-xs text-text-secondary">{formatDate(r.date)} · {t(r.source === "Google" ? "reviews.source.google" : "reviews.source.bookingPage")} · {state.staff.find((s) => s.id === r.staffId)?.firstName}</p>
+                    <p className="text-meta text-text-secondary">{formatDate(r.date)} · {t(r.source === "Google" ? "reviews.source.google" : "reviews.source.bookingPage")} · {state.staff.find((s) => s.id === r.staffId)?.firstName}</p>
                   </div>
                   <span role="img" className="shrink-0 text-warning" aria-label={t("inbox.stars", { count: r.rating })}>{"★".repeat(r.rating)}<span className="text-border">{"★".repeat(5 - r.rating)}</span></span>
                 </div>
-                <p className="text-[15px] leading-relaxed">{r.text}</p>
+                <p className="text-body leading-relaxed">{r.text}</p>
                 <ApproveReview review={r} />
                 {r.reply ? (
-                  <p className="rounded-md bg-surface-2 px-3.5 py-2.5 text-sm text-text-secondary">
+                  <p className="rounded-md bg-surface-2 px-4 py-3 text-sm text-text-secondary">
                     <span className="font-medium text-text">{t("reviews.yourReply")} </span>
                     {r.reply}
                   </p>
@@ -112,7 +115,7 @@ export default function ReviewsPage() {
             </>
           }
         >
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-action">{t("inbox.suggestedReply")}</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-action">{t("inbox.suggestedReply")}</p>
           <TextArea value={text} onChange={(e) => setText(e.target.value)} aria-label={t("reviews.reply")} className="min-h-32" />
         </Sheet>
       )}

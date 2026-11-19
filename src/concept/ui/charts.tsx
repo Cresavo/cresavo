@@ -67,9 +67,9 @@ export function BarList({ data, format }: BarListProps) {
 /** A thin bar for a share of something. Neutral by default: the number beside it carries the meaning. */
 export function Meter({ value, tone = "bg-text-secondary", className }: { value: number; tone?: string; className?: string }) {
   return (
-    <div className={cx("h-1.5 overflow-hidden rounded-full bg-surface-2", className)}>
-      <div className={cx("h-full rounded-full", tone)} style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }} />
-    </div>
+    <span className={cx("block h-1.5 overflow-hidden rounded-full bg-surface-2", className)}>
+      <span className={cx("block h-full rounded-full", tone)} style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }} />
+    </span>
   );
 }
 

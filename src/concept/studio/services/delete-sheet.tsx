@@ -45,7 +45,7 @@ export function DeleteServiceSheet({ state, today, service, onClose }: { state: 
       {last ? (
         <Notice tone="warning">{t("services.deleteLast")}</Notice>
       ) : (
-        <div className="space-y-3 text-[15px]">
+        <div className="space-y-3 text-body">
           {usage.upcoming > 0 ? (
             <Notice tone="warning" role="alert">
               <strong className="font-semibold">{tc("services.deleteUpcoming", usage.upcoming)}</strong> {t("services.deleteKeeps")}
@@ -53,7 +53,7 @@ export function DeleteServiceSheet({ state, today, service, onClose }: { state: 
           ) : (
             <p>{t("services.deleteFree")}</p>
           )}
-          <ul className="space-y-1.5 text-text-secondary">
+          <ul className="space-y-2 text-text-secondary">
             {usage.upcoming > 0 && <li>{t("services.deleteGone")}</li>}
             {usage.past > 0 && <li>{tc("services.deletePast", usage.past)}</li>}
             {usage.packages > 0 && <li>{tc("services.deletePackages", usage.packages)}</li>}

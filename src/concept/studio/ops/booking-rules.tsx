@@ -8,7 +8,7 @@ import type { DemoState } from "../../data/types";
 import { t } from "../../i18n";
 import { Button } from "../../ui/button";
 import { Section, Card } from "../../ui/card";
-import { Field, Select, TextInput } from "../../ui/controls";
+import { Checkbox, Field, Select, TextInput } from "../../ui/controls";
 import { showActionFailure } from "../../ui/toast";
 import { dispatchWithUndoToast } from "../log/undo-toast";
 
@@ -35,11 +35,11 @@ export function BookingRules({ state }: { state: DemoState }) {
         <Field label={t("protection.depositInput", { currency })}><TextInput key={serviceId} type="number" min="0" required
           step={10 ** -minorDigits(currency)} defaultValue={majorString({ amountMinor: draft.deposits[serviceId] ?? 0, currency })}
           onChange={e => setDraft({ ...draft, deposits: { ...draft.deposits, [serviceId]: toMinor(e.target.valueAsNumber, currency) } })} /></Field>
-        <label className="block"><input type="checkbox" checked={exempt} onChange={e => setDraft({ ...draft,
+        <Checkbox label={t("protection.exempt")} checked={exempt} onChange={e => setDraft({ ...draft,
           exemptServices: e.target.checked ? [...draft.exemptServices, serviceId] : draft.exemptServices.filter(id => id !== serviceId),
-        })} /> {t("protection.exempt")}</label>
+        })} />
       </>}
-      <label className="block"><input type="checkbox" checked={draft.newCustomersOnly} onChange={e => setDraft({ ...draft, newCustomersOnly: e.target.checked })} /> {t("protection.newOnly")}</label>
+      <Checkbox label={t("protection.newOnly")} checked={draft.newCustomersOnly} onChange={e => setDraft({ ...draft, newCustomersOnly: e.target.checked })} />
       {service && <div className="space-y-2 rounded-lg bg-surface-2 p-3">
         <h3 className="font-semibold">{t("protection.preview")}</h3>
         <PolicySummary terms={quote(draft, service, currency, true)} />

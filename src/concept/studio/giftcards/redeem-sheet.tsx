@@ -64,7 +64,7 @@ export function RedeemSheet({ bookingId, onBack, onClose }: { bookingId: string;
         </Field>
         {failure ? <ActionFailure failure={failure} /> : (
           card && amount > 0
-            ? <p role="status" className="rounded-md bg-action-bg px-3.5 py-3 text-sm font-medium text-text">{t("giftcards.payBalance", { amount: money(balanceOf(state, card)) })}</p>
+            ? <p role="status" className="rounded-md bg-action-bg px-4 py-3 text-sm font-medium text-text">{t("giftcards.payBalance", { amount: money(balanceOf(state, card)) })}</p>
             : lookupId && <ActionFailure failure={{ requestId: lookupId, reason: card ? "giftcards.payEmpty" : "giftcards.payNotFound" }} />
         )}
       </div>

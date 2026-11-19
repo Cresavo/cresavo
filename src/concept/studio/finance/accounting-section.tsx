@@ -69,15 +69,15 @@ export function AccountingSection() {
             <tbody className="divide-y divide-hairline">
               {days.map((day) => (
                 <tr key={day.date}>
-                  <td className="py-1.5">{formatDayShort(day.date)}</td>
-                  <td className="py-1.5 text-right tabular-nums">{formatMoney(day.net)}</td>
-                  <td className="py-1.5 text-right tabular-nums">{formatMoney(day.vat)}</td>
+                  <td className="py-2">{formatDayShort(day.date)}</td>
+                  <td className="py-2 text-right tabular-nums">{formatMoney(day.net)}</td>
+                  <td className="py-2 text-right tabular-nums">{formatMoney(day.vat)}</td>
                 </tr>
               ))}
               <tr>
-                <td className="py-1.5">{t("finance.feesRow")}</td>
-                <td className="py-1.5 text-right tabular-nums">{formatMoney(totalCosts(fees))}</td>
-                <td className="py-1.5 text-right text-text-secondary">{t("finance.perMonth")}</td>
+                <td className="py-2">{t("finance.feesRow")}</td>
+                <td className="py-2 text-right tabular-nums">{formatMoney(totalCosts(fees))}</td>
+                <td className="py-2 text-right text-text-secondary">{t("finance.perMonth")}</td>
               </tr>
             </tbody>
           </table>
@@ -89,7 +89,7 @@ export function AccountingSection() {
               {t("finance.disconnect")}
             </Button>
           ) : (
-            <Button icon={connecting ? <Loader2 size={16} className="animate-spin" /> : undefined} disabled={connecting} onClick={() => setConnecting(true)}>
+            <Button variant="secondary" icon={connecting ? <Loader2 size={16} className="animate-spin" /> : undefined} disabled={connecting} onClick={() => setConnecting(true)}>
               {connecting ? t("finance.connecting") : t("finance.connect")}
             </Button>
           )}

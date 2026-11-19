@@ -4,6 +4,9 @@ import { formatTime } from "../../i18n/format";
 import type { DragEvent } from "react";
 import type { Booking } from "../../data/types";
 import { findCustomer, findService, fullName } from "../../selectors";
+import { t } from "../../i18n";
+import { Badge } from "../../ui/badge";
+import { Button } from "../../ui/button";
 import { cx } from "../../ui/cx";
 import { useStudio } from "../use-studio";
 
@@ -30,24 +33,31 @@ export function BookingBlock({ booking, top, height, compact, misfit, onOpen }: 
     event.dataTransfer.effectAllowed = "move";
   };
   return (
-    <button
-      draggable
-      onDragStart={onDragStart}
-      onClick={onOpen}
-      style={{ top, height }}
-      className={cx(
-        "absolute inset-x-1 flex flex-col justify-start overflow-hidden rounded-sm border-l-[3px] px-2 py-1 text-left text-xs leading-tight transition-colors hover:border-l-[5px]",
-        anna ? "border-staff-1 bg-staff-1-bg" : "border-staff-2 bg-staff-2-bg",
-        misfit && "ring-2 ring-danger",
-      )}
-    >
-      <span className="block truncate font-semibold">{customer ? (compact ? customer.firstName : fullName(customer)) : ""}</span>
-      {height > 34 && (
-        <span className="block truncate text-text-secondary">
-          {formatTime(booking.start)}
-          {!compact && ` · ${service?.name}`}
+    <div className="absolute inset-x-1" style={{ top, height }}>
+      <Button
+        variant="tertiary"
+        size="sm"
+        align="start"
+        draggable
+        onDragStart={onDragStart}
+        onClick={onOpen}
+        className={cx(
+          "h-full w-full !items-start overflow-hidden border-l-2 !px-1 !text-minimum",
+          anna ? "border-staff-1 bg-staff-1-bg" : "border-staff-2 bg-staff-2-bg",
+          misfit && "ring-2 ring-danger",
+        )}
+      >
+        <span className="min-w-0">
+          <span className="block truncate font-semibold">{customer ? (compact ? customer.firstName : fullName(customer)) : ""}</span>
+          <span className="block truncate text-text-secondary">
+            {formatTime(booking.start)}
+            {!compact && ` · ${service?.name}`}
+          </span>
+          {misfit && <Badge tone="warn" className="max-w-full">
+            <span className="truncate">{t("calendar.needsMoving")}</span>
+          </Badge>}
         </span>
-      )}
-    </button>
+      </Button>
+    </div>
   );
 }

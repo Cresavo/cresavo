@@ -1,5 +1,6 @@
 "use client";
 
+import { ListRow } from "../../ui/list-row";
 import { useState } from "react";
 import { Check, Plus } from "lucide-react";
 import { freeGaps } from "../../data/slots";
@@ -21,8 +22,7 @@ type Row =
 
 // Time has its own column: a tabular time on one left edge, then who and what
 // in a second column. A free slot gets the same row and type size as a visit.
-const ROW = "flex min-h-[3.75rem] w-full items-center gap-4 px-4 py-2.5 text-left transition-colors hover:bg-surface-2 max-[299px]:gap-3 max-[299px]:px-3";
-const TIME = "w-12 shrink-0 text-[15px] font-medium tabular-nums";
+const TIME = "w-12 shrink-0 text-body font-medium tabular-nums";
 
 /** Today's bookings for everyone (or one person), with free gaps in between: the next few first, the whole day on request. */
 export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: StaffId; onOpen: (sheet: OpenSheet) => void }) {
@@ -45,17 +45,11 @@ export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: S
             const staff = state.staff.find((s) => s.id === row.staffId)!;
             return (
               <li key={`gap-${row.staffId}-${row.start}`} data-figure-row>
-                <button onClick={() => onOpen({ kind: "new", preset: { staffId: row.staffId, date, start: row.start } })} className={ROW}>
-                  <span className={cx(TIME, "text-text-secondary")}>{formatTime(row.start)}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-text-secondary">{t("today.free", { duration: formatDuration(row.end - row.start) })}</span>
-                    <span className="flex items-center gap-1.5 text-sm text-text-secondary">
-                      <StaffDot staffId={row.staffId} />
-                      <span className="truncate">{staff.firstName}</span>
-                    </span>
-                  </span>
-                  <Plus size={18} className="shrink-0 text-text-secondary" aria-hidden />
-                </button>
+                <ListRow onClick={() => onOpen({ kind: "new", preset: { staffId: row.staffId, date, start: row.start } })}
+                  leading={<span className={cx(TIME, "text-text-secondary")}>{formatTime(row.start)}</span>}
+                  title={<span className="text-text-secondary">{t("today.free", { duration: formatDuration(row.end - row.start) })}</span>}
+                  meta={<span className="flex items-center gap-2"><StaffDot staffId={row.staffId} />{staff.firstName}</span>}
+                  trailing={<Plus size={18} className="shrink-0 text-text-secondary" aria-hidden />} />
               </li>
             );
           }
@@ -70,25 +64,23 @@ export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: S
           const person = state.staff.length > 1 ? state.staff.find((s) => s.id === b.staffId)?.firstName : undefined;
           return (
             <li key={b.id} data-figure-row className="relative">
-              {current && <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] bg-action" />}
-              <button onClick={() => onOpen({ kind: "booking", id: b.id })} className={ROW}>
-                <span className={cx(TIME, quiet && "text-text-secondary")}>{formatTime(b.start)}</span>
-                <span className="min-w-0 flex-1">
-                  <span className={cx("block truncate font-medium", cancelled && "line-through", quiet && "text-text-secondary")}>{customer ? fullName(customer) : ""}</span>
-                  <span className="flex items-center gap-1.5 text-sm text-text-secondary">
-                    <StaffDot staffId={b.staffId} />
-                    <span className="truncate">
-                      {/* The name first, so a narrow row truncates the treatment, not who it is with. */}
-                      {person && `${person} · `}
-                      {service && /\d+ min/.test(service.name) ? service.name : `${service?.name} · ${formatDuration(b.duration)}`}
-                    </span>
+              {current && <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-action" />}
+              <ListRow onClick={() => onOpen({ kind: "booking", id: b.id })}
+                leading={<span className={cx(TIME, quiet && "text-text-secondary")}>{formatTime(b.start)}</span>}
+                title={<span className={cx(cancelled && "line-through", quiet && "text-text-secondary")}>{customer ? fullName(customer) : ""}</span>}
+                meta={<span className="flex items-center gap-2">
+                  <StaffDot staffId={b.staffId} />
+                  <span>
+                    {person && `${person} · `}
+                    {service && /\d+ min/.test(service.name) ? service.name : `${service?.name} · ${formatDuration(b.duration)}`}
                   </span>
-                </span>
-                {b.example && <Tag>{t("setup.example.tag")}</Tag>}
-                {current && <Badge tone="accent">{t("today.inProgress")}</Badge>}
-                {cancelled && <Badge tone="danger">{t("status.cancelled")}</Badge>}
-                {done && !cancelled && <Check size={18} className="shrink-0 text-text-secondary" aria-label={t("status.completed")} />}
-              </button>
+                </span>}
+                trailing={<span className="flex flex-wrap justify-end gap-1">
+                  {b.example && <Tag>{t("setup.example.tag")}</Tag>}
+                  {current && <Badge tone="accent">{t("today.inProgress")}</Badge>}
+                  {cancelled && <Badge tone="danger">{t("status.cancelled")}</Badge>}
+                  {done && !cancelled && <Badge icon={Check}>{t("status.completed")}</Badge>}
+                </span>} />
             </li>
           );
         })}

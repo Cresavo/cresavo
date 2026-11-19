@@ -10,7 +10,7 @@ Use the runtime variables in `brand-theme.css` or their Tailwind utilities. Them
 
 | Role | Runtime scale | Tailwind examples |
 | --- | --- | --- |
-| Spacing | `--space-{1,2,3,4,6,8}` = 4, 8, 12, 16, 24, 32 px | `gap-2`, `p-4`, `lg:px-8` |
+| Spacing | `--space-{1,2,3,4,5,6,8,12}` = 4, 8, 12, 16, 20, 24, 32, 48 px | `gap-2`, `p-4`, `lg:px-8` |
 | Type | `--type-{h1,h2,h3,body,meta,min}` = 28, 20, 16, 15, 13, 12 px at the default root size. Relative units respect text zoom. | `text-h1`, `text-h2`, `text-h3`, `text-body`, `text-meta`, `text-minimum` |
 | Radius | `--radius-{xs,sm,md,lg,pill}` = 4, 6, 10, 14, 999 px | `rounded-md` controls, `rounded-lg` cards, `rounded-full` chips |
 | Elevation | Flat by default. `--elevation-raised` for a floating surface, `--elevation-sheet` for sheets and toasts. Shadows adapt to the theme. | `shadow-raised`, `shadow-sheet` |
@@ -47,9 +47,14 @@ Use the runtime variables in `brand-theme.css` or their Tailwind utilities. Them
 
 Existing imports including `Segmented`, `TextInput`, `TextArea`, the `ghost` button variant and the studio PageHeader continue to work.
 
+Use `Button` with `align="start"` for a left-aligned label and `align="between"` for a label and trailing mark. `SegmentedControl` options can include a count as part of the visible and accessible label. A `ListRow` can show formatted title or meta content and can render static information with neither an `href` nor an `onClick`. Add separate controls outside an interactive row.
+
+Use `Checkbox` for a native checkbox with a full-height label target, and `Input type="color"` for a native colour picker. The `Textarea` composer variant sits inside a group that provides a visible focus ring. A side `Sheet` fills the screen on phones and docks on desktop. Its content owns the scrollport when a composer or footer needs to stay visible. Use `headerActions` for secondary tools alongside Close. Provide a `PageHeader` title ref when a step change needs to focus the heading.
+
 ## Layout and motion
 
 - Use 16 px phone gutters and 32 px desktop gutters. Stack the title, description, choices and fields in reading order. Let long labels increase row height.
+- Reserve at least 96 px plus the bottom safe area below Studio content on phones. Keep Calendar's navigation and view controls on one toolbar row and use the options sheet for secondary controls.
 - Use one scrollport for the content beside a persistent action bar. Give the scrollport an accessible label. On phones include the bottom safe area and allow actions to wrap. Keep keyboard focus in view.
 - Pair press scale (.97) with a tint. Move the segmented thumb and switch knob with transforms. Slide and fade sheets and toasts, entering more slowly than exiting. Reveal the check through a transformed clip. Use transform and opacity for motion. Keep layout, colour and shadow changes immediate.
 - With reduced motion, remove travel, continuous pulsing, repeated animation and smooth scrolling. Preserve a brief opacity-only transition for entering or leaving overlays. Preserve final selection, loading and success cues.

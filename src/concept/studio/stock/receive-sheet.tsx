@@ -75,7 +75,7 @@ export function ReceiveSheet({ orderId, onClose }: { orderId?: string; onClose: 
         <Button variant="secondary" className="w-full" disabled={reading} icon={reading ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />} onClick={photograph}>
           {reading ? t("stock.reading") : t("stock.photo")}
         </Button>
-        {noteFrom && <p className="rounded-md bg-action-bg px-3.5 py-2.5 text-sm text-text">{t("stock.noteRead", { supplier: noteFrom })}</p>}
+        {noteFrom && <p className="rounded-md bg-action-bg px-4 py-3 text-sm text-text">{t("stock.noteRead", { supplier: noteFrom })}</p>}
         {ids.length > 0 && (
           <ul className="divide-y divide-hairline rounded-lg ring-1 ring-hairline">
             {ids.map((id) => {

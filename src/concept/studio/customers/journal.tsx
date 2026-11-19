@@ -27,7 +27,7 @@ export function Journal({ customer }: { customer: Customer }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        <Button icon={<NotebookPen size={18} />} onClick={() => { setWriting(!writing); setDictating(false); }}>{t("journal.write")}</Button>
+        <Button variant="secondary" icon={<NotebookPen size={18} />} onClick={() => { setWriting(!writing); setDictating(false); }}>{t("journal.write")}</Button>
         <Button variant="secondary" icon={<Mic size={18} />} onClick={() => { setDictating(true); setWriting(false); }}>
           {t("journal.dictate")}
         </Button>

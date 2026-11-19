@@ -1,5 +1,6 @@
 "use client";
 
+import { ListRow } from "../../ui/list-row";
 import { customerDraft, isContactPhone, phoneMatches } from "../../booking/lookup";
 import { useState } from "react";
 import { preferredStaffOf } from "../../assistant/memory";
@@ -105,7 +106,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
       footer={
         <>
           {/* What will be booked, in full, right next to the button that books it. */}
-          <p className="w-full text-[15px]" aria-live="polite">
+          <p className="w-full text-body" aria-live="polite">
             <span className="font-medium">{service.name}</span>
             <span className="text-text-secondary">
               {" · "}{formatDuration(service.duration)} · {state.staff.find((p) => p.id === staffId)?.firstName} · {formatMoney(service.price)}
@@ -147,11 +148,9 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
                 <ul className="divide-y divide-hairline overflow-hidden rounded-lg ring-1 ring-hairline">
                   {matches.map((c) => (
                     <li key={c.id}>
-                      <button onClick={() => { setCustomerId(c.id); setQuery(""); }} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-surface-2">
-                        <Avatar name={fullName(c)} size="sm" />
-                        <span className="min-w-0 flex-1 truncate">{fullName(c)}</span>
-                        <span className="text-sm text-text-secondary">{c.phone}</span>
-                      </button>
+                      <ListRow onClick={() => { setCustomerId(c.id); setQuery(""); }} title={fullName(c)}
+                        leading={<Avatar name={fullName(c)} size="sm" />}
+                        trailing={<span className="text-meta text-text-secondary">{c.phone}</span>} />
                     </li>
                   ))}
                 </ul>
@@ -169,13 +168,15 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
           <h3 className="text-sm font-medium">{t("newBooking.treatment")}</h3>
           <div className="grid gap-2 sm:grid-cols-2">
             {services.map((s) => (
-              <button
+              <Button
                 key={s.id}
+                variant="secondary"
+                align="between"
                 aria-pressed={s.id === service.id}
                 onClick={() => { setServiceId(s.id); setFailure(undefined); }}
                 className={cx(
-                  "flex min-h-12 items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm ring-1 ring-inset",
-                  s.id === service.id ? "bg-action-bg ring-action" : "bg-surface ring-hairline hover:bg-surface-2",
+                  "min-h-12",
+                  s.id === service.id && "aria-pressed:bg-action-bg aria-pressed:ring-action",
                 )}
               >
                 <span className="min-w-0">
@@ -185,7 +186,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
                   </span>
                 </span>
                 <span className="shrink-0 tabular-nums text-text-secondary">{formatMoney(s.price)}</span>
-              </button>
+              </Button>
             ))}
           </div>
         </section>
