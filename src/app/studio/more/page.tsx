@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { t } from "@/concept/i18n";
-import { BUSINESS_NAV, SETTINGS_NAV, visibleItems, type NavItem } from "@/concept/studio/nav";
+import { moreMenu, type NavItem } from "@/concept/studio/nav";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Card, Section } from "@/concept/ui/card";
@@ -33,12 +33,13 @@ function MenuGroup({ title, items }: { title: string; items: NavItem[] }) {
 
 export default function MorePage() {
   const { state } = useStudio();
+  const menu = moreMenu(state);
   return (
     <>
       <PageHeader title={t("more.title")} subtitle={t("more.subtitle")} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <MenuGroup title={t("nav.section.business")} items={visibleItems(BUSINESS_NAV, state.modules)} />
-        <MenuGroup title={t("nav.section.settings")} items={SETTINGS_NAV} />
+        <MenuGroup title={t("nav.section.business")} items={menu.business} />
+        <MenuGroup title={t("nav.section.settings")} items={menu.settings} />
       </div>
       {/* On phones this page is the menu, so the theme control lives here (the sidebar has it on desktop). The role switch is in the top bar, where staff can reach it too. */}
       <Card className="mt-6 lg:hidden">

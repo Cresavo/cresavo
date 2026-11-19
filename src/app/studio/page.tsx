@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import { CalendarOff, Phone } from "lucide-react";
 import { openingFor, staffWorks } from "@/concept/data/slots";
 import { t, tc } from "@/concept/i18n";
@@ -23,14 +23,6 @@ import { Button, ButtonLink } from "@/concept/ui/button";
 import { Section } from "@/concept/ui/card";
 import { EmptyState } from "@/concept/ui/empty-state";
 
-const DESKTOP_LAYOUT = "(min-width: 1024px)";
-
-function subscribeToLayout(onChange: () => void) {
-  const query = window.matchMedia(DESKTOP_LAYOUT);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
 function greeting(minutes: number, name: string) {
   if (minutes < 11 * 60) return t("today.greeting.morning", { name });
   if (minutes < 17 * 60) return t("today.greeting.afternoon", { name });
@@ -40,13 +32,11 @@ function greeting(minutes: number, name: string) {
 export default function TodayPage() {
   const { state, today, minutes } = useStudio();
   const [sheet, setSheet] = useState<OpenSheet>(null);
-  const desktop = useSyncExternalStore(subscribeToLayout, () => window.matchMedia(DESKTOP_LAYOUT).matches, () => false);
   const role = useRole();
   const viewer = role === "staff" ? staffViewer(state) : null;
   const open = !!openingFor(state.salon, today);
   const off = !!viewer && !staffWorks(state, viewer.id, today);
   const count = dayBookings(state, today, viewer?.id).length;
-  const nextCustomer = <NextCustomer staffId={viewer?.id} onOpen={setSheet} />;
 
   const empty = !!state.industry && !state.bookings.length;
   return (
@@ -64,11 +54,11 @@ export default function TodayPage() {
         {!state.industry && <SalonEntry today />}
         {state.industry && <FirstSteps />}
       </>}
-      {/* Keep the next customer above the schedule on phones and beside it on desktop. */}
+      {/* The next customer comes first, then the day's schedule. */}
       {empty ? <EmptyState icon={<CalendarOff size={22} />} title={t("setup.empty.today")} action={<ButtonLink href={state.services.length ? "/studio/calendar" : "/studio/more/services"}>{t(state.services.length ? "nav.calendar" : "services.add")}</ButtonLink>} /> : <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_clamp(20rem,30vw,26rem)] lg:gap-8">
         <div className="min-w-0 space-y-6">
+          <NextCustomer staffId={viewer?.id} onOpen={setSheet} />
           {open && !viewer && <TodayStats />}
-          {!desktop && nextCustomer}
           <Section title={t("today.schedule")}>
             {!open ? (
               <EmptyState icon={<CalendarOff size={22} />} title={t("today.closed")} text={t("today.closedText")} />
@@ -81,7 +71,6 @@ export default function TodayPage() {
         </div>
         <div className="min-w-0 space-y-6">
           <NeedsMoving staffId={viewer?.id} onOpen={setSheet} />
-          {desktop && nextCustomer}
           {!viewer && <EveningSummary />}
           {!viewer && <Attention onOpen={setSheet} />}
         </div>

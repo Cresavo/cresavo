@@ -30,6 +30,13 @@ export function Tag({ children, className }: { children: ReactNode; className?: 
   return <span className={cx("inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs text-text ring-1 ring-inset ring-hairline", className)}>{children}</span>;
 }
 
-export function DemoBadge() {
-  return <Badge icon={FlaskConical}>{t("ui.demo")}</Badge>;
+/** Marks simulated activity. `short` shows one word where space is tight; the full sentence stays its accessible name. */
+export function DemoBadge({ short = false }: { short?: boolean }) {
+  if (!short) return <Badge icon={FlaskConical}>{t("ui.demo")}</Badge>;
+  return (
+    <Badge icon={FlaskConical} className="shrink-0">
+      <span aria-hidden className="max-[299px]:hidden">{t("ui.demoShort")}</span>
+      <span className="sr-only">{t("ui.demo")}</span>
+    </Badge>
+  );
 }

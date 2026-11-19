@@ -22,7 +22,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { MessageKey } from "../i18n";
-import type { ModuleKey } from "../data/types";
+import type { DemoState, ModuleKey } from "../data/types";
 import { menuVisible } from "../modules/registry";
 
 export interface NavItem {
@@ -64,6 +64,21 @@ export const SETTINGS_NAV: NavItem[] = [
 
 export function visibleItems(items: NavItem[], modules: Record<ModuleKey, boolean>) {
   return items.filter((item) => menuVisible(modules, item.href));
+}
+
+const LOG_PAGE = "/studio/more/log";
+
+/**
+ * What More (and the desktop sidebar's groups) list for a business: pages of switched-off modules
+ * are left out. In a new salon of your own, "What happened?" waits until something has happened
+ * that it could show; the demo salon always lists it.
+ */
+export function moreMenu(state: Pick<DemoState, "industry" | "modules" | "log" | "trash">) {
+  const history = !state.industry || state.log.length > 0 || state.trash.length > 0;
+  return {
+    business: visibleItems(BUSINESS_NAV, state.modules),
+    settings: visibleItems(SETTINGS_NAV, state.modules).filter((item) => item.href !== LOG_PAGE || history),
+  };
 }
 
 export function isActivePath(pathname: string, href: string) {

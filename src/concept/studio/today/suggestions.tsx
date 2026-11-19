@@ -19,9 +19,8 @@ import type { OpenSheet } from "../booking/booking-sheets";
 import { useForecasts } from "../stock/use-forecasts";
 import { useStudio } from "../use-studio";
 import { dispatchWithUndoToast } from "../log/undo-toast";
+import { suggestionLimit } from "./limits";
 
-// The two most pressing at first: the rest are a tap away, so Today stays the schedule.
-const VISIBLE_AT_FIRST = 2;
 const QUIET_DISCOUNT = 10;
 
 interface Suggestion {
@@ -149,7 +148,9 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
   const visible = list.filter((s) => (!s.card || cardVisible(state.modules, s.card)) && !state.dismissedCards.includes(s.id));
   if (!visible.length) return silent ? null : <p className="px-4 py-5 text-center text-sm text-text-secondary">{t("suggest.none")}</p>;
 
-  const shown = showAll ? visible : visible.slice(0, VISIBLE_AT_FIRST);
+  // The most pressing first and the rest a tap away, so Today stays the schedule. A new salon gets one.
+  const limit = suggestionLimit(state);
+  const shown = showAll ? visible : visible.slice(0, limit.first);
   return (
     <>
       {shown.map((s) => (
@@ -165,11 +166,11 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
           </IconButton>
         </div>
       ))}
-      {shown.length < visible.length && (
+      {limit.more && shown.length < visible.length && (
         <div>
-          <button type="button" onClick={() => setShowAll(true)} className="flex min-h-11 w-full items-center justify-center px-4 text-[15px] font-medium text-text-secondary transition-colors hover:bg-surface-2 hover:text-text">
+          <Button variant="tertiary" className="w-full rounded-none text-text-secondary" onClick={() => setShowAll(true)}>
             {tc("suggest.more", visible.length - shown.length)}
-          </button>
+          </Button>
         </div>
       )}
     </>

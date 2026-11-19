@@ -14,15 +14,17 @@ import { RoleSwitch } from "./ops/role-switch";
 import { t } from "../i18n";
 import { unreadCount } from "../selectors";
 import { isPreset } from "../modules/registry";
-import { dispatch, useDemo } from "../store";
+import { dispatch, markTrialUsed, useDemo, useTrialRemoved } from "../store";
 import type { DemoState } from "../data/types";
 import { StaffAvatar } from "../ui/avatar";
+import { DemoBadge } from "../ui/badge";
 import { cx } from "../ui/cx";
 import { parseTheme, pinThemeColor, studioChrome } from "../ui/theme";
 import { ThemeControl } from "../ui/theme-control";
 import { showToast, Toaster } from "../ui/toast";
 import { Wordmark } from "../ui/wordmark";
-import { BUSINESS_NAV, isActivePath, MORE_TAB, PRIMARY_NAV, SETTINGS_NAV, visibleItems, type NavItem } from "./nav";
+import { BUSINESS_NAV, isActivePath, MORE_TAB, moreMenu, PRIMARY_NAV, SETTINGS_NAV, type NavItem } from "./nav";
+import { TrialRemoved } from "./onboarding/trial-notice";
 import type { MessageKey } from "../i18n";
 
 const WELCOME_PATH = "/studio/welcome";
@@ -50,18 +52,25 @@ export function StudioShell({ children }: { children: ReactNode }) {
   const role = useRole();
   const pathname = usePathname() ?? "";
   const isSetup = pathname === "/studio/setup" && role === "owner";
+  const removed = useTrialRemoved();
+  const own = !!state?.industry;
   // The chrome follows the studio's saved theme, also when arriving by an in-app link from a booking page.
   useEffect(() => pinThemeColor(studioChrome(parseTheme(document.documentElement.dataset.theme))), []);
   useStartPreset(!!state);
+  // Opening a page counts as using the trial salon; it is removed after a day without use.
+  useEffect(() => { if (own) markTrialUsed(); }, [own, pathname]);
   if (!state) return <LoadingScreen />;
-  if (pathname === WELCOME_PATH || isSetup) {
+  if (removed || pathname === WELCOME_PATH || isSetup) {
     return (
       <>
         <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 sm:px-6">
           <Wordmark className="w-[112px]" />
-          {isSetup && <StudioLanguageSwitch />}
+          <div className="flex flex-wrap items-center gap-3">
+            <DemoBadge short />
+            {(isSetup || removed) && <StudioLanguageSwitch />}
+          </div>
         </header>
-        <main className="px-4 pb-12 pt-5 sm:px-6">{children}</main>
+        <main className="px-4 pb-12 pt-5 sm:px-6">{removed ? <TrialRemoved /> : children}</main>
         <Toaster />
       </>
     );
@@ -74,6 +83,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
           <Wordmark className="w-[112px] max-[299px]:w-[96px]" />
         </Link>
         <div className="flex shrink-0 items-center gap-1 max-[299px]:gap-0">
+          <DemoBadge short />
           {state.modules.assistant && <AssistantHeaderButton />}
           <RoleSwitch compact />
           <HelpButton compact />
@@ -150,10 +160,11 @@ function useTallScreen(): boolean {
 function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string; role: Role }) {
   const unread = unreadCount(state);
   const person = role === "staff" ? (staffViewer(state) ?? state.staff[0]) : state.staff[0];
-  const allowed = (items: NavItem[]) => visibleItems(items, state.modules).filter((item) => canOpen(role, item.href));
+  const allowed = (items: NavItem[]) => items.filter((item) => canOpen(role, item.href));
+  const menu = moreMenu(state);
   const groups: { id: GroupId; title: MessageKey; items: NavItem[] }[] = [
-    { id: "business" as const, title: "nav.section.business" as const, items: allowed(BUSINESS_NAV) },
-    { id: "settings" as const, title: "nav.section.settings" as const, items: allowed(SETTINGS_NAV) },
+    { id: "business" as const, title: "nav.section.business" as const, items: allowed(menu.business) },
+    { id: "settings" as const, title: "nav.section.settings" as const, items: allowed(menu.settings) },
   ].filter((group) => group.items.length);
   // One group is open at a time, so the whole menu fits a laptop screen without a scrollbar of its own.
   // The page you are on decides which; a choice made by hand lasts until you go somewhere else.
@@ -167,9 +178,8 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
           <use href="/brand/studio-wordmark.svg#lettering" />
         </svg>
       </Link>
-      <p className="mt-3 truncate px-3 text-sm text-text-secondary">
-        <span className="font-semibold text-text">{state.salon.name}</span> · {t("shell.demo")}
-      </p>
+      <p className="mt-3 truncate px-3 text-sm font-semibold">{state.salon.name}</p>
+      <p className="mt-1 px-3"><DemoBadge /></p>
       <nav aria-label={t("shell.navigation")} className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
         <div className="space-y-0.5">
           {PRIMARY_NAV.filter((item) => canOpen(role, item.href)).map((item) => (

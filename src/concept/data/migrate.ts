@@ -66,6 +66,10 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
       giftCards: returnRedemptions(state.giftCards, settled),
     };
   },
+  // v23 can mark bookings and customers as examples (new salons start with a few) and starts new
+  // salons with every module off. Existing salons keep their modules. Deposit-branch saves could
+  // reach v22 before reminder settings existed, so they get the defaults here.
+  22: (saved) => ({ ...saved, reminderSettings: saved.reminderSettings ?? { ...DEFAULT_REMINDER_SETTINGS }, version: 23 }),
 };
 
 /** The oldest saved version that can still be migrated. */
@@ -80,7 +84,5 @@ export function migrateState(saved: unknown): DemoState | null {
     if (!step) return null;
     current = step(current);
   }
-  // Deposit-branch snapshots could already be v21 or v22 before reminder settings existed.
-  if (current.version === 22 && !current.reminderSettings) current = { ...current, reminderSettings: { ...DEFAULT_REMINDER_SETTINGS } };
   return current.version === DEMO_VERSION ? (current as unknown as DemoState) : null;
 }

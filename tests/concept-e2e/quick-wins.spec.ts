@@ -83,7 +83,7 @@ test("persists reminder settings, chooses the preview channel and links straight
   await expect(page.getByText(copy("messages.sentTitle", { channel: copy("messages.channel.email"), subject }), { exact: true })).toBeVisible();
 });
 
-test("opens the migration checklist from Getting started and leads to the existing import", async ({ page }) => {
+test("opens the migration checklist from Your data and leads to the existing import", async ({ page }) => {
   await page.goto("/studio");
   const salon = createSalon(today, { ...salonDraft(), name: "Studio Linden", slug: "studio-linden" });
   await page.evaluate(initial => {
@@ -92,8 +92,9 @@ test("opens the migration checklist from Getting started and leads to the existi
   }, salon);
   await page.reload();
   const salonCopy = fixtureText(salon);
-  await page.getByRole("link", { name: salonCopy("setup.migration") }).click();
-  await expect(page).toHaveURL(/\/studio\/more\/data#migration$/);
+  await page.goto("/studio/more");
+  await page.getByRole("main").getByRole("link", { name: new RegExp(salonCopy("nav.data")) }).click();
+  await expect(page).toHaveURL(/\/studio\/more\/data$/);
   const checklist = page.locator("#migration");
   const started = page.waitForEvent("download");
   await checklist.getByRole("button", { name: salonCopy("data.export.customers"), exact: true }).click();

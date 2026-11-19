@@ -7,6 +7,7 @@ import { t, tc } from "../../i18n";
 import { agoText, formatDuration, relativeDay, formatTime } from "../../i18n/format";
 import { buildCustomerStats, dayBookings, findCustomer, findService, fullName } from "../../selectors";
 import { Avatar } from "../../ui/avatar";
+import { Tag } from "../../ui/badge";
 import { Button, ButtonLink, buttonClass } from "../../ui/button";
 import { Notice } from "../../ui/notice";
 import { Card, Section } from "../../ui/card";
@@ -46,7 +47,7 @@ export function NextCustomer({ staffId, onOpen }: { staffId?: StaffId; onOpen: (
       <Card className="space-y-4 p-5">
         <div className="flex items-center gap-4">
           <Avatar name={fullName(customer)} size="lg" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-lg font-semibold tracking-tight">{fullName(customer)}</p>
             <p className="truncate text-sm text-text-secondary">{service?.name} · {formatDuration(booking.duration)}</p>
             <p className="mt-0.5 flex items-center gap-1.5 text-sm text-text-secondary">
@@ -54,6 +55,7 @@ export function NextCustomer({ staffId, onOpen }: { staffId?: StaffId; onOpen: (
               {t("next.with", { name: staff.firstName, time: formatTime(booking.start) })}
             </p>
           </div>
+          {booking.example && <Tag className="self-start">{t("setup.example.tag")}</Tag>}
         </div>
         <p className="text-sm text-text-secondary">
           {[stats && tc("next.visits", stats.visits), stats?.lastVisit && t("next.lastVisit", { ago: agoText(stats.lastVisit, today) }), ...customer.tags].filter(Boolean).join(" · ")}

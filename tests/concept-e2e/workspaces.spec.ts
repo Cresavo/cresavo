@@ -38,7 +38,7 @@ test("a demo booking tab leaves the open salon hours form and its save in the ow
   expect(opens[1]).toBe(630);
 });
 
-test("a renamed demo address is unavailable in setup and both salons reserve each other's address in Settings", async ({ page }) => {
+test("setup steers clear of a renamed demo address and both salons reserve each other's address in Settings", async ({ page }) => {
   await page.goto("/studio/more/settings");
   const address = page.getByLabel("Your name in the address");
   const save = page.getByRole("button", { name: "Save address" });
@@ -46,20 +46,17 @@ test("a renamed demo address is unavailable in setup and both salons reserve eac
   await save.click();
   await expect(save).toBeDisabled();
   await page.goto("/studio/setup");
-  await page.getByLabel("Name", { exact: true }).fill("Studio Vide");
-  for (let step = 0; step < 5; step++) await page.getByRole("button", { name: "Next", exact: true }).click();
-  await address.fill("studio-fern");
-  await expect(page.getByRole("button", { name: "Create booking page" })).toBeDisabled();
-  await address.fill("studio-vide");
-  await page.getByRole("button", { name: "Create booking page" }).click();
-  await expect(page.getByRole("link", { name: "/boka/studio-vide" })).toBeVisible();
+  await page.getByLabel("Name", { exact: true }).fill("Studio Fern");
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await page.getByRole("button", { name: "Create my salon" }).click();
+  await expect(page.getByRole("link", { name: "See your booking page" })).toHaveAttribute("href", "/boka/studio-fern-2");
   await page.goto("/studio/more/settings");
   await address.fill("studio-fern");
   await expect(save).toBeDisabled();
   await page.getByRole("button", { name: "Back to the demo salon" }).click();
   await expect(page).toHaveURL(/\/studio$/);
   await page.goto("/studio/more/settings");
-  await address.fill("studio-vide");
+  await address.fill("studio-fern-2");
   await expect(save).toBeDisabled();
 });
 
