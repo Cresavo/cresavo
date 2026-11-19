@@ -66,17 +66,23 @@ once the repository is public.
 
 9. **Private vulnerability reporting.** **Settings** → **Advanced Security**
    → **Private vulnerability reporting** → **Enable**. SECURITY.md, the issue
-   config and the Code of Conduct all rely on it. While you are there, enable
-   **Secret scanning** with **Push protection**, and **CodeQL analysis**
-   (**Set up** → **Default**).
+   config and the Code of Conduct all rely on it. **Secret scanning** and
+   **Push protection** were confirmed enabled on 2026-11-19. Leave **CodeQL
+   analysis** default setup **off**: CodeQL runs from `codeql.yml` (advanced
+   setup), and both cannot be active at once.
 10. **Branch protection for `main`.** **Settings** → **Branches** → **Add
    classic branch protection rule** (or **Rules** → **Rulesets** → **New
    branch ruleset** **(verify)**) → Branch name pattern `main` →
    - tick **Require a pull request before merging**;
    - tick **Require status checks to pass before merging**, then search and
-     add the checks from **Verify POC** (`E2E dev / proxy 0`) and **Secret
-     scan** (`Gitleaks (full history)`). The checks only appear in the search
-     after they have run once in the last week;
+     add the checks from **Verify POC** (`E2E dev / proxy 0`), **Secret
+     scan** (`Gitleaks (full history)`), **Dependency review**
+     (`Dependency review (high/critical gate)`) and **CodeQL**
+     (`Analyze (javascript-typescript)`, `Analyze (actions)`). The checks
+     only appear in the search after they have run once in the last week;
+   - in a ruleset, also add **Require code scanning results** → tool
+     **CodeQL** → security alerts **High or higher**, alerts **Errors**, so
+     new CodeQL findings block merge and are not only reported **(verify)**;
    - leave **Allow force pushes** and **Allow deletions** unticked;
    - **Create**.
    Verify POC runs on every pull request, docs-only ones included, so the

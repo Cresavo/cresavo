@@ -18,6 +18,7 @@ All notable changes to this project are documented here. Format follows
 - Start a browser-local salon from Today or Settings with a seven-step setup in Swedish or English. New salons have their own bookable page, empty studio views and a first-run checklist. A short guided tour introduces the demo salon.
 - The studio and Salong Eko booking flow support Swedish and English. Owners choose a studio language per device and a business language for confirmations and customer messages. The rules assistant understands common Swedish booking and scheduling commands.
 - The public product site publishes a sitemap and search metadata. Its production deployment uses cookie-free Vercel Web Analytics to measure visits.
+- CodeQL analyses the JavaScript/TypeScript code and the GitHub Actions workflows on pull requests, on `main` and weekly. Pull requests run Dependency Review, which fails on new dependencies with high or critical advisories. [Quality and security](docs/QUALITY_SECURITY.md#security-checks) lists every security check and what blocks merge.
 
 ### Changed
 - Book again sits beside booking management on confirmations and in My bookings, and keeps the original treatment and practitioner when available.
