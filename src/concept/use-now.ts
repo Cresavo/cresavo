@@ -11,7 +11,7 @@ export interface Now {
 
 let cached: Now | null = null;
 
-function read(): Now {
+export function readNow(): Now {
   const d = new Date();
   const today = toKey(d);
   const minutes = d.getHours() * 60 + d.getMinutes();
@@ -27,5 +27,5 @@ function subscribe(listener: () => void) {
 const serverNow: Now = { today: "1970-01-01", minutes: 0 };
 
 export function useNow(): Now {
-  return useSyncExternalStore(subscribe, read, () => serverNow);
+  return useSyncExternalStore(subscribe, readNow, () => serverNow);
 }

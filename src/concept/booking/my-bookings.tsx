@@ -30,7 +30,7 @@ export function MyBookings() {
   const state = usePublicDemo();
   const now = useNow();
   const ref = useSearchParams()?.get("ref");
-  const [remembered] = useState(() => recallGuest()?.customerId);
+  const [remembered] = useState(() => state ? recallGuest(state.salon.slug)?.customerId : undefined);
   if (!state) return null;
   const customer = findCustomer(state, ref ?? remembered);
   return customer ? <Overview state={state} now={now} customerId={customer.id} /> : <Lookup state={state} />;
@@ -108,13 +108,15 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
               return (
                 <div key={booking.id} className="p-4">
                   <div className="flex flex-wrap items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">{service?.name}</p>
-                    <p className="text-sm text-text-secondary">{formatDayLong(booking.date)} · {formatMoney(booking.price)}</p>
-                  </div>
-                  <ButtonLink href={rebookLink(state.salon.slug, booking.serviceId)} variant="secondary" size="sm" icon={<Repeat size={14} />}>
-                    {t("booking.me.rebook")}
-                  </ButtonLink>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{service?.name}</p>
+                      <p className="text-sm text-text-secondary">{formatDayLong(booking.date)} · {formatMoney(booking.price)}</p>
+                    </div>
+                    {state.services.some(s => s.id === booking.serviceId) && (
+                      <ButtonLink href={rebookLink(state.salon.slug, booking.serviceId, booking.staffId)} variant="secondary" size="sm" icon={<Repeat size={14} />}>
+                        {t("booking.me.rebook")}
+                      </ButtonLink>
+                    )}
                   </div>
                   <ReviewForm state={state} booking={booking} now={now} />
                 </div>

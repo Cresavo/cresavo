@@ -20,12 +20,13 @@ export function bookingMessage(state: DemoState, booking: Booking, kind: Booking
   const service = findService(state, booking.serviceId);
   const staff = state.staff.find(staff => staff.id === booking.staffId);
   const subject = t(`messages.subject.${kind}`, { salon: state.salon.name });
-  const body = t(`messages.body.${kind}`, {
+  const details = t(`messages.body.${kind}`, {
     salon: state.salon.name, service: service?.name ?? "", date: formatDate(booking.date),
     time: formatTime(booking.start), staff: staff?.firstName ?? "", address: state.salon.address,
-    link: bookingPage(state.salon.slug, booking.id),
   });
-  return { subject, body };
+  const path = bookingPage(state.salon.slug, booking.id);
+  const body = t("messages.withManageLink", { details, link: path });
+  return { subject, body, details, path };
 }
 export function messageWasSent(state: DemoState, booking: Booking, kind: BookingMessageKind, channel: MessageChannel) {
   return state.inbox.some(item => item.bookingId === booking.id && item.delivery?.kind === kind && item.delivery.channel === channel && item.delivery.slot === messageSlot(booking));

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, BellRing, Check } from "lucide-react";
 import { addDays } from "../data/dates";
-import type { DemoState } from "../data/types";
+import type { DemoState, StaffId } from "../data/types";
 import { t, tc } from "../i18n";
 import { formatDayLong } from "../i18n/format";
 import { Button } from "../ui/button";
@@ -12,18 +12,18 @@ import { cx } from "../ui/cx";
 import { showToast } from "../ui/toast";
 import type { Now } from "../use-now";
 import { AskStep } from "./ask-step";
-import { recallGuest } from "./guest";
+import { useGuestContact } from "./guest";
 import { DetailsStep } from "./details-step";
 import { parseBookingRequest, type BookingRequest } from "./request";
 import { ServiceInfo } from "./service-row";
 import { SlotCard } from "./slot-card";
 import { suggestSlots, type OpenSlot } from "./suggest";
-import { TimePicker } from "./time-picker";
+import { OtherTimes, TimePicker } from "./time-picker";
 import { WaitlistSheet, type WaitlistRequest } from "./waitlist-sheet";
 
-type Step = "ask" | "service" | "suggest" | "times" | "details";
+type Step = "ask" | "service" | "suggest" | "times" | "next" | "details";
 
-const PROGRESS: Partial<Record<Step, number>> = { service: 0, suggest: 1, times: 1, details: 2 };
+const PROGRESS: Partial<Record<Step, number>> = { service: 0, suggest: 1, times: 1, next: 2, details: 2 };
 const PROGRESS_LABELS = ["booking.step.treatment", "booking.step.time", "booking.step.details"] as const;
 const FALLBACK_DAYS = 21;
 
@@ -50,6 +50,7 @@ interface WizardProps {
   now: Now;
   /** Start with this treatment already chosen (from "Book" buttons and rebooking). */
   initialServiceId?: string;
+  initialStaffId?: StaffId;
   onBooked?: (id: string) => void;
   /** Called with true while a flow step is open, false on the first screen. */
   onFlowChange?: (inFlow: boolean) => void;
@@ -58,15 +59,17 @@ interface WizardProps {
 }
 
 /** The booking flow: describe it, or pick treatment, then time, then name and phone. */
-export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowChange, listOnPage }: WizardProps) {
-  const [trail, setTrail] = useState<Step[]>(initialServiceId ? ["ask", "times"] : ["ask"]);
+export function BookingWizard({ state, now, initialServiceId, initialStaffId, onBooked, onFlowChange, listOnPage }: WizardProps) {
+  const nextTime = (serviceId: string, staffId?: StaffId) =>
+    suggestSlots(state, { serviceId, staffId, from: now.today, to: addDays(now.today, FALLBACK_DAYS) }, now, 1)[0];
+  const preferredStaff = state.services.find(s => s.id === initialServiceId)?.staffIds.find(id => id === initialStaffId);
+  const [slot, setSlot] = useState(() => initialServiceId ? nextTime(initialServiceId, preferredStaff) : undefined);
+  const [alternative, setAlternative] = useState(false);
+  const [trail, setTrail] = useState<Step[]>(initialServiceId ? ["ask", slot ? "next" : "times"] : ["ask"]);
+  const [staffId, setStaffId] = useState(preferredStaff);
   const [serviceId, setServiceId] = useState(initialServiceId);
   const [request, setRequest] = useState<BookingRequest>();
-  const [guest, setGuest] = useState(() => {
-    const known = recallGuest();
-    return { name: known?.name ?? "", phone: known?.phone ?? "" };
-  });
-  const [slot, setSlot] = useState<OpenSlot>();
+  const contact = useGuestContact(state.salon.slug);
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
   const [missed, setMissed] = useState(false);
   const step = trail[trail.length - 1];
@@ -74,17 +77,23 @@ export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowCh
   const go = (next: Step) => setTrail((current) => [...current, next]);
   const back = () => setTrail((current) => current.slice(0, -1));
   const service = state.services.find((s) => s.id === serviceId);
-  const ask =(text: string) => {
+  const ask = (text: string) => {
     const parsed = parseBookingRequest(text, state, now.today);
     setRequest(parsed);
+    setStaffId(undefined);
     setServiceId(parsed.serviceId);
     setMissed(!parsed.serviceId);
     go(parsed.serviceId ? "suggest" : "service");
   };
 
   const chooseService = (id: string) => {
+    setStaffId(undefined);
     setServiceId(id);
-    go(request ? "suggest" : "times");
+    if (request) return go("suggest");
+    const first = nextTime(id);
+    setSlot(first);
+    setAlternative(false);
+    go(first ? "next" : "times");
   };
 
   const pick = (chosen: OpenSlot) => {
@@ -94,8 +103,27 @@ export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowCh
 
   const taken = () => {
     showToast(t("booking.slotTaken"));
-    setTrail((current) => current.slice(0, current.lastIndexOf("details")));
+    setSlot(undefined);
+    setTrail((current) => current.at(-1) === "next" ? [...current.slice(0, -1), "times"] : current.slice(0, -1));
   };
+
+  const stepPanel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (step !== "ask") stepPanel.current?.focus({ preventScroll: true });
+  }, [step]);
+
+  const details = service && slot && (
+    <DetailsStep
+      state={state} now={now} serviceId={service.id} slot={slot}
+      contact={contact}
+      suggested={step === "next" && !alternative} onTaken={taken} onBooked={onBooked}
+      timeControl={step === "next" && (
+        <OtherTimes state={state} serviceId={service.id} staffId={staffId} selected={alternative ? slot : undefined} clock={now}
+          onPick={chosen => { setSlot(chosen); setAlternative(true); }}
+          onWaitlist={date => setWaitlist({ serviceId: service.id, date })} />
+      )}
+    />
+  );
 
   const body: Record<Step, ReactNode> = {
     ask: <AskStep onAsk={ask} onChoose={listOnPage ? undefined : () => go("service")} />,
@@ -120,10 +148,11 @@ export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowCh
     times: service && (
       <div className="space-y-4">
         <h2 className="text-xl font-semibold tracking-tight">{t("booking.times.title", { service: service.name })}</h2>
-        <TimePicker state={state} serviceId={service.id} clock={now} onPick={pick} onWaitlist={(date) => setWaitlist({ serviceId: service.id, date })} />
+        <TimePicker state={state} serviceId={service.id} staffId={staffId} clock={now} onPick={pick} onWaitlist={(date) => setWaitlist({ serviceId: service.id, date })} />
       </div>
     ),
-    details: service && slot && <DetailsStep state={state} now={now} serviceId={service.id} slot={slot} guest={guest} onGuestChange={setGuest} onTaken={taken} onBooked={onBooked} />,
+    next: details,
+    details,
   };
 
   // Idle, the flow is one quiet line above the price list; a card appears once a booking is under way.
@@ -134,10 +163,12 @@ export function BookingWizard({ state, now, initialServiceId, onBooked, onFlowCh
         <Button variant="ghost" size="sm" icon={<ArrowLeft size={16} />} onClick={back} className="-ml-2">
           {t("common.back")}
         </Button>
-        <Progress step={step} />
+        {step !== "next" && <Progress step={step} />}
       </div>
-      {body[step]}
-      <WaitlistSheet state={state} now={now} request={waitlist} onClose={() => setWaitlist(null)} />
+      <div role="group" tabIndex={-1} ref={stepPanel} aria-label={t(PROGRESS_LABELS[PROGRESS[step] ?? 0])}>
+        {body[step]}
+      </div>
+      {waitlist && <WaitlistSheet state={state} now={now} request={waitlist} onClose={() => setWaitlist(null)} />}
     </Card>
   );
 }

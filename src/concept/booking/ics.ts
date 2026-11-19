@@ -1,42 +1,59 @@
+import { DateTime } from "luxon";
 import { formatTime } from "../data/dates";
 import type { Booking, Salon, Service, Staff } from "../data/types";
+import { t } from "../i18n";
+import { SALON_TIMEZONE } from "../tools/clock";
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const local = (key: string, minutes: number) => `${key.replace(/-/g, "")}T${formatTime(minutes).replace(":", "")}00`;
-const escape = (text: string) => text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+const escape = (text: string) => text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r\n|\r|\n/g, "\\n");
 
 export function icsTimestamp(date: Date): string {
-  return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`;
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
-interface IcsInput {
+interface CalendarVisit {
   booking: Booking;
   service: Service;
-  staff: Staff;
   salon: Salon;
-  /** UTC timestamp from `icsTimestamp()`. */
-  createdAt: string;
 }
 
-/** A one-event calendar file in local ("floating") time with a reminder one hour before. */
-export function buildIcs({ booking, service, staff, salon, createdAt }: IcsInput): string {
+function eventDetails({ booking, service, salon }: CalendarVisit) {
+  const start = DateTime.fromISO(`${booking.date}T${formatTime(booking.start)}`, { zone: SALON_TIMEZONE });
+  return {
+    start: icsTimestamp(start.toJSDate()),
+    end: icsTimestamp(start.plus({ minutes: booking.duration }).toJSDate()),
+    title: t("booking.calendarTitle", { service: service.name, salon: salon.name }),
+    location: `${salon.name}, ${salon.address}, ${salon.area}`,
+  };
+}
+
+export function googleCalendarLink(visit: CalendarVisit): string {
+  const event = eventDetails(visit);
+  const query = new URLSearchParams({
+    action: "TEMPLATE", text: event.title, dates: `${event.start}/${event.end}`,
+    stz: SALON_TIMEZONE, etz: SALON_TIMEZONE, location: event.location,
+  });
+  return `https://calendar.google.com/calendar/r/eventedit?${query}`;
+}
+
+export function buildIcs(input: CalendarVisit & { staff: Staff; createdAt: string }): string {
+  const event = eventDetails(input);
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Salong Eko//Booking demo//EN",
+    "PRODID:-//Booking//Appointment//EN",
     "CALSCALE:GREGORIAN",
     "BEGIN:VEVENT",
-    `UID:${booking.id}@${salon.slug}.example`,
-    `DTSTAMP:${createdAt}`,
-    `DTSTART:${local(booking.date, booking.start)}`,
-    `DTEND:${local(booking.date, booking.start + booking.duration)}`,
-    `SUMMARY:${escape(`${service.name} at ${salon.name}`)}`,
-    `DESCRIPTION:${escape(`With ${staff.firstName}. Free to change or cancel until 24 hours before.`)}`,
-    `LOCATION:${escape(`${salon.name}, ${salon.address}, ${salon.area}`)}`,
+    `UID:${input.booking.id}@${input.salon.slug}.example`,
+    `DTSTAMP:${input.createdAt}`,
+    `DTSTART:${event.start}`,
+    `DTEND:${event.end}`,
+    `SUMMARY:${escape(event.title)}`,
+    `DESCRIPTION:${escape(t("booking.withStaff", { name: input.staff.firstName }))}`,
+    `LOCATION:${escape(event.location)}`,
     "BEGIN:VALARM",
     "TRIGGER:-PT1H",
     "ACTION:DISPLAY",
-    "DESCRIPTION:Appointment in one hour",
+    `DESCRIPTION:${escape(t("booking.calendarReminder"))}`,
     "END:VALARM",
     "END:VEVENT",
     "END:VCALENDAR",

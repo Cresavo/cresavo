@@ -24,7 +24,8 @@ import { BookingWizard } from "./wizard";
 export function SalonPage() {
   const state = usePublicDemo();
   const now = useNow();
-  const fromLink = useSearchParams()?.get("service") ?? undefined;
+  const params = useSearchParams();
+  const fromLink = params?.get("service") ?? undefined;
   const { sections, instagram, theme } = usePage();
   const [inFlow, setInFlow] = useState(false);
   const [preset, setPreset] = useState<{ serviceId: string; count: number }>();
@@ -33,7 +34,7 @@ export function SalonPage() {
 
   const book = (serviceId: string) => {
     setPreset({ serviceId, count: (preset?.count ?? 0) + 1 });
-    document.getElementById("book")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("book")?.scrollIntoView({ behavior: "instant", block: "start" });
   };
 
   const render = ({ kind, variant }: PageSection): ReactNode => {
@@ -68,7 +69,7 @@ export function SalonPage() {
   const topIsHero = first?.kind === "hero";
   const flow = (
     <section id="book" data-booking-flow className="scroll-mt-4" aria-label={t("booking.ask.title")}>
-      <BookingWizard key={preset?.count ?? 0} state={state} now={now} initialServiceId={initial} onFlowChange={setInFlow} listOnPage={sections.some((s) => s.kind === "treatments")} />
+      <BookingWizard key={preset?.count ?? params?.toString()} state={state} now={now} initialServiceId={initial} initialStaffId={preset ? undefined : state.staff.find(person => person.id === params?.get("staff"))?.id} onFlowChange={setInFlow} listOnPage={sections.some((s) => s.kind === "treatments")} />
     </section>
   );
   const policy = <CancellationPolicy state={state} />;

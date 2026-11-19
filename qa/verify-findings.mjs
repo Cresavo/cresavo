@@ -18,8 +18,8 @@ const go = async (p, url) => { await p.goto(url.startsWith("http") ? url : DEMO 
 async function publicBook(p, origin, name, phone, time = "13:00", confirm = true) {
   await go(p, origin);
   await b(p, "Book Medical foot care").click();
-  await b(p, "Tomorrow").or(p.getByRole("radio", { name: /^Tomorrow/ })).first().click().catch(() => {});
-  await b(p, time).click();
+  const [hour, minute] = time.split(":").map(Number);
+  await p.getByRole("combobox", { name: "Choose another time" }).selectOption(`2026-11-19/${hour * 60 + minute}`);
   await p.getByPlaceholder("First and last name").fill(name);
   await p.getByPlaceholder("070-123 45 67").fill(phone);
   if (confirm) { await b(p, "Confirm booking").click(); await p.waitForTimeout(600); }
@@ -28,6 +28,7 @@ async function publicBook(p, origin, name, phone, time = "13:00", confirm = true
 // ---- Codex findings ----
 await check("C01", "second tab overwrites a confirmed booking", async (p, ctx) => {
   const q = await ctx.newPage();
+  await q.clock.setFixedTime(new Date("2026-11-18T08:00:00+01:00"));
   await publicBook(p, "/boka/salong-eko", "Tab One Demo", "070-000 11 11", "13:00", false);
   await publicBook(q, "/boka/salong-eko", "Tab Two Demo", "070-000 22 22", "13:00", false);
   await b(p, "Confirm booking").click(); await p.waitForTimeout(600);
@@ -130,20 +131,14 @@ await check("C09", "room filter shows 0 bookings under an unqualified '81% booke
 await check("C10", "public reschedule to the same time says 'moved'", async (p) => {
   await publicBook(p, "/boka/salong-eko", "Same Time Demo", "070-000 44 44");
   await p.getByText("Reschedule", { exact: true }).first().click(); await p.waitForTimeout(300);
-  const currentTime = b(p, "13:00");
-  if (!await currentTime.count()) return { verdict: "NO-REPRO", observed: "The current slot is excluded from the move picker." };
-  await currentTime.click();
-  const confirm = p.getByRole("button", { name: /^Move to / });
-  const enabled = await confirm.isEnabled();
-  if (enabled) await confirm.click();
-  await p.waitForTimeout(400);
-  const moved = await p.getByText("Your booking is moved").count();
+  await dlg(p).getByRole("radio", { name: /^Tomorrow/ }).click();
+  const sameTime = await dlg(p).getByRole("button", { name: /^Move to 13:00/ }).count();
   await shot(p, "verify-C10-same-time");
-  return { verdict: moved ? "REPRO" : "NO-REPRO", observed: `same time selectable: ${enabled}; "Your booking is moved" shown: ${moved > 0}` };
+  return { verdict: sameTime ? "REPRO" : "NO-REPRO", observed: `Current slot offered in the move picker: ${!!sameTime}` };
 });
-await check("C11", "Back from details to times clears name and phone", async (p) => {
+await check("C11", "Changing the time clears name and phone", async (p) => {
   await publicBook(p, "/boka/salong-eko", "Keep Me Demo", "070-000 55 55", "13:00", false);
-  await b(p, "Back").click(); await b(p, "14:00").click();
+  await p.getByRole("combobox", { name: "Choose another time" }).selectOption("2026-11-19/840");
   const n = await p.getByPlaceholder("First and last name").inputValue(), ph = await p.getByPlaceholder("070-123 45 67").inputValue();
   await shot(p, "verify-C11-after-back");
   return { verdict: !n && !ph ? "REPRO" : "NO-REPRO", observed: `name="${n}" phone="${ph}"` };

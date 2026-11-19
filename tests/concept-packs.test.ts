@@ -104,6 +104,9 @@ describe("switching pack", () => {
     expect(currentState()?.modules).toMatchObject({ stock: true, finance: false });
     expect(dispatch({ type: "module/toggle", key: "stock" })).toBe(true);
     expect(currentState()?.modules.stock).toBe(false);
+    const sequence = currentState()!.seq;
+    startBusiness();
+    expect(currentState()!.seq).toBe(sequence);
   });
 });
 

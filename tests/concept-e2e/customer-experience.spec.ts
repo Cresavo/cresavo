@@ -66,8 +66,8 @@ test("book, preview both channels, simulate reminders, inspect Inbox, rebook and
   await page.getByRole("button", { name: "Cancel booking", exact: true }).click();
   await page.getByRole("button", { name: "Yes, cancel it" }).click();
   await expect(page.getByRole("heading", { name: "This booking is cancelled" })).toBeVisible();
-  await page.getByRole("link", { name: "Book a new time" }).click();
-  await expect(page.getByRole("radiogroup", { name: "Choose a day" })).toBeVisible();
+  await page.getByRole("link", { name: "Book again" }).click();
+  await expect(page.getByRole("combobox", { name: "Choose another time" })).toBeVisible();
   await expect(page).toHaveURL(/service=/);
 });
 
@@ -150,10 +150,11 @@ test("join a fully booked day's waiting list and find the request in Inbox", asy
   await page.getByRole("button", { name: "Notify me about Tuesday 24 November" }).click();
   await page.getByLabel("Your name", { exact: true }).fill("Waiting Demo");
   await page.getByLabel("Mobile number").fill("070-000 99 33");
+  await expect(page.getByRole("checkbox", { name: "Remember my details on this device" })).not.toBeChecked();
   await page.getByRole("button", { name: "Put me on the list" }).click();
   await expect(page.getByText("You are on the list", { exact: true })).toBeVisible();
   await page.goto("/studio/inbox");
-  await expect(page.getByRole("button", { name: /Waiting Demo.*Waiting list/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Waiting list.*Waiting Demo/ })).toBeVisible();
 });
 
 test("two tabs cannot confirm the same public booking time", async ({ context, page }) => {
@@ -177,6 +178,27 @@ test("two tabs cannot confirm the same public booking time", async ({ context, p
     prepare(other, "Second Caller", "070-000 99 62"),
   ]);
   expect(first.time).toBe(second.time);
+  // Model a renderer observing the previous snapshot briefly after the other
+  // tab commits. Web Locks alone do not make localStorage reads coherent.
+  await Promise.all([page, other].map(tab => tab.evaluate(() => {
+    const read = Storage.prototype.getItem;
+    const initial = localStorage.getItem("salong-eko-demo");
+    const write = Storage.prototype.setItem;
+    let localWrite = false;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "salong-eko-demo") localWrite = true;
+      write.call(this, key, value);
+    };
+    let caughtUpAt: number | undefined;
+    Storage.prototype.getItem = function (key) {
+      const value = read.call(this, key);
+      if (!localWrite && key === "salong-eko-demo" && value !== initial) {
+        caughtUpAt ??= performance.now() + 200;
+        if (performance.now() < caughtUpAt) return initial;
+      }
+      return value;
+    };
+  })));
   await Promise.all([first.confirm.click(), second.confirm.click()]);
   const conflicts = [page, other].map((tab) => tab.getByText("Sorry, that time was just taken. Please choose another.", { exact: true }));
   await expect.poll(async () => (await Promise.all(conflicts.map((message) => message.count()))).reduce((sum, count) => sum + count, 0)).toBe(1);
@@ -192,4 +214,107 @@ test("two tabs cannot confirm the same public booking time", async ({ context, p
   const contacts = snapshot.customers.filter((customer) => customer.lastName === "Caller");
   expect(contacts).toHaveLength(1);
   expect(snapshot.bookings.filter((booking) => booking.customerId === contacts[0].id)).toHaveLength(1);
+});
+
+test("the treatment list offers a complete visit and remembers contact only by consent", async ({ page }) => {
+  const home = "/boka/salong-eko";
+  await page.goto(home);
+  await page.getByRole("button", { name: "Book Medical foot care", exact: true }).click();
+  const name = page.getByLabel("Your name", { exact: true });
+  const mobile = page.getByLabel("Mobile number");
+  const remember = page.getByRole("checkbox", { name: "Remember my details on this device" });
+  const confirm = page.getByRole("button", { name: "Confirm booking" });
+  await expect(page.getByText("Next available appointment", { exact: true })).toBeVisible();
+  await expect(page.locator("form").getByText(/change or cancel/i)).toBeVisible();
+  await expect(remember).not.toBeChecked();
+  await name.fill("Nova Demo");
+  await mobile.fill("070-000 99 11");
+  await confirm.click();
+  const again = page.getByRole("link", { name: "Book again" });
+  await again.click();
+  await expect(name).toHaveValue("");
+  await name.fill("Nova Demo");
+  await mobile.fill("070-000 99 11");
+  const chooseTime = page.getByRole("combobox", { name: "Choose another time" });
+  const alternative = await chooseTime.locator("optgroup option:not([value$='/wait'])").last().getAttribute("value");
+  await chooseTime.selectOption(alternative!);
+  await expect(page.getByText("Your appointment", { exact: true })).toBeVisible();
+  await expect(mobile).toHaveValue("070-000 99 11");
+  await remember.check();
+  await confirm.click();
+  await again.click();
+  await expect(name).toHaveValue("Nova Demo");
+  await expect(mobile).toHaveValue("070-000 99 11");
+  await expect(remember).toBeChecked();
+  await mobile.fill("070-000 99 12");
+  await expect(remember).not.toBeChecked();
+  await mobile.fill("070-000 99 11");
+  await remember.uncheck();
+  await confirm.click();
+  await expect(again).toBeVisible();
+  const saved = await state(page);
+  const visits = saved.bookings.slice(-3);
+  expect(new Set(visits.map(b => b.id)).size).toBe(3);
+  expect(new Set(visits.map(b => [b.serviceId, b.staffId, b.customerId].join("/"))).size).toBe(1);
+  await page.goto(home);
+  await page.getByRole("link", { name: "My bookings", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Find your bookings" })).toBeVisible();
+  await mobile.fill("070-000 99 11");
+  await page.getByRole("button", { name: "Show my bookings" }).click();
+  await expect(page.getByRole("link", { name: "Details" })).toHaveCount(3);
+});
+
+test("the confirmation link moves the same visit, exports its new time and enforces the new cutoff", async ({ page }) => {
+  await startBooking(page);
+  const before = (await state(page)).bookings.at(-1)!;
+  const manage = page.getByRole("link", { name: "Manage this booking" });
+  await expect(manage).toHaveAttribute("href", `/boka/salong-eko/booking/${before.id}#manage`);
+  await manage.click();
+  await page.getByRole("button", { name: "Reschedule" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: /^Move to / }).first().click();
+  await expect(page.getByText("Your booking is moved", { exact: true })).toBeVisible();
+  const saved = await state(page);
+  const moved = saved.bookings.find(b => b.id === before.id)!;
+  expect([moved.date, moved.start]).not.toEqual([before.date, before.start]);
+  expect(moved.status).toBe("booked");
+  const google = new URL((await page.getByRole("link", { name: "Google Calendar" }).getAttribute("href"))!);
+  expect(google.hostname).toBe("calendar.google.com");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: /Download calendar file/ }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe(`salong-eko-${moved.date}.ics`);
+  const contents = await file.createReadStream();
+  const bytes = [];
+  for await (const part of contents!) bytes.push(part);
+  const [start, end] = google.searchParams.get("dates")!.split("/");
+  expect(Buffer.concat(bytes).toString()).toContain(`DTSTART:${start}\r\nDTEND:${end}`);
+  // The first replacement is later today, inside the online change window.
+  await expect(page.getByText(/Less than 24 hours left/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cancel booking", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Book again" })).toBeVisible();
+});
+
+test("a shared gift card shows its ledger balance and a printed card can be looked up", async ({ page }) => {
+  const home = "/boka/salong-eko";
+  const code = "EKO-7K2Q-93XD";
+  await page.goto(home);
+  await page.getByRole("button", { name: "Book Medical foot care" }).waitFor();
+  await page.evaluate(code => {
+    const s: DemoState = JSON.parse(localStorage.getItem("salong-eko-demo")!);
+    s.giftCards.push({
+      id: "card-demo", code, amount: 600, recipient: "Nova Demo", message: "", soldOn: s.generatedFor,
+      redemptions: [{ bookingId: s.bookings.find(b => b.status === "completed")!.id, amount: 200, date: s.generatedFor }],
+    });
+    localStorage.setItem("salong-eko-demo", JSON.stringify(s));
+  }, code);
+  await page.goto(`${home}/gift?code=${code}&amount=900&to=Nova`);
+  await expect(page.getByText("SEK 400 left", { exact: true })).toBeVisible();
+  await expect(page.getByText("SEK 600", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Book a treatment" }).click();
+  await page.locator("summary").filter({ hasText: "Gift card balance" }).click();
+  await page.getByLabel("Gift card code").fill(code);
+  await page.getByRole("button", { name: "Check balance" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "SEK 400 left" })).toBeVisible();
+  await page.goto(`${home}/gift?code=unknown&amount=600&to=Nova`);
+  await expect(page.getByText("The current balance is unavailable on this device.")).toBeVisible();
 });

@@ -124,20 +124,60 @@ export function dispatchWithLog(
     const next = applyAction(current, action, logMeta);
     if (next === current) return false;
     // Run the booking rules again if another tab wrote while we prepared the save.
-    if (!setState(next, action.type === "online/book")) continue;
+    if (!setState(next, action.type === "online/book" || !!canApply)) continue;
     const logId = next.log[0]?.id;
     return logId !== current.log[0]?.id ? logId ?? null : null;
   }
 }
 
-/** Serializes booking confirmations across tabs when Web Locks are available. */
-export async function withBookingLock<T>(confirm: () => T): Promise<T> {
-  return navigator.locks ? navigator.locks.request(STORAGE_KEY, confirm) : confirm();
+// Web Locks serialize callbacks, but another renderer can still read an older
+// localStorage snapshot after acquiring the lock. Cache Storage supplies a
+// shared receipt for the last saved sequence. It contains no booking details.
+async function bookingReceipts(): Promise<Cache | undefined> {
+  try {
+    return await window.caches.open("concept-booking-sequence");
+  } catch {
+    // Embedded or private contexts can deny persistent storage.
+  }
+}
+
+export async function withBookingLock<T>(confirm: () => T): Promise<T | false> {
+  if (!navigator.locks) return confirm();
+  return navigator.locks.request(STORAGE_KEY, async () => {
+    const receipts = await bookingReceipts();
+    if (!receipts) return confirm();
+    const receiptKey = new URL("/concept-booking-sequence", window.location.origin).href;
+    const receipt = await receipts.match(receiptKey).catch(() => undefined);
+    const required: { day: string; seq: number } | undefined = await receipt?.json().catch(() => undefined);
+    if (required?.day === today()) {
+      // Usually the first read is current. Wait only when storage is catching up.
+      for (let attempt = 0; ; attempt++) {
+        refreshFromStorage();
+        if ((getSnapshot()?.seq ?? 0) >= required.seq) break;
+        if (attempt === 40) {
+          if (!savedRaw) break; // The demo was cleared and can start fresh.
+          return false;
+        }
+        await new Promise(resolve => window.setTimeout(resolve, 25));
+      }
+    }
+    const before = savedRaw;
+    const result = confirm();
+    if (savedRaw && savedRaw !== before && state) {
+      // A storage quota error must not hide an appointment already saved.
+      await receipts.put(receiptKey, Response.json({ day: state.generatedFor, seq: state.seq })).catch(() => undefined);
+    }
+    return result;
+  });
 }
 
 /** Rebuilds the demo for a business setup (industry pack, team size, modules). Without one it is the original Salong Eko. */
 export function startBusiness(setup?: BusinessSetup) {
-  setState(createDemoState(today(), setup));
+  const next = createDemoState(today(), setup);
+  if (typeof window !== "undefined") refreshFromStorage();
+  // Open tabs may still hold a receipt from before this same-day reset.
+  if (state?.generatedFor === next.generatedFor) next.seq = Math.max(next.seq, state.seq);
+  setState(next);
 }
 
 export function useDemo(): DemoState | null {

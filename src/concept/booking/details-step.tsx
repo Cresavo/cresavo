@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarCheck } from "lucide-react";
 import { formatTime } from "../data/dates";
@@ -10,9 +10,10 @@ import { formatDayLong, formatDuration, formatMoney } from "../i18n/format";
 import { currentState, dispatch, withBookingLock } from "../store";
 import { StaffAvatar } from "../ui/avatar";
 import { Button } from "../ui/button";
-import type { Now } from "../use-now";
-import { GuestFields, isGuestValid, type GuestInput } from "./guest-fields";
-import { rememberGuest } from "./guest";
+import { readNow, type Now } from "../use-now";
+import { GuestFields, RememberContact, isGuestValid } from "./guest-fields";
+import { changeRule, hoursUntil, FREE_CHANGE_HOURS, LEAD_MINUTES } from "./policy";
+import type { useGuestContact } from "./guest";
 import { bookingPage } from "./links";
 import type { OpenSlot } from "./suggest";
 
@@ -21,20 +22,23 @@ interface DetailsStepProps {
   now: Now;
   serviceId: string;
   slot: OpenSlot;
-  guest: GuestInput;
-  onGuestChange: (guest: GuestInput) => void;
+  contact: ReturnType<typeof useGuestContact>;
+  suggested: boolean;
+  timeControl?: ReactNode;
   /** The time was taken while the customer typed: go back and choose again. */
   onTaken: () => void;
   onBooked?: (id: string) => void;
 }
 
 /** Last step: confirm the chosen time with name and phone number. */
-export function DetailsStep({ state, now, serviceId, slot, guest, onGuestChange, onTaken, onBooked }: DetailsStepProps) {
+export function DetailsStep({ state, now, serviceId, slot, contact, suggested, timeControl, onTaken, onBooked }: DetailsStepProps) {
+  const { guest, setGuest, remember, chooseRemember, saveContact } = contact;
   const router = useRouter();
   const service = state.services.find((s) => s.id === serviceId)!;
   const person = state.staff.find((s) => s.id === slot.staffId)!;
   const [pending, setPending] = useState(false);
 
+  const late = changeRule({ ...slot, status: "booked" }, now.today, now.minutes) !== "free";
   const confirm = async () => {
     if (pending || !isGuestValid(guest)) return;
     const name = guest.name.trim();
@@ -42,9 +46,11 @@ export function DetailsStep({ state, now, serviceId, slot, guest, onGuestChange,
     const day = formatDayLong(slot.date);
     setPending(true);
     const latest = await withBookingLock(() => {
+      const clock = readNow();
+      if (hoursUntil(slot, clock.today, clock.minutes) * 60 < LEAD_MINUTES) return;
       const booked = dispatch({
         type: "online/book",
-        guest: { name, phone, at: { date: now.today, time: now.minutes } },
+        guest: { name, phone, at: { date: clock.today, time: clock.minutes } },
         serviceId,
         staffId: slot.staffId,
         date: slot.date,
@@ -58,7 +64,7 @@ export function DetailsStep({ state, now, serviceId, slot, guest, onGuestChange,
     });
     setPending(false);
     if (!latest) return onTaken();
-    rememberGuest({ name, phone, customerId: latest.customerId });
+    saveContact(latest.customerId);
     if (onBooked) onBooked(latest.id);
     else router.push(bookingPage(state.salon.slug, latest.id));
   };
@@ -66,8 +72,9 @@ export function DetailsStep({ state, now, serviceId, slot, guest, onGuestChange,
   return (
     <div className="space-y-5">
       <div className="space-y-2 rounded-lg bg-surface-2 p-4">
-        <p className="font-semibold">{service.name}</p>
-        <p className="flex items-center gap-2 text-[15px]">
+        <p className="text-sm text-text-secondary">{t(suggested ? "booking.nextAvailable" : "booking.yourVisit")}</p>
+        <h2 className="font-semibold">{service.name}</h2>
+        <p aria-live="polite" aria-atomic="true" className="flex items-center gap-2 text-[15px]">
           <CalendarCheck size={16} className="shrink-0 text-action" />
           {formatDayLong(slot.date)}, {formatTime(slot.start)}–{formatTime(slot.start + service.duration)}
         </p>
@@ -75,12 +82,17 @@ export function DetailsStep({ state, now, serviceId, slot, guest, onGuestChange,
           <StaffAvatar person={person} size="sm" />
           {t("booking.withStaff", { name: person.firstName })} · {formatDuration(service.duration)} · {formatMoney(service.price)}
         </p>
+        {timeControl}
       </div>
-      <GuestFields value={guest} onChange={onGuestChange} />
-      <Button size="lg" className="w-full" disabled={pending || !isGuestValid(guest)} onClick={confirm}>
-        {t("booking.confirm")}
-      </Button>
-      <p className="text-center text-sm text-text-secondary">{isGuestValid(guest) ? t("booking.confirmNote") : t("booking.confirmDisabled")}</p>
+      <form className="space-y-3" onSubmit={event => { event.preventDefault(); void confirm(); }}>
+        <GuestFields value={guest} onChange={setGuest} />
+        <RememberContact checked={remember} onChange={chooseRemember} />
+        <p className="text-sm text-text-secondary">{late ? t("booking.beforeConfirmLate", { phone: state.salon.phone, hours: FREE_CHANGE_HOURS }) : t("booking.beforeConfirm", { hours: FREE_CHANGE_HOURS })}</p>
+        <Button type="submit" size="lg" className="w-full" disabled={pending || !isGuestValid(guest)}>
+          {t("booking.confirm")}
+        </Button>
+        {!isGuestValid(guest) && <p className="text-sm text-text-secondary">{t("booking.confirmDisabled")}</p>}
+      </form>
     </div>
   );
 }

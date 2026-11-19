@@ -10,9 +10,9 @@ import type { DateKey, DemoState } from "../data/types";
 import { Button } from "../ui/button";
 import type { Now } from "../use-now";
 import { Sheet } from "../ui/sheet";
-import { GuestFields, isGuestValid, type GuestInput } from "./guest-fields";
+import { GuestFields, RememberContact, isGuestValid } from "./guest-fields";
 import { findCustomerByPhone } from "./lookup";
-import { recallGuest, rememberGuest } from "./guest";
+import { useGuestContact } from "./guest";
 
 export interface WaitlistRequest {
   serviceId: string;
@@ -28,10 +28,7 @@ interface WaitlistSheetProps {
 
 /** "Notify me if something opens up": leaves a request in the owner's Inbox. */
 export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetProps) {
-  const [guest, setGuest] = useState<GuestInput>(() => {
-    const known = recallGuest();
-    return { name: known?.name ?? "", phone: known?.phone ?? "" };
-  });
+  const { guest, setGuest, remember, chooseRemember, saveContact } = useGuestContact(state.salon.slug);
   const [done, setDone] = useState(false);
   const service = request ? findService(state, request.serviceId) : undefined;
 
@@ -44,7 +41,7 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
     if (!request || !service) return;
     const day = formatDayLong(request.date);
     const phone = guest.phone.trim();
-    dispatch({
+    const joined = dispatch({
       type: "online/waitlist",
       guest: { name: guest.name, phone, at: { date: now.today, time: now.minutes } },
       serviceId: service.id,
@@ -54,8 +51,9 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
         draftReply: t("booking.waitlist.inboxReply", { name: guest.name.trim().split(/\s+/)[0], service: service.name }),
       },
     });
+    if (!joined) return;
     const customer = findCustomerByPhone(currentState() ?? state, phone);
-    if (customer) rememberGuest({ name: guest.name.trim(), phone, customerId: customer.id });
+    if (customer) saveContact(customer.id);
     setDone(true);
   };
 
@@ -84,6 +82,7 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
       ) : (
         <div className="pt-2">
           <GuestFields value={guest} onChange={setGuest} />
+          <RememberContact checked={remember} onChange={chooseRemember} />
         </div>
       )}
     </Sheet>

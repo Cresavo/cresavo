@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { Booking, DemoState } from "../data/types";
 import { ownerViewHref } from "../page/resolve";
@@ -31,7 +32,10 @@ export function MessagePreviews({ state, booking, now }: { state: DemoState; boo
         {channel === "email" && <div className="my-3 space-y-1 border-b border-hairline pb-3 text-sm">
           <p className="text-text-secondary">{t("messages.to")}</p><p className="font-medium">{t("messages.subject", { subject: message.subject })}</p>
         </div>}
-        <p className="mt-2 whitespace-pre-line break-words text-sm leading-relaxed">{message.body}</p>
+        <p className="mt-2 whitespace-pre-line break-words text-sm leading-relaxed">{message.details}</p>
+        <Link href={`${message.path}#manage`} className="inline-flex min-h-11 items-center text-sm font-medium text-action underline">
+          {t("booking.manageLink")}
+        </Link>
       </div>
       {sent ? <p role="status" className="text-sm text-action">{sentText}</p> : <Button variant="secondary" onClick={() => {
         const ok = dispatch({ type: "booking-message/send", bookingId: booking.id, kind, channel, at: { date: now.today, time: now.minutes } });
