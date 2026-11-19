@@ -54,15 +54,16 @@ describe("concept languages", () => {
 
   it("uses the business language for new messages independently of the studio", () => {
     const booking = { ...base.bookings.find((b) => b.status === "booked")!, date: "2026-12-01", start: 600 };
-    expect(base.localization).toEqual({ language: "sv", currency: "SEK", bilingual: false });
-    const swedish = bookingMessage(base, booking, "confirmation");
+    expect(base.localization).toEqual({ language: "en", currency: "SEK", bilingual: true });
+    setLocale("en");
+    const swedishBusiness = { ...base, localization: { ...base.localization, language: "sv" as const } };
+    const swedish = bookingMessage(swedishBusiness, booking, "confirmation");
     expect(swedish.subject).toBe("Bokningsbekräftelse · Salong Eko");
     expect(swedish.details).toContain("1 december 2026 kl. 10:00");
     expect(swedish.details).not.toContain(swedish.path);
     expect(swedish.body).toBe(`${swedish.details} Se, omboka eller avboka din tid här: ${swedish.path}`);
     setLocale("sv");
-    const english = { ...base, localization: { ...base.localization, language: "en" as const } };
-    const reminder = bookingMessage(english, booking, "reminder");
+    const reminder = bookingMessage(base, booking, "reminder");
     expect(reminder.subject).toBe("Your visit · Salong Eko");
     expect(reminder.details).toContain("1 Dec 2026 at 10:00");
     expect(reminder.body).toBe(`${reminder.details} Manage your booking: ${reminder.path}`);
@@ -71,8 +72,8 @@ describe("concept languages", () => {
 
   it("keeps the saved booking language independent and makes it undoable", () => {
     const meta = { at: 0, actor: "owner", source: "button" } as const;
-    const updated = applyAction(base, { type: "salon/language", language: "en", bilingual: true }, meta);
-    expect(updated.localization).toEqual({ language: "en", bilingual: true, currency: "SEK" });
+    const updated = applyAction(base, { type: "salon/language", language: "sv", bilingual: false }, meta);
+    expect(updated.localization).toEqual({ language: "sv", bilingual: false, currency: "SEK" });
     expect(updated.bookings).toBe(base.bookings);
     expect(applyAction(updated, { type: "log/undo", id: updated.log[0].id }, meta).localization).toEqual(base.localization);
   });

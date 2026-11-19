@@ -411,14 +411,16 @@ describe("read questions", () => {
     const { reply, effects } = ask(`Text ${name(unique.customerId)} that I'm running 15 minutes late.`);
     expect(effects).toEqual([]);
     expect(reply.card).toMatchObject({ kind: "change", action: { type: "customers/message", texts: [{ customerId: unique.customerId }] } });
-    expect(JSON.stringify(reply.card)).toContain("15 minuter sena");
+    expect(reply.card).toMatchObject({ action: { texts: [{ body: expect.stringContaining("15 minutes late") }] } });
   });
 
   it("reads yesterday's revenue as one day and a stated discount as stated", () => {
     const intent = interpretCommand("What did I earn yesterday?", buildIntentContext(base, today, at.minutes));
     expect(intent).toMatchObject({ action: "revenue", params: { start: "2026-11-16", end: today } });
     const { replies } = converse(base, ["Which customers haven't been here since summer?", "Send them a 15% welcome-back offer."]);
-    expect(JSON.stringify(replies[1].reply.card)).toContain("15 % rabatt");
+    expect(replies[1].reply.card).toMatchObject({ action: { texts: expect.arrayContaining([
+      expect.objectContaining({ body: expect.stringContaining("15% off") }),
+    ]) } });
   });
 
   it("declines what it cannot do exactly, and changes nothing", () => {

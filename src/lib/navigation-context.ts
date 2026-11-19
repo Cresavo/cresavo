@@ -1,4 +1,4 @@
-import { text, type Locale } from "./locale";
+import { DEFAULT_LOCALE, text, type Locale } from "./locale";
 
 // UI-only navigation metadata. Never use returnTo as authority.
 const origin = "http://booking.invalid";
@@ -48,7 +48,7 @@ export function returnHref(context: ReturnContext, fallback: string) {
     url.hash = `return-${context.returnKey}`;
   return url.pathname + url.search + url.hash;
 }
-export function returnLabel(href: string, locale: Locale = "sv") {
+export function returnLabel(href: string, locale: Locale = DEFAULT_LOCALE) {
   const path = new URL(href, origin).pathname;
   const t = (en: string, sv: string) => text(locale, en, sv);
   if (path.startsWith("/admin/bookings/"))

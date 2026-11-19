@@ -3,6 +3,7 @@ import { WEEK_ORDER } from "../data/dates";
 import { DEMO_VERSION, MODULE_KEYS } from "../data/generate";
 import type { DemoState, PackId, Salon, Staff } from "../data/types";
 import { translate } from "../i18n";
+import { DEFAULT_BOOKING_LANGUAGE, DEFAULT_CURRENCY } from "../i18n/business";
 import { checkOwnSlug } from "../page/address";
 import { DEFAULT_PAGE } from "../page/config";
 import { slugify } from "../page/slug";
@@ -47,8 +48,8 @@ export function suggestedTreatments(industry: Industry, language: Locale): Treat
   ];
 }
 
-export function salonDraft(language: Locale): SalonDraft {
-  return { name: "", industry: "hair", language, currency: "SEK", hours: weeklyHours(),
+export function salonDraft(language: Locale = DEFAULT_BOOKING_LANGUAGE): SalonDraft {
+  return { name: "", industry: "hair", language, currency: DEFAULT_CURRENCY, hours: weeklyHours(),
     people: [""], treatments: suggestedTreatments("hair", language), slug: "" };
 }
 

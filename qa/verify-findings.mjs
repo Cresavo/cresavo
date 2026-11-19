@@ -17,12 +17,12 @@ async function check(id, title, fn, viewport = "mobile") {
 const go = async (p, url) => { await p.goto(url.startsWith("http") ? url : DEMO + url); await settle(p); };
 async function publicBook(p, origin, name, phone, time = "13:00", confirm = true) {
   await go(p, origin);
-  await b(p, "Boka Medicinsk fotvård").click();
+  await b(p, "Book Medical foot care").click();
   const [hour, minute] = time.split(":").map(Number);
-  await p.getByRole("combobox", { name: "Välj en annan tid" }).selectOption(`2026-11-19/${hour * 60 + minute}`);
-  await p.getByPlaceholder("För- och efternamn").fill(name);
+  await p.getByRole("combobox", { name: "Choose another time" }).selectOption(`2026-11-19/${hour * 60 + minute}`);
+  await p.getByPlaceholder("First and last name").fill(name);
   await p.getByPlaceholder("070-123 45 67").fill(phone);
-  if (confirm) { await b(p, "Bekräfta bokning").click(); await p.waitForTimeout(600); }
+  if (confirm) { await b(p, "Confirm booking").click(); await p.waitForTimeout(600); }
 }
 
 // ---- Codex findings ----
@@ -31,9 +31,9 @@ await check("C01", "second tab overwrites a confirmed booking", async (p, ctx) =
   await q.clock.setFixedTime(new Date("2026-11-18T08:00:00+01:00"));
   await publicBook(p, "/boka/salong-eko", "Tab One Demo", "070-000 11 11", "13:00", false);
   await publicBook(q, "/boka/salong-eko", "Tab Two Demo", "070-000 22 22", "13:00", false);
-  await b(p, "Bekräfta bokning").click(); await p.waitForTimeout(600);
-  await b(q, "Bekräfta bokning").click(); await q.waitForTimeout(600);
-  const secondConfirmed = await q.getByRole("heading", { name: "Din tid är bokad" }).count();
+  await b(p, "Confirm booking").click(); await p.waitForTimeout(600);
+  await b(q, "Confirm booking").click(); await q.waitForTimeout(600);
+  const secondConfirmed = await q.getByRole("heading", { name: "You are booked" }).count();
   const s = await state(q);
   const names = s.customers.filter(c => /Tab (One|Two) Demo/.test(`${c.firstName} ${c.lastName}`)).map(c => `${c.firstName} ${c.lastName}`);
   await shot(q, "verify-C01-second-tab");
@@ -41,7 +41,7 @@ await check("C01", "second tab overwrites a confirmed booking", async (p, ctx) =
 });
 await check("C02", "booking on the salon subdomain is invisible in the demo studio", async (p) => {
   await publicBook(p, TENANT + "/", "Subdomain Demo", "070-000 33 33");
-  const confirmText = await p.getByText(/sparat i ägarens inkorg/i).count();
+  const confirmText = await p.getByText(/saved in the owner's inbox/i).count();
   await go(p, "/studio/inbox");
   const seen = await p.getByText(/Subdomain Demo/).count();
   await shot(p, "verify-C02-demo-inbox");
@@ -97,11 +97,11 @@ await check("C06", "a free 45-min gap preselects a 60-min treatment", async (p) 
 });
 await check("C07", "public booking accepts an all-zero mobile number", async (p) => {
   await publicBook(p, "/boka/salong-eko", "Zero Phone Demo", "00000000", "13:00", false);
-  const confirm = b(p, "Bekräfta bokning");
+  const confirm = b(p, "Confirm booking");
   if (await confirm.isDisabled()) return { verdict: "NO-REPRO", observed: "Confirmation is disabled for 00000000." };
   await confirm.click();
   await p.waitForTimeout(600);
-  const ok = await p.getByRole("heading", { name: "Din tid är bokad" }).count();
+  const ok = await p.getByRole("heading", { name: "You are booked" }).count();
   await shot(p, "verify-C07-zero-phone");
   return { verdict: ok ? "REPRO" : "NO-REPRO", observed: ok ? "booking confirmed with 00000000" : "rejected" };
 });
@@ -130,16 +130,16 @@ await check("C09", "room filter shows 0 bookings under an unqualified '81% booke
 });
 await check("C10", "public reschedule to the same time says 'moved'", async (p) => {
   await publicBook(p, "/boka/salong-eko", "Same Time Demo", "070-000 44 44");
-  await b(p, "Omboka").click(); await p.waitForTimeout(300);
-  await dlg(p).getByRole("radio", { name: /^Imorgon/ }).click();
-  const sameTime = await dlg(p).getByRole("button", { name: /^Flytta till 13:00/ }).count();
+  await b(p, "Reschedule").click(); await p.waitForTimeout(300);
+  await dlg(p).getByRole("radio", { name: /^Tomorrow/ }).click();
+  const sameTime = await dlg(p).getByRole("button", { name: /^Move to 13:00/ }).count();
   await shot(p, "verify-C10-same-time");
   return { verdict: sameTime ? "REPRO" : "NO-REPRO", observed: `Current slot offered in the move picker: ${!!sameTime}` };
 });
 await check("C11", "Changing the time clears name and phone", async (p) => {
   await publicBook(p, "/boka/salong-eko", "Keep Me Demo", "070-000 55 55", "13:00", false);
-  await p.getByRole("combobox", { name: "Välj en annan tid" }).selectOption("2026-11-19/840");
-  const n = await p.getByPlaceholder("För- och efternamn").inputValue(), ph = await p.getByPlaceholder("070-123 45 67").inputValue();
+  await p.getByRole("combobox", { name: "Choose another time" }).selectOption("2026-11-19/840");
+  const n = await p.getByPlaceholder("First and last name").inputValue(), ph = await p.getByPlaceholder("070-123 45 67").inputValue();
   await shot(p, "verify-C11-after-back");
   return { verdict: !n && !ph ? "REPRO" : "NO-REPRO", observed: `name="${n}" phone="${ph}"` };
 });
@@ -153,11 +153,11 @@ await check("C12", "floating Assistant button covers the 15:00 'Cancelled' badge
 });
 await check("C13", "'three times' heading above two suggestions", async (p) => {
   await go(p, "/boka/salong-eko");
-  const ask = p.getByRole("textbox", { name: "Vad vill du boka?" });
+  const ask = p.getByRole("textbox", { name: "What would you like to book?" });
   await ask.fill("Ingrown nail treatment tomorrow after work");
   await ask.press("Enter");
-  const head = (await p.locator("body").innerText()).match(/Här är [^\n]*/)?.[0] ?? "";
-  const cards = await p.getByRole("button", { name: /till \d\d:\d\d/ }).count();
+  const head = (await p.locator("body").innerText()).match(/Here are [^\n]*/)?.[0] ?? "";
+  const cards = await p.getByRole("button", { name: /until \d\d:\d\d/ }).count();
   await shot(p, "verify-C13-three-times");
   return { verdict: /\b3\b/.test(head) && cards < 3 ? "REPRO" : "NO-REPRO", observed: `heading "${head}", ${cards} suggestions` };
 });
@@ -221,12 +221,13 @@ await check("O05", "'Your data & AI' links to discovery documents that answer 50
   await shot(p, "verify-O05-data-page", { fullPage: true });
   return { verdict: st.some(s => / 503$/.test(s)) ? "REPRO" : "NO-REPRO", observed: st.join("; ") + " (needs BOOKING_PUBLIC_ORIGIN; check the Vercel env)" };
 }, "desktop");
-await check("O06", "a saved Svenska preference marks the English studio lang=sv", async (p, ctx) => {
+await check("O06", "studio language mismatches the saved Swedish preference", async (p, ctx) => {
   await ctx.addCookies([{ name: "booking-locale", value: "sv", url: DEMO }]);
   await go(p, "/studio");
   const lang = await p.evaluate(() => document.documentElement.lang);
   const greet = (await p.locator("h1").first().innerText());
-  return { verdict: lang === "sv" ? "REPRO" : "NO-REPRO", observed: `studio html lang=${lang}, h1 "${greet}"` };
+  const localized = lang === "sv" && /^God (morgon|eftermiddag|kväll),/.test(greet);
+  return { verdict: localized ? "NO-REPRO" : "REPRO", observed: `studio html lang=${lang}, h1 "${greet}"` };
 }, "desktop");
 await check("O07", "staff calendar settings page asks /api/concept/calendar and gets 403 over plain http", async (p) => {
   const codes = []; p.on("response", r => { if (r.url().includes("/api/concept/calendar")) codes.push(r.status()); });

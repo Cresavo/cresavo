@@ -44,7 +44,7 @@ test("separate admin accounts support revocation and have no shared password fal
     const ownPage = await request.get("/admin", {
       headers: { cookie: cookieA, "accept-language": "sv-SE" },
     });
-    expect(await ownPage.text()).toContain(`Inloggad som`);
+    expect(await ownPage.text()).toContain("Signed in as");
     expect(await ownPage.text()).toContain(synthetic.admin.email);
     await disableAdminUser(synthetic.admin.email);
     expect(
