@@ -1,5 +1,5 @@
 import { weekday } from "./dates";
-import type { Booking, DateKey, Interval, Resource, Salon, Service, Staff, StaffException, StaffId } from "./types";
+import type { Booking, DateKey, Interval, Resource, Salon, Service, Staff, StaffBlock, StaffException, StaffId } from "./types";
 
 // The one place that knows when something can be booked: opening hours,
 // closed days, lunch, each person's weekly template and exceptions, existing
@@ -16,6 +16,7 @@ export interface SlotContext {
   resources: Resource[];
   exceptions: StaffException[];
   bookings: Booking[];
+  blocks?: StaffBlock[];
 }
 
 /** What a booking needs: a treatment (for its room or chair) and how long it takes. */
@@ -80,6 +81,7 @@ export function busyIntervals(ctx: SlotContext, staffId: StaffId, date: DateKey,
     .map((b) => ({ start: b.start, end: b.start + b.duration }));
   const lunch = lunchFor(ctx.salon, date);
   if (lunch) list.push(lunch);
+  for (const block of ctx.blocks ?? []) if (block.staffId === staffId && block.date === date) list.push(block);
   return list.sort((a, b) => a.start - b.start);
 }
 
@@ -146,4 +148,10 @@ export function freeGaps(
   }
   if (cursor < window.end) gaps.push({ start: cursor, end: window.end });
   return gaps.filter((g) => g.end - g.start >= min);
+}
+
+/** An owner can block only a free interval entirely inside the staff member's workday. */
+export function canBlock(ctx: SlotContext, staffId: StaffId, date: DateKey, start: number, end: number) {
+  return Number.isInteger(start) && Number.isInteger(end) && start < end &&
+    freeGaps(ctx, staffId, date, { min: 1 }).some(gap => start >= gap.start && end <= gap.end);
 }

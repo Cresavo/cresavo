@@ -17,7 +17,7 @@ import { undoEntry } from "./log/undo";
 import { bookableServices } from "./selectors";
 import { MODULES, presetModules, type PresetId } from "./modules/registry";
 import { applyOps, type OpsAction } from "./ops/edit";
-import { applyServiceAction, type ServiceAction } from "./services/edit";
+import { applyServiceAction, validServicePrice, type ServiceAction } from "./services/edit";
 import { applyPageAction, type PageAction } from "./page/actions";
 import { grantSupport, revokeSupport, type GrantHours } from "./support/access";
 import type { NewTicket } from "./support/tickets";
@@ -58,7 +58,13 @@ export type DemoAction =
   | PageAction
   | { type: "booking/move"; id: string; date: DateKey; start: number; staffId?: StaffId; notice?: Omit<InboxItem, "id"> }
   | { type: "booking/cancel"; id: string; reason?: string; notice?: Omit<InboxItem, "id"> }
-  | ({ type: "booking/create"; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource } & ({ customerId: string } | { newCustomer: GuestContact & { since: DateKey } }))
+  | ({
+      type: "booking/create"; id?: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource;
+    } & (
+      | { customerId: string }
+      | { newCustomer: GuestContact & { since: DateKey } }
+      | { fictionalCustomer: { id: string; name: string; since: DateKey }; source: "assistant" }
+    ))
   | { type: "online/book"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId: StaffId; date: DateKey; start: number }
   | { type: "online/waitlist"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId?: StaffId }
   | { type: "service/price"; id: string; price: number }
@@ -129,13 +135,14 @@ function updateBy<T extends { id: string }>(list: T[], id: string, patch: (item:
 
 function createBooking(
   state: DemoState,
-  input: { customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource },
+  input: { id?: string; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource },
 ): DemoState {
   const service = state.services.find((s) => s.id === input.serviceId);
   if (!service || !service.staffIds.includes(input.staffId) || !isFree(state, input.staffId, input.date, input.start, needOf(service))) return state;
+  if (input.id && state.bookings.some(b => b.id === input.id)) return state;
   const booking: Booking = {
-    id: nextId(state, "b"),
     ...input,
+    id: input.id ?? nextId(state, "b"),
     duration: service.duration,
     price: service.price,
     status: "booked",
@@ -154,7 +161,7 @@ function moveBooking(state: DemoState, id: string, date: DateKey, start: number,
 }
 
 /** The customer with this phone number, or a new one from the public booking page. */
-function ensureCustomer(state: DemoState, guest: GuestContact, since: DateKey, category: Customer["category"], staffId: StaffId, waitlist: boolean): { state: DemoState; customer: Customer } {
+function ensureCustomer(state: DemoState, guest: GuestContact, since: DateKey, category: Customer["category"], staffId: StaffId, waitlist: boolean, id?: string): { state: DemoState; customer: Customer } {
   const existing = findCustomerByPhone(state, guest.phone);
   if (existing) {
     if (existing.waitlist || !waitlist) return { state, customer: existing };
@@ -163,7 +170,7 @@ function ensureCustomer(state: DemoState, guest: GuestContact, since: DateKey, c
   }
   const [firstName, ...rest] = guest.name.trim().split(/\s+/);
   const customer: Customer = {
-    id: nextId(state, "k"),
+    id: id ?? nextId(state, "k"),
     firstName,
     lastName: rest.join(" "),
     phone: guest.phone.trim(),
@@ -339,6 +346,7 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
     case "salon/hours":
     case "salon/close":
     case "salon/reopen":
+    case "staff/block":
     case "staff/week":
     case "staff/off":
     case "staff/shift":
@@ -390,14 +398,16 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
     }
     case "booking/create": {
       const { serviceId, staffId, date, start, source } = action;
-      const input = { serviceId, staffId, date, start, source };
+      const input = { id: action.id, serviceId, staffId, date, start, source };
       if ("customerId" in action) {
         return state.customers.some((c) => c.id === action.customerId) ? createBooking(state, { ...input, customerId: action.customerId }) : state;
       }
       const service = state.services.find((s) => s.id === serviceId);
-      const guest = action.newCustomer;
-      if (!service || guest.name.trim().length < 2 || !isContactPhone(guest.phone)) return state;
-      const next = ensureCustomer(state, guest, guest.since, service.category, staffId, false);
+      const fictional = "fictionalCustomer" in action ? action.fictionalCustomer : undefined;
+      if (fictional && state.customers.some(c => c.id === fictional.id)) return state;
+      const guest = "newCustomer" in action ? action.newCustomer : { ...action.fictionalCustomer, phone: "" };
+      if (!service || guest.name.trim().length < 2 || (!fictional && !isContactPhone(guest.phone))) return state;
+      const next = ensureCustomer(state, guest, guest.since, service.category, staffId, false, fictional?.id);
       const booked = createBooking(next.state, { ...input, customerId: next.customer.id });
       return booked === next.state ? state : booked;
     }
@@ -406,7 +416,8 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
     case "online/waitlist":
       return joinWaitlist(state, action);
     case "service/price":
-      return { ...state, services: updateBy(state.services, action.id, (s) => ({ ...s, price: Math.max(0, Math.round(action.price)) })) };
+      if (!validServicePrice(action.price)) return state;
+      return { ...state, services: updateBy(state.services, action.id, (s) => ({ ...s, price: action.price })) };
     case "campaign/launch":
       return launchCampaign(state, action.campaign, action.today);
     case "campaign/ad":

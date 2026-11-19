@@ -100,6 +100,13 @@ export interface Resource {
   kind: ResourceKind;
 }
 
+export interface StaffBlock extends Interval {
+  id: string;
+  staffId: StaffId;
+  date: DateKey;
+  reason: "break" | "training" | "admin";
+}
+
 export type TimeOffReason = "vacation" | "sick" | "other";
 
 /** One day that differs from a person's weekly template: time off, or a shift of their own hours. */
@@ -399,6 +406,7 @@ export interface DemoState {
   resources: Resource[];
   /** Days off and extra shifts on top of the staff members' weekly templates. */
   exceptions: StaffException[];
+  blocks?: StaffBlock[];
   customers: Customer[];
   bookings: Booking[];
   journals: JournalEntry[];

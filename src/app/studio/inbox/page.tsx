@@ -1,5 +1,7 @@
 "use client";
 
+import { PairedInbox } from "@/concept/studio/pairing/inbox";
+
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCheck, Inbox as InboxIcon, MousePointerClick } from "lucide-react";
@@ -73,6 +75,7 @@ function InboxPageContent() {
   if (filter !== "sent" && state.industry && !state.inbox.length && !proposals.length) {
     return <>
       <PageHeader title={t("inbox.title")} />
+      <PairedInbox />
       <EmptyState icon={<InboxIcon size={22} />} title={t("setup.empty.inbox")}
         action={<ButtonLink href={bookingHome(state.salon.slug)}>{t("share.open")}</ButtonLink>} />
     </>;
@@ -89,6 +92,7 @@ function InboxPageContent() {
           </Button>
         }
       />
+      <PairedInbox />
       {proposals.length > 0 && (
         <Section title={t("agents.title")} className="mb-6">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

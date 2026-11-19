@@ -70,7 +70,7 @@ export function formatDuration(minutes: number): string {
 }
 
 export function formatMoney(amount: number, unit = currency, language = getActiveLocale()): string {
-  return new Intl.NumberFormat(intlLocale(language), { style: "currency", currency: unit, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+  return new Intl.NumberFormat(intlLocale(language), { style: "currency", currency: unit, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(amount);
 }
 
 export function formatNumber(value: number, digits = 0): string {

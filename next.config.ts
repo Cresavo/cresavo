@@ -24,13 +24,18 @@ const config: NextConfig = {
       {
         source: "/:path*",
         headers: [
-          { key: "Content-Security-Policy", value: csp },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           ...(production
             ? [{ key: "Strict-Transport-Security", value: "max-age=31536000" }]
             : []),
         ],
+      },
+      {
+        // The consent handler supplies a narrower CSP with the reviewed OAuth
+        // callback origin. Chromium checks form-action on the 303 as well.
+        source: "/:path((?!oauth/authorize/?$).*)",
+        headers: [{ key: "Content-Security-Policy", value: csp }],
       },
       {
         source: "/boka/:slug",

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Copy, Trash2 } from "lucide-react";
 import type { DemoState, Service, StaffId } from "../../data/types";
 import { t } from "../../i18n";
-import { DURATION_STEP, MAX_DESCRIPTION, MAX_DURATION, MAX_NAME, MIN_DURATION, serviceIssues, type ServiceDraft, type ServiceIssue } from "../../services/edit";
+import { DURATION_STEP, MAX_DESCRIPTION, MAX_DURATION, MAX_NAME, MAX_PRICE, MIN_DURATION, serviceIssues, type ServiceDraft, type ServiceIssue } from "../../services/edit";
 import { currentState, dispatchWithLog } from "../../store";
 import { Button } from "../../ui/button";
 import { Chip, Field, Select, Switch, TextArea, TextInput } from "../../ui/controls";
@@ -101,7 +101,7 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
             <TextInput type="number" inputMode="numeric" min={MIN_DURATION} max={MAX_DURATION} step={DURATION_STEP} value={duration} onChange={(e) => setDuration(e.target.value)} aria-invalid={!!problem("duration")} />
           </Field>
           <Field label={t("setup.price", { currency: state.localization.currency })}>
-            <TextInput type="number" inputMode="numeric" min={0} step={5} value={price} onChange={(e) => setPrice(e.target.value)} aria-invalid={!!problem("price")} />
+            <TextInput type="number" inputMode="decimal" min={0} max={MAX_PRICE} step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} aria-invalid={!!problem("price")} />
           </Field>
         </div>
         {(problem("duration") || problem("price")) && (
