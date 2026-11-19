@@ -61,7 +61,7 @@ protocol adapter should register the same tools rather than add its own.
 ## UI wiring
 
 `src/concept/command/` builds the interpreter context from the store (`intent-context.ts`), maps results to reviewable proposals (`proposal.ts`, `clarify.ts`) and calls `interpret-command` through `ai/api-client.ts` only when `GET /api/concept/ai` reports a configured provider. The same endpoint feeds More → Your data & AI (`ai/overview.ts`). The journal dictation calls `structure-journal` the same way.
-- `answer-help` powers the studio's Help button. The browser fetches the knowledge base (`docs/help/*.md`, parsed by `help/articles.ts`) from `GET /api/concept/help` and sends the question with all articles; the rule fallback (`help/match.ts`) matches title, keywords and text. The task returns article ids, and the browser only accepts ids it knows.
+- `answer-help` powers the studio's Help button. The browser fetches the knowledge base in the studio language from `GET /api/concept/help?lang=…` and sends the question with all articles; the rule fallback (`help/match.ts`) matches title, keywords and text. The task returns article ids, and the browser only accepts ids it knows.
 - Every `/api/concept/*` route is wrapped in `withRequestLog` (`server/logger.ts`): `x-request-id` on the response and one JSON log line (request id, route pattern, method, status, duration, task name). The logger copies a fixed set of fields, so input text, keys and personal data cannot reach the log.
 
 ## Business settings and persistence (demo)

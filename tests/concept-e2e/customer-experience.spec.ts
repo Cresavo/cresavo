@@ -90,6 +90,7 @@ test("book, preview both channels, simulate reminders, inspect Inbox, rebook and
   await page.getByRole("button", { name: "Cancel booking", exact: true }).click();
   await page.getByRole("button", { name: "Yes, cancel it" }).click();
   await expect(page.getByRole("heading", { name: "This booking is cancelled" })).toBeVisible();
+  expect((await state(page)).log[0]).toMatchObject({ type: "booking/cancel", actor: "customer", source: "customer-page" });
   await page.getByRole("link", { name: "Book again" }).click();
   await expect(page.getByRole("combobox", { name: "Choose another time" })).toBeVisible();
   await expect(page).toHaveURL(/service=/);
@@ -465,6 +466,7 @@ test("the confirmation link moves the same visit, exports its new time and enfor
   await expect(page.getByText("Your booking is moved", { exact: true })).toBeVisible();
   const saved = await state(page);
   const moved = saved.bookings.find(b => b.id === before.id)!;
+  expect(saved.log[0]).toMatchObject({ type: "booking/move", actor: "customer", source: "customer-page" });
   expect([moved.date, moved.start]).not.toEqual([before.date, before.start]);
   expect(moved.status).toBe("booked");
   const google = new URL((await page.getByRole("link", { name: "Google Calendar" }).getAttribute("href"))!);

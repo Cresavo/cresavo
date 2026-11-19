@@ -1,6 +1,10 @@
+import type { MessageKey } from "../i18n";
+
+export type QuestionKey = Extract<MessageKey, `command.question.${string}`>;
+
 export interface IntentContext {
   customers: { id: string; name: string }[];
-  services: { id: string; name: string; durationMin: number; priceSek: number }[];
+  services: { id: string; name: string; aliases?: string[]; durationMin: number; priceSek: number }[];
   staff: { id: string; name: string }[];
   bookings: { id: string; customerId: string; staffId: string; serviceId: string; start: string }[];
   /** ISO instant; all relative dates use the salon timezone, never the host timezone. */

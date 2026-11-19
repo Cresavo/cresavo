@@ -24,6 +24,8 @@ import { openSlots, type OpenSlot } from "./suggest";
 import { TimePicker } from "./time-picker";
 import { WaitlistSheet, type WaitlistRequest } from "./waitlist-sheet";
 
+const CUSTOMER_PAGE = { actor: "customer", source: "customer-page" } as const;
+
 function downloadCalendar(state: DemoState, booking: Booking) {
   const service = findService(state, booking.serviceId);
   const staff = state.staff.find((s) => s.id === booking.staffId);
@@ -85,7 +87,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       id: booking.id,
       reason: t("booking.cancel.reason"),
       notice: notice("cancel", t("booking.cancel.inboxTitle"), t("booking.cancel.inboxBody", { name: fullName(customer), service: service.name, when })),
-    }, undefined, canChange)).catch(() => false as const);
+    }, CUSTOMER_PAGE, canChange)).catch(() => false as const);
     setPending(false);
     setSheet(null);
     if (result === false) showActionFailure("booking.visitChanged", requestId, "booking");
@@ -104,7 +106,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       start: target.start,
       staffId: target.staffId,
       notice: notice("reschedule", t("booking.move.inboxTitle"), t("booking.move.inboxBody", { name: fullName(customer), service: service.name, from: when, to: `${formatDayLong(target.date)} ${formatTime(target.start)}` })),
-    }, undefined, latest => canChange(latest) && openSlots(latest, service.id, target.date, salonClock(), {
+    }, CUSTOMER_PAGE, latest => canChange(latest) && openSlots(latest, service.id, target.date, salonClock(), {
       ignoreId: booking.id, staffId: target.staffId,
     }).some(slot => slot.start === target.start))).catch(() => false as const);
     setPending(false);

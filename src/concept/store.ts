@@ -11,7 +11,7 @@ import type { LogMeta } from "./log/types";
 import { publicView } from "./selectors";
 import { purgeExpired } from "./trash/trash";
 import { getActiveLocale, setVocabulary } from "./i18n";
-import { publicSalonCopy } from "./i18n/salon-eko-copy";
+import { salonCopy } from "./i18n/salon-eko-copy";
 import { checkNewSlug, createSalon, suggestedSlug, type SalonDraft } from "./onboarding/salon";
 import { setupOf } from "./onboarding/setup";
 import { getPack } from "./packs";
@@ -317,5 +317,5 @@ export function useDemo(): DemoState | null {
 export function usePublicDemo(): DemoState | null {
   const state = useDemo();
   const language = getActiveLocale();
-  return useMemo(() => state && publicSalonCopy(publicView(state), language), [state, language]);
+  return useMemo(() => state && salonCopy(publicView(state), language), [state, language]);
 }

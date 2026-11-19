@@ -8,6 +8,7 @@ import { AiSection } from "@/concept/studio/more/ai-section";
 import { ConnectSection, ProtocolList, useProtocolInfo } from "@/concept/studio/more/connect-section";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { OwnKeyForm } from "@/concept/studio/more/own-key-form";
+import { useDemo } from "@/concept/store";
 import { useStudio } from "@/concept/studio/use-studio";
 import { dispatchWithUndoToast } from "@/concept/studio/log/undo-toast";
 import { Button, ButtonLink } from "@/concept/ui/button";
@@ -15,11 +16,12 @@ import { Card, Section } from "@/concept/ui/card";
 
 export default function DataPage() {
   const { state, today } = useStudio();
+  const saved = useDemo() ?? state;
   const { info, failed } = useProtocolInfo();
   const exports = [
-    { label: t("data.export.all"), description: t("data.export.allContents"), run: () => download(`${state.salon.slug}-${today}.json`, JSON.stringify(state, null, 2), "application/json") },
-    { label: t("data.export.customers"), description: t("data.export.customerContents"), run: () => download(`${state.salon.slug}-customers-${today}.csv`, customersCsv(state), "text/csv") },
-    { label: t("data.export.bookings"), description: t("data.export.bookingContents"), run: () => download(`${state.salon.slug}-bookings-${today}.csv`, bookingsCsv(state), "text/csv") },
+    { label: t("data.export.all"), description: t("data.export.allContents"), run: () => download(`${state.salon.slug}-${today}.json`, JSON.stringify(saved, null, 2), "application/json") },
+    { label: t("data.export.customers"), description: t("data.export.customerContents"), run: () => download(`${state.salon.slug}-customers-${today}.csv`, customersCsv(saved), "text/csv") },
+    { label: t("data.export.bookings"), description: t("data.export.bookingContents"), run: () => download(`${state.salon.slug}-bookings-${today}.csv`, bookingsCsv(saved), "text/csv") },
   ];
 
   return (

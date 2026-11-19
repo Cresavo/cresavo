@@ -101,7 +101,10 @@ function InboxPageContent() {
       <Segmented<Filter>
         label={t("inbox.filter")}
         value={filter}
-        onChange={value => router.replace(value === "all" ? "/studio/inbox" : `/studio/inbox?filter=${value}`, { scroll: false })}
+        onChange={(next) => {
+          if (next !== filter && selected && !matches[next](selected)) setSelectedId(null);
+          router.replace(next === "all" ? "/studio/inbox" : `/studio/inbox?filter=${next}`, { scroll: false });
+        }}
         className="mb-4 w-full sm:w-auto"
         options={[
           { value: "all", label: t("inbox.filter.all") },
@@ -126,7 +129,7 @@ function InboxPageContent() {
             <Card className="p-6">
               <InboxDetail key={selected.id} item={selected} />
             </Card>
-          ) : (
+          ) : items.length > 0 && (
             <EmptyState icon={<MousePointerClick size={22} />} title={t("inbox.pick")} text={t("inbox.pickText")} />
           )}
         </div>

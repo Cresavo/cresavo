@@ -13,7 +13,7 @@ import { CustomerRow } from "@/concept/studio/customers/customer-row";
 import { FILTERS, filterCustomers, isFilter, type CustomerFilter } from "@/concept/studio/customers/customer-filters";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
-import { ButtonLink } from "@/concept/ui/button";
+import { Button, ButtonLink } from "@/concept/ui/button";
 import { Card } from "@/concept/ui/card";
 import { Chip, SearchInput } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
@@ -92,7 +92,16 @@ export default function CustomersPage() {
           )}
         </Card>
       ) : (
-        <EmptyState icon={<UserSearch size={22} />} title={t("customers.empty")} text={t("customers.emptyText")} />
+        <EmptyState
+          icon={<UserSearch size={22} />}
+          title={t("customers.empty")}
+          text={q ? t("customers.emptyText") : filter !== "all" ? t("customers.emptyFilter") : undefined}
+          action={state.customers.length > 0 && <Button variant="secondary" onClick={() => {
+            setQuery("");
+            setLimit(PAGE_SIZE);
+            if (filter !== "all") router.replace("/studio/customers", { scroll: false });
+          }}>{t("customers.showAll")}</Button>}
+        />
       )}
     </>
   );

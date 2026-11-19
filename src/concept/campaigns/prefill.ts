@@ -1,6 +1,9 @@
 import { addDays, diffDays, fromKey, toKey } from "../data/dates";
+import { holidayNames } from "../data/holidays";
 import type { DateKey, DemoState, Holiday } from "../data/types";
-import { t } from "../i18n";
+import { t, translate } from "../i18n";
+import { fixtureServiceAliases } from "../i18n/salon-eko-copy";
+import { getPack } from "../packs";
 import { months } from "../intent/dates";
 import { normalize } from "../intent/match";
 
@@ -21,7 +24,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** A holiday campaign starts `leadDays` before the day, or today when that has already passed. */
 export function prefillForHoliday(state: DemoState, holiday: Holiday, today: DateKey): CampaignPrefill {
-  const mentioned = Number(holiday.idea.match(/(\d+)%/)?.[1]);
+  const mentioned = Number(holiday.idea.match(/(\d+)\s*%/)?.[1]);
   return {
     name: t("campaigns.holidayName", { name: holiday.name }),
     serviceIds: holiday.serviceIds.filter((id) => state.services.some((s) => s.id === id)),
@@ -49,9 +52,17 @@ function periodIn(text: string, today: DateKey): { from: DateKey; to: DateKey } 
 
 /** Treatments the text asks for: a treatment by name, or everything in a category such as "massage" or "foot care". */
 function servicesIn(text: string, state: DemoState): { ids: string[]; label: string } | null {
-  const named = state.services.filter((s) => text.includes(normalize(s.name)));
+  const named = state.services.filter((s) =>
+    (state.industry ? [s.name] : fixtureServiceAliases(s)).some((name) => text.includes(normalize(name))),
+  );
   if (named.length) return { ids: named.map((s) => s.id), label: named.length === 1 ? named[0].name : t("campaigns.name.several") };
-  const category = state.categories.find((c) => text.includes(normalize(c.name)));
+  const defaults = getPack(state.pack).categories;
+  const category = state.categories.find((c) => {
+    const id = !state.industry && defaults.find((id) => id === c.id);
+    const labels = id ? [translate("en", `category.${id}`), translate("sv", `category.${id}`)] : [];
+    const names = labels.includes(c.name) ? labels : [c.name];
+    return names.some((name) => text.includes(normalize(name)));
+  });
   if (!category) return null;
   return { ids: state.services.filter((s) => s.category === category.id).map((s) => s.id), label: category.name };
 }
@@ -65,10 +76,10 @@ export function parseCampaignRequest(input: string, state: DemoState, today: Dat
   const text = normalize(input);
   if (!/\b(campaign|offer|poster|off|discount|promote|promotion)\b/.test(text)) return null;
   const upcoming = state.holidays.filter(h => h.date >= today).sort((a, b) => a.date.localeCompare(b.date));
-  const named = upcoming.find(h => text.includes(normalize(h.name)));
+  const named = upcoming.find((holiday) => holidayNames(holiday).some((name) => ` ${text} `.includes(` ${normalize(name)} `)));
   const holiday = named ?? (/\b(next|upcoming|holiday|seasonal)\b/.test(text) ? upcoming[0] : undefined);
   if (holiday) return prefillForHoliday(state, holiday, today);
-  const percent = Number(input.match(/(\d+(?:\.\d+)?)\s*(?:%|percent)/i)?.[1]);
+  const percent = Number(input.match(/(\d+(?:[.,]\d+)?)\s*(?:%|percent)/i)?.[1].replace(",", "."));
   const services = servicesIn(text, state);
   if (!services || !(percent > 0 && percent <= MAX_DISCOUNT)) return null;
   return {

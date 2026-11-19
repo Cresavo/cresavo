@@ -38,14 +38,14 @@ export function checkDomain(input: string, product = productDomain()): DomainChe
 
 export interface DnsInstruction {
   type: "CNAME";
-  /** The record name as most providers ask for it: the part before the domain, e.g. "boka". */
+  /** Absolute DNS name, including the trailing dot. */
   name: string;
   host: string;
   value: string;
 }
 
 export function dnsInstruction(host: string): DnsInstruction {
-  return { type: "CNAME", name: host.split(".")[0], host, value: CNAME_TARGET };
+  return { type: "CNAME", name: `${host}.`, host, value: CNAME_TARGET };
 }
 
 /** One check later: the simulation moves a step on; the last step stays. */

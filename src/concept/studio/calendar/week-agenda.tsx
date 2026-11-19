@@ -39,7 +39,10 @@ export function WeekAgenda({ monday, staff, resourceId, onOpen }: { monday: Date
                       <button onClick={() => onOpen({ kind: "booking", id: b.id })} className="flex min-h-12 w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-surface-2">
                         <span className="w-11 shrink-0 font-medium tabular-nums">{formatTime(b.start)}</span>
                         <StaffDot staffId={b.staffId} />
-                        <span className="min-w-0 flex-1 truncate">{customer ? fullName(customer) : ""}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{customer ? fullName(customer) : ""}</span>
+                          {staff.length > 1 && <span className="block text-sm text-text-secondary">{staff.find((person) => person.id === b.staffId)?.firstName}</span>}
+                        </span>
                         <span className="max-w-[40%] truncate text-text-secondary">{findService(state, b.serviceId)?.name}</span>
                       </button>
                     </li>
