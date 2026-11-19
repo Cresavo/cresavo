@@ -8,8 +8,8 @@ import type { LogEntry, LogMeta } from "./types";
 /** Newest entries kept; older ones fall off so the browser storage stays small. */
 export const LOG_LIMIT = 100;
 
-/** Changes that cannot be taken back: access grants and tickets are records, not edits. */
-const NOT_UNDOABLE = new Set<DemoAction["type"]>(["support/grant", "support/revoke", "ticket/create", "online/hold", "online/pay", "online/release", "booking/fee"]);
+/** Changes that cannot be taken back: access grants and tickets are records, not edits; an erasure is final and keeps no copy. */
+const NOT_UNDOABLE = new Set<DemoAction["type"]>(["support/grant", "support/revoke", "ticket/create", "online/hold", "online/pay", "online/release", "booking/fee", "customer/erase"]);
 
 /** Who and where, when the caller does not say: customers act through the booking page, everything else is the owner's button. */
 export function defaultMeta(action: DemoAction, at: number): LogMeta {

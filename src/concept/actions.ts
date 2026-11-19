@@ -29,6 +29,7 @@ import { applyPageAction, type PageAction } from "./page/actions";
 import { grantSupport, revokeSupport, type GrantHours } from "./support/access";
 import type { NewTicket } from "./support/tickets";
 import { deleteCustomer, restoreEntry, trashBooking } from "./trash/trash";
+import { eraseCustomer } from "./customers/erase";
 import { placeOrders, receiveGoods, type Delivery, type NewOrder } from "./stock/orders";
 import { redeemGiftCard, returnRedemptions, sellGiftCard } from "./giftcards/cards";
 import { sellPackage, consumePackageVisit } from "./packages/packages";
@@ -110,6 +111,8 @@ export type DemoAction =
   | { type: "module/preset"; preset: PresetId }
   | { type: "card/dismiss"; id: string }
   | { type: "customer/delete"; id: string }
+  /** Final erasure of a customer, live or in the trash (not undoable). The Postgres store runs it only through `eraseSubject`. */
+  | { type: "customer/erase"; id: string }
   | { type: "trash/restore"; id: string }
   | { type: "log/undo"; id: string }
   | { type: "support/grant"; hours: GrantHours; at: number }
@@ -548,6 +551,8 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
       return state.dismissedCards.includes(action.id) ? state : { ...state, dismissedCards: [...state.dismissedCards, action.id] };
     case "customer/delete":
       return deleteCustomer(state, action.id);
+    case "customer/erase":
+      return eraseCustomer(state, action.id);
     case "trash/restore":
       return restoreEntry(state, action.id, payments);
     case "log/undo":

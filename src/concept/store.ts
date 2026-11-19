@@ -140,15 +140,26 @@ function today() {
   return toKey(new Date());
 }
 
+/** Set by `load` when a customer's 30 days in the trash were over and `purgeExpired` erased them. */
+let erasedOnLoad = false;
+
+const customerBundles = (state: DemoState) => state.trash.filter((entry) => entry.kind === "customer").length;
+
+function purge(state: DemoState): DemoState {
+  const next = purgeExpired(state, today());
+  if (customerBundles(next) < customerBundles(state)) erasedOnLoad = true;
+  return next;
+}
+
 function load(raw: string | null, workspace: Workspace): DemoState | null {
   try {
     let saved = raw && migrateState(JSON.parse(raw));
     if (saved && Boolean(saved.industry) === (workspace === "own")) {
       const validHolds = saved.checkoutHolds.filter(hold => hold.expiresAt > Date.now());
       if (validHolds.length !== saved.checkoutHolds.length) saved = { ...saved, checkoutHolds: validHolds };
-      if (saved.industry) return purgeExpired({ ...saved, generatedFor: today() }, today());
+      if (saved.industry) return purge({ ...saved, generatedFor: today() });
       const demo = saved.generatedFor === today()
-        ? purgeExpired(saved, today())
+        ? purge(saved)
         : { ...createDemoState(today(), setupOf(saved)), reminderSettings: saved.reminderSettings };
       // An older setup could give both salons the same address. Keep the
       // published local link and restore the demo's fixture address in that case.
@@ -170,10 +181,29 @@ function refresh(workspace: Workspace) {
   if (raw === snapshot.raw) return false;
   snapshot.raw = raw;
   const had = !!snapshot.state;
+  erasedOnLoad = false;
   snapshot.state = load(raw, workspace);
+  if (erasedOnLoad && snapshot.state) persistErasure(workspace, raw, snapshot.state);
   if (had && !snapshot.state) salonRemoved(workspace);
   snapshot.version = raw && snapshot.state ? { day: snapshot.state.generatedFor, seq: snapshot.state.seq } : undefined;
   return true;
+}
+
+/**
+ * Writes back a load that erased an expired customer, so the saved text no
+ * longer holds them either. Only over the text just read: if another tab wrote
+ * meanwhile, its snapshot wins and is purged when this tab reads it.
+ */
+function persistErasure(workspace: Workspace, raw: string | null, state: DemoState) {
+  const snapshot = snapshots[workspace];
+  try {
+    if (window.localStorage.getItem(storageKey(workspace)) !== raw) return;
+    const text = JSON.stringify(state);
+    window.localStorage.setItem(storageKey(workspace), text);
+    snapshot.raw = text;
+  } catch {
+    // Storage unavailable: the next load erases again.
+  }
 }
 
 function notify() {

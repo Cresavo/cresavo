@@ -28,18 +28,16 @@ GRANT SELECT, INSERT ON "tenant_action" TO cresavo_app;
 -- Idempotency: replace expired keys, sweep (item 8), forget on erasure.
 GRANT SELECT, INSERT, UPDATE, DELETE ON "tenant_idempotency" TO cresavo_app;
 
--- Outbox: insert in the apply transaction, mark delivered, poller retries (item 4).
+-- Outbox: insert in the apply transaction, mark delivered, poller retries,
+-- backoff and failed (item 4).
 GRANT SELECT, INSERT, UPDATE ON "tenant_effect" TO cresavo_app;
 
--- Item 7 (not created yet). Sketch of the only path that may change tenant_action:
---
--- CREATE ROLE cresavo_eraser NOLOGIN;
--- GRANT SELECT, UPDATE ("action", "subject_ids", "redacted_at") ON "tenant_action" TO cresavo_eraser;
--- CREATE FUNCTION erase_subject(p_tenant text, p_customer text) RETURNS integer
---   LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$ ... $$;
--- ALTER FUNCTION erase_subject(text, text) OWNER TO cresavo_eraser;
--- REVOKE ALL ON FUNCTION erase_subject(text, text) FROM PUBLIC;
--- GRANT EXECUTE ON FUNCTION erase_subject(text, text) TO cresavo_app;
+-- Erasure (item 7): the only path that may change tenant_action is the
+-- SECURITY DEFINER function erase_subject(tenant, customerId), owned by a
+-- separate NOLOGIN role. Run prisma/grants/erase-subject.sql next: it grants
+-- that role its columns, creates the function without PUBLIC access and grants
+-- EXECUTE to the application role only. The store then needs
+-- `erasure: "function"`, since this role cannot UPDATE tenant_action.
 
 -- Finally verify the effective privileges, including inherited ones:
 --   psql "$DATABASE_URL" -v app_role=cresavo_app -f prisma/grants/verify-studio-store.sql

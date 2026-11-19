@@ -530,13 +530,19 @@ model TenantEffect {
   fingerprint   String
   kind          String
   payload       Json      @db.JsonB
-  /// pending | delivered. A pending row is due at next_attempt_at, which also serves as the delivery lease.
+  /// pending | delivered | failed (gave up after the maximum attempts) | cancelled (erasure stopped an unsent message).
+  /// A pending row is due at next_attempt_at, which also serves as the delivery lease.
   status        String    @default("pending")
   attempts      Int       @default(0)
   nextAttemptAt DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
   deliveredAt   DateTime? @map("delivered_at") @db.Timestamptz(3)
+  /// Set by a claim, cleared by its outcome: the row is in flight with one deliverer until then.
+  leasedUntil   DateTime? @map("leased_until") @db.Timestamptz(3)
+  /// An erasure stopped this row: never claimed again.
+  erasedAt      DateTime? @map("erased_at") @db.Timestamptz(3)
   @@id([tenantId, seq, n])
   @@index([status, nextAttemptAt])
   @@index([tenantId, status, seq, n])
+  @@index([status, tenantId, seq, n])
   @@map("tenant_effect")
 }

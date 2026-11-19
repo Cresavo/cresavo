@@ -12,6 +12,8 @@ All notable changes to this project are documented here. Format follows
 
 - A `StudioStore` interface defines how the studio and server read and change a salon. It covers versions, idempotency keys, effects published after commit and an append-only action log. An in-memory reference store, an adapter over the existing browser store and a shared contract suite back it. The studio behaves as before. See docs/design/STUDIO_STORE.md.
 - A staged `PostgresStudioStore` keeps each salon in a `tenant_state` row behind a row lock, with the database clock, 24-hour idempotency keys fingerprinted by HMAC, an append-only `tenant_action` log and a `tenant_effect` outbox written in the same transaction. Effects are delivered one at a time in commit order, so a refund never overtakes its checkout. Booking cutoffs and support grants follow the store clock, and activity text uses the salon's language and currency. A new migration adds the four tables. The intended role grants and a check of the role's effective privileges are in `prisma/grants/`. It passes the shared contract suite against a disposable database. Nothing in the app uses it yet.
+- The staged Postgres store has an outbox poller (`npm run effects:drain`). It delivers effects left after a crash exactly once, in commit order, with backoff and a `failed` state, and is safe to run several at once. Effects of demo and sandbox salons only reach simulated providers. A held row lock now times out after 2 seconds as a conflict. A new migration adds the outbox states. Nothing in the app uses it yet.
+- Erasing a customer for good (`customer/erase`) removes them and their records from the salon and the trash. Activity entries about them keep no text or undo data, and their name, phone or email in other notes is replaced by a marker in the salon's language. Slugs, ids and other customers' details are never changed. Stores refuse it as an ordinary change. The staged Postgres store's `eraseSubject` also redacts its audit log, including idempotency keys and phones typed in another format, and the messages to that customer in the same transaction. It cancels unsent messages to them, reports one that is being sent, and forgets only the idempotency keys that held them. The SECURITY DEFINER version for production is in `prisma/grants/erase-subject.sql`, created in one transaction without access for other roles.
 
 ### Changed
 
@@ -23,6 +25,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- A deleted customer whose 30 days in the trash are over is now also removed from the activity log and from the browser's saved copy, so undo can no longer bring them back.
 - Studio forms, step controls and actions use content-appropriate widths on desktop. Campaign treatments follow the studio language.
 - Fixed unwanted horizontal scrolling in the studio at high zoom and in the booking-page editor.
 
