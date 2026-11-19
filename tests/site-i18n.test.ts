@@ -3,7 +3,7 @@ import { channelExamples as englishExamples, site } from "@/concept/site/en";
 import { channelExamples as swedishExamples, sv } from "@/concept/site/sv";
 
 function placeholders(text: string) {
-  return (text.match(/\{\w+\}|\[Controller name\]/g) ?? []).sort();
+  return (text.match(/\{\w+\}/g) ?? []).sort();
 }
 
 function checkTranslation(english: Record<string, string>, swedish: Record<string, string>) {

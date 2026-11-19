@@ -59,7 +59,7 @@ test.describe("the Swedish site without JavaScript", () => {
     await expect(page).toHaveURL(/\/sv\/privacy$/);
     await expect(page.locator("html")).toHaveAttribute("lang", "sv");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Integritet");
-    await expect(page.getByRole("main")).toContainText("[Controller name]");
+    await expect(page.getByRole("main")).toContainText("Niclas Vestlund");
     await expect(page.getByRole("main")).toContainText("info@cresavo.com");
   });
 });

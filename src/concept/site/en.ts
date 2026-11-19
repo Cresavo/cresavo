@@ -163,7 +163,7 @@ export const site = {
 
   "privacy.title": `Privacy · ${BRAND.name}`,
   "privacy.heading": "Privacy",
-  "privacy.intro": `This is a short note for the time before ${BRAND.name} launches. ${BRAND.name} is an open-source project, and these pages are run by its maintainer, an individual in Sweden. The controller is [Controller name]. You can reach them at info@cresavo.com. A full policy will replace this note before the waiting list or the product opens.`,
+  "privacy.intro": `This is a short note for the time before ${BRAND.name} launches. ${BRAND.name} is an open-source project, and these pages are run by its maintainer, an individual in Sweden. The controller is Niclas Vestlund. You can reach them at info@cresavo.com. A full policy will replace this note before the waiting list or the product opens.`,
   "privacy.waitlist.heading": "The waiting list",
   "privacy.waitlist.body": "The waiting list is not open yet. If you submit the form today, your email address, the form language and the optional kind of business are checked on the server and then discarded: the application does not store them or send them anywhere. To slow down abuse, the server counts tries per network address in memory for about ten minutes, without your email. Like any web host, our host (Vercel) may keep standard request logs. When the list opens, this page will first name the list provider, how long addresses are kept and how to withdraw; we will use your address only to tell you about the launch, and every email will have an unsubscribe link.",
   "privacy.demo.heading": "The demo",

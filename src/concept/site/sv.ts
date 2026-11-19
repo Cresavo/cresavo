@@ -161,7 +161,7 @@ export const sv = {
 
   "privacy.title": `Integritet · ${BRAND.name}`,
   "privacy.heading": "Integritet",
-  "privacy.intro": `Här berättar vi kort hur vi hanterar dina uppgifter inför lanseringen av ${BRAND.name}. Projektet har öppen källkod och sidorna drivs av projektets förvaltare, en privatperson i Sverige. Personuppgiftsansvarig är [Controller name]. Du når den ansvariga på info@cresavo.com. Vi publicerar en fullständig integritetspolicy innan väntelistan eller tjänsten öppnar.`,
+  "privacy.intro": `Här berättar vi kort hur vi hanterar dina uppgifter inför lanseringen av ${BRAND.name}. Projektet har öppen källkod och sidorna drivs av projektets förvaltare, en privatperson i Sverige. Personuppgiftsansvarig är Niclas Vestlund. Du når den ansvariga på info@cresavo.com. Vi publicerar en fullständig integritetspolicy innan väntelistan eller tjänsten öppnar.`,
   "privacy.waitlist.heading": "Väntelistan",
   "privacy.waitlist.body": "Väntelistan har inte öppnat än. Om du skickar in formuläret i dag kontrollerar servern din e-postadress, formulärets språk och eventuell uppgift om typ av verksamhet. Därefter slängs uppgifterna. Appen sparar dem inte och skickar dem inte vidare. För att begränsa missbruk räknar servern försök per nätverksadress i minnet i ungefär tio minuter, utan din e-postadress. Vårt webbhotell Vercel kan spara vanliga loggar över anrop. Innan listan öppnar berättar vi här vem som hanterar den, hur länge adresser sparas och hur du avanmäler dig. Vi använder bara adressen för att berätta om lanseringen. Varje mejl får en avregistreringslänk.",
   "privacy.demo.heading": "Demon",
