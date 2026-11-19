@@ -4,6 +4,7 @@ import { t } from "../i18n";
 import { diffDays } from "../data/dates";
 import { isFree, pickResource } from "../data/slots";
 import { cardsCovered, returnRedemptions } from "../giftcards/cards";
+import { eraseCustomer } from "../customers/erase";
 import type { Booking, Customer, DateKey, DemoState, InboxItem, JournalEntry, ProductSale, Review, ServicePackage } from "../data/types";
 
 /** Days a deleted or cancelled item stays restorable. */
@@ -30,8 +31,15 @@ export function daysLeft(entry: TrashEntry, today: DateKey): number {
   return Math.max(0, TRASH_DAYS - diffDays(today, entry.deletedOn));
 }
 
-/** Drops entries older than 30 days. A cancelled booking stays in the history; a deleted customer is gone. */
+/**
+ * Drops entries older than 30 days. A cancelled booking stays in the history;
+ * a deleted customer is erased (`eraseCustomer`): the activity log no longer
+ * names them or keeps undo data that would bring them back.
+ */
 export function purgeExpired(state: DemoState, today: DateKey): DemoState {
+  for (const entry of state.trash) {
+    if (entry.kind === "customer" && daysLeft(entry, today) <= 0) state = eraseCustomer(state, entry.customer.id);
+  }
   const legacyCustomers = new Set<string>();
   const trash = state.trash.flatMap((entry) => {
     if (entry.kind === "customer" && !entry.packages) {

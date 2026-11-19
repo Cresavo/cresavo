@@ -1,6 +1,6 @@
 # Studio store
 
-Status **Step 2 of decision 1** in [ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md): items 1–3 of the [build order](#build-order) are staged.
+Status **Step 2 of decision 1** in [ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md): items 1–5 and 7 of the [build order](#build-order) are staged.
 
 Studio and server code should read and change a salon through `StudioStore`
 (`src/concept/store/studio-store.ts`), not through the browser store directly.
@@ -132,7 +132,8 @@ engine's per-resource limits beyond what `isFree` checks.
 `PostgresStudioStore` (`src/concept/store/postgres-studio-store.ts`) implements
 the same interface. It is staged only: nothing in the app constructs it yet.
 Migration `20261119120000_studio_store` adds four tables and leaves every
-existing table unchanged:
+existing table unchanged. `20261120090000_effect_outbox_states` adds the
+`failed` and `cancelled` outbox states and the poller's index:
 
 ```sql
 tenant_state       (tenant_id PK, kind tenant_kind {salon|demo|sandbox}, version int,
@@ -145,17 +146,19 @@ tenant_idempotency (tenant_id, key (1..200 chars), fingerprint_hmac, seq bigint,
                     result jsonb, expires_at timestamptz (indexed),
                     PRIMARY KEY (tenant_id, key))
 tenant_effect      (tenant_id, seq bigint, n int, id text UNIQUE, fingerprint, kind,
-                    payload jsonb, status pending|delivered, attempts, next_attempt_at,
-                    delivered_at, PRIMARY KEY (tenant_id, seq, n),
-                    INDEX (status, next_attempt_at), INDEX (tenant_id, status, seq, n))
+                    payload jsonb, status pending|delivered|failed|cancelled, attempts,
+                    next_attempt_at, delivered_at, PRIMARY KEY (tenant_id, seq, n),
+                    INDEX (status, next_attempt_at), INDEX (tenant_id, status, seq, n),
+                    INDEX (status, tenant_id, seq, n))
 ```
 
 The migration does not create roles. `prisma/grants/studio-store.sql`
 documents the intended grants for operators. It first revokes everything the
 application role already has on the four tables, then grants it only `SELECT`
-and `INSERT` on `tenant_action`. The later `erase_subject` function is the
-only updater. `prisma/grants/verify-studio-store.sql` lists every remaining
-problem for a role:
+and `INSERT` on `tenant_action`. The `erase_subject` function in
+`prisma/grants/erase-subject.sql` is the only updater (see [Erasure](#erasure-item-7)).
+`prisma/grants/verify-studio-store.sql` lists every remaining problem for a
+role:
 
 - `UPDATE`, `DELETE`, `TRUNCATE`, `REFERENCES` or `TRIGGER` on the log, including privileges inherited through role membership or `PUBLIC`
 - ownership of the table or schema, directly or through a role it can use
@@ -166,7 +169,7 @@ The operator runs it with `psql -v app_role=…`. It must return no rows.
 
 Each `apply` is one interactive Prisma transaction:
 
-1. `SELECT … FROM tenant_state WHERE tenant_id = $1 FOR UPDATE` takes the row lock. A missing or expired tenant is `not-found`.
+1. `SELECT … FROM tenant_state WHERE tenant_id = $1 FOR UPDATE` takes the row lock, after `SET LOCAL lock_timeout` (`lockTimeoutMs`, 2 s by default). A lock timeout (`55P03`) is `conflict`, so the caller retries instead of piling up connections. A missing or expired tenant is `not-found`.
 2. The clock is read after the lock, from `clock_timestamp()` or the injected `now`. The log stamp `at` is the clock clamped to the previous entry's `at`. Everything else uses the clock itself.
 3. A key that has not expired in `tenant_idempotency` returns the stored result as a replay (state, version, entry and effects). If the HMAC-SHA256 fingerprint differs, the result is `idempotency-mismatch`. Expiry is judged and set by the clock (24 hours), never by `at`. An imported, backdated or clamped stamp therefore cannot shorten or stretch the window. An expired key is forgotten and the rules run again. Keys longer than 200 characters are `rejected`.
 4. A stale `expectedVersion` is `conflict`.
@@ -182,11 +185,11 @@ Each `apply` is one interactive Prisma transaction:
    - **Sync guard.** A reducer that returned a Promise would throw. A unit test guards that it never does.
 6. The store writes the document and version, appends `tenant_action` with `subject_ids`, inserts each new effect into `tenant_effect` and stores the key. All of this happens before `COMMIT`.
 
-**After the commit**, `apply` drains the tenant's due effects in `(seq, n)` order, its own included.
+**After the commit**, `apply` drains the tenant's due effects in `(seq, n)` order, its own included, with the same code and claim rule as the [poller](#outbox-poller-item-4). With `deliverAfterCommit: false` only the poller delivers.
 
 - Each row is claimed with a 60-second lease on `next_attempt_at`, sent, then acknowledged in its own statement. A later slow or failing send never undoes an earlier acknowledgement, and no connection is held while a sink runs.
-- A payment is never claimed while an earlier payment of the same tenant is still pending. A refund therefore waits for its checkout. The deliverer that acknowledges the checkout makes another pass and delivers the refund it unblocked.
-- A sink error leaves the row `pending` with an exponential backoff for the poller (item 4).
+- A payment is never claimed while an earlier payment of the same tenant is still pending or `failed`. A refund therefore waits for its checkout. Rows are claimed one at a time, so the deliverer that acknowledges the checkout claims the refund it unblocked next.
+- A sink error leaves the row `pending` with an exponential backoff for the poller.
 - Then in-process subscribers are notified.
 
 Other details:
@@ -198,7 +201,73 @@ Other details:
 - **Returned states.** The returned state is the document as stored (`UPDATE … RETURNING doc`), so results, loads and replays share the same `jsonb` key order.
 - **`subject_ids`.** The store collects every `customerId` or `customerIds` anywhere in the action, including nested entries and multi-recipient texts, and the `id` of `customer/*` actions. It also adds the customer of every record the reducer changed in any of the state's lists.
 - **`history`.** Like `load`, `history` returns nothing for an unknown, deleted or expired tenant.
-- **Constructor.** `{ prisma, hmacSecret (≥ 32 chars, never logged or stored), sinks: { payment, message }, now?: () => Promise<number>, trustCallerClock?: false }`.
+- **Constructor.** `{ prisma, hmacSecret (≥ 32 chars, never logged or stored), sinks: { payment, message }, simulatedSinks?, now?: () => Promise<number>, trustCallerClock?: false, deliverAfterCommit?: true, lockTimeoutMs?: 2000, leaseMs?: 60000, maxAttempts?: 10 }`. `sinks` serve `salon` tenants only; `simulatedSinks` (by default: acknowledge, send nothing) serve `demo` and `sandbox` tenants.
+
+### Outbox poller (item 4)
+
+`drainPendingEffects({ prisma, sinks?, simulatedSinks?, now?, limit = 100, leaseMs = 60 s, maxAttempts = 10 })`
+in `src/concept/store/effect-outbox.ts` is one poller run over every tenant.
+`npm run effects:drain` (`scripts/drain-effects.mts`) runs it once for a cron
+and prints only counts. The in-apply drain calls the same `deliverDue` with a
+tenant filter, so both claim by one rule, in one statement per row:
+
+```sql
+WITH next AS (
+  SELECT … FROM tenant_effect e LEFT JOIN tenant_state s USING (tenant_id)
+  WHERE e.status = 'pending' AND e.next_attempt_at <= now        -- due, and not leased
+    AND (e.kind <> 'payment' OR NOT EXISTS (earlier payment of the tenant, pending or failed))
+  ORDER BY e.tenant_id, e.seq, e.n LIMIT 1                        -- commit order
+  FOR UPDATE OF e SKIP LOCKED)
+UPDATE tenant_effect … SET attempts = attempts + 1, next_attempt_at = now + lease …
+```
+
+- **Concurrent pollers.** `SKIP LOCKED` and the lease mean two pollers never claim the same row. A row whose deliverer died after claiming it is due again when the lease runs out. Sinks must give up well within the lease, since the provider sees the effect id again after that (it is the provider's idempotency key).
+- **Acknowledgement.** Each row is acknowledged on its own after its send. A failure is recorded only by the deliverer holding the latest claim (same `attempts`).
+- **Backoff and failure.** After failed attempt *k* the row is due again after 2^k seconds (capped at an hour). After `maxAttempts` it becomes `failed`, for an operator. A failed payment keeps blocking the tenant's later payments, so a refund never goes out for a checkout that never went through.
+- **Routing by kind.** The tenant's `kind` decides the sink: `demo` and `sandbox` effects go to `simulatedSinks` only, and only `salon` effects reach `sinks`. A poller run without `sinks` does not claim salon effects at all. An effect whose tenant row is gone gets no sink, so it is retried and then `failed`. Payloads and sink errors are never logged.
+
+### Concurrency (item 5)
+
+All applies to a tenant serialize on its row lock. Tested with real separate connections:
+
+- 20 store instances, each on its own connection, book the same slot at once: exactly one commits and the rest are `rejected` (or `conflict` after a lock timeout). There is one `tenant_action` row and one booking.
+- 20 connections pay the same checkout hold at once: one commit, one payment effect, one charge.
+- Two instances interleave 15 applies each on one tenant: versions and `seq` run 1 to 30 without gaps, and each row's `resulting_version` equals its `seq`.
+- A third connection holds the row lock: an apply with `lockTimeoutMs: 300` returns `conflict` after about 300 ms and changes nothing, and so does `eraseSubject`.
+
+### Erasure (item 7)
+
+`customer/delete` keeps its meaning in the studio: the customer and their
+records go to the trash for 30 days and the undo toast can bring them back.
+The new reducer action **`customer/erase`** (`src/concept/customers/erase.ts`)
+is the final form. It removes the customer, live or in the trash, and every
+record with their `customerId` in any list, as well as checkout holds made with
+their phone and the trash entries of their bookings. Log entries in
+`state.log` that name them read "someone" and lose their undo `patch`. Any
+identifier left in free text (assistant memory, a gift card recipient, a
+ticket) becomes `[redacted]`. Its own log entry names nobody and cannot be
+undone. `purgeExpired` now runs it for customers whose 30 days in the trash are
+over, so an expired deletion can no longer be undone from the log either.
+Identifiers are the full name, the phone (as stored and as normalized digits)
+and the email. Values shorter than 5 characters are not scrubbed.
+
+`PostgresStudioStore.eraseSubject(tenantId, customerId)` is the privileged
+path. `apply` refuses `customer/erase` with `rejected`, so the log is never
+left unredacted. One transaction, under the row lock:
+
+1. **`tenant_action`.** Rows that name the customer by `subject_ids`, phone or email get the fields listed for their type in `PERSONAL_FIELDS` (`src/concept/store/erasure.ts`) replaced by `[redacted]`, and `redacted_at` is set. Rows that only contain the name have just the name replaced. Covered fields include guest name, phone and email, notices and inbox text, booking cancel reasons, imported customers, customer notes, message titles and bodies, inbox and review replies, review text, journal content, gift card recipients and messages, assistant memory and support tickets. Array fields are redacted for every element, not only the erased customer's. The log is audit only, so redacting a little more is the safe side.
+2. **`tenant_effect`.** Delivered, failed and cancelled rows for the customer (their action rows, or a payload that contains an identifier) are redacted. For messages, the recipient, subject and body are redacted. For payments, only identifiers are replaced, so the amount and reference stay for the books. A pending message to them becomes `cancelled`. A pending payment is kept so a refund still goes out (see open questions).
+3. **`tenant_idempotency`.** All of the tenant's rows are deleted, since stored results are full state copies.
+4. **The document.** `customer/erase` runs like an apply: a new version and a `tenant_action` row `{ type: "customer/erase", id }`. If the document no longer holds the customer, only the tables are redacted and the version stays.
+
+The result reports the counts and the pending payments kept. The test role
+cannot create roles, so the store runs these statements itself.
+`prisma/grants/erase-subject.sql` is the production form: a SECURITY DEFINER
+`erase_subject(tenant, customerId)` owned by a separate eraser role, which the
+application calls inside the same transaction before writing the document. It
+embeds the same field map, and a unit test keeps the two identical. An
+integration test creates it in a rolled-back transaction and checks that it
+redacts exactly as `eraseSubject` does.
 
 `tests/integration/postgres-studio-store.test.ts` runs
 `runStudioStoreContract("PostgresStudioStore", …)` unchanged against a
@@ -222,6 +291,20 @@ cases cover the following:
 - activity text uses the tenant's language and currency
 - the grants check flags a role that owns or can change the log. The test role cannot create roles, so it checks the connecting owner role.
 - two store instances on separate connection pools wait on the same row lock for one slot, and one wins
+
+`tests/integration/postgres-studio-store-durability.test.ts` covers items 4,
+5 and 7:
+
+- a crash between commit and drain (`deliverAfterCommit: false`): the poller delivers each effect exactly once, in commit order, and a second run delivers nothing
+- a deliverer that dies after claiming: the row is retried only after its lease
+- four concurrent pollers on separate connections never deliver one row twice
+- backoff of 2 s and then 4 s, `failed` after `maxAttempts`, and a refund that keeps waiting behind the failed checkout
+- demo and sandbox effects reach only the simulated sinks, both from the poller and from the in-apply drain, and a poller without live sinks leaves salon effects unclaimed
+- the concurrency cases above
+- erasure: a fictional customer with a deposit booking, confirmations, a note, texts and a keyed second booking is deleted and erased. A scan of every column of every row in the four tables, the document included, finds their name, phone and email zero times. The other customer's text and the payment amount are intact.
+- unsent messages are cancelled while a pending payment is kept and still delivered
+- `apply` refuses `customer/erase`
+- `erase_subject` from `prisma/grants/erase-subject.sql` matches `eraseSubject`
 
 Pure helpers (`jsonEqual`, `withTrustedTimes`, effect ids, `subjectIds`,
 `withTenantPresentation`) have unit tests in `tests/store-contract/store-helpers.test.ts`.
@@ -331,6 +414,8 @@ Adopted 19 November 2026 through the owner's delegation. They replace the first 
   the caller's times and the process presentation settings. Moving it to
   `withTrustedTimes` and `withTenantPresentation` is a small follow-up, but it
   changes which times the reference store reports.
+- **Erasure gaps.** A payment still pending at erasure keeps its payload until it is delivered, and nothing redacts it afterwards. Payment payloads hold no names today. The effect `fingerprint` is a SHA-256 of the full request. `purgeExpired` erases expired trash entries in the document only. The tables are redacted when the app calls `eraseSubject` for them, which needs the sandbox and trash sweepers (items 8 and 9). The browser studio has no "erase now" control yet, and its trash and undo are unchanged.
+- **Poller fairness.** A run claims in `(tenant_id, seq, n)` order up to `limit`, so with a large backlog one tenant's rows can delay another's until the next run. Live provider sinks are not wired, so `npm run effects:drain` delivers only demo and sandbox effects for now.
 - **Browser dirty checks.** UI comparisons such as the booking-rules draft
   still use `JSON.stringify`. They only see browser state today. Revisit them
   when the studio reads from Postgres.

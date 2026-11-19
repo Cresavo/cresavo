@@ -5,9 +5,20 @@ import { DEMO_CHANNEL_CURRENCY, withDemoChannels } from "../connections/demo";
 import type { OutboxEntry } from "../connections/simulated/outbox";
 import { withSlotClock } from "../data/slots";
 import type { DemoState } from "../data/types";
+import { customerIdentifiers, findErasable, mentionsCustomer, scrubDeep } from "../customers/erase";
 import { withTenantPresentation } from "../i18n/presentation";
 import { defaultMeta, prepareAction } from "../log/capture";
 import type { LogActor, LogSource } from "../log/types";
+import {
+  databaseClock,
+  deliverDue,
+  EFFECT_LEASE_MS,
+  EFFECT_MAX_ATTEMPTS,
+  SIMULATED_SINKS,
+  type EffectSinks,
+  type TenantKind,
+} from "./effect-outbox";
+import { jsonTextPatterns, redactAction, redactEffectPayload } from "./erasure";
 import { effectId, requestFingerprint, stagedChannels } from "./staged-channels";
 import {
   actionFingerprint,
@@ -45,37 +56,43 @@ import {
 //   6. write doc + version, append tenant_action, insert staged effects into
 //      tenant_effect, remember the key — then COMMIT
 //
-// After the commit the tenant's due effects are delivered one row at a time:
+// After the commit the tenant's due effects are delivered one row at a time
+// by the same code and claim rule as the outbox poller (effect-outbox.ts):
 // each is claimed with a short lease, sent, and acknowledged on its own. A
 // payment is never claimed while an earlier payment of the same tenant is
 // still pending, so a refund cannot overtake its checkout. Anything left is
-// for the outbox poller (step 2, item 4).
+// for the poller (`drainPendingEffects`).
+//
+// The row lock waits at most `lockTimeoutMs` (2 s); a lock timeout is
+// `conflict`, so the caller retries instead of piling up connections.
 
 /** Idempotency keys are forgotten this long after their commit (by the store clock). */
 export const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 /** Longest accepted idempotency key (the HTTP layer adds a caller prefix). */
 export const IDEMPOTENCY_KEY_MAX = 200;
-/** How long a claimed effect is reserved for one deliverer before another may retry it. */
-export const EFFECT_LEASE_MS = 60_000;
+/** Default wait for the tenant's row lock before an apply gives up with `conflict`. */
+export const LOCK_TIMEOUT_MS = 2_000;
 /** Most effects one apply's drain delivers, its own and any earlier ones it unblocks. */
 const DRAIN_LIMIT = 100;
 const TRANSACTION = { maxWait: 5_000, timeout: 15_000 } as const;
 
-export type TenantKind = "salon" | "demo" | "sandbox";
+export { EFFECT_LEASE_MS, EFFECT_MAX_ATTEMPTS, type TenantKind };
+export type { EffectDelivery, EffectSink, EffectSinks } from "./effect-outbox";
 
-/** One committed effect handed to a sink. `id` is stable and unique: use it as the provider's idempotency key. */
-export interface EffectDelivery {
-  id: string;
-  tenantId: TenantId;
-  /** Sinks for live providers must refuse anything but `salon` (enforced fully in step 2, item 9). */
-  tenantKind: TenantKind;
-  seq: number;
-  n: number;
-  effect: StoreEffect;
-}
-
-/** Delivers one effect. Throwing leaves it pending for a retry; it may be called again for the same `id`. */
-export type EffectSink = (delivery: EffectDelivery) => void | Promise<void>;
+/** What `eraseSubject` changed. */
+export type EraseResult =
+  | {
+      ok: true;
+      /** The tenant's version afterwards; one higher when the document still held the customer. */
+      version: number;
+      /** The `customer/erase` log entry, when the document changed. */
+      entry?: TenantAction;
+      /** `tenant_action` rows redacted, delivered or cancelled `tenant_effect` rows redacted, idempotency keys deleted. */
+      redacted: { actions: number; effects: number; idempotencyKeys: number };
+      /** Payments still pending for the customer: they keep their payload until delivered (see STUDIO_STORE.md). */
+      pendingPayments: number;
+    }
+  | { ok: false; reason: "not-found" | "conflict" };
 
 export interface PostgresStudioStoreOptions {
   prisma: PrismaClient;
@@ -83,9 +100,25 @@ export interface PostgresStudioStoreOptions {
   hmacSecret: string;
   /** Epoch milliseconds. Defaults to the database's `clock_timestamp()`, read after the row lock. Tests only. */
   now?: () => Promise<number>;
-  sinks: Record<StoreEffect["kind"], EffectSink>;
+  /** Live sinks, used for `salon` tenants only. */
+  sinks: EffectSinks;
+  /** Sinks for `demo` and `sandbox` tenants, which never reach `sinks`. Defaults to acknowledging without sending. */
+  simulatedSinks?: EffectSinks;
   /** Use `meta.at` and the action's own times when given instead of the clock. Tests and imports only. */
   trustCallerClock?: boolean;
+  /** Deliver the tenant's due effects right after each commit (default). With false only the poller delivers. */
+  deliverAfterCommit?: boolean;
+  /** Longest wait for the tenant's row lock, in milliseconds (default 2 s). A timeout is `conflict`. */
+  lockTimeoutMs?: number;
+  /** Delivery lease and attempts before `failed`, as for the poller. */
+  leaseMs?: number;
+  maxAttempts?: number;
+}
+
+interface LockedRow {
+  doc: unknown;
+  version: number;
+  expires_ms: number | null;
 }
 
 interface Replay {
@@ -101,6 +134,20 @@ type Tx = Prisma.TransactionClient;
 
 const isThenable = (value: unknown): boolean =>
   !!value && (typeof value === "object" || typeof value === "function") && typeof (value as { then?: unknown }).then === "function";
+
+/** True for Postgres' lock_not_available (55P03), however the driver wraps it. */
+function isLockTimeout(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  const walk = (value: unknown, depth: number): boolean => {
+    if (!value || typeof value !== "object" || seen.has(value) || depth > 6) return false;
+    seen.add(value);
+    const record = value as Record<string, unknown>;
+    if (record.code === "55P03" || record.originalCode === "55P03") return true;
+    if (typeof record.message === "string" && /lock timeout/i.test(record.message)) return true;
+    return walk(record.cause, depth + 1) || walk(record.meta, depth + 1) || walk(record.kind, depth + 1);
+  };
+  return walk(error, 0);
+}
 
 /** Every `customerId` / `customerIds` value anywhere in a value. */
 function namedCustomers(value: unknown, into: Set<string>, depth = 0) {
@@ -156,8 +203,13 @@ export class PostgresStudioStore implements StudioStore {
   private readonly prisma: PrismaClient;
   private readonly hmacSecret: string;
   private readonly now?: () => Promise<number>;
-  private readonly sinks: PostgresStudioStoreOptions["sinks"];
+  private readonly sinks: EffectSinks;
+  private readonly simulatedSinks: EffectSinks;
   private readonly trustCallerClock: boolean;
+  private readonly deliverAfterCommit: boolean;
+  private readonly lockTimeoutMs: number;
+  private readonly leaseMs: number;
+  private readonly maxAttempts: number;
   private readonly listeners = new Map<TenantId, Set<(change: StoreChange) => void>>();
 
   constructor(options: PostgresStudioStoreOptions) {
@@ -166,7 +218,14 @@ export class PostgresStudioStore implements StudioStore {
     this.hmacSecret = options.hmacSecret;
     this.now = options.now;
     this.sinks = options.sinks;
+    this.simulatedSinks = options.simulatedSinks ?? SIMULATED_SINKS;
     this.trustCallerClock = options.trustCallerClock === true;
+    this.deliverAfterCommit = options.deliverAfterCommit !== false;
+    const whole = (value: number | undefined, fallback: number) =>
+      value !== undefined && Number.isInteger(value) && value >= 1 ? value : fallback;
+    this.lockTimeoutMs = whole(options.lockTimeoutMs, LOCK_TIMEOUT_MS);
+    this.leaseMs = whole(options.leaseMs, EFFECT_LEASE_MS);
+    this.maxAttempts = whole(options.maxAttempts, EFFECT_MAX_ATTEMPTS);
   }
 
   private fingerprint(action: DemoAction): string {
@@ -176,8 +235,29 @@ export class PostgresStudioStore implements StudioStore {
   /** Epoch milliseconds: the injected clock, or the database clock at this point. */
   private async clock(db: Tx | PrismaClient): Promise<number> {
     if (this.now) return Math.floor(await this.now());
-    const [row] = await db.$queryRaw<Array<{ ms: number }>>`SELECT (extract(epoch FROM clock_timestamp()) * 1000)::float8 AS ms`;
-    return Math.floor(row.ms);
+    return databaseClock(db as PrismaClient);
+  }
+
+  /**
+   * Takes the tenant's row lock, waiting at most `lockTimeoutMs`. Undefined
+   * for an unknown tenant. Everything after it sees every earlier commit.
+   */
+  private async lock(tx: Tx, tenantId: TenantId): Promise<LockedRow | undefined> {
+    await tx.$queryRaw`SELECT set_config('lock_timeout', ${`${this.lockTimeoutMs}ms`}, true)`;
+    const [locked] = await tx.$queryRaw<LockedRow[]>`
+      SELECT doc, version, (extract(epoch FROM expires_at) * 1000)::float8 AS expires_ms
+      FROM tenant_state WHERE tenant_id = ${tenantId} FOR UPDATE`;
+    return locked;
+  }
+
+  /** Runs one transaction; a lock timeout becomes `conflict`. */
+  private async transaction<T>(run: (tx: Tx) => Promise<T>): Promise<T | { lockTimeout: true }> {
+    try {
+      return await this.prisma.$transaction(run, TRANSACTION);
+    } catch (error) {
+      if (isLockTimeout(error)) return { lockTimeout: true };
+      throw error;
+    }
   }
 
   /** True while the tenant exists and has not expired, by the store clock. */
@@ -198,21 +278,28 @@ export class PostgresStudioStore implements StudioStore {
   async apply(tenantId: TenantId, action: DemoAction, meta: ApplyMeta = {}, options: ApplyOptions = {}): Promise<ApplyResult> {
     const key = options.idempotencyKey;
     if (key !== undefined && (key.length === 0 || key.length > IDEMPOTENCY_KEY_MAX)) return { ok: false, reason: "rejected" };
+    // Erasure also redacts the log and the outbox: only `eraseSubject` runs it.
+    if (action.type === "customer/erase") return { ok: false, reason: "rejected" };
     const own = detach(action);
-    const result = await this.prisma.$transaction((tx) => this.applyInTransaction(tx, tenantId, own, meta, options), TRANSACTION);
+    const result = await this.transaction(async (tx) => {
+      // 1. The row lock.
+      const locked = await this.lock(tx, tenantId);
+      return locked ? this.applyLocked(tx, tenantId, locked, own, meta, options) : { done: { ok: false, reason: "not-found" } } as Committed;
+    });
+    if ("lockTimeout" in result) return { ok: false, reason: "conflict" };
     if ("done" in result) return result.done;
-    const { commit } = result;
-    await this.drain(tenantId);
+    return this.published(tenantId, result.commit);
+  }
+
+  /** After a commit: deliver due effects, notify subscribers, return a detached result. */
+  private async published(tenantId: TenantId, commit: Replay): Promise<ApplyResult & { ok: true }> {
+    if (this.deliverAfterCommit) await this.drain(tenantId);
     notifyAll(this.listeners.get(tenantId) ?? [], { tenantId, version: commit.version, entry: commit.entry, effects: commit.effects });
     return { ok: true, ...detach(commit), replayed: false };
   }
 
-  private async applyInTransaction(tx: Tx, tenantId: TenantId, requested: DemoAction, meta: ApplyMeta, options: ApplyOptions): Promise<Committed> {
-    // 1. The row lock. Everything below reads after it, so it sees every earlier commit.
-    const [locked] = await tx.$queryRaw<Array<{ doc: unknown; version: number; expires_ms: number | null }>>`
-      SELECT doc, version, (extract(epoch FROM expires_at) * 1000)::float8 AS expires_ms
-      FROM tenant_state WHERE tenant_id = ${tenantId} FOR UPDATE`;
-    if (!locked) return { done: { ok: false, reason: "not-found" } };
+  /** Steps 2–6 of an apply, under the row lock. */
+  private async applyLocked(tx: Tx, tenantId: TenantId, locked: LockedRow, requested: DemoAction, meta: ApplyMeta, options: ApplyOptions): Promise<Committed> {
 
     // 2. The clock, after the lock. `at` (the event stamp) never goes before the previous entry.
     const clock = await this.clock(tx);
@@ -328,73 +415,104 @@ export class PostgresStudioStore implements StudioStore {
    */
   private async drain(tenantId: TenantId) {
     try {
-      // Rows committed meanwhile (a refund another apply queued behind this
-      // apply's checkout) are picked up by another pass once this one made progress.
-      let budget = DRAIN_LIMIT;
-      for (let pass = 0; pass < 5 && budget > 0; pass++) {
-        const delivered = await this.drainPass(tenantId, budget);
-        if (delivered === 0) break;
-        budget -= delivered;
-      }
+      // Claims one row at a time, so a refund another apply queued behind this
+      // apply's checkout is claimed as soon as the checkout is acknowledged.
+      await deliverDue({
+        db: this.prisma,
+        clock: () => this.clock(this.prisma),
+        sinks: this.sinks,
+        simulatedSinks: this.simulatedSinks,
+        leaseMs: this.leaseMs,
+        maxAttempts: this.maxAttempts,
+        tenantId,
+      }, DRAIN_LIMIT);
     } catch {
       // The change is committed and its effects are in the outbox; the poller delivers what is left.
     }
   }
 
-  /** One pass over the tenant's due effects in commit order; returns how many were delivered. */
-  private async drainPass(tenantId: TenantId, limit: number): Promise<number> {
-    const now = await this.clock(this.prisma);
-    const due = await this.prisma.$queryRaw<Array<{ id: string; seq: bigint; n: number; kind: StoreEffect["kind"]; payload: OutboxEntry; tenant_kind: TenantKind | null }>>`
-      SELECT e.id, e.seq, e.n, e.kind, e.payload, s.kind::text AS tenant_kind
-      FROM tenant_effect e LEFT JOIN tenant_state s ON s.tenant_id = e.tenant_id
-      WHERE e.tenant_id = ${tenantId} AND e.status = 'pending' AND e.next_attempt_at <= to_timestamp(${now}::float8 / 1000)
-      ORDER BY e.seq, e.n LIMIT ${limit}`;
-    let delivered = 0;
-    let paymentsBlocked = false;
-    for (const row of due) {
-      if (row.kind === "payment" && paymentsBlocked) continue;
-      const claimed = await this.claim(row.id);
-      if (!claimed) {
-        if (row.kind === "payment") paymentsBlocked = true;
+  /**
+   * Erases one customer (GDPR art. 17) in one transaction under the row lock:
+   *
+   * - `tenant_action` rows that name the customer (by `subject_ids`, their
+   *   phone or email) get their personal fields redacted by PERSONAL_FIELDS
+   *   and `redacted_at` set; the customer's name, phone and email are also
+   *   replaced in every other row of the tenant;
+   * - delivered, failed and cancelled `tenant_effect` rows for them are
+   *   redacted, and pending messages to them are cancelled; pending payments
+   *   are kept so a refund still goes out;
+   * - every `tenant_idempotency` row of the tenant is deleted (stored results
+   *   are full state copies);
+   * - the document runs `customer/erase` like any apply (a new version and a
+   *   log entry without the name), when it still holds the customer, live or
+   *   in the trash.
+   *
+   * Privileged: in production the log updates belong to the SECURITY DEFINER
+   * function in prisma/grants/erase-subject.sql, since the application role
+   * may only insert into and read `tenant_action`.
+   */
+  async eraseSubject(tenantId: TenantId, customerId: string, meta: ApplyMeta = {}): Promise<EraseResult> {
+    if (typeof customerId !== "string" || !customerId) return { ok: false, reason: "not-found" };
+    const result = await this.transaction(async (tx): Promise<{ erased: EraseResult; commit?: Replay }> => {
+      const locked = await this.lock(tx, tenantId);
+      if (!locked) return { erased: { ok: false, reason: "not-found" } };
+      const clock = await this.clock(tx);
+      if (locked.expires_ms !== null && locked.expires_ms <= clock) return { erased: { ok: false, reason: "not-found" } };
+      const state = migrateSaved(locked.doc);
+      const customer = state ? findErasable(state, customerId) : undefined;
+      const identifiers = customer ? customerIdentifiers(customer) : [];
+      const contacts = customer ? customerIdentifiers({ ...customer, firstName: "", lastName: "" }) : [];
+      const counts = await this.redactLog(tx, tenantId, customerId, identifiers, contacts, clock);
+      if (!customer) return { erased: { ok: true, version: locked.version, ...counts } };
+      const committed = await this.applyLocked(tx, tenantId, locked, { type: "customer/erase", id: customerId }, meta, {});
+      if ("done" in committed) throw new Error("STUDIO_STORE_ERASE_REFUSED");
+      const { commit } = committed;
+      return { erased: { ok: true, version: commit.version, entry: commit.entry, ...counts }, commit };
+    });
+    if ("lockTimeout" in result) return { ok: false, reason: "conflict" };
+    if (result.commit) await this.published(tenantId, result.commit);
+    return detach(result.erased);
+  }
+
+  /** The table half of an erasure, inside its transaction. */
+  private async redactLog(tx: Tx, tenantId: TenantId, customerId: string, identifiers: string[], contacts: string[], clock: number) {
+    const patterns = jsonTextPatterns(identifiers);
+    const at = new Date(clock).toISOString();
+    const actions = await tx.$queryRaw<Array<{ seq: bigint; action: DemoAction; subject: boolean }>>`
+      SELECT seq, action, subject_ids @> ARRAY[${customerId}]::text[] AS subject FROM tenant_action
+      WHERE tenant_id = ${tenantId}
+        AND (subject_ids @> ARRAY[${customerId}]::text[] OR action::text ILIKE ANY(${patterns}::text[]))`;
+    const named: bigint[] = [];
+    let redactedActions = 0;
+    for (const row of actions) {
+      // Named by id or by a phone or email: redact by the map. A name alone only has the name replaced.
+      const theirs = row.subject || mentionsCustomer(row.action, customerId, contacts);
+      if (theirs) named.push(row.seq);
+      const action = scrubDeep(theirs ? redactAction(row.action) : row.action, identifiers);
+      await tx.$executeRaw`
+        UPDATE tenant_action SET action = ${JSON.stringify(action)}::jsonb, redacted_at = coalesce(redacted_at, ${at}::timestamptz)
+        WHERE tenant_id = ${tenantId} AND seq = ${row.seq}`;
+      redactedActions++;
+    }
+    const effects = await tx.$queryRaw<Array<{ id: string; kind: StoreEffect["kind"]; status: string; payload: OutboxEntry }>>`
+      SELECT id, kind, status, payload FROM tenant_effect
+      WHERE tenant_id = ${tenantId} AND (seq = ANY(${named}::bigint[]) OR payload::text ILIKE ANY(${patterns}::text[]))`;
+    let redactedEffects = 0;
+    let pendingPayments = 0;
+    for (const row of effects) {
+      if (row.status === "pending" && row.kind === "payment") {
+        pendingPayments++;
         continue;
       }
-      const delivery: EffectDelivery = {
-        id: row.id, tenantId, tenantKind: row.tenant_kind ?? "salon", seq: Number(row.seq), n: row.n, effect: effectOf(row.payload),
-      };
-      if (await this.send(delivery, claimed.attempts)) delivered++;
-      else if (row.kind === "payment") paymentsBlocked = true;
+      // A message not yet sent to someone who has been erased is not sent at all.
+      const status = row.status === "pending" ? "cancelled" : row.status;
+      await tx.$executeRaw`
+        UPDATE tenant_effect SET payload = ${JSON.stringify(redactEffectPayload(row.payload, identifiers))}::jsonb, status = ${status}
+        WHERE id = ${row.id}`;
+      redactedEffects++;
     }
-    return delivered;
-  }
-
-  /** Reserves one pending, due effect. A payment waits while an earlier payment of its tenant is pending. */
-  private async claim(id: string): Promise<{ attempts: number } | undefined> {
-    const now = await this.clock(this.prisma);
-    const [row] = await this.prisma.$queryRaw<Array<{ attempts: number }>>`
-      UPDATE tenant_effect e SET attempts = e.attempts + 1, next_attempt_at = to_timestamp(${now + EFFECT_LEASE_MS}::float8 / 1000)
-      WHERE e.id = ${id} AND e.status = 'pending' AND e.next_attempt_at <= to_timestamp(${now}::float8 / 1000)
-        AND (e.kind <> 'payment' OR NOT EXISTS (
-          SELECT 1 FROM tenant_effect p
-          WHERE p.tenant_id = e.tenant_id AND p.kind = 'payment' AND p.status = 'pending' AND (p.seq, p.n) < (e.seq, e.n)))
-      RETURNING e.attempts`;
-    return row;
-  }
-
-  /** Calls the sink and records the outcome for this one row. */
-  private async send(delivery: EffectDelivery, attempts: number): Promise<boolean> {
-    try {
-      await this.sinks[delivery.effect.kind](detach(delivery));
-    } catch {
-      // Never log the payload: it holds personal data. The poller retries after the backoff.
-      const retry = (await this.clock(this.prisma)) + Math.min(3_600_000, 1000 * 2 ** attempts);
-      await this.prisma.$executeRaw`
-        UPDATE tenant_effect SET next_attempt_at = to_timestamp(${retry}::float8 / 1000) WHERE id = ${delivery.id} AND status = 'pending'`;
-      return false;
-    }
-    const at = await this.clock(this.prisma);
-    await this.prisma.$executeRaw`
-      UPDATE tenant_effect SET status = 'delivered', delivered_at = to_timestamp(${at}::float8 / 1000) WHERE id = ${delivery.id} AND status = 'pending'`;
-    return true;
+    const idempotencyKeys = await tx.$executeRaw`DELETE FROM tenant_idempotency WHERE tenant_id = ${tenantId}`;
+    return { redacted: { actions: redactedActions, effects: redactedEffects, idempotencyKeys }, pendingPayments };
   }
 
   subscribe(tenantId: TenantId, listener: (change: StoreChange) => void): () => void {

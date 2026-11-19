@@ -1968,6 +1968,7 @@ const messages = {
   "log.customersImport": "Imported {count} customer|Imported {count} customers",
   "log.customerNote": "Changed the note on {customer}",
   "log.customerDelete": "Deleted {customer}",
+  "log.customerErase": "Erased a customer's personal data",
   "log.stockAdjust": "Adjusted the stock of {product}",
   "log.stockUpdate": "Changed settings for {product}",
   "log.stockOrder": "Ordered from {suppliers}",
