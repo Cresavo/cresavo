@@ -386,6 +386,7 @@ it("MCP read/write opt-in exposes the same domain and rejects unknown fields", a
     try {
       const tools = (await client.listTools()).tools.map((x) => x.name);
       expect(tools.includes("create_capacity_campaign_draft")).toBe(writes);
+      expect(tools.includes("create_campaign_draft")).toBe(writes && !only);
       if (only) {
         expect(tools.sort()).toEqual(
           [

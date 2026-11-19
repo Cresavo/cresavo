@@ -70,6 +70,7 @@ describe("USP aliases preserve native authority and business logic", () => {
     expect(names).toEqual(expect.arrayContaining([...Object.keys(uspAliases), "list_services", "get_availability", "create_booking", "get_booking", "cancel_booking"]));
     expect(names).not.toContain("list_bookings");
     expect(names).not.toContain("create_campaign_draft");
+    expect(names).not.toContain("create_capacity_campaign_draft");
     for (const [alias, native] of Object.entries(uspAliases).filter(([, native]) => native !== "get_service"))
       expect(tools.find(t => t.name === alias)?.inputSchema).toEqual(tools.find(t => t.name === native)?.inputSchema);
     const native = payload(await call(ca, "list_services", { business: "demo" }));

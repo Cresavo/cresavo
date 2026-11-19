@@ -18,6 +18,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 - Paired demo workspaces support independent assistant grants, native loopback callbacks and revocation in the studio. Idle tabs expire, and open calendar edits stay bound to their original booking.
+- The local owner MCP server keeps `--admin` read-only. Saving campaign drafts requires workspace write access, explicit confirmation and a request ID for safe retries.
 - The large photo on public booking pages starts loading right away.
 - Screen readers can announce when a team member's schedule is saved.
 - If another tab books the time you picked, the demo asks you to choose another time.
