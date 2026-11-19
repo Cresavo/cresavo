@@ -1,47 +1,45 @@
-# Releases, versions and storytelling
+# Releasing Cresavo
 
-We build in public and want the repo to look professional at every moment,
-including while things are in progress.
+Releases let people follow what has changed without reading every pull request. Each release has
+short, readable notes; the [CHANGELOG](../CHANGELOG.md) keeps the full detail.
 
-## Versions
+## When
 
-- Semantic versioning, starting at `0.x` while the product is a concept:
-  `0.MINOR.PATCH`. A feature milestone is usually a minor release (such as
-  `0.2.0`). Fixes between milestones are patch releases.
-- `1.0.0` is the first release a real salon can use (pilot gate in
-  `docs/QUALITY_SECURITY.md` passed).
-- The version lives in `package.json` and as a git tag `vX.Y.Z`.
+Cut a release when a batch of user-visible work has merged, typically once a week while Cresavo is a
+concept demo. Security fixes can ship on their own at any time.
 
-## Commits
+Versions follow [Semantic Versioning](https://semver.org/). While the version is `0.x`, minor
+releases (`0.5.0`) carry features and patch releases (`0.5.1`) carry fixes only. Every `0.x`
+release is published as a GitHub pre-release.
 
-Conventional Commits, as already used: `feat(studio): ...`, `fix(intent): ...`,
-`docs: ...`, `test: ...`, `refactor: ...`, `chore: ...`. One logical change
-per commit. This keeps the changelog readable and automatable later.
+## How
 
-## Changelog
+1. Open a pull request named `Release 0.5.0` that:
+   - sets `"version"` in `package.json` (and `package-lock.json`) to the new version;
+   - renames `## [Unreleased]` in `CHANGELOG.md` to `## [0.5.0] - YYYY-MM-DD` and adds a new empty
+     `## [Unreleased]` above it;
+   - adds `docs/releases/v0.5.0.md` with the release notes (see below).
+2. Check the notes locally: `node scripts/release-notes.mjs 0.5.0`.
+3. Merge the pull request. The [Release workflow](../.github/workflows/release.yml) sees the new
+   version, creates the `v0.5.0` tag on that commit and publishes the GitHub release with the notes.
+   It does nothing if the release already exists, and it can be re-run from the Actions tab.
 
-`CHANGELOG.md` (Keep a Changelog format). Every goal adds its user-visible
-changes under `## [Unreleased]` as it goes: Added / Changed / Fixed /
-Removed. Written for users, not for developers ("Owners can move a booking by
-typing it", not "add parseMove()").
+If `docs/releases/v<version>.md` is missing, the workflow uses that version's CHANGELOG section.
 
-## Cutting a release
+## Release notes
 
-1. Move `[Unreleased]` entries into a new version section with today's date.
-2. Bump `package.json`, commit `chore(release): vX.Y.Z`, tag `vX.Y.Z`.
-3. Create a GitHub release from the tag: a short story of what changed and
-   why, 2–4 current screenshots, how to try it, and
-   what's next. Mark `0.x` releases as pre-release.
-4. Ask the maintainer to approve the release before publishing.
+Write for salon owners, contributors and curious visitors, not for reviewers:
 
-## Storytelling
+- Start with one or two sentences on what this release is about.
+- Then "New since 0.4.0": the five to eight changes people will notice, each with a bold lead-in.
+  Add a screenshot or a short clip from `docs/design/` when it helps.
+- Then "Try it" with the demo link and the three local commands.
+- End with a link to the full changelog and thanks to contributors by GitHub handle.
+- Keep the pre-release line: concept demo, fictional data, not ready for real customers.
+- Use fictional data only, and do not name other booking products.
 
-- `README.md` tells the story in this order: the problem (salon owners
-  want control of their time and data), the demo, the founder story, quick
-  start, features and screenshots, and how to contribute.
-- A clear status badge/label per area: **Working**, **In progress**,
-  **Planned**. Work in progress is shown openly, not hidden; it's labelled.
-- The [roadmap](ROADMAP.md) summarizes what works and what is planned.
-- Each release is a small chapter of the story; release notes link back to
-  the previous one.
-- Screenshots and a short animated preview are refreshed every minor release.
+## Following along
+
+- **Watch → Custom → Releases** on GitHub to get one notification per release.
+- The releases feed is available as Atom: `https://github.com/Cresavo/cresavo/releases.atom`.
+- Day-to-day discussion happens in [Discussions](https://github.com/Cresavo/cresavo/discussions).
