@@ -58,6 +58,7 @@ export default function CustomerPage() {
   }
 
   if (viewer && !servedBy(state, viewer.id).has(customer.id)) return <NoAccess />;
+  const phone = customer.phone.trim();
   const s = stats.get(customer.id)!;
   const late = notSeenInThreeMonths(state, stats, today).some((c) => c.id === customer.id);
   const next = nextVisitFor(state, customer, stats);
@@ -91,10 +92,10 @@ export default function CustomerPage() {
             </div>
             <CustomerSummary customer={customer} />
             <div className="text-sm">
-              <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className="flex min-h-11 items-center gap-2 hover:text-action">
+              {phone ? <a href={`tel:${phone.replace(/\s/g, "")}`} className="flex min-h-11 items-center gap-2 hover:text-action">
                 <Phone size={16} className="text-text-secondary" />
                 {customer.phone}
-              </a>
+              </a> : <p className="text-text-secondary">{t("customer.noPhone")}</p>}
               {customer.email && (
                 <a href={`mailto:${customer.email}`} className="flex min-h-11 items-center gap-2 hover:text-action">
                   <Mail size={16} className="text-text-secondary" />
@@ -102,17 +103,19 @@ export default function CustomerPage() {
                 </a>
               )}
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-wrap gap-2 [&>*]:flex-1">
               <Button size="sm" className="px-2" icon={<CalendarPlus size={16} />} onClick={() => setSheet({ kind: "new", preset: { customerId: customer.id, serviceId: s.lastServiceId } })}>
                 {t("customer.bookAgain")}
               </Button>
-              <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className={buttonClass("secondary", "sm", "px-2")}>
-                <Phone size={16} />
-                {t("next.call")}
-              </a>
-              <Button size="sm" variant="secondary" className="px-2" icon={<MessageSquare size={16} />} onClick={() => showToast(t("customer.textSimulated"))}>
-                {t("customer.text")}
-              </Button>
+              {phone && <>
+                <a href={`tel:${phone.replace(/\s/g, "")}`} className={buttonClass("secondary", "sm", "px-2")}>
+                  <Phone size={16} />
+                  {t("next.call")}
+                </a>
+                <Button size="sm" variant="secondary" className="px-2" icon={<MessageSquare size={16} />} onClick={() => showToast(t("customer.textSimulated"))}>
+                  {t("customer.text")}
+                </Button>
+              </>}
             </div>
           </Card>
           {state.modules.stock && !viewer && (

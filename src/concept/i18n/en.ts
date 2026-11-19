@@ -465,6 +465,7 @@ const messages = {
   "newBooking.emailOptional": "Email (optional)",
   "newBooking.findExisting": "Find an existing customer",
   "newBooking.noTreatments": "Add a treatment before booking a time.",
+  "newBooking.noStaffTreatments": "No treatments are assigned to {name} yet.",
   "newBooking.doesNotFit": "This treatment does not fit at the selected time. Choose another treatment or time.",
   "newBooking.noMatch": "No customer matches.",
   "newBooking.treatment": "Treatment",
@@ -578,6 +579,9 @@ const messages = {
   "customers.showMore": "Show more ({count} left)|Show more ({count} left)",
   "customers.empty": "No customers found",
   "customers.emptyText": "Try another name, or check the spelling.",
+  "customers.emptyFilter": "No customers match this filter.",
+  "customers.showAll": "Show all customers",
+  "customer.noPhone": "No phone number on file.",
 
   "customer.back": "Customers",
   "customer.notFound": "Customer not found",

@@ -13,16 +13,28 @@ interface SegmentedProps<T extends string> {
 }
 
 export function Segmented<T extends string>({ value, options, onChange, label, className }: SegmentedProps<T>) {
+  const selectedIndex = Math.max(0, options.findIndex((option) => option.value === value));
   return (
     <div role="radiogroup" aria-label={label} className={cx("inline-flex max-w-full flex-wrap rounded-md bg-surface-2 p-0.5", className)}>
-      {options.map((o) => (
+      {options.map((o, index) => (
         <button
           key={o.value}
           type="button"
           role="radio"
           aria-checked={o.value === value}
+          tabIndex={index === selectedIndex ? 0 : -1}
           data-help={o.help}
           onClick={() => onChange(o.value)}
+          onKeyDown={(event) => {
+            const forward = event.key === "ArrowRight" || event.key === "ArrowDown";
+            const backward = event.key === "ArrowLeft" || event.key === "ArrowUp";
+            if (!forward && !backward) return;
+            event.preventDefault();
+            const next = (index + (forward ? 1 : -1) + options.length) % options.length;
+            const buttons = event.currentTarget.parentElement?.querySelectorAll("button");
+            buttons?.[next]?.focus();
+            onChange(options[next].value);
+          }}
           className={cx(
             "min-h-11 flex-1 whitespace-nowrap rounded-sm px-3 text-center text-[15px] font-medium transition-colors",
             o.value === value ? "bg-surface text-text ring-1 ring-input-border" : "text-text-secondary hover:text-text",
