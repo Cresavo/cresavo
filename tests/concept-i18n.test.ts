@@ -14,6 +14,7 @@ import { formatDayLong, formatMoney, formatNumber, formatTime, setCurrency } fro
 import { sv } from "@/concept/i18n/sv";
 import { interpretCommand } from "@/concept/intent";
 import { getPack } from "@/concept/packs";
+import { fullName } from "@/concept/selectors";
 
 const day = "2026-11-17";
 const base = createDemoState(day);
@@ -105,6 +106,21 @@ describe("concept languages", () => {
     expect(ask("Kom ihåg att Anna har ont och svullnad").effects).toEqual([]);
     expect(ask("Hur gick dagen?").reply.card).toMatchObject({ kind: "brief", brief: { items: expect.arrayContaining([expect.objectContaining({ text: expect.stringMatching(/^Dagens intäkter:/) })]) } });
     expect(ask("Hej").reply.text).toContain("Jag förstod inte riktigt");
+  });
+
+  it.each([
+    ["en", "Who should I book? Please give the client's name.", "Which session should I book?", "Which day is Anna off?"],
+    ["sv", "Vem vill du boka in? Skriv klientens namn.", "Vilken session vill du boka?", "Vilken dag är Anna ledig?"],
+  ] as const)("uses industry terms in %s clarification questions", (language, who, service, schedule) => {
+    const state = createDemoState(day, { pack: "trainer" });
+    const name = fullName(state.customers[0]);
+    setLocale(language);
+    setVocabulary(getPack(state.pack).vocabulary);
+    const ask = (text: string) => respond({ state, text, clock: { today: day, minutes: 600 }, role: "owner", context: emptyContext(), examples: [] }).reply;
+
+    expect(ask("Book tomorrow").text).toBe(who);
+    expect(ask(`Book ${name} tomorrow`).card).toMatchObject({ kind: "choose", title: service, choices: expect.arrayContaining([{ label: state.services[0].name, text: expect.any(String) }]) });
+    expect(ask("Anna is off").text).toBe(schedule);
   });
 
   it("reads a Swedish request on the booking page", () => {

@@ -2097,6 +2097,7 @@ const messages = {
   "domain.record.provider": "din domänleverantör (där du köpte domänen)",
   "domain.record.type": "Typ",
   "domain.record.name": "Namn (värd)",
+  "domain.record.relative": "Om din leverantör vill ha ett relativt namn, skriv bara delen före DNS-zonens namn, utan punkt på slutet.",
   "domain.record.value": "Värde (pekar på)",
   "domain.record.wait": "Det kan ta några minuter och ibland några timmar innan ändringen syns för alla.",
   "domain.steps": "Steg för anslutning",

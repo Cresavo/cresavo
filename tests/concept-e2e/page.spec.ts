@@ -44,7 +44,7 @@ test.afterEach(async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
 });
 
-test("pick an address, resolve it by host and start an own domain", async ({ page, request }) => {
+test("pick an address, resolve it by host and start an own domain", async ({ page, request, baseURL }) => {
   await page.goto("/studio/more/settings");
   const slug = page.getByLabel("Your name in the address");
   await slug.fill("admin");
@@ -66,9 +66,11 @@ test("pick an address, resolve it by host and start an own domain", async ({ pag
   await page.goto("/studio/more/settings");
   await slug.fill("salong-eko");
   await page.getByRole("button", { name: "Save address" }).click();
-  await page.goto("http://salong-eko.localhost:3017/");
+  const salonUrl = new URL("/", baseURL);
+  salonUrl.hostname = "salong-eko.localhost";
+  await page.goto(salonUrl.href);
   await expect(page.getByRole("heading", { name: "Salong Eko", level: 1 })).toBeVisible();
-  await page.goto("http://salong-eko.localhost:3017/studio");
+  await page.goto(new URL("/studio", salonUrl).href);
   await expect(page.getByRole("heading", { name: "No booking page here" })).toBeVisible();
   const unknown = await request.get("/", { headers: { host: "nobody.example.org" } });
   expect(unknown.status()).toBe(404);

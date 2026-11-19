@@ -1,3 +1,7 @@
+import type { MessageKey } from "../i18n";
+
+export type QuestionKey = Extract<MessageKey, `command.question.${string}`>;
+
 export interface IntentContext {
   customers: { id: string; name: string }[];
   services: { id: string; name: string; durationMin: number; priceSek: number }[];
