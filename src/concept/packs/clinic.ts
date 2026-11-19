@@ -20,7 +20,7 @@ const JOURNAL_RECOVERY: JournalText[] = [
 
 export const clinic: Pack = {
   id: "clinic",
-  vocabulary: { customer: "patient", service: "treatment" },
+  vocabulary: { customer: "patient", service: "treatment", sv: { customer: "patient", service: "behandling" } },
   categories: ["physio", "recovery"],
   salon: salonWith("Physiotherapy and recovery in Vasastan"),
   staff: teamWith(

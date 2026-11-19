@@ -1,11 +1,13 @@
 "use client";
 
+import { customerText } from "../i18n/customer-text";
+
 import { useState } from "react";
 import { CalendarClock, CalendarPlus, Phone, XCircle } from "lucide-react";
-import { addDays, formatTime } from "../data/dates";
+import { addDays } from "../data/dates";
 import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
-import { formatDayLong } from "../i18n/format";
+import { formatDayLong, formatTime } from "../i18n/format";
 import { findCustomer, findService, fullName } from "../selectors";
 import { dispatch } from "../store";
 import { Button } from "../ui/button";
@@ -28,7 +30,7 @@ function downloadCalendar(state: DemoState, booking: Booking) {
   const service = findService(state, booking.serviceId);
   const staff = state.staff.find((s) => s.id === booking.staffId);
   if (!service || !staff) return;
-  const ics = buildIcs({ booking, service, staff, salon: state.salon, createdAt: icsTimestamp(new Date()) });
+  const ics = buildIcs({ booking, service, staff, salon: state.salon, language: state.localization.language, createdAt: icsTimestamp(new Date()) });
   const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url;
@@ -65,7 +67,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
     body,
     read: false,
     handled: kind === "reschedule",
-    draftReply: kind === "cancel" ? t("booking.cancel.inboxReply", { name: customer.firstName }) : undefined,
+    draftReply: kind === "cancel" ? customerText(state, "booking.cancel.inboxReply", { name: customer.firstName }) : undefined,
   });
   const when = `${formatDayLong(booking.date)} ${formatTime(booking.start)}`;
 

@@ -1,13 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { translate } from "@/concept/i18n";
+import { DEFAULT_BOOKING_LANGUAGE } from "@/concept/i18n/business";
 import { BookShell } from "@/concept/booking/shell";
 import { TENANT_METADATA } from "@/concept/booking/tenant-metadata";
 import "../../studio/studio.css";
 
 export const metadata: Metadata = {
   ...TENANT_METADATA,
-  title: "Book online",
-  description: "Book your visit online. Demo with fictional data.",
+  title: translate(DEFAULT_BOOKING_LANGUAGE, "language.bookingTitle"),
+  description: translate(DEFAULT_BOOKING_LANGUAGE, "language.bookingDescription"),
 };
 
 export const viewport: Viewport = {

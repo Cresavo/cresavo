@@ -10,7 +10,9 @@ import { applyAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
 import { publicView } from "./selectors";
 import { purgeExpired } from "./trash/trash";
-import { setVocabulary } from "./i18n";
+import { getActiveLocale, setVocabulary } from "./i18n";
+import { publicSalonCopy } from "./i18n/salon-eko-copy";
+import { setupOf } from "./onboarding/setup";
 import { getPack } from "./packs";
 
 // Browser-side demo store: one in-memory state, mirrored to localStorage.
@@ -29,7 +31,10 @@ function today() {
 function load(raw: string | null): DemoState {
   try {
     const saved = raw && migrateState(JSON.parse(raw));
-    if (saved && saved.generatedFor === today()) return purgeExpired(saved, today());
+    if (saved) {
+      if (saved.generatedFor === today()) return purgeExpired(saved, today());
+      return createDemoState(today(), setupOf(saved));
+    }
   } catch {
     // A corrupt snapshot falls back to fresh demo data.
   }
@@ -147,5 +152,6 @@ export function useDemo(): DemoState | null {
 /** The state for the booking pages: what customers may see and book (hidden treatments are not on offer). */
 export function usePublicDemo(): DemoState | null {
   const state = useDemo();
-  return useMemo(() => state && publicView(state), [state]);
+  const language = getActiveLocale();
+  return useMemo(() => state && publicSalonCopy(publicView(state), language), [state, language]);
 }

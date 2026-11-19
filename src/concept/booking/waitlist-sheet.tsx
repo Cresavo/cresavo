@@ -1,5 +1,8 @@
 "use client";
 
+import { serviceCopy } from "../i18n/salon-eko-copy";
+import { customerText } from "../i18n/customer-text";
+
 import { useState } from "react";
 import { BellRing, CheckCircle2 } from "lucide-react";
 import { t } from "../i18n";
@@ -44,6 +47,7 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
     if (!request || !service) return;
     const day = formatDayLong(request.date);
     const phone = guest.phone.trim();
+    const treatment = serviceCopy(service, state.localization.language).name;
     dispatch({
       type: "online/waitlist",
       guest: { name: guest.name, phone, at: { date: now.today, time: now.minutes } },
@@ -51,7 +55,7 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
       notice: {
         title: t("booking.waitlist.inboxTitle", { service: service.name }),
         body: t("booking.waitlist.inboxBody", { name: guest.name.trim(), service: service.name, day, phone }),
-        draftReply: t("booking.waitlist.inboxReply", { name: guest.name.trim().split(/\s+/)[0], service: service.name }),
+        draftReply: customerText(state, "booking.waitlist.inboxReply", { name: guest.name.trim().split(/\s+/)[0], service: treatment }),
       },
     });
     const customer = findCustomerByPhone(currentState() ?? state, phone);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { t } from "../i18n";
+import { locale, t } from "../i18n";
 import { showToast } from "../ui/toast";
 
 // Browser speech recognition (Chrome, Edge, Safari). Where it is missing,
@@ -62,7 +62,7 @@ export function useSpeech({ continuous = false, onText }: SpeechOptions) {
     const Recognizer = recognitionConstructor();
     if (!Recognizer || recognition.current) return;
     const next = new Recognizer();
-    next.lang = "en-GB";
+    next.lang = locale;
     next.continuous = continuous;
     next.interimResults = true;
     next.onresult = (event) => {

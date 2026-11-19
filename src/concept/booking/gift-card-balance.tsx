@@ -30,7 +30,7 @@ export function GiftCardBalance({ state, compact }: { state: DemoState; compact?
         }}
       >
         <Field label={t("giftcards.checkLabel")}>
-          <TextInput value={code} onChange={(event) => { setCode(event.target.value); setAsked(null); }} autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder="EKO-XXXX-XXXX" />
+          <TextInput value={code} onChange={(event) => { setCode(event.target.value); setAsked(null); }} autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder={t("giftcards.codeExample")} />
         </Field>
         <Button type="submit" variant="secondary" className="w-full" icon={<Search size={18} />} disabled={code.trim().length < 4}>
           {t("giftcards.checkButton")}

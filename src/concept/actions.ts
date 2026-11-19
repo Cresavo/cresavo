@@ -1,3 +1,5 @@
+import { parseLocale } from "@/lib/locale";
+import type { BusinessLocalization } from "./i18n/business";
 import { sendBookingMessage, type BookingMessageAction } from "./booking/messages";
 import { applyCustomerReview, type CustomerReviewAction } from "./booking/review-actions";
 import { applyAssistant, type AssistantAction } from "./assistant/actions";
@@ -44,6 +46,7 @@ import type {
 // today; the command box and AI suggestions will dispatch the same actions.
 
 export type DemoAction =
+  | { type: "salon/language"; language: BusinessLocalization["language"]; bilingual: boolean }
   | BookingMessageAction
   | CustomerReviewAction
   | OpsAction
@@ -302,6 +305,12 @@ function importCustomers(state: DemoState, incoming: Omit<Customer, "id">[]): De
 
 export function reduce(state: DemoState, action: DemoAction): DemoState {
   switch (action.type) {
+    case "salon/language": {
+      const language = parseLocale(action.language);
+      if (!language || typeof action.bilingual !== "boolean") return state;
+      if (state.localization.language === language && state.localization.bilingual === action.bilingual) return state;
+      return { ...state, localization: { ...state.localization, language, bilingual: action.bilingual } };
+    }
     case "booking-message/send":
       return sendBookingMessage(state, action);
     case "review/submit":

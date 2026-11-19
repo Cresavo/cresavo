@@ -1,7 +1,8 @@
-import { formatTime } from "../data/dates";
+import { customerText } from "../i18n/customer-text";
 import type { Booking, DemoState } from "../data/types";
+import { serviceCopy } from "../i18n/salon-eko-copy";
 import { t } from "../i18n";
-import { formatDate } from "../i18n/format";
+import { formatDate, formatTime } from "../i18n/format";
 import { sendDemoMessage } from "../connections/demo";
 import { bookingPage } from "./links";
 import { findService } from "../selectors";
@@ -17,12 +18,13 @@ export interface BookingMessageAction {
 }
 export function messageSlot(booking: Booking) { return `${booking.date}:${booking.start}:${booking.staffId}`; }
 export function bookingMessage(state: DemoState, booking: Booking, kind: BookingMessageKind) {
-  const service = findService(state, booking.serviceId);
+  const stored = findService(state, booking.serviceId);
+  const service = stored && serviceCopy(stored, state.localization.language);
   const staff = state.staff.find(staff => staff.id === booking.staffId);
-  const subject = t(`messages.subject.${kind}`, { salon: state.salon.name });
-  const body = t(`messages.body.${kind}`, {
-    salon: state.salon.name, service: service?.name ?? "", date: formatDate(booking.date),
-    time: formatTime(booking.start), staff: staff?.firstName ?? "", address: state.salon.address,
+  const subject = customerText(state, `messages.subject.${kind}`, { salon: state.salon.name });
+  const body = customerText(state, `messages.body.${kind}`, {
+    salon: state.salon.name, service: service?.name ?? "", date: formatDate(booking.date, state.localization.language),
+    time: formatTime(booking.start, state.localization.language), staff: staff?.firstName ?? "", address: state.salon.address,
     link: bookingPage(state.salon.slug, booking.id),
   });
   return { subject, body };

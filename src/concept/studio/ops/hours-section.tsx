@@ -1,8 +1,9 @@
 "use client";
 
+import { formatTime } from "../../i18n/format";
 import { useState } from "react";
 import { Pencil } from "lucide-react";
-import { formatTime, WEEK_ORDER } from "../../data/dates";
+import { WEEK_ORDER } from "../../data/dates";
 import type { Salon } from "../../data/types";
 import { t, words } from "../../i18n";
 import { Button } from "../../ui/button";

@@ -78,9 +78,17 @@ describe("migrateState", () => {
     expect(migrateState({ ...saved, staff: [staff[1]] })!.staff).toEqual([migrated.staff[1]]);
   });
 
+  it("adds the Swedish booking default to a v17 Salong Eko save", () => {
+    const saved: Partial<DemoState> = { ...createDemoState(today), version: 17 };
+    delete saved.localization;
+    const migrated = migrateState(saved)!;
+    expect(migrated.localization).toEqual({ language: "sv", bilingual: false, currency: "SEK" });
+    expect(migrated.bookings).toEqual(saved.bookings);
+  });
+
   it("is one linear chain: every saved version from the oldest to the current reaches DEMO_VERSION", () => {
     const fresh = createDemoState(today);
-    expect(DEMO_VERSION).toBe(17);
+    expect(DEMO_VERSION).toBe(18);
     for (let version = OLDEST_MIGRATABLE; version <= DEMO_VERSION; version++) {
       expect(migrateState({ ...fresh, version })?.version, `from v${version}`).toBe(DEMO_VERSION);
     }

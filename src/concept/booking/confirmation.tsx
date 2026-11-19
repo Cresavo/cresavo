@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { CalendarCheck, CheckCircle2, MapPin, XCircle } from "lucide-react";
-import { formatTime } from "../data/dates";
 import { t } from "../i18n";
-import { formatDayLong, formatDuration, formatMoney } from "../i18n/format";
+import { formatDayLong, formatDuration, formatMoney, formatTime } from "../i18n/format";
 import { usePublicDemo } from "../store";
 import { StaffAvatar } from "../ui/avatar";
 import { ButtonLink } from "../ui/button";

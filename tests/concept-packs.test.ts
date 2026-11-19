@@ -159,7 +159,7 @@ describe("onboarding result", () => {
 
   it("lets Reset demo rebuild the same business", () => {
     const state = createDemoState(today, setupFromAnswers({ pack: "nails", team: "solo", help: ["campaigns"] }));
-    expect(setupOf(state)).toEqual({ pack: "nails", solo: true, modules: ["campaigns", "assistant"] });
+    expect(setupOf(state)).toEqual({ pack: "nails", solo: true, modules: ["campaigns", "assistant"], localization: state.localization });
     expect(createDemoState(today, setupOf(state)).modules).toEqual(state.modules);
   });
 });

@@ -43,7 +43,7 @@ export function RedeemSheet({ bookingId, onBack, onClose }: { bookingId: string;
     >
       <div className="space-y-3">
         <Field label={t("giftcards.payCode")}>
-          <TextInput value={code} onChange={(event) => setCode(event.target.value)} autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder="EKO-XXXX-XXXX" autoFocus />
+          <TextInput value={code} onChange={(event) => setCode(event.target.value)} autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder={t("giftcards.codeExample")} autoFocus />
         </Field>
         {code.trim().length >= 4 && (
           <p role="status" className={card && amount > 0 ? "rounded-md bg-action-bg px-3.5 py-3 text-sm font-medium text-text" : "text-sm text-danger"}>

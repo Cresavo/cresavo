@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Leaf } from "lucide-react";
 import { TENANT_POLICY } from "../brand";
 import { ownerViewHref } from "../page/resolve";
-import { t } from "../i18n";
+import { parseLocale, type Locale } from "@/lib/locale";
+import { t, translate } from "../i18n";
+import { ConceptLanguage } from "../i18n/boundary";
+import { DEFAULT_BOOKING_LANGUAGE, DEFAULT_CURRENCY } from "../i18n/business";
 import { usePublicDemo } from "../store";
 import { pinThemeColor } from "../ui/theme";
 import { Toaster } from "../ui/toast";
@@ -18,18 +21,39 @@ import { UnknownAddress } from "./unknown-address";
 
 /** Page frame for everything a customer sees: slim header, content, small footer, wearing the business's theme. */
 export function BookShell({ children }: { children: ReactNode }) {
+  const state = usePublicDemo();
+  const slug = useParams<{ slug: string }>()?.slug ?? "";
+  const path = usePathname()?.replace(/\/$/, "") || "/";
+  const widget = path === widgetPath(slug) || path === "/widget";
+  const home = path === "/" || path === `/boka/${slug}`;
+  const allowSwitch = home && state?.salon.slug === slug && state.localization.bilingual;
+  const [choice, setChoice] = useState<{ slug: string; language: Locale }>();
+  const businessLanguage = state?.localization.language ?? DEFAULT_BOOKING_LANGUAGE;
+  const language = allowSwitch && choice?.slug === slug ? choice.language : businessLanguage;
+  useEffect(() => {
+    document.title = translate(language, "language.bookingTitle");
+    document.querySelector('meta[name="description"]')?.setAttribute("content", translate(language, "language.bookingDescription"));
+  }, [language, path]);
   return (
-    <PageProvider>
-      <Frame>{children}</Frame>
-    </PageProvider>
+    <ConceptLanguage language={language} currency={state?.localization.currency ?? DEFAULT_CURRENCY}>
+      <PageProvider>
+        <Frame slug={slug} widget={widget} switchLanguage={allowSwitch ? {
+          language,
+          change: (language) => setChoice({ slug, language }),
+        } : undefined}>{children}</Frame>
+      </PageProvider>
+    </ConceptLanguage>
   );
 }
 
-function Frame({ children }: { children: ReactNode }) {
+function Frame({ children, slug, widget, switchLanguage }: {
+  children: ReactNode;
+  slug: string;
+  widget: boolean;
+  switchLanguage?: { language: Locale; change: (language: Locale) => void };
+}) {
   const state = usePublicDemo();
   const page = usePage();
-  const slug = useParams<{ slug: string }>()?.slug ?? "";
-  const widget = usePathname() === widgetPath(slug);
   const known = !state || state.salon.slug === slug;
   const ownerView = useOwnerView();
   useTenantIcon(known ? page.theme.logo : null);
@@ -54,9 +78,25 @@ function Frame({ children }: { children: ReactNode }) {
             )}
             {state?.salon.name}
           </Link>
-          <Link href={myBookings(slug)} className="flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-text hover:bg-action-bg">
-            {t("booking.myBookings")}
-          </Link>
+          <div className="flex items-center gap-1">
+            {switchLanguage && (
+              <select
+                className="min-h-11 max-w-24 rounded-md bg-surface px-1 text-sm text-text"
+                aria-label={t("language.label")}
+                value={switchLanguage.language}
+                onChange={(event) => {
+                  const language = parseLocale(event.currentTarget.value);
+                  if (language) switchLanguage.change(language);
+                }}
+              >
+                <option value="sv" lang="sv">{t("language.sv")}</option>
+                <option value="en" lang="en">{t("language.en")}</option>
+              </select>
+            )}
+            <Link href={myBookings(slug)} className="flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-text hover:bg-action-bg">
+              {t("booking.myBookings")}
+            </Link>
+          </div>
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl flex-1 pb-16 pt-5 lg:pt-8 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">

@@ -34,6 +34,8 @@ const staffFirstName = (state: DemoState, id: string) => state.staff.find((s) =>
 /** One short sentence per change. It names people and things but never quotes journal text or messages. */
 export function describeAction(action: LoggedAction, prev: DemoState, next: DemoState): Description {
   switch (action.type) {
+    case "salon/language":
+      return { summary: t("log.bookingLanguage") };
     case "memory/add":
       return { summary: t("log.memoryAdd") };
     case "memory/edit":
@@ -174,7 +176,7 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
     case "staff/week":
       return { summary: t("log.staffWeek", { name: staffFirstName(next, action.staffId) }) };
     case "staff/off":
-      return { summary: t("log.staffOff", { name: staffFirstName(next, action.staffId) }), after: names([...new Set(action.dates)].map(formatDayShort)) };
+      return { summary: t("log.staffOff", { name: staffFirstName(next, action.staffId) }), after: names([...new Set(action.dates)].map((day) => formatDayShort(day))) };
     case "staff/shift":
       return { summary: t("log.staffShift", { name: staffFirstName(next, action.staffId) }), after: `${formatDayShort(action.date)} ${formatTime(action.start)}–${formatTime(action.end)}` };
     case "staff/exception-remove": {

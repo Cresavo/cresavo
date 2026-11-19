@@ -1,3 +1,5 @@
+import { formatMoney } from "../i18n/format";
+import { t, tc } from "../i18n";
 import { addDays } from "../data/dates";
 import { openingFor } from "../data/slots";
 import type { DemoState } from "../data/types";
@@ -32,6 +34,18 @@ export function dayFacts(state: DemoState, { today, minutes }: Clock): DayFacts 
     newCustomers: figures.newCustomers,
     missingJournals,
     tomorrowFirstCustomer: findCustomer(state, first?.customerId)?.firstName ?? null,
+  };
+}
+
+export function daySummaryText(facts: DayFacts, currency: string) {
+  return {
+    summary: t("summary.revenue", { amount: formatMoney(facts.revenueSek, currency), visits: tc("command.revenue.visits", facts.visits) }),
+    highlights: [
+      tc("summary.noShows", facts.noShows),
+      tc("summary.newCustomers", facts.newCustomers),
+      tc("summary.missingJournals", facts.missingJournals),
+      facts.tomorrowFirstCustomer ? t("summary.tomorrowFirst", { name: facts.tomorrowFirstCustomer }) : t("summary.tomorrowEmpty"),
+    ],
   };
 }
 

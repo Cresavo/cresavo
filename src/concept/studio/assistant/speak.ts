@@ -1,5 +1,7 @@
 "use client";
 
+import { locale } from "../../i18n";
+
 // Spoken replies through the browser's speech synthesis. Optional, off by
 // default, and silent where the browser has no voices.
 
@@ -11,7 +13,7 @@ export function speak(text: string) {
   if (!canSpeak() || !text.trim()) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "en-GB";
+  utterance.lang = locale;
   window.speechSynthesis.speak(utterance);
 }
 

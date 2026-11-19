@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarCheck } from "lucide-react";
-import { formatTime } from "../data/dates";
 import type { DemoState } from "../data/types";
 import { t } from "../i18n";
-import { formatDayLong, formatDuration, formatMoney } from "../i18n/format";
+import { formatDayLong, formatDuration, formatMoney, formatTime } from "../i18n/format";
 import { currentState, dispatch, withBookingLock } from "../store";
 import { StaffAvatar } from "../ui/avatar";
 import { Button } from "../ui/button";

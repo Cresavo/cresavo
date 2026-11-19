@@ -2,11 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { BellRing } from "lucide-react";
-import { addDays, formatTime, fromKey } from "../data/dates";
+import { addDays, fromKey } from "../data/dates";
 import { openingFor } from "../data/slots";
 import type { DateKey, DemoState } from "../data/types";
 import { t } from "../i18n";
-import { dayChipLabel, formatDayLong } from "../i18n/format";
+import { dayChipLabel, formatDayLong, formatTime } from "../i18n/format";
 import { Button } from "../ui/button";
 import { cx } from "../ui/cx";
 import { openSlots, type Clock, type OpenSlot } from "./suggest";

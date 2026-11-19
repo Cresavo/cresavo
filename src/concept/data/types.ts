@@ -1,3 +1,4 @@
+import type { BusinessLocalization } from "../i18n/business";
 // Data model for the clickable demo. No database: everything is generated
 // deterministically in `generate.ts` and kept in the browser (see `../store.ts`).
 
@@ -380,6 +381,7 @@ export interface DemoState {
   generatedFor: DateKey;
   seq: number;
   salon: Salon;
+  localization: BusinessLocalization;
   staff: Staff[];
   /** The price list, in the order it is shown. */
   services: Service[];

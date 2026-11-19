@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { formatTime } from "../data/dates";
 import { t } from "../i18n";
-import { formatDate } from "../i18n/format";
+import { formatDate, formatTime } from "../i18n/format";
 import { usePublicDemo } from "../store";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";

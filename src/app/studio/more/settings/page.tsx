@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Compass, RotateCcw } from "lucide-react";
 import { t } from "@/concept/i18n";
 import { setupOf } from "@/concept/onboarding/setup";
-import { startBusiness } from "@/concept/store";
+import { dispatch, startBusiness } from "@/concept/store";
 import { BookingShare } from "@/concept/studio/more/booking-share";
 import { AddressSection } from "@/concept/studio/page/address-section";
 import { ClosedDaysSection } from "@/concept/studio/ops/closed-days";
@@ -12,6 +12,8 @@ import { HoursSection } from "@/concept/studio/ops/hours-section";
 import { ResourcesSection } from "@/concept/studio/ops/resources-section";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { SupportAccess } from "@/concept/studio/support/support-access";
+import { parseLocale } from "@/lib/locale";
+import { StudioLanguageSetting } from "@/concept/studio/studio-language";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Button, ButtonLink } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
@@ -22,7 +24,7 @@ import { showToast } from "@/concept/ui/toast";
 export default function SettingsPage() {
   const { state } = useStudio();
   const [confirming, setConfirming] = useState(false);
-  const { salon } = state;
+  const { salon, localization } = state;
   const details = [
     [t("settings.name"), salon.name],
     [t("settings.address"), `${salon.address}, ${salon.area}`],
@@ -46,8 +48,36 @@ export default function SettingsPage() {
         </Section>
         <Section title={t("theme.label")}>
           <Card className="space-y-3 p-4">
+            <StudioLanguageSetting />
             <p className="text-[15px] text-text-secondary">{t("theme.description")}</p>
             <ThemeControl className="w-full sm:w-auto" />
+          </Card>
+        </Section>
+        <Section title={t("language.businessTitle")}>
+          <Card className="space-y-3 p-4">
+            <p className="text-sm text-text-secondary">{t("language.businessHint")}</p>
+            <label className="flex flex-wrap items-center justify-between gap-3">
+              <span className="font-medium">{t("language.businessDefault")}</span>
+              <select
+                className="rounded-md border border-hairline bg-surface px-3 py-2"
+                value={localization.language}
+                onChange={(event) => {
+                  const language = parseLocale(event.currentTarget.value);
+                  if (language) dispatch({ type: "salon/language", language, bilingual: localization.bilingual });
+                }}
+              >
+                <option value="sv" lang="sv">{t("language.sv")}</option>
+                <option value="en" lang="en">{t("language.en")}</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={localization.bilingual}
+                onChange={(event) => dispatch({ type: "salon/language", language: localization.language, bilingual: event.currentTarget.checked })}
+              />
+              {t("language.allowBoth")}
+            </label>
           </Card>
         </Section>
         <HoursSection />

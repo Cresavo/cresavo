@@ -1,6 +1,6 @@
+import { formatTime } from "../i18n/format";
 import Image from "next/image";
 import { AtSign } from "lucide-react";
-import { formatTime } from "../data/dates";
 import type { DemoState } from "../data/types";
 import { t } from "../i18n";
 import { PHOTOS, type PhotoId } from "../page/theme";

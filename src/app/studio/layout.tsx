@@ -1,13 +1,19 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { getLocale } from "@/lib/locale-server";
+import { translate } from "@/concept/i18n";
 import { BRAND } from "@/concept/brand";
+import { StudioLanguage } from "@/concept/studio/studio-language";
 import { StudioShell } from "@/concept/studio/shell";
 import "./studio.css";
 
-export const metadata: Metadata = {
-  title: `Studio · Salong Eko · ${BRAND.name}`,
-  description: `${BRAND.name}: ${BRAND.tagline} A demo studio for a fictional salon. Changes stay in this browser.`,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const language = await getLocale();
+  return {
+    title: `Studio · Salong Eko · ${BRAND.name}`,
+    description: translate(language, "language.studioDescription"),
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -17,8 +23,10 @@ export const viewport: Viewport = {
 
 export default function StudioLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="studio-root">
-      <StudioShell>{children}</StudioShell>
-    </div>
+    <StudioLanguage>
+      <div className="studio-root">
+        <StudioShell>{children}</StudioShell>
+      </div>
+    </StudioLanguage>
   );
 }

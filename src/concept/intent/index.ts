@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { clock, dateRange, parseDate, parseTime } from "./dates";
 import { matchNames } from "./match";
+import { normalizeSwedishCommand } from "./swedish";
 import { interpretSchedule } from "./schedule";
 import type { IntentAction, IntentContext, IntentParams, IntentResult } from "./types";
 export type { IntentAction, IntentContext, IntentParams, IntentResult } from "./types";
@@ -8,7 +9,7 @@ export type { IntentAction, IntentContext, IntentParams, IntentResult } from "./
 const QUANTITY_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3 };
 
 export function interpretCommand(input: string, context: IntentContext): IntentResult {
-  const text = input.toLowerCase().replace(/’/g, "'").trim();
+  const text = normalizeSwedishCommand(input.trim()).toLowerCase().replace(/’/g, "'");
   const params: IntentParams = {};
   const question = (message: string): IntentResult => ({ action: "question", params, summary: message, question: message, confidence: 0 });
   const proposal = (action: IntentAction, summary: string): IntentResult => ({ action, params, summary, confidence: 0.9 });

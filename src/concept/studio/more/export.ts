@@ -1,4 +1,4 @@
-import { formatTime } from "../../data/dates";
+import { formatTime } from "../../i18n/format";
 import type { DemoState } from "../../data/types";
 import { findService } from "../../selectors";
 

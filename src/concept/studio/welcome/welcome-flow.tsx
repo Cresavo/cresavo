@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { formatNumber } from "../../i18n/format";
-import { t } from "../../i18n";
+import { t, term } from "../../i18n";
 import { monthlyTotal, MODULES } from "../../modules/registry";
 import { HELP_WISHES, setupFromAnswers, type Answers, type HelpWish, type TeamSize } from "../../onboarding/setup";
 import { getPack, PACKS } from "../../packs";
@@ -68,7 +68,7 @@ export function WelcomeFlow() {
     const chosen = getPack(answers.pack);
     const on = MODULES.filter((module) => setup.modules?.includes(module.id));
     const rows: [string, string][] = [
-      [t("welcome.ready.words"), t("welcome.ready.wordsValue", { customers: `${chosen.vocabulary.customer}s`, services: `${chosen.vocabulary.service}s` })],
+      [t("welcome.ready.words"), t("welcome.ready.wordsValue", { customers: term("customer", { plural: true, vocabulary: chosen.vocabulary }), services: term("service", { plural: true, vocabulary: chosen.vocabulary }) })],
       [t("welcome.ready.services"), chosen.services.slice(0, 4).map((service) => service.name).join(", ")],
       [t("welcome.ready.modules"), on.map((module) => t(module.name)).join(", ")],
     ];

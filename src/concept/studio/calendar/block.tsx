@@ -1,7 +1,7 @@
 "use client";
 
+import { formatTime } from "../../i18n/format";
 import type { DragEvent } from "react";
-import { formatTime } from "../../data/dates";
 import type { Booking } from "../../data/types";
 import { findCustomer, findService, fullName } from "../../selectors";
 import { cx } from "../../ui/cx";

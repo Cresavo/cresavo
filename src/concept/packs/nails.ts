@@ -20,7 +20,7 @@ const JOURNAL_PEDI: JournalText[] = [
 
 export const nails: Pack = {
   id: "nails",
-  vocabulary: { customer: "client", service: "treatment" },
+  vocabulary: { customer: "client", service: "treatment", sv: { customer: "kund", service: "behandling" } },
   categories: ["manicure", "pedicure"],
   salon: salonWith("Nails and pedicure in Vasastan"),
   staff: teamWith(

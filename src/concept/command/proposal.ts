@@ -1,10 +1,10 @@
 import { preferredStaffOf, rememberedPreference } from "../assistant/memory";
-import { addDays, formatTime } from "../data/dates";
+import { addDays } from "../data/dates";
 import { freeStarts, isFree, needOf, type Need } from "../data/slots";
 import type { Booking, DateKey, DemoState, Service, StaffId, StockItem } from "../data/types";
 import type { DemoAction } from "../actions";
 import { t, tc } from "../i18n";
-import { agoText, formatAmount, formatDayLong, formatDayMonth, formatDuration, formatMoney } from "../i18n/format";
+import { agoText, formatAmount, formatDayLong, formatDayMonth, formatDuration, formatMoney, formatTime } from "../i18n/format";
 import type { IntentParams, IntentResult } from "../intent";
 import { blockingModule, moduleById, type ModuleManifest } from "../modules/registry";
 import { buildCustomerStats, findCustomer, findService, fullName, PRODUCTS_ROW, revenueBetween } from "../selectors";
@@ -16,6 +16,7 @@ import { waitlistCount, waitlistNotice } from "../studio/booking/waitlist-notice
 import { parseCampaignRequest, studioHref, type CampaignPrefill } from "../campaigns/prefill";
 import { canChangeBooking, canCommand, type Role } from "../ops/access";
 import type { PageConfig } from "../page/config";
+import { questionText } from "./questions";
 import { clarifyChoices, type Retry } from "./clarify";
 import { insightFor, type Insight } from "./insight";
 import { pageProposal } from "./page-proposal";
@@ -357,7 +358,8 @@ export function proposalFor(state: DemoState, intent: IntentResult, text: string
   switch (intent.action) {
     case "question": {
       const choices = clarifyChoices(intent.question, text, state, clock.today, examples);
-      return choices.length ? { kind: "choose", title: intent.question, choices } : message(intent.question);
+      const title = questionText(intent.question);
+      return choices.length ? { kind: "choose", title, choices } : message(title);
     }
     case "book":
       return bookProposal(state, params, clock);

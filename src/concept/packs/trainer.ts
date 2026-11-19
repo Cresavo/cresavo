@@ -20,7 +20,7 @@ const JOURNAL_GROUP: JournalText[] = [
 
 export const trainer: Pack = {
   id: "trainer",
-  vocabulary: { customer: "client", service: "session" },
+  vocabulary: { customer: "client", service: "session", sv: { customer: "klient", service: "session" } },
   categories: ["personal", "group"],
   salon: salonWith("Personal training in Vasastan"),
   staff: teamWith(

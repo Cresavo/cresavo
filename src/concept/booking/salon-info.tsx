@@ -1,8 +1,8 @@
 import { Mail, MapPin, Phone, Star } from "lucide-react";
-import { formatTime, weekday } from "../data/dates";
+import { weekday } from "../data/dates";
 import type { DemoState, Review } from "../data/types";
 import { t, tc, words } from "../i18n";
-import { formatDate } from "../i18n/format";
+import { formatDate, formatTime } from "../i18n/format";
 import { Card, Section } from "../ui/card";
 import { cx } from "../ui/cx";
 import type { Now } from "../use-now";

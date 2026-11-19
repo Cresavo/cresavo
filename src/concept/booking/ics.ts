@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/locale";
+import { translate } from "../i18n";
 import { formatTime } from "../data/dates";
 import type { Booking, Salon, Service, Staff } from "../data/types";
 
@@ -16,10 +18,11 @@ interface IcsInput {
   salon: Salon;
   /** UTC timestamp from `icsTimestamp()`. */
   createdAt: string;
+  language?: Locale;
 }
 
 /** A one-event calendar file in local ("floating") time with a reminder one hour before. */
-export function buildIcs({ booking, service, staff, salon, createdAt }: IcsInput): string {
+export function buildIcs({ booking, service, staff, salon, createdAt, language = "en" }: IcsInput): string {
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -30,13 +33,13 @@ export function buildIcs({ booking, service, staff, salon, createdAt }: IcsInput
     `DTSTAMP:${createdAt}`,
     `DTSTART:${local(booking.date, booking.start)}`,
     `DTEND:${local(booking.date, booking.start + booking.duration)}`,
-    `SUMMARY:${escape(`${service.name} at ${salon.name}`)}`,
-    `DESCRIPTION:${escape(`With ${staff.firstName}. Free to change or cancel until 24 hours before.`)}`,
+    `SUMMARY:${escape(translate(language, "booking.ics.summary", { service: service.name, salon: salon.name }))}`,
+    `DESCRIPTION:${escape(translate(language, "booking.ics.description", { staff: staff.firstName }))}`,
     `LOCATION:${escape(`${salon.name}, ${salon.address}, ${salon.area}`)}`,
     "BEGIN:VALARM",
     "TRIGGER:-PT1H",
     "ACTION:DISPLAY",
-    "DESCRIPTION:Appointment in one hour",
+    `DESCRIPTION:${translate(language, "booking.ics.reminder")}`,
     "END:VALARM",
     "END:VEVENT",
     "END:VCALENDAR",

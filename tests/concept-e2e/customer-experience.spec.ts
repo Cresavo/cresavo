@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect, test, type Page } from "@playwright/test";
 import { BRAND } from "../../src/concept/brand";
-import { createDemoState } from "../../src/concept/data/generate";
+import { englishDemoState } from "./fixtures";
 import type { DemoState } from "../../src/concept/data/types";
 
 const errors = new WeakMap<Page, string[]>();
@@ -31,7 +31,7 @@ test.beforeEach(async ({ page }) => {
   await page.clock.install({ time: new Date("2026-11-17T10:00:00+01:00") });
   await page.addInitScript(initial => {
     if (!localStorage.getItem("salong-eko-demo")) localStorage.setItem("salong-eko-demo", JSON.stringify(initial));
-  }, createDemoState("2026-11-17"));
+  }, englishDemoState("2026-11-17"));
   const messages: string[] = [];
   errors.set(page, messages);
   page.on("pageerror", error => messages.push(error.message));

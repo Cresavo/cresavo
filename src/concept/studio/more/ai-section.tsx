@@ -5,7 +5,7 @@ import { CircleAlert, RefreshCw } from "lucide-react";
 import { fetchAiOverview, PUBLIC_DEMO, saveAiSettings } from "../../ai/api-client";
 import type { AiOverview } from "../../ai/overview";
 import type { TaskName } from "../../ai/registry";
-import { t, tc } from "../../i18n";
+import { locale, t, tc } from "../../i18n";
 import { formatUsd } from "../../i18n/format";
 import { taskEnabled } from "../../modules/registry";
 import { Badge } from "../../ui/badge";
@@ -88,8 +88,8 @@ export function AiSection() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{t(`ai.task.${entry.task as TaskName}`)}</p>
                   <p className="truncate text-xs text-text-secondary">
-                    {new Date(entry.timestamp).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })} · {entry.model}
-                    {entry.source === "ai" && ` · ${entry.inputTokens + entry.outputTokens} tokens`}
+                    {new Date(entry.timestamp).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" })} · {entry.model}
+                    {entry.source === "ai" && ` · ${t("ai.tokens", { count: entry.inputTokens + entry.outputTokens })}`}
                   </p>
                 </div>
                 <span className="shrink-0 tabular-nums">{entry.costUsd === 0 ? t("ai.free") : formatUsd(entry.costUsd)}</span>

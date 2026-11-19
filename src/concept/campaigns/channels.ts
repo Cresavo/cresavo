@@ -1,5 +1,6 @@
+import type { Locale } from "@/lib/locale";
 import type { Channel } from "../data/types";
-import { t } from "../i18n";
+import { getActiveLocale, translate } from "../i18n";
 
 export const CHANNELS: Channel[] = ["instagram", "facebook", "tiktok", "newsletter", "sms"];
 
@@ -15,8 +16,8 @@ const HASHTAG_CHANNELS: Channel[] = ["instagram", "tiktok"];
 const ELLIPSIS = "…";
 
 /** The line that carries the trackable link; "Link in bio" where captions cannot hold clickable links. */
-function linkLine(channel: Channel, link: string): string {
-  return channel === "instagram" || channel === "tiktok" ? t("campaigns.copy.linkInBio", { link }) : link;
+function linkLine(channel: Channel, link: string, language: Locale): string {
+  return channel === "instagram" || channel === "tiktok" ? translate(language, "campaigns.copy.linkInBio", { link }) : link;
 }
 
 function truncate(text: string, max: number): string {
@@ -30,9 +31,9 @@ function truncate(text: string, max: number): string {
  * Final text for a channel: the written body (shortened if needed), the
  * trackable link and, where they belong, hashtags. The link is never cut off.
  */
-export function assembleCopy(channel: Channel, body: string, hashtags: string[], link: string): string {
+export function assembleCopy(channel: Channel, body: string, hashtags: string[], link: string, language = getActiveLocale()): string {
   const tags = HASHTAG_CHANNELS.includes(channel) ? hashtags.slice(0, MAX_HASHTAGS).join(" ") : "";
-  const footer = [linkLine(channel, link), tags].filter(Boolean).join("\n");
+  const footer = [linkLine(channel, link, language), tags].filter(Boolean).join("\n");
   const room = CHANNEL_LIMIT[channel] - footer.length - 1;
   return room > 0 ? `${truncate(body.trim(), room)}\n${footer}` : truncate(footer, CHANNEL_LIMIT[channel]);
 }

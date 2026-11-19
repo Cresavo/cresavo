@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { expect, test, type Page } from "@playwright/test";
 import { addDays, formatTime } from "../../src/concept/data/dates";
+import { englishDemoState } from "./fixtures";
 import { createDemoState } from "../../src/concept/data/generate";
 import { freeStarts } from "../../src/concept/data/slots";
 import type { DemoState } from "../../src/concept/data/types";
@@ -49,7 +50,7 @@ function moveTarget(initial: DemoState) {
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(initial => {
     if (!localStorage.getItem("salong-eko-demo")) localStorage.setItem("salong-eko-demo", JSON.stringify(initial));
-  }, createDemoState(today));
+  }, englishDemoState(today));
   const messages: string[] = [];
   errors.set(page, messages);
   page.on("pageerror", error => messages.push(error.message));

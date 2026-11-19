@@ -17,6 +17,7 @@ Start with the [demo and product tour](../README.md) or see the
   different addresses. The demo resolves fixture businesses and simulates
   custom-domain setup. Live domain changes are disabled until owner and
   domain ownership can be verified on the server.
+- The studio and booking flow support Swedish and English, with a separate business language for confirmations and customer messages. The built-in assistant answers in the studio language and understands common Swedish commands.
 - The separate booking engine uses Prisma and PostgreSQL. The web workspace,
   provider API and local owner MCP share booking rules, including idempotency
   and protection against double-booking. The public agent gateway lives in

@@ -1,6 +1,7 @@
 import { addDays } from "../data/dates";
 import type { CampaignPoster, Channel, DateKey, DemoState, PosterStyle } from "../data/types";
 import { t } from "../i18n";
+import { serviceCopy } from "../i18n/salon-eko-copy";
 import { CHANNELS } from "./channels";
 import { listServices, offerText } from "./copy";
 import { trackingLink } from "./links";
@@ -44,11 +45,13 @@ export function draftLink(draft: Pick<Draft, "name" | "from">): string {
 
 /** The sentence the texts are written from. */
 export function draftOffer(state: DemoState, draft: Draft): string {
-  return offerText({ name: draft.name, serviceNames: serviceNames(state, draft), discountPercent: draft.discountPercent, to: draft.to });
+  const language = state.localization.language;
+  const names = state.services.filter((s) => draft.serviceIds.includes(s.id)).map((s) => serviceCopy(s, language).name);
+  return offerText({ name: draft.name, serviceNames: names, discountPercent: draft.discountPercent, to: draft.to }, language);
 }
 
 export function offerSignature(state: DemoState, draft: Draft): string {
-  return `${draftOffer(state, draft)}|${draftLink(draft)}`;
+  return `${state.localization.language}|${draftOffer(state, draft)}|${draftLink(draft)}`;
 }
 
 /** The poster as shown: the owner's edits on top of what follows from the offer. */

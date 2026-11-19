@@ -1,10 +1,9 @@
 "use client";
 
 import { RotateCcw, Trash2 } from "lucide-react";
-import { formatTime } from "../../data/dates";
 import type { DemoState } from "../../data/types";
 import { t, tc } from "../../i18n";
-import { formatDate, formatDayShort } from "../../i18n/format";
+import { formatDate, formatDayShort, formatTime } from "../../i18n/format";
 import { findCustomer, findService, fullName } from "../../selectors";
 import { dispatch } from "../../store";
 import { daysLeft, restoreBlockReason, type TrashEntry } from "../../trash/trash";

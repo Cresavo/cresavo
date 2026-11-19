@@ -23,6 +23,37 @@ data at this stage. See [project status](STATUS.md) and [data flows](DATA_FLOWS.
   adapters by default. Supported live adapters require explicit server
   configuration. The public demo uses simulated connections.
 
+### Studio and booking languages
+
+English is the source dictionary and Swedish uses the same keys, placeholders
+and plural forms. The studio reads the device's existing language cookie or
+the browser language on the first visit. Both the demo banner and **Settings →
+Appearance → Language** update that preference.
+
+The business chooses its default under **Settings → Booking language**.
+Salong Eko starts in Swedish with SEK. A business can allow visitors to switch
+the booking page to the other language. Confirmation, booking management,
+calendar downloads and outbound message templates use the business default.
+The demo stores these settings in the browser and upgrades saved state from
+version 17 in place. A visitor's language choice lasts while the booking layout
+is open. Business settings on another origin start from that origin's demo
+fixtures.
+
+The client route boundary selects the active dictionary and formatting
+locale and updates the document language. Server rendering uses the device
+preference for the studio and the fixture default for the booking shell.
+Message builders pass the business locale explicitly. The format helpers use
+Intl for presentation and leave stored dates, clock values and booking rules
+as they were. Edited business copy, reviews, and previously saved text keep
+their original wording.
+
+The rules-only assistant shares the same dictionary as the studio. The
+Swedish command parser covers common booking, availability, opening-hour,
+sales and scheduling phrases. More complex commands for pricing, stock sales,
+booking-page design and conversational references still rely on English
+patterns. The product site, Help articles, some demo records and several
+optional AI task prompts still use English.
+
 ## Booking engine
 
 The workspace (`/admin`), provider REST API (`/api/v1`) and local owner MCP

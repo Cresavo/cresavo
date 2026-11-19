@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { isPublicReadonly, publicReadonlyResponse } from "./lib/public-readonly";
 import { productSiteOrigin } from "./concept/site/origin";
 import { siteRequestHost } from "./concept/site/request-host";
-import { englishConceptPath } from "./concept/page/language";
+import { conceptRoute } from "./concept/page/language";
 import { isProductHome, routeHost, UNKNOWN_PATH } from "./concept/page/resolve";
 
 /**
@@ -21,8 +21,11 @@ function hostResponse(request: NextRequest, host: string | null | undefined) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.delete("x-concept-address");
   requestHeaders.delete("x-concept-english");
+  requestHeaders.delete("x-concept-route");
   const path = route.action === "rewrite" ? route.path : request.nextUrl.pathname;
-  if (englishConceptPath(path)) requestHeaders.set("x-concept-english", "1");
+  const concept = conceptRoute(path);
+  if (concept === "english") requestHeaders.set("x-concept-english", "1");
+  else if (concept) requestHeaders.set("x-concept-route", concept);
   const address = path === UNKNOWN_PATH
     ? (route.action === "rewrite" ? host : request.nextUrl.searchParams.get("host"))?.slice(0, 100)
     : undefined;

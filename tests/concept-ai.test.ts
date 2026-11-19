@@ -44,7 +44,7 @@ describe("task contracts and deterministic rules", () => {
   it.each(names)("%s has a versioned prompt, schema and valid fallback", async name => {
     const fetcher = vi.fn();
     const result = await runTask(name, inputs[name], { env: {}, fetcher });
-    expect(tasks[name].version).toBe(name === "daily-summary" ? 2 : 1);
+    expect(tasks[name].version).toBe(name === "daily-summary" || name === "write-post" ? 2 : 1);
     expect(tasks[name].prompt.length).toBeGreaterThan(40);
     expect(tasks[name].schema).toHaveProperty("$schema");
     expect(validateOutput(tasks[name].output, result.output).success).toBe(true);
@@ -58,6 +58,10 @@ describe("task contracts and deterministic rules", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
   it.each(names)("%s rejects invalid output", name => expect(validateOutput(tasks[name].output, { injected: true }).success).toBe(false));
+  it("writes Swedish campaign calls to action without an AI key", async () => {
+    const result = await runTask("write-post", { offer: "20 % rabatt på massage", channel: "sms", locale: "sv" }, { env: {} });
+    expect(result.output.text).toBe("20 % rabatt på massage\nBoka här:");
+  });
   it("forecasts reorder quantity", async () => expect((await runTask("stock-forecast", inputs["stock-forecast"], { env: {} })).output).toMatchObject({ daysRemaining: 5, orderQuantity: 10 }));
   it("handles zero usage", async () => expect((await runTask("stock-forecast", { ...inputs["stock-forecast"], dailyUsage: 0 }, { env: {} })).output).toMatchObject({ daysRemaining: null, orderQuantity: 0 }));
   it("preserves dictated facts and no fabricated diagnosis", async () => expect((await runTask("structure-journal", inputs["structure-journal"], { env: {} })).output).toEqual({ treatment: "Foot treatment completed.", observations: "Observed dry skin.", recommendation: "Recommend cream.", nextVisit: "Next visit in six weeks." }));
