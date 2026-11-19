@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Maximize2, Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { Button, IconButton } from "../ui/button";
 import { ClipLightbox } from "./clip-lightbox";
 import { useSiteCopy } from "./copy";
 import s from "./site.module.css";
@@ -114,29 +115,29 @@ export function TourClip({ name, description, title }: { name: Clip; description
   return (
     <>
       <figure className={isTour ? s.tourFrame : s.clip}>
-        <button type="button" className={s.videoTrigger} aria-label={`${site["clip.expand"]} — ${title}`}
+        <Button variant="tertiary" className={s.videoTrigger} aria-label={`${site["clip.expand"]} — ${title}`}
           onClick={(event) => expand(event.currentTarget)}>
           <video ref={ref} muted={muted} playsInline loop preload="none"
             width={isTour ? 960 : 928} height={isTour ? 540 : 760} aria-label={description} poster={poster}
             onPlaying={() => setPlaying(true)} onPause={() => setPlaying(false)} onEmptied={() => setPlaying(false)} />
-        </button>
+        </Button>
         <figcaption className={s.clipBar}>
-          <button type="button" className={s.tourButton}
+          <Button variant="tertiary" size="sm"
             aria-label={`${site[playing ? "clip.pause" : "clip.play"]} — ${title}`}
             onClick={() => setChoice(playing ? "pause" : "play")}>
             {playing ? <Pause size={16} aria-hidden /> : <Play size={16} aria-hidden />}
             {isTour && title}
-          </button>
+          </Button>
           {isTour && <>
             <span className={s.tourDuration}>{site["soon.tour.duration"]}</span>
-            <button type="button" className={s.tourButton} aria-label={site[muted ? "soon.tour.unmute" : "soon.tour.mute"]}
+            <IconButton label={site[muted ? "soon.tour.unmute" : "soon.tour.mute"]}
               onClick={() => setMuted(!muted)}>
               {muted ? <VolumeX size={17} aria-hidden /> : <Volume2 size={17} aria-hidden />}
-            </button>
+            </IconButton>
           </>}
-          <button type="button" className={s.tourButton} onClick={(event) => expand(event.currentTarget)}>
+          <Button variant="tertiary" size="sm" onClick={(event) => expand(event.currentTarget)}>
             <Maximize2 size={16} aria-hidden />{site["clip.expand"]}
-          </button>
+          </Button>
         </figcaption>
       </figure>
       {expanded && <ClipLightbox {...expanded} ratio={isTour ? 16 / 9 : 928 / 760} poster={poster} title={title} description={description} onClose={close} />}

@@ -6,9 +6,9 @@ import { StaffAvatar } from "../ui/avatar";
 export function WithStaff({ people }: { people: Staff[] }) {
   if (!people.length) return null;
   return (
-    <span className="inline-flex items-center gap-1.5 align-middle">
+    <span className="inline-flex max-w-full flex-wrap items-center gap-2 align-middle">
       {people.map((person) => <StaffAvatar key={person.id} person={person} size="xs" />)}
-      {t("booking.withStaff", { name: people.map((person) => person.firstName).join(", ") })}
+      <span className="min-w-0 break-words">{t("booking.withStaff", { name: people.map((person) => person.firstName).join(", ") })}</span>
     </span>
   );
 }

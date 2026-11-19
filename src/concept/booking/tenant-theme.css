@@ -31,7 +31,7 @@
   --ui-action: light-dark(#1d1d1f, #f2f2f3);
   --ui-action-text: light-dark(#ffffff, #141415);
   --ui-action-bg: color-mix(in srgb, var(--ui-action) 10%, var(--ui-surface));
-  --ui-action-hover: color-mix(in srgb, var(--ui-action) 85%, var(--ui-bg));
+  --ui-action-hover: color-mix(in srgb, var(--ui-action) 85%, light-dark(black, white));
   --ui-input-border: color-mix(in srgb, var(--ui-text) 62%, var(--ui-surface));
   --ui-focus: var(--ui-action);
   background: var(--ui-bg);
@@ -51,6 +51,43 @@
 
 .booking-theme :is(h1, h2, h3) {
   font-family: var(--page-font-heading, inherit);
+}
+
+.booking-gutters {
+  --booking-gutter: var(--space-4);
+  padding-left: max(var(--booking-gutter), env(safe-area-inset-left));
+  padding-right: max(var(--booking-gutter), env(safe-area-inset-right));
+}
+
+@media (min-width: 1024px) {
+  .booking-gutters { --booking-gutter: var(--space-8); }
+  .booking-page-columns { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+}
+
+.booking-safe-top { padding-top: env(safe-area-inset-top); }
+.booking-safe-bottom { padding-bottom: max(var(--space-4), env(safe-area-inset-bottom)); }
+
+.booking-step { container-type: inline-size; }
+
+.booking-checkout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+@container (min-width: 42rem) {
+  .booking-checkout {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-rows: auto 1fr;
+    align-items: start;
+    column-gap: var(--space-8);
+  }
+
+  .booking-checkout-summary {
+    position: sticky;
+    top: var(--space-6);
+    grid-area: 1 / 2 / span 2;
+  }
 }
 
 .booking-theme[data-corners="sharp"] :is(.rounded-sm, .rounded-md, .rounded-lg) {

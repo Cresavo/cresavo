@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { ArrowRight, Check, RotateCcw } from "lucide-react";
-import { PALETTES } from "../page/theme";
+import { DEFAULT_THEME, PALETTES, themeVariables } from "../page/theme";
+import { Button } from "../ui/button";
+import { ListRow } from "../ui/list-row";
 import { useSiteCopy } from "./copy";
 import s from "./site.module.css";
 
 const times = ["10:15", "13:00", "14:45"];
+const { colorScheme, ...salonColors } = themeVariables({ ...DEFAULT_THEME, colors: PALETTES.forest });
 
 // A standalone sample of the salon page. Choices live only for this visit.
 export function MiniBooking() {
@@ -22,11 +25,7 @@ export function MiniBooking() {
   }, [treatment, time]);
 
   return (
-    <section className={s.mini} aria-label={site["mini.label"]} style={{
-      "--salon-bg": PALETTES.forest.background,
-      "--salon-text": PALETTES.forest.text,
-      "--salon-action": PALETTES.forest.accent,
-    } as CSSProperties}>
+    <section className={s.mini} data-scheme={colorScheme} aria-label={site["mini.label"]} style={salonColors as CSSProperties}>
       <div className={s.miniPhoto} />
       <div className={s.miniBody}>
         <p className={s.salonName}>{site["mini.salon"]}</p>
@@ -34,20 +33,19 @@ export function MiniBooking() {
         {time && treatment ? (
           <>
             <p className={s.miniSummary}><Check size={16} aria-hidden /> {time} · {treatment.name}</p>
-            <button className={s.miniReset} onClick={() => { setTime(""); setTreatment(undefined); }}>
+            <Button variant="secondary" onClick={() => { setTime(""); setTreatment(undefined); }}>
               <RotateCcw size={14} aria-hidden /> {site["mini.reset"]}
-            </button>
+            </Button>
           </>
         ) : treatment ? (
           <>
             <p className={s.miniMeta}>{treatment.name}</p>
-            <div className={s.miniTimes}>{times.map(slot => <button key={slot} onClick={() => setTime(slot)}>{slot}</button>)}</div>
+            <div className={s.miniTimes}>{times.map(slot => <Button variant="secondary" key={slot} onClick={() => setTime(slot)}>{slot}</Button>)}</div>
           </>
         ) : (
           <div className={s.miniChoices}>{treatments.map(item => (
-            <button key={item.name} onClick={() => { interacted.current = true; setTreatment(item); }}>
-              <span>{item.name}<small>{item.details}</small></span><ArrowRight size={15} aria-hidden />
-            </button>
+            <ListRow key={item.name} className="bg-surface ring-1 ring-inset ring-input-border" title={item.name} meta={item.details}
+              trailing={<ArrowRight size={15} aria-hidden />} onClick={() => { interacted.current = true; setTreatment(item); }} />
           ))}</div>
         )}
       </div>

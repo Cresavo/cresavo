@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ListRow } from "../ui/list-row";
 import Image from "next/image";
 import { ArrowRight, CalendarDays, CalendarCheck2, Check, LayoutDashboard, Smartphone, Sparkles } from "lucide-react";
 import { useSiteCopy } from "./copy";
@@ -22,10 +23,9 @@ export function StudioPreview() {
       <div className={c.menu}>
         <h2 className={e.display} id="studio-title">{site["studio.heading"]}</h2>
         <div className={c.choices} role="group" aria-label={site["studio.controls"]}>
-          {views.map(({ key, icon: Icon }) => <button key={key} aria-pressed={selected === key}
-            onClick={() => { setSelected(key); setSeen(previous => new Set(previous).add(key)); }}>
-            <Icon size={18} aria-hidden />{site[`studio.${key}`]}<ArrowRight size={16} aria-hidden />
-          </button>)}
+          {views.map(({ key, icon: Icon }) => <ListRow key={key} aria-pressed={selected === key}
+            onClick={() => { setSelected(key); setSeen(previous => new Set(previous).add(key)); }}
+            title={site[`studio.${key}`]} leading={<Icon size={18} aria-hidden />} trailing={<ArrowRight size={16} aria-hidden />} />)}
         </div>
       </div>
       <figure className={c.demo}>

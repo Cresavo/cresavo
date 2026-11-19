@@ -9,6 +9,7 @@ import { t } from "../i18n";
 import { usePublicDemo } from "../store";
 import { Button, ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
+import { PageHeader } from "../ui/page-header";
 import { bookingHome, giftCardFromParams } from "./links";
 
 /** `/boka/salong-eko/gift?...`: the card a customer shares or prints. Resolve its current balance from the ledger. */
@@ -17,16 +18,13 @@ export function GiftCardPage() {
   const params = useSearchParams();
   const card = params ? giftCardFromParams(params) : null;
   if (!state) return null;
-  if (!card) return <Card className="mx-auto max-w-md p-6 text-center text-text-secondary"><h1 className="text-base font-normal">{t("giftcards.pageInvalid")}</h1></Card>;
+  if (!card) return <Card className="mx-auto max-w-md p-6 text-center text-text-secondary"><h1 className="text-body font-normal">{t("giftcards.pageInvalid")}</h1></Card>;
   const stored = findGiftCard(state, card.code);
   return (
     <div className="mx-auto max-w-md space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("giftcards.pageTitle", { salon: state.salon.name })}</h1>
-        <p className="mt-2 text-[15px] text-text-secondary">{t("giftcards.pageText")}</p>
-      </div>
+      <PageHeader title={t("giftcards.pageTitle", { salon: state.salon.name })} subtitle={t("giftcards.pageText")} />
       <GiftCardFace salonName={state.salon.name} amount={stored?.amount ?? card.amount} recipient={card.recipient} message={card.message} code={card.code} />
-      {state.modules.giftcards && <p className="text-lg font-semibold print:hidden">
+      {state.modules.giftcards && <p className="text-h3 font-semibold print:hidden">
         {stored ? t("giftcards.checkResult", { amount: formatMoney(balanceOf(state, stored)) }) : t("giftcards.balanceUnavailable")}
       </p>}
       <div className="flex flex-wrap gap-2 print:hidden">

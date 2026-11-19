@@ -11,6 +11,8 @@ import { t, translate } from "../i18n";
 import { ConceptLanguage } from "../i18n/boundary";
 import { DEFAULT_BOOKING_LANGUAGE, DEFAULT_CURRENCY } from "../i18n/business";
 import { openBookingWorkspace, usePublicDemo, useWorkspaceSlug } from "../store";
+import { ButtonLink } from "../ui/button";
+import { Select } from "../ui/controls";
 import { pinThemeColor } from "../ui/theme";
 import { Toaster } from "../ui/toast";
 import { bookingHome, myBookings, widgetPath } from "./links";
@@ -65,14 +67,14 @@ function Frame({ children, slug, widget, switchLanguage }: {
   useTenantIcon(known ? page.theme.logo : null);
   useTenantChrome(known ? (page.theme.colors?.background ?? null) : null);
   if (!known) return <UnknownAddress />;
-  if (widget) return <PageRoot page={page} className="min-h-[100dvh] p-4"><main>{state ? children : <p>{t("booking.loading")}</p>}</main><Toaster /></PageRoot>;
+  if (widget) return <PageRoot page={page} className="min-h-dvh p-4"><main>{state ? children : <p>{t("booking.loading")}</p>}</main><Toaster /></PageRoot>;
   const { logo } = page.theme;
   return (
-    <PageRoot page={page} className="flex min-h-[100dvh] flex-col">
+    <PageRoot page={page} className="flex min-h-dvh flex-col">
       {/* The route draws edge to edge (viewport-fit=cover): header, content and footer keep clear of notches and the home indicator. */}
-      <header className="border-b print:hidden border-hairline bg-surface pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex min-h-14 w-full max-w-5xl flex-wrap items-center justify-between gap-x-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
-          <Link href={bookingHome(slug)} className="flex min-h-11 min-w-0 items-center gap-2.5 font-semibold tracking-tight">
+      <header className="booking-safe-top border-b border-hairline bg-surface print:hidden">
+        <div className="booking-gutters mx-auto flex min-h-14 w-full max-w-5xl flex-wrap items-center justify-between gap-x-3">
+          <Link href={bookingHome(slug)} className="flex min-h-target min-w-target max-w-full items-center gap-3 break-words font-semibold tracking-tight">
             {logo ? (
               // A small data URL chosen by the owner; there is nothing for the image optimiser to do.
               // eslint-disable-next-line @next/next/no-img-element
@@ -82,12 +84,12 @@ function Frame({ children, slug, widget, switchLanguage }: {
                 <Leaf size={16} />
               </span>
             )}
-            {state?.salon.name}
+            <span className="min-w-0">{state?.salon.name}</span>
           </Link>
           <div className="flex items-center gap-1">
             {switchLanguage && (
-              <select
-                className="min-h-11 max-w-24 rounded-md border border-input-border bg-surface px-2 text-sm text-text"
+              <Select
+                className="max-w-24"
                 aria-label={t("language.label")}
                 value={switchLanguage.language}
                 onChange={(event) => {
@@ -97,20 +99,20 @@ function Frame({ children, slug, widget, switchLanguage }: {
               >
                 <option value="en" lang="en">{t("language.en")}</option>
                 <option value="sv" lang="sv">{t("language.sv")}</option>
-              </select>
+              </Select>
             )}
-            <Link href={myBookings(slug)} className="flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-text hover:bg-action-bg">
+            <ButtonLink href={myBookings(slug)} size="sm" variant="tertiary">
               {t("booking.myBookings")}
-            </Link>
+            </ButtonLink>
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 pb-16 pt-5 lg:pt-8 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
-        {state ? children : <p className="animate-pulse py-24 text-center text-text-secondary">{t("booking.loading")}</p>}
+      <main className="booking-gutters mx-auto w-full max-w-5xl flex-1 pb-8 pt-5 lg:pt-8">
+        {state ? children : <p role="status" className="py-12 text-center text-text-secondary">{t("booking.loading")}</p>}
       </main>
-      <footer className="border-t print:hidden border-hairline pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center text-xs text-text-secondary pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
+      <footer className="booking-gutters booking-safe-bottom border-t border-hairline py-4 text-center text-meta text-text-secondary print:hidden">
         {t("booking.demoNote")}{" "}
-        <Link href={ownerView} className="font-medium text-action underline-offset-2 hover:underline">
+        <Link href={ownerView} className="inline-flex min-h-target items-center font-medium text-action underline-offset-2 hover:underline">
           {t("booking.ownerView")}
         </Link>
         {TENANT_POLICY.attribution && <span className="mt-1 block">{t("booking.attribution")}</span>}

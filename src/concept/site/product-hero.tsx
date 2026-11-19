@@ -2,6 +2,7 @@ import Head from "next/head";
 import Image from "next/image";
 import { useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import { buttonClass, IconButton } from "../ui/button";
 import { Wordmark } from "../ui/wordmark";
 import { useSiteCopy } from "./copy";
 import { GitHubStar } from "./product-sections";
@@ -48,7 +49,7 @@ export function ProductHero({ demo, stars }: { demo: string; stars: number | nul
         <h1 id="promise">{site["promise.first"]} <em>{site["promise.second"]}</em></h1>
         <p>{site["product.lead"]}</p>
         <div className={s.routes}>
-          <a className={s.primary} href={demo}>{site["soon.demo"]} <ArrowRight size={16} aria-hidden /></a>
+          <a className={buttonClass("primary", "lg")} href={demo}>{site["soon.demo"]} <ArrowRight size={16} aria-hidden /></a>
           <GitHubStar count={stars} />
         </div>
       </div>
@@ -56,8 +57,8 @@ export function ProductHero({ demo, stars }: { demo: string; stars: number | nul
         <span className={e.plateNumber} aria-hidden>{String(current + 1).padStart(2, "0")} / 03</span>
         <span aria-live="polite">{site["mini.salon"]} <i> / </i> {frame.caption}</span>
         <div>
-          <button aria-label={site["hero.previous"]} onClick={() => setCurrent((current + frames.length - 1) % frames.length)}><ArrowLeft size={18} /></button>
-          <button aria-label={site["hero.next"]} onClick={() => setCurrent((current + 1) % frames.length)}><ArrowRight size={18} /></button>
+          <IconButton variant="secondary" label={site["hero.previous"]} onClick={() => setCurrent((current + frames.length - 1) % frames.length)}><ArrowLeft size={18} aria-hidden /></IconButton>
+          <IconButton variant="secondary" label={site["hero.next"]} onClick={() => setCurrent((current + 1) % frames.length)}><ArrowRight size={18} aria-hidden /></IconButton>
         </div>
       </div>
     </section>

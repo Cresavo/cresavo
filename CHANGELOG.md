@@ -11,6 +11,7 @@ All notable changes to this project are documented here. Format follows
 ### Changed
 
 - The owner studio uses shared controls, page headers, status badges and list rows. Calendar groups its secondary tools in an options sheet and gives appointments larger touch targets.
+- The public booking pages and product site use shared controls. Booking keeps the salon's colours, makes treatment actions and review ratings easier to see, and keeps the checkout summary beside the form on wide screens.
 
 ### Fixed
 

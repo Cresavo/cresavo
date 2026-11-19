@@ -139,7 +139,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       </div>
       {rule === "late" && (
         <Notice tone="warning" className="flex items-start gap-2">
-          <Phone size={16} className="mt-0.5 shrink-0" />
+          <Phone size={16} className="mt-1 shrink-0" />
           <span>{t(state.salon.phone ? "booking.tooLate" : "booking.tooLateNoPhone", { hours: booking.protection?.terms.freeHours ?? FREE_CHANGE_HOURS, phone: state.salon.phone })}</span>
         </Notice>
       )}
@@ -166,7 +166,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
           </>
         }
       >
-        <p className="rounded-md bg-action-bg px-3.5 py-3 text-sm text-text">{freeUntilText(booking)}</p>
+        <p className="rounded-md bg-action-bg px-4 py-3 text-meta text-text">{freeUntilText(booking)}</p>
       </Sheet>
 
       <Sheet

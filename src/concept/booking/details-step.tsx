@@ -88,26 +88,30 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
   return (
     <div className="space-y-5">
       <div className="space-y-2 rounded-lg bg-surface-2 p-4">
-        <p className="text-sm text-text-secondary">{t(suggested ? "booking.nextAvailable" : "booking.yourVisit")}</p>
-        <h2 className="font-semibold">{service.name}</h2>
-        <p aria-live="polite" aria-atomic="true" className="flex items-center gap-2 text-[15px]">
+        <p className="text-meta text-text-secondary">{t(suggested ? "booking.nextAvailable" : "booking.yourVisit")}</p>
+        <h2 className="text-h2 font-semibold">{service.name}</h2>
+        <p aria-live="polite" aria-atomic="true" className="flex items-center gap-2 text-body">
           <CalendarCheck size={16} className="shrink-0 text-action" />
           {formatDayLong(slot.date)}, {formatTime(slot.start)}–{formatTime(slot.start + service.duration)}
         </p>
-        <p className="flex items-center gap-2 text-sm text-text-secondary">
+        <p className="flex items-center gap-2 text-meta text-text-secondary">
           <StaffAvatar person={person} size="sm" />
           {t("booking.withStaff", { name: person.firstName })} · {formatDuration(service.duration)}
         </p>
         {timeControl}
       </div>
-      <form className="space-y-3" onSubmit={event => { event.preventDefault(); void confirm(); }}>
-        <GuestFields value={guest} onChange={setGuest} />
-        <RememberContact checked={remember} onChange={chooseRemember} />
+      <form className="booking-checkout" onSubmit={event => { event.preventDefault(); void confirm(); }}>
+        <div className="space-y-3">
+          <GuestFields value={guest} onChange={setGuest} />
+          <RememberContact checked={remember} onChange={chooseRemember} />
+        </div>
         <BookingSummary slot={slot} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={state.modules.packages} />
-        <Button type="submit" size="lg" className="w-full" disabled={pending || !isGuestValid(guest)}>
-          {t(terms.depositMinor ? "protection.continue" : "booking.confirm")}
-        </Button>
-        {!isGuestValid(guest) && <p className="text-sm text-text-secondary">{t("booking.confirmDisabled")}</p>}
+        <div className="space-y-2">
+          <Button type="submit" size="lg" className="w-full" disabled={pending || !isGuestValid(guest)}>
+            {t(terms.depositMinor ? "protection.continue" : "booking.confirm")}
+          </Button>
+          {!isGuestValid(guest) && <p className="text-meta text-text-secondary">{t("booking.confirmDisabled")}</p>}
+        </div>
       </form>
     </div>
   );

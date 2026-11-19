@@ -21,7 +21,7 @@ export function GiftCardBalance({ state, compact }: { state: DemoState; compact?
 
   const body = (
     <Card className="space-y-3 p-4">
-      <p className="text-sm text-text-secondary">{t("giftcards.checkHelp")}</p>
+      <p className="text-meta text-text-secondary">{t("giftcards.checkHelp")}</p>
       <form
         className="space-y-3"
         onSubmit={(event) => {
@@ -39,16 +39,16 @@ export function GiftCardBalance({ state, compact }: { state: DemoState; compact?
       {asked !== null && (
         <div role="status" aria-live="polite">
           {card ? (
-            <div className="rounded-md bg-action-bg px-3.5 py-3">
-              <p className="text-lg font-semibold tabular-nums text-text">{t("giftcards.checkResult", { amount: formatMoney(balanceOf(state, card)) })}</p>
-              <p className="text-sm text-text-secondary">{t("giftcards.checkOf", { amount: formatMoney(card.amount) })}</p>
+            <div className="rounded-md bg-surface-2 px-4 py-3">
+              <p className="text-h3 font-semibold tabular-nums text-text">{t("giftcards.checkResult", { amount: formatMoney(balanceOf(state, card)) })}</p>
+              <p className="text-meta text-text-secondary">{t("giftcards.checkOf", { amount: formatMoney(card.amount) })}</p>
             </div>
           ) : (
             <Notice tone="danger" role="alert">{t("giftcards.checkNotFound")}</Notice>
           )}
         </div>
       )}
-      {latest && <p className="rounded-md bg-surface-2 px-3.5 py-3 text-sm text-text-secondary">{t("giftcards.checkDemo", { code: latest.code })}</p>}
+      {latest && <p className="rounded-md bg-surface-2 px-4 py-3 text-meta text-text-secondary">{t("giftcards.checkDemo", { code: latest.code })}</p>}
     </Card>
   );
   if (!compact) return <Section title={t("giftcards.checkTitle")}>{body}</Section>;

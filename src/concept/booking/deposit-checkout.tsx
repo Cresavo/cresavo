@@ -8,6 +8,7 @@ import { formatDayLong, formatTime } from "../i18n/format";
 import { currentState, dispatch, withBookingLock } from "../store";
 import { salonClock } from "../tools/clock";
 import { Button } from "../ui/button";
+import { Input } from "../ui/controls";
 import { showActionFailure } from "../ui/toast";
 import { type CheckoutHold, type DemoMethod } from "./protection";
 import type { Now } from "../use-now";
@@ -73,17 +74,28 @@ export function DepositCheckout({ hold, serviceName, now, phone, packagesEnabled
   };
   const expiry = salonClock(new Date(hold.expiresAt));
   return <div className="space-y-4">
-    <h2 ref={heading} tabIndex={-1} className="text-xl font-semibold">{t("protection.checkout")}</h2>
-    <p>{serviceName} · {formatDayLong(hold.date)} · {formatTime(hold.start)}</p>
-    <p role="status">{t("protection.holdUntil", { time: formatTime(expiry.minutes) })}</p>
-    <BookingSummary slot={hold} terms={hold.terms} now={now} phone={phone} packagesEnabled={packagesEnabled} />
-    <fieldset className="flex gap-4"><legend>{t("protection.method")}</legend>
-      {depositMethods(hold.terms.depositMinor, hold.terms.currency).map(m =>
-        <label key={m} className="inline-flex min-h-11 items-center gap-2">
-          <input type="radio" name="deposit-method" checked={method === m} onChange={() => setMethod(m)} /> {t(`protection.${m}`)}
-        </label>)}
-    </fieldset>
-    <Button disabled={pending} onClick={pay}>{t("protection.pay", { amount: formatMinor(hold.terms.depositMinor, hold.terms.currency) })}</Button>
-    <Button variant="ghost" disabled={pending} onClick={release}>{t("common.cancel")}</Button>
+    <h2 ref={heading} tabIndex={-1} className="text-h2 font-semibold">{t("protection.checkout")}</h2>
+    <div className="booking-checkout">
+      <div className="space-y-2">
+        <p className="text-body">{serviceName} · {formatDayLong(hold.date)} · {formatTime(hold.start)}</p>
+        <p role="status" className="text-meta text-text-secondary">{t("protection.holdUntil", { time: formatTime(expiry.minutes) })}</p>
+      </div>
+      <BookingSummary slot={hold} terms={hold.terms} now={now} phone={phone} packagesEnabled={packagesEnabled} />
+      <div className="space-y-4">
+        <fieldset className="space-y-1">
+          <legend className="text-body font-medium">{t("protection.method")}</legend>
+          <div className="flex flex-wrap gap-4">
+            {depositMethods(hold.terms.depositMinor, hold.terms.currency).map(m =>
+              <label key={m} className="inline-flex min-h-target min-w-target cursor-pointer items-center gap-2 text-body">
+                <Input type="radio" name="deposit-method" checked={method === m} onChange={() => setMethod(m)} /> {t(`protection.${m}`)}
+              </label>)}
+          </div>
+        </fieldset>
+        <div className="flex flex-wrap gap-2">
+          <Button disabled={pending} onClick={pay}>{t("protection.pay", { amount: formatMinor(hold.terms.depositMinor, hold.terms.currency) })}</Button>
+          <Button variant="tertiary" disabled={pending} onClick={release}>{t("common.cancel")}</Button>
+        </div>
+      </div>
+    </div>
   </div>;
 }

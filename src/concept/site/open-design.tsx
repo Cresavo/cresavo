@@ -1,5 +1,6 @@
 import { ArrowUpRight, CalendarDays, Check, CreditCard, Download, Globe, MonitorSmartphone, Sparkles } from "lucide-react";
 import { Wordmark } from "../ui/wordmark";
+import { Badge } from "../ui/badge";
 import { PROJECT_REPOSITORY } from "../brand";
 import { useSiteCopy } from "./copy";
 import e from "./editorial.module.css";
@@ -33,7 +34,7 @@ export function OpenDesign() {
               ? <a href={`${PROJECT_REPOSITORY}/blob/main/docs/CONNECT_AI_ASSISTANT.md`} aria-label={site["hub.ai.guide"]}>{site["hub.ai"]} <ArrowUpRight size={12} aria-hidden /></a>
               : site[`hub.${key}`]}</h3></div>
             <p>{site[`hub.${key}.caption`]}</p>
-            <small data-planned={planned}>{!planned && <Check size={11} aria-hidden />}{site[planned ? "hub.planned" : "hub.available"]}</small>
+            <Badge tone={planned ? "neutral" : "accent"} icon={planned ? undefined : Check}>{site[planned ? "hub.planned" : "hub.available"]}</Badge>
           </div>;
         })}
       </div>

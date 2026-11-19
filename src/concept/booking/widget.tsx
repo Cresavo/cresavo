@@ -7,6 +7,7 @@ import { formatDate, formatTime } from "../i18n/format";
 import { usePublicDemo } from "../store";
 import { Button, buttonClass } from "../ui/button";
 import { Card } from "../ui/card";
+import { PageHeader } from "../ui/page-header";
 import { useSalonNow } from "../use-now";
 import { bookingPage } from "./links";
 import { PaymentSummary } from "./policy-summary";
@@ -22,9 +23,9 @@ export function BookingWidget() {
   if (!state) return null;
   const booking = state.bookings.find(booking => booking.id === bookedId);
   return <div className="mx-auto max-w-2xl space-y-5">
-    <div><h1 className="text-2xl font-semibold">{t("widget.title", { salon: state.salon.name })}</h1><p className="mt-1 text-sm text-text-secondary">{t("widget.help")}</p></div>
+    <PageHeader title={t("widget.title", { salon: state.salon.name })} subtitle={t("widget.help")} />
     {booking ? <Card className="space-y-4 p-5">
-      <h2 className="text-xl font-semibold text-action">{t("booking.confirmation.title")}</h2>
+      <h2 className="text-h2 font-semibold text-action">{t("booking.confirmation.title")}</h2>
       <p>{findService(state, booking.serviceId)?.name} · {formatDate(booking.date)} {formatTime(booking.start)}</p>
       <PaymentSummary state={state} booking={booking} />
       <div className="flex flex-wrap gap-2">

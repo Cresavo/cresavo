@@ -17,7 +17,7 @@ export function OpeningHours({ state, now }: { state: DemoState; now: Now }) {
   return (
     <Section title={t("booking.hours")}>
       <Card className="px-4 py-2">
-        <dl className="divide-y divide-hairline text-sm">
+        <dl className="divide-y divide-hairline text-meta">
           {WEEK_ORDER.map((day) => {
             const hours = state.salon.hours[day];
             return (
@@ -28,7 +28,7 @@ export function OpeningHours({ state, now }: { state: DemoState; now: Now }) {
             );
           })}
         </dl>
-        {lunch && <p className="border-t border-hairline py-2 text-sm text-text-secondary">{t("booking.lunchNote", { from: formatTime(lunch.start), to: formatTime(lunch.end) })}</p>}
+        {lunch && <p className="border-t border-hairline py-2 text-meta text-text-secondary">{t("booking.lunchNote", { from: formatTime(lunch.start), to: formatTime(lunch.end) })}</p>}
       </Card>
     </Section>
   );
@@ -42,9 +42,9 @@ export function FindUs({ state }: { state: DemoState }) {
   const mapLink = `https://www.openstreetmap.org/search?query=${encodeURIComponent(`${salon.address}, ${salon.area.split(" · ")[0]}`)}`;
   return (
     <Section title={t("booking.findUs")}>
-      <Card id="find-us" className="scroll-mt-4 divide-y divide-hairline px-4 text-sm">
+      <Card id="find-us" className="scroll-mt-4 divide-y divide-hairline px-4 text-meta">
         <div className="flex items-start gap-3 py-3">
-          <MapPin aria-hidden size={16} className="mt-0.5 shrink-0 text-text-secondary" />
+          <MapPin aria-hidden size={16} className="mt-1 shrink-0 text-text-secondary" />
           <address className="min-w-0 flex-1 not-italic">
             <span className="block">{salon.address}</span>
             <span className="block text-text-secondary">{salon.area}</span>
@@ -70,7 +70,7 @@ export function FindUs({ state }: { state: DemoState }) {
 export function CancellationPolicy({ state }: { state: DemoState }) {
   return (
     <Section title={t("booking.policy.title")}>
-      <p className="text-sm text-text-secondary">
+      <p className="text-meta text-text-secondary">
         {t("booking.policy.free", { hours: state.cancellationPolicy.freeHours })} {state.salon.phone && t("booking.policy.late", { phone: state.salon.phone })}
       </p>
     </Section>
@@ -79,9 +79,9 @@ export function CancellationPolicy({ state }: { state: DemoState }) {
 
 function Stars({ rating }: { rating: number }) {
   return (
-    <span role="img" className="flex items-center gap-0.5" aria-label={t("booking.stars", { count: rating })}>
+    <span role="img" className="flex items-center gap-1" aria-label={t("booking.stars", { count: rating })}>
       {[1, 2, 3, 4, 5].map((n) => (
-        <Star key={n} size={13} className={n <= rating ? "fill-text text-text" : "text-border"} />
+        <Star key={n} size={16} strokeWidth={2.5} aria-hidden className={n <= rating ? "fill-text text-text" : "text-text-secondary"} />
       ))}
     </span>
   );
@@ -93,14 +93,14 @@ export function Reviews({ state, variant = "cards" }: { state: DemoState; varian
   if (!shown.length) return null;
   if (variant === "quote") return <QuoteReview state={state} review={shown[0]} />;
   return (
-    <Section title={t("booking.reviews")} action={<span className="text-right text-sm text-text-secondary">{average.toFixed(1)} · {tc("booking.reviewCount", count)}</span>}>
+    <Section title={t("booking.reviews")} action={<span className="text-right text-meta text-text-secondary">{average.toFixed(1)} · {tc("booking.reviewCount", count)}</span>}>
       <Card id="reviews" className="scroll-mt-4 divide-y divide-hairline px-4">
         {shown.map((review) => {
           const customer = state.customers.find((c) => c.id === review.customerId);
           return (
-            <figure key={review.id} className="space-y-1.5 py-3.5">
-              <blockquote className="text-[15px] leading-relaxed">{review.text}</blockquote>
-              <figcaption className="flex flex-wrap items-center gap-x-2 text-xs text-text-secondary">
+            <figure key={review.id} className="space-y-2 py-4">
+              <blockquote className="text-body leading-relaxed">{review.text}</blockquote>
+              <figcaption className="flex flex-wrap items-center gap-x-2 text-meta text-text-secondary">
                 <Stars rating={review.rating} />
                 {customer ? publicName(customer.firstName, customer.lastName) : ""} · {formatDate(review.date)} · {t(review.source === "Google" ? "reviews.source.google" : "reviews.source.bookingPage")}
               </figcaption>
@@ -119,8 +119,8 @@ function QuoteReview({ state, review }: { state: DemoState; review: Review }) {
   return (
     <Section title={t("booking.reviews")}>
       <Card id="reviews" className="scroll-mt-4 space-y-3 p-6 text-center">
-        <p className="text-xl font-medium leading-snug sm:text-2xl">“{review.text}”</p>
-        <p className="text-sm text-text-secondary">
+        <p className="text-h2 font-medium leading-snug sm:text-h1">“{review.text}”</p>
+        <p className="text-meta text-text-secondary">
           {customer ? publicName(customer.firstName, customer.lastName) : ""} · {t("booking.reviewsAverage", { average: average.toFixed(1), count })}
         </p>
       </Card>

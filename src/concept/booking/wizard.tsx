@@ -18,7 +18,7 @@ import { DepositCheckout, useCheckoutHold } from "./deposit-checkout";
 import { bookingPage } from "./links";
 import { DetailsStep } from "./details-step";
 import { parseBookingRequest, type BookingRequest } from "./request";
-import { ServiceInfo } from "./service-row";
+import { ServiceChoice } from "./service-row";
 import { SlotCard } from "./slot-card";
 import { suggestSlots, type OpenSlot } from "./suggest";
 import { OtherTimes, TimePicker } from "./time-picker";
@@ -34,10 +34,10 @@ function Progress({ step }: { step: Step }) {
   const current = PROGRESS[step];
   if (current === undefined) return null;
   return (
-    <ol className="flex items-center gap-2 text-xs" aria-label={t("booking.progress")}>
+    <ol className="flex flex-wrap items-center gap-2 text-meta" aria-label={t("booking.progress")}>
       {PROGRESS_LABELS.map((label, index) => (
-        <li key={label} aria-current={index === current ? "step" : undefined} className={cx("flex items-center gap-1.5", index === current ? "font-semibold text-text" : "text-text-secondary")}>
-          <span className={cx("flex size-5 items-center justify-center rounded-full text-[11px]", index < current ? "bg-action text-on-action" : index === current ? "bg-text text-bg" : "bg-surface-2")}>
+        <li key={label} aria-current={index === current ? "step" : undefined} className={cx("flex items-center gap-2", index === current ? "font-semibold text-text" : "text-text-secondary")}>
+          <span className={cx("flex size-5 items-center justify-center rounded-full text-meta", index < current ? "bg-action text-on-action" : index === current ? "bg-text text-bg" : "bg-surface-2")}>
             {index < current ? <Check size={12} /> : index + 1}
           </span>
           {t(label)}
@@ -134,7 +134,7 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
     if (onBooked) onBooked(booking.id);
     else router.push(bookingPage(state.salon.slug, booking.id));
   };
-  if (hold) return <Card className="p-5 sm:p-6"><DepositCheckout hold={hold} now={now} phone={state.salon.phone} packagesEnabled={state.modules.packages}
+  if (hold) return <Card className="booking-step p-4 sm:p-6"><DepositCheckout hold={hold} now={now} phone={state.salon.phone} packagesEnabled={state.modules.packages}
     serviceName={state.services.find(s => s.id === hold.serviceId)?.name ?? ""}
     onPaid={finish} onRelease={() => selectHold()} /></Card>;
 
@@ -155,16 +155,14 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
     ask: <AskStep onAsk={ask} onChoose={listOnPage ? undefined : () => go("service")} />,
     service: (
       <div className="space-y-5">
-        <h2 className="text-xl font-semibold tracking-tight">{missed ? t("booking.service.missed") : t("booking.service.title")}</h2>
+        <h2 className="text-h2 font-semibold tracking-tight">{missed ? t("booking.service.missed") : t("booking.service.title")}</h2>
         {state.categories.filter((category) => state.services.some((s) => s.category === category.id)).map((category) => (
           <div key={category.id} className="space-y-2">
-            <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-text-secondary">{category.name}</p>
+            <p className="text-meta font-semibold uppercase tracking-wider text-text-secondary">{category.name}</p>
             {state.services
               .filter((s) => s.category === category.id)
               .map((s) => (
-                <button key={s.id} onClick={() => chooseService(s.id)} className="flex w-full rounded-lg bg-surface p-3.5 text-left ring-1 ring-inset ring-hairline transition-colors hover:bg-action-bg hover:ring-action">
-                  <ServiceInfo service={s} staff={state.staff} />
-                </button>
+                <ServiceChoice key={s.id} service={s} staff={state.staff} onClick={() => chooseService(s.id)} />
               ))}
           </div>
         ))}
@@ -173,7 +171,7 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
     suggest: service && request && <Suggestions state={state} now={now} service={service} request={request} onPick={pick} onAll={() => go("times")} onChangeService={() => go("service")} onWaitlist={(date) => setWaitlist({ serviceId: service.id, date, staffId: service.staffIds.find(id => id === request.staffId) })} />,
     times: service && (
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">{t("booking.times.title", { service: service.name })}</h2>
+        <h2 className="text-h2 font-semibold tracking-tight">{t("booking.times.title", { service: service.name })}</h2>
         <TimePicker state={state} serviceId={service.id} staffId={staffId} clock={now} onPick={pick} onWaitlist={(date) => setWaitlist({ serviceId: service.id, date, staffId })} />
       </div>
     ),
@@ -184,7 +182,7 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
   // Idle, the flow is one quiet line above the price list; a card appears once a booking is under way.
   if (step === "ask") return body.ask;
   return (
-    <Card className="space-y-5 p-5 sm:p-6">
+    <Card className="booking-step space-y-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button variant="ghost" size="sm" icon={<ArrowLeft size={16} />} onClick={back} className="-ml-2">
           {t("common.back")}
@@ -225,8 +223,8 @@ function Suggestions({ state, now, service, request, onPick, onAll, onChangeServ
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-semibold tracking-tight">{exact.length ? tc("booking.suggest.title", exact.length) : t("booking.suggest.none")}</h2>
-        <p className="mt-1 text-[15px] text-text-secondary">
+        <h2 className="text-h2 font-semibold tracking-tight">{exact.length ? tc("booking.suggest.title", exact.length) : t("booking.suggest.none")}</h2>
+        <p className="mt-1 text-body text-text-secondary">
           {exact.length ? t("booking.suggest.for", { service: service.name }) : t("booking.suggest.noneHelp", { service: service.name })}
         </p>
       </div>

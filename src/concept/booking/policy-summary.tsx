@@ -17,7 +17,7 @@ export function policyText(terms: BookingTerms) {
 }
 
 export function PolicySummary({ terms }: { terms: BookingTerms }) {
-  return <div className="space-y-1 text-sm">
+  return <div className="space-y-1 text-meta">
     <p>{policyText(terms)}</p>
     <p>{terms.depositMinor ? t("protection.due", {
       deposit: formatMinor(terms.depositMinor, terms.currency), balance: formatMinor(terms.priceMinor - terms.depositMinor, terms.currency),
@@ -37,9 +37,9 @@ export function PaymentSummary({ booking, state, active = booking.status === "bo
   const balance = paymentBalance(protection, ended, toMinor(paidWithCards(state, booking.id), currency));
   const money = (n: number) => formatMinor(n, currency);
   if (!balance.deposit && !balance.paid && !balance.refund && !protection.decision) {
-    return <p className="border-t border-hairline pt-3 text-sm"><strong>{money(balance.remaining)}</strong>{active && <> · {t(state.modules.packages ? "booking.payAtSalonWithPackages" : "booking.payAtSalon")}</>}</p>;
+    return <p className="border-t border-hairline pt-3 text-meta"><strong>{money(balance.remaining)}</strong>{active && <> · {t(state.modules.packages ? "booking.payAtSalonWithPackages" : "booking.payAtSalon")}</>}</p>;
   }
-  return <div className="space-y-1 text-sm">
+  return <div className="space-y-1 text-meta">
     <p>{t("protection.balance", { deposit: money(balance.deposit), paid: money(balance.paid), remaining: money(balance.remaining) })}</p>
     {protection.decision && <p>{t("protection.feeTotal", { amount: money(protection.decision.outcome === "charge" ? protection.decision.proposedMinor : 0) })}</p>}
     {protection.decision && <p>{t(protection.decision.outcome === "waive" ? "protection.waived" : "protection.charged")}</p>}

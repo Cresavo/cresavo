@@ -120,6 +120,28 @@
 .ui-press:active:not(:disabled) { transform: scale(.97); }
 .ui-press:active:not(:disabled)::after { opacity: .12; }
 
+.ui-media-dialog {
+  width: fit-content;
+  max-width: calc(100vw - 2 * var(--space-3));
+  max-height: calc(100dvh - 2 * var(--space-3));
+  margin: auto;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-lg);
+  padding: 0;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow: var(--elevation-sheet);
+}
+.ui-media-dialog::backdrop { background: light-dark(rgb(0 0 0 / .72), rgb(0 0 0 / .86)); }
+.ui-media-panel { padding: 0 var(--space-2) var(--space-2); }
+.ui-media-panel :is(video, audio) {
+  display: block;
+  width: min(var(--content-max), calc(100vw - 2 * var(--space-5)), calc((100dvh - 2 * var(--space-12)) * var(--media-ratio)));
+  height: auto;
+  border-radius: var(--radius-md);
+}
+body:has(.ui-media-dialog[open]) { overflow: hidden; }
+
 .ui-segments {
   display: grid;
   position: relative;

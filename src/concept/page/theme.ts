@@ -1,4 +1,4 @@
-import { buildTokens, isHex, schemeOf, type Palette, type Tokens } from "./colour";
+import { buildTokens, isHex, mix, onColour, schemeOf, type Palette, type Tokens } from "./colour";
 
 // The look of the booking page: logo, colours, fonts, corners and photo. A
 // theme only ever becomes CSS variables and a few data attributes on the page
@@ -81,6 +81,8 @@ export function themeVariables(theme: PageTheme): Record<string, string> {
   if (!theme.colors) return vars;
   const { tokens } = buildTokens(theme.colors);
   for (const key of Object.keys(TOKEN_VARS) as (keyof Tokens)[]) vars[TOKEN_VARS[key]] = tokens[key];
+  // Move away from the button label's colour to preserve its contrast on hover.
+  vars["--ui-action-hover"] = mix(tokens.accent, onColour(tokens.onAccent), 0.15);
   vars.colorScheme = schemeOf(tokens);
   return vars;
 }

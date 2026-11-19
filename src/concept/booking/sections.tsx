@@ -19,7 +19,7 @@ export function StaffSection({ state, variant }: { state: DemoState; variant: st
       {variant === "names" ? (
         <ul className="flex flex-wrap gap-2">
           {state.staff.map((person) => (
-            <li key={person.id} className="flex items-center gap-2 rounded-full bg-surface py-1 pl-1 pr-4 text-sm font-medium ring-1 ring-hairline">
+            <li key={person.id} className="flex items-center gap-2 rounded-full bg-surface py-1 pl-1 pr-4 text-meta font-medium ring-1 ring-hairline">
               <StaffAvatar person={person} size="sm" />
               {person.firstName} {person.lastName}
             </li>
@@ -33,8 +33,8 @@ export function StaffSection({ state, variant }: { state: DemoState; variant: st
                 <StaffAvatar person={person} size="lg" />
                 <div className="min-w-0">
                   <p className="font-semibold">{person.firstName} {person.lastName}</p>
-                  <p className="text-sm text-text-secondary">{person.title}</p>
-                  <p className="mt-1 text-sm">{person.bio}</p>
+                  <p className="text-meta text-text-secondary">{person.title}</p>
+                  <p className="mt-1 text-meta">{person.bio}</p>
                 </div>
               </Card>
             </li>
@@ -78,7 +78,7 @@ export function FaqSection({ state, variant }: { state: DemoState; variant: stri
               {item.q}
               <span aria-hidden className="text-text-secondary transition-transform group-open:rotate-45">+</span>
             </summary>
-            <p className="pb-4 text-[15px] text-text-secondary">{item.a}</p>
+            <p className="pb-4 text-body text-text-secondary">{item.a}</p>
           </details>
         ))}
       </Card>
@@ -90,7 +90,7 @@ export function InstagramSection({ handle, variant }: { handle: string; variant:
   if (!handle) return null;
   const href = `https://www.instagram.com/${handle}/`;
   return variant === "link" ? (
-    <p className="text-sm">
+    <p className="text-meta">
       <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 font-medium text-action underline-offset-2 hover:underline">
         <AtSign size={16} />
         {t("booking.instagram.link", { handle })}
@@ -98,7 +98,7 @@ export function InstagramSection({ handle, variant }: { handle: string; variant:
     </p>
   ) : (
     <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
-      <p className="min-w-0 flex-1 text-[15px]">{t("booking.instagram.text")}</p>
+      <p className="min-w-0 flex-1 text-body">{t("booking.instagram.text")}</p>
       <a href={href} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary")}>
         <AtSign size={18} />
         {t("booking.instagram.button", { handle })}
