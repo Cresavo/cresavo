@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { ModuleKey } from "@/concept/data/types";
 import { t } from "@/concept/i18n";
-import { MODULES, moduleConsent } from "@/concept/modules/registry";
+import { MODULES, moduleById, moduleConsent, moduleEnabled } from "@/concept/modules/registry";
 import { dispatch } from "@/concept/store";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -21,8 +21,8 @@ export default function AddOnsPage() {
   const { state } = useStudio();
   const [asking, setAsking] = useState<ModuleKey | null>(null);
   const toggle = (key: ModuleKey) => {
-    const on = state.modules[key];
-    if (dispatch({ type: "module/toggle", key })) showToast(t(on ? "features.turnedOff" : "features.turnedOn", { name: t(`features.${key}`) }));
+    const on = moduleEnabled(state.modules, key);
+    if (dispatch({ type: "module/toggle", key })) showToast(t(on ? "features.turnedOff" : "features.turnedOn", { name: t(moduleById(key).name) }));
   };
   const consent = asking ? moduleConsent(asking) : undefined;
 
@@ -32,7 +32,7 @@ export default function AddOnsPage() {
         <Card className="overflow-hidden">
           <ul className="divide-y divide-hairline">
             {MODULES.map((module) => {
-              const on = state.modules[module.id];
+              const on = moduleEnabled(state.modules, module.id);
               return (
                 <li key={module.id}>
                   <ListRow title={t(module.name)} meta={t(module.description)} trailing={<Switch
@@ -50,7 +50,7 @@ export default function AddOnsPage() {
       {asking && consent && (
         <ConsentSheet
           open
-          title={t("addons.consent.title", { name: t(`features.${asking}`) })}
+          title={t("addons.consent.title", { name: t(moduleById(asking).name) })}
           summary={t(consent.summary)}
           grants={consent.grants.map((grant) => t(grant))}
           verb={t("addons.consent.verb")}

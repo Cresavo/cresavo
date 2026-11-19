@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createDemoState } from "@/concept/data/generate";
 import { enabledModules, menuVisible, MODULES, presetModules } from "@/concept/modules/registry";
 import { CHECKLIST_ROWS, createSalon, salonDraft, SETUP_TYPES, suggestedTreatments } from "@/concept/onboarding/salon";
 import { ADVANCED_PAGE, MORE_TAB, moreMenu, PRIMARY_NAV, SETTINGS_NAV, SETTINGS_SECTIONS } from "@/concept/studio/nav";
@@ -45,6 +46,14 @@ describe("complexity budget for a fresh salon", () => {
     expect(hrefs).not.toContain("/studio/more/log");
     expect(hrefs).not.toContain(ADVANCED_PAGE);
     expect(SETTINGS_NAV.map((item) => item.href)).not.toContain("/studio/more/memory");
+  });
+
+  it("keeps the demo salon's More lists to 11 entries, with one prepaid entry and reviews in Inbox", () => {
+    const menu = moreMenu(createDemoState(monday));
+    const hrefs = [...menu.business, ...menu.settings].map(({ href }) => href);
+    expect(hrefs.length).toBeLessThanOrEqual(11);
+    expect(hrefs.filter((href) => ["/studio/more/giftcards", "/studio/more/packages"].includes(href))).toEqual(["/studio/more/giftcards"]);
+    expect(hrefs).not.toContain("/studio/more/reviews");
   });
 
   it("has a getting-started checklist of at most 4 rows", () => {

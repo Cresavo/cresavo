@@ -26,7 +26,7 @@ export function StockList({ onEdit }: { onEdit: (item: StockItem) => void }) {
               const isLow = item.inStock <= item.reorderAt;
               const left = days.get(item.id);
               return (
-                <div key={item.id} className="flex items-center gap-2 pr-2">
+                <div key={item.id} className="flex items-center gap-2 pr-2 max-[319px]:flex-col max-[319px]:items-start max-[319px]:px-2 max-[319px]:pb-2">
                   <ListRow className="flex-1" onClick={() => onEdit(item)}
                     title={<span className="flex flex-wrap items-center gap-2">
                       <span><span className="sr-only">{t("stock.edit")} </span>{item.name}</span>

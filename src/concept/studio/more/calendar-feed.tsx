@@ -43,10 +43,10 @@ export function CalendarFeed({ name, path }: { name: string; path: string }) {
         <span className="flex-1">{t("feed.title")}</span>
         <ChevronDown size={16} aria-hidden className="text-text-secondary transition-transform group-open:rotate-180" />
       </summary>
-      <div className="space-y-2 pb-1">
+      <div className="space-y-2 pb-1 md:max-w-form">
         <p className="text-sm text-text-secondary">{t("feed.text", { name })}</p>
         <Input readOnly value={url} aria-label={t("feed.title")} onFocus={(event) => event.target.select()} />
-        <Button size="sm" variant="secondary" onClick={copy}>{t("feed.copy")}</Button>
+        <Button size="sm" width="responsive" variant="secondary" onClick={copy}>{t("feed.copy")}</Button>
         <p className="text-xs text-text-secondary">{t("feed.how")}</p>
       </div>
     </details>

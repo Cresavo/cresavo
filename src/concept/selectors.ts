@@ -1,6 +1,6 @@
 import { addDays } from "./data/dates";
 import { isActive, workMinutes } from "./data/slots";
-import type { Booking, Customer, DateKey, DemoState, Service, StaffId } from "./data/types";
+import type { Booking, Customer, DateKey, DemoState, InboxItem, Service, StaffId } from "./data/types";
 import { salesBetween } from "./stock/sales";
 
 // Read-only views of the demo state used by several pages.
@@ -83,7 +83,11 @@ export function lowStock(state: DemoState) {
 }
 
 export function unreadCount(state: DemoState) {
-  return state.inbox.filter((i) => !i.read).length;
+  return state.inbox.filter((item) => !item.read && inboxItemVisible(state, item)).length;
+}
+
+export function inboxItemVisible(state: DemoState, item: InboxItem) {
+  return state.modules.reviews || item.kind !== "review";
 }
 
 /** Revenue for today: what is booked in total and what has been earned so far. */
@@ -121,11 +125,6 @@ export function utilisation(state: DemoState, from: DateKey, days: number, staff
     }
   }
   return capacity ? booked / capacity : 0;
-}
-
-export function averageRating(state: DemoState) {
-  if (!state.reviews.length) return 0;
-  return state.reviews.reduce((sum, r) => sum + r.rating, 0) / state.reviews.length;
 }
 
 /** Id of the row that holds product sales in `revenueBetween`, next to the treatments. */

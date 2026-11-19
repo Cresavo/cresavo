@@ -24,6 +24,13 @@ export default {
       full: "var(--radius-pill)",
     },
     extend: {
+      maxWidth: {
+        form: "40rem",
+        reading: "70ch",
+        "field-number": "10rem",
+        "field-date": "14rem",
+        "field-short": "24rem",
+      },
       colors: { ...Object.fromEntries(names.map((name) => [name, ui(name)])), "on-action": ui("action-text") },
       fontFamily: { sans: ["var(--font-ui)"] },
       spacing: {

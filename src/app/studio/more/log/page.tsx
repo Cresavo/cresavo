@@ -21,7 +21,6 @@ export default function LogPage() {
           label={t("log.tabs")}
           value={tab}
           onChange={setTab}
-          className="w-full sm:w-auto"
           options={[
             { value: "activity", label: t("log.tab.activity") },
             { value: "trash", label: `${t("log.tab.trash")}${state.trash.length ? ` (${state.trash.length})` : ""}`, help: "log-tab-trash" },

@@ -1,5 +1,6 @@
 "use client";
 
+import { moduleEnabled } from "../modules/registry";
 import { useSearchParams } from "next/navigation";
 import { Printer } from "lucide-react";
 import { balanceOf, findGiftCard } from "../giftcards/cards";
@@ -24,7 +25,7 @@ export function GiftCardPage() {
     <div className="mx-auto max-w-md space-y-6">
       <PageHeader title={t("giftcards.pageTitle", { salon: state.salon.name })} subtitle={t("giftcards.pageText")} />
       <GiftCardFace salonName={state.salon.name} amount={stored?.amount ?? card.amount} recipient={card.recipient} message={card.message} code={card.code} />
-      {state.modules.giftcards && <p className="text-h3 font-semibold print:hidden">
+      {moduleEnabled(state.modules, "giftcards") && <p className="text-h3 font-semibold print:hidden">
         {stored ? t("giftcards.checkResult", { amount: formatMoney(balanceOf(state, stored)) }) : t("giftcards.balanceUnavailable")}
       </p>}
       <div className="flex flex-wrap gap-2 print:hidden">

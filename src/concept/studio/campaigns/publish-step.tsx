@@ -32,7 +32,7 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
   const poster = (format: "post" | "story") => <PosterView source={source} salon={state.salon} format={format} />;
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div className="space-y-4">
         {preview && <SegmentedControl label={t("campaigns.publish.preview")} value={preview} onChange={setSelected}
           options={draft.channels.map(value => ({ value, label: t(`channel.${value}`) }))} />}
@@ -58,22 +58,24 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
             ))}
           </div>
         </div>
-        <p className="text-sm text-text-secondary">{t("campaigns.publish.link", { link: draftLink(state, draft) })}</p>
+        <p className="text-sm text-text-secondary [overflow-wrap:anywhere]">{t("campaigns.publish.link", { link: draftLink(state, draft) })}</p>
         <div className="space-y-3">
-          <Button size="lg" className="w-full" icon={<Send size={18} />} disabled={!draft.channels.length} onClick={() => onPublish(today)}>
-            {t("campaigns.publish.everywhere")}
-          </Button>
+          <div>
+            <Button size="lg" width="responsive" icon={<Send size={18} />} disabled={!draft.channels.length} onClick={() => onPublish(today)}>
+              {t("campaigns.publish.everywhere")}
+            </Button>
+          </div>
           {scheduling ? (
             <div className="space-y-3 rounded-lg bg-surface-2 p-4">
-              <Field label={t("campaigns.publish.day")} hint={formatDate(day)}>
+              <Field width="date" label={t("campaigns.publish.day")} hint={formatDate(day)}>
                 <TextInput type="date" value={day} min={today} onChange={(event) => event.target.value && setDay(event.target.value)} />
               </Field>
-              <Button variant="secondary" className="w-full" icon={<CalendarClock size={18} />} disabled={!draft.channels.length} onClick={() => onPublish(day)}>
+              <Button variant="secondary" width="responsive" icon={<CalendarClock size={18} />} disabled={!draft.channels.length} onClick={() => onPublish(day)}>
                 {day > today ? t("campaigns.publish.scheduleOn", { day: formatDate(day) }) : t("campaigns.publish.everywhere")}
               </Button>
             </div>
           ) : (
-            <Button variant="secondary" size="lg" className="w-full" icon={<CalendarClock size={18} />} disabled={!draft.channels.length} onClick={() => setScheduling(true)}>
+            <Button variant="secondary" size="lg" width="responsive" icon={<CalendarClock size={18} />} disabled={!draft.channels.length} onClick={() => setScheduling(true)}>
               {t("campaigns.publish.schedule")}
             </Button>
           )}

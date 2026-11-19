@@ -40,8 +40,10 @@ test("own salon to own booking page", async ({ page }) => {
   await page.goto("/studio");
   await expect(page.getByRole("heading", { name: /^Getting started/ })).toBeVisible();
   await expect(page.getByText("Example", { exact: true }).first()).toBeVisible();
-  await expect(page.locator('[data-help="role-switch"]')).toHaveCount(0);
   await expect(page.getByText("This trial salon lives only in this browser and is removed after 24 hours without use.")).toBeVisible();
+  await page.goto("/studio/more/advanced");
+  await expect(page.getByRole("heading", { name: "Advanced", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Preview the staff view", exact: true })).toHaveCount(0);
   const state = await page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo-own")!));
   expect(Object.values(state.modules).some(Boolean)).toBe(false);
 });

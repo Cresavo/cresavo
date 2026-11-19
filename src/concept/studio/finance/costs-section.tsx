@@ -69,7 +69,7 @@ export function CostsSection() {
   );
 }
 
-export function AddCost() {
+export function AddCost({ primary = false }: { primary?: boolean }) {
   const { state } = useStudio();
   const [kind, setKind] = useState<CostKind>("rent");
   const [label, setLabel] = useState("");
@@ -85,24 +85,24 @@ export function AddCost() {
   };
 
   return (
-    <form onSubmit={submit} className="space-y-3 border-t border-hairline pt-4">
+    <form onSubmit={submit} className="space-y-3 border-t border-hairline pt-4 md:max-w-form">
       <p className="text-sm font-medium">{t("finance.addCost")}</p>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label={t("finance.costType")}>
+      <div className="grid gap-3 min-[360px]:flex">
+        <Field width="short" label={t("finance.costType")}>
           <Select value={kind} onChange={(e) => setKind(e.target.value as CostKind)}>
             {COST_KINDS.map((k) => (
               <option key={k} value={k}>{t(`finance.kind.${k}`)}</option>
             ))}
           </Select>
         </Field>
-        <Field label={t("finance.costAmount", { currency: state.localization.currency })}>
+        <Field width="number" label={t("finance.costAmount", { currency: state.localization.currency })}>
           <TextInput inputMode="numeric" type="number" min={1} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
         </Field>
       </div>
-      <Field label={t("finance.costLabel")}>
+      <Field width="short" label={t("finance.costLabel")}>
         <TextInput value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t(`finance.kind.${kind}`)} />
       </Field>
-      <Button type="submit" icon={<Plus size={16} />} disabled={!(Number(amount) > 0)}>
+      <Button type="submit" width="responsive" variant={primary ? "primary" : "secondary"} icon={<Plus size={16} />} disabled={!(Number(amount) > 0)}>
         {t("finance.addCostButton")}
       </Button>
     </form>

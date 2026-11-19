@@ -6,6 +6,7 @@ import { EmbedCode } from "@/concept/studio/more/booking-share";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { DEVELOPERS_PAGE } from "@/concept/studio/nav";
 import { SmsPriceSettings } from "@/concept/studio/more/reminder-settings";
+import { RoleSwitch } from "@/concept/studio/ops/role-switch";
 import { ResourcesSection } from "@/concept/studio/ops/resources-section";
 import { OwnAddressSection } from "@/concept/studio/page/address-section";
 import { BookingLanguageSection, CustomStylingSection, DemoSection, PackSection } from "@/concept/studio/settings/advanced-sections";
@@ -24,7 +25,7 @@ export default function AdvancedPage() {
   const salonNow = useSalonNow();
   return (
     <MorePage title={t("nav.advanced")} subtitle={t("advanced.subtitle")} parent={{ href: "/studio/more/settings", label: t("nav.settings") }}>
-      <div className="max-w-4xl space-y-8">
+      <div className="space-y-8 md:max-w-form">
         <Section title={t("advanced.developers")}>
           <Card className="overflow-hidden p-1">
             <ListRow
@@ -46,6 +47,7 @@ export default function AdvancedPage() {
         <div id="resources" className="scroll-mt-4"><ResourcesSection /></div>
         <div id="support" className="scroll-mt-4"><SupportAccess /></div>
         <div id="pack" className="scroll-mt-4"><PackSection /></div>
+        <RoleSwitch />
         <DemoSection />
       </div>
     </MorePage>

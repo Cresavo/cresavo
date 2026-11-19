@@ -37,7 +37,7 @@ export function PurchaseSheet({ onClose }: { onClose: () => void }) {
         <>
           <DemoBadge short />
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button disabled={!lines.some((l) => l.quantity > 0)} icon={<Mail size={18} />} onClick={approve}>{t("stock.approve")}</Button>
+          <Button width="responsive" disabled={!lines.some((l) => l.quantity > 0)} icon={<Mail size={18} />} onClick={approve}>{t("stock.approve")}</Button>
         </>
       }
     >
@@ -53,7 +53,7 @@ export function PurchaseSheet({ onClose }: { onClose: () => void }) {
                 </p>
                 <ul className="divide-y divide-hairline rounded-lg ring-1 ring-hairline">
                   {group.lines.map(({ item, quantity }) => (
-                    <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                    <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
                       <span className="min-w-0">
                         <span className="block font-medium">{item.name}</span>
                         <span className="block text-text-secondary">{item.unit} · {formatMoney(quantity * item.unitCost)}</span>

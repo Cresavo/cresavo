@@ -11,16 +11,18 @@ import { ReorderItem, ReorderList } from "../reorder";
 
 interface Props {
   sections: PageSection[];
+  reviewsEnabled: boolean;
   instagram: string;
   onChange: (sections: PageSection[]) => void;
   onInstagram: (handle: string) => void;
 }
 
 /** Add, remove and reorder sections and pick a look for each. The booking flow row is fixed: it is shown so the owner sees where it sits. */
-export function SectionControls({ sections, instagram, onChange, onInstagram }: Props) {
+export function SectionControls({ sections, reviewsEnabled, instagram, onChange, onInstagram }: Props) {
   const hero = sections[0]?.kind === "hero" ? sections[0] : undefined;
   const movable = hero ? sections.slice(1) : sections;
   const items = movable.map((section) => ({ section, id: section.kind, name: t(`page.section.${section.kind}`) }));
+  const canAdd = availableKinds(sections).filter((kind) => reviewsEnabled || kind !== "reviews");
 
   return (
     <div className="space-y-4">
@@ -52,15 +54,15 @@ export function SectionControls({ sections, instagram, onChange, onInstagram }: 
         </ul>
       </ReorderList>
       {sections.some((s) => s.kind === "instagram") && (
-        <Field label={t("pageEditor.instagram")} hint={t("pageEditor.instagram.hint")}>
+        <Field width="short" label={t("pageEditor.instagram")} hint={t("pageEditor.instagram.hint")}>
           <TextInput value={instagram} onChange={(event) => onInstagram(event.target.value)} placeholder={t("pageEditor.instagramExample")} autoCapitalize="none" autoComplete="off" spellCheck={false} />
         </Field>
       )}
-      {availableKinds(sections).length > 0 && (
+      {canAdd.length > 0 && (
         <div className="space-y-2">
           <p className="text-sm font-medium">{t("pageEditor.addSection")}</p>
           <div className="flex flex-wrap gap-2">
-            {availableKinds(sections).map((kind) => (
+            {canAdd.map((kind) => (
               <Chip key={kind} active={false} onClick={() => onChange(addSection(sections, kind))}>
                 <Plus size={14} />
                 {t(`page.section.${kind}`)}
@@ -85,9 +87,9 @@ function Row({ section, handle, first, last, sections, onChange }: {
   const hero = section.kind === "hero";
   return (
     <Card className="space-y-3 p-3">
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         {handle}
-        <p className="min-w-0 flex-1 break-words font-medium">{name}</p>
+        <p className="min-w-0 flex-1 break-words font-medium max-[319px]:basis-1/2">{name}</p>
         {hero ? <span className="px-2 text-xs text-text-secondary">{t("pageEditor.alwaysTop")}</span> : (
           <>
             <IconButton label={t("pageEditor.moveUp", { section: name })} disabled={first} onClick={() => onChange(moveSection(sections, section.kind, -1))}><ArrowUp size={18} /></IconButton>
@@ -101,7 +103,6 @@ function Row({ section, handle, first, last, sections, onChange }: {
         value={section.variant}
         onChange={(variant) => onChange(setVariant(sections, section.kind, variant))}
         options={variantsOf(section.kind).map((value) => ({ value, label: t(`page.variant.${section.kind}.${value}` as MessageKey) }))}
-        className="w-full"
       />
     </Card>
   );

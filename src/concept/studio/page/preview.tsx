@@ -27,7 +27,7 @@ export function Preview({ page, slug }: { page: PageConfig; slug: string }) {
   }, [send]);
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-meta font-semibold uppercase tracking-wider text-text-secondary">{t("pageEditor.preview")}</h2>
         <Segmented
           label={t("pageEditor.device")}

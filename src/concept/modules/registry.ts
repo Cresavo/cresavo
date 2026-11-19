@@ -14,6 +14,8 @@ export type TodayCard = "stock-low" | "stock-delivery" | "holiday" | "quiet-day"
  */
 export interface ModuleManifest {
   id: ModuleKey;
+  /** Additional saved switches controlled by this add-on. */
+  alsoControls?: readonly ModuleKey[];
   api: readonly ApiResource[];
   name: MessageKey;
   description: MessageKey;
@@ -58,7 +60,7 @@ export const MODULES: ModuleManifest[] = [
     ],
   },
   {
-    id: "reviews", name: "features.reviews", description: "features.reviews.description", menu: ["/studio/more/reviews"], todayCards: [], aiTasks: ["reply-customer"], commands: [], priceSek: 39,
+    id: "reviews", name: "features.reviews", description: "features.reviews.description", menu: [], todayCards: [], aiTasks: ["reply-customer"], commands: [], priceSek: 39,
     api: [
       { resource: "reviews", read: "planned", write: "planned", mcp: "planned", events: "planned" },
     ],
@@ -78,23 +80,17 @@ export const MODULES: ModuleManifest[] = [
     ],
   },
   {
-    id: "giftcards", name: "features.giftcards", description: "features.giftcards.description", menu: ["/studio/more/giftcards"], todayCards: [], aiTasks: [], commands: [], priceSek: 49,
+    id: "giftcards", alsoControls: ["packages"], name: "features.giftcards", description: "features.giftcards.description", menu: ["/studio/more/giftcards", "/studio/more/packages"], todayCards: [], aiTasks: [], commands: [], priceSek: 98,
     consent: { summary: "addons.consent.giftcards", grants: ["addons.consent.prepaid", "addons.consent.refunds", "addons.consent.demo"] },
     api: [
       { resource: "gift-cards", read: "planned", write: "planned", mcp: "planned", events: "planned" },
+      { resource: "packages", read: "planned", write: "planned", mcp: "planned", events: "planned" },
     ],
   },
   {
     id: "domain", name: "features.domain", description: "features.domain.description", menu: [], todayCards: [], aiTasks: [], commands: [], priceSek: 49,
     api: [
       { resource: "domains", read: "planned", write: "planned", mcp: "planned", events: "planned" },
-    ],
-  },
-  {
-    id: "packages", name: "features.packages", description: "features.packages.description", menu: ["/studio/more/packages"], todayCards: [], aiTasks: [], commands: [], priceSek: 49,
-    consent: { summary: "addons.consent.packages", grants: ["addons.consent.prepaid", "addons.consent.refunds", "addons.consent.demo"] },
-    api: [
-      { resource: "packages", read: "planned", write: "planned", mcp: "planned", events: "planned" },
     ],
   },
 ];
@@ -110,17 +106,23 @@ export const PRESET_IDS: readonly PresetId[] = ["essentials", "everything"];
 
 export const isPreset = (value: unknown): value is PresetId => PRESET_IDS.includes(value as PresetId);
 
+export const moduleKeys = (manifest: ModuleManifest): ModuleKey[] => [manifest.id, ...(manifest.alsoControls ?? [])];
+export const moduleById = (id: ModuleKey) => MODULES.find((manifest) => manifest.id === id || manifest.alsoControls?.includes(id))!;
+
+export function moduleEnabled(modules: Switches, id: ModuleKey): boolean {
+  const manifest = moduleById(id);
+  return modules[manifest.id] || (manifest.alsoControls?.some((key) => modules[key]) ?? false);
+}
+
 export function presetModules(preset: PresetId): Switches {
-  return Object.fromEntries(MODULES.map((manifest) => [manifest.id, preset === "everything"])) as Switches;
+  return Object.fromEntries(MODULES.flatMap(moduleKeys).map((key) => [key, preset === "everything"])) as Switches;
 }
 
 /** The preset the switches match right now, or null when the owner has mixed their own. */
 export function presetOf(modules: Switches): PresetId | null {
-  const on = MODULES.filter((manifest) => modules[manifest.id]).length;
+  const on = enabledModules(modules).length;
   return on === 0 ? "essentials" : on === MODULES.length ? "everything" : null;
 }
-
-export const moduleById = (id: ModuleKey) => MODULES.find((manifest) => manifest.id === id)!;
 
 /** What switching this add-on on asks the owner to agree to, if anything. */
 export const moduleConsent = (id: ModuleKey) => moduleById(id).consent;
@@ -130,30 +132,30 @@ const ownerOf = <T>(list: (manifest: ModuleManifest) => T[], item: T) => MODULES
 /** True unless a module that owns this menu page is switched off. */
 export function menuVisible(modules: Switches, href: string): boolean {
   const owner = ownerOf((m) => m.menu, href);
-  return !owner || modules[owner.id];
+  return !owner || moduleEnabled(modules, owner.id);
 }
 
 export function cardVisible(modules: Switches, card: TodayCard): boolean {
   const owner = ownerOf((m) => m.todayCards, card);
-  return !owner || modules[owner.id];
+  return !owner || moduleEnabled(modules, owner.id);
 }
 
 /** The switched-off module that blocks this command box action, if any. */
 export function blockingModule(modules: Switches, action: IntentAction | "question"): ModuleManifest | undefined {
   const owner = MODULES.find((manifest) => (manifest.commands as string[]).includes(action));
-  return owner && !modules[owner.id] ? owner : undefined;
+  return owner && !moduleEnabled(modules, owner.id) ? owner : undefined;
 }
 
 export function taskEnabled(modules: Switches, task: TaskName): boolean {
   const owner = ownerOf((m) => m.aiTasks, task);
-  return !owner || modules[owner.id];
+  return !owner || moduleEnabled(modules, owner.id);
 }
 
 export function enabledModules(modules: Switches): ModuleKey[] {
-  return MODULES.filter((manifest) => modules[manifest.id]).map((manifest) => manifest.id);
+  return MODULES.filter((manifest) => moduleEnabled(modules, manifest.id)).map((manifest) => manifest.id);
 }
 
 /** What the business pays per month: the core plus every module that is on. */
 export function monthlyTotal(on: readonly ModuleKey[]): number {
-  return CORE_PRICE_SEK + MODULES.filter((manifest) => on.includes(manifest.id)).reduce((sum, manifest) => sum + manifest.priceSek, 0);
+  return CORE_PRICE_SEK + MODULES.filter((manifest) => moduleKeys(manifest).some((key) => on.includes(key))).reduce((sum, manifest) => sum + manifest.priceSek, 0);
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { moduleEnabled } from "../../modules/registry";
 import { useMemo, useState } from "react";
 import { addDays } from "../../data/dates";
 import { buildOverview } from "../../finance/overview";
@@ -31,8 +32,8 @@ export function OverviewSection() {
     ? [`${formatMonth(months[0], true)} ${months[0].slice(2, 4)}`, `${formatMonth(months[months.length - 1], true)} ${months[months.length - 1].slice(2, 4)}`]
     : [formatDayMonth(ranges.current.start), formatDayMonth(lastDay)];
   const customers = current.newCustomers + current.returning;
-  const gift = state.modules.giftcards ? giftCardLiability(state) : 0;
-  const packages = state.modules.packages ? packageLiability(state) : 0;
+  const gift = moduleEnabled(state.modules, "giftcards") ? giftCardLiability(state) : 0;
+  const packages = moduleEnabled(state.modules, "packages") ? packageLiability(state) : 0;
 
   return (
     <div className="space-y-6">
@@ -41,7 +42,6 @@ export function OverviewSection() {
         value={period}
         onChange={setPeriod}
         options={PERIODS.map((p) => ({ value: p, label: t(`finance.period.${p}`) }))}
-        className="w-full sm:w-auto"
       />
       <Card className="space-y-4 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">

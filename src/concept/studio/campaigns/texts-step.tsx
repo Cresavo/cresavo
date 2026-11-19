@@ -61,16 +61,16 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-text-secondary">{t("campaigns.texts.hint")}</p>
-        <Button variant="ghost" size="sm" icon={<RefreshCw size={15} />} onClick={rewrite}>{t("campaigns.texts.rewrite")}</Button>
+        <Button variant="ghost" size="sm" width="responsive" icon={<RefreshCw size={15} />} onClick={rewrite}>{t("campaigns.texts.rewrite")}</Button>
       </div>
       {CHANNELS.map((channel) => {
         const text = draft.copy[channel] ?? "";
         const over = isOverLimit(channel, text);
         return (
           <Card key={channel} className="space-y-2 p-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <label htmlFor={`copy-${channel}`} className="font-medium">{t(`channel.${channel}`)}</label>
               <span className={cx("text-xs tabular-nums", over ? "font-semibold text-danger" : "text-text-secondary")}>
                 {text.length} / {CHANNEL_LIMIT[channel]}

@@ -55,7 +55,7 @@ tries a fast-forward update before starting the local demo.
   drafted replies before sending.
 - **Booking pages** show treatments, staff, hours and reviews under the
   business’s own brand. Clients can book, reschedule and cancel.
-- **Treatments and prices, campaigns, gift cards, packages, stock and finance**
+- **Treatments and prices, campaigns, gift cards & packages, stock and finance**
   as modules you switch on when you need them.
 - **Undo and activity history** let owners see what changed and undo actions
   when later changes still allow it.

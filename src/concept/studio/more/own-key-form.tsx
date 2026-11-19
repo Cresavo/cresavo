@@ -44,7 +44,7 @@ export function OwnKeyForm() {
         {!overview.ownKey.usable && <p className="text-sm text-warning">{t("ai.keyLocked")}</p>}
         <Button variant="secondary" disabled={busy} onClick={remove}>{t("ai.removeKey")}</Button>
       </div>}
-      <form onSubmit={submit} className="space-y-4">
+      <form onSubmit={submit} className="space-y-4 md:max-w-form">
         <div className="flex items-start gap-3">
           <KeyRound size={20} className="mt-1 shrink-0 text-action" />
           <div className="min-w-0">
@@ -53,7 +53,7 @@ export function OwnKeyForm() {
           </div>
         </div>
         <p className="rounded-md bg-warning-bg px-4 py-3 text-sm text-text">{t(overview?.keyStorageAvailable ? "ai.ownKeyDemo" : "ai.keyStorageUnavailable")}</p>
-        <Segmented value={provider} options={PROVIDERS.map((value) => ({ value, label: t(`ai.provider.${value}`) }))} onChange={setProvider} label={t("ai.provider")} className="w-full" />
+        <Segmented value={provider} options={PROVIDERS.map((value) => ({ value, label: t(`ai.provider.${value}`) }))} onChange={setProvider} label={t("ai.provider")} />
         <Field label={t("ai.apiKey")}>
           <TextInput
             type="password"
@@ -67,7 +67,7 @@ export function OwnKeyForm() {
           />
         </Field>
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" disabled={!overview?.keyStorageAvailable || key.trim().length < 8 || busy}>{t("ai.useKey")}</Button>
+          <Button width="responsive" type="submit" disabled={!overview?.keyStorageAvailable || key.trim().length < 8 || busy}>{t("ai.useKey")}</Button>
           {status && <p role="status" className="text-sm text-text-secondary">{t(`ai.key.${status}`)}</p>}
         </div>
       </form>

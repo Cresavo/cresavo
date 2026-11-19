@@ -1,3 +1,4 @@
+import { moduleEnabled } from "../modules/registry";
 import { majorString } from "../connections/core";
 import type { Booking, DemoState } from "../data/types";
 import { paidWithCards } from "../giftcards/cards";
@@ -37,7 +38,7 @@ export function PaymentSummary({ booking, state, active = booking.status === "bo
   const balance = paymentBalance(protection, ended, toMinor(paidWithCards(state, booking.id), currency));
   const money = (n: number) => formatMinor(n, currency);
   if (!balance.deposit && !balance.paid && !balance.refund && !protection.decision) {
-    return <p className="border-t border-hairline pt-3 text-meta"><strong>{money(balance.remaining)}</strong>{active && <> · {t(state.modules.packages ? "booking.payAtSalonWithPackages" : "booking.payAtSalon")}</>}</p>;
+    return <p className="border-t border-hairline pt-3 text-meta"><strong>{money(balance.remaining)}</strong>{active && <> · {t(moduleEnabled(state.modules, "packages") ? "booking.payAtSalonWithPackages" : "booking.payAtSalon")}</>}</p>;
   }
   return <div className="space-y-1 text-meta">
     <p>{t("protection.balance", { deposit: money(balance.deposit), paid: money(balance.paid), remaining: money(balance.remaining) })}</p>

@@ -8,6 +8,8 @@ import { bookingShare } from "@/concept/booking/share";
 import { createDemoState } from "@/concept/data/generate";
 import { BRAND } from "@/concept/brand";
 import { applyAction } from "@/concept/log/capture";
+import { inboxItemVisible, unreadCount } from "@/concept/selectors";
+import { reviewInboxItems } from "@/concept/studio/inbox/review-items";
 
 const today = "2026-11-17";
 const state = createDemoState(today);
@@ -83,6 +85,34 @@ describe("review moderation", () => {
     expect(reduce(approved, { type: "review/approve", id: pending.id })).toBe(approved);
   });
   it.each([0, 6, 1.5, NaN])("rejects invalid rating %s", rating => expect(reduce(state, { ...review, rating })).toBe(state));
+
+  it("shows each saved review once and keeps replies in sync with existing Inbox messages", () => {
+    const submitted = reduce(state, review);
+    const items = reviewInboxItems(submitted.reviews, submitted.inbox);
+    const pending = submitted.reviews[0];
+    expect(items).toHaveLength(submitted.reviews.length);
+    expect(items[0]).toBe(submitted.inbox[0]);
+    const older = items.find((item) => !submitted.inbox.includes(item))!;
+    expect(older).toMatchObject({ kind: "review", read: true });
+
+    const reply = "Thank you for visiting!";
+    const replied = reduce(submitted, { type: "review/reply", id: pending.id, reply });
+    expect(replied.reviews[0]).toMatchObject({ approved: false, reply });
+    expect(replied.inbox[0]).toMatchObject({ handled: true, read: true, reply });
+    const repliedToOlder = reduce(replied, { type: "review/reply", id: older.reviewId!, reply });
+    expect(repliedToOlder.reviews.find((item) => item.id === older.reviewId)?.reply).toBe(reply);
+    expect(repliedToOlder.inbox).toEqual(replied.inbox);
+  });
+
+  it("leaves hidden reviews unread and unavailable for review actions while the add-on is off", () => {
+    const submitted = reduce(state, review);
+    const off = reduce(submitted, { type: "module/toggle", key: "reviews" });
+    expect(off.inbox.filter((item) => inboxItemVisible(off, item)).every((item) => item.kind !== "review")).toBe(true);
+    expect(unreadCount(off)).toBeLessThan(unreadCount(submitted));
+    expect(reduce(off, { type: "review/approve", id: off.reviews[0].id })).toBe(off);
+    expect(reduce(off, { type: "review/reply", id: off.reviews[0].id, reply: "Thank you!" })).toBe(off);
+    expect(reduce(off, { type: "inbox/read-all" }).inbox[0]).toBe(off.inbox[0]);
+  });
   it("rejects blank/overlong text, ineligible or missing visits and premature completed visits", () => {
     for (const text of [" ", "a".repeat(2001)]) expect(reduce(state, { ...review, text })).toBe(state);
     for (const bookingId of [booking.id, "missing"]) expect(reduce(state, { ...review, bookingId })).toBe(state);

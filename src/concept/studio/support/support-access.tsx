@@ -51,13 +51,13 @@ export function SupportAccess() {
           event.preventDefault();
           setResult(findActionFailure(Boolean(state.industry), reference) ?? null);
         }}>
-          <Field label={t("reference.lookupCode")} hint={t("reference.lookupHint")}>
+          <Field width="short" label={t("reference.lookupCode")} hint={t("reference.lookupHint")}>
             <TextInput value={reference} autoComplete="off" spellCheck={false} onChange={event => {
               setReference(event.target.value);
               setResult(undefined);
             }} />
           </Field>
-          <Button type="submit" size="sm" variant="secondary" disabled={!reference.trim()}>{t("reference.lookup")}</Button>
+          <Button width="responsive" type="submit" size="sm" variant="secondary" disabled={!reference.trim()}>{t("reference.lookup")}</Button>
           <p role="status" className="text-sm text-text-secondary">
             {result ? t("reference.lookupResult", { when: clock(result.at, today), reason: t(result.reason) }) : result === null && t("reference.lookupMissing")}
           </p>

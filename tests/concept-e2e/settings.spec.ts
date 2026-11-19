@@ -80,23 +80,35 @@ test("Advanced is one quiet entry at the end of More and of Settings, and holds 
   await expect(page.getByRole("main")).not.toContainText("MCP");
 });
 
-test("Add-ons is a plain list, and gift cards ask before they are switched on", async ({ page }) => {
+test("Add-ons is a plain list, and Gift cards & packages asks before switching on", async ({ page }) => {
   await page.goto("/studio/more/features");
   await expect(page.getByRole("heading", { name: "Add-ons", level: 1 })).toBeVisible();
   await expect(page.getByRole("main")).not.toContainText("/ month");
   await expect(page.getByRole("heading", { name: "Industry pack" })).toHaveCount(0);
-  const giftCards = page.getByRole("switch", { name: "Gift cards" });
+  const giftCards = page.getByRole("switch", { name: "Gift cards & packages", exact: true });
+  await expect(page.getByRole("switch", { name: /^(Gift cards|Packages)$/ })).toHaveCount(0);
   const on = await giftCards.getAttribute("aria-checked") === "true";
   if (on) {
     await giftCards.click();
     await expect(giftCards).not.toBeChecked();
   }
   await giftCards.click();
-  const consent = page.getByRole("dialog", { name: "Switch on Gift cards?" });
+  const consent = page.getByRole("dialog", { name: "Switch on Gift cards & packages?" });
   await expect(consent.getByText("Demo: nothing is sold or charged. Payments here are simulated.")).toBeVisible();
   await consent.getByRole("button", { name: "Cancel" }).click();
   await expect(giftCards).not.toBeChecked();
   await giftCards.click();
-  await page.getByRole("dialog", { name: "Switch on Gift cards?" }).getByRole("button", { name: "Switch on", exact: true }).click();
+  await consent.getByRole("button", { name: "Switch on", exact: true }).click();
   await expect(giftCards).toBeChecked();
+  await page.goto("/studio/more");
+  const main = page.getByRole("main");
+  const entry = main.getByRole("link", { name: /^Gift cards & packages/ });
+  await expect(entry).toHaveCount(1);
+  await entry.click();
+  const tabs = page.getByRole("tablist", { name: "Gift cards & packages" });
+  await expect(tabs.getByRole("tab", { name: "Gift cards" })).toHaveAttribute("aria-selected", "true");
+  await tabs.getByRole("tab", { name: "Packages" }).click();
+  await expect(page.getByRole("tabpanel", { name: "Packages" })).toBeVisible();
+  await page.goto("/studio/more/packages");
+  await expect(tabs.getByRole("tab", { name: "Packages" })).toHaveAttribute("aria-selected", "true");
 });

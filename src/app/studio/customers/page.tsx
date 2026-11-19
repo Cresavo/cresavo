@@ -59,7 +59,7 @@ export default function CustomersPage() {
         actions={viewer ? undefined : <ButtonLink href="/studio/customers/import" help="import-customers" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>}
       />
       <div className="mb-4 space-y-3">
-        <SearchInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("customers.search")} aria-label={t("customers.search")} />
+        <SearchInput className="md:max-w-form" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("customers.search")} aria-label={t("customers.search")} />
         <SegmentedControl<CustomerFilter>
           label={t("customers.filter")}
           value={filter}
@@ -80,7 +80,7 @@ export default function CustomersPage() {
             <CustomerRow key={c.id} customer={c} stats={stats.get(c.id)} today={today} late={late.has(c.id)} due={due.has(c.id)} />
           ))}
           {matches.length > limit && (
-            <Button variant="tertiary" onClick={() => setLimit(limit + PAGE_SIZE)} className="w-full">
+            <Button variant="tertiary" onClick={() => setLimit(limit + PAGE_SIZE)} width="responsive">
               {tc("customers.showMore", matches.length - limit)}
             </Button>
           )}

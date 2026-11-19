@@ -65,59 +65,60 @@ export function CampaignStudio() {
         subtitle={t("campaigns.studio.subtitle")}
         back={<BackLink href="/studio/more/campaigns" label={t("nav.campaigns")} />}
       />
-      <ol className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label={t("campaigns.studio.steps")}>
-        {STEPS.map((name, i) => (
-          <li key={name} className="min-w-0">
-            <Button variant="tertiary" size="sm"
-              aria-current={i === index ? "step" : undefined}
-              disabled={i > index}
-              onClick={() => setStep(name)}
-              className={cx(
-                "w-full",
-                i === index ? "bg-action-bg text-text ring-1 ring-inset ring-action" : i < index ? "bg-action-bg text-text" : "bg-surface-2 text-text-secondary",
-              )}
-            >
-              {i < index ? <Check size={15} /> : <span className="tabular-nums">{i + 1}</span>}
-              <span>{t(`campaigns.step.${name}`)}</span>
-            </Button>
-          </li>
-        ))}
-      </ol>
+      <div className="md:max-w-form">
+        <ol className="mb-6 flex flex-wrap gap-2" aria-label={t("campaigns.studio.steps")}>
+          {STEPS.map((name, i) => (
+            <li key={name} className="max-w-full">
+              <Button variant="tertiary" size="sm"
+                aria-current={i === index ? "step" : undefined}
+                disabled={i > index}
+                onClick={() => setStep(name)}
+                className={cx(
+                  i === index ? "bg-action-bg text-text ring-1 ring-inset ring-action" : i < index ? "bg-action-bg text-text" : "bg-surface-2 text-text-secondary",
+                )}
+              >
+                {i < index ? <Check size={15} /> : <span className="tabular-nums">{i + 1}</span>}
+                <span>{t(`campaigns.step.${name}`)}</span>
+              </Button>
+            </li>
+          ))}
+        </ol>
 
-      <div className="pb-6">
-        {step === "offer" && <OfferStep state={state} today={today} draft={draft} onChange={change} />}
-        {step === "texts" && <TextsStep state={state} draft={draft} onChange={change} />}
-        {step === "poster" && <PosterStep state={state} draft={draft} onChange={change} />}
+        <div className="pb-6">
+          {step === "offer" && <OfferStep state={state} today={today} draft={draft} onChange={change} />}
+          {step === "texts" && <TextsStep state={state} draft={draft} onChange={change} />}
+          {step === "poster" && <PosterStep state={state} draft={draft} onChange={change} />}
+          {step === "publish" && (
+            <PublishStep
+              state={state}
+              today={today}
+              draft={draft}
+              scheduleDefault={draft.from > today ? draft.from : addDays(today, 1)}
+              onChange={change}
+              onPublish={publish}
+            />
+          )}
+        </div>
+
+        {step !== "publish" && (
+          <div className={cx("flex flex-wrap gap-2 border-t border-hairline pt-4", index > 0 && "sm:justify-end")}>
+            {index > 0 && (
+              <Button variant="secondary" size="lg" width="responsive" icon={<ArrowLeft size={18} />} onClick={() => setStep(STEPS[index - 1])}>
+                {t("common.back")}
+              </Button>
+            )}
+            <Button size="lg" width="responsive" disabled={!draft.name.trim()} onClick={() => setStep(STEPS[index + 1])}>
+              {t(`campaigns.next.${STEPS[index + 1] as "texts" | "poster" | "publish"}`)}
+              <ArrowRight size={18} />
+            </Button>
+          </div>
+        )}
         {step === "publish" && (
-          <PublishStep
-            state={state}
-            today={today}
-            draft={draft}
-            scheduleDefault={draft.from > today ? draft.from : addDays(today, 1)}
-            onChange={change}
-            onPublish={publish}
-          />
+          <div className="border-t border-hairline pt-4">
+            <Button variant="secondary" size="lg" width="responsive" icon={<ArrowLeft size={18} />} onClick={() => setStep("poster")}>{t("common.back")}</Button>
+          </div>
         )}
       </div>
-
-      {step !== "publish" && (
-        <div className="flex gap-2 border-t border-hairline pt-4">
-          {index > 0 && (
-            <Button variant="secondary" size="lg" icon={<ArrowLeft size={18} />} onClick={() => setStep(STEPS[index - 1])}>
-              {t("common.back")}
-            </Button>
-          )}
-          <Button size="lg" className="flex-1" disabled={!draft.name.trim()} onClick={() => setStep(STEPS[index + 1])}>
-            {t(`campaigns.next.${STEPS[index + 1] as "texts" | "poster" | "publish"}`)}
-            <ArrowRight size={18} />
-          </Button>
-        </div>
-      )}
-      {step === "publish" && (
-        <div className="border-t border-hairline pt-4">
-          <Button variant="secondary" size="lg" icon={<ArrowLeft size={18} />} onClick={() => setStep("poster")}>{t("common.back")}</Button>
-        </div>
-      )}
     </>
   );
 }

@@ -81,12 +81,12 @@ function ResourceSheet({ resource, onClose }: { resource: Resource | null; onClo
         <>
           {resource && <Button variant="danger" className="mr-auto" onClick={() => { dispatch({ type: "resource/remove", id: resource.id }); onClose(); }}>{t("common.remove")}</Button>}
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button disabled={!name.trim()} onClick={save}>{t("common.save")}</Button>
+          <Button width="responsive" disabled={!name.trim()} onClick={save}>{t("common.save")}</Button>
         </>
       }
     >
       <div className="space-y-5">
-        <Field label={t("resources.name")}>
+        <Field width="short" label={t("resources.name")}>
           <TextInput value={name} maxLength={40} onChange={(e) => setName(e.target.value)} autoFocus />
         </Field>
         {!resource && (

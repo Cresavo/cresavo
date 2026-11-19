@@ -46,7 +46,7 @@ export function SellPackageSheet({ onClose }: { onClose: () => void }) {
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button disabled={!service || !customer} icon={<Check size={18} />} onClick={sell}>{t("packages.sellConfirm")}</Button>
+          <Button width="responsive" disabled={!service || !customer} icon={<Check size={18} />} onClick={sell}>{t("packages.sellConfirm")}</Button>
         </>
       }
     >

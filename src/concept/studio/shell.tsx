@@ -11,7 +11,7 @@ import { StudioLanguageSwitch } from "./studio-language";
 import { canOpen, staffViewer, type Role } from "../ops/access";
 import { useRole } from "../ops/role";
 import { NoAccess } from "./ops/no-access";
-import { RoleSwitch } from "./ops/role-switch";
+import { StaffPreviewBar } from "./ops/role-switch";
 import { t } from "../i18n";
 import { unreadCount } from "../selectors";
 import { isPreset } from "../modules/registry";
@@ -55,6 +55,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
   const isSetup = pathname === "/studio/setup" && role === "owner";
   const removed = useTrialRemoved();
   const own = !!state?.industry;
+  const preview = state && role === "staff" ? staffViewer(state) : null;
   // The chrome follows the studio's saved theme, also when arriving by an in-app link from a booking page.
   useEffect(() => pinThemeColor(studioChrome(parseTheme(document.documentElement.dataset.theme))), []);
   useStartPreset(!!state);
@@ -86,7 +87,6 @@ export function StudioShell({ children }: { children: ReactNode }) {
         <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1 max-[374px]:gap-0">
           <DemoBadge short />
           {state.modules.assistant && <AssistantHeaderButton />}
-          <RoleSwitch compact />
           <HelpButton compact />
         </div>
       </header>
@@ -96,6 +96,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
             readable maximum; it is never centred in the space that is left, so pages do not float. The assistant
             and Help sit in each page's title row (PageHeader), on the same right edge as the content. */}
         <div className={PAGE_FRAME}>
+          {preview && <StaffPreviewBar name={preview.firstName} />}
           <Suspense>{canOpen(role, pathname) ? children : <NoAccess />}</Suspense>
         </div>
       </main>
@@ -210,7 +211,6 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
           );
         })}
       </nav>
-      {/* The footer: who is looking (with the demo's owner/staff switch beside the name) and the appearance. */}
       <div className="mt-2 space-y-2 border-t border-hairline pt-3">
         <div className="flex items-center gap-3 px-1">
           <StaffAvatar person={person} size="md" />
@@ -218,7 +218,6 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
             <span className="block truncate font-medium">{person.firstName} {person.lastName}</span>
             <span className="block truncate text-xs text-text-secondary">{t(role === "staff" ? "shell.staffRole" : "shell.ownerRole")}</span>
           </span>
-          <RoleSwitch compact iconOnly />
         </div>
         <ThemeControl compact />
       </div>

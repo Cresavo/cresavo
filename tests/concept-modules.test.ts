@@ -12,6 +12,8 @@ import {
   cardVisible,
   CORE_PRICE_SEK,
   enabledModules,
+  moduleEnabled,
+  moduleKeys,
   menuVisible,
   MODULES,
   monthlyTotal,
@@ -34,12 +36,25 @@ function ask(state: DemoState, text: string): Proposal {
 
 describe("module registry", () => {
   it("has a manifest with a name and description for every module the state knows", () => {
-    expect(MODULES.map((m) => m.id).sort()).toEqual([...MODULE_KEYS].sort());
+    expect(MODULES.flatMap(moduleKeys).sort()).toEqual([...MODULE_KEYS].sort());
     for (const manifest of MODULES) {
       expect(t(manifest.name)).not.toBe("");
       expect(t(manifest.description)).not.toBe("");
       expect(manifest.priceSek).toBeGreaterThan(0);
     }
+  });
+
+  it.each(["giftcards", "packages"] as const)("uses either saved %s switch for both prepaid views", (key) => {
+    const legacy = { ...full, modules: { ...full.modules, giftcards: false, packages: false, [key]: true } };
+    expect(moduleEnabled(legacy.modules, "giftcards")).toBe(true);
+    expect(moduleEnabled(legacy.modules, "packages")).toBe(true);
+    expect(menuVisible(legacy.modules, "/studio/more/giftcards")).toBe(true);
+    expect(menuVisible(legacy.modules, "/studio/more/packages")).toBe(true);
+    const off = without(legacy, "giftcards");
+    expect(off.modules).toMatchObject({ giftcards: false, packages: false });
+    expect(off.giftCards).toBe(legacy.giftCards);
+    expect(off.packages).toBe(legacy.packages);
+    expect(without(off, "giftcards").modules).toMatchObject({ giftcards: true, packages: true });
   });
 
   it("lists only AI tasks that exist, and no task twice", () => {

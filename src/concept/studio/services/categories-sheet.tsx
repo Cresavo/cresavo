@@ -40,7 +40,7 @@ export function CategoriesSheet({ state, onClose }: { state: DemoState; onClose:
   const editor = (label: string) => (
     <form className="space-y-2 py-2" onSubmit={(event) => { event.preventDefault(); save(); }}>
       <div className="flex items-center gap-1">
-        <TextInput value={name} maxLength={MAX_NAME} onChange={(e) => setName(e.target.value)} aria-label={label} aria-invalid={!!issue} autoFocus />
+        <TextInput width="short" value={name} maxLength={MAX_NAME} onChange={(e) => setName(e.target.value)} aria-label={label} aria-invalid={!!issue} autoFocus />
         <IconButton label={t("common.save")} type="submit" disabled={!!issue}><Check size={18} /></IconButton>
         <IconButton label={t("common.cancel")} onClick={() => setEditing(null)}><X size={18} /></IconButton>
       </div>
@@ -58,8 +58,8 @@ export function CategoriesSheet({ state, onClose }: { state: DemoState; onClose:
               {editing === category.id ? (
                 editor(t("services.category.rename", { name: category.name }))
               ) : (
-                <div className="flex items-center gap-1 py-2">
-                  <span className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1 py-2">
+                  <span className="min-w-0 flex-1 max-[319px]:basis-full">
                     <span className="block truncate font-medium">{category.name}</span>
                     <span className="block text-xs text-text-secondary">{count ? tc("services.category.count", count) : t("services.empty")}</span>
                   </span>

@@ -7,13 +7,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCheck, Inbox as InboxIcon, MousePointerClick } from "lucide-react";
 import type { InboxItem } from "@/concept/data/types";
 import { t, tc } from "@/concept/i18n";
-import { unreadCount } from "@/concept/selectors";
+import { inboxItemVisible, unreadCount } from "@/concept/selectors";
 import { dispatch } from "@/concept/store";
 import { AgentProposalCard } from "@/concept/studio/inbox/agent-proposal-card";
 import { useAgentProposals } from "@/concept/studio/inbox/agent-proposals";
 import { InboxDetail } from "@/concept/studio/inbox/inbox-detail";
 import { senderName } from "@/concept/studio/inbox/inbox-meta";
 import { InboxRow } from "@/concept/studio/inbox/inbox-row";
+import { reviewInboxItems } from "@/concept/studio/inbox/review-items";
 import { showUndoToast } from "@/concept/studio/log/undo-toast";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -44,7 +45,7 @@ function InboxPageContent() {
   const { state, today, minutes } = useStudio();
   const router = useRouter();
   const param = useSearchParams()?.get("filter");
-  const filter = param && Object.hasOwn(matches, param) ? param as Filter : "all";
+  const filter = param && Object.hasOwn(matches, param) && (param !== "reviews" || state.modules.reviews) ? param as Filter : "all";
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   useEffect(() => {
@@ -53,8 +54,9 @@ function InboxPageContent() {
     desktop.addEventListener("change", closeOnDesktop);
     return () => desktop.removeEventListener("change", closeOnDesktop);
   }, []);
-  const items = state.inbox.filter(matches[filter]);
-  const selected = state.inbox.find((i) => i.id === selectedId);
+  const inbox = state.inbox.filter((item) => inboxItemVisible(state, item));
+  const items = filter === "reviews" ? reviewInboxItems(state.reviews, inbox) : inbox.filter(matches[filter]);
+  const selected = (filter === "reviews" ? items : inbox).find((item) => item.id === selectedId);
   const unread = unreadCount(state);
   const { proposals, decide } = useAgentProposals(!state.industry);
 
@@ -72,7 +74,7 @@ function InboxPageContent() {
     if (!item.read) dispatch({ type: "inbox/read", id: item.id });
   };
 
-  if (filter !== "sent" && state.industry && !state.inbox.length && !proposals.length) {
+  if (filter !== "sent" && !state.modules.reviews && state.industry && !inbox.length && !proposals.length) {
     return <>
       <PageHeader title={t("inbox.title")} />
       <PairedInbox />
@@ -106,15 +108,18 @@ function InboxPageContent() {
         label={t("inbox.filter")}
         value={filter}
         onChange={(next) => {
-          if (next !== filter && selected && !matches[next](selected)) setSelectedId(null);
+          if (selected && (!matches[next](selected) || (next !== "reviews" && !inbox.includes(selected)))) {
+            setSelectedId(null);
+            setSheetOpen(false);
+          }
           router.replace(next === "all" ? "/studio/inbox" : `/studio/inbox?filter=${next}`, { scroll: false });
         }}
-        className="mb-4 w-full sm:w-auto"
+        className="mb-4"
         options={[
           { value: "all", label: t("inbox.filter.all") },
           { value: "unread", label: t("inbox.filter.unread") },
           { value: "requests", label: t("inbox.filter.requests") },
-          { value: "reviews", label: t("inbox.filter.reviews") },
+          ...(state.modules.reviews ? [{ value: "reviews" as const, label: t("inbox.filter.reviews") }] : []),
           { value: "sent", label: t("messages.log") },
         ]}
       />

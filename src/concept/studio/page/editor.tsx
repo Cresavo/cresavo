@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Save, Undo2 } from "lucide-react";
 import { t } from "../../i18n";
 import { normalizePage, type PageConfig } from "../../page/config";
+import type { PageSection } from "../../page/sections";
 import type { PageTheme } from "../../page/theme";
 import { dispatchWithLog } from "../../store";
 import { Button } from "../../ui/button";
@@ -27,6 +28,18 @@ export function PageEditor() {
   const dirty = JSON.stringify(normalizePage(draft)) !== saved;
   const change = (patch: Partial<PageConfig>) => setDraft((current) => ({ ...current, ...patch }));
   const theme = (patch: Partial<PageTheme>) => setDraft((current) => ({ ...current, theme: { ...current.theme, ...patch } }));
+  const hiddenReview = state.modules.reviews ? -1 : draft.sections.findIndex((section) => section.kind === "reviews");
+  const visibleSections = draft.sections.filter((section, index) => index !== hiddenReview);
+  const changeSections = (sections: PageSection[]) => {
+    if (hiddenReview < 0) {
+      change({ sections });
+      return;
+    }
+    const next = [...sections];
+    const index = Math.max(sections[0]?.kind === "hero" ? 1 : 0, hiddenReview);
+    next.splice(index, 0, draft.sections[hiddenReview]);
+    change({ sections: next });
+  };
 
   const save = () => {
     const logId = dispatchWithLog({ type: "page/set", page: draft });
@@ -45,19 +58,19 @@ export function PageEditor() {
           { value: "edit", label: t("pageEditor.view.edit") },
           { value: "preview", label: t("pageEditor.view.preview") },
         ]}
-        className="w-full lg:hidden"
+        className="lg:hidden"
       />
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        <div className={view === "edit" ? "studio-page-editor min-w-0" : "studio-page-editor hidden min-w-0 lg:block"}>
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+        <div className={view === "edit" ? "studio-page-editor min-w-0 md:max-w-form" : "studio-page-editor hidden min-w-0 md:max-w-form lg:block"}>
           <StickyActionBar label={t("pageEditor.view.edit")} actions={<>
             <p className="min-w-0 basis-full text-meta text-text-secondary sm:flex-1 sm:basis-auto">{dirty ? t("pageEditor.unsaved") : t("pageEditor.upToDate")}</p>
-            <Button variant="ghost" icon={<Undo2 size={18} />} disabled={!dirty} onClick={() => setDraft(state.page)}>{t("pageEditor.discard")}</Button>
-            <Button icon={<Save size={18} />} disabled={!dirty} onClick={save}>{t("pageEditor.save")}</Button>
+            <Button variant="ghost" width="responsive" icon={<Undo2 size={18} />} disabled={!dirty} onClick={() => setDraft(state.page)}>{t("pageEditor.discard")}</Button>
+            <Button width="responsive" icon={<Save size={18} />} disabled={!dirty} onClick={save}>{t("pageEditor.save")}</Button>
           </>}>
             <div className="space-y-6">
               <Block title={t("pageEditor.look.title")}><ThemeControls theme={draft.theme} onChange={theme} /></Block>
               <Block title={t("pageEditor.sections.title")}>
-                <SectionControls sections={draft.sections} instagram={draft.instagram} onChange={(sections) => change({ sections })} onInstagram={(instagram) => change({ instagram })} />
+                <SectionControls sections={visibleSections} reviewsEnabled={state.modules.reviews} instagram={draft.instagram} onChange={changeSections} onInstagram={(instagram) => change({ instagram })} />
               </Block>
               <p className="text-meta text-text-secondary">
                 {t("pageEditor.cssMoved")} <Link href={`${ADVANCED_PAGE}#styling`} className="inline-flex min-h-target min-w-target items-center font-medium text-text underline">{t("nav.advanced")}</Link>

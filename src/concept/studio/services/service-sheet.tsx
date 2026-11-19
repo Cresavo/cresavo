@@ -83,24 +83,24 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button onClick={save}>{t("common.save")}</Button>
+          <Button width="responsive" onClick={save}>{t("common.save")}</Button>
         </>
       }
     >
       <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); save(); }}>
-        <Field label={t("services.name")} hint={hint("name", "nameTaken")}>
+        <Field width="short" label={t("services.name")} hint={hint("name", "nameTaken")}>
           <TextInput value={name} maxLength={MAX_NAME} onChange={(e) => setName(e.target.value)} aria-invalid={!!problem("name", "nameTaken")} autoFocus={!service} />
         </Field>
-        <Field label={t("services.category")} hint={hint("category")}>
+        <Field width="short" label={t("services.category")} hint={hint("category")}>
           <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
             {state.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={t("services.duration")}>
+        <div className="grid gap-3 min-[360px]:flex">
+          <Field width="number" label={t("services.duration")}>
             <TextInput type="number" inputMode="numeric" min={MIN_DURATION} max={MAX_DURATION} step={DURATION_STEP} value={duration} onChange={(e) => setDuration(e.target.value)} aria-invalid={!!problem("duration")} />
           </Field>
-          <Field label={t("setup.price", { currency: state.localization.currency })}>
+          <Field width="number" label={t("setup.price", { currency: state.localization.currency })}>
             <TextInput type="number" inputMode="decimal" min={0} max={MAX_PRICE} step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} aria-invalid={!!problem("price")} />
           </Field>
         </div>

@@ -8,7 +8,7 @@ export function Stepper({ value, onChange, min = 0, lessLabel, moreLabel }: { va
       <IconButton label={lessLabel} disabled={value <= min} onClick={() => onChange(Math.max(min, value - 1))} className="size-10 ring-1 ring-hairline">
         <Minus size={16} />
       </IconButton>
-      <span className="w-9 text-center font-semibold tabular-nums">{value}</span>
+      <span className="w-9 text-center font-semibold tabular-nums max-[319px]:w-8">{value}</span>
       <IconButton label={moreLabel} onClick={() => onChange(value + 1)} className="size-10 ring-1 ring-hairline">
         <Plus size={16} />
       </IconButton>

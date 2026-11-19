@@ -20,7 +20,9 @@ export function ReminderSettings({ state }: { state: DemoState }) {
         <Segmented<MessageChannel> label={t("reminders.channel")} value={settings.channel}
           options={(["sms", "email"] as const).map(value => ({ value, label: t(`messages.channel.${value}`) }))}
           onChange={channel => dispatch({ type: "reminder/settings", settings: { channel } })} />
-        <ButtonLink href="/studio/inbox?filter=sent" variant="secondary">{t("messages.log")}</ButtonLink>
+        <div>
+          <ButtonLink href="/studio/inbox?filter=sent" variant="secondary" width="responsive">{t("messages.log")}</ButtonLink>
+        </div>
       </Card>
     </Section>
   );
@@ -38,7 +40,7 @@ export function SmsPriceSettings({ state, today }: { state: DemoState; today: Da
   return (
     <Section title={t("reminders.smsTitle")} action={<Badge>{t("common.simulated")}</Badge>}>
       <Card className="space-y-4 p-4">
-        <Field label={t("reminders.smsPrice", { currency })}
+        <Field width="number" label={t("reminders.smsPrice", { currency })}
           hint={draftPrice === undefined ? t("reminders.invalidPrice", { max: money.format(MAX_SMS_PRICE_ORE / 100) }) : undefined}>
           <TextInput inputMode="decimal" value={draft ?? formatNumber(settings.smsPriceOre / 100, 2)}
             aria-invalid={draftPrice === undefined || undefined}
