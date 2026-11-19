@@ -13,7 +13,7 @@ we never have to retrofit them. See the [privacy and security overview](PRIVACY_
   Playwright end-to-end at 390 px and 1280 px.
 - **CI is the gate.** `.github/workflows/verify.yml` runs lint, typecheck,
   unit, integration, build and e2e on every push. Red CI is fixed before new
-  features. Dependency audit runs weekly (`dependency-audit.yml`).
+  features. The security checks are listed [below](#security-checks).
 - **No secrets in Git.** Keys only in `.env` / the host's secret store.
   Never log keys, customer contact data, journal text or AI prompts with
   personal data.
@@ -27,6 +27,56 @@ we never have to retrofit them. See the [privacy and security overview](PRIVACY_
 - **Everything is logged.** Every change records who (human/AI/integration),
   what, before/after and a request id. This is both support and audit trail.
 - **Synthetic data only** until the pilot gate below is passed.
+
+## Security checks
+
+| Check (workflow → check name) | Runs | Results | Blocks merge? |
+|---|---|---|---|
+| CodeQL (`codeql.yml`) → `Analyze (javascript-typescript)`, `Analyze (actions)` | PRs to `main`, pushes to `main`, Mondays, manual | **Security** → **Code scanning**, and as PR annotations | Both jobs are required by **Protect main**. Blocking on findings: code scanning results rule (see below) |
+| Dependency review (`dependency-review.yml`) → `Dependency review (high/critical gate)` | Every PR to `main` | Job summary of the PR check | Fails on new or changed dependencies (runtime and development) with a high or critical advisory. Required by **Protect main** |
+| Secret scan (`secret-scan.yml`) → `Gitleaks (full history)` | PRs, pushes to `main`, manual | Job log (matches are redacted) | Yes, required by **Protect main** |
+| GitHub secret scanning and push protection | Every push (repository setting) | **Security** → **Secret scanning** | Push protection rejects a push with a recognised token |
+| Weekly dependency audit (`dependency-audit.yml`) | Mondays, manual | Job summary | No; a failed run is fixed before new features |
+| OpenSSF Scorecard (`scorecard.yml`) | Pushes to `main`, Mondays, manual | **Security** → **Code scanning** (tool Scorecard) | No. Its SARIF upload is not a CodeQL analysis |
+| Dependabot (`dependabot.yml`) | Weekly | Pull requests | No |
+
+**Protect main** (ruleset 27584925) requires a pull request, blocks deletion
+and requires five status checks: `E2E dev / proxy 0` (Verify POC),
+`Gitleaks (full history)`, `Dependency review (high/critical gate)`,
+`Analyze (javascript-typescript)` and `Analyze (actions)`. It should also
+block force pushes. The remaining steps are in the
+[launch checklist](LAUNCH_CHECKLIST.md#right-after-publishing), step 10.
+
+Dependency review reads the dependency graph through the GitHub API, so the
+repository's **Dependency graph** setting must be on (confirmed on
+2026-11-19). On PR #65 the first runs failed with `403 Forbidden`; after the
+setting was confirmed on, a re-run of the same commit passed. Whether the
+setting was off before is not known. If a 403 comes back, check that setting
+first, then token permissions and API limits. The workflow keeps its minimal
+permissions (`contents: read`).
+
+CodeQL uses an advanced workflow, so CodeQL *default setup* in the repository
+settings must stay off. Successful `Analyze` jobs show that the CodeQL
+analysis ran and uploaded results; they do not show that it found nothing.
+Whether findings block merge depends on a required code scanning results
+check. GitHub supports that through a ruleset or through branch protection.
+The chosen solution here is a **Require code scanning results** rule in
+**Protect main** (tool CodeQL, security alerts high or higher, alerts
+errors), added after the first CodeQL analysis on `main`. Until it is
+enabled, findings are reported but do not block merge.
+
+Handling a finding:
+
+- **Code scanning alert:** fix it in a PR that references the alert. Dismiss
+  it as a false positive or "won't fix" only with a written reason in the
+  alert; never weaken queries or rules to get green.
+- **Dependency review failure:** upgrade to the patched version shown in the
+  summary, or choose another package. An exception (`allow-ghsas`) needs a
+  documented reason and a follow-up issue.
+- **Secret alert or push-protection block:** never paste the value into an
+  issue or PR. Treat the secret as exposed: revoke or rotate it at the
+  provider, then remove it from the code. Bypassing push protection is only
+  for verified test values and needs a reason.
 
 ## Pilot gate: before the first real customer
 
