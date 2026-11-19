@@ -68,6 +68,9 @@ of exact hosts that redirect to the Swedish site. It defaults to
   Things outside your goal become a GitHub issue labelled `finding`.
 - Small, coherent commits on your own branch, Conventional Commits, and
   user-visible changes in `CHANGELOG.md` under `[Unreleased]` (`docs/RELEASING.md`).
+- **API parity.** Every feature declares its API resources in its module manifest
+  or the always-on core list. New modules with missing or empty declarations
+  fail the parity test. See [API platform](docs/design/API_PLATFORM.md).
 - Run `npm run lint`, `npx tsc --noEmit`, `npm test` and `npm run build`, plus
   `npm run test:concept`, integration or E2E when the change touches them.
   Report actual results and what was not run.
