@@ -13,6 +13,7 @@ import { BookingRules } from "@/concept/studio/ops/booking-rules";
 import { HoursSection } from "@/concept/studio/ops/hours-section";
 import { ResourcesSection } from "@/concept/studio/ops/resources-section";
 import { MorePage } from "@/concept/studio/more/more-page";
+import { ReminderSettings } from "@/concept/studio/more/reminder-settings";
 import { SupportAccess } from "@/concept/studio/support/support-access";
 import { parseLocale } from "@/lib/locale";
 import { StudioLanguageSetting } from "@/concept/studio/studio-language";
@@ -22,9 +23,11 @@ import { Card, Section } from "@/concept/ui/card";
 import { Sheet } from "@/concept/ui/sheet";
 import { ThemeControl } from "@/concept/ui/theme-control";
 import { showToast } from "@/concept/ui/toast";
+import { useSalonNow } from "@/concept/use-now";
 
 export default function SettingsPage() {
   const { state } = useStudio();
+  const salonNow = useSalonNow();
   const [confirming, setConfirming] = useState(false);
   const { salon, localization } = state;
   const details = [
@@ -84,6 +87,7 @@ export default function SettingsPage() {
           </Card>
         </Section>
         <BookingRules key={state.cancellationPolicy.version} state={state} />
+        <ReminderSettings key={salon.slug} state={state} today={salonNow.today} />
         <div id="hours"><HoursSection /></div>
         <ClosedDaysSection />
         <ResourcesSection />

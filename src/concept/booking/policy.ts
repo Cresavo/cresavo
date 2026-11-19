@@ -1,10 +1,16 @@
 import { DateTime } from "luxon";
+import { diffDays } from "../data/dates";
 import type { Booking, DateKey } from "../data/types";
 import { SALON_TIMEZONE } from "../tools/clock";
 import { DEFAULT_POLICY } from "./protection";
 
 export const FREE_CHANGE_HOURS = DEFAULT_POLICY.freeHours;
 export const LEAD_MINUTES = 60;
+
+export function earliestBookingStart(date: DateKey, today: DateKey, minutes: number): number {
+  return minutes + LEAD_MINUTES - diffDays(date, today) * 24 * 60;
+}
+
 export type ChangeRule = "free" | "late" | "past";
 type VisitTime = Pick<Booking, "date" | "start">;
 
@@ -16,6 +22,11 @@ export function visitTime({ date, start }: VisitTime) {
 
 export function deadline(visit: VisitTime, freeHours: number) {
   return visitTime(visit).minus({ hours: freeHours });
+}
+
+export function freeCancellationDeadline(visit: VisitTime & Pick<Booking, "protection">) {
+  const cutoff = deadline(visit, visit.protection?.terms.freeHours ?? FREE_CHANGE_HOURS);
+  return { date: cutoff.toISODate()!, time: cutoff.hour * 60 + cutoff.minute };
 }
 
 export function hoursUntil(booking: VisitTime, today: DateKey, minutes: number, instant?: number): number {

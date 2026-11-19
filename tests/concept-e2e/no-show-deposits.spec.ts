@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import { deadlineText, formatMinor } from "../../src/concept/booking/policy-summary";
+import { freeUntilText } from "../../src/concept/booking/deadline-text";
+import { formatMinor } from "../../src/concept/booking/policy-summary";
 import { feeMinor, quote } from "../../src/concept/booking/protection";
 import type { DemoState } from "../../src/concept/data/types";
 import { translate, type MessageKey } from "../../src/concept/i18n";
@@ -46,13 +47,17 @@ test("owner configures a deposit and the customer resumes checkout by simulated 
   await flow.getByLabel(label("booking.yourName"), { exact: true }).fill(guest.name);
   await flow.getByLabel(label("booking.yourPhone")).fill(guest.phone);
   await flow.getByLabel(label("booking.rememberContact")).check();
+  const amountFor = (key: MessageKey) => flow.getByText(label(key), { exact: true }).locator("xpath=../dd");
+  await expect(amountFor("booking.summary.total")).toHaveText(formatMinor(service.price * 100, currency));
+  await expect(amountFor("booking.summary.dueNow")).toHaveText(deposit);
+  await expect(amountFor("booking.summary.atSalon")).toHaveText(balance);
   await flow.getByRole("button", { name: label("protection.continue") }).click();
   await expect(flow.getByRole("heading", { name: label("protection.checkout") })).toBeVisible();
   const pending = await saved(page);
   expect(pending.bookings).toHaveLength(initial.bookings.length);
   expect(pending.checkoutHolds).toHaveLength(1);
   const [hold] = pending.checkoutHolds;
-  await expect(flow.getByText(deadlineText(hold, hold.terms.freeHours))).toBeVisible();
+  await expect(flow.getByText(freeUntilText(hold, hold.terms.freeHours, Date.parse(day + "T10:00:00+01:00")))).toBeVisible();
   await expect(flow.getByText(label("protection.simulated"))).toBeVisible();
   await page.reload();
   await flow.getByRole("radio", { name: label("protection.swish") }).check();

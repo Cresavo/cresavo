@@ -102,7 +102,7 @@ export function Reviews({ state, variant = "cards" }: { state: DemoState; varian
               <blockquote className="text-[15px] leading-relaxed">{review.text}</blockquote>
               <figcaption className="flex flex-wrap items-center gap-x-2 text-xs text-text-secondary">
                 <Stars rating={review.rating} />
-                {customer ? publicName(customer.firstName, customer.lastName) : ""} · {formatDate(review.date)} · {review.source}
+                {customer ? publicName(customer.firstName, customer.lastName) : ""} · {formatDate(review.date)} · {t(review.source === "Google" ? "reviews.source.google" : "reviews.source.bookingPage")}
               </figcaption>
             </figure>
           );

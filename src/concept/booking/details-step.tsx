@@ -3,9 +3,11 @@
 import { useState, type ReactNode } from "react";
 import { CalendarCheck } from "lucide-react";
 import type { Booking, DemoState } from "../data/types";
-import { t } from "../i18n";
-import { formatDayLong, formatDuration, formatMoney, formatTime } from "../i18n/format";
+import { t, type MessageKey } from "../i18n";
+import { formatDayLong, formatDuration, formatTime } from "../i18n/format";
 import { currentState, dispatchWithLog, withBookingLock } from "../store";
+import { newActionRequestId } from "../support/action-reference";
+import type { ActionFailureInfo } from "../ui/action-failure";
 import { StaffAvatar } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { salonClock } from "../tools/clock";
@@ -13,9 +15,8 @@ import type { Now } from "../use-now";
 import { GuestFields, RememberContact, isGuestValid } from "./guest-fields";
 import { hoursUntil, LEAD_MINUTES } from "./policy";
 import { quote, type CheckoutHold } from "./protection";
-import { PolicySummary } from "./policy-summary";
+import { BookingSummary } from "./booking-summary";
 import { findCustomerByPhone } from "./lookup";
-import { showToast } from "../ui/toast";
 import type { useGuestContact } from "./guest";
 import type { OpenSlot } from "./suggest";
 
@@ -28,7 +29,7 @@ interface DetailsStepProps {
   suggested: boolean;
   timeControl?: ReactNode;
   /** The time was taken while the customer typed: go back and choose again. */
-  onTaken: () => void;
+  onTaken: (failure: ActionFailureInfo) => void;
   onBooked: (booking: Booking) => void;
   onHeld: (hold: CheckoutHold) => void;
 }
@@ -47,11 +48,12 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
     const name = guest.name.trim();
     const phone = guest.phone.trim();
     const day = formatDayLong(slot.date);
+    const requestId = newActionRequestId();
+    let reason: MessageKey = "booking.slotTaken";
     setPending(true);
     const latest = await withBookingLock(() => {
       const clock = salonClock();
       if (hoursUntil(slot, clock.today, clock.minutes, Math.floor(Date.now() / 60_000) * 60_000) * 60 < LEAD_MINUTES) return;
-      let changed = false;
       const result = dispatchWithLog({
         type: terms.depositMinor ? "online/hold" : "online/book",
         guest: { name, phone, at: { date: clock.today, time: clock.minutes } },
@@ -63,17 +65,22 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
       }, undefined, current => {
         const offering = current.services.find(s => s.id === serviceId);
         if (!offering || current.salon.slug !== state.salon.slug) return false;
+        if (offering.duration !== service.duration || offering.price !== service.price || current.localization.currency !== terms.currency) {
+          reason = "booking.summary.changed";
+          return false;
+        }
         const fresh = quote(current.cancellationPolicy, offering, current.localization.currency, !findCustomerByPhone(current, phone));
-        changed = JSON.stringify(fresh) !== JSON.stringify(terms) || offering.duration !== service.duration;
-        return !changed;
+        if (JSON.stringify(fresh) !== JSON.stringify(terms)) {
+          reason = "protection.changed";
+          return false;
+        }
+        return true;
       });
-      if (changed) return "changed";
       if (result === false) return;
       return terms.depositMinor ? currentState()?.checkoutHolds.at(-1) : currentState()?.bookings.at(-1);
-    });
+    }).catch(() => false as const);
     setPending(false);
-    if (latest === "changed") return showToast(t("protection.changed"));
-    if (!latest) return onTaken();
+    if (!latest) return onTaken({ requestId, reason });
     if ("expiresAt" in latest) onHeld(latest);
     else onBooked(latest);
   };
@@ -89,15 +96,14 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
         </p>
         <p className="flex items-center gap-2 text-sm text-text-secondary">
           <StaffAvatar person={person} size="sm" />
-          {t("booking.withStaff", { name: person.firstName })} · {formatDuration(service.duration)} · {formatMoney(service.price)}
+          {t("booking.withStaff", { name: person.firstName })} · {formatDuration(service.duration)}
         </p>
         {timeControl}
       </div>
       <form className="space-y-3" onSubmit={event => { event.preventDefault(); void confirm(); }}>
         <GuestFields value={guest} onChange={setGuest} />
         <RememberContact checked={remember} onChange={chooseRemember} />
-        <PolicySummary terms={terms} visit={slot} />
-        {hoursUntil(slot, now.today, now.minutes, now.instant) < terms.freeHours && <p className="text-sm">{t(state.salon.phone ? "booking.tooLate" : "booking.tooLateNoPhone", { hours: terms.freeHours, phone: state.salon.phone })}</p>}
+        <BookingSummary slot={slot} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={state.modules.packages} />
         <Button type="submit" size="lg" className="w-full" disabled={pending || !isGuestValid(guest)}>
           {t(terms.depositMinor ? "protection.continue" : "booking.confirm")}
         </Button>

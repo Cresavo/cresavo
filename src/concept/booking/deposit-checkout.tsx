@@ -8,9 +8,11 @@ import { formatDayLong, formatTime } from "../i18n/format";
 import { currentState, dispatch, withBookingLock } from "../store";
 import { salonClock } from "../tools/clock";
 import { Button } from "../ui/button";
-import { showToast } from "../ui/toast";
+import { showActionFailure } from "../ui/toast";
 import { type CheckoutHold, type DemoMethod } from "./protection";
-import { formatMinor, PolicySummary } from "./policy-summary";
+import type { Now } from "../use-now";
+import { BookingSummary } from "./booking-summary";
+import { formatMinor } from "./policy-summary";
 
 /** Legacy references have no consent flag. Contact details stay on the hold. */
 export function checkoutReference(hold: CheckoutHold, remember: boolean) {
@@ -38,7 +40,8 @@ export function useCheckoutHold(state: DemoState) {
   return { ...resumeCheckout(state.checkoutHolds, reference), selectHold };
 }
 
-export function DepositCheckout({ hold, serviceName, onPaid, onRelease }: {
+export function DepositCheckout({ hold, serviceName, now, phone, packagesEnabled, onPaid, onRelease }: {
+  now: Now; phone: string; packagesEnabled: boolean;
   hold: CheckoutHold; serviceName: string; onPaid: (booking: Booking) => void; onRelease: () => void;
 }) {
   const [method, setMethod] = useState<DemoMethod>("card");
@@ -46,33 +49,34 @@ export function DepositCheckout({ hold, serviceName, onPaid, onRelease }: {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, []);
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void withBookingLock(() => dispatch({ type: "online/release", id: hold.id }));
-      showToast(t("protection.expired"));
+    const timer = window.setTimeout(async () => {
+      const released = await withBookingLock(() => dispatch({ type: "online/release", id: hold.id }))
+        .catch(() => false);
+      showActionFailure(released ? "protection.expired" : "booking.visitChanged", undefined, "booking");
     }, Math.max(0, hold.expiresAt - Date.now()));
     return () => window.clearTimeout(timer);
   }, [hold]);
   const pay = async () => {
     if (pending) return;
     setPending(true);
-    const booked = await withBookingLock(() => dispatch({ type: "online/pay", id: hold.id, method }) && currentState()?.bookings.at(-1));
+    const booked = await withBookingLock(() => dispatch({ type: "online/pay", id: hold.id, method }) && currentState()?.bookings.at(-1)).catch(() => false as const);
     setPending(false);
     if (booked) onPaid(booked);
-    else showToast(t("protection.payFailed"));
+    else showActionFailure("protection.payFailed", undefined, "booking");
   };
   const release = async () => {
     setPending(true);
-    const released = await withBookingLock(() => dispatch({ type: "online/release", id: hold.id }));
+    const released = await withBookingLock(() => dispatch({ type: "online/release", id: hold.id })).catch(() => false);
     setPending(false);
     if (released) onRelease();
-    else showToast(t("booking.visitChanged"));
+    else showActionFailure("booking.visitChanged", undefined, "booking");
   };
   const expiry = salonClock(new Date(hold.expiresAt));
   return <div className="space-y-4">
     <h2 ref={heading} tabIndex={-1} className="text-xl font-semibold">{t("protection.checkout")}</h2>
     <p>{serviceName} · {formatDayLong(hold.date)} · {formatTime(hold.start)}</p>
     <p role="status">{t("protection.holdUntil", { time: formatTime(expiry.minutes) })}</p>
-    <PolicySummary terms={hold.terms} visit={hold} />
+    <BookingSummary slot={hold} terms={hold.terms} now={now} phone={phone} packagesEnabled={packagesEnabled} />
     <fieldset className="flex gap-4"><legend>{t("protection.method")}</legend>
       {depositMethods(hold.terms.depositMinor, hold.terms.currency).map(m =>
         <label key={m} className="inline-flex min-h-11 items-center gap-2">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check, Circle, X } from "lucide-react";
+import { Check, Circle, FileSpreadsheet, X } from "lucide-react";
 import { bookingHome } from "../../booking/links";
 import { t } from "../../i18n";
 import { checklistProgress } from "../../onboarding/salon";
@@ -27,6 +27,10 @@ export function FirstSteps() {
       <Link href={href} className="flex min-h-11 items-center gap-3 rounded-sm text-sm font-medium hover:underline">
         {progress[key] ? <><Check size={18} className="text-action" /><span className="sr-only">{t("setup.done")} </span></> : <Circle size={18} className="text-text-secondary" />}
         {t(`setup.${key}`)}
-      </Link></li>)}</ul>
+      </Link></li>)}
+      <li><Link href="/studio/more/data#migration" className="flex min-h-11 items-center gap-3 rounded-sm text-sm font-medium hover:underline">
+        <FileSpreadsheet aria-hidden size={18} className="text-text-secondary" />{t("setup.migration")}
+      </Link></li>
+    </ul>
   </Card>;
 }

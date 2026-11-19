@@ -9,7 +9,7 @@ import { t } from "../../i18n";
 import { Button } from "../../ui/button";
 import { Section, Card } from "../../ui/card";
 import { Field, Select, TextInput } from "../../ui/controls";
-import { showToast } from "../../ui/toast";
+import { showActionFailure } from "../../ui/toast";
 import { dispatchWithUndoToast } from "../log/undo-toast";
 
 export function BookingRules({ state }: { state: DemoState }) {
@@ -22,7 +22,7 @@ export function BookingRules({ state }: { state: DemoState }) {
   return <Section title={t("protection.rules")}><Card className="p-4">
     <form className="space-y-4" onSubmit={e => {
       e.preventDefault();
-      if (!dispatchWithUndoToast({ type: "salon/policy", policy: draft }, t("protection.saved"))) showToast(t("protection.changed"));
+      if (!dispatchWithUndoToast({ type: "salon/policy", policy: draft }, t("protection.saved"))) showActionFailure("protection.changed");
     }}>
       <p className="text-sm text-text-secondary">{t("protection.version", { version: state.cancellationPolicy.version })}</p>
       {(["freeHours", "latePercent", "noShowPercent"] as const).map(key =>

@@ -2,10 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import { reduce } from "@/concept/actions";
 import { bookingMessage, messageWasSent } from "@/concept/booking/messages";
 import { parseBookingRequest } from "@/concept/booking/request";
+import { monthlySmsEstimate, smsPriceOre } from "@/concept/booking/reminders";
 import { recentReviews, reviewSummary } from "@/concept/booking/reviews";
 import { bookingShare } from "@/concept/booking/share";
 import { createDemoState } from "@/concept/data/generate";
 import { BRAND } from "@/concept/brand";
+import { applyAction } from "@/concept/log/capture";
 
 const today = "2026-11-17";
 const state = createDemoState(today);
@@ -41,6 +43,27 @@ describe("simulated booking messages", () => {
     const cancelled = { ...state, bookings: state.bookings.map(item => item.id === booking.id ? { ...item, status: "cancelled" as const } : item) };
     expect(reduce(cancelled, send)).toBe(cancelled);
     expect(reduce(state, { ...send, at: { date: booking.date, time: booking.start } })).toBe(state);
+  });
+});
+
+describe("monthly SMS estimate", () => {
+  it("uses this month's non-cancelled bookings, the edited price, and the selected channel", () => {
+    const sample = { bookings: [booking, { ...booking, date: "2026-11-01", status: "completed" as const },
+      { ...booking, status: "cancelled" as const }, { ...booking, date: "2026-10-31" }, { ...booking, date: "2026-12-01" }] };
+    const settings = { channel: "sms", smsPriceOre: smsPriceOre("0,65")! } as const;
+    expect(monthlySmsEstimate(sample, today, settings)).toEqual({ bookings: 2, smsPerBooking: 1, totalOre: 130 });
+    expect(monthlySmsEstimate(sample, today, { ...settings, channel: "email" })).toEqual({ bookings: 2, smsPerBooking: 0, totalOre: 0 });
+    expect(monthlySmsEstimate({ bookings: [] }, today, settings).totalOre).toBe(0);
+  });
+
+  it("validates and records per-salon changes through the activity log", () => {
+    for (const invalid of ["", "-1", "1000", "0.111", "1e2"]) expect(smsPriceOre(invalid)).toBeUndefined();
+    expect(smsPriceOre("0.45")).toBe(45);
+    const meta = { at: 0, actor: "owner", source: "button" } as const;
+    const changed = applyAction(state, { type: "reminder/settings", settings: { channel: "email" } }, meta);
+    expect(changed.reminderSettings).toEqual({ channel: "email", smsPriceOre: 45 });
+    expect(reduce(changed, { type: "reminder/settings", settings: { smsPriceOre: -1 } })).toBe(changed);
+    expect(applyAction(changed, { type: "log/undo", id: changed.log[0].id }, meta).reminderSettings).toEqual(state.reminderSettings);
   });
 });
 

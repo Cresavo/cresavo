@@ -1,7 +1,7 @@
 import { addDays } from "../data/dates";
 import { freeStarts, needOf } from "../data/slots";
 import type { DateKey, DemoState, StaffId } from "../data/types";
-import { LEAD_MINUTES } from "./policy";
+import { earliestBookingStart } from "./policy";
 
 export type Period = "morning" | "afternoon" | "evening";
 
@@ -47,7 +47,7 @@ export function openSlots(
 ): OpenSlot[] {
   const service = state.services.find((s) => s.id === serviceId);
   if (!service || date < clock.today) return [];
-  const after = date === clock.today ? clock.minutes + LEAD_MINUTES : 0;
+  const after = earliestBookingStart(date, clock.today, clock.minutes);
   const byStart = new Map<number, OpenSlot>();
   for (const id of service.staffIds.filter((s) => !opts.staffId || s === opts.staffId)) {
     for (const start of freeStarts(state, id, date, needOf(service), { after, step: STEP, ignoreId: opts.ignoreId })) {

@@ -8,6 +8,7 @@ import { ChangeRows } from "../../command/change-rows";
 import { PagePreview } from "../../command/page-preview";
 import type { Choice, Proposal } from "../../command/proposal";
 import { t } from "../../i18n";
+import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Button, ButtonLink, buttonClass } from "../../ui/button";
 import { BriefList } from "./brief-list";
 
@@ -47,7 +48,7 @@ function Decision({ status, onUndo, approve, decline, approveLabel }: { status?:
 }
 
 /** The card under an assistant reply: a proposal to approve, a choice, a number with a chart, a list, a brief or a memory. */
-export function ReplyCardView({ card, status, actions }: { card: ReplyCard; status?: Reply["status"]; actions: CardActions }) {
+export function ReplyCardView({ card, status, actions, failure }: { card: ReplyCard; status?: Reply["status"]; actions: CardActions; failure?: ActionFailureInfo }) {
   switch (card.kind) {
     case "change":
       return (
@@ -59,7 +60,7 @@ export function ReplyCardView({ card, status, actions }: { card: ReplyCard; stat
           <ChangeRows rows={card.rows} />
           {card.preview && <PagePreview preview={card.preview} />}
           {!status && <p className="text-xs text-text-secondary">{t("command.proposalNote")}</p>}
-          {status ? (
+          {failure ? <ActionFailure failure={failure} /> : status ? (
             <Outcome status={status} onUndo={actions.onUndo} />
           ) : (
             <div className="flex flex-wrap gap-2">

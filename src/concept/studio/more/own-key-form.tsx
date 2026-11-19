@@ -10,13 +10,8 @@ import { Field, Segmented, TextInput } from "../../ui/controls";
 import { fetchAiOverview, saveAiSettings } from "../../ai/api-client";
 import type { AiOverview } from "../../ai/overview";
 
-type Provider = "openrouter" | "openai" | "anthropic";
-
-const PROVIDERS: { value: Provider; label: string }[] = [
-  { value: "openrouter", label: "OpenRouter" },
-  { value: "openai", label: "OpenAI" },
-  { value: "anthropic", label: "Anthropic" },
-];
+const PROVIDERS = ["openrouter", "openai", "anthropic"] as const;
+type Provider = (typeof PROVIDERS)[number];
 
 /** Only masked metadata comes back from the encrypted server store. */
 export function OwnKeyForm() {
@@ -58,7 +53,7 @@ export function OwnKeyForm() {
           </div>
         </div>
         <p className="rounded-md bg-warning-bg px-3.5 py-2.5 text-sm text-text">{t(overview?.keyStorageAvailable ? "ai.ownKeyDemo" : "ai.keyStorageUnavailable")}</p>
-        <Segmented value={provider} options={PROVIDERS} onChange={setProvider} label={t("ai.provider")} className="w-full" />
+        <Segmented value={provider} options={PROVIDERS.map((value) => ({ value, label: t(`ai.provider.${value}`) }))} onChange={setProvider} label={t("ai.provider")} className="w-full" />
         <Field label={t("ai.apiKey")}>
           <TextInput
             type="password"

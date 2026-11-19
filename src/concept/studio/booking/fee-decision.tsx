@@ -11,7 +11,7 @@ import { dispatchWithLog, withBookingLock } from "../../store";
 import { SALON_TIMEZONE } from "../../tools/clock";
 import { Button } from "../../ui/button";
 import { Field, TextInput } from "../../ui/controls";
-import { showToast } from "../../ui/toast";
+import { showActionFailure } from "../../ui/toast";
 import { useSalonNow } from "../../use-now";
 import { visitTime } from "../../booking/policy";
 
@@ -35,9 +35,9 @@ export function FeeDecisionPanel({ state, booking }: { state: DemoState; booking
     }, undefined, latest => {
       const current = latest.bookings.find(b => b.id === booking.id);
       return currentRole() === "owner" && current?.date === booking.date && current.start === booking.start && current.staffId === booking.staffId;
-    }));
+    })).catch(() => false as const);
     setPending(false);
-    if (ok === false) showToast(t("booking.visitChanged"));
+    if (ok === false) showActionFailure("booking.visitChanged");
   };
   return <div className="space-y-3">
     <PaymentSummary state={state} booking={booking} />

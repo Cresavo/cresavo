@@ -2,8 +2,6 @@ import { majorString } from "../connections/core";
 import type { Booking, DemoState } from "../data/types";
 import { paidWithCards } from "../giftcards/cards";
 import { locale, t } from "../i18n";
-import { formatDate, formatTime } from "../i18n/format";
-import { deadline } from "./policy";
 import { paymentBalance, toMinor, type BookingTerms } from "./protection";
 
 export function formatMinor(amountMinor: number, currency: string) {
@@ -13,21 +11,14 @@ export function formatMinor(amountMinor: number, currency: string) {
   return new Intl.NumberFormat(locale, { style: "currency", currency, ...whole }).format(major);
 }
 
-export function deadlineText(visit: Pick<Booking, "date" | "start">, freeHours: number) {
-  const until = deadline(visit, freeHours);
-  if (until.toMillis() <= Date.now()) return t("protection.alreadyLate", { hours: freeHours });
-  return t("booking.freeUntil", { day: formatDate(until.toISODate()!), time: formatTime(until.hour * 60 + until.minute) });
-}
-
 export function policyText(terms: BookingTerms) {
   if (!terms.latePercent && !terms.noShowPercent) return t("protection.feeFree", { hours: terms.freeHours });
   return t("protection.terms", { hours: terms.freeHours, late: terms.latePercent, missed: terms.noShowPercent });
 }
 
-export function PolicySummary({ terms, visit }: { terms: BookingTerms; visit?: Pick<Booking, "date" | "start"> }) {
+export function PolicySummary({ terms }: { terms: BookingTerms }) {
   return <div className="space-y-1 text-sm">
     <p>{policyText(terms)}</p>
-    {visit && <p>{deadlineText(visit, terms.freeHours)}</p>}
     <p>{terms.depositMinor ? t("protection.due", {
       deposit: formatMinor(terms.depositMinor, terms.currency), balance: formatMinor(terms.priceMinor - terms.depositMinor, terms.currency),
     }) : t("protection.noDeposit")}</p>
@@ -35,7 +26,7 @@ export function PolicySummary({ terms, visit }: { terms: BookingTerms; visit?: P
   </div>;
 }
 
-export function PaymentSummary({ booking, state }: { booking: Booking; state: DemoState }) {
+export function PaymentSummary({ booking, state, active = booking.status === "booked" }: { booking: Booking; state: DemoState; active?: boolean }) {
   const protection = booking.protection;
   if (!protection) return null;
   const { currency } = protection.terms;
@@ -46,7 +37,7 @@ export function PaymentSummary({ booking, state }: { booking: Booking; state: De
   const balance = paymentBalance(protection, ended, toMinor(paidWithCards(state, booking.id), currency));
   const money = (n: number) => formatMinor(n, currency);
   if (!balance.deposit && !balance.paid && !balance.refund && !protection.decision) {
-    return <p className="border-t border-hairline pt-3 text-sm"><strong>{money(balance.remaining)}</strong> · {t("booking.payAtSalon")}</p>;
+    return <p className="border-t border-hairline pt-3 text-sm"><strong>{money(balance.remaining)}</strong>{active && <> · {t(state.modules.packages ? "booking.payAtSalonWithPackages" : "booking.payAtSalon")}</>}</p>;
   }
   return <div className="space-y-1 text-sm">
     <p>{t("protection.balance", { deposit: money(balance.deposit), paid: money(balance.paid), remaining: money(balance.remaining) })}</p>

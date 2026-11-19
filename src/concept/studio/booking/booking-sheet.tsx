@@ -7,9 +7,10 @@ import { t, tc, type MessageKey } from "../../i18n";
 import { formatDayLong, formatDuration, formatMoney, formatTime } from "../../i18n/format";
 import { packageFor, visitsLeft } from "../../packages/packages";
 import { findCustomer, findService, fullName } from "../../selectors";
+import { newActionRequestId } from "../../support/action-reference";
+import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Badge } from "../../ui/badge";
 import { dispatchWithLog, withBookingLock } from "../../store";
-import { showToast } from "../../ui/toast";
 import { Button, ButtonLink } from "../../ui/button";
 import { Chip, Switch } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
@@ -38,7 +39,11 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const slot = slotOnDate(picked, date);
   const [reason, setReason] = useState<MessageKey>(CANCEL_REASONS[0]);
   const [offer, setOffer] = useState(false);
+  const [failure, setFailure] = useState<ActionFailureInfo>();
   if (!booking) return null;
+  const go = (next: Mode) => { setFailure(undefined); setMode(next); };
+  const report = (reason: MessageKey) => setFailure({ reason, requestId: newActionRequestId() });
+  const failureNotice = failure && <ActionFailure failure={failure} />;
 
   const customer = findCustomer(state, booking.customerId);
   const service = findService(state, booking.serviceId);
@@ -61,13 +66,14 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
     const first = customer?.firstName ?? "";
     const message = pkg ? t("booking.donePackageToast", { name: first, left: tc("packages.onLeft", visitsLeft(pkg) - 1) }) : t(usesStock ? "booking.doneStockToast" : "booking.doneToast", { name: first });
     if (dispatchWithUndoToast({ type: "booking/complete", id: booking.id }, message)) onClose();
+    else report("booking.completeFailed");
   };
 
   const confirmMove = () => {
     if (!slot) return;
     const message = t("booking.movedToast", { name: customer?.firstName ?? "", when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` });
-    dispatchWithUndoToast({ type: "booking/move", id: booking.id, date: slot.date, start: slot.start }, message);
-    onClose();
+    if (dispatchWithUndoToast({ type: "booking/move", id: booking.id, date: slot.date, start: slot.start }, message)) onClose();
+    else report("booking.move.failed");
   };
 
   const confirmCancel = async () => {
@@ -82,12 +88,12 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
       const current = latest.bookings.find(b => b.id === booking.id);
       return current?.status === "booked" && salonCancellationOnly(current, Date.now()) === salonCancellation &&
         current.date === booking.date && current.start === booking.start && current.staffId === booking.staffId;
-    }));
+    })).catch(() => false as const);
     if (showUndoToast(message, result)) onClose();
-    else showToast(t("booking.visitChanged"));
+    else report("booking.visitChanged");
   };
 
-  if (mode === "giftcard") return <RedeemSheet bookingId={booking.id} onBack={() => setMode("details")} onClose={onClose} />;
+  if (mode === "giftcard") return <RedeemSheet bookingId={booking.id} onBack={() => go("details")} onClose={onClose} />;
 
   if (mode === "move") {
     return (
@@ -98,7 +104,8 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
         description={`${service?.name} · ${formatDuration(booking.duration)} · ${staff.firstName}`}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setMode("details")}>{t("common.back")}</Button>
+            {failureNotice}
+            <Button variant="ghost" onClick={() => go("details")}>{t("common.back")}</Button>
             <Button disabled={!slot} onClick={confirmMove}>{t("move.confirm")}</Button>
           </>
         }
@@ -139,7 +146,8 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
         description={`${name} · ${when}`}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setMode("details")}>{t("common.back")}</Button>
+            {failureNotice}
+            <Button variant="ghost" onClick={() => go("details")}>{t("common.back")}</Button>
             <Button variant="danger" onClick={confirmCancel}>{t("cancel.confirm")}</Button>
           </>
         }
@@ -176,6 +184,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
       description={`${service?.name} · ${formatDuration(booking.duration)}`}
       footer={
         <>
+          {failureNotice}
           {customer && (
             <ButtonLink href={`/studio/customers/${customer.id}`} variant="ghost" icon={<UserRound size={18} />}>
               {t("booking.customerCard")}
@@ -186,8 +195,8 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
           )}
           {upcoming && (
             <>
-              <Button variant="danger" icon={<CalendarX2 size={18} />} onClick={() => { setOffer(false); setMode("cancel"); }}>{t(salonCancellation ? "protection.salonCancel" : "booking.cancel")}</Button>
-              <Button icon={<CalendarClock size={18} />} onClick={() => setMode("move")}>{t("booking.move")}</Button>
+              <Button variant="danger" icon={<CalendarX2 size={18} />} onClick={() => { setOffer(false); go("cancel"); }}>{t(salonCancellation ? "protection.salonCancel" : "booking.cancel")}</Button>
+              <Button icon={<CalendarClock size={18} />} onClick={() => go("move")}>{t("booking.move")}</Button>
             </>
           )}
         </>
@@ -223,7 +232,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
         <FeeDecisionPanel state={state} booking={booking} />
         {state.modules.giftcards && booking.status === "booked" && remainingForCards(state, booking) > 0 && (
           <div className="space-y-2">
-            <Button variant="secondary" className="w-full" icon={<Gift size={18} />} onClick={() => setMode("giftcard")}>{t("giftcards.pay")}</Button>
+            <Button variant="secondary" className="w-full" icon={<Gift size={18} />} onClick={() => go("giftcard")}>{t("giftcards.pay")}</Button>
             {pkg && <p className="text-sm text-text-secondary">{t("packages.giftCardInstead")}</p>}
           </div>
         )}

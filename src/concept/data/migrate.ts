@@ -1,6 +1,7 @@
 import { returnRedemptions } from "../giftcards/cards";
 import { DEFAULT_POLICY, hasSettlement } from "../booking/protection";
 import { defaultBusinessLocalization } from "../i18n/business";
+import { DEFAULT_REMINDER_SETTINGS } from "../booking/reminders";
 import { DEFAULT_PAGE, type PageConfig } from "../page/config";
 import { DEFAULT_SECTIONS, type PageSection } from "../page/sections";
 import { getPack } from "../packs";
@@ -24,13 +25,6 @@ const V15_SECTIONS: PageSection[] = [
 ];
 
 const STEPS: Record<number, (saved: Saved) => Saved> = {
-  21: (saved) => {
-    const state = saved as unknown as DemoState;
-    const visits = [...state.bookings, ...state.trash.flatMap(entry => entry.kind === "customer" ? entry.bookings : [])];
-    const settled = new Set(visits.filter(hasSettlement).map(booking => booking.id));
-    return { ...saved, giftCards: returnRedemptions(state.giftCards, settled), version: 22 };
-  },
-  20: (saved) => ({ ...saved, cancellationPolicy: DEFAULT_POLICY, checkoutHolds: [], version: 21 }),
   // v13 added the assistant's memory and routines.
   12: (saved) => ({ ...saved, memory: [], routines: [], version: 13 }),
   // v14 added the booking page design and the own-domain connection.
@@ -60,6 +54,18 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
   18: (saved) => ({ ...saved, industry: null, version: 19 }),
   // The demo salon became English by default, with Swedish offered to visitors. Own salons keep their choice.
   19: (saved) => (saved.industry ? { ...saved, version: 20 } : { ...saved, localization: defaultBusinessLocalization(saved.pack as PackId), version: 20 }),
+  20: (saved) => ({ ...saved, reminderSettings: { ...DEFAULT_REMINDER_SETTINGS }, version: 21 }),
+  21: (saved) => {
+    const state = saved as unknown as DemoState;
+    const visits = [...state.bookings, ...state.trash.flatMap(entry => entry.kind === "customer" ? entry.bookings : [])];
+    const settled = new Set(visits.filter(hasSettlement).map(booking => booking.id));
+    return {
+      ...saved, version: 22,
+      cancellationPolicy: state.cancellationPolicy ?? DEFAULT_POLICY,
+      checkoutHolds: state.checkoutHolds ?? [],
+      giftCards: returnRedemptions(state.giftCards, settled),
+    };
+  },
 };
 
 /** The oldest saved version that can still be migrated. */
@@ -74,5 +80,7 @@ export function migrateState(saved: unknown): DemoState | null {
     if (!step) return null;
     current = step(current);
   }
+  // Deposit-branch snapshots could already be v21 or v22 before reminder settings existed.
+  if (current.version === 22 && !current.reminderSettings) current = { ...current, reminderSettings: { ...DEFAULT_REMINDER_SETTINGS } };
   return current.version === DEMO_VERSION ? (current as unknown as DemoState) : null;
 }

@@ -2,27 +2,28 @@
 
 import { WithStaff } from "./with-staff";
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CalendarCheck, Info, Repeat, Search } from "lucide-react";
+import { CalendarCheck, Info, Search } from "lucide-react";
 import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong, formatDuration, formatMoney, relativeDay, formatTime } from "../i18n/format";
 import { findCustomer, findService } from "../selectors";
 import { usePublicDemo } from "../store";
+import { newActionRequestId } from "../support/action-reference";
+import { ActionFailure, type ActionFailureInfo } from "../ui/action-failure";
 import { Badge } from "../ui/badge";
-import { Notice } from "../ui/notice";
 import { Button, ButtonLink } from "../ui/button";
 import { Card, Section } from "../ui/card";
 import { Field, TextInput } from "../ui/controls";
 import { EmptyState } from "../ui/empty-state";
 import { useSalonNow, type Now } from "../use-now";
-import { BookingActions, freeUntilText } from "./booking-actions";
-import { hasSettlement } from "./protection";
+import { BookingActions } from "./booking-actions";
+import { freeUntilText } from "./deadline-text";
 import { changeRule } from "./policy";
 import { ReviewForm } from "./review-form";
+import { RepeatBookingLink } from "./repeat-booking-link";
 import { recallGuest } from "./guest";
-import { bookingHome, bookingPage, myBookingsFor, rebookLink } from "./links";
+import { bookingHome, bookingPage, myBookingsFor } from "./links";
 import { customerBookings, findCustomerByPhone } from "./lookup";
 
 /** No login in the demo: the link carries `?ref=`, or the customer types the number they booked with. */
@@ -39,7 +40,7 @@ export function MyBookings() {
 function Lookup({ state }: { state: DemoState }) {
   const router = useRouter();
   const [phone, setPhone] = useState("");
-  const [missing, setMissing] = useState(false);
+  const [failure, setFailure] = useState<ActionFailureInfo>();
   const example = state.bookings.find((b) => b.status === "booked" && b.date > state.generatedFor);
   const examplePhone = state.customers.find((c) => c.id === example?.customerId)?.phone;
 
@@ -55,13 +56,13 @@ function Lookup({ state }: { state: DemoState }) {
           event.preventDefault();
           const found = findCustomerByPhone(state, phone);
           if (found) router.replace(myBookingsFor(state.salon.slug, found.id));
-          else setMissing(true);
+          else setFailure({ requestId: newActionRequestId(), reason: "booking.me.notFound" });
         }}
       >
         <Field label={t("booking.yourPhone")}>
-          <TextInput value={phone} onChange={(e) => { setPhone(e.target.value); setMissing(false); }} type="tel" inputMode="tel" autoComplete="tel" placeholder={t("booking.phonePlaceholder")} />
+          <TextInput value={phone} onChange={(e) => { setPhone(e.target.value); setFailure(undefined); }} type="tel" inputMode="tel" autoComplete="tel" placeholder={t("booking.phonePlaceholder")} />
         </Field>
-        {missing && <Notice tone="danger" role="alert">{t("booking.me.notFound")}</Notice>}
+        {failure && <ActionFailure failure={failure} audience="booking" />}
         <Button type="submit" size="lg" className="w-full" icon={<Search size={18} />} disabled={phone.trim().length < 5}>
           {t("booking.me.find")}
         </Button>
@@ -112,16 +113,7 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
                       <p className="font-medium">{service?.name}</p>
                       <p className="text-sm text-text-secondary">{formatDayLong(booking.date)} · {formatMoney(booking.price)}</p>
                     </div>
-                    {hasSettlement(booking) && (
-                      <ButtonLink href={bookingPage(state.salon.slug, booking.id)} variant="secondary" size="sm">
-                        {t("booking.me.details")}
-                      </ButtonLink>
-                    )}
-                    {state.services.some(s => s.id === booking.serviceId) && (
-                      <ButtonLink href={rebookLink(state.salon.slug, booking.serviceId, booking.staffId)} variant="secondary" size="sm" icon={<Repeat size={14} />}>
-                        {t("booking.me.rebook")}
-                      </ButtonLink>
-                    )}
+                    <VisitLinks state={state} booking={booking} />
                   </div>
                   <ReviewForm state={state} booking={booking} now={now} />
                 </div>
@@ -149,11 +141,21 @@ function UpcomingCard({ state, now, booking }: { state: DemoState; now: Now; boo
         </div>
         <Badge tone="accent">{relativeDay(booking.date, now.today)}</Badge>
       </div>
+      <VisitLinks state={state} booking={booking} active />
       <BookingActions state={state} now={now} booking={booking} />
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-text-secondary">
-        <span>{changeRule(booking, now.today, now.minutes, now.instant) === "free" ? freeUntilText(booking) : ""}</span>
-        <Link href={bookingPage(state.salon.slug, booking.id)} className="font-medium text-action underline-offset-2 hover:underline">{t("booking.me.details")}</Link>
-      </div>
+      {changeRule(booking, now.today, now.minutes, now.instant) === "free" && <p className="text-sm text-text-secondary">{freeUntilText(booking)}</p>}
     </Card>
+  );
+}
+
+function VisitLinks({ state, booking, active }: { state: DemoState; booking: Booking; active?: boolean }) {
+  const href = bookingPage(state.salon.slug, booking.id);
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <RepeatBookingLink state={state} booking={booking} />
+      <ButtonLink href={active ? `${href}#manage` : href} variant="secondary">
+        {t(active ? "booking.me.details" : "booking.me.pastDetails")}
+      </ButtonLink>
+    </div>
   );
 }

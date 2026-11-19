@@ -44,6 +44,8 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       return { summary: t(action.incident === "late" ? "protection.late" : "status.noshow"), after: t(action.outcome === "waive" ? "protection.waived" : "protection.charged") };
     case "salon/language":
       return { summary: t("log.bookingLanguage") };
+    case "reminder/settings":
+      return { summary: t("log.reminderSettings") };
     case "memory/add":
       return { summary: t("log.memoryAdd") };
     case "memory/edit":

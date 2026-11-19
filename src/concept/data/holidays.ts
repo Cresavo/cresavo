@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/locale";
+import { translate } from "../i18n";
 import { addDays, diffDays, toKey, weekday } from "./dates";
 import { footMassage } from "../packs/foot-massage";
 import type { Pack } from "../packs/types";
@@ -36,6 +38,33 @@ function nthWeekday(year: number, month: number, wd: number, n: number): DateKey
   return addDays(last, -offset);
 }
 
+const HOLIDAY_KEYS = [
+  "valentine-s-day", "easter", "mother-s-day", "midsummer", "father-s-day",
+  "black-friday", "first-advent", "lucia", "christmas", "new-year",
+] as const;
+type HolidayKey = (typeof HOLIDAY_KEYS)[number];
+
+function holidayText(language: Locale, key: HolidayKey) {
+  return {
+    name: translate(language, `fixture.holiday.${key}.name`),
+    idea: translate(language, `fixture.holiday.${key}.idea`),
+  };
+}
+
+function holidayKey(holiday: Holiday) {
+  return HOLIDAY_KEYS.find((key) => holiday.id === `${key}-${holiday.date.slice(0, 4)}`);
+}
+
+export function holidayCopy(holiday: Holiday, language: Locale): Holiday {
+  const key = holidayKey(holiday);
+  return key ? { ...holiday, ...holidayText(language, key) } : holiday;
+}
+
+export function holidayNames(holiday: Holiday): string[] {
+  const key = holidayKey(holiday);
+  return key ? [holiday.name, holidayText("en", key).name, holidayText("sv", key).name] : [holiday.name];
+}
+
 function holidaysForYear(year: number, featured: Pack["featured"]): Holiday[] {
   const fixed = (m: number, d: number) => toKey(new Date(year, m - 1, d, 12));
   const easter = toKey(easterSunday(year));
@@ -46,19 +75,19 @@ function holidaysForYear(year: number, featured: Pack["featured"]): Holiday[] {
   // Midsummer Eve: the Friday between 19 and 25 June.
   const midsummer = addDays(fixed(6, 19), (5 - weekday(fixed(6, 19)) + 7) % 7);
   const [f0, f1, f2, f3] = featured;
-  const list: Omit<Holiday, "id">[] = [
-    { name: "Valentine's Day", date: fixed(2, 14), idea: "Gift cards for two: something nice to give someone you love.", serviceIds: [f2, f0], leadDays: 21 },
-    { name: "Easter", date: easter, idea: "Spring refresh: book before the season starts.", serviceIds: [f1, f0], leadDays: 21 },
-    { name: "Mother's Day", date: nthWeekday(year, 4, 0, -1), idea: "A gift card to give mum a break.", serviceIds: [f0, f2], leadDays: 21 },
-    { name: "Midsummer", date: midsummer, idea: "Summer is coming: book before the holidays.", serviceIds: [f1, f0], leadDays: 28 },
-    { name: "Father's Day", date: nthWeekday(year, 10, 0, 2), idea: "A gift card for dad – 15% off gift cards.", serviceIds: [f3, f2], leadDays: 21 },
-    { name: "Black Friday", date: blackFriday, idea: "Gift cards with 20% extra value – one weekend only.", serviceIds: [f3, f1], leadDays: 10 },
-    { name: "First Advent", date: firstAdvent, idea: "Christmas gift tip: gift cards in a nice envelope, in the salon or online.", serviceIds: [f2, f0], leadDays: 14 },
-    { name: "Lucia", date: fixed(12, 13), idea: "Lucia week: a warm welcome with mulled wine in the waiting room.", serviceIds: [f0], leadDays: 10 },
-    { name: "Christmas", date: christmas, idea: "Last chance for gift cards – digital gift cards straight to the inbox.", serviceIds: [f2, f1], leadDays: 28 },
-    { name: "New Year", date: fixed(1, 1), idea: "New year, new habits: punch card – 5 for the price of 4.", serviceIds: [f3], leadDays: 14 },
+  const list: (Omit<Holiday, "id"> & { key: HolidayKey })[] = [
+    { ...holidayText("en", "valentine-s-day"), key: "valentine-s-day", date: fixed(2, 14), serviceIds: [f2, f0], leadDays: 21 },
+    { ...holidayText("en", "easter"), key: "easter", date: easter, serviceIds: [f1, f0], leadDays: 21 },
+    { ...holidayText("en", "mother-s-day"), key: "mother-s-day", date: nthWeekday(year, 4, 0, -1), serviceIds: [f0, f2], leadDays: 21 },
+    { ...holidayText("en", "midsummer"), key: "midsummer", date: midsummer, serviceIds: [f1, f0], leadDays: 28 },
+    { ...holidayText("en", "father-s-day"), key: "father-s-day", date: nthWeekday(year, 10, 0, 2), serviceIds: [f3, f2], leadDays: 21 },
+    { ...holidayText("en", "black-friday"), key: "black-friday", date: blackFriday, serviceIds: [f3, f1], leadDays: 10 },
+    { ...holidayText("en", "first-advent"), key: "first-advent", date: firstAdvent, serviceIds: [f2, f0], leadDays: 14 },
+    { ...holidayText("en", "lucia"), key: "lucia", date: fixed(12, 13), serviceIds: [f0], leadDays: 10 },
+    { ...holidayText("en", "christmas"), key: "christmas", date: christmas, serviceIds: [f2, f1], leadDays: 28 },
+    { ...holidayText("en", "new-year"), key: "new-year", date: fixed(1, 1), serviceIds: [f3], leadDays: 14 },
   ];
-  return list.map((h) => ({ ...h, id: `${h.name.toLowerCase().replace(/[^a-z]+/g, "-")}-${h.date.slice(0, 4)}` }));
+  return list.map(({ key, ...holiday }) => ({ ...holiday, id: `${key}-${holiday.date.slice(0, 4)}` }));
 }
 
 /** Holidays within the coming year, sorted. */
