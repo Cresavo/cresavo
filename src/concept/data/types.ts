@@ -1,3 +1,4 @@
+import type { BookingProtection, CancellationPolicy, CheckoutHold } from "../booking/protection";
 import type { Industry } from "../onboarding/salon";
 import type { BusinessLocalization } from "../i18n/business";
 import type { ReminderSettings } from "../booking/reminders";
@@ -144,6 +145,7 @@ export type BookingStatus = "booked" | "completed" | "cancelled" | "noshow";
 export type BookingSource = "online" | "phone" | "walk-in" | "campaign" | "assistant";
 
 export interface Booking {
+  protection?: BookingProtection;
   id: string;
   customerId: string;
   staffId: StaffId;
@@ -366,7 +368,7 @@ export interface GiftCard {
   message: string;
   soldOn: DateKey;
   /** Booking payments made with the card. A cancelled booking gives its amount back. */
-  redemptions: { bookingId: string; amount: number; date: DateKey }[];
+  redemptions: { bookingId: string; amount: number; date: DateKey; returned?: boolean }[];
 }
 
 /** A punch card: visits of one treatment paid in advance. */
@@ -386,6 +388,8 @@ export interface ServicePackage {
 export type ModuleKey = "journal" | "stock" | "campaigns" | "finance" | "reviews" | "waitlist" | "assistant" | "giftcards" | "packages" | "domain";
 
 export interface DemoState {
+  cancellationPolicy: CancellationPolicy;
+  checkoutHolds: CheckoutHold[];
   /** Null for generated example businesses. */
   industry: Industry | null;
   version: number;

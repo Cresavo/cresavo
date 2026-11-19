@@ -98,10 +98,10 @@ describe("change rule", () => {
     expect(changeRule({ ...booking, status: "cancelled" }, today, 0)).toBe("past");
   });
 
-  it.each(["2027-01-01", "2027-03-28", "2027-10-31"])("uses the same salon-local deadline and cutoff on %s", date => {
+  it.each([["2027-01-01", 14], ["2027-03-28", 13], ["2027-10-31", 15]] as const)("uses the same elapsed-hour deadline and cutoff on %s", (date, hour) => {
     const appointment = { ...booking, date, start: 14 * 60 + 15 };
     const deadline = freeCancellationDeadline(appointment);
-    expect(deadline).toEqual({ date: addDays(date, -1), time: 14 * 60 + 15 });
+    expect(deadline).toEqual({ date: addDays(date, -1), time: hour * 60 + 15 });
     expect(changeRule(appointment, deadline.date, deadline.time)).toBe("free");
     expect(changeRule(appointment, deadline.date, deadline.time + 1)).toBe("late");
   });
@@ -195,13 +195,14 @@ describe("calendar file", () => {
   });
 
   it.each([
-    ["2026-01-12", "090000Z", "100000Z"],
-    ["2026-03-29", "080000Z", "090000Z"],
-    ["2026-07-13", "080000Z", "090000Z"],
-    ["2026-10-25", "090000Z", "100000Z"],
+    [600, "2026-01-12", "090000Z", "100000Z"],
+    [600, "2026-03-29", "080000Z", "090000Z"],
+    [600, "2026-07-13", "080000Z", "090000Z"],
+    [600, "2026-10-25", "090000Z", "100000Z"],
+    [150, "2026-10-25", "003000Z", "013000Z"],
   ])(
-    "exports the same salon hour to both calendars on %s", (date, start, end) => {
-      const booking = { ...state.bookings[0], date, start: 600, duration: 60 };
+    "exports salon minute %i on %s to both calendars", (minute, date, start, end) => {
+      const booking = { ...state.bookings[0], date, start: minute, duration: 60 };
       const visit = { booking, service: state.services[0], salon: state.salon, language: "sv" as const };
       const google = new URL(googleCalendarLink(visit));
       const day = date.replaceAll("-", "");

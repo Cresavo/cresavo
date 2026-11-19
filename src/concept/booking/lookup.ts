@@ -1,4 +1,5 @@
 import type { Booking, Customer, DateKey, DemoState } from "../data/types";
+import { hasSettlement } from "./protection";
 import { changeRule } from "./policy";
 
 /** Digits only, without country code or trunk zero, so "070-174 06 50" equals "+46 70 174 06 50". */
@@ -64,15 +65,15 @@ export interface CustomerBookings {
   past: Booking[];
 }
 
-export function customerBookings(state: Pick<DemoState, "bookings">, customerId: string, today: DateKey, minutes: number): CustomerBookings {
+export function customerBookings(state: Pick<DemoState, "bookings">, customerId: string, today: DateKey, minutes: number, instant?: number): CustomerBookings {
   const own = state.bookings.filter((b) => b.customerId === customerId);
-  const isUpcoming = (b: Booking) => b.status === "booked" && changeRule(b, today, minutes) !== "past";
+  const isUpcoming = (b: Booking) => b.status === "booked" && changeRule(b, today, minutes, instant) !== "past";
   const byTime = (a: Booking, b: Booking) => a.date.localeCompare(b.date) || a.start - b.start;
   return {
     upcoming: own.filter(isUpcoming).sort(byTime),
     past: own
-      .filter((b) => !isUpcoming(b) && b.status !== "cancelled")
+      .filter((b) => !isUpcoming(b) && (b.status !== "cancelled" || hasSettlement(b)))
       .sort((a, b) => byTime(b, a))
-      .slice(0, 8),
+      .filter((booking, index) => index < 8 || hasSettlement(booking)),
   };
 }

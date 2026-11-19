@@ -8,7 +8,6 @@ import { buttonClass } from "../ui/button";
 import { StaffAvatar } from "../ui/avatar";
 import { Card, Section } from "../ui/card";
 import { cx } from "../ui/cx";
-import { FREE_CHANGE_HOURS } from "./policy";
 
 // The simple sections of the booking page: team, gallery, questions and the
 // Instagram link. The others (hero, treatments, reviews, hours, gift cards)
@@ -66,7 +65,7 @@ export function GallerySection({ variant }: { variant: string }) {
 export function FaqSection({ state, variant }: { state: DemoState; variant: string }) {
   const { salon } = state;
   const items = [
-    { q: t("booking.faq.change.q"), a: t("booking.faq.change.a", { hours: FREE_CHANGE_HOURS }) },
+    { q: t("booking.faq.change.q"), a: t("booking.faq.change.a", { hours: state.cancellationPolicy.freeHours }) },
     { q: t("booking.faq.find.q"), a: t("booking.faq.find.a", { address: `${salon.address}, ${salon.area.split(" · ")[0]}`, phone: salon.phone }) },
     { q: t("booking.faq.hours.q"), a: salon.lunch ? t("booking.faq.hours.lunch", { from: formatTime(salon.lunch.start), to: formatTime(salon.lunch.end) }) : t("booking.faq.hours.a") },
   ];

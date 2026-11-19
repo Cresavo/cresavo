@@ -10,6 +10,8 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 - The studio now has shared accessible controls, form feedback, consent dialogs and motion for both themes, with a development-only component gallery.
+- The API platform plan and architecture decisions document current REST and MCP coverage. API parity tests require every module to declare its resources and keep the published coverage table in sync.
+- Owners can configure cancellation fees and treatment deposits. Customers see the deadline and can pay a simulated deposit, and the studio records fee decisions, balances and refunds.
 - The paired salon assistant can read calendars, customers, treatments, staff and finance, and draft bookings, blocks, cancellations, treatment changes and simulated Inbox replies for owner review. OAuth consent lists permissions by area.
 - A flag-controlled demo lets visitors connect an assistant to a temporary fictional salon, review proposed booking moves live in the studio Inbox and see approved times in the paired calendar.
 - The demo shows the service total, payment split and salon-local cancellation deadline before booking. Studio settings estimate monthly reminder SMS costs and link to the simulated Sent log. Getting started links to a checklist for exporting data and importing customers. Failed booking and payment actions show a copyable reference code.
@@ -29,6 +31,8 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 - Closing a sheet with Escape, its close button or its backdrop returns focus to the opener. Settings section headers wrap on very narrow screens.
+- Deposit and refund records follow the saved booking, including after a customer is restored. Customers can reopen settled visits from My Bookings, and gift cards retain returned credit after customer deletion.
+- Deposit checkout respects Swish amount limits and remembers a guest’s contact choice across reloads. Gift-card redemptions show the exact amount due, and calendar exports and cancellation deadlines use the same salon clock.
 - The hosted pairing demo uses a dedicated database connection, and Vercel applies pending Prisma migrations through its direct connection when pairing is enabled.
 - Paired assistants need fresh consent to draft new bookings, cancellations and calendar blocks. The studio blocks cancellations once a visit has finished and uses finished visits to calculate when customers are due back.
 - The paired Inbox shows the customer’s message alongside a drafted reply and keeps proposal review working in already-open tabs. Availability proposals name the paired workspace they affect.

@@ -56,5 +56,5 @@ export function findActionFailure(own: boolean, input: string): ActionDiagnostic
 }
 
 export function isBookingOrPaymentAction(type: string) {
-  return type.startsWith("booking/") || ["online/book", "online/waitlist", "inbox/reply", "giftcard/redeem", "giftcard/sell", "package/sell", "product/sell"].includes(type);
+  return type.startsWith("booking/") || type.startsWith("online/") || ["salon/policy", "inbox/reply", "giftcard/redeem", "giftcard/sell", "package/sell", "product/sell"].includes(type);
 }

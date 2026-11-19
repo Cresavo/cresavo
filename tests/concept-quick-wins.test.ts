@@ -7,6 +7,8 @@ import { BookingSummary } from "@/concept/booking/booking-summary";
 import { Confirmation } from "@/concept/booking/confirmation";
 import { bookingMessage, type BookingMessageKind, type MessageChannel } from "@/concept/booking/messages";
 import { MessagePreviews } from "@/concept/booking/message-previews";
+import { quote } from "@/concept/booking/protection";
+import { formatMinor } from "@/concept/booking/policy-summary";
 import { TimePicker } from "@/concept/booking/time-picker";
 import { sellGiftCard } from "@/concept/giftcards/cards";
 import { t } from "@/concept/i18n";
@@ -97,23 +99,27 @@ it("uses the fixture vocabulary in the summary and in the migration labels", () 
 it("retains the list price and qualifies salon payment when prepaid visits are available", () => {
   const summary = {
     slot: { ...booking, start: 900, date: now.today },
-    price: booking.price, currency: "EUR", late: true, phone: fixture.salon.phone,
+    terms: quote(fixture.cancellationPolicy, { id: booking.serviceId, price: booking.price }, "EUR", true), now, phone: fixture.salon.phone,
   };
   const price = formatMoney(booking.price, "EUR", "en");
   const withPackages = BookingSummary({ ...summary, packagesEnabled: true });
   const withoutPackages = BookingSummary({ ...summary, packagesEnabled: false });
   const amounts = (tree: ReactNode) => elements(tree).filter(node => node.type === "dd").map(node => node.props.children);
   expect(amounts(withPackages)).toEqual([price, formatMoney(0, "EUR", "en"), price]);
+  const deposit = BookingSummary({ ...summary, terms: { ...summary.terms, depositMinor: 12345 }, packagesEnabled: true });
+  expect(amounts(deposit)).toEqual([price, formatMinor(12345, "EUR"), formatMinor(summary.terms.priceMinor - 12345, "EUR")]);
+  expect(renderToStaticMarkup(deposit)).toContain(copy("booking.summary.depositRefund"));
   expect(renderToStaticMarkup(withPackages)).toContain(copy("booking.summary.atSalonWithPackages"));
   expect(renderToStaticMarkup(withoutPackages)).toContain(`>${copy("booking.summary.atSalon")}<`);
 });
 
-it("renders the deadline and the late booking instructions as separate paragraphs", () => {
+it("shows the elapsed deadline and contact instructions for a late booking", () => {
   const paragraphs = elements(BookingSummary({
     slot: { ...booking, date: now.today, start: 900 },
-    price: booking.price, currency: "SEK", late: true, phone: fixture.salon.phone, packagesEnabled: false,
+    terms: quote(fixture.cancellationPolicy, { id: booking.serviceId, price: booking.price }, "SEK", true), now, phone: fixture.salon.phone, packagesEnabled: false,
   })).filter(node => node.type === "p").map(node => node.props.children);
-  expect(paragraphs).toContain(copy("booking.freeUntil", { day: "16 Nov 2026", time: "15:00", zone: "Europe/Stockholm" }));
+  expect(paragraphs).toContain(copy("protection.alreadyLate", { hours: 24 }));
+  expect(paragraphs).not.toContain(copy("booking.freeUntil", { day: "16 Nov 2026", time: "15:00", zone: "Europe/Stockholm" }));
   expect(paragraphs).toContain(copy("booking.summary.deadlinePassedPhone", { phone: fixture.salon.phone }));
 });
 
