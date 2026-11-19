@@ -1,0 +1,49 @@
+name: CodeQL
+# Advanced setup on purpose: the configuration is reviewed in Git, pinned and
+# matches the other workflows. Keep CodeQL default setup in the repository
+# settings turned off; GitHub rejects advanced uploads while it is on.
+# No path filters, so the PR checks always report.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 4 * * 1"
+      timezone: Europe/Stockholm
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # Upload results to the Security tab (code scanning).
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        # javascript-typescript covers the app, API, MCP and scripts; actions
+        # covers .github/workflows. Neither needs a build or any secret.
+        # The one Python file is an offline media generator and is not analysed.
+        language: [javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+      - name: Analyze
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: "/language:${{ matrix.language }}"
