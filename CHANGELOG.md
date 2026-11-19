@@ -11,6 +11,7 @@ All notable changes to this project are documented here. Format follows
 ### Added
 
 - A `StudioStore` interface defines how the studio and server read and change a salon. It covers versions, idempotency keys, effects published after commit and an append-only action log. An in-memory reference store, an adapter over the existing browser store and a shared contract suite back it. The studio behaves as before. See docs/design/STUDIO_STORE.md.
+- A staged `PostgresStudioStore` keeps each salon in a `tenant_state` row behind a row lock, with the database clock, 24-hour idempotency keys fingerprinted by HMAC, an append-only `tenant_action` log and a `tenant_effect` outbox written in the same transaction. A new migration adds the four tables; intended role grants are documented in `prisma/grants/studio-store.sql`. It passes the shared contract suite against a disposable database. Nothing in the app uses it yet.
 
 ### Changed
 

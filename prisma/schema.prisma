@@ -462,3 +462,78 @@ model PairGrantToken {
   expiresAt   DateTime
   @@index([grantId])
 }
+
+// Studio store (docs/design/STUDIO_STORE.md, step 2). Written only through
+// src/concept/store/postgres-studio-store.ts with raw SQL inside one
+// transaction per apply; the models exist so migrations and types stay in one
+// place. Intended grants: prisma/grants/studio-store.sql.
+
+enum TenantKind {
+  salon
+  demo
+  sandbox
+  @@map("tenant_kind")
+}
+
+model TenantState {
+  tenantId  String     @id @map("tenant_id")
+  kind      TenantKind @default(salon)
+  /// Increments by exactly one per committed apply.
+  version   Int        @default(0)
+  /// The salon document (DemoState in any version migrateState accepts).
+  doc       Json       @db.JsonB
+  /// Sandbox tenants only; past it, load returns null.
+  expiresAt DateTime?  @map("expires_at") @db.Timestamptz(3)
+  updatedAt DateTime   @default(now()) @map("updated_at") @db.Timestamptz(3)
+  @@map("tenant_state")
+}
+
+model TenantAction {
+  tenantId         String    @map("tenant_id")
+  seq              BigInt
+  action           Json      @db.JsonB
+  actor            String
+  source           String
+  at               DateTime  @db.Timestamptz(3)
+  /// Informational only; replay is decided by tenant_idempotency.
+  idempotencyKey   String?   @map("idempotency_key")
+  resultingVersion Int       @map("resulting_version")
+  /// Customer ids named by the action, for erasure lookups.
+  subjectIds       String[]  @default([]) @map("subject_ids")
+  redactedAt       DateTime? @map("redacted_at") @db.Timestamptz(3)
+  @@id([tenantId, seq])
+  @@index([subjectIds], type: Gin)
+  @@map("tenant_action")
+}
+
+model TenantIdempotency {
+  tenantId        String   @map("tenant_id")
+  key             String
+  /// HMAC-SHA256 of the canonical action under a server secret.
+  fingerprintHmac String   @map("fingerprint_hmac")
+  seq             BigInt
+  /// The first result (state, version, entry, effects) for an exact replay.
+  result          Json     @db.JsonB
+  expiresAt       DateTime @map("expires_at") @db.Timestamptz(3)
+  @@id([tenantId, key])
+  @@index([expiresAt])
+  @@map("tenant_idempotency")
+}
+
+model TenantEffect {
+  tenantId      String    @map("tenant_id")
+  seq           BigInt
+  n             Int
+  /// Globally unique; the provider's idempotency key.
+  id            String    @unique
+  kind          String
+  payload       Json      @db.JsonB
+  /// pending | delivered
+  status        String    @default("pending")
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  deliveredAt   DateTime? @map("delivered_at") @db.Timestamptz(3)
+  @@id([tenantId, seq, n])
+  @@index([status, nextAttemptAt])
+  @@map("tenant_effect")
+}

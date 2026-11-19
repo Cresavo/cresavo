@@ -1,11 +1,12 @@
 # Studio store
 
-Status **Step 1 of decision 1** in [ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md).
+Status **Step 2 of decision 1** in [ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md): items 1–3 of the [build order](#build-order) are staged.
 
 Studio and server code should read and change a salon through `StudioStore`
 (`src/concept/store/studio-store.ts`), not through the browser store directly.
-Step 1 defines the interface, wraps the browser store and adds a contract
-suite. There is no database yet and the studio behaves as before.
+Step 1 defined the interface, wrapped the browser store and added a contract
+suite. Step 2 stages a Postgres store behind the same contract. The app does not
+use it yet, and the studio behaves as before.
 
 ## Interface
 
@@ -80,10 +81,15 @@ interface TenantAction {
   - When the legacy booking receipt times out, the result is `conflict`
     (retry). `not-found` means the tab switched salon.
 
+- **`PostgresStudioStore`** (`src/concept/store/postgres-studio-store.ts`)
+  is staged over `tenant_state`, `tenant_action`, `tenant_idempotency` and
+  `tenant_effect`. See [Step 2: Postgres](#step-2-postgres).
+
 ## Contract suite
 
 `tests/store-contract/contract.ts` exports `runStudioStoreContract(name, makeStore)`.
-`memory.test.ts` and `browser.test.ts` run it against each implementation.
+`memory.test.ts` and `browser.test.ts` run it against each implementation, and
+`tests/integration/postgres-studio-store.test.ts` runs it against Postgres.
 `browser.test.ts` uses a stubbed `window`, as the existing store tests do. It
 covers:
 
@@ -123,36 +129,156 @@ engine's per-resource limits beyond what `isFree` checks.
 
 ## Step 2: Postgres
 
-`PostgresStudioStore` implements the same interface:
+`PostgresStudioStore` (`src/concept/store/postgres-studio-store.ts`) implements
+the same interface. It is staged only: nothing in the app constructs it yet.
+Migration `20261119120000_studio_store` adds four tables and leaves every
+existing table unchanged:
 
 ```sql
-tenant_state  (tenant_id PK, version bigint, state jsonb, updated_at)
-tenant_action (tenant_id, seq bigint, action jsonb, actor, source, at,
-               idempotency_key text NULL, resulting_version bigint,
-               effects jsonb, fingerprint text NULL,
-               PRIMARY KEY (tenant_id, seq),
-               UNIQUE (tenant_id, idempotency_key))
+tenant_state       (tenant_id PK, kind tenant_kind {salon|demo|sandbox}, version int,
+                    doc jsonb, expires_at timestamptz NULL, updated_at timestamptz)
+tenant_action      (tenant_id, seq bigint, action jsonb, actor, source, at timestamptz,
+                    idempotency_key text NULL,  -- informational, not unique
+                    resulting_version int, subject_ids text[] (GIN), redacted_at NULL,
+                    PRIMARY KEY (tenant_id, seq))
+tenant_idempotency (tenant_id, key (1..200 chars), fingerprint_hmac, seq bigint,
+                    result jsonb, expires_at timestamptz (indexed),
+                    PRIMARY KEY (tenant_id, key))
+tenant_effect      (tenant_id, seq bigint, n int, id text UNIQUE, kind, payload jsonb,
+                    status pending|delivered, attempts, next_attempt_at, delivered_at,
+                    PRIMARY KEY (tenant_id, seq, n), INDEX (status, next_attempt_at))
 ```
 
-Each `apply` runs in one transaction:
+The migration does not create roles. `prisma/grants/studio-store.sql`
+documents the intended grants for operators: the application role gets only
+`SELECT` and `INSERT` on `tenant_action`, and the later `erase_subject`
+function is the only updater.
 
-1. `SELECT … FROM tenant_state WHERE tenant_id = $1 FOR UPDATE` takes the row lock that the memory queue models.
-2. If the key exists in `tenant_action`, return the stored result as a replay, or `idempotency-mismatch`. An exact replay needs the state as of `resulting_version`. Store it with the action, or replay the log up to that point.
-3. Compare `expectedVersion` with the stored version and return `conflict` on a mismatch.
-4. Run `migrateState` and `prepareAction` with a staged ledger, and return `rejected` if the state is unchanged.
-5. `UPDATE tenant_state SET state, version = version + 1`, then `INSERT tenant_action`.
-6. `COMMIT`, then publish effects and notify, for example with `NOTIFY` or an outbox table that a worker drains.
+Each `apply` is one interactive Prisma transaction:
 
-Run `runStudioStoreContract("PostgresStudioStore", …)` against a disposable
-database in `test:integration`. The suite must pass unchanged.
+1. `SELECT … FROM tenant_state WHERE tenant_id = $1 FOR UPDATE` takes the row lock. A missing or expired tenant is `not-found`.
+2. The clock is read after the lock: `clock_timestamp()`, or the injected `now`. It is clamped so it never goes before the previous entry's `at`. `meta.at` is ignored unless `trustCallerClock` is set. The clock also judges hold expiry (`withSlotClock`) and key expiry.
+3. A key that has not expired in `tenant_idempotency` returns the stored result as a replay (state, version, entry and effects), or `idempotency-mismatch` when the HMAC-SHA256 fingerprint differs. An expired key is forgotten and the rules run again. Keys longer than 200 characters are `rejected`.
+4. A stale `expectedVersion` is `conflict`.
+5. `migrateState` and the reducer run staged exactly like `MemoryStudioStore`: `withSlotClock(at, () => withDemoChannels(stage, () => prepareAction(…)))`, with a fresh simulated ledger per apply. An unchanged state is `rejected`. A reducer that returned a Promise would throw, and a unit test guards that it never does.
+6. The store writes the document and version, appends `tenant_action` with `subject_ids`, inserts each newly staged effect into `tenant_effect` and stores the key with a 24-hour expiry. All of this happens before `COMMIT`.
 
-## Open questions for step 2
+After the commit, `apply` claims its own effect rows with `FOR UPDATE SKIP LOCKED`, delivers them to the injected sinks and marks them `delivered`. A sink error leaves the row `pending` with a backoff for the poller (item 4). Then in-process subscribers are notified.
 
-- **Messages in the browser.** The memory store stages messages through
-  `withDemoChannels`. The browser store still lets the reducer record them
-  in the shared outbox as before, so a refused browser apply can still
-  record a message. Moving it onto staged channels changes the legacy
-  `dispatch` path, which step 1 leaves alone.
+- **Effect ids.** An effect's id is `eff_` plus SHA-256 of the tenant id and the outbox record id. It is stable, unique across tenants and meant as the provider's idempotency key. Like the memory outbox, a record already published by an earlier apply is not a new effect (`ON CONFLICT (id) DO NOTHING`).
+- **Returned states.** The returned state is the document as stored (`UPDATE … RETURNING doc`), so results, loads and replays share the same `jsonb` key order.
+- **`subject_ids`.** The store fills it from the action's `customerId`, `customerIds` and, for `customer/*` actions, `id`. It also adds every customer and booking customer whose record the reducer changed.
+- **Constructor.** `{ prisma, hmacSecret (≥ 32 chars, never logged or stored), sinks: { payment, message }, now?: () => Promise<number>, trustCallerClock?: false }`.
+
+`tests/integration/postgres-studio-store.test.ts` runs
+`runStudioStoreContract("PostgresStudioStore", …)` unchanged against a
+disposable local database (`*_test`, after `prisma migrate deploy`) in
+`test:integration`. Each run seeds fresh tenant ids. The Postgres-specific
+cases cover the following:
+
+- the database clock wins over `meta.at`, `trustCallerClock` applies, and the clock is clamped
+- keys expire after 24 hours on an injected clock: a replayed booking is rejected, a replayed payment charges once, and the key can be reused
+- the fingerprint is only an HMAC
+- effects are rolled back with the transaction, then written and delivered exactly once
+- a failing sink leaves the effect pending with a backoff
+- unknown and expired tenants
+- `subject_ids` lookup through the GIN index
+- two store instances on separate connection pools wait on the same row lock for one slot, and one wins
+
+## Step 2 decisions
+
+Adopted 19 November 2026 through the owner's delegation. They replace the first step 2 sketch:
+
+- `tenant_action` gets no UNIQUE constraint on (tenant_id, idempotency_key).
+- New table `tenant_idempotency`.
+- New table `tenant_effect`.
+
+### 1. Effect sink
+- The target is `reduce(state, action, ctx { now, effects })`. Step 2 keeps the reducer signature unchanged.
+- The Postgres store stages effects with `withSlotClock(at, () => withDemoChannels(stage, () => prepareAction(...)))`.
+- A test guards that `prepareAction` is never async.
+- A separate browser PR stages messages in `dispatchWithLog`, then adds the contract case "a refused or conflicting apply records no message" for all stores.
+
+### 2. Effect publishing
+- A `tenant_effect` outbox table is written in the same transaction as the state. Columns: tenant_id, seq, n, id, kind, payload, status, attempts, next_attempt_at, delivered_at.
+- `apply` drains its own effects after commit. A `SKIP LOCKED` poller retries anything left, with backoff.
+- The effect id is the provider's idempotency key.
+- `subscribe` uses LISTEN/NOTIFY with only `{tenantId, version}`; listeners re-read.
+- Webhooks are a consumer with a cursor over `tenant_action.seq`.
+- Test: a crash between commit and drain still delivers the effect exactly once.
+
+### 3. Personal data in the log
+- The JSON document is the source of truth; the log is audit only and never rebuilds state. Erasure is in-place redaction.
+- The application role may only insert into and select from `tenant_action`. The only updater is a SECURITY DEFINER function `erase_subject(tenant, customerId)`.
+- `subject_ids text[]` with a GIN index, computed at commit.
+- `customer/delete` erases in the same transaction:
+  - redacts by a per-action field map and sets `redacted_at`
+  - redacts delivered effect payloads
+  - deletes the tenant's idempotency rows
+- Fingerprints are HMAC-SHA256 with a server secret.
+- Check that `deleteCustomer` also purges `state.log` and trash.
+- Backups are kept at most 30 days.
+- Test: after deletion, a search of every table finds the name and phone zero times.
+
+### 4. Idempotency
+- Keys are per tenant. The HTTP layer prefixes the caller: `<clientId|siteKey|studio>:<key>`.
+- One TTL of 24 hours. After expiry or erasure the key is forgotten and the rules run again.
+- Table `tenant_idempotency(tenant_id, key, fingerprint_hmac, seq, result jsonb, expires_at, PK(tenant_id, key))`.
+- An hourly sweeper deletes expired keys. Keys are at most 200 characters.
+- Test with a fake clock: after 24 hours, a replayed booking is rejected and a replayed payment charges once.
+
+### 5. Clock
+- The database clock is authoritative.
+- Read `clock_timestamp()` after the row lock, and clamp `at` so it never goes before the previous entry.
+- Ignore `meta.at` unless `trustCallerClock` is set (tests and imports only).
+- The constructor takes `now?: () => Promise<number>`.
+- A lint rule bans `Date.now()` in reducer and slot code.
+- A health check alerts if the app and database clocks drift more than 2 seconds.
+
+### 6. Demo reset and sandbox
+- An admin-only method `replaceState`. `resetDemoTenant()` runs daily under the row lock:
+  - increments the version but never resets seq
+  - logs a `system/reset` row
+  - is a no-op if the demo was already generated for today
+- Demo log rows older than 7 days are purged.
+- `tenant_state` gets `kind` (salon | demo | sandbox) and `expires_at`.
+- Sandbox tenants `sbx_<token hash>`:
+  - created on first write from the day's fixture
+  - expire after 24 hours by the database clock, then `load` returns null
+  - an hourly sweeper deletes them
+- Effects for demo and sandbox tenants go to simulated sinks only, enforced on `kind`.
+- The 20-booking cap is enforced in the API layer.
+
+### 7. Document size
+- Keep a single document. Record its size and apply duration on every commit.
+
+| Threshold | Size or count | Latency |
+|---|---|---|
+| Warn | 1 MB or 5,000 bookings | – |
+| Act | 2 MB | apply p95 > 50 ms or load p95 > 150 ms |
+| Refuse writes | 8 MB | – |
+
+- The first projection is a `booking` table written from the diff in the same transaction (a read model for phase-3 lists). When the act threshold is reached, finished and cancelled bookings older than 90 days move out of the document.
+- Customers are projected second.
+- `state.log` is capped at 100 entries and 200 KB; trash at 50 items and 30 days.
+- Load test with 10,000 bookings before the pilot.
+
+### Build order
+
+[S] means a strong model plus a second-model review.
+1. [S] Migration: the four tables plus grants.
+2. [S] `PostgresStudioStore.load` and `apply`.
+3. The contract harness against a disposable database, plus the async-reducer guard.
+4. [S] Effect outbox, poller and crash test.
+5. [S] Concurrency with real connections: 20 parallel applies, two instances, lock timeout maps to conflict.
+6. History paging and LISTEN/NOTIFY.
+7. [S] Erasure and the zero-hits test.
+8. Idempotency sweeper, expiry tests and caller prefixing.
+9. Demo reset, sandbox lifecycle and its sweeper.
+10. Size and latency metrics, the 10k load test, and the browser message-staging PR.
+
+## Open questions
+
 - **Legacy no-ops.** `dispatch` still reports success for a reducer no-op
   that returns an identical copy (for example a price change for a missing
   treatment). The stores reject it. Fixing `prepareAction` itself would
@@ -160,18 +286,8 @@ database in `test:integration`. The suite must pass unchanged.
 - **Demo regeneration in the browser.** The sample business regenerates on a
   new day inside the legacy `load`, which the adapter cannot tell apart from
   an edit. Its records survive that until the next reset.
-- **Effects outbox.** Should effects be published in-process after `COMMIT`,
-  or through a `tenant_effect` outbox table for at-least-once delivery to
-  webhooks and providers?
-- **Personal data in the log.** `tenant_action.action` contains guest names
-  and phone numbers. Customer deletion must redact or crypto-shred those rows
-  while the log stays append-only for audit.
-- **Idempotency retention.** How long are keys kept, and should a key's scope
-  include the caller (agent or client), as `demo-business.ts` scopes proposals?
-- **Clock.** `at` and hold expiry come from `meta.at` or the server clock.
-  Decide whether the database clock is authoritative.
-- **Daily regeneration.** The browser regenerates the sample business each
-  day. The demo tenant on the server needs an explicit reset, logged or not.
-- **Document size.** The state includes `log` (100 entries) and trash. Decide
-  whether to split hot collections, such as bookings, out of the JSONB
-  document before load testing.
+- **Provider key conflicts across applies.** The memory store keeps one
+  simulated ledger per tenant, so a payment or message key reused with other
+  content in a later apply is refused. The Postgres store stages each apply on
+  a fresh ledger. Its protection across applies is the unique effect id. Item 4
+  can seed the ledger's committed keys from `tenant_effect` if that matters.
