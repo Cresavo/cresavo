@@ -12,7 +12,7 @@ import { Button } from "../ui/button";
 import { salonClock } from "../tools/clock";
 import type { Now } from "../use-now";
 import { GuestFields, RememberContact, isGuestValid } from "./guest-fields";
-import { changeRule, hoursUntil, FREE_CHANGE_HOURS, LEAD_MINUTES } from "./policy";
+import { changeRule, FREE_CHANGE_HOURS } from "./policy";
 import type { useGuestContact } from "./guest";
 import { bookingPage } from "./links";
 import type { OpenSlot } from "./suggest";
@@ -47,7 +47,6 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
     setPending(true);
     const latest = await withBookingLock(() => {
       const clock = salonClock();
-      if (hoursUntil(slot, clock.today, clock.minutes) * 60 < LEAD_MINUTES) return;
       const booked = dispatch({
         type: "online/book",
         guest: { name, phone, at: { date: clock.today, time: clock.minutes } },

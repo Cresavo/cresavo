@@ -29,6 +29,12 @@ describe("booking request wrapper", () => {
     expect(parseBookingRequest("massage thursday next week afternon", state, today)).toMatchObject({ from: "2026-11-26", to: "2026-11-26", period: "afternoon" });
   });
 
+  it.each(["December 24", "24 december", "Christmas Eve", "julafton"])("keeps the specific day requested as %s", (date) => {
+    expect(parseBookingRequest(`Foot care ${date}`, state, today)).toMatchObject({
+      serviceId: "medical-foot-care", from: "2026-12-24", to: "2026-12-24", soonest: false,
+    });
+  });
+
   it("treats 'after work' as evening and 'as soon as possible' as an open window", () => {
     expect(parseBookingRequest("classic massage after work", state, today).period).toBe("evening");
     const soon = parseBookingRequest("ingrown nail as soon as possible", state, today);
@@ -124,6 +130,14 @@ describe("online booking actions", () => {
     expect(booking).toMatchObject({ source: "online", status: "booked", date, start });
     expect(next.inbox.filter(item => item.bookingId === booking.id && item.delivery).map(item => item.delivery?.channel).sort()).toEqual(["email", "sms"]);
     expect(next.inbox.find(item => item.kind === "request" && item.bookingId === booking.id)).toMatchObject({ title: "New online booking", customerId: customer.id, bookingId: booking.id, read: false });
+  });
+
+  it("refuses a still-free slot once the confirmation falls inside the lead time", () => {
+    const at = { date, time: start - 60 };
+    expect(openSlots(state, book.serviceId, date, { today: date, minutes: at.time })).toContainEqual({ date, start, staffId: "anna" });
+    expect(reduce(state, { ...book, guest: { ...guest, at } }).bookings).toHaveLength(state.bookings.length + 1);
+    expect(reduce(state, { ...book, guest: { ...guest, at: { ...at, time: at.time + 1 } } })).toBe(state);
+    expect(reduce(state, { ...book, guest: { ...guest, at: { date: addDays(date, 1), time: 0 } } })).toBe(state);
   });
 
   it("reuses a known customer by phone and refuses a taken slot", () => {

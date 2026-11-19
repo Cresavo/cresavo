@@ -2340,6 +2340,7 @@ const messages = {
   "domain.record.provider": "your domain provider (where you bought the domain)",
   "domain.record.type": "Type",
   "domain.record.name": "Name (host)",
+  "domain.record.relative": "If your provider asks for a relative name, enter only the part before the DNS zone, without a trailing dot.",
   "domain.record.value": "Value (points to)",
   "domain.record.wait": "It can take a few minutes, sometimes a few hours, before the change reaches everyone.",
   "domain.steps": "Connection steps",

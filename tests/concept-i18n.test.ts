@@ -16,6 +16,7 @@ import { salonCopy, studioSalonCopy } from "@/concept/i18n/salon-eko-copy";
 import { sv } from "@/concept/i18n/sv";
 import { interpretCommand } from "@/concept/intent";
 import { getPack } from "@/concept/packs";
+import { fullName } from "@/concept/selectors";
 
 const day = "2026-11-17";
 const base = createDemoState(day);
@@ -183,6 +184,21 @@ describe("concept languages", () => {
     expect(ask("Använd färgerna från vår logga").card).toMatchObject({ kind: "message", link: { href: "/studio/more/booking-page" } });
     expect(ask("Fyll på med huddesinfektion").card).toMatchObject({ kind: "change", action: { type: "stock/order" } });
     expect(ask("Fyll på med huddesinfektion", "staff").text).toBe(t("command.ownerOnly"));
+  });
+
+  it.each([
+    ["en", "Who should I book? Please give the client's name.", "Which session should I book?", "Which day is Anna off?"],
+    ["sv", "Vem vill du boka in? Skriv klientens namn.", "Vilken session vill du boka?", "Vilken dag är Anna ledig?"],
+  ] as const)("uses industry terms in %s clarification questions", (language, who, service, schedule) => {
+    const state = createDemoState(day, { pack: "trainer" });
+    const name = fullName(state.customers[0]);
+    setLocale(language);
+    setVocabulary(getPack(state.pack).vocabulary);
+    const ask = (text: string) => respond({ state, text, clock: { today: day, minutes: 600 }, role: "owner", context: emptyContext(), examples: [] }).reply;
+
+    expect(ask("Book tomorrow").text).toBe(who);
+    expect(ask(`Book ${name} tomorrow`).card).toMatchObject({ kind: "choose", title: service, choices: expect.arrayContaining([{ label: state.services[0].name, text: expect.any(String) }]) });
+    expect(ask("Anna is off").text).toBe(schedule);
   });
 
   it("reads a Swedish request on the booking page", () => {

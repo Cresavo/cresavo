@@ -15,6 +15,7 @@ const monthPattern = months.map(name => `${name}|${name.slice(0, 3)}`).join("|")
 
 /** "24 December", "24th of dec" or "December 24": the next such day, this year or next. */
 function calendarDate(text: string, now: DateTime): string | undefined {
+  text = text.replace(/\bchristmas eve\b/g, "december 24");
   const match = text.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${monthPattern})\\b`)) ?? text.match(new RegExp(`\\b(${monthPattern})\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b`));
   if (!match) return undefined;
   const [day, name] = /^\d/.test(match[1]) ? [match[1], match[2]] : [match[2], match[1]];

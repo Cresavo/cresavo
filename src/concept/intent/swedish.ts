@@ -5,6 +5,7 @@ const DATE_WORDS: Record<string, string> = {
   januari: "january", februari: "february", mars: "march", april: "april", maj: "may",
   juni: "june", juli: "july", augusti: "august", september: "september",
   oktober: "october", november: "november", december: "december",
+  julafton: "christmas eve",
 };
 
 const dateWords = new RegExp(`(?<![\\p{L}])(?:${Object.keys(DATE_WORDS).join("|")})(?![\\p{L}])`, "gu");

@@ -9,6 +9,7 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Releases are published automatically when a release pull request merges, with readable notes from `docs/releases/`. [Releasing](docs/RELEASING.md) explains the cadence and how to follow along.
 - The Swedish product page and privacy note live at `/sv` and `/sv/privacy`. The Swedish site links into the demo in Swedish, and the Swedish domains redirect to the main site.
 - Start a browser-local salon from Today or Settings with a seven-step setup in Swedish or English. New salons have their own bookable page, empty studio views and a first-run checklist. A short guided tour introduces the demo salon.
 - The studio and Salong Eko booking flow support Swedish and English. Owners choose a studio language per device and a business language for confirmations and customer messages. The rules assistant understands common Swedish booking and scheduling commands.
@@ -30,6 +31,12 @@ All notable changes to this project are documented here. Format follows
 - If another tab books the time you picked, the demo asks you to choose another time, even during the first booking on a device.
 - Online booking and change cutoffs follow the same salon time as calendar exports. Turning off contact prefill while a booking is confirming clears the saved details.
 - Repeat booking keeps the requested practitioner on waiting-list requests. If a past treatment is unavailable, the widget lets you choose a new one.
+- Own-domain setup shows the full DNS record name for nested booking addresses. (#4)
+- The booking wizard searches the specific date you name, including December 24 in English and Swedish. (#6)
+- Online booking enforces the minimum lead time when saving a confirmed appointment. (#7)
+- The activity log credits customers for cancelling or moving their own bookings. (#12)
+- Assistant clarification questions follow the studio language and industry terms. (#13)
+- The booking-page browser tests use the port from the configured base URL.
 
 ## [0.4.0] - 2026-11-18
 
