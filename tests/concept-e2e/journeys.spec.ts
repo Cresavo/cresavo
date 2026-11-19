@@ -221,6 +221,8 @@ test("finance charts mark the period before with an outline or dashes, not colou
 test("Today names the staff member on every booking, not just a colour (#26)", async ({ page }) => {
   const initial = createDemoState(today);
   await page.goto("/studio");
+  // Today shows the next few rows first; the whole day is one tap away.
+  await page.getByRole("button", { name: /^Show all \(\d+\)$/ }).click();
   for (const booking of initial.bookings.filter(b => b.date === today).slice(0, 6)) {
     const customer = initial.customers.find(c => c.id === booking.customerId)!;
     const staff = initial.staff.find(s => s.id === booking.staffId)!;

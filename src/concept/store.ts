@@ -15,6 +15,7 @@ import { getActiveLocale, setVocabulary } from "./i18n";
 import { salonCopy } from "./i18n/salon-eko-copy";
 import { checkNewSlug, createSalon, suggestedSlug, type SalonDraft } from "./onboarding/salon";
 import { setupOf } from "./onboarding/setup";
+import { parseLastUse, trialExpired } from "./onboarding/trial";
 import { getPack } from "./packs";
 
 // Browser-side demo store: each workspace has its own shared snapshot.
@@ -34,6 +35,8 @@ const snapshots: Record<Workspace, WorkspaceSnapshot> = { demo: {}, own: {} };
 const SELECTION_KEY = "salong-eko-workspace";
 let primary: Workspace | undefined;
 let active: Workspace = "demo";
+/** Set when an idle trial salon was removed on opening, until the owner has seen the notice. */
+let trialRemoved = false;
 
 // Older versions put the selected salon at STORAGE_KEY. Keep that snapshot in
 // place, even when quota would prevent copying it to a new key.
@@ -49,12 +52,76 @@ function initialize() {
     const selection = window.sessionStorage.getItem(SELECTION_KEY);
     if (selection === "own" || selection === "demo") active = selection;
   } catch { /* The selection still lasts for this tab. */ }
+  expireIdleTrial(Date.now(), false);
 }
 
 function storageKey(workspace: Workspace) {
   return workspace === primary ? STORAGE_KEY : `${STORAGE_KEY}-${workspace}`;
 }
 const listeners = new Set<() => void>();
+
+// The own salon's last use is kept beside its snapshot, so reading it never touches the salon itself.
+const lastUseKey = () => `${storageKey("own")}-last-used`;
+
+function removeOwnSalon(announce: boolean) {
+  try {
+    window.localStorage.removeItem(storageKey("own"));
+    window.localStorage.removeItem(lastUseKey());
+  } catch { /* Nothing more to remove. */ }
+  snapshots.own = {};
+  if (active === "own") {
+    active = "demo";
+    try { window.sessionStorage.setItem(SELECTION_KEY, "demo"); }
+    catch { /* Keep the selection in memory. */ }
+  }
+  if (announce) notify();
+}
+
+/**
+ * Removes the trial salon when it has gone unused for 24 hours and reports whether it did.
+ * A salon without a record (made before this rule) starts counting now. `now` is injectable for tests.
+ */
+export function expireIdleTrial(now = Date.now(), announce = true): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    if (!window.localStorage.getItem(storageKey("own"))) return false;
+    const lastUse = parseLastUse(window.localStorage.getItem(lastUseKey()));
+    if (!trialExpired(lastUse, now)) {
+      if (lastUse === null) window.localStorage.setItem(lastUseKey(), String(now));
+      return false;
+    }
+  } catch {
+    return false;
+  }
+  removeOwnSalon(false);
+  trialRemoved = true;
+  if (announce) notify();
+  return true;
+}
+
+/** Records that the trial salon is in use (opened or changed). The demo salon has no record. */
+export function markTrialUsed(now = Date.now()) {
+  if (typeof window === "undefined") return;
+  initialize();
+  if (active !== "own" || !snapshots.own.state) return;
+  try { window.localStorage.setItem(lastUseKey(), String(now)); }
+  catch { /* The salon then expires a day after its last recorded use. */ }
+}
+
+/** "Delete now": removes the trial salon from this browser and returns to the demo salon. */
+export function deleteTrialSalon() {
+  initialize();
+  removeOwnSalon(true);
+}
+
+export function useTrialRemoved(): boolean {
+  return useSyncExternalStore(subscribe, () => { initialize(); return trialRemoved; }, () => false);
+}
+
+export function dismissTrialRemoved() {
+  trialRemoved = false;
+  notify();
+}
 
 function today() {
   return toKey(new Date());
@@ -198,6 +265,7 @@ export function dispatchWithLog(
     const recheck = !!canApply || action.type.startsWith("online/") || action.type === "salon/policy" ||
       action.type === "booking/fee" || action.type === "booking/cancel" || action.type === "trash/restore";
     if (!setState(next, recheck, batch.publish)) continue;
+    if (workspace === "own") markTrialUsed(now);
     const logId = next.log[0]?.id;
     return logId !== current.log[0]?.id ? logId ?? null : null;
   }
@@ -266,6 +334,7 @@ function select(workspace: Workspace) {
   active = workspace;
   try { window.sessionStorage.setItem(SELECTION_KEY, workspace); }
   catch { /* Keep the selection in memory. */ }
+  markTrialUsed();
   notify();
 }
 
@@ -291,13 +360,15 @@ export function withAddressLock<T>(change: () => T): Promise<T | false> {
 
 export async function switchSalon(to: Workspace, draft?: SalonDraft) {
   initialize();
+  if (to === "own" && !draft && expireIdleTrial()) return false;
   const open = () => {
     refresh(to);
     if (snapshots[to].state && draft) return false;
     if (!snapshots[to].state) {
       if (to !== "own" || !draft) return false;
       if (!checkNewSlug(draft.slug || suggestedSlug(draft), workspaceSlug("demo")).ok) return false;
-      const next = createSalon(today(), draft);
+      const now = new Date();
+      const next = createSalon(today(), draft, { examplesAfter: now.getHours() * 60 + now.getMinutes() });
       const raw = JSON.stringify(next);
       try { window.localStorage.setItem(storageKey(to), raw); }
       catch { return false; }

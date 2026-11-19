@@ -9,14 +9,7 @@ import { Button, ButtonLink } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { useStudio } from "../use-studio";
 import { DemoTour, firstVisit } from "./tour";
-
-export function ReturnToDemo() {
-  const router = useRouter();
-  return <Button variant="ghost" onClick={async () => {
-    if (await switchSalon("demo")) router.push("/studio");
-    else showToast(t("setup.switchFailed"));
-  }}>{t("setup.demo")}</Button>;
-}
+import { TrialNotice } from "./trial-notice";
 
 export function SalonEntry({ today = false }: { today?: boolean }) {
   const { state } = useStudio();
@@ -25,7 +18,7 @@ export function SalonEntry({ today = false }: { today?: boolean }) {
   const [tour, setTour] = useState(() => today && !state.industry && firstVisit());
   const explore = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => { setTour(false); explore.current?.focus(); }, []);
-  if (state.industry) return <ReturnToDemo />;
+  if (state.industry) return <TrialNotice />;
   return <div className="mb-5">
     <Card className="space-y-3 p-4">
       <p className="font-medium">{t(savedSalon ? "setup.saved" : "setup.intro")}</p>

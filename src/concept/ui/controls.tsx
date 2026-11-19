@@ -56,6 +56,50 @@ export function Segmented<T extends string>({ value, options, onChange, label, c
 
 export { Segmented as SegmentedControl };
 
+interface ChoiceCardsProps<T extends string> {
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+  label: string;
+}
+
+/** Pick exactly one of a few choices as large tappable cards (a radio group with arrow-key movement). */
+export function ChoiceCards<T extends string>({ value, options, onChange, label }: ChoiceCardsProps<T>) {
+  const selectedIndex = Math.max(0, options.findIndex(option => option.value === value));
+  return (
+    <div role="radiogroup" aria-label={label} className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {options.map((o, index) => {
+        const checked = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            tabIndex={index === selectedIndex ? 0 : -1}
+            onClick={() => onChange(o.value)}
+            onKeyDown={(event) => {
+              const forward = event.key === "ArrowRight" || event.key === "ArrowDown";
+              const backward = event.key === "ArrowLeft" || event.key === "ArrowUp";
+              if (!forward && !backward) return;
+              event.preventDefault();
+              const next = (index + (forward ? 1 : -1) + options.length) % options.length;
+              event.currentTarget.parentElement?.querySelectorAll("button")[next]?.focus();
+              onChange(options[next].value);
+            }}
+            className={cx(
+              "ui-press flex min-h-16 items-center justify-center rounded-lg px-3 py-2 text-center text-body font-medium ring-inset",
+              checked ? "bg-action-bg text-text ring-2 ring-action" : "bg-surface text-text ring-1 ring-input-border hover:bg-surface-2",
+            )}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 interface ChipProps {
   active: boolean;
   onClick: () => void;

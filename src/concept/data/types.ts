@@ -139,6 +139,8 @@ export interface Customer {
   tags: string[];
   /** Wants offers when a slot frees up (waiting list). */
   waitlist: boolean;
+  /** A fictional sample a new salon starts with, so its day is not empty. */
+  example?: true;
 }
 
 export type BookingStatus = "booked" | "completed" | "cancelled" | "noshow";
@@ -161,6 +163,8 @@ export interface Booking {
   resourceId?: string;
   note?: string;
   cancelReason?: string;
+  /** A fictional sample a new salon starts with; never counts as the salon's own first booking. */
+  example?: true;
 }
 
 /** Demo photo shown in a journal entry. */

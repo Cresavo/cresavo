@@ -111,7 +111,7 @@ describe("migrateState", () => {
     else saved.reminderSettings = { channel: "email", smsPriceOre: 70 };
     const migrated = migrateState(saved)!;
     expect(migrated).toEqual({
-      ...saved, version: 22, checkoutHolds: [],
+      ...saved, version: DEMO_VERSION, checkoutHolds: [],
       cancellationPolicy: { version: 1, freeHours: 24, noShowPercent: 0, latePercent: 0, deposits: {}, newCustomersOnly: false, exemptServices: [] },
       reminderSettings: saved.reminderSettings ?? { channel: "sms", smsPriceOre: 45 },
     });
@@ -126,6 +126,13 @@ describe("migrateState", () => {
     expect(migrateState(saved)).toEqual({
       ...saved, version: DEMO_VERSION, reminderSettings: { channel: "sms", smsPriceOre: 45 },
     });
+  });
+
+  it("lifts a v22 salon to v23 and keeps its modules, bookings and reminder preferences", () => {
+    const own = createSalon(today, { ...salonDraft("en"), name: "Studio Vide" }, { examplesAfter: 0 });
+    const saved = { ...own, version: 22, modules: { ...own.modules, finance: true, campaigns: true } };
+    expect(migrateState(saved)).toEqual({ ...saved, version: 23 });
+    expect(migrateState(saved)!.bookings.every((booking) => booking.example)).toBe(true);
   });
 
   it("is one linear chain: every saved version from the oldest to the current reaches DEMO_VERSION", () => {

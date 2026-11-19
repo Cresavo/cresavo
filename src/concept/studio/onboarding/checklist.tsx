@@ -1,36 +1,46 @@
 import Link from "next/link";
-import { Check, Circle, FileSpreadsheet, X } from "lucide-react";
+import { Check, Circle, X } from "lucide-react";
 import { bookingHome } from "../../booking/links";
 import { t } from "../../i18n";
-import { checklistProgress } from "../../onboarding/salon";
+import { CHECKLIST_ROWS, checklistProgress, pageSeenCard, type ChecklistRow } from "../../onboarding/salon";
 import { dispatch } from "../../store";
 import { IconButton } from "../../ui/button";
-import { Card } from "../../ui/card";
 import { useStudio } from "../use-studio";
 
+const DISMISSED = "first-steps";
+
+/** Opening the booking page from the studio counts as having checked it. */
+export function recordPageSeen(slug: string) {
+  dispatch({ type: "card/dismiss", id: pageSeenCard(slug) });
+}
+
+/** Getting started as one thin, dismissible strip under the day's heading. */
 export function FirstSteps() {
   const { state } = useStudio();
-  if (state.dismissedCards.includes("first-steps")) return null;
+  if (state.dismissedCards.includes(DISMISSED)) return null;
   const progress = checklistProgress(state);
-  const rows = [
-    ["addServices", "/studio/more/services"], ["setHours", "/studio/more/settings#hours"],
-    ["share", "/studio/more/settings#share"], ["first", bookingHome(state.salon.slug) + "#book"],
-    ["connect", "/studio/more/data#connect"],
-  ] as const;
-  const done = rows.filter(([key]) => key !== "connect" && progress[key]).length;
-  return <Card className="mb-5 p-4 sm:p-5">
-    <div className="flex items-start justify-between gap-3"><div>
-      <h2 className="text-xl font-semibold tracking-tight">{t("setup.checklist")}</h2>
-      <p className="mt-1 text-sm text-text-secondary">{t("setup.progress", { done, total: 4 })}</p>
-    </div><IconButton label={t("setup.hide")} onClick={() => dispatch({ type: "card/dismiss", id: "first-steps" })}><X size={18} /></IconButton></div>
-    <ul className="mt-3 divide-y divide-hairline">{rows.map(([key, href]) => <li key={key}>
-      <Link href={href} className="flex min-h-11 items-center gap-3 rounded-sm text-sm font-medium hover:underline">
-        {progress[key] ? <><Check size={18} className="text-action" /><span className="sr-only">{t("setup.done")} </span></> : <Circle size={18} className="text-text-secondary" />}
-        {t(`setup.${key}`)}
-      </Link></li>)}
-      <li><Link href="/studio/more/data#migration" className="flex min-h-11 items-center gap-3 rounded-sm text-sm font-medium hover:underline">
-        <FileSpreadsheet aria-hidden size={18} className="text-text-secondary" />{t("setup.migration")}
-      </Link></li>
-    </ul>
-  </Card>;
+  const slug = state.salon.slug;
+  const href: Record<ChecklistRow, string> = {
+    addServices: "/studio/more/services",
+    bookingPage: bookingHome(slug),
+    share: "/studio/more/settings#share",
+    testBooking: bookingHome(slug) + "#book",
+  };
+  const done = CHECKLIST_ROWS.filter(row => progress[row]).length;
+  return <section aria-labelledby="first-steps" className="mb-5 flex items-start gap-2 rounded-md bg-surface-2 py-1 pl-4 pr-1">
+    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4">
+      <h2 id="first-steps" className="py-3 text-meta font-semibold">
+        {t("setup.checklist")} · <span className="font-normal text-text-secondary">{t("setup.progress", { done, total: CHECKLIST_ROWS.length })}</span>
+      </h2>
+      <ul className="flex flex-wrap gap-x-4">{CHECKLIST_ROWS.map(row => <li key={row}>
+        <Link href={href[row]} onClick={row === "bookingPage" ? () => recordPageSeen(slug) : undefined}
+          className="flex min-h-target items-center gap-1.5 text-meta font-medium hover:underline">
+          {progress[row] ? <><Check aria-hidden size={16} className="text-action" /><span className="sr-only">{t("setup.done")} </span></>
+            : <Circle aria-hidden size={16} className="text-text-secondary" />}
+          <span className={progress[row] ? "text-text-secondary line-through" : undefined}>{t(`setup.${row}`)}</span>
+        </Link></li>)}
+      </ul>
+    </div>
+    <IconButton label={t("setup.hide")} onClick={() => dispatch({ type: "card/dismiss", id: DISMISSED })}><X size={18} /></IconButton>
+  </section>;
 }
