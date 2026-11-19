@@ -1,6 +1,7 @@
 import { chooseDemoSalon } from "./booking-entry";
 import { chooseDay, chooseSlot } from "./date-controls";
 import { mcpEnvironment } from "../../src/mcp/environment";
+import { randomUUID } from "node:crypto";
 import { test, expect } from "./fixtures";
 import { socketClient } from "./http-client";
 import { DateTime } from "luxon";
@@ -385,17 +386,20 @@ test("booking, protected administration, and publishing an MCP draft", async ({
     await client.connect(
       new StdioClientTransport({
         command: process.execPath,
-        env: mcpEnvironment(),
+        env: mcpEnvironment({ workspace: true }),
         args: [
           "--env-file-if-exists=.env",
           "--import",
           "tsx",
           "src/mcp/server.ts",
           "--admin",
+          "--allow-workspace",
         ],
       }),
     );
     const today = DateTime.now().setZone("Europe/Stockholm").toISODate()!;
+    const clientRequestId = randomUUID();
+    synthetic.trackWorkspaceRequest(clientRequestId, "mcp");
     const draft = await client.callTool({
       name: "create_campaign_draft",
       arguments: {
@@ -404,6 +408,8 @@ test("booking, protected administration, and publishing an MCP draft", async ({
         discountPercent: 20,
         validFrom: today,
         validUntil: today,
+        confirmed: true,
+        clientRequestId,
       },
     });
     expect(draft.isError).not.toBeTruthy();

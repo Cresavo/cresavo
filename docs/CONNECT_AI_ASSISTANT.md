@@ -22,9 +22,9 @@ database for the seeded demo business. The studio's browser data is separate.
 | Server flags for `npm run mcp` | Access |
 | --- | --- |
 | No flags | Read active treatments and available times. |
-| `--admin` | Also read limited calendar and booking history, staff and schedules, inactive treatments, and suggestions for filling gaps. Also saves unpublished campaign drafts directly without a confirmation prompt. Publication is a separate manual step in the admin workspace. |
+| `--admin` | Also read limited calendar and booking history, staff and schedules, inactive treatments, and suggestions for filling gaps. |
 | `--admin --allow-bookings` | Adds creation of fictional bookings with an `@example.test` email, a stable request ID and `confirmed: true`. |
-| `--admin --allow-workspace` | Adds booking creation, moves and cancellations, treatment and staff edits, and decisions on suggestions for filling gaps. These tools require a stable request ID and `confirmed: true`. The campaign draft tool from `--admin` still saves immediately. |
+| `--admin --allow-workspace` | Adds booking creation, moves and cancellations, treatment and staff edits, campaign drafts, and decisions on suggestions for filling gaps. These tools require a stable `clientRequestId` and `confirmed: true`. Campaigns are published manually in the admin workspace. |
 | `--admin --capacity-only` | Keeps the basic reads and limits admin tools to reading suggestions for filling gaps. Adding `--allow-workspace` enables dismissing a suggestion or saving a draft from it. |
 
 `--admin` trusts whoever launched the local process. It uses no admin login.
@@ -103,7 +103,7 @@ agents is coming soon, with no release date. See [the gateway split contract](GA
    and asks you to type `ja` (Swedish for yes). Press Enter without `ja` to
    stop. Steps you already approved stay saved. The smaller
    `npm run mcp:client -- --admin --book` walkthrough prompts before one test
-   booking. The bare `--admin` client saves a campaign draft without prompting.
+   booking. The client with `--admin` alone is read-only.
    See [the client](../src/mcp/client.ts) and
    [the workspace walkthrough](../src/mcp/workspace-client.ts).
 
@@ -234,8 +234,8 @@ connection still needs an end-to-end test.
 
 - **Approval.** Review each proposed change in the local demo Inbox or answer
   each prompt in the bundled write walkthrough. Leave your assistant's MCP
-  connection in the default read-only mode. Giving it admin flags trusts it
-  with the write tools listed above.
+  connection in the default read-only mode. Adding either write opt-in flag
+  trusts the client with the corresponding write tools listed above.
 - **Data access.** The default local tools see treatments and free times.
   Admin reads add limited booking details, staff schedules and capacity
   suggestions. Booking reads omit customer names and emails. No owner MCP

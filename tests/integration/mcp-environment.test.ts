@@ -28,8 +28,9 @@ it("MCP uses the exported DATABASE_URL even when the env file points to another 
           "tsx",
           "src/mcp/server.ts",
           "--admin",
+          "--allow-workspace",
         ],
-        env: mcpEnvironment(),
+        env: mcpEnvironment({ workspace: true }),
       }),
     );
     const result = await client.callTool({
@@ -40,12 +41,17 @@ it("MCP uses the exported DATABASE_URL even when the env file points to another 
         discountPercent: 20,
         validFrom: "2030-01-01",
         validUntil: "2030-01-02",
+        confirmed: true,
+        clientRequestId: randomUUID(),
       },
     });
     expect(result.isError).not.toBeTruthy();
     expect(await db.campaign.count({ where: { title } })).toBe(1);
   } finally {
     await client.close();
+    await db.workspaceRequest.deleteMany({
+      where: { businessId: "demo", result: { path: ["title"], equals: title } },
+    });
     await db.campaign.deleteMany({ where: { title } });
     await db.$disconnect();
     await unlink(file);

@@ -7,8 +7,6 @@ import {
   getAvailability,
   listBookingsForMcp,
   bookingListSchema,
-  campaignSchema,
-  createCampaign,
   createBooking,
 } from "../lib/domain";
 import {
@@ -137,15 +135,6 @@ serveStdio(() => {
           inputSchema: bookingListSchema,
         },
         async (v) => reply(() => listBookingsForMcp(v)),
-      );
-      server.registerTool(
-        "create_campaign_draft",
-        {
-          description:
-            "Create an unpublished offer. Enter dates as YYYY-MM-DD. Publish it manually in the admin workspace.",
-          inputSchema: campaignSchema,
-        },
-        async (v) => reply(() => createCampaign(v)),
       );
     }
   }
