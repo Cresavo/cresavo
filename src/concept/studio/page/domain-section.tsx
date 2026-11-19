@@ -92,6 +92,7 @@ function Connected({ connection, live }: { connection: DomainConnection; live: b
           <p className="text-sm">{t("domain.record.help", { provider: t("domain.record.provider") })}</p>
           <CopyField label={t("domain.record.type")} value={record.type} />
           <CopyField label={t("domain.record.name")} value={record.name} />
+          <p className="text-xs text-text-secondary">{t("domain.record.relative")}</p>
           <CopyField label={t("domain.record.value")} value={record.value} />
           <p className="text-xs text-text-secondary">{t("domain.record.wait")}</p>
         </div>

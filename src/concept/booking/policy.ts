@@ -7,6 +7,10 @@ export const FREE_CHANGE_HOURS = 24;
 /** The earliest a customer can book, counted from now. */
 export const LEAD_MINUTES = 60;
 
+export function earliestBookingStart(date: DateKey, today: DateKey, minutes: number): number {
+  return minutes + LEAD_MINUTES - diffDays(date, today) * 24 * 60;
+}
+
 export type ChangeRule = "free" | "late" | "past";
 
 export function hoursUntil(booking: Pick<Booking, "date" | "start">, today: DateKey, minutes: number): number {

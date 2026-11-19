@@ -93,22 +93,22 @@ function pickStaff(text: string, source: Source): StaffId | undefined {
 
 function pickWindow(text: string, today: DateKey): { from: DateKey; to: DateKey; soonest: boolean } {
   const context = { customers: [], services: [], staff: [], bookings: [], now: `${today}T12:00:00` };
-  const named = parseDate(text, context);
-  const nextWeek = /\bnext week\b/.test(text);
-  const hasDay = /\b(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{4}-\d{2}-\d{2})\b/.test(text);
+  const nextWeek = /\bnext week\b/;
+  const named = parseDate(text.replace(nextWeek, ""), context);
   const soon = { from: today, to: addDays(today, WINDOW_DAYS), soonest: true };
   if (/\bweekend\b/.test(text)) {
     const saturday = addDays(today, (6 - weekday(today) + 7) % 7);
     return { from: saturday, to: saturday, soonest: false };
   }
-  if (nextWeek && named) {
+  if (nextWeek.test(text)) {
     const monday = addDays(startOfWeek(today), 7);
+    if (!named) return { from: monday, to: addDays(monday, 6), soonest: false };
     let date = named;
-    while (hasDay && date < monday) date = addDays(date, 7);
-    return hasDay ? { from: date, to: date, soonest: false } : { from: monday, to: addDays(monday, 6), soonest: false };
+    while (date < monday) date = addDays(date, 7);
+    return { from: date, to: date, soonest: false };
   }
-  if (/\bthis week\b/.test(text) && !hasDay) return { from: today, to: addDays(today, (7 - weekday(today)) % 7), soonest: false };
-  if (named && hasDay && named >= today) return { from: named, to: named, soonest: false };
+  if (/\bthis week\b/.test(text) && !named) return { from: today, to: addDays(today, (7 - weekday(today)) % 7), soonest: false };
+  if (named && named >= today) return { from: named, to: named, soonest: false };
   return soon;
 }
 

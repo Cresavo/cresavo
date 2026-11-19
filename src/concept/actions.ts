@@ -4,6 +4,7 @@ import { sendBookingMessage, type BookingMessageAction } from "./booking/message
 import { applyCustomerReview, type CustomerReviewAction } from "./booking/review-actions";
 import { applyAssistant, type AssistantAction } from "./assistant/actions";
 import { findCustomerByPhone, isContactPhone, isMobilePhone, normalizePhone } from "./booking/lookup";
+import { earliestBookingStart } from "./booking/policy";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
 import { textWaitlistAboutSlot } from "./booking/waitlist-offer";
 import { sendDemoCampaign } from "./connections/demo";
@@ -176,6 +177,8 @@ function ensureCustomer(state: DemoState, guest: GuestContact, since: DateKey, c
 }
 
 function bookOnline(state: DemoState, action: Extract<DemoAction, { type: "online/book" }>): DemoState {
+  const { date, start, guest: { at } } = action;
+  if (date < at.date || start < earliestBookingStart(date, at.date, at.time)) return state;
   const service = bookableServices(state).find((s) => s.id === action.serviceId);
   if (!service || !service.staffIds.includes(action.staffId) || !action.guest.name.trim() || !isMobilePhone(action.guest.phone) || !isFree(state, action.staffId, action.date, action.start, needOf(service))) return state;
   const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, action.staffId, false);

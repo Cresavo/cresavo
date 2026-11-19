@@ -30,6 +30,12 @@ All notable changes to this project are documented here. Format follows
 - If another tab books the time you picked, the demo asks you to choose another time, even during the first booking on a device.
 - Online booking and change cutoffs follow the same salon time as calendar exports. Turning off contact prefill while a booking is confirming clears the saved details.
 - Repeat booking keeps the requested practitioner on waiting-list requests. If a past treatment is unavailable, the widget lets you choose a new one.
+- Own-domain setup shows the full DNS record name for nested booking addresses. (#4)
+- The booking wizard searches the specific date you name, including December 24 in English and Swedish. (#6)
+- Online booking enforces the minimum lead time when saving a confirmed appointment. (#7)
+- The activity log credits customers for cancelling or moving their own bookings. (#12)
+- Assistant clarification questions follow the studio language and industry terms. (#13)
+- The booking-page browser tests use the port from the configured base URL.
 
 ## [0.4.0] - 2026-11-18
 

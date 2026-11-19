@@ -22,6 +22,8 @@ import { openSlots, type OpenSlot } from "./suggest";
 import { TimePicker } from "./time-picker";
 import { WaitlistSheet, type WaitlistRequest } from "./waitlist-sheet";
 
+const CUSTOMER_PAGE = { actor: "customer", source: "customer-page" } as const;
+
 /** The moment 24 hours before the visit, as shown to the customer. */
 export function freeUntilText(booking: Booking): string {
   return t("booking.freeUntil", { day: formatDayLong(addDays(booking.date, -1)), time: formatTime(booking.start) });
@@ -85,7 +87,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       id: booking.id,
       reason: t("booking.cancel.reason"),
       notice: notice("cancel", t("booking.cancel.inboxTitle"), t("booking.cancel.inboxBody", { name: fullName(customer), service: service.name, when })),
-    }, undefined, canChange));
+    }, CUSTOMER_PAGE, canChange));
     setPending(false);
     setSheet(null);
     showToast(t(result === false ? "booking.visitChanged" : "booking.cancel.done"));
@@ -101,7 +103,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       start: target.start,
       staffId: target.staffId,
       notice: notice("reschedule", t("booking.move.inboxTitle"), t("booking.move.inboxBody", { name: fullName(customer), service: service.name, from: when, to: `${formatDayLong(target.date)} ${formatTime(target.start)}` })),
-    }, undefined, latest => canChange(latest) && openSlots(latest, service.id, target.date, salonClock(), {
+    }, CUSTOMER_PAGE, latest => canChange(latest) && openSlots(latest, service.id, target.date, salonClock(), {
       ignoreId: booking.id, staffId: target.staffId,
     }).some(slot => slot.start === target.start)));
     setPending(false);
