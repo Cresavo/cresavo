@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { CalendarCheck, CheckCircle2, MapPin, XCircle } from "lucide-react";
-import { formatTime } from "../data/dates";
 import { t } from "../i18n";
-import { formatDayLong, formatDuration, formatMoney } from "../i18n/format";
+import { formatDayLong, formatDuration, formatMoney, formatTime } from "../i18n/format";
 import { usePublicDemo } from "../store";
 import { StaffAvatar } from "../ui/avatar";
 import { ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
-import { useNow } from "../use-now";
+import { useSalonNow } from "../use-now";
 import { BookingActions, freeUntilText } from "./booking-actions";
 import { changeRule } from "./policy";
 import { bookingHome, myBookingsFor, rebookLink } from "./links";
@@ -20,7 +19,7 @@ import { findService } from "../selectors";
 /** What the customer sees after booking, and the page behind the link in their confirmation. */
 export function Confirmation({ id }: { id: string }) {
   const state = usePublicDemo();
-  const now = useNow();
+  const now = useSalonNow();
   const booking = state?.bookings.find((b) => b.id === id);
   const service = state && findService(state, booking?.serviceId);
   const person = state?.staff.find((s) => s.id === booking?.staffId);
@@ -38,7 +37,7 @@ export function Confirmation({ id }: { id: string }) {
   const active = changeRule(booking, now.today, now.minutes) !== "past";
   const Icon = cancelled ? XCircle : CheckCircle2;
   return (
-    <div className="mx-auto max-w-lg space-y-5">
+    <div id="manage" className="mx-auto max-w-lg space-y-5">
       <div className="space-y-2 text-center">
         {cancelled ? (
           <span data-tone="danger" className="mx-auto flex size-16 items-center justify-center rounded-full bg-danger-bg text-text">
@@ -65,23 +64,22 @@ export function Confirmation({ id }: { id: string }) {
         </div>
         <p className="flex items-start gap-2 text-sm text-text-secondary">
           <MapPin size={16} className="mt-0.5 shrink-0" />
-          {state.salon.name}, {state.salon.address}, {state.salon.area}
+          {[state.salon.name, state.salon.address, state.salon.area].filter(Boolean).join(", ")}
         </p>
         <p className="border-t border-hairline pt-3 text-sm">
           <strong>{formatMoney(booking.price)}</strong> · {t("booking.payAtSalon")}
         </p>
       </Card>
 
-      {cancelled ? (
-        <ButtonLink href={rebookLink(state.salon.slug, booking.serviceId)} size="lg" className="w-full">{t("booking.bookNewTime")}</ButtonLink>
-      ) : (
-        active && (
-          <div className="space-y-3">
-            <BookingActions state={state} now={now} booking={booking} />
-            {changeRule(booking, now.today, now.minutes) === "free" && <p className="text-sm text-text-secondary">{freeUntilText(booking)}</p>}
-          </div>
-        )
-      )}
+      <div className="space-y-3">
+        {active && <BookingActions state={state} now={now} booking={booking} />}
+        {changeRule(booking, now.today, now.minutes) === "free" && <p className="text-sm text-text-secondary">{freeUntilText(booking)}</p>}
+        {state.services.some(s => s.id === service.id) && (
+          <ButtonLink href={rebookLink(state.salon.slug, booking.serviceId, booking.staffId)} variant="secondary" className="w-full">
+            {t("booking.me.rebook")}
+          </ButtonLink>
+        )}
+      </div>
 
       {active && !cancelled && <MessagePreviews state={state} booking={booking} now={now} />}
       <ReviewForm state={state} booking={booking} now={now} />

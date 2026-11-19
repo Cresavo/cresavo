@@ -1,13 +1,14 @@
+import { customerText } from "../i18n/customer-text";
 import type { Proposal } from "../command/proposal";
 import { pickCandidates } from "../command/proposal";
 import { buildIntentContext } from "../command/intent-context";
 import { dueBackList } from "../customers/return-visits";
-import { addDays, formatTime, inboxTimestamp } from "../data/dates";
+import { addDays, inboxTimestamp } from "../data/dates";
 import { freeGaps, freeStarts, needOf, openingFor, staffWorks } from "../data/slots";
 import type { Booking, Customer, DateKey, DemoState, Service, StaffId } from "../data/types";
 import type { Clock } from "../finance/types";
 import { t, tc } from "../i18n";
-import { agoText, formatAmount, formatDayLong, formatDuration, formatMoney, relativeDay } from "../i18n/format";
+import { agoText, formatAmount, formatDayLong, formatDuration, formatMoney, relativeDay, formatTime } from "../i18n/format";
 import { balanceOf, findGiftCard } from "../giftcards/cards";
 import { parseDate, parseTime } from "../intent/dates";
 import { matchNames, normalize } from "../intent/match";
@@ -380,7 +381,7 @@ function runningLate(input: LookupInput, text: string): Lookup | null {
   const booking = named.customer ? upcoming.find((b) => b.customerId === named.customer!.id) : upcoming[0];
   const customer = named.customer ?? (booking ? findCustomer(state, booking.customerId) : undefined);
   if (!customer || !booking) return message(t(named.customer ? "assistant.lookup.lateNoBooking" : "assistant.lookup.lateWho", { name: named.customer ? fullName(named.customer) : "" }), today);
-  const body = t("assistant.late.sms", { name: customer.firstName, salon: state.salon.name, minutes, time: formatTime(booking.start + minutes) });
+  const body = customerText(state, "assistant.late.sms", { name: customer.firstName, salon: state.salon.name, minutes, time: formatTime(booking.start + minutes, state.localization.language) });
   const card: Proposal = {
     kind: "change",
     title: t("assistant.late.title", { name: fullName(customer) }),

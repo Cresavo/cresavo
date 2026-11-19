@@ -1,32 +1,45 @@
+import { intlLocale, type Locale } from "@/lib/locale";
 import { diffDays, fromKey, weekday } from "../data/dates";
 import type { DateKey } from "../data/types";
-import { locale, t, tc, words } from "./index";
+import { getActiveLocale, locale, t, tc, words } from "./index";
+import { DEFAULT_CURRENCY } from "./business";
 
-/** "Monday 16 November" */
-export function formatDayLong(key: DateKey): string {
-  const d = fromKey(key);
-  return `${words.weekdays[d.getDay()]} ${d.getDate()} ${words.months[d.getMonth()]}`;
+let currency = DEFAULT_CURRENCY;
+
+export function setCurrency(next: string) {
+  currency = next;
 }
 
-/** "Mon 16 Nov" */
-export function formatDayShort(key: DateKey): string {
-  const d = fromKey(key);
-  return `${words.weekdaysShort[d.getDay()]} ${d.getDate()} ${words.monthsShort[d.getMonth()]}`;
+function dateText(key: DateKey, options: Intl.DateTimeFormatOptions, language = getActiveLocale()) {
+  return new Intl.DateTimeFormat(intlLocale(language), options).format(fromKey(key));
 }
 
-/** "16 Nov 2026" */
-export function formatDate(key: DateKey): string {
-  const d = fromKey(key);
-  return `${d.getDate()} ${words.monthsShort[d.getMonth()]} ${d.getFullYear()}`;
+export function formatDayLong(key: DateKey, language?: Locale): string {
+  return dateText(key, { weekday: "long", day: "numeric", month: "long" }, language);
+}
+
+export function formatDayShort(key: DateKey, language?: Locale): string {
+  return dateText(key, { weekday: "short", day: "numeric", month: "short" }, language);
+}
+
+export function formatDate(key: DateKey, language = getActiveLocale()): string {
+  // Spell out the month so abbreviated or numeric Swedish dates are unambiguous.
+  return dateText(key, { day: "numeric", month: language === "sv" ? "long" : "short", year: "numeric" }, language);
 }
 
 export function formatMonth(month: string, short = false): string {
-  const index = Number(month.slice(5, 7)) - 1;
-  return (short ? words.monthsShort : words.months)[index];
+  return dateText(`${month}-01`, { month: short ? "short" : "long" });
 }
 
 export function weekdayName(key: DateKey): string {
-  return words.weekdays[weekday(key)];
+  return dateText(key, { weekday: "long" });
+}
+
+export function formatTime(minutes: number, language = getActiveLocale()): string {
+  if (minutes === 24 * 60) return "24:00";
+  return new Intl.DateTimeFormat(intlLocale(language), {
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC",
+  }).format(minutes * 60_000);
 }
 
 /** "Today", "Tomorrow", "Yesterday", "Thursday", "Mon 30 Nov" */
@@ -56,26 +69,22 @@ export function formatDuration(minutes: number): string {
   return m ? t("time.hoursMinutes", { h, m }) : t("time.hours", { h });
 }
 
-export function formatMoney(amount: number): string {
-  return t("money", { amount: amount.toLocaleString(locale, { maximumFractionDigits: 2 }) });
+export function formatMoney(amount: number, unit = currency, language = getActiveLocale()): string {
+  return new Intl.NumberFormat(intlLocale(language), { style: "currency", currency: unit, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(amount);
 }
 
 export function formatNumber(value: number, digits = 0): string {
-  return value.toLocaleString(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return new Intl.NumberFormat(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
 }
 
-/** A stock amount to one decimal at most: 2.8, 14. */
 export function formatAmount(value: number): string {
-  return value.toLocaleString(locale, { maximumFractionDigits: 1 });
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value);
 }
 
-/** "16 Nov" */
 export function formatDayMonth(key: DateKey): string {
-  const d = fromKey(key);
-  return `${d.getDate()} ${words.monthsShort[d.getMonth()]}`;
+  return dateText(key, { day: "numeric", month: "short" });
 }
 
-/** "Today", "Tomorrow" or a short weekday such as "Thu". */
 export function dayChipLabel(key: DateKey, today: DateKey): string {
   const diff = diffDays(key, today);
   return diff === 0 || diff === 1 ? relativeDay(key, today) : words.weekdaysShort[weekday(key)];
@@ -84,5 +93,5 @@ export function dayChipLabel(key: DateKey, today: DateKey): string {
 /** Estimated cost of AI calls in US dollars; null when the provider's price is unknown. */
 export function formatUsd(amount: number | null): string {
   if (amount === null) return t("ai.costUnknown");
-  return t("usd", { amount: amount.toFixed(amount > 0 && amount < 0.01 ? 4 : 2) });
+  return t("usd", { amount: formatNumber(amount, amount > 0 && amount < 0.01 ? 4 : 2) });
 }

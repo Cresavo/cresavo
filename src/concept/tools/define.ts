@@ -60,5 +60,5 @@ export const field = {
   id: z.string().min(1).max(64).regex(/^[A-Za-z0-9-]+$/),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
   time: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM, 24-hour clock"),
-  staffId: z.enum(["anna", "erik"]),
+  staffId: z.union([z.enum(["anna", "erik"]), z.templateLiteral(["staff-", z.number().int().positive()])]),
 };

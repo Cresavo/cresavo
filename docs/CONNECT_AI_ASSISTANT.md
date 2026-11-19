@@ -89,6 +89,34 @@ sending within the workspace.
 - “Föreslå ett nytt pris på 495 kronor för en herrklippning.”
 - “Skriv ett kort svarsutkast till det senaste meddelandet. Jag granskar det i inkorgen.”
 
+### Production owner checklist
+
+1. In the Cresavo Vercel project, open **Storage → Create Database** and choose
+   **Neon** from the Marketplace. Select the **Free** plan and create a new
+   database dedicated to pairing. Connect it to this project for **Production**
+   only. Enter `PAIRING` in **Custom Prefix** to produce the environment prefix
+   `PAIRING_`. Confirm the connection adds
+   `PAIRING_DATABASE_URL` and `PAIRING_DATABASE_URL_UNPOOLED`.
+   [Neon setup in Vercel](https://neon.com/docs/guides/vercel-managed-integration#connecting-the-database-to-a-vercel-project)
+2. In **Settings → Environment Variables**, set `ASSISTANT_PAIRING=1` and
+   `PAIRING_ORIGIN=https://demo.cresavo.com` for **Production**.
+3. Add a random `CRON_SECRET` for **Production**. Generate it locally with
+   `openssl rand -hex 32`. Vercel passes it as an Authorization bearer token.
+   [Vercel Cron authentication](https://vercel.com/docs/schedules/cron-jobs/manage-cron-jobs#securing-cron-jobs)
+4. Confirm **Production** already has a stable `SESSION_SECRET` of at least 32
+   characters. Keep the public demo's read-only and trusted ingress settings.
+5. Open **Firewall → Configure → New Rule**. Set **Hostname** to equal
+   `demo.cresavo.com`, **Request Method** to equal `POST`, and **Request Path** to
+   equal `/api/pairing/session`. Select **Rate Limit → Fixed
+   Window**, key **IP**, window **60 seconds**, limit **60 requests**, and
+   response **Too Many Requests (429)**. Save the rule, then select **Review
+   Changes → Publish**. [Vercel WAF rate limiting](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting)
+6. Redeploy the production commit with the build command from `vercel.json`.
+   Check the build log for `prisma migrate deploy`, then start a temporary
+   workspace at `https://demo.cresavo.com/studio/more/data`. Check **Schedules →
+   Cron Jobs** for `/api/pairing/sweep` and confirm the first invocation returns
+   `204` in its logs.
+
 ### Operating the preview
 
 Configure the following server-side variables for the preview.
@@ -97,33 +125,28 @@ Configure the following server-side variables for the preview.
 | --- | --- |
 | `ASSISTANT_PAIRING` | Set to `1` to enable pairing. The default is off. |
 | `PAIRING_ORIGIN` | Exact canonical origin, such as `https://demo.cresavo.com`, without a trailing slash. Local testing uses `http://127.0.0.1:3740`. The pairing issuer is this origin plus `/oauth`. |
-| `PAIRING_DATABASE_URL` | Preferred PostgreSQL connection for pairing. The runtime falls back to `DATABASE_URL`. Grant the runtime role access to pairing tables only. |
+| `PAIRING_DATABASE_URL` | Pooled connection required in production and on Vercel. Local non-production runs can fall back to `DATABASE_URL`. |
+| `PAIRING_DATABASE_URL_UNPOOLED` | Direct connection to the same pairing database. Supply it to the Vercel build for migrations. |
 | `SESSION_SECRET` | Stable server-side secret of at least 32 characters, shared across instances for IP budgets. |
 | `CRON_SECRET` | Random secret shared with Vercel Cron. Vercel sends it in the Authorization bearer header. |
 | `PUBLIC_READONLY` | Set to `1` on the public demo. Keep the Vercel trusted ingress settings and build with `NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN=cresavo.com`. |
 
-Apply Prisma migrations with the migration process's `DATABASE_URL` pointing
-to the selected pairing database, then generate the client. The grant
-migration adds two pairing tables and copies existing token families. For an
-already active preview, pause pairing during the copy and provider switch.
-Code-replay revocation covers exchanges made by the new provider. Previously
-consumed codes have no stored digest linking them to a legacy grant.
+The Vercel build runs `npx prisma migrate deploy --config prisma.pairing.config.ts`
+before generating the client and building Next.js when `ASSISTANT_PAIRING=1`
+and `PAIRING_DATABASE_URL_UNPOOLED` is set. Otherwise it silently skips
+migrations. This Prisma config reads only the direct pairing URL. The shared
+migration history initializes the dedicated database without seeding it.
+The grant migration copies existing token families when run on a database
+that already has pairing data. Pause an already active preview during this
+upgrade. Code-replay revocation covers exchanges made by the new provider.
+Previously consumed codes have no stored digest linking them to a legacy grant.
 
 The production cron in `vercel.json` invokes `GET /api/pairing/sweep` daily
 at 03:15 UTC. A valid run returns 204. Check the function logs for the
 scheduled invocation. A missing or incorrect bearer returns 401 while pairing
 is enabled. Expired workspaces lose access immediately, including between
 sweeps. Self-hosters can schedule `node --import tsx scripts/cleanup-pairing.mts`
-daily with the same database and flag. [Vercel Cron authentication](https://vercel.com/docs/cron-jobs/manage-cron-jobs)
-
-In the Vercel project firewall, create a custom rate-limit rule for the
-configured demo host, method `POST`, path `/api/pairing/session`. Start
-with a fixed window of 60 requests per IP per minute and select **Too Many Requests (429)**. This
-protects workspace creation at ingress. If the plan supports a second rule, use
-`POST /oauth/register` with a higher burst threshold, initially 600 per IP per
-minute, and review firewall events against actual connector traffic. Scope
-both rules to those exact methods and paths so shared vendor egress can
-serve authenticated MCP and token traffic. [Vercel WAF rate limiting](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting)
+daily with the same database and flag.
 
 For verification, set `DATABASE_URL` to a loopback database ending in
 `_test`, apply migrations, generate the client, and set `ASSISTANT_PAIRING=1`.

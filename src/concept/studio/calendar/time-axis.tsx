@@ -1,4 +1,4 @@
-import { formatTime } from "../../data/dates";
+import { formatTime } from "../../i18n/format";
 
 /** Hour labels down the left side of a calendar grid. */
 export function TimeAxis({ from, to, pxPerMin }: { from: number; to: number; pxPerMin: number }) {

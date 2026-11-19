@@ -21,6 +21,12 @@ export default function CampaignsPage() {
   const { state, today } = useStudio();
   const planned = new Set(state.campaigns.map((c) => c.holidayId));
 
+  if (state.industry && !state.campaigns.length) {
+    return <MorePage title={t("nav.campaigns")} module="campaigns">
+      <EmptyState icon={<Megaphone size={22} />} title={t("setup.empty.campaigns")} action={<ButtonLink href="/studio/more/campaigns/new">{t("campaigns.new")}</ButtonLink>} />
+    </MorePage>;
+  }
+
   return (
     <MorePage
       title={t("nav.campaigns")}

@@ -3,10 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Moon } from "lucide-react";
 import { isAiConfigured, runAiTask } from "../../ai/api-client";
-import { dailySummaryTask } from "../../ai/tasks/daily-summary";
 import { t } from "../../i18n";
 import { taskEnabled } from "../../modules/registry";
-import { dayFacts, summaryDue } from "../../summary/day";
+import { dayFacts, daySummaryText, summaryDue } from "../../summary/day";
 import { Card, Section } from "../../ui/card";
 import { useStudio } from "../use-studio";
 
@@ -21,6 +20,7 @@ const aiSummaries = new Map<string, Summary>();
 export function EveningSummary() {
   const { state, today, minutes } = useStudio();
   const due = taskEnabled(state.modules, "daily-summary") && summaryDue(state, { today, minutes });
+  const localOnly = !!state.industry;
   const facts = useMemo(() => dayFacts(state, { today, minutes }), [state, today, minutes]);
   const key = JSON.stringify(facts);
   const [, refresh] = useState(0);
@@ -28,8 +28,8 @@ export function EveningSummary() {
   useEffect(() => {
     if (!due || aiSummaries.has(key)) return;
     let current = true;
-    isAiConfigured()
-      .then((configured) => (configured ? runAiTask<Summary>("daily-summary", facts) : null))
+    isAiConfigured(localOnly)
+      .then((configured) => (configured ? runAiTask<Summary>("daily-summary", facts, localOnly) : null))
       .then((result) => {
         if (!current || !result || result.log.source !== "ai") return;
         aiSummaries.set(key, result.output);
@@ -39,11 +39,11 @@ export function EveningSummary() {
     return () => {
       current = false;
     };
-  }, [due, key, facts]);
+  }, [due, key, facts, localOnly]);
 
   if (!due) return null;
-  const ai = aiSummaries.get(key);
-  const text = ai ?? dailySummaryTask.fallback(facts);
+  const ai = localOnly ? undefined : aiSummaries.get(key);
+  const text = ai ?? daySummaryText(facts, state.localization.currency);
   return (
     <Section title={t("summary.title")}>
       <Card className="space-y-3 p-4" data-help="evening-summary">

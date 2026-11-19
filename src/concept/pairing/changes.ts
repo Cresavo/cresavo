@@ -1,14 +1,16 @@
 import { randomUUID } from "node:crypto";
+import { intlLocale, type Locale } from "@/lib/locale";
 import type { DemoAction } from "../actions";
 import { addDays, formatTime, toMinutes } from "../data/dates";
 import type { StaffBlock } from "../data/types";
 import { canBlock, freeStarts, needOf } from "../data/slots";
-import { t } from "../i18n";
-import { finishedVisit, fullName } from "../selectors";
+import { translate, type MessageKey } from "../i18n";
+import { formatDayLong } from "../i18n/format";
+import { findService, finishedVisit, fullName } from "../selectors";
 import { salonClock } from "../tools/clock";
 import type { ChangeDraft } from "../tools/define";
 import { proposeCancel } from "../tools/write";
-import { bookingById, buildMove, type Move } from "./appointments";
+import { bookingById, buildMove, itemView, type Move } from "./appointments";
 import type { PairState } from "./fixture";
 import { requirePair } from "./http";
 import { BOOKING_MOVE_SCOPES, BOOKING_PROPOSAL_SCOPE, type ToolScope } from "./policy";
@@ -27,9 +29,20 @@ export type ProposalInput = Move |
   { kind: "price"; serviceId: string; newPrice: number } |
   { kind: "visibility"; serviceId: string; visible: boolean };
 
-const money = (sek: number) => t("pair.priceSek", { amount: sek.toFixed(2) });
-function draft(action: DemoAction, title: string, rows: ChangeDraft["rows"]): ChangeDraft {
-  return { action, title, rows, toast: t("pair.applied") };
+type ProposalText = Pick<ChangeDraft, "title" | "rows">;
+// Save review text at draft time so an intervening change cannot alter the before and after values.
+export type PairDraft = ChangeDraft & { swedish?: ProposalText };
+type Text = (key: MessageKey, vars?: Record<string, string>) => string;
+const displayTime = (date: string, start: number, language: Locale) => `${formatDayLong(date, language)} ${formatTime(start)}`;
+const money = (sek: number, language: Locale) => translate(language, "pair.priceSek", {
+  amount: language === "en" ? sek.toFixed(2) : sek.toLocaleString(intlLocale(language), {
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  }),
+});
+function draft(action: DemoAction, display: (text: Text, language: Locale) => ProposalText, english?: ProposalText): PairDraft {
+  const render = (language: Locale) => display((key, vars) => translate(language, key, vars), language);
+  const { title, rows } = english ?? render("en");
+  return { action, title, rows, toast: translate("en", "pair.applied"), swedish: render("sv") };
 }
 function upcoming(date: string, start: number) {
   const { today, minutes } = salonClock();
@@ -40,8 +53,17 @@ function cancellableBooking(state: PairState, id: string, { today, minutes }: Re
   requirePair(booking.status === "booked" && !finishedVisit(booking, today, minutes), "booking_unavailable", 409);
   return booking;
 }
-export function buildDraft(state: PairState, input: ProposalInput): ChangeDraft {
-  if (!("kind" in input)) return buildMove(state, input);
+export function buildDraft(state: PairState, input: ProposalInput): PairDraft {
+  if (!("kind" in input)) {
+    const move = buildMove(state, input);
+    const booking = bookingById(state, input.bookingId);
+    const name = fullName(customerById(state, booking.customerId));
+    return { ...move, swedish: {
+      title: translate("sv", "command.move.title", { name }),
+      rows: [{ label: translate("sv", "command.row.when"), before: displayTime(booking.date, booking.start, "sv"),
+        after: displayTime(move.action.date, move.action.start, "sv") }],
+    } };
+  }
   switch (input.kind) {
     case "book": {
       const service = serviceById(state, input.serviceId);
@@ -55,53 +77,71 @@ export function buildDraft(state: PairState, input: ProposalInput): ChangeDraft 
       const name = customer ? fullName(customer) : input.newCustomerName!;
       const guest = customer ? { customerId: customer.id } : { fictionalCustomer: { id: randomUUID(), name, since: salonClock().today } };
       return draft({ type: "booking/create", id: randomUUID(), serviceId: service.id, staffId: staff.id,
-        date: input.date, start, source: "assistant", ...guest }, t("command.book.title", { name, service: service.name }), [
-        { label: t("command.row.when"), before: t("command.free"), after: `${input.date} ${input.time}` },
-        { label: t("command.row.with"), after: staff.firstName }, { label: t("command.row.price"), after: money(service.price) },
-      ]);
+        date: input.date, start, source: "assistant", ...guest }, (text, language) => ({
+        title: text("command.book.title", { name, service: service.name }),
+        rows: [
+          { label: text("command.row.when"), before: text("command.free"), after: `${input.date} ${input.time}` },
+          { label: text("command.row.with"), after: staff.firstName },
+          { label: text("command.row.price"), after: money(service.price, language) },
+        ],
+      }));
     }
     case "cancel": {
       const clock = salonClock();
       const booking = cancellableBooking(state, input.bookingId, clock);
       const change = proposeCancel.draft({ state, clock }, { bookingId: booking.id });
-      const reason = t(`pair.reason.${input.reason}`);
-      return draft({ type: "booking/cancel", id: booking.id, reason }, change.title, [...change.rows, { label: t("pair.reason"), after: reason }]);
+      const reasonKey = `pair.reason.${input.reason}` as const;
+      const reason = translate("en", reasonKey);
+      const name = fullName(customerById(state, booking.customerId));
+      const service = findService(state, booking.serviceId)?.name ?? "";
+      return draft({ type: "booking/cancel", id: booking.id, reason }, (text, language) => ({
+        title: text("command.cancel.title", { name }),
+        rows: [
+          { label: text("command.row.booking"), before: `${displayTime(booking.date, booking.start, language)} · ${service}`, after: text("command.cancelled") },
+          { label: text("pair.reason"), after: text(reasonKey) },
+        ],
+      }), { title: change.title, rows: [...change.rows, { label: translate("en", "pair.reason"), after: reason }] });
     }
     case "block": {
       const staff = staffByRef(state, input.staffId);
       const start = toMinutes(input.from), end = toMinutes(input.to);
       upcoming(input.date, start);
       requirePair(canBlock(state, staff.id, input.date, start, end), "block_unavailable", 409);
-      const reason = t(`pair.reason.${input.reason}`);
-      return draft({ type: "staff/block", date: input.date, staffId: staff.id, start, end, reason: input.reason }, t("pair.block", { staff: staff.firstName }), [
-        { label: `${input.date} ${input.from}–${input.to}`, before: t("command.free"), after: reason },
-      ]);
+      return draft({ type: "staff/block", date: input.date, staffId: staff.id, start, end, reason: input.reason }, text => ({
+        title: text("pair.block", { staff: staff.firstName }),
+        rows: [{ label: `${input.date} ${input.from}–${input.to}`, before: text("command.free"), after: text(`pair.reason.${input.reason}`) }],
+      }));
     }
     case "reply": {
       const item = state.inbox.find(i => i.id === input.itemId);
       requirePair(item, "item_not_found", 404);
       requirePair(!item.handled, "item_handled", 409);
       requirePair(Boolean(input.template) !== Boolean(input.replyText), "choose_reply");
-      const reply = input.template ? t(`pair.template.${input.template}`) : input.replyText!;
-      return draft({ type: "inbox/reply", id: item.id, reply }, t("pair.replyTo", { title: item.title }), [
-        { label: t("pair.assistantByline"), before: t("pair.noReply"), after: reply },
-        { label: t("pair.delivery"), after: t("pair.simulated") },
-      ]);
+      const reply = input.template ? translate(state.localization.language, `pair.template.${input.template}`) : input.replyText!;
+      return draft({ type: "inbox/reply", id: item.id, reply }, (text, language) => ({
+        title: text("pair.replyTo", { title: itemView(item, false, language).untrustedCustomerText.title }),
+        rows: [
+          { label: text("pair.assistantByline"), before: text("pair.noReply"), after: reply },
+          { label: text("pair.delivery"), after: text("pair.simulated") },
+        ],
+      }));
     }
     case "price": {
       const service = serviceById(state, input.serviceId);
       const price = input.newPrice / 100;
       requirePair(price !== service.price, "unchanged", 409);
-      return draft({ type: "service/price", id: service.id, price }, t("pair.price", { service: service.name }), [
-        { label: t("pair.futurePrice"), before: money(service.price), after: money(price) },
-      ]);
+      return draft({ type: "service/price", id: service.id, price }, (text, language) => ({
+        title: text("pair.price", { service: service.name }),
+        rows: [{ label: text("pair.futurePrice"), before: money(service.price, language), after: money(price, language) }],
+      }));
     }
     case "visibility": {
       const service = serviceById(state, input.serviceId);
       requirePair(input.visible === !!service.hidden, "unchanged", 409);
-      return draft({ type: "service/visibility", id: service.id, hidden: !input.visible }, t("pair.availability", { service: service.name }), [
-        { label: t("pair.pairedCatalogue"), before: t(input.visible ? "pair.hidden" : "pair.visible"), after: t(input.visible ? "pair.visible" : "pair.hidden") },
-      ]);
+      return draft({ type: "service/visibility", id: service.id, hidden: !input.visible }, text => ({
+        title: text("pair.availability", { service: service.name }),
+        rows: [{ label: text("pair.pairedCatalogue"), before: text(input.visible ? "pair.hidden" : "pair.visible"), after: text(input.visible ? "pair.visible" : "pair.hidden") }],
+      }));
     }
   }
 }

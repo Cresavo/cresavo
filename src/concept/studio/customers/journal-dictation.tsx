@@ -50,7 +50,7 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
     speech.stop();
     setBusy(true);
     try {
-      const { output, log } = await runAiTask<Structured>("structure-journal", { transcript });
+      const { output, log } = await runAiTask<Structured>("structure-journal", { transcript }, !!state.industry);
       setFields({ treatment: output.treatment, observations: output.observations, advice: output.recommendation, nextVisit: output.nextVisit, source: log.source });
     } catch {
       showToast(t("journal.structureFailed"));

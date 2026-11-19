@@ -27,13 +27,13 @@ const COST_ACCOUNTS: Record<CostKind, { number: number; name: string }> = {
 export interface SalesDay {
   date: string;
   visits: number;
-  /** All in SEK, VAT included. */
+  /** Amounts use the salon currency. */
   gross: number;
   vat: number;
   net: number;
 }
 
-/** VAT inside a price that already includes it, in SEK. */
+/** VAT inside a price that already includes it. */
 export function vatIn(gross: number): number {
   return Math.round((gross * 100 * VAT_PERCENT) / (100 + VAT_PERCENT)) / 100;
 }
@@ -64,8 +64,9 @@ const amount = (cents: number) => (cents / 100).toFixed(2);
 const compactDate = (date: string) => date.replaceAll("-", "");
 
 export function salesCsv(state: DemoState, clock: Clock): string {
+  const unit = state.localization.currency.toLowerCase();
   return toCsv([
-    ["date", "visits", "sales_ex_vat_sek", "vat_sek", "total_sek"],
+    ["date", "visits", `sales_ex_vat_${unit}`, `vat_${unit}`, `total_${unit}`],
     ...salesPerDay(state, exportRange(clock), clock).map((d) => [d.date, d.visits, d.net.toFixed(2), d.vat.toFixed(2), d.gross.toFixed(2)]),
   ]);
 }
@@ -100,6 +101,7 @@ export function sieFile(state: DemoState, clock: Clock): string {
     "#FORMAT PC8",
     `#GEN ${compactDate(clock.today)}`,
     "#SIETYP 4",
+    `#VALUTA ${state.localization.currency}`,
     `#ORGNR ${state.salon.orgNumber}`,
     `#FNAMN "${state.salon.name}"`,
     `#RAR 0 ${compactDate(range.start)} ${compactDate(addDays(range.end, -1))}`,

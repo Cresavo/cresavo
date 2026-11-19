@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { formatTime } from "../../data/dates";
 import type { Customer, DateKey } from "../../data/types";
 import { t, tc } from "../../i18n";
-import { agoText, relativeDay } from "../../i18n/format";
+import { agoText, relativeDay, formatTime } from "../../i18n/format";
 import { fullName, type CustomerStats } from "../../selectors";
 import { Badge } from "../../ui/badge";
 

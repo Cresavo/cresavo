@@ -11,6 +11,7 @@ import { Button } from "../../ui/button";
 import { TextInput } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
 import { showToast } from "../../ui/toast";
+import { useStudio } from "../use-studio";
 import { TicketForm } from "./ticket-form";
 
 const EXAMPLES = ["help.example.book", "help.example.undo", "help.example.restore", "help.example.order", "help.example.support"] as const;
@@ -19,6 +20,7 @@ type View = { kind: "ask" } | { kind: "loading" } | { kind: "answer"; reply: Hel
 
 /** Ask a question, get the answer from the help articles, be shown where to click, or create a ticket. */
 export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { state } = useStudio();
   const [question, setQuestion] = useState("");
   const [asked, setAsked] = useState("");
   const [view, setView] = useState<View>({ kind: "ask" });
@@ -34,7 +36,7 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
     setAsked(trimmed);
     setView({ kind: "loading" });
     try {
-      const reply = await askHelp(trimmed);
+      const reply = await askHelp(trimmed, !!state.industry);
       setRequestId(reply.requestId);
       setView({ kind: "answer", reply });
     } catch {

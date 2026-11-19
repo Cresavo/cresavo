@@ -1,10 +1,10 @@
 "use client";
 
-import { addDays, formatTime } from "../../data/dates";
+import { addDays } from "../../data/dates";
 import { openingFor } from "../../data/slots";
 import type { DateKey, Staff } from "../../data/types";
 import { t, tc } from "../../i18n";
-import { formatDayLong } from "../../i18n/format";
+import { formatDayLong, formatTime } from "../../i18n/format";
 import { dayBookings, findCustomer, findService, fullName, utilisation } from "../../selectors";
 import { Card } from "../../ui/card";
 import { Meter } from "../../ui/charts";

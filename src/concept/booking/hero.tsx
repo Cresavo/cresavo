@@ -1,6 +1,6 @@
+import { formatTime } from "../i18n/format";
 import Image from "next/image";
 import { Star } from "lucide-react";
-import { formatTime } from "../data/dates";
 import { openingFor } from "../data/slots";
 import type { DemoState } from "../data/types";
 import { t, tc } from "../i18n";
@@ -44,13 +44,13 @@ export function Hero({ state, now, variant, photo }: HeroProps) {
               <span aria-hidden>·</span>
             </>
           )}
-          <a href="#find-us" className="inline-flex min-h-6 items-center underline-offset-2 hover:underline">
+          {salon.address && <a href="#find-us" className="inline-flex min-h-6 items-center underline-offset-2 hover:underline">
             {salon.address}, {salon.area.split(" · ")[1]}
-          </a>
+          </a>}
           {hours && (
             <>
               {/* On a phone the opening status is a line of its own, so no separator is left dangling. */}
-              <span aria-hidden className="hidden sm:inline">·</span>
+              {salon.address && <span aria-hidden className="hidden sm:inline">·</span>}
               <span className={cx("w-full sm:w-auto", open && "font-medium text-text")}>{open ? t("booking.openNow", { until: formatTime(hours.close) }) : t("booking.closedNow")}</span>
             </>
           )}

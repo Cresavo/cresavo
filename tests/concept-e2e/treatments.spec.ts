@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { createDemoState } from "../../src/concept/data/generate";
+import { englishDemoState } from "./fixtures";
 import type { DemoState } from "../../src/concept/data/types";
 import { salonClock } from "../../src/concept/tools/clock";
 
@@ -27,7 +27,7 @@ async function pickUpWithKeyboard(handle: Locator) {
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(initial => {
     if (!localStorage.getItem("salong-eko-demo")) localStorage.setItem("salong-eko-demo", JSON.stringify(initial));
-  }, createDemoState(today));
+  }, englishDemoState(today));
   const messages: string[] = [];
   errors.set(page, messages);
   page.on("pageerror", error => messages.push(error.message));
@@ -58,7 +58,7 @@ test("a treatment is added, appears on the booking page, is hidden and then dele
   await sheet.getByRole("button", { name: "Anna" }).click();
   await sheet.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Hot stone massage added")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Edit Hot stone massage" })).toHaveAccessibleDescription(/SEK 990/);
+  await expect(page.getByRole("button", { name: "Edit Hot stone massage" })).toHaveAccessibleDescription(/SEK\s+990/);
   const added = (await state(page)).services.at(-1)!;
   expect(added).toMatchObject({ name: "Hot stone massage", category: "massage", duration: 75, price: 990, staffIds: ["erik"] });
   expect((await state(page)).log[0].summary).toBe("Added the treatment Hot stone massage");

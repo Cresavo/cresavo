@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { CalendarPlus, Hand, Mail, MessageSquare, Phone, ShoppingBag, UserX } from "lucide-react";
 import { diffDays } from "@/concept/data/dates";
+import { customerText } from "@/concept/i18n/customer-text";
 import { t, tc } from "@/concept/i18n";
 import { agoText, formatDate, formatMoney } from "@/concept/i18n/format";
 import { nextVisitFor } from "@/concept/customers/return-visits";
@@ -68,7 +69,7 @@ export default function CustomerPage() {
   const sayHello = () => {
     dispatchWithUndoToast({
       type: "inbox/add",
-      item: { kind: "system", customerId: customer.id, date: today, time: minutes, title: t("customer.helloTitle", { name: customer.firstName }), body: t("customer.helloBody"), read: false, handled: true },
+      item: { kind: "system", customerId: customer.id, date: today, time: minutes, title: t("customer.helloTitle", { name: customer.firstName }), body: customerText(state, "customer.helloBody"), read: false, handled: true },
     }, t("customer.helloToast", { name: customer.firstName }));
   };
 

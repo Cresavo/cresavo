@@ -1,6 +1,7 @@
 import { addDays, diffDays, fromKey, toKey } from "../data/dates";
 import type { DateKey, DemoState, Holiday } from "../data/types";
-import { t, words } from "../i18n";
+import { t } from "../i18n";
+import { months } from "../intent/dates";
 import { normalize } from "../intent/match";
 
 /** What the campaign studio starts with. Everything can be changed in the first step. */
@@ -39,7 +40,7 @@ function monthRange(monthIndex: number, today: DateKey): { from: DateKey; to: Da
 }
 
 function periodIn(text: string, today: DateKey): { from: DateKey; to: DateKey } {
-  const month = words.months.findIndex((name) => new RegExp(`\\b${name.toLowerCase()}\\b`).test(text));
+  const month = months.findIndex((name) => new RegExp(`\\b${name.toLowerCase()}\\b`).test(text));
   if (month >= 0) return monthRange(month, today);
   if (/\bthis month\b/.test(text)) return monthRange(fromKey(today).getMonth(), today);
   if (/\bthis week\b/.test(text)) return { from: today, to: addDays(today, (7 - fromKey(today).getDay()) % 7) };

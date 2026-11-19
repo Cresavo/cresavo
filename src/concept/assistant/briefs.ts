@@ -1,5 +1,4 @@
-import { dailySummaryTask } from "../ai/tasks/daily-summary";
-import { addDays, diffDays, formatTime, startOfWeek, weekday } from "../data/dates";
+import { addDays, diffDays, startOfWeek, weekday } from "../data/dates";
 import { freeGaps, isFree, openingFor } from "../data/slots";
 import type { DemoState } from "../data/types";
 import { buildCustomerStats, dayBookings, findCustomer, lowStock, utilisation } from "../selectors";
@@ -8,9 +7,9 @@ import { figuresFor } from "../finance/figures";
 import { changeShare } from "../finance/overview";
 import type { Clock } from "../finance/types";
 import { t, tc } from "../i18n";
-import { formatMoney, formatNumber } from "../i18n/format";
+import { formatMoney, formatNumber, formatTime } from "../i18n/format";
 import { needsMoving } from "../ops/needs-moving";
-import { dayFacts, summaryDue } from "../summary/day";
+import { dayFacts, daySummaryText, summaryDue } from "../summary/day";
 
 // Proactive briefs. Rules decide what matters and how much (cost 0); an AI
 // model may only rephrase and reorder the same items (`phrase-brief`).
@@ -76,7 +75,7 @@ export function morningBrief(state: DemoState, clock: Clock): Brief {
 
 /** After the last booking: the day in numbers, the same facts as the evening summary. */
 export function closingBrief(state: DemoState, clock: Clock): Brief {
-  const summary = dailySummaryTask.fallback(dayFacts(state, clock));
+  const summary = daySummaryText(dayFacts(state, clock), state.localization.currency);
   return {
     kind: "closing",
     title: t("brief.closing"),

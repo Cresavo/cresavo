@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { sameOrigin } from "@/lib/auth";
+import { setLocaleCookie } from "@/lib/locale-cookie";
 import { parseLocale } from "@/lib/locale";
 
 export async function POST(request: Request) {
@@ -17,13 +18,7 @@ export async function POST(request: Request) {
       { ok: true },
       { headers: { "Cache-Control": "no-store" } },
     );
-    response.cookies.set("booking-locale", locale, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365,
-    });
+    setLocaleCookie(response, locale);
     return response;
   } catch {
     return NextResponse.json({ error: "Ogiltigt språk" }, { status: 400 });

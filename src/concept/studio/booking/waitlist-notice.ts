@@ -1,7 +1,6 @@
-import { formatTime } from "../../data/dates";
 import type { Booking, DemoState, InboxItem } from "../../data/types";
 import { t, tc } from "../../i18n";
-import { formatDayLong } from "../../i18n/format";
+import { formatDayLong, formatTime } from "../../i18n/format";
 
 /** Customers who would be told about the slot a cancellation frees up. */
 export function waitlistCount(state: DemoState, booking: Booking): number {

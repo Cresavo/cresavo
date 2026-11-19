@@ -16,7 +16,8 @@ import { InboxRow } from "@/concept/studio/inbox/inbox-row";
 import { showUndoToast } from "@/concept/studio/log/undo-toast";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
-import { Button } from "@/concept/ui/button";
+import { bookingHome } from "@/concept/booking/links";
+import { Button, ButtonLink } from "@/concept/ui/button";
 import type { AgentProposal } from "@/concept/tools/agent-proposal";
 import { Card, Section } from "@/concept/ui/card";
 import { Segmented } from "@/concept/ui/controls";
@@ -48,7 +49,7 @@ export default function InboxPage() {
   const items = state.inbox.filter(matches[filter]);
   const selected = state.inbox.find((i) => i.id === selectedId);
   const unread = unreadCount(state);
-  const { proposals, decide } = useAgentProposals();
+  const { proposals, decide } = useAgentProposals(!state.industry);
 
   const approve = (proposal: AgentProposal) => {
     if (!showUndoToast(proposal.toast, decide(proposal, true))) showToast(t("agents.failed"));
@@ -63,6 +64,15 @@ export default function InboxPage() {
     setSheetOpen(!window.matchMedia("(min-width: 1024px)").matches);
     if (!item.read) dispatch({ type: "inbox/read", id: item.id });
   };
+
+  if (state.industry && !state.inbox.length && !proposals.length) {
+    return <>
+      <PageHeader title={t("inbox.title")} />
+      <PairedInbox />
+      <EmptyState icon={<InboxIcon size={22} />} title={t("setup.empty.inbox")}
+        action={<ButtonLink href={bookingHome(state.salon.slug)}>{t("share.open")}</ButtonLink>} />
+    </>;
+  }
 
   return (
     <>

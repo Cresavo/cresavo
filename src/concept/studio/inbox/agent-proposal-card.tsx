@@ -1,6 +1,6 @@
+import { formatTime } from "../../i18n/format";
 import { Bot } from "lucide-react";
 import { ChangeRows } from "../../command/change-rows";
-import { formatTime } from "../../data/dates";
 import { t, type MessageKey } from "../../i18n";
 import type { AgentClient, AgentProposal } from "../../tools/agent-proposal";
 import { Badge } from "../../ui/badge";

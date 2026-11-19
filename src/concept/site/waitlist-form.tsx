@@ -1,6 +1,7 @@
+import { sitePath } from "./language";
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { site } from "./en";
+import { useSiteCopy } from "./copy";
 import s from "./site.module.css";
 import { BUSINESS_KINDS, EMAIL_MAX, HONEYPOT_FIELD, WAITLIST_OUTCOMES, type WaitlistOutcome } from "./waitlist";
 
@@ -14,6 +15,7 @@ const isOutcome = (value: unknown): value is WaitlistOutcome => WAITLIST_OUTCOME
  * the form (and the button that had focus), focus moves to it.
  */
 export function WaitlistForm({ from, initial, className }: { from: string; initial?: string; className?: string }) {
+  const { site, locale } = useSiteCopy();
   const [outcome, setOutcome] = useState<WaitlistOutcome | null>(isOutcome(initial) ? initial : null);
   const [busy, setBusy] = useState(false);
   const result = useRef<HTMLParagraphElement>(null);
@@ -44,7 +46,8 @@ export function WaitlistForm({ from, initial, className }: { from: string; initi
       <h2 id="waitlist-heading">{site["waitlist.heading"]}</h2>
       <div>
       {!done && (
-        <form method="post" action="/api/waitlist" onSubmit={submit} className={s.waitlistForm}>
+        <form method="post" action={`/api/waitlist?from=${encodeURIComponent(from)}`} onSubmit={submit} className={s.waitlistForm}>
+          <input type="hidden" name="locale" value={locale} />
           <input type="hidden" name="from" value={from} />
           <p className={s.honeypot} aria-hidden="true">
             <label>
@@ -69,7 +72,7 @@ export function WaitlistForm({ from, initial, className }: { from: string; initi
       <p ref={result} role="status" tabIndex={-1} className={s.waitlistAnswer}>{outcome && site[`waitlist.outcome.${outcome}`]}</p>
       {!done && (
         <p id="waitlist-consent" className={s.note}>
-          {site["waitlist.consent"]} <Link href="/privacy">{site["waitlist.privacy"]}</Link>
+          {site["waitlist.consent"]} <Link href={sitePath(locale, "privacy")}>{site["waitlist.privacy"]}</Link>
         </p>
       )}
       </div>

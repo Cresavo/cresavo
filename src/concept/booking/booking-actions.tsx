@@ -1,21 +1,24 @@
 "use client";
 
+import { customerText } from "../i18n/customer-text";
+
 import { useState } from "react";
 import { CalendarClock, CalendarPlus, Phone, XCircle } from "lucide-react";
-import { addDays, formatTime } from "../data/dates";
+import { addDays } from "../data/dates";
 import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
-import { formatDayLong } from "../i18n/format";
+import { formatDayLong, formatTime } from "../i18n/format";
 import { findCustomer, findService, fullName } from "../selectors";
-import { dispatch } from "../store";
-import { Button } from "../ui/button";
+import { dispatchWithLog, withBookingLock } from "../store";
+import { salonClock } from "../tools/clock";
+import { Button, buttonClass } from "../ui/button";
 import { Notice } from "../ui/notice";
 import { Sheet } from "../ui/sheet";
 import { showToast } from "../ui/toast";
 import type { Now } from "../use-now";
-import { buildIcs, icsTimestamp } from "./ics";
+import { buildIcs, googleCalendarLink, icsTimestamp } from "./ics";
 import { changeRule } from "./policy";
-import type { OpenSlot } from "./suggest";
+import { openSlots, type OpenSlot } from "./suggest";
 import { TimePicker } from "./time-picker";
 import { WaitlistSheet, type WaitlistRequest } from "./waitlist-sheet";
 
@@ -28,7 +31,7 @@ function downloadCalendar(state: DemoState, booking: Booking) {
   const service = findService(state, booking.serviceId);
   const staff = state.staff.find((s) => s.id === booking.staffId);
   if (!service || !staff) return;
-  const ics = buildIcs({ booking, service, staff, salon: state.salon, createdAt: icsTimestamp(new Date()) });
+  const ics = buildIcs({ booking, service, staff, salon: state.salon, language: state.localization.language, createdAt: icsTimestamp(new Date()) });
   const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url;
@@ -46,15 +49,12 @@ interface BookingActionsProps {
 /** Add to calendar, reschedule and cancel. Inside the 24 h window the customer is asked to call. */
 export function BookingActions({ state, now, booking }: BookingActionsProps) {
   const [sheet, setSheet] = useState<"move" | "cancel" | null>(null);
-  const [picked, setTarget] = useState<OpenSlot>();
+  const [pending, setPending] = useState(false);
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
-  const target = picked && (picked.date !== booking.date || picked.start !== booking.start) ? picked : undefined;
   const rule = changeRule(booking, now.today, now.minutes);
   const service = findService(state, booking.serviceId);
   const customer = findCustomer(state, booking.customerId);
   if (rule === "past" || !service || !customer) return null;
-  const staff = state.staff.find((s) => s.id === booking.staffId);
-
   const notice = (kind: "reschedule" | "cancel", title: string, body: string) => ({
     kind,
     customerId: customer.id,
@@ -65,45 +65,56 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
     body,
     read: false,
     handled: kind === "reschedule",
-    draftReply: kind === "cancel" ? t("booking.cancel.inboxReply", { name: customer.firstName }) : undefined,
+    draftReply: kind === "cancel" ? customerText(state, "booking.cancel.inboxReply", { name: customer.firstName }) : undefined,
   });
   const when = `${formatDayLong(booking.date)} ${formatTime(booking.start)}`;
 
-  const cancel = () => {
-    dispatch({
+  // Compare the visit the customer saw with the refreshed record inside the write lock.
+  const canChange = (latest: DemoState) => {
+    const current = latest.bookings.find(b => b.id === booking.id);
+    const clock = salonClock();
+    return !!current && current.date === booking.date && current.start === booking.start &&
+      current.staffId === booking.staffId && changeRule(current, clock.today, clock.minutes) === "free";
+  };
+
+  const cancel = async () => {
+    if (pending) return;
+    setPending(true);
+    const result = await withBookingLock(() => dispatchWithLog({
       type: "booking/cancel",
       id: booking.id,
       reason: t("booking.cancel.reason"),
       notice: notice("cancel", t("booking.cancel.inboxTitle"), t("booking.cancel.inboxBody", { name: fullName(customer), service: service.name, when })),
-    });
+    }, undefined, canChange));
+    setPending(false);
     setSheet(null);
-    showToast(t("booking.cancel.done"));
+    showToast(t(result === false ? "booking.visitChanged" : "booking.cancel.done"));
   };
 
-  const move = () => {
-    if (!target) return;
-    const moved = dispatch({
+  const move = async (target: OpenSlot) => {
+    if (pending) return;
+    setPending(true);
+    const result = await withBookingLock(() => dispatchWithLog({
       type: "booking/move",
       id: booking.id,
       date: target.date,
       start: target.start,
       staffId: target.staffId,
       notice: notice("reschedule", t("booking.move.inboxTitle"), t("booking.move.inboxBody", { name: fullName(customer), service: service.name, from: when, to: `${formatDayLong(target.date)} ${formatTime(target.start)}` })),
-    });
-    setSheet(null);
-    setTarget(undefined);
-    showToast(moved ? t("booking.move.done") : t("booking.slotTaken"));
+    }, undefined, latest => canChange(latest) && openSlots(latest, service.id, target.date, salonClock(), {
+      ignoreId: booking.id, staffId: target.staffId,
+    }).some(slot => slot.start === target.start)));
+    setPending(false);
+    if (result !== false) setSheet(null);
+    showToast(t(result === false ? "booking.slotTaken" : "booking.move.done"));
   };
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <Button variant="secondary" icon={<CalendarPlus size={16} />} onClick={() => downloadCalendar(state, booking)}>
-          {t("booking.addToCalendar")}
-        </Button>
         {rule === "free" && (
           <>
-            <Button variant="secondary" icon={<CalendarClock size={16} />} onClick={() => { setTarget(undefined); setSheet("move"); }}>
+            <Button variant="secondary" icon={<CalendarClock size={16} />} onClick={() => setSheet("move")}>
               {t("booking.reschedule")}
             </Button>
             <Button variant="danger" icon={<XCircle size={16} />} onClick={() => setSheet("cancel")}>
@@ -115,19 +126,28 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       {rule === "late" && (
         <Notice tone="warning" className="flex items-start gap-2">
           <Phone size={16} className="mt-0.5 shrink-0" />
-          <span>{t("booking.tooLate", { phone: state.salon.phone })}</span>
+          <span>{t(state.salon.phone ? "booking.tooLate" : "booking.tooLateNoPhone", { phone: state.salon.phone })}</span>
         </Notice>
       )}
 
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="secondary" icon={<CalendarPlus size={16} />} onClick={() => downloadCalendar(state, booking)}>
+          {t("booking.calendarFile")}
+        </Button>
+        <a href={googleCalendarLink({ booking, service, salon: state.salon, language: state.localization.language })} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary")}>
+          {t("booking.googleCalendar")}
+        </a>
+      </div>
+
       <Sheet
-        open={sheet === "cancel"}
+        open={rule === "free" && sheet === "cancel"}
         onClose={() => setSheet(null)}
         title={t("booking.cancel.title")}
         description={t("booking.cancel.text", { service: service.name, when })}
         footer={
           <>
             <Button variant="secondary" onClick={() => setSheet(null)}>{t("booking.cancel.keep")}</Button>
-            <Button variant="danger" onClick={cancel}>{t("booking.cancel.confirm")}</Button>
+            <Button variant="danger" disabled={pending} onClick={cancel}>{t("booking.cancel.confirm")}</Button>
           </>
         }
       >
@@ -135,18 +155,10 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       </Sheet>
 
       <Sheet
-        open={sheet === "move"}
+        open={rule === "free" && sheet === "move"}
         onClose={() => setSheet(null)}
         title={t("booking.move.title")}
-        description={t("booking.move.text", { service: service.name, staff: staff?.firstName ?? "" })}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setSheet(null)}>{t("common.cancel")}</Button>
-            <Button disabled={!target} onClick={move}>
-              {target ? t("booking.move.confirm", { when: `${formatDayLong(target.date)} ${formatTime(target.start)}` }) : t("booking.move.pick")}
-            </Button>
-          </>
-        }
+        description={t("booking.move.commitHint", { service: service.name, when })}
       >
         <div className="pt-3">
           <TimePicker
@@ -154,8 +166,8 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
             serviceId={service.id}
             clock={now}
             ignoreId={booking.id}
-            selected={target}
-            onPick={setTarget}
+            disabled={pending}
+            onPick={move}
             onWaitlist={(date) => {
               setSheet(null);
               setWaitlist({ serviceId: service.id, date });
@@ -163,7 +175,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
           />
         </div>
       </Sheet>
-      <WaitlistSheet state={state} now={now} request={waitlist} onClose={() => setWaitlist(null)} />
+      {waitlist && <WaitlistSheet state={state} now={now} request={waitlist} onClose={() => setWaitlist(null)} />}
     </div>
   );
 }

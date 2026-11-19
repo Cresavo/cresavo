@@ -1,7 +1,7 @@
 "use client";
 
+import { formatTime } from "../../i18n/format";
 import type { DragEvent, MouseEvent } from "react";
-import { formatTime } from "../../data/dates";
 import { lunchFor, openingFor, staffWorks, workWindow } from "../../data/slots";
 import type { DateKey, DemoState, Staff, StaffId } from "../../data/types";
 import { t, tc } from "../../i18n";

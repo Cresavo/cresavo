@@ -8,13 +8,19 @@ import { site } from "@/concept/site/en";
 
 describe("waiting list input", () => {
   it("accepts a plain address, trims and lower-cases it, and keeps a known business kind", () => {
-    expect(parseWaitlistInput({ email: "  Anna@Example.COM ", business: "salon" })).toEqual({ ok: true, entry: { email: "anna@example.com", business: "salon" } });
-    expect(parseWaitlistInput({ email: "a.b+c@sub.example.se" })).toEqual({ ok: true, entry: { email: "a.b+c@sub.example.se", business: undefined } });
-    expect(parseWaitlistInput({ email: "a@b.example", business: "spaceship" })).toEqual({ ok: true, entry: { email: "a@b.example", business: undefined } });
+    expect(parseWaitlistInput({ email: "  Anna@Example.COM ", business: "salon" })).toEqual({ ok: true, entry: { locale: "en", email: "anna@example.com", business: "salon" } });
+    expect(parseWaitlistInput({ email: "a.b+c@sub.example.se" })).toEqual({ ok: true, entry: { locale: "en", email: "a.b+c@sub.example.se", business: undefined } });
+    expect(parseWaitlistInput({ email: "a@b.example", business: "spaceship" })).toEqual({ ok: true, entry: { locale: "en", email: "a@b.example", business: undefined } });
   });
 
   it.each([null, undefined, "a@b.example", 42, {}, { email: 7 }, { email: "" }, { email: "anna" }, { email: "anna@" }, { email: "@example.com" }, { email: "anna@example" }, { email: "an na@example.com" }, { email: "anna@exa mple.com" }, { email: "anna@@example.com" }, { email: "anna@example..com" }, { email: "anna@-example.com" }, { email: "<anna@example.com>" }, { email: "a@b.example\nbcc: x@y.example" }])("refuses %j", (raw) => {
     expect(parseWaitlistInput(raw)).toEqual({ ok: false, reason: "invalid" });
+  });
+
+  it("passes the form language to the provider and defaults unsupported values to English", () => {
+    for (const [input, expected] of [["sv", "sv"], ["invalid", "en"]]) {
+      expect(parseWaitlistInput({ email: "anna@example.com", locale: input })).toMatchObject({ entry: { locale: expected } });
+    }
   });
 
   it("caps the length", () => {
@@ -38,13 +44,13 @@ describe("waiting list provider", () => {
   });
 
   it("none stores nothing and never claims the address was added", async () => {
-    expect(await joinWaitlist({ email: "anna@example.com" }, "none")).toBe("not-open");
+    expect(await joinWaitlist({ locale: "en", email: "anna@example.com" }, "none")).toBe("not-open");
     expect(site["waitlist.outcome.not-open"]).toBe("Thanks! The list isn’t open yet, so your address was not saved. Please come back later.");
     expect(site["waitlist.outcome.not-open"]).not.toMatch(/added|on the list|subscribed|we'll email/i);
   });
 
   it("a provider that is named but not built yet behaves like none", async () => {
-    for (const provider of ["resend", "buttondown", "loops", "postgres"] as const) expect(await joinWaitlist({ email: "anna@example.com" }, provider)).toBe("not-open");
+    for (const provider of ["resend", "buttondown", "loops", "postgres"] as const) expect(await joinWaitlist({ locale: "en", email: "anna@example.com" }, provider)).toBe("not-open");
   });
 });
 
@@ -151,6 +157,8 @@ describe("POST /api/waitlist", () => {
     const response = await post("email=anna%40example.com&from=%2Fcoming-soon", "application/x-www-form-urlencoded", "203.0.113.4");
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("http://localhost/coming-soon?waitlist=not-open#waitlist");
+    const swedish = await post("email=anna%40example.com&from=%2Fsv&locale=sv", "application/x-www-form-urlencoded", "203.0.113.4");
+    expect(swedish.headers.get("location")).toBe("http://localhost/sv?waitlist=not-open#waitlist");
     const elsewhere = await post("email=anna%40example.com&from=https%3A%2F%2Fevil.example", "application/x-www-form-urlencoded", "203.0.113.4");
     expect(elsewhere.headers.get("location")).toBe("http://localhost/?waitlist=not-open#waitlist");
   });
@@ -177,6 +185,10 @@ describe("POST /api/waitlist", () => {
     const body = new ReadableStream<Uint8Array>({ pull(controller) { pulled++; controller.enqueue(new TextEncoder().encode("{}")); controller.close(); } });
     expect((await post(body, undefined, "203.0.113.7")).status).toBe(429);
     expect(pulled).toBe(0);
+    const form = new Request("http://localhost/api/waitlist?from=%2Fsv", {
+      method: "POST", headers: headers("application/x-www-form-urlencoded", "203.0.113.7"),
+    });
+    expect((await POST(form)).headers.get("location")).toBe("http://localhost/sv?waitlist=limited#waitlist");
   });
 
   it("answers 413 to an oversized body, even when the fields up front are valid", async () => {

@@ -1,8 +1,8 @@
 import { Mail, MapPin, Phone, Star } from "lucide-react";
-import { formatTime, weekday } from "../data/dates";
+import { weekday } from "../data/dates";
 import type { DemoState, Review } from "../data/types";
 import { t, tc, words } from "../i18n";
-import { formatDate } from "../i18n/format";
+import { formatDate, formatTime } from "../i18n/format";
 import { Card, Section } from "../ui/card";
 import { cx } from "../ui/cx";
 import type { Now } from "../use-now";
@@ -72,7 +72,7 @@ export function CancellationPolicy({ state }: { state: DemoState }) {
   return (
     <Section title={t("booking.policy.title")}>
       <p className="text-sm text-text-secondary">
-        {t("booking.policy.free", { hours: FREE_CHANGE_HOURS })} {t("booking.policy.late", { phone: state.salon.phone })}
+        {t("booking.policy.free", { hours: FREE_CHANGE_HOURS })} {state.salon.phone && t("booking.policy.late", { phone: state.salon.phone })}
       </p>
     </Section>
   );

@@ -1,6 +1,8 @@
 import { addDays, fromKey } from "../data/dates";
 import type { DateKey, DemoState } from "../data/types";
-import { t, words } from "../i18n";
+import { t } from "../i18n";
+import { en } from "../i18n/en";
+import { weekdayName } from "../i18n/format";
 import { fullName } from "../selectors";
 import { matchNames, normalize } from "../intent/match";
 
@@ -17,7 +19,7 @@ function withFullName(text: string, name: string): string {
   const parts = normalize(name).split(" ");
   let replaced = false;
   return text.replace(/[\p{L}'’-]+/gu, (word) => {
-    if (replaced || !parts.includes(normalize(word))) return word;
+    if (replaced || !parts.some((part) => [part, `${part}s`].includes(normalize(word)))) return word;
     replaced = true;
     return name;
   });
@@ -37,11 +39,11 @@ export function clarifyChoices(question: string, text: string, state: DemoState,
   }
   if (/which (treatment|service)/.test(q)) return state.services.map((s) => append(s.name, s.name));
   if (q.includes("which day")) {
-    const days = [2, 3, 4].map((offset) => words.weekdays[fromKey(addDays(today, offset)).getDay()]);
+    const days = [2, 3, 4].map((offset) => addDays(today, offset));
     return [
       append(t("date.today"), "today"),
       append(t("date.tomorrow"), "tomorrow"),
-      ...days.map((day) => append(day, day.toLowerCase())),
+      ...days.map((day) => append(weekdayName(day), en.words.weekdays[fromKey(day).getDay()].toLowerCase())),
     ];
   }
   if (q.includes("time or part of the day")) {

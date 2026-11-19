@@ -1,4 +1,5 @@
 export function pairingDatabaseUrl(env) {
+  if (env.NODE_ENV === "production" || env.VERCEL === "1") return env.PAIRING_DATABASE_URL;
   return env.PAIRING_DATABASE_URL ?? env.DATABASE_URL;
 }
 

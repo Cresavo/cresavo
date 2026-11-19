@@ -30,9 +30,10 @@ const MIN_JOURNAL_OVERLAP = 12;
 
 const HEALTH =
   /\b(allerg\w*|diabet\w*|pain\w*|ache\w*|fung\w*|wart\w*|verruca\w*|wound\w*|infect\w*|inflam\w*|diagnos\w*|medic\w*|prescri\w*|pregnan\w*|blood|psoria\w*|eczema|cancer|surger\w*|operation|injur\w*|illness|ill|sick\w*|symptom\w*|skin|ingrown|callus\w*|corns?|swollen|swelling|rash|bleed\w*|condition|therapy|depress\w*|anxiety|disease|health)\b/;
+const SWEDISH_HEALTH = /\b(smart\w*|vark\w*|blod\w*|gravid\w*|svull\w*|svamp\w*|sjuk\w*|skad\w*|hud\w*|eksem\w*|lakemedel\w*|sar\w*|nageltrang\w*|forhardnad\w*|angest\w*)\b/;
 const EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const PHONE = /(?:\+|\b0)\d[\d\s-]{5,}\d\b|\b\d{7,}\b/;
-const ADDRESS = /\b(address|lives (at|on|in)|street|road|gatan|vägen|postcode|zip)\b/;
+const ADDRESS = /\b(address|lives (at|on|in)|street|road|gatan|vägen|postcode|zip|adress|postnummer|bor (?:på|i|vid))\b|[a-zåäö]+(?:gatan|vägen)\s+\d+/;
 
 /** Why a note must not be stored, or null when it may. Journal text is matched against the business's journal entries. */
 export function memoryRejection(text: string, state?: Pick<DemoState, "journals">): MemoryRejection | null {
@@ -40,7 +41,7 @@ export function memoryRejection(text: string, state?: Pick<DemoState, "journals"
   if (!plain || plain.length > MAX_LENGTH) return "empty";
   if (EMAIL.test(plain) || PHONE.test(plain) || ADDRESS.test(plain.toLowerCase())) return "contact";
   const words = normalize(plain);
-  if (HEALTH.test(words)) return "health";
+  if (HEALTH.test(words) || SWEDISH_HEALTH.test(words)) return "health";
   const journalText = (state?.journals ?? []).flatMap((j) => [j.treatment, j.observations, j.advice, j.nextVisit ?? ""]).map(normalize);
   const overlaps = (a: string, b: string) => a.length >= MIN_JOURNAL_OVERLAP && b.includes(a);
   if (journalText.some((entry) => overlaps(entry, words) || overlaps(words, entry))) return "journal";
@@ -76,7 +77,7 @@ export interface MemorySubject {
 
 /** Who a note is about. Several customers with the same first name are all returned so the caller can ask. */
 export function memorySubject(state: DemoState, text: string): MemorySubject {
-  const preference = text.match(/^(.+?)\s+(?:prefers|wants|likes|always books with|only books with)\s+(.+)$/i);
+  const preference = text.match(/^(.+?)\s+(?:prefers|wants|likes|always books with|only books with|föredrar|vill gå till|bokar alltid hos)\s+(.+)$/i);
   const subjectText = preference?.[1] ?? text;
   const staff = matchNames(preference?.[2] ?? text, state.staff.map((s) => ({ id: s.id, name: s.firstName })));
   const staffId = staff.length === 1 ? staff[0].id : undefined;

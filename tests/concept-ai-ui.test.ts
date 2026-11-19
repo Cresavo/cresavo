@@ -72,7 +72,7 @@ describe("runAiTask against a read-only server", () => {
 
   it("runs the task's own rules in the browser when the server refuses the write", async () => {
     vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ error: "denied" }), { status: 403 }));
-    const { output, log } = await runAiTask<{ treatment: string; nextVisit: string }>("structure-journal", { transcript: "Did the usual foot care. Next visit in 6 weeks." });
+    const { output, log } = await runAiTask<{ treatment: string; nextVisit: string }>("structure-journal", { transcript: "Did the usual foot care. Next visit in 6 weeks." }, false);
     expect(output.treatment).toBe("Did the usual foot care.");
     expect(output.nextVisit).toBe("Next visit in 6 weeks.");
     expect(log).toMatchObject({ source: "rules", costUsd: 0 });
@@ -80,6 +80,6 @@ describe("runAiTask against a read-only server", () => {
 
   it("still reports a real server failure", async () => {
     vi.stubGlobal("fetch", async () => new Response("{}", { status: 500 }));
-    await expect(runAiTask("structure-journal", { transcript: "Anything." })).rejects.toThrow();
+    await expect(runAiTask("structure-journal", { transcript: "Anything." }, false)).rejects.toThrow();
   });
 });

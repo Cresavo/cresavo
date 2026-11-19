@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { ArrowRight, CalendarDays, CalendarCheck2, Check, LayoutDashboard, Smartphone, Sparkles } from "lucide-react";
-import { site } from "./en";
+import { useSiteCopy } from "./copy";
 import e from "./editorial.module.css";
 import c from "./studio-preview.module.css";
 
@@ -14,6 +14,7 @@ const views = [
 type View = typeof views[number]["key"];
 
 export function StudioPreview() {
+  const { site } = useSiteCopy();
   const [selected, setSelected] = useState<View>("today");
   const [seen, setSeen] = useState<Set<View>>(new Set(["today"]));
   return (

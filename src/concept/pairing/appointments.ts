@@ -1,10 +1,13 @@
+import type { Locale } from "@/lib/locale";
 import { applyVersioned } from "./versions";
 import type { LogMeta } from "../log/types";
 import type { PairState } from "./fixture";
+import type { PairDraft } from "./changes";
 import type { PairProposal } from "@prisma/client";
 import { addDays, formatTime } from "../data/dates";
 import { freeStarts } from "../data/slots";
 import type { Booking, DemoState, InboxItem } from "../data/types";
+import { translate } from "../i18n";
 import { fullName } from "../selectors";
 import { salonClock } from "../tools/clock";
 import type { ChangeDraft } from "../tools/define";
@@ -24,9 +27,16 @@ export function bookingView(state: PairState, b: Booking) {
     duration: b.duration, status: b.status, untrustedCustomerText: { customer: customer ? fullName(customer) : "",
     service: state.services.find(s => s.id === b.serviceId)?.name ?? b.serviceId } };
 }
-export function itemView(item: InboxItem, withBody = false) {
+const fixtureMessages = ["pair.request", "pair.sampleTitle", "pair.sampleBody"] as const;
+function inboxText(value: string, language: Locale) {
+  if (language === "en") return value;
+  const key = fixtureMessages.find(message => translate("en", message) === value);
+  return key ? translate(language, key) : value;
+}
+
+export function itemView(item: InboxItem, withBody = false, language: Locale = "en") {
   return { itemId: item.id, bookingId: item.bookingId, handled: item.handled, ...(withBody && item.reply ? { untrustedAssistantText: { reply: item.reply } } : {}), date: item.date,
-    untrustedCustomerText: { title: item.title, ...(withBody ? { body: item.body } : {}) } };
+    untrustedCustomerText: { title: inboxText(item.title, language), ...(withBody ? { body: inboxText(item.body, language) } : {}) } };
 }
 export function options(state: DemoState, booking: Booking, day?: string) {
   const clock = salonClock();
@@ -69,14 +79,15 @@ export function proposalView(row: PairProposal) {
     untrustedCustomerText: { title: draft.title, changes: draft.rows } };
 }
 
-export function studioProposalView(row: PairProposal, state: PairState) {
+export function studioProposalView(row: PairProposal, state: PairState, language: Locale = "en") {
   const view = proposalView(row);
-  const { action } = row.draft as unknown as ChangeDraft;
+  const { action, swedish } = row.draft as unknown as PairDraft;
+  const { title, rows } = (language === "sv" && swedish) || { title: view.untrustedCustomerText.title, rows: view.untrustedCustomerText.changes };
   const item = action.type === "inbox/reply" ? state.inbox.find(i => i.id === action.id) : undefined;
   return {
     ...view,
     // Already-open studio tabs expect top-level rows for every proposal.
-    changes: view.untrustedCustomerText.changes,
-    untrustedCustomerText: { ...view.untrustedCustomerText, incomingMessage: item?.body },
+    changes: rows,
+    untrustedCustomerText: { title, changes: rows, incomingMessage: item && inboxText(item.body, language) },
   };
 }

@@ -1,5 +1,6 @@
-const ENGLISH_PATH = /^\/(?:studio|boka|unknown-address)(?:\/|$)/;
-
-export function englishConceptPath(pathname: string): boolean {
-  return ENGLISH_PATH.test(pathname);
+export function conceptRoute(pathname: string) {
+  if (/^\/studio(?:\/|$)/.test(pathname)) return "studio";
+  if (/^\/boka(?:\/|$)/.test(pathname)) return "booking";
+  if (/^\/(?:unknown-address|coming-soon)(?:\/|$)/.test(pathname)) return "english";
+  return null;
 }

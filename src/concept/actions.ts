@@ -1,3 +1,5 @@
+import { parseLocale } from "@/lib/locale";
+import type { BusinessLocalization } from "./i18n/business";
 import { sendBookingMessage, type BookingMessageAction } from "./booking/messages";
 import { applyCustomerReview, type CustomerReviewAction } from "./booking/review-actions";
 import { applyAssistant, type AssistantAction } from "./assistant/actions";
@@ -44,6 +46,7 @@ import type {
 // today; the command box and AI suggestions will dispatch the same actions.
 
 export type DemoAction =
+  | { type: "salon/language"; language: BusinessLocalization["language"]; bilingual: boolean }
   | BookingMessageAction
   | CustomerReviewAction
   | OpsAction
@@ -60,7 +63,7 @@ export type DemoAction =
       | { fictionalCustomer: { id: string; name: string; since: DateKey }; source: "assistant" }
     ))
   | { type: "online/book"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId: StaffId; date: DateKey; start: number }
-  | { type: "online/waitlist"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string }
+  | { type: "online/waitlist"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId?: StaffId }
   | { type: "service/price"; id: string; price: number }
   | { type: "campaign/launch"; campaign: NewCampaign; today: DateKey }
   | { type: "campaign/ad"; id: string; ad: CampaignAd }
@@ -205,12 +208,14 @@ function bookOnline(state: DemoState, action: Extract<DemoAction, { type: "onlin
 function joinWaitlist(state: DemoState, action: Extract<DemoAction, { type: "online/waitlist" }>): DemoState {
   const service = bookableServices(state).find((s) => s.id === action.serviceId);
   if (!service || !action.guest.name.trim() || !isMobilePhone(action.guest.phone)) return state;
-  const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, service.staffIds[0], true);
+  if (action.staffId && !service.staffIds.includes(action.staffId)) return state;
+  const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, action.staffId ?? service.staffIds[0], true);
   return reduce(withCustomer, {
     type: "inbox/add",
     item: {
       kind: "request",
       customerId: customer.id,
+      requestedStaffId: action.staffId,
       date: action.guest.at.date,
       time: action.guest.at.time,
       ...action.notice,
@@ -309,6 +314,12 @@ function importCustomers(state: DemoState, incoming: Omit<Customer, "id">[]): De
 
 export function reduce(state: DemoState, action: DemoAction): DemoState {
   switch (action.type) {
+    case "salon/language": {
+      const language = parseLocale(action.language);
+      if (!language || typeof action.bilingual !== "boolean") return state;
+      if (state.localization.language === language && state.localization.bilingual === action.bilingual) return state;
+      return { ...state, localization: { ...state.localization, language, bilingual: action.bilingual } };
+    }
     case "booking-message/send":
       return sendBookingMessage(state, action);
     case "review/submit":
@@ -450,7 +461,7 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
       return MODULES.every((manifest) => state.modules[manifest.id] === modules[manifest.id]) ? state : { ...state, modules };
     }
     case "card/dismiss":
-      return { ...state, dismissedCards: [...state.dismissedCards, action.id] };
+      return state.dismissedCards.includes(action.id) ? state : { ...state, dismissedCards: [...state.dismissedCards, action.id] };
     case "customer/delete":
       return deleteCustomer(state, action.id);
     case "trash/restore":

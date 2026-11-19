@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { ArrowRight, Check, RotateCcw } from "lucide-react";
 import { PALETTES } from "../page/theme";
-import { site } from "./en";
+import { useSiteCopy } from "./copy";
 import s from "./site.module.css";
 
-const treatments = [
-  { name: site["mini.basic"], details: site["mini.basic.details"] },
-  { name: site["mini.spa"], details: site["mini.spa.details"] },
-];
 const times = ["10:15", "13:00", "14:45"];
 
 // A standalone sample of the salon page. Choices live only for this visit.
 export function MiniBooking() {
+  const { site } = useSiteCopy();
+  const treatments = [
+    { name: site["mini.basic"], details: site["mini.basic.details"] },
+    { name: site["mini.spa"], details: site["mini.spa.details"] },
+  ];
   const [treatment, setTreatment] = useState<(typeof treatments)[number]>();
   const [time, setTime] = useState("");
   const title = useRef<HTMLHeadingElement>(null);

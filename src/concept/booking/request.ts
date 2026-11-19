@@ -1,6 +1,8 @@
 import { addDays, startOfWeek, weekday } from "../data/dates";
 import type { DateKey, DemoState, StaffId } from "../data/types";
+import { fixtureServiceAliases } from "../i18n/salon-eko-copy";
 import { parseDate, parseTime } from "../intent/dates";
+import { swedishDates } from "../intent/swedish";
 import { distance, matchNames } from "../intent/match";
 import type { Period } from "./suggest";
 
@@ -30,7 +32,7 @@ const KEYWORDS = [
   "today", "tomorrow", "morning", "afternoon", "evening", "next", "week", "weekend",
   "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
 ];
-const FOOT_SYNONYM: [RegExp, string] = [/\b(pedicure|pedi|footcare|foot treatment|tired feet|feet|toenails?)\b/g, "foot care"];
+const FOOT_SYNONYM: [RegExp, string] = [/\b(fotvård|pedicure|pedi|footcare|foot treatment|tired feet|feet|toenails?)\b/g, "foot care"];
 const SYNONYMS: [RegExp, string][] = [
   [/\b(half[ -]an?[ -]hour massage|half[ -]hour massage|30[ -]minute massage)\b/g, "classic massage 30 min"],
   [/\b(hour[ -]long massage|60[ -]minute massage)\b/g, "classic massage 60 min"],
@@ -60,9 +62,14 @@ function fixTypos(text: string): string {
 
 /** Foot words only mean "foot care" where the price list has foot care; a nail studio keeps "pedicure". */
 function clean(input: string, source: Source, today: DateKey): string {
-  const lower = fixTypos(input.toLowerCase().replace(/[’']/g, "'").trim());
+  const lower = fixTypos(swedishDates(input.toLowerCase().replace(/[’']/g, "'").trim()
+    .replace(/\bi övermorgon\b/g, addDays(today, 2))
+    .replace(/\b(?:på )?förmiddagen\b/g, "morning")
+    .replace(/\b(?:på )?eftermiddagen\b/g, "afternoon")
+    .replace(/\bhos\b/g, "with")
+    .replace(/\b(?:kl\.?|klockan)\s+(?=\d)/g, "at ")));
   const dated = lower.replace(/\b(day after tomorrow|in two days|in 2 days)\b/g, addDays(today, 2));
-  const synonyms = source.services.some((s) => /foot care/i.test(s.name)) ? [FOOT_SYNONYM, ...SYNONYMS] : SYNONYMS;
+  const synonyms = source.services.some((s) => fixtureServiceAliases(s).some((name) => /foot care/i.test(name))) ? [FOOT_SYNONYM, ...SYNONYMS] : SYNONYMS;
   return synonyms.reduce((text, [pattern, to]) => text.replace(pattern, to), dated);
 }
 
@@ -71,8 +78,9 @@ function popularity(source: Source, serviceId: string) {
 }
 
 function pickService(text: string, source: Source) {
-  const matches = matchNames(text, source.services);
-  const candidates = [...matches].sort((a, b) => popularity(source, b.id) - popularity(source, a.id)).map((s) => s.id);
+  const aliases = source.services.flatMap((service) => fixtureServiceAliases(service).map((name) => ({ id: service.id, name })));
+  const matches = new Set(matchNames(text, aliases).map((service) => service.id));
+  const candidates = [...matches].sort((a, b) => popularity(source, b) - popularity(source, a));
   return { serviceId: candidates[0], serviceCandidates: candidates };
 }
 

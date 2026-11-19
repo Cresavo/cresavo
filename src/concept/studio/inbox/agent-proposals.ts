@@ -19,11 +19,12 @@ async function fetchPending(): Promise<AgentProposal[]> {
 }
 
 /** Pending proposals, refreshed every few seconds while the page is visible. */
-export function useAgentProposals() {
+export function useAgentProposals(enabled = true) {
   const [proposals, setProposals] = useState<AgentProposal[]>([]);
   const [decided, setDecided] = useState<string[]>([]);
 
   useEffect(() => {
+    if (!enabled) return;
     let active = true;
     const load = () => {
       if (document.visibilityState !== "visible") return;
@@ -38,7 +39,7 @@ export function useAgentProposals() {
       active = false;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [enabled]);
 
   /** Applies or declines a proposal and returns the resulting log ID, if any. */
   const decide = (proposal: AgentProposal, approve: boolean) => {
@@ -53,5 +54,5 @@ export function useAgentProposals() {
     return logId;
   };
 
-  return { proposals: proposals.filter((p) => !decided.includes(p.id)), decide };
+  return { proposals: enabled ? proposals.filter((p) => !decided.includes(p.id)) : [], decide };
 }

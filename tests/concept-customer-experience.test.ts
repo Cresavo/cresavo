@@ -19,7 +19,7 @@ describe("simulated booking messages", () => {
   it.each(["confirmation", "reminder"] as const)("previews %s from booking facts and links to management", kind => {
     const message = bookingMessage(state, booking, kind);
     expect(message.subject).toContain("Salong Eko");
-    expect(message.body).toContain(state.services.find(service => service.id === booking.serviceId)!.name);
+    expect(message.body).toContain("Medical foot care");
     expect(message.body).toContain(`/boka/salong-eko/booking/${booking.id}`);
   });
   it("logs one simulated message per kind/channel/time, without network calls", () => {

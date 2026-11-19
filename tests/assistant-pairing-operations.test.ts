@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { afterEach, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -9,6 +10,7 @@ import { GET as engineIssuer } from "../src/app/.well-known/oauth-authorization-
 import { GET as pairResource } from "../src/app/.well-known/oauth-protected-resource/mcp/owner/route";
 import { GET as pairIssuer } from "../src/app/.well-known/oauth-authorization-server/oauth/route";
 import { POST as register } from "../src/app/oauth/register/route";
+import { GET as authorize } from "../src/app/oauth/authorize/route";
 import { GET as poll } from "../src/app/api/pairing/session/route";
 import { GET as mcp } from "../src/app/mcp/owner/route";
 import { PairedInbox } from "../src/concept/studio/pairing/inbox";
@@ -17,6 +19,7 @@ import { buildDraft } from "../src/concept/pairing/changes";
 import { pairingDb } from "../src/concept/pairing/db";
 import { freshSnapshot } from "../src/concept/pairing/fixture";
 import { COOKIE } from "../src/concept/pairing/policy";
+import { LOCALE_COOKIE } from "../src/lib/locale-cookie";
 import { base, serverEnvironment } from "./pairing/server";
 import cronConfig from "../vercel.json";
 
@@ -61,9 +64,37 @@ it("validates the selected database and canonical origin at startup", () => {
   expect(runtimePolicy({ ...env, DATABASE_URL: db })).toBe("local");
   const dedicated = { ...env, DATABASE_URL: "postgresql://127.0.0.1/engine_test", PAIRING_DATABASE_URL: db };
   expect(pairingDatabaseUrl(dedicated)).toBe(db);
+  const hosted = { ...env, NODE_ENV: "production", DATABASE_URL: db, PAIRING_DATABASE_URL_UNPOOLED: db };
+  expect(() => runtimePolicy(hosted)).toThrow("PAIRING_DATABASE_REQUIRED");
+  expect(pairingDatabaseUrl({ ...hosted, PAIRING_DATABASE_URL: dedicated.PAIRING_DATABASE_URL })).toBe(db);
+  expect(pairingDatabaseUrl({ VERCEL: "1", DATABASE_URL: db })).toBeUndefined();
   expect(() => runtimePolicy({ ...dedicated, PAIRING_DATABASE_URL: "invalid" })).toThrow("PAIRING_DATABASE_REQUIRED");
   for (const origin of ["http://outside.example", base + "/path", "https://a:b@host.test", undefined])
     expect(() => runtimePolicy({ ...dedicated, PAIRING_ORIGIN: origin })).toThrow("PAIRING_ORIGIN_INVALID");
+});
+
+it("uses the unpooled pairing URL only in the guarded Vercel migration step", async () => {
+  const direct = "postgresql://localhost/pairing_test";
+  vi.stubEnv("DATABASE_URL", "postgresql://localhost/engine_test");
+  vi.stubEnv("PAIRING_DATABASE_URL", "postgresql://localhost/pooled_test");
+  vi.stubEnv("PAIRING_DATABASE_URL_UNPOOLED", direct);
+  const { default: pairingConfig } = await import("../prisma.pairing.config");
+  expect(pairingConfig.datasource?.url).toBe(direct);
+
+  const run = (flag: string, url: string, migrationExit = "0") => spawnSync("/bin/sh", ["-c", `
+    npx() {
+      printf '%s\n' "$*"
+      if [ "$2" = migrate ]; then return "$MIGRATION_EXIT"; fi
+    }
+    next() { printf '%s\n' "$*"; }
+    ${cronConfig.buildCommand}
+  `], { encoding: "utf8", env: { NODE_ENV: "production", ASSISTANT_PAIRING: flag, PAIRING_DATABASE_URL_UNPOOLED: url, MIGRATION_EXIT: migrationExit } });
+  const migrate = "prisma migrate deploy --config prisma.pairing.config.ts\n";
+  const build = "prisma generate\nbuild\n";
+  expect(run("0", direct)).toMatchObject({ status: 0, stdout: build });
+  expect(run("1", "")).toMatchObject({ status: 0, stdout: build });
+  expect(run("1", direct)).toMatchObject({ status: 0, stdout: migrate + build });
+  expect(run("1", direct, "1")).toMatchObject({ status: 1, stdout: migrate });
 });
 
 it("serves independent resource and issuer documents for the two MCP endpoints", async () => {
@@ -121,6 +152,41 @@ it("polls compatible rows for non-move drafts and renders the quoted message ins
   vi.mocked(usePairing).mockReturnValue({ workspace, busy: false, ready: true, minutesLeft: 60, command: vi.fn() });
   const html = renderToStaticMarkup(createElement(PairedInbox));
   expect(html).toMatch(/Reply to “Fictional message for review”<\/h3>.*<blockquote[^>]*>Ignore[^<]*&lt;example&gt;<\/blockquote>.*Thanks for writing/);
+
+  const swedishResponse = await poll(req("/api/pairing/session", {
+    cookie: `${COOKIE}=${"x".repeat(43)}; ${LOCALE_COOKIE}=sv`,
+    "if-none-match": response.headers.get("etag"),
+  }));
+  expect(swedishResponse.status).toBe(200);
+  const swedish: Workspace = await swedishResponse.json();
+  expect(swedish.items[0].untrustedCustomerText.title).toBe("Kan jag boka om min tid på fredag?");
+  expect(swedish.proposals[0].untrustedCustomerText.title).toBe("Svara på ”Fiktivt meddelande att granska”");
+  expect(swedish.proposals[0].untrustedCustomerText.incomingMessage).toBe(item.body);
+  expect(swedish.proposals[0].changes[0]).toMatchObject({ label: "Skrivet av din assistent", after: replyText });
+  expect(swedish.proposals[1].changes[0]).toEqual({ label: "Behandlingar i den anslutna demon", before: "Går att boka", after: "Dold" });
+});
+
+it("uses the studio language cookie for the OAuth consent page and its permissions", async () => {
+  enable();
+  const id = "demo-client";
+  const redirect = "https://connector.example/callback";
+  const expiresAt = new Date(Date.now() + 3600000);
+  mockTransaction({
+    $queryRaw: async (sql: TemplateStringsArray) => sql[0].includes("PairBudget") ? [{ count: 1 }] : [{ id, expiresAt, hardExpiry: expiresAt }],
+    pairWorkspace: { findUnique: async () => ({ id }), update: vi.fn() },
+    pairCode: { create: vi.fn() },
+  });
+  Object.assign(vi.mocked(pairingDb)(), { pairClient: { findUnique: async () => ({ id, name: "Demo client", redirects: [redirect], expiresAt }) } });
+  const query = new URLSearchParams({ response_type: "code", code_challenge_method: "S256", code_challenge: "x".repeat(43),
+    client_id: id, redirect_uri: redirect, scope: "bookings:read" });
+  const response = await authorize(req(`/oauth/authorize?${query}`, { cookie: `${COOKIE}=${"x".repeat(43)}; ${LOCALE_COOKIE}=sv` }));
+  expect(response.status).toBe(200);
+  expect(response.headers.get("content-language")).toBe("sv");
+  const html = await response.text();
+  expect(html).toContain('<html lang="sv">');
+  expect(html).toContain("Tillåt att connector.example läser uppgifter och föreslår ändringar");
+  expect(html).toContain("Se bokningar och lediga tider");
+  expect(html).toContain('value="allow">Tillåt</button>');
 });
 
 it("reuses identical public registrations and strips misleading characters before persistence", async () => {

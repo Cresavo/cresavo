@@ -1,10 +1,9 @@
 "use client";
 
 import { ChevronRight } from "lucide-react";
-import { formatTime } from "../../data/dates";
 import type { Booking } from "../../data/types";
 import { t } from "../../i18n";
-import { formatDate, formatMoney } from "../../i18n/format";
+import { formatDate, formatMoney, formatTime } from "../../i18n/format";
 import { findService } from "../../selectors";
 import { Badge } from "../../ui/badge";
 import type { OpenSheet } from "../booking/booking-sheets";

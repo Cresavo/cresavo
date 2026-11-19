@@ -30,7 +30,7 @@ const services = [
 
 export const hair: Pack = {
   id: "hair",
-  vocabulary: { customer: "client", service: "service" },
+  vocabulary: { customer: "client", service: "service", sv: { customer: "kund", service: "tjänst" } },
   categories: ["cut", "colour"],
   salon: salonWith("Hair and colour in Vasastan"),
   staff: teamWith(

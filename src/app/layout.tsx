@@ -5,9 +5,10 @@ import "@/concept/ui/brand-theme.css";
 import "./style.css";
 import "./workspace-polish.css";
 import { RestoreReturnScroll } from "./components/context-link";
-import { DocumentLanguage, LocaleProvider, LanguageSwitch } from "./components/locale-provider";
+import { DocumentLanguage, EngineDemoBanner, LocaleProvider } from "./components/locale-provider";
 import { getLocale } from "@/lib/locale-server";
 import { text } from "@/lib/locale";
+import { DEFAULT_BOOKING_LANGUAGE } from "@/concept/i18n/business";
 import { BRAND } from "@/concept/brand";
 import { PLATFORM_ICONS, THEME_COLORS } from "@/concept/ui/brand-assets";
 import { THEME_SCRIPT } from "@/concept/ui/theme";
@@ -38,7 +39,9 @@ export default async function Layout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const [locale, requestHeaders] = await Promise.all([getLocale(), headers()]);
-  const lang = requestHeaders.has("x-concept-english") ? "en" : locale;
+  const route = requestHeaders.get("x-concept-route");
+  const english = requestHeaders.has("x-concept-english");
+  const lang = route === "booking" ? DEFAULT_BOOKING_LANGUAGE : english ? "en" : locale;
   return (
     // The theme script sets data-theme before React hydrates.
     <html lang={lang} className={inter.variable} suppressHydrationWarning>
@@ -49,16 +52,7 @@ export default async function Layout({
         <LocaleProvider locale={locale}>
           <DocumentLanguage locale={locale} />
           <RestoreReturnScroll />
-          <aside className="demo-banner" aria-label={text(locale, "Demo notice", "Demoinformation")}>
-            <span>
-              {text(
-                locale,
-                "Demo — fictional data only",
-                "Demo – endast påhittade uppgifter",
-              )}
-            </span>
-            <LanguageSwitch />
-          </aside>
+          <EngineDemoBanner initialHidden={Boolean(route || english)} />
           {children}
         </LocaleProvider>
       </body>

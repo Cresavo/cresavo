@@ -49,7 +49,7 @@ export function CampaignStudio() {
         publishOn,
         copy: draft.copy,
         poster: resolvePoster(state, draft),
-        link: draftLink(draft),
+        link: draftLink(state, draft),
       },
     });
     const created = currentState()?.campaigns[0];

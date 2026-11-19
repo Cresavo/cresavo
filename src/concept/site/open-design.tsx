@@ -1,7 +1,7 @@
 import { ArrowUpRight, CalendarDays, Check, CreditCard, Download, Globe, MonitorSmartphone, Sparkles } from "lucide-react";
 import { Wordmark } from "../ui/wordmark";
 import { PROJECT_REPOSITORY } from "../brand";
-import { site } from "./en";
+import { useSiteCopy } from "./copy";
 import e from "./editorial.module.css";
 import h from "./open-design.module.css";
 
@@ -17,6 +17,7 @@ const paths = [50, 150, 250].flatMap(y => [
 ]);
 
 export function OpenDesign() {
+  const { site } = useSiteCopy();
   return (
     <section className={h.section} id="connections" aria-labelledby="tools-title">
       <div className={e.intro}><h2 id="tools-title" className={e.display}>{site["hub.heading"]}</h2><p>{site["hub.intro"]}</p></div>

@@ -1,5 +1,7 @@
+import type { Locale } from "@/lib/locale";
+import { requestLocale } from "@/lib/locale-server";
 import { BRAND } from "../brand";
-import { t } from "../i18n";
+import { translate, type MessageKey } from "../i18n";
 import { cleanClientName, exactRedirect, resolveClient, secureUrl } from "./clients";
 import { pairingDb } from "./db";
 import { body, budget, digest, minute, ownerHash, PairError, params, requirePair, sameOrigin, secret } from "./http";
@@ -7,8 +9,8 @@ import { pairingIssuer, SCOPES, SUPPORTED_SCOPES } from "./policy";
 import { owner } from "./workspace";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, v => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[v]!);
-function page(title: string, content: string, callbackOrigin = "") {
-  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="referrer" content="strict-origin"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>
+function page(language: Locale, title: string, content: string, callbackOrigin = "") {
+  return new Response(`<!doctype html><html lang="${language}"><meta charset="utf-8"><meta name="referrer" content="strict-origin"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>
 <style>
 body { margin: 0; background: #f5f2ed; color: #332d30; font: 17px/1.55 system-ui; }
 main { max-width: 34rem; margin: 8vh auto; padding: 2rem; background: white; border: 1px solid #d8d1cb; border-radius: 16px; }
@@ -20,11 +22,13 @@ button[value=allow] { background: #57434c; color: white; }
 p { overflow-wrap: anywhere; }
 </style>
 <main><img src="/brand/studio-wordmark.svg" alt="${esc(BRAND.name)}"><h1>${esc(title)}</h1>${content}</main></html>`, { headers: {
-    "Content-Type": "text/html; charset=utf-8", "X-Frame-Options": "DENY",
+    "Content-Type": "text/html; charset=utf-8", "Content-Language": language, "X-Frame-Options": "DENY",
     "Content-Security-Policy": `default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self' ${callbackOrigin}`,
   } });
 }
 export async function authorize(request: Request, origin: string) {
+  const language = requestLocale(request);
+  const text = (key: MessageKey, vars?: Record<string, string>) => translate(language, key, vars);
   const db = pairingDb();
   try {
     await db.$transaction(async tx => {
@@ -33,7 +37,7 @@ export async function authorize(request: Request, origin: string) {
     });
   } catch (err) {
     if (!(err instanceof PairError) || err.status !== 401) throw err;
-    return page(t("pair.startFirst"), `<a href="/studio/more/data">${esc(t("pair.studio"))}</a>`);
+    return page(language, text("pair.startFirst"), `<a href="/studio/more/data">${esc(text("pair.studio"))}</a>`);
   }
   const q = params(new URL(request.url).search);
   requirePair(q.response_type === "code" && q.code_challenge_method === "S256" && /^[\w-]{43}$/.test(q.code_challenge ?? ""));
@@ -54,12 +58,12 @@ export async function authorize(request: Request, origin: string) {
       state: q.state ?? "", audience: resource, expiresAt: new Date(Date.now() + 5 * minute),
     } });
   });
-  return page(t("pair.consent", { host: redirect.host }), `
-<p>${esc(t(client.id.startsWith("https://") ? "pair.publishedClient" : "pair.identify", { client: cleanClientName(client.name) }))}</p>
-<ul>${SUPPORTED_SCOPES.filter(s => scopes.includes(s)).map(s => "<li>" + esc(t(`pair.${s}`)) + "</li>").join("")}</ul>
-<p>${esc(t("pair.privacy"))}</p>
+  return page(language, text("pair.consent", { host: redirect.host }), `
+<p>${esc(text(client.id.startsWith("https://") ? "pair.publishedClient" : "pair.identify", { client: cleanClientName(client.name) }))}</p>
+<ul>${SUPPORTED_SCOPES.filter(s => scopes.includes(s)).map(s => "<li>" + esc(text(`pair.${s}`)) + "</li>").join("")}</ul>
+<p>${esc(text("pair.privacy"))}</p>
 <form method="post" action="/oauth/authorize"><input type="hidden" name="consent" value="${handle}">
-<button name="decision" value="allow">${esc(t("pair.allow"))}</button><button name="decision" value="decline">${esc(t("pair.decline"))}</button></form>`, redirect.origin);
+<button name="decision" value="allow">${esc(text("pair.allow"))}</button><button name="decision" value="decline">${esc(text("pair.decline"))}</button></form>`, redirect.origin);
 }
 
 export async function consent(request: Request, origin: string) {

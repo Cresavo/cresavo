@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { emptyContext, type Message, type Reply, type ThreadContext } from "../../assistant/thread";
 import type { Role } from "../../ops/access";
+import { currentState } from "../../store";
 import { currentRole } from "../../ops/role";
 
 // Each role's conversation and panel state live in the browser next to the
@@ -25,10 +26,13 @@ interface ThreadState {
 const today = () => new Date().toISOString().slice(0, 10);
 const fresh = (speak = false): ThreadState => ({ day: today(), messages: [], context: emptyContext(), open: false, listen: false, speak });
 
-const threads: Partial<Record<Role, ThreadState>> = {};
+const threads: Record<string, ThreadState> = {};
 const listeners = new Set<() => void>();
 
-const storageKey = (role: Role) => role === "owner" ? STORAGE_KEY : `${STORAGE_KEY}-staff`;
+function storageKey(role: Role) {
+  const base = currentState()?.industry ? `${STORAGE_KEY}-own` : STORAGE_KEY;
+  return role === "owner" ? base : `${base}-staff`;
+}
 
 function load(role: Role): ThreadState {
   try {
@@ -41,11 +45,11 @@ function load(role: Role): ThreadState {
 }
 
 function snapshot(role = currentRole()): ThreadState {
-  return threads[role] ??= load(role);
+  return threads[storageKey(role)] ??= load(role);
 }
 
 function update(patch: Partial<ThreadState>, role = currentRole()) {
-  const thread = threads[role] = { ...snapshot(role), ...patch };
+  const thread = threads[storageKey(role)] = { ...snapshot(role), ...patch };
   try {
     window.localStorage.setItem(storageKey(role), JSON.stringify({ ...thread, messages: thread.messages.slice(-MAX_MESSAGES) }));
   } catch {

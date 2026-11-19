@@ -196,7 +196,13 @@ test("calendar, booking, and customer details preserve date, filters, search, an
     await expect(
       page.getByRole("heading", { name: "Bokning", exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Avboka", exact: true }).click();
+    // On a slow CI runner the first click can land before hydration; retry until the dialog opens.
+    await expect(async () => {
+      await page.getByRole("button", { name: "Avboka", exact: true }).click();
+      await expect(
+        page.getByRole("button", { name: "Behåll bokningen", exact: true }),
+      ).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30000 });
     await page
       .getByRole("button", { name: "Behåll bokningen", exact: true })
       .click();

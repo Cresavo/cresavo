@@ -129,6 +129,43 @@ it("refuses a public booking when another tab takes the slot before the save", a
   expect(currentState()?.bookings).toEqual(booked.bookings);
 });
 
+it("refuses a missing snapshot with a current receipt until an explicit reset supersedes it", async () => {
+  const day = toKey(new Date());
+  const firstReceipt = { day, seq: 7 };
+  let receipt = firstReceipt;
+  let raw: string | null = null;
+  const localStorage = { getItem: vi.fn(() => raw), setItem: vi.fn((_key: string, data: string) => { raw = data; }) };
+  const cache = {
+    match: async () => Response.json(receipt),
+    put: async (_url: string, response: Response) => { receipt = await response.json(); },
+  };
+  vi.stubGlobal("window", Object.assign(new EventTarget(), {
+    localStorage, location: { origin: "https://demo.example" }, caches: { open: async () => cache },
+    setTimeout: (callback: () => void) => queueMicrotask(callback),
+  }));
+  const request = vi.fn(async (_name: string, run: () => unknown) => run());
+  vi.stubGlobal("navigator", { locks: { request } });
+  const { startBusiness, withBookingLock } = await import("@/concept/store");
+  const confirm = vi.fn(() => true);
+
+  expect(await withBookingLock(confirm)).toBe(false);
+  expect(confirm).not.toHaveBeenCalled();
+  expect(localStorage.setItem).not.toHaveBeenCalled();
+
+  await startBusiness();
+  expect(receipt).toEqual({ day, seq: firstReceipt.seq + 1 });
+  expect(JSON.parse(raw!).seq).toBe(receipt.seq);
+  expect(request).toHaveBeenCalledTimes(2);
+
+  const resetSnapshot = raw;
+  raw = JSON.stringify({ ...createDemoState(day), seq: firstReceipt.seq });
+  expect(await withBookingLock(confirm)).toBe(false);
+  expect(confirm).not.toHaveBeenCalled();
+  raw = resetSnapshot;
+  expect(await withBookingLock(confirm)).toBe(true);
+  expect(confirm).toHaveBeenCalledOnce();
+});
+
 it("undoing the first customer-note toast leaves the second edit in place", async () => {
   const base = createDemoState(toKey(new Date()));
   const [first, second] = base.customers;

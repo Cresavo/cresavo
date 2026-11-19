@@ -1,6 +1,6 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import { X } from "lucide-react";
-import { site } from "./en";
+import { useSiteCopy } from "./copy";
 import s from "./site.module.css";
 
 interface LightboxProps {
@@ -14,6 +14,7 @@ interface LightboxProps {
 }
 
 export function ClipLightbox({ src, ratio, poster, start, title, description, onClose }: LightboxProps) {
+  const { site } = useSiteCopy();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);

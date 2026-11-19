@@ -9,7 +9,8 @@ export const giftPage = (slug: string) => `${bookingHome(slug)}/gift`;
 
 export const bookingPage = (slug: string, id: string) => `${bookingHome(slug)}/booking/${id}`;
 export const myBookingsFor = (slug: string, customerId: string) => `${myBookings(slug)}?ref=${encodeURIComponent(customerId)}`;
-export const rebookLink = (slug: string, serviceId: string) => `${bookingHome(slug)}?service=${encodeURIComponent(serviceId)}#book`;
+export const rebookLink = (slug: string, serviceId: string, staffId?: string) =>
+  `${bookingHome(slug)}?${new URLSearchParams({ service: serviceId, ...(staffId && { staff: staffId }) })}#book`;
 
 type SharedCard = Pick<GiftCard, "code" | "amount" | "recipient" | "message">;
 

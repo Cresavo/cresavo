@@ -25,7 +25,7 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
   const [selected, setSelected] = useState<Channel>(draft.channels[0] ?? "instagram");
   const [scheduling, setScheduling] = useState(false);
   const [day, setDay] = useState(scheduleDefault);
-  const source = { name: draft.name, to: draft.to, link: draftLink(draft), poster: resolvePoster(state, draft) };
+  const source = { name: draft.name, to: draft.to, link: draftLink(state, draft), poster: resolvePoster(state, draft) };
   const preview = draft.channels.includes(selected) ? selected : draft.channels[0];
   const toggle = (channel: Channel) =>
     onChange({ channels: CHANNELS.filter((c) => (c === channel ? !draft.channels.includes(c) : draft.channels.includes(c))) });
@@ -63,7 +63,7 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
             ))}
           </div>
         </div>
-        <p className="text-sm text-text-secondary">{t("campaigns.publish.link", { link: draftLink(draft) })}</p>
+        <p className="text-sm text-text-secondary">{t("campaigns.publish.link", { link: draftLink(state, draft) })}</p>
         <div className="space-y-2.5">
           <Button size="lg" className="w-full" icon={<Send size={18} />} disabled={!draft.channels.length} onClick={() => onPublish(today)}>
             {t("campaigns.publish.everywhere")}

@@ -17,7 +17,9 @@ import { NextCustomer } from "@/concept/studio/today/next-customer";
 import { Timeline } from "@/concept/studio/today/timeline";
 import { TodayStats } from "@/concept/studio/today/today-stats";
 import { useStudio } from "@/concept/studio/use-studio";
-import { Button } from "@/concept/ui/button";
+import { FirstSteps } from "@/concept/studio/onboarding/checklist";
+import { SalonEntry } from "@/concept/studio/onboarding/entry";
+import { Button, ButtonLink } from "@/concept/ui/button";
 import { Section } from "@/concept/ui/card";
 import { EmptyState } from "@/concept/ui/empty-state";
 
@@ -46,19 +48,24 @@ export default function TodayPage() {
   const count = dayBookings(state, today, viewer?.id).length;
   const nextCustomer = <NextCustomer staffId={viewer?.id} onOpen={setSheet} />;
 
+  const empty = !!state.industry && !state.bookings.length;
   return (
     <>
       <PageHeader
-        title={greeting(minutes, viewer?.firstName ?? "Anna")}
+        title={greeting(minutes, viewer?.firstName ?? state.staff[0].firstName)}
         subtitle={`${formatDayLong(today)} · ${!open ? t("today.closed") : off ? t("today.dayOff") : tc("today.bookingCount", count)}`}
         actions={
-          <Button icon={<Phone size={18} />} onClick={() => setSheet({ kind: "phone" })}>
+          !empty && <Button icon={<Phone size={18} />} onClick={() => setSheet({ kind: "phone" })}>
             {t("today.phoneMode")}
           </Button>
         }
       />
+      {role === "owner" && <>
+        {!state.industry && <SalonEntry today />}
+        {state.industry && <FirstSteps />}
+      </>}
       {/* Keep the next customer above the schedule on phones and beside it on desktop. */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_clamp(20rem,30vw,26rem)] lg:gap-8">
+      {empty ? <EmptyState icon={<CalendarOff size={22} />} title={t("setup.empty.today")} action={<ButtonLink href={state.services.length ? "/studio/calendar" : "/studio/more/services"}>{t(state.services.length ? "nav.calendar" : "services.add")}</ButtonLink>} /> : <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_clamp(20rem,30vw,26rem)] lg:gap-8">
         <div className="min-w-0 space-y-6">
           {open && !viewer && <TodayStats />}
           {!desktop && nextCustomer}
@@ -78,7 +85,8 @@ export default function TodayPage() {
           {!viewer && <EveningSummary />}
           {!viewer && <Attention onOpen={setSheet} />}
         </div>
-      </div>
+      </div>}
+      {state.industry && role === "owner" && <SalonEntry />}
       <BookingSheets sheet={sheet} onChange={setSheet} />
     </>
   );

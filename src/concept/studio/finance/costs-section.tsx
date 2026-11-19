@@ -34,7 +34,7 @@ export function CostsSection() {
           </div>
           <ColumnChart
             label={t("finance.profitPerMonth")}
-            format={(value) => t("money", { amount: `${formatNumber(value / 1000)}k` })}
+            format={value => formatMoney(value)}
             data={results.map((r, i) => ({ label: formatMonth(r.month, true), value: r.profit, highlight: i === results.length - 1 }))}
           />
           <p className="text-xs text-text-secondary">{t("finance.profitHint")}</p>
@@ -68,7 +68,8 @@ export function CostsSection() {
   );
 }
 
-function AddCost() {
+export function AddCost() {
+  const { state } = useStudio();
   const [kind, setKind] = useState<CostKind>("rent");
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
@@ -93,7 +94,7 @@ function AddCost() {
             ))}
           </Select>
         </Field>
-        <Field label={t("finance.costAmount")}>
+        <Field label={t("finance.costAmount", { currency: state.localization.currency })}>
           <TextInput inputMode="numeric" type="number" min={1} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
         </Field>
       </div>

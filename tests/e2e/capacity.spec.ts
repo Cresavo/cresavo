@@ -109,7 +109,7 @@ test("cancellation updates the calendar, dismissals persist, and campaign drafts
     await page.goto("/admin/overview");
     const card = page
       .locator(".capacity-card")
-      .filter({ hasText: formatBookingTime(source.startsAt) });
+      .filter({ hasText: formatBookingTime(source.startsAt, "sv") });
     await expect(card).toHaveCount(0);
     if (process.env.PROACTIVE_CAPTURE === "1")
       await page.screenshot({
@@ -167,7 +167,7 @@ test("cancellation updates the calendar, dismissals persist, and campaign drafts
     await page.goto(overviewUrl);
     const second = page
       .locator(".capacity-card")
-      .filter({ hasText: formatBookingTime(day.set({ hour: 10 }).toJSDate()) });
+      .filter({ hasText: formatBookingTime(day.set({ hour: 10 }).toJSDate(), "sv") });
     await second
       .getByRole("button", { name: "Avfärda förslaget", exact: true })
       .click();

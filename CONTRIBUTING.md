@@ -57,6 +57,35 @@ readable files, validate on the server, AI only proposes and the person
 approves, all UI text in the i18n dictionary (English first), no secrets or
 personal data in logs.
 
+## Languages
+
+English is the source language for code, documentation and UI. Every user-facing
+string goes through its area's dictionary. Add or update the Swedish translation
+in the same PR as the English text. Parity tests check keys and placeholders.
+Self-hosted installations default to English and offer Swedish as a choice.
+Country-specific features such as Swish belong in connectors or market settings
+selected by the business's country or currency. Both site languages describe
+the same product.
+
+## Adding a language
+
+English is the default for the studio and new booking pages. Choose Swedish
+explicitly in tests that exercise Swedish UI or booking copy.
+
+1. Add new UI keys to `src/concept/i18n/en.ts` first. Use `t()` for copy,
+   `tc()` for counts and the format helpers for dates, times and money.
+2. In the new dictionary, match every English key and keep the placeholders
+   in each plural form. Values with two forms use `one|many`.
+3. Register the locale and its Intl language tag in `src/lib/locale.ts`,
+   add the dictionary to `src/concept/i18n/index.ts`, and include the locale
+   in the studio and booking language controls. Add industry vocabulary
+   with its singular, plural and definite forms where the language needs them.
+4. Use the explicit business locale for customer templates and calendar
+   downloads. Keep user-authored content and stored booking values intact.
+5. Run `npx vitest run tests/concept-i18n.test.ts` and
+   `npm run test:concept -- i18n.spec.ts --trace off`. The smoke runs at 390
+   and 1440 px. Set `CONCEPT_SCREENSHOTS=1` to capture the mobile JPEGs.
+
 ## Commits and releases
 
 Use [Conventional Commits](https://www.conventional-commits.org/)

@@ -53,7 +53,7 @@ export function SectionControls({ sections, instagram, onChange, onInstagram }: 
       </ReorderList>
       {sections.some((s) => s.kind === "instagram") && (
         <Field label={t("pageEditor.instagram")} hint={t("pageEditor.instagram.hint")}>
-          <TextInput value={instagram} onChange={(event) => onInstagram(event.target.value)} placeholder="salong.eko" autoCapitalize="none" autoComplete="off" spellCheck={false} />
+          <TextInput value={instagram} onChange={(event) => onInstagram(event.target.value)} placeholder={t("pageEditor.instagramExample")} autoCapitalize="none" autoComplete="off" spellCheck={false} />
         </Field>
       )}
       {availableKinds(sections).length > 0 && (

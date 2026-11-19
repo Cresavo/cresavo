@@ -69,9 +69,9 @@ describe("price list validation", () => {
     const proposal = propose(555.55);
     expect(proposal.kind).toBe("change");
     if (proposal.kind !== "change") throw new Error("Expected a price proposal");
-    expect(proposal.rows[0].after).toBe("SEK 555.55");
+    expect(proposal.rows[0].after).toBe("SEK\u00a0555.55");
     const { next, entry } = logged(base, proposal.action);
-    expect(entry.after).toBe("SEK 555.55");
+    expect(entry.after).toBe("SEK\u00a0555.55");
     const service = next.services.find(s => s.id === serviceId)!;
     expect(service.price).toBe(555.55);
     const edited = reduce(next, { type: "service/update", id: serviceId, service: { ...service, name: "Renamed treatment" } });

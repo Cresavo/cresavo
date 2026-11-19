@@ -1,4 +1,4 @@
-import { formatTime } from "../../data/dates";
+import { formatTime } from "../../i18n/format";
 import type { DemoState } from "../../data/types";
 import { findService } from "../../selectors";
 
@@ -23,7 +23,7 @@ export function customersCsv(state: DemoState): string {
 
 export function bookingsCsv(state: DemoState): string {
   return toCsv([
-    ["id", "date", "time", "minutes", "customer_id", "service", "staff", "price_sek", "status"],
+    ["id", "date", "time", "minutes", "customer_id", "service", "staff", `price_${state.localization.currency.toLowerCase()}`, "status"],
     ...state.bookings.map((b) => [
       b.id,
       b.date,

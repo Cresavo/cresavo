@@ -20,7 +20,7 @@ import { staffViewer } from "@/concept/ops/access";
 import { useRole } from "@/concept/ops/role";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
-import { Button, IconButton } from "@/concept/ui/button";
+import { Button, ButtonLink, IconButton } from "@/concept/ui/button";
 import { Segmented } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
 
@@ -63,15 +63,29 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
     ? tc("calendar.bookingCount", Array.from({ length: step }, (_, day) => dayBookings(state, addDays(periodStart, day), staffId, room).length).reduce((sum, count) => sum + count, 0))
     : t("calendar.subtitle", { percent: formatNumber(utilisation(state, periodStart, step, staffId) * 100) });
 
+  if (state.industry && !state.bookings.length) {
+    return <>
+      <PageHeader title={t("calendar.title")} actions={switchCalendar} />
+      <EmptyState icon={<CalendarPlus size={22} />} title={t("setup.empty.calendar")}
+        action={state.services.length
+          ? <Button onClick={() => setSheet({ kind: "new", preset: { date, staffId: viewer?.id } })}>{t("calendar.newBooking")}</Button>
+          : <ButtonLink href="/studio/more/services">{t("services.add")}</ButtonLink>} />
+      <BookingSheets sheet={sheet} onChange={setSheet} />
+    </>;
+  }
+
   return (
     <>
       <PageHeader
         title={t("calendar.title")}
         subtitle={subtitle}
         actions={
-          <>{switchCalendar}<Button data-help="new-booking" icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { date } })}>
-            {t("calendar.newBooking")}
-          </Button></>
+          <>
+            {switchCalendar}
+            <Button data-help="new-booking" icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { date, staffId: viewer?.id } })}>
+              {t("calendar.newBooking")}
+            </Button>
+          </>
         }
       />
       <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">

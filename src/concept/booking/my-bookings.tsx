@@ -2,13 +2,13 @@
 
 import { WithStaff } from "./with-staff";
 import { useState } from "react";
+import { FREE_CHANGE_HOURS } from "./policy";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarCheck, Info, Repeat, Search } from "lucide-react";
-import { formatTime } from "../data/dates";
 import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
-import { formatDayLong, formatDuration, formatMoney, relativeDay } from "../i18n/format";
+import { formatDayLong, formatDuration, formatMoney, relativeDay, formatTime } from "../i18n/format";
 import { findCustomer, findService } from "../selectors";
 import { usePublicDemo } from "../store";
 import { Badge } from "../ui/badge";
@@ -17,7 +17,7 @@ import { Button, ButtonLink } from "../ui/button";
 import { Card, Section } from "../ui/card";
 import { Field, TextInput } from "../ui/controls";
 import { EmptyState } from "../ui/empty-state";
-import { useNow, type Now } from "../use-now";
+import { useSalonNow, type Now } from "../use-now";
 import { BookingActions, freeUntilText } from "./booking-actions";
 import { changeRule } from "./policy";
 import { ReviewForm } from "./review-form";
@@ -28,9 +28,9 @@ import { customerBookings, findCustomerByPhone } from "./lookup";
 /** No login in the demo: the link carries `?ref=`, or the customer types the number they booked with. */
 export function MyBookings() {
   const state = usePublicDemo();
-  const now = useNow();
+  const now = useSalonNow();
   const ref = useSearchParams()?.get("ref");
-  const [remembered] = useState(() => recallGuest()?.customerId);
+  const [remembered] = useState(() => state ? recallGuest(state.salon.slug)?.customerId : undefined);
   if (!state) return null;
   const customer = findCustomer(state, ref ?? remembered);
   return customer ? <Overview state={state} now={now} customerId={customer.id} /> : <Lookup state={state} />;
@@ -80,7 +80,7 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
         <h1 className="text-2xl font-semibold tracking-tight">{t("booking.me.title", { name: customer.firstName })}</h1>
         <p className="mt-2 flex items-start gap-2 rounded-md bg-action-bg px-3.5 py-3 text-sm text-text">
           <Info size={16} className="mt-0.5 shrink-0" />
-          {t("booking.me.rule", { phone: state.salon.phone })}
+          {state.salon.phone ? t("booking.me.rule", { phone: state.salon.phone }) : t("booking.policy.free", { hours: FREE_CHANGE_HOURS })}
         </p>
       </div>
 
@@ -108,13 +108,15 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
               return (
                 <div key={booking.id} className="p-4">
                   <div className="flex flex-wrap items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">{service?.name}</p>
-                    <p className="text-sm text-text-secondary">{formatDayLong(booking.date)} · {formatMoney(booking.price)}</p>
-                  </div>
-                  <ButtonLink href={rebookLink(state.salon.slug, booking.serviceId)} variant="secondary" size="sm" icon={<Repeat size={14} />}>
-                    {t("booking.me.rebook")}
-                  </ButtonLink>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{service?.name}</p>
+                      <p className="text-sm text-text-secondary">{formatDayLong(booking.date)} · {formatMoney(booking.price)}</p>
+                    </div>
+                    {state.services.some(s => s.id === booking.serviceId) && (
+                      <ButtonLink href={rebookLink(state.salon.slug, booking.serviceId, booking.staffId)} variant="secondary" size="sm" icon={<Repeat size={14} />}>
+                        {t("booking.me.rebook")}
+                      </ButtonLink>
+                    )}
                   </div>
                   <ReviewForm state={state} booking={booking} now={now} />
                 </div>

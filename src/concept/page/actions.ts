@@ -22,7 +22,7 @@ export function applyPageAction(state: DemoState, action: PageAction): DemoState
       return JSON.stringify(page) === JSON.stringify(state.page) ? state : { ...state, page };
     }
     case "salon/slug": {
-      const check = checkOwnSlug(action.slug, state.salon.slug);
+      const check = checkOwnSlug(action.slug, state.salon.slug, !!state.industry);
       return check.ok && check.slug !== state.salon.slug ? { ...state, salon: { ...state.salon, slug: check.slug } } : state;
     }
     case "domain/connect": {

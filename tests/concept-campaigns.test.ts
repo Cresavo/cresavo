@@ -3,7 +3,7 @@ import { reduce } from "@/concept/actions";
 import { monthGrid, postDay, shiftMonth } from "@/concept/campaigns/calendar";
 import { assembleCopy, CHANNEL_LIMIT, CHANNELS, isOverLimit } from "@/concept/campaigns/channels";
 import { listServices, offerText, rulesCopy } from "@/concept/campaigns/copy";
-import { defaultPrefill, draftOffer, newDraft, resolvePoster } from "@/concept/campaigns/draft";
+import { defaultPrefill, draftLink, draftOffer, newDraft, resolvePoster } from "@/concept/campaigns/draft";
 import { campaignCode, trackingLink } from "@/concept/campaigns/links";
 import { fitFontSize, wrapText } from "@/concept/campaigns/poster-layout";
 import { parseCampaignRequest, prefillForHoliday, prefillFromQuery, studioHref } from "@/concept/campaigns/prefill";
@@ -186,7 +186,9 @@ describe("campaign store actions", () => {
   });
 
   it("builds a draft's offer sentence and poster from the offer, with the owner's edits on top", () => {
-    expect(draftOffer(state, draft)).toBe(`Test offer: 10% off ${state.services[0].name} until 29 Nov 2026.`);
+    expect(draftOffer(state, draft)).toBe("Test offer: 10% off Medical foot care until 29 Nov 2026.");
+    const swedish = { ...state, localization: { ...state.localization, language: "sv" as const } };
+    expect(draftOffer(swedish, draft)).toBe("Test offer: 10 % rabatt på Medicinsk fotvård till 29 november 2026.");
     const poster = resolvePoster(state, draft);
     expect(poster).toMatchObject({ style: "calm", image: "/demo/salon.webp", headline: "−10%", detail: state.services[0].name });
     expect(resolvePoster(state, { ...draft, serviceIds: ["deep-tissue"], posterEdits: { headline: "Gift" } })).toMatchObject({ image: "/demo/massage.webp", headline: "Gift" });
@@ -234,4 +236,12 @@ describe("quiet days and poster layout", () => {
     expect(fitFontSize("−15%", 900, 160)).toBe(160);
     expect(fitFontSize("A very long headline indeed", 900, 160)).toBeLessThan(60);
   });
+});
+
+it("links a local campaign to its salon's booking page on this origin", () => {
+  const offer = { name: "Autumn offer", from: today };
+  const salon = { ...state, industry: "hair" as const, salon: { ...state.salon, slug: "studio-vide" } };
+  const origin = "https://studio.example";
+  expect(draftLink(salon, offer, origin)).toBe(`${origin}/boka/studio-vide?campaign=${campaignCode(offer.name, today)}`);
+  expect(draftLink(state, offer, origin)).toBe(trackingLink(offer.name, today));
 });

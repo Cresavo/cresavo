@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { bookingShare } from "../../booking/share";
 import { t } from "../../i18n";
+import { recordShare } from "../onboarding/booking-link";
 import { Button, ButtonLink } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { showToast } from "../../ui/toast";
@@ -11,13 +12,16 @@ import { useStudio } from "../use-studio";
 export function BookingShare() {
   const [copied, setCopied] = useState<"link" | "code" | null>(null);
   const { state } = useStudio();
-  const share = bookingShare(window.location.origin, state.salon.slug, state.salon.name);
+  const share = bookingShare(window.location.origin, state.salon.slug, state.salon.name, state.localization.language);
   const copy = async (kind: "link" | "code") => {
-    try { await navigator.clipboard.writeText(share[kind]); setCopied(kind); }
-    catch { showToast(t("share.failed")); }
+    try {
+      await navigator.clipboard.writeText(share[kind]);
+      setCopied(kind);
+      if (state.industry && kind === "link") recordShare(state.salon.slug);
+    } catch { showToast(t("share.failed")); }
   };
   return <Card className="space-y-4 p-5">
-    <p className="text-sm text-text-secondary">{t("share.help")}</p>
+    <p className="text-sm text-text-secondary">{t(state.industry ? "setup.local" : "share.help")}</p>
     <div className="space-y-2">
       <label className="block text-sm font-medium" htmlFor="booking-bio-link">{t("share.bio")}</label>
       <input className="w-full rounded-md border border-hairline bg-surface-2 p-3 text-base" id="booking-bio-link" readOnly value={share.link} onFocus={event => event.target.select()} />

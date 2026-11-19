@@ -5,6 +5,7 @@ import { weekday } from "../data/dates";
 import type { DemoState, Interval, StaffId } from "../data/types";
 import { hair } from "../packs/hair";
 import { t } from "../i18n";
+import { defaultBusinessLocalization } from "../i18n/business";
 import { digest, requirePair } from "./http";
 
 export interface PairState extends DemoState {
@@ -26,6 +27,8 @@ function project(state: DemoState, includeHistory = false): PairState {
   }));
   return {
     version: state.version, generatedFor: state.generatedFor, seq: state.seq, pack: state.pack, salon: state.salon,
+    industry: state.industry ?? null,
+    localization: state.localization ?? defaultBusinessLocalization(state.pack),
     staff: state.staff, services: state.services, resources: state.resources, categories: state.categories,
     modules: state.modules, page: state.page, bookings, customers, inbox: [],
     exceptions: [], retiredServices: [], journals: [], reviews: [], log: [], trash: [], memory: [], routines: [],
@@ -75,7 +78,8 @@ export function freshSnapshot(today: string) {
 }
 
 export function snapshot(w: PairWorkspace): PairState {
-  const state = w.snapshot as unknown as PairState;
+  const stored = w.snapshot as unknown as PairState;
+  const state = { ...stored, industry: stored.industry ?? null, localization: stored.localization ?? defaultBusinessLocalization(hair.id) };
   if (w.version === 2) return state.staffRefs ? state : scopeEntities(state, w.id);
   requirePair(w.version === 1, "unsupported_snapshot", 409);
   const safe = project(state);

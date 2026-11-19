@@ -1,3 +1,4 @@
+import { defaultBusinessLocalization } from "../i18n/business";
 import { DEFAULT_PAGE, type PageConfig } from "../page/config";
 import { DEFAULT_SECTIONS, type PageSection } from "../page/sections";
 import { getPack } from "../packs";
@@ -46,6 +47,10 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
     }));
     return { ...saved, staff, version: 17 };
   },
+  17: (saved) => ({ ...saved, localization: defaultBusinessLocalization(saved.pack as PackId), version: 18 }),
+  18: (saved) => ({ ...saved, industry: null, version: 19 }),
+  // The demo salon became English by default, with Swedish offered to visitors. Own salons keep their choice.
+  19: (saved) => (saved.industry ? { ...saved, version: 20 } : { ...saved, localization: defaultBusinessLocalization(saved.pack as PackId), version: 20 }),
 };
 
 /** The oldest saved version that can still be migrated. */

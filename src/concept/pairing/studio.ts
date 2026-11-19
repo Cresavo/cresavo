@@ -1,3 +1,4 @@
+import { requestLocale } from "@/lib/locale-server";
 import { z } from "zod";
 import { defaultMeta } from "../log/capture";
 import { ToolError, field } from "../tools/define";
@@ -12,8 +13,8 @@ import { snapshotWorkspace } from "./owner-workspace";
 import { freshSnapshot, snapshot } from "./fixture";
 import { bump, owner, start } from "./workspace";
 
-const headersFor = (id: string, revision: number, expiry: Date, day: string) => ({
-  ETag: `"pair-${id}-${revision}-${day}"`, "X-Pair-Expiry": expiry.toISOString(),
+const headersFor = (id: string, revision: number, expiry: Date, day: string, language: string) => ({
+  ETag: `"pair-${id}-${revision}-${day}-${language}"`, "X-Pair-Expiry": expiry.toISOString(),
 });
 export async function session(request: Request) {
   if (!ownerHash(request)) {
@@ -24,17 +25,18 @@ export async function session(request: Request) {
     const w = await owner(tx, request, false);
     await budget(tx, "poll:" + w.id, 180, minute);
     const day = salonClock().today;
-    const headers = headersFor(w.id, w.revision, w.expiresAt, day);
+    const language = requestLocale(request);
+    const headers = headersFor(w.id, w.revision, w.expiresAt, day, language);
     if (request.headers.get("if-none-match") === headers.ETag) return new Response(null, { status: 304, headers });
     const state = snapshot(await tx.pairWorkspace.findUniqueOrThrow({ where: { id: w.id } }));
     const grants = await tx.pairGrant.findMany({ where: { workspaceId: w.id, revoked: false }, orderBy: { id: "asc" }, select: { id: true, clientId: true, clientName: true, scopes: true } });
     const proposals = await tx.pairProposal.findMany({ where: { workspaceId: w.id, status: "pending" }, orderBy: { createdAt: "desc" } });
     return Response.json({ id: w.id, revision: w.revision, expiresAt: w.expiresAt,
       grants: grants.map(g => ({ ...g, clientName: cleanClientName(g.clientName) })),
-      items: state.inbox.slice(0, 25).map(item => itemView(item, true)),
+      items: state.inbox.slice(0, 25).map(item => itemView(item, true, language)),
       bookings: state.bookings.filter(b => b.status === "booked" && b.date >= day).map(b => bookingView(state, b)),
       blocks: (state.blocks ?? []).map(b => ({ ...b, staffName: state.staff.find(s => s.id === b.staffId)?.firstName ?? b.staffId })),
-      proposals: proposals.map(p => studioProposalView(p, state)),
+      proposals: proposals.map(p => studioProposalView(p, state, language)),
     }, { headers });
   });
 }

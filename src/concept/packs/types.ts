@@ -13,6 +13,7 @@ export type JournalTemplateId =
 export interface Vocabulary {
   customer: string;
   service: string;
+  sv?: { customer: string; service: string };
 }
 
 export interface JournalText {

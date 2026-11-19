@@ -6,6 +6,7 @@ import type { Clock } from "../finance/types";
 import { t, tc } from "../i18n";
 import { formatDayLong, formatDayShort, formatMoney } from "../i18n/format";
 import { interpretCommand, type IntentParams } from "../intent";
+import { normalizeSwedishCommand } from "../intent/swedish";
 import { parseDays } from "../intent/dates";
 import { canChangeBooking, canCommand, type Role } from "../ops/access";
 import { fullName } from "../selectors";
@@ -65,7 +66,7 @@ function rememberReply(input: EngineInput, understood: string, note: string): En
     const firstName = subject.customers[0].firstName;
     const choices = subject.customers.slice(0, 4).map((customer) => ({
       label: fullName(customer),
-      text: `Remember ${note.replace(new RegExp(`\\b${firstName}\\b`, "i"), fullName(customer))}`,
+      text: t("assistant.memory.rememberCommand", { note: note.replace(new RegExp(`\\b${firstName}\\b`, "i"), fullName(customer)) }),
     }));
     const card: ReplyCard = { kind: "choose", title: t("assistant.memory.which", { name: firstName }), choices };
     return result(input, understood, rules(card.title, { card }));
@@ -104,13 +105,13 @@ function routinesReply(input: EngineInput, understood: string): EngineResult {
 }
 
 /** "Send an offer to the customers who haven't been here since summer", or "…to them" after a list. */
-function offerReply(input: EngineInput, understood: string): EngineResult {
+function offerReply(input: EngineInput, understood: string, canonical: string): EngineResult {
   const { state, clock, context } = input;
   const intent = interpretCommand(understood, buildIntentContext(state, clock.today, clock.minutes));
   const customerIds =
     intent.action === "inactive-customers" && intent.params.since
       ? lapsedCustomers(state, intent.params.since, clock.today).map((row) => row.customer.id)
-      : meansThoseCustomers(understood) ? context.customerIds : [];
+      : meansThoseCustomers(canonical) ? context.customerIds : [];
   if (!customerIds.length) {
     return result(input, understood, rules(t("assistant.offer.who"), { followUps: [t("assistant.example.inactive")] }));
   }
@@ -136,10 +137,10 @@ interface ToolBooking {
 }
 
 /** "Who is coming on Friday?", "Who was here last Friday?", "Who is coming next week?" through the shared `list_bookings` read tool. Staff only see their own bookings. */
-function bookingsReply(input: EngineInput, understood: string): EngineResult {
+function bookingsReply(input: EngineInput, understood: string, canonical: string): EngineResult {
   const { state, clock } = input;
   if (input.role === "staff" && !input.viewer) return ownerOnly(input, understood);
-  const days = parseDays(understood.toLowerCase(), buildIntentContext(state, clock.today, clock.minutes)) ?? { from: clock.today, to: clock.today };
+  const days = parseDays(canonical.toLowerCase(), buildIntentContext(state, clock.today, clock.minutes)) ?? { from: clock.today, to: clock.today };
   const data = listBookings.run({ state, clock }, { ...days, staffId: input.role === "staff" ? input.viewer : undefined }) as { bookings: ToolBooking[] };
   const booked = data.bookings.filter((b) => b.status === "booked" || b.status === "completed");
   const range = days.from !== days.to;
@@ -180,7 +181,7 @@ function listedCustomers(state: DemoState, params: IntentParams, card: Proposal,
 /** A command answered from an intent: the rules' reading by default, or an AI model's reading of the same words. */
 export function commandReply(input: EngineInput, understood: string, intent = interpretCommand(understood, buildIntentContext(input.state, input.clock.today, input.clock.minutes))): EngineResult {
   const { state, clock, role } = input;
-  const card = proposalFor(state, intent, understood, clock, input.examples, role);
+  const card = proposalFor(state, intent, normalizeSwedishCommand(understood), clock, input.examples, role);
   const notUnderstood = intent.action === "question" && card.kind === "choose" && card.choices.every((choice) => input.examples.includes(choice.label));
   if (notUnderstood) return { ...result(input, understood, rules(t("assistant.fallback"), { followUps: input.examples })), command: true };
   const { text, topic, followUps } = describe(card);
@@ -200,28 +201,29 @@ export function respond(input: EngineInput): EngineResult {
   const owner = input.role === "owner";
   if (!text) return result(input, understood, rules(t("assistant.fallback"), { followUps: input.examples }));
 
-  const note = rememberRequest(understood);
+  const canonical = normalizeSwedishCommand(understood);
+  const note = rememberRequest(canonical);
   if (note) return owner ? rememberReply(input, understood, note) : ownerOnly(input, understood);
-  const forget = understood.match(/^(?:please\s+)?forget\s+(?:about\s+)?(.+?)[.!]*$/i);
+  const forget = canonical.match(/^(?:please\s+)?forget\s+(?:about\s+)?(.+?)[.!]*$/i);
   if (forget) return owner ? forgetReply(input, understood, forget[1]) : ownerOnly(input, understood);
-  const recall = understood.match(/^what do you (?:remember|know)(?:\s+about\s+(.+?))?\??$/i);
+  const recall = canonical.match(/^what do you (?:remember|know)(?:\s+about\s+(.+?))?\??$/i);
   if (recall) {
     if (!owner) return ownerOnly(input, understood);
     const items = searchMemory(input.state.memory, recall[1] ?? "");
     return result(input, understood, rules(items.length ? tc("assistant.memory.count", items.length) : t("assistant.memory.empty"), { card: { kind: "memory-list", items, query: recall[1] ?? "" } }));
   }
 
-  const lower = understood.toLowerCase();
+  const lower = canonical.toLowerCase();
   if (/\b(brief|weekly review|how (was|is) (the|this) week|how did (today|the day) go|closing summary)\b/.test(lower)) {
     if (!owner) return ownerOnly(input, understood);
     const brief = /\bweek/.test(lower) ? weeklyBrief(input.state, input.clock) : /\b(today|day) go|closing/.test(lower) ? closingBrief(input.state, input.clock) : morningBrief(input.state, input.clock);
     return briefReply(input, understood, brief);
   }
   if (/\broutines?\b/.test(lower)) return owner ? routinesReply(input, understood) : ownerOnly(input, understood);
-  if (/\b(send|text|sms|message|email)\b.*\b(offer|greeting|discount|deal)\b/.test(lower)) return owner ? offerReply(input, understood) : ownerOnly(input, understood);
-  if (/\bwho(?:'s| is| was| were)? (?:coming|in|booked|here)\b|\bwhat(?:'s| is) on\b/.test(lower)) return bookingsReply(input, understood);
+  if (/\b(send|text|sms|message|email)\b.*\b(offer|greeting|discount|deal)\b/.test(lower)) return owner ? offerReply(input, understood, canonical) : ownerOnly(input, understood);
+  if (/\bwho(?:'s| is| was| were)? (?:coming|in|booked|here)\b|\bwhat(?:'s| is) on\b/.test(lower)) return bookingsReply(input, understood, canonical);
 
-  const found = lookup({ state: input.state, clock: input.clock, context: input.context, viewer: input.role === "staff" ? input.viewer : undefined, owner }, understood);
+  const found = lookup({ state: input.state, clock: input.clock, context: input.context, viewer: input.role === "staff" ? input.viewer : undefined, owner }, canonical);
   if (found) return { ...result(input, understood, rules(found.text, { card: found.card, followUps: found.followUps, topic: found.topic }), { ...input.context, ...found.context }), local: true };
 
   const fact = noticedFact(understood);
@@ -260,7 +262,7 @@ function cardFacts(card: ReplyCard | undefined): string[] {
 function customerNames(state: DemoState): RegExp[] {
   const names = new Set<string>();
   for (const c of state.customers) for (const name of [fullName(c), c.lastName, c.firstName]) if (name.trim().length > 1) names.add(name.trim());
-  return [...names].sort((a, b) => b.length - a.length).map((name) => new RegExp(`(?<![\\p{L}\\p{N}])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:'s)?(?![\\p{L}\\p{N}])`, "giu"));
+  return [...names].sort((a, b) => b.length - a.length).map((name) => new RegExp(`(?<![\\p{L}\\p{N}])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:'?s)?(?![\\p{L}\\p{N}])`, "giu"));
 }
 
 /** Customer names in provider-bound text become "the customer": a model rephrases the wording, it never needs who. */
