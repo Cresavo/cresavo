@@ -61,8 +61,10 @@ function today() {
 
 function load(raw: string | null, workspace: Workspace): DemoState | null {
   try {
-    const saved = raw && migrateState(JSON.parse(raw));
+    let saved = raw && migrateState(JSON.parse(raw));
     if (saved && Boolean(saved.industry) === (workspace === "own")) {
+      const validHolds = saved.checkoutHolds.filter(hold => hold.expiresAt > Date.now());
+      if (validHolds.length !== saved.checkoutHolds.length) saved = { ...saved, checkoutHolds: validHolds };
       if (saved.industry) return purgeExpired({ ...saved, generatedFor: today() }, today());
       const demo = saved.generatedFor === today() ? purgeExpired(saved, today()) : createDemoState(today(), setupOf(saved));
       // An older setup could give both salons the same address. Keep the
@@ -188,7 +190,9 @@ export function dispatchWithLog(
     // Includes undo, which can restore a previously free address.
     if (next.salon.slug !== current.salon.slug && next.salon.slug === workspaceSlug(active === "demo" ? "own" : "demo")) return false;
     // Run the booking rules again if another tab wrote while we prepared the save.
-    if (!setState(next, action.type === "online/book" || !!canApply)) continue;
+    const recheck = !!canApply || action.type.startsWith("online/") || action.type === "salon/policy" ||
+      action.type === "booking/fee" || action.type === "booking/cancel";
+    if (!setState(next, recheck)) continue;
     const logId = next.log[0]?.id;
     return logId !== current.log[0]?.id ? logId ?? null : null;
   }

@@ -9,6 +9,7 @@ import { SalonEntry } from "@/concept/studio/onboarding/entry";
 import { BookingShare } from "@/concept/studio/more/booking-share";
 import { AddressSection } from "@/concept/studio/page/address-section";
 import { ClosedDaysSection } from "@/concept/studio/ops/closed-days";
+import { BookingRules } from "@/concept/studio/ops/booking-rules";
 import { HoursSection } from "@/concept/studio/ops/hours-section";
 import { ResourcesSection } from "@/concept/studio/ops/resources-section";
 import { MorePage } from "@/concept/studio/more/more-page";
@@ -82,6 +83,7 @@ export default function SettingsPage() {
             </label>
           </Card>
         </Section>
+        <BookingRules key={state.cancellationPolicy.version} state={state} />
         <div id="hours"><HoursSection /></div>
         <ClosedDaysSection />
         <ResourcesSection />

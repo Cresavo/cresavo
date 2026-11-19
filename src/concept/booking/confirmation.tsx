@@ -9,6 +9,7 @@ import { StaffAvatar } from "../ui/avatar";
 import { ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
 import { useSalonNow } from "../use-now";
+import { PaymentSummary, policyText } from "./policy-summary";
 import { BookingActions, freeUntilText } from "./booking-actions";
 import { changeRule } from "./policy";
 import { bookingHome, myBookingsFor, rebookLink } from "./links";
@@ -34,20 +35,21 @@ export function Confirmation({ id }: { id: string }) {
   }
 
   const cancelled = booking.status === "cancelled";
-  const active = changeRule(booking, now.today, now.minutes) !== "past";
-  const Icon = cancelled ? XCircle : CheckCircle2;
+  const missed = booking.status === "noshow";
+  const active = changeRule(booking, now.today, now.minutes, now.instant) !== "past";
+  const Icon = cancelled || missed ? XCircle : CheckCircle2;
   return (
     <div id="manage" className="mx-auto max-w-lg space-y-5">
       <div className="space-y-2 text-center">
-        {cancelled ? (
+        {cancelled || missed ? (
           <span data-tone="danger" className="mx-auto flex size-16 items-center justify-center rounded-full bg-danger-bg text-text">
             <Icon data-tone-mark size={36} className="text-danger" />
           </span>
         ) : (
           <Icon size={44} className="mx-auto text-action" />
         )}
-        <h1 className="text-2xl font-semibold tracking-tight">{cancelled ? t("booking.confirmation.cancelled") : t("booking.confirmation.title")}</h1>
-        <p className="text-text-secondary">{cancelled ? t("booking.confirmation.cancelledText") : t("booking.confirmation.text")}</p>
+        <h1 className="text-2xl font-semibold tracking-tight">{missed ? t("status.noshow") : cancelled ? t("booking.confirmation.cancelled") : t("booking.confirmation.title")}</h1>
+        {!missed && <p className="text-text-secondary">{cancelled ? t("booking.confirmation.cancelledText") : t("booking.confirmation.text")}</p>}
       </div>
 
       <Card className="space-y-4 p-5">
@@ -66,14 +68,17 @@ export function Confirmation({ id }: { id: string }) {
           <MapPin size={16} className="mt-0.5 shrink-0" />
           {[state.salon.name, state.salon.address, state.salon.area].filter(Boolean).join(", ")}
         </p>
-        <p className="border-t border-hairline pt-3 text-sm">
+        {booking.protection ? <PaymentSummary booking={booking} state={state} /> : <p className="border-t border-hairline pt-3 text-sm">
           <strong>{formatMoney(booking.price)}</strong> · {t("booking.payAtSalon")}
-        </p>
+        </p>}
       </Card>
 
       <div className="space-y-3">
         {active && <BookingActions state={state} now={now} booking={booking} />}
-        {changeRule(booking, now.today, now.minutes) === "free" && <p className="text-sm text-text-secondary">{freeUntilText(booking)}</p>}
+        {booking.status === "booked" && <div className="space-y-1 text-sm text-text-secondary">
+          <p>{freeUntilText(booking)}</p>
+          {booking.protection && <p>{policyText(booking.protection.terms)}</p>}
+        </div>}
         {state.services.some(s => s.id === service.id) && (
           <ButtonLink href={rebookLink(state.salon.slug, booking.serviceId, booking.staffId)} variant="secondary" className="w-full">
             {t("booking.me.rebook")}

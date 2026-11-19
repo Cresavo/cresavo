@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Gift } from "lucide-react";
-import { balanceOf, findGiftCard, paidWithCards, redeemable } from "../../giftcards/cards";
+import { balanceOf, findGiftCard, remainingForCards, redeemable } from "../../giftcards/cards";
 import { t } from "../../i18n";
 import { formatMoney } from "../../i18n/format";
 import { findCustomer } from "../../selectors";
@@ -19,7 +19,7 @@ export function RedeemSheet({ bookingId, onBack, onClose }: { bookingId: string;
   const booking = state.bookings.find((b) => b.id === bookingId);
   if (!booking) return null;
   const card = findGiftCard(state, code);
-  const toPay = booking.price - paidWithCards(state, booking.id);
+  const toPay = remainingForCards(state, booking);
   const amount = card ? redeemable(state, card, booking) : 0;
   const name = findCustomer(state, booking.customerId)?.firstName ?? "";
 

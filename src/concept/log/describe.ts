@@ -34,6 +34,14 @@ const staffFirstName = (state: DemoState, id: string) => state.staff.find((s) =>
 /** One short sentence per change. It names people and things but never quotes journal text or messages. */
 export function describeAction(action: LoggedAction, prev: DemoState, next: DemoState): Description {
   switch (action.type) {
+    case "salon/policy":
+      return { summary: t("protection.saved"), before: String(prev.cancellationPolicy.version), after: String(next.cancellationPolicy.version) };
+    case "online/hold":
+      return { summary: t("protection.held") };
+    case "online/release":
+      return { summary: t("protection.released") };
+    case "booking/fee":
+      return { summary: t(action.incident === "late" ? "protection.late" : "status.noshow"), after: t(action.outcome === "waive" ? "protection.waived" : "protection.charged") };
     case "salon/language":
       return { summary: t("log.bookingLanguage") };
     case "memory/add":
@@ -61,11 +69,12 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
     }
     case "booking/create": {
       const made = next.bookings[next.bookings.length - 1];
-      return { summary: t("log.bookingCreate", { customer: customerName(next, made.customerId), service: serviceName(next, action.serviceId) }), after: when(next, made) };
+      return { summary: t("log.bookingCreate", { customer: customerName(next, made.customerId), service: serviceName(next, made.serviceId) }), after: when(next, made) };
     }
+    case "online/pay":
     case "online/book": {
       const made = next.bookings[next.bookings.length - 1];
-      return { summary: t("log.onlineBook", { customer: customerName(next, made.customerId), service: serviceName(next, action.serviceId) }), after: when(next, made) };
+      return { summary: t("log.onlineBook", { customer: customerName(next, made.customerId), service: serviceName(next, made.serviceId) }), after: when(next, made) };
     }
     case "online/waitlist":
       return { summary: t("log.onlineWaitlist", { customer: action.guest.name.trim(), service: serviceName(next, action.serviceId) }) };

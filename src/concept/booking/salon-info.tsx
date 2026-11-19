@@ -6,7 +6,6 @@ import { formatDate, formatTime } from "../i18n/format";
 import { Card, Section } from "../ui/card";
 import { cx } from "../ui/cx";
 import type { Now } from "../use-now";
-import { FREE_CHANGE_HOURS } from "./policy";
 import { publicName, recentReviews, reviewSummary } from "./reviews";
 
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -72,7 +71,7 @@ export function CancellationPolicy({ state }: { state: DemoState }) {
   return (
     <Section title={t("booking.policy.title")}>
       <p className="text-sm text-text-secondary">
-        {t("booking.policy.free", { hours: FREE_CHANGE_HOURS })} {state.salon.phone && t("booking.policy.late", { phone: state.salon.phone })}
+        {t("booking.policy.free", { hours: state.cancellationPolicy.freeHours })} {state.salon.phone && t("booking.policy.late", { phone: state.salon.phone })}
       </p>
     </Section>
   );

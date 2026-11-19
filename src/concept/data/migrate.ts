@@ -1,3 +1,4 @@
+import { DEFAULT_POLICY } from "../booking/protection";
 import { defaultBusinessLocalization } from "../i18n/business";
 import { DEFAULT_PAGE, type PageConfig } from "../page/config";
 import { DEFAULT_SECTIONS, type PageSection } from "../page/sections";
@@ -22,6 +23,7 @@ const V15_SECTIONS: PageSection[] = [
 ];
 
 const STEPS: Record<number, (saved: Saved) => Saved> = {
+  20: (saved) => ({ ...saved, cancellationPolicy: DEFAULT_POLICY, checkoutHolds: [], version: 21 }),
   // v13 added the assistant's memory and routines.
   12: (saved) => ({ ...saved, memory: [], routines: [], version: 13 }),
   // v14 added the booking page design and the own-domain connection.

@@ -91,7 +91,7 @@ describe("migrateState", () => {
     const { cancelledId, ...edited } = v14Save();
     const saved = { ...edited, version: 19, localization: { language: "sv", bilingual: false, currency: "SEK" } };
     const migrated = migrateState(saved)!;
-    expect(migrated.version).toBe(20);
+    expect(migrated.version).toBe(DEMO_VERSION);
     expect(migrated.localization).toEqual({ language: "en", bilingual: true, currency: "SEK" });
     expect(migrated.bookings.find((b) => b.id === cancelledId)?.status).toBe("cancelled");
     expect(migrated.page).toEqual(saved.page);
@@ -100,7 +100,17 @@ describe("migrateState", () => {
   it("preserves an owner's salon and localization when migrating from v19", () => {
     const own = createSalon(today, { ...salonDraft("sv"), industry: "foot", currency: "EUR" });
     const saved = { ...own, version: 19 };
-    expect(migrateState(saved)).toEqual({ ...saved, version: 20 });
+    expect(migrateState(saved)).toEqual({ ...saved, version: DEMO_VERSION });
+  });
+
+  it("starts a v20 salon with fee-free terms and no checkout holds", () => {
+    const saved: Partial<DemoState> = { ...createDemoState(today), version: 20 };
+    delete saved.cancellationPolicy;
+    delete saved.checkoutHolds;
+    const migrated = migrateState(saved)!;
+    expect(migrated.cancellationPolicy).toMatchObject({ version: 1, freeHours: 24, noShowPercent: 0, latePercent: 0, deposits: {} });
+    expect(migrated.checkoutHolds).toEqual([]);
+    expect(migrated.bookings).toEqual(saved.bookings);
   });
 
   it("is one linear chain: every saved version from the oldest to the current reaches DEMO_VERSION", () => {

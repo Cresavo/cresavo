@@ -9,6 +9,7 @@ import { t } from "@/concept/i18n";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { AccountingSection } from "@/concept/studio/finance/accounting-section";
 import { AddCost, CostsSection } from "@/concept/studio/finance/costs-section";
+import { BookingPayments } from "@/concept/studio/finance/booking-payments";
 import { OverviewSection } from "@/concept/studio/finance/overview-section";
 
 export default function FinancePage() {
@@ -24,6 +25,7 @@ export default function FinancePage() {
     <MorePage title={t("nav.finance")} subtitle={t("finance.subtitle")} module="finance">
       <div className="space-y-8">
         <OverviewSection />
+        <BookingPayments state={state} />
         <CostsSection />
         <AccountingSection />
       </div>

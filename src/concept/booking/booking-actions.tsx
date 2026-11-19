@@ -4,7 +4,7 @@ import { customerText } from "../i18n/customer-text";
 
 import { useState } from "react";
 import { CalendarClock, CalendarPlus, Phone, XCircle } from "lucide-react";
-import { addDays } from "../data/dates";
+import { deadlineText } from "./policy-summary";
 import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong, formatTime } from "../i18n/format";
@@ -17,14 +17,14 @@ import { Sheet } from "../ui/sheet";
 import { showToast } from "../ui/toast";
 import type { Now } from "../use-now";
 import { buildIcs, googleCalendarLink, icsTimestamp } from "./ics";
-import { changeRule } from "./policy";
+import { FREE_CHANGE_HOURS, changeRule } from "./policy";
 import { openSlots, type OpenSlot } from "./suggest";
 import { TimePicker } from "./time-picker";
 import { WaitlistSheet, type WaitlistRequest } from "./waitlist-sheet";
 
-/** The moment 24 hours before the visit, as shown to the customer. */
+/** The deadline accepted for this visit. */
 export function freeUntilText(booking: Booking): string {
-  return t("booking.freeUntil", { day: formatDayLong(addDays(booking.date, -1)), time: formatTime(booking.start) });
+  return deadlineText(booking, booking.protection?.terms.freeHours ?? FREE_CHANGE_HOURS);
 }
 
 function downloadCalendar(state: DemoState, booking: Booking) {
@@ -40,6 +40,15 @@ function downloadCalendar(state: DemoState, booking: Booking) {
   URL.revokeObjectURL(url);
 }
 
+/** Recheck the customer's original visit and its deadline under the booking lock. */
+function canChangeBooking(latest: DemoState, booking: Booking) {
+  const current = latest.bookings.find(b => b.id === booking.id);
+  const instant = new Date();
+  const clock = salonClock(instant);
+  return !!current && current.date === booking.date && current.start === booking.start &&
+    current.staffId === booking.staffId && changeRule(current, clock.today, clock.minutes, instant.getTime()) === "free";
+}
+
 interface BookingActionsProps {
   state: DemoState;
   now: Now;
@@ -51,7 +60,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
   const [sheet, setSheet] = useState<"move" | "cancel" | null>(null);
   const [pending, setPending] = useState(false);
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
-  const rule = changeRule(booking, now.today, now.minutes);
+  const rule = changeRule(booking, now.today, now.minutes, now.instant);
   const service = findService(state, booking.serviceId);
   const customer = findCustomer(state, booking.customerId);
   if (rule === "past" || !service || !customer) return null;
@@ -69,14 +78,6 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
   });
   const when = `${formatDayLong(booking.date)} ${formatTime(booking.start)}`;
 
-  // Compare the visit the customer saw with the refreshed record inside the write lock.
-  const canChange = (latest: DemoState) => {
-    const current = latest.bookings.find(b => b.id === booking.id);
-    const clock = salonClock();
-    return !!current && current.date === booking.date && current.start === booking.start &&
-      current.staffId === booking.staffId && changeRule(current, clock.today, clock.minutes) === "free";
-  };
-
   const cancel = async () => {
     if (pending) return;
     setPending(true);
@@ -85,7 +86,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       id: booking.id,
       reason: t("booking.cancel.reason"),
       notice: notice("cancel", t("booking.cancel.inboxTitle"), t("booking.cancel.inboxBody", { name: fullName(customer), service: service.name, when })),
-    }, undefined, canChange));
+    }, { actor: "customer", source: "customer-page" }, latest => canChangeBooking(latest, booking)));
     setPending(false);
     setSheet(null);
     showToast(t(result === false ? "booking.visitChanged" : "booking.cancel.done"));
@@ -101,7 +102,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       start: target.start,
       staffId: target.staffId,
       notice: notice("reschedule", t("booking.move.inboxTitle"), t("booking.move.inboxBody", { name: fullName(customer), service: service.name, from: when, to: `${formatDayLong(target.date)} ${formatTime(target.start)}` })),
-    }, undefined, latest => canChange(latest) && openSlots(latest, service.id, target.date, salonClock(), {
+    }, undefined, latest => canChangeBooking(latest, booking) && openSlots(latest, service.id, target.date, salonClock(), {
       ignoreId: booking.id, staffId: target.staffId,
     }).some(slot => slot.start === target.start)));
     setPending(false);
@@ -126,7 +127,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       {rule === "late" && (
         <Notice tone="warning" className="flex items-start gap-2">
           <Phone size={16} className="mt-0.5 shrink-0" />
-          <span>{t(state.salon.phone ? "booking.tooLate" : "booking.tooLateNoPhone", { phone: state.salon.phone })}</span>
+          <span>{t(state.salon.phone ? "booking.tooLate" : "booking.tooLateNoPhone", { hours: booking.protection?.terms.freeHours ?? FREE_CHANGE_HOURS, phone: state.salon.phone })}</span>
         </Notice>
       )}
 

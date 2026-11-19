@@ -8,6 +8,8 @@ import { salonClock } from "./tools/clock";
 export interface Now {
   today: string;
   minutes: number;
+  /** Distinguishes the two occurrences of a local minute when clocks go back. */
+  instant?: number;
 }
 
 let cached: Now | null = null;
@@ -22,8 +24,8 @@ export function readNow(): Now {
 }
 
 function readSalonNow(): Now {
-  const now = salonClock();
-  if (!cachedSalon || cachedSalon.today !== now.today || cachedSalon.minutes !== now.minutes) cachedSalon = now;
+  const instant = Math.floor(Date.now() / 60_000) * 60_000;
+  if (!cachedSalon || cachedSalon.instant !== instant) cachedSalon = { ...salonClock(new Date(instant)), instant };
   return cachedSalon;
 }
 

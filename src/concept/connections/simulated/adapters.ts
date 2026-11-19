@@ -6,7 +6,7 @@ import type { BusyEvent, CalendarPort } from "../ports/calendar";
 import type { EmailMessage, EmailPort, EmailReceipt } from "../ports/email";
 import type { PortMap } from "../ports";
 import type { ListingPort } from "../ports/listing";
-import type { PaymentsPort } from "../ports/payments";
+import type { CheckoutInput, CheckoutSession, PaymentsPort, Refund, RefundInput } from "../ports/payments";
 import { smsSegments, type SmsMessage, type SmsPort, type SmsReceipt } from "../ports/sms";
 import type { SocialPort } from "../ports/social";
 import { buildReserveFeeds } from "../providers/listing/reserve-feeds";
@@ -93,29 +93,37 @@ export function simulatedEmail({ outbox, currency = "EUR" }: SimulatedOptions): 
   };
 }
 
-export function simulatedPayments({ outbox }: SimulatedOptions): PaymentsPort {
+interface SimulatedPayments extends PaymentsPort {
+  checkoutNow(input: CheckoutInput): PortResult<CheckoutSession>;
+  refundNow(input: RefundInput): PortResult<Refund>;
+}
+
+export function simulatedPayments({ outbox }: SimulatedOptions): SimulatedPayments {
   const guard = keyGuard("payments");
-  const session = (action: string, input: { amount: Money; description: string; reference: string; idempotencyKey: string }) => {
+  const session = (action: string, input: Pick<CheckoutInput, "amount" | "description" | "reference" | "methods" | "idempotencyKey">) => {
     if (!isMoney(input.amount) || input.amount.amountMinor === 0 || !input.description.trim() || !input.reference || !input.idempotencyKey) return invalid("payments");
-    const conflict = guard(input.idempotencyKey, [action, input.amount, input.reference, input.description]);
+    const conflict = guard(input.idempotencyKey, [action, input.amount, input.reference, input.description, input.methods]);
     if (conflict) return conflict;
     const id = idFor("payments", action, [input.amount, input.reference, input.idempotencyKey]);
     // A reserved .invalid host: the link can never resolve to a real payment page.
     outbox.record({ id, port: "payments", action, body: input.description, reference: input.reference, cost: input.amount });
     return ok({ id, url: `https://checkout.invalid/simulated/${id}` }, "simulated", zero(input.amount.currency), id);
   };
+  const checkoutNow = (input: CheckoutInput) => session("checkout", input);
+  const refundNow = (input: RefundInput): PortResult<Refund> => {
+    if (!input.paymentId || !input.idempotencyKey || (input.amount && !isMoney(input.amount))) return invalid("payments");
+    const conflict = guard(input.idempotencyKey, ["refund", input.paymentId, input.amount]);
+    if (conflict) return conflict;
+    const id = idFor("payments", "refund", [input.paymentId, input.amount, input.idempotencyKey]);
+    outbox.record({ id, port: "payments", action: "refund", body: input.paymentId, cost: input.amount ?? null });
+    return ok({ id, amount: input.amount ?? null, state: "succeeded" }, "simulated", null, id);
+  };
   return {
     info: { port: "payments", provider: PROVIDER, kind: "simulated", capabilities: ["checkout", "payment-link", "refund", "idempotency"], secrets: [] },
-    createCheckout: async (input) => session("checkout", input),
+    checkoutNow, refundNow,
+    createCheckout: async (input) => checkoutNow(input),
     createPaymentLink: async (input) => session("payment-link", input),
-    async refund(input) {
-      if (!input.paymentId || !input.idempotencyKey || (input.amount && !isMoney(input.amount))) return invalid("payments");
-      const conflict = guard(input.idempotencyKey, ["refund", input.paymentId, input.amount]);
-      if (conflict) return conflict;
-      const id = idFor("payments", "refund", [input.paymentId, input.amount, input.idempotencyKey]);
-      outbox.record({ id, port: "payments", action: "refund", body: input.paymentId, cost: input.amount ?? null });
-      return ok({ id, amount: input.amount ?? null, state: "succeeded" }, "simulated", null, id);
-    },
+    refund: async (input) => refundNow(input),
     // Simulated payments have no webhooks: nothing outside can complete them.
     verifyWebhook: async () => fail(connectionError("payments", PROVIDER, "not_supported")),
   };

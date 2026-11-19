@@ -4,6 +4,7 @@ import { formatTime } from "../data/dates";
 import type { Booking, Salon, Service, Staff } from "../data/types";
 import { translate } from "../i18n";
 import { serviceCopy } from "../i18n/salon-eko-copy";
+import { FREE_CHANGE_HOURS } from "./policy";
 import { SALON_TIMEZONE } from "../tools/clock";
 
 const escape = (text: string) => text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r\n|\r|\n/g, "\\n");
@@ -53,7 +54,7 @@ export function buildIcs(input: CalendarVisit & { staff: Staff; createdAt: strin
     `DTSTART:${event.start}`,
     `DTEND:${event.end}`,
     `SUMMARY:${escape(event.title)}`,
-    `DESCRIPTION:${escape(translate(language, "booking.ics.description", { staff: staff.firstName }))}`,
+    `DESCRIPTION:${escape(translate(language, "booking.ics.description", { staff: staff.firstName, hours: booking.protection?.terms.freeHours ?? FREE_CHANGE_HOURS }))}`,
     `LOCATION:${escape(event.location)}`,
     "BEGIN:VALARM",
     "TRIGGER:-PT1H",

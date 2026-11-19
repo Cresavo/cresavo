@@ -1,3 +1,7 @@
+import { salonClock } from "./tools/clock";
+import { majorString } from "./connections/core";
+import { quote, validPolicy, type BookingProtection, type CancellationPolicy, type DemoMethod } from "./booking/protection";
+import { collect, decideFee, refundCancellation, type FeeDecision } from "./booking/settlement";
 import { parseLocale } from "@/lib/locale";
 import type { BusinessLocalization } from "./i18n/business";
 import { sendBookingMessage, type BookingMessageAction } from "./booking/messages";
@@ -47,6 +51,11 @@ import type {
 
 export type DemoAction =
   | { type: "salon/language"; language: BusinessLocalization["language"]; bilingual: boolean }
+  | { type: "salon/policy"; policy: CancellationPolicy }
+  | FeeDecision
+  | { type: "online/hold"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId: StaffId; date: DateKey; start: number }
+  | { type: "online/pay"; id: string; method: DemoMethod }
+  | { type: "online/release"; id: string }
   | BookingMessageAction
   | CustomerReviewAction
   | OpsAction
@@ -127,14 +136,16 @@ function updateBy<T extends { id: string }>(list: T[], id: string, patch: (item:
 function createBooking(
   state: DemoState,
   input: { customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource },
+  protection?: BookingProtection,
 ): DemoState {
   const service = state.services.find((s) => s.id === input.serviceId);
   if (!service || !service.staffIds.includes(input.staffId) || !isFree(state, input.staffId, input.date, input.start, needOf(service))) return state;
   const booking: Booking = {
     id: nextId(state, "b"),
     ...input,
+    protection: protection ?? { terms: { ...quote(state.cancellationPolicy, service, state.localization.currency, false), depositMinor: 0 } },
     duration: service.duration,
-    price: service.price,
+    price: protection ? Number(majorString({ amountMinor: protection.terms.priceMinor, currency: protection.terms.currency })) : service.price,
     status: "booked",
     resourceId: pickResource(state, needOf(service), input.date, input.start),
   };
@@ -143,7 +154,7 @@ function createBooking(
 
 function moveBooking(state: DemoState, id: string, date: DateKey, start: number, staffId?: StaffId): DemoState {
   const booking = state.bookings.find((b) => b.id === id);
-  if (!booking) return state;
+  if (!booking || booking.protection?.decision || booking.protection?.refund) return state;
   const target = staffId ?? booking.staffId;
   if (!isFree(state, target, date, start, booking, id)) return state;
   const resourceId = pickResource(state, booking, date, start, id);
@@ -175,11 +186,38 @@ function ensureCustomer(state: DemoState, guest: GuestContact, since: DateKey, c
   return { state: { ...state, seq: state.seq + 1, customers: [...state.customers, customer] }, customer };
 }
 
-function bookOnline(state: DemoState, action: Extract<DemoAction, { type: "online/book" }>): DemoState {
-  const service = bookableServices(state).find((s) => s.id === action.serviceId);
+type OnlineRequest = Extract<DemoAction, { type: "online/book" | "online/hold" }>;
+
+function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoState {
+  const service = bookableServices(state).find(s => s.id === action.serviceId);
   if (!service || !service.staffIds.includes(action.staffId) || !action.guest.name.trim() || !isMobilePhone(action.guest.phone) || !isFree(state, action.staffId, action.date, action.start, needOf(service))) return state;
+  const terms = quote(state.cancellationPolicy, service, state.localization.currency, !findCustomerByPhone(state, action.guest.phone));
+  if (action.type === "online/book") return terms.depositMinor ? state : confirmOnline(state, action, service, { terms });
+  if (!terms.depositMinor) return state;
+  const { guest, notice, staffId, date, start } = action;
+  const hold = {
+    id: `hold-${now}-${state.seq}`, guest, notice, staffId, date, start, terms, duration: service.duration,
+    resourceId: pickResource(state, needOf(service), date, start), serviceId: service.id, expiresAt: now + 10 * 60_000,
+  };
+  return { ...state, seq: state.seq + 1, checkoutHolds: [...state.checkoutHolds.filter(h => h.expiresAt > now), hold] };
+}
+
+function payHold(state: DemoState, action: Extract<DemoAction, { type: "online/pay" }>, now: number) {
+  const hold = state.checkoutHolds.find(h => h.id === action.id && h.expiresAt > now);
+  if (!hold || (action.method !== "card" && !(action.method === "swish" && hold.terms.currency === "SEK"))) return state;
+  const service = bookableServices(state).find(s => s.id === hold.serviceId && s.staffIds.includes(hold.staffId));
+  const released = { ...state, checkoutHolds: state.checkoutHolds.filter(h => h.id !== hold.id) };
+  if (!service || service.duration !== hold.duration || !isFree(released, hold.staffId, hold.date, hold.start, needOf(service))) return state;
+  const id = collect(`${state.salon.slug}-${hold.id}-${hold.expiresAt}`, hold.terms.depositMinor, hold.terms.currency, "deposit", action.method);
+  if (!id) return state;
+  const clock = salonClock(new Date(now));
+  const guest = { ...hold.guest, at: { date: clock.today, time: clock.minutes } };
+  return confirmOnline(released, { ...hold, guest }, service, { terms: hold.terms, deposit: { id, method: action.method } });
+}
+
+function confirmOnline(state: DemoState, action: Omit<OnlineRequest, "type">, service: DemoState["services"][number], protection: BookingProtection): DemoState {
   const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, action.staffId, false);
-  const booked = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" });
+  const booked = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" }, protection);
   const notified = reduce(booked, {
     type: "inbox/add",
     item: {
@@ -305,8 +343,17 @@ function importCustomers(state: DemoState, incoming: Omit<Customer, "id">[]): De
   return added.length ? { ...state, seq: state.seq + added.length, customers: [...state.customers, ...added] } : state;
 }
 
-export function reduce(state: DemoState, action: DemoAction): DemoState {
+export function reduce(state: DemoState, action: DemoAction, now = Date.now()): DemoState {
   switch (action.type) {
+    case "salon/policy":
+      if (!validPolicy(action.policy) || action.policy.version !== state.cancellationPolicy.version || JSON.stringify(action.policy) === JSON.stringify(state.cancellationPolicy)) return state;
+      return { ...state, seq: state.seq + 1, cancellationPolicy: { ...action.policy, version: state.seq + 1 } };
+    case "booking/fee":
+      return decideFee(state, action, now);
+    case "online/pay":
+      return payHold(state, action, now);
+    case "online/release":
+      return state.checkoutHolds.some(h => h.id === action.id) ? { ...state, checkoutHolds: state.checkoutHolds.filter(h => h.id !== action.id) } : state;
     case "salon/language": {
       const language = parseLocale(action.language);
       if (!language || typeof action.bilingual !== "boolean") return state;
@@ -363,9 +410,11 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
     }
     case "booking/cancel": {
       const booking = state.bookings.find((b) => b.id === action.id);
-      if (!booking || booking.status === "cancelled") return state;
-      const marked = { ...state, bookings: updateBy(state.bookings, action.id, (b) => ({ ...b, status: "cancelled" as const, cancelReason: action.reason })) };
-      const cancelled = booking.status === "booked" ? trashBooking(marked, action.id) : marked;
+      if (!booking || booking.status === "cancelled" || booking.protection?.decision || (booking.protection?.deposit && booking.status !== "booked")) return state;
+      const refunded = refundCancellation(booking);
+      if (!refunded) return state;
+      const marked = { ...state, bookings: updateBy(state.bookings, action.id, () => ({ ...refunded, status: "cancelled" as const, cancelReason: action.reason })) };
+      const cancelled = booking.status === "booked" && !refunded.protection?.refund ? trashBooking(marked, action.id) : marked;
       // Only the owner's explicit offer texts the waiting list; a customer's own cancellation notice does not.
       if (action.notice?.waitlistOffer && booking.status === "booked" && state.modules.waitlist) textWaitlistAboutSlot(state, booking);
       return action.notice ? reduce(cancelled, { type: "inbox/add", item: action.notice }) : cancelled;
@@ -384,7 +433,8 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
       return booked === next.state ? state : booked;
     }
     case "online/book":
-      return bookOnline(state, action);
+    case "online/hold":
+      return bookOnline(state, action, now);
     case "online/waitlist":
       return joinWaitlist(state, action);
     case "service/price":

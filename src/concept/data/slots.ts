@@ -1,3 +1,4 @@
+import type { CheckoutHold } from "../booking/protection";
 import { weekday } from "./dates";
 import type { Booking, DateKey, Interval, Resource, Salon, Service, Staff, StaffException, StaffId } from "./types";
 
@@ -16,6 +17,7 @@ export interface SlotContext {
   resources: Resource[];
   exceptions: StaffException[];
   bookings: Booking[];
+  checkoutHolds?: CheckoutHold[];
 }
 
 /** What a booking needs: a treatment (for its room or chair) and how long it takes. */
@@ -74,10 +76,16 @@ export function isActive(b: Booking) {
   return b.status !== "cancelled";
 }
 
+function activeHolds(ctx: SlotContext, date: DateKey) {
+  if (!ctx.checkoutHolds?.length) return [];
+  const now = Date.now();
+  return ctx.checkoutHolds.filter(h => h.date === date && h.expiresAt > now);
+}
+
 export function busyIntervals(ctx: SlotContext, staffId: StaffId, date: DateKey, ignoreId?: string): Interval[] {
-  const list = ctx.bookings
-    .filter((b) => b.staffId === staffId && b.date === date && isActive(b) && b.id !== ignoreId)
-    .map((b) => ({ start: b.start, end: b.start + b.duration }));
+  const visits = ctx.bookings.filter(b => b.staffId === staffId && b.date === date && isActive(b) && b.id !== ignoreId);
+  const holds = activeHolds(ctx, date).filter(h => h.staffId === staffId && h.id !== ignoreId);
+  const list = [...visits, ...holds].map(b => ({ start: b.start, end: b.start + b.duration }));
   const lunch = lunchFor(ctx.salon, date);
   if (lunch) list.push(lunch);
   return list.sort((a, b) => a.start - b.start);
@@ -86,8 +94,11 @@ export function busyIntervals(ctx: SlotContext, staffId: StaffId, date: DateKey,
 /** The room or chair a booking would use: the first one of the treatment's resources that is free. Undefined when none is free or none is needed. */
 export function pickResource(ctx: SlotContext, need: Need, date: DateKey, start: number, ignoreId?: string): string | undefined {
   const end = start + need.duration;
-  return usableResources(ctx, need.serviceId).find(
-    (id) => !ctx.bookings.some((b) => b.resourceId === id && b.date === date && isActive(b) && b.id !== ignoreId && start < b.start + b.duration && end > b.start),
+  const holds = activeHolds(ctx, date);
+  const overlaps = (b: Booking | CheckoutHold, id: string) =>
+    b.resourceId === id && b.id !== ignoreId && start < b.start + b.duration && end > b.start;
+  return usableResources(ctx, need.serviceId).find(id =>
+    !ctx.bookings.some(b => b.date === date && isActive(b) && overlaps(b, id)) && !holds.some(h => overlaps(h, id)),
   );
 }
 

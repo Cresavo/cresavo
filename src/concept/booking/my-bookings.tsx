@@ -2,7 +2,6 @@
 
 import { WithStaff } from "./with-staff";
 import { useState } from "react";
-import { FREE_CHANGE_HOURS } from "./policy";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarCheck, Info, Repeat, Search } from "lucide-react";
@@ -80,7 +79,7 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
         <h1 className="text-2xl font-semibold tracking-tight">{t("booking.me.title", { name: customer.firstName })}</h1>
         <p className="mt-2 flex items-start gap-2 rounded-md bg-action-bg px-3.5 py-3 text-sm text-text">
           <Info size={16} className="mt-0.5 shrink-0" />
-          {state.salon.phone ? t("booking.me.rule", { phone: state.salon.phone }) : t("booking.policy.free", { hours: FREE_CHANGE_HOURS })}
+          {t("protection.myRules")}
         </p>
       </div>
 
@@ -146,7 +145,7 @@ function UpcomingCard({ state, now, booking }: { state: DemoState; now: Now; boo
       </div>
       <BookingActions state={state} now={now} booking={booking} />
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-text-secondary">
-        <span>{changeRule(booking, now.today, now.minutes) === "free" ? freeUntilText(booking) : ""}</span>
+        <span>{changeRule(booking, now.today, now.minutes, now.instant) === "free" ? freeUntilText(booking) : ""}</span>
         <Link href={bookingPage(state.salon.slug, booking.id)} className="font-medium text-action underline-offset-2 hover:underline">{t("booking.me.details")}</Link>
       </div>
     </Card>

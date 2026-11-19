@@ -1,3 +1,4 @@
+import { DEFAULT_POLICY } from "../booking/protection";
 import { translate } from "../i18n";
 import { formatDayLong, formatMoney } from "../i18n/format";
 import { defaultBusinessLocalization, type BusinessLocalization } from "../i18n/business";
@@ -31,7 +32,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 20;
+export const DEMO_VERSION = 21;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -597,6 +598,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
   }));
 
   return {
+    cancellationPolicy: DEFAULT_POLICY, checkoutHolds: [],
     version: DEMO_VERSION,
     industry: null,
     pack: pack.id,

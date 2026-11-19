@@ -1,3 +1,4 @@
+import type { BookingProtection, CancellationPolicy, CheckoutHold } from "../booking/protection";
 import type { Industry } from "../onboarding/salon";
 import type { BusinessLocalization } from "../i18n/business";
 // Data model for the clickable demo. No database: everything is generated
@@ -136,6 +137,7 @@ export type BookingStatus = "booked" | "completed" | "cancelled" | "noshow";
 export type BookingSource = "online" | "phone" | "walk-in" | "campaign" | "assistant";
 
 export interface Booking {
+  protection?: BookingProtection;
   id: string;
   customerId: string;
   staffId: StaffId;
@@ -378,6 +380,8 @@ export interface ServicePackage {
 export type ModuleKey = "journal" | "stock" | "campaigns" | "finance" | "reviews" | "waitlist" | "assistant" | "giftcards" | "packages" | "domain";
 
 export interface DemoState {
+  cancellationPolicy: CancellationPolicy;
+  checkoutHolds: CheckoutHold[];
   /** Null for generated example businesses. */
   industry: Industry | null;
   version: number;

@@ -1,21 +1,30 @@
-import { diffDays } from "../data/dates";
+import { DateTime } from "luxon";
 import type { Booking, DateKey } from "../data/types";
+import { SALON_TIMEZONE } from "../tools/clock";
+import { DEFAULT_POLICY } from "./protection";
 
-/** Customers can change or cancel online without a fee until this many hours before the visit. */
-export const FREE_CHANGE_HOURS = 24;
-
-/** The earliest a customer can book, counted from now. */
+export const FREE_CHANGE_HOURS = DEFAULT_POLICY.freeHours;
 export const LEAD_MINUTES = 60;
-
 export type ChangeRule = "free" | "late" | "past";
+type VisitTime = Pick<Booking, "date" | "start">;
 
-export function hoursUntil(booking: Pick<Booking, "date" | "start">, today: DateKey, minutes: number): number {
-  return (diffDays(booking.date, today) * 24 * 60 + booking.start - minutes) / 60;
+export function visitTime({ date, start }: VisitTime) {
+  const time = DateTime.fromISO(date, { zone: SALON_TIMEZONE }).set({ hour: Math.floor(start / 60), minute: start % 60 });
+  // A wall-clock booking has no fold flag. Use the first occurrence when clocks go back.
+  return time.getPossibleOffsets()[0];
 }
 
-/** "free": can be changed online. "late": inside the 24 h window, call the salon. "past": already happened or not active. */
-export function changeRule(booking: Pick<Booking, "date" | "start" | "status">, today: DateKey, minutes: number): ChangeRule {
-  const hours = hoursUntil(booking, today, minutes);
+export function deadline(visit: VisitTime, freeHours: number) {
+  return visitTime(visit).minus({ hours: freeHours });
+}
+
+export function hoursUntil(booking: VisitTime, today: DateKey, minutes: number, instant?: number): number {
+  const from = instant ?? visitTime({ date: today, start: minutes }).toMillis();
+  return (visitTime(booking).toMillis() - from) / 3_600_000;
+}
+
+export function changeRule(booking: Pick<Booking, "date" | "start" | "status" | "protection">, today: DateKey, minutes: number, instant?: number): ChangeRule {
+  const hours = hoursUntil(booking, today, minutes, instant);
   if (booking.status !== "booked" || hours <= 0) return "past";
-  return hours >= FREE_CHANGE_HOURS ? "free" : "late";
+  return hours >= (booking.protection?.terms.freeHours ?? FREE_CHANGE_HOURS) ? "free" : "late";
 }
