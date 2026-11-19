@@ -22,6 +22,8 @@ export function swedishDates(text: string): string {
     .replace(/\b(förra|nästa) (?=monday|tuesday|wednesday|thursday|friday|saturday|sunday)/g, (word) => word.startsWith("förra") ? "last " : "next ");
 }
 
+const SALE_QUANTITIES: Record<string, string> = { en: "one", ett: "one", två: "two", tre: "three" };
+
 const PHRASES: [RegExp, string][] = [
   [/^(?:flytta|omboka|boka om)\s+(?:(?:bokningen|tiden)\s+för\s+)?/i, "move "],
   [/^(?:avboka|ta bort bokningen för)\s+(?:(?:bokningen|tiden)\s+för\s+)?/i, "cancel "],
@@ -34,17 +36,26 @@ const PHRASES: [RegExp, string][] = [
   [/^hur gick dagen\b/i, "closing summary"],
   [/^hur gick veckan\b/i, "weekly review"],
   [/^(?:finns det (?:någon )?(?:tid|plats)|har vi tid) för\b/i, "any room for"],
-  [/^vad kostar\b/i, "what does"],
+  [/^(?:vad kostar|hur mycket kostar|vad (?:är|ligger) priset på|vad tar (?:vi|ni) för)\s+/i, "what does "],
+  [/^(?:sätt(?:a)?|ändra|uppdatera|höj(?:a)?|sänk(?:a)?|justera)\s+(?:priset\s+(?:på|för)\s+)?(.+?)\s+till\s+(?=\d)/i, "set price of $1 to "],
+  [/^(?:sätt(?:a)?|ändra|höj(?:a)?|sänk(?:a)?) priset (?:på|för)\s+/i, "set price of "],
+  [/^priset (?:på|för) (.+?) ska (?:vara|bli)\s+/i, "set price of $1 to "],
   [/^hur länge tar\b/i, "how long does"],
   [/^när (?:har ni öppet|öppnar ni)\b/i, "opening hours"],
-  [/^vilka produkter börjar ta slut\b/i, "what is running low"],
-  [/^hur (?:mycket|många) (.+?) (?:finns )?kvar/i, "how much $1 left"],
+  [/^(?:vilka produkter börjar ta slut|vad (?:börjar|håller på att) ta slut|vad behöver (?:vi|jag) beställa)\b/i, "what is running low"],
+  [/^hur (?:mycket|många) (?:har vi |har jag |finns det )?kvar av\s+(.+?)[.!?]*$/i, "how much $1 left"],
+  [/^hur (?:mycket|många) (.+?) (?:har (?:vi|jag) |finns (?:det )?)?(?:kvar|(?:i|på) lager)\b/i, "how much $1 in stock"],
+  [/^(?:finns det|har (?:vi|jag)|finns) (.+?) (?:kvar|(?:i|på) lager)\b/i, "do i have $1 in stock"],
+  [/^(?:sålde|sälj(?:a)?)\s+(.+?)\s+till\s+/i, "sell $1 to "],
   [/^vad har jag tjänat\b|^hur mycket (?:har jag tjänat|tjänade jag)\b|^intäkter\b/i, "what have I earned"],
   [/^hur gick förra månaden jämfört med förra året\b/i, "how did last month compare with last year"],
   [/^vilka (?:kunder|klienter|patienter) har inte (?:kommit|varit här) sedan sommaren\b/i, "which customers haven't been here since summer"],
   [/^skicka dem ett erbjudande\b/i, "send them an offer"],
-  [/^beställ(?: mer)?\b/i, "order"],
-  [/^skapa (?:en )?kampanj för\b/i, "make a campaign for"],
+  [/^(?:beställ(?:a)?|köp(?:a)? in|fyll(?:a)? på(?: (?:lagret )?med)?|lägg(?:a)? (?:en )?beställning på|ta hem)(?: mer| fler)?(?=\s|[.!?]|$)/i, "order"],
+  [/^(?:(?:skapa|gör(?:a)?|starta|kör(?:a)?|lägg(?:a)? upp)\s+)?(?:en\s+)?kampanj(?=\s|[.!?]|$)/i, "make a campaign"],
+  [/^(?:skapa|gör(?:a)?|lägg(?:a)? upp)\s+(?:ett\s+)?erbjudande\b/i, "make an offer"],
+  [/^(?:skapa|gör(?:a)?|ta fram)\s+(?:en\s+)?affisch(?:\s+för)?\b/i, "make a poster for"],
+  [/^(?:ge|erbjud)?\s*(\d+(?:[.,]\d+)?\s*(?:%|procent))(?=\s+rabatt)/i, "$1"],
   [/^kom ihåg (?:att )?/i, "remember "],
   [/^glöm\s+/i, "forget "],
   [/^vad kommer du ihåg(?: om)?\b/i, "what do you remember"],
@@ -54,18 +65,40 @@ const PHRASES: [RegExp, string][] = [
 
 /** Match Swedish command stems, then reuse the same intent and permission checks for both languages. */
 export function normalizeSwedishCommand(input: string): string {
-  const stem = PHRASES.find(([pattern]) => pattern.test(input));
+  const request = input.replace(/^(?:kan du|skulle du kunna|jag vill)\s+/i, "");
+  const stem = PHRASES.find(([pattern]) => pattern.test(request));
   if (!stem) return input;
-  const rewritten = input.replace(...stem);
+  const rewritten = request.replace(...stem);
   if (/^(?:remember|forget|what do you remember)\b/.test(rewritten)) return rewritten;
   const canonical = swedishDates(rewritten.toLowerCase())
     .replace(/\bpå (?=monday|tuesday|wednesday|thursday|friday|saturday|sunday)/g, "on ")
     .replace(/\b(?:klockan|kl\.?)\s+(\d{1,2})\.(\d{2})\b/g, "at $1:$2")
     .replace(/\b(?:klockan|kl\.?)\s+(?=\d)/g, "at ")
-    .replace(/\b(?:på )?förmiddagen\b/g, "morning")
-    .replace(/\b(?:på )?eftermiddagen\b/g, "afternoon")
+    .replace(/\b(?:på )?förmiddag(?:en)?\b/g, "morning")
+    .replace(/\b(?:på )?eftermiddag(?:en)?\b/g, "afternoon")
     .replace(/\bmed\b|\bhos\b/g, "with")
     .replace(/\bväntelistan?\b/g, "waitlist");
+  if (canonical.startsWith("set price of ")) {
+    return canonical.replace(/\bto (\d{1,3}(?:[ \u00a0]\d{3})+)(?=(?:[.,]\d+)?(?:\s|[.!?]|$))/, (_, amount: string) =>
+      `to ${amount.replace(/[ \u00a0]/g, "")}`,
+    ).replace(/(\d)\s+kronor\b/g, "$1 kr");
+  }
+  if (canonical.startsWith("sell ")) {
+    return canonical.replace(/^sell (en|ett|två|tre) /, (_, count: string) => `sell ${SALE_QUANTITIES[count]} `);
+  }
+  if (/^(?:make (?:a campaign|an offer|a poster)|\d)/.test(canonical)) {
+    return canonical
+      .replace(/(\d)\s+procent\b/g, "$1 percent")
+      .replace(/\brabatt\b/g, "discount")
+      .replace(/\balla hjärtans dag\b/g, "valentine's day")
+      .replace(/\bmors dag\b/g, "mother's day")
+      .replace(/\bfars dag\b/g, "father's day")
+      .replace(/\bförsta advent\b/g, "first advent")
+      .replace(/\bmidsommar\b/g, "midsummer")
+      .replace(/\bpåsk(?:en)?\b/g, "easter")
+      .replace(/\bjul(?:en)?\b/g, "christmas")
+      .replace(/\bnyår(?:et)?\b/g, "new year");
+  }
   if (!canonical.startsWith("move ")) return canonical;
   const [source, destination] = canonical.split(/\s+till\s+/);
   if (!destination) return canonical;

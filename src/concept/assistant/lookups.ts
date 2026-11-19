@@ -11,6 +11,7 @@ import { t, tc } from "../i18n";
 import { agoText, formatAmount, formatDayLong, formatDuration, formatMoney, relativeDay, formatTime } from "../i18n/format";
 import { balanceOf, findGiftCard } from "../giftcards/cards";
 import { parseDate, parseTime } from "../intent/dates";
+import { fixtureServiceAliases } from "../i18n/salon-eko-copy";
 import { matchNames, normalize } from "../intent/match";
 import { canOpen, servedBy, type Role } from "../ops/access";
 import { buildCustomerStats, categoryInText, findCustomer, findService, fullName, lowStock } from "../selectors";
@@ -174,8 +175,9 @@ function lastVisit(input: LookupInput, text: string): Lookup | null {
 
 /** The service the words name; a stated length ("60-minute massage") settles it when several fit. */
 function namedServices(state: DemoState, text: string): Service[] {
-  const matches = matchNames(text, state.services.map((s) => ({ id: s.id, name: s.name })));
-  const found = matches.map((m) => state.services.find((s) => s.id === m.id)!);
+  const found = matchNames(text, state.services.map((service) => ({
+    ...service, aliases: state.industry ? undefined : fixtureServiceAliases(service).filter((name) => name !== service.name),
+  })));
   const minutes = text.match(/\b(\d{2,3})[\s-]*(?:min|minutes?)\b/);
   const hours = text.match(/\b(?:an?|one|1)[\s-]hour\b/);
   const length = minutes ? Number(minutes[1]) : hours ? 60 : undefined;

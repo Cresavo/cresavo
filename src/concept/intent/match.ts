@@ -21,21 +21,23 @@ export function distance(a: string, b: string): number {
 }
 
 /** Return all equally plausible matches so callers can ask instead of guessing. */
-export function matchNames<T extends { id: string; name: string }>(text: string, items: T[]): T[] {
+export function matchNames<T extends { id: string; name: string; aliases?: string[] }>(text: string, items: T[]): T[] {
   const words = normalize(text).split(" ");
-  const scored = items.map(item => {
-    const name = normalize(item.name);
-    const parts = name.split(" ");
+  const scored = items.map((item) => {
     let score = 0;
-    for (const candidate of [name, ...parts]) {
-      for (let i = 0; i < words.length; i++) {
-        const phrase = words.slice(i, i + candidate.split(" ").length).join(" ");
-        if (phrase === candidate || phrase === candidate + "s") score = Math.max(score, candidate === name ? 4 : 3);
-        else if (candidate.length >= 4 && distance(phrase, candidate) === 1) score = Math.max(score, 1);
+    for (const label of [item.name, ...(item.aliases ?? [])]) {
+      const name = normalize(label);
+      for (const candidate of [name, ...name.split(" ")]) {
+        const length = candidate.split(" ").length;
+        for (let i = 0; i < words.length; i++) {
+          const phrase = words.slice(i, i + length).join(" ");
+          if (phrase === candidate || phrase === candidate + "s") score = Math.max(score, candidate === name ? 4 : 3);
+          else if (candidate.length >= 4 && distance(phrase, candidate) === 1) score = Math.max(score, 1);
+        }
       }
     }
     return { item, score };
   });
-  const best = Math.max(0, ...scored.map(item => item.score));
-  return scored.filter(item => best > 0 && item.score === best).map(item => item.item);
+  const best = Math.max(0, ...scored.map((s) => s.score));
+  return scored.filter((s) => best > 0 && s.score === best).map((s) => s.item);
 }
