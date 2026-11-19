@@ -34,7 +34,8 @@ export function undoWithToast(id: string): boolean {
 
 export function showUndoToast(message: string, id: ReturnType<typeof dispatchWithLog>, onUndo?: () => void): boolean {
   if (id === false) return false;
-  showToast(message, id ? { label: t("common.undo"), run: () => { if (undoWithToast(id)) onUndo?.(); } } : undefined);
+  const undoable = id && currentState()?.log.find(entry => entry.id === id)?.patch;
+  showToast(message, id && undoable ? { label: t("common.undo"), run: () => { if (undoWithToast(id)) onUndo?.(); } } : undefined);
   return true;
 }
 

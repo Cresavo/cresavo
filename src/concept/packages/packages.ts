@@ -21,7 +21,7 @@ export function activePackage(state: DemoState, customerId: string, serviceId: s
 /** The package a booking that is not done yet would use. */
 /** An existing gift-card payment takes precedence over using a package visit. */
 export const packageFor = (state: DemoState, booking: Booking) =>
-  booking.status === "booked" && paidWithCards(state, booking.id) === 0
+  booking.status === "booked" && !booking.protection?.deposit && paidWithCards(state, booking.id) === 0
     ? activePackage(state, booking.customerId, booking.serviceId)
     : undefined;
 

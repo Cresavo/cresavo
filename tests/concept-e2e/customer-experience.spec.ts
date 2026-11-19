@@ -6,8 +6,6 @@ import { bookingMessage } from "../../src/concept/booking/messages";
 import { openSlots } from "../../src/concept/booking/suggest";
 import { BRAND } from "../../src/concept/brand";
 import type { DemoState } from "../../src/concept/data/types";
-import { formatDate, formatTime } from "../../src/concept/i18n/format";
-import { SALON_TIMEZONE } from "../../src/concept/tools/clock";
 import { englishDemoState, fixtureText } from "./fixtures";
 
 const fixture = englishDemoState("2026-11-17");
@@ -324,10 +322,8 @@ test("the treatment list offers a complete visit and remembers contact only by c
   const confirm = page.getByRole("button", { name: copy("booking.confirm") });
   await expect(page.getByText(copy("booking.nextAvailable"), { exact: true })).toBeVisible();
   const form = page.locator("form").filter({ has: name });
-  const language = fixture.localization.language;
-  await expect(form.getByText(copy("booking.freeUntil", {
-    day: formatDate("2026-11-16", language), time: formatTime(15 * 60, language), zone: SALON_TIMEZONE,
-  }), { exact: true })).toBeVisible();
+  await expect(form.getByText(copy("protection.alreadyLate", { hours: 24 }), { exact: true })).toBeVisible();
+  await expect(form.getByText(/free to change or cancel online until/i)).toHaveCount(0);
   await expect(form.getByText(copy("booking.summary.deadlinePassedPhone", { phone: fixture.salon.phone }), { exact: true })).toBeVisible();
   await expect(remember).not.toBeChecked();
   await name.fill("Nova Demo");

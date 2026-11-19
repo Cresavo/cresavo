@@ -2,7 +2,6 @@
 
 import { WithStaff } from "./with-staff";
 import { useState } from "react";
-import { FREE_CHANGE_HOURS } from "./policy";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarCheck, Info, Search } from "lucide-react";
 import type { Booking, DemoState } from "../data/types";
@@ -75,14 +74,14 @@ function Lookup({ state }: { state: DemoState }) {
 
 function Overview({ state, now, customerId }: { state: DemoState; now: Now; customerId: string }) {
   const customer = findCustomer(state, customerId)!;
-  const { upcoming, past } = customerBookings(state, customerId, now.today, now.minutes);
+  const { upcoming, past } = customerBookings(state, customerId, now.today, now.minutes, now.instant);
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t("booking.me.title", { name: customer.firstName })}</h1>
         <p className="mt-2 flex items-start gap-2 rounded-md bg-action-bg px-3.5 py-3 text-sm text-text">
           <Info size={16} className="mt-0.5 shrink-0" />
-          {state.salon.phone ? t("booking.me.rule", { phone: state.salon.phone }) : t("booking.policy.free", { hours: FREE_CHANGE_HOURS })}
+          {t("protection.myRules")}
         </p>
       </div>
 
@@ -144,7 +143,7 @@ function UpcomingCard({ state, now, booking }: { state: DemoState; now: Now; boo
       </div>
       <VisitLinks state={state} booking={booking} active />
       <BookingActions state={state} now={now} booking={booking} />
-      {changeRule(booking, now.today, now.minutes) === "free" && <p className="text-sm text-text-secondary">{freeUntilText(booking)}</p>}
+      {changeRule(booking, now.today, now.minutes, now.instant) === "free" && <p className="text-sm text-text-secondary">{freeUntilText(booking)}</p>}
     </Card>
   );
 }

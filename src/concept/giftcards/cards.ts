@@ -1,3 +1,4 @@
+import { majorString } from "../connections/core";
 import type { Booking, DateKey, DemoState, GiftCard } from "../data/types";
 
 // Gift cards are prepaid, so selling one is not revenue: the money is owed to
@@ -31,10 +32,17 @@ export function findGiftCard(state: DemoState, code: string): GiftCard | undefin
   return wanted ? state.giftCards.find((card) => normalizeCode(card.code) === wanted) : undefined;
 }
 
+/** A final fee decision or deposit refund permanently returns gift-card credit. */
+export function returnRedemptions(cards: GiftCard[], bookingIds: ReadonlySet<string>): GiftCard[] {
+  return cards.map(card => card.redemptions.some(r => !r.returned && bookingIds.has(r.bookingId))
+    ? { ...card, redemptions: card.redemptions.map(r => bookingIds.has(r.bookingId) ? { ...r, returned: true } : r) }
+    : card);
+}
+
 /** What the card paid for bookings that still stand. */
 export function usedAmount(state: DemoState, card: GiftCard): number {
   const cancelled = new Set(state.bookings.filter((b) => b.status === "cancelled").map((b) => b.id));
-  return card.redemptions.filter((r) => !cancelled.has(r.bookingId)).reduce((sum, r) => sum + r.amount, 0);
+  return card.redemptions.filter((r) => !r.returned && !cancelled.has(r.bookingId)).reduce((sum, r) => sum + r.amount, 0);
 }
 
 export const balanceOf = (state: DemoState, card: GiftCard) => card.amount - usedAmount(state, card);
@@ -52,13 +60,19 @@ export function giftCardLiability(state: DemoState): number {
 
 /** What a booking has already been paid with gift cards. */
 export function paidWithCards(state: DemoState, bookingId: string): number {
-  return state.giftCards.reduce((sum, card) => sum + card.redemptions.filter((r) => r.bookingId === bookingId).reduce((s, r) => s + r.amount, 0), 0);
+  return state.giftCards.reduce((sum, card) => sum + card.redemptions.filter((r) => !r.returned && r.bookingId === bookingId).reduce((s, r) => s + r.amount, 0), 0);
 }
 
-/** How much of the booking this card can pay now: the smaller of the balance and what is still unpaid. Zero when it cannot be used. */
+export function remainingForCards(state: DemoState, booking: Booking) {
+  const protection = booking.protection;
+  const deposit = protection?.deposit ? Number(majorString({ amountMinor: protection.terms.depositMinor, currency: protection.terms.currency })) : 0;
+  return Math.max(0, booking.price - deposit - paidWithCards(state, booking.id));
+}
+
+/** A gift card can cover the remaining balance after other payments. */
 export function redeemable(state: DemoState, card: GiftCard, booking: Booking | undefined): number {
   if (!booking || booking.status !== "booked") return 0;
-  return Math.max(0, Math.min(balanceOf(state, card), booking.price - paidWithCards(state, booking.id)));
+  return Math.min(balanceOf(state, card), remainingForCards(state, booking));
 }
 
 /** Codes start with the business's initials, e.g. "EKO" for Salong Eko. */
