@@ -9,6 +9,9 @@ const en = (key: Parameters<typeof translate>[1]) => translate("en", key);
 const source = axeSource();
 
 async function audit(page: Page) {
+  // Contrast is only meaningful once enter animations (sheet slide and fade, theme change) have settled.
+  await page.waitForFunction(() => document.getAnimations()
+    .every(a => a.playState !== "running" || a.effect?.getComputedTiming().iterations === Infinity));
   const violations = await page.evaluate(async tags => {
     const result = await window.axe.run(document, {
       runOnly: { type: "tag", values: tags }, resultTypes: ["violations"],
