@@ -1,12 +1,12 @@
 import { formatTime } from "../i18n/format";
 import Image from "next/image";
-import { Star } from "lucide-react";
+import { Clock, Star } from "lucide-react";
 import { openingFor } from "../data/slots";
 import type { DemoState } from "../data/types";
 import { t, tc } from "../i18n";
 import { PHOTOS, type PhotoId } from "../page/theme";
 import type { Now } from "../use-now";
-import { cx } from "../ui/cx";
+import { Badge } from "../ui/badge";
 import { reviewSummary } from "./reviews";
 
 interface HeroProps {
@@ -31,12 +31,12 @@ export function Hero({ state, now, variant, photo }: HeroProps) {
         </div>
       )}
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{salon.name}</h1>
-        <p className="mt-1 text-base text-text-secondary">{salon.tagline}</p>
-        <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-text-secondary">
+        <h1 className="break-words text-h1 font-semibold tracking-tight">{salon.name}</h1>
+        <p className="mt-1 text-body text-text-secondary">{salon.tagline}</p>
+        <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-text-secondary">
           {count > 0 && (
             <>
-              <a href="#reviews" className="inline-flex min-h-6 items-center gap-1 underline-offset-2 hover:underline">
+              <a href="#reviews" className="inline-flex min-h-target min-w-target items-center gap-1 underline-offset-2 hover:underline">
                 <Star aria-hidden size={14} className="fill-text text-text" />
                 <strong className="font-semibold text-text">{average.toFixed(1)}</strong>
                 <span>({tc("booking.reviewCount", count)})</span>
@@ -44,14 +44,16 @@ export function Hero({ state, now, variant, photo }: HeroProps) {
               <span aria-hidden>·</span>
             </>
           )}
-          {salon.address && <a href="#find-us" className="inline-flex min-h-6 items-center underline-offset-2 hover:underline">
+          {salon.address && <a href="#find-us" className="inline-flex min-h-target min-w-target items-center underline-offset-2 hover:underline">
             {salon.address}, {salon.area.split(" · ")[1]}
           </a>}
           {hours && (
             <>
               {/* On a phone the opening status is a line of its own, so no separator is left dangling. */}
               {salon.address && <span aria-hidden className="hidden sm:inline">·</span>}
-              <span className={cx("w-full sm:w-auto", open && "font-medium text-text")}>{open ? t("booking.openNow", { until: formatTime(hours.close) }) : t("booking.closedNow")}</span>
+              <Badge icon={Clock} tone={open ? "accent" : "neutral"} className="w-full sm:w-auto">
+                {open ? t("booking.openNow", { until: formatTime(hours.close) }) : t("booking.closedNow")}
+              </Badge>
             </>
           )}
         </p>

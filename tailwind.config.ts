@@ -27,7 +27,7 @@ export default {
       colors: { ...Object.fromEntries(names.map((name) => [name, ui(name)])), "on-action": ui("action-text") },
       fontFamily: { sans: ["var(--font-ui)"] },
       spacing: {
-        ...Object.fromEntries([1, 2, 3, 4, 6, 8].map(n => [n, `var(--space-${n})`])),
+        ...Object.fromEntries([1, 2, 3, 4, 5, 6, 8, 12].map(n => [n, `var(--space-${n})`])),
         target: "var(--touch-target)",
       },
       fontSize: {

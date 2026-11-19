@@ -1,6 +1,8 @@
 import { sitePath } from "./language";
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Button } from "../ui/button";
+import { Field, Input, Select } from "../ui/controls";
 import { useSiteCopy } from "./copy";
 import s from "./site.module.css";
 import { BUSINESS_KINDS, EMAIL_MAX, HONEYPOT_FIELD, WAITLIST_OUTCOMES, type WaitlistOutcome } from "./waitlist";
@@ -47,26 +49,24 @@ export function WaitlistForm({ from, initial, className }: { from: string; initi
       <div>
       {!done && (
         <form method="post" action={`/api/waitlist?from=${encodeURIComponent(from)}`} onSubmit={submit} className={s.waitlistForm}>
-          <input type="hidden" name="locale" value={locale} />
-          <input type="hidden" name="from" value={from} />
+          <Input type="hidden" name="locale" value={locale} />
+          <Input type="hidden" name="from" value={from} />
           <p className={s.honeypot} aria-hidden="true">
             <label>
               {site["waitlist.honeypot"]}
-              <input type="text" name={HONEYPOT_FIELD} tabIndex={-1} autoComplete="off" />
+              <Input type="text" name={HONEYPOT_FIELD} tabIndex={-1} autoComplete="off" />
             </label>
           </p>
-          <label className={s.field}>
-            <span>{site["waitlist.email"]}</span>
-            <input type="email" name="email" required maxLength={EMAIL_MAX} autoComplete="email" placeholder={site["waitlist.email.placeholder"]} aria-describedby="waitlist-consent" />
-          </label>
-          <label className={s.field}>
-            <span>{site["waitlist.business"]}</span>
-            <select name="business" defaultValue="">
+          <Field label={site["waitlist.email"]}>
+            <Input type="email" name="email" required maxLength={EMAIL_MAX} autoComplete="email" placeholder={site["waitlist.email.placeholder"]} aria-describedby="waitlist-consent" />
+          </Field>
+          <Field label={site["waitlist.business"]}>
+            <Select name="business" defaultValue="">
               <option value="">{site["waitlist.business.none"]}</option>
               {BUSINESS_KINDS.map((kind) => <option key={kind} value={kind}>{site[`waitlist.business.${kind}`]}</option>)}
-            </select>
-          </label>
-          <button type="submit" className={s.outlined} disabled={busy}>{site["waitlist.submit"]}</button>
+            </Select>
+          </Field>
+          <Button type="submit" variant="secondary" className="justify-self-start" disabled={busy}>{site["waitlist.submit"]}</Button>
         </form>
       )}
       <p ref={result} role="status" tabIndex={-1} className={s.waitlistAnswer}>{outcome && site[`waitlist.outcome.${outcome}`]}</p>

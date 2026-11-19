@@ -3,6 +3,7 @@ import { getSiteProps, type SiteProps } from "@/concept/site/links";
 import { useSiteCopy } from "@/concept/site/copy";
 import { SiteHead } from "@/concept/site/site-head";
 import s from "@/concept/site/site.module.css";
+import { PageHeader } from "@/concept/ui/page-header";
 import { Wordmark } from "@/concept/ui/wordmark";
 
 export const getServerSideProps = getSiteProps;
@@ -22,8 +23,7 @@ export default function Privacy({ links, analyticsEnabled, origin }: SiteProps) 
         </a>
       </header>
       <main className={s.prose}>
-        <h1>{site["privacy.heading"]}</h1>
-        <p>{site["privacy.intro"]}</p>
+        <PageHeader title={site["privacy.heading"]} subtitle={site["privacy.intro"]} />
         {SECTIONS.map((section) => (
           <section key={section}>
             <h2>{site[`privacy.${section}.heading`]}</h2>

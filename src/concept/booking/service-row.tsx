@@ -2,6 +2,7 @@ import { WithStaff } from "./with-staff";
 import { CircleDot, Dumbbell, Footprints, Hand, HandHeart, Palette, Scissors, Stethoscope, Users, type LucideIcon } from "lucide-react";
 import type { DemoState, Service } from "../data/types";
 import { formatDuration, formatMoney } from "../i18n/format";
+import { ListRow } from "../ui/list-row";
 
 // The industry packs' own categories have a picture; a category the owner added gets a neutral one.
 const CATEGORY_ICON: Partial<Record<string, LucideIcon>> = {
@@ -21,25 +22,19 @@ export function ServiceIcon({ category }: { category: Service["category"] }) {
   const Icon = CATEGORY_ICON[category] ?? CircleDot;
   return (
     <span className="flex size-11 shrink-0 items-center justify-center rounded-md bg-action-bg text-text">
-      <Icon size={20} />
+      <Icon size={20} aria-hidden />
     </span>
   );
 }
 
-/** Icon, name, description and "60 min · SEK 795 · with Anna". The caller adds the tap target. */
-export function ServiceInfo({ service, staff }: { service: Service; staff: DemoState["staff"] }) {
+export function ServiceChoice({ service, staff, onClick }: { service: Service; staff: DemoState["staff"]; onClick: () => void }) {
   const people = staff.filter((s) => service.staffIds.includes(s.id));
   return (
-    <span className="flex min-w-0 flex-1 items-start gap-3">
-      <ServiceIcon category={service.category} />
-      <span className="min-w-0">
-        <span className="block font-medium">{service.name}</span>
-        <span className="mt-0.5 block text-sm text-text-secondary">{service.description}</span>
-        <span className="mt-1 block text-sm">
-          {formatDuration(service.duration)} · <strong className="font-semibold">{formatMoney(service.price)}</strong> · <WithStaff people={people} />
-        </span>
-      </span>
-    </span>
+    <ListRow className="bg-surface ring-1 ring-inset ring-input-border" title={service.name} leading={<ServiceIcon category={service.category} />} onClick={onClick}
+      meta={<>
+        <span className="block">{service.description}</span>
+        <span className="mt-1 block">{formatDuration(service.duration)} · <strong>{formatMoney(service.price)}</strong> · <WithStaff people={people} /></span>
+      </>} />
   );
 }
 

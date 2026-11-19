@@ -37,6 +37,7 @@ Use the runtime variables in `brand-theme.css` or their Tailwind utilities. Them
 | Card / Section | Group related content | Use a heading for a section and a single surface for related rows. | Put a card inside every row. |
 | EmptyState | Explain a genuinely empty result | Use one icon, one sentence and one recovery action such as clearing a filter. | Show a blank card, multiple competing actions or a loading skeleton for empty data. |
 | Sheet / ConfirmDialog | Edit a focused task or confirm a consequential change | Keep a mounted sheet controlled by `open` through exit. Use a title, a specific verb and a way to cancel. Escape and the close button return focus to the opener. | Use an alert for routine information or unmount the sheet mid-transition. |
+| MediaDialog | Expand a recording with native media controls | Mount on demand, supply a titled, focusable media element and remove the dialog in `onClose`. Give Close a translated label. | Use a sheet for full-size video or build custom playback controls for the expanded recording. |
 | ConsentSheet | Ask for access at the moment it is needed | Summarise who wants access and why, list each grant, and supply a specific verb. High-risk access needs a fresh, unticked acknowledgement on every opening. The caller handles confirmation. | Pre-check consent, hide a grant or use this UI as a stored authorisation. |
 | Toast / Toaster | Briefly confirm a completed action | Mount one Toaster per surface. Use `showToast(message, { label, run })` for Undo. Keep persistent failures with their support reference. | Put the only copy of a required instruction in a transient message. |
 | Notice | Show information or feedback in context | Use text and the tone's icon. Reserve alert announcements for errors that need immediate attention. | Use a warning colour for ordinary help. |
@@ -51,9 +52,12 @@ Use `Button` with `align="start"` for a left-aligned label and `align="between"`
 
 Use `Checkbox` for a native checkbox with a full-height label target, and `Input type="color"` for a native colour picker. The `Textarea` composer variant sits inside a group that provides a visible focus ring. A side `Sheet` fills the screen on phones and docks on desktop. Its content owns the scrollport when a composer or footer needs to stay visible. Use `headerActions` for secondary tools alongside Close. Provide a `PageHeader` title ref when a step change needs to focus the heading.
 
+Use `Input type="radio"` with a full-height label for native form choices. `Input type="hidden"` can carry values for a non-JavaScript form submission. `SearchInput` accepts an `endAction` for a labelled submit icon. Use `Switch showLabel` when the setting name and track form one visible control. Use a `SegmentedControl` option's `content` to display stacked information such as the day, date and availability. Its `label` should read the same information in order.
+
 ## Layout and motion
 
 - Use 16 px phone gutters and 32 px desktop gutters. Stack the title, description, choices and fields in reading order. Let long labels increase row height.
+- In booking checkout, place the price and policy summary above confirmation on narrow screens and in a sticky side column when the layout has room. Treatment rows use a tenant-accent Book button alongside the service details.
 - Reserve at least 96 px plus the bottom safe area below Studio content on phones. Keep Calendar's navigation and view controls on one toolbar row and use the options sheet for secondary controls.
 - Use one scrollport for the content beside a persistent action bar. Give the scrollport an accessible label. On phones include the bottom safe area and allow actions to wrap. Keep keyboard focus in view.
 - Pair press scale (.97) with a tint. Move the segmented thumb and switch knob with transforms. Slide and fade sheets and toasts, entering more slowly than exiting. Reveal the check through a transformed clip. Use transform and opacity for motion. Keep layout, colour and shadow changes immediate.

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowRight, Search } from "lucide-react";
+import { useId, useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { t } from "../i18n";
+import { Button, IconButton } from "../ui/button";
+import { SearchInput } from "../ui/controls";
 
 interface AskStepProps {
   onAsk: (text: string) => void;
@@ -16,36 +18,38 @@ interface AskStepProps {
  */
 export function AskStep({ onAsk, onChoose }: AskStepProps) {
   const [text, setText] = useState("");
+  const hint = useId();
   return (
     <div className="space-y-2">
       <form
         role="search"
-        className="relative"
+        className="space-y-1"
         onSubmit={(event) => {
           event.preventDefault();
           if (text.trim()) onAsk(text);
         }}
       >
-        <Search aria-hidden size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary" />
-        <input
+        <SearchInput
+          type="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
           aria-label={t("booking.ask.title")}
+          aria-describedby={hint}
           placeholder={t("booking.ask.placeholder")}
           enterKeyHint="search"
           autoComplete="off"
-          className="min-h-12 w-full rounded-md bg-surface py-2.5 pl-10 pr-12 text-base ring-1 ring-inset ring-hairline placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-focus"
+          endAction={text.trim() && (
+            <IconButton type="submit" variant="primary" label={t("booking.ask.submit")}>
+              <ArrowRight size={18} aria-hidden />
+            </IconButton>
+          )}
         />
-        {text.trim() && (
-          <button type="submit" aria-label={t("booking.ask.submit")} className="absolute right-0.5 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-sm bg-action text-on-action">
-            <ArrowRight size={18} />
-          </button>
-        )}
+        <p id={hint} className="text-meta text-text-secondary">{t("booking.ask.hint")}</p>
       </form>
       {onChoose && (
-        <button type="button" onClick={onChoose} className="min-h-11 text-sm font-medium text-action underline-offset-2 hover:underline">
+        <Button variant="tertiary" onClick={onChoose}>
           {t("booking.ask.classic")}
-        </button>
+        </Button>
       )}
     </div>
   );

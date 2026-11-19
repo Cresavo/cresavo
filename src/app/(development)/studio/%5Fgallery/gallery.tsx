@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type CSSProperties } from "react";
-import { ArrowUp, CalendarDays, ChevronRight, Plus } from "lucide-react";
+import { ArrowUp, CalendarDays, ChevronRight, Plus, Search } from "lucide-react";
 import { t } from "@/concept/i18n";
 import { teamWith } from "@/concept/packs/base";
 import { fullName } from "@/concept/selectors";
@@ -16,6 +16,7 @@ import { ConfirmDialog } from "@/concept/ui/confirm-dialog";
 import { EmptyState } from "@/concept/ui/empty-state";
 import { Skeleton, SuccessCheck } from "@/concept/ui/feedback";
 import { ListRow } from "@/concept/ui/list-row";
+import { MediaDialog } from "@/concept/ui/media-dialog";
 import { Menu, Tabs } from "@/concept/ui/navigation";
 import { Notice } from "@/concept/ui/notice";
 import { PageHeader } from "@/concept/ui/page-header";
@@ -30,7 +31,7 @@ const wrap = "flex flex-wrap items-center gap-3";
 const variants = ["primary", "secondary", "tertiary", "danger"] as const;
 const states = ["normal", "disabled", "loading"] as const;
 const views = ["day", "week"] as const;
-type Dialog = "sheet" | "side" | "consent" | "highRisk" | "confirm" | "confirmSave";
+type Dialog = "sheet" | "side" | "consent" | "highRisk" | "confirm" | "confirmSave" | "media";
 
 function ActionExamples({ save }: { save: () => void }) {
   return <Section title={t("gallery.actions")}>
@@ -59,6 +60,8 @@ function Fields() {
     <Field label={t("services.name")} error={t("gallery.error")}><Input required /></Field>
     <Field label={t("gallery.disabled")}><Input disabled /></Field>
     <Field label={t("gallery.search")}><SearchInput /></Field>
+    <SearchInput aria-label={t("booking.ask.title")} placeholder={t("booking.ask.placeholder")}
+      endAction={<IconButton label={t("booking.ask.submit")}><Search aria-hidden size={18} /></IconButton>} />
     {(["normal", "invalid", "disabled"] as const).map(state =>
       <Field key={state} label={t("gallery.select")} error={state === "invalid" ? t("gallery.chooseView") : undefined}>
         <Select disabled={state === "disabled"} defaultValue={state === "invalid" ? "" : "day"}>
@@ -70,6 +73,12 @@ function Fields() {
     <Field label={t("gallery.time")}><Input type="time" /></Field>
     <Field label={t("pageEditor.colour.accent")}><Input type="color" /></Field>
     <Checkbox label={t("protection.newOnly")} />
+    <fieldset>
+      <legend className="text-body font-medium">{t("gallery.select")}</legend>
+      {views.map(view => <label key={view} className="mr-4 inline-flex min-h-target cursor-pointer items-center gap-2">
+        <Input type="radio" name="gallery-view" value={view} defaultChecked={view === "day"} /> {t(`calendar.${view}`)}
+      </label>)}
+    </fieldset>
     {(["normal", "invalid", "disabled"] as const).map(state =>
       <Field key={state} label={t("gallery.notes")} error={state === "invalid" ? t("gallery.enterNotes") : undefined}>
         <Textarea disabled={state === "disabled"} />
@@ -91,6 +100,7 @@ function Charts() {
 
 export function Gallery() {
   const title = useRef<HTMLHeadingElement>(null);
+  const media = useRef<HTMLVideoElement>(null);
   const [view, setView] = useState("day");
   const [checked, setChecked] = useState(false);
   const [chip, setChip] = useState(false);
@@ -114,10 +124,14 @@ export function Gallery() {
       <SegmentedControl value={view} onChange={setView} options={options} label={t("gallery.select")} />
       <SegmentedControl value={view} onChange={setView} label={t("gallery.row")}
         options={[{ value: "day", label: t("gallery.row"), count: 2 }, { value: "week", label: t("gallery.sheet"), count: 0 }]} />
+      <SegmentedControl value={view} onChange={setView} label={t("gallery.chooseView")}
+        options={options.map(option => ({ ...option, label: `${option.label} · ${t("gallery.normal")}`,
+          content: <span className="flex flex-col py-2">{option.label}<span className="text-meta">{t("gallery.normal")}</span></span> }))} />
       <div className={wrap}><Chip active={chip} onClick={() => setChip(!chip)} count={0}>{t("calendar.day")}</Chip>
         <Chip active={!chip} onClick={() => setChip(!chip)}>{t("calendar.week")}</Chip></div>
       <div className={wrap}>{[false, true].map(disabled => <Switch key={String(disabled)} checked={disabled ? !checked : checked}
         disabled={disabled} onChange={() => setChecked(!checked)} label={t(disabled ? "gallery.disabled" : "gallery.switch")} />)}</div>
+      <Switch showLabel checked={checked} onChange={() => setChecked(!checked)} label={t("protection.newOnly")} />
     </Section>
     <Fields />
     <Section title={t("gallery.layout")}>
@@ -151,7 +165,11 @@ export function Gallery() {
       <div className={wrap}>{(["sheet", "consent", "highRisk", "confirm", "confirmSave"] as const).map(kind =>
         <Button variant="secondary" key={kind} onClick={() => setDialog(kind)}>{t(`gallery.${kind}`)}</Button>)}
         <Button variant="secondary" onClick={() => setDialog("side")}>{t("assistant.open")}</Button>
+        <Button variant="secondary" onClick={() => setDialog("media")}>{t("gallery.media")}</Button>
       </div>
+      {dialog === "media" && <MediaDialog title={t("gallery.media")} closeLabel={t("common.close")} ratio={16 / 9} mediaRef={media} onClose={close}>
+        <video ref={media} tabIndex={0} aria-label={t("gallery.media")} src="/site/tour-16x9.mp4" preload="metadata" controls playsInline />
+      </MediaDialog>}
       <Sheet title={t("gallery.sheet")} description={t("gallery.row")} open={dialog === "sheet"} onClose={close}
         footer={<Button onClick={finish}>{t("common.save")}</Button>}><DemoBadge /></Sheet>
       <Sheet variant="side" title={t("assistant.title")} open={dialog === "side"} onClose={close}>

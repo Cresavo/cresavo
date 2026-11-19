@@ -16,6 +16,8 @@ import { Button, ButtonLink } from "../ui/button";
 import { Card, Section } from "../ui/card";
 import { Field, TextInput } from "../ui/controls";
 import { EmptyState } from "../ui/empty-state";
+import { ListRow } from "../ui/list-row";
+import { PageHeader } from "../ui/page-header";
 import { useSalonNow, type Now } from "../use-now";
 import { BookingActions } from "./booking-actions";
 import { freeUntilText } from "./deadline-text";
@@ -46,10 +48,7 @@ function Lookup({ state }: { state: DemoState }) {
 
   return (
     <Card className="mx-auto max-w-md space-y-5 p-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">{t("booking.me.lookupTitle")}</h1>
-        <p className="mt-1 text-[15px] text-text-secondary">{t("booking.me.lookupHelp")}</p>
-      </div>
+      <PageHeader title={t("booking.me.lookupTitle")} subtitle={t("booking.me.lookupHelp")} />
       <form
         className="space-y-4"
         onSubmit={(event) => {
@@ -67,7 +66,7 @@ function Lookup({ state }: { state: DemoState }) {
           {t("booking.me.find")}
         </Button>
       </form>
-      {examplePhone && <p className="rounded-md bg-surface-2 px-3.5 py-3 text-sm text-text-secondary">{t("booking.me.demoHint", { phone: examplePhone })}</p>}
+      {examplePhone && <p className="rounded-md bg-surface-2 px-4 py-3 text-meta text-text-secondary">{t("booking.me.demoHint", { phone: examplePhone })}</p>}
     </Card>
   );
 }
@@ -78,9 +77,9 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("booking.me.title", { name: customer.firstName })}</h1>
-        <p className="mt-2 flex items-start gap-2 rounded-md bg-action-bg px-3.5 py-3 text-sm text-text">
-          <Info size={16} className="mt-0.5 shrink-0" />
+        <PageHeader title={t("booking.me.title", { name: customer.firstName })} />
+        <p className="mt-2 flex items-start gap-2 rounded-md bg-action-bg px-4 py-3 text-meta text-text">
+          <Info size={16} className="mt-1 shrink-0" />
           {t("protection.myRules")}
         </p>
       </div>
@@ -109,10 +108,7 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
               return (
                 <div key={booking.id} className="p-4">
                   <div className="flex flex-wrap items-center gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">{service?.name}</p>
-                      <p className="text-sm text-text-secondary">{formatDayLong(booking.date)} · {formatMoney(booking.price)}</p>
-                    </div>
+                    <ListRow className="flex-1 !px-0" title={service?.name} meta={`${formatDayLong(booking.date)} · ${formatMoney(booking.price)}`} />
                     <VisitLinks state={state} booking={booking} />
                   </div>
                   <ReviewForm state={state} booking={booking} now={now} />
@@ -131,19 +127,15 @@ function UpcomingCard({ state, now, booking }: { state: DemoState; now: Now; boo
   const person = state.staff.find((s) => s.id === booking.staffId);
   return (
     <Card className="space-y-4 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-semibold">{service?.name}</p>
-          <p className="mt-0.5 text-[15px]">{formatDayLong(booking.date)}, {formatTime(booking.start)}</p>
-          <p className="mt-0.5 text-sm text-text-secondary">
-            {person && <WithStaff people={[person]} />} · {formatDuration(booking.duration)} · {formatMoney(booking.price)}
-          </p>
-        </div>
-        <Badge tone="accent">{relativeDay(booking.date, now.today)}</Badge>
-      </div>
+      <ListRow className="!px-0" title={service?.name}
+        meta={<>
+          <span className="block">{formatDayLong(booking.date)}, {formatTime(booking.start)}</span>
+          {person && <WithStaff people={[person]} />} · {formatDuration(booking.duration)} · {formatMoney(booking.price)}
+        </>}
+        trailing={<Badge tone="accent">{relativeDay(booking.date, now.today)}</Badge>} />
       <VisitLinks state={state} booking={booking} active />
       <BookingActions state={state} now={now} booking={booking} />
-      {changeRule(booking, now.today, now.minutes, now.instant) === "free" && <p className="text-sm text-text-secondary">{freeUntilText(booking)}</p>}
+      {changeRule(booking, now.today, now.minutes, now.instant) === "free" && <p className="text-meta text-text-secondary">{freeUntilText(booking)}</p>}
     </Card>
   );
 }
@@ -152,7 +144,7 @@ function VisitLinks({ state, booking, active }: { state: DemoState; booking: Boo
   const href = bookingPage(state.salon.slug, booking.id);
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <RepeatBookingLink state={state} booking={booking} />
+      <RepeatBookingLink state={state} booking={booking} variant="secondary" />
       <ButtonLink href={active ? `${href}#manage` : href} variant="secondary">
         {t(active ? "booking.me.details" : "booking.me.pastDetails")}
       </ButtonLink>

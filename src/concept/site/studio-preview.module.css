@@ -1,7 +1,7 @@
 .showcase { display: grid; grid-template-columns: .67fr 1.33fr; gap: clamp(28px,6vw,96px); align-items: center; padding-block: var(--section-space); }
 .menu h2 { max-width: 8ch; }
-.choices { display: grid; margin-top: 26px; }
-.choices button { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 8px 6px; font: inherit; color: var(--ui-text-secondary); border: 0; border-bottom: 1px solid var(--ui-hairline); background: transparent; text-align: left; cursor: pointer; }
+.choices { display: grid; margin-top: var(--space-6); }
+.choices button { color: var(--ui-text-secondary); border-bottom: 1px solid var(--ui-hairline); }
 .choices button svg:last-child { margin-left: auto; opacity: 0; }
 .choices button[aria-pressed="true"] { color: var(--ui-action); border-color: currentColor; font-weight: 600; }
 .choices button[aria-pressed="true"] svg:last-child { opacity: 1; }
@@ -22,7 +22,7 @@
 .notice > svg { color: var(--ui-success); }
 .notice span { display: grid; }
 .notice strong { font-size: .85rem; }
-.notice small, .demo figcaption { font-size: .76rem; color: var(--ui-text-secondary); }
+.notice small, .demo figcaption { font-size: var(--type-meta); color: var(--ui-text-secondary); }
 .demo figcaption { display: flex; justify-content: space-between; gap: 12px; margin-top: 9px; }
 .demo figcaption strong { color: var(--ui-text); }
 @media (prefers-reduced-motion: no-preference) {
@@ -35,14 +35,13 @@
 @media (max-width: 730px) {
   .showcase { grid-template-columns: 1fr; gap: 18px; }
   .menu h2 { max-width: none; }
-  .choices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; }
-  .choices button { flex-direction: column; justify-content: center; gap: 4px; padding: 6px 0; }
+  .choices { display: flex; overflow-x: auto; padding: var(--space-1); }
+  .choices button { width: auto; min-width: max-content; flex: auto; flex-direction: column; justify-content: center; gap: var(--space-1); padding: var(--space-2); }
   .choices button svg { width: 16px; height: 16px; }
-  .choices { margin-top: 14px; }
-  .choices button { font-size: .78rem; }
+  .choices { margin-top: var(--space-3); }
   .choices button svg:last-child { display: none; }
   .stage { aspect-ratio: 1.45; }
   .desktop { width: 89%; }
   .notice { bottom: 5%; padding: 6px 9px; gap: 7px; }
-  .notice strong { font-size: .72rem; }
+  .notice strong { font-size: var(--type-meta); }
 }

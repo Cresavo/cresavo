@@ -1,5 +1,5 @@
 import { t } from "../i18n";
-import { Field, TextInput } from "../ui/controls";
+import { Checkbox, Field, TextInput } from "../ui/controls";
 import { isMobilePhone } from "./lookup";
 
 export interface GuestInput {
@@ -27,9 +27,6 @@ export function GuestFields({ value, onChange, staffEntry = false }: { value: Gu
 
 export function RememberContact({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
   return (
-    <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
-      <input type="checkbox" className="size-5 shrink-0 accent-action" checked={checked} onChange={event => onChange(event.target.checked)} />
-      {t("booking.rememberContact")}
-    </label>
+    <Checkbox label={t("booking.rememberContact")} checked={checked} onChange={event => onChange(event.target.checked)} />
   );
 }

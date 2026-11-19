@@ -1,22 +1,20 @@
 .section { padding-block: var(--section-space); border-top: 1px solid var(--ui-hairline); }
-.diagram { --line: var(--ui-border); position: relative; isolation: isolate; display: grid; grid-template-columns: 1fr 29% 1fr; grid-template-rows: repeat(3,1fr); padding: clamp(12px,2.5vw,42px); border: 1px solid var(--ui-hairline); border-radius: 14px; background: radial-gradient(circle, var(--ui-hairline) 1px, transparent 1px) 0 0/15px 15px, var(--ui-surface-2); }
+.diagram { --line: var(--ui-border); position: relative; isolation: isolate; display: grid; grid-template-columns: 1fr 29% 1fr; grid-template-rows: repeat(3,1fr); padding: clamp(12px,2.5vw,42px); border: 1px solid var(--ui-hairline); border-radius: var(--radius-lg); background: radial-gradient(circle, var(--ui-hairline) 1px, transparent 1px) 0 0/15px 15px, var(--ui-surface-2); }
 .wires,.hub { grid-area: 1/2/4/3; align-self: stretch; }
 .wires { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; overflow: visible; }
 .wires path { fill: none; stroke: var(--line); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .wires .pulse { stroke: var(--ui-action); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 4 106; stroke-dashoffset: 10; }
 .hub { position: relative; place-self: center; display: grid; place-items: center; width: min(76%,140px); aspect-ratio: 1; border-radius: 50%; background: var(--brand-plum); outline: 1px solid var(--line); outline-offset: 5px; }
 .hub svg { width: 76%; fill: #fbf5f0; }
-.node { grid-column: 1; position: relative; align-self: stretch; margin-block: 7px; padding: 14px 18px; background: var(--ui-surface); border: 1px solid var(--ui-hairline); border-radius: 9px; }
+.node { grid-column: 1; position: relative; align-self: stretch; margin-block: 7px; padding: 14px 18px; background: var(--ui-surface); border: 1px solid var(--ui-hairline); border-radius: var(--radius-md); }
 .node:nth-of-type(even) { grid-column: 3; }
 .node::after { content: ""; position: absolute; right: -4px; top: calc(50% - 4px); width: 8px; height: 8px; border-radius: 50%; background: var(--ui-action); }
 .node:nth-of-type(even)::after { left: -4px; right: auto; }
 .title { display: flex; align-items: center; gap: 9px; }
 .title > svg { color: var(--ui-action); flex: none; }
 .node h3 { margin: 0; font-size: 1rem; line-height: 1.25; }
-.node a { color: inherit; text-underline-offset: 3px; }
+.node a { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--touch-target); color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 .node p { margin: 5px 0 9px; font-size: .85rem; line-height: 1.42; color: var(--ui-text-secondary); }
-.node small { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border-radius: 12px; background: var(--ui-success-bg); color: var(--ui-success); font-size: .68rem; font-weight: 600; }
-.node small[data-planned="true"] { background: var(--ui-surface-2); color: var(--ui-text-secondary); }
 @media (prefers-reduced-motion: no-preference) {
   .pulse { animation: transmit 3.5s linear infinite; }
   @keyframes transmit { to { stroke-dashoffset: -100; } }
@@ -27,8 +25,7 @@
   .hub { grid-area: 1/1/2/4; width: 92px; margin: 5px 0 12px; }
   .node { margin-block: 5px; padding: 11px 9px; }
   .title { flex-direction: column; align-items: start; gap: 6px; }
-  .node small { font-size: .65rem; white-space: nowrap; padding-inline: 4px; }
-  .node p { font-size: .8rem; }
+  .node p { font-size: var(--type-meta); }
   .diagram::before { content: ""; grid-area: 2/2/5/3; background: var(--line); width: 2px; justify-self: center; margin-top: -12px; height: calc(83.333% + 12px); }
   .node::before { content: ""; position: absolute; left: 100%; top: calc(50% - 1px); width: 13px; height: 2px; background: var(--line); }
   .node:nth-of-type(even)::before { left: auto; right: 100%; }

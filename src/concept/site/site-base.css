@@ -1,6 +1,10 @@
 /* The canvas of the platform's public sites. They follow the visitor's system
    scheme (brand-theme.css declares `color-scheme: light dark`); there is no
    saved theme here. */
+@config "../../../tailwind.site.config.ts";
+@tailwind base;
+@tailwind utilities;
+
 html,
 body {
   margin: 0;
@@ -10,8 +14,19 @@ body {
 
 .site {
   font-family: var(--font-ui);
-  font-size: 1rem;
+  font-size: var(--type-h3);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+.site :focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 2px;
+}
+
+.site button:disabled {
+  cursor: not-allowed;
+  background: var(--ui-surface-2);
+  color: var(--ui-text-secondary);
 }

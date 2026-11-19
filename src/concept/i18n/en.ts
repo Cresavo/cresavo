@@ -55,6 +55,7 @@ const messages = {
   "gallery.tag": "Regular",
   "gallery.sizes": "Button sizes",
   "gallery.preview": "Preview",
+  "gallery.media": "Video preview",
   "protection.feeFree": "You can cancel online until {hours} hours before your visit. We charge no fee for late cancellations or missed visits.",
   "protection.salonCancel": "Cancel on behalf of the salon",
   "protection.returnDeposit": "Cancelling returns the full deposit of {amount} (simulated).",
@@ -1799,6 +1800,7 @@ const messages = {
 
   "booking.ask.title": "What would you like to book?",
   "booking.ask.placeholder": "Describe what you want to book",
+  "booking.ask.hint": "Include a treatment and, if you like, a day, time or practitioner.",
   "booking.ask.submit": "Find times",
   "booking.beforeConfirmLate": "For visits within {hours} hours, call {phone} to change or cancel. Pay at the salon.",
   "booking.beforeConfirm": "Change or cancel online for free up to {hours} hours before your visit. Pay at the salon.",

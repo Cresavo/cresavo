@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 import type { DateKey, DemoState, Service } from "../data/types";
 import { t } from "../i18n";
 import { formatDayShort, formatDuration, formatMoney, relativeDay, formatTime } from "../i18n/format";
+import { ListRow } from "../ui/list-row";
 import type { OpenSlot } from "./suggest";
 
 interface SlotCardProps {
@@ -18,20 +19,21 @@ export function SlotCard({ slot, service, staff, today, onPick }: SlotCardProps)
   const person = staff.find((s) => s.id === slot.staffId);
   const day = relativeDay(slot.date, today);
   return (
-    <button
+    <ListRow
       onClick={onPick}
-      className="flex w-full items-center gap-4 rounded-lg bg-surface p-4 text-left ring-1 ring-inset ring-hairline transition-colors hover:bg-action-bg hover:ring-action"
-    >
-      <span className="flex w-20 shrink-0 flex-col items-center rounded-md bg-action-bg py-2 text-text">
-        <span className="text-xl font-semibold leading-tight">{formatTime(slot.start)}</span>
-        <span className="text-xs">{t("booking.until", { time: formatTime(slot.start + service.duration) })}</span>
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block font-semibold">{day === formatDayShort(slot.date) ? day : `${day} · ${formatDayShort(slot.date)}`}</span>
-        <span className="mt-1 block text-sm text-text-secondary">{person && <WithStaff people={[person]} />}</span>
-        <span className="block text-sm text-text-secondary">{formatDuration(service.duration)} · {formatMoney(service.price)}</span>
-      </span>
-      <ChevronRight size={20} className="shrink-0 text-text-secondary" aria-hidden />
-    </button>
+      className="bg-surface ring-1 ring-inset ring-input-border"
+      leading={
+        <span className="flex shrink-0 flex-col items-center rounded-md bg-surface-2 px-2 py-2 text-text">
+          <span className="text-h2 font-semibold leading-tight">{formatTime(slot.start)}</span>
+          <span className="text-meta">{t("booking.until", { time: formatTime(slot.start + service.duration) })}</span>
+        </span>
+      }
+      title={day === formatDayShort(slot.date) ? day : `${day} · ${formatDayShort(slot.date)}`}
+      meta={<>
+        {person && <span className="block"><WithStaff people={[person]} /></span>}
+        {formatDuration(service.duration)} · {formatMoney(service.price)}
+      </>}
+      trailing={<ChevronRight size={20} className="shrink-0 text-text-secondary" aria-hidden />}
+    />
   );
 }

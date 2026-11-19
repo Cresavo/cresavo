@@ -6,6 +6,7 @@ import type { DemoState } from "../data/types";
 import { t } from "../i18n";
 import type { PageSection } from "../page/sections";
 import { usePublicDemo } from "../store";
+import { cx } from "../ui/cx";
 import { useSalonNow, type Now } from "../use-now";
 import { GiftCardBalance } from "./gift-card-balance";
 import { Hero } from "./hero";
@@ -44,7 +45,7 @@ export function SalonPage() {
       case "treatments":
         return inFlow || !state.services.length ? null : (
           <section className="space-y-4">
-            <h2 className="text-xl font-semibold tracking-tight">{t("booking.treatments")}</h2>
+            <h2 className="text-h2 font-semibold tracking-tight">{t("booking.treatments")}</h2>
             <Treatments state={state} onBook={book} compact={variant === "compact"} />
           </section>
         );
@@ -80,15 +81,15 @@ export function SalonPage() {
     return node ? [{ key: section.kind as string, node: section.kind === "map" ? <div className="space-y-6">{node}{policy}</div> : node, aside: section.kind === "map" }] : [];
   });
   if (!body.some((item) => item.aside)) body.push({ key: "policy", node: policy, aside: true });
-  const main = body.filter((item) => !item.aside).length + 1;
+  const asideRows = Math.max(1, body.filter((item) => !item.aside).length + (inFlow ? 0 : 1));
   return (
     <div className="mx-auto max-w-3xl space-y-6 lg:max-w-none lg:space-y-8">
       {topIsHero && render(first)}
-      <div className="space-y-8 lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-x-12 lg:gap-y-8 lg:space-y-0">
-        <div className="min-w-0 lg:col-start-1">{flow}</div>
+      <div className="booking-page-columns space-y-8 lg:grid lg:items-start lg:gap-x-12 lg:gap-y-8 lg:space-y-0">
+        <div className={cx("min-w-0 lg:col-start-1", inFlow && "lg:col-span-2")}>{flow}</div>
         {body.map((item) =>
           item.aside ? (
-            <aside key={item.key} className="lg:sticky lg:top-6 lg:col-start-2 lg:row-start-1" style={{ gridRowEnd: `span ${main}` }}>{item.node}</aside>
+            <aside key={item.key} className={cx("min-w-0 lg:sticky lg:top-6 lg:col-start-2", inFlow ? "lg:row-start-2" : "lg:row-start-1")} style={{ gridRowEnd: `span ${asideRows}` }}>{item.node}</aside>
           ) : (
             <div key={item.key} className="min-w-0 lg:col-start-1">{item.node}</div>
           ),

@@ -1,15 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BellRing } from "lucide-react";
+import { BellRing, CalendarDays } from "lucide-react";
 import { addDays, fromKey } from "../data/dates";
 import { openingFor } from "../data/slots";
 import type { DateKey, DemoState, StaffId } from "../data/types";
 import { t } from "../i18n";
 import { dayChipLabel, formatDayLong, formatTime } from "../i18n/format";
 import { Button } from "../ui/button";
-import { Select } from "../ui/controls";
-import { cx } from "../ui/cx";
+import { SegmentedControl, Select } from "../ui/controls";
+import { EmptyState } from "../ui/empty-state";
 import { openSlots, type Clock, type OpenSlot } from "./suggest";
 
 const DAYS_SHOWN = 14;
@@ -74,66 +74,57 @@ export function TimePicker({ state, serviceId, staffId, clock, onPick, onWaitlis
   if (!selected) {
     const { phone, email } = state.salon;
     return (
-      <div className="space-y-2 rounded-lg bg-surface-2 p-4">
-        <p className="text-[15px]">{t("booking.noOpenDays")}</p>
-        {(phone || email) && (
-          <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-action">
-            {phone && <a className="underline" href={`tel:${phone.replace(/[^\d+]/g, "")}`}>{phone}</a>}
-            {email && <a className="underline [overflow-wrap:anywhere]" href={`mailto:${email}`}>{email}</a>}
-          </div>
-        )}
-      </div>
+      <EmptyState icon={<CalendarDays size={22} aria-hidden />} title={t("booking.noOpenDays")} action={(phone || email) && (
+        <div className="flex flex-wrap justify-center gap-x-4 text-meta text-action">
+          {phone && <a className="inline-flex min-h-target items-center underline" href={`tel:${phone.replace(/[^\d+]/g, "")}`}>{phone}</a>}
+          {email && <a className="inline-flex min-h-target items-center underline [overflow-wrap:anywhere]" href={`mailto:${email}`}>{email}</a>}
+        </div>
+      )} />
     );
   }
 
   return (
     <div className="space-y-4">
-      <div role="radiogroup" aria-label={t("booking.pickDay")} className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-        {days.map(({ date, slots }) => {
-          const active = date === selected.date;
-          return (
-            <button
-              key={date}
-              role="radio"
-              aria-checked={active}
-              onClick={() => setChosen(date)}
-              className={cx(
-                "flex min-h-16 w-[4.25rem] shrink-0 flex-col items-center justify-center rounded-lg px-1 py-2 ring-1 ring-inset transition-colors",
-                active ? "bg-action text-on-action ring-action" : "bg-surface ring-hairline hover:bg-surface-2",
-                !slots.length && !active && "text-text-secondary",
-              )}
-            >
-              <span className="text-xs font-medium">{dayChipLabel(date, clock.today)}</span>
-              <span className="text-lg font-semibold leading-tight">{fromKey(date).getDate()}</span>
-              <span className="text-[11px]">{slots.length ? t("booking.times", { count: slots.length }) : t("booking.full")}</span>
-            </button>
-          );
-        })}
-      </div>
+      <SegmentedControl label={t("booking.pickDay")} value={selected.date} onChange={setChosen} options={days.map(({ date, slots }) => {
+        const day = dayChipLabel(date, clock.today);
+        const number = fromKey(date).getDate();
+        const availability = slots.length ? t("booking.times", { count: slots.length }) : t("booking.full");
+        return {
+          value: date,
+          label: `${day} ${number} ${availability}`,
+          content: <span className="flex flex-col py-2 text-meta">
+            <span>{day}</span>
+            <span className="text-h3 font-semibold">{number}</span>
+            <span>{availability}</span>
+          </span>,
+        };
+      })} />
 
-      <p className="text-sm font-medium">{formatDayLong(selected.date)}</p>
+      <p className="text-meta font-medium">{formatDayLong(selected.date)}</p>
 
       {selected.slots.length ? (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
           {selected.slots.map((slot) => (
-            <button
+            <Button
               key={slot.start}
+              variant="secondary"
+              size="sm"
               onClick={() => onPick(slot)}
               disabled={disabled}
-              className="flex min-h-12 flex-col items-center justify-center rounded-md bg-surface px-1 py-2 text-sm font-medium ring-1 ring-inset ring-hairline hover:bg-action-bg hover:text-text"
+              className="flex-col !gap-1 !px-2"
             >
               {ignoreId ? <>
                 {t("booking.move.confirm", { when: formatTime(slot.start) })}
-                <span className="text-xs text-text-secondary">{state.staff.find(person => person.id === slot.staffId)?.firstName}</span>
+                <span className="text-meta text-text-secondary">{state.staff.find(person => person.id === slot.staffId)?.firstName}</span>
               </> : formatTime(slot.start)}
-            </button>
+            </Button>
           ))}
         </div>
       ) : (
         <div className="space-y-3 rounded-lg bg-surface-2 p-4">
-          <p className="text-[15px]">{t("booking.dayFull", { day: formatDayLong(selected.date) })}</p>
+          <p className="text-body">{t("booking.dayFull", { day: formatDayLong(selected.date) })}</p>
           {state.modules.waitlist && (
-            <Button variant="secondary" icon={<BellRing size={16} />} onClick={() => onWaitlist(selected.date)}>
+            <Button icon={<BellRing size={16} />} onClick={() => onWaitlist(selected.date)}>
               {t("booking.notifyMe")}
             </Button>
           )}

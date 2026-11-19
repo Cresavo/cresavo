@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { PROJECT_REPOSITORY } from "../brand";
+import { Button } from "../ui/button";
+import { Select } from "../ui/controls";
 import { ChannelMap } from "./channel-map";
 import { useSiteCopy } from "./copy";
 import type { ProductSiteProps } from "./links";
@@ -36,12 +38,12 @@ function FilmTour() {
       <div>
         <h2 className={e.display}>{site["film.heading"]}</h2>
         <div className={e.filmModes}>
-          <button aria-pressed={!booking} onClick={() => setBooking(false)}>{site["tour.watch"]}</button>
-          <button aria-pressed={booking} onClick={() => setBooking(true)}>{site["mini.pickTreatment"]}</button>
+          <Button variant="secondary" size="sm" aria-pressed={!booking} onClick={() => setBooking(false)}>{site["tour.watch"]}</Button>
+          <Button variant="secondary" size="sm" aria-pressed={booking} onClick={() => setBooking(true)}>{site["mini.pickTreatment"]}</Button>
         </div>
-        {!booking && <select className={e.filmSelect} aria-label={site["tour.choose"]} value={index} onChange={event => setIndex(Number(event.target.value))}>
+        {!booking && <Select className={e.filmSelect} aria-label={site["tour.choose"]} value={index} onChange={event => setIndex(Number(event.target.value))}>
           {films.map(({ key, label }, i) => <option value={i} key={key}>{site[label]}</option>)}
-        </select>}
+        </Select>}
       </div>
       <div className={e.screening}>
         {booking ? <>

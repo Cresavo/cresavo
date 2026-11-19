@@ -7,7 +7,7 @@ import { cx } from "./cx";
 
 interface SegmentedProps<T extends string> {
   value: T;
-  options: { value: T; label: string; icon?: ReactNode; count?: number; /** Name for the Help button's "Show me". */ help?: string }[];
+  options: { value: T; label: string; icon?: ReactNode; content?: ReactNode; count?: number; /** Name for the Help button's "Show me". */ help?: string }[];
   onChange: (value: T) => void;
   label: string;
   className?: string;
@@ -27,7 +27,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, c
             role="radio"
             aria-checked={o.value === value}
             tabIndex={index === Math.max(0, selectedIndex) ? 0 : -1}
-            aria-label={o.icon ? (o.count === undefined ? o.label : `${o.label} ${o.count}`) : undefined}
+            aria-label={o.icon || o.content ? (o.count === undefined ? o.label : `${o.label} ${o.count}`) : undefined}
             title={o.icon ? o.label : undefined}
             data-help={o.help}
             onClick={() => onChange(o.value)}
@@ -46,7 +46,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, c
               o.value === value ? "text-on-action" : "text-text-secondary hover:text-text",
             )}
           >
-            {o.icon ?? o.label}
+            {o.content ?? o.icon ?? o.label}
             {o.count !== undefined && <span className="text-meta">{o.count}</span>}
           </button>
         ))}
@@ -130,13 +130,16 @@ interface SwitchProps {
   disabled?: boolean;
   onChange: () => void;
   label: string;
+  showLabel?: boolean;
 }
 
 /** A 48 × 28 track inside a 44 px tall target. */
-export function Switch({ checked, disabled, onChange, label }: SwitchProps) {
+export function Switch({ checked, disabled, onChange, label, showLabel = false }: SwitchProps) {
   return (
-    <button type="button" role="switch" disabled={disabled} aria-checked={checked} aria-label={label} onClick={onChange} className="inline-flex h-11 w-14 shrink-0 items-center justify-center rounded-full">
-      <span aria-hidden className={cx("relative inline-flex h-7 w-12 rounded-full ring-1 ring-inset", checked ? "bg-action ring-action" : "bg-surface-2 ring-input-border")}>
+    <button type="button" role="switch" disabled={disabled} aria-checked={checked} aria-label={label} onClick={onChange}
+      className={cx("inline-flex min-h-target shrink-0 items-center rounded-full", showLabel ? "gap-2 px-2 text-body text-text" : "w-14 justify-center")}>
+      {showLabel && label}
+      <span aria-hidden className={cx("relative inline-flex h-7 w-12 shrink-0 rounded-full ring-1 ring-inset", checked ? "bg-action ring-action" : "bg-surface-2 ring-input-border")}>
         <span className={cx("absolute left-0 top-1 size-5 rounded-full transition-transform duration-normal ease-enter", checked ? "translate-x-6 bg-on-action" : "translate-x-1 bg-text-secondary")} />
       </span>
     </button>
@@ -185,7 +188,10 @@ export function Checkbox({ label, ...rest }: Omit<InputHTMLAttributes<HTMLInputE
 }
 
 export function TextInput({ className, type, ...rest }: ComponentPropsWithRef<"input">) {
-  return <input type={type} className={cx(fieldClass, "min-h-target", type === "color" && "cursor-pointer !p-1", className)} {...rest} {...useFieldAria(rest)} />;
+  const fieldAria = useFieldAria(rest);
+  if (type === "hidden") return <input type={type} {...rest} />;
+  const appearance = type === "radio" ? "size-4 shrink-0 accent-action" : cx(fieldClass, "min-h-target", type === "color" && "cursor-pointer !p-1");
+  return <input type={type} className={cx(appearance, className)} {...rest} {...fieldAria} />;
 }
 
 export function TextArea({ className, variant = "field", ...rest }: ComponentPropsWithRef<"textarea"> & { variant?: "field" | "composer" }) {
@@ -205,11 +211,12 @@ export function Select({ className, children, ...rest }: SelectHTMLAttributes<HT
   );
 }
 
-export function SearchInput({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
+export function SearchInput({ className, endAction, ...rest }: InputHTMLAttributes<HTMLInputElement> & { endAction?: ReactNode }) {
   return (
     <span className={cx("relative block", className)}>
-      <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary" />
-      <input type="search" className={cx(fieldClass, "min-h-target pl-10")} {...rest} {...useFieldAria(rest)} />
+      <Search size={18} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+      <input type="search" className={cx(fieldClass, "min-h-target pl-10", endAction ? "pr-12" : undefined)} {...rest} {...useFieldAria(rest)} />
+      {endAction && <span className="absolute inset-y-0 right-0 flex items-center">{endAction}</span>}
     </span>
   );
 }
