@@ -144,30 +144,60 @@ tenant_action      (tenant_id, seq bigint, action jsonb, actor, source, at times
 tenant_idempotency (tenant_id, key (1..200 chars), fingerprint_hmac, seq bigint,
                     result jsonb, expires_at timestamptz (indexed),
                     PRIMARY KEY (tenant_id, key))
-tenant_effect      (tenant_id, seq bigint, n int, id text UNIQUE, kind, payload jsonb,
-                    status pending|delivered, attempts, next_attempt_at, delivered_at,
-                    PRIMARY KEY (tenant_id, seq, n), INDEX (status, next_attempt_at))
+tenant_effect      (tenant_id, seq bigint, n int, id text UNIQUE, fingerprint, kind,
+                    payload jsonb, status pending|delivered, attempts, next_attempt_at,
+                    delivered_at, PRIMARY KEY (tenant_id, seq, n),
+                    INDEX (status, next_attempt_at), INDEX (tenant_id, status, seq, n))
 ```
 
 The migration does not create roles. `prisma/grants/studio-store.sql`
-documents the intended grants for operators: the application role gets only
-`SELECT` and `INSERT` on `tenant_action`, and the later `erase_subject`
-function is the only updater.
+documents the intended grants for operators. It first revokes everything the
+application role already has on the four tables, then grants it only `SELECT`
+and `INSERT` on `tenant_action`. The later `erase_subject` function is the
+only updater. `prisma/grants/verify-studio-store.sql` lists every remaining
+problem for a role:
+
+- `UPDATE`, `DELETE`, `TRUNCATE`, `REFERENCES` or `TRIGGER` on the log, including privileges inherited through role membership or `PUBLIC`
+- ownership of the table or schema, directly or through a role it can use
+- superuser or `BYPASSRLS`
+- missing `SELECT` or `INSERT`
+
+The operator runs it with `psql -v app_role=…`. It must return no rows.
 
 Each `apply` is one interactive Prisma transaction:
 
 1. `SELECT … FROM tenant_state WHERE tenant_id = $1 FOR UPDATE` takes the row lock. A missing or expired tenant is `not-found`.
-2. The clock is read after the lock: `clock_timestamp()`, or the injected `now`. It is clamped so it never goes before the previous entry's `at`. `meta.at` is ignored unless `trustCallerClock` is set. The clock also judges hold expiry (`withSlotClock`) and key expiry.
-3. A key that has not expired in `tenant_idempotency` returns the stored result as a replay (state, version, entry and effects), or `idempotency-mismatch` when the HMAC-SHA256 fingerprint differs. An expired key is forgotten and the rules run again. Keys longer than 200 characters are `rejected`.
+2. The clock is read after the lock, from `clock_timestamp()` or the injected `now`. The log stamp `at` is the clock clamped to the previous entry's `at`. Everything else uses the clock itself.
+3. A key that has not expired in `tenant_idempotency` returns the stored result as a replay (state, version, entry and effects). If the HMAC-SHA256 fingerprint differs, the result is `idempotency-mismatch`. Expiry is judged and set by the clock (24 hours), never by `at`. An imported, backdated or clamped stamp therefore cannot shorten or stretch the window. An expired key is forgotten and the rules run again. Keys longer than 200 characters are `rejected`.
 4. A stale `expectedVersion` is `conflict`.
-5. `migrateState` and the reducer run staged exactly like `MemoryStudioStore`: `withSlotClock(at, () => withDemoChannels(stage, () => prepareAction(…)))`, with a fresh simulated ledger per apply. An unchanged state is `rejected`. A reducer that returned a Promise would throw, and a unit test guards that it never does.
-6. The store writes the document and version, appends `tenant_action` with `subject_ids`, inserts each newly staged effect into `tenant_effect` and stores the key with a 24-hour expiry. All of this happens before `COMMIT`.
+5. `migrateState` and the reducer run staged like `MemoryStudioStore`:
 
-After the commit, `apply` claims its own effect rows with `FOR UPDATE SKIP LOCKED`, delivers them to the injected sinks and marks them `delivered`. A sink error leaves the row `pending` with a backoff for the poller (item 4). Then in-process subscribers are notified.
+   ```ts
+   withTenantPresentation(state, () => withSlotClock(now, () => withDemoChannels(stage, () => prepareAction(…))))
+   ```
 
-- **Effect ids.** An effect's id is `eff_` plus SHA-256 of the tenant id and the outbox record id. It is stable, unique across tenants and meant as the provider's idempotency key. Like the memory outbox, a record already published by an earlier apply is not a new effect (`ON CONFLICT (id) DO NOTHING`).
+   - **Clock.** The reducer's `now` is the clock. `withTrustedTimes` replaces the caller-reported times that decide eligibility or access with the clock: the booking cutoff of `online/*` requests (`guest.at`), whether `review/submit` follows the visit, and the start or end of `support/grant` and `support/revoke`. Pure event stamps such as `stock/order` and `customers/message` are kept. With `trustCallerClock`, which is for tests and imports only, the caller's `meta.at` and action times are used instead.
+   - **Presentation.** `withTenantPresentation` sets the tenant's language, vocabulary and currency for activity text and payment descriptions, then restores the process settings.
+   - **No-ops.** No-op detection (`sameContent`, `diffStates`, `page/set`, the policy check) uses `jsonEqual`, which ignores object key order, so a page or policy read back from `jsonb` is not a change. An unchanged state is `rejected`.
+   - **Sync guard.** A reducer that returned a Promise would throw. A unit test guards that it never does.
+6. The store writes the document and version, appends `tenant_action` with `subject_ids`, inserts each new effect into `tenant_effect` and stores the key. All of this happens before `COMMIT`.
+
+**After the commit**, `apply` drains the tenant's due effects in `(seq, n)` order, its own included.
+
+- Each row is claimed with a 60-second lease on `next_attempt_at`, sent, then acknowledged in its own statement. A later slow or failing send never undoes an earlier acknowledgement, and no connection is held while a sink runs.
+- A payment is never claimed while an earlier payment of the same tenant is still pending. A refund therefore waits for its checkout. The deliverer that acknowledges the checkout makes another pass and delivers the refund it unblocked.
+- A sink error leaves the row `pending` with an exponential backoff for the poller (item 4).
+- Then in-process subscribers are notified.
+
+Other details:
+
+- **Effect ids.** The reducer's sends go through `stagedChannels`, which keeps each record with its full provider request (port, operation, idempotency key, input).
+  - An effect's id is `eff_` plus the SHA-256 of the tenant id and that logical provider key. For a port without keys it uses the whole request. The 32-bit outbox record id is not used.
+  - The id is stable, unique across tenants and meant as the provider's idempotency key. `fingerprint` is the SHA-256 of the full request.
+  - The same id with the same fingerprint is a request an earlier apply already made, so it is not a new effect. The same id with another fingerprint is a key reused for different content. The provider would refuse it, so the whole apply is `rejected`.
 - **Returned states.** The returned state is the document as stored (`UPDATE … RETURNING doc`), so results, loads and replays share the same `jsonb` key order.
-- **`subject_ids`.** The store fills it from the action's `customerId`, `customerIds` and, for `customer/*` actions, `id`. It also adds every customer and booking customer whose record the reducer changed.
+- **`subject_ids`.** The store collects every `customerId` or `customerIds` anywhere in the action, including nested entries and multi-recipient texts, and the `id` of `customer/*` actions. It also adds the customer of every record the reducer changed in any of the state's lists.
+- **`history`.** Like `load`, `history` returns nothing for an unknown, deleted or expired tenant.
 - **Constructor.** `{ prisma, hmacSecret (≥ 32 chars, never logged or stored), sinks: { payment, message }, now?: () => Promise<number>, trustCallerClock?: false }`.
 
 `tests/integration/postgres-studio-store.test.ts` runs
@@ -177,13 +207,24 @@ disposable local database (`*_test`, after `prisma migrate deploy`) in
 cases cover the following:
 
 - the database clock wins over `meta.at`, `trustCallerClock` applies, and the clock is clamped
+- booking cutoffs and support grants follow the store clock, not the caller's
 - keys expire after 24 hours on an injected clock: a replayed booking is rejected, a replayed payment charges once, and the key can be reused
+- the key window stays on the clock with backdated and future-dated imports
 - the fingerprint is only an HMAC
 - effects are rolled back with the transaction, then written and delivered exactly once
+- a provider key reused for another request refuses the change
+- each delivery is acknowledged on its own
+- a refund never overtakes its checkout across two store instances
 - a failing sink leaves the effect pending with a backoff
-- unknown and expired tenants
-- `subject_ids` lookup through the GIN index
+- unknown and expired tenants, and their history
+- `subject_ids` for single, nested and multi-recipient actions
+- resubmitting the loaded booking page is a no-op
+- activity text uses the tenant's language and currency
+- the grants check flags a role that owns or can change the log. The test role cannot create roles, so it checks the connecting owner role.
 - two store instances on separate connection pools wait on the same row lock for one slot, and one wins
+
+Pure helpers (`jsonEqual`, `withTrustedTimes`, effect ids, `subjectIds`,
+`withTenantPresentation`) have unit tests in `tests/store-contract/store-helpers.test.ts`.
 
 ## Step 2 decisions
 
@@ -286,8 +327,10 @@ Adopted 19 November 2026 through the owner's delegation. They replace the first 
 - **Demo regeneration in the browser.** The sample business regenerates on a
   new day inside the legacy `load`, which the adapter cannot tell apart from
   an edit. Its records survive that until the next reset.
-- **Provider key conflicts across applies.** The memory store keeps one
-  simulated ledger per tenant, so a payment or message key reused with other
-  content in a later apply is refused. The Postgres store stages each apply on
-  a fresh ledger. Its protection across applies is the unique effect id. Item 4
-  can seed the ledger's committed keys from `tenant_effect` if that matters.
+- **Memory store parity.** `MemoryStudioStore` still runs the reducer with
+  the caller's times and the process presentation settings. Moving it to
+  `withTrustedTimes` and `withTenantPresentation` is a small follow-up, but it
+  changes which times the reference store reports.
+- **Browser dirty checks.** UI comparisons such as the booking-rules draft
+  still use `JSON.stringify`. They only see browser state today. Revisit them
+  when the studio reads from Postgres.

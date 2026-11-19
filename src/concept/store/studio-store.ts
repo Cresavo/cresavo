@@ -1,6 +1,8 @@
 import type { DemoAction } from "../actions";
 import type { OutboxEntry } from "../connections/simulated/outbox";
+import { canonicalJson, jsonEqual } from "../data/json-equal";
 import { migrateState } from "../data/migrate";
+import { salonClock } from "../tools/clock";
 import type { DemoState } from "../data/types";
 import type { LogActor, LogSource } from "../log/types";
 
@@ -162,14 +164,32 @@ export const HISTORY_MAX_LIMIT = 500;
 
 /** Key-order independent JSON, so the same action always fingerprints the same. */
 export function actionFingerprint(action: DemoAction): string {
-  const canonical = (value: unknown): unknown => {
-    if (Array.isArray(value)) return value.map(canonical);
-    if (value && typeof value === "object") {
-      return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical((value as Record<string, unknown>)[key])]));
-    }
-    return value;
-  };
-  return JSON.stringify(canonical(action));
+  return canonicalJson(action);
+}
+
+/**
+ * The action with the caller-reported times that decide eligibility or access
+ * replaced by the store's clock: the booking cutoff of an online request
+ * (`guest.at`), whether a review comes after the visit, and the start or end of
+ * a support grant. Pure event stamps (`stock/order`, `customers/message`) are
+ * kept as reported. Stores call this unless they trust the caller's clock.
+ */
+export function withTrustedTimes(action: DemoAction, at: number): DemoAction {
+  const clock = salonClock(new Date(at));
+  const local = { date: clock.today, time: clock.minutes };
+  switch (action.type) {
+    case "online/hold":
+    case "online/book":
+    case "online/waitlist":
+      return { ...action, guest: { ...action.guest, at: local } };
+    case "review/submit":
+      return { ...action, at: local };
+    case "support/grant":
+    case "support/revoke":
+      return { ...action, at };
+    default:
+      return action;
+  }
 }
 
 /** A deep copy, so callers and the store never share mutable objects. */
@@ -191,7 +211,7 @@ export function pageHistory(log: readonly TenantAction[], query: HistoryQuery): 
  * Catches reducer no-ops that return a fresh but identical object.
  */
 export function sameContent(a: DemoState, b: DemoState): boolean {
-  return a === b || JSON.stringify({ ...a, seq: 0 }) === JSON.stringify({ ...b, seq: 0 });
+  return a === b || jsonEqual({ ...a, seq: 0 }, { ...b, seq: 0 });
 }
 
 const ARRAYS = ["staff", "services", "customers", "bookings", "checkoutHolds", "inbox", "log", "trash", "categories", "resources", "exceptions"] as const;

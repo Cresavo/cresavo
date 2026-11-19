@@ -8,7 +8,12 @@
 -- The application role used by PostgresStudioStore at runtime.
 -- CREATE ROLE cresavo_app LOGIN;   -- password set by the operator
 
+-- GRANT is additive: first remove whatever the role already has on these
+-- tables (direct grants, or ones from operator ALTER DEFAULT PRIVILEGES), and
+-- from PUBLIC. The role must not own the tables or the schema, nor be a member
+-- of a role that does; ownership overrides every revoke below.
 REVOKE ALL ON "tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect" FROM PUBLIC;
+REVOKE ALL ON "tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect" FROM cresavo_app;
 
 -- State: read, lock (SELECT ... FOR UPDATE needs UPDATE), write, create tenants.
 GRANT SELECT, INSERT, UPDATE ON "tenant_state" TO cresavo_app;
@@ -35,3 +40,8 @@ GRANT SELECT, INSERT, UPDATE ON "tenant_effect" TO cresavo_app;
 -- ALTER FUNCTION erase_subject(text, text) OWNER TO cresavo_eraser;
 -- REVOKE ALL ON FUNCTION erase_subject(text, text) FROM PUBLIC;
 -- GRANT EXECUTE ON FUNCTION erase_subject(text, text) TO cresavo_app;
+
+-- Finally verify the effective privileges, including inherited ones:
+--   psql "$DATABASE_URL" -v app_role=cresavo_app -f prisma/grants/verify-studio-store.sql
+-- It must return no rows. Grants to a parent role of cresavo_app are not
+-- revoked by this script; the verify query reports them.

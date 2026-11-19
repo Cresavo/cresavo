@@ -1,3 +1,4 @@
+import { jsonEqual } from "./data/json-equal";
 import { salonClock } from "./tools/clock";
 import { depositMethods } from "./connections/ports/payments";
 import { majorString } from "./connections/core";
@@ -367,7 +368,7 @@ function importCustomers(state: DemoState, incoming: Omit<Customer, "id">[]): De
 export function reduce(state: DemoState, action: DemoAction, now = Date.now(), payments = demoPayments): DemoState {
   switch (action.type) {
     case "salon/policy":
-      if (!validPolicy(action.policy) || action.policy.version !== state.cancellationPolicy.version || JSON.stringify(action.policy) === JSON.stringify(state.cancellationPolicy)) return state;
+      if (!validPolicy(action.policy) || action.policy.version !== state.cancellationPolicy.version || jsonEqual(action.policy, state.cancellationPolicy)) return state;
       return { ...state, seq: state.seq + 1, cancellationPolicy: { ...action.policy, version: state.seq + 1 } };
     case "booking/fee":
       return decideFee(state, action, now, payments);

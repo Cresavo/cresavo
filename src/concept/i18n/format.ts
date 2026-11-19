@@ -10,6 +10,10 @@ export function setCurrency(next: string) {
   currency = next;
 }
 
+export function getCurrency(): string {
+  return currency;
+}
+
 function dateText(key: DateKey, options: Intl.DateTimeFormatOptions, language = getActiveLocale()) {
   return new Intl.DateTimeFormat(intlLocale(language), options).format(fromKey(key));
 }

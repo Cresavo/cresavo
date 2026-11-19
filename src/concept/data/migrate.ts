@@ -1,3 +1,4 @@
+import { jsonEqual } from "./json-equal";
 import { returnRedemptions } from "../giftcards/cards";
 import { DEFAULT_POLICY, hasSettlement } from "../booking/protection";
 import { defaultBusinessLocalization } from "../i18n/business";
@@ -38,7 +39,7 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
   // after the price list, gift cards folded at the end); one the owner arranged is left alone.
   15: (saved) => {
     const page = saved.page as PageConfig;
-    const untouched = JSON.stringify(page.sections) === JSON.stringify(V15_SECTIONS);
+    const untouched = jsonEqual(page.sections, V15_SECTIONS);
     return { ...saved, page: untouched ? { ...page, sections: DEFAULT_SECTIONS } : page, categories: startCategories(getPack(saved.pack as PackId)), retiredServices: [], version: 16 };
   },
   // v17 adds portraits to the existing roster, including solo businesses.

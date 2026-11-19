@@ -1,3 +1,4 @@
+import { jsonEqual } from "../data/json-equal";
 import type { DemoState } from "../data/types";
 import type { CollectionPatch, Item, StatePatch } from "./types";
 
@@ -14,7 +15,7 @@ const COLLECTIONS = [
 /** Whole values compared as a unit. */
 const VALUES = ["cancellationPolicy", "accounting", "modules", "dismissedCards", "salon", "page", "domain", "localization", "reminderSettings"] as const satisfies readonly (keyof DemoState)[];
 
-const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);
+const same = jsonEqual;
 const list = (state: DemoState, key: string) => (state as unknown as Record<string, Item[]>)[key] ?? [];
 
 function diffCollection(before: Item[], after: Item[]): CollectionPatch | null {

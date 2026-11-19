@@ -1,3 +1,4 @@
+import { jsonEqual } from "../data/json-equal";
 import { normalizePage, type PageConfig } from "./config";
 import { addSection, moveToFirst, removeSection, type SectionKind } from "./sections";
 import { PALETTES, type PageTheme } from "./theme";
@@ -112,5 +113,5 @@ export function designRequest(input: string, page: PageConfig): DesignRequest | 
   else if (verb && verbKind) next = { ...next, sections: /^(add|include)$/.test(verb[1]) ? addSection(next.sections, verbKind) : removeSection(next.sections, verbKind) };
 
   const after = normalizePage(next);
-  return JSON.stringify(after) === JSON.stringify(page) ? null : { kind: "page", page: after };
+  return jsonEqual(after, page) ? null : { kind: "page", page: after };
 }

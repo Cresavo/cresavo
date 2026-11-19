@@ -1,3 +1,4 @@
+import { jsonEqual } from "../data/json-equal";
 import type { DemoState } from "../data/types";
 import { checkOwnSlug } from "./address";
 import { normalizePage, type PageConfig } from "./config";
@@ -19,7 +20,7 @@ export function applyPageAction(state: DemoState, action: PageAction): DemoState
   switch (action.type) {
     case "page/set": {
       const page = normalizePage(action.page);
-      return JSON.stringify(page) === JSON.stringify(state.page) ? state : { ...state, page };
+      return jsonEqual(page, state.page) ? state : { ...state, page };
     }
     case "salon/slug": {
       const check = checkOwnSlug(action.slug, state.salon.slug, !!state.industry);

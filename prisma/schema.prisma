@@ -524,16 +524,19 @@ model TenantEffect {
   tenantId      String    @map("tenant_id")
   seq           BigInt
   n             Int
-  /// Globally unique; the provider's idempotency key.
+  /// Globally unique, from the tenant and the full provider idempotency key; the provider's idempotency key.
   id            String    @unique
+  /// SHA-256 of the full provider request, so a reused key with other content is a conflict, not a replay.
+  fingerprint   String
   kind          String
   payload       Json      @db.JsonB
-  /// pending | delivered
+  /// pending | delivered. A pending row is due at next_attempt_at, which also serves as the delivery lease.
   status        String    @default("pending")
   attempts      Int       @default(0)
   nextAttemptAt DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
   deliveredAt   DateTime? @map("delivered_at") @db.Timestamptz(3)
   @@id([tenantId, seq, n])
   @@index([status, nextAttemptAt])
+  @@index([tenantId, status, seq, n])
   @@map("tenant_effect")
 }

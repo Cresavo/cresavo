@@ -51,6 +51,7 @@ CREATE TABLE "tenant_effect" (
     "seq" BIGINT NOT NULL,
     "n" INTEGER NOT NULL,
     "id" TEXT NOT NULL,
+    "fingerprint" TEXT NOT NULL,
     "kind" TEXT NOT NULL,
     "payload" JSONB NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'pending',
@@ -72,6 +73,9 @@ CREATE UNIQUE INDEX "tenant_effect_id_key" ON "tenant_effect"("id");
 
 -- CreateIndex
 CREATE INDEX "tenant_effect_status_next_attempt_at_idx" ON "tenant_effect"("status", "next_attempt_at");
+
+-- CreateIndex
+CREATE INDEX "tenant_effect_tenant_id_status_seq_n_idx" ON "tenant_effect"("tenant_id", "status", "seq", "n");
 
 -- Not modelled by Prisma (ignored by its diff): bounds from the step 2 decisions.
 ALTER TABLE "tenant_idempotency" ADD CONSTRAINT "tenant_idempotency_key_length" CHECK (char_length("key") BETWEEN 1 AND 200);

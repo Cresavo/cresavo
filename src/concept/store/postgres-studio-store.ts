@@ -1,13 +1,14 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { DemoAction } from "../actions";
 import { DEMO_CHANNEL_CURRENCY, withDemoChannels } from "../connections/demo";
-import { channelLedger } from "../connections/simulated/adapters";
-import { createOutbox, type OutboxEntry } from "../connections/simulated/outbox";
+import type { OutboxEntry } from "../connections/simulated/outbox";
 import { withSlotClock } from "../data/slots";
 import type { DemoState } from "../data/types";
+import { withTenantPresentation } from "../i18n/presentation";
 import { defaultMeta, prepareAction } from "../log/capture";
 import type { LogActor, LogSource } from "../log/types";
+import { effectId, requestFingerprint, stagedChannels } from "./staged-channels";
 import {
   actionFingerprint,
   detach,
@@ -16,6 +17,7 @@ import {
   migrateSaved,
   notifyAll,
   sameContent,
+  withTrustedTimes,
   type ApplyMeta,
   type ApplyOptions,
   type ApplyResult,
@@ -34,23 +36,30 @@ import {
 // apply:
 //
 //   1. SELECT … FROM tenant_state FOR UPDATE (the row lock serializes applies)
-//   2. read the clock after the lock and clamp it to the previous entry's `at`
-//   3. idempotency lookup in tenant_idempotency (24 h, judged by that clock)
+//   2. read the clock after the lock; the entry's `at` is clamped to the
+//      previous entry's, while key expiry uses the clock itself
+//   3. idempotency lookup in tenant_idempotency (24 h by that clock)
 //   4. expectedVersion check
-//   5. the reducer, staged exactly as in MemoryStudioStore
+//   5. the reducer, staged as in MemoryStudioStore, with the tenant's language
+//      and currency and the store's clock for eligibility checks
 //   6. write doc + version, append tenant_action, insert staged effects into
 //      tenant_effect, remember the key — then COMMIT
 //
-// After the commit this apply's own effects are delivered to the injected
-// sinks and marked delivered. Anything left pending (a sink failed, the
-// process died) is for the outbox poller (step 2, item 4).
+// After the commit the tenant's due effects are delivered one row at a time:
+// each is claimed with a short lease, sent, and acknowledged on its own. A
+// payment is never claimed while an earlier payment of the same tenant is
+// still pending, so a refund cannot overtake its checkout. Anything left is
+// for the outbox poller (step 2, item 4).
 
-/** Idempotency keys are forgotten this long after their commit. */
+/** Idempotency keys are forgotten this long after their commit (by the store clock). */
 export const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 /** Longest accepted idempotency key (the HTTP layer adds a caller prefix). */
 export const IDEMPOTENCY_KEY_MAX = 200;
+/** How long a claimed effect is reserved for one deliverer before another may retry it. */
+export const EFFECT_LEASE_MS = 60_000;
+/** Most effects one apply's drain delivers, its own and any earlier ones it unblocks. */
+const DRAIN_LIMIT = 100;
 const TRANSACTION = { maxWait: 5_000, timeout: 15_000 } as const;
-const DRAIN_TRANSACTION = { maxWait: 5_000, timeout: 30_000 } as const;
 
 export type TenantKind = "salon" | "demo" | "sandbox";
 
@@ -75,7 +84,7 @@ export interface PostgresStudioStoreOptions {
   /** Epoch milliseconds. Defaults to the database's `clock_timestamp()`, read after the row lock. Tests only. */
   now?: () => Promise<number>;
   sinks: Record<StoreEffect["kind"], EffectSink>;
-  /** Use `meta.at` when given instead of the clock. Tests and imports only. */
+  /** Use `meta.at` and the action's own times when given instead of the clock. Tests and imports only. */
   trustCallerClock?: boolean;
 }
 
@@ -86,33 +95,60 @@ interface Replay {
   effects: StoreEffect[];
 }
 
-type Committed =
-  | { done: ApplyResult }
-  | { commit: Replay; kind: TenantKind; deliveries: EffectDelivery[] };
+type Committed = { done: ApplyResult } | { commit: Replay };
 
 type Tx = Prisma.TransactionClient;
 
 const isThenable = (value: unknown): boolean =>
   !!value && (typeof value === "object" || typeof value === "function") && typeof (value as { then?: unknown }).then === "function";
 
-/** Customer ids an action names or touches; computed at commit for erasure lookups (`subject_ids`). */
+/** Every `customerId` / `customerIds` value anywhere in a value. */
+function namedCustomers(value: unknown, into: Set<string>, depth = 0) {
+  if (depth > 12 || !value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const item of value) namedCustomers(item, into, depth + 1);
+    return;
+  }
+  for (const [key, item] of Object.entries(value)) {
+    if (key === "customerId" && typeof item === "string") into.add(item);
+    else if (key === "customerIds" && Array.isArray(item)) item.forEach((id) => { if (typeof id === "string") into.add(id); });
+    else namedCustomers(item, into, depth + 1);
+  }
+}
+
+/**
+ * Customer ids an action names or touches; computed at commit for erasure
+ * lookups (`subject_ids`). Covers ids named anywhere in the action (nested
+ * entries, multi-recipient texts), `customer/*` targets, changed customers, and
+ * the customer of every changed record in the state's lists (bookings,
+ * journals, inbox, sales…).
+ */
 export function subjectIds(action: DemoAction, before: DemoState, after: DemoState): string[] {
   const ids = new Set<string>();
+  namedCustomers(action, ids);
   const named = action as unknown as Record<string, unknown>;
-  if (typeof named.customerId === "string") ids.add(named.customerId);
-  if (Array.isArray(named.customerIds)) for (const id of named.customerIds) if (typeof id === "string") ids.add(id);
   if (action.type.startsWith("customer/") && typeof named.id === "string") ids.add(named.id);
-  // The reducer shares untouched objects, so a changed reference is a changed record.
-  const changed = <T extends { id: string }>(was: readonly T[], now: readonly T[], each: (item: T) => void) => {
-    const old = new Map(was.map((item) => [item.id, item]));
+  const lists = new Set([...Object.keys(before), ...Object.keys(after)]);
+  for (const key of lists) {
+    const was = (before as unknown as Record<string, unknown>)[key];
+    const now = (after as unknown as Record<string, unknown>)[key];
+    if (was === now || !Array.isArray(was) || !Array.isArray(now)) continue;
+    // The reducer shares untouched objects, so a changed reference is a changed record.
+    const old = new Map<unknown, unknown>(was.map((item) => [(item as { id?: unknown })?.id ?? item, item]));
+    const touched: unknown[] = [];
     for (const item of now) {
-      if (old.get(item.id) !== item) each(item);
-      old.delete(item.id);
+      const id = (item as { id?: unknown })?.id ?? item;
+      if (old.get(id) !== item) touched.push(item);
+      old.delete(id);
     }
-    old.forEach(each);
-  };
-  changed(before.customers, after.customers, (customer) => ids.add(customer.id));
-  changed(before.bookings, after.bookings, (booking) => { if (booking.customerId) ids.add(booking.customerId); });
+    touched.push(...old.values());
+    for (const item of touched) {
+      if (!item || typeof item !== "object") continue;
+      if (key === "customers" && typeof (item as { id?: unknown }).id === "string") ids.add((item as { id: string }).id);
+      const customerId = (item as { customerId?: unknown }).customerId;
+      if (typeof customerId === "string") ids.add(customerId);
+    }
+  }
   return [...ids].sort();
 }
 
@@ -137,18 +173,23 @@ export class PostgresStudioStore implements StudioStore {
     return createHmac("sha256", this.hmacSecret).update(actionFingerprint(action)).digest("hex");
   }
 
-  /** Epoch milliseconds: the injected clock, or the database clock at this point in the transaction. */
+  /** Epoch milliseconds: the injected clock, or the database clock at this point. */
   private async clock(db: Tx | PrismaClient): Promise<number> {
     if (this.now) return Math.floor(await this.now());
     const [row] = await db.$queryRaw<Array<{ ms: number }>>`SELECT (extract(epoch FROM clock_timestamp()) * 1000)::float8 AS ms`;
     return Math.floor(row.ms);
   }
 
-  async load(tenantId: TenantId): Promise<StoreSnapshot | null> {
-    const now = await this.clock(this.prisma);
+  /** True while the tenant exists and has not expired, by the store clock. */
+  private async live(tenantId: TenantId, now: number): Promise<{ doc: unknown; version: number } | undefined> {
     const [row] = await this.prisma.$queryRaw<Array<{ doc: unknown; version: number }>>`
       SELECT doc, version FROM tenant_state
       WHERE tenant_id = ${tenantId} AND (expires_at IS NULL OR expires_at > to_timestamp(${now}::float8 / 1000))`;
+    return row;
+  }
+
+  async load(tenantId: TenantId): Promise<StoreSnapshot | null> {
+    const row = await this.live(tenantId, await this.clock(this.prisma));
     if (!row) return null;
     const state = migrateSaved(row.doc);
     return state ? { state, version: row.version } : null;
@@ -160,36 +201,36 @@ export class PostgresStudioStore implements StudioStore {
     const own = detach(action);
     const result = await this.prisma.$transaction((tx) => this.applyInTransaction(tx, tenantId, own, meta, options), TRANSACTION);
     if ("done" in result) return result.done;
-    const { commit, kind, deliveries } = result;
-    await this.deliver(kind, deliveries);
+    const { commit } = result;
+    await this.drain(tenantId);
     notifyAll(this.listeners.get(tenantId) ?? [], { tenantId, version: commit.version, entry: commit.entry, effects: commit.effects });
     return { ok: true, ...detach(commit), replayed: false };
   }
 
-  private async applyInTransaction(tx: Tx, tenantId: TenantId, action: DemoAction, meta: ApplyMeta, options: ApplyOptions): Promise<Committed> {
+  private async applyInTransaction(tx: Tx, tenantId: TenantId, requested: DemoAction, meta: ApplyMeta, options: ApplyOptions): Promise<Committed> {
     // 1. The row lock. Everything below reads after it, so it sees every earlier commit.
-    const [locked] = await tx.$queryRaw<Array<{ doc: unknown; version: number; kind: TenantKind; expires_ms: number | null }>>`
-      SELECT doc, version, kind::text AS kind, (extract(epoch FROM expires_at) * 1000)::float8 AS expires_ms
+    const [locked] = await tx.$queryRaw<Array<{ doc: unknown; version: number; expires_ms: number | null }>>`
+      SELECT doc, version, (extract(epoch FROM expires_at) * 1000)::float8 AS expires_ms
       FROM tenant_state WHERE tenant_id = ${tenantId} FOR UPDATE`;
     if (!locked) return { done: { ok: false, reason: "not-found" } };
 
-    // 2. The clock, after the lock, never before the previous entry.
+    // 2. The clock, after the lock. `at` (the event stamp) never goes before the previous entry.
     const clock = await this.clock(tx);
     if (locked.expires_ms !== null && locked.expires_ms <= clock) return { done: { ok: false, reason: "not-found" } };
     const [last] = await tx.$queryRaw<Array<{ seq: bigint; at_ms: number }>>`
       SELECT seq, (extract(epoch FROM at) * 1000)::float8 AS at_ms FROM tenant_action
       WHERE tenant_id = ${tenantId} ORDER BY seq DESC LIMIT 1`;
-    const requested = this.trustCallerClock && meta.at !== undefined && Number.isFinite(meta.at) ? Math.floor(meta.at) : clock;
-    const at = Math.max(requested, last ? Math.round(last.at_ms) : -Infinity);
+    const stamp = this.trustCallerClock && meta.at !== undefined && Number.isFinite(meta.at) ? Math.floor(meta.at) : clock;
+    const at = Math.max(stamp, last ? Math.round(last.at_ms) : -Infinity);
     const seq = last ? Number(last.seq) + 1 : 1;
 
-    // 3. Idempotency: a live key replays or mismatches; an expired one is forgotten.
+    // 3. Idempotency, judged by the clock, not by the (possibly imported or clamped) event stamp.
     const key = options.idempotencyKey;
-    const fingerprint = key === undefined ? "" : this.fingerprint(action);
+    const fingerprint = key === undefined ? "" : this.fingerprint(requested);
     if (key !== undefined) {
       const [known] = await tx.$queryRaw<Array<{ fingerprint_hmac: string; result: Replay }>>`
         SELECT fingerprint_hmac, result FROM tenant_idempotency
-        WHERE tenant_id = ${tenantId} AND key = ${key} AND expires_at > to_timestamp(${at}::float8 / 1000)`;
+        WHERE tenant_id = ${tenantId} AND key = ${key} AND expires_at > to_timestamp(${clock}::float8 / 1000)`;
       if (known) {
         const a = Buffer.from(known.fingerprint_hmac, "hex");
         const b = Buffer.from(fingerprint, "hex");
@@ -203,22 +244,47 @@ export class PostgresStudioStore implements StudioStore {
       return { done: { ok: false, reason: "conflict", version: locked.version } };
     }
 
-    // 5. The reducer, staged as in MemoryStudioStore. A fresh ledger per apply: sends are recorded, not sent.
+    // 5. The reducer. Times that decide eligibility or access come from the store clock.
     const state = migrateSaved(locked.doc);
     if (!state) return { done: { ok: false, reason: "not-found" } };
-    const defaults = defaultMeta(action, at);
-    const logMeta = { actor: meta.actor ?? defaults.actor, source: meta.source ?? defaults.source, at };
-    const stage = channelLedger(createOutbox(Infinity), DEMO_CHANNEL_CURRENCY).stage();
-    const next: unknown = withSlotClock(at, () => withDemoChannels(stage, () => prepareAction(state, action, logMeta, stage)));
+    // The reducer's `now` (hold expiry, fees, grants) is the clock itself unless the caller's clock is trusted;
+    // only the tenant_action stamp is clamped.
+    const action = this.trustCallerClock ? requested : withTrustedTimes(requested, clock);
+    const now = this.trustCallerClock ? at : clock;
+    const defaults = defaultMeta(action, now);
+    const logMeta = { actor: meta.actor ?? defaults.actor, source: meta.source ?? defaults.source, at: now };
+    const stage = stagedChannels(DEMO_CHANNEL_CURRENCY);
+    const next: unknown = withTenantPresentation(state, () =>
+      withSlotClock(now, () => withDemoChannels(stage, () => prepareAction(state, action, logMeta, stage))));
     // The staging above is ambient and only holds for a synchronous reducer.
     if (isThenable(next)) throw new Error("STUDIO_STORE_ASYNC_REDUCER");
     const reduced = next as DemoState;
     if (reduced === state || sameContent(reduced, state)) return { done: { ok: false, reason: "rejected", version: locked.version } };
 
+    // Effects: one row per distinct provider request. A request an earlier
+    // apply already made is not a new effect; the same key with other content
+    // would be refused by the provider, so the change is refused too.
+    const staged = new Map<string, { fingerprint: string; record: OutboxEntry }>();
+    for (const request of stage.requests()) {
+      const id = effectId(tenantId, request);
+      const print = requestFingerprint(request);
+      const seen = staged.get(id);
+      if (seen && seen.fingerprint !== print) return { done: { ok: false, reason: "rejected", version: locked.version } };
+      if (!seen) staged.set(id, { fingerprint: print, record: JSON.parse(JSON.stringify(request.record)) as OutboxEntry });
+    }
+    if (staged.size) {
+      const existing = await tx.$queryRaw<Array<{ id: string; fingerprint: string }>>`
+        SELECT id, fingerprint FROM tenant_effect WHERE id = ANY(${[...staged.keys()]}::text[])`;
+      for (const row of existing) {
+        if (row.fingerprint !== staged.get(row.id)!.fingerprint) return { done: { ok: false, reason: "rejected", version: locked.version } };
+        staged.delete(row.id);
+      }
+    }
+
     // 6. Commit: state, log entry, effects and the key in one transaction.
     const version = locked.version + 1;
     const [written] = await tx.$queryRaw<Array<{ doc: DemoState }>>`
-      UPDATE tenant_state SET doc = ${JSON.stringify(reduced)}::jsonb, version = ${version}, updated_at = to_timestamp(${at}::float8 / 1000)
+      UPDATE tenant_state SET doc = ${JSON.stringify(reduced)}::jsonb, version = ${version}, updated_at = to_timestamp(${clock}::float8 / 1000)
       WHERE tenant_id = ${tenantId} RETURNING doc`;
     const entry: TenantAction = {
       seq,
@@ -234,66 +300,101 @@ export class PostgresStudioStore implements StudioStore {
       INSERT INTO tenant_action (tenant_id, seq, action, actor, source, at, idempotency_key, resulting_version, subject_ids)
       VALUES (${tenantId}, ${seq}::bigint, ${JSON.stringify(action)}::jsonb, ${entry.actor}, ${entry.source},
               to_timestamp(${at}::float8 / 1000), ${key ?? null}, ${version}, ${subjectIds(action, state, reduced)}::text[])`;
-
-    const deliveries: EffectDelivery[] = [];
-    for (const staged of stage.outbox.list()) {
-      const record = JSON.parse(JSON.stringify(staged)) as OutboxEntry;
+    const effects: StoreEffect[] = [];
+    for (const [id, { fingerprint: print, record }] of staged) {
       const effect = effectOf(record);
-      const id = `eff_${createHash("sha256").update(`${tenantId}\n${record.id}`).digest("hex")}`;
-      const n = deliveries.length;
-      // A record already published by an earlier apply is not a new effect (the outbox is idempotent by id).
-      const inserted = await tx.$executeRaw`
-        INSERT INTO tenant_effect (tenant_id, seq, n, id, kind, payload, next_attempt_at)
-        VALUES (${tenantId}, ${seq}::bigint, ${n}, ${id}, ${effect.kind}, ${JSON.stringify(record)}::jsonb, to_timestamp(${at}::float8 / 1000))
-        ON CONFLICT (id) DO NOTHING`;
-      if (inserted === 1) deliveries.push({ id, tenantId, tenantKind: locked.kind, seq, n, effect });
+      await tx.$executeRaw`
+        INSERT INTO tenant_effect (tenant_id, seq, n, id, fingerprint, kind, payload, next_attempt_at)
+        VALUES (${tenantId}, ${seq}::bigint, ${effects.length}, ${id}, ${print}, ${effect.kind}, ${JSON.stringify(record)}::jsonb,
+                to_timestamp(${clock}::float8 / 1000))`;
+      effects.push(effect);
     }
-    const commit: Replay = { state: written.doc, version, entry, effects: deliveries.map((d) => d.effect) };
+    const commit: Replay = { state: written.doc, version, entry, effects };
     if (key !== undefined) {
       await tx.$executeRaw`
         INSERT INTO tenant_idempotency (tenant_id, key, fingerprint_hmac, seq, result, expires_at)
-        VALUES (${tenantId}, ${key}, ${fingerprint}, ${seq}::bigint, ${JSON.stringify(commit)}::jsonb, to_timestamp(${at + IDEMPOTENCY_TTL_MS}::float8 / 1000))
+        VALUES (${tenantId}, ${key}, ${fingerprint}, ${seq}::bigint, ${JSON.stringify(commit)}::jsonb, to_timestamp(${clock + IDEMPOTENCY_TTL_MS}::float8 / 1000))
         ON CONFLICT (tenant_id, key) DO UPDATE
         SET fingerprint_hmac = EXCLUDED.fingerprint_hmac, seq = EXCLUDED.seq, result = EXCLUDED.result, expires_at = EXCLUDED.expires_at`;
     }
-    return { commit, kind: locked.kind, deliveries };
+    return { commit };
   }
 
   /**
-   * Delivers this apply's effects after the commit. Each row is claimed with
-   * SKIP LOCKED, so the outbox poller (item 4) never delivers it at the same
-   * time; a sink error leaves the row pending with a backoff.
+   * Delivers the tenant's due effects in commit order, this apply's included.
+   * Each row is claimed with a lease, sent and acknowledged in its own
+   * statement, so a slow or failing later send never undoes an earlier one and
+   * no connection is held while a sink runs.
    */
-  private async deliver(kind: TenantKind, deliveries: EffectDelivery[]) {
-    if (deliveries.length === 0) return;
+  private async drain(tenantId: TenantId) {
     try {
-      await this.prisma.$transaction(async (tx) => {
-        const claimed = await tx.$queryRaw<Array<{ id: string; attempts: number }>>`
-          SELECT id, attempts FROM tenant_effect
-          WHERE id = ANY(${deliveries.map((d) => d.id)}::text[]) AND status = 'pending'
-          ORDER BY seq, n FOR UPDATE SKIP LOCKED`;
-        const attempts = new Map(claimed.map((row) => [row.id, row.attempts]));
-        for (const delivery of deliveries) {
-          if (!attempts.has(delivery.id)) continue;
-          try {
-            await this.sinks[delivery.effect.kind](detach({ ...delivery, tenantKind: kind }));
-            const at = await this.clock(tx);
-            await tx.$executeRaw`
-              UPDATE tenant_effect SET status = 'delivered', attempts = attempts + 1, delivered_at = to_timestamp(${at}::float8 / 1000)
-              WHERE id = ${delivery.id}`;
-          } catch {
-            // Never log the payload: it holds personal data. The poller retries.
-            const tries = (attempts.get(delivery.id) ?? 0) + 1;
-            const at = (await this.clock(tx)) + Math.min(3_600_000, 1000 * 2 ** tries);
-            await tx.$executeRaw`
-              UPDATE tenant_effect SET attempts = attempts + 1, next_attempt_at = to_timestamp(${at}::float8 / 1000)
-              WHERE id = ${delivery.id}`;
-          }
-        }
-      }, DRAIN_TRANSACTION);
+      // Rows committed meanwhile (a refund another apply queued behind this
+      // apply's checkout) are picked up by another pass once this one made progress.
+      let budget = DRAIN_LIMIT;
+      for (let pass = 0; pass < 5 && budget > 0; pass++) {
+        const delivered = await this.drainPass(tenantId, budget);
+        if (delivered === 0) break;
+        budget -= delivered;
+      }
     } catch {
       // The change is committed and its effects are in the outbox; the poller delivers what is left.
     }
+  }
+
+  /** One pass over the tenant's due effects in commit order; returns how many were delivered. */
+  private async drainPass(tenantId: TenantId, limit: number): Promise<number> {
+    const now = await this.clock(this.prisma);
+    const due = await this.prisma.$queryRaw<Array<{ id: string; seq: bigint; n: number; kind: StoreEffect["kind"]; payload: OutboxEntry; tenant_kind: TenantKind | null }>>`
+      SELECT e.id, e.seq, e.n, e.kind, e.payload, s.kind::text AS tenant_kind
+      FROM tenant_effect e LEFT JOIN tenant_state s ON s.tenant_id = e.tenant_id
+      WHERE e.tenant_id = ${tenantId} AND e.status = 'pending' AND e.next_attempt_at <= to_timestamp(${now}::float8 / 1000)
+      ORDER BY e.seq, e.n LIMIT ${limit}`;
+    let delivered = 0;
+    let paymentsBlocked = false;
+    for (const row of due) {
+      if (row.kind === "payment" && paymentsBlocked) continue;
+      const claimed = await this.claim(row.id);
+      if (!claimed) {
+        if (row.kind === "payment") paymentsBlocked = true;
+        continue;
+      }
+      const delivery: EffectDelivery = {
+        id: row.id, tenantId, tenantKind: row.tenant_kind ?? "salon", seq: Number(row.seq), n: row.n, effect: effectOf(row.payload),
+      };
+      if (await this.send(delivery, claimed.attempts)) delivered++;
+      else if (row.kind === "payment") paymentsBlocked = true;
+    }
+    return delivered;
+  }
+
+  /** Reserves one pending, due effect. A payment waits while an earlier payment of its tenant is pending. */
+  private async claim(id: string): Promise<{ attempts: number } | undefined> {
+    const now = await this.clock(this.prisma);
+    const [row] = await this.prisma.$queryRaw<Array<{ attempts: number }>>`
+      UPDATE tenant_effect e SET attempts = e.attempts + 1, next_attempt_at = to_timestamp(${now + EFFECT_LEASE_MS}::float8 / 1000)
+      WHERE e.id = ${id} AND e.status = 'pending' AND e.next_attempt_at <= to_timestamp(${now}::float8 / 1000)
+        AND (e.kind <> 'payment' OR NOT EXISTS (
+          SELECT 1 FROM tenant_effect p
+          WHERE p.tenant_id = e.tenant_id AND p.kind = 'payment' AND p.status = 'pending' AND (p.seq, p.n) < (e.seq, e.n)))
+      RETURNING e.attempts`;
+    return row;
+  }
+
+  /** Calls the sink and records the outcome for this one row. */
+  private async send(delivery: EffectDelivery, attempts: number): Promise<boolean> {
+    try {
+      await this.sinks[delivery.effect.kind](detach(delivery));
+    } catch {
+      // Never log the payload: it holds personal data. The poller retries after the backoff.
+      const retry = (await this.clock(this.prisma)) + Math.min(3_600_000, 1000 * 2 ** attempts);
+      await this.prisma.$executeRaw`
+        UPDATE tenant_effect SET next_attempt_at = to_timestamp(${retry}::float8 / 1000) WHERE id = ${delivery.id} AND status = 'pending'`;
+      return false;
+    }
+    const at = await this.clock(this.prisma);
+    await this.prisma.$executeRaw`
+      UPDATE tenant_effect SET status = 'delivered', delivered_at = to_timestamp(${at}::float8 / 1000) WHERE id = ${delivery.id} AND status = 'pending'`;
+    return true;
   }
 
   subscribe(tenantId: TenantId, listener: (change: StoreChange) => void): () => void {
@@ -305,14 +406,17 @@ export class PostgresStudioStore implements StudioStore {
   }
 
   async history(tenantId: TenantId, query: HistoryQuery): Promise<HistoryPage> {
+    // An unknown, deleted or expired tenant has no readable history, by the same clock as `load`.
+    if (!(await this.live(tenantId, await this.clock(this.prisma)))) return { entries: [], next: null };
     const limit = Math.max(1, Math.min(HISTORY_MAX_LIMIT, Math.floor(query.limit) || 1));
     const after = Math.max(0, Math.floor(query.after ?? 0));
     const rows = await this.prisma.$queryRaw<Array<{
       seq: bigint; action: DemoAction; actor: string; source: string; at_ms: number; idempotency_key: string | null; resulting_version: number;
     }>>`
-      SELECT seq, action, actor, source, (extract(epoch FROM at) * 1000)::float8 AS at_ms, idempotency_key, resulting_version
-      FROM tenant_action WHERE tenant_id = ${tenantId} AND seq > ${after}::bigint
-      ORDER BY seq LIMIT ${limit + 1}`;
+      SELECT a.seq, a.action, a.actor, a.source, (extract(epoch FROM a.at) * 1000)::float8 AS at_ms, a.idempotency_key, a.resulting_version
+      FROM tenant_action a
+      WHERE a.tenant_id = ${tenantId} AND a.seq > ${after}::bigint
+      ORDER BY a.seq LIMIT ${limit + 1}`;
     const entries = rows.slice(0, limit).map((row): TenantAction => ({
       seq: Number(row.seq),
       tenantId,
