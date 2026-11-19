@@ -52,7 +52,7 @@ export default function CampaignsPage() {
           <Section title={t("campaigns.holidays")}>
             <Card className="divide-y divide-hairline overflow-hidden">
               {state.holidays.slice(0, HOLIDAYS_SHOWN).map((h) => (
-                <div key={h.id} className="flex flex-wrap items-center gap-3 px-4 py-3.5">
+                <div key={h.id} className="flex flex-wrap items-center gap-3 px-4 py-4">
                   <CalendarHeart size={18} className="shrink-0 text-action" />
                   <div className="min-w-0 flex-1 basis-40">
                     <p className="font-medium">{h.name}</p>
@@ -63,7 +63,7 @@ export default function CampaignsPage() {
                   {planned.has(h.id) ? (
                     <Badge tone="accent"><Check size={12} />{t("campaigns.planned")}</Badge>
                   ) : (
-                    <Link href={studioHref(prefillForHoliday(state, h, today), true)} className="text-sm font-medium text-action hover:underline">
+                    <Link href={studioHref(prefillForHoliday(state, h, today), true)} className="inline-flex min-h-target min-w-target items-center text-meta font-medium text-action hover:underline">
                       {t("campaigns.create")}
                     </Link>
                   )}

@@ -47,7 +47,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
           className="w-full"
           options={FORMATS.map((value) => ({ value, label: t(`campaigns.format.${value}`) }))}
         />
-        <div className={cx("mx-auto w-full overflow-hidden rounded-lg", format === "post" ? "max-w-sm" : "max-w-[17rem]")}>
+        <div className={cx("mx-auto w-full overflow-hidden rounded-lg", format === "post" ? "max-w-sm" : "max-w-64")}>
           <PosterView ref={svg} source={source} salon={state.salon} format={format} />
         </div>
         <Button variant="secondary" className="w-full" icon={<Download size={18} />} onClick={download}>
@@ -55,36 +55,36 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
         </Button>
       </div>
       <div className="space-y-5">
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <span className="block text-sm font-medium">{t("campaigns.poster.style")}</span>
           <div className="flex gap-2 overflow-x-auto pb-1" role="radiogroup" aria-label={t("campaigns.poster.style")}>
             {POSTER_STYLES.map((style) => (
-              <button
+              <Button variant="secondary" size="sm"
                 key={style}
                 role="radio"
                 aria-checked={draft.style === style}
                 aria-label={t(`campaigns.style.${style}`)}
                 onClick={() => onChange({ style })}
-                className={cx("w-[72px] shrink-0 space-y-1 rounded-md p-1 text-center text-xs ring-2", draft.style === style ? "ring-action" : "ring-transparent hover:ring-hairline")}
+                className={cx("w-20 shrink-0 flex-col !gap-1 !p-1 !text-minimum", draft.style === style ? "!ring-2 ring-action" : "ring-input-border")}
               >
                 <span className="pointer-events-none block overflow-hidden rounded-sm">
                   <PosterView source={{ ...source, poster: { ...poster, style } }} salon={state.salon} format="post" />
                 </span>
                 {t(`campaigns.style.${style}`)}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <span className="block text-sm font-medium">{t("campaigns.poster.photo")}</span>
           <div className="flex gap-2">
             {POSTER_IMAGES.map((image) => (
-              <button
+              <Button variant="secondary" size="sm"
                 key={image}
                 aria-pressed={poster.image === image}
                 aria-label={t(image.includes("massage") ? "campaigns.photo.massage" : "campaigns.photo.salon")}
                 onClick={() => edit({ image })}
-                className={cx("h-16 w-24 overflow-hidden rounded-md bg-cover bg-center ring-2", poster.image === image ? "ring-action" : "ring-transparent hover:ring-hairline")}
+                className={cx("h-16 w-24 overflow-hidden bg-cover bg-center", poster.image === image ? "!ring-2 ring-action" : "ring-input-border")}
                 style={{ backgroundImage: `url(${image})` }}
               />
             ))}

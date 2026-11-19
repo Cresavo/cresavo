@@ -21,7 +21,7 @@ import { bookingHome } from "@/concept/booking/links";
 import { Button, ButtonLink } from "@/concept/ui/button";
 import type { AgentProposal } from "@/concept/tools/agent-proposal";
 import { Card, Section } from "@/concept/ui/card";
-import { Segmented } from "@/concept/ui/controls";
+import { SegmentedControl } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
 import { Sheet } from "@/concept/ui/sheet";
 import { showActionFailure, showToast } from "@/concept/ui/toast";
@@ -87,7 +87,7 @@ function InboxPageContent() {
         title={t("inbox.title")}
         subtitle={unread ? tc("inbox.subtitle", unread) : t("inbox.allRead")}
         actions={
-          <Button variant="secondary" icon={<CheckCheck size={18} />} disabled={!unread} onClick={() => dispatch({ type: "inbox/read-all" })}>
+          <Button icon={<CheckCheck size={18} />} disabled={!unread} onClick={() => dispatch({ type: "inbox/read-all" })}>
             {t("inbox.markAllRead")}
           </Button>
         }
@@ -102,7 +102,7 @@ function InboxPageContent() {
           </div>
         </Section>
       )}
-      <Segmented<Filter>
+      <SegmentedControl<Filter>
         label={t("inbox.filter")}
         value={filter}
         onChange={(next) => {

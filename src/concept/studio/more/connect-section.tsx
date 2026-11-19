@@ -7,7 +7,7 @@ import { t, type MessageKey } from "../../i18n";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
-import { Chip } from "../../ui/controls";
+import { SegmentedControl } from "../../ui/controls";
 import { EmptyState } from "../../ui/empty-state";
 import { showToast } from "../../ui/toast";
 import { claudeCodeCommand, claudeDesktopConfig, fetchProtocolInfo, shellToken, type ProtocolInfo } from "./protocol-setup";
@@ -37,7 +37,7 @@ function CopyField({ value, label }: { value: string; label: string }) {
   };
   return (
     <div className="flex flex-col gap-2 rounded-md bg-surface-2 p-3 sm:flex-row sm:items-start">
-      <code className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[13px] leading-relaxed">{value}</code>
+      <code className="min-w-0 flex-1 whitespace-pre-wrap break-words text-meta leading-relaxed">{value}</code>
       <Button size="sm" variant="secondary" aria-label={label} icon={copied ? <Check size={16} /> : <Copy size={16} />} onClick={copy} className="self-end sm:self-start">
         {copied ? t("common.copied") : t("common.copy")}
       </Button>
@@ -73,7 +73,7 @@ function ClientSetup({ client, endpoint, info }: { client: Client; endpoint: str
   return (
     <div className="space-y-3">
       <Steps items={["data.setup.chatgpt.1", "data.setup.chatgpt.2"]} />
-      <p className="rounded-md bg-warning-bg px-3.5 py-2.5 text-sm text-text">{t("data.setup.chatgpt.limit")}</p>
+      <p className="rounded-md bg-warning-bg px-4 py-3 text-sm text-text">{t("data.setup.chatgpt.limit")}</p>
     </div>
   );
 }
@@ -104,17 +104,14 @@ export function ConnectSection({ info, failed }: { info?: ProtocolInfo; failed?:
   const endpoint = `${window.location.origin}${info.paths.mcp}`;
   return (
     <Card className="space-y-4 p-5">
-      <p className="text-[15px]">{t("data.connectText")}</p>
-      <div className="space-y-1.5">
+      <p className="text-body">{t("data.connectText")}</p>
+      <div className="space-y-2">
         <p className="text-sm font-medium">{t("data.endpoint")}</p>
         <CopyField value={endpoint} label={t("data.copyEndpoint")} />
         <p className="text-xs text-text-secondary">{t(TOKEN_TEXT[info.mcp.token], { token: info.mcp.devToken ?? "" })}</p>
       </div>
-      <div role="group" aria-label={t("data.setup.pick")} className="flex flex-wrap gap-2">
-        {CLIENTS.map(({ value, label }) => (
-          <Chip key={value} active={client === value} onClick={() => setClient(value)}>{t(label)}</Chip>
-        ))}
-      </div>
+      <SegmentedControl label={t("data.setup.pick")} value={client} onChange={setClient}
+        options={CLIENTS.map(({ value, label }) => ({ value, label: t(label) }))} />
       <ClientSetup client={client} endpoint={endpoint} info={info} />
       <p className="text-xs text-text-secondary">{t("data.connectNote")}</p>
     </Card>
@@ -138,11 +135,11 @@ export function ProtocolList({ info }: { info?: ProtocolInfo }) {
     <Card className="divide-y divide-hairline overflow-hidden">
       {rows.map((p) => (
         <div key={p.name} className="flex items-start gap-3 px-4 py-3">
-          <span className="w-12 shrink-0 pt-0.5 font-semibold">{t(p.name)}</span>
+          <span className="w-12 shrink-0 pt-1 font-semibold">{t(p.name)}</span>
           <div className="min-w-0 flex-1 text-sm">
             <p className="text-text-secondary">{t(p.description)}</p>
             {p.href && (
-              <a href={p.href} target="_blank" rel="noreferrer" className="text-xs font-medium text-action underline-offset-2 hover:underline">
+              <a href={p.href} target="_blank" rel="noreferrer" className="inline-flex min-h-target min-w-target items-center text-meta font-medium text-action underline-offset-2 hover:underline">
                 {t("data.protocol.open", { path: p.href })}
               </a>
             )}

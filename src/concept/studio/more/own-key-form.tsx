@@ -46,13 +46,13 @@ export function OwnKeyForm() {
       </div>}
       <form onSubmit={submit} className="space-y-4">
         <div className="flex items-start gap-3">
-          <KeyRound size={20} className="mt-0.5 shrink-0 text-action" />
+          <KeyRound size={20} className="mt-1 shrink-0 text-action" />
           <div className="min-w-0">
             <p className="font-medium">{t("ai.ownKey")}</p>
             <p className="text-sm text-text-secondary">{t("ai.ownKeyText")}</p>
           </div>
         </div>
-        <p className="rounded-md bg-warning-bg px-3.5 py-2.5 text-sm text-text">{t(overview?.keyStorageAvailable ? "ai.ownKeyDemo" : "ai.keyStorageUnavailable")}</p>
+        <p className="rounded-md bg-warning-bg px-4 py-3 text-sm text-text">{t(overview?.keyStorageAvailable ? "ai.ownKeyDemo" : "ai.keyStorageUnavailable")}</p>
         <Segmented value={provider} options={PROVIDERS.map((value) => ({ value, label: t(`ai.provider.${value}`) }))} onChange={setProvider} label={t("ai.provider")} className="w-full" />
         <Field label={t("ai.apiKey")}>
           <TextInput

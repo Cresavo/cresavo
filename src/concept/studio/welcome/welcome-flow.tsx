@@ -1,5 +1,6 @@
 "use client";
 
+import { ListRow } from "../../ui/list-row";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
@@ -16,6 +17,7 @@ import { cx } from "../../ui/cx";
 import { showToast } from "../../ui/toast";
 import type { PackId } from "../../data/types";
 import type { MessageKey } from "../../i18n";
+import { PageHeader } from "../page-header";
 
 const TEAM_OPTIONS: { id: TeamSize; label: MessageKey }[] = [
   { id: "solo", label: "welcome.team.solo" },
@@ -27,20 +29,11 @@ const STEPS = 3;
 
 function Option({ selected, title, text, onSelect }: { selected: boolean; title: string; text?: string; onSelect: () => void }) {
   return (
-    <button
-      onClick={onSelect}
-      aria-pressed={selected}
-      className={cx(
-        "flex w-full items-center gap-3 rounded-lg bg-surface p-4 text-left ring-1 ring-inset transition-colors",
-        selected ? "bg-action-bg ring-2 ring-action" : "ring-hairline hover:bg-surface-2",
-      )}
-    >
-      <span className="min-w-0 flex-1">
-        <span className="block font-medium">{title}</span>
-        {text && <span className="mt-0.5 block text-sm text-text-secondary">{text}</span>}
-      </span>
-      {selected && <Check size={20} className="shrink-0 text-action" />}
-    </button>
+    <ListRow
+      onClick={onSelect} aria-pressed={selected} title={title} meta={text}
+      className={cx("bg-surface ring-1 ring-inset ring-hairline", selected && "aria-pressed:bg-action-bg aria-pressed:ring-2 aria-pressed:ring-action")}
+      trailing={selected && <Check size={20} aria-hidden className="shrink-0 text-action" />}
+    />
   );
 }
 
@@ -74,15 +67,11 @@ export function WelcomeFlow() {
     ];
     return (
       <div className="space-y-6">
-        <div className="space-y-2">
-          <h1 className="text-[26px] font-semibold leading-tight tracking-tight sm:text-3xl">{t("welcome.ready.title")}</h1>
-          <p className="text-[15px] text-text-secondary">
-            {t("welcome.ready.text", { pack: t(`pack.${chosen.id}.name`), team: t(setup.solo ? "welcome.ready.team.solo" : "welcome.ready.team.team") })}
-          </p>
-        </div>
+        <PageHeader tools={false} title={t("welcome.ready.title")}
+          subtitle={t("welcome.ready.text", { pack: t(`pack.${chosen.id}.name`), team: t(setup.solo ? "welcome.ready.team.solo" : "welcome.ready.team.team") })} />
         <Card className="divide-y divide-hairline">
           {rows.map(([label, value]) => (
-            <div key={label} className="flex flex-col gap-0.5 px-4 py-3 text-sm sm:flex-row sm:justify-between sm:gap-4">
+            <div key={label} className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:justify-between sm:gap-4">
               <span className="text-text-secondary">{label}</span>
               <span className="font-medium sm:text-right">{value}</span>
             </div>
@@ -104,20 +93,17 @@ export function WelcomeFlow() {
   const texts: MessageKey[] = ["welcome.pack.text", "welcome.team.text", "welcome.help.text"];
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-action">{t("welcome.step", { step: step + 1, total: STEPS })}</p>
-        <h1 className="text-[26px] font-semibold leading-tight tracking-tight sm:text-3xl">{t(titles[step])}</h1>
-        <p className="text-[15px] text-text-secondary">{t(texts[step])}</p>
-      </div>
+      <p className="text-meta font-semibold uppercase tracking-wider text-action">{t("welcome.step", { step: step + 1, total: STEPS })}</p>
+      <PageHeader tools={false} title={t(titles[step])} subtitle={t(texts[step])} />
       {step === 0 && (
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {PACKS.map((option) => (
             <Option key={option.id} selected={pack === option.id} title={t(`pack.${option.id}.name`)} text={t(`pack.${option.id}.description`)} onSelect={() => setPack(option.id)} />
           ))}
         </div>
       )}
       {step === 1 && (
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {TEAM_OPTIONS.map((option) => (
             <Option key={option.id} selected={team === option.id} title={t(option.label)} onSelect={() => setTeam(option.id)} />
           ))}

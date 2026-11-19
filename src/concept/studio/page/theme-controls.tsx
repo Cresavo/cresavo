@@ -6,7 +6,7 @@ import { t } from "../../i18n";
 import { buildTokens, contrastReport, type Palette } from "../../page/colour";
 import { CORNERS, FONT_PAIR_IDS, PALETTES, PALETTE_IDS, PHOTO_IDS, type PageTheme } from "../../page/theme";
 import { Button } from "../../ui/button";
-import { Chip, Segmented } from "../../ui/controls";
+import { Chip, Input, Segmented } from "../../ui/controls";
 import { showToast } from "../../ui/toast";
 import { readLogo } from "./read-logo";
 
@@ -43,7 +43,7 @@ export function ThemeControls({ theme, onChange }: Props) {
 /** A labelled set of buttons. Not a `<label>`: that would rename the first button in it. */
 function Group({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <p className="text-sm font-medium">{label}</p>
       {children}
     </div>
@@ -69,7 +69,7 @@ function LogoField({ theme, onChange }: Props) {
         )}
         <Button variant="secondary" icon={<ImagePlus size={18} />} onClick={() => input.current?.click()}>{t(theme.logo ? "pageEditor.logo.change" : "pageEditor.logo.add")}</Button>
         {theme.logo && <Button variant="ghost" icon={<Trash2 size={18} />} onClick={() => onChange({ logo: null, logoColors: [] })}>{t("pageEditor.logo.remove")}</Button>}
-        <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" tabIndex={-1} aria-label={t("pageEditor.logo.file")} onChange={(event) => { void pick(event.target.files?.[0]); event.target.value = ""; }} />
+        <Input ref={input} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(event) => { void pick(event.target.files?.[0]); event.target.value = ""; }} />
       </div>
       <p className="text-xs text-text-secondary">{t("pageEditor.logo.hint")}</p>
     </div>
@@ -107,9 +107,9 @@ function Colours({ theme, onChange }: Props) {
         <>
           <div className="grid grid-cols-3 gap-3">
             {(["background", "text", "accent"] as const).map((role) => (
-              <label key={role} className="space-y-1.5 text-sm font-medium">
+              <label key={role} className="space-y-2 text-sm font-medium">
                 <span className="block">{t(`pageEditor.colour.${role}`)}</span>
-                <input type="color" value={colors[role]} onChange={(event) => set({ [role]: event.target.value })} className="block h-11 w-full cursor-pointer rounded-md bg-surface p-1 ring-1 ring-inset ring-hairline" />
+                <Input type="color" value={colors[role]} onChange={(event) => set({ [role]: event.target.value })} />
               </label>
             ))}
           </div>

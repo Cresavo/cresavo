@@ -62,7 +62,7 @@ export function PhoneModeSheet({ onClose, onBook, onMove }: PhoneModeProps) {
                       {t("booking.move")}
                     </Button>
                   )}
-                  <Button size="sm" icon={<CalendarPlus size={16} />} onClick={() => onBook({ customerId: c.id })}>
+                  <Button size="sm" variant="secondary" icon={<CalendarPlus size={16} />} onClick={() => onBook({ customerId: c.id })}>
                     {t("phone.book")}
                   </Button>
                 </div>
@@ -72,7 +72,7 @@ export function PhoneModeSheet({ onClose, onBook, onMove }: PhoneModeProps) {
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-text-secondary">{t("phone.freeTimes")}</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-text-secondary">{t("phone.freeTimes")}</h3>
           {days.map((d) => {
             const gaps = state.staff.flatMap((s) =>
               freeGaps(state, s.id, d, { after: d === today ? minutes : 0, min: 30 }).map((g) => ({ ...g, staff: s })),
@@ -83,17 +83,18 @@ export function PhoneModeSheet({ onClose, onBook, onMove }: PhoneModeProps) {
                 {gaps.length ? (
                   <div className="flex flex-wrap gap-2">
                     {gaps.map((g) => (
-                      <button
+                      <Button
+                        variant="tertiary" size="sm"
                         key={`${g.staff.id}-${g.start}`}
                         onClick={() => onBook({ staffId: g.staff.id, date: d, start: g.start, customerId: matches.length === 1 ? matches[0].id : undefined, customerQuery: query })}
                         className={cx(
-                          "flex min-h-11 items-center gap-2 rounded-md px-3 text-sm ring-1 ring-inset hover:brightness-95",
+                          "ring-1 ring-inset",
                           g.staff.id === "anna" ? "bg-staff-1-bg ring-staff-1/20" : "bg-staff-2-bg ring-staff-2/20",
                         )}
                       >
                         <span className="font-semibold tabular-nums">{formatTime(g.start)}</span>
                         <span className="text-text-secondary">{g.staff.firstName} · {formatDuration(g.end - g.start)}</span>
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 ) : (

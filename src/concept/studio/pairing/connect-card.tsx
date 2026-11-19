@@ -35,7 +35,7 @@ export function ConnectCard() {
           }}>{t("common.copy")}</Button>
         </div>
         <ol className="list-decimal space-y-2 pl-5 text-sm"><li>{t("pair.claude")}</li><li>{t("pair.signin")}</li></ol>
-        <details className="text-sm"><summary className="cursor-pointer font-medium">{t("pair.chatgptTitle")}</summary><p className="mt-2">{t("pair.chatgpt")}</p></details>
+        <details className="text-sm"><summary className="min-h-target cursor-pointer py-3 font-medium">{t("pair.chatgptTitle")}</summary><p className="mt-2">{t("pair.chatgpt")}</p></details>
         <div className="flex flex-wrap gap-2"><ButtonLink href="/studio/inbox">{t("pair.openInbox")}</ButtonLink>
           <Button variant="secondary" disabled={busy} onClick={() => void command("session", { action: "disconnect", workspaceId: workspace.id })}>{t("pair.disconnect")}</Button></div>
       </> : <Button disabled={!ready || busy} onClick={() => void command("session", { action: "start" })}>{t("pair.start")}</Button>}

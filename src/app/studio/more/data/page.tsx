@@ -6,6 +6,7 @@ import { bookingsCsv, customersCsv, download } from "@/concept/studio/more/expor
 import { MorePage } from "@/concept/studio/more/more-page";
 import { DEVELOPERS_PAGE } from "@/concept/studio/nav";
 import { ConnectCard } from "@/concept/studio/pairing/connect-card";
+import { usePairing } from "@/concept/studio/pairing/session";
 import { useDemo } from "@/concept/store";
 import { useStudio } from "@/concept/studio/use-studio";
 import { dispatchWithUndoToast } from "@/concept/studio/log/undo-toast";
@@ -17,7 +18,7 @@ function PlainCard({ icon, title, text, children }: { icon: ReactNode; title: st
   return (
     <Card className="flex flex-col gap-3 p-5">
       <div className="flex items-start gap-3">
-        <span aria-hidden className="mt-0.5 shrink-0 text-text-secondary">{icon}</span>
+        <span aria-hidden className="mt-1 shrink-0 text-text-secondary">{icon}</span>
         <div className="min-w-0 space-y-1">
           <h2 className="text-h3 font-semibold">{title}</h2>
           <p className="text-body text-text-secondary">{text}</p>
@@ -31,6 +32,7 @@ function PlainCard({ icon, title, text, children }: { icon: ReactNode; title: st
 /** Your data, in three plain cards. The developer details (assistants, models, keys, protocols) are under Advanced. */
 export default function DataPage() {
   const { state, today } = useStudio();
+  const pairing = usePairing();
   const saved = useDemo() ?? state;
   const exports = [
     { label: t("data.export.all"), run: () => download(`${state.salon.slug}-${today}.json`, JSON.stringify(saved, null, 2), "application/json") },
@@ -45,8 +47,8 @@ export default function DataPage() {
         <div id="migration" className="contents">
           <PlainCard icon={<Download size={22} />} title={t("data.card.download")} text={t("data.card.downloadText")}>
             <div className="flex flex-wrap gap-2">
-              {exports.map(({ label, run }) => (
-                <Button key={label} size="sm" variant="secondary" icon={<Download size={16} />} onClick={run}>{label}</Button>
+              {exports.map(({ label, run }, index) => (
+                <Button key={label} size="sm" variant={!pairing && index === 0 ? "primary" : "secondary"} icon={<Download size={16} />} onClick={run}>{label}</Button>
               ))}
             </div>
           </PlainCard>

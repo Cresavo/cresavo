@@ -38,7 +38,7 @@ export function DeleteCustomer({ customer }: { customer: Customer }) {
           </>
         }
       >
-        <p className="text-[15px]">{t("customer.deleteText", { days: TRASH_DAYS })}</p>
+        <p className="text-body">{t("customer.deleteText", { days: TRASH_DAYS })}</p>
       </Sheet>
     </>
   );

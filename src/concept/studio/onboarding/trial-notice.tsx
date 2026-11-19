@@ -9,6 +9,7 @@ import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { ConfirmDialog } from "../../ui/confirm-dialog";
 import { showToast } from "../../ui/toast";
+import { PageHeader } from "../page-header";
 
 export function ReturnToDemo() {
   const router = useRouter();
@@ -49,9 +50,8 @@ export function TrialRemoved() {
     router.push(path);
   };
   return (
-    <div className="mx-auto w-full max-w-lg space-y-4 py-4 lg:py-10">
-      <h1 className="text-h1 font-semibold tracking-tight">{t("trial.removedTitle")}</h1>
-      <p className="text-body text-text-secondary">{t("trial.removedText")}</p>
+    <div className="mx-auto w-full max-w-lg space-y-4 py-4 lg:py-12">
+      <PageHeader tools={false} title={t("trial.removedTitle")} subtitle={t("trial.removedText")} />
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button size="lg" onClick={() => go("/studio/setup")}>{t("trial.startNew")}</Button>
         <Button size="lg" variant="secondary" onClick={() => go("/studio")}>{t("setup.demo")}</Button>

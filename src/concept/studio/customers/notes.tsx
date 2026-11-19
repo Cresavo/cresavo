@@ -17,7 +17,7 @@ export function Notes({ customer }: { customer: Customer }) {
       {changed && (
         <div className="flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={() => setText(customer.note ?? "")}>{t("common.cancel")}</Button>
-          <Button
+          <Button variant="secondary"
             size="sm"
             onClick={() => {
               dispatchWithUndoToast({ type: "customer/note", id: customer.id, note: text.trim() }, t("notes.saved"));

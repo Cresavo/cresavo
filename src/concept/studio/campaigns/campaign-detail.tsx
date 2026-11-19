@@ -71,7 +71,7 @@ export function CampaignDetail({ id }: { id: string }) {
         back={back}
         actions={
           campaign.stats && !campaign.ad ? (
-            <Button variant="secondary" icon={<Megaphone size={18} />} onClick={() => setAdOpen(true)}>{t("campaigns.ad.open")}</Button>
+            <Button icon={<Megaphone size={18} />} onClick={() => setAdOpen(true)}>{t("campaigns.ad.open")}</Button>
           ) : undefined
         }
       />
@@ -147,7 +147,7 @@ export function CampaignDetail({ id }: { id: string }) {
           <Section title={t("campaigns.texts.title")}>
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               {CHANNELS.filter((c) => campaign.copy?.[c]).map((channel) => (
-                <Card key={channel} className="space-y-1.5 p-4">
+                <Card key={channel} className="space-y-2 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{t(`channel.${channel}`)}</p>
                   <p className="whitespace-pre-line text-sm">{campaign.copy?.[channel]}</p>
                 </Card>

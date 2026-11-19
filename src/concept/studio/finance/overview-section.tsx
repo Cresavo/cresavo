@@ -11,7 +11,7 @@ import { packageLiability } from "../../packages/packages";
 import { findService } from "../../selectors";
 import { Card, Section } from "../../ui/card";
 import { CompareBars, PairedColumns } from "../../ui/charts";
-import { Segmented } from "../../ui/controls";
+import { SegmentedControl } from "../../ui/controls";
 import { useStudio } from "../use-studio";
 import { Delta } from "./delta";
 
@@ -36,7 +36,7 @@ export function OverviewSection() {
 
   return (
     <div className="space-y-6">
-      <Segmented
+      <SegmentedControl
         label={t("finance.period")}
         value={period}
         onChange={setPeriod}

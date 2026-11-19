@@ -221,7 +221,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
             <InfoRow
               label={t("booking.phone")}
               value={
-                <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className="inline-flex items-center gap-1.5 text-action">
+                <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className="inline-flex min-h-target min-w-target items-center gap-2 text-action">
                   <Phone size={14} />
                   {customer.phone}
                 </a>
@@ -238,13 +238,13 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
         )}
         {customer?.note && (
           <div className="rounded-lg bg-warning-bg px-4 py-3 text-sm text-text">
-            <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-warning">{t("booking.note")}</p>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-warning">{t("booking.note")}</p>
             {customer.note}
           </div>
         )}
         {lastJournal && (
           <div className="rounded-lg bg-surface-2 px-4 py-3 text-sm">
-            <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("booking.lastAdvice")}</p>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("booking.lastAdvice")}</p>
             {lastJournal.advice}
           </div>
         )}

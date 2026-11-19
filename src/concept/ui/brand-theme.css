@@ -159,6 +159,10 @@
 }
 .ui-action-bar { padding-bottom: max(var(--space-3), env(safe-area-inset-bottom)); }
 .ui-sheet, .ui-sheet-body { max-height: 92dvh; }
+.ui-sheet-side, .ui-sheet-side .ui-sheet-body { max-height: 100dvh; }
+.ui-sheet-side-header { padding-top: max(var(--space-2), env(safe-area-inset-top)); }
+@media (min-width: 640px) { .ui-sheet-side { width: 27.5rem; } }
+.ui-composer-input:focus-visible { outline: none; }
 .ui-sheet[open], .ui-toast, [data-row-motion="enter"] { animation: ui-arrive var(--dur-2) var(--ease-out) both; }
 .ui-sheet[open] { animation-duration: var(--dur-3); }
 .ui-sheet[open]::backdrop { animation: ui-fade var(--dur-2) var(--ease-out) both; }
@@ -168,6 +172,10 @@
 .ui-sheet[open][data-closing]::backdrop { animation: ui-fade-out var(--dur-1) var(--ease-in) both; }
 @keyframes ui-arrive { from { opacity: 0; transform: translateY(var(--space-4)); } }
 @keyframes ui-leave { to { opacity: 0; transform: translateY(var(--space-2)); } }
+.ui-sheet-side[open] { animation-name: ui-side-arrive; }
+.ui-sheet-side[open][data-closing] { animation-name: ui-side-leave; }
+@keyframes ui-side-arrive { from { opacity: 0; transform: translateX(var(--space-4)); } }
+@keyframes ui-side-leave { to { opacity: 0; transform: translateX(var(--space-2)); } }
 @keyframes ui-fade-out { to { opacity: 0; } }
 @keyframes ui-fade { from { opacity: 0; } to { opacity: 1; } }
 .ui-skeleton { animation: ui-fade 1s ease-in-out infinite alternate; }

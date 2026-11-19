@@ -1,36 +1,40 @@
 "use client";
 
-import { useState } from "react";
-import { ListFilter } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Ellipsis } from "lucide-react";
 import type { Resource } from "@/concept/data/types";
 import { t } from "@/concept/i18n";
-import { Button } from "@/concept/ui/button";
-import { Chip } from "@/concept/ui/controls";
+import { Button, IconButton } from "@/concept/ui/button";
+import { SegmentedControl } from "@/concept/ui/controls";
 import { Sheet } from "@/concept/ui/sheet";
 
 interface FilterProps {
   rooms: Resource[];
   roomId: string | undefined;
   onRoom: (id: string | undefined) => void;
+  onToday: () => void;
+  atToday: boolean;
+  children?: ReactNode;
 }
 
-/** The room filter: one compact button, the choices in a sheet. Staff are chosen right on the page. */
-export function CalendarFilter({ rooms, roomId, onRoom }: FilterProps) {
+export function CalendarOverflow({ rooms, roomId, onRoom, onToday, atToday, children }: FilterProps) {
   const [open, setOpen] = useState(false);
-  const chosen = rooms.find((r) => r.id === roomId)?.name;
   return (
     <>
-      <Button variant="secondary" size="sm" icon={<ListFilter size={16} />} aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        {chosen ?? t("calendar.rooms")}
-      </Button>
-      <Sheet open={open} onClose={() => setOpen(false)} title={t("calendar.rooms")}>
-        <div className="space-y-5 pb-1">
-          <div className="flex flex-wrap gap-2" role="group" aria-label={t("calendar.rooms")}>
-            <Chip active={!roomId} onClick={() => onRoom(undefined)}>{t("calendar.allRooms")}</Chip>
-            {rooms.map((r) => (
-              <Chip key={r.id} active={roomId === r.id} onClick={() => onRoom(r.id)}>{r.name}</Chip>
-            ))}
-          </div>
+      <IconButton label={t("calendar.options")} variant="secondary" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+        <Ellipsis size={20} aria-hidden />
+      </IconButton>
+      <Sheet open={open} onClose={() => setOpen(false)} title={t("calendar.options")}>
+        <div className="space-y-4">
+          <Button variant="secondary" size="sm" disabled={atToday} onClick={() => { onToday(); setOpen(false); }}>{t("date.today")}</Button>
+          {children}
+          {rooms.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-body font-medium">{t("calendar.rooms")}</p>
+              <SegmentedControl label={t("calendar.rooms")} value={roomId ?? ""} onChange={id => onRoom(id || undefined)}
+                options={[{ value: "", label: t("calendar.allRooms") }, ...rooms.map(room => ({ value: room.id, label: room.name }))]} />
+            </div>
+          )}
         </div>
       </Sheet>
     </>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Input, Textarea } from "../../ui/controls";
 import { useState } from "react";
 import { bookingShare } from "../../booking/share";
 import { t } from "../../i18n";
@@ -38,7 +39,7 @@ export function BookingShare() {
     <p className="text-sm text-text-secondary">{t(state.industry ? "setup.local" : "share.help")}</p>
     <div className="space-y-2">
       <label className="block text-sm font-medium" htmlFor="booking-bio-link">{t("share.bio")}</label>
-      <input className="w-full rounded-md border border-hairline bg-surface-2 p-3 text-base" id="booking-bio-link" readOnly value={share.link} onFocus={event => event.target.select()} />
+      <Input id="booking-bio-link" readOnly value={share.link} onFocus={event => event.target.select()} />
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="secondary" onClick={copy}>{t(copied ? "common.copied" : "share.copyLink")}</Button>
         <ButtonLink size="sm" href={share.link} variant="secondary">{t("share.open")}</ButtonLink>
@@ -56,7 +57,7 @@ export function EmbedCode() {
       <p className="text-sm text-text-secondary">{t("share.codeHelp")}</p>
       <div className="space-y-2">
         <label className="block text-sm font-medium" htmlFor="booking-widget-code">{t("share.code")}</label>
-        <textarea className="min-h-36 w-full rounded-md border border-hairline bg-surface-2 p-3 font-mono text-base" id="booking-widget-code" readOnly value={share.code} onFocus={event => event.target.select()} />
+        <Textarea className="font-mono" id="booking-widget-code" readOnly value={share.code} onFocus={event => event.target.select()} />
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="secondary" onClick={async () => setCopied(await copyText(share.code))}>{t(copied ? "common.copied" : "share.copyCode")}</Button>
           <ButtonLink size="sm" href={share.widget} variant="secondary">{t("share.preview")}</ButtonLink>

@@ -29,12 +29,12 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
           {campaign.discountPercent > 0 && `${t("format.percent", { value: campaign.discountPercent })} · `}
           {campaign.serviceIds.map((id) => findService(state, id)?.name).join(", ")}
         </p>
-        <p className="text-[13px] text-text-secondary">{campaign.channels.map((channel) => t(`channel.${channel}`)).join(" · ")}</p>
+        <p className="text-meta text-text-secondary">{campaign.channels.map((channel) => t(`channel.${channel}`)).join(" · ")}</p>
         {campaign.stats ? (
           <div className="border-t border-hairline pt-3"><StatRow stats={campaign.stats} /></div>
         ) : (
           campaign.publishOn && (
-            <p className="flex items-center gap-1.5 border-t border-hairline pt-3 text-sm text-text-secondary">
+            <p className="flex items-center gap-2 border-t border-hairline pt-3 text-sm text-text-secondary">
               <CalendarClock size={15} />
               {t("campaigns.scheduledFor", { day: formatDate(campaign.publishOn) })}
             </p>

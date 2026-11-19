@@ -9,6 +9,7 @@ import { MorePage } from "@/concept/studio/more/more-page";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Card } from "@/concept/ui/card";
 import { ConsentSheet } from "@/concept/ui/consent-sheet";
+import { ListRow } from "@/concept/ui/list-row";
 import { Switch } from "@/concept/ui/controls";
 import { showToast } from "@/concept/ui/toast";
 
@@ -33,16 +34,12 @@ export default function AddOnsPage() {
             {MODULES.map((module) => {
               const on = state.modules[module.id];
               return (
-                <li key={module.id} className="flex min-h-14 items-center gap-3 px-4 py-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-body font-medium">{t(module.name)}</p>
-                    <p className="text-meta text-text-secondary">{t(module.description)}</p>
-                  </div>
-                  <Switch
+                <li key={module.id}>
+                  <ListRow title={t(module.name)} meta={t(module.description)} trailing={<Switch
                     checked={on}
                     label={t(module.name)}
                     onChange={() => (!on && moduleConsent(module.id) ? setAsking(module.id) : toggle(module.id))}
-                  />
+                  />} />
                 </li>
               );
             })}

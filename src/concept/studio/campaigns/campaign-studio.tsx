@@ -65,21 +65,21 @@ export function CampaignStudio() {
         subtitle={t("campaigns.studio.subtitle")}
         back={<BackLink href="/studio/more/campaigns" label={t("nav.campaigns")} />}
       />
-      <ol className="mb-6 grid grid-cols-2 gap-1.5 sm:grid-cols-4" aria-label={t("campaigns.studio.steps")}>
+      <ol className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label={t("campaigns.studio.steps")}>
         {STEPS.map((name, i) => (
           <li key={name} className="min-w-0">
-            <button
+            <Button variant="tertiary" size="sm"
               aria-current={i === index ? "step" : undefined}
               disabled={i > index}
               onClick={() => setStep(name)}
               className={cx(
-                "flex min-h-11 w-full items-center justify-center gap-1.5 rounded-md px-2 text-sm font-medium",
-                i === index ? "bg-action text-on-action" : i < index ? "bg-action-bg text-text" : "bg-surface-2 text-text-secondary",
+                "w-full",
+                i === index ? "bg-action-bg text-text ring-1 ring-inset ring-action" : i < index ? "bg-action-bg text-text" : "bg-surface-2 text-text-secondary",
               )}
             >
               {i < index ? <Check size={15} /> : <span className="tabular-nums">{i + 1}</span>}
               <span>{t(`campaigns.step.${name}`)}</span>
-            </button>
+            </Button>
           </li>
         ))}
       </ol>

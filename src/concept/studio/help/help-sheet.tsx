@@ -89,14 +89,9 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
             <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("help.common")}</p>
             <div className="flex flex-wrap gap-2">
               {EXAMPLES.map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => void ask(t(key))}
-                  className="min-h-9 rounded-full bg-surface px-3.5 py-1.5 text-left text-sm font-medium ring-1 ring-inset ring-hairline hover:bg-surface-2"
-                >
+                <Button key={key} variant="secondary" size="sm" align="start" onClick={() => void ask(t(key))}>
                   {t(key)}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -123,14 +118,14 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
           <div className="space-y-3" aria-live="polite">
             {reply.answer ? (
               <div className="space-y-3 rounded-lg bg-surface-2 p-4">
-                <p className="whitespace-pre-line text-[15px] leading-relaxed">{reply.answer}</p>
+                <p className="whitespace-pre-line text-body leading-relaxed">{reply.answer}</p>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
                   {reply.source === "ai" && <Badge tone="accent">{t("help.byAi")}</Badge>}
                   <span>{t("help.from", { titles: reply.articles.map((article) => article.title).join(", ") })}</span>
                 </div>
               </div>
             ) : (
-              <p className="rounded-lg bg-surface-2 p-4 text-[15px]">{t("help.noAnswer")}</p>
+              <p className="rounded-lg bg-surface-2 p-4 text-body">{t("help.noAnswer")}</p>
             )}
             {reply.articles[0]?.show && (
               <Button variant="secondary" icon={<Eye size={18} />} onClick={() => void show(reply)}>

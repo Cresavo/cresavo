@@ -3,6 +3,7 @@
    global `button` rule (and comes later), so Tailwind utilities still win. */
 
 .studio-root {
+  --studio-bottom-nav: calc(2 * var(--space-8));
   font-family: var(--font-ui);
   font-size: 16px;
   font-feature-settings: "cv11", "ss01";
@@ -73,10 +74,7 @@ body:has(.studio-root) .demo-banner {
   outline-offset: 2px;
 }
 
-/* Inputs inside a container that draws its own focus ring (the command box). */
-.studio-root .bare-input:focus-visible {
-  outline: none;
-}
+.studio-root .ui-composer-input:focus-visible { outline: none; }
 
 .studio-root .no-scrollbar {
   scrollbar-width: none;
@@ -105,4 +103,33 @@ body:has(.studio-root) .demo-banner {
 .studio-root [data-tour-active] {
   outline: 2px solid var(--ui-action);
   outline-offset: 2px;
+}
+
+.studio-content {
+  padding-bottom: calc(var(--studio-bottom-nav) + var(--space-8) + env(safe-area-inset-bottom));
+}
+
+.studio-safe-top { padding-top: env(safe-area-inset-top); }
+.studio-safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+.studio-calendar-grid {
+  --calendar-column-width: calc(var(--touch-target) + 2 * var(--space-1));
+  min-width: calc(var(--touch-target) + var(--space-1) + var(--calendar-columns) * var(--calendar-column-width));
+}
+
+.studio-calendar-day { --calendar-column-width: calc(3 * var(--space-8) + var(--space-4)); }
+
+.studio-month-grid { min-width: calc(7 * var(--touch-target) + 2 * var(--space-1)); }
+
+.studio-preview-frame { height: 34rem; }
+.studio-preview-phone { width: 390px; }
+
+.studio-page-editor {
+  --action-layout-height: max(16rem, calc(100dvh - var(--studio-bottom-nav) - var(--space-12) - env(safe-area-inset-bottom)));
+}
+
+@media (min-width: 1024px) {
+  .studio-content { padding-bottom: var(--space-12); }
+  .studio-preview-frame { height: max(34rem, calc(100dvh - 14rem)); }
+  .studio-page-editor { --action-layout-height: max(20rem, calc(100dvh - 2 * var(--space-12))); }
 }

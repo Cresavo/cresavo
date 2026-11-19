@@ -84,7 +84,7 @@ function Row({ section, handle, first, last, sections, onChange }: {
   const name = t(`page.section.${section.kind}`);
   const hero = section.kind === "hero";
   return (
-    <Card className="space-y-2.5 p-3">
+    <Card className="space-y-3 p-3">
       <div className="flex items-center gap-1">
         {handle}
         <p className="min-w-0 flex-1 break-words font-medium">{name}</p>

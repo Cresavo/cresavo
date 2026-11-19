@@ -6,6 +6,7 @@ import { t, tc } from "../../i18n";
 import { formatMoney } from "../../i18n/format";
 import { buildOrders, groupBySupplier, purchaseList } from "../../stock/purchase";
 import { supplierOf } from "../../stock/forecast";
+import { DemoBadge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Sheet } from "../../ui/sheet";
 import { useStudio } from "../use-studio";
@@ -34,6 +35,7 @@ export function PurchaseSheet({ onClose }: { onClose: () => void }) {
       description={t("stock.listDescription")}
       footer={
         <>
+          <DemoBadge short />
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
           <Button disabled={!lines.some((l) => l.quantity > 0)} icon={<Mail size={18} />} onClick={approve}>{t("stock.approve")}</Button>
         </>

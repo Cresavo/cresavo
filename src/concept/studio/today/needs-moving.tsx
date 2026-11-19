@@ -22,7 +22,7 @@ export function NeedsMoving({ staffId, onOpen }: { staffId?: StaffId; onOpen: (s
   return (
     <Card className="overflow-hidden ring-warning/30">
       <div className="flex items-start gap-3 bg-warning-bg px-4 py-3">
-        <CalendarClock size={20} className="mt-0.5 shrink-0 text-warning" />
+        <CalendarClock size={20} className="mt-1 shrink-0 text-warning" />
         <div className="min-w-0">
           <p className="font-medium leading-snug">{tc("moving.title", list.length)}</p>
           <p className="text-sm text-text-secondary">{t("moving.text")}</p>
@@ -38,12 +38,12 @@ export function NeedsMoving({ staffId, onOpen }: { staffId?: StaffId; onOpen: (s
                 <p className="truncate font-medium">{customer ? fullName(customer) : ""} · {findService(state, booking.serviceId)?.name}</p>
                 <p className="truncate text-text-secondary">{formatDayShort(booking.date)} {formatTime(booking.start)} · {t(`moving.reason.${reason}`, { name: person })}</p>
               </div>
-              <Button size="sm" onClick={() => onOpen({ kind: "booking", id: booking.id, mode: "move" })}>{t("moving.move")}</Button>
+              <Button variant="secondary" size="sm" onClick={() => onOpen({ kind: "booking", id: booking.id, mode: "move" })}>{t("moving.move")}</Button>
             </li>
           );
         })}
       </ul>
-      {hidden > 0 && <p className="border-t border-hairline px-4 py-2.5 text-sm text-text-secondary">{tc("moving.more", hidden)}</p>}
+      {hidden > 0 && <p className="border-t border-hairline px-4 py-3 text-sm text-text-secondary">{tc("moving.more", hidden)}</p>}
     </Card>
   );
 }

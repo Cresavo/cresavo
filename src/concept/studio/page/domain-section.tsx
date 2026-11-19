@@ -115,8 +115,8 @@ function Steps({ status }: { status: DomainStatus }) {
         const done = index < current || status === "secure";
         const Icon = done ? CheckCircle2 : Circle;
         return (
-          <li key={step} aria-current={index === current ? "step" : undefined} className="flex items-start gap-2.5 text-sm">
-            <Icon size={18} className={done ? "mt-0.5 shrink-0 text-action" : index === current ? "mt-0.5 shrink-0 text-warning" : "mt-0.5 shrink-0 text-text-secondary"} />
+          <li key={step} aria-current={index === current ? "step" : undefined} className="flex items-start gap-3 text-sm">
+            <Icon size={18} className={done ? "mt-1 shrink-0 text-action" : index === current ? "mt-1 shrink-0 text-warning" : "mt-1 shrink-0 text-text-secondary"} />
             <span>
               <span className={index === current ? "font-semibold" : ""}>{t(`domain.status.${step}`)}</span>
               {index === current && status !== "secure" && <span className="block text-text-secondary">{t(`domain.status.${step}.text`)}</span>}

@@ -1,5 +1,6 @@
 "use client";
 
+import { ListRow } from "../../ui/list-row";
 import { ChevronRight } from "lucide-react";
 import type { Booking } from "../../data/types";
 import { t } from "../../i18n";
@@ -17,25 +18,24 @@ export function BookingList({ bookings, onOpen }: { bookings: Booking[]; onOpen:
     <ul className="divide-y divide-hairline">
       {bookings.map((b) => (
         <li key={b.id}>
-          <button onClick={() => onOpen({ kind: "booking", id: b.id })} className="flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-surface-2">
-            <span className="w-24 shrink-0">
+          <ListRow onClick={() => onOpen({ kind: "booking", id: b.id })}
+            leading={<span className="shrink-0 text-meta">
               <span className="block font-medium">{formatDate(b.date)}</span>
               <span className="block tabular-nums text-text-secondary">{formatTime(b.start)}</span>
-            </span>
-            <span className="flex min-w-0 flex-1 items-center gap-2">
+            </span>}
+            title={<span className="flex items-center gap-2">
               <StaffDot staffId={b.staffId} />
-              <span className="truncate">
+              <span className="min-w-0 break-words">
                 {state.staff.length > 1 && `${state.staff.find((s) => s.id === b.staffId)?.firstName ?? ""} · `}
                 {findService(state, b.serviceId)?.name}
               </span>
-            </span>
-            {b.status === "cancelled" || b.status === "noshow" ? (
-              <Badge tone="danger">{t(`status.${b.status}`)}</Badge>
-            ) : (
-              <span className="shrink-0 tabular-nums text-text-secondary">{formatMoney(b.price)}</span>
-            )}
-            <ChevronRight size={16} className="shrink-0 text-text-secondary" />
-          </button>
+            </span>}
+            trailing={<>
+              {b.status === "cancelled" || b.status === "noshow"
+                ? <Badge tone="danger">{t(`status.${b.status}`)}</Badge>
+                : <span className="shrink-0 text-meta tabular-nums text-text-secondary">{formatMoney(b.price)}</span>}
+              <ChevronRight size={16} aria-hidden className="shrink-0 text-text-secondary" />
+            </>} />
         </li>
       ))}
     </ul>

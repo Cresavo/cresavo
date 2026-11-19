@@ -12,7 +12,7 @@ import { formatDayLong, relativeDay, formatTime } from "../../i18n/format";
 import { findService } from "../../selectors";
 import { newActionRequestId } from "../../support/action-reference";
 import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
-import { Badge } from "../../ui/badge";
+import { Badge, DemoBadge } from "../../ui/badge";
 import { Button, ButtonLink } from "../../ui/button";
 import { TextArea } from "../../ui/controls";
 import { useStudio } from "../use-studio";
@@ -55,7 +55,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
         </Badge>
       </div>
 
-      <div className="whitespace-pre-line rounded-lg rounded-tl-sm bg-surface-2 px-4 py-3 text-[15px] leading-relaxed">
+      <div className="whitespace-pre-line rounded-lg rounded-tl-sm bg-surface-2 px-4 py-3 text-body leading-relaxed">
         {review && <p role="img" className="mb-1 text-warning" aria-label={t("inbox.stars", { count: review.rating })}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</p>}
         {item.body}
       </div>
@@ -77,7 +77,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
       )}
 
       {item.handled && item.reply && (
-        <div className="ml-8 rounded-lg rounded-tr-sm bg-action-bg px-4 py-3 text-[15px] leading-relaxed">
+        <div className="ml-8 rounded-lg rounded-tr-sm bg-action-bg px-4 py-3 text-body leading-relaxed">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-action">{t("inbox.yourReply")}</p>
           {item.reply}
         </div>
@@ -85,11 +85,11 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
 
       {!item.handled && item.draftReply && (
         <div className="space-y-3 rounded-lg p-4 ring-1 ring-action/30">
-          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-action">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-action">
             {t("inbox.suggestedReply")}
           </p>
           {slot && staff && (
-            <div className="flex items-center gap-3 rounded-md bg-action-bg px-3 py-2.5 text-sm">
+            <div className="flex items-center gap-3 rounded-md bg-action-bg px-3 py-3 text-sm">
               <CalendarCheck size={18} className="shrink-0 text-action" />
               <span>
                 {item.kind === "reschedule" ? t("inbox.slotMove") : t("inbox.slotBook")}{" "}
@@ -101,7 +101,8 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
           )}
           <TextArea value={reply} onChange={(e) => setReply(e.target.value)} aria-label={t("inbox.suggestedReply")} />
           {failure && <ActionFailure failure={failure} />}
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <DemoBadge short />
             {item.kind === "cancel" && booking && waitlistCount(state, booking) > 0 && (
               <Button
                 variant="secondary"
@@ -115,7 +116,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
                 {t("inbox.offerSlot")}
               </Button>
             )}
-            <Button icon={<Send size={16} />} disabled={!reply.trim()} onClick={send}>
+            <Button variant={onDone ? "primary" : "secondary"} icon={<Send size={16} />} disabled={!reply.trim()} onClick={send}>
               {slot ? t("inbox.sendAndBook") : t("inbox.send")}
             </Button>
           </div>

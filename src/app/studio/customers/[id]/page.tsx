@@ -1,5 +1,6 @@
 "use client";
 
+import { ListRow } from "@/concept/ui/list-row";
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { CalendarPlus, Hand, Mail, MessageSquare, Phone, ShoppingBag, UserX } from "lucide-react";
@@ -76,15 +77,18 @@ export default function CustomerPage() {
 
   return (
     <>
-      <PageHeader title={fullName(customer)} subtitle={t("customer.since", { date: formatDate(customer.since) })} back={back} />
+      <PageHeader title={fullName(customer)} subtitle={t("customer.since", { date: formatDate(customer.since) })} back={back}
+        actions={<Button icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { customerId: customer.id, serviceId: s.lastServiceId } })}>
+          {t("customer.bookAgain")}
+        </Button>} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
         <div className="min-w-0 space-y-4">
           <Card className="space-y-4 p-5">
             <div className="flex items-center gap-4">
               <Avatar name={fullName(customer)} size="xl" />
-              <div className="min-w-0 space-y-1.5">
+              <div className="min-w-0 space-y-2">
                 <p className="truncate text-lg font-semibold">{fullName(customer)}</p>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {customer.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}
                   {customer.waitlist && state.modules.waitlist && <Tag>{t("customer.waitlist")}</Tag>}
                 </div>
@@ -104,9 +108,6 @@ export default function CustomerPage() {
               )}
             </div>
             <div className="flex flex-wrap gap-2 [&>*]:flex-1">
-              <Button size="sm" className="px-2" icon={<CalendarPlus size={16} />} onClick={() => setSheet({ kind: "new", preset: { customerId: customer.id, serviceId: s.lastServiceId } })}>
-                {t("customer.bookAgain")}
-              </Button>
               {phone && <>
                 <a href={`tel:${phone.replace(/\s/g, "")}`} className={buttonClass("secondary", "sm", "px-2")}>
                   <Phone size={16} />
@@ -126,10 +127,10 @@ export default function CustomerPage() {
           <NextVisitCard customer={customer} next={next} lastVisit={s.lastVisit} />
           {late && s.lastVisit && (
             <Card className="flex gap-3 bg-warning-bg p-4 ring-warning/20">
-              <Hand size={20} className="mt-0.5 shrink-0 text-warning" />
+              <Hand size={20} className="mt-1 shrink-0 text-warning" />
               <div className="space-y-2">
                 <p className="text-sm">{tc("customer.lateText", Math.floor(diffDays(today, s.lastVisit) / 7))}</p>
-                <Button size="sm" onClick={sayHello}>{t("customer.sayHello")}</Button>
+                <Button variant="secondary" size="sm" onClick={sayHello}>{t("customer.sayHello")}</Button>
               </div>
             </Card>
           )}
@@ -168,7 +169,7 @@ export default function CustomerPage() {
                   <EmptyState
                     icon={<CalendarPlus size={22} />}
                     title={t("customer.noUpcoming")}
-                    action={<Button size="sm" onClick={() => setSheet({ kind: "new", preset: { customerId: customer.id, serviceId: s.lastServiceId } })}>{t("customer.bookAgain")}</Button>}
+                    action={<Button variant="secondary" size="sm" onClick={() => setSheet({ kind: "new", preset: { customerId: customer.id, serviceId: s.lastServiceId } })}>{t("customer.bookAgain")}</Button>}
                   />
                 )}
               </Section>
@@ -184,11 +185,9 @@ export default function CustomerPage() {
                 <Section title={t("customer.journalNotes")} action={<Button size="sm" variant="ghost" onClick={() => setTab("journal")}>{t("customer.openJournal")}</Button>}>
                   <Card className="divide-y divide-hairline overflow-hidden">
                     {journalNotes.slice(0, 5).map((j) => (
-                      <button key={j.id} onClick={() => setTab("journal")} className="block w-full px-4 py-3 text-left hover:bg-surface-2">
-                        <span className="block text-xs text-text-secondary">{formatDate(j.date)}</span>
-                        <span className="block truncate text-sm font-medium">{j.treatment}</span>
-                        {j.observations && <span className="block truncate text-sm text-text-secondary">{j.observations}</span>}
-                      </button>
+                      <ListRow key={j.id} onClick={() => setTab("journal")}
+                        leading={<span className="text-meta text-text-secondary">{formatDate(j.date)}</span>}
+                        title={j.treatment} meta={j.observations} />
                     ))}
                   </Card>
                 </Section>
@@ -209,9 +208,9 @@ export default function CustomerPage() {
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <Card className="p-3.5">
+    <Card className="p-4">
       <p className="text-xs text-text-secondary">{label}</p>
-      <p className="mt-0.5 truncate font-semibold">{value}</p>
+      <p className="mt-1 truncate font-semibold">{value}</p>
     </Card>
   );
 }

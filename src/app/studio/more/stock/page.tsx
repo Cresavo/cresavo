@@ -36,7 +36,7 @@ export default function StockPage() {
       module="stock"
       actions={
         <>
-          <Button variant="secondary" icon={<ShoppingBag size={18} />} onClick={() => setSheet({ kind: "sell" })}>{t("stock.sell")}</Button>
+          <Button variant={low.length ? "secondary" : "primary"} icon={<ShoppingBag size={18} />} onClick={() => setSheet({ kind: "sell" })}>{t("stock.sell")}</Button>
           <Button variant="secondary" icon={<PackageCheck size={18} />} onClick={() => setSheet({ kind: "receive" })}>{t("stock.receive")}</Button>
         </>
       }

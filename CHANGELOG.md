@@ -8,6 +8,14 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The owner studio uses shared controls, page headers, status badges and list rows. Calendar groups its secondary tools in an options sheet and gives appointments larger touch targets.
+
+### Fixed
+
+- Fixed unwanted horizontal scrolling in the studio at high zoom and in the booking-page editor.
+
 ## [0.5.0] - 2026-11-19
 
 ### Added
