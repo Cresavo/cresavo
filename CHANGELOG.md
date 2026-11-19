@@ -8,6 +8,9 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+- The product page shows the three latest releases with their highlights, when the code was last updated, and links to all releases and the release feed. The data comes from GitHub, is cached for an hour and the section is hidden if GitHub cannot be reached.
+
 ## [0.5.0] - 2026-11-19
 
 ### Added
