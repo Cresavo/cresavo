@@ -3,10 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Moon } from "lucide-react";
 import { isAiConfigured, runAiTask } from "../../ai/api-client";
-import { dailySummaryTask } from "../../ai/tasks/daily-summary";
 import { t } from "../../i18n";
 import { taskEnabled } from "../../modules/registry";
-import { dayFacts, summaryDue } from "../../summary/day";
+import { dayFacts, daySummaryText, summaryDue } from "../../summary/day";
 import { Card, Section } from "../../ui/card";
 import { useStudio } from "../use-studio";
 
@@ -43,7 +42,7 @@ export function EveningSummary() {
 
   if (!due) return null;
   const ai = aiSummaries.get(key);
-  const text = ai ?? dailySummaryTask.fallback(facts);
+  const text = ai ?? daySummaryText(facts, state.localization.currency);
   return (
     <Section title={t("summary.title")}>
       <Card className="space-y-3 p-4" data-help="evening-summary">

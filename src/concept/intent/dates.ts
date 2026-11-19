@@ -1,3 +1,4 @@
+import { swedishDates } from "./swedish";
 import { DateTime } from "luxon";
 import type { IntentContext } from "./types";
 
@@ -24,6 +25,7 @@ function calendarDate(text: string, now: DateTime): string | undefined {
 }
 
 export function parseDate(text: string, context: IntentContext): string | undefined {
+  text = swedishDates(text);
   const now = clock(context).startOf("day");
   const iso = text.match(/\b(\d{4}-\d{2}-\d{2})\b/);
   if (iso) return DateTime.fromISO(iso[1]).isValid ? iso[1] : undefined;
@@ -46,6 +48,7 @@ export function parseDate(text: string, context: IntentContext): string | undefi
  * a past weekday ("last Friday", or "who was here on Friday?"), or one day as `parseDate` reads it.
  */
 export function parseDays(text: string, context: IntentContext): { from: string; to: string } | undefined {
+  text = swedishDates(text);
   const now = clock(context).startOf("day");
   const week = text.match(/\b(this|next|last|past) week\b/);
   if (week) {

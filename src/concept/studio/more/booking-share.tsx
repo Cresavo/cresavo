@@ -11,7 +11,7 @@ import { useStudio } from "../use-studio";
 export function BookingShare() {
   const [copied, setCopied] = useState<"link" | "code" | null>(null);
   const { state } = useStudio();
-  const share = bookingShare(window.location.origin, state.salon.slug, state.salon.name);
+  const share = bookingShare(window.location.origin, state.salon.slug, state.salon.name, state.localization.language);
   const copy = async (kind: "link" | "code") => {
     try { await navigator.clipboard.writeText(share[kind]); setCopied(kind); }
     catch { showToast(t("share.failed")); }

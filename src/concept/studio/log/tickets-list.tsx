@@ -1,9 +1,9 @@
 "use client";
 
 import { LifeBuoy } from "lucide-react";
-import { toKey, formatTime } from "../../data/dates";
+import { toKey } from "../../data/dates";
 import { t, tc } from "../../i18n";
-import { relativeDay } from "../../i18n/format";
+import { relativeDay, formatTime } from "../../i18n/format";
 import { Badge } from "../../ui/badge";
 import { Card } from "../../ui/card";
 import { EmptyState } from "../../ui/empty-state";

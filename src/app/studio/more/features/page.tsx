@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { BellRing, MessageCircle, BookOpen, Gift, Globe, Megaphone, Package, PackageOpen, Star, TrendingUp, type LucideIcon } from "lucide-react";
 import type { ModuleKey } from "@/concept/data/types";
-import { t } from "@/concept/i18n";
-import { formatNumber } from "@/concept/i18n/format";
+import { t, term } from "@/concept/i18n";
+import { formatMoney } from "@/concept/i18n/format";
 import { CORE_PRICE_SEK, enabledModules, MODULES, monthlyTotal, PRESET_IDS, presetOf } from "@/concept/modules/registry";
 import { setupOf } from "@/concept/onboarding/setup";
 import { PACKS, type Pack } from "@/concept/packs";
@@ -31,17 +31,17 @@ const ICONS: Record<ModuleKey, LucideIcon> = {
   domain: Globe,
 };
 
-const price = (sek: number) => t("features.price", { price: formatNumber(sek) });
+const price = (sek: number) => t("features.price", { price: formatMoney(sek, "SEK") });
 
 export default function FeaturesPage() {
   const { state } = useStudio();
   const [switching, setSwitching] = useState<Pack | null>(null);
   const packName = (pack: Pack) => t(`pack.${pack.id}.name`);
 
-  const switchPack = (pack: Pack) => {
-    startBusiness({ ...setupOf(state), pack: pack.id, modules: undefined });
-    showToast(t("features.pack.switched", { pack: packName(pack) }));
+  const switchPack = async (pack: Pack) => {
     setSwitching(null);
+    await startBusiness({ ...setupOf(state), pack: pack.id, modules: undefined });
+    showToast(t("features.pack.switched", { pack: packName(pack) }));
   };
 
   return (
@@ -120,7 +120,7 @@ export default function FeaturesPage() {
                   <div className="min-w-0 flex-1 space-y-1">
                     <p className="font-medium">{packName(pack)}</p>
                     <p className="text-sm text-text-secondary">{t(`pack.${pack.id}.description`)}</p>
-                    <p className="text-xs text-text-secondary">{t("features.pack.words", { customers: `${pack.vocabulary.customer}s`, services: `${pack.vocabulary.service}s` })}</p>
+                    <p className="text-xs text-text-secondary">{t("features.pack.words", { customers: term("customer", { plural: true, vocabulary: pack.vocabulary }), services: term("service", { plural: true, vocabulary: pack.vocabulary }) })}</p>
                   </div>
                   {current ? <Badge tone="accent" className="self-start">{t("features.pack.current")}</Badge> : <Button variant="secondary" size="sm" className="self-start" onClick={() => setSwitching(pack)}>{t("features.pack.use")}</Button>}
                 </Card>

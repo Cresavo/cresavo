@@ -1,3 +1,4 @@
+import { customerText } from "../i18n/customer-text";
 import type { Proposal } from "../command/proposal";
 import { buildCustomerStats, findCustomer, lowStock } from "../selectors";
 import { dueBackList } from "../customers/return-visits";
@@ -31,7 +32,7 @@ export function offerProposal(state: DemoState, customerIds: string[], clock: Cl
   const texts: OutgoingText[] = customers.map((customer) => ({
     customerId: customer.id,
     title: t("assistant.offer.logTitle", { name: customer.firstName }),
-    body: t("assistant.offer.sms", { name: customer.firstName, salon: state.salon.name, percent, link: bookingPageLink(state) }),
+    body: customerText(state, "assistant.offer.sms", { name: customer.firstName, salon: state.salon.name, percent, link: bookingPageLink(state) }),
   }));
   return {
     kind: "change",

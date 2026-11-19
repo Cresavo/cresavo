@@ -1,3 +1,6 @@
+import { translate } from "../i18n";
+import { formatDayLong, formatMoney } from "../i18n/format";
+import { defaultBusinessLocalization, type BusinessLocalization } from "../i18n/business";
 import { FIRST_NAMES_F, FIRST_NAMES_M, LAST_NAMES } from "./catalog";
 import { addDays, diffDays, formatTime, weekday } from "./dates";
 import { makeMonthHistory } from "../finance/history";
@@ -28,7 +31,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 17;
+export const DEMO_VERSION = 18;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -372,6 +375,7 @@ export interface BusinessSetup {
   pack?: PackId;
   solo?: boolean;
   modules?: ModuleKey[];
+  localization?: BusinessLocalization;
 }
 
 export const MODULE_KEYS: ModuleKey[] = ["journal", "stock", "campaigns", "finance", "reviews", "waitlist", "assistant", "giftcards", "packages", "domain"];
@@ -391,6 +395,8 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
   const pack = getPack(setup.pack ?? DEFAULT_PACK);
   const build = buildFor(pack, setup.solo ?? false);
   const { staff: team, services } = build;
+  const localization = setup.localization ?? defaultBusinessLocalization(pack.id);
+  const { language, currency } = localization;
   const salon = pack.salon;
   const schedule = ctxOf(build, []);
   const rng = createRandom(SEED);
@@ -451,7 +457,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       body: pack.freshReviews.happy,
       read: false,
       handled: false,
-      draftReply: `Thank you ${name(happy.customerId).first}, that made my day! See you next time. /Anna`,
+      draftReply: translate(language, "reviews.draftHappy", { name: name(happy.customerId).first }, pack.vocabulary),
     });
   }
   if (meh) {
@@ -476,7 +482,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       body: pack.freshReviews.meh,
       read: false,
       handled: false,
-      draftReply: `Hi ${name(meh.customerId).first}! Sorry about the wait – that should not happen. Next time the extra 15 minutes are on us. Warm regards, ${team.length > 1 ? "Erik and Anna" : "Anna"}`,
+      draftReply: translate(language, "reviews.draftUnhappy", { name: name(meh.customerId).first }, pack.vocabulary),
     });
   }
 
@@ -492,7 +498,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       body: "Hi Anna! I woke up with a fever and have to cancel my appointment today. Sorry for the short notice.",
       read: false,
       handled: false,
-      draftReply: `Get well soon ${name(cancelled.customerId).first}! Let me know when you feel better and we will find a new time. /Anna`,
+      draftReply: translate(language, "fixture.reply.cancel", { name: name(cancelled.customerId).first }, pack.vocabulary),
     });
   }
 
@@ -516,7 +522,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       handled: false,
       suggestion,
       draftReply: suggestion
-        ? `Hi ${asker.firstName}! Yes, I have a slot ${suggestion.date === thursday ? "on Thursday" : "soon"} at ${formatTime(suggestion.start)}. I have booked you in – just reply if it does not suit you. /Anna`
+        ? translate(language, "fixture.reply.booking", { name: asker.firstName, day: formatDayLong(suggestion.date, language), time: formatTime(suggestion.start) }, pack.vocabulary)
         : undefined,
     });
   }
@@ -538,7 +544,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       handled: false,
       suggestion,
       draftReply: suggestion
-        ? `Hi ${name(tomorrowBooking.customerId).first}! No problem. I have moved you to ${formatTime(suggestion.start)} – you will get a confirmation by text.`
+        ? translate(language, "fixture.reply.move", { name: name(tomorrowBooking.customerId).first, day: formatDayLong(suggestion.date, language), time: formatTime(suggestion.start) }, pack.vocabulary)
         : undefined,
     });
   }
@@ -554,7 +560,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       body: `Hi! Do you sell gift cards? I would like to give my dad ${pack.giftIdea} for Christmas.`,
       read: false,
       handled: false,
-      draftReply: "Hi! Yes, we have gift cards from SEK 450. You can buy them in the salon or get a digital one by email right away. Shall I send you a link?",
+      draftReply: translate(language, "fixture.reply.gift", { price: formatMoney(450, currency, language) }, pack.vocabulary),
     },
     {
       id: "i-nykund",
@@ -567,7 +573,8 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       read: true,
       handled: false,
       suggestion: firstFree(build, bookings, "anna", pack.requests.newClient.serviceId, addDays(today, 1), 7),
-      draftReply: pack.requests.newClient.reply,
+      draftReply: language === "en" ? pack.requests.newClient.reply
+        : translate(language, "fixture.reply.newCustomer", { name: pack.requests.newClient.name.split(" ")[0] }, pack.vocabulary),
     },
     {
       id: "i-paminnelser",
@@ -595,6 +602,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     generatedFor: today,
     seq: 1,
     salon,
+    localization,
     staff: team,
     services,
     retiredServices: [],

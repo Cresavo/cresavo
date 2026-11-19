@@ -1,10 +1,9 @@
 "use client";
 
 import { CalendarClock } from "lucide-react";
-import { formatTime } from "../../data/dates";
 import type { StaffId } from "../../data/types";
 import { t, tc } from "../../i18n";
-import { formatDayShort } from "../../i18n/format";
+import { formatDayShort, formatTime } from "../../i18n/format";
 import { needsMoving } from "../../ops/needs-moving";
 import { findCustomer, findService, fullName } from "../../selectors";
 import { Button } from "../../ui/button";

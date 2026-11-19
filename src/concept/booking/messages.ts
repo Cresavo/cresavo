@@ -1,10 +1,11 @@
-import { formatTime } from "../data/dates";
+import { sendDemoMessage } from "../connections/demo";
 import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
-import { formatDate } from "../i18n/format";
-import { sendDemoMessage } from "../connections/demo";
-import { bookingPage } from "./links";
+import { customerText } from "../i18n/customer-text";
+import { formatDate, formatTime } from "../i18n/format";
+import { serviceCopy } from "../i18n/salon-eko-copy";
 import { findService } from "../selectors";
+import { bookingPage } from "./links";
 
 export type MessageChannel = "sms" | "email";
 export type BookingMessageKind = "confirmation" | "reminder";
@@ -17,15 +18,18 @@ export interface BookingMessageAction {
 }
 export function messageSlot(booking: Booking) { return `${booking.date}:${booking.start}:${booking.staffId}`; }
 export function bookingMessage(state: DemoState, booking: Booking, kind: BookingMessageKind) {
-  const service = findService(state, booking.serviceId);
+  const { language } = state.localization;
+  const stored = findService(state, booking.serviceId);
+  const service = stored && serviceCopy(stored, language);
   const staff = state.staff.find(staff => staff.id === booking.staffId);
-  const subject = t(`messages.subject.${kind}`, { salon: state.salon.name });
-  const body = t(`messages.body.${kind}`, {
-    salon: state.salon.name, service: service?.name ?? "", date: formatDate(booking.date),
-    time: formatTime(booking.start), staff: staff?.firstName ?? "", address: state.salon.address,
-    link: bookingPage(state.salon.slug, booking.id),
+  const subject = customerText(state, `messages.subject.${kind}`, { salon: state.salon.name });
+  const details = customerText(state, `messages.body.${kind}`, {
+    salon: state.salon.name, service: service?.name ?? "", date: formatDate(booking.date, language),
+    time: formatTime(booking.start, language), staff: staff?.firstName ?? "", address: state.salon.address,
   });
-  return { subject, body };
+  const path = bookingPage(state.salon.slug, booking.id);
+  const body = customerText(state, "messages.withManageLink", { details, link: path });
+  return { subject, body, details, path };
 }
 export function messageWasSent(state: DemoState, booking: Booking, kind: BookingMessageKind, channel: MessageChannel) {
   return state.inbox.some(item => item.bookingId === booking.id && item.delivery?.kind === kind && item.delivery.channel === channel && item.delivery.slot === messageSlot(booking));

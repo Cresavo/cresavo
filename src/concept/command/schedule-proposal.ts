@@ -1,8 +1,8 @@
-import { formatTime, toMinutes } from "../data/dates";
+import { toMinutes } from "../data/dates";
 import { openingFor, staffWorks, workWindow } from "../data/slots";
 import type { Booking, DateKey, DemoState, StaffId } from "../data/types";
 import { t, tc } from "../i18n";
-import { formatDayLong } from "../i18n/format";
+import { formatDayLong, formatTime } from "../i18n/format";
 import type { IntentParams } from "../intent";
 import { holidayOn } from "../ops/holidays";
 import type { Clock, Proposal } from "./proposal";

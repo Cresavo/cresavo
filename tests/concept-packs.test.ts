@@ -91,19 +91,22 @@ describe("switching pack", () => {
     expect(foot.modules.campaigns).toBe(true);
   });
 
-  it("applies the pack words as soon as the store starts a business", () => {
-    startBusiness({ pack: "hair" });
+  it("applies the pack words as soon as the store starts a business", async () => {
+    await startBusiness({ pack: "hair" });
     expect(t("nav.customers")).toBe("Clients");
-    startBusiness();
+    await startBusiness();
     expect(t("nav.customers")).toBe("Customers");
   });
 
-  it("starts the store with the chosen pack and modules", () => {
-    startBusiness({ pack: "trainer", modules: ["stock", "assistant"] });
+  it("starts the store with the chosen pack and modules", async () => {
+    await startBusiness({ pack: "trainer", modules: ["stock", "assistant"] });
     expect(t("nav.services")).toBe("Sessions & prices");
     expect(currentState()?.modules).toMatchObject({ stock: true, finance: false });
     expect(dispatch({ type: "module/toggle", key: "stock" })).toBe(true);
     expect(currentState()?.modules.stock).toBe(false);
+    const sequence = currentState()!.seq;
+    await startBusiness();
+    expect(currentState()!.seq).toBe(sequence + 1);
   });
 });
 
@@ -159,7 +162,7 @@ describe("onboarding result", () => {
 
   it("lets Reset demo rebuild the same business", () => {
     const state = createDemoState(today, setupFromAnswers({ pack: "nails", team: "solo", help: ["campaigns"] }));
-    expect(setupOf(state)).toEqual({ pack: "nails", solo: true, modules: ["campaigns", "assistant"] });
+    expect(setupOf(state)).toEqual({ pack: "nails", solo: true, modules: ["campaigns", "assistant"], localization: state.localization });
     expect(createDemoState(today, setupOf(state)).modules).toEqual(state.modules);
   });
 });

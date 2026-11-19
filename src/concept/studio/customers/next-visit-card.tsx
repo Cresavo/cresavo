@@ -2,10 +2,10 @@
 
 import { CalendarClock, Check, Send } from "lucide-react";
 import { suggestionSent, type NextVisit } from "../../customers/return-visits";
-import { diffDays, formatTime } from "../../data/dates";
+import { diffDays } from "../../data/dates";
 import type { Customer } from "../../data/types";
 import { t } from "../../i18n";
-import { formatDate, relativeDay } from "../../i18n/format";
+import { formatDate, relativeDay, formatTime } from "../../i18n/format";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { useStudio } from "../use-studio";

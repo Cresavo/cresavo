@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { CalendarClock, CalendarX2, Check, Gift, Phone, UserRound } from "lucide-react";
-import { formatTime } from "../../data/dates";
 import { paidWithCards } from "../../giftcards/cards";
 import { t, tc, type MessageKey } from "../../i18n";
-import { formatDayLong, formatDuration, formatMoney } from "../../i18n/format";
+import { formatDayLong, formatDuration, formatMoney, formatTime } from "../../i18n/format";
 import { packageFor, visitsLeft } from "../../packages/packages";
 import { findCustomer, findService, fullName } from "../../selectors";
 import { Badge } from "../../ui/badge";

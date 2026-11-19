@@ -1,11 +1,10 @@
 "use client";
 
 import { Check, Plus } from "lucide-react";
-import { formatTime } from "../../data/dates";
 import { freeGaps } from "../../data/slots";
 import type { Booking, DateKey, StaffId } from "../../data/types";
 import { t } from "../../i18n";
-import { formatDuration } from "../../i18n/format";
+import { formatDuration, formatTime } from "../../i18n/format";
 import { findCustomer, findService, fullName } from "../../selectors";
 import { Badge } from "../../ui/badge";
 import { cx } from "../../ui/cx";

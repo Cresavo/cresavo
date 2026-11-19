@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { expect, test, type Page } from "@playwright/test";
-import { createDemoState } from "../../src/concept/data/generate";
+import { englishDemoState } from "./fixtures";
 import { contrast } from "../../src/concept/page/colour";
 import { salonClock } from "../../src/concept/tools/clock";
 
@@ -9,7 +9,7 @@ import { salonClock } from "../../src/concept/tools/clock";
 // says; and no accessibility violations on the main pages in either theme.
 
 const today = salonClock().today;
-const initial = createDemoState(today);
+const initial = englishDemoState(today);
 const AXE = createRequire(import.meta.url).resolve("axe-core/axe.min.js");
 
 const theme = (page: Page) => page.evaluate(() => document.documentElement.dataset.theme);

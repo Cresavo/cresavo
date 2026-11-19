@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { reduce } from "@/concept/actions";
-import { buildIcs } from "@/concept/booking/ics";
+import { buildIcs, googleCalendarLink } from "@/concept/booking/ics";
+import { recallGuest, rememberGuest } from "@/concept/booking/guest";
 import { customerBookings, findCustomerByPhone, isMobilePhone, normalizePhone, phoneMatches } from "@/concept/booking/lookup";
 import { changeRule } from "@/concept/booking/policy";
 import { parseBookingRequest } from "@/concept/booking/request";
@@ -139,6 +140,14 @@ describe("online booking actions", () => {
     expect(next.inbox[0]).toMatchObject({ title: "Waiting list", handled: false, draftReply: "Hi" });
   });
 
+  it("keeps the requested practitioner on the waiting-list request", () => {
+    const request = { type: "online/waitlist", guest, notice, serviceId: "classic-60", staffId: "erik" } as const;
+    const next = reduce(state, request);
+    expect(next.inbox[0]).toMatchObject({ requestedStaffId: "erik", customerId: next.customers.at(-1)!.id });
+    expect(next.customers.at(-1)).toMatchObject({ preferredStaff: "erik", waitlist: true });
+    expect(reduce(state, { ...request, staffId: "anna" })).toBe(state);
+  });
+
   it("moves a booking with an inbox notice only when the new slot is free", () => {
     const booked = reduce(state, book);
     const booking = booked.bookings[booked.bookings.length - 1];
@@ -151,7 +160,7 @@ describe("online booking actions", () => {
 });
 
 describe("calendar file", () => {
-  it("describes the visit in local time with a reminder", () => {
+  it("describes the visit with an absolute start and a reminder", () => {
     const booking = state.bookings.find((b) => b.status === "booked")!;
     const service = state.services.find((s) => s.id === booking.serviceId)!;
     const staff = state.staff.find((s) => s.id === booking.staffId)!;
@@ -159,8 +168,29 @@ describe("calendar file", () => {
     expect(ics).toContain(`DTSTART:${booking.date.replace(/-/g, "")}T`);
     expect(ics).toContain("SUMMARY:" + service.name);
     expect(ics).toContain("LOCATION:Salong Eko\\, Dalagatan 34");
+    expect(ics).toContain("TRIGGER:-PT1H");
     expect(ics.split("\r\n")[0]).toBe("BEGIN:VCALENDAR");
   });
+
+  it.each([
+    ["2026-01-12", "090000Z", "100000Z"],
+    ["2026-03-29", "080000Z", "090000Z"],
+    ["2026-07-13", "080000Z", "090000Z"],
+    ["2026-10-25", "090000Z", "100000Z"],
+  ])(
+    "exports the same salon hour to both calendars on %s", (date, start, end) => {
+      const booking = { ...state.bookings[0], date, start: 600, duration: 60 };
+      const visit = { booking, service: state.services[0], salon: state.salon, language: "sv" as const };
+      const google = new URL(googleCalendarLink(visit));
+      const day = date.replaceAll("-", "");
+      expect(google.searchParams.get("dates")).toBe(`${day}T${start}/${day}T${end}`);
+      expect(google.searchParams.get("text")).toBe("Medicinsk fotvård hos Salong Eko");
+      const ics = buildIcs({ ...visit, staff: state.staff[0], createdAt: "20260101T080000Z" });
+      expect(ics).toContain(`DTSTART:${day}T${start}\r\nDTEND:${day}T${end}`);
+      expect(ics).toContain("SUMMARY:Medicinsk fotvård hos Salong Eko");
+      expect(ics).toContain("DESCRIPTION:Du har en bokad tid om en timme");
+    },
+  );
 });
 
 describe("phone input and search", () => {
@@ -180,5 +210,28 @@ describe("phone input and search", () => {
 
   it.each(["00000000", "070-000 00 00", "078-323 45 67", "12345678", "+0000000000", "+10000000000", "0701737460abc", "+4612345678901234"])("rejects %s as a mobile", (phone) => {
     expect(isMobilePhone(phone)).toBe(false);
+  });
+});
+
+describe("device contact consent", () => {
+  it("discards automatic legacy prefill, scopes new consent to one salon and supports forgetting", () => {
+    const guest = { customerId: "k-demo", name: "Nova Demo", phone: "070-000 99 11" };
+    const entries = new Map([["salong-eko-guest", JSON.stringify(guest)]]);
+    vi.stubGlobal("window", { localStorage: {
+      getItem: (key: string) => entries.get(key) ?? null,
+      removeItem: (key: string) => entries.delete(key),
+      setItem: (key: string, value: string) => entries.set(key, value),
+    } });
+    try {
+      expect(recallGuest("leaf")).toBeUndefined();
+      expect(entries.size).toBe(0);
+      rememberGuest("leaf", guest);
+      expect(recallGuest("leaf")).toEqual(guest);
+      expect(recallGuest("fern")).toBeUndefined();
+      rememberGuest("leaf");
+      expect(recallGuest("leaf")).toBeUndefined();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

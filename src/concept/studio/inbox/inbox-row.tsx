@@ -1,7 +1,7 @@
-import { formatTime, inboxTimestamp } from "../../data/dates";
+import { inboxTimestamp } from "../../data/dates";
 import type { DateKey, DemoState, InboxItem } from "../../data/types";
 import { t } from "../../i18n";
-import { relativeDay } from "../../i18n/format";
+import { relativeDay, formatTime } from "../../i18n/format";
 import { cx } from "../../ui/cx";
 import { senderName } from "./inbox-meta";
 

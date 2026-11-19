@@ -1,10 +1,10 @@
 "use client";
 
 import { CalendarClock, Phone, UserRound } from "lucide-react";
-import { addDays, formatTime } from "../../data/dates";
+import { addDays } from "../../data/dates";
 import type { Booking, StaffId } from "../../data/types";
 import { t, tc } from "../../i18n";
-import { agoText, formatDuration, relativeDay } from "../../i18n/format";
+import { agoText, formatDuration, relativeDay, formatTime } from "../../i18n/format";
 import { buildCustomerStats, dayBookings, findCustomer, findService, fullName } from "../../selectors";
 import { Avatar } from "../../ui/avatar";
 import { Button, ButtonLink, buttonClass } from "../../ui/button";

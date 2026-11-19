@@ -4,6 +4,7 @@ import { useState } from "react";
 import { MessageCircleReply, Star } from "lucide-react";
 import { addDays } from "@/concept/data/dates";
 import type { Review } from "@/concept/data/types";
+import { customerText } from "@/concept/i18n/customer-text";
 import { t, tc } from "@/concept/i18n";
 import { formatDate, formatNumber } from "@/concept/i18n/format";
 import { averageRating, findCustomer, fullName } from "@/concept/selectors";
@@ -19,10 +20,6 @@ import { Chip, TextArea } from "@/concept/ui/controls";
 import { Sheet } from "@/concept/ui/sheet";
 
 const SHOWN = 20;
-
-function draftReply(review: Review, firstName: string) {
-  return review.rating >= 4 ? t("reviews.draftHappy", { name: firstName }) : t("reviews.draftUnhappy", { name: firstName });
-}
 
 export default function ReviewsPage() {
   const { state, today } = useStudio();
@@ -84,7 +81,7 @@ export default function ReviewsPage() {
                   </p>
                 ) : (
                   <div>
-                    <Button size="sm" variant="secondary" icon={<MessageCircleReply size={16} />} onClick={() => { setReplying(r); setText(draftReply(r, customer?.firstName ?? "")); }}>
+                    <Button size="sm" variant="secondary" icon={<MessageCircleReply size={16} />} onClick={() => { setReplying(r); setText(customerText(state, r.rating >= 4 ? "reviews.draftHappy" : "reviews.draftUnhappy", { name: customer?.firstName ?? "" })); }}>
                       {t("reviews.reply")}
                     </Button>
                   </div>

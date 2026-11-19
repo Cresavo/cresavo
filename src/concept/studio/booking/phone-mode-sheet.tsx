@@ -3,11 +3,11 @@
 import { customerDraft, phoneMatches } from "../../booking/lookup";
 import { useState } from "react";
 import { CalendarClock, CalendarPlus } from "lucide-react";
-import { addDays, formatTime } from "../../data/dates";
+import { addDays } from "../../data/dates";
 import { freeGaps, openingFor } from "../../data/slots";
 import type { DateKey } from "../../data/types";
 import { t } from "../../i18n";
-import { formatDuration, relativeDay } from "../../i18n/format";
+import { formatDuration, relativeDay, formatTime } from "../../i18n/format";
 import { buildCustomerStats, fullName } from "../../selectors";
 import { Avatar } from "../../ui/avatar";
 import { Button } from "../../ui/button";

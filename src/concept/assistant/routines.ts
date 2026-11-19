@@ -1,4 +1,5 @@
-import { addDays, formatTime, weekday } from "../data/dates";
+import { formatTime } from "../i18n/format";
+import { addDays, weekday } from "../data/dates";
 import type { DateKey, DemoState } from "../data/types";
 import type { Clock } from "../finance/types";
 import { t, tc, words } from "../i18n";

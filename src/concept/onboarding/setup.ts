@@ -29,6 +29,7 @@ export function setupFromAnswers({ pack, team, help }: Answers): BusinessSetup {
 export function setupOf(state: DemoState): BusinessSetup {
   return {
     pack: state.pack,
+    localization: state.localization,
     solo: state.staff.length === 1,
     modules: enabledModules(state.modules),
   };

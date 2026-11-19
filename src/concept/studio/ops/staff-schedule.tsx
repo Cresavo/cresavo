@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { CalendarClock, CalendarMinus, Pencil, X } from "lucide-react";
-import { formatTime, WEEK_ORDER } from "../../data/dates";
+import { WEEK_ORDER } from "../../data/dates";
 import type { Staff } from "../../data/types";
 import { t, words } from "../../i18n";
-import { formatDayShort } from "../../i18n/format";
+import { formatDayShort, formatTime } from "../../i18n/format";
 import { Button, IconButton } from "../../ui/button";
 import { useStudio } from "../use-studio";
 import { OffSheet, ShiftSheet } from "./exception-sheets";

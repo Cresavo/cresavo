@@ -4,11 +4,10 @@ import { customerDraft, isContactPhone, phoneMatches } from "../../booking/looku
 import { useState } from "react";
 import { preferredStaffOf } from "../../assistant/memory";
 import { GuestFields } from "../../booking/guest-fields";
-import { formatTime } from "../../data/dates";
 import { isFree, needOf } from "../../data/slots";
 import type { DateKey, StaffId } from "../../data/types";
 import { t } from "../../i18n";
-import { formatDayLong, formatDuration, formatMoney } from "../../i18n/format";
+import { formatDayLong, formatDuration, formatMoney, formatTime } from "../../i18n/format";
 import { findCustomer, fullName } from "../../selectors";
 import { dispatchWithLog, withBookingLock } from "../../store";
 import { Avatar } from "../../ui/avatar";

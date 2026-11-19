@@ -57,6 +57,22 @@ readable files, validate on the server, AI only proposes and the person
 approves, all UI text in the i18n dictionary (English first), no secrets or
 personal data in logs.
 
+## Adding a language
+
+1. Add new UI keys to `src/concept/i18n/en.ts` first. Use `t()` for copy,
+   `tc()` for counts and the format helpers for dates, times and money.
+2. In the new dictionary, match every English key and keep the placeholders
+   in each plural form. Values with two forms use `one|many`.
+3. Register the locale and its Intl language tag in `src/lib/locale.ts`,
+   add the dictionary to `src/concept/i18n/index.ts`, and include the locale
+   in the studio and booking language controls. Add industry vocabulary
+   with its singular, plural and definite forms where the language needs them.
+4. Use the explicit business locale for customer templates and calendar
+   downloads. Keep user-authored content and stored booking values intact.
+5. Run `npx vitest run tests/concept-i18n.test.ts` and
+   `npm run test:concept -- i18n.spec.ts --trace off`. The smoke runs at 390
+   and 1440 px. Set `CONCEPT_SCREENSHOTS=1` to capture the mobile JPEGs.
+
 ## Commits and releases
 
 Use [Conventional Commits](https://www.conventional-commits.org/)

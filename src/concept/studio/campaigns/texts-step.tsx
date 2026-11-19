@@ -23,6 +23,7 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
   useEffect(() => {
     latest.current = draft;
   });
+  const language = state.localization.language;
   const signature = offerSignature(state, draft);
 
   useEffect(() => {
@@ -30,17 +31,17 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
     if (current.copyFor === signature) return;
     const offer = draftOffer(state, current);
     const link = draftLink(current);
-    const copy = Object.fromEntries(CHANNELS.map((channel) => [channel, rulesCopy(channel, offer, link)])) as Record<Channel, string>;
+    const copy = Object.fromEntries(CHANNELS.map((channel) => [channel, rulesCopy(channel, offer, link, language)])) as Record<Channel, string>;
     onChange({ copy, copyFor: signature });
     let cancelled = false;
     void isAiConfigured().then((ready) => {
       if (!ready) return;
       for (const channel of CHANNELS) {
-        runAiTask<{ text: string; hashtags: string[] }>("write-post", { offer, channel })
+        runAiTask<{ text: string; hashtags: string[] }>("write-post", { offer, channel, locale: language })
           .then(({ output, log }) => {
             const now = latest.current;
             if (cancelled || log.source !== "ai" || now.copyFor !== signature || now.copy[channel] !== copy[channel]) return;
-            onChange({ copy: { ...now.copy, [channel]: assembleCopy(channel, output.text, output.hashtags, link) } });
+            onChange({ copy: { ...now.copy, [channel]: assembleCopy(channel, output.text, output.hashtags, link, language) } });
           })
           .catch(() => undefined);
       }
@@ -55,7 +56,7 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
   const rewrite = () => {
     const offer = draftOffer(state, draft);
     const link = draftLink(draft);
-    onChange({ copy: Object.fromEntries(CHANNELS.map((channel) => [channel, rulesCopy(channel, offer, link)])), copyFor: signature });
+    onChange({ copy: Object.fromEntries(CHANNELS.map((channel) => [channel, rulesCopy(channel, offer, link, language)])), copyFor: signature });
   };
 
   return (

@@ -1,6 +1,7 @@
+import type { Locale } from "@/lib/locale";
 import { writePostTask } from "../ai/tasks/write-post";
 import type { Channel, DateKey } from "../data/types";
-import { t, tc } from "../i18n";
+import { getActiveLocale, translate, translateCount } from "../i18n";
 import { formatDate } from "../i18n/format";
 import { assembleCopy } from "./channels";
 
@@ -14,19 +15,19 @@ interface OfferInput {
 }
 
 /** "Deep tissue massage and Classic massage", or "Classic massage and 2 more". */
-export function listServices(names: string[]): string {
-  if (names.length <= NAMED_SERVICES) return names.join(t("campaigns.and"));
-  return `${names[0]}${t("campaigns.and")}${tc("campaigns.more", names.length - 1)}`;
+export function listServices(names: string[], language = getActiveLocale()): string {
+  if (names.length <= NAMED_SERVICES) return names.join(translate(language, "campaigns.and"));
+  return `${names[0]}${translate(language, "campaigns.and")}${translateCount(language, "campaigns.more", names.length - 1)}`;
 }
 
 /** One plain sentence for the writer: what is offered and until when. */
-export function offerText({ name, serviceNames, discountPercent, to }: OfferInput): string {
+export function offerText({ name, serviceNames, discountPercent, to }: OfferInput, language = getActiveLocale()): string {
   const key = discountPercent > 0 ? "campaigns.offer.line" : "campaigns.offer.lineNoDiscount";
-  return t(key, { name, percent: discountPercent, services: listServices(serviceNames), date: formatDate(to) });
+  return translate(language, key, { name, percent: discountPercent, services: listServices(serviceNames, language), date: formatDate(to, language) });
 }
 
 /** The channel text without any AI: the task's rule-based draft plus link and hashtags. */
-export function rulesCopy(channel: Channel, offer: string, link: string): string {
-  const draft = writePostTask.fallback({ offer, channel });
-  return assembleCopy(channel, draft.text, draft.hashtags, link);
+export function rulesCopy(channel: Channel, offer: string, link: string, language: Locale = getActiveLocale()): string {
+  const draft = writePostTask.fallback({ offer, channel, locale: language });
+  return assembleCopy(channel, draft.text, draft.hashtags, link, language);
 }

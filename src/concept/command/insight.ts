@@ -5,6 +5,7 @@ import { shiftMonth } from "../finance/periods";
 import type { Clock } from "../finance/types";
 import { t, words } from "../i18n";
 import { formatDayMonth, formatMoney, formatNumber } from "../i18n/format";
+import { months } from "../intent/dates";
 import { normalize } from "../intent/match";
 import { findService, utilisation } from "../selectors";
 
@@ -28,7 +29,7 @@ const signed = (change: number) => `${change >= 0 ? "+" : "−"}${t("format.perc
 
 /** The month a name points at: this month or an earlier one, never one still to come. */
 function monthNamed(name: string, today: string): string {
-  const index = words.months.findIndex((m) => m.toLowerCase() === name);
+  const index = months.indexOf(name);
   const year = Number(today.slice(0, 4));
   const current = Number(today.slice(5, 7));
   return `${index + 1 > current ? year - 1 : year}-${String(index + 1).padStart(2, "0")}`;
@@ -40,7 +41,7 @@ const monthLabel = (month: string) => `${words.months[Number(month.slice(5, 7)) 
 function compareMonths(state: DemoState, text: string, clock: Clock): Insight | null {
   if (!/\bcompar/.test(text)) return null;
   const month = (id: string) => (id === "this month" ? clock.today.slice(0, 7) : id === "last month" ? shiftMonth(clock.today.slice(0, 7), -1) : monthNamed(id, clock.today));
-  const names = [...words.months.map((m) => m.toLowerCase()), "this month", "last month"];
+  const names = [...months, "this month", "last month"];
   const found = [...text.matchAll(new RegExp(`\\b(${names.join("|")})\\b`, "g"))].map((m) => m[1]);
   if (!found.length) return null;
   const to = month(found[0]);

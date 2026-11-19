@@ -1,6 +1,6 @@
 "use client";
 
-import { formatTime } from "../../data/dates";
+import { formatTime } from "../../i18n/format";
 import { Select } from "../../ui/controls";
 
 const STEP = 15;

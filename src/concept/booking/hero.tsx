@@ -1,6 +1,6 @@
+import { formatTime } from "../i18n/format";
 import Image from "next/image";
 import { Star } from "lucide-react";
-import { formatTime } from "../data/dates";
 import { openingFor } from "../data/slots";
 import type { DemoState } from "../data/types";
 import { t, tc } from "../i18n";

@@ -47,7 +47,7 @@ export function AssistantHeaderButton() {
   return (
     <Button size="sm" variant="secondary" data-help="assistant" aria-keyshortcuts="Control+K Meta+K" icon={<MessageCircle size={16} aria-hidden />} onClick={() => openAssistant()} className="max-sm:w-11 max-sm:justify-center max-sm:px-0">
       <span className="max-sm:sr-only">{t("assistant.open")}</span>
-      <kbd aria-hidden className="hidden rounded-xs border border-hairline px-1.5 font-sans text-xs text-text-secondary lg:inline">{mac ? "⌘K" : "Ctrl K"}</kbd>
+      <kbd aria-hidden className="hidden rounded-xs border border-hairline px-1.5 font-sans text-xs text-text-secondary lg:inline">{t(mac ? "assistant.shortcut.mac" : "assistant.shortcut.pc")}</kbd>
     </Button>
   );
 }

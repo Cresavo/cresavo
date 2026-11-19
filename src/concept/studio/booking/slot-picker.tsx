@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { addDays, formatTime } from "../../data/dates";
+import { addDays } from "../../data/dates";
 import { freeStarts, staffWorks, type Need } from "../../data/slots";
 import type { DateKey, StaffId } from "../../data/types";
-import { dayChipLabel, formatDayMonth } from "../../i18n/format";
+import { dayChipLabel, formatDayMonth, formatTime } from "../../i18n/format";
 import { t } from "../../i18n";
 import { cx } from "../../ui/cx";
 import { useStudio } from "../use-studio";

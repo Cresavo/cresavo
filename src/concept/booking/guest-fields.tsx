@@ -16,11 +16,20 @@ export function GuestFields({ value, onChange, staffEntry = false }: { value: Gu
   return (
     <div className="space-y-4">
       <Field label={t(staffEntry ? "newBooking.customerName" : "booking.yourName")}>
-        <TextInput value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} autoComplete="name" placeholder={t("booking.namePlaceholder")} />
+        <TextInput required={!staffEntry} value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} autoComplete="name" placeholder={t("booking.namePlaceholder")} />
       </Field>
       <Field label={t(staffEntry ? "newBooking.customerPhone" : "booking.yourPhone")} hint={staffEntry ? undefined : t("booking.phoneHint")}>
-        <TextInput value={value.phone} onChange={(e) => onChange({ ...value, phone: e.target.value })} type="tel" inputMode="tel" autoComplete="tel" placeholder={t("booking.phonePlaceholder")} />
+        <TextInput required={!staffEntry} value={value.phone} onChange={(e) => onChange({ ...value, phone: e.target.value })} type="tel" inputMode="tel" autoComplete="tel" placeholder={t("booking.phonePlaceholder")} />
       </Field>
     </div>
+  );
+}
+
+export function RememberContact({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+      <input type="checkbox" className="size-5 shrink-0 accent-action" checked={checked} onChange={event => onChange(event.target.checked)} />
+      {t("booking.rememberContact")}
+    </label>
   );
 }

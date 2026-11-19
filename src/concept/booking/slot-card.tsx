@@ -1,9 +1,8 @@
 import { WithStaff } from "./with-staff";
 import { ChevronRight } from "lucide-react";
-import { formatTime } from "../data/dates";
 import type { DateKey, DemoState, Service } from "../data/types";
 import { t } from "../i18n";
-import { formatDayShort, formatDuration, formatMoney, relativeDay } from "../i18n/format";
+import { formatDayShort, formatDuration, formatMoney, relativeDay, formatTime } from "../i18n/format";
 import type { OpenSlot } from "./suggest";
 
 interface SlotCardProps {
