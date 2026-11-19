@@ -32,22 +32,34 @@ we never have to retrofit them. See the [privacy and security overview](PRIVACY_
 
 | Check (workflow → check name) | Runs | Results | Blocks merge? |
 |---|---|---|---|
-| CodeQL (`codeql.yml`) → `Analyze (javascript-typescript)`, `Analyze (actions)` | PRs to `main`, pushes to `main`, Mondays, manual | **Security** → **Code scanning**, and as PR annotations | Only once required in the `main` ruleset (see below) |
-| Dependency review (`dependency-review.yml`) → `Dependency review (high/critical gate)` | Every PR to `main` | Job summary of the PR check | Fails on new or changed dependencies (runtime and development) with a high or critical advisory; blocks once required |
-| Secret scan (`secret-scan.yml`) → `Gitleaks (full history)` | PRs, pushes to `main`, manual | Job log (matches are redacted) | Once required |
+| CodeQL (`codeql.yml`) → `Analyze (javascript-typescript)`, `Analyze (actions)` | PRs to `main`, pushes to `main`, Mondays, manual | **Security** → **Code scanning**, and as PR annotations | Not yet. Planned: required status checks and a code scanning results rule in the **Protect main** ruleset (see below) |
+| Dependency review (`dependency-review.yml`) → `Dependency review (high/critical gate)` | Every PR to `main` | Job summary of the PR check | Fails on new or changed dependencies (runtime and development) with a high or critical advisory. Not yet a required check |
+| Secret scan (`secret-scan.yml`) → `Gitleaks (full history)` | PRs, pushes to `main`, manual | Job log (matches are redacted) | Yes, required by **Protect main** |
 | GitHub secret scanning and push protection | Every push (repository setting) | **Security** → **Secret scanning** | Push protection rejects a push with a recognised token |
 | Weekly dependency audit (`dependency-audit.yml`) | Mondays, manual | Job summary | No; a failed run is fixed before new features |
 | OpenSSF Scorecard (`scorecard.yml`) | Pushes to `main`, Mondays, manual | **Security** → **Code scanning** (tool Scorecard) | No. Its SARIF upload is not a CodeQL analysis |
 | Dependabot (`dependabot.yml`) | Weekly | Pull requests | No |
 
-Dependency review needs the repository's **Dependency graph** setting; while
-it is off, the check fails with `403 Forbidden`. CodeQL uses an advanced workflow, so CodeQL *default setup* in the repository
-settings must stay off. A green `Analyze` job means the analysis ran, not that
-it found nothing. Findings block a PR only through a **Code scanning results**
-rule in the `main` ruleset (security severity high or higher, alerts error);
-without that rule they are reported but do not block. The required checks and
-the rule are set by the maintainer
-([launch checklist](LAUNCH_CHECKLIST.md#right-after-publishing), step 10).
+`Verify POC` → `E2E dev / proxy 0` is also required by **Protect main**
+(ruleset 27584925). The CodeQL and Dependency review checks are not required
+yet; the maintainer adds them in the order in the
+[launch checklist](LAUNCH_CHECKLIST.md#right-after-publishing), step 10.
+
+Dependency review reads the dependency graph through the GitHub API. On PR #65
+it failed with `403 Forbidden`; the cause is not established yet. A disabled
+**Dependency graph** setting is one possible cause to verify; token
+permissions and API limits can also return 403. The workflow keeps its
+minimal permissions (`contents: read`) until there is evidence that another
+fix is needed.
+
+CodeQL uses an advanced workflow, so CodeQL *default setup* in the repository
+settings must stay off. Successful `Analyze` jobs show that the CodeQL
+analysis ran and uploaded results; they do not show that it found nothing.
+Whether findings block merge depends on a required code scanning results
+check. GitHub supports that through a ruleset or through branch protection.
+The chosen solution here is a **Require code scanning results** rule in
+**Protect main** (tool CodeQL, security alerts high or higher, alerts
+errors). Until it is enabled, findings are reported but do not block merge.
 
 Handling a finding:
 

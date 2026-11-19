@@ -51,9 +51,11 @@ current UI or docs.
    **Delete workflow run**. An agent can list the run IDs for you.
 7. **Turn on Dependabot alerts.** **Settings** → **Advanced Security** (older
    UI: **Code security and analysis**) → **Dependabot alerts** → **Enable**.
-   **(verify)** Also enable **Dependabot security updates** there. Make sure
-   **Dependency graph** is enabled: without it the `Dependency review` check
-   fails with `403 Forbidden` (seen on PR #65, 2026-11-19).
+   **(verify)** Also enable **Dependabot security updates** there. Check that
+   **Dependency graph** is enabled. The `Dependency review` check on PR #65
+   failed with `403 Forbidden` (2026-11-19); a disabled dependency graph is a
+   possible cause to verify, but token permissions and API limits can also
+   return 403.
 
 ## Go public
 
@@ -72,23 +74,25 @@ once the repository is public.
    **Push protection** were confirmed enabled on 2026-11-19. Leave **CodeQL
    analysis** default setup **off**: CodeQL runs from `codeql.yml` (advanced
    setup), and both cannot be active at once.
-10. **Branch protection for `main`.** **Settings** → **Branches** → **Add
-   classic branch protection rule** (or **Rules** → **Rulesets** → **New
-   branch ruleset** **(verify)**) → Branch name pattern `main` →
-   - tick **Require a pull request before merging**;
-   - tick **Require status checks to pass before merging**, then search and
-     add the checks from **Verify POC** (`E2E dev / proxy 0`), **Secret
-     scan** (`Gitleaks (full history)`), **Dependency review**
-     (`Dependency review (high/critical gate)`) and **CodeQL**
-     (`Analyze (javascript-typescript)`, `Analyze (actions)`). The checks
-     only appear in the search after they have run once in the last week;
-   - in a ruleset, also add **Require code scanning results** → tool
-     **CodeQL** → security alerts **High or higher**, alerts **Errors**, so
-     new CodeQL findings block merge and are not only reported **(verify)**;
-   - leave **Allow force pushes** and **Allow deletions** unticked;
-   - **Create**.
-   Verify POC runs on every pull request, docs-only ones included, so the
-   required check always reports.
+10. **Required checks for `main`.** The active ruleset **Protect main**
+   (ID 27584925, **Settings** → **Rules** → **Rulesets**) already requires a
+   pull request and the status checks `E2E dev / proxy 0` (Verify POC) and
+   `Gitleaks (full history)` (Secret scan). Extend that ruleset; do not add a
+   second one. Keep its existing rules. In this order:
+   1. Verify the dependency graph (step 7) and re-run `Dependency review` on
+      an open pull request until it succeeds.
+   2. After successful runs, add the status checks
+      `Dependency review (high/critical gate)`,
+      `Analyze (javascript-typescript)` and `Analyze (actions)` to
+      **Require status checks to pass**. Checks only appear in the search
+      after they have run recently.
+   3. Once the pull request that adds `codeql.yml` is approved and merged,
+      verify the first CodeQL analysis on `main` (**Actions** → **CodeQL**,
+      and **Security** → **Code scanning** shows results for `main`).
+   4. Then add **Require code scanning results** → tool **CodeQL** →
+      security alerts **High or higher**, alerts **Errors** **(verify)**.
+   All these workflows run on every pull request to `main` without path
+   filters, so the required checks always report.
 11. **CLA Assistant (after legal review).** The CLA is a draft, and the
     README, CONTRIBUTING and the PR template say that signatures are not
     collected yet and external PRs are held for merge. When you are ready:
