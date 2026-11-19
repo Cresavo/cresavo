@@ -57,6 +57,11 @@ readable files, validate on the server, AI only proposes and the person
 approves, all UI text in the i18n dictionary (English first), no secrets or
 personal data in logs.
 
+**API parity.** Every feature declares its API resources in the module manifest
+or the always-on core list. New modules with missing or empty declarations fail
+the parity test. Regenerate the table with `node --import tsx scripts/api-parity-table.mjs`.
+See the [API platform plan](docs/design/API_PLATFORM.md).
+
 ## Languages
 
 English is the source language for code, documentation and UI. Every user-facing
