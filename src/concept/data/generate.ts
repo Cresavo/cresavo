@@ -1,4 +1,5 @@
 import { translate } from "../i18n";
+import { DEFAULT_REMINDER_SETTINGS } from "../booking/reminders";
 import { formatDayLong, formatMoney } from "../i18n/format";
 import { defaultBusinessLocalization, type BusinessLocalization } from "../i18n/business";
 import { FIRST_NAMES_F, FIRST_NAMES_M, LAST_NAMES } from "./catalog";
@@ -31,7 +32,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 20;
+export const DEMO_VERSION = 21;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -604,6 +605,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     seq: 1,
     salon,
     localization,
+    reminderSettings: { ...DEFAULT_REMINDER_SETTINGS },
     staff: team,
     services,
     retiredServices: [],

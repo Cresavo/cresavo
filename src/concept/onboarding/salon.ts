@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/locale";
+import { DEFAULT_REMINDER_SETTINGS } from "../booking/reminders";
 import { WEEK_ORDER } from "../data/dates";
 import { DEMO_VERSION, MODULE_KEYS } from "../data/generate";
 import type { DemoState, PackId, Salon, Staff } from "../data/types";
@@ -78,6 +79,7 @@ export function createSalon(today: string, draft: SalonDraft): DemoState {
   const state: DemoState = {
     version: DEMO_VERSION, industry: draft.industry, pack: pack.id, generatedFor: today, seq: 1,
     localization: { language, currency, bilingual: false },
+    reminderSettings: { ...DEFAULT_REMINDER_SETTINGS },
     salon: { name, slug: checked.slug, hours, lunch: null, closures: [], tagline: "", address: "", area: "", email: "", phone: "", orgNumber: "" },
     staff, categories: [{ id: "menu", name: translate(language, "booking.treatments") }], services: [], retiredServices: [],
     resources: [], exceptions: [], customers: [], bookings: [], journals: [], stock: [], suppliers: [], orders: [], sales: [],

@@ -9,6 +9,7 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- The demo shows the service total, payment split and salon-local cancellation deadline before booking. Studio settings estimate monthly reminder SMS costs and link to the simulated Sent log. Getting started links to a checklist for exporting data and importing customers. Failed booking and payment actions show a copyable reference code.
 - Releases are published automatically when a release pull request merges, with readable notes from `docs/releases/`. [Releasing](docs/RELEASING.md) explains the cadence and how to follow along.
 - The Swedish product page and privacy note live at `/sv` and `/sv/privacy`. The Swedish site links into the demo in Swedish, and the Swedish domains redirect to the main site.
 - Start a browser-local salon from Today or Settings with a seven-step setup in Swedish or English. New salons have their own bookable page, empty studio views and a first-run checklist. A short guided tour introduces the demo salon.
@@ -16,6 +17,7 @@ All notable changes to this project are documented here. Format follows
 - The public product site publishes a sitemap and search metadata. Its production deployment uses cookie-free Vercel Web Analytics to measure visits.
 
 ### Changed
+- Book again sits beside booking management on confirmations and in My bookings, and keeps the original treatment and practitioner when available.
 - Salong Eko’s sample treatments, team profiles, reviews and inbox messages follow the language of each view. Studio help is available in Swedish, and the built-in assistant understands more Swedish price, stock, campaign and booking-page requests.
 - English is the default language; Salong Eko offers Swedish to visitors.
 - Customers can confirm the next available visit from the treatment list, opt in to contact prefill, and book the same treatment and practitioner again. The confirmation links to appointment management, calendar downloads and Google Calendar. Shared gift cards show their remaining balance when available.
@@ -23,6 +25,8 @@ All notable changes to this project are documented here. Format follows
 - On phones, Today shows the next customer above the schedule. Inbox rows lead with the message subject and show the sender below it.
 
 ### Fixed
+- Booking summaries account for prepaid packages, past visits show their status, and failed moves stay visible after the time picker closes. Simulated previews keep the management link and separate confirmation channel choices from reminder defaults.
+- Reminder pricing follows the salon’s currency and calendar month. Demo error references can be looked up in browser-local Support access, and gift card lookup errors wait until the code field loses focus.
 - New bookings respect the calendar’s staff filter. Staff schedules show exact shift times, and the mobile week view names each practitioner. Owners can undo a removed cost, clear an empty customer filter and switch studio views with the arrow keys.
 - Opening a booking link keeps other studio tabs on their selected salon. Local salons keep their own saved edits, booking address and browser-only AI settings.
 - Owners can change the studio language during setup and keep their answers. Setup offers to reopen an existing salon. First bookings respect the selected team member, finance exports use the salon currency and campaign links open the salon’s booking page.

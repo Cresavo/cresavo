@@ -7,7 +7,7 @@ import { balanceOf } from "@/concept/giftcards/cards";
 import { applyAction } from "@/concept/log/capture";
 import type { LogMeta } from "@/concept/log/types";
 import { undoBlockReason } from "@/concept/log/undo";
-import { undoBlockMessage } from "@/concept/studio/log/undo-toast";
+import { undoBlockMessageKey } from "@/concept/studio/log/undo-toast";
 import { canRestore, restoreBlockReason, restoreEntry } from "@/concept/trash/trash";
 
 // Regressions for two Codex review findings on PR #31: undo must not orphan a
@@ -26,7 +26,7 @@ it("blocks undoing a gift-card sale after redemption changed the created card", 
   const redeemed = applyAction(sold, { type: "giftcard/redeem", code: card.code, bookingId: upcoming[0].id, date: today }, meta);
   const reason = undoBlockReason(redeemed, sold.log[0]);
   expect(reason).toBe("created-changed");
-  expect(undoBlockMessage(reason)).toBeTruthy();
+  expect(undoBlockMessageKey(reason)).toBe("log.undoCreatedChanged");
   expect(applyAction(redeemed, { type: "log/undo", id: sold.log[0].id }, meta)).toBe(redeemed);
 });
 
@@ -40,7 +40,7 @@ it("blocks undoing a treatment creation after a booking references it", () => {
   expect(booked.bookings.at(-1)?.serviceId).toBe(added.id);
   const reason = undoBlockReason(booked, created.log[0]);
   expect(reason).toBe("record-in-use");
-  expect(undoBlockMessage(reason)).toBeTruthy();
+  expect(undoBlockMessageKey(reason)).toBe("log.undoRecordInUse");
   expect(applyAction(booked, { type: "log/undo", id: created.log[0].id }, meta)).toBe(booked);
 });
 

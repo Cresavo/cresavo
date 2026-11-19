@@ -1,6 +1,7 @@
 import { parseLocale } from "@/lib/locale";
 import type { BusinessLocalization } from "./i18n/business";
 import { sendBookingMessage, type BookingMessageAction } from "./booking/messages";
+import { MAX_SMS_PRICE_ORE, type ReminderSettings } from "./booking/reminders";
 import { applyCustomerReview, type CustomerReviewAction } from "./booking/review-actions";
 import { applyAssistant, type AssistantAction } from "./assistant/actions";
 import { findCustomerByPhone, isContactPhone, isMobilePhone, normalizePhone } from "./booking/lookup";
@@ -48,6 +49,7 @@ import type {
 
 export type DemoAction =
   | { type: "salon/language"; language: BusinessLocalization["language"]; bilingual: boolean }
+  | { type: "reminder/settings"; settings: Partial<ReminderSettings> }
   | BookingMessageAction
   | CustomerReviewAction
   | OpsAction
@@ -262,10 +264,13 @@ function completeBooking(state: DemoState, id: string): DemoState {
 
 function replyToInbox(state: DemoState, id: string, reply: string, slot?: SlotSuggestion): DemoState {
   const item = state.inbox.find((i) => i.id === id);
-  if (!item) return state;
+  if (!item || (slot && item.handled)) return state;
   let next = state;
-  if (slot && item.kind === "reschedule" && item.bookingId) {
-    next = moveBooking(next, item.bookingId, slot.date, slot.start, slot.staffId);
+  if (slot && item.kind === "reschedule") {
+    const booking = state.bookings.find(entry => entry.id === item.bookingId);
+    if (booking?.status !== "booked") return state;
+    next = moveBooking(next, booking.id, slot.date, slot.start, slot.staffId);
+    if (next === state) return state;
   } else if (slot && item.kind === "request") {
     let customerId = item.customerId;
     if (!customerId && item.fromName) {
@@ -286,7 +291,10 @@ function replyToInbox(state: DemoState, id: string, reply: string, slot?: SlotSu
       customerId = customer.id;
       next = { ...next, seq: next.seq + 1, customers: [...next.customers, customer] };
     }
-    if (customerId) next = createBooking(next, { ...slot, customerId, source: "online" });
+    if (!customerId || !next.customers.some(customer => customer.id === customerId)) return state;
+    const booked = createBooking(next, { ...slot, customerId, source: "online" });
+    if (booked === next) return state;
+    next = booked;
   }
   return {
     ...next,
@@ -318,6 +326,13 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
     }
     case "booking-message/send":
       return sendBookingMessage(state, action);
+    case "reminder/settings": {
+      const { channel, smsPriceOre } = { ...state.reminderSettings, ...action.settings };
+      if (channel !== "sms" && channel !== "email") return state;
+      if (!Number.isInteger(smsPriceOre) || smsPriceOre < 0 || smsPriceOre > MAX_SMS_PRICE_ORE) return state;
+      if (channel === state.reminderSettings.channel && smsPriceOre === state.reminderSettings.smsPriceOre) return state;
+      return { ...state, reminderSettings: { channel, smsPriceOre } };
+    }
     case "review/submit":
     case "review/approve":
       return applyCustomerReview(state, action);

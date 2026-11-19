@@ -5,6 +5,8 @@ import { ArrowUp, Mic, SquarePen, Volume2, VolumeX, X } from "lucide-react";
 import type { Message } from "../../assistant/thread";
 import { useSpeech } from "../../command/use-speech";
 import { t } from "../../i18n";
+import { isBookingOrPaymentAction } from "../../support/action-reference";
+import { ActionFailure } from "../../ui/action-failure";
 import { IconButton } from "../../ui/button";
 import { cx } from "../../ui/cx";
 import { replyUndoBlockReason } from "./reply-actions";
@@ -12,7 +14,7 @@ import { ReplyCardView, type CardActions } from "./reply-card";
 import { canSpeak, stopSpeaking } from "./speak";
 import { closeAssistant, setSpeak, takePendingQuestion } from "./thread-store";
 import { useAssistant } from "./use-assistant";
-import { undoBlockMessage } from "../log/undo-toast";
+import { undoBlockMessageKey } from "../log/undo-toast";
 
 /** The conversation with the assistant: full screen on phones, a side panel on larger screens. */
 export function AssistantPanel() {
@@ -194,6 +196,9 @@ function MessageView({ message, assistant, onEdit }: { message: Message; assista
   }
   const reply = message.reply!;
   const undoReason = replyUndoBlockReason(reply);
+  const undoKey = undoBlockMessageKey(undoReason);
+  const bookingOrPayment = reply.card?.kind === "change" && isBookingOrPaymentAction(reply.card.action.type);
+  const failure = reply.status === "failed" && bookingOrPayment ? { requestId: message.id, reason: "assistant.status.failed" as const } : undefined;
   // A rule answer's text repeats its card (it is there to be read aloud); AI wording adds to it.
   const repeatsCard = reply.source === "rules" && !!reply.card && ANSWERS.has(reply.card.kind);
   return (
@@ -202,10 +207,13 @@ function MessageView({ message, assistant, onEdit }: { message: Message; assista
         <ReplyCardView
           card={reply.card}
           status={reply.status}
+          failure={failure}
           actions={cardActions(assistant, message.id, undoReason ? undefined : reply.undoId, reply.request ? onEdit : undefined)}
         />
       )}
-      {undoBlockMessage(undoReason) && <p className="text-sm text-text-secondary">{undoBlockMessage(undoReason)}</p>}
+      {undoKey && (bookingOrPayment
+        ? <ActionFailure failure={{ requestId: `${message.id}/undo`, reason: undoKey }} />
+        : <p className="text-sm text-text-secondary">{t(undoKey)}</p>)}
       {reply.followUps && !reply.status && <FollowUps items={reply.followUps} onPick={assistant.send} />}
     </Bubble>
   );

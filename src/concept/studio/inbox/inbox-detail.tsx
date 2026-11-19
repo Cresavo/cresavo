@@ -10,6 +10,8 @@ import type { InboxItem } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { formatDayLong, relativeDay, formatTime } from "../../i18n/format";
 import { findService } from "../../selectors";
+import { newActionRequestId } from "../../support/action-reference";
+import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Badge } from "../../ui/badge";
 import { Button, ButtonLink } from "../../ui/button";
 import { TextArea } from "../../ui/controls";
@@ -24,6 +26,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
   const { state, today, minutes } = useStudio();
   const at = inboxTimestamp(item, today, minutes);
   const [reply, setReply] = useState(item.draftReply ?? "");
+  const [failure, setFailure] = useState<ActionFailureInfo>();
   const slot = item.suggestion && !item.handled ? liveSlot(state, item.suggestion, today, minutes, item.bookingId) : undefined;
   const staff = slot ? state.staff.find((s) => s.id === slot.staffId) : undefined;
   const booking = item.bookingId ? state.bookings.find((b) => b.id === item.bookingId) : undefined;
@@ -31,8 +34,9 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
   const name = senderName(state, item) ?? t("inbox.system");
 
   const send = () => {
-    dispatchWithUndoToast({ type: "inbox/reply", id: item.id, reply: reply.trim(), slot }, slot ? t("inbox.sentWithBooking", { name: name.split(" ")[0] }) : t("inbox.sent"));
-    onDone?.();
+    const sent = dispatchWithUndoToast({ type: "inbox/reply", id: item.id, reply: reply.trim(), slot }, slot ? t("inbox.sentWithBooking", { name: name.split(" ")[0] }) : t("inbox.sent"));
+    if (sent) onDone?.();
+    else setFailure({ requestId: newActionRequestId(), reason: slot ? "inbox.sendBookingFailed" : "messages.failed" });
   };
 
   return (
@@ -96,14 +100,16 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
             </div>
           )}
           <TextArea value={reply} onChange={(e) => setReply(e.target.value)} aria-label={t("inbox.suggestedReply")} />
+          {failure && <ActionFailure failure={failure} />}
           <div className="flex flex-wrap justify-end gap-2">
             {item.kind === "cancel" && booking && waitlistCount(state, booking) > 0 && (
               <Button
                 variant="secondary"
                 onClick={() => {
                   const waitlist = waitlistCount(state, booking);
-                  if (!textWaitlistAboutSlot(state, booking)) return;
-                  dispatchWithUndoToast({ type: "inbox/add", item: waitlistNotice(booking, waitlist, { today, minutes }) }, tc("suggest.gaps.toast", waitlist));
+                  if (!textWaitlistAboutSlot(state, booking) || !dispatchWithUndoToast({ type: "inbox/add", item: waitlistNotice(booking, waitlist, { today, minutes }) }, tc("suggest.gaps.toast", waitlist))) {
+                    setFailure({ requestId: newActionRequestId(), reason: "messages.failed" });
+                  }
                 }}
               >
                 {t("inbox.offerSlot")}

@@ -12,6 +12,8 @@ import { t } from "../../i18n";
 import { formatDayLong, formatDuration, formatMoney, formatTime } from "../../i18n/format";
 import { findCustomer, fullName } from "../../selectors";
 import { dispatchWithLog, withBookingLock } from "../../store";
+import { newActionRequestId } from "../../support/action-reference";
+import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Avatar } from "../../ui/avatar";
 import { Button } from "../../ui/button";
 import { Field, SearchInput, Select, TextInput } from "../../ui/controls";
@@ -40,7 +42,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
   const [adding, setAdding] = useState(!!preset.newCustomer);
   const [guest, setGuest] = useState(preset.newCustomer ?? { name: "", phone: "" });
   const [email, setEmail] = useState("");
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<ActionFailureInfo>();
   const [pending, setPending] = useState(false);
   const presetCustomer = findCustomer(state, preset.customerId);
   const viewer = useRole() === "staff" ? staffViewer(state) : null;
@@ -78,16 +80,17 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
   const contactValid = guest.name.trim().length >= 2 && isContactPhone(guest.phone);
   const emailValid = !email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const guestValid = contactValid && emailValid;
-  const reason = failed ? t("newBooking.slotTaken") : slot && !fits ? t("newBooking.doesNotFit") : undefined;
+  const reason = slot && !fits ? t("newBooking.doesNotFit") : undefined;
 
   const book = async () => {
     if (pending || !slot || !fits || (!customer && (!adding || !guestValid))) return;
     const contact = customer ? { customerId: customer.id } : { newCustomer: { ...guest, email, since: today } };
+    const requestId = newActionRequestId();
     setPending(true);
-    const logId = await withBookingLock(() => dispatchWithLog({ type: "booking/create", ...contact, serviceId: service.id, staffId, date: slot.date, start: slot.start, source: "phone" }));
+    const logId = await withBookingLock(() => dispatchWithLog({ type: "booking/create", ...contact, serviceId: service.id, staffId, date: slot.date, start: slot.start, source: "phone" })).catch(() => false as const);
     setPending(false);
     if (logId === false) {
-      setFailed(true);
+      setFailure({ requestId, reason: "newBooking.slotTaken" });
       return;
     }
     showUndoToast(t("newBooking.bookedToast", { name: customer?.firstName ?? guest.name.trim().split(/\s+/)[0], when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` }), logId);
@@ -109,9 +112,9 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
               {slot && ` · ${formatDayLong(slot.date)} ${formatTime(slot.start)}`}
             </span>
           </p>
-          {reason && <Notice tone="info" role="status" className="w-full">{reason}</Notice>}
+          {failure ? <ActionFailure failure={failure} /> : reason && <Notice tone="info" role="status" className="w-full">{reason}</Notice>}
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button disabled={pending || !fits || failed || (!customer && (!adding || !guestValid))} onClick={book}>
+          <Button disabled={pending || !fits || (!customer && (!adding || !guestValid))} onClick={book}>
             {slot ? t("newBooking.confirmAt", { time: formatTime(slot.start) }) : t("newBooking.confirm")}
           </Button>
         </>
@@ -169,7 +172,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
               <button
                 key={s.id}
                 aria-pressed={s.id === service.id}
-                onClick={() => { setServiceId(s.id); setFailed(false); }}
+                onClick={() => { setServiceId(s.id); setFailure(undefined); }}
                 className={cx(
                   "flex min-h-12 items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm ring-1 ring-inset",
                   s.id === service.id ? "bg-action-bg ring-action" : "bg-surface ring-hairline hover:bg-surface-2",
@@ -188,14 +191,14 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
         </section>
 
         {!viewer && service.staffIds.length > 1 && <Field label={t("calendar.staff")}>
-          <Select value={staffId} onChange={e => { setChosenStaff(e.target.value); setSlot(null); setFailed(false); }}>
+          <Select value={staffId} onChange={e => { setChosenStaff(e.target.value); setSlot(null); setFailure(undefined); }}>
             {state.staff.filter(person => service.staffIds.includes(person.id)).map(person =>
               <option key={person.id} value={person.id}>{fullName(person)}</option>)}
           </Select>
         </Field>}
         <section className="space-y-2">
           <h3 className="text-sm font-medium">{t("newBooking.time")}</h3>
-          <SlotPicker staffId={staffId} need={needOf(service)} date={date} onDateChange={(next) => { setDate(next); setSlot(null); setFailed(false); }} value={slot} onChange={(next) => { setSlot({ ...next, staffId }); setFailed(false); }} />
+          <SlotPicker staffId={staffId} need={needOf(service)} date={date} onDateChange={(next) => { setDate(next); setSlot(null); setFailure(undefined); }} value={slot} onChange={(next) => { setSlot({ ...next, staffId }); setFailure(undefined); }} />
         </section>
       </div>
     </Sheet>

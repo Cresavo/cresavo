@@ -7,9 +7,11 @@ import { t, tc } from "../../i18n";
 import { relativeDay, formatTime } from "../../i18n/format";
 import { dispatch } from "../../store";
 import { activeGrant, grantStatus, type GrantHours } from "../../support/access";
+import { findActionFailure } from "../../support/action-reference";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
+import { Field, TextInput } from "../../ui/controls";
 import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 
@@ -22,6 +24,8 @@ function clock(ms: number, today: string): string {
 export function SupportAccess() {
   const { state, today } = useStudio();
   const [now, setNow] = useState(() => Date.now());
+  const [reference, setReference] = useState("");
+  const [result, setResult] = useState<ReturnType<typeof findActionFailure> | null>();
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(timer);
@@ -43,6 +47,21 @@ export function SupportAccess() {
     <Section title={t("support.title")} className="lg:col-span-2">
       <Card data-help="support-access" className="space-y-4 p-4">
         <p className="text-sm text-text-secondary">{t("support.text")}</p>
+        <form className="space-y-2" onSubmit={event => {
+          event.preventDefault();
+          setResult(findActionFailure(Boolean(state.industry), reference) ?? null);
+        }}>
+          <Field label={t("reference.lookupCode")} hint={t("reference.lookupHint")}>
+            <TextInput value={reference} autoComplete="off" spellCheck={false} onChange={event => {
+              setReference(event.target.value);
+              setResult(undefined);
+            }} />
+          </Field>
+          <Button type="submit" size="sm" variant="secondary" disabled={!reference.trim()}>{t("reference.lookup")}</Button>
+          <p role="status" className="text-sm text-text-secondary">
+            {result ? t("reference.lookupResult", { when: clock(result.at, today), reason: t(result.reason) }) : result === null && t("reference.lookupMissing")}
+          </p>
+        </form>
         {active ? (
           <div className="flex flex-wrap items-center gap-3 rounded-md bg-action-bg p-3 text-text">
             <ShieldCheck size={20} className="shrink-0" />

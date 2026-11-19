@@ -64,7 +64,9 @@ function load(raw: string | null, workspace: Workspace): DemoState | null {
     const saved = raw && migrateState(JSON.parse(raw));
     if (saved && Boolean(saved.industry) === (workspace === "own")) {
       if (saved.industry) return purgeExpired({ ...saved, generatedFor: today() }, today());
-      const demo = saved.generatedFor === today() ? purgeExpired(saved, today()) : createDemoState(today(), setupOf(saved));
+      const demo = saved.generatedFor === today()
+        ? purgeExpired(saved, today())
+        : { ...createDemoState(today(), setupOf(saved)), reminderSettings: saved.reminderSettings };
       // An older setup could give both salons the same address. Keep the
       // published local link and restore the demo's fixture address in that case.
       const fixtureSlug = getPack(demo.pack).salon.slug;

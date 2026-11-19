@@ -3,10 +3,10 @@ import { createDemoState } from "@/concept/data/generate";
 import { addDays, toKey } from "@/concept/data/dates";
 import { freeStarts } from "@/concept/data/slots";
 
-const { changed, showToast, unsubscribe, note } = vi.hoisted(() => ({
-  changed: vi.fn(), showToast: vi.fn(), unsubscribe: { current: () => {} }, note: { draft: "" },
+const { changed, showToast, showActionFailure, unsubscribe, note } = vi.hoisted(() => ({
+  changed: vi.fn(), showToast: vi.fn(), showActionFailure: vi.fn(), unsubscribe: { current: () => {} }, note: { draft: "" },
 }));
-vi.mock("@/concept/ui/toast", () => ({ showToast }));
+vi.mock("@/concept/ui/toast", () => ({ showToast, showActionFailure }));
 vi.mock("react", () => ({
   useState: () => [note.draft, vi.fn()],
   useSyncExternalStore: (subscribe: (notify: () => void) => () => void, read: () => unknown) => {
@@ -45,8 +45,20 @@ it("the cancellation toast reports a conflict after another tab takes the slot",
 
   action.run();
 
-  expect(showToast).toHaveBeenLastCalledWith("Can't undo: that time is no longer available.");
+  expect(showActionFailure).toHaveBeenLastCalledWith("log.undoTimeTaken");
   expect(raw).toBe(rebooked);
+});
+
+it("retains reminder settings when the sample bookings regenerate for a new day", async () => {
+  const today = toKey(new Date());
+  const saved = createDemoState(addDays(today, -1));
+  saved.reminderSettings = { channel: "email", smsPriceOre: 80 };
+  const localStorage = { getItem: () => JSON.stringify(saved) };
+  vi.stubGlobal("window", Object.assign(new EventTarget(), { localStorage }));
+  const { useDemo } = await import("@/concept/store");
+  const regenerated = useDemo();
+  expect(regenerated?.generatedFor).toBe(today);
+  expect(regenerated?.reminderSettings).toEqual(saved.reminderSettings);
 });
 
 it("reloads another tab's booking and rejects a stale attempt for the same slot", async () => {

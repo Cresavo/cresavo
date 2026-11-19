@@ -11,7 +11,7 @@ import { OwnKeyForm } from "@/concept/studio/more/own-key-form";
 import { useDemo } from "@/concept/store";
 import { useStudio } from "@/concept/studio/use-studio";
 import { dispatchWithUndoToast } from "@/concept/studio/log/undo-toast";
-import { Button } from "@/concept/ui/button";
+import { Button, ButtonLink } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
 
 export default function DataPage() {
@@ -19,25 +19,45 @@ export default function DataPage() {
   const saved = useDemo() ?? state;
   const { info, failed } = useProtocolInfo();
   const exports = [
-    { label: t("data.export.all"), run: () => download(`${state.salon.slug}-${today}.json`, JSON.stringify(saved, null, 2), "application/json") },
-    { label: t("data.export.customers"), run: () => download(`${state.salon.slug}-customers-${today}.csv`, customersCsv(saved), "text/csv") },
-    { label: t("data.export.bookings"), run: () => download(`${state.salon.slug}-bookings-${today}.csv`, bookingsCsv(saved), "text/csv") },
+    { label: t("data.export.all"), description: t("data.export.allContents"), run: () => download(`${state.salon.slug}-${today}.json`, JSON.stringify(saved, null, 2), "application/json") },
+    { label: t("data.export.customers"), description: t("data.export.customerContents"), run: () => download(`${state.salon.slug}-customers-${today}.csv`, customersCsv(saved), "text/csv") },
+    { label: t("data.export.bookings"), description: t("data.export.bookingContents"), run: () => download(`${state.salon.slug}-bookings-${today}.csv`, bookingsCsv(saved), "text/csv") },
   ];
 
   return (
     <MorePage title={t("nav.data")} subtitle={t("data.subtitle")}>
       {/* What an owner comes here for first: getting the data out, and letting an assistant in. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
-        <Section title={t("data.export")}>
-          <Card className="space-y-3 p-5">
-            <p className="text-[15px]">{t("data.exportText")}</p>
-            <div className="flex flex-wrap gap-2">
-              {exports.map((e) => (
-                <Button key={e.label} variant="secondary" icon={<Download size={16} />} onClick={e.run}>{e.label}</Button>
-              ))}
-            </div>
-          </Card>
-        </Section>
+        <div id="migration" className="scroll-mt-4">
+          <Section title={t("data.migration.title")}>
+            <Card className="space-y-4 p-5">
+              <p className="text-sm text-text-secondary">{t("data.exportText")}</p>
+              <ol className="list-decimal space-y-4 pl-5 text-sm marker:font-semibold">
+                <li className="space-y-2 pl-1">
+                  <h3 className="font-semibold">{t("data.migration.download")}</h3>
+                  <ul className="divide-y divide-hairline">
+                    {exports.map(({ label, description, run }) => (
+                      <li key={label} className="space-y-1 py-2">
+                        <Button variant="secondary" icon={<Download size={16} />} onClick={run}>{label}</Button>
+                        <p className="text-text-secondary">{description}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+                <li className="space-y-2 pl-1">
+                  <h3 className="font-semibold">{t("data.migration.prepare")}</h3>
+                  <p className="text-text-secondary">{t("data.migration.prepareText")}</p>
+                </li>
+                <li className="space-y-2 pl-1">
+                  <h3 className="font-semibold">{t("data.migration.import")}</h3>
+                  <p className="text-text-secondary">{t("data.migration.importText")}</p>
+                  <p className="text-text-secondary">{t("data.migration.limit")}</p>
+                  <ButtonLink href="/studio/customers/import" variant="secondary">{t("import.title")}</ButtonLink>
+                </li>
+              </ol>
+            </Card>
+          </Section>
+        </div>
         <div id="connect"><Section title={t("data.connect")}>
           {/* The public demo's server only reads: no outside assistant can connect, so the setup steps would lead nowhere. */}
           {state.industry ? <Card className="space-y-3 p-5">

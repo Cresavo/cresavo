@@ -7,7 +7,7 @@ import type { DateKey, DemoState, Staff, StaffId } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { dayBookings } from "../../selectors";
 import { cx } from "../../ui/cx";
-import { showToast } from "../../ui/toast";
+import { showActionFailure } from "../../ui/toast";
 import type { OpenSheet } from "../booking/booking-sheets";
 import { dispatchWithUndoToast } from "../log/undo-toast";
 import { StaffDot } from "../staff-dot";
@@ -47,12 +47,13 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
     const booking = state.bookings.find((b) => b.id === id);
     if (!booking) return;
     if (booking.staffId !== person.id) {
-      showToast(t("calendar.sameStaffOnly", { name: state.staff.find((s) => s.id === booking.staffId)!.firstName }));
+      const name = state.staff.find((s) => s.id === booking.staffId)!.firstName;
+      showActionFailure("reference.sameStaffOnly", undefined, "studio", t("calendar.sameStaffOnly", { name }));
       return;
     }
     const start = minuteAt(event);
     if (!dispatchWithUndoToast({ type: "booking/move", id, date, start }, t("calendar.movedTo", { time: formatTime(start) }))) {
-      showToast(t("calendar.slotTaken"));
+      showActionFailure("calendar.slotTaken");
     }
   };
 

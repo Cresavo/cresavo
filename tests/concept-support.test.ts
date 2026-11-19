@@ -1,14 +1,49 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { reduce } from "@/concept/actions";
 import { createDemoState } from "@/concept/data/generate";
 import { applyAction } from "@/concept/log/capture";
 import { isUndoable } from "@/concept/log/undo";
 import { activeGrant, grantStatus } from "@/concept/support/access";
+import { actionReference, findActionFailure, newActionRequestId, recordActionFailure } from "@/concept/support/action-reference";
 import { buildTicket, TICKET_ACTIVITY } from "@/concept/support/tickets";
 
 const base = createDemoState("2026-11-16");
 const meta = { actor: "owner", source: "button", at: 1_000 } as const;
 const HOUR = 3_600_000;
+
+it("derives a short support reference from an opaque local request ID", () => {
+  const requestId = newActionRequestId();
+  expect(requestId).toMatch(/^[0-9a-f]{16}$/);
+  expect(actionReference(requestId)).toMatch(/^CR-[0-9A-Z]{7}$/);
+  expect(actionReference("request-2")).toBe(actionReference("request-2"));
+  expect(actionReference("request-2")).not.toBe(actionReference("request-1"));
+});
+
+it("can look up a refused online booking by its copied code after the alert is gone", () => {
+  const records: Record<string, string> = {};
+  const localStorage = Object.assign(records, {
+    getItem: (key: string) => records[key] ?? null,
+    setItem: (key: string, value: string) => { records[key] = value; },
+    removeItem: (key: string) => { delete records[key]; },
+  });
+  vi.stubGlobal("window", { localStorage });
+  vi.useFakeTimers();
+  vi.setSystemTime(1000);
+  try {
+    const requestId = newActionRequestId();
+    const reference = actionReference(requestId);
+    recordActionFailure(false, requestId, "booking.slotTaken");
+    vi.setSystemTime(2000);
+    recordActionFailure(false, requestId, "booking.slotTaken");
+    expect(findActionFailure(false, ` ${reference.toLowerCase()} `)).toEqual({ at: 1000, reason: "booking.slotTaken" });
+    expect(findActionFailure(true, reference)).toBeUndefined();
+    expect(findActionFailure(false, "unknown")).toBeUndefined();
+    expect(Object.values(records).filter(value => typeof value === "string")).toEqual(['{"reason":"booking.slotTaken","at":1000}']);
+  } finally {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  }
+});
 
 describe("support access", () => {
   it("grants read access for the chosen time and ends it", () => {
