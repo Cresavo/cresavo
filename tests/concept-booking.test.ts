@@ -140,6 +140,14 @@ describe("online booking actions", () => {
     expect(next.inbox[0]).toMatchObject({ title: "Waiting list", handled: false, draftReply: "Hi" });
   });
 
+  it("keeps the requested practitioner on the waiting-list request", () => {
+    const request = { type: "online/waitlist", guest, notice, serviceId: "classic-60", staffId: "erik" } as const;
+    const next = reduce(state, request);
+    expect(next.inbox[0]).toMatchObject({ requestedStaffId: "erik", customerId: next.customers.at(-1)!.id });
+    expect(next.customers.at(-1)).toMatchObject({ preferredStaff: "erik", waitlist: true });
+    expect(reduce(state, { ...request, staffId: "anna" })).toBe(state);
+  });
+
   it("moves a booking with an inbox notice only when the new slot is free", () => {
     const booked = reduce(state, book);
     const booking = booked.bookings[booked.bookings.length - 1];

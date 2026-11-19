@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 // Contact prefill is separate from the salon's fictional booking records.
 export interface Guest {
@@ -35,15 +35,17 @@ export function useGuestContact(slug: string) {
   const [known] = useState(() => recallGuest(slug));
   const [guest, setGuest] = useState({ name: known?.name ?? "", phone: known?.phone ?? "" });
   const [choice, setChoice] = useState<boolean>();
+  const latestChoice = useRef<boolean | undefined>(undefined);
   const sameContact = !!known && known.name === guest.name.trim() && known.phone === guest.phone.trim();
   const remember = choice ?? sameContact;
   function chooseRemember(allowed: boolean) {
+    latestChoice.current = allowed;
     if (!allowed) rememberGuest(slug);
     setChoice(allowed);
   }
   function saveContact(customerId: string) {
     // An earlier opt-in belongs to that contact. Another form may since have cleared it.
-    const allowed = choice ?? (sameContact && recallGuest(slug)?.customerId === known?.customerId);
+    const allowed = latestChoice.current ?? (sameContact && recallGuest(slug)?.customerId === known?.customerId);
     rememberGuest(slug, allowed ? { name: guest.name.trim(), phone: guest.phone.trim(), customerId } : undefined);
   }
   return { guest, setGuest, remember, chooseRemember, saveContact };

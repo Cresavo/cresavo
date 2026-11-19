@@ -6,7 +6,7 @@ import { t } from "../i18n";
 import { formatDayLong } from "../i18n/format";
 import { findService } from "../selectors";
 import { currentState, dispatch } from "../store";
-import type { DateKey, DemoState } from "../data/types";
+import type { DateKey, DemoState, StaffId } from "../data/types";
 import { Button } from "../ui/button";
 import type { Now } from "../use-now";
 import { Sheet } from "../ui/sheet";
@@ -17,6 +17,7 @@ import { useGuestContact } from "./guest";
 export interface WaitlistRequest {
   serviceId: string;
   date: DateKey;
+  staffId?: StaffId;
 }
 
 interface WaitlistSheetProps {
@@ -31,6 +32,8 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
   const { guest, setGuest, remember, chooseRemember, saveContact } = useGuestContact(state.salon.slug);
   const [done, setDone] = useState(false);
   const service = request ? findService(state, request.serviceId) : undefined;
+  const person = state.staff.find(s => s.id === request?.staffId);
+  const serviceLabel = service && (person ? t("booking.waitlist.withStaff", { service: service.name, staff: person.firstName }) : service.name);
 
   const close = () => {
     setDone(false);
@@ -38,17 +41,18 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
   };
 
   const submit = () => {
-    if (!request || !service) return;
+    if (!request || !service || !serviceLabel) return;
     const day = formatDayLong(request.date);
     const phone = guest.phone.trim();
     const joined = dispatch({
       type: "online/waitlist",
       guest: { name: guest.name, phone, at: { date: now.today, time: now.minutes } },
       serviceId: service.id,
+      staffId: request.staffId,
       notice: {
         title: t("booking.waitlist.inboxTitle", { service: service.name }),
-        body: t("booking.waitlist.inboxBody", { name: guest.name.trim(), service: service.name, day, phone }),
-        draftReply: t("booking.waitlist.inboxReply", { name: guest.name.trim().split(/\s+/)[0], service: service.name }),
+        body: t("booking.waitlist.inboxBody", { name: guest.name.trim(), service: serviceLabel, day, phone }),
+        draftReply: t("booking.waitlist.inboxReply", { name: guest.name.trim().split(/\s+/)[0], service: serviceLabel }),
       },
     });
     if (!joined) return;
@@ -62,7 +66,7 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
       open={!!request}
       onClose={close}
       title={done ? t("booking.waitlist.doneTitle") : t("booking.waitlist.title")}
-      description={!done && service && request ? t("booking.waitlist.intro", { service: service.name, day: formatDayLong(request.date) }) : undefined}
+      description={!done && serviceLabel && request ? t("booking.waitlist.intro", { service: serviceLabel, day: formatDayLong(request.date) }) : undefined}
       footer={
         done ? (
           <Button onClick={close}>{t("booking.waitlist.close")}</Button>

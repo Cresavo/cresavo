@@ -8,11 +8,12 @@ import { t } from "../i18n";
 import { formatDayLong } from "../i18n/format";
 import { findCustomer, findService, fullName } from "../selectors";
 import { dispatchWithLog, withBookingLock } from "../store";
+import { salonClock } from "../tools/clock";
 import { Button, buttonClass } from "../ui/button";
 import { Notice } from "../ui/notice";
 import { Sheet } from "../ui/sheet";
 import { showToast } from "../ui/toast";
-import { readNow, type Now } from "../use-now";
+import type { Now } from "../use-now";
 import { buildIcs, googleCalendarLink, icsTimestamp } from "./ics";
 import { changeRule } from "./policy";
 import { openSlots, type OpenSlot } from "./suggest";
@@ -69,7 +70,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
   // Compare the visit the customer saw with the refreshed record inside the write lock.
   const canChange = (latest: DemoState) => {
     const current = latest.bookings.find(b => b.id === booking.id);
-    const clock = readNow();
+    const clock = salonClock();
     return !!current && current.date === booking.date && current.start === booking.start &&
       current.staffId === booking.staffId && changeRule(current, clock.today, clock.minutes) === "free";
   };
@@ -98,7 +99,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       start: target.start,
       staffId: target.staffId,
       notice: notice("reschedule", t("booking.move.inboxTitle"), t("booking.move.inboxBody", { name: fullName(customer), service: service.name, from: when, to: `${formatDayLong(target.date)} ${formatTime(target.start)}` })),
-    }, undefined, latest => canChange(latest) && openSlots(latest, service.id, target.date, readNow(), {
+    }, undefined, latest => canChange(latest) && openSlots(latest, service.id, target.date, salonClock(), {
       ignoreId: booking.id, staffId: target.staffId,
     }).some(slot => slot.start === target.start)));
     setPending(false);

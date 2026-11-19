@@ -1274,6 +1274,7 @@ const messages = {
   "booking.waitlist.doneBody": "We will text {phone} as soon as a time opens up. You do not have to do anything more.",
   "booking.waitlist.close": "Done",
   "booking.waitlist.inboxTitle": "Waiting list · {service}",
+  "booking.waitlist.withStaff": "{service} with {staff}",
   "booking.waitlist.inboxBody": "{name} wants {service} on {day} and asks to be notified if something opens up. Phone {phone}.",
   "booking.waitlist.inboxReply": "Hi {name}! You are on the waiting list for {service}. I will text you as soon as a time opens up. /Anna",
 

@@ -10,7 +10,8 @@ import { formatDayLong, formatDuration, formatMoney } from "../i18n/format";
 import { currentState, dispatch, withBookingLock } from "../store";
 import { StaffAvatar } from "../ui/avatar";
 import { Button } from "../ui/button";
-import { readNow, type Now } from "../use-now";
+import { salonClock } from "../tools/clock";
+import type { Now } from "../use-now";
 import { GuestFields, RememberContact, isGuestValid } from "./guest-fields";
 import { changeRule, hoursUntil, FREE_CHANGE_HOURS, LEAD_MINUTES } from "./policy";
 import type { useGuestContact } from "./guest";
@@ -46,7 +47,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
     const day = formatDayLong(slot.date);
     setPending(true);
     const latest = await withBookingLock(() => {
-      const clock = readNow();
+      const clock = salonClock();
       if (hoursUntil(slot, clock.today, clock.minutes) * 60 < LEAD_MINUTES) return;
       const booked = dispatch({
         type: "online/book",

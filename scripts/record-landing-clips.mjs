@@ -3,6 +3,7 @@
 import { execFileSync } from "node:child_process";
 import { copyFile, link, mkdtemp, mkdir, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const origin = process.env.LANDING_ORIGIN || "http://127.0.0.1:3200";
@@ -78,24 +79,24 @@ function camera(page, dir) {
   return { click, type, shot, hold: snap, poster: () => copyFile(file(frame - 1), path.join(dir, "poster.png")), frames: () => frame };
 }
 
+export async function bookingScene(page, film, siteOrigin = origin) {
+  await page.goto(siteOrigin + "/boka/salong-eko");
+  const service = button(page, "Book Basic foot care");
+  await film.shot(service, 12);
+  await film.click(service);
+  const visit = page.getByText("Next available appointment", { exact: true });
+  await film.shot(visit, 24);
+  await film.poster();
+  const guest = page.getByLabel("Your name", { exact: true });
+  await film.shot(guest, 6);
+  await film.type(guest, "Nova Demo");
+  await film.type(page.getByLabel("Mobile number"), "0700009912");
+  await film.click(button(page, "Confirm booking"));
+  await film.shot(page.getByRole("heading", { name: "You are booked" }), 30);
+}
+
 const scenes = {
-  async booking(page, film) {
-    await page.goto(origin + "/boka/salong-eko");
-    const service = button(page, "Book Basic foot care");
-    await film.shot(service, 12);
-    await film.click(service);
-    const time = button(page, /^\d\d:\d\d$/).first();
-    await page.waitForTimeout(450); // let the booking page's scroll settle
-    await film.shot(time, 12);
-    await film.poster();
-    await film.click(time);
-    const guest = page.getByLabel("Your name", { exact: true });
-    await film.shot(guest, 6);
-    await film.type(guest, "Nova Demo");
-    await film.type(page.getByLabel("Mobile number"), "0700009912");
-    await film.click(button(page, "Confirm booking"));
-    await film.shot(page.getByRole("heading", { name: "You are booked" }), 30);
-  },
+  booking: bookingScene,
   async day(page, film) {
     await page.goto(origin + "/studio");
     const phone = button(page, "Someone is calling");
@@ -191,13 +192,15 @@ async function record(browser, name, theme) {
   }
 }
 
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH });
-try {
-  await mkdir(output, { recursive: true });
-  const names = process.argv.length > 2 ? process.argv.slice(2) : Object.keys(scenes);
-  for (const name of names) {
-    for (const theme of name === "booking" ? ["light"] : ["light", "dark"]) await record(browser, name, theme);
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH });
+  try {
+    await mkdir(output, { recursive: true });
+    const names = process.argv.length > 2 ? process.argv.slice(2) : Object.keys(scenes);
+    for (const name of names) {
+      for (const theme of name === "booking" ? ["light"] : ["light", "dark"]) await record(browser, name, theme);
+    }
+  } finally {
+    await browser.close();
   }
-} finally {
-  await browser.close();
 }

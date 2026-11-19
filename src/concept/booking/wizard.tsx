@@ -62,12 +62,13 @@ interface WizardProps {
 export function BookingWizard({ state, now, initialServiceId, initialStaffId, onBooked, onFlowChange, listOnPage }: WizardProps) {
   const nextTime = (serviceId: string, staffId?: StaffId) =>
     suggestSlots(state, { serviceId, staffId, from: now.today, to: addDays(now.today, FALLBACK_DAYS) }, now, 1)[0];
-  const preferredStaff = state.services.find(s => s.id === initialServiceId)?.staffIds.find(id => id === initialStaffId);
-  const [slot, setSlot] = useState(() => initialServiceId ? nextTime(initialServiceId, preferredStaff) : undefined);
+  const initialService = state.services.find(s => s.id === initialServiceId);
+  const preferredStaff = initialService?.staffIds.find(id => id === initialStaffId);
+  const [slot, setSlot] = useState(() => initialService ? nextTime(initialService.id, preferredStaff) : undefined);
   const [alternative, setAlternative] = useState(false);
-  const [trail, setTrail] = useState<Step[]>(initialServiceId ? ["ask", slot ? "next" : "times"] : ["ask"]);
+  const [trail, setTrail] = useState<Step[]>(initialService ? ["ask", slot ? "next" : "times"] : ["ask"]);
   const [staffId, setStaffId] = useState(preferredStaff);
-  const [serviceId, setServiceId] = useState(initialServiceId);
+  const [serviceId, setServiceId] = useState(initialService?.id);
   const [request, setRequest] = useState<BookingRequest>();
   const contact = useGuestContact(state.salon.slug);
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
@@ -120,7 +121,7 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
       timeControl={step === "next" && (
         <OtherTimes state={state} serviceId={service.id} staffId={staffId} selected={alternative ? slot : undefined} clock={now}
           onPick={chosen => { setSlot(chosen); setAlternative(true); }}
-          onWaitlist={date => setWaitlist({ serviceId: service.id, date })} />
+          onWaitlist={date => setWaitlist({ serviceId: service.id, date, staffId })} />
       )}
     />
   );
@@ -144,11 +145,11 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
         ))}
       </div>
     ),
-    suggest: service && request && <Suggestions state={state} now={now} service={service} request={request} onPick={pick} onAll={() => go("times")} onChangeService={() => go("service")} onWaitlist={(date) => setWaitlist({ serviceId: service.id, date })} />,
+    suggest: service && request && <Suggestions state={state} now={now} service={service} request={request} onPick={pick} onAll={() => go("times")} onChangeService={() => go("service")} onWaitlist={(date) => setWaitlist({ serviceId: service.id, date, staffId: service.staffIds.find(id => id === request.staffId) })} />,
     times: service && (
       <div className="space-y-4">
         <h2 className="text-xl font-semibold tracking-tight">{t("booking.times.title", { service: service.name })}</h2>
-        <TimePicker state={state} serviceId={service.id} staffId={staffId} clock={now} onPick={pick} onWaitlist={(date) => setWaitlist({ serviceId: service.id, date })} />
+        <TimePicker state={state} serviceId={service.id} staffId={staffId} clock={now} onPick={pick} onWaitlist={(date) => setWaitlist({ serviceId: service.id, date, staffId })} />
       </div>
     ),
     next: details,

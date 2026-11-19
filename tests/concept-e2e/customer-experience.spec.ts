@@ -1,7 +1,9 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import { bookingScene } from "../../scripts/record-landing-clips.mjs";
 import { BRAND } from "../../src/concept/brand";
+import { openSlots } from "../../src/concept/booking/suggest";
 import { createDemoState } from "../../src/concept/data/generate";
 import type { DemoState } from "../../src/concept/data/types";
 
@@ -13,6 +15,15 @@ async function screenshot(page: Page, name: string) {
   await page.screenshot({ animations: "disabled", path: `docs/concept/screens/night2-${name}-${page.viewportSize()!.width}.png`, fullPage: true });
 }
 async function state(page: Page): Promise<DemoState> { return page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo")!)); }
+async function holdBookingLock(page: Page) {
+  await page.evaluate(() => new Promise<void>(ready => {
+    void navigator.locks.request("salong-eko-demo", () => new Promise<void>(release => {
+      window.addEventListener("release-booking-lock", () => release(), { once: true });
+      ready();
+    }));
+  }));
+  return () => page.evaluate(() => { window.dispatchEvent(new Event("release-booking-lock")); });
+}
 async function startBooking(page: Page) {
   await page.goto("/boka/salong-eko");
   await page.getByRole("textbox", { name: /What would you like to book/ }).fill("Footcare day after tomorrow with Anna");
@@ -157,6 +168,78 @@ test("join a fully booked day's waiting list and find the request in Inbox", asy
   await expect(page.getByRole("button", { name: /Waiting list.*Waiting Demo/ })).toBeVisible();
 });
 
+for (const picker of ["alternate time", "full calendar"] as const) {
+  test(`repeat booking through the ${picker} picker keeps the practitioner on the waiting list`, async ({ page }) => {
+    const day = picker === "alternate time" ? "2026-11-24" : "2026-11-17";
+    await page.goto("/boka/salong-eko");
+    await page.evaluate(({ day, picker }) => {
+      const saved: DemoState = JSON.parse(localStorage.getItem("salong-eko-demo")!);
+      saved.services.find(service => service.id === "classic-60")!.staffIds = ["anna", "erik"];
+      saved.bookings = [{ ...saved.bookings[0], id: "repeat-visit", serviceId: "classic-60", staffId: "erik", date: "2026-11-16", status: "completed" }];
+      saved.exceptions = [{ id: "erik-off", staffId: "erik", date: day, kind: "off", reason: "vacation" }];
+      if (picker === "full calendar") {
+        const erik = saved.staff.find(person => person.id === "erik")!;
+        erik.week = Object.fromEntries(Object.keys(erik.week).map(weekday => [weekday, null]));
+      }
+      localStorage.setItem("salong-eko-demo", JSON.stringify(saved));
+    }, { day, picker });
+    expect(openSlots(await state(page), "classic-60", day, { today: "2026-11-17", minutes: 600 }, { staffId: "anna" }).length).toBeGreaterThan(0);
+    await page.goto("/boka/salong-eko/booking/repeat-visit");
+    await page.getByRole("link", { name: "Book again" }).click();
+    if (picker === "alternate time") {
+      await page.getByRole("combobox", { name: "Choose another time" }).selectOption(`${day}/wait`);
+    } else {
+      await page.getByRole("button", { name: "Notify me if something opens up" }).click();
+    }
+    const sheet = page.getByRole("dialog");
+    await expect(sheet.getByText(/Classic massage 60 min with Erik/)).toBeVisible();
+    await sheet.getByLabel("Your name", { exact: true }).fill("Waiting Demo");
+    await sheet.getByLabel("Mobile number").fill("070-000 99 33");
+    await sheet.getByRole("button", { name: "Put me on the list" }).click();
+    await expect(sheet.getByText("You are on the list", { exact: true })).toBeVisible();
+    expect((await state(page)).inbox[0].requestedStaffId).toBe("erik");
+    await page.goto("/studio/inbox");
+    await page.getByRole("button", { name: /Waiting list.*Waiting Demo/ }).click();
+    // The list row and the open thread both show the request; check the open thread.
+    await expect(page.getByText(/Waiting Demo wants Classic massage 60 min with Erik on Tuesday/).last()).toBeVisible();
+  });
+}
+
+for (const visibility of ["hidden", "retired"] as const) {
+  test(`the widget offers a fresh choice when a previous treatment is ${visibility}`, async ({ context, page }) => {
+    await page.goto("/boka/salong-eko/widget");
+    await page.getByRole("button", { name: "Choose a treatment from the list" }).click();
+    await page.getByRole("button", { name: /^Basic foot care/ }).click();
+    await page.getByLabel("Your name", { exact: true }).fill("Widget Demo");
+    await page.getByLabel("Mobile number").fill("070-000 99 22");
+    await page.getByRole("button", { name: "Confirm booking" }).click();
+    await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
+
+    const owner = await context.newPage();
+    await owner.clock.setFixedTime(new Date("2026-11-17T10:00:00+01:00"));
+    await owner.goto("/studio/more/services");
+    const edit = owner.getByRole("button", { name: "Edit Basic foot care" });
+    await edit.click();
+    const sheet = owner.getByRole("dialog");
+    await sheet.getByText("More options").click();
+    if (visibility === "hidden") {
+      await sheet.getByRole("switch", { name: "Show on the booking page" }).click();
+      await sheet.getByRole("button", { name: "Save" }).click();
+      await expect(edit).toHaveAccessibleDescription(/Hidden/);
+    } else {
+      await sheet.getByRole("button", { name: "Delete", exact: true }).click();
+      await sheet.getByRole("button", { name: "Delete, keep bookings" }).click();
+      await expect(edit).toHaveCount(0);
+    }
+
+    await page.getByRole("button", { name: "Book again" }).click();
+    await page.getByRole("button", { name: "Choose a treatment from the list" }).click();
+    await expect(page.getByRole("button", { name: /^Basic foot care/ })).toHaveCount(0);
+    await page.getByRole("button", { name: /^Medical foot care/ }).click();
+    await expect(page.getByRole("heading", { name: "Medical foot care" })).toBeVisible();
+  });
+}
+
 test("two tabs cannot confirm the same public booking time", async ({ context, page }) => {
   const other = await context.newPage();
   await other.clock.install({ time: new Date("2026-11-17T10:00:00+01:00") });
@@ -262,6 +345,94 @@ test("the treatment list offers a complete visit and remembers contact only by c
   await mobile.fill("070-000 99 11");
   await page.getByRole("button", { name: "Show my bookings" }).click();
   await expect(page.getByRole("link", { name: "Details" })).toHaveCount(3);
+});
+
+test("opting out while confirmation waits keeps contact details off the device", async ({ page }) => {
+  await page.goto("/boka/salong-eko");
+  await page.getByRole("button", { name: "Book Basic foot care" }).click();
+  await page.getByLabel("Your name", { exact: true }).fill("Nova Demo");
+  await page.getByLabel("Mobile number").fill("070-000 99 11");
+  const remember = page.getByRole("checkbox", { name: "Remember my details on this device" });
+  await remember.check();
+
+  const release = await holdBookingLock(page);
+  const confirm = page.getByRole("button", { name: "Confirm booking" });
+  await confirm.click();
+  await expect(confirm).toBeDisabled();
+  await remember.uncheck();
+  await release();
+  await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem("booking-guest-opt-in:salong-eko"))).toBeNull();
+  await page.getByRole("link", { name: "Book again" }).click();
+  await expect(page.getByLabel("Your name", { exact: true })).toHaveValue("");
+});
+
+test.describe("customers in another time zone", () => {
+  test.use({ timezoneId: "America/New_York" });
+
+  test("availability and confirmation use Stockholm time for the booking lead", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-17T14:00:00+01:00"));
+    await page.goto("/boka/salong-eko");
+    await page.evaluate(() => {
+      const saved: DemoState = JSON.parse(localStorage.getItem("salong-eko-demo")!);
+      saved.bookings = [];
+      saved.exceptions = [];
+      localStorage.setItem("salong-eko-demo", JSON.stringify(saved));
+    });
+    await page.reload();
+    await page.getByRole("button", { name: "Book Basic foot care" }).click();
+    await expect(page.getByText(/Tuesday 17 November, 15:00–15:45/)).toBeVisible();
+    const times = page.getByRole("combobox", { name: "Choose another time" });
+    await expect(times.locator('optgroup[label="Tuesday 17 November"] option').first()).toHaveText(/15:00/);
+    await page.getByLabel("Your name", { exact: true }).fill("Nova Demo");
+    await page.getByLabel("Mobile number").fill("070-000 99 11");
+
+    const release = await holdBookingLock(page);
+    await page.getByRole("button", { name: "Confirm booking" }).click();
+    await page.clock.setFixedTime(new Date("2026-11-17T14:01:00+01:00"));
+    await release();
+    await expect(page.getByText("Sorry, that time was just taken. Please choose another.")).toBeVisible();
+    expect((await state(page)).bookings).toHaveLength(0);
+  });
+
+  test("the online change cutoff and calendar export refer to the same Stockholm visit", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-17T09:59:00+01:00"));
+    await page.goto("/boka/salong-eko");
+    const id = await page.evaluate(() => {
+      const saved: DemoState = JSON.parse(localStorage.getItem("salong-eko-demo")!);
+      const booking = saved.bookings.find(visit => visit.status === "booked")!;
+      Object.assign(booking, { date: "2026-11-18", start: 600 });
+      localStorage.setItem("salong-eko-demo", JSON.stringify(saved));
+      return booking.id;
+    });
+    await page.goto(`/boka/salong-eko/booking/${id}`);
+    const google = new URL((await page.getByRole("link", { name: "Google Calendar" }).getAttribute("href"))!);
+    expect(google.searchParams.get("dates")).toMatch(/^20261118T090000Z\//);
+    await page.getByRole("button", { name: "Cancel booking", exact: true }).click();
+    const release = await holdBookingLock(page);
+    await page.getByRole("button", { name: "Yes, cancel it" }).click();
+    await page.clock.setFixedTime(new Date("2026-11-17T10:01:00+01:00"));
+    await release();
+    await expect(page.getByText("This visit has changed. Check the current booking details.")).toBeVisible();
+    expect((await state(page)).bookings.find(booking => booking.id === id)?.status).toBe("booked");
+    await page.reload();
+    await expect(page.getByText(/Less than 24 hours left/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Cancel booking", exact: true })).toHaveCount(0);
+  });
+});
+
+test("the landing clip uses the suggested appointment as its booking poster", async ({ page, baseURL }) => {
+  let frame: Locator | undefined;
+  await bookingScene(page, {
+    async shot(target: Locator) {
+      await expect(target).toBeVisible();
+      frame = target;
+    },
+    click: (target: Locator) => target.click(),
+    type: (target: Locator, value: string) => target.fill(value),
+    async poster() { await expect(frame!).toHaveText("Next available appointment"); },
+  }, baseURL);
+  await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
 });
 
 test("the confirmation link moves the same visit, exports its new time and enforces the new cutoff", async ({ page }) => {

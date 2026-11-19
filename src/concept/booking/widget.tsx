@@ -8,7 +8,7 @@ import { formatDate } from "../i18n/format";
 import { usePublicDemo } from "../store";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
-import { useNow } from "../use-now";
+import { useSalonNow } from "../use-now";
 import { bookingPage } from "./links";
 import { BookingWizard } from "./wizard";
 import { findService } from "../selectors";
@@ -16,7 +16,7 @@ import { findService } from "../selectors";
 /** The entire booking stays inside the iframe; management opens a separate tab. */
 export function BookingWidget() {
   const state = usePublicDemo();
-  const now = useNow();
+  const now = useSalonNow();
   const [bookedId, setBookedId] = useState<string>();
   const [repeat, setRepeat] = useState<Booking>();
   if (!state) return null;

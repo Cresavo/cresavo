@@ -17,7 +17,7 @@ import { Button, ButtonLink } from "../ui/button";
 import { Card, Section } from "../ui/card";
 import { Field, TextInput } from "../ui/controls";
 import { EmptyState } from "../ui/empty-state";
-import { useNow, type Now } from "../use-now";
+import { useSalonNow, type Now } from "../use-now";
 import { BookingActions, freeUntilText } from "./booking-actions";
 import { changeRule } from "./policy";
 import { ReviewForm } from "./review-form";
@@ -28,7 +28,7 @@ import { customerBookings, findCustomerByPhone } from "./lookup";
 /** No login in the demo: the link carries `?ref=`, or the customer types the number they booked with. */
 export function MyBookings() {
   const state = usePublicDemo();
-  const now = useNow();
+  const now = useSalonNow();
   const ref = useSearchParams()?.get("ref");
   const [remembered] = useState(() => state ? recallGuest(state.salon.slug)?.customerId : undefined);
   if (!state) return null;

@@ -77,9 +77,9 @@ export default function SettingsPage() {
               <Button variant="ghost" onClick={() => setConfirming(false)}>{t("common.cancel")}</Button>
               <Button
                 variant="danger"
-                onClick={() => {
-                  startBusiness(setupOf(state));
+                onClick={async () => {
                   setConfirming(false);
+                  await startBusiness(setupOf(state));
                   showToast(t("settings.resetDone"));
                 }}
               >

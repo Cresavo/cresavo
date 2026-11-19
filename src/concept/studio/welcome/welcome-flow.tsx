@@ -56,9 +56,9 @@ export function WelcomeFlow() {
   const canContinue = [pack !== null, team !== null, true][step];
   const toggle = (wish: HelpWish) => setHelp((current) => (current.includes(wish) ? current.filter((w) => w !== wish) : [...current, wish]));
 
-  const open = () => {
+  const open = async () => {
     if (!answers) return;
-    startBusiness(setupFromAnswers(answers));
+    await startBusiness(setupFromAnswers(answers));
     showToast(t("welcome.ready.toast"));
     router.push("/studio");
   };

@@ -9,7 +9,7 @@ import { usePublicDemo } from "../store";
 import { StaffAvatar } from "../ui/avatar";
 import { ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
-import { useNow } from "../use-now";
+import { useSalonNow } from "../use-now";
 import { BookingActions, freeUntilText } from "./booking-actions";
 import { changeRule } from "./policy";
 import { bookingHome, myBookingsFor, rebookLink } from "./links";
@@ -20,7 +20,7 @@ import { findService } from "../selectors";
 /** What the customer sees after booking, and the page behind the link in their confirmation. */
 export function Confirmation({ id }: { id: string }) {
   const state = usePublicDemo();
-  const now = useNow();
+  const now = useSalonNow();
   const booking = state?.bookings.find((b) => b.id === id);
   const service = state && findService(state, booking?.serviceId);
   const person = state?.staff.find((s) => s.id === booking?.staffId);

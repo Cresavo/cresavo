@@ -6,7 +6,7 @@ import type { DemoState } from "../data/types";
 import { t } from "../i18n";
 import type { PageSection } from "../page/sections";
 import { usePublicDemo } from "../store";
-import { useNow, type Now } from "../use-now";
+import { useSalonNow, type Now } from "../use-now";
 import { GiftCardBalance } from "./gift-card-balance";
 import { Hero } from "./hero";
 import { usePage } from "./page-context";
@@ -23,7 +23,7 @@ import { BookingWizard } from "./wizard";
  */
 export function SalonPage() {
   const state = usePublicDemo();
-  const now = useNow();
+  const now = useSalonNow();
   const params = useSearchParams();
   const fromLink = params?.get("service") ?? undefined;
   const { sections, instagram, theme } = usePage();
