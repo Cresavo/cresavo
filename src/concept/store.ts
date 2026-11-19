@@ -230,6 +230,12 @@ export function currentState(): DemoState | null {
   return getSnapshot();
 }
 
+/** Like `currentState`, after first picking up another tab's write. Used by `BrowserStudioStore`. */
+export function latestState(): DemoState | null {
+  refreshFromStorage();
+  return getSnapshot();
+}
+
 /**
  * Applies an action and records it in the activity log. `meta` says who and
  * where it came from when that is not "the owner pressed a button".

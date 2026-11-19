@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- A `StudioStore` interface defines how the studio and server read and change a salon. It covers versions, idempotency keys, effects published after commit and an append-only action log. An in-memory reference store, an adapter over the existing browser store and a shared contract suite back it. The studio behaves as before. See docs/design/STUDIO_STORE.md.
+
 ### Changed
 
 - The owner studio uses shared controls, page headers, status badges and list rows. Calendar groups its secondary tools in an options sheet and gives appointments larger touch targets.
