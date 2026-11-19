@@ -6,7 +6,8 @@ import { ToolError } from "../tools/define";
 import { snapshotWorkspace } from "./owner-workspace";
 import { pairingDb, type Tx } from "./db";
 import { budget, digest, minute, publicBudget, PairError, requirePair } from "./http";
-import { permitted, registerCatalogue, type RegisterTool } from "./catalogue";
+import { registerCatalogue, type RegisterTool } from "./catalogue";
+import { permitted } from "./policy";
 import { t, type MessageKey } from "../i18n";
 import { lockWorkspace } from "./workspace";
 

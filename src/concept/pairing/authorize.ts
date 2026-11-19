@@ -3,7 +3,7 @@ import { t } from "../i18n";
 import { cleanClientName, exactRedirect, resolveClient, secureUrl } from "./clients";
 import { pairingDb } from "./db";
 import { body, budget, digest, minute, ownerHash, PairError, params, requirePair, sameOrigin, secret } from "./http";
-import { pairingIssuer, SCOPES } from "./policy";
+import { pairingIssuer, SCOPES, SUPPORTED_SCOPES } from "./policy";
 import { owner } from "./workspace";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, v => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[v]!);
@@ -41,7 +41,7 @@ export async function authorize(request: Request, origin: string) {
   const resource = origin + "/mcp/owner";
   requirePair((q.resource ?? resource) === resource, "invalid_target");
   const scopes = (q.scope ?? SCOPES.join(" ")).split(" ");
-  requirePair(scopes.length && scopes.every(s => SCOPES.some(scope => s === scope)), "invalid_scope");
+  requirePair(scopes.length && scopes.every(s => SUPPORTED_SCOPES.some(scope => s === scope)), "invalid_scope");
   const redirect = secureUrl(q.redirect_uri, true);
   const client = await resolveClient(q.client_id);
   requirePair(exactRedirect(client.redirects, q.redirect_uri), "invalid_redirect_uri");
@@ -56,7 +56,7 @@ export async function authorize(request: Request, origin: string) {
   });
   return page(t("pair.consent", { host: redirect.host }), `
 <p>${esc(t(client.id.startsWith("https://") ? "pair.publishedClient" : "pair.identify", { client: cleanClientName(client.name) }))}</p>
-<ul>${SCOPES.filter(s => scopes.includes(s)).map(s => "<li>" + esc(t(`pair.${s}`)) + "</li>").join("")}</ul>
+<ul>${SUPPORTED_SCOPES.filter(s => scopes.includes(s)).map(s => "<li>" + esc(t(`pair.${s}`)) + "</li>").join("")}</ul>
 <p>${esc(t("pair.privacy"))}</p>
 <form method="post" action="/oauth/authorize"><input type="hidden" name="consent" value="${handle}">
 <button name="decision" value="allow">${esc(t("pair.allow"))}</button><button name="decision" value="decline">${esc(t("pair.decline"))}</button></form>`, redirect.origin);

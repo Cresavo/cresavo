@@ -68,3 +68,15 @@ export function proposalView(row: PairProposal) {
     ...(draft.action?.type === "booking/move" ? { changes: draft.rows } : {}),
     untrustedCustomerText: { title: draft.title, changes: draft.rows } };
 }
+
+export function studioProposalView(row: PairProposal, state: PairState) {
+  const view = proposalView(row);
+  const { action } = row.draft as unknown as ChangeDraft;
+  const item = action.type === "inbox/reply" ? state.inbox.find(i => i.id === action.id) : undefined;
+  return {
+    ...view,
+    // Already-open studio tabs expect top-level rows for every proposal.
+    changes: view.untrustedCustomerText.changes,
+    untrustedCustomerText: { ...view.untrustedCustomerText, incomingMessage: item?.body },
+  };
+}

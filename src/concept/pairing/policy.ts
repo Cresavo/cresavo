@@ -1,7 +1,16 @@
 import { configuredPairingOrigin } from "../../../scripts/pairing-config.mjs";
 import { siteRequestHost } from "../site/request-host";
 
-export const SCOPES = ["bookings:read", "bookings:propose", "customers:read", "inbox:read", "inbox:propose", "catalog:read", "catalog:propose", "staff:read", "finance:read"] as const;
+export const BOOKING_PROPOSAL_SCOPE = "bookings:propose:v2";
+const LEGACY_BOOKING_PROPOSAL_SCOPE = "bookings:propose";
+export const BOOKING_MOVE_SCOPES = [BOOKING_PROPOSAL_SCOPE, LEGACY_BOOKING_PROPOSAL_SCOPE] as const;
+export const SCOPES = ["bookings:read", BOOKING_PROPOSAL_SCOPE, "customers:read", "inbox:read", "inbox:propose", "catalog:read", "catalog:propose", "staff:read", "finance:read"] as const;
+export const SUPPORTED_SCOPES = [...SCOPES, LEGACY_BOOKING_PROPOSAL_SCOPE] as const;
+type Scope = typeof SUPPORTED_SCOPES[number];
+export type ToolScope = Scope | readonly Scope[];
+export const permitted = (required: ToolScope, scopes: string[]) =>
+  typeof required === "string" ? scopes.includes(required) : required.some(s => scopes.includes(s));
+
 export const COOKIE = "__Host-cresavo-pair";
 export const PUBLIC_WRITES = new Set([
   "/api/pairing/session", "/api/pairing/decision", "/api/pairing/move",

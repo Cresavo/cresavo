@@ -1,7 +1,7 @@
 "use client";
 
 import { Copy, Link2 } from "lucide-react";
-import { SCOPES } from "../../pairing/policy";
+import { SUPPORTED_SCOPES } from "../../pairing/policy";
 import { t } from "../../i18n";
 import { Button, ButtonLink } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
@@ -23,7 +23,7 @@ export function ConnectCard() {
         <ul>{workspace.grants.map(grant => <li key={grant.id} className="space-y-1 py-2">
           <p>{t("pair.connected", { client: grant.clientName })}</p>
           <p className="break-all text-sm">{t("pair.grant", { id: grant.id.slice(0, 8), client: grant.clientId })}</p>
-          <p className="text-sm">{SCOPES.filter(scope => grant.scopes.split(" ").includes(scope)).map(scope => t(`pair.${scope}`)).join(" · ")}</p>
+          <p className="text-sm">{SUPPORTED_SCOPES.filter(scope => grant.scopes.split(" ").includes(scope)).map(scope => t(`pair.${scope}`)).join(" · ")}</p>
           <Button variant="secondary" disabled={busy} onClick={() => void command("session", {
             action: "revoke", workspaceId: workspace.id, grantId: grant.id,
           })}>{t("pair.revoke")}</Button>

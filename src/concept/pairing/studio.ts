@@ -2,7 +2,7 @@ import { z } from "zod";
 import { defaultMeta } from "../log/capture";
 import { ToolError, field } from "../tools/define";
 import { salonClock } from "../tools/clock";
-import { applyMove, bookingView, buildMove, itemView, proposalView } from "./appointments";
+import { applyMove, bookingView, buildMove, itemView, studioProposalView } from "./appointments";
 import { jsonValue, pairingDb } from "./db";
 import { body, budget, minute, publicBudget, ownerHash, PairError, requirePair, sameOrigin } from "./http";
 import { COOKIE } from "./policy";
@@ -34,7 +34,7 @@ export async function session(request: Request) {
       items: state.inbox.slice(0, 25).map(item => itemView(item, true)),
       bookings: state.bookings.filter(b => b.status === "booked" && b.date >= day).map(b => bookingView(state, b)),
       blocks: (state.blocks ?? []).map(b => ({ ...b, staffName: state.staff.find(s => s.id === b.staffId)?.firstName ?? b.staffId })),
-      proposals: proposals.map(proposalView),
+      proposals: proposals.map(p => studioProposalView(p, state)),
     }, { headers });
   });
 }

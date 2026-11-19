@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { exactRedirect, fetchDocument, publicAddress, secureUrl } from "../src/concept/pairing/clients";
+import { authorize, consent } from "../src/concept/pairing/authorize";
 import { matchesPkce, revoke, token } from "../src/concept/pairing/tokens";
 import { pairingDb } from "../src/concept/pairing/db";
 import { digest, secret } from "../src/concept/pairing/http";
 import { freshSnapshot } from "../src/concept/pairing/workspace";
 import { weekday } from "../src/concept/data/dates";
-import { pairingOrigin } from "../src/concept/pairing/policy";
+import { COOKIE, pairingOrigin } from "../src/concept/pairing/policy";
 import { publicReadonlyResponse } from "../src/lib/public-readonly";
 
 vi.mock("../src/concept/pairing/db", async original => ({ ...await original<typeof import("../src/concept/pairing/db")>(), pairingDb: vi.fn() }));
@@ -54,11 +55,52 @@ describe("pairing boundaries", () => {
   });
 });
 
+it("carries legacy consent through code redemption while fresh consent lists the expanded permission", async () => {
+  const origin = "https://demo.cresavo.com", audience = origin + "/mcp/owner", workspaceId = randomUUID();
+  const verifier = secret(), oldHandle = secret(), expiresAt = new Date(Date.now() + 3600000);
+  const redirectUri = "https://assistant.example.test/return";
+  const oldConsent = { hash: digest(oldHandle), challenge: digest(verifier), clientId: "client", clientName: "Test",
+    audience, scopes: "bookings:propose", consent: true, workspaceId, redirectUri, expiresAt, state: "" };
+  const codes = new Map([[oldConsent.hash, oldConsent]]);
+  const tx = {
+    $queryRaw: async () => [{ id: workspaceId, expiresAt, hardExpiry: expiresAt, revision: 1, count: 1 }],
+    pairWorkspace: { findUnique: async () => ({ id: workspaceId }), update: vi.fn() },
+    pairCode: {
+      findUnique: async ({ where }: { where: { hash: string } }) => codes.get(where.hash),
+      create: vi.fn(async ({ data }: { data: typeof oldConsent }) => codes.set(data.hash, data)),
+      delete: vi.fn(), update: vi.fn(),
+    },
+    pairGrant: { findUnique: async () => null, create: async ({ data }: { data: object }) => ({ ...data, id: randomUUID() }) },
+    pairGrantToken: { create: vi.fn() },
+  };
+  vi.mocked(pairingDb).mockReturnValue({
+    $transaction: (fn: (arg: typeof tx) => unknown) => fn(tx),
+    pairClient: { findUnique: async () => ({ id: "client", name: "Test", redirects: [redirectUri], expiresAt }) },
+  } as unknown as ReturnType<typeof pairingDb>);
+  const headers = { origin, cookie: COOKIE + "=" + secret() };
+  const callback = await consent(new Request(origin + "/oauth/authorize", {
+    method: "POST", headers, body: new URLSearchParams({ consent: oldHandle, decision: "allow" }),
+  }), origin);
+  const code = new URL(callback.headers.get("location")!).searchParams.get("code")!;
+  const issued = await token(new Request(origin + "/oauth/token", { method: "POST", body: new URLSearchParams({
+    client_id: "client", code, code_verifier: verifier, grant_type: "authorization_code", redirect_uri: redirectUri,
+  }) }), origin);
+  expect(await issued.json()).toMatchObject({ scope: "bookings:propose" });
+
+  const query = new URLSearchParams({ client_id: "client", redirect_uri: redirectUri, response_type: "code",
+    code_challenge_method: "S256", code_challenge: digest(verifier) });
+  const fresh = await authorize(new Request(origin + "/oauth/authorize?" + query, { headers }), origin);
+  expect(await fresh.text()).toContain("Draft new bookings, moves, cancellations and blocks, and check proposal status");
+  const scopes = tx.pairCode.create.mock.lastCall![0].data.scopes.split(" ");
+  expect(scopes).toContain("bookings:propose:v2");
+  expect(scopes).not.toContain("bookings:propose");
+});
+
 it("revokes the issuing grant on code and refresh replay and keeps simultaneous consents independent", async () => {
   const origin = "https://demo.cresavo.com", audience = origin + "/mcp/owner", workspaceId = randomUUID();
   const verifier = secret(), expiresAt = new Date(Date.now() + 3600000);
   const binding = { challenge: digest(verifier), clientId: "client", clientName: "Test", audience,
-    scopes: "bookings:read inbox:read", consent: false, workspaceId, redirectUri: "https://assistant.example.test/return", expiresAt };
+    scopes: "bookings:read inbox:read bookings:propose", consent: false, workspaceId, redirectUri: "https://assistant.example.test/return", expiresAt };
   type Grant = typeof binding & { id: string; codeHash: string; revoked: boolean };
   type Token = { accessHash: string; refreshHash: string; grantId: string; rotated: boolean };
   const grants: Grant[] = [];
@@ -103,7 +145,8 @@ it("revokes the issuing grant on code and refresh replay and keeps simultaneous 
   await expect(redeem(firstCode)).rejects.toThrow("invalid_grant");
   expect(tokens.map(t => t.accessHash)).toEqual([digest(second.access_token)]);
   await expect(refresh(second.refresh_token, "bookings:approve")).rejects.toThrow("invalid_scope");
-  const scope = "inbox:read bookings:read";
+  await expect(refresh(second.refresh_token, "inbox:read bookings:read bookings:propose:v2")).rejects.toThrow("invalid_scope");
+  const scope = "inbox:read bookings:read bookings:propose";
   const rotated = await (await refresh(second.refresh_token, scope)).json();
   expect(tokens[1].refreshHash).toBe(digest(rotated.refresh_token));
   await expect(refresh(second.refresh_token, scope)).rejects.toThrow("invalid_grant");

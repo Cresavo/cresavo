@@ -54,7 +54,7 @@ until the owner reviews its before and after in the studio Inbox.
 | OAuth scope | Tools |
 | --- | --- |
 | `bookings:read` | `get_workday_brief`, `list_calendar_window`, `find_bookings`, `get_booking_details`, `find_bookable_times`, `find_reschedule_options` |
-| `bookings:propose` | `propose_new_booking`, `propose_reschedule_booking`, `propose_cancel_booking`, `propose_block_time` |
+| `bookings:propose:v2` | `propose_new_booking`, `propose_reschedule_booking`, `propose_cancel_booking`, `propose_block_time` |
 | `customers:read` | `find_customers`, `get_visit_history`, `list_due_back_customers` |
 | `inbox:read` | `list_inbox_items`, `get_inbox_thread` |
 | `inbox:propose` | `propose_reply_to_inbox_item` |
@@ -64,11 +64,14 @@ until the owner reviews its before and after in the studio Inbox.
 | `finance:read` | `get_finance_summary` |
 
 Each proposal permission also exposes `get_proposal_status` for its own area.
+Existing `bookings:propose` grants cover moves and their proposal status. To draft
+new bookings, cancellations or blocks, reconnect and approve `bookings:propose:v2`.
 Reuse the same `idempotencyKey` and arguments when retrying a draft. If approval
 reports a conflict, inspect the current record and propose again with a fresh key.
 For list results, pass `nextOffset` as `offset` to continue until it is null.
 Dates and times use the salon’s Stockholm clock. Prices and revenue use SEK minor
-units (55,555 öre is 555.55 SEK). Price changes affect future bookings.
+units (55,555 öre is 555.55 SEK). Price changes affect future bookings. Treatment
+availability changes apply within the paired workspace.
 
 New bookings accept a customer ID or a fictional name from the tool’s choices.
 Customer reads include names and visit information and omit contact details,

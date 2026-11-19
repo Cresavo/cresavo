@@ -13,7 +13,7 @@ import { undoEntry } from "./log/undo";
 import { bookableServices } from "./selectors";
 import { MODULES, presetModules, type PresetId } from "./modules/registry";
 import { applyOps, type OpsAction } from "./ops/edit";
-import { applyServiceAction, type ServiceAction } from "./services/edit";
+import { applyServiceAction, validServicePrice, type ServiceAction } from "./services/edit";
 import { applyPageAction, type PageAction } from "./page/actions";
 import { grantSupport, revokeSupport, type GrantHours } from "./support/access";
 import type { NewTicket } from "./support/tickets";
@@ -387,7 +387,8 @@ export function reduce(state: DemoState, action: DemoAction): DemoState {
     case "online/waitlist":
       return joinWaitlist(state, action);
     case "service/price":
-      return { ...state, services: updateBy(state.services, action.id, (s) => ({ ...s, price: Math.max(0, Math.round(action.price * 100) / 100) })) };
+      if (!validServicePrice(action.price)) return state;
+      return { ...state, services: updateBy(state.services, action.id, (s) => ({ ...s, price: action.price })) };
     case "campaign/launch":
       return launchCampaign(state, action.campaign, action.today);
     case "campaign/ad":

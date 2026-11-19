@@ -72,7 +72,8 @@ afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 const areas = {
   "bookings:read": ["get_workday_brief", "list_calendar_window", "find_bookable_times", "find_bookings", "get_booking_details", "find_reschedule_options"],
-  "bookings:propose": ["propose_new_booking", "propose_cancel_booking", "propose_reschedule_booking", "propose_block_time", "get_proposal_status"],
+  "bookings:propose": ["propose_reschedule_booking", "get_proposal_status"],
+  "bookings:propose:v2": ["propose_new_booking", "propose_cancel_booking", "propose_reschedule_booking", "propose_block_time", "get_proposal_status"],
   "customers:read": ["find_customers", "get_visit_history", "list_due_back_customers"],
   "inbox:read": ["list_inbox_items", "get_inbox_thread"],
   "inbox:propose": ["propose_reply_to_inbox_item", "get_proposal_status"],
@@ -91,6 +92,25 @@ it("discovers and executes only the tools covered by each grant", async () => {
     for (const tool of result.tools) expect(tool.annotations).toMatchObject({ readOnlyHint: !tool.name.startsWith("propose_"), destructiveHint: false });
     for (const name of every) if (!allowed.includes(name)) await expect(call(name)).rejects.toThrow(/not found/i);
   }
+});
+
+it("keeps legacy booking grants limited to move proposals and their status", async () => {
+  const { a, grant, workspace } = harness();
+  const bookingId = a.snapshot.inbox[0].bookingId!;
+  const cancel = { bookingId, reason: "customer_request", idempotencyKey: randomUUID() };
+  const status = (proposalId: string) => call("get_proposal_status", { proposalId });
+
+  grant.scopes = "bookings:propose";
+  await expect(call("propose_cancel_booking", cancel)).rejects.toThrow(/not found/i);
+  const move = await call("propose_reschedule_booking", { bookingId, ...workspace().slots(bookingId).slots[0], idempotencyKey: randomUUID() });
+  expect(await status(move.proposalId)).toEqual(move);
+
+  grant.scopes = "bookings:propose:v2";
+  expect(await status(move.proposalId)).toEqual(move);
+  const cancellation = await call("propose_cancel_booking", cancel);
+  expect(await status(cancellation.proposalId)).toEqual(cancellation);
+  grant.scopes = "bookings:propose";
+  await expect(status(cancellation.proposalId)).rejects.toThrow("proposal_not_found");
 });
 
 it("rechecks the grant inside the transaction that would create the proposal", async () => {
@@ -192,11 +212,58 @@ it.each(["new_booking", "cancel_booking", "reschedule_booking", "block_time", "r
     }
     case "reply_to_inbox_item":
       expect(draft.untrustedCustomerText.changes).toContainEqual(expect.objectContaining({ label: "Written by your assistant", after: "Thanks for your message!" }));
+      expect(draft).not.toHaveProperty("changes");
+      expect(draft.untrustedCustomerText).not.toHaveProperty("incomingMessage");
       expect(workspace().thread(a.snapshot.inbox[1].id).untrustedAssistantText?.reply).toBe("Thanks for your message!");
       break;
     case "change_treatment_price": expect(a.snapshot.services[0].price).toBe(555.55); break;
-    case "change_treatment_availability": expect(a.snapshot.services[0].hidden).toBe(true); break;
+    case "change_treatment_availability": {
+      expect(draft.untrustedCustomerText.changes).toEqual([{ label: "Paired workspace catalogue", before: "Available to book", after: "Hidden" }]);
+      expect((await rpc("tools/list", {}, token)).tools).toContainEqual(expect.objectContaining({
+        name, description: "Draft a change to whether a treatment is available to book in the paired workspace.",
+      }));
+      expect(a.snapshot.services[0].hidden).toBe(true);
+      expect(workspace().bookable({ serviceId: service.id, from: slot.date, to: slot.date }).slots).toEqual([]);
+      break;
+    }
   }
+});
+
+it("rejects cancellations at the end of the visit, including drafts awaiting approval", async () => {
+  const { a, workspace } = harness();
+  const booking = a.snapshot.bookings.find(b => b.date === today && b.status === "booked")!;
+  const end = Date.parse(today + "T00:00:00+01:00") + (booking.start + booking.duration) * 60_000;
+  const cancellation = () => workspace().propose("client", randomUUID(), {
+    kind: "cancel", bookingId: booking.id, reason: "customer_request",
+  });
+  vi.setSystemTime(end - 60_000);
+  const draft = await cancellation();
+  vi.setSystemTime(end);
+  const earned = workspace().finance("day");
+  expect(earned.revenueMinor).toBeGreaterThan(0);
+  await expect(cancellation()).rejects.toThrow("booking_unavailable");
+  expect((await workspace().decide(draft.proposalId, true)).status).toBe("conflict");
+  expect(workspace().history(booking.customerId, {}).visits[0]).toMatchObject({ bookingId: booking.id, status: "booked" });
+  expect(workspace().finance("day")).toEqual(earned);
+});
+
+it("uses a finished visit still marked booked for the next recall date across Stockholm midnight", () => {
+  const { a, workspace } = harness();
+  const visit = a.snapshot.bookings.find(b => b.date === today && b.status === "booked")!;
+  a.snapshot.services.find(s => s.id === visit.serviceId)!.recallWeeks = 6;
+  const oldVisit = { ...visit, id: randomUUID(), date: addDays(today, -49), status: "completed" } as const;
+  a.snapshot.bookings = [oldVisit];
+  expect(workspace().dueBack({}).customers).toMatchObject([{ customerId: visit.customerId, lastVisit: oldVisit.date }]);
+  a.snapshot.bookings.push(visit);
+
+  for (const time of ["2026-11-18T22:59:59Z", "2026-11-18T23:00:00Z"]) {
+    vi.setSystemTime(new Date(time));
+    expect(workspace().history(visit.customerId, {}).visits[0].bookingId).toBe(visit.id);
+    expect(workspace().dueBack({}).customers).toEqual([]);
+  }
+  const dueDate = addDays(today, 42);
+  vi.setSystemTime(new Date(dueDate + "T09:00:00Z"));
+  expect(workspace().dueBack({}).customers).toMatchObject([{ customerId: visit.customerId, lastVisit: today, dueDate }]);
 });
 
 it("accepts independent blocks but detects a booking slot occupied and freed since drafting", async () => {

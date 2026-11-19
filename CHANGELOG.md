@@ -18,6 +18,9 @@ All notable changes to this project are documented here. Format follows
 - On phones, Today shows the next customer above the schedule. Inbox rows lead with the message subject and show the sender below it.
 
 ### Fixed
+- Paired assistants need fresh consent to draft new bookings, cancellations and calendar blocks. The studio blocks cancellations once a visit has finished and uses finished visits to calculate when customers are due back.
+- The paired Inbox shows the customer’s message alongside a drafted reply and keeps proposal review working in already-open tabs. Availability proposals name the paired workspace they affect.
+- Treatment prices retain their decimal amounts through approval, activity history and later edits.
 - Paired demo workspaces support independent assistant grants, native loopback callbacks and revocation in the studio. Idle tabs expire, and open calendar edits stay bound to their original booking.
 - The local owner MCP server keeps `--admin` read-only. Saving campaign drafts requires workspace write access, explicit confirmation and a request ID for safe retries.
 - The large photo on public booking pages starts loading right away.

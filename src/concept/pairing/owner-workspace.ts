@@ -8,6 +8,7 @@ import { salonClock } from "../tools/clock";
 import { bookingById, bookingView, itemView, options, proposalView } from "./appointments";
 import type { Tx } from "./db";
 import { requirePair } from "./http";
+import { permitted } from "./policy";
 import { decide, propose } from "./proposals";
 import { snapshot } from "./fixture";
 
@@ -54,7 +55,7 @@ export function snapshotWorkspace(tx: Tx, w: PairWorkspace): OwnerWorkspace {
     propose: (clientId, key, input) => propose(tx, w.id, state, clientId, key, input),
     async proposal(id, scopes) {
       const row = await tx.pairProposal.findFirst({ where: { workspaceId: w.id, id } });
-      requirePair(row && scopes.includes(proposalScope((row.draft as unknown as ChangeDraft).action.type)), "proposal_not_found", 404);
+      requirePair(row && permitted(proposalScope((row.draft as unknown as ChangeDraft).action.type), scopes), "proposal_not_found", 404);
       return proposalView(row);
     },
     decide: (id, approve) => decide(tx, w.id, state, id, approve),

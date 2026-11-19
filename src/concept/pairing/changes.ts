@@ -4,13 +4,14 @@ import { addDays, formatTime, toMinutes } from "../data/dates";
 import type { StaffBlock } from "../data/types";
 import { canBlock, freeStarts, needOf } from "../data/slots";
 import { t } from "../i18n";
-import { fullName } from "../selectors";
+import { finishedVisit, fullName } from "../selectors";
 import { salonClock } from "../tools/clock";
 import type { ChangeDraft } from "../tools/define";
 import { proposeCancel } from "../tools/write";
 import { bookingById, buildMove, type Move } from "./appointments";
 import type { PairState } from "./fixture";
 import { requirePair } from "./http";
+import { BOOKING_MOVE_SCOPES, BOOKING_PROPOSAL_SCOPE, type ToolScope } from "./policy";
 import { customerById, serviceById, staffByRef } from "./reads";
 
 export const fictionalNames = ["Alex Birch", "Robin Vale", "Sam Linden"] as const;
@@ -34,6 +35,11 @@ function upcoming(date: string, start: number) {
   const { today, minutes } = salonClock();
   requirePair(date >= today && date <= addDays(today, 90) && (date !== today || start >= minutes), "choose_upcoming_date");
 }
+function cancellableBooking(state: PairState, id: string, { today, minutes }: ReturnType<typeof salonClock>) {
+  const booking = bookingById(state, id);
+  requirePair(booking.status === "booked" && !finishedVisit(booking, today, minutes), "booking_unavailable", 409);
+  return booking;
+}
 export function buildDraft(state: PairState, input: ProposalInput): ChangeDraft {
   if (!("kind" in input)) return buildMove(state, input);
   switch (input.kind) {
@@ -55,9 +61,9 @@ export function buildDraft(state: PairState, input: ProposalInput): ChangeDraft 
       ]);
     }
     case "cancel": {
-      const booking = bookingById(state, input.bookingId);
-      requirePair(booking.status === "booked", "booking_unavailable", 409);
-      const change = proposeCancel.draft({ state, clock: salonClock() }, { bookingId: booking.id });
+      const clock = salonClock();
+      const booking = cancellableBooking(state, input.bookingId, clock);
+      const change = proposeCancel.draft({ state, clock }, { bookingId: booking.id });
       const reason = t(`pair.reason.${input.reason}`);
       return draft({ type: "booking/cancel", id: booking.id, reason }, change.title, [...change.rows, { label: t("pair.reason"), after: reason }]);
     }
@@ -94,22 +100,23 @@ export function buildDraft(state: PairState, input: ProposalInput): ChangeDraft 
       const service = serviceById(state, input.serviceId);
       requirePair(input.visible === !!service.hidden, "unchanged", 409);
       return draft({ type: "service/visibility", id: service.id, hidden: !input.visible }, t("pair.availability", { service: service.name }), [
-        { label: t("pair.bookingPage"), before: t(input.visible ? "pair.hidden" : "pair.visible"), after: t(input.visible ? "pair.visible" : "pair.hidden") },
+        { label: t("pair.pairedCatalogue"), before: t(input.visible ? "pair.hidden" : "pair.visible"), after: t(input.visible ? "pair.visible" : "pair.hidden") },
       ]);
     }
   }
 }
 
-export function proposalScope(type: DemoAction["type"]) {
+export function proposalScope(type: DemoAction["type"]): ToolScope {
   if (type === "service/price" || type === "service/visibility") return "catalog:propose";
   if (type === "inbox/reply") return "inbox:propose";
-  return "bookings:propose";
+  if (type === "booking/move") return BOOKING_MOVE_SCOPES;
+  return BOOKING_PROPOSAL_SCOPE;
 }
 
 export function revalidate(state: PairState, action: DemoAction) {
   if (action.type === "booking/move") buildMove(state, { bookingId: action.id, date: action.date, time: formatTime(action.start) });
   if (action.type === "booking/create" || action.type === "staff/block") upcoming(action.date, action.start);
   if (action.type === "booking/create") requirePair(!serviceById(state, action.serviceId).hidden, "slot_unavailable");
-  if (action.type === "booking/cancel") requirePair(bookingById(state, action.id).status === "booked", "booking_unavailable");
+  if (action.type === "booking/cancel") cancellableBooking(state, action.id, salonClock());
   if (action.type === "inbox/reply") requirePair(state.inbox.some(i => i.id === action.id && !i.handled), "item_handled");
 }

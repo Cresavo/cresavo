@@ -3,13 +3,8 @@ import { field } from "../tools/define";
 import { MAX_PRICE } from "../services/edit";
 import type { OwnerWorkspace } from "./owner-workspace";
 import { blockReasons, cancelReasons, fictionalNames, replyTemplates } from "./changes";
-import type { SCOPES } from "./policy";
+import { BOOKING_MOVE_SCOPES, BOOKING_PROPOSAL_SCOPE, type ToolScope } from "./policy";
 import type { MessageKey } from "../i18n";
-
-type Scope = typeof SCOPES[number];
-export type ToolScope = Scope | readonly Scope[];
-export const permitted = (required: ToolScope, scopes: string[]) =>
-  typeof required === "string" ? scopes.includes(required) : required.some(s => scopes.includes(s));
 
 export interface ToolContext {
   grant: { clientId: string; scopes: string };
@@ -39,14 +34,14 @@ export function registerCatalogue(tool: RegisterTool) {
   tool("list_calendar_window", "bookings:read", z.strictObject(range), ({ workspace }, p) => workspace.calendar(p));
   tool("find_bookable_times", "bookings:read", z.strictObject({ serviceId: ref, ...range }), ({ workspace }, p) => workspace.bookable(p));
 
-  tool("propose_reschedule_booking", "bookings:propose", z.strictObject({ bookingId: id, date, time: field.time, ...write }),
+  tool("propose_reschedule_booking", BOOKING_MOVE_SCOPES, z.strictObject({ bookingId: id, date, time: field.time, ...write }),
     ({ grant, workspace }, { idempotencyKey, ...p }) => workspace.propose(grant.clientId, idempotencyKey, p), false);
-  tool("propose_block_time", "bookings:propose", z.strictObject({ staffId: ref, date, from: field.time, to: field.time, reason: z.enum(blockReasons), ...write }),
+  tool("propose_block_time", BOOKING_PROPOSAL_SCOPE, z.strictObject({ staffId: ref, date, from: field.time, to: field.time, reason: z.enum(blockReasons), ...write }),
     ({ grant, workspace }, { idempotencyKey, ...p }) => workspace.propose(grant.clientId, idempotencyKey, { kind: "block", ...p }), false);
-  tool("propose_new_booking", "bookings:propose", z.strictObject({ serviceId: ref, staffId: ref, date, time: field.time,
+  tool("propose_new_booking", BOOKING_PROPOSAL_SCOPE, z.strictObject({ serviceId: ref, staffId: ref, date, time: field.time,
     customerId: ref.optional(), newCustomerName: z.enum(fictionalNames).optional(), ...write }),
     ({ grant, workspace }, { idempotencyKey, ...p }) => workspace.propose(grant.clientId, idempotencyKey, { kind: "book", ...p }), false);
-  tool("propose_cancel_booking", "bookings:propose", z.strictObject({ bookingId: id, reason: z.enum(cancelReasons), ...write }),
+  tool("propose_cancel_booking", BOOKING_PROPOSAL_SCOPE, z.strictObject({ bookingId: id, reason: z.enum(cancelReasons), ...write }),
     ({ grant, workspace }, { idempotencyKey, ...p }) => workspace.propose(grant.clientId, idempotencyKey, { kind: "cancel", ...p }), false);
 
   tool("find_customers", "customers:read", z.strictObject({ query, ...paging }), ({ workspace }, { query, ...p }) => workspace.customers(query, p));
@@ -67,6 +62,6 @@ export function registerCatalogue(tool: RegisterTool) {
     ({ workspace }, { staffId, week, ...p }) => workspace.schedule(staffId, week, p));
   tool("get_finance_summary", "finance:read", z.strictObject({ period: z.enum(["day", "week", "month", "year"]) }),
     ({ workspace }, { period }) => workspace.finance(period));
-  tool("get_proposal_status", ["bookings:propose", "catalog:propose", "inbox:propose"], z.strictObject({ proposalId: id }),
+  tool("get_proposal_status", [...BOOKING_MOVE_SCOPES, "catalog:propose", "inbox:propose"], z.strictObject({ proposalId: id }),
     ({ workspace, grant }, p) => workspace.proposal(p.proposalId, grant.scopes.split(" ")));
 }

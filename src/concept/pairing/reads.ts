@@ -74,8 +74,8 @@ export function snapshotReads(state: PairState) {
       return page("visits", visits.map(b => bookingView(state, b)), paging);
     },
     dueBack(paging: Page) {
-      const { today } = salonClock();
-      const due = dueBackList(state, buildCustomerStats(state, today), today).filter(row => !row.sent);
+      const { today, minutes } = salonClock();
+      const due = dueBackList(state, buildCustomerStats(state, today, minutes), today).filter(row => !row.sent);
       return page("customers", due.map(row => ({ ...customerView(row.customer), serviceId: row.service.id,
         lastVisit: row.lastVisit, dueDate: row.dueDate })), paging);
     },

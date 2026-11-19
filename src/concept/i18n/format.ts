@@ -57,7 +57,7 @@ export function formatDuration(minutes: number): string {
 }
 
 export function formatMoney(amount: number): string {
-  return t("money", { amount: Math.round(amount).toLocaleString(locale) });
+  return t("money", { amount: amount.toLocaleString(locale, { maximumFractionDigits: 2 }) });
 }
 
 export function formatNumber(value: number, digits = 0): string {

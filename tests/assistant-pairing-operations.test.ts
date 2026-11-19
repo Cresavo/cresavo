@@ -1,4 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { runtimePolicy } from "../scripts/client-address.mjs";
 import { pairingDatabaseUrl } from "../scripts/pairing-config.mjs";
 import { GET as sweep } from "../src/app/api/pairing/sweep/route";
@@ -9,13 +11,19 @@ import { GET as pairIssuer } from "../src/app/.well-known/oauth-authorization-se
 import { POST as register } from "../src/app/oauth/register/route";
 import { GET as poll } from "../src/app/api/pairing/session/route";
 import { GET as mcp } from "../src/app/mcp/owner/route";
-import { nextPollDelay } from "../src/concept/studio/pairing/session";
+import { PairedInbox } from "../src/concept/studio/pairing/inbox";
+import { nextPollDelay, usePairing, type Workspace } from "../src/concept/studio/pairing/session";
+import { buildDraft } from "../src/concept/pairing/changes";
 import { pairingDb } from "../src/concept/pairing/db";
+import { freshSnapshot } from "../src/concept/pairing/fixture";
 import { COOKIE } from "../src/concept/pairing/policy";
 import { base, serverEnvironment } from "./pairing/server";
 import cronConfig from "../vercel.json";
 
 vi.mock("../src/concept/pairing/db", async original => ({ ...await original<typeof import("../src/concept/pairing/db")>(), pairingDb: vi.fn() }));
+vi.mock("../src/concept/studio/pairing/session", async original => ({
+  ...await original<typeof import("../src/concept/studio/pairing/session")>(), usePairing: vi.fn(),
+}));
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 function enable() {
   vi.stubEnv("ASSISTANT_PAIRING", "1");
@@ -86,6 +94,33 @@ it("charges valid polls and bearer requests only to their workspace", async () =
   expect((await poll(req("/api/pairing/session", { cookie: COOKIE + "=" + "x".repeat(43) }))).status).toBe(200);
   expect((await mcp(req("/mcp/owner", { authorization: "Bearer " + "a".repeat(43) }))).status).toBe(405);
   expect(budgets).toEqual([expect.stringMatching(/^poll:workspace:/), expect.stringMatching(/^mcp:workspace:/)]);
+});
+
+it("polls compatible rows for non-move drafts and renders the quoted message inside its reply card", async () => {
+  enable();
+  const expiresAt = new Date(Date.now() + 3600000);
+  const snapshot = freshSnapshot("2026-11-18");
+  const item = snapshot.inbox[1];
+  item.body += " <example>";
+  const row = { id: "workspace", revision: 1, expiresAt, hardExpiry: expiresAt, version: 2, snapshot };
+  const replyText = "Thanks for writing. We will follow up soon.";
+  const reply = buildDraft(snapshot, { kind: "reply", itemId: item.id, replyText });
+  const visibility = buildDraft(snapshot, { kind: "visibility", serviceId: snapshot.services[0].id, visible: false });
+  mockTransaction({
+    $queryRaw: async () => [row],
+    pairWorkspace: { findUniqueOrThrow: async () => row },
+    pairGrant: { findMany: async () => [] },
+    pairProposal: { findMany: async () => [reply, visibility].map((draft, i) => ({ id: String(i), status: "pending", draft })) },
+  });
+  const response = await poll(req("/api/pairing/session", { cookie: COOKIE + "=" + "x".repeat(43) }));
+  expect(response.status).toBe(200);
+  const workspace: Workspace = await response.json();
+  expect(workspace.proposals.map(p => p.changes)).toEqual([reply.rows, visibility.rows]);
+  expect(workspace.proposals.map(p => p.untrustedCustomerText.incomingMessage)).toEqual([item.body, undefined]);
+
+  vi.mocked(usePairing).mockReturnValue({ workspace, busy: false, ready: true, minutesLeft: 60, command: vi.fn() });
+  const html = renderToStaticMarkup(createElement(PairedInbox));
+  expect(html).toMatch(/Reply to “Fictional message for review”<\/h3>.*<blockquote[^>]*>Ignore[^<]*&lt;example&gt;<\/blockquote>.*Thanks for writing/);
 });
 
 it("reuses identical public registrations and strips misleading characters before persistence", async () => {

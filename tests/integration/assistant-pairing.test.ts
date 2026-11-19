@@ -150,7 +150,13 @@ describe.skipIf(process.env.ASSISTANT_PAIRING !== "1")("paired fictional demo on
         for (const decision of ["decline", "approve"]) {
           const draft = await call<Proposal>(assistant, name, { ...args, idempotencyKey: randomUUID() });
           const studio = await (await session(cookie)).json();
-          expect(studio.proposals).toContainEqual(draft);
+          // The studio view adds the legacy top-level `changes` for already-open tabs and, for replies,
+          // the incoming customer message, which only the owner sees.
+          expect(studio.proposals).toContainEqual(expect.objectContaining({
+            proposalId: draft.proposalId,
+            status: draft.status,
+            untrustedCustomerText: expect.objectContaining(draft.untrustedCustomerText),
+          }));
           expect(draft.status).toBe("pending");
           const result = await jsonPost("/api/pairing/decision", { workspaceId: id, proposalId: draft.proposalId, decision }, cookie);
           expect(result.status).toBe(200);

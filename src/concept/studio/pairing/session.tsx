@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import type { bookingView, itemView, proposalView } from "../../pairing/appointments";
+import type { bookingView, itemView, studioProposalView } from "../../pairing/appointments";
 import type { StaffBlock } from "../../data/types";
 import { t } from "../../i18n";
 import { showToast } from "../../ui/toast";
@@ -14,7 +14,7 @@ export interface Workspace {
   blocks: (StaffBlock & { staffName: string })[];
   bookings: ReturnType<typeof bookingView>[];
   items: ReturnType<typeof itemView>[];
-  proposals: ReturnType<typeof proposalView>[];
+  proposals: ReturnType<typeof studioProposalView>[];
 }
 export interface Pairing {
   workspace: Workspace | null;

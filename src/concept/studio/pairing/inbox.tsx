@@ -22,6 +22,10 @@ export function PairedInbox() {
       </Card>
       {w.proposals.map(p => <Card key={p.proposalId} className="space-y-3 p-5 ring-1 ring-action/30">
         <p className="text-sm text-text-secondary">{t("pair.review")}</p><h3 className="font-semibold">{p.untrustedCustomerText.title}</h3>
+        {p.untrustedCustomerText.incomingMessage && <div>
+          <p className="text-sm font-medium">{t("pair.customerMessage")}</p>
+          <blockquote className="whitespace-pre-wrap break-words border-l-2 border-hairline pl-3 text-sm text-text-secondary">{p.untrustedCustomerText.incomingMessage}</blockquote>
+        </div>}
         <ChangeRows rows={p.untrustedCustomerText.changes} />
         <div className="flex gap-2">{(["approve", "decline"] as const).map(decision =>
           <Button key={decision} disabled={busy} variant={decision === "approve" ? "primary" : "secondary"}
