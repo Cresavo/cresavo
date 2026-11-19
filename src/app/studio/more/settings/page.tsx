@@ -12,6 +12,7 @@ import { ClosedDaysSection } from "@/concept/studio/ops/closed-days";
 import { HoursSection } from "@/concept/studio/ops/hours-section";
 import { ResourcesSection } from "@/concept/studio/ops/resources-section";
 import { MorePage } from "@/concept/studio/more/more-page";
+import { ReminderSettings } from "@/concept/studio/more/reminder-settings";
 import { SupportAccess } from "@/concept/studio/support/support-access";
 import { parseLocale } from "@/lib/locale";
 import { StudioLanguageSetting } from "@/concept/studio/studio-language";
@@ -23,7 +24,7 @@ import { ThemeControl } from "@/concept/ui/theme-control";
 import { showToast } from "@/concept/ui/toast";
 
 export default function SettingsPage() {
-  const { state } = useStudio();
+  const { state, today } = useStudio();
   const [confirming, setConfirming] = useState(false);
   const { salon, localization } = state;
   const details = [
@@ -82,6 +83,7 @@ export default function SettingsPage() {
             </label>
           </Card>
         </Section>
+        <ReminderSettings key={salon.slug} state={state} today={today} />
         <div id="hours"><HoursSection /></div>
         <ClosedDaysSection />
         <ResourcesSection />

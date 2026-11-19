@@ -5,7 +5,7 @@ import type { Booking } from "../data/types";
 import { t } from "../i18n";
 import { formatDate, formatTime } from "../i18n/format";
 import { usePublicDemo } from "../store";
-import { Button } from "../ui/button";
+import { Button, buttonClass } from "../ui/button";
 import { Card } from "../ui/card";
 import { useSalonNow } from "../use-now";
 import { bookingPage } from "./links";
@@ -25,8 +25,10 @@ export function BookingWidget() {
     {booking ? <Card className="space-y-4 p-5">
       <h2 className="text-xl font-semibold text-action">{t("booking.confirmation.title")}</h2>
       <p>{findService(state, booking.serviceId)?.name} · {formatDate(booking.date)} {formatTime(booking.start)}</p>
-      <a className="block font-medium text-action underline" href={bookingPage(state.salon.slug, booking.id)} target="_blank" rel="noopener noreferrer">{t("widget.manage")}</a>
-      <Button variant="secondary" onClick={() => { setRepeat(booking); setBookedId(undefined); }}>{t("booking.me.rebook")}</Button>
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={() => { setRepeat(booking); setBookedId(undefined); }}>{t("booking.me.rebook")}</Button>
+        <a className={buttonClass("secondary")} href={bookingPage(state.salon.slug, booking.id)} target="_blank" rel="noopener noreferrer">{t("widget.manage")}</a>
+      </div>
     </Card> : <BookingWizard state={state} now={now} initialServiceId={repeat?.serviceId} initialStaffId={repeat?.staffId} onBooked={setBookedId} />}
   </div>;
 }

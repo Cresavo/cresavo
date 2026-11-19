@@ -6,10 +6,10 @@ import { addDays } from "../data/dates";
 import type { DemoState, StaffId } from "../data/types";
 import { t, tc } from "../i18n";
 import { formatDayLong } from "../i18n/format";
+import { ActionFailure, type ActionFailureInfo } from "../ui/action-failure";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { cx } from "../ui/cx";
-import { showToast } from "../ui/toast";
 import type { Now } from "../use-now";
 import { AskStep } from "./ask-step";
 import { useGuestContact } from "./guest";
@@ -73,10 +73,14 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
   const contact = useGuestContact(state.salon.slug);
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
   const [missed, setMissed] = useState(false);
+  const [failure, setFailure] = useState<ActionFailureInfo>();
   const step = trail[trail.length - 1];
   useEffect(() => onFlowChange?.(step !== "ask"), [step, onFlowChange]);
   const go = (next: Step) => setTrail((current) => [...current, next]);
-  const back = () => setTrail((current) => current.slice(0, -1));
+  const back = () => {
+    setFailure(undefined);
+    setTrail((current) => current.slice(0, -1));
+  };
   const service = state.services.find((s) => s.id === serviceId);
   const ask = (text: string) => {
     const parsed = parseBookingRequest(text, state, now.today);
@@ -98,12 +102,13 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
   };
 
   const pick = (chosen: OpenSlot) => {
+    setFailure(undefined);
     setSlot(chosen);
     go("details");
   };
 
-  const taken = () => {
-    showToast(t("booking.slotTaken"));
+  const taken = (error: ActionFailureInfo) => {
+    setFailure(error);
     setSlot(undefined);
     setTrail((current) => current.at(-1) === "next" ? [...current.slice(0, -1), "times"] : current.slice(0, -1));
   };
@@ -166,6 +171,7 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
         </Button>
         {step !== "next" && <Progress step={step} />}
       </div>
+      {failure && <ActionFailure failure={failure} audience="booking" />}
       <div role="group" tabIndex={-1} ref={stepPanel} aria-label={t(PROGRESS_LABELS[PROGRESS[step] ?? 0])}>
         {body[step]}
       </div>

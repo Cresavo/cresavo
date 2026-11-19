@@ -91,7 +91,7 @@ describe("migrateState", () => {
     const { cancelledId, ...edited } = v14Save();
     const saved = { ...edited, version: 19, localization: { language: "sv", bilingual: false, currency: "SEK" } };
     const migrated = migrateState(saved)!;
-    expect(migrated.version).toBe(20);
+    expect(migrated.version).toBe(DEMO_VERSION);
     expect(migrated.localization).toEqual({ language: "en", bilingual: true, currency: "SEK" });
     expect(migrated.bookings.find((b) => b.id === cancelledId)?.status).toBe("cancelled");
     expect(migrated.page).toEqual(saved.page);
@@ -100,7 +100,13 @@ describe("migrateState", () => {
   it("preserves an owner's salon and localization when migrating from v19", () => {
     const own = createSalon(today, { ...salonDraft("sv"), industry: "foot", currency: "EUR" });
     const saved = { ...own, version: 19 };
-    expect(migrateState(saved)).toEqual({ ...saved, version: 20 });
+    expect(migrateState(saved)).toEqual({ ...saved, version: DEMO_VERSION });
+  });
+
+  it("adds reminder defaults to an existing v20 save without changing its bookings or salon settings", () => {
+    const saved: Partial<DemoState> = { ...createDemoState(today), version: 20 };
+    delete saved.reminderSettings;
+    expect(migrateState(saved)).toEqual({ ...saved, version: DEMO_VERSION, reminderSettings: { channel: "sms", smsPriceOre: 45 } });
   });
 
   it("is one linear chain: every saved version from the oldest to the current reaches DEMO_VERSION", () => {

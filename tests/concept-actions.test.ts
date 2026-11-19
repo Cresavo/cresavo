@@ -55,6 +55,13 @@ describe("concept store actions", () => {
     expect(next.bookings.at(-1)?.customerId).toBe(customer.id);
   });
 
+  it("leaves an Inbox request and its new customer untouched if the offered slot was taken", () => {
+    const item = base.inbox.find((i) => i.fromName && i.suggestion)!;
+    const occupied = reduce(base, { ...item.suggestion!, type: "booking/create", customerId: "k001", source: "phone" });
+    expect(occupied.bookings).toHaveLength(base.bookings.length + 1);
+    expect(reduce(occupied, { type: "inbox/reply", id: item.id, reply: "Welcome", slot: item.suggestion })).toBe(occupied);
+  });
+
   it("updates prices, modules and inbox flags", () => {
     let next = reduce(base, { type: "service/price", id: "classic-60", price: 850 });
     next = reduce(next, { type: "module/toggle", key: "stock" });

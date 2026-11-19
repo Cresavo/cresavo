@@ -9,6 +9,8 @@ import { formatDayLong } from "../i18n/format";
 import { serviceCopy } from "../i18n/salon-eko-copy";
 import { findService } from "../selectors";
 import { currentState, dispatch } from "../store";
+import { newActionRequestId } from "../support/action-reference";
+import { ActionFailure, type ActionFailureInfo } from "../ui/action-failure";
 import { Button } from "../ui/button";
 import type { Now } from "../use-now";
 import { Sheet } from "../ui/sheet";
@@ -33,6 +35,7 @@ interface WaitlistSheetProps {
 export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetProps) {
   const { guest, setGuest, remember, chooseRemember, saveContact } = useGuestContact(state.salon.slug);
   const [done, setDone] = useState(false);
+  const [failure, setFailure] = useState<ActionFailureInfo>();
   const service = request ? findService(state, request.serviceId) : undefined;
   const person = state.staff.find(s => s.id === request?.staffId);
   const serviceLabel = service && (person ? t("booking.waitlist.withStaff", { service: service.name, staff: person.firstName }) : service.name);
@@ -62,7 +65,10 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
         draftReply: customerText(state, "booking.waitlist.inboxReply", { name: name.split(/\s+/)[0], service: replyService }),
       },
     });
-    if (!joined) return;
+    if (!joined) {
+      setFailure({ requestId: newActionRequestId(), message: t("booking.waitlist.failed") });
+      return;
+    }
     const customer = findCustomerByPhone(currentState() ?? state, phone);
     if (customer) saveContact(customer.id);
     setDone(true);
@@ -91,9 +97,10 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
           <p>{t("booking.waitlist.doneBody", { phone: guest.phone.trim() })}</p>
         </div>
       ) : (
-        <div className="pt-2">
+        <div className="space-y-3 pt-2">
           <GuestFields value={guest} onChange={setGuest} />
           <RememberContact checked={remember} onChange={chooseRemember} />
+          {failure && <ActionFailure failure={failure} audience="booking" />}
         </div>
       )}
     </Sheet>

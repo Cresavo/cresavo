@@ -6,6 +6,8 @@ import { PACKAGE_DEAL, packagePrice } from "../../packages/packages";
 import { t } from "../../i18n";
 import { formatMoney } from "../../i18n/format";
 import { findCustomer, fullName } from "../../selectors";
+import { newActionRequestId } from "../../support/action-reference";
+import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Avatar } from "../../ui/avatar";
 import { Button } from "../../ui/button";
 import { Chip, SearchInput } from "../../ui/controls";
@@ -21,6 +23,7 @@ export function SellPackageSheet({ onClose }: { onClose: () => void }) {
   const [serviceId, setServiceId] = useState(state.services[0]?.id ?? "");
   const [customerId, setCustomerId] = useState("");
   const [query, setQuery] = useState("");
+  const [failure, setFailure] = useState<ActionFailureInfo>();
   const service = state.services.find((s) => s.id === serviceId);
   const customer = findCustomer(state, customerId);
   const matches = query.trim()
@@ -29,8 +32,8 @@ export function SellPackageSheet({ onClose }: { onClose: () => void }) {
 
   const sell = () => {
     if (!service || !customer) return;
-    dispatchWithUndoToast({ type: "package/sell", customerId: customer.id, serviceId: service.id, date: today }, t("packages.sold", { name: customer.firstName }));
-    onClose();
+    if (dispatchWithUndoToast({ type: "package/sell", customerId: customer.id, serviceId: service.id, date: today }, t("packages.sold", { name: customer.firstName }))) onClose();
+    else setFailure({ requestId: newActionRequestId(), message: t("payment.saleFailed") });
   };
 
   return (
@@ -47,6 +50,7 @@ export function SellPackageSheet({ onClose }: { onClose: () => void }) {
       }
     >
       <div className="space-y-5">
+        <p className="text-sm text-text-secondary">{t("payment.simulated")}</p>
         <div className="space-y-2">
           <p className="text-sm font-medium">{t("packages.treatment")}</p>
           <div className="flex flex-wrap gap-2">
@@ -54,6 +58,7 @@ export function SellPackageSheet({ onClose }: { onClose: () => void }) {
               <Chip key={s.id} active={serviceId === s.id} onClick={() => setServiceId(s.id)}>{s.name}</Chip>
             ))}
           </div>
+        {failure && <ActionFailure failure={failure} />}
         </div>
         <div className="space-y-2">
           <p className="text-sm font-medium">{t("packages.customer")}</p>

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import type { Booking, DemoState } from "../data/types";
 import { ownerViewHref } from "../page/resolve";
@@ -10,13 +9,14 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Segmented } from "../ui/controls";
-import { showToast } from "../ui/toast";
+import { showActionFailure, showToast } from "../ui/toast";
 import type { Now } from "../use-now";
 import { bookingMessage, messageWasSent, type BookingMessageKind, type MessageChannel } from "./messages";
 
 export function MessagePreviews({ state, booking, now }: { state: DemoState; booking: Booking; now: Now }) {
   const [kind, setKind] = useState<BookingMessageKind>("confirmation");
-  const [channel, setChannel] = useState<MessageChannel>("sms");
+  const [override, setChannel] = useState<MessageChannel>();
+  const channel = override ?? (kind === "reminder" ? state.reminderSettings.channel : "sms");
   const message = bookingMessage(state, booking, kind);
   const ownerOrigin = new URL(ownerViewHref(window.location.host, window.location.protocol), window.location.href).origin;
   const sentText = t(ownerOrigin === window.location.origin ? "messages.sent" : "messages.sentLocally");
@@ -33,13 +33,11 @@ export function MessagePreviews({ state, booking, now }: { state: DemoState; boo
           <p className="text-text-secondary">{t("messages.to")}</p><p className="font-medium">{t("messages.subject", { subject: message.subject })}</p>
         </div>}
         <p className="mt-2 whitespace-pre-line break-words text-sm leading-relaxed">{message.details}</p>
-        <Link href={`${message.path}#manage`} className="inline-flex min-h-11 items-center text-sm font-medium text-action underline">
-          {t("booking.manageLink")}
-        </Link>
       </div>
       {sent ? <p role="status" className="text-sm text-action">{sentText}</p> : <Button variant="secondary" onClick={() => {
         const ok = dispatch({ type: "booking-message/send", bookingId: booking.id, kind, channel, at: { date: now.today, time: now.minutes } });
-        showToast(ok ? sentText : t("command.failed"));
+        if (ok) showToast(sentText);
+        else showActionFailure(t("messages.failed"), undefined, "booking");
       }}>{t("messages.simulate")}</Button>}
       <Badge>{t("common.simulated")}</Badge>
     </Card>

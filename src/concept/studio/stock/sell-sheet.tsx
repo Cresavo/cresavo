@@ -6,6 +6,8 @@ import { t } from "../../i18n";
 import { formatAmount, formatMoney } from "../../i18n/format";
 import { sellable } from "../../stock/sales";
 import { findCustomer, fullName } from "../../selectors";
+import { newActionRequestId } from "../../support/action-reference";
+import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Avatar } from "../../ui/avatar";
 import { Button } from "../../ui/button";
 import { Chip, SearchInput } from "../../ui/controls";
@@ -24,6 +26,7 @@ export function SellSheet({ customerId, onClose }: { customerId?: string; onClos
   const [quantity, setQuantity] = useState(1);
   const [buyerId, setBuyerId] = useState(customerId ?? "");
   const [query, setQuery] = useState("");
+  const [failure, setFailure] = useState<ActionFailureInfo>();
   const product = products.find((p) => p.id === productId);
   const buyer = findCustomer(state, buyerId);
   const matches = query.trim()
@@ -33,8 +36,8 @@ export function SellSheet({ customerId, onClose }: { customerId?: string; onClos
 
   const sell = () => {
     if (!product || !buyer) return;
-    dispatchWithUndoToast({ type: "product/sell", customerId: buyer.id, stockId: product.id, quantity, date: today }, t("stock.sold", { product: product.name, name: buyer.firstName }));
-    onClose();
+    if (dispatchWithUndoToast({ type: "product/sell", customerId: buyer.id, stockId: product.id, quantity, date: today }, t("stock.sold", { product: product.name, name: buyer.firstName }))) onClose();
+    else setFailure({ requestId: newActionRequestId(), message: t("payment.saleFailed") });
   };
 
   return (
@@ -52,6 +55,7 @@ export function SellSheet({ customerId, onClose }: { customerId?: string; onClos
     >
       {products.length ? (
         <div className="space-y-5">
+          <p className="text-sm text-text-secondary">{t("payment.simulated")}</p>
           <div className="space-y-2">
             <p className="text-sm font-medium">{t("stock.product")}</p>
             <div className="flex flex-wrap gap-2">
@@ -98,6 +102,7 @@ export function SellSheet({ customerId, onClose }: { customerId?: string; onClos
               <span className="tabular-nums">{formatMoney(quantity * (product.salePrice ?? 0))}</span>
             </p>
           )}
+          {failure && <ActionFailure failure={failure} />}
         </div>
       ) : (
         <p className="text-sm text-text-secondary">{t("stock.noneForSale")}</p>

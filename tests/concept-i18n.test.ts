@@ -4,6 +4,7 @@ import ts from "typescript";
 import { afterEach, describe, expect, it } from "vitest";
 import { respond } from "@/concept/assistant/engine";
 import { emptyContext } from "@/concept/assistant/thread";
+import { freeUntilText } from "@/concept/booking/deadline-text";
 import { bookingMessage } from "@/concept/booking/messages";
 import { parseBookingRequest } from "@/concept/booking/request";
 import { applyAction } from "@/concept/log/capture";
@@ -68,6 +69,13 @@ describe("concept languages", () => {
     expect(reminder.details).toContain("1 Dec 2026 at 10:00");
     expect(reminder.body).toBe(`${reminder.details} Manage your booking: ${reminder.path}`);
     expect(t("nav.today")).toBe("Idag");
+  });
+
+  it("includes the full date, local time and salon zone in both deadline translations", () => {
+    const slot = { date: "2027-01-01", start: 855 };
+    expect(freeUntilText(slot)).toContain("31 Dec 2026 at 14:15 (Europe/Stockholm)");
+    setLocale("sv");
+    expect(freeUntilText(slot)).toContain("31 december 2026 kl. 14:15 (Europe/Stockholm)");
   });
 
   it("keeps the saved booking language independent and makes it undoable", () => {

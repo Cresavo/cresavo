@@ -4,11 +4,20 @@ import { createDemoState } from "@/concept/data/generate";
 import { applyAction } from "@/concept/log/capture";
 import { isUndoable } from "@/concept/log/undo";
 import { activeGrant, grantStatus } from "@/concept/support/access";
+import { actionReference, newActionRequestId } from "@/concept/support/action-reference";
 import { buildTicket, TICKET_ACTIVITY } from "@/concept/support/tickets";
 
 const base = createDemoState("2026-11-16");
 const meta = { actor: "owner", source: "button", at: 1_000 } as const;
 const HOUR = 3_600_000;
+
+it("derives a short support reference from an opaque local request ID", () => {
+  const requestId = newActionRequestId();
+  expect(requestId).toMatch(/^[0-9a-f]{16}$/);
+  expect(actionReference(requestId)).toMatch(/^CR-[0-9A-Z]{7}$/);
+  expect(actionReference("request-2")).toBe(actionReference("request-2"));
+  expect(actionReference("request-2")).not.toBe(actionReference("request-1"));
+});
 
 describe("support access", () => {
   it("grants read access for the chosen time and ends it", () => {

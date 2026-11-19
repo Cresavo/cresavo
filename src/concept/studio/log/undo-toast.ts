@@ -2,7 +2,8 @@ import type { DemoAction } from "../../actions";
 import { t } from "../../i18n";
 import { undoBlockReason, type UndoBlockReason } from "../../log/undo";
 import { currentState, dispatch, dispatchWithLog } from "../../store";
-import { showToast } from "../../ui/toast";
+import { isBookingOrPaymentAction } from "../../support/action-reference";
+import { showActionFailure, showToast } from "../../ui/toast";
 
 const REASON_KEYS = {
   "time-taken": "log.undoTimeTaken",
@@ -23,8 +24,11 @@ export function undoWithToast(id: string): boolean {
     return true;
   }
   const state = currentState();
-  const reason = state && undoBlockReason(state, state.log.find((entry) => entry.id === id));
-  showToast(undoBlockMessage(reason) ?? t("log.cannotUndo"));
+  const entry = state?.log.find(row => row.id === id);
+  const reason = state && undoBlockReason(state, entry);
+  const message = undoBlockMessage(reason) ?? t("log.cannotUndo");
+  if (entry && isBookingOrPaymentAction(entry.type)) showActionFailure(message);
+  else showToast(message);
   return false;
 }
 

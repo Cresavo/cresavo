@@ -9,12 +9,14 @@ All notable changes to this project are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- The demo shows the service total, payment split and salon-local cancellation deadline before booking. Studio settings estimate monthly reminder SMS costs and link to the simulated Sent log. Getting started links to a checklist for exporting data and importing customers. Failed booking and payment actions show a copyable reference code.
 - The Swedish product page and privacy note live at `/sv` and `/sv/privacy`. The Swedish site links into the demo in Swedish, and the Swedish domains redirect to the main site.
 - Start a browser-local salon from Today or Settings with a seven-step setup in Swedish or English. New salons have their own bookable page, empty studio views and a first-run checklist. A short guided tour introduces the demo salon.
 - The studio and Salong Eko booking flow support Swedish and English. Owners choose a studio language per device and a business language for confirmations and customer messages. The rules assistant understands common Swedish booking and scheduling commands.
 - The public product site publishes a sitemap and search metadata. Its production deployment uses cookie-free Vercel Web Analytics to measure visits.
 
 ### Changed
+- Book again sits beside booking management on confirmations and in My bookings, and keeps the original treatment and practitioner when available.
 - English is the default language; Salong Eko offers Swedish to visitors.
 - Customers can confirm the next available visit from the treatment list, opt in to contact prefill, and book the same treatment and practitioner again. The confirmation links to appointment management, calendar downloads and Google Calendar. Shared gift cards show their remaining balance when available.
 - The customer list starts each row with the customer's name and shows the next booking before the last visit. The filters carry the customer counts.

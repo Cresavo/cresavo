@@ -3,7 +3,7 @@ import { reduce } from "@/concept/actions";
 import { buildIcs, googleCalendarLink } from "@/concept/booking/ics";
 import { recallGuest, rememberGuest } from "@/concept/booking/guest";
 import { customerBookings, findCustomerByPhone, isMobilePhone, normalizePhone, phoneMatches } from "@/concept/booking/lookup";
-import { changeRule } from "@/concept/booking/policy";
+import { changeRule, freeCancellationDeadline } from "@/concept/booking/policy";
 import { parseBookingRequest } from "@/concept/booking/request";
 import { openSlots, suggestSlots } from "@/concept/booking/suggest";
 import { addDays } from "@/concept/data/dates";
@@ -90,6 +90,14 @@ describe("change rule", () => {
     expect(changeRule(booking, "2026-11-17", 14 * 60 + 1)).toBe("late");
     expect(changeRule(booking, "2026-11-18", 14 * 60)).toBe("past");
     expect(changeRule({ ...booking, status: "cancelled" }, today, 0)).toBe("past");
+  });
+
+  it.each(["2027-01-01", "2027-03-28", "2027-10-31"])("uses the same salon-local deadline and cutoff on %s", date => {
+    const appointment = { ...booking, date, start: 14 * 60 + 15 };
+    const deadline = freeCancellationDeadline(appointment);
+    expect(deadline).toEqual({ date: addDays(date, -1), time: 14 * 60 + 15 });
+    expect(changeRule(appointment, deadline.date, deadline.time)).toBe("free");
+    expect(changeRule(appointment, deadline.date, deadline.time + 1)).toBe("late");
   });
 });
 

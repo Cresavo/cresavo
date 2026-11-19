@@ -7,6 +7,8 @@ import type { GiftCard } from "../../data/types";
 import { t } from "../../i18n";
 import { formatMoney } from "../../i18n/format";
 import { currentState, dispatchWithLog } from "../../store";
+import { newActionRequestId } from "../../support/action-reference";
+import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Button } from "../../ui/button";
 import { Chip, Field, TextArea, TextInput } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
@@ -21,11 +23,15 @@ export function SellGiftCardSheet({ onClose, onSold }: { onClose: () => void; on
   const [amount, setAmount] = useState(500);
   const [recipient, setRecipient] = useState("");
   const [message, setMessage] = useState("");
+  const [failure, setFailure] = useState<ActionFailureInfo>();
   const valid = Number.isInteger(amount) && amount >= MIN_AMOUNT && amount <= MAX_AMOUNT && recipient.trim().length > 0;
 
   const sell = () => {
     const logId = dispatchWithLog({ type: "giftcard/sell", amount, recipient, message, date: today });
-    if (logId === false) return;
+    if (logId === false) {
+      setFailure({ requestId: newActionRequestId(), message: t("payment.saleFailed") });
+      return;
+    }
     const card = currentState()!.giftCards.at(-1)!;
     showUndoToast(t("giftcards.sold", { code: card.code }), logId);
     onSold(card);
@@ -45,6 +51,7 @@ export function SellGiftCardSheet({ onClose, onSold }: { onClose: () => void; on
       }
     >
       <div className="space-y-5">
+        <p className="text-sm text-text-secondary">{t("payment.simulated")}</p>
         <div className="space-y-2">
           <p className="text-sm font-medium">{t("giftcards.amount")}</p>
           <div className="flex flex-wrap gap-2">
@@ -62,6 +69,7 @@ export function SellGiftCardSheet({ onClose, onSold }: { onClose: () => void; on
         <Field label={t("giftcards.message")}>
           <TextArea value={message} onChange={(event) => setMessage(event.target.value)} placeholder={t("giftcards.messagePlaceholder")} rows={3} maxLength={280} />
         </Field>
+        {failure && <ActionFailure failure={failure} />}
       </div>
     </Sheet>
   );
