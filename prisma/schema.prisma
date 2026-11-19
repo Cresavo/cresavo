@@ -536,6 +536,10 @@ model TenantEffect {
   attempts      Int       @default(0)
   nextAttemptAt DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
   deliveredAt   DateTime? @map("delivered_at") @db.Timestamptz(3)
+  /// Set by a claim, cleared by its outcome: the row is in flight with one deliverer until then.
+  leasedUntil   DateTime? @map("leased_until") @db.Timestamptz(3)
+  /// An erasure stopped this row: never claimed again.
+  erasedAt      DateTime? @map("erased_at") @db.Timestamptz(3)
   @@id([tenantId, seq, n])
   @@index([status, nextAttemptAt])
   @@index([tenantId, status, seq, n])

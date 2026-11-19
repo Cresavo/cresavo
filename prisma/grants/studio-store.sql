@@ -34,9 +34,10 @@ GRANT SELECT, INSERT, UPDATE ON "tenant_effect" TO cresavo_app;
 
 -- Erasure (item 7): the only path that may change tenant_action is the
 -- SECURITY DEFINER function erase_subject(tenant, customerId), owned by a
--- separate NOLOGIN role. See prisma/grants/erase-subject.sql for the role, its
--- column grants and the function; then:
---   GRANT EXECUTE ON FUNCTION erase_subject(text, text) TO cresavo_app;
+-- separate NOLOGIN role. Run prisma/grants/erase-subject.sql next: it grants
+-- that role its columns, creates the function without PUBLIC access and grants
+-- EXECUTE to the application role only. The store then needs
+-- `erasure: "function"`, since this role cannot UPDATE tenant_action.
 
 -- Finally verify the effective privileges, including inherited ones:
 --   psql "$DATABASE_URL" -v app_role=cresavo_app -f prisma/grants/verify-studio-store.sql

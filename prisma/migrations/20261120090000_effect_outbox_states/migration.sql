@@ -10,3 +10,10 @@ ALTER TABLE "tenant_effect" ADD CONSTRAINT "tenant_effect_status_check" CHECK ("
 -- The poller claims due rows across tenants in commit order.
 -- CreateIndex
 CREATE INDEX "tenant_effect_status_tenant_id_seq_n_idx" ON "tenant_effect"("status", "tenant_id", "seq", "n");
+
+-- A claim sets leased_until; ack, retry and failure clear it. While it is in
+-- the future the row is in flight with one deliverer (backoff alone leaves it NULL).
+-- erased_at: an erasure stopped this row. It is never claimed again; a
+-- delivery already in flight still records its true outcome.
+ALTER TABLE "tenant_effect" ADD COLUMN "leased_until" TIMESTAMPTZ(3);
+ALTER TABLE "tenant_effect" ADD COLUMN "erased_at" TIMESTAMPTZ(3);

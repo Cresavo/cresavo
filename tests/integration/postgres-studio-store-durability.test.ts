@@ -30,7 +30,19 @@ function client(max = 5): PrismaClient {
 }
 const db = client();
 const PREFIX = `pgd-${randomUUID().slice(0, 8)}`;
-const tenantIds = (label: string) => `${PREFIX}-${label}-${randomUUID().slice(0, 8)}`;
+const created: string[] = [];
+const tenantIds = (label: string) => {
+  const id = `${PREFIX}-${label}-${randomUUID().slice(0, 8)}`;
+  created.push(id);
+  return id;
+};
+
+/**
+ * The poller, restricted to this run's tenants: the database may hold other
+ * runs' rows, and a claim is already a decision (filtering in the sink is too late).
+ */
+const drain = (options: Omit<Parameters<typeof drainPendingEffects>[0], "tenants">) =>
+  drainPendingEffects({ ...options, tenants: [...created] });
 const TABLES = ["tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect"] as const;
 
 afterAll(async () => {
@@ -43,11 +55,10 @@ async function seed(tenantId: string, saved: unknown, kind: TenantKind = "salon"
     INSERT INTO tenant_state (tenant_id, kind, version, doc) VALUES (${tenantId}, ${kind}::tenant_kind, 0, ${JSON.stringify(saved)}::jsonb)`;
 }
 
-/** Records deliveries of this run's tenants only (a poller may also see rows other runs left behind). */
+/** Records every delivery. */
 function recordingSinks(onDeliver?: (delivery: EffectDelivery) => void | Promise<void>) {
   const delivered: EffectDelivery[] = [];
   const sink: EffectSink = async (delivery) => {
-    if (!delivery.tenantId.startsWith(PREFIX)) return;
     await onDeliver?.(delivery);
     delivered.push(delivery);
   };
@@ -115,9 +126,9 @@ describe("effect outbox poller (item 4)", () => {
     expect(pending.every((row) => row.status === "pending" && row.attempts === 0)).toBe(true);
 
     const live = recordingSinks();
-    const first = await drainPendingEffects({ prisma: client(2), sinks: live.sinks, limit: 1000 });
+    const first = await drain({ prisma: client(2), sinks: live.sinks, limit: 1000 });
     expect(first.delivered).toBeGreaterThanOrEqual(pending.length);
-    const second = await drainPendingEffects({ prisma: client(2), sinks: live.sinks, limit: 1000 });
+    const second = await drain({ prisma: client(2), sinks: live.sinks, limit: 1000 });
     expect(live.of(id).map((d) => d.id).sort()).toEqual(pending.map((row) => row.id).sort());
     expect(second.delivered).toBe(0);
     expect((await effectRows(id)).map((row) => [row.status, row.attempts])).toEqual(pending.map(() => ["delivered", 1]));
@@ -140,14 +151,14 @@ describe("effect outbox poller (item 4)", () => {
       claimed();
       return new Promise<void>(() => {});
     };
-    void drainPendingEffects({ prisma: client(1), sinks: { payment: hanging, message: hanging }, limit: 1000 });
+    void drain({ prisma: client(1), sinks: { payment: hanging, message: hanging }, limit: 1000 });
     await isClaimed;
     const live = recordingSinks();
     const clock = Date.now();
-    await drainPendingEffects({ prisma: db, sinks: live.sinks, limit: 1000, now: async () => clock });
+    await drain({ prisma: db, sinks: live.sinks, limit: 1000, now: async () => clock });
     // Everything but the leased row went out.
     expect(live.of(id).map((d) => d.id)).toEqual(rows.slice(1).map((row) => row.id));
-    await drainPendingEffects({ prisma: db, sinks: live.sinks, limit: 1000, now: async () => clock + EFFECT_LEASE_MS + 1_000 });
+    await drain({ prisma: db, sinks: live.sinks, limit: 1000, now: async () => clock + EFFECT_LEASE_MS + 1_000 });
     expect(live.of(id).map((d) => d.id).sort()).toEqual(rows.map((row) => row.id).sort());
     expect((await effectRows(id)).every((row) => row.status === "delivered")).toBe(true);
   });
@@ -166,7 +177,7 @@ describe("effect outbox poller (item 4)", () => {
     }
     expect(expected.length).toBeGreaterThan(40);
     const live = recordingSinks(() => new Promise((resolve) => setTimeout(resolve, 2)));
-    const reports = await Promise.all([0, 1, 2, 3].map(() => drainPendingEffects({ prisma: client(1), sinks: live.sinks, limit: 1000 })));
+    const reports = await Promise.all([0, 1, 2, 3].map(() => drain({ prisma: client(1), sinks: live.sinks, limit: 1000 })));
     const delivered = live.delivered.filter((d) => ids.includes(d.tenantId)).map((d) => d.id);
     expect(new Set(delivered).size).toBe(delivered.length);
     expect(delivered.sort()).toEqual(expected.sort());
@@ -194,7 +205,7 @@ describe("effect outbox poller (item 4)", () => {
       if (delivery.effect.kind === "payment") { calls++; throw new Error("provider down"); }
     };
     const sinks = { payment: failing, message: failing };
-    const run = () => drainPendingEffects({ prisma: db, sinks, now: clock, maxAttempts: 3, limit: 1000 });
+    const run = () => drain({ prisma: db, sinks, now: clock, maxAttempts: 3, limit: 1000 });
     const row = async () => (await effectRows(id)).find((r) => r.id === checkout.id)!;
 
     await run();
@@ -220,11 +231,28 @@ describe("effect outbox poller (item 4)", () => {
     const cancelled = await store.apply(id, { type: "booking/cancel", id: booking.id });
     expect(cancelled.ok && cancelled.effects.map((e) => e.record.action)).toContain("refund");
     const live = recordingSinks();
-    await drainPendingEffects({ prisma: db, sinks: live.sinks, now: clock, limit: 1000 });
+    await drain({ prisma: db, sinks: live.sinks, now: clock, limit: 1000 });
     expect(live.of(id).filter((d) => d.effect.kind === "payment")).toEqual([]);
     const refund = (await effectRows(id)).find((r) => r.payload.action === "refund")!;
     expect(refund).toMatchObject({ status: "pending", attempts: 0 });
     expect(paid.ok).toBe(true);
+  });
+
+  it("claims only the tenants it is given", async () => {
+    const mine = tenantIds("scope-mine");
+    // Not registered with this run's tenants: another run's salon in the same database.
+    const foreign = `${PREFIX}-scope-foreign-${randomUUID().slice(0, 8)}`;
+    for (const id of [mine, foreign]) {
+      const { state, deposit } = depositState();
+      await seed(id, state);
+      const store = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: recordingSinks().sinks, deliverAfterCommit: false });
+      await payDeposit(store, id, state, deposit);
+    }
+    const live = recordingSinks();
+    await drain({ prisma: db, sinks: live.sinks, limit: 1000 });
+    expect(live.of(mine).length).toBeGreaterThan(0);
+    expect(live.of(foreign)).toEqual([]);
+    expect((await effectRows(foreign)).every((row) => row.status === "pending" && row.attempts === 0)).toBe(true);
   });
 
   it("routes demo and sandbox effects to the simulated sinks only, by tenant kind", async () => {
@@ -238,7 +266,7 @@ describe("effect outbox poller (item 4)", () => {
     }
     // Without live sinks the poller leaves salon effects alone (not even claimed).
     const simulatedOnly = recordingSinks();
-    await drainPendingEffects({ prisma: db, simulatedSinks: simulatedOnly.sinks, limit: 1000 });
+    await drain({ prisma: db, simulatedSinks: simulatedOnly.sinks, limit: 1000 });
     expect(simulatedOnly.of(ids.salon)).toEqual([]);
     expect((await effectRows(ids.salon)).every((row) => row.status === "pending" && row.attempts === 0)).toBe(true);
     expect(simulatedOnly.of(ids.demo).length).toBeGreaterThan(0);
@@ -247,7 +275,7 @@ describe("effect outbox poller (item 4)", () => {
 
     const live = recordingSinks();
     const simulated = recordingSinks();
-    await drainPendingEffects({ prisma: db, sinks: live.sinks, simulatedSinks: simulated.sinks, limit: 1000 });
+    await drain({ prisma: db, sinks: live.sinks, simulatedSinks: simulated.sinks, limit: 1000 });
     expect(live.of(ids.salon).length).toBe((await effectRows(ids.salon)).length);
     expect(live.delivered.some((d) => d.tenantId === ids.demo || d.tenantId === ids.sandbox)).toBe(false);
 
@@ -374,7 +402,17 @@ async function personalDataHits(tenantId: string, needles = NEEDLES): Promise<st
   return found;
 }
 
-/** A tenant where the fictional guest books with a deposit, gets texts, a note and a second booking; another customer is texted too. */
+/** The guest's phone as an earlier booking-page visit typed it, and private text that names nobody. */
+const FORMATTED_PHONE = "+46 70 000 12 34";
+const PRIVATE = "Fictional private reason";
+const ERASURE_NEEDLES = [...NEEDLES, FORMATTED_PHONE, PRIVATE];
+
+/**
+ * A tenant where the fictional guest books with a deposit, gets texts (one
+ * shared with another customer), a note, a hold typed with a formatted phone
+ * and no email, and a second booking under a key that holds their email,
+ * cancelled with a private reason. Another customer is texted too.
+ */
 async function erasableTenant(id: string, store: PostgresStudioStore, kind: TenantKind = "salon") {
   const { state, deposit } = depositState();
   await seed(id, state, kind);
@@ -387,23 +425,33 @@ async function erasableTenant(id: string, store: PostgresStudioStore, kind: Tena
     { type: "customer/note", id: customer.id, note: `Fictional note about ${guest.name}` },
     { type: "customers/message", texts: [{ customerId: customer.id, title: "Fictional reminder", body: `Hi ${guest.name}, see you soon.` }], at: { date: today, time: 9 * 60 } },
     { type: "customers/message", texts: [{ customerId: other.id, title: "Fictional reminder", body: "Hi, see you soon." }], at: { date: today, time: 9 * 60 } },
+    {
+      type: "customers/message", at: { date: today, time: 10 * 60 },
+      texts: [{ customerId: customer.id, title: "Fictional offer", body: "A gap opened today." }, { customerId: other.id, title: "Fictional offer", body: "A gap opened today." }],
+    },
   ];
   for (const step of steps) expect((await store.apply(id, step)).ok).toBe(true);
+  // A later visit to the booking page with the same number typed differently, under another name and no email.
+  const formatted = await store.apply(id, hold(deposit, slotFor((await store.load(id))!.state, deposit, 14), { name: "F. Guest", phone: FORMATTED_PHONE, email: "" }));
+  expect(formatted.ok).toBe(true);
   const plain = bookableServices(loaded).find((s) => s.id !== deposit.id)!;
-  const second = await store.apply(id, { type: "booking/create", customerId: customer.id, serviceId: plain.id, ...slotFor((await store.load(id))!.state, plain, 10), source: "phone" }, {}, { idempotencyKey: "book-guest" });
-  expect(second.ok).toBe(true);
+  const second = await store.apply(id, { type: "booking/create", customerId: customer.id, serviceId: plain.id, ...slotFor((await store.load(id))!.state, plain, 10), source: "phone" }, {}, { idempotencyKey: `studio:book-${guest.email}` });
+  if (!second.ok) throw new Error("booking refused");
+  const booking = second.state.bookings.at(-1)!;
+  expect((await store.apply(id, { type: "booking/cancel", id: booking.id, reason: PRIVATE })).ok).toBe(true);
   return { customer: customer as Customer, other };
 }
 
 describe("erasure (item 7)", () => {
-  it("leaves no trace of a deleted customer's name, phone or email in any tenant table", async () => {
+  it("leaves no trace of a deleted customer's name, phone, email or private text in any tenant table", async () => {
     const id = tenantIds("erase");
     const recorder = recordingSinks();
     const store = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: recorder.sinks });
     const { customer, other } = await erasableTenant(id, store);
     // Sanity: the data is everywhere before.
-    const before = await personalDataHits(id);
+    const before = await personalDataHits(id, ERASURE_NEEDLES);
     for (const table of TABLES) expect(before.some((hit) => hit.startsWith(`${table}:`))).toBe(true);
+    for (const needle of [FORMATTED_PHONE, PRIVATE]) expect(before.some((hit) => hit.endsWith(needle))).toBe(true);
     expect(recorder.of(id).some((d) => d.effect.kind === "payment")).toBe(true);
     expect(recorder.of(id).some((d) => d.effect.kind === "message" && d.effect.record.body.includes(guest.name))).toBe(true);
 
@@ -415,49 +463,134 @@ describe("erasure (item 7)", () => {
     expect(erased.version).toBe(version + 1);
     expect(erased.entry?.action).toEqual({ type: "customer/erase", id: customer.id });
     expect(erased.redacted.idempotencyKeys).toBe(1);
-    expect(erased.redacted.actions).toBeGreaterThanOrEqual(5);
-    expect(erased.pendingPayments).toBe(0);
+    expect(erased.redacted.actions).toBeGreaterThanOrEqual(7);
+    expect(erased).toMatchObject({ pendingPayments: 0, inFlightMessages: 0 });
 
-    expect(await personalDataHits(id)).toEqual([]);
+    expect(await personalDataHits(id, ERASURE_NEEDLES)).toEqual([]);
     const after = (await store.load(id))!;
     expect(after.state.customers.some((c) => c.id === customer.id)).toBe(false);
     expect(after.state.trash.some((e) => e.kind === "customer" && e.customer.id === customer.id)).toBe(false);
     expect(after.state.customers.some((c) => c.id === other.id)).toBe(true);
+    expect(after.state.salon.slug).toBe(createDemoState(today).salon.slug);
     // The log keeps its shape: rows naming the customer are marked redacted, the other customer's text is intact.
-    const rows = await db.$queryRaw<Array<{ seq: bigint; type: string; redacted: boolean; action: DemoAction }>>`
-      SELECT seq, action->>'type' AS type, redacted_at IS NOT NULL AS redacted, action FROM tenant_action WHERE tenant_id = ${id} ORDER BY seq`;
-    expect(rows.find((r) => r.type === "online/hold")?.redacted).toBe(true);
+    const rows = await db.$queryRaw<Array<{ seq: bigint; type: string; redacted: boolean; action: DemoAction; key: string | null }>>`
+      SELECT seq, action->>'type' AS type, redacted_at IS NOT NULL AS redacted, action, idempotency_key AS key FROM tenant_action WHERE tenant_id = ${id} ORDER BY seq`;
+    expect(rows.filter((r) => r.type === "online/hold").every((r) => r.redacted && (r.action as { guest: { phone: string } }).guest.phone === "[redacted]")).toBe(true);
     expect(rows.find((r) => r.type === "customer/note")?.redacted).toBe(true);
-    const otherText = rows.find((r) => r.type === "customers/message" && JSON.stringify(r.action).includes(other.id))!;
+    expect(rows.find((r) => r.type === "booking/create")?.key).toBe("studio:book-[redacted]");
+    const otherText = rows.find((r) => r.type === "customers/message" && JSON.stringify(r.action).includes(other.id) && !JSON.stringify(r.action).includes(customer.id))!;
     expect(otherText.redacted).toBe(false);
     expect(otherText.action).toMatchObject({ texts: [{ body: "Hi, see you soon." }] });
-    expect((await store.history(id, { limit: 100 })).entries).toHaveLength(rows.length);
+    expect((await store.history(id, { limit: 100 })).entries.find((e) => e.action.type === "booking/create")?.idempotencyKey).toBe("studio:book-[redacted]");
+    // Messages to the other customer, including the one sent with the guest's, are untouched.
+    const effects = await effectRows(id);
+    const toOther = effects.filter((row) => row.payload.to === `customer:${other.id}`);
+    expect(toOther.length).toBeGreaterThanOrEqual(2);
+    expect(toOther.every((row) => row.status === "delivered" && row.payload.body !== "[redacted]")).toBe(true);
+    expect(effects.filter((row) => row.payload.to === `customer:${customer.id}`)).toEqual([]);
     // The delivered payment keeps its amount for the books.
-    const payment = (await effectRows(id)).find((row) => row.kind === "payment")!;
+    const payment = effects.find((row) => row.kind === "payment")!;
     expect(payment).toMatchObject({ status: "delivered" });
     expect(payment.payload.cost).toMatchObject({ amountMinor: 20_000 });
     // The key is forgotten: the same booking request runs the rules again (the customer is gone).
-    expect(await store.apply(id, { type: "booking/create", customerId: customer.id, serviceId: "x", staffId: "x" as StaffId, date: today, start: 600, source: "phone" }, {}, { idempotencyKey: "book-guest" }))
+    expect(await store.apply(id, { type: "booking/create", customerId: customer.id, serviceId: "x", staffId: "x" as StaffId, date: today, start: 600, source: "phone" }, {}, { idempotencyKey: `studio:book-${guest.email}` }))
       .toMatchObject({ ok: false, reason: "rejected" });
   });
 
-  it("cancels unsent messages to the erased customer and keeps a pending payment for delivery", async () => {
+  it("keeps other retries protected when an erasure finds nothing of theirs", async () => {
+    const id = tenantIds("erase-keys");
+    const store = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: recordingSinks().sinks });
+    const { customer } = await erasableTenant(id, store);
+    expect(await store.eraseSubject(id, customer.id)).toMatchObject({ ok: true, redacted: { idempotencyKeys: 1 } });
+    // A keyed change after the erasure: its stored result no longer holds the customer.
+    const stock = (await store.load(id))!.state.stock[0];
+    const adjust: DemoAction = { type: "stock/adjust", id: stock.id, delta: 1 };
+    expect(await store.apply(id, adjust, {}, { idempotencyKey: "stock-1" })).toMatchObject({ ok: true, replayed: false });
+    // A typo and a repeated request both leave the key alone, so a retry still does not adjust twice.
+    expect(await store.eraseSubject(id, "k-typo")).toMatchObject({ ok: true, redacted: { idempotencyKeys: 0 } });
+    expect(await store.eraseSubject(id, customer.id)).toMatchObject({ ok: true, redacted: { idempotencyKeys: 0 } });
+    expect(await store.apply(id, adjust, {}, { idempotencyKey: "stock-1" })).toMatchObject({ ok: true, replayed: true });
+    expect((await store.load(id))!.state.stock[0].inStock).toBe(stock.inStock + 1);
+  });
+
+  it("cancels unsent messages to the erased customer only and keeps a pending payment for delivery", async () => {
     const id = tenantIds("erase-pending");
     const store = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: recordingSinks().sinks, deliverAfterCommit: false });
-    const { customer } = await erasableTenant(id, store);
+    const { customer, other } = await erasableTenant(id, store);
     const erased = await store.eraseSubject(id, customer.id);
     if (!erased.ok) throw new Error("erase refused");
     expect(erased.pendingPayments).toBe(1);
     const rows = await effectRows(id);
     expect(rows.find((row) => row.kind === "payment")?.status).toBe("pending");
-    expect(rows.filter((row) => row.kind === "message" && row.payload.body === "[redacted]").every((row) => row.status === "cancelled")).toBe(true);
-    expect(rows.some((row) => row.status === "cancelled")).toBe(true);
-    // The other customer's message is still pending and gets sent.
-    expect(rows.filter((row) => row.status === "pending" && row.kind === "message")).toHaveLength(1);
+    const theirs = rows.filter((row) => row.kind === "message" && row.payload.to === "[redacted]");
+    expect(theirs.length).toBeGreaterThanOrEqual(3);
+    expect(theirs.every((row) => row.status === "cancelled")).toBe(true);
+    // Both messages to the other customer, one from the same action as the guest's, are still pending and get sent.
+    const toOther = rows.filter((row) => row.payload.to === `customer:${other.id}`);
+    expect(toOther.map((row) => row.status)).toEqual(["pending", "pending"]);
     const live = recordingSinks();
-    await drainPendingEffects({ prisma: db, sinks: live.sinks, limit: 1000 });
-    expect(live.of(id).map((d) => d.effect.kind).sort()).toEqual(["message", "payment"]);
+    await drain({ prisma: db, sinks: live.sinks, limit: 1000 });
+    expect(live.of(id).map((d) => d.effect.kind).sort()).toEqual(["message", "message", "payment"]);
     expect(live.of(id).some((d) => JSON.stringify(d).includes(guest.name))).toBe(false);
+  });
+
+  it("stops a message a deliverer is sending during the erasure and records its true outcome", async () => {
+    const id = tenantIds("erase-in-flight");
+    const state = createDemoState(today);
+    await seed(id, state);
+    const store = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: recordingSinks().sinks, deliverAfterCommit: false });
+    const service = bookableServices(state)[0];
+    const created = await store.apply(id, {
+      type: "booking/create", serviceId: service.id, ...slotFor(state, service), source: "phone",
+      newCustomer: { name: guest.name, phone: guest.phone, email: guest.email, since: today },
+    });
+    if (!created.ok) throw new Error("booking refused");
+    const customer = created.state.customers.find((c) => c.phone === guest.phone)!;
+    const text = (body: string): DemoAction => ({ type: "customers/message", texts: [{ customerId: customer.id, title: "Fictional", body }], at: { date: today, time: 9 * 60 } });
+    expect((await store.apply(id, text("First fictional text"))).ok).toBe(true);
+    expect((await store.apply(id, text("Second fictional text"))).ok).toBe(true);
+
+    // The first message is in flight: its sink waits, then fails, while the erasure runs.
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let entered!: () => void;
+    const inFlight = new Promise<void>((resolve) => { entered = resolve; });
+    let calls = 0;
+    const message: EffectSink = async () => { calls++; entered(); await gate; throw new Error("provider timeout"); };
+    const sending = drain({ prisma: client(1), sinks: { payment: () => {}, message }, limit: 1 });
+    await inFlight;
+    const erased = await store.eraseSubject(id, customer.id);
+    expect(erased).toMatchObject({ ok: true, inFlightMessages: 1 });
+    const during = await effectRows(id);
+    expect(during.map((row) => row.status)).toEqual(["pending", "cancelled"]);
+    expect(during.every((row) => row.payload.body === "[redacted]")).toBe(true);
+    release();
+    await sending;
+    // The failed send is cancelled, never retried, even after its lease and backoff.
+    expect((await effectRows(id)).map((row) => row.status)).toEqual(["cancelled", "cancelled"]);
+    await drain({ prisma: db, sinks: { payment: () => {}, message }, limit: 10, now: async () => Date.now() + 2 * EFFECT_LEASE_MS });
+    expect(calls).toBe(1);
+  });
+
+  it("records a send that succeeded during the erasure as delivered, with the payload redacted", async () => {
+    const id = tenantIds("erase-in-flight-ok");
+    const state = createDemoState(today);
+    await seed(id, state);
+    const store = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: recordingSinks().sinks, deliverAfterCommit: false });
+    const customer = state.customers[0];
+    expect((await store.apply(id, { type: "customers/message", texts: [{ customerId: customer.id, title: "Fictional", body: "Fictional text" }], at: { date: today, time: 9 * 60 } })).ok).toBe(true);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let entered!: () => void;
+    const inFlight = new Promise<void>((resolve) => { entered = resolve; });
+    const sending = drain({ prisma: client(1), sinks: { payment: () => {}, message: async () => { entered(); await gate; } }, limit: 1 });
+    await inFlight;
+    expect(await store.eraseSubject(id, customer.id)).toMatchObject({ ok: true, inFlightMessages: 1 });
+    release();
+    expect(await sending).toMatchObject({ delivered: 1 });
+    const [row] = await effectRows(id);
+    expect(row).toMatchObject({ status: "delivered" });
+    expect(row.payload).toMatchObject({ to: "[redacted]", body: "[redacted]" });
   });
 
   it("refuses customer/erase through apply, so the log is never left unredacted", async () => {
@@ -470,10 +603,25 @@ describe("erasure (item 7)", () => {
     // A customer the document no longer holds: the tables are still redacted by subject_ids, without a new version.
     expect((await store.apply(id, { type: "customer/note", id: state.customers[0].id, note: "Fictional note" })).ok).toBe(true);
     const gone = await store.eraseSubject(id, "k-unknown");
-    expect(gone).toMatchObject({ ok: true, version: 1, redacted: { actions: 0, effects: 0 } });
+    expect(gone).toMatchObject({ ok: true, version: 1, redacted: { actions: 0, effects: 0, idempotencyKeys: 0 } });
   });
+});
 
-  it("matches the documented SECURITY DEFINER erase_subject", async () => {
+/** The statements of prisma/grants/erase-subject.sql, with both roles set to the connecting role (the test role cannot create roles). */
+async function eraseSubjectStatements(): Promise<string[]> {
+  const [{ role }] = await db.$queryRaw<Array<{ role: string }>>`SELECT current_user::text AS role`;
+  const quoted = `"${role.replaceAll('"', '""')}"`;
+  const sql = readFileSync(new URL("../../prisma/grants/erase-subject.sql", import.meta.url), "utf8");
+  return sql.split("-- statement").slice(1)
+    .map((statement) => statement.replaceAll(':"eraser_role"', quoted).replaceAll(':"app_role"', quoted))
+    // The caller's transaction stands in for the script's own BEGIN and COMMIT.
+    .filter((statement) => !/^\s*(BEGIN|COMMIT);/.test(statement));
+}
+
+const ROLLBACK = "rollback";
+
+describe("erase_subject (prisma/grants/erase-subject.sql)", () => {
+  it("redacts exactly as eraseSubject does and is not executable by PUBLIC", async () => {
     // Same history on two tenants with one fixed clock, so their rows are identical.
     const fixed = Date.now();
     const a = tenantIds("erase-ts");
@@ -485,27 +633,57 @@ describe("erasure (item 7)", () => {
     const ts = await storeA.eraseSubject(a, customer.id);
     if (!ts.ok) throw new Error("erase refused");
     const snapshot = async (tx: Pick<PrismaClient, "$queryRaw">, tenantId: string) => ({
-      actions: await tx.$queryRaw<Array<{ seq: bigint; action: unknown; redacted: boolean }>>`
-        SELECT seq, action, redacted_at IS NOT NULL AS redacted FROM tenant_action WHERE tenant_id = ${tenantId} AND seq <= ${ts.entry!.seq - 1}::bigint ORDER BY seq`,
-      effects: await tx.$queryRaw<Array<{ seq: bigint; n: number; status: string; payload: unknown }>>`
-        SELECT seq, n, status, payload FROM tenant_effect WHERE tenant_id = ${tenantId} ORDER BY seq, n`,
+      actions: await tx.$queryRaw<Array<{ seq: bigint; action: unknown; key: string | null; redacted: boolean }>>`
+        SELECT seq, action, idempotency_key AS key, redacted_at IS NOT NULL AS redacted FROM tenant_action
+        WHERE tenant_id = ${tenantId} AND seq <= ${ts.entry!.seq - 1}::bigint ORDER BY seq`,
+      effects: await tx.$queryRaw<Array<{ seq: bigint; n: number; status: string; payload: unknown; erased: boolean }>>`
+        SELECT seq, n, status, payload, erased_at IS NOT NULL AS erased FROM tenant_effect WHERE tenant_id = ${tenantId} ORDER BY seq, n`,
       keys: await tx.$queryRaw<Array<{ n: number }>>`SELECT count(*)::int AS n FROM tenant_idempotency WHERE tenant_id = ${tenantId}`,
     });
     const expected = await snapshot(db, a);
-    const sql = readFileSync(new URL("../../prisma/grants/erase-subject.sql", import.meta.url), "utf8");
-    const statements = sql.split("-- statement").slice(1);
+    const statements = await eraseSubjectStatements();
     let seen: Awaited<ReturnType<typeof snapshot>> | undefined;
     let counts: unknown;
+    let publicCanExecute: unknown;
+    let scrubbed: unknown;
     // Created and run in a transaction that is rolled back, so nothing stays in the database.
     await expect(db.$transaction(async (tx) => {
       for (const statement of statements) await tx.$executeRawUnsafe(statement);
+      [{ publicCanExecute }] = await tx.$queryRaw<Array<{ publicCanExecute: boolean }>>`
+        SELECT has_function_privilege('public', 'erase_subject(text, text)', 'EXECUTE') AS "publicCanExecute"`;
+      [{ scrubbed }] = await tx.$queryRaw<Array<{ scrubbed: unknown }>>`
+        SELECT studio_scrub('{"700001234": 1700001234000, "s": "call 700001234", "n": [700001234, "x 700001234"]}'::jsonb, ARRAY['700001234']) AS scrubbed`;
       [{ counts }] = await tx.$queryRaw<Array<{ counts: unknown }>>`SELECT erase_subject(${b}, ${customer.id}) AS counts`;
       seen = await snapshot(tx, b);
-      throw new Error("rollback");
-    }, { timeout: 15_000 })).rejects.toThrow("rollback");
-    expect(counts).toEqual({ ...ts.redacted, pendingPayments: ts.pendingPayments });
+      throw new Error(ROLLBACK);
+    }, { timeout: 15_000 })).rejects.toThrow(ROLLBACK);
+    expect(publicCanExecute).toBe(false);
+    // Only string values change: keys and numbers are never rewritten.
+    expect(scrubbed).toEqual({ "700001234": 1700001234000, s: "call [redacted]", n: [700001234, "x [redacted]"] });
+    expect(counts).toEqual({ ...ts.redacted, pendingPayments: ts.pendingPayments, inFlightMessages: ts.inFlightMessages });
     expect(seen).toEqual(expected);
     // The rollback removed the functions again.
     expect(await db.$queryRaw`SELECT 1 FROM pg_proc WHERE proname = 'erase_subject'`).toEqual([]);
+  });
+
+  it("is what eraseSubject calls with erasure: \"function\"", async () => {
+    const id = tenantIds("erase-fn");
+    const plain = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: recordingSinks().sinks });
+    const { customer } = await erasableTenant(id, plain);
+    const store = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: recordingSinks().sinks, erasure: "function" });
+    // Without the function installed the erasure fails as a whole: nothing is half-erased.
+    await expect(store.eraseSubject(id, customer.id)).rejects.toThrow();
+    expect((await personalDataHits(id)).length).toBeGreaterThan(0);
+    expect((await store.load(id))!.state.customers.some((c) => c.id === customer.id)).toBe(true);
+    const statements = await eraseSubjectStatements();
+    await db.$transaction(async (tx) => { for (const statement of statements) await tx.$executeRawUnsafe(statement); }, { timeout: 15_000 });
+    try {
+      const erased = await store.eraseSubject(id, customer.id);
+      expect(erased).toMatchObject({ ok: true, redacted: { idempotencyKeys: 1 } });
+      expect(await personalDataHits(id, ERASURE_NEEDLES)).toEqual([]);
+    } finally {
+      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
+        studio_redact_path(jsonb, text[]), studio_phone_digits(text)`);
+    }
   });
 });

@@ -4,8 +4,8 @@ import type { DemoAction } from "../actions";
 import { DEMO_CHANNEL_CURRENCY, withDemoChannels } from "../connections/demo";
 import type { OutboxEntry } from "../connections/simulated/outbox";
 import { withSlotClock } from "../data/slots";
-import type { DemoState } from "../data/types";
-import { customerIdentifiers, findErasable, mentionsCustomer, scrubDeep } from "../customers/erase";
+import type { Customer, DemoState } from "../data/types";
+import { customerIdentifiers, findErasable, mentionsCustomer, phoneDigits, scrubDeep, scrubText } from "../customers/erase";
 import { withTenantPresentation } from "../i18n/presentation";
 import { defaultMeta, prepareAction } from "../log/capture";
 import type { LogActor, LogSource } from "../log/types";
@@ -18,12 +18,21 @@ import {
   type EffectSinks,
   type TenantKind,
 } from "./effect-outbox";
-import { jsonTextPatterns, redactAction, redactEffectPayload } from "./erasure";
+import {
+  addressedTo,
+  customerIdPatterns,
+  customerRecipient,
+  jsonTextPatterns,
+  plainTextPatterns,
+  redactAction,
+  redactEffectPayload,
+} from "./erasure";
 import { effectId, requestFingerprint, stagedChannels } from "./staged-channels";
 import {
   actionFingerprint,
   detach,
   effectOf,
+  isErasure,
   HISTORY_MAX_LIMIT,
   migrateSaved,
   notifyAll,
@@ -87,12 +96,17 @@ export type EraseResult =
       version: number;
       /** The `customer/erase` log entry, when the document changed. */
       entry?: TenantAction;
-      /** `tenant_action` rows redacted, delivered or cancelled `tenant_effect` rows redacted, idempotency keys deleted. */
-      redacted: { actions: number; effects: number; idempotencyKeys: number };
-      /** Payments still pending for the customer: they keep their payload until delivered (see STUDIO_STORE.md). */
-      pendingPayments: number;
-    }
+    } & EraseCounts
   | { ok: false; reason: "not-found" | "conflict" };
+
+interface EraseCounts {
+  /** `tenant_action` rows redacted, `tenant_effect` rows redacted or cancelled, idempotency keys deleted. */
+  redacted: { actions: number; effects: number; idempotencyKeys: number };
+  /** Payments still pending for the customer: they keep their payload until delivered (see STUDIO_STORE.md). */
+  pendingPayments: number;
+  /** Messages to the customer a deliverer was sending during the erasure: stopped for retries, outcome recorded by the deliverer. */
+  inFlightMessages: number;
+}
 
 export interface PostgresStudioStoreOptions {
   prisma: PrismaClient;
@@ -110,6 +124,8 @@ export interface PostgresStudioStoreOptions {
   deliverAfterCommit?: boolean;
   /** Longest wait for the tenant's row lock, in milliseconds (default 2 s). A timeout is `conflict`. */
   lockTimeoutMs?: number;
+  /** How `eraseSubject` redacts the tables: its own statements (default, staging) or the SECURITY DEFINER `erase_subject` (production grants). */
+  erasure?: "statements" | "function";
   /** Delivery lease and attempts before `failed`, as for the poller. */
   leaseMs?: number;
   maxAttempts?: number;
@@ -210,6 +226,7 @@ export class PostgresStudioStore implements StudioStore {
   private readonly lockTimeoutMs: number;
   private readonly leaseMs: number;
   private readonly maxAttempts: number;
+  private readonly erasure: "statements" | "function";
   private readonly listeners = new Map<TenantId, Set<(change: StoreChange) => void>>();
 
   constructor(options: PostgresStudioStoreOptions) {
@@ -226,6 +243,7 @@ export class PostgresStudioStore implements StudioStore {
     this.lockTimeoutMs = whole(options.lockTimeoutMs, LOCK_TIMEOUT_MS);
     this.leaseMs = whole(options.leaseMs, EFFECT_LEASE_MS);
     this.maxAttempts = whole(options.maxAttempts, EFFECT_MAX_ATTEMPTS);
+    this.erasure = options.erasure === "function" ? "function" : "statements";
   }
 
   private fingerprint(action: DemoAction): string {
@@ -279,7 +297,7 @@ export class PostgresStudioStore implements StudioStore {
     const key = options.idempotencyKey;
     if (key !== undefined && (key.length === 0 || key.length > IDEMPOTENCY_KEY_MAX)) return { ok: false, reason: "rejected" };
     // Erasure also redacts the log and the outbox: only `eraseSubject` runs it.
-    if (action.type === "customer/erase") return { ok: false, reason: "rejected" };
+    if (isErasure(action)) return { ok: false, reason: "rejected" };
     const own = detach(action);
     const result = await this.transaction(async (tx) => {
       // 1. The row lock.
@@ -424,7 +442,7 @@ export class PostgresStudioStore implements StudioStore {
         simulatedSinks: this.simulatedSinks,
         leaseMs: this.leaseMs,
         maxAttempts: this.maxAttempts,
-        tenantId,
+        tenants: [tenantId],
       }, DRAIN_LIMIT);
     } catch {
       // The change is committed and its effects are in the outbox; the poller delivers what is left.
@@ -435,21 +453,25 @@ export class PostgresStudioStore implements StudioStore {
    * Erases one customer (GDPR art. 17) in one transaction under the row lock:
    *
    * - `tenant_action` rows that name the customer (by `subject_ids`, their
-   *   phone or email) get their personal fields redacted by PERSONAL_FIELDS
-   *   and `redacted_at` set; the customer's name, phone and email are also
-   *   replaced in every other row of the tenant;
-   * - delivered, failed and cancelled `tenant_effect` rows for them are
-   *   redacted, and pending messages to them are cancelled; pending payments
-   *   are kept so a refund still goes out;
-   * - every `tenant_idempotency` row of the tenant is deleted (stored results
-   *   are full state copies);
-   * - the document runs `customer/erase` like any apply (a new version and a
+   *   email, or a phone field with their number in any format) get their
+   *   personal fields redacted by PERSONAL_FIELDS and `redacted_at` set. Their
+   *   name, phone and email are also replaced in every other row of the
+   *   tenant, the informational `idempotency_key` column included.
+   * - `tenant_effect`: messages addressed to them are redacted. An unsent one
+   *   is cancelled; one a deliverer holds right now is stopped (`erased_at`)
+   *   and reported in `inFlightMessages`, and its deliverer still records
+   *   the true outcome. Other messages and delivered payments only lose the
+   *   identifiers. Pending payments are kept so a refund still goes out.
+   * - `tenant_idempotency` rows whose stored result mentions them are deleted.
+   *   Other keys keep protecting their retries.
+   * - The document runs `customer/erase` like any apply (a new version and a
    *   log entry without the name), when it still holds the customer, live or
    *   in the trash.
    *
-   * Privileged: in production the log updates belong to the SECURITY DEFINER
-   * function in prisma/grants/erase-subject.sql, since the application role
-   * may only insert into and read `tenant_action`.
+   * With `erasure: "function"` the table part is the SECURITY DEFINER
+   * `erase_subject` from prisma/grants/erase-subject.sql, called in the same
+   * transaction: the application role may only insert into and read
+   * `tenant_action`. The default runs the same statements itself.
    */
   async eraseSubject(tenantId: TenantId, customerId: string, meta: ApplyMeta = {}): Promise<EraseResult> {
     if (typeof customerId !== "string" || !customerId) return { ok: false, reason: "not-found" };
@@ -460,9 +482,10 @@ export class PostgresStudioStore implements StudioStore {
       if (locked.expires_ms !== null && locked.expires_ms <= clock) return { erased: { ok: false, reason: "not-found" } };
       const state = migrateSaved(locked.doc);
       const customer = state ? findErasable(state, customerId) : undefined;
-      const identifiers = customer ? customerIdentifiers(customer) : [];
-      const contacts = customer ? customerIdentifiers({ ...customer, firstName: "", lastName: "" }) : [];
-      const counts = await this.redactLog(tx, tenantId, customerId, identifiers, contacts, clock);
+      // Before the document changes: erase_subject reads the customer's identifiers from it.
+      const counts = this.erasure === "function"
+        ? await this.eraseWithFunction(tx, tenantId, customerId)
+        : await this.redactLog(tx, tenantId, customerId, customer, clock);
       if (!customer) return { erased: { ok: true, version: locked.version, ...counts } };
       const committed = await this.applyLocked(tx, tenantId, locked, { type: "customer/erase", id: customerId }, meta, {});
       if ("done" in committed) throw new Error("STUDIO_STORE_ERASE_REFUSED");
@@ -474,45 +497,87 @@ export class PostgresStudioStore implements StudioStore {
     return detach(result.erased);
   }
 
-  /** The table half of an erasure, inside its transaction. */
-  private async redactLog(tx: Tx, tenantId: TenantId, customerId: string, identifiers: string[], contacts: string[], clock: number) {
+  private async eraseWithFunction(tx: Tx, tenantId: TenantId, customerId: string): Promise<EraseCounts> {
+    const [{ counts }] = await tx.$queryRaw<Array<{ counts: { actions: number; effects: number; idempotencyKeys: number; pendingPayments: number; inFlightMessages: number } }>>`
+      SELECT erase_subject(${tenantId}, ${customerId}) AS counts`;
+    const { pendingPayments, inFlightMessages, ...redacted } = counts;
+    return { redacted, pendingPayments, inFlightMessages };
+  }
+
+  /** The table half of an erasure, inside its transaction. Mirrors erase_subject in prisma/grants/erase-subject.sql. */
+  private async redactLog(tx: Tx, tenantId: TenantId, customerId: string, customer: Customer | undefined, clock: number): Promise<EraseCounts> {
+    const identifiers = customer ? customerIdentifiers(customer) : [];
+    const contacts = customer ? customerIdentifiers({ ...customer, firstName: "", lastName: "" }) : [];
+    const digits = customer ? phoneDigits(customer.phone) : "";
     const patterns = jsonTextPatterns(identifiers);
+    const keyPatterns = plainTextPatterns(identifiers);
     const at = new Date(clock).toISOString();
-    const actions = await tx.$queryRaw<Array<{ seq: bigint; action: DemoAction; subject: boolean }>>`
-      SELECT seq, action, subject_ids @> ARRAY[${customerId}]::text[] AS subject FROM tenant_action
+    const actions = await tx.$queryRaw<Array<{ seq: bigint; action: DemoAction; key: string | null; subject: boolean }>>`
+      SELECT seq, action, idempotency_key AS key, subject_ids @> ARRAY[${customerId}]::text[] AS subject FROM tenant_action a
       WHERE tenant_id = ${tenantId}
-        AND (subject_ids @> ARRAY[${customerId}]::text[] OR action::text ILIKE ANY(${patterns}::text[]))`;
+        AND (subject_ids @> ARRAY[${customerId}]::text[] OR action::text ILIKE ANY(${patterns}::text[])
+          OR idempotency_key ILIKE ANY(${keyPatterns}::text[])
+          OR (${digits} <> '' AND EXISTS (
+            SELECT 1 FROM jsonb_path_query(a.action, 'lax $.**.phone') p
+            WHERE jsonb_typeof(p) = 'string'
+              AND regexp_replace(regexp_replace(regexp_replace(p #>> '{}', '\\D', '', 'g'), '^(00)?46', ''), '^0', '') = ${digits})))
+      ORDER BY seq`;
     const named: bigint[] = [];
     let redactedActions = 0;
     for (const row of actions) {
-      // Named by id or by a phone or email: redact by the map. A name alone only has the name replaced.
-      const theirs = row.subject || mentionsCustomer(row.action, customerId, contacts);
+      // Named by id, email or phone: redact by the map. A name alone only has the name replaced.
+      const theirs = row.subject || mentionsCustomer(row.action, customerId, contacts, digits);
       if (theirs) named.push(row.seq);
       const action = scrubDeep(theirs ? redactAction(row.action) : row.action, identifiers);
+      const key = row.key === null ? null : scrubText(row.key, identifiers);
       await tx.$executeRaw`
-        UPDATE tenant_action SET action = ${JSON.stringify(action)}::jsonb, redacted_at = coalesce(redacted_at, ${at}::timestamptz)
+        UPDATE tenant_action SET action = ${JSON.stringify(action)}::jsonb, idempotency_key = ${key},
+          redacted_at = coalesce(redacted_at, ${at}::timestamptz)
         WHERE tenant_id = ${tenantId} AND seq = ${row.seq}`;
       redactedActions++;
     }
-    const effects = await tx.$queryRaw<Array<{ id: string; kind: StoreEffect["kind"]; status: string; payload: OutboxEntry }>>`
-      SELECT id, kind, status, payload FROM tenant_effect
-      WHERE tenant_id = ${tenantId} AND (seq = ANY(${named}::bigint[]) OR payload::text ILIKE ANY(${patterns}::text[]))`;
+    // Locked, so an acknowledgement waits for this transaction and a claim skips these rows.
+    const effects = await tx.$queryRaw<Array<{ id: string; kind: StoreEffect["kind"]; status: string; payload: OutboxEntry; leased: boolean }>>`
+      SELECT id, kind, status, payload, coalesce(leased_until > ${at}::timestamptz, false) AS leased FROM tenant_effect
+      WHERE tenant_id = ${tenantId}
+        AND ((kind = 'payment' AND seq = ANY(${named}::bigint[])) OR payload::text ILIKE ANY(${patterns}::text[])
+          OR (kind = 'message' AND strpos(coalesce(payload->>'to', ''), ${customerRecipient(customerId)}) > 0))
+      ORDER BY seq, n
+      FOR UPDATE`;
     let redactedEffects = 0;
     let pendingPayments = 0;
+    let inFlightMessages = 0;
     for (const row of effects) {
-      if (row.status === "pending" && row.kind === "payment") {
+      if (row.kind === "payment" && row.status === "pending") {
         pendingPayments++;
         continue;
       }
-      // A message not yet sent to someone who has been erased is not sent at all.
-      const status = row.status === "pending" ? "cancelled" : row.status;
-      await tx.$executeRaw`
-        UPDATE tenant_effect SET payload = ${JSON.stringify(redactEffectPayload(row.payload, identifiers))}::jsonb, status = ${status}
-        WHERE id = ${row.id}`;
+      if (row.kind === "message" && addressedTo(row.payload, customerId)) {
+        const payload = JSON.stringify(redactEffectPayload(row.payload, identifiers));
+        if (row.status !== "pending") {
+          await tx.$executeRaw`UPDATE tenant_effect SET payload = ${payload}::jsonb WHERE id = ${row.id}`;
+        } else if (row.leased) {
+          // A deliverer is sending it right now: it is stopped for any retry and reported.
+          inFlightMessages++;
+          await tx.$executeRaw`UPDATE tenant_effect SET payload = ${payload}::jsonb, erased_at = ${at}::timestamptz WHERE id = ${row.id}`;
+        } else {
+          await tx.$executeRaw`
+            UPDATE tenant_effect SET payload = ${payload}::jsonb, status = 'cancelled', erased_at = ${at}::timestamptz WHERE id = ${row.id}`;
+        }
+        redactedEffects++;
+        continue;
+      }
+      // A payment, or a message to someone else that mentions them: only the identifiers go.
+      const scrubbed = scrubDeep(row.payload, identifiers);
+      if (scrubbed === row.payload) continue;
+      await tx.$executeRaw`UPDATE tenant_effect SET payload = ${JSON.stringify(scrubbed)}::jsonb WHERE id = ${row.id}`;
       redactedEffects++;
     }
-    const idempotencyKeys = await tx.$executeRaw`DELETE FROM tenant_idempotency WHERE tenant_id = ${tenantId}`;
-    return { redacted: { actions: redactedActions, effects: redactedEffects, idempotencyKeys }, pendingPayments };
+    // Stored results are state copies: forget those that hold the customer, keep the rest.
+    const idempotencyKeys = await tx.$executeRaw`
+      DELETE FROM tenant_idempotency WHERE tenant_id = ${tenantId}
+        AND (result::text LIKE ANY(${customerIdPatterns(customerId)}::text[]) OR result::text ILIKE ANY(${patterns}::text[]))`;
+    return { redacted: { actions: redactedActions, effects: redactedEffects, idempotencyKeys }, pendingPayments, inFlightMessages };
   }
 
   subscribe(tenantId: TenantId, listener: (change: StoreChange) => void): () => void {

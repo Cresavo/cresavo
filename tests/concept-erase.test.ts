@@ -65,7 +65,8 @@ describe("customer/erase", () => {
     expect(entry).toMatchObject({ type: "customer/erase", summary: "Erased a customer's personal data" });
     expect(entry.patch).toBeUndefined();
     const note = older.find((e) => e.type === "customer/note")!;
-    expect(note.summary).toBe("Changed the note on someone");
+    expect(note.summary).toBe("A change about an erased customer");
+    expect(note.before).toBeUndefined();
     expect(note.patch).toBeUndefined();
     expect(reduce(erased, { type: "log/undo", id: entry.id })).toBe(erased);
     expect(reduce(erased, { type: "log/undo", id: note.id })).toBe(erased);
@@ -99,6 +100,43 @@ describe("customer/erase", () => {
     const hold = { ...base.checkoutHolds[0], id: "hold-x", guest: { name: "Fictional Erasable", phone: "070-000 12 34", at: { date: today, time: 600 } } };
     const held = { ...state, checkoutHolds: [hold as DemoState["checkoutHolds"][number]] };
     expect(eraseCustomer(held, customer.id).checkoutHolds).toEqual([]);
+  });
+
+  it("drops the personal text of entries about them, such as a cancellation reason", () => {
+    const { state, customer } = withGuest();
+    const theirs = state.bookings.find((b) => b.customerId === customer.id)!;
+    const cancelled = applyAction(state, { type: "booking/cancel", id: theirs.id, reason: "Fictional private reason" }, meta);
+    expect(JSON.stringify(cancelled.log)).toContain("Fictional private reason");
+    const erased = applyAction(cancelled, { type: "customer/erase", id: customer.id }, meta);
+    expect(JSON.stringify(erased)).not.toContain("Fictional private reason");
+    expect(JSON.stringify(erased)).not.toContain("Fictional treatment");
+  });
+
+  it("scrubs only free text: slugs, ids and other customers' contact fields stay", () => {
+    const summer: Customer = {
+      id: "k-summer", firstName: "Summer", lastName: "", phone: "", email: "", category: base.customers[0].category,
+      preferredStaff: base.staff[0].id, since: today, isRegular: false, tags: [], waitlist: false,
+    };
+    const [other, ...rest] = base.customers;
+    const neighbour = { ...other, email: "summer.fan@example.test", note: "Friend of Summer" };
+    const state: DemoState = {
+      ...base, salon: { ...base.salon, slug: "summer-studio" }, customers: [neighbour, ...rest, summer],
+      memory: [{ id: "m-s", text: "Summer prefers tea", kind: "fact", savedOn: today } as DemoState["memory"][number]],
+    };
+    const erased = eraseCustomer(state, summer.id);
+    expect(erased.salon.slug).toBe("summer-studio");
+    expect(erased.customers[0]).toMatchObject({ email: "summer.fan@example.test", note: "Friend of [removed]" });
+    expect(erased.memory[0].text).toBe("[removed] prefers tea");
+    expect(erased.services).toBe(state.services);
+  });
+
+  it("writes the marker in the salon's language", async () => {
+    const { withTenantPresentation } = await import("@/concept/i18n/presentation");
+    const { state, customer } = withGuest();
+    const swedish = { ...state, localization: { ...state.localization, language: "sv" as const } };
+    const erased = withTenantPresentation(swedish, () => eraseCustomer(swedish, customer.id));
+    expect(erased.memory[0].text).toBe("[borttaget] likes tea");
+    expect(erased.log.find((e) => e.type === "customer/note")?.summary).toBe("En ändring om en raderad kund");
   });
 
   it("changes nothing for an unknown customer", () => {
@@ -147,6 +185,14 @@ describe("redaction map", () => {
     expect(redactAction(message)).toEqual({ ...message, texts: message.texts.map((text) => ({ ...text, title: REDACTED, body: REDACTED })) });
     const dismiss: DemoAction = { type: "card/dismiss", id: "c1" };
     expect(redactAction(dismiss)).toEqual(dismiss);
+    // Free text that names nobody is still personal when the row is theirs.
+    const fee: DemoAction = { type: "booking/fee", id: "b-1", incident: "late", outcome: "waive", reason: "Fictional private reason" };
+    expect(redactAction(fee)).toEqual({ ...fee, reason: REDACTED });
+    const journal: DemoAction = {
+      type: "journal/add",
+      entry: { customerId: "k-1", date: today, staffId: base.staff[0].id, treatment: "T", observations: "O", advice: "A", versions: [{ treatment: "Old", observations: "Old private", advice: "", replacedOn: today }] },
+    };
+    expect(JSON.stringify(redactAction(journal))).not.toContain("Old private");
   });
 
   it("redacts a message's recipient and text but keeps a payment's amount and reference", () => {

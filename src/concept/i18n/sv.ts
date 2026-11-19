@@ -1913,6 +1913,8 @@ const messages = {
   "log.customerNote": "Ändrade anteckningen för {customer}",
   "log.customerDelete": "Tog bort {customer}",
   "log.customerErase": "Raderade en kunds personuppgifter",
+  "log.erasedEntry": "En ändring om en raderad kund",
+  "log.redacted": "[borttaget]",
   "log.stockAdjust": "Justerade lagersaldot för {product}",
   "log.stockUpdate": "Ändrade inställningarna för {product}",
   "log.stockOrder": "Beställde från {suppliers}",

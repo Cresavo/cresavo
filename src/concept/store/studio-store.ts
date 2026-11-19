@@ -159,6 +159,14 @@ export interface StudioStore {
   history(tenantId: TenantId, query: HistoryQuery): Promise<HistoryPage>;
 }
 
+/**
+ * Erasure removes a customer for good, but a store also keeps their data in
+ * its history, idempotency results and published effects. Only a store that
+ * can redact those too (`PostgresStudioStore.eraseSubject`) may run it, never
+ * as a plain `apply`: every store refuses `customer/erase` there.
+ */
+export const isErasure = (action: DemoAction) => action.type === "customer/erase";
+
 /** Largest page `history` returns. */
 export const HISTORY_MAX_LIMIT = 500;
 

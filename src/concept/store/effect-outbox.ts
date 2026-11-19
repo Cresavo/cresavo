@@ -78,21 +78,23 @@ export interface DeliveryContext {
   simulatedSinks: EffectSinks;
   leaseMs: number;
   maxAttempts: number;
-  /** Only this tenant's effects (the in-apply drain). */
-  tenantId?: TenantId;
+  /** Only these tenants' effects (the in-apply drain passes its own). */
+  tenants?: readonly TenantId[];
 }
 
 /** Claims the next due effect by the shared rule, or returns undefined when there is none. */
 async function claimNext(ctx: DeliveryContext): Promise<ClaimedRow | undefined> {
   const now = await ctx.clock();
   const kinds = ctx.sinks ? null : ["demo", "sandbox"];
+  const tenants = ctx.tenants ? [...ctx.tenants] : null;
   const [row] = await ctx.db.$queryRaw<ClaimedRow[]>`
     WITH next AS (
       SELECT e.tenant_id, e.seq, e.n
       FROM tenant_effect e
       LEFT JOIN tenant_state s ON s.tenant_id = e.tenant_id
       WHERE e.status = 'pending' AND e.next_attempt_at <= to_timestamp(${now}::float8 / 1000)
-        AND (${ctx.tenantId ?? null}::text IS NULL OR e.tenant_id = ${ctx.tenantId ?? null}::text)
+        AND e.erased_at IS NULL
+        AND (${tenants}::text[] IS NULL OR e.tenant_id = ANY(${tenants}::text[]))
         AND (${kinds}::text[] IS NULL OR s.kind::text = ANY(${kinds}::text[]))
         AND (e.kind <> 'payment' OR NOT EXISTS (
           SELECT 1 FROM tenant_effect p
@@ -103,7 +105,8 @@ async function claimNext(ctx: DeliveryContext): Promise<ClaimedRow | undefined> 
       FOR UPDATE OF e SKIP LOCKED
     )
     UPDATE tenant_effect e
-    SET attempts = e.attempts + 1, next_attempt_at = to_timestamp(${now + ctx.leaseMs}::float8 / 1000)
+    SET attempts = e.attempts + 1, next_attempt_at = to_timestamp(${now + ctx.leaseMs}::float8 / 1000),
+        leased_until = to_timestamp(${now + ctx.leaseMs}::float8 / 1000)
     FROM next
     WHERE e.tenant_id = next.tenant_id AND e.seq = next.seq AND e.n = next.n AND e.status = 'pending'
     RETURNING e.id, e.tenant_id, e.seq, e.n, e.kind, e.payload, e.attempts,
@@ -131,22 +134,23 @@ async function deliver(ctx: DeliveryContext, row: ClaimedRow): Promise<DeliveryO
     await sink(detach(delivery));
   } catch {
     // Never log the payload or the error: both may hold personal data.
-    // Only the deliverer that holds the latest claim (same `attempts`) decides what happens next.
+    // Only the deliverer that holds the latest claim (same `attempts`) decides
+    // what happens next. A row an erasure stopped meanwhile is cancelled, never retried.
     const now = await ctx.clock();
-    if (row.attempts >= ctx.maxAttempts) {
-      await ctx.db.$executeRaw`
-        UPDATE tenant_effect SET status = 'failed' WHERE id = ${row.id} AND status = 'pending' AND attempts = ${row.attempts}`;
-      return "failed";
-    }
-    await ctx.db.$executeRaw`
-      UPDATE tenant_effect SET next_attempt_at = to_timestamp(${now + effectBackoffMs(row.attempts)}::float8 / 1000)
-      WHERE id = ${row.id} AND status = 'pending' AND attempts = ${row.attempts}`;
-    return "retry";
+    const [outcome] = await ctx.db.$queryRaw<Array<{ status: string }>>`
+      UPDATE tenant_effect SET leased_until = NULL,
+        status = CASE WHEN erased_at IS NOT NULL THEN 'cancelled' WHEN attempts >= ${ctx.maxAttempts} THEN 'failed' ELSE status END,
+        next_attempt_at = to_timestamp(${now + effectBackoffMs(row.attempts)}::float8 / 1000)
+      WHERE id = ${row.id} AND status = 'pending' AND attempts = ${row.attempts}
+      RETURNING status`;
+    return outcome?.status === "failed" ? "failed" : "retry";
   }
-  // The send happened, so it is acknowledged even if a lease ran out meanwhile.
+  // The send happened, so it is recorded as delivered whatever happened to the
+  // row meanwhile (a lease that ran out, an erasure that tried to cancel it).
   const at = await ctx.clock();
   await ctx.db.$executeRaw`
-    UPDATE tenant_effect SET status = 'delivered', delivered_at = to_timestamp(${at}::float8 / 1000) WHERE id = ${row.id} AND status = 'pending'`;
+    UPDATE tenant_effect SET status = 'delivered', leased_until = NULL, delivered_at = to_timestamp(${at}::float8 / 1000)
+    WHERE id = ${row.id} AND status <> 'delivered'`;
   return "delivered";
 }
 
@@ -159,6 +163,15 @@ export interface DrainReport {
 /** Claims, sends and acknowledges due effects one at a time until none is due or `limit` rows were claimed. */
 export async function deliverDue(ctx: DeliveryContext, limit: number): Promise<DrainReport> {
   const report: DrainReport = { delivered: 0, retried: 0, failed: 0 };
+  // Rows an erasure stopped while a deliverer held them: once that lease is over
+  // with no outcome (the deliverer died), they are cancelled, never sent again.
+  const now = await ctx.clock();
+  const tenants = ctx.tenants ? [...ctx.tenants] : null;
+  await ctx.db.$executeRaw`
+    UPDATE tenant_effect SET status = 'cancelled', leased_until = NULL
+    WHERE status = 'pending' AND erased_at IS NOT NULL
+      AND (leased_until IS NULL OR leased_until <= to_timestamp(${now}::float8 / 1000))
+      AND (${tenants}::text[] IS NULL OR tenant_id = ANY(${tenants}::text[]))`;
   for (let claimed = 0; claimed < limit; claimed++) {
     const row = await claimNext(ctx);
     if (!row) break;
@@ -184,6 +197,8 @@ export interface DrainPendingEffectsOptions {
   leaseMs?: number;
   /** Default `EFFECT_MAX_ATTEMPTS`. */
   maxAttempts?: number;
+  /** Only these tenants' effects (an operator draining one salon, or tests that share a database). */
+  tenants?: readonly TenantId[];
 }
 
 /**
@@ -201,6 +216,7 @@ export async function drainPendingEffects(options: DrainPendingEffectsOptions): 
     simulatedSinks: options.simulatedSinks ?? SIMULATED_SINKS,
     leaseMs: positive(options.leaseMs, EFFECT_LEASE_MS),
     maxAttempts: positive(options.maxAttempts, EFFECT_MAX_ATTEMPTS),
+    tenants: options.tenants,
   }, limit);
 }
 

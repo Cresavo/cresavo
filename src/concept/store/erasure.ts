@@ -16,7 +16,7 @@ import { REDACTED, scrubDeep } from "../customers/erase";
 
 const NOTICE = (at: string) => [`${at}.title`, `${at}.body`, `${at}.draftReply`, `${at}.fromName`, `${at}.reply`];
 const GUEST = ["guest.name", "guest.phone", "guest.email", ...NOTICE("notice")];
-const JOURNAL = (at: string) => [`${at}.treatment`, `${at}.observations`, `${at}.advice`, `${at}.nextVisit`, `${at}.photos`];
+const JOURNAL = (at: string) => [`${at}.treatment`, `${at}.observations`, `${at}.advice`, `${at}.nextVisit`, `${at}.photos`, `${at}.versions`];
 
 export const PERSONAL_FIELDS = {
   "online/hold": GUEST,
@@ -24,6 +24,7 @@ export const PERSONAL_FIELDS = {
   "online/waitlist": GUEST,
   "booking/create": ["newCustomer.name", "newCustomer.phone", "newCustomer.email", "fictionalCustomer.name"],
   "booking/move": NOTICE("notice"),
+  "booking/fee": ["reason"],
   "booking/cancel": ["reason", ...NOTICE("notice")],
   "customers/import": ["firstName", "lastName", "phone", "email", "birthday", "note"].map((field) => `customers.*.${field}`),
   "customer/note": ["note"],
@@ -54,6 +55,26 @@ function redactPath(value: unknown, path: readonly string[]): unknown {
 export function redactAction(action: DemoAction): DemoAction {
   const paths: readonly string[] = (PERSONAL_FIELDS as Partial<Record<string, readonly string[]>>)[action.type] ?? [];
   return paths.reduce<unknown>((value, path) => redactPath(value, path.split(".")), action) as DemoAction;
+}
+
+/** The outbox recipient of a message to this customer (see `sendDemoMessage`). */
+export const customerRecipient = (customerId: string) => `customer:${customerId}`;
+
+/** True when a message effect is addressed to the customer (an email may list several recipients). */
+export function addressedTo(record: OutboxEntry, customerId: string): boolean {
+  return record.port !== "payments" && typeof record.to === "string" &&
+    record.to.split(",").map((to) => to.trim()).includes(customerRecipient(customerId));
+}
+
+/** `%…%` LIKE patterns that find a customer's id in a stored result (jsonb text form). */
+export function customerIdPatterns(customerId: string): string[] {
+  const id = JSON.stringify(customerId).replace(/[\\%_]/g, "\\$&");
+  return [`%"customerId": ${id}%`, `%"id": ${id}%`];
+}
+
+/** `%…%` ILIKE patterns that find an identifier in plain text (an idempotency key). */
+export function plainTextPatterns(identifiers: readonly string[]): string[] {
+  return identifiers.map((value) => `%${value.replace(/[\\%_]/g, "\\$&")}%`);
 }
 
 /** A message's recipient, subject and text are personal; a payment keeps its amount and reference. */
