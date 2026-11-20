@@ -20,6 +20,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- Cost guards: the proxy no longer runs for static files, the Inbox polls proposals every 60 s on the public demo (15 s elsewhere), AI provider calls are capped at 2,048 output tokens and 200 calls per day per process, and anonymous pairing traffic has a global ceiling of 3,000 requests per minute. [Cost safety](docs/DEPLOY_DEMO.md#cost-safety) lists the code limits and the dashboard settings to pair with them.
 - Pages send a per-request Content-Security-Policy nonce, so the browser runs only scripts the server issued. Inline and injected scripts without the nonce are blocked.
 - Write endpoints use one shared same-origin check that follows the public host behind trusted proxies, rejects requests browsers mark as cross-site or same-site, and requires https origins in production. Pages also send a Permissions-Policy and, outside the OAuth consent flow, Cross-Origin-Opener-Policy.
 - The staff preview starts in Advanced, with a return to the owner view available while previewing.

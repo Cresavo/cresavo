@@ -3,13 +3,16 @@
 import { useEffect, useState } from "react";
 import { dispatchWithLog } from "../../store";
 import type { AgentProposal } from "../../tools/agent-proposal";
+import { PUBLIC_DEMO } from "../../ai/api-client";
 
 // Proposals from outside AIs (MCP) live on the server; the studio's data lives
 // in the browser. The Inbox polls the server, and an approval applies the
 // change here through the normal dispatch (logged as the assistant via MCP)
 // before telling the server the outcome.
 
-const POLL_MS = 4000;
+// Each poll is a server invocation. The public demo closes the concept MCP, so it
+// polls rarely; a local studio still sees new proposals within seconds.
+const POLL_MS = PUBLIC_DEMO ? 60_000 : 15_000;
 const ENDPOINT = "/api/concept/proposals";
 
 async function fetchPending(): Promise<AgentProposal[]> {

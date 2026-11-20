@@ -55,7 +55,8 @@ export async function budget(tx: Tx, bucket: string, limit: number, period: numb
 export async function publicBudget(request: Request) {
   await pairingDb().$transaction(async tx => {
     await budget(tx, "public:" + ipKey(request), 180, minute);
-    await budget(tx, "public", 30000, minute);
+    // Global ceiling on anonymous pairing traffic; it bounds database writes.
+    await budget(tx, "public", 3000, minute);
   });
 }
 

@@ -133,4 +133,8 @@ function sandboxProxy(request: NextRequest) {
   }
 }
 
-export const config = { matcher: "/:path*" };
+// Every proxy run is a function invocation. Static files (build output, images,
+// fonts, media) need no host routing or CSP, so they skip the proxy entirely.
+export const config = {
+  matcher: ["/((?!_next/static/|_next/image|favicon\\.ico$|.*\\.(?:png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|otf|css|js|map|mp4|webm|mp3)$).*)"],
+};
