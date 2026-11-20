@@ -40,6 +40,23 @@ it("gives children a closed environment: nothing inherited, and no option or deb
   } finally { vi.unstubAllEnvs(); rmSync(dir, { recursive: true, force: true }); }
 });
 
+it("stops the next step before it starts when an env file appears during the run", async () => {
+  const { protectFromEnvFiles, runStep, startServer } = await import("../scripts/staging-consent/processes.mjs");
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "cresavo-preflight-test-")));
+  const ran = (name: string) => join(dir, `${name}.ran`);
+  const step = (name: string) => ["-e", `require("node:fs").writeFileSync(${JSON.stringify(ran(name))}, "x")`];
+  try {
+    protectFromEnvFiles(dir);
+    await runStep("MIGRATE", process.execPath, step("migrate"), dir, { PATH: process.env.PATH ?? "" });
+    expect(existsSync(ran("migrate"))).toBe(true);
+    // Created after preflight: Prisma (prisma.config.ts) or Next.js would load it.
+    writeFileSync(join(dir, ".env.local"), "# fictional, empty\n");
+    await expect(runStep("SEED", process.execPath, step("seed"), dir, { PATH: process.env.PATH ?? "" })).rejects.toThrow(/^STAGING_ENV_FILE_REFUSED$/);
+    await expect(startServer("salon", process.execPath, step("server"), dir, { PATH: process.env.PATH ?? "" }, "READY")).rejects.toThrow(/^STAGING_ENV_FILE_REFUSED$/);
+    expect(existsSync(ran("seed")) || existsSync(ran("server")), "a step started").toBe(false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 /** A throwaway git checkout holding the runner's scripts, the package manifest and the dependencies. */
 function salonFixture(root: string, withEnvFile = false) {
   const salon = join(root, "salon");

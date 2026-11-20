@@ -5,6 +5,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 import type { Readable } from "node:stream";
 import { containsSecret } from "./sanitize.mjs";
+import { refuseEnvFiles } from "./preflight.mjs";
 
 // Each child with a promise that settles on `close`: after `exit`, stdout and stderr can still
 // deliver data, so shutdown waits for `close` before the final scan.
@@ -22,6 +23,13 @@ export function assertChildEnv(env: Record<string, string | undefined>) {
   for (const name of CHILD_ENV_REFUSED) if (env[name] !== undefined) throw new Error("STAGING_CHILD_ENV_REFUSED");
   return env;
 }
+
+// Directories a child may read env files from (the repository, the gateway checkout, the build copy
+// and the gateway export). Checked again right before every step and server: preflight alone
+// would miss a file created during the run, which Prisma or Next.js would then load.
+const protectedDirs = new Set<string>();
+export function protectFromEnvFiles(...dirs: string[]) { for (const dir of dirs) protectedDirs.add(dir); }
+export function refuseEnvFilesNow() { refuseEnvFiles([...protectedDirs]); }
 
 export function track<T extends ChildProcess>(child: T): T {
   if (stopping) { signalGroup(child, "SIGKILL"); throw new Error("STAGING_STOPPING"); }
@@ -100,7 +108,7 @@ export function leakedStreams() {
 export function runStep(code: string, command: string, args: string[], cwd: string, env: Record<string, string>, timeoutMs = 600_000) {
   return new Promise<void>((resolve, reject) => {
     if (stopping) return reject(new Error("STAGING_STOPPING"));
-    try { assertChildEnv(env); } catch (error) { return reject(error); }
+    try { assertChildEnv(env); refuseEnvFilesNow(); } catch (error) { return reject(error); }
     const child = track(spawn(command, args, { cwd, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"], detached: true }));
     captureStream(`${code}:stdout`, child.stdout);
     captureStream(`${code}:stderr`, child.stderr);
@@ -119,7 +127,7 @@ export function runStep(code: string, command: string, args: string[], cwd: stri
 export function startServer(name: string, command: string, args: string[], cwd: string, env: Record<string, string>, ready: string) {
   return new Promise<ChildProcess>((resolve, reject) => {
     if (stopping) return reject(new Error("STAGING_STOPPING"));
-    try { assertChildEnv(env); } catch (error) { return reject(error); }
+    try { assertChildEnv(env); refuseEnvFilesNow(); } catch (error) { return reject(error); }
     const child = track(spawn(command, args, { cwd, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"], detached: true }));
     const timer = setTimeout(() => reject(new Error(`${name}_READY_TIMEOUT`)), 90_000);
     let buffer = "";

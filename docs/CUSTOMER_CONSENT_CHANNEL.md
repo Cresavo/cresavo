@@ -234,6 +234,10 @@ The runner:
    redirect from the salon origin (to another host and to the salon host on another port), and
    confirms none of them was reached.
 
+   Env files (`.env`, `.env.local`, `.env.production`, `.env.development` and their
+   `.local` forms) are refused in the repository and the gateway checkout at the start, and
+   checked again, there and in the build copy and gateway export, right before every step,
+   server and the agent start: Prisma and Next.js would load one created during the run.
    Right after creating its database the runner checks, with the same role, that creating
    that name again is recognised as "already exists" (the ordinary integration suite does not
    need `CREATEDB`). A signal during setup waits for a database creation in flight before

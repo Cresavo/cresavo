@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 // Preflight parsing for the staging runner. These run before any secret is registered
 // for redaction, so a failure throws a static code only: never the input, which may be
 // a connection string with a password.
@@ -78,4 +80,12 @@ export function stagingDatabase(adminUrl: URL, suffix: string, guard: (url: stri
   let password: string;
   try { password = decodeURIComponent(adminUrl.password); } catch { throw new Error("STAGING_PG_ADMIN_URL_INVALID"); }
   return { dbName, databaseUrl, password };
+}
+
+// Files Next.js and Prisma (prisma.config.ts) load on their own from a working directory.
+export const ENV_FILES = [".env", ".env.local", ".env.production", ".env.production.local", ".env.development", ".env.development.local"];
+/** Refuses with a static code if any of these directories holds an env file. Never reads one. */
+export function refuseEnvFiles(dirs: readonly string[]) {
+  for (const dir of dirs) for (const name of ENV_FILES)
+    if (existsSync(join(dir, name))) throw new Error("STAGING_ENV_FILE_REFUSED");
 }

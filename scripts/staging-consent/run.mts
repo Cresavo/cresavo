@@ -17,7 +17,7 @@ import { DateTime } from "luxon";
 import { assertTestDatabase } from "../test-db-guard.mjs";
 import { createDatabaseClient } from "../database.mjs";
 import { containsSecret, registerSecret, say } from "./sanitize.mjs";
-import { assertChildEnv, captureStream, freePorts, guardStream, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
+import { assertChildEnv, captureStream, freePorts, guardStream, leakedStreams, protectFromEnvFiles, refuseEnvFilesNow, runStep, startServer, stopAll, track } from "./processes.mjs";
 import { agentChannel } from "./agent-reply.mjs";
 import { loopbackAdminUrl, stagingDatabase } from "./preflight.mjs";
 import { acquisition, CLEANUP_SIGNALS, databaseAlreadyExisted, launchedBrowsers, onFatalError, settles } from "./lifecycle.mjs";
@@ -55,9 +55,9 @@ let checkout: string;
 // realpath's own error would name the path.
 try { checkout = realpathSync(resolve(checkoutValue)); } catch { throw new Error("STAGING_GATEWAY_CHECKOUT_INVALID"); }
 refuse(!(checkout + sep).startsWith(repo + sep) && !(repo + sep).startsWith(checkout + sep), "STAGING_GATEWAY_CHECKOUT_INSIDE_REPOSITORY");
-for (const dir of [repo, checkout])
-  for (const name of [".env", ".env.local", ".env.production", ".env.production.local"])
-    refuse(!existsSync(join(dir, name)), "STAGING_ENV_FILE_REFUSED");
+// No env files now, and none later: every step and server re-checks these right before it starts.
+protectFromEnvFiles(repo, checkout);
+refuseEnvFilesNow();
 refuse(!process.env.VERCEL && !process.env.VERCEL_ENV, "STAGING_CLOUD_REFUSED");
 const hostPattern = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,61}[a-z0-9]$/;
 const gatewayHost = (process.env.STAGING_GATEWAY_HOST ?? "gateway.cresavo.test").toLowerCase();
@@ -113,6 +113,7 @@ let db: typeof import("../../src/lib/db").db | undefined;
 // links where the file system allows (a copy otherwise). Nothing in the repository is written.
 const skipBuild = process.argv.includes("--skip-build");
 const salonDir = skipBuild ? repo : join(temp, "salon");
+protectFromEnvFiles(salonDir);
 function isolatedCheckout(dest: string) {
   mkdirSync(dest, { mode: 0o700 });
   const files = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: repo, stdio: ["ignore", "pipe", "ignore"] })
@@ -170,6 +171,7 @@ onFatalError(() => { failures++; process.exitCode = 1; say("FAIL UNCAUGHT_ERROR"
 
 const agentTranscript: string[] = [];
 function agentClient(env: Record<string, string>) {
+  refuseEnvFilesNow();
   const child = track(spawn(process.execPath, ["--import", "tsx", "--import", dnsHook, join(repo, "scripts/staging-consent/agent.mts")],
     { cwd: repo, env: assertChildEnv(env) as NodeJS.ProcessEnv, stdio: ["pipe", "pipe", "pipe"], detached: true }));
   captureStream("agent:stderr", child.stderr);
@@ -207,6 +209,7 @@ try {
   // ---- The gateway: the pinned revision exported from the separate checkout into the private run directory ----
   step = "GATEWAY_INSTALL";
   const gatewayDir = join(temp, "gateway");
+  protectFromEnvFiles(gatewayDir);
   mkdirSync(gatewayDir, { mode: 0o700 });
   execFileSync("sh", ["-c", `git -C "$1" archive "$2" | tar -x -C "$3"`, "sh", checkout, gatewayRevision, gatewayDir], { stdio: "ignore" });
   assert.equal(JSON.parse(readFileSync(join(gatewayDir, "package.json"), "utf8")).name, "cresavo-gateway", "STAGING_NOT_A_GATEWAY_CHECKOUT");
