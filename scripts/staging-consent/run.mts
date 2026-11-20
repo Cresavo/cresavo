@@ -5,17 +5,18 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { isIP } from "node:net";
-import { join, resolve, sep } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import { DateTime } from "luxon";
 import { assertTestDatabase } from "../test-db-guard.mjs";
 import { createDatabaseClient } from "../database.mjs";
 import { containsSecret, registerSecret, say } from "./sanitize.mjs";
-import { captured, freePort, runStep, startServer, stopAll } from "./processes.mjs";
+import { captureStream, freePort, leakedStreams, runStep, startServer, stopAll } from "./processes.mjs";
+import { loopbackAdminUrl } from "./preflight.mjs";
 import { issueCertificates, operatorFetch, tlsProxy } from "./tls.mjs";
 import { close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking } from "./browsers.mjs";
 
@@ -53,8 +54,8 @@ const gatewayHost = (process.env.STAGING_GATEWAY_HOST ?? "gateway.cresavo.test")
 const salonHost = (process.env.STAGING_SALON_HOST ?? "salon-demo.cresavo.test").toLowerCase();
 for (const host of [gatewayHost, salonHost]) assert(hostPattern.test(host) && !isIP(host), "STAGING_HOST_INVALID");
 assert.notEqual(gatewayHost, salonHost, "STAGING_HOSTS_MUST_DIFFER");
-const adminUrl = new URL(process.env.STAGING_PG_ADMIN_URL ?? "postgresql://booking:booking@127.0.0.1:5432/postgres");
-assert(["127.0.0.1", "localhost", "[::1]"].includes(adminUrl.hostname), "STAGING_DATABASE_MUST_BE_LOOPBACK");
+// Throws a static code only: the value may hold a password and nothing is registered for redaction yet.
+const adminUrl = loopbackAdminUrl(process.env.STAGING_PG_ADMIN_URL);
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
 const gatewayRevision = process.env.STAGING_GATEWAY_REVISION ?? pin.gatewayRevision;
 assert.match(gatewayRevision, /^[a-f0-9]{40}$/);
@@ -86,6 +87,28 @@ const servers: { close(): void }[] = [];
 let agentProcess: ChildProcess | undefined;
 let db: typeof import("../../src/lib/db").db | undefined;
 
+// Without --skip-build the salon is built and served from a copy inside the run directory:
+// the tracked and untracked (not ignored) files of the working tree, and node_modules as hard
+// links where the file system allows (a copy otherwise). Nothing in the repository is written.
+const skipBuild = process.argv.includes("--skip-build");
+const salonDir = skipBuild ? repo : join(temp, "salon");
+function isolatedCheckout(dest: string) {
+  mkdirSync(dest, { mode: 0o700 });
+  const files = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: repo, stdio: ["ignore", "pipe", "ignore"] })
+    .toString("utf8").split("\0").filter(Boolean);
+  for (const file of new Set(files)) {
+    const from = join(repo, file), to = join(dest, file);
+    if (!existsSync(from)) continue;
+    mkdirSync(dirname(to), { recursive: true });
+    cpSync(from, to, { verbatimSymlinks: true });
+  }
+  try { execFileSync("cp", ["-al", join(repo, "node_modules"), join(dest, "node_modules")], { stdio: "ignore" }); }
+  catch {
+    rmSync(join(dest, "node_modules"), { recursive: true, force: true });
+    cpSync(join(repo, "node_modules"), join(dest, "node_modules"), { recursive: true, verbatimSymlinks: true });
+  }
+}
+
 // Only CREATE/DROP of this run's own generated name, outside a transaction.
 async function adminQuery(sql: string) {
   const client = createDatabaseClient(adminUrl.href, 1);
@@ -97,6 +120,10 @@ async function cleanup() {
   for (const browser of browsers) await browser.close().catch(() => {});
   for (const server of servers) server.close();
   await stopAll();
+  // Every child has exited: scan its complete output, including the shutdown.
+  const leaks = leakedStreams();
+  if (leaks.length) { failures++; say(`FAIL PROCESS_OUTPUT_SECRET_FREE_THROUGH_SHUTDOWN - ${leaks.length} stream(s)`); }
+  else pass("PROCESS_OUTPUT_SECRET_FREE_THROUGH_SHUTDOWN");
   await db?.$disconnect().catch(() => {});
   if (createdDb) {
     try { await adminQuery(`DROP DATABASE IF EXISTS "${dbName}" WITH (FORCE)`); say("PASS DATABASE_DROPPED"); }
@@ -113,7 +140,7 @@ const agentTranscript: string[] = [];
 function agentClient(env: Record<string, string>) {
   const child = spawn(process.execPath, ["--import", "tsx", "--import", dnsHook, join(repo, "scripts/staging-consent/agent.mts")],
     { cwd: repo, env: env as NodeJS.ProcessEnv, stdio: ["pipe", "pipe", "pipe"] });
-  child.stderr.on("data", chunk => { captured.agent = ((captured.agent ?? "") + String(chunk)).slice(-50_000); });
+  captureStream("agent:stderr", child.stderr);
   const pending = new Map<number, (r: AgentReply) => void>();
   let sequence = 0;
   createInterface({ input: child.stdout }).on("line", line => {
@@ -139,9 +166,11 @@ try {
   await runStep("MIGRATE", process.execPath, [join(repo, "node_modules/prisma/build/index.js"), "migrate", "deploy"], repo, dbEnv);
   await runStep("SEED", process.execPath, ["--import", "tsx", "prisma/seed.ts"], repo, dbEnv);
   pass("ISOLATED_TEST_DATABASE", "new uniquely named _test database, migrated and seeded");
-  if (!process.argv.includes("--skip-build")) {
+  if (!skipBuild) {
+    // Build and serve a disposable copy of the working tree, so the operator's own .next stays untouched.
     step = "BUILD";
-    await runStep("BUILD", process.execPath, [join(repo, "node_modules/next/dist/bin/next"), "build"], repo, { ...dbEnv, ...networkEnv, NODE_ENV: "production" }, 900_000);
+    isolatedCheckout(salonDir);
+    await runStep("BUILD", process.execPath, [join(salonDir, "node_modules/next/dist/bin/next"), "build"], salonDir, { ...dbEnv, ...networkEnv, NODE_ENV: "production" }, 900_000);
   }
 
   // ---- The gateway: the pinned revision exported from the separate checkout into the private run directory ----
@@ -161,7 +190,7 @@ try {
   const gatewayTls = await tlsProxy(tls.leaves[gatewayHost], gatewayPort, "x-forwarded-for");
   servers.push(salonTls.server, gatewayTls.server);
   const salonOrigin = `https://${salonHost}:${salonTls.port}`, gatewayOrigin = `https://${gatewayHost}:${gatewayTls.port}`;
-  await startServer("salon", process.execPath, ["scripts/server.mjs"], repo, {
+  await startServer("salon", process.execPath, ["scripts/server.mjs"], salonDir, {
     ...dbEnv, NODE_ENV: "production", PORT: String(salonPort), BOOKING_RUNTIME: "local",
     BOOKING_SERVICE_ROLE: "salon", GATEWAY_SERVICE_TOKEN: serviceToken, BOOKING_PUBLIC_ORIGIN: gatewayOrigin,
     BOOKING_CONSENT_DELIVERY: "staging-inbox", BOOKING_CONSENT_ORIGIN: salonOrigin, BOOKING_CONSENT_TTL_SECONDS: "900",
@@ -395,11 +424,12 @@ try {
     const transcript = agentTranscript.join("\n");
     assert(!containsSecret(transcript), "agent transcript");
     for (const value of ["/consent/", salonHost, STAGING_CUSTOMER.id, "approvalUrl", "approvalLink"]) assert(!transcript.includes(value));
-    for (const [name, output] of Object.entries(captured)) assert(!containsSecret(output), `${name} output`);
+    // Output so far; the complete output is scanned again after every process has exited.
+    assert.deepEqual(leakedStreams(), [], "process output");
   });
-} catch {
+} catch (error) {
   failures++;
-  say(`FAIL ${step}`);
+  say(`FAIL ${step}${process.env.STAGING_DEBUG === "1" ? " - " + String((error as Error)?.message) : ""}`);
 } finally {
   await cleanup();
   say(`RESULT ${failures ? "FAILED" : "PASSED"} - ${results.length} checks passed, ${failures} failed`);

@@ -22,8 +22,11 @@ export function stagingConsentPolicy(env) {
       env.BOOKING_CONSENT_LAB === "1" || env.BOOKING_CONSENT_INBOX_DIR !== undefined)
     throw new Error("CONSENT_CHANNEL_CONFIG_INVALID");
   const consent = httpsOrigin(env.BOOKING_CONSENT_ORIGIN);
-  // The agent-facing origin (gateway) and the customer page must never share an origin.
-  if (httpsOrigin(env.BOOKING_PUBLIC_ORIGIN) === consent) throw new Error("CONSENT_CHANNEL_CONFIG_INVALID");
+  // The agent-facing origin (gateway) and the customer page must never share a host name,
+  // not only an origin: cookies are scoped by host, not port, so the owner's session cookie
+  // on the salon would also be sent to a gateway on another port of the same host.
+  if (new URL(httpsOrigin(env.BOOKING_PUBLIC_ORIGIN)).hostname === new URL(consent).hostname)
+    throw new Error("CONSENT_CHANNEL_CONFIG_INVALID");
   return consent;
 }
 
@@ -35,4 +38,12 @@ export function stagingConsentHost(env) {
   } catch {
     return null;
   }
+}
+
+// Paths the consent host serves: the customer page and its decision endpoint, the owner's
+// login and calendar (with the admin APIs it calls), the salon API the gateway calls, the
+// language choice and static assets. Everything else on that host is not found.
+const CONSENT_HOST_PATHS = /^\/(?:consent\/[^/]+(?:\/decision)?|admin(?:\/.*)?|api\/admin\/.+|api\/v1\/.+|api\/availability|api\/locale|_next\/.+|favicon\.ico|brand\/[\w.-]+|robots\.txt)$/;
+export function consentHostPathAllowed(pathname) {
+  return CONSENT_HOST_PATHS.test(pathname);
 }

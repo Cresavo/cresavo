@@ -10,6 +10,7 @@ import { handleMcp } from "../../src/lib/agent-api/mcp";
 import { mapAgentError } from "../../src/lib/agent-api/v1";
 import { STAGING_CHANNEL, STAGING_CUSTOMER, stagingInbox } from "../../src/lib/agent-api/consent-staging";
 import * as decisionRoute from "../../src/app/consent/[id]/decision/route";
+import { consentOutcome } from "../../src/app/consent/[id]/staging-copy";
 import { POST as restPropose } from "../../src/app/api/v1/proposals/route";
 import { GET as restStatus } from "../../src/app/api/v1/proposals/[id]/route";
 import { rpcBody } from "../helpers/oauth";
@@ -22,7 +23,7 @@ const addressSecret = "synthetic-staging-socket-proof";
 const customerIp = "198.51.100.7";
 const serviceId = `staging-service-${randomUUID()}`, staffId = `staging-staff-${randomUUID()}`;
 const clients: string[] = [];
-let slot = 0;
+let cursor = DateTime.now().setZone("Europe/Stockholm").startOf("day").plus({ days: 30 });
 
 beforeAll(async () => {
   await db.service.create({ data: { id: serviceId, businessId: "demo", name: "Fictional staging treatment", duration: 45, priceOre: 52000 } });
@@ -56,9 +57,11 @@ async function actor() {
   clients.push(principal.clientId);
   return { key, principal };
 }
+/** A distinct weekday for every call: the cursor moves past the day actually returned. */
 function terms() {
-  let day = DateTime.now().setZone("Europe/Stockholm").startOf("day").plus({ days: 30 + slot++ });
+  let day = cursor;
   while (day.weekday > 5) day = day.plus({ days: 1 });
+  cursor = day.plus({ days: 1 });
   return { business: "demo", serviceId, serviceVersion: 1, staffId, start: day.set({ hour: 13 }).toISO()! };
 }
 async function inbox(proposalId: string) {
@@ -85,6 +88,13 @@ const counts = async (clientId: string) => ({
   proposals: await db.agentProposal.count({ where: { clientId } }),
   mandates: await db.agentMandate.count({ where: { clientId } }),
   bookings: await db.agentBooking.count({ where: { clientId } }),
+});
+
+it("gives every scenario its own weekday slot", () => {
+  // Seven calls always span a weekend; no two may share a start for the same staff member.
+  const starts = Array.from({ length: 7 }, () => terms().start);
+  expect(new Set(starts).size).toBe(7);
+  for (const start of starts) expect(DateTime.fromISO(start).setZone("Europe/Stockholm").weekday).toBeLessThan(6);
 });
 
 it.each(["rest", "mcp"])("%s returns only the proposal id, status and terms; the link stays in the salon inbox", async transport => {
@@ -148,6 +158,24 @@ it("a failed delivery creates no proposal, no mandate and returns no link", asyn
   vi.stubEnv("BOOKING_CONSENT_ORIGIN", "http://salon-demo.cresavo.test");
   await expect(createProposal(principal, args)).rejects.toMatchObject({ code: "mandate_denied" });
   expect(await counts(principal.clientId)).toEqual({ proposals: 0, mandates: 0, bookings: 0 });
+});
+
+it("an approval committed before the response is lost is reported as unconfirmed, never as refused", async () => {
+  const { principal } = await actor();
+  const { proposal } = await createProposal(principal, terms());
+  const token = await secret(proposal.id);
+  const { proposalHash: hash } = await (await customer(proposal.id, { token, decision: "view" })).json();
+  // The commit succeeds, then the acknowledgement is lost (connection reset).
+  const commit = db.$transaction.bind(db) as (...args: unknown[]) => Promise<unknown>;
+  vi.spyOn(db, "$transaction").mockImplementationOnce((async (...args: unknown[]) => {
+    await commit(...args); throw new Error("SYNTHETIC_CONNECTION_RESET");
+  }) as unknown as typeof db.$transaction);
+  const response = await customer(proposal.id, { token, decision: "yes", proposalHash: hash });
+  expect(response.status).toBe(500);
+  expect(await response.text()).not.toContain(token);
+  expect(consentOutcome("yes", { status: response.status })).toBe("unconfirmed");
+  expect((await getProposal(principal, proposal.id)).proposal.status).toBe("approved");
+  expect(await counts(principal.clientId)).toMatchObject({ mandates: 1 });
 });
 
 it("opening the link approves nothing; there is no GET decision handler", async () => {

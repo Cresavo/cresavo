@@ -2,6 +2,7 @@ import { isPublicReadonly } from "./public-readonly";
 import { setTimeout as delay } from "node:timers/promises";
 import { verifiedClientAddress } from "../../scripts/client-address.mjs";
 import { DomainError, PasswordCapacityError } from "./errors";
+import { RATE_LIMITS, type RateLimitRoute } from "./rate-limits";
 
 // One bounded map per process. No persistence or cross-worker guarantee.
 const buckets = new Map<string, { count: number; until: number }>();
@@ -21,7 +22,7 @@ export function clientIp(headers: Headers) {
 }
 
 export function checkRateLimit(
-  route: "login" | "bookings" | "admin-bookings" | "agent-api",
+  route: RateLimitRoute,
   ip: string,
   consume = true,
   now = Date.now(),
@@ -34,7 +35,7 @@ export function checkRateLimit(
     if (bucket.until <= now) buckets.delete(key);
   const key = `${route}:${ip}`;
   const bucket = buckets.get(key) ?? { count: 0, until: now + windowMs };
-  const limit = route === "login" ? 5 : route === "admin-bookings" ? 60 : route === "agent-api" ? 300 : 30;
+  const limit = RATE_LIMITS[route];
   if (bucket.count >= limit)
     throw new DomainError(
       "Too many attempts. Please try again later.",

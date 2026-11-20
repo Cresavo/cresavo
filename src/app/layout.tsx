@@ -12,6 +12,8 @@ import { DEFAULT_BOOKING_LANGUAGE } from "@/concept/i18n/business";
 import { BRAND } from "@/concept/brand";
 import { PLATFORM_ICONS, THEME_COLORS } from "@/concept/ui/brand-assets";
 import { THEME_SCRIPT } from "@/concept/ui/theme";
+import { resolveHost } from "@/concept/page/resolve";
+import { siteRequestHost } from "@/concept/site/request-host";
 
 // Inter for the product UI (brand kit v0.9), self-hosted by next/font. Swedish
 // needs latin-ext (å, ä, ö are in latin; latin-ext covers names such as Łukasz).
@@ -42,6 +44,8 @@ export default async function Layout({
   const route = requestHeaders.get("x-concept-route");
   const english = requestHeaders.has("x-concept-english");
   const lang = route === "booking" ? DEFAULT_BOOKING_LANGUAGE : english ? "en" : locale;
+  // Server-only host settings (the split-mode consent host) reach the browser as this verdict only.
+  const appHost = resolveHost(siteRequestHost((name) => requestHeaders.get(name))).kind === "app";
   return (
     // The theme script sets data-theme before React hydrates.
     <html lang={lang} className={inter.variable} suppressHydrationWarning>
@@ -50,9 +54,9 @@ export default async function Layout({
       </head>
       <body>
         <LocaleProvider locale={locale}>
-          <DocumentLanguage locale={locale} />
+          <DocumentLanguage locale={locale} appHost={appHost} />
           <RestoreReturnScroll />
-          <EngineDemoBanner initialHidden={Boolean(route || english)} />
+          <EngineDemoBanner initialHidden={Boolean(route || english)} appHost={appHost} />
           {children}
         </LocaleProvider>
       </body>

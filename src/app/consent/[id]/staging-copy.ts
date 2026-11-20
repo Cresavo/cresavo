@@ -8,7 +8,9 @@ const en = {
   invalid: "This link is invalid. Nothing was approved.",
   used: "This link has already been used. Nothing more was approved.",
   expired: "This proposal has expired. Nothing was approved.",
-  failed: "The decision could not be saved. Nothing was approved. Open the link again to retry.",
+  unavailable: "The proposal could not be loaded. Nothing was approved. Open the link again to retry.",
+  unconfirmed: "We could not confirm whether your decision was saved. It may have been approved. Open the link again to see its current status.",
+  limited: "Too many attempts. This attempt changed nothing. Try again later.",
   approved: "Approved. The assistant may now complete exactly this booking. This is not a booking confirmation.",
   declined: "Declined. Nothing was approved.",
   customer: "Customer",
@@ -34,7 +36,9 @@ const sv: typeof en = {
   invalid: "Länken är ogiltig. Inget godkändes.",
   used: "Länken är redan använd. Inget mer godkändes.",
   expired: "Förslaget har gått ut. Inget godkändes.",
-  failed: "Beslutet kunde inte sparas. Inget godkändes. Öppna länken igen för att försöka på nytt.",
+  unavailable: "Förslaget kunde inte läsas in. Inget godkändes. Öppna länken igen för att försöka på nytt.",
+  unconfirmed: "Vi kunde inte bekräfta om ditt beslut sparades. Det kan ha godkänts. Öppna länken igen för att se aktuell status.",
+  limited: "För många försök. Det här försöket ändrade ingenting. Försök igen senare.",
   approved: "Godkänt. Assistenten kan nu slutföra exakt denna bokning. Detta är ingen bokningsbekräftelse.",
   declined: "Avböjt. Inget godkändes.",
   customer: "Kund",
@@ -54,6 +58,26 @@ const sv: typeof en = {
   decline: "Avböj",
 };
 export type StagingCopy = typeof en;
+
+export type ConsentOutcome = "loading" | "ready" | "invalid" | "used" | "expired" | "unavailable" | "unconfirmed" | "limited" | "approved" | "declined";
+
+/**
+ * What the customer is told after a request to the decision endpoint. Only a definite
+ * refusal from the salon may say that nothing was approved. A lost response, a server
+ * error or an intermediary's error after an approve or decline is an unknown outcome:
+ * the decision may have been committed.
+ */
+export function consentOutcome(phase: "view" | "yes" | "no", response: { status: number; state?: unknown } | "network-error"): Exclude<ConsentOutcome, "loading"> {
+  if (response !== "network-error") {
+    const { status, state } = response;
+    if (status >= 200 && status < 300) return phase === "view" ? "ready" : phase === "yes" ? "approved" : "declined";
+    if ((status === 409 || status === 410) && (state === "used" || state === "expired")) return state;
+    if (status === 403) return "invalid";
+    if (status === 429) return "limited";
+  }
+  // Viewing never approves, so a failed view is safe to report as such.
+  return phase === "view" ? "unavailable" : "unconfirmed";
+}
 export const stagingCopy: Record<Locale, StagingCopy> = { en, sv };
 
 /** One formatter for the page and the staging runner, so both read the same displayed terms. */

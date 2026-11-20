@@ -61,6 +61,16 @@ export function resolveHost(rawHost: string | null | undefined, directory: Direc
   return { kind: "unknown", reason: "not-connected" };
 }
 
+/**
+ * The host kind in the browser. Some hosts are classified from server-only settings (the
+ * split-mode consent host), which the browser cannot see: the server passes its verdict that
+ * this request is on an app host, so the browser does not downgrade it to `unknown`.
+ */
+export function browserHostKind(rawHost: string | null | undefined, serverAppHost: boolean): HostResolution["kind"] {
+  const kind = resolveHost(rawHost).kind;
+  return serverAppHost && kind === "unknown" ? "app" : kind;
+}
+
 export const UNKNOWN_PATH = "/unknown-address";
 export const COMING_SOON_PATH = "/coming-soon";
 

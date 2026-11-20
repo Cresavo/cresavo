@@ -59,6 +59,7 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/Error" }
         "500": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/proposals/{id}:
     get:
       summary: Read this stable client's proposal and approved mandate id
@@ -330,5 +331,5 @@ components:
           properties:
             code:
               type: string
-              enum: [unauthorized, forbidden_scope, forbidden_business, business_not_found, service_not_found, staff_not_found, booking_not_found, invalid_request, range_too_large, idempotency_key_required, confirmation_required, mandate_required, mandate_denied, synthetic_contact_required, slot_unavailable, stale_service, idempotency_conflict, rate_limited, internal_error]
+              enum: [unauthorized, forbidden_scope, forbidden_business, business_not_found, service_not_found, staff_not_found, booking_not_found, invalid_request, range_too_large, idempotency_key_required, confirmation_required, mandate_required, mandate_denied, synthetic_contact_required, slot_unavailable, stale_service, idempotency_conflict, rate_limited, consent_delivery_unavailable, provider_configuration_invalid, internal_error]
             message: { type: string }

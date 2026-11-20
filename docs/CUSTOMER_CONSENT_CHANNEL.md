@@ -17,9 +17,12 @@ The Swedish contract for the split salon is in [GATEWAY_SPLIT.md](GATEWAY_SPLIT.
 | Customer approval page (salon) | `BOOKING_CONSENT_ORIGIN` on the salon | `https://salon-demo.cresavo.com` |
 
 Nothing in the code defaults to these addresses. Hosting and DNS are not set up.
-When the channel is enabled, the salon serves its own pages (consent page, owner
-calendar, the API the gateway calls) on the consent host. Without the channel, host
-routing is unchanged.
+When the channel is enabled, the salon serves only the paths it needs on the consent
+host: the consent page and its decision endpoint (`/consent/*`), the owner's login and
+calendar (`/admin`, `/admin/*`, `/api/admin/*`, `/api/availability`), the API the
+gateway calls (`/api/v1/*`), the language choice (`/api/locale`) and static assets
+(`/_next/*`, `/favicon.ico`, `/brand/*`, `/robots.txt`). Every other path on that host
+answers `404`. Without the channel, host routing is unchanged.
 
 ## Configuration
 
@@ -31,7 +34,10 @@ condition holds:
 - Split mode: `BOOKING_SERVICE_ROLE=salon` with a valid `GATEWAY_SERVICE_TOKEN`.
 - `BOOKING_CONSENT_ORIGIN` is a bare `https://` origin: no path, query, fragment or
   credentials. Plain HTTP is refused, including on loopback.
-- `BOOKING_PUBLIC_ORIGIN` is a bare `https://` origin different from the consent origin.
+- `BOOKING_PUBLIC_ORIGIN` is a bare `https://` origin on a different host name from the
+  consent origin. A different port on the same host is refused: cookies are scoped by
+  host, not port, so the owner's `booking_admin` session cookie would also reach the
+  gateway.
 - Not combined with the public read-only fixture mode (`PUBLIC_READONLY=1`), the SMS
   lab (`BOOKING_SMS_OTP_LAB=1`), the local consent lab (`BOOKING_CONSENT_LAB=1`) or a
   lab inbox directory (`BOOKING_CONSENT_INBOX_DIR`).
@@ -83,12 +89,15 @@ approved. The proposal never outlives its start time.
 | Terms change after approval | The booking re-derives the hash from current price and duration. A changed price is `mandate_denied`; a changed version is `stale_service`. |
 | Slot taken after approval | The booking engine's overlap protection answers `slot_unavailable`. |
 | Cross-site or agent-driven decision | The decision endpoint requires `Origin` equal to the configured consent origin, JSON, a body under 2 KiB and no `Authorization` or `X-API-Key`. |
+| Guessing or hammering the decision endpoint | At most 60 requests per client address and 20 per proposal in 15 minutes (`429 consent_rate_limited`), in the same store as the other limits (`RATE_LIMIT_STORE=postgres` across processes). The address limit is checked first, and only proposal-shaped IDs reach the proposal limit. |
+| Customer told "nothing was approved" after an approval was saved | Only a definite refusal (`403`, or `409`/`410` with a state) says nothing was approved. A lost response, a server error (`500 consent_unavailable`) or an intermediary's error after Approve or Decline shows an unknown outcome and asks the customer to open the link again to see its status. |
+| Owner session reaching the gateway | Consent and gateway must use different host names. The consent host serves only the listed paths. |
 | Failed delivery | The inbox write is in the proposal transaction. If it fails, no proposal exists, no mandate can follow and the agent gets `503 consent_delivery_unavailable` (the gateway reports `503 provider_unavailable`). |
 | Mixing channels | A staging proposal is not decidable while the salon runs a lab channel, and lab proposals are not decidable while staging runs. The stored channel binds the mandate and contact even after a configuration change. |
 
 Not covered: the customer's identity. Whoever holds the link can decide. The test
 operator, and anyone with read access to the salon database, can read the inbox. The
-decision endpoint has no separate rate limit; the secret has 256 bits of entropy.
+secret has 256 bits of entropy; the rate limits bound load, not guessing.
 
 ## Staging runner
 
@@ -115,31 +124,40 @@ GATEWAY_CHECKOUT=/path/outside/this/repo npm run test:staging-consent
 | `STAGING_CHROMIUM_PATH` | Playwright default | Chromium executable when the installed browser differs from the pinned Playwright version. |
 | `STAGING_DEBUG` | unset | `1` adds a sanitized failure message to each `FAIL` line. |
 
-Pass `--skip-build` after `npm run build` has produced a current production build.
+Without `--skip-build`, the runner copies the working tree (tracked and untracked, not
+ignored, files) into its temporary directory, links `node_modules` there with hard links
+(a copy when the file system does not allow them), and builds and serves the salon from
+that copy. The repository's own `.next` is not touched. Pass `--skip-build` to serve the
+repository's existing production build instead, after `npm run build`.
 
 The runner:
 
 1. Creates a private temporary directory, a uniquely named `*_test` database, migrates
    and seeds it.
-2. Exports the pinned gateway revision into the temporary directory and installs its
+2. Without `--skip-build`, builds the salon in a copy of the working tree inside the
+   temporary directory.
+3. Exports the pinned gateway revision into the temporary directory and installs its
    production dependencies there. The checkout itself is not modified.
-3. Issues a throwaway CA and one certificate per host name, valid for one day. Keys
+4. Issues a throwaway CA and one certificate per host name, valid for one day. Keys
    stay in the temporary directory.
-4. Starts the split salon and the gateway on loopback, each behind its own TLS proxy.
+5. Starts the split salon and the gateway on loopback, each behind its own TLS proxy.
    The gateway runs in remote mode (`GATEWAY_ALLOW_REMOTE=1`, HTTPS salon origin, one
    trusted proxy hop) and receives no database URL, session secret or inbox access.
-5. Runs an MCP SDK client in its own process. It knows only the gateway origin and
+6. Runs an MCP SDK client in its own process. It knows only the gateway origin and
    its agent key.
-6. Uses a separate Chromium instance as the customer and another as the owner. The
+7. Uses a separate Chromium instance as the customer and another as the owner. The
    test operator reads the link from the database inbox.
-7. Checks: proposal creates no booking or mandate; the page shows every term and
+8. Checks: proposal creates no booking or mandate; the page shows every term and
    opening it approves nothing; approval; the agent reads status and books; replay
    with the same key returns the same booking ID; the owner logs in over HTTPS and opens
    exactly that booking ID from the authenticated calendar; already-used link; decline;
    expired link; changed price; slot taken; the agent cannot reach the inbox, the
    decision endpoint or the salon directly; no link or secret appears in the agent's
-   transcript or in any process output.
-8. Drops the database and deletes the temporary directory, also on failure.
+   transcript (the complete MCP results, every content block) or in any process output.
+   Process output is kept in full, per stream, and scanned again after every process
+   has exited, so a secret printed early, or registered only after it was printed, is
+   still found. If output exceeds 64 MiB the check fails rather than pass on a part.
+9. Drops the database and deletes the temporary directory, also on failure.
 
 Output is limited to static check codes, host names, revisions and counts. Every line
 is sanitized: registered secrets are removed exactly, and anything shaped like a link
@@ -149,7 +167,47 @@ no files outside its temporary directory.
 ### In CI
 
 The `Staging consent channel` job in `.github/workflows/verify.yml` runs the same
-runner when the repository secret `GATEWAY_READ_TOKEN` (read-only access to the
-gateway repository contents) is available to the workflow. Without it, or for pull
-requests from forks, the job reports a notice and skips. The token is used only by
-`actions/checkout`, which does not persist it. The job uploads no artifacts.
+runner on pushes to `main` and on manual runs (`workflow_dispatch`), never on pull
+request events, so the private gateway code and its read token are only used with
+merged code or a run someone with write access started. It needs the repository secret
+`GATEWAY_READ_TOKEN` (read-only access to the gateway repository contents); without it
+the job reports a notice and skips. The token is used only by `actions/checkout`, which
+does not persist it. The job uploads no artifacts.
+
+## Open questions
+
+Decided in this change:
+
+- **Paths on the consent host.** Implemented: only the paths listed under Addresses.
+  The owner's calendar stays on the consent host because the staging check opens the
+  booking there; a separate owner host is a production decision.
+- **Rate limit on the decision endpoint.** Implemented per client address and per
+  proposal with the existing limiter. An agent knows its own proposal ID and could use
+  up that proposal's 20 requests; this only blocks approval of its own proposal, which
+  it could equally abandon.
+- **CI trigger.** Implemented: push to `main` and `workflow_dispatch` only.
+
+Left open, with reasoning:
+
+- **Real customer identity and delivery.** The channel proves separation of the agent
+  from the approval, not who the customer is. A production channel needs a verified
+  contact (email or SMS) and a delivery provider; that is a product and legal decision
+  and needs a new cloud resource.
+- **Inbox confidentiality.** The full link is stored in `ConsentInboxMessage` so the
+  test operator can read it. A production channel should store only what delivery
+  needs and drop the link once sent. Not changed here because the staging check reads
+  the link from the inbox.
+- **Owner admin on the customer host.** The owner login and calendar share the consent
+  host. Its session cookie is host-only and never reaches the gateway (distinct host
+  names are required), but a production deployment may want the owner on a separate
+  host so a customer page and the owner session never share an origin.
+- **Rate limit store.** With `RATE_LIMIT_STORE=memory` the limits are per process. The
+  staging runner uses `postgres`. Requiring `postgres` whenever the channel is enabled
+  would be a small change but also breaks single-process local runs; left to the
+  production configuration review.
+- **`workflow_dispatch` on any branch.** A manual run can target an unmerged branch.
+  Only people with write access can start one; restricting it further (an environment
+  with required reviewers) needs a repository settings change.
+- **Hard-linked `node_modules` in the build copy.** The build does not modify installed
+  packages, so hard links are safe for this runner; a step that rewrote files in
+  `node_modules` in place would also change the repository's copy.

@@ -1,11 +1,12 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 import { DomainError } from "./errors";
+import { RATE_LIMITS, type RateLimitRoute } from "./rate-limits";
 
 // Separate, one-connection pool: booking transactions may already own every
 // connection in the domain pool. A rejected booking must still consume a try.
 export const rateLimitDatabase = createDatabaseClient(undefined, 1);
-type Route = "login" | "bookings" | "admin-bookings" | "agent-api";
+type Route = RateLimitRoute;
 export type Reservation = { key: string; generation: string; count: number };
 
 export async function reserveRateLimit(
@@ -18,8 +19,7 @@ export async function reserveRateLimit(
   const key = createHmac("sha256", secret)
     .update(`rate-limit:v1:${route}:${identity}`)
     .digest("hex");
-  const limit =
-    route === "login" ? 5 : route === "bookings" ? 30 : route === "agent-api" ? 300 : 60;
+  const limit = RATE_LIMITS[route];
   return rateLimitDatabase.$transaction(async (tx) => {
     // Small bounded preview store. This lock has no domain/session dependencies;
     // it is released before credential verification or booking processing.
