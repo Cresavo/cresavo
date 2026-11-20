@@ -13,18 +13,17 @@ let client: PrismaClient | undefined;
 
 export async function sandboxTransaction<T>(
   run: (tx: Prisma.TransactionClient, installation: Installation) => Promise<T>,
-  exclusive = false,
 ) {
   const config = sandboxConfig();
   client ??= createDatabaseClient(undefined, 2, "sandbox");
   return client.$transaction(async tx => {
     // The runtime can share the transaction lock without UPDATE access to the installation or generation.
-    if (exclusive) await tx.$executeRaw`SELECT pg_advisory_xact_lock(64119334)`;
-    else await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(64119334)`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(64119334)`;
     const [row] = await tx.$queryRaw<Installation[]> `
       SELECT i.id::text, g.generation, i.revision, g.reset_at AS "resetAt"
       FROM cresavo_sandbox.installation i CROSS JOIN cresavo_sandbox.generation g
       WHERE i.singleton AND g.singleton AND i.id = ${config.installation}::uuid AND i.revision = ${config.revision}
+        AND g.reset_at > clock_timestamp() - INTERVAL '26 hours'
     `;
     if (!row) throw new AgentApiError("provider_configuration_invalid");
     return run(tx, row);

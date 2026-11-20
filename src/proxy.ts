@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { parseLocale } from "./lib/locale";
 import { LOCALE_COOKIE, setDemoVisitorCookie, setLocaleCookie } from "./lib/locale-cookie";
 import { isPublicReadonly, publicReadonlyResponse } from "./lib/public-readonly";
-import { sandboxConfig, sandboxHost, sandboxRequested } from "./lib/agent-api/sandbox/config";
+import { sandboxConfig, sandboxCronHost, sandboxHost, sandboxRequested } from "./lib/agent-api/sandbox/config";
 import { productSiteOrigin } from "./concept/site/origin";
 import { siteRequestHost } from "./concept/site/request-host";
 import { galleryAvailable } from "./concept/server/gallery";
@@ -91,6 +91,7 @@ function sandboxProxy(request: NextRequest) {
   try {
     const { origin } = sandboxConfig();
     const path = request.nextUrl.pathname;
+    if (path === "/api/sandbox/reset" && sandboxCronHost(request, origin)) return NextResponse.next();
     if (sandboxHost(request, origin) &&
         (/^\/api\/v1\/(?:access|services|availability|(?:proposals|bookings)(?:\/[a-zA-Z0-9_-]{1,128})?)$/.test(path) ||
          /^\/(?:sandbox(?:\/phone)?|api\/sandbox\/(?:pair|phone(?:\/(?:redeem|decision))?))$/.test(path) ||

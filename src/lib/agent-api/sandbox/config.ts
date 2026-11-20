@@ -62,3 +62,12 @@ export function sandboxConfig(env = process.env) {
 export function sandboxHost(request: Request, origin: string) {
   return request.headers.get("host") === new URL(origin).host;
 }
+
+export function sandboxCronHost(request: Request, origin: string, env = process.env) {
+  const actual = new URL(request.url).origin;
+  if (actual === origin && sandboxHost(request, origin)) return true;
+  const generated = env.VERCEL_URL;
+  if (env.BOOKING_RUNTIME !== "vercel" || env.VERCEL_ENV !== "production" ||
+      !generated || !/^[a-z0-9-]+\.vercel\.app$/.test(generated)) return false;
+  return actual === "https://" + generated && sandboxHost(request, actual);
+}
