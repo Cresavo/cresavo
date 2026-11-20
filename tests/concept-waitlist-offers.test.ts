@@ -378,6 +378,31 @@ describe("offers one customer at a time", () => {
 });
 
 describe("edge cases", () => {
+  it("books a public request for whoever has the phone number, whatever customer id it carries", () => {
+    const state = setup("ask");
+    const waiting = state.customers.find((c) => c.firstName === "Demo" && c.phone === "0701234561")!;
+    const stranger = { name: "Demo Stranger", phone: "0709876543", at: { date: day, time: 600 } };
+    // A forged public request names a waiting customer and asks for a room of its own choosing.
+    const forged = { type: "online/book", serviceId, staffId: sam, date, start: 900, notice, guest: stranger,
+      customerId: waiting.id, resourceId: "forged-room" };
+    const booked = reduce(state, forged as DemoAction, now);
+    const visit = booked.bookings.at(-1)!;
+    expect(visit.start).toBe(900);
+    expect(visit.customerId).not.toBe(waiting.id);
+    expect(booked.customers.find((c) => c.id === visit.customerId)?.phone).toBe(stranger.phone);
+    expect(visit.resourceId).toBeUndefined();
+
+    // The deposit rule for new customers applies to the stranger, not to the returning customer the request names.
+    const regular = { ...state.customers[0], id: "regular", phone: "0705550000", waitlistProspect: undefined };
+    const policy = { ...state.cancellationPolicy, deposits: { [serviceId]: 15000 }, newCustomersOnly: true };
+    const strict = { ...state, customers: [...state.customers, regular], cancellationPolicy: policy };
+    expect(reduce(strict, { ...forged, customerId: "regular" } as unknown as DemoAction, now)).toBe(strict);
+    const held = reduce(strict, { ...forged, type: "online/hold", customerId: "regular" } as unknown as DemoAction, now);
+    expect(held.checkoutHolds.at(-1)).toMatchObject({ terms: { depositMinor: 15000 } });
+    expect(held.checkoutHolds.at(-1)?.customerId).toBeUndefined();
+    expect(held.checkoutHolds.at(-1)?.resourceId).not.toBe("forged-room");
+  });
+
   it("opens the deposit checkout for a claim in a salon with no other bookings, and logs it as held", () => {
     const state = { ...setup("ask"), bookings: [] };
     state.cancellationPolicy = { ...state.cancellationPolicy, deposits: { [serviceId]: 15000 } };
@@ -673,9 +698,11 @@ describe("in the browser store", () => {
 
   /** A fresh copy of the store module over one shared, fictional localStorage. `withLocks: false` is a browser without Web Locks. */
   async function openTab(storage: { raw: string; full?: boolean; onFull?: () => void; beforeWrite?: () => void; race?: { afterReads: number; write: () => void };
-    others?: Map<string, string>; writes?: { key: string; lock?: string }[] }, withLocks = true) {
+    others?: Map<string, string>; writes?: { key: string; lock?: string }[] }, withLocks = true, session?: Map<string, string>) {
     const others = storage.others ?? new Map<string, string>();
     const localStorage = {
+      get length() { return others.size + 1; },
+      key: (index: number) => [KEY, ...others.keys()][index] ?? null,
       getItem: (key: string) => {
         if (key !== KEY) return others.get(key) ?? null;
         if (storage.race && storage.race.afterReads-- === 0) {
@@ -694,9 +721,18 @@ describe("in the browser store", () => {
         storage.beforeWrite?.();
         storage.raw = value;
       },
-      removeItem: (key: string) => void others.delete(key),
+      removeItem: (key: string) => {
+        if (key === KEY) storage.raw = null as unknown as string;
+        else others.delete(key);
+      },
     };
-    vi.stubGlobal("window", Object.assign(new EventTarget(), { localStorage, sessionStorage: localStorage, location: { origin: "http://localhost" } }));
+    // `session`: a browser tab of its own (sessionStorage); by default every page shares one tab.
+    const sessionStorage = session ? {
+      getItem: (key: string) => session.get(key) ?? null,
+      setItem: (key: string, value: string) => void session.set(key, value),
+      removeItem: (key: string) => void session.delete(key),
+    } : localStorage;
+    vi.stubGlobal("window", Object.assign(new EventTarget(), { localStorage, sessionStorage, location: { origin: "http://localhost" } }));
     vi.stubGlobal("navigator", withLocks ? { locks } : {});
     vi.resetModules();
     return import("@/concept/store");
@@ -944,6 +980,127 @@ describe("in the browser store", () => {
     expect(saved.services.filter((s) => s.name === "Journaled")).toHaveLength(1);
     expect(next.currentState()?.services.filter((s) => s.name === "Journaled")).toHaveLength(1);
     expect(others.has(journal[0])).toBe(false);
+  });
+
+  /** A page that shows a change and is gone before its commit gets the lock. */
+  async function leaveWithChange(storage: { raw: string; others: Map<string, string> }, action: DemoAction) {
+    locks = { request: () => new Promise(() => undefined) } as unknown as ReturnType<typeof sharedLocks>;
+    const leaving = await openTab(storage);
+    expect(leaving.dispatch(action)).toBe(true);
+    locks = sharedLocks();
+    return [...storage.others.keys()].find((key) => key.includes("-journal-"))!;
+  }
+
+  /** The next page in the same tab, after its journal recovery and commits have run. */
+  async function nextPage(storage: { raw: string; others: Map<string, string> }) {
+    const next = await openTab(storage);
+    let failures = 0;
+    (window as unknown as EventTarget).addEventListener("concept-deferred-write-failed", () => failures++);
+    next.currentState();
+    await Promise.resolve();
+    await next.withBookingLock(() => true);
+    await Promise.resolve();
+    return { next, failures: () => failures };
+  }
+
+  it("never replays a change shown in a salon that was replaced before the next page", async () => {
+    const state = setup();
+    const storage = { raw: JSON.stringify(state), others: new Map<string, string>() };
+    const journal = await leaveWithChange(storage, { type: "service/price", id: serviceId, price: 777 });
+    // Another tab replaced the sample business (a fictional new one with the same records) before this tab came back.
+    const replaced = { ...state, seq: state.seq + 1, generation: "replaced" };
+    storage.raw = JSON.stringify(replaced);
+    const { next, failures } = await nextPage(storage);
+    expect(next.currentState()?.services[0].price).toBe(state.services[0].price);
+    // Not even tried: that salon is gone, so there is nothing to report as unsaved.
+    expect(failures()).toBe(0);
+    expect(JSON.parse(storage.raw)).toEqual(JSON.parse(JSON.stringify(replaced)));
+    expect(storage.others.has(journal)).toBe(false);
+  });
+
+  it("refuses the commit of a change whose salon was replaced while it waited for the lock", async () => {
+    const state = setup();
+    const storage = { raw: JSON.stringify(state) };
+    const tab = await openTab(storage);
+    expect(tab.dispatch({ type: "service/price", id: serviceId, price: 777 })).toBe(true);
+    const replaced = { ...state, seq: state.seq + 1, generation: "replaced" };
+    storage.raw = JSON.stringify(replaced);
+    await tab.withBookingLock(() => true);
+    expect(JSON.parse(storage.raw)).toEqual(JSON.parse(JSON.stringify(replaced)));
+  });
+
+  it("takes every tab's unsaved changes along when the sample business is replaced", async () => {
+    // The sample salon (no industry of its own) is the one a new sample business replaces.
+    const storage = { raw: JSON.stringify({ ...setup(), industry: null }), others: new Map<string, string>() };
+    const journal = await leaveWithChange(storage, { type: "service/price", id: serviceId, price: 777 });
+    // Another browser tab (its own session) chooses a new sample business.
+    const other = await openTab(storage, true, new Map());
+    await other.startBusiness();
+    expect(storage.others.has(journal)).toBe(false);
+    const { next } = await nextPage(storage);
+    expect(next.currentState()?.services.some((s) => s.price === 777)).toBe(false);
+  });
+
+  it("takes the trial salon's unsaved changes along when it is deleted, and starts a new trial without them", async () => {
+    // The trial salon is the first one this browser saved, so its key is the original one.
+    const others = new Map<string, string>([[`${KEY}-journal-gone`, JSON.stringify([{ op: "op-gone-1", action: { type: "service/price", id: serviceId, price: 777 }, meta: {}, generation: "trial-1", at: now }])]]);
+    const tab = await openTab({ raw: JSON.stringify(setup()), others });
+    tab.deleteTrialSalon();
+    expect(others.has(`${KEY}-journal-gone`)).toBe(false);
+    others.set(`${KEY}-journal-gone`, "[]");
+    expect(await tab.switchSalon("own", { ...salonDraft("en"), name: "Studio Trial", people: ["Alex Demo"] })).toBe(true);
+    expect(others.has(`${KEY}-journal-gone`)).toBe(false);
+    expect(tab.currentState()?.generation).toMatch(/.+/);
+    expect(tab.currentState()?.generation).not.toBe("trial-1");
+  });
+
+  it("retires a left-behind change that can no longer be made, and reports it once", async () => {
+    const state = setup();
+    const storage = { raw: JSON.stringify(state), others: new Map<string, string>() };
+    const journal = await leaveWithChange(storage, { type: "booking/move", id: "visit", date, start: 840 });
+    // Before the next page, another tab deleted the visit.
+    storage.raw = JSON.stringify({ ...state, seq: state.seq + 1, bookings: [] });
+    const { next, failures } = await nextPage(storage);
+    expect(failures()).toBe(1);
+    expect(storage.others.has(journal)).toBe(false);
+    expect(next.currentState()?.bookings).toEqual([]);
+  });
+
+  it("keeps a receipt with the saved change, so a change the log does not record is never applied twice", async () => {
+    const state = setup();
+    state.inbox = state.inbox.map((item) => ({ ...item, read: false }));
+    const others = new Map<string, string>();
+    const storage = { raw: JSON.stringify(state), others };
+    const tab = await openTab(storage);
+    expect(tab.dispatch({ type: "inbox/read-all" })).toBe(true);
+    const journal = [...others.entries()].find(([key]) => key.includes("-journal-"))!;
+    await tab.withBookingLock(() => true);
+    const saved = JSON.parse(storage.raw) as DemoState;
+    expect(saved.receipts?.map((r) => r.op)).toEqual([JSON.parse(journal[1])[0].op]);
+    // The page went away after the save but before the journal was cleared; then a new message arrived.
+    others.set(journal[0], journal[1]);
+    const message = { ...state.inbox[0], id: "fresh", read: false };
+    storage.raw = JSON.stringify({ ...saved, seq: saved.seq + 1, inbox: [message, ...saved.inbox] });
+    const { next } = await nextPage(storage);
+    expect(next.currentState()?.inbox.find((item) => item.id === "fresh")?.read).toBe(false);
+    expect(others.has(journal[0])).toBe(false);
+    // Once no journal holds it, the next save lets the receipt go.
+    expect(next.dispatch({ type: "service/price", id: serviceId, price: 777 })).toBe(true);
+    await next.withBookingLock(() => true);
+    expect((JSON.parse(storage.raw) as DemoState).receipts?.map((r) => r.op)).not.toContain(JSON.parse(journal[1])[0].op);
+  });
+
+  it("never replays a change left behind more than a week ago", async () => {
+    const storage = { raw: JSON.stringify(setup()), others: new Map<string, string>() };
+    const journal = await leaveWithChange(storage, { type: "service/price", id: serviceId, price: 777 });
+    const later = now + 8 * 24 * 60 * 60_000;
+    vi.setSystemTime(later);
+    // The trial salon was in use meanwhile, in another browser tab.
+    storage.others.set(`${KEY}-last-used`, String(later));
+    await nextPage(storage);
+    expect(storage.raw).not.toBeNull();
+    expect(storage.others.has(journal)).toBe(false);
+    expect((JSON.parse(storage.raw) as DemoState).services[0].price).not.toBe(777);
   });
 
   it("neither sends nor books personal offers in a browser without a cross-tab lock", async () => {

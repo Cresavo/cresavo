@@ -5,7 +5,7 @@ import type { DemoAction } from "./actions";
 import { toKey } from "./data/dates";
 import { createDemoState, type BusinessSetup } from "./data/generate";
 import { migrateState } from "./data/migrate";
-import type { DemoState } from "./data/types";
+import type { CommitReceipt, DemoState } from "./data/types";
 import { demoMessageLedger, demoPaymentLedger, withDemoChannels } from "./connections/demo";
 import { nextWaitlistWake } from "./booking/waitlist-match";
 import { salonClock } from "./tools/clock";
@@ -91,6 +91,7 @@ function removeOwnSalon(announce: boolean) {
     window.localStorage.removeItem(storageKey("own"));
     window.localStorage.removeItem(lastUseKey());
   } catch { /* Nothing more to remove. */ }
+  clearJournals("own");
   snapshots.own = {};
   salonRemoved("own");
   if (active === "own") {
@@ -168,6 +169,8 @@ function load(raw: string | null, workspace: Workspace): DemoState | null {
     if (saved && Boolean(saved.industry) === (workspace === "own")) {
       const validHolds = saved.checkoutHolds.filter(hold => hold.expiresAt > Date.now());
       if (validHolds.length !== saved.checkoutHolds.length) saved = { ...saved, checkoutHolds: validHolds };
+      // A salon saved before generations were kept is one salon too, until it is deleted or replaced.
+      saved = { ...saved, generation: saved.generation ?? "legacy" };
       if (saved.industry) return purge({ ...saved, generatedFor: today() });
       // A queue still in use spans midnight: open times still ahead, offers still held, or a visitor's request with
       // days still ahead. Ended or expired offers, past gaps and older requests without days do not hold the sample back.
@@ -177,7 +180,7 @@ function load(raw: string | null, workspace: Workspace): DemoState | null {
         saved.waitlistEntries.some(entry => !entry.id.startsWith("fixture-") && (entry.days.at(-1) ?? "") >= salonClock().today);
       const demo = saved.generatedFor === today() || liveQueue
         ? purge({ ...saved, generatedFor: today() })
-        : { ...createDemoState(today(), setupOf(saved)), reminderSettings: saved.reminderSettings, waitlistRules: saved.waitlistRules };
+        : { ...createDemoState(today(), setupOf(saved)), reminderSettings: saved.reminderSettings, waitlistRules: saved.waitlistRules, generation: sampleGeneration() };
       // An older setup could give both salons the same address. Keep the
       // published local link and restore the demo's fixture address in that case.
       const fixtureSlug = getPack(demo.pack).salon.slug;
@@ -187,8 +190,13 @@ function load(raw: string | null, workspace: Workspace): DemoState | null {
   } catch {
     // A corrupt snapshot falls back to fresh demo data.
   }
-  return workspace === "demo" ? createDemoState(today()) : null;
+  return workspace === "demo" ? { ...createDemoState(today()), generation: sampleGeneration() } : null;
 }
+
+/** A new salon: a trial, or a sample business someone chose or reset. */
+const newGeneration = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+/** Today's sample before anyone saves it: every page that opens it the same day opens the same one. */
+const sampleGeneration = () => `sample-${today()}`;
 
 function refresh(workspace: Workspace) {
   const snapshot = snapshots[workspace];
@@ -408,7 +416,16 @@ let operations = 0;
 // reload, a link to another page, closing), the next page in the same tab commits what is left,
 // once: an operation whose log entry is already saved is not applied again.
 
-interface JournalEntry { op: string; action: DemoAction; meta: Partial<Omit<LogMeta, "at">> }
+interface JournalEntry {
+  op: string;
+  action: DemoAction;
+  meta: Partial<Omit<LogMeta, "at">>;
+  /** The salon it was shown in (`DemoState.generation`): never replayed into another one. */
+  generation?: string;
+  at?: number;
+}
+/** How long a change left behind may still be replayed, and how long its commit receipt is kept at most. */
+const JOURNAL_TTL = 7 * 24 * 60 * 60_000;
 const TAB_KEY = "salong-eko-tab";
 
 /** This browser tab, across reloads and page changes (sessionStorage is per tab). */
@@ -421,7 +438,49 @@ function tabKey(): string {
   return TAB_ID;
 }
 
-const journalKey = (workspace: Workspace) => `${storageKey(workspace)}-journal-${tabKey()}`;
+const journalPrefix = (workspace: Workspace) => `${storageKey(workspace)}-journal-`;
+const journalKey = (workspace: Workspace) => `${journalPrefix(workspace)}${tabKey()}`;
+
+/** Every tab's journal keys for a salon. */
+function journalKeys(workspace: Workspace): string[] {
+  const keys: string[] = [];
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key?.startsWith(journalPrefix(workspace))) keys.push(key);
+    }
+  } catch { /* Storage unavailable: nothing journaled either. */ }
+  return keys;
+}
+
+/** A salon deleted or replaced takes every tab's unsaved changes for it along. */
+function clearJournals(workspace: Workspace) {
+  for (const key of journalKeys(workspace)) {
+    try { window.localStorage.removeItem(key); }
+    catch { /* The generation check still keeps it out of the next salon. */ }
+  }
+}
+
+/** Operations some tab's journal still holds for a salon; their commit receipts must stay. */
+function journaledOps(workspace: Workspace): Set<string> {
+  const ops = new Set<string>();
+  for (const key of journalKeys(workspace)) {
+    try {
+      const entries = JSON.parse(window.localStorage.getItem(key) ?? "[]");
+      if (Array.isArray(entries)) for (const entry of entries) if (typeof entry?.op === "string") ops.add(entry.op);
+    } catch { /* A corrupt journal holds nothing to replay. */ }
+  }
+  return ops;
+}
+
+/** The receipts a commit saves: its own, plus those a journal could still replay and not older than any entry may live. */
+function withReceipt(state: DemoState, workspace: Workspace, op: string | undefined, now: number): DemoState {
+  if (!op && !state.receipts?.length) return state;
+  const live = journaledOps(workspace);
+  const kept = (state.receipts ?? []).filter((receipt) => receipt.at > now - JOURNAL_TTL && live.has(receipt.op));
+  const receipts: CommitReceipt[] = op ? [...kept, { op, at: now }] : kept;
+  return { ...state, receipts };
+}
 
 function readJournal(workspace: Workspace): JournalEntry[] {
   try {
@@ -439,8 +498,9 @@ function writeJournal(workspace: Workspace, entries: JournalEntry[]) {
   } catch { /* Best effort: the commit itself still runs while the page stays. */ }
 }
 
-/** The change an operation made is saved already (its log entry is there). */
-const committed = (state: DemoState | null | undefined, op: string) => !!state?.log.some((entry) => entry.op === op || entry.id === `l-${op}`);
+/** The change an operation made is saved already: its receipt, or its log entry, is in the saved salon. */
+const committed = (state: DemoState | null | undefined, op: string) =>
+  !!state && (!!state.receipts?.some((receipt) => receipt.op === op) || state.log.some((entry) => entry.op === op || entry.id === `l-${op}`));
 
 let recovering = false;
 
@@ -457,9 +517,18 @@ function recoverJournal() {
     const saved = snapshots[workspace].state;
     // Only what earlier pages left: this page's own changes are still on their way to the lock.
     const mine = (entry: JournalEntry) => entry.op.startsWith(`op-${TAB_ID}-`);
-    const left = entries.filter((entry) => mine(entry) || !committed(saved, entry.op));
+    // Never into another salon (the trial was deleted, the sample replaced), never twice, never after a week.
+    const now = Date.now();
+    const replayable = (entry: JournalEntry) => !!saved && !!entry.generation && entry.generation === saved.generation &&
+      (entry.at ?? 0) > now - JOURNAL_TTL && !committed(saved, entry.op);
+    const left = entries.filter((entry) => mine(entry) || replayable(entry));
     writeJournal(workspace, left);
-    for (const entry of left) if (!mine(entry)) showThenCommit(entry.action, entry.meta);
+    for (const entry of left) {
+      if (mine(entry) || showThenCommit(entry.action, entry.meta, undefined, entry.generation) !== false) continue;
+      // Refused for good (what it changed is gone, or no longer allowed): retired, and reported like a failed commit.
+      writeJournal(workspace, readJournal(workspace).filter((other) => other.op !== entry.op));
+      window.dispatchEvent(new Event(DEFERRED_WRITE_FAILED));
+    }
   } finally {
     recovering = false;
   }
@@ -470,12 +539,17 @@ function recoverJournal() {
  * operation id rather than the preview's entry id: another tab can commit an entry with that id
  * first, and Undo must never take back someone else's change.
  */
-function showThenCommit(action: DemoAction, given: Partial<Omit<LogMeta, "at">> | undefined, canApply?: (current: DemoState) => boolean): string | null | false {
+function showThenCommit(
+  action: DemoAction, given: Partial<Omit<LogMeta, "at">> | undefined, canApply?: (current: DemoState) => boolean, expected?: string,
+): string | null | false {
   const workspace = active;
   const meta = { ...given, op: given?.op ?? `op-${TAB_ID}-${++operations}` };
   refreshFromStorage();
   const view = getSnapshot();
   if (!view || (canApply && !canApply(view))) return false;
+  // The salon it is shown in; its commit is refused if that salon is deleted or replaced first.
+  const generation = expected ?? view.generation;
+  if (view.generation !== generation) return false;
   if (committed(snapshots[workspace].state, meta.op)) return `l-${meta.op}`;
   const now = Date.now();
   const logMeta = { ...defaultMeta(action, now), ...meta, at: now };
@@ -487,9 +561,9 @@ function showThenCommit(action: DemoAction, given: Partial<Omit<LogMeta, "at">> 
   const snapshot = snapshots[workspace];
   snapshot.pending = next;
   snapshot.queued = (snapshot.queued ?? 0) + 1;
-  writeJournal(workspace, [...readJournal(workspace).filter((entry) => entry.op !== meta.op), { op: meta.op, action, meta }]);
+  writeJournal(workspace, [...readJournal(workspace).filter((entry) => entry.op !== meta.op), { op: meta.op, action, meta, generation, at: now }]);
   notify();
-  void withBookingLock(() => commitNow(action, meta, canApply))
+  void withBookingLock(() => commitNow(action, meta, canApply, generation))
     .catch(() => false as const)
     .then((result) => {
       writeJournal(workspace, readJournal(workspace).filter((entry) => entry.op !== meta.op));
@@ -502,8 +576,13 @@ function showThenCommit(action: DemoAction, given: Partial<Omit<LogMeta, "at">> 
   return next.log[0]?.id !== view.log[0]?.id ? meta.op : null;
 }
 
-/** The write itself: inside the booking lock, or directly in a browser without Web Locks. */
-function commitNow(action: DemoAction, meta: Partial<Omit<LogMeta, "at">> | undefined, canApply?: (current: DemoState) => boolean): string | null | false {
+/**
+ * The write itself: inside the booking lock, or directly in a browser without Web Locks.
+ * `generation`: the salon a shown change was made in; nothing is written into another one.
+ */
+function commitNow(
+  action: DemoAction, meta: Partial<Omit<LogMeta, "at">> | undefined, canApply?: (current: DemoState) => boolean, generation?: string,
+): string | null | false {
   const workspace = active;
   refreshFromStorage();
   const now = Date.now();
@@ -511,6 +590,7 @@ function commitNow(action: DemoAction, meta: Partial<Omit<LogMeta, "at">> | unde
   while (true) {
     const current = getSnapshot();
     if (!current || active !== workspace || (canApply && !canApply(current))) return false;
+    if (generation !== undefined && current.generation !== generation) return false;
     // A journaled operation a later page already committed is not applied twice.
     if (meta?.op && committed(current, meta.op)) return `l-${meta.op}`;
     // Booking a personal offer needs the real cross-tab lock: without it two tabs could both claim it.
@@ -519,8 +599,10 @@ function commitNow(action: DemoAction, meta: Partial<Omit<LogMeta, "at">> | unde
     const batch = demoPaymentLedger.stage();
     const messages = demoMessageLedger.stage();
     // Offers go out only under the booking lock; a browser without one sends none.
-    const next = withRecordIds(meta?.op, () => withOffersHeld(!insideBookingLock, () => withDemoChannels(messages, () => prepareAction(current, action, logMeta, batch))));
-    if (next === current) return false;
+    const changed = withRecordIds(meta?.op, () => withOffersHeld(!insideBookingLock, () => withDemoChannels(messages, () => prepareAction(current, action, logMeta, batch))));
+    if (changed === current) return false;
+    // Saved together with the change itself, so no page can apply this operation again.
+    const next = withReceipt(changed, workspace, meta?.op, now);
     // Includes undo, which can restore a previously free address.
     if (next.salon.slug !== current.salon.slug && next.salon.slug === workspaceSlug(active === "demo" ? "own" : "demo")) return false;
     // The save re-reads storage first and runs the rules again on a newer copy.
@@ -677,8 +759,9 @@ export async function startBusiness(setup?: BusinessSetup): Promise<void> {
   if (active !== "demo") select("demo");
   await withBookingReceipt(required => {
     refreshFromStorage();
-    const next = createDemoState(today(), setup);
+    const next = { ...createDemoState(today(), setup), generation: newGeneration() };
     next.seq = Math.max(next.seq, (snapshots.demo.state?.seq ?? 0) + 1, (required?.seq ?? 0) + 1);
+    clearJournals("demo");
     salonRemoved("demo");
     return setState(next);
   }, true);
@@ -702,7 +785,8 @@ export async function switchSalon(to: Workspace, draft?: SalonDraft) {
       if (to !== "own" || !draft) return false;
       if (!checkNewSlug(draft.slug || suggestedSlug(draft), workspaceSlug("demo")).ok) return false;
       const now = new Date();
-      const next = createSalon(today(), draft, { examplesAfter: now.getHours() * 60 + now.getMinutes() });
+      const next = { ...createSalon(today(), draft, { examplesAfter: now.getHours() * 60 + now.getMinutes() }), generation: newGeneration() };
+      clearJournals("own");
       const raw = JSON.stringify(next);
       try { window.localStorage.setItem(storageKey(to), raw); }
       catch { return false; }

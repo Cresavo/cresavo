@@ -402,6 +402,9 @@ export interface ServicePackage {
 
 export type ModuleKey = "journal" | "stock" | "campaigns" | "finance" | "reviews" | "waitlist" | "assistant" | "giftcards" | "packages" | "domain";
 
+/** A saved operation (`LogMeta.op`) and when it was saved, kept while a page could still replay it. */
+export interface CommitReceipt { op: string; at: number }
+
 export interface DemoState {
   cancellationPolicy: CancellationPolicy;
   checkoutHolds: CheckoutHold[];
@@ -415,6 +418,13 @@ export interface DemoState {
   pack: PackId;
   /** Date of the snapshot. Only sample businesses regenerate on a new day. */
   generatedFor: DateKey;
+  /**
+   * Browser demo only: names this salon from its creation until it is deleted or replaced (a new sample business,
+   * a new trial, the sample of a new day). A change a page showed but did not save is replayed only into the same one.
+   */
+  generation?: string;
+  /** Browser demo only: operations already saved, so a change a page left behind is never applied twice. */
+  receipts?: CommitReceipt[];
   seq: number;
   salon: Salon;
   localization: BusinessLocalization;

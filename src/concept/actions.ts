@@ -222,15 +222,19 @@ function ensureCustomer(state: DemoState, guest: GuestContact, since: DateKey, c
   return { state: { ...state, seq: state.seq + 1, customers: [...state.customers, customer] }, customer };
 }
 
+type OnlineRequest = Extract<DemoAction, { type: "online/book" | "online/hold" }>;
+
 /**
- * `resourceId`: a room or chair a personal offer or checkout already holds for this visit.
- * `customerId`: the customer a personal offer was made to; the booking is theirs and no one else's.
+ * What a verified personal offer (or the checkout it opened) adds to an online request. Only the salon's own records
+ * supply it — never fields on a public action, which anyone can write.
+ * `customerId`: the customer the offer was made to; the booking is theirs and no one else's.
+ * `resourceId`: the room or chair the offer or checkout already holds for this visit.
  */
-type OnlineRequest = Extract<DemoAction, { type: "online/book" | "online/hold" }> & { resourceId?: string; customerId?: string };
+type Offered = { customerId: string; resourceId?: string };
 
 /** The customer an online request is for: the offered one by id, otherwise whoever has the phone number. */
-function requestCustomer(state: DemoState, action: Pick<OnlineRequest, "guest" | "customerId">) {
-  return action.customerId ? state.customers.find(c => c.id === action.customerId) : findCustomerByPhone(state, action.guest.phone);
+function requestCustomer(state: DemoState, guest: OnlineRequest["guest"], offered?: Offered) {
+  return offered ? state.customers.find(c => c.id === offered.customerId) : findCustomerByPhone(state, guest.phone);
 }
 
 /** A booking from the public page must start at least the lead time after the customer acted. */
@@ -240,15 +244,16 @@ function withinLead(state: DemoState, action: OnlineRequest): boolean {
   return action.date >= at.date && action.start >= earliestOnlineStart(action.date, at.date, at.time, bufferBefore);
 }
 
-function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoState {
+function bookOnline(state: DemoState, action: OnlineRequest, now: number, offered?: Offered): DemoState {
   const service = bookableServices(state).find(s => s.id === action.serviceId);
   if (!service || !service.staffIds.includes(action.staffId) || !action.guest.name.trim() || !isMobilePhone(action.guest.phone) || !isFree(state, action.staffId, action.date, action.start, needOf(service))) return state;
-  if (action.customerId && !requestCustomer(state, action)) return state;
-  const terms = quote(state.cancellationPolicy, service, state.localization.currency, isNewCustomer(state, requestCustomer(state, action)));
+  const customer = requestCustomer(state, action.guest, offered);
+  if (offered && !customer) return state;
+  const terms = quote(state.cancellationPolicy, service, state.localization.currency, isNewCustomer(state, customer));
   // Preparation that has already begun is past, with or without a deposit; the guest's clock has whole minutes only.
   const preparation = visitTime({ date: action.date, start: action.start - (service.bufferBefore ?? 0) }).toMillis();
   if (preparation < now) return state;
-  if (action.type === "online/book") return terms.depositMinor ? state : confirmOnline(state, action, service, { terms });
+  if (action.type === "online/book") return terms.depositMinor ? state : confirmOnline(state, action, service, { terms }, offered);
   if (!terms.depositMinor) return state;
   const { guest, notice, staffId, date, start } = action;
   // The checkout ends by the time preparation must begin; payment would be refused after that.
@@ -257,9 +262,9 @@ function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoS
     id: recordId("hold", `${now}-${state.seq}`), guest, notice, staffId, date, start, terms, duration: service.duration,
     ...(service.bufferBefore ? { bufferBefore: service.bufferBefore } : {}),
     ...(service.bufferAfter ? { bufferAfter: service.bufferAfter } : {}),
-    resourceId: action.resourceId && resourceStillFree(state, needOf(service), action.resourceId, date, start) ? action.resourceId : pickResource(state, needOf(service), date, start),
+    resourceId: offered?.resourceId && resourceStillFree(state, needOf(service), offered.resourceId, date, start) ? offered.resourceId : pickResource(state, needOf(service), date, start),
     serviceId: service.id, expiresAt: Math.min(now + 10 * 60_000, preparation),
-    ...(action.customerId ? { customerId: action.customerId } : {}),
+    ...(offered ? { customerId: offered.customerId } : {}),
   };
   return { ...state, seq: state.seq + 1, checkoutHolds: [...state.checkoutHolds.filter(h => h.expiresAt > now), hold] };
 }
@@ -284,16 +289,22 @@ function payHold(state: DemoState, action: Extract<DemoAction, { type: "online/p
   if (!id) return state;
   const clock = salonClock(new Date(now));
   const guest = { ...hold.guest, at: { date: clock.today, time: clock.minutes } };
-  const booked = confirmOnline(released, { ...hold, guest }, service, { terms: hold.terms, deposit: { id, method: action.method } });
+  // The checkout's room and offered customer are the salon's own records, set when it opened.
+  const own = hold.offerId && hold.customerId ? { customerId: hold.customerId, resourceId: hold.resourceId } : undefined;
+  const booked = confirmOnline(released, { ...hold, guest }, service, { terms: hold.terms, deposit: { id, method: action.method } }, own ?? { resourceId: hold.resourceId });
   if (booked === released) return state;
   return offer ? finishOffer({ ...booked, waitlistOffers: state.waitlistOffers }, offer, "claimed", now, booked.bookings.at(-1)!.id) : booked;
 }
 
-function confirmOnline(state: DemoState, action: Omit<OnlineRequest, "type">, service: DemoState["services"][number], protection: BookingProtection): DemoState {
-  const offered = action.customerId ? state.customers.find(c => c.id === action.customerId) : undefined;
-  if (action.customerId && !offered) return state;
+/** `own`: the offered customer and reserved room from the salon's own records (see `Offered`), never from the request. */
+function confirmOnline(
+  state: DemoState, action: Pick<OnlineRequest, "guest" | "notice" | "staffId" | "date" | "start">, service: DemoState["services"][number],
+  protection: BookingProtection, own: Partial<Offered> = {},
+): DemoState {
+  const offered = own.customerId ? state.customers.find(c => c.id === own.customerId) : undefined;
+  if (own.customerId && !offered) return state;
   const { state: withCustomer, customer } = offered ? { state, customer: offered } : ensureCustomer(state, action.guest, action.guest.at.date, service.category, action.staffId, false);
-  const booked = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" }, protection, action.resourceId);
+  const booked = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" }, protection, own.resourceId);
   if (booked === withCustomer) return state;
   const notified = addInbox(booked, {
     kind: "request",
@@ -355,8 +366,8 @@ function claimOffer(state: DemoState, action: Extract<DemoAction, { type: "onlin
   const clock = salonClock(new Date(now));
   const guest = { name: `${customer.firstName} ${customer.lastName}`.trim(), phone: customer.phone, at: { date: clock.today, time: clock.minutes } };
   const deposit = terms.depositMinor > 0;
-  const request = { type: deposit ? "online/hold" as const : "online/book" as const, guest, notice: action.notice, serviceId: offer.serviceId, staffId: offer.staffId, date: offer.date, start: offer.start, resourceId: offer.resourceId, customerId: offer.customerId };
-  const next = bookOnline(released, request, now);
+  const request = { type: deposit ? "online/hold" as const : "online/book" as const, guest, notice: action.notice, serviceId: offer.serviceId, staffId: offer.staffId, date: offer.date, start: offer.start };
+  const next = bookOnline(released, request, now, { customerId: offer.customerId, resourceId: offer.resourceId });
   if (next === released) return state;
   if (deposit) {
     const created = next.checkoutHolds.at(-1)!;

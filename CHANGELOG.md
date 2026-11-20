@@ -20,6 +20,7 @@ All notable changes to this project are documented here. Format follows
 ### Changed
 
 - The browser store records simulated texts and emails only after it has saved the change, so a retried or refused change sends nothing. Saved demos move to version 24 and keep everyone already on the waiting list.
+- A change a page showed but had not saved when it went away is saved by the next page in the same tab, once. It is never saved into a salon that was deleted or replaced meanwhile, and one that can no longer be made is reported instead.
 - The staff preview starts in Advanced, with a return to the owner view available while previewing.
 - Finance opens with what is left this month and a comparison with last month. Send to my accountant explains the two download options and the dates they cover.
 - Gift cards and packages share one add-on and one More entry with two tabs. Owners can approve and reply to reviews from the Inbox.
