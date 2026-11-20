@@ -71,7 +71,7 @@ export function Hero({ state, now, variant, photo }: HeroProps) {
   if (variant === "split") {
     return (
       <section className="grid items-center gap-5 lg:grid-cols-2 lg:gap-12 lg:py-4">
-        <div className="relative aspect-[3/2] overflow-hidden rounded-lg bg-surface-2 lg:order-2 lg:aspect-[4/3]">{image("(min-width: 1024px) 480px, 100vw")}</div>
+        <div className="relative aspect-[2/1] overflow-hidden rounded-lg bg-surface-2 sm:aspect-[3/2] lg:order-2 lg:aspect-[4/3]">{image("(min-width: 1024px) 480px, 100vw")}</div>
         <div className="space-y-4">
           <div>
             <h1 className="booking-hero-title break-words font-semibold">{salon.name}</h1>

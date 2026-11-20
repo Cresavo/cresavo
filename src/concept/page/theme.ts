@@ -12,9 +12,9 @@ export const FONT_PAIRS = {
   soft: { heading: 'ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", Quicksand, system-ui, sans-serif', body: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' },
   elegant: { heading: '"Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif', body: 'Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif' },
   // The four below use web fonts that the booking and studio layouts load (app/page-fonts.ts); the rest of each stack is what shows until they arrive.
-  warm: { heading: 'var(--font-fraunces), "Iowan Old Style", Georgia, serif', body: INTER },
-  couture: { heading: 'var(--font-playfair), "Didot", "Bodoni MT", Georgia, serif', body: INTER },
-  statement: { heading: 'var(--font-bodoni), "Didot", "Bodoni MT", Georgia, serif', body: INTER },
+  warm: { heading: `var(--font-familjen), ${INTER}`, body: INTER },
+  couture: { heading: 'var(--font-bodoni), "Didot", "Bodoni MT", Georgia, serif', body: INTER },
+  statement: { heading: 'var(--font-barlow), "Arial Narrow", "Helvetica Neue", Arial, sans-serif', body: INTER },
   friendly: { heading: `var(--font-outfit), ${INTER}`, body: `var(--font-outfit), ${INTER}` },
 } as const;
 
@@ -23,6 +23,13 @@ export const FONT_PAIR_IDS = Object.keys(FONT_PAIRS) as FontPairId[];
 
 export const CORNERS = ["sharp", "soft", "round"] as const;
 export type CornerStyle = (typeof CORNERS)[number];
+
+/**
+ * How the sections are drawn. "boxed": each in a card; "lined": flat, separated by rules, with small
+ * capital section labels; "soft": borderless cards in a tint of the accent.
+ */
+export const STYLES = ["boxed", "lined", "soft"] as const;
+export type PageStyle = (typeof STYLES)[number];
 
 /** Photos from `public/demo` the page can use. */
 export const PHOTOS = { salon: "/demo/salon.webp", massage: "/demo/massage.webp", hair: "/demo/hair.webp", barber: "/demo/barber.webp", nails: "/demo/nails.webp" } as const;
@@ -55,10 +62,11 @@ export interface PageTheme {
   colors: Palette | null;
   fonts: FontPairId;
   corners: CornerStyle;
+  style: PageStyle;
   heroPhoto: PhotoId;
 }
 
-export const DEFAULT_THEME: PageTheme = { logo: null, logoColors: [], colors: null, fonts: "modern", corners: "soft", heroPhoto: "salon" };
+export const DEFAULT_THEME: PageTheme = { logo: null, logoColors: [], colors: null, fonts: "modern", corners: "soft", style: "boxed", heroPhoto: "salon" };
 
 const pick = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T => (allowed.includes(value as T) ? (value as T) : fallback);
 
@@ -71,6 +79,7 @@ export function normalizeTheme(input: Partial<PageTheme> | undefined): PageTheme
     colors: colors && isHex(colors.background) && isHex(colors.text) && isHex(colors.accent) ? { background: colors.background.toLowerCase(), text: colors.text.toLowerCase(), accent: colors.accent.toLowerCase() } : null,
     fonts: pick(input?.fonts, FONT_PAIR_IDS, DEFAULT_THEME.fonts),
     corners: pick(input?.corners, CORNERS, DEFAULT_THEME.corners),
+    style: pick(input?.style, STYLES, DEFAULT_THEME.style),
     heroPhoto: pick(input?.heroPhoto, PHOTO_IDS, DEFAULT_THEME.heroPhoto),
   };
 }

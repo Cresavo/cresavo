@@ -1,7 +1,7 @@
 import { jsonEqual } from "../data/json-equal";
 import type { PageConfig } from "./config";
 
-export type PageAspect = "logo" | "colours" | "fonts" | "corners" | "photo" | "sections" | "instagram" | "css";
+export type PageAspect = "logo" | "colours" | "fonts" | "corners" | "style" | "photo" | "sections" | "instagram" | "css";
 
 const same = jsonEqual;
 
@@ -12,6 +12,7 @@ export function changedAspects(before: PageConfig, after: PageConfig): PageAspec
     ["colours", !same(before.theme.colors, after.theme.colors)],
     ["fonts", before.theme.fonts !== after.theme.fonts],
     ["corners", before.theme.corners !== after.theme.corners],
+    ["style", before.theme.style !== after.theme.style],
     ["photo", before.theme.heroPhoto !== after.theme.heroPhoto],
     ["sections", !same(before.sections, after.sections)],
     ["instagram", before.instagram !== after.instagram],

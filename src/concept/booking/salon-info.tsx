@@ -120,9 +120,10 @@ function QuoteReview({ state, review }: { state: DemoState; review: Review }) {
     <Section title={t("booking.reviews")}>
       <Card id="reviews" className="scroll-mt-4 space-y-3 p-6 text-center">
         <p className="booking-display text-h2 font-medium leading-snug sm:text-h1">“{review.text}”</p>
-        <p className="text-meta text-text-secondary">
-          {customer ? publicName(customer.firstName, customer.lastName) : ""} · {t("booking.reviewsAverage", { average: average.toFixed(1), count })}
-        </p>
+        <div className="text-meta">
+          {customer && <p className="font-medium">{publicName(customer.firstName, customer.lastName)}</p>}
+          <p className="text-text-secondary">{t("booking.reviewsAverage", { average: average.toFixed(1), count })}</p>
+        </div>
       </Card>
     </Section>
   );

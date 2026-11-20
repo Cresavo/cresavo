@@ -15,6 +15,8 @@ All notable changes to this project are documented here. Format follows
 
 - Four ready-made booking page designs, Eko, Atelier, Noir and Studio, can be picked in the booking page editor and adjusted afterwards. A design sets colours, fonts, corners, top photo and sections and keeps the owner's logo, Instagram name and own CSS. Adding `?design=<name>` to a booking page address shows the page in that design without saving anything.
 - The top of the booking page has two more looks: the name on a tall photo, and name and photo side by side. Both carry a Book a time button. There are four more font choices, two more colour palettes and two more demo photos.
+- Sections can be drawn three ways: in cards, as flat lists under rules with small capital labels, or in borderless tinted cards. The booking flow looks the same in all three.
+- The booking page header stays on one row on a phone, the price list names the practitioner without repeating their portrait on every row, team profiles stand without a box, and the gallery leaves out the photo already shown at the top.
 
 ### Changed
 

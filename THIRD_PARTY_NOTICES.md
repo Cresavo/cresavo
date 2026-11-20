@@ -34,9 +34,9 @@ this repository; anyone distributing a build should include the OFL text.
 The ready-made booking page designs load four more families the same way
 (`src/app/page-fonts.ts`), all under the SIL Open Font License 1.1 and none
 committed to this repository:
-**Fraunces** (Copyright 2018 The Fraunces Project Authors, <https://github.com/undercasetype/Fraunces>),
-**Playfair Display** (Copyright 2017 The Playfair Project Authors, <https://github.com/clauseggers/Playfair>),
-**Bodoni Moda** (Copyright 2020 The Bodoni Moda Project Authors, <https://github.com/indestructible-type/Bodoni>) and
+**Familjen Grotesk** (Copyright 2021 The Familjen Grotesk Project Authors, <https://github.com/Familjen-Sthlm/Familjen-Grotesk>),
+**Bodoni Moda** (Copyright 2020 The Bodoni Moda Project Authors, <https://github.com/indestructible-type/Bodoni>),
+**Barlow Condensed** (Copyright 2017 The Barlow Project Authors, <https://github.com/jpt/barlow>) and
 **Outfit** (Copyright 2021 The Outfit Project Authors, <https://github.com/Outfitio/Outfit-Fonts>).
 
 ## Epic 06 icon subset

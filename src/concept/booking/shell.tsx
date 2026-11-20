@@ -73,8 +73,8 @@ function Frame({ children, slug, widget, switchLanguage }: {
     <PageRoot page={page} className="flex min-h-dvh flex-col">
       {/* The route draws edge to edge (viewport-fit=cover): header, content and footer keep clear of notches and the home indicator. */}
       <header className="booking-safe-top border-b border-hairline bg-surface print:hidden">
-        <div className="booking-gutters mx-auto flex min-h-14 w-full max-w-5xl flex-wrap items-center justify-between gap-x-3">
-          <Link href={bookingHome(slug)} className="flex min-h-target min-w-target max-w-full items-center gap-3 break-words font-semibold tracking-tight">
+        <div className="booking-gutters mx-auto flex min-h-14 w-full max-w-5xl items-center justify-between gap-x-3">
+          <Link href={bookingHome(slug)} className="flex min-h-target min-w-0 items-center gap-3 break-words font-semibold leading-tight tracking-tight">
             {logo ? (
               // A small data URL chosen by the owner; there is nothing for the image optimiser to do.
               // eslint-disable-next-line @next/next/no-img-element
@@ -86,10 +86,10 @@ function Frame({ children, slug, widget, switchLanguage }: {
             )}
             <span className="min-w-0">{state?.salon.name}</span>
           </Link>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             {switchLanguage && (
               <Select
-                className="max-w-24"
+                className="max-w-24 sm:max-w-28"
                 aria-label={t("language.label")}
                 value={switchLanguage.language}
                 onChange={(event) => {
@@ -101,7 +101,7 @@ function Frame({ children, slug, widget, switchLanguage }: {
                 <option value="sv" lang="sv">{t("language.sv")}</option>
               </Select>
             )}
-            <ButtonLink href={myBookings(slug)} size="sm" variant="tertiary">
+            <ButtonLink href={myBookings(slug)} size="sm" variant="tertiary" className="min-[360px]:whitespace-nowrap">
               {t("booking.myBookings")}
             </ButtonLink>
           </div>

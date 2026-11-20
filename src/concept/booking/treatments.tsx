@@ -27,7 +27,7 @@ export function Treatments({ state, onBook, compact }: { state: DemoState; onBoo
                       title={service.name}
                       meta={<>
                         {!compact && service.description && <span className="mb-1 line-clamp-3 text-pretty">{service.description}</span>}
-                        {formatDuration(service.duration)} · <WithStaff people={staffFor(service)} />
+                        {formatDuration(service.duration)} · <WithStaff people={staffFor(service)} faces={false} />
                       </>}
                     />
                     <div className="flex shrink-0 flex-col items-end gap-2">

@@ -76,8 +76,12 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
   // reach v22 before reminder settings existed, so they get the defaults here.
   22: (saved) => ({ ...saved, reminderSettings: saved.reminderSettings ?? { ...DEFAULT_REMINDER_SETTINGS }, version: 23 }),
   // v24 gives the demo salon the Eko design. A page still wearing the look it was generated with
-  // gets it; a page the owner has changed is theirs and stays.
-  23: (saved) => ({ ...saved, page: jsonEqual(saved.page, V23_EKO_PAGE) ? applyTemplate(DEFAULT_PAGE, "eko") : saved.page, version: 24 }),
+  // gets it; a page the owner has changed is theirs and stays. Every page gets the new section style.
+  23: (saved) => {
+    const old = saved.page as PageConfig;
+    const page: PageConfig = { ...old, theme: { ...old.theme, style: old.theme.style ?? DEFAULT_PAGE.theme.style } };
+    return { ...saved, page: jsonEqual(page, V23_EKO_PAGE) ? applyTemplate(DEFAULT_PAGE, "eko") : page, version: 24 };
+  },
 };
 
 /** The oldest saved version that can still be migrated. */

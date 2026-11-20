@@ -11,7 +11,7 @@ import { cx } from "../ui/cx";
  */
 export function themeAttributes(theme: PageTheme) {
   const { colorScheme, ...vars } = themeVariables(theme);
-  return { className: "booking-theme", "data-corners": theme.corners, "data-scheme": colorScheme, style: vars as CSSProperties };
+  return { className: "booking-theme", "data-corners": theme.corners, "data-style": theme.style, "data-fonts": theme.fonts, "data-scheme": colorScheme, style: vars as CSSProperties };
 }
 
 /** The element every themed rule hangs on: colours, fonts and corners as variables, the owner's CSS scoped under it. */

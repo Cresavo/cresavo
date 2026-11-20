@@ -12,6 +12,7 @@ import { moduleById, monthlyTotal } from "@/concept/modules/registry";
 import { subdomainHost } from "@/concept/page/address";
 import { DEFAULT_PAGE, normalizePage, pageCss } from "@/concept/page/config";
 import { designRequest } from "@/concept/page/design-request";
+import { changedAspects } from "@/concept/page/diff";
 import { resolveHost } from "@/concept/page/resolve";
 import { applyTemplate, isTemplateId, TEMPLATE_IDS, TEMPLATES, templateIdOf } from "@/concept/page/templates";
 import { FONT_PAIRS, PALETTES, PHOTOS } from "@/concept/page/theme";
@@ -81,6 +82,12 @@ describe("ready-made designs", () => {
   it("look different from each other", () => {
     expect(new Set(TEMPLATE_IDS.map((id) => JSON.stringify(TEMPLATES[id].theme.colors))).size).toBe(TEMPLATE_IDS.length);
     expect(new Set(TEMPLATE_IDS.map((id) => TEMPLATES[id].theme.fonts)).size).toBe(TEMPLATE_IDS.length);
+  });
+
+  it("differ in how the sections are drawn, and an unknown style falls back to cards", () => {
+    expect(TEMPLATE_IDS.map((id) => applyTemplate(DEFAULT_PAGE, id).theme.style)).toEqual(["boxed", "lined", "lined", "soft"]);
+    expect(normalizePage({ ...DEFAULT_PAGE, theme: { ...DEFAULT_PAGE.theme, style: "x" as never } }).theme.style).toBe("boxed");
+    expect(changedAspects(DEFAULT_PAGE, { ...DEFAULT_PAGE, theme: { ...DEFAULT_PAGE.theme, style: "lined" } })).toEqual(["style"]);
   });
 
   it("keep what is the owner's: logo, logo colours, Instagram name and own CSS", () => {

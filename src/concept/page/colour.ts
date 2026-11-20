@@ -90,7 +90,8 @@ function tokensFor(palette: Palette, flat: boolean): { tokens: Tokens; adjustmen
   const sunken = flat ? bg : light ? mix(bg, "#000000", 0.04) : mix(bg, "#000000", 0.2);
   const grounds = [bg, surface, sunken];
   const ink = readable(palette.text, grounds, AA);
-  const muted = readable(mix(ink, bg, 0.38), grounds, AA);
+  // A dark page needs lighter secondary text than the same step gives on a light one.
+  const muted = readable(mix(ink, bg, light ? 0.38 : 0.26), grounds, AA);
   // The soft background is tinted with the accent, so the two settle together.
   let accent = readable(palette.accent, grounds, AA);
   const soften = (colour: string) => (flat ? bg : mix(colour, surface, 0.88));
