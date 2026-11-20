@@ -51,6 +51,25 @@ export function isConsentHost(env, rawHost) {
   }
 }
 
+/** True when the staging channel is asked for, whether or not its configuration is valid. */
+export function stagingConsentRequested(env) {
+  return env.BOOKING_CONSENT_DELIVERY === STAGING_CONSENT_MODE;
+}
+
+/**
+ * How the consent page may serve this request: the staging form on the exact consent origin, the
+ * lab form only when the staging channel is not asked for at all, and otherwise nothing. An asked-for
+ * but invalid staging configuration (for example settings loaded after the server's start check)
+ * never falls back to the lab form, which would read and post the secret without these checks.
+ */
+export function consentPageMode(env, rawHost) {
+  if (!stagingConsentRequested(env)) return "lab";
+  let valid = false;
+  try { valid = stagingConsentPolicy(env) !== null; } catch { valid = false; }
+  if (!valid) return "not-found";
+  return isConsentHost(env, rawHost) ? "staging" : "not-found";
+}
+
 /** Host name served as the salon app when the staging channel is enabled; never throws. */
 export function stagingConsentHost(env) {
   try {

@@ -158,6 +158,35 @@ describe("staging link and recipient", () => {
   });
 });
 
+describe("asked-for but invalid staging configuration", () => {
+  const invalid = [["plain HTTP", { BOOKING_CONSENT_ORIGIN: "http://salon-demo.cresavo.test" }], ["no session secret", { SESSION_SECRET: undefined }],
+    ["a lab switch as well", { BOOKING_CONSENT_LAB: "1" }], ["Prisma debug output", { DEBUG: "prisma:client" }], ["no consent origin", { BOOKING_CONSENT_ORIGIN: undefined }]] as const;
+  it("never falls back to the lab form, which would read and post the secret unchecked", async () => {
+    const { consentPageMode } = await import("../scripts/consent-channel-policy.mjs");
+    expect(consentPageMode(staging, "salon-demo.cresavo.test")).toBe("staging");
+    expect(consentPageMode(staging, "other.cresavo.test")).toBe("not-found");
+    // Not asked for at all: the local lab keeps its own form and checks.
+    expect(consentPageMode({ BOOKING_CONSENT_LAB: "1" }, "127.0.0.1:3217")).toBe("lab");
+    expect(consentPageMode({ ...staging, BOOKING_CONSENT_DELIVERY: "separate-lab" }, "127.0.0.1:3217")).toBe("lab");
+    for (const [name, patch] of invalid)
+      for (const host of ["salon-demo.cresavo.test", "127.0.0.1:3217", "localhost:3000"])
+        expect(consentPageMode({ ...staging, ...patch }, host), `${name} on ${host}`).toBe("not-found");
+  });
+  it("answers every consent path with 404 in the proxy, on the consent host too", () => {
+    const id = "0b7c3f6e-6a1d-4c11-9d0e-3f1f0c1d2e3f";
+    const routed = (host: string, path: string) => proxy(new NextRequest(`https://${host}${path}`, { headers: { host } }));
+    try {
+      for (const [name, patch] of invalid) {
+        vi.unstubAllEnvs();
+        for (const [k, v] of Object.entries({ ...staging, ...patch })) vi.stubEnv(k, v);
+        for (const host of ["salon-demo.cresavo.test", "localhost:3000"])
+          for (const path of [`/consent/${id}`, `/consent/${id}/decision`])
+            expect(routed(host, path).status, `${name}: ${host}${path}`).toBe(404);
+      }
+    } finally { vi.unstubAllEnvs(); }
+  });
+});
+
 describe("consent origin", () => {
   it("renders and reads the secret only on the exact configured consent origin", async () => {
     const { isConsentHost } = await import("../scripts/consent-channel-policy.mjs");
@@ -546,6 +575,18 @@ describe("published contract", () => {
 });
 
 describe("staging runner output", () => {
+  it("checks a short password too, where a credential stands, and says how many are checked that way", async () => {
+    const { containsSecret, registerSecret, sanitize, shortSecretCount } = await import("../scripts/staging-consent/sanitize.mjs");
+    const before = shortSecretCount();
+    registerSecret("hunt3r2");
+    expect(shortSecretCount()).toBe(before + 1);
+    for (const text of ["postgresql://booking:hunt3r2@127.0.0.1/x_test", "PGPASSWORD=hunt3r2", "password: hunt3r2", '{"password":"hunt3r2"}', "Password = 'hunt3r2'"]) {
+      expect(containsSecret(text), text.replace("hunt3r2", "[pw]")).toBe(true);
+      expect(sanitize(`before ${text} after`).includes("hunt3r2"), "short password left in printed output").toBe(false);
+    }
+    // Elsewhere a short value is ordinary text, so it is not reported (it would match names).
+    for (const text of ["hunt3r2s are fictional", "password=hunt3r22", "the hunt3r2-lab project"]) expect(containsSecret(text), text).toBe(false);
+  });
   it("scans the complete MCP result, not only the parsed projection", async () => {
     const { agentReply } = await import("../scripts/staging-consent/agent-reply.mjs");
     const link = "https://salon-demo.cresavo.test/consent/0b7c3f6e-6a1d-4c11-9d0e-3f1f0c1d2e3f#" + "L".repeat(43);

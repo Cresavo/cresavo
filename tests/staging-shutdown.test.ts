@@ -45,6 +45,22 @@ describe.skipIf(process.platform === "win32")("staging runner child shutdown", (
     } finally { kill(pid); kill(child.pid, true); }
   }, 20_000);
 
+  it("stops a worker left in the group when its leader exits normally, pipes or not", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "cresavo-shutdown-test-")), pidFile = join(dir, "holder.pid");
+    // The leader starts a worker in its own process group that shares none of its pipes, then exits 0.
+    const leader = `const { spawn } = require("node:child_process");
+      spawn(process.execPath, ["-e", ${JSON.stringify(holder)}], { stdio: "ignore" }).unref();
+      setTimeout(() => process.exit(0), 300);`;
+    let pid: number | undefined;
+    try {
+      await runStep("LEAVES_A_WORKER", process.execPath, ["-e", leader], process.cwd(), { PATH: process.env.PATH ?? "", HOLDER_PID_FILE: pidFile });
+      pid = Number(readFileSync(pidFile, "utf8"));
+      // Signals are asynchronous; give the kill a moment to land.
+      for (let i = 0; i < 20 && alive(pid); i++) await new Promise(resolve => setTimeout(resolve, 50));
+      expect(alive(pid)).toBe(false);
+    } finally { kill(pid); rmSync(dir, { recursive: true, force: true }); }
+  }, 20_000);
+
   it("settles a timed-out step although a worker outside its group still holds the pipe", async () => {
     const dir = mkdtempSync(join(tmpdir(), "cresavo-shutdown-test-")), pidFile = join(dir, "holder.pid");
     const step = runStep("STEP_TIMEOUT", process.execPath, ["-e", `${parent(true)}`], process.cwd(), { PATH: process.env.PATH ?? "", HOLDER_PID_FILE: pidFile }, 600);

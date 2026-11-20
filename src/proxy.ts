@@ -8,7 +8,7 @@ import { siteRequestHost } from "./concept/site/request-host";
 import { galleryAvailable } from "./concept/server/gallery";
 import { conceptRoute } from "./concept/page/language";
 import { isProductHome, normalizeHost, routeHost, UNKNOWN_PATH, type HostRoute } from "./concept/page/resolve";
-import { consentHostPathAllowed, isConsentHost, stagingConsentHost } from "../scripts/consent-channel-policy.mjs";
+import { consentHostPathAllowed, consentPageMode, stagingConsentHost } from "../scripts/consent-channel-policy.mjs";
 
 /** `/consent` and below, however the path is spelled (case, percent-encoding). */
 function isConsentPath(pathname: string) {
@@ -80,7 +80,8 @@ export function proxy(request: NextRequest) {
   // A consent link opened anywhere but the exact consent origin (host and port) is not found,
   // before any alias redirect: a redirect without a fragment keeps the original one, so the
   // destination page could read the approval secret.
-  if (stagingConsentHost(process.env) !== null && isConsentPath(pathname) && !isConsentHost(process.env, host)) {
+  // An asked-for staging channel whose configuration is invalid serves no consent path at all.
+  if (isConsentPath(pathname) && consentPageMode(process.env, host) === "not-found") {
     return new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
   }
   if (/^\/studio\/(?:_|%5[fF])gallery\/?$/.test(pathname) && !galleryAvailable(host)) {

@@ -17,7 +17,9 @@ export const isStopping = () => stopping;
 export function track<T extends ChildProcess>(child: T): T {
   if (stopping) { signalGroup(child, "SIGKILL"); throw new Error("STAGING_STOPPING"); }
   children.set(child, new Promise<void>(resolve => {
-    child.once("close", () => { children.delete(child); resolve(); });
+    // `close` means the leader's own streams closed, not that its group is empty: a worker it
+    // started with its own stdio would outlive it unseen. What is left of the group is stopped.
+    child.once("close", () => { signalGroup(child, "SIGKILL"); children.delete(child); resolve(); });
     child.once("error", () => { if (child.pid === undefined) { children.delete(child); resolve(); } });
   }));
   return child;

@@ -81,6 +81,9 @@ const dbName = `staging_consent_${randomBytes(6).toString("hex")}_test`;
 const databaseUrl = new URL(adminUrl); databaseUrl.pathname = `/${dbName}`;
 assertTestDatabase(databaseUrl.href);
 registerSecret(databaseUrl.href); registerSecret(adminUrl.href); registerSecret(decodeURIComponent(adminUrl.password));
+// Said, not silently skipped: a short password is only checked where a credential stands.
+if (adminUrl.password && decodeURIComponent(adminUrl.password).length < 8)
+  say("NOTE DATABASE_PASSWORD_SHORT - checked in credential contexts only (URL, password=...); use 8 or more characters for a full scan");
 const serviceToken = randomBytes(32).toString("hex"), sessionSecret = randomBytes(32).toString("hex");
 registerSecret(serviceToken); registerSecret(sessionSecret);
 const baseEnv = { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? temp, TMPDIR: temp, LANG: "en_US.UTF-8", NEXT_TELEMETRY_DISABLED: "1", CHECKPOINT_DISABLE: "1" };
@@ -179,10 +182,14 @@ try {
   step = "DATABASE";
   // A name that already exists (42P04) proves this run created nothing: cleanup must not drop it.
   await database.run(() => adminQuery(`CREATE DATABASE "${dbName}"`), databaseAlreadyExisted);
+  // Live check of that rule with the role that just created it (the ordinary integration suite
+  // may run without CREATEDB): creating the same name again is recognised as already existing.
+  const duplicate = await adminQuery(`CREATE DATABASE "${dbName}"`).then(() => null, (error: unknown) => error);
+  assert(duplicate !== null && databaseAlreadyExisted(duplicate), "STAGING_DUPLICATE_DATABASE_NOT_RECOGNISED");
   const dbEnv = { ...baseEnv, DATABASE_URL: databaseUrl.href, SESSION_SECRET: sessionSecret };
   await runStep("MIGRATE", process.execPath, [join(repo, "node_modules/prisma/build/index.js"), "migrate", "deploy"], repo, dbEnv);
   await runStep("SEED", process.execPath, ["--import", "tsx", "prisma/seed.ts"], repo, dbEnv);
-  pass("ISOLATED_TEST_DATABASE", "new uniquely named _test database, migrated and seeded");
+  pass("ISOLATED_TEST_DATABASE", "new uniquely named _test database, migrated and seeded; a taken name is never dropped");
   if (!skipBuild) {
     // Build and serve a disposable copy of the working tree, so the operator's own .next stays untouched.
     step = "BUILD";

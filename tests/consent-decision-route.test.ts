@@ -57,3 +57,15 @@ it("never reaches the decision for a proposal that does not exist", async () => 
   expect(response.status).toBe(403);
   expect(customerDecision).not.toHaveBeenCalled();
 });
+
+it("refuses every decision while an asked-for staging configuration is invalid, never falling back", async () => {
+  for (const patch of [{ BOOKING_CONSENT_ORIGIN: "http://salon-demo.cresavo.test" }, { SESSION_SECRET: "short" }, { BOOKING_CONSENT_LAB: "1" }]) {
+    for (const [k, v] of Object.entries(patch)) vi.stubEnv(k, v);
+    findFirst.mockResolvedValue({ id: "x" });
+    const response = await decide(randomUUID(), body);
+    expect(response.status).toBe(403);
+    expect(customerDecision).not.toHaveBeenCalled();
+    for (const [k, v] of Object.entries(staging)) vi.stubEnv(k, v);
+    vi.stubEnv("BOOKING_CONSENT_LAB", undefined);
+  }
+});

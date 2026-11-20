@@ -1,3 +1,4 @@
+import { siteRequestHost } from "@/concept/site/request-host";
 import { isPublicReadonly, assertWritable } from "./public-readonly";
 import { db } from "./db";
 import { safeFailure } from "./errors";
@@ -154,8 +155,10 @@ export async function logout() {
 
 export async function sameOrigin() {
   const h = await headers();
+  // The same public authority as host routing: behind an allowlisted proxy that forwards the
+  // public host and rewrites Host to the upstream, the browser's Origin names the public one.
   const origin = h.get("origin"),
-    host = h.get("host");
+    host = siteRequestHost((name) => h.get(name));
   try {
     return !!origin && new URL(origin).host === host;
   } catch {

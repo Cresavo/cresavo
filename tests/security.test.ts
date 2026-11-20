@@ -221,6 +221,23 @@ describe("Lokal admins session", () => {
     state.headers.set("origin", "http://localhost:3000");
     expect(await sameOrigin()).toBe(true);
   });
+  it("compares Origin with the trusted public host behind an allowlisted proxy, and only then", async () => {
+    // The socket server sets x-booking-forwarded-host only for an allowlisted proxy.
+    vi.stubEnv("BOOKING_RUNTIME", "local"); vi.stubEnv("VERCEL", undefined);
+    vi.stubEnv("TRUST_PROXY_IP", "1"); vi.stubEnv("BOOKING_ADDRESS_SECRET", "synthetic-proof");
+    state.headers = new Headers({ host: "127.0.0.1:4100", "x-booking-forwarded-host": "salon-demo.cresavo.test", origin: "https://salon-demo.cresavo.test" });
+    expect(await sameOrigin()).toBe(true);
+    state.headers.set("origin", "http://127.0.0.1:4100");
+    expect(await sameOrigin()).toBe(false);
+    state.headers.set("origin", "https://other.cresavo.test");
+    expect(await sameOrigin()).toBe(false);
+    // Without a trusted proxy the forwarded value is ignored and Host decides.
+    vi.stubEnv("TRUST_PROXY_IP", undefined);
+    state.headers.set("origin", "https://salon-demo.cresavo.test");
+    expect(await sameOrigin()).toBe(false);
+    state.headers.set("origin", "http://127.0.0.1:4100");
+    expect(await sameOrigin()).toBe(true);
+  });
   it("prunes at most 100 expired or revoked sessions at login and retains active sessions", async () => {
     vi.stubEnv("SESSION_SECRET", secret);
     for (let i = 0; i < 105; i++)

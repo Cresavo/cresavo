@@ -66,15 +66,6 @@ function stagingEnv() {
 }
 beforeEach(stagingEnv);
 
-it("recognises a taken database name as proof that nothing was created", async () => {
-  const { databaseAlreadyExisted } = await import("../../scripts/staging-consent/lifecycle.mjs");
-  // This suite's own database exists: creating it again must fail with duplicate_database.
-  const name = new URL(process.env.DATABASE_URL!).pathname.slice(1);
-  const error = await db.$executeRawUnsafe(`CREATE DATABASE "${name.replace(/"/g, "")}"`).then(() => null, (e: unknown) => e);
-  expect(error).not.toBeNull();
-  expect(databaseAlreadyExisted(error)).toBe(true);
-});
-
 it("runs without Prisma diagnostics, which Prisma fixed when this file was loaded", () => {
   // The integration config refuses DEBUG before any test file loads; Prisma's own cached copy agrees.
   expect(process.env.DEBUG ?? "").toBe("");

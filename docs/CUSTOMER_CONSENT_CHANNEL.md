@@ -27,7 +27,9 @@ answers `404`. Without the channel, host routing is unchanged.
 ## Configuration
 
 The salon refuses to start, and the request handlers fail closed, unless every
-condition holds:
+condition holds. If `staging-inbox` is asked for but the configuration is invalid at request
+time (for example settings loaded after the start check), every consent path answers 404 and
+the decision endpoint refuses; nothing falls back to the lab form.
 
 - `BOOKING_CONSENT_DELIVERY=staging-inbox`. Without it nothing changes. The local
   `separate-lab` and legacy lab channels keep their behaviour and guards.
@@ -215,14 +217,18 @@ The runner:
    redirect from the salon origin (to another host and to the salon host on another port), and
    confirms none of them was reached.
 
-   A signal during setup waits for a database creation in flight before deciding what to
-   drop, and drops it only if this run may have created it (a name that already existed
+   Right after creating its database the runner checks, with the same role, that creating
+   that name again is recognised as "already exists" (the ordinary integration suite does not
+   need `CREATEDB`). A signal during setup waits for a database creation in flight before
+   deciding what to drop, and drops it only if this run may have created it (a name that already existed
    is never dropped). Once shutdown has begun no new child process starts. The runner, not
    Playwright, handles SIGINT, SIGTERM and SIGHUP (a closed terminal), and runs the same
    full cleanup for each. The exit status is 1 from the start and becomes 0 only after cleanup
    completed and every check passed; a cleanup that throws is reported as `FAIL CLEANUP`.
    The four loopback ports (two servers, two TLS proxies) are chosen together, so they are
-   always distinct.
+   always distinct. When a server or step exits, whatever is left of its process group is
+   stopped as well. A database password shorter than 8 characters is checked only where a
+   credential stands (in a URL, or as `password=...`), and the run prints a `NOTE` saying so.
 9. Drops the database and deletes the temporary directory, also on failure.
 
 Output is limited to static check codes, host names, revisions and counts. Every line
