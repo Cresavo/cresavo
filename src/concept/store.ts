@@ -31,6 +31,8 @@ export type Workspace = "demo" | "own";
 interface WorkspaceSnapshot {
   state?: DemoState | null;
   raw?: string | null;
+  /** True while `state` could not be saved: `raw` still holds the salon before it. */
+  unsaved?: boolean;
   /** The lifetime saved with `raw` (or about to be). */
   epoch?: string;
   /** True while that lifetime still comes from the old separate key. */
@@ -219,6 +221,8 @@ function today() {
 
 /** Set by `load` when a customer's 30 days in the trash were over and `purgeExpired` erased them. */
 let erasedOnLoad = false;
+/** Set by `load` when there was no usable document and it made a new sample business. */
+let createdOnLoad = false;
 
 const customerBundles = (state: DemoState) => state.trash.filter((entry) => entry.kind === "customer").length;
 
@@ -247,7 +251,9 @@ function load(document: unknown, workspace: Workspace): DemoState | null {
   } catch {
     // A corrupt snapshot falls back to fresh demo data.
   }
-  return workspace === "demo" ? createDemoState(today()) : null;
+  if (workspace !== "demo") return null;
+  createdOnLoad = true;
+  return createDemoState(today());
 }
 
 function refresh(workspace: Workspace) {
@@ -258,10 +264,19 @@ function refresh(workspace: Workspace) {
   // A tab left open past midnight still holds yesterday's sample business: read it again as today's.
   const staleDay = workspace === "demo" && !!snapshot.state && snapshot.state.generatedFor !== today();
   if (raw === snapshot.raw && !staleDay) return false;
-  snapshot.raw = raw;
   const had = !!snapshot.state;
   const before = snapshot.state ? epochOf(workspace, snapshot.state) : undefined;
+  if (raw === snapshot.raw && snapshot.unsaved && snapshot.state) {
+    // Only the day changed, and the salon here was never saved: today's sample of that salon, same lifetime.
+    snapshot.state = load(snapshot.state, workspace);
+    keep(snapshot.state, snapshot.epoch);
+    salonRemoved(workspace);
+    return true;
+  }
+  snapshot.raw = raw;
+  snapshot.unsaved = false;
   erasedOnLoad = false;
+  createdOnLoad = false;
   let document: unknown = null;
   snapshot.epoch = undefined;
   snapshot.epochFromKey = false;
@@ -271,6 +286,8 @@ function refresh(workspace: Workspace) {
     // A corrupt snapshot falls back to fresh demo data.
   }
   snapshot.state = load(document, workspace);
+  // A sample business made because there was no document is a new salon, never the "legacy" one before it.
+  if (createdOnLoad) snapshot.epoch = newEpoch();
   keep(snapshot.state, snapshot.epoch);
   if (erasedOnLoad && snapshot.state) persistErasure(workspace, raw, snapshot.state);
   // Gone, or another lifetime (a replacement from another tab, a new day's sample): records of the earlier salon end.
@@ -327,10 +344,12 @@ function setState(next: DemoState, recheckStorage = false, afterWrite?: () => vo
     if (recheckStorage && refreshFromStorage()) return false;
     window.localStorage.setItem(storageKey(active), raw);
     snapshot.raw = raw;
+    snapshot.unsaved = false;
     dropEpochKey(active);
     snapshot.version = snapshot.lastWrite = { day: next.generatedFor, seq: next.seq };
   } catch {
     // The demo still works in memory.
+    snapshot.unsaved = true;
   }
   snapshot.state = next;
   keep(next, snapshot.epoch);
@@ -379,7 +398,9 @@ export function latestState(): DemoState | null {
 export function latestStateOf(workspace: Workspace): DemoState | null {
   if (typeof window === "undefined") return null;
   initialize();
-  refresh(workspace);
+  // The open salon is read with notification, so pages never keep showing what this read replaced.
+  if (workspace === active) refreshFromStorage();
+  else refresh(workspace);
   return snapshots[workspace].state ?? null;
 }
 

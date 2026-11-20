@@ -220,6 +220,56 @@ it("reports a replaced salon as replaced when the booking lock gives up", async 
   expect(await commitAction(old, { type: "card/dismiss", id: "late" })).toMatchObject({ ok: false, reason: "replaced" });
 }, 10_000);
 
+it("gives a sample business made after the saved salon was removed a new lifetime, the same day", async () => {
+  const storage = tab(createDemoState(today));
+  const { commitAction, currentState, currentTarget, latestState } = await modules();
+  const old = currentTarget()!;
+  expect(old.epoch).toBe(`legacy:${today}`);
+  const visit = upcoming(currentState()!);
+  // Another tab clears the site's storage; this tab starts over with the fixture, whose ids repeat.
+  storage.items.delete("salong-eko-demo");
+  const fresh = latestState()!;
+  expect(upcoming(fresh).id).toBe(visit.id);
+  expect(currentTarget()!.epoch).not.toBe(old.epoch);
+  expect(await commitAction(old, { type: "booking/cancel", id: visit.id })).toMatchObject({ ok: false, reason: "replaced" });
+  expect(currentState()!.bookings.find((b) => b.id === visit.id)?.status).toBe("booked");
+});
+
+it("rolls an unsaved sample business over to the next day from memory, keeping its lifetime", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  try {
+    const day = "2026-11-20";
+    vi.setSystemTime(new Date(`${day}T12:00:00`));
+    const storage = tab(createDemoState(day));
+    const { currentState, currentTarget, latestState, startBusiness } = await modules();
+    storage.hooks.refuse = (key) => key === "salong-eko-demo";
+    await startBusiness({ pack: "nails" });
+    const chosen = currentTarget()!;
+    expect(currentState()!.pack).toBe("nails");
+    vi.setSystemTime(new Date(`${addDays(day, 1)}T09:00:00`));
+    const next = latestState()!;
+    expect(next.pack).toBe("nails");
+    expect(next.generatedFor).toBe(addDays(day, 1));
+    expect(currentTarget()!.epoch).toBe(chosen.epoch.replace(day, addDays(day, 1)));
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("tells the page when reading history brought in a newer salon", async () => {
+  const storage = tab(createDemoState(today));
+  const { currentState, subscribeStore } = await modules();
+  const { BrowserStudioStore } = await import("@/concept/store/browser-studio-store");
+  currentState();
+  let heard = 0;
+  const stop = subscribeStore(() => { heard += 1; });
+  heard = 0;
+  storage.items.set("salong-eko-demo", JSON.stringify({ ...createDemoState(today), epoch: "another-tab" }));
+  await new BrowserStudioStore().history("demo", { limit: 10 });
+  stop();
+  expect(heard).toBeGreaterThan(0);
+});
+
 it("keeps a write another tab made while the commit was checking", async () => {
   const state = createDemoState(today);
   const storage = tab(state);
