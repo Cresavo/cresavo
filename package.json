@@ -64,7 +64,7 @@
     "fake-indexeddb": "6.2.7",
     "postcss": "^8.5.33",
     "prisma": "7.10.1",
-    "tailwindcss": "^3.4.17",
+    "tailwindcss": "^4.3.5",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
     "vitest": "^5.1.0"
