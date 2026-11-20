@@ -22,14 +22,18 @@ host: the consent page and its decision endpoint (`/consent/*`), the owner's log
 calendar (`/admin`, `/admin/*`, `/api/admin/*`, `/api/availability`), the API the
 gateway calls (`/api/v1/*`), the language choice (`/api/locale`) and static assets
 (`/_next/*`, `/favicon.ico`, `/brand/*`, `/robots.txt`). Every other path on that host
-answers `404`, and the owner pages there hide their link to the customer booking page. Without the channel, host routing is unchanged.
+answers `404`, and the owner pages there hide their link to the customer booking page and
+offer the administrator login instead of the demo sign-in, whose endpoint the host does not serve. Without the channel, host routing is unchanged.
 
 ## Configuration
 
 The salon refuses to start, and the request handlers fail closed, unless every
 condition holds. If `staging-inbox` is asked for but the configuration is invalid at request
 time (for example settings loaded after the start check), every consent path answers 404 and
-the decision endpoint refuses; nothing falls back to the lab form.
+the decision endpoint refuses; nothing falls back to the lab form. The lab form itself is served
+only with the local lab switched on (`BOOKING_CONSENT_LAB=1`, not on Vercel), the only setting
+in which its decisions can be accepted; otherwise, for example for a link left over after the
+staging channel was switched off, every consent path is not found.
 
 - `BOOKING_CONSENT_DELIVERY=staging-inbox`. Without it nothing changes. The local
   `separate-lab` and legacy lab channels keep their behaviour and guards.

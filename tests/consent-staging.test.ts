@@ -174,6 +174,13 @@ describe("staging link and recipient", () => {
 });
 
 describe("owner pages on the consent-only host", () => {
+  it("offer demo sign-in only where its endpoint is served, so the consent host shows the owner login", async () => {
+    const { hostServesPath } = await import("../scripts/consent-channel-policy.mjs");
+    expect(hostServesPath(staging, "salon-demo.cresavo.test", "/api/demo/session")).toBe(false);
+    expect(hostServesPath(staging, "salon-demo.cresavo.test", "/api/admin/login")).toBe(true);
+    expect(hostServesPath(staging, "demo.cresavo.com", "/api/demo/session")).toBe(true);
+    expect(readFileSync(new URL("../src/app/admin/page.tsx", import.meta.url), "utf8")).toMatch(/demoAccessEnabled\(\) && \(await servesPath\("\/api\/demo\/session"\)\)/);
+  });
   it("hide the customer-booking link where the host does not serve the booking page", async () => {
     const { hostServesPath } = await import("../scripts/consent-channel-policy.mjs");
     // On the consent host, at any port, "/" is not served: the link would lead to a 404.
@@ -213,7 +220,13 @@ describe("asked-for but invalid staging configuration", () => {
     expect(consentPageMode(staging, "other.cresavo.test")).toBe("not-found");
     // Not asked for at all: the local lab keeps its own form and checks.
     expect(consentPageMode({ BOOKING_CONSENT_LAB: "1" }, "127.0.0.1:3217")).toBe("lab");
-    expect(consentPageMode({ ...staging, BOOKING_CONSENT_DELIVERY: "separate-lab" }, "127.0.0.1:3217")).toBe("lab");
+    expect(consentPageMode({ ...staging, BOOKING_CONSENT_DELIVERY: "separate-lab", BOOKING_CONSENT_LAB: "1" }, "127.0.0.1:3217")).toBe("lab");
+    // Without the lab switch (or on Vercel) the legacy form would only post a secret to a handler
+    // that refuses it, for example a link left over from a disabled staging channel: not found.
+    const disabled = { ...staging, BOOKING_CONSENT_DELIVERY: undefined };
+    for (const env of [disabled, {}, { BOOKING_CONSENT_DELIVERY: "separate-lab" }, { BOOKING_CONSENT_LAB: "1", BOOKING_RUNTIME: "vercel" }, { BOOKING_CONSENT_LAB: "0" }])
+      for (const host of ["salon-demo.cresavo.test", "localhost:3000"])
+        expect(consentPageMode(env, host), `${JSON.stringify(env).slice(0, 60)} on ${host}`).toBe("not-found");
     for (const [name, patch] of invalid)
       for (const host of ["salon-demo.cresavo.test", "127.0.0.1:3217", "localhost:3000"])
         expect(consentPageMode({ ...staging, ...patch }, host), `${name} on ${host}`).toBe("not-found");
@@ -388,7 +401,11 @@ describe("staging host and customer endpoint", () => {
     expect(routed("salon-demo.cresavo.test", `/consent/${id}`).status).not.toBe(404);
     // Other paths of the alias still redirect, and without the staging channel nothing changes.
     expect(routed("cresavo.se", "/").status).toBe(308);
+    // With the staging channel switched off, a leftover link reaches no form at all...
     vi.stubEnv("BOOKING_CONSENT_DELIVERY", undefined);
+    for (const host of ["salon-demo.cresavo.test", "localhost:3000"]) expect(routed(host, `/consent/${id}`).status, host).toBe(404);
+    // ...while the explicitly enabled local lab keeps its page.
+    vi.stubEnv("BOOKING_CONSENT_LAB", "1"); vi.stubEnv("BOOKING_RUNTIME", "local");
     expect(routed("localhost:3000", `/consent/${id}`).status).not.toBe(404);
   });
 });

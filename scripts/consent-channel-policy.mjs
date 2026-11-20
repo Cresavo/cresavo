@@ -69,7 +69,10 @@ export function stagingConsentRequested(env) {
  * never falls back to the lab form, which would read and post the secret without these checks.
  */
 export function consentPageMode(env, rawHost) {
-  if (!stagingConsentRequested(env)) return "lab";
+  // The legacy lab form only where its decisions can be accepted at all (requireConsentLab): the
+  // explicit lab switch, outside Vercel. Elsewhere, for example a link of a disabled staging
+  // channel, the form would read the fragment and post the secret to a handler that refuses it.
+  if (!stagingConsentRequested(env)) return env.BOOKING_CONSENT_LAB === "1" && env.BOOKING_RUNTIME !== "vercel" ? "lab" : "not-found";
   let valid = false;
   try { valid = stagingConsentPolicy(env) !== null; } catch { valid = false; }
   if (!valid) return "not-found";

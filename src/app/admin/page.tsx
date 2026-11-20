@@ -52,7 +52,8 @@ export default async function Admin({
             "Här ser du bokningar och ändrar behandlingar, personal och arbetstider.",
           )}
         </p>
-        {demoAccessEnabled() ? (
+        {/* Demo sign-in only where its endpoint is served: not on the consent-only staging host. */}
+        {demoAccessEnabled() && (await servesPath("/api/demo/session")) ? (
           <>
             <DemoEntry />
             <details>
