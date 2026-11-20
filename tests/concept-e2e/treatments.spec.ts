@@ -59,9 +59,10 @@ test("a treatment is added, appears on the booking page, is hidden and then dele
   await sheet.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Hot stone massage added")).toBeVisible();
   await expect(page.getByRole("button", { name: "Edit Hot stone massage" })).toHaveAccessibleDescription(/SEK\s+990/);
+  // Saved under the booking lock a moment after it shows.
+  await expect.poll(async () => (await state(page)).log[0]?.summary).toBe("Added the treatment Hot stone massage");
   const added = (await state(page)).services.at(-1)!;
   expect(added).toMatchObject({ name: "Hot stone massage", category: "massage", duration: 75, price: 990, staffIds: ["erik"] });
-  expect((await state(page)).log[0].summary).toBe("Added the treatment Hot stone massage");
 
   // It is on the booking page, under its category, and can be booked.
   await page.goto("/boka/salong-eko");
@@ -93,8 +94,8 @@ test("a treatment is added, appears on the booking page, is hidden and then dele
   await expect(sheet.getByText("Nothing is booked for this treatment")).toBeVisible();
   await sheet.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByRole("button", { name: "Edit Hot stone massage" })).toHaveCount(0);
+  await expect.poll(async () => (await state(page)).services.some(s => s.id === added.id)).toBe(false);
   const after = await state(page);
-  expect(after.services.some(s => s.id === added.id)).toBe(false);
   expect(after.retiredServices).toEqual([]);
 });
 
@@ -114,13 +115,13 @@ test("deleting a booked treatment says what happens and keeps the bookings", asy
   await sheet.getByRole("button", { name: "Delete, keep bookings" }).click();
   await expect(page.getByText("Classic massage 60 min deleted")).toBeVisible();
 
+  // Each change is saved under the booking lock a moment after it shows.
+  await expect.poll(async () => (await state(page)).services.some(s => s.id === "classic-60")).toBe(false);
   const after = await state(page);
-  expect(after.services.some(s => s.id === "classic-60")).toBe(false);
   expect(after.bookings.filter(b => b.serviceId === "classic-60")).toEqual(before.bookings.filter(b => b.serviceId === "classic-60"));
   // The toast's Undo puts the treatment back where it was.
   await page.getByRole("button", { name: "Undo" }).click();
-  const undone = await state(page);
-  expect(undone.services.map(s => s.id)).toEqual(before.services.map(s => s.id));
+  await expect.poll(async () => (await state(page)).services.map(s => s.id)).toEqual(before.services.map(s => s.id));
 });
 
 test("a mouse or keyboard reorder changes the public price list and can be undone", async ({ page }) => {
@@ -143,8 +144,7 @@ test("a mouse or keyboard reorder changes the public price list and can be undon
   await page.mouse.up();
   await expect(rows.first()).toHaveAccessibleName(`Edit ${second.name}`);
   await expect(page.getByText(`Moved ${second.name}`, { exact: true })).toBeVisible();
-  const after = await state(page);
-  expect(after.log).toHaveLength(before.log.length + 1);
+  await expect.poll(async () => (await state(page)).log).toHaveLength(before.log.length + 1);
 
   const booking = await page.context().newPage();
   await booking.goto("/boka/salong-eko");

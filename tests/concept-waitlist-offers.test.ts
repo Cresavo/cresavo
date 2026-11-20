@@ -907,6 +907,45 @@ describe("in the browser store", () => {
     expect(thread.replyOf("r-1")).toMatchObject({ status: "failed" });
   });
 
+  it("keeps a change shown just before the page went away, and commits it on the next page in the tab", async () => {
+    const state = setup();
+    const others = new Map<string, string>();
+    const storage = { raw: JSON.stringify(state), others };
+    // The first page never gets the lock: it is gone before its commit runs.
+    locks = { request: () => new Promise(() => undefined) } as unknown as ReturnType<typeof sharedLocks>;
+    const leaving = await openTab(storage);
+    expect(leaving.dispatch({ type: "service/price", id: serviceId, price: 777 })).toBe(true);
+    expect((JSON.parse(storage.raw) as DemoState).services[0].price).toBe(state.services[0].price);
+    expect([...others.keys()].some((key) => key.includes("-journal-"))).toBe(true);
+    locks = sharedLocks();
+    const next = await openTab(storage);
+    next.currentState();
+    await Promise.resolve();
+    expect(next.currentState()?.services[0].price).toBe(777);
+    await next.withBookingLock(() => true);
+    expect((JSON.parse(storage.raw) as DemoState).services[0].price).toBe(777);
+    expect([...others.keys()].some((key) => key.includes("-journal-"))).toBe(false);
+  });
+
+  it("does not apply a journaled change twice when its commit was already saved", async () => {
+    const state = setup();
+    const others = new Map<string, string>();
+    const storage = { raw: JSON.stringify(state), others };
+    const tab = await openTab(storage);
+    const draft = { name: "Journaled", category: state.categories[0].id, duration: 60, price: 500, description: "", staffIds: [alex] };
+    expect(tab.dispatch({ type: "service/add", service: draft })).toBe(true);
+    const journal = [...others.entries()].find(([key]) => key.includes("-journal-"))!;
+    await tab.withBookingLock(() => true);
+    // The page went away after the save but before the journal was cleared.
+    others.set(journal[0], journal[1]);
+    const next = await openTab(storage);
+    await next.withBookingLock(() => true);
+    const saved = JSON.parse(storage.raw) as DemoState;
+    expect(saved.services.filter((s) => s.name === "Journaled")).toHaveLength(1);
+    expect(next.currentState()?.services.filter((s) => s.name === "Journaled")).toHaveLength(1);
+    expect(others.has(journal[0])).toBe(false);
+  });
+
   it("neither sends nor books personal offers in a browser without a cross-tab lock", async () => {
     const storage = { raw: JSON.stringify(setup()) };
     const tab = await openTab(storage, false);

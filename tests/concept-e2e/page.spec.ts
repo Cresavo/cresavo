@@ -55,7 +55,8 @@ test("pick a booking link, resolve it by host and start an own domain", async ({
   await slug.fill("kajsa-fotvard");
   await page.getByRole("button", { name: "Save link" }).click();
   await expect(page.getByText("Your booking page is now at kajsa-fotvard.localhost")).toBeVisible();
-  expect((await state(page)).salon.slug).toBe("kajsa-fotvard");
+  // Saved under the booking lock a moment after it shows.
+  await expect.poll(async () => (await state(page)).salon.slug).toBe("kajsa-fotvard");
 
   await page.goto("/boka/kajsa-fotvard");
   await expect(page.getByRole("heading", { name: "Salong Eko", level: 1 })).toBeVisible();
@@ -98,7 +99,7 @@ test("pick a booking link, resolve it by host and start an own domain", async ({
   await page.getByRole("button", { name: "Check again" }).click();
   await expect(page.getByText("Secure and live", { exact: true })).toBeVisible();
   await expect(page.getByText("Your booking page is live at https://boka.salongeko.se.")).toBeVisible();
-  expect((await state(page)).domain).toEqual({ host: "boka.salongeko.se", status: "secure" });
+  await expect.poll(async () => (await state(page)).domain).toEqual({ host: "boka.salongeko.se", status: "secure" });
 });
 
 test("design the booking page with a live preview, and custom CSS cannot run script", async ({ page }) => {
@@ -109,7 +110,7 @@ test("design the booking page with a live preview, and custom CSS cannot run scr
   await expect(page.getByText("1 rule applied")).toBeVisible();
   await page.getByRole("button", { name: "Save styling" }).click();
   await expect(page.getByText("Booking page updated").first()).toBeVisible();
-  expect((await state(page)).page.css).toBe(css);
+  await expect.poll(async () => (await state(page)).page.css).toBe(css);
 
   await page.goto("/studio/more/booking-page");
   await expect(page.getByRole("textbox", { name: "Your own CSS" })).toHaveCount(0);
@@ -136,6 +137,7 @@ test("design the booking page with a live preview, and custom CSS cannot run scr
 
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Booking page updated").first()).toBeVisible();
+  await expect.poll(async () => (await state(page)).page.theme.fonts).toBe("elegant");
   const saved = (await state(page)).page;
   expect(saved.theme).toMatchObject({ fonts: "elegant", corners: "sharp", colors: { background: "#17181a" } });
   expect(saved.sections.map((s) => s.kind).slice(0, 3)).toEqual(["hero", "treatments", "reviews"]);
@@ -183,9 +185,9 @@ test("dragging a section keeps the booking flow fixed and follows the editor's s
   await expect(rows.nth(2)).toContainText("Team");
   expect((await state(page)).page.sections).toEqual(before);
   await page.getByRole("button", { name: "Save changes" }).click();
-  expect((await state(page)).page.sections.slice(0, 3).map(({ kind }) => kind)).toEqual(["hero", "staff", "treatments"]);
+  await expect.poll(async () => (await state(page)).page.sections.slice(0, 3).map(({ kind }) => kind)).toEqual(["hero", "staff", "treatments"]);
   await page.getByRole("button", { name: "Undo", exact: true }).click();
-  expect((await state(page)).page.sections).toEqual(before);
+  await expect.poll(async () => (await state(page)).page.sections).toEqual(before);
 });
 
 test("a custom theme with other sections has no accessibility violations", async ({ page }) => {
@@ -214,6 +216,7 @@ test("the assistant proposes a calmer look with a before and after, and approvin
   await screenshot(page, "assistant", 900);
   await panel.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(panel.getByText("Done", { exact: true })).toBeVisible();
+  await expect.poll(async () => (await state(page)).log[0]?.type).toBe("page/set");
   const after = await state(page);
   expect(after.page.theme).toMatchObject({ fonts: "elegant", colors: { background: "#f6f1e9" } });
   expect(after.log[0]).toMatchObject({ actor: "ai", source: "assistant", type: "page/set" });

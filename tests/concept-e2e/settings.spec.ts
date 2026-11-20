@@ -30,7 +30,8 @@ test("the owner edits the salon's details, sees them on the booking page and can
   await save.click();
   await expect(page.getByText("Salon details saved").first()).toBeVisible();
   await expect(save).toBeDisabled();
-  expect((await state(page))?.salon).toMatchObject({ name: "Studio Fern Demo", email: "hello@studiofern.example", area: "Fictional Town", slug: "salong-eko" });
+  // Saved under the booking lock a moment after it shows.
+  await expect.poll(async () => (await state(page))?.salon).toMatchObject({ name: "Studio Fern Demo", email: "hello@studiofern.example", area: "Fictional Town", slug: "salong-eko" });
 
   await page.goto("/boka/salong-eko");
   await expect(page.getByRole("heading", { name: "Studio Fern Demo", level: 1 })).toBeVisible();

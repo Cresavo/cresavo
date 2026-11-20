@@ -75,8 +75,8 @@ test("book, preview both channels, simulate reminders, inspect Inbox, rebook and
   await email.click();
   await screenshot(page, "reminder-email");
   await simulate.click();
-  const saved = await state(page);
-  expect(saved.inbox.filter(item => item.delivery && item.bookingId === booking.id)).toHaveLength(4);
+  // The send is saved under the booking lock a moment after the click.
+  await expect.poll(async () => (await state(page)).inbox.filter(item => item.delivery && item.bookingId === booking.id)).toHaveLength(4);
   await page.goto("/studio/inbox");
   await page.getByRole("radio", { name: copy("messages.log"), exact: true }).click();
   const subject = bookingMessage(before, booking, "reminder").subject;
@@ -262,10 +262,13 @@ for (const visibility of ["hidden", "retired"] as const) {
       await sheet.getByRole("switch", { name: "Show on the booking page" }).click();
       await sheet.getByRole("button", { name: "Save" }).click();
       await expect(edit).toHaveAccessibleDescription(/Hidden/);
+      // The owner's tab shows the change at once and saves it a moment later; the customer's tab sees it once saved.
+      await expect.poll(() => page.evaluate(() => (JSON.parse(localStorage.getItem("salong-eko-demo")!) as DemoState).services.find(service => service.name === "Basic foot care")?.hidden)).toBe(true);
     } else {
       await sheet.getByRole("button", { name: "Delete", exact: true }).click();
       await sheet.getByRole("button", { name: "Delete, keep bookings" }).click();
       await expect(edit).toHaveCount(0);
+      await expect.poll(() => page.evaluate(() => (JSON.parse(localStorage.getItem("salong-eko-demo")!) as DemoState).services.some(service => service.name === "Basic foot care"))).toBe(false);
     }
 
     await page.getByRole("button", { name: "Book again" }).click();

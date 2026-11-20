@@ -62,6 +62,8 @@ function initialize() {
     if (selection === "own" || selection === "demo") active = selection;
   } catch { /* The selection still lasts for this tab. */ }
   expireIdleTrial(Date.now(), false);
+  // After the current read (often a render): recovery shows and notifies like any change.
+  queueMicrotask(recoverJournal);
 }
 
 function storageKey(workspace: Workspace) {
@@ -397,9 +399,71 @@ export function dispatchWithLog(
   return commitNow(action, meta, canApply);
 }
 
-/** Operation ids: unique per tab and change, so the preview and its commit name the same entry. */
+/** Operation ids: unique per page load and change, so the preview and its commit name the same entry. */
 const TAB_ID = Math.random().toString(36).slice(2, 10);
 let operations = 0;
+
+// The write-ahead journal: a change shown before its commit is also written, at once and
+// synchronously, to this tab's journal. The commit removes it. If the page goes away first (a
+// reload, a link to another page, closing), the next page in the same tab commits what is left,
+// once: an operation whose log entry is already saved is not applied again.
+
+interface JournalEntry { op: string; action: DemoAction; meta: Partial<Omit<LogMeta, "at">> }
+const TAB_KEY = "salong-eko-tab";
+
+/** This browser tab, across reloads and page changes (sessionStorage is per tab). */
+function tabKey(): string {
+  try {
+    const known = window.sessionStorage.getItem(TAB_KEY);
+    if (known) return known;
+    window.sessionStorage.setItem(TAB_KEY, TAB_ID);
+  } catch { /* Without sessionStorage the journal lasts for this page only. */ }
+  return TAB_ID;
+}
+
+const journalKey = (workspace: Workspace) => `${storageKey(workspace)}-journal-${tabKey()}`;
+
+function readJournal(workspace: Workspace): JournalEntry[] {
+  try {
+    const entries = JSON.parse(window.localStorage.getItem(journalKey(workspace)) ?? "[]");
+    return Array.isArray(entries) ? entries : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeJournal(workspace: Workspace, entries: JournalEntry[]) {
+  try {
+    if (entries.length) window.localStorage.setItem(journalKey(workspace), JSON.stringify(entries));
+    else window.localStorage.removeItem(journalKey(workspace));
+  } catch { /* Best effort: the commit itself still runs while the page stays. */ }
+}
+
+/** The change an operation made is saved already (its log entry is there). */
+const committed = (state: DemoState | null | undefined, op: string) => !!state?.log.some((entry) => entry.op === op || entry.id === `l-${op}`);
+
+let recovering = false;
+
+/** Commits what an earlier page in this tab showed but did not get to save. */
+function recoverJournal() {
+  if (recovering || typeof window === "undefined" || !hasCrossTabLock()) return;
+  const entries = readJournal(active);
+  if (!entries.length) return;
+  recovering = true;
+  try {
+    // Loads the salon (and its words) the way the first read of the page would.
+    getSnapshot();
+    const workspace = active;
+    const saved = snapshots[workspace].state;
+    // Only what earlier pages left: this page's own changes are still on their way to the lock.
+    const mine = (entry: JournalEntry) => entry.op.startsWith(`op-${TAB_ID}-`);
+    const left = entries.filter((entry) => mine(entry) || !committed(saved, entry.op));
+    writeJournal(workspace, left);
+    for (const entry of left) if (!mine(entry)) showThenCommit(entry.action, entry.meta);
+  } finally {
+    recovering = false;
+  }
+}
 
 /**
  * The change in this tab's view at once, then the real write under the lock. It returns the
@@ -408,10 +472,11 @@ let operations = 0;
  */
 function showThenCommit(action: DemoAction, given: Partial<Omit<LogMeta, "at">> | undefined, canApply?: (current: DemoState) => boolean): string | null | false {
   const workspace = active;
-  const meta = { ...given, op: `op-${TAB_ID}-${++operations}` };
+  const meta = { ...given, op: given?.op ?? `op-${TAB_ID}-${++operations}` };
   refreshFromStorage();
   const view = getSnapshot();
   if (!view || (canApply && !canApply(view))) return false;
+  if (committed(snapshots[workspace].state, meta.op)) return `l-${meta.op}`;
   const now = Date.now();
   const logMeta = { ...defaultMeta(action, now), ...meta, at: now };
   // A preview only: nothing it would send or charge is published, and it sends no personal offer.
@@ -422,10 +487,12 @@ function showThenCommit(action: DemoAction, given: Partial<Omit<LogMeta, "at">> 
   const snapshot = snapshots[workspace];
   snapshot.pending = next;
   snapshot.queued = (snapshot.queued ?? 0) + 1;
+  writeJournal(workspace, [...readJournal(workspace).filter((entry) => entry.op !== meta.op), { op: meta.op, action, meta }]);
   notify();
   void withBookingLock(() => commitNow(action, meta, canApply))
     .catch(() => false as const)
     .then((result) => {
+      writeJournal(workspace, readJournal(workspace).filter((entry) => entry.op !== meta.op));
       snapshot.queued = (snapshot.queued ?? 1) - 1;
       if (!snapshot.queued) snapshot.pending = undefined;
       notify();
@@ -444,6 +511,8 @@ function commitNow(action: DemoAction, meta: Partial<Omit<LogMeta, "at">> | unde
   while (true) {
     const current = getSnapshot();
     if (!current || active !== workspace || (canApply && !canApply(current))) return false;
+    // A journaled operation a later page already committed is not applied twice.
+    if (meta?.op && committed(current, meta.op)) return `l-${meta.op}`;
     // Booking a personal offer needs the real cross-tab lock: without it two tabs could both claim it.
     const personalBooking = action.type === "online/claim" || (action.type === "online/pay" && current.checkoutHolds.some(hold => hold.id === action.id && hold.offerId));
     if (personalBooking && !insideBookingLock) return false;
@@ -597,6 +666,8 @@ function select(workspace: Workspace) {
   try { window.sessionStorage.setItem(SELECTION_KEY, workspace); }
   catch { /* Keep the selection in memory. */ }
   markTrialUsed();
+  refresh(workspace);
+  recoverJournal();
   notify();
 }
 
