@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import { DateTime } from "luxon";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { addressProof } from "../../scripts/client-address.mjs";
@@ -6,11 +6,13 @@ import { createDatabaseClient } from "../../scripts/database.mjs";
 import { sandboxPage } from "@/lib/agent-api/sandbox/browser-page";
 import { decideSandboxPhone, pairSandboxBrowser, readSandboxPhone, redeemSandboxPhone } from "@/lib/agent-api/sandbox/phone";
 import { createSandboxProposal } from "@/lib/agent-api/sandbox/ledger";
-import { sandboxTransaction } from "@/lib/agent-api/sandbox/store";
+import { MAX_SANDBOX_SESSIONS } from "@/lib/agent-api/sandbox/config";
+import { authenticateSandboxAgent, sandboxSessionUsage, sandboxTransaction } from "@/lib/agent-api/sandbox/store";
 
 const origin = "https://sandbox.example.test";
 const transportSecret = randomBytes(32).toString("hex");
-const testIp = "2001:db8:" + randomBytes(2).toString("hex") + "::";
+// No leading zero: the server signs the normalized address, so "0d1f" would fail as "d1f".
+const testIp = "2001:db8:" + randomInt(0x1000, 0x10000).toString(16) + "::";
 function request(path: string, body?: unknown, headers: Record<string, string> = {}, address = testIp + "1") {
   return new Request(origin + path, {
     method: body === undefined ? "GET" : "POST",
@@ -119,5 +121,98 @@ describe.skipIf(process.env.BOOKING_SANDBOX_TESTS !== "1")("private sandbox demo
       expect(redeem.status).toBe(403);
       expect(redeem.headers.has("Set-Cookie")).toBe(false);
     } finally { await admin.$disconnect(); }
+  });
+
+  it("keeps one live session per pairing bucket, shares the budget across an IPv6 /48 and frees the slot on re-pairing", async () => {
+    const pair = (address: string) => pairSandboxBrowser(request("/api/sandbox/pair", {}, {}, address));
+    const authenticates = (agentKey: string) => sandboxTransaction((tx, installation) => authenticateSandboxAgent(
+      tx, installation, new Headers({ authorization: "Bearer " + agentKey }), "services:read")).then(() => true, () => false);
+    const usage = () => sandboxTransaction(sandboxSessionUsage);
+    // A /48 that differs from the first test's prefix, so their budgets stay separate.
+    const net = "2001:db8:" + ((parseInt(testIp.split(":")[2], 16) + 1) % 0x10000).toString(16);
+    const prefixes: string[] = [];
+    const paired = async (address: string) => {
+      const response = await pair(address);
+      expect(response.status).toBe(201);
+      const body = await response.json() as { agentKey: string; phoneUrl: string };
+      prefixes.push(body.agentKey.split("_")[1]);
+      return body;
+    };
+    const ownerUrl = process.env.SANDBOX_TEST_MIGRATION_DATABASE_URL;
+    if (!ownerUrl) throw Error("LOCAL_TEST_MIGRATION_ROLE_REQUIRED");
+    try {
+      const first = await paired(net + ":1::7");
+      expect(await authenticates(first.agentKey)).toBe(true);
+      const sessionOf = (agentKey: string) => sandboxTransaction(async tx => {
+        const key = await tx.agentApiKey.findUniqueOrThrow({ where: { keyPrefix: agentKey.split("_")[1] } });
+        return tx.sandboxSession.findUniqueOrThrow({ where: { clientId: key.clientId }, include: { phone: true } });
+      });
+      const owner = createDatabaseClient(ownerUrl, 1, "sandbox");
+      try {
+        const { id } = await sessionOf(first.agentKey);
+        await owner.$executeRaw`UPDATE "SandboxSession" SET "apiRequests" = 200 WHERE "id" = ${id}::uuid`;
+        await owner.$executeRaw`UPDATE "SandboxPhone" SET "requests" = 90 WHERE "sessionId" = ${id}::uuid`;
+      } finally { await owner.$disconnect(); }
+      const before = await usage();
+      const second = await paired(net + ":2::7");
+      // Pairing again never refills the used call budgets.
+      const replacement = await sessionOf(second.agentKey);
+      expect(replacement.apiRequests).toBe(200);
+      expect(replacement.phone?.requests).toBe(90);
+      expect(await authenticates(first.agentKey)).toBe(false);
+      expect(await authenticates(second.agentKey)).toBe(true);
+      const after = await usage();
+      expect(after.held).toBe(before.held);
+      expect(after.created).toBe(before.created + 1);
+      const oldLink = await redeemSandboxPhone(request("/api/sandbox/phone/redeem", { token: new URL(first.phoneUrl).hash.slice(1) }));
+      expect(oldLink.status).toBe(403);
+      await paired(net + ":3::7");
+      expect((await pair(net + ":4::7")).status).toBe(429);
+
+      // Fill the remaining capacity from separate buckets.
+      for (let i = 1; (await usage()).held < MAX_SANDBOX_SESSIONS; i++) await paired("198.51.100." + i);
+      expect((await pair("198.51.100.250")).status).toBe(429);
+      // A bucket that already holds a slot can pair again; it replaces its own session.
+      await paired("198.51.100.1");
+      expect((await usage()).held).toBe(MAX_SANDBOX_SESSIONS);
+    } finally {
+      // Release the capacity for the tests that follow: revoked sessions hold no slot.
+      const admin = createDatabaseClient(ownerUrl, 1, "sandbox");
+      try {
+        await admin.$executeRaw`
+          UPDATE "AgentApiKey" SET "revokedAt" = CURRENT_TIMESTAMP WHERE "keyPrefix" = ANY(${prefixes}) AND "revokedAt" IS NULL
+        `;
+      } finally { await admin.$disconnect(); }
+    }
+  });
+
+  it("lets an expired session's bucket pair again without holding a second slot", async () => {
+    const address = "192.0.2.91";
+    const first = await (await pairSandboxBrowser(request("/api/sandbox/pair", {}, {}, address))).json();
+    const ownerUrl = process.env.SANDBOX_TEST_MIGRATION_DATABASE_URL;
+    if (!ownerUrl) throw Error("LOCAL_TEST_MIGRATION_ROLE_REQUIRED");
+    const admin = createDatabaseClient(ownerUrl, 1, "sandbox");
+    try {
+      await admin.$executeRaw`
+        UPDATE "SandboxSession" SET "expiresAt" = CURRENT_TIMESTAMP - INTERVAL '1 minute'
+        WHERE "clientId" = (SELECT "clientId" FROM "AgentApiKey" WHERE "keyPrefix" = ${first.agentKey.split("_")[1]})
+      `;
+    } finally { await admin.$disconnect(); }
+    const before = await sandboxTransaction(sandboxSessionUsage);
+    expect((await pairSandboxBrowser(request("/api/sandbox/pair", {}, {}, address))).status).toBe(201);
+    expect((await sandboxTransaction(sandboxSessionUsage)).held).toBe(before.held);
+  });
+
+  it("revokes the replaced session's phone cookie", async () => {
+    const address = "192.0.2.77";
+    const first = await (await pairSandboxBrowser(request("/api/sandbox/pair", {}, {}, address))).json();
+    const redeemed = await redeemSandboxPhone(request("/api/sandbox/phone/redeem", { token: new URL(first.phoneUrl).hash.slice(1) }));
+    expect(redeemed.status).toBe(200);
+    const cookie = redeemed.headers.get("Set-Cookie")!.split(";")[0];
+    const { phoneId } = await redeemed.json();
+    const read = () => readSandboxPhone(request("/api/sandbox/phone?phone=" + phoneId, undefined, { cookie }));
+    expect((await read()).status).toBe(200);
+    expect((await pairSandboxBrowser(request("/api/sandbox/pair", {}, {}, address))).status).toBe(201);
+    expect((await read()).status).toBe(403);
   });
 });

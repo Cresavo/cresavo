@@ -51,13 +51,19 @@ async function browserRequest(request: Request, run: () => Promise<Response>) {
   }
 }
 
+/** IPv4 stays per address; IPv6 widens from the shared /64 key to its /48, a common end-site allocation. */
+export function pairingBucket(limitKey: string) {
+  if (!limitKey.endsWith("::/64")) return limitKey;
+  return limitKey.slice(0, -"::/64".length).split(":").slice(0, 3).join(":") + "::/48";
+}
+
 function clientQuotaDigest(request: Request) {
   const secret = process.env.BOOKING_SANDBOX_IP_KEY;
   if (!secret || !/^[a-f0-9]{64}$/.test(secret)) throw new AgentApiError("provider_configuration_invalid");
   try {
-    const bucket = process.env.BOOKING_RUNTIME === "vercel"
+    const bucket = pairingBucket(process.env.BOOKING_RUNTIME === "vercel"
       ? clientLimitKey(vercelClientAddress({ "x-real-ip": request.headers.get("x-real-ip") }))
-      : verifiedClientAddress(request.headers, process.env.BOOKING_ADDRESS_SECRET);
+      : verifiedClientAddress(request.headers, process.env.BOOKING_ADDRESS_SECRET));
     return createHmac("sha256", secret).update("cresavo-sandbox:pair:" + bucket).digest("hex");
   } catch {
     throw new AgentApiError("mandate_denied");
@@ -81,9 +87,9 @@ export function pairSandboxBrowser(request: Request) {
         const tomorrow = Date.parse(day + "T00:00:00Z") + 86400000;
         throw new AgentApiError("rate_limited", Math.max(1, Math.ceil((tomorrow - +now) / 1000)));
       }
-      const { key, session } = await createSandboxSession(tx, installation);
+      const { key, session, carriedPhoneRequests } = await createSandboxSession(tx, installation, ipDigest);
       const link = token();
-      await tx.sandboxPhone.create({ data: { sessionId: session.id, linkHash: digest("link", link) } });
+      await tx.sandboxPhone.create({ data: { sessionId: session.id, linkHash: digest("link", link), requests: carriedPhoneRequests } });
       return { agentKey: key, phoneUrl: origin + "/sandbox/phone#" + link, expiresAt: session.expiresAt.toISOString() };
     });
     return privateResponse(result, 201);
@@ -98,6 +104,7 @@ export function redeemSandboxPhone(request: Request) {
     const { phoneId, expiresAt } = await sandboxTransaction(async (tx, installation) => {
       const [match] = await tx.$queryRaw<{ sessionId: string; expiresAt: Date }[]>`
         SELECT p."sessionId", s."expiresAt" FROM "SandboxPhone" p JOIN "SandboxSession" s ON s.id = p."sessionId"
+        JOIN "AgentClient" c ON c."id" = s."clientId" AND c."businessId" = s."businessId" AND c."active"
         WHERE p."linkHash" = ${digest("link", input.token)} AND p."redeemedAt" IS NULL
           AND s.generation = ${installation.generation}
         FOR UPDATE OF p, s
@@ -132,6 +139,7 @@ async function phoneTransaction<T>(request: Request, run: (tx: Prisma.Transactio
     const [session] = await tx.$queryRaw<(SandboxSession & { phoneRequests: number })[]>`
       SELECT s.*, p.requests AS "phoneRequests" FROM "SandboxSession" s
       JOIN "SandboxPhone" p ON p."sessionId" = s.id
+      JOIN "AgentClient" c ON c."id" = s."clientId" AND c."businessId" = s."businessId" AND c."active"
       WHERE p."sessionId" = ${id}::uuid AND p."browserHash" = ${digest("browser", raw)} AND s.generation = ${installation.generation}
       FOR UPDATE OF s,p
     `;
