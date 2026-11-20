@@ -18,6 +18,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- Write endpoints use one shared same-origin check that follows the public host behind trusted proxies, rejects requests browsers mark as cross-site or same-site, and requires https origins in production. Pages also send a Permissions-Policy and, outside the OAuth consent flow, Cross-Origin-Opener-Policy.
 - The staff preview starts in Advanced, with a return to the owner view available while previewing.
 - Finance opens with what is left this month and a comparison with last month. Send to my accountant explains the two download options and the dates they cover.
 - Gift cards and packages share one add-on and one More entry with two tabs. Owners can approve and reply to reviews from the Inbox.

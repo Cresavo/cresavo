@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createRateLimiter, joinWaitlist, parseWaitlistInput, WAITLIST_PAGES, type WaitlistOutcome } from "@/concept/site/waitlist";
 import { readCapped, waitlistClientKey } from "@/concept/site/waitlist-server";
+import { siteRequestHost } from "@/concept/site/request-host";
 
 // The launch waiting list. Accepts JSON (the form's script) or a plain form post (no JavaScript),
 // validates on the server and hands the address to the configured provider. With the default
@@ -44,14 +45,16 @@ export async function POST(request: Request) {
   const form = !type.includes("application/json");
   const answer = (outcome: WaitlistOutcome, from?: unknown, status = STATUS[outcome]) => {
     if (!form || status === 413) return NextResponse.json({ outcome }, { status, headers: NO_STORE });
-    // Return to the host the visitor used: in local development request.url can name "localhost" instead.
+    // Return to the public host the visitor used: in local development request.url can name "localhost" instead.
     const origin = new URL(request.url);
-    const host = request.headers.get("host");
+    const host = siteRequestHost((name) => request.headers.get(name));
     if (host) origin.host = host;
     const back = new URL(WAITLIST_PAGES.find((page) => page === from) ?? "/", origin);
     back.searchParams.set("waitlist", outcome);
     back.hash = "waitlist";
-    return NextResponse.redirect(back, 303);
+    const redirect = NextResponse.redirect(back, 303);
+    redirect.headers.set("Cache-Control", "no-store");
+    return redirect;
   };
   if (!allowed(waitlistClientKey(request.headers))) {
     await request.body?.cancel().catch(() => undefined);
