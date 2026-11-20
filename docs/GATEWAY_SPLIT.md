@@ -142,11 +142,19 @@ The pair proof cannot move past `1617de1` yet. Gateway commit `c546bba`
 (2026-11-19) added a per-client-IP limit of 5 booking creations per hour. The
 pair proof makes more creations than that from loopback, including 20
 concurrent attempts, so against gateway `main` it fails at
-`HTTP_MCP_CREATE_RETRY_STATUS` with a 429. Moving the pin needs a test-only,
-loopback-only limit setting in the gateway, then a pair run on the new revision.
-Verified on 2026-11-20 against salon `03b5c31`: the pair proof passes on
-`1617de1`, and the sandbox provider, phone, reset and browser checks pass on
-`4176c3d`.
+`HTTP_MCP_CREATE_RETRY_STATUS` with a 429.
+
+The proof now starts the gateway with `GATEWAY_LOOPBACK_TEST_LIMITS=1`, which
+older gateways ignore. A pending gateway change adds that setting: it raises the
+limits only for a loopback-only gateway and refuses to start in remote mode, on
+Vercel or with a shared limit store. Once it is merged, set `gatewayRevision` to
+the merged commit and run the pair proof. Newer gateways also refuse every
+direct cancel with 403; the proof accepts that or the older 404, and checks that
+the booking stays confirmed.
+
+Verified on 2026-11-20 against salon `8d166f6`: the pair proof passes on
+`1617de1` and on the pending gateway change. The sandbox provider, phone, reset
+and browser checks pass on `4176c3d`.
 
 ## Reproducible proof of a pinned revision pair
 
