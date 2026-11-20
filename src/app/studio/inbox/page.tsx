@@ -60,11 +60,11 @@ function InboxPageContent() {
   const unread = unreadCount(state);
   const { proposals, decide } = useAgentProposals(!state.industry);
 
-  const approve = (proposal: AgentProposal) => {
-    if (!showUndoToast(proposal.toast, decide(proposal, true))) showActionFailure("agents.failed", proposal.id);
+  const approve = async (proposal: AgentProposal) => {
+    if (!showUndoToast(proposal.toast, await decide(proposal, true))) showActionFailure("agents.failed", proposal.id);
   };
   const decline = (proposal: AgentProposal) => {
-    decide(proposal, false);
+    void decide(proposal, false);
     showToast(t("agents.declined"));
   };
 

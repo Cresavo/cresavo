@@ -8,6 +8,7 @@ import { t, tc } from "../i18n";
 import { formatDayShort, formatDuration, formatMoney } from "../i18n/format";
 import { findCustomer, findService, fullName } from "../selectors";
 import { moduleById, moduleEnabled } from "../modules/registry";
+import { findLogEntry } from "./undo";
 
 /** Reading a message or dismissing a card is not a change worth logging. */
 export type LoggedAction = Exclude<DemoAction, { type: "inbox/read" | "inbox/read-all" | "card/dismiss" | "routine/ran" }>;
@@ -200,7 +201,7 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       return { summary: t("log.trashRestore", { what: entry.kind === "customer" ? fullName(entry.customer) : customerName(prev, bookingOf(prev, entry.bookingId)?.customerId) }) };
     }
     case "log/undo":
-      return { summary: t("log.undid", { what: prev.log.find((e) => e.id === action.id)!.summary }) };
+      return { summary: t("log.undid", { what: findLogEntry(prev.log, action.id)!.summary }) };
     case "support/grant":
       return { summary: t("log.supportGrant", { hours: action.hours }) };
     case "support/revoke":

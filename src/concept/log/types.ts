@@ -12,6 +12,11 @@ export interface LogMeta {
   source: LogSource;
   /** Set when the owner approved a change someone else drafted (an assistant's proposal). */
   approvedBy?: "owner";
+  /**
+   * The operation that made the change, the same for the preview a tab shows and the commit it
+   * saves under the lock; Undo refers to it, never to an entry id another tab may have taken.
+   */
+  op?: string;
   /** Epoch milliseconds. */
   at: number;
 }

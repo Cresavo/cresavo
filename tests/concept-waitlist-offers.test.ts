@@ -8,6 +8,7 @@ import type { Booking, DemoState } from "@/concept/data/types";
 import { applyAction, defaultMeta } from "@/concept/log/capture";
 import { offeredSince, withOffersHeld } from "@/concept/booking/waitlist-offer";
 import { createSalon, salonDraft } from "@/concept/onboarding/salon";
+import { deleteCustomer } from "@/concept/trash/trash";
 import { createDemoState } from "@/concept/data/generate";
 import { isNewCustomer } from "@/concept/booking/lookup";
 import { openSlots } from "@/concept/booking/suggest";
@@ -635,15 +636,18 @@ describe("in the browser store", () => {
   function sharedLocks() {
     let queue: Promise<unknown> = Promise.resolve();
     const lock = {
-      /** True while some tab's callback holds the lock. */
+      /** True while some tab's callback holds the lock, and the name it was requested under. */
       busy: false,
-      request: (_name: string, run: () => unknown) => {
+      held: undefined as string | undefined,
+      request: (name: string, run: () => unknown) => {
         const next = queue.then(async () => {
           lock.busy = true;
+          lock.held = name;
           try {
             return await run();
           } finally {
             lock.busy = false;
+            lock.held = undefined;
           }
         });
         queue = next.catch(() => undefined);
@@ -656,8 +660,9 @@ describe("in the browser store", () => {
   beforeEach(() => { locks = sharedLocks(); });
 
   /** A fresh copy of the store module over one shared, fictional localStorage. `withLocks: false` is a browser without Web Locks. */
-  async function openTab(storage: { raw: string; full?: boolean; onFull?: () => void; beforeWrite?: () => void; race?: { afterReads: number; write: () => void } }, withLocks = true) {
-    const others = new Map<string, string>();
+  async function openTab(storage: { raw: string; full?: boolean; onFull?: () => void; beforeWrite?: () => void; race?: { afterReads: number; write: () => void };
+    others?: Map<string, string>; writes?: { key: string; lock?: string }[] }, withLocks = true) {
+    const others = storage.others ?? new Map<string, string>();
     const localStorage = {
       getItem: (key: string) => {
         if (key !== KEY) return others.get(key) ?? null;
@@ -668,6 +673,7 @@ describe("in the browser store", () => {
         return storage.raw;
       },
       setItem: (key: string, value: string) => {
+        storage.writes?.push({ key, lock: locks.held });
         if (key !== KEY) return void others.set(key, value);
         if (storage.full) {
           storage.onFull?.();
@@ -784,6 +790,69 @@ describe("in the browser store", () => {
     expect(result.state.giftCards.at(-1)?.recipient).toBe("Second Friend");
     expect(result.state.giftCards.map((c) => c.recipient)).toEqual(["Fictional Friend", "Other Tab", "Second Friend"]);
     expect(new Set(result.state.giftCards.map((c) => c.code)).size).toBe(3);
+  });
+
+  it("undoes this tab's own change even when another tab's commit took the preview's entry id", async () => {
+    const state = setup();
+    const storage = { raw: JSON.stringify(state) };
+    const tab = await openTab(storage);
+    const price = state.services[0].price;
+    const op = tab.dispatchWithLog({ type: "service/price", id: serviceId, price: price + 100 });
+    expect(op).toMatch(/^op-/);
+    // Before this tab gets the lock, another tab commits an unrelated logged change from the same starting point.
+    const other = applyAction(state, { type: "cost/add", kind: "rent", label: "Fictional rent", amount: 1000 }, { actor: "owner", source: "button", at: now });
+    storage.raw = JSON.stringify(other);
+    await tab.withBookingLock(() => true);
+    expect(await tab.withBookingLock(() => tab.dispatch({ type: "log/undo", id: op as string }))).toBe(true);
+    const saved = JSON.parse(storage.raw) as DemoState;
+    expect(saved.services[0].price).toBe(price);
+    expect(saved.costs.some((c) => c.label === "Fictional rent")).toBe(true);
+  });
+
+  it("tells the server an assistant's proposal was approved only once it is saved here", async () => {
+    const state = setup();
+    const storage: { raw: string; race?: { afterReads: number; write: () => void } } = { raw: JSON.stringify(state) };
+    const tab = await openTab(storage);
+    const { decideProposal } = await import("@/concept/studio/inbox/agent-proposals");
+    tab.currentState();
+    const posted: string[] = [];
+    const post = (async (_url: string, init?: RequestInit) => { posted.push(JSON.parse(String(init?.body)).decision); return new Response(null); }) as typeof fetch;
+    const proposal = { id: "p-1", tool: "propose_move", client: "agent", createdAt: now, status: "pending", title: "Move", rows: [], toast: "Moved",
+      action: { type: "booking/move", id: "visit", date, start: 840 } } as unknown as import("@/concept/tools/agent-proposal").AgentProposal;
+    // While it is being saved, another tab books 14:00 for someone else: the move cannot be made after all.
+    storage.race = { afterReads: 1, write: () => {
+      storage.raw = JSON.stringify({ ...state, seq: state.seq + 1, bookings: [...state.bookings, { ...state.bookings[0], id: "other", customerId: "other", start: 840 }] });
+    } };
+    expect(await decideProposal(proposal, true, post)).toBe(false);
+    expect(posted).toEqual(["failed"]);
+    expect(tab.currentState()?.bookings.find((b) => b.id === "visit")?.start).toBe(600);
+    const fine = { ...proposal, id: "p-2", action: { type: "booking/move", id: "visit", date, start: 900 } } as typeof proposal;
+    expect(await decideProposal(fine, true, post)).toBeTruthy();
+    expect(posted).toEqual(["failed", "approved"]);
+  });
+
+  it("writes back an erasure of the other salon under that salon's own lock", async () => {
+    // The own salon (stored beside the demo) has a customer whose 30 days in the trash are over.
+    const own = { ...salon, customers: [{ id: "k-gone", firstName: "Fictional", lastName: "Gone", phone: "0701234500", email: "", category: salon.services[0].category, preferredStaff: alex, since: day, isRegular: false, tags: [], waitlist: false }] };
+    const trashed = { ...own, ...deleteCustomer({ ...own, generatedFor: "2026-10-01" }, "k-gone"), generatedFor: "2026-10-01" };
+    const ownKey = `${KEY}-own`;
+    const others = new Map([[ownKey, JSON.stringify(trashed)]]);
+    const writes: { key: string; lock?: string }[] = [];
+    const tab = await openTab({ raw: JSON.stringify(createDemoState(day)), others, writes });
+    const stop = tab.subscribeStore(() => undefined);
+    try {
+      // Another tab changed the own salon: this tab reads it while the demo salon is open.
+      const changed = { ...trashed, seq: trashed.seq + 1 };
+      others.set(ownKey, JSON.stringify(changed));
+      window.dispatchEvent(Object.assign(new Event("storage"), { storageArea: window.localStorage, key: ownKey }));
+      await tab.withBookingLock(() => true);
+      await locks.request("flush", () => undefined);
+      const erased = JSON.parse(others.get(ownKey)!) as DemoState;
+      expect(erased.trash.some((entry) => entry.kind === "customer")).toBe(false);
+      expect(writes.filter((w) => w.key === ownKey).map((w) => w.lock)).toEqual([ownKey]);
+    } finally {
+      stop();
+    }
   });
 
   it("neither sends nor books personal offers in a browser without a cross-tab lock", async () => {

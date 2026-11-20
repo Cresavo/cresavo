@@ -89,15 +89,21 @@ export function isUndoable(state: DemoState, entry: LogEntry): boolean {
   return !undoBlockReason(state, entry);
 }
 
+/** The entry a change made: by its id, or by the operation id a tab handed out before its commit (`LogMeta.op`). */
+export function findLogEntry(log: readonly LogEntry[], id: string): LogEntry | undefined {
+  return log.find((e) => e.id === id) ?? log.find((e) => e.op === id && e.type !== "waitlist/event");
+}
+
 /** Whether the log entry with this id exists and can still be undone (it may have been evicted from the log). */
 export function canUndo(state: DemoState, id: string): boolean {
-  const entry = state.log.find((e) => e.id === id);
+  const entry = findLogEntry(state.log, id);
   return !!entry && isUndoable(state, entry);
 }
 
 /** Takes one change back. The entry stays in the log, marked as undone. */
 export function undoEntry(state: DemoState, id: string): DemoState {
-  const reverted = previewUndo(state, state.log.find((e) => e.id === id));
-  if (typeof reverted === "string") return state;
-  return { ...reverted, log: reverted.log.map((e) => (e.id === id ? { ...e, undone: true } : e)) };
+  const entry = findLogEntry(state.log, id);
+  const reverted = previewUndo(state, entry);
+  if (typeof reverted === "string" || !entry) return state;
+  return { ...reverted, log: reverted.log.map((e) => (e.id === entry.id ? { ...e, undone: true } : e)) };
 }

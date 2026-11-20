@@ -39,12 +39,19 @@ export function applyAction(state: DemoState, action: DemoAction, meta: LogMeta)
   return next;
 }
 
+/** Waiting-list events are not the operation's own entry, so they never answer for its Undo. */
+function withoutOp(meta: LogMeta): LogMeta {
+  const { op: _op, ...rest } = meta;
+  void _op;
+  return rest;
+}
+
 /** One entry per waiting-list transition the change caused: offers sent, held back, ended, and requests that passed. */
 function waitlistEvents(prev: DemoState, next: DemoState, action: DemoAction, meta: LogMeta): LogEntry[] {
   const events: LogEntry[] = [];
   // `customerId` lets erasure find and empty the entry: it names the customer by first name.
   const record = (summary: string, actor: LogMeta["actor"], customerId: string | undefined, after?: string) =>
-    events.push({ ...meta, id: `wl-${next.seq}-${events.length}`, type: "waitlist/event", actor, source: "waitlist", summary, after, ...(customerId ? { customerId } : {}) });
+    events.push({ ...withoutOp(meta), id: `wl-${next.seq}-${events.length}`, type: "waitlist/event", actor, source: "waitlist", summary, after, ...(customerId ? { customerId } : {}) });
   const firstName = (id: string) => (next.customers.find((c) => c.id === id) ?? prev.customers.find((c) => c.id === id))?.firstName;
   if (next.waitlistGaps !== prev.waitlistGaps) for (const gap of next.waitlistGaps) {
     if (gap.readyAt && gap.readyAt !== prev.waitlistGaps.find((g) => g.id === gap.id)?.readyAt) {

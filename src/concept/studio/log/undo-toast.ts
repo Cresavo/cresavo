@@ -1,6 +1,6 @@
 import type { DemoAction } from "../../actions";
 import { t } from "../../i18n";
-import { undoBlockReason, type UndoBlockReason } from "../../log/undo";
+import { findLogEntry, undoBlockReason, type UndoBlockReason } from "../../log/undo";
 import { currentState, dispatch, dispatchWithLog } from "../../store";
 import { isBookingOrPaymentAction } from "../../support/action-reference";
 import { showActionFailure, showToast } from "../../ui/toast";
@@ -24,7 +24,7 @@ export function undoWithToast(id: string): boolean {
     return true;
   }
   const state = currentState();
-  const entry = state?.log.find(row => row.id === id);
+  const entry = state ? findLogEntry(state.log, id) : undefined;
   const reason = state && undoBlockReason(state, entry);
   const key = undoBlockMessageKey(reason) ?? "log.cannotUndo";
   if (entry && isBookingOrPaymentAction(entry.type)) showActionFailure(key);
@@ -34,7 +34,8 @@ export function undoWithToast(id: string): boolean {
 
 export function showUndoToast(message: string, id: ReturnType<typeof dispatchWithLog>, onUndo?: () => void): boolean {
   if (id === false) return false;
-  const undoable = id && currentState()?.log.find(entry => entry.id === id)?.patch;
+  const state = currentState();
+  const undoable = id && state && findLogEntry(state.log, id)?.patch;
   showToast(message, id && undoable ? { label: t("common.undo"), run: () => { if (undoWithToast(id)) onUndo?.(); } } : undefined);
   return true;
 }

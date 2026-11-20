@@ -4,7 +4,7 @@ import type { DemoAction } from "../../actions";
 import type { InputMode, Reply } from "../../assistant/thread";
 import type { Choice, Proposal } from "../../command/proposal";
 import type { DemoState } from "../../data/types";
-import { undoBlockReason } from "../../log/undo";
+import { findLogEntry, undoBlockReason } from "../../log/undo";
 import type { LogMeta } from "../../log/types";
 import { canChangeBooking, staffViewer } from "../../ops/access";
 import { currentRole } from "../../ops/role";
@@ -56,7 +56,7 @@ export function replyUndoable(reply: Reply): boolean {
 export function replyUndoBlockReason(reply: Pick<Reply, "undoId">) {
   if (!reply.undoId) return "changed";
   const state = currentState();
-  return state ? undoBlockReason(state, state.log.find((entry) => entry.id === reply.undoId)) : "changed";
+  return state ? undoBlockReason(state, findLogEntry(state.log, reply.undoId)) : "changed";
 }
 
 /**

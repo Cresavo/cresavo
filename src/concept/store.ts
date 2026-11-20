@@ -209,9 +209,10 @@ function refresh(workspace: Workspace) {
  * meanwhile, its snapshot wins and is purged when this tab reads it.
  */
 function persistErasure(workspace: Workspace, raw: string | null, state: DemoState) {
-  // Like every save, it waits for the booking lock where there is one.
-  if (!insideBookingLock && hasCrossTabLock()) {
-    void withBookingLock(() => persistErasure(workspace, raw, state)).catch(() => undefined);
+  // Like every save, it holds the booking lock of the salon it writes, also when it was read while
+  // another salon's lock is held (a storage event, or the other salon's address check).
+  if (hasCrossTabLock() && !heldWorkspaces.has(workspace)) {
+    void navigator.locks.request(storageKey(workspace), () => holding(workspace, () => persistErasure(workspace, raw, state))).catch(() => undefined);
     return;
   }
   const snapshot = snapshots[workspace];
@@ -395,9 +396,18 @@ export function dispatchWithLog(
   return commitNow(action, meta, canApply);
 }
 
-/** The change in this tab's view at once, then the real write under the lock. */
-function showThenCommit(action: DemoAction, meta: Partial<Omit<LogMeta, "at">> | undefined, canApply?: (current: DemoState) => boolean): string | null | false {
+/** Operation ids: unique per tab and change, so the preview and its commit name the same entry. */
+const TAB_ID = Math.random().toString(36).slice(2, 10);
+let operations = 0;
+
+/**
+ * The change in this tab's view at once, then the real write under the lock. It returns the
+ * operation id rather than the preview's entry id: another tab can commit an entry with that id
+ * first, and Undo must never take back someone else's change.
+ */
+function showThenCommit(action: DemoAction, given: Partial<Omit<LogMeta, "at">> | undefined, canApply?: (current: DemoState) => boolean): string | null | false {
   const workspace = active;
+  const meta = { ...given, op: `op-${TAB_ID}-${++operations}` };
   refreshFromStorage();
   const view = getSnapshot();
   if (!view || (canApply && !canApply(view))) return false;
@@ -420,8 +430,7 @@ function showThenCommit(action: DemoAction, meta: Partial<Omit<LogMeta, "at">> |
       // The toast layer listens and reports it; the caller was already told it worked.
       if (result === false) window.dispatchEvent(new Event(DEFERRED_WRITE_FAILED));
     });
-  const logId = next.log[0]?.id;
-  return logId !== view.log[0]?.id ? logId ?? null : null;
+  return next.log[0]?.id !== view.log[0]?.id ? meta.op : null;
 }
 
 /** The write itself: inside the booking lock, or directly in a browser without Web Locks. */
@@ -501,11 +510,24 @@ export function hasCrossTabLock(): boolean {
   return typeof navigator !== "undefined" && !!navigator.locks;
 }
 
-function runLocked<T>(write: (required?: BookingReceipt) => T, required?: BookingReceipt): T {
+/** The salons whose booking lock this tab holds right now. */
+const heldWorkspaces = new Set<Workspace>();
+
+function holding<T>(workspace: Workspace, run: () => T): T {
+  const had = heldWorkspaces.has(workspace);
+  heldWorkspaces.add(workspace);
+  try {
+    return run();
+  } finally {
+    if (!had) heldWorkspaces.delete(workspace);
+  }
+}
+
+function runLocked<T>(workspace: Workspace, write: (required?: BookingReceipt) => T, required?: BookingReceipt): T {
   const previous = insideBookingLock;
   insideBookingLock = true;
   try {
-    return write(required);
+    return holding(workspace, () => write(required));
   } finally {
     insideBookingLock = previous;
   }
@@ -520,7 +542,7 @@ async function withBookingReceipt<T>(write: (required?: BookingReceipt) => T, re
   return navigator.locks.request(storageKey(workspace), async () => {
     const receipts = await bookingReceipts();
     if (workspace !== active) return false;
-    if (!receipts) return runLocked(write);
+    if (!receipts) return runLocked(workspace, write);
     const receiptKey = new URL(workspace === primary ? "/concept-booking-sequence" : `/concept-booking-sequence-${workspace}`, window.location.origin).href;
     const receipt = await receipts.match(receiptKey).catch(() => undefined);
     const latest: BookingReceipt | undefined = await receipt?.json().catch(() => undefined);
@@ -537,7 +559,7 @@ async function withBookingReceipt<T>(write: (required?: BookingReceipt) => T, re
     }
     if (workspace !== active) return false;
     const before = snapshot.lastWrite;
-    const result = runLocked(write, required);
+    const result = runLocked(workspace, write, required);
     if (snapshot.lastWrite && snapshot.lastWrite !== before) {
       // A storage quota error must not hide an appointment already saved.
       await receipts.put(receiptKey, Response.json(snapshot.lastWrite)).catch(() => undefined);
