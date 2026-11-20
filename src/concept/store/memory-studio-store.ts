@@ -66,6 +66,7 @@ export class MemoryStudioStore implements StudioStore {
   private readonly now: () => number;
 
   constructor(options: MemoryStudioStoreOptions = {}) {
+    // eslint-disable-next-line no-restricted-syntax -- The standalone memory store defaults to the wall clock.
     this.now = options.now ?? Date.now;
     for (const [id, saved] of Object.entries(options.tenants ?? {})) this.seed(id, saved);
   }

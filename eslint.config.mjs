@@ -6,6 +6,18 @@ const config = [
   ...nextVitals,
   ...nextTypescript,
   {
+    files: ["src/concept/actions.ts", "src/concept/data/slots.ts", "src/concept/store/*.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "MemberExpression[object.name='Date'][property.name='now'], MemberExpression[object.name='Date'][property.value='now']",
+          message: "Use the injected store clock. Explain any legacy wall-clock fallback with a narrow disable comment.",
+        },
+      ],
+    },
+  },
+  {
     files: ["src/**/*.tsx"],
     plugins: { "design-system": designSystem },
     rules: {
