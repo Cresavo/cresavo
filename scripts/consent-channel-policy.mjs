@@ -7,9 +7,19 @@ export const STAGING_CONSENT_MODE = "staging-inbox";
 // then report): `https://`, a host name or bracketed IPv6 address, an optional port and at most
 // one trailing slash. Nothing else: no path, dot segment, percent escape, query, fragment,
 // user info or backslash.
-const BARE_HTTPS_ORIGIN = /^https:\/\/(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*|\[[0-9A-Fa-f:.]+\])(?::\d{1,5})?\/?$/;
+const BARE_HTTPS_ORIGIN = /^https:\/\/(([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*)|\[([0-9A-Fa-f:.]+)\])(?::(\d{1,5}))?\/?$/;
+// Each part must be one a browser can open, so a link is never issued to an address no customer
+// can reach: a port from 1 to 65535 written without leading zeros, DNS labels of at most 63
+// bytes and a host name of at most 253, and a valid IPv6 literal.
 export function httpsOrigin(value) {
-  if (typeof value !== "string" || !BARE_HTTPS_ORIGIN.test(value)) throw new Error("CONSENT_ORIGIN_INVALID");
+  const parts = typeof value === "string" ? BARE_HTTPS_ORIGIN.exec(value) : null;
+  if (!parts) throw new Error("CONSENT_ORIGIN_INVALID");
+  const [, , name, , port] = parts;
+  if (port !== undefined && (!/^[1-9]\d*$/.test(port) || Number(port) > 65535)) throw new Error("CONSENT_ORIGIN_INVALID");
+  if (name !== undefined && (name.length > 253 || name.split(".").some(label => label.length > 63))) throw new Error("CONSENT_ORIGIN_INVALID");
+  // An IPv6 literal is validated by the URL parser below, whose rules (eight groups of at most four
+  // hex digits, one `::`, a dotted IPv4 tail) match `net.isIPv6`; `node:net` itself cannot be
+  // imported here, since this module also reaches browser bundles.
   const url = URL.parse(value);
   // A trailing dot (fully qualified name) is refused: routing compares host names without it.
   if (!url || url.protocol !== "https:" || !url.hostname || url.hostname.endsWith(".") || url.username || url.password ||

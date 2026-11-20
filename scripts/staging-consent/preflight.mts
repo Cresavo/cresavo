@@ -5,28 +5,30 @@ import { join } from "node:path";
 // a connection string with a password.
 export const DEFAULT_ADMIN_URL = "postgresql://booking:booking@127.0.0.1:5432/postgres";
 
-const QUERY_CREDENTIALS = ["user", "password", "passfile", "sslpassword", "sslkey", "sslcert", "sslrootcert", "sslcrl", "service", "servicefile", "krbsrvname"];
+// The only query parameter accepted, with the values that change nothing about where or as whom
+// the run connects. Everything else is refused rather than tracked: a parameter can carry or point
+// at credentials (`password`, `passfile`, `service`), send node-postgres somewhere Prisma does not
+// go (`host`, `port`, `db`), or give Prisma Migrate a schema the seed and the salon do not use
+// (`schema`, `options`). `disable` only: with any other mode node-postgres verifies the server
+// certificate, which a loopback server rarely has.
+const QUERY_ALLOWED: Record<string, readonly string[]> = { sslmode: ["disable"] };
 
 export function loopbackAdminUrl(value: string | undefined) {
   const url = URL.parse(value ?? DEFAULT_ADMIN_URL);
   if (!url || !["postgresql:", "postgres:"].includes(url.protocol)) throw new Error("STAGING_PG_ADMIN_URL_INVALID");
   if (!["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)) throw new Error("STAGING_DATABASE_MUST_BE_LOOPBACK");
-  // Credentials only in the URL's user info, where the runner registers them for the output scan.
-  // A query parameter can override it (the driver prefers a `password` parameter) or point at
-  // credentials elsewhere: refused, not tracked.
-  if ([...url.searchParams.keys()].some(key => QUERY_CREDENTIALS.includes(key.toLowerCase())))
-    throw new Error("STAGING_PG_ADMIN_URL_CREDENTIAL_PARAMETER");
+  const keys = [...url.searchParams.keys()];
+  if (keys.some((key, index) => !Object.hasOwn(QUERY_ALLOWED, key) || keys.indexOf(key) !== index ||
+      !QUERY_ALLOWED[key].includes(url.searchParams.get(key)!)))
+    throw new Error("STAGING_PG_ADMIN_URL_QUERY_REFUSED");
   // The runner's own client (node-postgres) and the migration and seed children (Prisma) must reach
   // the same server as the same role. node-postgres fills an omitted port, user, password or
-  // database from PG* variables and lets a `host`/`port`/`db` parameter override the URL, which
-  // Prisma does not: so every part is required in the URL itself and those parameters are refused.
-  if (!url.port || !url.username || !url.password || !/^\/[^/]+$/.test(url.pathname) ||
-      [...url.searchParams.keys()].some(key => CONNECTION_PARAMETERS.includes(key.toLowerCase())))
+  // database from PG* variables, which Prisma does not: so every part is required in the URL itself.
+  if (!url.port || !url.username || !url.password || !/^\/[^/]+$/.test(url.pathname))
     throw new Error("STAGING_PG_ADMIN_URL_INCOMPLETE");
   return url;
 }
 
-const CONNECTION_PARAMETERS = ["host", "hostaddr", "port", "dbname", "database", "db"];
 /**
  * libpq and node-postgres connection defaults (PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE,
  * PGSERVICE, PGSSLMODE, PGOPTIONS, ...). The children get a closed environment without them, so

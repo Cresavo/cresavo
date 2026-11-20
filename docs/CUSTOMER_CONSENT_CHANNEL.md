@@ -47,6 +47,8 @@ or opened on a routable alias after switching to the lab, every consent path is 
   credentials or trailing dot on the host name. The string is checked as written, before URL
   parsing could resolve it, so `https://host/x/..`, `/./` or `%2e%2e` are refused rather than
   shortened to the host root; only an optional port and one trailing slash are accepted. Plain HTTP is refused, including on loopback.
+  The address must be one a browser can open: a port from 1 to 65535 without leading zeros, DNS
+  labels of at most 63 bytes, a host name of at most 253, or a valid bracketed IPv6 literal.
 - `BOOKING_PUBLIC_ORIGIN` is a bare `https://` origin on a different host name from the
   consent origin. A different port on the same host is refused: cookies are scoped by
   host, not port, so the owner's `booking_admin` session cookie would also reach the
@@ -152,7 +154,7 @@ GATEWAY_CHECKOUT=/path/outside/this/repo npm run test:staging-consent
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `GATEWAY_CHECKOUT` | required | Gateway checkout outside this repository. Only read with `git archive`. |
-| `STAGING_PG_ADMIN_URL` | `postgresql://booking:booking@127.0.0.1:5432/postgres` | Loopback role that creates and drops the run's database. Credentials only in the user info: a query parameter such as `password`, `passfile`, `sslpassword`, `user` or `service` is refused. Host, port, user, password and database must all be in the URL, a `host`, `hostaddr`, `port` or `dbname` parameter is refused (`STAGING_PG_ADMIN_URL_INCOMPLETE`), and so is any `PG*` connection variable such as `PGPORT` or `PGPASSWORD` in the runner's environment (`STAGING_PG_ENVIRONMENT_REFUSED`), so the runner and its migration and seed steps reach the same server as the same role. |
+| `STAGING_PG_ADMIN_URL` | `postgresql://booking:booking@127.0.0.1:5432/postgres` | Loopback role that creates and drops the run's database. The only query parameter accepted is `sslmode=disable`; any other (`password`, `passfile`, `user`, `service`, `host`, `port`, `dbname`, `schema`, `options`, `application_name`, ...) is refused with `STAGING_PG_ADMIN_URL_QUERY_REFUSED` before any database is created. Host, port, user, password and database must all be in the URL (`STAGING_PG_ADMIN_URL_INCOMPLETE`), and so is any `PG*` connection variable such as `PGPORT` or `PGPASSWORD` in the runner's environment (`STAGING_PG_ENVIRONMENT_REFUSED`), so the runner and its migration and seed steps reach the same server as the same role. |
 | `STAGING_GATEWAY_HOST` | `gateway.cresavo.test` | Gateway host name, resolved to loopback for this run only. |
 | `STAGING_SALON_HOST` | `salon-demo.cresavo.test` | Consent and salon host name, resolved to loopback for this run only. |
 | `STAGING_GATEWAY_REVISION` | from `gateway.json` | Override the pinned gateway revision. |

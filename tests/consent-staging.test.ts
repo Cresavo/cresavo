@@ -31,6 +31,30 @@ describe("staging channel configuration", () => {
       ["https://salon-demo.cresavo.test:8443/", "https://salon-demo.cresavo.test:8443"], ["https://Salon-Demo.cresavo.test", "https://salon-demo.cresavo.test"]])
       expect(stagingConsentPolicy({ ...staging, BOOKING_CONSENT_ORIGIN: value }), value).toBe(origin);
   });
+  it("issues links only to an address a browser can open", async () => {
+    const { httpsOrigin } = await import("../scripts/consent-channel-policy.mjs");
+    const label = (n: number) => "a".repeat(n);
+    for (const [value, origin] of [["https://salon.test:1", "https://salon.test:1"], ["https://salon.test:65535", "https://salon.test:65535"],
+      ["https://salon.test:443", "https://salon.test"], [`https://${label(63)}.test`, `https://${label(63)}.test`],
+      [`https://${[label(61), label(61), label(61), label(61)].join(".")}.test`, `https://${[label(61), label(61), label(61), label(61)].join(".")}.test`],
+      ["https://[::1]:8443", "https://[::1]:8443"], ["https://[2001:DB8::1]", "https://[2001:db8::1]"], ["https://[1:2:3:4:5:6:7:8]", "https://[1:2:3:4:5:6:7:8]"],
+      ["https://[::ffff:192.0.2.1]", "https://[::ffff:c000:201]"]] as const)
+      expect(httpsOrigin(value), value).toBe(origin);
+    // Port 0, leading zeros and ports past 65535; a label over 63 bytes or a name over 253.
+    for (const value of ["https://salon.test:0", "https://salon.test:00", "https://salon.test:0443", "https://salon.test:65536", "https://salon.test:99999",
+      `https://${label(64)}.test`, `https://${label(63)}.${label(63)}.${label(63)}.${label(63)}.test`, `https://x.${label(64)}`,
+      "https://[::1]:0", "https://[1:2:3:4:5:6:7:8:9]", "https://[1::2::3]", "https://[12345::1]", "https://[::ffff:256.0.0.1]", "https://[:1]", "https://[1:]",
+      "https://[1.2.3.4]", "https://[::1.2.3]", "https://[]", "https://[::1%25eth0]"])
+      expect(() => httpsOrigin(value), value).toThrow(/^CONSENT_ORIGIN_INVALID$/);
+    // IPv6 literals: the same verdict as Node's own parser, for valid and invalid spellings.
+    const { isIPv6 } = await import("node:net");
+    for (const literal of ["::", "::1", "1::", "1:2:3:4:5:6:7::", "::2:3:4:5:6:7:8", "1:2:3:4:5:6:7:8", "1:2:3:4:5:6:1.2.3.4", "::ffff:1.2.3.4", "fe80::1:2",
+      "1:2:3:4:5:6:7:8:9", "1::2::3", "12345::", ":1", "1:", "1:2:3:4:5:6:7", "::1.2.3.256", "1.2.3.4", "1:2:3:4:5:6:7:1.2.3.4", "g::1", ":::"]) {
+      let ours: boolean;
+      try { httpsOrigin(`https://[${literal}]`); ours = true; } catch { ours = false; }
+      expect(ours, literal).toBe(isIPv6(literal));
+    }
+  });
   it("returns the configured HTTPS origin, not a request header", () => {
     expect(stagingConsentPolicy(staging)).toBe("https://salon-demo.cresavo.test");
     expect(stagingConsentPolicy({ ...staging, BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test:8443" })).toBe("https://salon-demo.cresavo.test:8443");
@@ -677,20 +701,22 @@ describe("staging runner preflight", () => {
       expect((thrown as Error).message).toMatch(/^STAGING_[A-Z_]+$/);
     }
     expect(() => loopbackAdminUrl(`postgresql://booking:${password}@db.example.test/postgres`)).toThrow(/^STAGING_DATABASE_MUST_BE_LOOPBACK$/);
-    // Credentials only in the user info: a query parameter could override or relocate them.
+    // An allowlist of query parameters: only `sslmode=disable`. Anything else could carry or relocate
+    // credentials, send one client elsewhere, or give Prisma Migrate a schema the salon does not use.
     for (const query of [`password=${password}`, `PASSWORD=${password}`, "passfile=/tmp/x", `sslpassword=${password}`, "user=other", "service=fictional",
-      "sslkey=/tmp/k", "servicefile=/tmp/s"]) {
+      "sslkey=/tmp/k", "servicefile=/tmp/s", "schema=staging", "SCHEMA=public", "options=-c%20search_path%3Dstaging", "application_name=x",
+      "host=/tmp/x", "HOSTADDR=127.0.0.2", "port=5433", "dbname=other", "database=other", "db=other", "sslmode=require", "sslmode=verify-full",
+      "sslmode=disable&sslmode=require", "sslmode=disable&application_name=x", "SSLMODE=disable", "sslmode=", "connection_limit=1", "x"]) {
       let thrown: unknown;
       try { loopbackAdminUrl(`postgresql://booking:booking@127.0.0.1:5432/postgres?${query}`); } catch (error) { thrown = error; }
-      expect((thrown as Error)?.message, query.replace(password, "[pw]")).toBe("STAGING_PG_ADMIN_URL_CREDENTIAL_PARAMETER");
+      expect((thrown as Error)?.message, query.replace(password, "[pw]")).toBe("STAGING_PG_ADMIN_URL_QUERY_REFUSED");
       expect(String((thrown as Error)?.stack).includes(password), "the password is in the error").toBe(false);
     }
-    expect(loopbackAdminUrl("postgresql://booking:booking@127.0.0.1:5432/postgres?sslmode=disable&application_name=x").hostname).toBe("127.0.0.1");
+    expect(loopbackAdminUrl("postgresql://booking:booking@127.0.0.1:5432/postgres?sslmode=disable").hostname).toBe("127.0.0.1");
     expect(loopbackAdminUrl(undefined).hostname).toBe("127.0.0.1");
-    // Every part in the URL itself: nothing left to PG* defaults or overridden by a parameter.
+    // Every part in the URL itself: nothing left to PG* defaults.
     for (const value of ["postgresql://booking:booking@127.0.0.1/postgres", "postgresql://booking@127.0.0.1:5432/postgres", "postgresql://:booking@127.0.0.1:5432/postgres",
-      "postgresql://booking:booking@127.0.0.1:5432", "postgresql://booking:booking@127.0.0.1:5432/", "postgresql://booking:booking@127.0.0.1:5432/a/b",
-      ...["host=/tmp/x", "HOSTADDR=127.0.0.2", "port=5433", "dbname=other", "database=other", "db=other"].map(q => `postgresql://booking:booking@127.0.0.1:5432/postgres?${q}`)])
+      "postgresql://booking:booking@127.0.0.1:5432", "postgresql://booking:booking@127.0.0.1:5432/", "postgresql://booking:booking@127.0.0.1:5432/a/b"])
       expect(() => loopbackAdminUrl(value), value).toThrow(/^STAGING_PG_ADMIN_URL_INCOMPLETE$/);
     const { refusePgEnvironment } = await import("../scripts/staging-consent/preflight.mjs");
     for (const name of ["PGHOST", "PGHOSTADDR", "PGPORT", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGSERVICE", "PGSERVICEFILE", "PGPASSFILE", "PGSSLMODE", "PGOPTIONS", "PGCONNECT_TIMEOUT"])

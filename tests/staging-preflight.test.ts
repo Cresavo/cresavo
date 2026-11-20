@@ -96,10 +96,12 @@ describe.skipIf(process.platform === "win32")("runner preflight in a child proce
     const root = realpathSync(mkdtempSync(join(tmpdir(), "cresavo-preflight-test-")));
     try {
       const salon = salonFixture(root);
-      // A `host` parameter (node-postgres would follow it, Prisma would not), a URL that leaves the
-      // port to PGPORT, and connection defaults in the runner's own environment.
+      // A `host` parameter (node-postgres would follow it, Prisma would not), a schema, a URL that
+      // leaves the port to PGPORT, and connection defaults in the runner's own environment.
       for (const [extra, code] of [
-        [{}, "STAGING_PG_ADMIN_URL_INCOMPLETE"],
+        [{}, "STAGING_PG_ADMIN_URL_QUERY_REFUSED"],
+        // A schema Prisma Migrate would use and the seed and salon clients would not.
+        [{ STAGING_PG_ADMIN_URL: "postgresql://booking:fictional-pass@127.0.0.1:5432/postgres?schema=staging" }, "STAGING_PG_ADMIN_URL_QUERY_REFUSED"],
         [{ STAGING_PG_ADMIN_URL: "postgresql://booking:fictional-pass@127.0.0.1/postgres" }, "STAGING_PG_ADMIN_URL_INCOMPLETE"],
         [{ STAGING_PG_ADMIN_URL: "postgresql://booking:fictional-pass@127.0.0.1/postgres", PGPORT: "5433" }, "STAGING_PG_ENVIRONMENT_REFUSED"],
         [{ STAGING_PG_ADMIN_URL: "postgresql://booking:fictional-pass@127.0.0.1:5432/postgres", PGPORT: "5433" }, "STAGING_PG_ENVIRONMENT_REFUSED"],
