@@ -69,3 +69,17 @@ commits = [
   "ebcd4ad1b754b632647082daf931792147db46a5",
 ]
 paths = ['''^tests/concept-connections-(secrets|routes|payments|messaging)\.test\.ts$''']
+
+# Consent staging channel tests (branch feat/https-consent-channel, 2026-11-20):
+# the preflight test feeds a fictional database password into malformed URLs
+# to prove that error messages never echo it. The value is made up
+# ("fictional-pass-9f3k"), was written in a sandbox with no real database
+# credentials, and is scoped to the one commit that introduced it AND this
+# file, so the same literal anywhere else is still reported.
+[[allowlists]]
+description = "Fictional password in the consent preflight test"
+condition = "AND"
+commits = ["ee835fe88b8662029c78add44fa640f8febf2d03"]
+paths = ['''^tests/consent-staging\.test\.ts$''']
+regexTarget = "match"
+regexes = ['''password = "fictional-pass-9f3k"''']
