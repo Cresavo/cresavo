@@ -251,10 +251,13 @@ model SandboxSession {
   generation Int
   expiresAt DateTime @db.Timestamptz(3)
   apiRequests Int @default(0)
+  // HMAC of the pairing bucket; one live session per bucket.
+  pairDigest String?
   audit SandboxAudit[]
   phone SandboxPhone?
   @@unique([businessId, clientId], map: "SandboxSession_client_scope_key")
   @@index([generation, expiresAt])
+  @@index([generation, pairDigest])
 }
 
 model SandboxPhone {
