@@ -3,6 +3,7 @@ import type { Prisma, SandboxSession } from "@prisma/client";
 import { z } from "zod";
 import { clientLimitKey, vercelClientAddress, verifiedClientAddress } from "../../../../scripts/client-address.mjs";
 import { AgentApiError } from "../errors";
+import { publicReadonlyResponse } from "../../public-readonly";
 import { proposalView } from "../proposals";
 import { SANDBOX_CHANNEL, SANDBOX_CUSTOMER, sandboxConfig, sandboxHost, sandboxRequested } from "./config";
 import { decideSandboxProposal } from "./ledger";
@@ -39,7 +40,9 @@ function privateResponse(body: unknown, status = 200, headers: Record<string, st
   return Response.json(body, { status, headers: { ...privateHeaders, ...headers } });
 }
 
-async function browserRequest(run: () => Promise<Response>) {
+async function browserRequest(request: Request, run: () => Promise<Response>) {
+  const readonly = publicReadonlyResponse(request);
+  if (readonly) return readonly;
   try { return await run(); }
   catch (error) {
     const known = error instanceof AgentApiError ? error : error instanceof z.ZodError
@@ -62,7 +65,7 @@ function clientQuotaDigest(request: Request) {
 }
 
 export function pairSandboxBrowser(request: Request) {
-  return browserRequest(async () => {
+  return browserRequest(request, async () => {
     const origin = sandboxBrowserOrigin(request);
     z.strictObject({}).parse(await sandboxJson(request));
     const ipDigest = clientQuotaDigest(request);
@@ -88,7 +91,7 @@ export function pairSandboxBrowser(request: Request) {
 }
 
 export function redeemSandboxPhone(request: Request) {
-  return browserRequest(async () => {
+  return browserRequest(request, async () => {
     sandboxBrowserOrigin(request);
     const input = tokenSchema.parse(await sandboxJson(request));
     const browser = token();
@@ -142,7 +145,7 @@ async function phoneTransaction<T>(request: Request, run: (tx: Prisma.Transactio
 }
 
 export function readSandboxPhone(request: Request) {
-  return browserRequest(async () => {
+  return browserRequest(request, async () => {
     sandboxBrowserOrigin(request);
     const result = await phoneTransaction(request, async (tx, session, raw) => {
       const now = await sandboxNow(tx);
@@ -164,7 +167,7 @@ export function readSandboxPhone(request: Request) {
 }
 
 export function decideSandboxPhone(request: Request) {
-  return browserRequest(async () => {
+  return browserRequest(request, async () => {
     sandboxBrowserOrigin(request);
     const input = decisionSchema.parse(await sandboxJson(request));
     const { raw } = phoneCredential(request);
