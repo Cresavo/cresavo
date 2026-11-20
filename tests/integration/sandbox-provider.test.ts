@@ -14,6 +14,8 @@ import { AGENT_SCOPES } from "@/lib/agent-api/keys";
 import { requireConsentLab } from "@/lib/agent-api/customer-identity";
 import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
+import { pairingDb } from "@/concept/pairing/db";
+import { PostgresNotifications } from "@/concept/store/postgres-notifications";
 
 const origin = "https://sandbox.example.test";
 const serviceToken = randomBytes(32).toString("hex");
@@ -64,6 +66,7 @@ describe.skipIf(process.env.BOOKING_SANDBOX_TESTS !== "1")("isolated sandbox pro
     for (const flag of ["BOOKING_CONSENT_LAB", "BOOKING_SMS_OTP_LAB", "BOOKING_OAUTH_LAB", "ASSISTANT_PAIRING"])
       expect(() => sandboxConfig({ ...process.env, [flag]: "1" })).toThrow();
     expect(() => sandboxConfig({ ...process.env, BOOKING_CONSENT_DELIVERY: "staging-inbox" })).toThrow();
+    expect(() => sandboxConfig({ ...process.env, CONCEPT_AI_BASE_URL: "0" })).toThrow();
     expect(() => requireConsentLab()).toThrow();
     expect(proxy(new NextRequest(origin + "/admin", { headers: { host: new URL(origin).host } })).status).toBe(404);
     expect(proxy(new NextRequest(origin + "/api/v1/access", { headers: { host: "other.example.test" } })).status).toBe(404);
@@ -75,6 +78,27 @@ describe.skipIf(process.env.BOOKING_SANDBOX_TESTS !== "1")("isolated sandbox pro
     try {
       await expect(ordinary.$queryRaw`SELECT 1`).rejects.toThrow();
       await expect(invalidSandbox.$queryRaw`SELECT 1`).rejects.toThrow();
+      vi.stubEnv("ASSISTANT_PAIRING", "1");
+      vi.stubEnv("PAIRING_DATABASE_URL", process.env.DATABASE_URL);
+      try {
+        await expect(pairingDb().$queryRaw`SELECT 1`).rejects.toThrow();
+      } finally {
+        await pairingDb().$disconnect();
+        vi.stubEnv("ASSISTANT_PAIRING", undefined);
+        vi.stubEnv("PAIRING_DATABASE_URL", undefined);
+      }
+      const onReady = vi.fn();
+      const notify = new PostgresNotifications(process.env.DATABASE_URL!, vi.fn(), onReady);
+      notify.start();
+      await new Promise(resolve => setTimeout(resolve, 80));
+      notify.stop();
+      expect(onReady).not.toHaveBeenCalled();
+      await expect(sandboxTransaction(tx => tx.$executeRaw`
+        UPDATE cresavo_sandbox.installation SET id = ${randomUUID()}::uuid
+      `)).rejects.toThrow();
+      await expect(sandboxTransaction(tx => tx.$executeRaw`
+        UPDATE cresavo_sandbox.generation SET generation = generation + 1
+      `)).rejects.toThrow();
     } finally {
       await Promise.all([ordinary.$disconnect(), invalidSandbox.$disconnect()]);
     }

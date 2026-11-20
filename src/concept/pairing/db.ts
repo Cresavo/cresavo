@@ -1,6 +1,7 @@
 import { pairingDatabaseUrl } from "../../../scripts/pairing-config.mjs";
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { assertDatabaseMode } from "../../../scripts/database.mjs";
 
 export type Tx = Prisma.TransactionClient;
 const shared = globalThis as typeof globalThis & { pairingDb?: PrismaClient };
@@ -12,6 +13,7 @@ export function pairingDb() {
   return shared.pairingDb ??= new PrismaClient({ adapter: new PrismaPg({
     connectionString, max: 4, connectionTimeoutMillis: 5000,
     options: "-c timezone=UTC",
+    onConnect: client => assertDatabaseMode(client),
   }) });
 }
 

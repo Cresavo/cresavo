@@ -1,4 +1,4 @@
-import { Prisma, type PrismaClient, type SandboxSession } from "@prisma/client";
+import type { Prisma, PrismaClient, SandboxSession } from "@prisma/client";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { createDatabaseClient } from "../../../../scripts/database.mjs";
 import { AgentApiError } from "../errors";
@@ -17,13 +17,13 @@ export async function sandboxTransaction<T>(
   const config = sandboxConfig();
   client ??= createDatabaseClient(undefined, 2, "sandbox");
   return client.$transaction(async tx => {
-    const lock = exclusive ? "FOR UPDATE" : "FOR SHARE";
-    // Only a fixed lock clause is interpolated. Identity and revision are parameters.
+    // The runtime can share the transaction lock without UPDATE access to the installation or generation.
+    if (exclusive) await tx.$executeRaw`SELECT pg_advisory_xact_lock(64119334)`;
+    else await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(64119334)`;
     const [row] = await tx.$queryRaw<Installation[]> `
-      SELECT id::text, generation, revision, reset_at AS "resetAt"
-      FROM cresavo_sandbox.installation WHERE singleton
-        AND id = ${config.installation}::uuid AND revision = ${config.revision}
-      ${Prisma.raw(lock)}
+      SELECT i.id::text, g.generation, i.revision, g.reset_at AS "resetAt"
+      FROM cresavo_sandbox.installation i CROSS JOIN cresavo_sandbox.generation g
+      WHERE i.singleton AND g.singleton AND i.id = ${config.installation}::uuid AND i.revision = ${config.revision}
     `;
     if (!row) throw new AgentApiError("provider_configuration_invalid");
     return run(tx, row);
