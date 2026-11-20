@@ -16,4 +16,7 @@ GRANT UPDATE ("active") ON "AgentClient" TO :"runtime_role";
 GRANT UPDATE ("revokedAt") ON "AgentApiKey", "AgentMandate" TO :"runtime_role";
 GRANT UPDATE ("apiRequests") ON "SandboxSession" TO :"runtime_role";
 GRANT UPDATE ("status", "mandateId") ON "AgentProposal" TO :"runtime_role";
+GRANT SELECT, INSERT ON "SandboxPhone", "SandboxPairBudget" TO :"runtime_role";
+GRANT UPDATE ("browserHash", "redeemedAt", "requests") ON "SandboxPhone" TO :"runtime_role";
+GRANT UPDATE ("count") ON "SandboxPairBudget" TO :"runtime_role";
 COMMIT;
