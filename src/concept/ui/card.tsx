@@ -2,7 +2,7 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { cx } from "./cx";
 
 export function Card({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cx("rounded-lg bg-surface ring-1 ring-hairline", className)} {...rest} />;
+  return <div className={cx("ui-card rounded-lg bg-surface ring-1 ring-hairline", className)} {...rest} />;
 }
 
 interface SectionProps {

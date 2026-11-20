@@ -4,7 +4,7 @@ import { useRef, type ReactNode } from "react";
 import { CheckCircle2, ImagePlus, Trash2 } from "lucide-react";
 import { t } from "../../i18n";
 import { buildTokens, contrastReport, type Palette } from "../../page/colour";
-import { CORNERS, FONT_PAIR_IDS, PALETTES, PALETTE_IDS, PHOTO_IDS, type PageTheme } from "../../page/theme";
+import { CORNERS, FONT_PAIR_IDS, PALETTES, PALETTE_IDS, PHOTO_IDS, STYLES, type PageTheme } from "../../page/theme";
 import { Button } from "../../ui/button";
 import { Chip, Input, Segmented } from "../../ui/controls";
 import { showToast } from "../../ui/toast";
@@ -32,6 +32,9 @@ export function ThemeControls({ theme, onChange }: Props) {
       </Group>
       <Group label={t("pageEditor.corners")}>
         <Segmented label={t("pageEditor.corners")} value={theme.corners} onChange={(corners) => onChange({ corners })} options={CORNERS.map((value) => ({ value, label: t(`page.corners.${value}`) }))} />
+      </Group>
+      <Group label={t("pageEditor.style")}>
+        <Segmented label={t("pageEditor.style")} value={theme.style} onChange={(style) => onChange({ style })} options={STYLES.map((value) => ({ value, label: t(`page.style.${value}`) }))} />
       </Group>
       <Group label={t("pageEditor.photo")}>
         <Segmented label={t("pageEditor.photo")} value={theme.heroPhoto} onChange={(heroPhoto) => onChange({ heroPhoto })} options={PHOTO_IDS.map((value) => ({ value, label: t(`page.photo.${value}`) }))} />

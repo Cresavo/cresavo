@@ -54,7 +54,7 @@ export function SalonPage() {
       case "reviews":
         return state.modules.reviews ? <Reviews state={state} variant={variant} /> : null;
       case "gallery":
-        return <GallerySection variant={variant} />;
+        return <GallerySection variant={variant} shown={sections.some((s) => s.kind === "hero" && s.variant !== "plain") ? theme.heroPhoto : undefined} />;
       case "map":
         return <Location state={state} now={now} variant={variant} />;
       case "faq":
@@ -89,9 +89,9 @@ export function SalonPage() {
         <div className={cx("min-w-0 lg:col-start-1", inFlow && "lg:col-span-2")}>{flow}</div>
         {body.map((item) =>
           item.aside ? (
-            <aside key={item.key} className={cx("min-w-0 lg:sticky lg:top-6 lg:col-start-2", inFlow ? "lg:row-start-2" : "lg:row-start-1")} style={{ gridRowEnd: `span ${asideRows}` }}>{item.node}</aside>
+            <aside key={item.key} data-section={item.key} className={cx("min-w-0 lg:sticky lg:top-6 lg:col-start-2", inFlow ? "lg:row-start-2" : "lg:row-start-1")} style={{ gridRowEnd: `span ${asideRows}` }}>{item.node}</aside>
           ) : (
-            <div key={item.key} className="min-w-0 lg:col-start-1">{item.node}</div>
+            <div key={item.key} data-section={item.key} className="min-w-0 lg:col-start-1">{item.node}</div>
           ),
         )}
       </div>

@@ -7,7 +7,7 @@ import { FIRST_NAMES_F, FIRST_NAMES_M, LAST_NAMES } from "./catalog";
 import { addDays, diffDays, formatTime, weekday } from "./dates";
 import { makeMonthHistory } from "../finance/history";
 import { DEFAULT_PAGE } from "../page/config";
-import { PALETTES } from "../page/theme";
+import { applyTemplate } from "../page/templates";
 import { DEFAULT_PACK, getPack } from "../packs";
 import { ROOMS } from "../packs/base";
 import { startCategories } from "../services/categories";
@@ -33,7 +33,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 23;
+export const DEMO_VERSION = 24;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -638,7 +638,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     tickets: [],
     memory: [],
     routines: [],
-    page: pack.palette ? { ...DEFAULT_PAGE, theme: { ...DEFAULT_PAGE.theme, colors: PALETTES[pack.palette] } } : DEFAULT_PAGE,
+    page: pack.template ? applyTemplate(DEFAULT_PAGE, pack.template) : DEFAULT_PAGE,
     domain: null,
   };
 }

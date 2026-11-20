@@ -5,6 +5,8 @@ import { defaultBusinessLocalization } from "../i18n/business";
 import { DEFAULT_REMINDER_SETTINGS } from "../booking/reminders";
 import { DEFAULT_PAGE, type PageConfig } from "../page/config";
 import { DEFAULT_SECTIONS, type PageSection } from "../page/sections";
+import { applyTemplate } from "../page/templates";
+import { PALETTES } from "../page/theme";
 import { getPack } from "../packs";
 import { startCategories } from "../services/categories";
 import { DEMO_VERSION } from "./generate";
@@ -16,6 +18,8 @@ import type { DemoState, PackId } from "./types";
 // version introduced; anything older than the oldest step starts fresh.
 
 type Saved = Record<string, unknown> & { version: number };
+
+const V23_EKO_PAGE: PageConfig = { ...DEFAULT_PAGE, theme: { ...DEFAULT_PAGE.theme, colors: PALETTES.forest } };
 
 const V15_SECTIONS: PageSection[] = [
   { kind: "hero", variant: "photo" },
@@ -71,6 +75,13 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
   // salons with every module off. Existing salons keep their modules. Deposit-branch saves could
   // reach v22 before reminder settings existed, so they get the defaults here.
   22: (saved) => ({ ...saved, reminderSettings: saved.reminderSettings ?? { ...DEFAULT_REMINDER_SETTINGS }, version: 23 }),
+  // v24 gives the demo salon the Eko design. A page still wearing the look it was generated with
+  // gets it; a page the owner has changed is theirs and stays. Every page gets the new section style.
+  23: (saved) => {
+    const old = saved.page as PageConfig;
+    const page: PageConfig = { ...old, theme: { ...old.theme, style: old.theme.style ?? DEFAULT_PAGE.theme.style } };
+    return { ...saved, page: jsonEqual(page, V23_EKO_PAGE) ? applyTemplate(DEFAULT_PAGE, "eko") : page, version: 24 };
+  },
 };
 
 /** The oldest saved version that can still be migrated. */

@@ -8,6 +8,7 @@ import { StudioShell } from "@/concept/studio/shell";
 import { headers } from "next/headers";
 import { pairingOrigin } from "@/concept/pairing/policy";
 import { PairingProvider } from "@/concept/studio/pairing/session";
+import { PAGE_FONTS } from "../page-fonts";
 import "./studio.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -28,7 +29,7 @@ export default async function StudioLayout({ children }: { children: ReactNode }
   const enabled = !!pairingOrigin(await headers());
   return (
     <StudioLanguage>
-      <div className="studio-root">
+      <div className={`studio-root ${PAGE_FONTS}`}>
         <StudioShell>{enabled ? <PairingProvider>{children}</PairingProvider> : children}</StudioShell>
       </div>
     </StudioLanguage>

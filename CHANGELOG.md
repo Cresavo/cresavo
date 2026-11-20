@@ -16,8 +16,14 @@ All notable changes to this project are documented here. Format follows
 - Erasing a customer for good (`customer/erase`) removes them and their records from the salon and the trash. Activity entries about them keep no text or undo data, and their name, phone or email in other notes is replaced by a marker in the salon's language. Slugs, ids and other customers' details are never changed. Stores refuse it as an ordinary change. The staged Postgres store's `eraseSubject` also redacts its audit log, including idempotency keys and phones typed in another format, and the messages to that customer in the same transaction. It cancels unsent messages to them, reports one that is being sent, and forgets only the idempotency keys that held them. The SECURITY DEFINER version for production is in `prisma/grants/erase-subject.sql`, created in one transaction without access for other roles.
 - The staged Postgres store publishes commit versions across instances through LISTEN/NOTIFY. It adds caller-scoped idempotency keys, privileged tenant replacement, a daily demo reset and 24-hour sandboxes with simulated effects. Operators can run `npm run store:sweep` for retention and `npm run store:loadtest` to measure a fictional 10,000-booking tenant. The store records local size and latency metrics and refuses documents over 8 MB.
 
+- Four ready-made booking page designs, Eko, Atelier, Noir and Studio, can be picked in the booking page editor and adjusted afterwards. A design sets colours, fonts, corners, top photo and sections and keeps the owner's logo, Instagram name and own CSS. Adding `?design=<name>` to a booking page address shows the page in that design without saving anything.
+- The top of the booking page has two more looks: the name on a tall photo, and name and photo side by side. Both carry a Book a time button. There are four more font choices, two more colour palettes and two more demo photos.
+- Sections can be drawn three ways: in cards, as flat lists under rules with small capital labels, or in borderless tinted cards. The booking flow looks the same in all three.
+- The booking page header stays on one row on a phone, the price list names the practitioner without repeating their portrait on every row, team profiles stand without a box, and the gallery leaves out the photo already shown at the top.
+
 ### Changed
 
+- Salong Eko wears the Eko design: the name on the photo and warmer headings. A saved demo that still had the old look is moved over; a page that was changed is left alone.
 - The staff preview starts in Advanced, with a return to the owner view available while previewing.
 - Finance opens with what is left this month and a comparison with last month. Send to my accountant explains the two download options and the dates they cover.
 - Gift cards and packages share one add-on and one More entry with two tabs. Owners can approve and reply to reviews from the Inbox.
