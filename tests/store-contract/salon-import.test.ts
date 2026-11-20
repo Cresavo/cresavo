@@ -1,0 +1,113 @@
+import { IDBFactory } from "fake-indexeddb";
+import { afterEach, expect, it } from "vitest";
+import { MemorySalonDb } from "@/concept/store/memory-salon-db";
+import { createSalonDb, type SalonDbHandle } from "@/concept/store/salon-db";
+import { IMPORT_MARKER, LAST_USED_OWN, LEGACY_KEY, importLegacy, legacySnapshot } from "@/concept/store/salon-import";
+
+// One-time import of the old localStorage snapshots (BROWSER_STORE_IDB.md, Migration).
+// Fictional salons only.
+
+const demo = JSON.stringify({ salon: { name: "Salong Eko" }, seq: 7 });
+const own = JSON.stringify({ salon: { name: "Studio Lind" }, industry: "hair", seq: 3 });
+const NOW = Date.UTC(2026, 10, 20, 9);
+
+function storage(entries: Record<string, string> = {}) {
+  const items = new Map(Object.entries(entries));
+  return {
+    items,
+    getItem: (key: string) => items.get(key) ?? null,
+    removeItem: (key: string) => { items.delete(key); },
+  };
+}
+
+const handles: SalonDbHandle[] = [];
+afterEach(() => handles.splice(0).forEach((handle) => handle.close()));
+function open(factory = new IDBFactory()) {
+  const handle = createSalonDb({ factory, channel: null });
+  handles.push(handle);
+  return handle;
+}
+
+let epochs = 0;
+const options = { now: NOW, removeLegacy: true, caches: null, epoch: () => `epoch-${++epochs}` };
+const markerOf = (db: SalonDbHandle | MemorySalonDb) => db.write({ meta: [IMPORT_MARKER, LAST_USED_OWN] }, (tx) => [tx.meta(IMPORT_MARKER), tx.meta(LAST_USED_OWN)]);
+
+it("reads the old keys with the old rules", () => {
+  expect(legacySnapshot(storage({ [LEGACY_KEY]: demo, [`${LEGACY_KEY}-own`]: own, [`${LEGACY_KEY}-own-last-used`]: "1000" })))
+    .toEqual({ primary: "demo", demo, own, lastUsed: 1000 });
+  // Older versions kept the selected own salon at the unsuffixed key.
+  expect(legacySnapshot(storage({ [LEGACY_KEY]: own, [`${LEGACY_KEY}-demo`]: demo, [`${LEGACY_KEY}-last-used`]: "2000" })))
+    .toEqual({ primary: "own", demo, own, lastUsed: 2000 });
+  // Corrupt text and a salon of the wrong kind are not imported, as the old load refused them.
+  expect(legacySnapshot(storage({ [LEGACY_KEY]: "{not json", [`${LEGACY_KEY}-own`]: demo })))
+    .toEqual({ primary: "demo", demo: null, own: null, lastUsed: null });
+});
+
+it("imports once, writes the marker in the same transaction and removes the legacy keys", async () => {
+  const db = open();
+  const legacy = storage({ [LEGACY_KEY]: demo, [`${LEGACY_KEY}-own`]: own, [`${LEGACY_KEY}-own-last-used`]: "1000" });
+  const deleted: string[] = [];
+  const result = await importLegacy(db, legacy, { ...options, caches: { delete: async (name: string) => { deleted.push(name); return true; } } });
+  expect(result.ok && result.value).toEqual({ marker: { at: NOW, primary: "demo" }, imported: true });
+  const salons = await db.readAll();
+  expect(salons.demo).toMatchObject({ version: 1, doc: demo });
+  expect(salons.own).toMatchObject({ version: 1, doc: own });
+  expect(salons.demo!.epoch).not.toBe(salons.own!.epoch);
+  expect(await markerOf(db)).toMatchObject({ ok: true, value: [{ at: NOW, primary: "demo" }, 1000] });
+  expect([...legacy.items.keys()]).toEqual([]);
+  expect(deleted.sort()).toEqual(["concept-booking-sequence", "concept-studio-store"]);
+});
+
+it("keeps the primary workspace of a browser whose unsuffixed key held the trial salon", async () => {
+  const db = open();
+  const result = await importLegacy(db, storage({ [LEGACY_KEY]: own, [`${LEGACY_KEY}-demo`]: demo }), options);
+  expect(result.ok && result.value.marker.primary).toBe("own");
+  expect((await db.read("own"))!.doc).toBe(own);
+});
+
+it("never resurrects a deleted trial salon from a reappearing legacy key", async () => {
+  const factory = new IDBFactory();
+  const db = open(factory);
+  await importLegacy(db, storage({ [`${LEGACY_KEY}-own`]: own }), options);
+  await db.write({}, (tx) => tx.deleteSalon("own"));
+  // An old tab or a test's init script writes the legacy key again.
+  const again = storage({ [`${LEGACY_KEY}-own`]: own, [LEGACY_KEY]: demo });
+  const result = await importLegacy(open(factory), again, { ...options, now: NOW + 1 });
+  expect(result.ok && result.value).toEqual({ marker: { at: NOW, primary: "demo" }, imported: false });
+  expect(await db.readAll()).toEqual({ demo: null, own: null });
+  expect([...again.items.keys()]).toEqual([]);
+});
+
+it("imports exactly once when two tabs race", async () => {
+  const factory = new IDBFactory();
+  const results = await Promise.all([
+    importLegacy(open(factory), storage({ [LEGACY_KEY]: demo }), options),
+    importLegacy(open(factory), storage({ [LEGACY_KEY]: demo }), options),
+  ]);
+  expect(results.map((result) => result.ok && result.value.imported).sort()).toEqual([false, true]);
+  expect((await open(factory).read("demo"))!.version).toBe(1);
+});
+
+it("never overwrites a salon already in the database", async () => {
+  const db = open();
+  await db.write({}, (tx) => tx.putSalon("demo", { version: 9, epoch: "current", doc: demo }));
+  await importLegacy(db, storage({ [LEGACY_KEY]: JSON.stringify({ salon: { name: "Older copy" } }) }), options);
+  expect(await db.read("demo")).toEqual({ version: 9, epoch: "current", doc: demo });
+});
+
+it("writes a marker even with nothing to import", async () => {
+  const db = open();
+  const result = await importLegacy(db, null, options);
+  expect(result.ok && result.value.imported).toBe(true);
+  expect(await db.readAll()).toEqual({ demo: null, own: null });
+  const later = await importLegacy(db, storage({ [LEGACY_KEY]: demo }), options);
+  expect(later.ok && later.value.imported).toBe(false);
+});
+
+it("seeds memory mode without touching the legacy keys", async () => {
+  const db = new MemorySalonDb();
+  const legacy = storage({ [LEGACY_KEY]: demo });
+  await importLegacy(db, legacy, { ...options, removeLegacy: false });
+  expect((await db.read("demo"))!.doc).toBe(demo);
+  expect(legacy.items.get(LEGACY_KEY)).toBe(demo);
+});
