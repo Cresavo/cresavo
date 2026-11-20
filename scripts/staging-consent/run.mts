@@ -30,8 +30,11 @@ const results: string[] = [];
 let failures = 0;
 let step = "PREFLIGHT";
 const pass = (code: string, detail = "") => { results.push(code); say(`PASS ${code}${detail ? " - " + detail : ""}`); };
+// Preflight runs before the error handlers exist, so a failed check must not echo what it checked:
+// assert's messages and its `actual`/`expected` fields would print an environment value raw.
+function refuse(ok: unknown, code: string): asserts ok { if (!ok) throw new Error(code); }
 const sayRevision = (label: string, sha: string, dirty: boolean) => {
-  assert.match(sha, /^[a-f0-9]{40}$/);
+  refuse(/^[a-f0-9]{40}$/.test(sha), "STAGING_REVISION_INVALID");
   console.log(`REVISION ${label} ${sha}${dirty ? " (working tree has uncommitted changes)" : ""}`);
 };
 async function scenario(code: string, run: () => Promise<void>) {
@@ -46,18 +49,21 @@ async function scenario(code: string, run: () => Promise<void>) {
 
 // ---- Preflight: configuration comes only from this process environment ----
 const checkoutValue = process.env.GATEWAY_CHECKOUT;
-assert(checkoutValue, "Set GATEWAY_CHECKOUT to a separate gateway checkout outside this repository");
-const checkout = realpathSync(resolve(checkoutValue));
-assert(!(checkout + sep).startsWith(repo + sep) && !(repo + sep).startsWith(checkout + sep), "STAGING_GATEWAY_CHECKOUT_INSIDE_REPOSITORY");
+// GATEWAY_CHECKOUT: a separate gateway checkout outside this repository.
+refuse(checkoutValue, "STAGING_GATEWAY_CHECKOUT_MISSING");
+let checkout: string;
+// realpath's own error would name the path.
+try { checkout = realpathSync(resolve(checkoutValue)); } catch { throw new Error("STAGING_GATEWAY_CHECKOUT_INVALID"); }
+refuse(!(checkout + sep).startsWith(repo + sep) && !(repo + sep).startsWith(checkout + sep), "STAGING_GATEWAY_CHECKOUT_INSIDE_REPOSITORY");
 for (const dir of [repo, checkout])
   for (const name of [".env", ".env.local", ".env.production", ".env.production.local"])
-    assert(!existsSync(join(dir, name)), "STAGING_ENV_FILE_REFUSED");
-assert(!process.env.VERCEL && !process.env.VERCEL_ENV, "STAGING_CLOUD_REFUSED");
+    refuse(!existsSync(join(dir, name)), "STAGING_ENV_FILE_REFUSED");
+refuse(!process.env.VERCEL && !process.env.VERCEL_ENV, "STAGING_CLOUD_REFUSED");
 const hostPattern = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,61}[a-z0-9]$/;
 const gatewayHost = (process.env.STAGING_GATEWAY_HOST ?? "gateway.cresavo.test").toLowerCase();
 const salonHost = (process.env.STAGING_SALON_HOST ?? "salon-demo.cresavo.test").toLowerCase();
-for (const host of [gatewayHost, salonHost]) assert(hostPattern.test(host) && !isIP(host), "STAGING_HOST_INVALID");
-assert.notEqual(gatewayHost, salonHost, "STAGING_HOSTS_MUST_DIFFER");
+for (const host of [gatewayHost, salonHost]) refuse(hostPattern.test(host) && !isIP(host), "STAGING_HOST_INVALID");
+refuse(gatewayHost !== salonHost, "STAGING_HOSTS_MUST_DIFFER");
 // Failing until the run has finished, cleaned up and passed every check.
 process.exitCode = 1;
 // Diagnostics and remote-browser settings were refused by the first import (preflight-env.mts).
@@ -68,10 +74,12 @@ const { approveWithLostResponse, close, decide, expectedText, launchBrowser, ope
 const adminUrl = loopbackAdminUrl(process.env.STAGING_PG_ADMIN_URL);
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
 const gatewayRevision = process.env.STAGING_GATEWAY_REVISION ?? pin.gatewayRevision;
-assert.match(gatewayRevision, /^[a-f0-9]{40}$/);
-assert.equal(git(checkout, "rev-parse", `${gatewayRevision}^{commit}`), gatewayRevision, "STAGING_GATEWAY_REVISION_MISSING");
+refuse(typeof gatewayRevision === "string" && /^[a-f0-9]{40}$/.test(gatewayRevision), "STAGING_GATEWAY_REVISION_INVALID");
+let resolvedRevision = "";
+try { resolvedRevision = git(checkout, "rev-parse", `${gatewayRevision}^{commit}`); } catch { /* reported below */ }
+refuse(resolvedRevision === gatewayRevision, "STAGING_GATEWAY_REVISION_MISSING");
 const salonRevision = { sha: git(repo, "rev-parse", "HEAD"), dirty: git(repo, "status", "--porcelain") !== "" };
-if (process.env.CI) assert(!salonRevision.dirty, "STAGING_DIRTY_CI_REFUSED");
+if (process.env.CI) refuse(!salonRevision.dirty, "STAGING_DIRTY_CI_REFUSED");
 sayRevision("cresavo", salonRevision.sha, salonRevision.dirty);
 sayRevision("gateway", gatewayRevision, false);
 say(`HOSTS gateway=${gatewayHost} salon=${salonHost} (loopback only, ephemeral CA)`);
@@ -132,7 +140,9 @@ let cleaned: Promise<void> | undefined;
 // Once only, whichever of the main flow and a signal gets here first.
 const cleanup = () => (cleaned ??= cleanupOnce());
 async function cleanupOnce() {
-  await browsers.closeAll();
+  // Every browser is attempted; one that would not close fails the run, the rest of cleanup still runs.
+  const browserFailures = await browsers.closeAll();
+  if (browserFailures) { failures++; say(`FAIL BROWSERS_CLOSED - ${browserFailures} browser(s) did not close`); }
   for (const server of servers) server.close();
   // Stops the salon, gateway and agent, and waits until each has closed its streams.
   await stopAll();

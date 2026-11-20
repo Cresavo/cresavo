@@ -87,3 +87,13 @@ const CONSENT_HOST_PATHS = /^\/(?:consent\/[^/]+(?:\/decision)?|admin(?:\/.*)?|a
 export function consentHostPathAllowed(pathname) {
   return CONSENT_HOST_PATHS.test(pathname);
 }
+
+/**
+ * Whether this host serves a path: on the consent host only its allowlisted paths (as the proxy
+ * enforces), everywhere else every path. Pages use it to hide links the host would answer with 404.
+ */
+export function hostServesPath(env, rawHost, pathname) {
+  const host = String(rawHost ?? "").trim().toLowerCase().replace(/:\d+$/, "").replace(/\.$/, "");
+  const consentHost = stagingConsentHost(env);
+  return consentHost === null || host !== consentHost || consentHostPathAllowed(pathname);
+}

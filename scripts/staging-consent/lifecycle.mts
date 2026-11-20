@@ -52,13 +52,14 @@ export const CLEANUP_SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
 export function launchedBrowsers<T extends { close(): Promise<void> }>() {
   const pending = new Set<Promise<unknown>>();
   const started: T[] = [];
-  let closing = false;
+  let closing = false, closeFailures = 0;
+  const closeOne = async (browser: T) => { try { await browser.close(); } catch { closeFailures++; } };
   return {
     start(launch: () => Promise<T>): Promise<T> {
       if (closing) return Promise.reject(new Error("STAGING_STOPPING"));
       const run = (async () => {
         const browser = await launch();
-        if (closing) { await browser.close().catch(() => {}); throw new Error("STAGING_STOPPING"); }
+        if (closing) { await closeOne(browser); throw new Error("STAGING_STOPPING"); }
         started.push(browser);
         return browser;
       })();
@@ -68,10 +69,15 @@ export function launchedBrowsers<T extends { close(): Promise<void> }>() {
       pending.add(tracked);
       return run;
     },
+    /**
+     * Closes every browser, attempting each one whatever the others do, and returns how many
+     * could not be closed: the runner counts them as a failure instead of reporting a clean run.
+     */
     async closeAll() {
       closing = true;
       await Promise.allSettled([...pending]);
-      for (const browser of started.splice(0)) await browser.close().catch(() => {});
+      await Promise.all(started.splice(0).map(closeOne));
+      return closeFailures;
     },
   };
 }

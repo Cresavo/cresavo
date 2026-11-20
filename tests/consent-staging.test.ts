@@ -158,6 +158,22 @@ describe("staging link and recipient", () => {
   });
 });
 
+describe("owner pages on the consent-only host", () => {
+  it("hide the customer-booking link where the host does not serve the booking page", async () => {
+    const { hostServesPath } = await import("../scripts/consent-channel-policy.mjs");
+    // On the consent host, at any port, "/" is not served: the link would lead to a 404.
+    for (const host of ["salon-demo.cresavo.test", "salon-demo.cresavo.test:8443", "SALON-DEMO.cresavo.test."])
+      expect(hostServesPath(staging, host, "/"), host).toBe(false);
+    expect(hostServesPath(staging, "salon-demo.cresavo.test", "/admin")).toBe(true);
+    // Anywhere else, and without the staging channel, the link stays.
+    expect(hostServesPath(staging, "localhost:3000", "/")).toBe(true);
+    expect(hostServesPath({}, "salon-demo.cresavo.test", "/")).toBe(true);
+    // Both owner pages decide through this rule, not with a copy of it.
+    for (const file of ["../src/app/admin/page.tsx", "../src/app/admin/header.tsx"])
+      expect(readFileSync(new URL(file, import.meta.url), "utf8"), file).toMatch(/servesPath\("\/"\)/);
+  });
+});
+
 describe("proposal salon label", () => {
   it("names the proposal's own business, as the customer page does, for every business", async () => {
     const { proposalView } = await import("../src/lib/agent-api/proposals");

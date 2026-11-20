@@ -2,7 +2,7 @@
 // throwaway git checkout of its own scripts) so the developer's checkout, a local .env included,
 // cannot change what is asserted.
 import { execFileSync, spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,6 +55,7 @@ function salonFixture(root: string, withEnvFile = false) {
 
 function runPreflight(root: string, salon: string, extra: Record<string, string> = {}, preload: string[] = []) {
   const checkout = join(root, "gateway"), runTmp = join(root, "tmp");
+  if (existsSync(checkout)) rmSync(checkout, { recursive: true, force: true });
   mkdirSync(checkout, { recursive: true }); mkdirSync(runTmp, { recursive: true });
   const git = (...args: string[]) => execFileSync("git", ["-C", checkout, "-c", "user.name=Fictional", "-c", "user.email=fictional@example.test", ...args], { encoding: "utf8" }).trim();
   git("init", "-q"); writeFileSync(join(checkout, "README"), "fictional\n"); git("add", "README"); git("commit", "-q", "-m", "fictional");
@@ -100,6 +101,25 @@ describe.skipIf(process.platform === "win32")("runner preflight in a child proce
       expect(readdirSync(root).filter(name => name.startsWith("cresavo-staging-"))).toEqual([]);
     } finally { rmSync(root, { recursive: true, force: true }); }
   }, 90_000);
+
+  it("never echoes a misconfigured value before the error handlers exist", () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "cresavo-preflight-test-")));
+    try {
+      const salon = salonFixture(root), secret = "fictional-leaked-credential-9q7";
+      // A credential (or a URL carrying one) pasted where the gateway revision belongs.
+      for (const [extra, code] of [
+        [{ STAGING_GATEWAY_REVISION: `postgresql://booking:${secret}@127.0.0.1/x` }, "STAGING_GATEWAY_REVISION_INVALID"],
+        [{ STAGING_GATEWAY_REVISION: secret }, "STAGING_GATEWAY_REVISION_INVALID"],
+        [{ GATEWAY_CHECKOUT: join(root, `missing-${secret}`) }, "STAGING_GATEWAY_CHECKOUT_INVALID"],
+        [{ STAGING_GATEWAY_HOST: `${secret}.cresavo.test`, STAGING_SALON_HOST: `${secret}.cresavo.test` }, "STAGING_HOSTS_MUST_DIFFER"],
+      ] as const) {
+        const { output, status } = runPreflight(root, salon, extra);
+        expect(status, code).not.toBe(0);
+        expect(output.includes(secret), `${code}: the value appears in the output`).toBe(false);
+        expect(output.includes(code), `the code ${code} is reported`).toBe(true);
+      }
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  }, 120_000);
 
   it("runs from its own fixture: a .env in a checkout is refused there, and only there", () => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), "cresavo-preflight-test-")));

@@ -98,3 +98,23 @@ it("reports a failed browser launch once, to its caller, with no unhandled rejec
     await browsers.closeAll();
   } finally { process.off("unhandledRejection", listener); }
 });
+
+it("attempts every browser close and reports the ones that failed", async () => {
+  const { launchedBrowsers } = await import("../scripts/staging-consent/lifecycle.mjs");
+  const closed: string[] = [];
+  const browser = (name: string, fails = false) => ({ close: async () => { if (fails) throw new Error("PLAYWRIGHT_CLOSE_FAILED"); closed.push(name); } });
+  const browsers = launchedBrowsers<ReturnType<typeof browser>>();
+  await browsers.start(async () => browser("customer", true));
+  await browsers.start(async () => browser("owner"));
+  // One close fails: the other is still closed, and the failure is counted, not swallowed.
+  expect(await browsers.closeAll()).toBe(1);
+  expect(closed).toEqual(["owner"]);
+  // A launch that finished during cleanup and could not be closed counts as well.
+  const late = launchedBrowsers<ReturnType<typeof browser>>();
+  let finish!: () => void;
+  const pending = late.start(() => new Promise(resolve => { finish = () => resolve(browser("late", true)); }));
+  const cleanup = late.closeAll();
+  finish();
+  await expect(pending).rejects.toThrow(/^STAGING_STOPPING$/);
+  expect(await cleanup).toBe(1);
+});

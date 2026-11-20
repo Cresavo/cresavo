@@ -22,7 +22,7 @@ host: the consent page and its decision endpoint (`/consent/*`), the owner's log
 calendar (`/admin`, `/admin/*`, `/api/admin/*`, `/api/availability`), the API the
 gateway calls (`/api/v1/*`), the language choice (`/api/locale`) and static assets
 (`/_next/*`, `/favicon.ico`, `/brand/*`, `/robots.txt`). Every other path on that host
-answers `404`. Without the channel, host routing is unchanged.
+answers `404`, and the owner pages there hide their link to the customer booking page. Without the channel, host routing is unchanged.
 
 ## Configuration
 
@@ -235,7 +235,9 @@ The runner:
    is never dropped). Once shutdown has begun no new child process starts. The runner, not
    Playwright, handles SIGINT, SIGTERM and SIGHUP (a closed terminal), and runs the same
    full cleanup for each. A browser launch still pending when a signal arrives is waited for
-   and its browser closed; none starts after cleanup has begun. The exit status is 1 from the start and becomes 0 only after cleanup
+   and its browser closed; none starts after cleanup has begun. Every browser is closed even if another fails to; a
+   browser that will not close is reported as `FAIL BROWSERS_CLOSED` and fails the run. Every
+   preflight check reports a static code only, never the value it rejected. The exit status is 1 from the start and becomes 0 only after cleanup
    completed and every check passed; a cleanup that throws is reported as `FAIL CLEANUP`.
    The four loopback ports (two servers, two TLS proxies) are chosen together, so they are
    always distinct. When a server or step exits, whatever is left of its process group is
