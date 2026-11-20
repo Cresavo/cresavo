@@ -118,3 +118,30 @@ it("attempts every browser close and reports the ones that failed", async () => 
   await expect(pending).rejects.toThrow(/^STAGING_STOPPING$/);
   expect(await cleanup).toBe(1);
 });
+
+it.skipIf(process.platform === "win32")("cleans up and exits non-zero when an error escapes a callback the main flow waits on forever", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { fileURLToPath } = await import("node:url");
+  const dir = mkdtempSync(join(tmpdir(), "cresavo-fatal-test-")), marker = join(dir, "cleaned"), script = join(dir, "runner.mts");
+  const lifecycle = fileURLToPath(new URL("../scripts/staging-consent/lifecycle.mts", import.meta.url));
+  try {
+    // Like the runner: a server keeps the process alive, the main flow awaits a promise that only
+    // a callback would settle, and that callback throws instead.
+    writeFileSync(script, `import { onFatalError } from ${JSON.stringify(lifecycle)};
+      import { writeFileSync } from "node:fs";
+      const keepAlive = setInterval(() => {}, 1000);
+      onFatalError(() => console.log("FAIL UNCAUGHT_ERROR"), async () => { clearInterval(keepAlive); writeFileSync(${JSON.stringify(marker)}, "dropped"); });
+      setTimeout(() => { throw new Error("callback failed before settling"); }, 50);
+      await new Promise(() => {});
+      console.log("MAIN_FLOW_CONTINUED");`);
+    const result = spawnSync(process.execPath, ["--import", "tsx", script], { cwd: process.cwd(), encoding: "utf8", timeout: 20_000 });
+    expect(result.signal, "the run had to be killed by the timeout").toBeNull();
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("FAIL UNCAUGHT_ERROR");
+    expect(result.stdout).not.toContain("MAIN_FLOW_CONTINUED");
+    expect(existsSync(marker) && readFileSync(marker, "utf8")).toBe("dropped");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}, 40_000);

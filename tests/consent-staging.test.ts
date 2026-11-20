@@ -26,6 +26,11 @@ describe("staging channel configuration", () => {
     expect(stagingConsentPolicy({ ...staging, BOOKING_CONSENT_DELIVERY: "separate-lab" })).toBeNull();
     expect(stagingConsentPolicy({ ...staging, BOOKING_CONSENT_DELIVERY: undefined })).toBeNull();
   });
+  it("accepts a bare origin with an optional port and one trailing slash", () => {
+    for (const [value, origin] of [["https://salon-demo.cresavo.test", "https://salon-demo.cresavo.test"], ["https://salon-demo.cresavo.test/", "https://salon-demo.cresavo.test"],
+      ["https://salon-demo.cresavo.test:8443/", "https://salon-demo.cresavo.test:8443"], ["https://Salon-Demo.cresavo.test", "https://salon-demo.cresavo.test"]])
+      expect(stagingConsentPolicy({ ...staging, BOOKING_CONSENT_ORIGIN: value }), value).toBe(origin);
+  });
   it("returns the configured HTTPS origin, not a request header", () => {
     expect(stagingConsentPolicy(staging)).toBe("https://salon-demo.cresavo.test");
     expect(stagingConsentPolicy({ ...staging, BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test:8443" })).toBe("https://salon-demo.cresavo.test:8443");
@@ -46,6 +51,16 @@ describe("staging channel configuration", () => {
     ["a fragment", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test/#" }],
     ["credentials", { BOOKING_CONSENT_ORIGIN: "https://user:pass@salon-demo.cresavo.test" }],
     ["the agent-facing origin", { BOOKING_CONSENT_ORIGIN: "https://gateway.cresavo.test" }],
+    // A path that URL parsing would resolve away, and other spellings of one: refused as written.
+    ["a dot-segment path", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test/staging/.." }],
+    ["a single-dot segment", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test/./" }],
+    ["an encoded dot segment", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test/%2e%2e" }],
+    ["an encoded host", { BOOKING_CONSENT_ORIGIN: "https://salon-demo%2ecresavo.test" }],
+    ["a backslash", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test\\" }],
+    ["two trailing slashes", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test//" }],
+    ["user info", { BOOKING_CONSENT_ORIGIN: "https://x@salon-demo.cresavo.test" }],
+    ["upper-case scheme", { BOOKING_CONSENT_ORIGIN: "HTTPS://salon-demo.cresavo.test" }],
+    ["surrounding space", { BOOKING_CONSENT_ORIGIN: " https://salon-demo.cresavo.test" }],
     // Cookies are scoped by host name, not port: the owner's session would reach the gateway.
     ["a trailing-dot host name", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test." }],
     ["a trailing-dot host name with a port", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test.:8443" }],

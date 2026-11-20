@@ -3,8 +3,14 @@
 export const STAGING_CONSENT_MODE = "staging-inbox";
 
 /** A bare HTTPS origin: no credentials, path, query or fragment. Never derived from request headers. */
+// The raw string, before URL parsing (which resolves `/x/..`, `/./` and decodes nothing it would
+// then report): `https://`, a host name or bracketed IPv6 address, an optional port and at most
+// one trailing slash. Nothing else: no path, dot segment, percent escape, query, fragment,
+// user info or backslash.
+const BARE_HTTPS_ORIGIN = /^https:\/\/(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*|\[[0-9A-Fa-f:.]+\])(?::\d{1,5})?\/?$/;
 export function httpsOrigin(value) {
-  const url = URL.parse(value ?? "");
+  if (typeof value !== "string" || !BARE_HTTPS_ORIGIN.test(value)) throw new Error("CONSENT_ORIGIN_INVALID");
+  const url = URL.parse(value);
   // A trailing dot (fully qualified name) is refused: routing compares host names without it.
   if (!url || url.protocol !== "https:" || !url.hostname || url.hostname.endsWith(".") || url.username || url.password ||
       url.search || url.hash || url.pathname !== "/" || value.endsWith("#") || value.endsWith("?"))

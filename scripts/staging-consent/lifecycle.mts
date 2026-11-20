@@ -81,3 +81,21 @@ export function launchedBrowsers<T extends { close(): Promise<void> }>() {
     },
   };
 }
+
+/**
+ * A fatal error (an exception or rejection nothing caught) ends the run the way a signal does:
+ * report it, run the one idempotent cleanup (children stopped, database dropped, run directory
+ * removed), then exit non-zero. Waiting for the main flow instead could wait forever, when the
+ * error escaped a callback that should have settled what the main flow is awaiting.
+ */
+export function onFatalError(report: () => void, cleanup: () => Promise<unknown>, exit: (code: number) => void = code => process.exit(code)) {
+  let handled = false;
+  const handler = () => {
+    if (handled) return;
+    handled = true;
+    report();
+    void cleanup().catch(() => {}).finally(() => exit(1));
+  };
+  process.on("uncaughtException", handler);
+  process.on("unhandledRejection", handler);
+}

@@ -20,7 +20,7 @@ import { containsSecret, registerSecret, say } from "./sanitize.mjs";
 import { assertChildEnv, captureStream, freePorts, guardStream, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
 import { agentChannel } from "./agent-reply.mjs";
 import { loopbackAdminUrl, stagingDatabase } from "./preflight.mjs";
-import { acquisition, CLEANUP_SIGNALS, databaseAlreadyExisted, launchedBrowsers, settles } from "./lifecycle.mjs";
+import { acquisition, CLEANUP_SIGNALS, databaseAlreadyExisted, launchedBrowsers, onFatalError, settles } from "./lifecycle.mjs";
 import { issueCertificates, operatorFetch, tlsProxy } from "./tls.mjs";
 import { createServer as createHttpServer } from "node:http";
 
@@ -164,15 +164,9 @@ async function cleanupOnce() {
 for (const signal of CLEANUP_SIGNALS)
   process.once(signal, () => { void cleanup().finally(() => process.exit(130)); });
 // Node's default report would print the error, which can quote a URL or a response. A static
-// code instead, then the normal cleanup.
-// The main flow keeps running and its `finally` cleans up: cleaning up here as well would close
-// browsers and servers under a scenario that is still running.
-let crashed = false;
-for (const event of ["uncaughtException", "unhandledRejection"] as const)
-  process.on(event, () => {
-    if (crashed) return;
-    crashed = true; failures++; process.exitCode = 1; say("FAIL UNCAUGHT_ERROR");
-  });
+// code instead, then the same cleanup as a signal and a non-zero exit: the main flow may be
+// waiting on something the failed callback was meant to settle, and would never reach `finally`.
+onFatalError(() => { failures++; process.exitCode = 1; say("FAIL UNCAUGHT_ERROR"); }, cleanup);
 
 const agentTranscript: string[] = [];
 function agentClient(env: Record<string, string>) {

@@ -35,7 +35,9 @@ the decision endpoint refuses; nothing falls back to the lab form.
   `separate-lab` and legacy lab channels keep their behaviour and guards.
 - Split mode: `BOOKING_SERVICE_ROLE=salon` with a valid `GATEWAY_SERVICE_TOKEN`.
 - `BOOKING_CONSENT_ORIGIN` is a bare `https://` origin: no path, query, fragment,
-  credentials or trailing dot on the host name. Plain HTTP is refused, including on loopback.
+  credentials or trailing dot on the host name. The string is checked as written, before URL
+  parsing could resolve it, so `https://host/x/..`, `/./` or `%2e%2e` are refused rather than
+  shortened to the host root; only an optional port and one trailing slash are accepted. Plain HTTP is refused, including on loopback.
 - `BOOKING_PUBLIC_ORIGIN` is a bare `https://` origin on a different host name from the
   consent origin. A different port on the same host is refused: cookies are scoped by
   host, not port, so the owner's `booking_admin` session cookie would also reach the
@@ -238,7 +240,9 @@ The runner:
    and its browser closed; none starts after cleanup has begun. Every browser is closed even if another fails to; a
    browser that will not close is reported as `FAIL BROWSERS_CLOSED` and fails the run. Every
    preflight check reports a static code only, never the value it rejected. The exit status is 1 from the start and becomes 0 only after cleanup
-   completed and every check passed; a cleanup that throws is reported as `FAIL CLEANUP`.
+   completed and every check passed; a cleanup that throws is reported as `FAIL CLEANUP`. An uncaught error or rejection is reported
+   as `FAIL UNCAUGHT_ERROR` and ends the run through the same cleanup and a non-zero exit, even
+   when the main flow is waiting on something that will now never settle.
    The four loopback ports (two servers, two TLS proxies) are chosen together, so they are
    always distinct. When a server or step exits, whatever is left of its process group is
    stopped as well. A database password shorter than 8 characters is checked only where a
