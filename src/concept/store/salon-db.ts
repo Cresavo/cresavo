@@ -151,7 +151,7 @@ export interface SalonDbHandle extends SalonDb {
   onStatus(listener: (status: OpenStatus) => void): () => void;
   /** Resolves once the store is usable: on IndexedDB, or on memory after IndexedDB was confirmed unavailable. */
   ready(): Promise<"indexeddb" | "memory">;
-  /** Drops the current connection and opens again, e.g. on a bfcache `pageshow`. */
+  /** Drops the current connection and opens again, e.g. on a bfcache `pageshow`. Joins an open already in flight. */
   reopen(): void;
 }
 
@@ -331,7 +331,8 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
       return open.kind;
     },
     reopen() {
-      if (status === "closed" || status === "memory" || status === "outdated") return;
+      // An open in flight already yields a fresh connection: reuse it, so no earlier promise is left unsettled.
+      if (status === "closed" || status === "memory" || status === "outdated" || abandonPending) return;
       void backend?.then((open) => { if (open.kind === "indexeddb") open.db.close(); }, () => undefined);
       backend = undefined;
     },

@@ -100,6 +100,11 @@ export function errorReporter() {
 const isThenable = (value: unknown) =>
   !!value && (typeof value === "object" || typeof value === "function") && typeof (value as { then?: unknown }).then === "function";
 
+/** A refused promise-returning change may still reject on its own; observe that, so only the write's error remains. */
+function observeRejection(value: PromiseLike<unknown>) {
+  value.then(undefined, () => undefined);
+}
+
 export class SynchronousChangeError extends TypeError {
   constructor() {
     super("SalonDb.write: change must be synchronous; awaiting inside a transaction lets it commit early");
@@ -145,7 +150,10 @@ export function runChange<T>(snapshot: Snapshot, change: (tx: SalonTx) => T): { 
     deleteMeta: (key) => stage({ store: "meta", key, value: undefined, remove: true }),
   };
   const value = change(tx);
-  if (isThenable(value)) throw new SynchronousChangeError();
+  if (isThenable(value)) {
+    observeRejection(value as PromiseLike<unknown>);
+    throw new SynchronousChangeError();
+  }
   return { value, ops: [...ops.values()] };
 }
 

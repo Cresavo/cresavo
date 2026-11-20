@@ -103,6 +103,20 @@ describe.each(adapters)("%s adapter", (_name, make) => {
     expect(await db.read("demo")).toBeNull();
   });
 
+  it("leaves no unhandled rejection behind a refused async change", async () => {
+    const db = make();
+    const unhandled: unknown[] = [];
+    const record = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", record);
+    try {
+      await expect(db.write({}, async () => { throw new Error("async change failed"); })).rejects.toBeInstanceOf(SynchronousChangeError);
+      await sleep(20);
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", record);
+    }
+  });
+
   it("reads only what the scope names", async () => {
     const db = make();
     await db.write({}, (tx) => tx.putSalon("own", record(1)));
@@ -433,6 +447,24 @@ describe("opening after the first session", () => {
     expect(await next.ready()).toBe("indexeddb");
     expect(statuses).not.toContain("blocked");
     expect(await next.read("demo")).toBeNull();
+  });
+
+  it("joins a pending open on reopen, so closing settles every waiting operation", async () => {
+    const factory = new IDBFactory();
+    const old = await new Promise<IDBDatabase>((resolve) => {
+      const request = factory.open("concept-store", 1);
+      request.onupgradeneeded = () => { request.result.createObjectStore("salons"); request.result.createObjectStore("meta"); };
+      request.onsuccess = () => resolve(request.result);
+    });
+    const db = createSalonDb({ factory, channel: null, version: 2 });
+    const first = db.ready();
+    await until(() => db.status() === "blocked");
+    db.reopen();
+    const second = db.ready();
+    db.close();
+    await expect(first).rejects.toBeInstanceOf(SalonDbClosedError);
+    await expect(second).rejects.toBeInstanceOf(SalonDbClosedError);
+    old.close();
   });
 });
 
