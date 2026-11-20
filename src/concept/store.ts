@@ -83,22 +83,42 @@ const lastUseKey = () => `${storageKey("own")}-last-used`;
 // sample business also gets a new one each day it is generated afresh. A
 // salon saved before epochs existed has the lifetime "legacy" until replaced.
 const epochKey = (workspace: Workspace) => `${storageKey(workspace)}-epoch`;
+/** Lifetimes this tab could not save: kept in memory with the salon it holds, never the earlier id. */
+const unsavedEpochs: Partial<Record<Workspace, string>> = {};
 
 function startEpoch(workspace: Workspace) {
-  try { window.localStorage.setItem(epochKey(workspace), newEpoch()); }
-  catch { /* Commands made for the earlier salon are then refused by its day only. */ }
+  const epoch = newEpoch();
+  delete unsavedEpochs[workspace];
+  try { window.localStorage.setItem(epochKey(workspace), epoch); }
+  catch { unsavedEpochs[workspace] = epoch; }
+}
+
+function endEpoch(workspace: Workspace) {
+  delete unsavedEpochs[workspace];
+  try { window.localStorage.removeItem(epochKey(workspace)); }
+  catch { /* Its salon is gone too. */ }
+}
+
+/**
+ * The lifetime of `state`, the workspace's salon as just read. It reads only
+ * the lifetime key, never the salon itself, so it can run inside a dispatch
+ * guard without moving the store's freshness check.
+ */
+export function epochOf(workspace: Workspace, state: DemoState): string {
+  let lifetime = unsavedEpochs[workspace] ?? null;
+  if (lifetime === null) {
+    try { lifetime = window.localStorage.getItem(epochKey(workspace)); }
+    catch { /* Unreadable: the legacy lifetime. */ }
+  }
+  return workspace === "demo" ? `${lifetime ?? "legacy"}:${state.generatedFor}` : lifetime ?? "legacy";
 }
 
 /** The open lifetime of a workspace's salon, or null when it has none. Commands carry it to be refused once the salon is replaced. */
-export function salonEpoch(workspace: Workspace): string | null {
+function salonEpoch(workspace: Workspace): string | null {
   initialize();
   refresh(workspace);
   const state = snapshots[workspace].state;
-  if (!state) return null;
-  let lifetime: string | null = null;
-  try { lifetime = window.localStorage.getItem(epochKey(workspace)); }
-  catch { /* Unreadable: the legacy lifetime. */ }
-  return workspace === "demo" ? `${lifetime ?? "legacy"}:${state.generatedFor}` : lifetime ?? "legacy";
+  return state ? epochOf(workspace, state) : null;
 }
 
 /** The salon this tab has open, as commands bind to it: its workspace and lifetime. */
@@ -112,8 +132,8 @@ function removeOwnSalon(announce: boolean) {
   try {
     window.localStorage.removeItem(storageKey("own"));
     window.localStorage.removeItem(lastUseKey());
-    window.localStorage.removeItem(epochKey("own"));
   } catch { /* Nothing more to remove. */ }
+  endEpoch("own");
   snapshots.own = {};
   salonRemoved("own");
   if (active === "own") {
@@ -212,7 +232,9 @@ function refresh(workspace: Workspace) {
   let raw = snapshot.raw ?? null;
   try { raw = window.localStorage.getItem(storageKey(workspace)); }
   catch { /* Use the snapshot in memory. */ }
-  if (raw === snapshot.raw) return false;
+  // A tab left open past midnight still holds yesterday's sample business: read it again as today's.
+  const staleDay = workspace === "demo" && !!snapshot.state && snapshot.state.generatedFor !== today();
+  if (raw === snapshot.raw && !staleDay) return false;
   snapshot.raw = raw;
   const had = !!snapshot.state;
   erasedOnLoad = false;

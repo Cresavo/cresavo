@@ -14,10 +14,14 @@ const today = toKey(new Date());
 /** One tab's storage, with a hook that runs before each save. */
 function tab(initial: DemoState) {
   const items = new Map([["salong-eko-demo", JSON.stringify(initial)]]);
-  const hooks = { beforeSave: undefined as (() => void) | undefined };
+  const hooks = { beforeSave: undefined as (() => void) | undefined, refuse: undefined as ((key: string) => boolean) | undefined };
   const localStorage = {
     getItem: (key: string) => items.get(key) ?? null,
-    setItem: (key: string, value: string) => { if (key === "salong-eko-demo") hooks.beforeSave?.(); items.set(key, value); },
+    setItem: (key: string, value: string) => {
+      if (hooks.refuse?.(key)) throw new DOMException("full", "QuotaExceededError");
+      if (key === "salong-eko-demo") hooks.beforeSave?.();
+      items.set(key, value);
+    },
     removeItem: (key: string) => { items.delete(key); },
   };
   vi.stubGlobal("window", Object.assign(new EventTarget(), { localStorage }));
@@ -87,6 +91,73 @@ it("refuses a command made for an earlier salon: a new sample business or a new 
   expect(await commitAction({ workspace: "demo", epoch: fresh.epoch.replace(today, addDays(today, -1)) }, { type: "card/dismiss", id: "yesterday" })).toMatchObject({ ok: false, reason: "replaced" });
   // No trial salon is open: a command for one finds nothing.
   expect(await commitAction({ workspace: "own", epoch: "legacy" }, { type: "card/dismiss", id: "own" })).toMatchObject({ ok: false, reason: "not-found" });
+});
+
+it("never replays an idempotency key from a salon another tab replaced", async () => {
+  const state = createDemoState(today);
+  const storage = tab(state);
+  const { commitAction, currentTarget } = await modules();
+  const dismiss = { type: "card/dismiss" as const, id: "welcome" };
+  expect((await commitAction(currentTarget()!, dismiss, { idempotencyKey: "k-1" })).ok).toBe(true);
+  // Another tab starts a new sample business.
+  storage.items.set("salong-eko-demo", JSON.stringify(createDemoState(today)));
+  storage.items.set("salong-eko-demo-epoch", "another-tab");
+  const target = currentTarget()!;
+  const again = await commitAction(target, dismiss, { idempotencyKey: "k-1" });
+  expect(again).toMatchObject({ ok: true, replayed: false });
+  expect(storage.saved().dismissedCards).toEqual(["welcome"]);
+  // A different action with that key is a new command in the new salon, not a mismatch.
+  storage.items.set("salong-eko-demo", JSON.stringify(createDemoState(today)));
+  storage.items.set("salong-eko-demo-epoch", "a-third-tab");
+  expect(await commitAction(currentTarget()!, { type: "card/dismiss", id: "other" }, { idempotencyKey: "k-1" })).toMatchObject({ ok: true, replayed: false });
+});
+
+it("keeps a write another tab made while the commit was checking", async () => {
+  const state = createDemoState(today);
+  const storage = tab(state);
+  const { commitAction, currentTarget } = await modules();
+  let first = true;
+  const guard = () => {
+    if (first) storage.items.set("salong-eko-demo", JSON.stringify({ ...storage.saved(), dismissedCards: ["theirs"] }));
+    first = false;
+    return true;
+  };
+  expect((await commitAction(currentTarget()!, { type: "card/dismiss", id: "mine" }, { guard })).ok).toBe(true);
+  expect(storage.saved().dismissedCards).toEqual(["theirs", "mine"]);
+});
+
+it("refuses yesterday's command after midnight in a tab left open, with storage unchanged", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  try {
+    const day = "2026-11-20";
+    vi.setSystemTime(new Date(`${day}T12:00:00`));
+    const storage = tab(createDemoState(day));
+    const { commitAction, currentTarget } = await modules();
+    const yesterday = currentTarget()!;
+    const before = storage.items.get("salong-eko-demo");
+    vi.setSystemTime(new Date(`${addDays(day, 1)}T09:00:00`));
+    expect(await commitAction(yesterday, { type: "card/dismiss", id: "late" })).toMatchObject({ ok: false, reason: "replaced" });
+    expect(storage.items.get("salong-eko-demo")).toBe(before);
+    const next = currentTarget()!;
+    expect(next.epoch).not.toBe(yesterday.epoch);
+    const result = await commitAction(next, { type: "card/dismiss", id: "now" });
+    expect(result.ok && result.state.generatedFor).toBe(addDays(day, 1));
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("gives a replacement salon a new lifetime even when it cannot be saved", async () => {
+  const state = createDemoState(today);
+  const storage = tab(state);
+  const { commitAction, currentTarget, startBusiness } = await modules();
+  const old = currentTarget()!;
+  storage.hooks.refuse = (key) => key.endsWith("-epoch");
+  await startBusiness();
+  const fresh = currentTarget()!;
+  expect(fresh.epoch).not.toBe(old.epoch);
+  expect(await commitAction(old, { type: "card/dismiss", id: "late" })).toMatchObject({ ok: false, reason: "replaced" });
+  expect((await commitAction(fresh, { type: "card/dismiss", id: "now" })).ok).toBe(true);
 });
 
 it("publishes a commit's effects once, after the save, and nothing for a refusal", async () => {

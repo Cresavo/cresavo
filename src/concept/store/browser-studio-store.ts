@@ -8,8 +8,8 @@ import {
   currentState,
   dispatchWithLog,
   latestState,
+  epochOf,
   onSalonRemoved,
-  salonEpoch,
   subscribeStore,
   withAddressLock,
   withBookingLock,
@@ -74,6 +74,8 @@ interface Remembered {
 
 interface Tenant {
   seen?: DemoState;
+  /** The salon lifetime the log and keys belong to; they end with it. */
+  epoch?: string;
   version: number;
   log: TenantAction[];
   keys: Map<string, Remembered>;
@@ -96,10 +98,23 @@ function tenant(tenantId: TenantId): Tenant {
   return record;
 }
 
-/** Counts a state this tab has not seen yet as one change; the first sighting is version 0. */
+/**
+ * Counts a state this tab has not seen yet as one change; the first sighting
+ * is version 0. A new lifetime of the salon (another tab replaced it, a new
+ * day's sample) ends the log and idempotency keys of the earlier one first,
+ * so a key never replays a result from a salon that is gone.
+ */
 function observe(state: DemoState): Tenant {
   const tenantId = browserTenantOf(state);
   const record = tenant(tenantId);
+  const epoch = epochOf(tenantId as BrowserTenant, state);
+  if (record.epoch !== epoch) {
+    if (record.epoch !== undefined) {
+      record.log = [];
+      record.keys = new Map();
+    }
+    record.epoch = epoch;
+  }
   if (record.seen === state) return record;
   const outside = record.seen !== undefined && !sameContent(record.seen, state);
   record.seen = state;
@@ -162,7 +177,7 @@ async function withFreshRead<T>(tenantId: TenantId, write: () => Promise<T>, com
 
 /** What `commit` adds to `apply`: the salon lifetime the command was made for, a guard and extra sends. */
 export interface CommitExtras {
-  /** The lifetime the command was made for (`salonEpoch`); another one is `replaced`. */
+  /** The lifetime the command was made for (`currentTarget`); another one is `replaced`. */
   epoch?: string;
   /** Re-checked against the latest saved state; false is `rejected`. */
   guard?: (current: DemoState) => boolean;
@@ -216,7 +231,7 @@ export class BrowserStudioStore implements StudioStore {
     const current = latestState();
     if (!current || browserTenantOf(current) !== tenantId) return { ok: false, reason: "not-found" };
     const record = observe(current);
-    if (extras.epoch !== undefined && salonEpoch(tenantId) !== extras.epoch) return { ok: false, reason: "replaced", version: record.version };
+    if (extras.epoch !== undefined && record.epoch !== extras.epoch) return { ok: false, reason: "replaced", version: record.version };
     const fingerprint = actionFingerprint(action);
     const known = options.idempotencyKey === undefined ? undefined : record.keys.get(options.idempotencyKey);
     if (known) {
@@ -250,13 +265,14 @@ export class BrowserStudioStore implements StudioStore {
             return false;
           }
         }
-        // A new lifetime (another tab replaced the salon, a new day's sample) is not what the command was made for.
-        if (extras.epoch !== undefined && salonEpoch(tenantId) !== extras.epoch) {
-          refused = "replaced";
-          return false;
-        }
         if (extras.guard && !extras.guard(latest)) {
           refused = "rejected";
+          return false;
+        }
+        // A new lifetime (another tab replaced the salon, a new day's sample) is not what the command was made for.
+        // Read from `latest` without refreshing, so dispatch's own check for a write meanwhile still sees it.
+        if (extras.epoch !== undefined && epochOf(tenantId as BrowserTenant, latest) !== extras.epoch) {
+          refused = "replaced";
           return false;
         }
         base = latest;
