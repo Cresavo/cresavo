@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import ConsentForm from "./form";
 import StagingConsentForm from "./staging-form";
 import { stagingCopy } from "./staging-copy";
-import { consentPageMode, stagingConsentPolicy, stagingConsentRequested } from "../../../../scripts/consent-channel-policy.mjs";
+import { consentPageMode, labConsentOrigin, stagingConsentPolicy, stagingConsentRequested } from "../../../../scripts/consent-channel-policy.mjs";
 import { siteRequestHost } from "@/concept/site/request-host";
 import { getLocale } from "@/lib/locale-server";
 import { hostInstallMetadata } from "../../admin/served-path";
@@ -28,5 +28,5 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
     return <main className="p-4"><h1 className="text-h2">{stagingCopy[locale].title}</h1>
       <StagingConsentForm id={id} locale={locale} origin={stagingConsentPolicy(process.env)!} /></main>;
   }
-  return <main><h1>Godkänn bokningsförslag</h1><ConsentForm id={id} /></main>;
+  return <main><h1>Godkänn bokningsförslag</h1><ConsentForm id={id} origin={labConsentOrigin(process.env)!} /></main>;
 }

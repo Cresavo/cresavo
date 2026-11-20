@@ -218,9 +218,24 @@ describe("asked-for but invalid staging configuration", () => {
     const { consentPageMode } = await import("../scripts/consent-channel-policy.mjs");
     expect(consentPageMode(staging, "salon-demo.cresavo.test")).toBe("staging");
     expect(consentPageMode(staging, "other.cresavo.test")).toBe("not-found");
-    // Not asked for at all: the local lab keeps its own form and checks.
-    expect(consentPageMode({ BOOKING_CONSENT_LAB: "1" }, "127.0.0.1:3217")).toBe("lab");
-    expect(consentPageMode({ ...staging, BOOKING_CONSENT_DELIVERY: "separate-lab", BOOKING_CONSENT_LAB: "1" }, "127.0.0.1:3217")).toBe("lab");
+    // Not asked for at all: the local lab keeps its own form and checks, on its own loopback origin.
+    const lab = { BOOKING_CONSENT_LAB: "1", BOOKING_PUBLIC_ORIGIN: "http://127.0.0.1:3217" };
+    expect(consentPageMode(lab, "127.0.0.1:3217")).toBe("lab");
+    expect(consentPageMode({ BOOKING_CONSENT_LAB: "1" }, "127.0.0.1:3000")).toBe("lab");
+    expect(consentPageMode({ BOOKING_CONSENT_LAB: "1", PORT: "3217" }, "127.0.0.1:3217")).toBe("lab");
+    expect(consentPageMode({ BOOKING_CONSENT_LAB: "1", BOOKING_PUBLIC_ORIGIN: "http://localhost:3229" }, "LOCALHOST:3229")).toBe("lab");
+    expect(consentPageMode({ BOOKING_CONSENT_LAB: "1", BOOKING_PUBLIC_ORIGIN: "http://[::1]:3229" }, "[::1]:3229")).toBe("lab");
+    expect(consentPageMode({ ...staging, BOOKING_CONSENT_DELIVERY: "separate-lab", BOOKING_CONSENT_LAB: "1", BOOKING_PUBLIC_ORIGIN: "http://127.0.0.1:3217" }, "127.0.0.1:3217")).toBe("lab");
+    // A staging link left over after switching to the lab, opened on a routable alias (or another
+    // loopback port or name): not found, so no form reads the fragment and posts it there.
+    for (const host of ["salon-demo.cresavo.test", "salon-demo.cresavo.test:3217", "gateway.cresavo.test", "127.0.0.1:3218", "localhost:3217", "[::1]:3217",
+      "127.0.0.1", "", null, undefined, "a b", "127.0.0.1:3217@evil.test"])
+      expect(consentPageMode(lab, host), `lab on ${host}`).toBe("not-found");
+    // A lab origin that is not loopback, or not a bare origin, serves no lab form anywhere.
+    for (const origin of ["https://salon-demo.cresavo.test", "http://10.0.0.5:3217", "http://127.0.0.1:3217/x", "http://u:p@127.0.0.1:3217", "ftp://127.0.0.1:3217", "not a url"])
+      for (const host of [new URL(origin.startsWith("not") ? "http://x" : origin).host, "127.0.0.1:3217"])
+        expect(consentPageMode({ BOOKING_CONSENT_LAB: "1", BOOKING_PUBLIC_ORIGIN: origin }, host), `${origin} on ${host}`).toBe("not-found");
+    expect(consentPageMode({ BOOKING_CONSENT_LAB: "1", NODE_ENV: "production" }, "127.0.0.1:3000")).toBe("not-found");
     // Without the lab switch (or on Vercel) the legacy form would only post a secret to a handler
     // that refuses it, for example a link left over from a disabled staging channel: not found.
     const disabled = { ...staging, BOOKING_CONSENT_DELIVERY: undefined };
@@ -404,9 +419,14 @@ describe("staging host and customer endpoint", () => {
     // With the staging channel switched off, a leftover link reaches no form at all...
     vi.stubEnv("BOOKING_CONSENT_DELIVERY", undefined);
     for (const host of ["salon-demo.cresavo.test", "localhost:3000"]) expect(routed(host, `/consent/${id}`).status, host).toBe(404);
-    // ...while the explicitly enabled local lab keeps its page.
+    // ...while the explicitly enabled local lab keeps its page, on its own loopback origin only:
+    // the old link opened on the former consent host or another alias is still not found.
     vi.stubEnv("BOOKING_CONSENT_LAB", "1"); vi.stubEnv("BOOKING_RUNTIME", "local");
+    for (const host of ["salon-demo.cresavo.test", "localhost:3000"]) expect(routed(host, `/consent/${id}`).status, `lab with a routable origin, ${host}`).toBe(404);
+    vi.stubEnv("BOOKING_PUBLIC_ORIGIN", "http://localhost:3000");
     expect(routed("localhost:3000", `/consent/${id}`).status).not.toBe(404);
+    for (const host of ["salon-demo.cresavo.test", "cresavo.se", "127.0.0.1:3000", "localhost:3001"])
+      expect(routed(host, `/consent/${id}`).status, `lab, ${host}`).toBe(404);
   });
 });
 

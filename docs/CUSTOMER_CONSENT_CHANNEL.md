@@ -34,8 +34,11 @@ condition holds. If `staging-inbox` is asked for but the configuration is invali
 time (for example settings loaded after the start check), every consent path answers 404 and
 the decision endpoint refuses; nothing falls back to the lab form. The lab form itself is served
 only with the local lab switched on (`BOOKING_CONSENT_LAB=1`, not on Vercel), the only setting
-in which its decisions can be accepted; otherwise, for example for a link left over after the
-staging channel was switched off, every consent path is not found.
+in which its decisions can be accepted, and only on the loopback origin the lab issues its links
+for (`BOOKING_PUBLIC_ORIGIN` on `localhost`, `127.0.0.1` or `[::1]`, or `127.0.0.1` on `PORT`),
+host and port exactly. The form also reads the link's secret only when the browser is on that
+origin. Otherwise, for example for a link left over after the staging channel was switched off
+or opened on a routable alias after switching to the lab, every consent path is not found.
 
 - `BOOKING_CONSENT_DELIVERY=staging-inbox`. Without it nothing changes. The local
   `separate-lab` and legacy lab channels keep their behaviour and guards.

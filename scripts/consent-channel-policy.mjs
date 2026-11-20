@@ -62,6 +62,29 @@ export function stagingConsentRequested(env) {
   return env.BOOKING_CONSENT_DELIVERY === STAGING_CONSENT_MODE;
 }
 
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
+/**
+ * The origin the local consent lab issues its links for, as requireConsentLab and discoveryOrigin
+ * read it (BOOKING_PUBLIC_ORIGIN, or 127.0.0.1 on PORT), or null when the lab is off, on Vercel or
+ * that origin is not a bare loopback origin. Never derived from request headers; never throws.
+ */
+export function labConsentOrigin(env) {
+  if (env.BOOKING_CONSENT_LAB !== "1" || env.BOOKING_RUNTIME === "vercel") return null;
+  if (env.NODE_ENV === "production" && !env.BOOKING_PUBLIC_ORIGIN) return null;
+  const url = URL.parse(env.BOOKING_PUBLIC_ORIGIN ?? `http://127.0.0.1:${env.PORT ?? "3000"}`);
+  if (!url || (url.protocol !== "http:" && url.protocol !== "https:") || !LOOPBACK_HOSTNAMES.has(url.hostname) ||
+      url.username || url.password || url.search || url.hash || url.pathname !== "/") return null;
+  return url.origin;
+}
+/** True when a request's host (with its port) is exactly the lab's loopback origin's. */
+function isLabConsentHost(env, rawHost) {
+  const origin = labConsentOrigin(env);
+  if (!origin || !rawHost) return false;
+  const expected = new URL(origin);
+  const actual = URL.parse(`${expected.protocol}//${String(rawHost).trim().toLowerCase()}`);
+  return actual !== null && actual.host === expected.host;
+}
+
 /**
  * How the consent page may serve this request: the staging form on the exact consent origin, the
  * lab form only when the staging channel is not asked for at all, and otherwise nothing. An asked-for
@@ -70,9 +93,10 @@ export function stagingConsentRequested(env) {
  */
 export function consentPageMode(env, rawHost) {
   // The legacy lab form only where its decisions can be accepted at all (requireConsentLab): the
-  // explicit lab switch, outside Vercel. Elsewhere, for example a link of a disabled staging
-  // channel, the form would read the fragment and post the secret to a handler that refuses it.
-  if (!stagingConsentRequested(env)) return env.BOOKING_CONSENT_LAB === "1" && env.BOOKING_RUNTIME !== "vercel" ? "lab" : "not-found";
+  // explicit lab switch, outside Vercel, and only on the loopback origin the lab issues its links
+  // for. Elsewhere, for example a link of a disabled staging channel opened on a routable alias
+  // after the switch to the lab, the form would read the fragment and post the secret there.
+  if (!stagingConsentRequested(env)) return isLabConsentHost(env, rawHost) ? "lab" : "not-found";
   let valid = false;
   try { valid = stagingConsentPolicy(env) !== null; } catch { valid = false; }
   if (!valid) return "not-found";
