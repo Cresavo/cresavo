@@ -5,10 +5,13 @@ import { chromium, type Browser, type Page } from "@playwright/test";
 import { registerSecret } from "./sanitize.mjs";
 import { refuseRemoteBrowsers } from "./preflight.mjs";
 
-/** Chromium switches that map the salon host to loopback and every other host, IPs included, to nothing. */
-export function hostIsolation(host: string) {
-  if (!/^[a-z0-9.-]+$/.test(host)) throw new Error("STAGING_HOST_INVALID");
-  const rules = `MAP ${host} 127.0.0.1, MAP * ~NOTFOUND`;
+/**
+ * Chromium switches that map exactly the salon's host and TLS port to loopback, and everything else
+ * (other hosts, IP literals, other ports of the salon host) to nothing.
+ */
+export function hostIsolation(host: string, port: number) {
+  if (!/^[a-z0-9.-]+$/.test(host) || !Number.isInteger(port) || port < 1 || port > 65535) throw new Error("STAGING_HOST_INVALID");
+  const rules = `MAP ${host}:${port} 127.0.0.1:${port}, MAP * ~NOTFOUND`;
   return [`--host-rules=${rules}`, `--host-resolver-rules=${rules}`];
 }
 
@@ -22,7 +25,7 @@ export async function salonContext(browser: Browser, origin: string) {
   return context;
 }
 
-export async function launchBrowser(host: string, spki: string) {
+export async function launchBrowser(host: string, port: number, spki: string) {
   // Also here, so no caller can start a remote session: Playwright reads these from this
   // process's environment, not from the `env` given to the browser below.
   refuseRemoteBrowsers(process.env);
@@ -31,7 +34,7 @@ export async function launchBrowser(host: string, spki: string) {
     // No proxy, and only this run's leaf certificate trusted. Every destination except the salon
     // host is refused by the browser's network stack itself: `--host-rules` also applies to IP
     // literals and to every hop of a redirect, which a route handler does not see.
-    args: ["--no-proxy-server", ...hostIsolation(host), `--ignore-certificate-errors-spki-list=${spki}`],
+    args: ["--no-proxy-server", ...hostIsolation(host, port), `--ignore-certificate-errors-spki-list=${spki}`],
     env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "/tmp" },
   });
 }
@@ -95,14 +98,32 @@ export async function approveWithLostResponse(view: ConsentView) {
   assert.equal(await page.getByRole("button", { name: /^(Approve this booking|Decline|Check status again)$/ }).count(), 0);
 }
 
-/** Formats in the browser with fixed options, independent of the page's own rendering code. */
-export function expectedText(page: Page, input: { start: string; expiresAt: string; amountMinor: number; currency: string; timeZone: string }) {
-  return page.evaluate(i => ({
-    date: new Intl.DateTimeFormat("en-GB", { timeZone: i.timeZone, dateStyle: "full" }).format(new Date(i.start)),
-    time: new Intl.DateTimeFormat("en-GB", { timeZone: i.timeZone, timeStyle: "short" }).format(new Date(i.start)),
-    expires: new Intl.DateTimeFormat("en-GB", { timeZone: i.timeZone, dateStyle: "medium", timeStyle: "short" }).format(new Date(i.expiresAt)),
+// Runs in the browser. Plain JavaScript in a string, so the TypeScript loader cannot add helpers
+// (such as `__name` for named functions) that do not exist in the page.
+const EXPECTED_TEXT = String.raw`(i) => {
+  const reading = at => new Intl.DateTimeFormat("en-GB", { timeZone: i.timeZone, dateStyle: "short", timeStyle: "short" }).format(at);
+  const ambiguous = at => [30, 60, 120].some(m => [-1, 1].some(sign => reading(new Date(+at + sign * m * 60000)) === reading(at)));
+  const offset = at => {
+    const name = new Intl.DateTimeFormat("en-GB", { timeZone: i.timeZone, timeZoneName: "longOffset" }).formatToParts(at).find(p => p.type === "timeZoneName").value;
+    return name === "GMT" ? "+00:00" : name.replace(/^GMT/, "");
+  };
+  const exact = (text, at) => ambiguous(at) ? text + " (UTC" + offset(at) + ")" : text;
+  const start = new Date(i.start), until = new Date(i.expiresAt);
+  return {
+    date: new Intl.DateTimeFormat("en-GB", { timeZone: i.timeZone, dateStyle: "full" }).format(start),
+    time: exact(new Intl.DateTimeFormat("en-GB", { timeZone: i.timeZone, timeStyle: "short" }).format(start), start),
+    expires: exact(new Intl.DateTimeFormat("en-GB", { timeZone: i.timeZone, dateStyle: "medium", timeStyle: "short" }).format(until), until),
     price: new Intl.NumberFormat("en-GB", { style: "currency", currency: i.currency }).format(i.amountMinor / 100),
-  }), input);
+  };
+}`;
+
+/**
+ * Formats in the browser with fixed options, independent of the page's own rendering code. A local
+ * time that also names another instant (the hour repeated when clocks go back) carries its UTC
+ * offset, worked out here from Intl's own offset name rather than the page's helper.
+ */
+export function expectedText(page: Pick<Page, "evaluate">, input: { start: string; expiresAt: string; amountMinor: number; currency: string; timeZone: string }) {
+  return page.evaluate(`(${EXPECTED_TEXT})(${JSON.stringify(input)})`) as Promise<{ date: string; time: string; expires: string; price: string }>;
 }
 
 /** An owner logs in through the salon's HTTPS form and opens exactly this booking from the calendar. */

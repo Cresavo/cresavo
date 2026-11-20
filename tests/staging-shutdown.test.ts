@@ -38,7 +38,7 @@ describe.skipIf(process.platform === "win32")("staging runner child shutdown", (
       pid = Number(await firstLine(child.stdout!));
       expect(alive(pid)).toBe(true);
       const started = Date.now();
-      await stopAll({ killAfterMs: 300, closeTimeoutMs: 10_000 });
+      await stopAll({ killAfterMs: 300, closeTimeoutMs: 10_000, final: false });
       expect(Date.now() - started).toBeLessThan(5000);
       expect(alive(pid)).toBe(false);
       expect(leakedStreams()).toEqual([]);
@@ -67,7 +67,7 @@ describe.skipIf(process.platform === "win32")("staging runner child shutdown", (
       captureStream("held:stdout", child.stdout);
       pid = Number(await firstLine(child.stdout!));
       const started = Date.now();
-      await stopAll({ killAfterMs: 200, closeTimeoutMs: 800 });
+      await stopAll({ killAfterMs: 200, closeTimeoutMs: 800, final: false });
       expect(Date.now() - started).toBeLessThan(4000);
       // Not complete, so the scan fails instead of passing; and nothing of ours keeps the pipe alive.
       expect(leakedStreams()).toEqual(["CAPTURE_INCOMPLETE"]);
@@ -75,7 +75,7 @@ describe.skipIf(process.platform === "win32")("staging runner child shutdown", (
       expect(child.stderr!.destroyed).toBe(true);
       // A second stop has nothing left to wait for.
       const again = Date.now();
-      await stopAll({ killAfterMs: 200, closeTimeoutMs: 800 });
+      await stopAll({ killAfterMs: 200, closeTimeoutMs: 800, final: false });
       expect(Date.now() - again).toBeLessThan(200);
     } finally { kill(pid); kill(child.pid, true); }
   }, 20_000);

@@ -5,10 +5,10 @@ import { inspect } from "node:util";
 import { NextRequest } from "next/server";
 import { consentHostPathAllowed, stagingConsentPolicy, stagingConsentHost } from "../scripts/consent-channel-policy.mjs";
 import { runtimePolicy } from "../scripts/client-address.mjs";
-import { requireStagingConsent, STAGING_CHANNEL, STAGING_CUSTOMER, stagingApprovalLink, stagingConsentOrigin } from "../src/lib/agent-api/consent-staging";
+import { requireStagingConsent, STAGING_CHANNEL, STAGING_CUSTOMER, stagingApprovalLink, stagingConsentOrigin, stagingInbox } from "../src/lib/agent-api/consent-staging";
 import { assertCustomerChannelBinding, CHANNEL_CUSTOMER, CUSTOMER_CHANNEL, separateCustomerChannel } from "../src/lib/agent-api/customer-channel-lab";
 import { browserHostKind, resolveHost } from "../src/concept/page/resolve";
-import { consentOutcome, formatStagingTerms, isAmbiguousLocalTime, parseStagingView, utcOffset, recheckable, retryAfterSeconds, stagingCopy } from "../src/app/consent/[id]/staging-copy";
+import { consentFragment, consentOutcome, formatStagingTerms, isAmbiguousLocalTime, parseStagingView, utcOffset, recheckable, retryAfterSeconds, stagingCopy } from "../src/app/consent/[id]/staging-copy";
 import { POST } from "../src/app/consent/[id]/decision/route";
 import { agentApiErrors } from "../src/lib/agent-api/errors";
 import { proxy } from "../src/proxy";
@@ -53,6 +53,9 @@ describe("staging channel configuration", () => {
     ["the agent-facing host with the default port spelled out", { BOOKING_CONSENT_ORIGIN: "https://GATEWAY.cresavo.test:443" }],
     ["the agent-facing host on two other ports", { BOOKING_PUBLIC_ORIGIN: "https://salon-demo.cresavo.test:9443", BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test:8443" }],
     ["a missing public origin", { BOOKING_PUBLIC_ORIGIN: undefined }],
+    // Prisma's debug output prints each query with its arguments: the inbox link and its secret.
+    ["Prisma debug output", { DEBUG: "prisma:client" }],
+    ["a debug pattern that matches Prisma", { DEBUG: "*" }],
   ])("refuses %s", (_name, patch) => {
     const env = { ...staging, ...patch };
     expect(() => stagingConsentPolicy(env)).toThrow();
@@ -63,6 +66,7 @@ describe("staging channel configuration", () => {
     expect(runtimePolicy({ ...staging })).toBe("local");
     expect(() => runtimePolicy({ ...staging, BOOKING_CONSENT_ORIGIN: "http://salon-demo.cresavo.test" })).toThrow("BOOKING_RUNTIME_CONFIG_INVALID");
     expect(() => runtimePolicy({ ...staging, PUBLIC_READONLY: "1" })).toThrow("BOOKING_RUNTIME_CONFIG_INVALID");
+    expect(() => runtimePolicy({ ...staging, DEBUG: "prisma:query" })).toThrow("BOOKING_RUNTIME_CONFIG_INVALID");
     // An unrelated or lab mode keeps its existing request-time behaviour.
     expect(runtimePolicy({ BOOKING_CONSENT_DELIVERY: "separate-lab" })).toBe("local");
   });
@@ -99,6 +103,20 @@ describe("staging link and recipient", () => {
     expect(shown.date).toMatch(/^Monday,? 7 December 2026$/);
     expect(shown.price).toContain("520.00");
   });
+  it("the runner's independent expectation matches the page, offset included, in the repeated hour", async () => {
+    const { expectedText } = await import("../scripts/staging-consent/browsers.mjs");
+    // In the browser it is evaluated as a plain JavaScript expression; here the same text is
+    // evaluated in a fresh function scope, without the TypeScript loader's helpers.
+    const page = { evaluate: (expression: string) => Promise.resolve(new Function(`"use strict"; return (${expression});`)()) } as never;
+    const base = { amountMinor: 52000, currency: "SEK", timeZone: "Europe/Stockholm" };
+    for (const [start, expiresAt] of [["2026-10-25T00:30:00Z", "2026-10-25T01:45:00Z"], ["2026-12-07T09:30:00Z", "2026-12-01T08:00:00Z"], ["2026-10-25T01:30:00Z", "2026-10-24T23:10:00Z"]]) {
+      const expected = await expectedText(page, { ...base, start, expiresAt });
+      const shown = formatStagingTerms("en", "Europe/Stockholm", { start, expiresAt, amountMinor: 52000, currency: "SEK" });
+      expect(expected.time, start).toBe(shown.time);
+      expect(expected.expires, expiresAt).toBe(shown.expires);
+    }
+    expect((await expectedText(page, { ...base, start: "2026-10-25T00:30:00Z", expiresAt: "2026-10-25T01:45:00Z" })).expires).toMatch(/\(UTC\+01:00\)$/);
+  });
   it("tells apart the two instants of the hour repeated when clocks go back", () => {
     const terms = (start: string, expiresAt = "2026-10-20T08:00:00Z") => ({ start, expiresAt, amountMinor: 52000, currency: "SEK" });
     // 25 October 2026 in Stockholm: 02:30 happens first at +02:00 (00:30Z), then at +01:00 (01:30Z).
@@ -120,6 +138,47 @@ describe("staging link and recipient", () => {
     expect(isAmbiguousLocalTime("Australia/Lord_Howe", new Date("2026-04-04T14:45:00Z"))).toBe(true);
     expect(isAmbiguousLocalTime("Australia/Lord_Howe", new Date("2026-04-04T15:15:00Z"))).toBe(true);
     expect(isAmbiguousLocalTime("Australia/Lord_Howe", new Date("2026-06-01T00:00:00Z"))).toBe(false);
+  });
+});
+
+describe("consent origin", () => {
+  it("renders and reads the secret only on the exact configured consent origin", async () => {
+    const { isConsentHost } = await import("../scripts/consent-channel-policy.mjs");
+    const env = { ...staging, BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test:8443" };
+    expect(isConsentHost(env, "salon-demo.cresavo.test:8443")).toBe(true);
+    expect(isConsentHost(env, "SALON-DEMO.cresavo.test:8443")).toBe(true);
+    for (const host of ["salon-demo.cresavo.test", "salon-demo.cresavo.test:9443", "localhost:8443", "127.0.0.1:8443", "gateway.cresavo.test", "", null, undefined, "a b"])
+      expect(isConsentHost(env, host), String(host)).toBe(false);
+    expect(isConsentHost(staging, "salon-demo.cresavo.test:443")).toBe(true);
+    expect(isConsentHost({}, "salon-demo.cresavo.test")).toBe(false);
+    // In the browser, before anything is sent.
+    expect(consentFragment("https://salon-demo.cresavo.test", { origin: "https://salon-demo.cresavo.test", hash: "#secret" })).toBe("secret");
+    for (const origin of ["https://salon-demo.cresavo.test:9443", "http://salon-demo.cresavo.test", "https://other.cresavo.test"])
+      expect(consentFragment("https://salon-demo.cresavo.test", { origin, hash: "#secret" }), origin).toBeNull();
+    for (const locale of ["en", "sv"] as const) expect(stagingCopy[locale].wrongOrigin).toMatch(locale === "en" ? /Nothing was sent/ : /Inget skickades/);
+  });
+});
+
+describe("staging inbox errors", () => {
+  it("never lets a database error that quotes the link out, as a message, a cause or output", async () => {
+    const id = "0b7c3f6e-6a1d-4c11-9d0e-3f1f0c1d2e3f", token = "Q".repeat(43);
+    const link = stagingApprovalLink("https://salon-demo.cresavo.test", id, token);
+    // Shaped like a Prisma validation error, which repeats the call's arguments in its message.
+    const prismaLike = Object.assign(new Error(`Invalid \`prisma.consentInboxMessage.create()\` invocation:\n{ data: { approvalLink: "${link}" } }`),
+      { name: "PrismaClientValidationError", meta: { approvalLink: link } });
+    const tx = { consentInboxMessage: { create: vi.fn().mockRejectedValue(prismaLike), updateMany: vi.fn().mockRejectedValue(prismaLike) } };
+    const output = [vi.spyOn(console, "error"), vi.spyOn(console, "warn"), vi.spyOn(console, "log"), vi.spyOn(console, "info"), vi.spyOn(console, "debug"),
+      vi.spyOn(process.stdout, "write"), vi.spyOn(process.stderr, "write")];
+    try {
+      for (const run of [() => stagingInbox.deliver(tx as never, "https://salon-demo.cresavo.test", id, token), () => stagingInbox.consume(tx as never, id, new Date())]) {
+        let thrown: unknown;
+        try { await run(); } catch (error) { thrown = error; }
+        expect(thrown).toBeInstanceOf(Error);
+        expect(inspect(thrown, { depth: 8, showHidden: true }) + String((thrown as Error).stack)).not.toContain(token);
+        expect((thrown as Error).cause).toBeUndefined();
+      }
+      for (const spy of output) for (const call of spy.mock.calls) expect(JSON.stringify(call)).not.toContain(token);
+    } finally { for (const spy of output) spy.mockRestore(); }
   });
 });
 
@@ -151,14 +210,7 @@ describe("staging host and customer endpoint", () => {
   const proofed = (ip: string, id: string, body: string) => POST(new Request(`https://salon-demo.cresavo.test/consent/${id}/decision`, { method: "POST", body, headers: {
     origin: "https://salon-demo.cresavo.test", "content-type": "application/json", "x-booking-client-ip": ip,
     "x-booking-client-proof": createHmac("sha256", "synthetic-proof").update(ip).digest("hex") } }), { params: Promise.resolve({ id }) });
-  it("reports a failure after the request was accepted as unconfirmed, not as a refusal", async () => {
-    // The unit-test database is unreachable: the decision itself fails, which may follow a commit.
-    const response = await proofed("203.0.113.20", randomUUID(), JSON.stringify({ token: "T".repeat(43), decision: "yes", proposalHash: "a".repeat(64) }));
-    expect(response.status).toBe(500);
-    const body = await response.json();
-    expect(body).toEqual({ error: "consent_unavailable" });
-    expect(consentOutcome("yes", { status: response.status, body })).toBe("unconfirmed");
-  });
+  // The post-acceptance failure, with the database injected, is in consent-decision-route.test.ts.
   it("limits decision requests per client address before anything else", async () => {
     // Per-proposal limits need the database and are covered by the integration tests.
     for (let i = 0; i < 60; i++) expect((await proofed("203.0.113.50", "../admin", "{}")).status).toBe(403);
@@ -352,16 +404,18 @@ describe("staging runner preflight", () => {
   });
   it("isolates the browser to the salon host, IP literals and redirects included", async () => {
     const { hostIsolation } = await import("../scripts/staging-consent/browsers.mjs");
-    expect(hostIsolation("salon-demo.cresavo.test")).toEqual([
-      "--host-rules=MAP salon-demo.cresavo.test 127.0.0.1, MAP * ~NOTFOUND",
-      "--host-resolver-rules=MAP salon-demo.cresavo.test 127.0.0.1, MAP * ~NOTFOUND",
+    // Pinned to the salon's TLS port: the salon host on any other port is refused like any other host.
+    expect(hostIsolation("salon-demo.cresavo.test", 8443)).toEqual([
+      "--host-rules=MAP salon-demo.cresavo.test:8443 127.0.0.1:8443, MAP * ~NOTFOUND",
+      "--host-resolver-rules=MAP salon-demo.cresavo.test:8443 127.0.0.1:8443, MAP * ~NOTFOUND",
     ]);
-    for (const host of ["salon.test, MAP * 127.0.0.1", "salon test", ""]) expect(() => hostIsolation(host)).toThrow(/^STAGING_HOST_INVALID$/);
+    for (const host of ["salon.test, MAP * 127.0.0.1", "salon test", ""]) expect(() => hostIsolation(host, 8443)).toThrow(/^STAGING_HOST_INVALID$/);
+    for (const port of [0, 65536, 1.5, Number.NaN]) expect(() => hostIsolation("salon.test", port)).toThrow(/^STAGING_HOST_INVALID$/);
   });
   it("cannot launch a browser while a remote grid is configured, whoever calls it", async () => {
     const { launchBrowser } = await import("../scripts/staging-consent/browsers.mjs");
     vi.stubEnv("SELENIUM_REMOTE_URL", "http://127.0.0.1:1/wd/hub");
-    try { await expect(launchBrowser("salon-demo.cresavo.test", "x")).rejects.toThrow(/^STAGING_REMOTE_BROWSER_REFUSED$/); }
+    try { await expect(launchBrowser("salon-demo.cresavo.test", 8443, "x")).rejects.toThrow(/^STAGING_REMOTE_BROWSER_REFUSED$/); }
     finally { vi.unstubAllEnvs(); }
   });
   it("refuses diagnostics that would print approval links outside the sanitizer", async () => {
@@ -516,7 +570,7 @@ describe("staging runner output", () => {
     captureStream("shutdown:stdout", child.stdout);
     await new Promise(resolve => child.stdout!.once("data", resolve));
     expect(leakedStreams()).not.toContain("shutdown:stdout");
-    await stopAll();
+    await stopAll({ final: false });
     expect(leakedStreams()).toContain("shutdown:stdout");
   }, 30_000);
 });

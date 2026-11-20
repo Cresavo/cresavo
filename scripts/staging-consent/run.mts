@@ -18,6 +18,7 @@ import { containsSecret, registerSecret, say } from "./sanitize.mjs";
 import { captureStream, freePort, guardStream, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
 import { agentChannel } from "./agent-reply.mjs";
 import { loopbackAdminUrl, refuseDiagnostics, refuseRemoteBrowsers } from "./preflight.mjs";
+import { acquisition } from "./lifecycle.mjs";
 import { issueCertificates, operatorFetch, tlsProxy } from "./tls.mjs";
 import { createServer as createHttpServer } from "node:http";
 import { approveWithLostResponse, close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking, reopenInSameTab, salonContext } from "./browsers.mjs";
@@ -86,7 +87,7 @@ const dnsHook = join(repo, "scripts/staging-consent/loopback-dns.mjs");
 const networkEnv = Object.fromEntries(["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "NO_PROXY", "no_proxy",
   "npm_config_https_proxy", "npm_config_noproxy", "npm_config_registry", "NPM_CONFIG_USERCONFIG", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE"]
   .flatMap(name => process.env[name] === undefined ? [] : [[name, process.env[name]!]]));
-let createdDb = false;
+const database = acquisition();
 const browsers: { close(): Promise<void> }[] = [];
 const servers: { close(): void }[] = [];
 let db: typeof import("../../src/lib/db").db | undefined;
@@ -133,7 +134,9 @@ async function cleanupOnce() {
   if (leaks.length) { failures++; say(`FAIL PROCESS_OUTPUT_SECRET_FREE_THROUGH_SHUTDOWN - ${leaks.length} stream(s)`); }
   else pass("PROCESS_OUTPUT_SECRET_FREE_THROUGH_SHUTDOWN");
   await db?.$disconnect().catch(() => {});
-  if (createdDb) {
+  // A cancellation during CREATE DATABASE waits for it: the database may exist although the call
+  // has not returned yet. DROP ... IF EXISTS is harmless when it was never created.
+  if (await database.settled()) {
     try { await adminQuery(`DROP DATABASE IF EXISTS "${dbName}" WITH (FORCE)`); say("PASS DATABASE_DROPPED"); }
     catch { failures++; say("FAIL DATABASE_DROP"); }
   }
@@ -172,8 +175,7 @@ function agentClient(env: Record<string, string>) {
 try {
   // ---- Database ----
   step = "DATABASE";
-  await adminQuery(`CREATE DATABASE "${dbName}"`);
-  createdDb = true;
+  await database.run(() => adminQuery(`CREATE DATABASE "${dbName}"`));
   const dbEnv = { ...baseEnv, DATABASE_URL: databaseUrl.href, SESSION_SECRET: sessionSecret };
   await runStep("MIGRATE", process.execPath, [join(repo, "node_modules/prisma/build/index.js"), "migrate", "deploy"], repo, dbEnv);
   await runStep("SEED", process.execPath, ["--import", "tsx", "prisma/seed.ts"], repo, dbEnv);
@@ -235,9 +237,9 @@ try {
   const agent = agentClient({ PATH: baseEnv.PATH, HOME: baseEnv.HOME, NODE_EXTRA_CA_CERTS: tls.caPath, STAGING_LOOPBACK_HOSTS: gatewayHost,
     STAGING_AGENT_GATEWAY: gatewayOrigin, STAGING_AGENT_KEY: agentKey.key });
   // Each browser is in the cleanup list as soon as it exists, before the next launch can fail.
-  const customerBrowser = await launchBrowser(salonHost, tls.leaves[salonHost].spki);
+  const customerBrowser = await launchBrowser(salonHost, salonTls.port, tls.leaves[salonHost].spki);
   browsers.push(customerBrowser);
-  const ownerBrowser = await launchBrowser(salonHost, tls.leaves[salonHost].spki);
+  const ownerBrowser = await launchBrowser(salonHost, salonTls.port, tls.leaves[salonHost].spki);
   browsers.push(ownerBrowser);
   const links: string[] = [];
   async function inboxLink(proposalId: string) {
@@ -485,12 +487,17 @@ try {
       const page = await context.newPage();
       page.setDefaultTimeout(10_000);
       // Direct navigation: an IP literal, localhost, the gateway, the salon's own plain port.
-      for (const url of [`http://127.0.0.1:${probePort}/`, `http://localhost:${probePort}/`, `${gatewayOrigin}/`, `http://127.0.0.1:${salonPort}/`])
+      for (const url of [`http://127.0.0.1:${probePort}/`, `http://localhost:${probePort}/`, `${gatewayOrigin}/`, `http://127.0.0.1:${salonPort}/`,
+        // The salon's own host name on another port: the browser is pinned to the salon's TLS port.
+        `http://${salonHost}:${probePort}/`, `https://${salonHost}:${gatewayTls.port}/`])
         await assert.rejects(page.goto(url), `navigation to ${new URL(url).host} was allowed`);
       // A redirect from the salon origin to elsewhere, secret-shaped fragment included. A route
       // handler never sees the redirect target, so this checks the browser's own refusal.
-      await page.route(`${salonOrigin}/redirect-probe`, route => route.fulfill({ status: 302, headers: { location: `http://127.0.0.1:${probePort}/leak#${"Z".repeat(43)}` } }));
-      await assert.rejects(page.goto(`${salonOrigin}/redirect-probe`));
+      for (const location of [`http://127.0.0.1:${probePort}/leak#${"Z".repeat(43)}`, `http://${salonHost}:${probePort}/leak#${"Z".repeat(43)}`]) {
+        await page.route(`${salonOrigin}/redirect-probe`, route => route.fulfill({ status: 302, headers: { location } }));
+        await assert.rejects(page.goto(`${salonOrigin}/redirect-probe`));
+        await page.unroute(`${salonOrigin}/redirect-probe`);
+      }
       assert.equal(hits, 0, "a non-salon destination was reached");
     } finally {
       await context.close();

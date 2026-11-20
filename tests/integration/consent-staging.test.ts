@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
+import { inspect } from "node:util";
 import { DateTime } from "luxon";
 import { db } from "../../src/lib/db";
 import { createBooking } from "../../src/lib/domain";
@@ -8,7 +9,7 @@ import { createProposal, customerDecision, getProposal, proposalHash } from "../
 import { createAgentBooking } from "../../src/lib/agent-api/bookings";
 import { handleMcp } from "../../src/lib/agent-api/mcp";
 import { mapAgentError } from "../../src/lib/agent-api/v1";
-import { STAGING_CHANNEL, STAGING_CUSTOMER, stagingInbox } from "../../src/lib/agent-api/consent-staging";
+import { STAGING_CHANNEL, STAGING_CUSTOMER, stagingConsentOrigin, stagingInbox } from "../../src/lib/agent-api/consent-staging";
 import * as decisionRoute from "../../src/app/consent/[id]/decision/route";
 import { consentOutcome, parseStagingView } from "../../src/app/consent/[id]/staging-copy";
 import { POST as restPropose } from "../../src/app/api/v1/proposals/route";
@@ -45,10 +46,23 @@ beforeAll(async () => {
   const template = await db.staff.findUniqueOrThrow({ where: { id: "staff-erik" } });
   await db.staff.create({ data: { id: staffId, businessId: "demo", name: "Fictional Staging Stylist", serviceIds: [serviceId], weekly: template.weekly!, exceptions: [] } });
 });
-beforeEach(() => {
+// `npm run test:integration` loads the operator's .env, which may enable a local lab. One fixture
+// sets every setting the staging channel needs and clears every one it refuses to run with.
+const STAGING_INCOMPATIBLE = ["BOOKING_CONSENT_LAB", "BOOKING_SMS_OTP_LAB", "BOOKING_CONSENT_INBOX_DIR", "PUBLIC_READONLY", "DEBUG", "BOOKING_CONSENT_TTL_SECONDS"];
+function stagingEnv() {
+  for (const name of STAGING_INCOMPATIBLE) vi.stubEnv(name, undefined);
   vi.stubEnv("BOOKING_SERVICE_ROLE", "salon"); vi.stubEnv("GATEWAY_SERVICE_TOKEN", serviceToken);
   vi.stubEnv("BOOKING_PUBLIC_ORIGIN", gatewayOrigin); vi.stubEnv("BOOKING_CONSENT_DELIVERY", "staging-inbox");
   vi.stubEnv("BOOKING_CONSENT_ORIGIN", consentOrigin); vi.stubEnv("BOOKING_ADDRESS_SECRET", addressSecret);
+}
+beforeEach(stagingEnv);
+
+it("runs with the staging fixture whatever lab settings the operator's environment has", () => {
+  vi.stubEnv("BOOKING_CONSENT_LAB", "1"); vi.stubEnv("BOOKING_SMS_OTP_LAB", "1"); vi.stubEnv("BOOKING_CONSENT_INBOX_DIR", "/tmp/fictional-lab-inbox");
+  vi.stubEnv("DEBUG", "prisma:client");
+  expect(() => stagingConsentOrigin()).toThrow();
+  stagingEnv();
+  expect(stagingConsentOrigin()).toBe(consentOrigin);
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 afterAll(async () => {
@@ -175,6 +189,26 @@ it("the delivery profile cannot change once a proposal exists, so a delivered li
   // A proposal without a profile cannot be given one later either, so an inbox row cannot follow.
   const legacy = await db.agentProposal.findFirst({ where: { consentDelivery: null } });
   if (legacy) await expect(db.$executeRaw`UPDATE "AgentProposal" SET "consentDelivery"=${STAGING_CHANNEL} WHERE "id"=${legacy.id}`).rejects.toThrow(/CONSENT_DELIVERY_IMMUTABLE/);
+});
+
+it("a real database failure on the inbox write leaves no trace of the link in errors or output", async () => {
+  const { principal } = await actor();
+  const { proposal } = await createProposal(principal, terms());
+  const lab = await db.agentProposal.create({ data: { ...(await db.agentProposal.findUniqueOrThrow({ where: { id: proposal.id } })),
+    id: randomUUID(), tokenHash: randomBytes(32).toString("hex"), consentDelivery: null, mandateId: null } });
+  const token = "R".repeat(43);
+  const output = [vi.spyOn(console, "error"), vi.spyOn(console, "warn"), vi.spyOn(console, "log"), vi.spyOn(console, "info"),
+    vi.spyOn(process.stdout, "write"), vi.spyOn(process.stderr, "write")];
+  // A second row for the same proposal (primary key) and a row for a proposal of no staging channel (trigger).
+  for (const id of [proposal.id, lab.id]) {
+    let thrown: unknown;
+    try { await stagingInbox.deliver(db, consentOrigin, id, token); } catch (error) { thrown = error; }
+    expect(thrown).toMatchObject({ code: "consent_delivery_unavailable" });
+    expect(inspect(thrown, { depth: 8, showHidden: true }) + String((thrown as Error).stack)).not.toContain(token);
+  }
+  for (const spy of output) for (const call of spy.mock.calls) expect(JSON.stringify(call)).not.toContain(token);
+  expect(await db.consentInboxMessage.count({ where: { approvalLink: { contains: token } } })).toBe(0);
+  await db.agentProposal.delete({ where: { id: lab.id } });
 });
 
 it("a failed delivery creates no proposal, no mandate and returns no link", async () => {
@@ -373,9 +407,9 @@ it("channels never cross: lab links are refused in staging and staging links out
   vi.stubEnv("BOOKING_CONSENT_LAB", "1"); vi.stubEnv("BOOKING_RUNTIME", "local"); vi.stubEnv("BOOKING_PUBLIC_ORIGIN", "http://127.0.0.1:3229");
   await expect(customerDecision(proposal.id, { token, decision: "view" })).rejects.toMatchObject({ code: "mandate_denied" });
   const lab = await createProposal(principal, terms()), labToken = new URL(lab.approvalUrl!).hash.slice(1);
+  // Back to staging through the same fixture, which also clears the lab switch set above.
   vi.unstubAllEnvs();
-  for (const [name, value] of [["BOOKING_SERVICE_ROLE", "salon"], ["GATEWAY_SERVICE_TOKEN", serviceToken], ["BOOKING_PUBLIC_ORIGIN", gatewayOrigin],
-    ["BOOKING_CONSENT_DELIVERY", "staging-inbox"], ["BOOKING_CONSENT_ORIGIN", consentOrigin], ["BOOKING_ADDRESS_SECRET", addressSecret]]) vi.stubEnv(name, value);
+  stagingEnv();
   await expect(customerDecision(lab.proposal.id, { token: labToken, decision: "view" })).rejects.toMatchObject({ code: "mandate_denied" });
   expect(await db.consentInboxMessage.count({ where: { proposalId: lab.proposal.id } })).toBe(0);
   await expect(db.consentInboxMessage.create({ data: { proposalId: lab.proposal.id, recipientId: STAGING_CUSTOMER.id,

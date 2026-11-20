@@ -34,15 +34,20 @@ export function stagingApprovalLink(origin: string, proposalId: string, token: s
 export const stagingInbox = {
   /** Runs inside the proposal transaction: a failed delivery leaves no proposal behind. */
   async deliver(tx: Prisma.TransactionClient, origin: string, proposalId: string, token: string) {
-    await tx.consentInboxMessage.create({ data: {
-      proposalId, recipientId: STAGING_CUSTOMER.id, approvalLink: stagingApprovalLink(origin, proposalId, token),
-    } });
+    const approvalLink = stagingApprovalLink(origin, proposalId, token);
+    // A database error can quote the written values, the link and its secret included. It is
+    // replaced by a static code here, never logged, wrapped or passed on as a cause.
+    try { await tx.consentInboxMessage.create({ data: { proposalId, recipientId: STAGING_CUSTOMER.id, approvalLink } }); }
+    catch { throw new AgentApiError("consent_delivery_unavailable"); }
   },
   /** Marks the one message for this proposal as used; refuses a missing or already used message. */
   async consume(tx: Prisma.TransactionClient, proposalId: string, at: Date) {
-    const { count } = await tx.consentInboxMessage.updateMany({
-      where: { proposalId, recipientId: STAGING_CUSTOMER.id, consumedAt: null }, data: { consumedAt: at },
-    });
+    let count: number;
+    try {
+      ({ count } = await tx.consentInboxMessage.updateMany({
+        where: { proposalId, recipientId: STAGING_CUSTOMER.id, consumedAt: null }, data: { consumedAt: at },
+      }));
+    } catch { throw new Error("CONSENT_INBOX_UNAVAILABLE"); }
     if (count !== 1) throw new AgentApiError("mandate_denied");
   },
 };

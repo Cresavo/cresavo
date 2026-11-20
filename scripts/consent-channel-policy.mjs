@@ -20,7 +20,10 @@ export function stagingConsentPolicy(env) {
   if (env.BOOKING_CONSENT_DELIVERY !== STAGING_CONSENT_MODE) return null;
   if (env.BOOKING_SERVICE_ROLE !== "salon" || !/^[a-f0-9]{64}$/.test(env.GATEWAY_SERVICE_TOKEN ?? "") ||
       env.PUBLIC_READONLY === "1" || env.BOOKING_SMS_OTP_LAB === "1" ||
-      env.BOOKING_CONSENT_LAB === "1" || env.BOOKING_CONSENT_INBOX_DIR !== undefined)
+      env.BOOKING_CONSENT_LAB === "1" || env.BOOKING_CONSENT_INBOX_DIR !== undefined ||
+      // Prisma's debug output (`DEBUG=prisma:*`, or any pattern that matches it) prints each query
+      // with its arguments, including the approval link written to the inbox.
+      Boolean(env.DEBUG))
     throw new Error("CONSENT_CHANNEL_CONFIG_INVALID");
   const consent = httpsOrigin(env.BOOKING_CONSENT_ORIGIN);
   // The agent-facing origin (gateway) and the customer page must never share a host name,
@@ -29,6 +32,21 @@ export function stagingConsentPolicy(env) {
   if (new URL(httpsOrigin(env.BOOKING_PUBLIC_ORIGIN)).hostname === new URL(consent).hostname)
     throw new Error("CONSENT_CHANNEL_CONFIG_INVALID");
   return consent;
+}
+
+/**
+ * True when a request's host (with its port, as the browser sent it) is exactly the configured
+ * consent origin's. The consent page renders its form only then, so a link opened through another
+ * alias or port of the same deployment never hands its secret to that origin.
+ */
+export function isConsentHost(env, rawHost) {
+  try {
+    const origin = stagingConsentPolicy(env);
+    if (!origin || !rawHost) return false;
+    return new URL(`https://${String(rawHost).trim().toLowerCase()}`).host === new URL(origin).host;
+  } catch {
+    return false;
+  }
 }
 
 /** Host name served as the salon app when the staging channel is enabled; never throws. */

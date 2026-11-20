@@ -38,6 +38,9 @@ condition holds:
   consent origin. A different port on the same host is refused: cookies are scoped by
   host, not port, so the owner's `booking_admin` session cookie would also reach the
   gateway.
+- No `DEBUG` setting: Prisma's debug output prints each query with its arguments, which
+  would include the approval link written to the inbox. Database errors on the inbox write
+  are replaced by a static code and never logged.
 - Not combined with the public read-only fixture mode (`PUBLIC_READONLY=1`), the SMS
   lab (`BOOKING_SMS_OTP_LAB=1`), the local consent lab (`BOOKING_CONSENT_LAB=1`) or a
   lab inbox directory (`BOOKING_CONSENT_INBOX_DIR`).
@@ -58,7 +61,10 @@ approved. The proposal never outlives its start time.
    is 32 random bytes in the fragment, which browsers do not send in requests,
    `Referer` headers or server logs. The salon stores only its SHA-256 digest on the
    proposal. The inbox row holds the full link for the test operator.
-4. The customer opens the link. Rendering the page reads nothing and changes nothing.
+4. The customer opens the link. The page has a form only on the exact consent origin (host
+   and port); on any other alias or port of the deployment it is not found, and the browser
+   also compares its own origin before it reads the secret, so the secret is never sent
+   anywhere else. Rendering the page reads nothing and changes nothing.
    The page moves the secret into memory, removes it from the address bar and posts a
    `view` request. It shows the salon name and location, service, staff, date and time
    in the salon's time zone, the time zone, duration, price, currency and the time the
@@ -185,11 +191,15 @@ The runner:
    TLS key logging is refused too: `SSLKEYLOGFILE`, and `--tls-keylog` in `NODE_OPTIONS` or the
    runner's own Node flags.
 
-   The customer and owner browsers can reach only the salon host. Chromium maps that host to
-   loopback and every other host, IP literals and redirect targets included, to "not found"
-   (`--host-rules`), and each browser context also aborts any request outside the salon origin.
+   The customer and owner browsers can reach only the salon's host and TLS port. Chromium maps
+   exactly that host and port to loopback and everything else (other hosts, IP literals, other
+   ports of the salon host, redirect targets) to "not found" (`--host-rules`), and each browser context also aborts any request outside the salon origin.
    A check navigates to a loopback listener by IP, to `localhost`, to the gateway and through a
-   redirect from the salon origin, and confirms none of them was reached.
+   redirect from the salon origin (to another host and to the salon host on another port), and
+   confirms none of them was reached.
+
+   A signal during setup waits for a database creation in flight before deciding what to
+   drop, and once shutdown has begun no new child process starts.
 9. Drops the database and deletes the temporary directory, also on failure.
 
 Output is limited to static check codes, host names, revisions and counts. Every line

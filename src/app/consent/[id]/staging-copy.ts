@@ -6,6 +6,7 @@ const en = {
   intro: "Staging test with a fictional customer. No real messages or payments.",
   loading: "Loading the proposal…",
   invalid: "This link is invalid. Nothing was approved.",
+  wrongOrigin: "This is not the salon's approval address, so the link was not used here. Nothing was sent or approved. Open the link from your message.",
   used: "This link has already been used. Nothing more was approved.",
   approvedEarlier: "This link has already been used: you approved this proposal. That records your earlier decision only; it does not show whether the booking was made or can still be made. This is not a booking confirmation.",
   declinedEarlier: "This link has already been used: the proposal was declined. Nothing was approved.",
@@ -41,6 +42,7 @@ const sv: typeof en = {
   intro: "Stagingtest med en påhittad kund. Inga riktiga meddelanden eller betalningar.",
   loading: "Läser förslaget…",
   invalid: "Länken är ogiltig. Inget godkändes.",
+  wrongOrigin: "Det här är inte salongens adress för godkännanden, så länken användes inte här. Inget skickades eller godkändes. Öppna länken i meddelandet.",
   used: "Länken är redan använd. Inget mer godkändes.",
   approvedEarlier: "Länken är redan använd: du godkände förslaget. Det visar bara ditt tidigare beslut, inte om bokningen har gjorts eller fortfarande kan göras. Detta är ingen bokningsbekräftelse.",
   declinedEarlier: "Länken är redan använd: förslaget avböjdes. Inget godkändes.",
@@ -71,7 +73,7 @@ const sv: typeof en = {
 };
 export type StagingCopy = typeof en;
 
-export type ConsentOutcome = "loading" | "ready" | "invalid" | "used" | "approvedEarlier" | "declinedEarlier" | "expired" | "unchecked" | "unconfirmed" | "limited" | "approved" | "declined";
+export type ConsentOutcome = "loading" | "ready" | "wrongOrigin" | "invalid" | "used" | "approvedEarlier" | "declinedEarlier" | "expired" | "unchecked" | "unconfirmed" | "limited" | "approved" | "declined";
 
 /** The proposal terms the page shows and approves. */
 export type StagingView = {
@@ -102,6 +104,14 @@ export function parseStagingView(body: unknown): StagingView | null {
     // One currency: the amount is shown, labelled and approved in the proposal's own currency.
     terms.currency === price.currency;
   return ok ? body as StagingView : null;
+}
+
+/**
+ * The secret from the address bar, or null when this page is not on the configured consent origin.
+ * Checked in the browser before anything is sent: on another origin the secret is never read.
+ */
+export function consentFragment(expectedOrigin: string, location: { origin: string; hash: string }) {
+  return location.origin === expectedOrigin ? location.hash.slice(1) : null;
 }
 
 /** Outcomes after which the page offers to read the status again with the secret still in memory. */

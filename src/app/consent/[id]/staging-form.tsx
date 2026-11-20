@@ -5,10 +5,10 @@ import { Button } from "@/concept/ui/button";
 import { Notice } from "@/concept/ui/notice";
 import { consentSequence } from "./consent-sequence";
 import { consentRequest } from "./consent-request";
-import { consentOutcome, recheckable, formatStagingTerms, parseStagingView, stagingCopy, type ConsentOutcome, type StagingView } from "./staging-copy";
+import { consentFragment, consentOutcome, recheckable, formatStagingTerms, parseStagingView, stagingCopy, type ConsentOutcome, type StagingView } from "./staging-copy";
 
 // Opening the page only reads the proposal. Nothing is approved without the explicit button.
-export default function StagingConsentForm({ id, locale }: { id: string; locale: Locale }) {
+export default function StagingConsentForm({ id, locale, origin }: { id: string; locale: Locale; origin: string }) {
   const t = stagingCopy[locale];
   const token = useRef("");
   const [sequence] = useState(consentSequence);
@@ -52,17 +52,24 @@ export default function StagingConsentForm({ id, locale }: { id: string; locale:
     // Keep the one-time secret in memory only and remove it from the address bar and history at
     // once, also when the link is reopened in this tab: with the same path that is only a fragment
     // change, which neither remounts the page nor re-runs this effect.
+    // The secret is read only on the configured consent origin; elsewhere it is removed from the
+    // address bar unread and nothing is sent.
     const take = () => {
-      const fragment = window.location.hash.slice(1);
+      const fragment = consentFragment(origin, window.location);
       window.history.replaceState(null, "", window.location.pathname);
       return fragment;
     };
-    const reopened = () => { if (window.location.hash.length > 1) view(take()); };
+    const open = () => {
+      const fragment = take();
+      if (fragment === null) { token.current = ""; setData(null); setCanRecheck(false); setOutcome("wrongOrigin"); return; }
+      view(fragment);
+    };
+    const reopened = () => { if (window.location.hash.length > 1) open(); };
     read.current = () => view();
-    view(take());
+    open();
     window.addEventListener("hashchange", reopened);
     return () => { active = false; clearTimeout(retry.current); window.removeEventListener("hashchange", reopened); };
-  }, [endpoint, sequence]);
+  }, [endpoint, sequence, origin]);
   async function decide(decision: "yes" | "no") {
     if (!data || busy) return;
     const hash = data.proposalHash;

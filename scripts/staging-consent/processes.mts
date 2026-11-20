@@ -9,7 +9,13 @@ import { containsSecret } from "./sanitize.mjs";
 // Each child with a promise that settles on `close`: after `exit`, stdout and stderr can still
 // deliver data, so shutdown waits for `close` before the final scan.
 const children = new Map<ChildProcess, Promise<void>>();
+// Set by the first stopAll: from then on no new child may start, since a detached child started
+// after shutdown would outlive the runner.
+let stopping = false;
+export const isStopping = () => stopping;
+
 export function track<T extends ChildProcess>(child: T): T {
+  if (stopping) { signalGroup(child, "SIGKILL"); throw new Error("STAGING_STOPPING"); }
   children.set(child, new Promise<void>(resolve => {
     child.once("close", () => { children.delete(child); resolve(); });
     child.once("error", () => { if (child.pid === undefined) { children.delete(child); resolve(); } });
@@ -77,6 +83,7 @@ export function leakedStreams() {
 /** Runs a command to completion with a closed environment. Rejects with a static code only. */
 export function runStep(code: string, command: string, args: string[], cwd: string, env: Record<string, string>, timeoutMs = 600_000) {
   return new Promise<void>((resolve, reject) => {
+    if (stopping) return reject(new Error("STAGING_STOPPING"));
     const child = track(spawn(command, args, { cwd, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"], detached: true }));
     captureStream(`${code}:stdout`, child.stdout);
     captureStream(`${code}:stderr`, child.stderr);
@@ -94,6 +101,7 @@ export function runStep(code: string, command: string, args: string[], cwd: stri
 /** Starts a long-running server and resolves when a stdout line starts with the ready marker. */
 export function startServer(name: string, command: string, args: string[], cwd: string, env: Record<string, string>, ready: string) {
   return new Promise<ChildProcess>((resolve, reject) => {
+    if (stopping) return reject(new Error("STAGING_STOPPING"));
     const child = track(spawn(command, args, { cwd, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"], detached: true }));
     const timer = setTimeout(() => reject(new Error(`${name}_READY_TIMEOUT`)), 90_000);
     let buffer = "";
@@ -124,7 +132,9 @@ function signalGroup(child: ChildProcess, signal: NodeJS.Signals) {
  * marked incomplete, so the final scan fails, and this side of the pipes is closed, so nothing
  * left behind can keep the runner from exiting.
  */
-export async function stopAll({ killAfterMs = 5000, closeTimeoutMs = 15_000 } = {}) {
+/** `final: false` (tests only) stops the current children without refusing later ones. */
+export async function stopAll({ killAfterMs = 5000, closeTimeoutMs = 15_000, final = true } = {}) {
+  if (final) stopping = true;
   await Promise.all([...children].map(async ([child, closed]) => {
     signalGroup(child, "SIGTERM");
     const timer = setTimeout(() => signalGroup(child, "SIGKILL"), killAfterMs);
