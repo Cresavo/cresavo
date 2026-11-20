@@ -278,7 +278,7 @@ export class BrowserStudioStore implements StudioStore {
         base = latest;
         refused = undefined;
         return true;
-      }, { send: extras.send, committed: (records) => { sent = records.map(effectOf); } });
+      }, { send: extras.send, refuseNoOp: true, committed: (records) => { sent = records.map(effectOf); } });
     } finally {
       tab.committing = false;
     }

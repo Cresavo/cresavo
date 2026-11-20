@@ -19,6 +19,7 @@ import { setupOf } from "./onboarding/setup";
 import { parseLastUse, trialExpired } from "./onboarding/trial";
 import { getPack } from "./packs";
 import { newEpoch } from "./store/salon-tx";
+import { sameContent } from "./store/studio-store";
 
 // Browser-side demo store: each workspace has its own shared snapshot.
 // Pages read it with `useDemo()`; on the server it is `null`, so the studio
@@ -30,6 +31,10 @@ export type Workspace = "demo" | "own";
 interface WorkspaceSnapshot {
   state?: DemoState | null;
   raw?: string | null;
+  /** The lifetime saved with `raw` (or about to be). */
+  epoch?: string;
+  /** True while that lifetime still comes from the old separate key. */
+  epochFromKey?: boolean;
   version?: BookingReceipt;
   lastWrite?: BookingReceipt;
 }
@@ -79,38 +84,47 @@ export function onSalonRemoved(listener: (workspace: Workspace) => void): () => 
 const lastUseKey = () => `${storageKey("own")}-last-used`;
 
 // A salon's lifetime id (docs/design/BROWSER_STORE_IDB.md, "Targets and commit"):
-// new whenever a salon is created or replaced, kept beside its snapshot. The
-// sample business also gets a new one each day it is generated afresh. A
-// salon saved before epochs existed has the lifetime "legacy" until replaced.
+// new whenever a salon is created or replaced. It is saved in the same
+// localStorage value as the salon, as a top-level `epoch` field that loading
+// strips, so no tab can ever read a new salon with an old lifetime. The
+// sample business adds its day. A salon saved before this has the lifetime
+// from the `-epoch` key an earlier version wrote, or "legacy"; the next save
+// moves it into the value and removes that key.
 const epochKey = (workspace: Workspace) => `${storageKey(workspace)}-epoch`;
-/** Lifetimes this tab could not save: kept in memory with the salon it holds, never the earlier id. */
-const unsavedEpochs: Partial<Record<Workspace, string>> = {};
 
-function startEpoch(workspace: Workspace) {
-  const epoch = newEpoch();
-  delete unsavedEpochs[workspace];
-  try { window.localStorage.setItem(epochKey(workspace), epoch); }
-  catch { unsavedEpochs[workspace] = epoch; }
+/** The saved document and the lifetime saved with it, from a stored value. Throws for text that is not JSON. */
+function readSaved(raw: string, workspace: Workspace): { saved: unknown; epoch?: string; fromKey: boolean } {
+  const parsed: unknown = JSON.parse(raw);
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && typeof (parsed as { epoch?: unknown }).epoch === "string") {
+    const { epoch, ...saved } = parsed as { epoch: string };
+    return { saved, epoch, fromKey: false };
+  }
+  let epoch: string | null = null;
+  try { epoch = window.localStorage.getItem(epochKey(workspace)); }
+  catch { /* Unreadable: the legacy lifetime. */ }
+  return { saved: parsed, epoch: epoch ?? undefined, fromKey: epoch !== null };
 }
 
-function endEpoch(workspace: Workspace) {
-  delete unsavedEpochs[workspace];
+/** The text to save for a salon: the document with its lifetime. */
+const savedText = (state: DemoState, epoch: string | undefined) => JSON.stringify(epoch ? { ...state, epoch } : state);
+
+/** After a save that carries the lifetime, the separate key an earlier version wrote is no longer needed. */
+function dropEpochKey(workspace: Workspace) {
+  const snapshot = snapshots[workspace];
+  if (!snapshot.epochFromKey) return;
   try { window.localStorage.removeItem(epochKey(workspace)); }
-  catch { /* Its salon is gone too. */ }
+  catch { /* Ignored once the value carries the lifetime. */ }
+  snapshot.epochFromKey = false;
 }
 
 /**
- * The lifetime of `state`, the workspace's salon as just read. It reads only
- * the lifetime key, never the salon itself, so it can run inside a dispatch
- * guard without moving the store's freshness check.
+ * The lifetime of `state`, the workspace's salon as last read or written. It
+ * never reads storage, so it can run inside a dispatch guard without moving
+ * the store's freshness check.
  */
 export function epochOf(workspace: Workspace, state: DemoState): string {
-  let lifetime = unsavedEpochs[workspace] ?? null;
-  if (lifetime === null) {
-    try { lifetime = window.localStorage.getItem(epochKey(workspace)); }
-    catch { /* Unreadable: the legacy lifetime. */ }
-  }
-  return workspace === "demo" ? `${lifetime ?? "legacy"}:${state.generatedFor}` : lifetime ?? "legacy";
+  const lifetime = snapshots[workspace].epoch ?? "legacy";
+  return workspace === "demo" ? `${lifetime}:${state.generatedFor}` : lifetime;
 }
 
 /** The open lifetime of a workspace's salon, or null when it has none. Commands carry it to be refused once the salon is replaced. */
@@ -132,8 +146,8 @@ function removeOwnSalon(announce: boolean) {
   try {
     window.localStorage.removeItem(storageKey("own"));
     window.localStorage.removeItem(lastUseKey());
+    window.localStorage.removeItem(epochKey("own"));
   } catch { /* Nothing more to remove. */ }
-  endEpoch("own");
   snapshots.own = {};
   salonRemoved("own");
   if (active === "own") {
@@ -205,9 +219,9 @@ function purge(state: DemoState): DemoState {
   return next;
 }
 
-function load(raw: string | null, workspace: Workspace): DemoState | null {
+function load(document: unknown, workspace: Workspace): DemoState | null {
   try {
-    let saved = raw && migrateState(JSON.parse(raw));
+    let saved = document ? migrateState(document) : null;
     if (saved && Boolean(saved.industry) === (workspace === "own")) {
       const validHolds = saved.checkoutHolds.filter(hold => hold.expiresAt > Date.now());
       if (validHolds.length !== saved.checkoutHolds.length) saved = { ...saved, checkoutHolds: validHolds };
@@ -238,7 +252,15 @@ function refresh(workspace: Workspace) {
   snapshot.raw = raw;
   const had = !!snapshot.state;
   erasedOnLoad = false;
-  snapshot.state = load(raw, workspace);
+  let document: unknown = null;
+  snapshot.epoch = undefined;
+  snapshot.epochFromKey = false;
+  try {
+    if (raw) ({ saved: document, epoch: snapshot.epoch, fromKey: snapshot.epochFromKey } = readSaved(raw, workspace));
+  } catch {
+    // A corrupt snapshot falls back to fresh demo data.
+  }
+  snapshot.state = load(document, workspace);
   if (erasedOnLoad && snapshot.state) persistErasure(workspace, raw, snapshot.state);
   if (had && !snapshot.state) salonRemoved(workspace);
   snapshot.version = raw && snapshot.state ? { day: snapshot.state.generatedFor, seq: snapshot.state.seq } : undefined;
@@ -254,9 +276,10 @@ function persistErasure(workspace: Workspace, raw: string | null, state: DemoSta
   const snapshot = snapshots[workspace];
   try {
     if (window.localStorage.getItem(storageKey(workspace)) !== raw) return;
-    const text = JSON.stringify(state);
+    const text = savedText(state, snapshot.epoch);
     window.localStorage.setItem(storageKey(workspace), text);
     snapshot.raw = text;
+    dropEpochKey(workspace);
   } catch {
     // Storage unavailable: the next load erases again.
   }
@@ -287,10 +310,11 @@ function onStorage(event: StorageEvent) {
 function setState(next: DemoState, recheckStorage = false, afterWrite?: () => void): boolean {
   const snapshot = snapshots[active];
   try {
-    const raw = JSON.stringify(next);
     if (recheckStorage && refreshFromStorage()) return false;
+    const raw = savedText(next, snapshot.epoch);
     window.localStorage.setItem(storageKey(active), raw);
     snapshot.raw = raw;
+    dropEpochKey(active);
     snapshot.version = snapshot.lastWrite = { day: next.generatedFor, seq: next.seq };
   } catch {
     // The demo still works in memory.
@@ -364,6 +388,13 @@ export interface DispatchOptions {
    * staged like the reducer's own sends; false refuses the whole change.
    */
   send?: (current: DemoState) => boolean;
+  /**
+   * Refuse a change whose result holds the same data as before (a reducer
+   * no-op that returned a fresh copy), before anything is sent or saved. The
+   * legacy helpers save such a copy; the commit API never does. Always the
+   * case for a change with `send`.
+   */
+  refuseNoOp?: boolean;
   /** Called after a successful save with the sends its destinations accepted (a repeated id is not a new send). */
   committed?: (sent: OutboxEntry[]) => void;
 }
@@ -394,7 +425,10 @@ export function dispatchWithLog(
     const batch = stageDemoSends(workspace);
     const next = withDemoChannels(batch, () => {
       const prepared = prepareAction(current, action, logMeta, batch);
-      return prepared !== current && options.send && !options.send(current) ? current : prepared;
+      if (prepared === current) return current;
+      // A content-identical result is no change: nothing of it, its extra sends included, may go out.
+      if ((options.refuseNoOp || options.send) && sameContent(current, prepared)) return current;
+      return options.send && !options.send(current) ? current : prepared;
     });
     if (next === current) return false;
     // Includes undo, which can restore a previously free address.
@@ -487,7 +521,8 @@ export async function startBusiness(setup?: BusinessSetup): Promise<void> {
     const next = createDemoState(today(), setup);
     next.seq = Math.max(next.seq, (snapshots.demo.state?.seq ?? 0) + 1, (required?.seq ?? 0) + 1);
     salonRemoved("demo");
-    startEpoch("demo");
+    // The new lifetime goes into the same write as the new salon, or stays with it in memory.
+    snapshots.demo.epoch = newEpoch();
     return setState(next);
   }, true);
 }
@@ -511,11 +546,11 @@ export async function switchSalon(to: Workspace, draft?: SalonDraft) {
       if (!checkNewSlug(draft.slug || suggestedSlug(draft), workspaceSlug("demo")).ok) return false;
       const now = new Date();
       const next = createSalon(today(), draft, { examplesAfter: now.getHours() * 60 + now.getMinutes() });
-      const raw = JSON.stringify(next);
+      const epoch = newEpoch();
+      const raw = savedText(next, epoch);
       try { window.localStorage.setItem(storageKey(to), raw); }
       catch { return false; }
-      startEpoch(to);
-      snapshots[to] = { raw, state: next, version: { day: next.generatedFor, seq: next.seq } };
+      snapshots[to] = { raw, state: next, epoch, version: { day: next.generatedFor, seq: next.seq } };
     }
     select(to);
     return true;

@@ -7,10 +7,15 @@ import { showUndoRefused } from "./undo-toast";
 // The commit-result counterparts of `undo-toast.ts`: Undo is bound to the
 // salon the change was made in (docs/design/BROWSER_STORE_IDB.md, PR 3).
 
-/** Takes back a change in the salon it was made in; a replaced salon refuses it. */
+/**
+ * Takes back a change in the salon it was made in; a replaced salon refuses it.
+ * The reason is looked up in the log only while that salon is still the open
+ * one: log ids repeat across salons, so another salon's entry says nothing.
+ */
 export async function undoCommitted(target: Target, id: string): Promise<boolean> {
   const result = await commitAction(target, { type: "log/undo", id });
   if (result.ok) showToast(t("log.undoneToast"));
+  else if (result.reason === "replaced" || result.reason === "not-found") showToast(t("log.cannotUndo"));
   else showUndoRefused(id);
   return result.ok;
 }

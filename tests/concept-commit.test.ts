@@ -10,6 +10,7 @@ const { showToast, showActionFailure } = vi.hoisted(() => ({ showToast: vi.fn(),
 vi.mock("@/concept/ui/toast", () => ({ showToast, showActionFailure }));
 
 const today = toKey(new Date());
+let t: typeof import("@/concept/i18n").t;
 
 /** One tab's storage, with a hook that runs before each save. */
 function tab(initial: DemoState) {
@@ -34,6 +35,7 @@ async function modules() {
   const toasts = await import("@/concept/studio/log/commit-toast");
   const { dispatchWithUndoToast } = await import("@/concept/studio/log/undo-toast");
   const { demoSentMessages } = await import("@/concept/connections/demo");
+  ({ t } = await import("@/concept/i18n"));
   return { ...store, ...commit, ...toasts, dispatchWithUndoToast, sms: () => demoSentMessages("demo").list("sms") };
 }
 
@@ -147,17 +149,61 @@ it("refuses yesterday's command after midnight in a tab left open, with storage 
   }
 });
 
-it("gives a replacement salon a new lifetime even when it cannot be saved", async () => {
+it("saves a replacement's lifetime in the same write: another tab never sees the new salon with the old one", async () => {
+  const storage = tab(createDemoState(today));
+  const tabA = await modules();
+  const old = tabA.currentTarget()!;
+  await tabA.startBusiness();
+  const fresh = tabA.currentTarget()!;
+  expect(JSON.parse(storage.items.get("salong-eko-demo")!).epoch).toBe(fresh.epoch.split(":")[0]);
+  // Another tab: its own store over the same storage.
+  vi.resetModules();
+  const tabB = await modules();
+  expect(tabB.currentTarget()).toEqual(fresh);
+  expect(await tabB.commitAction(old, { type: "card/dismiss", id: "late" })).toMatchObject({ ok: false, reason: "replaced" });
+  expect(tabB.currentState()).not.toHaveProperty("epoch");
+});
+
+it("keeps a replacement that cannot be saved, with its new lifetime, in the replacing tab only", async () => {
+  const storage = tab(createDemoState(today));
+  const tabA = await modules();
+  const old = tabA.currentTarget()!;
+  const before = storage.items.get("salong-eko-demo");
+  storage.hooks.refuse = (key) => key === "salong-eko-demo";
+  await tabA.startBusiness();
+  const fresh = tabA.currentTarget()!;
+  expect(fresh.epoch).not.toBe(old.epoch);
+  expect(await tabA.commitAction(old, { type: "card/dismiss", id: "late" })).toMatchObject({ ok: false, reason: "replaced" });
+  // Another tab still reads the earlier salon, whole: its commands still fit it.
+  expect(storage.items.get("salong-eko-demo")).toBe(before);
+  storage.hooks.refuse = undefined;
+  vi.resetModules();
+  const tabB = await modules();
+  expect(tabB.currentTarget()).toEqual(old);
+});
+
+it("reads a lifetime from the earlier separate key and moves it into the salon on the next save", async () => {
+  const storage = tab(createDemoState(today));
+  storage.items.set("salong-eko-demo-epoch", "earlier");
+  const { commitAction, currentTarget } = await modules();
+  const target = currentTarget()!;
+  expect(target.epoch).toBe(`earlier:${today}`);
+  expect((await commitAction(target, { type: "card/dismiss", id: "x" })).ok).toBe(true);
+  expect(JSON.parse(storage.items.get("salong-eko-demo")!).epoch).toBe("earlier");
+  expect(storage.items.has("salong-eko-demo-epoch")).toBe(false);
+  expect(currentTarget()).toEqual(target);
+});
+
+it("sends nothing for a change that holds the same data as before", async () => {
   const state = createDemoState(today);
   const storage = tab(state);
-  const { commitAction, currentTarget, startBusiness } = await modules();
-  const old = currentTarget()!;
-  storage.hooks.refuse = (key) => key.endsWith("-epoch");
-  await startBusiness();
-  const fresh = currentTarget()!;
-  expect(fresh.epoch).not.toBe(old.epoch);
-  expect(await commitAction(old, { type: "card/dismiss", id: "late" })).toMatchObject({ ok: false, reason: "replaced" });
-  expect((await commitAction(fresh, { type: "card/dismiss", id: "now" })).ok).toBe(true);
+  const { commitAction, currentTarget, sms } = await modules();
+  const { textWaitlistAboutGaps } = await import("@/concept/booking/waitlist-offer");
+  const before = storage.items.get("salong-eko-demo");
+  const result = await commitAction(currentTarget()!, { type: "service/price", id: "no-such-service", price: 500 }, { send: (current) => textWaitlistAboutGaps(current, today) });
+  expect(result).toMatchObject({ ok: false, reason: "rejected" });
+  expect(sms()).toEqual([]);
+  expect(storage.items.get("salong-eko-demo")).toBe(before);
 });
 
 it("publishes a commit's effects once, after the save, and nothing for a refusal", async () => {
@@ -196,6 +242,9 @@ it("shows Undo bound to the salon the change was made in", async () => {
   await vi.waitFor(() => expect(showToast.mock.calls.length + showActionFailure.mock.calls.length).toBeGreaterThan(1));
   expect(storage.items.get("salong-eko-demo")).toBe(replaced);
   expect(storage.saved().bookings.find((b) => b.id === visit.id)?.status).toBe("cancelled");
+  // The other salon's entry with that id is not consulted: the generic refusal, not its booking reason.
+  expect(showActionFailure).not.toHaveBeenCalled();
+  expect(showToast).toHaveBeenLastCalledWith(t("log.cannotUndo"));
 });
 
 it("takes the change back when Undo is pressed in the same salon", async () => {
