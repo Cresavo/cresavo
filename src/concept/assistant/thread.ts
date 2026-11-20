@@ -5,6 +5,7 @@ import { findService, fullName } from "../selectors";
 import type { Brief } from "./briefs";
 import { memoryRejection, type MemoryItem, type NewMemory } from "./memory";
 import type { RoutineSuggestion } from "./routines";
+import type { Target } from "../store/commit";
 
 // A conversation with the assistant: what was said, the cards it answered
 // with, and the context that lets a follow-up say "her", "them", "that day"
@@ -42,6 +43,8 @@ export interface Reply {
   status?: "approved" | "declined" | "failed" | "undone" | "edited";
   /** The activity log entry of the change this reply made, so the panel can offer Undo. */
   undoId?: string;
+  /** The salon the reply was made for: its card is approved, and its change undone, only there. */
+  target?: Target;
   /** The owner's words this reply answers, for Edit. */
   request?: string;
   /** How the owner said it. Carried through approval so the activity log tells voice from typed commands. */

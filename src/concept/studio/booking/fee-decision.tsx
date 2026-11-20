@@ -7,7 +7,9 @@ import { formatMinor, PaymentSummary } from "../../booking/policy-summary";
 import { feeMinor, settleFee, termsOf } from "../../booking/protection";
 import type { Booking, DemoState } from "../../data/types";
 import { locale, t } from "../../i18n";
-import { dispatchWithLog, withBookingLock } from "../../store";
+import { targetOf } from "../../store";
+import { commitAction } from "../../store/commit";
+import { useCommit } from "../../ui/use-commit";
 import { SALON_TIMEZONE } from "../../tools/clock";
 import { DemoBadge } from "../../ui/badge";
 import { Button } from "../../ui/button";
@@ -19,7 +21,7 @@ import { visitTime } from "../../booking/policy";
 export function FeeDecisionPanel({ state, booking }: { state: DemoState; booking: Booking }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
-  const [pending, setPending] = useState(false);
+  const [run, pending] = useCommit();
   const role = useRole();
   const clock = useSalonNow();
   const incident = eligibleIncident(booking, clock.instant ?? visitTime({ date: clock.today, start: clock.minutes }).toMillis());
@@ -28,18 +30,18 @@ export function FeeDecisionPanel({ state, booking }: { state: DemoState; booking
   const decision = booking.protection?.decision;
   const money = (amount: number) => formatMinor(amount, terms.currency);
   const settlement = settleFee(booking.protection?.deposit ? terms.depositMinor : 0, fee);
-  const decide = async (outcome: "charge" | "waive") => {
-    if (!incident || pending) return;
-    setPending(true);
-    const ok = await withBookingLock(() => dispatchWithLog({
-      type: "booking/fee", id: booking.id, incident, outcome, reason,
-    }, undefined, latest => {
-      const current = latest.bookings.find(b => b.id === booking.id);
-      return currentRole() === "owner" && current?.date === booking.date && current.start === booking.start && current.staffId === booking.staffId;
-    })).catch(() => false as const);
-    setPending(false);
-    if (ok === false) showActionFailure("booking.visitChanged");
-  };
+  const decide = (outcome: "charge" | "waive") => run(async () => {
+    // The salon this panel shows; a charge is never made in one that replaced it.
+    const target = targetOf(state);
+    if (!incident) return;
+    const result = target && await commitAction(target, { type: "booking/fee", id: booking.id, incident, outcome, reason }, {
+      guard: latest => {
+        const current = latest.bookings.find(b => b.id === booking.id);
+        return currentRole() === "owner" && current?.date === booking.date && current.start === booking.start && current.staffId === booking.staffId;
+      },
+    }).catch(() => null);
+    if (!result?.ok) showActionFailure("booking.visitChanged");
+  });
   return <div className="space-y-3">
     <PaymentSummary state={state} booking={booking} />
     {decision && <p className="text-sm">{t("protection.record", {

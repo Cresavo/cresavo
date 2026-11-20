@@ -58,7 +58,7 @@ describe("model refinement (Codex #3)", () => {
     expect(JSON.parse(storage.get("salong-eko-assistant")!).context.date).toBe("2026-11-18");
 
     const approved = ask({ refining: true });
-    approve(approved);
+    await approve(approved);
     expect(thread.refineReply(approved, aiReading)).toBe(false);
     expect(reply(approved)).toMatchObject({ status: "approved", source: "rules" });
   });
@@ -77,9 +77,9 @@ describe("undo on a reply (Codex #4)", () => {
   it("reports Undone only when the store accepted it", async () => {
     const { actions, ask, reply, store, service, approve } = await setup();
     const id = ask();
-    approve(id);
+    await approve(id);
     expect(actions.replyUndoable(reply(id))).toBe(true);
-    expect(actions.undoReply(id, reply(id).undoId!)).toBe(true);
+    expect(await actions.undoReply(id, reply(id).undoId!)).toBe(true);
     expect(reply(id)).toMatchObject({ status: "undone", undoId: undefined });
     expect(store.currentState()!.services[0].price).toBe(service.price);
   });
@@ -87,11 +87,11 @@ describe("undo on a reply (Codex #4)", () => {
   it("withdraws Undo, without claiming success, after a later edit to the same record", async () => {
     const { actions, ask, reply, store, service, approve } = await setup();
     const id = ask();
-    approve(id);
+    await approve(id);
     const undoId = reply(id).undoId!;
     store.dispatch({ type: "service/price", id: service.id, price: service.price + 99 });
     expect(actions.replyUndoable(reply(id))).toBe(false);
-    expect(actions.undoReply(id, undoId)).toBe(false);
+    expect(await actions.undoReply(id, undoId)).toBe(false);
     expect(reply(id)).toMatchObject({ status: "approved", undoId: undefined });
     expect(store.currentState()!.services[0].price).toBe(service.price + 99);
   });
@@ -101,15 +101,17 @@ describe("undo on a reply (Codex #4)", () => {
     expect(actions.replyUndoable({ ...reply(ask()), undoId: "l-does-not-exist" })).toBe(false);
   });
 
-  it("attaches no Undo to an approved action that did not write a log entry", async () => {
+  it("refuses an approved action that would change nothing, and writes no log entry", async () => {
     const { actions, ask, reply, store, service } = await setup();
     const earlier = store.dispatchWithLog({ type: "customer/note", id: store.currentState()!.customers[0].id, note: "Earlier edit" });
     expect(earlier).toEqual(expect.any(String));
     const action = { type: "service/price", id: service.id, price: service.price } as const;
     const id = ask({ card: { kind: "change", title: "Same price", rows: [], toast: "", action } });
 
-    expect(actions.applyReply(id, action, { actor: "ai", source: "assistant" })).toBe(true);
-    expect(reply(id)).toMatchObject({ status: "approved", undoId: undefined });
+    // The commit API refuses a change that holds the same data as before (the legacy dispatch saved it).
+    expect(await actions.applyReply(id, action, { actor: "ai", source: "assistant" })).toBe(false);
+    expect(reply(id)).toMatchObject({ status: "failed" });
+    expect(reply(id).undoId).toBeUndefined();
     expect(store.currentState()!.log[0].id).toBe(earlier);
   });
 });
@@ -121,15 +123,15 @@ it("isolates owner replies from staff and rechecks permissions before dispatch",
   const ownerCard = ask({ text: "Owner-only answer" });
   setRole("staff");
   expect(thread.replyOf(ownerCard)).toBeUndefined();
-  expect(actions.applyReply(ownerCard, action, { actor: "ai" })).toBe(false);
+  expect(await actions.applyReply(ownerCard, action, { actor: "ai" })).toBe(false);
 
   const staffCard = ask();
-  expect(approve(staffCard)).toBe(false);
+  expect(await approve(staffCard)).toBe(false);
   expect(store.currentState()!.services[0].price).toBe(service.price);
   setRole("owner");
   expect(thread.replyOf(staffCard)).toBeUndefined();
   expect(thread.replyOf(ownerCard)?.text).toBe("Owner-only answer");
-  expect(approve(ownerCard)).toBe(true);
+  expect(await approve(ownerCard)).toBe(true);
 });
 
 it("blocks a staff approval when another tab reassigned the booking", async () => {
@@ -140,7 +142,7 @@ it("blocks a staff approval when another tab reassigned the booking", async () =
   const booking = state.bookings.find((item) => item.staffId === state.staff[1].id && item.status === "booked")!;
   const id = ask({ card: { kind: "change", title: "Cancel", rows: [], toast: "", action: { type: "booking/cancel", id: booking.id } } });
   storage.set("salong-eko-demo", JSON.stringify({ ...state, bookings: state.bookings.map((item) => item === booking ? { ...item, staffId: state.staff[0].id } : item) }));
-  expect(approve(id)).toBe(false);
+  expect(await approve(id)).toBe(false);
   expect(store.currentState()!.bookings.find((item) => item.id === booking.id)).toMatchObject({ status: "booked", staffId: state.staff[0].id });
 });
 
@@ -155,10 +157,10 @@ describe("edit and provenance (Codex #5)", () => {
 
   it("logs an approved spoken command as voice and a typed one as the assistant", async () => {
     const { actions, ask, store, service, approve } = await setup();
-    approve(ask({ input: "voice" }));
+    await approve(ask({ input: "voice" }));
     expect(store.currentState()!.log[0]).toMatchObject({ actor: "ai", source: "voice", type: "service/price" });
     expect(store.dispatch({ type: "service/price", id: service.id, price: service.price })).toBe(true);
-    approve(ask({ input: "typed" }));
+    await approve(ask({ input: "typed" }));
     expect(store.currentState()!.log[0]).toMatchObject({ actor: "ai", source: "assistant", type: "service/price" });
     expect(actions.sourceFor(undefined)).toBe("assistant");
   });

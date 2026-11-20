@@ -1,17 +1,19 @@
 "use client";
 
 import { moduleEnabled } from "../modules/registry";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { CalendarCheck } from "lucide-react";
 import type { Booking, DemoState } from "../data/types";
 import { t, type MessageKey } from "../i18n";
 import { formatDayLong, formatDuration, formatTime } from "../i18n/format";
-import { currentState, dispatchWithLog, withBookingLock } from "../store";
+import { targetOf } from "../store";
+import { commitAction } from "../store/commit";
 import { newActionRequestId } from "../support/action-reference";
 import type { ActionFailureInfo } from "../ui/action-failure";
 import { StaffAvatar } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { salonClock } from "../tools/clock";
+import { useCommit } from "../ui/use-commit";
 import type { Now } from "../use-now";
 import { GuestFields, RememberContact, isGuestValid } from "./guest-fields";
 import { hoursUntil, LEAD_MINUTES } from "./policy";
@@ -40,30 +42,32 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
   const { guest, setGuest, remember, chooseRemember } = contact;
   const service = state.services.find((s) => s.id === serviceId)!;
   const person = state.staff.find((s) => s.id === slot.staffId)!;
-  const [pending, setPending] = useState(false);
+  const [run, pending] = useCommit();
 
   const terms = quote(state.cancellationPolicy, service, state.localization.currency, !findCustomerByPhone(state, guest.phone));
 
-  const confirm = async () => {
-    if (pending || !isGuestValid(guest)) return;
+  const confirm = () => run(async () => {
+    const target = targetOf(state);
+    if (!isGuestValid(guest)) return;
     const name = guest.name.trim();
     const phone = guest.phone.trim();
     const day = formatDayLong(slot.date);
     const requestId = newActionRequestId();
     let reason: MessageKey = "booking.slotTaken";
-    setPending(true);
-    const latest = await withBookingLock(() => {
-      const clock = salonClock();
-      if (hoursUntil(slot, clock.today, clock.minutes, Math.floor(Date.now() / 60_000) * 60_000) * 60 < LEAD_MINUTES) return;
-      const result = dispatchWithLog({
-        type: terms.depositMinor ? "online/hold" : "online/book",
-        guest: { name, phone, at: { date: clock.today, time: clock.minutes } },
-        serviceId, staffId: slot.staffId, date: slot.date, start: slot.start,
-        notice: {
-          title: t("booking.inboxTitle"),
-          body: t("booking.inboxBody", { service: service.name, staff: person.firstName, day, time: formatTime(slot.start) }),
-        },
-      }, undefined, current => {
+    const clock = salonClock();
+    const result = target && await commitAction(target, {
+      type: terms.depositMinor ? "online/hold" : "online/book",
+      guest: { name, phone, at: { date: clock.today, time: clock.minutes } },
+      serviceId, staffId: slot.staffId, date: slot.date, start: slot.start,
+      notice: {
+        title: t("booking.inboxTitle"),
+        body: t("booking.inboxBody", { service: service.name, staff: person.firstName, day, time: formatTime(slot.start) }),
+      },
+    }, {
+      guard: current => {
+        // The lead time is judged when the booking is saved, not when the customer opened the form.
+        const at = salonClock();
+        if (hoursUntil(slot, at.today, at.minutes, Math.floor(Date.now() / 60_000) * 60_000) * 60 < LEAD_MINUTES) return false;
         const offering = current.services.find(s => s.id === serviceId);
         if (!offering || current.salon.slug !== state.salon.slug) return false;
         if (offering.duration !== service.duration || offering.price !== service.price || current.localization.currency !== terms.currency) {
@@ -76,15 +80,14 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
           return false;
         }
         return true;
-      });
-      if (result === false) return;
-      return terms.depositMinor ? currentState()?.checkoutHolds.at(-1) : currentState()?.bookings.at(-1);
-    }).catch(() => false as const);
-    setPending(false);
-    if (!latest) return onTaken({ requestId, reason });
-    if ("expiresAt" in latest) onHeld(latest);
-    else onBooked(latest);
-  };
+      },
+    }).catch(() => null);
+    // Any refusal (time taken, lead time passed, terms changed, salon replaced) sends the customer back to choose.
+    if (!result || !result.ok) return onTaken({ requestId, reason });
+    // The saved state is this commit's: its newest hold or booking is the customer's.
+    if (terms.depositMinor) onHeld(result.state.checkoutHolds.at(-1)!);
+    else onBooked(result.state.bookings.at(-1)!);
+  });
 
   return (
     <div className="space-y-5">

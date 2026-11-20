@@ -31,7 +31,7 @@ export interface CommitOptions {
 
 export type { CommitResult };
 
-const store = new BrowserStudioStore();
+let store: BrowserStudioStore | undefined;
 
 /**
  * Commits one action to the target salon and resolves with the outcome: the
@@ -40,5 +40,6 @@ const store = new BrowserStudioStore();
  */
 export function commitAction(target: Target, action: DemoAction, options: CommitOptions = {}): Promise<CommitResult> {
   const { meta = {}, guard, send, expectedVersion, idempotencyKey } = options;
+  store ??= new BrowserStudioStore();
   return store.commit(target.workspace, action, meta, { expectedVersion, idempotencyKey }, { epoch: target.epoch, guard, send });
 }

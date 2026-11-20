@@ -26,6 +26,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- Booking, payment and undo in the demo are now saved for the salon they were shown in. A second tap while a booking, deposit payment, cancellation or assistant approval is being saved does nothing. A booking whose lead time passed while it was being saved is refused. A change, Undo or assistant approval made for a salon that another tab has since replaced or reset is refused with the usual message, instead of reaching the new salon. Approving an assistant card that would change nothing now shows it as failed.
 - The demo now records a simulated text, email or payment only after its change is saved. A save that is refused or retried because another tab saved first sends nothing extra. Offering a freed time or today's free times to the waiting list sends the text only together with its Inbox note, with the count of customers it actually reached. Nothing is sent if the visit was moved, its time was booked by someone else, no free time is left, nobody is waiting any more or the waiting list was switched off meanwhile.
 - Prisma's configuration loader now uses `effect` 3.22.5, which fixes a high-severity ReDoS advisory (GHSA-7589-6fvf-x4pw) in the dependency tree.
 - The staged Postgres store allows customer erasure, support access revocation and size-reducing writes above 8 MB. It keeps sandbox versions and history scoped to a unique tenant lifetime, ignores stale demo resets, and signals subscribers to refresh when notifications reconnect.

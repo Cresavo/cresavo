@@ -8,7 +8,8 @@ import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong, formatTime } from "../i18n/format";
 import { findCustomer, findService, fullName } from "../selectors";
-import { currentState, dispatchWithLog, withBookingLock } from "../store";
+import { currentState, targetOf } from "../store";
+import { commitAction } from "../store/commit";
 import { newActionRequestId } from "../support/action-reference";
 import { salonClock } from "../tools/clock";
 import { Button, buttonClass } from "../ui/button";
@@ -17,6 +18,7 @@ import { Notice } from "../ui/notice";
 import { Sheet } from "../ui/sheet";
 import { showActionFailure, showToast } from "../ui/toast";
 import type { Now } from "../use-now";
+import { useCommit } from "../ui/use-commit";
 import { buildIcs, googleCalendarLink, icsTimestamp } from "./ics";
 import { FREE_CHANGE_HOURS, changeRule } from "./policy";
 import { freeUntilText } from "./deadline-text";
@@ -57,7 +59,7 @@ interface BookingActionsProps {
 /** Add to calendar, reschedule and cancel. Inside the 24 h window the customer is asked to call. */
 export function BookingActions({ state, now, booking }: BookingActionsProps) {
   const [sheet, setSheet] = useState<"move" | "cancel" | null>(null);
-  const [pending, setPending] = useState(false);
+  const [run, pending] = useCommit();
   const [moveFailure, setMoveFailure] = useState<ActionFailureInfo>();
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
   const rule = changeRule(booking, now.today, now.minutes, now.instant);
@@ -79,39 +81,38 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
   });
   const when = `${formatDayLong(booking.date)} ${formatTime(booking.start)}`;
 
-  const cancel = async () => {
-    if (pending) return;
+  // The salon this page shows: a change is refused once that salon was replaced.
+  const salon = targetOf(state);
+  const commit = (action: Parameters<typeof commitAction>[1], guard: (latest: DemoState) => boolean) =>
+    salon ? commitAction(salon, action, { meta: CUSTOMER_PAGE, guard }).then((result) => result.ok, () => false) : Promise.resolve(false);
+
+  const cancel = () => run(async () => {
     const requestId = newActionRequestId();
-    setPending(true);
-    const result = await withBookingLock(() => dispatchWithLog({
+    const done = await commit({
       type: "booking/cancel",
       id: booking.id,
       reason: t("booking.cancel.reason"),
       notice: notice("cancel", t("booking.cancel.inboxTitle"), t("booking.cancel.inboxBody", { name: fullName(customer), service: service.name, when })),
-    }, CUSTOMER_PAGE, latest => canChangeBooking(latest, booking))).catch(() => false as const);
-    setPending(false);
+    }, latest => canChangeBooking(latest, booking));
     setSheet(null);
-    if (result === false) showActionFailure("booking.visitChanged", requestId, "booking");
+    if (!done) showActionFailure("booking.visitChanged", requestId, "booking");
     else showToast(t("booking.cancel.done"));
-  };
+  });
 
-  const move = async (target: OpenSlot) => {
-    if (pending) return;
+  const move = (target: OpenSlot) => run(async () => {
     const requestId = newActionRequestId();
     setMoveFailure(undefined);
-    setPending(true);
-    const result = await withBookingLock(() => dispatchWithLog({
+    const done = await commit({
       type: "booking/move",
       id: booking.id,
       date: target.date,
       start: target.start,
       staffId: target.staffId,
       notice: notice("reschedule", t("booking.move.inboxTitle"), t("booking.move.inboxBody", { name: fullName(customer), service: service.name, from: when, to: `${formatDayLong(target.date)} ${formatTime(target.start)}` })),
-    }, CUSTOMER_PAGE, latest => canChangeBooking(latest, booking) && openSlots(latest, service.id, target.date, salonClock(), {
+    }, latest => canChangeBooking(latest, booking) && openSlots(latest, service.id, target.date, salonClock(), {
       ignoreId: booking.id, staffId: target.staffId,
-    }).some(slot => slot.start === target.start))).catch(() => false as const);
-    setPending(false);
-    if (result === false) {
+    }).some(slot => slot.start === target.start));
+    if (!done) {
       const reason = "booking.move.failed";
       const latest = currentState()?.bookings.find(entry => entry.id === booking.id);
       const clock = salonClock();
@@ -121,7 +122,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
     }
     setSheet(null);
     showToast(t("booking.move.done"));
-  };
+  });
 
   return (
     <div className="space-y-3">

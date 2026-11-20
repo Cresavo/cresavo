@@ -8,7 +8,8 @@ import { undoBlockReason } from "../../log/undo";
 import type { LogMeta } from "../../log/types";
 import { canChangeBooking, staffViewer } from "../../ops/access";
 import { currentRole } from "../../ops/role";
-import { currentState, dispatch, dispatchWithLog } from "../../store";
+import { currentState, currentTarget } from "../../store";
+import { commitAction } from "../../store/commit";
 import { replyOf, updateReply } from "./thread-store";
 
 // What the owner can do with a reply card in the panel. Plain functions over
@@ -27,21 +28,41 @@ function canApplyReply(state: DemoState, action: DemoAction): boolean {
     (!action.staffId || action.staffId === staffViewer(state)?.id);
 }
 
+/** Replies whose change or undo is being saved: a second tap waits for nothing and changes nothing. */
+const inFlight = new Set<string>();
+
+/** The salon a reply belongs to; a reply saved before targets existed uses the salon shown now. */
+const targetFor = (reply: Reply) => reply.target ?? currentTarget();
+
+/** Runs one save per reply at a time. */
+async function once<T>(id: string, save: () => Promise<T>): Promise<T | false> {
+  if (inFlight.has(id)) return false;
+  inFlight.add(id);
+  try {
+    return await save();
+  } finally {
+    inFlight.delete(id);
+  }
+}
+
 /** Applies a change the owner approved on a reply. Undo sits on the card, since a toast would hide behind the panel. */
-export function applyReply(id: string, action: DemoAction, meta: Meta) {
-  const reply = replyOf(id);
-  if (!reply || reply.status) return false;
-  const logId = dispatchWithLog(action, meta, (state) => canApplyReply(state, action));
-  updateReply(id, logId !== false ? { status: "approved", undoId: logId ?? undefined } : { status: "failed" });
-  return logId !== false;
+export function applyReply(id: string, action: DemoAction, meta: Meta): Promise<boolean> {
+  return once(id, async () => {
+    const reply = replyOf(id);
+    if (!reply || reply.status) return false;
+    const target = targetFor(reply);
+    const result = target && await commitAction(target, action, { meta, guard: (state) => canApplyReply(state, action) }).catch(() => null);
+    updateReply(id, result?.ok ? { status: "approved", undoId: result.logId ?? undefined, target: target ?? undefined } : { status: "failed" });
+    return !!result?.ok;
+  }).then((done) => done === true);
 }
 
 /** Approves a proposal with the provenance of the words that asked for it. */
-export function approveReply(id: string, action: DemoAction) {
+export function approveReply(id: string, action: DemoAction): Promise<boolean> {
   const reply = replyOf(id);
   return reply?.card?.kind === "change" && reply.card.action === action
     ? applyReply(id, action, { actor: "ai", source: sourceFor(reply.input) })
-    : false;
+    : Promise.resolve(false);
 }
 
 /** Whether the panel should offer Undo for a reply: only while the store would accept it. */
@@ -56,16 +77,22 @@ export function replyUndoBlockReason(reply: Pick<Reply, "undoId">) {
 }
 
 /**
- * Takes back the change a reply made. The card says "Undone" only when the store accepted it;
- * A booking conflict stays visible on the reply while the original time is unavailable.
+ * Takes back the change a reply made, in the salon it was made in. The card
+ * says "Undone" only when the store accepted it; a booking conflict stays
+ * visible on the reply while the original time is unavailable.
  */
-export function undoReply(id: string, undoId: string): boolean {
-  if (replyOf(id)?.undoId !== undoId) return false;
-  const done = dispatch({ type: "log/undo", id: undoId });
-  if (done) updateReply(id, { status: "undone", undoId: undefined });
-  // A conflict (time taken, customer in use, card spent) can clear again, so the undo stays offered.
-  else if (replyUndoBlockReason({ undoId }) === "changed") updateReply(id, { undoId: undefined });
-  return done;
+export function undoReply(id: string, undoId: string): Promise<boolean> {
+  return once(id, async () => {
+    const reply = replyOf(id);
+    if (reply?.undoId !== undoId) return false;
+    const target = targetFor(reply);
+    const result = target && await commitAction(target, { type: "log/undo", id: undoId }).catch(() => null);
+    if (result?.ok) updateReply(id, { status: "undone", undoId: undefined });
+    // That salon is gone, or this one changed the record: nothing to take back any more.
+    else if (!result || result.reason === "replaced" || result.reason === "not-found" || replyUndoBlockReason({ undoId }) === "changed") updateReply(id, { undoId: undefined });
+    // A conflict (time taken, customer in use, card spent) can clear again, so the undo stays offered.
+    return !!result?.ok;
+  }).then((done) => done === true);
 }
 
 /** A clarifying choice: the picked proposal replaces the card (and any model reading still on its way). */

@@ -92,7 +92,13 @@ const tab = {
   unbridge: undefined as (() => void) | undefined,
 };
 
-onSalonRemoved((workspace) => { tab.tenants.delete(workspace); });
+/** Ends a salon's records when the store removes or replaces it; registered with the first adapter, not on import. */
+let removalsBridged = false;
+function bridgeRemovals() {
+  if (removalsBridged) return;
+  removalsBridged = true;
+  onSalonRemoved((workspace) => { tab.tenants.delete(workspace); });
+}
 
 function tenant(tenantId: TenantId): Tenant {
   let record = tab.tenants.get(tenantId);
@@ -195,6 +201,10 @@ export type CommitResult =
   | { ok: false; reason: CommitFailure; detail?: string; version?: number };
 
 export class BrowserStudioStore implements StudioStore {
+  constructor() {
+    bridgeRemovals();
+  }
+
   async load(tenantId: TenantId): Promise<StoreSnapshot | null> {
     const state = latestState();
     if (!state || browserTenantOf(state) !== tenantId) return null;

@@ -36,7 +36,7 @@ export function useAiReady(localOnly: boolean): boolean {
 
 /** Everything the panel does: send a message, approve or decline a card, remember, switch on a routine. */
 export function useAssistant() {
-  const { state, today, minutes } = useStudio();
+  const { state, today, minutes, target } = useStudio();
   const role = useRole();
   const thread = useThread(role);
   const localOnly = !!state.industry;
@@ -64,7 +64,8 @@ export function useAssistant() {
       id: messageId(),
       from: "assistant",
       text: outcome.reply.text,
-      reply: { ...outcome.reply, undoId, request: text, input: via, refining: refining || undefined },
+      // The salon the reply was made for: its card is approved, and its change undone, only there.
+      reply: { ...outcome.reply, undoId, request: text, input: via, refining: refining || undefined, target: target ?? undefined },
       at: Date.now(),
     };
     const before = thread.messages;

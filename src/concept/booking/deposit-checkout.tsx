@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { commitAction, type Target } from "../store/commit";
 import { depositMethods } from "../connections/ports/payments";
 import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong, formatTime } from "../i18n/format";
-import { currentState, dispatch, withBookingLock } from "../store";
 import { salonClock } from "../tools/clock";
 import { Button } from "../ui/button";
 import { Input } from "../ui/controls";
+import { useCommit } from "../ui/use-commit";
 import { showActionFailure } from "../ui/toast";
 import { type CheckoutHold, type DemoMethod } from "./protection";
 import type { Now } from "../use-now";
@@ -41,37 +42,40 @@ export function useCheckoutHold(state: DemoState) {
   return { ...resumeCheckout(state.checkoutHolds, reference), selectHold };
 }
 
-export function DepositCheckout({ hold, serviceName, now, phone, packagesEnabled, onPaid, onRelease }: {
+/** Saves a change to the hold's salon; false for any refusal (the hold ended, the salon was replaced). */
+async function commitHold(target: Target | null, action: Parameters<typeof commitAction>[1]) {
+  const result = target && await commitAction(target, action).catch(() => null);
+  return result?.ok ? result : null;
+}
+
+export function DepositCheckout({ target, hold, serviceName, now, phone, packagesEnabled, onPaid, onRelease }: {
+  /** The salon the hold was made in, from the state the page rendered. */
+  target: Target | null;
   now: Now; phone: string; packagesEnabled: boolean;
   hold: CheckoutHold; serviceName: string; onPaid: (booking: Booking) => void; onRelease: () => void;
 }) {
   const [method, setMethod] = useState<DemoMethod>("card");
-  const [pending, setPending] = useState(false);
+  const [run, pending] = useCommit();
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, []);
   useEffect(() => {
     const timer = window.setTimeout(async () => {
-      const released = await withBookingLock(() => dispatch({ type: "online/release", id: hold.id }))
-        .catch(() => false);
+      const released = await commitHold(target, { type: "online/release", id: hold.id });
       showActionFailure(released ? "protection.expired" : "booking.visitChanged", undefined, "booking");
     }, Math.max(0, hold.expiresAt - Date.now()));
     return () => window.clearTimeout(timer);
-  }, [hold]);
-  const pay = async () => {
-    if (pending) return;
-    setPending(true);
-    const booked = await withBookingLock(() => dispatch({ type: "online/pay", id: hold.id, method }) && currentState()?.bookings.at(-1)).catch(() => false as const);
-    setPending(false);
+  }, [hold, target]);
+  const pay = () => run(async () => {
+    const paid = await commitHold(target, { type: "online/pay", id: hold.id, method });
+    // The saved state is this payment's: its newest booking is the one the hold became.
+    const booked = paid?.state.bookings.at(-1);
     if (booked) onPaid(booked);
     else showActionFailure("protection.payFailed", undefined, "booking");
-  };
-  const release = async () => {
-    setPending(true);
-    const released = await withBookingLock(() => dispatch({ type: "online/release", id: hold.id })).catch(() => false);
-    setPending(false);
-    if (released) onRelease();
+  });
+  const release = () => run(async () => {
+    if (await commitHold(target, { type: "online/release", id: hold.id })) onRelease();
     else showActionFailure("booking.visitChanged", undefined, "booking");
-  };
+  });
   const expiry = salonClock(new Date(hold.expiresAt));
   return <div className="space-y-4">
     <h2 ref={heading} tabIndex={-1} className="text-h2 font-semibold">{t("protection.checkout")}</h2>
