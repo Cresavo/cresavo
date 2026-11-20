@@ -59,6 +59,12 @@ export function operatorFetch(ca: Buffer, url: string, init: { method?: string; 
       const chunks: Buffer[] = [];
       response.on("data", chunk => chunks.push(chunk));
       response.on("end", () => resolve({ status: response.statusCode ?? 0, headers: response.headers, text: Buffer.concat(chunks).toString("utf8") }));
+      // A connection that closes after the headers but before the body is complete is reported on
+      // the response, not the request: settle with a static code instead of waiting forever.
+      const interrupted = () => reject(new Error("OPERATOR_FETCH_INTERRUPTED"));
+      response.on("error", interrupted);
+      response.on("aborted", interrupted);
+      response.on("close", () => { if (!response.complete) interrupted(); });
     });
     req.on("error", reject);
     req.setTimeout(15000, () => req.destroy(new Error("OPERATOR_FETCH_TIMEOUT")));

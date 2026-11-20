@@ -4,7 +4,7 @@ import type { Locale } from "@/lib/locale";
 import { Button } from "@/concept/ui/button";
 import { Notice } from "@/concept/ui/notice";
 import { consentSequence } from "./consent-sequence";
-import { consentOutcome, formatStagingTerms, parseStagingView, stagingCopy, type ConsentOutcome, type ConsentResponse, type StagingView } from "./staging-copy";
+import { consentOutcome, recheckable, retryAfterSeconds, formatStagingTerms, parseStagingView, stagingCopy, type ConsentOutcome, type ConsentResponse, type StagingView } from "./staging-copy";
 
 // Opening the page only reads the proposal. Nothing is approved without the explicit button.
 export default function StagingConsentForm({ id, locale }: { id: string; locale: Locale }) {
@@ -15,18 +15,28 @@ export default function StagingConsentForm({ id, locale }: { id: string; locale:
   const [outcome, setOutcome] = useState<ConsentOutcome>("loading");
   const [busy, setBusy] = useState(false);
   const [canRecheck, setCanRecheck] = useState(false);
+  // While the salon's Retry-After runs, the recheck is offered but not yet enabled.
+  const [waiting, setWaiting] = useState(false);
+  const retry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const after = useRef(0);
   const read = useRef<() => void>(() => {});
   const endpoint = `/consent/${encodeURIComponent(id)}/decision`;
   // Redirects are errors: a redirected decision is never treated as the salon's answer.
   const post = (body: object) => fetch(endpoint, { method: "POST", cache: "no-store", redirect: "error", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token.current, ...body }) });
   // Status and JSON body as received; a non-JSON body (an intermediary's page) stays undefined.
-  const answer = async (r: Response): Promise<ConsentResponse> => ({ status: r.status, redirected: r.redirected,
-    body: r.headers.get("content-type")?.startsWith("application/json") ? await r.json().catch(() => undefined) : undefined });
+  const answer = async (r: Response): Promise<ConsentResponse> => {
+    after.current = r.status === 429 ? retryAfterSeconds(r.headers.get("retry-after")) : 0;
+    return { status: r.status, redirected: r.redirected,
+      body: r.headers.get("content-type")?.startsWith("application/json") ? await r.json().catch(() => undefined) : undefined };
+  };
   // After an unknown outcome the secret stays in memory, so the status can be read again with it.
   const settle = (next: Exclude<ConsentOutcome, "loading">) => {
-    const unknown = next === "unconfirmed" || next === "unchecked";
-    if (!unknown && next !== "ready" && next !== "limited") token.current = "";
-    setCanRecheck(unknown && token.current !== "");
+    if (!recheckable(next) && next !== "ready") token.current = "";
+    setCanRecheck(recheckable(next) && token.current !== "");
+    clearTimeout(retry.current);
+    const wait = next === "limited" ? after.current : 0;
+    setWaiting(wait > 0);
+    if (wait > 0) retry.current = setTimeout(() => setWaiting(false), wait * 1000);
     setOutcome(next);
   };
   useEffect(() => {
@@ -60,7 +70,7 @@ export default function StagingConsentForm({ id, locale }: { id: string; locale:
     read.current = () => view();
     view(take());
     window.addEventListener("hashchange", reopened);
-    return () => { active = false; window.removeEventListener("hashchange", reopened); };
+    return () => { active = false; clearTimeout(retry.current); window.removeEventListener("hashchange", reopened); };
   }, [endpoint, sequence]);
   async function decide(decision: "yes" | "no") {
     if (!data || busy) return;
@@ -91,7 +101,7 @@ export default function StagingConsentForm({ id, locale }: { id: string; locale:
   return <div className="mt-4 grid max-w-xl gap-4">
     <Notice tone="info">{t.intro}</Notice>
     <p role="status" data-consent-state={outcome}>{message}</p>
-    {canRecheck && !data && <div><Button variant="secondary" onClick={() => read.current()}>{t.recheck}</Button></div>}
+    {canRecheck && !data && <div><Button variant="secondary" disabled={waiting} onClick={() => read.current()}>{t.recheck}</Button></div>}
     {data && <>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
         {rows.map(([key, label, value]) => <div key={key} className="contents">

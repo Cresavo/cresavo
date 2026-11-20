@@ -8,7 +8,7 @@ import { runtimePolicy } from "../scripts/client-address.mjs";
 import { requireStagingConsent, STAGING_CHANNEL, STAGING_CUSTOMER, stagingApprovalLink, stagingConsentOrigin } from "../src/lib/agent-api/consent-staging";
 import { assertCustomerChannelBinding, CHANNEL_CUSTOMER, CUSTOMER_CHANNEL, separateCustomerChannel } from "../src/lib/agent-api/customer-channel-lab";
 import { browserHostKind, resolveHost } from "../src/concept/page/resolve";
-import { consentOutcome, formatStagingTerms, parseStagingView, stagingCopy } from "../src/app/consent/[id]/staging-copy";
+import { consentOutcome, formatStagingTerms, parseStagingView, recheckable, retryAfterSeconds, stagingCopy } from "../src/app/consent/[id]/staging-copy";
 import { POST } from "../src/app/consent/[id]/decision/route";
 import { agentApiErrors } from "../src/lib/agent-api/errors";
 import { proxy } from "../src/proxy";
@@ -197,6 +197,10 @@ describe("customer outcome after a decision request", () => {
       expect(consentOutcome(phase, { status: 409, body: { ...denied, state: "used", decision: "maybe" } })).toBe("used");
     }
     expect(stagingCopy.en.approvedEarlier).toMatch(/approved/);
+    // A past approval is history: its mandate may since have expired or been used for the booking.
+    for (const locale of ["en", "sv"] as const)
+      expect(stagingCopy[locale].approvedEarlier).not.toMatch(/may complete|can complete|may now|kan slutföra|kan nu/);
+    expect(stagingCopy.sv.approvedEarlier).toMatch(/godkände/);
     expect(stagingCopy.sv.declinedEarlier).toMatch(/avböjdes/);
     for (const locale of ["en", "sv"] as const) expect(stagingCopy[locale].unconfirmed).toContain(stagingCopy[locale].recheck.split(" ")[0]);
     expect(consentOutcome("yes", { status: 410, body: { ...denied, state: "expired" } })).toBe("expired");
@@ -241,6 +245,20 @@ describe("customer outcome after a decision request", () => {
       expect(parseStagingView(body), JSON.stringify(body)).toBeNull();
       expect(consentOutcome("view", { status: 200, body })).toBe("unchecked");
     }
+  });
+});
+
+describe("recovery after a refused or unknown read", () => {
+  it("offers a status recheck after an unknown outcome or a rate limit, honouring Retry-After", () => {
+    for (const outcome of ["unconfirmed", "unchecked", "limited"] as const) expect(recheckable(outcome), outcome).toBe(true);
+    for (const outcome of ["ready", "approved", "declined", "approvedEarlier", "declinedEarlier", "used", "expired", "invalid", "loading"] as const)
+      expect(recheckable(outcome), outcome).toBe(false);
+    for (const locale of ["en", "sv"] as const)
+      expect(stagingCopy[locale].limited).toMatch(locale === "en" ? /Check the status again/ : /Kontrollera statusen igen/);
+    expect(retryAfterSeconds("42")).toBe(42);
+    expect(retryAfterSeconds("1.2")).toBe(2);
+    expect(retryAfterSeconds("100000")).toBe(900);
+    for (const value of [null, undefined, "", "soon", "-5", "0"]) expect(retryAfterSeconds(value)).toBe(0);
   });
 });
 

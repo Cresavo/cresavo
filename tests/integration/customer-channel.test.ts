@@ -108,7 +108,12 @@ it("contact binding survives configuration changes and refuses cross-client auth
   for (const customer of [{ ...booking.customer, email: "other@example.test" }, { ...booking.customer, name: "Other Synthetic" }])
     await expect(createAgentBooking(a.principal, randomUUID(), { ...booking, customer })).rejects.toMatchObject({ code: "mandate_denied" });
   await expect(createAgentBooking(b.principal, randomUUID(), booking)).rejects.toMatchObject({ code: "mandate_denied" });
-  await db.agentProposal.update({ where: { id }, data: { consentDelivery: null } });
+  // The database refuses to unbind a proposal's delivery profile...
+  await expect(db.agentProposal.update({ where: { id }, data: { consentDelivery: null } })).rejects.toThrow(/CONSENT_DELIVERY_IMMUTABLE/);
+  // ...and the booking path refuses it as well if the guard were bypassed (trigger off for this write only).
+  await db.$executeRaw`ALTER TABLE "AgentProposal" DISABLE TRIGGER "AgentProposal_consentDelivery_immutable"`;
+  try { await db.agentProposal.update({ where: { id }, data: { consentDelivery: null } }); }
+  finally { await db.$executeRaw`ALTER TABLE "AgentProposal" ENABLE TRIGGER "AgentProposal_consentDelivery_immutable"`; }
   await expect(createAgentBooking(a.principal, randomUUID(), booking)).rejects.toMatchObject({ code: "mandate_denied" });
   expect(await db.agentBooking.count({ where: { clientId: a.record.clientId } })).toBe(0);
 });

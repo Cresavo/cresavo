@@ -7,13 +7,13 @@ const en = {
   loading: "Loading the proposal…",
   invalid: "This link is invalid. Nothing was approved.",
   used: "This link has already been used. Nothing more was approved.",
-  approvedEarlier: "This link has already been used: the booking was approved. The assistant may complete exactly this booking. This is not a booking confirmation.",
+  approvedEarlier: "This link has already been used: you approved this proposal. That records your earlier decision only; it does not show whether the booking was made or can still be made. This is not a booking confirmation.",
   declinedEarlier: "This link has already been used: the proposal was declined. Nothing was approved.",
   expired: "This proposal has expired. Nothing was approved.",
   unchecked: "The proposal could not be shown, so its status could not be checked here. Check the status again, or open the link from your message again.",
   unconfirmed: "We could not confirm whether your decision was saved. It may have been approved. Check the status again: the page then shows whether this proposal was approved or declined.",
   recheck: "Check status again",
-  limited: "Too many attempts. This attempt changed nothing. Try again later.",
+  limited: "Too many attempts. This attempt changed nothing. Check the status again in a moment.",
   approved: "Approved. The assistant may now complete exactly this booking. This is not a booking confirmation.",
   declined: "Declined. Nothing was approved.",
   customer: "Customer",
@@ -40,13 +40,13 @@ const sv: typeof en = {
   loading: "Läser förslaget…",
   invalid: "Länken är ogiltig. Inget godkändes.",
   used: "Länken är redan använd. Inget mer godkändes.",
-  approvedEarlier: "Länken är redan använd: bokningen godkändes. Assistenten kan slutföra exakt denna bokning. Detta är ingen bokningsbekräftelse.",
+  approvedEarlier: "Länken är redan använd: du godkände förslaget. Det visar bara ditt tidigare beslut, inte om bokningen har gjorts eller fortfarande kan göras. Detta är ingen bokningsbekräftelse.",
   declinedEarlier: "Länken är redan använd: förslaget avböjdes. Inget godkändes.",
   expired: "Förslaget har gått ut. Inget godkändes.",
   unchecked: "Förslaget kunde inte visas, så dess status kunde inte kontrolleras här. Kontrollera statusen igen, eller öppna länken i meddelandet igen.",
   unconfirmed: "Vi kunde inte bekräfta om ditt beslut sparades. Det kan ha godkänts. Kontrollera statusen igen: sidan visar då om förslaget godkändes eller avböjdes.",
   recheck: "Kontrollera status igen",
-  limited: "För många försök. Det här försöket ändrade ingenting. Försök igen senare.",
+  limited: "För många försök. Det här försöket ändrade ingenting. Kontrollera statusen igen om en stund.",
   approved: "Godkänt. Assistenten kan nu slutföra exakt denna bokning. Detta är ingen bokningsbekräftelse.",
   declined: "Avböjt. Inget godkändes.",
   customer: "Kund",
@@ -99,6 +99,15 @@ export function parseStagingView(body: unknown): StagingView | null {
     // One currency: the amount is shown, labelled and approved in the proposal's own currency.
     terms.currency === price.currency;
   return ok ? body as StagingView : null;
+}
+
+/** Outcomes after which the page offers to read the status again with the secret still in memory. */
+export const recheckable = (outcome: ConsentOutcome) => outcome === "unconfirmed" || outcome === "unchecked" || outcome === "limited";
+
+/** Seconds from a `Retry-After` header, bounded to 15 minutes; 0 when missing or not a number. */
+export function retryAfterSeconds(value: string | null | undefined) {
+  const seconds = Number(value);
+  return Number.isFinite(seconds) && seconds > 0 ? Math.min(Math.ceil(seconds), 900) : 0;
 }
 
 /** A response from the decision endpoint as the page saw it: status and parsed JSON body, if any. */

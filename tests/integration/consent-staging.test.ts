@@ -161,6 +161,22 @@ it("the agent cannot choose or read the recipient", async () => {
   await expect(db.$executeRaw`UPDATE "ConsentInboxMessage" SET "approvalLink"='http://salon-demo.cresavo.test/consent/x#y' WHERE "proposalId"=${created.proposal.id}`).rejects.toBeDefined();
 });
 
+it("the delivery profile cannot change once a proposal exists, so a delivered link stays bound", async () => {
+  const { principal } = await actor();
+  const { proposal } = await createProposal(principal, terms());
+  expect((await inbox(proposal.id)).consumedAt).toBeNull();
+  // Unbinding (NULL is what the legacy decision path accepts) or moving it to another channel.
+  for (const value of [null, "separate-lab-v1"])
+    await expect(db.$executeRaw`UPDATE "AgentProposal" SET "consentDelivery"=${value} WHERE "id"=${proposal.id}`).rejects.toThrow(/CONSENT_DELIVERY_IMMUTABLE/);
+  expect((await db.agentProposal.findUniqueOrThrow({ where: { id: proposal.id } })).consentDelivery).toBe(STAGING_CHANNEL);
+  // Other columns still change, and a no-op write of the same profile is allowed.
+  await db.$executeRaw`UPDATE "AgentProposal" SET "consentDelivery"=${STAGING_CHANNEL}, "expiresAt"="expiresAt" WHERE "id"=${proposal.id}`;
+  expect((await decide(proposal.id, "no")).status).toBe(200);
+  // A proposal without a profile cannot be given one later either, so an inbox row cannot follow.
+  const legacy = await db.agentProposal.findFirst({ where: { consentDelivery: null } });
+  if (legacy) await expect(db.$executeRaw`UPDATE "AgentProposal" SET "consentDelivery"=${STAGING_CHANNEL} WHERE "id"=${legacy.id}`).rejects.toThrow(/CONSENT_DELIVERY_IMMUTABLE/);
+});
+
 it("a failed delivery creates no proposal, no mandate and returns no link", async () => {
   const { key, principal } = await actor(), args = terms();
   vi.spyOn(stagingInbox, "deliver").mockRejectedValue(new Error("SYNTHETIC_INBOX_DOWN"));

@@ -76,9 +76,14 @@ export function runStep(code: string, command: string, args: string[], cwd: stri
     const child = track(spawn(command, args, { cwd, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"], detached: true }));
     captureStream(`${code}:stdout`, child.stdout);
     captureStream(`${code}:stderr`, child.stderr);
-    const timer = setTimeout(() => child.kill("SIGKILL"), timeoutMs);
-    child.on("error", () => { clearTimeout(timer); reject(new Error(code)); });
-    child.on("close", status => { clearTimeout(timer); if (status === 0) resolve(); else reject(new Error(code)); });
+    // The deadline settles the step itself: waiting for `close` could last forever if a worker
+    // outside the group still holds an inherited pipe. The child stays tracked, so the runner's
+    // bounded shutdown still drains or releases its streams.
+    let settled = false;
+    const settle = (ok: boolean) => { if (settled) return; settled = true; clearTimeout(timer); if (ok) resolve(); else reject(new Error(code)); };
+    const timer = setTimeout(() => { signalGroup(child, "SIGKILL"); settle(false); }, timeoutMs);
+    child.on("error", () => settle(false));
+    child.on("close", status => settle(status === 0));
   });
 }
 
