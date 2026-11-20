@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "regions": ["arn1"],
+  "buildCommand": "export DATABASE_URL=postgresql://build@127.0.0.1:1/build_test && npx prisma generate && next build",
+  "crons": [{ "path": "/api/sandbox/reset", "schedule": "15 3 * * *" }],
+  "git": { "deploymentEnabled": false }
+}

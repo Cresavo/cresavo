@@ -2,7 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { timingSafeEqual } from "node:crypto";
 import { createDatabaseClient } from "../../../../scripts/database.mjs";
 import { assertTestDatabase } from "../../../../scripts/test-db-guard.mjs";
-import { sandboxConfig, sandboxCronHost, sandboxRequested } from "./config";
+import { isVerifiedHostedDatabaseUrl, sandboxConfig, sandboxCronHost, sandboxRequested } from "./config";
 
 let resetClient: PrismaClient | undefined;
 const noStore = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" };
@@ -20,6 +20,7 @@ export async function runSandboxReset(request: Request) {
     const url = process.env.BOOKING_SANDBOX_RESET_DATABASE_URL;
     if (!url) throw Error("SANDBOX_RESET_NOT_CONFIGURED");
     if (process.env.BOOKING_RUNTIME === "local") assertTestDatabase(url);
+    else if (!isVerifiedHostedDatabaseUrl(url)) throw Error("SANDBOX_RESET_NOT_CONFIGURED");
     resetClient ??= createDatabaseClient(url, 1, "sandbox");
     const [result] = await resetClient.$transaction(async tx => {
       await tx.$executeRaw`SET LOCAL statement_timeout = '15s'`;
