@@ -8,7 +8,7 @@ const en = {
   invalid: "This link is invalid. Nothing was approved.",
   used: "This link has already been used. Nothing more was approved.",
   expired: "This proposal has expired. Nothing was approved.",
-  unchecked: "The proposal could not be shown, so its status could not be checked here. If you already answered, your answer was kept. Open the link from your message again to see the current status.",
+  unchecked: "The proposal could not be shown, so its status could not be checked here. Open the link from your message again to see the current status.",
   unconfirmed: "We could not confirm whether your decision was saved. It may have been approved. Open the link again to see its current status.",
   limited: "Too many attempts. This attempt changed nothing. Try again later.",
   approved: "Approved. The assistant may now complete exactly this booking. This is not a booking confirmation.",
@@ -38,7 +38,7 @@ const sv: typeof en = {
   invalid: "Länken är ogiltig. Inget godkändes.",
   used: "Länken är redan använd. Inget mer godkändes.",
   expired: "Förslaget har gått ut. Inget godkändes.",
-  unchecked: "Förslaget kunde inte visas, så dess status kunde inte kontrolleras här. Om du redan har svarat gäller ditt svar. Öppna länken i meddelandet igen för att se aktuell status.",
+  unchecked: "Förslaget kunde inte visas, så dess status kunde inte kontrolleras här. Öppna länken i meddelandet igen för att se aktuell status.",
   unconfirmed: "Vi kunde inte bekräfta om ditt beslut sparades. Det kan ha godkänts. Öppna länken igen för att se aktuell status.",
   limited: "För många försök. Det här försöket ändrade ingenting. Försök igen senare.",
   approved: "Godkänt. Assistenten kan nu slutföra exakt denna bokning. Detta är ingen bokningsbekräftelse.",
@@ -90,7 +90,8 @@ export function parseStagingView(body: unknown): StagingView | null {
     Number.isInteger(price.amountMinor) && (price.amountMinor as number) >= 0 && typeof price.currency === "string" && /^[A-Z]{3}$/.test(price.currency) &&
     typeof field(body, "proposalHash") === "string" && /^[a-f0-9]{64}$/.test(field(body, "proposalHash") as string) && isText(field(body, "customer")) &&
     isText(terms.salonName) && isText(terms.locationId) && isText(terms.locationName) && isZone(terms.timeZone) &&
-    typeof terms.currency === "string" && /^[A-Z]{3}$/.test(terms.currency);
+    // One currency: the amount is shown, labelled and approved in the proposal's own currency.
+    terms.currency === price.currency;
   return ok ? body as StagingView : null;
 }
 

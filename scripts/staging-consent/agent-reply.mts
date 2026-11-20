@@ -2,8 +2,14 @@
 // every content block, resource and field, so the runner's leak check scans what actually
 // reached the agent, not only the projection the scenarios assert on.
 export function agentReply(id: unknown, result: { content?: unknown; structuredContent?: unknown; isError?: unknown }) {
-  const text = (result.content as { type: string; text?: string }[] | undefined)?.find(c => c.type === "text")?.text ?? "{}";
-  return JSON.stringify({ id, isError: Boolean(result.isError), body: result.structuredContent ?? JSON.parse(text), text, raw: JSON.stringify(result) });
+  // `raw` is built first and never depends on parsing: a text block that is not JSON leaves
+  // `body` undefined (the scenario then fails) but the complete result is still scanned.
+  const raw = JSON.stringify(result);
+  const blocks = Array.isArray(result.content) ? result.content as { type?: unknown; text?: unknown }[] : [];
+  const first = blocks.find(c => c?.type === "text" && typeof c.text === "string")?.text as string | undefined;
+  let body: unknown = result.structuredContent;
+  if (body === undefined) { try { body = JSON.parse(first ?? "{}"); } catch { body = undefined; } }
+  return JSON.stringify({ id, isError: Boolean(result.isError), body, text: first, raw });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

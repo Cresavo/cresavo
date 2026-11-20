@@ -91,7 +91,7 @@ approved. The proposal never outlives its start time.
 | Cross-site or agent-driven decision | The decision endpoint requires `Origin` equal to the configured consent origin, JSON, a body under 2 KiB and no `Authorization` or `X-API-Key`. |
 | Guessing or hammering the decision endpoint | At most 60 requests per client address and 20 per proposal in 15 minutes (`429 consent_rate_limited`), in the same store as the other limits (`RATE_LIMIT_STORE=postgres` across processes). The address limit is checked first. A proposal bucket is created only for a staging proposal that exists, so made-up IDs never take space in the store shared with the login and booking limits. |
 | Customer told "nothing was approved" after an approval was saved | Only the salon's own JSON refusal (`403 consent_denied`, `409`/`410` `consent_denied` with a state, `429 consent_rate_limited`) says nothing was approved or changed; the same status with any other body (an intermediary's page) does not. A failed view, such as a refresh after a decision, says only that the status could not be checked. A lost response, a server error (`500 consent_unavailable`) or an intermediary's error after Approve or Decline shows an unknown outcome and asks the customer to open the link again to see its status. |
-| Customer told "approved" when the salon did not approve | Success is shown only for a JSON body whose `status` is the chosen decision. Redirects are refused (`redirect: "error"`); any other 2xx is an unknown outcome. Terms are rendered only after every shown and approved field of the view response has been validated. |
+| Customer told "approved" when the salon did not approve | Success is shown only for a JSON body whose `status` is the chosen decision. Redirects are refused (`redirect: "error"`); any other 2xx is an unknown outcome. Terms are rendered only after every shown and approved field of the view response has been validated, with one currency for the amount. |
 | Owner session reaching the gateway | Consent and gateway must use different host names. The consent host serves only the listed paths. |
 | Failed delivery | The inbox write is in the proposal transaction. If it fails, no proposal exists, no mandate can follow and the agent gets `503 consent_delivery_unavailable` (the gateway reports `503 provider_unavailable`). |
 | Mixing channels | A staging proposal is not decidable while the salon runs a lab channel, and lab proposals are not decidable while staging runs. The stored channel binds the mandate and contact even after a configuration change. |
@@ -152,13 +152,16 @@ The runner:
    opening it approves nothing; approval; the agent reads status and books; replay
    with the same key returns the same booking ID; the owner logs in over HTTPS and opens
    exactly that booking ID from the authenticated calendar; already-used link; decline;
-   expired link; changed price; slot taken; the agent cannot reach the inbox, the
-   decision endpoint or the salon directly; no link or secret appears in the agent's
+   reopening the link in the same tab (a fragment-only navigation) reads the proposal
+   again and strips the secret; expired link; changed price; slot taken; the agent cannot
+   reach the inbox, the decision endpoint (probed with `POST`, as the page sends it) or the
+   salon directly; no link or secret appears in the agent's
    transcript (the complete MCP results, every content block) or in any process output.
    Process output is kept in full, per stream, and scanned again, with the agent
    transcript, after every process (agent included) has closed its streams, so a secret
    printed early, during shutdown, or registered only after it was printed, is still
-   found. The owner's session cookie is registered as soon as it exists. If output
+   found. The owner's session cookie is registered before the owner's browser context
+   closes, also when that journey fails. The output budget counts UTF-8 bytes. If output
    exceeds 64 MiB (agent stdout included, counted before it is split into lines), or a stream stays open 15 seconds after its process was stopped, the
    check fails rather than pass on a part. A malformed line from the agent fails the
    pending request with a static code; it never escapes the runner's cleanup.

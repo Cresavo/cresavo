@@ -209,7 +209,9 @@ describe("customer outcome after a decision request", () => {
     for (const response of ["network-error", { status: 403, body: denied }, { status: 403 }, { status: 502 }, { status: 500, body: { error: "consent_unavailable" } }] as const)
       expect(consentOutcome("view", response)).toBe("unchecked");
     for (const locale of ["en", "sv"] as const) {
-      for (const key of ["unchecked", "unconfirmed"] as const) expect(stagingCopy[locale][key]).not.toMatch(/Nothing was approved|Inget godkändes|changed nothing|ändrade ingenting/);
+      // Neutral both ways: the request may never have reached the salon, or may have been saved.
+      for (const key of ["unchecked", "unconfirmed"] as const)
+        expect(stagingCopy[locale][key]).not.toMatch(/Nothing was approved|Inget godkändes|changed nothing|ändrade ingenting|answer was kept|has been saved|gäller ditt svar|har sparats/);
       expect(stagingCopy[locale].invalid).toMatch(/Nothing was approved|Inget godkändes/);
     }
     // Place descriptions are copy, translated per locale under the same location IDs.
@@ -223,7 +225,9 @@ describe("customer outcome after a decision request", () => {
       { ...view, terms: { ...view.terms, timeZone: "Not/AZone" } }, { ...view, terms: { ...view.terms, currency: "sek" } },
       { ...view, proposal: { ...view.proposal, start: "tomorrow" } }, { ...view, proposal: { ...view.proposal, durationMinutes: 0 } },
       { ...view, proposal: { ...view.proposal, price: { amountMinor: 1.5, currency: "SEK" } } }, { ...view, proposal: { ...view.proposal, staff: {} } },
-      { ...view, customer: "" }];
+      { ...view, customer: "" },
+      // The amount must be shown, labelled and approved in one currency.
+      { ...view, terms: { ...view.terms, currency: "EUR" } }, { ...view, proposal: { ...view.proposal, price: { amountMinor: 52000, currency: "EUR" } } }];
     for (const body of broken) {
       expect(parseStagingView(body), JSON.stringify(body)).toBeNull();
       expect(consentOutcome("view", { status: 200, body })).toBe("unchecked");
@@ -268,6 +272,12 @@ describe("staging runner output", () => {
       content: [{ type: "text", text: "{}" }, { type: "text", text: link }, { type: "resource", resource: { uri: link } }] });
     expect(JSON.parse(line).body).toEqual({ proposal: { status: "pending" } });
     expect(line).toContain("L".repeat(43));
+    // No structured content and a first text block that is not JSON: still no throw, still all of it.
+    const plain = agentReply(2, { content: [{ type: "text", text: "Proposal created." }, { type: "text", text: link }] });
+    expect(JSON.parse(plain).body).toBeUndefined();
+    expect(JSON.parse(plain).text).toBe("Proposal created.");
+    expect(plain).toContain("L".repeat(43));
+    expect(() => agentReply(3, { content: "not a list" })).not.toThrow();
   });
   it("keeps the complete process output until shutdown, also secrets registered after they were printed", async () => {
     const { capture, leakedStreams } = await import("../scripts/staging-consent/processes.mjs");
@@ -316,6 +326,21 @@ describe("staging runner output", () => {
     // Kept in memory for the leak scan; never echoed in an error.
     expect(transcript[0]).toContain("fict0ken");
   });
+  it("counts UTF-8 bytes against the output budget", async () => {
+    const { PassThrough } = await import("node:stream");
+    const { guardStream, outputBytes } = await import("../scripts/staging-consent/processes.mjs");
+    expect(outputBytes("åäö")).toBe(6);
+    expect(outputBytes("abc")).toBe(3);
+    expect(outputBytes("🔑")).toBe(4);
+    expect(outputBytes(Buffer.from("åäö"))).toBe(6);
+    // 8 characters, 16 bytes: over a 12-byte budget although only 8 code units long.
+    let left = 12, overflows = 0;
+    const stream = new PassThrough({ encoding: "utf8" });
+    guardStream(stream, () => overflows++, size => (left -= size) >= 0);
+    stream.write("åäöåäöåä");
+    await new Promise(resolve => setImmediate(resolve));
+    expect(overflows).toBe(1);
+  });
   it("charges agent stdout to the output budget before any line is buffered", async () => {
     const { PassThrough } = await import("node:stream");
     const { createInterface } = await import("node:readline");
@@ -353,5 +378,5 @@ describe("staging runner output", () => {
     expect(leakedStreams()).not.toContain("shutdown:stdout");
     await stopAll();
     expect(leakedStreams()).toContain("shutdown:stdout");
-  });
+  }, 30_000);
 });

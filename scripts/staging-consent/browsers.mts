@@ -66,8 +66,31 @@ export async function ownerOpensBooking(browser: Browser, salon: string, day: st
     await page.waitForURL(url => url.origin === salon && url.pathname === path);
     await page.getByRole("heading", { name: /^(Booking|Bokning)$/ }).waitFor();
     const cookies = await context.cookies(salon);
-    // The session cookie is a secret too: the final scan of every process's output looks for it.
-    for (const cookie of cookies) if (cookie.name === "booking_admin") registerSecret(cookie.value);
     assert.ok(cookies.some(c => c.name === "booking_admin" && c.secure && c.httpOnly), "owner session cookie is Secure and HttpOnly");
-  } finally { await context.close(); }
+  } finally {
+    // The session cookie is a secret too, also when the journey failed after login: the final
+    // scan of every process's output looks for it.
+    for (const cookie of await context.cookies(salon).catch(() => [])) if (cookie.name === "booking_admin") registerSecret(cookie.value);
+    await context.close();
+  }
+}
+
+/**
+ * Opens another link in the same tab. With the same path this is a fragment-only navigation:
+ * the document stays, so the page itself must notice, take the new secret and read again.
+ */
+export async function reopenInSameTab(view: ConsentView, link: string, expected: string): Promise<ConsentView> {
+  const { page } = view;
+  await page.evaluate(() => { (window as unknown as { __sameDocument: boolean }).__sameDocument = true; });
+  await page.evaluate(target => { window.location.href = target; }, link);
+  // Times out (and fails the scenario) if the page never reads the reopened link.
+  await page.locator(`[data-consent-state="${expected}"]`).waitFor({ state: "attached" });
+  assert.equal(new URL(page.url()).hash, "", "secret removed from the address bar again");
+  assert.equal(await page.evaluate(() => (window as unknown as { __sameDocument?: boolean }).__sameDocument), true, "same document");
+  const state = (await page.locator(settled).getAttribute("data-consent-state"))!;
+  const terms: Record<string, string> = {};
+  for (const term of await page.locator("dd[data-term]").all())
+    terms[(await term.getAttribute("data-term"))!] = (await term.innerText()).trim();
+  const buttons = await page.getByRole("button", { name: /^(Approve this booking|Decline)$/ }).count();
+  return { page, state, terms, buttons };
 }

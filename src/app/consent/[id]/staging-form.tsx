@@ -19,21 +19,31 @@ export default function StagingConsentForm({ id, locale }: { id: string; locale:
   const answer = async (r: Response): Promise<ConsentResponse> => ({ status: r.status, redirected: r.redirected,
     body: r.headers.get("content-type")?.startsWith("application/json") ? await r.json().catch(() => undefined) : undefined });
   useEffect(() => {
+    let active = true, request = 0;
     // Keep the one-time secret in memory only and remove it from the address bar and history.
-    token.current ||= window.location.hash.slice(1);
-    window.history.replaceState(null, "", window.location.pathname);
-    let active = true;
-    fetch(endpoint, { method: "POST", cache: "no-store", redirect: "error", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token.current, decision: "view" }) })
+    // Runs on load and again when the link is reopened in this tab: with the path unchanged that
+    // is only a fragment change, which neither remounts the page nor re-runs this effect.
+    const open = () => {
+      const fragment = window.location.hash.slice(1);
+      if (fragment) token.current = fragment;
+      window.history.replaceState(null, "", window.location.pathname);
+      const current = ++request;
+      setData(null); setOutcome("loading");
+      fetch(endpoint, { method: "POST", cache: "no-store", redirect: "error", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token.current, decision: "view" }) })
       .then(async r => {
         const response = await answer(r);
-        if (!active) return;
+        if (!active || current !== request) return;
         // Terms are rendered only after every shown and approved field has been checked.
         const outcome = consentOutcome("view", response);
         if (outcome === "ready" && response !== "network-error") setData(parseStagingView(response.body));
         setOutcome(outcome);
       })
-      .catch(() => { if (active) setOutcome(consentOutcome("view", "network-error")); });
-    return () => { active = false; };
+      .catch(() => { if (active && current === request) setOutcome(consentOutcome("view", "network-error")); });
+    };
+    const reopened = () => { if (window.location.hash.length > 1) open(); };
+    open();
+    window.addEventListener("hashchange", reopened);
+    return () => { active = false; window.removeEventListener("hashchange", reopened); };
   }, [endpoint]);
   async function decide(decision: "yes" | "no") {
     if (!data || busy) return;

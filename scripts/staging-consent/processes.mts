@@ -36,8 +36,11 @@ export function reserveCapture(size: number) {
   return true;
 }
 
+/** The budget counts UTF-8 bytes, not UTF-16 code units: "å" is two bytes. */
+export const outputBytes = (chunk: string | Buffer) => typeof chunk === "string" ? Buffer.byteLength(chunk, "utf8") : chunk.length;
+
 export function capture(name: string, chunk: string) {
-  if (reserveCapture(chunk.length)) captured[name] = (captured[name] ?? "") + chunk;
+  if (reserveCapture(outputBytes(chunk))) captured[name] = (captured[name] ?? "") + chunk;
 }
 
 /**
@@ -48,7 +51,7 @@ export function capture(name: string, chunk: string) {
 export function guardStream(stream: Readable, onOverflow: () => void, reserve: (size: number) => boolean = reserveCapture) {
   let tripped = false;
   stream.on("data", (chunk: string | Buffer) => {
-    if (tripped || reserve(chunk.length)) return;
+    if (tripped || reserve(outputBytes(chunk))) return;
     tripped = true;
     stream.destroy();
     onOverflow();

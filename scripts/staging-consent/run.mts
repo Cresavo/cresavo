@@ -19,7 +19,7 @@ import { captureStream, freePort, guardStream, leakedStreams, runStep, startServ
 import { agentChannel } from "./agent-reply.mjs";
 import { loopbackAdminUrl } from "./preflight.mjs";
 import { issueCertificates, operatorFetch, tlsProxy } from "./tls.mjs";
-import { close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking } from "./browsers.mjs";
+import { close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking, reopenInSameTab } from "./browsers.mjs";
 
 const repo = realpathSync(fileURLToPath(new URL("../..", import.meta.url)));
 const pin = JSON.parse(readFileSync(join(repo, "scripts/staging-consent/gateway.json"), "utf8"));
@@ -361,10 +361,22 @@ try {
     assert.equal((await state(happyProposal.id)).mandates, 1);
   });
 
-  await scenario("DECLINE_LEAVES_NO_MANDATE", async () => {
+  // The gateway allows 5 proposals per client address per hour: the runner creates exactly 5
+  // (happy path, decline, expired, changed price, slot taken), so checks share proposals.
+  await scenario("DECLINE_LEAVES_NO_MANDATE_AND_SAME_TAB_REOPEN_READS_AGAIN", async () => {
     const proposal = await propose(slots[1]);
-    const view = await openConsent(customerBrowser, await inboxLink(proposal.id));
-    try { assert.equal(view.state, "ready"); await decide(view, "decline"); } finally { await close(view); }
+    const link = await inboxLink(proposal.id);
+    // First a wrong secret for the same proposal, then the real link in the same tab: a
+    // fragment-only navigation the page must notice, reading the proposal again.
+    const view = await openConsent(customerBrowser, `${link.split("#")[0]}#${"A".repeat(43)}`);
+    try {
+      assert.equal(view.state, "unchecked");
+      assert.equal(view.buttons, 0);
+      const again = await reopenInSameTab(view, link, "ready");
+      assert.equal(again.buttons, 2);
+      assert.equal(again.terms.service, service.name);
+      await decide(again, "decline");
+    } finally { await close(view); }
     const read = await status(proposal.id);
     assert.equal(read.status, "declined");
     assert(!("mandateId" in read));
@@ -406,6 +418,25 @@ try {
       const response = await operatorFetch(tls.ca, gatewayOrigin + path, { headers: { authorization: `Bearer ${agentKey.key}` } });
       assert.equal(response.status, 404);
     }
+    // The decision endpoint is POST-only: probe the gateway with the method the page uses and a
+    // synthetic secret, with and without agent credentials, from no origin, the gateway's own and
+    // the salon's. Each answer must be the gateway's own refusal (its error codes), never the
+    // salon's `consent_denied`, which would mean the request had been forwarded.
+    const before = await state(happyProposal.id);
+    for (const origin of [undefined, gatewayOrigin, salonOrigin])
+      for (const authorization of [undefined, `Bearer ${agentKey.key}`]) {
+        const forwarded = await operatorFetch(tls.ca, `${gatewayOrigin}/consent/${happyProposal.id}/decision`, { method: "POST",
+          headers: { "content-type": "application/json", ...(origin ? { origin } : {}), ...(authorization ? { authorization } : {}) },
+          body: JSON.stringify({ token: "Z".repeat(43), decision: "no", proposalHash: "0".repeat(64) }) });
+        const code = (JSON.parse(forwarded.text) as { error?: { code?: string } }).error?.code;
+        assert(!forwarded.text.includes("consent_denied"), "decision reached the salon");
+        // A foreign Origin is refused first; otherwise the route is unknown to the gateway.
+        if (origin === salonOrigin) assert.deepEqual([forwarded.status, code], [403, "forbidden_origin"]);
+        else assert.deepEqual([forwarded.status, code], [404, "not_found"]);
+      }
+    const after = await state(happyProposal.id);
+    assert.equal(after.proposal.status, before.proposal.status);
+    assert.equal(after.mandates, before.mandates);
     assert.equal((await operatorFetch(tls.ca, `${salonOrigin}/api/v1/mcp`, { method: "POST" })).status, 404);
     const direct = await operatorFetch(tls.ca, `${salonOrigin}/api/v1/proposals/${happyProposal.id}`, { headers: { authorization: `Bearer ${agentKey.key}` } });
     assert.equal(direct.status, 401);
