@@ -33,6 +33,7 @@
     "**/*.ts",
     "**/*.tsx",
     "scripts/agentprov/**/*.mts",
+    "scripts/staging-consent/**/*.mts",
     "scripts/integration/**/*.mts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"

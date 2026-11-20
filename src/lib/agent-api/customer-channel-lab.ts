@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve, sep } from "node:path";
 import { AgentApiError } from "./errors";
 import { requireConsentLab } from "./customer-identity";
+import { STAGING_CHANNEL, STAGING_CUSTOMER } from "./consent-staging";
 
 export const CUSTOMER_CHANNEL = "separate-lab-v1";
 // Immutable v1 fixture: never replace this with client-supplied contact data.
@@ -13,7 +14,8 @@ export const CHANNEL_CUSTOMER = Object.freeze({
 
 export function separateCustomerChannel() {
   const mode = process.env.BOOKING_CONSENT_DELIVERY;
-  if (mode === undefined || mode === "legacy-agent-link") return false;
+  // The split-mode staging channel has its own guard in consent-staging.ts.
+  if (mode === undefined || mode === "legacy-agent-link" || mode === "staging-inbox") return false;
   if (mode !== "separate-lab") throw new AgentApiError("invalid_request");
   requireConsentLab();
   if (process.env.BOOKING_RUNTIME !== "local" || process.env.VERCEL || process.env.VERCEL_ENV ||
@@ -51,13 +53,20 @@ export function prepareCustomerDelivery() {
   } catch { throw new AgentApiError("mandate_denied"); }
 }
 
+// Each server-selected channel binds exactly one fixed fictional contact.
+const BOUND_CUSTOMERS: Readonly<Record<string, { name: string; email: string }>> = {
+  [CUSTOMER_CHANNEL]: CHANNEL_CUSTOMER, [STAGING_CHANNEL]: STAGING_CUSTOMER,
+};
+
 export function assertCustomerChannelBinding(
   proposal: { consentDelivery: string | null },
   mandate: { verifiedVia: string | null },
   customer: { name: string; email: string },
 ) {
-  if (proposal.consentDelivery === null && mandate.verifiedVia !== CUSTOMER_CHANNEL) return;
-  if (proposal.consentDelivery !== CUSTOMER_CHANNEL || mandate.verifiedVia !== CUSTOMER_CHANNEL ||
-      customer.name !== CHANNEL_CUSTOMER.name || customer.email !== CHANNEL_CUSTOMER.email)
+  if (proposal.consentDelivery === null && !Object.hasOwn(BOUND_CUSTOMERS, mandate.verifiedVia ?? "")) return;
+  const bound = proposal.consentDelivery !== null && Object.hasOwn(BOUND_CUSTOMERS, proposal.consentDelivery)
+    ? BOUND_CUSTOMERS[proposal.consentDelivery] : undefined;
+  if (!bound || mandate.verifiedVia !== proposal.consentDelivery ||
+      customer.name !== bound.name || customer.email !== bound.email)
     throw new AgentApiError("mandate_denied");
 }

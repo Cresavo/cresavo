@@ -16,6 +16,20 @@ agent och returnerar endast protokollversion, körläge och scopes. Åtkomst til
 bokningsobjekt kontrolleras åter i salongen. Den behåller atomär mandatanvändning och
 konfliktskydd även när anslutningen till gatewayen bryts.
 
+## Customer consent channel over HTTPS (English)
+
+Split mode has an explicitly enabled staging channel for customer approval over
+HTTPS: `BOOKING_CONSENT_DELIVERY=staging-inbox` with `BOOKING_CONSENT_ORIGIN` set to
+the salon's HTTPS consent origin and `BOOKING_PUBLIC_ORIGIN` to the gateway. The salon
+delivers the approval link for a fixed fictional customer to a private database inbox
+that only the test operator reads. Agents receive only the proposal ID, status and
+terms. The planned addresses are `https://gateway.cresavo.com` (agent REST and MCP)
+and `https://salon-demo.cresavo.com` (customer approval page); nothing in the code
+defaults to them. Configuration, threat model and the reproducible HTTPS staging
+runner (`npm run test:staging-consent`) are described in
+[CUSTOMER_CONSENT_CHANNEL.md](CUSTOMER_CONSENT_CHANNEL.md). The local `separate-lab`
+channel below is unchanged.
+
 ## Separat labbkanals begränsningar
 
 Den fasta syntetiska kontakten delar ordinarie gräns 3 bokningar per dag och

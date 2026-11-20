@@ -316,8 +316,21 @@ model AgentProposal {
   mandateId String? @unique
   mandate AgentMandate? @relation(fields: [businessId, mandateId, clientId], references: [businessId, id, clientId], onDelete: Restrict, map: "AgentProposal_mandate_fk")
   createdAt DateTime @default(now()) @db.Timestamptz(3)
+  consentInbox ConsentInboxMessage?
   @@unique([businessId, mandateId, clientId])
   @@index([businessId, clientId, createdAt])
+}
+
+// Staging customer channel inbox (docs/CUSTOMER_CONSENT_CHANNEL.md). Holds the
+// one-time approval link for the fixed fictional recipient. Read only by the test
+// operator through the database, never through an agent route.
+model ConsentInboxMessage {
+  proposalId String @id
+  proposal AgentProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  recipientId String
+  approvalLink String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  consumedAt DateTime? @db.Timestamptz(3)
 }
 
 // Independent, redacted operator audit. No customer or credential columns.

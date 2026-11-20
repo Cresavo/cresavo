@@ -1,4 +1,5 @@
 import { configuredPairingOrigin, pairingDatabaseUrl } from "./pairing-config.mjs";
+import { stagingConsentPolicy } from "./consent-channel-policy.mjs";
 import { BlockList, isIP } from "node:net";
 import { createHmac, timingSafeEqual, randomBytes } from "node:crypto";
 
@@ -10,6 +11,8 @@ export function runtimePolicy(env) {
   if (splitConfigured && (env.BOOKING_SERVICE_ROLE !== "salon" || readonly ||
       !/^[a-f0-9]{64}$/.test(env.GATEWAY_SERVICE_TOKEN ?? "")))
     throw new Error("BOOKING_RUNTIME_CONFIG_INVALID");
+  // The staging customer channel is opt-in and refuses to start half-configured.
+  try { stagingConsentPolicy(env); } catch { throw new Error("BOOKING_RUNTIME_CONFIG_INVALID"); }
   // Pairing IP budgets must use the same keyed digest on every instance.
   if (env.ASSISTANT_PAIRING === "1" && (env.SESSION_SECRET?.length ?? 0) < 32)
     throw new Error("PAIRING_SESSION_SECRET_REQUIRED");

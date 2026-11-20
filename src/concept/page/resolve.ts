@@ -1,6 +1,7 @@
 import { DEMO_DIRECTORY } from "./directory";
 import { productDomain } from "./address";
 import { checkSlug } from "./slug";
+import { stagingConsentHost } from "../../../scripts/consent-channel-policy.mjs";
 
 // One place that turns a request's host into a business. The proxy asks it
 // for every request; the tests pin the rules.
@@ -44,6 +45,8 @@ function isSwedishAlias(host: string) {
 export function resolveHost(rawHost: string | null | undefined, directory: Directory = DEMO_DIRECTORY, product = productDomain()): HostResolution {
   const host = normalizeHost(rawHost);
   if (!host || LOCAL_HOSTS.has(host) || host.endsWith(".vercel.app")) return { kind: "app" };
+  // The explicitly configured split-mode consent origin serves the salon itself.
+  if (typeof window === "undefined" && host === stagingConsentHost(process.env)) return { kind: "app" };
   if (host === product || host === `www.${product}`) return { kind: "site", site: "apex" };
   if (host === `demo.${product}`) return { kind: "site", site: "demo" };
   if (isSwedishAlias(host)) return { kind: "site", site: "swedish-alias" };
