@@ -88,9 +88,10 @@ async function serviceById(
   id: string,
   client: Prisma.TransactionClient = db,
   includeInactive = false,
+  scope = businessId,
 ) {
   const service = await client.service.findFirst({
-    where: { id, businessId, ...(!includeInactive && { active: true }) },
+    where: { id, businessId: scope, ...(!includeInactive && { active: true }) },
   });
   if (!service) throw new DomainError("This treatment is no longer available.");
   return service;
@@ -104,8 +105,20 @@ export async function getAvailability(
   internal?: { ignoreBookingId: string; duration: number; buffer: number },
 ) {
   if (isPublicReadonly()) return fixtureAvailability(serviceId, day, selectedStaff);
+  return scopedAvailability(serviceId, day, client, selectedStaff, businessId, internal);
+}
+
+export async function scopedAvailability(
+  serviceId: string,
+  day: string,
+  client: Prisma.TransactionClient,
+  selectedStaff: string,
+  businessId: string,
+  internal?: { ignoreBookingId: string; duration: number; buffer: number },
+) {
+  assertWritable();
   date.parse(day);
-  const service = await serviceById(serviceId, client, !!internal);
+  const service = await serviceById(serviceId, client, !!internal, businessId);
   const staff = await client.staff.findFirst({
     where: { id: selectedStaff, businessId, active: true },
   });
@@ -215,13 +228,13 @@ export function emailCapKey(email: string) {
   return `${local.split("+")[0]}@${domain}`;
 }
 
-export function hashedEmailCapKey(key: string) {
+export function hashedEmailCapKey(key: string, scope = businessId) {
   if (/^email-hmac-v1:[a-f0-9]{64}$/.test(key)) return key;
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 32)
     throw new Error("EMAIL_CAP_CONFIG_INVALID");
   return `email-hmac-v1:${createHmac("sha256", secret)
-    .update(`${businessId}:email:${key}`)
+    .update(`${scope}:email:${key}`)
     .digest("hex")}`;
 }
 
@@ -241,18 +254,47 @@ export async function createBooking(
   actor?: WorkspaceActor,
   hooks?: BookingTransactionHooks,
 ) {
+  return createBookingInScope(input, businessId, key, clientAddress, actor, hooks);
+}
+
+/** Joins the provider's active sandbox transaction; it does not open another connection. */
+export async function createSandboxBooking(
+  tx: Prisma.TransactionClient,
+  scope: string,
+  input: unknown,
+  key: string,
+  clientAddress: string,
+  hooks: BookingTransactionHooks,
+) {
+  if (!/^sandbox-[0-9a-f-]{36}$/.test(scope)) throw new Error("SANDBOX_SCOPE_REQUIRED");
+  return createBookingInScope(input, scope, key, clientAddress, undefined, hooks, tx);
+}
+
+async function createBookingInScope(
+  input: unknown,
+  businessId: string,
+  key?: string,
+  clientAddress?: string,
+  actor?: WorkspaceActor,
+  hooks?: BookingTransactionHooks,
+  sandboxTx?: Prisma.TransactionClient,
+) {
   assertWritable();
   // Only the server supplies actors; assertWorkspaceActor rechecks the account
   // inside the transaction before replay or any privileged write.
   const admin = actor?.kind === "admin";
   const budgetAddress = admin ? `admin:${actor.id}` : clientAddress;
   const rateRoute = admin ? "admin-bookings" : "bookings";
+  const chargeAttempt = async () => {
+    // Sandbox ingress charges its own durable budget in the outer transaction.
+    if (budgetAddress && !sandboxTx) await checkRateLimit(rateRoute, budgetAddress);
+  };
   const mayLinkCustomer = !!actor;
   const parsed = (
     mayLinkCustomer ? adminBookingSchema : bookingSchema
   ).safeParse(input);
   if (!parsed.success) {
-    if (budgetAddress) await checkRateLimit(rateRoute, budgetAddress);
+    await chargeAttempt();
     throw parsed.error;
   }
   const v = parsed.data;
@@ -266,7 +308,7 @@ export async function createBooking(
     : null;
   const parsedKey = idempotencyKeySchema.optional().safeParse(key);
   if (!parsedKey.success) {
-    if (budgetAddress) await checkRateLimit(rateRoute, budgetAddress);
+    await chargeAttempt();
     throw parsedKey.error;
   }
   const idempotencyKey =
@@ -279,9 +321,8 @@ export async function createBooking(
   const requestHash = createHash("sha256")
     .update(JSON.stringify({ ...v, start: start.toISOString() }))
     .digest("hex");
-  return db.$transaction(
-    async (tx) => {
-      await lockConfiguration(tx);
+  const perform = async (tx: Prisma.TransactionClient) => {
+      await lockConfiguration(tx, false, businessId);
       if (actor) await assertWorkspaceActor(tx, actor);
       if (hooks) await hooks.authorize(tx);
       if (idempotencyKey) {
@@ -291,7 +332,7 @@ export async function createBooking(
         });
         if (existing) {
           if (existing.requestHash !== requestHash) {
-            if (budgetAddress) await checkRateLimit(rateRoute, budgetAddress);
+            await chargeAttempt();
             throw new DomainError(
               "This booking attempt was already used with different details.",
               409,
@@ -323,8 +364,8 @@ export async function createBooking(
       const customerName = customer?.name ?? v.customerName!;
       const customerEmail = customer?.email ?? v.customerEmail!;
       const emailKey = emailCapKey(customerEmail);
-      const storedEmailKey = admin ? null : hashedEmailCapKey(emailKey);
-      if (budgetAddress) await checkRateLimit(rateRoute, budgetAddress);
+      const storedEmailKey = admin ? null : hashedEmailCapKey(emailKey, businessId);
+      await chargeAttempt();
       const today = parseDay(localDay(new Date()));
       const tomorrow = today.plus({ days: 1 });
       const dayRange = { gte: today.toJSDate(), lt: tomorrow.toJSDate() };
@@ -363,7 +404,7 @@ export async function createBooking(
             retryAfter,
           );
       }
-      const service = await serviceById(v.serviceId, tx);
+      const service = await serviceById(v.serviceId, tx, false, businessId);
       if (
         v.serviceVersion !== undefined &&
         v.serviceVersion !== service.version
@@ -376,7 +417,7 @@ export async function createBooking(
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:staff:${selectedStaff}:${localDay(start)}`}))`;
       if (
         !(
-          await getAvailability(service.id, localDay(start), tx, selectedStaff)
+          await scopedAvailability(service.id, localDay(start), tx, selectedStaff, businessId)
         ).includes(start.toISOString())
       )
         throw new DomainError("That time is no longer available. Choose another time.");
@@ -427,9 +468,8 @@ export async function createBooking(
       });
       if (hooks) await hooks.booked(tx, booking, false);
       return booking;
-    },
-    { maxWait: 30000, timeout: 30000 },
-  );
+  };
+  return sandboxTx ? perform(sandboxTx) : db.$transaction(perform, { maxWait: 30000, timeout: 30000 });
 }
 
 // End dates are inclusive Stockholm calendar dates; the database range is half-open.

@@ -53,6 +53,34 @@ jobs:
         run: npm test
       - if: matrix.mode == 'dev' && matrix.proxy == '0'
         run: npm run test:integration
+      - if: matrix.mode == 'dev' && matrix.proxy == '0'
+        name: Validate an isolated provider with the gateway kit
+        env:
+          DATABASE_URL: postgresql://booking:booking@127.0.0.1:5432/cresavo_sandbox_ci_test
+          SANDBOX_ORDINARY_DATABASE_URL: postgresql://booking:booking@127.0.0.1:5432/booking_ci_test
+          SANDBOX_TEST_INSTALLATION_ID: 0196a07e-f751-48fa-8a1c-8e53e034a120
+          BOOKING_SANDBOX_TESTS: "1"
+          SANDBOX_GATEWAY_CHECKOUT: ${{ runner.temp }}/cresavo-gateway-provider-kit
+        run: |
+          docker compose exec -T db createdb -U booking cresavo_sandbox_ci_test
+          docker compose exec -T db psql -U booking -d cresavo_sandbox_ci_test \
+            -v ON_ERROR_STOP=1 -v installation_id="$SANDBOX_TEST_INSTALLATION_ID" < scripts/sandbox/mark.sql
+          npm run db:migrate
+          docker compose exec -T db psql -U booking -d cresavo_sandbox_ci_test -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE sandbox_runtime LOGIN PASSWORD 'sandbox-ci-only'"
+          docker compose exec -T db psql -U booking -d cresavo_sandbox_ci_test \
+            -v ON_ERROR_STOP=1 -v runtime_role=sandbox_runtime < scripts/sandbox/runtime-grants.sql
+          docker compose exec -T db psql -U booking -d cresavo_sandbox_ci_test -v ON_ERROR_STOP=1 -c "CREATE ROLE sandbox_reset_runtime LOGIN PASSWORD 'sandbox-reset-ci-only'; CREATE ROLE sandbox_reset_previous LOGIN"
+          docker compose exec -T db psql -U booking -d cresavo_sandbox_ci_test -v ON_ERROR_STOP=1 -v reset_role=sandbox_reset_previous < scripts/sandbox/reset.sql
+          docker compose exec -T db psql -U booking -d cresavo_sandbox_ci_test -v ON_ERROR_STOP=1 -v reset_role=sandbox_reset_runtime < scripts/sandbox/reset.sql
+          export SANDBOX_TEST_PRIOR_RESET_ROLE=sandbox_reset_previous
+          export SANDBOX_TEST_MIGRATION_DATABASE_URL="$DATABASE_URL"
+          export SANDBOX_TEST_RESET_DATABASE_URL=postgresql://sandbox_reset_runtime:sandbox-reset-ci-only@127.0.0.1:5432/cresavo_sandbox_ci_test
+          export DATABASE_URL=postgresql://sandbox_runtime:sandbox-ci-only@127.0.0.1:5432/cresavo_sandbox_ci_test
+          git init "$SANDBOX_GATEWAY_CHECKOUT"
+          git -C "$SANDBOX_GATEWAY_CHECKOUT" fetch --depth 1 https://github.com/Cresavo/gateway.git 13fb1f855fea84bbcd3131959f1814e1d405a0fd
+          git -C "$SANDBOX_GATEWAY_CHECKOUT" switch --detach FETCH_HEAD
+          npm run test:integration -- tests/integration/sandbox-provider.test.ts tests/integration/sandbox-phone.test.ts tests/integration/sandbox-reset.test.ts
       - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         id: playwright-cache
         with:
@@ -62,6 +90,20 @@ jobs:
       - run: npx playwright install-deps chromium
       - if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install chromium
+      - if: matrix.mode == 'dev' && matrix.proxy == '0'
+        name: Verify the sandbox phone with a browser through the gateway
+        env:
+          DATABASE_URL: postgresql://sandbox_runtime:sandbox-ci-only@127.0.0.1:5432/cresavo_sandbox_ci_test
+          SANDBOX_TEST_INSTALLATION_ID: 0196a07e-f751-48fa-8a1c-8e53e034a120
+          SANDBOX_GATEWAY_CHECKOUT: ${{ runner.temp }}/cresavo-gateway-provider-kit
+          SANDBOX_BROWSER_TLS: ${{ runner.temp }}/cresavo-sandbox-browser-tls
+        run: |
+          npm --prefix "$SANDBOX_GATEWAY_CHECKOUT" ci --ignore-scripts
+          mkdir -m 700 "$SANDBOX_BROWSER_TLS"
+          openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 1 -subj /CN=localhost \
+            -addext subjectAltName=IP:127.0.0.1 -keyout "$SANDBOX_BROWSER_TLS/local-key.pem" \
+            -out "$SANDBOX_BROWSER_TLS/local-cert.pem" 2>/dev/null
+          NODE_EXTRA_CA_CERTS="$SANDBOX_BROWSER_TLS/local-cert.pem" npm run test:integration -- tests/integration/sandbox-browser.test.ts
       - run: npm run build
       - if: matrix.mode == 'dev' && matrix.proxy == '0'
         name: Local MCP card and booking proof (test host)

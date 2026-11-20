@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { parseLocale } from "./lib/locale";
 import { LOCALE_COOKIE, setDemoVisitorCookie, setLocaleCookie } from "./lib/locale-cookie";
 import { isPublicReadonly, publicReadonlyResponse } from "./lib/public-readonly";
+import { sandboxConfig, sandboxCronHost, sandboxHost, sandboxRequested } from "./lib/agent-api/sandbox/config";
 import { productSiteOrigin } from "./concept/site/origin";
 import { siteRequestHost } from "./concept/site/request-host";
 import { galleryAvailable } from "./concept/server/gallery";
@@ -63,6 +64,7 @@ function hostResponse(request: NextRequest, host: string | null | undefined, rou
 }
 
 export function proxy(request: NextRequest) {
+  if (sandboxRequested()) return sandboxProxy(request);
   const host = siteRequestHost((name) => request.headers.get(name));
   const { pathname } = request.nextUrl;
   if (/^\/studio\/(?:_|%5[fF])gallery\/?$/.test(pathname) && !galleryAvailable(host)) {
@@ -83,6 +85,27 @@ export function proxy(request: NextRequest) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
   return response;
+}
+
+function sandboxProxy(request: NextRequest) {
+  try {
+    const { origin } = sandboxConfig();
+    const path = request.nextUrl.pathname;
+    if (path === "/api/sandbox/reset" && sandboxCronHost(request, origin)) return NextResponse.next();
+    if (path === "/" && request.method === "GET" && sandboxHost(request, origin) && request.nextUrl.origin === origin)
+      return NextResponse.redirect(new URL("/sandbox?lang=sv", origin));
+    if (sandboxHost(request, origin) &&
+        (/^\/api\/v1\/(?:access|services|availability|(?:proposals|bookings)(?:\/[a-zA-Z0-9_-]{1,128})?)$/.test(path) ||
+         /^\/(?:sandbox(?:\/phone)?|api\/sandbox\/(?:pair|phone(?:\/(?:redeem|decision))?))$/.test(path) ||
+         path.startsWith("/_next/static/"))) {
+      const response = NextResponse.next();
+      response.headers.set("X-Robots-Tag", "noindex, nofollow");
+      return response;
+    }
+    return new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } });
+  } catch {
+    return new NextResponse(null, { status: 503, headers: { "Cache-Control": "no-store" } });
+  }
 }
 
 export const config = { matcher: "/:path*" };

@@ -23,13 +23,14 @@ export const proposalSchema = z.object({
 }).strict();
 export const proposalHash = (p: AgentProposal) => bookingProposalHash({ ...p, start: p.startsAt });
 const status = (p: AgentProposal, now: Date) => p.status === "pending" && +p.expiresAt <= +now ? "expired" : p.status;
-function view(p: AgentProposal, now: Date) {
+export function proposalView(p: AgentProposal, now: Date) {
   return { id: p.id, status: status(p, now), serviceId: p.serviceId, serviceVersion: p.serviceVersion,
     serviceName: p.serviceName, staff: { id: p.staffId, name: p.staffName },
     locationId: p.locationId, scheduleId: p.scheduleId, salon: "Salong Eko (syntetisk demo)",
     start: p.startsAt.toISOString(), durationMinutes: p.duration, price: { amountMinor: p.priceOre, currency: "SEK" },
     expiresAt: p.expiresAt.toISOString(), ...(p.status === "approved" ? { mandateId: p.mandateId } : {}) };
 }
+const view = proposalView;
 type ProposalResult = { proposal: ReturnType<typeof view>; approvalUrl?: string; approvalRequired?: boolean; approvalDelivery?: string };
 export async function createProposal(p: AgentPrincipal, body: unknown, now = new Date(), smsSender: SmsSender = simulatedSmsSender): Promise<ProposalResult> {
   requireConsentLab();

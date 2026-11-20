@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import pg from "pg";
 import type { Prisma } from "@prisma/client";
 import type { StoreChange, TenantId } from "./studio-store";
+import { assertDatabaseMode } from "../../../scripts/database.mjs";
 
 const CHANNEL = "tenant_changes";
 const RETRY_MS = 250;
@@ -55,13 +56,15 @@ export class PostgresNotifications {
     void (async () => {
       try {
         await client.connect();
+        await assertDatabaseMode(client);
         if (this.session !== session) return;
         await client.query("LISTEN tenant_changes");
         if (this.session !== session) return;
         session.ready = true;
         this.onReady();
-      } catch {
-        reconnect();
+      } catch (error) {
+        if (error instanceof Error && error.message === "BOOKING_DATABASE_MODE_MISMATCH") this.stop();
+        else reconnect();
       }
     })();
   }

@@ -11,7 +11,7 @@ vi.mock("pg", async () => {
     default: {
       Client: vi.fn(class extends EventEmitter {
         connect = vi.fn(async () => {});
-        query = vi.fn(async () => {});
+        query = vi.fn(async () => ({ rows: [{ marked: false }] }));
         end = vi.fn(async () => {});
       }),
     },
@@ -77,9 +77,10 @@ it("ignores late LISTEN completion after the last subscriber releases the connec
   listener.start();
   const client = vi.mocked(pg.Client).mock.instances[0];
   const pendingListen = Promise.withResolvers<void>();
+  vi.mocked(client.query).mockImplementationOnce(async () => ({ rows: [{ marked: false }] }));
   vi.mocked(client.query).mockImplementationOnce(() => pendingListen.promise);
   try {
-    await vi.waitFor(() => expect(client.query).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(client.query).toHaveBeenCalledWith("LISTEN tenant_changes"));
     expect(listener.ready).toBe(false);
     listener.stop();
     pendingListen.resolve();
@@ -88,6 +89,25 @@ it("ignores late LISTEN completion after the last subscriber releases the connec
     expect(listener.ready).toBe(false);
   } finally {
     listener.stop();
+  }
+});
+
+it("never listens or retries on a marked sandbox database", async () => {
+  vi.useFakeTimers();
+  const refresh = vi.fn();
+  const listener = new PostgresNotifications(connection, vi.fn(), refresh);
+  try {
+    listener.start();
+    const client = vi.mocked(pg.Client).mock.instances[0];
+    vi.mocked(client.query).mockImplementationOnce(async () => ({ rows: [{ marked: true }] }));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(client.query).not.toHaveBeenCalledWith("LISTEN tenant_changes");
+    expect(client.end).toHaveBeenCalledOnce();
+    expect(vi.mocked(pg.Client).mock.instances).toHaveLength(1);
+    expect(refresh).not.toHaveBeenCalled();
+  } finally {
+    listener.stop();
+    vi.useRealTimers();
   }
 });
 
