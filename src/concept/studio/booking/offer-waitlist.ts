@@ -1,5 +1,5 @@
 import { textWaitlistAboutGaps, textWaitlistAboutSlot } from "../../booking/waitlist-offer";
-import { freeGaps } from "../../data/slots";
+import { freeGaps, isFree } from "../../data/slots";
 import type { Booking, DateKey, DemoState } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { cardVisible } from "../../modules/registry";
@@ -21,6 +21,10 @@ export type ShownSlot = Pick<Booking, "id" | "date" | "start" | "staffId" | "res
 const sameSlot = (booking: Booking | undefined, shown: ShownSlot): booking is Booking =>
   !!booking && booking.date === shown.date && booking.start === shown.start && booking.staffId === shown.staffId && booking.resourceId === shown.resourceId;
 
+/** Whether the time the visit held is still free in the latest schedule: nobody else booked or holds it. */
+const stillFree = (state: DemoState, booking: Booking) =>
+  isFree(state, booking.staffId, booking.date, booking.start, { serviceId: booking.serviceId, duration: booking.duration }, booking.id);
+
 /** Offers the slot a cancelled booking freed to the waiting list. False when nothing was saved or sent. */
 export function offerSlotToWaitlist(shown: ShownSlot, clock: Clock): boolean {
   let count = 0;
@@ -31,7 +35,10 @@ export function offerSlotToWaitlist(shown: ShownSlot, clock: Clock): boolean {
       return { type: "inbox/add", item: waitlistNotice(latest(current), count, clock) };
     },
     undefined,
-    (current) => sameSlot(latest(current), shown) && waitlistCount(current, latest(current)) > 0,
+    (current) => {
+      const booking = latest(current);
+      return sameSlot(booking, shown) && stillFree(current, booking) && waitlistCount(current, booking) > 0;
+    },
     { send: (current) => textWaitlistAboutSlot(current, latest(current)) },
   );
   return showUndoToast(tc("suggest.gaps.toast", count), logId);
@@ -57,7 +64,7 @@ export function offerGapsToWaitlist(clock: Clock): boolean {
       };
     },
     undefined,
-    (current) => cardVisible(current.modules, "gaps") && todayGaps(current, clock).length > 0,
+    (current) => cardVisible(current.modules, "gaps") && todayGaps(current, clock).length > 0 && waiting(current) > 0,
     { send: (current) => textWaitlistAboutGaps(current, clock.today) },
   );
   return showUndoToast(tc("suggest.gaps.toast", count), logId);

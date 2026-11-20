@@ -46,6 +46,11 @@ function messageLedger(salon: string) {
   return ledger;
 }
 
+/** Forgets a salon's sends and keys when it is deleted or replaced, so its successor starts fresh. */
+export function forgetDemoSends(salon: string) {
+  messageLedgers.delete(salon);
+}
+
 /** The simulated SMS, email and posts a browser salon's saved changes sent (see `stageDemoSends`). */
 export function demoSentMessages(salon: string): Outbox {
   return messageLedger(salon).outbox;
@@ -56,8 +61,8 @@ export function demoSentMessages(salon: string): Outbox {
  * direct port shares, into `demoOutbox`) and SMS, email and posts (on `salon`'s
  * own ledger, into `demoSentMessages(salon)`). Run the reducer inside
  * `withDemoChannels(stage, …)`; nothing is recorded until `publish`, which the
- * store calls only after the save succeeded. `records` are this stage's sends,
- * the effects of its commit.
+ * store calls only after the save succeeded, and returns what the destinations
+ * accepted: the commit's effects.
  */
 export function stageDemoSends(salon: string) {
   const ledger = messageLedger(salon);
@@ -70,10 +75,8 @@ export function stageDemoSends(salon: string) {
     social: messages.social,
     payments: payments.payments,
     hasPayments: payments.hasPayments,
-    records: () => [...payments.records(), ...messages.outbox.list()],
-    publish() {
-      payments.publish();
-      messages.publish();
+    publish(): OutboxEntry[] {
+      return [...payments.publish(), ...messages.publish()];
     },
   };
 }

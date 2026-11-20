@@ -6,7 +6,7 @@ import { toKey } from "./data/dates";
 import { createDemoState, type BusinessSetup } from "./data/generate";
 import { migrateState } from "./data/migrate";
 import type { DemoState } from "./data/types";
-import { stageDemoSends, withDemoChannels } from "./connections/demo";
+import { forgetDemoSends, stageDemoSends, withDemoChannels } from "./connections/demo";
 import type { OutboxEntry } from "./connections/simulated/outbox";
 import { prepareAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
@@ -64,6 +64,7 @@ const removalListeners = new Set<(workspace: Workspace) => void>();
 
 /** Tells `BrowserStudioStore` that a workspace's salon was deleted or replaced, so its records for it end. */
 function salonRemoved(workspace: Workspace) {
+  forgetDemoSends(workspace);
   removalListeners.forEach(listener => listener(workspace));
 }
 
@@ -309,7 +310,7 @@ export interface DispatchOptions {
    * staged like the reducer's own sends; false refuses the whole change.
    */
   send?: (current: DemoState) => boolean;
-  /** Called after a successful save with exactly the sends that save published. */
+  /** Called after a successful save with the sends its destinations accepted (a repeated id is not a new send). */
   committed?: (sent: OutboxEntry[]) => void;
 }
 
@@ -347,8 +348,9 @@ export function dispatchWithLog(
     // Run the booking rules again if another tab wrote while we prepared the save.
     const recheck = !!canApply || action.type.startsWith("online/") || action.type === "salon/policy" ||
       action.type === "booking/fee" || action.type === "booking/cancel" || action.type === "trash/restore";
-    if (!setState(next, recheck, batch.publish)) continue;
-    options.committed?.(batch.records());
+    let published: OutboxEntry[] = [];
+    if (!setState(next, recheck, () => { published = batch.publish(); })) continue;
+    options.committed?.(published);
     if (workspace === "own") markTrialUsed(now);
     const logId = next.log[0]?.id;
     return logId !== current.log[0]?.id ? logId ?? null : null;

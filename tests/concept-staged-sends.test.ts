@@ -32,9 +32,10 @@ async function modules() {
   const store = await import("@/concept/store");
   const { demoOutbox, demoSentMessages } = await import("@/concept/connections/demo");
   const offers = await import("@/concept/studio/booking/offer-waitlist");
+  const { textWaitlistAboutGaps } = await import("@/concept/booking/waitlist-offer");
   const { tc } = await import("@/concept/i18n");
   const sms = () => demoSentMessages("demo").list("sms");
-  return { ...store, ...offers, demoOutbox, sms, tc };
+  return { ...store, ...offers, demoOutbox, demoSentMessages, textWaitlistAboutGaps, sms, tc };
 }
 
 function salon(): DemoState {
@@ -127,6 +128,64 @@ it("sends no slot offer once another tab has moved the visit", async () => {
   expect(offerSlotToWaitlist(booking, { today, minutes: 600 })).toBe(false);
   expect(sms()).toEqual([]);
   expect(storage.saved().inbox).toEqual(state.inbox);
+});
+
+it("sends no slot offer once another booking has taken the freed time", async () => {
+  const state = salon();
+  const storage = tab(state);
+  const { offerSlotToWaitlist, sms } = await modules();
+  const visit = upcoming(state);
+  const cancelled = { ...visit, status: "cancelled" as const };
+  const other = state.customers.find((customer) => customer.id !== visit.customerId)!;
+  // The Inbox shows the cancellation; another tab has booked someone into that time since.
+  storage.write({ ...state, bookings: [...state.bookings.map((b) => (b.id === visit.id ? cancelled : b)), { ...visit, id: "b-taken", customerId: other.id }] });
+  expect(offerSlotToWaitlist(cancelled, { today, minutes: 600 })).toBe(false);
+  expect(sms()).toEqual([]);
+  expect(storage.saved().inbox).toEqual(state.inbox);
+  // With the time free again, the same offer goes out.
+  storage.write({ ...state, bookings: state.bookings.map((b) => (b.id === visit.id ? cancelled : b)) });
+  expect(offerSlotToWaitlist(cancelled, { today, minutes: 600 })).toBe(true);
+  expect(sms()).toHaveLength(1);
+});
+
+it("sends no free-times text once nobody is waiting", async () => {
+  const state = salon();
+  const storage = tab(state);
+  const { offerGapsToWaitlist, sms } = await modules();
+  storage.write({ ...state, customers: state.customers.map((customer) => ({ ...customer, waitlist: false })) });
+  expect(offerGapsToWaitlist({ today, minutes: 0 })).toBe(false);
+  expect(sms()).toEqual([]);
+  expect(storage.saved().inbox).toEqual(state.inbox);
+});
+
+it("reports only sends the sink accepted: a repeated id within one salon is no new effect", async () => {
+  const state = salon();
+  tab(state);
+  const { dispatchWithLog, textWaitlistAboutGaps, sms } = await modules();
+  const reported: string[][] = [];
+  const note = { type: "inbox/add" as const, item: { kind: "system" as const, date: today, time: 0, title: "Free times", body: "Texted", read: false, handled: true } };
+  const options = { send: (current: DemoState) => textWaitlistAboutGaps(current, today), committed: (sent: { id: string }[]) => { reported.push(sent.map((entry) => entry.id)); } };
+  expect(dispatchWithLog(note, undefined, undefined, options)).not.toBe(false);
+  expect(dispatchWithLog(note, undefined, undefined, options)).not.toBe(false);
+  expect(sms()).toHaveLength(1);
+  expect(reported).toEqual([[sms()[0].id], []]);
+});
+
+it("starts a replacement sample business with fresh message records and keys", async () => {
+  const state = salon();
+  tab(state);
+  const { dispatchWithLog, startBusiness, demoSentMessages, textWaitlistAboutGaps } = await modules();
+  const reported: number[] = [];
+  const note = { type: "inbox/add" as const, item: { kind: "system" as const, date: today, time: 0, title: "Free times", body: "Texted", read: false, handled: true } };
+  const options = { send: (current: DemoState) => textWaitlistAboutGaps(current, today), committed: (sent: unknown[]) => { reported.push(sent.length); } };
+  dispatchWithLog(note, undefined, undefined, options);
+  const before = demoSentMessages("demo");
+  expect(before.list("sms")).toHaveLength(1);
+  await startBusiness();
+  expect(demoSentMessages("demo")).not.toBe(before);
+  expect(demoSentMessages("demo").list()).toEqual([]);
+  dispatchWithLog(note, undefined, undefined, options);
+  expect(reported).toEqual([1, 1]);
 });
 
 it("sends no free-times text once no free time is left today", async () => {
