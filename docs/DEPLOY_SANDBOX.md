@@ -39,6 +39,27 @@ sandbox check passes.
    login. Both settings exist in the same server deployment, so they are not
    isolated from a compromised server process. Keep the migration credential
    outside Vercel.
+
+   `scripts/sandbox/bootstrap.mjs` does this step on your own machine. Pass the
+   migration owner's direct (unpooled) URL through the environment, never as
+   an argument:
+
+   ```sh
+   read -rs SANDBOX_MIGRATION_DATABASE_URL && export SANDBOX_MIGRATION_DATABASE_URL
+   node scripts/sandbox/bootstrap.mjs --project-id prj_… --runtime-host <pooled host>
+   ```
+
+   It marks the database, migrates it, and creates the provider and reset
+   logins. The passwords are sent only as SCRAM-SHA-256 verifiers. It applies
+   both grant scripts and checks each login read-only over
+   `sslmode=verify-full`. It then writes the production settings for both
+   projects, with fresh secrets and one shared service token, to
+   `~/.cresavo-sandbox/` (mode 600). It prints no secret. With
+   `--push-vercel` it also stores the settings through the Vercel CLI from
+   stdin, marking credentials Sensitive. The script needs psql 16 or later.
+   It refuses a database that is not empty and logins that already exist, so
+   a failed run is repeated on a new database. Delete the settings folder once
+   both projects hold the values.
 4. In each project's **Settings → Environment Variables**, configure
    **Production** only. Copy the sandbox project's ID from **Settings → General**
    and enable [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables)
