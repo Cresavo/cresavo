@@ -88,7 +88,7 @@ Security
 - [ ] Roles and permissions (owner, staff, support with time-limited access).
 - [ ] Rate limiting on public endpoints (booking, login, AI).
 - [ ] Encryption at rest for journal entries and other sensitive fields.
-- [ ] Secret scanning and code scanning (e.g. GitHub secret scanning and
+- [x] Secret scanning and code scanning (e.g. GitHub secret scanning and
       CodeQL) enabled; no high/critical dependency findings.
 - [ ] Security headers (CSP, HSTS, frame-ancestors) and CSRF/origin checks.
 - [ ] External penetration test or at least an independent review.
