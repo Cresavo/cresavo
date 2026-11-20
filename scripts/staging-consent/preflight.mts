@@ -74,6 +74,14 @@ function refusePreloads(nodeOptions: string, execArgv: readonly string[]) {
     i++;
   }
 }
+/**
+ * NODE_TLS_REJECT_UNAUTHORIZED=0 turns off certificate checks for every TLS client in this process
+ * that does not set them itself (Prisma's driver, Playwright's own downloads, a library's request).
+ * The operator probes set them explicitly; the setting is refused all the same.
+ */
+export function refuseInsecureTls(env: Record<string, string | undefined>) {
+  if (env.NODE_TLS_REJECT_UNAUTHORIZED !== undefined && env.NODE_TLS_REJECT_UNAUTHORIZED !== "1") throw new Error("STAGING_TLS_VERIFY_REFUSED");
+}
 /** Checks the environment and this process's own Node flags (`node --tls-keylog=... run.mts`). */
 export function refuseDiagnostics(env: Record<string, string | undefined>, execArgv: readonly string[] = process.execArgv) {
   for (const name of DIAGNOSTIC_SETTINGS) if (env[name]) throw new Error("STAGING_DIAGNOSTICS_REFUSED");

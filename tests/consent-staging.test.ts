@@ -659,6 +659,13 @@ describe("staging runner preflight", () => {
     for (const flag of ["--use_openssl_ca", "--max-old-space-size=4096", "--enable-source-maps"])
       expect(() => refuseDiagnostics({ NODE_OPTIONS: flag }, [flag]), flag).not.toThrow();
   });
+  it("refuses a process-wide switch that turns off TLS certificate checks", async () => {
+    const { refuseInsecureTls } = await import("../scripts/staging-consent/preflight.mjs");
+    for (const value of ["0", "", "false", "no", " 1", "01"])
+      expect(() => refuseInsecureTls({ NODE_TLS_REJECT_UNAUTHORIZED: value }), JSON.stringify(value)).toThrow(/^STAGING_TLS_VERIFY_REFUSED$/);
+    expect(() => refuseInsecureTls({})).not.toThrow();
+    expect(() => refuseInsecureTls({ NODE_TLS_REJECT_UNAUTHORIZED: "1" })).not.toThrow();
+  });
   it("never puts a malformed database URL, or its password, into the error", async () => {
     const { loopbackAdminUrl } = await import("../scripts/staging-consent/preflight.mjs");
     const password = "fictional-pass-9f3k";

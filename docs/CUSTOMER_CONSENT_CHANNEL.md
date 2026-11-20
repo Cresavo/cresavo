@@ -233,7 +233,10 @@ The runner:
    `SELENIUM_REMOTE_*` or `PW_TEST_CONNECT_*` variable, `PW_CHROMIUM_ATTACH_TO_OTHER` and
    `PW_TEST_REUSE_CONTEXT`. The check runs in preflight and again before every browser launch.
    TLS key logging is refused too: `SSLKEYLOGFILE`, and `--tls-keylog` in `NODE_OPTIONS` or the
-   runner's own Node flags.
+   runner's own Node flags. So is `NODE_TLS_REJECT_UNAUTHORIZED` with any value but `1`
+   (`STAGING_TLS_VERIFY_REFUSED`). The runner's own HTTPS probes trust only the run CA with
+   certificate checks set explicitly, and connect directly to the loopback listener through a
+   dedicated agent, never through an `HTTPS_PROXY` (even with `NODE_USE_ENV_PROXY=1`).
 
    The customer and owner browsers can reach only the salon's host and TLS port. Chromium maps
    exactly that host and port to loopback and everything else (other hosts, IP literals, other

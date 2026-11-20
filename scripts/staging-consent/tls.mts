@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { createHash, X509Certificate } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { request as httpRequest, type IncomingHttpHeaders } from "node:http";
-import { createServer, request as httpsRequest, type Server } from "node:https";
+import { Agent as HttpsAgent, type AgentOptions, createServer, request as httpsRequest, type Server } from "node:https";
 import { join } from "node:path";
 
 const openssl = (args: string[]) => execFileSync("openssl", args, { stdio: ["ignore", "ignore", "ignore"] });
@@ -56,7 +56,15 @@ export function tlsProxy(leaf: Leaf, target: number, client: "x-forwarded-for" |
   });
 }
 
-/** HTTPS request from the operator process, resolving only the given host to loopback and trusting only the run CA. */
+// Operator probes connect directly to the loopback listener, never through the caller's proxy: the
+// global agent follows HTTPS_PROXY when NODE_USE_ENV_PROXY is set, a dedicated agent with an empty
+// proxy environment does not. No kept-alive sockets, so nothing outlives a probe.
+const directAgent = new HttpsAgent({ keepAlive: false, proxyEnv: {} } as AgentOptions & { proxyEnv: Record<string, never> });
+
+/**
+ * HTTPS request from the operator process, resolving only the given host to loopback and trusting
+ * only the run CA. Certificate checks are explicit, not left to NODE_TLS_REJECT_UNAUTHORIZED.
+ */
 export function operatorFetch(ca: Buffer, url: string,
   init: { method?: string; headers?: Record<string, string>; body?: string; timeoutMs?: number; maxBytes?: number } = {}) {
   const target = new URL(url);
@@ -72,7 +80,7 @@ export function operatorFetch(ca: Buffer, url: string,
       if (error) { req.destroy(); reject(error); } else resolve(value!);
     };
     const req = httpsRequest({ host: target.hostname, port: target.port, path: target.pathname + target.search, method: init.method ?? "GET",
-      headers: init.headers, ca, servername: target.hostname,
+      headers: init.headers, ca, servername: target.hostname, rejectUnauthorized: true, agent: directAgent,
       lookup: ((_host: string, options: { all?: boolean }, callback: (...args: unknown[]) => void) =>
         options.all ? callback(null, [{ address: "127.0.0.1", family: 4 }]) : callback(null, "127.0.0.1", 4)) as never }, response => {
       const chunks: Buffer[] = [];

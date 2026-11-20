@@ -146,6 +146,7 @@ describe.skipIf(process.platform === "win32")("runner preflight in a child proce
       for (const [extra, code] of [
         [{ STAGING_GATEWAY_REVISION: `postgresql://booking:${secret}@127.0.0.1/x` }, "STAGING_GATEWAY_REVISION_INVALID"],
         [{ STAGING_GATEWAY_REVISION: secret }, "STAGING_GATEWAY_REVISION_INVALID"],
+        [{ NODE_TLS_REJECT_UNAUTHORIZED: "0" }, "STAGING_TLS_VERIFY_REFUSED"],
         [{ GATEWAY_CHECKOUT: join(root, `missing-${secret}`) }, "STAGING_GATEWAY_CHECKOUT_INVALID"],
         [{ STAGING_GATEWAY_HOST: `${secret}.cresavo.test`, STAGING_SALON_HOST: `${secret}.cresavo.test` }, "STAGING_HOSTS_MUST_DIFFER"],
       ] as const) {
