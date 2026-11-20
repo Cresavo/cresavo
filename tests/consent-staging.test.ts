@@ -680,6 +680,15 @@ describe("staging runner preflight", () => {
     }
     expect(loopbackAdminUrl("postgresql://booking:booking@127.0.0.1:5432/postgres?sslmode=disable&application_name=x").hostname).toBe("127.0.0.1");
     expect(loopbackAdminUrl(undefined).hostname).toBe("127.0.0.1");
+    // Every part in the URL itself: nothing left to PG* defaults or overridden by a parameter.
+    for (const value of ["postgresql://booking:booking@127.0.0.1/postgres", "postgresql://booking@127.0.0.1:5432/postgres", "postgresql://:booking@127.0.0.1:5432/postgres",
+      "postgresql://booking:booking@127.0.0.1:5432", "postgresql://booking:booking@127.0.0.1:5432/", "postgresql://booking:booking@127.0.0.1:5432/a/b",
+      ...["host=/tmp/x", "HOSTADDR=127.0.0.2", "port=5433", "dbname=other", "database=other", "db=other"].map(q => `postgresql://booking:booking@127.0.0.1:5432/postgres?${q}`)])
+      expect(() => loopbackAdminUrl(value), value).toThrow(/^STAGING_PG_ADMIN_URL_INCOMPLETE$/);
+    const { refusePgEnvironment } = await import("../scripts/staging-consent/preflight.mjs");
+    for (const name of ["PGHOST", "PGHOSTADDR", "PGPORT", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGSERVICE", "PGSERVICEFILE", "PGPASSFILE", "PGSSLMODE", "PGOPTIONS", "PGCONNECT_TIMEOUT"])
+      expect(() => refusePgEnvironment({ [name]: "x" }), name).toThrow(/^STAGING_PG_ENVIRONMENT_REFUSED$/);
+    expect(() => refusePgEnvironment({ PGDATA: "/var/lib/postgresql/data", PATH: "/usr/bin" })).not.toThrow();
   });
 });
 

@@ -19,7 +19,7 @@ import { createDatabaseClient } from "../database.mjs";
 import { containsSecret, registerSecret, say } from "./sanitize.mjs";
 import { assertChildEnv, captureStream, freePorts, guardStream, leakedStreams, protectFromEnvFiles, refuseEnvFilesNow, runStep, startServer, stopAll, track } from "./processes.mjs";
 import { agentChannel } from "./agent-reply.mjs";
-import { loopbackAdminUrl, stagingDatabase } from "./preflight.mjs";
+import { loopbackAdminUrl, refusePgEnvironment, stagingDatabase } from "./preflight.mjs";
 import { acquisition, CLEANUP_SIGNALS, databaseAlreadyExisted, launchedBrowsers, onFatalError, settles } from "./lifecycle.mjs";
 import { issueCertificates, operatorFetch, tlsProxy } from "./tls.mjs";
 import { createServer as createHttpServer } from "node:http";
@@ -70,8 +70,6 @@ process.exitCode = 1;
 // Playwright is loaded only now, after those checks: it opens DEBUG_FILE as it loads.
 const { approveWithLostResponse, close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking, reopenInSameTab, salonContext } =
   await import("./browsers.mjs");
-// Throws a static code only: the value may hold a password and nothing is registered for redaction yet.
-const adminUrl = loopbackAdminUrl(process.env.STAGING_PG_ADMIN_URL);
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
 const gatewayRevision = process.env.STAGING_GATEWAY_REVISION ?? pin.gatewayRevision;
 refuse(typeof gatewayRevision === "string" && /^[a-f0-9]{40}$/.test(gatewayRevision), "STAGING_GATEWAY_REVISION_INVALID");
@@ -85,6 +83,9 @@ sayRevision("gateway", gatewayRevision, false);
 say(`HOSTS gateway=${gatewayHost} salon=${salonHost} (loopback only, ephemeral CA)`);
 
 // The run's database, validated (and its password decoded) before anything is acquired.
+// Throws a static code only: the value may hold a password and nothing is registered for redaction yet.
+refusePgEnvironment(process.env);
+const adminUrl = loopbackAdminUrl(process.env.STAGING_PG_ADMIN_URL);
 const { dbName, databaseUrl, password: adminPassword } = stagingDatabase(adminUrl, randomBytes(6).toString("hex"), assertTestDatabase);
 registerSecret(databaseUrl.href); registerSecret(adminUrl.href); registerSecret(adminPassword);
 
@@ -343,6 +344,10 @@ try {
   });
 
   await scenario("CUSTOMER_PAGE_SHOWS_EXACT_TERMS_AND_OPENING_APPROVES_NOTHING", async () => {
+    // The document itself (rendering reads no proposal) carries the policy as an HTTP header.
+    const doc = await operatorFetch(tls.ca, `${salonOrigin}/consent/${happyProposal.id}`);
+    assert.equal(doc.status, 200);
+    assert.equal(doc.headers["referrer-policy"], "no-referrer");
     const view = await openConsent(customerBrowser, await inboxLink(happyProposal.id));
     try {
       assert.equal(view.state, "ready");

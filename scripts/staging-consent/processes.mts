@@ -21,6 +21,8 @@ export const isStopping = () => stopping;
 const CHILD_ENV_REFUSED = ["NODE_OPTIONS", "NODE_DEBUG", "DEBUG", "DEBUG_FILE", "SSLKEYLOGFILE", "NODE_V8_COVERAGE"];
 export function assertChildEnv(env: Record<string, string | undefined>) {
   for (const name of CHILD_ENV_REFUSED) if (env[name] !== undefined) throw new Error("STAGING_CHILD_ENV_REFUSED");
+  // Connection defaults (PGPORT, PGUSER, ...): a child connects with DATABASE_URL and nothing else.
+  if (Object.keys(env).some(name => /^PG[A-Z_]+$/.test(name) && name !== "PGDATA")) throw new Error("STAGING_CHILD_ENV_REFUSED");
   return env;
 }
 

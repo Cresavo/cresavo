@@ -27,15 +27,15 @@ it("validates the derived database URL and its password before anything is acqui
 it("gives children a closed environment: nothing inherited, and no option or debug variables", async () => {
   const { runStep } = await import("../scripts/staging-consent/processes.mjs");
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "cresavo-preflight-test-"))), out = join(dir, "env.json");
-  vi.stubEnv("NODE_OPTIONS", "--max-old-space-size=128"); vi.stubEnv("SSLKEYLOGFILE", join(dir, "keys.log"));
+  vi.stubEnv("NODE_OPTIONS", "--max-old-space-size=128"); vi.stubEnv("SSLKEYLOGFILE", join(dir, "keys.log")); vi.stubEnv("PGPORT", "5433");
   try {
     // The runner's own NODE_OPTIONS never reaches a child.
     await runStep("ENV_PROBE", process.execPath, ["-e", `require("node:fs").writeFileSync(${JSON.stringify(out)}, JSON.stringify(Object.keys(process.env)))`],
       dir, { PATH: process.env.PATH ?? "" });
     const keys = JSON.parse(readFileSync(out, "utf8")) as string[];
-    expect(keys.includes("NODE_OPTIONS") || keys.includes("SSLKEYLOGFILE"), "an inherited option reached the child").toBe(false);
+    expect(keys.includes("NODE_OPTIONS") || keys.includes("SSLKEYLOGFILE") || keys.includes("PGPORT"), "an inherited option reached the child").toBe(false);
     // And a child environment that names one is refused before anything starts.
-    for (const name of ["NODE_OPTIONS", "SSLKEYLOGFILE", "NODE_DEBUG", "DEBUG"])
+    for (const name of ["NODE_OPTIONS", "SSLKEYLOGFILE", "NODE_DEBUG", "DEBUG", "PGPORT", "PGPASSWORD", "PGSERVICE", "PGSSLMODE"])
       await expect(runStep("ENV_REFUSED", process.execPath, ["-e", ""], dir, { PATH: process.env.PATH ?? "", [name]: "x" })).rejects.toThrow(/^STAGING_CHILD_ENV_REFUSED$/);
   } finally { vi.unstubAllEnvs(); rmSync(dir, { recursive: true, force: true }); }
 });
@@ -92,14 +92,25 @@ function runPreflight(root: string, salon: string, extra: Record<string, string>
 }
 
 describe.skipIf(process.platform === "win32")("runner preflight in a child process", () => {
-  it("leaves no run directory behind when the database configuration is refused", () => {
+  it("refuses database settings the runner and its children could resolve differently, leaving no run directory", () => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), "cresavo-preflight-test-")));
     try {
-      const { output, status, leftovers } = runPreflight(root, salonFixture(root));
-      expect(status).not.toBe(0);
-      expect(output.includes("STAGING_DATABASE_REFUSED"), "the refusal code is reported").toBe(true);
-      expect(output.includes("fictional-pass"), "the password is printed").toBe(false);
-      expect(leftovers).toEqual([]);
+      const salon = salonFixture(root);
+      // A `host` parameter (node-postgres would follow it, Prisma would not), a URL that leaves the
+      // port to PGPORT, and connection defaults in the runner's own environment.
+      for (const [extra, code] of [
+        [{}, "STAGING_PG_ADMIN_URL_INCOMPLETE"],
+        [{ STAGING_PG_ADMIN_URL: "postgresql://booking:fictional-pass@127.0.0.1/postgres" }, "STAGING_PG_ADMIN_URL_INCOMPLETE"],
+        [{ STAGING_PG_ADMIN_URL: "postgresql://booking:fictional-pass@127.0.0.1/postgres", PGPORT: "5433" }, "STAGING_PG_ENVIRONMENT_REFUSED"],
+        [{ STAGING_PG_ADMIN_URL: "postgresql://booking:fictional-pass@127.0.0.1:5432/postgres", PGPORT: "5433" }, "STAGING_PG_ENVIRONMENT_REFUSED"],
+        [{ STAGING_PG_ADMIN_URL: "postgresql://booking:fictional-pass@127.0.0.1:5432/postgres", PGPASSWORD: "fictional-pass" }, "STAGING_PG_ENVIRONMENT_REFUSED"],
+      ] as const) {
+        const { output, status, leftovers } = runPreflight(root, salon, extra);
+        expect(status, code).not.toBe(0);
+        expect(output.includes(code), `${JSON.stringify(Object.keys(extra))}: ${code} is reported`).toBe(true);
+        expect(output.includes("fictional-pass"), "the password is printed").toBe(false);
+        expect(leftovers).toEqual([]);
+      }
     } finally { rmSync(root, { recursive: true, force: true }); }
   }, 90_000);
 

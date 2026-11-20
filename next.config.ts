@@ -51,6 +51,13 @@ const config: NextConfig = {
         source: "/admin/:path*",
         headers: [{ key: "Cache-Control", value: "no-store" }],
       },
+      {
+        // The consent document's path names the proposal. As an HTTP header (not only the page's
+        // meta tag) the policy also covers requests made before the meta tag is parsed, such as
+        // asset preloads. Later rules override earlier ones for the same header.
+        source: "/consent/:path*",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
     ];
   },
 };

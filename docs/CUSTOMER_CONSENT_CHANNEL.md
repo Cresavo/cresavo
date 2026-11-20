@@ -117,7 +117,7 @@ approved. The proposal never outlives its start time.
 | --- | --- |
 | Agent reads or forwards the link | REST and MCP responses carry no link or secret. No route, tool or gateway path reads the inbox. Tests assert on serialized response bodies. |
 | Agent picks the recipient | The recipient is a server constant (`staging-customer-v1`, `Staging Demo Customer`, `staging-customer@example.test`). The proposal schema is strict; extra recipient fields are rejected. A database check pins the recipient ID. Booking refuses any other contact. |
-| Link leaks through logs or referrers | Secret in the fragment, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`. Error bodies never echo the secret. |
+| Link leaks through logs or referrers | Secret in the fragment, `Referrer-Policy: no-referrer` (an HTTP header on the consent document and its endpoint, and a meta tag), `Cache-Control: no-store`. Error bodies never echo the secret. |
 | Replay of a used link | The proposal must be pending under a row lock. A decided link answers `409` with `state: "used"` and the recorded `decision` (`approved` or `declined`), so a customer whose response was lost can tell which; it carries no terms, mandate ID or authority, and a wrong secret learns nothing. It grants nothing. The inbox message can be consumed once. |
 | Late approval | An expired proposal answers `410` with `state: "expired"`, no mandate. The mandate itself expires with the proposal. |
 | Terms change after approval | The booking re-derives the hash from current price and duration. A changed price is `mandate_denied`; a changed version is `stale_service`. |
@@ -152,7 +152,7 @@ GATEWAY_CHECKOUT=/path/outside/this/repo npm run test:staging-consent
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `GATEWAY_CHECKOUT` | required | Gateway checkout outside this repository. Only read with `git archive`. |
-| `STAGING_PG_ADMIN_URL` | `postgresql://booking:booking@127.0.0.1:5432/postgres` | Loopback role that creates and drops the run's database. Credentials only in the user info: a query parameter such as `password`, `passfile`, `sslpassword`, `user` or `service` is refused. |
+| `STAGING_PG_ADMIN_URL` | `postgresql://booking:booking@127.0.0.1:5432/postgres` | Loopback role that creates and drops the run's database. Credentials only in the user info: a query parameter such as `password`, `passfile`, `sslpassword`, `user` or `service` is refused. Host, port, user, password and database must all be in the URL, a `host`, `hostaddr`, `port` or `dbname` parameter is refused (`STAGING_PG_ADMIN_URL_INCOMPLETE`), and so is any `PG*` connection variable such as `PGPORT` or `PGPASSWORD` in the runner's environment (`STAGING_PG_ENVIRONMENT_REFUSED`), so the runner and its migration and seed steps reach the same server as the same role. |
 | `STAGING_GATEWAY_HOST` | `gateway.cresavo.test` | Gateway host name, resolved to loopback for this run only. |
 | `STAGING_SALON_HOST` | `salon-demo.cresavo.test` | Consent and salon host name, resolved to loopback for this run only. |
 | `STAGING_GATEWAY_REVISION` | from `gateway.json` | Override the pinned gateway revision. |

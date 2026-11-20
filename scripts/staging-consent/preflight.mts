@@ -16,7 +16,25 @@ export function loopbackAdminUrl(value: string | undefined) {
   // credentials elsewhere: refused, not tracked.
   if ([...url.searchParams.keys()].some(key => QUERY_CREDENTIALS.includes(key.toLowerCase())))
     throw new Error("STAGING_PG_ADMIN_URL_CREDENTIAL_PARAMETER");
+  // The runner's own client (node-postgres) and the migration and seed children (Prisma) must reach
+  // the same server as the same role. node-postgres fills an omitted port, user, password or
+  // database from PG* variables and lets a `host`/`port`/`db` parameter override the URL, which
+  // Prisma does not: so every part is required in the URL itself and those parameters are refused.
+  if (!url.port || !url.username || !url.password || !/^\/[^/]+$/.test(url.pathname) ||
+      [...url.searchParams.keys()].some(key => CONNECTION_PARAMETERS.includes(key.toLowerCase())))
+    throw new Error("STAGING_PG_ADMIN_URL_INCOMPLETE");
   return url;
+}
+
+const CONNECTION_PARAMETERS = ["host", "hostaddr", "port", "dbname", "database", "db"];
+/**
+ * libpq and node-postgres connection defaults (PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE,
+ * PGSERVICE, PGSSLMODE, PGOPTIONS, ...). The children get a closed environment without them, so
+ * the runner refuses them in its own: both sides then connect with the URL and nothing else.
+ * PGDATA is the server's data directory, which no client reads.
+ */
+export function refusePgEnvironment(env: Record<string, string | undefined>) {
+  if (Object.keys(env).some(name => /^PG[A-Z_]+$/.test(name) && name !== "PGDATA")) throw new Error("STAGING_PG_ENVIRONMENT_REFUSED");
 }
 
 // Diagnostic settings that make libraries in this process (Playwright's driver and API log, the
