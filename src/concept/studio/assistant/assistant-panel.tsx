@@ -84,7 +84,9 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
 
   /** Edit on a proposal: the owner's words come back into the box to be changed and sent again. */
   const edit = (id: string) => {
-    setText(assistant.edit(id));
+    const words = assistant.edit(id);
+    if (words === null) return;
+    setText(words);
     input.current?.focus();
   };
 

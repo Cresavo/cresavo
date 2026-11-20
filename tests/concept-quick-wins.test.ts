@@ -14,7 +14,8 @@ import { sellGiftCard } from "@/concept/giftcards/cards";
 import { t } from "@/concept/i18n";
 import { formatMoney } from "@/concept/i18n/format";
 import { createSalon, salonDraft } from "@/concept/onboarding/salon";
-import { currentState, dispatch, usePublicDemo, withBookingLock } from "@/concept/store";
+import { currentState, dispatch, usePublicDemo } from "@/concept/store";
+import { commitAction, type CommitResult } from "@/concept/store/commit";
 import { RedeemSheet } from "@/concept/studio/giftcards/redeem-sheet";
 import { SmsPriceSettings } from "@/concept/studio/more/reminder-settings";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -35,8 +36,9 @@ vi.mock("@/concept/store", () => ({
   dispatch: vi.fn(),
   dispatchWithLog: vi.fn(),
   usePublicDemo: vi.fn(),
-  withBookingLock: vi.fn(),
+  targetOf: () => ({ workspace: "demo", epoch: "test" }),
 }));
+vi.mock("@/concept/store/commit", () => ({ commitAction: vi.fn() }));
 vi.mock("@/concept/studio/use-studio", () => ({ useStudio: vi.fn() }));
 vi.mock("@/concept/use-now", () => ({ useSalonNow: vi.fn() }));
 vi.mock("@/concept/studio/pairing/session", () => ({ usePairing: () => null }));
@@ -166,8 +168,8 @@ it("shows a refused move on the page when its sheet was closed during the write"
   vi.setSystemTime(new Date("2026-11-17T10:00:00+01:00"));
   const state = { ...fixture, bookings: [booking] };
   vi.mocked(currentState).mockReturnValue(state);
-  let refuse!: (result: false) => void;
-  vi.mocked(withBookingLock).mockImplementation(() => new Promise(resolve => { refuse = resolve; }));
+  let refuse!: (result: CommitResult) => void;
+  vi.mocked(commitAction).mockImplementation(() => new Promise(resolve => { refuse = resolve; }));
   const render = stateful(() => BookingActions({ state, now, booking }));
   propsOf(render(), Button).find(button => button.children === t("booking.reschedule"))?.onClick?.({} as never);
   const moveSheet = () => propsOf(render(), Sheet).find(sheet => sheet.title === t("booking.move.title"))!;
@@ -175,7 +177,7 @@ it("shows a refused move on the page when its sheet was closed during the write"
   propsOf(moveSheet().children, TimePicker)[0].onPick({ ...booking, date: "2026-11-20" });
   moveSheet().onClose();
   expect(moveSheet().open).toBe(false);
-  refuse(false);
+  refuse({ ok: false, reason: "rejected" });
   await vi.advanceTimersByTimeAsync(0);
   expect(renderToStaticMarkup(render())).toContain(t("booking.move.failed"));
 });
@@ -185,7 +187,7 @@ it("uses December in the SMS price estimate when it is still November on the own
     ...fixture,
     bookings: [booking, { ...booking, date: "2026-11-30" }, { ...booking, date: "2026-12-01" }],
   };
-  vi.mocked(useStudio).mockReturnValue({ state, today: "2026-11-30", minutes: 1110 });
+  vi.mocked(useStudio).mockReturnValue({ state, today: "2026-11-30", minutes: 1110, target: null });
   vi.mocked(useSalonNow).mockReturnValue(salonClock(new Date("2026-11-30T23:30:00Z")));
   const [props] = propsOf(stateful(AdvancedPage)(), SmsPriceSettings);
   expect(props.today).toBe("2026-12-01");
@@ -212,7 +214,7 @@ it("shows the live gift card balance but creates a failure reference only on blu
   const state = sellGiftCard({ ...fixture, bookings: [booking] }, {
     amount: 500, recipient: "Fictional recipient", message: "", date: now.today,
   });
-  vi.mocked(useStudio).mockReturnValue({ state, ...now });
+  vi.mocked(useStudio).mockReturnValue({ state, ...now, target: null });
   const card = state.giftCards.at(-1)!;
   const render = stateful(() => RedeemSheet({ bookingId: booking.id, onBack: vi.fn(), onClose: vi.fn() }));
   const input = () => propsOf(render(), TextInput)[0];

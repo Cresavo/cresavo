@@ -12,21 +12,21 @@ export function isGuestValid({ name, phone }: GuestInput): boolean {
 }
 
 /** Name and mobile number: the only things a first-time booker has to type. */
-export function GuestFields({ value, onChange, staffEntry = false }: { value: GuestInput; onChange: (next: GuestInput) => void; staffEntry?: boolean }) {
+export function GuestFields({ value, onChange, staffEntry = false, disabled = false }: { value: GuestInput; onChange: (next: GuestInput) => void; staffEntry?: boolean; disabled?: boolean }) {
   return (
     <div className="space-y-4">
       <Field label={t(staffEntry ? "newBooking.customerName" : "booking.yourName")}>
-        <TextInput required={!staffEntry} value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} autoComplete="name" placeholder={t("booking.namePlaceholder")} />
+        <TextInput required={!staffEntry} disabled={disabled} value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} autoComplete="name" placeholder={t("booking.namePlaceholder")} />
       </Field>
       <Field label={t(staffEntry ? "newBooking.customerPhone" : "booking.yourPhone")} hint={staffEntry ? undefined : t("booking.phoneHint")}>
-        <TextInput required={!staffEntry} value={value.phone} onChange={(e) => onChange({ ...value, phone: e.target.value })} type="tel" inputMode="tel" autoComplete="tel" placeholder={t("booking.phonePlaceholder")} />
+        <TextInput required={!staffEntry} disabled={disabled} value={value.phone} onChange={(e) => onChange({ ...value, phone: e.target.value })} type="tel" inputMode="tel" autoComplete="tel" placeholder={t("booking.phonePlaceholder")} />
       </Field>
     </div>
   );
 }
 
-export function RememberContact({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+export function RememberContact({ checked, onChange, disabled = false }: { checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean }) {
   return (
-    <Checkbox label={t("booking.rememberContact")} checked={checked} onChange={event => onChange(event.target.checked)} />
+    <Checkbox label={t("booking.rememberContact")} checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} />
   );
 }

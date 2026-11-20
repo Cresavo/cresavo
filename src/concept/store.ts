@@ -126,6 +126,12 @@ function keep(state: DemoState | null | undefined, epoch: string | undefined) {
   if (state) lifetimes.set(state, epoch);
 }
 
+/** A view derived from `source` (the public view, a translated copy) with the lifetime of `source`, so commands made from it are bound too. */
+export function withLifetimeOf<T extends DemoState>(view: T, source: DemoState): T {
+  if (lifetimes.has(source)) lifetimes.set(view, lifetimes.get(source));
+  return view;
+}
+
 /** A copy of a state this store read or wrote, with the same lifetime, so `targetOf(copy)` works too. */
 export function copyWithLifetime(state: DemoState): DemoState {
   const copy = structuredClone(state);
@@ -624,5 +630,5 @@ export function useDemo(): DemoState | null {
 export function usePublicDemo(): DemoState | null {
   const state = useDemo();
   const language = getActiveLocale();
-  return useMemo(() => state && salonCopy(publicView(state), language), [state, language]);
+  return useMemo(() => state && withLifetimeOf(salonCopy(publicView(state), language), state), [state, language]);
 }

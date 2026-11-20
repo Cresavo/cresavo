@@ -10,7 +10,7 @@ import { cx } from "../../ui/cx";
 import { Badge } from "../../ui/badge";
 import { showActionFailure } from "../../ui/toast";
 import type { OpenSheet } from "../booking/booking-sheets";
-import { dispatchWithUndoToast } from "../log/undo-toast";
+import { commitWithUndoToast } from "../log/commit-toast";
 import { StaffDot } from "../staff-dot";
 import { useStudio } from "../use-studio";
 import { BookingBlock, DRAG_TYPE } from "./block";
@@ -29,7 +29,7 @@ function dayHeading(count: number, works: boolean) {
 
 /** One column per staff member for a single day. Tap a free spot to book, drag a booking to move it. */
 export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; staff: Staff[]; resourceId?: string; onOpen: (sheet: OpenSheet) => void }) {
-  const { state, today, minutes } = useStudio();
+  const { state, today, minutes, target } = useStudio();
   const hours = openingFor(state.salon, date)!;
   const lunch = lunchFor(state.salon, date);
   const { open: from, close: to } = hours;
@@ -67,9 +67,8 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
       return;
     }
     const start = minuteAt(event);
-    if (!dispatchWithUndoToast({ type: "booking/move", id, date, start }, t("calendar.movedTo", { time: formatTime(start) }))) {
-      showActionFailure("calendar.slotTaken");
-    }
+    const moved = target ? commitWithUndoToast(target, { type: "booking/move", id, date, start }, t("calendar.movedTo", { time: formatTime(start) })).then((result) => result.ok, () => false) : Promise.resolve(false);
+    void moved.then((ok) => { if (!ok) showActionFailure("calendar.slotTaken"); });
   };
 
   return (

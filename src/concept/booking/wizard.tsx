@@ -13,6 +13,7 @@ import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { cx } from "../ui/cx";
 import type { Now } from "../use-now";
+import { targetOf } from "../store";
 import { AskStep } from "./ask-step";
 import { rememberHeldGuest, useGuestContact } from "./guest";
 import { DepositCheckout, useCheckoutHold } from "./deposit-checkout";
@@ -76,6 +77,8 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
   const [request, setRequest] = useState<BookingRequest>();
   const router = useRouter();
   const { hold, remember, selectHold } = useCheckoutHold(state);
+  // One target per rendered state, so the checkout's expiry timer is not reset on every render.
+  const target = useMemo(() => targetOf(state), [state]);
   const contact = useGuestContact(state.salon.slug);
   const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
   const [missed, setMissed] = useState(false);
@@ -135,7 +138,7 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
     if (onBooked) onBooked(booking.id);
     else router.push(bookingPage(state.salon.slug, booking.id));
   };
-  if (hold) return <Card className="booking-step p-4 sm:p-6"><DepositCheckout hold={hold} now={now} phone={state.salon.phone} packagesEnabled={moduleEnabled(state.modules, "packages")}
+  if (hold) return <Card className="booking-step p-4 sm:p-6"><DepositCheckout target={target} hold={hold} now={now} phone={state.salon.phone} packagesEnabled={moduleEnabled(state.modules, "packages")}
     serviceName={state.services.find(s => s.id === hold.serviceId)?.name ?? ""}
     onPaid={finish} onRelease={() => selectHold()} /></Card>;
 
