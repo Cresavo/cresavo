@@ -6,6 +6,7 @@ export const SANDBOX_CHANNEL = "sandbox-demo-phone-v1";
 export const SANDBOX_CUSTOMER = Object.freeze({ name: "Salong Eko Test Customer", email: "sandbox-customer@example.test" });
 export const MAX_SANDBOX_BOOKINGS = 20;
 export const MAX_SANDBOX_SESSIONS = 24;
+export const MAX_HOSTED_SANDBOX_SESSIONS = 8;
 export const MAX_SANDBOX_REQUESTS_PER_SESSION = 256;
 export const HOUR_MS = 3_600_000;
 export const DAY_MS = 24 * HOUR_MS;
@@ -22,7 +23,8 @@ const incompatibleSettings = [
 
 export function sandboxRequested(env = process.env) {
   return env.BOOKING_CONSENT_DELIVERY === SANDBOX_DELIVERY ||
-    [env.BOOKING_SANDBOX, env.BOOKING_SANDBOX_DB_ID, env.BOOKING_SANDBOX_ORIGIN, env.BOOKING_SANDBOX_IP_KEY]
+    [env.BOOKING_SANDBOX, env.BOOKING_SANDBOX_DB_ID, env.BOOKING_SANDBOX_ORIGIN, env.BOOKING_SANDBOX_IP_KEY,
+      env.BOOKING_SANDBOX_PROJECT_ID, env.BOOKING_SANDBOX_RESET_DATABASE_URL]
       .some(value => value !== undefined);
 }
 
@@ -45,7 +47,9 @@ export function sandboxConfig(env = process.env) {
     throw new AgentApiError("provider_configuration_invalid");
   }
   if (env.BOOKING_RUNTIME === "vercel") {
-    if (env.VERCEL !== "1" || env.VERCEL_ENV !== "production" || env.RATE_LIMIT_STORE !== "postgres")
+    if (env.VERCEL !== "1" || env.VERCEL_ENV !== "production" || env.RATE_LIMIT_STORE !== "postgres" ||
+        !/^prj_[A-Za-z0-9]+$/.test(env.BOOKING_SANDBOX_PROJECT_ID ?? "") ||
+        env.VERCEL_PROJECT_ID !== env.BOOKING_SANDBOX_PROJECT_ID)
       throw new AgentApiError("provider_configuration_invalid");
   } else {
     try {
@@ -56,7 +60,8 @@ export function sandboxConfig(env = process.env) {
       throw new AgentApiError("provider_configuration_invalid");
     }
   }
-  return { origin, gatewayOrigin, installation, revision: REVISION };
+  const sessionLimit = env.BOOKING_RUNTIME === "vercel" ? MAX_HOSTED_SANDBOX_SESSIONS : MAX_SANDBOX_SESSIONS;
+  return { origin, gatewayOrigin, installation, revision: REVISION, sessionLimit };
 }
 
 export function sandboxHost(request: Request, origin: string) {
@@ -66,8 +71,7 @@ export function sandboxHost(request: Request, origin: string) {
 export function sandboxCronHost(request: Request, origin: string, env = process.env) {
   const actual = new URL(request.url).origin;
   if (actual === origin && sandboxHost(request, origin)) return true;
-  const generated = env.VERCEL_URL;
-  if (env.BOOKING_RUNTIME !== "vercel" || env.VERCEL_ENV !== "production" ||
-      !generated || !/^[a-z0-9-]+\.vercel\.app$/.test(generated)) return false;
-  return actual === "https://" + generated && sandboxHost(request, actual);
+  if (env.BOOKING_RUNTIME !== "vercel" || env.VERCEL_ENV !== "production") return false;
+  return [env.VERCEL_URL, env.VERCEL_PROJECT_PRODUCTION_URL].some(host =>
+    !!host && /^[a-z0-9-]+\.vercel\.app$/.test(host) && actual === "https://" + host && sandboxHost(request, actual));
 }

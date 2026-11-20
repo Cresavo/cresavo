@@ -3,11 +3,12 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { createDatabaseClient } from "../../../../scripts/database.mjs";
 import { AgentApiError } from "../errors";
 import { AGENT_SCOPES, generateApiKey, hashApiKey, KEY_PATTERN, presentedKey, type AgentScope } from "../keys";
-import { DAY_MS, MAX_SANDBOX_REQUESTS_PER_SESSION, MAX_SANDBOX_SESSIONS, sandboxConfig } from "./config";
+import { DAY_MS, MAX_SANDBOX_REQUESTS_PER_SESSION, sandboxConfig } from "./config";
 import { seedSandboxSalon } from "./seed";
 
 export const SANDBOX_KEY_KIND = "sandbox-demo";
-type Installation = { id: string; generation: number; revision: number; resetAt: Date };
+type InstallationRow = { id: string; generation: number; revision: number; resetAt: Date };
+type Installation = InstallationRow & { sessionLimit: number };
 export type SandboxAgent = SandboxSession & { keyId: string; scopes: string[] };
 let client: PrismaClient | undefined;
 
@@ -19,14 +20,14 @@ export async function sandboxTransaction<T>(
   return client.$transaction(async tx => {
     // The runtime can share the transaction lock without UPDATE access to the installation or generation.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(64119334)`;
-    const [row] = await tx.$queryRaw<Installation[]> `
+    const [row] = await tx.$queryRaw<InstallationRow[]> `
       SELECT i.id::text, g.generation, i.revision, g.reset_at AS "resetAt"
       FROM cresavo_sandbox.installation i CROSS JOIN cresavo_sandbox.generation g
       WHERE i.singleton AND g.singleton AND i.id = ${config.installation}::uuid AND i.revision = ${config.revision}
         AND g.reset_at > clock_timestamp() - INTERVAL '26 hours'
     `;
     if (!row) throw new AgentApiError("provider_configuration_invalid");
-    return run(tx, row);
+    return run(tx, { ...row, sessionLimit: config.sessionLimit });
   }, { maxWait: 3000, timeout: 8000 });
 }
 
@@ -74,7 +75,7 @@ export async function createSandboxSession(tx: Prisma.TransactionClient, install
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(64119333)`;
   const now = await sandboxNow(tx);
   // Count the whole generation to cap retained state as well as live sessions.
-  if (await tx.sandboxSession.count({ where: { generation: installation.generation } }) >= MAX_SANDBOX_SESSIONS)
+  if (await tx.sandboxSession.count({ where: { generation: installation.generation } }) >= installation.sessionLimit)
     throw new AgentApiError("rate_limited", 3600);
   const id = randomUUID();
   const businessId = "sandbox-" + id;

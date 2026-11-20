@@ -92,6 +92,8 @@ function sandboxProxy(request: NextRequest) {
     const { origin } = sandboxConfig();
     const path = request.nextUrl.pathname;
     if (path === "/api/sandbox/reset" && sandboxCronHost(request, origin)) return NextResponse.next();
+    if (path === "/" && request.method === "GET" && sandboxHost(request, origin) && request.nextUrl.origin === origin)
+      return NextResponse.redirect(new URL("/sandbox?lang=sv", origin));
     if (sandboxHost(request, origin) &&
         (/^\/api\/v1\/(?:access|services|availability|(?:proposals|bookings)(?:\/[a-zA-Z0-9_-]{1,128})?)$/.test(path) ||
          /^\/(?:sandbox(?:\/phone)?|api\/sandbox\/(?:pair|phone(?:\/(?:redeem|decision))?))$/.test(path) ||
