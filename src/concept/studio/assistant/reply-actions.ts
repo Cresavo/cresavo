@@ -6,7 +6,7 @@ import type { Choice, Proposal } from "../../command/proposal";
 import type { DemoState } from "../../data/types";
 import { undoBlockReason } from "../../log/undo";
 import type { LogMeta } from "../../log/types";
-import { canChangeBooking, staffViewer } from "../../ops/access";
+import { canChangeBooking, staffViewer, type Role } from "../../ops/access";
 import { currentRole } from "../../ops/role";
 import { currentState, currentTarget, dispatch, latestStateOf, targetOf } from "../../store";
 import type { Target } from "../../store/commit";
@@ -21,8 +21,8 @@ type Meta = Partial<Omit<LogMeta, "at">>;
 /** Where a change the owner asked for came from: spoken commands are logged as voice, typed ones as the assistant. */
 export const sourceFor = (input: InputMode | undefined): LogMeta["source"] => (input === "voice" ? "voice" : "assistant");
 
-function canApplyReply(state: DemoState, action: DemoAction): boolean {
-  const role = currentRole();
+/** Whether `role`, the person who approved, may make this change in `state`. */
+function canApplyReply(state: DemoState, action: DemoAction, role: Role): boolean {
   if (role === "owner" || action.type === "booking/create") return true;
   if (action.type === "booking/cancel") return canChangeBooking(state, role, action.id);
   return action.type === "booking/move" && canChangeBooking(state, role, action.id) &&
@@ -53,12 +53,14 @@ async function once<T>(id: string, save: () => Promise<T>): Promise<T | false> {
  */
 export function applyReply(id: string, action: DemoAction, meta: Meta): Promise<boolean> {
   return once(id, async () => {
-    const thread = threadKey();
+    // Who approved, and in which conversation, as of the tap: the save may wait for the lock while the view changes.
+    const approver = currentRole();
+    const thread = threadKey(approver);
     const reply = replyIn(thread, id);
     if (!reply || reply.status || reply.pending) return false;
     const target = targetFor(reply);
     updateReplyIn(thread, id, { pending: true });
-    const result = target && await commitAction(target, action, { meta, guard: (state) => canApplyReply(state, action) }).catch(() => null);
+    const result = target && await commitAction(target, action, { meta, guard: (state) => canApplyReply(state, action, approver) }).catch(() => null);
     updateReplyIn(thread, id, result?.ok ? { status: "approved", undoId: result.logId ?? undefined, target: target ?? undefined, pending: undefined } : { status: "failed", pending: undefined });
     return !!result?.ok;
   }).then((done) => done === true);

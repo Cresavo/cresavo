@@ -165,9 +165,12 @@ describe("a reply while its change is being saved", () => {
   it("records the outcome in the conversation it was approved in, after a switch to another role", async () => {
     const { ask, reply, approve, store, service } = await setup();
     const { setRole } = await import("@/concept/ops/role");
+    // Web Locks, as in browsers and Node 24: the save waits for the lock, so the switch happens before it runs.
+    vi.stubGlobal("navigator", { locks: { request: (_name: string, run: () => unknown) => new Promise((resolve) => setTimeout(() => resolve(run()), 0)) } });
     const id = ask();
     const saving = approve(id);
     setRole("staff");
+    // The owner approved it: the switch afterwards does not turn it into a staff approval.
     expect(await saving).toBe(true);
     setRole("owner");
     expect(reply(id)).toMatchObject({ status: "approved", undoId: expect.any(String) });
