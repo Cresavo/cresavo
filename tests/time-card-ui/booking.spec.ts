@@ -4,7 +4,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { DateTime } from "luxon";
 import { db } from "../../src/lib/db";
 import { mcpEnvironment } from "../../src/mcp/environment";
-import { mountTimeCard } from "./host";
+import { mountTimeCard, openTestHost } from "./host";
 
 const date = DateTime.now()
   .setZone("Europe/Stockholm")
@@ -81,7 +81,7 @@ for (const scenario of ["double-390", "double-1024", "taken", "lost-reply"]) {
         width: scenario.endsWith("1024") ? 1024 : 390,
         height: 900,
       });
-      await page.goto("/"); // Real loopback origin for crypto.randomUUID; this is still our test host.
+      await openTestHost(page);
       let loseReply = scenario === "lost-reply";
       const { frame, calls, contexts } = await mountTimeCard(
         page,
