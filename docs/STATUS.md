@@ -28,7 +28,7 @@ Start with the [demo and product tour](../README.md) or see the
 - The separate booking engine uses Prisma and PostgreSQL. The web workspace,
   provider API and local owner MCP share booking rules, including idempotency
   and protection against double-booking. The public agent gateway lives in
-  the separate `booking-lab-gateway` repository.
+  the separate [`Cresavo/gateway`](https://github.com/Cresavo/gateway) repository.
 - The concept demo includes the November QA fixes for booking and caller
   flows, same-origin tab synchronization, assistant lookups and host feedback.
   Booking undo checks availability, and the customer time picker shows salon

@@ -1,5 +1,6 @@
 {
-  "gatewayRepository": "niclasvestlund-YT/booking-lab-gateway",
+  "gatewayRepository": "Cresavo/gateway",
   "gatewayRevision": "1617de1318a955be3500f233cbfe444f185c66e3",
+  "sandboxGatewayRevision": "4176c3dba25f438520647102f310cb46f09363a5",
   "contract": "booking-lab-provider-v1"
 }
