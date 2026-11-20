@@ -46,10 +46,12 @@ export interface BookingProtection {
   };
 }
 
-export interface CheckoutHold extends Pick<Booking, "serviceId" | "staffId" | "date" | "start" | "resourceId" | "duration"> {
+export interface CheckoutHold extends Pick<Booking, "serviceId" | "staffId" | "date" | "start" | "resourceId" | "duration" | "bufferBefore" | "bufferAfter"> {
   id: string;
   expiresAt: number;
   terms: BookingTerms;
+  /** Set when the checkout pays for a personal waitlist offer; it ends with that offer. */
+  offerId?: string;
   guest: OnlineGuest;
   notice: OnlineNotice;
 }

@@ -2,10 +2,10 @@
 // enough to take it back. Captured centrally in `capture.ts`, not per page.
 
 /** Who made the change. */
-export type LogActor = "owner" | "staff" | "ai" | "customer" | "integration";
+export type LogActor = "owner" | "staff" | "ai" | "customer" | "integration" | "automatic";
 
 /** Where the change came from. */
-export type LogSource = "button" | "command" | "voice" | "customer-page" | "campaign" | "mcp" | "assistant";
+export type LogSource = "button" | "command" | "voice" | "customer-page" | "campaign" | "mcp" | "assistant" | "waitlist";
 
 export interface LogMeta {
   actor: LogActor;

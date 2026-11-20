@@ -6,7 +6,8 @@ import { toKey } from "./data/dates";
 import { createDemoState, type BusinessSetup } from "./data/generate";
 import { migrateState } from "./data/migrate";
 import type { DemoState } from "./data/types";
-import { demoPaymentLedger } from "./connections/demo";
+import { demoMessageLedger, demoPaymentLedger, withDemoChannels } from "./connections/demo";
+import { nextWaitlistWake } from "./booking/waitlist-match";
 import { prepareAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
 import { publicView } from "./selectors";
@@ -158,9 +159,11 @@ function load(raw: string | null, workspace: Workspace): DemoState | null {
       const validHolds = saved.checkoutHolds.filter(hold => hold.expiresAt > Date.now());
       if (validHolds.length !== saved.checkoutHolds.length) saved = { ...saved, checkoutHolds: validHolds };
       if (saved.industry) return purge({ ...saved, generatedFor: today() });
-      const demo = saved.generatedFor === today()
-        ? purge(saved)
-        : { ...createDemoState(today(), setupOf(saved)), reminderSettings: saved.reminderSettings };
+      // A waiting list a visitor joined or that has offers out can span midnight: keep its visits, contacts and links together.
+      const liveQueue = saved.waitlistGaps.length > 0 || saved.waitlistOffers.length > 0 || saved.waitlistEntries.some(entry => !entry.id.startsWith("fixture-"));
+      const demo = saved.generatedFor === today() || liveQueue
+        ? purge({ ...saved, generatedFor: today() })
+        : { ...createDemoState(today(), setupOf(saved)), reminderSettings: saved.reminderSettings, waitlistRules: saved.waitlistRules };
       // An older setup could give both salons the same address. Keep the
       // published local link and restore the demo's fixture address in that case.
       const fixtureSlug = getPack(demo.pack).salon.slug;
@@ -209,7 +212,27 @@ function persistErasure(workspace: Workspace, raw: string | null, state: DemoSta
 function notify() {
   const state = snapshots[active].state;
   if (state) setVocabulary(getPack(state.pack).vocabulary);
+  scheduleWaitlist();
   listeners.forEach(listener => listener());
+}
+
+// The waiting list runs on the salon's clock while a studio or booking page is open: at the next
+// deadline (a hold ends, quiet hours end, a day passes), on focus and on opening. With every tab
+// closed nothing runs; the first page opened catches up.
+let waitlistTimer: ReturnType<typeof setTimeout> | undefined;
+const MAX_TIMER = 2_147_483_647;
+
+function scheduleWaitlist() {
+  clearTimeout(waitlistTimer);
+  const state = snapshots[active].state;
+  if (!listeners.size || !state) return;
+  const wake = nextWaitlistWake(state);
+  if (Number.isFinite(wake)) waitlistTimer = setTimeout(tickWaitlist, Math.min(MAX_TIMER, Math.max(1, wake - Date.now())));
+}
+
+function tickWaitlist() {
+  if (!listeners.size) return;
+  void withBookingLock(() => dispatch({ type: "waitlist/advance" })).finally(scheduleWaitlist);
 }
 
 function refreshFromStorage() {
@@ -228,7 +251,8 @@ function onStorage(event: StorageEvent) {
   notify();
 }
 
-function setState(next: DemoState, recheckStorage = false, afterWrite?: () => void): boolean {
+/** False: another tab wrote first, try again. "unsaved": the change must be saved to count and could not be. */
+function setState(next: DemoState, recheckStorage = false, afterWrite?: () => void, mustSave = false): boolean | "unsaved" {
   const snapshot = snapshots[active];
   try {
     const raw = JSON.stringify(next);
@@ -237,6 +261,8 @@ function setState(next: DemoState, recheckStorage = false, afterWrite?: () => vo
     snapshot.raw = raw;
     snapshot.version = snapshot.lastWrite = { day: next.generatedFor, seq: next.seq };
   } catch {
+    // A personal offer kept only in this tab could be claimed again in another one.
+    if (mustSave) return "unsaved";
     // The demo still works in memory.
   }
   snapshot.state = next;
@@ -246,12 +272,24 @@ function setState(next: DemoState, recheckStorage = false, afterWrite?: () => vo
 }
 
 function subscribe(listener: () => void) {
-  if (!listeners.size) window.addEventListener("storage", onStorage);
+  const first = !listeners.size;
+  if (first) {
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", tickWaitlist);
+  }
   listeners.add(listener);
   refreshFromStorage();
+  if (first) {
+    clearTimeout(waitlistTimer);
+    waitlistTimer = setTimeout(tickWaitlist, 0);
+  }
   return () => {
     listeners.delete(listener);
-    if (!listeners.size) window.removeEventListener("storage", onStorage);
+    if (!listeners.size) {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", tickWaitlist);
+      clearTimeout(waitlistTimer);
+    }
   };
 }
 
@@ -318,14 +356,18 @@ export function dispatchWithLog(
     const current = getSnapshot();
     if (!current || active !== workspace || (canApply && !canApply(current))) return false;
     const batch = demoPaymentLedger.stage();
-    const next = prepareAction(current, action, logMeta, batch);
+    const messages = demoMessageLedger.stage();
+    const next = withDemoChannels(messages, () => prepareAction(current, action, logMeta, batch));
     if (next === current) return false;
     // Includes undo, which can restore a previously free address.
     if (next.salon.slug !== current.salon.slug && next.salon.slug === workspaceSlug(active === "demo" ? "own" : "demo")) return false;
     // Run the booking rules again if another tab wrote while we prepared the save.
     const recheck = !!canApply || action.type.startsWith("online/") || action.type === "salon/policy" ||
       action.type === "booking/fee" || action.type === "booking/cancel" || action.type === "trash/restore";
-    if (!setState(next, recheck, batch.publish)) continue;
+    const personalClaim = action.type === "online/claim" || (action.type === "online/pay" && current.checkoutHolds.some(hold => hold.id === action.id && hold.offerId));
+    const saved = setState(next, recheck || action.type === "waitlist/advance", () => { batch.publish(); messages.publish(); }, personalClaim);
+    if (saved === "unsaved") return false;
+    if (!saved) continue;
     if (workspace === "own") markTrialUsed(now);
     const logId = next.log[0]?.id;
     return logId !== current.log[0]?.id ? logId ?? null : null;

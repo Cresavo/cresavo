@@ -6,6 +6,7 @@ import { clarifyChoices } from "@/concept/command/clarify";
 import { commandExamples } from "@/concept/command/examples";
 import { proposalFor, type Proposal } from "@/concept/command/proposal";
 import { addDays, formatTime } from "@/concept/data/dates";
+import { waitingFor } from "@/concept/booking/waitlist-match";
 import { createDemoState } from "@/concept/data/generate";
 import { freeStarts, needOf, type Need } from "@/concept/data/slots";
 import { interpretCommand } from "@/concept/intent";
@@ -104,13 +105,14 @@ describe("proposals", () => {
     if (proposal.kind === "change") expect(proposal.action).toMatchObject({ type: "booking/create", source: "assistant" });
   });
 
-  it("cancels with a waiting-list notice only when asked", () => {
+  it("offers the freed time to the waiting list only when asked and someone waits for that day", () => {
     const plain = propose(`Cancel ${fullName(owner)}`);
     if (plain.kind !== "change" || plain.action.type !== "booking/cancel") throw new Error("expected a cancel");
-    expect(plain.action.notice).toBeUndefined();
+    expect(plain.action.offerWaitingList).toBeUndefined();
     const offered = propose(`Cancel ${fullName(owner)} and offer the slot to the waiting list`);
     if (offered.kind !== "change" || offered.action.type !== "booking/cancel") throw new Error("expected a cancel");
-    expect(offered.action.notice?.kind).toBe("system");
+    expect(offered.action.offerWaitingList).toBe(waitingFor(state, single.date, single.customerId) > 0 || undefined);
+    expect(offered.action.notice).toBeUndefined();
     expect(reduce(state, offered.action).bookings.find((b) => b.id === single.id)?.status).toBe("cancelled");
   });
 

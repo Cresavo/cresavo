@@ -31,6 +31,9 @@ export interface ModuleManifest {
   consent?: { summary: MessageKey; grants: readonly MessageKey[] };
 }
 
+/** The waiting list lives under Customers, so it adds no entry to More. */
+export const WAITLIST_PAGE = "/studio/customers/waitlist";
+
 /** Calendar, customers, inbox and the booking page are always on. */
 export const CORE_PRICE_SEK = 149;
 
@@ -66,9 +69,11 @@ export const MODULES: ModuleManifest[] = [
     ],
   },
   {
-    id: "waitlist", name: "features.waitlist", description: "features.waitlist.description", menu: [], todayCards: ["gaps"], aiTasks: [], commands: [], priceSek: 39,
+    id: "waitlist", name: "features.waitlist", description: "features.waitlist.description", menu: [WAITLIST_PAGE], todayCards: ["gaps"], aiTasks: [], commands: [], priceSek: 39,
     api: [
       { resource: "waitlist", read: "planned", write: "planned", mcp: "planned", events: "planned" },
+      { resource: "waitlist-offers", read: "planned", write: "planned", mcp: "planned", events: "planned" },
+      { resource: "waitlist-rules", read: "planned", write: "planned", mcp: "planned", events: "planned" },
     ],
   },
   {

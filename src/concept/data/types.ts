@@ -1,4 +1,5 @@
 import type { BookingProtection, CancellationPolicy, CheckoutHold } from "../booking/protection";
+import type { OfferRules, WaitlistEntry, WaitlistGap, WaitlistOffer } from "../booking/waitlist-types";
 import type { Industry } from "../onboarding/salon";
 import type { BusinessLocalization } from "../i18n/business";
 import type { ReminderSettings } from "../booking/reminders";
@@ -79,6 +80,9 @@ export interface Service {
   category: string;
   staffIds: StaffId[];
   duration: number;
+  /** Minutes kept free before and after each visit (preparation and cleanup). */
+  bufferBefore?: number;
+  bufferAfter?: number;
   price: number;
   description: string;
   /** Recommended weeks between visits, used for recall reminders. */
@@ -139,6 +143,8 @@ export interface Customer {
   tags: string[];
   /** Wants offers when a slot frees up (waiting list). */
   waitlist: boolean;
+  /** Created by joining the waiting list: still a first-time customer for deposit terms until they book. */
+  waitlistProspect?: true;
   /** A fictional sample a new salon starts with, so its day is not empty. */
   example?: true;
 }
@@ -156,6 +162,9 @@ export interface Booking {
   /** Minutes from midnight. */
   start: number;
   duration: number;
+  /** The treatment's preparation and cleanup when it was booked. */
+  bufferBefore?: number;
+  bufferAfter?: number;
   price: number;
   status: BookingStatus;
   source: BookingSource;
@@ -295,6 +304,8 @@ export interface InboxItem {
   suggestion?: SlotSuggestion;
   /** Set on the note for a simulated text that offered a freed slot or today's gaps to the waiting list. */
   waitlistOffer?: boolean;
+  /** The personal waitlist offer a simulated text carried. */
+  offerId?: string;
   /** Set on a simulated time suggestion sent from the due-back list. */
   recallServiceId?: string;
   /** Prefilled reply. */
@@ -394,6 +405,10 @@ export type ModuleKey = "journal" | "stock" | "campaigns" | "finance" | "reviews
 export interface DemoState {
   cancellationPolicy: CancellationPolicy;
   checkoutHolds: CheckoutHold[];
+  waitlistEntries: WaitlistEntry[];
+  waitlistOffers: WaitlistOffer[];
+  waitlistGaps: WaitlistGap[];
+  waitlistRules: OfferRules;
   /** Null for generated example businesses. */
   industry: Industry | null;
   version: number;

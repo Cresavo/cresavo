@@ -23,7 +23,7 @@ import { useSalonNow } from "../../use-now";
 import { formatMinor } from "../../booking/policy-summary";
 import { FeeDecisionPanel } from "./fee-decision";
 import { SlotPicker, slotOnDate, type Slot } from "./slot-picker";
-import { waitlistCount, waitlistNotice } from "./waitlist-notice";
+import { waitingFor } from "../../booking/waitlist-match";
 
 type Mode = "details" | "move" | "cancel" | "giftcard";
 
@@ -56,7 +56,9 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const lastJournal = state.modules.journal
     ? state.journals.filter((j) => j.customerId === booking.customerId && j.date < booking.date).at(-1)
     : undefined;
-  const waitlist = waitlistCount(state, booking);
+  // Ask me first: the owner can approve offering the freed time while cancelling. Automatic mode offers it anyway.
+  const rules = state.waitlistRules;
+  const waitlist = rules.mode === "ask" && !rules.paused ? waitingFor(state, booking.date, booking.customerId) : 0;
   const pkg = moduleEnabled(state.modules, "packages") ? packageFor(state, booking) : undefined;
   const protection = booking.protection;
   const salonCancellation = salonCancellationOnly(booking, clock.instant ?? 0);
@@ -79,12 +81,12 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
 
   const confirmCancel = async () => {
     const sendOffer = offer && waitlist > 0;
-    const message = sendOffer ? tc("booking.cancelledOfferedToast", waitlist) : t("booking.cancelledToast");
+    const message = t(sendOffer ? "booking.cancelledOfferedToast" : "booking.cancelledToast");
     const result = await withBookingLock(() => dispatchWithLog({
       type: "booking/cancel",
       id: booking.id,
       reason: t(salonCancellation ? "cancel.reason.salon" : reason),
-      notice: sendOffer ? waitlistNotice(booking, waitlist, { today, minutes }) : undefined,
+      ...(sendOffer ? { offerWaitingList: true } : {}),
     }, undefined, latest => {
       const current = latest.bookings.find(b => b.id === booking.id);
       return current?.status === "booked" && salonCancellationOnly(current, Date.now()) === salonCancellation &&

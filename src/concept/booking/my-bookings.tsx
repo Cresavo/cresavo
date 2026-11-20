@@ -8,7 +8,8 @@ import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong, formatDuration, formatMoney, relativeDay, formatTime } from "../i18n/format";
 import { findCustomer, findService } from "../selectors";
-import { usePublicDemo } from "../store";
+import { dispatch, usePublicDemo, withBookingLock } from "../store";
+import { entrySummary } from "./waitlist-entry";
 import { newActionRequestId } from "../support/action-reference";
 import { ActionFailure, type ActionFailureInfo } from "../ui/action-failure";
 import { Badge } from "../ui/badge";
@@ -84,6 +85,8 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
         </p>
       </div>
 
+      <WaitlistRequests state={state} customerId={customerId} />
+
       <Section title={t("booking.me.upcoming")}>
         {upcoming.length ? (
           <div className="space-y-3">
@@ -149,5 +152,23 @@ function VisitLinks({ state, booking, active }: { state: DemoState; booking: Boo
         {t(active ? "booking.me.details" : "booking.me.pastDetails")}
       </ButtonLink>
     </div>
+  );
+}
+
+/** The customer's own waiting-list requests, each removable, and a way to leave the list altogether. */
+function WaitlistRequests({ state, customerId }: { state: DemoState; customerId: string }) {
+  const entries = state.waitlistEntries.filter((e) => e.customerId === customerId);
+  if (!entries.length) return null;
+  const leave = (id: string, all = false) => withBookingLock(() => dispatch({ type: "online/leave", id, all }));
+  return (
+    <Section title={t("offers.mine")}>
+      <Card className="divide-y divide-hairline">
+        {entries.map((entry) => (
+          <ListRow key={entry.id} title={findService(state, entry.serviceId)?.name ?? t("features.waitlist")} meta={entrySummary(state, entry)}
+            trailing={entries.length > 1 && <Button size="sm" variant="tertiary" onClick={() => leave(entry.id)}>{t("offers.removeEntry")}</Button>} />
+        ))}
+      </Card>
+      <Button variant="secondary" width="responsive" onClick={() => leave(entries[0].id, true)}>{t("offers.leave")}</Button>
+    </Section>
   );
 }

@@ -128,11 +128,27 @@ describe("migrateState", () => {
     });
   });
 
-  it("lifts a v22 salon to v23 and keeps its modules, bookings and reminder preferences", () => {
+  it("lifts a v22 salon to the current version and keeps its modules, bookings and reminder preferences", () => {
     const own = createSalon(today, { ...salonDraft("en"), name: "Studio Vide" }, { examplesAfter: 0 });
     const saved = { ...own, version: 22, modules: { ...own.modules, finance: true, campaigns: true } };
-    expect(migrateState(saved)).toEqual({ ...saved, version: 23 });
+    expect(migrateState(saved)).toEqual({ ...saved, version: DEMO_VERSION });
     expect(migrateState(saved)!.bookings.every((booking) => booking.example)).toBe(true);
+  });
+
+  it("keeps everyone on a v23 waiting list as an entry, guessing no treatment, days or consent to texts", () => {
+    const fresh: Partial<DemoState> = { ...createDemoState(today), version: 23 };
+    for (const key of ["waitlistEntries", "waitlistOffers", "waitlistGaps", "waitlistRules"] as const) delete fresh[key];
+    const waiting = fresh.customers!.filter((c) => c.waitlist);
+    expect(waiting.length).toBeGreaterThan(0);
+    const migrated = migrateState(fresh)!;
+    expect(migrated.version).toBe(DEMO_VERSION);
+    expect(migrated.waitlistEntries.map((e) => e.customerId)).toEqual(waiting.map((c) => c.id));
+    expect(migrated.waitlistEntries.every((e) => !e.serviceId && !e.days.length && e.joinedAt === 0)).toBe(true);
+    expect(migrated.waitlistRules).toEqual({ mode: "ask", minutes: 15, paused: false });
+    expect(migrated.waitlistOffers).toEqual([]);
+    expect(migrated.waitlistGaps).toEqual([]);
+    expect(migrated.customers).toEqual(fresh.customers);
+    expect(migrated.inbox).toEqual(fresh.inbox);
   });
 
   it("is one linear chain: every saved version from the oldest to the current reaches DEMO_VERSION", () => {

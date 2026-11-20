@@ -4,7 +4,8 @@ import { phoneMatches } from "@/concept/booking/lookup";
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Upload, UserSearch } from "lucide-react";
+import { BellRing, Upload, UserSearch } from "lucide-react";
+import { menuVisible, WAITLIST_PAGE } from "@/concept/modules/registry";
 import { t, tc } from "@/concept/i18n";
 import { servedBy, staffViewer } from "@/concept/ops/access";
 import { useRole } from "@/concept/ops/role";
@@ -56,7 +57,10 @@ export default function CustomersPage() {
     <>
       <PageHeader
         title={t("customers.title")}
-        actions={viewer ? undefined : <ButtonLink href="/studio/customers/import" help="import-customers" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>}
+        actions={viewer ? undefined : <>
+          {menuVisible(studio.modules, WAITLIST_PAGE) && <ButtonLink href={WAITLIST_PAGE} variant="secondary" icon={<BellRing size={18} />}>{t("features.waitlist")}</ButtonLink>}
+          <ButtonLink href="/studio/customers/import" help="import-customers" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>
+        </>}
       />
       <div className="mb-4 space-y-3">
         <SearchInput className="md:max-w-form" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("customers.search")} aria-label={t("customers.search")} />

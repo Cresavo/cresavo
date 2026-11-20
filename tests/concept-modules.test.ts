@@ -18,9 +18,10 @@ import {
   MODULES,
   monthlyTotal,
   taskEnabled,
+  WAITLIST_PAGE,
 } from "@/concept/modules/registry";
 import { tasks } from "@/concept/ai/registry";
-import { waitlistCount } from "@/concept/studio/booking/waitlist-notice";
+import { waitingFor } from "@/concept/booking/waitlist-match";
 import { BUSINESS_NAV, visibleItems } from "@/concept/studio/nav";
 
 const today = "2026-11-16";
@@ -127,9 +128,11 @@ describe("command box with modules switched off", () => {
 });
 
 describe("waiting list module", () => {
-  it("offers a freed slot to nobody when the module is off", () => {
+  it("shows the waiting list page and its waiting customers only when the module is on", () => {
     const booking = full.bookings.find((b) => b.status === "booked" && b.date > today)!;
-    expect(waitlistCount(full, booking)).toBeGreaterThan(0);
-    expect(waitlistCount(without(full, "waitlist"), booking)).toBe(0);
+    expect(menuVisible(full.modules, WAITLIST_PAGE)).toBe(true);
+    expect(menuVisible(without(full, "waitlist").modules, WAITLIST_PAGE)).toBe(false);
+    expect(waitingFor(full, today)).toBeGreaterThan(0);
+    expect(waitingFor(without(full, "waitlist"), booking.date)).toBe(0);
   });
 });

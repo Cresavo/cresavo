@@ -5,6 +5,7 @@ import { diffDays } from "../data/dates";
 import { isFree, pickResource } from "../data/slots";
 import { cardsCovered, returnRedemptions } from "../giftcards/cards";
 import { eraseCustomer } from "../customers/erase";
+import { legacyEntries, type WaitlistEntry } from "../booking/waitlist-types";
 import type { Booking, Customer, DateKey, DemoState, InboxItem, JournalEntry, ProductSale, Review, ServicePackage } from "../data/types";
 
 /** Days a deleted or cancelled item stays restorable. */
@@ -20,6 +21,8 @@ export interface CustomerBundle {
   inbox: InboxItem[];
   /** Optional for customers already in the trash when packages were bundled. */
   packages?: ServicePackage[];
+  /** Optional for customers already in the trash before waitlist offers. */
+  waitlistEntries?: WaitlistEntry[];
 }
 
 export type TrashEntry =
@@ -72,6 +75,7 @@ export function deleteCustomer(state: DemoState, id: string): DemoState {
     reviews: state.reviews.filter(mine),
     inbox: state.inbox.filter(mine),
     packages: state.packages.filter(mine),
+    waitlistEntries: state.waitlistEntries.filter(mine),
   };
   return {
     ...state,
@@ -83,6 +87,7 @@ export function deleteCustomer(state: DemoState, id: string): DemoState {
     reviews: rest(state.reviews),
     inbox: rest(state.inbox),
     packages: rest(state.packages),
+    waitlistEntries: rest(state.waitlistEntries),
     trash: [{ id: `t-${state.seq}`, kind: "customer", deletedOn: state.generatedFor, ...bundle }, ...state.trash],
   };
 }
@@ -129,6 +134,7 @@ export function restoreEntry(state: DemoState, id: string, payments = demoPaymen
     reviews: [...state.reviews, ...entry.reviews],
     inbox: [...state.inbox, ...entry.inbox],
     packages: [...state.packages, ...(entry.packages ?? [])],
+    waitlistEntries: [...state.waitlistEntries, ...(entry.waitlistEntries ?? legacyEntries([entry.customer]))],
     trash,
   };
   // A time taken while the customer was in the trash must not be double-booked,

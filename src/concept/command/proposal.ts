@@ -13,7 +13,7 @@ import { forecastInput, ruleForecast, supplierOf } from "../stock/forecast";
 import { findProducts } from "../stock/match";
 import { buildOrders, purchaseQuantity } from "../stock/purchase";
 import { sellable } from "../stock/sales";
-import { waitlistCount, waitlistNotice } from "../studio/booking/waitlist-notice";
+import { waitingFor } from "../booking/waitlist-match";
 import { parseCampaignRequest, studioHref, type CampaignPrefill } from "../campaigns/prefill";
 import { canChangeBooking, canCommand, type Role } from "../ops/access";
 import type { PageConfig } from "../page/config";
@@ -161,27 +161,23 @@ function moveProposal(state: DemoState, params: IntentParams, clock: Clock): Pro
   return chooseSlot(state, candidates, t("command.pickAnother"), date, build);
 }
 
-function cancelProposal(state: DemoState, params: IntentParams, clock: Clock): Proposal {
+function cancelProposal(state: DemoState, params: IntentParams): Proposal {
   const booking = state.bookings.find((b) => b.id === params.bookingId && b.status === "booked");
   const customer = findCustomer(state, booking?.customerId);
   if (!booking || !customer) return message(t("command.notUnderstood"));
-  const offering = !!params.offerWaitingList && state.modules.waitlist;
-  const offered = offering ? waitlistCount(state, booking) : 0;
+  const rules = state.waitlistRules;
+  const waiting = waitingFor(state, booking.date, booking.customerId);
+  const offering = !!params.offerWaitingList && waiting > 0 && rules.mode !== "off" && !rules.paused;
   return {
     kind: "change",
     title: t("command.cancel.title", { name: fullName(customer) }),
     subtitle: staffName(state, booking.staffId),
     rows: [
       { label: t("command.row.booking"), before: bookingLine(state, booking), after: t("command.cancelled") },
-      ...(offering ? [{ label: t("command.row.waitlist"), after: tc("command.waitlistOffer", offered) }] : []),
+      ...(offering ? [{ label: t("command.row.waitlist"), after: tc("command.waitlistOffer", waiting) }] : []),
     ],
-    action: {
-      type: "booking/cancel",
-      id: booking.id,
-      reason: t("cancel.reason.other"),
-      notice: offering ? waitlistNotice(booking, offered, clock) : undefined,
-    },
-    toast: offering ? tc("booking.cancelledOfferedToast", offered) : t("booking.cancelledToast"),
+    action: { type: "booking/cancel", id: booking.id, reason: t("cancel.reason.other"), ...(offering ? { offerWaitingList: true } : {}) },
+    toast: t("booking.cancelledToast"),
     destructive: true,
   };
 }
@@ -368,7 +364,7 @@ export function proposalFor(state: DemoState, intent: IntentResult, text: string
     case "move":
       return moveProposal(state, params, clock);
     case "cancel":
-      return cancelProposal(state, params, clock);
+      return cancelProposal(state, params);
     case "campaign":
       return campaignProposal(state, params, clock);
     case "change-price":

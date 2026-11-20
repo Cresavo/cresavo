@@ -1,4 +1,5 @@
 import { DEFAULT_POLICY } from "../booking/protection";
+import { initialWaitlist, legacyEntries } from "../booking/waitlist-types";
 import { translate } from "../i18n";
 import { DEFAULT_REMINDER_SETTINGS } from "../booking/reminders";
 import { formatDayLong, formatMoney } from "../i18n/format";
@@ -33,7 +34,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 23;
+export const DEMO_VERSION = 24;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -598,8 +599,19 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     publishOn: addDays(today, startsInDays),
   }));
 
+  // The fictional customers who wait ask for a treatment in their usual category over the next four days.
+  const waitlistEntries = legacyEntries(customers).map((entry, index, all) => {
+    const customer = customers.find((c) => c.id === entry.customerId)!;
+    const service = services.find((s) => s.category === customer.category && !s.hidden) ?? services[0];
+    return {
+      ...entry, id: `fixture-${entry.customerId}`, serviceId: service.id,
+      days: Array.from({ length: 4 }, (_, day) => addDays(today, day)),
+      joinedAt: Date.parse(`${today}T00:00:00Z`) - (all.length - index) * 60_000,
+    };
+  });
   return {
     cancellationPolicy: DEFAULT_POLICY, checkoutHolds: [],
+    ...initialWaitlist(), waitlistEntries,
     version: DEMO_VERSION,
     industry: null,
     pack: pack.id,

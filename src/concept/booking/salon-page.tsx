@@ -8,6 +8,7 @@ import type { PageSection } from "../page/sections";
 import { usePublicDemo } from "../store";
 import { cx } from "../ui/cx";
 import { useSalonNow, type Now } from "../use-now";
+import { ClaimOffer } from "./claim-offer";
 import { GiftCardBalance } from "./gift-card-balance";
 import { Hero } from "./hero";
 import { usePage } from "./page-context";
@@ -31,6 +32,8 @@ export function SalonPage() {
   const [inFlow, setInFlow] = useState(false);
   const [preset, setPreset] = useState<{ serviceId: string; count: number }>();
   if (!state) return null;
+  const offerId = params?.get("offer");
+  if (offerId) return <ClaimOffer state={state} now={now} id={offerId} />;
   const initial = preset?.serviceId ?? (state.services.some((s) => s.id === fromLink) ? fromLink : undefined);
 
   const book = (serviceId: string) => {

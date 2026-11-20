@@ -1,5 +1,6 @@
 import type { PairWorkspace } from "@prisma/client";
 import { randomUUID } from "node:crypto";
+import { initialWaitlist } from "../booking/waitlist-types";
 import { createDemoState } from "../data/generate";
 import { weekday } from "../data/dates";
 import type { DemoState, Interval, StaffId } from "../data/types";
@@ -36,6 +37,7 @@ function project(state: DemoState, includeHistory = false): PairState {
     monthHistory: includeHistory ? state.monthHistory : [], costs: [], accounting: { connected: false }, dismissedCards: [], supportGrants: [], tickets: [], domain: null,
     reminderSettings: state.reminderSettings,
     cancellationPolicy: state.cancellationPolicy, checkoutHolds: [],
+    ...initialWaitlist(), waitlistRules: state.waitlistRules,
   };
 }
 

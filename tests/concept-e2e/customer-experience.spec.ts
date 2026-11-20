@@ -185,6 +185,7 @@ test("join a fully booked day's waiting list and find the request in Inbox", asy
   // A controlled full-day fixture exercises the public no-availability path.
   await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem("salong-eko-demo")!) as DemoState;
+    saved.modules.waitlist = true;
     const template = saved.bookings[0];
     for (const staffId of ["anna", "erik"] as const) for (const [start, duration] of [[540, 180], [780, 240]]) saved.bookings.push({ ...template, id: `full-${staffId}-${start}`, staffId, serviceId: "medical-foot-care", date: "2026-11-24", start, duration, status: "booked" });
     localStorage.setItem("salong-eko-demo", JSON.stringify(saved));
@@ -208,6 +209,7 @@ for (const picker of ["alternate time", "full calendar"] as const) {
     await page.goto("/boka/salong-eko");
     await page.evaluate(({ day, picker }) => {
       const saved: DemoState = JSON.parse(localStorage.getItem("salong-eko-demo")!);
+      saved.modules.waitlist = true;
       saved.services.find(service => service.id === "classic-60")!.staffIds = ["anna", "erik"];
       saved.bookings = [{ ...saved.bookings[0], id: "repeat-visit", serviceId: "classic-60", staffId: "erik", date: "2026-11-16", status: "completed" }];
       saved.exceptions = [{ id: "erik-off", staffId: "erik", date: day, kind: "off", reason: "vacation" }];

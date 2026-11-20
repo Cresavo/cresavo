@@ -60,6 +60,12 @@ export function findCustomerByPhone(state: Pick<DemoState, "customers">, phone: 
   return wanted.length >= 7 ? state.customers.find((c) => normalizePhone(c.phone) === wanted) : undefined;
 }
 
+/** New for deposit terms: unknown, or known only from joining the waiting list and never booked. */
+export function isNewBookingCustomer(state: Pick<DemoState, "customers" | "bookings">, phone: string): boolean {
+  const customer = findCustomerByPhone(state, phone);
+  return !customer || (!!customer.waitlistProspect && !state.bookings.some((b) => b.customerId === customer.id));
+}
+
 export interface CustomerBookings {
   upcoming: Booking[];
   past: Booking[];

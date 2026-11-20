@@ -10,15 +10,18 @@ import { sendBookingMessage, type BookingMessageAction } from "./booking/message
 import { MAX_SMS_PRICE_ORE, type ReminderSettings } from "./booking/reminders";
 import { applyCustomerReview, type CustomerReviewAction } from "./booking/review-actions";
 import { applyAssistant, type AssistantAction } from "./assistant/actions";
-import { findCustomerByPhone, isContactPhone, isMobilePhone, normalizePhone } from "./booking/lookup";
+import { findCustomerByPhone, isContactPhone, isMobilePhone, isNewBookingCustomer, normalizePhone } from "./booking/lookup";
 import { earliestBookingStart } from "./booking/policy";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
-import { textWaitlistAboutSlot } from "./booking/waitlist-offer";
+import { applyWaitlist, type WaitlistAction } from "./booking/waitlist-actions";
+import { offerAvailable, validPreferences } from "./booking/waitlist-match";
+import { advanceWaitlist, finishOffer } from "./booking/waitlist-offer";
+import { ANY_TIME, type WaitlistEntry } from "./booking/waitlist-types";
 import { demoPayments, sendDemoCampaign } from "./connections/demo";
 import { editJournalEntry } from "./customers/journal";
 import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visits";
 import type { CostKind } from "./finance/types";
-import { isFree, needOf, pickResource } from "./data/slots";
+import { isFree, needOf, pickResource, withSlotClock } from "./data/slots";
 import { undoEntry } from "./log/undo";
 import { bookableServices, inboxItemVisible } from "./selectors";
 import { moduleById, moduleEnabled, moduleKeys, presetModules, type PresetId } from "./modules/registry";
@@ -70,8 +73,12 @@ export type DemoAction =
   | ServiceAction
   | AssistantAction
   | PageAction
+  | WaitlistAction
+  /** A customer books the time a personal waitlist offer holds for them (through checkout when a deposit is due). */
+  | { type: "online/claim"; id: string; termsVersion: number; notice: OnlineNotice }
   | { type: "booking/move"; id: string; date: DateKey; start: number; staffId?: StaffId; notice?: Omit<InboxItem, "id"> }
-  | { type: "booking/cancel"; id: string; reason?: string; notice?: Omit<InboxItem, "id"> }
+  /** `offerWaitingList`: the owner approves offering the freed time to the waiting list right away. */
+  | { type: "booking/cancel"; id: string; reason?: string; notice?: Omit<InboxItem, "id">; offerWaitingList?: boolean }
   | ({
       type: "booking/create"; id?: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource;
     } & (
@@ -80,7 +87,8 @@ export type DemoAction =
       | { fictionalCustomer: { id: string; name: string; since: DateKey }; source: "assistant" }
     ))
   | { type: "online/book"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId: StaffId; date: DateKey; start: number }
-  | { type: "online/waitlist"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId?: StaffId }
+  /** Without `days` the request is for the day of `guest.at`; without `window`, any time that day. */
+  | { type: "online/waitlist"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId?: StaffId; days?: DateKey[]; window?: WaitlistEntry["window"] }
   | { type: "service/price"; id: string; price: number }
   | { type: "campaign/launch"; campaign: NewCampaign; today: DateKey }
   | { type: "campaign/ad"; id: string; ad: CampaignAd }
@@ -145,6 +153,10 @@ export interface OnlineNotice {
 
 const nextId = (state: DemoState, prefix: string) => `${prefix}-${state.seq}`;
 
+function addInbox(state: DemoState, item: Omit<InboxItem, "id">): DemoState {
+  return { ...state, seq: state.seq + 1, inbox: [{ ...item, id: nextId(state, "i") }, ...state.inbox] };
+}
+
 function updateBy<T extends { id: string }>(list: T[], id: string, patch: (item: T) => T): T[] {
   return list.map((item) => (item.id === id ? patch(item) : item));
 }
@@ -162,6 +174,8 @@ function createBooking(
     id: input.id ?? nextId(state, "b"),
     protection: protection ?? { terms: { ...quote(state.cancellationPolicy, service, state.localization.currency, false), depositMinor: 0 } },
     duration: service.duration,
+    ...(service.bufferBefore ? { bufferBefore: service.bufferBefore } : {}),
+    ...(service.bufferAfter ? { bufferAfter: service.bufferAfter } : {}),
     price: protection ? Number(majorString({ amountMinor: protection.terms.priceMinor, currency: protection.terms.currency })) : service.price,
     status: "booked",
     resourceId: pickResource(state, needOf(service), input.date, input.start),
@@ -199,23 +213,30 @@ function ensureCustomer(state: DemoState, guest: GuestContact, since: DateKey, c
     isRegular: false,
     tags: ["New"],
     waitlist,
+    ...(waitlist ? { waitlistProspect: true as const } : {}),
   };
   return { state: { ...state, seq: state.seq + 1, customers: [...state.customers, customer] }, customer };
 }
 
 type OnlineRequest = Extract<DemoAction, { type: "online/book" | "online/hold" }>;
 
-function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoState {
+/** A booking from the public page must start at least the lead time after the customer acted. */
+function withinLead(action: OnlineRequest): boolean {
   const { at } = action.guest;
-  if (action.date < at.date || action.start < earliestBookingStart(action.date, at.date, at.time)) return state;
+  return action.date >= at.date && action.start >= earliestBookingStart(action.date, at.date, at.time);
+}
+
+function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoState {
   const service = bookableServices(state).find(s => s.id === action.serviceId);
   if (!service || !service.staffIds.includes(action.staffId) || !action.guest.name.trim() || !isMobilePhone(action.guest.phone) || !isFree(state, action.staffId, action.date, action.start, needOf(service))) return state;
-  const terms = quote(state.cancellationPolicy, service, state.localization.currency, !findCustomerByPhone(state, action.guest.phone));
+  const terms = quote(state.cancellationPolicy, service, state.localization.currency, isNewBookingCustomer(state, action.guest.phone));
   if (action.type === "online/book") return terms.depositMinor ? state : confirmOnline(state, action, service, { terms });
   if (!terms.depositMinor) return state;
   const { guest, notice, staffId, date, start } = action;
   const hold = {
     id: `hold-${now}-${state.seq}`, guest, notice, staffId, date, start, terms, duration: service.duration,
+    ...(service.bufferBefore ? { bufferBefore: service.bufferBefore } : {}),
+    ...(service.bufferAfter ? { bufferAfter: service.bufferAfter } : {}),
     resourceId: pickResource(state, needOf(service), date, start), serviceId: service.id, expiresAt: now + 10 * 60_000,
   };
   return { ...state, seq: state.seq + 1, checkoutHolds: [...state.checkoutHolds.filter(h => h.expiresAt > now), hold] };
@@ -225,54 +246,95 @@ function payHold(state: DemoState, action: Extract<DemoAction, { type: "online/p
   const hold = state.checkoutHolds.find(h => h.id === action.id && h.expiresAt > now);
   if (!hold || !depositMethods(hold.terms.depositMinor, hold.terms.currency).includes(action.method)) return state;
   const service = bookableServices(state).find(s => s.id === hold.serviceId && s.staffIds.includes(hold.staffId));
-  const released = { ...state, checkoutHolds: state.checkoutHolds.filter(h => h.id !== hold.id) };
-  if (!service || service.duration !== hold.duration || !isFree(released, hold.staffId, hold.date, hold.start, needOf(service))) return state;
+  // A checkout for a personal waitlist offer pays only while that offer still holds the time.
+  const offer = hold.offerId ? state.waitlistOffers.find(o => o.id === hold.offerId) : undefined;
+  if (hold.offerId && (!offer || !offerAvailable(state, offer, now))) return state;
+  const released = {
+    ...state,
+    checkoutHolds: state.checkoutHolds.filter(h => h.id !== hold.id),
+    waitlistOffers: offer ? state.waitlistOffers.filter(o => o !== offer) : state.waitlistOffers,
+  };
+  if (!service || service.duration !== hold.duration || (service.bufferBefore ?? 0) !== (hold.bufferBefore ?? 0) ||
+      (service.bufferAfter ?? 0) !== (hold.bufferAfter ?? 0) || !isFree(released, hold.staffId, hold.date, hold.start, needOf(service))) return state;
   const id = collect(`${state.salon.slug}-${hold.id}-${hold.expiresAt}`, hold.terms.depositMinor, hold.terms.currency, "deposit", action.method, payments);
   if (!id) return state;
   const clock = salonClock(new Date(now));
   const guest = { ...hold.guest, at: { date: clock.today, time: clock.minutes } };
-  return confirmOnline(released, { ...hold, guest }, service, { terms: hold.terms, deposit: { id, method: action.method } });
+  const booked = confirmOnline(released, { ...hold, guest }, service, { terms: hold.terms, deposit: { id, method: action.method } });
+  if (booked === released) return state;
+  return offer ? finishOffer({ ...booked, waitlistOffers: state.waitlistOffers }, offer, "claimed", now, booked.bookings.at(-1)!.id) : booked;
 }
 
 function confirmOnline(state: DemoState, action: Omit<OnlineRequest, "type">, service: DemoState["services"][number], protection: BookingProtection): DemoState {
   const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, action.staffId, false);
   const booked = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" }, protection);
-  const notified = reduce(booked, {
-    type: "inbox/add",
-    item: {
-      kind: "request",
-      customerId: customer.id,
-      bookingId: booked.bookings[booked.bookings.length - 1].id,
-      date: action.guest.at.date,
-      time: action.guest.at.time,
-      ...action.notice,
-      read: false,
-      handled: true,
-    },
+  if (booked === withCustomer) return state;
+  const notified = addInbox(booked, {
+    kind: "request",
+    customerId: customer.id,
+    bookingId: booked.bookings[booked.bookings.length - 1].id,
+    date: action.guest.at.date,
+    time: action.guest.at.time,
+    ...action.notice,
+    read: false,
+    handled: true,
   });
   const bookingId = booked.bookings.at(-1)!.id;
   const confirmed = sendBookingMessage(notified, { type: "booking-message/send", bookingId, kind: "confirmation", channel: "sms", at: action.guest.at });
   return sendBookingMessage(confirmed, { type: "booking-message/send", bookingId, kind: "confirmation", channel: "email", at: action.guest.at });
 }
 
-function joinWaitlist(state: DemoState, action: Extract<DemoAction, { type: "online/waitlist" }>): DemoState {
+function joinWaitlist(state: DemoState, action: Extract<DemoAction, { type: "online/waitlist" }>, now: number): DemoState {
   const service = bookableServices(state).find((s) => s.id === action.serviceId);
-  if (!service || !action.guest.name.trim() || !isMobilePhone(action.guest.phone)) return state;
+  if (!state.modules.waitlist || !service || !action.guest.name.trim() || !isMobilePhone(action.guest.phone)) return state;
   if (action.staffId && !service.staffIds.includes(action.staffId)) return state;
+  // `guest.at` is the moment the customer acted; stores replace it with their own clock (`withTrustedTimes`).
+  const days = [...new Set(action.days ?? [action.guest.at.date])].sort();
+  const window = action.window ?? ANY_TIME;
+  if (!validPreferences(days, window, action.guest.at.date)) return state;
   const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, action.staffId ?? service.staffIds[0], true);
-  return reduce(withCustomer, {
-    type: "inbox/add",
-    item: {
-      kind: "request",
-      customerId: customer.id,
-      requestedStaffId: action.staffId,
-      date: action.guest.at.date,
-      time: action.guest.at.time,
-      ...action.notice,
-      read: false,
-      handled: false,
-    },
+  const theirs = withCustomer.waitlistEntries.filter(e => e.customerId === customer.id);
+  if (theirs.some(e => e.serviceId === service.id && e.staffId === action.staffId && e.days.join() === days.join() &&
+      e.window.start === window.start && e.window.end === window.end)) return state;
+  // An older plain "waiting list" flag becomes this request and keeps its place in the queue.
+  const legacy = theirs.filter(e => !e.serviceId);
+  const entry: WaitlistEntry = {
+    id: nextId(withCustomer, "wait"), customerId: customer.id, serviceId: service.id, ...(action.staffId ? { staffId: action.staffId } : {}),
+    days, window: { start: window.start, end: window.end }, joinedAt: Math.min(now, ...legacy.map(e => e.joinedAt)),
+  };
+  const waitlistEntries = [...withCustomer.waitlistEntries.filter(e => !legacy.includes(e)), entry];
+  return addInbox({ ...withCustomer, seq: withCustomer.seq + 1, waitlistEntries }, {
+    kind: "request",
+    customerId: customer.id,
+    requestedStaffId: action.staffId,
+    date: action.guest.at.date,
+    time: action.guest.at.time,
+    ...action.notice,
+    read: false,
+    handled: false,
   });
+}
+
+/** Books the time a personal offer holds, or opens its deposit checkout with the offer's own deadline. */
+function claimOffer(state: DemoState, action: Extract<DemoAction, { type: "online/claim" }>, now: number): DemoState {
+  const offer = state.waitlistOffers.find(o => o.id === action.id);
+  if (!offer || state.checkoutHolds.some(h => h.offerId === offer.id) || state.cancellationPolicy.version !== action.termsVersion) return state;
+  const customer = state.customers.find(c => c.id === offer.customerId);
+  if (!customer || !state.waitlistEntries.some(e => e.id === offer.entryId) || !offerAvailable(state, offer, now)) return state;
+  // The offer steps aside so its own hold does not block the booking it stands for.
+  const released = { ...state, waitlistOffers: state.waitlistOffers.filter(o => o !== offer) };
+  const clock = salonClock(new Date(now));
+  const guest = { name: `${customer.firstName} ${customer.lastName}`.trim(), phone: customer.phone, at: { date: clock.today, time: clock.minutes } };
+  const service = bookableServices(state).find(s => s.id === offer.serviceId)!;
+  const deposit = quote(state.cancellationPolicy, service, state.localization.currency, isNewBookingCustomer(state, customer.phone)).depositMinor > 0;
+  const request = { type: deposit ? "online/hold" as const : "online/book" as const, guest, notice: action.notice, serviceId: offer.serviceId, staffId: offer.staffId, date: offer.date, start: offer.start };
+  const next = bookOnline(released, request, now);
+  if (next === released) return state;
+  if (deposit) {
+    const created = next.checkoutHolds.at(-1)!;
+    return { ...next, waitlistOffers: state.waitlistOffers, checkoutHolds: next.checkoutHolds.map(h => h === created ? { ...h, offerId: offer.id, expiresAt: offer.expiresAt } : h) };
+  }
+  return finishOffer({ ...next, waitlistOffers: state.waitlistOffers }, offer, "claimed", now, next.bookings.at(-1)!.id);
 }
 
 /** Average full price of a campaign's treatments. */
@@ -368,8 +430,39 @@ function importCustomers(state: DemoState, incoming: Omit<Customer, "id">[]): De
   return added.length ? { ...state, seq: state.seq + added.length, customers: [...state.customers, ...added] } : state;
 }
 
+/** What the waiting list watches: a change to any of these may free time or end an offer. */
+const WAITLIST_INPUTS = ["bookings", "salon", "staff", "exceptions", "services", "modules", "customers", "checkoutHolds", "waitlistEntries", "waitlistOffers", "waitlistGaps", "waitlistRules"] as const;
+
+const settledAt = (state: DemoState, now: number) =>
+  state.waitlistOffers.some(o => o.status === "offered" && o.expiresAt <= now) || state.waitlistGaps.some(g => g.readyAt !== undefined && g.readyAt <= now);
+
+/**
+ * Every change to the demo. After the change itself, the waiting list catches
+ * up at the same instant (see `advanceWaitlist`): a time an action frees can be
+ * offered in the same commit, and an action never sees a hold that has ended.
+ */
 export function reduce(state: DemoState, action: DemoAction, now = Date.now(), payments = demoPayments): DemoState {
+  return withSlotClock(now, () => {
+    if (action.type === "waitlist/advance") return advanceWaitlist(state, state, now);
+    const base = settledAt(state, now) ? advanceWaitlist(state, state, now) : state;
+    const next = reduceCore(base, action, now, payments);
+    if (next === base) return state;
+    if (WAITLIST_INPUTS.every(key => next[key] === base[key])) return next;
+    const approve = action.type === "waitlist/offer" ? action.gapId : action.type === "booking/cancel" && action.offerWaitingList ? "released" : undefined;
+    return advanceWaitlist(base, next, now, approve);
+  });
+}
+
+function reduceCore(state: DemoState, action: DemoAction, now: number, payments: typeof demoPayments): DemoState {
   switch (action.type) {
+    case "waitlist/rules":
+    case "waitlist/offer":
+    case "waitlist/advance":
+    case "online/decline":
+    case "online/leave":
+      return applyWaitlist(state, action, now);
+    case "online/claim":
+      return claimOffer(state, action, now);
     case "salon/policy":
       if (!validPolicy(action.policy) || action.policy.version !== state.cancellationPolicy.version || jsonEqual(action.policy, state.cancellationPolicy)) return state;
       return { ...state, seq: state.seq + 1, cancellationPolicy: { ...action.policy, version: state.seq + 1 } };
@@ -377,8 +470,14 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
       return decideFee(state, action, now, payments);
     case "online/pay":
       return payHold(state, action, now, payments);
-    case "online/release":
-      return state.checkoutHolds.some(h => h.id === action.id) ? { ...state, checkoutHolds: state.checkoutHolds.filter(h => h.id !== action.id) } : state;
+    case "online/release": {
+      const hold = state.checkoutHolds.find(h => h.id === action.id);
+      if (!hold) return state;
+      // Leaving the checkout of a personal offer passes the time on to the next customer.
+      const offer = hold.offerId ? state.waitlistOffers.find(o => o.id === hold.offerId && o.status === "offered") : undefined;
+      if (offer) return finishOffer(state, offer, offer.expiresAt > now ? "declined" : "lapsed", now);
+      return { ...state, checkoutHolds: state.checkoutHolds.filter(h => h.id !== action.id) };
+    }
     case "salon/details":
       return applySalonDetails(state, action.details);
     case "salon/language": {
@@ -441,7 +540,7 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
       return applyPageAction(state, action);
     case "booking/move": {
       const moved = moveBooking(state, action.id, action.date, action.start, action.staffId);
-      return action.notice && moved !== state ? reduce(moved, { type: "inbox/add", item: action.notice }) : moved;
+      return action.notice && moved !== state ? addInbox(moved, action.notice) : moved;
     }
     case "booking/cancel": {
       const booking = state.bookings.find((b) => b.id === action.id);
@@ -451,9 +550,7 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
       const giftCards = refunded.protection?.refund ? returnRedemptions(state.giftCards, new Set([booking.id])) : state.giftCards;
       const marked = { ...state, giftCards, bookings: updateBy(state.bookings, action.id, () => ({ ...refunded, status: "cancelled" as const, cancelReason: action.reason })) };
       const cancelled = booking.status === "booked" && !refunded.protection?.refund ? trashBooking(marked, action.id) : marked;
-      // Only the owner's explicit offer texts the waiting list; a customer's own cancellation notice does not.
-      if (action.notice?.waitlistOffer && booking.status === "booked" && state.modules.waitlist) textWaitlistAboutSlot(state, booking);
-      return action.notice ? reduce(cancelled, { type: "inbox/add", item: action.notice }) : cancelled;
+      return action.notice ? addInbox(cancelled, action.notice) : cancelled;
     }
     case "booking/create": {
       const { serviceId, staffId, date, start, source } = action;
@@ -472,9 +569,9 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
     }
     case "online/book":
     case "online/hold":
-      return bookOnline(state, action, now);
+      return withinLead(action) ? bookOnline(state, action, now) : state;
     case "online/waitlist":
-      return joinWaitlist(state, action);
+      return joinWaitlist(state, action, now);
     case "service/price":
       if (!validServicePrice(action.price)) return state;
       return { ...state, services: updateBy(state.services, action.id, (s) => ({ ...s, price: action.price })) };
@@ -515,7 +612,7 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
     case "inbox/reply":
       return replyToInbox(state, action.id, action.reply, action.slot);
     case "inbox/add":
-      return { ...state, seq: state.seq + 1, inbox: [{ ...action.item, id: nextId(state, "i") }, ...state.inbox] };
+      return addInbox(state, action.item);
     case "review/reply":
       if (!state.modules.reviews || !state.reviews.some((review) => review.id === action.id)) return state;
       return {

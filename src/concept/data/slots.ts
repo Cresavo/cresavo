@@ -1,4 +1,5 @@
 import type { CheckoutHold } from "../booking/protection";
+import type { WaitlistOffer } from "../booking/waitlist-types";
 import { weekday } from "./dates";
 import type { Booking, DateKey, Interval, Resource, Salon, Service, Staff, StaffBlock, StaffException, StaffId } from "./types";
 
@@ -18,6 +19,8 @@ export interface SlotContext {
   exceptions: StaffException[];
   bookings: Booking[];
   checkoutHolds?: CheckoutHold[];
+  /** Personal waitlist offers hold their time like a checkout until they end. */
+  waitlistOffers?: WaitlistOffer[];
   blocks?: StaffBlock[];
 }
 
@@ -25,9 +28,18 @@ export interface SlotContext {
 export interface Need {
   serviceId: string;
   duration: number;
+  /** Preparation and cleanup: the person and the room or chair are busy, the customer is not there. */
+  bufferBefore?: number;
+  bufferAfter?: number;
 }
 
-export const needOf = (service: Pick<Service, "id" | "duration">): Need => ({ serviceId: service.id, duration: service.duration });
+export const needOf = (service: Pick<Service, "id" | "duration" | "bufferBefore" | "bufferAfter">): Need =>
+  ({ serviceId: service.id, duration: service.duration, bufferBefore: service.bufferBefore, bufferAfter: service.bufferAfter });
+
+/** The minutes a visit occupies, preparation and cleanup included. */
+export function occupied(visit: Pick<Need, "duration" | "bufferBefore" | "bufferAfter"> & { start: number }): Interval {
+  return { start: visit.start - (visit.bufferBefore ?? 0), end: visit.start + visit.duration + (visit.bufferAfter ?? 0) };
+}
 
 /** Opening hours of a day; null when the weekday is closed or the day is a closure. */
 export function openingFor(salon: Salon, date: DateKey) {
@@ -93,16 +105,17 @@ export function withSlotClock<T>(now: number, run: () => T): T {
   }
 }
 
-function activeHolds(ctx: SlotContext, date: DateKey) {
-  if (!ctx.checkoutHolds?.length) return [];
+function activeHolds(ctx: SlotContext, date: DateKey): (CheckoutHold | WaitlistOffer)[] {
+  const offers = ctx.waitlistOffers?.filter(o => o.status === "offered") ?? [];
+  if (!ctx.checkoutHolds?.length && !offers.length) return [];
   const now = fixedNow ?? Date.now();
-  return ctx.checkoutHolds.filter(h => h.date === date && h.expiresAt > now);
+  return [...(ctx.checkoutHolds ?? []), ...offers].filter(h => h.date === date && h.expiresAt > now);
 }
 
 export function busyIntervals(ctx: SlotContext, staffId: StaffId, date: DateKey, ignoreId?: string): Interval[] {
   const visits = ctx.bookings.filter(b => b.staffId === staffId && b.date === date && isActive(b) && b.id !== ignoreId);
   const holds = activeHolds(ctx, date).filter(h => h.staffId === staffId && h.id !== ignoreId);
-  const list = [...visits, ...holds].map(b => ({ start: b.start, end: b.start + b.duration }));
+  const list = [...visits, ...holds].map(occupied);
   const lunch = lunchFor(ctx.salon, date);
   if (lunch) list.push(lunch);
   for (const block of ctx.blocks ?? []) if (block.staffId === staffId && block.date === date) list.push(block);
@@ -111,10 +124,13 @@ export function busyIntervals(ctx: SlotContext, staffId: StaffId, date: DateKey,
 
 /** The room or chair a booking would use: the first one of the treatment's resources that is free. Undefined when none is free or none is needed. */
 export function pickResource(ctx: SlotContext, need: Need, date: DateKey, start: number, ignoreId?: string): string | undefined {
-  const end = start + need.duration;
+  const span = occupied({ ...need, start });
   const holds = activeHolds(ctx, date);
-  const overlaps = (b: Booking | CheckoutHold, id: string) =>
-    b.resourceId === id && b.id !== ignoreId && start < b.start + b.duration && end > b.start;
+  const overlaps = (b: Booking | CheckoutHold | WaitlistOffer, id: string) => {
+    if (b.resourceId !== id || b.id === ignoreId) return false;
+    const other = occupied(b);
+    return span.start < other.end && span.end > other.start;
+  };
   return usableResources(ctx, need.serviceId).find(id =>
     !ctx.bookings.some(b => b.date === date && isActive(b) && overlaps(b, id)) && !holds.some(h => overlaps(h, id)),
   );
@@ -132,9 +148,9 @@ function resourceFree(ctx: SlotContext, need: Need, date: DateKey, start: number
 export function isFree(ctx: SlotContext, staffId: StaffId, date: DateKey, start: number, need: Need, ignoreId?: string): boolean {
   const window = workWindow(ctx, staffId, date);
   if (!window) return false;
-  const end = start + need.duration;
-  if (start < window.start || end > window.end) return false;
-  if (!busyIntervals(ctx, staffId, date, ignoreId).every((i) => end <= i.start || start >= i.end)) return false;
+  const span = occupied({ ...need, start });
+  if (span.start < window.start || span.end > window.end) return false;
+  if (!busyIntervals(ctx, staffId, date, ignoreId).every((i) => span.end <= i.start || span.start >= i.end)) return false;
   return resourceFree(ctx, need, date, start, ignoreId);
 }
 

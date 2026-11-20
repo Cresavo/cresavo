@@ -2,7 +2,7 @@ import type { Campaign } from "../data/types";
 import { stableHash } from "./core";
 import type { Outbox, OutboxEntry } from "./simulated/outbox";
 import { createOutbox } from "./simulated/outbox";
-import { simulatedEmail, paymentLedger, simulatedSms, simulatedSocial, type SimulatedEmail, type SimulatedSms } from "./simulated/adapters";
+import { channelLedger, simulatedEmail, paymentLedger, simulatedSms, simulatedSocial, type SimulatedEmail, type SimulatedSms } from "./simulated/adapters";
 import type { SocialPort } from "./ports/social";
 
 // The concept demo's sends go through the ports here, always with the
@@ -16,6 +16,8 @@ const DEMO_CURRENCY = "SEK";
 export const demoOutbox: Outbox = createOutbox();
 export const demoPaymentLedger = paymentLedger(demoOutbox);
 export const demoPayments = demoPaymentLedger.direct;
+/** Messages and posts from the browser store's dispatch: staged per apply with `withDemoChannels`, recorded only once the change is saved. */
+export const demoMessageLedger = channelLedger(demoOutbox, DEMO_CURRENCY);
 
 /** Where the demo's messages and posts go. The reducer uses the shared outbox unless a store scopes it with `withDemoChannels`. */
 export interface DemoChannels {

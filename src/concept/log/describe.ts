@@ -40,6 +40,21 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       return { summary: t("protection.saved"), before: String(prev.cancellationPolicy.version), after: String(next.cancellationPolicy.version) };
     case "online/hold":
       return { summary: t("protection.held") };
+    case "online/claim": {
+      if (next.checkoutHolds.length > prev.checkoutHolds.length) return { summary: t("protection.held") };
+      const made = next.bookings[next.bookings.length - 1];
+      return { summary: t("log.onlineBook", { customer: customerName(next, made.customerId), service: serviceName(next, made.serviceId) }), after: when(next, made) };
+    }
+    case "online/decline":
+      return { summary: t("offers.status.declined") };
+    case "online/leave":
+      return { summary: t("offers.left") };
+    case "waitlist/rules":
+      return { summary: t("offers.rulesChanged"), after: next.waitlistRules.paused ? t("offers.paused") : t(`offers.mode.${next.waitlistRules.mode}`) };
+    case "waitlist/offer":
+      return { summary: t("offers.approved") };
+    case "waitlist/advance":
+      return { summary: t("offers.updated") };
     case "online/release":
       return { summary: t("protection.released") };
     case "booking/fee":

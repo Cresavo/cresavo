@@ -48,9 +48,9 @@ export interface ApplyOptions {
 
 /**
  * Something a committed change asks the outside world to do: a payment, or a
- * message or post. `MemoryStudioStore` stages both; the browser store stages
- * payments only, since its messages are still sent from inside the reducer
- * (see docs/design/STUDIO_STORE.md, open questions).
+ * message or post. `MemoryStudioStore` stages both. The browser store's
+ * `dispatchWithLog` stages both too and publishes them after its save, but
+ * reports payments only as effects (see docs/design/STUDIO_STORE.md).
  */
 export interface StoreEffect {
   kind: "payment" | "message";

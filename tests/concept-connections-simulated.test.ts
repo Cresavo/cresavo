@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reduce } from "@/concept/actions";
 import { bookingMessage } from "@/concept/booking/messages";
-import { textWaitlistAboutGaps, textWaitlistAboutSlot } from "@/concept/booking/waitlist-offer";
 import { isE164, isUtc, majorString, moneyFromMajor, isTimeZone, PORTS } from "@/concept/connections/core";
 import { demoOutbox } from "@/concept/connections/demo";
 import { dailySalesVoucher, isBalanced } from "@/concept/connections/ports/accounting";
@@ -145,23 +144,10 @@ describe("demo sends go through the ports", () => {
     expect(demoOutbox.list("sms")).toHaveLength(1);
   });
 
-  it("texts the waiting list when a cancellation offers the slot", () => {
-    const notice = { kind: "system" as const, date: today, time: 540, title: "t", body: "b", read: false, handled: true, waitlistOffer: true };
-    reduce({ ...state, modules: { ...state.modules, waitlist: true } }, { type: "booking/cancel", id: booking.id, reason: "other", notice });
-    expect(demoOutbox.list("sms")).toEqual([expect.objectContaining({ to: "segment:waitlist", body: expect.stringContaining(state.salon.name) })]);
-    demoOutbox.clear();
-    reduce(state, { type: "booking/cancel", id: booking.id, reason: "other" });
-    // A customer's own cancellation carries a notice for the owner, not an offer: nobody is texted.
-    reduce({ ...state, modules: { ...state.modules, waitlist: true } }, { type: "booking/cancel", id: booking.id, reason: "other", notice: { ...notice, waitlistOffer: undefined } });
-    reduce({ ...state, modules: { ...state.modules, waitlist: false } }, { type: "booking/cancel", id: booking.id, reason: "other", notice });
-    expect(demoOutbox.list()).toHaveLength(0);
-  });
-
-  it("texts the waiting list once per explicit offer of a freed slot or today's gaps", () => {
-    expect(textWaitlistAboutSlot(state, booking)).toBe(true);
-    expect(textWaitlistAboutSlot(state, booking)).toBe(true);
-    expect(textWaitlistAboutGaps(state, today)).toBe(true);
-    expect(demoOutbox.list("sms").map((e) => e.to)).toEqual(["segment:waitlist", "segment:waitlist"]);
+  it("never texts the whole waiting list when a booking is cancelled", () => {
+    reduce({ ...state, modules: { ...state.modules, waitlist: true } }, { type: "booking/cancel", id: booking.id, reason: "other" });
+    reduce({ ...state, modules: { ...state.modules, waitlist: false } }, { type: "booking/cancel", id: booking.id, reason: "other", offerWaitingList: true });
+    expect(demoOutbox.list().filter((e) => e.to === "segment:waitlist")).toHaveLength(0);
   });
 
   it("records assistant-approved texts through the SMS port", () => {

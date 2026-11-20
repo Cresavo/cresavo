@@ -17,12 +17,18 @@ export interface ServiceDraft {
   name: string;
   category: string;
   duration: number;
+  /** Preparation and cleanup minutes around each visit. Left out, a change keeps what the treatment has. */
+  bufferBefore?: number;
+  bufferAfter?: number;
   price: number;
   description: string;
   staffIds: StaffId[];
 }
 
-export type ServiceIssue = "name" | "nameTaken" | "category" | "duration" | "price" | "staff" | "description";
+export type ServiceIssue = "name" | "nameTaken" | "category" | "duration" | "buffer" | "price" | "staff" | "description";
+
+/** Longest preparation or cleanup around a visit, in minutes. */
+export const MAX_BUFFER = 120;
 export type CategoryIssue = "name" | "nameTaken";
 export type Direction = "up" | "down";
 
@@ -58,6 +64,7 @@ export function serviceIssues(state: DemoState, draft: ServiceDraft, ignoreId?: 
   else if (nameTaken(state, name, draft.category, ignoreId)) issues.push("nameTaken");
   if (!state.categories.some((c) => c.id === draft.category)) issues.push("category");
   if (!Number.isInteger(draft.duration) || draft.duration < MIN_DURATION || draft.duration > MAX_DURATION || draft.duration % DURATION_STEP !== 0) issues.push("duration");
+  if ([draft.bufferBefore, draft.bufferAfter].some((n) => n !== undefined && (!Number.isInteger(n) || n < 0 || n > MAX_BUFFER || n % DURATION_STEP !== 0))) issues.push("buffer");
   if (!validServicePrice(draft.price)) issues.push("price");
   if (!draft.staffIds.length || new Set(draft.staffIds).size !== draft.staffIds.length || !draft.staffIds.every((id) => state.staff.some((p) => p.id === id))) issues.push("staff");
   if (draft.description.trim().length > MAX_DESCRIPTION) issues.push("description");
@@ -98,7 +105,17 @@ export function serviceIsReferenced(state: DemoState, id: string): boolean {
   return state.bookings.some((b) => b.serviceId === id) || state.packages.some((p) => p.serviceId === id) || state.campaigns.some((c) => c.serviceIds.includes(id));
 }
 
-const clean = (draft: ServiceDraft): ServiceDraft => ({ ...draft, name: draft.name.trim(), description: draft.description.trim(), staffIds: [...draft.staffIds] });
+const clean = (draft: ServiceDraft): ServiceDraft => {
+  const { bufferBefore, bufferAfter, ...rest } = draft;
+  return { ...rest, name: draft.name.trim(), description: draft.description.trim(), staffIds: [...draft.staffIds], ...(bufferBefore ? { bufferBefore } : {}), ...(bufferAfter ? { bufferAfter } : {}) };
+};
+
+/** A treatment changed by a draft. A draft that names a buffer sets it; zero removes it. */
+function updated(service: Service, draft: ServiceDraft): Service {
+  const next: Service = { ...service, ...clean(draft) };
+  for (const key of ["bufferBefore", "bufferAfter"] as const) if (key in draft && !draft[key]) delete next[key];
+  return next;
+}
 
 function movedIds(items: { id: string }[], id: string, direction: Direction): string[] {
   const ids = items.map((item) => item.id);
@@ -140,7 +157,7 @@ export function applyServiceAction(state: DemoState, action: ServiceAction): Dem
     }
     case "service/update": {
       if (!state.services.some((s) => s.id === action.id) || serviceIssues(state, action.service, action.id).length) return state;
-      return { ...state, services: state.services.map((s) => (s.id === action.id ? { ...s, ...clean(action.service) } : s)) };
+      return { ...state, services: state.services.map((s) => (s.id === action.id ? updated(s, action.service) : s)) };
     }
     case "service/visibility": {
       const service = state.services.find((s) => s.id === action.id);

@@ -129,6 +129,8 @@ describe("online booking actions", () => {
   const notice = { title: "New online booking", body: "Medical foot care" };
   const guest = { name: "Lisa Berg", phone: "073-555 01 02", at: { date: today, time: 600 } };
   const book = { type: "online/book", guest, notice, serviceId: "medical-foot-care", staffId: "anna", date, start } as const;
+  // The salon's clock at the moment the guest acted: waiting-list requests for a passed day end at once.
+  const guestMoment = Date.parse(`${today}T10:00:00+01:00`);
 
   it("books a new customer and tells the owner", () => {
     const next = reduce(state, book);
@@ -157,17 +159,17 @@ describe("online booking actions", () => {
   });
 
   it("adds a waiting-list request that the owner can answer", () => {
-    const next = reduce(state, { type: "online/waitlist", guest, notice: { title: "Waiting list", body: "Wants a time", draftReply: "Hi" }, serviceId: "medical-foot-care" });
+    const next = reduce(state, { type: "online/waitlist", guest, notice: { title: "Waiting list", body: "Wants a time", draftReply: "Hi" }, serviceId: "medical-foot-care" }, guestMoment);
     expect(next.customers[next.customers.length - 1]).toMatchObject({ firstName: "Lisa", waitlist: true });
     expect(next.inbox[0]).toMatchObject({ title: "Waiting list", handled: false, draftReply: "Hi" });
   });
 
   it("keeps the requested practitioner on the waiting-list request", () => {
     const request = { type: "online/waitlist", guest, notice, serviceId: "classic-60", staffId: "erik" } as const;
-    const next = reduce(state, request);
+    const next = reduce(state, request, guestMoment);
     expect(next.inbox[0]).toMatchObject({ requestedStaffId: "erik", customerId: next.customers.at(-1)!.id });
     expect(next.customers.at(-1)).toMatchObject({ preferredStaff: "erik", waitlist: true });
-    expect(reduce(state, { ...request, staffId: "anna" })).toBe(state);
+    expect(reduce(state, { ...request, staffId: "anna" }, guestMoment)).toBe(state);
   });
 
   it("moves a booking with an inbox notice only when the new slot is free", () => {

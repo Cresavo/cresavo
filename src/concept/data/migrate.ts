@@ -3,6 +3,7 @@ import { returnRedemptions } from "../giftcards/cards";
 import { DEFAULT_POLICY, hasSettlement } from "../booking/protection";
 import { defaultBusinessLocalization } from "../i18n/business";
 import { DEFAULT_REMINDER_SETTINGS } from "../booking/reminders";
+import { initialWaitlist } from "../booking/waitlist-types";
 import { DEFAULT_PAGE, type PageConfig } from "../page/config";
 import { DEFAULT_SECTIONS, type PageSection } from "../page/sections";
 import { getPack } from "../packs";
@@ -71,6 +72,10 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
   // salons with every module off. Existing salons keep their modules. Deposit-branch saves could
   // reach v22 before reminder settings existed, so they get the defaults here.
   22: (saved) => ({ ...saved, reminderSettings: saved.reminderSettings ?? { ...DEFAULT_REMINDER_SETTINGS }, version: 23 }),
+  // v24 adds waitlist offers. Everyone already on the waiting list keeps their place as an entry
+  // that still needs a treatment and days; nothing about them is guessed and nobody is texted.
+  // A save that already has a waiting list (made by a newer build) keeps it as it is.
+  23: (saved) => ({ ...initialWaitlist(saved.customers as DemoState["customers"]), ...saved, version: 24 }),
 };
 
 /** The oldest saved version that can still be migrated. */

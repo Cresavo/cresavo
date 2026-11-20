@@ -35,6 +35,7 @@ Start with the [demo and product tour](../README.md) or see the
   contacts when no days are open. The QA runner is available through `npm run qa`.
 - The product page includes the founder story, a looping request-to-booking example, and a diagram of available and planned connections. Its tour includes five workflow films and an offline booking sample.
 - The browser demo supports versioned cancellation rules, simulated deposit checkout and owner decisions on late cancellations and no-shows. Bookings and Finance show payments and refunds. [Feature design](design/NO_SHOW_DEPOSITS.md).
+- The Waiting list add-on offers freed times to one waiting customer at a time, after the owner's approval or automatically, with simulated texts and held claim links. [Waitlist offers](design/WAITLIST_OFFERS.md).
 - Owners can drag to reorder treatments and categories in the studio and undo
   each move. The booking-page editor supports dragging sections in its draft.
 

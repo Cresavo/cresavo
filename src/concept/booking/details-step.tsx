@@ -17,7 +17,7 @@ import { GuestFields, RememberContact, isGuestValid } from "./guest-fields";
 import { hoursUntil, LEAD_MINUTES } from "./policy";
 import { quote, type CheckoutHold } from "./protection";
 import { BookingSummary } from "./booking-summary";
-import { findCustomerByPhone } from "./lookup";
+import { isNewBookingCustomer } from "./lookup";
 import type { useGuestContact } from "./guest";
 import type { OpenSlot } from "./suggest";
 
@@ -42,7 +42,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
   const person = state.staff.find((s) => s.id === slot.staffId)!;
   const [pending, setPending] = useState(false);
 
-  const terms = quote(state.cancellationPolicy, service, state.localization.currency, !findCustomerByPhone(state, guest.phone));
+  const terms = quote(state.cancellationPolicy, service, state.localization.currency, isNewBookingCustomer(state, guest.phone));
 
   const confirm = async () => {
     if (pending || !isGuestValid(guest)) return;
@@ -70,7 +70,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
           reason = "booking.summary.changed";
           return false;
         }
-        const fresh = quote(current.cancellationPolicy, offering, current.localization.currency, !findCustomerByPhone(current, phone));
+        const fresh = quote(current.cancellationPolicy, offering, current.localization.currency, isNewBookingCustomer(current, phone));
         if (JSON.stringify(fresh) !== JSON.stringify(terms)) {
           reason = "protection.changed";
           return false;

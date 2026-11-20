@@ -1,13 +1,14 @@
 "use client";
 
-import { textWaitlistAboutSlot } from "../../booking/waitlist-offer";
-import { waitlistCount, waitlistNotice } from "../booking/waitlist-notice";
+import { offerLink } from "../../booking/waitlist-offer";
+import { waitingFor } from "../../booking/waitlist-match";
+import { WAITLIST_PAGE } from "../../modules/registry";
 import { useState } from "react";
 import { CalendarCheck, Send } from "lucide-react";
 import { bookingLink } from "../../customers/return-visits";
 import { inboxTimestamp } from "../../data/dates";
 import type { InboxItem } from "../../data/types";
-import { t, tc } from "../../i18n";
+import { t } from "../../i18n";
 import { customerText } from "../../i18n/customer-text";
 import { formatDayLong, relativeDay, formatTime } from "../../i18n/format";
 import { findCustomer, findService } from "../../selectors";
@@ -69,6 +70,12 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
         {item.body}
       </div>
       {item.delivery && <Badge tone="accent">{t("common.simulated")} · {t(`messages.channel.${item.delivery.channel}`)}</Badge>}
+      {item.offerId && (
+        <div className="flex flex-wrap items-center gap-3">
+          <DemoBadge short />
+          <ButtonLink href={offerLink(state.salon.slug, item.offerId)} variant="secondary" size="sm">{t("offers.openLink")}</ButtonLink>
+        </div>
+      )}
       {review && <ApproveReview review={review} />}
       {item.recallServiceId && (
         <ButtonLink href={bookingLink(state, item.recallServiceId)} variant="secondary" size="sm">{t("inbox.openBookingLink")}</ButtonLink>
@@ -112,18 +119,8 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
           {failure && <ActionFailure failure={failure} />}
           <div className="flex flex-wrap items-center justify-end gap-2">
             <DemoBadge short />
-            {item.kind === "cancel" && booking && waitlistCount(state, booking) > 0 && (
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  const waitlist = waitlistCount(state, booking);
-                  if (!textWaitlistAboutSlot(state, booking) || !dispatchWithUndoToast({ type: "inbox/add", item: waitlistNotice(booking, waitlist, { today, minutes }) }, tc("suggest.gaps.toast", waitlist))) {
-                    setFailure({ requestId: newActionRequestId(), reason: "messages.failed" });
-                  }
-                }}
-              >
-                {t("inbox.offerSlot")}
-              </Button>
+            {item.kind === "cancel" && booking && waitingFor(state, booking.date, booking.customerId) > 0 && (
+              <ButtonLink href={WAITLIST_PAGE} variant="secondary">{t("inbox.offerSlot")}</ButtonLink>
             )}
             <Button variant={onDone ? "primary" : "secondary"} icon={<Send size={16} />} disabled={!reply.trim()} onClick={send}>
               {review ? t("reviews.publish") : slot ? t("inbox.sendAndBook") : t("inbox.send")}

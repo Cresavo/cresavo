@@ -10,6 +10,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- Waitlist offers in the Waiting list add-on, which stays off for new salons. Customers choose days, an optional practitioner and a time window ("any time" by default). A freed time goes to one matching customer at a time, in the order they joined, by a personal simulated text that holds the time for 15 minutes. Owners choose Off, Ask me first (the default) or Automatic on the waiting list under Customers; automatic texts wait from 21:00 until 08:00. Claims reuse the deposit checkout and recheck the time across tabs. Treatments can have preparation and cleanup time. See docs/design/WAITLIST_OFFERS.md.
 - A `StudioStore` interface defines how the studio and server read and change a salon. It covers versions, idempotency keys, effects published after commit and an append-only action log. An in-memory reference store, an adapter over the existing browser store and a shared contract suite back it. The studio behaves as before. See docs/design/STUDIO_STORE.md.
 - A staged `PostgresStudioStore` keeps each salon in a `tenant_state` row behind a row lock, with the database clock, 24-hour idempotency keys fingerprinted by HMAC, an append-only `tenant_action` log and a `tenant_effect` outbox written in the same transaction. Effects are delivered one at a time in commit order, so a refund never overtakes its checkout. Booking cutoffs and support grants follow the store clock, and activity text uses the salon's language and currency. A new migration adds the four tables. The intended role grants and a check of the role's effective privileges are in `prisma/grants/`. It passes the shared contract suite against a disposable database. Nothing in the app uses it yet.
 - The staged Postgres store has an outbox poller (`npm run effects:drain`). It delivers effects left after a crash exactly once, in commit order, with backoff and a `failed` state, and is safe to run several at once. Effects of demo and sandbox salons only reach simulated providers. A held row lock now times out after 2 seconds as a conflict. A new migration adds the outbox states. Nothing in the app uses it yet.
@@ -17,6 +18,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- The browser store records simulated texts and emails only after it has saved the change, so a retried or refused change sends nothing. Saved demos move to version 24 and keep everyone already on the waiting list.
 - The staff preview starts in Advanced, with a return to the owner view available while previewing.
 - Finance opens with what is left this month and a comparison with last month. Send to my accountant explains the two download options and the dates they cover.
 - Gift cards and packages share one add-on and one More entry with two tabs. Owners can approve and reply to reviews from the Inbox.

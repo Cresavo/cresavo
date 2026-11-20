@@ -9,11 +9,11 @@ import type { CollectionPatch, Item, StatePatch } from "./types";
 const COLLECTIONS = [
   "customers", "bookings", "journals", "stock", "orders", "sales", "giftCards", "packages", "reviews", "inbox",
   "campaigns", "services", "costs", "trash", "supportGrants", "tickets", "staff", "exceptions", "resources",
-  "checkoutHolds", "memory", "routines", "retiredServices", "categories", "blocks",
+  "checkoutHolds", "waitlistEntries", "waitlistOffers", "waitlistGaps", "memory", "routines", "retiredServices", "categories", "blocks",
 ] as const satisfies readonly (keyof DemoState)[];
 
 /** Whole values compared as a unit. */
-const VALUES = ["cancellationPolicy", "accounting", "modules", "dismissedCards", "salon", "page", "domain", "localization", "reminderSettings"] as const satisfies readonly (keyof DemoState)[];
+const VALUES = ["cancellationPolicy", "accounting", "modules", "dismissedCards", "salon", "page", "domain", "localization", "reminderSettings", "waitlistRules"] as const satisfies readonly (keyof DemoState)[];
 
 const same = jsonEqual;
 const list = (state: DemoState, key: string) => (state as unknown as Record<string, Item[]>)[key] ?? [];
