@@ -32,8 +32,9 @@ async function modules() {
   const store = await import("@/concept/store");
   const { demoOutbox } = await import("@/concept/connections/demo");
   const offers = await import("@/concept/studio/booking/offer-waitlist");
+  const { tc } = await import("@/concept/i18n");
   const sms = () => demoOutbox.list("sms");
-  return { ...store, ...offers, demoOutbox, sms };
+  return { ...store, ...offers, demoOutbox, sms, tc };
 }
 
 function salon(): DemoState {
@@ -102,7 +103,7 @@ it("offers a freed slot to the waiting list only together with its saved inbox n
   const storage = tab(state);
   const { offerSlotToWaitlist, sms } = await modules();
   const booking = upcoming(state);
-  expect(offerSlotToWaitlist(state, booking, { today, minutes: 600 })).toBe(true);
+  expect(offerSlotToWaitlist(booking.id, { today, minutes: 600 })).toBe(true);
   expect(sms().map((record) => record.reference)).toEqual([`waitlist-${booking.id}-${booking.date}-${booking.start}`]);
   expect(storage.saved().inbox[0]).toMatchObject({ waitlistOffer: true });
 });
@@ -112,7 +113,7 @@ it("sends no slot offer when the save is refused: another tab switched the waiti
   const storage = tab(state);
   const { offerSlotToWaitlist, sms } = await modules();
   storage.write({ ...state, modules: { ...state.modules, waitlist: false } });
-  expect(offerSlotToWaitlist(state, upcoming(state), { today, minutes: 600 })).toBe(false);
+  expect(offerSlotToWaitlist(upcoming(state).id, { today, minutes: 600 })).toBe(false);
   expect(sms()).toEqual([]);
   expect(storage.saved().inbox).toEqual(state.inbox);
 });
@@ -121,10 +122,9 @@ it("texts the waiting list about today's free times only together with its saved
   const state = salon();
   const storage = tab(state);
   const { offerGapsToWaitlist, sms } = await modules();
-  const copy = { title: "Free times today", body: "Texted 3 waiting customers", toast: "Sent" };
-  expect(offerGapsToWaitlist({ today, minutes: 600 }, copy)).toBe(true);
+  expect(offerGapsToWaitlist({ today, minutes: 600 })).toBe(true);
   expect(sms().map((record) => record.reference)).toEqual([`waitlist-gaps-${today}`]);
-  expect(storage.saved().inbox[0]).toMatchObject({ waitlistOffer: true, title: "Free times today" });
+  expect(storage.saved().inbox[0]).toMatchObject({ waitlistOffer: true });
 });
 
 it("sends no free-times text when the save is refused", async () => {
@@ -132,9 +132,36 @@ it("sends no free-times text when the save is refused", async () => {
   const storage = tab(state);
   const { offerGapsToWaitlist, sms } = await modules();
   storage.write({ ...state, modules: { ...state.modules, waitlist: false } });
-  expect(offerGapsToWaitlist({ today, minutes: 600 }, { title: "Free times today", body: "Texted", toast: "Sent" })).toBe(false);
+  expect(offerGapsToWaitlist({ today, minutes: 600 })).toBe(false);
   expect(sms()).toEqual([]);
   expect(storage.saved().inbox).toEqual(state.inbox);
+});
+
+it("counts the customers in the slot offer's note and toast from the saved state, not the render", async () => {
+  const state = salon();
+  const storage = tab(state);
+  const { offerSlotToWaitlist, tc } = await modules();
+  const booking = upcoming(state);
+  // Rendered with three waiting; another tab has since left one.
+  const fewer = { ...state, customers: state.customers.map((customer, i) => (i < 3 ? { ...customer, waitlist: i === 2 } : customer)) };
+  storage.write(fewer);
+  expect(offerSlotToWaitlist(booking.id, { today, minutes: 600 })).toBe(true);
+  const { waitlistCount, waitlistNotice } = await import("@/concept/studio/booking/waitlist-notice");
+  const count = waitlistCount(fewer, booking);
+  expect(count).toBeLessThan(waitlistCount(state, booking));
+  expect(storage.saved().inbox[0].body).toBe(waitlistNotice(booking, count, { today, minutes: 600 }).body);
+  expect(showToast.mock.calls.at(-1)?.[0]).toBe(tc("suggest.gaps.toast", count));
+});
+
+it("counts the customers in the free-times note and toast from the saved state, not the render", async () => {
+  const state = salon();
+  const storage = tab(state);
+  const { offerGapsToWaitlist, tc } = await modules();
+  const fewer = { ...state, customers: state.customers.map((customer, i) => ({ ...customer, waitlist: i === 0 })) };
+  storage.write(fewer);
+  expect(offerGapsToWaitlist({ today, minutes: 600 })).toBe(true);
+  expect(storage.saved().inbox[0].body).toBe(tc("suggest.gaps.sentBody", 1));
+  expect(showToast.mock.calls.at(-1)?.[0]).toBe(tc("suggest.gaps.toast", 1));
 });
 
 it("keeps the sample salon's deposits working: a staged payment is published after the save", async () => {

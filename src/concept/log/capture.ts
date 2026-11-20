@@ -30,7 +30,7 @@ export function applyAction(state: DemoState, action: DemoAction, meta: LogMeta)
   return next;
 }
 
-export function prepareAction(state: DemoState, action: DemoAction, meta: LogMeta, batch: ReturnType<typeof demoPaymentLedger.stage>): DemoState {
+export function prepareAction(state: DemoState, action: DemoAction, meta: LogMeta, batch: Pick<ReturnType<typeof demoPaymentLedger.stage>, "payments" | "hasPayments">): DemoState {
   if ((action.type === "salon/policy" || action.type === "booking/fee") && meta.actor !== "owner") return state;
   const next = reduce(state, action, meta.at, batch.payments);
   if (next === state || !isLogged(action)) return next;

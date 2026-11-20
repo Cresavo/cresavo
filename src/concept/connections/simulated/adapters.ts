@@ -106,6 +106,8 @@ export function paymentLedger(outbox: Outbox) {
       return {
         payments: simulatedPayments({ outbox: pending }, keyGuard("payments", keys, committed)),
         hasPayments: () => keys.size > 0,
+        /** What this stage recorded: the sends it publishes. */
+        records: () => pending.list(),
         publish() {
           keys.forEach((value, key) => committed.set(key, value));
           pending.list().forEach(entry => outbox.record(entry));

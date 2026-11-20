@@ -116,7 +116,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
               <Button
                 variant="secondary"
                 onClick={() => {
-                  if (!offerSlotToWaitlist(state, booking, { today, minutes })) {
+                  if (!offerSlotToWaitlist(booking.id, { today, minutes })) {
                     setFailure({ requestId: newActionRequestId(), reason: "messages.failed" });
                   }
                 }}

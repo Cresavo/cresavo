@@ -40,7 +40,6 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
   const { state, today, minutes } = useStudio();
   const [showAll, setShowAll] = useState(false);
   const list: Suggestion[] = [];
-  const notify = (title: string, body: string, toast: string) => { offerGapsToWaitlist({ today, minutes }, { title, body, toast }); };
 
   const lowItems = cardVisible(state.modules, "stock-low") ? lowStock(state).slice(0, 2) : [];
   const forecasts = useForecasts(lowItems);
@@ -55,7 +54,7 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
       text: tc("suggest.gaps.text", waitlist),
       actions: (
         <>
-          <Button size="sm" variant="secondary" onClick={() => notify(t("suggest.gaps.sentTitle"), tc("suggest.gaps.sentBody", waitlist), tc("suggest.gaps.toast", waitlist))}>
+          <Button size="sm" variant="secondary" onClick={() => { offerGapsToWaitlist({ today, minutes }); }}>
             {t("suggest.gaps.send")}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => onOpen({ kind: "phone" })}>{t("suggest.gaps.show")}</Button>
