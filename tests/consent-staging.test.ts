@@ -551,6 +551,9 @@ describe("staging runner preflight", () => {
       expect(() => refuseDiagnostics({ NODE_OPTIONS: `--use-openssl-ca ${flag}` }, []), `NODE_OPTIONS ${flag}`).toThrow(/^STAGING_DIAGNOSTICS_REFUSED$/);
       expect(() => refuseDiagnostics({}, ["--import", "tsx", flag]), `execArgv ${flag}`).toThrow(/^STAGING_DIAGNOSTICS_REFUSED$/);
     }
+    // Quoting and escaping are Node's syntax, not ours: refused rather than guessed at.
+    for (const value of ['--tls-keylog="/tmp/a b"', "--title='x' --use-openssl-ca", "--require=a\\b", '"--tls_keylog=/tmp/k"'])
+      expect(() => refuseDiagnostics({ NODE_OPTIONS: value }, []), value).toThrow(/^STAGING_NODE_OPTIONS_AMBIGUOUS$/);
     // Options that merely contain those words are not refused.
     for (const flag of ["--use_openssl_ca", "--max-old-space-size=4096", "--import=tsx", "--enable-source-maps"])
       expect(() => refuseDiagnostics({ NODE_OPTIONS: flag }, [flag]), flag).not.toThrow();

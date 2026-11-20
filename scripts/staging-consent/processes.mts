@@ -14,6 +14,15 @@ const children = new Map<ChildProcess, Promise<void>>();
 let stopping = false;
 export const isStopping = () => stopping;
 
+// Children get a closed environment built by the runner, never this process's own, so nothing
+// inherited reaches them. These may not be in it either: they would make a child log or load
+// what the runner refused for itself (TLS keys, debug output, extra code).
+const CHILD_ENV_REFUSED = ["NODE_OPTIONS", "NODE_DEBUG", "DEBUG", "DEBUG_FILE", "SSLKEYLOGFILE", "NODE_V8_COVERAGE"];
+export function assertChildEnv(env: Record<string, string | undefined>) {
+  for (const name of CHILD_ENV_REFUSED) if (env[name] !== undefined) throw new Error("STAGING_CHILD_ENV_REFUSED");
+  return env;
+}
+
 export function track<T extends ChildProcess>(child: T): T {
   if (stopping) { signalGroup(child, "SIGKILL"); throw new Error("STAGING_STOPPING"); }
   children.set(child, new Promise<void>(resolve => {
@@ -91,6 +100,7 @@ export function leakedStreams() {
 export function runStep(code: string, command: string, args: string[], cwd: string, env: Record<string, string>, timeoutMs = 600_000) {
   return new Promise<void>((resolve, reject) => {
     if (stopping) return reject(new Error("STAGING_STOPPING"));
+    try { assertChildEnv(env); } catch (error) { return reject(error); }
     const child = track(spawn(command, args, { cwd, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"], detached: true }));
     captureStream(`${code}:stdout`, child.stdout);
     captureStream(`${code}:stderr`, child.stderr);
@@ -109,6 +119,7 @@ export function runStep(code: string, command: string, args: string[], cwd: stri
 export function startServer(name: string, command: string, args: string[], cwd: string, env: Record<string, string>, ready: string) {
   return new Promise<ChildProcess>((resolve, reject) => {
     if (stopping) return reject(new Error("STAGING_STOPPING"));
+    try { assertChildEnv(env); } catch (error) { return reject(error); }
     const child = track(spawn(command, args, { cwd, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"], detached: true }));
     const timer = setTimeout(() => reject(new Error(`${name}_READY_TIMEOUT`)), 90_000);
     let buffer = "";

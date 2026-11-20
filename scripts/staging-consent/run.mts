@@ -15,7 +15,7 @@ import { DateTime } from "luxon";
 import { assertTestDatabase } from "../test-db-guard.mjs";
 import { createDatabaseClient } from "../database.mjs";
 import { containsSecret, registerSecret, say } from "./sanitize.mjs";
-import { captureStream, freePorts, guardStream, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
+import { assertChildEnv, captureStream, freePorts, guardStream, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
 import { agentChannel } from "./agent-reply.mjs";
 import { loopbackAdminUrl, refuseDiagnostics, refuseRemoteBrowsers, stagingDatabase } from "./preflight.mjs";
 import { acquisition, CLEANUP_SIGNALS, databaseAlreadyExisted, launchedBrowsers, settles } from "./lifecycle.mjs";
@@ -165,7 +165,7 @@ for (const event of ["uncaughtException", "unhandledRejection"] as const)
 const agentTranscript: string[] = [];
 function agentClient(env: Record<string, string>) {
   const child = track(spawn(process.execPath, ["--import", "tsx", "--import", dnsHook, join(repo, "scripts/staging-consent/agent.mts")],
-    { cwd: repo, env: env as NodeJS.ProcessEnv, stdio: ["pipe", "pipe", "pipe"], detached: true }));
+    { cwd: repo, env: assertChildEnv(env) as NodeJS.ProcessEnv, stdio: ["pipe", "pipe", "pipe"], detached: true }));
   captureStream("agent:stderr", child.stderr);
   child.stdin.on("error", () => {});
   const channel = agentChannel(line => child.stdin.write(line), agentTranscript);

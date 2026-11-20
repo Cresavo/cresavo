@@ -28,6 +28,10 @@ export function nodeOptionNames(values: readonly string[]) {
 /** Checks the environment and this process's own Node flags (`node --tls-keylog=... run.mts`). */
 export function refuseDiagnostics(env: Record<string, string | undefined>, execArgv: readonly string[] = process.execArgv) {
   for (const name of DIAGNOSTIC_SETTINGS) if (env[name]) throw new Error("STAGING_DIAGNOSTICS_REFUSED");
+  // Node reads quoted and escaped values in NODE_OPTIONS (`--tls-keylog="/a b"`). Rather than
+  // re-implement that syntax, any quote or backslash is refused: the check then reads exactly
+  // the options Node reads.
+  if (/["'\\]/.test(env.NODE_OPTIONS ?? "")) throw new Error("STAGING_NODE_OPTIONS_AMBIGUOUS");
   if (nodeOptionNames([env.NODE_OPTIONS ?? "", ...execArgv]).some(flag => DIAGNOSTIC_FLAGS.test(flag)))
     throw new Error("STAGING_DIAGNOSTICS_REFUSED");
 }

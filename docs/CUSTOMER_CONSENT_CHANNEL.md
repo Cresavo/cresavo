@@ -203,7 +203,11 @@ The runner:
    The runner refuses to start with diagnostic settings that would print URLs, including
    approval links, from this process outside its sanitizer: `DEBUG`, `DEBUG_FILE`,
    `PWDEBUG`, `NODE_DEBUG`, or `NODE_OPTIONS` with `--inspect` or tracing flags. Use
-   `STAGING_DEBUG=1` for sanitized failure reasons. It also refuses settings that would make
+   `STAGING_DEBUG=1` for sanitized failure reasons. Option names are compared as Node reads
+   them (`--tls_keylog` is `--tls-keylog`), and a `NODE_OPTIONS` with any quote or backslash
+   is refused outright. Every child (salon, gateway, agent, build steps, browsers) gets a
+   closed environment built by the runner, never its own, and the runner refuses to start a
+   child whose environment names `NODE_OPTIONS`, `DEBUG`, `NODE_DEBUG` or `SSLKEYLOGFILE`. It also refuses settings that would make
    Playwright drive a browser elsewhere and send approval links off the machine: any
    `SELENIUM_REMOTE_*` or `PW_TEST_CONNECT_*` variable, `PW_CHROMIUM_ATTACH_TO_OTHER` and
    `PW_TEST_REUSE_CONTEXT`. The check runs in preflight and again before every browser launch.
