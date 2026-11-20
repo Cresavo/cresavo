@@ -98,10 +98,14 @@ Do not enable scheduled jobs in preview environments.
 
 ## Limits and verification
 
-The hosted provider admits up to **3 pairs per verified IP or IPv6 /64 per UTC
-day**, **8 sessions per reset generation** and **20 bookings per session**,
-subject to the existing stricter booking and contact limits. Each session also
-has up to 256 agent-provider calls and 128 phone calls. That bounds admitted
+The hosted provider admits up to **3 pairs per verified IPv4 address or IPv6 /48
+per UTC day**, **8 session slots per reset generation** and **20 bookings per
+session**, subject to the existing stricter booking and contact limits. An
+address bucket holds at most one slot: pairing again from it replaces its
+earlier session, which stops that key, phone link and cookie. Locking every
+visitor out therefore takes eight separate buckets, not three. Each slot has up
+to 256 agent-provider calls and 128 phone calls; a replacement inherits the
+calls already used, so re-pairing never refills them. That bounds admitted
 provider and phone calls to 3,072 per generation, or about 95,300 in a
 31-day month, before low incidental calls from pairing and Cron. The gateway
 also retains its own per-IP limits. This is below the [Pro function invocation

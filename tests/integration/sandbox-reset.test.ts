@@ -19,12 +19,12 @@ const id = process.env.SANDBOX_TEST_INSTALLATION_ID!;
 const migrationUrl = process.env.SANDBOX_TEST_MIGRATION_DATABASE_URL;
 const resetUrl = process.env.SANDBOX_TEST_RESET_DATABASE_URL;
 const socketSecret = randomBytes(32).toString("hex");
-function phoneRequest(path: string, payload?: unknown, cookie?: string) {
+function phoneRequest(path: string, payload?: unknown, cookie?: string, address = "192.0.2.88") {
   const headers = new Headers({ host: "sandbox.example.test", origin });
   if (cookie) headers.set("cookie", cookie);
   if (payload !== undefined) headers.set("content-type", "application/json");
-  headers.set("x-booking-client-ip", "192.0.2.88");
-  headers.set("x-booking-client-proof", addressProof("192.0.2.88", socketSecret));
+  headers.set("x-booking-client-ip", address);
+  headers.set("x-booking-client-proof", addressProof(address, socketSecret));
   return new Request(origin + path, { method: payload === undefined ? "GET" : "POST", headers,
     body: payload === undefined ? undefined : JSON.stringify(payload) });
 }
@@ -99,7 +99,8 @@ describe.skipIf(!resetUrl || !migrationUrl || process.env.BOOKING_SANDBOX_TESTS 
         ((clock_timestamp() AT TIME ZONE 'UTC')::date - 1, ${previousDigest}, 3)
     `;
     const active = await (await pairSandboxBrowser(phoneRequest("/api/sandbox/pair", {}))).json();
-    const pending = await (await pairSandboxBrowser(phoneRequest("/api/sandbox/pair", {}))).json();
+    // A second bucket: pairing again from the same one would replace the active session.
+    const pending = await (await pairSandboxBrowser(phoneRequest("/api/sandbox/pair", {}, undefined, "192.0.2.89"))).json();
     const redeem = (url: string) => redeemSandboxPhone(phoneRequest("/api/sandbox/phone/redeem", { token: new URL(url).hash.slice(1) }));
     const browser = await redeem(active.phoneUrl);
     expect(browser.status).toBe(200);
