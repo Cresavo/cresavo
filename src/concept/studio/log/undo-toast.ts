@@ -18,17 +18,22 @@ export function undoBlockMessageKey(reason: UndoBlockReason | null | undefined) 
   return reason && reason !== "changed" ? REASON_KEYS[reason] : undefined;
 }
 
-export function undoWithToast(id: string): boolean {
-  if (dispatch({ type: "log/undo", id })) {
-    showToast(t("log.undoneToast"));
-    return true;
-  }
+/** Explains a refused undo the way `undoWithToast` does, from the latest saved state. */
+export function showUndoRefused(id: string) {
   const state = currentState();
   const entry = state?.log.find(row => row.id === id);
   const reason = state && undoBlockReason(state, entry);
   const key = undoBlockMessageKey(reason) ?? "log.cannotUndo";
   if (entry && isBookingOrPaymentAction(entry.type)) showActionFailure(key);
   else showToast(t(key));
+}
+
+export function undoWithToast(id: string): boolean {
+  if (dispatch({ type: "log/undo", id })) {
+    showToast(t("log.undoneToast"));
+    return true;
+  }
+  showUndoRefused(id);
   return false;
 }
 

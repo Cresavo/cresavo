@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { expect, test, type Page } from "@playwright/test";
 import { addDays, formatTime } from "../../src/concept/data/dates";
-import { englishDemoState } from "./fixtures";
+import { englishDemoState, salonState } from "./fixtures";
 import { createDemoState } from "../../src/concept/data/generate";
 import { freeStarts } from "../../src/concept/data/slots";
 import type { DemoState } from "../../src/concept/data/types";
@@ -20,7 +20,7 @@ const tomorrow = addDays(today, 1);
 const errors = new WeakMap<Page, string[]>();
 
 async function state(page: Page): Promise<DemoState> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo")!));
+  return salonState(page) as Promise<DemoState>;
 }
 /** Quick commands go through the assistant panel: the button on phones, Ctrl+K (the keyboard shortcut) from tablet width. */
 async function command(page: Page, text: string) {

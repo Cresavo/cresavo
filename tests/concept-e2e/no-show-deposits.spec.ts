@@ -5,7 +5,7 @@ import { feeMinor, quote } from "../../src/concept/booking/protection";
 import type { DemoState } from "../../src/concept/data/types";
 import { translate, type MessageKey } from "../../src/concept/i18n";
 import { getPack } from "../../src/concept/packs";
-import { englishDemoState } from "./fixtures";
+import { englishDemoState, salonState } from "./fixtures";
 
 const day = "2026-11-17";
 
@@ -23,7 +23,7 @@ async function openDemo(page: Page, initial: DemoState, path: string) {
 }
 
 function saved(page: Page): Promise<DemoState> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo")!));
+  return salonState(page) as Promise<DemoState>;
 }
 
 test("owner configures a deposit and the customer resumes checkout by simulated Swish", async ({ page }) => {

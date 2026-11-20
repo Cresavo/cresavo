@@ -6,7 +6,7 @@ import { bookingMessage } from "../../src/concept/booking/messages";
 import { openSlots } from "../../src/concept/booking/suggest";
 import { BRAND } from "../../src/concept/brand";
 import type { DemoState } from "../../src/concept/data/types";
-import { englishDemoState, fixtureText } from "./fixtures";
+import { englishDemoState, fixtureText, salonState } from "./fixtures";
 
 const fixture = englishDemoState("2026-11-17");
 const copy = fixtureText(fixture);
@@ -18,7 +18,7 @@ async function screenshot(page: Page, name: string) {
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   await page.screenshot({ animations: "disabled", path: `docs/concept/screens/night2-${name}-${page.viewportSize()!.width}.png`, fullPage: true });
 }
-async function state(page: Page): Promise<DemoState> { return page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo")!)); }
+async function state(page: Page): Promise<DemoState> { return salonState(page) as Promise<DemoState>; }
 async function holdBookingLock(page: Page) {
   await page.evaluate(() => new Promise<void>(ready => {
     void navigator.locks.request("salong-eko-demo", () => new Promise<void>(release => {
