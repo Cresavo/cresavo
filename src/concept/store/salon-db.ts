@@ -151,7 +151,7 @@ export interface SalonDbHandle extends SalonDb {
   onStatus(listener: (status: OpenStatus) => void): () => void;
   /** Resolves once the store is usable: on IndexedDB, or on memory after IndexedDB was confirmed unavailable. */
   ready(): Promise<"indexeddb" | "memory">;
-  /** Drops the current connection and opens again, e.g. on a bfcache `pageshow`. Joins an open already in flight. */
+  /** Drops the current connection and opens again at once, e.g. on a bfcache `pageshow` or a retry. Joins an open already in flight. */
   reopen(): void;
 }
 
@@ -284,6 +284,11 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
     };
     setStatus("opening");
     request.onupgradeneeded = () => {
+      // Abandoned while blocked (the handle closed): never leave a schema upgrade behind for the other tabs.
+      if (settled) {
+        request.transaction?.abort();
+        return;
+      }
       const db = request.result;
       if (!db.objectStoreNames.contains(SALONS)) db.createObjectStore(SALONS);
       if (!db.objectStoreNames.contains(META)) db.createObjectStore(META);
@@ -291,6 +296,7 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
     request.onblocked = () => setStatus("blocked");
     request.onerror = (event) => {
       event.preventDefault();
+      if (settled) return;
       const error = request.error?.name;
       // A newer schema made by another tab: this tab's code is old, its data is not gone.
       if (error === "VersionError") return settle(outdated());
@@ -362,6 +368,8 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
       if (status === "closed" || status === "memory" || status === "outdated" || abandonPending) return;
       void backend?.then((open) => { if (open.kind === "indexeddb") open.db.close(); }, () => undefined);
       backend = undefined;
+      // Start the replacement now, so a retry reaches "open" (or "failed") without another call.
+      void current().catch(() => undefined);
     },
     async read(workspace) {
       return (await readRecords([workspace])).get(workspace) ?? null;
@@ -384,10 +392,9 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
         // The outcome is settled first: listeners run after, and their errors are reported separately.
         resolve(outcome);
         if (!outcome.ok) return callEach(failureListeners, () => outcome.error, errors.report);
-        for (const change of outcome.changes) {
-          emit(change);
-          broadcast(change);
-        }
+        // Every other tab hears about the commit before any local subscriber can close the handle.
+        outcome.changes.forEach(broadcast);
+        outcome.changes.forEach(emit);
       }));
     },
     subscribe(listener) {

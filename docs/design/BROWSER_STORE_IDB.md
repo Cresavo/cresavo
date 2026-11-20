@@ -60,7 +60,7 @@ interface SalonDb {
 
 - `write` issues the scoped `get`s, plus `count`s for `exists`, which reads no document. It calls `change` in the callback of the last one, using plain callbacks and no `await`: awaiting anything that is not an IDB request lets the transaction auto-commit. `change` only stages `putSalon`/`deleteSalon`/`putMeta` on `tx`. The core issues every `put` and `delete` in that same final callback. A `change` that returns a thenable or throws aborts the transaction and writes nothing.
 - It resolves only on `complete`. `abort` and `error` (quota included) resolve `{ ok: false, reason: "storage" }`, and every such failure also reaches one store-level `onStorageFailure` listener. The store shows `showActionFailure` from that listener, so a quota abort is visible even for `void dispatch(...)` callers.
-- After `complete` the core posts `{ workspace, version, epoch }` (or `deleted`) for each changed salon on `BroadcastChannel("concept-store")`. `subscribe` delivers changes from this connection at once and other tabs' changes after re-reading.
+- After `complete` the core posts `{ workspace, version, epoch }` (or `deleted`) for every changed salon on `BroadcastChannel("concept-store")`, before any local subscriber runs. `subscribe` delivers changes from this connection at once and other tabs' changes after re-reading.
 - Scope stays small. `markTrialUsed` reads `exists: ["own"]` and `meta: ["lastUsed:own"]` only. A commit reads its own salon, plus the other salon only for actions that can change the address (`salon/slug`, `log/undo`, `trash/restore`) and for trial creation.
 
 ### Targets and commit
@@ -103,7 +103,8 @@ The other salon mutations are `write`s with their own small `change`:
   - **Unavailable, confirmed.** `indexedDB` is missing, `open` throws, or `onerror` fires (`SecurityError`, `InvalidStateError`, private-mode denial). Only then does the tab use `MemorySalonDb`, seeded once from any legacy localStorage text, read only and never written back. A connection that succeeds after this choice is closed at once.
   - **Outdated.** `onversionchange`, or a `VersionError` on open (another tab already upgraded), closes the connection and shows a reload notice. It is never memory.
   - **Failed.** Once a handle has used IndexedDB, a failed reopen is reported as `storage` and never switches to memory mid-session. A later `reopen()` retries.
-  - **Closed.** `close()` rejects operations still waiting for an open with `SalonDbClosedError`, and later operations fail at once.
+  - **Closed.** `close()` rejects operations still waiting for an open with `SalonDbClosedError`, and later operations fail at once. An upgrade it had requested is aborted, so it never leaves a newer schema behind.
+  - `reopen()` starts the replacement open at once, so a retry reaches `open` or `failed` on its own.
 - The backend is installed before any open starts and before its status is announced. Status listeners are notified later, in order, never inside an open, fallback or settle, so whatever they start sees the backend they hear about.
 - Subscriber, status and channel errors are isolated: a write resolves with its real outcome, and the errors go to `onListenerError`.
 - On bfcache `pageshow` (`persisted`), or after the browser closed the connection (`close` event), the store reopens and re-reads **both** workspaces. A record that disappeared meanwhile clears the cache and fires `onSalonRemoved`.

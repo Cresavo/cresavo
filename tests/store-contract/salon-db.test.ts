@@ -517,6 +517,46 @@ describe("opening after the first session", () => {
     expect(connections.map((request) => (request.result as unknown as { _closePending: boolean })._closePending)).toEqual([true]);
   });
 
+  it("never leaves a schema upgrade behind when a blocked handle closes", async () => {
+    const factory = new IDBFactory();
+    const old = await new Promise<IDBDatabase>((resolve) => {
+      const request = factory.open("concept-store", 1);
+      request.onupgradeneeded = () => { request.result.createObjectStore("salons"); request.result.createObjectStore("meta"); };
+      request.onsuccess = () => resolve(request.result);
+    });
+    const db = createSalonDb({ factory, channel: null, version: 2 });
+    const waiting = db.ready();
+    await until(() => db.status() === "blocked");
+    db.close();
+    await expect(waiting).rejects.toBeInstanceOf(SalonDbClosedError);
+    old.close();
+    await sleep(30);
+    const version = await new Promise<number>((resolve) => {
+      const request = factory.open("concept-store");
+      request.onsuccess = () => { resolve(request.result.version); request.result.close(); };
+    });
+    expect(version).toBe(1);
+    // Tabs on the current schema still open normally.
+    expect(await open(factory).ready()).toBe("indexeddb");
+  });
+
+  it("reaches open on a retried reopen with no other call", async () => {
+    const factory = new IDBFactory();
+    const { control, wrapped } = flaky(factory);
+    const db = open(wrapped);
+    await db.write({}, (tx) => tx.putSalon("demo", record(1)));
+    control.fail = true;
+    db.reopen();
+    await until(() => db.status() === "failed");
+    const heard: string[] = [];
+    db.onStatus((status) => heard.push(status));
+    control.fail = false;
+    db.reopen();
+    await until(() => heard.includes("open"));
+    expect(db.status()).toBe("open");
+    expect(await db.read("demo")).toEqual(record(1));
+  });
+
   it("joins a pending open on reopen, so closing settles every waiting operation", async () => {
     const factory = new IDBFactory();
     const old = await new Promise<IDBDatabase>((resolve) => {
@@ -563,6 +603,20 @@ describe("cross-tab notification", () => {
     await tabA.write({}, (tx) => tx.deleteSalon("own"));
     await until(() => seen.length === 2);
     expect(seen[1]).toEqual({ workspace: "own", record: null });
+  });
+
+  it("broadcasts every change of a commit before a local subscriber can close the handle", async () => {
+    const factory = new IDBFactory();
+    const channel = channelBus();
+    const [tabA, tabB] = [open(factory, { channel }), open(factory, { channel })];
+    await Promise.all([tabA.ready(), tabB.ready()]);
+    tabA.subscribe(() => tabA.close());
+    const seen: SalonChange[] = [];
+    tabB.subscribe((change) => seen.push(change));
+    const result = await tabA.write({}, (tx) => { tx.putSalon("demo", record(1)); tx.putSalon("own", record(2)); });
+    expect(result.ok).toBe(true);
+    await until(() => seen.length === 2);
+    expect(seen.map((change) => change.workspace).sort()).toEqual(["demo", "own"]);
   });
 
   it("sends nothing for a refused or aborted write", async () => {
