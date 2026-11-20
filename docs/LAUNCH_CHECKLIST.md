@@ -73,22 +73,16 @@ once the repository is public.
    **Push protection** were confirmed enabled on 2026-11-19. Leave **CodeQL
    analysis** default setup **off**: CodeQL runs from `codeql.yml` (advanced
    setup), and both cannot be active at once.
-10. **Required checks for `main`.** The active ruleset **Protect main**
-   (ID 27584925, **Settings** → **Rules** → **Rulesets**) already requires a
-   pull request and the status checks `E2E dev / proxy 0` (Verify POC) and
-   `Gitleaks (full history)` (Secret scan). Extend that ruleset; do not add a
-   second one. Keep its existing rules. In this order:
-   1. Done 2026-11-19: dependency graph on, `Dependency review` passed on
-      PR #65.
-   2. Done 2026-11-19: `Dependency review (high/critical gate)`,
-      `Analyze (javascript-typescript)` and `Analyze (actions)` are required
-      status checks (source GitHub Actions). Keep **Block force pushes** on
-      in the same ruleset.
-   3. Once the pull request that adds `codeql.yml` is approved and merged,
-      verify the first CodeQL analysis on `main` (**Actions** → **CodeQL**,
-      and **Security** → **Code scanning** shows results for `main`).
-   4. Then add **Require code scanning results** → tool **CodeQL** →
-      security alerts **High or higher**, alerts **Errors** **(verify)**.
+10. **Required checks for `main`.** Done 2026-11-19. The active ruleset
+   **Protect main** (ID 27584925, **Settings** → **Rules** → **Rulesets**)
+   requires a pull request, restricts deletions, blocks force pushes and
+   requires the status checks `E2E dev / proxy 0`, `Gitleaks (full history)`,
+   `Dependency review (high/critical gate)`, `Analyze (javascript-typescript)`
+   and `Analyze (actions)` (source GitHub Actions). **Require code scanning
+   results** is set to tool **CodeQL**, security alerts **High or higher**,
+   alerts **Errors**; it was added after the first CodeQL analysis on `main`.
+   Extend this ruleset rather than adding a second one. Dependency review
+   needs the dependency graph (step 7).
    All these workflows run on every pull request to `main` without path
    filters, so the required checks always report.
 11. **CLA Assistant (after legal review).** The CLA is a draft, and the
