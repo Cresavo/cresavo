@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { routeModel } from "../src/concept/ai/router";
-import { callModel } from "../src/concept/ai/client";
+import { callModel, MAX_OUTPUT_TOKENS } from "../src/concept/ai/client";
 import { tasks } from "../src/concept/ai/registry";
 import { InvalidTaskInput, runTask } from "../src/concept/ai/run-task";
 import { clearCostLog, estimateCost, getCostLog, logCost } from "../src/concept/ai/cost-log";
@@ -81,6 +81,8 @@ describe("provider clients", () => {
     const [url, init] = fetcher.mock.calls[0];
     expect(url).toContain(provider === "anthropic" ? "api.anthropic.com" : provider === "openrouter" ? "openrouter.ai" : "api.openai.com");
     expect(JSON.parse(init.body).model).toBe(route.model);
+    const cap = provider === "openai" ? "max_completion_tokens" : "max_tokens";
+    expect(JSON.parse(init.body)[cap]).toBe(MAX_OUTPUT_TOKENS);
     expect(init.headers[provider === "anthropic" ? "x-api-key" : "Authorization"]).toContain("fake-only");
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });

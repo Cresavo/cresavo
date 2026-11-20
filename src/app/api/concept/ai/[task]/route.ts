@@ -9,12 +9,15 @@ import { publicReadonlyResponse } from "@/lib/public-readonly";
 export const runtime = "nodejs";
 
 const takeLiveCall = createRateLimiter({ max: 8, windowMs: 60_000 });
+// A daily ceiling per instance on top of the per-caller limit, so a leaked token cannot run up a bill.
+const DAILY_LIVE_CALLS = 200;
+const takeDailyCall = createRateLimiter({ max: DAILY_LIVE_CALLS, windowMs: 86_400_000 });
 
 function allowProvider(request: Request): boolean {
   if (!fromSameOrigin(request) ||
       tokenSource() !== "env" || !checkBearer(request.headers).ok) return false;
   const caller = waitlistClientKey(request.headers);
-  return caller !== UNVERIFIED_CLIENT && takeLiveCall(caller).ok;
+  return caller !== UNVERIFIED_CLIENT && takeLiveCall(caller).ok && takeDailyCall("all").ok;
 }
 
 export const POST = withRequestLog("/api/concept/ai/[task]", async (request: Request, context: { params: Promise<{ task: string }> }, log) => {
