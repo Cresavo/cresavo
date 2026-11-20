@@ -52,25 +52,41 @@ export function tlsProxy(leaf: Leaf, target: number, client: "x-forwarded-for" |
 }
 
 /** HTTPS request from the operator process, resolving only the given host to loopback and trusting only the run CA. */
-export function operatorFetch(ca: Buffer, url: string, init: { method?: string; headers?: Record<string, string>; body?: string } = {}) {
+export function operatorFetch(ca: Buffer, url: string,
+  init: { method?: string; headers?: Record<string, string>; body?: string; timeoutMs?: number; maxBytes?: number } = {}) {
   const target = new URL(url);
+  // The whole exchange is bounded, not only idle time: a response that keeps trickling data
+  // or grows without end is cut off with a static code, so the runner always reaches cleanup.
+  const timeoutMs = init.timeoutMs ?? 20_000, maxBytes = init.maxBytes ?? 4 * 1024 * 1024;
   return new Promise<{ status: number; headers: IncomingHttpHeaders; text: string }>((resolve, reject) => {
+    let settled = false;
+    const finish = (error: Error | null, value?: { status: number; headers: IncomingHttpHeaders; text: string }) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      if (error) { req.destroy(); reject(error); } else resolve(value!);
+    };
     const req = httpsRequest({ host: target.hostname, port: target.port, path: target.pathname + target.search, method: init.method ?? "GET",
       headers: init.headers, ca, servername: target.hostname,
       lookup: ((_host: string, options: { all?: boolean }, callback: (...args: unknown[]) => void) =>
         options.all ? callback(null, [{ address: "127.0.0.1", family: 4 }]) : callback(null, "127.0.0.1", 4)) as never }, response => {
       const chunks: Buffer[] = [];
-      response.on("data", chunk => chunks.push(chunk));
-      response.on("end", () => resolve({ status: response.statusCode ?? 0, headers: response.headers, text: Buffer.concat(chunks).toString("utf8") }));
+      let size = 0;
+      response.on("data", (chunk: Buffer) => {
+        size += chunk.length;
+        if (size > maxBytes) return finish(new Error("OPERATOR_FETCH_TOO_LARGE"));
+        chunks.push(chunk);
+      });
+      response.on("end", () => finish(null, { status: response.statusCode ?? 0, headers: response.headers, text: Buffer.concat(chunks).toString("utf8") }));
       // A connection that closes after the headers but before the body is complete is reported on
       // the response, not the request: settle with a static code instead of waiting forever.
-      const interrupted = () => reject(new Error("OPERATOR_FETCH_INTERRUPTED"));
+      const interrupted = () => finish(new Error("OPERATOR_FETCH_INTERRUPTED"));
       response.on("error", interrupted);
       response.on("aborted", interrupted);
       response.on("close", () => { if (!response.complete) interrupted(); });
     });
-    req.on("error", reject);
-    req.setTimeout(15000, () => req.destroy(new Error("OPERATOR_FETCH_TIMEOUT")));
+    const deadline = setTimeout(() => finish(new Error("OPERATOR_FETCH_TIMEOUT")), timeoutMs);
+    req.on("error", () => finish(new Error("OPERATOR_FETCH_FAILED")));
     req.end(init.body);
   });
 }

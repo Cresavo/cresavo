@@ -26,6 +26,8 @@ const en = {
   timeZone: "Time zone",
   duration: "Duration",
   minutes: "{n} minutes",
+  // A local time that occurs twice (the hour repeated when clocks go back) with its UTC offset.
+  ambiguousTime: "{time} (UTC{offset})",
   price: "Price",
   currency: "Currency",
   expires: "Approve before",
@@ -59,6 +61,7 @@ const sv: typeof en = {
   timeZone: "Tidszon",
   duration: "Längd",
   minutes: "{n} minuter",
+  ambiguousTime: "{time} (UTC{offset})",
   price: "Pris",
   currency: "Valuta",
   expires: "Godkänn senast",
@@ -143,14 +146,42 @@ export function consentOutcome(phase: "view" | "yes" | "no", response: ConsentRe
 }
 export const stagingCopy: Record<Locale, StagingCopy> = { en, sv };
 
+// The wall-clock reading of an instant in a zone, to the minute.
+const wall = (timeZone: string, at: Date) => new Intl.DateTimeFormat("en-GB", {
+  timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+}).format(at);
+
+/**
+ * True when the same local date and time also names another instant in this zone: the hour that
+ * repeats when clocks go back (30-minute and 2-hour shifts included). Both instants would otherwise
+ * read the same on the page although the proposal binds one of them.
+ */
+export function isAmbiguousLocalTime(timeZone: string, at: Date) {
+  const shown = wall(timeZone, at);
+  return [30, 60, 120].some(minutes => [-1, 1].some(sign => wall(timeZone, new Date(+at + sign * minutes * 60_000)) === shown));
+}
+
+/** The zone's offset from UTC at this instant, as "+02:00" or "-03:30". */
+export function utcOffset(timeZone: string, at: Date) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).formatToParts(at).map(p => [p.type, p.value]));
+  const local = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
+  const minutes = Math.round((local - Math.floor(+at / 1000) * 1000) / 60_000);
+  const sign = minutes < 0 ? "-" : "+", abs = Math.abs(minutes);
+  return `${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
+}
+
 /** One formatter for the page and the staging runner, so both read the same displayed terms. */
 export function formatStagingTerms(locale: Locale, timeZone: string, terms: { start: string; expiresAt: string; amountMinor: number; currency: string }) {
   const tag = intlLocale(locale);
-  const at = new Date(terms.start);
+  const at = new Date(terms.start), until = new Date(terms.expiresAt);
+  // Only a repeated local time carries its offset; every other time reads as before.
+  const exact = (text: string, instant: Date) => isAmbiguousLocalTime(timeZone, instant)
+    ? stagingCopy[locale].ambiguousTime.replace("{time}", text).replace("{offset}", utcOffset(timeZone, instant)) : text;
   return {
     date: new Intl.DateTimeFormat(tag, { timeZone, dateStyle: "full" }).format(at),
-    time: new Intl.DateTimeFormat(tag, { timeZone, timeStyle: "short" }).format(at),
-    expires: new Intl.DateTimeFormat(tag, { timeZone, dateStyle: "medium", timeStyle: "short" }).format(new Date(terms.expiresAt)),
+    time: exact(new Intl.DateTimeFormat(tag, { timeZone, timeStyle: "short" }).format(at), at),
+    expires: exact(new Intl.DateTimeFormat(tag, { timeZone, dateStyle: "medium", timeStyle: "short" }).format(until), until),
     price: new Intl.NumberFormat(tag, { style: "currency", currency: terms.currency }).format(terms.amountMinor / 100),
   };
 }

@@ -8,7 +8,7 @@ import { runtimePolicy } from "../scripts/client-address.mjs";
 import { requireStagingConsent, STAGING_CHANNEL, STAGING_CUSTOMER, stagingApprovalLink, stagingConsentOrigin } from "../src/lib/agent-api/consent-staging";
 import { assertCustomerChannelBinding, CHANNEL_CUSTOMER, CUSTOMER_CHANNEL, separateCustomerChannel } from "../src/lib/agent-api/customer-channel-lab";
 import { browserHostKind, resolveHost } from "../src/concept/page/resolve";
-import { consentOutcome, formatStagingTerms, parseStagingView, recheckable, retryAfterSeconds, stagingCopy } from "../src/app/consent/[id]/staging-copy";
+import { consentOutcome, formatStagingTerms, isAmbiguousLocalTime, parseStagingView, utcOffset, recheckable, retryAfterSeconds, stagingCopy } from "../src/app/consent/[id]/staging-copy";
 import { POST } from "../src/app/consent/[id]/decision/route";
 import { agentApiErrors } from "../src/lib/agent-api/errors";
 import { proxy } from "../src/proxy";
@@ -98,6 +98,28 @@ describe("staging link and recipient", () => {
     expect(shown.time).toBe("10:30");
     expect(shown.date).toMatch(/^Monday,? 7 December 2026$/);
     expect(shown.price).toContain("520.00");
+  });
+  it("tells apart the two instants of the hour repeated when clocks go back", () => {
+    const terms = (start: string, expiresAt = "2026-10-20T08:00:00Z") => ({ start, expiresAt, amountMinor: 52000, currency: "SEK" });
+    // 25 October 2026 in Stockholm: 02:30 happens first at +02:00 (00:30Z), then at +01:00 (01:30Z).
+    for (const locale of ["en", "sv"] as const) {
+      const first = formatStagingTerms(locale, "Europe/Stockholm", terms("2026-10-25T00:30:00Z"));
+      const second = formatStagingTerms(locale, "Europe/Stockholm", terms("2026-10-25T01:30:00Z"));
+      expect(first.time).toBe("02:30 (UTC+02:00)");
+      expect(second.time).toBe("02:30 (UTC+01:00)");
+      expect(first.date).toBe(second.date);
+      // Every other time, the spring-forward day included, reads as before.
+      for (const start of ["2026-10-25T02:30:00Z", "2026-10-24T23:30:00Z", "2026-03-29T00:30:00Z", "2026-03-29T01:30:00Z", "2026-12-07T09:30:00Z"])
+        expect(formatStagingTerms(locale, "Europe/Stockholm", terms(start)).time, start).not.toContain("UTC");
+      // The approval deadline too.
+      expect(formatStagingTerms(locale, "Europe/Stockholm", terms("2026-12-07T09:30:00Z", "2026-10-25T01:45:00Z")).expires).toContain("(UTC+01:00)");
+    }
+    expect(utcOffset("Europe/Stockholm", new Date("2026-07-01T12:00:00Z"))).toBe("+02:00");
+    expect(utcOffset("America/St_Johns", new Date("2026-01-15T12:00:00Z"))).toBe("-03:30");
+    // A 30-minute shift: Lord Howe Island repeats 01:30-02:00 on 5 April 2026.
+    expect(isAmbiguousLocalTime("Australia/Lord_Howe", new Date("2026-04-04T14:45:00Z"))).toBe(true);
+    expect(isAmbiguousLocalTime("Australia/Lord_Howe", new Date("2026-04-04T15:15:00Z"))).toBe(true);
+    expect(isAmbiguousLocalTime("Australia/Lord_Howe", new Date("2026-06-01T00:00:00Z"))).toBe(false);
   });
 });
 
@@ -328,6 +350,14 @@ describe("staging runner preflight", () => {
       { PW_CHROMIUM_ATTACH_TO_OTHER: "1" }, { PW_TEST_REUSE_CONTEXT: "1" }])
       expect(() => refuseRemoteBrowsers(env), JSON.stringify(env)).toThrow(/^STAGING_REMOTE_BROWSER_REFUSED$/);
   });
+  it("isolates the browser to the salon host, IP literals and redirects included", async () => {
+    const { hostIsolation } = await import("../scripts/staging-consent/browsers.mjs");
+    expect(hostIsolation("salon-demo.cresavo.test")).toEqual([
+      "--host-rules=MAP salon-demo.cresavo.test 127.0.0.1, MAP * ~NOTFOUND",
+      "--host-resolver-rules=MAP salon-demo.cresavo.test 127.0.0.1, MAP * ~NOTFOUND",
+    ]);
+    for (const host of ["salon.test, MAP * 127.0.0.1", "salon test", ""]) expect(() => hostIsolation(host)).toThrow(/^STAGING_HOST_INVALID$/);
+  });
   it("cannot launch a browser while a remote grid is configured, whoever calls it", async () => {
     const { launchBrowser } = await import("../scripts/staging-consent/browsers.mjs");
     vi.stubEnv("SELENIUM_REMOTE_URL", "http://127.0.0.1:1/wd/hub");
@@ -338,8 +368,13 @@ describe("staging runner preflight", () => {
     const { refuseDiagnostics } = await import("../scripts/staging-consent/preflight.mjs");
     expect(() => refuseDiagnostics({})).not.toThrow();
     expect(() => refuseDiagnostics({ DEBUG: "" })).not.toThrow();
-    for (const env of [{ DEBUG: "pw:api" }, { DEBUG: "*" }, { DEBUG_FILE: "/tmp/x" }, { PWDEBUG: "1" }, { NODE_DEBUG: "http,tls" }, { NODE_OPTIONS: "--inspect" }])
-      expect(() => refuseDiagnostics(env), JSON.stringify(env)).toThrow(/^STAGING_DIAGNOSTICS_REFUSED$/);
+    for (const env of [{ DEBUG: "pw:api" }, { DEBUG: "*" }, { DEBUG_FILE: "/tmp/x" }, { PWDEBUG: "1" }, { NODE_DEBUG: "http,tls" }, { NODE_OPTIONS: "--inspect" },
+      // TLS session keys for every connection of the run, written outside it.
+      { SSLKEYLOGFILE: "/tmp/keys.log" }, { NODE_OPTIONS: "--use-openssl-ca --tls-keylog=/tmp/keys.log" }])
+      expect(() => refuseDiagnostics(env, []), JSON.stringify(env)).toThrow(/^STAGING_DIAGNOSTICS_REFUSED$/);
+    // The runner's own Node flags, not only NODE_OPTIONS.
+    expect(() => refuseDiagnostics({}, ["--import", "tsx", "--tls-keylog=/tmp/keys.log"])).toThrow(/^STAGING_DIAGNOSTICS_REFUSED$/);
+    expect(() => refuseDiagnostics({ NODE_OPTIONS: "--use-openssl-ca" }, ["--import", "tsx"])).not.toThrow();
   });
   it("never puts a malformed database URL, or its password, into the error", async () => {
     const { loopbackAdminUrl } = await import("../scripts/staging-consent/preflight.mjs");

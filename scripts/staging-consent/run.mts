@@ -19,7 +19,8 @@ import { captureStream, freePort, guardStream, leakedStreams, runStep, startServ
 import { agentChannel } from "./agent-reply.mjs";
 import { loopbackAdminUrl, refuseDiagnostics, refuseRemoteBrowsers } from "./preflight.mjs";
 import { issueCertificates, operatorFetch, tlsProxy } from "./tls.mjs";
-import { approveWithLostResponse, close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking, reopenInSameTab } from "./browsers.mjs";
+import { createServer as createHttpServer } from "node:http";
+import { approveWithLostResponse, close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking, reopenInSameTab, salonContext } from "./browsers.mjs";
 
 const repo = realpathSync(fileURLToPath(new URL("../..", import.meta.url)));
 const pin = JSON.parse(readFileSync(join(repo, "scripts/staging-consent/gateway.json"), "utf8"));
@@ -56,7 +57,7 @@ const salonHost = (process.env.STAGING_SALON_HOST ?? "salon-demo.cresavo.test").
 for (const host of [gatewayHost, salonHost]) assert(hostPattern.test(host) && !isIP(host), "STAGING_HOST_INVALID");
 assert.notEqual(gatewayHost, salonHost, "STAGING_HOSTS_MUST_DIFFER");
 // Before any link exists: diagnostics that would print URLs outside the sanitizer are refused.
-refuseDiagnostics(process.env);
+refuseDiagnostics(process.env, process.execArgv);
 refuseRemoteBrowsers(process.env);
 // Throws a static code only: the value may hold a password and nothing is registered for redaction yet.
 const adminUrl = loopbackAdminUrl(process.env.STAGING_PG_ADMIN_URL);
@@ -471,6 +472,30 @@ try {
     const decision = await operatorFetch(tls.ca, `${salonOrigin}/consent/${happyProposal.id}/decision`, { method: "POST",
       headers: { origin: salonOrigin, "content-type": "application/json", authorization: `Bearer ${agentKey.key}` }, body: "{}" });
     assert.equal(decision.status, 403);
+  });
+
+  await scenario("CUSTOMER_BROWSER_REACHES_ONLY_THE_SALON_ORIGIN", async () => {
+    // A real loopback listener that would answer if the browser could reach it.
+    let hits = 0;
+    const probe = createHttpServer((_req, res) => { hits++; res.end("reached"); });
+    await new Promise<void>((resolveListen, reject) => { probe.once("error", reject); probe.listen(0, "127.0.0.1", resolveListen); });
+    const probePort = (probe.address() as { port: number }).port;
+    const context = await salonContext(customerBrowser, salonOrigin);
+    try {
+      const page = await context.newPage();
+      page.setDefaultTimeout(10_000);
+      // Direct navigation: an IP literal, localhost, the gateway, the salon's own plain port.
+      for (const url of [`http://127.0.0.1:${probePort}/`, `http://localhost:${probePort}/`, `${gatewayOrigin}/`, `http://127.0.0.1:${salonPort}/`])
+        await assert.rejects(page.goto(url), `navigation to ${new URL(url).host} was allowed`);
+      // A redirect from the salon origin to elsewhere, secret-shaped fragment included. A route
+      // handler never sees the redirect target, so this checks the browser's own refusal.
+      await page.route(`${salonOrigin}/redirect-probe`, route => route.fulfill({ status: 302, headers: { location: `http://127.0.0.1:${probePort}/leak#${"Z".repeat(43)}` } }));
+      await assert.rejects(page.goto(`${salonOrigin}/redirect-probe`));
+      assert.equal(hits, 0, "a non-salon destination was reached");
+    } finally {
+      await context.close();
+      await new Promise<void>(resolveClose => probe.close(() => resolveClose()));
+    }
   });
 
   await scenario("NO_LINK_OR_SECRET_IN_AGENT_RESPONSES_OR_PROCESS_OUTPUT", async () => {

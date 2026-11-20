@@ -18,6 +18,9 @@ describe.skipIf(!hasOpenssl)("operator HTTPS requests", () => {
     ca = tls.ca;
     server = createServer({ key: tls.leaves[host].key, cert: tls.leaves[host].cert }, (req, res) => {
       if (req.url === "/whole") { res.writeHead(200, { "content-type": "text/plain" }); res.end("complete"); return; }
+      // A response that never ends: a little data every 50 ms, so no idle timeout fires.
+      if (req.url === "/trickle") { res.writeHead(200, { "content-type": "text/plain" }); const timer = setInterval(() => res.write("."), 50); res.on("close", () => clearInterval(timer)); return; }
+      if (req.url === "/huge") { res.writeHead(200, { "content-type": "text/plain" }); res.end("x".repeat(64 * 1024)); return; }
       // Headers and part of the body, then the connection drops.
       res.writeHead(200, { "content-type": "text/plain", "content-length": "1000" });
       res.write("partial");
@@ -31,6 +34,13 @@ describe.skipIf(!hasOpenssl)("operator HTTPS requests", () => {
   it("returns a complete response", async () => {
     await expect(operatorFetch(ca, `https://${host}:${port}/whole`)).resolves.toMatchObject({ status: 200, text: "complete" });
   });
+  it("bounds the whole response in time and size, with static codes", async () => {
+    const started = Date.now();
+    await expect(operatorFetch(ca, `https://${host}:${port}/trickle`, { timeoutMs: 400 })).rejects.toThrow(/^OPERATOR_FETCH_TIMEOUT$/);
+    expect(Date.now() - started).toBeLessThan(3000);
+    await expect(operatorFetch(ca, `https://${host}:${port}/huge`, { maxBytes: 1024 })).rejects.toThrow(/^OPERATOR_FETCH_TOO_LARGE$/);
+    await expect(operatorFetch(ca, `https://${host}:${port}/huge`)).resolves.toMatchObject({ status: 200 });
+  }, 10_000);
   it("rejects when a TLS listener cannot bind, so the runner reaches its cleanup", async () => {
     const { tlsProxy } = await import("../scripts/staging-consent/tls.mjs");
     const leaf = issueCertificates(dir, [host]).leaves[host];

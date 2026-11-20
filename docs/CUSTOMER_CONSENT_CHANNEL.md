@@ -62,7 +62,9 @@ approved. The proposal never outlives its start time.
    The page moves the secret into memory, removes it from the address bar and posts a
    `view` request. It shows the salon name and location, service, staff, date and time
    in the salon's time zone, the time zone, duration, price, currency and the time the
-   proposal expires. Opening the page approves nothing.
+   proposal expires. A local time that occurs twice (the hour repeated when clocks go back)
+   is shown with its UTC offset, for example `02:30 (UTC+01:00)`, so the two instants never
+   read the same. Opening the page approves nothing.
 5. Approve or Decline posts the secret and the displayed `proposalHash` to
    `/consent/<id>/decision` on the consent origin. The hash covers business, agent
    client, service, staff, location, schedule, start, duration, price and currency. The
@@ -170,8 +172,8 @@ The runner:
    error prints a static code and still cleans up. Every child runs in its own process
    group, which shutdown signals as a whole; at the deadline the runner also closes its side
    of the pipes so nothing left behind keeps it running. An install or build step that
-   reaches its deadline fails at once, a TLS listener or port probe that cannot bind fails, and an operator request whose response is cut off
-   fails with a static code, so neither can hold up cleanup.
+   reaches its deadline fails at once, a TLS listener or port probe that cannot bind fails, and an operator request whose response is cut off,
+   takes longer than 20 seconds in total or exceeds 4 MiB fails with a static code, so neither can hold up cleanup.
 
    The runner refuses to start with diagnostic settings that would print URLs, including
    approval links, from this process outside its sanitizer: `DEBUG`, `DEBUG_FILE`,
@@ -180,6 +182,14 @@ The runner:
    Playwright drive a browser elsewhere and send approval links off the machine: any
    `SELENIUM_REMOTE_*` or `PW_TEST_CONNECT_*` variable, `PW_CHROMIUM_ATTACH_TO_OTHER` and
    `PW_TEST_REUSE_CONTEXT`. The check runs in preflight and again before every browser launch.
+   TLS key logging is refused too: `SSLKEYLOGFILE`, and `--tls-keylog` in `NODE_OPTIONS` or the
+   runner's own Node flags.
+
+   The customer and owner browsers can reach only the salon host. Chromium maps that host to
+   loopback and every other host, IP literals and redirect targets included, to "not found"
+   (`--host-rules`), and each browser context also aborts any request outside the salon origin.
+   A check navigates to a loopback listener by IP, to `localhost`, to the gateway and through a
+   redirect from the salon origin, and confirms none of them was reached.
 9. Drops the database and deletes the temporary directory, also on failure.
 
 Output is limited to static check codes, host names, revisions and counts. Every line

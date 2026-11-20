@@ -5,14 +5,33 @@ import { chromium, type Browser, type Page } from "@playwright/test";
 import { registerSecret } from "./sanitize.mjs";
 import { refuseRemoteBrowsers } from "./preflight.mjs";
 
+/** Chromium switches that map the salon host to loopback and every other host, IPs included, to nothing. */
+export function hostIsolation(host: string) {
+  if (!/^[a-z0-9.-]+$/.test(host)) throw new Error("STAGING_HOST_INVALID");
+  const rules = `MAP ${host} 127.0.0.1, MAP * ~NOTFOUND`;
+  return [`--host-rules=${rules}`, `--host-resolver-rules=${rules}`];
+}
+
+/**
+ * A fresh context that also refuses, at the request level, anything outside the salon origin: a
+ * second layer for the first request of every navigation, subresource and fetch.
+ */
+export async function salonContext(browser: Browser, origin: string) {
+  const context = await browser.newContext({ locale: "en-GB" });
+  await context.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort("blockedbyclient"));
+  return context;
+}
+
 export async function launchBrowser(host: string, spki: string) {
   // Also here, so no caller can start a remote session: Playwright reads these from this
   // process's environment, not from the `env` given to the browser below.
   refuseRemoteBrowsers(process.env);
   return chromium.launch({
     ...(process.env.STAGING_CHROMIUM_PATH ? { executablePath: process.env.STAGING_CHROMIUM_PATH } : {}),
-    // No proxy, only this host on loopback, and only this run's leaf certificate trusted.
-    args: ["--no-proxy-server", `--host-resolver-rules=MAP ${host} 127.0.0.1`, `--ignore-certificate-errors-spki-list=${spki}`],
+    // No proxy, and only this run's leaf certificate trusted. Every destination except the salon
+    // host is refused by the browser's network stack itself: `--host-rules` also applies to IP
+    // literals and to every hop of a redirect, which a route handler does not see.
+    args: ["--no-proxy-server", ...hostIsolation(host), `--ignore-certificate-errors-spki-list=${spki}`],
     env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "/tmp" },
   });
 }
@@ -22,7 +41,7 @@ const settled = '[data-consent-state]:not([data-consent-state="loading"])';
 
 /** Opens the customer's link and waits until the page has read the proposal. */
 export async function openConsent(browser: Browser, link: string): Promise<ConsentView> {
-  const context = await browser.newContext({ locale: "en-GB" });
+  const context = await salonContext(browser, new URL(link).origin);
   const page = await context.newPage();
   page.setDefaultTimeout(20_000);
   await page.goto(link);
@@ -88,7 +107,7 @@ export function expectedText(page: Page, input: { start: string; expiresAt: stri
 
 /** An owner logs in through the salon's HTTPS form and opens exactly this booking from the calendar. */
 export async function ownerOpensBooking(browser: Browser, salon: string, day: string, bookingId: string, email: string, password: string) {
-  const context = await browser.newContext({ locale: "en-GB" });
+  const context = await salonContext(browser, new URL(salon).origin);
   try {
     const page = await context.newPage();
     page.setDefaultTimeout(20_000);
