@@ -3,7 +3,6 @@
 import { useState, type ReactNode } from "react";
 import { CalendarHeart, Clock, Megaphone, MessageSquare, Package, PackageCheck, UserRoundCheck, X } from "lucide-react";
 import { prefillForHoliday, studioHref } from "../../campaigns/prefill";
-import { textWaitlistAboutGaps } from "../../booking/waitlist-offer";
 import { quietDay } from "../../campaigns/quiet-day";
 import { diffDays } from "../../data/dates";
 import { freeGaps } from "../../data/slots";
@@ -18,7 +17,7 @@ import { Button, ButtonLink, IconButton } from "../../ui/button";
 import type { OpenSheet } from "../booking/booking-sheets";
 import { useForecasts } from "../stock/use-forecasts";
 import { useStudio } from "../use-studio";
-import { dispatchWithUndoToast } from "../log/undo-toast";
+import { offerGapsToWaitlist } from "../booking/offer-waitlist";
 import { suggestionLimit } from "./limits";
 
 const QUIET_DISCOUNT = 10;
@@ -41,10 +40,7 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
   const { state, today, minutes } = useStudio();
   const [showAll, setShowAll] = useState(false);
   const list: Suggestion[] = [];
-  const notify = (title: string, body: string, toast: string) => {
-    if (!textWaitlistAboutGaps(state, today)) return;
-    dispatchWithUndoToast({ type: "inbox/add", item: { kind: "system", waitlistOffer: true, date: today, time: minutes, title, body, read: false, handled: true } }, toast);
-  };
+  const notify = (title: string, body: string, toast: string) => { offerGapsToWaitlist({ today, minutes }, { title, body, toast }); };
 
   const lowItems = cardVisible(state.modules, "stock-low") ? lowStock(state).slice(0, 2) : [];
   const forecasts = useForecasts(lowItems);

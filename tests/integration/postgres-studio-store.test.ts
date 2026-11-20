@@ -53,8 +53,9 @@ async function seed(tenantId: string, saved: unknown, kind: TenantKind = "salon"
 function recordingSinks() {
   const delivered: EffectDelivery[] = [];
   const sink: EffectSink = (delivery) => { delivered.push(delivery); };
-  return { delivered, sinks: { payment: sink, message: sink }, payments: (tenantId: string): OutboxEntry[] =>
-    delivered.filter((d) => d.tenantId === tenantId && d.effect.kind === "payment").map((d) => d.effect.record) };
+  const of = (kind: "payment" | "message") => (tenantId: string): OutboxEntry[] =>
+    delivered.filter((d) => d.tenantId === tenantId && d.effect.kind === kind).map((d) => d.effect.record);
+  return { delivered, sinks: { payment: sink, message: sink }, payments: of("payment"), messages: of("message") };
 }
 
 let contractStore: PostgresStudioStore | undefined;
@@ -68,9 +69,9 @@ runStudioStoreContract("PostgresStudioStore", async (seeds) => {
   const b = tenantIds("b");
   await seed(a, seeds.a);
   await seed(b, seeds.b, "salon");
-  const { sinks, payments } = recordingSinks();
+  const { sinks, payments, messages } = recordingSinks();
   const store = contractStore = new PostgresStudioStore({ prisma: db, hmacSecret, sinks });
-  return { store, tenants: { a, b }, open: async () => {}, payments };
+  return { store, tenants: { a, b }, open: async () => {}, payments, messages };
 });
 
 const today = toKey(new Date());

@@ -2,7 +2,7 @@
 
 Status **Step 2 of decision 1** in [ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md).
 The Postgres work in items 1–10 of the [build order](#build-order) is staged.
-Browser message staging remains a separate change.
+The browser store stages messages as well as payments ([BROWSER_STORE_IDB.md](BROWSER_STORE_IDB.md), PR 2).
 
 Studio and server code should read and change a salon through `StudioStore`
 (`src/concept/store/studio-store.ts`), not through the browser store directly.
@@ -38,7 +38,7 @@ interface TenantAction {
 | Versions | Every commit increments `version` by exactly one. With `expectedVersion`, a stale version is `conflict` and changes nothing. |
 | Serialized applies | Applies to one tenant run one at a time. Without `expectedVersion` the reducer decides against the latest state, so two bookings for one slot never both succeed. |
 | Idempotency | Keys are scoped per tenant. The same key and the same action (canonical JSON) return the first result (its state, version, entry and effects) with `replayed: true`, even after later commits. The reducer does not run again and effects are not published again. The same key with another action is `idempotency-mismatch`. Refused applies are not remembered, so a retry runs the rules again. |
-| Effects after commit | Calls are staged while the reducer runs and published only after the commit, then reported in the result and to subscribers. The memory store stages payments, SMS, email and social posts. The browser store stages payments only, as `dispatchWithLog` does today. |
+| Effects after commit | Calls are staged while the reducer runs and published only after the commit, then reported in the result and to subscribers. The memory and browser stores stage payments, SMS, email and social posts; `dispatchWithLog` publishes them only after its save. |
 | Detached values | Results, loaded states, history entries and each subscriber's payload are copies. The store copies the action it receives. Editing any of them never changes what is stored. |
 | Append-only log | Each commit appends one `TenantAction` with `seq` 1, 2, 3 and so on. `history` pages it oldest first. Privileged erasure redacts entries and maintenance applies demo and sandbox retention. The log differs from `state.log`, which is capped at 100 entries, skips unlogged actions such as `card/dismiss`, and supports undo. |
 | Isolation | One tenant's state, log, idempotency keys, effects and notifications are never visible through another tenant's ID. |
@@ -102,6 +102,7 @@ covers:
 - idempotency replay returns the original state, entry, version and effects even after a later commit, and the recording payment sink (`harness.payments`) gets exactly one charge; key reuse with another action returns `idempotency-mismatch`; a refused key is not remembered
 - refused actions (unknown booking, taken slot, unknown treatment, a semantic no-op price change) leave everything unchanged and do not use up their keys
 - effects only after commit: the sink receives the deposit only after the commit, a listener already reads the committed state, and conflicts and refusals publish nothing
+- messages only for commits: a refused or conflicting apply records no message, a commit exactly one (`harness.messages`)
 - two concurrent applies for one slot: one wins, and the other is `rejected` without a version or `conflict` with one
 - cancel then rebook the same slot; a second cancel is refused
 - customer deletion removes the customer from a later load
@@ -487,7 +488,7 @@ Adopted 19 November 2026 through the owner's delegation. They replace the first 
 7. [S] Erasure and the zero-hits test.
 8. Idempotency sweeper, expiry tests and caller prefixing.
 9. Demo reset, sandbox lifecycle and its sweeper.
-10. Size and latency metrics and the 10,000-booking load test. Browser message staging remains a separate PR.
+10. Size and latency metrics and the 10,000-booking load test. Browser message staging followed as a separate PR.
 
 ## Open questions
 

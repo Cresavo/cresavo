@@ -76,6 +76,7 @@ runStudioStoreContract("BrowserStudioStore", async (seeds) => {
     open: async (tenantId) => { await legacy.switchSalon(tenantId as "demo" | "own"); },
     // Both workspaces of a tab share one simulated outbox; the contract reads it for one tenant at a time.
     payments: () => demoOutbox.list("payments"),
+    messages: () => demoOutbox.list().filter((record) => record.port === "sms" || record.port === "email"),
   };
 });
 

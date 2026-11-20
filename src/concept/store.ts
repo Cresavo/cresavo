@@ -6,7 +6,7 @@ import { toKey } from "./data/dates";
 import { createDemoState, type BusinessSetup } from "./data/generate";
 import { migrateState } from "./data/migrate";
 import type { DemoState } from "./data/types";
-import { demoPaymentLedger } from "./connections/demo";
+import { stageDemoSends, withDemoChannels } from "./connections/demo";
 import { prepareAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
 import { publicView } from "./selectors";
@@ -300,14 +300,27 @@ export function dispatch(action: DemoAction, meta?: Partial<Omit<LogMeta, "at">>
   return dispatchWithLog(action, meta) !== false;
 }
 
+/** More for a change than its action: sends that belong to it, staged and published with it. */
+export interface DispatchOptions {
+  /**
+   * Simulated sends that belong to the change but not to its reducer (an offer
+   * text to the waiting list). Runs on the state the action is applied to,
+   * staged like the reducer's own sends; false refuses the whole change.
+   */
+  send?: (current: DemoState) => boolean;
+}
+
 /**
  * Returns the new log entry ID, null for an unlogged change, or false on refusal.
  * A caller's guard runs against the same refreshed state as the action.
+ * Everything the change sends (payments, SMS, email, posts) is staged and
+ * reaches the outbox only after the save; a refused or discarded attempt sends nothing.
  */
 export function dispatchWithLog(
   action: DemoAction,
   meta?: Partial<Omit<LogMeta, "at">>,
   canApply?: (current: DemoState) => boolean,
+  options: DispatchOptions = {},
 ): string | null | false {
   initialize();
   const workspace = active;
@@ -317,8 +330,11 @@ export function dispatchWithLog(
   while (true) {
     const current = getSnapshot();
     if (!current || active !== workspace || (canApply && !canApply(current))) return false;
-    const batch = demoPaymentLedger.stage();
-    const next = prepareAction(current, action, logMeta, batch);
+    const batch = stageDemoSends();
+    const next = withDemoChannels(batch, () => {
+      const prepared = prepareAction(current, action, logMeta, batch);
+      return prepared !== current && options.send && !options.send(current) ? current : prepared;
+    });
     if (next === current) return false;
     // Includes undo, which can restore a previously free address.
     if (next.salon.slug !== current.salon.slug && next.salon.slug === workspaceSlug(active === "demo" ? "own" : "demo")) return false;

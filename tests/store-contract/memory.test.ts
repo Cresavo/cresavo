@@ -23,6 +23,7 @@ runStudioStoreContract("MemoryStudioStore", async (seeds) => {
     tenants: { a: "salon-a", b: "salon-b" },
     open: async () => {},
     payments: (tenantId) => store.published(tenantId).filter((record) => record.port === "payments"),
+    messages: (tenantId) => store.published(tenantId).filter((record) => record.port === "sms" || record.port === "email"),
   };
 });
 

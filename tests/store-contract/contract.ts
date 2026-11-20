@@ -31,6 +31,8 @@ export interface ContractHarness {
   open(tenantId: TenantId): Promise<void>;
   /** Every payment the store has actually published for this tenant (the recording sink), oldest first. */
   payments(tenantId: TenantId): OutboxEntry[];
+  /** Every message (SMS, email) the store has actually published for this tenant, oldest first. */
+  messages(tenantId: TenantId): OutboxEntry[];
 }
 
 export type MakeStore = (seeds: ContractSeeds) => Promise<ContractHarness>;
@@ -245,6 +247,27 @@ export function runStudioStoreContract(name: string, makeStore: MakeStore) {
       const loaded = (await seenByListener) as Awaited<ReturnType<StudioStore["load"]>>;
       expect(loaded?.version).toBe(paid.version);
       expect(loaded?.state.bookings.some((b) => b.protection?.deposit?.id)).toBe(true);
+    });
+
+    it("records no message for a refused or conflicting apply, and exactly one for a commit", async () => {
+      const harness = await setup();
+      const { store, a, initial } = harness;
+      const booking = initial.state.bookings.find((b) => b.status === "booked" && b.date > today)!;
+      const send: DemoAction = { type: "booking-message/send", bookingId: booking.id, channel: "sms", kind: "reminder", at: { date: today, time: 0 } };
+      const sent = harness.messages(a).length;
+      expect(await store.apply(a, send, {}, { expectedVersion: initial.version - 1 })).toMatchObject({ ok: false, reason: "conflict" });
+      expect(await store.apply(a, { ...send, bookingId: "no-such-booking" })).toMatchObject({ ok: false, reason: "rejected" });
+      expect(harness.messages(a)).toHaveLength(sent);
+      const result = await store.apply(a, send, {}, { idempotencyKey: "remind-once" });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const published = harness.messages(a).slice(sent);
+      expect(published).toHaveLength(1);
+      expect(result.effects.filter((e) => e.kind === "message").map((e) => e.record.id)).toEqual([published[0].id]);
+      // A replay and a repeat (the reminder was already sent) publish nothing more.
+      expect((await store.apply(a, send, {}, { idempotencyKey: "remind-once" })).ok).toBe(true);
+      expect(await store.apply(a, send)).toMatchObject({ ok: false, reason: "rejected" });
+      expect(harness.messages(a)).toHaveLength(sent + 1);
     });
 
     it("never double-books: two concurrent applies for one slot, one wins", async () => {

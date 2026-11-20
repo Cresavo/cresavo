@@ -26,6 +26,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- The demo now records a simulated text, email or payment only after its change is saved. A save that is refused or retried because another tab saved first sends nothing extra. Offering a freed time or today's free times to the waiting list sends the text only together with its Inbox note, and nothing if the waiting list was switched off meanwhile.
 - Prisma's configuration loader now uses `effect` 3.22.5, which fixes a high-severity ReDoS advisory (GHSA-7589-6fvf-x4pw) in the dependency tree.
 - The staged Postgres store allows customer erasure, support access revocation and size-reducing writes above 8 MB. It keeps sandbox versions and history scoped to a unique tenant lifetime, ignores stale demo resets, and signals subscribers to refresh when notifications reconnect.
 - A deleted customer whose 30 days in the trash are over is now also removed from the activity log and from the browser's saved copy, so undo can no longer bring them back.

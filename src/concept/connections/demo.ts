@@ -2,7 +2,7 @@ import type { Campaign } from "../data/types";
 import { stableHash } from "./core";
 import type { Outbox, OutboxEntry } from "./simulated/outbox";
 import { createOutbox } from "./simulated/outbox";
-import { simulatedEmail, paymentLedger, simulatedSms, simulatedSocial, type SimulatedEmail, type SimulatedSms } from "./simulated/adapters";
+import { channelLedger, simulatedEmail, paymentLedger, simulatedSms, simulatedSocial, type SimulatedEmail, type SimulatedSms } from "./simulated/adapters";
 import type { SocialPort } from "./ports/social";
 
 // The concept demo's sends go through the ports here, always with the
@@ -32,6 +32,31 @@ const shared: DemoChannels = {
   social: simulatedSocial({ outbox: demoOutbox, currency: DEMO_CURRENCY }),
 };
 let channels = shared;
+
+const demoMessageLedger = channelLedger(demoOutbox, DEMO_CURRENCY);
+
+/**
+ * One browser save's sends, staged: payments (on the payment ledger, which the
+ * direct port shares), SMS, email and posts. Run the reducer inside
+ * `withDemoChannels(stage, …)`; nothing reaches `demoOutbox` until `publish`,
+ * which the store calls only after the save succeeded.
+ */
+export function stageDemoSends() {
+  const payments = demoPaymentLedger.stage();
+  const messages = demoMessageLedger.stage();
+  return {
+    outbox: messages.outbox,
+    sms: messages.sms,
+    email: messages.email,
+    social: messages.social,
+    payments: payments.payments,
+    hasPayments: payments.hasPayments,
+    publish() {
+      payments.publish();
+      messages.publish();
+    },
+  };
+}
 
 /** The demo currency, for stores that build their own channels. */
 export const DEMO_CHANNEL_CURRENCY = DEMO_CURRENCY;

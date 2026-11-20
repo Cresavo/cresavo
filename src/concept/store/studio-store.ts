@@ -48,9 +48,8 @@ export interface ApplyOptions {
 
 /**
  * Something a committed change asks the outside world to do: a payment, or a
- * message or post. `MemoryStudioStore` stages both; the browser store stages
- * payments only, since its messages are still sent from inside the reducer
- * (see docs/design/STUDIO_STORE.md, open questions).
+ * message or post. Every store stages both while the reducer runs and
+ * publishes them only after the commit.
  */
 export interface StoreEffect {
   kind: "payment" | "message";
@@ -141,7 +140,7 @@ export interface HistoryPage {
  *   version; otherwise `conflict`. Without it, the reducer decides against
  *   the latest state, so two bookings for one slot never both succeed.
  * - **Idempotency.** See `ApplyOptions.idempotencyKey`.
- * - **Effects after commit.** Payment calls are staged while the reducer
+ * - **Effects after commit.** Payment and message calls are staged while the reducer
  *   runs and published only when the change is committed, then reported in
  *   the result and to subscribers. A conflict or refusal publishes nothing.
  * - **Log.** Every commit appends one `TenantAction`. Privileged erasure
