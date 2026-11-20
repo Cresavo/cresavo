@@ -7,6 +7,13 @@ import { isFree, needOf, withSlotClock } from "@/concept/data/slots";
 import type { Booking, DemoState } from "@/concept/data/types";
 import { applyAction, defaultMeta } from "@/concept/log/capture";
 import { createSalon, salonDraft } from "@/concept/onboarding/salon";
+import { createDemoState } from "@/concept/data/generate";
+import { isNewBookingCustomer } from "@/concept/booking/lookup";
+import { quote } from "@/concept/booking/protection";
+import { MAX_REQUEST_DAYS } from "@/concept/booking/waitlist-types";
+import { addDays } from "@/concept/data/dates";
+import { t } from "@/concept/i18n";
+import { needsMoving, outsideShift } from "@/concept/ops/needs-moving";
 import { MemoryStudioStore } from "@/concept/store/memory-studio-store";
 
 // Fictional salon, fictional guests. Thursday 19 November 2026, 10:00 in Stockholm.
@@ -40,8 +47,16 @@ function setup(mode: "automatic" | "ask" | "off" = "automatic", state: DemoState
   return join(join(ready, 1), 2, now + 1);
 }
 
+/** The price and policy the offer page shows its customer. */
+function shownTerms(state: DemoState, id: string) {
+  const offer = state.waitlistOffers.find((o) => o.id === id) ?? state.waitlistOffers[0];
+  const service = state.services.find((s) => s.id === offer.serviceId)!;
+  const phone = state.customers.find((c) => c.id === offer.customerId)!.phone;
+  return quote(state.cancellationPolicy, service, state.localization.currency, isNewBookingCustomer(state, phone));
+}
+
 function claim(state: DemoState, id: string, at = now) {
-  return reduce(state, { type: "online/claim", id, notice, termsVersion: state.cancellationPolicy.version }, at);
+  return reduce(state, { type: "online/claim", id, notice, terms: shownTerms(state, id) }, at);
 }
 
 beforeEach(() => demoOutbox.clear());
@@ -122,6 +137,17 @@ describe("offers one customer at a time", () => {
     expect(claim({ ...offered, bookings: initial.bookings }, offer.id).bookings).toEqual(initial.bookings);
   });
 
+  it("refuses a claim when the price changed after the customer saw the offer", () => {
+    const offered = reduce(setup(), cancel, now);
+    const offer = offered.waitlistOffers[0];
+    const shown = shownTerms(offered, offer.id);
+    const repriced = reduce(offered, { type: "service/price", id: serviceId, price: offered.services[0].price + 100 }, now);
+    const action = { type: "online/claim", id: offer.id, notice, terms: shown } as const;
+    expect(reduce(repriced, action, now)).toBe(repriced);
+    const booked = reduce(repriced, { ...action, terms: shownTerms(repriced, offer.id) }, now);
+    expect(booked.bookings.at(-1)).toMatchObject({ customerId: offer.customerId, price: offered.services[0].price + 100 });
+  });
+
   it.each(["online/decline", "online/leave", "waitlist/advance"] as const)("hands the time on exactly once after %s", (type) => {
     const offered = reduce(setup(), cancel, now);
     const first = offered.waitlistOffers[0];
@@ -132,6 +158,23 @@ describe("offers one customer at a time", () => {
     expect(reduce(next, tick, at)).toBe(next);
     expect(claim(next, first.id, at)).toBe(next);
     expect(next.inbox.filter((i) => i.offerId)).toHaveLength(2);
+  });
+
+  it("never texts a customer who withdraws in the first action after a hold ran out", () => {
+    const offered = reduce(setup(), cancel, now);
+    const [first, next] = offered.waitlistEntries;
+    demoOutbox.clear();
+    const at = offered.waitlistOffers[0].expiresAt;
+    const left = reduce(offered, { type: "online/leave", id: next.id }, at);
+    expect(left.waitlistOffers.map((o) => o.status)).toEqual(["lapsed"]);
+    expect(left.waitlistEntries.map((e) => e.id)).toEqual([first.id]);
+    expect(demoOutbox.list("sms")).toEqual([]);
+    // The same withdrawal through a store publishes nothing either.
+    const store = new MemoryStudioStore({ tenants: { demo: offered }, now: () => at });
+    return store.apply("demo", { type: "online/leave", id: next.id }).then((result) => {
+      expect(result.ok).toBe(true);
+      expect(store.published("demo")).toEqual([]);
+    });
   });
 
   it("ends the queue when nobody else fits", () => {
@@ -254,6 +297,102 @@ describe("offers one customer at a time", () => {
   });
 });
 
+describe("edge cases", () => {
+  it("opens the deposit checkout for a claim in a salon with no other bookings, and logs it as held", () => {
+    const state = { ...setup("ask"), bookings: [] };
+    state.cancellationPolicy = { ...state.cancellationPolicy, deposits: { [serviceId]: 15000 } };
+    const [{ gap: open }] = manualGaps(state, date, alex, now);
+    const offered = applyAction(state, { type: "waitlist/offer", gapId: open.id, opening: { date, staffId: alex } }, { actor: "owner", source: "button", at: now });
+    const offer = offered.waitlistOffers[0];
+    const action = { type: "online/claim", id: offer.id, notice, terms: shownTerms(offered, offer.id) } as const;
+    const held = applyAction(offered, action, defaultMeta(action, now));
+    expect(held.checkoutHolds[0]).toMatchObject({ offerId: offer.id });
+    expect(held.log[0]).toMatchObject({ type: "online/claim", summary: t("protection.held") });
+  });
+
+  it("lapses an offer when its room or chair no longer suits the treatment", () => {
+    const initial = setup();
+    initial.resources = [{ id: "room-a", name: "Room A", kind: "room" }, { id: "room-b", name: "Room B", kind: "room" }];
+    initial.services = [{ ...initial.services[0], resourceIds: ["room-a"] }];
+    const offered = reduce(initial, cancel, now);
+    expect(offered.waitlistOffers[0]).toMatchObject({ status: "offered", resourceId: "room-a" });
+    const moved = reduce(offered, { type: "service/resources", id: serviceId, resourceIds: ["room-b"] }, now + 1);
+    expect(moved.waitlistOffers[0].status).toBe("lapsed");
+  });
+
+  it("keeps a gap held by quiet hours when part of it still starts after 08:00", () => {
+    const early = setup();
+    early.salon = { ...early.salon, hours: { ...early.salon.hours, 5: { open: 420, close: 1020 } } };
+    early.staff = early.staff.map((s) => ({ ...s, week: { ...s.week, 5: { start: 420, end: 1020 } } }));
+    early.bookings = [{ ...early.bookings[0], start: 420, duration: 150 }];
+    const evening = Date.parse(`${day}T21:00:00+01:00`);
+    const queued = reduce(early, cancel, evening);
+    expect(queued.waitlistGaps).toMatchObject([{ start: 420, end: 570, readyAt: Date.parse(`${date}T08:00:00+01:00`) }]);
+    const morning = reduce(queued, tick, Date.parse(`${date}T08:00:00+01:00`));
+    expect(morning.waitlistOffers[0].start).toBeGreaterThan(480);
+  });
+
+  it("lets a customer leave from an offer whose treatment was taken off the price list", () => {
+    const offered = reduce(setup(), cancel, now);
+    const offer = offered.waitlistOffers[0];
+    const hidden = reduce(offered, { type: "service/visibility", id: serviceId, hidden: true }, now + 1);
+    expect(hidden.waitlistOffers[0].status).toBe("lapsed");
+    const gone = reduce(hidden, { type: "online/leave", id: offer.id, all: true }, now + 2);
+    expect(gone.waitlistEntries.some((e) => e.customerId === offer.customerId)).toBe(false);
+  });
+
+  it("empties waiting-list activity that names an erased customer", () => {
+    const offered = applyAction(setup(), cancel, defaultMeta(cancel, now));
+    const offer = offered.waitlistOffers[0];
+    const erased = applyAction(offered, { type: "customer/erase", id: offer.customerId }, { actor: "owner", source: "button", at: now });
+    const events = erased.log.filter((e) => e.type === "waitlist/event" && e.customerId === offer.customerId);
+    expect(events.length).toBeGreaterThan(0);
+    for (const event of events) {
+      expect(event.summary).toBe(t("log.erasedEntry"));
+      expect(event.after).toBeUndefined();
+    }
+  });
+
+  it("gives an open offer back its gap, so a restored offer still hands the time on", () => {
+    const offered = reduce(setup(), cancel, now);
+    const restored = reduce({ ...offered, waitlistGaps: [] }, tick, now + 1);
+    expect(restored.waitlistGaps.map((g) => g.id)).toEqual([offered.waitlistOffers[0].gapId]);
+    const declined = reduce(restored, { type: "online/decline", id: offered.waitlistOffers[0].id }, now + 2);
+    expect(declined.waitlistOffers.map((o) => o.status)).toEqual(["declined", "offered"]);
+  });
+
+  it("warns about a visit whose cleanup no longer fits the shift", () => {
+    const state = setup();
+    state.bookings = [{ ...state.bookings[0], start: 945, bufferAfter: 15 }];
+    expect(needsMoving(state, day, 600)).toHaveLength(0);
+    // The visit itself still ends by 16:55; its cleanup does not.
+    const tight = { ...state, exceptions: [{ id: "x", staffId: alex, date, kind: "shift" as const, start: 540, end: 1015 }] };
+    expect(needsMoving(tight, day, 600).map((m) => m.reason)).toEqual(["hours"]);
+    expect(outsideShift(state.bookings[0], { start: 540, end: 1020 })).toBe(false);
+  });
+
+  it("can still offer the free time around a queued gap", () => {
+    const state = { ...setup("ask"), bookings: [], waitlistGaps: [{ ...gap, id: "queued" }] };
+    const parts = manualGaps(state, date, alex, now).map(({ gap: part }) => [part.start, part.end]);
+    expect(parts).toEqual([[540, 600], [660, 1020]]);
+  });
+
+  it("logs a handover that happens while the owner only reads a message", () => {
+    const offered = reduce(setup(), cancel, now);
+    const read = { type: "inbox/read", id: offered.inbox[0].id } as const;
+    const after = applyAction(offered, read, { actor: "owner", source: "button", at: offered.waitlistOffers[0].expiresAt });
+    expect(after.waitlistOffers.map((o) => o.status)).toEqual(["lapsed", "offered"]);
+    expect(after.log.filter((e) => e.type === "waitlist/event").map((e) => e.summary)).toEqual([t("offers.status.offered"), t("offers.status.lapsed")]);
+  });
+
+  it("accepts at most seven days in one request", () => {
+    const week = Array.from({ length: 8 }, (_, i) => addDays(date, i));
+    expect(validPreferences(week.slice(0, MAX_REQUEST_DAYS), { start: 0, end: 1440 }, day)).toBe(true);
+    expect(validPreferences(week, { start: 0, end: 1440 }, day)).toBe(false);
+    expect(join(base, 1, now, week)).toBe(base);
+  });
+});
+
 describe("through a store", () => {
   it("publishes the personal text only when the change commits, and nothing for a refused claim", async () => {
     const store = new MemoryStudioStore({ tenants: { demo: setup() }, now: () => now });
@@ -264,7 +403,7 @@ describe("through a store", () => {
     expect(texts[0].to).toMatch(/^customer:/);
     expect(demoOutbox.list()).toEqual([]);
     const offer = (await store.load("demo"))!.state.waitlistOffers[0];
-    const refused = await store.apply("demo", { type: "online/claim", id: offer.id, notice, termsVersion: 999 });
+    const refused = await store.apply("demo", { type: "online/claim", id: offer.id, notice, terms: { ...shownTerms((await store.load("demo"))!.state, offer.id), version: 999 } });
     expect(refused).toMatchObject({ ok: false, reason: "rejected" });
     expect(store.published("demo").filter((e) => e.port === "sms")).toHaveLength(1);
   });
@@ -324,9 +463,33 @@ describe("in the browser store", () => {
     expect(outbox.list("sms")).toEqual([expect.objectContaining({ to: `customer:${saved.waitlistOffers[0].customerId}`, body: expect.stringContaining(saved.waitlistOffers[0].id) })]);
   });
 
+  it("starts the sample salon's new day unless an offer is still out", async () => {
+    const yesterday = "2026-11-18";
+    const sample = createDemoState(yesterday);
+    const offer = { ...reduce(setup(), cancel, now).waitlistOffers[0], date: day };
+    const ended = { ...sample, waitlistOffers: [{ ...offer, status: "lapsed" as const }] };
+    expect((await openTab({ raw: JSON.stringify(ended) })).currentState()).toMatchObject({ generatedFor: day, waitlistOffers: [] });
+    const live = { ...sample, waitlistOffers: [offer] };
+    const kept = (await openTab({ raw: JSON.stringify(live) })).currentState()!;
+    expect(kept.waitlistOffers).toHaveLength(1);
+    expect(kept.bookings).toEqual(sample.bookings);
+  });
+
+  it("sends no personal offer that it cannot save", async () => {
+    const state = setup();
+    const storage = { raw: JSON.stringify(state), full: true };
+    const tab = await openTab(storage);
+    const { demoOutbox: outbox } = await import("@/concept/connections/demo");
+    outbox.clear();
+    expect(tab.dispatch(cancel)).toBe(false);
+    expect(outbox.list()).toEqual([]);
+    expect(tab.currentState()?.waitlistOffers).toEqual([]);
+    expect(tab.currentState()?.bookings).toEqual(state.bookings);
+  });
+
   it("refuses a claim it cannot save, and books a contested offer once", async () => {
     const offered = reduce(setup(), cancel, now);
-    const action = { type: "online/claim", id: offered.waitlistOffers[0].id, termsVersion: offered.cancellationPolicy.version, notice } as const;
+    const action = { type: "online/claim", id: offered.waitlistOffers[0].id, terms: shownTerms(offered, offered.waitlistOffers[0].id), notice } as const;
     const storage = { raw: JSON.stringify(offered), full: true };
     const first = await openTab(storage);
     expect(first.dispatch(action)).toBe(false);

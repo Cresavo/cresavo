@@ -159,8 +159,10 @@ function load(raw: string | null, workspace: Workspace): DemoState | null {
       const validHolds = saved.checkoutHolds.filter(hold => hold.expiresAt > Date.now());
       if (validHolds.length !== saved.checkoutHolds.length) saved = { ...saved, checkoutHolds: validHolds };
       if (saved.industry) return purge({ ...saved, generatedFor: today() });
-      // A waiting list a visitor joined or that has offers out can span midnight: keep its visits, contacts and links together.
-      const liveQueue = saved.waitlistGaps.length > 0 || saved.waitlistOffers.length > 0 || saved.waitlistEntries.some(entry => !entry.id.startsWith("fixture-"));
+      // A queue still in use spans midnight: open times, offers out, or a visitor's request with days still ahead.
+      // Ended offers and older requests without days do not hold the sample schedule back.
+      const liveQueue = saved.waitlistGaps.length > 0 || saved.waitlistOffers.some(offer => offer.status === "offered") ||
+        saved.waitlistEntries.some(entry => !entry.id.startsWith("fixture-") && (entry.days.at(-1) ?? "") >= today());
       const demo = saved.generatedFor === today() || liveQueue
         ? purge({ ...saved, generatedFor: today() })
         : { ...createDemoState(today(), setupOf(saved)), reminderSettings: saved.reminderSettings, waitlistRules: saved.waitlistRules };
@@ -364,8 +366,11 @@ export function dispatchWithLog(
     // Run the booking rules again if another tab wrote while we prepared the save.
     const recheck = !!canApply || action.type.startsWith("online/") || action.type === "salon/policy" ||
       action.type === "booking/fee" || action.type === "booking/cancel" || action.type === "trash/restore";
+    // A personal offer must reach shared storage before its link is texted or used: another tab
+    // would otherwise not know it, and could claim it again or hand the time to someone else.
     const personalClaim = action.type === "online/claim" || (action.type === "online/pay" && current.checkoutHolds.some(hold => hold.id === action.id && hold.offerId));
-    const saved = setState(next, recheck || action.type === "waitlist/advance", () => { batch.publish(); messages.publish(); }, personalClaim);
+    const sendsOffer = next.waitlistOffers.some(offer => offer.status === "offered" && !current.waitlistOffers.some(old => old.id === offer.id));
+    const saved = setState(next, recheck || action.type === "waitlist/advance" || sendsOffer, () => { batch.publish(); messages.publish(); }, personalClaim || sendsOffer);
     if (saved === "unsaved") return false;
     if (!saved) continue;
     if (workspace === "own") markTrialUsed(now);

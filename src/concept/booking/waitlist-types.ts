@@ -55,6 +55,8 @@ export interface OfferRules {
 
 export const OFFER_MODES: readonly OfferMode[] = ["off", "ask", "automatic"];
 export const HOLD_MINUTES = [10, 15, 30, 60] as const;
+/** Most days one waiting-list request can name. */
+export const MAX_REQUEST_DAYS = 7;
 export const DEFAULT_OFFER_RULES: OfferRules = { mode: "ask", minutes: 15, paused: false };
 export const ANY_TIME: Interval = { start: 0, end: 1440 };
 

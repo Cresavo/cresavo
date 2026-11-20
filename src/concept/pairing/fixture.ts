@@ -83,7 +83,13 @@ export function freshSnapshot(today: string) {
 
 export function snapshot(w: PairWorkspace): PairState {
   const stored = w.snapshot as unknown as PairState;
-  const state = { ...stored, industry: stored.industry ?? null, localization: stored.localization ?? defaultBusinessLocalization(hair.id) };
+  // Workspaces saved before waitlist offers have none of their fields; the reducer needs them all.
+  const waitlist = initialWaitlist();
+  const state = {
+    ...stored, industry: stored.industry ?? null, localization: stored.localization ?? defaultBusinessLocalization(hair.id),
+    waitlistEntries: stored.waitlistEntries ?? waitlist.waitlistEntries, waitlistOffers: stored.waitlistOffers ?? waitlist.waitlistOffers,
+    waitlistGaps: stored.waitlistGaps ?? waitlist.waitlistGaps, waitlistRules: stored.waitlistRules ?? waitlist.waitlistRules,
+  };
   if (w.version === 2) return state.staffRefs ? state : scopeEntities(state, w.id);
   requirePair(w.version === 1, "unsupported_snapshot", 409);
   const safe = project(state);

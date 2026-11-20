@@ -7,6 +7,7 @@ import { commandExamples } from "@/concept/command/examples";
 import { proposalFor, type Proposal } from "@/concept/command/proposal";
 import { addDays, formatTime } from "@/concept/data/dates";
 import { waitingFor } from "@/concept/booking/waitlist-match";
+import { applyAction } from "@/concept/log/capture";
 import { createDemoState } from "@/concept/data/generate";
 import { freeStarts, needOf, type Need } from "@/concept/data/slots";
 import { interpretCommand } from "@/concept/intent";
@@ -114,6 +115,22 @@ describe("proposals", () => {
     expect(offered.action.offerWaitingList).toBe(waitingFor(state, single.date, single.customerId) > 0 || undefined);
     expect(offered.action.notice).toBeUndefined();
     expect(reduce(state, offered.action).bookings.find((b) => b.id === single.id)?.status).toBe("cancelled");
+  });
+
+  it("lets only the owner approve offering a cancelled time to the waiting list", () => {
+    const staff = staffViewer(state)!;
+    const own = upcoming.find((booking) => booking.staffId === staff.id)!;
+    const waiting = state.customers.find((c) => c.id !== own.customerId)!;
+    const queued = { ...state, waitlistRules: { ...state.waitlistRules, mode: "ask" as const },
+      waitlistEntries: [{ id: "entry", customerId: waiting.id, serviceId: own.serviceId, days: [own.date], window: { start: 0, end: 1440 }, joinedAt: 1 }] };
+    const ask = (role: "staff" | "owner") => proposalFor(queued, { action: "cancel", params: { bookingId: own.id, offerWaitingList: true }, summary: "cancel", confidence: 1 }, "cancel", clock, [], role);
+    const byOwner = ask("owner"), byStaff = ask("staff");
+    if (byOwner.kind !== "change" || byStaff.kind !== "change") throw new Error("expected cancels");
+    expect(byOwner.action).toMatchObject({ type: "booking/cancel", offerWaitingList: true });
+    expect(byStaff.action).not.toHaveProperty("offerWaitingList");
+    const meta = { actor: "staff", source: "command", at: Date.parse(`${today}T09:00:00+01:00`) } as const;
+    expect(applyAction(queued, byOwner.action, meta)).toBe(queued);
+    expect(applyAction(queued, byStaff.action, meta).bookings.find((b) => b.id === own.id)?.status).toBe("cancelled");
   });
 
   it("answers revenue questions with the same numbers the selectors give", () => {

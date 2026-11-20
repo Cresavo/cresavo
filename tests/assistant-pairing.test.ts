@@ -270,6 +270,35 @@ it("applies an immutable draft after unrelated activity and rejects a booking mo
   expect((await adapter().decide(second.proposalId, true)).status).toBe("conflict");
 });
 
+it("applies a draft in a workspace saved before waitlist offers", async () => {
+  const { snapshotWorkspace } = await import("../src/concept/pairing/owner-workspace");
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-11-18T12:00:00Z"));
+  const state: Partial<ReturnType<typeof freshSnapshot>> = freshSnapshot("2026-11-18");
+  for (const key of ["waitlistEntries", "waitlistOffers", "waitlistGaps", "waitlistRules"] as const) delete state[key];
+  const w = { id: randomUUID(), revision: 1, version: 2, snapshot: state };
+  type Proposal = import("@prisma/client").PairProposal;
+  const rows: Proposal[] = [];
+  const tx = {
+    pairWorkspace: { update: vi.fn(async () => { w.revision++; }) },
+    pairProposal: {
+      count: async () => rows.length, findUnique: async () => null,
+      create: async ({ data }: { data: Proposal }) => {
+        const row = { ...data, id: randomUUID(), status: "pending" }; rows.push(row); return row;
+      },
+      findFirst: async ({ where }: { where: { id: string } }) => rows.find(r => r.id === where.id),
+      update: async ({ where, data }: { where: { id: string }; data: { status: string } }) =>
+        Object.assign(rows.find(r => r.id === where.id)!, data),
+    },
+  };
+  const adapter = () => snapshotWorkspace(tx as unknown as Parameters<typeof snapshotWorkspace>[0],
+    w as unknown as Parameters<typeof snapshotWorkspace>[1]);
+  const bookingId = state.inbox![0].bookingId!;
+  const slot = adapter().slots(bookingId).slots[0];
+  const draft = await adapter().propose("client", randomUUID(), { bookingId, ...slot });
+  expect((await adapter().decide(draft.proposalId, true)).status).toBe("applied");
+});
+
 it("projects a legacy snapshot before exposing its bookings or threads", async () => {
   const { createDemoState } = await import("../src/concept/data/generate");
   const { snapshotWorkspace } = await import("../src/concept/pairing/owner-workspace");

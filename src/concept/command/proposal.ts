@@ -161,13 +161,14 @@ function moveProposal(state: DemoState, params: IntentParams, clock: Clock): Pro
   return chooseSlot(state, candidates, t("command.pickAnother"), date, build);
 }
 
-function cancelProposal(state: DemoState, params: IntentParams): Proposal {
+function cancelProposal(state: DemoState, params: IntentParams, role: Role): Proposal {
   const booking = state.bookings.find((b) => b.id === params.bookingId && b.status === "booked");
   const customer = findCustomer(state, booking?.customerId);
   if (!booking || !customer) return message(t("command.notUnderstood"));
   const rules = state.waitlistRules;
   const waiting = waitingFor(state, booking.date, booking.customerId);
-  const offering = !!params.offerWaitingList && waiting > 0 && rules.mode !== "off" && !rules.paused;
+  // Offering the freed time approves a queue: the owner's decision, never a colleague's.
+  const offering = role === "owner" && !!params.offerWaitingList && waiting > 0 && rules.mode !== "off" && !rules.paused;
   return {
     kind: "change",
     title: t("command.cancel.title", { name: fullName(customer) }),
@@ -364,7 +365,7 @@ export function proposalFor(state: DemoState, intent: IntentResult, text: string
     case "move":
       return moveProposal(state, params, clock);
     case "cancel":
-      return cancelProposal(state, params);
+      return cancelProposal(state, params, role);
     case "campaign":
       return campaignProposal(state, params, clock);
     case "change-price":

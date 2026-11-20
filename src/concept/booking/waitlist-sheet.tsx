@@ -19,7 +19,7 @@ import { Sheet } from "../ui/sheet";
 import { GuestFields, RememberContact, isGuestValid } from "./guest-fields";
 import { findCustomerByPhone } from "./lookup";
 import { validPreferences } from "./waitlist-match";
-import { ANY_TIME } from "./waitlist-types";
+import { ANY_TIME, MAX_REQUEST_DAYS } from "./waitlist-types";
 import { useGuestContact } from "./guest";
 
 export interface WaitlistRequest {
@@ -34,9 +34,6 @@ interface WaitlistSheetProps {
   request: WaitlistRequest | null;
   onClose: () => void;
 }
-
-/** At most this many days in one request. */
-const MAX_DAYS = 7;
 
 /** "Notify me if something opens up": the days and times that suit the customer, a request in the owner's Inbox and a place in the queue. */
 export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetProps) {
@@ -129,7 +126,7 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
                 {days.length > 1 && <IconButton label={t("offers.removeDay", { day: day ? formatDayLong(day) : "" })} onClick={() => setDays(days.filter((_, i) => i !== index))}><X size={18} /></IconButton>}
               </div>
             ))}
-            {days.length < MAX_DAYS && (
+            {days.length < MAX_REQUEST_DAYS && (
               <Button variant="secondary" size="sm" onClick={() => setDays([...days, addDays([...days].filter(Boolean).sort().at(-1) ?? now.today, 1)])}>{t("offers.addDay")}</Button>
             )}
           </fieldset>

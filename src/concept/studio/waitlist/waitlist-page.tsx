@@ -92,8 +92,8 @@ export function WaitlistPage() {
                   <ListRow
                     key={gap.id}
                     title={`${formatDayShort(gap.date)} ${formatTime(gap.start)}–${formatTime(gap.end)} · ${person}`}
-                    meta={gap.readyAt ? t("offers.queued") : match ? t("offers.nextInLine", { name: name(match.entry.customerId), service: match.service.name }) : undefined}
-                    trailing={!gap.readyAt && <Button size="sm" variant="secondary" disabled={!match || !sending} onClick={() => offer(gap.id)}>{t("offers.manual")}</Button>}
+                    meta={[match && t("offers.nextInLine", { name: name(match.entry.customerId), service: match.service.name }), gap.readyAt && t("offers.queued")].filter(Boolean).join(" · ") || undefined}
+                    trailing={<Button size="sm" variant="secondary" disabled={!match || !sending} onClick={() => offer(gap.id)}>{t("offers.manual")}</Button>}
                   />
                 );
               })}

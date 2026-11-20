@@ -6,6 +6,7 @@ import { customerText } from "../i18n/customer-text";
 import { formatDayLong, formatTime } from "../i18n/format";
 import { salonClock } from "../tools/clock";
 import { bookingHome } from "./links";
+import { occupied } from "../data/slots";
 import { nextMatch, nextSmsTime, offerAvailable, releasedGaps, type WaitlistMatch } from "./waitlist-match";
 import type { WaitlistGap, WaitlistOffer } from "./waitlist-types";
 
@@ -76,6 +77,19 @@ function sendOffer(state: DemoState, gap: WaitlistGap, match: WaitlistMatch, now
  * gap the change itself freed (an owner's "offer to the waiting list").
  */
 export function advanceWaitlist(prev: DemoState, current: DemoState, now: number, approve?: string): DemoState {
+  let state = settleWaitlist(current, now);
+  const added = releasedGaps(prev, state, now).map((gap) => (approve === "released" ? { ...gap, approved: true } : gap));
+  if (added.length) state = { ...state, seq: state.seq + 1, waitlistGaps: [...state.waitlistGaps, ...added] };
+  return sendOffers(state, now, approve);
+}
+
+/**
+ * Ends what is over at `now` and sends nothing: requests past their last day or
+ * without a customer, and offers that ran out or can no longer be booked. The
+ * reducer settles before an action and sends after it, so a customer who
+ * withdraws, is erased or a pause in that action is never texted.
+ */
+export function settleWaitlist(current: DemoState, now: number): DemoState {
   let state = current;
   const today = salonClock(new Date(now)).today;
   for (const entry of state.waitlistEntries) {
@@ -86,9 +100,17 @@ export function advanceWaitlist(prev: DemoState, current: DemoState, now: number
     if (offer.status !== "offered") continue;
     if (!state.waitlistEntries.some((e) => e.id === offer.entryId) || !offerAvailable(state, offer, now)) state = finishOffer(state, offer, "lapsed", now);
   }
-  const added = releasedGaps(prev, state, now).map((gap) => (approve === "released" ? { ...gap, approved: true } : gap));
-  if (added.length) state = { ...state, seq: state.seq + 1, waitlistGaps: [...state.waitlistGaps, ...added] };
+  // An open offer always keeps its gap, so declining or missing it hands the time on (an undo can restore an offer without one).
+  const orphans = state.waitlistOffers.filter((o) => o.status === "offered" && !state.waitlistGaps.some((g) => g.id === o.gapId));
+  if (orphans.length) {
+    state = { ...state, waitlistGaps: [...state.waitlistGaps, ...orphans.map((o) => ({ ...occupied(o), id: o.gapId, staffId: o.staffId, date: o.date, approved: true }))] };
+  }
+  return state;
+}
 
+/** Sends the next offer for each open gap where the rules allow, and drops gaps nobody can take. */
+function sendOffers(current: DemoState, now: number, approve?: string): DemoState {
+  let state = current;
   const rules = state.waitlistRules;
   const enabled = state.modules.waitlist && !rules.paused && rules.mode !== "off";
   const sendable = nextSmsTime(now);
@@ -97,8 +119,10 @@ export function advanceWaitlist(prev: DemoState, current: DemoState, now: number
     const match = nextMatch(state, gap, now);
     const byOwner = approve === gap.id;
     const automatic = enabled && !byOwner && (gap.approved || rules.mode === "automatic");
-    // Nobody left to ask, or quiet hours would last until the visit has started: the gap is done.
-    if (!match || (automatic && sendable > now && match.instant <= sendable)) {
+    // During quiet hours an automatic text can only offer what is still ahead once they end.
+    const afterQuiet = match && automatic && sendable > now ? nextMatch(state, gap, sendable) : match;
+    // Nobody left to ask, or nothing in the gap starts after quiet hours: the gap is done.
+    if (!match || !afterQuiet) {
       state = { ...state, waitlistGaps: state.waitlistGaps.filter((g) => g.id !== gap.id) };
       continue;
     }

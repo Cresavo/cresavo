@@ -259,7 +259,7 @@ describe("holiday suggestions", () => {
 describe("roles", () => {
   it("lets staff open their own pages only", () => {
     for (const path of ["/studio", "/studio/calendar", "/studio/customers", "/studio/customers/k001"]) expect(canOpen("staff", path)).toBe(true);
-    for (const path of ["/studio/more", "/studio/more/finance", "/studio/more/settings", "/studio/more/features", "/studio/more/stock", "/studio/inbox", "/studio/customers/import", "/studio/customers/due-back"]) {
+    for (const path of ["/studio/more", "/studio/more/finance", "/studio/more/settings", "/studio/more/features", "/studio/more/stock", "/studio/inbox", "/studio/customers/import", "/studio/customers/due-back", "/studio/customers/waitlist"]) {
       expect(canOpen("staff", path)).toBe(false);
       expect(canOpen("owner", path)).toBe(true);
     }

@@ -1,9 +1,9 @@
 import { DateTime } from "luxon";
-import { freeGaps, isActive, isFree, needOf, occupied, pickResource, withSlotClock } from "../data/slots";
+import { freeGaps, isActive, isFree, needOf, occupied, pickResource, resourceStillFree, withSlotClock } from "../data/slots";
 import type { DemoState, Interval, Service, StaffId } from "../data/types";
 import { salonClock, SALON_TIMEZONE } from "../tools/clock";
 import { visitTime } from "./policy";
-import type { WaitlistEntry, WaitlistGap, WaitlistOffer } from "./waitlist-types";
+import { MAX_REQUEST_DAYS, type WaitlistEntry, type WaitlistGap, type WaitlistOffer } from "./waitlist-types";
 
 // Which waiting customer a freed time goes to, and when. Pure functions of the
 // state and an explicit instant: preferences are salon wall time, holds and
@@ -17,7 +17,7 @@ const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Days from today on, a real calendar date each, and a window of whole minutes inside one day. */
 export function validPreferences(days: readonly string[], window: Interval, today: string): boolean {
-  return days.length > 0 && days.length <= 14 && new Set(days).size === days.length &&
+  return days.length > 0 && days.length <= MAX_REQUEST_DAYS && new Set(days).size === days.length &&
     days.every((day) => DATE_KEY.test(day) && day >= today && DateTime.fromISO(day).isValid) &&
     Number.isInteger(window.start) && Number.isInteger(window.end) && window.start >= 0 && window.end <= 1440 && window.start < window.end;
 }
@@ -69,7 +69,9 @@ export function offerAvailable(state: DemoState, offer: WaitlistOffer, now: numb
   const service = bookable(state, offer.serviceId, offer.staffId);
   if (!service || service.duration !== offer.duration || (service.bufferBefore ?? 0) !== (offer.bufferBefore ?? 0) || (service.bufferAfter ?? 0) !== (offer.bufferAfter ?? 0)) return false;
   const others = { ...state, checkoutHolds: state.checkoutHolds.filter((h) => h.offerId !== offer.id) };
-  return withSlotClock(now, () => isFree(others, offer.staffId, offer.date, offer.start, needOf(service), offer.id));
+  // The room or chair the offer holds must still suit the treatment; another free one is not what was promised.
+  return withSlotClock(now, () => isFree(others, offer.staffId, offer.date, offer.start, needOf(service), offer.id) &&
+    resourceStillFree(others, needOf(service), offer.resourceId, offer.date, offer.start, offer.id));
 }
 
 /** The wall-clock minute of an instant equals `minute` on that day (false inside a skipped or repeated hour that moved it). */
@@ -165,9 +167,12 @@ export function releasedGaps(prev: DemoState, state: DemoState, now: number): Wa
 export function manualGaps(state: DemoState, date: string, staffId: StaffId, now: number): { gap: WaitlistGap; match: WaitlistMatch }[] {
   const spans = withSlotClock(now, () => freeGaps(state, staffId, date, { min: 1 }));
   return spans.flatMap((span) => {
-    if (state.waitlistGaps.some((g) => g.date === date && g.staffId === staffId && g.start < span.end && span.start < g.end)) return [];
-    const gap: WaitlistGap = { ...span, staffId, date, id: `open-${date}-${staffId}-${span.start}-${span.end}` };
-    const match = nextMatch(state, gap, now);
-    return match ? [{ gap, match }] : [];
+    // Time a queue already covers stays with that queue; the rest of the span can still be offered.
+    const queued = state.waitlistGaps.filter((g) => g.date === date && g.staffId === staffId);
+    return difference(span, queued).flatMap((part) => {
+      const gap: WaitlistGap = { ...part, staffId, date, id: `open-${date}-${staffId}-${part.start}-${part.end}` };
+      const match = nextMatch(state, gap, now);
+      return match ? [{ gap, match }] : [];
+    });
   });
 }

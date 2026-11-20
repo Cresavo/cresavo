@@ -41,8 +41,10 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
     case "online/hold":
       return { summary: t("protection.held") };
     case "online/claim": {
-      if (next.checkoutHolds.length > prev.checkoutHolds.length) return { summary: t("protection.held") };
-      const made = next.bookings[next.bookings.length - 1];
+      const bookingId = next.waitlistOffers.find((o) => o.id === action.id)?.bookingId;
+      const made = bookingId ? bookingOf(next, bookingId) : undefined;
+      // Without a booking the claim opened its deposit checkout.
+      if (!made) return { summary: t("protection.held") };
       return { summary: t("log.onlineBook", { customer: customerName(next, made.customerId), service: serviceName(next, made.serviceId) }), after: when(next, made) };
     }
     case "online/decline":

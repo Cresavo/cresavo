@@ -42,6 +42,8 @@ export interface LogEntry extends LogMeta {
   /** Short before/after text such as "Thu 19 Nov 10:00". */
   before?: string;
   after?: string;
+  /** The customer a waiting-list event concerns, so erasing them empties it. */
+  customerId?: string;
   /** Present when the change can be undone. */
   patch?: StatePatch;
   undone?: boolean;

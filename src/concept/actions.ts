@@ -2,7 +2,7 @@ import { jsonEqual } from "./data/json-equal";
 import { salonClock } from "./tools/clock";
 import { depositMethods } from "./connections/ports/payments";
 import { majorString } from "./connections/core";
-import { quote, validPolicy, type BookingProtection, type CancellationPolicy, type DemoMethod } from "./booking/protection";
+import { quote, validPolicy, type BookingProtection, type BookingTerms, type CancellationPolicy, type DemoMethod } from "./booking/protection";
 import { collect, decideFee, refundCancellation, type FeeDecision } from "./booking/settlement";
 import { parseLocale } from "@/lib/locale";
 import type { BusinessLocalization } from "./i18n/business";
@@ -15,7 +15,7 @@ import { earliestBookingStart } from "./booking/policy";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
 import { applyWaitlist, type WaitlistAction } from "./booking/waitlist-actions";
 import { offerAvailable, validPreferences } from "./booking/waitlist-match";
-import { advanceWaitlist, finishOffer } from "./booking/waitlist-offer";
+import { advanceWaitlist, finishOffer, settleWaitlist } from "./booking/waitlist-offer";
 import { ANY_TIME, type WaitlistEntry } from "./booking/waitlist-types";
 import { demoPayments, sendDemoCampaign } from "./connections/demo";
 import { editJournalEntry } from "./customers/journal";
@@ -75,7 +75,8 @@ export type DemoAction =
   | PageAction
   | WaitlistAction
   /** A customer books the time a personal waitlist offer holds for them (through checkout when a deposit is due). */
-  | { type: "online/claim"; id: string; termsVersion: number; notice: OnlineNotice }
+  /** `terms` is the price and policy the customer was shown; a claim on other terms is refused. */
+  | { type: "online/claim"; id: string; terms: BookingTerms; notice: OnlineNotice }
   | { type: "booking/move"; id: string; date: DateKey; start: number; staffId?: StaffId; notice?: Omit<InboxItem, "id"> }
   /** `offerWaitingList`: the owner approves offering the freed time to the waiting list right away. */
   | { type: "booking/cancel"; id: string; reason?: string; notice?: Omit<InboxItem, "id">; offerWaitingList?: boolean }
@@ -318,15 +319,17 @@ function joinWaitlist(state: DemoState, action: Extract<DemoAction, { type: "onl
 /** Books the time a personal offer holds, or opens its deposit checkout with the offer's own deadline. */
 function claimOffer(state: DemoState, action: Extract<DemoAction, { type: "online/claim" }>, now: number): DemoState {
   const offer = state.waitlistOffers.find(o => o.id === action.id);
-  if (!offer || state.checkoutHolds.some(h => h.offerId === offer.id) || state.cancellationPolicy.version !== action.termsVersion) return state;
+  if (!offer || state.checkoutHolds.some(h => h.offerId === offer.id)) return state;
   const customer = state.customers.find(c => c.id === offer.customerId);
   if (!customer || !state.waitlistEntries.some(e => e.id === offer.entryId) || !offerAvailable(state, offer, now)) return state;
+  const service = bookableServices(state).find(s => s.id === offer.serviceId)!;
+  const terms = quote(state.cancellationPolicy, service, state.localization.currency, isNewBookingCustomer(state, customer.phone));
+  if (!jsonEqual(terms, action.terms)) return state;
   // The offer steps aside so its own hold does not block the booking it stands for.
   const released = { ...state, waitlistOffers: state.waitlistOffers.filter(o => o !== offer) };
   const clock = salonClock(new Date(now));
   const guest = { name: `${customer.firstName} ${customer.lastName}`.trim(), phone: customer.phone, at: { date: clock.today, time: clock.minutes } };
-  const service = bookableServices(state).find(s => s.id === offer.serviceId)!;
-  const deposit = quote(state.cancellationPolicy, service, state.localization.currency, isNewBookingCustomer(state, customer.phone)).depositMinor > 0;
+  const deposit = terms.depositMinor > 0;
   const request = { type: deposit ? "online/hold" as const : "online/book" as const, guest, notice: action.notice, serviceId: offer.serviceId, staffId: offer.staffId, date: offer.date, start: offer.start };
   const next = bookOnline(released, request, now);
   if (next === released) return state;
@@ -445,10 +448,12 @@ const settledAt = (state: DemoState, now: number) =>
 export function reduce(state: DemoState, action: DemoAction, now = Date.now(), payments = demoPayments): DemoState {
   return withSlotClock(now, () => {
     if (action.type === "waitlist/advance") return advanceWaitlist(state, state, now);
-    const base = settledAt(state, now) ? advanceWaitlist(state, state, now) : state;
+    // Holds that ran out end first; texts go out only after the action, so its withdrawals and pauses count.
+    const overdue = settledAt(state, now);
+    const base = overdue ? settleWaitlist(state, now) : state;
     const next = reduceCore(base, action, now, payments);
     if (next === base) return state;
-    if (WAITLIST_INPUTS.every(key => next[key] === base[key])) return next;
+    if (!overdue && WAITLIST_INPUTS.every(key => next[key] === base[key])) return next;
     const approve = action.type === "waitlist/offer" ? action.gapId : action.type === "booking/cancel" && action.offerWaitingList ? "released" : undefined;
     return advanceWaitlist(base, next, now, approve);
   });

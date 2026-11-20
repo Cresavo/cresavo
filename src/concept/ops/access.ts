@@ -19,8 +19,8 @@ export function servedBy(state: DemoState, staffId: StaffId): Set<string> {
   return new Set(state.bookings.filter((b) => b.staffId === staffId).map((b) => b.customerId));
 }
 
-/** Pages a staff member may open: their day, their calendar, and the customers they serve with the journal. */
-const STAFF_PAGES = [/^\/studio$/, /^\/studio\/calendar$/, /^\/studio\/customers$/, /^\/studio\/customers\/(?!import$|due-back$)[^/]+$/];
+/** Pages a staff member may open: their day, their calendar, and the customers they serve with the journal. The salon-wide waiting list is the owner's. */
+const STAFF_PAGES = [/^\/studio$/, /^\/studio\/calendar$/, /^\/studio\/customers$/, /^\/studio\/customers\/(?!import$|due-back$|waitlist$)[^/]+$/];
 
 export function canOpen(role: Role, pathname: string): boolean {
   return role === "owner" || STAFF_PAGES.some((page) => page.test(pathname));

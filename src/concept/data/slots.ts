@@ -137,6 +137,14 @@ export function pickResource(ctx: SlotContext, need: Need, date: DateKey, start:
   );
 }
 
+/** True when the treatment needs no room or chair, or can still use this one and nothing else holds it then. */
+export function resourceStillFree(ctx: SlotContext, need: Need, resourceId: string | undefined, date: DateKey, start: number, ignoreId?: string): boolean {
+  const usable = usableResources(ctx, need.serviceId);
+  if (!usable.length) return true;
+  if (!resourceId || !usable.includes(resourceId)) return false;
+  return pickResource({ ...ctx, resources: ctx.resources.filter((r) => r.id === resourceId) }, need, date, start, ignoreId) === resourceId;
+}
+
 function usableResources(ctx: SlotContext, serviceId: string): string[] {
   const wanted = [...ctx.services, ...(ctx.retiredServices ?? [])].find((s) => s.id === serviceId)?.resourceIds ?? [];
   return wanted.filter((id) => ctx.resources.some((r) => r.id === id));

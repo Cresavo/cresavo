@@ -1,5 +1,6 @@
 "use client";
 
+import { outsideShift } from "../../ops/needs-moving";
 import { formatTime } from "../../i18n/format";
 import type { DragEvent, MouseEvent } from "react";
 import { lunchFor, openingFor, workWindow } from "../../data/slots";
@@ -37,7 +38,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
     const shift = workWindow(state, person.id, date);
     const entries = dayBookings(state, date, person.id, resourceId).map(booking => ({
       booking,
-      misfit: !shift || booking.start < shift.start || booking.start + booking.duration > shift.end,
+      misfit: !shift || outsideShift(booking, shift),
     }));
     return { person, shift, entries };
   });
