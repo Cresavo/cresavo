@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { randomBytes, randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
 import type { PrismaClient } from "@prisma/client";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import type { DemoAction } from "@/concept/actions";
 import { DEFAULT_POLICY } from "@/concept/booking/protection";
 import type { OutboxEntry } from "@/concept/connections/simulated/outbox";
@@ -57,13 +57,19 @@ function recordingSinks() {
     delivered.filter((d) => d.tenantId === tenantId && d.effect.kind === "payment").map((d) => d.effect.record) };
 }
 
+let contractStore: PostgresStudioStore | undefined;
+afterEach(() => {
+  contractStore?.close();
+  contractStore = undefined;
+});
+
 runStudioStoreContract("PostgresStudioStore", async (seeds) => {
   const a = tenantIds("a");
   const b = tenantIds("b");
   await seed(a, seeds.a);
   await seed(b, seeds.b, "salon");
   const { sinks, payments } = recordingSinks();
-  const store = new PostgresStudioStore({ prisma: db, hmacSecret, sinks });
+  const store = contractStore = new PostgresStudioStore({ prisma: db, hmacSecret, sinks });
   return { store, tenants: { a, b }, open: async () => {}, payments };
 });
 

@@ -368,6 +368,7 @@ function importCustomers(state: DemoState, incoming: Omit<Customer, "id">[]): De
   return added.length ? { ...state, seq: state.seq + added.length, customers: [...state.customers, ...added] } : state;
 }
 
+// eslint-disable-next-line no-restricted-syntax -- Legacy direct callers use the wall clock; persistent stores pass their clock.
 export function reduce(state: DemoState, action: DemoAction, now = Date.now(), payments = demoPayments): DemoState {
   switch (action.type) {
     case "salon/policy":
