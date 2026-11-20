@@ -1,7 +1,7 @@
 import type { DemoAction } from "../../actions";
 import { t } from "../../i18n";
 import { undoBlockReason, type UndoBlockReason } from "../../log/undo";
-import { currentState, dispatch, dispatchWithLog } from "../../store";
+import { currentState, dispatch, dispatchWithLog, type DispatchOptions } from "../../store";
 import { isBookingOrPaymentAction } from "../../support/action-reference";
 import { showActionFailure, showToast } from "../../ui/toast";
 
@@ -39,6 +39,13 @@ export function showUndoToast(message: string, id: ReturnType<typeof dispatchWit
   return true;
 }
 
-export function dispatchWithUndoToast(action: DemoAction, message: string, meta?: Parameters<typeof dispatchWithLog>[1]) {
-  return showUndoToast(message, dispatchWithLog(action, meta));
+/** `guard` and `options` are those of `dispatchWithLog`: re-checks and sends that run against the saved state. */
+export function dispatchWithUndoToast(
+  action: DemoAction,
+  message: string,
+  meta?: Parameters<typeof dispatchWithLog>[1],
+  guard?: Parameters<typeof dispatchWithLog>[2],
+  options?: DispatchOptions,
+) {
+  return showUndoToast(message, dispatchWithLog(action, meta, guard, options));
 }

@@ -2,7 +2,7 @@ import type { Campaign } from "../data/types";
 import { stableHash } from "./core";
 import type { Outbox, OutboxEntry } from "./simulated/outbox";
 import { createOutbox } from "./simulated/outbox";
-import { simulatedEmail, paymentLedger, simulatedSms, simulatedSocial, type SimulatedEmail, type SimulatedSms } from "./simulated/adapters";
+import { channelLedger, simulatedEmail, paymentLedger, simulatedSms, simulatedSocial, type SimulatedEmail, type SimulatedSms } from "./simulated/adapters";
 import type { SocialPort } from "./ports/social";
 
 // The concept demo's sends go through the ports here, always with the
@@ -32,6 +32,54 @@ const shared: DemoChannels = {
   social: simulatedSocial({ outbox: demoOutbox, currency: DEMO_CURRENCY }),
 };
 let channels = shared;
+
+/**
+ * Message and post keys and the sink they are published to, per salon: one
+ * salon's send never counts as another's, even with the same id (the same
+ * campaign in both workspaces).
+ */
+const messageLedgers = new Map<string, ReturnType<typeof channelLedger>>();
+
+function messageLedger(salon: string) {
+  let ledger = messageLedgers.get(salon);
+  if (!ledger) messageLedgers.set(salon, (ledger = channelLedger(createOutbox(), DEMO_CURRENCY)));
+  return ledger;
+}
+
+/** Forgets a salon's sends and keys when it is deleted or replaced, so its successor starts fresh. */
+export function forgetDemoSends(salon: string) {
+  messageLedgers.delete(salon);
+}
+
+/** The simulated SMS, email and posts a browser salon's saved changes sent (see `stageDemoSends`). */
+export function demoSentMessages(salon: string): Outbox {
+  return messageLedger(salon).outbox;
+}
+
+/**
+ * One browser save's sends, staged: payments (on the payment ledger, which the
+ * direct port shares, into `demoOutbox`) and SMS, email and posts (on `salon`'s
+ * own ledger, into `demoSentMessages(salon)`). Run the reducer inside
+ * `withDemoChannels(stage, …)`; nothing is recorded until `publish`, which the
+ * store calls only after the save succeeded, and returns what the destinations
+ * accepted: the commit's effects.
+ */
+export function stageDemoSends(salon: string) {
+  const ledger = messageLedger(salon);
+  const payments = demoPaymentLedger.stage();
+  const messages = ledger.stage();
+  return {
+    outbox: messages.outbox,
+    sms: messages.sms,
+    email: messages.email,
+    social: messages.social,
+    payments: payments.payments,
+    hasPayments: payments.hasPayments,
+    publish(): OutboxEntry[] {
+      return [...payments.publish(), ...messages.publish()];
+    },
+  };
+}
 
 /** The demo currency, for stores that build their own channels. */
 export const DEMO_CHANNEL_CURRENCY = DEMO_CURRENCY;

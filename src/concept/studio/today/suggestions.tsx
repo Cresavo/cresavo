@@ -3,10 +3,8 @@
 import { useState, type ReactNode } from "react";
 import { CalendarHeart, Clock, Megaphone, MessageSquare, Package, PackageCheck, UserRoundCheck, X } from "lucide-react";
 import { prefillForHoliday, studioHref } from "../../campaigns/prefill";
-import { textWaitlistAboutGaps } from "../../booking/waitlist-offer";
 import { quietDay } from "../../campaigns/quiet-day";
 import { diffDays } from "../../data/dates";
-import { freeGaps } from "../../data/slots";
 import { t, tc } from "../../i18n";
 import { dueBackList } from "../../customers/return-visits";
 import { formatAmount, formatDayMonth, weekdayName } from "../../i18n/format";
@@ -18,7 +16,7 @@ import { Button, ButtonLink, IconButton } from "../../ui/button";
 import type { OpenSheet } from "../booking/booking-sheets";
 import { useForecasts } from "../stock/use-forecasts";
 import { useStudio } from "../use-studio";
-import { dispatchWithUndoToast } from "../log/undo-toast";
+import { offerGapsToWaitlist, todayGaps } from "../booking/offer-waitlist";
 import { suggestionLimit } from "./limits";
 
 const QUIET_DISCOUNT = 10;
@@ -41,14 +39,10 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
   const { state, today, minutes } = useStudio();
   const [showAll, setShowAll] = useState(false);
   const list: Suggestion[] = [];
-  const notify = (title: string, body: string, toast: string) => {
-    if (!textWaitlistAboutGaps(state, today)) return;
-    dispatchWithUndoToast({ type: "inbox/add", item: { kind: "system", waitlistOffer: true, date: today, time: minutes, title, body, read: false, handled: true } }, toast);
-  };
 
   const lowItems = cardVisible(state.modules, "stock-low") ? lowStock(state).slice(0, 2) : [];
   const forecasts = useForecasts(lowItems);
-  const gaps = state.staff.flatMap((s) => freeGaps(state, s.id, today, { after: minutes, min: 30 }));
+  const gaps = todayGaps(state, { today, minutes });
   const waitlist = state.customers.filter((c) => c.waitlist).length;
   if (gaps.length) {
     list.push({
@@ -59,7 +53,7 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
       text: tc("suggest.gaps.text", waitlist),
       actions: (
         <>
-          <Button size="sm" variant="secondary" onClick={() => notify(t("suggest.gaps.sentTitle"), tc("suggest.gaps.sentBody", waitlist), tc("suggest.gaps.toast", waitlist))}>
+          <Button size="sm" variant="secondary" onClick={() => { offerGapsToWaitlist({ today, minutes }); }}>
             {t("suggest.gaps.send")}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => onOpen({ kind: "phone" })}>{t("suggest.gaps.show")}</Button>

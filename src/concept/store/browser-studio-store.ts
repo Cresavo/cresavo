@@ -1,6 +1,5 @@
 import type { DemoAction } from "../actions";
 import { stableHash } from "../connections/core";
-import { demoOutbox } from "../connections/demo";
 import type { DemoState } from "../data/types";
 import { defaultMeta } from "../log/capture";
 import type { LogMeta } from "../log/types";
@@ -50,8 +49,8 @@ import {
 //   not comparable between tabs.
 // - The log and idempotency keys cover applies made through the adapter in
 //   this tab. They end when the salon is deleted or replaced.
-// - Only payments are reported as effects: messages are still recorded by
-//   the reducer itself, as before.
+// - Payments, messages and posts are reported as effects: `dispatchWithLog`
+//   stages them and publishes them to the outbox only after its save.
 // - Each commit leaves a receipt (a hash of the saved text) in Cache Storage.
 //   The next apply in any tab waits until its storage read matches it, so a
 //   renderer with an older localStorage view cannot pass a stale version.
@@ -118,7 +117,6 @@ function onStoreChange() {
 /** Address changes take the lock the address editor and salon setup use, across both workspaces. */
 const MAY_CHANGE_ADDRESS = new Set<DemoAction["type"]>(["salon/slug", "log/undo", "trash/restore"]);
 
-const paymentIds = () => new Set(demoOutbox.list("payments").map((record) => record.id));
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 const receiptUrl = (tenantId: TenantId) => new URL(`/concept-studio-store-${tenantId}`, window.location.origin).href;
 
@@ -200,7 +198,7 @@ export class BrowserStudioStore implements StudioStore {
     const logMeta: Partial<Omit<LogMeta, "at">> = {};
     if (meta.actor) logMeta.actor = meta.actor;
     if (meta.source) logMeta.source = meta.source;
-    const before = paymentIds();
+    let sent: StoreEffect[] = [];
     let refused: ApplyFailure | undefined;
     let base = current;
     let outcome: string | null | false;
@@ -222,7 +220,7 @@ export class BrowserStudioStore implements StudioStore {
         base = latest;
         refused = undefined;
         return true;
-      });
+      }, { committed: (records) => { sent = records.map(effectOf); } });
     } finally {
       tab.committing = false;
     }
@@ -250,8 +248,8 @@ export class BrowserStudioStore implements StudioStore {
       resultingVersion: record.version,
     };
     record.log.push(entry);
-    // The browser store publishes staged payments right after its write; these are the new ones.
-    const effects = demoOutbox.list("payments").filter((r) => !before.has(r.id)).map(effectOf);
+    // Exactly what this commit's stage published, even a send another workspace made too.
+    const effects = sent;
     if (options.idempotencyKey !== undefined) record.keys.set(options.idempotencyKey, { fingerprint, seq: entry.seq, state, effects });
     notifyAll(tab.listeners.get(tenantId) ?? [], { tenantId, version: record.version, entry, effects });
     return { ok: true, state: detach(state), version: record.version, effects: detach(effects), entry: detach(entry), replayed: false };

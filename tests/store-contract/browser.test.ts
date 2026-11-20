@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { addDays, toKey } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
 import { freeStarts, needOf } from "@/concept/data/slots";
-import { salonDraft } from "@/concept/onboarding/salon";
+import { createSalon, salonDraft } from "@/concept/onboarding/salon";
 import { bookableServices } from "@/concept/selectors";
 import { runStudioStoreContract } from "./contract";
 
@@ -58,9 +58,9 @@ async function openTab(localStorage: Pick<Storage, "getItem" | "setItem" | "remo
   vi.stubGlobal("window", view);
   if (options.services) vi.stubGlobal("navigator", { locks: options.services.locks });
   const legacy = await import("@/concept/store");
-  const { demoOutbox } = await import("@/concept/connections/demo");
+  const { demoOutbox, demoSentMessages } = await import("@/concept/connections/demo");
   const { BrowserStudioStore } = await import("@/concept/store/browser-studio-store");
-  return { legacy, demoOutbox, view, BrowserStudioStore, store: new BrowserStudioStore() };
+  return { legacy, demoOutbox, demoSentMessages, view, BrowserStudioStore, store: new BrowserStudioStore() };
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -69,13 +69,14 @@ runStudioStoreContract("BrowserStudioStore", async (seeds) => {
   const local = storage();
   local.setItem("salong-eko-demo", JSON.stringify(seeds.a));
   local.setItem("salong-eko-demo-own", JSON.stringify(seeds.b));
-  const { legacy, store, demoOutbox } = await openTab(local);
+  const { legacy, store, demoOutbox, demoSentMessages } = await openTab(local);
   return {
     store,
     tenants: { a: "demo", b: "own" },
     open: async (tenantId) => { await legacy.switchSalon(tenantId as "demo" | "own"); },
     // Both workspaces of a tab share one simulated outbox; the contract reads it for one tenant at a time.
     payments: () => demoOutbox.list("payments"),
+    messages: (tenantId) => demoSentMessages(tenantId).list().filter((record) => record.port === "sms" || record.port === "email"),
   };
 });
 
@@ -99,6 +100,29 @@ it("keeps the existing storage keys and the legacy dispatch path", async () => {
   expect((await store.load("demo"))?.version).toBe(2);
   expect((await store.history("demo", { limit: 10 })).entries.map((e) => e.seq)).toEqual([1]);
   expect([...local.items.keys()].sort()).toEqual(["salong-eko-demo"]);
+});
+
+it("reports each workspace's own message effect, even for an identical campaign", async () => {
+  const demo = createDemoState(today);
+  const own = { ...createSalon(today, { ...salonDraft("en"), name: "Studio Vide" }), seq: demo.seq };
+  const local = storage();
+  local.setItem("salong-eko-demo", JSON.stringify(demo));
+  local.setItem("salong-eko-demo-own", JSON.stringify(own));
+  const { legacy, store, demoSentMessages } = await openTab(local);
+  const launch = { type: "campaign/launch" as const, today, campaign: { name: "Spring", serviceIds: [], discountPercent: 10, from: today, to: today, channels: ["sms" as const], publishOn: today, copy: { sms: "Spring offer at the salon" } } };
+  const first = await store.apply("demo", launch);
+  await legacy.switchSalon("own");
+  const second = await store.apply("own", launch);
+  expect(first.ok && second.ok).toBe(true);
+  if (!first.ok || !second.ok) return;
+  const messages = (result: typeof first) => result.effects.filter((effect) => effect.kind === "message").map((effect) => effect.record.id);
+  expect(messages(first)).toHaveLength(1);
+  expect(messages(second)).toEqual(messages(first));
+  // Both sends reached their salon's sink: the same id does not collapse across workspaces.
+  expect(demoSentMessages("demo").list("sms").map((record) => record.id)).toEqual(messages(first));
+  expect(demoSentMessages("own").list("sms").map((record) => record.id)).toEqual(messages(second));
+  demoSentMessages("demo").clear();
+  expect(demoSentMessages("own").list("sms")).toHaveLength(1);
 });
 
 it("refuses a tenant that is not open in this tab", async () => {

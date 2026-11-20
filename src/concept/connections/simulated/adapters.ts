@@ -10,7 +10,7 @@ import type { CheckoutInput, CheckoutSession, PaymentsPort, Refund, RefundInput 
 import { smsSegments, type SmsMessage, type SmsPort, type SmsReceipt } from "../ports/sms";
 import type { SocialPort } from "../ports/social";
 import { buildReserveFeeds } from "../providers/listing/reserve-feeds";
-import { createOutbox, type Outbox } from "./outbox";
+import { createOutbox, type Outbox, type OutboxEntry } from "./outbox";
 
 // The default adapter for every port and the only one the public demo uses.
 // Deterministic (ids are hashes of the input), no network, no clock, no
@@ -95,6 +95,17 @@ interface SimulatedPayments extends PaymentsPort {
   refundNow(input: RefundInput): PortResult<Refund>;
 }
 
+/** Records each entry the outbox does not hold yet and returns those: what the destination actually accepted. */
+function publishTo(outbox: Outbox, entries: OutboxEntry[]): OutboxEntry[] {
+  const accepted: OutboxEntry[] = [];
+  for (const entry of entries) {
+    if (outbox.list(entry.port).some((known) => known.id === entry.id)) continue;
+    outbox.record(entry);
+    accepted.push(entry);
+  }
+  return accepted;
+}
+
 /** Each browser write previews receipts and idempotency keys together. */
 export function paymentLedger(outbox: Outbox) {
   const committed = new Map<string, string>();
@@ -106,9 +117,10 @@ export function paymentLedger(outbox: Outbox) {
       return {
         payments: simulatedPayments({ outbox: pending }, keyGuard("payments", keys, committed)),
         hasPayments: () => keys.size > 0,
-        publish() {
+        /** Returns the entries the outbox accepted (an id it already held is not a new send). */
+        publish(): OutboxEntry[] {
           keys.forEach((value, key) => committed.set(key, value));
-          pending.list().forEach(entry => outbox.record(entry));
+          return publishTo(outbox, pending.list());
         },
       };
     },
@@ -136,9 +148,10 @@ export function channelLedger(outbox: Outbox, currency?: string) {
         email: simulatedEmail(options, keyGuard("email", keys.email, committed.email)),
         social: simulatedSocial(options),
         hasPayments: () => keys.payments.size > 0,
-        publish() {
+        /** Returns the entries the outbox accepted (an id it already held is not a new send). */
+        publish(): OutboxEntry[] {
           for (const port of ["payments", "sms", "email"] as const) keys[port].forEach((value, key) => committed[port].set(key, value));
-          pending.list().forEach(entry => outbox.record(entry));
+          return publishTo(outbox, pending.list());
         },
       };
     },

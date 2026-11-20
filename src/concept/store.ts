@@ -6,7 +6,8 @@ import { toKey } from "./data/dates";
 import { createDemoState, type BusinessSetup } from "./data/generate";
 import { migrateState } from "./data/migrate";
 import type { DemoState } from "./data/types";
-import { demoPaymentLedger } from "./connections/demo";
+import { forgetDemoSends, stageDemoSends, withDemoChannels } from "./connections/demo";
+import type { OutboxEntry } from "./connections/simulated/outbox";
 import { prepareAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
 import { publicView } from "./selectors";
@@ -63,6 +64,7 @@ const removalListeners = new Set<(workspace: Workspace) => void>();
 
 /** Tells `BrowserStudioStore` that a workspace's salon was deleted or replaced, so its records for it end. */
 function salonRemoved(workspace: Workspace) {
+  forgetDemoSends(workspace);
   removalListeners.forEach(listener => listener(workspace));
 }
 
@@ -300,32 +302,55 @@ export function dispatch(action: DemoAction, meta?: Partial<Omit<LogMeta, "at">>
   return dispatchWithLog(action, meta) !== false;
 }
 
+/** More for a change than its action: sends that belong to it, staged and published with it. */
+export interface DispatchOptions {
+  /**
+   * Simulated sends that belong to the change but not to its reducer (an offer
+   * text to the waiting list). Runs on the state the action is applied to,
+   * staged like the reducer's own sends; false refuses the whole change.
+   */
+  send?: (current: DemoState) => boolean;
+  /** Called after a successful save with the sends its destinations accepted (a repeated id is not a new send). */
+  committed?: (sent: OutboxEntry[]) => void;
+}
+
 /**
  * Returns the new log entry ID, null for an unlogged change, or false on refusal.
- * A caller's guard runs against the same refreshed state as the action.
+ * A caller's guard runs against the same refreshed state as the action. The
+ * action can be built from that state, so what it records (counts, names)
+ * matches what is saved and sent; it is built again if the save is retried.
+ * Everything the change sends (payments, SMS, email, posts) is staged and
+ * reaches the outbox only after the save; a refused or discarded attempt sends nothing.
  */
 export function dispatchWithLog(
-  action: DemoAction,
+  build: DemoAction | ((current: DemoState) => DemoAction),
   meta?: Partial<Omit<LogMeta, "at">>,
   canApply?: (current: DemoState) => boolean,
+  options: DispatchOptions = {},
 ): string | null | false {
   initialize();
   const workspace = active;
   refreshFromStorage();
   const now = Date.now();
-  const logMeta = { ...defaultMeta(action, now), ...meta, at: now };
   while (true) {
     const current = getSnapshot();
     if (!current || active !== workspace || (canApply && !canApply(current))) return false;
-    const batch = demoPaymentLedger.stage();
-    const next = prepareAction(current, action, logMeta, batch);
+    const action = typeof build === "function" ? build(current) : build;
+    const logMeta = { ...defaultMeta(action, now), ...meta, at: now };
+    const batch = stageDemoSends(workspace);
+    const next = withDemoChannels(batch, () => {
+      const prepared = prepareAction(current, action, logMeta, batch);
+      return prepared !== current && options.send && !options.send(current) ? current : prepared;
+    });
     if (next === current) return false;
     // Includes undo, which can restore a previously free address.
     if (next.salon.slug !== current.salon.slug && next.salon.slug === workspaceSlug(active === "demo" ? "own" : "demo")) return false;
     // Run the booking rules again if another tab wrote while we prepared the save.
     const recheck = !!canApply || action.type.startsWith("online/") || action.type === "salon/policy" ||
       action.type === "booking/fee" || action.type === "booking/cancel" || action.type === "trash/restore";
-    if (!setState(next, recheck, batch.publish)) continue;
+    let published: OutboxEntry[] = [];
+    if (!setState(next, recheck, () => { published = batch.publish(); })) continue;
+    options.committed?.(published);
     if (workspace === "own") markTrialUsed(now);
     const logId = next.log[0]?.id;
     return logId !== current.log[0]?.id ? logId ?? null : null;
