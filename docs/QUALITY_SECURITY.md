@@ -32,7 +32,7 @@ we never have to retrofit them. See the [privacy and security overview](PRIVACY_
 
 | Check (workflow → check name) | Runs | Results | Blocks merge? |
 |---|---|---|---|
-| CodeQL (`codeql.yml`) → `Analyze (javascript-typescript)`, `Analyze (actions)` | PRs to `main`, pushes to `main`, Mondays, manual | **Security** → **Code scanning**, and as PR annotations | Both jobs are required by **Protect main**. Blocking on findings: code scanning results rule (see below) |
+| CodeQL (`codeql.yml`) → `Analyze (javascript-typescript)`, `Analyze (actions)` | PRs to `main`, pushes to `main`, Mondays, manual | **Security** → **Code scanning**, and as PR annotations | Yes: both jobs are required, and new CodeQL alerts (security high or higher, or errors) block merge through **Protect main** |
 | Dependency review (`dependency-review.yml`) → `Dependency review (high/critical gate)` | Every PR to `main` | Job summary of the PR check | Fails on new or changed dependencies (runtime and development) with a high or critical advisory. Required by **Protect main** |
 | Secret scan (`secret-scan.yml`) → `Gitleaks (full history)` | PRs, pushes to `main`, manual | Job log (matches are redacted) | Yes, required by **Protect main** |
 | GitHub secret scanning and push protection | Every push (repository setting) | **Security** → **Secret scanning** | Push protection rejects a push with a recognised token |
@@ -41,10 +41,10 @@ we never have to retrofit them. See the [privacy and security overview](PRIVACY_
 | Dependabot (`dependabot.yml`) | Weekly | Pull requests | No |
 
 **Protect main** (ruleset 27584925) requires a pull request, blocks deletion
-and requires five status checks: `E2E dev / proxy 0` (Verify POC),
-`Gitleaks (full history)`, `Dependency review (high/critical gate)`,
-`Analyze (javascript-typescript)` and `Analyze (actions)`. It should also
-block force pushes. The remaining steps are in the
+and force pushes, requires five status checks (`E2E dev / proxy 0` from
+Verify POC, `Gitleaks (full history)`, `Dependency review (high/critical
+gate)`, `Analyze (javascript-typescript)` and `Analyze (actions)`), and
+requires CodeQL code scanning results. Set up on 2026-11-19; see the
 [launch checklist](LAUNCH_CHECKLIST.md#right-after-publishing), step 10.
 
 Dependency review reads the dependency graph through the GitHub API, so the
@@ -58,12 +58,12 @@ permissions (`contents: read`).
 CodeQL uses an advanced workflow, so CodeQL *default setup* in the repository
 settings must stay off. Successful `Analyze` jobs show that the CodeQL
 analysis ran and uploaded results; they do not show that it found nothing.
-Whether findings block merge depends on a required code scanning results
-check. GitHub supports that through a ruleset or through branch protection.
-The chosen solution here is a **Require code scanning results** rule in
+Findings block merge through the **Require code scanning results** rule in
 **Protect main** (tool CodeQL, security alerts high or higher, alerts
-errors), added after the first CodeQL analysis on `main`. Until it is
-enabled, findings are reported but do not block merge.
+errors). GitHub also supports this through branch protection; the ruleset is
+the chosen solution here. The rule judges alerts in the pull request's
+changes; existing alerts on `main` are listed under **Security** →
+**Code scanning** and handled as below.
 
 Handling a finding:
 
