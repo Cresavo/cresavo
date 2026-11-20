@@ -4,6 +4,7 @@ import { parseLocale } from "./lib/locale";
 import { LOCALE_COOKIE, setDemoVisitorCookie, setLocaleCookie } from "./lib/locale-cookie";
 import { isPublicReadonly, publicReadonlyResponse } from "./lib/public-readonly";
 import { sandboxConfig, sandboxCronHost, sandboxHost, sandboxRequested } from "./lib/agent-api/sandbox/config";
+import { contentSecurityPolicy, createNonce, cspExempt } from "./lib/csp";
 import { productSiteOrigin } from "./concept/site/origin";
 import { siteRequestHost } from "./concept/site/request-host";
 import { galleryAvailable } from "./concept/server/gallery";
@@ -28,12 +29,29 @@ function demoLanguageEntry(request: NextRequest) {
   return response;
 }
 
+type Csp = { nonce: string; policy: string };
+
+function pageCsp(pathname: string): Csp | undefined {
+  if (cspExempt(pathname)) return;
+  const nonce = createNonce();
+  return { nonce, policy: contentSecurityPolicy(nonce, pathname) };
+}
+
+/** Rendering reads the nonce from the request headers; never trust client-supplied values. */
+function applyCsp(requestHeaders: Headers, csp: Csp | undefined) {
+  requestHeaders.delete("content-security-policy");
+  requestHeaders.delete("x-nonce");
+  if (!csp) return;
+  requestHeaders.set("content-security-policy", csp.policy);
+  requestHeaders.set("x-nonce", csp.nonce);
+}
+
 /**
  * One deployment, several addresses: the product domain shows the coming-soon page, its demo
  * subdomain the studio, a business's own address (subdomain or own domain) its booking
  * page, and an address that leads nowhere the friendly page.
  */
-function hostResponse(request: NextRequest, host: string | null | undefined, route: HostRoute) {
+function hostResponse(request: NextRequest, host: string | null | undefined, route: HostRoute, csp: Csp | undefined) {
   if (route.action === "redirect") {
     // Keep the demo's public authority behind a proxy.
     const url = new URL(route.path + request.nextUrl.search, `${request.nextUrl.protocol}//${host}`);
@@ -47,6 +65,7 @@ function hostResponse(request: NextRequest, host: string | null | undefined, rou
   requestHeaders.delete("x-concept-address");
   requestHeaders.delete("x-concept-english");
   requestHeaders.delete("x-concept-route");
+  applyCsp(requestHeaders, csp);
   const path = route.action === "rewrite" ? route.path : request.nextUrl.pathname;
   const concept = conceptRoute(path);
   if (concept === "english") requestHeaders.set("x-concept-english", "1");
@@ -78,7 +97,9 @@ export function proxy(request: NextRequest) {
   if (pathname.startsWith("/_next/static/") || pathname === "/_next/image" || pathname === "/favicon.ico") {
     return NextResponse.next();
   }
-  const response = publicReadonlyResponse(request) ?? hostResponse(request, host, route);
+  const csp = pageCsp(pathname);
+  const response = publicReadonlyResponse(request) ?? hostResponse(request, host, route, csp);
+  if (csp) response.headers.set("Content-Security-Policy", csp.policy);
   const discoveryFile = (pathname === "/robots.txt" || pathname === "/sitemap.xml") && productSiteOrigin(host);
   // The product homepages are the only pages of the read-only deployment intended for search.
   if (isPublicReadonly() && !isProductHome(host, pathname) && !discoveryFile) {
@@ -98,7 +119,11 @@ function sandboxProxy(request: NextRequest) {
         (/^\/api\/v1\/(?:access|services|availability|(?:proposals|bookings)(?:\/[a-zA-Z0-9_-]{1,128})?)$/.test(path) ||
          /^\/(?:sandbox(?:\/phone)?|api\/sandbox\/(?:pair|phone(?:\/(?:redeem|decision))?))$/.test(path) ||
          path.startsWith("/_next/static/"))) {
-      const response = NextResponse.next();
+      const csp = path.startsWith("/_next/static/") ? undefined : pageCsp(path);
+      const requestHeaders = new Headers(request.headers);
+      applyCsp(requestHeaders, csp);
+      const response = NextResponse.next({ request: { headers: requestHeaders } });
+      if (csp) response.headers.set("Content-Security-Policy", csp.policy);
       response.headers.set("X-Robots-Tag", "noindex, nofollow");
       return response;
     }

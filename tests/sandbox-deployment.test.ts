@@ -39,6 +39,11 @@ it("limits the sealed profile to its actual production project and caps hosted s
     expect(proxy(req("/")).headers.get("location")).toBe(origin + "/sandbox?lang=sv");
     expect(proxy(req("/admin")).status).toBe(404);
     expect(proxy(req("/api/pairing/sweep")).status).toBe(404);
+    const page = proxy(req("/sandbox"));
+    const policy = page.headers.get("Content-Security-Policy");
+    expect(policy).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/);
+    expect(page.headers.get("x-middleware-request-content-security-policy")).toBe(policy);
+    expect(proxy(req("/_next/static/chunks/app.js")).headers.get("Content-Security-Policy")).toBeNull();
   } finally { vi.unstubAllEnvs(); }
 });
 
