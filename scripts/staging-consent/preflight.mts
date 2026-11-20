@@ -35,3 +35,18 @@ export function refuseRemoteBrowsers(env: Record<string, string | undefined>) {
     if (value && (REMOTE_BROWSER_SETTINGS.includes(name) || REMOTE_BROWSER_PREFIXES.some(prefix => name.toUpperCase().startsWith(prefix))))
       throw new Error("STAGING_REMOTE_BROWSER_REFUSED");
 }
+
+/**
+ * The run's own database, derived from the admin URL and validated before anything is acquired:
+ * a refused configuration (for example a `host` query parameter that would send the connection
+ * elsewhere) must fail here, before the private run directory exists. Static codes only.
+ */
+export function stagingDatabase(adminUrl: URL, suffix: string, guard: (url: string) => void) {
+  const dbName = `staging_consent_${suffix}_test`;
+  const databaseUrl = new URL(adminUrl);
+  databaseUrl.pathname = `/${dbName}`;
+  try { guard(databaseUrl.href); } catch { throw new Error("STAGING_DATABASE_REFUSED"); }
+  let password: string;
+  try { password = decodeURIComponent(adminUrl.password); } catch { throw new Error("STAGING_PG_ADMIN_URL_INVALID"); }
+  return { dbName, databaseUrl, password };
+}

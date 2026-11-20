@@ -17,7 +17,7 @@ import { createDatabaseClient } from "../database.mjs";
 import { containsSecret, registerSecret, say } from "./sanitize.mjs";
 import { captureStream, freePorts, guardStream, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
 import { agentChannel } from "./agent-reply.mjs";
-import { loopbackAdminUrl, refuseDiagnostics, refuseRemoteBrowsers } from "./preflight.mjs";
+import { loopbackAdminUrl, refuseDiagnostics, refuseRemoteBrowsers, stagingDatabase } from "./preflight.mjs";
 import { acquisition, CLEANUP_SIGNALS, databaseAlreadyExisted, launchedBrowsers, settles } from "./lifecycle.mjs";
 import { issueCertificates, operatorFetch, tlsProxy } from "./tls.mjs";
 import { createServer as createHttpServer } from "node:http";
@@ -74,15 +74,15 @@ sayRevision("cresavo", salonRevision.sha, salonRevision.dirty);
 sayRevision("gateway", gatewayRevision, false);
 say(`HOSTS gateway=${gatewayHost} salon=${salonHost} (loopback only, ephemeral CA)`);
 
+// The run's database, validated (and its password decoded) before anything is acquired.
+const { dbName, databaseUrl, password: adminPassword } = stagingDatabase(adminUrl, randomBytes(6).toString("hex"), assertTestDatabase);
+registerSecret(databaseUrl.href); registerSecret(adminUrl.href); registerSecret(adminPassword);
+
 // ---- Private run directory: keys, gateway copy and nothing else ----
 const temp = mkdtempSync(join(realpathSync(tmpdir()), "cresavo-staging-"));
 chmodSync(temp, 0o700);
-const dbName = `staging_consent_${randomBytes(6).toString("hex")}_test`;
-const databaseUrl = new URL(adminUrl); databaseUrl.pathname = `/${dbName}`;
-assertTestDatabase(databaseUrl.href);
-registerSecret(databaseUrl.href); registerSecret(adminUrl.href); registerSecret(decodeURIComponent(adminUrl.password));
 // Said, not silently skipped: a short password is only checked where a credential stands.
-if (adminUrl.password && decodeURIComponent(adminUrl.password).length < 8)
+if (adminPassword && adminPassword.length < 8)
   say("NOTE DATABASE_PASSWORD_SHORT - checked in credential contexts only (URL, password=...); use 8 or more characters for a full scan");
 const serviceToken = randomBytes(32).toString("hex"), sessionSecret = randomBytes(32).toString("hex");
 registerSecret(serviceToken); registerSecret(sessionSecret);

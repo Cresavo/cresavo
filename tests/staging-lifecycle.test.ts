@@ -83,3 +83,18 @@ it("closes a browser whose launch was still pending when cleanup began, and star
   await expect(browsers.start(async () => browser("late"))).rejects.toThrow(/^STAGING_STOPPING$/);
   expect(closed).not.toContain("late");
 });
+
+it("reports a failed browser launch once, to its caller, with no unhandled rejection", async () => {
+  const { launchedBrowsers } = await import("../scripts/staging-consent/lifecycle.mjs");
+  const unhandled: unknown[] = [];
+  const listener = (reason: unknown) => { unhandled.push(reason); };
+  process.on("unhandledRejection", listener);
+  try {
+    const browsers = launchedBrowsers<{ close(): Promise<void> }>();
+    await expect(browsers.start(() => Promise.reject(new Error("CHROMIUM_LAUNCH_FAILED")))).rejects.toThrow(/^CHROMIUM_LAUNCH_FAILED$/);
+    // Let any stray rejection surface before checking.
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(unhandled).toEqual([]);
+    await browsers.closeAll();
+  } finally { process.off("unhandledRejection", listener); }
+});

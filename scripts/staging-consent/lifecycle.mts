@@ -62,7 +62,9 @@ export function launchedBrowsers<T extends { close(): Promise<void> }>() {
         started.push(browser);
         return browser;
       })();
-      const tracked = run.finally(() => pending.delete(tracked));
+      // Cleanup-only: it settles on both paths, so a failed launch is reported once (through the
+      // caller's `run`) and never again as an unhandled rejection of this tracking promise.
+      const tracked: Promise<void> = run.then(() => {}, () => {}).then(() => { pending.delete(tracked); });
       pending.add(tracked);
       return run;
     },
