@@ -148,6 +148,20 @@ export interface Snapshot {
  * the last write per key winning. Shared by both adapters. Throws
  * `SynchronousChangeError` for a thenable.
  */
+let changing = 0;
+
+/** A write started from inside another write's `change`: refused in both adapters, never queued. */
+export class ReentrantWriteError extends Error {
+  constructor() {
+    super("SalonDb.write: a change must not start another write; stage everything in one change instead");
+  }
+}
+
+/** Throws when called while any `change` is running. Every adapter calls it first in `write`. */
+export function refuseReentrantWrite(): void {
+  if (changing > 0) throw new ReentrantWriteError();
+}
+
 export function runChange<T>(snapshot: Snapshot, change: (tx: SalonTx) => T): { value: T; ops: SalonOp[] } {
   const ops = new Map<string, SalonOp>();
   const stage = (op: SalonOp) => { ops.delete(`${op.store}:${op.key}`); ops.set(`${op.store}:${op.key}`, op); };
@@ -171,7 +185,13 @@ export function runChange<T>(snapshot: Snapshot, change: (tx: SalonTx) => T): { 
     putMeta: (key, value) => stage({ store: "meta", key, value: structuredClone(value), remove: false }),
     deleteMeta: (key) => stage({ store: "meta", key, value: undefined, remove: true }),
   };
-  const value = change(tx);
+  let value: T;
+  changing += 1;
+  try {
+    value = change(tx);
+  } finally {
+    changing -= 1;
+  }
   if (isThenable(value)) {
     observeRejection(value as PromiseLike<unknown>);
     throw new SynchronousChangeError();

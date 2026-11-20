@@ -7,6 +7,7 @@
 import { MemorySalonDb } from "./memory-salon-db";
 import {
   WORKSPACES,
+  refuseReentrantWrite,
   callbackQueue,
   callEach,
   changesOf,
@@ -268,6 +269,8 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
       return resolve(unavailable(errorName(error)));
     }
     let settled = false;
+    /** The version-change transaction while it can still be aborted. */
+    let upgrade: IDBTransaction | null = null;
     const settle = (value: Backend) => {
       if (settled) return;
       settled = true;
@@ -277,6 +280,8 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
     abandonPending = () => {
       settled = true;
       abandonPending = undefined;
+      // Never leave a schema upgrade behind for the other tabs, even one already under way.
+      try { upgrade?.abort(); } catch { /* Already finished. */ }
       reject(new SalonDbClosedError());
     };
     setStatus("opening");
@@ -286,6 +291,10 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
         request.transaction?.abort();
         return;
       }
+      upgrade = request.transaction;
+      const finished = () => { upgrade = null; };
+      upgrade?.addEventListener("complete", finished);
+      upgrade?.addEventListener("abort", finished);
       const db = request.result;
       if (!db.objectStoreNames.contains(SALONS)) db.createObjectStore(SALONS);
       if (!db.objectStoreNames.contains(META)) db.createObjectStore(META);
@@ -376,16 +385,17 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
       return { demo: records.get("demo") ?? null, own: records.get("own") ?? null };
     },
     async write<T>(scope: SalonScope, change: (tx: SalonTx) => T): Promise<WriteResult<T>> {
+      refuseReentrantWrite();
       // Awaiting here is fine: the transaction does not exist yet.
       const open = await current();
+      // Closed while waiting for the connection: refused before any transaction starts, on either backend.
+      if (status === "closed") throw new SalonDbClosedError();
       if (open.kind === "outdated") return { ok: false, reason: "outdated" };
       if (open.kind === "failed") {
         reportFailure(open.error);
         return { ok: false, reason: "storage", error: open.error };
       }
       if (open.kind === "memory") return open.db.write(scope, change);
-      // Closed while waiting for the connection: refused before any transaction starts.
-      if (status === "closed") throw new SalonDbClosedError();
       activeWrites += 1;
       return new Promise((resolve, reject) => runTransaction(open.db, scope, change, (outcome) => {
         try {

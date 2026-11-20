@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemorySalonDb } from "@/concept/store/memory-salon-db";
 import {
   createSalonDb,
+  ReentrantWriteError,
   SalonDbClosedError,
   runChange,
   runTransaction,
@@ -115,6 +116,23 @@ describe.each(adapters)("%s adapter", (_name, make) => {
     } finally {
       process.off("unhandledRejection", record);
     }
+  });
+
+  it("refuses a write started from inside a change", async () => {
+    const db = make();
+    await db.write({}, (tx) => tx.putSalon("demo", record(0)));
+    let inner: Promise<unknown> | undefined;
+    const outer = await increment(db).then(() => db.write({ salons: ["demo"] }, (tx) => {
+      // Observed at once: a rejection nobody handles would fail the run.
+      inner = increment(db).then(() => "committed", (error: unknown) => error);
+      const current = tx.salon("demo")!;
+      tx.putSalon("demo", { ...current, version: current.version + 1 });
+      return "outer";
+    }));
+    expect(outer.ok && outer.value).toBe("outer");
+    expect(await inner).toBeInstanceOf(ReentrantWriteError);
+    expect((await db.read("demo"))!.version).toBe(3);
+    expect(countOf(await db.read("demo"))).toBe(1);
   });
 
   it("reads only what the scope names", async () => {
@@ -551,6 +569,35 @@ describe("opening after the first session", () => {
     expect(await open(factory).ready()).toBe("indexeddb");
   });
 
+  it("aborts an upgrade already under way when the handle closes", async () => {
+    const factory = new IDBFactory();
+    const first = open(factory);
+    await first.write({}, (tx) => tx.putSalon("demo", record(1)));
+    first.close();
+    await sleep(10);
+    // Close right after the handle's own upgradeneeded handler has created the stores.
+    const closing = { open: (name: string, version?: number) => {
+      const request = factory.open(name, version);
+      let handler: ((event: Event) => void) | null = null;
+      Object.defineProperty(request, "onupgradeneeded", {
+        configurable: true,
+        get: () => handler && ((event: Event) => { handler!(event); db.close(); }),
+        set: (value) => { handler = value; },
+      });
+      return request;
+    } } as unknown as IDBFactory;
+    // Opened lazily on ready(), so the factory's closure only reads `db` after this line.
+    const db = createSalonDb({ factory: closing, channel: null, version: 2 });
+    await expect(db.ready()).rejects.toBeInstanceOf(SalonDbClosedError);
+    await sleep(30);
+    const version = await new Promise<number>((resolve) => {
+      const request = factory.open("concept-store");
+      request.onsuccess = () => { resolve(request.result.version); request.result.close(); };
+    });
+    expect(version).toBe(1);
+    expect(await open(factory).read("demo")).toEqual(record(1));
+  });
+
   it("reaches open on a retried reopen with no other call", async () => {
     const factory = new IDBFactory();
     const { control, wrapped } = flaky(factory);
@@ -643,6 +690,16 @@ describe("cross-tab notification", () => {
     await until(() => seen.length === 1);
     expect(seen[0]).toEqual({ workspace: "demo", record: record(1) });
     await expect(tabA.write({}, (tx) => tx.putSalon("demo", record(2, 2)))).rejects.toBeInstanceOf(SalonDbClosedError);
+  });
+
+  it("refuses a memory write that had not started when the handle closed", async () => {
+    const db = createSalonDb({ factory: null, channel: null });
+    await db.ready();
+    let ran = false;
+    const writing = db.write({}, (tx) => { ran = true; tx.putSalon("demo", record(1)); });
+    db.close();
+    await expect(writing).rejects.toBeInstanceOf(SalonDbClosedError);
+    expect(ran).toBe(false);
   });
 
   it("refuses a write that had not started its transaction when the handle closed", async () => {

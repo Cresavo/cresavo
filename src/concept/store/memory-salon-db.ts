@@ -1,4 +1,5 @@
 import {
+  refuseReentrantWrite,
   callbackQueue,
   callEach,
   changesOf,
@@ -42,6 +43,7 @@ export class MemorySalonDb implements SalonDb {
 
   async write<T>(scope: SalonScope, change: (tx: SalonTx) => T): Promise<WriteResult<T>> {
     // Runs before the first await, like a transaction: no other write can interleave.
+    refuseReentrantWrite();
     const snapshot = {
       salons: new Map((scope.salons ?? []).map((key) => [key, this.salons.get(key) ?? null] as const)),
       exists: new Map((scope.exists ?? []).map((key) => [key, this.salons.has(key)] as const)),
