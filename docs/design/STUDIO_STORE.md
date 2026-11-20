@@ -244,21 +244,22 @@ All applies to a tenant serialize on its row lock. Tested with real separate con
 
 Each document commit queues `pg_notify('tenant_changes', …)` in the same
 transaction. Postgres releases the message at commit. Its JSON payload is
-`{tenantId, version}`. Instances use the existing `pg` driver from
+`{tenantId, version, sender}`. Instances use the existing `pg` driver from
 `@prisma/adapter-pg` for one dedicated connection while they have subscribers.
 Set `listenerConnectionString` to a direct connection to the same database
 as Prisma. It defaults to `DATABASE_URL` when available.
 
 The writing instance still delivers its full local notification after the
-outbox drain. It recognises its own database echo by the sender's backend
-PID, tenant and version. Other instances receive the version and re-read
+outbox drain. It recognises its own database echo by a sender ID generated
+once per store instance. Other instances receive the version and re-read
 through `load` or `history`. Unsubscribing removes the callback. The last
 unsubscribe or `close()` releases the listener connection.
 
 The initial `LISTEN` is asynchronous. `notificationsReady` indicates that
 registration has completed. The listener retries after connection loss.
-Consumers should refresh their snapshot once listening starts or resumes,
-since Postgres only delivers notifications to sessions listening at commit.
+Pass `{ onRefresh }` as the third argument to the Postgres store's `subscribe`
+to reload the snapshot when listening starts or resumes. Postgres only
+delivers notifications to sessions listening at commit.
 
 ### Erasure (item 7)
 
@@ -299,7 +300,7 @@ customerId)` runs one transaction under the row lock:
    - **Other recipients' messages**, even from the same multi-recipient action, keep their status. They only lose an identifier that appears in their text.
    - **Delivered payments** only lose identifiers, so the amount and reference stay for the books. A pending payment is kept so a refund still goes out (see open questions).
 3. **`tenant_idempotency`.** Rows whose stored result (a state copy) holds the customer's id or an identifier are deleted. Other keys keep protecting their retries, so a typo or a repeated erasure never makes a keyed change apply twice.
-4. **The document.** `customer/erase` runs like an apply: a new version and a `tenant_action` row `{ type: "customer/erase", id }`. If the document no longer holds the customer, only the tables are redacted and the version stays.
+4. **The document.** `customer/erase` runs like an apply: a new version and a `tenant_action` row `{ type: "customer/erase", id }`. It can commit above the document size limit. If the document no longer holds the customer, only the tables are redacted and the version stays.
 
 The result reports the counts, the pending payments kept and the in-flight
 messages.
@@ -369,8 +370,8 @@ Pure helpers (`jsonEqual`, `withTrustedTimes`, effect ids, `subjectIds`,
 
 - `scopedIdempotencyKey(caller, key)` prepares a single tenant key for a future HTTP caller. It accepts an authenticated client ID, site key or the reserved `studio` caller. Caller IDs use letters, digits, underscores and hyphens, and opaque keys use printable ASCII without spaces. The combined value, including the colon, is at most 200 characters.
 - `replaceState(tenantId, state, { actor: "system", reason })` is a privileged entry point on the concrete Postgres store. It replaces a locked tenant document and appends a `system/replace` audit entry. The operator caller authorizes the operation.
-- `resetDemoTenant({ generatedFor })` operates on the seeded `demo` tenant of kind `demo`. It regenerates the fixture under the same row lock and records a `system/reset` action with payload `{ generatedFor }`. Requests for the date already in the document do not write. The document's ID counter is preserved, and the version keeps the audit sequence increasing even after all earlier demo entries have been purged.
-- `openSandboxTenant(token)` returns a handle with `tenantId` and `apply`. The ID is `sbx_` plus the first 32 hex digits of SHA-256. Its first successful apply creates and changes the day's deterministic salon-local fixture in one transaction. Rejected first applies leave no tenant. The database clock sets a fixed 24-hour expiry. Expired tenants are unavailable to loads, writes, history and outbox claims. The caller will own token validity when an API is added. The ID can be used again after its expired rows are swept.
+- `resetDemoTenant({ generatedFor })` operates on the seeded `demo` tenant of kind `demo`. It regenerates the fixture under the same row lock and records a `system/reset` action with payload `{ generatedFor }`. Requests for the date already in the document or an older date do not write. The document's ID counter is preserved, and the version keeps the audit sequence increasing even after all earlier demo entries have been purged.
+- `openSandboxTenant(token)` returns a handle with `load` and `apply`. Its first successful apply creates and changes the day's deterministic salon-local fixture in one transaction. Rejected first applies leave no tenant. The database clock sets a fixed 24-hour expiry. Expired tenants are unavailable to loads, writes, history and outbox claims. If a token is reused after its expired rows are swept, the new sandbox gets a new tenant ID. `load()` and the committed action entry return that ID. Pair it with `expectedVersion` for edits through `store.apply`, and with the cursor for `history`. A token-only `apply` accepts an omitted version or version `0` for the initial write. The caller will own token validity when an API is added.
 - `npm run store:sweep` runs one pass using the supplied `DATABASE_URL` and prints JSON counts. It deletes expired sandboxes and all their rows, expired idempotency keys and demo audit rows older than seven days. The sweepers use at most 500 selected rows or tenants per batch by default and skip locks held by another transaction. Each sandbox batch locks the tenant rows and deletes their data atomically. The cron connection needs maintenance privileges on the four store tables, including `DELETE` on `tenant_action` and `tenant_effect`. The application audit grants stay append-only.
 
 The lifecycle integration tests cover notification delivery and reconnect,
@@ -384,8 +385,9 @@ size-refusal counts, the latest committed document's compact UTF-8 size and
 booking count, and its transaction duration in milliseconds. Duration
 starts at the write call and ends at commit, before outbox delivery. The
 snapshot also reports p95 over the last 100 document commits and counts
-how often the warn or act thresholds were reached. A document over
-8,000,000 bytes returns `rejected` with a size explanation and does not commit.
+how often the warn or act thresholds were reached. Above 8,000,000 bytes,
+the store rejects writes unless they shrink the saved document, revoke
+support access, or run as privileged customer erasure.
 
 `npm run store:loadtest` requires a migrated local `_test` database named in
 `DATABASE_URL`. It seeds a uniquely named tenant with 10,000 fictional
@@ -413,7 +415,7 @@ Adopted 19 November 2026 through the owner's delegation. They replace the first 
 - A `tenant_effect` outbox table is written in the same transaction as the state. Columns: tenant_id, seq, n, id, kind, payload, status, attempts, next_attempt_at, delivered_at.
 - `apply` drains its own effects after commit. A `SKIP LOCKED` poller retries anything left, with backoff.
 - The effect id is the provider's idempotency key.
-- `subscribe` uses LISTEN/NOTIFY with only `{tenantId, version}`; listeners re-read.
+- `subscribe` uses LISTEN/NOTIFY to signal versions. Listeners re-read.
 - Webhooks are a consumer with a cursor over `tenant_action.seq`.
 - Test: a crash between commit and drain still delivers the effect exactly once.
 
@@ -449,10 +451,10 @@ Adopted 19 November 2026 through the owner's delegation. They replace the first 
 - An admin-only method `replaceState`. `resetDemoTenant()` runs daily under the row lock:
   - increments the version but never resets seq
   - logs a `system/reset` row
-  - is a no-op if the demo was already generated for today
+  - is a no-op for a date at or before the current fixture's date
 - Demo log rows older than 7 days are purged.
 - `tenant_state` gets `kind` (salon | demo | sandbox) and `expires_at`.
-- Sandbox tenants `sbx_<token hash>`:
+- Sandbox tenants `sbx_<token hash>_<lifetime UUID>`:
   - created on first write from the day's fixture
   - expire after 24 hours by the database clock, then `load` returns null
   - an hourly sweeper deletes them
@@ -466,7 +468,7 @@ Adopted 19 November 2026 through the owner's delegation. They replace the first 
 |---|---|---|
 | Warn | 1 MB or 5,000 bookings | – |
 | Act | 2 MB | apply p95 > 50 ms |
-| Refuse writes | 8 MB | – |
+| Refuse writes unless they shrink the document, revoke access or erase a customer | 8 MB | – |
 
 - The first projection is a `booking` table written from the diff in the same transaction (a read model for phase-3 lists). When the act threshold is reached, finished and cancelled bookings older than 90 days move out of the document.
 - Customers are projected second.

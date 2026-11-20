@@ -26,6 +26,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- The staged Postgres store allows customer erasure, support access revocation and size-reducing writes above 8 MB. It keeps sandbox versions and history scoped to a unique tenant lifetime, ignores stale demo resets, and signals subscribers to refresh when notifications reconnect.
 - A deleted customer whose 30 days in the trash are over is now also removed from the activity log and from the browser's saved copy, so undo can no longer bring them back.
 - Studio forms, step controls and actions use content-appropriate widths on desktop. Campaign treatments follow the studio language.
 - Fixed unwanted horizontal scrolling in the studio at high zoom and in the booking-page editor.

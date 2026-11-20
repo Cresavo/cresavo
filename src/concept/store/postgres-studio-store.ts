@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { DemoAction } from "../actions";
 import { DEMO_CHANNEL_CURRENCY, withDemoChannels } from "../connections/demo";
@@ -159,6 +159,11 @@ type ReplacementResult =
   | Extract<ApplyResult, { ok: false }>;
 
 type Tx = Prisma.TransactionClient;
+type TenantTarget = { tenantId: TenantId } | { sandboxKey: string };
+
+function exceedsDocumentLimit(bytes: number, previous: unknown): boolean {
+  return bytes > MAX_DOCUMENT_BYTES && bytes >= Buffer.byteLength(JSON.stringify(previous));
+}
 
 const isThenable = (value: unknown): boolean =>
   !!value && (typeof value === "object" || typeof value === "function") && typeof (value as { then?: unknown }).then === "function";
@@ -240,6 +245,7 @@ export class PostgresStudioStore implements StudioStore {
   private readonly maxAttempts: number;
   private readonly erasure: "statements" | "function";
   private readonly listeners = new Map<TenantId, Set<(change: StoreChange) => void>>();
+  private readonly refreshListeners = new Set<() => void>();
   private readonly notifications?: PostgresNotifications;
   private readonly metrics = new StoreMetrics();
 
@@ -260,8 +266,13 @@ export class PostgresStudioStore implements StudioStore {
     this.erasure = options.erasure === "function" ? "function" : "statements";
     const listenerConnectionString = options.listenerConnectionString ?? process.env.DATABASE_URL;
     if (listenerConnectionString) {
-      this.notifications = new PostgresNotifications(listenerConnectionString, (change) =>
-        notifyAll(this.listeners.get(change.tenantId) ?? [], change));
+      this.notifications = new PostgresNotifications(
+        listenerConnectionString,
+        (change) => notifyAll(this.listeners.get(change.tenantId) ?? [], change),
+        () => {
+          for (const refresh of [...this.refreshListeners]) refresh();
+        },
+      );
     }
   }
 
@@ -280,7 +291,6 @@ export class PostgresStudioStore implements StudioStore {
    * for an unknown tenant. Everything after it sees every earlier commit.
    */
   private async lock(tx: Tx, tenantId: TenantId): Promise<LockedRow | undefined> {
-    await tx.$queryRaw`SELECT set_config('lock_timeout', ${`${this.lockTimeoutMs}ms`}, true)`;
     const [locked] = await tx.$queryRaw<LockedRow[]>`
       SELECT doc, version, kind::text AS kind, (extract(epoch FROM expires_at) * 1000)::float8 AS expires_ms
       FROM tenant_state WHERE tenant_id = ${tenantId} FOR UPDATE`;
@@ -289,24 +299,19 @@ export class PostgresStudioStore implements StudioStore {
 
   /** Runs one transaction; a lock timeout becomes `conflict`. */
   private async transaction<T extends { commit?: DocumentCommit }>(
-    tenantId: TenantId,
     run: (tx: Tx) => Promise<T>,
   ): Promise<T | { lockTimeout: true }> {
-    let finishEcho: ((committed: boolean) => void) | undefined;
     try {
-      const result = await this.prisma.$transaction(async (tx) => {
+      return await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT set_config('lock_timeout', ${`${this.lockTimeoutMs}ms`}, true)`;
         const result = await run(tx);
         if (result.commit) {
-          const { version } = result.commit;
-          const pid = await notifyTenantChange(tx, tenantId, version);
-          finishEcho = this.notifications?.ignoreEcho(pid, tenantId, version);
+          const { entry, version } = result.commit;
+          await notifyTenantChange(tx, entry.tenantId, version, this.notifications?.sender);
         }
         return result;
       }, TRANSACTION);
-      finishEcho?.(true);
-      return result;
     } catch (error) {
-      finishEcho?.(false);
       if (isLockTimeout(error)) return { lockTimeout: true };
       throw error;
     }
@@ -328,41 +333,67 @@ export class PostgresStudioStore implements StudioStore {
   }
 
   async apply(tenantId: TenantId, action: DemoAction, meta: ApplyMeta = {}, options: ApplyOptions = {}): Promise<ApplyResult> {
-    return this.applyToTenant(tenantId, action, meta, options, false);
+    return this.applyToTenant({ tenantId }, action, meta, options);
   }
 
-  /** A server-side handle for a sandbox token. The first committed apply creates the tenant. */
+  /** Resolves a sandbox token. Versioned edits use the tenant ID returned by load or the commit. */
   openSandboxTenant(token: string) {
     if (typeof token !== "string" || !token.trim() || token.length > 1024) throw new RangeError("Invalid sandbox token");
-    const tenantId = `sbx_${createHash("sha256").update(token).digest("hex").slice(0, 32)}`;
+    const sandboxKey = `sbx_${createHash("sha256").update(token).digest("hex").slice(0, 32)}`;
     return {
-      tenantId,
-      apply: (action: DemoAction, meta: ApplyMeta = {}, options: ApplyOptions = {}) =>
-        this.applyToTenant(tenantId, action, meta, options, true),
+      load: async () => {
+        const tenantId = await this.sandboxTenantId(this.prisma, sandboxKey);
+        const snapshot = tenantId ? await this.load(tenantId) : null;
+        return tenantId && snapshot ? { tenantId, ...snapshot } : null;
+      },
+      apply: (action: DemoAction, meta: ApplyMeta = {}, options: ApplyOptions = {}): Promise<ApplyResult> => {
+        // A token and version alone cannot identify the snapshot across lifetimes.
+        if (options.expectedVersion !== undefined && options.expectedVersion !== 0) {
+          return Promise.resolve({ ok: false, reason: "conflict" });
+        }
+        return this.applyToTenant({ sandboxKey }, action, meta, options);
+      },
     };
   }
 
-  private async applyToTenant(tenantId: TenantId, action: DemoAction, meta: ApplyMeta, options: ApplyOptions, sandbox: boolean): Promise<ApplyResult> {
+  private async sandboxTenantId(db: Tx | PrismaClient, sandboxKey: string): Promise<TenantId | undefined> {
+    // The exact match also resolves sandboxes created before IDs included a lifetime suffix.
+    const [row] = await db.$queryRaw<Array<{ tenant_id: TenantId }>>`
+      SELECT tenant_id FROM tenant_state WHERE kind = 'sandbox'
+        AND (tenant_id = ${sandboxKey} OR starts_with(tenant_id, ${`${sandboxKey}_`}))`;
+    return row?.tenant_id;
+  }
+
+  private async applyToTenant(target: TenantTarget, action: DemoAction, meta: ApplyMeta, options: ApplyOptions): Promise<ApplyResult> {
     const start = performance.now();
     const key = options.idempotencyKey;
     if (key !== undefined && (key.length === 0 || key.length > IDEMPOTENCY_KEY_MAX)) return { ok: false, reason: "rejected" };
     // Erasure also redacts the log and the outbox: only `eraseSubject` runs it.
     if (isErasure(action)) return { ok: false, reason: "rejected" };
     const own = detach(action);
-    const result = await this.transaction(tenantId, async (tx): Promise<ApplyOutcome> => {
+    const result = await this.transaction(async (tx): Promise<ApplyOutcome> => {
       // 1. The row lock.
-      let locked = await this.lock(tx, tenantId);
+      let tenantId: TenantId;
       let created = false;
-      if (!locked && sandbox) {
-        const now = await databaseClock(tx);
-        const fixture = createDemoState(salonClock(new Date(now)).today);
-        created = (await tx.$executeRaw`
-          INSERT INTO tenant_state (tenant_id, kind, doc, expires_at)
-          VALUES (${tenantId}, 'sandbox', ${JSON.stringify(fixture)}::jsonb, to_timestamp(${now + SANDBOX_TTL_MS}::float8 / 1000))
-          ON CONFLICT (tenant_id) DO NOTHING`) === 1;
-        locked = await this.lock(tx, tenantId);
+      if ("sandboxKey" in target) {
+        const { sandboxKey } = target;
+        // Serialize first writes for the same token even when there is no tenant row to lock.
+        await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(${sandboxKey}, 0))`;
+        const existing = await this.sandboxTenantId(tx, sandboxKey);
+        tenantId = existing ?? `${sandboxKey}_${randomUUID()}`;
+        if (!existing) {
+          const now = await databaseClock(tx);
+          const fixture = createDemoState(salonClock(new Date(now)).today);
+          await tx.$executeRaw`
+            INSERT INTO tenant_state (tenant_id, kind, doc, expires_at)
+            VALUES (${tenantId}, 'sandbox', ${JSON.stringify(fixture)}::jsonb, to_timestamp(${now + SANDBOX_TTL_MS}::float8 / 1000))`;
+          created = true;
+        }
+      } else {
+        tenantId = target.tenantId;
       }
-      if (!locked || (sandbox && locked.kind !== "sandbox")) return { done: { ok: false, reason: "not-found" } };
+      const locked = await this.lock(tx, tenantId);
+      if (!locked || ("sandboxKey" in target && locked.kind !== "sandbox")) return { done: { ok: false, reason: "not-found" } };
       const outcome = await this.applyLocked(tx, tenantId, locked, own, meta, options);
       if (created && "done" in outcome) await tx.$executeRaw`DELETE FROM tenant_state WHERE tenant_id = ${tenantId}`;
       return outcome;
@@ -372,7 +403,7 @@ export class PostgresStudioStore implements StudioStore {
       if (!result.done.ok && result.done.detail === DOCUMENT_SIZE_REFUSAL) this.metrics.refusedSize();
       return result.done;
     }
-    return this.published(tenantId, result.commit, start);
+    return this.published(result.commit.entry.tenantId, result.commit, start);
   }
 
   /** After a commit: deliver due effects, notify subscribers, return a detached result. */
@@ -407,7 +438,7 @@ export class PostgresStudioStore implements StudioStore {
 
   private async replace(tenantId: TenantId, action: SystemAction, replacement?: DemoState): Promise<ReplacementResult> {
     const start = performance.now();
-    const result = await this.transaction(tenantId, async (tx): Promise<{ replaced: ReplacementResult; commit?: DocumentCommit }> => {
+    const result = await this.transaction(async (tx): Promise<{ replaced: ReplacementResult; commit?: DocumentCommit }> => {
       const locked = await this.lock(tx, tenantId);
       const clock = await this.clock(tx);
       if (!locked || (locked.expires_ms !== null && locked.expires_ms <= clock) ||
@@ -415,14 +446,14 @@ export class PostgresStudioStore implements StudioStore {
         return { replaced: { ok: false, reason: "not-found" } };
       }
       const before = migrateSaved(locked.doc);
-      if (action.type === "system/reset" && before?.generatedFor === action.payload.generatedFor) {
+      if (action.type === "system/reset" && before && before.generatedFor >= action.payload.generatedFor) {
         return { replaced: { ok: true, version: locked.version, changed: false } };
       }
       const fixture = action.type === "system/reset" ? createDemoState(action.payload.generatedFor) : migrateSaved(replacement);
       if (!fixture) return { replaced: { ok: false, reason: "rejected", version: locked.version } };
       const document = JSON.stringify({ ...fixture, seq: Math.max(fixture.seq, before?.seq ?? 0) });
       const documentBytes = Buffer.byteLength(document);
-      if (documentBytes > MAX_DOCUMENT_BYTES) {
+      if (exceedsDocumentLimit(documentBytes, locked.doc)) {
         return { replaced: { ok: false, reason: "rejected", version: locked.version, detail: DOCUMENT_SIZE_REFUSAL } };
       }
       const version = locked.version + 1;
@@ -507,7 +538,8 @@ export class PostgresStudioStore implements StudioStore {
     if (reduced === state || sameContent(reduced, state)) return { done: { ok: false, reason: "rejected", version: locked.version } };
     const document = JSON.stringify(reduced);
     const documentBytes = Buffer.byteLength(document);
-    if (documentBytes > MAX_DOCUMENT_BYTES) {
+    // Erasure and access revocation must work even when their audit data grows the document.
+    if (!isErasure(action) && action.type !== "support/revoke" && exceedsDocumentLimit(documentBytes, locked.doc)) {
       return { done: { ok: false, reason: "rejected", detail: DOCUMENT_SIZE_REFUSAL, version: locked.version } };
     }
 
@@ -615,7 +647,7 @@ export class PostgresStudioStore implements StudioStore {
   async eraseSubject(tenantId: TenantId, customerId: string, meta: ApplyMeta = {}): Promise<EraseResult> {
     const start = performance.now();
     if (typeof customerId !== "string" || !customerId) return { ok: false, reason: "not-found" };
-    const result = await this.transaction(tenantId, async (tx): Promise<{ erased: EraseResult; commit?: DocumentCommit }> => {
+    const result = await this.transaction(async (tx): Promise<{ erased: EraseResult; commit?: DocumentCommit }> => {
       const locked = await this.lock(tx, tenantId);
       if (!locked) return { erased: { ok: false, reason: "not-found" } };
       const clock = await this.clock(tx);
@@ -720,14 +752,28 @@ export class PostgresStudioStore implements StudioStore {
     return { redacted: { actions: redactedActions, effects: redactedEffects, idempotencyKeys }, pendingPayments, inFlightMessages };
   }
 
-  subscribe(tenantId: TenantId, listener: (change: StoreChange) => void): () => void {
+  subscribe(tenantId: TenantId, listener: (change: StoreChange) => void, { onRefresh }: { onRefresh?: () => void | Promise<void> } = {}): () => void {
     const listeners = this.listeners.get(tenantId) ?? new Set();
     this.listeners.set(tenantId, listeners);
     const subscription = (change: StoreChange) => listener(change);
     listeners.add(subscription);
+    const refresh = onRefresh && (async () => {
+      if (!listeners.has(subscription) || !this.notifications?.ready) return;
+      try {
+        await onRefresh();
+      } catch {
+        // A subscriber's error cannot interrupt the other refresh callbacks.
+      }
+    });
+    if (refresh) {
+      this.refreshListeners.add(refresh);
+      if (this.notifications?.ready) queueMicrotask(refresh);
+    }
     this.notifications?.start();
     return () => {
-      if (!listeners.delete(subscription) || listeners.size) return;
+      listeners.delete(subscription);
+      if (refresh) this.refreshListeners.delete(refresh);
+      if (listeners.size) return;
       if (this.listeners.get(tenantId) !== listeners) return;
       this.listeners.delete(tenantId);
       if (!this.listeners.size) this.notifications?.stop();
@@ -743,6 +789,7 @@ export class PostgresStudioStore implements StudioStore {
   close() {
     for (const listeners of this.listeners.values()) listeners.clear();
     this.listeners.clear();
+    this.refreshListeners.clear();
     this.notifications?.stop();
   }
 

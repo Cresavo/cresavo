@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import pg from "pg";
 import type { Prisma } from "@prisma/client";
 import type { StoreChange, TenantId } from "./studio-store";
@@ -10,17 +11,16 @@ interface Session {
   ready: boolean;
 }
 
-const echoKey = (pid: number, tenantId: TenantId, version: number) => JSON.stringify([pid, tenantId, version]);
-
 /** One dedicated connection while this store has subscribers. */
 export class PostgresNotifications {
+  readonly sender = randomUUID();
   private session?: Session;
   private retry?: ReturnType<typeof setTimeout>;
-  private readonly echoes = new Map<string, { pending: boolean }>();
 
   constructor(
     private readonly connectionString: string,
     private readonly fanOut: (change: StoreChange) => void,
+    private readonly onReady: () => void,
   ) {}
 
   start() {
@@ -39,9 +39,9 @@ export class PostgresNotifications {
     };
     client.on("error", reconnect);
     client.on("end", reconnect);
-    client.on("notification", ({ channel, payload, processId }) => {
+    client.on("notification", ({ channel, payload }) => {
       if (this.session !== session || channel !== CHANNEL || !payload) return;
-      let change: { tenantId?: unknown; version?: unknown } | null;
+      let change: { tenantId?: unknown; version?: unknown; sender?: unknown } | null;
       try {
         change = JSON.parse(payload);
       } catch {
@@ -49,7 +49,7 @@ export class PostgresNotifications {
       }
       if (typeof change?.tenantId !== "string" || !change.tenantId ||
           typeof change.version !== "number" || !Number.isSafeInteger(change.version) || change.version < 1) return;
-      if (this.echoes.delete(echoKey(processId, change.tenantId, change.version))) return;
+      if (change.sender === this.sender) return;
       this.fanOut({ tenantId: change.tenantId, version: change.version, effects: [] });
     });
     void (async () => {
@@ -57,7 +57,9 @@ export class PostgresNotifications {
         await client.connect();
         if (this.session !== session) return;
         await client.query("LISTEN tenant_changes");
+        if (this.session !== session) return;
         session.ready = true;
+        this.onReady();
       } catch {
         reconnect();
       }
@@ -69,32 +71,16 @@ export class PostgresNotifications {
     this.session = undefined;
     if (this.retry) clearTimeout(this.retry);
     this.retry = undefined;
-    for (const [key, echo] of this.echoes) {
-      if (!echo.pending) this.echoes.delete(key);
-    }
     if (session) void session.client.end().catch(() => {});
   }
 
   get ready() {
     return this.session?.ready ?? false;
   }
-
-  /** Reserve the echo before commit, even if LISTEN is still connecting. */
-  ignoreEcho(pid: number, tenantId: TenantId, version: number): (committed: boolean) => void {
-    const key = echoKey(pid, tenantId, version);
-    const echo = { pending: true };
-    this.echoes.set(key, echo);
-    return (committed) => {
-      echo.pending = false;
-      if ((!committed || !this.session) && this.echoes.get(key) === echo) this.echoes.delete(key);
-    };
-  }
 }
 
 /** PostgreSQL releases this notification only if and when the transaction commits. */
-export async function notifyTenantChange(tx: Prisma.TransactionClient, tenantId: TenantId, version: number) {
-  const payload = JSON.stringify({ tenantId, version });
-  const [{ pid }] = await tx.$queryRaw<Array<{ pid: number }>>`
-    SELECT pg_backend_pid() AS pid FROM pg_notify(${CHANNEL}, ${payload})`;
-  return pid;
+export async function notifyTenantChange(tx: Prisma.TransactionClient, tenantId: TenantId, version: number, sender?: string) {
+  const payload = JSON.stringify({ tenantId, version, sender });
+  await tx.$queryRaw`SELECT 1 FROM pg_notify(${CHANNEL}, ${payload})`;
 }
