@@ -47,7 +47,8 @@ or opened on a routable alias after switching to the lab, every consent path is 
   credentials or trailing dot on the host name. The string is checked as written, before URL
   parsing could resolve it, so `https://host/x/..`, `/./` or `%2e%2e` are refused rather than
   shortened to the host root; only an optional port and one trailing slash are accepted. Plain HTTP is refused, including on loopback.
-  The address must be one a browser can open: a port from 1 to 65535 without leading zeros, DNS
+  The address must be one a browser can open: a port from 1 to 65535 without leading zeros and
+  not one of the Fetch standard's blocked ports (such as 6000 or 10080), DNS
   labels of at most 63 bytes, a host name of at most 253, or a valid bracketed IPv6 literal.
 - `BOOKING_PUBLIC_ORIGIN` is a bare `https://` origin on a different host name from the
   consent origin. A different port on the same host is refused: cookies are scoped by

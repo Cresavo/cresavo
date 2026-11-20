@@ -9,13 +9,20 @@ export const STAGING_CONSENT_MODE = "staging-inbox";
 // user info or backslash.
 const BARE_HTTPS_ORIGIN = /^https:\/\/(([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*)|\[([0-9A-Fa-f:.]+)\])(?::(\d{1,5}))?\/?$/;
 // Each part must be one a browser can open, so a link is never issued to an address no customer
-// can reach: a port from 1 to 65535 written without leading zeros, DNS labels of at most 63
+// can reach: a port from 1 to 65535 written without leading zeros and not a Fetch bad port, DNS labels of at most 63
 // bytes and a host name of at most 253, and a valid IPv6 literal.
+// The Fetch standard's "bad ports" (https://fetch.spec.whatwg.org/#port-blocking): browsers refuse to
+// fetch or navigate to them, so a consent link on one would be delivered and never open.
+export const FETCH_BAD_PORTS = new Set([0, 1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79, 87, 95, 101, 102, 103,
+  104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137, 139, 143, 161, 179, 389, 427, 465, 512, 513, 514, 515, 526, 530, 531, 532, 540,
+  548, 554, 556, 563, 587, 601, 636, 989, 990, 993, 995, 1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666,
+  6667, 6668, 6669, 6679, 6697, 10080]);
 export function httpsOrigin(value) {
   const parts = typeof value === "string" ? BARE_HTTPS_ORIGIN.exec(value) : null;
   if (!parts) throw new Error("CONSENT_ORIGIN_INVALID");
   const [, , name, , port] = parts;
-  if (port !== undefined && (!/^[1-9]\d*$/.test(port) || Number(port) > 65535)) throw new Error("CONSENT_ORIGIN_INVALID");
+  if (port !== undefined && (!/^[1-9]\d*$/.test(port) || Number(port) > 65535 || FETCH_BAD_PORTS.has(Number(port))))
+    throw new Error("CONSENT_ORIGIN_INVALID");
   if (name !== undefined && (name.length > 253 || name.split(".").some(label => label.length > 63))) throw new Error("CONSENT_ORIGIN_INVALID");
   // An IPv6 literal is validated by the URL parser below, whose rules (eight groups of at most four
   // hex digits, one `::`, a dotted IPv4 tail) match `net.isIPv6`; `node:net` itself cannot be

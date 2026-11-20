@@ -28,5 +28,5 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
     return <main className="p-4"><h1 className="text-h2">{stagingCopy[locale].title}</h1>
       <StagingConsentForm id={id} locale={locale} origin={stagingConsentPolicy(process.env)!} /></main>;
   }
-  return <main><h1>Godkänn bokningsförslag</h1><ConsentForm id={id} origin={labConsentOrigin(process.env)!} /></main>;
+  return <main><h1>Godkänn bokningsförslag</h1><ConsentForm id={id} origin={labConsentOrigin(process.env)!} locale={await getLocale()} /></main>;
 }

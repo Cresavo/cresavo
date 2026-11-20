@@ -34,12 +34,21 @@ describe("staging channel configuration", () => {
   it("issues links only to an address a browser can open", async () => {
     const { httpsOrigin } = await import("../scripts/consent-channel-policy.mjs");
     const label = (n: number) => "a".repeat(n);
-    for (const [value, origin] of [["https://salon.test:1", "https://salon.test:1"], ["https://salon.test:65535", "https://salon.test:65535"],
+    for (const [value, origin] of [["https://salon.test:2", "https://salon.test:2"], ["https://salon.test:65535", "https://salon.test:65535"],
       ["https://salon.test:443", "https://salon.test"], [`https://${label(63)}.test`, `https://${label(63)}.test`],
       [`https://${[label(61), label(61), label(61), label(61)].join(".")}.test`, `https://${[label(61), label(61), label(61), label(61)].join(".")}.test`],
       ["https://[::1]:8443", "https://[::1]:8443"], ["https://[2001:DB8::1]", "https://[2001:db8::1]"], ["https://[1:2:3:4:5:6:7:8]", "https://[1:2:3:4:5:6:7:8]"],
       ["https://[::ffff:192.0.2.1]", "https://[::ffff:c000:201]"]] as const)
       expect(httpsOrigin(value), value).toBe(origin);
+    // Ports browsers refuse to open (the Fetch standard's bad ports), next to allowed non-default ones.
+    const { FETCH_BAD_PORTS } = await import("../scripts/consent-channel-policy.mjs");
+    expect(FETCH_BAD_PORTS.size).toBe(83);
+    for (const port of [6000, 1, 22, 25, 465, 587, 993, 2049, 4190, 5060, 6666, 6679, 10080])
+      expect(() => httpsOrigin(`https://salon.test:${port}`), `port ${port}`).toThrow(/^CONSENT_ORIGIN_INVALID$/);
+    expect(() => stagingConsentPolicy({ ...staging, BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test:6000" })).toThrow(/^CONSENT_ORIGIN_INVALID$/);
+    for (const port of [8443, 3000, 5999, 6001, 10081, 444])
+      expect(httpsOrigin(`https://salon.test:${port}`), `port ${port}`).toBe(`https://salon.test:${port}`);
+    expect(stagingConsentPolicy({ ...staging, BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test:8443" })).toBe("https://salon-demo.cresavo.test:8443");
     // Port 0, leading zeros and ports past 65535; a label over 63 bytes or a name over 253.
     for (const value of ["https://salon.test:0", "https://salon.test:00", "https://salon.test:0443", "https://salon.test:65536", "https://salon.test:99999",
       `https://${label(64)}.test`, `https://${label(63)}.${label(63)}.${label(63)}.${label(63)}.test`, `https://x.${label(64)}`,

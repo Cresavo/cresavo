@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { consentFragment } from "./staging-copy";
+import { labCopy } from "./lab-copy";
+import type { Locale } from "@/lib/locale";
 type Proposal = { smsOtpRequired?: boolean; phoneMask?: string; serviceName: string; staff: { name: string }; salon: string; locationId: string; start: string; durationMinutes: number; price: { amountMinor: number }; expiresAt: string };
-export default function ConsentForm({ id, origin }: { id: string; origin: string }) {
+export default function ConsentForm({ id, origin, locale }: { id: string; origin: string; locale: Locale }) {
   const token = useRef("");
   const [data, setData] = useState<{ proposal: Proposal; proposalHash: string; customer: string } | null>(null);
   const [message, setMessage] = useState("Läser förslag…");
@@ -15,13 +17,13 @@ export default function ConsentForm({ id, origin }: { id: string; origin: string
     token.current ||= consentFragment(origin, window.location) ?? "";
     window.history.replaceState(null, "", window.location.pathname);
     let active = true;
-    if (!token.current) { setMessage("Länken är ogiltig, använd eller utgången."); return; }
+    if (!token.current) { setMessage(labCopy[locale].missingLink); return; }
     fetch(endpoint, { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token.current, decision: "view" }) })
       .then(async r => { if (!r.ok) throw new Error(); return r.json(); })
       .then(d => { if (active) { setData(d); setMessage(""); } })
       .catch(() => { if (active) setMessage("Länken är ogiltig, använd eller utgången."); });
     return () => { active = false; };
-  }, [endpoint, origin]);
+  }, [endpoint, origin, locale]);
   async function decide(decision: "yes" | "no" | "resend") {
     if (!data || busy) return;
     setBusy(true);
