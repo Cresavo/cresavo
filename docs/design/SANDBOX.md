@@ -1,6 +1,7 @@
 # Public agent booking sandbox
 
-Status: proposed. Scope: design review before any implementation or deployment.
+Status: approved for implementation with the conditions below. Hosted
+resources, DNS, deployment and merge each require the owner's separate approval.
 
 ## What the visitor can try
 
@@ -154,10 +155,11 @@ quota. Vercel evaluates [project budgets](https://vercel.com/docs/spend-manageme
 periodically, only pauses production deployments, and excludes Marketplace
 charges. Retained build and function storage can also accrue charges after
 pausing. Treat the pause as a backstop. It cannot establish zero overage on
-its own. Before hosted testing, verify hard quotas for dependent services,
-deployment retention and available shared plan credit, and prove that the
-settings meet the owner's free-only constraint even if budget enforcement
-lags. Leave the hosted sandbox disabled if that cannot be verified.
+its own. The owner accepts the small residual Vercel usage risk with the
+hard in-app caps for three pairs per IP per UTC day, 20 bookings per session
+and eight sessions per hosted reset generation. Verify Marketplace hard
+quotas, deployment retention and available shared plan credit first. The
+free-plan and no-payment-method rules for Marketplace remain strict.
 
 Proposed new configuration:
 
@@ -193,24 +195,15 @@ configure it only in the sandbox and gateway projects' secret settings.
   credentials and failed or repeated resets. Verify split-mode
   authentication and that the engine still rejects stale terms or taken
   slots. Show actual, sanitized test results.
-- After owner approval of the cloud steps, run the pinned gateway kit's
-  `npm run provider:check -- --write` against the hosted sandbox from a
-  trusted verification process supplied the service token only in memory
-  from the project secret setting. Require passes for all checks, including
-  a pending proposal and proof that the agent saw no link.
-  Keep the adapter in Cresavo and run `npm run test:e2e -- --adapter <file>`
-  from the gateway checkout. The adapter's `approve()` uses a separate browser
-  context on the phone. The kit at the reviewed PR #10 revision starts a
-  local gateway and generates a new service token. The command at that
-  revision cannot use the fixed hosted identity. Hosted adapter acceptance
-  remains blocked until the owner agrees on a supported generic verification
-  path. Do not add an extra accepted gateway token or change the hosted
-  service identity for the runner. Report local adapter tests and the
-  independent public path separately from the requested hosted acceptance.
-  Run expiry, price and slot mutations via a guarded test operator against
-  dedicated verification state, never through a public operator route.
-  Independently verify the public gateway and provider path from an MCP client,
-  through the browser approval, to the exact booking in the sandbox calendar.
+- Run the gateway kit's `provider:check -- --write` in CI and against a
+  local sandbox. A hosted run of the provider checker is optional. In the
+  hosted sandbox, run the gateway kit's generic
+  `npm run test:e2e -- --gateway <url> --adapter <file>` mode. It uses an
+  ordinary sandbox agent key, with no gateway service token. Keep the
+  adapter in Cresavo. Approval uses a separate browser context on the phone,
+  and the calendar check matches the exact booking ID. Keep privileged
+  fixture mutation scenarios local. Report local checks and hosted
+  acceptance separately.
 - Add the static “Let AI book” page in a later draft PR, with English source
   strings and a Swedish translation. It explains the assistant, demo phone and
   calendar, links to the sandbox and gateway, and makes no API calls. Leave
@@ -220,8 +213,10 @@ configure it only in the sandbox and gateway projects' secret settings.
   [patched minimum](https://github.com/advisories/GHSA-7589-6fvf-x4pw).
   Publish the final tested provider revision for the gateway pin.
 
-The owner approves this design before implementation. An independent model
-reviews the security-sensitive code before merge. Before hosted work, review
-the exact resource, cost and deployment settings with the owner.
+Deliver four stacked draft PRs: provider isolation, pairing and demo phone,
+nightly reset, and deployment configuration. An independent model reviews
+the security-sensitive changes in each before merge. Fix or explain the
+Windows test failures before any merge. Before hosted work, review the exact
+resource, cost and deployment settings with the owner.
 Provide a short owner checklist for the free database, secrets, project
 budget, domain assignment and PR approval/merge when those steps apply.
