@@ -10,7 +10,7 @@ import { handleMcp } from "../../src/lib/agent-api/mcp";
 import { mapAgentError } from "../../src/lib/agent-api/v1";
 import { STAGING_CHANNEL, STAGING_CUSTOMER, stagingInbox } from "../../src/lib/agent-api/consent-staging";
 import * as decisionRoute from "../../src/app/consent/[id]/decision/route";
-import { consentOutcome } from "../../src/app/consent/[id]/staging-copy";
+import { consentOutcome, parseStagingView } from "../../src/app/consent/[id]/staging-copy";
 import { POST as restPropose } from "../../src/app/api/v1/proposals/route";
 import { GET as restStatus } from "../../src/app/api/v1/proposals/[id]/route";
 import { rpcBody } from "../helpers/oauth";
@@ -23,7 +23,22 @@ const addressSecret = "synthetic-staging-socket-proof";
 const customerIp = "198.51.100.7";
 const serviceId = `staging-service-${randomUUID()}`, staffId = `staging-staff-${randomUUID()}`;
 const clients: string[] = [];
-let cursor = DateTime.now().setZone("Europe/Stockholm").startOf("day").plus({ days: 30 });
+// Booking is open for 60 days ahead. Fixtures start two days out and may use at most 30 weekdays,
+// which always ends within 44 days whatever weekday the suite runs on.
+const SLOT_BUDGET = 30;
+const fixtureStart = () => DateTime.now().setZone("Europe/Stockholm").startOf("day").plus({ days: 2 });
+/** Distinct weekdays at 13:00 Stockholm: the cursor moves past the day actually returned. */
+function weekdaySlots(from: DateTime) {
+  let cursor = from, used = 0;
+  return () => {
+    if (++used > SLOT_BUDGET) throw new Error("FIXTURE_SLOT_BUDGET_EXCEEDED");
+    let day = cursor;
+    while (day.weekday > 5) day = day.plus({ days: 1 });
+    cursor = day.plus({ days: 1 });
+    return day.set({ hour: 13 });
+  };
+}
+const nextSlot = weekdaySlots(fixtureStart());
 
 beforeAll(async () => {
   await db.service.create({ data: { id: serviceId, businessId: "demo", name: "Fictional staging treatment", duration: 45, priceOre: 52000 } });
@@ -57,12 +72,8 @@ async function actor() {
   clients.push(principal.clientId);
   return { key, principal };
 }
-/** A distinct weekday for every call: the cursor moves past the day actually returned. */
 function terms() {
-  let day = cursor;
-  while (day.weekday > 5) day = day.plus({ days: 1 });
-  cursor = day.plus({ days: 1 });
-  return { business: "demo", serviceId, serviceVersion: 1, staffId, start: day.set({ hour: 13 }).toISO()! };
+  return { business: "demo", serviceId, serviceVersion: 1, staffId, start: nextSlot().toISO()! };
 }
 async function inbox(proposalId: string) {
   return db.consentInboxMessage.findUniqueOrThrow({ where: { proposalId } });
@@ -90,11 +101,18 @@ const counts = async (clientId: string) => ({
   bookings: await db.agentBooking.count({ where: { clientId } }),
 });
 
-it("gives every scenario its own weekday slot", () => {
-  // Seven calls always span a weekend; no two may share a start for the same staff member.
-  const starts = Array.from({ length: 7 }, () => terms().start);
-  expect(new Set(starts).size).toBe(7);
-  for (const start of starts) expect(DateTime.fromISO(start).setZone("Europe/Stockholm").weekday).toBeLessThan(6);
+it("gives every scenario its own weekday slot inside the booking window, on any weekday", () => {
+  // Its own generators, so the scenarios' slots are untouched. Every start weekday is checked.
+  const today = DateTime.now().setZone("Europe/Stockholm").startOf("day");
+  for (let offset = 0; offset < 7; offset++) {
+    const next = weekdaySlots(fixtureStart().plus({ days: offset }));
+    const starts = Array.from({ length: SLOT_BUDGET }, next);
+    expect(new Set(starts.map(s => s.toISO())).size).toBe(SLOT_BUDGET);
+    for (const start of starts) expect(start.weekday).toBeLessThan(6);
+    // Even shifted by up to a week, the last slot is well inside the 60-day window.
+    expect(starts.at(-1)!.diff(today, "days").days).toBeLessThanOrEqual(52);
+    expect(() => next()).toThrow("FIXTURE_SLOT_BUDGET_EXCEEDED");
+  }
 });
 
 it.each(["rest", "mcp"])("%s returns only the proposal id, status and terms; the link stays in the salon inbox", async transport => {
@@ -172,8 +190,9 @@ it("an approval committed before the response is lost is reported as unconfirmed
   }) as unknown as typeof db.$transaction);
   const response = await customer(proposal.id, { token, decision: "yes", proposalHash: hash });
   expect(response.status).toBe(500);
-  expect(await response.text()).not.toContain(token);
-  expect(consentOutcome("yes", { status: response.status })).toBe("unconfirmed");
+  const raw = await response.text();
+  expect(raw).not.toContain(token);
+  expect(consentOutcome("yes", { status: response.status, body: JSON.parse(raw) })).toBe("unconfirmed");
   expect((await getProposal(principal, proposal.id)).proposal.status).toBe("approved");
   expect(await counts(principal.clientId)).toMatchObject({ mandates: 1 });
 });
@@ -182,18 +201,32 @@ it("limits decisions per existing proposal and allocates nothing for made-up pro
   // The PostgreSQL store, shared with login and booking limits: count its rows.
   vi.stubEnv("RATE_LIMIT_STORE", "postgres");
   const { rateLimitDatabase } = await import("../../src/lib/postgres-rate-limit");
-  const { principal } = await actor();
-  const { proposal } = await createProposal(principal, terms());
-  const before = await rateLimitDatabase.rateLimitBucket.count();
-  for (let i = 0; i < 10; i++) expect((await customer(randomUUID(), { token: "T".repeat(43), decision: "view" }, consentOrigin, "198.51.100.60")).status).toBe(403);
-  // Ten made-up IDs from one address: one address bucket, no proposal buckets.
-  expect(await rateLimitDatabase.rateLimitBucket.count()).toBe(before + 1);
-  const token = await secret(proposal.id);
-  for (let i = 0; i < 20; i++) expect((await customer(proposal.id, { token, decision: "view" }, consentOrigin, `198.51.100.${70 + (i % 10)}`)).status).toBe(200);
-  const limited = await customer(proposal.id, { token, decision: "view" }, consentOrigin, "198.51.100.90");
-  expect(limited.status).toBe(429);
-  expect(await limited.json()).toEqual({ error: "consent_rate_limited" });
-  expect((await getProposal(principal, proposal.id)).proposal.status).toBe("pending");
+  // Per-run addresses and this test's own bucket keys, so reruns and other rows do not matter.
+  const run = () => `10.${randomBytes(3).join(".")}`;
+  const key = (route: string, identity: string) => createHmac("sha256", process.env.SESSION_SECRET!).update(`rate-limit:v1:${route}:${identity}`).digest("hex");
+  const keys: string[] = [];
+  const buckets = async (list: string[]) => rateLimitDatabase.rateLimitBucket.findMany({ where: { key: { in: list } } });
+  try {
+    const { principal } = await actor();
+    const { proposal } = await createProposal(principal, terms());
+    const probe = run(), madeUp = Array.from({ length: 10 }, () => randomUUID());
+    keys.push(key("consent-ip", probe), ...madeUp.map(id => key("consent-proposal", id)));
+    for (const id of madeUp) expect((await customer(id, { token: "T".repeat(43), decision: "view" }, consentOrigin, probe)).status).toBe(403);
+    // Ten made-up IDs from one address: that address's bucket, no proposal buckets.
+    expect((await buckets(keys)).map(b => [b.key, b.count])).toEqual([[key("consent-ip", probe), 10]]);
+    const token = await secret(proposal.id);
+    const addresses = Array.from({ length: 10 }, run);
+    keys.push(key("consent-proposal", proposal.id), ...addresses.map(a => key("consent-ip", a)));
+    for (let i = 0; i < 20; i++) expect((await customer(proposal.id, { token, decision: "view" }, consentOrigin, addresses[i % 10])).status).toBe(200);
+    const last = run(); keys.push(key("consent-ip", last));
+    const limited = await customer(proposal.id, { token, decision: "view" }, consentOrigin, last);
+    expect(limited.status).toBe(429);
+    expect(await limited.json()).toEqual({ error: "consent_rate_limited" });
+    expect((await buckets([key("consent-proposal", proposal.id)]))[0].count).toBe(20);
+    expect((await getProposal(principal, proposal.id)).proposal.status).toBe("pending");
+  } finally {
+    await rateLimitDatabase.rateLimitBucket.deleteMany({ where: { key: { in: keys } } });
+  }
 });
 
 it("opening the link approves nothing; there is no GET decision handler", async () => {
@@ -206,6 +239,8 @@ it("opening the link approves nothing; there is no GET decision handler", async 
   expect(shown.terms).toEqual({ salonName: "Salong Eko (synthetic demo)", locationId: "demo-location", locationName: "Fictional demo studio, Stockholm", timeZone: "Europe/Stockholm", currency: "SEK" });
   expect(shown.proposal).toMatchObject({ serviceName: "Fictional staging treatment", staff: { name: "Fictional Staging Stylist" }, durationMinutes: 45, price: { amountMinor: 52000, currency: "SEK" } });
   expect(shown.customer).toBe(`${STAGING_CUSTOMER.name} · ${STAGING_CUSTOMER.email}`);
+  // The page's own validator accepts what the salon actually sends.
+  expect(parseStagingView(shown)).not.toBeNull();
   expect((await getProposal(principal, proposal.id)).proposal.status).toBe("pending");
   expect((await inbox(proposal.id)).consumedAt).toBeNull();
   expect(await counts(principal.clientId)).toMatchObject({ mandates: 0 });

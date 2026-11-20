@@ -3,26 +3,21 @@ import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@/lib/locale";
 import { Button } from "@/concept/ui/button";
 import { Notice } from "@/concept/ui/notice";
-import { consentOutcome, formatStagingTerms, stagingCopy, type ConsentOutcome } from "./staging-copy";
-
-type View = {
-  proposal: { serviceName: string; staff: { name: string }; start: string; durationMinutes: number; price: { amountMinor: number; currency: string }; expiresAt: string };
-  proposalHash: string; customer: string;
-  terms: { salonName: string; locationId: string; locationName: string; timeZone: string; currency: string };
-};
+import { consentOutcome, formatStagingTerms, parseStagingView, stagingCopy, type ConsentOutcome, type ConsentResponse, type StagingView } from "./staging-copy";
 
 // Opening the page only reads the proposal. Nothing is approved without the explicit button.
 export default function StagingConsentForm({ id, locale }: { id: string; locale: Locale }) {
   const t = stagingCopy[locale];
   const token = useRef("");
-  const [data, setData] = useState<View | null>(null);
+  const [data, setData] = useState<StagingView | null>(null);
   const [outcome, setOutcome] = useState<ConsentOutcome>("loading");
   const [busy, setBusy] = useState(false);
   const endpoint = `/consent/${encodeURIComponent(id)}/decision`;
   // Redirects are errors: a redirected decision is never treated as the salon's answer.
   const post = (body: object) => fetch(endpoint, { method: "POST", cache: "no-store", redirect: "error", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token.current, ...body }) });
-  const answer = async (r: Response) => ({ status: r.status,
-    state: r.status === 409 || r.status === 410 ? (await r.json().catch(() => null))?.state : undefined });
+  // Status and JSON body as received; a non-JSON body (an intermediary's page) stays undefined.
+  const answer = async (r: Response): Promise<ConsentResponse> => ({ status: r.status, redirected: r.redirected,
+    body: r.headers.get("content-type")?.startsWith("application/json") ? await r.json().catch(() => undefined) : undefined });
   useEffect(() => {
     // Keep the one-time secret in memory only and remove it from the address bar and history.
     token.current ||= window.location.hash.slice(1);
@@ -30,9 +25,12 @@ export default function StagingConsentForm({ id, locale }: { id: string; locale:
     let active = true;
     fetch(endpoint, { method: "POST", cache: "no-store", redirect: "error", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token.current, decision: "view" }) })
       .then(async r => {
+        const response = await answer(r);
         if (!active) return;
-        if (!r.ok) { setOutcome(consentOutcome("view", await answer(r))); return; }
-        setData(await r.json()); setOutcome("ready");
+        // Terms are rendered only after every shown and approved field has been checked.
+        const outcome = consentOutcome("view", response);
+        if (outcome === "ready" && response !== "network-error") setData(parseStagingView(response.body));
+        setOutcome(outcome);
       })
       .catch(() => { if (active) setOutcome(consentOutcome("view", "network-error")); });
     return () => { active = false; };
@@ -42,8 +40,7 @@ export default function StagingConsentForm({ id, locale }: { id: string; locale:
     setBusy(true);
     try {
       const r = await post({ decision, proposalHash: data.proposalHash });
-      const ack = r.ok && r.headers.get("content-type")?.startsWith("application/json") ? (await r.json().catch(() => null))?.status : undefined;
-      setOutcome(consentOutcome(decision, r.ok ? { status: r.status, ack, redirected: r.redirected } : await answer(r)));
+      setOutcome(consentOutcome(decision, await answer(r)));
     } catch { setOutcome(consentOutcome(decision, "network-error")); }
     finally { token.current = ""; setData(null); setBusy(false); }
   }

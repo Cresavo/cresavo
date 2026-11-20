@@ -8,7 +8,7 @@ import { runtimePolicy } from "../scripts/client-address.mjs";
 import { requireStagingConsent, STAGING_CHANNEL, STAGING_CUSTOMER, stagingApprovalLink, stagingConsentOrigin } from "../src/lib/agent-api/consent-staging";
 import { assertCustomerChannelBinding, CHANNEL_CUSTOMER, CUSTOMER_CHANNEL, separateCustomerChannel } from "../src/lib/agent-api/customer-channel-lab";
 import { browserHostKind, resolveHost } from "../src/concept/page/resolve";
-import { consentOutcome, formatStagingTerms, stagingCopy } from "../src/app/consent/[id]/staging-copy";
+import { consentOutcome, formatStagingTerms, parseStagingView, stagingCopy } from "../src/app/consent/[id]/staging-copy";
 import { POST } from "../src/app/consent/[id]/decision/route";
 import { agentApiErrors } from "../src/lib/agent-api/errors";
 import { proxy } from "../src/proxy";
@@ -133,8 +133,9 @@ describe("staging host and customer endpoint", () => {
     // The unit-test database is unreachable: the decision itself fails, which may follow a commit.
     const response = await proofed("203.0.113.20", randomUUID(), JSON.stringify({ token: "T".repeat(43), decision: "yes", proposalHash: "a".repeat(64) }));
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "consent_unavailable" });
-    expect(consentOutcome("yes", { status: response.status })).toBe("unconfirmed");
+    const body = await response.json();
+    expect(body).toEqual({ error: "consent_unavailable" });
+    expect(consentOutcome("yes", { status: response.status, body })).toBe("unconfirmed");
   });
   it("limits decision requests per client address before anything else", async () => {
     // Per-proposal limits need the database and are covered by the integration tests.
@@ -177,31 +178,55 @@ describe("staging host and customer endpoint", () => {
 });
 
 describe("customer outcome after a decision request", () => {
-  it("says nothing was approved only after a definite refusal", () => {
-    expect(consentOutcome("yes", { status: 200, ack: "approved" })).toBe("approved");
-    expect(consentOutcome("no", { status: 200, ack: "declined" })).toBe("declined");
-    // A 2xx that is not the salon's acknowledgement of this decision proves nothing.
-    for (const response of [{ status: 200 }, { status: 200, ack: "declined" }, { status: 204 }, { status: 200, ack: { status: "approved" } },
-      { status: 200, ack: "approved", redirected: true }])
-      expect(consentOutcome("yes", response), JSON.stringify(response)).toBe("unconfirmed");
-    expect(consentOutcome("no", { status: 200, ack: "approved" })).toBe("unconfirmed");
-    expect(consentOutcome("yes", { status: 403 })).toBe("invalid");
-    expect(consentOutcome("yes", { status: 409, state: "used" })).toBe("used");
-    expect(consentOutcome("yes", { status: 410, state: "expired" })).toBe("expired");
-    expect(consentOutcome("yes", { status: 429 })).toBe("limited");
-    // A lost response or any server or intermediary error after approve or decline is unknown.
-    for (const response of ["network-error", { status: 500 }, { status: 502 }, { status: 503 }, { status: 504 }, { status: 409 }, { status: 400 }] as const)
-      for (const phase of ["yes", "no"] as const) expect(consentOutcome(phase, response)).toBe("unconfirmed");
-    // Viewing never approves anything.
-    expect(consentOutcome("view", "network-error")).toBe("unavailable");
-    expect(consentOutcome("view", { status: 502 })).toBe("unavailable");
+  const denied = { error: "consent_denied" };
+  const view = {
+    proposal: { serviceName: "Fictional treatment", staff: { name: "Fictional Stylist" }, start: "2026-12-07T09:30:00.000Z", durationMinutes: 45,
+      price: { amountMinor: 52000, currency: "SEK" }, expiresAt: "2026-12-01T08:00:00.000Z" },
+    proposalHash: "a".repeat(64), customer: "Staging Demo Customer · staging-customer@example.test",
+    terms: { salonName: "Salong Eko (synthetic demo)", locationId: "demo-location", locationName: "Fictional demo studio, Stockholm", timeZone: "Europe/Stockholm", currency: "SEK" },
+  };
+  it("reports a decision only from the salon's own JSON answer", () => {
+    expect(consentOutcome("yes", { status: 200, body: { status: "approved" } })).toBe("approved");
+    expect(consentOutcome("no", { status: 200, body: { status: "declined" } })).toBe("declined");
+    expect(consentOutcome("yes", { status: 403, body: denied })).toBe("invalid");
+    expect(consentOutcome("yes", { status: 409, body: { ...denied, state: "used" } })).toBe("used");
+    expect(consentOutcome("yes", { status: 410, body: { ...denied, state: "expired" } })).toBe("expired");
+    expect(consentOutcome("yes", { status: 429, body: { error: "consent_rate_limited" } })).toBe("limited");
+    // A status without the salon's body (an intermediary's page) proves nothing, refusal or success.
+    const unknown = ["network-error", { status: 200 }, { status: 200, body: { status: "declined" } }, { status: 204 }, { status: 201, body: { status: "approved" } },
+      { status: 200, body: { status: "approved" }, redirected: true }, { status: 403 }, { status: 403, body: "<html>Forbidden</html>" },
+      { status: 403, body: { error: "forbidden" } }, { status: 403, body: { ...denied, state: "used" } }, { status: 429 }, { status: 429, body: denied },
+      { status: 409 }, { status: 409, body: { state: "used" } }, { status: 410, body: { ...denied, state: "used" } }, { status: 403, body: denied, redirected: true },
+      { status: 500 }, { status: 500, body: { error: "consent_unavailable" } }, { status: 502 }, { status: 503 }, { status: 400 }] as const;
+    for (const response of unknown) expect(consentOutcome("yes", response), JSON.stringify(response)).toBe("unconfirmed");
+    expect(consentOutcome("no", { status: 200, body: { status: "approved" } })).toBe("unconfirmed");
+  });
+  it("never claims anything about approval when the status could not be checked", () => {
+    expect(consentOutcome("view", { status: 200, body: view })).toBe("ready");
+    expect(consentOutcome("view", { status: 409, body: { ...denied, state: "used" } })).toBe("used");
+    expect(consentOutcome("view", { status: 410, body: { ...denied, state: "expired" } })).toBe("expired");
+    // A refresh after a decision has no secret left: the salon answers 403. That is not "nothing was approved".
+    for (const response of ["network-error", { status: 403, body: denied }, { status: 403 }, { status: 502 }, { status: 500, body: { error: "consent_unavailable" } }] as const)
+      expect(consentOutcome("view", response)).toBe("unchecked");
+    for (const locale of ["en", "sv"] as const) {
+      for (const key of ["unchecked", "unconfirmed"] as const) expect(stagingCopy[locale][key]).not.toMatch(/Nothing was approved|Inget godkändes|changed nothing|ändrade ingenting/);
+      expect(stagingCopy[locale].invalid).toMatch(/Nothing was approved|Inget godkändes/);
+    }
     // Place descriptions are copy, translated per locale under the same location IDs.
     expect(Object.keys(stagingCopy.sv.locations)).toEqual(Object.keys(stagingCopy.en.locations));
     expect(stagingCopy.sv.locations["demo-location"]).toBe("Påhittad demostudio, Stockholm");
     expect(stagingCopy.en.locations["demo-location"]).toBe("Fictional demo studio, Stockholm");
-    for (const locale of ["en", "sv"] as const) {
-      expect(stagingCopy[locale].unconfirmed).not.toMatch(/Nothing was approved|Inget godkändes/);
-      expect(stagingCopy[locale].invalid).toMatch(/Nothing was approved|Inget godkändes/);
+  });
+  it("renders terms only from a complete, valid view", () => {
+    expect(parseStagingView(view)).toBe(view);
+    const broken: unknown[] = [null, undefined, "text", [], { error: "consent_denied" }, { ...view, terms: undefined }, { ...view, proposalHash: "x" },
+      { ...view, terms: { ...view.terms, timeZone: "Not/AZone" } }, { ...view, terms: { ...view.terms, currency: "sek" } },
+      { ...view, proposal: { ...view.proposal, start: "tomorrow" } }, { ...view, proposal: { ...view.proposal, durationMinutes: 0 } },
+      { ...view, proposal: { ...view.proposal, price: { amountMinor: 1.5, currency: "SEK" } } }, { ...view, proposal: { ...view.proposal, staff: {} } },
+      { ...view, customer: "" }];
+    for (const body of broken) {
+      expect(parseStagingView(body), JSON.stringify(body)).toBeNull();
+      expect(consentOutcome("view", { status: 200, body })).toBe("unchecked");
     }
   });
 });
@@ -290,6 +315,25 @@ describe("staging runner output", () => {
     await expect(third).rejects.toThrow(/^AGENT_REQUEST_FAILED$/);
     // Kept in memory for the leak scan; never echoed in an error.
     expect(transcript[0]).toContain("fict0ken");
+  });
+  it("charges agent stdout to the output budget before any line is buffered", async () => {
+    const { PassThrough } = await import("node:stream");
+    const { createInterface } = await import("node:readline");
+    const { guardStream } = await import("../scripts/staging-consent/processes.mjs");
+    let left = 16;
+    const reserve = (size: number) => (left -= size) >= 0;
+    const stream = new PassThrough({ encoding: "utf8" }), lines: string[] = [];
+    let overflows = 0;
+    guardStream(stream, () => overflows++, reserve);
+    createInterface({ input: stream }).on("line", line => lines.push(line));
+    stream.write("{\"id\":1}\n");
+    await new Promise(resolve => setImmediate(resolve));
+    // An unterminated line far beyond the budget: the stream is cut, nothing more accumulates.
+    stream.write("x".repeat(4096));
+    await new Promise(resolve => setImmediate(resolve));
+    expect(overflows).toBe(1);
+    expect(stream.destroyed).toBe(true);
+    expect(lines).toEqual(['{"id":1}']);
   });
   it("waits for every child's streams to close before the final scan", async () => {
     const { spawn } = await import("node:child_process");

@@ -29,10 +29,30 @@ export async function freePort() {
   return port;
 }
 
+/** Takes `size` from the output budget shared by every captured stream; false (and incomplete output) past it. */
+export function reserveCapture(size: number) {
+  if (overflowed || total + size > CAPTURE_LIMIT) { overflowed = true; return false; }
+  total += size;
+  return true;
+}
+
 export function capture(name: string, chunk: string) {
-  if (overflowed || total + chunk.length > CAPTURE_LIMIT) { overflowed = true; return; }
-  total += chunk.length;
-  captured[name] = (captured[name] ?? "") + chunk;
+  if (reserveCapture(chunk.length)) captured[name] = (captured[name] ?? "") + chunk;
+}
+
+/**
+ * Charges a stream that is kept elsewhere (the agent's line protocol) to the same budget. It must
+ * be attached before any other consumer: past the budget the stream is destroyed, so nothing
+ * further reaches a line buffer, and `onOverflow` runs once.
+ */
+export function guardStream(stream: Readable, onOverflow: () => void, reserve: (size: number) => boolean = reserveCapture) {
+  let tripped = false;
+  stream.on("data", (chunk: string | Buffer) => {
+    if (tripped || reserve(chunk.length)) return;
+    tripped = true;
+    stream.destroy();
+    onOverflow();
+  });
 }
 
 /** Captures a child stream as UTF-8 text, so a chunk boundary never splits a character. */

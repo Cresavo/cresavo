@@ -15,7 +15,7 @@ import { DateTime } from "luxon";
 import { assertTestDatabase } from "../test-db-guard.mjs";
 import { createDatabaseClient } from "../database.mjs";
 import { containsSecret, registerSecret, say } from "./sanitize.mjs";
-import { captureStream, freePort, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
+import { captureStream, freePort, guardStream, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
 import { agentChannel } from "./agent-reply.mjs";
 import { loopbackAdminUrl } from "./preflight.mjs";
 import { issueCertificates, operatorFetch, tlsProxy } from "./tls.mjs";
@@ -144,6 +144,9 @@ function agentClient(env: Record<string, string>) {
   child.stdin.on("error", () => {});
   const channel = agentChannel(line => child.stdin.write(line), agentTranscript);
   child.stdout.setEncoding("utf8");
+  // Counted against the shared output budget before readline buffers or the transcript keeps
+  // anything: past it the agent is stopped and the final scan reports incomplete output.
+  guardStream(child.stdout, () => { child.kill("SIGKILL"); channel.failAll("AGENT_OUTPUT_TOO_LARGE"); });
   createInterface({ input: child.stdout }).on("line", channel.receive);
   child.on("exit", () => channel.failAll("AGENT_EXITED"));
   return { child, call: (name: string, args: Record<string, unknown>) => channel.send({ name, args }), list: () => channel.send({ list: true }) };
@@ -212,9 +215,11 @@ try {
   const clientId = agentKey.record.clientId;
   const agent = agentClient({ PATH: baseEnv.PATH, HOME: baseEnv.HOME, NODE_EXTRA_CA_CERTS: tls.caPath, STAGING_LOOPBACK_HOSTS: gatewayHost,
     STAGING_AGENT_GATEWAY: gatewayOrigin, STAGING_AGENT_KEY: agentKey.key });
+  // Each browser is in the cleanup list as soon as it exists, before the next launch can fail.
   const customerBrowser = await launchBrowser(salonHost, tls.leaves[salonHost].spki);
+  browsers.push(customerBrowser);
   const ownerBrowser = await launchBrowser(salonHost, tls.leaves[salonHost].spki);
-  browsers.push(customerBrowser, ownerBrowser);
+  browsers.push(ownerBrowser);
   const links: string[] = [];
   async function inboxLink(proposalId: string) {
     const message = await operator.consentInboxMessage.findUniqueOrThrow({ where: { proposalId } });

@@ -8,7 +8,7 @@ const en = {
   invalid: "This link is invalid. Nothing was approved.",
   used: "This link has already been used. Nothing more was approved.",
   expired: "This proposal has expired. Nothing was approved.",
-  unavailable: "The proposal could not be loaded. Nothing was approved. Open the link again to retry.",
+  unchecked: "The proposal could not be shown, so its status could not be checked here. If you already answered, your answer was kept. Open the link from your message again to see the current status.",
   unconfirmed: "We could not confirm whether your decision was saved. It may have been approved. Open the link again to see its current status.",
   limited: "Too many attempts. This attempt changed nothing. Try again later.",
   approved: "Approved. The assistant may now complete exactly this booking. This is not a booking confirmation.",
@@ -38,7 +38,7 @@ const sv: typeof en = {
   invalid: "Länken är ogiltig. Inget godkändes.",
   used: "Länken är redan använd. Inget mer godkändes.",
   expired: "Förslaget har gått ut. Inget godkändes.",
-  unavailable: "Förslaget kunde inte läsas in. Inget godkändes. Öppna länken igen för att försöka på nytt.",
+  unchecked: "Förslaget kunde inte visas, så dess status kunde inte kontrolleras här. Om du redan har svarat gäller ditt svar. Öppna länken i meddelandet igen för att se aktuell status.",
   unconfirmed: "Vi kunde inte bekräfta om ditt beslut sparades. Det kan ha godkänts. Öppna länken igen för att se aktuell status.",
   limited: "För många försök. Det här försöket ändrade ingenting. Försök igen senare.",
   approved: "Godkänt. Assistenten kan nu slutföra exakt denna bokning. Detta är ingen bokningsbekräftelse.",
@@ -62,30 +62,63 @@ const sv: typeof en = {
 };
 export type StagingCopy = typeof en;
 
-export type ConsentOutcome = "loading" | "ready" | "invalid" | "used" | "expired" | "unavailable" | "unconfirmed" | "limited" | "approved" | "declined";
+export type ConsentOutcome = "loading" | "ready" | "invalid" | "used" | "expired" | "unchecked" | "unconfirmed" | "limited" | "approved" | "declined";
+
+/** The proposal terms the page shows and approves. */
+export type StagingView = {
+  proposal: { serviceName: string; staff: { name: string }; start: string; durationMinutes: number; price: { amountMinor: number; currency: string }; expiresAt: string };
+  proposalHash: string; customer: string;
+  terms: { salonName: string; locationId: string; locationName: string; timeZone: string; currency: string };
+};
+
+const isText = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 200;
+const isTime = (v: unknown) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v) && Number.isFinite(Date.parse(v));
+function isZone(v: unknown) {
+  if (!isText(v)) return false;
+  try { new Intl.DateTimeFormat("en", { timeZone: v }); return true; } catch { return false; }
+}
+type Loose = Record<string, unknown> | null | undefined;
+const field = (v: unknown, key: string): unknown => (v && typeof v === "object" ? (v as Record<string, unknown>)[key] : undefined);
+
+/** The view response as the page needs it, or null when any shown or approved field is missing or invalid. */
+export function parseStagingView(body: unknown): StagingView | null {
+  const proposal = field(body, "proposal") as Loose, terms = field(body, "terms") as Loose;
+  const price = field(proposal, "price") as Loose;
+  const ok = proposal && terms && price &&
+    isText(proposal.serviceName) && isText(field(proposal.staff, "name")) && isTime(proposal.start) && isTime(proposal.expiresAt) &&
+    Number.isInteger(proposal.durationMinutes) && (proposal.durationMinutes as number) > 0 &&
+    Number.isInteger(price.amountMinor) && (price.amountMinor as number) >= 0 && typeof price.currency === "string" && /^[A-Z]{3}$/.test(price.currency) &&
+    typeof field(body, "proposalHash") === "string" && /^[a-f0-9]{64}$/.test(field(body, "proposalHash") as string) && isText(field(body, "customer")) &&
+    isText(terms.salonName) && isText(terms.locationId) && isText(terms.locationName) && isZone(terms.timeZone) &&
+    typeof terms.currency === "string" && /^[A-Z]{3}$/.test(terms.currency);
+  return ok ? body as StagingView : null;
+}
+
+/** A response from the decision endpoint as the page saw it: status and parsed JSON body, if any. */
+export type ConsentResponse = { status: number; body?: unknown; redirected?: boolean } | "network-error";
 
 /**
- * What the customer is told after a request to the decision endpoint. Only a definite
- * refusal from the salon may say that nothing was approved. A lost response, a server
- * error or an intermediary's error after an approve or decline is an unknown outcome:
- * the decision may have been committed.
+ * What the customer is told after a request to the decision endpoint. "Nothing was approved"
+ * (and "approved"/"declined") needs the salon's own JSON answer: a body an intermediary
+ * substituted (an HTML error page, a login page) proves nothing. After Approve or Decline
+ * anything else is an unknown outcome, since the decision may have been committed. A failed
+ * view says only that the status could not be checked: a refresh after a decision, or the
+ * retry the unknown outcome suggests, must not claim that nothing was approved.
  */
-export function consentOutcome(phase: "view" | "yes" | "no", response: { status: number; state?: unknown; ack?: unknown; redirected?: boolean } | "network-error"): Exclude<ConsentOutcome, "loading"> {
-  if (response !== "network-error" && !response.redirected) {
-    const { status, state } = response;
-    if (status >= 200 && status < 300) {
-      if (phase === "view") return "ready";
-      // Success only when the salon's own acknowledgement names this decision. Any other 2xx
-      // body (a proxy's login or error page, a malformed reply) is not proof of anything.
-      const expected = phase === "yes" ? "approved" : "declined";
-      return response.ack === expected ? expected : "unconfirmed";
-    }
-    if ((status === 409 || status === 410) && (state === "used" || state === "expired")) return state;
-    if (status === 403) return "invalid";
-    if (status === 429) return "limited";
+export function consentOutcome(phase: "view" | "yes" | "no", response: ConsentResponse): Exclude<ConsentOutcome, "loading"> {
+  const unknown = phase === "view" ? "unchecked" : "unconfirmed";
+  if (response === "network-error" || response.redirected) return unknown;
+  const { status, body } = response;
+  const error = field(body, "error"), state = field(body, "state");
+  if (status === 200) {
+    if (phase === "view") return parseStagingView(body) ? "ready" : unknown;
+    const expected = phase === "yes" ? "approved" : "declined";
+    return field(body, "status") === expected ? expected : unknown;
   }
-  // Viewing never approves, so a failed view is safe to report as such.
-  return phase === "view" ? "unavailable" : "unconfirmed";
+  if (error === "consent_denied" && ((status === 409 && state === "used") || (status === 410 && state === "expired"))) return state;
+  if (status === 429 && error === "consent_rate_limited") return "limited";
+  if (status === 403 && error === "consent_denied" && state === undefined) return phase === "view" ? unknown : "invalid";
+  return unknown;
 }
 export const stagingCopy: Record<Locale, StagingCopy> = { en, sv };
 
