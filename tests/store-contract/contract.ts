@@ -290,6 +290,15 @@ export function runStudioStoreContract(name: string, makeStore: MakeStore) {
       expect(state.bookings.some((b) => b.customerId === second.id && b.status === "booked")).toBe(false);
     });
 
+    it("refuses customer/erase as a plain apply, so history and replay results never outlive an erasure", async () => {
+      const { store, a, second } = await setup();
+      const before = await store.load(a);
+      expect(await store.apply(a, { type: "customer/erase", id: second.id }, {}, { idempotencyKey: "erase-1" })).toMatchObject({ ok: false, reason: "rejected" });
+      const after = (await store.load(a))!;
+      expect(after.version).toBe(before!.version);
+      expect(after.state.customers.some((c) => c.id === second.id)).toBe(true);
+    });
+
     it("keeps history in commit order and pages through it", async () => {
       const { store, a, initial } = await setup();
       const ids = ["h1", "h2", "h3", "h4", "h5"];

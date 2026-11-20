@@ -117,6 +117,9 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       return { summary: t("log.customerNote", { customer: customerName(next, action.id) }) };
     case "customer/delete":
       return { summary: t("log.customerDelete", { customer: customerName(prev, action.id) }) };
+    case "customer/erase":
+      // Never names the customer: the entry outlives the erasure.
+      return { summary: t("log.customerErase") };
     case "stock/adjust": {
       const item = next.stock.find((s) => s.id === action.id)!;
       return { summary: t("log.stockAdjust", { product: item.name }), before: String(prev.stock.find((s) => s.id === action.id)!.inStock), after: String(item.inStock) };

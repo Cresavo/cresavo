@@ -15,6 +15,7 @@ import {
   withBookingLock,
 } from "../store";
 import {
+  isErasure,
   actionFingerprint,
   detach,
   effectOf,
@@ -167,6 +168,8 @@ export class BrowserStudioStore implements StudioStore {
   }
 
   async apply(tenantId: TenantId, action: DemoAction, meta: ApplyMeta = {}, options: ApplyOptions = {}): Promise<ApplyResult> {
+    // Per-tab history and keys would keep the erased customer (see isErasure).
+    if (isErasure(action)) return { ok: false, reason: "rejected" };
     const own = detach(action);
     // The same locks the booking pages and the address editor take, so this write queues behind theirs in every tab.
     const locked = () => withBookingLock(() => this.applyNow(tenantId, own, meta, options));

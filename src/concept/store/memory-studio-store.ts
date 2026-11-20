@@ -6,6 +6,7 @@ import { withSlotClock } from "../data/slots";
 import type { DemoState } from "../data/types";
 import { defaultMeta, prepareAction } from "../log/capture";
 import {
+  isErasure,
   actionFingerprint,
   detach,
   effectOf,
@@ -110,6 +111,8 @@ export class MemoryStudioStore implements StudioStore {
   apply(tenantId: TenantId, action: DemoAction, meta: ApplyMeta = {}, options: ApplyOptions = {}): Promise<ApplyResult> {
     const tenant = this.tenants.get(tenantId);
     if (!tenant) return Promise.resolve({ ok: false, reason: "not-found" });
+    // Its history and replay results would keep the erased customer (see isErasure).
+    if (isErasure(action)) return Promise.resolve({ ok: false, reason: "rejected" });
     // Copied now: the caller may change its object while the apply waits in the queue.
     const own = detach(action);
     const run = tenant.queue.then(() => this.applyNow(tenantId, own, meta, options));
