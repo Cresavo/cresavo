@@ -15,7 +15,7 @@ assert(!process.env.VERCEL && !process.env.VERCEL_ENV, "PAIR_CLOUD_REFUSED");
 const nativeCodex = process.argv.includes("--native-codex");
 if (nativeCodex) assert(!process.env.CI, "NATIVE_CLIENT_CI_REFUSED");
 const salonPath = realpathSync(fileURLToPath(new URL("../..", import.meta.url)));
-const gatewayPath = realpathSync(resolve(process.env.GATEWAY_PATH ?? "../booking-lab-gateway"));
+const gatewayPath = realpathSync(resolve(process.env.GATEWAY_PATH ?? "../gateway"));
 assert.notEqual(gatewayPath, salonPath, "PAIR_REQUIRES_SEPARATE_REPOSITORIES");
 for (const dir of [salonPath, gatewayPath]) {
   for (const name of [".env", ".env.local", ".env.production", ".env.production.local"])

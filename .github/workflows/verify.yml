@@ -78,7 +78,10 @@ jobs:
           export SANDBOX_TEST_RESET_DATABASE_URL=postgresql://sandbox_reset_runtime:sandbox-reset-ci-only@127.0.0.1:5432/cresavo_sandbox_ci_test
           export DATABASE_URL=postgresql://sandbox_runtime:sandbox-ci-only@127.0.0.1:5432/cresavo_sandbox_ci_test
           git init "$SANDBOX_GATEWAY_CHECKOUT"
-          git -C "$SANDBOX_GATEWAY_CHECKOUT" fetch --depth 1 https://github.com/Cresavo/gateway.git 13fb1f855fea84bbcd3131959f1814e1d405a0fd
+          # Gateway pins live in scripts/integration/pair.json (see docs/GATEWAY_SPLIT.md).
+          GATEWAY_REPOSITORY="$(node -p 'require("./scripts/integration/pair.json").gatewayRepository')"
+          GATEWAY_REVISION="$(node -p 'require("./scripts/integration/pair.json").sandboxGatewayRevision')"
+          git -C "$SANDBOX_GATEWAY_CHECKOUT" fetch --depth 1 "https://github.com/$GATEWAY_REPOSITORY.git" "$GATEWAY_REVISION"
           git -C "$SANDBOX_GATEWAY_CHECKOUT" switch --detach FETCH_HEAD
           npm run test:integration -- tests/integration/sandbox-provider.test.ts tests/integration/sandbox-phone.test.ts tests/integration/sandbox-reset.test.ts
       - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5

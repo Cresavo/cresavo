@@ -28,7 +28,8 @@ Conversation with Niclas may be Swedish.
   `src/lib/domain.ts` and nearby domain code; web, API and MCP must not keep
   their own alternative rules. Do not touch `/admin`, `/api/v1`, MCP, the Prisma
   schema or migrations without an explicit assignment.
-- `booking-lab-gateway` owns the public REST/MCP entry for external agents.
+- The gateway repository, [`Cresavo/gateway`](https://github.com/Cresavo/gateway), owns the
+  public REST/MCP entry for external agents.
   Build new gateway tools there, not here. Contract: `docs/GATEWAY_SPLIT.md`.
 - Demo data may stay Swedish-flavoured.
 

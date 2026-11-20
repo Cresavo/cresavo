@@ -106,8 +106,8 @@ tries a fast-forward update before starting the local demo.
   business booking pages.
 - **Booking engine:** Prisma and PostgreSQL. Booking rules live once in
   `src/lib/domain.ts` and are shared by the web, the REST API and the MCP.
-- **Agent gateway:** the public REST/MCP entry for external agents lives in a
-  separate repository, `booking-lab-gateway`, which is not public yet
+- **Agent gateway:** the public REST/MCP entry for external agents lives in the
+  separate public repository [`Cresavo/gateway`](https://github.com/Cresavo/gateway)
   (contract: [GATEWAY_SPLIT](docs/GATEWAY_SPLIT.md)).
 [Architecture](docs/ARCHITECTURE.md) · [Data flows](docs/DATA_FLOWS.md) ·
 [Privacy and security](docs/PRIVACY_SECURITY.md) · [Changelog](CHANGELOG.md)
