@@ -24,10 +24,13 @@ export const proposalSchema = z.object({
 }).strict();
 export const proposalHash = (p: AgentProposal) => bookingProposalHash({ ...p, start: p.startsAt });
 const status = (p: AgentProposal, now: Date) => p.status === "pending" && +p.expiresAt <= +now ? "expired" : p.status;
+/** The proposal as agents and the customer page see it. Exported for tests. */
+export function proposalView(p: AgentProposal, now: Date) { return view(p, now); }
 function view(p: AgentProposal, now: Date) {
   return { id: p.id, status: status(p, now), serviceId: p.serviceId, serviceVersion: p.serviceVersion,
     serviceName: p.serviceName, staff: { id: p.staffId, name: p.staffName },
-    locationId: p.locationId, scheduleId: p.scheduleId, salon: "Salong Eko (syntetisk demo)",
+    // The proposal's own business, the same source as the customer page's salon name.
+    locationId: p.locationId, scheduleId: p.scheduleId, salon: businessDisplay(p.businessId).name,
     start: p.startsAt.toISOString(), durationMinutes: p.duration, price: { amountMinor: p.priceOre, currency: "SEK" },
     expiresAt: p.expiresAt.toISOString(), ...(p.status === "approved" ? { mandateId: p.mandateId } : {}) };
 }

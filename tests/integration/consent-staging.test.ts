@@ -427,6 +427,9 @@ it("opening the link approves nothing; there is no GET decision handler", async 
   expect(shown.terms).toEqual({ salonName: "Salong Eko (synthetic demo)", locationId: "demo-location", locationName: "Fictional demo studio, Stockholm", timeZone: "Europe/Stockholm", currency: "SEK" });
   expect(shown.proposal).toMatchObject({ serviceName: "Fictional staging treatment", staff: { name: "Fictional Staging Stylist" }, durationMinutes: 45, price: { amountMinor: 52000, currency: "SEK" } });
   expect(shown.customer).toBe(`${STAGING_CUSTOMER.name} · ${STAGING_CUSTOMER.email}`);
+  // One salon name for the agent and the customer.
+  expect(shown.proposal.salon).toBe(shown.terms.salonName);
+  expect((await getProposal(principal, proposal.id)).proposal.salon).toBe(shown.terms.salonName);
   // The page's own validator accepts what the salon actually sends.
   expect(parseStagingView(shown)).not.toBeNull();
   expect((await getProposal(principal, proposal.id)).proposal.status).toBe("pending");

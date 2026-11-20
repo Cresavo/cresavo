@@ -29,9 +29,18 @@ const DIAGNOSTIC_FLAGS = /^--(?:inspect(?:-|$)|trace-|cpu-prof|heap-prof|tls-key
  * hyphens equivalent (`--tls_keylog` is `--tls-keylog`) and letter case ignored.
  */
 export function nodeOptionNames(values: readonly string[]) {
-  return values.flatMap(value => value.split(/\s+/)).filter(token => token.startsWith("--"))
-    .map(token => `--${token.slice(2).split("=")[0].replace(/_/g, "-").toLowerCase()}`);
+  return values.flatMap(value => value.split(/\s+/)).filter(token => token.startsWith("-"))
+    .map(token => token.startsWith("--") ? `--${token.slice(2).split("=")[0].replace(/_/g, "-").toLowerCase()}` : token.split("=")[0]);
 }
+
+/**
+ * The only Node options the runner accepts, in NODE_OPTIONS or its own command line. Everything else
+ * is refused: Node keeps adding modes that write process state to disk (reports, heap snapshots,
+ * diagnostic directories) outside the run directory and the output scan. `--import` loads tsx (and
+ * the preflight test's probe); the CA options choose which certificates to trust.
+ */
+const ALLOWED_NODE_OPTIONS = new Set(["--import", "--use-openssl-ca", "--use-bundled-ca", "--use-system-ca", "--max-old-space-size",
+  "--enable-source-maps", "--no-warnings", "--no-deprecation", "--experimental-strip-types", "--no-experimental-strip-types"]);
 /** Checks the environment and this process's own Node flags (`node --tls-keylog=... run.mts`). */
 export function refuseDiagnostics(env: Record<string, string | undefined>, execArgv: readonly string[] = process.execArgv) {
   for (const name of DIAGNOSTIC_SETTINGS) if (env[name]) throw new Error("STAGING_DIAGNOSTICS_REFUSED");
@@ -39,8 +48,9 @@ export function refuseDiagnostics(env: Record<string, string | undefined>, execA
   // re-implement that syntax, any quote or backslash is refused: the check then reads exactly
   // the options Node reads.
   if (/["'\\]/.test(env.NODE_OPTIONS ?? "")) throw new Error("STAGING_NODE_OPTIONS_AMBIGUOUS");
-  if (nodeOptionNames([env.NODE_OPTIONS ?? "", ...execArgv]).some(flag => DIAGNOSTIC_FLAGS.test(flag)))
-    throw new Error("STAGING_DIAGNOSTICS_REFUSED");
+  const names = nodeOptionNames([env.NODE_OPTIONS ?? "", ...execArgv]);
+  if (names.some(flag => DIAGNOSTIC_FLAGS.test(flag))) throw new Error("STAGING_DIAGNOSTICS_REFUSED");
+  if (names.some(flag => !ALLOWED_NODE_OPTIONS.has(flag))) throw new Error("STAGING_NODE_OPTION_REFUSED");
 }
 
 // Settings that make Playwright drive a browser somewhere else: a Selenium grid

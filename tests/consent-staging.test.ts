@@ -158,6 +158,21 @@ describe("staging link and recipient", () => {
   });
 });
 
+describe("proposal salon label", () => {
+  it("names the proposal's own business, as the customer page does, for every business", async () => {
+    const { proposalView } = await import("../src/lib/agent-api/proposals");
+    const { businessDisplay } = await import("../src/lib/agent-api/v1");
+    const row = { id: "p", status: "pending", serviceId: "s", serviceVersion: 1, serviceName: "Fictional", staffId: "st", staffName: "Fictional",
+      locationId: "demo-location", scheduleId: "sc", startsAt: new Date("2026-12-07T09:30:00Z"), duration: 45, priceOre: 52000,
+      expiresAt: new Date("2026-12-07T09:00:00Z"), mandateId: null } as never;
+    for (const businessId of ["demo", "lab-partner"]) {
+      const shown = proposalView({ ...(row as object), businessId } as never, new Date("2026-12-07T08:00:00Z"));
+      expect(shown.salon, businessId).toBe(businessDisplay(businessId).name);
+    }
+    expect(proposalView({ ...(row as object), businessId: "lab-partner" } as never, new Date()).salon).toBe("Synthetic partner lab");
+  });
+});
+
 describe("asked-for but invalid staging configuration", () => {
   const invalid = [["plain HTTP", { BOOKING_CONSENT_ORIGIN: "http://salon-demo.cresavo.test" }], ["no session secret", { SESSION_SECRET: undefined }],
     ["a lab switch as well", { BOOKING_CONSENT_LAB: "1" }], ["Prisma debug output", { DEBUG: "prisma:client" }], ["no consent origin", { BOOKING_CONSENT_ORIGIN: undefined }]] as const;
@@ -536,8 +551,8 @@ describe("staging runner preflight", () => {
   });
   it("refuses diagnostics that would print approval links outside the sanitizer", async () => {
     const { refuseDiagnostics } = await import("../scripts/staging-consent/preflight.mjs");
-    expect(() => refuseDiagnostics({})).not.toThrow();
-    expect(() => refuseDiagnostics({ DEBUG: "" })).not.toThrow();
+    expect(() => refuseDiagnostics({}, [])).not.toThrow();
+    expect(() => refuseDiagnostics({ DEBUG: "" }, [])).not.toThrow();
     for (const env of [{ DEBUG: "pw:api" }, { DEBUG: "*" }, { DEBUG_FILE: "/tmp/x" }, { PWDEBUG: "1" }, { NODE_DEBUG: "http,tls" }, { NODE_OPTIONS: "--inspect" },
       // TLS session keys for every connection of the run, written outside it.
       { SSLKEYLOGFILE: "/tmp/keys.log" }, { NODE_OPTIONS: "--use-openssl-ca --tls-keylog=/tmp/keys.log" }])
@@ -554,6 +569,18 @@ describe("staging runner preflight", () => {
     // Quoting and escaping are Node's syntax, not ours: refused rather than guessed at.
     for (const value of ['--tls-keylog="/tmp/a b"', "--title='x' --use-openssl-ca", "--require=a\\b", '"--tls_keylog=/tmp/k"'])
       expect(() => refuseDiagnostics({ NODE_OPTIONS: value }, []), value).toThrow(/^STAGING_NODE_OPTIONS_AMBIGUOUS$/);
+    // An allowlist, not a denylist: modes that write process state to disk are refused, and so is
+    // anything else not on the list.
+    for (const flag of ["--report-on-fatalerror", "--report_on_signal", "--heapsnapshot-near-heap-limit=1", "--heapsnapshot-signal=SIGUSR2",
+      "--diagnostic-dir=/tmp/d", "--report-dir=/tmp/r", "--some-future-flag", "--require=./x.js", "-r", "--env-file=.env", "--watch"]) {
+      expect(() => refuseDiagnostics({ NODE_OPTIONS: flag }, []), `NODE_OPTIONS ${flag}`).toThrow(/^STAGING_NODE_OPTION_REFUSED$/);
+      expect(() => refuseDiagnostics({}, ["--import", "tsx", flag]), `execArgv ${flag}`).toThrow(/^STAGING_NODE_OPTION_REFUSED$/);
+    }
+    // The real invocations: npm run test:staging-consent (node --import tsx run.mts), the preflight
+    // test's probe, this environment's CA option, and the other allowlisted options.
+    expect(() => refuseDiagnostics({ NODE_OPTIONS: "--use-openssl-ca" }, ["--import", "tsx"])).not.toThrow();
+    expect(() => refuseDiagnostics({}, ["--import", "/tmp/probe.mjs", "--import", "tsx"])).not.toThrow();
+    expect(() => refuseDiagnostics({ NODE_OPTIONS: "--max-old-space-size=4096 --enable-source-maps --no-warnings --no-deprecation --use-system-ca" }, [])).not.toThrow();
     // Options that merely contain those words are not refused.
     for (const flag of ["--use_openssl_ca", "--max-old-space-size=4096", "--import=tsx", "--enable-source-maps"])
       expect(() => refuseDiagnostics({ NODE_OPTIONS: flag }, [flag]), flag).not.toThrow();
