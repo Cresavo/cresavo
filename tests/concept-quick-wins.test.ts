@@ -14,7 +14,7 @@ import { sellGiftCard } from "@/concept/giftcards/cards";
 import { t } from "@/concept/i18n";
 import { formatMoney } from "@/concept/i18n/format";
 import { createSalon, salonDraft } from "@/concept/onboarding/salon";
-import { currentState, dispatch, usePublicDemo, withBookingLock } from "@/concept/store";
+import { currentState, dispatchConfirmed, usePublicDemo, withBookingLock } from "@/concept/store";
 import { RedeemSheet } from "@/concept/studio/giftcards/redeem-sheet";
 import { SmsPriceSettings } from "@/concept/studio/more/reminder-settings";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -33,6 +33,7 @@ vi.mock("react", async importOriginal => {
 vi.mock("@/concept/store", () => ({
   currentState: vi.fn(),
   dispatch: vi.fn(),
+  dispatchConfirmed: vi.fn(),
   dispatchWithLog: vi.fn(),
   usePublicDemo: vi.fn(),
   withBookingLock: vi.fn(),
@@ -140,7 +141,7 @@ it.each([
 
 it("keeps each message kind's channel while showing the same localized body that is sent", () => {
   const origin = new URL("http://localhost:3000");
-  vi.mocked(dispatch).mockReturnValue(true);
+  vi.mocked(dispatchConfirmed).mockResolvedValue(true);
   vi.stubGlobal("window", { location: origin, setTimeout: vi.fn() });
   const state = { ...fixture, localization: { ...fixture.localization, language: "sv" as const } };
   const render = stateful(() => MessagePreviews({ state, booking, now }));
@@ -153,7 +154,7 @@ it("keeps each message kind's channel while showing the same localized body that
   expect(channels(render()).value).toBe("sms");
   expect(renderToStaticMarkup(render())).toContain(bookingMessage(state, booking, "reminder").body);
   propsOf(render(), Button).find(button => button.children === t("messages.simulate"))?.onClick?.({} as never);
-  expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ kind: "reminder", channel: "sms" }));
+  expect(dispatchConfirmed).toHaveBeenCalledWith(expect.objectContaining({ kind: "reminder", channel: "sms" }));
   channels(render()).onChange("email");
   kinds(render()).onChange("confirmation");
   expect(channels(render()).value).toBe("email");

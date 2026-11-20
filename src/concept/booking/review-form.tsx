@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Clock } from "lucide-react";
 import type { Booking, DemoState } from "../data/types";
 import { t, tc } from "../i18n";
-import { dispatch } from "../store";
+import { dispatchConfirmed } from "../store";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Notice } from "../ui/notice";
@@ -31,9 +31,9 @@ export function ReviewForm({ state, booking, now, variant = "secondary" }: {
   </p>;
   if (!open) return <Button className="mt-3" variant={variant} size="sm" onClick={() => setOpen(true)}>{t("customerReview.open")}</Button>;
   return (
-    <form className="mt-4 space-y-4 border-t border-hairline pt-4" onSubmit={event => {
+    <form className="mt-4 space-y-4 border-t border-hairline pt-4" onSubmit={async event => {
       event.preventDefault();
-      setFailed(!dispatch({ type: "review/submit", bookingId: booking.id, rating, text, at: { date: now.today, time: now.minutes } }));
+      setFailed(!await dispatchConfirmed({ type: "review/submit", bookingId: booking.id, rating, text, at: { date: now.today, time: now.minutes } }));
     }}>
       <h2 className="font-semibold">{t("customerReview.title")}</h2>
       <fieldset>

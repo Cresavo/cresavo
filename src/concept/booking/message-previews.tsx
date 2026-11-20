@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Booking, DemoState } from "../data/types";
 import { ownerViewHref } from "../page/resolve";
 import { t } from "../i18n";
-import { dispatch } from "../store";
+import { dispatchConfirmed } from "../store";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
@@ -34,8 +34,8 @@ export function MessagePreviews({ state, booking, now }: { state: DemoState; boo
         </div>}
         <p className="mt-2 whitespace-pre-line break-words text-meta leading-relaxed">{message.body}</p>
       </div>
-      {sent ? <p role="status" className="text-meta text-action">{sentText}</p> : <Button variant="secondary" onClick={() => {
-        const ok = dispatch({ type: "booking-message/send", bookingId: booking.id, kind, channel, at: { date: now.today, time: now.minutes } });
+      {sent ? <p role="status" className="text-meta text-action">{sentText}</p> : <Button variant="secondary" onClick={async () => {
+        const ok = await dispatchConfirmed({ type: "booking-message/send", bookingId: booking.id, kind, channel, at: { date: now.today, time: now.minutes } });
         if (ok) showToast(sentText);
         else showActionFailure("messages.failed", undefined, "booking");
       }}>{t("messages.simulate")}</Button>}

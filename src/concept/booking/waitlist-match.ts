@@ -40,8 +40,9 @@ export function nextWaitlistWake(state: DemoState, now?: number): number {
   let wake = Infinity;
   if (now !== undefined && sendableNow(state, now)) return now;
   for (const offer of state.waitlistOffers) if (offer.status === "offered") wake = Math.min(wake, offer.expiresAt);
-  // A checkout that ends can give a waiting gap its time back.
-  if (state.waitlistGaps.length) for (const hold of state.checkoutHolds) wake = Math.min(wake, hold.expiresAt);
+  // A checkout that ends can give a waiting gap its time back. One that already ended was matched again on the
+  // tick after it, so its past deadline does not keep the queue due.
+  if (state.waitlistGaps.length) for (const hold of state.checkoutHolds) if (now === undefined || hold.expiresAt > now) wake = Math.min(wake, hold.expiresAt);
   for (const entry of state.waitlistEntries) {
     const last = entry.days.at(-1);
     if (last) wake = Math.min(wake, endOfDay(last));
@@ -193,15 +194,16 @@ export function releasedGaps(prev: DemoState, state: DemoState, now: number): Wa
   // The opening is the whole free stretch around the freed time: a cancelled half hour next to a free half hour makes an hour.
   const add = (staffId: StaffId, date: string, span: Interval, excludeCustomer?: string) => {
     if (!dates.has(date) || span.end <= span.start) return;
-    const opening = withSlotClock(now, () => freeGaps(state, staffId, date, { min: 1 }))
-      .find((free) => free.start <= span.start && free.end >= span.end) ?? span;
-    const same = found.find((g) => g.staffId === staffId && g.date === date && g.start === opening.start && g.end === opening.end);
-    if (same) {
+    // Each free stretch the freed time touches is an opening; the part of the freed time inside it is what a
+    // match must use. Part of the freed time can still be taken (a block over 10:00–10:15 of a 10:00–10:30 visit).
+    const openings = withSlotClock(now, () => freeGaps(state, staffId, date, { min: 1 })).filter((free) => free.start < span.end && free.end > span.start);
+    for (const opening of openings) {
+      const part = { start: Math.max(span.start, opening.start), end: Math.min(span.end, opening.end) };
+      const same = found.find((g) => g.staffId === staffId && g.date === date && g.start === opening.start && g.end === opening.end);
       // Two freed parts of one stretch stay two: the time between them was free before.
-      same.released = [...same.released!, { ...span }];
-      return;
+      if (same) same.released = [...same.released!, part];
+      else found.push({ start: opening.start, end: opening.end, released: [part], staffId, date, excludeCustomer, id: `gap-${state.seq}-${found.length}` });
     }
-    found.push({ start: opening.start, end: opening.end, released: [{ ...span }], staffId, date, excludeCustomer, id: `gap-${state.seq}-${found.length}` });
   };
   if (prev.bookings !== state.bookings) {
     const current = new Map(state.bookings.map((b) => [b.id, b]));

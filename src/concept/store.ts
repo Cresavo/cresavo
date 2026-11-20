@@ -502,6 +502,14 @@ async function withBookingReceipt<T>(write: (required?: BookingReceipt) => T, re
   });
 }
 
+/**
+ * Applies an action under the booking lock and resolves once it is saved (true) or refused (false).
+ * For callers that confirm success to a customer: a plain `dispatch` outside the lock may only queue the change.
+ */
+export function dispatchConfirmed(action: DemoAction, meta?: Partial<Omit<LogMeta, "at">>): Promise<boolean> {
+  return withBookingLock(() => dispatch(action, meta)).then((saved) => saved === true, () => false);
+}
+
 export function withBookingLock<T>(confirm: () => T): Promise<T | false> {
   return withBookingReceipt(confirm);
 }

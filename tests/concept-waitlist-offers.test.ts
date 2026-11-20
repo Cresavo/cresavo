@@ -224,6 +224,17 @@ describe("offers one customer at a time", () => {
     expect(offered.waitlistOffers[0]).toMatchObject({ start: 600, status: "offered" });
   });
 
+  it("does not stay due for a checkout that already ended", () => {
+    const state = setup("ask");
+    state.cancellationPolicy = { ...state.cancellationPolicy, deposits: { [serviceId]: 15000 } };
+    const freed = reduce(state, cancel, now);
+    const held = reduce(freed, { type: "online/hold", serviceId, staffId: sam, date, start: 900, notice,
+      guest: { name: "Demo Guest 8", phone: "0701234568", at: { date: day, time: 600 } } }, now);
+    const hold = held.checkoutHolds[0];
+    expect(nextWaitlistWake(held, now)).toBe(hold.expiresAt);
+    expect(nextWaitlistWake(held, hold.expiresAt + 1)).toBeGreaterThan(hold.expiresAt + 1);
+  });
+
   it("ends the queue when nobody else fits", () => {
     const offered = reduce(setup(), cancel, now);
     const second = reduce(offered, { type: "online/decline", id: offered.waitlistOffers[0].id }, now);
@@ -545,6 +556,21 @@ describe("edge cases", () => {
     expect(parts).toEqual([[540, 600], [660, 1020]]);
   });
 
+  it("finds the opening when part of the freed visit is blocked and the rest joins free time", () => {
+    const state = setup();
+    // 10:00–10:30 is moved away; a block covers 10:00–10:15 and 10:30–11:00 was free. A 45-minute treatment fits at 10:15.
+    state.services = [{ ...state.services[0], duration: 45 }];
+    state.bookings = [
+      { ...state.bookings[0], duration: 30 },
+      { ...state.bookings[0], id: "before", start: 540, duration: 60, customerId: "other" },
+      { ...state.bookings[0], id: "after", start: 660, duration: 360, customerId: "other" },
+    ];
+    state.blocks = [{ id: "block", staffId: alex, date, start: 600, end: 615, reason: "admin" }];
+    const moved = reduce(state, { type: "booking/move", id: "visit", date, start: 900, staffId: sam }, now);
+    expect(moved.waitlistGaps[0]).toMatchObject({ start: 615, end: 660, released: [{ start: 615, end: 630 }] });
+    expect(moved.waitlistOffers[0]).toMatchObject({ start: 615, status: "offered" });
+  });
+
   it("can still offer the free time around a queued gap", () => {
     const state = { ...setup("ask"), bookings: [], waitlistGaps: [{ ...gap, id: "queued" }] };
     const parts = manualGaps(state, date, alex, now).map(({ gap: part }) => [part.start, part.end]);
@@ -720,6 +746,22 @@ describe("in the browser store", () => {
     expect(saved.inbox.find((i) => i.id === offered.inbox.at(-1)!.id)!.read).toBe(true);
     expect(saved.waitlistOffers[0].status).toBe("claimed");
     expect(saved.bookings).toEqual(claimed.bookings);
+  });
+
+  it("confirms a customer's waiting-list request only once it is saved, also while another offer is out", async () => {
+    const offered = reduce(setup(), cancel, now);
+    const request: DemoAction = { type: "online/waitlist", serviceId, days: [date], notice,
+      guest: { name: "Demo Guest 7", phone: "0701234567", at: { date: day, time: 600 } } };
+    const storage = { raw: JSON.stringify(offered), full: true };
+    const tab = await openTab(storage);
+    // A plain dispatch only queues the request behind the lock; the confirmed form waits for the save.
+    expect(await tab.dispatchConfirmed(request)).toBe(false);
+    expect((JSON.parse(storage.raw) as DemoState).waitlistEntries).toHaveLength(offered.waitlistEntries.length);
+    storage.full = false;
+    expect(await tab.dispatchConfirmed(request)).toBe(true);
+    const saved = JSON.parse(storage.raw) as DemoState;
+    expect(saved.waitlistEntries).toHaveLength(offered.waitlistEntries.length + 1);
+    expect(saved.customers.some((c) => c.phone === "0701234567")).toBe(true);
   });
 
   it("reports a write that waited for the lock and was then refused", async () => {

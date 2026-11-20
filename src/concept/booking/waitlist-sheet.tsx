@@ -9,7 +9,7 @@ import { customerText } from "../i18n/customer-text";
 import { formatDayLong } from "../i18n/format";
 import { serviceCopy } from "../i18n/salon-eko-copy";
 import { findService } from "../selectors";
-import { currentState, dispatch } from "../store";
+import { currentState, dispatchConfirmed } from "../store";
 import { newActionRequestId } from "../support/action-reference";
 import { ActionFailure, type ActionFailureInfo } from "../ui/action-failure";
 import { Button, IconButton } from "../ui/button";
@@ -40,6 +40,7 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
   const { guest, setGuest, remember, chooseRemember, saveContact } = useGuestContact(state.salon.slug);
   const [done, setDone] = useState(false);
   const [failure, setFailure] = useState<ActionFailureInfo>();
+  const [pending, setPending] = useState(false);
   const [staffId, setStaffId] = useState(request?.staffId);
   const [days, setDays] = useState([request?.date ?? now.today]);
   const [anyTime, setAnyTime] = useState(true);
@@ -56,8 +57,8 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
     onClose();
   };
 
-  const submit = () => {
-    if (!request || !service || !serviceLabel || !valid) return;
+  const submit = async () => {
+    if (!request || !service || !serviceLabel || !valid || pending) return;
     const day = [...days].sort().map(d => formatDayLong(d)).join(", ");
     const name = guest.name.trim();
     const phone = guest.phone.trim();
@@ -65,7 +66,9 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
     const replyService = person
       ? customerText(state, "booking.waitlist.withStaff", { service: treatment, staff: person.firstName })
       : treatment;
-    const joined = dispatch({
+    setPending(true);
+    // Confirmed only once the request is saved: with another customer's offer out, writes wait for the booking lock.
+    const joined = await dispatchConfirmed({
       type: "online/waitlist",
       guest: { name, phone, at: { date: now.today, time: now.minutes } },
       serviceId: service.id,
@@ -76,6 +79,7 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
         draftReply: customerText(state, "booking.waitlist.inboxReply", { name: name.split(/\s+/)[0], service: replyService }),
       },
     });
+    setPending(false);
     if (!joined) {
       setFailure({ requestId: newActionRequestId(), reason: "booking.waitlist.failed" });
       return;
@@ -97,7 +101,7 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
         ) : (
           <>
             <Button variant="ghost" onClick={close}>{t("common.cancel")}</Button>
-            <Button icon={<BellRing size={16} />} disabled={!valid || !isGuestValid(guest)} onClick={submit}>{t("booking.waitlist.submit")}</Button>
+            <Button icon={<BellRing size={16} />} disabled={!valid || !isGuestValid(guest)} loading={pending} onClick={submit}>{t("booking.waitlist.submit")}</Button>
           </>
         )
       }
