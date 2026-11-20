@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { inspect } from "node:util";
-import { appendFileSync, closeSync, fstatSync, mkdtempSync, openSync, readSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { closeSync, fstatSync, ftruncateSync, mkdtempSync, openSync, readSync, rmSync, statSync, writeSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import pg from "pg";
@@ -236,13 +236,17 @@ function appendedLog(file: string, start: number, limit = 8 * 1024 * 1024) {
 it("reads only the appended part of a server log, within a size limit", () => {
   const dir = mkdtempSync(join(tmpdir(), "cresavo-pglog-test-")), file = join(dir, "server.log");
   try {
-    writeFileSync(file, "old line\n");
-    const start = statSync(file).size;
-    appendFileSync(file, "new line\n");
-    expect(appendedLog(file, start)).toBe("new line\n");
-    expect(() => appendedLog(file, start, 4)).toThrow(/^STAGING_PG_LOG_RANGE_TOO_LARGE$/);
-    writeFileSync(file, "");
-    expect(() => appendedLog(file, start)).toThrow(/^STAGING_PG_LOG_ROTATED$/);
+    // One descriptor for writing, measuring and truncating: nothing is checked by name and then used.
+    const fd = openSync(file, "wx+", 0o600);
+    try {
+      writeSync(fd, "old line\n");
+      const start = fstatSync(fd).size;
+      writeSync(fd, "new line\n");
+      expect(appendedLog(file, start)).toBe("new line\n");
+      expect(() => appendedLog(file, start, 4)).toThrow(/^STAGING_PG_LOG_RANGE_TOO_LARGE$/);
+      ftruncateSync(fd, 0);
+      expect(() => appendedLog(file, start)).toThrow(/^STAGING_PG_LOG_ROTATED$/);
+    } finally { closeSync(fd); }
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

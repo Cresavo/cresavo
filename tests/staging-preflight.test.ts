@@ -2,7 +2,7 @@
 // throwaway git checkout of its own scripts) so the developer's checkout, a local .env included,
 // cannot change what is asserted.
 import { execFileSync, spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { closeSync, cpSync, existsSync, fstatSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -77,9 +77,18 @@ function salonFixture(root: string, withEnvFile = false, firstImport?: string) {
   return salon;
 }
 
+/** A file's content, identity and modification time, all read through one open descriptor. */
+function snapshot(path: string) {
+  const fd = openSync(path, "r");
+  try {
+    const { ino, dev, size, mtimeMs } = fstatSync(fd);
+    return { ino, dev, size, mtimeMs, content: readFileSync(fd, "utf8") };
+  } finally { closeSync(fd); }
+}
+
 function runPreflight(root: string, salon: string, extra: Record<string, string> = {}) {
   const checkout = join(root, "gateway"), runTmp = join(root, "tmp");
-  if (existsSync(checkout)) rmSync(checkout, { recursive: true, force: true });
+  rmSync(checkout, { recursive: true, force: true });
   mkdirSync(checkout, { recursive: true }); mkdirSync(runTmp, { recursive: true });
   const git = (...args: string[]) => execFileSync("git", ["-C", checkout, "-c", "user.name=Fictional", "-c", "user.email=fictional@example.test", ...args], { encoding: "utf8" }).trim();
   git("init", "-q"); writeFileSync(join(checkout, "README"), "fictional\n"); git("add", "README"); git("commit", "-q", "-m", "fictional");
@@ -121,8 +130,8 @@ describe.skipIf(process.platform === "win32")("runner preflight in a child proce
     try {
       // Playwright's debug logger opens DEBUG_FILE for writing as it loads.
       const sentinel = join(root, "operator-debug.log"), content = "operator's own log, must stay as it is\n";
-      writeFileSync(sentinel, content);
-      const before = statSync(sentinel);
+      writeFileSync(sentinel, content, { flag: "wx" });
+      const before = snapshot(sentinel);
       // Playwright opens the file asynchronously, so an early exit can hide the write: a probe,
       // imported first by the fixture's copy of the runner, records at exit whether any Playwright
       // module was loaded at all.
@@ -134,8 +143,10 @@ describe.skipIf(process.platform === "win32")("runner preflight in a child proce
       expect(readFileSync(loaded, "utf8"), "Playwright was loaded before the diagnostics check").toBe("false");
       expect(status).not.toBe(0);
       expect(output.includes("STAGING_DIAGNOSTICS_REFUSED"), "the refusal code is reported").toBe(true);
-      expect(readFileSync(sentinel, "utf8")).toBe(content);
-      expect(statSync(sentinel).mtimeMs).toBe(before.mtimeMs);
+      // Content and metadata read through one descriptor, so both describe the same file.
+      const after = snapshot(sentinel);
+      expect(after.content).toBe(content);
+      expect(after).toEqual(before);
       expect(readdirSync(root).filter(name => name.startsWith("cresavo-staging-"))).toEqual([]);
     } finally { rmSync(root, { recursive: true, force: true }); }
   }, 90_000);

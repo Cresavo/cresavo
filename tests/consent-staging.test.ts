@@ -864,11 +864,13 @@ describe("staging runner output", () => {
     registerSecret(secret);
     // On SIGTERM it exits at once, leaving its stdout to a helper that writes after the exit:
     // only `close`, not `exit`, waits for that output.
-    const helper = `setTimeout(() => process.stdout.write(${JSON.stringify(secret)}), 300)`;
+    // Static code: the secret reaches both processes as data, in their environment.
+    const helper = "setTimeout(() => process.stdout.write(process.env.SHUTDOWN_SECRET), 300)";
     const script = `const { spawn } = require("node:child_process");
-      process.on("SIGTERM", () => { spawn(process.execPath, ["-e", ${JSON.stringify(helper)}], { stdio: ["ignore", "inherit", "ignore"] }); process.exit(0); });
+      process.on("SIGTERM", () => { spawn(process.execPath, ["-e", process.env.SHUTDOWN_HELPER], { stdio: ["ignore", "inherit", "ignore"] }); process.exit(0); });
       console.log("ready"); setInterval(() => {}, 1000);`;
-    const child = track(spawn(process.execPath, ["-e", script], { stdio: ["ignore", "pipe", "pipe"] }));
+    const child = track(spawn(process.execPath, ["-e", script], { stdio: ["ignore", "pipe", "pipe"],
+      env: { PATH: process.env.PATH ?? "", SHUTDOWN_SECRET: secret, SHUTDOWN_HELPER: helper } as unknown as NodeJS.ProcessEnv }));
     captureStream("shutdown:stdout", child.stdout);
     await new Promise(resolve => child.stdout!.once("data", resolve));
     expect(leakedStreams()).not.toContain("shutdown:stdout");

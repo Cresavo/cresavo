@@ -212,7 +212,12 @@ try {
   const gatewayDir = join(temp, "gateway");
   protectFromEnvFiles(gatewayDir);
   mkdirSync(gatewayDir, { mode: 0o700 });
-  execFileSync("sh", ["-c", `git -C "$1" archive "$2" | tar -x -C "$3"`, "sh", checkout, gatewayRevision, gatewayDir], { stdio: "ignore" });
+  // Two programs with argument arrays and no shell: git writes the archive into the private run
+  // directory and tar unpacks it. The revision is a validated 40-hex commit, the paths are absolute.
+  const gatewayArchive = join(temp, "gateway.tar");
+  execFileSync("git", ["-C", checkout, "archive", "--format=tar", `--output=${gatewayArchive}`, gatewayRevision], { stdio: "ignore", shell: false });
+  execFileSync("tar", ["-x", "-f", gatewayArchive, "-C", gatewayDir], { stdio: "ignore", shell: false });
+  rmSync(gatewayArchive, { force: true });
   assert.equal(JSON.parse(readFileSync(join(gatewayDir, "package.json"), "utf8")).name, "cresavo-gateway", "STAGING_NOT_A_GATEWAY_CHECKOUT");
   await runStep("GATEWAY_INSTALL", "npm", ["ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"], gatewayDir,
     { ...baseEnv, ...networkEnv, npm_config_cache: join(temp, "npm-cache") });
