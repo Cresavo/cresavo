@@ -190,6 +190,15 @@ describe("customer outcome after a decision request", () => {
     expect(consentOutcome("no", { status: 200, body: { status: "declined" } })).toBe("declined");
     expect(consentOutcome("yes", { status: 403, body: denied })).toBe("invalid");
     expect(consentOutcome("yes", { status: 409, body: { ...denied, state: "used" } })).toBe("used");
+    // A spent link names the decision recorded with it, after a decision or on a later read.
+    for (const phase of ["view", "yes", "no"] as const) {
+      expect(consentOutcome(phase, { status: 409, body: { ...denied, state: "used", decision: "approved" } })).toBe("approvedEarlier");
+      expect(consentOutcome(phase, { status: 409, body: { ...denied, state: "used", decision: "declined" } })).toBe("declinedEarlier");
+      expect(consentOutcome(phase, { status: 409, body: { ...denied, state: "used", decision: "maybe" } })).toBe("used");
+    }
+    expect(stagingCopy.en.approvedEarlier).toMatch(/approved/);
+    expect(stagingCopy.sv.declinedEarlier).toMatch(/avböjdes/);
+    for (const locale of ["en", "sv"] as const) expect(stagingCopy[locale].unconfirmed).toContain(stagingCopy[locale].recheck.split(" ")[0]);
     expect(consentOutcome("yes", { status: 410, body: { ...denied, state: "expired" } })).toBe("expired");
     expect(consentOutcome("yes", { status: 429, body: { error: "consent_rate_limited" } })).toBe("limited");
     // A status without the salon's body (an intermediary's page) proves nothing, refusal or success.
@@ -235,7 +244,35 @@ describe("customer outcome after a decision request", () => {
   });
 });
 
+describe("consent page request order", () => {
+  const deferred = () => { let resolve!: () => void; const promise = new Promise<void>(r => { resolve = r; }); return { promise, resolve }; };
+  it("lets only the latest request change the page, and runs reads after a decision in flight", async () => {
+    const { consentSequence } = await import("../src/app/consent/[id]/consent-sequence");
+    const sequence = consentSequence(), log: string[] = [];
+    // A slow read is overtaken by a decision: its result is stale.
+    const slowRead = deferred();
+    const read1 = sequence.read(async current => { await slowRead.promise; log.push(`read1 current=${current()}`); });
+    await new Promise(r => setImmediate(r));
+    const answer = deferred();
+    const decision = sequence.decide(async current => { await answer.promise; log.push(`decision current=${current()}`); });
+    // Reopening the link while the decision is in flight: the read waits for it.
+    const read2 = sequence.read(async current => { log.push(`read2 started`); log.push(`read2 current=${current()}`); });
+    slowRead.resolve(); await read1;
+    await new Promise(r => setImmediate(r));
+    expect(log).toEqual(["read1 current=false"]);
+    answer.resolve(); await decision; await read2;
+    expect(log).toEqual(["read1 current=false", "decision current=true", "read2 started", "read2 current=true"]);
+  });
+});
+
 describe("staging runner preflight", () => {
+  it("refuses diagnostics that would print approval links outside the sanitizer", async () => {
+    const { refuseDiagnostics } = await import("../scripts/staging-consent/preflight.mjs");
+    expect(() => refuseDiagnostics({})).not.toThrow();
+    expect(() => refuseDiagnostics({ DEBUG: "" })).not.toThrow();
+    for (const env of [{ DEBUG: "pw:api" }, { DEBUG: "*" }, { DEBUG_FILE: "/tmp/x" }, { PWDEBUG: "1" }, { NODE_DEBUG: "http,tls" }, { NODE_OPTIONS: "--inspect" }])
+      expect(() => refuseDiagnostics(env), JSON.stringify(env)).toThrow(/^STAGING_DIAGNOSTICS_REFUSED$/);
+  });
   it("never puts a malformed database URL, or its password, into the error", async () => {
     const { loopbackAdminUrl } = await import("../scripts/staging-consent/preflight.mjs");
     const password = "fictional-pass-9f3k";

@@ -47,7 +47,11 @@ export const stagingInbox = {
   },
 };
 
-/** A valid link whose proposal is no longer pending. Shown to the link holder; grants nothing. */
+/**
+ * A valid link whose proposal is no longer pending. Shown to the link holder; grants nothing.
+ * A used link also names the decision recorded with it, so a customer whose response was lost
+ * can tell approval from decline. It never carries terms, a mandate ID or other authority.
+ */
 export class ConsentLinkState extends Error {
-  constructor(readonly state: "used" | "expired") { super("CONSENT_LINK_STATE"); }
+  constructor(readonly state: "used" | "expired", readonly decision?: "approved" | "declined") { super("CONSENT_LINK_STATE"); }
 }

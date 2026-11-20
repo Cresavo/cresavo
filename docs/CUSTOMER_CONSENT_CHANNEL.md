@@ -84,13 +84,13 @@ approved. The proposal never outlives its start time.
 | Agent reads or forwards the link | REST and MCP responses carry no link or secret. No route, tool or gateway path reads the inbox. Tests assert on serialized response bodies. |
 | Agent picks the recipient | The recipient is a server constant (`staging-customer-v1`, `Staging Demo Customer`, `staging-customer@example.test`). The proposal schema is strict; extra recipient fields are rejected. A database check pins the recipient ID. Booking refuses any other contact. |
 | Link leaks through logs or referrers | Secret in the fragment, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`. Error bodies never echo the secret. |
-| Replay of a used link | The proposal must be pending under a row lock. A decided link answers `409` with `state: "used"` and grants nothing. The inbox message can be consumed once. |
+| Replay of a used link | The proposal must be pending under a row lock. A decided link answers `409` with `state: "used"` and the recorded `decision` (`approved` or `declined`), so a customer whose response was lost can tell which; it carries no terms, mandate ID or authority, and a wrong secret learns nothing. It grants nothing. The inbox message can be consumed once. |
 | Late approval | An expired proposal answers `410` with `state: "expired"`, no mandate. The mandate itself expires with the proposal. |
 | Terms change after approval | The booking re-derives the hash from current price and duration. A changed price is `mandate_denied`; a changed version is `stale_service`. |
 | Slot taken after approval | The booking engine's overlap protection answers `slot_unavailable`. |
 | Cross-site or agent-driven decision | The decision endpoint requires `Origin` equal to the configured consent origin, JSON, a body under 2 KiB and no `Authorization` or `X-API-Key`. |
 | Guessing or hammering the decision endpoint | At most 60 requests per client address and 20 per proposal in 15 minutes (`429 consent_rate_limited`), in the same store as the other limits (`RATE_LIMIT_STORE=postgres` across processes). The address limit is checked first. A proposal bucket is created only for a staging proposal that exists, so made-up IDs never take space in the store shared with the login and booking limits. |
-| Customer told "nothing was approved" after an approval was saved | Only the salon's own JSON refusal (`403 consent_denied`, `409`/`410` `consent_denied` with a state, `429 consent_rate_limited`) says nothing was approved or changed; the same status with any other body (an intermediary's page) does not. A failed view, such as a refresh after a decision, says only that the status could not be checked. A lost response, a server error (`500 consent_unavailable`) or an intermediary's error after Approve or Decline shows an unknown outcome and asks the customer to open the link again to see its status. |
+| Customer told "nothing was approved" after an approval was saved | Only the salon's own JSON refusal (`403 consent_denied`, `409`/`410` `consent_denied` with a state, `429 consent_rate_limited`) says nothing was approved or changed; the same status with any other body (an intermediary's page) does not. A failed view, such as a refresh after a decision, says only that the status could not be checked. After an unknown outcome the secret stays in memory and "Check status again" reads the salon's state with it, showing the recorded approval or decline without approving anything. Reads and decisions share one request order: a read started while a decision is in flight waits for it, and only the latest request may change the page. A lost response, a server error (`500 consent_unavailable`) or an intermediary's error after Approve or Decline shows an unknown outcome and asks the customer to open the link again to see its status. |
 | Customer told "approved" when the salon did not approve | Success is shown only for a JSON body whose `status` is the chosen decision. Redirects are refused (`redirect: "error"`); any other 2xx is an unknown outcome. Terms are rendered only after every shown and approved field of the view response has been validated, with one currency for the amount. |
 | Owner session reaching the gateway | Consent and gateway must use different host names. The consent host serves only the listed paths. |
 | Failed delivery | The inbox write is in the proposal transaction. If it fails, no proposal exists, no mandate can follow and the agent gets `503 consent_delivery_unavailable` (the gateway reports `503 provider_unavailable`). |
@@ -153,7 +153,9 @@ The runner:
    with the same key returns the same booking ID; the owner logs in over HTTPS and opens
    exactly that booking ID from the authenticated calendar; already-used link; decline;
    reopening the link in the same tab (a fragment-only navigation) reads the proposal
-   again and strips the secret; expired link; changed price; slot taken; the agent cannot
+   again and strips the secret; a declined or approved link, opened again, names that
+   decision; an approval whose response is lost after the salon saved it shows an unknown
+   outcome, and "Check status again" then shows the approval; expired link; changed price; slot taken; the agent cannot
    reach the inbox, the decision endpoint (probed with `POST`, as the page sends it) or the
    salon directly; no link or secret appears in the agent's
    transcript (the complete MCP results, every content block) or in any process output.
@@ -164,7 +166,15 @@ The runner:
    closes, also when that journey fails. The output budget counts UTF-8 bytes. If output
    exceeds 64 MiB (agent stdout included, counted before it is split into lines), or a stream stays open 15 seconds after its process was stopped, the
    check fails rather than pass on a part. A malformed line from the agent fails the
-   pending request with a static code; it never escapes the runner's cleanup.
+   pending request with a static code; it never escapes the runner's cleanup. Any uncaught
+   error prints a static code and still cleans up. Every child runs in its own process
+   group, which shutdown signals as a whole; at the deadline the runner also closes its side
+   of the pipes so nothing left behind keeps it running.
+
+   The runner refuses to start with diagnostic settings that would print URLs, including
+   approval links, from this process outside its sanitizer: `DEBUG`, `DEBUG_FILE`,
+   `PWDEBUG`, `NODE_DEBUG`, or `NODE_OPTIONS` with `--inspect` or tracing flags. Use
+   `STAGING_DEBUG=1` for sanitized failure reasons.
 9. Drops the database and deletes the temporary directory, also on failure.
 
 Output is limited to static check codes, host names, revisions and counts. Every line

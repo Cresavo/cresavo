@@ -41,6 +41,37 @@ export async function decide(view: ConsentView, decision: "approve" | "decline")
 
 export async function close(view: ConsentView) { await view.page.context().close(); }
 
+/**
+ * Approves, but the response is lost after the salon has committed: the browser's request reaches
+ * the salon, then the connection is reset before the page reads the answer. The page must show an
+ * unknown outcome, and checking the status again must show the recorded approval.
+ */
+export async function approveWithLostResponse(view: ConsentView) {
+  const { page } = view;
+  // In the page itself: the browser's own request reaches the salon over its TLS connection, and
+  // only then does the page see a network error, as when a connection drops after the commit.
+  await page.evaluate(() => {
+    const w = window as unknown as { __realFetch: typeof fetch; __committed?: number };
+    w.__realFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const response = await w.__realFetch(input, init);
+      if (typeof init?.body === "string" && init.body.includes('"decision":"yes"')) {
+        w.__committed = response.status;
+        throw new TypeError("Failed to fetch");
+      }
+      return response;
+    };
+  });
+  await page.getByRole("button", { name: "Approve this booking", exact: true }).click();
+  await page.locator('[data-consent-state="unconfirmed"]').waitFor({ state: "attached" });
+  assert.equal(await page.evaluate(() => (window as unknown as { __committed?: number }).__committed), 200, "the salon saved the approval before the response was lost");
+  assert.equal(await page.locator("dd[data-term]").count(), 0);
+  await page.evaluate(() => { window.fetch = (window as unknown as { __realFetch: typeof fetch }).__realFetch; });
+  await page.getByRole("button", { name: "Check status again", exact: true }).click();
+  await page.locator('[data-consent-state="approvedEarlier"]').waitFor({ state: "attached" });
+  assert.equal(await page.getByRole("button", { name: /^(Approve this booking|Decline|Check status again)$/ }).count(), 0);
+}
+
 /** Formats in the browser with fixed options, independent of the page's own rendering code. */
 export function expectedText(page: Page, input: { start: string; expiresAt: string; amountMinor: number; currency: string; timeZone: string }) {
   return page.evaluate(i => ({

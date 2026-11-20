@@ -7,9 +7,12 @@ const en = {
   loading: "Loading the proposal…",
   invalid: "This link is invalid. Nothing was approved.",
   used: "This link has already been used. Nothing more was approved.",
+  approvedEarlier: "This link has already been used: the booking was approved. The assistant may complete exactly this booking. This is not a booking confirmation.",
+  declinedEarlier: "This link has already been used: the proposal was declined. Nothing was approved.",
   expired: "This proposal has expired. Nothing was approved.",
-  unchecked: "The proposal could not be shown, so its status could not be checked here. Open the link from your message again to see the current status.",
-  unconfirmed: "We could not confirm whether your decision was saved. It may have been approved. Open the link again to see its current status.",
+  unchecked: "The proposal could not be shown, so its status could not be checked here. Check the status again, or open the link from your message again.",
+  unconfirmed: "We could not confirm whether your decision was saved. It may have been approved. Check the status again: the page then shows whether this proposal was approved or declined.",
+  recheck: "Check status again",
   limited: "Too many attempts. This attempt changed nothing. Try again later.",
   approved: "Approved. The assistant may now complete exactly this booking. This is not a booking confirmation.",
   declined: "Declined. Nothing was approved.",
@@ -37,9 +40,12 @@ const sv: typeof en = {
   loading: "Läser förslaget…",
   invalid: "Länken är ogiltig. Inget godkändes.",
   used: "Länken är redan använd. Inget mer godkändes.",
+  approvedEarlier: "Länken är redan använd: bokningen godkändes. Assistenten kan slutföra exakt denna bokning. Detta är ingen bokningsbekräftelse.",
+  declinedEarlier: "Länken är redan använd: förslaget avböjdes. Inget godkändes.",
   expired: "Förslaget har gått ut. Inget godkändes.",
-  unchecked: "Förslaget kunde inte visas, så dess status kunde inte kontrolleras här. Öppna länken i meddelandet igen för att se aktuell status.",
-  unconfirmed: "Vi kunde inte bekräfta om ditt beslut sparades. Det kan ha godkänts. Öppna länken igen för att se aktuell status.",
+  unchecked: "Förslaget kunde inte visas, så dess status kunde inte kontrolleras här. Kontrollera statusen igen, eller öppna länken i meddelandet igen.",
+  unconfirmed: "Vi kunde inte bekräfta om ditt beslut sparades. Det kan ha godkänts. Kontrollera statusen igen: sidan visar då om förslaget godkändes eller avböjdes.",
+  recheck: "Kontrollera status igen",
   limited: "För många försök. Det här försöket ändrade ingenting. Försök igen senare.",
   approved: "Godkänt. Assistenten kan nu slutföra exakt denna bokning. Detta är ingen bokningsbekräftelse.",
   declined: "Avböjt. Inget godkändes.",
@@ -62,7 +68,7 @@ const sv: typeof en = {
 };
 export type StagingCopy = typeof en;
 
-export type ConsentOutcome = "loading" | "ready" | "invalid" | "used" | "expired" | "unchecked" | "unconfirmed" | "limited" | "approved" | "declined";
+export type ConsentOutcome = "loading" | "ready" | "invalid" | "used" | "approvedEarlier" | "declinedEarlier" | "expired" | "unchecked" | "unconfirmed" | "limited" | "approved" | "declined";
 
 /** The proposal terms the page shows and approves. */
 export type StagingView = {
@@ -116,7 +122,12 @@ export function consentOutcome(phase: "view" | "yes" | "no", response: ConsentRe
     const expected = phase === "yes" ? "approved" : "declined";
     return field(body, "status") === expected ? expected : unknown;
   }
-  if (error === "consent_denied" && ((status === 409 && state === "used") || (status === 410 && state === "expired"))) return state;
+  if (error === "consent_denied" && status === 410 && state === "expired") return "expired";
+  if (error === "consent_denied" && status === 409 && state === "used") {
+    // The decision recorded with the link, so a lost response can be resolved.
+    const decision = field(body, "decision");
+    return decision === "approved" ? "approvedEarlier" : decision === "declined" ? "declinedEarlier" : "used";
+  }
   if (status === 429 && error === "consent_rate_limited") return "limited";
   if (status === 403 && error === "consent_denied" && state === undefined) return phase === "view" ? unknown : "invalid";
   return unknown;

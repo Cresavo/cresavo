@@ -17,9 +17,9 @@ import { createDatabaseClient } from "../database.mjs";
 import { containsSecret, registerSecret, say } from "./sanitize.mjs";
 import { captureStream, freePort, guardStream, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
 import { agentChannel } from "./agent-reply.mjs";
-import { loopbackAdminUrl } from "./preflight.mjs";
+import { loopbackAdminUrl, refuseDiagnostics } from "./preflight.mjs";
 import { issueCertificates, operatorFetch, tlsProxy } from "./tls.mjs";
-import { close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking, reopenInSameTab } from "./browsers.mjs";
+import { approveWithLostResponse, close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking, reopenInSameTab } from "./browsers.mjs";
 
 const repo = realpathSync(fileURLToPath(new URL("../..", import.meta.url)));
 const pin = JSON.parse(readFileSync(join(repo, "scripts/staging-consent/gateway.json"), "utf8"));
@@ -55,6 +55,8 @@ const gatewayHost = (process.env.STAGING_GATEWAY_HOST ?? "gateway.cresavo.test")
 const salonHost = (process.env.STAGING_SALON_HOST ?? "salon-demo.cresavo.test").toLowerCase();
 for (const host of [gatewayHost, salonHost]) assert(hostPattern.test(host) && !isIP(host), "STAGING_HOST_INVALID");
 assert.notEqual(gatewayHost, salonHost, "STAGING_HOSTS_MUST_DIFFER");
+// Before any link exists: diagnostics that would print URLs outside the sanitizer are refused.
+refuseDiagnostics(process.env);
 // Throws a static code only: the value may hold a password and nothing is registered for redaction yet.
 const adminUrl = loopbackAdminUrl(process.env.STAGING_PG_ADMIN_URL);
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -115,7 +117,10 @@ async function adminQuery(sql: string) {
   try { await client.$executeRawUnsafe(sql); } finally { await client.$disconnect(); }
 }
 
-async function cleanup() {
+let cleaned: Promise<void> | undefined;
+// Once only, whichever of the main flow and a signal gets here first.
+const cleanup = () => (cleaned ??= cleanupOnce());
+async function cleanupOnce() {
   for (const browser of browsers) await browser.close().catch(() => {});
   for (const server of servers) server.close();
   // Stops the salon, gateway and agent, and waits until each has closed its streams.
@@ -135,11 +140,21 @@ async function cleanup() {
 }
 for (const signal of ["SIGINT", "SIGTERM"] as const)
   process.once(signal, () => { void cleanup().finally(() => process.exit(130)); });
+// Node's default report would print the error, which can quote a URL or a response. A static
+// code instead, then the normal cleanup.
+// The main flow keeps running and its `finally` cleans up: cleaning up here as well would close
+// browsers and servers under a scenario that is still running.
+let crashed = false;
+for (const event of ["uncaughtException", "unhandledRejection"] as const)
+  process.on(event, () => {
+    if (crashed) return;
+    crashed = true; failures++; say("FAIL UNCAUGHT_ERROR");
+  });
 
 const agentTranscript: string[] = [];
 function agentClient(env: Record<string, string>) {
   const child = track(spawn(process.execPath, ["--import", "tsx", "--import", dnsHook, join(repo, "scripts/staging-consent/agent.mts")],
-    { cwd: repo, env: env as NodeJS.ProcessEnv, stdio: ["pipe", "pipe", "pipe"] }));
+    { cwd: repo, env: env as NodeJS.ProcessEnv, stdio: ["pipe", "pipe", "pipe"], detached: true }));
   captureStream("agent:stderr", child.stderr);
   child.stdin.on("error", () => {});
   const channel = agentChannel(line => child.stdin.write(line), agentTranscript);
@@ -354,7 +369,8 @@ try {
   await scenario("ALREADY_USED_LINK_SHOWS_STATE_AND_GRANTS_NOTHING", async () => {
     const view = await openConsent(customerBrowser, links[0]);
     try {
-      assert.equal(view.state, "used");
+      // A used link names the recorded decision, nothing else: no terms, no buttons.
+      assert.equal(view.state, "approvedEarlier");
       assert.equal(view.buttons, 0);
       assert.deepEqual(view.terms, {});
     } finally { await close(view); }
@@ -380,6 +396,9 @@ try {
     const read = await status(proposal.id);
     assert.equal(read.status, "declined");
     assert(!("mandateId" in read));
+    // Opened again, the spent link says it was declined.
+    const reopened = await openConsent(customerBrowser, link);
+    try { assert.equal(reopened.state, "declinedEarlier"); assert.equal(reopened.buttons, 0); } finally { await close(reopened); }
     assert.equal((await state(proposal.id)).mandates, 0);
   });
 
@@ -395,8 +414,13 @@ try {
     assert.equal((await state(proposal.id)).mandates, 0);
   });
 
-  await scenario("CHANGED_PRICE_REFUSES_BOOKING", async () => {
-    const mandateId = await approveInBrowser((await propose(slots[1])).id);
+  await scenario("LOST_APPROVAL_RESPONSE_IS_RESOLVED_BY_CHECKING_STATUS_AND_CHANGED_PRICE_REFUSES_BOOKING", async () => {
+    const proposal = await propose(slots[1]);
+    const view = await openConsent(customerBrowser, await inboxLink(proposal.id));
+    try { assert.equal(view.state, "ready"); await approveWithLostResponse(view); } finally { await close(view); }
+    const read = await status(proposal.id);
+    assert.equal(read.status, "approved");
+    const mandateId = read.mandateId as string;
     await operator.service.update({ where: { id: service.id }, data: { priceOre: service.price.amountMinor - 5000 } });
     try {
       const result = await book(slots[1], mandateId);

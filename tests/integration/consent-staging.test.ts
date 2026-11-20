@@ -276,7 +276,8 @@ it("decline leaves no mandate and the link shows a used state", async () => {
   expect("mandateId" in read).toBe(false);
   const again = await customer(proposal.id, { token: await secret(proposal.id), decision: "view" });
   expect(again.status).toBe(409);
-  expect(await again.json()).toEqual({ error: "consent_denied", state: "used" });
+  // The link holder learns the recorded decision, and nothing else.
+  expect(await again.json()).toEqual({ error: "consent_denied", state: "used", decision: "declined" });
   expect(await counts(principal.clientId)).toMatchObject({ mandates: 0 });
 });
 
@@ -304,8 +305,16 @@ it("a reused link grants nothing more", async () => {
   for (const decision of ["yes", "no", "view"]) {
     const response = await customer(proposal.id, { token, decision, proposalHash: seen.proposalHash });
     expect(response.status).toBe(409);
-    expect((await response.json()).state).toBe("used");
+    // The recorded decision only: no terms, no mandate ID, no authority.
+    expect(await response.json()).toEqual({ error: "consent_denied", state: "used", decision: "approved" });
   }
+  // Still the recorded approval once the proposal's approval window has passed, not "expired".
+  await db.agentProposal.update({ where: { id: proposal.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+  expect(await (await customer(proposal.id, { token, decision: "view" })).json()).toEqual({ error: "consent_denied", state: "used", decision: "approved" });
+  // A wrong secret learns nothing about the decision.
+  const stranger = await customer(proposal.id, { token: "W".repeat(43), decision: "view" });
+  expect(stranger.status).toBe(403);
+  expect(await stranger.json()).toEqual({ error: "consent_denied" });
   // Concurrent replays of the same link still produce exactly one mandate.
   const fresh = await createProposal(principal, terms()), freshToken = await secret(fresh.proposal.id);
   const freshSeen = await customerDecision(fresh.proposal.id, { token: freshToken, decision: "view" });

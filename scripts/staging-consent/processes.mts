@@ -73,7 +73,7 @@ export function leakedStreams() {
 /** Runs a command to completion with a closed environment. Rejects with a static code only. */
 export function runStep(code: string, command: string, args: string[], cwd: string, env: Record<string, string>, timeoutMs = 600_000) {
   return new Promise<void>((resolve, reject) => {
-    const child = track(spawn(command, args, { cwd, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"] }));
+    const child = track(spawn(command, args, { cwd, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"], detached: true }));
     captureStream(`${code}:stdout`, child.stdout);
     captureStream(`${code}:stderr`, child.stderr);
     const timer = setTimeout(() => child.kill("SIGKILL"), timeoutMs);
@@ -85,7 +85,7 @@ export function runStep(code: string, command: string, args: string[], cwd: stri
 /** Starts a long-running server and resolves when a stdout line starts with the ready marker. */
 export function startServer(name: string, command: string, args: string[], cwd: string, env: Record<string, string>, ready: string) {
   return new Promise<ChildProcess>((resolve, reject) => {
-    const child = track(spawn(command, args, { cwd, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"] }));
+    const child = track(spawn(command, args, { cwd, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"], detached: true }));
     const timer = setTimeout(() => reject(new Error(`${name}_READY_TIMEOUT`)), 90_000);
     let buffer = "";
     captureStream(`${name}:stdout`, child.stdout);
@@ -100,16 +100,34 @@ export function startServer(name: string, command: string, args: string[], cwd: 
 }
 
 /** Stops every tracked child and resolves once all of them have closed their streams. */
-export async function stopAll() {
+/**
+ * Signals the child's whole process group. Every child is spawned `detached`, so it leads its own
+ * group and the signal also reaches anything it started (Next.js workers, npm's children).
+ */
+function signalGroup(child: ChildProcess, signal: NodeJS.Signals) {
+  if (child.pid === undefined) return;
+  try { process.kill(-child.pid, signal); } catch { try { child.kill(signal); } catch { /* already gone */ } }
+}
+
+/**
+ * Stops every tracked child and its process group, and resolves once all have closed their
+ * streams. Past `closeTimeoutMs` (a pipe held open by something outside the group) the output is
+ * marked incomplete, so the final scan fails, and this side of the pipes is closed, so nothing
+ * left behind can keep the runner from exiting.
+ */
+export async function stopAll({ killAfterMs = 5000, closeTimeoutMs = 15_000 } = {}) {
   await Promise.all([...children].map(async ([child, closed]) => {
-    const running = child.exitCode === null && child.signalCode === null;
-    const timer = running ? setTimeout(() => child.kill("SIGKILL"), 5000) : undefined;
-    if (running) child.kill("SIGTERM");
-    // A stream held open past this (for example by a surviving grandchild) leaves the output
-    // incomplete: the final scan then fails instead of passing on part of it.
+    signalGroup(child, "SIGTERM");
+    const timer = setTimeout(() => signalGroup(child, "SIGKILL"), killAfterMs);
     let wait: NodeJS.Timeout | undefined;
-    const settled = await Promise.race([closed.then(() => true), new Promise<boolean>(r => { wait = setTimeout(() => r(false), 15_000); })]);
+    const settled = await Promise.race([closed.then(() => true), new Promise<boolean>(r => { wait = setTimeout(() => r(false), closeTimeoutMs); })]);
     clearTimeout(timer); clearTimeout(wait);
-    if (!settled) overflowed = true;
+    // Whatever is left of the group (a process that closed its streams but ignored SIGTERM).
+    signalGroup(child, "SIGKILL");
+    if (!settled) {
+      overflowed = true;
+      for (const stream of [child.stdin, child.stdout, child.stderr]) stream?.destroy();
+      children.delete(child);
+    }
   }));
 }

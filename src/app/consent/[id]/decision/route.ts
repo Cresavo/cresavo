@@ -47,7 +47,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   } catch (error) {
     // A spent link tells its holder why. It never carries proposal terms or authority.
     if (error instanceof ConsentLinkState)
-      return Response.json({ error: "consent_denied", state: error.state }, { status: error.state === "expired" ? 410 : 409, headers });
+      return Response.json({ error: "consent_denied", state: error.state, ...(error.decision ? { decision: error.decision } : {}) },
+        { status: error.state === "expired" ? 410 : 409, headers });
     if (error instanceof DomainError && error.status === 429)
       return Response.json({ error: "consent_rate_limited" }, { status: 429, headers: { ...headers, "Retry-After": String(error.retryAfter ?? 60) } });
     // Do not reflect or log bearer link material, parser errors or SQL.

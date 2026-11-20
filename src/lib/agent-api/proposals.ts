@@ -119,7 +119,8 @@ async function customerDecisionInternal(proposalId: string, body: unknown, now?:
     if (row) { auditRow = row; expired = status(row, decisionTime) === "expired"; }
     // Only the holder of this link learns that it is spent. The state grants nothing.
     if (staging && row?.consentDelivery === STAGING_CHANNEL && status(row, decisionTime) !== "pending")
-      throw new ConsentLinkState(expired ? "expired" : "used");
+      throw new ConsentLinkState(expired ? "expired" : "used",
+        row.status === "approved" || row.status === "declined" ? row.status : undefined);
     if (!row || status(row, decisionTime) !== "pending" || row.proposalHash !== proposalHash(row))
       throw new AgentApiError("mandate_denied");
     if (staging ? row.consentDelivery !== STAGING_CHANNEL
