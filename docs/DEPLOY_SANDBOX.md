@@ -107,7 +107,7 @@ provider and phone calls to 3,072 per generation, or about 95,300 in a
 also retains its own per-IP limits. This is below the [Pro function invocation
 allocation](https://vercel.com/pricing), which is shared with other projects.
 Rejected traffic, CPU time and storage have their own usage implications.
-[Pause production](https://vercel.com/docs/spend-management#pausing-projects)
+[Pause production for one project](https://vercel.com/changelog/set-budgets-for-projects-and-products-in-spend-management)
 is a backstop that can lag. It cannot enforce a zero-dollar cap or cover
 Marketplace services. The owner accepted the residual Vercel usage risk.
 

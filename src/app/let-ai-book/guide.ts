@@ -25,14 +25,21 @@ export function letAiBookGuide(locale: keyof typeof languages) {
   <html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${t.title} · ${BRAND.name}</title>
   <style>
-    * { box-sizing:border-box } body { margin:0; background:#f7f5f9; color:#221d2a; font:1rem/1.55 system-ui,sans-serif }
-    main { width:min(48rem,100%); margin:auto; padding:2rem 1.25rem 4rem } .top { display:flex; justify-content:space-between; color:#5a4056 }
+    :root {
+      color-scheme:light dark;
+      --page:light-dark(#faf7f3,#18141e); --text:light-dark(#2c242e,#fbf5f0);
+      --surface:light-dark(#fff,#25202a); --hairline:light-dark(#e7ddd9,#4d414f);
+      --action:light-dark(#50364b,#f2b184); --on-action:light-dark(#fff,#211820);
+      --focus:light-dark(#ac7395,#f5bd97);
+    }
+    * { box-sizing:border-box } body { margin:0; background:var(--page); color:var(--text); font:1rem/1.55 Inter,system-ui,sans-serif }
+    main { width:min(48rem,100%); margin:auto; padding:2rem 1.25rem 4rem } .top { display:flex; justify-content:space-between; color:var(--action) }
     h1 { font-size:clamp(2.25rem,7vw,4rem); line-height:1.05; margin:2rem 0 1rem; letter-spacing:-.04em }
     .intro { font-size:1.2rem; max-width:34rem } .cards { margin:2rem 0 1rem; padding:0; list-style:none; display:grid; gap:1rem }
-    .cards li { padding:1.15rem 1.25rem; border:1px solid #ddd3e2; border-radius:1rem; background:#fff }
-    h2 { margin:0; font-size:1.1rem } li p { margin:.35rem 0 0 } a { color:#583858 }
-    .links { display:flex; gap:.7rem; flex-wrap:wrap; margin-top:1.25rem } .links a { display:inline-flex; align-items:center; min-height:44px; padding:.55rem 1rem; border-radius:.55rem; border:1px solid #65445e }
-    .primary { background:#65445e; color:#fff; text-decoration:none } :focus-visible { outline:3px solid #5b3fbb; outline-offset:3px }
+    .cards li { padding:1.15rem 1.25rem; border:1px solid var(--hairline); border-radius:14px; background:var(--surface) }
+    h2 { margin:0; font-size:1.1rem } li p { margin:.35rem 0 0 } a { color:var(--action) }
+    .links { display:flex; gap:.7rem; flex-wrap:wrap; margin-top:1.25rem } .links a { display:inline-flex; align-items:center; min-height:44px; padding:.55rem 1rem; border-radius:10px; border:1px solid var(--action) }
+    .primary { background:var(--action); color:var(--on-action); text-decoration:none } :focus-visible { outline:3px solid var(--focus); outline-offset:3px }
   </style></head><body><main>
   <div class="top"><strong>${BRAND.name}</strong><a href="${t.otherPath}">${t.otherLanguage}</a></div>
   <h1>${t.title}</h1><p class="intro">${t.subtitle}</p>
