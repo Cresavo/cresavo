@@ -6,7 +6,7 @@ import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { mcpEnvironment } from "../../src/mcp/environment";
 import { db } from "../../src/lib/db";
-import { mountTimeCard } from "./host";
+import { mountTimeCard, openTestHost } from "./host";
 import { cardBookingSchema } from "../../src/mcp/time-card/booking";
 const date = DateTime.now()
   .setZone("Europe/Stockholm")
@@ -75,7 +75,7 @@ for (const scenario of [
     );
     try {
       await page.setViewportSize({ width, height: 900 });
-      await page.goto("/");
+      await openTestHost(page);
       const resource = (
         await client.readResource({
           uri: owner
@@ -221,7 +221,7 @@ for (const scenario of [
             "The booking may exist",
           );
         else await expect(mounted.frame.locator("#receipt")).toBeVisible();
-        await page.goto("/");
+        await openTestHost(page);
         mounted = await mountTimeCard(page, client, resource.text, initial);
         if (scenario === "lost-before") {
           await expect(mounted.frame.getByRole("status")).toContainText(

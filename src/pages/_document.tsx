@@ -1,14 +1,26 @@
 import { siteLocale } from "@/concept/site/language";
-import { type DocumentProps, Head, Html, Main, NextScript } from "next/document";
+import Document, { type DocumentContext, type DocumentInitialProps, Head, Html, Main, NextScript } from "next/document";
 
-export default function Document({ __NEXT_DATA__ }: DocumentProps) {
-  return (
-    <Html lang={siteLocale(__NEXT_DATA__.page)}>
-      <Head />
-      <body>
-        <Main />
-        <NextScript />
-      </body>
-    </Html>
-  );
+type Props = DocumentInitialProps & { nonce?: string };
+
+// The proxy sets a per-request CSP nonce; the Pages Router needs it passed to Head and NextScript.
+export default class SiteDocument extends Document<Props> {
+  static async getInitialProps(ctx: DocumentContext): Promise<Props> {
+    const initialProps = await Document.getInitialProps(ctx);
+    const nonce = ctx.req?.headers["x-nonce"];
+    return { ...initialProps, nonce: typeof nonce === "string" ? nonce : undefined };
+  }
+
+  render() {
+    const { nonce } = this.props;
+    return (
+      <Html lang={siteLocale(this.props.__NEXT_DATA__.page)}>
+        <Head nonce={nonce} />
+        <body>
+          <Main />
+          <NextScript nonce={nonce} />
+        </body>
+      </Html>
+    );
+  }
 }

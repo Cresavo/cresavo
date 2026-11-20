@@ -46,7 +46,7 @@ export default async function Layout({
     // The theme script sets data-theme before React hydrates.
     <html lang={lang} className={inter.variable} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script nonce={requestHeaders.get("x-nonce") ?? undefined} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>
         <LocaleProvider locale={locale}>
