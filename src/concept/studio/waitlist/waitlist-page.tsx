@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BellRing } from "lucide-react";
 import { nextMatch, queueOrder } from "../../booking/waitlist-match";
 import { offerLink } from "../../booking/waitlist-offer";
@@ -23,13 +23,14 @@ import { entrySummary } from "../../booking/waitlist-entry";
 import { ManualOffer } from "./manual-offer";
 import { OfferSettings } from "./offer-settings";
 
-/** The clock for this page: every second while a countdown shows, otherwise every 30 seconds so previews of free times never go stale. */
-function useInstant(countdown: boolean) {
-  const [now, setNow] = useState(() => Date.now());
+/** The start of the current minute, checked every 15 seconds: matching previews change at most once a minute. */
+function useMinute() {
+  const minute = () => Math.floor(Date.now() / 60_000) * 60_000;
+  const [now, setNow] = useState(minute);
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), countdown ? 1000 : 30_000);
+    const timer = window.setInterval(() => setNow(minute()), 15_000);
     return () => window.clearInterval(timer);
-  }, [countdown]);
+  }, []);
   return now;
 }
 
@@ -38,19 +39,31 @@ const countdown = (ms: number) => {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 };
 
+/** Time left on one offer. Only this text renders every second, never the matching around it. */
+export function Countdown({ until }: { until: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return <>{t("offers.countdown", { time: countdown(until - now) })}</>;
+}
+
 const STATUS_TONE = { offered: "accent", claimed: "accent", lapsed: "neutral", declined: "neutral" } as const;
 
 /** Customers > Waiting list: who waits, which freed times are ready to offer, offers out now and earlier ones. */
 export function WaitlistPage() {
   const { state } = useStudio();
   const active = state.waitlistOffers.filter((o) => o.status === "offered");
-  const now = useInstant(active.length > 0 || state.waitlistGaps.length > 0);
+  const now = useMinute();
   const name = (id: string) => {
     const customer = findCustomer(state, id);
     return customer ? fullName(customer) : t("log.someone");
   };
   const when = (o: Pick<WaitlistOffer, "date" | "start">) => `${formatDayShort(o.date)} ${formatTime(o.start)}`;
   const pending = state.waitlistGaps.filter((g) => !active.some((o) => o.gapId === g.id));
+  // Who is next for each pending time: worked out again only when the salon changes or a minute passes.
+  const matches = useMemo(() => new Map(state.waitlistGaps.map((gap) => [gap.id, nextMatch(state, gap, now)])), [state, now]);
   const history = state.waitlistOffers.filter((o) => o.status !== "offered").reverse();
   const entries = [...state.waitlistEntries].sort(queueOrder);
   const rules = state.waitlistRules;
@@ -75,7 +88,7 @@ export function WaitlistPage() {
                   href={offerLink(state.salon.slug, o.id)}
                   aria-label={`${t("offers.openLink")}: ${name(o.customerId)}`}
                   title={name(o.customerId)}
-                  meta={`${findService(state, o.serviceId)?.name ?? ""} · ${when(o)} · ${t("offers.countdown", { time: countdown(o.expiresAt - now) })}`}
+                  meta={<>{findService(state, o.serviceId)?.name ?? ""} · {when(o)} · <Countdown until={o.expiresAt} /></>}
                   trailing={<DemoBadge short />}
                 />
               ))}
@@ -87,7 +100,7 @@ export function WaitlistPage() {
           <Section title={t("offers.pending")}>
             <Card className="divide-y divide-hairline">
               {pending.map((gap) => {
-                const match = nextMatch(state, gap, now);
+                const match = matches.get(gap.id);
                 const person = state.staff.find((s) => s.id === gap.staffId)?.firstName ?? "";
                 return (
                   <ListRow

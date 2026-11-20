@@ -9,7 +9,7 @@ import { customerText } from "../i18n/customer-text";
 import { formatDayLong } from "../i18n/format";
 import { serviceCopy } from "../i18n/salon-eko-copy";
 import { findService } from "../selectors";
-import { currentState, dispatchConfirmed } from "../store";
+import { dispatchCommitted } from "../store";
 import { newActionRequestId } from "../support/action-reference";
 import { ActionFailure, type ActionFailureInfo } from "../ui/action-failure";
 import { Button, IconButton } from "../ui/button";
@@ -68,7 +68,7 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
       : treatment;
     setPending(true);
     // Confirmed only once the request is saved: with another customer's offer out, writes wait for the booking lock.
-    const joined = await dispatchConfirmed({
+    const joined = await dispatchCommitted({
       type: "online/waitlist",
       guest: { name, phone, at: { date: now.today, time: now.minutes } },
       serviceId: service.id,
@@ -80,11 +80,11 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
       },
     });
     setPending(false);
-    if (!joined) {
+    if (!joined.ok) {
       setFailure({ requestId: newActionRequestId(), reason: "booking.waitlist.failed" });
       return;
     }
-    const customer = findCustomerByPhone(currentState() ?? state, phone);
+    const customer = findCustomerByPhone(joined.state, phone);
     if (customer) saveContact(customer.id);
     setDone(true);
   };

@@ -8,7 +8,7 @@ import { prefillFromQuery } from "../../campaigns/prefill";
 import { addDays } from "../../data/dates";
 import type { DateKey } from "../../data/types";
 import { t } from "../../i18n";
-import { currentState, dispatchWithLog } from "../../store";
+import { dispatchCommitted } from "../../store";
 import { Button } from "../../ui/button";
 import { cx } from "../../ui/cx";
 import { showToast } from "../../ui/toast";
@@ -34,8 +34,9 @@ export function CampaignStudio() {
   const index = STEPS.indexOf(step);
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
 
-  const publish = (publishOn: DateKey) => {
-    const logId = dispatchWithLog({
+  // Opens the campaign this launch saved, read from its commit.
+  const publish = async (publishOn: DateKey) => {
+    const result = await dispatchCommitted({
       type: "campaign/launch",
       today,
       campaign: {
@@ -52,9 +53,9 @@ export function CampaignStudio() {
         link: draftLink(state, draft),
       },
     });
-    const created = currentState()?.campaigns[0];
-    if (logId === false || !created) return showToast(t("command.failed"));
-    showUndoToast(publishOn <= today ? t("campaigns.publish.done", { name: created.name }) : t("campaigns.publish.scheduled", { name: created.name }), logId);
+    const created = result.ok ? result.state.campaigns[0] : undefined;
+    if (!result.ok || !created) return showToast(t("command.failed"));
+    showUndoToast(publishOn <= today ? t("campaigns.publish.done", { name: created.name }) : t("campaigns.publish.scheduled", { name: created.name }), result.logId);
     router.push(`/studio/more/campaigns/${created.id}`);
   };
 

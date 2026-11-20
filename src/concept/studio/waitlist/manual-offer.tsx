@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { manualGaps } from "../../booking/waitlist-match";
 import type { DemoState, StaffId } from "../../data/types";
 import { t } from "../../i18n";
@@ -17,7 +17,7 @@ export function ManualOffer({ state, now, onOffer }: { state: DemoState; now: nu
   const today = salonClock(new Date(now)).today;
   const [date, setDate] = useState(today);
   const [staffId, setStaffId] = useState<StaffId | undefined>(state.staff[0]?.id);
-  const gaps = staffId && date >= today ? manualGaps(state, date, staffId, now) : [];
+  const gaps = useMemo(() => (staffId && date >= today ? manualGaps(state, date, staffId, now) : []), [state, date, staffId, today, now]);
   return (
     <Section title={t("offers.chooseOpening")}>
       <Card className="space-y-4 p-4 md:max-w-form">

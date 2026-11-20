@@ -235,6 +235,25 @@ describe("offers one customer at a time", () => {
     expect(nextWaitlistWake(held, hold.expiresAt + 1)).toBeGreaterThan(hold.expiresAt + 1);
   });
 
+  it("measures a freed time without a checkout beside it, and offers it once the checkout ends", () => {
+    const state = setup();
+    state.cancellationPolicy = { ...state.cancellationPolicy, deposits: { [serviceId]: 15000 } };
+    // 10:00–10:30 is cancelled; a checkout holds 10:30–11:00 and everything after is booked. Customers want an hour.
+    state.services = [{ ...state.services[0], duration: 30 }];
+    const hourly = { ...state.services[0], id: "hour", duration: 60 };
+    state.bookings = [{ ...state.bookings[0], duration: 30 }, { ...state.bookings[0], id: "after", start: 660, duration: 360, customerId: "other" },
+      { ...state.bookings[0], id: "before", start: 540, duration: 60, customerId: "other" }];
+    const held = reduce(state, { type: "online/hold", serviceId, staffId: alex, date, start: 630, notice,
+      guest: { name: "Demo Guest 8", phone: "0701234568", at: { date: day, time: 600 } } }, now);
+    expect(held.checkoutHolds).toHaveLength(1);
+    const waiting = { ...held, services: [...held.services, hourly], waitlistEntries: held.waitlistEntries.map((e) => ({ ...e, serviceId: "hour" })) };
+    const freed = reduce(waiting, cancel, now);
+    expect(freed.waitlistGaps).toMatchObject([{ start: 600, end: 660, released: [{ start: 600, end: 630 }] }]);
+    expect(freed.waitlistOffers).toEqual([]);
+    const released = reduce(freed, { type: "online/release", id: held.checkoutHolds[0].id }, now + 1);
+    expect(released.waitlistOffers[0]).toMatchObject({ start: 600, serviceId: "hour", status: "offered" });
+  });
+
   it("ends the queue when nobody else fits", () => {
     const offered = reduce(setup(), cancel, now);
     const second = reduce(offered, { type: "online/decline", id: offered.waitlistOffers[0].id }, now);
@@ -615,19 +634,29 @@ describe("in the browser store", () => {
   /** Web Locks shared by every tab of one test: callbacks run one after another. */
   function sharedLocks() {
     let queue: Promise<unknown> = Promise.resolve();
-    return {
+    const lock = {
+      /** True while some tab's callback holds the lock. */
+      busy: false,
       request: (_name: string, run: () => unknown) => {
-        const next = queue.then(run);
+        const next = queue.then(async () => {
+          lock.busy = true;
+          try {
+            return await run();
+          } finally {
+            lock.busy = false;
+          }
+        });
         queue = next.catch(() => undefined);
         return next;
       },
     };
+    return lock;
   }
   let locks = sharedLocks();
   beforeEach(() => { locks = sharedLocks(); });
 
   /** A fresh copy of the store module over one shared, fictional localStorage. `withLocks: false` is a browser without Web Locks. */
-  async function openTab(storage: { raw: string; full?: boolean; onFull?: () => void; race?: { afterReads: number; write: () => void } }, withLocks = true) {
+  async function openTab(storage: { raw: string; full?: boolean; onFull?: () => void; beforeWrite?: () => void; race?: { afterReads: number; write: () => void } }, withLocks = true) {
     const others = new Map<string, string>();
     const localStorage = {
       getItem: (key: string) => {
@@ -644,6 +673,7 @@ describe("in the browser store", () => {
           storage.onFull?.();
           throw new Error("quota");
         }
+        storage.beforeWrite?.();
         storage.raw = value;
       },
       removeItem: (key: string) => void others.delete(key),
@@ -696,21 +726,64 @@ describe("in the browser store", () => {
     expect(kept.bookings).toEqual(sample.bookings);
   });
 
-  it("sends offers only under the booking lock: a write outside it leaves the time to the next locked tick", async () => {
+  it("shows a change made outside the lock at once, and saves and sends it only under the lock", async () => {
     const state = setup();
     const storage = { raw: JSON.stringify(state) };
     const tab = await openTab(storage);
     const { demoOutbox: outbox } = await import("@/concept/connections/demo");
     outbox.clear();
     expect(tab.dispatch(cancel)).toBe(true);
-    const unlocked = JSON.parse(storage.raw) as DemoState;
-    expect(unlocked.waitlistOffers).toEqual([]);
-    expect(unlocked.waitlistGaps).toHaveLength(1);
+    // The page sees the cancellation straight away; nothing is saved or texted until the lock is held.
+    expect(tab.currentState()?.bookings[0].status).toBe("cancelled");
+    expect(JSON.parse(storage.raw)).toEqual(JSON.parse(JSON.stringify(state)));
     expect(outbox.list("sms")).toEqual([]);
-    expect(await tab.withBookingLock(() => tab.dispatch(tick))).toBe(true);
-    const sent = JSON.parse(storage.raw) as DemoState;
-    expect(sent.waitlistOffers).toHaveLength(1);
+    await tab.withBookingLock(() => true);
+    const saved = JSON.parse(storage.raw) as DemoState;
+    expect(saved.bookings[0].status).toBe("cancelled");
+    expect(saved.waitlistOffers).toHaveLength(1);
     expect(outbox.list("sms")).toHaveLength(1);
+  });
+
+  it("never lets a write made outside the lock overwrite the first offer another tab committed", async () => {
+    const state = setup();
+    const storage: { raw: string; beforeWrite?: () => void } = { raw: JSON.stringify(state) };
+    const tab = await openTab(storage);
+    tab.currentState();
+    // The other tab commits the first offer under the lock, on whatever is saved when it gets the lock.
+    let otherCommitted = false;
+    const otherTab = () => {
+      storage.raw = JSON.stringify(reduce(JSON.parse(storage.raw) as DemoState, cancel, now));
+      otherCommitted = true;
+    };
+    // It gets the lock whenever nobody holds it, even between this tab's last read and its save.
+    storage.beforeWrite = () => {
+      if (!otherCommitted && !locks.busy) otherTab();
+    };
+    expect(tab.dispatch({ type: "inbox/read", id: state.inbox[0].id })).toBe(true);
+    await tab.withBookingLock(() => true);
+    if (!otherCommitted) await locks.request("other", otherTab);
+    const saved = JSON.parse(storage.raw) as DemoState;
+    expect(saved.waitlistOffers).toHaveLength(1);
+    expect(saved.inbox.find((i) => i.id === state.inbox[0].id)?.read).toBe(true);
+  });
+
+  it("shows a gift card sold outside the lock at once, and reports the one its commit saved", async () => {
+    const offered = reduce(setup(), cancel, now);
+    const storage = { raw: JSON.stringify(offered) };
+    const tab = await openTab(storage);
+    const sale = { type: "giftcard/sell", amount: 500, recipient: "Fictional Friend", message: "", date: day } as const;
+    // A page reading the new card right after a plain dispatch sees it, even while an offer is out.
+    expect(tab.dispatch(sale)).toBe(true);
+    expect(tab.currentState()?.giftCards.at(-1)?.recipient).toBe("Fictional Friend");
+    await tab.withBookingLock(() => true);
+    // Another tab sells a card first; the committed result names this sale's card, not theirs.
+    const other = reduce(JSON.parse(storage.raw) as DemoState, { ...sale, recipient: "Other Tab" }, now);
+    storage.raw = JSON.stringify(other);
+    const result = await tab.dispatchCommitted({ ...sale, recipient: "Second Friend" });
+    if (!result.ok) throw new Error("expected the sale to commit");
+    expect(result.state.giftCards.at(-1)?.recipient).toBe("Second Friend");
+    expect(result.state.giftCards.map((c) => c.recipient)).toEqual(["Fictional Friend", "Other Tab", "Second Friend"]);
+    expect(new Set(result.state.giftCards.map((c) => c.code)).size).toBe(3);
   });
 
   it("neither sends nor books personal offers in a browser without a cross-tab lock", async () => {
@@ -764,25 +837,22 @@ describe("in the browser store", () => {
     expect(saved.customers.some((c) => c.phone === "0701234567")).toBe(true);
   });
 
-  it("reports a write that waited for the lock and was then refused", async () => {
-    const offered = reduce(setup(), cancel, now);
-    const tab = await openTab({ raw: JSON.stringify(offered) });
+  it("reports a write that waited for the lock and was then refused, and shows what was saved again", async () => {
+    const state = setup();
+    const storage = { raw: JSON.stringify(state) };
+    const tab = await openTab(storage);
     let failures = 0;
     (window as unknown as EventTarget).addEventListener("concept-deferred-write-failed", () => failures++);
-    expect(tab.dispatch({ type: "booking/move", id: "no-such-visit", date, start: 600 })).toBe(true);
+    expect(tab.dispatch({ type: "booking/move", id: "visit", date, start: 840 })).toBe(true);
+    expect(tab.currentState()?.bookings[0].start).toBe(840);
+    // Before the lock comes round, another tab books 14:00 for someone else: the move can no longer be made.
+    const taken = { ...state, seq: state.seq + 1, bookings: [...state.bookings, { ...state.bookings[0], id: "other", customerId: "other", start: 840 }] };
+    storage.raw = JSON.stringify(taken);
     await tab.withBookingLock(() => true);
     await Promise.resolve();
     expect(failures).toBe(1);
-  });
-
-  it("does not report a cancellation with the owner's approval unless it is saved", async () => {
-    const state = setup("ask");
-    const storage = { raw: JSON.stringify(state), full: true };
-    const tab = await openTab(storage);
-    // 21:30: the approval waits for 08:00, so no offer is sent that would require the save on its own.
-    vi.setSystemTime(Date.parse(`${day}T21:30:00+01:00`));
-    expect(await tab.withBookingLock(() => tab.dispatch({ ...cancel, offerWaitingList: true }))).toBe(false);
-    expect(tab.currentState()?.bookings[0].status).toBe("booked");
+    expect(tab.currentState()?.bookings.find((b) => b.id === "visit")?.start).toBe(600);
+    expect(JSON.parse(storage.raw)).toEqual(JSON.parse(JSON.stringify(taken)));
   });
 
   it("does not report the add-on switched off unless that is saved", async () => {

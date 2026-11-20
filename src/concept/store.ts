@@ -32,6 +32,9 @@ interface BookingReceipt { day: string; seq: number }
 export type Workspace = "demo" | "own";
 interface WorkspaceSnapshot {
   state?: DemoState | null;
+  /** Changes shown in this tab while their commit waits for the booking lock. */
+  pending?: DemoState;
+  queued?: number;
   raw?: string | null;
   version?: BookingReceipt;
   lastWrite?: BookingReceipt;
@@ -206,6 +209,11 @@ function refresh(workspace: Workspace) {
  * meanwhile, its snapshot wins and is purged when this tab reads it.
  */
 function persistErasure(workspace: Workspace, raw: string | null, state: DemoState) {
+  // Like every save, it waits for the booking lock where there is one.
+  if (!insideBookingLock && hasCrossTabLock()) {
+    void withBookingLock(() => persistErasure(workspace, raw, state)).catch(() => undefined);
+    return;
+  }
   const snapshot = snapshots[workspace];
   try {
     if (window.localStorage.getItem(storageKey(workspace)) !== raw) return;
@@ -332,7 +340,9 @@ function getSnapshot(): DemoState | null {
     const state = snapshots[active].state;
     if (state) setVocabulary(getPack(state.pack).vocabulary);
   }
-  return snapshots[active].state ?? null;
+  const snapshot = snapshots[active];
+  // Inside the lock writes build on what is saved; everywhere else the page also shows changes still being committed.
+  return (!insideBookingLock && snapshot.pending) || snapshot.state || null;
 }
 
 /** The current state outside React, for code that just dispatched and needs the result. */
@@ -368,6 +378,12 @@ export function dispatch(action: DemoAction, meta?: Partial<Omit<LogMeta, "at">>
 /**
  * Returns the new log entry ID, null for an unlogged change, or false on refusal.
  * A caller's guard runs against the same refreshed state as the action.
+ *
+ * Every save goes through the booking lock when the browser has Web Locks, so no two tabs ever write
+ * their whole snapshot over each other. Called outside the lock, the change shows at once (the page
+ * reads it from `currentState()` as before) and is committed under the lock right after, on the
+ * latest saved copy. A commit that is then refused is reported by the toast layer and the page
+ * returns to what was saved. Callers that must know the committed result await `dispatchCommitted`.
  */
 export function dispatchWithLog(
   action: DemoAction,
@@ -375,6 +391,41 @@ export function dispatchWithLog(
   canApply?: (current: DemoState) => boolean,
 ): string | null | false {
   initialize();
+  if (!insideBookingLock && typeof window !== "undefined" && hasCrossTabLock()) return showThenCommit(action, meta, canApply);
+  return commitNow(action, meta, canApply);
+}
+
+/** The change in this tab's view at once, then the real write under the lock. */
+function showThenCommit(action: DemoAction, meta: Partial<Omit<LogMeta, "at">> | undefined, canApply?: (current: DemoState) => boolean): string | null | false {
+  const workspace = active;
+  refreshFromStorage();
+  const view = getSnapshot();
+  if (!view || (canApply && !canApply(view))) return false;
+  const now = Date.now();
+  const logMeta = { ...defaultMeta(action, now), ...meta, at: now };
+  // A preview only: nothing it would send or charge is published, and it sends no personal offer.
+  const next = withOffersHeld(true, () => withDemoChannels(demoMessageLedger.stage(), () => prepareAction(view, action, logMeta, demoPaymentLedger.stage())));
+  if (next === view) return false;
+  if (next.salon.slug !== view.salon.slug && next.salon.slug === workspaceSlug(workspace === "demo" ? "own" : "demo")) return false;
+  const snapshot = snapshots[workspace];
+  snapshot.pending = next;
+  snapshot.queued = (snapshot.queued ?? 0) + 1;
+  notify();
+  void withBookingLock(() => commitNow(action, meta, canApply))
+    .catch(() => false as const)
+    .then((result) => {
+      snapshot.queued = (snapshot.queued ?? 1) - 1;
+      if (!snapshot.queued) snapshot.pending = undefined;
+      notify();
+      // The toast layer listens and reports it; the caller was already told it worked.
+      if (result === false) window.dispatchEvent(new Event(DEFERRED_WRITE_FAILED));
+    });
+  const logId = next.log[0]?.id;
+  return logId !== view.log[0]?.id ? logId ?? null : null;
+}
+
+/** The write itself: inside the booking lock, or directly in a browser without Web Locks. */
+function commitNow(action: DemoAction, meta: Partial<Omit<LogMeta, "at">> | undefined, canApply?: (current: DemoState) => boolean): string | null | false {
   const workspace = active;
   refreshFromStorage();
   const now = Date.now();
@@ -382,25 +433,17 @@ export function dispatchWithLog(
   while (true) {
     const current = getSnapshot();
     if (!current || active !== workspace || (canApply && !canApply(current))) return false;
-    // While a personal offer is out, another tab may claim it at any moment. A write here outside the
-    // lock could save over that claim, so it waits for the lock instead (no undo for it; a refusal is reported).
-    if (!insideBookingLock && hasCrossTabLock() && offerLive(current, now)) {
-      deferUnderLock(action, meta, canApply);
-      return null;
-    }
     // Booking a personal offer needs the real cross-tab lock: without it two tabs could both claim it.
     const personalBooking = action.type === "online/claim" || (action.type === "online/pay" && current.checkoutHolds.some(hold => hold.id === action.id && hold.offerId));
     if (personalBooking && !insideBookingLock) return false;
     const batch = demoPaymentLedger.stage();
     const messages = demoMessageLedger.stage();
-    // Offers go out only under the booking lock, where no other booking write can come between the check and the save.
-    const held = !insideBookingLock;
-    const next = withOffersHeld(held, () => withDemoChannels(messages, () => prepareAction(current, action, logMeta, batch)));
+    // Offers go out only under the booking lock; a browser without one sends none.
+    const next = withOffersHeld(!insideBookingLock, () => withDemoChannels(messages, () => prepareAction(current, action, logMeta, batch)));
     if (next === current) return false;
     // Includes undo, which can restore a previously free address.
     if (next.salon.slug !== current.salon.slug && next.salon.slug === workspaceSlug(active === "demo" ? "own" : "demo")) return false;
-    // Every write re-reads storage right before saving and runs the rules again on a newer copy, so a change
-    // prepared on an older snapshot (a calendar drag outside the lock) never writes over another tab's claim or booking.
+    // The save re-reads storage first and runs the rules again on a newer copy.
     // A personal offer must reach shared storage before its link is texted or used: another tab
     // would otherwise not know it, and could claim it again or hand the time to someone else.
     // A customer told "you have left the list", an owner told offers are paused and a customer told
@@ -416,23 +459,24 @@ export function dispatchWithLog(
     if (saved === "unsaved") return false;
     if (!saved) continue;
     if (workspace === "own") markTrialUsed(now);
-    // A change made outside the lock may have freed time for the queue: send under the lock right away.
-    if (held && hasCrossTabLock() && next.waitlistGaps.length) scheduleWaitlist(0);
     const logId = next.log[0]?.id;
     return logId !== current.log[0]?.id ? logId ?? null : null;
   }
 }
 
-/** A personal offer someone could claim right now, or its checkout. */
-function offerLive(state: DemoState, now: number): boolean {
-  return state.waitlistOffers.some(offer => offer.status === "offered" && offer.expiresAt > now) || state.checkoutHolds.some(hold => !!hold.offerId);
-}
+export type CommitResult = { ok: false } | { ok: true; state: DemoState; logId: string | null };
 
-function deferUnderLock(action: DemoAction, meta: Partial<Omit<LogMeta, "at">> | undefined, canApply?: (current: DemoState) => boolean) {
-  void withBookingLock(() => dispatchWithLog(action, meta, canApply))
-    .catch(() => false as const)
-    // The toast layer listens and reports it; a refusal here has no caller left to tell.
-    .then((result) => { if (result === false) window.dispatchEvent(new Event(DEFERRED_WRITE_FAILED)); });
+/**
+ * Applies an action under the booking lock and resolves with what was committed: the saved state
+ * and the log entry. For callers that show or open what the change created (a sold gift card's code,
+ * a new campaign) or confirm success to a customer.
+ */
+export function dispatchCommitted(action: DemoAction, meta?: Partial<Omit<LogMeta, "at">>, canApply?: (current: DemoState) => boolean): Promise<CommitResult> {
+  return withBookingLock((): CommitResult => {
+    const logId = dispatchWithLog(action, meta, canApply);
+    const state = snapshots[active].state;
+    return logId === false || !state ? { ok: false } : { ok: true, state, logId };
+  }).then((result) => result || { ok: false as const }, () => ({ ok: false as const }));
 }
 
 // Web Locks serialize callbacks, but another renderer can still read an older
@@ -507,7 +551,7 @@ async function withBookingReceipt<T>(write: (required?: BookingReceipt) => T, re
  * For callers that confirm success to a customer: a plain `dispatch` outside the lock may only queue the change.
  */
 export function dispatchConfirmed(action: DemoAction, meta?: Partial<Omit<LogMeta, "at">>): Promise<boolean> {
-  return withBookingLock(() => dispatch(action, meta)).then((saved) => saved === true, () => false);
+  return dispatchCommitted(action, meta).then((result) => result.ok);
 }
 
 export function withBookingLock<T>(confirm: () => T): Promise<T | false> {

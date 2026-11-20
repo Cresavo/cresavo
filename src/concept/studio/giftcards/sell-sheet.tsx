@@ -6,7 +6,7 @@ import { MAX_AMOUNT, MIN_AMOUNT } from "../../giftcards/cards";
 import type { GiftCard } from "../../data/types";
 import { t } from "../../i18n";
 import { formatMoney } from "../../i18n/format";
-import { currentState, dispatchWithLog } from "../../store";
+import { dispatchCommitted } from "../../store";
 import { newActionRequestId } from "../../support/action-reference";
 import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Button } from "../../ui/button";
@@ -26,14 +26,19 @@ export function SellGiftCardSheet({ onClose, onSold }: { onClose: () => void; on
   const [failure, setFailure] = useState<ActionFailureInfo>();
   const valid = Number.isInteger(amount) && amount >= MIN_AMOUNT && amount <= MAX_AMOUNT && recipient.trim().length > 0;
 
-  const sell = () => {
-    const logId = dispatchWithLog({ type: "giftcard/sell", amount, recipient, message, date: today });
-    if (logId === false) {
+  const [pending, setPending] = useState(false);
+  // The card shown is the one this sale saved, read from its commit (another tab may sell one at the same time).
+  const sell = async () => {
+    if (pending) return;
+    setPending(true);
+    const result = await dispatchCommitted({ type: "giftcard/sell", amount, recipient, message, date: today });
+    setPending(false);
+    if (!result.ok) {
       setFailure({ requestId: newActionRequestId(), reason: "payment.saleFailed" });
       return;
     }
-    const card = currentState()!.giftCards.at(-1)!;
-    showUndoToast(t("giftcards.sold", { code: card.code }), logId);
+    const card = result.state.giftCards.at(-1)!;
+    showUndoToast(t("giftcards.sold", { code: card.code }), result.logId);
     onSold(card);
   };
 
@@ -46,7 +51,7 @@ export function SellGiftCardSheet({ onClose, onSold }: { onClose: () => void; on
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button width="responsive" disabled={!valid} icon={<Check size={18} />} onClick={sell}>{t("giftcards.sellConfirm")}</Button>
+          <Button width="responsive" disabled={!valid} loading={pending} icon={<Check size={18} />} onClick={sell}>{t("giftcards.sellConfirm")}</Button>
         </>
       }
     >

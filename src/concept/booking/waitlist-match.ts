@@ -196,7 +196,10 @@ export function releasedGaps(prev: DemoState, state: DemoState, now: number): Wa
     if (!dates.has(date) || span.end <= span.start) return;
     // Each free stretch the freed time touches is an opening; the part of the freed time inside it is what a
     // match must use. Part of the freed time can still be taken (a block over 10:00–10:15 of a 10:00–10:30 visit).
-    const openings = withSlotClock(now, () => freeGaps(state, staffId, date, { min: 1 })).filter((free) => free.start < span.end && free.end > span.start);
+    // Openings are measured without checkouts and offers, which end soon: the live reservations decide later
+    // whether the time can be offered now (`nextMatch`) or the gap waits for them (`couldMatch`).
+    const lasting = { ...state, checkoutHolds: [], waitlistOffers: state.waitlistOffers.filter((o) => o.status !== "offered") };
+    const openings = withSlotClock(now, () => freeGaps(lasting, staffId, date, { min: 1 })).filter((free) => free.start < span.end && free.end > span.start);
     for (const opening of openings) {
       const part = { start: Math.max(span.start, opening.start), end: Math.min(span.end, opening.end) };
       const same = found.find((g) => g.staffId === staffId && g.date === date && g.start === opening.start && g.end === opening.end);
