@@ -322,8 +322,9 @@ function onStorage(event: StorageEvent) {
 function setState(next: DemoState, recheckStorage = false, afterWrite?: () => void): boolean {
   const snapshot = snapshots[active];
   try {
-    if (recheckStorage && refreshFromStorage()) return false;
+    // Serialize first, then check for another tab's save right before writing: a save made meanwhile is never overwritten.
     const raw = savedText(next, snapshot.epoch);
+    if (recheckStorage && refreshFromStorage()) return false;
     window.localStorage.setItem(storageKey(active), raw);
     snapshot.raw = raw;
     dropEpochKey(active);

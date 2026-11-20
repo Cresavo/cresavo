@@ -202,7 +202,8 @@ export class BrowserStudioStore implements StudioStore {
 
   async apply(tenantId: TenantId, action: DemoAction, meta: ApplyMeta = {}, options: ApplyOptions = {}): Promise<ApplyResult> {
     const result = await this.commit(tenantId, action, meta, options);
-    if (!result.ok) return result as Extract<ApplyResult, { ok: false }>;
+    // `apply` has no target lifetime: a replacement met while applying is a conflict (reload and retry).
+    if (!result.ok) return result.reason === "replaced" ? { ...result, reason: "conflict" } : (result as Extract<ApplyResult, { ok: false }>);
     const { logId: _logId, ...applied } = result;
     void _logId;
     return applied;
@@ -225,7 +226,10 @@ export class BrowserStudioStore implements StudioStore {
     // The locks refuse when the tab switched salon, or when its storage did not catch up with the booking receipt in time.
     const state = latestState();
     const open = !!state && browserTenantOf(state) === tenantId;
-    return { ok: false, reason: open ? "conflict" : "not-found", ...(open ? { version: observe(state).version } : {}) };
+    if (!open) return { ok: false, reason: "not-found" };
+    // A salon that is not the one the command was made for is a replacement, not a lock that timed out.
+    const reason = extras.epoch !== undefined && epochOf(tenantId as BrowserTenant, state) !== extras.epoch ? "replaced" : "conflict";
+    return { ok: false, reason, version: observe(state).version };
   }
 
   private applyNow(tenantId: TenantId, action: DemoAction, meta: ApplyMeta, options: ApplyOptions, extras: CommitExtras): CommitResult {
@@ -267,7 +271,13 @@ export class BrowserStudioStore implements StudioStore {
           return false;
         }
         const seenVersion = record.version;
-        if (observe(latest).version !== seenVersion) {
+        const observed = observe(latest);
+        // The salon's records were ended meanwhile (replaced or removed): history and keys must not go to a detached record.
+        if (observed !== record) {
+          refused = "replaced";
+          return false;
+        }
+        if (observed.version !== seenVersion) {
           if (options.expectedVersion !== undefined) {
             refused = "conflict";
             return false;

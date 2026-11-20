@@ -166,6 +166,60 @@ it("reports a replacement during preparation as replaced, not as a conflict", as
   expect(storage.saved().dismissedCards ?? []).not.toContain("second");
 });
 
+it("never overwrites a save another tab made while this one was serializing", async () => {
+  const storage = tab({ ...createDemoState(today), epoch: "shared" } as DemoState);
+  const { dispatchWithLog } = await modules();
+  const stringify = JSON.stringify;
+  let armed = true;
+  // The other tab's save lands while this tab serializes its salon (the only value with a top-level `epoch`).
+  vi.spyOn(JSON, "stringify").mockImplementation(((value: unknown, ...rest: unknown[]) => {
+    if (armed && value && typeof value === "object" && "epoch" in value && "bookings" in value) {
+      armed = false;
+      const saved = JSON.parse(storage.items.get("salong-eko-demo")!);
+      storage.items.set("salong-eko-demo", stringify({ ...saved, dismissedCards: ["theirs"] }));
+    }
+    return stringify(value, ...(rest as []));
+  }) as typeof JSON.stringify);
+  try {
+    expect(dispatchWithLog({ type: "card/dismiss", id: "mine" }, undefined, () => true)).not.toBe(false);
+  } finally {
+    vi.mocked(JSON.stringify).mockRestore();
+  }
+  expect(armed).toBe(false);
+  expect(storage.saved().dismissedCards).toEqual(["theirs", "mine"]);
+});
+
+it("never applies a keyed change twice when the salon is replaced during the apply", async () => {
+  const storage = tab(createDemoState(today));
+  const { latestState } = await modules();
+  const { BrowserStudioStore } = await import("@/concept/store/browser-studio-store");
+  const store = new BrowserStudioStore();
+  latestState();
+  const note = { type: "inbox/add" as const, item: { kind: "system" as const, date: today, time: 0, title: "Keyed note", body: "Once", read: false, handled: true } };
+  let first = true;
+  const guard = () => {
+    if (first) storage.items.set("salong-eko-demo", JSON.stringify({ ...createDemoState(today), epoch: "another-tab" }));
+    first = false;
+    return true;
+  };
+  expect(await store.commit("demo", note, {}, { idempotencyKey: "note-1" }, { guard })).toMatchObject({ ok: false, reason: "replaced" });
+  expect(await store.apply("demo", note, {}, { idempotencyKey: "note-1" })).toMatchObject({ ok: true, replayed: false });
+  expect(await store.apply("demo", note, {}, { idempotencyKey: "note-1" })).toMatchObject({ ok: true, replayed: true });
+  expect(storage.saved().inbox.filter((item) => item.title === "Keyed note")).toHaveLength(1);
+});
+
+it("reports a replaced salon as replaced when the booking lock gives up", async () => {
+  const storage = tab(createDemoState(today));
+  const { commitAction, currentTarget } = await modules();
+  const old = currentTarget()!;
+  // A receipt from a later save than the replacement's: the lock waits for it, then gives up.
+  const receipt = { match: async () => Response.json({ day: today, seq: 1_000_000 }), put: async () => undefined };
+  vi.stubGlobal("navigator", { locks: { request: (_name: string, run: () => unknown) => Promise.resolve(run()) } });
+  Object.assign(window, { caches: { open: async () => receipt }, location: { origin: "http://localhost" }, setTimeout });
+  storage.items.set("salong-eko-demo", JSON.stringify({ ...createDemoState(today), epoch: "another-tab" }));
+  expect(await commitAction(old, { type: "card/dismiss", id: "late" })).toMatchObject({ ok: false, reason: "replaced" });
+}, 10_000);
+
 it("keeps a write another tab made while the commit was checking", async () => {
   const state = createDemoState(today);
   const storage = tab(state);
