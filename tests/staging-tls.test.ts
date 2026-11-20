@@ -31,6 +31,18 @@ describe.skipIf(!hasOpenssl)("operator HTTPS requests", () => {
   });
   afterAll(() => { server?.close(); if (dir) rmSync(dir, { recursive: true, force: true }); });
 
+  it("issues certificates for host names longer than a certificate common name allows", async () => {
+    const { X509Certificate } = await import("node:crypto");
+    // 4 labels of 60 characters: a valid 247-character host name, far over OpenSSL's 64 for a CN.
+    const long = `${"a".repeat(60)}.${"b".repeat(60)}.${"c".repeat(60)}.${"d".repeat(60)}.test`;
+    const leafDir = mkdtempSync(join(tmpdir(), "cresavo-tls-test-"));
+    try {
+      const cert = new X509Certificate(issueCertificates(leafDir, [long]).leaves[long].cert);
+      expect(cert.subjectAltName).toBe(`DNS:${long}`);
+      expect(cert.subject).toBe("CN=cresavo-staging-leaf");
+      expect(cert.checkHost(long)).toBe(long);
+    } finally { rmSync(leafDir, { recursive: true, force: true }); }
+  });
   it("returns a complete response", async () => {
     await expect(operatorFetch(ca, `https://${host}:${port}/whole`)).resolves.toMatchObject({ status: 200, text: "complete" });
   });

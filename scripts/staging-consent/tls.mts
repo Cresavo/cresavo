@@ -20,7 +20,9 @@ export function issueCertificates(dir: string, hosts: string[]) {
   for (const host of hosts) {
     const key = join(dir, `${host}.key`), csr = join(dir, `${host}.csr`), cert = join(dir, `${host}.pem`), ext = join(dir, `${host}.ext`);
     writeFileSync(ext, `subjectAltName=DNS:${host}\nextendedKeyUsage=serverAuth\nbasicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\n`, { mode: 0o600 });
-    openssl(["req", ...ec, "-keyout", key, "-out", csr, "-subj", `/CN=${host}`]);
+    // A fixed short common name: OpenSSL caps it at 64 characters, host names may be 253. TLS
+    // checks the subjectAltName, which carries the full host name.
+    openssl(["req", ...ec, "-keyout", key, "-out", csr, "-subj", "/CN=cresavo-staging-leaf"]);
     openssl(["x509", "-req", "-in", csr, "-CA", ca, "-CAkey", caKey, "-CAcreateserial", "-days", "1", "-out", cert, "-extfile", ext]);
     const pem = readFileSync(cert);
     const spki = createHash("sha256").update(new X509Certificate(pem).publicKey.export({ type: "spki", format: "der" })).digest("base64");

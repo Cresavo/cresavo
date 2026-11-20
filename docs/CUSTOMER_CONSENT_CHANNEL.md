@@ -38,6 +38,8 @@ condition holds:
   consent origin. A different port on the same host is refused: cookies are scoped by
   host, not port, so the owner's `booking_admin` session cookie would also reach the
   gateway.
+- `SESSION_SECRET` of at least 32 characters: the inbox key is derived from it. Without a
+  usable one the salon refuses to start instead of rolling back every proposal.
 - No `DEBUG` setting: Prisma's debug output prints each query with its arguments, which
   would include the approval link written to the inbox. Database errors on the inbox write
   are replaced by a static code and never logged.
@@ -67,8 +69,7 @@ approved. The proposal never outlives its start time.
    `log_parameter_max_length_on_error` is non-zero, which any session may set), not in rows,
    and not in error details such as "Failing row contains (...)", which the default
    `log_min_error_statement = error` writes to the server log. No particular server logging
-   configuration is required for the secret to stay out of the log. `SESSION_SECRET` must be
-   at least 32 characters; without it nothing is delivered. Rotating it makes undelivered
+   configuration is required for the secret to stay out of the log. Rotating it makes undelivered
    links unreadable for the operator; the proposals then simply expire.
    Displayed times include seconds whenever the instant has any, so a short-lived proposal
    never shows a deadline that appears to have passed.
@@ -158,8 +159,9 @@ The runner:
    temporary directory.
 3. Exports the pinned gateway revision into the temporary directory and installs its
    production dependencies there. The checkout itself is not modified.
-4. Issues a throwaway CA and one certificate per host name, valid for one day. Keys
-   stay in the temporary directory.
+4. Issues a throwaway CA and one certificate per host name, valid for one day, with the
+   host name in its subjectAltName (the common name is a fixed short label, so host names
+   longer than 64 characters work). Keys stay in the temporary directory.
 5. Starts the split salon and the gateway on loopback, each behind its own TLS proxy.
    The gateway runs in remote mode (`GATEWAY_ALLOW_REMOTE=1`, HTTPS salon origin, one
    trusted proxy hop) and receives no database URL, session secret or inbox access.
@@ -213,9 +215,10 @@ The runner:
    confirms none of them was reached.
 
    A signal during setup waits for a database creation in flight before deciding what to
-   drop, and once shutdown has begun no new child process starts. The runner, not
-   Playwright, handles SIGINT, SIGTERM and SIGHUP, so Ctrl-C with browsers open still runs
-   the full cleanup. The exit status is 1 from the start and becomes 0 only after cleanup
+   drop, and drops it only if this run may have created it (a name that already existed
+   is never dropped). Once shutdown has begun no new child process starts. The runner, not
+   Playwright, handles SIGINT, SIGTERM and SIGHUP (a closed terminal), and runs the same
+   full cleanup for each. The exit status is 1 from the start and becomes 0 only after cleanup
    completed and every check passed; a cleanup that throws is reported as `FAIL CLEANUP`.
    The four loopback ports (two servers, two TLS proxies) are chosen together, so they are
    always distinct.

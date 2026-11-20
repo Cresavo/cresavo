@@ -2,7 +2,7 @@
 // stop refuses every later child process for the rest of the process.
 import { spawn } from "node:child_process";
 import { expect, it } from "vitest";
-import { acquisition } from "../scripts/staging-consent/lifecycle.mjs";
+import { acquisition, databaseAlreadyExisted } from "../scripts/staging-consent/lifecycle.mjs";
 import { isStopping, runStep, startServer, stopAll, track } from "../scripts/staging-consent/processes.mjs";
 
 it("waits for a database creation in flight before deciding what to drop", async () => {
@@ -17,10 +17,22 @@ it("waits for a database creation in flight before deciding what to drop", async
   order.push("created");
   finish(); await created; await cleanup;
   expect(order).toEqual(["created", "cleanup attempted=true"]);
-  // A failed attempt is still an attempt: the release (DROP ... IF EXISTS) runs and is harmless.
+  // A failure that does not rule creation out (a lost reply): the release (DROP ... IF EXISTS) runs.
   const failed = acquisition();
-  await expect(failed.run(() => Promise.reject(new Error("CREATE_FAILED")))).rejects.toThrow();
+  await expect(failed.run(() => Promise.reject(new Error("CONNECTION_RESET")), databaseAlreadyExisted)).rejects.toThrow();
   expect(await failed.settled()).toBe(true);
+});
+
+it("never authorises dropping a database whose name already existed", async () => {
+  // Shaped like Prisma's error for CREATE DATABASE on a taken name (checked against PostgreSQL 16).
+  const duplicate = Object.assign(new Error("database already exists"), { code: "P2010",
+    meta: { driverAdapterError: { cause: { originalCode: "42P04", kind: "DatabaseAlreadyExists" } } } });
+  expect(databaseAlreadyExisted(duplicate)).toBe(true);
+  for (const other of [new Error("x"), { meta: { driverAdapterError: { cause: { originalCode: "57P01" } } } }, null, undefined])
+    expect(databaseAlreadyExisted(other)).toBe(false);
+  const taken = acquisition();
+  await expect(taken.run(() => Promise.reject(duplicate), databaseAlreadyExisted)).rejects.toThrow();
+  expect(await taken.settled()).toBe(false);
 });
 
 it("starts no child process once shutdown has begun", async () => {

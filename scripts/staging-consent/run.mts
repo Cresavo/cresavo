@@ -18,7 +18,7 @@ import { containsSecret, registerSecret, say } from "./sanitize.mjs";
 import { captureStream, freePorts, guardStream, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
 import { agentChannel } from "./agent-reply.mjs";
 import { loopbackAdminUrl, refuseDiagnostics, refuseRemoteBrowsers } from "./preflight.mjs";
-import { acquisition, settles } from "./lifecycle.mjs";
+import { acquisition, CLEANUP_SIGNALS, databaseAlreadyExisted, settles } from "./lifecycle.mjs";
 import { issueCertificates, operatorFetch, tlsProxy } from "./tls.mjs";
 import { createServer as createHttpServer } from "node:http";
 import { approveWithLostResponse, close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking, reopenInSameTab, salonContext } from "./browsers.mjs";
@@ -145,7 +145,7 @@ async function cleanupOnce() {
   try { rmSync(temp, { recursive: true, force: true }); } catch { /* reported just below */ }
   if (existsSync(temp)) { failures++; say("FAIL TEMP_DIRECTORY_REMOVED"); } else say("PASS TEMP_DIRECTORY_REMOVED");
 }
-for (const signal of ["SIGINT", "SIGTERM"] as const)
+for (const signal of CLEANUP_SIGNALS)
   process.once(signal, () => { void cleanup().finally(() => process.exit(130)); });
 // Node's default report would print the error, which can quote a URL or a response. A static
 // code instead, then the normal cleanup.
@@ -177,7 +177,8 @@ function agentClient(env: Record<string, string>) {
 try {
   // ---- Database ----
   step = "DATABASE";
-  await database.run(() => adminQuery(`CREATE DATABASE "${dbName}"`));
+  // A name that already exists (42P04) proves this run created nothing: cleanup must not drop it.
+  await database.run(() => adminQuery(`CREATE DATABASE "${dbName}"`), databaseAlreadyExisted);
   const dbEnv = { ...baseEnv, DATABASE_URL: databaseUrl.href, SESSION_SECRET: sessionSecret };
   await runStep("MIGRATE", process.execPath, [join(repo, "node_modules/prisma/build/index.js"), "migrate", "deploy"], repo, dbEnv);
   await runStep("SEED", process.execPath, ["--import", "tsx", "prisma/seed.ts"], repo, dbEnv);

@@ -16,7 +16,7 @@ import { proxy } from "../src/proxy";
 // Fictional configuration only.
 const staging = {
   BOOKING_SERVICE_ROLE: "salon", GATEWAY_SERVICE_TOKEN: "a".repeat(64),
-  BOOKING_PUBLIC_ORIGIN: "https://gateway.cresavo.test", BOOKING_CONSENT_DELIVERY: "staging-inbox",
+  BOOKING_PUBLIC_ORIGIN: "https://gateway.cresavo.test", BOOKING_CONSENT_DELIVERY: "staging-inbox", SESSION_SECRET: "fictional-session-secret-".padEnd(64, "x"),
   BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test",
 };
 
@@ -55,6 +55,9 @@ describe("staging channel configuration", () => {
     ["a missing public origin", { BOOKING_PUBLIC_ORIGIN: undefined }],
     // Prisma's debug output prints each query with its arguments: the inbox link and its secret.
     ["Prisma debug output", { DEBUG: "prisma:client" }],
+    // The inbox key is derived from the session secret: the server must not report ready without one.
+    ["a missing session secret", { SESSION_SECRET: undefined }],
+    ["a short session secret", { SESSION_SECRET: "x".repeat(31) }],
     ["a debug pattern that matches Prisma", { DEBUG: "*" }],
   ])("refuses %s", (_name, patch) => {
     const env = { ...staging, ...patch };
@@ -67,6 +70,9 @@ describe("staging channel configuration", () => {
     expect(() => runtimePolicy({ ...staging, BOOKING_CONSENT_ORIGIN: "http://salon-demo.cresavo.test" })).toThrow("BOOKING_RUNTIME_CONFIG_INVALID");
     expect(() => runtimePolicy({ ...staging, PUBLIC_READONLY: "1" })).toThrow("BOOKING_RUNTIME_CONFIG_INVALID");
     expect(() => runtimePolicy({ ...staging, DEBUG: "prisma:query" })).toThrow("BOOKING_RUNTIME_CONFIG_INVALID");
+    expect(() => runtimePolicy({ ...staging, SESSION_SECRET: undefined })).toThrow("BOOKING_RUNTIME_CONFIG_INVALID");
+    expect(() => runtimePolicy({ ...staging, SESSION_SECRET: "short" })).toThrow("BOOKING_RUNTIME_CONFIG_INVALID");
+    expect(runtimePolicy({ ...staging, SESSION_SECRET: "y".repeat(32) })).toBe("local");
     // An unrelated or lab mode keeps its existing request-time behaviour.
     expect(runtimePolicy({ BOOKING_CONSENT_DELIVERY: "separate-lab" })).toBe("local");
   });

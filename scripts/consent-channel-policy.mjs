@@ -23,7 +23,9 @@ export function stagingConsentPolicy(env) {
       env.BOOKING_CONSENT_LAB === "1" || env.BOOKING_CONSENT_INBOX_DIR !== undefined ||
       // Prisma's debug output (`DEBUG=prisma:*`, or any pattern that matches it) prints each query
       // with its arguments, including the approval link written to the inbox.
-      Boolean(env.DEBUG))
+      Boolean(env.DEBUG) ||
+      // The inbox key is derived from it; without a usable one every proposal would roll back.
+      (env.SESSION_SECRET ?? "").length < 32)
     throw new Error("CONSENT_CHANNEL_CONFIG_INVALID");
   const consent = httpsOrigin(env.BOOKING_CONSENT_ORIGIN);
   // The agent-facing origin (gateway) and the customer page must never share a host name,

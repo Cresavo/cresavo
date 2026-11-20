@@ -56,11 +56,22 @@ function stagingEnv() {
   // Ordinary scenarios share one customer address; a PostgreSQL bucket for it would outlive the
   // suite and make a rerun within 15 minutes see 429. The dedicated limiter test opts in itself.
   vi.stubEnv("RATE_LIMIT_STORE", "memory");
+  // The inbox key comes from it; a fictional one when the environment has none usable.
+  if ((process.env.SESSION_SECRET ?? "").length < 32) vi.stubEnv("SESSION_SECRET", "fictional-integration-session-secret-".padEnd(64, "x"));
   vi.stubEnv("BOOKING_SERVICE_ROLE", "salon"); vi.stubEnv("GATEWAY_SERVICE_TOKEN", serviceToken);
   vi.stubEnv("BOOKING_PUBLIC_ORIGIN", gatewayOrigin); vi.stubEnv("BOOKING_CONSENT_DELIVERY", "staging-inbox");
   vi.stubEnv("BOOKING_CONSENT_ORIGIN", consentOrigin); vi.stubEnv("BOOKING_ADDRESS_SECRET", addressSecret);
 }
 beforeEach(stagingEnv);
+
+it("recognises a taken database name as proof that nothing was created", async () => {
+  const { databaseAlreadyExisted } = await import("../../scripts/staging-consent/lifecycle.mjs");
+  // This suite's own database exists: creating it again must fail with duplicate_database.
+  const name = new URL(process.env.DATABASE_URL!).pathname.slice(1);
+  const error = await db.$executeRawUnsafe(`CREATE DATABASE "${name.replace(/"/g, "")}"`).then(() => null, (e: unknown) => e);
+  expect(error).not.toBeNull();
+  expect(databaseAlreadyExisted(error)).toBe(true);
+});
 
 it("runs without Prisma diagnostics, which Prisma fixed when this file was loaded", () => {
   // The integration config refuses DEBUG before any test file loads; Prisma's own cached copy agrees.
@@ -244,18 +255,20 @@ it("PostgreSQL's own error texts and log carry no usable link when inbox constra
       [`UPDATE "ConsentInboxMessage" SET "consumedAt" = now(), "recipientId" = NULL WHERE "proposalId" = $1`, [proposal.id]],
     ] as const) {
       const error = await client.query(sql, [...values]).then(() => null, (e: Error & { detail?: string; where?: string }) => e);
-      expect(error, sql).not.toBeNull();
+      expect(error === null, "an inbox constraint did not fail").toBe(false);
       texts.push([error!.message, error!.detail, error!.where].join("\n"));
     }
+    // Booleans with static messages only: a failure must never print PostgreSQL's texts or log,
+    // which can hold other sessions' statements and credentials.
     // The CHECK detail really is row data (so it would be logged): the sealed value, never the link.
-    expect(texts.join("\n")).toContain("Failing row contains");
-    for (const text of texts) expect(exposes(text, token), text.slice(0, 120)).toBe(false);
+    expect(texts.join("\n").includes("Failing row contains"), "PostgreSQL returned a row detail").toBe(true);
+    expect(texts.some(text => exposes(text, token)), "a PostgreSQL error text carries the link").toBe(false);
     if (logFile) {
       const appended = readFileSync(logFile).subarray(logStart).toString("utf8");
-      expect(appended).toContain("Failing row contains");
+      expect(appended.includes("Failing row contains"), "the server log has the row detail").toBe(true);
       // The failing inserts were logged with their parameters, the sealed value in full.
-      expect(appended).toMatch(/parameters: .*\$3 = 'v1\./);
-      expect(exposes(appended, token)).toBe(false);
+      expect(/parameters: .*\$3 = 'v1\./.test(appended), "the server log has the bind parameters").toBe(true);
+      expect(exposes(appended, token), "the server log carries the link").toBe(false);
     }
   } finally {
     await client.end();

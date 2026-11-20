@@ -11,7 +11,8 @@ const { consentOutcome } = await import("../src/app/consent/[id]/staging-copy");
 
 // Fictional configuration only.
 const staging = { BOOKING_SERVICE_ROLE: "salon", GATEWAY_SERVICE_TOKEN: "a".repeat(64), BOOKING_PUBLIC_ORIGIN: "https://gateway.cresavo.test",
-  BOOKING_CONSENT_DELIVERY: "staging-inbox", BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test", BOOKING_ADDRESS_SECRET: "synthetic-proof" };
+  BOOKING_CONSENT_DELIVERY: "staging-inbox", BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test", BOOKING_ADDRESS_SECRET: "synthetic-proof",
+  SESSION_SECRET: "fictional-session-secret-".padEnd(64, "x") };
 beforeEach(() => {
   for (const [k, v] of Object.entries(staging)) vi.stubEnv(k, v);
   for (const k of ["BOOKING_CONSENT_LAB", "BOOKING_SMS_OTP_LAB", "BOOKING_CONSENT_INBOX_DIR", "PUBLIC_READONLY", "DEBUG", "RATE_LIMIT_STORE"]) vi.stubEnv(k, undefined);
