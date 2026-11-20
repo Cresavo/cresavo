@@ -40,6 +40,8 @@ export function nextWaitlistWake(state: DemoState, now?: number): number {
   let wake = Infinity;
   if (now !== undefined && sendableNow(state, now)) return now;
   for (const offer of state.waitlistOffers) if (offer.status === "offered") wake = Math.min(wake, offer.expiresAt);
+  // A checkout that ends can give a waiting gap its time back.
+  if (state.waitlistGaps.length) for (const hold of state.checkoutHolds) wake = Math.min(wake, hold.expiresAt);
   for (const entry of state.waitlistEntries) {
     const last = entry.days.at(-1);
     if (last) wake = Math.min(wake, endOfDay(last));
@@ -153,6 +155,19 @@ export function nextMatch(state: DemoState, gap: WaitlistGap, now: number, { inc
   });
 }
 
+/**
+ * Whether someone could take the gap once temporary reservations end: checkouts, other gaps' offers and
+ * customers holding another offer. A gap that only waits for those is kept, not dropped.
+ */
+export function couldMatch(state: DemoState, gap: WaitlistGap, now: number): WaitlistMatch | undefined {
+  const waiting = {
+    ...state,
+    checkoutHolds: [],
+    waitlistOffers: state.waitlistOffers.map((o) => (o.gapId !== gap.id && o.status === "offered" ? { ...o, expiresAt: 0 } : o)),
+  };
+  return nextMatch(waiting, gap, now, { includeHeld: true });
+}
+
 /** The parts of `span` that `previous` did not already leave free. */
 function difference(span: Interval, previous: readonly Interval[]): Interval[] {
   let cursor = span.start;
@@ -205,15 +220,16 @@ export function releasedGaps(prev: DemoState, state: DemoState, now: number): Wa
       }
     });
   }
-  return found.filter((gap) => nextMatch(state, gap, now, { includeHeld: true })).sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
+  return found.filter((gap) => couldMatch(state, gap, now)).sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
 }
 
 /** Open time on a day that no queue covers yet, with its first match: an owner can offer existing gaps too. */
 export function manualGaps(state: DemoState, date: string, staffId: StaffId, now: number): { gap: WaitlistGap; match: WaitlistMatch }[] {
   const spans = withSlotClock(now, () => freeGaps(state, staffId, date, { min: 1 }));
   return spans.flatMap((span) => {
-    // Time a queue already covers stays with that queue; the rest of the span can still be offered.
-    const queued = state.waitlistGaps.filter((g) => g.date === date && g.staffId === staffId);
+    // Time a queue already covers stays with that queue: its freed parts, or all of an opening the owner chose.
+    // The rest of the stretch can still be offered by hand.
+    const queued = state.waitlistGaps.filter((g) => g.date === date && g.staffId === staffId).flatMap((g) => g.released ?? [g]);
     return difference(span, queued).flatMap((part) => {
       const gap: WaitlistGap = { ...part, staffId, date, id: `open-${date}-${staffId}-${part.start}-${part.end}` };
       const match = nextMatch(state, gap, now);

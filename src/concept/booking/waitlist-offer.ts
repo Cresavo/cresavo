@@ -7,7 +7,7 @@ import { formatDayLong, formatTime } from "../i18n/format";
 import { salonClock } from "../tools/clock";
 import { bookingHome } from "./links";
 import { occupied } from "../data/slots";
-import { nextMatch, nextSmsTime, offerAvailable, releasedGaps, type WaitlistMatch } from "./waitlist-match";
+import { couldMatch, nextMatch, nextSmsTime, offerAvailable, releasedGaps, type WaitlistMatch } from "./waitlist-match";
 import type { WaitlistGap, WaitlistOffer } from "./waitlist-types";
 
 // The queue itself: one personal offer per freed time at a time, handed on
@@ -147,12 +147,12 @@ function sendOffers(current: DemoState, now: number, approve?: string): DemoStat
   for (const gap of state.waitlistGaps) {
     if (state.waitlistOffers.some((o) => o.gapId === gap.id && o.status === "offered")) continue;
     const match = nextMatch(state, gap, now);
-    // Someone who fits but holds another offer right now keeps the gap open for when that one ends.
-    const possible = match ?? nextMatch(state, gap, now, { includeHeld: true });
+    // Someone who fits once another offer or a checkout ends keeps the gap open for that moment.
+    const possible = match ?? couldMatch(state, gap, now);
     const byOwner = approve === gap.id;
     const automatic = enabled && !byOwner && (gap.approved || rules.mode === "automatic");
     // During quiet hours an automatic text can only offer what is still ahead once they end.
-    const afterQuiet = possible && automatic && sendable > now ? nextMatch(state, gap, sendable, { includeHeld: true }) : possible;
+    const afterQuiet = possible && automatic && sendable > now ? couldMatch(state, gap, sendable) : possible;
     // Nobody left to ask, or nothing in the gap starts after quiet hours: the gap is done.
     if (!possible || !afterQuiet) {
       state = { ...state, waitlistGaps: state.waitlistGaps.filter((g) => g.id !== gap.id) };

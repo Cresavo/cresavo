@@ -25,3 +25,15 @@ it.each([
   expect(html).toContain('href="tel:+46701234567"');
   expect(html).toContain('href="mailto:salon@example.test"');
 });
+
+it("does not offer the waiting list while a visit is being moved", () => {
+  const full = { ...base, bookings: [...base.bookings], modules: { ...base.modules, waitlist: true } };
+  const service = full.services.find((s) => s.id === serviceId)!;
+  // Every person who does the treatment is busy every day of the next four weeks.
+  for (let i = 0; i < 29; i++) for (const staffId of service.staffIds) {
+    full.bookings.push({ ...base.bookings[0], id: `busy-${staffId}-${i}`, staffId, serviceId, date: addDays(clock.today, i), start: 0, duration: 1440, status: "booked" });
+  }
+  const picker = (props: Partial<Parameters<typeof TimePicker>[0]>) => renderToStaticMarkup(createElement(TimePicker, { state: full, serviceId, clock, onPick: () => {}, ...props }));
+  expect(picker({ onWaitlist: () => {} })).toContain("Notify me");
+  expect(picker({ ignoreId: base.bookings[0].id })).not.toContain("Notify me");
+});

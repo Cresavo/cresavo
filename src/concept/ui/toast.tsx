@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { CheckCircle2, X } from "lucide-react";
 import { t, type MessageKey } from "../i18n";
+import { DEFERRED_WRITE_FAILED } from "../support/deferred-write";
 import { newActionRequestId } from "../support/action-reference";
 import { ActionFailure, type ActionFailureInfo } from "./action-failure";
 import { IconButton } from "./button";
@@ -25,6 +26,12 @@ export function showToast(message: string, action?: ToastAction) {
   toasts = [...toasts.slice(-2), { id, message, action }];
   emit();
   window.setTimeout(() => dismiss(id), 6000);
+}
+
+// A change that had to wait for the booking lock (while a personal offer is out) and was then refused.
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener(DEFERRED_WRITE_FAILED, () => showActionFailure("booking.visitChanged", undefined,
+    window.location?.pathname.startsWith("/boka") ? "booking" : "studio"));
 }
 
 export function showActionFailure(reason: MessageKey, requestId = newActionRequestId(), audience: "studio" | "booking" = "studio", message?: string) {

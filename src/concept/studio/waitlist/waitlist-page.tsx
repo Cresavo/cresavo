@@ -57,7 +57,7 @@ export function WaitlistPage() {
   const sending = rules.mode !== "off" && !rules.paused;
 
   const offer = async (gapId: string, opening?: { date: string; staffId: StaffId }) => {
-    if (!await withBookingLock(() => dispatch({ type: "waitlist/offer", gapId, opening }))) showToast(t("booking.visitChanged"));
+    if (!await withBookingLock(() => dispatch({ type: "waitlist/offer", gapId, opening })).catch(() => false)) showToast(t("booking.visitChanged"));
   };
 
   return (

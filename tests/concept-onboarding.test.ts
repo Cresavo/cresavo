@@ -152,7 +152,7 @@ describe("getting started", () => {
     state = createSalon(monday, { ...draft, treatments: [{ name: "Trim", duration: 20, price: 250 }] }, { examplesAfter: 0 });
     expect(checklistProgress(state)).toEqual({ addServices: true, bookingPage: false, share: false, testBooking: false });
     state = reduce(state, { type: "online/book", serviceId: state.services[0].id, staffId: state.staff[0].id,
-      date: addDays(monday, 2), start: 540, guest: { name: "Guest Demo", phone: "0700000011", at: { date: monday, time: 420 } }, notice: { title: "Booking", body: "Test" } });
+      date: addDays(monday, 2), start: 540, guest: { name: "Guest Demo", phone: "0700000011", at: { date: monday, time: 420 } }, notice: { title: "Booking", body: "Test" } }, Date.parse(`${monday}T07:00:00+01:00`));
     state = reduce(state, { type: "card/dismiss", id: `shared:${state.salon.slug}` });
     state = reduce(state, { type: "card/dismiss", id: pageSeenCard(state.salon.slug) });
     expect(Object.values(checklistProgress(state))).toEqual([true, true, true, true]);

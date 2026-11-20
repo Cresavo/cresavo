@@ -20,8 +20,11 @@ interface TimePickerProps {
   staffId?: StaffId;
   clock: Clock;
   onPick: (slot: OpenSlot) => void;
-  /** Called when the chosen day has no free time. */
-  onWaitlist: (date: DateKey) => void;
+  /**
+   * Called when the chosen day has no free time. Left out when moving a visit: an offer from the
+   * waiting list books a new visit, so it cannot stand in for moving this one.
+   */
+  onWaitlist?: (date: DateKey) => void;
   /** A booking being moved: its capacity is reusable, but its current time is excluded. */
   ignoreId?: string;
   disabled?: boolean;
@@ -47,7 +50,7 @@ export function OtherTimes({ state, serviceId, staffId, clock, selected, onPick,
     <Select aria-label={t("booking.changeTime")} value={selected ? `${selected.date}/${selected.start}` : ""} onChange={event => {
       const [date, time] = event.target.value.split("/");
       const slot = days.find(day => day.date === date)?.slots.find(slot => slot.start === Number(time));
-      if (time === "wait") onWaitlist(date);
+      if (time === "wait") onWaitlist?.(date);
       else if (slot) onPick(slot);
     }}>
       <option value="" disabled>{t("booking.changeTime")}</option>
@@ -56,7 +59,7 @@ export function OtherTimes({ state, serviceId, staffId, clock, selected, onPick,
           {slots.map(slot => <option key={slot.start} value={`${date}/${slot.start}`}>
             {t("booking.slotOption", { time: formatTime(slot.start), staff: state.staff.find(person => person.id === slot.staffId)?.firstName ?? "" })}
           </option>)}
-          {!slots.length && <option value={`${date}/wait`} disabled={!state.modules.waitlist}>
+          {!slots.length && <option value={`${date}/wait`} disabled={!state.modules.waitlist || !onWaitlist}>
             {t(state.modules.waitlist ? "booking.notifyMe" : "booking.full")}
           </option>}
         </optgroup>
@@ -123,7 +126,7 @@ export function TimePicker({ state, serviceId, staffId, clock, onPick, onWaitlis
       ) : (
         <div className="space-y-3 rounded-lg bg-surface-2 p-4">
           <p className="text-body">{t("booking.dayFull", { day: formatDayLong(selected.date) })}</p>
-          {state.modules.waitlist && (
+          {state.modules.waitlist && onWaitlist && (
             <Button icon={<BellRing size={16} />} onClick={() => onWaitlist(selected.date)}>
               {t("booking.notifyMe")}
             </Button>

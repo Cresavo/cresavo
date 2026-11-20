@@ -133,7 +133,7 @@ describe("online booking actions", () => {
   const guestMoment = Date.parse(`${today}T10:00:00+01:00`);
 
   it("books a new customer and tells the owner", () => {
-    const next = reduce(state, book);
+    const next = reduce(state, book, guestMoment);
     const booking = next.bookings[next.bookings.length - 1];
     const customer = next.customers.find((c) => c.id === booking.customerId)!;
     expect(customer).toMatchObject({ firstName: "Lisa", lastName: "Berg" });
@@ -145,17 +145,17 @@ describe("online booking actions", () => {
   it("refuses a still-free slot once the confirmation falls inside the lead time", () => {
     const at = { date, time: start - 60 };
     expect(openSlots(state, book.serviceId, date, { today: date, minutes: at.time })).toContainEqual({ date, start, staffId: "anna" });
-    expect(reduce(state, { ...book, guest: { ...guest, at } }).bookings).toHaveLength(state.bookings.length + 1);
-    expect(reduce(state, { ...book, guest: { ...guest, at: { ...at, time: at.time + 1 } } })).toBe(state);
-    expect(reduce(state, { ...book, guest: { ...guest, at: { date: addDays(date, 1), time: 0 } } })).toBe(state);
+    expect(reduce(state, { ...book, guest: { ...guest, at } }, guestMoment).bookings).toHaveLength(state.bookings.length + 1);
+    expect(reduce(state, { ...book, guest: { ...guest, at: { ...at, time: at.time + 1 } } }, guestMoment)).toBe(state);
+    expect(reduce(state, { ...book, guest: { ...guest, at: { date: addDays(date, 1), time: 0 } } }, guestMoment)).toBe(state);
   });
 
   it("reuses a known customer by phone and refuses a taken slot", () => {
     const known = state.customers[0];
-    const next = reduce(state, { ...book, guest: { ...guest, name: "Someone Else", phone: known.phone } });
+    const next = reduce(state, { ...book, guest: { ...guest, name: "Someone Else", phone: known.phone } }, guestMoment);
     expect(next.customers).toHaveLength(state.customers.length);
     expect(next.bookings[next.bookings.length - 1].customerId).toBe(known.id);
-    expect(reduce(reduce(state, book), { ...book, guest: { ...guest, phone: "073-999 99 99" } })).toEqual(reduce(state, book));
+    expect(reduce(reduce(state, book, guestMoment), { ...book, guest: { ...guest, phone: "073-999 99 99" } }, guestMoment)).toEqual(reduce(state, book, guestMoment));
   });
 
   it("adds a waiting-list request that the owner can answer", () => {
@@ -173,7 +173,7 @@ describe("online booking actions", () => {
   });
 
   it("moves a booking with an inbox notice only when the new slot is free", () => {
-    const booked = reduce(state, book);
+    const booked = reduce(state, book, guestMoment);
     const booking = booked.bookings[booked.bookings.length - 1];
     const [later] = freeStarts(booked, "anna", addDays(date, 1), { serviceId: "medical-foot-care", duration: 60 }, { step: 30 });
     const moved = reduce(booked, { type: "booking/move", id: booking.id, date: addDays(date, 1), start: later, notice: { kind: "reschedule", date: today, time: 600, title: "Moved", body: "", read: false, handled: true } });

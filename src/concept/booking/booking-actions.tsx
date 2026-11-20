@@ -22,7 +22,6 @@ import { FREE_CHANGE_HOURS, changeRule } from "./policy";
 import { freeUntilText } from "./deadline-text";
 import { openSlots, type OpenSlot } from "./suggest";
 import { TimePicker } from "./time-picker";
-import { WaitlistSheet, type WaitlistRequest } from "./waitlist-sheet";
 
 const CUSTOMER_PAGE = { actor: "customer", source: "customer-page" } as const;
 
@@ -59,7 +58,6 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
   const [sheet, setSheet] = useState<"move" | "cancel" | null>(null);
   const [pending, setPending] = useState(false);
   const [moveFailure, setMoveFailure] = useState<ActionFailureInfo>();
-  const [waitlist, setWaitlist] = useState<WaitlistRequest | null>(null);
   const rule = changeRule(booking, now.today, now.minutes, now.instant);
   const moveOpen = rule === "free" && sheet === "move";
   const service = findService(state, booking.serviceId);
@@ -107,7 +105,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
       start: target.start,
       staffId: target.staffId,
       notice: notice("reschedule", t("booking.move.inboxTitle"), t("booking.move.inboxBody", { name: fullName(customer), service: service.name, from: when, to: `${formatDayLong(target.date)} ${formatTime(target.start)}` })),
-    }, CUSTOMER_PAGE, latest => canChangeBooking(latest, booking) && openSlots(latest, service.id, target.date, salonClock(), {
+    }, CUSTOMER_PAGE, latest => canChangeBooking(latest, booking) && openSlots(latest, service.id, target.date, { ...salonClock(), instant: Date.now() }, {
       ignoreId: booking.id, staffId: target.staffId,
     }).some(slot => slot.start === target.start))).catch(() => false as const);
     setPending(false);
@@ -184,14 +182,9 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
             ignoreId={booking.id}
             disabled={pending}
             onPick={move}
-            onWaitlist={(date) => {
-              setSheet(null);
-              setWaitlist({ serviceId: service.id, date });
-            }}
           />
         </div>
       </Sheet>
-      {waitlist && <WaitlistSheet state={state} now={now} request={waitlist} onClose={() => setWaitlist(null)} />}
     </div>
   );
 }

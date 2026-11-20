@@ -14,7 +14,8 @@ export function OfferSettings({ state }: { state: DemoState }) {
   const rules = state.waitlistRules;
   const change = async (next: Partial<OfferRules>) => {
     if ((Object.keys(next) as (keyof OfferRules)[]).every((key) => next[key] === rules[key])) return;
-    if (!await withBookingLock(() => dispatch({ type: "waitlist/rules", rules: next }))) showToast(t("offers.rulesFailed"));
+    // A refused lock request (an embedded page) is a failure to report, like a refused change.
+    if (!await withBookingLock(() => dispatch({ type: "waitlist/rules", rules: next })).catch(() => false)) showToast(t("offers.rulesFailed"));
   };
   return (
     <Section title={t("offers.settings")}>

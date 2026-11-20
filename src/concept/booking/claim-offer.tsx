@@ -6,6 +6,7 @@ import type { DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong, formatMoney, formatTime } from "../i18n/format";
 import { currentState, dispatch, hasCrossTabLock, withBookingLock } from "../store";
+import { moduleEnabled } from "../modules/registry";
 import { Notice } from "../ui/notice";
 import { salonClock } from "../tools/clock";
 import { Button, ButtonLink } from "../ui/button";
@@ -64,7 +65,7 @@ export function ClaimOffer({ state, now, id }: { state: DemoState; now: Now; id:
   if (active && hold) {
     return (
       <Card className="mx-auto max-w-lg space-y-4 p-5">
-        <DepositCheckout hold={hold} serviceName={service.name} now={now} phone={state.salon.phone} packagesEnabled={false}
+        <DepositCheckout hold={hold} serviceName={service.name} now={now} phone={state.salon.phone} packagesEnabled={moduleEnabled(state.modules, "packages")}
           onPaid={(booking) => router.push(bookingPage(state.salon.slug, booking.id))} onRelease={() => undefined} />
         {leave}
       </Card>
@@ -81,7 +82,7 @@ export function ClaimOffer({ state, now, id }: { state: DemoState; now: Now; id:
             <p role="status" className="text-meta text-text-secondary">{t("offers.until", { time: formatTime(salonClock(new Date(offer.expiresAt)).minutes) })}</p>
           </div>
           {/* The slot-aware summary: total, what is due now and, inside the free-change window, that online changes are closed. */}
-          <BookingSummary slot={offer} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={false} />
+          <BookingSummary slot={offer} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={moduleEnabled(state.modules, "packages")} />
           {!hasCrossTabLock() && <Notice tone="warning">{t("offers.noLockClaim")}</Notice>}
           <div className="flex flex-wrap gap-2">
             <Button disabled={pending || !hasCrossTabLock()} onClick={() => act("online/claim")}>{t("offers.claim")}</Button>

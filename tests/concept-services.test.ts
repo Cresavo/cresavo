@@ -15,6 +15,8 @@ import { bookableServices, findService, publicView } from "@/concept/selectors";
 import { categoryIssues, serviceIssues, serviceUsage, type ServiceDraft } from "@/concept/services/edit";
 
 const today = "2026-11-16";
+/** The moment the fictional guest books: fixed, so the bookings stay in the future whatever the wall clock says. */
+const atGuestTime = Date.parse(`${today}T10:00:00+01:00`);
 const base = createDemoState(today);
 const meta: LogMeta = { actor: "owner", source: "button", at: Date.UTC(2026, 10, 16, 9, 30) };
 const draft: ServiceDraft = { name: "Hot stone massage", category: "massage", duration: 75, price: 990, description: "Warm stones and slow strokes.", staffIds: ["erik"] };
@@ -116,7 +118,7 @@ describe("treatment actions", () => {
     const added = reduce(base, { type: "service/add", service: draft });
     const service = added.services.at(-1)!;
     const { date, start } = freeSlot(added, needOf(service));
-    const booked = reduce(added, { type: "online/book", guest, notice, serviceId: service.id, staffId: "erik", date, start });
+    const booked = reduce(added, { type: "online/book", guest, notice, serviceId: service.id, staffId: "erik", date, start }, atGuestTime);
     expect(booked.bookings.at(-1)).toMatchObject({ serviceId: service.id, duration: 75, price: 990, source: "online" });
   });
 
@@ -140,7 +142,7 @@ describe("treatment actions", () => {
     expect(applyAction(next, { type: "service/visibility", id: "classic-60", hidden: true }, meta)).toBe(next);
 
     const { date, start } = freeSlot(next, { serviceId: "classic-60", duration: 60 });
-    expect(reduce(next, { type: "online/book", guest, notice, serviceId: "classic-60", staffId: "erik", date, start })).toBe(next);
+    expect(reduce(next, { type: "online/book", guest, notice, serviceId: "classic-60", staffId: "erik", date, start }, atGuestTime)).toBe(next);
     expect(reduce(next, { type: "online/waitlist", guest, notice, serviceId: "classic-60" })).toBe(next);
     // The owner can still book it from the studio.
     expect(reduce(next, { type: "booking/create", customerId: "k001", serviceId: "classic-60", staffId: "erik", date, start, source: "phone" }).bookings).toHaveLength(base.bookings.length + 1);
@@ -229,7 +231,7 @@ describe("deleting a treatment", () => {
     const next = reduce(base, { type: "service/delete", id: "classic-60" });
     const { date, start } = freeSlot(base, { serviceId: "classic-60", duration: 60 });
     expect(reduce(next, { type: "booking/create", customerId: "k001", serviceId: "classic-60", staffId: "erik", date, start, source: "phone" })).toBe(next);
-    expect(reduce(next, { type: "online/book", guest, notice, serviceId: "classic-60", staffId: "erik", date, start })).toBe(next);
+    expect(reduce(next, { type: "online/book", guest, notice, serviceId: "classic-60", staffId: "erik", date, start }, atGuestTime)).toBe(next);
   });
 
   it("lets a kept booking still be moved, with its room", () => {

@@ -102,7 +102,7 @@ describe("booking protection actions", () => {
     expect(hold.resourceId).toBeDefined();
     expect(pickResource(pending, needOf(service), hold.date, hold.start)).not.toBe(hold.resourceId);
     expect(reduce(pending, request)).toBe(pending);
-    expect(reduce(initial, { ...request, type: "online/book" })).toBe(initial);
+    expect(reduce(initial, { ...request, type: "online/book" }, now)).toBe(initial);
     const edited = reduce(pending, { type: "service/price", id: service.id, price: 1 });
     const action = { type: "online/pay", id: hold.id, method: "swish" } as const;
     const booked = reduce(edited, action);
@@ -121,7 +121,7 @@ describe("booking protection actions", () => {
     const euro = { ...initial, localization: { ...initial.localization, currency: "EUR" }, cancellationPolicy: { ...policy, newCustomersOnly: true } };
     const existing = { ...request, guest: { ...request.guest, phone: euro.customers[0].phone } };
     expect(reduce(euro, existing)).toBe(euro);
-    expect(reduce(euro, { ...existing, type: "online/book" }).bookings[0].protection?.terms.depositMinor).toBe(0);
+    expect(reduce(euro, { ...existing, type: "online/book" }, now).bookings[0].protection?.terms.depositMinor).toBe(0);
     const pending = reduce(euro, request);
     const id = pending.checkoutHolds[0].id;
     expect(reduce(pending, { type: "online/pay", id, method: "swish" })).toBe(pending);

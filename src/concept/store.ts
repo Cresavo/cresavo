@@ -11,6 +11,7 @@ import { nextWaitlistWake } from "./booking/waitlist-match";
 import { salonClock } from "./tools/clock";
 import { visitTime } from "./booking/policy";
 import { withOffersHeld } from "./booking/waitlist-offer";
+import { DEFERRED_WRITE_FAILED } from "./support/deferred-write";
 import { prepareAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
 import { publicView } from "./selectors";
@@ -381,6 +382,12 @@ export function dispatchWithLog(
   while (true) {
     const current = getSnapshot();
     if (!current || active !== workspace || (canApply && !canApply(current))) return false;
+    // While a personal offer is out, another tab may claim it at any moment. A write here outside the
+    // lock could save over that claim, so it waits for the lock instead (no undo for it; a refusal is reported).
+    if (!insideBookingLock && hasCrossTabLock() && offerLive(current, now)) {
+      deferUnderLock(action, meta, canApply);
+      return null;
+    }
     // Booking a personal offer needs the real cross-tab lock: without it two tabs could both claim it.
     const personalBooking = action.type === "online/claim" || (action.type === "online/pay" && current.checkoutHolds.some(hold => hold.id === action.id && hold.offerId));
     if (personalBooking && !insideBookingLock) return false;
@@ -401,7 +408,9 @@ export function dispatchWithLog(
     const releasesOffer = action.type === "online/release" && current.checkoutHolds.some(hold => hold.id === action.id && hold.offerId);
     const personalClaim = personalBooking || releasesOffer || action.type.startsWith("waitlist/") ||
       action.type === "online/leave" || action.type === "online/decline" || action.type === "online/waitlist" ||
-      current.modules.waitlist !== next.modules.waitlist;
+      current.modules.waitlist !== next.modules.waitlist ||
+      // The owner's approval to offer a freed time (also given while cancelling) is a queue decision too.
+      next.waitlistGaps.some(gap => gap.approved && !current.waitlistGaps.some(old => old.id === gap.id && old.approved));
     const sendsOffer = next.waitlistOffers.some(offer => offer.status === "offered" && !current.waitlistOffers.some(old => old.id === offer.id));
     const saved = setState(next, true, () => { batch.publish(); messages.publish(); }, personalClaim || sendsOffer);
     if (saved === "unsaved") return false;
@@ -412,6 +421,18 @@ export function dispatchWithLog(
     const logId = next.log[0]?.id;
     return logId !== current.log[0]?.id ? logId ?? null : null;
   }
+}
+
+/** A personal offer someone could claim right now, or its checkout. */
+function offerLive(state: DemoState, now: number): boolean {
+  return state.waitlistOffers.some(offer => offer.status === "offered" && offer.expiresAt > now) || state.checkoutHolds.some(hold => !!hold.offerId);
+}
+
+function deferUnderLock(action: DemoAction, meta: Partial<Omit<LogMeta, "at">> | undefined, canApply?: (current: DemoState) => boolean) {
+  void withBookingLock(() => dispatchWithLog(action, meta, canApply))
+    .catch(() => false as const)
+    // The toast layer listens and reports it; a refusal here has no caller left to tell.
+    .then((result) => { if (result === false) window.dispatchEvent(new Event(DEFERRED_WRITE_FAILED)); });
 }
 
 // Web Locks serialize callbacks, but another renderer can still read an older

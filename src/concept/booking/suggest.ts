@@ -1,7 +1,7 @@
 import { addDays } from "../data/dates";
 import { freeStarts, needOf } from "../data/slots";
 import type { DateKey, DemoState, StaffId } from "../data/types";
-import { earliestOnlineStart } from "./policy";
+import { earliestOnlineStart, visitTime } from "./policy";
 
 export type Period = "morning" | "afternoon" | "evening";
 
@@ -42,7 +42,8 @@ export function openSlots(
   state: DemoState,
   serviceId: string,
   date: DateKey,
-  clock: Clock,
+  /** With `instant`, preparation must not have begun even part of a minute ago, exactly as booking checks it. */
+  clock: Clock & { instant?: number },
   opts: { staffId?: StaffId; ignoreId?: string } = {},
 ): OpenSlot[] {
   const service = state.services.find((s) => s.id === serviceId);
@@ -54,6 +55,7 @@ export function openSlots(
   const byStart = new Map<number, OpenSlot>();
   for (const id of service.staffIds.filter((s) => !opts.staffId || s === opts.staffId)) {
     for (const start of freeStarts(state, id, date, need, { after, step: STEP, ignoreId: opts.ignoreId })) {
+      if (clock.instant !== undefined && visitTime({ date, start: start - (need.bufferBefore ?? 0) }).toMillis() < clock.instant) continue;
       if (!byStart.has(start)) byStart.set(start, { staffId: id, date, start });
     }
   }
