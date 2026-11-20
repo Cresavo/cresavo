@@ -18,7 +18,7 @@ import { containsSecret, registerSecret, say } from "./sanitize.mjs";
 import { captureStream, freePorts, guardStream, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
 import { agentChannel } from "./agent-reply.mjs";
 import { loopbackAdminUrl, refuseDiagnostics, refuseRemoteBrowsers } from "./preflight.mjs";
-import { acquisition, CLEANUP_SIGNALS, databaseAlreadyExisted, settles } from "./lifecycle.mjs";
+import { acquisition, CLEANUP_SIGNALS, databaseAlreadyExisted, launchedBrowsers, settles } from "./lifecycle.mjs";
 import { issueCertificates, operatorFetch, tlsProxy } from "./tls.mjs";
 import { createServer as createHttpServer } from "node:http";
 import { approveWithLostResponse, close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking, reopenInSameTab, salonContext } from "./browsers.mjs";
@@ -93,7 +93,8 @@ const networkEnv = Object.fromEntries(["HTTPS_PROXY", "https_proxy", "HTTP_PROXY
   "npm_config_https_proxy", "npm_config_noproxy", "npm_config_registry", "NPM_CONFIG_USERCONFIG", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE"]
   .flatMap(name => process.env[name] === undefined ? [] : [[name, process.env[name]!]]));
 const database = acquisition();
-const browsers: { close(): Promise<void> }[] = [];
+// Launches are tracked while pending: a signal during a launch still closes that browser.
+const browsers = launchedBrowsers<Awaited<ReturnType<typeof launchBrowser>>>();
 const servers: { close(): void }[] = [];
 let db: typeof import("../../src/lib/db").db | undefined;
 
@@ -129,7 +130,7 @@ let cleaned: Promise<void> | undefined;
 // Once only, whichever of the main flow and a signal gets here first.
 const cleanup = () => (cleaned ??= cleanupOnce());
 async function cleanupOnce() {
-  for (const browser of browsers) await browser.close().catch(() => {});
+  await browsers.closeAll();
   for (const server of servers) server.close();
   // Stops the salon, gateway and agent, and waits until each has closed its streams.
   await stopAll();
@@ -252,11 +253,9 @@ try {
   const agentEnv = { PATH: baseEnv.PATH, HOME: baseEnv.HOME, NODE_EXTRA_CA_CERTS: tls.caPath, STAGING_LOOPBACK_HOSTS: gatewayHost,
     STAGING_AGENT_GATEWAY: gatewayOrigin, STAGING_AGENT_KEY: agentKey.key };
   const agent = agentClient(agentEnv);
-  // Each browser is in the cleanup list as soon as it exists, before the next launch can fail.
-  const customerBrowser = await launchBrowser(salonHost, salonTls.port, tls.leaves[salonHost].spki);
-  browsers.push(customerBrowser);
-  const ownerBrowser = await launchBrowser(salonHost, salonTls.port, tls.leaves[salonHost].spki);
-  browsers.push(ownerBrowser);
+  // Each launch is tracked from its start, so cleanup closes its browser even if it is still pending.
+  const customerBrowser = await browsers.start(() => launchBrowser(salonHost, salonTls.port, tls.leaves[salonHost].spki));
+  const ownerBrowser = await browsers.start(() => launchBrowser(salonHost, salonTls.port, tls.leaves[salonHost].spki));
   const links: string[] = [];
   async function inboxLink(proposalId: string) {
     const message = await operator.consentInboxMessage.findUniqueOrThrow({ where: { proposalId } });

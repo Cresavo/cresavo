@@ -61,3 +61,25 @@ it("chooses listener ports that are all distinct", async () => {
     for (const port of ports) expect(port).toBeGreaterThan(0);
   }
 });
+
+it("closes a browser whose launch was still pending when cleanup began, and starts none after", async () => {
+  const { launchedBrowsers } = await import("../scripts/staging-consent/lifecycle.mjs");
+  const closed: string[] = [];
+  const browser = (name: string) => ({ close: async () => { closed.push(name); } });
+  const browsers = launchedBrowsers<ReturnType<typeof browser>>();
+  await browsers.start(async () => browser("first"));
+  let finish!: () => void;
+  // A signal arrives while the second launch is still starting Chromium.
+  const second = browsers.start(() => new Promise(resolve => { finish = () => resolve(browser("second")); }));
+  const cleanup = browsers.closeAll();
+  let done = false;
+  void cleanup.then(() => { done = true; });
+  await new Promise(resolve => setTimeout(resolve, 20));
+  expect(done, "cleanup finished before the pending launch").toBe(false);
+  finish();
+  await cleanup;
+  await expect(second).rejects.toThrow(/^STAGING_STOPPING$/);
+  expect(closed.sort()).toEqual(["first", "second"]);
+  await expect(browsers.start(async () => browser("late"))).rejects.toThrow(/^STAGING_STOPPING$/);
+  expect(closed).not.toContain("late");
+});

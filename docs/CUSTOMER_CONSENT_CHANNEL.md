@@ -223,7 +223,8 @@ The runner:
    deciding what to drop, and drops it only if this run may have created it (a name that already existed
    is never dropped). Once shutdown has begun no new child process starts. The runner, not
    Playwright, handles SIGINT, SIGTERM and SIGHUP (a closed terminal), and runs the same
-   full cleanup for each. The exit status is 1 from the start and becomes 0 only after cleanup
+   full cleanup for each. A browser launch still pending when a signal arrives is waited for
+   and its browser closed; none starts after cleanup has begun. The exit status is 1 from the start and becomes 0 only after cleanup
    completed and every check passed; a cleanup that throws is reported as `FAIL CLEANUP`.
    The four loopback ports (two servers, two TLS proxies) are chosen together, so they are
    always distinct. When a server or step exits, whatever is left of its process group is
@@ -239,9 +240,10 @@ no files outside its temporary directory.
 ### In CI
 
 The `Staging consent channel` job in `.github/workflows/verify.yml` runs the same
-runner on pushes to `main` and on manual runs (`workflow_dispatch`), never on pull
-request events, so the private gateway code and its read token are only used with
-merged code or a run someone with write access started. It needs the repository secret
+runner only on `main`: pushes to `main` and manual runs (`workflow_dispatch`) started on
+`main`. It never runs on pull request events, other branches or tags, so the private
+gateway code and its read token are only ever used with merged code. A test pins this
+condition (`tests/workflow-staging.test.ts`). It needs the repository secret
 `GATEWAY_READ_TOKEN` (read-only access to the gateway repository contents); without it
 the job reports a notice and skips. The token is used only by `actions/checkout`, which
 does not persist it. The job uploads no artifacts.
@@ -257,7 +259,8 @@ Decided in this change:
   proposal with the existing limiter. An agent knows its own proposal ID and could use
   up that proposal's 20 requests; this only blocks approval of its own proposal, which
   it could equally abandon.
-- **CI trigger.** Implemented: push to `main` and `workflow_dispatch` only.
+- **CI trigger.** Implemented: only on `main`, for a push or a `workflow_dispatch` started on
+  `main`; manual runs on other branches or tags are skipped.
 
 Left open, with reasoning:
 
@@ -278,9 +281,6 @@ Left open, with reasoning:
   staging runner uses `postgres`. Requiring `postgres` whenever the channel is enabled
   would be a small change but also breaks single-process local runs; left to the
   production configuration review.
-- **`workflow_dispatch` on any branch.** A manual run can target an unmerged branch.
-  Only people with write access can start one; restricting it further (an environment
-  with required reviewers) needs a repository settings change.
 - **Hard-linked `node_modules` in the build copy.** The build does not modify installed
   packages, so hard links are safe for this runner; a step that rewrote files in
   `node_modules` in place would also change the repository's copy.

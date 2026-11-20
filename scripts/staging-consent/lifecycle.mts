@@ -43,3 +43,33 @@ export function databaseAlreadyExisted(error: unknown) {
  * terminal (SIGHUP). Playwright's own handlers for these are switched off in launchBrowser.
  */
 export const CLEANUP_SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
+
+/**
+ * Browsers the runner starts. A signal can arrive while a launch is still pending; cleanup then
+ * waits for it and closes what it produced, so no browser or profile outlives the run. Once
+ * cleanup has begun, a launch that finishes closes its browser itself and no new one starts.
+ */
+export function launchedBrowsers<T extends { close(): Promise<void> }>() {
+  const pending = new Set<Promise<unknown>>();
+  const started: T[] = [];
+  let closing = false;
+  return {
+    start(launch: () => Promise<T>): Promise<T> {
+      if (closing) return Promise.reject(new Error("STAGING_STOPPING"));
+      const run = (async () => {
+        const browser = await launch();
+        if (closing) { await browser.close().catch(() => {}); throw new Error("STAGING_STOPPING"); }
+        started.push(browser);
+        return browser;
+      })();
+      const tracked = run.finally(() => pending.delete(tracked));
+      pending.add(tracked);
+      return run;
+    },
+    async closeAll() {
+      closing = true;
+      await Promise.allSettled([...pending]);
+      for (const browser of started.splice(0)) await browser.close().catch(() => {});
+    },
+  };
+}

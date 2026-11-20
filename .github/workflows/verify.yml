@@ -112,11 +112,11 @@ jobs:
           retention-days: 7
   staging-consent:
     # The split-mode customer consent channel over HTTPS (docs/CUSTOMER_CONSENT_CHANNEL.md).
-    # Needs read access to the private gateway repository. Runs only for pushes to main and
-    # manual runs, never on pull request events, so private gateway code and the read token
-    # are never used for code that has not been merged. Without the secret the job reports
-    # a notice and runs nothing else.
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    # Needs read access to the private gateway repository. Runs only on main, for pushes and
+    # manual runs, never on pull request events or other branches and tags, so private
+    # gateway code and the read token are never used for code that has not been merged.
+    # Without the secret the job reports a notice and runs nothing else.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     name: Staging consent channel (HTTPS)
     runs-on: ubuntu-latest
     timeout-minutes: 30
