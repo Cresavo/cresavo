@@ -43,7 +43,7 @@ export function useAgentProposals(enabled = true) {
 
   /** Applies or declines a proposal and returns the resulting log ID, if any. */
   const decide = (proposal: AgentProposal, approve: boolean) => {
-    const logId = approve ? dispatchWithLog(proposal.action, { actor: "ai", source: "mcp" }) : null;
+    const logId = approve ? dispatchWithLog(proposal.action, { actor: "ai", source: "mcp", approvedBy: "owner" }) : null;
     const decision = !approve ? "declined" : logId !== false ? "approved" : "failed";
     setDecided((ids) => [...ids, proposal.id]);
     void fetch(`${ENDPOINT}/${encodeURIComponent(proposal.id)}`, {

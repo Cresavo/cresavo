@@ -10,6 +10,8 @@ export type LogSource = "button" | "command" | "voice" | "customer-page" | "camp
 export interface LogMeta {
   actor: LogActor;
   source: LogSource;
+  /** Set when the owner approved a change someone else drafted (an assistant's proposal). */
+  approvedBy?: "owner";
   /** Epoch milliseconds. */
   at: number;
 }

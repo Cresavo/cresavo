@@ -14,7 +14,7 @@ import type { Now } from "../use-now";
 import { DepositCheckout } from "./deposit-checkout";
 import { bookingPage } from "./links";
 import { isNewBookingCustomer } from "./lookup";
-import { PolicySummary } from "./policy-summary";
+import { BookingSummary } from "./booking-summary";
 import { quote, type BookingTerms } from "./protection";
 
 /**
@@ -79,7 +79,8 @@ export function ClaimOffer({ state, now, id }: { state: DemoState; now: Now; id:
             <p>{formatDayLong(offer.date)} · {formatTime(offer.start)}</p>
             <p role="status" className="text-meta text-text-secondary">{t("offers.until", { time: formatTime(salonClock(new Date(offer.expiresAt)).minutes) })}</p>
           </div>
-          <PolicySummary terms={terms} />
+          {/* The slot-aware summary: total, what is due now and, inside the free-change window, that online changes are closed. */}
+          <BookingSummary slot={offer} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={false} />
           <div className="flex flex-wrap gap-2">
             <Button disabled={pending} onClick={() => act("online/claim")}>{t("offers.claim")}</Button>
             <Button variant="secondary" disabled={pending} onClick={() => act("online/decline")}>{t("offers.decline")}</Button>

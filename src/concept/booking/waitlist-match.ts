@@ -74,6 +74,10 @@ export function offerAvailable(state: DemoState, offer: WaitlistOffer, now: numb
     resourceStillFree(others, needOf(service), offer.resourceId, offer.date, offer.start, offer.id));
 }
 
+function* range(from: number, to: number) {
+  for (let n = from; n <= to; n++) yield n;
+}
+
 /** The wall-clock minute of an instant equals `minute` on that day (false inside a skipped or repeated hour that moved it). */
 const sameWallMinute = (instant: DateTime, minute: number) => instant.hour * 60 + instant.minute === minute % 1440;
 
@@ -103,7 +107,11 @@ export function nextMatch(state: DemoState, gap: WaitlistGap, now: number): Wait
       const earliest = gap.date === clock.today ? clock.minutes + 1 : 0;
       const first = Math.max(Math.max(earliest, gap.start) + before, entry.window.start);
       const last = Math.min(gap.end - after, entry.window.end) - need.duration;
-      for (let start = first; start <= last; start++) {
+      // The freed time itself first (a cancelled 10:00 is offered at 10:00), then the earliest start that uses some of it.
+      const preferred = gap.released ? Math.max(gap.released.start, first) : first;
+      const starts = preferred > first && preferred <= last ? [preferred, ...range(first, last)] : range(first, last);
+      for (const start of starts) {
+        if (gap.released && !(start - before < gap.released.end && start + need.duration + after > gap.released.start)) continue;
         if (!isFree(state, gap.staffId, gap.date, start, need)) continue;
         const instant = visitTime({ date: gap.date, start });
         // Skip a visit or buffer that crosses a clock change: its wall times would not add up.
@@ -140,8 +148,17 @@ export function releasedGaps(prev: DemoState, state: DemoState, now: number): Wa
   if (!state.modules.waitlist || !state.waitlistEntries.some((e) => e.days.length)) return [];
   const dates = new Set(state.waitlistEntries.flatMap((e) => e.days));
   const found: WaitlistGap[] = [];
+  // The opening is the whole free stretch around the freed time: a cancelled half hour next to a free half hour makes an hour.
   const add = (staffId: StaffId, date: string, span: Interval, excludeCustomer?: string) => {
-    if (dates.has(date) && span.end > span.start) found.push({ ...span, staffId, date, excludeCustomer, id: `gap-${state.seq}-${found.length}` });
+    if (!dates.has(date) || span.end <= span.start) return;
+    const opening = withSlotClock(now, () => freeGaps(state, staffId, date, { min: 1 }))
+      .find((free) => free.start <= span.start && free.end >= span.end) ?? span;
+    const same = found.find((g) => g.staffId === staffId && g.date === date && g.start === opening.start && g.end === opening.end);
+    if (same) {
+      same.released = { start: Math.min(same.released!.start, span.start), end: Math.max(same.released!.end, span.end) };
+      return;
+    }
+    found.push({ start: opening.start, end: opening.end, released: { ...span }, staffId, date, excludeCustomer, id: `gap-${state.seq}-${found.length}` });
   };
   if (prev.bookings !== state.bookings) {
     const current = new Map(state.bookings.map((b) => [b.id, b]));

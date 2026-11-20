@@ -42,7 +42,8 @@ export function finishOffer(state: DemoState, offer: WaitlistOffer, status: Excl
 function sendOffer(state: DemoState, gap: WaitlistGap, match: WaitlistMatch, now: number, offeredBy: WaitlistOffer["offeredBy"]): DemoState {
   const { entry, service, start, resourceId } = match;
   const id = `offer-${state.seq}-${stableHash(`${state.salon.slug}|${gap.id}|${entry.id}|${now}`)}`;
-  const expiresAt = Math.min(match.instant, now + state.waitlistRules.minutes * 60_000);
+  // The hold ends when preparation would have to begin, so the salon can still give the visit it promised.
+  const expiresAt = Math.min(match.instant - (service.bufferBefore ?? 0) * 60_000, now + state.waitlistRules.minutes * 60_000);
   const language = state.localization.language;
   const body = customerText(state, "offers.sms", {
     salon: state.salon.name, day: formatDayLong(gap.date, language), time: formatTime(start, language),
@@ -108,6 +109,23 @@ export function settleWaitlist(current: DemoState, now: number): DemoState {
   return state;
 }
 
+let offersHeld = false;
+
+/**
+ * Runs a reducer call that may change the queue without sending any offer:
+ * the browser store uses it for writes made outside the booking lock, and
+ * sends what is due afterwards under the lock (`waitlist/advance`).
+ */
+export function withOffersHeld<T>(hold: boolean, run: () => T): T {
+  const previous = offersHeld;
+  offersHeld = hold;
+  try {
+    return run();
+  } finally {
+    offersHeld = previous;
+  }
+}
+
 /** Sends the next offer for each open gap where the rules allow, and drops gaps nobody can take. */
 function sendOffers(current: DemoState, now: number, approve?: string): DemoState {
   let state = current;
@@ -128,7 +146,7 @@ function sendOffers(current: DemoState, now: number, approve?: string): DemoStat
     }
     const readyAt = automatic && sendable > now ? sendable : undefined;
     if (gap.readyAt !== readyAt) state = { ...state, waitlistGaps: state.waitlistGaps.map((g) => (g.id === gap.id ? { ...g, readyAt } : g)) };
-    if (enabled && (byOwner || (automatic && readyAt === undefined))) state = sendOffer(state, gap, match, now, byOwner ? "owner" : "automatic");
+    if (!offersHeld && enabled && (byOwner || (automatic && readyAt === undefined))) state = sendOffer(state, gap, match, now, byOwner ? "owner" : "automatic");
   }
   return state;
 }

@@ -131,6 +131,12 @@ describe("proposals", () => {
     const meta = { actor: "staff", source: "command", at: Date.parse(`${today}T09:00:00+01:00`) } as const;
     expect(applyAction(queued, byOwner.action, meta)).toBe(queued);
     expect(applyAction(queued, byStaff.action, meta).bookings.find((b) => b.id === own.id)?.status).toBe("cancelled");
+    // An assistant's draft counts only once the owner approved it.
+    const mcp = { actor: "ai", source: "mcp", at: meta.at } as const;
+    expect(applyAction(queued, byOwner.action, mcp)).toBe(queued);
+    const approved = applyAction(queued, byOwner.action, { ...mcp, approvedBy: "owner" });
+    expect(approved.bookings.find((b) => b.id === own.id)?.status).toBe("cancelled");
+    expect(approved.waitlistGaps[0]).toMatchObject({ approved: true });
   });
 
   it("answers revenue questions with the same numbers the selectors give", () => {

@@ -11,6 +11,12 @@ export function earliestBookingStart(date: DateKey, today: DateKey, minutes: num
   return minutes + LEAD_MINUTES - diffDays(date, today) * 24 * 60;
 }
 
+/** The first start a customer can book online: the lead time ahead, and never with preparation that has already begun. */
+export function earliestOnlineStart(date: DateKey, today: DateKey, minutes: number, bufferBefore = 0): number {
+  const lead = earliestBookingStart(date, today, minutes);
+  return Math.max(lead, lead - LEAD_MINUTES + bufferBefore);
+}
+
 export type ChangeRule = "free" | "late" | "past";
 type VisitTime = Pick<Booking, "date" | "start">;
 

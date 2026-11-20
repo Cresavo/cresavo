@@ -22,14 +22,13 @@ import { entrySummary } from "../../booking/waitlist-entry";
 import { ManualOffer } from "./manual-offer";
 import { OfferSettings } from "./offer-settings";
 
-/** Seconds tick only while a countdown is on screen. */
-function useInstant(ticking: boolean) {
+/** The clock for this page: every second while a countdown shows, otherwise every 30 seconds so previews of free times never go stale. */
+function useInstant(countdown: boolean) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!ticking) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    const timer = window.setInterval(() => setNow(Date.now()), countdown ? 1000 : 30_000);
     return () => window.clearInterval(timer);
-  }, [ticking]);
+  }, [countdown]);
   return now;
 }
 

@@ -82,7 +82,7 @@ export function decideProposal(id: string, decision: "approved" | "declined" | "
   const current = business(new Date(now));
   const proposal = current.proposals.find((p) => p.id === id);
   if (!proposal || proposal.status !== "pending") return undefined;
-  if (decision === "approved") current.state = applyAction(current.state, proposal.action, { actor: "ai", source: "mcp", at: now });
+  if (decision === "approved") current.state = applyAction(current.state, proposal.action, { actor: "ai", source: "mcp", approvedBy: "owner", at: now });
   const decided: AgentProposal = { ...proposal, status: decision, decidedAt: now };
   current.proposals = current.proposals.map((p) => (p.id === id ? decided : p));
   return decided;

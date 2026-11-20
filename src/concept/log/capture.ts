@@ -66,10 +66,13 @@ function waitlistEvents(prev: DemoState, next: DemoState, action: DemoAction, me
 }
 
 export function prepareAction(state: DemoState, action: DemoAction, meta: LogMeta, batch: ReturnType<typeof demoPaymentLedger.stage>): DemoState {
-  if ((OWNER_ONLY.has(action.type) || (action.type === "booking/cancel" && action.offerWaitingList)) && meta.actor !== "owner") return state;
+  if (OWNER_ONLY.has(action.type) && meta.actor !== "owner") return state;
+  // Offering a cancelled time to the waiting list approves a queue: the owner's call, also on an assistant's draft they approved.
+  if (action.type === "booking/cancel" && action.offerWaitingList && meta.actor !== "owner" && meta.approvedBy !== "owner") return state;
   const next = reduce(state, action, meta.at, batch.payments);
   if (next === state) return next;
-  const events = action.type === "customer/erase" ? [] : waitlistEvents(state, next, action, meta);
+  // An erasure keeps no trace of the erased customer, but the handover to the next one is still recorded.
+  const events = waitlistEvents(state, next, action, meta).filter((event) => action.type !== "customer/erase" || (event.customerId && event.customerId !== action.id));
   // The salon's clock, and a click not worth its own entry (reading a message), log only what the waiting list did.
   if (action.type === "waitlist/advance" || !isLogged(action)) return events.length ? { ...next, seq: next.seq + 1, log: [...events, ...next.log].slice(0, LOG_LIMIT) } : next;
   const patch = diffStates(state, next);

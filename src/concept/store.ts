@@ -8,6 +8,7 @@ import { migrateState } from "./data/migrate";
 import type { DemoState } from "./data/types";
 import { demoMessageLedger, demoPaymentLedger, withDemoChannels } from "./connections/demo";
 import { nextWaitlistWake } from "./booking/waitlist-match";
+import { withOffersHeld } from "./booking/waitlist-offer";
 import { prepareAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
 import { publicView } from "./selectors";
@@ -224,17 +225,34 @@ function notify() {
 let waitlistTimer: ReturnType<typeof setTimeout> | undefined;
 const MAX_TIMER = 2_147_483_647;
 
-function scheduleWaitlist() {
+/** After a tick that could not save (full storage), wait longer before trying the same deadline again. */
+let retryDelay = 0;
+const RETRY_MIN = 30_000;
+const RETRY_MAX = 5 * 60_000;
+
+function scheduleWaitlist(delay?: number) {
   clearTimeout(waitlistTimer);
   const state = snapshots[active].state;
   if (!listeners.size || !state) return;
-  const wake = nextWaitlistWake(state);
-  if (Number.isFinite(wake)) waitlistTimer = setTimeout(tickWaitlist, Math.min(MAX_TIMER, Math.max(1, wake - Date.now())));
+  const wake = delay ?? nextWaitlistWake(state) - Date.now();
+  if (Number.isFinite(wake)) waitlistTimer = setTimeout(tickWaitlist, Math.min(MAX_TIMER, Math.max(1, retryDelay, wake)));
 }
 
 function tickWaitlist() {
   if (!listeners.size) return;
-  void withBookingLock(() => dispatch({ type: "waitlist/advance" })).finally(scheduleWaitlist);
+  void withBookingLock(() => dispatch({ type: "waitlist/advance" }))
+    .then((changed) => {
+      const state = snapshots[active].state;
+      const overdue = !!state && nextWaitlistWake(state) <= Date.now();
+      retryDelay = !changed && overdue ? Math.min(RETRY_MAX, Math.max(RETRY_MIN, retryDelay * 2)) : 0;
+    }, () => undefined)
+    .finally(() => scheduleWaitlist());
+}
+
+/** Focus, another tab's write or a page opening is a reason to try again at once. */
+function retryWaitlistNow() {
+  retryDelay = 0;
+  tickWaitlist();
 }
 
 function refreshFromStorage() {
@@ -277,7 +295,7 @@ function subscribe(listener: () => void) {
   const first = !listeners.size;
   if (first) {
     window.addEventListener("storage", onStorage);
-    window.addEventListener("focus", tickWaitlist);
+    window.addEventListener("focus", retryWaitlistNow);
   }
   listeners.add(listener);
   refreshFromStorage();
@@ -289,7 +307,7 @@ function subscribe(listener: () => void) {
     listeners.delete(listener);
     if (!listeners.size) {
       window.removeEventListener("storage", onStorage);
-      window.removeEventListener("focus", tickWaitlist);
+      window.removeEventListener("focus", retryWaitlistNow);
       clearTimeout(waitlistTimer);
     }
   };
@@ -359,7 +377,9 @@ export function dispatchWithLog(
     if (!current || active !== workspace || (canApply && !canApply(current))) return false;
     const batch = demoPaymentLedger.stage();
     const messages = demoMessageLedger.stage();
-    const next = withDemoChannels(messages, () => prepareAction(current, action, logMeta, batch));
+    // Offers go out only under the booking lock, where no other booking write can come between the check and the save.
+    const held = !insideBookingLock;
+    const next = withOffersHeld(held, () => withDemoChannels(messages, () => prepareAction(current, action, logMeta, batch)));
     if (next === current) return false;
     // Includes undo, which can restore a previously free address.
     if (next.salon.slug !== current.salon.slug && next.salon.slug === workspaceSlug(active === "demo" ? "own" : "demo")) return false;
@@ -368,12 +388,16 @@ export function dispatchWithLog(
       action.type === "booking/fee" || action.type === "booking/cancel" || action.type === "trash/restore";
     // A personal offer must reach shared storage before its link is texted or used: another tab
     // would otherwise not know it, and could claim it again or hand the time to someone else.
-    const personalClaim = action.type === "online/claim" || (action.type === "online/pay" && current.checkoutHolds.some(hold => hold.id === action.id && hold.offerId));
+    // A customer told "you have left the list" must have left it in every tab, too.
+    const personalClaim = action.type === "online/claim" || action.type === "online/leave" || action.type === "online/decline" ||
+      (action.type === "online/pay" && current.checkoutHolds.some(hold => hold.id === action.id && hold.offerId));
     const sendsOffer = next.waitlistOffers.some(offer => offer.status === "offered" && !current.waitlistOffers.some(old => old.id === offer.id));
     const saved = setState(next, recheck || action.type === "waitlist/advance" || sendsOffer, () => { batch.publish(); messages.publish(); }, personalClaim || sendsOffer);
     if (saved === "unsaved") return false;
     if (!saved) continue;
     if (workspace === "own") markTrialUsed(now);
+    // A change made outside the lock may have freed time for the queue: send under the lock right away.
+    if (held && next.waitlistGaps.length) scheduleWaitlist(0);
     const logId = next.log[0]?.id;
     return logId !== current.log[0]?.id ? logId ?? null : null;
   }
@@ -390,15 +414,28 @@ async function bookingReceipts(): Promise<Cache | undefined> {
   }
 }
 
+/** True while a booking-lock callback runs in this tab. */
+let insideBookingLock = false;
+
+function runLocked<T>(write: (required?: BookingReceipt) => T, required?: BookingReceipt): T {
+  const previous = insideBookingLock;
+  insideBookingLock = true;
+  try {
+    return write(required);
+  } finally {
+    insideBookingLock = previous;
+  }
+}
+
 async function withBookingReceipt<T>(write: (required?: BookingReceipt) => T, reset = false): Promise<T | false> {
   initialize();
   const workspace = active;
   const snapshot = snapshots[workspace];
-  if (typeof window === "undefined" || !navigator.locks) return write();
+  if (typeof window === "undefined" || !navigator.locks) return runLocked(write);
   return navigator.locks.request(storageKey(workspace), async () => {
     const receipts = await bookingReceipts();
     if (workspace !== active) return false;
-    if (!receipts) return write();
+    if (!receipts) return runLocked(write);
     const receiptKey = new URL(workspace === primary ? "/concept-booking-sequence" : `/concept-booking-sequence-${workspace}`, window.location.origin).href;
     const receipt = await receipts.match(receiptKey).catch(() => undefined);
     const latest: BookingReceipt | undefined = await receipt?.json().catch(() => undefined);
@@ -415,7 +452,7 @@ async function withBookingReceipt<T>(write: (required?: BookingReceipt) => T, re
     }
     if (workspace !== active) return false;
     const before = snapshot.lastWrite;
-    const result = write(required);
+    const result = runLocked(write, required);
     if (snapshot.lastWrite && snapshot.lastWrite !== before) {
       // A storage quota error must not hide an appointment already saved.
       await receipts.put(receiptKey, Response.json(snapshot.lastWrite)).catch(() => undefined);

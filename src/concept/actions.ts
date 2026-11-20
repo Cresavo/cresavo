@@ -11,7 +11,7 @@ import { MAX_SMS_PRICE_ORE, type ReminderSettings } from "./booking/reminders";
 import { applyCustomerReview, type CustomerReviewAction } from "./booking/review-actions";
 import { applyAssistant, type AssistantAction } from "./assistant/actions";
 import { findCustomerByPhone, isContactPhone, isMobilePhone, isNewBookingCustomer, normalizePhone } from "./booking/lookup";
-import { earliestBookingStart } from "./booking/policy";
+import { earliestOnlineStart, visitTime } from "./booking/policy";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
 import { applyWaitlist, type WaitlistAction } from "./booking/waitlist-actions";
 import { offerAvailable, validPreferences } from "./booking/waitlist-match";
@@ -21,7 +21,7 @@ import { demoPayments, sendDemoCampaign } from "./connections/demo";
 import { editJournalEntry } from "./customers/journal";
 import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visits";
 import type { CostKind } from "./finance/types";
-import { isFree, needOf, pickResource, withSlotClock } from "./data/slots";
+import { isFree, needOf, pickResource, resourceStillFree, withSlotClock } from "./data/slots";
 import { undoEntry } from "./log/undo";
 import { bookableServices, inboxItemVisible } from "./selectors";
 import { moduleById, moduleEnabled, moduleKeys, presetModules, type PresetId } from "./modules/registry";
@@ -166,6 +166,8 @@ function createBooking(
   state: DemoState,
   input: { id?: string; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource },
   protection?: BookingProtection,
+  /** The room or chair already reserved for this visit (a checkout or an offer), kept when it is still free. */
+  reserved?: string,
 ): DemoState {
   const service = state.services.find((s) => s.id === input.serviceId);
   if (!service || !service.staffIds.includes(input.staffId) || !isFree(state, input.staffId, input.date, input.start, needOf(service))) return state;
@@ -179,7 +181,7 @@ function createBooking(
     ...(service.bufferAfter ? { bufferAfter: service.bufferAfter } : {}),
     price: protection ? Number(majorString({ amountMinor: protection.terms.priceMinor, currency: protection.terms.currency })) : service.price,
     status: "booked",
-    resourceId: pickResource(state, needOf(service), input.date, input.start),
+    resourceId: reserved && resourceStillFree(state, needOf(service), reserved, input.date, input.start) ? reserved : pickResource(state, needOf(service), input.date, input.start),
   };
   return { ...state, seq: state.seq + 1, bookings: [...state.bookings, booking] };
 }
@@ -219,12 +221,14 @@ function ensureCustomer(state: DemoState, guest: GuestContact, since: DateKey, c
   return { state: { ...state, seq: state.seq + 1, customers: [...state.customers, customer] }, customer };
 }
 
-type OnlineRequest = Extract<DemoAction, { type: "online/book" | "online/hold" }>;
+/** `resourceId`: a room or chair a personal offer or checkout already holds for this visit. */
+type OnlineRequest = Extract<DemoAction, { type: "online/book" | "online/hold" }> & { resourceId?: string };
 
 /** A booking from the public page must start at least the lead time after the customer acted. */
-function withinLead(action: OnlineRequest): boolean {
+function withinLead(state: DemoState, action: OnlineRequest): boolean {
   const { at } = action.guest;
-  return action.date >= at.date && action.start >= earliestBookingStart(action.date, at.date, at.time);
+  const bufferBefore = state.services.find(s => s.id === action.serviceId)?.bufferBefore;
+  return action.date >= at.date && action.start >= earliestOnlineStart(action.date, at.date, at.time, bufferBefore);
 }
 
 function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoState {
@@ -238,7 +242,8 @@ function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoS
     id: `hold-${now}-${state.seq}`, guest, notice, staffId, date, start, terms, duration: service.duration,
     ...(service.bufferBefore ? { bufferBefore: service.bufferBefore } : {}),
     ...(service.bufferAfter ? { bufferAfter: service.bufferAfter } : {}),
-    resourceId: pickResource(state, needOf(service), date, start), serviceId: service.id, expiresAt: now + 10 * 60_000,
+    resourceId: action.resourceId && resourceStillFree(state, needOf(service), action.resourceId, date, start) ? action.resourceId : pickResource(state, needOf(service), date, start),
+    serviceId: service.id, expiresAt: now + 10 * 60_000,
   };
   return { ...state, seq: state.seq + 1, checkoutHolds: [...state.checkoutHolds.filter(h => h.expiresAt > now), hold] };
 }
@@ -246,6 +251,8 @@ function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoS
 function payHold(state: DemoState, action: Extract<DemoAction, { type: "online/pay" }>, now: number, payments: typeof demoPayments) {
   const hold = state.checkoutHolds.find(h => h.id === action.id && h.expiresAt > now);
   if (!hold || !depositMethods(hold.terms.depositMinor, hold.terms.currency).includes(action.method)) return state;
+  // Paying cannot confirm a visit whose preparation has already begun.
+  if (visitTime({ date: hold.date, start: hold.start - (hold.bufferBefore ?? 0) }).toMillis() <= now) return state;
   const service = bookableServices(state).find(s => s.id === hold.serviceId && s.staffIds.includes(hold.staffId));
   // A checkout for a personal waitlist offer pays only while that offer still holds the time.
   const offer = hold.offerId ? state.waitlistOffers.find(o => o.id === hold.offerId) : undefined;
@@ -268,7 +275,7 @@ function payHold(state: DemoState, action: Extract<DemoAction, { type: "online/p
 
 function confirmOnline(state: DemoState, action: Omit<OnlineRequest, "type">, service: DemoState["services"][number], protection: BookingProtection): DemoState {
   const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, action.staffId, false);
-  const booked = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" }, protection);
+  const booked = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" }, protection, action.resourceId);
   if (booked === withCustomer) return state;
   const notified = addInbox(booked, {
     kind: "request",
@@ -330,7 +337,7 @@ function claimOffer(state: DemoState, action: Extract<DemoAction, { type: "onlin
   const clock = salonClock(new Date(now));
   const guest = { name: `${customer.firstName} ${customer.lastName}`.trim(), phone: customer.phone, at: { date: clock.today, time: clock.minutes } };
   const deposit = terms.depositMinor > 0;
-  const request = { type: deposit ? "online/hold" as const : "online/book" as const, guest, notice: action.notice, serviceId: offer.serviceId, staffId: offer.staffId, date: offer.date, start: offer.start };
+  const request = { type: deposit ? "online/hold" as const : "online/book" as const, guest, notice: action.notice, serviceId: offer.serviceId, staffId: offer.staffId, date: offer.date, start: offer.start, resourceId: offer.resourceId };
   const next = bookOnline(released, request, now);
   if (next === released) return state;
   if (deposit) {
@@ -575,7 +582,7 @@ function reduceCore(state: DemoState, action: DemoAction, now: number, payments:
     }
     case "online/book":
     case "online/hold":
-      return withinLead(action) ? bookOnline(state, action, now) : state;
+      return withinLead(state, action) ? bookOnline(state, action, now) : state;
     case "online/waitlist":
       return joinWaitlist(state, action, now);
     case "service/price":

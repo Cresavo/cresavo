@@ -9,6 +9,7 @@ import { applyAction, defaultMeta } from "@/concept/log/capture";
 import { createSalon, salonDraft } from "@/concept/onboarding/salon";
 import { createDemoState } from "@/concept/data/generate";
 import { isNewBookingCustomer } from "@/concept/booking/lookup";
+import { openSlots } from "@/concept/booking/suggest";
 import { quote } from "@/concept/booking/protection";
 import { MAX_REQUEST_DAYS } from "@/concept/booking/waitlist-types";
 import { addDays } from "@/concept/data/dates";
@@ -272,7 +273,8 @@ describe("offers one customer at a time", () => {
   it("finds time freed by a move, the owner's offer while cancelling and longer opening hours", () => {
     const state = setup("ask");
     const moved = reduce(state, { type: "booking/move", id: "visit", date, start: 840 }, now);
-    expect(moved.waitlistGaps).toMatchObject([{ date, start: 600, end: 660 }]);
+    // The opening is the whole free stretch before the moved visit; the freed hour is what a match must use.
+    expect(moved.waitlistGaps).toMatchObject([{ date, start: 540, end: 840, released: { start: 600, end: 660 } }]);
     const approved = reduce(state, { ...cancel, offerWaitingList: true }, now);
     expect(approved.waitlistOffers[0]).toMatchObject({ start: 600, status: "offered", offeredBy: "automatic" });
     const auto = { ...setup(), bookings: [] };
@@ -310,6 +312,42 @@ describe("edge cases", () => {
     expect(held.log[0]).toMatchObject({ type: "online/claim", summary: t("protection.held") });
   });
 
+  it("keeps the chair an offer reserved through checkout and the booking", () => {
+    const initial = setup();
+    initial.resources = [{ id: "chair-a", name: "Chair A", kind: "chair" }, { id: "chair-b", name: "Chair B", kind: "chair" }];
+    initial.services = [{ ...initial.services[0], resourceIds: ["chair-a", "chair-b"] }];
+    initial.bookings = [{ ...initial.bookings[0], resourceId: "chair-b" }, { ...initial.bookings[0], id: "sam-a", staffId: sam, resourceId: "chair-a", customerId: "other" }];
+    const offered = reduce(initial, cancel, now);
+    expect(offered.waitlistOffers[0].resourceId).toBe("chair-b");
+    // Chair A frees up before the customer answers; the offer still stands for chair B.
+    const freed = { ...offered, bookings: offered.bookings.filter((b) => b.id !== "sam-a") };
+    const id = offered.waitlistOffers[0].id;
+    expect(claim(freed, id).bookings.at(-1)?.resourceId).toBe("chair-b");
+    const deposit = { ...freed, cancellationPolicy: { ...freed.cancellationPolicy, deposits: { [serviceId]: 15000 } } };
+    const held = claim(deposit, id);
+    expect(held.checkoutHolds[0].resourceId).toBe("chair-b");
+    const paid = reduce(held, { type: "online/pay", id: held.checkoutHolds[0].id, method: "card" }, now);
+    expect(paid.bookings.at(-1)?.resourceId).toBe("chair-b");
+  });
+
+  it("ends the hold when preparation would have to start", () => {
+    const soon = setup();
+    soon.services = [{ ...soon.services[0], bufferBefore: 10 }];
+    soon.waitlistEntries = soon.waitlistEntries.map((e) => ({ ...e, days: [day] }));
+    soon.bookings = [{ ...soon.bookings[0], date: day, start: 620 }];
+    const offered = reduce(soon, cancel, now);
+    expect(offered.waitlistOffers[0]).toMatchObject({ start: 620, expiresAt: Date.parse(`${day}T10:10:00+01:00`) });
+  });
+
+  it("books online only when the preparation has not started yet", () => {
+    const prep = { ...base, services: [{ ...base.services[0], bufferBefore: 120 }], bookings: [] };
+    const book = (start: number) => reduce(prep, { type: "online/book", serviceId, staffId: alex, date: day, start, notice,
+      guest: { name: "Demo Guest 9", phone: "0701234569", at: { date: day, time: 600 } } }, now);
+    expect(book(660)).toBe(prep);
+    expect(book(720).bookings).toHaveLength(1);
+    expect(openSlots(prep, serviceId, day, { today: day, minutes: 600 })[0].start).toBe(720);
+  });
+
   it("lapses an offer when its room or chair no longer suits the treatment", () => {
     const initial = setup();
     initial.resources = [{ id: "room-a", name: "Room A", kind: "room" }, { id: "room-b", name: "Room B", kind: "room" }];
@@ -327,9 +365,10 @@ describe("edge cases", () => {
     early.bookings = [{ ...early.bookings[0], start: 420, duration: 150 }];
     const evening = Date.parse(`${day}T21:00:00+01:00`);
     const queued = reduce(early, cancel, evening);
-    expect(queued.waitlistGaps).toMatchObject([{ start: 420, end: 570, readyAt: Date.parse(`${date}T08:00:00+01:00`) }]);
+    expect(queued.waitlistGaps).toMatchObject([{ start: 420, end: 1020, released: { start: 420, end: 570 }, readyAt: Date.parse(`${date}T08:00:00+01:00`) }]);
     const morning = reduce(queued, tick, Date.parse(`${date}T08:00:00+01:00`));
     expect(morning.waitlistOffers[0].start).toBeGreaterThan(480);
+    expect(morning.waitlistOffers[0].start).toBeLessThan(570);
   });
 
   it("lets a customer leave from an offer whose treatment was taken off the price list", () => {
@@ -351,6 +390,10 @@ describe("edge cases", () => {
       expect(event.summary).toBe(t("log.erasedEntry"));
       expect(event.after).toBeUndefined();
     }
+    // The time went on to the next customer in the same change, and the log says so.
+    const next = erased.waitlistOffers.find((o) => o.status === "offered")!;
+    expect(next.customerId).not.toBe(offer.customerId);
+    expect(erased.log.filter((e) => e.type === "waitlist/event" && e.customerId === next.customerId).map((e) => e.summary)).toEqual([t("offers.status.offered")]);
   });
 
   it("gives an open offer back its gap, so a restored offer still hands the time on", () => {
@@ -369,6 +412,21 @@ describe("edge cases", () => {
     const tight = { ...state, exceptions: [{ id: "x", staffId: alex, date, kind: "shift" as const, start: 540, end: 1015 }] };
     expect(needsMoving(tight, day, 600).map((m) => m.reason)).toEqual(["hours"]);
     expect(outsideShift(state.bookings[0], { start: 540, end: 1020 })).toBe(false);
+  });
+
+  it("offers the whole opening a short cancellation completes, using the freed time", () => {
+    const state = setup();
+    // 10:00–10:30 is cancelled next to a free 10:30–11:00; the waiting customers want an hour.
+    state.bookings = [
+      { ...state.bookings[0], duration: 30 },
+      { ...state.bookings[0], id: "before", start: 540, duration: 60, customerId: "other" },
+      { ...state.bookings[0], id: "after", start: 660, duration: 360, customerId: "other" },
+    ];
+    const offered = reduce(state, cancel, now);
+    expect(offered.waitlistGaps[0]).toMatchObject({ start: 600, end: 660, released: { start: 600, end: 630 } });
+    expect(offered.waitlistOffers[0]).toMatchObject({ start: 600, duration: 60, status: "offered" });
+    // Time that was free already is not a new opening on its own.
+    expect(nextMatch(state, { ...gap, start: 630, end: 660 }, now)).toBeUndefined();
   });
 
   it("can still offer the free time around a queued gap", () => {
@@ -413,7 +471,7 @@ describe("in the browser store", () => {
   const KEY = "salong-eko-demo";
 
   /** A fresh copy of the store module over one shared, fictional localStorage. */
-  async function openTab(storage: { raw: string; full?: boolean; race?: { afterReads: number; write: () => void } }) {
+  async function openTab(storage: { raw: string; full?: boolean; onFull?: () => void; race?: { afterReads: number; write: () => void } }) {
     const others = new Map<string, string>();
     const localStorage = {
       getItem: (key: string) => {
@@ -426,7 +484,10 @@ describe("in the browser store", () => {
       },
       setItem: (key: string, value: string) => {
         if (key !== KEY) return void others.set(key, value);
-        if (storage.full) throw new Error("quota");
+        if (storage.full) {
+          storage.onFull?.();
+          throw new Error("quota");
+        }
         storage.raw = value;
       },
       removeItem: (key: string) => void others.delete(key),
@@ -455,7 +516,7 @@ describe("in the browser store", () => {
     const other = { ...state, seq: state.seq + 5, inbox: [{ ...state.inbox[0], id: "i-other" }, ...state.inbox] };
     storage.race = { afterReads: 1, write: () => { storage.raw = JSON.stringify(other); } };
     outbox.clear();
-    expect(tab.dispatch(cancel)).toBe(true);
+    expect(await tab.withBookingLock(() => tab.dispatch(cancel))).toBe(true);
     expect(storage.race).toBeUndefined();
     const saved = JSON.parse(storage.raw) as DemoState;
     expect(saved.inbox.some((i) => i.id === "i-other")).toBe(true);
@@ -475,13 +536,61 @@ describe("in the browser store", () => {
     expect(kept.bookings).toEqual(sample.bookings);
   });
 
+  it("sends offers only under the booking lock: a write outside it leaves the time to the next locked tick", async () => {
+    const state = setup();
+    const storage = { raw: JSON.stringify(state) };
+    const tab = await openTab(storage);
+    const { demoOutbox: outbox } = await import("@/concept/connections/demo");
+    outbox.clear();
+    expect(tab.dispatch(cancel)).toBe(true);
+    const unlocked = JSON.parse(storage.raw) as DemoState;
+    expect(unlocked.waitlistOffers).toEqual([]);
+    expect(unlocked.waitlistGaps).toHaveLength(1);
+    expect(outbox.list("sms")).toEqual([]);
+    expect(await tab.withBookingLock(() => tab.dispatch(tick))).toBe(true);
+    const sent = JSON.parse(storage.raw) as DemoState;
+    expect(sent.waitlistOffers).toHaveLength(1);
+    expect(outbox.list("sms")).toHaveLength(1);
+  });
+
+  it("confirms a withdrawal only once it is saved", async () => {
+    const offered = reduce(setup(), cancel, now);
+    const entry = offered.waitlistEntries.at(-1)!;
+    const storage = { raw: JSON.stringify(offered), full: true };
+    const tab = await openTab(storage);
+    expect(await tab.withBookingLock(() => tab.dispatch({ type: "online/leave", id: entry.id }))).toBe(false);
+    expect(tab.currentState()?.waitlistEntries.map((e) => e.id)).toContain(entry.id);
+    storage.full = false;
+    expect(await tab.withBookingLock(() => tab.dispatch({ type: "online/leave", id: entry.id }))).toBe(true);
+    expect((JSON.parse(storage.raw) as DemoState).waitlistEntries.map((e) => e.id)).not.toContain(entry.id);
+  });
+
+  it("backs off instead of retrying a failed handover at once", async () => {
+    const offered = reduce(setup(), cancel, now);
+    let attempts = 0;
+    const storage = { raw: JSON.stringify(offered), full: true, onFull: () => attempts++ };
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    vi.setSystemTime(offered.waitlistOffers[0].expiresAt + 1);
+    const tab = await openTab(storage);
+    const stop = tab.subscribeStore(() => undefined);
+    try {
+      for (let i = 0; i < 50; i++) await vi.advanceTimersByTimeAsync(100);
+      expect(attempts).toBeGreaterThan(0);
+      expect(attempts).toBeLessThanOrEqual(2);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(attempts).toBeLessThanOrEqual(4);
+    } finally {
+      stop();
+    }
+  });
+
   it("sends no personal offer that it cannot save", async () => {
     const state = setup();
     const storage = { raw: JSON.stringify(state), full: true };
     const tab = await openTab(storage);
     const { demoOutbox: outbox } = await import("@/concept/connections/demo");
     outbox.clear();
-    expect(tab.dispatch(cancel)).toBe(false);
+    expect(await tab.withBookingLock(() => tab.dispatch(cancel))).toBe(false);
     expect(outbox.list()).toEqual([]);
     expect(tab.currentState()?.waitlistOffers).toEqual([]);
     expect(tab.currentState()?.bookings).toEqual(state.bookings);
