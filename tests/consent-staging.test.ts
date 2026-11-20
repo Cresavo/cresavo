@@ -624,13 +624,19 @@ describe("staging runner preflight", () => {
       expect(() => refuseDiagnostics({ NODE_OPTIONS: flag }, []), `NODE_OPTIONS ${flag}`).toThrow(/^STAGING_NODE_OPTION_REFUSED$/);
       expect(() => refuseDiagnostics({}, ["--import", "tsx", flag]), `execArgv ${flag}`).toThrow(/^STAGING_NODE_OPTION_REFUSED$/);
     }
-    // The real invocations: npm run test:staging-consent (node --import tsx run.mts), the preflight
-    // test's probe, this environment's CA option, and the other allowlisted options.
+    // The real invocations: npm run test:staging-consent (node --import tsx run.mts), this
+    // environment's CA option, and the other allowlisted options.
     expect(() => refuseDiagnostics({ NODE_OPTIONS: "--use-openssl-ca" }, ["--import", "tsx"])).not.toThrow();
-    expect(() => refuseDiagnostics({}, ["--import", "/tmp/probe.mjs", "--import", "tsx"])).not.toThrow();
+    // Preloads run code before the preflight: only the tsx loader, on the command line, exactly.
+    for (const execArgv of [["--import", "/tmp/probe.mjs", "--import", "tsx"], ["--import", "tsx", "--import", "/tmp/probe.mjs"], ["--import=tsx"],
+      ["--import=/tmp/probe.mjs"], ["--import", "./tsx"], ["--import", "tsx/esm"], ["--IMPORT", "tsx"], ["--import"], ["--loader", "tsx"],
+      ["--experimental-loader=tsx"], ["--require", "tsx/cjs"], ["-r", "tsx"]])
+      expect(() => refuseDiagnostics({}, execArgv), JSON.stringify(execArgv)).toThrow(/^STAGING_NODE_OPTION_REFUSED$/);
+    for (const value of ["--import tsx", "--import=tsx", "--import=/tmp/probe.mjs", "--use-openssl-ca --IMPORT=tsx", "--experimental-loader=tsx"])
+      expect(() => refuseDiagnostics({ NODE_OPTIONS: value }, ["--import", "tsx"]), value).toThrow(/^STAGING_NODE_OPTION_REFUSED$/);
     expect(() => refuseDiagnostics({ NODE_OPTIONS: "--max-old-space-size=4096 --enable-source-maps --no-warnings --no-deprecation --use-system-ca" }, [])).not.toThrow();
     // Options that merely contain those words are not refused.
-    for (const flag of ["--use_openssl_ca", "--max-old-space-size=4096", "--import=tsx", "--enable-source-maps"])
+    for (const flag of ["--use_openssl_ca", "--max-old-space-size=4096", "--enable-source-maps"])
       expect(() => refuseDiagnostics({ NODE_OPTIONS: flag }, [flag]), flag).not.toThrow();
   });
   it("never puts a malformed database URL, or its password, into the error", async () => {

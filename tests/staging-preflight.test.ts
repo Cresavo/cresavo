@@ -58,25 +58,32 @@ it("stops the next step before it starts when an env file appears during the run
 });
 
 /** A throwaway git checkout holding the runner's scripts, the package manifest and the dependencies. */
-function salonFixture(root: string, withEnvFile = false) {
+function salonFixture(root: string, withEnvFile = false, firstImport?: string) {
   const salon = join(root, "salon");
   mkdirSync(salon, { recursive: true });
   cpSync(join(repo, "scripts"), join(salon, "scripts"), { recursive: true });
   cpSync(join(repo, "package.json"), join(salon, "package.json"));
   symlinkSync(join(repo, "node_modules"), join(salon, "node_modules"), "dir");
   if (withEnvFile) writeFileSync(join(salon, ".env"), "# fictional, empty\n");
+  // Test-only code evaluated before everything else the runner imports, in this copy only (the
+  // runner refuses any preload but tsx, so it cannot come from the command line).
+  if (firstImport) {
+    const runner = join(salon, "scripts/staging-consent/run.mts");
+    writeFileSync(join(salon, "scripts/staging-consent/fixture-probe.mjs"), firstImport);
+    writeFileSync(runner, `import "./fixture-probe.mjs";\n${readFileSync(runner, "utf8")}`);
+  }
   const git = (...args: string[]) => execFileSync("git", ["-C", salon, "-c", "user.name=Fictional", "-c", "user.email=fictional@example.test", ...args], { encoding: "utf8" });
   git("init", "-q"); writeFileSync(join(salon, ".gitignore"), "node_modules\n.env\n"); git("add", "-A"); git("commit", "-q", "-m", "fixture");
   return salon;
 }
 
-function runPreflight(root: string, salon: string, extra: Record<string, string> = {}, preload: string[] = []) {
+function runPreflight(root: string, salon: string, extra: Record<string, string> = {}) {
   const checkout = join(root, "gateway"), runTmp = join(root, "tmp");
   if (existsSync(checkout)) rmSync(checkout, { recursive: true, force: true });
   mkdirSync(checkout, { recursive: true }); mkdirSync(runTmp, { recursive: true });
   const git = (...args: string[]) => execFileSync("git", ["-C", checkout, "-c", "user.name=Fictional", "-c", "user.email=fictional@example.test", ...args], { encoding: "utf8" }).trim();
   git("init", "-q"); writeFileSync(join(checkout, "README"), "fictional\n"); git("add", "README"); git("commit", "-q", "-m", "fictional");
-  const result = spawnSync(process.execPath, [...preload, "--import", "tsx", join(salon, "scripts/staging-consent/run.mts")], {
+  const result = spawnSync(process.execPath, ["--import", "tsx", join(salon, "scripts/staging-consent/run.mts")], {
     cwd: salon, encoding: "utf8", timeout: 60_000,
     env: { PATH: process.env.PATH ?? "", HOME: root, TMPDIR: runTmp, GATEWAY_CHECKOUT: checkout, STAGING_GATEWAY_REVISION: git("rev-parse", "HEAD"),
       STAGING_PG_ADMIN_URL: "postgresql://booking:fictional-pass@127.0.0.1:5432/postgres?host=/tmp/elsewhere", ...extra } as unknown as NodeJS.ProcessEnv,
@@ -103,13 +110,14 @@ describe.skipIf(process.platform === "win32")("runner preflight in a child proce
       const sentinel = join(root, "operator-debug.log"), content = "operator's own log, must stay as it is\n";
       writeFileSync(sentinel, content);
       const before = statSync(sentinel);
-      // Playwright opens the file asynchronously, so an early exit can hide the write: the probe
-      // records at exit whether any Playwright module was loaded at all.
-      const probe = join(root, "probe.mjs"), loaded = join(root, "loaded.json");
-      writeFileSync(probe, `import { createRequire } from "node:module"; import { writeFileSync } from "node:fs";
+      // Playwright opens the file asynchronously, so an early exit can hide the write: a probe,
+      // imported first by the fixture's copy of the runner, records at exit whether any Playwright
+      // module was loaded at all.
+      const loaded = join(root, "loaded.json");
+      const probe = `import { createRequire } from "node:module"; import { writeFileSync } from "node:fs";
         const cache = createRequire(import.meta.url).cache;
-        process.on("exit", () => writeFileSync(${JSON.stringify(loaded)}, JSON.stringify(Object.keys(cache).some(key => /[\\\\/]playwright(-core)?[\\\\/]/.test(key)))));`);
-      const { output, status } = runPreflight(root, salonFixture(root), { DEBUG_FILE: sentinel }, ["--import", probe]);
+        process.on("exit", () => writeFileSync(${JSON.stringify(loaded)}, JSON.stringify(Object.keys(cache).some(key => /[\\\\/]playwright(-core)?[\\\\/]/.test(key)))));`;
+      const { output, status } = runPreflight(root, salonFixture(root, false, probe), { DEBUG_FILE: sentinel });
       expect(readFileSync(loaded, "utf8"), "Playwright was loaded before the diagnostics check").toBe("false");
       expect(status).not.toBe(0);
       expect(output.includes("STAGING_DIAGNOSTICS_REFUSED"), "the refusal code is reported").toBe(true);

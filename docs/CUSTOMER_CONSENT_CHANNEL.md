@@ -23,7 +23,9 @@ calendar (`/admin`, `/admin/*`, `/api/admin/*`, `/api/availability`), the API th
 gateway calls (`/api/v1/*`), the language choice (`/api/locale`) and static assets
 (`/_next/*`, `/favicon.ico`, `/brand/*`, `/robots.txt`). Every other path on that host
 answers `404`, and the owner pages there hide their link to the customer booking page and
-offer the administrator login instead of the demo sign-in, whose endpoint the host does not serve. Without the channel, host routing is unchanged.
+offer the administrator login instead of the demo sign-in, whose endpoint the host does not serve. The
+consent and owner pages there link no web app manifest: the studio's `/manifest.webmanifest`
+is not served on that host. Without the channel, host routing is unchanged.
 
 ## Configuration
 
@@ -214,11 +216,14 @@ The runner:
    Playwright is loaded only after them. Option names are compared as Node reads
    them (`--tls_keylog` is `--tls-keylog`), and a `NODE_OPTIONS` with any quote or backslash
    is refused outright. Beyond that, `NODE_OPTIONS` and the runner's own Node flags may hold
-   only allowlisted options: `--import` (tsx), the CA choices `--use-openssl-ca`,
+   only allowlisted options: the CA choices `--use-openssl-ca`,
    `--use-bundled-ca`, `--use-system-ca`, `--max-old-space-size`, `--enable-source-maps`,
    `--no-warnings`, `--no-deprecation` and the type-stripping switch. Anything else (reports,
    heap snapshots, diagnostic directories, `--require`, a future option) is refused with
-   `STAGING_NODE_OPTION_REFUSED`. Every child (salon, gateway, agent, build steps, browsers) gets a
+   `STAGING_NODE_OPTION_REFUSED`. The only preload accepted is the tsx loader, given on the
+   runner's command line exactly as `npm run test:staging-consent` passes it (`--import tsx`):
+   any other `--import`, `--loader` or `--require`, and any `--import` in `NODE_OPTIONS`, runs
+   code before the preflight and is refused the same way. Every child (salon, gateway, agent, build steps, browsers) gets a
    closed environment built by the runner, never its own, and the runner refuses to start a
    child whose environment names `NODE_OPTIONS`, `DEBUG`, `NODE_DEBUG` or `SSLKEYLOGFILE`. It also refuses settings that would make
    Playwright drive a browser elsewhere and send approval links off the machine: any

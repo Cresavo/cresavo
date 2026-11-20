@@ -38,11 +38,24 @@ export function nodeOptionNames(values: readonly string[]) {
 /**
  * The only Node options the runner accepts, in NODE_OPTIONS or its own command line. Everything else
  * is refused: Node keeps adding modes that write process state to disk (reports, heap snapshots,
- * diagnostic directories) outside the run directory and the output scan. `--import` loads tsx (and
- * the preflight test's probe); the CA options choose which certificates to trust.
+ * diagnostic directories) outside the run directory and the output scan. The CA options choose which
+ * certificates to trust. Preloads are not on the list: see TSX_LOADER.
  */
-const ALLOWED_NODE_OPTIONS = new Set(["--import", "--use-openssl-ca", "--use-bundled-ca", "--use-system-ca", "--max-old-space-size",
+const ALLOWED_NODE_OPTIONS = new Set(["--use-openssl-ca", "--use-bundled-ca", "--use-system-ca", "--max-old-space-size",
   "--enable-source-maps", "--no-warnings", "--no-deprecation", "--experimental-strip-types", "--no-experimental-strip-types"]);
+/**
+ * The one preload the runner accepts: tsx, exactly as `npm run test:staging-consent` passes it
+ * (`node --import tsx run.mts`). Any other `--import` runs code before the preflight, so it is
+ * refused, and so is any `--import` in NODE_OPTIONS (which every child Node would inherit too).
+ */
+function refusePreloads(nodeOptions: string, execArgv: readonly string[]) {
+  if (nodeOptionNames([nodeOptions]).includes("--import")) throw new Error("STAGING_NODE_OPTION_REFUSED");
+  for (let i = 0; i < execArgv.length; i++) {
+    if (nodeOptionNames([execArgv[i]])[0] !== "--import") continue;
+    if (execArgv[i] !== "--import" || execArgv[i + 1] !== "tsx") throw new Error("STAGING_NODE_OPTION_REFUSED");
+    i++;
+  }
+}
 /** Checks the environment and this process's own Node flags (`node --tls-keylog=... run.mts`). */
 export function refuseDiagnostics(env: Record<string, string | undefined>, execArgv: readonly string[] = process.execArgv) {
   for (const name of DIAGNOSTIC_SETTINGS) if (env[name]) throw new Error("STAGING_DIAGNOSTICS_REFUSED");
@@ -52,7 +65,8 @@ export function refuseDiagnostics(env: Record<string, string | undefined>, execA
   if (/["'\\]/.test(env.NODE_OPTIONS ?? "")) throw new Error("STAGING_NODE_OPTIONS_AMBIGUOUS");
   const names = nodeOptionNames([env.NODE_OPTIONS ?? "", ...execArgv]);
   if (names.some(flag => DIAGNOSTIC_FLAGS.test(flag))) throw new Error("STAGING_DIAGNOSTICS_REFUSED");
-  if (names.some(flag => !ALLOWED_NODE_OPTIONS.has(flag))) throw new Error("STAGING_NODE_OPTION_REFUSED");
+  refusePreloads(env.NODE_OPTIONS ?? "", execArgv);
+  if (names.some(flag => flag !== "--import" && !ALLOWED_NODE_OPTIONS.has(flag))) throw new Error("STAGING_NODE_OPTION_REFUSED");
 }
 
 // Settings that make Playwright drive a browser somewhere else: a Selenium grid

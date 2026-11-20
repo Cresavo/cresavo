@@ -357,6 +357,8 @@ try {
       assert.equal(view.terms.time, DateTime.fromISO(happy.start).setZone(timeZone).toFormat("HH:mm"));
       assert.equal(timeZone, "Europe/Stockholm");
       assert.equal(view.buttons, 2);
+      // The consent host does not serve the studio's install manifest, so its pages do not link it.
+      assert.equal(await view.page.locator('link[rel="manifest"]').count(), 0);
       const after = await state(happyProposal.id);
       assert.equal(after.proposal.status, "pending");
       assert.equal(after.mandates, 0);
@@ -393,6 +395,7 @@ try {
     try {
       const anonymous = await operatorFetch(tls.ca, `${salonOrigin}/admin?view=day&date=${DateTime.fromISO(happy.start).setZone(timeZone).toISODate()}`);
       assert(!anonymous.text.includes(bookingId));
+      assert(anonymous.text.includes("<html") && !/rel="manifest"/.test(anonymous.text));
       await ownerOpensBooking(ownerBrowser, salonOrigin, DateTime.fromISO(happy.start).setZone(timeZone).toISODate()!, bookingId, email, password);
     } finally {
       await operator.$transaction([operator.adminSession.deleteMany({ where: { userId: owner.id } }), operator.adminUser.delete({ where: { id: owner.id } })]);
