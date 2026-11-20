@@ -441,6 +441,7 @@ const settledAt = (state: DemoState, now: number) =>
  * up at the same instant (see `advanceWaitlist`): a time an action frees can be
  * offered in the same commit, and an action never sees a hold that has ended.
  */
+// eslint-disable-next-line no-restricted-syntax -- Legacy direct callers use the wall clock; persistent stores pass their clock.
 export function reduce(state: DemoState, action: DemoAction, now = Date.now(), payments = demoPayments): DemoState {
   return withSlotClock(now, () => {
     if (action.type === "waitlist/advance") return advanceWaitlist(state, state, now);

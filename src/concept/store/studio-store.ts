@@ -3,7 +3,7 @@ import type { OutboxEntry } from "../connections/simulated/outbox";
 import { canonicalJson, jsonEqual } from "../data/json-equal";
 import { migrateState } from "../data/migrate";
 import { salonClock } from "../tools/clock";
-import type { DemoState } from "../data/types";
+import type { DateKey, DemoState } from "../data/types";
 import type { LogActor, LogSource } from "../log/types";
 
 // The one way studio and server code reads and changes a salon's state.
@@ -66,15 +66,19 @@ export interface TenantAction {
   /** 1, 2, 3… per tenant, in commit order, never reused. */
   seq: number;
   tenantId: TenantId;
-  action: DemoAction;
-  actor: LogActor;
-  source: LogSource;
+  action: DemoAction | SystemAction;
+  actor: LogActor | "system";
+  source: LogSource | "system";
   /** Epoch milliseconds of the commit. */
   at: number;
   idempotencyKey?: string;
   /** The snapshot version this change produced. */
   resultingVersion: number;
 }
+
+export type SystemAction =
+  | { type: "system/reset"; payload: { generatedFor: DateKey } }
+  | { type: "system/replace"; payload: { reason: string } };
 
 export type ApplyFailure =
   /** `expectedVersion` was stale, or (browser) this tab could not confirm it had the latest write in time. Nothing changed; reload and retry. */
@@ -101,7 +105,7 @@ export type ApplyResult =
       /** True when an earlier apply with the same idempotency key is being returned. */
       replayed: boolean;
     }
-  | { ok: false; reason: ApplyFailure; /** The tenant's current version, when known. */ version?: number };
+  | { ok: false; reason: ApplyFailure; detail?: string; /** The tenant's current version, when known. */ version?: number };
 
 /** Sent to subscribers after a change is committed. */
 export interface StoreChange {
@@ -140,8 +144,8 @@ export interface HistoryPage {
  * - **Effects after commit.** Payment calls are staged while the reducer
  *   runs and published only when the change is committed, then reported in
  *   the result and to subscribers. A conflict or refusal publishes nothing.
- * - **Log.** Every commit appends one `TenantAction`; entries are never
- *   changed or removed by the store.
+ * - **Log.** Every commit appends one `TenantAction`. Privileged erasure
+ *   redacts entries, and maintenance applies demo and sandbox retention.
  * - **Isolation.** Nothing in one tenant's state, log, keys or effects is
  *   visible through another tenant's id.
  * - **Detached values.** Everything returned or passed to a listener is a

@@ -108,6 +108,7 @@ export function withSlotClock<T>(now: number, run: () => T): T {
 function activeHolds(ctx: SlotContext, date: DateKey): (CheckoutHold | WaitlistOffer)[] {
   const offers = ctx.waitlistOffers?.filter(o => o.status === "offered") ?? [];
   if (!ctx.checkoutHolds?.length && !offers.length) return [];
+  // eslint-disable-next-line no-restricted-syntax -- Direct browser slot reads use the wall clock outside a store operation.
   const now = fixedNow ?? Date.now();
   return [...(ctx.checkoutHolds ?? []), ...offers].filter(h => h.date === date && h.expiresAt > now);
 }

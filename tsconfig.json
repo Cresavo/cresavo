@@ -32,6 +32,7 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    "scripts/*-store.mts",
     "scripts/agentprov/**/*.mts",
     "scripts/integration/**/*.mts",
     ".next/types/**/*.ts",

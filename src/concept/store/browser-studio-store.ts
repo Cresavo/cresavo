@@ -234,6 +234,7 @@ export class BrowserStudioStore implements StudioStore {
       record.seen = state;
       return { ok: false, reason: "rejected", version: record.version };
     }
+    // eslint-disable-next-line no-restricted-syntax -- Browser audit stamps use the local wall clock.
     const at = Date.now();
     const defaults = defaultMeta(action, at);
     record.seen = state;
