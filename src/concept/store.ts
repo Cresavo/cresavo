@@ -117,29 +117,38 @@ function dropEpochKey(workspace: Workspace) {
   snapshot.epochFromKey = false;
 }
 
+/** The lifetime each state object was read or written with: a state and its lifetime never come apart. */
+const lifetimes = new WeakMap<DemoState, string | undefined>();
+
+function keep(state: DemoState | null | undefined, epoch: string | undefined) {
+  if (state) lifetimes.set(state, epoch);
+}
+
 /**
- * The lifetime of `state`, the workspace's salon as last read or written. It
- * never reads storage, so it can run inside a dispatch guard without moving
- * the store's freshness check.
+ * The lifetime of `state`, a salon this store read or wrote. It never reads
+ * storage, so it can run inside a dispatch guard without moving the store's
+ * freshness check.
  */
 export function epochOf(workspace: Workspace, state: DemoState): string {
-  const lifetime = snapshots[workspace].epoch ?? "legacy";
+  const lifetime = (lifetimes.has(state) ? lifetimes.get(state) : snapshots[workspace].epoch) ?? "legacy";
   return workspace === "demo" ? `${lifetime}:${state.generatedFor}` : lifetime;
 }
 
-/** The open lifetime of a workspace's salon, or null when it has none. Commands carry it to be refused once the salon is replaced. */
-function salonEpoch(workspace: Workspace): string | null {
-  initialize();
-  refresh(workspace);
-  const state = snapshots[workspace].state;
-  return state ? epochOf(workspace, state) : null;
+/**
+ * The target of a command made from `state`: the salon it belongs to, with the
+ * lifetime it had when this state was read. Capture it with the state a page
+ * renders, never later, so a replacement read meanwhile cannot lend its
+ * lifetime to the old record. Null for a state this store did not read.
+ */
+export function targetOf(state: DemoState | null | undefined): { workspace: Workspace; epoch: string } | null {
+  if (!state || !lifetimes.has(state)) return null;
+  const workspace: Workspace = state.industry ? "own" : "demo";
+  return { workspace, epoch: epochOf(workspace, state) };
 }
 
-/** The salon this tab has open, as commands bind to it: its workspace and lifetime. */
+/** The target of the salon this tab shows now, from the same snapshot as `currentState()`; it does not read storage again. */
 export function currentTarget(): { workspace: Workspace; epoch: string } | null {
-  initialize();
-  const epoch = salonEpoch(active);
-  return epoch === null ? null : { workspace: active, epoch };
+  return targetOf(currentState());
 }
 
 function removeOwnSalon(announce: boolean) {
@@ -251,6 +260,7 @@ function refresh(workspace: Workspace) {
   if (raw === snapshot.raw && !staleDay) return false;
   snapshot.raw = raw;
   const had = !!snapshot.state;
+  const before = snapshot.state ? epochOf(workspace, snapshot.state) : undefined;
   erasedOnLoad = false;
   let document: unknown = null;
   snapshot.epoch = undefined;
@@ -261,8 +271,10 @@ function refresh(workspace: Workspace) {
     // A corrupt snapshot falls back to fresh demo data.
   }
   snapshot.state = load(document, workspace);
+  keep(snapshot.state, snapshot.epoch);
   if (erasedOnLoad && snapshot.state) persistErasure(workspace, raw, snapshot.state);
-  if (had && !snapshot.state) salonRemoved(workspace);
+  // Gone, or another lifetime (a replacement from another tab, a new day's sample): records of the earlier salon end.
+  if (had && (!snapshot.state || epochOf(workspace, snapshot.state) !== before)) salonRemoved(workspace);
   snapshot.version = raw && snapshot.state ? { day: snapshot.state.generatedFor, seq: snapshot.state.seq } : undefined;
   return true;
 }
@@ -320,6 +332,7 @@ function setState(next: DemoState, recheckStorage = false, afterWrite?: () => vo
     // The demo still works in memory.
   }
   snapshot.state = next;
+  keep(next, snapshot.epoch);
   afterWrite?.();
   notify();
   return true;
@@ -359,6 +372,14 @@ export function currentState(): DemoState | null {
 export function latestState(): DemoState | null {
   refreshFromStorage();
   return getSnapshot();
+}
+
+/** A workspace's salon as saved now, open in this tab or not, or null. Used by `BrowserStudioStore` before serving that salon's records. */
+export function latestStateOf(workspace: Workspace): DemoState | null {
+  if (typeof window === "undefined") return null;
+  initialize();
+  refresh(workspace);
+  return snapshots[workspace].state ?? null;
 }
 
 /** The saved text behind the current state as last read or written, for freshness checks. */
@@ -551,6 +572,7 @@ export async function switchSalon(to: Workspace, draft?: SalonDraft) {
       try { window.localStorage.setItem(storageKey(to), raw); }
       catch { return false; }
       snapshots[to] = { raw, state: next, epoch, version: { day: next.generatedFor, seq: next.seq } };
+      keep(next, epoch);
     }
     select(to);
     return true;

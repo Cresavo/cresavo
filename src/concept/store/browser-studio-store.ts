@@ -8,6 +8,7 @@ import {
   currentState,
   dispatchWithLog,
   latestState,
+  latestStateOf,
   epochOf,
   onSalonRemoved,
   subscribeStore,
@@ -258,6 +259,13 @@ export class BrowserStudioStore implements StudioStore {
           refused = "not-found";
           return false;
         }
+        // On every pass, first: a new lifetime (another tab replaced the salon, a new day's sample) is not what the
+        // command was made for, whatever its version or guard would say. Read from `latest` without refreshing, so
+        // dispatch's own check for a write meanwhile still sees it.
+        if (extras.epoch !== undefined && epochOf(tenantId as BrowserTenant, latest) !== extras.epoch) {
+          refused = "replaced";
+          return false;
+        }
         const seenVersion = record.version;
         if (observe(latest).version !== seenVersion) {
           if (options.expectedVersion !== undefined) {
@@ -267,12 +275,6 @@ export class BrowserStudioStore implements StudioStore {
         }
         if (extras.guard && !extras.guard(latest)) {
           refused = "rejected";
-          return false;
-        }
-        // A new lifetime (another tab replaced the salon, a new day's sample) is not what the command was made for.
-        // Read from `latest` without refreshing, so dispatch's own check for a write meanwhile still sees it.
-        if (extras.epoch !== undefined && epochOf(tenantId as BrowserTenant, latest) !== extras.epoch) {
-          refused = "replaced";
           return false;
         }
         base = latest;
@@ -334,6 +336,10 @@ export class BrowserStudioStore implements StudioStore {
   }
 
   async history(tenantId: TenantId, query: HistoryQuery): Promise<HistoryPage> {
-    return pageHistory(tab.tenants.get(tenantId)?.log ?? [], query);
+    // Read the salon first: a replacement or removal another tab made ends the cached records before they are served.
+    const state = tenantId === "demo" || tenantId === "own" ? latestStateOf(tenantId) : null;
+    const record = tab.tenants.get(tenantId);
+    const current = !!state && !!record && browserTenantOf(state) === tenantId && record.epoch === epochOf(tenantId as BrowserTenant, state);
+    return pageHistory(current ? record.log : [], query);
   }
 }

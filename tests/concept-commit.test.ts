@@ -98,20 +98,72 @@ it("refuses a command made for an earlier salon: a new sample business or a new 
 it("never replays an idempotency key from a salon another tab replaced", async () => {
   const state = createDemoState(today);
   const storage = tab(state);
-  const { commitAction, currentTarget } = await modules();
+  const { commitAction, currentTarget, latestState } = await modules();
   const dismiss = { type: "card/dismiss" as const, id: "welcome" };
   expect((await commitAction(currentTarget()!, dismiss, { idempotencyKey: "k-1" })).ok).toBe(true);
-  // Another tab starts a new sample business.
-  storage.items.set("salong-eko-demo", JSON.stringify(createDemoState(today)));
-  storage.items.set("salong-eko-demo-epoch", "another-tab");
+  // Another tab starts a new sample business, and this tab reads it (as its storage event would make it).
+  storage.items.set("salong-eko-demo", JSON.stringify({ ...createDemoState(today), epoch: "another-tab" }));
+  latestState();
   const target = currentTarget()!;
   const again = await commitAction(target, dismiss, { idempotencyKey: "k-1" });
   expect(again).toMatchObject({ ok: true, replayed: false });
   expect(storage.saved().dismissedCards).toEqual(["welcome"]);
   // A different action with that key is a new command in the new salon, not a mismatch.
-  storage.items.set("salong-eko-demo", JSON.stringify(createDemoState(today)));
-  storage.items.set("salong-eko-demo-epoch", "a-third-tab");
+  storage.items.set("salong-eko-demo", JSON.stringify({ ...createDemoState(today), epoch: "a-third-tab" }));
+  latestState();
   expect(await commitAction(currentTarget()!, { type: "card/dismiss", id: "other" }, { idempotencyKey: "k-1" })).toMatchObject({ ok: true, replayed: false });
+});
+
+it("binds a command to the salon it was read from, even before the replacement's storage event arrives", async () => {
+  const state = createDemoState(today);
+  const storage = tab(state);
+  const { commitAction, currentState, currentTarget, targetOf } = await modules();
+  const shown = currentState()!;
+  const visit = upcoming(shown);
+  // Another tab replaces the salon; this tab has not heard about it yet.
+  storage.items.set("salong-eko-demo", JSON.stringify({ ...createDemoState(today), epoch: "another-tab" }));
+  const replacement = storage.items.get("salong-eko-demo");
+  const target = currentTarget()!;
+  expect(target).toEqual(targetOf(shown));
+  expect(await commitAction(target, { type: "booking/cancel", id: visit.id })).toMatchObject({ ok: false, reason: "replaced" });
+  expect(storage.items.get("salong-eko-demo")).toBe(replacement);
+  expect(targetOf(createDemoState(today))).toBeNull();
+});
+
+it("ends the earlier salon's sends and history when a replacement is read", async () => {
+  const state = createDemoState(today);
+  const storage = tab(state);
+  const { commitAction, currentTarget, dispatchWithLog, latestState, sms } = await modules();
+  const { BrowserStudioStore } = await import("@/concept/store/browser-studio-store");
+  const { textWaitlistAboutGaps } = await import("@/concept/booking/waitlist-offer");
+  const note = { type: "inbox/add" as const, item: { kind: "system" as const, date: today, time: 0, title: "Free times", body: "Texted", read: false, handled: true } };
+  dispatchWithLog(note, undefined, undefined, { send: (current) => textWaitlistAboutGaps(current, today) });
+  expect(sms()).toHaveLength(1);
+  expect((await commitAction(currentTarget()!, { type: "card/dismiss", id: "x" })).ok).toBe(true);
+  expect((await new BrowserStudioStore().history("demo", { limit: 10 })).entries).toHaveLength(1);
+  storage.items.set("salong-eko-demo", JSON.stringify({ ...createDemoState(today), epoch: "another-tab" }));
+  // History is the first thing asked for after the replacement: it is not the earlier salon's.
+  expect((await new BrowserStudioStore().history("demo", { limit: 10 })).entries).toEqual([]);
+  latestState();
+  expect(sms()).toEqual([]);
+});
+
+it("reports a replacement during preparation as replaced, not as a conflict", async () => {
+  const state = createDemoState(today);
+  const storage = tab(state);
+  const { commitAction, currentTarget } = await modules();
+  const ready = await commitAction(currentTarget()!, { type: "card/dismiss", id: "first" });
+  expect(ready.ok).toBe(true);
+  if (!ready.ok) return;
+  let first = true;
+  const send = () => {
+    if (first) storage.items.set("salong-eko-demo", JSON.stringify({ ...createDemoState(today), epoch: "another-tab" }));
+    first = false;
+    return true;
+  };
+  const result = await commitAction(currentTarget()!, { type: "card/dismiss", id: "second" }, { expectedVersion: ready.version, send, guard: (current) => current.dismissedCards.includes("first") });
+  expect(result).toMatchObject({ ok: false, reason: "replaced" });
+  expect(storage.saved().dismissedCards ?? []).not.toContain("second");
 });
 
 it("keeps a write another tab made while the commit was checking", async () => {
