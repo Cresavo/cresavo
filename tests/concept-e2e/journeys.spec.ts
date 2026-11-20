@@ -150,9 +150,21 @@ test("a proposal from an outside AI waits in the Inbox until the owner approves 
   await expect.poll(async () => (await state(page)).bookings.find(b => b.id === booking.id)?.start).toBe(start);
 });
 
-test("the owner marks Anna off on Friday and Today asks to move the affected bookings", async ({ page }) => {
+/** A weekday at least two days ahead on which Anna has bookings, so the journey never depends on today's date or time. */
+function annaBookedWeekday(initial: DemoState): string {
+  const anna = initial.staff.find(member => member.firstName === "Anna");
+  if (!anna) throw new Error("No Anna in the demo data");
+  for (let offset = 2; offset <= 6; offset++) {
+    const date = addDays(today, offset);
+    if (initial.bookings.some(b => b.staffId === anna.id && b.date === date && b.status === "booked"))
+      return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" });
+  }
+  throw new Error("Anna has no bookings in the coming week of the demo data");
+}
+
+test("the owner marks Anna off on a booked day and Today asks to move the affected bookings", async ({ page }) => {
   await page.goto("/studio");
-  await command(page, "Anna is off on Friday");
+  await command(page, `Anna is off on ${annaBookedWeekday(englishDemoState(today))}`);
   await page.getByRole("button", { name: "Approve", exact: true }).click();
   await page.goto("/studio");
   await expect(page.getByText(/\d+ bookings? needs? moving/)).toBeVisible();
