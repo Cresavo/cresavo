@@ -45,6 +45,8 @@ export interface Reply {
   undoId?: string;
   /** The salon the reply was made for: its card is approved, and its change undone, only there. */
   target?: Target;
+  /** Its change or Undo is being saved: the card cannot be edited, declined, refined or picked meanwhile. */
+  pending?: boolean;
   /** The owner's words this reply answers, for Edit. */
   request?: string;
   /** How the owner said it. Carried through approval so the activity log tells voice from typed commands. */

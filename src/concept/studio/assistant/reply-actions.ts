@@ -8,9 +8,10 @@ import { undoBlockReason } from "../../log/undo";
 import type { LogMeta } from "../../log/types";
 import { canChangeBooking, staffViewer } from "../../ops/access";
 import { currentRole } from "../../ops/role";
-import { currentState, currentTarget } from "../../store";
+import { currentState, currentTarget, latestStateOf, targetOf } from "../../store";
+import type { Target } from "../../store/commit";
 import { commitAction } from "../../store/commit";
-import { replyOf, updateReply } from "./thread-store";
+import { replyIn, replyOf, threadKey, updateReply, updateReplyIn } from "./thread-store";
 
 // What the owner can do with a reply card in the panel. Plain functions over
 // the demo store and the thread, so the rules are testable without React.
@@ -45,14 +46,20 @@ async function once<T>(id: string, save: () => Promise<T>): Promise<T | false> {
   }
 }
 
-/** Applies a change the owner approved on a reply. Undo sits on the card, since a toast would hide behind the panel. */
+/**
+ * Applies a change the owner approved on a reply. Undo sits on the card, since a toast would hide behind the panel.
+ * The card is pending while the change is saved, and the outcome goes to the conversation it was approved in,
+ * even if the owner switched role or salon meanwhile.
+ */
 export function applyReply(id: string, action: DemoAction, meta: Meta): Promise<boolean> {
   return once(id, async () => {
-    const reply = replyOf(id);
-    if (!reply || reply.status) return false;
+    const thread = threadKey();
+    const reply = replyIn(thread, id);
+    if (!reply || reply.status || reply.pending) return false;
     const target = targetFor(reply);
+    updateReplyIn(thread, id, { pending: true });
     const result = target && await commitAction(target, action, { meta, guard: (state) => canApplyReply(state, action) }).catch(() => null);
-    updateReply(id, result?.ok ? { status: "approved", undoId: result.logId ?? undefined, target: target ?? undefined } : { status: "failed" });
+    updateReplyIn(thread, id, result?.ok ? { status: "approved", undoId: result.logId ?? undefined, target: target ?? undefined, pending: undefined } : { status: "failed", pending: undefined });
     return !!result?.ok;
   }).then((done) => done === true);
 }
@@ -76,33 +83,63 @@ export function replyUndoBlockReason(reply: Pick<Reply, "undoId">) {
   return state ? undoBlockReason(state, state.log.find((entry) => entry.id === reply.undoId)) : "changed";
 }
 
+/** Whether the change behind `undoId` can never be undone in `target`'s salon again: it is gone, replaced or changed since. */
+function undoGone(target: Target, undoId: string): boolean {
+  const state = latestStateOf(target.workspace);
+  if (!state || targetOf(state)?.epoch !== target.epoch) return true;
+  return undoBlockReason(state, state.log.find((entry) => entry.id === undoId)) === "changed";
+}
+
 /**
- * Takes back the change a reply made, in the salon it was made in. The card
- * says "Undone" only when the store accepted it; a booking conflict stays
- * visible on the reply while the original time is unavailable.
+ * Takes back the change a reply made, in the salon it was made in, writing the
+ * outcome to the conversation it was pressed in. The card says "Undone" only
+ * when the store accepted it. Undo stays offered after an error the store did
+ * not explain, or a conflict that can clear again (time taken, card spent); it
+ * is withdrawn only when the store confirms the change can never be undone.
  */
 export function undoReply(id: string, undoId: string): Promise<boolean> {
   return once(id, async () => {
-    const reply = replyOf(id);
-    if (reply?.undoId !== undoId) return false;
+    const thread = threadKey();
+    const reply = replyIn(thread, id);
+    if (reply?.undoId !== undoId || reply.pending) return false;
     const target = targetFor(reply);
-    const result = target && await commitAction(target, { type: "log/undo", id: undoId }).catch(() => null);
-    if (result?.ok) updateReply(id, { status: "undone", undoId: undefined });
-    // That salon is gone, or this one changed the record: nothing to take back any more.
-    else if (!result || result.reason === "replaced" || result.reason === "not-found" || replyUndoBlockReason({ undoId }) === "changed") updateReply(id, { undoId: undefined });
-    // A conflict (time taken, customer in use, card spent) can clear again, so the undo stays offered.
+    if (!target) {
+      updateReplyIn(thread, id, { undoId: undefined });
+      return false;
+    }
+    updateReplyIn(thread, id, { pending: true });
+    let result: Awaited<ReturnType<typeof commitAction>> | undefined;
+    try {
+      result = await commitAction(target, { type: "log/undo", id: undoId });
+    } catch {
+      result = undefined;
+    }
+    if (result?.ok) updateReplyIn(thread, id, { status: "undone", undoId: undefined, pending: undefined });
+    else if (result && (result.reason === "replaced" || result.reason === "not-found" || undoGone(target, undoId))) updateReplyIn(thread, id, { undoId: undefined, pending: undefined });
+    else updateReplyIn(thread, id, { pending: undefined });
     return !!result?.ok;
   }).then((done) => done === true);
 }
 
-/** A clarifying choice: the picked proposal replaces the card (and any model reading still on its way). */
+/** A clarifying choice: the picked proposal replaces the card (and any model reading still on its way). Not while it is being saved. */
 export function pickReply(id: string, choice: Extract<Choice, { proposal: Proposal }>) {
+  if (replyOf(id)?.pending) return;
   updateReply(id, { card: choice.proposal });
 }
 
-/** Takes the owner's words back into the message box. The old proposal can no longer be approved. Returns the words. */
-export function editReply(id: string): string {
-  const request = replyOf(id)?.request ?? "";
+/** "Not now" on a card. Not while its change is being saved. */
+export function declineReply(id: string) {
+  if (replyOf(id)?.pending) return;
+  updateReply(id, { status: "declined" });
+}
+
+/**
+ * Takes the owner's words back into the message box. The old proposal can no longer be approved. Returns the words,
+ * or null while the card's change is being saved: the card then shows what was saved, and the box is left alone.
+ */
+export function editReply(id: string): string | null {
+  const reply = replyOf(id);
+  if (!reply || reply.pending) return null;
   updateReply(id, { status: "edited" });
-  return request;
+  return reply.request ?? "";
 }

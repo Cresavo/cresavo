@@ -34,28 +34,42 @@ function storageKey(role: Role) {
   return role === "owner" ? base : `${base}-staff`;
 }
 
-function load(role: Role): ThreadState {
+/** Which conversation: a role's, in the salon shown now. An async save captures it first, so its outcome lands there. */
+export function threadKey(role = currentRole()): string {
+  return storageKey(role);
+}
+
+function load(key: string): ThreadState {
   try {
-    const saved = JSON.parse(window.localStorage.getItem(storageKey(role)) ?? "null") as ThreadState | null;
-    if (saved?.day === today()) return { ...saved, open: false, listen: false };
+    const saved = JSON.parse(window.localStorage.getItem(key) ?? "null") as ThreadState | null;
+    // A save that was running when the page went away has no outcome to wait for: its card is actionable again.
+    if (saved?.day === today()) return { ...saved, open: false, listen: false, messages: saved.messages.map((m) => (m.reply?.pending ? { ...m, reply: { ...m.reply, pending: undefined } } : m)) };
     return fresh(saved?.speak);
   } catch {
     return fresh();
   }
 }
 
-function snapshot(role = currentRole()): ThreadState {
-  return threads[storageKey(role)] ??= load(role);
+function snapshotAt(key: string): ThreadState {
+  return threads[key] ??= load(key);
 }
 
-function update(patch: Partial<ThreadState>, role = currentRole()) {
-  const thread = threads[storageKey(role)] = { ...snapshot(role), ...patch };
+function snapshot(role = currentRole()): ThreadState {
+  return snapshotAt(storageKey(role));
+}
+
+function updateAt(key: string, patch: Partial<ThreadState>) {
+  const thread = threads[key] = { ...snapshotAt(key), ...patch };
   try {
-    window.localStorage.setItem(storageKey(role), JSON.stringify({ ...thread, messages: thread.messages.slice(-MAX_MESSAGES) }));
+    window.localStorage.setItem(key, JSON.stringify({ ...thread, messages: thread.messages.slice(-MAX_MESSAGES) }));
   } catch {
     // The conversation then lasts until the page is reloaded.
   }
   listeners.forEach((listener) => listener());
+}
+
+function update(patch: Partial<ThreadState>, role = currentRole()) {
+  updateAt(storageKey(role), patch);
 }
 
 const serverThread = fresh();
@@ -106,7 +120,8 @@ export function refineReply(id: string, patch: Partial<Reply>, context?: ThreadC
   const { messages } = snapshot(role);
   const message = messages.find((m) => m.id === id);
   const current = messages[messages.length - 1]?.id === id;
-  if (!message?.reply?.refining || message.reply.status || !current) {
+  // A reply whose change is being saved keeps the proposal that is being saved.
+  if (!message?.reply?.refining || message.reply.status || message.reply.pending || !current) {
     if (message?.reply?.refining) updateReply(id, {}, role);
     return false;
   }
@@ -117,16 +132,26 @@ export function refineReply(id: string, patch: Partial<Reply>, context?: ThreadC
   return true;
 }
 
+/** Changes a reply in the conversation `key` (see `threadKey`). Any pending refinement is discarded. */
+export function updateReplyIn(key: string, id: string, patch: Partial<Reply>) {
+  const { messages } = snapshotAt(key);
+  if (!messages.some((message) => message.id === id && message.reply)) return;
+  updateAt(key, { messages: messages.map((m) => (m.id === id && m.reply ? { ...m, text: patch.text ?? m.text, reply: { ...m.reply, refining: undefined, ...patch } } : m)) });
+}
+
 /** Changes a reply after it was shown: AI wording arrived, or the owner acted on its card. Any pending refinement is discarded. */
 export function updateReply(id: string, patch: Partial<Reply>, role = currentRole()) {
-  const { messages } = snapshot(role);
-  if (!messages.some((message) => message.id === id && message.reply)) return;
-  update({ messages: messages.map((m) => (m.id === id && m.reply ? { ...m, text: patch.text ?? m.text, reply: { ...m.reply, refining: undefined, ...patch } } : m)) }, role);
+  updateReplyIn(storageKey(role), id, patch);
+}
+
+/** A reply in the conversation `key`. */
+export function replyIn(key: string, id: string): Reply | undefined {
+  return snapshotAt(key).messages.find((m) => m.id === id)?.reply;
 }
 
 /** A reply in the open conversation. */
 export function replyOf(id: string): Reply | undefined {
-  return snapshot().messages.find((m) => m.id === id)?.reply;
+  return replyIn(storageKey(currentRole()), id);
 }
 
 /** Clears the conversation and returns the one that ended, so it can be summarised. */

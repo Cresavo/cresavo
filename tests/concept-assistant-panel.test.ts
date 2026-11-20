@@ -146,6 +146,49 @@ it("blocks a staff approval when another tab reassigned the booking", async () =
   expect(store.currentState()!.bookings.find((item) => item.id === booking.id)).toMatchObject({ status: "booked", staffId: state.staff[0].id });
 });
 
+describe("a reply while its change is being saved", () => {
+  const aiReading = { source: "ai" as const, text: "AI reading", card: { kind: "choose" as const, title: "AI", choices: [] } };
+
+  it("cannot be edited, declined or refined until the save has an outcome", async () => {
+    const { actions, thread, ask, reply, approve } = await setup();
+    const id = ask({ refining: true });
+    const saving = approve(id);
+    expect(reply(id).pending).toBe(true);
+    expect(actions.editReply(id)).toBeNull();
+    actions.declineReply(id);
+    expect(thread.refineReply(id, aiReading)).toBe(false);
+    expect(await saving).toBe(true);
+    expect(reply(id)).toMatchObject({ status: "approved", source: "rules", text: "New price" });
+    expect(reply(id).pending).toBeUndefined();
+  });
+
+  it("records the outcome in the conversation it was approved in, after a switch to another role", async () => {
+    const { ask, reply, approve, store, service } = await setup();
+    const { setRole } = await import("@/concept/ops/role");
+    const id = ask();
+    const saving = approve(id);
+    setRole("staff");
+    expect(await saving).toBe(true);
+    setRole("owner");
+    expect(reply(id)).toMatchObject({ status: "approved", undoId: expect.any(String) });
+    expect(store.currentState()!.services[0].price).toBe(service.price + 50);
+  });
+
+  it("keeps Undo after an error the store did not explain, and undoes on the next try", async () => {
+    const { actions, ask, reply, store, service, approve } = await setup();
+    const id = ask();
+    await approve(id);
+    const undoId = reply(id).undoId!;
+    const navigator = globalThis.navigator;
+    vi.stubGlobal("navigator", { locks: { request: () => Promise.reject(new Error("lock lost")) } });
+    expect(await actions.undoReply(id, undoId)).toBe(false);
+    expect(reply(id)).toMatchObject({ status: "approved", undoId });
+    vi.stubGlobal("navigator", navigator);
+    expect(await actions.undoReply(id, undoId)).toBe(true);
+    expect(store.currentState()!.services[0].price).toBe(service.price);
+  });
+});
+
 describe("edit and provenance (Codex #5)", () => {
   it("Edit returns the owner's words and retires the proposal", async () => {
     const { actions, ask, reply } = await setup();

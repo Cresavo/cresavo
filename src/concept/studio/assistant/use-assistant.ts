@@ -17,7 +17,7 @@ import { studioSalonCopy } from "../../i18n/salon-eko-copy";
 import { currentState, dispatch, dispatchWithLog } from "../../store";
 import { useStudio } from "../use-studio";
 import { speak } from "./speak";
-import { applyReply, approveReply, editReply, pickReply, sourceFor, undoReply } from "./reply-actions";
+import { applyReply, approveReply, declineReply, editReply, pickReply, sourceFor, undoReply } from "./reply-actions";
 import { addMessages, messageId, refineReply, replyOf, startNewThread, updateReply, useThread } from "./thread-store";
 
 const ASSISTANT = { actor: "owner", source: "assistant" } as const;
@@ -107,7 +107,7 @@ export function useAssistant() {
 
   const approve = (id: string, proposal: Extract<Proposal, { kind: "change" }>) => approveReply(id, proposal.action);
 
-  const decline = (id: string) => updateReply(id, { status: "declined" });
+  const decline = (id: string) => declineReply(id);
 
   const pick = (id: string, choice: Choice) => {
     if ("proposal" in choice) pickReply(id, choice);
