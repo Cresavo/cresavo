@@ -195,10 +195,26 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
   /** Rejects the open in flight, so `close()` settles every operation waiting for it. */
   let abandonPending: (() => void) | undefined;
 
+  // Status changes take effect at once, but listeners hear them later, in
+  // order: no listener ever runs inside an open, a fallback or a settle, so
+  // whatever it starts sees the backend that goes with the status it hears.
+  const queuedStatuses: OpenStatus[] = [];
+  let flushing = false;
+  const flushStatuses = () => {
+    for (let next = queuedStatuses.shift(); next !== undefined; next = queuedStatuses.shift()) {
+      const heard = next;
+      callEach(statusListeners, () => heard, errors.report);
+    }
+    flushing = false;
+  };
   const setStatus = (next: OpenStatus) => {
     if (status === next || status === "closed") return;
     status = next;
-    callEach(statusListeners, () => next, errors.report);
+    queuedStatuses.push(next);
+    if (!flushing) {
+      flushing = true;
+      queueMicrotask(flushStatuses);
+    }
   };
   const emit = (change: SalonChange) => callEach(listeners, () => ({ workspace: change.workspace, record: change.record && { ...change.record } }), errors.report);
 
@@ -215,9 +231,12 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
     setStatus("failed");
     return { kind: "failed", error };
   };
+  /** Installs the terminal backend, then announces it. */
   const outdated = (): Backend => {
+    const value: Backend = { kind: "outdated" };
+    backend = Promise.resolve(value);
     setStatus("outdated");
-    return { kind: "outdated" };
+    return value;
   };
 
   const listen = () => {
@@ -242,7 +261,8 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
     }
   };
 
-  const connect = (): Promise<Backend> => new Promise((resolve, reject) => {
+  /** Starts an open whose promise `current()` has already installed as the backend. */
+  const connect = (resolve: (value: Backend) => void, reject: (error: unknown) => void): void => {
     let request: IDBOpenDBRequest;
     try {
       if (!factory) return resolve(unavailable());
@@ -287,7 +307,7 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
       usedIndexedDb = true;
       db.onversionchange = () => {
         db.close();
-        backend = Promise.resolve(outdated());
+        outdated();
       };
       db.onclose = () => {
         // The browser closed it (site data cleared, crash). The next operation opens again.
@@ -301,11 +321,17 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
       settle({ kind: "indexeddb", db });
       setStatus("open");
     };
-  });
+  };
 
   const current = (): Promise<Backend> => {
     if (status === "closed") return Promise.reject(new SalonDbClosedError());
-    return (backend ??= connect());
+    if (!backend) {
+      // Installed before any connection work, so an operation started meanwhile joins this open.
+      let start!: Parameters<typeof connect>;
+      backend = new Promise<Backend>((resolve, reject) => { start = [resolve, reject]; });
+      connect(...start);
+    }
+    return backend;
   };
 
   const readRecords = async (keys: readonly Workspace[]): Promise<Map<Workspace, SalonRecord | null>> => {

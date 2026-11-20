@@ -314,6 +314,44 @@ describe("opening", () => {
     expect(await ready).toBe("memory");
   });
 
+  it("lets a status listener use the backend it hears about: one memory adapter, not two", async () => {
+    const db = createSalonDb({ factory: null, channel: null });
+    let seen: SalonRecord | null | undefined;
+    const heard: string[] = [];
+    db.onStatus((status) => {
+      heard.push(status);
+      if (status !== "memory") return;
+      void db.write({}, (tx) => tx.putSalon("demo", record(1))).then(async () => { seen = await db.read("demo"); });
+    });
+    expect(await db.ready()).toBe("memory");
+    await until(() => seen !== undefined);
+    expect(seen).toEqual(record(1));
+    expect(await db.read("demo")).toEqual(record(1));
+    expect(heard).toEqual(["memory"]);
+  });
+
+  it("announces statuses after the fact, in order", async () => {
+    const factory = new IDBFactory();
+    const db = open(factory);
+    const heard: Array<[string, string]> = [];
+    db.onStatus((status) => heard.push([status, db.status()]));
+    const ready = db.ready();
+    expect(heard).toEqual([]);
+    await ready;
+    await sleep();
+    db.close();
+    await sleep();
+    expect(heard).toEqual([["open", "open"], ["closed", "closed"]]);
+    // Even a fallback decided synchronously is announced later, never inside the call that caused it.
+    const memory = createSalonDb({ factory: null, channel: null });
+    const early: string[] = [];
+    memory.onStatus((status) => early.push(status));
+    const fallback = memory.ready();
+    expect([memory.status(), early]).toEqual(["memory", []]);
+    await fallback;
+    expect(early).toEqual(["memory"]);
+  });
+
   it("keeps waiting on a slow open instead of falling back", async () => {
     const slow = createSalonDb({ factory: { open: () => ({}) } as unknown as IDBFactory, channel: null });
     let settled = false;
@@ -338,6 +376,23 @@ describe("opening", () => {
     old.close();
     expect(await ready).toBe("indexeddb");
     expect(statuses).toEqual(["blocked", "open"]);
+  });
+
+  it("lets a versionchange listener observe the outdated backend", async () => {
+    const factory = new IDBFactory();
+    const current = open(factory);
+    await current.write({}, (tx) => tx.putSalon("demo", record(1)));
+    const observed: Promise<unknown>[] = [];
+    current.onStatus((status) => {
+      if (status !== "outdated") return;
+      observed.push(current.ready().then(() => "ready", (error: Error) => error.message));
+      observed.push(current.write({}, (tx) => tx.putSalon("demo", record(2, 2))));
+    });
+    await open(factory, { version: 2 }).ready();
+    await until(() => observed.length === 2);
+    const [ready, write] = await Promise.all(observed);
+    expect(ready).toMatch(/newer version/);
+    expect(write).toEqual({ ok: false, reason: "outdated" });
   });
 
   it("closes on versionchange and refuses writes as outdated", async () => {

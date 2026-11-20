@@ -104,6 +104,7 @@ The other salon mutations are `write`s with their own small `change`:
   - **Outdated.** `onversionchange`, or a `VersionError` on open (another tab already upgraded), closes the connection and shows a reload notice. It is never memory.
   - **Failed.** Once a handle has used IndexedDB, a failed reopen is reported as `storage` and never switches to memory mid-session. A later `reopen()` retries.
   - **Closed.** `close()` rejects operations still waiting for an open with `SalonDbClosedError`, and later operations fail at once.
+- The backend is installed before any open starts and before its status is announced. Status listeners are notified later, in order, never inside an open, fallback or settle, so whatever they start sees the backend they hear about.
 - Subscriber, status and channel errors are isolated: a write resolves with its real outcome, and the errors go to `onListenerError`.
 - On bfcache `pageshow` (`persisted`), or after the browser closed the connection (`close` event), the store reopens and re-reads **both** workspaces. A record that disappeared meanwhile clears the cache and fires `onSalonRemoved`.
 - **Memory mode** shows a visible notice on the studio and on the public booking page: "This browser does not let the demo save. Changes last until you close this tab." One tab's JavaScript is single-threaded, so memory commits are just as atomic and waitlist offers stay on. Tabs do not share data, so they cannot overwrite each other. The old localStorage write path is removed rather than kept as a second mode.

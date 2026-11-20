@@ -155,7 +155,7 @@ export interface ImportOptions {
 export async function importLegacy(db: SalonDb, storage: LegacyStorage | null = browserLegacyStorage(), options: ImportOptions) {
   const legacy = storage ? legacySnapshot(storage) : null;
   const epoch = options.epoch ?? newEpoch;
-  const result = await db.write({ salons: ["demo", "own"], meta: [IMPORT_MARKER, LAST_USED_OWN] }, (tx) => {
+  const result = await db.write({ exists: ["demo", "own"], meta: [IMPORT_MARKER, LAST_USED_OWN] }, (tx) => {
     const existing = tx.meta<ImportMarker>(IMPORT_MARKER);
     if (existing) return { marker: existing, imported: false, covered: null };
     // Unreadable storage: no marker and no cleanup, so the next open tries again.
@@ -163,7 +163,8 @@ export async function importLegacy(db: SalonDb, storage: LegacyStorage | null = 
     const covered = new Set<Workspace>();
     for (const workspace of ["demo", "own"] as const) {
       const salon = legacy[workspace];
-      if (tx.salon(workspace)) covered.add(workspace);
+      // Existence is enough: an imported salon never overwrites one, so its document is not read.
+      if (tx.has(workspace)) covered.add(workspace);
       else if (salon) {
         tx.putSalon(workspace, { version: 1, epoch: epoch(), doc: salon.text });
         covered.add(workspace);
