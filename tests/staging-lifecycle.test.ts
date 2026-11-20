@@ -34,3 +34,18 @@ it("starts no child process once shutdown has begun", async () => {
   await new Promise(resolve => child.once("exit", resolve));
   expect(child.signalCode).toBe("SIGKILL");
 });
+
+it("reports a cleanup that throws instead of letting it pass unnoticed", async () => {
+  const { settles } = await import("../scripts/staging-consent/lifecycle.mjs");
+  expect(await settles(async () => {})).toBe(true);
+  expect(await settles(async () => { throw new Error("EACCES: cannot remove the run directory"); })).toBe(false);
+});
+
+it("chooses listener ports that are all distinct", async () => {
+  const { freePorts } = await import("../scripts/staging-consent/processes.mjs");
+  for (let round = 0; round < 5; round++) {
+    const ports = await freePorts(8);
+    expect(new Set(ports).size).toBe(8);
+    for (const port of ports) expect(port).toBeGreaterThan(0);
+  }
+});

@@ -15,10 +15,10 @@ import { DateTime } from "luxon";
 import { assertTestDatabase } from "../test-db-guard.mjs";
 import { createDatabaseClient } from "../database.mjs";
 import { containsSecret, registerSecret, say } from "./sanitize.mjs";
-import { captureStream, freePort, guardStream, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
+import { captureStream, freePorts, guardStream, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
 import { agentChannel } from "./agent-reply.mjs";
 import { loopbackAdminUrl, refuseDiagnostics, refuseRemoteBrowsers } from "./preflight.mjs";
-import { acquisition } from "./lifecycle.mjs";
+import { acquisition, settles } from "./lifecycle.mjs";
 import { issueCertificates, operatorFetch, tlsProxy } from "./tls.mjs";
 import { createServer as createHttpServer } from "node:http";
 import { approveWithLostResponse, close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking, reopenInSameTab, salonContext } from "./browsers.mjs";
@@ -57,6 +57,8 @@ const gatewayHost = (process.env.STAGING_GATEWAY_HOST ?? "gateway.cresavo.test")
 const salonHost = (process.env.STAGING_SALON_HOST ?? "salon-demo.cresavo.test").toLowerCase();
 for (const host of [gatewayHost, salonHost]) assert(hostPattern.test(host) && !isIP(host), "STAGING_HOST_INVALID");
 assert.notEqual(gatewayHost, salonHost, "STAGING_HOSTS_MUST_DIFFER");
+// Failing until the run has finished, cleaned up and passed every check.
+process.exitCode = 1;
 // Before any link exists: diagnostics that would print URLs outside the sanitizer are refused.
 refuseDiagnostics(process.env, process.execArgv);
 refuseRemoteBrowsers(process.env);
@@ -140,8 +142,8 @@ async function cleanupOnce() {
     try { await adminQuery(`DROP DATABASE IF EXISTS "${dbName}" WITH (FORCE)`); say("PASS DATABASE_DROPPED"); }
     catch { failures++; say("FAIL DATABASE_DROP"); }
   }
-  rmSync(temp, { recursive: true, force: true });
-  say(existsSync(temp) ? "FAIL TEMP_DIRECTORY_REMOVED" : "PASS TEMP_DIRECTORY_REMOVED");
+  try { rmSync(temp, { recursive: true, force: true }); } catch { /* reported just below */ }
+  if (existsSync(temp)) { failures++; say("FAIL TEMP_DIRECTORY_REMOVED"); } else say("PASS TEMP_DIRECTORY_REMOVED");
 }
 for (const signal of ["SIGINT", "SIGTERM"] as const)
   process.once(signal, () => { void cleanup().finally(() => process.exit(130)); });
@@ -153,7 +155,7 @@ let crashed = false;
 for (const event of ["uncaughtException", "unhandledRejection"] as const)
   process.on(event, () => {
     if (crashed) return;
-    crashed = true; failures++; say("FAIL UNCAUGHT_ERROR");
+    crashed = true; failures++; process.exitCode = 1; say("FAIL UNCAUGHT_ERROR");
   });
 
 const agentTranscript: string[] = [];
@@ -199,11 +201,13 @@ try {
   // ---- TLS and processes ----
   step = "START_SERVICES";
   const tls = issueCertificates(temp, [gatewayHost, salonHost]);
-  const [salonPort, gatewayPort] = [await freePort(), await freePort()];
+  // Four distinct ports chosen together: the two HTTP children and their two TLS proxies. A proxy
+  // binding port 0 could otherwise take a port reserved for a child that has not bound it yet.
+  const [salonPort, gatewayPort, salonTlsPort, gatewayTlsPort] = await freePorts(4);
   // Each listener is in the cleanup list as soon as it exists, before the next one can fail.
-  const salonTls = await tlsProxy(tls.leaves[salonHost], salonPort, "x-real-ip");
+  const salonTls = await tlsProxy(tls.leaves[salonHost], salonPort, "x-real-ip", salonTlsPort);
   servers.push(salonTls.server);
-  const gatewayTls = await tlsProxy(tls.leaves[gatewayHost], gatewayPort, "x-forwarded-for");
+  const gatewayTls = await tlsProxy(tls.leaves[gatewayHost], gatewayPort, "x-forwarded-for", gatewayTlsPort);
   servers.push(gatewayTls.server);
   const salonOrigin = `https://${salonHost}:${salonTls.port}`, gatewayOrigin = `https://${gatewayHost}:${gatewayTls.port}`;
   await startServer("salon", process.execPath, ["scripts/server.mjs"], salonDir, {
@@ -228,7 +232,7 @@ try {
   const { createAdminUser } = await import("../../src/lib/admin-accounts");
   const { createBooking } = await import("../../src/lib/domain");
   const { businessDisplay } = await import("../../src/lib/agent-api/v1");
-  const { STAGING_CUSTOMER } = await import("../../src/lib/agent-api/consent-staging");
+  const { STAGING_CUSTOMER, openInboxLink } = await import("../../src/lib/agent-api/consent-staging");
   const operator = db;
   const agentKey = await createAgentApiKey({ businessId: "demo", agentName: "Fictional staging assistant",
     ownerName: "Fictional operator", ownerContact: "operator@example.test", kind: "demo-script" }, operator);
@@ -249,13 +253,16 @@ try {
   async function inboxLink(proposalId: string) {
     const message = await operator.consentInboxMessage.findUniqueOrThrow({ where: { proposalId } });
     assert.equal(message.recipientId, STAGING_CUSTOMER.id);
-    const url = new URL(message.approvalLink);
+    // The database holds only the sealed link; the operator opens it with the run's session secret.
+    const link = openInboxLink(message.sealedLink, proposalId, sessionSecret);
+    const url = new URL(link);
     assert.equal(url.origin, salonOrigin);
     assert.equal(url.pathname, `/consent/${proposalId}`);
     assert.match(url.hash, /^#[A-Za-z0-9_-]{43}$/);
-    registerSecret(message.approvalLink); registerSecret(url.hash.slice(1));
-    links.push(message.approvalLink);
-    return message.approvalLink;
+    registerSecret(link); registerSecret(url.hash.slice(1));
+    assert(!message.sealedLink.includes(url.hash.slice(1)) && !message.sealedLink.includes("/consent/"), "the inbox row holds the link in the clear");
+    links.push(link);
+    return link;
   }
   const state = async (proposalId: string) => ({
     proposal: await operator.agentProposal.findUniqueOrThrow({ where: { id: proposalId } }),
@@ -534,7 +541,9 @@ try {
   failures++;
   say(`FAIL ${step}${process.env.STAGING_DEBUG === "1" ? " - " + String((error as Error)?.message) : ""}`);
 } finally {
-  await cleanup();
+  // A cleanup that throws is a failure too: the exit status stays 1 unless it settled and every
+  // check passed (set to 1 at start, in preflight).
+  if (!(await settles(cleanup))) { failures++; say("FAIL CLEANUP"); }
   say(`RESULT ${failures ? "FAILED" : "PASSED"} - ${results.length} checks passed, ${failures} failed`);
   process.exitCode = failures ? 1 : 0;
 }

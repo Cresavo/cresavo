@@ -1,6 +1,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { inspect } from "node:util";
+import { readFileSync, statSync } from "node:fs";
+import pg from "pg";
 import { DateTime } from "luxon";
 import { db } from "../../src/lib/db";
 import { createBooking } from "../../src/lib/domain";
@@ -9,7 +11,7 @@ import { createProposal, customerDecision, getProposal, proposalHash } from "../
 import { createAgentBooking } from "../../src/lib/agent-api/bookings";
 import { handleMcp } from "../../src/lib/agent-api/mcp";
 import { mapAgentError } from "../../src/lib/agent-api/v1";
-import { STAGING_CHANNEL, STAGING_CUSTOMER, stagingConsentOrigin, stagingInbox } from "../../src/lib/agent-api/consent-staging";
+import { openInboxLink, sealInboxLink, STAGING_CHANNEL, STAGING_CUSTOMER, stagingConsentOrigin, stagingInbox } from "../../src/lib/agent-api/consent-staging";
 import * as decisionRoute from "../../src/app/consent/[id]/decision/route";
 import { consentOutcome, parseStagingView } from "../../src/app/consent/[id]/staging-copy";
 import { POST as restPropose } from "../../src/app/api/v1/proposals/route";
@@ -102,7 +104,9 @@ function terms() {
 async function inbox(proposalId: string) {
   return db.consentInboxMessage.findUniqueOrThrow({ where: { proposalId } });
 }
-const secret = async (proposalId: string) => new URL((await inbox(proposalId)).approvalLink).hash.slice(1);
+// The operator's view: the sealed row opened with the salon's session secret.
+const linkOf = async (proposalId: string) => openInboxLink((await inbox(proposalId)).sealedLink, proposalId);
+const secret = async (proposalId: string) => new URL(await linkOf(proposalId)).hash.slice(1);
 // A customer off loopback, verified by the socket server's proof header.
 function customer(id: string, body: unknown, origin = consentOrigin, ip = customerIp) {
   const headers = new Headers({ origin, "content-type": "application/json", "x-booking-client-ip": ip,
@@ -154,7 +158,10 @@ it.each(["rest", "mcp"])("%s returns only the proposal id, status and terms; the
   expect(message.recipientId).toBe(STAGING_CUSTOMER.id);
   expect(message.consumedAt).toBeNull();
   // Built from the configured consent origin, with the secret only in the fragment.
-  const link = new URL(message.approvalLink);
+  const approvalLink = await linkOf(body.proposal.id), link = new URL(approvalLink);
+  // The row itself holds no link-shaped value.
+  expect(message.sealedLink).toMatch(/^v1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]+$/);
+  expect(message.sealedLink).not.toContain(link.hash.slice(1));
   expect(link.origin).toBe(consentOrigin);
   expect(link.pathname).toBe(`/consent/${body.proposal.id}`);
   expect(link.search).toBe("");
@@ -162,7 +169,7 @@ it.each(["rest", "mcp"])("%s returns only the proposal id, status and terms; the
   const status = await restStatus(new Request(`${gatewayOrigin}/api/v1/proposals/${body.proposal.id}`, { headers: gatewayHeaders(key) }), { params: Promise.resolve({ id: body.proposal.id }) });
   const statusRaw = await status.text();
   for (const serialized of [raw, statusRaw, JSON.stringify(await getProposal(principal, body.proposal.id))])
-    for (const value of [link.hash.slice(1), message.approvalLink, "salon-demo.cresavo.test", "/consent/", "approvalUrl", STAGING_CUSTOMER.email, STAGING_CUSTOMER.id])
+    for (const value of [link.hash.slice(1), approvalLink, message.sealedLink, "salon-demo.cresavo.test", "/consent/", "approvalUrl", STAGING_CUSTOMER.email, STAGING_CUSTOMER.id])
       expect(serialized.includes(value), "agent response must not carry customer delivery material").toBe(false);
   expect(await counts(principal.clientId)).toEqual({ proposals: 1, mandates: 0, bookings: 0 });
 });
@@ -182,7 +189,7 @@ it("the agent cannot choose or read the recipient", async () => {
     await expect(createAgentBooking(principal, randomUUID(), bookingBody(args, mandateId!, person))).rejects.toMatchObject({ code: "mandate_denied" });
   // The database refuses an inbox row for another recipient or another channel.
   await expect(db.$executeRaw`UPDATE "ConsentInboxMessage" SET "recipientId"='other' WHERE "proposalId"=${created.proposal.id}`).rejects.toBeDefined();
-  await expect(db.$executeRaw`UPDATE "ConsentInboxMessage" SET "approvalLink"='http://salon-demo.cresavo.test/consent/x#y' WHERE "proposalId"=${created.proposal.id}`).rejects.toBeDefined();
+  await expect(db.$executeRaw`UPDATE "ConsentInboxMessage" SET "sealedLink"='http://salon-demo.cresavo.test/consent/x#y' WHERE "proposalId"=${created.proposal.id}`).rejects.toBeDefined();
 });
 
 it("the delivery profile cannot change once a proposal exists, so a delivered link stays bound", async () => {
@@ -201,6 +208,61 @@ it("the delivery profile cannot change once a proposal exists, so a delivered li
   if (legacy) await expect(db.$executeRaw`UPDATE "AgentProposal" SET "consentDelivery"=${STAGING_CHANNEL} WHERE "id"=${legacy.id}`).rejects.toThrow(/CONSENT_DELIVERY_IMMUTABLE/);
 });
 
+// True when the text carries the secret, also hidden in an encoding (base64url or base64 runs).
+function exposes(text: string, secret: string) {
+  if (text.includes(secret)) return true;
+  for (const run of text.match(/[A-Za-z0-9+/_-]{24,}={0,2}/g) ?? [])
+    for (const encoding of ["base64url", "base64"] as const)
+      if (Buffer.from(run, encoding).toString("latin1").includes(secret)) return true;
+  return false;
+}
+
+it("PostgreSQL's own error texts and log carry no usable link when inbox constraints fail", async () => {
+  const { principal } = await actor();
+  const { proposal } = await createProposal(principal, terms());
+  const token = await secret(proposal.id), row = await inbox(proposal.id);
+  // Optional: the server log, when the operator can read it (STAGING_PG_LOG=/path/to/postgresql.log).
+  const logFile = process.env.STAGING_PG_LOG, logStart = logFile ? statSync(logFile).size : 0;
+  const lab = await db.agentProposal.create({ data: { ...(await db.agentProposal.findUniqueOrThrow({ where: { id: proposal.id } })),
+    id: randomUUID(), tokenHash: randomBytes(32).toString("hex"), consentDelivery: null, mandateId: null } });
+  // Everything PostgreSQL can ever log about these rows is a subset of the values it is sent: the
+  // stored row is exactly the insert's bind values. None of them may carry the link, encoded or not.
+  for (const value of Object.values(row)) expect(exposes(String(value), token)).toBe(false);
+  const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  const texts: string[] = [];
+  try {
+    // Log as much as any session may: a failing statement's complete bind parameters. (Its row
+    // DETAIL is truncated by PostgreSQL to 64 bytes per value; these parameters are not.)
+    await client.query("SET log_parameter_max_length_on_error = -1");
+    // The failures PostgreSQL logs with their DETAIL (log_min_error_statement = error by default):
+    // a CHECK on the row ("Failing row contains ..."), the primary key, and the channel trigger.
+    for (const [sql, values] of [
+      [`UPDATE "ConsentInboxMessage" SET "recipientId" = 'other' WHERE "proposalId" = $1`, [proposal.id]],
+      [`INSERT INTO "ConsentInboxMessage" ("proposalId", "recipientId", "sealedLink") VALUES ($1, $2, $3)`, [proposal.id, STAGING_CUSTOMER.id, row.sealedLink]],
+      [`INSERT INTO "ConsentInboxMessage" ("proposalId", "recipientId", "sealedLink") VALUES ($1, $2, $3)`, [lab.id, STAGING_CUSTOMER.id, row.sealedLink]],
+      [`UPDATE "ConsentInboxMessage" SET "consumedAt" = now(), "recipientId" = NULL WHERE "proposalId" = $1`, [proposal.id]],
+    ] as const) {
+      const error = await client.query(sql, [...values]).then(() => null, (e: Error & { detail?: string; where?: string }) => e);
+      expect(error, sql).not.toBeNull();
+      texts.push([error!.message, error!.detail, error!.where].join("\n"));
+    }
+    // The CHECK detail really is row data (so it would be logged): the sealed value, never the link.
+    expect(texts.join("\n")).toContain("Failing row contains");
+    for (const text of texts) expect(exposes(text, token), text.slice(0, 120)).toBe(false);
+    if (logFile) {
+      const appended = readFileSync(logFile).subarray(logStart).toString("utf8");
+      expect(appended).toContain("Failing row contains");
+      // The failing inserts were logged with their parameters, the sealed value in full.
+      expect(appended).toMatch(/parameters: .*\$3 = 'v1\./);
+      expect(exposes(appended, token)).toBe(false);
+    }
+  } finally {
+    await client.end();
+    await db.agentProposal.delete({ where: { id: lab.id } });
+  }
+});
+
 it("a real database failure on the inbox write leaves no trace of the link in errors or output", async () => {
   const { principal } = await actor();
   const { proposal } = await createProposal(principal, terms());
@@ -217,7 +279,7 @@ it("a real database failure on the inbox write leaves no trace of the link in er
     expect(inspect(thrown, { depth: 8, showHidden: true }) + String((thrown as Error).stack)).not.toContain(token);
   }
   for (const spy of output) for (const call of spy.mock.calls) expect(JSON.stringify(call)).not.toContain(token);
-  expect(await db.consentInboxMessage.count({ where: { approvalLink: { contains: token } } })).toBe(0);
+  expect(await db.consentInboxMessage.count({ where: { sealedLink: { contains: token } } })).toBe(0);
   await db.agentProposal.delete({ where: { id: lab.id } });
 });
 
@@ -423,6 +485,6 @@ it("channels never cross: lab links are refused in staging and staging links out
   await expect(customerDecision(lab.proposal.id, { token: labToken, decision: "view" })).rejects.toMatchObject({ code: "mandate_denied" });
   expect(await db.consentInboxMessage.count({ where: { proposalId: lab.proposal.id } })).toBe(0);
   await expect(db.consentInboxMessage.create({ data: { proposalId: lab.proposal.id, recipientId: STAGING_CUSTOMER.id,
-    approvalLink: `${consentOrigin}/consent/${lab.proposal.id}#${"a".repeat(43)}` } })).rejects.toBeDefined();
+    sealedLink: sealInboxLink(`${consentOrigin}/consent/${lab.proposal.id}#${"a".repeat(43)}`, lab.proposal.id) } })).rejects.toBeDefined();
   expect(await counts(principal.clientId)).toMatchObject({ mandates: 0 });
 });

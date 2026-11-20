@@ -19,3 +19,8 @@ export function acquisition() {
     },
   };
 }
+
+/** Runs a cleanup and reports whether it completed; a throw is reported, never passed on. */
+export async function settles(cleanup: () => Promise<unknown>) {
+  try { await cleanup(); return true; } catch { return false; }
+}

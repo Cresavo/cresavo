@@ -53,14 +53,25 @@ approved. The proposal never outlives its start time.
 1. The agent calls `create_proposal` (MCP) or `POST /api/v1/proposals` (REST) through
    the gateway. The salon validates service, version and staff, snapshots the terms
    and, in the same database transaction, writes one `ConsentInboxMessage`:
-   proposal ID, recipient ID, the link, `createdAt`, `consumedAt`.
+   proposal ID, recipient ID, the sealed link, `createdAt`, `consumedAt`.
 2. The response contains the proposal (ID, status `pending`, terms, expiry),
    `approvalRequired: true` and `approvalDelivery: "separate-staging-customer"`.
    It contains no link, secret, recipient or inbox detail.
 3. The link is `${BOOKING_CONSENT_ORIGIN}/consent/<proposalId>#<secret>`. The secret
    is 32 random bytes in the fragment, which browsers do not send in requests,
    `Referer` headers or server logs. The salon stores only its SHA-256 digest on the
-   proposal. The inbox row holds the full link for the test operator.
+   proposal. The inbox row holds the link only sealed (AES-256-GCM, bound to the proposal ID,
+   with a key derived from the salon's `SESSION_SECRET` that the database never sees); the
+   test operator opens it with the same secret. PostgreSQL therefore never receives the link:
+   not in bind values (logged with `log_statement`, or on error when
+   `log_parameter_max_length_on_error` is non-zero, which any session may set), not in rows,
+   and not in error details such as "Failing row contains (...)", which the default
+   `log_min_error_statement = error` writes to the server log. No particular server logging
+   configuration is required for the secret to stay out of the log. `SESSION_SECRET` must be
+   at least 32 characters; without it nothing is delivered. Rotating it makes undelivered
+   links unreadable for the operator; the proposals then simply expire.
+   Displayed times include seconds whenever the instant has any, so a short-lived proposal
+   never shows a deadline that appears to have passed.
 4. The customer opens the link. The page has a form only on the exact consent origin (host
    and port); on any other alias or port of the deployment it is not found, and the browser
    also compares its own origin before it reads the secret, so the secret is never sent
@@ -202,7 +213,12 @@ The runner:
    confirms none of them was reached.
 
    A signal during setup waits for a database creation in flight before deciding what to
-   drop, and once shutdown has begun no new child process starts.
+   drop, and once shutdown has begun no new child process starts. The runner, not
+   Playwright, handles SIGINT, SIGTERM and SIGHUP, so Ctrl-C with browsers open still runs
+   the full cleanup. The exit status is 1 from the start and becomes 0 only after cleanup
+   completed and every check passed; a cleanup that throws is reported as `FAIL CLEANUP`.
+   The four loopback ports (two servers, two TLS proxies) are chosen together, so they are
+   always distinct.
 9. Drops the database and deletes the temporary directory, also on failure.
 
 Output is limited to static check codes, host names, revisions and counts. Every line
@@ -239,10 +255,11 @@ Left open, with reasoning:
   from the approval, not who the customer is. A production channel needs a verified
   contact (email or SMS) and a delivery provider; that is a product and legal decision
   and needs a new cloud resource.
-- **Inbox confidentiality.** The full link is stored in `ConsentInboxMessage` so the
-  test operator can read it. A production channel should store only what delivery
-  needs and drop the link once sent. Not changed here because the staging check reads
-  the link from the inbox.
+- **Inbox confidentiality.** The link is stored sealed in `ConsentInboxMessage`, so the
+  database and its logs hold nothing usable; anyone with the salon's `SESSION_SECRET` and
+  read access to the table can still open it. A production channel should store only what
+  delivery needs and drop the sealed link once sent. Not changed here because the staging
+  check reads the link from the inbox.
 - **Owner admin on the customer host.** The owner login and calendar share the consent
   host. Its session cookie is host-only and never reaches the gateway (distinct host
   names are required), but a production deployment may want the owner on a separate

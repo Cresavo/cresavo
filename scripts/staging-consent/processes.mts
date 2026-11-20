@@ -27,16 +27,21 @@ const captured: Record<string, string> = {};
 const CAPTURE_LIMIT = 64 * 1024 * 1024;
 let total = 0, overflowed = false;
 
-export async function freePort() {
-  const server = createServer();
-  // A failed bind emits `error`, not the listen callback.
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", () => reject(new Error("FREE_PORT_UNAVAILABLE")));
-    server.listen(0, "127.0.0.1", resolve);
-  });
-  const port = (server.address() as { port: number }).port;
-  await new Promise<void>(resolve => server.close(() => resolve()));
-  return port;
+/**
+ * `count` distinct loopback ports, held open together while they are chosen so no two can be the
+ * same. Each is then closed for its owner to bind; a bind that still fails rejects that start.
+ */
+export async function freePorts(count: number) {
+  const servers = Array.from({ length: count }, () => createServer());
+  try {
+    await Promise.all(servers.map(server => new Promise<void>((resolve, reject) => {
+      server.once("error", () => reject(new Error("FREE_PORT_UNAVAILABLE")));
+      server.listen(0, "127.0.0.1", resolve);
+    })));
+    return servers.map(server => (server.address() as { port: number }).port);
+  } finally {
+    await Promise.all(servers.map(server => new Promise<void>(resolve => server.close(() => resolve()))));
+  }
 }
 
 /** Takes `size` from the output budget shared by every captured stream; false (and incomplete output) past it. */

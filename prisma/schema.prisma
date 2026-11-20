@@ -322,13 +322,14 @@ model AgentProposal {
 }
 
 // Staging customer channel inbox (docs/CUSTOMER_CONSENT_CHANNEL.md). Holds the
-// one-time approval link for the fixed fictional recipient. Read only by the test
+// one-time approval link for the fixed fictional recipient, sealed with a key the database
+// never sees (AES-256-GCM, derived from the salon's SESSION_SECRET). Read only by the test
 // operator through the database, never through an agent route.
 model ConsentInboxMessage {
   proposalId String @id
   proposal AgentProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   recipientId String
-  approvalLink String
+  sealedLink String
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   consumedAt DateTime? @db.Timestamptz(3)
 }

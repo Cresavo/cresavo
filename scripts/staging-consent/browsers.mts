@@ -31,6 +31,10 @@ export async function launchBrowser(host: string, port: number, spki: string) {
   refuseRemoteBrowsers(process.env);
   return chromium.launch({
     ...(process.env.STAGING_CHROMIUM_PATH ? { executablePath: process.env.STAGING_CHROMIUM_PATH } : {}),
+    // The runner owns these signals: Playwright's own handlers would close the browser and exit
+    // the process before the runner has stopped its children, dropped the database and removed
+    // the run directory with its keys and the gateway copy.
+    handleSIGINT: false, handleSIGTERM: false, handleSIGHUP: false,
     // No proxy, and only this run's leaf certificate trusted. Every destination except the salon
     // host is refused by the browser's network stack itself: `--host-rules` also applies to IP
     // literals and to every hop of a redirect, which a route handler does not see.
@@ -107,12 +111,14 @@ const EXPECTED_TEXT = String.raw`(i) => {
     const name = new Intl.DateTimeFormat("en-GB", { timeZone: i.timeZone, timeZoneName: "longOffset" }).formatToParts(at).find(p => p.type === "timeZoneName").value;
     return name === "GMT" ? "+00:00" : name.replace(/^GMT/, "");
   };
+  // Seconds only when the instant has any.
+  const style = at => at.getUTCSeconds() || at.getUTCMilliseconds() ? "medium" : "short";
   const exact = (text, at) => ambiguous(at) ? text + " (UTC" + offset(at) + ")" : text;
   const start = new Date(i.start), until = new Date(i.expiresAt);
   return {
     date: new Intl.DateTimeFormat("en-GB", { timeZone: i.timeZone, dateStyle: "full" }).format(start),
-    time: exact(new Intl.DateTimeFormat("en-GB", { timeZone: i.timeZone, timeStyle: "short" }).format(start), start),
-    expires: exact(new Intl.DateTimeFormat("en-GB", { timeZone: i.timeZone, dateStyle: "medium", timeStyle: "short" }).format(until), until),
+    time: exact(new Intl.DateTimeFormat("en-GB", { timeZone: i.timeZone, timeStyle: style(start) }).format(start), start),
+    expires: exact(new Intl.DateTimeFormat("en-GB", { timeZone: i.timeZone, dateStyle: "medium", timeStyle: style(until) }).format(until), until),
     price: new Intl.NumberFormat("en-GB", { style: "currency", currency: i.currency }).format(i.amountMinor / 100),
   };
 }`;

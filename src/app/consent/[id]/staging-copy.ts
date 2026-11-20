@@ -188,10 +188,13 @@ export function formatStagingTerms(locale: Locale, timeZone: string, terms: { st
   // Only a repeated local time carries its offset; every other time reads as before.
   const exact = (text: string, instant: Date) => isAmbiguousLocalTime(timeZone, instant)
     ? stagingCopy[locale].ambiguousTime.replace("{time}", text).replace("{offset}", utcOffset(timeZone, instant)) : text;
+  // Seconds are shown when the instant has any: an expiry of 10:15:30 must not read "10:15", a
+  // deadline that would look already passed. Shown seconds are rounded down, never later than real.
+  const style = (instant: Date) => instant.getUTCSeconds() || instant.getUTCMilliseconds() ? "medium" as const : "short" as const;
   return {
     date: new Intl.DateTimeFormat(tag, { timeZone, dateStyle: "full" }).format(at),
-    time: exact(new Intl.DateTimeFormat(tag, { timeZone, timeStyle: "short" }).format(at), at),
-    expires: exact(new Intl.DateTimeFormat(tag, { timeZone, dateStyle: "medium", timeStyle: "short" }).format(until), until),
+    time: exact(new Intl.DateTimeFormat(tag, { timeZone, timeStyle: style(at) }).format(at), at),
+    expires: exact(new Intl.DateTimeFormat(tag, { timeZone, dateStyle: "medium", timeStyle: style(until) }).format(until), until),
     price: new Intl.NumberFormat(tag, { style: "currency", currency: terms.currency }).format(terms.amountMinor / 100),
   };
 }

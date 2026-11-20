@@ -5,7 +5,7 @@ import { inspect } from "node:util";
 import { NextRequest } from "next/server";
 import { consentHostPathAllowed, stagingConsentPolicy, stagingConsentHost } from "../scripts/consent-channel-policy.mjs";
 import { runtimePolicy } from "../scripts/client-address.mjs";
-import { requireStagingConsent, STAGING_CHANNEL, STAGING_CUSTOMER, stagingApprovalLink, stagingConsentOrigin, stagingInbox } from "../src/lib/agent-api/consent-staging";
+import { openInboxLink, requireStagingConsent, sealInboxLink, STAGING_CHANNEL, STAGING_CUSTOMER, stagingApprovalLink, stagingConsentOrigin, stagingInbox } from "../src/lib/agent-api/consent-staging";
 import { assertCustomerChannelBinding, CHANNEL_CUSTOMER, CUSTOMER_CHANNEL, separateCustomerChannel } from "../src/lib/agent-api/customer-channel-lab";
 import { browserHostKind, resolveHost } from "../src/concept/page/resolve";
 import { consentFragment, consentOutcome, formatStagingTerms, isAmbiguousLocalTime, parseStagingView, utcOffset, recheckable, retryAfterSeconds, stagingCopy } from "../src/app/consent/[id]/staging-copy";
@@ -103,13 +103,24 @@ describe("staging link and recipient", () => {
     expect(shown.date).toMatch(/^Monday,? 7 December 2026$/);
     expect(shown.price).toContain("520.00");
   });
+  it("shows seconds when a time has them, so a short-lived deadline never reads as already passed", () => {
+    const terms = (start: string, expiresAt: string) => ({ start, expiresAt, amountMinor: 52000, currency: "SEK" });
+    // Created at 10:15:20 with a 10-second TTL: approve before 10:15:30, not "10:15".
+    const en = formatStagingTerms("en", "Europe/Stockholm", terms("2026-12-07T09:30:00Z", "2026-12-07T09:15:30.250Z"));
+    expect(en.expires).toBe("7 Dec 2026, 10:15:30");
+    expect(en.time).toBe("10:30");
+    expect(formatStagingTerms("sv", "Europe/Stockholm", terms("2026-12-07T09:30:45Z", "2026-12-07T09:15:30Z"))).toMatchObject({ time: "10:30:45", expires: "7 dec. 2026 10:15:30" });
+    // Seconds and the repeated hour together.
+    expect(formatStagingTerms("en", "Europe/Stockholm", terms("2026-10-25T00:30:20Z", "2026-10-20T08:00:00Z")).time).toBe("02:30:20 (UTC+02:00)");
+  });
   it("the runner's independent expectation matches the page, offset included, in the repeated hour", async () => {
     const { expectedText } = await import("../scripts/staging-consent/browsers.mjs");
     // In the browser it is evaluated as a plain JavaScript expression; here the same text is
     // evaluated in a fresh function scope, without the TypeScript loader's helpers.
     const page = { evaluate: (expression: string) => Promise.resolve(new Function(`"use strict"; return (${expression});`)()) } as never;
     const base = { amountMinor: 52000, currency: "SEK", timeZone: "Europe/Stockholm" };
-    for (const [start, expiresAt] of [["2026-10-25T00:30:00Z", "2026-10-25T01:45:00Z"], ["2026-12-07T09:30:00Z", "2026-12-01T08:00:00Z"], ["2026-10-25T01:30:00Z", "2026-10-24T23:10:00Z"]]) {
+    for (const [start, expiresAt] of [["2026-10-25T00:30:00Z", "2026-10-25T01:45:00Z"], ["2026-12-07T09:30:00Z", "2026-12-01T08:00:00Z"], ["2026-10-25T01:30:00Z", "2026-10-24T23:10:00Z"],
+      ["2026-12-07T09:30:45Z", "2026-12-07T09:15:30.250Z"], ["2026-10-25T00:30:20Z", "2026-10-25T01:45:59.999Z"]]) {
       const expected = await expectedText(page, { ...base, start, expiresAt });
       const shown = formatStagingTerms("en", "Europe/Stockholm", { start, expiresAt, amountMinor: 52000, currency: "SEK" });
       expect(expected.time, start).toBe(shown.time);
@@ -159,6 +170,35 @@ describe("consent origin", () => {
   });
 });
 
+describe("sealed inbox link", () => {
+  const id = "0b7c3f6e-6a1d-4c11-9d0e-3f1f0c1d2e3f", token = "P".repeat(43), secret = "s".repeat(64);
+  const link = `https://salon-demo.cresavo.test/consent/${id}#${token}`;
+  it("hands the database only a sealed value, which opens with the salon's secret for this proposal only", async () => {
+    const sealed = sealInboxLink(link, id, secret);
+    expect(sealed).toMatch(/^v1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]+$/);
+    expect(sealed.length).toBeGreaterThanOrEqual(80); expect(sealed.length).toBeLessThanOrEqual(620);
+    for (const encoding of ["base64url", "base64", "latin1"] as const)
+      for (const part of sealed.split(".")) expect(Buffer.from(part, encoding).toString("latin1")).not.toContain(token);
+    expect(sealInboxLink(link, id, secret)).not.toBe(sealed);
+    expect(openInboxLink(sealed, id, secret)).toBe(link);
+    // Another proposal, another secret, or one changed character: a static error.
+    for (const [value, proposal, key] of [[sealed, "0b7c3f6e-6a1d-4c11-9d0e-000000000000", secret], [sealed, id, "t".repeat(64)],
+      [sealed.slice(0, -2) + (sealed.endsWith("A") ? "BB" : "AA"), id, secret], ["v2." + sealed.slice(3), id, secret], ["", id, secret]] as const)
+      expect(() => openInboxLink(value, proposal, key)).toThrow(/^CONSENT_INBOX_SEALED_LINK_INVALID$/);
+    // Without the salon's secret nothing is delivered.
+    expect(() => sealInboxLink(link, id, "short")).toThrow("customer approval channel is unavailable");
+    vi.stubEnv("SESSION_SECRET", secret);
+    try {
+      const create = vi.fn().mockResolvedValue({});
+      await stagingInbox.deliver({ consentInboxMessage: { create } } as never, "https://salon-demo.cresavo.test", id, token);
+      const sent = JSON.stringify(create.mock.calls);
+      expect(sent).not.toContain(token);
+      expect(sent).not.toContain("/consent/");
+      expect(openInboxLink(create.mock.calls[0][0].data.sealedLink, id)).toBe(link);
+    } finally { vi.unstubAllEnvs(); }
+  });
+});
+
 describe("staging inbox errors", () => {
   it("never lets a database error that quotes the link out, as a message, a cause or output", async () => {
     const id = "0b7c3f6e-6a1d-4c11-9d0e-3f1f0c1d2e3f", token = "Q".repeat(43);
@@ -169,6 +209,8 @@ describe("staging inbox errors", () => {
     const tx = { consentInboxMessage: { create: vi.fn().mockRejectedValue(prismaLike), updateMany: vi.fn().mockRejectedValue(prismaLike) } };
     const output = [vi.spyOn(console, "error"), vi.spyOn(console, "warn"), vi.spyOn(console, "log"), vi.spyOn(console, "info"), vi.spyOn(console, "debug"),
       vi.spyOn(process.stdout, "write"), vi.spyOn(process.stderr, "write")];
+    // A key, so the insert is really attempted and fails with the Prisma-like error.
+    vi.stubEnv("SESSION_SECRET", "k".repeat(64));
     try {
       for (const run of [() => stagingInbox.deliver(tx as never, "https://salon-demo.cresavo.test", id, token), () => stagingInbox.consume(tx as never, id, new Date())]) {
         let thrown: unknown;
@@ -177,8 +219,10 @@ describe("staging inbox errors", () => {
         expect(inspect(thrown, { depth: 8, showHidden: true }) + String((thrown as Error).stack)).not.toContain(token);
         expect((thrown as Error).cause).toBeUndefined();
       }
+      expect(tx.consentInboxMessage.create).toHaveBeenCalledTimes(1);
+      expect(tx.consentInboxMessage.updateMany).toHaveBeenCalledTimes(1);
       for (const spy of output) for (const call of spy.mock.calls) expect(JSON.stringify(call)).not.toContain(token);
-    } finally { for (const spy of output) spy.mockRestore(); }
+    } finally { for (const spy of output) spy.mockRestore(); vi.unstubAllEnvs(); }
   });
 });
 
