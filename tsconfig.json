@@ -32,6 +32,7 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    "scripts/*-store.mts",
     "scripts/agentprov/**/*.mts",
     "scripts/staging-consent/**/*.mts",
     "scripts/integration/**/*.mts",

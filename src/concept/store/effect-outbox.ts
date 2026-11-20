@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import type { OutboxEntry } from "../connections/simulated/outbox";
 import { detach, effectOf, type StoreEffect, type TenantId } from "./studio-store";
 
@@ -53,7 +53,7 @@ const acknowledge: EffectSink = () => {};
 export const SIMULATED_SINKS: EffectSinks = { payment: acknowledge, message: acknowledge };
 
 /** Epoch milliseconds from the database clock. */
-export async function databaseClock(db: PrismaClient): Promise<number> {
+export async function databaseClock(db: Prisma.TransactionClient): Promise<number> {
   const [row] = await db.$queryRaw<Array<{ ms: number }>>`SELECT (extract(epoch FROM clock_timestamp()) * 1000)::float8 AS ms`;
   return Math.floor(row.ms);
 }
@@ -94,6 +94,7 @@ async function claimNext(ctx: DeliveryContext): Promise<ClaimedRow | undefined> 
       LEFT JOIN tenant_state s ON s.tenant_id = e.tenant_id
       WHERE e.status = 'pending' AND e.next_attempt_at <= to_timestamp(${now}::float8 / 1000)
         AND e.erased_at IS NULL
+        AND (s.expires_at IS NULL OR s.expires_at > to_timestamp(${now}::float8 / 1000))
         AND (${tenants}::text[] IS NULL OR e.tenant_id = ANY(${tenants}::text[]))
         AND (${kinds}::text[] IS NULL OR s.kind::text = ANY(${kinds}::text[]))
         AND (e.kind <> 'payment' OR NOT EXISTS (
