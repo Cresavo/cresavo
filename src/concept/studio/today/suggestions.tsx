@@ -5,7 +5,6 @@ import { CalendarHeart, Clock, Megaphone, MessageSquare, Package, PackageCheck, 
 import { prefillForHoliday, studioHref } from "../../campaigns/prefill";
 import { quietDay } from "../../campaigns/quiet-day";
 import { diffDays } from "../../data/dates";
-import { freeGaps } from "../../data/slots";
 import { t, tc } from "../../i18n";
 import { dueBackList } from "../../customers/return-visits";
 import { formatAmount, formatDayMonth, weekdayName } from "../../i18n/format";
@@ -17,7 +16,7 @@ import { Button, ButtonLink, IconButton } from "../../ui/button";
 import type { OpenSheet } from "../booking/booking-sheets";
 import { useForecasts } from "../stock/use-forecasts";
 import { useStudio } from "../use-studio";
-import { offerGapsToWaitlist } from "../booking/offer-waitlist";
+import { offerGapsToWaitlist, todayGaps } from "../booking/offer-waitlist";
 import { suggestionLimit } from "./limits";
 
 const QUIET_DISCOUNT = 10;
@@ -43,7 +42,7 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
 
   const lowItems = cardVisible(state.modules, "stock-low") ? lowStock(state).slice(0, 2) : [];
   const forecasts = useForecasts(lowItems);
-  const gaps = state.staff.flatMap((s) => freeGaps(state, s.id, today, { after: minutes, min: 30 }));
+  const gaps = todayGaps(state, { today, minutes });
   const waitlist = state.customers.filter((c) => c.waitlist).length;
   if (gaps.length) {
     list.push({

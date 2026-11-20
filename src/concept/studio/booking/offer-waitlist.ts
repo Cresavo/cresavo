@@ -1,4 +1,5 @@
 import { textWaitlistAboutGaps, textWaitlistAboutSlot } from "../../booking/waitlist-offer";
+import { freeGaps } from "../../data/slots";
 import type { Booking, DateKey, DemoState } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { cardVisible } from "../../modules/registry";
@@ -8,28 +9,37 @@ import { waitlistCount, waitlistNotice } from "./waitlist-notice";
 
 // The owner's offers to the waiting list from the Inbox and from Today. The
 // text is staged with the inbox note that records it, so it is sent only when
-// that note is saved. Note, text and toast are all built from the latest saved
-// state: another tab may have changed the waiting list or switched it off.
+// that note is saved. Each offer is re-checked against the latest saved state,
+// and note, text and toast are built from it: another tab may have moved the
+// visit, booked the free time, changed the waiting list or switched it off.
 
 interface Clock { today: DateKey; minutes: number }
 
+/** The slot the owner saw: an offer for it is refused once the visit is no longer there. */
+export type ShownSlot = Pick<Booking, "id" | "date" | "start" | "staffId" | "resourceId">;
+
+const sameSlot = (booking: Booking | undefined, shown: ShownSlot): booking is Booking =>
+  !!booking && booking.date === shown.date && booking.start === shown.start && booking.staffId === shown.staffId && booking.resourceId === shown.resourceId;
+
 /** Offers the slot a cancelled booking freed to the waiting list. False when nothing was saved or sent. */
-export function offerSlotToWaitlist(bookingId: string, clock: Clock): boolean {
+export function offerSlotToWaitlist(shown: ShownSlot, clock: Clock): boolean {
   let count = 0;
-  const latest = (current: DemoState): Booking | undefined => current.bookings.find((booking) => booking.id === bookingId);
+  const latest = (current: DemoState) => current.bookings.find((booking) => booking.id === shown.id)!;
   const logId = dispatchWithLog(
     (current) => {
-      count = waitlistCount(current, latest(current)!);
-      return { type: "inbox/add", item: waitlistNotice(latest(current)!, count, clock) };
+      count = waitlistCount(current, latest(current));
+      return { type: "inbox/add", item: waitlistNotice(latest(current), count, clock) };
     },
     undefined,
-    (current) => {
-      const booking = latest(current);
-      return !!booking && waitlistCount(current, booking) > 0;
-    },
-    { send: (current) => textWaitlistAboutSlot(current, latest(current)!) },
+    (current) => sameSlot(latest(current), shown) && waitlistCount(current, latest(current)) > 0,
+    { send: (current) => textWaitlistAboutSlot(current, latest(current)) },
   );
   return showUndoToast(tc("suggest.gaps.toast", count), logId);
+}
+
+/** Today's free stretches of at least half an hour, as the Today card shows them. */
+export function todayGaps(state: DemoState, clock: Clock) {
+  return state.staff.flatMap((person) => freeGaps(state, person.id, clock.today, { after: clock.minutes, min: 30 }));
 }
 
 /** Customers a text about today's free times reaches. */
@@ -47,7 +57,7 @@ export function offerGapsToWaitlist(clock: Clock): boolean {
       };
     },
     undefined,
-    (current) => cardVisible(current.modules, "gaps"),
+    (current) => cardVisible(current.modules, "gaps") && todayGaps(current, clock).length > 0,
     { send: (current) => textWaitlistAboutGaps(current, clock.today) },
   );
   return showUndoToast(tc("suggest.gaps.toast", count), logId);

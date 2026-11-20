@@ -33,19 +33,34 @@ const shared: DemoChannels = {
 };
 let channels = shared;
 
-/** Message and post keys per salon, so one salon's sends never count as another's. */
+/**
+ * Message and post keys and the sink they are published to, per salon: one
+ * salon's send never counts as another's, even with the same id (the same
+ * campaign in both workspaces).
+ */
 const messageLedgers = new Map<string, ReturnType<typeof channelLedger>>();
+
+function messageLedger(salon: string) {
+  let ledger = messageLedgers.get(salon);
+  if (!ledger) messageLedgers.set(salon, (ledger = channelLedger(createOutbox(), DEMO_CURRENCY)));
+  return ledger;
+}
+
+/** The simulated SMS, email and posts a browser salon's saved changes sent (see `stageDemoSends`). */
+export function demoSentMessages(salon: string): Outbox {
+  return messageLedger(salon).outbox;
+}
 
 /**
  * One browser save's sends, staged: payments (on the payment ledger, which the
- * direct port shares), SMS, email and posts (on `salon`'s own ledger). Run the
- * reducer inside `withDemoChannels(stage, …)`; nothing reaches `demoOutbox`
- * until `publish`, which the store calls only after the save succeeded.
- * `records` are this stage's sends, the effects of its commit.
+ * direct port shares, into `demoOutbox`) and SMS, email and posts (on `salon`'s
+ * own ledger, into `demoSentMessages(salon)`). Run the reducer inside
+ * `withDemoChannels(stage, …)`; nothing is recorded until `publish`, which the
+ * store calls only after the save succeeded. `records` are this stage's sends,
+ * the effects of its commit.
  */
 export function stageDemoSends(salon: string) {
-  let ledger = messageLedgers.get(salon);
-  if (!ledger) messageLedgers.set(salon, (ledger = channelLedger(demoOutbox, DEMO_CURRENCY)));
+  const ledger = messageLedger(salon);
   const payments = demoPaymentLedger.stage();
   const messages = ledger.stage();
   return {
