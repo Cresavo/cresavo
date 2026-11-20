@@ -1,6 +1,9 @@
 // Shutdown of the staging runner's child processes. Its own file: an expired deadline marks the
 // runner's captured output incomplete for the rest of the process. POSIX process groups only.
 import { execFileSync, spawn } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { captureStream, leakedStreams, runStep, stopAll, track } from "../scripts/staging-consent/processes.mjs";
 
@@ -16,7 +19,11 @@ function alive(pid: number) {
   catch { return false; }
 }
 const kill = (pid: number | undefined, group = false) => { if (pid) try { process.kill(group ? -pid : pid, "SIGKILL"); } catch { /* gone */ } };
-const holder = `process.on("SIGTERM", () => {}); console.log(process.pid); setInterval(() => {}, 1000);`;
+// Reports its own PID on stdout and, when the test gives it one, in a test-owned file: cleanup
+// then kills exactly this process, never one with a similar command line.
+const holder = `process.on("SIGTERM", () => {}); console.log(process.pid);
+  if (process.env.HOLDER_PID_FILE) require("node:fs").writeFileSync(process.env.HOLDER_PID_FILE, String(process.pid));
+  setInterval(() => {}, 1000);`;
 const parent = (detachGrandchild: boolean) => `const { spawn } = require("node:child_process");
   spawn(process.execPath, ["-e", ${JSON.stringify(holder)}], { stdio: ["ignore", "inherit", "ignore"], detached: ${detachGrandchild} })${detachGrandchild ? ".unref()" : ""};
   process.on("SIGTERM", () => process.exit(0)); setInterval(() => {}, 1000);`;
@@ -39,16 +46,16 @@ describe.skipIf(process.platform === "win32")("staging runner child shutdown", (
   }, 20_000);
 
   it("settles a timed-out step although a worker outside its group still holds the pipe", async () => {
-    let pid: number | undefined;
-    const step = runStep("STEP_TIMEOUT", process.execPath, ["-e", `${parent(true)}`], process.cwd(), { PATH: process.env.PATH ?? "" }, 600);
+    const dir = mkdtempSync(join(tmpdir(), "cresavo-shutdown-test-")), pidFile = join(dir, "holder.pid");
+    const step = runStep("STEP_TIMEOUT", process.execPath, ["-e", `${parent(true)}`], process.cwd(), { PATH: process.env.PATH ?? "", HOLDER_PID_FILE: pidFile }, 600);
     try {
       const started = Date.now();
       await expect(step).rejects.toThrow(/^STEP_TIMEOUT$/);
       expect(Date.now() - started).toBeLessThan(3000);
     } finally {
-      // The grandchild printed its PID to the step's captured output; find and stop it.
-      const ps = execFileSync("ps", ["-eo", "pid=,args="], { encoding: "utf8" });
-      for (const line of ps.split("\n")) if (line.includes(holder.slice(0, 30))) { pid = Number(line.trim().split(/\s+/)[0]); kill(pid); }
+      // Only the helper this test started, by the PID it wrote to this test's own file.
+      try { kill(Number(readFileSync(pidFile, "utf8"))); } catch { /* not written */ }
+      rmSync(dir, { recursive: true, force: true });
     }
   }, 20_000);
 

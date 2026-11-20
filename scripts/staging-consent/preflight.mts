@@ -18,3 +18,15 @@ export function refuseDiagnostics(env: Record<string, string | undefined>) {
   for (const name of DIAGNOSTIC_SETTINGS) if (env[name]) throw new Error("STAGING_DIAGNOSTICS_REFUSED");
   if (/--(?:inspect|trace-|cpu-prof|heap-prof)/.test(env.NODE_OPTIONS ?? "")) throw new Error("STAGING_DIAGNOSTICS_REFUSED");
 }
+
+// Settings that make Playwright drive a browser somewhere else: a Selenium grid
+// (`SELENIUM_REMOTE_URL` and its companions) or a remote endpoint (`PW_TEST_CONNECT_*`), or attach to
+// another browser. The runner would then send approval links, secret included, off this machine,
+// and a hosted grid could be an unapproved cloud resource. Refused before any browser exists.
+const REMOTE_BROWSER_PREFIXES = ["SELENIUM_REMOTE_", "PW_TEST_CONNECT_"];
+const REMOTE_BROWSER_SETTINGS = ["PW_CHROMIUM_ATTACH_TO_OTHER", "PW_TEST_REUSE_CONTEXT"];
+export function refuseRemoteBrowsers(env: Record<string, string | undefined>) {
+  for (const [name, value] of Object.entries(env))
+    if (value && (REMOTE_BROWSER_SETTINGS.includes(name) || REMOTE_BROWSER_PREFIXES.some(prefix => name.toUpperCase().startsWith(prefix))))
+      throw new Error("STAGING_REMOTE_BROWSER_REFUSED");
+}

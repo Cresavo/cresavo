@@ -17,7 +17,7 @@ import { createDatabaseClient } from "../database.mjs";
 import { containsSecret, registerSecret, say } from "./sanitize.mjs";
 import { captureStream, freePort, guardStream, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
 import { agentChannel } from "./agent-reply.mjs";
-import { loopbackAdminUrl, refuseDiagnostics } from "./preflight.mjs";
+import { loopbackAdminUrl, refuseDiagnostics, refuseRemoteBrowsers } from "./preflight.mjs";
 import { issueCertificates, operatorFetch, tlsProxy } from "./tls.mjs";
 import { approveWithLostResponse, close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking, reopenInSameTab } from "./browsers.mjs";
 
@@ -57,6 +57,7 @@ for (const host of [gatewayHost, salonHost]) assert(hostPattern.test(host) && !i
 assert.notEqual(gatewayHost, salonHost, "STAGING_HOSTS_MUST_DIFFER");
 // Before any link exists: diagnostics that would print URLs outside the sanitizer are refused.
 refuseDiagnostics(process.env);
+refuseRemoteBrowsers(process.env);
 // Throws a static code only: the value may hold a password and nothing is registered for redaction yet.
 const adminUrl = loopbackAdminUrl(process.env.STAGING_PG_ADMIN_URL);
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -196,9 +197,11 @@ try {
   step = "START_SERVICES";
   const tls = issueCertificates(temp, [gatewayHost, salonHost]);
   const [salonPort, gatewayPort] = [await freePort(), await freePort()];
+  // Each listener is in the cleanup list as soon as it exists, before the next one can fail.
   const salonTls = await tlsProxy(tls.leaves[salonHost], salonPort, "x-real-ip");
+  servers.push(salonTls.server);
   const gatewayTls = await tlsProxy(tls.leaves[gatewayHost], gatewayPort, "x-forwarded-for");
-  servers.push(salonTls.server, gatewayTls.server);
+  servers.push(gatewayTls.server);
   const salonOrigin = `https://${salonHost}:${salonTls.port}`, gatewayOrigin = `https://${gatewayHost}:${gatewayTls.port}`;
   await startServer("salon", process.execPath, ["scripts/server.mjs"], salonDir, {
     ...dbEnv, NODE_ENV: "production", PORT: String(salonPort), BOOKING_RUNTIME: "local",

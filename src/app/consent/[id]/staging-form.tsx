@@ -4,7 +4,8 @@ import type { Locale } from "@/lib/locale";
 import { Button } from "@/concept/ui/button";
 import { Notice } from "@/concept/ui/notice";
 import { consentSequence } from "./consent-sequence";
-import { consentOutcome, recheckable, retryAfterSeconds, formatStagingTerms, parseStagingView, stagingCopy, type ConsentOutcome, type ConsentResponse, type StagingView } from "./staging-copy";
+import { consentRequest } from "./consent-request";
+import { consentOutcome, recheckable, formatStagingTerms, parseStagingView, stagingCopy, type ConsentOutcome, type StagingView } from "./staging-copy";
 
 // Opening the page only reads the proposal. Nothing is approved without the explicit button.
 export default function StagingConsentForm({ id, locale }: { id: string; locale: Locale }) {
@@ -18,23 +19,17 @@ export default function StagingConsentForm({ id, locale }: { id: string; locale:
   // While the salon's Retry-After runs, the recheck is offered but not yet enabled.
   const [waiting, setWaiting] = useState(false);
   const retry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const after = useRef(0);
   const read = useRef<() => void>(() => {});
   const endpoint = `/consent/${encodeURIComponent(id)}/decision`;
-  // Redirects are errors: a redirected decision is never treated as the salon's answer.
-  const post = (body: object) => fetch(endpoint, { method: "POST", cache: "no-store", redirect: "error", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token.current, ...body }) });
-  // Status and JSON body as received; a non-JSON body (an intermediary's page) stays undefined.
-  const answer = async (r: Response): Promise<ConsentResponse> => {
-    after.current = r.status === 429 ? retryAfterSeconds(r.headers.get("retry-after")) : 0;
-    return { status: r.status, redirected: r.redirected,
-      body: r.headers.get("content-type")?.startsWith("application/json") ? await r.json().catch(() => undefined) : undefined };
-  };
+  // Redirects are errors, and every request has a deadline that covers its body (consent-request.ts).
+  const post = (body: object) => consentRequest(endpoint, { token: token.current, ...body });
   // After an unknown outcome the secret stays in memory, so the status can be read again with it.
-  const settle = (next: Exclude<ConsentOutcome, "loading">) => {
+  // `retryAfter` comes from the same response as `next`, applied only when that request is current.
+  const settle = (next: Exclude<ConsentOutcome, "loading">, retryAfter = 0) => {
     if (!recheckable(next) && next !== "ready") token.current = "";
     setCanRecheck(recheckable(next) && token.current !== "");
     clearTimeout(retry.current);
-    const wait = next === "limited" ? after.current : 0;
+    const wait = next === "limited" ? retryAfter : 0;
     setWaiting(wait > 0);
     if (wait > 0) retry.current = setTimeout(() => setWaiting(false), wait * 1000);
     setOutcome(next);
@@ -47,16 +42,12 @@ export default function StagingConsentForm({ id, locale }: { id: string; locale:
       if (!active) return;
       if (fragment) token.current = fragment;
       setData(null); setCanRecheck(false); setOutcome("loading");
-      let response: ConsentResponse = "network-error";
-      try {
-        const r = await fetch(endpoint, { method: "POST", cache: "no-store", redirect: "error", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token.current, decision: "view" }) });
-        response = await answer(r);
-      } catch { /* reported as an unknown status below */ }
+      const { response, retryAfter } = await consentRequest(endpoint, { token: token.current, decision: "view" });
       if (!active || !current()) return;
       // Terms are rendered only after every shown and approved field has been checked.
       const next = consentOutcome("view", response);
       if (next === "ready" && response !== "network-error") setData(parseStagingView(response.body));
-      settle(next);
+      settle(next, retryAfter);
     });
     // Keep the one-time secret in memory only and remove it from the address bar and history at
     // once, also when the link is reopened in this tab: with the same path that is only a fragment
@@ -77,12 +68,10 @@ export default function StagingConsentForm({ id, locale }: { id: string; locale:
     const hash = data.proposalHash;
     setBusy(true);
     await sequence.decide(async current => {
-      let response: ConsentResponse = "network-error";
-      try { response = await answer(await post({ decision, proposalHash: hash })); }
-      catch { /* an unknown outcome below */ }
+      const { response, retryAfter } = await post({ decision, proposalHash: hash });
       if (!current()) return;
       setData(null);
-      settle(consentOutcome(decision, response));
+      settle(consentOutcome(decision, response), retryAfter);
     });
     setBusy(false);
   }

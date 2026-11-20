@@ -23,7 +23,11 @@ let total = 0, overflowed = false;
 
 export async function freePort() {
   const server = createServer();
-  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  // A failed bind emits `error`, not the listen callback.
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", () => reject(new Error("FREE_PORT_UNAVAILABLE")));
+    server.listen(0, "127.0.0.1", resolve);
+  });
   const port = (server.address() as { port: number }).port;
   await new Promise<void>(resolve => server.close(() => resolve()));
   return port;

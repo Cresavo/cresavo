@@ -31,6 +31,12 @@ describe.skipIf(!hasOpenssl)("operator HTTPS requests", () => {
   it("returns a complete response", async () => {
     await expect(operatorFetch(ca, `https://${host}:${port}/whole`)).resolves.toMatchObject({ status: 200, text: "complete" });
   });
+  it("rejects when a TLS listener cannot bind, so the runner reaches its cleanup", async () => {
+    const { tlsProxy } = await import("../scripts/staging-consent/tls.mjs");
+    const leaf = issueCertificates(dir, [host]).leaves[host];
+    // The probe server already holds this port.
+    await expect(tlsProxy(leaf, 1, "x-real-ip", port)).rejects.toThrow(/^TLS_PROXY_LISTEN_FAILED$/);
+  });
   it("rejects, with a static code, when the body is cut off after the headers", async () => {
     const started = Date.now();
     await expect(operatorFetch(ca, `https://${host}:${port}/cut`)).rejects.toThrow(/^OPERATOR_FETCH_INTERRUPTED$/);

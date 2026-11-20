@@ -3,8 +3,12 @@
 import assert from "node:assert/strict";
 import { chromium, type Browser, type Page } from "@playwright/test";
 import { registerSecret } from "./sanitize.mjs";
+import { refuseRemoteBrowsers } from "./preflight.mjs";
 
 export async function launchBrowser(host: string, spki: string) {
+  // Also here, so no caller can start a remote session: Playwright reads these from this
+  // process's environment, not from the `env` given to the browser below.
+  refuseRemoteBrowsers(process.env);
   return chromium.launch({
     ...(process.env.STAGING_CHROMIUM_PATH ? { executablePath: process.env.STAGING_CHROMIUM_PATH } : {}),
     // No proxy, only this host on loopback, and only this run's leaf certificate trusted.

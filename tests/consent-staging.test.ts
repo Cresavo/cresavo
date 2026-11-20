@@ -283,7 +283,57 @@ describe("consent page request order", () => {
   });
 });
 
+describe("consent page requests", () => {
+  const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
+    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
+  it("treats a response that never finishes as unknown, within the deadline", async () => {
+    const { consentRequest } = await import("../src/app/consent/[id]/consent-request");
+    // Headers arrive, the body never completes (an intermediary holding the response open).
+    const stalledBody: typeof fetch = async (_input, init) => new Response(new ReadableStream({ start(controller) {
+      controller.enqueue(new TextEncoder().encode('{"status":"appr'));
+      init?.signal?.addEventListener("abort", () => controller.error(new Error("aborted")));
+    } }), { status: 200, headers: { "content-type": "application/json" } });
+    // No response at all, and one that also ignores the abort signal.
+    const stalledHeaders: typeof fetch = (_input, init) => new Promise((_, reject) => init?.signal?.addEventListener("abort", () => reject(new Error("aborted"))));
+    const deaf: typeof fetch = () => new Promise(() => {});
+    for (const send of [stalledBody, stalledHeaders, deaf]) {
+      const started = Date.now();
+      const { response } = await consentRequest("/consent/x/decision", { decision: "yes" }, { fetch: send, timeoutMs: 50 });
+      expect(Date.now() - started).toBeLessThan(1000);
+      expect(consentOutcome("yes", response)).toBe("unconfirmed");
+      expect(consentOutcome("view", response)).toBe("unchecked");
+    }
+  });
+  it("sends the request the salon expects and keeps Retry-After with its own response", async () => {
+    const { consentRequest } = await import("../src/app/consent/[id]/consent-request");
+    let seen: RequestInit | undefined;
+    const ok: typeof fetch = async (_input, init) => { seen = init; return json(200, { status: "approved" }); };
+    await expect(consentRequest("/consent/x/decision", { decision: "yes" }, { fetch: ok })).resolves.toEqual({ response: { status: 200, redirected: false, body: { status: "approved" } }, retryAfter: 0 });
+    expect(seen).toMatchObject({ method: "POST", redirect: "error", cache: "no-store", body: '{"decision":"yes"}' });
+    const limited: typeof fetch = async () => json(429, { error: "consent_rate_limited" }, { "retry-after": "30" });
+    // Interleaved: the older 200 finishing after the 429 cannot reset the 429's delay.
+    const [a, b] = await Promise.all([consentRequest("/x", {}, { fetch: limited }), consentRequest("/x", {}, { fetch: ok })]);
+    expect(a.retryAfter).toBe(30);
+    expect(b.retryAfter).toBe(0);
+    expect(consentOutcome("view", a.response)).toBe("limited");
+  });
+});
+
 describe("staging runner preflight", () => {
+  it("refuses remote browser sessions that would carry approval links off this machine", async () => {
+    const { refuseRemoteBrowsers } = await import("../scripts/staging-consent/preflight.mjs");
+    expect(() => refuseRemoteBrowsers({ PATH: "/usr/bin", SELENIUM_REMOTE_URL: "" })).not.toThrow();
+    for (const env of [{ SELENIUM_REMOTE_URL: "https://grid.example.test/wd/hub" }, { SELENIUM_REMOTE_CAPABILITIES: "{}" }, { SELENIUM_REMOTE_HEADERS: "{}" },
+      { selenium_remote_url: "http://grid.example.test" }, { PW_TEST_CONNECT_WS_ENDPOINT: "ws://browsers.example.test" }, { PW_TEST_CONNECT_HEADERS: "{}" },
+      { PW_CHROMIUM_ATTACH_TO_OTHER: "1" }, { PW_TEST_REUSE_CONTEXT: "1" }])
+      expect(() => refuseRemoteBrowsers(env), JSON.stringify(env)).toThrow(/^STAGING_REMOTE_BROWSER_REFUSED$/);
+  });
+  it("cannot launch a browser while a remote grid is configured, whoever calls it", async () => {
+    const { launchBrowser } = await import("../scripts/staging-consent/browsers.mjs");
+    vi.stubEnv("SELENIUM_REMOTE_URL", "http://127.0.0.1:1/wd/hub");
+    try { await expect(launchBrowser("salon-demo.cresavo.test", "x")).rejects.toThrow(/^STAGING_REMOTE_BROWSER_REFUSED$/); }
+    finally { vi.unstubAllEnvs(); }
+  });
   it("refuses diagnostics that would print approval links outside the sanitizer", async () => {
     const { refuseDiagnostics } = await import("../scripts/staging-consent/preflight.mjs");
     expect(() => refuseDiagnostics({})).not.toThrow();

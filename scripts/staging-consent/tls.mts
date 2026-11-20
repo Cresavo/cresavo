@@ -30,7 +30,7 @@ export function issueCertificates(dir: string, hosts: string[]) {
 }
 
 /** Terminates TLS for one host name and forwards to a loopback HTTP port, keeping Host. */
-export function tlsProxy(leaf: Leaf, target: number, client: "x-forwarded-for" | "x-real-ip") {
+export function tlsProxy(leaf: Leaf, target: number, client: "x-forwarded-for" | "x-real-ip", listenPort = 0) {
   const server = createServer({ key: leaf.key, cert: leaf.cert, minVersion: "TLSv1.2" }, (req, res) => {
     const headers: IncomingHttpHeaders = { ...req.headers };
     // The proxy owns the client identity headers; client-supplied values are discarded.
@@ -44,8 +44,11 @@ export function tlsProxy(leaf: Leaf, target: number, client: "x-forwarded-for" |
     upstream.on("error", () => { if (!res.headersSent) res.writeHead(502); res.end(); });
     req.pipe(upstream);
   });
-  return new Promise<{ server: Server; port: number }>(resolve =>
-    server.listen(0, "127.0.0.1", () => resolve({ server, port: (server.address() as { port: number }).port })));
+  // A failed bind emits `error`, not the listen callback: reject, so the runner reaches its cleanup.
+  return new Promise<{ server: Server; port: number }>((resolve, reject) => {
+    server.once("error", () => reject(new Error("TLS_PROXY_LISTEN_FAILED")));
+    server.listen(listenPort, "127.0.0.1", () => resolve({ server, port: (server.address() as { port: number }).port }));
+  });
 }
 
 /** HTTPS request from the operator process, resolving only the given host to loopback and trusting only the run CA. */
