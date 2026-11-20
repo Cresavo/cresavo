@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { addDays, toKey } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
+import { createSalon, salonDraft } from "@/concept/onboarding/salon";
 import type { DemoState } from "@/concept/data/types";
 
 // The commit-result API beside the dispatch helpers (docs/design/BROWSER_STORE_IDB.md,
@@ -268,6 +269,41 @@ it("tells the page when reading history brought in a newer salon", async () => {
   await new BrowserStudioStore().history("demo", { limit: 10 });
   stop();
   expect(heard).toBeGreaterThan(0);
+});
+
+it("returns states that still name their salon: a target can be taken from a result or a replay", async () => {
+  tab(createDemoState(today));
+  const { commitAction, currentTarget, targetOf } = await modules();
+  const target = currentTarget()!;
+  const first = await commitAction(target, { type: "card/dismiss", id: "x" }, { idempotencyKey: "k" });
+  const replay = await commitAction(target, { type: "card/dismiss", id: "x" }, { idempotencyKey: "k" });
+  expect(first.ok && replay.ok && replay.replayed).toBe(true);
+  if (!first.ok || !replay.ok) return;
+  expect(targetOf(first.state)).toEqual(target);
+  expect(targetOf(replay.state)).toEqual(target);
+});
+
+it("explains a refused undo from the log only while its salon is still the one shown", async () => {
+  const state = createDemoState(today);
+  const storage = tab(state);
+  const { commitWithUndoToast, currentTarget, dispatch, switchSalon } = await modules();
+  const visit = upcoming(state);
+  const result = await commitWithUndoToast(currentTarget()!, { type: "booking/cancel", id: visit.id }, "Cancelled");
+  if (!result.ok) throw new Error("not cancelled");
+  const [, undo] = showToast.mock.calls.at(-1)!;
+  // The freed time is booked again, so the undo will be refused for a booking reason.
+  const other = state.customers.find((customer) => customer.id !== visit.customerId)!;
+  expect(dispatch({ type: "booking/create", customerId: other.id, serviceId: visit.serviceId, staffId: visit.staffId, date: visit.date, start: visit.start, source: "phone" })).toBe(true);
+  // The trial salon has an unrelated entry with the same id.
+  const entry = result.state.log.find((row) => row.id === result.logId)!;
+  storage.items.set("salong-eko-demo-own", JSON.stringify({ ...createSalon(today, { ...salonDraft("en"), name: "Studio Vide" }), log: [entry] }));
+  showToast.mockClear();
+  undo.run();
+  // The owner switches to the trial salon before the refusal is explained.
+  await switchSalon("own");
+  await vi.waitFor(() => expect(showToast).toHaveBeenCalled());
+  expect(showActionFailure).not.toHaveBeenCalled();
+  expect(showToast).toHaveBeenLastCalledWith(t("log.cannotUndo"));
 });
 
 it("keeps a write another tab made while the commit was checking", async () => {

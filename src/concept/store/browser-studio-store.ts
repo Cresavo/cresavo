@@ -9,6 +9,7 @@ import {
   dispatchWithLog,
   latestState,
   latestStateOf,
+  copyWithLifetime,
   epochOf,
   onSalonRemoved,
   subscribeStore,
@@ -197,7 +198,7 @@ export class BrowserStudioStore implements StudioStore {
   async load(tenantId: TenantId): Promise<StoreSnapshot | null> {
     const state = latestState();
     if (!state || browserTenantOf(state) !== tenantId) return null;
-    return { state: detach(state), version: observe(state).version };
+    return { state: copyWithLifetime(state), version: observe(state).version };
   }
 
   async apply(tenantId: TenantId, action: DemoAction, meta: ApplyMeta = {}, options: ApplyOptions = {}): Promise<ApplyResult> {
@@ -242,7 +243,7 @@ export class BrowserStudioStore implements StudioStore {
     if (known) {
       if (known.fingerprint !== fingerprint) return { ok: false, reason: "idempotency-mismatch", version: record.version };
       const entry = record.log[known.seq - 1];
-      return { ok: true, state: detach(known.state), version: entry.resultingVersion, effects: detach(known.effects), entry: detach(entry), replayed: true, logId: known.logId };
+      return { ok: true, state: copyWithLifetime(known.state), version: entry.resultingVersion, effects: detach(known.effects), entry: detach(entry), replayed: true, logId: known.logId };
     }
     if (options.expectedVersion !== undefined && options.expectedVersion !== record.version) {
       return { ok: false, reason: "conflict", version: record.version };
@@ -323,7 +324,7 @@ export class BrowserStudioStore implements StudioStore {
     const logId = outcome;
     if (options.idempotencyKey !== undefined) record.keys.set(options.idempotencyKey, { fingerprint, seq: entry.seq, state, effects, logId });
     notifyAll(tab.listeners.get(tenantId) ?? [], { tenantId, version: record.version, entry, effects });
-    return { ok: true, state: detach(state), version: record.version, effects: detach(effects), entry: detach(entry), replayed: false, logId };
+    return { ok: true, state: copyWithLifetime(state), version: record.version, effects: detach(effects), entry: detach(entry), replayed: false, logId };
   }
 
   subscribe(tenantId: TenantId, listener: (change: StoreChange) => void): () => void {

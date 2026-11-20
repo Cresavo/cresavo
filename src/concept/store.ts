@@ -126,6 +126,13 @@ function keep(state: DemoState | null | undefined, epoch: string | undefined) {
   if (state) lifetimes.set(state, epoch);
 }
 
+/** A copy of a state this store read or wrote, with the same lifetime, so `targetOf(copy)` works too. */
+export function copyWithLifetime(state: DemoState): DemoState {
+  const copy = structuredClone(state);
+  if (lifetimes.has(state)) lifetimes.set(copy, lifetimes.get(state));
+  return copy;
+}
+
 /**
  * The lifetime of `state`, a salon this store read or wrote. It never reads
  * storage, so it can run inside a dispatch guard without moving the store's

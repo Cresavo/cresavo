@@ -1,5 +1,6 @@
 import type { DemoAction } from "../../actions";
 import { t } from "../../i18n";
+import { currentTarget } from "../../store";
 import { commitAction, type CommitOptions, type CommitResult, type Target } from "../../store/commit";
 import { showToast } from "../../ui/toast";
 import { showUndoRefused } from "./undo-toast";
@@ -15,8 +16,13 @@ import { showUndoRefused } from "./undo-toast";
 export async function undoCommitted(target: Target, id: string): Promise<boolean> {
   const result = await commitAction(target, { type: "log/undo", id });
   if (result.ok) showToast(t("log.undoneToast"));
-  else if (result.reason === "replaced" || result.reason === "not-found") showToast(t("log.cannotUndo"));
-  else showUndoRefused(id);
+  else {
+    // The log explains the refusal only while the salon of the change is still the one shown; checked right here.
+    const shown = currentTarget();
+    const same = shown?.workspace === target.workspace && shown.epoch === target.epoch;
+    if (result.reason === "replaced" || result.reason === "not-found" || !same) showToast(t("log.cannotUndo"));
+    else showUndoRefused(id);
+  }
   return result.ok;
 }
 
