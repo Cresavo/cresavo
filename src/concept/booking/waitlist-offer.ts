@@ -18,6 +18,12 @@ import type { WaitlistGap, WaitlistOffer } from "./waitlist-types";
 /** The personal link in an offer text: the salon's own booking page. */
 export const offerLink = (slug: string, id: string) => `${bookingHome(slug)}?offer=${encodeURIComponent(id)}`;
 
+/** True when a change sent a new personal offer or started an approved queue for later (quiet hours). */
+export function offeredSince(before: Pick<DemoState, "waitlistOffers" | "waitlistGaps">, after: Pick<DemoState, "waitlistOffers" | "waitlistGaps">): boolean {
+  return after.waitlistOffers.some((o) => o.status === "offered" && !before.waitlistOffers.some((old) => old.id === o.id)) ||
+    after.waitlistGaps.some((g) => g.approved && !before.waitlistGaps.some((old) => old.id === g.id));
+}
+
 /** Removes one entry and keeps the customer's waiting-list flag in step with what is left. */
 export function removeEntry(state: DemoState, id: string): DemoState {
   const entry = state.waitlistEntries.find((e) => e.id === id);

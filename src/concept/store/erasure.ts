@@ -22,6 +22,7 @@ export const PERSONAL_FIELDS = {
   "online/hold": GUEST,
   "online/book": GUEST,
   "online/waitlist": GUEST,
+  "online/claim": NOTICE("notice"),
   "booking/create": ["newCustomer.name", "newCustomer.phone", "newCustomer.email", "fictionalCustomer.name"],
   "booking/move": NOTICE("notice"),
   "booking/fee": ["reason"],

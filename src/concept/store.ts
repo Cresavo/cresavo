@@ -8,6 +8,7 @@ import { migrateState } from "./data/migrate";
 import type { DemoState } from "./data/types";
 import { demoMessageLedger, demoPaymentLedger, withDemoChannels } from "./connections/demo";
 import { nextWaitlistWake } from "./booking/waitlist-match";
+import { salonClock } from "./tools/clock";
 import { withOffersHeld } from "./booking/waitlist-offer";
 import { prepareAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
@@ -163,7 +164,7 @@ function load(raw: string | null, workspace: Workspace): DemoState | null {
       // A queue still in use spans midnight: open times, offers out, or a visitor's request with days still ahead.
       // Ended offers and older requests without days do not hold the sample schedule back.
       const liveQueue = saved.waitlistGaps.length > 0 || saved.waitlistOffers.some(offer => offer.status === "offered") ||
-        saved.waitlistEntries.some(entry => !entry.id.startsWith("fixture-") && (entry.days.at(-1) ?? "") >= today());
+        saved.waitlistEntries.some(entry => !entry.id.startsWith("fixture-") && (entry.days.at(-1) ?? "") >= salonClock().today);
       const demo = saved.generatedFor === today() || liveQueue
         ? purge({ ...saved, generatedFor: today() })
         : { ...createDemoState(today(), setupOf(saved)), reminderSettings: saved.reminderSettings, waitlistRules: saved.waitlistRules };
@@ -240,12 +241,14 @@ function scheduleWaitlist(delay?: number) {
 
 function tickWaitlist() {
   if (!listeners.size) return;
+  const settle = (changed: unknown) => {
+    const state = snapshots[active].state;
+    const overdue = !!state && nextWaitlistWake(state) <= Date.now();
+    retryDelay = !changed && overdue ? Math.min(RETRY_MAX, Math.max(RETRY_MIN, retryDelay * 2)) : 0;
+  };
+  // A lock request that fails (an embedded page without Web Locks access) counts as a failed tick too.
   void withBookingLock(() => dispatch({ type: "waitlist/advance" }))
-    .then((changed) => {
-      const state = snapshots[active].state;
-      const overdue = !!state && nextWaitlistWake(state) <= Date.now();
-      retryDelay = !changed && overdue ? Math.min(RETRY_MAX, Math.max(RETRY_MIN, retryDelay * 2)) : 0;
-    }, () => undefined)
+    .then(settle, () => settle(false))
     .finally(() => scheduleWaitlist());
 }
 
@@ -375,6 +378,9 @@ export function dispatchWithLog(
   while (true) {
     const current = getSnapshot();
     if (!current || active !== workspace || (canApply && !canApply(current))) return false;
+    // Booking a personal offer needs the real cross-tab lock: without it two tabs could both claim it.
+    const personalBooking = action.type === "online/claim" || (action.type === "online/pay" && current.checkoutHolds.some(hold => hold.id === action.id && hold.offerId));
+    if (personalBooking && !insideBookingLock) return false;
     const batch = demoPaymentLedger.stage();
     const messages = demoMessageLedger.stage();
     // Offers go out only under the booking lock, where no other booking write can come between the check and the save.
@@ -388,16 +394,18 @@ export function dispatchWithLog(
       action.type === "booking/fee" || action.type === "booking/cancel" || action.type === "trash/restore";
     // A personal offer must reach shared storage before its link is texted or used: another tab
     // would otherwise not know it, and could claim it again or hand the time to someone else.
-    // A customer told "you have left the list" must have left it in every tab, too.
-    const personalClaim = action.type === "online/claim" || action.type === "online/leave" || action.type === "online/decline" ||
-      (action.type === "online/pay" && current.checkoutHolds.some(hold => hold.id === action.id && hold.offerId));
+    // A customer told "you have left the list", an owner told offers are paused and a customer told
+    // their request is saved must find it so in every tab, too.
+    const releasesOffer = action.type === "online/release" && current.checkoutHolds.some(hold => hold.id === action.id && hold.offerId);
+    const personalClaim = personalBooking || releasesOffer || action.type.startsWith("waitlist/") ||
+      action.type === "online/leave" || action.type === "online/decline" || action.type === "online/waitlist";
     const sendsOffer = next.waitlistOffers.some(offer => offer.status === "offered" && !current.waitlistOffers.some(old => old.id === offer.id));
     const saved = setState(next, recheck || action.type === "waitlist/advance" || sendsOffer, () => { batch.publish(); messages.publish(); }, personalClaim || sendsOffer);
     if (saved === "unsaved") return false;
     if (!saved) continue;
     if (workspace === "own") markTrialUsed(now);
     // A change made outside the lock may have freed time for the queue: send under the lock right away.
-    if (held && next.waitlistGaps.length) scheduleWaitlist(0);
+    if (held && hasCrossTabLock() && next.waitlistGaps.length) scheduleWaitlist(0);
     const logId = next.log[0]?.id;
     return logId !== current.log[0]?.id ? logId ?? null : null;
   }
@@ -414,8 +422,16 @@ async function bookingReceipts(): Promise<Cache | undefined> {
   }
 }
 
-/** True while a booking-lock callback runs in this tab. */
+/** True while a booking-lock callback runs in this tab under Web Locks, which serialize it with every other tab. */
 let insideBookingLock = false;
+
+/**
+ * Whether this browser can serialize booking writes across tabs. Without it the
+ * demo never sends or books personal offers: it fails closed instead of racing.
+ */
+export function hasCrossTabLock(): boolean {
+  return typeof navigator !== "undefined" && !!navigator.locks;
+}
 
 function runLocked<T>(write: (required?: BookingReceipt) => T, required?: BookingReceipt): T {
   const previous = insideBookingLock;
@@ -431,7 +447,8 @@ async function withBookingReceipt<T>(write: (required?: BookingReceipt) => T, re
   initialize();
   const workspace = active;
   const snapshot = snapshots[workspace];
-  if (typeof window === "undefined" || !navigator.locks) return runLocked(write);
+  // No cross-tab lock: run the write as before, but not as "locked", so no personal offer is sent or booked.
+  if (typeof window === "undefined" || !hasCrossTabLock()) return write();
   return navigator.locks.request(storageKey(workspace), async () => {
     const receipts = await bookingReceipts();
     if (workspace !== active) return false;

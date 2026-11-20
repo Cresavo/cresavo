@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import type { DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong, formatMoney, formatTime } from "../i18n/format";
-import { currentState, dispatch, withBookingLock } from "../store";
+import { currentState, dispatch, hasCrossTabLock, withBookingLock } from "../store";
+import { Notice } from "../ui/notice";
 import { salonClock } from "../tools/clock";
 import { Button, ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
@@ -81,8 +82,9 @@ export function ClaimOffer({ state, now, id }: { state: DemoState; now: Now; id:
           </div>
           {/* The slot-aware summary: total, what is due now and, inside the free-change window, that online changes are closed. */}
           <BookingSummary slot={offer} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={false} />
+          {!hasCrossTabLock() && <Notice tone="warning">{t("offers.noLockClaim")}</Notice>}
           <div className="flex flex-wrap gap-2">
-            <Button disabled={pending} onClick={() => act("online/claim")}>{t("offers.claim")}</Button>
+            <Button disabled={pending || !hasCrossTabLock()} onClick={() => act("online/claim")}>{t("offers.claim")}</Button>
             <Button variant="secondary" disabled={pending} onClick={() => act("online/decline")}>{t("offers.decline")}</Button>
           </div>
         </>

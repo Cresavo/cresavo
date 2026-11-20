@@ -9,7 +9,8 @@ import type { DemoState, StaffId } from "../../data/types";
 import { t } from "../../i18n";
 import { formatDayShort, formatTime } from "../../i18n/format";
 import { findCustomer, findService, fullName } from "../../selectors";
-import { dispatch, withBookingLock } from "../../store";
+import { dispatch, hasCrossTabLock, withBookingLock } from "../../store";
+import { Notice } from "../../ui/notice";
 import { Badge, DemoBadge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
@@ -62,6 +63,7 @@ export function WaitlistPage() {
   return (
     <MorePage title={t("features.waitlist")} subtitle={t("offers.subtitle")} module="waitlist" parent={{ href: "/studio/customers", label: t("customers.title") }}>
       <div className="space-y-8">
+        {!hasCrossTabLock() && <Notice tone="warning">{t("offers.noLock")}</Notice>}
         <OfferSettings state={state} />
 
         {active.length > 0 && (

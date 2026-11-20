@@ -22,8 +22,8 @@ export interface WaitlistGap extends Interval {
   id: string;
   staffId: StaffId;
   date: DateKey;
-  /** The newly freed part of the opening: a match must use some of it. Absent for an opening chosen by the owner. */
-  released?: Interval;
+  /** The newly freed parts of the opening, kept apart: a match must use some of one. Absent for an opening chosen by the owner. */
+  released?: Interval[];
   /** The customer whose cancellation freed it is not offered their own time back. */
   excludeCustomer?: string;
   /** The owner said yes (ask me first), so the queue for it may run. */

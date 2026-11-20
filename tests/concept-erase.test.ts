@@ -185,6 +185,9 @@ describe("redaction map", () => {
     expect(redactAction(message)).toEqual({ ...message, texts: message.texts.map((text) => ({ ...text, title: REDACTED, body: REDACTED })) });
     const dismiss: DemoAction = { type: "card/dismiss", id: "c1" };
     expect(redactAction(dismiss)).toEqual(dismiss);
+    const claim = { type: "online/claim", id: "offer-1", terms: { version: 1, freeHours: 24, latePercent: 0, noShowPercent: 0, currency: "SEK", priceMinor: 55000, depositMinor: 0 },
+      notice: { title: "New online booking", body: "Medical foot care with Anna, Friday at 10:00" } } as const;
+    expect(redactAction(claim)).toEqual({ ...claim, notice: { title: REDACTED, body: REDACTED } });
     // Free text that names nobody is still personal when the row is theirs.
     const fee: DemoAction = { type: "booking/fee", id: "b-1", incident: "late", outcome: "waive", reason: "Fictional private reason" };
     expect(redactAction(fee)).toEqual({ ...fee, reason: REDACTED });

@@ -3,6 +3,8 @@ import { ASSISTANT, BRAND } from "../brand";
 // prefix. "one|many" values are plural forms used with `tc()`.
 
 const messages = {
+  "offers.noLock": "This browser cannot keep its tabs in step, so it sends no personal offers. Open the studio in a current browser to send them.",
+  "offers.noLockClaim": "This browser cannot book the offer safely. Open the link in a current browser or call the salon.",
   "log.actor.automatic": "Automatic",
   "log.source.waitlist": "Waiting list",
   "offers.subtitle": "When a time frees up, the customer who has waited longest and fits it gets a personal offer. One customer at a time.",

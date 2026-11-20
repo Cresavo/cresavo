@@ -9,6 +9,7 @@ import { t } from "../i18n";
 import { formatDayLong, formatDuration, formatMoney, relativeDay, formatTime } from "../i18n/format";
 import { findCustomer, findService } from "../selectors";
 import { dispatch, usePublicDemo, withBookingLock } from "../store";
+import { showActionFailure } from "../ui/toast";
 import { entrySummary } from "./waitlist-entry";
 import { newActionRequestId } from "../support/action-reference";
 import { ActionFailure, type ActionFailureInfo } from "../ui/action-failure";
@@ -159,7 +160,11 @@ function VisitLinks({ state, booking, active }: { state: DemoState; booking: Boo
 function WaitlistRequests({ state, customerId }: { state: DemoState; customerId: string }) {
   const entries = state.waitlistEntries.filter((e) => e.customerId === customerId);
   if (!entries.length) return null;
-  const leave = (id: string, all = false) => withBookingLock(() => dispatch({ type: "online/leave", id, all }));
+  // A request stays until the withdrawal is saved; say so when it was not.
+  const leave = async (id: string, all = false) => {
+    const left = await withBookingLock(() => dispatch({ type: "online/leave", id, all })).catch(() => false);
+    if (!left) showActionFailure("booking.visitChanged", undefined, "booking");
+  };
   return (
     <Section title={t("offers.mine")}>
       <Card className="divide-y divide-hairline">

@@ -3,6 +3,8 @@ import type { en } from "./en";
 
 // Swedish UI text. English defines the keys and placeholders.
 const messages = {
+  "offers.noLock": "Den här webbläsaren kan inte hålla flikarna i takt, så den skickar inga personliga erbjudanden. Öppna studion i en aktuell webbläsare för att skicka dem.",
+  "offers.noLockClaim": "Den här webbläsaren kan inte boka erbjudandet säkert. Öppna länken i en aktuell webbläsare eller ring salongen.",
   "log.actor.automatic": "Automatiskt",
   "log.source.waitlist": "Väntelistan",
   "offers.subtitle": "När en tid blir ledig får den kund som har väntat längst och passar tiden ett personligt erbjudande. En kund i taget.",

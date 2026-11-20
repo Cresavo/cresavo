@@ -11,7 +11,8 @@ import { findCustomer, findService, fullName } from "../../selectors";
 import { newActionRequestId } from "../../support/action-reference";
 import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Badge } from "../../ui/badge";
-import { dispatchWithLog, withBookingLock } from "../../store";
+import { currentState, dispatchWithLog, withBookingLock } from "../../store";
+import { offeredSince } from "../../booking/waitlist-offer";
 import { Button, ButtonLink } from "../../ui/button";
 import { Chip, Switch } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
@@ -83,7 +84,6 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
 
   const confirmCancel = async () => {
     const sendOffer = offer && waitlist > 0;
-    const message = t(sendOffer ? "booking.cancelledOfferedToast" : "booking.cancelledToast");
     const result = await withBookingLock(() => dispatchWithLog({
       type: "booking/cancel",
       id: booking.id,
@@ -94,6 +94,9 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
       return current?.status === "booked" && salonCancellationOnly(current, Date.now()) === salonCancellation &&
         current.date === booking.date && current.start === booking.start && current.staffId === booking.staffId;
     })).catch(() => false as const);
+    // Say a customer gets the time only when the saved change actually offered it to someone.
+    const committed = result === false ? null : currentState();
+    const message = t(committed && offeredSince(state, committed) ? "booking.cancelledOfferedToast" : "booking.cancelledToast");
     if (showUndoToast(message, result)) onClose();
     else report("booking.visitChanged");
   };

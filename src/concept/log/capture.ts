@@ -65,6 +65,21 @@ function waitlistEvents(prev: DemoState, next: DemoState, action: DemoAction, me
   return events.reverse();
 }
 
+/** The customer a waiting-list action concerns, so erasure finds its entry even when the summary uses another name. */
+function waitlistSubject(action: DemoAction, prev: DemoState, next: DemoState): string | undefined {
+  switch (action.type) {
+    case "online/waitlist":
+      return next.waitlistEntries.find((e) => !prev.waitlistEntries.some((old) => old.id === e.id))?.customerId;
+    case "online/claim":
+    case "online/decline":
+      return prev.waitlistOffers.find((o) => o.id === action.id)?.customerId;
+    case "online/leave":
+      return prev.waitlistEntries.find((e) => e.id === action.id)?.customerId ?? prev.waitlistOffers.find((o) => o.id === action.id)?.customerId;
+    default:
+      return undefined;
+  }
+}
+
 export function prepareAction(state: DemoState, action: DemoAction, meta: LogMeta, batch: ReturnType<typeof demoPaymentLedger.stage>): DemoState {
   if (OWNER_ONLY.has(action.type) && meta.actor !== "owner") return state;
   // Offering a cancelled time to the waiting list approves a queue: the owner's call, also on an assistant's draft they approved.
@@ -82,8 +97,10 @@ export function prepareAction(state: DemoState, action: DemoAction, meta: LogMet
   const { summary, before, after } = describeAction(action, state, next);
   // A text that was sent cannot be taken back, so neither can the change that sent it.
   const sentOffer = next.waitlistOffers.length > state.waitlistOffers.length;
+  const subject = waitlistSubject(action, state, next);
   const entry: LogEntry = {
     ...meta,
+    ...(subject ? { customerId: subject } : {}),
     id: `l-${next.seq}`,
     type: action.type,
     summary,

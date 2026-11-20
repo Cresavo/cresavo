@@ -95,32 +95,43 @@ export function nextMatch(state: DemoState, gap: WaitlistGap, now: number): Wait
   const clock = salonClock(new Date(now));
   if (gap.date < clock.today) return undefined;
   const tried = new Set(state.waitlistOffers.filter((o) => o.gapId === gap.id || o.status === "offered").map((o) => o.customerId));
+  const earliest = gap.date === clock.today ? clock.minutes + 1 : 0;
+  // Bookable starts in this gap depend only on the treatment: worked out once per treatment, then each customer's window applies.
+  const startsByService = new Map<string, number[]>();
+  const startsFor = (service: Service) => {
+    const known = startsByService.get(service.id);
+    if (known) return known;
+    const need = needOf(service);
+    const before = need.bufferBefore ?? 0;
+    const after = need.bufferAfter ?? 0;
+    const starts: number[] = [];
+    for (const start of range(Math.max(earliest, gap.start) + before, gap.end - after - need.duration)) {
+      if (gap.released && !gap.released.some((r) => start - before < r.end && start + need.duration + after > r.start)) continue;
+      if (!isFree(state, gap.staffId, gap.date, start, need)) continue;
+      const instant = visitTime({ date: gap.date, start });
+      // Skip a visit or buffer that crosses a clock change: its wall times would not add up.
+      if (instant.toMillis() <= now || !sameWallMinute(instant, start) ||
+          !sameWallMinute(instant.minus({ minutes: before }), start - before) ||
+          !sameWallMinute(instant.plus({ minutes: need.duration + after }), start + need.duration + after)) continue;
+      starts.push(start);
+    }
+    startsByService.set(service.id, starts);
+    return starts;
+  };
+  // The freed time itself first (a cancelled 10:00 is offered at 10:00), then the earliest start that uses some of it.
+  const freedStart = gap.released?.length ? Math.min(...gap.released.map((r) => r.start)) : undefined;
   return withSlotClock(now, () => {
     for (const entry of [...state.waitlistEntries].sort(queueOrder)) {
       if (!entry.days.includes(gap.date) || entry.customerId === gap.excludeCustomer || tried.has(entry.customerId) ||
           (entry.staffId && entry.staffId !== gap.staffId)) continue;
       const service = bookable(state, entry.serviceId, gap.staffId);
       if (!service) continue;
-      const need = needOf(service);
-      const before = need.bufferBefore ?? 0;
-      const after = need.bufferAfter ?? 0;
-      const earliest = gap.date === clock.today ? clock.minutes + 1 : 0;
-      const first = Math.max(Math.max(earliest, gap.start) + before, entry.window.start);
-      const last = Math.min(gap.end - after, entry.window.end) - need.duration;
-      // The freed time itself first (a cancelled 10:00 is offered at 10:00), then the earliest start that uses some of it.
-      const preferred = gap.released ? Math.max(gap.released.start, first) : first;
-      const starts = preferred > first && preferred <= last ? [preferred, ...range(first, last)] : range(first, last);
-      for (const start of starts) {
-        if (gap.released && !(start - before < gap.released.end && start + need.duration + after > gap.released.start)) continue;
-        if (!isFree(state, gap.staffId, gap.date, start, need)) continue;
-        const instant = visitTime({ date: gap.date, start });
-        // Skip a visit or buffer that crosses a clock change: its wall times would not add up.
-        if (instant.toMillis() <= now || !sameWallMinute(instant, start) ||
-            !sameWallMinute(instant.minus({ minutes: before }), start - before) ||
-            !sameWallMinute(instant.plus({ minutes: need.duration + after }), start + need.duration + after)) continue;
-        if (customerBusy(state, entry.customerId, gap.date, start, need.duration)) continue;
-        return { entry, service, start, instant: instant.toMillis(), resourceId: pickResource(state, need, gap.date, start) };
-      }
+      const fits = startsFor(service).filter((start) => start >= entry.window.start && start + service.duration <= entry.window.end &&
+        !customerBusy(state, entry.customerId, gap.date, start, service.duration));
+      if (!fits.length) continue;
+      const preferred = freedStart === undefined ? undefined : fits.find((start) => start === Math.max(freedStart, fits[0]));
+      const start = preferred ?? fits[0];
+      return { entry, service, start, instant: visitTime({ date: gap.date, start }).toMillis(), resourceId: pickResource(state, needOf(service), gap.date, start) };
     }
     return undefined;
   });
@@ -155,10 +166,11 @@ export function releasedGaps(prev: DemoState, state: DemoState, now: number): Wa
       .find((free) => free.start <= span.start && free.end >= span.end) ?? span;
     const same = found.find((g) => g.staffId === staffId && g.date === date && g.start === opening.start && g.end === opening.end);
     if (same) {
-      same.released = { start: Math.min(same.released!.start, span.start), end: Math.max(same.released!.end, span.end) };
+      // Two freed parts of one stretch stay two: the time between them was free before.
+      same.released = [...same.released!, { ...span }];
       return;
     }
-    found.push({ start: opening.start, end: opening.end, released: { ...span }, staffId, date, excludeCustomer, id: `gap-${state.seq}-${found.length}` });
+    found.push({ start: opening.start, end: opening.end, released: [{ ...span }], staffId, date, excludeCustomer, id: `gap-${state.seq}-${found.length}` });
   };
   if (prev.bookings !== state.bookings) {
     const current = new Map(state.bookings.map((b) => [b.id, b]));

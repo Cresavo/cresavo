@@ -238,12 +238,15 @@ function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoS
   if (action.type === "online/book") return terms.depositMinor ? state : confirmOnline(state, action, service, { terms });
   if (!terms.depositMinor) return state;
   const { guest, notice, staffId, date, start } = action;
+  // The checkout ends by the time preparation must begin; payment would be refused after that.
+  const preparation = visitTime({ date, start: start - (service.bufferBefore ?? 0) }).toMillis();
+  if (preparation <= now) return state;
   const hold = {
     id: `hold-${now}-${state.seq}`, guest, notice, staffId, date, start, terms, duration: service.duration,
     ...(service.bufferBefore ? { bufferBefore: service.bufferBefore } : {}),
     ...(service.bufferAfter ? { bufferAfter: service.bufferAfter } : {}),
     resourceId: action.resourceId && resourceStillFree(state, needOf(service), action.resourceId, date, start) ? action.resourceId : pickResource(state, needOf(service), date, start),
-    serviceId: service.id, expiresAt: now + 10 * 60_000,
+    serviceId: service.id, expiresAt: Math.min(now + 10 * 60_000, preparation),
   };
   return { ...state, seq: state.seq + 1, checkoutHolds: [...state.checkoutHolds.filter(h => h.expiresAt > now), hold] };
 }

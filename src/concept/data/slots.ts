@@ -137,11 +137,14 @@ export function pickResource(ctx: SlotContext, need: Need, date: DateKey, start:
   );
 }
 
-/** True when the treatment needs no room or chair, or can still use this one and nothing else holds it then. */
+/**
+ * A reservation without a room or chair holds while the treatment still needs none. A reservation of a
+ * named one holds only while the treatment can still use it, it still exists, and nothing else holds it then.
+ */
 export function resourceStillFree(ctx: SlotContext, need: Need, resourceId: string | undefined, date: DateKey, start: number, ignoreId?: string): boolean {
   const usable = usableResources(ctx, need.serviceId);
-  if (!usable.length) return true;
-  if (!resourceId || !usable.includes(resourceId)) return false;
+  if (!resourceId) return usable.length === 0;
+  if (!usable.includes(resourceId)) return false;
   return pickResource({ ...ctx, resources: ctx.resources.filter((r) => r.id === resourceId) }, need, date, start, ignoreId) === resourceId;
 }
 

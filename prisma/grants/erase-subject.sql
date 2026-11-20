@@ -98,6 +98,7 @@ DECLARE
     "online/hold": ["guest.name","guest.phone","guest.email","notice.title","notice.body","notice.draftReply","notice.fromName","notice.reply"],
     "online/book": ["guest.name","guest.phone","guest.email","notice.title","notice.body","notice.draftReply","notice.fromName","notice.reply"],
     "online/waitlist": ["guest.name","guest.phone","guest.email","notice.title","notice.body","notice.draftReply","notice.fromName","notice.reply"],
+    "online/claim": ["notice.title","notice.body","notice.draftReply","notice.fromName","notice.reply"],
     "booking/create": ["newCustomer.name","newCustomer.phone","newCustomer.email","fictionalCustomer.name"],
     "booking/move": ["notice.title","notice.body","notice.draftReply","notice.fromName","notice.reply"],
     "booking/fee": ["reason"],
