@@ -15,6 +15,7 @@ const hosted = {
   VERCEL_PROJECT_ID: "prj_ExampleSandbox",
   BOOKING_SANDBOX_ORIGIN: "https://sandbox.example.test",
   BOOKING_PUBLIC_ORIGIN: "https://gateway.example.test",
+  DATABASE_URL: "postgresql://provider@pg.example.test/sandbox?sslmode=verify-full",
   BOOKING_SANDBOX_DB_ID: "0196a07e-f751-48fa-8a1c-8e53e034a120",
   GATEWAY_SERVICE_TOKEN: "a".repeat(64),
   SESSION_SECRET: "b".repeat(64),
@@ -29,6 +30,8 @@ it("limits the sealed profile to its actual production project and caps hosted s
   expect(() => sandboxConfig({ ...hosted, VERCEL_PROJECT_ID: undefined })).toThrow();
   expect(() => sandboxConfig({ ...hosted, VERCEL_ENV: "preview" })).toThrow();
   expect(() => sandboxConfig({ ...hosted, NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO: "1" })).toThrow();
+  expect(() => sandboxConfig({ ...hosted, DATABASE_URL: hosted.DATABASE_URL.replace("verify-full", "require") })).toThrow();
+  expect(() => sandboxConfig({ ...hosted, DATABASE_URL: hosted.DATABASE_URL + "&ssl=false" })).toThrow();
   for (const [key, value] of Object.entries(hosted)) vi.stubEnv(key, value);
   try {
     const origin = hosted.BOOKING_SANDBOX_ORIGIN;
@@ -49,7 +52,7 @@ it("schedules the reset only in the sandbox config and renders the guide without
   expect(english).toContain("Let AI book");
   for (const html of [swedish, english]) {
     expect(html).toContain("https://sandbox.cresavo.com/");
-    expect(html).toContain("https://gateway.cresavo.com/");
+    expect(html).toContain("https://gateway.cresavo.com/llms.txt");
     expect(html).not.toMatch(/<script|\bfetch\s*\(|\/api\//i);
   }
 });

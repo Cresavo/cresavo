@@ -37,7 +37,7 @@ export function letAiBookGuide(locale: keyof typeof languages) {
   <ul class="cards"><li><h2>${t.agent}</h2><p>${t.agentBody}</p></li>
   <li><h2>${t.phone}</h2><p>${t.phoneBody}</p></li><li><h2>${t.calendar}</h2><p>${t.calendarBody}</p></li></ul>
   <p>${t.note}</p><div class="links"><a class="primary" href="https://sandbox.cresavo.com${t.sandboxPath}">${t.start}</a>
-  <a href="https://gateway.cresavo.com/">${t.docs}</a></div></main></body></html>`, {
+  <a href="https://gateway.cresavo.com/llms.txt">${t.docs}</a></div></main></body></html>`, {
     headers: { "Content-Type": "text/html; charset=utf-8", "Referrer-Policy": "no-referrer",
       "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" },
   });

@@ -9,9 +9,12 @@ sandbox check passes.
 
 ## Owner steps before any deployment
 
-1. In the Pro team `niclasvestlund-3367s-projects`, create a dedicated project
-   named `cresavo-sandbox` after approving cloud setup. Keep automatic Git
-   deployments off. The checked-in `vercel.sandbox.json` belongs to that project
+1. In the Pro team `niclasvestlund-3367s-projects`, create an empty project
+   named `cresavo-sandbox` after approving cloud setup. Use
+   `vercel project add cresavo-sandbox --scope niclasvestlund-3367s-projects`
+   if the dashboard offers only Git import. Leave the Git repository unlinked
+   so settings and budgets can be ready before the first build. The checked-in
+   `vercel.sandbox.json` belongs to that project
    only. The main `vercel.json` remains the configuration for the existing demo.
    Use a separate gateway project. The gateway uses its portable container and
    its [own shared limits](https://github.com/Cresavo/gateway/pull/9).
@@ -20,7 +23,9 @@ sandbox check passes.
    overages. Confirm it stops at quota. Apply the same rule to the gateway's
    shared limit store. If the provider requires payment details, a usage
    upgrade, or paid compute, stop. Keep these resources disconnected from
-   the existing demo and existing Cresavo projects.
+   the existing demo and existing Cresavo projects. Keep automatic injection of
+   the Marketplace database's default owner URLs off. Configure only the
+   two scoped login URLs manually in the sandbox project.
 3. Prepare an empty database as the migration owner. Use separate, fresh
    database logins for the provider and for Cron. Neither login should inherit
    the migration role or unrelated grants. Set the installation UUID using
@@ -30,14 +35,17 @@ sandbox check passes.
    take `psql -v` arguments for the installation ID and role names. The
    installation UUID is configuration metadata, not a password. Use a
    secure local secret mechanism for database credentials. The application
-   receives the provider login only, and Cron receives the reset login only.
-   Keep the migration credential outside Vercel.
+   uses the provider login. Only the reset code path uses the separate reset
+   login. Both settings exist in the same server deployment, so they are not
+   isolated from a compromised server process. Keep the migration credential
+   outside Vercel.
 4. In each project's **Settings → Environment Variables**, configure
    **Production** only. Copy the sandbox project's ID from **Settings → General**
    and enable [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables)
    so runtime can verify its actual project ID and deployment environment.
-   Store the shared service token only in the gateway and sandbox projects.
-   Do not copy values across from the existing demo.
+   Mark credentials and secrets **Sensitive**. Store the shared service token
+   only in the gateway and sandbox projects. Do not copy values across from
+   the existing demo.
 5. In **Team Settings → Billing → Spend Management**, add a **Project** budget
    for `cresavo-sandbox` and switch on **Pause production**. Set a low
    threshold within remaining included usage/credit before deployment. Apply
@@ -72,8 +80,8 @@ sandbox check passes.
 | `BOOKING_PUBLIC_ORIGIN` | `https://gateway.cresavo.com` |
 | `BOOKING_CONSENT_DELIVERY` | `sandbox-demo-phone` |
 | `RATE_LIMIT_STORE` | `postgres` |
-| `DATABASE_URL` | Sandbox provider login, with only the specified runtime grants. |
-| `BOOKING_SANDBOX_RESET_DATABASE_URL` | Distinct sandbox reset login with only permission to invoke its reset routine. Prefer the direct TLS endpoint. |
+| `DATABASE_URL` | Sandbox provider login with runtime grants. Use the provider's TLS endpoint and `sslmode=verify-full`. |
+| `BOOKING_SANDBOX_RESET_DATABASE_URL` | Distinct sandbox reset login with permission to invoke the reset routine. Use the provider's direct TLS endpoint with `sslmode=verify-full`. |
 | `SESSION_SECRET` | Dedicated random secret of at least 32 characters. |
 | `BOOKING_SANDBOX_IP_KEY` | A separate secret, 32 random bytes encoded as lowercase hex. |
 | `CRON_SECRET` | A separate 32-byte random, lowercase hex secret. Vercel supplies it in the Cron authorization header. |

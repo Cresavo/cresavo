@@ -34,6 +34,13 @@ function httpsOrigin(value: string | undefined) {
     !url.search && !url.hash && url.pathname === "/" ? url.origin : null;
 }
 
+export function isVerifiedHostedDatabaseUrl(value: string | undefined) {
+  const url = URL.parse(value ?? "");
+  return !!url && ["postgres:", "postgresql:"].includes(url.protocol) && !!url.hostname &&
+    !!url.username && url.pathname.length > 1 && url.searchParams.getAll("sslmode").join(",") === "verify-full" &&
+    ![...url.searchParams.keys()].some(key => ["host", "hostaddr", "ssl", "sslnegotiation"].includes(key.toLowerCase()));
+}
+
 export function sandboxConfig(env = process.env) {
   const origin = httpsOrigin(env.BOOKING_SANDBOX_ORIGIN);
   const gatewayOrigin = httpsOrigin(env.BOOKING_PUBLIC_ORIGIN);
@@ -49,7 +56,8 @@ export function sandboxConfig(env = process.env) {
   if (env.BOOKING_RUNTIME === "vercel") {
     if (env.VERCEL !== "1" || env.VERCEL_ENV !== "production" || env.RATE_LIMIT_STORE !== "postgres" ||
         !/^prj_[A-Za-z0-9]+$/.test(env.BOOKING_SANDBOX_PROJECT_ID ?? "") ||
-        env.VERCEL_PROJECT_ID !== env.BOOKING_SANDBOX_PROJECT_ID)
+        env.VERCEL_PROJECT_ID !== env.BOOKING_SANDBOX_PROJECT_ID ||
+        !isVerifiedHostedDatabaseUrl(env.DATABASE_URL))
       throw new AgentApiError("provider_configuration_invalid");
   } else {
     try {
