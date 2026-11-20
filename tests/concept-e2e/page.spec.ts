@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { expect, test, type Page } from "@playwright/test";
 import { ASSISTANT } from "../../src/concept/brand";
-import { englishDemoState } from "./fixtures";
+import { englishDemoState, salonState } from "./fixtures";
 import { PALETTES } from "../../src/concept/page/theme";
 import type { DemoState } from "../../src/concept/data/types";
 import { salonClock } from "../../src/concept/tools/clock";
@@ -14,7 +14,7 @@ const today = salonClock().today;
 const AXE = createRequire(import.meta.url).resolve("axe-core/axe.min.js");
 const errors = new WeakMap<Page, string[]>();
 
-const state = (page: Page): Promise<DemoState> => page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo")!));
+const state = (page: Page): Promise<DemoState> => salonState(page) as Promise<DemoState>;
 const phone = (page: Page) => page.viewportSize()!.width < 640;
 const frame = (page: Page) => page.frameLocator("iframe[title^='Preview of your booking page']");
 const screenshot = async (page: Page, name: string, height = 1800) => {

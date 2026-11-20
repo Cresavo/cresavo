@@ -67,6 +67,8 @@ interface SalonDb {
 
 Every command is bound to the salon it was rendered from: `Target = { workspace, epoch }`. Forms, booking pages, undo toasts, assistant cards and the trial notice's delete and renew buttons capture the target when they render or are created. Without it, a toast holding `logId` `l-12` could undo `l-12` in a replacement salon.
 
+Until the backend switch (PRs 3–5), `commitAction` (`src/concept/store/commit.ts`) runs through `BrowserStudioStore.commit` on localStorage, under the existing locks. There the epoch is a random id kept beside the snapshot (`…-epoch`), written when a sample business or trial salon is created. The sample business adds its day to it, and a salon saved earlier has the lifetime `legacy`. Versions are this tab's, as in `BrowserStudioStore`. Specs read stored salons only through `salonState` in `tests/concept-e2e/fixtures.ts`. `editSalon` follows when a spec needs it. The import in PR 6 also removes the `-epoch` keys.
+
 ```ts
 commitAction(target, action, { meta?, guard?, expectedVersion? }): Promise<
   | { ok: true; state; version; logId: string | null; effects: OutboxEntry[] }

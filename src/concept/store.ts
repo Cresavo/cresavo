@@ -18,6 +18,7 @@ import { checkNewSlug, createSalon, suggestedSlug, type SalonDraft } from "./onb
 import { setupOf } from "./onboarding/setup";
 import { parseLastUse, trialExpired } from "./onboarding/trial";
 import { getPack } from "./packs";
+import { newEpoch } from "./store/salon-tx";
 
 // Browser-side demo store: each workspace has its own shared snapshot.
 // Pages read it with `useDemo()`; on the server it is `null`, so the studio
@@ -77,10 +78,41 @@ export function onSalonRemoved(listener: (workspace: Workspace) => void): () => 
 // The own salon's last use is kept beside its snapshot, so reading it never touches the salon itself.
 const lastUseKey = () => `${storageKey("own")}-last-used`;
 
+// A salon's lifetime id (docs/design/BROWSER_STORE_IDB.md, "Targets and commit"):
+// new whenever a salon is created or replaced, kept beside its snapshot. The
+// sample business also gets a new one each day it is generated afresh. A
+// salon saved before epochs existed has the lifetime "legacy" until replaced.
+const epochKey = (workspace: Workspace) => `${storageKey(workspace)}-epoch`;
+
+function startEpoch(workspace: Workspace) {
+  try { window.localStorage.setItem(epochKey(workspace), newEpoch()); }
+  catch { /* Commands made for the earlier salon are then refused by its day only. */ }
+}
+
+/** The open lifetime of a workspace's salon, or null when it has none. Commands carry it to be refused once the salon is replaced. */
+export function salonEpoch(workspace: Workspace): string | null {
+  initialize();
+  refresh(workspace);
+  const state = snapshots[workspace].state;
+  if (!state) return null;
+  let lifetime: string | null = null;
+  try { lifetime = window.localStorage.getItem(epochKey(workspace)); }
+  catch { /* Unreadable: the legacy lifetime. */ }
+  return workspace === "demo" ? `${lifetime ?? "legacy"}:${state.generatedFor}` : lifetime ?? "legacy";
+}
+
+/** The salon this tab has open, as commands bind to it: its workspace and lifetime. */
+export function currentTarget(): { workspace: Workspace; epoch: string } | null {
+  initialize();
+  const epoch = salonEpoch(active);
+  return epoch === null ? null : { workspace: active, epoch };
+}
+
 function removeOwnSalon(announce: boolean) {
   try {
     window.localStorage.removeItem(storageKey("own"));
     window.localStorage.removeItem(lastUseKey());
+    window.localStorage.removeItem(epochKey("own"));
   } catch { /* Nothing more to remove. */ }
   snapshots.own = {};
   salonRemoved("own");
@@ -433,6 +465,7 @@ export async function startBusiness(setup?: BusinessSetup): Promise<void> {
     const next = createDemoState(today(), setup);
     next.seq = Math.max(next.seq, (snapshots.demo.state?.seq ?? 0) + 1, (required?.seq ?? 0) + 1);
     salonRemoved("demo");
+    startEpoch("demo");
     return setState(next);
   }, true);
 }
@@ -459,6 +492,7 @@ export async function switchSalon(to: Workspace, draft?: SalonDraft) {
       const raw = JSON.stringify(next);
       try { window.localStorage.setItem(storageKey(to), raw); }
       catch { return false; }
+      startEpoch(to);
       snapshots[to] = { raw, state: next, version: { day: next.generatedFor, seq: next.seq } };
     }
     select(to);

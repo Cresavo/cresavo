@@ -9,6 +9,7 @@ import {
   dispatchWithLog,
   latestState,
   onSalonRemoved,
+  salonEpoch,
   subscribeStore,
   withAddressLock,
   withBookingLock,
@@ -68,6 +69,7 @@ interface Remembered {
   seq: number;
   state: DemoState;
   effects: StoreEffect[];
+  logId: string | null;
 }
 
 interface Tenant {
@@ -158,6 +160,23 @@ async function withFreshRead<T>(tenantId: TenantId, write: () => Promise<T>, com
   });
 }
 
+/** What `commit` adds to `apply`: the salon lifetime the command was made for, a guard and extra sends. */
+export interface CommitExtras {
+  /** The lifetime the command was made for (`salonEpoch`); another one is `replaced`. */
+  epoch?: string;
+  /** Re-checked against the latest saved state; false is `rejected`. */
+  guard?: (current: DemoState) => boolean;
+  /** Sends that belong to the change but not to its reducer (see `DispatchOptions.send`). */
+  send?: (current: DemoState) => boolean;
+}
+
+export type CommitFailure = ApplyFailure | "replaced";
+
+/** `apply`'s result plus the activity log entry the change wrote (null for an unlogged change). */
+export type CommitResult =
+  | (Extract<ApplyResult, { ok: true }> & { logId: string | null })
+  | { ok: false; reason: CommitFailure; detail?: string; version?: number };
+
 export class BrowserStudioStore implements StudioStore {
   async load(tenantId: TenantId): Promise<StoreSnapshot | null> {
     const state = latestState();
@@ -166,11 +185,24 @@ export class BrowserStudioStore implements StudioStore {
   }
 
   async apply(tenantId: TenantId, action: DemoAction, meta: ApplyMeta = {}, options: ApplyOptions = {}): Promise<ApplyResult> {
+    const result = await this.commit(tenantId, action, meta, options);
+    if (!result.ok) return result as Extract<ApplyResult, { ok: false }>;
+    const { logId: _logId, ...applied } = result;
+    void _logId;
+    return applied;
+  }
+
+  /**
+   * `apply` for the studio's own commands: also refuses a command made for an
+   * earlier lifetime of the salon (`replaced`), re-checks `guard` and stages
+   * `send` with the change, all against the state it is applied to.
+   */
+  async commit(tenantId: TenantId, action: DemoAction, meta: ApplyMeta = {}, options: ApplyOptions = {}, extras: CommitExtras = {}): Promise<CommitResult> {
     // Per-tab history and keys would keep the erased customer (see isErasure).
     if (isErasure(action)) return { ok: false, reason: "rejected" };
     const own = detach(action);
     // The same locks the booking pages and the address editor take, so this write queues behind theirs in every tab.
-    const locked = () => withBookingLock(() => this.applyNow(tenantId, own, meta, options));
+    const locked = () => withBookingLock(() => this.applyNow(tenantId, own, meta, options, extras));
     const fresh = () => withFreshRead(tenantId, MAY_CHANGE_ADDRESS.has(own.type) ? () => withAddressLock(locked).then((r) => r || false) : locked, (r) => !!r && r.ok && !r.replayed);
     const result = await fresh();
     if (result !== false) return result;
@@ -180,16 +212,17 @@ export class BrowserStudioStore implements StudioStore {
     return { ok: false, reason: open ? "conflict" : "not-found", ...(open ? { version: observe(state).version } : {}) };
   }
 
-  private applyNow(tenantId: TenantId, action: DemoAction, meta: ApplyMeta, options: ApplyOptions): ApplyResult {
+  private applyNow(tenantId: TenantId, action: DemoAction, meta: ApplyMeta, options: ApplyOptions, extras: CommitExtras): CommitResult {
     const current = latestState();
     if (!current || browserTenantOf(current) !== tenantId) return { ok: false, reason: "not-found" };
     const record = observe(current);
+    if (extras.epoch !== undefined && salonEpoch(tenantId) !== extras.epoch) return { ok: false, reason: "replaced", version: record.version };
     const fingerprint = actionFingerprint(action);
     const known = options.idempotencyKey === undefined ? undefined : record.keys.get(options.idempotencyKey);
     if (known) {
       if (known.fingerprint !== fingerprint) return { ok: false, reason: "idempotency-mismatch", version: record.version };
       const entry = record.log[known.seq - 1];
-      return { ok: true, state: detach(known.state), version: entry.resultingVersion, effects: detach(known.effects), entry: detach(entry), replayed: true };
+      return { ok: true, state: detach(known.state), version: entry.resultingVersion, effects: detach(known.effects), entry: detach(entry), replayed: true, logId: known.logId };
     }
     if (options.expectedVersion !== undefined && options.expectedVersion !== record.version) {
       return { ok: false, reason: "conflict", version: record.version };
@@ -199,7 +232,7 @@ export class BrowserStudioStore implements StudioStore {
     if (meta.actor) logMeta.actor = meta.actor;
     if (meta.source) logMeta.source = meta.source;
     let sent: StoreEffect[] = [];
-    let refused: ApplyFailure | undefined;
+    let refused: CommitFailure | undefined;
     let base = current;
     let outcome: string | null | false;
     tab.committing = true;
@@ -217,10 +250,19 @@ export class BrowserStudioStore implements StudioStore {
             return false;
           }
         }
+        // A new lifetime (another tab replaced the salon, a new day's sample) is not what the command was made for.
+        if (extras.epoch !== undefined && salonEpoch(tenantId) !== extras.epoch) {
+          refused = "replaced";
+          return false;
+        }
+        if (extras.guard && !extras.guard(latest)) {
+          refused = "rejected";
+          return false;
+        }
         base = latest;
         refused = undefined;
         return true;
-      }, { committed: (records) => { sent = records.map(effectOf); } });
+      }, { send: extras.send, committed: (records) => { sent = records.map(effectOf); } });
     } finally {
       tab.committing = false;
     }
@@ -250,9 +292,10 @@ export class BrowserStudioStore implements StudioStore {
     record.log.push(entry);
     // Exactly what this commit's stage published, even a send another workspace made too.
     const effects = sent;
-    if (options.idempotencyKey !== undefined) record.keys.set(options.idempotencyKey, { fingerprint, seq: entry.seq, state, effects });
+    const logId = outcome;
+    if (options.idempotencyKey !== undefined) record.keys.set(options.idempotencyKey, { fingerprint, seq: entry.seq, state, effects, logId });
     notifyAll(tab.listeners.get(tenantId) ?? [], { tenantId, version: record.version, entry, effects });
-    return { ok: true, state: detach(state), version: record.version, effects: detach(effects), entry: detach(entry), replayed: false };
+    return { ok: true, state: detach(state), version: record.version, effects: detach(effects), entry: detach(entry), replayed: false, logId };
   }
 
   subscribe(tenantId: TenantId, listener: (change: StoreChange) => void): () => void {

@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { englishDemoState } from "./fixtures";
+import { englishDemoState, salonState } from "./fixtures";
 import type { DemoState } from "../../src/concept/data/types";
 import { salonClock } from "../../src/concept/tools/clock";
 
@@ -11,7 +11,7 @@ const today = salonClock().today;
 const errors = new WeakMap<Page, string[]>();
 
 async function state(page: Page): Promise<DemoState> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo")!));
+  return salonState(page) as Promise<DemoState>;
 }
 
 async function pickUpWithKeyboard(handle: Locator) {

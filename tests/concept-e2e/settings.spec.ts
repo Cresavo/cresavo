@@ -1,10 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { DemoState } from "../../src/concept/data/types";
+import { salonState } from "./fixtures";
 
 // Settings is a short overview; each section opens its own page, and Advanced holds what most salons never need.
 
 async function state(page: Page): Promise<DemoState | null> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo") ?? "null"));
+  return salonState(page);
 }
 
 test("the owner edits the salon's details, sees them on the booking page and can undo from History", async ({ page }) => {

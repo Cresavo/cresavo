@@ -5,6 +5,7 @@ import { createDemoState } from "../../src/concept/data/generate";
 import { freeStarts, needOf } from "../../src/concept/data/slots";
 import type { DemoState } from "../../src/concept/data/types";
 import { salonClock } from "../../src/concept/tools/clock";
+import { salonState } from "./fixtures";
 
 // The goal 16 journey, without any AI key: open the assistant, ask about the
 // numbers, send an offer, teach it a preference that the next booking uses,
@@ -14,7 +15,7 @@ const today = salonClock().today;
 const errors = new WeakMap<Page, string[]>();
 
 async function state(page: Page): Promise<DemoState> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo")!));
+  return salonState(page) as Promise<DemoState>;
 }
 
 async function say(page: Page, text: string) {

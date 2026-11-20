@@ -3,10 +3,9 @@ import { freeCancellationDeadline } from "../../src/concept/booking/policy";
 import { monthlySmsEstimate } from "../../src/concept/booking/reminders";
 import { formatDate, formatMoney, formatTime } from "../../src/concept/i18n/format";
 import { intlLocale } from "../../src/lib/locale";
-import type { DemoState } from "../../src/concept/data/types";
 import { createSalon, salonDraft } from "../../src/concept/onboarding/salon";
 import { SALON_TIMEZONE } from "../../src/concept/tools/clock";
-import { englishDemoState, fixtureText } from "./fixtures";
+import { englishDemoState, fixtureText, salonState } from "./fixtures";
 
 const today = "2026-11-17";
 const home = "/boka/salong-eko";
@@ -42,7 +41,7 @@ test("shows the payment split and salon deadline before confirmation, then offer
   await page.getByLabel(copy("booking.yourPhone")).fill("070-000 99 11");
   await page.getByRole("button", { name: copy("booking.confirm"), exact: true }).click();
   await expect(page.getByRole("heading", { name: copy("booking.confirmation.title") })).toBeVisible();
-  const saved: DemoState = await page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo")!));
+  const saved = (await salonState(page))!;
   const booking = saved.bookings.at(-1)!;
   const cutoff = freeCancellationDeadline(booking);
   expect(deadline).toBe(copy("booking.freeUntil", {
