@@ -1,3 +1,4 @@
+import { recordId } from "../data/ids";
 import { DateTime } from "luxon";
 import { freeGaps, isActive, isFree, needOf, occupied, pickResource, resourceStillFree, withSlotClock } from "../data/slots";
 import type { DemoState, Interval, Service, StaffId } from "../data/types";
@@ -205,7 +206,7 @@ export function releasedGaps(prev: DemoState, state: DemoState, now: number): Wa
       const same = found.find((g) => g.staffId === staffId && g.date === date && g.start === opening.start && g.end === opening.end);
       // Two freed parts of one stretch stay two: the time between them was free before.
       if (same) same.released = [...same.released!, part];
-      else found.push({ start: opening.start, end: opening.end, released: [part], staffId, date, excludeCustomer, id: `gap-${state.seq}-${found.length}` });
+      else found.push({ start: opening.start, end: opening.end, released: [part], staffId, date, excludeCustomer, id: recordId("gap", `${state.seq}-${found.length}`) });
     }
   };
   if (prev.bookings !== state.bookings) {

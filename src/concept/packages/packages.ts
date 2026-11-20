@@ -1,3 +1,4 @@
+import { recordId } from "../data/ids";
 import type { Booking, DateKey, DemoState, Service, ServicePackage } from "../data/types";
 import { paidWithCards } from "../giftcards/cards";
 
@@ -34,7 +35,7 @@ export function sellPackage(state: DemoState, input: { customerId: string; servi
   const service = state.services.find((s) => s.id === input.serviceId);
   if (!service || !state.customers.some((c) => c.id === input.customerId)) return state;
   const pkg: ServicePackage = {
-    id: `pk-${state.seq}`,
+    id: recordId("pk", state.seq),
     customerId: input.customerId,
     serviceId: service.id,
     visits: PACKAGE_DEAL.visits,

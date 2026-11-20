@@ -1,3 +1,4 @@
+import { recordId } from "../data/ids";
 import { stableHash } from "../connections/core";
 import { sendDemoMessage } from "../connections/demo";
 import type { Booking, DemoState } from "../data/types";
@@ -53,7 +54,7 @@ export function finishOffer(state: DemoState, offer: WaitlistOffer, status: Excl
 /** Sends the simulated text and records the offer. Unchanged when the SMS port refuses the message. */
 function sendOffer(state: DemoState, gap: WaitlistGap, match: WaitlistMatch, now: number, offeredBy: WaitlistOffer["offeredBy"]): DemoState {
   const { entry, service, start, resourceId } = match;
-  const id = `offer-${state.seq}-${stableHash(`${state.salon.slug}|${gap.id}|${entry.id}|${now}`)}`;
+  const id = recordId("offer", `${state.seq}-${stableHash(`${state.salon.slug}|${gap.id}|${entry.id}|${now}`)}`);
   // The hold ends when preparation would have to begin, so the salon can still give the visit it promised.
   const expiresAt = Math.min(match.instant - (service.bufferBefore ?? 0) * 60_000, now + state.waitlistRules.minutes * 60_000);
   const language = state.localization.language;
@@ -75,7 +76,7 @@ function sendOffer(state: DemoState, gap: WaitlistGap, match: WaitlistMatch, now
     seq: state.seq + 1,
     waitlistOffers: [...state.waitlistOffers, offer],
     inbox: [{
-      id: `i-${state.seq}`, kind: "system", waitlistOffer: true, customerId: entry.customerId, offerId: id,
+      id: recordId("i", state.seq), kind: "system", waitlistOffer: true, customerId: entry.customerId, offerId: id,
       date: clock.today, time: clock.minutes, title: t("offers.sentTitle", { name: customer?.firstName ?? "" }),
       body: sent.body, read: false, handled: true,
     }, ...state.inbox],

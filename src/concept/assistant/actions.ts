@@ -1,3 +1,4 @@
+import { recordId } from "../data/ids";
 import { sendDemoMessage } from "../connections/demo";
 import type { DateKey, DemoState } from "../data/types";
 import { alreadyRemembered, memoryRejection, type NewMemory } from "./memory";
@@ -30,7 +31,7 @@ export function applyAssistant(state: DemoState, action: AssistantAction): DemoS
     case "memory/add": {
       const text = action.item.text.trim();
       if (memoryRejection(text, state) || alreadyRemembered(state.memory, text)) return state;
-      return { ...state, seq: state.seq + 1, memory: [{ ...action.item, text, id: `m-${state.seq}` }, ...state.memory] };
+      return { ...state, seq: state.seq + 1, memory: [{ ...action.item, text, id: recordId("m", state.seq) }, ...state.memory] };
     }
     case "memory/edit": {
       const text = action.text.trim();
@@ -56,7 +57,7 @@ export function applyAssistant(state: DemoState, action: AssistantAction): DemoS
         sendDemoMessage({ channel: "sms", to: { customerId: text.customerId }, body: text.body, reference: `assistant-${text.customerId}-${action.at.date}-${action.at.time}` }));
       if (!known.length) return state;
       const items = known.map((text, i) => ({
-        id: `i-${state.seq + i}`,
+        id: recordId("i", state.seq + i),
         kind: "system" as const,
         customerId: text.customerId,
         recallServiceId: text.recallServiceId,

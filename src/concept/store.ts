@@ -12,6 +12,7 @@ import { salonClock } from "./tools/clock";
 import { visitTime } from "./booking/policy";
 import { withOffersHeld } from "./booking/waitlist-offer";
 import { DEFERRED_WRITE_FAILED } from "./support/deferred-write";
+import { withRecordIds } from "./data/ids";
 import { prepareAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
 import { publicView } from "./selectors";
@@ -414,7 +415,8 @@ function showThenCommit(action: DemoAction, given: Partial<Omit<LogMeta, "at">> 
   const now = Date.now();
   const logMeta = { ...defaultMeta(action, now), ...meta, at: now };
   // A preview only: nothing it would send or charge is published, and it sends no personal offer.
-  const next = withOffersHeld(true, () => withDemoChannels(demoMessageLedger.stage(), () => prepareAction(view, action, logMeta, demoPaymentLedger.stage())));
+  // Records it creates get ids from the operation, so its commit creates the very same ids.
+  const next = withRecordIds(meta.op, () => withOffersHeld(true, () => withDemoChannels(demoMessageLedger.stage(), () => prepareAction(view, action, logMeta, demoPaymentLedger.stage()))));
   if (next === view) return false;
   if (next.salon.slug !== view.salon.slug && next.salon.slug === workspaceSlug(workspace === "demo" ? "own" : "demo")) return false;
   const snapshot = snapshots[workspace];
@@ -448,7 +450,7 @@ function commitNow(action: DemoAction, meta: Partial<Omit<LogMeta, "at">> | unde
     const batch = demoPaymentLedger.stage();
     const messages = demoMessageLedger.stage();
     // Offers go out only under the booking lock; a browser without one sends none.
-    const next = withOffersHeld(!insideBookingLock, () => withDemoChannels(messages, () => prepareAction(current, action, logMeta, batch)));
+    const next = withRecordIds(meta?.op, () => withOffersHeld(!insideBookingLock, () => withDemoChannels(messages, () => prepareAction(current, action, logMeta, batch))));
     if (next === current) return false;
     // Includes undo, which can restore a previously free address.
     if (next.salon.slug !== current.salon.slug && next.salon.slug === workspaceSlug(active === "demo" ? "own" : "demo")) return false;

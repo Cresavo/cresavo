@@ -8,6 +8,7 @@ import type { Booking, DemoState } from "@/concept/data/types";
 import { applyAction, defaultMeta } from "@/concept/log/capture";
 import { offeredSince, withOffersHeld } from "@/concept/booking/waitlist-offer";
 import { createSalon, salonDraft } from "@/concept/onboarding/salon";
+import { entrySummary } from "@/concept/booking/waitlist-entry";
 import { deleteCustomer } from "@/concept/trash/trash";
 import { createDemoState } from "@/concept/data/generate";
 import { isNewCustomer } from "@/concept/booking/lookup";
@@ -521,6 +522,17 @@ describe("edge cases", () => {
     expect(offeredSince(elsewhere, { ...elsewhere, waitlistOffers: [other] }, visit)).toBe(false);
   });
 
+  it("keeps a deleted treatment's name for the waiting-list requests that name it", () => {
+    const ready = setup();
+    // A second treatment, so the waited-for one may be deleted.
+    const state = { ...ready, bookings: [], services: [...ready.services, { ...ready.services[0], id: "other-treatment", name: "Other" }] };
+    const name = state.services[0].name;
+    const deleted = reduce(state, { type: "service/delete", id: serviceId }, now);
+    expect(deleted.services.map((s) => s.id)).toEqual(["other-treatment"]);
+    expect(deleted.retiredServices.map((s) => s.id)).toContain(serviceId);
+    expect(entrySummary(deleted, deleted.waitlistEntries[0] ?? state.waitlistEntries[0])).toContain(name);
+  });
+
   it("gives an open offer back its gap, so a restored offer still hands the time on", () => {
     const offered = reduce(setup(), cancel, now);
     const restored = reduce({ ...offered, waitlistGaps: [] }, tick, now + 1);
@@ -853,6 +865,46 @@ describe("in the browser store", () => {
     } finally {
       stop();
     }
+  });
+
+  it("gives a record the same id in the preview and its commit, so a follow-up edit finds only this tab's record", async () => {
+    const state = setup();
+    const storage = { raw: JSON.stringify(state) };
+    const tab = await openTab(storage);
+    const draft = (name: string) => ({ name, category: state.categories[0].id, duration: 60, price: 500, description: "", staffIds: [alex] });
+    expect(tab.dispatch({ type: "service/add", service: draft("Ours") })).toBe(true);
+    const previewed = tab.currentState()!.services.at(-1)!;
+    expect(previewed.name).toBe("Ours");
+    // Another tab adds a treatment first, from the same starting point.
+    storage.raw = JSON.stringify(applyAction(state, { type: "service/add", service: draft("Theirs") }, { actor: "owner", source: "button", at: now }));
+    // The owner edits the treatment they just added, before its commit.
+    expect(tab.dispatch({ type: "service/price", id: previewed.id, price: 999 })).toBe(true);
+    await tab.withBookingLock(() => true);
+    const saved = JSON.parse(storage.raw) as DemoState;
+    expect(saved.services.find((s) => s.name === "Ours")).toMatchObject({ id: previewed.id, price: 999 });
+    expect(saved.services.find((s) => s.name === "Theirs")?.price).toBe(500);
+    // The activity list's entry id works for Undo too: it is the same in the preview and the commit.
+    expect(saved.log.some((e) => e.type === "service/add" && tab.currentState()!.log.some((shown) => shown.id === e.id))).toBe(true);
+  });
+
+  it("marks an assistant card approved only once its change is saved", async () => {
+    const state = setup();
+    const storage: { raw: string; race?: { afterReads: number; write: () => void } } = { raw: JSON.stringify(state) };
+    const tab = await openTab(storage);
+    const thread = await import("@/concept/studio/assistant/thread-store");
+    const actions = await import("@/concept/studio/assistant/reply-actions");
+    tab.currentState();
+    const card = { kind: "change" as const, title: "Move", rows: [], toast: "Moved", action: { type: "booking/move" as const, id: "visit", date, start: 840 } };
+    thread.addMessages([
+      { id: "q-1", from: "owner", text: "move the visit", at: 1 },
+      { id: "r-1", from: "assistant", text: "Move", reply: { source: "rules", text: "Move", card, request: "move the visit", input: "typed" }, at: 1 },
+    ], { customerIds: [], date: day });
+    // While it is being saved, another tab books 14:00 for someone else.
+    storage.race = { afterReads: 1, write: () => {
+      storage.raw = JSON.stringify({ ...state, seq: state.seq + 1, bookings: [...state.bookings, { ...state.bookings[0], id: "other", customerId: "other", start: 840 }] });
+    } };
+    expect(await actions.approveReply("r-1", card.action)).toBe(false);
+    expect(thread.replyOf("r-1")).toMatchObject({ status: "failed" });
   });
 
   it("neither sends nor books personal offers in a browser without a cross-tab lock", async () => {

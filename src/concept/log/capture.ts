@@ -1,3 +1,4 @@
+import { recordId } from "../data/ids";
 import { demoPaymentLedger } from "../connections/demo";
 import { reduce, type DemoAction } from "../actions";
 import type { DemoState } from "../data/types";
@@ -51,7 +52,7 @@ function waitlistEvents(prev: DemoState, next: DemoState, action: DemoAction, me
   const events: LogEntry[] = [];
   // `customerId` lets erasure find and empty the entry: it names the customer by first name.
   const record = (summary: string, actor: LogMeta["actor"], customerId: string | undefined, after?: string) =>
-    events.push({ ...withoutOp(meta), id: `wl-${next.seq}-${events.length}`, type: "waitlist/event", actor, source: "waitlist", summary, after, ...(customerId ? { customerId } : {}) });
+    events.push({ ...withoutOp(meta), id: recordId("wl", `${next.seq}-${events.length}`), type: "waitlist/event", actor, source: "waitlist", summary, after, ...(customerId ? { customerId } : {}) });
   const firstName = (id: string) => (next.customers.find((c) => c.id === id) ?? prev.customers.find((c) => c.id === id))?.firstName;
   if (next.waitlistGaps !== prev.waitlistGaps) for (const gap of next.waitlistGaps) {
     if (gap.readyAt && gap.readyAt !== prev.waitlistGaps.find((g) => g.id === gap.id)?.readyAt) {
@@ -108,7 +109,8 @@ export function prepareAction(state: DemoState, action: DemoAction, meta: LogMet
   const entry: LogEntry = {
     ...meta,
     ...(subject ? { customerId: subject } : {}),
-    id: `l-${next.seq}`,
+    // With an operation the entry is named after it, the same in a preview and its commit whatever else they create.
+    id: meta.op ? `l-${meta.op}` : recordId("l", next.seq),
     type: action.type,
     summary,
     before,

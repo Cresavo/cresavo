@@ -1,3 +1,4 @@
+import { recordId } from "../data/ids";
 import type { DateKey, DemoState, Service, ServiceCategory, StaffId } from "../data/types";
 
 // The price list as the owner edits it: treatments and their headings. Pure
@@ -102,7 +103,9 @@ export function serviceUsage(state: DemoState, id: string, today: DateKey): Serv
 
 /** True when a record somewhere still needs the treatment's name, price or rooms. */
 export function serviceIsReferenced(state: DemoState, id: string): boolean {
-  return state.bookings.some((b) => b.serviceId === id) || state.packages.some((p) => p.serviceId === id) || state.campaigns.some((c) => c.serviceIds.includes(id));
+  return state.bookings.some((b) => b.serviceId === id) || state.packages.some((p) => p.serviceId === id) || state.campaigns.some((c) => c.serviceIds.includes(id)) ||
+    // Waiting-list requests and offer history name the treatment too.
+    state.waitlistEntries.some((e) => e.serviceId === id) || state.waitlistOffers.some((o) => o.serviceId === id);
 }
 
 const clean = (draft: ServiceDraft): ServiceDraft => {
@@ -152,7 +155,7 @@ export function applyServiceAction(state: DemoState, action: ServiceAction): Dem
   switch (action.type) {
     case "service/add": {
       if (serviceIssues(state, action.service).length) return state;
-      const service: Service = { ...clean(action.service), id: `svc-${state.seq}`, recallWeeks: DEFAULT_RECALL_WEEKS, resourceIds: state.resources.map((r) => r.id) };
+      const service: Service = { ...clean(action.service), id: recordId("svc", state.seq), recallWeeks: DEFAULT_RECALL_WEEKS, resourceIds: state.resources.map((r) => r.id) };
       return { ...state, seq: state.seq + 1, services: [...state.services, service] };
     }
     case "service/update": {
@@ -170,7 +173,7 @@ export function applyServiceAction(state: DemoState, action: ServiceAction): Dem
       if (index < 0 || !name) return state;
       const source = state.services[index];
       // A copy starts hidden: it is a draft until the owner has made it its own.
-      const copy: Service = { ...source, id: `svc-${state.seq}`, name: freeName(state, name, source.category), hidden: true };
+      const copy: Service = { ...source, id: recordId("svc", state.seq), name: freeName(state, name, source.category), hidden: true };
       return { ...state, seq: state.seq + 1, services: [...state.services.slice(0, index + 1), copy, ...state.services.slice(index + 1)] };
     }
     case "service/delete": {
@@ -195,7 +198,7 @@ export function applyServiceAction(state: DemoState, action: ServiceAction): Dem
     }
     case "category/add": {
       if (categoryIssues(state, action.name).length) return state;
-      const category: ServiceCategory = { id: `cat-${state.seq}`, name: action.name.trim() };
+      const category: ServiceCategory = { id: recordId("cat", state.seq), name: action.name.trim() };
       return { ...state, seq: state.seq + 1, categories: [...state.categories, category] };
     }
     case "category/rename": {

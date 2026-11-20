@@ -1,3 +1,4 @@
+import { recordId } from "../data/ids";
 import { majorString } from "../connections/core";
 import type { Booking, DateKey, DemoState, GiftCard } from "../data/types";
 
@@ -92,7 +93,7 @@ export function sellGiftCard(
   let seq = state.seq;
   let code = giftCardCode(codePrefix(state), seq);
   while (findGiftCard(state, code)) code = giftCardCode(codePrefix(state), ++seq);
-  const card: GiftCard = { id: `g-${state.seq}`, code, amount, recipient, message: input.message.trim(), soldOn: input.date, redemptions: [] };
+  const card: GiftCard = { id: recordId("g", state.seq), code, amount, recipient, message: input.message.trim(), soldOn: input.date, redemptions: [] };
   return { ...state, seq: state.seq + 1, giftCards: [...state.giftCards, card] };
 }
 

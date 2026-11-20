@@ -1,3 +1,4 @@
+import { recordId } from "../data/ids";
 import { sendDemoMessage } from "../connections/demo";
 import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
@@ -47,7 +48,7 @@ export function sendBookingMessage(state: DemoState, action: BookingMessageActio
   return {
     ...state, seq: state.seq + 1,
     inbox: [{
-      id: `i-${state.seq}`, kind: "system", customerId: booking.customerId, bookingId: booking.id,
+      id: recordId("i", state.seq), kind: "system", customerId: booking.customerId, bookingId: booking.id,
       date: action.at.date, time: action.at.time, title: t("messages.sentTitle", { channel: t(`messages.channel.${action.channel}`), subject: message.subject }),
       body: sent.body, read: false, handled: true,
       delivery: { kind: action.kind, channel: action.channel, slot: messageSlot(booking) },

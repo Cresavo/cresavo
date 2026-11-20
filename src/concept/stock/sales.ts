@@ -1,3 +1,4 @@
+import { recordId } from "../data/ids";
 import type { DateKey, DemoState, ProductSale, StockItem } from "../data/types";
 import { roundAmount } from "./usage";
 
@@ -10,7 +11,7 @@ export function sellProduct(state: DemoState, input: { customerId: string; stock
   const quantity = Math.floor(input.quantity);
   if (!item || item.salePrice === undefined || quantity < 1 || item.inStock < quantity) return state;
   if (!state.customers.some((c) => c.id === input.customerId)) return state;
-  const sale: ProductSale = { id: `s-${state.seq}`, customerId: input.customerId, stockId: item.id, quantity, amount: item.salePrice * quantity, date: input.date };
+  const sale: ProductSale = { id: recordId("s", state.seq), customerId: input.customerId, stockId: item.id, quantity, amount: item.salePrice * quantity, date: input.date };
   return {
     ...state,
     seq: state.seq + 1,

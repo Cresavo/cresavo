@@ -1,3 +1,4 @@
+import { recordId } from "../data/ids";
 import type { DemoState } from "../data/types";
 
 /** The owner lets support look at the account for a limited time. Read access only. */
@@ -19,7 +20,7 @@ export function activeGrant(state: DemoState, now: number): SupportGrant | undef
 /** Starts a grant. One at a time: asking again while access is open changes nothing. */
 export function grantSupport(state: DemoState, hours: GrantHours, at: number): DemoState {
   if (activeGrant(state, at)) return state;
-  const grant: SupportGrant = { id: `sg-${state.seq}`, grantedAt: at, until: at + hours * HOUR };
+  const grant: SupportGrant = { id: recordId("sg", state.seq), grantedAt: at, until: at + hours * HOUR };
   return { ...state, seq: state.seq + 1, supportGrants: [grant, ...state.supportGrants] };
 }
 

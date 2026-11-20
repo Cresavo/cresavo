@@ -1,3 +1,4 @@
+import { recordId } from "../data/ids";
 import type { DateKey, DemoState, InboxItem, OrderLine, PurchaseOrder, StockItem } from "../data/types";
 import { roundAmount } from "./usage";
 
@@ -25,8 +26,8 @@ export function placeOrders(state: DemoState, orders: NewOrder[], at: { date: Da
   const mails: InboxItem[] = [];
   for (const order of valid) {
     const lines = order.lines.filter((l) => l.quantity > 0);
-    placed.push({ id: `o-${seq++}`, supplier: order.supplier, date: at.date, lines, status: "open" });
-    mails.unshift({ id: `i-${seq++}`, kind: "system", date: at.date, time: at.time, title: order.email.title, body: order.email.body, read: false, handled: true });
+    placed.push({ id: recordId("o", seq++), supplier: order.supplier, date: at.date, lines, status: "open" });
+    mails.unshift({ id: recordId("i", seq++), kind: "system", date: at.date, time: at.time, title: order.email.title, body: order.email.body, read: false, handled: true });
   }
   return {
     ...state,

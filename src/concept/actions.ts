@@ -1,3 +1,4 @@
+import { recordId } from "./data/ids";
 import { jsonEqual } from "./data/json-equal";
 import { salonClock } from "./tools/clock";
 import { depositMethods } from "./connections/ports/payments";
@@ -152,7 +153,7 @@ export interface OnlineNotice {
   draftReply?: string;
 }
 
-const nextId = (state: DemoState, prefix: string) => `${prefix}-${state.seq}`;
+const nextId = (state: DemoState, prefix: string) => recordId(prefix, state.seq);
 
 function addInbox(state: DemoState, item: Omit<InboxItem, "id">): DemoState {
   return { ...state, seq: state.seq + 1, inbox: [{ ...item, id: nextId(state, "i") }, ...state.inbox] };
@@ -253,7 +254,7 @@ function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoS
   // The checkout ends by the time preparation must begin; payment would be refused after that.
   if (preparation <= now) return state;
   const hold = {
-    id: `hold-${now}-${state.seq}`, guest, notice, staffId, date, start, terms, duration: service.duration,
+    id: recordId("hold", `${now}-${state.seq}`), guest, notice, staffId, date, start, terms, duration: service.duration,
     ...(service.bufferBefore ? { bufferBefore: service.bufferBefore } : {}),
     ...(service.bufferAfter ? { bufferAfter: service.bufferAfter } : {}),
     resourceId: action.resourceId && resourceStillFree(state, needOf(service), action.resourceId, date, start) ? action.resourceId : pickResource(state, needOf(service), date, start),
@@ -452,7 +453,7 @@ function importCustomers(state: DemoState, incoming: Omit<Customer, "id">[]): De
     const phone = normalizePhone(customer.phone);
     if (phone.length < 7 || known.has(phone)) continue;
     known.add(phone);
-    added.push({ ...customer, id: `k-${state.seq + added.length}` });
+    added.push({ ...customer, id: recordId("k", state.seq + added.length) });
   }
   return added.length ? { ...state, seq: state.seq + added.length, customers: [...state.customers, ...added] } : state;
 }
@@ -689,6 +690,6 @@ function reduceCore(state: DemoState, action: DemoAction, now: number, payments:
     case "support/revoke":
       return revokeSupport(state, action.at);
     case "ticket/create":
-      return { ...state, seq: state.seq + 1, tickets: [{ ...action.ticket, id: `tk-${state.seq}` }, ...state.tickets] };
+      return { ...state, seq: state.seq + 1, tickets: [{ ...action.ticket, id: recordId("tk", state.seq) }, ...state.tickets] };
   }
 }

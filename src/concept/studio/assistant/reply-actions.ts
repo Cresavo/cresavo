@@ -8,7 +8,7 @@ import { findLogEntry, undoBlockReason } from "../../log/undo";
 import type { LogMeta } from "../../log/types";
 import { canChangeBooking, staffViewer } from "../../ops/access";
 import { currentRole } from "../../ops/role";
-import { currentState, dispatch, dispatchWithLog } from "../../store";
+import { currentState, dispatchCommitted } from "../../store";
 import { replyOf, updateReply } from "./thread-store";
 
 // What the owner can do with a reply card in the panel. Plain functions over
@@ -27,25 +27,36 @@ function canApplyReply(state: DemoState, action: DemoAction): boolean {
     (!action.staffId || action.staffId === staffViewer(state)?.id);
 }
 
-/** Applies a change the owner approved on a reply. Undo sits on the card, since a toast would hide behind the panel. */
-export function applyReply(id: string, action: DemoAction, meta: Meta) {
+/** Replies whose change is being committed, so a second click cannot apply it twice. */
+const inFlight = new Set<string>();
+
+/**
+ * Applies a change the owner approved on a reply. Undo sits on the card, since a toast would hide behind the panel.
+ * The card says "approved", with its Undo, only once the change is saved; a refused commit marks it failed.
+ */
+export async function applyReply(id: string, action: DemoAction, meta: Meta): Promise<boolean> {
   const reply = replyOf(id);
-  if (!reply || reply.status) return false;
-  const logId = dispatchWithLog(action, meta, (state) => canApplyReply(state, action));
-  updateReply(id, logId !== false ? { status: "approved", undoId: logId ?? undefined } : { status: "failed" });
-  return logId !== false;
+  if (!reply || reply.status || inFlight.has(id)) return false;
+  inFlight.add(id);
+  try {
+    const result = await dispatchCommitted(action, meta, (state) => canApplyReply(state, action));
+    updateReply(id, result.ok ? { status: "approved", undoId: result.logId ?? undefined } : { status: "failed" });
+    return result.ok;
+  } finally {
+    inFlight.delete(id);
+  }
 }
 
 /**
  * Approves a proposal with the provenance of the words that asked for it. The owner's own click is
  * their approval too (offering a cancelled time to the waiting list needs it); a colleague's is not.
  */
-export function approveReply(id: string, action: DemoAction) {
+export function approveReply(id: string, action: DemoAction): Promise<boolean> {
   const reply = replyOf(id);
   const approval = currentRole() === "owner" ? { approvedBy: "owner" as const } : {};
   return reply?.card?.kind === "change" && reply.card.action === action
     ? applyReply(id, action, { actor: "ai", source: sourceFor(reply.input), ...approval })
-    : false;
+    : Promise.resolve(false);
 }
 
 /** Whether the panel should offer Undo for a reply: only while the store would accept it. */
@@ -63,9 +74,10 @@ export function replyUndoBlockReason(reply: Pick<Reply, "undoId">) {
  * Takes back the change a reply made. The card says "Undone" only when the store accepted it;
  * A booking conflict stays visible on the reply while the original time is unavailable.
  */
-export function undoReply(id: string, undoId: string): boolean {
+export async function undoReply(id: string, undoId: string): Promise<boolean> {
   if (replyOf(id)?.undoId !== undoId) return false;
-  const done = dispatch({ type: "log/undo", id: undoId });
+  // "Undone" only once the undo is saved.
+  const done = (await dispatchCommitted({ type: "log/undo", id: undoId })).ok;
   if (done) updateReply(id, { status: "undone", undoId: undefined });
   // A conflict (time taken, customer in use, card spent) can clear again, so the undo stays offered.
   else if (replyUndoBlockReason({ undoId }) === "changed") updateReply(id, { undoId: undefined });

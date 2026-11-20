@@ -1,3 +1,4 @@
+import { recordId } from "../data/ids";
 import { canBlock } from "../data/slots";
 import type { StaffBlock, DateKey, DemoState, Resource, ResourceKind, Salon, Staff, StaffException, StaffId, TimeOffReason } from "../data/types";
 
@@ -32,7 +33,7 @@ const validDate = (date: DateKey) => /^\d{4}-\d{2}-\d{2}$/.test(date);
 
 function addException(state: DemoState, staffId: StaffId, date: DateKey, detail: { kind: "off"; reason: TimeOffReason } | { kind: "shift"; start: number; end: number }): DemoState {
   const kept = state.exceptions.filter((e) => !(e.staffId === staffId && e.date === date));
-  const exception: StaffException = { id: `ex-${state.seq}`, staffId, date, ...detail };
+  const exception: StaffException = { id: recordId("ex", state.seq), staffId, date, ...detail };
   return { ...state, seq: state.seq + 1, exceptions: [...kept, exception] };
 }
 
@@ -53,7 +54,7 @@ export function applyOps(state: DemoState, action: OpsAction): DemoState {
       const name = action.name.trim();
       if (!validDate(action.date) || !name) return state;
       const kept = state.salon.closures.filter((c) => c.date !== action.date);
-      const closures = [...kept, { id: `cl-${state.seq}`, date: action.date, name }].sort((a, b) => a.date.localeCompare(b.date));
+      const closures = [...kept, { id: recordId("cl", state.seq), date: action.date, name }].sort((a, b) => a.date.localeCompare(b.date));
       return { ...state, seq: state.seq + 1, salon: { ...state.salon, closures } };
     }
     case "salon/reopen":
@@ -61,7 +62,7 @@ export function applyOps(state: DemoState, action: OpsAction): DemoState {
     case "staff/block": {
       const { staffId, date, start, end, reason } = action;
       if (!validDate(date) || !canBlock(state, staffId, date, start, end)) return state;
-      const block = { id: `block-${state.seq}`, staffId, date, start, end, reason };
+      const block = { id: recordId("block", state.seq), staffId, date, start, end, reason };
       return { ...state, seq: state.seq + 1, blocks: [...(state.blocks ?? []), block] };
     }
     case "staff/week": {
@@ -81,7 +82,7 @@ export function applyOps(state: DemoState, action: OpsAction): DemoState {
     case "resource/add": {
       const name = action.name.trim();
       if (!name) return state;
-      const resource: Resource = { id: `res-${state.seq}`, name, kind: action.kind };
+      const resource: Resource = { id: recordId("res", state.seq), name, kind: action.kind };
       return { ...state, seq: state.seq + 1, resources: [...state.resources, resource] };
     }
     case "resource/rename": {

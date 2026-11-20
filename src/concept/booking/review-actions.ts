@@ -1,3 +1,4 @@
+import { recordId } from "../data/ids";
 import type { DemoState, Review } from "../data/types";
 import { t } from "../i18n";
 
@@ -22,7 +23,7 @@ export function applyCustomerReview(state: DemoState, action: CustomerReviewActi
       !Number.isInteger(action.rating) || action.rating < 1 || action.rating > 5 || !text || text.length > 2000 ||
       state.reviews.some(review => review.bookingId === booking.id)) return state;
   const review: Review = {
-    id: `r-${state.seq}`, customerId: booking.customerId, bookingId: booking.id, staffId: booking.staffId,
+    id: recordId("r", state.seq), customerId: booking.customerId, bookingId: booking.id, staffId: booking.staffId,
     date: action.at.date, rating: action.rating as Review["rating"], text, source: "Booking page", approved: false,
   };
   return {

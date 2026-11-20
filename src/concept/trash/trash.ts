@@ -1,3 +1,4 @@
+import { recordId } from "../data/ids";
 import { refundCancellation } from "../booking/settlement";
 import { demoPayments } from "../connections/demo";
 import { t } from "../i18n";
@@ -58,7 +59,7 @@ export function purgeExpired(state: DemoState, today: DateKey): DemoState {
 
 /** A booking is added to the trash when it is cancelled. */
 export function trashBooking(state: DemoState, bookingId: string): DemoState {
-  return { ...state, seq: state.seq + 1, trash: [{ id: `t-${state.seq}`, kind: "booking", deletedOn: state.generatedFor, bookingId }, ...state.trash] };
+  return { ...state, seq: state.seq + 1, trash: [{ id: recordId("t", state.seq), kind: "booking", deletedOn: state.generatedFor, bookingId }, ...state.trash] };
 }
 
 /** Removes a customer with everything that belongs to them and keeps it all in the trash. */
@@ -88,7 +89,7 @@ export function deleteCustomer(state: DemoState, id: string): DemoState {
     inbox: rest(state.inbox),
     packages: rest(state.packages),
     waitlistEntries: rest(state.waitlistEntries),
-    trash: [{ id: `t-${state.seq}`, kind: "customer", deletedOn: state.generatedFor, ...bundle }, ...state.trash],
+    trash: [{ id: recordId("t", state.seq), kind: "customer", deletedOn: state.generatedFor, ...bundle }, ...state.trash],
   };
 }
 
