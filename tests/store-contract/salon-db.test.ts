@@ -166,6 +166,17 @@ describe.each(adapters)("%s adapter", (_name, make) => {
     expect(await db.readAll()).toEqual({ demo: record(2, 2), own: record(2, 2) });
   });
 
+  it("calls subscribers later, never inside the write that committed", async () => {
+    const db = make();
+    const seen: SalonChange[] = [];
+    db.subscribe((change) => seen.push(change));
+    const writing = db.write({}, (tx) => tx.putSalon("demo", record(1)));
+    expect(seen).toEqual([]);
+    await writing;
+    await sleep();
+    expect(seen).toHaveLength(1);
+  });
+
   it("tells subscribers about its own commits, deletions included", async () => {
     const db = make();
     const seen: SalonChange[] = [];
@@ -617,6 +628,43 @@ describe("cross-tab notification", () => {
     expect(result.ok).toBe(true);
     await until(() => seen.length === 2);
     expect(seen.map((change) => change.workspace).sort()).toEqual(["demo", "own"]);
+  });
+
+  it("still broadcasts a write that was in its transaction when the handle closed", async () => {
+    const factory = new IDBFactory();
+    const channel = channelBus();
+    const [tabA, tabB] = [open(factory, { channel }), open(factory, { channel })];
+    await Promise.all([tabA.ready(), tabB.ready()]);
+    const seen: SalonChange[] = [];
+    tabB.subscribe((change) => seen.push(change));
+    // close() runs while the transaction is active: it commits, broadcasts, then the channel closes.
+    const result = await tabA.write({}, (tx) => { tx.putSalon("demo", record(1)); tabA.close(); });
+    expect(result.ok).toBe(true);
+    await until(() => seen.length === 1);
+    expect(seen[0]).toEqual({ workspace: "demo", record: record(1) });
+    await expect(tabA.write({}, (tx) => tx.putSalon("demo", record(2, 2)))).rejects.toBeInstanceOf(SalonDbClosedError);
+  });
+
+  it("refuses a write that had not started its transaction when the handle closed", async () => {
+    const db = open(new IDBFactory());
+    await db.ready();
+    const writing = db.write({}, (tx) => tx.putSalon("demo", record(1)));
+    db.close();
+    await expect(writing).rejects.toBeInstanceOf(SalonDbClosedError);
+  });
+
+  it("releases the connection when an error listener closes the handle during channel setup", async () => {
+    const factory = new IDBFactory();
+    const connections: IDBOpenDBRequest[] = [];
+    const watched = { open: (name: string, version?: number) => { const request = factory.open(name, version); connections.push(request); return request; } } as unknown as IDBFactory;
+    const db = createSalonDb({ factory: watched, channel: () => { throw new Error("no channel here"); } });
+    const errors: unknown[] = [];
+    db.onListenerError((error) => { errors.push(error); db.close(); });
+    await db.ready().catch(() => undefined);
+    await sleep(20);
+    expect(errors).toEqual([new Error("no channel here")]);
+    expect(db.status()).toBe("closed");
+    expect(connections.map((request) => (request.result as unknown as { _closePending: boolean })._closePending)).toEqual([true]);
   });
 
   it("sends nothing for a refused or aborted write", async () => {

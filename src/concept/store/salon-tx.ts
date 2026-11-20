@@ -78,10 +78,31 @@ export function callEach<A>(listeners: Iterable<(arg: A) => void>, arg: () => A,
   }
 }
 
-/** Collects `onListenerError` listeners; reporting is itself isolated. */
-export function errorReporter() {
+/**
+ * Runs callbacks later, in the order they were queued, never inside the call
+ * that queued them. Every user callback of a store goes through one queue, so
+ * no listener can re-enter an open, a settle, a close or a write's completion.
+ */
+export function callbackQueue() {
+  const queued: Array<() => void> = [];
+  let scheduled = false;
+  const flush = () => {
+    for (let next = queued.shift(); next; next = queued.shift()) next();
+    scheduled = false;
+  };
+  return (callback: () => void) => {
+    queued.push(callback);
+    if (!scheduled) {
+      scheduled = true;
+      queueMicrotask(flush);
+    }
+  };
+}
+
+/** Collects `onListenerError` listeners and delivers reports through `defer`; reporting is itself isolated. */
+export function errorReporter(defer: (callback: () => void) => void) {
   const listeners = new Set<(error: unknown) => void>();
-  const report = (error: unknown) => {
+  const deliver = (error: unknown) => {
     if (!listeners.size) {
       console.error("SalonDb listener failed", error);
       return;
@@ -90,6 +111,7 @@ export function errorReporter() {
       try { listener(error); } catch (failure) { console.error("SalonDb error listener failed", failure); }
     }
   };
+  const report = (error: unknown) => defer(() => deliver(error));
   const subscribe = (listener: (error: unknown) => void) => {
     listeners.add(listener);
     return () => { listeners.delete(listener); };

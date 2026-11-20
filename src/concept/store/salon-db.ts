@@ -7,6 +7,7 @@
 import { MemorySalonDb } from "./memory-salon-db";
 import {
   WORKSPACES,
+  callbackQueue,
   callEach,
   changesOf,
   errorReporter,
@@ -186,37 +187,29 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
   const listeners = new Set<(change: SalonChange) => void>();
   const failureListeners = new Set<(error: string | undefined) => void>();
   const statusListeners = new Set<(status: OpenStatus) => void>();
-  const errors = errorReporter();
   let status: OpenStatus = "opening";
   let backend: Promise<Backend> | undefined;
   let channel: ChannelLike | null = null;
+  /** Write transactions started and not yet completed: `close()` keeps the channel until they have broadcast. */
+  let activeWrites = 0;
   /** Set once a connection succeeded: from then on a failed open is an error, never a switch to memory. */
   let usedIndexedDb = false;
   /** Rejects the open in flight, so `close()` settles every operation waiting for it. */
   let abandonPending: (() => void) | undefined;
 
-  // Status changes take effect at once, but listeners hear them later, in
-  // order: no listener ever runs inside an open, a fallback or a settle, so
-  // whatever it starts sees the backend that goes with the status it hears.
-  const queuedStatuses: OpenStatus[] = [];
-  let flushing = false;
-  const flushStatuses = () => {
-    for (let next = queuedStatuses.shift(); next !== undefined; next = queuedStatuses.shift()) {
-      const heard = next;
-      callEach(statusListeners, () => heard, errors.report);
-    }
-    flushing = false;
-  };
+  // Every user callback (status, subscribers, failures, error reports) runs
+  // later, in order, from one queue: none ever runs inside an open, a
+  // fallback, a settle, a close or a write's completion, so whatever it starts
+  // sees the state that goes with what it hears. Status itself changes at once.
+  const defer = callbackQueue();
+  const errors = errorReporter(defer);
   const setStatus = (next: OpenStatus) => {
     if (status === next || status === "closed") return;
     status = next;
-    queuedStatuses.push(next);
-    if (!flushing) {
-      flushing = true;
-      queueMicrotask(flushStatuses);
-    }
+    defer(() => callEach(statusListeners, () => next, errors.report));
   };
-  const emit = (change: SalonChange) => callEach(listeners, () => ({ workspace: change.workspace, record: change.record && { ...change.record } }), errors.report);
+  const emit = (change: SalonChange) => defer(() => callEach(listeners, () => ({ workspace: change.workspace, record: change.record && { ...change.record } }), errors.report));
+  const reportFailure = (error: string | undefined) => defer(() => callEach(failureListeners, () => error, errors.report));
 
   const fallBackToMemory = (): Backend => {
     const memory = new MemorySalonDb();
@@ -252,6 +245,10 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
       if (!message || !isWorkspace(message.workspace)) return;
       void handle.read(message.workspace).then((record) => emit({ workspace: message.workspace, record }), () => undefined);
     };
+  };
+  const closeChannel = () => {
+    try { channel?.close(); } catch { /* Already closed. */ }
+    channel = null;
   };
   const broadcast = (change: SalonChange) => {
     try {
@@ -322,9 +319,9 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
           setStatus("opening");
         }
       };
-      listen();
-      // Settled before listeners hear "open": a listener that closes the handle then releases this connection.
+      // Installed before anything else, so a close from any later callback releases this connection.
       settle({ kind: "indexeddb", db });
+      listen();
       setStatus("open");
     };
   };
@@ -383,18 +380,26 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
       const open = await current();
       if (open.kind === "outdated") return { ok: false, reason: "outdated" };
       if (open.kind === "failed") {
-        callEach(failureListeners, () => open.error, errors.report);
+        reportFailure(open.error);
         return { ok: false, reason: "storage", error: open.error };
       }
       if (open.kind === "memory") return open.db.write(scope, change);
+      // Closed while waiting for the connection: refused before any transaction starts.
+      if (status === "closed") throw new SalonDbClosedError();
+      activeWrites += 1;
       return new Promise((resolve, reject) => runTransaction(open.db, scope, change, (outcome) => {
-        if ("thrown" in outcome) return reject(outcome.thrown);
-        // The outcome is settled first: listeners run after, and their errors are reported separately.
-        resolve(outcome);
-        if (!outcome.ok) return callEach(failureListeners, () => outcome.error, errors.report);
-        // Every other tab hears about the commit before any local subscriber can close the handle.
-        outcome.changes.forEach(broadcast);
-        outcome.changes.forEach(emit);
+        try {
+          if ("thrown" in outcome) return reject(outcome.thrown);
+          // The outcome is settled first: listeners run after, and their errors are reported separately.
+          resolve(outcome);
+          if (!outcome.ok) return reportFailure(outcome.error);
+          // Every other tab hears about the commit, even one that completes after `close()`.
+          outcome.changes.forEach(broadcast);
+          outcome.changes.forEach(emit);
+        } finally {
+          activeWrites -= 1;
+          if (status === "closed" && activeWrites === 0) closeChannel();
+        }
       }));
     },
     subscribe(listener) {
@@ -409,8 +414,8 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
     close() {
       if (status === "closed") return;
       setStatus("closed");
-      try { channel?.close(); } catch { /* Already closed. */ }
-      channel = null;
+      // New operations are refused from now on; writes already in a transaction still commit and broadcast first.
+      if (activeWrites === 0) closeChannel();
       abandonPending?.();
       void backend?.then((open) => {
         if (open.kind === "indexeddb") open.db.close();

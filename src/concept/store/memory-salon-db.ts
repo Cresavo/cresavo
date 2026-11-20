@@ -1,4 +1,5 @@
 import {
+  callbackQueue,
   callEach,
   changesOf,
   errorReporter,
@@ -21,7 +22,9 @@ export class MemorySalonDb implements SalonDb {
   private salons = new Map<Workspace, SalonRecord>();
   private meta = new Map<string, unknown>();
   private listeners = new Set<(change: SalonChange) => void>();
-  private errors = errorReporter();
+  /** Subscribers hear commits later, in order, never inside `write`. */
+  private defer = callbackQueue();
+  private errors = errorReporter(this.defer);
 
   private copy(workspace: Workspace): SalonRecord | null {
     const record = this.salons.get(workspace);
@@ -53,7 +56,7 @@ export class MemorySalonDb implements SalonDb {
       else this.meta.set(op.key, op.value);
     }
     const changes = changesOf(ops);
-    for (const change of changes) callEach(this.listeners, () => ({ workspace: change.workspace, record: change.record && { ...change.record } }), this.errors.report);
+    for (const change of changes) this.defer(() => callEach(this.listeners, () => ({ workspace: change.workspace, record: change.record && { ...change.record } }), this.errors.report));
     return { ok: true, value, changes };
   }
 
