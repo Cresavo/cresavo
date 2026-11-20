@@ -1,8 +1,8 @@
 import { IDBFactory } from "fake-indexeddb";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { MemorySalonDb } from "@/concept/store/memory-salon-db";
 import { createSalonDb, type SalonDbHandle } from "@/concept/store/salon-db";
-import { IMPORT_MARKER, LAST_USED_OWN, LEGACY_KEY, importLegacy, legacySnapshot } from "@/concept/store/salon-import";
+import { IMPORT_MARKER, LAST_USED_OWN, LEGACY_KEY, browserLegacyStorage, importLegacy, legacySnapshot } from "@/concept/store/salon-import";
 
 // One-time import of the old localStorage snapshots (BROWSER_STORE_IDB.md, Migration).
 // Fictional salons only.
@@ -21,7 +21,10 @@ function storage(entries: Record<string, string> = {}) {
 }
 
 const handles: SalonDbHandle[] = [];
-afterEach(() => handles.splice(0).forEach((handle) => handle.close()));
+afterEach(() => {
+  handles.splice(0).forEach((handle) => handle.close());
+  vi.unstubAllGlobals();
+});
 function open(factory = new IDBFactory()) {
   const handle = createSalonDb({ factory, channel: null });
   handles.push(handle);
@@ -98,7 +101,7 @@ it("never overwrites a salon already in the database", async () => {
 
 it("writes a marker even with nothing to import", async () => {
   const db = open();
-  const result = await importLegacy(db, null, options);
+  const result = await importLegacy(db, storage(), options);
   expect(result.ok && result.value.imported).toBe(true);
   expect(await db.readAll()).toEqual({ demo: null, own: null });
   const later = await importLegacy(db, storage({ [LEGACY_KEY]: demo }), options);
@@ -163,4 +166,37 @@ it("prefers the key the old store read and removes a stale copy only once the wo
   await importLegacy(db, legacy, options);
   expect((await db.read("demo"))!.doc).toBe(demo);
   expect([...legacy.items.keys()]).toEqual([]);
+});
+
+it("treats missing or throwing localStorage as unreadable, never as an empty store", async () => {
+  const db = open();
+  expect(await importLegacy(db, null, options)).toMatchObject({ ok: true, value: { marker: null, imported: false } });
+  // The default acquisition is guarded: a getter that throws (blocked site data) is unavailable too.
+  vi.stubGlobal("localStorage", undefined);
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, get: () => { throw new DOMException("denied", "SecurityError"); } });
+  expect(browserLegacyStorage()).toBeNull();
+  expect(await importLegacy(db, undefined, options)).toMatchObject({ ok: true, value: { marker: null, imported: false } });
+  expect(await markerOf(db)).toEqual({ ok: true, value: [undefined, undefined], changes: [] });
+  // Storage comes back: the salons are imported then.
+  const legacy = storage({ [LEGACY_KEY]: demo, [`${LEGACY_KEY}-own`]: own });
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, get: () => legacy });
+  const retried = await importLegacy(db, undefined, options);
+  expect(retried.ok && retried.value.imported).toBe(true);
+  expect((await db.read("own"))!.doc).toBe(own);
+  expect([...legacy.items.keys()]).toEqual([]);
+});
+
+it("keeps a committed import when Cache Storage cannot even be reached", async () => {
+  const db = open();
+  vi.stubGlobal("caches", undefined);
+  Object.defineProperty(globalThis, "caches", { configurable: true, get: () => { throw new DOMException("denied", "SecurityError"); } });
+  const legacy = storage({ [LEGACY_KEY]: demo });
+  const result = await importLegacy(db, legacy, { ...options, caches: undefined });
+  expect(result.ok && result.value.imported).toBe(true);
+  expect([...legacy.items.keys()]).toEqual([]);
+  // A delete that throws synchronously or rejects is ignored as well.
+  const failing = { delete: (name: string) => { if (name.includes("booking")) throw new Error("denied"); return Promise.reject(new Error("denied")); } };
+  const other = open();
+  const again = await importLegacy(other, storage({ [LEGACY_KEY]: demo }), { ...options, caches: failing as unknown as Pick<CacheStorage, "delete"> });
+  expect(again.ok && again.value.imported).toBe(true);
 });

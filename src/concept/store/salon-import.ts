@@ -23,6 +23,37 @@ export interface LegacyStorage {
   removeItem(key: string): void;
 }
 
+const RECEIPT_CACHES = ["concept-booking-sequence", "concept-studio-store"];
+
+/** The page's localStorage, or null when it is missing or its getter throws (blocked site data, sandboxed frames). */
+export function browserLegacyStorage(): LegacyStorage | null {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Cache Storage, or null: in a denying context even reading `caches` throws. */
+function browserCaches(): Pick<CacheStorage, "delete"> | null {
+  try {
+    return globalThis.caches ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Optional receipt cleanup: a failure here never turns a committed import into an error. */
+async function deleteReceipts(caches: Pick<CacheStorage, "delete"> | null) {
+  await Promise.all(RECEIPT_CACHES.map(async (name) => {
+    try {
+      await caches?.delete(name);
+    } catch {
+      // The old receipts hold no booking details; they can stay.
+    }
+  }));
+}
+
 /** Every key the old store used for salons. */
 export const LEGACY_KEYS = [
   LEGACY_KEY,
@@ -31,8 +62,6 @@ export const LEGACY_KEYS = [
   `${LEGACY_KEY}-last-used`,
   `${LEGACY_KEY}-own-last-used`,
 ] as const;
-
-const RECEIPT_CACHES = ["concept-booking-sequence", "concept-studio-store"];
 
 /** Every legacy key's text, or null when storage could not be read: unreadable is not the same as absent. */
 function readKeys(storage: LegacyStorage): Map<string, string | null> | null {
@@ -111,7 +140,7 @@ export interface ImportOptions {
   /** False in memory mode: the legacy text seeds this tab only and stays where it is. */
   removeLegacy: boolean;
   epoch?: () => string;
-  /** Deletes the old Cache Storage receipts; defaults to `globalThis.caches`. */
+  /** Deletes the old Cache Storage receipts; defaults to `globalThis.caches`, read guarded. */
   caches?: Pick<CacheStorage, "delete"> | null;
 }
 
@@ -120,9 +149,11 @@ export interface ImportOptions {
  * the legacy keys the database now covers. Returns the marker in force (null
  * when legacy storage could not be read, so the next open retries) and whether
  * this call imported. A salon already in the database is never overwritten.
+ * `storage` defaults to `browserLegacyStorage()`; null means unavailable,
+ * which is treated like a failed read, never like an empty store.
  */
-export async function importLegacy(db: SalonDb, storage: LegacyStorage | null, options: ImportOptions) {
-  const legacy = storage ? legacySnapshot(storage) : { primary: "demo" as const, demo: null, own: null, lastUsed: null, present: [] };
+export async function importLegacy(db: SalonDb, storage: LegacyStorage | null = browserLegacyStorage(), options: ImportOptions) {
+  const legacy = storage ? legacySnapshot(storage) : null;
   const epoch = options.epoch ?? newEpoch;
   const result = await db.write({ salons: ["demo", "own"], meta: [IMPORT_MARKER, LAST_USED_OWN] }, (tx) => {
     const existing = tx.meta<ImportMarker>(IMPORT_MARKER);
@@ -151,8 +182,7 @@ export async function importLegacy(db: SalonDb, storage: LegacyStorage | null, o
       if (covered && !obsolete(key, text, covered)) continue;
       try { storage.removeItem(key); } catch { /* Removed on the next open. */ }
     }
-    const caches = options.caches === undefined ? (typeof globalThis.caches === "undefined" ? null : globalThis.caches) : options.caches;
-    await Promise.all(RECEIPT_CACHES.map((name) => caches?.delete(name).catch(() => false)));
+    await deleteReceipts(options.caches === undefined ? browserCaches() : options.caches);
   }
   return { ...result, value: { marker, imported } };
 }

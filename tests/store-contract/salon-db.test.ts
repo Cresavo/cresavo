@@ -449,6 +449,19 @@ describe("opening after the first session", () => {
     expect(await next.read("demo")).toBeNull();
   });
 
+  it("releases the connection when an open-status listener closes the handle", async () => {
+    const factory = new IDBFactory();
+    const connections: IDBOpenDBRequest[] = [];
+    const watched = { open: (name: string, version?: number) => { const request = factory.open(name, version); connections.push(request); return request; } } as unknown as IDBFactory;
+    const db = createSalonDb({ factory: watched, channel: null });
+    db.onStatus((status) => { if (status === "open") db.close(); });
+    await db.ready().catch(() => undefined);
+    await sleep(20);
+    expect(db.status()).toBe("closed");
+    // fake-indexeddb's close-pending flag: set by close(), never by anything else.
+    expect(connections.map((request) => (request.result as unknown as { _closePending: boolean })._closePending)).toEqual([true]);
+  });
+
   it("joins a pending open on reopen, so closing settles every waiting operation", async () => {
     const factory = new IDBFactory();
     const old = await new Promise<IDBDatabase>((resolve) => {

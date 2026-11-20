@@ -297,8 +297,9 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
         }
       };
       listen();
-      setStatus("open");
+      // Settled before listeners hear "open": a listener that closes the handle then releases this connection.
       settle({ kind: "indexeddb", db });
+      setStatus("open");
     };
   });
 
