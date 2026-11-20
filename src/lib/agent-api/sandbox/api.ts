@@ -60,7 +60,8 @@ async function handle(tx: Prisma.TransactionClient, agent: SandboxAgent, request
 export async function sandboxAgentRoute(request: Request, route: string, scope: AgentScope | readonly AgentScope[]) {
   try {
     const config = sandboxConfig();
-    if (!sandboxHost(request, config.origin)) return agentErrorResponse("booking_not_found");
+    if (!sandboxHost(request, config.origin) || new URL(request.url).origin !== config.origin)
+      return agentErrorResponse("booking_not_found");
     const presented = request.headers.get("x-booking-gateway-token");
     if (!presented || !/^[a-f0-9]{64}$/.test(presented) ||
         !timingSafeEqual(Buffer.from(presented), Buffer.from(process.env.GATEWAY_SERVICE_TOKEN!)))
