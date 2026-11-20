@@ -108,7 +108,18 @@ it("contact binding survives configuration changes and refuses cross-client auth
   for (const customer of [{ ...booking.customer, email: "other@example.test" }, { ...booking.customer, name: "Other Synthetic" }])
     await expect(createAgentBooking(a.principal, randomUUID(), { ...booking, customer })).rejects.toMatchObject({ code: "mandate_denied" });
   await expect(createAgentBooking(b.principal, randomUUID(), booking)).rejects.toMatchObject({ code: "mandate_denied" });
-  await db.agentProposal.update({ where: { id }, data: { consentDelivery: null } });
+  // The database refuses to unbind a proposal's delivery profile...
+  await expect(db.agentProposal.update({ where: { id }, data: { consentDelivery: null } })).rejects.toThrow(/CONSENT_DELIVERY_IMMUTABLE/);
+  // ...and the booking path refuses it as well if the guard were bypassed. Trigger off for this one
+  // write, in one transaction: an interruption rolls all of it back, and the table lock keeps every
+  // other writer from seeing the guard disabled.
+  await db.$transaction(async tx => {
+    await tx.$executeRaw`ALTER TABLE "AgentProposal" DISABLE TRIGGER "AgentProposal_consentDelivery_immutable"`;
+    await tx.agentProposal.update({ where: { id }, data: { consentDelivery: null } });
+    await tx.$executeRaw`ALTER TABLE "AgentProposal" ENABLE TRIGGER "AgentProposal_consentDelivery_immutable"`;
+  });
+  const guard = await db.$queryRaw<{ tgenabled: string }[]>`SELECT "tgenabled"::text AS "tgenabled" FROM pg_trigger WHERE "tgname" = 'AgentProposal_consentDelivery_immutable'`;
+  expect(guard).toEqual([{ tgenabled: "O" }]);
   await expect(createAgentBooking(a.principal, randomUUID(), booking)).rejects.toMatchObject({ code: "mandate_denied" });
   expect(await db.agentBooking.count({ where: { clientId: a.record.clientId } })).toBe(0);
 });

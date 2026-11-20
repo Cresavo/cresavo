@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { resolveHost } from "@/concept/page/resolve";
+import { browserHostKind } from "@/concept/page/resolve";
 import { conceptRoute } from "@/concept/page/language";
 import { DEFAULT_LOCALE, text, type Locale } from "@/lib/locale";
 
@@ -23,23 +23,23 @@ export function useLocale() {
 }
 
 /** Studio and booking route boundaries set the document language once their browser state is ready. */
-export function DocumentLanguage({ locale }: { locale: Locale }) {
+export function DocumentLanguage({ locale, appHost = false }: { locale: Locale; appHost?: boolean }) {
   const path = usePathname();
   useEffect(() => {
     const route = conceptRoute(path ?? "");
-    const host = resolveHost(window.location.host);
-    if (route === "studio" || route === "booking" || host.kind === "business") return;
-    document.documentElement.lang = route === "english" || host.kind === "unknown" ? "en" : locale;
-  }, [path, locale]);
+    const host = browserHostKind(window.location.host, appHost);
+    if (route === "studio" || route === "booking" || host === "business") return;
+    document.documentElement.lang = route === "english" || host === "unknown" ? "en" : locale;
+  }, [path, locale, appHost]);
   return null;
 }
 
-export function EngineDemoBanner({ initialHidden }: { initialHidden: boolean }) {
+export function EngineDemoBanner({ initialHidden, appHost = false }: { initialHidden: boolean; appHost?: boolean }) {
   const path = usePathname();
   const locale = useLocale();
   const hidden = useSyncExternalStore(noSubscription, () => {
-    const host = resolveHost(window.location.host);
-    return Boolean(conceptRoute(path ?? "") || host.kind === "business" || host.kind === "unknown");
+    const host = browserHostKind(window.location.host, appHost);
+    return Boolean(conceptRoute(path ?? "") || host === "business" || host === "unknown");
   }, () => initialHidden);
   if (hidden) return null;
   return (

@@ -11,9 +11,10 @@ import { AgentApiError } from "./errors";
 import { assertCurrentAgent } from "./mandates";
 import { bookingProposalHash } from "./mandate-policy";
 import { placeForStaff } from "./place";
-import { business } from "./v1";
+import { business, businessDisplay } from "./v1";
 import { labCustomerIdentity, requireConsentLab } from "./customer-identity";
 import { CHANNEL_CUSTOMER, CUSTOMER_CHANNEL, prepareCustomerDelivery, separateCustomerChannel } from "./customer-channel-lab";
+import { ConsentLinkState, STAGING_APPROVAL_DELIVERY, STAGING_CHANNEL, STAGING_CUSTOMER, stagingConsentOrigin, stagingInbox } from "./consent-staging";
 
 const id = z.string().trim().min(1).max(128);
 export const proposalSchema = z.object({
@@ -23,21 +24,26 @@ export const proposalSchema = z.object({
 }).strict();
 export const proposalHash = (p: AgentProposal) => bookingProposalHash({ ...p, start: p.startsAt });
 const status = (p: AgentProposal, now: Date) => p.status === "pending" && +p.expiresAt <= +now ? "expired" : p.status;
+/** The proposal as agents and the customer page see it. Exported for tests. */
+export function proposalView(p: AgentProposal, now: Date) { return view(p, now); }
 function view(p: AgentProposal, now: Date) {
   return { id: p.id, status: status(p, now), serviceId: p.serviceId, serviceVersion: p.serviceVersion,
     serviceName: p.serviceName, staff: { id: p.staffId, name: p.staffName },
-    locationId: p.locationId, scheduleId: p.scheduleId, salon: "Salong Eko (syntetisk demo)",
+    // The proposal's own business, the same source as the customer page's salon name.
+    locationId: p.locationId, scheduleId: p.scheduleId, salon: businessDisplay(p.businessId).name,
     start: p.startsAt.toISOString(), durationMinutes: p.duration, price: { amountMinor: p.priceOre, currency: "SEK" },
     expiresAt: p.expiresAt.toISOString(), ...(p.status === "approved" ? { mandateId: p.mandateId } : {}) };
 }
 type ProposalResult = { proposal: ReturnType<typeof view>; approvalUrl?: string; approvalRequired?: boolean; approvalDelivery?: string };
 export async function createProposal(p: AgentPrincipal, body: unknown, now = new Date(), smsSender: SmsSender = simulatedSmsSender): Promise<ProposalResult> {
-  requireConsentLab();
+  // The staging channel is checked first: it never falls back to a local lab mode.
+  const staging = stagingConsentOrigin();
+  if (!staging) requireConsentLab();
   if (!p.scopes.includes("bookings:write")) throw new AgentApiError("forbidden_scope");
   const input = proposalSchema.parse(body);
   business(p, input.business);
-  const delivery = prepareCustomerDelivery();
-  const required = smsOtpRequired(p.businessId);
+  const delivery = staging ? null : prepareCustomerDelivery();
+  const required = staging ? false : smsOtpRequired(p.businessId);
   if (!required && input.customerPhone !== undefined) throw new AgentApiError("invalid_request");
   const phone = required ? syntheticPhone(input.customerPhone) : null;
   const proposalId = randomUUID();
@@ -60,14 +66,20 @@ export async function createProposal(p: AgentPrincipal, body: unknown, now = new
     if (+start <= +now) throw new AgentApiError("invalid_request");
     const snapshot = { businessId: p.businessId, clientId: p.clientId, serviceId: service.id,
       staffId: staff.id, ...placeForStaff(staff.id), start, duration: service.duration, priceOre: service.priceOre };
-    return tx.agentProposal.create({ data: { id: proposalId, smsOtpRequired: required,
-      consentDelivery: delivery?.channel ?? null,
+    const created = await tx.agentProposal.create({ data: { id: proposalId, smsOtpRequired: required,
+      consentDelivery: staging ? STAGING_CHANNEL : delivery?.channel ?? null,
       ...(phone && otp ? { ...phone, otpHash: otp.hash, otpExpiresAt: new Date(+now + otpTtl * 1000), otpLastSentAt: now } : {}),
       businessId: p.businessId, clientId: p.clientId,
       serviceId: service.id, serviceVersion: service.version, serviceName: service.name,
       staffId: staff.id, staffName: staff.name, ...placeForStaff(staff.id), startsAt: start,
       duration: service.duration, priceOre: service.priceOre, proposalHash: bookingProposalHash(snapshot),
       tokenHash: digest, expiresAt: new Date(Math.min(+now + ttl * 1000, +start)) } });
+    if (staging) {
+      // Same transaction: without a delivered link there is no approvable proposal.
+      try { await stagingInbox.deliver(tx, staging, created.id, token); }
+      catch { throw new AgentApiError("consent_delivery_unavailable"); }
+    }
+    return created;
   });
   await recordAudit({ event: "proposal.created", outcome: "pending", proposalId: row.id, clientId: row.clientId, businessId: row.businessId as "demo" | "lab-partner" });
   if (phone && otp) {
@@ -75,6 +87,8 @@ export async function createProposal(p: AgentPrincipal, body: unknown, now = new
     await recordAudit({ event: "sms_otp.sent", outcome: "success", proposalId: row.id, clientId: row.clientId, businessId: row.businessId as "demo" | "lab-partner" });
   }
   console.info(JSON.stringify({ event: "customer_proposal", outcome: "pending" }));
+  // The link stays in the salon's inbox. The agent learns only that approval is pending.
+  if (staging) return { proposal: view(row, now), approvalRequired: true, approvalDelivery: STAGING_APPROVAL_DELIVERY };
   if (delivery) {
     delivery.send(row.id, token);
     return { proposal: view(row, now), approvalRequired: true, approvalDelivery: "separate-synthetic-customer" };
@@ -93,8 +107,10 @@ export const customerDecisionSchema = z.object({
   code: z.string().max(32).optional(),
 }).strict();
 async function customerDecisionInternal(proposalId: string, body: unknown, now?: Date, smsSender: SmsSender = simulatedSmsSender) {
-  requireConsentLab();
+  const staging = stagingConsentOrigin() !== null;
+  if (!staging) requireConsentLab();
   const input = customerDecisionSchema.parse(body);
+  if (staging && input.decision === "resend") throw new AgentApiError("mandate_denied");
   let auditRow: AgentProposal | undefined;
   let approvedMandate: string | undefined;
   let expired = false;
@@ -104,11 +120,22 @@ async function customerDecisionInternal(proposalId: string, body: unknown, now?:
     const row = rows[0];
     const decisionTime = now ?? new Date();
     if (row) { auditRow = row; expired = status(row, decisionTime) === "expired"; }
+    // Only the holder of this link learns that it is spent. The state grants nothing.
+    if (staging && row?.consentDelivery === STAGING_CHANNEL && status(row, decisionTime) !== "pending")
+      throw new ConsentLinkState(expired ? "expired" : "used",
+        row.status === "approved" || row.status === "declined" ? row.status : undefined);
     if (!row || status(row, decisionTime) !== "pending" || row.proposalHash !== proposalHash(row))
       throw new AgentApiError("mandate_denied");
-    if ((row.consentDelivery !== null && row.consentDelivery !== CUSTOMER_CHANNEL) ||
+    if (staging ? row.consentDelivery !== STAGING_CHANNEL
+      : (row.consentDelivery !== null && row.consentDelivery !== CUSTOMER_CHANNEL) ||
         (separateCustomerChannel() && row.consentDelivery !== CUSTOMER_CHANNEL))
       throw new AgentApiError("mandate_denied");
+    if (input.decision === "view" && staging) {
+      const salon = businessDisplay(row.businessId);
+      return { proposal: view(row, decisionTime), proposalHash: row.proposalHash,
+        customer: `${STAGING_CUSTOMER.name} · ${STAGING_CUSTOMER.email}`,
+        terms: { salonName: salon.name, locationId: salon.locationId, locationName: salon.locationName, timeZone: salon.timeZone, currency: "SEK" } };
+    }
     if (input.decision === "view") return { proposal: { ...view(row, decisionTime), ...(row.smsOtpRequired ? { smsOtpRequired: true, phoneMask: row.phoneMask } : {}) }, proposalHash: row.proposalHash,
       customer: row.consentDelivery === CUSTOMER_CHANNEL ? `${CHANNEL_CUSTOMER.name} · ${CHANNEL_CUSTOMER.email}` : labCustomerIdentity.displayName };
     const owner = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "AgentClient" WHERE "id"=${row.clientId} AND "businessId"=${row.businessId} AND "active"=true FOR SHARE`;
@@ -149,11 +176,13 @@ async function customerDecisionInternal(proposalId: string, body: unknown, now?:
         locationId: row.locationId, scheduleId: row.scheduleId,
         validFrom: row.startsAt, validUntil: new Date(+row.startsAt + row.duration * 60000),
         expiresAt: row.expiresAt, maxPriceOre: row.priceOre, currency: "SEK",
-        verifiedVia: row.consentDelivery === CUSTOMER_CHANNEL ? CUSTOMER_CHANNEL : row.smsOtpRequired ? "sms-otp" : null,
+        verifiedVia: row.consentDelivery === CUSTOMER_CHANNEL || row.consentDelivery === STAGING_CHANNEL
+          ? row.consentDelivery : row.smsOtpRequired ? "sms-otp" : null,
         origin: "customer-consent", originReference: row.id, proposalHash: row.proposalHash,
       } });
       mandateId = mandate.id; approvedMandate = mandate.id;
     }
+    if (row.consentDelivery === STAGING_CHANNEL) await stagingInbox.consume(tx, row.id, decisionTime);
     await tx.agentProposal.update({ where: { id: row.id }, data: { status: input.decision === "yes" ? "approved" : "declined", mandateId } });
     return { status: input.decision === "yes" ? "approved" : "declined" };
   });

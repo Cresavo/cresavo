@@ -110,3 +110,71 @@ jobs:
           name: concept-e2e-${{ matrix.project }}
           path: test-results/
           retention-days: 7
+  staging-consent:
+    # The split-mode customer consent channel over HTTPS (docs/CUSTOMER_CONSENT_CHANNEL.md).
+    # Needs read access to the private gateway repository. Runs only on main, for pushes and
+    # manual runs, never on pull request events or other branches and tags, so private
+    # gateway code and the read token are never used for code that has not been merged.
+    # Without the secret the job reports a notice and runs nothing else.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    name: Staging consent channel (HTTPS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HAS_GATEWAY_TOKEN: ${{ secrets.GATEWAY_READ_TOKEN != '' }}
+      CI: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+      CHECKPOINT_DISABLE: "1"
+    steps:
+      - if: env.HAS_GATEWAY_TOKEN != 'true'
+        run: echo "::notice title=Staging consent channel skipped::No gateway read access for this run (GATEWAY_READ_TOKEN missing)."
+      - if: env.HAS_GATEWAY_TOKEN == 'true'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: cresavo
+          persist-credentials: false
+      - if: env.HAS_GATEWAY_TOKEN == 'true'
+        id: pin
+        run: echo "revision=$(node -p 'require("./cresavo/scripts/staging-consent/gateway.json").gatewayRevision')" >> "$GITHUB_OUTPUT"
+      # The token is used only for this checkout and is not persisted in the Git config.
+      - if: env.HAS_GATEWAY_TOKEN == 'true'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: Cresavo/gateway
+          ref: ${{ steps.pin.outputs.revision }}
+          token: ${{ secrets.GATEWAY_READ_TOKEN }}
+          path: gateway
+          persist-credentials: false
+      - if: env.HAS_GATEWAY_TOKEN == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: cresavo/package-lock.json
+      - if: env.HAS_GATEWAY_TOKEN == 'true'
+        working-directory: cresavo
+        run: |
+          npm ci
+          npx prisma generate
+          docker compose up -d --wait
+      - if: env.HAS_GATEWAY_TOKEN == 'true'
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ hashFiles('cresavo/package-lock.json') }}
+      - if: env.HAS_GATEWAY_TOKEN == 'true'
+        working-directory: cresavo
+        run: npx playwright install-deps chromium
+      - if: env.HAS_GATEWAY_TOKEN == 'true' && steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: cresavo
+        run: npx playwright install chromium
+      # Prints sanitized check codes only. No artifacts are uploaded from this job.
+      - if: env.HAS_GATEWAY_TOKEN == 'true'
+        working-directory: cresavo
+        env:
+          GATEWAY_CHECKOUT: ${{ github.workspace }}/gateway
+        run: npm run test:staging-consent
+      - if: always() && env.HAS_GATEWAY_TOKEN == 'true'
+        working-directory: cresavo
+        run: docker compose down

@@ -10,6 +10,7 @@ import {
 import AdminActions from "./ui";
 import Link from "next/link";
 import HeaderMenu from "./header-menu";
+import { servesPath } from "./served-path";
 import { demoAccessEnabled, DEMO_ADMIN_EMAIL } from "@/lib/demo-access";
 import { getLocale } from "@/lib/locale-server";
 import { text } from "@/lib/locale";
@@ -28,6 +29,7 @@ export default async function AdminHeader({
     | "customers";
 }) {
   const locale = await getLocale();
+  const showCustomerBooking = await servesPath("/");
   const t = (en: string, sv: string) => text(locale, en, sv);
   return (
     <header className="workspace-header">
@@ -122,9 +124,10 @@ export default async function AdminHeader({
               )
             : t(`Signed in as ${email}`, `Inloggad som ${email}`)}
         </p>
-        <Link prefetch={false} href="/">
+        {/* The consent-only staging host does not serve the booking page. */}
+        {showCustomerBooking && <Link prefetch={false} href="/">
           {t("Customer booking", "Visa kundbokningen")}
-        </Link>
+        </Link>}
         <AdminActions mode="logout" />
       </HeaderMenu>
     </header>

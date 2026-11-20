@@ -9,6 +9,7 @@ import { DomainError, pageDataFailure } from "@/lib/errors";
 import { ZONE } from "@/lib/time";
 import AdminActions from "./ui";
 import AdminHeader from "./header";
+import { servesPath } from "./served-path";
 import Calendar from "./calendar";
 import DemoEntry from "../demo-entry";
 import { demoAccessEnabled } from "@/lib/demo-access";
@@ -39,9 +40,10 @@ export default async function Admin({
   if (!admin)
     return (
       <main className="login-page">
-        <Link prefetch={false} href="/">
+        {/* The consent-only staging host does not serve the booking page. */}
+        {(await servesPath("/")) && <Link prefetch={false} href="/">
           {t("Customer booking", "Bokningssidan")}
-        </Link>
+        </Link>}
         <p className="eyebrow">SALONG EKO / DEMO</p>
         <h1>{t("Your workspace", "Salongens arbetsyta")}</h1>
         <p>
@@ -50,7 +52,8 @@ export default async function Admin({
             "Här ser du bokningar och ändrar behandlingar, personal och arbetstider.",
           )}
         </p>
-        {demoAccessEnabled() ? (
+        {/* Demo sign-in only where its endpoint is served: not on the consent-only staging host. */}
+        {demoAccessEnabled() && (await servesPath("/api/demo/session")) ? (
           <>
             <DemoEntry />
             <details>

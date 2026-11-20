@@ -90,8 +90,11 @@ it("separate customer contact is checked before any partner write and on an iden
     const { principal } = await actor(), input = await payload(principal);
     const p = await createProposal(principal, input);
     expect(p.approvalUrl).toBeUndefined();
+    // The partner's own name, for the agent and on the customer's view alike.
+    expect(p.proposal.salon).toBe("Synthetic partner lab");
     const token = new URL(JSON.parse(readFileSync(join(inbox, p.proposal.id + ".json"), "utf8")).approvalUrl).hash.slice(1);
     const viewed = await customerDecision(p.proposal.id, { token, decision: "view" });
+    expect(viewed.proposal?.salon).toBe("Synthetic partner lab");
     await customerDecision(p.proposal.id, { token, decision: "yes", proposalHash: viewed.proposalHash });
     const mandateId = (await getProposal(principal, p.proposal.id)).proposal.mandateId!;
     await expect(createAgentBooking(principal, "wrong-contact", body(input, mandateId))).rejects.toMatchObject({ code: "mandate_denied" });

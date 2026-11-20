@@ -1,0 +1,880 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createHmac, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { inspect } from "node:util";
+import { NextRequest } from "next/server";
+import { consentHostPathAllowed, stagingConsentPolicy, stagingConsentHost } from "../scripts/consent-channel-policy.mjs";
+import { runtimePolicy } from "../scripts/client-address.mjs";
+import { openInboxLink, requireStagingConsent, sealInboxLink, STAGING_CHANNEL, STAGING_CUSTOMER, stagingApprovalLink, stagingConsentOrigin, stagingInbox } from "../src/lib/agent-api/consent-staging";
+import { assertCustomerChannelBinding, CHANNEL_CUSTOMER, CUSTOMER_CHANNEL, separateCustomerChannel } from "../src/lib/agent-api/customer-channel-lab";
+import { browserHostKind, resolveHost } from "../src/concept/page/resolve";
+import { consentFragment, consentOutcome, formatStagingTerms, isAmbiguousLocalTime, parseStagingView, utcOffset, recheckable, retryAfterSeconds, stagingCopy } from "../src/app/consent/[id]/staging-copy";
+import { POST } from "../src/app/consent/[id]/decision/route";
+import { agentApiErrors } from "../src/lib/agent-api/errors";
+import { proxy } from "../src/proxy";
+
+// Fictional configuration only.
+const staging = {
+  BOOKING_SERVICE_ROLE: "salon", GATEWAY_SERVICE_TOKEN: "a".repeat(64),
+  BOOKING_PUBLIC_ORIGIN: "https://gateway.cresavo.test", BOOKING_CONSENT_DELIVERY: "staging-inbox", SESSION_SECRET: "fictional-session-secret-".padEnd(64, "x"),
+  BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test",
+};
+
+describe("staging channel configuration", () => {
+  it("is off unless explicitly requested", () => {
+    expect(stagingConsentPolicy({})).toBeNull();
+    expect(stagingConsentPolicy({ ...staging, BOOKING_CONSENT_DELIVERY: "separate-lab" })).toBeNull();
+    expect(stagingConsentPolicy({ ...staging, BOOKING_CONSENT_DELIVERY: undefined })).toBeNull();
+  });
+  it("accepts a bare origin with an optional port and one trailing slash", () => {
+    for (const [value, origin] of [["https://salon-demo.cresavo.test", "https://salon-demo.cresavo.test"], ["https://salon-demo.cresavo.test/", "https://salon-demo.cresavo.test"],
+      ["https://salon-demo.cresavo.test:8443/", "https://salon-demo.cresavo.test:8443"], ["https://Salon-Demo.cresavo.test", "https://salon-demo.cresavo.test"]])
+      expect(stagingConsentPolicy({ ...staging, BOOKING_CONSENT_ORIGIN: value }), value).toBe(origin);
+  });
+  it("issues links only to an address a browser can open", async () => {
+    const { httpsOrigin } = await import("../scripts/consent-channel-policy.mjs");
+    const label = (n: number) => "a".repeat(n);
+    for (const [value, origin] of [["https://salon.test:2", "https://salon.test:2"], ["https://salon.test:65535", "https://salon.test:65535"],
+      ["https://salon.test:443", "https://salon.test"], [`https://${label(63)}.test`, `https://${label(63)}.test`],
+      [`https://${[label(61), label(61), label(61), label(61)].join(".")}.test`, `https://${[label(61), label(61), label(61), label(61)].join(".")}.test`],
+      ["https://[::1]:8443", "https://[::1]:8443"], ["https://[2001:DB8::1]", "https://[2001:db8::1]"], ["https://[1:2:3:4:5:6:7:8]", "https://[1:2:3:4:5:6:7:8]"],
+      ["https://[::ffff:192.0.2.1]", "https://[::ffff:c000:201]"]] as const)
+      expect(httpsOrigin(value), value).toBe(origin);
+    // Ports browsers refuse to open (the Fetch standard's bad ports), next to allowed non-default ones.
+    const { FETCH_BAD_PORTS } = await import("../scripts/consent-channel-policy.mjs");
+    expect(FETCH_BAD_PORTS.size).toBe(83);
+    for (const port of [6000, 1, 22, 25, 465, 587, 993, 2049, 4190, 5060, 6666, 6679, 10080])
+      expect(() => httpsOrigin(`https://salon.test:${port}`), `port ${port}`).toThrow(/^CONSENT_ORIGIN_INVALID$/);
+    expect(() => stagingConsentPolicy({ ...staging, BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test:6000" })).toThrow(/^CONSENT_ORIGIN_INVALID$/);
+    for (const port of [8443, 3000, 5999, 6001, 10081, 444])
+      expect(httpsOrigin(`https://salon.test:${port}`), `port ${port}`).toBe(`https://salon.test:${port}`);
+    expect(stagingConsentPolicy({ ...staging, BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test:8443" })).toBe("https://salon-demo.cresavo.test:8443");
+    // Port 0, leading zeros and ports past 65535; a label over 63 bytes or a name over 253.
+    for (const value of ["https://salon.test:0", "https://salon.test:00", "https://salon.test:0443", "https://salon.test:65536", "https://salon.test:99999",
+      `https://${label(64)}.test`, `https://${label(63)}.${label(63)}.${label(63)}.${label(63)}.test`, `https://x.${label(64)}`,
+      "https://[::1]:0", "https://[1:2:3:4:5:6:7:8:9]", "https://[1::2::3]", "https://[12345::1]", "https://[::ffff:256.0.0.1]", "https://[:1]", "https://[1:]",
+      "https://[1.2.3.4]", "https://[::1.2.3]", "https://[]", "https://[::1%25eth0]"])
+      expect(() => httpsOrigin(value), value).toThrow(/^CONSENT_ORIGIN_INVALID$/);
+    // IPv6 literals: the same verdict as Node's own parser, for valid and invalid spellings.
+    const { isIPv6 } = await import("node:net");
+    for (const literal of ["::", "::1", "1::", "1:2:3:4:5:6:7::", "::2:3:4:5:6:7:8", "1:2:3:4:5:6:7:8", "1:2:3:4:5:6:1.2.3.4", "::ffff:1.2.3.4", "fe80::1:2",
+      "1:2:3:4:5:6:7:8:9", "1::2::3", "12345::", ":1", "1:", "1:2:3:4:5:6:7", "::1.2.3.256", "1.2.3.4", "1:2:3:4:5:6:7:1.2.3.4", "g::1", ":::"]) {
+      let ours: boolean;
+      try { httpsOrigin(`https://[${literal}]`); ours = true; } catch { ours = false; }
+      expect(ours, literal).toBe(isIPv6(literal));
+    }
+  });
+  it("returns the configured HTTPS origin, not a request header", () => {
+    expect(stagingConsentPolicy(staging)).toBe("https://salon-demo.cresavo.test");
+    expect(stagingConsentPolicy({ ...staging, BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test:8443" })).toBe("https://salon-demo.cresavo.test:8443");
+  });
+  it.each([
+    ["the standalone role", { BOOKING_SERVICE_ROLE: undefined }],
+    ["a misspelled role", { BOOKING_SERVICE_ROLE: "salong" }],
+    ["a missing service token", { GATEWAY_SERVICE_TOKEN: undefined }],
+    ["the public read-only fixture mode", { PUBLIC_READONLY: "1" }],
+    ["the SMS lab", { BOOKING_SMS_OTP_LAB: "1" }],
+    ["the local consent lab", { BOOKING_CONSENT_LAB: "1" }],
+    ["a lab inbox directory", { BOOKING_CONSENT_INBOX_DIR: "/tmp/booking-consent-inbox-x" }],
+    ["a missing consent origin", { BOOKING_CONSENT_ORIGIN: undefined }],
+    ["plain HTTP", { BOOKING_CONSENT_ORIGIN: "http://salon-demo.cresavo.test" }],
+    ["plain HTTP on loopback", { BOOKING_CONSENT_ORIGIN: "http://127.0.0.1:3217" }],
+    ["a path", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test/consent" }],
+    ["a query", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test/?x=1" }],
+    ["a fragment", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test/#" }],
+    ["credentials", { BOOKING_CONSENT_ORIGIN: "https://user:pass@salon-demo.cresavo.test" }],
+    ["the agent-facing origin", { BOOKING_CONSENT_ORIGIN: "https://gateway.cresavo.test" }],
+    // A path that URL parsing would resolve away, and other spellings of one: refused as written.
+    ["a dot-segment path", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test/staging/.." }],
+    ["a single-dot segment", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test/./" }],
+    ["an encoded dot segment", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test/%2e%2e" }],
+    ["an encoded host", { BOOKING_CONSENT_ORIGIN: "https://salon-demo%2ecresavo.test" }],
+    ["a backslash", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test\\" }],
+    ["two trailing slashes", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test//" }],
+    ["user info", { BOOKING_CONSENT_ORIGIN: "https://x@salon-demo.cresavo.test" }],
+    ["upper-case scheme", { BOOKING_CONSENT_ORIGIN: "HTTPS://salon-demo.cresavo.test" }],
+    ["surrounding space", { BOOKING_CONSENT_ORIGIN: " https://salon-demo.cresavo.test" }],
+    // Cookies are scoped by host name, not port: the owner's session would reach the gateway.
+    ["a trailing-dot host name", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test." }],
+    ["a trailing-dot host name with a port", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test.:8443" }],
+    ["the agent-facing host on another port", { BOOKING_CONSENT_ORIGIN: "https://gateway.cresavo.test:8443" }],
+    ["the agent-facing host with the default port spelled out", { BOOKING_CONSENT_ORIGIN: "https://GATEWAY.cresavo.test:443" }],
+    ["the agent-facing host on two other ports", { BOOKING_PUBLIC_ORIGIN: "https://salon-demo.cresavo.test:9443", BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test:8443" }],
+    ["a missing public origin", { BOOKING_PUBLIC_ORIGIN: undefined }],
+    // Prisma's debug output prints each query with its arguments: the inbox link and its secret.
+    ["Prisma debug output", { DEBUG: "prisma:client" }],
+    // The inbox key is derived from the session secret: the server must not report ready without one.
+    ["a missing session secret", { SESSION_SECRET: undefined }],
+    ["a short session secret", { SESSION_SECRET: "x".repeat(31) }],
+    ["a debug pattern that matches Prisma", { DEBUG: "*" }],
+  ])("refuses %s", (_name, patch) => {
+    const env = { ...staging, ...patch };
+    expect(() => stagingConsentPolicy(env)).toThrow();
+    expect(stagingConsentHost(env)).toBeNull();
+    expect(() => stagingConsentOrigin(env)).toThrow("authorised mandate");
+  });
+  it("stops the server at start when half-configured, and starts when complete", () => {
+    expect(runtimePolicy({ ...staging })).toBe("local");
+    expect(() => runtimePolicy({ ...staging, BOOKING_CONSENT_ORIGIN: "http://salon-demo.cresavo.test" })).toThrow("BOOKING_RUNTIME_CONFIG_INVALID");
+    expect(() => runtimePolicy({ ...staging, PUBLIC_READONLY: "1" })).toThrow("BOOKING_RUNTIME_CONFIG_INVALID");
+    expect(() => runtimePolicy({ ...staging, DEBUG: "prisma:query" })).toThrow("BOOKING_RUNTIME_CONFIG_INVALID");
+    expect(() => runtimePolicy({ ...staging, SESSION_SECRET: undefined })).toThrow("BOOKING_RUNTIME_CONFIG_INVALID");
+    expect(() => runtimePolicy({ ...staging, SESSION_SECRET: "short" })).toThrow("BOOKING_RUNTIME_CONFIG_INVALID");
+    expect(runtimePolicy({ ...staging, SESSION_SECRET: "y".repeat(32) })).toBe("local");
+    // An unrelated or lab mode keeps its existing request-time behaviour.
+    expect(runtimePolicy({ BOOKING_CONSENT_DELIVERY: "separate-lab" })).toBe("local");
+  });
+  it("keeps the local lab channel separate", () => {
+    vi.stubEnv("BOOKING_CONSENT_DELIVERY", "staging-inbox");
+    try { expect(separateCustomerChannel()).toBe(false); } finally { vi.unstubAllEnvs(); }
+  });
+});
+
+describe("staging link and recipient", () => {
+  const id = "0b7c3f6e-6a1d-4c11-9d0e-3f1f0c1d2e3f", token = "T".repeat(43);
+  it("builds the link from the configured origin with the secret in the fragment", () => {
+    const url = new URL(stagingApprovalLink("https://salon-demo.cresavo.test", id, token));
+    expect(url.origin).toBe("https://salon-demo.cresavo.test");
+    expect(url.pathname).toBe(`/consent/${id}`);
+    expect(url.search).toBe("");
+    expect(url.hash).toBe(`#${token}`);
+    expect(() => stagingApprovalLink("https://salon-demo.cresavo.test", "../x", token)).toThrow();
+    expect(() => stagingApprovalLink("https://salon-demo.cresavo.test", id, "short")).toThrow();
+  });
+  it("binds the booking contact to the fixed fictional recipient of each channel", () => {
+    const proposal = { consentDelivery: STAGING_CHANNEL }, mandate = { verifiedVia: STAGING_CHANNEL };
+    expect(STAGING_CUSTOMER.email.endsWith("@example.test")).toBe(true);
+    expect(() => assertCustomerChannelBinding(proposal, mandate, STAGING_CUSTOMER)).not.toThrow();
+    expect(() => assertCustomerChannelBinding(proposal, mandate, CHANNEL_CUSTOMER)).toThrow();
+    expect(() => assertCustomerChannelBinding(proposal, mandate, { ...STAGING_CUSTOMER, email: "other@example.test" })).toThrow();
+    expect(() => assertCustomerChannelBinding(proposal, { verifiedVia: CUSTOMER_CHANNEL }, STAGING_CUSTOMER)).toThrow();
+    expect(() => assertCustomerChannelBinding({ consentDelivery: null }, mandate, STAGING_CUSTOMER)).toThrow();
+    expect(() => assertCustomerChannelBinding({ consentDelivery: CUSTOMER_CHANNEL }, { verifiedVia: CUSTOMER_CHANNEL }, CHANNEL_CUSTOMER)).not.toThrow();
+  });
+  it("formats terms in the salon's time zone", () => {
+    const shown = formatStagingTerms("en", "Europe/Stockholm", { start: "2026-12-07T09:30:00Z", expiresAt: "2026-12-01T08:00:00Z", amountMinor: 52000, currency: "SEK" });
+    expect(shown.time).toBe("10:30");
+    expect(shown.date).toMatch(/^Monday,? 7 December 2026$/);
+    expect(shown.price).toContain("520.00");
+  });
+  it("shows seconds when a time has them, so a short-lived deadline never reads as already passed", () => {
+    const terms = (start: string, expiresAt: string) => ({ start, expiresAt, amountMinor: 52000, currency: "SEK" });
+    // Created at 10:15:20 with a 10-second TTL: approve before 10:15:30, not "10:15".
+    const en = formatStagingTerms("en", "Europe/Stockholm", terms("2026-12-07T09:30:00Z", "2026-12-07T09:15:30.250Z"));
+    expect(en.expires).toBe("7 Dec 2026, 10:15:30");
+    expect(en.time).toBe("10:30");
+    expect(formatStagingTerms("sv", "Europe/Stockholm", terms("2026-12-07T09:30:45Z", "2026-12-07T09:15:30Z"))).toMatchObject({ time: "10:30:45", expires: "7 dec. 2026 10:15:30" });
+    // Seconds and the repeated hour together.
+    expect(formatStagingTerms("en", "Europe/Stockholm", terms("2026-10-25T00:30:20Z", "2026-10-20T08:00:00Z")).time).toBe("02:30:20 (UTC+02:00)");
+  });
+  it("the runner's independent expectation matches the page, offset included, in the repeated hour", async () => {
+    const { expectedText } = await import("../scripts/staging-consent/browsers.mjs");
+    // In the browser it is evaluated as a plain JavaScript expression; here the same text is
+    // evaluated in a fresh function scope, without the TypeScript loader's helpers.
+    const page = { evaluate: (expression: string) => Promise.resolve(new Function(`"use strict"; return (${expression});`)()) } as never;
+    const base = { amountMinor: 52000, currency: "SEK", timeZone: "Europe/Stockholm" };
+    for (const [start, expiresAt] of [["2026-10-25T00:30:00Z", "2026-10-25T01:45:00Z"], ["2026-12-07T09:30:00Z", "2026-12-01T08:00:00Z"], ["2026-10-25T01:30:00Z", "2026-10-24T23:10:00Z"],
+      ["2026-12-07T09:30:45Z", "2026-12-07T09:15:30.250Z"], ["2026-10-25T00:30:20Z", "2026-10-25T01:45:59.999Z"]]) {
+      const expected = await expectedText(page, { ...base, start, expiresAt });
+      const shown = formatStagingTerms("en", "Europe/Stockholm", { start, expiresAt, amountMinor: 52000, currency: "SEK" });
+      expect(expected.time, start).toBe(shown.time);
+      expect(expected.expires, expiresAt).toBe(shown.expires);
+    }
+    expect((await expectedText(page, { ...base, start: "2026-10-25T00:30:00Z", expiresAt: "2026-10-25T01:45:00Z" })).expires).toMatch(/\(UTC\+01:00\)$/);
+  });
+  it("tells apart the two instants of the hour repeated when clocks go back", () => {
+    const terms = (start: string, expiresAt = "2026-10-20T08:00:00Z") => ({ start, expiresAt, amountMinor: 52000, currency: "SEK" });
+    // 25 October 2026 in Stockholm: 02:30 happens first at +02:00 (00:30Z), then at +01:00 (01:30Z).
+    for (const locale of ["en", "sv"] as const) {
+      const first = formatStagingTerms(locale, "Europe/Stockholm", terms("2026-10-25T00:30:00Z"));
+      const second = formatStagingTerms(locale, "Europe/Stockholm", terms("2026-10-25T01:30:00Z"));
+      expect(first.time).toBe("02:30 (UTC+02:00)");
+      expect(second.time).toBe("02:30 (UTC+01:00)");
+      expect(first.date).toBe(second.date);
+      // Every other time, the spring-forward day included, reads as before.
+      for (const start of ["2026-10-25T02:30:00Z", "2026-10-24T23:30:00Z", "2026-03-29T00:30:00Z", "2026-03-29T01:30:00Z", "2026-12-07T09:30:00Z"])
+        expect(formatStagingTerms(locale, "Europe/Stockholm", terms(start)).time, start).not.toContain("UTC");
+      // The approval deadline too.
+      expect(formatStagingTerms(locale, "Europe/Stockholm", terms("2026-12-07T09:30:00Z", "2026-10-25T01:45:00Z")).expires).toContain("(UTC+01:00)");
+    }
+    expect(utcOffset("Europe/Stockholm", new Date("2026-07-01T12:00:00Z"))).toBe("+02:00");
+    expect(utcOffset("America/St_Johns", new Date("2026-01-15T12:00:00Z"))).toBe("-03:30");
+    // A 30-minute shift: Lord Howe Island repeats 01:30-02:00 on 5 April 2026.
+    expect(isAmbiguousLocalTime("Australia/Lord_Howe", new Date("2026-04-04T14:45:00Z"))).toBe(true);
+    expect(isAmbiguousLocalTime("Australia/Lord_Howe", new Date("2026-04-04T15:15:00Z"))).toBe(true);
+    expect(isAmbiguousLocalTime("Australia/Lord_Howe", new Date("2026-06-01T00:00:00Z"))).toBe(false);
+  });
+});
+
+describe("owner pages on the consent-only host", () => {
+  it("offer demo sign-in only where its endpoint is served, so the consent host shows the owner login", async () => {
+    const { hostServesPath } = await import("../scripts/consent-channel-policy.mjs");
+    expect(hostServesPath(staging, "salon-demo.cresavo.test", "/api/demo/session")).toBe(false);
+    expect(hostServesPath(staging, "salon-demo.cresavo.test", "/api/admin/login")).toBe(true);
+    expect(hostServesPath(staging, "demo.cresavo.com", "/api/demo/session")).toBe(true);
+    expect(readFileSync(new URL("../src/app/admin/page.tsx", import.meta.url), "utf8")).toMatch(/demoAccessEnabled\(\) && \(await servesPath\("\/api\/demo\/session"\)\)/);
+  });
+  it("hide the customer-booking link where the host does not serve the booking page", async () => {
+    const { hostServesPath } = await import("../scripts/consent-channel-policy.mjs");
+    // On the consent host, at any port, "/" is not served: the link would lead to a 404.
+    for (const host of ["salon-demo.cresavo.test", "salon-demo.cresavo.test:8443", "SALON-DEMO.cresavo.test."])
+      expect(hostServesPath(staging, host, "/"), host).toBe(false);
+    expect(hostServesPath(staging, "salon-demo.cresavo.test", "/admin")).toBe(true);
+    // Anywhere else, and without the staging channel, the link stays.
+    expect(hostServesPath(staging, "localhost:3000", "/")).toBe(true);
+    expect(hostServesPath({}, "salon-demo.cresavo.test", "/")).toBe(true);
+    // Both owner pages decide through this rule, not with a copy of it.
+    for (const file of ["../src/app/admin/page.tsx", "../src/app/admin/header.tsx"])
+      expect(readFileSync(new URL(file, import.meta.url), "utf8"), file).toMatch(/servesPath\("\/"\)/);
+  });
+});
+
+describe("proposal salon label", () => {
+  it("names the proposal's own business, as the customer page does, for every business", async () => {
+    const { proposalView } = await import("../src/lib/agent-api/proposals");
+    const { businessDisplay } = await import("../src/lib/agent-api/v1");
+    const row = { id: "p", status: "pending", serviceId: "s", serviceVersion: 1, serviceName: "Fictional", staffId: "st", staffName: "Fictional",
+      locationId: "demo-location", scheduleId: "sc", startsAt: new Date("2026-12-07T09:30:00Z"), duration: 45, priceOre: 52000,
+      expiresAt: new Date("2026-12-07T09:00:00Z"), mandateId: null } as never;
+    for (const businessId of ["demo", "lab-partner"]) {
+      const shown = proposalView({ ...(row as object), businessId } as never, new Date("2026-12-07T08:00:00Z"));
+      expect(shown.salon, businessId).toBe(businessDisplay(businessId).name);
+    }
+    expect(proposalView({ ...(row as object), businessId: "lab-partner" } as never, new Date()).salon).toBe("Synthetic partner lab");
+  });
+});
+
+describe("asked-for but invalid staging configuration", () => {
+  const invalid = [["plain HTTP", { BOOKING_CONSENT_ORIGIN: "http://salon-demo.cresavo.test" }], ["no session secret", { SESSION_SECRET: undefined }],
+    ["a lab switch as well", { BOOKING_CONSENT_LAB: "1" }], ["Prisma debug output", { DEBUG: "prisma:client" }], ["no consent origin", { BOOKING_CONSENT_ORIGIN: undefined }]] as const;
+  it("never falls back to the lab form, which would read and post the secret unchecked", async () => {
+    const { consentPageMode } = await import("../scripts/consent-channel-policy.mjs");
+    expect(consentPageMode(staging, "salon-demo.cresavo.test")).toBe("staging");
+    expect(consentPageMode(staging, "other.cresavo.test")).toBe("not-found");
+    // Not asked for at all: the local lab keeps its own form and checks, on its own loopback origin.
+    const lab = { BOOKING_CONSENT_LAB: "1", BOOKING_PUBLIC_ORIGIN: "http://127.0.0.1:3217" };
+    expect(consentPageMode(lab, "127.0.0.1:3217")).toBe("lab");
+    expect(consentPageMode({ BOOKING_CONSENT_LAB: "1" }, "127.0.0.1:3000")).toBe("lab");
+    expect(consentPageMode({ BOOKING_CONSENT_LAB: "1", PORT: "3217" }, "127.0.0.1:3217")).toBe("lab");
+    expect(consentPageMode({ BOOKING_CONSENT_LAB: "1", BOOKING_PUBLIC_ORIGIN: "http://localhost:3229" }, "LOCALHOST:3229")).toBe("lab");
+    expect(consentPageMode({ BOOKING_CONSENT_LAB: "1", BOOKING_PUBLIC_ORIGIN: "http://[::1]:3229" }, "[::1]:3229")).toBe("lab");
+    expect(consentPageMode({ ...staging, BOOKING_CONSENT_DELIVERY: "separate-lab", BOOKING_CONSENT_LAB: "1", BOOKING_PUBLIC_ORIGIN: "http://127.0.0.1:3217" }, "127.0.0.1:3217")).toBe("lab");
+    // A staging link left over after switching to the lab, opened on a routable alias (or another
+    // loopback port or name): not found, so no form reads the fragment and posts it there.
+    for (const host of ["salon-demo.cresavo.test", "salon-demo.cresavo.test:3217", "gateway.cresavo.test", "127.0.0.1:3218", "localhost:3217", "[::1]:3217",
+      "127.0.0.1", "", null, undefined, "a b", "127.0.0.1:3217@evil.test"])
+      expect(consentPageMode(lab, host), `lab on ${host}`).toBe("not-found");
+    // A lab origin that is not loopback, or not a bare origin, serves no lab form anywhere.
+    for (const origin of ["https://salon-demo.cresavo.test", "http://10.0.0.5:3217", "http://127.0.0.1:3217/x", "http://u:p@127.0.0.1:3217", "ftp://127.0.0.1:3217", "not a url"])
+      for (const host of [new URL(origin.startsWith("not") ? "http://x" : origin).host, "127.0.0.1:3217"])
+        expect(consentPageMode({ BOOKING_CONSENT_LAB: "1", BOOKING_PUBLIC_ORIGIN: origin }, host), `${origin} on ${host}`).toBe("not-found");
+    expect(consentPageMode({ BOOKING_CONSENT_LAB: "1", NODE_ENV: "production" }, "127.0.0.1:3000")).toBe("not-found");
+    // Without the lab switch (or on Vercel) the legacy form would only post a secret to a handler
+    // that refuses it, for example a link left over from a disabled staging channel: not found.
+    const disabled = { ...staging, BOOKING_CONSENT_DELIVERY: undefined };
+    for (const env of [disabled, {}, { BOOKING_CONSENT_DELIVERY: "separate-lab" }, { BOOKING_CONSENT_LAB: "1", BOOKING_RUNTIME: "vercel" }, { BOOKING_CONSENT_LAB: "0" }])
+      for (const host of ["salon-demo.cresavo.test", "localhost:3000"])
+        expect(consentPageMode(env, host), `${JSON.stringify(env).slice(0, 60)} on ${host}`).toBe("not-found");
+    for (const [name, patch] of invalid)
+      for (const host of ["salon-demo.cresavo.test", "127.0.0.1:3217", "localhost:3000"])
+        expect(consentPageMode({ ...staging, ...patch }, host), `${name} on ${host}`).toBe("not-found");
+  });
+  it("answers every consent path with 404 in the proxy, on the consent host too", () => {
+    const id = "0b7c3f6e-6a1d-4c11-9d0e-3f1f0c1d2e3f";
+    const routed = (host: string, path: string) => proxy(new NextRequest(`https://${host}${path}`, { headers: { host } }));
+    try {
+      for (const [name, patch] of invalid) {
+        vi.unstubAllEnvs();
+        for (const [k, v] of Object.entries({ ...staging, ...patch })) vi.stubEnv(k, v);
+        for (const host of ["salon-demo.cresavo.test", "localhost:3000"])
+          for (const path of [`/consent/${id}`, `/consent/${id}/decision`])
+            expect(routed(host, path).status, `${name}: ${host}${path}`).toBe(404);
+      }
+    } finally { vi.unstubAllEnvs(); }
+  });
+});
+
+describe("consent origin", () => {
+  it("renders and reads the secret only on the exact configured consent origin", async () => {
+    const { isConsentHost } = await import("../scripts/consent-channel-policy.mjs");
+    const env = { ...staging, BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test:8443" };
+    expect(isConsentHost(env, "salon-demo.cresavo.test:8443")).toBe(true);
+    expect(isConsentHost(env, "SALON-DEMO.cresavo.test:8443")).toBe(true);
+    for (const host of ["salon-demo.cresavo.test", "salon-demo.cresavo.test:9443", "localhost:8443", "127.0.0.1:8443", "gateway.cresavo.test", "", null, undefined, "a b"])
+      expect(isConsentHost(env, host), String(host)).toBe(false);
+    expect(isConsentHost(staging, "salon-demo.cresavo.test:443")).toBe(true);
+    expect(isConsentHost({}, "salon-demo.cresavo.test")).toBe(false);
+    // In the browser, before anything is sent.
+    expect(consentFragment("https://salon-demo.cresavo.test", { origin: "https://salon-demo.cresavo.test", hash: "#secret" })).toBe("secret");
+    for (const origin of ["https://salon-demo.cresavo.test:9443", "http://salon-demo.cresavo.test", "https://other.cresavo.test"])
+      expect(consentFragment("https://salon-demo.cresavo.test", { origin, hash: "#secret" }), origin).toBeNull();
+    for (const locale of ["en", "sv"] as const) expect(stagingCopy[locale].wrongOrigin).toMatch(locale === "en" ? /Nothing was sent/ : /Inget skickades/);
+  });
+});
+
+describe("sealed inbox link", () => {
+  const id = "0b7c3f6e-6a1d-4c11-9d0e-3f1f0c1d2e3f", token = "P".repeat(43), secret = "s".repeat(64);
+  const link = `https://salon-demo.cresavo.test/consent/${id}#${token}`;
+  it("hands the database only a sealed value, which opens with the salon's secret for this proposal only", async () => {
+    const sealed = sealInboxLink(link, id, secret);
+    expect(sealed).toMatch(/^v1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]+$/);
+    expect(sealed.length).toBeGreaterThanOrEqual(80); expect(sealed.length).toBeLessThanOrEqual(620);
+    for (const encoding of ["base64url", "base64", "latin1"] as const)
+      for (const part of sealed.split(".")) expect(String(Buffer.from(part, encoding).toString("latin1")).includes(token), "a secret appears in the checked text").toBe(false);
+    expect(sealInboxLink(link, id, secret)).not.toBe(sealed);
+    expect(openInboxLink(sealed, id, secret)).toBe(link);
+    // Another proposal, another secret, or one changed character: a static error.
+    for (const [value, proposal, key] of [[sealed, "0b7c3f6e-6a1d-4c11-9d0e-000000000000", secret], [sealed, id, "t".repeat(64)],
+      [sealed.slice(0, -2) + (sealed.endsWith("A") ? "BB" : "AA"), id, secret], ["v2." + sealed.slice(3), id, secret], ["", id, secret]] as const)
+      expect(() => openInboxLink(value, proposal, key)).toThrow(/^CONSENT_INBOX_SEALED_LINK_INVALID$/);
+    // Without the salon's secret nothing is delivered.
+    expect(() => sealInboxLink(link, id, "short")).toThrow("customer approval channel is unavailable");
+    vi.stubEnv("SESSION_SECRET", secret);
+    try {
+      const create = vi.fn().mockResolvedValue({});
+      await stagingInbox.deliver({ consentInboxMessage: { create } } as never, "https://salon-demo.cresavo.test", id, token);
+      const sent = JSON.stringify(create.mock.calls);
+      expect(String(sent).includes(token), "a secret appears in the checked text").toBe(false);
+      expect(sent).not.toContain("/consent/");
+      expect(openInboxLink(create.mock.calls[0][0].data.sealedLink, id)).toBe(link);
+    } finally { vi.unstubAllEnvs(); }
+  });
+});
+
+describe("staging inbox errors", () => {
+  it("never lets a database error that quotes the link out, as a message, a cause or output", async () => {
+    const id = "0b7c3f6e-6a1d-4c11-9d0e-3f1f0c1d2e3f", token = "Q".repeat(43);
+    const link = stagingApprovalLink("https://salon-demo.cresavo.test", id, token);
+    // Shaped like a Prisma validation error, which repeats the call's arguments in its message.
+    const prismaLike = Object.assign(new Error(`Invalid \`prisma.consentInboxMessage.create()\` invocation:\n{ data: { approvalLink: "${link}" } }`),
+      { name: "PrismaClientValidationError", meta: { approvalLink: link } });
+    const tx = { consentInboxMessage: { create: vi.fn().mockRejectedValue(prismaLike), updateMany: vi.fn().mockRejectedValue(prismaLike) } };
+    const output = [vi.spyOn(console, "error"), vi.spyOn(console, "warn"), vi.spyOn(console, "log"), vi.spyOn(console, "info"), vi.spyOn(console, "debug"),
+      vi.spyOn(process.stdout, "write"), vi.spyOn(process.stderr, "write")];
+    // A key, so the insert is really attempted and fails with the Prisma-like error.
+    vi.stubEnv("SESSION_SECRET", "k".repeat(64));
+    try {
+      for (const run of [() => stagingInbox.deliver(tx as never, "https://salon-demo.cresavo.test", id, token), () => stagingInbox.consume(tx as never, id, new Date())]) {
+        let thrown: unknown;
+        try { await run(); } catch (error) { thrown = error; }
+        expect(thrown).toBeInstanceOf(Error);
+        expect(String(inspect(thrown, { depth: 8, showHidden: true }) + String((thrown as Error).stack)).includes(token), "a secret appears in the checked text").toBe(false);
+        expect((thrown as Error).cause).toBeUndefined();
+      }
+      expect(tx.consentInboxMessage.create).toHaveBeenCalledTimes(1);
+      expect(tx.consentInboxMessage.updateMany).toHaveBeenCalledTimes(1);
+      for (const spy of output) for (const call of spy.mock.calls) expect(String(JSON.stringify(call)).includes(token), "a secret appears in the checked text").toBe(false);
+    } finally { for (const spy of output) spy.mockRestore(); vi.unstubAllEnvs(); }
+  });
+});
+
+describe("staging host and customer endpoint", () => {
+  beforeEach(() => { for (const [k, v] of Object.entries(staging)) vi.stubEnv(k, v); vi.stubEnv("BOOKING_ADDRESS_SECRET", "synthetic-proof"); });
+  afterEach(() => vi.unstubAllEnvs());
+  it("serves the salon app only on the configured consent host", () => {
+    expect(resolveHost("salon-demo.cresavo.test:8443")).toEqual({ kind: "app" });
+    expect(resolveHost("gateway.cresavo.test")).not.toEqual({ kind: "app" });
+    vi.stubEnv("BOOKING_CONSENT_DELIVERY", undefined);
+    expect(resolveHost("salon-demo.cresavo.test")).not.toEqual({ kind: "app" });
+  });
+  it("requires the consent origin and no agent credentials, but not loopback", async () => {
+    const request = (headers: Record<string, string | undefined>) => {
+      const ip = "203.0.113.9";
+      return POST(new Request("https://salon-demo.cresavo.test/consent/x/decision", { method: "POST", body: "{}", headers: {
+        "content-type": "application/json", "x-booking-client-ip": ip,
+        "x-booking-client-proof": createHmac("sha256", "synthetic-proof").update(ip).digest("hex"), ...headers } }), { params: Promise.resolve({ id: "x" }) });
+    };
+    for (const headers of [{ origin: "https://gateway.cresavo.test" }, { origin: "http://127.0.0.1:3217" }, {},
+      { origin: "https://salon-demo.cresavo.test", authorization: "Bearer synthetic-agent" },
+      { origin: "https://salon-demo.cresavo.test", "x-api-key": "synthetic-agent" }]) {
+      const response = await request(headers);
+      expect(response.status).toBe(403);
+      expect(await response.text()).not.toContain("synthetic-agent");
+    }
+    expect(requireStagingConsent()).toBe("https://salon-demo.cresavo.test");
+  });
+  const proofed = (ip: string, id: string, body: string) => POST(new Request(`https://salon-demo.cresavo.test/consent/${id}/decision`, { method: "POST", body, headers: {
+    origin: "https://salon-demo.cresavo.test", "content-type": "application/json", "x-booking-client-ip": ip,
+    "x-booking-client-proof": createHmac("sha256", "synthetic-proof").update(ip).digest("hex") } }), { params: Promise.resolve({ id }) });
+  // The post-acceptance failure, with the database injected, is in consent-decision-route.test.ts.
+  it("limits decision requests per client address before anything else", async () => {
+    // Per-proposal limits need the database and are covered by the integration tests.
+    for (let i = 0; i < 60; i++) expect((await proofed("203.0.113.50", "../admin", "{}")).status).toBe(403);
+    const limited = await proofed("203.0.113.50", randomUUID(), "{}");
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("retry-after")).toMatch(/^\d+$/);
+    expect(await limited.json()).toEqual({ error: "consent_rate_limited" });
+  });
+  it("keeps the configured consent host classified as the salon in the browser", () => {
+    vi.stubGlobal("window", {});
+    try {
+      // The browser cannot read the server-only consent setting by itself.
+      expect(resolveHost("salon-demo.cresavo.test").kind).toBe("unknown");
+      expect(browserHostKind("salon-demo.cresavo.test", true)).toBe("app");
+      expect(browserHostKind("salon-demo.cresavo.test", false)).toBe("unknown");
+      expect(browserHostKind("someone-else.example", false)).toBe("unknown");
+      // Beneath the product domain the browser reads the consent host as a business subdomain.
+      vi.stubEnv("NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN", "cresavo.com");
+      expect(resolveHost("salon-demo.cresavo.com").kind).toBe("business");
+      expect(browserHostKind("salon-demo.cresavo.com", true)).toBe("app");
+      expect(browserHostKind("salon-demo.cresavo.com", false)).toBe("business");
+    } finally { vi.unstubAllGlobals(); }
+  });
+  it("serves only the paths the consent host needs", async () => {
+    const id = "0b7c3f6e-6a1d-4c11-9d0e-3f1f0c1d2e3f";
+    for (const path of [`/consent/${id}`, `/consent/${id}/decision`, "/admin", "/admin/bookings/x", "/api/admin/login", "/api/v1/proposals",
+      "/api/availability", "/api/locale", "/_next/static/chunks/a.js", "/favicon.ico", "/brand/icon-32.png"])
+      expect(consentHostPathAllowed(path), path).toBe(true);
+    for (const path of ["/", "/studio", "/boka/salong-eko", "/api/bookings", "/api/demo/session", "/oauth/authorize", "/administrator", "/consent", `/consent/${id}/x`, "/llms.txt"])
+      expect(consentHostPathAllowed(path), path).toBe(false);
+    const routed = (host: string, path: string) => proxy(new NextRequest(`https://${host}${path}`, { headers: { host } }));
+    expect(routed("salon-demo.cresavo.test:8443", "/studio").status).toBe(404);
+    expect(routed("salon-demo.cresavo.test", "/api/bookings").status).toBe(404);
+    expect(routed("salon-demo.cresavo.test", `/consent/${id}`).status).not.toBe(404);
+    expect(routed("localhost:3000", "/studio").status).not.toBe(404);
+    vi.stubEnv("BOOKING_CONSENT_DELIVERY", undefined);
+    expect(routed("salon-demo.cresavo.test", "/studio").status).not.toBe(404);
+  });
+  it("answers a consent link on any other host or port with 404, before an alias redirect", () => {
+    const id = "0b7c3f6e-6a1d-4c11-9d0e-3f1f0c1d2e3f";
+    vi.stubEnv("CONCEPT_SITE_SV_DOMAINS", "cresavo.se,www.cresavo.se");
+    const routed = (host: string, path: string) => proxy(new NextRequest(`https://${host}${path}`, { headers: { host } }));
+    // A redirect without a fragment keeps the original one: the alias's target would read the secret.
+    for (const [host, path] of [["cresavo.se", `/consent/${id}`], ["www.cresavo.se", `/consent/${id}/decision`], ["cresavo.se", `/%63onsent/${id}`],
+      ["cresavo.se", `/CONSENT/${id}`], ["salon-demo.cresavo.test:9443", `/consent/${id}`], ["localhost:3000", `/consent/${id}`]]) {
+      const response = routed(host, path);
+      expect(response.status, `${host}${path}`).toBe(404);
+      expect(response.headers.get("location")).toBeNull();
+    }
+    expect(routed("salon-demo.cresavo.test", `/consent/${id}`).status).not.toBe(404);
+    // Other paths of the alias still redirect, and without the staging channel nothing changes.
+    expect(routed("cresavo.se", "/").status).toBe(308);
+    // With the staging channel switched off, a leftover link reaches no form at all...
+    vi.stubEnv("BOOKING_CONSENT_DELIVERY", undefined);
+    for (const host of ["salon-demo.cresavo.test", "localhost:3000"]) expect(routed(host, `/consent/${id}`).status, host).toBe(404);
+    // ...while the explicitly enabled local lab keeps its page, on its own loopback origin only:
+    // the old link opened on the former consent host or another alias is still not found.
+    vi.stubEnv("BOOKING_CONSENT_LAB", "1"); vi.stubEnv("BOOKING_RUNTIME", "local");
+    for (const host of ["salon-demo.cresavo.test", "localhost:3000"]) expect(routed(host, `/consent/${id}`).status, `lab with a routable origin, ${host}`).toBe(404);
+    vi.stubEnv("BOOKING_PUBLIC_ORIGIN", "http://localhost:3000");
+    expect(routed("localhost:3000", `/consent/${id}`).status).not.toBe(404);
+    for (const host of ["salon-demo.cresavo.test", "cresavo.se", "127.0.0.1:3000", "localhost:3001"])
+      expect(routed(host, `/consent/${id}`).status, `lab, ${host}`).toBe(404);
+  });
+});
+
+describe("customer outcome after a decision request", () => {
+  const denied = { error: "consent_denied" };
+  const view = {
+    proposal: { serviceName: "Fictional treatment", staff: { name: "Fictional Stylist" }, start: "2026-12-07T09:30:00.000Z", durationMinutes: 45,
+      price: { amountMinor: 52000, currency: "SEK" }, expiresAt: "2026-12-01T08:00:00.000Z" },
+    proposalHash: "a".repeat(64), customer: "Staging Demo Customer · staging-customer@example.test",
+    terms: { salonName: "Salong Eko (synthetic demo)", locationId: "demo-location", locationName: "Fictional demo studio, Stockholm", timeZone: "Europe/Stockholm", currency: "SEK" },
+  };
+  it("reports a decision only from the salon's own JSON answer", () => {
+    expect(consentOutcome("yes", { status: 200, body: { status: "approved" } })).toBe("approved");
+    expect(consentOutcome("no", { status: 200, body: { status: "declined" } })).toBe("declined");
+    expect(consentOutcome("yes", { status: 403, body: denied })).toBe("invalid");
+    expect(consentOutcome("yes", { status: 409, body: { ...denied, state: "used" } })).toBe("used");
+    // A spent link names the decision recorded with it, after a decision or on a later read.
+    for (const phase of ["view", "yes", "no"] as const) {
+      expect(consentOutcome(phase, { status: 409, body: { ...denied, state: "used", decision: "approved" } })).toBe("approvedEarlier");
+      expect(consentOutcome(phase, { status: 409, body: { ...denied, state: "used", decision: "declined" } })).toBe("declinedEarlier");
+      expect(consentOutcome(phase, { status: 409, body: { ...denied, state: "used", decision: "maybe" } })).toBe("used");
+    }
+    expect(stagingCopy.en.approvedEarlier).toMatch(/approved/);
+    // A past approval is history: its mandate may since have expired or been used for the booking.
+    for (const locale of ["en", "sv"] as const)
+      expect(stagingCopy[locale].approvedEarlier).not.toMatch(/may complete|can complete|may now|kan slutföra|kan nu/);
+    expect(stagingCopy.sv.approvedEarlier).toMatch(/godkände/);
+    expect(stagingCopy.sv.declinedEarlier).toMatch(/avböjdes/);
+    for (const locale of ["en", "sv"] as const) expect(stagingCopy[locale].unconfirmed).toContain(stagingCopy[locale].recheck.split(" ")[0]);
+    expect(consentOutcome("yes", { status: 410, body: { ...denied, state: "expired" } })).toBe("expired");
+    expect(consentOutcome("yes", { status: 429, body: { error: "consent_rate_limited" } })).toBe("limited");
+    // A status without the salon's body (an intermediary's page) proves nothing, refusal or success.
+    const unknown = ["network-error", { status: 200 }, { status: 200, body: { status: "declined" } }, { status: 204 }, { status: 201, body: { status: "approved" } },
+      { status: 200, body: { status: "approved" }, redirected: true }, { status: 403 }, { status: 403, body: "<html>Forbidden</html>" },
+      { status: 403, body: { error: "forbidden" } }, { status: 403, body: { ...denied, state: "used" } }, { status: 429 }, { status: 429, body: denied },
+      { status: 409 }, { status: 409, body: { state: "used" } }, { status: 410, body: { ...denied, state: "used" } }, { status: 403, body: denied, redirected: true },
+      { status: 500 }, { status: 500, body: { error: "consent_unavailable" } }, { status: 502 }, { status: 503 }, { status: 400 }] as const;
+    for (const response of unknown) expect(consentOutcome("yes", response), JSON.stringify(response)).toBe("unconfirmed");
+    expect(consentOutcome("no", { status: 200, body: { status: "approved" } })).toBe("unconfirmed");
+  });
+  it("never claims anything about approval when the status could not be checked", () => {
+    expect(consentOutcome("view", { status: 200, body: view })).toBe("ready");
+    expect(consentOutcome("view", { status: 409, body: { ...denied, state: "used" } })).toBe("used");
+    expect(consentOutcome("view", { status: 410, body: { ...denied, state: "expired" } })).toBe("expired");
+    // A refresh after a decision has no secret left: the salon answers 403. That is not "nothing was approved".
+    for (const response of ["network-error", { status: 403, body: denied }, { status: 403 }, { status: 502 }, { status: 500, body: { error: "consent_unavailable" } }] as const)
+      expect(consentOutcome("view", response)).toBe("unchecked");
+    for (const locale of ["en", "sv"] as const) {
+      // Neutral both ways: the request may never have reached the salon, or may have been saved.
+      for (const key of ["unchecked", "unconfirmed"] as const)
+        expect(stagingCopy[locale][key]).not.toMatch(/Nothing was approved|Inget godkändes|changed nothing|ändrade ingenting|answer was kept|has been saved|gäller ditt svar|har sparats/);
+      expect(stagingCopy[locale].invalid).toMatch(/Nothing was approved|Inget godkändes/);
+    }
+    // Place descriptions are copy, translated per locale under the same location IDs.
+    expect(Object.keys(stagingCopy.sv.locations)).toEqual(Object.keys(stagingCopy.en.locations));
+    expect(stagingCopy.sv.locations["demo-location"]).toBe("Påhittad demostudio, Stockholm");
+    expect(stagingCopy.en.locations["demo-location"]).toBe("Fictional demo studio, Stockholm");
+  });
+  it("renders terms only from a complete, valid view", () => {
+    expect(parseStagingView(view)).toBe(view);
+    // The salon's own form (toISOString) and explicit offsets are accepted.
+    for (const start of ["2026-12-07T09:30:00.000Z", "2026-12-07T10:30:00+01:00", "2026-12-07T09:30Z"])
+      expect(parseStagingView({ ...view, proposal: { ...view.proposal, start } }), start).not.toBeNull();
+    const broken: unknown[] = [null, undefined, "text", [], { error: "consent_denied" }, { ...view, terms: undefined }, { ...view, proposalHash: "x" },
+      { ...view, terms: { ...view.terms, timeZone: "Not/AZone" } }, { ...view, terms: { ...view.terms, currency: "sek" } },
+      { ...view, proposal: { ...view.proposal, start: "tomorrow" } }, { ...view, proposal: { ...view.proposal, durationMinutes: 0 } },
+      { ...view, proposal: { ...view.proposal, price: { amountMinor: 1.5, currency: "SEK" } } }, { ...view, proposal: { ...view.proposal, staff: {} } },
+      { ...view, customer: "" },
+      // No zone: the browser would read these in its own time zone.
+      { ...view, proposal: { ...view.proposal, start: "2026-12-07T09:30:00" } }, { ...view, proposal: { ...view.proposal, expiresAt: "2026-12-01T08:00:00.000" } },
+      { ...view, proposal: { ...view.proposal, start: "2026-12-07" } }, { ...view, proposal: { ...view.proposal, start: "2026-12-07T09:30:00 GMT" } },
+      // The amount must be shown, labelled and approved in one currency.
+      { ...view, terms: { ...view.terms, currency: "EUR" } }, { ...view, proposal: { ...view.proposal, price: { amountMinor: 52000, currency: "EUR" } } }];
+    for (const body of broken) {
+      expect(parseStagingView(body), JSON.stringify(body)).toBeNull();
+      expect(consentOutcome("view", { status: 200, body })).toBe("unchecked");
+    }
+  });
+});
+
+describe("recovery after a refused or unknown read", () => {
+  it("offers a status recheck after an unknown outcome or a rate limit, honouring Retry-After", () => {
+    for (const outcome of ["unconfirmed", "unchecked", "limited"] as const) expect(recheckable(outcome), outcome).toBe(true);
+    for (const outcome of ["ready", "approved", "declined", "approvedEarlier", "declinedEarlier", "used", "expired", "invalid", "loading"] as const)
+      expect(recheckable(outcome), outcome).toBe(false);
+    for (const locale of ["en", "sv"] as const)
+      expect(stagingCopy[locale].limited).toMatch(locale === "en" ? /Check the status again/ : /Kontrollera statusen igen/);
+    expect(retryAfterSeconds("42")).toBe(42);
+    expect(retryAfterSeconds("1.2")).toBe(2);
+    expect(retryAfterSeconds("100000")).toBe(900);
+    for (const value of [null, undefined, "", "soon", "-5", "0"]) expect(retryAfterSeconds(value)).toBe(0);
+  });
+});
+
+describe("consent page request order", () => {
+  const deferred = () => { let resolve!: () => void; const promise = new Promise<void>(r => { resolve = r; }); return { promise, resolve }; };
+  it("lets only the latest request change the page, and runs reads after a decision in flight", async () => {
+    const { consentSequence } = await import("../src/app/consent/[id]/consent-sequence");
+    const sequence = consentSequence(), log: string[] = [];
+    // A slow read is overtaken by a decision: its result is stale.
+    const slowRead = deferred();
+    const read1 = sequence.read(async current => { await slowRead.promise; log.push(`read1 current=${current()}`); });
+    await new Promise(r => setImmediate(r));
+    const answer = deferred();
+    const decision = sequence.decide(async current => { await answer.promise; log.push(`decision current=${current()}`); });
+    // Reopening the link while the decision is in flight: the read waits for it.
+    const read2 = sequence.read(async current => { log.push(`read2 started`); log.push(`read2 current=${current()}`); });
+    slowRead.resolve(); await read1;
+    await new Promise(r => setImmediate(r));
+    expect(log).toEqual(["read1 current=false"]);
+    answer.resolve(); await decision; await read2;
+    expect(log).toEqual(["read1 current=false", "decision current=true", "read2 started", "read2 current=true"]);
+  });
+});
+
+describe("consent page requests", () => {
+  const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
+    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
+  it("treats a response that never finishes as unknown, within the deadline", async () => {
+    const { consentRequest } = await import("../src/app/consent/[id]/consent-request");
+    // Headers arrive, the body never completes (an intermediary holding the response open).
+    const stalledBody: typeof fetch = async (_input, init) => new Response(new ReadableStream({ start(controller) {
+      controller.enqueue(new TextEncoder().encode('{"status":"appr'));
+      init?.signal?.addEventListener("abort", () => controller.error(new Error("aborted")));
+    } }), { status: 200, headers: { "content-type": "application/json" } });
+    // No response at all, and one that also ignores the abort signal.
+    const stalledHeaders: typeof fetch = (_input, init) => new Promise((_, reject) => init?.signal?.addEventListener("abort", () => reject(new Error("aborted"))));
+    const deaf: typeof fetch = () => new Promise(() => {});
+    for (const send of [stalledBody, stalledHeaders, deaf]) {
+      const started = Date.now();
+      const { response } = await consentRequest("/consent/x/decision", { decision: "yes" }, { fetch: send, timeoutMs: 50 });
+      expect(Date.now() - started).toBeLessThan(1000);
+      expect(consentOutcome("yes", response)).toBe("unconfirmed");
+      expect(consentOutcome("view", response)).toBe("unchecked");
+    }
+  });
+  it("sends the request the salon expects and keeps Retry-After with its own response", async () => {
+    const { consentRequest } = await import("../src/app/consent/[id]/consent-request");
+    let seen: RequestInit | undefined;
+    const ok: typeof fetch = async (_input, init) => { seen = init; return json(200, { status: "approved" }); };
+    await expect(consentRequest("/consent/x/decision", { decision: "yes" }, { fetch: ok })).resolves.toEqual({ response: { status: 200, redirected: false, body: { status: "approved" } }, retryAfter: 0 });
+    expect(seen).toMatchObject({ method: "POST", redirect: "error", cache: "no-store", body: '{"decision":"yes"}' });
+    const limited: typeof fetch = async () => json(429, { error: "consent_rate_limited" }, { "retry-after": "30" });
+    // Interleaved: the older 200 finishing after the 429 cannot reset the 429's delay.
+    const [a, b] = await Promise.all([consentRequest("/x", {}, { fetch: limited }), consentRequest("/x", {}, { fetch: ok })]);
+    expect(a.retryAfter).toBe(30);
+    expect(b.retryAfter).toBe(0);
+    expect(consentOutcome("view", a.response)).toBe("limited");
+  });
+});
+
+describe("database test diagnostics", () => {
+  it("refuses DEBUG before any integration test file, and so Prisma, is loaded", async () => {
+    const { assertNoQueryLogging } = await import("../scripts/test-db-guard.mjs");
+    expect(() => assertNoQueryLogging({})).not.toThrow();
+    expect(() => assertNoQueryLogging({ DEBUG: "" })).not.toThrow();
+    for (const DEBUG of ["prisma:client", "prisma:*", "*"]) expect(() => assertNoQueryLogging({ DEBUG })).toThrow(/^TEST_DEBUG_REFUSED/);
+    // The integration config itself refuses, at load, before vitest starts any worker.
+    vi.stubEnv("DEBUG", "prisma:client");
+    vi.resetModules();
+    try { await expect(import("../vitest.integration.config")).rejects.toThrow(/^TEST_DEBUG_REFUSED/); }
+    finally { vi.unstubAllEnvs(); vi.resetModules(); }
+  });
+});
+
+describe("staging runner preflight", () => {
+  it("refuses remote browser sessions that would carry approval links off this machine", async () => {
+    const { refuseRemoteBrowsers } = await import("../scripts/staging-consent/preflight.mjs");
+    expect(() => refuseRemoteBrowsers({ PATH: "/usr/bin", SELENIUM_REMOTE_URL: "" })).not.toThrow();
+    for (const env of [{ SELENIUM_REMOTE_URL: "https://grid.example.test/wd/hub" }, { SELENIUM_REMOTE_CAPABILITIES: "{}" }, { SELENIUM_REMOTE_HEADERS: "{}" },
+      { selenium_remote_url: "http://grid.example.test" }, { PW_TEST_CONNECT_WS_ENDPOINT: "ws://browsers.example.test" }, { PW_TEST_CONNECT_HEADERS: "{}" },
+      { PW_CHROMIUM_ATTACH_TO_OTHER: "1" }, { PW_TEST_REUSE_CONTEXT: "1" }])
+      expect(() => refuseRemoteBrowsers(env), JSON.stringify(env)).toThrow(/^STAGING_REMOTE_BROWSER_REFUSED$/);
+  });
+  it("isolates the browser to the salon host, IP literals and redirects included", async () => {
+    const { hostIsolation } = await import("../scripts/staging-consent/browsers.mjs");
+    // Pinned to the salon's TLS port: the salon host on any other port is refused like any other host.
+    expect(hostIsolation("salon-demo.cresavo.test", 8443)).toEqual([
+      "--host-rules=MAP salon-demo.cresavo.test:8443 127.0.0.1:8443, MAP * ~NOTFOUND",
+      "--host-resolver-rules=MAP salon-demo.cresavo.test:8443 127.0.0.1:8443, MAP * ~NOTFOUND",
+    ]);
+    for (const host of ["salon.test, MAP * 127.0.0.1", "salon test", ""]) expect(() => hostIsolation(host, 8443)).toThrow(/^STAGING_HOST_INVALID$/);
+    for (const port of [0, 65536, 1.5, Number.NaN]) expect(() => hostIsolation("salon.test", port)).toThrow(/^STAGING_HOST_INVALID$/);
+  });
+  it("cannot launch a browser while a remote grid is configured, whoever calls it", async () => {
+    const { launchBrowser } = await import("../scripts/staging-consent/browsers.mjs");
+    vi.stubEnv("SELENIUM_REMOTE_URL", "http://127.0.0.1:1/wd/hub");
+    try { await expect(launchBrowser("salon-demo.cresavo.test", 8443, "x")).rejects.toThrow(/^STAGING_REMOTE_BROWSER_REFUSED$/); }
+    finally { vi.unstubAllEnvs(); }
+  });
+  it("refuses diagnostics that would print approval links outside the sanitizer", async () => {
+    const { refuseDiagnostics } = await import("../scripts/staging-consent/preflight.mjs");
+    expect(() => refuseDiagnostics({}, [])).not.toThrow();
+    expect(() => refuseDiagnostics({ DEBUG: "" }, [])).not.toThrow();
+    for (const env of [{ DEBUG: "pw:api" }, { DEBUG: "*" }, { DEBUG_FILE: "/tmp/x" }, { PWDEBUG: "1" }, { NODE_DEBUG: "http,tls" }, { NODE_OPTIONS: "--inspect" },
+      // TLS session keys for every connection of the run, written outside it.
+      { SSLKEYLOGFILE: "/tmp/keys.log" }, { NODE_OPTIONS: "--use-openssl-ca --tls-keylog=/tmp/keys.log" }])
+      expect(() => refuseDiagnostics(env, []), JSON.stringify(env)).toThrow(/^STAGING_DIAGNOSTICS_REFUSED$/);
+    // The runner's own Node flags, not only NODE_OPTIONS.
+    expect(() => refuseDiagnostics({}, ["--import", "tsx", "--tls-keylog=/tmp/keys.log"])).toThrow(/^STAGING_DIAGNOSTICS_REFUSED$/);
+    expect(() => refuseDiagnostics({ NODE_OPTIONS: "--use-openssl-ca" }, ["--import", "tsx"])).not.toThrow();
+    // Every spelling Node accepts: underscores for hyphens, any case, with or without "=value".
+    for (const flag of ["--tls_keylog=/tmp/keys.log", "--TLS-KEYLOG=/tmp/k", "--tls_keylog", "--inspect_brk", "--Inspect", "--inspect-port=0",
+      "--cpu_prof", "--heap_prof", "--trace_warnings"]) {
+      expect(() => refuseDiagnostics({ NODE_OPTIONS: `--use-openssl-ca ${flag}` }, []), `NODE_OPTIONS ${flag}`).toThrow(/^STAGING_DIAGNOSTICS_REFUSED$/);
+      expect(() => refuseDiagnostics({}, ["--import", "tsx", flag]), `execArgv ${flag}`).toThrow(/^STAGING_DIAGNOSTICS_REFUSED$/);
+    }
+    // Quoting and escaping are Node's syntax, not ours: refused rather than guessed at.
+    for (const value of ['--tls-keylog="/tmp/a b"', "--title='x' --use-openssl-ca", "--require=a\\b", '"--tls_keylog=/tmp/k"'])
+      expect(() => refuseDiagnostics({ NODE_OPTIONS: value }, []), value).toThrow(/^STAGING_NODE_OPTIONS_AMBIGUOUS$/);
+    // An allowlist, not a denylist: modes that write process state to disk are refused, and so is
+    // anything else not on the list.
+    for (const flag of ["--report-on-fatalerror", "--report_on_signal", "--heapsnapshot-near-heap-limit=1", "--heapsnapshot-signal=SIGUSR2",
+      "--diagnostic-dir=/tmp/d", "--report-dir=/tmp/r", "--some-future-flag", "--require=./x.js", "-r", "--env-file=.env", "--watch"]) {
+      expect(() => refuseDiagnostics({ NODE_OPTIONS: flag }, []), `NODE_OPTIONS ${flag}`).toThrow(/^STAGING_NODE_OPTION_REFUSED$/);
+      expect(() => refuseDiagnostics({}, ["--import", "tsx", flag]), `execArgv ${flag}`).toThrow(/^STAGING_NODE_OPTION_REFUSED$/);
+    }
+    // The real invocations: npm run test:staging-consent (node --import tsx run.mts), this
+    // environment's CA option, and the other allowlisted options.
+    expect(() => refuseDiagnostics({ NODE_OPTIONS: "--use-openssl-ca" }, ["--import", "tsx"])).not.toThrow();
+    // Preloads run code before the preflight: only the tsx loader, on the command line, exactly.
+    for (const execArgv of [["--import", "/tmp/probe.mjs", "--import", "tsx"], ["--import", "tsx", "--import", "/tmp/probe.mjs"], ["--import=tsx"],
+      ["--import=/tmp/probe.mjs"], ["--import", "./tsx"], ["--import", "tsx/esm"], ["--IMPORT", "tsx"], ["--import"], ["--loader", "tsx"],
+      ["--experimental-loader=tsx"], ["--require", "tsx/cjs"], ["-r", "tsx"]])
+      expect(() => refuseDiagnostics({}, execArgv), JSON.stringify(execArgv)).toThrow(/^STAGING_NODE_OPTION_REFUSED$/);
+    for (const value of ["--import tsx", "--import=tsx", "--import=/tmp/probe.mjs", "--use-openssl-ca --IMPORT=tsx", "--experimental-loader=tsx"])
+      expect(() => refuseDiagnostics({ NODE_OPTIONS: value }, ["--import", "tsx"]), value).toThrow(/^STAGING_NODE_OPTION_REFUSED$/);
+    expect(() => refuseDiagnostics({ NODE_OPTIONS: "--max-old-space-size=4096 --enable-source-maps --no-warnings --no-deprecation --use-system-ca" }, [])).not.toThrow();
+    // Options that merely contain those words are not refused.
+    for (const flag of ["--use_openssl_ca", "--max-old-space-size=4096", "--enable-source-maps"])
+      expect(() => refuseDiagnostics({ NODE_OPTIONS: flag }, [flag]), flag).not.toThrow();
+  });
+  it("refuses a process-wide switch that turns off TLS certificate checks", async () => {
+    const { refuseInsecureTls } = await import("../scripts/staging-consent/preflight.mjs");
+    for (const value of ["0", "", "false", "no", " 1", "01"])
+      expect(() => refuseInsecureTls({ NODE_TLS_REJECT_UNAUTHORIZED: value }), JSON.stringify(value)).toThrow(/^STAGING_TLS_VERIFY_REFUSED$/);
+    expect(() => refuseInsecureTls({})).not.toThrow();
+    expect(() => refuseInsecureTls({ NODE_TLS_REJECT_UNAUTHORIZED: "1" })).not.toThrow();
+  });
+  it("never puts a malformed database URL, or its password, into the error", async () => {
+    const { loopbackAdminUrl } = await import("../scripts/staging-consent/preflight.mjs");
+    const password = "fictional-pass-9f3k";
+    for (const value of [`postgresql://booking:${password}@[127.0.0.1:5432/postgres`, `postgresql://booking:${password}@127.0.0.1:99999/x`, `booking:${password}@127.0.0.1`]) {
+      let thrown: unknown;
+      try { loopbackAdminUrl(value); } catch (error) { thrown = error; }
+      expect(thrown, value).toBeInstanceOf(Error);
+      expect(String(inspect(thrown, { depth: 5 }) + String((thrown as Error).stack)).includes(password), "a secret appears in the checked text").toBe(false);
+      expect((thrown as Error).message).toMatch(/^STAGING_[A-Z_]+$/);
+    }
+    expect(() => loopbackAdminUrl(`postgresql://booking:${password}@db.example.test/postgres`)).toThrow(/^STAGING_DATABASE_MUST_BE_LOOPBACK$/);
+    // An allowlist of query parameters: only `sslmode=disable`. Anything else could carry or relocate
+    // credentials, send one client elsewhere, or give Prisma Migrate a schema the salon does not use.
+    for (const query of [`password=${password}`, `PASSWORD=${password}`, "passfile=/tmp/x", `sslpassword=${password}`, "user=other", "service=fictional",
+      "sslkey=/tmp/k", "servicefile=/tmp/s", "schema=staging", "SCHEMA=public", "options=-c%20search_path%3Dstaging", "application_name=x",
+      "host=/tmp/x", "HOSTADDR=127.0.0.2", "port=5433", "dbname=other", "database=other", "db=other", "sslmode=require", "sslmode=verify-full",
+      "sslmode=disable&sslmode=require", "sslmode=disable&application_name=x", "SSLMODE=disable", "sslmode=", "connection_limit=1", "x"]) {
+      let thrown: unknown;
+      try { loopbackAdminUrl(`postgresql://booking:booking@127.0.0.1:5432/postgres?${query}`); } catch (error) { thrown = error; }
+      expect((thrown as Error)?.message, query.replace(password, "[pw]")).toBe("STAGING_PG_ADMIN_URL_QUERY_REFUSED");
+      expect(String((thrown as Error)?.stack).includes(password), "the password is in the error").toBe(false);
+    }
+    expect(loopbackAdminUrl("postgresql://booking:booking@127.0.0.1:5432/postgres?sslmode=disable").hostname).toBe("127.0.0.1");
+    expect(loopbackAdminUrl(undefined).hostname).toBe("127.0.0.1");
+    // Every part in the URL itself: nothing left to PG* defaults.
+    for (const value of ["postgresql://booking:booking@127.0.0.1/postgres", "postgresql://booking@127.0.0.1:5432/postgres", "postgresql://:booking@127.0.0.1:5432/postgres",
+      "postgresql://booking:booking@127.0.0.1:5432", "postgresql://booking:booking@127.0.0.1:5432/", "postgresql://booking:booking@127.0.0.1:5432/a/b"])
+      expect(() => loopbackAdminUrl(value), value).toThrow(/^STAGING_PG_ADMIN_URL_INCOMPLETE$/);
+    const { refusePgEnvironment } = await import("../scripts/staging-consent/preflight.mjs");
+    for (const name of ["PGHOST", "PGHOSTADDR", "PGPORT", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGSERVICE", "PGSERVICEFILE", "PGPASSFILE", "PGSSLMODE", "PGOPTIONS", "PGCONNECT_TIMEOUT"])
+      expect(() => refusePgEnvironment({ [name]: "x" }), name).toThrow(/^STAGING_PG_ENVIRONMENT_REFUSED$/);
+    expect(() => refusePgEnvironment({ PGDATA: "/var/lib/postgresql/data", PATH: "/usr/bin" })).not.toThrow();
+  });
+});
+
+describe("published contract", () => {
+  const yaml = readFileSync(new URL("../docs/agent-api-v1.openapi.yaml", import.meta.url), "utf8");
+  it("declares every error code the API returns", () => {
+    const listed = yaml.match(/^ {14}enum: \[(.+)\]$/m)![1].split(", ");
+    expect([...listed].sort()).toEqual(Object.keys(agentApiErrors).sort());
+  });
+  it("declares the consent delivery failure on proposal creation", () => {
+    const post = yaml.slice(yaml.indexOf("  /api/v1/proposals:"), yaml.indexOf("  /api/v1/proposals/{id}:"));
+    expect(post).toContain("consent_delivery_unavailable");
+    expect(post).toMatch(/^ {8}"503": \{ \$ref: "#\/components\/responses\/Error" \}$/m);
+  });
+});
+
+describe("staging runner output", () => {
+  it("checks a short password too, where a credential stands, and says how many are checked that way", async () => {
+    const { containsSecret, registerSecret, sanitize, shortSecretCount } = await import("../scripts/staging-consent/sanitize.mjs");
+    const before = shortSecretCount();
+    registerSecret("hunt3r2");
+    expect(shortSecretCount()).toBe(before + 1);
+    for (const text of ["postgresql://booking:hunt3r2@127.0.0.1/x_test", "PGPASSWORD=hunt3r2", "password: hunt3r2", '{"password":"hunt3r2"}', "Password = 'hunt3r2'"]) {
+      expect(containsSecret(text), text.replace("hunt3r2", "[pw]")).toBe(true);
+      expect(sanitize(`before ${text} after`).includes("hunt3r2"), "short password left in printed output").toBe(false);
+    }
+    // Elsewhere a short value is ordinary text, so it is not reported (it would match names).
+    for (const text of ["hunt3r2s are fictional", "password=hunt3r22", "the hunt3r2-lab project"]) expect(containsSecret(text), text).toBe(false);
+  });
+  it("scans the complete MCP result, not only the parsed projection", async () => {
+    const { agentReply } = await import("../scripts/staging-consent/agent-reply.mjs");
+    const link = "https://salon-demo.cresavo.test/consent/0b7c3f6e-6a1d-4c11-9d0e-3f1f0c1d2e3f#" + "L".repeat(43);
+    const line = agentReply(1, { structuredContent: { proposal: { status: "pending" } },
+      content: [{ type: "text", text: "{}" }, { type: "text", text: link }, { type: "resource", resource: { uri: link } }] });
+    expect(JSON.parse(line).body).toEqual({ proposal: { status: "pending" } });
+    expect(line.includes("L".repeat(43)), "the complete result is kept for the scan").toBe(true);
+    // No structured content and a first text block that is not JSON: still no throw, still all of it.
+    const plain = agentReply(2, { content: [{ type: "text", text: "Proposal created." }, { type: "text", text: link }] });
+    expect(JSON.parse(plain).body).toBeUndefined();
+    expect(JSON.parse(plain).text).toBe("Proposal created.");
+    expect(plain.includes("L".repeat(43)), "the complete result is kept for the scan").toBe(true);
+    expect(() => agentReply(3, { content: "not a list" })).not.toThrow();
+  });
+  it("keeps the complete process output until shutdown, also secrets registered after they were printed", async () => {
+    const { capture, leakedStreams } = await import("../scripts/staging-consent/processes.mjs");
+    const { registerSecret } = await import("../scripts/staging-consent/sanitize.mjs");
+    const secret = "fictional-late-secret-" + "Q".repeat(20);
+    capture("unit:stdout", `early line ${secret.slice(0, 10)}`);
+    capture("unit:stdout", `${secret.slice(10)} split across chunks\n`);
+    capture("unit:stdout", "x".repeat(300_000));
+    expect(leakedStreams()).not.toContain("unit:stdout");
+    registerSecret(secret);
+    expect(leakedStreams()).toContain("unit:stdout");
+  });
+  it("redacts links, keys, tokens, cookies and database URLs but keeps check codes", async () => {
+    const { registerSecret, sanitize } = await import("../scripts/staging-consent/sanitize.mjs");
+    registerSecret("fictional-registered-value");
+    const line = sanitize([
+      "PASS CUSTOMER_PAGE_SHOWS_EXACT_TERMS_AND_OPENING_APPROVES_NOTHING",
+      "https://salon-demo.cresavo.test/consent/0b7c3f6e-6a1d-4c11-9d0e-3f1f0c1d2e3f#" + "S".repeat(43),
+      "blk_abc_def", "booking_admin=abc", "postgresql://booking:booking@127.0.0.1/x_test",
+      "a".repeat(64), "fictional-registered-value", "authorization: Bearer x",
+    ].join(" "));
+    expect(line).toContain("CUSTOMER_PAGE_SHOWS_EXACT_TERMS_AND_OPENING_APPROVES_NOTHING");
+    for (const leaked of ["S".repeat(43), "blk_", "booking_admin=abc", "postgresql://", "a".repeat(64), "fictional-registered-value", "Bearer"])
+      expect(line).not.toContain(leaked);
+    // Unregistered, short credentials after the scheme, in plain and JSON headers.
+    for (const header of ["Authorization: Bearer fict0ken", "authorization: Basic Zm9vOmJhcg==", '{"authorization":"Bearer fict0ken"}',
+      "x-api-key: fict0ken", "Cookie: a=1; booking_admin=fict0ken", "x-booking-gateway-token=fict0ken"]) {
+      const out = sanitize(`before ${header} after`);
+      expect(out, header).not.toMatch(/fict0ken|Zm9vOmJhcg/);
+      expect(out).toContain("before");
+    }
+  });
+  it("fails pending agent requests on a malformed line instead of throwing out of the stream callback", async () => {
+    const { agentChannel } = await import("../scripts/staging-consent/agent-reply.mjs");
+    const sent: string[] = [], transcript: string[] = [];
+    const channel = agentChannel(line => sent.push(line), transcript, 5_000);
+    const first = channel.send({ list: true });
+    expect(() => channel.receive("Warning: fictional diagnostic with fict0ken")).not.toThrow();
+    await expect(first).rejects.toThrow(/^AGENT_PROTOCOL_INVALID$/);
+    const second = channel.send({ list: true });
+    channel.receive(JSON.stringify({ id: 2, tools: ["x"] }));
+    await expect(second).resolves.toMatchObject({ tools: ["x"] });
+    const third = channel.send({ list: true });
+    channel.receive(JSON.stringify({ id: 3, failure: "MCP_TRANSPORT_FAILED" }));
+    await expect(third).rejects.toThrow(/^AGENT_REQUEST_FAILED$/);
+    // Kept in memory for the leak scan; never echoed in an error.
+    expect(transcript[0]).toContain("fict0ken");
+  });
+  it("counts UTF-8 bytes against the output budget", async () => {
+    const { PassThrough } = await import("node:stream");
+    const { guardStream, outputBytes } = await import("../scripts/staging-consent/processes.mjs");
+    expect(outputBytes("åäö")).toBe(6);
+    expect(outputBytes("abc")).toBe(3);
+    expect(outputBytes("🔑")).toBe(4);
+    expect(outputBytes(Buffer.from("åäö"))).toBe(6);
+    // 8 characters, 16 bytes: over a 12-byte budget although only 8 code units long.
+    let left = 12, overflows = 0;
+    const stream = new PassThrough({ encoding: "utf8" });
+    guardStream(stream, () => overflows++, size => (left -= size) >= 0);
+    stream.write("åäöåäöåä");
+    await new Promise(resolve => setImmediate(resolve));
+    expect(overflows).toBe(1);
+  });
+  it("charges agent stdout to the output budget before any line is buffered", async () => {
+    const { PassThrough } = await import("node:stream");
+    const { createInterface } = await import("node:readline");
+    const { guardStream } = await import("../scripts/staging-consent/processes.mjs");
+    let left = 16;
+    const reserve = (size: number) => (left -= size) >= 0;
+    const stream = new PassThrough({ encoding: "utf8" }), lines: string[] = [];
+    let overflows = 0;
+    guardStream(stream, () => overflows++, reserve);
+    createInterface({ input: stream }).on("line", line => lines.push(line));
+    stream.write("{\"id\":1}\n");
+    await new Promise(resolve => setImmediate(resolve));
+    // An unterminated line far beyond the budget: the stream is cut, nothing more accumulates.
+    stream.write("x".repeat(4096));
+    await new Promise(resolve => setImmediate(resolve));
+    expect(overflows).toBe(1);
+    expect(stream.destroyed).toBe(true);
+    expect(lines).toEqual(['{"id":1}']);
+  });
+  // POSIX signals only: on Windows, Node terminates the child instead of delivering a catchable SIGTERM.
+  it.skipIf(process.platform === "win32")("waits for every child's streams to close before the final scan", async () => {
+    const { spawn } = await import("node:child_process");
+    const { captureStream, leakedStreams, stopAll, track } = await import("../scripts/staging-consent/processes.mjs");
+    const { registerSecret } = await import("../scripts/staging-consent/sanitize.mjs");
+    const secret = "fictional-shutdown-secret-" + "R".repeat(12);
+    registerSecret(secret);
+    // On SIGTERM it exits at once, leaving its stdout to a helper that writes after the exit:
+    // only `close`, not `exit`, waits for that output.
+    // Static code: the secret reaches both processes as data, in their environment.
+    const helper = "setTimeout(() => process.stdout.write(process.env.SHUTDOWN_SECRET), 300)";
+    const script = `const { spawn } = require("node:child_process");
+      process.on("SIGTERM", () => { spawn(process.execPath, ["-e", process.env.SHUTDOWN_HELPER], { stdio: ["ignore", "inherit", "ignore"] }); process.exit(0); });
+      console.log("ready"); setInterval(() => {}, 1000);`;
+    const child = track(spawn(process.execPath, ["-e", script], { stdio: ["ignore", "pipe", "pipe"],
+      env: { PATH: process.env.PATH ?? "", SHUTDOWN_SECRET: secret, SHUTDOWN_HELPER: helper } as unknown as NodeJS.ProcessEnv }));
+    captureStream("shutdown:stdout", child.stdout);
+    await new Promise(resolve => child.stdout!.once("data", resolve));
+    expect(leakedStreams()).not.toContain("shutdown:stdout");
+    await stopAll({ final: false });
+    expect(leakedStreams()).toContain("shutdown:stdout");
+  }, 30_000);
+});

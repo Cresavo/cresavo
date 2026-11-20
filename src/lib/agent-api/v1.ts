@@ -37,6 +37,16 @@ const BUSINESSES: Record<string, { id: string; name: string; timeZone: string; l
   },
 };
 
+// Customer-facing place labels. Not part of the agent wire projection above.
+const LOCATION_NAMES: Record<string, string> = { [DEMO_LOCATION_ID]: "Fictional demo studio, Stockholm" };
+
+/** Salon name, location label and time zone for the customer consent page. */
+export function businessDisplay(businessId: string) {
+  const found = BUSINESSES[businessId];
+  if (!found) throw new AgentApiError("business_not_found");
+  return { name: found.name, locationId: found.locationId, locationName: LOCATION_NAMES[found.locationId] ?? found.locationId, timeZone: found.timeZone };
+}
+
 const id = z.string().trim().min(1).max(128);
 
 const headers = { "Cache-Control": "no-store", "X-Booking-Lab-Api": API_VERSION };
