@@ -1,7 +1,8 @@
 import { ZodError } from "zod";
 import { customerDecision } from "@/lib/agent-api/proposals";
 import { requireConsentLab } from "@/lib/agent-api/customer-identity";
-import { ConsentLinkState, stagingConsentOrigin } from "@/lib/agent-api/consent-staging";
+import { ConsentLinkState, STAGING_CHANNEL, stagingConsentOrigin } from "@/lib/agent-api/consent-staging";
+import { db } from "@/lib/db";
 import { AgentApiError } from "@/lib/agent-api/errors";
 import { DomainError } from "@/lib/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -24,9 +25,12 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       return Response.json({ error: "consent_denied" }, { status: 403, headers });
     const { id } = await ctx.params;
     if (staging) {
-      // Per client address first, so random proposal IDs cannot fill the store, then per proposal.
-      if (!/^[a-f0-9-]{36}$/.test(id)) throw new Refused();
+      // Per client address first. A per-proposal bucket only for a staging proposal that exists,
+      // so made-up IDs never take space in the store shared with login and booking limits.
       await checkRateLimit("consent-ip", client);
+      if (!/^[a-f0-9-]{36}$/.test(id)) throw new Refused();
+      const exists = await db.agentProposal.findFirst({ where: { id, consentDelivery: STAGING_CHANNEL }, select: { id: true } });
+      if (!exists) throw new Refused();
       await checkRateLimit("consent-proposal", id);
     }
     const reader = request.body?.getReader();

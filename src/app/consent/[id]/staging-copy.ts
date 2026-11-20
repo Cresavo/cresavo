@@ -28,6 +28,8 @@ const en = {
   expires: "Approve before",
   approve: "Approve this booking",
   decline: "Decline",
+  // Place descriptions by location ID. The salon's own name is a proper name and is not translated.
+  locations: { "demo-location": "Fictional demo studio, Stockholm" } as Record<string, string>,
 };
 const sv: typeof en = {
   title: "Godkänn bokningsförslag",
@@ -56,6 +58,7 @@ const sv: typeof en = {
   expires: "Godkänn senast",
   approve: "Godkänn denna bokning",
   decline: "Avböj",
+  locations: { "demo-location": "Påhittad demostudio, Stockholm" },
 };
 export type StagingCopy = typeof en;
 
@@ -67,10 +70,16 @@ export type ConsentOutcome = "loading" | "ready" | "invalid" | "used" | "expired
  * error or an intermediary's error after an approve or decline is an unknown outcome:
  * the decision may have been committed.
  */
-export function consentOutcome(phase: "view" | "yes" | "no", response: { status: number; state?: unknown } | "network-error"): Exclude<ConsentOutcome, "loading"> {
-  if (response !== "network-error") {
+export function consentOutcome(phase: "view" | "yes" | "no", response: { status: number; state?: unknown; ack?: unknown; redirected?: boolean } | "network-error"): Exclude<ConsentOutcome, "loading"> {
+  if (response !== "network-error" && !response.redirected) {
     const { status, state } = response;
-    if (status >= 200 && status < 300) return phase === "view" ? "ready" : phase === "yes" ? "approved" : "declined";
+    if (status >= 200 && status < 300) {
+      if (phase === "view") return "ready";
+      // Success only when the salon's own acknowledgement names this decision. Any other 2xx
+      // body (a proxy's login or error page, a malformed reply) is not proof of anything.
+      const expected = phase === "yes" ? "approved" : "declined";
+      return response.ack === expected ? expected : "unconfirmed";
+    }
     if ((status === 409 || status === 410) && (state === "used" || state === "expired")) return state;
     if (status === 403) return "invalid";
     if (status === 429) return "limited";

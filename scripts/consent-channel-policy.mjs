@@ -5,7 +5,8 @@ export const STAGING_CONSENT_MODE = "staging-inbox";
 /** A bare HTTPS origin: no credentials, path, query or fragment. Never derived from request headers. */
 export function httpsOrigin(value) {
   const url = URL.parse(value ?? "");
-  if (!url || url.protocol !== "https:" || !url.hostname || url.username || url.password ||
+  // A trailing dot (fully qualified name) is refused: routing compares host names without it.
+  if (!url || url.protocol !== "https:" || !url.hostname || url.hostname.endsWith(".") || url.username || url.password ||
       url.search || url.hash || url.pathname !== "/" || value.endsWith("#") || value.endsWith("?"))
     throw new Error("CONSENT_ORIGIN_INVALID");
   return url.origin;

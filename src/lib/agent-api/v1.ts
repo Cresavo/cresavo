@@ -44,7 +44,7 @@ const LOCATION_NAMES: Record<string, string> = { [DEMO_LOCATION_ID]: "Fictional 
 export function businessDisplay(businessId: string) {
   const found = BUSINESSES[businessId];
   if (!found) throw new AgentApiError("business_not_found");
-  return { name: found.name, locationName: LOCATION_NAMES[found.locationId] ?? found.locationId, timeZone: found.timeZone };
+  return { name: found.name, locationId: found.locationId, locationName: LOCATION_NAMES[found.locationId] ?? found.locationId, timeZone: found.timeZone };
 }
 
 const id = z.string().trim().min(1).max(128);

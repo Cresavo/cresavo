@@ -2,6 +2,7 @@
 // storage or history is shared with the agent, the operator or another scenario.
 import assert from "node:assert/strict";
 import { chromium, type Browser, type Page } from "@playwright/test";
+import { registerSecret } from "./sanitize.mjs";
 
 export async function launchBrowser(host: string, spki: string) {
   return chromium.launch({
@@ -65,6 +66,8 @@ export async function ownerOpensBooking(browser: Browser, salon: string, day: st
     await page.waitForURL(url => url.origin === salon && url.pathname === path);
     await page.getByRole("heading", { name: /^(Booking|Bokning)$/ }).waitFor();
     const cookies = await context.cookies(salon);
+    // The session cookie is a secret too: the final scan of every process's output looks for it.
+    for (const cookie of cookies) if (cookie.name === "booking_admin") registerSecret(cookie.value);
     assert.ok(cookies.some(c => c.name === "booking_admin" && c.secure && c.httpOnly), "owner session cookie is Secure and HttpOnly");
   } finally { await context.close(); }
 }

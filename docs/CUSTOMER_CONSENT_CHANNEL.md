@@ -32,8 +32,8 @@ condition holds:
 - `BOOKING_CONSENT_DELIVERY=staging-inbox`. Without it nothing changes. The local
   `separate-lab` and legacy lab channels keep their behaviour and guards.
 - Split mode: `BOOKING_SERVICE_ROLE=salon` with a valid `GATEWAY_SERVICE_TOKEN`.
-- `BOOKING_CONSENT_ORIGIN` is a bare `https://` origin: no path, query, fragment or
-  credentials. Plain HTTP is refused, including on loopback.
+- `BOOKING_CONSENT_ORIGIN` is a bare `https://` origin: no path, query, fragment,
+  credentials or trailing dot on the host name. Plain HTTP is refused, including on loopback.
 - `BOOKING_PUBLIC_ORIGIN` is a bare `https://` origin on a different host name from the
   consent origin. A different port on the same host is refused: cookies are scoped by
   host, not port, so the owner's `booking_admin` session cookie would also reach the
@@ -89,8 +89,9 @@ approved. The proposal never outlives its start time.
 | Terms change after approval | The booking re-derives the hash from current price and duration. A changed price is `mandate_denied`; a changed version is `stale_service`. |
 | Slot taken after approval | The booking engine's overlap protection answers `slot_unavailable`. |
 | Cross-site or agent-driven decision | The decision endpoint requires `Origin` equal to the configured consent origin, JSON, a body under 2 KiB and no `Authorization` or `X-API-Key`. |
-| Guessing or hammering the decision endpoint | At most 60 requests per client address and 20 per proposal in 15 minutes (`429 consent_rate_limited`), in the same store as the other limits (`RATE_LIMIT_STORE=postgres` across processes). The address limit is checked first, and only proposal-shaped IDs reach the proposal limit. |
+| Guessing or hammering the decision endpoint | At most 60 requests per client address and 20 per proposal in 15 minutes (`429 consent_rate_limited`), in the same store as the other limits (`RATE_LIMIT_STORE=postgres` across processes). The address limit is checked first. A proposal bucket is created only for a staging proposal that exists, so made-up IDs never take space in the store shared with the login and booking limits. |
 | Customer told "nothing was approved" after an approval was saved | Only a definite refusal (`403`, or `409`/`410` with a state) says nothing was approved. A lost response, a server error (`500 consent_unavailable`) or an intermediary's error after Approve or Decline shows an unknown outcome and asks the customer to open the link again to see its status. |
+| Customer told "approved" when the salon did not approve | Success is shown only for a JSON body whose `status` is the chosen decision. Redirects are refused (`redirect: "error"`); any other 2xx is an unknown outcome. |
 | Owner session reaching the gateway | Consent and gateway must use different host names. The consent host serves only the listed paths. |
 | Failed delivery | The inbox write is in the proposal transaction. If it fails, no proposal exists, no mandate can follow and the agent gets `503 consent_delivery_unavailable` (the gateway reports `503 provider_unavailable`). |
 | Mixing channels | A staging proposal is not decidable while the salon runs a lab channel, and lab proposals are not decidable while staging runs. The stored channel binds the mandate and contact even after a configuration change. |
@@ -154,9 +155,13 @@ The runner:
    expired link; changed price; slot taken; the agent cannot reach the inbox, the
    decision endpoint or the salon directly; no link or secret appears in the agent's
    transcript (the complete MCP results, every content block) or in any process output.
-   Process output is kept in full, per stream, and scanned again after every process
-   has exited, so a secret printed early, or registered only after it was printed, is
-   still found. If output exceeds 64 MiB the check fails rather than pass on a part.
+   Process output is kept in full, per stream, and scanned again, with the agent
+   transcript, after every process (agent included) has closed its streams, so a secret
+   printed early, during shutdown, or registered only after it was printed, is still
+   found. The owner's session cookie is registered as soon as it exists. If output
+   exceeds 64 MiB, or a stream stays open 15 seconds after its process was stopped, the
+   check fails rather than pass on a part. A malformed line from the agent fails the
+   pending request with a static code; it never escapes the runner's cleanup.
 9. Drops the database and deletes the temporary directory, also on failure.
 
 Output is limited to static check codes, host names, revisions and counts. Every line

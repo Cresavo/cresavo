@@ -67,8 +67,9 @@ export function resolveHost(rawHost: string | null | undefined, directory: Direc
  * this request is on an app host, so the browser does not downgrade it to `unknown`.
  */
 export function browserHostKind(rawHost: string | null | undefined, serverAppHost: boolean): HostResolution["kind"] {
-  const kind = resolveHost(rawHost).kind;
-  return serverAppHost && kind === "unknown" ? "app" : kind;
+  // A positive server verdict wins: beneath the product domain the browser would read the
+  // consent host (salon-demo.<product>) as a business subdomain.
+  return serverAppHost ? "app" : resolveHost(rawHost).kind;
 }
 
 export const UNKNOWN_PATH = "/unknown-address";

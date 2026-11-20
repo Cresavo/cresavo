@@ -8,7 +8,7 @@ import { consentOutcome, formatStagingTerms, stagingCopy, type ConsentOutcome } 
 type View = {
   proposal: { serviceName: string; staff: { name: string }; start: string; durationMinutes: number; price: { amountMinor: number; currency: string }; expiresAt: string };
   proposalHash: string; customer: string;
-  terms: { salonName: string; locationName: string; timeZone: string; currency: string };
+  terms: { salonName: string; locationId: string; locationName: string; timeZone: string; currency: string };
 };
 
 // Opening the page only reads the proposal. Nothing is approved without the explicit button.
@@ -19,7 +19,8 @@ export default function StagingConsentForm({ id, locale }: { id: string; locale:
   const [outcome, setOutcome] = useState<ConsentOutcome>("loading");
   const [busy, setBusy] = useState(false);
   const endpoint = `/consent/${encodeURIComponent(id)}/decision`;
-  const post = (body: object) => fetch(endpoint, { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token.current, ...body }) });
+  // Redirects are errors: a redirected decision is never treated as the salon's answer.
+  const post = (body: object) => fetch(endpoint, { method: "POST", cache: "no-store", redirect: "error", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token.current, ...body }) });
   const answer = async (r: Response) => ({ status: r.status,
     state: r.status === 409 || r.status === 410 ? (await r.json().catch(() => null))?.state : undefined });
   useEffect(() => {
@@ -27,7 +28,7 @@ export default function StagingConsentForm({ id, locale }: { id: string; locale:
     token.current ||= window.location.hash.slice(1);
     window.history.replaceState(null, "", window.location.pathname);
     let active = true;
-    fetch(endpoint, { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token.current, decision: "view" }) })
+    fetch(endpoint, { method: "POST", cache: "no-store", redirect: "error", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token.current, decision: "view" }) })
       .then(async r => {
         if (!active) return;
         if (!r.ok) { setOutcome(consentOutcome("view", await answer(r))); return; }
@@ -41,7 +42,8 @@ export default function StagingConsentForm({ id, locale }: { id: string; locale:
     setBusy(true);
     try {
       const r = await post({ decision, proposalHash: data.proposalHash });
-      setOutcome(consentOutcome(decision, r.ok ? { status: r.status } : await answer(r)));
+      const ack = r.ok && r.headers.get("content-type")?.startsWith("application/json") ? (await r.json().catch(() => null))?.status : undefined;
+      setOutcome(consentOutcome(decision, r.ok ? { status: r.status, ack, redirected: r.redirected } : await answer(r)));
     } catch { setOutcome(consentOutcome(decision, "network-error")); }
     finally { token.current = ""; setData(null); setBusy(false); }
   }
@@ -51,7 +53,7 @@ export default function StagingConsentForm({ id, locale }: { id: string; locale:
   });
   const rows = data && shown ? [
     ["customer", t.customer, data.customer], ["salon", t.salon, data.terms.salonName],
-    ["location", t.location, data.terms.locationName], ["service", t.service, data.proposal.serviceName],
+    ["location", t.location, t.locations[data.terms.locationId] ?? data.terms.locationName], ["service", t.service, data.proposal.serviceName],
     ["staff", t.staff, data.proposal.staff.name], ["date", t.date, shown.date], ["time", t.time, shown.time],
     ["time-zone", t.timeZone, data.terms.timeZone], ["duration", t.duration, t.minutes.replace("{n}", String(data.proposal.durationMinutes))],
     ["price", t.price, shown.price], ["currency", t.currency, data.terms.currency], ["expires", t.expires, shown.expires],

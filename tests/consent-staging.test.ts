@@ -47,6 +47,8 @@ describe("staging channel configuration", () => {
     ["credentials", { BOOKING_CONSENT_ORIGIN: "https://user:pass@salon-demo.cresavo.test" }],
     ["the agent-facing origin", { BOOKING_CONSENT_ORIGIN: "https://gateway.cresavo.test" }],
     // Cookies are scoped by host name, not port: the owner's session would reach the gateway.
+    ["a trailing-dot host name", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test." }],
+    ["a trailing-dot host name with a port", { BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test.:8443" }],
     ["the agent-facing host on another port", { BOOKING_CONSENT_ORIGIN: "https://gateway.cresavo.test:8443" }],
     ["the agent-facing host with the default port spelled out", { BOOKING_CONSENT_ORIGIN: "https://GATEWAY.cresavo.test:443" }],
     ["the agent-facing host on two other ports", { BOOKING_PUBLIC_ORIGIN: "https://salon-demo.cresavo.test:9443", BOOKING_CONSENT_ORIGIN: "https://salon-demo.cresavo.test:8443" }],
@@ -134,17 +136,13 @@ describe("staging host and customer endpoint", () => {
     expect(await response.json()).toEqual({ error: "consent_unavailable" });
     expect(consentOutcome("yes", { status: response.status })).toBe("unconfirmed");
   });
-  it("limits decision requests per proposal and per client address", async () => {
-    const id = randomUUID();
-    for (let i = 0; i < 20; i++) expect((await proofed(`203.0.113.${30 + (i % 5)}`, id, "{}")).status).toBe(403);
-    const limited = await proofed("203.0.113.40", id, "{}");
+  it("limits decision requests per client address before anything else", async () => {
+    // Per-proposal limits need the database and are covered by the integration tests.
+    for (let i = 0; i < 60; i++) expect((await proofed("203.0.113.50", "../admin", "{}")).status).toBe(403);
+    const limited = await proofed("203.0.113.50", randomUUID(), "{}");
     expect(limited.status).toBe(429);
     expect(limited.headers.get("retry-after")).toMatch(/^\d+$/);
     expect(await limited.json()).toEqual({ error: "consent_rate_limited" });
-    for (let i = 0; i < 60; i++) expect((await proofed("203.0.113.50", randomUUID(), "{}")).status).toBe(403);
-    expect((await proofed("203.0.113.50", randomUUID(), "{}")).status).toBe(429);
-    // Not a proposal ID: refused before it can create a bucket.
-    expect((await proofed("203.0.113.51", "../admin", "{}")).status).toBe(403);
   });
   it("keeps the configured consent host classified as the salon in the browser", () => {
     vi.stubGlobal("window", {});
@@ -154,6 +152,11 @@ describe("staging host and customer endpoint", () => {
       expect(browserHostKind("salon-demo.cresavo.test", true)).toBe("app");
       expect(browserHostKind("salon-demo.cresavo.test", false)).toBe("unknown");
       expect(browserHostKind("someone-else.example", false)).toBe("unknown");
+      // Beneath the product domain the browser reads the consent host as a business subdomain.
+      vi.stubEnv("NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN", "cresavo.com");
+      expect(resolveHost("salon-demo.cresavo.com").kind).toBe("business");
+      expect(browserHostKind("salon-demo.cresavo.com", true)).toBe("app");
+      expect(browserHostKind("salon-demo.cresavo.com", false)).toBe("business");
     } finally { vi.unstubAllGlobals(); }
   });
   it("serves only the paths the consent host needs", async () => {
@@ -175,8 +178,13 @@ describe("staging host and customer endpoint", () => {
 
 describe("customer outcome after a decision request", () => {
   it("says nothing was approved only after a definite refusal", () => {
-    expect(consentOutcome("yes", { status: 200 })).toBe("approved");
-    expect(consentOutcome("no", { status: 200 })).toBe("declined");
+    expect(consentOutcome("yes", { status: 200, ack: "approved" })).toBe("approved");
+    expect(consentOutcome("no", { status: 200, ack: "declined" })).toBe("declined");
+    // A 2xx that is not the salon's acknowledgement of this decision proves nothing.
+    for (const response of [{ status: 200 }, { status: 200, ack: "declined" }, { status: 204 }, { status: 200, ack: { status: "approved" } },
+      { status: 200, ack: "approved", redirected: true }])
+      expect(consentOutcome("yes", response), JSON.stringify(response)).toBe("unconfirmed");
+    expect(consentOutcome("no", { status: 200, ack: "approved" })).toBe("unconfirmed");
     expect(consentOutcome("yes", { status: 403 })).toBe("invalid");
     expect(consentOutcome("yes", { status: 409, state: "used" })).toBe("used");
     expect(consentOutcome("yes", { status: 410, state: "expired" })).toBe("expired");
@@ -187,6 +195,10 @@ describe("customer outcome after a decision request", () => {
     // Viewing never approves anything.
     expect(consentOutcome("view", "network-error")).toBe("unavailable");
     expect(consentOutcome("view", { status: 502 })).toBe("unavailable");
+    // Place descriptions are copy, translated per locale under the same location IDs.
+    expect(Object.keys(stagingCopy.sv.locations)).toEqual(Object.keys(stagingCopy.en.locations));
+    expect(stagingCopy.sv.locations["demo-location"]).toBe("Påhittad demostudio, Stockholm");
+    expect(stagingCopy.en.locations["demo-location"]).toBe("Fictional demo studio, Stockholm");
     for (const locale of ["en", "sv"] as const) {
       expect(stagingCopy[locale].unconfirmed).not.toMatch(/Nothing was approved|Inget godkändes/);
       expect(stagingCopy[locale].invalid).toMatch(/Nothing was approved|Inget godkändes/);
@@ -255,5 +267,47 @@ describe("staging runner output", () => {
     expect(line).toContain("CUSTOMER_PAGE_SHOWS_EXACT_TERMS_AND_OPENING_APPROVES_NOTHING");
     for (const leaked of ["S".repeat(43), "blk_", "booking_admin=abc", "postgresql://", "a".repeat(64), "fictional-registered-value", "Bearer"])
       expect(line).not.toContain(leaked);
+    // Unregistered, short credentials after the scheme, in plain and JSON headers.
+    for (const header of ["Authorization: Bearer fict0ken", "authorization: Basic Zm9vOmJhcg==", '{"authorization":"Bearer fict0ken"}',
+      "x-api-key: fict0ken", "Cookie: a=1; booking_admin=fict0ken", "x-booking-gateway-token=fict0ken"]) {
+      const out = sanitize(`before ${header} after`);
+      expect(out, header).not.toMatch(/fict0ken|Zm9vOmJhcg/);
+      expect(out).toContain("before");
+    }
+  });
+  it("fails pending agent requests on a malformed line instead of throwing out of the stream callback", async () => {
+    const { agentChannel } = await import("../scripts/staging-consent/agent-reply.mjs");
+    const sent: string[] = [], transcript: string[] = [];
+    const channel = agentChannel(line => sent.push(line), transcript, 5_000);
+    const first = channel.send({ list: true });
+    expect(() => channel.receive("Warning: fictional diagnostic with fict0ken")).not.toThrow();
+    await expect(first).rejects.toThrow(/^AGENT_PROTOCOL_INVALID$/);
+    const second = channel.send({ list: true });
+    channel.receive(JSON.stringify({ id: 2, tools: ["x"] }));
+    await expect(second).resolves.toMatchObject({ tools: ["x"] });
+    const third = channel.send({ list: true });
+    channel.receive(JSON.stringify({ id: 3, failure: "MCP_TRANSPORT_FAILED" }));
+    await expect(third).rejects.toThrow(/^AGENT_REQUEST_FAILED$/);
+    // Kept in memory for the leak scan; never echoed in an error.
+    expect(transcript[0]).toContain("fict0ken");
+  });
+  it("waits for every child's streams to close before the final scan", async () => {
+    const { spawn } = await import("node:child_process");
+    const { captureStream, leakedStreams, stopAll, track } = await import("../scripts/staging-consent/processes.mjs");
+    const { registerSecret } = await import("../scripts/staging-consent/sanitize.mjs");
+    const secret = "fictional-shutdown-secret-" + "R".repeat(12);
+    registerSecret(secret);
+    // On SIGTERM it exits at once, leaving its stdout to a helper that writes after the exit:
+    // only `close`, not `exit`, waits for that output.
+    const helper = `setTimeout(() => process.stdout.write(${JSON.stringify(secret)}), 300)`;
+    const script = `const { spawn } = require("node:child_process");
+      process.on("SIGTERM", () => { spawn(process.execPath, ["-e", ${JSON.stringify(helper)}], { stdio: ["ignore", "inherit", "ignore"] }); process.exit(0); });
+      console.log("ready"); setInterval(() => {}, 1000);`;
+    const child = track(spawn(process.execPath, ["-e", script], { stdio: ["ignore", "pipe", "pipe"] }));
+    captureStream("shutdown:stdout", child.stdout);
+    await new Promise(resolve => child.stdout!.once("data", resolve));
+    expect(leakedStreams()).not.toContain("shutdown:stdout");
+    await stopAll();
+    expect(leakedStreams()).toContain("shutdown:stdout");
   });
 });

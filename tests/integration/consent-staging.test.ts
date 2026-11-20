@@ -69,9 +69,9 @@ async function inbox(proposalId: string) {
 }
 const secret = async (proposalId: string) => new URL((await inbox(proposalId)).approvalLink).hash.slice(1);
 // A customer off loopback, verified by the socket server's proof header.
-function customer(id: string, body: unknown, origin = consentOrigin) {
-  const headers = new Headers({ origin, "content-type": "application/json", "x-booking-client-ip": customerIp,
-    "x-booking-client-proof": createHmac("sha256", addressSecret).update(customerIp).digest("hex") });
+function customer(id: string, body: unknown, origin = consentOrigin, ip = customerIp) {
+  const headers = new Headers({ origin, "content-type": "application/json", "x-booking-client-ip": ip,
+    "x-booking-client-proof": createHmac("sha256", addressSecret).update(ip).digest("hex") });
   return decisionRoute.POST(new Request(`${consentOrigin}/consent/${id}/decision`, { method: "POST", headers, body: JSON.stringify(body) }), { params: Promise.resolve({ id }) });
 }
 async function decide(id: string, decision: "yes" | "no") {
@@ -178,6 +178,24 @@ it("an approval committed before the response is lost is reported as unconfirmed
   expect(await counts(principal.clientId)).toMatchObject({ mandates: 1 });
 });
 
+it("limits decisions per existing proposal and allocates nothing for made-up proposal IDs", async () => {
+  // The PostgreSQL store, shared with login and booking limits: count its rows.
+  vi.stubEnv("RATE_LIMIT_STORE", "postgres");
+  const { rateLimitDatabase } = await import("../../src/lib/postgres-rate-limit");
+  const { principal } = await actor();
+  const { proposal } = await createProposal(principal, terms());
+  const before = await rateLimitDatabase.rateLimitBucket.count();
+  for (let i = 0; i < 10; i++) expect((await customer(randomUUID(), { token: "T".repeat(43), decision: "view" }, consentOrigin, "198.51.100.60")).status).toBe(403);
+  // Ten made-up IDs from one address: one address bucket, no proposal buckets.
+  expect(await rateLimitDatabase.rateLimitBucket.count()).toBe(before + 1);
+  const token = await secret(proposal.id);
+  for (let i = 0; i < 20; i++) expect((await customer(proposal.id, { token, decision: "view" }, consentOrigin, `198.51.100.${70 + (i % 10)}`)).status).toBe(200);
+  const limited = await customer(proposal.id, { token, decision: "view" }, consentOrigin, "198.51.100.90");
+  expect(limited.status).toBe(429);
+  expect(await limited.json()).toEqual({ error: "consent_rate_limited" });
+  expect((await getProposal(principal, proposal.id)).proposal.status).toBe("pending");
+});
+
 it("opening the link approves nothing; there is no GET decision handler", async () => {
   const { principal } = await actor();
   const { proposal } = await createProposal(principal, terms());
@@ -185,7 +203,7 @@ it("opening the link approves nothing; there is no GET decision handler", async 
   const view = await customer(proposal.id, { token: await secret(proposal.id), decision: "view" });
   expect(view.status).toBe(200);
   const shown = await view.json();
-  expect(shown.terms).toEqual({ salonName: "Salong Eko (synthetic demo)", locationName: "Fictional demo studio, Stockholm", timeZone: "Europe/Stockholm", currency: "SEK" });
+  expect(shown.terms).toEqual({ salonName: "Salong Eko (synthetic demo)", locationId: "demo-location", locationName: "Fictional demo studio, Stockholm", timeZone: "Europe/Stockholm", currency: "SEK" });
   expect(shown.proposal).toMatchObject({ serviceName: "Fictional staging treatment", staff: { name: "Fictional Staging Stylist" }, durationMinutes: 45, price: { amountMinor: 52000, currency: "SEK" } });
   expect(shown.customer).toBe(`${STAGING_CUSTOMER.name} · ${STAGING_CUSTOMER.email}`);
   expect((await getProposal(principal, proposal.id)).proposal.status).toBe("pending");

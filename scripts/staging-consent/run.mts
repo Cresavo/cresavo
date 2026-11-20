@@ -3,7 +3,7 @@
 // separate checkout, and per-run TLS in front of both. See docs/CUSTOMER_CONSENT_CHANNEL.md.
 // No .env loading. Prints sanitized results only. Never commit its output unreviewed.
 import assert from "node:assert/strict";
-import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -15,7 +15,8 @@ import { DateTime } from "luxon";
 import { assertTestDatabase } from "../test-db-guard.mjs";
 import { createDatabaseClient } from "../database.mjs";
 import { containsSecret, registerSecret, say } from "./sanitize.mjs";
-import { captureStream, freePort, leakedStreams, runStep, startServer, stopAll } from "./processes.mjs";
+import { captureStream, freePort, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
+import { agentChannel } from "./agent-reply.mjs";
 import { loopbackAdminUrl } from "./preflight.mjs";
 import { issueCertificates, operatorFetch, tlsProxy } from "./tls.mjs";
 import { close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking } from "./browsers.mjs";
@@ -84,7 +85,6 @@ const networkEnv = Object.fromEntries(["HTTPS_PROXY", "https_proxy", "HTTP_PROXY
 let createdDb = false;
 const browsers: { close(): Promise<void> }[] = [];
 const servers: { close(): void }[] = [];
-let agentProcess: ChildProcess | undefined;
 let db: typeof import("../../src/lib/db").db | undefined;
 
 // Without --skip-build the salon is built and served from a copy inside the run directory:
@@ -116,12 +116,13 @@ async function adminQuery(sql: string) {
 }
 
 async function cleanup() {
-  agentProcess?.kill("SIGKILL");
   for (const browser of browsers) await browser.close().catch(() => {});
   for (const server of servers) server.close();
+  // Stops the salon, gateway and agent, and waits until each has closed its streams.
   await stopAll();
-  // Every child has exited: scan its complete output, including the shutdown.
+  // Scan the complete output, including the shutdown, and the final agent transcript.
   const leaks = leakedStreams();
+  if (containsSecret(agentTranscript.join("\n"))) leaks.push("agent:transcript");
   if (leaks.length) { failures++; say(`FAIL PROCESS_OUTPUT_SECRET_FREE_THROUGH_SHUTDOWN - ${leaks.length} stream(s)`); }
   else pass("PROCESS_OUTPUT_SECRET_FREE_THROUGH_SHUTDOWN");
   await db?.$disconnect().catch(() => {});
@@ -135,26 +136,17 @@ async function cleanup() {
 for (const signal of ["SIGINT", "SIGTERM"] as const)
   process.once(signal, () => { void cleanup().finally(() => process.exit(130)); });
 
-type AgentReply = { isError?: boolean; body?: Record<string, any>; text?: string; tools?: string[]; failure?: string }; // eslint-disable-line @typescript-eslint/no-explicit-any
 const agentTranscript: string[] = [];
 function agentClient(env: Record<string, string>) {
-  const child = spawn(process.execPath, ["--import", "tsx", "--import", dnsHook, join(repo, "scripts/staging-consent/agent.mts")],
-    { cwd: repo, env: env as NodeJS.ProcessEnv, stdio: ["pipe", "pipe", "pipe"] });
+  const child = track(spawn(process.execPath, ["--import", "tsx", "--import", dnsHook, join(repo, "scripts/staging-consent/agent.mts")],
+    { cwd: repo, env: env as NodeJS.ProcessEnv, stdio: ["pipe", "pipe", "pipe"] }));
   captureStream("agent:stderr", child.stderr);
-  const pending = new Map<number, (r: AgentReply) => void>();
-  let sequence = 0;
-  createInterface({ input: child.stdout }).on("line", line => {
-    agentTranscript.push(line);
-    const reply = JSON.parse(line);
-    pending.get(reply.id)?.(reply); pending.delete(reply.id);
-  });
-  const send = (message: object) => new Promise<AgentReply>((resolveReply, reject) => {
-    const id = ++sequence;
-    const timer = setTimeout(() => reject(new Error("AGENT_TIMEOUT")), 40_000);
-    pending.set(id, r => { clearTimeout(timer); if (r.failure) reject(new Error(r.failure)); else resolveReply(r); });
-    child.stdin.write(JSON.stringify({ id, ...message }) + "\n");
-  });
-  return { child, call: (name: string, args: Record<string, unknown>) => send({ name, args }), list: () => send({ list: true }) };
+  child.stdin.on("error", () => {});
+  const channel = agentChannel(line => child.stdin.write(line), agentTranscript);
+  child.stdout.setEncoding("utf8");
+  createInterface({ input: child.stdout }).on("line", channel.receive);
+  child.on("exit", () => channel.failAll("AGENT_EXITED"));
+  return { child, call: (name: string, args: Record<string, unknown>) => channel.send({ name, args }), list: () => channel.send({ list: true }) };
 }
 
 try {
@@ -220,7 +212,6 @@ try {
   const clientId = agentKey.record.clientId;
   const agent = agentClient({ PATH: baseEnv.PATH, HOME: baseEnv.HOME, NODE_EXTRA_CA_CERTS: tls.caPath, STAGING_LOOPBACK_HOSTS: gatewayHost,
     STAGING_AGENT_GATEWAY: gatewayOrigin, STAGING_AGENT_KEY: agentKey.key });
-  agentProcess = agent.child;
   const customerBrowser = await launchBrowser(salonHost, tls.leaves[salonHost].spki);
   const ownerBrowser = await launchBrowser(salonHost, tls.leaves[salonHost].spki);
   browsers.push(customerBrowser, ownerBrowser);

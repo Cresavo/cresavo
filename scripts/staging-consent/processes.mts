@@ -6,7 +6,16 @@ import { createServer } from "node:net";
 import type { Readable } from "node:stream";
 import { containsSecret } from "./sanitize.mjs";
 
-const children = new Set<ChildProcess>();
+// Each child with a promise that settles on `close`: after `exit`, stdout and stderr can still
+// deliver data, so shutdown waits for `close` before the final scan.
+const children = new Map<ChildProcess, Promise<void>>();
+export function track<T extends ChildProcess>(child: T): T {
+  children.set(child, new Promise<void>(resolve => {
+    child.once("close", () => { children.delete(child); resolve(); });
+    child.once("error", () => { if (child.pid === undefined) { children.delete(child); resolve(); } });
+  }));
+  return child;
+}
 const captured: Record<string, string> = {};
 // Past this, output is no longer complete and cannot be declared secret-free.
 const CAPTURE_LIMIT = 64 * 1024 * 1024;
@@ -32,7 +41,7 @@ export function captureStream(name: string, stream: Readable | null) {
   stream?.on("data", (chunk: string) => capture(name, chunk));
 }
 
-/** Names of the streams that contain a registered secret, or ["CAPTURE_INCOMPLETE"] when output was dropped. */
+/** Names of the streams that contain a registered secret, or ["CAPTURE_INCOMPLETE"] when output was dropped or a stream never closed. */
 export function leakedStreams() {
   if (overflowed) return ["CAPTURE_INCOMPLETE"];
   return Object.entries(captured).filter(([, output]) => containsSecret(output)).map(([name]) => name);
@@ -41,21 +50,19 @@ export function leakedStreams() {
 /** Runs a command to completion with a closed environment. Rejects with a static code only. */
 export function runStep(code: string, command: string, args: string[], cwd: string, env: Record<string, string>, timeoutMs = 600_000) {
   return new Promise<void>((resolve, reject) => {
-    const child = spawn(command, args, { cwd, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"] });
-    children.add(child);
+    const child = track(spawn(command, args, { cwd, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"] }));
     captureStream(`${code}:stdout`, child.stdout);
     captureStream(`${code}:stderr`, child.stderr);
     const timer = setTimeout(() => child.kill("SIGKILL"), timeoutMs);
     child.on("error", () => { clearTimeout(timer); reject(new Error(code)); });
-    child.on("exit", status => { children.delete(child); clearTimeout(timer); if (status === 0) resolve(); else reject(new Error(code)); });
+    child.on("close", status => { clearTimeout(timer); if (status === 0) resolve(); else reject(new Error(code)); });
   });
 }
 
 /** Starts a long-running server and resolves when a stdout line starts with the ready marker. */
 export function startServer(name: string, command: string, args: string[], cwd: string, env: Record<string, string>, ready: string) {
   return new Promise<ChildProcess>((resolve, reject) => {
-    const child = spawn(command, args, { cwd, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"] });
-    children.add(child);
+    const child = track(spawn(command, args, { cwd, env: env as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"] }));
     const timer = setTimeout(() => reject(new Error(`${name}_READY_TIMEOUT`)), 90_000);
     let buffer = "";
     captureStream(`${name}:stdout`, child.stdout);
@@ -65,15 +72,21 @@ export function startServer(name: string, command: string, args: string[], cwd: 
       if (buffer.split("\n").some(line => line.startsWith(ready))) { clearTimeout(timer); resolve(child); }
     });
     child.on("error", () => { clearTimeout(timer); reject(new Error(`${name}_START_FAILED`)); });
-    child.on("exit", () => { children.delete(child); clearTimeout(timer); reject(new Error(`${name}_EXITED`)); });
+    child.on("exit", () => { clearTimeout(timer); reject(new Error(`${name}_EXITED`)); });
   });
 }
 
+/** Stops every tracked child and resolves once all of them have closed their streams. */
 export async function stopAll() {
-  await Promise.all([...children].map(child => new Promise<void>(resolve => {
-    if (child.exitCode !== null || child.signalCode !== null) return resolve();
-    const timer = setTimeout(() => child.kill("SIGKILL"), 5000);
-    child.once("exit", () => { clearTimeout(timer); resolve(); });
-    child.kill("SIGTERM");
-  })));
+  await Promise.all([...children].map(async ([child, closed]) => {
+    const running = child.exitCode === null && child.signalCode === null;
+    const timer = running ? setTimeout(() => child.kill("SIGKILL"), 5000) : undefined;
+    if (running) child.kill("SIGTERM");
+    // A stream held open past this (for example by a surviving grandchild) leaves the output
+    // incomplete: the final scan then fails instead of passing on part of it.
+    let wait: NodeJS.Timeout | undefined;
+    const settled = await Promise.race([closed.then(() => true), new Promise<boolean>(r => { wait = setTimeout(() => r(false), 15_000); })]);
+    clearTimeout(timer); clearTimeout(wait);
+    if (!settled) overflowed = true;
+  }));
 }

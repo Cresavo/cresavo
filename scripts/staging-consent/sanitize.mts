@@ -13,7 +13,8 @@ const patterns: RegExp[] = [
   /\/consent\/[^\s"'#]*#[^\s"']*/g,
   /#[A-Za-z0-9_-]{20,}/g,
   /\b[a-f0-9]{40,}\b/gi,
-  /\b(?:authorization|cookie|set-cookie|x-api-key|x-booking-gateway-token)\b\s*[:=]\s*\S+/gi,
+  // The whole header value to the end of the line or quoted string: scheme, credential and any further cookies.
+  /\b(?:authorization|proxy-authorization|cookie|set-cookie|x-api-key|x-booking-gateway-token)\b["']?\s*[:=]\s*["']?[^\r\n"']+/gi,
 ];
 export function sanitize(text: string) {
   let out = text;

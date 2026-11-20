@@ -130,7 +130,7 @@ async function customerDecisionInternal(proposalId: string, body: unknown, now?:
       const salon = businessDisplay(row.businessId);
       return { proposal: view(row, decisionTime), proposalHash: row.proposalHash,
         customer: `${STAGING_CUSTOMER.name} · ${STAGING_CUSTOMER.email}`,
-        terms: { salonName: salon.name, locationName: salon.locationName, timeZone: salon.timeZone, currency: "SEK" } };
+        terms: { salonName: salon.name, locationId: salon.locationId, locationName: salon.locationName, timeZone: salon.timeZone, currency: "SEK" } };
     }
     if (input.decision === "view") return { proposal: { ...view(row, decisionTime), ...(row.smsOtpRequired ? { smsOtpRequired: true, phoneMask: row.phoneMask } : {}) }, proposalHash: row.proposalHash,
       customer: row.consentDelivery === CUSTOMER_CHANNEL ? `${CHANNEL_CUSTOMER.name} · ${CHANNEL_CUSTOMER.email}` : labCustomerIdentity.displayName };
