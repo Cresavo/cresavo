@@ -234,8 +234,12 @@ try {
     ownerName: "Fictional operator", ownerContact: "operator@example.test", kind: "demo-script" }, operator);
   registerSecret(agentKey.key);
   const clientId = agentKey.record.clientId;
-  const agent = agentClient({ PATH: baseEnv.PATH, HOME: baseEnv.HOME, NODE_EXTRA_CA_CERTS: tls.caPath, STAGING_LOOPBACK_HOSTS: gatewayHost,
-    STAGING_AGENT_GATEWAY: gatewayOrigin, STAGING_AGENT_KEY: agentKey.key });
+  // What the agent process is given: the gateway's origin and its own key, nothing of the salon.
+  // It still runs as the operator's OS user on this machine, so this limits its configuration,
+  // not what the operating system would let it reach; the API checks below test the boundary.
+  const agentEnv = { PATH: baseEnv.PATH, HOME: baseEnv.HOME, NODE_EXTRA_CA_CERTS: tls.caPath, STAGING_LOOPBACK_HOSTS: gatewayHost,
+    STAGING_AGENT_GATEWAY: gatewayOrigin, STAGING_AGENT_KEY: agentKey.key };
+  const agent = agentClient(agentEnv);
   // Each browser is in the cleanup list as soon as it exists, before the next launch can fail.
   const customerBrowser = await launchBrowser(salonHost, salonTls.port, tls.leaves[salonHost].spki);
   browsers.push(customerBrowser);
@@ -443,7 +447,17 @@ try {
     assert.equal(result.body!.error.code, "slot_unavailable");
   });
 
-  await scenario("AGENT_CANNOT_REACH_INBOX_OR_SALON_DIRECTLY", async () => {
+  await scenario("AGENT_PROCESS_IS_GIVEN_ONLY_THE_GATEWAY_ORIGIN_AND_ITS_KEY", async () => {
+    assert.deepEqual(Object.keys(agentEnv).sort(),
+      ["HOME", "NODE_EXTRA_CA_CERTS", "PATH", "STAGING_AGENT_GATEWAY", "STAGING_AGENT_KEY", "STAGING_LOOPBACK_HOSTS"]);
+    const given = JSON.stringify(agentEnv);
+    for (const value of [databaseUrl.href, adminUrl.href, sessionSecret, serviceToken, salonOrigin, salonHost])
+      assert(!given.includes(value), "the agent was given a salon or database setting");
+  });
+
+  // The HTTP boundary only: through the gateway, or at the salon with an agent key, there is no
+  // route to the inbox or the customer decision. (Not OS-level isolation of the agent process.)
+  await scenario("API_BOUNDARY_GIVES_AGENT_NO_INBOX_OR_DECISION_ROUTE", async () => {
     for (const path of ["/api/v1/consent-inbox", "/api/v1/inbox", `/consent/${happyProposal.id}/decision`]) {
       const response = await operatorFetch(tls.ca, gatewayOrigin + path, { headers: { authorization: `Bearer ${agentKey.key}` } });
       assert.equal(response.status, 404);
@@ -481,9 +495,12 @@ try {
     let hits = 0;
     const probe = createHttpServer((_req, res) => { hits++; res.end("reached"); });
     await new Promise<void>((resolveListen, reject) => { probe.once("error", reject); probe.listen(0, "127.0.0.1", resolveListen); });
+    // On the runner's cleanup list at once: a browser failure below must not leave it listening.
+    servers.push(probe);
     const probePort = (probe.address() as { port: number }).port;
-    const context = await salonContext(customerBrowser, salonOrigin);
+    let context: Awaited<ReturnType<typeof salonContext>> | undefined;
     try {
+      context = await salonContext(customerBrowser, salonOrigin);
       const page = await context.newPage();
       page.setDefaultTimeout(10_000);
       // Direct navigation: an IP literal, localhost, the gateway, the salon's own plain port.
@@ -500,7 +517,7 @@ try {
       }
       assert.equal(hits, 0, "a non-salon destination was reached");
     } finally {
-      await context.close();
+      await context?.close().catch(() => {});
       await new Promise<void>(resolveClose => probe.close(() => resolveClose()));
     }
   });

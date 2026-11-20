@@ -14,3 +14,13 @@ export function assertTestDatabase(value = process.env.DATABASE_URL) {
     throw new Error("TEST_DATABASE_REFUSED: lokal *_test eller *_demo krävs");
   }
 }
+
+/**
+ * Database tests write real approval links and other bearer material. Prisma reads `DEBUG` once,
+ * when it is first loaded, and then prints every query with its arguments: refused before any test
+ * file (and so any Prisma client) is loaded, since clearing it later in a test is too late.
+ * @param {Record<string, string | undefined>} [env]
+ */
+export function assertNoQueryLogging(env = process.env) {
+  if (env.DEBUG) throw new Error("TEST_DEBUG_REFUSED: unset DEBUG; Prisma would log query arguments");
+}

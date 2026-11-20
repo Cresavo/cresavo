@@ -51,18 +51,28 @@ beforeAll(async () => {
 const STAGING_INCOMPATIBLE = ["BOOKING_CONSENT_LAB", "BOOKING_SMS_OTP_LAB", "BOOKING_CONSENT_INBOX_DIR", "PUBLIC_READONLY", "DEBUG", "BOOKING_CONSENT_TTL_SECONDS"];
 function stagingEnv() {
   for (const name of STAGING_INCOMPATIBLE) vi.stubEnv(name, undefined);
+  // Ordinary scenarios share one customer address; a PostgreSQL bucket for it would outlive the
+  // suite and make a rerun within 15 minutes see 429. The dedicated limiter test opts in itself.
+  vi.stubEnv("RATE_LIMIT_STORE", "memory");
   vi.stubEnv("BOOKING_SERVICE_ROLE", "salon"); vi.stubEnv("GATEWAY_SERVICE_TOKEN", serviceToken);
   vi.stubEnv("BOOKING_PUBLIC_ORIGIN", gatewayOrigin); vi.stubEnv("BOOKING_CONSENT_DELIVERY", "staging-inbox");
   vi.stubEnv("BOOKING_CONSENT_ORIGIN", consentOrigin); vi.stubEnv("BOOKING_ADDRESS_SECRET", addressSecret);
 }
 beforeEach(stagingEnv);
 
+it("runs without Prisma diagnostics, which Prisma fixed when this file was loaded", () => {
+  // The integration config refuses DEBUG before any test file loads; Prisma's own cached copy agrees.
+  expect(process.env.DEBUG ?? "").toBe("");
+  expect((globalThis as { DEBUG?: string }).DEBUG ?? "").toBe("");
+});
+
 it("runs with the staging fixture whatever lab settings the operator's environment has", () => {
   vi.stubEnv("BOOKING_CONSENT_LAB", "1"); vi.stubEnv("BOOKING_SMS_OTP_LAB", "1"); vi.stubEnv("BOOKING_CONSENT_INBOX_DIR", "/tmp/fictional-lab-inbox");
-  vi.stubEnv("DEBUG", "prisma:client");
+  vi.stubEnv("DEBUG", "prisma:client"); vi.stubEnv("RATE_LIMIT_STORE", "postgres");
   expect(() => stagingConsentOrigin()).toThrow();
   stagingEnv();
   expect(stagingConsentOrigin()).toBe(consentOrigin);
+  expect(process.env.RATE_LIMIT_STORE).toBe("memory");
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 afterAll(async () => {

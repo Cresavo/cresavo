@@ -1,5 +1,7 @@
-// The agent: a real MCP SDK client in its own process. It knows only the gateway's
-// public HTTPS origin and its own agent key. It has no database, inbox or salon access.
+// The agent: a real MCP SDK client in its own process. It is given only the gateway's public
+// HTTPS origin and its own agent key: no database URL, session secret, salon origin or inbox.
+// It runs as the operator's OS user on the same machine; this limits its configuration and the
+// API it is pointed at, not what the operating system would let it reach.
 import { createInterface } from "node:readline";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { agentReply } from "./agent-reply.mjs";

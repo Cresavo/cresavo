@@ -152,8 +152,11 @@ The runner:
 5. Starts the split salon and the gateway on loopback, each behind its own TLS proxy.
    The gateway runs in remote mode (`GATEWAY_ALLOW_REMOTE=1`, HTTPS salon origin, one
    trusted proxy hop) and receives no database URL, session secret or inbox access.
-6. Runs an MCP SDK client in its own process. It knows only the gateway origin and
-   its agent key.
+6. Runs an MCP SDK client in its own process, given only the gateway origin and its agent
+   key (checked: no database URL, session secret, service token or salon origin). It runs as
+   the operator's OS user on the same machine, so this is configuration and API separation,
+   not operating-system isolation: the checks show what the API exposes to an agent, not that
+   a process on this machine could not reach the database.
 7. Uses a separate Chromium instance as the customer and another as the owner. The
    test operator reads the link from the database inbox.
 8. Checks: proposal creates no booking or mandate; the page shows every term and
@@ -163,9 +166,9 @@ The runner:
    reopening the link in the same tab (a fragment-only navigation) reads the proposal
    again and strips the secret; a declined or approved link, opened again, names that
    decision; an approval whose response is lost after the salon saved it shows an unknown
-   outcome, and "Check status again" then shows the approval; expired link; changed price; slot taken; the agent cannot
-   reach the inbox, the decision endpoint (probed with `POST`, as the page sends it) or the
-   salon directly; no link or secret appears in the agent's
+   outcome, and "Check status again" then shows the approval; expired link; changed price; slot taken; through the API (the gateway, or the salon with an agent key) an agent has no
+   route to the inbox, the decision endpoint (probed with `POST`, as the page sends it) or
+   the salon's own API; no link or secret appears in the agent's
    transcript (the complete MCP results, every content block) or in any process output.
    Process output is kept in full, per stream, and scanned again, with the agent
    transcript, after every process (agent included) has closed its streams, so a secret

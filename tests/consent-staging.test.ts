@@ -393,6 +393,20 @@ describe("consent page requests", () => {
   });
 });
 
+describe("database test diagnostics", () => {
+  it("refuses DEBUG before any integration test file, and so Prisma, is loaded", async () => {
+    const { assertNoQueryLogging } = await import("../scripts/test-db-guard.mjs");
+    expect(() => assertNoQueryLogging({})).not.toThrow();
+    expect(() => assertNoQueryLogging({ DEBUG: "" })).not.toThrow();
+    for (const DEBUG of ["prisma:client", "prisma:*", "*"]) expect(() => assertNoQueryLogging({ DEBUG })).toThrow(/^TEST_DEBUG_REFUSED/);
+    // The integration config itself refuses, at load, before vitest starts any worker.
+    vi.stubEnv("DEBUG", "prisma:client");
+    vi.resetModules();
+    try { await expect(import("../vitest.integration.config")).rejects.toThrow(/^TEST_DEBUG_REFUSED/); }
+    finally { vi.unstubAllEnvs(); vi.resetModules(); }
+  });
+});
+
 describe("staging runner preflight", () => {
   it("refuses remote browser sessions that would carry approval links off this machine", async () => {
     const { refuseRemoteBrowsers } = await import("../scripts/staging-consent/preflight.mjs");
@@ -554,7 +568,8 @@ describe("staging runner output", () => {
     expect(stream.destroyed).toBe(true);
     expect(lines).toEqual(['{"id":1}']);
   });
-  it("waits for every child's streams to close before the final scan", async () => {
+  // POSIX signals only: on Windows, Node terminates the child instead of delivering a catchable SIGTERM.
+  it.skipIf(process.platform === "win32")("waits for every child's streams to close before the final scan", async () => {
     const { spawn } = await import("node:child_process");
     const { captureStream, leakedStreams, stopAll, track } = await import("../scripts/staging-consent/processes.mjs");
     const { registerSecret } = await import("../scripts/staging-consent/sanitize.mjs");
