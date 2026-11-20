@@ -5,7 +5,7 @@
 // It never prints a secret. Credentials reach psql, Prisma and the Vercel CLI only through
 // environment variables or stdin, never through process arguments.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, lstatSync, mkdirSync, mkdtempSync, openSync, rmSync, unlinkSync, writeSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -50,8 +50,12 @@ const { values: opts } = parseArgs({ options: {
 if (opts.help) { process.stdout.write(usage); process.exit(0); }
 
 const step = (/** @type {string} */ text) => console.log(`[bootstrap] ${text}`);
+/** Settings files reserved before any database change; removed again if the run stops. */
+/** @type {{ path: string, fd: number }[]} */
+const reserved = [];
 /** @param {string} code @param {string} [hint] @returns {never} */
 function fail(code, hint) {
+  for (const { path, fd } of reserved.splice(0)) { closeSync(fd); unlinkSync(path); }
   console.error(`[bootstrap] stopped: ${code}${hint ? `\n[bootstrap] ${hint}` : ""}`);
   process.exit(1);
 }
@@ -85,8 +89,6 @@ const outDir = resolve(opts.out ?? join(homedir(), ".cresavo-sandbox"));
 const sandboxFile = join(outDir, "sandbox.production.env");
 const gatewayFile = join(outDir, "gateway.production.env");
 if (opts["project-id"] && !/^prj_[A-Za-z0-9]+$/.test(opts["project-id"])) fail("PROJECT_ID_INVALID");
-if (existsSync(sandboxFile) || existsSync(gatewayFile))
-  fail("SETTINGS_FILES_EXIST", `Move ${outDir} away first; this script never overwrites settings.`);
 for (const tool of ["psql", "npx", ...(opts["push-vercel"] ? ["vercel"] : [])])
   if (spawnSync(tool, ["--version"], { stdio: "ignore" }).status !== 0) fail(`${tool} not found`);
 const migrationValue = process.env.SANDBOX_MIGRATION_DATABASE_URL;
@@ -102,6 +104,14 @@ else {
   if (!(major >= 16)) fail("PSQL_16_REQUIRED", "Install PostgreSQL 16 or later client tools.");
 }
 
+// Reserve both files exclusively now, so a run never prepares a database it cannot record.
+mkdirSync(outDir, { recursive: true, mode: 0o700 });
+if (!lstatSync(outDir).isDirectory()) fail("SETTINGS_DIRECTORY_INVALID", `${outDir} must be a real directory.`);
+for (const path of [sandboxFile, gatewayFile]) {
+  try { reserved.push({ path, fd: openSync(path, "wx", 0o600) }); } catch {
+    fail("SETTINGS_FILES_EXIST", `Move ${outDir} away first; this script never overwrites settings.`);
+  }
+}
 step("checking that the sandbox logins do not exist yet");
 const existing = psql("role check", parsed.url, { sql:
   `SELECT count(*) FROM pg_roles WHERE rolname IN ('${RUNTIME_ROLE}', '${RESET_ROLE}');\n` }).trim();
@@ -145,9 +155,11 @@ const settings = productionSettings({
   installation, runtimeUrl, resetUrl, projectId: opts["project-id"],
   sandboxOrigin: opts["sandbox-origin"], gatewayOrigin: opts["gateway-origin"],
 });
-mkdirSync(outDir, { recursive: true, mode: 0o700 });
-writeFileSync(sandboxFile, envFile(settings.sandbox), { mode: 0o600, flag: "wx" });
-writeFileSync(gatewayFile, envFile(settings.gateway), { mode: 0o600, flag: "wx" });
+for (const [{ fd }, entries] of /** @type {const} */ ([[reserved[0], settings.sandbox], [reserved[1], settings.gateway]])) {
+  writeSync(fd, envFile(entries));
+  closeSync(fd);
+}
+reserved.length = 0;
 step(`wrote ${sandboxFile} and ${gatewayFile} (mode 600)`);
 step(`installation ID (not secret): ${installation}`);
 
