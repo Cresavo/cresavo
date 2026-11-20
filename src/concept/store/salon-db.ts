@@ -7,7 +7,9 @@
 import { MemorySalonDb } from "./memory-salon-db";
 import {
   WORKSPACES,
+  callEach,
   changesOf,
+  errorReporter,
   runChange,
   type SalonChange,
   type SalonOp,
@@ -110,8 +112,20 @@ function readTransaction(db: IDBDatabase, keys: readonly Workspace[], done: (rec
   tx.onabort = () => done(tx.error ?? new Error("read aborted"));
 }
 
-/** `opening` and `blocked` wait (a slow open is never proof of anything); `memory` only after a confirmed failure. */
-export type OpenStatus = "opening" | "blocked" | "open" | "outdated" | "memory";
+/**
+ * `opening` and `blocked` wait (a slow open is never proof of anything).
+ * `memory` only after a confirmed failure on the first open. `outdated`: a
+ * newer schema exists (reload). `failed`: a reopen failed after this handle
+ * used IndexedDB; it never moves to memory mid-session. `closed`: `close()` ran.
+ */
+export type OpenStatus = "opening" | "blocked" | "open" | "outdated" | "memory" | "failed" | "closed";
+
+/** Operations on a handle after `close()`, or still waiting for an open when it ran. */
+export class SalonDbClosedError extends Error {
+  constructor() {
+    super("SalonDb: the handle is closed");
+  }
+}
 
 /** Posted after a commit; receivers re-read the salon. */
 interface ChannelMessage { workspace: Workspace; version?: number; epoch?: string; deleted?: boolean }
@@ -156,9 +170,15 @@ function defaultChannel(name: string): ChannelLike {
 
 const isWorkspace = (value: unknown): value is Workspace => value === "demo" || value === "own";
 
-type Backend = { kind: "indexeddb"; db: IDBDatabase } | { kind: "memory"; db: MemorySalonDb } | { kind: "outdated" };
+type Backend =
+  | { kind: "indexeddb"; db: IDBDatabase }
+  | { kind: "memory"; db: MemorySalonDb }
+  | { kind: "outdated" }
+  | { kind: "failed"; error?: string };
 
-/** Opens the salon database, falling back to tab-only memory only when IndexedDB is confirmed unavailable. */
+const OUTDATED = "SalonDb: a newer version of the demo is open; reload";
+
+/** Opens the salon database, falling back to tab-only memory only when IndexedDB is confirmed unavailable on the first open. */
 export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
   const factory = options.factory === undefined ? defaultFactory() : options.factory;
   const name = options.name ?? DB_NAME;
@@ -166,43 +186,82 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
   const listeners = new Set<(change: SalonChange) => void>();
   const failureListeners = new Set<(error: string | undefined) => void>();
   const statusListeners = new Set<(status: OpenStatus) => void>();
+  const errors = errorReporter();
   let status: OpenStatus = "opening";
   let backend: Promise<Backend> | undefined;
   let channel: ChannelLike | null = null;
-  let closed = false;
+  /** Set once a connection succeeded: from then on a failed open is an error, never a switch to memory. */
+  let usedIndexedDb = false;
+  /** Rejects the open in flight, so `close()` settles every operation waiting for it. */
+  let abandonPending: (() => void) | undefined;
 
   const setStatus = (next: OpenStatus) => {
-    if (status === next) return;
+    if (status === next || status === "closed") return;
     status = next;
-    statusListeners.forEach((listener) => listener(next));
+    callEach(statusListeners, () => next, errors.report);
   };
-  const emit = (change: SalonChange) => listeners.forEach((listener) => listener({ workspace: change.workspace, record: change.record && { ...change.record } }));
+  const emit = (change: SalonChange) => callEach(listeners, () => ({ workspace: change.workspace, record: change.record && { ...change.record } }), errors.report);
 
   const fallBackToMemory = (): Backend => {
     const memory = new MemorySalonDb();
     memory.subscribe(emit);
+    memory.onListenerError(errors.report);
     setStatus("memory");
     return { kind: "memory", db: memory };
+  };
+  /** An open that failed: memory only if IndexedDB never worked in this handle. */
+  const unavailable = (error?: string): Backend => {
+    if (!usedIndexedDb) return fallBackToMemory();
+    setStatus("failed");
+    return { kind: "failed", error };
+  };
+  const outdated = (): Backend => {
+    setStatus("outdated");
+    return { kind: "outdated" };
   };
 
   const listen = () => {
     if (channel || !makeChannel) return;
-    channel = makeChannel(name);
+    try {
+      channel = makeChannel(name);
+    } catch (error) {
+      errors.report(error);
+      return;
+    }
     channel.onmessage = ({ data }) => {
       const message = data as ChannelMessage;
       if (!message || !isWorkspace(message.workspace)) return;
       void handle.read(message.workspace).then((record) => emit({ workspace: message.workspace, record }), () => undefined);
     };
   };
+  const broadcast = (change: SalonChange) => {
+    try {
+      channel?.postMessage(change.record ? { workspace: change.workspace, version: change.record.version, epoch: change.record.epoch } : { workspace: change.workspace, deleted: true });
+    } catch (error) {
+      errors.report(error);
+    }
+  };
 
-  const connect = (): Promise<Backend> => new Promise((resolve) => {
+  const connect = (): Promise<Backend> => new Promise((resolve, reject) => {
     let request: IDBOpenDBRequest;
     try {
-      if (!factory) return resolve(fallBackToMemory());
+      if (!factory) return resolve(unavailable());
       request = factory.open(name, options.version ?? DB_VERSION);
-    } catch {
-      return resolve(fallBackToMemory());
+    } catch (error) {
+      return resolve(unavailable(errorName(error)));
     }
+    let settled = false;
+    const settle = (value: Backend) => {
+      if (settled) return;
+      settled = true;
+      abandonPending = undefined;
+      resolve(value);
+    };
+    abandonPending = () => {
+      settled = true;
+      abandonPending = undefined;
+      reject(new SalonDbClosedError());
+    };
     setStatus("opening");
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -211,21 +270,24 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
     };
     request.onblocked = () => setStatus("blocked");
     request.onerror = (event) => {
-      // Confirmed unavailable: denied (private modes), security or state errors.
       event.preventDefault();
-      resolve(fallBackToMemory());
+      const error = request.error?.name;
+      // A newer schema made by another tab: this tab's code is old, its data is not gone.
+      if (error === "VersionError") return settle(outdated());
+      // Denied (private modes), security or state errors.
+      settle(unavailable(error));
     };
     request.onsuccess = () => {
       const db = request.result;
-      // A connection that arrives after this handle closed or moved to memory is not used.
-      if (closed || status === "memory") {
+      // A connection that arrives after this handle closed or moved on is not used.
+      if (settled || status === "closed" || status === "memory") {
         db.close();
         return;
       }
+      usedIndexedDb = true;
       db.onversionchange = () => {
         db.close();
-        backend = Promise.resolve({ kind: "outdated" });
-        setStatus("outdated");
+        backend = Promise.resolve(outdated());
       };
       db.onclose = () => {
         // The browser closed it (site data cleared, crash). The next operation opens again.
@@ -236,15 +298,19 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
       };
       listen();
       setStatus("open");
-      resolve({ kind: "indexeddb", db });
+      settle({ kind: "indexeddb", db });
     };
   });
 
-  const current = () => (backend ??= connect());
+  const current = (): Promise<Backend> => {
+    if (status === "closed") return Promise.reject(new SalonDbClosedError());
+    return (backend ??= connect());
+  };
 
   const readRecords = async (keys: readonly Workspace[]): Promise<Map<Workspace, SalonRecord | null>> => {
     const open = await current();
-    if (open.kind === "outdated") throw new Error("SalonDb: a newer version of the demo is open; reload");
+    if (open.kind === "outdated") throw new Error(OUTDATED);
+    if (open.kind === "failed") throw new Error(`SalonDb: the database could not be opened again (${open.error ?? "unknown"})`);
     if (open.kind === "memory") {
       const all = await open.db.readAll();
       return new Map(keys.map((key) => [key, all[key]]));
@@ -260,12 +326,13 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
     },
     async ready() {
       const open = await current();
-      if (open.kind === "outdated") throw new Error("SalonDb: a newer version of the demo is open; reload");
+      if (open.kind === "outdated") throw new Error(OUTDATED);
+      if (open.kind === "failed") throw new Error(`SalonDb: the database could not be opened again (${open.error ?? "unknown"})`);
       return open.kind;
     },
     reopen() {
-      if (closed || status === "memory" || status === "outdated") return;
-      void backend?.then((open) => { if (open.kind === "indexeddb") open.db.close(); });
+      if (status === "closed" || status === "memory" || status === "outdated") return;
+      void backend?.then((open) => { if (open.kind === "indexeddb") open.db.close(); }, () => undefined);
       backend = undefined;
     },
     async read(workspace) {
@@ -279,18 +346,20 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
       // Awaiting here is fine: the transaction does not exist yet.
       const open = await current();
       if (open.kind === "outdated") return { ok: false, reason: "outdated" };
+      if (open.kind === "failed") {
+        callEach(failureListeners, () => open.error, errors.report);
+        return { ok: false, reason: "storage", error: open.error };
+      }
       if (open.kind === "memory") return open.db.write(scope, change);
       return new Promise((resolve, reject) => runTransaction(open.db, scope, change, (outcome) => {
         if ("thrown" in outcome) return reject(outcome.thrown);
-        if (!outcome.ok) {
-          failureListeners.forEach((listener) => listener(outcome.error));
-          return resolve(outcome);
-        }
+        // The outcome is settled first: listeners run after, and their errors are reported separately.
+        resolve(outcome);
+        if (!outcome.ok) return callEach(failureListeners, () => outcome.error, errors.report);
         for (const change of outcome.changes) {
           emit(change);
-          channel?.postMessage(change.record ? { workspace: change.workspace, version: change.record.version, epoch: change.record.epoch } : { workspace: change.workspace, deleted: true });
+          broadcast(change);
         }
-        resolve(outcome);
       }));
     },
     subscribe(listener) {
@@ -301,11 +370,17 @@ export function createSalonDb(options: SalonDbOptions = {}): SalonDbHandle {
       failureListeners.add(listener);
       return () => { failureListeners.delete(listener); };
     },
+    onListenerError: errors.subscribe,
     close() {
-      closed = true;
-      channel?.close();
+      if (status === "closed") return;
+      setStatus("closed");
+      try { channel?.close(); } catch { /* Already closed. */ }
       channel = null;
-      void backend?.then((open) => { if (open.kind === "indexeddb") open.db.close(); });
+      abandonPending?.();
+      void backend?.then((open) => {
+        if (open.kind === "indexeddb") open.db.close();
+        else if (open.kind === "memory") open.db.close();
+      }, () => undefined);
     },
   };
   return handle;

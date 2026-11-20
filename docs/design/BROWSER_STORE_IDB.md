@@ -101,7 +101,10 @@ The other salon mutations are `write`s with their own small `change`:
   - **Open.** `onsuccess`.
   - **Waiting.** While the open is slow or `blocked` (another tab holds an older schema), pages keep their loading shell. `blocked` adds "Close other demo tabs or reload". A slow open is never treated as unavailable.
   - **Unavailable, confirmed.** `indexedDB` is missing, `open` throws, or `onerror` fires (`SecurityError`, `InvalidStateError`, private-mode denial). Only then does the tab use `MemorySalonDb`, seeded once from any legacy localStorage text, read only and never written back. A connection that succeeds after this choice is closed at once.
-  - **Outdated.** `onversionchange` closes the connection and shows a reload notice.
+  - **Outdated.** `onversionchange`, or a `VersionError` on open (another tab already upgraded), closes the connection and shows a reload notice. It is never memory.
+  - **Failed.** Once a handle has used IndexedDB, a failed reopen is reported as `storage` and never switches to memory mid-session. A later `reopen()` retries.
+  - **Closed.** `close()` rejects operations still waiting for an open with `SalonDbClosedError`, and later operations fail at once.
+- Subscriber, status and channel errors are isolated: a write resolves with its real outcome, and the errors go to `onListenerError`.
 - On bfcache `pageshow` (`persisted`), or after the browser closed the connection (`close` event), the store reopens and re-reads **both** workspaces. A record that disappeared meanwhile clears the cache and fires `onSalonRemoved`.
 - **Memory mode** shows a visible notice on the studio and on the public booking page: "This browser does not let the demo save. Changes last until you close this tab." One tab's JavaScript is single-threaded, so memory commits are just as atomic and waitlist offers stay on. Tabs do not share data, so they cannot overwrite each other. The old localStorage write path is removed rather than kept as a second mode.
 

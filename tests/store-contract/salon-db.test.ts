@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemorySalonDb } from "@/concept/store/memory-salon-db";
 import {
   createSalonDb,
+  SalonDbClosedError,
   runChange,
   runTransaction,
   SynchronousChangeError,
@@ -125,6 +126,30 @@ describe.each(adapters)("%s adapter", (_name, make) => {
     const versions = await Promise.all(Array.from({ length: 20 }, () => increment(db)));
     expect(versions.map((result) => result.ok && result.value).sort((a, b) => Number(a) - Number(b))).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
     expect(countOf(await db.read("demo"))).toBe(20);
+  });
+
+  it("settles a committed write even when a subscriber throws, and reports the error", async () => {
+    const db = make();
+    const errors: unknown[] = [];
+    db.onListenerError((error) => errors.push(error));
+    const seen: SalonChange[] = [];
+    db.subscribe(() => { throw new Error("broken subscriber"); });
+    db.subscribe((change) => seen.push(change));
+    const result = await db.write({}, (tx) => tx.putSalon("demo", record(1)));
+    expect(result.ok).toBe(true);
+    expect(seen).toHaveLength(1);
+    expect(errors).toEqual([new Error("broken subscriber")]);
+    expect(await db.read("demo")).toEqual(record(1));
+  });
+
+  it("returns a snapshot of both salons that existed together", async () => {
+    const db = make();
+    await db.write({}, (tx) => { tx.putSalon("demo", record(1)); tx.putSalon("own", record(1)); });
+    const before = db.readAll();
+    const replaced = db.write({ salons: ["demo", "own"] }, (tx) => { tx.putSalon("demo", record(2, 2)); tx.putSalon("own", record(2, 2)); });
+    const [snapshot] = await Promise.all([before, replaced]);
+    expect([countOf(snapshot.demo), countOf(snapshot.own)]).toEqual([1, 1]);
+    expect(await db.readAll()).toEqual({ demo: record(2, 2), own: record(2, 2) });
   });
 
   it("tells subscribers about its own commits, deletions included", async () => {
@@ -316,8 +341,9 @@ describe("opening", () => {
   it("closes a connection that arrives after the handle was closed", async () => {
     const factory = new IDBFactory();
     const early = open(factory);
-    void early.ready();
+    const pending = early.ready();
     early.close();
+    await expect(pending).rejects.toBeInstanceOf(SalonDbClosedError);
     await sleep(20);
     expect(early.status()).not.toBe("open");
     // Not blocked: the late connection was closed at once.
@@ -339,7 +365,91 @@ describe("opening", () => {
   });
 });
 
+describe("opening after the first session", () => {
+  /** A factory that delegates to fake-indexeddb until told to fail. */
+  function flaky(factory: IDBFactory) {
+    const control = { fail: false };
+    const wrapped = { open: (name: string, version?: number) => {
+      if (control.fail) throw new DOMException("gone", "UnknownError");
+      return factory.open(name, version);
+    } } as unknown as IDBFactory;
+    return { control, wrapped };
+  }
+
+  it("treats a newer schema on open as outdated, never as memory", async () => {
+    const factory = new IDBFactory();
+    const upgraded = open(factory, { version: 2 });
+    await upgraded.write({}, (tx) => tx.putSalon("demo", record(4)));
+    upgraded.close();
+    const older = open(factory);
+    await expect(older.ready()).rejects.toThrow(/newer version/);
+    expect(older.status()).toBe("outdated");
+    expect(await older.write({}, (tx) => tx.putSalon("demo", record(1)))).toEqual({ ok: false, reason: "outdated" });
+    await expect(older.read("demo")).rejects.toThrow(/newer version/);
+    expect(await open(factory, { version: 2 }).read("demo")).toEqual(record(4));
+  });
+
+  it("reports a failed reopen instead of switching a persistent session to memory", async () => {
+    const factory = new IDBFactory();
+    const { control, wrapped } = flaky(factory);
+    const db = open(wrapped);
+    await db.write({}, (tx) => tx.putSalon("demo", record(1)));
+    const failures: Array<string | undefined> = [];
+    db.onStorageFailure((error) => failures.push(error));
+    control.fail = true;
+    db.reopen();
+    expect(await db.write({}, (tx) => tx.putSalon("demo", record(2, 2)))).toEqual({ ok: false, reason: "storage", error: "UnknownError" });
+    expect(db.status()).toBe("failed");
+    expect(failures).toEqual(["UnknownError"]);
+    await expect(db.read("demo")).rejects.toThrow(/could not be opened again/);
+    // Once the browser lets it open again, the saved salon is still there.
+    control.fail = false;
+    db.reopen();
+    expect(await db.read("demo")).toEqual(record(1));
+    expect(db.status()).toBe("open");
+  });
+
+  it("settles operations waiting on an open when the handle closes, and fails fast afterwards", async () => {
+    const factory = new IDBFactory();
+    const old = await new Promise<IDBDatabase>((resolve) => {
+      const request = factory.open("concept-store", 1);
+      request.onupgradeneeded = () => { request.result.createObjectStore("salons"); request.result.createObjectStore("meta"); };
+      request.onsuccess = () => resolve(request.result);
+    });
+    const db = createSalonDb({ factory, channel: null, version: 2 });
+    const waiting = [db.ready(), db.read("demo"), db.write({}, (tx) => tx.putSalon("demo", record(1)))];
+    await until(() => db.status() === "blocked");
+    db.close();
+    for (const operation of waiting) await expect(operation).rejects.toBeInstanceOf(SalonDbClosedError);
+    old.close();
+    await sleep(20);
+    expect(db.status()).toBe("closed");
+    await expect(db.readAll()).rejects.toBeInstanceOf(SalonDbClosedError);
+    await expect(db.write({}, (tx) => tx.putSalon("demo", record(1)))).rejects.toBeInstanceOf(SalonDbClosedError);
+    // The late connection was closed, so a newer schema opens without being blocked.
+    const next = open(factory, { version: 3 });
+    const statuses: string[] = [];
+    next.onStatus((status) => statuses.push(status));
+    expect(await next.ready()).toBe("indexeddb");
+    expect(statuses).not.toContain("blocked");
+    expect(await next.read("demo")).toBeNull();
+  });
+});
+
 describe("cross-tab notification", () => {
+  it("still broadcasts and settles when a local subscriber throws", async () => {
+    const factory = new IDBFactory();
+    const channel = channelBus();
+    const [tabA, tabB] = [open(factory, { channel }), open(factory, { channel })];
+    await Promise.all([tabA.ready(), tabB.ready()]);
+    tabA.onListenerError(() => undefined);
+    tabA.subscribe(() => { throw new Error("broken subscriber"); });
+    const seen: SalonChange[] = [];
+    tabB.subscribe((change) => seen.push(change));
+    expect((await tabA.write({}, (tx) => tx.putSalon("demo", record(1)))).ok).toBe(true);
+    await until(() => seen.length === 1);
+  });
+
   it("tells other tabs to re-read, deletions included", async () => {
     const factory = new IDBFactory();
     const channel = channelBus();

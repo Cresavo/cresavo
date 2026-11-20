@@ -58,7 +58,43 @@ export interface SalonDb {
   subscribe(listener: (change: SalonChange) => void): () => void;
   /** Every aborted write, also for callers that do not look at the result. */
   onStorageFailure(listener: (error: string | undefined) => void): () => void;
+  /** Errors thrown by listeners or the cross-tab channel. They never change a write's result. */
+  onListenerError(listener: (error: unknown) => void): () => void;
   close(): void;
+}
+
+/**
+ * Calls each listener, isolating its errors: a commit has already happened, so a
+ * throwing subscriber must neither block the caller's result nor skip the others.
+ * Errors go to `report`, or to the console when nobody listens for them.
+ */
+export function callEach<A>(listeners: Iterable<(arg: A) => void>, arg: () => A, report: (error: unknown) => void) {
+  for (const listener of [...listeners]) {
+    try {
+      listener(arg());
+    } catch (error) {
+      report(error);
+    }
+  }
+}
+
+/** Collects `onListenerError` listeners; reporting is itself isolated. */
+export function errorReporter() {
+  const listeners = new Set<(error: unknown) => void>();
+  const report = (error: unknown) => {
+    if (!listeners.size) {
+      console.error("SalonDb listener failed", error);
+      return;
+    }
+    for (const listener of [...listeners]) {
+      try { listener(error); } catch (failure) { console.error("SalonDb error listener failed", failure); }
+    }
+  };
+  const subscribe = (listener: (error: unknown) => void) => {
+    listeners.add(listener);
+    return () => { listeners.delete(listener); };
+  };
+  return { report, subscribe };
 }
 
 const isThenable = (value: unknown) =>

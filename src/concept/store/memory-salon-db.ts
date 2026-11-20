@@ -1,5 +1,7 @@
 import {
+  callEach,
   changesOf,
+  errorReporter,
   runChange,
   type SalonChange,
   type SalonDb,
@@ -19,14 +21,20 @@ export class MemorySalonDb implements SalonDb {
   private salons = new Map<Workspace, SalonRecord>();
   private meta = new Map<string, unknown>();
   private listeners = new Set<(change: SalonChange) => void>();
+  private errors = errorReporter();
 
-  async read(workspace: Workspace): Promise<SalonRecord | null> {
+  private copy(workspace: Workspace): SalonRecord | null {
     const record = this.salons.get(workspace);
     return record ? { ...record } : null;
   }
 
+  async read(workspace: Workspace): Promise<SalonRecord | null> {
+    return this.copy(workspace);
+  }
+
+  /** Both salons captured together, before anything can yield: a snapshot that existed. */
   async readAll(): Promise<Record<Workspace, SalonRecord | null>> {
-    return { demo: await this.read("demo"), own: await this.read("own") };
+    return { demo: this.copy("demo"), own: this.copy("own") };
   }
 
   async write<T>(scope: SalonScope, change: (tx: SalonTx) => T): Promise<WriteResult<T>> {
@@ -45,7 +53,7 @@ export class MemorySalonDb implements SalonDb {
       else this.meta.set(op.key, op.value);
     }
     const changes = changesOf(ops);
-    for (const change of changes) this.listeners.forEach((listener) => listener({ workspace: change.workspace, record: change.record && { ...change.record } }));
+    for (const change of changes) callEach(this.listeners, () => ({ workspace: change.workspace, record: change.record && { ...change.record } }), this.errors.report);
     return { ok: true, value, changes };
   }
 
@@ -57,6 +65,10 @@ export class MemorySalonDb implements SalonDb {
   /** Memory writes do not fail. */
   onStorageFailure(): () => void {
     return () => undefined;
+  }
+
+  onListenerError(listener: (error: unknown) => void): () => void {
+    return this.errors.subscribe(listener);
   }
 
   close() {
