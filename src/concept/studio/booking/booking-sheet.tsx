@@ -96,7 +96,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
     })).catch(() => false as const);
     // Say a customer gets the time only when the saved change actually offered it to someone.
     const committed = result === false ? null : currentState();
-    const message = t(committed && offeredSince(state, committed) ? "booking.cancelledOfferedToast" : "booking.cancelledToast");
+    const message = t(committed && offeredSince(state, committed, booking) ? "booking.cancelledOfferedToast" : "booking.cancelledToast");
     if (showUndoToast(message, result)) onClose();
     else report("booking.visitChanged");
   };

@@ -47,10 +47,13 @@ export function openSlots(
 ): OpenSlot[] {
   const service = state.services.find((s) => s.id === serviceId);
   if (!service || date < clock.today) return [];
-  const after = earliestOnlineStart(date, clock.today, clock.minutes, service.bufferBefore);
+  // A visit being moved keeps the length and preparation it was booked with, even if the treatment changed since.
+  const moving = opts.ignoreId ? state.bookings.find((b) => b.id === opts.ignoreId && b.serviceId === serviceId) : undefined;
+  const need = moving ? { serviceId, duration: moving.duration, bufferBefore: moving.bufferBefore, bufferAfter: moving.bufferAfter } : needOf(service);
+  const after = earliestOnlineStart(date, clock.today, clock.minutes, need.bufferBefore);
   const byStart = new Map<number, OpenSlot>();
   for (const id of service.staffIds.filter((s) => !opts.staffId || s === opts.staffId)) {
-    for (const start of freeStarts(state, id, date, needOf(service), { after, step: STEP, ignoreId: opts.ignoreId })) {
+    for (const start of freeStarts(state, id, date, need, { after, step: STEP, ignoreId: opts.ignoreId })) {
       if (!byStart.has(start)) byStart.set(start, { staffId: id, date, start });
     }
   }

@@ -44,9 +44,13 @@ export default function CustomersPage() {
     (c) => !q || fullName(c).toLowerCase().includes(q) || phoneMatches(c.phone, q),
   );
 
+  // The waiting list (and its offer settings) is reachable before the first customer joins.
+  const waitlistLink = !viewer && menuVisible(studio.modules, WAITLIST_PAGE) &&
+    <ButtonLink href={WAITLIST_PAGE} variant="secondary" icon={<BellRing size={18} />}>{t("features.waitlist")}</ButtonLink>;
+
   if (state.industry && !studio.customers.length) {
     return <>
-      <PageHeader title={t("customers.title")} />
+      <PageHeader title={t("customers.title")} actions={waitlistLink || undefined} />
       <EmptyState icon={<UserSearch size={22} />} title={t("setup.empty.customers")} action={viewer
         ? <ButtonLink href="/studio/calendar">{t("nav.calendar")}</ButtonLink>
         : <ButtonLink href="/studio/customers/import">{t("customers.import")}</ButtonLink>} />
@@ -58,7 +62,7 @@ export default function CustomersPage() {
       <PageHeader
         title={t("customers.title")}
         actions={viewer ? undefined : <>
-          {menuVisible(studio.modules, WAITLIST_PAGE) && <ButtonLink href={WAITLIST_PAGE} variant="secondary" icon={<BellRing size={18} />}>{t("features.waitlist")}</ButtonLink>}
+          {waitlistLink}
           <ButtonLink href="/studio/customers/import" help="import-customers" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>
         </>}
       />

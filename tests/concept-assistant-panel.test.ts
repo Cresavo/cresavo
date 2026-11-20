@@ -163,3 +163,16 @@ describe("edit and provenance (Codex #5)", () => {
     expect(actions.sourceFor(undefined)).toBe("assistant");
   });
 });
+
+describe("owner approval", () => {
+  it("lets the owner's approval offer a cancelled time to the waiting list", async () => {
+    const { store, ask, approve, reply } = await setup();
+    const state = store.currentState()!;
+    const booking = state.bookings.find((item) => item.status === "booked" && state.waitlistEntries.some((e) => e.serviceId && e.days.includes(item.date) && e.customerId !== item.customerId))!;
+    const id = ask({ card: { kind: "change", title: "Cancel", rows: [], toast: "", action: { type: "booking/cancel", id: booking.id, offerWaitingList: true } } });
+    expect(approve(id)).toBe(true);
+    expect(reply(id).status).toBe("approved");
+    expect(store.currentState()!.bookings.find((item) => item.id === booking.id)?.status).toBe("cancelled");
+    expect(store.currentState()!.log[0]).toMatchObject({ actor: "ai", approvedBy: "owner", type: "booking/cancel" });
+  });
+});

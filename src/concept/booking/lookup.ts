@@ -62,7 +62,11 @@ export function findCustomerByPhone(state: Pick<DemoState, "customers">, phone: 
 
 /** New for deposit terms: unknown, or known only from joining the waiting list and never booked. */
 export function isNewBookingCustomer(state: Pick<DemoState, "customers" | "bookings">, phone: string): boolean {
-  const customer = findCustomerByPhone(state, phone);
+  return isNewCustomer(state, findCustomerByPhone(state, phone));
+}
+
+/** The same rule for a known customer record (a personal offer names its customer by id, not by phone). */
+export function isNewCustomer(state: Pick<DemoState, "bookings">, customer: Customer | undefined): boolean {
   return !customer || (!!customer.waitlistProspect && !state.bookings.some((b) => b.customerId === customer.id));
 }
 

@@ -52,6 +52,8 @@ export interface CheckoutHold extends Pick<Booking, "serviceId" | "staffId" | "d
   terms: BookingTerms;
   /** Set when the checkout pays for a personal waitlist offer; it ends with that offer. */
   offerId?: string;
+  /** The offered customer: the booking is theirs, whoever else shares the phone number. */
+  customerId?: string;
   guest: OnlineGuest;
   notice: OnlineNotice;
 }

@@ -9,6 +9,7 @@ import type { DemoState } from "./data/types";
 import { demoMessageLedger, demoPaymentLedger, withDemoChannels } from "./connections/demo";
 import { nextWaitlistWake } from "./booking/waitlist-match";
 import { salonClock } from "./tools/clock";
+import { visitTime } from "./booking/policy";
 import { withOffersHeld } from "./booking/waitlist-offer";
 import { prepareAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
@@ -161,9 +162,11 @@ function load(raw: string | null, workspace: Workspace): DemoState | null {
       const validHolds = saved.checkoutHolds.filter(hold => hold.expiresAt > Date.now());
       if (validHolds.length !== saved.checkoutHolds.length) saved = { ...saved, checkoutHolds: validHolds };
       if (saved.industry) return purge({ ...saved, generatedFor: today() });
-      // A queue still in use spans midnight: open times, offers out, or a visitor's request with days still ahead.
-      // Ended offers and older requests without days do not hold the sample schedule back.
-      const liveQueue = saved.waitlistGaps.length > 0 || saved.waitlistOffers.some(offer => offer.status === "offered") ||
+      // A queue still in use spans midnight: open times still ahead, offers still held, or a visitor's request with
+      // days still ahead. Ended or expired offers, past gaps and older requests without days do not hold the sample back.
+      const opened = Date.now();
+      const liveQueue = saved.waitlistGaps.some(gap => visitTime({ date: gap.date, start: gap.end }).toMillis() > opened) ||
+        saved.waitlistOffers.some(offer => offer.status === "offered" && offer.expiresAt > opened) ||
         saved.waitlistEntries.some(entry => !entry.id.startsWith("fixture-") && (entry.days.at(-1) ?? "") >= salonClock().today);
       const demo = saved.generatedFor === today() || liveQueue
         ? purge({ ...saved, generatedFor: today() })
@@ -235,7 +238,7 @@ function scheduleWaitlist(delay?: number) {
   clearTimeout(waitlistTimer);
   const state = snapshots[active].state;
   if (!listeners.size || !state) return;
-  const wake = delay ?? nextWaitlistWake(state) - Date.now();
+  const wake = delay ?? nextWaitlistWake(state, Date.now()) - Date.now();
   if (Number.isFinite(wake)) waitlistTimer = setTimeout(tickWaitlist, Math.min(MAX_TIMER, Math.max(1, retryDelay, wake)));
 }
 
@@ -243,7 +246,7 @@ function tickWaitlist() {
   if (!listeners.size) return;
   const settle = (changed: unknown) => {
     const state = snapshots[active].state;
-    const overdue = !!state && nextWaitlistWake(state) <= Date.now();
+    const overdue = !!state && nextWaitlistWake(state, Date.now()) <= Date.now();
     retryDelay = !changed && overdue ? Math.min(RETRY_MAX, Math.max(RETRY_MIN, retryDelay * 2)) : 0;
   };
   // A lock request that fails (an embedded page without Web Locks access) counts as a failed tick too.
@@ -389,18 +392,18 @@ export function dispatchWithLog(
     if (next === current) return false;
     // Includes undo, which can restore a previously free address.
     if (next.salon.slug !== current.salon.slug && next.salon.slug === workspaceSlug(active === "demo" ? "own" : "demo")) return false;
-    // Run the booking rules again if another tab wrote while we prepared the save.
-    const recheck = !!canApply || action.type.startsWith("online/") || action.type === "salon/policy" ||
-      action.type === "booking/fee" || action.type === "booking/cancel" || action.type === "trash/restore";
+    // Every write re-reads storage right before saving and runs the rules again on a newer copy, so a change
+    // prepared on an older snapshot (a calendar drag outside the lock) never writes over another tab's claim or booking.
     // A personal offer must reach shared storage before its link is texted or used: another tab
     // would otherwise not know it, and could claim it again or hand the time to someone else.
     // A customer told "you have left the list", an owner told offers are paused and a customer told
     // their request is saved must find it so in every tab, too.
     const releasesOffer = action.type === "online/release" && current.checkoutHolds.some(hold => hold.id === action.id && hold.offerId);
     const personalClaim = personalBooking || releasesOffer || action.type.startsWith("waitlist/") ||
-      action.type === "online/leave" || action.type === "online/decline" || action.type === "online/waitlist";
+      action.type === "online/leave" || action.type === "online/decline" || action.type === "online/waitlist" ||
+      current.modules.waitlist !== next.modules.waitlist;
     const sendsOffer = next.waitlistOffers.some(offer => offer.status === "offered" && !current.waitlistOffers.some(old => old.id === offer.id));
-    const saved = setState(next, recheck || action.type === "waitlist/advance" || sendsOffer, () => { batch.publish(); messages.publish(); }, personalClaim || sendsOffer);
+    const saved = setState(next, true, () => { batch.publish(); messages.publish(); }, personalClaim || sendsOffer);
     if (saved === "unsaved") return false;
     if (!saved) continue;
     if (workspace === "own") markTrialUsed(now);

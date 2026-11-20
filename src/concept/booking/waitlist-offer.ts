@@ -1,6 +1,6 @@
 import { stableHash } from "../connections/core";
 import { sendDemoMessage } from "../connections/demo";
-import type { DemoState } from "../data/types";
+import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
 import { customerText } from "../i18n/customer-text";
 import { formatDayLong, formatTime } from "../i18n/format";
@@ -18,10 +18,16 @@ import type { WaitlistGap, WaitlistOffer } from "./waitlist-types";
 /** The personal link in an offer text: the salon's own booking page. */
 export const offerLink = (slug: string, id: string) => `${bookingHome(slug)}?offer=${encodeURIComponent(id)}`;
 
-/** True when a change sent a new personal offer or started an approved queue for later (quiet hours). */
-export function offeredSince(before: Pick<DemoState, "waitlistOffers" | "waitlistGaps">, after: Pick<DemoState, "waitlistOffers" | "waitlistGaps">): boolean {
-  return after.waitlistOffers.some((o) => o.status === "offered" && !before.waitlistOffers.some((old) => old.id === o.id)) ||
-    after.waitlistGaps.some((g) => g.approved && !before.waitlistGaps.some((old) => old.id === g.id));
+/**
+ * True when a change offered this visit's time to someone: a new personal offer that uses it, or an approved
+ * queue for it waiting for 08:00. Offers for other times sent in the same change do not count.
+ */
+export function offeredSince(before: Pick<DemoState, "waitlistOffers" | "waitlistGaps">, after: Pick<DemoState, "waitlistOffers" | "waitlistGaps">, visit: Booking): boolean {
+  const freed = occupied(visit);
+  const overlaps = (span: { start: number; end: number }) => span.start < freed.end && span.end > freed.start;
+  const here = (item: { staffId: string; date: string }) => item.staffId === visit.staffId && item.date === visit.date;
+  return after.waitlistOffers.some((o) => o.status === "offered" && here(o) && overlaps(occupied(o)) && !before.waitlistOffers.some((old) => old.id === o.id)) ||
+    after.waitlistGaps.some((g) => g.approved && here(g) && (g.released ?? [g]).some(overlaps) && !before.waitlistGaps.some((old) => old.id === g.id));
 }
 
 /** Removes one entry and keeps the customer's waiting-list flag in step with what is left. */
@@ -141,18 +147,20 @@ function sendOffers(current: DemoState, now: number, approve?: string): DemoStat
   for (const gap of state.waitlistGaps) {
     if (state.waitlistOffers.some((o) => o.gapId === gap.id && o.status === "offered")) continue;
     const match = nextMatch(state, gap, now);
+    // Someone who fits but holds another offer right now keeps the gap open for when that one ends.
+    const possible = match ?? nextMatch(state, gap, now, { includeHeld: true });
     const byOwner = approve === gap.id;
     const automatic = enabled && !byOwner && (gap.approved || rules.mode === "automatic");
     // During quiet hours an automatic text can only offer what is still ahead once they end.
-    const afterQuiet = match && automatic && sendable > now ? nextMatch(state, gap, sendable) : match;
+    const afterQuiet = possible && automatic && sendable > now ? nextMatch(state, gap, sendable, { includeHeld: true }) : possible;
     // Nobody left to ask, or nothing in the gap starts after quiet hours: the gap is done.
-    if (!match || !afterQuiet) {
+    if (!possible || !afterQuiet) {
       state = { ...state, waitlistGaps: state.waitlistGaps.filter((g) => g.id !== gap.id) };
       continue;
     }
     const readyAt = automatic && sendable > now ? sendable : undefined;
     if (gap.readyAt !== readyAt) state = { ...state, waitlistGaps: state.waitlistGaps.map((g) => (g.id === gap.id ? { ...g, readyAt } : g)) };
-    if (!offersHeld && enabled && (byOwner || (automatic && readyAt === undefined))) state = sendOffer(state, gap, match, now, byOwner ? "owner" : "automatic");
+    if (match && !offersHeld && enabled && (byOwner || (automatic && readyAt === undefined))) state = sendOffer(state, gap, match, now, byOwner ? "owner" : "automatic");
   }
   return state;
 }

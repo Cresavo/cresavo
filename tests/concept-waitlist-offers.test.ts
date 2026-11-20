@@ -6,10 +6,10 @@ import { demoOutbox } from "@/concept/connections/demo";
 import { isFree, needOf, withSlotClock } from "@/concept/data/slots";
 import type { Booking, DemoState } from "@/concept/data/types";
 import { applyAction, defaultMeta } from "@/concept/log/capture";
-import { offeredSince } from "@/concept/booking/waitlist-offer";
+import { offeredSince, withOffersHeld } from "@/concept/booking/waitlist-offer";
 import { createSalon, salonDraft } from "@/concept/onboarding/salon";
 import { createDemoState } from "@/concept/data/generate";
-import { isNewBookingCustomer } from "@/concept/booking/lookup";
+import { isNewCustomer } from "@/concept/booking/lookup";
 import { openSlots } from "@/concept/booking/suggest";
 import { quote } from "@/concept/booking/protection";
 import { MAX_REQUEST_DAYS } from "@/concept/booking/waitlist-types";
@@ -53,8 +53,7 @@ function setup(mode: "automatic" | "ask" | "off" = "automatic", state: DemoState
 function shownTerms(state: DemoState, id: string) {
   const offer = state.waitlistOffers.find((o) => o.id === id) ?? state.waitlistOffers[0];
   const service = state.services.find((s) => s.id === offer.serviceId)!;
-  const phone = state.customers.find((c) => c.id === offer.customerId)!.phone;
-  return quote(state.cancellationPolicy, service, state.localization.currency, isNewBookingCustomer(state, phone));
+  return quote(state.cancellationPolicy, service, state.localization.currency, isNewCustomer(state, state.customers.find((c) => c.id === offer.customerId)));
 }
 
 function claim(state: DemoState, id: string, at = now) {
@@ -139,6 +138,22 @@ describe("offers one customer at a time", () => {
     expect(claim({ ...offered, bookings: initial.bookings }, offer.id).bookings).toEqual(initial.bookings);
   });
 
+  it("books a claim for the offered customer even when another contact shares the phone number", () => {
+    const offered = reduce(setup(), cancel, now);
+    const offer = offered.waitlistOffers[0];
+    const owner = offered.customers.find((c) => c.id === offer.customerId)!;
+    const twin = { ...owner, id: "k-twin", firstName: "Other", waitlist: false, waitlistProspect: undefined };
+    const shared = { ...offered, customers: [twin, ...offered.customers] };
+    const booked = claim(shared, offer.id);
+    expect(booked.bookings.at(-1)?.customerId).toBe(owner.id);
+    const deposit = { ...shared, cancellationPolicy: { ...shared.cancellationPolicy, deposits: { [serviceId]: 15000 } } };
+    const held = claim(deposit, offer.id);
+    expect(held.checkoutHolds[0].customerId).toBe(owner.id);
+    const paid = reduce(held, { type: "online/pay", id: held.checkoutHolds[0].id, method: "card" }, now);
+    expect(paid.bookings.at(-1)?.customerId).toBe(owner.id);
+    expect(paid.inbox.find((i) => i.bookingId === paid.bookings.at(-1)?.id)?.customerId).toBe(owner.id);
+  });
+
   it("refuses a claim when the price changed after the customer saw the offer", () => {
     const offered = reduce(setup(), cancel, now);
     const offer = offered.waitlistOffers[0];
@@ -177,6 +192,21 @@ describe("offers one customer at a time", () => {
       expect(result.ok).toBe(true);
       expect(store.published("demo")).toEqual([]);
     });
+  });
+
+  it("keeps a freed time for a customer who holds another offer, and offers it once that ends", () => {
+    const monday = "2026-11-23";
+    const state = setup();
+    // One customer waits for Friday and Monday; Alex has visits on both days.
+    state.waitlistEntries = [{ ...state.waitlistEntries[0], days: [date, monday] }];
+    state.bookings = [...state.bookings, { ...state.bookings[0], id: "monday", date: monday }];
+    const friday = reduce(state, cancel, now);
+    expect(friday.waitlistOffers).toHaveLength(1);
+    const both = reduce(friday, { type: "booking/cancel", id: "monday" }, now + 1);
+    expect(both.waitlistGaps.map((g) => g.date).sort()).toEqual([date, monday]);
+    expect(both.waitlistOffers.filter((o) => o.status === "offered")).toHaveLength(1);
+    const declined = reduce(both, { type: "online/decline", id: friday.waitlistOffers[0].id }, now + 2);
+    expect(declined.waitlistOffers.find((o) => o.status === "offered")).toMatchObject({ date: monday, customerId: state.waitlistEntries[0].customerId });
   });
 
   it("ends the queue when nobody else fits", () => {
@@ -346,7 +376,18 @@ describe("edge cases", () => {
       guest: { name: "Demo Guest 9", phone: "0701234569", at: { date: day, time: 600 } } }, now);
     expect(book(660)).toBe(prep);
     expect(book(720).bookings).toHaveLength(1);
+    // Half a minute later preparation for noon has begun, though the guest's clock still says 10:00.
+    expect(reduce(prep, { type: "online/book", serviceId, staffId: alex, date: day, start: 720, notice,
+      guest: { name: "Demo Guest 9", phone: "0701234569", at: { date: day, time: 600 } } }, now + 30_000)).toBe(prep);
     expect(openSlots(prep, serviceId, day, { today: day, minutes: 600 })[0].start).toBe(720);
+    // A visit booked with two hours of preparation keeps them when it is moved, after the treatment lost them.
+    const booked = book(720);
+    const visit = booked.bookings[0];
+    const lighter = { ...booked, services: [{ ...booked.services[0], bufferBefore: undefined }] };
+    const moves = openSlots(lighter, serviceId, day, { today: day, minutes: 600 }, { ignoreId: visit.id });
+    expect(moves.length).toBeGreaterThan(0);
+    expect(moves.every((slot) => slot.start - 120 >= 600)).toBe(true);
+    expect(openSlots(lighter, serviceId, day, { today: day, minutes: 600 })[0].start).toBe(660);
   });
 
   it("ends an ordinary deposit checkout when preparation must begin", () => {
@@ -421,10 +462,14 @@ describe("edge cases", () => {
 
   it("tells the owner a customer was offered the time only when one was", () => {
     const state = setup("ask");
-    expect(offeredSince(state, reduce(state, { ...cancel, offerWaitingList: true }, now))).toBe(true);
+    const visit = state.bookings[0];
+    expect(offeredSince(state, reduce(state, { ...cancel, offerWaitingList: true }, now), visit)).toBe(true);
     // Everyone waiting wants Sam, so the freed time with Alex goes to nobody.
     const elsewhere = { ...state, waitlistEntries: state.waitlistEntries.map((e) => ({ ...e, staffId: sam })) };
-    expect(offeredSince(elsewhere, reduce(elsewhere, { ...cancel, offerWaitingList: true }, now))).toBe(false);
+    expect(offeredSince(elsewhere, reduce(elsewhere, { ...cancel, offerWaitingList: true }, now), visit)).toBe(false);
+    // An unrelated offer for another time sent in the same change does not make the toast say this one was offered.
+    const other = { ...elsewhere.waitlistOffers[0] ?? {}, id: "o-other", gapId: "g-other", entryId: "e", customerId: "c", serviceId, staffId: sam, date, start: 900, duration: 60, offeredAt: now, offeredBy: "automatic" as const, expiresAt: now + 1, status: "offered" as const };
+    expect(offeredSince(elsewhere, { ...elsewhere, waitlistOffers: [other] }, visit)).toBe(false);
   });
 
   it("gives an open offer back its gap, so a restored offer still hands the time on", () => {
@@ -590,7 +635,10 @@ describe("in the browser store", () => {
     const offer = { ...reduce(setup(), cancel, now).waitlistOffers[0], date: day };
     const ended = { ...sample, waitlistOffers: [{ ...offer, status: "lapsed" as const }] };
     expect((await openTab({ raw: JSON.stringify(ended) })).currentState()).toMatchObject({ generatedFor: day, waitlistOffers: [] });
-    const live = { ...sample, waitlistOffers: [offer] };
+    // An offer still marked open whose hold ended while every tab was closed, and a gap long past, do not count either.
+    const stale = { ...sample, waitlistOffers: [{ ...offer, expiresAt: now - 1 }], waitlistGaps: [{ ...gap, date: yesterday }] };
+    expect((await openTab({ raw: JSON.stringify(stale) })).currentState()).toMatchObject({ generatedFor: day, waitlistOffers: [] });
+    const live = { ...sample, waitlistOffers: [{ ...offer, expiresAt: now + 60_000 }] };
     const kept = (await openTab({ raw: JSON.stringify(live) })).currentState()!;
     expect(kept.waitlistOffers).toHaveLength(1);
     expect(kept.bookings).toEqual(sample.bookings);
@@ -628,6 +676,27 @@ describe("in the browser store", () => {
     const claimAction = { type: "online/claim", id: offered.waitlistOffers[0].id, terms: shownTerms(offered, offered.waitlistOffers[0].id), notice } as const;
     expect(await other.withBookingLock(() => other.dispatch(claimAction))).toBe(false);
     expect(other.currentState()?.waitlistOffers[0].status).toBe("offered");
+  });
+
+  it("never writes an older snapshot over a claim another tab saved meanwhile", async () => {
+    const offered = reduce(setup(), cancel, now);
+    const claimed = claim(offered, offered.waitlistOffers[0].id);
+    const storage: { raw: string; race?: { afterReads: number; write: () => void } } = { raw: JSON.stringify(offered) };
+    const tab = await openTab(storage);
+    tab.currentState();
+    // The other tab books the offer while this one prepares an unrelated change outside the lock.
+    storage.race = { afterReads: 1, write: () => { storage.raw = JSON.stringify(claimed); } };
+    expect(tab.dispatch({ type: "inbox/read", id: offered.inbox.at(-1)!.id })).toBe(true);
+    const saved = JSON.parse(storage.raw) as DemoState;
+    expect(saved.waitlistOffers[0].status).toBe("claimed");
+    expect(saved.bookings).toEqual(claimed.bookings);
+  });
+
+  it("does not report the add-on switched off unless that is saved", async () => {
+    const storage = { raw: JSON.stringify(setup()), full: true };
+    const tab = await openTab(storage);
+    expect(await tab.withBookingLock(() => tab.dispatch({ type: "module/toggle", key: "waitlist" }))).toBe(false);
+    expect(tab.currentState()?.modules.waitlist).toBe(true);
   });
 
   it("refuses queue decisions it cannot save", async () => {
@@ -686,6 +755,26 @@ describe("in the browser store", () => {
       expect(kept.waitlistEntries.map((e) => e.id)).toContain("wait-visitor");
     } finally {
       process.env.TZ = zone;
+    }
+  });
+
+  it("retries a first offer that could not be saved, soon after storage recovers", async () => {
+    const freed = withOffersHeld(true, () => reduce(setup(), cancel, now));
+    expect(freed.waitlistGaps).toHaveLength(1);
+    expect(freed.waitlistOffers).toEqual([]);
+    const storage = { raw: JSON.stringify(freed), full: true };
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    vi.setSystemTime(now);
+    const tab = await openTab(storage);
+    const stop = tab.subscribeStore(() => undefined);
+    try {
+      await vi.advanceTimersByTimeAsync(1000);
+      expect((JSON.parse(storage.raw) as DemoState).waitlistOffers).toEqual([]);
+      storage.full = false;
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect((JSON.parse(storage.raw) as DemoState).waitlistOffers).toHaveLength(1);
+    } finally {
+      stop();
     }
   });
 

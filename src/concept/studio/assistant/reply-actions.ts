@@ -36,11 +36,15 @@ export function applyReply(id: string, action: DemoAction, meta: Meta) {
   return logId !== false;
 }
 
-/** Approves a proposal with the provenance of the words that asked for it. */
+/**
+ * Approves a proposal with the provenance of the words that asked for it. The owner's own click is
+ * their approval too (offering a cancelled time to the waiting list needs it); a colleague's is not.
+ */
 export function approveReply(id: string, action: DemoAction) {
   const reply = replyOf(id);
+  const approval = currentRole() === "owner" ? { approvedBy: "owner" as const } : {};
   return reply?.card?.kind === "change" && reply.card.action === action
-    ? applyReply(id, action, { actor: "ai", source: sourceFor(reply.input) })
+    ? applyReply(id, action, { actor: "ai", source: sourceFor(reply.input), ...approval })
     : false;
 }
 

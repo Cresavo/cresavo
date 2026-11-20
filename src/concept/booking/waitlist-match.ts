@@ -32,9 +32,13 @@ export function nextSmsTime(now: number): number {
 /** Salon midnight after a day: when an entry whose last day it is expires. */
 const endOfDay = (day: string) => DateTime.fromISO(day, { zone: SALON_TIMEZONE }).plus({ days: 1 }).toMillis();
 
-/** The next moment the queue needs attention (a hold ends, quiet hours end, a day passes), or Infinity. */
-export function nextWaitlistWake(state: Pick<DemoState, "waitlistOffers" | "waitlistEntries" | "waitlistGaps">): number {
+/**
+ * The next moment the queue needs attention (a hold ends, quiet hours end, a day passes), or Infinity.
+ * With `now`, a gap that could be offered right away but has no offer out (its first send failed) is due now.
+ */
+export function nextWaitlistWake(state: DemoState, now?: number): number {
   let wake = Infinity;
+  if (now !== undefined && sendableNow(state, now)) return now;
   for (const offer of state.waitlistOffers) if (offer.status === "offered") wake = Math.min(wake, offer.expiresAt);
   for (const entry of state.waitlistEntries) {
     const last = entry.days.at(-1);
@@ -42,6 +46,14 @@ export function nextWaitlistWake(state: Pick<DemoState, "waitlistOffers" | "wait
   }
   for (const gap of state.waitlistGaps) wake = Math.min(wake, gap.readyAt ?? Infinity, visitTime({ date: gap.date, start: gap.end }).toMillis());
   return wake;
+}
+
+/** Some gap without an offer out would be sent to someone at `now` (no quiet hours, approval given or automatic). */
+function sendableNow(state: DemoState, now: number): boolean {
+  const rules = state.waitlistRules;
+  if (!state.modules.waitlist || rules.paused || rules.mode === "off" || nextSmsTime(now) > now) return false;
+  return state.waitlistGaps.some((gap) => !gap.readyAt && (gap.approved || rules.mode === "automatic") &&
+    !state.waitlistOffers.some((o) => o.gapId === gap.id && o.status === "offered") && !!nextMatch(state, gap, now));
 }
 
 /** Longest waiting first; ties go to the earliest requested day, then the entry id. */
@@ -90,11 +102,15 @@ export interface WaitlistMatch {
   resourceId?: string;
 }
 
-/** The next customer in the queue for a gap and the earliest start that fits them, or undefined. */
-export function nextMatch(state: DemoState, gap: WaitlistGap, now: number): WaitlistMatch | undefined {
+/**
+ * The next customer in the queue for a gap and the earliest start that fits them, or undefined. A
+ * customer holding another offer is skipped for now; `includeHeld` counts them, to tell a gap that
+ * only waits for them from one nobody can take.
+ */
+export function nextMatch(state: DemoState, gap: WaitlistGap, now: number, { includeHeld = false } = {}): WaitlistMatch | undefined {
   const clock = salonClock(new Date(now));
   if (gap.date < clock.today) return undefined;
-  const tried = new Set(state.waitlistOffers.filter((o) => o.gapId === gap.id || o.status === "offered").map((o) => o.customerId));
+  const tried = new Set(state.waitlistOffers.filter((o) => o.gapId === gap.id || (!includeHeld && o.status === "offered")).map((o) => o.customerId));
   const earliest = gap.date === clock.today ? clock.minutes + 1 : 0;
   // Bookable starts in this gap depend only on the treatment: worked out once per treatment, then each customer's window applies.
   const startsByService = new Map<string, number[]>();
@@ -189,7 +205,7 @@ export function releasedGaps(prev: DemoState, state: DemoState, now: number): Wa
       }
     });
   }
-  return found.filter((gap) => nextMatch(state, gap, now)).sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
+  return found.filter((gap) => nextMatch(state, gap, now, { includeHeld: true })).sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
 }
 
 /** Open time on a day that no queue covers yet, with its first match: an owner can offer existing gaps too. */

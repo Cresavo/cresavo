@@ -14,7 +14,7 @@ import { showActionFailure } from "../ui/toast";
 import type { Now } from "../use-now";
 import { DepositCheckout } from "./deposit-checkout";
 import { bookingPage } from "./links";
-import { isNewBookingCustomer } from "./lookup";
+import { isNewCustomer } from "./lookup";
 import { BookingSummary } from "./booking-summary";
 import { quote, type BookingTerms } from "./protection";
 
@@ -31,9 +31,9 @@ export function ClaimOffer({ state, now, id }: { state: DemoState; now: Now; id:
   const offer = state.waitlistOffers.find((o) => o.id === id);
   const service = state.services.find((s) => s.id === offer?.serviceId);
   const person = state.staff.find((p) => p.id === offer?.staffId);
-  // The customer's own number decides first-visit deposit terms; the salon's is the one to call.
-  const phone = state.customers.find((c) => c.id === offer?.customerId)?.phone ?? "";
-  const terms = service && quote(state.cancellationPolicy, service, state.localization.currency, isNewBookingCustomer(state, phone));
+  // The offered customer decides first-visit deposit terms; the salon's number is the one to call.
+  const customerId = offer?.customerId ?? "";
+  const terms = service && quote(state.cancellationPolicy, service, state.localization.currency, isNewCustomer(state, state.customers.find((c) => c.id === customerId)));
   const hold = state.checkoutHolds.find((h) => h.offerId === id);
   const active = offer?.status === "offered" && !!service && !!terms;
   const waiting = !left && state.waitlistEntries.some((e) => e.customerId === offer?.customerId);
@@ -53,7 +53,7 @@ export function ClaimOffer({ state, now, id }: { state: DemoState; now: Now; id:
       type === "online/claim" ? claim() : type === "online/leave" ? { type, id, all: true } : { type, id },
     )).catch(() => false);
     setPending(false);
-    if (!done) return showActionFailure(type === "online/claim" && termsChanged(currentState(), offer.serviceId, phone, terms) ? "protection.changed" : "booking.visitChanged", undefined, "booking");
+    if (!done) return showActionFailure(type === "online/claim" && termsChanged(currentState(), offer.serviceId, customerId, terms) ? "protection.changed" : "booking.visitChanged", undefined, "booking");
     if (type === "online/leave") setLeft(true);
     const booked = currentState()?.waitlistOffers.find((o) => o.id === id)?.bookingId;
     if (type === "online/claim" && booked) router.push(bookingPage(state.salon.slug, booked));
@@ -98,8 +98,8 @@ export function ClaimOffer({ state, now, id }: { state: DemoState; now: Now; id:
 }
 
 /** True when the price or policy for this customer is no longer what the page showed. */
-function termsChanged(latest: DemoState | null, serviceId: string, phone: string, shown: BookingTerms | undefined) {
+function termsChanged(latest: DemoState | null, serviceId: string, customerId: string, shown: BookingTerms | undefined) {
   const service = latest?.services.find((s) => s.id === serviceId && !s.hidden);
   if (!latest || !service || !shown) return true;
-  return JSON.stringify(quote(latest.cancellationPolicy, service, latest.localization.currency, isNewBookingCustomer(latest, phone))) !== JSON.stringify(shown);
+  return JSON.stringify(quote(latest.cancellationPolicy, service, latest.localization.currency, isNewCustomer(latest, latest.customers.find((c) => c.id === customerId)))) !== JSON.stringify(shown);
 }
