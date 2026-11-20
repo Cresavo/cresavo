@@ -2,6 +2,8 @@
 // machine: a new PostgreSQL _test database, the split salon, the real gateway from a
 // separate checkout, and per-run TLS in front of both. See docs/CUSTOMER_CONSENT_CHANNEL.md.
 // No .env loading. Prints sanitized results only. Never commit its output unreviewed.
+// First, before any other import is evaluated: diagnostics and remote-browser settings are refused.
+import "./preflight-env.mjs";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -17,11 +19,10 @@ import { createDatabaseClient } from "../database.mjs";
 import { containsSecret, registerSecret, say } from "./sanitize.mjs";
 import { assertChildEnv, captureStream, freePorts, guardStream, leakedStreams, runStep, startServer, stopAll, track } from "./processes.mjs";
 import { agentChannel } from "./agent-reply.mjs";
-import { loopbackAdminUrl, refuseDiagnostics, refuseRemoteBrowsers, stagingDatabase } from "./preflight.mjs";
+import { loopbackAdminUrl, stagingDatabase } from "./preflight.mjs";
 import { acquisition, CLEANUP_SIGNALS, databaseAlreadyExisted, launchedBrowsers, settles } from "./lifecycle.mjs";
 import { issueCertificates, operatorFetch, tlsProxy } from "./tls.mjs";
 import { createServer as createHttpServer } from "node:http";
-import { approveWithLostResponse, close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking, reopenInSameTab, salonContext } from "./browsers.mjs";
 
 const repo = realpathSync(fileURLToPath(new URL("../..", import.meta.url)));
 const pin = JSON.parse(readFileSync(join(repo, "scripts/staging-consent/gateway.json"), "utf8"));
@@ -59,9 +60,10 @@ for (const host of [gatewayHost, salonHost]) assert(hostPattern.test(host) && !i
 assert.notEqual(gatewayHost, salonHost, "STAGING_HOSTS_MUST_DIFFER");
 // Failing until the run has finished, cleaned up and passed every check.
 process.exitCode = 1;
-// Before any link exists: diagnostics that would print URLs outside the sanitizer are refused.
-refuseDiagnostics(process.env, process.execArgv);
-refuseRemoteBrowsers(process.env);
+// Diagnostics and remote-browser settings were refused by the first import (preflight-env.mts).
+// Playwright is loaded only now, after those checks: it opens DEBUG_FILE as it loads.
+const { approveWithLostResponse, close, decide, expectedText, launchBrowser, openConsent, ownerOpensBooking, reopenInSameTab, salonContext } =
+  await import("./browsers.mjs");
 // Throws a static code only: the value may hold a password and nothing is registered for redaction yet.
 const adminUrl = loopbackAdminUrl(process.env.STAGING_PG_ADMIN_URL);
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();

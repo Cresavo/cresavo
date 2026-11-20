@@ -569,6 +569,15 @@ describe("staging runner preflight", () => {
       expect((thrown as Error).message).toMatch(/^STAGING_[A-Z_]+$/);
     }
     expect(() => loopbackAdminUrl(`postgresql://booking:${password}@db.example.test/postgres`)).toThrow(/^STAGING_DATABASE_MUST_BE_LOOPBACK$/);
+    // Credentials only in the user info: a query parameter could override or relocate them.
+    for (const query of [`password=${password}`, `PASSWORD=${password}`, "passfile=/tmp/x", `sslpassword=${password}`, "user=other", "service=fictional",
+      "sslkey=/tmp/k", "servicefile=/tmp/s"]) {
+      let thrown: unknown;
+      try { loopbackAdminUrl(`postgresql://booking:booking@127.0.0.1:5432/postgres?${query}`); } catch (error) { thrown = error; }
+      expect((thrown as Error)?.message, query.replace(password, "[pw]")).toBe("STAGING_PG_ADMIN_URL_CREDENTIAL_PARAMETER");
+      expect(String((thrown as Error)?.stack).includes(password), "the password is in the error").toBe(false);
+    }
+    expect(loopbackAdminUrl("postgresql://booking:booking@127.0.0.1:5432/postgres?sslmode=disable&application_name=x").hostname).toBe("127.0.0.1");
     expect(loopbackAdminUrl(undefined).hostname).toBe("127.0.0.1");
   });
 });

@@ -2,7 +2,7 @@
 // throwaway git checkout of its own scripts) so the developer's checkout, a local .env included,
 // cannot change what is asserted.
 import { execFileSync, spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,15 +53,15 @@ function salonFixture(root: string, withEnvFile = false) {
   return salon;
 }
 
-function runPreflight(root: string, salon: string) {
+function runPreflight(root: string, salon: string, extra: Record<string, string> = {}, preload: string[] = []) {
   const checkout = join(root, "gateway"), runTmp = join(root, "tmp");
   mkdirSync(checkout, { recursive: true }); mkdirSync(runTmp, { recursive: true });
   const git = (...args: string[]) => execFileSync("git", ["-C", checkout, "-c", "user.name=Fictional", "-c", "user.email=fictional@example.test", ...args], { encoding: "utf8" }).trim();
   git("init", "-q"); writeFileSync(join(checkout, "README"), "fictional\n"); git("add", "README"); git("commit", "-q", "-m", "fictional");
-  const result = spawnSync(process.execPath, ["--import", "tsx", join(salon, "scripts/staging-consent/run.mts")], {
+  const result = spawnSync(process.execPath, [...preload, "--import", "tsx", join(salon, "scripts/staging-consent/run.mts")], {
     cwd: salon, encoding: "utf8", timeout: 60_000,
     env: { PATH: process.env.PATH ?? "", HOME: root, TMPDIR: runTmp, GATEWAY_CHECKOUT: checkout, STAGING_GATEWAY_REVISION: git("rev-parse", "HEAD"),
-      STAGING_PG_ADMIN_URL: "postgresql://booking:fictional-pass@127.0.0.1:5432/postgres?host=/tmp/elsewhere" } as unknown as NodeJS.ProcessEnv,
+      STAGING_PG_ADMIN_URL: "postgresql://booking:fictional-pass@127.0.0.1:5432/postgres?host=/tmp/elsewhere", ...extra } as unknown as NodeJS.ProcessEnv,
   });
   return { output: `${result.stdout}${result.stderr}`, status: result.status, leftovers: readdirSync(runTmp).filter(name => name.startsWith("cresavo-staging-")) };
 }
@@ -75,6 +75,29 @@ describe.skipIf(process.platform === "win32")("runner preflight in a child proce
       expect(output.includes("STAGING_DATABASE_REFUSED"), "the refusal code is reported").toBe(true);
       expect(output.includes("fictional-pass"), "the password is printed").toBe(false);
       expect(leftovers).toEqual([]);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  }, 90_000);
+
+  it("refuses diagnostics before Playwright loads: an existing DEBUG_FILE is left byte-identical", () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "cresavo-preflight-test-")));
+    try {
+      // Playwright's debug logger opens DEBUG_FILE for writing as it loads.
+      const sentinel = join(root, "operator-debug.log"), content = "operator's own log, must stay as it is\n";
+      writeFileSync(sentinel, content);
+      const before = statSync(sentinel);
+      // Playwright opens the file asynchronously, so an early exit can hide the write: the probe
+      // records at exit whether any Playwright module was loaded at all.
+      const probe = join(root, "probe.mjs"), loaded = join(root, "loaded.json");
+      writeFileSync(probe, `import { createRequire } from "node:module"; import { writeFileSync } from "node:fs";
+        const cache = createRequire(import.meta.url).cache;
+        process.on("exit", () => writeFileSync(${JSON.stringify(loaded)}, JSON.stringify(Object.keys(cache).some(key => /[\\\\/]playwright(-core)?[\\\\/]/.test(key)))));`);
+      const { output, status } = runPreflight(root, salonFixture(root), { DEBUG_FILE: sentinel }, ["--import", probe]);
+      expect(readFileSync(loaded, "utf8"), "Playwright was loaded before the diagnostics check").toBe("false");
+      expect(status).not.toBe(0);
+      expect(output.includes("STAGING_DIAGNOSTICS_REFUSED"), "the refusal code is reported").toBe(true);
+      expect(readFileSync(sentinel, "utf8")).toBe(content);
+      expect(statSync(sentinel).mtimeMs).toBe(before.mtimeMs);
+      expect(readdirSync(root).filter(name => name.startsWith("cresavo-staging-"))).toEqual([]);
     } finally { rmSync(root, { recursive: true, force: true }); }
   }, 90_000);
 

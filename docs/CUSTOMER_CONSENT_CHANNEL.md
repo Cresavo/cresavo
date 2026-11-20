@@ -141,7 +141,7 @@ GATEWAY_CHECKOUT=/path/outside/this/repo npm run test:staging-consent
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `GATEWAY_CHECKOUT` | required | Gateway checkout outside this repository. Only read with `git archive`. |
-| `STAGING_PG_ADMIN_URL` | `postgresql://booking:booking@127.0.0.1:5432/postgres` | Loopback role that creates and drops the run's database. |
+| `STAGING_PG_ADMIN_URL` | `postgresql://booking:booking@127.0.0.1:5432/postgres` | Loopback role that creates and drops the run's database. Credentials only in the user info: a query parameter such as `password`, `passfile`, `sslpassword`, `user` or `service` is refused. |
 | `STAGING_GATEWAY_HOST` | `gateway.cresavo.test` | Gateway host name, resolved to loopback for this run only. |
 | `STAGING_SALON_HOST` | `salon-demo.cresavo.test` | Consent and salon host name, resolved to loopback for this run only. |
 | `STAGING_GATEWAY_REVISION` | from `gateway.json` | Override the pinned gateway revision. |
@@ -203,7 +203,9 @@ The runner:
    The runner refuses to start with diagnostic settings that would print URLs, including
    approval links, from this process outside its sanitizer: `DEBUG`, `DEBUG_FILE`,
    `PWDEBUG`, `NODE_DEBUG`, or `NODE_OPTIONS` with `--inspect` or tracing flags. Use
-   `STAGING_DEBUG=1` for sanitized failure reasons. Option names are compared as Node reads
+   `STAGING_DEBUG=1` for sanitized failure reasons. These checks are the runner's first import,
+   so they run before Playwright (which opens `DEBUG_FILE` as it loads) or Prisma is evaluated;
+   Playwright is loaded only after them. Option names are compared as Node reads
    them (`--tls_keylog` is `--tls-keylog`), and a `NODE_OPTIONS` with any quote or backslash
    is refused outright. Every child (salon, gateway, agent, build steps, browsers) gets a
    closed environment built by the runner, never its own, and the runner refuses to start a
