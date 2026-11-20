@@ -12,6 +12,8 @@ const csp = [
   "font-src 'self'",
   `connect-src 'self'${production ? "" : " ws://localhost:* ws://127.0.0.1:*"}`,
 ].join("; ");
+// Features the product never uses. Clipboard stays available for copy buttons.
+const permissionsPolicy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()";
 const config: NextConfig = {
   outputFileTracingIncludes: {
     "/api/v1/openapi": ["./docs/agent-api-v1.openapi.yaml"],
@@ -26,10 +28,16 @@ const config: NextConfig = {
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: permissionsPolicy },
           ...(production
             ? [{ key: "Strict-Transport-Security", value: "max-age=31536000" }]
             : []),
         ],
+      },
+      {
+        // OAuth and consent pages open from assistant windows that may watch the popup.
+        source: "/:path((?!oauth/|authorize|consent/).*)",
+        headers: [{ key: "Cross-Origin-Opener-Policy", value: "same-origin" }],
       },
       {
         // The consent handler supplies a narrower CSP with the reviewed OAuth

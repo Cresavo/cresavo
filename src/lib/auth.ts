@@ -11,6 +11,7 @@ import {
 } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { demoAccessEnabled, DEMO_ADMIN_EMAIL } from "./demo-access";
+import { isSameOriginWrite } from "./same-origin";
 
 function secret() {
   const s = process.env.SESSION_SECRET;
@@ -154,11 +155,5 @@ export async function logout() {
 
 export async function sameOrigin() {
   const h = await headers();
-  const origin = h.get("origin"),
-    host = h.get("host");
-  try {
-    return !!origin && new URL(origin).host === host;
-  } catch {
-    return false;
-  }
+  return isSameOriginWrite((name) => h.get(name));
 }
