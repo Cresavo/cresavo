@@ -1,7 +1,9 @@
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { inspect } from "node:util";
-import { readFileSync, statSync } from "node:fs";
+import { appendFileSync, closeSync, fstatSync, mkdtempSync, openSync, readSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import pg from "pg";
 import { DateTime } from "luxon";
 import { db } from "../../src/lib/db";
@@ -172,7 +174,7 @@ it.each(["rest", "mcp"])("%s returns only the proposal id, status and terms; the
   const approvalLink = await linkOf(body.proposal.id), link = new URL(approvalLink);
   // The row itself holds no link-shaped value.
   expect(message.sealedLink).toMatch(/^v1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]+$/);
-  expect(message.sealedLink).not.toContain(link.hash.slice(1));
+  expect(String(message.sealedLink).includes(link.hash.slice(1)), "a secret appears in the checked text").toBe(false);
   expect(link.origin).toBe(consentOrigin);
   expect(link.pathname).toBe(`/consent/${body.proposal.id}`);
   expect(link.search).toBe("");
@@ -217,6 +219,40 @@ it("the delivery profile cannot change once a proposal exists, so a delivered li
   // A proposal without a profile cannot be given one later either, so an inbox row cannot follow.
   const legacy = await db.agentProposal.findFirst({ where: { consentDelivery: null } });
   if (legacy) await expect(db.$executeRaw`UPDATE "AgentProposal" SET "consentDelivery"=${STAGING_CHANNEL} WHERE "id"=${legacy.id}`).rejects.toThrow(/CONSENT_DELIVERY_IMMUTABLE/);
+});
+
+/**
+ * Only what the server appended since `start`, read from that offset and at most 8 MiB: the rest of
+ * a long-lived log is never loaded. Static errors for a rotated (shorter) log or too much output.
+ */
+function appendedLog(file: string, start: number, limit = 8 * 1024 * 1024) {
+  const fd = openSync(file, "r");
+  try {
+    const size = fstatSync(fd).size;
+    if (size < start) throw new Error("STAGING_PG_LOG_ROTATED");
+    if (size - start > limit) throw new Error("STAGING_PG_LOG_RANGE_TOO_LARGE");
+    const buffer = Buffer.alloc(size - start);
+    let read = 0;
+    while (read < buffer.length) {
+      const n = readSync(fd, buffer, read, buffer.length - read, start + read);
+      if (n === 0) break;
+      read += n;
+    }
+    return buffer.subarray(0, read).toString("utf8");
+  } finally { closeSync(fd); }
+}
+
+it("reads only the appended part of a server log, within a size limit", () => {
+  const dir = mkdtempSync(join(tmpdir(), "cresavo-pglog-test-")), file = join(dir, "server.log");
+  try {
+    writeFileSync(file, "old line\n");
+    const start = statSync(file).size;
+    appendFileSync(file, "new line\n");
+    expect(appendedLog(file, start)).toBe("new line\n");
+    expect(() => appendedLog(file, start, 4)).toThrow(/^STAGING_PG_LOG_RANGE_TOO_LARGE$/);
+    writeFileSync(file, "");
+    expect(() => appendedLog(file, start)).toThrow(/^STAGING_PG_LOG_ROTATED$/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 // True when the text carries the secret, also hidden in an encoding (base64url or base64 runs).
@@ -264,7 +300,7 @@ it("PostgreSQL's own error texts and log carry no usable link when inbox constra
     expect(texts.join("\n").includes("Failing row contains"), "PostgreSQL returned a row detail").toBe(true);
     expect(texts.some(text => exposes(text, token)), "a PostgreSQL error text carries the link").toBe(false);
     if (logFile) {
-      const appended = readFileSync(logFile).subarray(logStart).toString("utf8");
+      const appended = appendedLog(logFile, logStart);
       expect(appended.includes("Failing row contains"), "the server log has the row detail").toBe(true);
       // The failing inserts were logged with their parameters, the sealed value in full.
       expect(/parameters: .*\$3 = 'v1\./.test(appended), "the server log has the bind parameters").toBe(true);
@@ -289,9 +325,9 @@ it("a real database failure on the inbox write leaves no trace of the link in er
     let thrown: unknown;
     try { await stagingInbox.deliver(db, consentOrigin, id, token); } catch (error) { thrown = error; }
     expect(thrown).toMatchObject({ code: "consent_delivery_unavailable" });
-    expect(inspect(thrown, { depth: 8, showHidden: true }) + String((thrown as Error).stack)).not.toContain(token);
+    expect(String(inspect(thrown, { depth: 8, showHidden: true }) + String((thrown as Error).stack)).includes(token), "a secret appears in the checked text").toBe(false);
   }
-  for (const spy of output) for (const call of spy.mock.calls) expect(JSON.stringify(call)).not.toContain(token);
+  for (const spy of output) for (const call of spy.mock.calls) expect(String(JSON.stringify(call)).includes(token), "a secret appears in the checked text").toBe(false);
   expect(await db.consentInboxMessage.count({ where: { sealedLink: { contains: token } } })).toBe(0);
   await db.agentProposal.delete({ where: { id: lab.id } });
 });
@@ -326,7 +362,7 @@ it("an approval committed before the response is lost is reported as unconfirmed
   const response = await customer(proposal.id, { token, decision: "yes", proposalHash: hash });
   expect(response.status).toBe(500);
   const raw = await response.text();
-  expect(raw).not.toContain(token);
+  expect(String(raw).includes(token), "a secret appears in the checked text").toBe(false);
   expect(consentOutcome("yes", { status: response.status, body: JSON.parse(raw) })).toBe("unconfirmed");
   expect((await getProposal(principal, proposal.id)).proposal.status).toBe("approved");
   expect(await counts(principal.clientId)).toMatchObject({ mandates: 1 });

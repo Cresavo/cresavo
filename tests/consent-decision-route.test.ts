@@ -37,7 +37,7 @@ it("reports a failure after the decision was accepted as unconfirmed, never as a
   expect(customerDecision).toHaveBeenCalledWith(id, body);
   expect(response.status).toBe(500);
   const raw = await response.text();
-  expect(raw).not.toContain(body.token);
+  expect(String(raw).includes(body.token), "a secret appears in the checked text").toBe(false);
   expect(JSON.parse(raw)).toEqual({ error: "consent_unavailable" });
   expect(consentOutcome("yes", { status: response.status, body: JSON.parse(raw) })).toBe("unconfirmed");
 });

@@ -17,8 +17,11 @@ export function issueCertificates(dir: string, hosts: string[]) {
   openssl(["req", "-x509", ...ec, "-keyout", caKey, "-out", ca, "-days", "1", "-subj", "/CN=Cresavo staging run CA (ephemeral)",
     "-addext", "basicConstraints=critical,CA:TRUE,pathlen:0", "-addext", "keyUsage=critical,keyCertSign"]);
   const leaves: Record<string, Leaf> = {};
-  for (const host of hosts) {
-    const key = join(dir, `${host}.key`), csr = join(dir, `${host}.csr`), cert = join(dir, `${host}.pem`), ext = join(dir, `${host}.ext`);
+  for (const [index, host] of hosts.entries()) {
+    // Short file names (a host name may be 253 characters, a file name component at most 255
+    // bytes): the full host name is only in the certificate's subjectAltName and the map below.
+    const base = join(dir, `leaf-${index}`);
+    const key = `${base}.key`, csr = `${base}.csr`, cert = `${base}.pem`, ext = `${base}.ext`;
     writeFileSync(ext, `subjectAltName=DNS:${host}\nextendedKeyUsage=serverAuth\nbasicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\n`, { mode: 0o600 });
     // A fixed short common name: OpenSSL caps it at 64 characters, host names may be 253. TLS
     // checks the subjectAltName, which carries the full host name.

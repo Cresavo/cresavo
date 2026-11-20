@@ -184,7 +184,7 @@ describe("sealed inbox link", () => {
     expect(sealed).toMatch(/^v1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]+$/);
     expect(sealed.length).toBeGreaterThanOrEqual(80); expect(sealed.length).toBeLessThanOrEqual(620);
     for (const encoding of ["base64url", "base64", "latin1"] as const)
-      for (const part of sealed.split(".")) expect(Buffer.from(part, encoding).toString("latin1")).not.toContain(token);
+      for (const part of sealed.split(".")) expect(String(Buffer.from(part, encoding).toString("latin1")).includes(token), "a secret appears in the checked text").toBe(false);
     expect(sealInboxLink(link, id, secret)).not.toBe(sealed);
     expect(openInboxLink(sealed, id, secret)).toBe(link);
     // Another proposal, another secret, or one changed character: a static error.
@@ -198,7 +198,7 @@ describe("sealed inbox link", () => {
       const create = vi.fn().mockResolvedValue({});
       await stagingInbox.deliver({ consentInboxMessage: { create } } as never, "https://salon-demo.cresavo.test", id, token);
       const sent = JSON.stringify(create.mock.calls);
-      expect(sent).not.toContain(token);
+      expect(String(sent).includes(token), "a secret appears in the checked text").toBe(false);
       expect(sent).not.toContain("/consent/");
       expect(openInboxLink(create.mock.calls[0][0].data.sealedLink, id)).toBe(link);
     } finally { vi.unstubAllEnvs(); }
@@ -222,12 +222,12 @@ describe("staging inbox errors", () => {
         let thrown: unknown;
         try { await run(); } catch (error) { thrown = error; }
         expect(thrown).toBeInstanceOf(Error);
-        expect(inspect(thrown, { depth: 8, showHidden: true }) + String((thrown as Error).stack)).not.toContain(token);
+        expect(String(inspect(thrown, { depth: 8, showHidden: true }) + String((thrown as Error).stack)).includes(token), "a secret appears in the checked text").toBe(false);
         expect((thrown as Error).cause).toBeUndefined();
       }
       expect(tx.consentInboxMessage.create).toHaveBeenCalledTimes(1);
       expect(tx.consentInboxMessage.updateMany).toHaveBeenCalledTimes(1);
-      for (const spy of output) for (const call of spy.mock.calls) expect(JSON.stringify(call)).not.toContain(token);
+      for (const spy of output) for (const call of spy.mock.calls) expect(String(JSON.stringify(call)).includes(token), "a secret appears in the checked text").toBe(false);
     } finally { for (const spy of output) spy.mockRestore(); vi.unstubAllEnvs(); }
   });
 });
@@ -299,6 +299,23 @@ describe("staging host and customer endpoint", () => {
     vi.stubEnv("BOOKING_CONSENT_DELIVERY", undefined);
     expect(routed("salon-demo.cresavo.test", "/studio").status).not.toBe(404);
   });
+  it("answers a consent link on any other host or port with 404, before an alias redirect", () => {
+    const id = "0b7c3f6e-6a1d-4c11-9d0e-3f1f0c1d2e3f";
+    vi.stubEnv("CONCEPT_SITE_SV_DOMAINS", "cresavo.se,www.cresavo.se");
+    const routed = (host: string, path: string) => proxy(new NextRequest(`https://${host}${path}`, { headers: { host } }));
+    // A redirect without a fragment keeps the original one: the alias's target would read the secret.
+    for (const [host, path] of [["cresavo.se", `/consent/${id}`], ["www.cresavo.se", `/consent/${id}/decision`], ["cresavo.se", `/%63onsent/${id}`],
+      ["cresavo.se", `/CONSENT/${id}`], ["salon-demo.cresavo.test:9443", `/consent/${id}`], ["localhost:3000", `/consent/${id}`]]) {
+      const response = routed(host, path);
+      expect(response.status, `${host}${path}`).toBe(404);
+      expect(response.headers.get("location")).toBeNull();
+    }
+    expect(routed("salon-demo.cresavo.test", `/consent/${id}`).status).not.toBe(404);
+    // Other paths of the alias still redirect, and without the staging channel nothing changes.
+    expect(routed("cresavo.se", "/").status).toBe(308);
+    vi.stubEnv("BOOKING_CONSENT_DELIVERY", undefined);
+    expect(routed("localhost:3000", `/consent/${id}`).status).not.toBe(404);
+  });
 });
 
 describe("customer outcome after a decision request", () => {
@@ -358,11 +375,17 @@ describe("customer outcome after a decision request", () => {
   });
   it("renders terms only from a complete, valid view", () => {
     expect(parseStagingView(view)).toBe(view);
+    // The salon's own form (toISOString) and explicit offsets are accepted.
+    for (const start of ["2026-12-07T09:30:00.000Z", "2026-12-07T10:30:00+01:00", "2026-12-07T09:30Z"])
+      expect(parseStagingView({ ...view, proposal: { ...view.proposal, start } }), start).not.toBeNull();
     const broken: unknown[] = [null, undefined, "text", [], { error: "consent_denied" }, { ...view, terms: undefined }, { ...view, proposalHash: "x" },
       { ...view, terms: { ...view.terms, timeZone: "Not/AZone" } }, { ...view, terms: { ...view.terms, currency: "sek" } },
       { ...view, proposal: { ...view.proposal, start: "tomorrow" } }, { ...view, proposal: { ...view.proposal, durationMinutes: 0 } },
       { ...view, proposal: { ...view.proposal, price: { amountMinor: 1.5, currency: "SEK" } } }, { ...view, proposal: { ...view.proposal, staff: {} } },
       { ...view, customer: "" },
+      // No zone: the browser would read these in its own time zone.
+      { ...view, proposal: { ...view.proposal, start: "2026-12-07T09:30:00" } }, { ...view, proposal: { ...view.proposal, expiresAt: "2026-12-01T08:00:00.000" } },
+      { ...view, proposal: { ...view.proposal, start: "2026-12-07" } }, { ...view, proposal: { ...view.proposal, start: "2026-12-07T09:30:00 GMT" } },
       // The amount must be shown, labelled and approved in one currency.
       { ...view, terms: { ...view.terms, currency: "EUR" } }, { ...view, proposal: { ...view.proposal, price: { amountMinor: 52000, currency: "EUR" } } }];
     for (const body of broken) {
@@ -501,7 +524,7 @@ describe("staging runner preflight", () => {
       let thrown: unknown;
       try { loopbackAdminUrl(value); } catch (error) { thrown = error; }
       expect(thrown, value).toBeInstanceOf(Error);
-      expect(inspect(thrown, { depth: 5 }) + String((thrown as Error).stack)).not.toContain(password);
+      expect(String(inspect(thrown, { depth: 5 }) + String((thrown as Error).stack)).includes(password), "a secret appears in the checked text").toBe(false);
       expect((thrown as Error).message).toMatch(/^STAGING_[A-Z_]+$/);
     }
     expect(() => loopbackAdminUrl(`postgresql://booking:${password}@db.example.test/postgres`)).toThrow(/^STAGING_DATABASE_MUST_BE_LOOPBACK$/);
@@ -529,12 +552,12 @@ describe("staging runner output", () => {
     const line = agentReply(1, { structuredContent: { proposal: { status: "pending" } },
       content: [{ type: "text", text: "{}" }, { type: "text", text: link }, { type: "resource", resource: { uri: link } }] });
     expect(JSON.parse(line).body).toEqual({ proposal: { status: "pending" } });
-    expect(line).toContain("L".repeat(43));
+    expect(line.includes("L".repeat(43)), "the complete result is kept for the scan").toBe(true);
     // No structured content and a first text block that is not JSON: still no throw, still all of it.
     const plain = agentReply(2, { content: [{ type: "text", text: "Proposal created." }, { type: "text", text: link }] });
     expect(JSON.parse(plain).body).toBeUndefined();
     expect(JSON.parse(plain).text).toBe("Proposal created.");
-    expect(plain).toContain("L".repeat(43));
+    expect(plain.includes("L".repeat(43)), "the complete result is kept for the scan").toBe(true);
     expect(() => agentReply(3, { content: "not a list" })).not.toThrow();
   });
   it("keeps the complete process output until shutdown, also secrets registered after they were printed", async () => {

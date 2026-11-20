@@ -1,6 +1,6 @@
 // The staging runner's operator HTTPS client, against a local server with a throwaway CA.
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:https";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -33,11 +33,16 @@ describe.skipIf(!hasOpenssl)("operator HTTPS requests", () => {
 
   it("issues certificates for host names longer than a certificate common name allows", async () => {
     const { X509Certificate } = await import("node:crypto");
-    // 4 labels of 60 characters: a valid 247-character host name, far over OpenSSL's 64 for a CN.
-    const long = `${"a".repeat(60)}.${"b".repeat(60)}.${"c".repeat(60)}.${"d".repeat(60)}.test`;
+    // A valid 253-character host name (labels of 61, 61, 61 and 62 characters and "test"): far over OpenSSL's
+    // 64 for a CN, and with ".key" appended over a file system's 255-byte name limit.
+    const long = `${"a".repeat(61)}.${"b".repeat(61)}.${"c".repeat(61)}.${"d".repeat(62)}.test`;
+    expect(long.length).toBe(253);
     const leafDir = mkdtempSync(join(tmpdir(), "cresavo-tls-test-"));
     try {
-      const cert = new X509Certificate(issueCertificates(leafDir, [long]).leaves[long].cert);
+      const issued = issueCertificates(leafDir, [long, "short.cresavo.test"]);
+      const cert = new X509Certificate(issued.leaves[long].cert);
+      expect(new X509Certificate(issued.leaves["short.cresavo.test"].cert).subjectAltName).toBe("DNS:short.cresavo.test");
+      for (const name of readdirSync(leafDir)) expect(name.length).toBeLessThan(40);
       expect(cert.subjectAltName).toBe(`DNS:${long}`);
       expect(cert.subject).toBe("CN=cresavo-staging-leaf");
       expect(cert.checkHost(long)).toBe(long);

@@ -83,7 +83,10 @@ export type StagingView = {
 };
 
 const isText = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 200;
-const isTime = (v: unknown) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v) && Number.isFinite(Date.parse(v));
+// An ISO instant with an explicit zone (Z or an offset): an offsetless time would be read in the
+// browser's own zone, so two customers could see different times for the same proposal.
+const isTime = (v: unknown) => typeof v === "string" &&
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(v) && Number.isFinite(Date.parse(v));
 function isZone(v: unknown) {
   if (!isText(v)) return false;
   try { new Intl.DateTimeFormat("en", { timeZone: v }); return true; } catch { return false; }

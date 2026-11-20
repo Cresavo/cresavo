@@ -8,7 +8,14 @@ import { siteRequestHost } from "./concept/site/request-host";
 import { galleryAvailable } from "./concept/server/gallery";
 import { conceptRoute } from "./concept/page/language";
 import { isProductHome, normalizeHost, routeHost, UNKNOWN_PATH, type HostRoute } from "./concept/page/resolve";
-import { consentHostPathAllowed, stagingConsentHost } from "../scripts/consent-channel-policy.mjs";
+import { consentHostPathAllowed, isConsentHost, stagingConsentHost } from "../scripts/consent-channel-policy.mjs";
+
+/** `/consent` and below, however the path is spelled (case, percent-encoding). */
+function isConsentPath(pathname: string) {
+  let path = pathname;
+  try { path = decodeURIComponent(pathname); } catch { /* keep as is */ }
+  return /^\/consent(?:\/|$)/i.test(path);
+}
 
 /** Consume the explicit demo link before rendering, so the first studio document uses the saved preference. */
 function demoLanguageEntry(request: NextRequest) {
@@ -69,6 +76,12 @@ export function proxy(request: NextRequest) {
   // The split-mode consent host serves only the salon paths it needs (docs/CUSTOMER_CONSENT_CHANNEL.md).
   if (normalizeHost(host) === stagingConsentHost(process.env) && !consentHostPathAllowed(pathname)) {
     return new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store" } });
+  }
+  // A consent link opened anywhere but the exact consent origin (host and port) is not found,
+  // before any alias redirect: a redirect without a fragment keeps the original one, so the
+  // destination page could read the approval secret.
+  if (stagingConsentHost(process.env) !== null && isConsentPath(pathname) && !isConsentHost(process.env, host)) {
+    return new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
   }
   if (/^\/studio\/(?:_|%5[fF])gallery\/?$/.test(pathname) && !galleryAvailable(host)) {
     return new NextResponse(null, { status: 404 });
