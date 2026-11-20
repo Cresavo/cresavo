@@ -1,3 +1,5 @@
+import { BRAND } from "@/concept/brand";
+
 const languages = {
   en: {
     title: "Let AI book", subtitle: "Try a real booking flow with Salong Eko, a fictional salon.",
@@ -21,7 +23,7 @@ export function letAiBookGuide(locale: keyof typeof languages) {
   const t = languages[locale];
   return new Response(`<!doctype html>
   <html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${t.title} · Cresavo</title>
+  <title>${t.title} · ${BRAND.name}</title>
   <style>
     * { box-sizing:border-box } body { margin:0; background:#f7f5f9; color:#221d2a; font:1rem/1.55 system-ui,sans-serif }
     main { width:min(48rem,100%); margin:auto; padding:2rem 1.25rem 4rem } .top { display:flex; justify-content:space-between; color:#5a4056 }
@@ -32,7 +34,7 @@ export function letAiBookGuide(locale: keyof typeof languages) {
     .links { display:flex; gap:.7rem; flex-wrap:wrap; margin-top:1.25rem } .links a { display:inline-flex; align-items:center; min-height:44px; padding:.55rem 1rem; border-radius:.55rem; border:1px solid #65445e }
     .primary { background:#65445e; color:#fff; text-decoration:none } :focus-visible { outline:3px solid #5b3fbb; outline-offset:3px }
   </style></head><body><main>
-  <div class="top"><strong>Cresavo</strong><a href="${t.otherPath}">${t.otherLanguage}</a></div>
+  <div class="top"><strong>${BRAND.name}</strong><a href="${t.otherPath}">${t.otherLanguage}</a></div>
   <h1>${t.title}</h1><p class="intro">${t.subtitle}</p>
   <ul class="cards"><li><h2>${t.agent}</h2><p>${t.agentBody}</p></li>
   <li><h2>${t.phone}</h2><p>${t.phoneBody}</p></li><li><h2>${t.calendar}</h2><p>${t.calendarBody}</p></li></ul>
