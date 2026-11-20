@@ -239,7 +239,31 @@ model AgentClient {
   bookings AgentBooking[]
   mandates AgentMandate[]
   proposals AgentProposal[]
+  sandboxSession SandboxSession?
   @@unique([businessId, id])
+}
+
+model SandboxSession {
+  id String @id @db.Uuid
+  businessId String @unique
+  clientId String @unique
+  client AgentClient @relation(fields: [businessId, clientId], references: [businessId, id], onDelete: Restrict)
+  generation Int
+  expiresAt DateTime @db.Timestamptz(3)
+  apiRequests Int @default(0)
+  audit SandboxAudit[]
+  @@unique([businessId, clientId], map: "SandboxSession_client_scope_key")
+  @@index([generation, expiresAt])
+}
+
+model SandboxAudit {
+  id String @id @default(cuid())
+  sessionId String @db.Uuid
+  session SandboxSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  event String
+  outcome String
+  @@index([sessionId])
 }
 
 // Bounded operator authority or synthetic lab customer consent. No real identity proof.

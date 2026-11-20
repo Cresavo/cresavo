@@ -9,7 +9,8 @@ import { db } from "../db";
 import { DEMO_BUSINESS_ID } from "../config";
 import { DomainError } from "../errors";
 import { checkRateLimit } from "../rate-limit";
-import { getBookingProvider } from "./provider";
+import { getBookingProvider, type BookingProvider } from "./provider";
+import { sandboxRequested } from "./sandbox/config";
 import { parseDay, ZONE } from "../time";
 import { dateSchema } from "../validation";
 import { AgentApiError, agentApiErrors, type AgentApiErrorCode } from "./errors";
@@ -112,6 +113,10 @@ async function agentRouteInternal(
   scope: AgentScope | readonly AgentScope[],
   handler: AgentHandler,
 ) {
+  if (sandboxRequested()) {
+    const { sandboxAgentRoute } = await import("./sandbox/api");
+    return sandboxAgentRoute(request, route, scope);
+  }
   // A restart into standalone mode must also refuse an operation whose access
   // check succeeded on the previous split process. Check before any handler.
   if (route !== "GET /api/v1/access" && request.headers.has("x-booking-gateway-token") &&
@@ -237,11 +242,19 @@ export function dayRange(params: URLSearchParams) {
 
 export async function availabilityV1(principal: AgentPrincipal, params: URLSearchParams) {
   const b = business(principal, params.get("business"));
+  return availabilityFor(b, params, getBookingProvider(principal.businessId));
+}
+
+export async function availabilityFor(
+  b: ReturnType<typeof business>,
+  params: URLSearchParams,
+  provider: Pick<BookingProvider, "listServices" | "getAvailability">,
+) {
   const serviceId = id.safeParse(params.get("service"));
   if (!serviceId.success) throw new AgentApiError("invalid_request");
   const staffParam = params.get("staff");
   const days = dayRange(params);
-  const { services, resources } = await getBookingProvider(principal.businessId).listServices();
+  const { services, resources } = await provider.listServices();
   const service = services.find((s) => s.id === serviceId.data);
   if (!service) throw new AgentApiError("service_not_found");
   const staff = resources.filter(
@@ -251,7 +264,7 @@ export async function availabilityV1(principal: AgentPrincipal, params: URLSearc
   const slots = [];
   for (const day of days)
     for (const member of staff)
-      for (const start of (await getBookingProvider(principal.businessId).getAvailability(service.id, day, member.id)).starts) {
+      for (const start of (await provider.getAvailability(service.id, day, member.id)).starts) {
         const at = DateTime.fromISO(start, { zone: ZONE });
         slots.push({
           start: at.toISO({ suppressMilliseconds: true })!,

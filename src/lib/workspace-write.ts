@@ -17,8 +17,9 @@ export type WorkspaceActor =
 export async function lockConfiguration(
   tx: Prisma.TransactionClient,
   exclusive = false,
+  businessId: string = DEMO_BUSINESS_ID,
 ) {
-  const key = `${DEMO_BUSINESS_ID}:configuration`;
+  const key = `${businessId}:configuration`;
   if (exclusive)
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
   else
