@@ -37,6 +37,11 @@ Start with the [demo and product tour](../README.md) or see the
 - The browser demo supports versioned cancellation rules, simulated deposit checkout and owner decisions on late cancellations and no-shows. Bookings and Finance show payments and refunds. [Feature design](design/NO_SHOW_DEPOSITS.md).
 - Owners can drag to reorder treatments and categories in the studio and undo
   each move. The booking-page editor supports dragging sections in its draft.
+- Security step 1 is complete (November 2026). CodeQL analyses the code and
+  workflows, Dependency Review stops pull requests that add high or critical
+  vulnerabilities, and GitHub secret scanning with push protection runs
+  alongside Gitleaks. The `main` ruleset requires these checks and blocks new
+  serious CodeQL findings and force pushes. [Security checks](QUALITY_SECURITY.md#security-checks).
 
 ## Before a real pilot
 
