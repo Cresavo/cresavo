@@ -252,8 +252,25 @@ model SandboxSession {
   expiresAt DateTime @db.Timestamptz(3)
   apiRequests Int @default(0)
   audit SandboxAudit[]
+  phone SandboxPhone?
   @@unique([businessId, clientId], map: "SandboxSession_client_scope_key")
   @@index([generation, expiresAt])
+}
+
+model SandboxPhone {
+  sessionId String @id @db.Uuid
+  session SandboxSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  linkHash String @unique
+  browserHash String? @unique
+  redeemedAt DateTime? @db.Timestamptz(3)
+  requests Int @default(0)
+}
+
+model SandboxPairBudget {
+  day DateTime @db.Date
+  ipDigest String
+  count Int
+  @@id([day, ipDigest])
 }
 
 model SandboxAudit {

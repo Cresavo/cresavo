@@ -4,6 +4,7 @@ import { createDatabaseClient } from "../../../../scripts/database.mjs";
 import { AgentApiError } from "../errors";
 import { AGENT_SCOPES, generateApiKey, hashApiKey, KEY_PATTERN, presentedKey, type AgentScope } from "../keys";
 import { DAY_MS, MAX_SANDBOX_REQUESTS_PER_SESSION, MAX_SANDBOX_SESSIONS, sandboxConfig } from "./config";
+import { seedSandboxSalon } from "./seed";
 
 export const SANDBOX_KEY_KIND = "sandbox-demo";
 type Installation = { id: string; generation: number; revision: number; resetAt: Date };
@@ -89,12 +90,7 @@ export async function createSandboxSession(tx: Prisma.TransactionClient, install
   const session = await tx.sandboxSession.create({ data: {
     id, businessId, clientId, generation: installation.generation, expiresAt: new Date(+now + DAY_MS),
   } });
-  const serviceId = randomUUID();
-  await tx.service.create({ data: { id: serviceId, businessId, name: "Demo massage", duration: 30, priceOre: 45000 } });
-  await tx.staff.create({ data: {
-    id: randomUUID(), businessId, name: "Demo therapist", serviceIds: [serviceId],
-    weekly: [1, 2, 3, 4, 5].map(weekday => ({ weekday, periods: [{ start: "09:00", end: "16:00" }] })),
-  } });
+  await seedSandboxSalon(tx, businessId);
   return { session, key };
 }
 

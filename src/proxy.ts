@@ -93,6 +93,7 @@ function sandboxProxy(request: NextRequest) {
     const path = request.nextUrl.pathname;
     if (sandboxHost(request, origin) &&
         (/^\/api\/v1\/(?:access|services|availability|(?:proposals|bookings)(?:\/[a-zA-Z0-9_-]{1,128})?)$/.test(path) ||
+         /^\/(?:sandbox(?:\/phone)?|api\/sandbox\/(?:pair|phone(?:\/(?:redeem|decision))?))$/.test(path) ||
          path.startsWith("/_next/static/"))) {
       const response = NextResponse.next();
       response.headers.set("X-Robots-Tag", "noindex, nofollow");
