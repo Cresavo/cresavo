@@ -14,11 +14,11 @@ import { staffViewer } from "../../ops/access";
 import { currentRole, useRole } from "../../ops/role";
 import type { IntentResult } from "../../intent";
 import { studioSalonCopy } from "../../i18n/salon-eko-copy";
-import { currentState, dispatch, dispatchWithLog } from "../../store";
+import { currentState, dispatchWithLog } from "../../store";
 import { useStudio } from "../use-studio";
 import { speak } from "./speak";
-import { applyReply, approveReply, declineReply, editReply, pickReply, sourceFor, undoReply } from "./reply-actions";
-import { addMessages, messageId, refineReply, replyOf, startNewThread, updateReply, useThread } from "./thread-store";
+import { applyReply, approveReply, declineReply, editReply, pickReply, skipRoutineReply, sourceFor, undoReply } from "./reply-actions";
+import { addMessages, messageId, refineReply, startNewThread, updateReply, useThread } from "./thread-store";
 
 const ASSISTANT = { actor: "owner", source: "assistant" } as const;
 
@@ -118,11 +118,7 @@ export function useAssistant() {
 
   const keepRoutine = (id: string, routine: Routine) => applyReply(id, { type: "routine/add", routine }, ASSISTANT);
 
-  const skipRoutine = (id: string, routine: Routine) => {
-    if (currentRole() !== "owner" || replyOf(id)?.card?.kind !== "routine-offer") return;
-    dispatch({ type: "card/dismiss", id: `routine-${routine.id}` });
-    updateReply(id, { status: "declined" });
-  };
+  const skipRoutine = (id: string, routine: Routine) => skipRoutineReply(id, routine.id);
 
   /** Ends the conversation. Nothing from it is kept: the assistant remembers only what the owner asks it to. */
   const newConversation = () => void startNewThread();

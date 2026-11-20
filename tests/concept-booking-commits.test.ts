@@ -280,3 +280,23 @@ it("approves an assistant change once, and not after the salon was replaced", as
   expect(thread.replyOf("r-2")).toMatchObject({ status: "failed" });
   expect(JSON.stringify(saved())).toBe(before);
 });
+
+it("keeps the waiting-list form fixed while it saves and confirms the phone it saved", async () => {
+  const { state, saved, t } = await open(createDemoState(today));
+  const { WaitlistSheet } = await import("@/concept/booking/waitlist-sheet");
+  const { GuestFields } = await import("@/concept/booking/guest-fields");
+  const service = state.services.filter((s) => !s.hidden)[1];
+  const render = rendered(() => WaitlistSheet({ state, now: { today, minutes: 0 } as never, request: { serviceId: service.id, date: addDays(today, 3) }, onClose: () => undefined }));
+  const fields = () => elements(render()).find((node) => node.type === GuestFields)!.props as { onChange: (next: typeof guest) => void; disabled: boolean };
+  fields().onChange(guest);
+  const submit = button(render(), t("booking.waitlist.submit"));
+  const saving = submit() as Promise<unknown>;
+  expect(fields().disabled).toBe(true);
+  // What the fields hold afterwards is not what was saved.
+  fields().onChange({ ...guest, phone: "0700000099" });
+  await saving;
+  const text = JSON.stringify(elements(render()).map((node) => node.props.children ?? null));
+  expect(text).toContain(guest.phone);
+  expect(text).not.toContain("0700000099");
+  expect(saved().customers.some((customer) => customer.phone === guest.phone)).toBe(true);
+});

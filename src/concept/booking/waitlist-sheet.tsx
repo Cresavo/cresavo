@@ -39,6 +39,8 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
   const [done, setDone] = useState(false);
   const [failure, setFailure] = useState<ActionFailureInfo>();
   const [run, pending] = useCommit();
+  /** The phone the request was saved with: what the success message names, whatever the fields hold later. */
+  const [submitted, setSubmitted] = useState("");
   const service = request ? findService(state, request.serviceId) : undefined;
   const person = state.staff.find(s => s.id === request?.staffId);
   const serviceLabel = service && (person ? t("booking.waitlist.withStaff", { service: service.name, staff: person.firstName }) : service.name);
@@ -76,6 +78,7 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
     // The contact the request created or matched, in the state this request saved.
     const customer = findCustomerByPhone(joined.state, phone);
     if (customer) saveContact(customer.id);
+    setSubmitted(phone);
     setDone(true);
   });
 
@@ -99,12 +102,13 @@ export function WaitlistSheet({ state, now, request, onClose }: WaitlistSheetPro
       {done ? (
         <div className="flex items-start gap-3 py-3 text-body">
           <CheckCircle2 size={22} className="mt-1 shrink-0 text-action" />
-          <p>{t("booking.waitlist.doneBody", { phone: guest.phone.trim() })}</p>
+          <p>{t("booking.waitlist.doneBody", { phone: submitted })}</p>
         </div>
       ) : (
         <div className="space-y-3 pt-2">
-          <GuestFields value={guest} onChange={setGuest} />
-          <RememberContact checked={remember} onChange={chooseRemember} />
+          {/* Fixed while the request is saved: it is saved with what was submitted. */}
+          <GuestFields value={guest} onChange={setGuest} disabled={pending} />
+          <RememberContact checked={remember} onChange={chooseRemember} disabled={pending} />
           {failure && <ActionFailure failure={failure} audience="booking" />}
         </div>
       )}

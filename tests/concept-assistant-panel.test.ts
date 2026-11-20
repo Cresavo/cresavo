@@ -189,6 +189,42 @@ describe("a reply while its change is being saved", () => {
   });
 });
 
+describe("a reply in a salon that is not open right now", () => {
+  it("keeps Undo when the change's salon is only switched away from, and undoes after switching back", async () => {
+    const { actions, ask, reply, store, service, approve } = await setup();
+    const { createSalon, salonDraft } = await import("@/concept/onboarding/salon");
+    storage.set("salong-eko-demo-own", JSON.stringify(createSalon(store.currentState()!.generatedFor, { ...salonDraft("en"), name: "Studio Vide" })));
+    const id = ask();
+    await approve(id);
+    const undoId = reply(id).undoId!;
+    // Undo waits for the lock; meanwhile the owner opens the trial salon.
+    const navigator = globalThis.navigator;
+    vi.stubGlobal("navigator", { locks: { request: (_name: string, run: () => unknown) => new Promise((resolve) => setTimeout(() => resolve(run()), 0)) } });
+    const undoing = actions.undoReply(id, undoId);
+    expect(await store.switchSalon("own")).toBe(true);
+    expect(await undoing).toBe(false);
+    vi.stubGlobal("navigator", navigator);
+    expect(await store.switchSalon("demo")).toBe(true);
+    expect(reply(id)).toMatchObject({ status: "approved", undoId });
+    expect(await actions.undoReply(id, undoId)).toBe(true);
+    expect(store.currentState()!.services[0].price).toBe(service.price);
+  });
+});
+
+it("ignores Not now on a routine offer while it is being switched on", async () => {
+  const { actions, thread, reply, store } = await setup();
+  const routine = { id: "monday-reminders" as const, name: "Monday reminders", description: "", when: { weekdays: [1], time: "08:00" }, steps: [], tools: [], enabled: true, createdOn: store.currentState()!.generatedFor, lastRun: "" };
+  thread.addMessages([
+    { id: "q-routine", from: "owner", text: "remind on mondays", at: 1 },
+    { id: "r-routine", from: "assistant", text: "A routine", reply: { source: "rules", text: "A routine", card: { kind: "routine-offer", suggestion: { routine, reason: "" } } }, at: 1 },
+  ], { customerIds: [], date: store.currentState()!.generatedFor });
+  const keeping = actions.applyReply("r-routine", { type: "routine/add", routine }, { actor: "ai" });
+  actions.skipRoutineReply("r-routine", routine.id);
+  expect(await keeping).toBe(true);
+  expect(reply("r-routine")).toMatchObject({ status: "approved" });
+  expect(store.currentState()!.dismissedCards).not.toContain(`routine-${routine.id}`);
+});
+
 describe("edit and provenance (Codex #5)", () => {
   it("Edit returns the owner's words and retires the proposal", async () => {
     const { actions, ask, reply } = await setup();

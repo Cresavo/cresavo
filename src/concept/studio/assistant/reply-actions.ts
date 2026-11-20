@@ -8,7 +8,7 @@ import { undoBlockReason } from "../../log/undo";
 import type { LogMeta } from "../../log/types";
 import { canChangeBooking, staffViewer } from "../../ops/access";
 import { currentRole } from "../../ops/role";
-import { currentState, currentTarget, latestStateOf, targetOf } from "../../store";
+import { currentState, currentTarget, dispatch, latestStateOf, targetOf } from "../../store";
 import type { Target } from "../../store/commit";
 import { commitAction } from "../../store/commit";
 import { replyIn, replyOf, threadKey, updateReply, updateReplyIn } from "./thread-store";
@@ -115,7 +115,8 @@ export function undoReply(id: string, undoId: string): Promise<boolean> {
       result = undefined;
     }
     if (result?.ok) updateReplyIn(thread, id, { status: "undone", undoId: undefined, pending: undefined });
-    else if (result && (result.reason === "replaced" || result.reason === "not-found" || undoGone(target, undoId))) updateReplyIn(thread, id, { undoId: undefined, pending: undefined });
+    // `not-found` can mean the salon is only not open in this tab right now: undoGone tells that from an erased change.
+    else if (result && (result.reason === "replaced" || undoGone(target, undoId))) updateReplyIn(thread, id, { undoId: undefined, pending: undefined });
     else updateReplyIn(thread, id, { pending: undefined });
     return !!result?.ok;
   }).then((done) => done === true);
@@ -125,6 +126,14 @@ export function undoReply(id: string, undoId: string): Promise<boolean> {
 export function pickReply(id: string, choice: Extract<Choice, { proposal: Proposal }>) {
   if (replyOf(id)?.pending) return;
   updateReply(id, { card: choice.proposal });
+}
+
+/** "Not now" on a routine offer: hides the suggestion for good. Not while the card's change is being saved. */
+export function skipRoutineReply(id: string, routineId: string) {
+  const reply = replyOf(id);
+  if (currentRole() !== "owner" || reply?.card?.kind !== "routine-offer" || reply.pending) return;
+  dispatch({ type: "card/dismiss", id: `routine-${routineId}` });
+  updateReply(id, { status: "declined" });
 }
 
 /** "Not now" on a card. Not while its change is being saved. */
