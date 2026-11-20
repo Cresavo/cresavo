@@ -545,6 +545,15 @@ describe("staging runner preflight", () => {
     // The runner's own Node flags, not only NODE_OPTIONS.
     expect(() => refuseDiagnostics({}, ["--import", "tsx", "--tls-keylog=/tmp/keys.log"])).toThrow(/^STAGING_DIAGNOSTICS_REFUSED$/);
     expect(() => refuseDiagnostics({ NODE_OPTIONS: "--use-openssl-ca" }, ["--import", "tsx"])).not.toThrow();
+    // Every spelling Node accepts: underscores for hyphens, any case, with or without "=value".
+    for (const flag of ["--tls_keylog=/tmp/keys.log", "--TLS-KEYLOG=/tmp/k", "--tls_keylog", "--inspect_brk", "--Inspect", "--inspect-port=0",
+      "--cpu_prof", "--heap_prof", "--trace_warnings"]) {
+      expect(() => refuseDiagnostics({ NODE_OPTIONS: `--use-openssl-ca ${flag}` }, []), `NODE_OPTIONS ${flag}`).toThrow(/^STAGING_DIAGNOSTICS_REFUSED$/);
+      expect(() => refuseDiagnostics({}, ["--import", "tsx", flag]), `execArgv ${flag}`).toThrow(/^STAGING_DIAGNOSTICS_REFUSED$/);
+    }
+    // Options that merely contain those words are not refused.
+    for (const flag of ["--use_openssl_ca", "--max-old-space-size=4096", "--import=tsx", "--enable-source-maps"])
+      expect(() => refuseDiagnostics({ NODE_OPTIONS: flag }, [flag]), flag).not.toThrow();
   });
   it("never puts a malformed database URL, or its password, into the error", async () => {
     const { loopbackAdminUrl } = await import("../scripts/staging-consent/preflight.mjs");

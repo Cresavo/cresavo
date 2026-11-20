@@ -1,6 +1,7 @@
 import { ZodError } from "zod";
 import { customerDecision } from "@/lib/agent-api/proposals";
-import { requireConsentLab } from "@/lib/agent-api/customer-identity";
+import { labCustomerIdentity, requireConsentLab } from "@/lib/agent-api/customer-identity";
+import { timingSafeEqual } from "node:crypto";
 import { ConsentLinkState, STAGING_CHANNEL, stagingConsentOrigin } from "@/lib/agent-api/consent-staging";
 import { db } from "@/lib/db";
 import { AgentApiError } from "@/lib/agent-api/errors";
@@ -10,6 +11,13 @@ import { verifiedClientAddress } from "../../../../../scripts/client-address.mjs
 const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
 // A definite refusal: the request was rejected before or inside the decision, nothing was committed.
 class Refused extends Error {}
+// The same work whether or not the proposal exists or the secret is well formed.
+const ABSENT = "0".repeat(64);
+function linkMatches(token: string, stored: string | null | undefined) {
+  const expected = Buffer.from(/^[a-f0-9]{64}$/.test(stored ?? "") ? stored! : ABSENT, "hex");
+  const given = Buffer.from(labCustomerIdentity.credentialDigest(/^[A-Za-z0-9_-]{43}$/.test(token) ? token : "x"), "hex");
+  return timingSafeEqual(expected, given) && Boolean(stored) && /^[A-Za-z0-9_-]{43}$/.test(token);
+}
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
     // Staging: the configured HTTPS consent origin, customers off loopback. Labs: loopback only.
@@ -24,14 +32,10 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
         (!staging && !["127.0.0.1", "::1"].includes(client)))
       return Response.json({ error: "consent_denied" }, { status: 403, headers });
     const { id } = await ctx.params;
+    // Per client address first, before anything else is read.
     if (staging) {
-      // Per client address first. A per-proposal bucket only for a staging proposal that exists,
-      // so made-up IDs never take space in the store shared with login and booking limits.
       await checkRateLimit("consent-ip", client);
       if (!/^[a-f0-9-]{36}$/.test(id)) throw new Refused();
-      const exists = await db.agentProposal.findFirst({ where: { id, consentDelivery: STAGING_CHANNEL }, select: { id: true } });
-      if (!exists) throw new Refused();
-      await checkRateLimit("consent-proposal", id);
     }
     const reader = request.body?.getReader();
     if (!reader) throw new Refused();
@@ -42,8 +46,17 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       if (size > 2048) { void reader.cancel(); throw new Refused(); }
       chunks.push(value);
     }
-    const text = Buffer.concat(chunks).toString("utf8");
-    return Response.json(await customerDecision(id, JSON.parse(text)), { headers });
+    const input: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    if (staging) {
+      // The proposal's own budget is charged only for a holder of its link: the agent knows the
+      // proposal ID, only the customer the secret. Unknown proposal and wrong secret are the same
+      // refusal, and the digests are compared in constant time.
+      const token = (input as { token?: unknown } | null)?.token;
+      const row = await db.agentProposal.findFirst({ where: { id, consentDelivery: STAGING_CHANNEL }, select: { tokenHash: true } });
+      if (!linkMatches(typeof token === "string" ? token : "", row?.tokenHash)) throw new Refused();
+      await checkRateLimit("consent-proposal", id);
+    }
+    return Response.json(await customerDecision(id, input), { headers });
   } catch (error) {
     // A spent link tells its holder why. It never carries proposal terms or authority.
     if (error instanceof ConsentLinkState)

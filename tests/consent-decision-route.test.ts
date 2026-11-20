@@ -2,6 +2,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AgentApiError } from "../src/lib/agent-api/errors";
+import { customerTokenHash } from "../src/lib/agent-api/customer-identity";
 
 const findFirst = vi.fn(), customerDecision = vi.fn();
 vi.mock("../src/lib/db", () => ({ db: { agentProposal: { findFirst: (...args: unknown[]) => findFirst(...args) } } }));
@@ -30,7 +31,7 @@ const body = { token: "T".repeat(43), decision: "yes", proposalHash: "a".repeat(
 
 it("reports a failure after the decision was accepted as unconfirmed, never as a refusal", async () => {
   const id = randomUUID();
-  findFirst.mockResolvedValue({ id });
+  findFirst.mockResolvedValue({ tokenHash: customerTokenHash(body.token) });
   // The decision ran and may have committed; then the connection is lost.
   customerDecision.mockRejectedValue(Object.assign(new Error(`connection reset after commit for ${body.token}`), { code: "ECONNRESET" }));
   const response = await decide(id, body);
@@ -44,7 +45,7 @@ it("reports a failure after the decision was accepted as unconfirmed, never as a
 
 it("reports the salon's own refusal as a refusal", async () => {
   const id = randomUUID();
-  findFirst.mockResolvedValue({ id });
+  findFirst.mockResolvedValue({ tokenHash: customerTokenHash(body.token) });
   customerDecision.mockRejectedValue(new AgentApiError("mandate_denied"));
   const response = await decide(id, body);
   expect(response.status).toBe(403);
@@ -61,11 +62,38 @@ it("never reaches the decision for a proposal that does not exist", async () => 
 it("refuses every decision while an asked-for staging configuration is invalid, never falling back", async () => {
   for (const patch of [{ BOOKING_CONSENT_ORIGIN: "http://salon-demo.cresavo.test" }, { SESSION_SECRET: "short" }, { BOOKING_CONSENT_LAB: "1" }]) {
     for (const [k, v] of Object.entries(patch)) vi.stubEnv(k, v);
-    findFirst.mockResolvedValue({ id: "x" });
+    findFirst.mockResolvedValue({ tokenHash: customerTokenHash(body.token) });
     const response = await decide(randomUUID(), body);
     expect(response.status).toBe(403);
     expect(customerDecision).not.toHaveBeenCalled();
     for (const [k, v] of Object.entries(staging)) vi.stubEnv(k, v);
     vi.stubEnv("BOOKING_CONSENT_LAB", undefined);
   }
+});
+
+it("charges a proposal's budget only for a holder of its link, refusing wrong secrets like unknown proposals", async () => {
+  const id = randomUUID();
+  findFirst.mockImplementation(async ({ where }: { where: { id: string } }) => where.id === id ? { tokenHash: customerTokenHash(body.token) } : null);
+  customerDecision.mockResolvedValue({ proposal: {}, proposalHash: "a".repeat(64) });
+  const refusals: string[] = [];
+  // More wrong-secret requests than the proposal's whole budget (20), from many addresses.
+  for (let i = 0; i < 25; i++) {
+    const response = await decide(id, { ...body, token: `W${String(i).padStart(42, "0")}` });
+    expect(response.status).toBe(403);
+    refusals.push(await response.text());
+  }
+  for (const badToken of ["short", 42, null, undefined]) {
+    const response = await decide(id, { ...body, token: badToken });
+    expect(response.status).toBe(403);
+    refusals.push(await response.text());
+  }
+  const unknown = await decide(randomUUID(), body);
+  refusals.push(await unknown.text());
+  // One answer for all of them: nothing tells a wrong secret from a proposal that does not exist.
+  expect(new Set(refusals)).toEqual(new Set([JSON.stringify({ error: "consent_denied" })]));
+  expect(customerDecision).not.toHaveBeenCalled();
+  // The customer still has the full budget.
+  const valid = await decide(id, { ...body, decision: "view" });
+  expect(valid.status).toBe(200);
+  expect(customerDecision).toHaveBeenCalledTimes(1);
 });

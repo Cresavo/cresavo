@@ -391,6 +391,32 @@ it("limits decisions per existing proposal and allocates nothing for made-up pro
   }
 });
 
+it("callers without the link cannot use up the customer's decision budget", async () => {
+  vi.stubEnv("RATE_LIMIT_STORE", "postgres");
+  const { rateLimitDatabase } = await import("../../src/lib/postgres-rate-limit");
+  const key = (route: string, identity: string) => createHmac("sha256", process.env.SESSION_SECRET!).update(`rate-limit:v1:${route}:${identity}`).digest("hex");
+  const address = () => `10.${randomBytes(3).join(".")}`;
+  const { principal } = await actor();
+  const { proposal } = await createProposal(principal, terms());
+  const keys = [key("consent-proposal", proposal.id)], addresses = Array.from({ length: 25 }, address);
+  keys.push(...addresses.map(a => key("consent-ip", a)));
+  try {
+    // The agent knows the proposal ID; without the secret every request is refused...
+    for (const [i, ip] of addresses.entries()) {
+      const response = await customer(proposal.id, { token: `W${String(i).padStart(42, "0")}`, decision: "view" }, consentOrigin, ip);
+      expect(response.status).toBe(403);
+    }
+    // ...and charges nothing to the proposal's own budget.
+    expect(await rateLimitDatabase.rateLimitBucket.count({ where: { key: key("consent-proposal", proposal.id) } })).toBe(0);
+    const last = address(); keys.push(key("consent-ip", last));
+    const view = await customer(proposal.id, { token: await secret(proposal.id), decision: "view" }, consentOrigin, last);
+    expect(view.status).toBe(200);
+    expect((await rateLimitDatabase.rateLimitBucket.findUniqueOrThrow({ where: { key: key("consent-proposal", proposal.id) } })).count).toBe(1);
+  } finally {
+    await rateLimitDatabase.rateLimitBucket.deleteMany({ where: { key: { in: keys } } });
+  }
+});
+
 it("opening the link approves nothing; there is no GET decision handler", async () => {
   const { principal } = await actor();
   const { proposal } = await createProposal(principal, terms());
