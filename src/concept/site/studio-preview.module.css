@@ -1,4 +1,4 @@
-.showcase { display: grid; grid-template-columns: .67fr 1.33fr; gap: clamp(28px,6vw,96px); align-items: center; padding-block: var(--section-space); }
+.showcase { display: grid; grid-template-columns: .67fr 1.33fr; gap: clamp(28px,6vw,96px); align-items: center; }
 .menu h2 { max-width: 8ch; }
 .choices { display: grid; margin-top: var(--space-6); }
 .choices button { color: var(--ui-text-secondary); border-bottom: 1px solid var(--ui-hairline); }
@@ -27,7 +27,7 @@
 .demo figcaption strong { color: var(--ui-text); }
 @media (prefers-reduced-motion: no-preference) {
   .layer { transition: opacity .42s ease; }
-  [data-entered] .notice { animation: arrival .65s .25s both; }
+  .notice { animation: arrival .65s .25s both; }
   .layer[data-active="true"] picture img[src*="calendar"] { animation: schedule .55s ease-out; }
 }
 @keyframes arrival { from { opacity: 0; transform: translate(12px, 8px); } }

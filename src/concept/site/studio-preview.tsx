@@ -3,7 +3,7 @@ import { ListRow } from "../ui/list-row";
 import Image from "next/image";
 import { ArrowRight, CalendarDays, CalendarCheck2, Check, LayoutDashboard, Smartphone, Sparkles } from "lucide-react";
 import { useSiteCopy } from "./copy";
-import e from "./editorial.module.css";
+import l from "./landing.module.css";
 import c from "./studio-preview.module.css";
 
 const views = [
@@ -19,9 +19,10 @@ export function StudioPreview() {
   const [selected, setSelected] = useState<View>("today");
   const [seen, setSeen] = useState<Set<View>>(new Set(["today"]));
   return (
-    <section className={c.showcase} aria-labelledby="studio-title" data-reveal>
+    <section id="studio" className={`${l.section} ${l.cream}`} aria-labelledby="studio-title">
+      <div className={`${l.wrap} ${c.showcase}`}>
       <div className={c.menu}>
-        <h2 className={e.display} id="studio-title">{site["studio.heading"]}</h2>
+        <h2 className={l.title} id="studio-title">{site["studio.heading"]}</h2>
         <div className={c.choices} role="group" aria-label={site["studio.controls"]}>
           {views.map(({ key, icon: Icon }) => <ListRow key={key} aria-pressed={selected === key}
             onClick={() => { setSelected(key); setSeen(previous => new Set(previous).add(key)); }}
@@ -46,6 +47,7 @@ export function StudioPreview() {
         </div>
         <figcaption aria-live="polite"><strong>{site[`studio.${selected}`]}</strong>{site[`studio.${selected}.caption`]}</figcaption>
       </figure>
+      </div>
     </section>
   );
 }

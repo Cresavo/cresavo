@@ -1,11 +1,11 @@
-import { sitePath } from "./language";
+import { sitePath, type SitePage } from "./language";
 import Head from "next/head";
 import { BRAND } from "../brand";
 import { PLATFORM_ICONS, THEME_COLORS } from "../ui/brand-assets";
 import { useSiteCopy } from "./copy";
 
 /** Document metadata for a site page: title, description, social preview text, platform icons and browser chrome that follows the visitor's scheme. */
-export function SiteHead({ title, description, productOrigin, page = "home" }: { title: string; description: string; productOrigin?: string | null; page?: "home" | "privacy" }) {
+export function SiteHead({ title, description, productOrigin, page = "home" }: { title: string; description: string; productOrigin?: string | null; page?: SitePage }) {
   const { site, locale } = useSiteCopy();
   const url = (lang: "en" | "sv") => (productOrigin ?? "") + sitePath(lang, page);
   const image = `${productOrigin ?? ""}/site/tour-16x9-poster.jpg`;
