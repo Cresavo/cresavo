@@ -1,3 +1,5 @@
+/* Name the config explicitly: without it, the Vercel build resolved another one and dropped most studio utilities. */
+@config "../../tailwind.config.ts";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
