@@ -31,7 +31,8 @@ it("requires the exact flag value", () => {
 const routes = import.meta.glob<Record<string, unknown>>("../src/app/api/**/route.ts");
 for (const [file, load] of Object.entries(routes)) {
   // The language switch and the launch waiting list stay open on the read-only demo (the list has its own validation and rate limit: tests/site-waitlist.test.ts).
-  if (file.endsWith("/locale/route.ts") || file.endsWith("/waitlist/route.ts")) continue;
+  // The poster renderer stores nothing (tests/concept-poster-route.test.ts covers its origin, size and input checks).
+  if (file.endsWith("/locale/route.ts") || file.endsWith("/waitlist/route.ts") || file.endsWith("/concept/poster/route.ts")) continue;
   it(`locks direct handlers: ${file.replace("../src/app", "")}`, async () => {
     const routeModule = await load();
     for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE"]) {
@@ -60,6 +61,9 @@ it("blocks future mutations and permits locale/read requests only", () => {
     expect(publicReadonlyResponse(new Request("http://localhost/api/future", { method }))?.status).toBe(403);
   expect(publicReadonlyResponse(new Request("http://localhost/api/locale", { method: "POST" }))).toBeUndefined();
   expect(publicReadonlyResponse(new Request("http://localhost/"))).toBeUndefined();
+  expect(publicReadonlyResponse(new Request("http://localhost/api/concept/poster", { method: "POST" }))).toBeUndefined();
+  for (const method of ["PUT", "DELETE"])
+    expect(publicReadonlyResponse(new Request("http://localhost/api/concept/poster", { method }))?.status).toBe(403);
   vi.stubEnv("PUBLIC_READONLY", "0");
   expect(publicReadonlyResponse(new Request("http://localhost/admin"))).toBeUndefined();
   expect(publicReadonlyResponse(new Request("http://localhost/api/bookings", { method: "POST" }))).toBeUndefined();

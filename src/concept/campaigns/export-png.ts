@@ -21,7 +21,8 @@ async function standaloneSvg(svg: SVGSVGElement, width: number, height: number):
   await Promise.all(
     [...copy.querySelectorAll("image")].map(async (image) => {
       const href = image.getAttribute("href");
-      if (href) image.setAttribute("href", await dataUri(href));
+      // Engine posters arrive with their photos inlined already; fetching a data: URL is refused by the CSP.
+      if (href && !href.startsWith("data:")) image.setAttribute("href", await dataUri(href));
     }),
   );
   return new XMLSerializer().serializeToString(copy);

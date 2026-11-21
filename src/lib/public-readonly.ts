@@ -17,12 +17,14 @@ export function readonlyForbidden() {
 
 // Also used before page rendering. Block every mutation, including future routes.
 // The launch waiting list is the one public write that stays open: it has its own validation and rate limit.
+// The poster renderer is a POST only because its photos do not fit a URL: it stores nothing,
+// accepts same-origin requests only and has its own size and rate limits.
 export function publicReadonlyResponse(request: Request) {
   if (!isPublicReadonly()) return;
   const path = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
   if (request.method === "POST" && PUBLIC_WRITES.has(path) && pairingOrigin(request.headers)) return;
   if (/^\/(?:admin|api\/admin)(?:\/|$)/.test(path) ||
       (!["GET", "HEAD", "OPTIONS"].includes(request.method) &&
-       !(request.method === "POST" && (path === "/api/locale" || path === "/api/waitlist"))))
+       !(request.method === "POST" && (path === "/api/locale" || path === "/api/waitlist" || path === "/api/concept/poster"))))
     return readonlyForbidden();
 }

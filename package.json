@@ -49,6 +49,7 @@
     "pg": "8.23.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "satori": "0.63.2",
     "zod": "^4.0.0"
   },
   "devDependencies": {

@@ -6,6 +6,7 @@ const permissionsPolicy = "camera=(), microphone=(), geolocation=(), payment=(),
 const config: NextConfig = {
   outputFileTracingIncludes: {
     "/api/v1/openapi": ["./docs/agent-api-v1.openapi.yaml"],
+    "/api/concept/poster": ["./src/concept/campaigns/poster-engine/fonts/**"],
   },
   turbopack: { root: process.cwd() },
   poweredByHeader: false,

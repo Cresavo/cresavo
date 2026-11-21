@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { reviewSummary } from "../../booking/reviews";
 import { CalendarClock, Send } from "lucide-react";
 import { CHANNELS } from "../../campaigns/channels";
 import { draftLink, resolvePoster, type Draft } from "../../campaigns/draft";
@@ -29,7 +30,7 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
   const preview = draft.channels.includes(selected) ? selected : draft.channels[0];
   const toggle = (channel: Channel) =>
     onChange({ channels: CHANNELS.filter((c) => (c === channel ? !draft.channels.includes(c) : draft.channels.includes(c))) });
-  const poster = (format: "post" | "story") => <PosterView source={source} salon={state.salon} theme={state.page.theme} format={format} />;
+  const poster = (format: "post" | "story") => <PosterView source={source} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} format={format} />;
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
