@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { PROJECT_REPOSITORY } from "../brand";
 import { useSiteCopy } from "./copy";
+import { FilmTour } from "./film-tour";
 import { sitePath } from "./language";
 import type { ProductSiteProps } from "./links";
 import { SiteFooter, SiteTopbar } from "./site-chrome";
 import { SiteHead } from "./site-head";
+import { StudioPreview } from "./studio-preview";
 import { WaitlistForm } from "./waitlist-form";
 import l from "./landing.module.css";
 
@@ -104,7 +106,7 @@ const MOMENTS = [
 function Friday({ demo }: { demo: string }) {
   const { site, locale } = useSiteCopy();
   return (
-    <section id="friday" className={`${l.section} ${l.cream}`} aria-labelledby="friday-heading">
+    <section id="friday" className={`${l.section} ${l.white}`} aria-labelledby="friday-heading">
       <div className={l.wrap}>
         <h2 className={l.title} id="friday-heading">{site["friday.heading"]}</h2>
         <p className={l.intro}>{site["friday.intro"]}</p>
@@ -257,7 +259,9 @@ export function ProductPage({ links, waitlist, origin }: ProductSiteProps) {
       <Hero demo={demo} ctaRow={ctaRow} />
       <main id="main">
         <WhySwitch demo={demo} />
+        <StudioPreview />
         <Friday demo={demo} />
+        <FilmTour />
         <Columns id="features" tone={l.white} heading="features.heading" groups={["features.booking", "features.clients", "features.money", "features.easy"]} />
         <ClientsAi />
         <Columns id="status" tone={l.white} three heading="status.heading" groups={["status.now", "status.next", "status.before"]} />
