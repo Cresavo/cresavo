@@ -21,7 +21,7 @@ const FOCUSES: PosterFocus[] = ["top", "center", "bottom"];
 interface PosterStepProps {
   state: DemoState;
   draft: Draft;
-  onChange: (patch: Partial<Draft>) => void;
+  onChange: (patch: Partial<Draft> | ((current: Draft) => Partial<Draft>)) => void;
 }
 
 /** Step 3: pick a style and photo, adjust the text, export a PNG in the size a channel wants. */
@@ -30,7 +30,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
   const svg = useRef<SVGSVGElement>(null);
   const poster = resolvePoster(state, draft);
   const source = { name: draft.name, to: draft.to, link: draftLink(state, draft), poster };
-  const edit = (patch: Draft["posterEdits"]) => onChange({ posterEdits: { ...draft.posterEdits, ...patch } });
+  const edit = (patch: Draft["posterEdits"]) => onChange((current) => ({ posterEdits: { ...current.posterEdits, ...patch } }));
   const badges = poster.badges ?? [];
   const toggleBadge = (badge: string) =>
     edit({ badges: badges.includes(badge) ? badges.filter((b) => b !== badge) : WELLNESS_BADGES.filter((b) => b === badge || badges.includes(b)) });
@@ -68,7 +68,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
           options={FORMATS.map((value) => ({ value, label: t(`campaigns.format.${value}`) }))}
         />
         <div className={cx("mx-auto w-full overflow-hidden rounded-lg", format === "post" ? "max-w-sm" : "max-w-64")}>
-          <PosterView ref={svg} source={source} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} format={format} />
+          <PosterView ref={svg} source={source} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format={format} />
         </div>
         <Button width="responsive" icon={<Share2 size={18} />} onClick={share}>{t("campaigns.poster.share")}</Button>
         <Button variant="secondary" width="responsive" icon={<Download size={18} />} onClick={download}>
@@ -89,7 +89,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
                 className={cx("w-20 shrink-0 flex-col !gap-1 !p-1 !text-minimum", draft.style === style ? "!ring-2 ring-action" : "ring-input-border")}
               >
                 <span className="pointer-events-none block overflow-hidden rounded-sm">
-                  <PosterView source={{ ...source, poster: { ...poster, style } }} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} format="post" />
+                  <PosterView source={{ ...source, poster: resolvePoster(state, { ...draft, style }) }} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format="post" />
                 </span>
                 {t(`campaigns.style.${style}`)}
               </Button>

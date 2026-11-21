@@ -290,6 +290,7 @@ it("gives the before/after poster two different photos and never saves the owner
   expect(poster.before).toBeTruthy();
   expect(poster.before).not.toBe(poster.image);
   expect(resolvePoster(state, { ...draft, style: "price" }).before).toBeUndefined();
+  expect(poster.cta).toBeTruthy();
   const own = { ...draft, posterEdits: { before: "blob:https://demo.example/1", image: "blob:https://demo.example/2" } };
   expect(resolvePoster(state, own)).toMatchObject({ before: "blob:https://demo.example/1", image: "blob:https://demo.example/2" });
   expect(posterToSave(state, own)).toMatchObject({ before: poster.before, image: poster.image });

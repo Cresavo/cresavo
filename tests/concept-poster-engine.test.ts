@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { qrLink, shortLink } from "@/concept/campaigns/poster-engine/client";
+import { qrLink, qrTarget, shortLink } from "@/concept/campaigns/poster-engine/client";
 import { renderPosterSvg } from "@/concept/campaigns/poster-engine/render";
 import { posterDataSchema, posterTree } from "@/concept/campaigns/poster-engine/templates";
 
@@ -35,10 +35,13 @@ describe("poster engine input", () => {
     for (const qr of ["http://salongeko.example", "javascript:alert(1)", "https://a.example/\"><script>", `https://${"a".repeat(200)}.example`]) {
       expect(posterDataSchema.safeParse({ ...input, signature: { ...input.signature, qr } }).success).toBe(false);
     }
-    expect(qrLink("salongeko.example/c/x")).toBe("https://salongeko.example/c/x");
-    expect(qrLink("https://eko.example")).toBe("https://eko.example");
-    expect(qrLink("http://eko.example")).toBeUndefined();
-    expect(qrLink(undefined)).toBeUndefined();
+    expect(posterDataSchema.safeParse({ ...input, signature: { ...input.signature, qr: "https://?campaign=x" } }).success).toBe(false);
+    expect(qrLink("https://eko.example/c/x")).toBe("https://eko.example/c/x");
+    for (const link of ["salongeko.example/c/x", "http://eko.example", "https://?campaign=x", undefined]) expect(qrLink(link)).toBeUndefined();
+    // A demo tracking link is not a real address, so the QR code leads to the salon's booking page on this site.
+    expect(qrTarget("salongeko.example/c/x", "salong-eko", "https://demo.cresavo.com")).toBe("https://demo.cresavo.com/boka/salong-eko");
+    expect(qrTarget("https://eko.example/c/x", "salong-eko", "https://demo.cresavo.com")).toBe("https://eko.example/c/x");
+    expect(qrTarget("salongeko.example/c/x", "salong-eko", "http://localhost:3000")).toBeUndefined();
   });
 
   it("shortens long booking links for the signature", () => {
@@ -67,6 +70,14 @@ describe("poster engine templates", () => {
       .map((uri) => Buffer.from(uri.split(",")[1], "base64").toString()).filter((svg) => svg.includes("crispEdges"));
     expect(qrImages(flat(posterTree("price", withQr, "post")))).toHaveLength(1);
     expect(qrImages(flat(posterTree("price", data, "post")))).toHaveLength(0);
+  });
+
+  it("keeps a QR code beside the booking button on the free-times story", () => {
+    const withQr = posterDataSchema.parse({ ...input, cta: "Boka nu →", signature: { ...input.signature, qr: "https://salongeko.example/c/x" } });
+    const tree = flat(posterTree("slots", withQr, "story"));
+    expect(tree).toContain("Boka nu →");
+    expect(tree).toContain("data:image/svg+xml;base64,");
+    expect(tree.match(/data:image\/svg\+xml;base64,[^"]+/g)!.some((uri) => Buffer.from(uri.split(",")[1], "base64").toString().includes("crispEdges"))).toBe(true);
   });
 
   it("shows the wellness badges on the price poster", () => {

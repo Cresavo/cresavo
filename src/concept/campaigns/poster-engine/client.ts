@@ -1,4 +1,6 @@
 import type { CampaignPoster, PosterFormat, Salon } from "../../data/types";
+import { bookingHome } from "../../booking/links";
+import type { Locale } from "@/lib/locale";
 import { getActiveLocale, translate } from "../../i18n";
 import { FONT_PAIRS, type PageTheme } from "../../page/theme";
 
@@ -10,8 +12,10 @@ const TEMPLATE_COLORS = { accent: "#2f5d50", ink: "#1f2a26", background: "#f7f1e
 const PHOTO_SIDE = 1400;
 
 export interface EngineContext {
-  salon: Pick<Salon, "name" | "phone">;
+  salon: Pick<Salon, "name" | "phone" | "slug">;
   link?: string;
+  /** The business's language: the words on the poster are for its customers, not the studio's language. */
+  language?: Locale;
   theme?: PageTheme;
   rating?: { average: number; count: number };
 }
@@ -52,16 +56,25 @@ export const shortLink = (link: string) => {
   const bare = link.trim().replace(/^https?:\/\//, "");
   return bare.length > LINK_CHARS ? `${bare.slice(0, LINK_CHARS - 1)}…` : bare;
 };
-/** The booking link as an https address for the QR code; undefined when it is not one. */
-export const qrLink = (link: string | undefined) => {
-  const url = link?.trim().replace(/^(?!https?:\/\/)/, "https://");
-  return url && /^https:\/\/[^\s<>"]+$/.test(url) && url.length <= 200 ? url : undefined;
+/** An https address with a host, at most 200 characters, for the QR code; undefined otherwise. */
+export const qrLink = (link: string | undefined): string | undefined => {
+  if (!link) return undefined;
+  try {
+    const url = new URL(link.trim());
+    return url.protocol === "https:" && url.hostname && url.href.length <= 200 ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
 };
+/** Where the QR code leads: the campaign link when it is a real address, otherwise the salon's booking page on this site. */
+export const qrTarget = (link: string | undefined, slug: string, origin: string | undefined) =>
+  qrLink(link) ?? (origin ? qrLink(`${origin}${bookingHome(slug)}`) : undefined);
 const SERIF_FONTS = new Set<string>([FONT_PAIRS.classic.heading, FONT_PAIRS.elegant.heading]);
 
 /** The request body for one poster. */
 export async function engineRequest(poster: CampaignPoster, format: PosterFormat, kicker: string, context: EngineContext) {
-  const language = getActiveLocale();
+  const language = context.language ?? getActiveLocale();
+  const qr = qrTarget(context.link, context.salon.slug, typeof window === "undefined" ? undefined : window.location.origin);
   const { rating } = context;
   return {
     template: poster.style,
@@ -91,7 +104,7 @@ export async function engineRequest(poster: CampaignPoster, format: PosterFormat
         salon: cut(context.salon.name, 60),
         phone: cut(context.salon.phone, 30),
         link: shortLink(context.link ?? ""),
-        ...(qrLink(context.link) && { qr: qrLink(context.link) }),
+        ...(qr && { qr }),
         ...(rating && rating.count > 0 && { rating: Math.min(5, Math.max(1, rating.average)), reviews: cut(translate(language, "campaigns.engine.reviews", { count: rating.count }), 30) }),
       },
     },

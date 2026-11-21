@@ -18,6 +18,26 @@ const requestSchema = z.object({
   data: posterDataSchema,
 }).strict();
 
+/** The body as text, or null as soon as it is known to exceed `max` bytes (declared or while reading). */
+async function readLimited(request: Request, max: number): Promise<string | null> {
+  if (Number(request.headers.get("content-length") ?? 0) > max) return null;
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 const json = (body: Record<string, unknown>, status: number, headers: Record<string, string> = {}) =>
   Response.json(body, { status, headers: { "Cache-Control": "no-store", ...headers } });
 
@@ -26,8 +46,8 @@ export const POST = withRequestLog("/api/concept/poster", async (request: Reques
   if (!fromSameOrigin(request)) return json({ error: "forbidden_origin" }, 403);
   const limit = takeRender(waitlistClientKey(request.headers));
   if (!limit.ok) return json({ error: "rate_limited" }, 429, { "Retry-After": String(limit.retryAfter) });
-  const body = await request.text();
-  if (body.length > MAX_BODY) return json({ error: "too_large" }, 413);
+  const body = await readLimited(request, MAX_BODY);
+  if (body === null) return json({ error: "too_large" }, 413);
   let parsed;
   try {
     parsed = requestSchema.safeParse(JSON.parse(body));

@@ -1,6 +1,7 @@
 import type { Ref } from "react";
 import type { Campaign, PosterFormat, Salon } from "../../data/types";
 import { FONT_PAIRS, type PageTheme } from "../../page/theme";
+import type { Locale } from "@/lib/locale";
 import { t } from "../../i18n";
 import { formatDate } from "../../i18n/format";
 import { isEngineStyle } from "../../campaigns/poster-layout";
@@ -18,15 +19,17 @@ interface PosterViewProps {
   theme?: PageTheme;
   /** The salon's review score, for the signature on engine posters. */
   rating?: { average: number; count: number };
+  /** The business's language, for the words on engine posters. */
+  language?: Locale;
   ref?: Ref<SVGSVGElement>;
 }
 
 /** The salon's poster for a campaign, with its own name, end day and booking link. */
-export function PosterView({ source, salon, format, theme, rating, ref }: PosterViewProps) {
+export function PosterView({ source, salon, format, theme, rating, language, ref }: PosterViewProps) {
   if (!source.poster) return null;
   const label = `${source.name}: ${source.poster.headline} ${source.poster.detail}`;
   if (isEngineStyle(source.poster.style)) {
-    return <EnginePoster ref={ref} poster={source.poster} format={format} kicker={source.name} label={label} context={{ salon, link: source.link, theme, rating }} />;
+    return <EnginePoster ref={ref} poster={source.poster} format={format} kicker={source.name} label={label} context={{ salon, link: source.link, theme, rating, language }} />;
   }
   return (
     <Poster

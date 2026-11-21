@@ -26,4 +26,20 @@ describe("poster route", () => {
     expect((await post({ ...body, template: "anything" })).status).toBe(400);
     expect((await post({ ...body, data: { ...body.data, photo: "data:image/webp;base64,AAAA" } })).status).toBe(400);
   });
+
+  it("refuses bodies over 6 MB, declared or streamed", async () => {
+    const huge = "x".repeat(6_000_001);
+    expect((await post(huge)).status).toBe(413);
+    const streamed = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let i = 0; i < 7; i++) controller.enqueue(new Uint8Array(1_000_000));
+        controller.close();
+      },
+    });
+    const request = new Request("http://localhost/api/concept/poster", {
+      method: "POST", body: streamed, duplex: "half",
+      headers: { "content-type": "application/json", host: "localhost", origin: "http://localhost", "sec-fetch-site": "same-origin" },
+    } as RequestInit);
+    expect((await POST(request, {})).status).toBe(413);
+  });
 });

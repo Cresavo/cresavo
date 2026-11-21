@@ -17,6 +17,14 @@ const line = (max: number) => z.string().trim().max(max);
 /** Photos arrive as JPEG or PNG data URLs (Satori cannot read WebP); about 2 MB each at most. */
 const photo = z.string().max(2_800_000).regex(/^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/);
 
+const hasHost = (value: string) => {
+  try {
+    return new URL(value).hostname.length > 0;
+  } catch {
+    return false;
+  }
+};
+
 export const posterDataSchema = z.object({
   /** Small label above the headline, such as "Friskvård". */
   label: line(24).default(""),
@@ -46,7 +54,7 @@ export const posterDataSchema = z.object({
     /** Shown after the stars, e.g. "48 omdömen"; worded by the caller in the salon's language. */
     reviews: line(30).optional(),
     /** The full booking address, drawn as a QR code beside the salon's name. */
-    qr: z.string().trim().max(200).regex(/^https:\/\/[^\s<>"]+$/).optional(),
+    qr: z.string().trim().max(200).regex(/^https:\/\/[^\s<>"]+$/).refine(hasHost).optional(),
   }).strict(),
 }).strict();
 
@@ -70,7 +78,7 @@ const stars = (count: number, size: number) =>
 
 /** A QR code on a white tile, drawn as one SVG path (each run of dark modules in a row is one rectangle). */
 function qrCode(url: string, size: number): PosterNode {
-  const { data } = encode(url, { ecc: "M", border: 2 });
+  const { data } = encode(url, { ecc: "M", border: 4 });
   const modules = data.length;
   let path = "";
   data.forEach((row, y) => {
@@ -102,9 +110,17 @@ function signature(data: PosterData, width: number, colourOn: string): PosterNod
     qr ? box({ alignItems: "flex-end" }, name, box({ marginLeft: 24 }, qrCode(qr, QR_SIZE))) : name);
 }
 
+/** The largest pill text size, at most 25 px, at which the badges fit on one row of `room` pixels. */
+const badgeSize = (badges: string[], room: number) => {
+  const letters = badges.reduce((sum, badge) => sum + badge.length, 0);
+  // Per pill: about 0.62 em per letter, 1.2 em of padding, a third of an em of margin and two 3 px borders.
+  for (let size = 25; size > 14; size--) if (letters * size * 0.62 + badges.length * (size * 1.2 + size / 3 + 6) <= room) return size;
+  return 14;
+};
+
 /** The wellness-benefit services the salon accepts (Epassi, Benify …), as small outlined pills. */
 const badgeRow = (badges: string[], colour: string, size: number, style: Record<string, string | number> = {}) =>
-  box({ flexWrap: "wrap", ...style }, ...badges.map((badge) =>
+  box({ flexWrap: "wrap", alignItems: "flex-start", ...style }, ...badges.map((badge) =>
     text({ border: `3px solid ${colour}`, color: colour, borderRadius: 999, padding: `${Math.round(size / 4)}px ${Math.round(size * 0.6)}px`, marginRight: Math.round(size / 3), marginTop: 10, fontSize: size, fontWeight: 800 }, badge)));
 
 function headingFont(data: PosterData) {
@@ -135,7 +151,7 @@ function priceTemplate(data: PosterData, width: number, height: number): PosterN
     ...(data.sticker ? [box({ position: "absolute", left: width - photoWidth - 150, top: waveTop + 20, width: 210, height: 210, borderRadius: 999, background: HIGHLIGHT, color: "#111111", transform: "rotate(-12deg)", flexDirection: "column", alignItems: "center", justifyContent: "center", fontWeight: 800 },
       text({ fontSize: 32 }, data.sticker[0]), text({ fontSize: 52 }, data.sticker[1]))] : []),
     text({ position: "absolute", left: 64, top: detailTop, width: width - photoWidth - 40, fontSize: detailSize, fontWeight: 600, lineHeight: 1.25, color: onAccent, lineClamp: detailLines }, data.detail),
-    ...(data.badges.length ? [badgeRow(data.badges, onAccent, data.badges.length > 3 ? 21 : 25, { position: "absolute", left: 64, top: badgesTop, width: width - photoWidth - 40, height: 64, overflow: "hidden" })] : []),
+    ...(data.badges.length ? [badgeRow(data.badges, onAccent, badgeSize(data.badges, width - photoWidth - 40), { position: "absolute", left: 64, top: badgesTop, width: width - photoWidth - 40, height: 64, overflow: "hidden" })] : []),
     signature(data, width, onAccent));
 }
 
@@ -223,7 +239,10 @@ function slotsTemplate(data: PosterData, width: number, height: number): PosterN
     text({ position: "absolute", left: 60, top: listTop, width: width - 120, fontSize: Math.round(54 * scale), fontWeight: 800 }, data.items.map((item) => item.name).join("  ·  ")),
     text({ position: "absolute", left: 60, top: listTop + Math.round(80 * scale), width: width - 120, fontSize: Math.round(40 * scale), fontWeight: 600, opacity: 0.85 }, data.detail),
     ...(tall
-      ? [box({ position: "absolute", left: 60, bottom: 100, width: width - 120, justifyContent: "center", background: ink, color: onColour(ink), fontWeight: 800, fontSize: 48, padding: 30, borderRadius: 999 }, text({}, data.cta || data.signature.link))]
+      // The story ends with a booking button, and the QR code beside it so a screenshot still leads to booking.
+      ? [box({ position: "absolute", left: 60, bottom: 90, width: width - 120, alignItems: "center" },
+        box({ flexGrow: 1, justifyContent: "center", background: ink, color: onColour(ink), fontWeight: 800, fontSize: 48, padding: 30, borderRadius: 999 }, text({}, data.cta || data.signature.link)),
+        ...(data.signature.qr ? [box({ marginLeft: 28 }, qrCode(data.signature.qr, QR_SIZE))] : []))]
       : [box({ position: "absolute", left: 0, bottom: 0, width, height: 250, background: ink }), signature(data, width, onColour(ink))]));
 }
 
@@ -236,7 +255,8 @@ function beforeAfterTemplate(data: PosterData, width: number, height: number): P
   const gap = 24;
   const onBackground = onColour(background) === WHITE ? WHITE : ink;
   // A long headline gets two smaller lines, and the photos start below them.
-  const long = data.headline.length > 18;
+  // Heavy display letters average under 0.5 em wide; a headline that would not fit on one line gets two smaller lines.
+  const long = data.headline.length * 104 * scale * 0.5 > width - 128;
   const headlineSize = Math.round((long ? 76 : 104) * scale);
   const headlineTop = tall ? 130 : 70;
   const photoTop = headlineTop + Math.round(headlineSize * (long ? 2 : 1) * 1.02) + 40;

@@ -122,6 +122,7 @@ function storyFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "cta"
 /** Price, sticker and price list for the engine styles, from the treatments the campaign is about. */
 function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "price" | "sticker" | "items" | "cta" | "quote" | "author"> {
   if (draft.style === "season" || draft.style === "review" || draft.style === "slots") return storyFields(state, draft);
+  if (draft.style === "beforeafter") return { cta: t("campaigns.engine.book") };
   const chosen = state.services.filter((s) => draft.serviceIds.includes(s.id) && !s.hidden);
   const listed = (chosen.length > 1 ? chosen : state.services.filter((s) => !s.hidden)).slice(0, MAX_LIST);
   const off = (price: number) => Math.round(price * (1 - draft.discountPercent / 100));
