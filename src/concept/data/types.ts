@@ -1,6 +1,7 @@
 import type { BookingProtection, CancellationPolicy, CheckoutHold } from "../booking/protection";
 import type { Industry } from "../onboarding/salon";
 import type { BusinessLocalization } from "../i18n/business";
+import type { Backdrop } from "../campaigns/poster-engine/backdrops";
 import type { ReminderSettings } from "../booking/reminders";
 // Data model for the clickable demo. No database: everything is generated
 // deterministically in `generate.ts` and kept in the browser (see `../store.ts`).
@@ -316,7 +317,7 @@ export interface Holiday {
 export type CampaignStatus = "active" | "planned" | "ended" | "draft";
 export type Channel = "instagram" | "facebook" | "tiktok" | "newsletter" | "sms";
 /** The first five are drawn in the browser; the rest are rendered by the server poster engine. */
-export type PosterStyle = "calm" | "bold" | "photo" | "arch" | "dusk" | "price" | "pricelist" | "season" | "review" | "slots" | "beforeafter";
+export type PosterStyle = "calm" | "bold" | "photo" | "arch" | "dusk" | "price" | "pricelist" | "season" | "review" | "slots" | "beforeafter" | "portrait";
 export type PosterFormat = "post" | "story" | "window";
 
 export interface CampaignPoster {
@@ -340,6 +341,9 @@ export interface CampaignPoster {
   badges?: string[];
   /** Before/after style: the "before" photo; `image` is the "after" photo. */
   before?: string;
+  /** Portrait style: the smaller line above the headline, and the drawn background. */
+  lead?: string;
+  backdrop?: Backdrop;
 }
 export type PosterTextSize = "small" | "normal" | "large";
 /** Which part of the photo stays in view when the template crops it. */

@@ -296,6 +296,18 @@ it("gives the before/after poster two different photos and never saves the owner
   expect(posterToSave(state, own)).toMatchObject({ before: poster.before, image: poster.image });
 });
 
+it("starts the portrait poster from a staff photo with a lead line and a backdrop", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const draft = { ...newDraft(defaultPrefill(state, "2026-11-21")), style: "portrait" as const };
+  const poster = resolvePoster(state, draft);
+  expect(state.staff.map((member) => member.photo)).toContain(poster.image);
+  expect(poster).toMatchObject({ backdrop: "bloom" });
+  expect(poster.lead).toBeTruthy();
+  expect(resolvePoster(state, { ...draft, posterEdits: { lead: "Betala med", backdrop: "sun" } })).toMatchObject({ lead: "Betala med", backdrop: "sun" });
+});
+
 it("fills the review and free-times posters from published reviews and the calendar", async () => {
   const { createDemoState } = await import("@/concept/data/generate");
   const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");

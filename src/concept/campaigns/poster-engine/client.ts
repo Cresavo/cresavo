@@ -5,7 +5,7 @@ import { getActiveLocale, translate } from "../../i18n";
 import { FONT_PAIRS, type PageTheme } from "../../page/theme";
 
 // The browser side of the poster engine: gathers what a template needs, turns
-// photos into JPEG (the renderer cannot read WebP), and asks the server for
+// photos into JPEG or, for cut-outs, PNG (the renderer cannot read WebP), and asks the server for
 // the SVG. Identical requests are answered from memory.
 
 const TEMPLATE_COLORS = { accent: "#2f5d50", ink: "#1f2a26", background: "#f7f1e8" };
@@ -20,21 +20,54 @@ export interface EngineContext {
   rating?: { average: number; count: number };
 }
 
-const photos = new Map<string, Promise<string>>();
+const photos = new Map<string, Promise<PosterPhoto>>();
+const CUTOUT_SIDE = 1100;
+/** Below the server's 2.8 MB limit for one photo. */
+const MAX_DATA_URL = 2_700_000;
 
-/** A photo (demo file, upload or object URL) as a JPEG data URL of at most 1400 px. */
-export function jpegPhoto(url: string): Promise<string> {
+export interface PosterPhoto {
+  src: string;
+  /** True when the photo has transparent parts: a cut-out person, kept as PNG. */
+  cutout: boolean;
+}
+
+/** True when some pixel is noticeably transparent (sampled, so large photos stay fast). */
+export function hasTransparency(pixels: Uint8ClampedArray, step = 97): boolean {
+  for (let i = 3; i < pixels.length; i += 4 * step) if (pixels[i] < 250) return true;
+  return false;
+}
+
+function draw(bitmap: ImageBitmap, side: number) {
+  const scale = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+/**
+ * A photo (demo file, upload or object URL) for the renderer, which cannot read WebP: a JPEG of at most
+ * 1400 px, or a PNG when the photo is a cut-out, scaled down until it fits the server's limit.
+ */
+export function posterPhoto(url: string): Promise<PosterPhoto> {
   let cached = photos.get(url);
   if (!cached) {
     cached = (async () => {
       const bitmap = await createImageBitmap(await (await fetch(url)).blob());
-      const scale = Math.min(1, PHOTO_SIDE / Math.max(bitmap.width, bitmap.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(bitmap.width * scale);
-      canvas.height = Math.round(bitmap.height * scale);
-      canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      bitmap.close();
-      return canvas.toDataURL("image/jpeg", 0.86);
+      try {
+        const probe = draw(bitmap, 400);
+        const pixels = probe.getContext("2d")?.getImageData(0, 0, probe.width, probe.height).data;
+        if (pixels && hasTransparency(pixels)) {
+          for (let side = CUTOUT_SIDE; side >= 400; side = Math.round(side * 0.8)) {
+            const src = draw(bitmap, side).toDataURL("image/png");
+            if (src.length <= MAX_DATA_URL) return { src, cutout: true };
+          }
+        }
+        return { src: draw(bitmap, PHOTO_SIDE).toDataURL("image/jpeg", 0.86), cutout: false };
+      } finally {
+        bitmap.close();
+      }
     })();
     cached.catch(() => photos.delete(url));
     photos.set(url, cached);
@@ -74,6 +107,7 @@ const SERIF_FONTS = new Set<string>([FONT_PAIRS.classic.heading, FONT_PAIRS.eleg
 /** The request body for one poster. */
 export async function engineRequest(poster: CampaignPoster, format: PosterFormat, kicker: string, context: EngineContext) {
   const language = context.language ?? getActiveLocale();
+  const photo = await posterPhoto(poster.image);
   const qr = qrTarget(context.link, context.salon.slug, typeof window === "undefined" ? undefined : window.location.origin);
   const { rating } = context;
   return {
@@ -91,8 +125,10 @@ export async function engineRequest(poster: CampaignPoster, format: PosterFormat
       quote: cut(poster.quote ?? "", 220),
       author: cut(poster.author ?? "", 40),
       badges: (poster.badges ?? []).slice(0, 4).map((badge) => cut(badge, 20)),
-      photo: await jpegPhoto(poster.image),
-      ...(poster.style === "beforeafter" && poster.before && { before: await jpegPhoto(poster.before) }),
+      photo: photo.src,
+      cutout: poster.style === "portrait" && photo.cutout,
+      ...(poster.style === "beforeafter" && poster.before && { before: (await posterPhoto(poster.before)).src }),
+      ...(poster.style === "portrait" && { lead: cut(poster.lead ?? "", 30), backdrop: poster.backdrop ?? "bloom" }),
       pair: [cut(translate(language, "campaigns.engine.before"), 12), cut(translate(language, "campaigns.engine.after"), 12)],
       focus: poster.focus ?? "center",
       textSize: poster.textSize ?? "normal",

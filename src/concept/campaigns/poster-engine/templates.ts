@@ -1,12 +1,13 @@
 import { encode } from "uqr";
 import { z } from "zod";
+import { BACKDROPS, backdropSvg } from "./backdrops";
 import { box, image, svgImage, text, type PosterNode } from "./element";
 
 // Poster templates for the server renderer: designed layouts with fixed slots
 // (headline, price, photo, sticker, price list, signature) that the owner fills
 // and adjusts within limits, so every poster stays presentable.
 
-export const ENGINE_TEMPLATES = ["price", "pricelist", "season", "review", "slots", "beforeafter"] as const;
+export const ENGINE_TEMPLATES = ["price", "pricelist", "season", "review", "slots", "beforeafter", "portrait"] as const;
 export type EngineTemplate = (typeof ENGINE_TEMPLATES)[number];
 
 export const ENGINE_FORMATS = { post: { width: 1080, height: 1350 }, story: { width: 1080, height: 1920 }, window: { width: 1050, height: 1485 } } as const;
@@ -42,6 +43,10 @@ export const posterDataSchema = z.object({
   /** Before/after: the "before" photo, and the two words on the photos in the salon's language. */
   before: photo.optional(),
   pair: z.tuple([line(12), line(12)]).default(["Before", "After"]),
+  /** Portrait: the smaller line above the headline, the drawn background, and whether the photo is a cut-out (transparent PNG). */
+  lead: line(30).default(""),
+  backdrop: z.enum(BACKDROPS).default("bloom"),
+  cutout: z.boolean().default(false),
   focus: z.enum(["top", "center", "bottom"]).default("center"),
   textSize: z.enum(["small", "normal", "large"]).default("normal"),
   colors: z.object({ accent: colour, ink: colour, background: colour }).strict(),
@@ -291,6 +296,86 @@ function beforeAfterTemplate(data: PosterData, width: number, height: number): P
     signature(data, width, onColour(ink)));
 }
 
+/** Width and height from a PNG data URL's header, or null when it is not a readable PNG. */
+export function pngSize(dataUrl: string): { width: number; height: number } | null {
+  const comma = dataUrl.indexOf(",");
+  if (!dataUrl.startsWith("data:image/png") || comma < 0) return null;
+  const head = Buffer.from(dataUrl.slice(comma + 1, comma + 1 + 44), "base64");
+  if (head.length < 24 || head.toString("latin1", 12, 16) !== "IHDR") return null;
+  return { width: head.readUInt32BE(16), height: head.readUInt32BE(20) };
+}
+
+/** The share of a half-body cut-out, from the top, that holds the head and face. */
+const HEAD_SHARE = 0.45;
+
+/**
+ * Where a cut-out person stands: on the bottom edge, right of centre. When the head can stay above the
+ * text block (the person grows to at most 95 % of the height), `clear` is true and the headline may run
+ * the full width; otherwise the person stays at 80 % and the text keeps to the left column.
+ */
+export function cutoutPlacement(size: { width: number; height: number }, width: number, height: number, textTop: number) {
+  const aspect = size.width / Math.max(1, size.height);
+  const needed = (height - textTop + 24) / (1 - HEAD_SHARE);
+  const clear = needed <= Math.min(height * 0.95, (width * 0.66) / aspect);
+  // At most two thirds of the width, so the whole face stays on the poster.
+  const tall = Math.round(Math.min(clear ? Math.max(height * 0.6, needed) : height * 0.8, (width * 0.66) / aspect));
+  const wide = Math.round(tall * aspect);
+  // Centred at 74 % of the width, never further left than 40 %, so the face sits right of the text column.
+  const left = Math.max(Math.round(width * 0.4), Math.round(width * 0.74 - wide / 2));
+  return { clear, left, top: height - tall, width: wide, height: tall };
+}
+
+const CREAM = "#fdf3e6";
+const GOLD = "#ffd27a";
+
+/**
+ * The owner or a colleague on a drawn background in the salon's colour: a cut-out photo stands at the
+ * bottom right, any other photo sits in an arch. Big two-level headline, wellness badges, short lines and the link.
+ */
+function portraitTemplate(data: PosterData, width: number, height: number): PosterNode {
+  const scale = SCALE[data.textSize];
+  const column = Math.round(width * 0.58);
+  // Stories keep text out of the app's own bars: 270 px at the top and 390 px at the bottom of 1920.
+  const tall = height > width * 1.5;
+  const top = tall ? 270 : 70;
+  const safe = tall ? 390 : 40;
+  const shadow = "0 3px 18px rgba(0,0,0,0.45)";
+  const headlineSize = Math.min(Math.round(150 * scale), Math.floor((width - 128) / (Math.max(6, data.headline.length) * 0.52)));
+  const leadSize = Math.round(76 * scale);
+  const bodySize = Math.round(40 * scale);
+  // Where the text block starts, estimated from the sizes above (it grows upwards from the footer).
+  const textBottom = height - (safe + 190);
+  const textTop = textBottom - (data.lead ? leadSize : 0) - 6 - Math.round(headlineSize * 0.98)
+    - (data.badges.length ? 18 + 54 : 0) - (data.detail ? 28 + bodySize * 1.25 * 2 : 0) - (data.cta ? 14 + bodySize * 1.25 : 0);
+  const placement = data.cutout ? cutoutPlacement(pngSize(data.photo) ?? { width: 3, height: 4 }, width, height, textTop) : null;
+  // A headline that would cross the face keeps to the left column, set smaller to fit its longest word.
+  const keepLeft = placement ? !placement.clear : false;
+  const longest = Math.max(6, ...data.headline.split(/\s+/).map((word) => word.length));
+  const headline = keepLeft ? Math.min(headlineSize, Math.floor(column / (longest * 0.52))) : headlineSize;
+  const person = placement
+    ? image(data.photo, { position: "absolute", left: placement.left, top: placement.top, width: placement.width, height: placement.height, objectFit: "cover", objectPosition: "50% 0%" })
+    // The arch ends above the text block, so the headline never runs across a face.
+    : image(data.photo, { position: "absolute", left: column + 12, top: top + 30, width: width - column - 12, height: Math.round(height * (tall ? 0.36 : 0.34)), objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: `${(width - column) / 2}px 0 0 ${(width - column) / 2}px`, border: `8px solid ${GOLD}`, borderRight: "none" });
+  return box({ width, height, position: "relative", fontFamily: "Inter", color: CREAM },
+    svgImage(backdropSvg(data.backdrop, width, height, data.colors.accent), { position: "absolute", left: 0, top: 0, width, height }),
+    person,
+    // Dark scrims behind the text, strongest on the left where the lines are, so light text stays readable
+    // over the photo and the art while the person on the right keeps their colour.
+    box({ position: "absolute", left: 0, top: 0, width, height, backgroundImage: "linear-gradient(to right, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0) 75%)" }),
+    box({ position: "absolute", left: 0, top: 0, width, height, backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) ${Math.round(((safe + 190) / height) * 100)}%, rgba(0,0,0,0) 60%)` }),
+    text({ position: "absolute", left: 64, top, maxWidth: column - 64, fontFamily: "Caladea", fontSize: 64, lineHeight: 1, textShadow: shadow }, data.signature.salon),
+    // The text block grows upwards from the footer, so short and long texts both end in the same place.
+    box({ position: "absolute", left: 64, bottom: safe + 190, width: width - 128, flexDirection: "column", textShadow: shadow },
+      ...(data.lead ? [text({ fontFamily: "Inter Display", fontWeight: 900, fontSize: leadSize, letterSpacing: -2, lineHeight: 1, maxWidth: column }, data.lead)] : []),
+      text({ display: "block", fontFamily: "Inter Display", fontWeight: 900, fontSize: headline, letterSpacing: -4, lineHeight: 0.98, marginTop: 6, lineClamp: 2, ...(keepLeft && { maxWidth: column }) }, data.headline),
+      ...(data.badges.length ? [badgeRow(data.badges, CREAM, badgeSize(data.badges, column) + 4, { marginTop: 18, maxWidth: column })] : []),
+      ...(data.detail ? [text({ display: "block", fontSize: bodySize, fontWeight: 600, lineHeight: 1.25, marginTop: 28, maxWidth: column, lineClamp: 2 }, data.detail)] : []),
+      ...(data.cta ? [text({ fontSize: bodySize, fontWeight: 600, color: GOLD, marginTop: 14, maxWidth: column }, data.cta)] : [])),
+    box({ position: "absolute", left: 64, bottom: safe + 104, width: width - 128 - (data.signature.qr ? 170 : 0), height: 2, background: CREAM, opacity: 0.4 }),
+    text({ display: "block", position: "absolute", left: 64, bottom: safe + 40, maxWidth: width - 128 - 180, fontSize: 36, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textShadow: shadow }, [data.signature.link, data.signature.phone].filter(Boolean).join("  ·  ")),
+    ...(data.signature.qr ? [box({ position: "absolute", right: 64, bottom: safe }, qrCode(data.signature.qr, 150))] : []));
+}
+
 const LAYOUTS: Record<EngineTemplate, (data: PosterData, width: number, height: number) => PosterNode> = {
   price: priceTemplate,
   pricelist: priceListTemplate,
@@ -298,6 +383,7 @@ const LAYOUTS: Record<EngineTemplate, (data: PosterData, width: number, height: 
   review: reviewTemplate,
   slots: slotsTemplate,
   beforeafter: beforeAfterTemplate,
+  portrait: portraitTemplate,
 };
 
 export function posterTree(template: EngineTemplate, data: PosterData, format: EngineFormat): PosterNode {

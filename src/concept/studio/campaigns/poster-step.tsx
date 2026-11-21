@@ -4,6 +4,7 @@ import { Download, ImagePlus, Share2 } from "lucide-react";
 import { draftLink, resolvePoster, type Draft } from "../../campaigns/draft";
 import { downloadBlob, posterToPng, sharePoster } from "../../campaigns/export-png";
 import { isOwnPhoto, ownPhotoUrl } from "../../campaigns/own-photo";
+import { BACKDROPS, type Backdrop } from "../../campaigns/poster-engine/backdrops";
 import { MAX_BADGES, POSTER_FORMATS, POSTER_IMAGES, POSTER_STYLES, WELLNESS_BADGES } from "../../campaigns/poster-layout";
 import type { DemoState, PosterFocus, PosterFormat, PosterTextSize } from "../../data/types";
 import { t } from "../../i18n";
@@ -32,6 +33,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
   const source = { name: draft.name, to: draft.to, link: draftLink(state, draft), poster };
   const edit = (patch: Draft["posterEdits"]) => onChange((current) => ({ posterEdits: { ...current.posterEdits, ...patch } }));
   const badges = poster.badges ?? [];
+  const staffPhotos = state.staff.flatMap((member) => (member.photo ? [{ src: member.photo, label: `${member.firstName} ${member.lastName}` }] : []));
   const toggleBadge = (badge: string) =>
     edit({ badges: badges.includes(badge) ? badges.filter((b) => b !== badge) : WELLNESS_BADGES.filter((b) => b === badge || badges.includes(b)) });
 
@@ -101,6 +103,18 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
             <PhotoPicker label={t("campaigns.photo.before")} value={poster.before} onPick={(before) => edit({ before })} />
             <PhotoPicker label={t("campaigns.photo.after")} value={poster.image} onPick={(image) => edit({ image })} />
           </>
+        ) : draft.style === "portrait" ? (
+          <>
+            <PhotoPicker label={t("campaigns.photo.person")} value={poster.image} onPick={(image) => edit({ image })} images={staffPhotos} />
+            <p className="text-sm text-text-secondary">{t("campaigns.photo.cutoutTip")}</p>
+            <span className="block text-sm font-medium" aria-hidden>{t("campaigns.poster.backdrop")}</span>
+            <Segmented<Backdrop>
+              label={t("campaigns.poster.backdrop")}
+              value={poster.backdrop ?? "bloom"}
+              onChange={(backdrop) => edit({ backdrop })}
+              options={BACKDROPS.map((value) => ({ value, label: t(`campaigns.backdrop.${value}`) }))}
+            />
+          </>
         ) : (
           <PhotoPicker label={t("campaigns.poster.photo")} value={poster.image} onPick={(image) => edit({ image })} />
         )}
@@ -119,7 +133,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
           onChange={(focus) => edit({ focus })}
           options={FOCUSES.map((value) => ({ value, label: t(`campaigns.focus.${value}`) }))}
         />
-        {(draft.style === "price" || draft.style === "pricelist") && (
+        {(draft.style === "price" || draft.style === "pricelist" || draft.style === "portrait") && (
           <fieldset className="space-y-2">
             <legend className="block text-sm font-medium">{t("campaigns.poster.badges")}</legend>
             <div className="flex flex-wrap gap-2">
@@ -137,6 +151,11 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
             <p className="text-sm text-text-secondary">{t("campaigns.poster.badgesHint")}</p>
           </fieldset>
         )}
+        {draft.style === "portrait" && (
+          <Field width="short" label={t("campaigns.poster.lead")}>
+            <TextInput value={poster.lead ?? ""} maxLength={30} onChange={(event) => edit({ lead: event.target.value })} />
+          </Field>
+        )}
         <Field width="short" label={t("campaigns.poster.headline")}>
           <TextInput value={poster.headline} maxLength={24} onChange={(event) => edit({ headline: event.target.value })} />
         </Field>
@@ -148,8 +167,11 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
   );
 }
 
-/** The demo photos and the owner's own photo, for one photo slot on the poster. */
-function PhotoPicker({ label, value, onPick }: { label: string; value: string | undefined; onPick: (image: string) => void }) {
+const ROOM_PHOTOS = POSTER_IMAGES.map((src) => ({ src, label: src.includes("massage") ? "campaigns.photo.massage" as const : "campaigns.photo.salon" as const }));
+
+/** The demo photos (each with its accessible name) and the owner's own photo, for one photo slot on the poster. */
+function PhotoPicker({ label, value, onPick, images }: { label: string; value: string | undefined; onPick: (image: string) => void; images?: { src: string; label: string }[] }) {
+  const choices = images ?? ROOM_PHOTOS.map((photo) => ({ src: photo.src, label: t(photo.label) }));
   const pick = async (file: File | undefined) => {
     if (!file) return;
     try {
@@ -162,14 +184,14 @@ function PhotoPicker({ label, value, onPick }: { label: string; value: string | 
     <div className="space-y-2">
       <span className="block text-sm font-medium">{label}</span>
       <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
-        {POSTER_IMAGES.map((image) => (
+        {choices.map(({ src, label: name }) => (
           <Button variant="secondary" size="sm"
-            key={image}
-            aria-pressed={value === image}
-            aria-label={t(image.includes("massage") ? "campaigns.photo.massage" : "campaigns.photo.salon")}
-            onClick={() => onPick(image)}
-            className={cx("h-16 w-24 overflow-hidden bg-cover bg-center", value === image ? "!ring-2 ring-action" : "ring-input-border")}
-            style={{ backgroundImage: `url(${image})` }}
+            key={src}
+            aria-pressed={value === src}
+            aria-label={name}
+            onClick={() => onPick(src)}
+            className={cx("h-16 w-24 overflow-hidden bg-cover bg-center", value === src ? "!ring-2 ring-action" : "ring-input-border")}
+            style={{ backgroundImage: `url(${src})` }}
           />
         ))}
         <label className={cx(buttonClass("secondary", "sm"), "h-16 w-24 cursor-pointer flex-col !gap-1 !text-minimum", value && isOwnPhoto(value) && "!ring-2 ring-action")}>

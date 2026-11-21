@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { qrLink, qrTarget, shortLink } from "@/concept/campaigns/poster-engine/client";
 import { renderPosterSvg } from "@/concept/campaigns/poster-engine/render";
-import { posterDataSchema, posterTree } from "@/concept/campaigns/poster-engine/templates";
+import { cutoutPlacement, pngSize, posterDataSchema, posterTree } from "@/concept/campaigns/poster-engine/templates";
+import { backdropSvg, BACKDROPS } from "@/concept/campaigns/poster-engine/backdrops";
+import { hasTransparency } from "@/concept/campaigns/poster-engine/client";
 
 // The server poster engine: input limits, the template slots and a real render. Fictional salon.
 
@@ -94,6 +96,47 @@ describe("poster engine templates", () => {
     }
     expect(flat(posterTree("beforeafter", paired, "story"))).toContain("Boka nu →");
     expect(posterDataSchema.safeParse({ ...input, before: "https://elsewhere.example/a.jpg" }).success).toBe(false);
+  });
+
+  it("lays out the portrait poster with its lead line, badges and the link inside the story's safe zone", () => {
+    const portrait = posterDataSchema.parse({ ...input, lead: "Betala med", headline: "friskvårdsbidrag", cta: "Boka nu →", backdrop: "leaves" });
+    const tree = flat(posterTree("portrait", portrait, "post"));
+    for (const part of ["Betala med", "friskvårdsbidrag", "Epassi", "Salong Eko", "salongeko.cresavo.com"]) expect(tree).toContain(part);
+    // In a story the link sits above the 390 px Instagram keeps for its own bar.
+    expect(flat(posterTree("portrait", portrait, "story"))).toContain('"bottom":430');
+    expect(posterDataSchema.safeParse({ ...input, backdrop: "anything" }).success).toBe(false);
+  });
+
+  it("draws every backdrop as one valid SVG in the salon's colour", () => {
+    for (const kind of BACKDROPS) {
+      const svg = backdropSvg(kind, 1080, 1350, "#c2557f");
+      expect(svg.startsWith("<svg")).toBe(true);
+      // An attribute twice on one element makes the whole SVG invalid.
+      for (const element of svg.match(/<[a-z]+ [^>]*>/g) ?? []) {
+        const names = [...element.matchAll(/ ([a-z-]+)="/g)].map((match) => match[1]);
+        expect(new Set(names).size).toBe(names.length);
+      }
+    }
+  });
+
+  it("keeps a cut-out person's face above the text block, or the text in the left column", () => {
+    // Room enough: the person grows until the head (top 45 %) ends above the text.
+    const roomy = cutoutPlacement({ width: 3, height: 4 }, 1080, 1920, 1500);
+    expect(roomy.clear).toBe(true);
+    expect(roomy.top + roomy.height * 0.45).toBeLessThanOrEqual(1500);
+    // Not enough room: the person stays smaller, right of the text column.
+    const tight = cutoutPlacement({ width: 3, height: 4 }, 1080, 1350, 500);
+    expect(tight.clear).toBe(false);
+    expect(tight.left).toBeGreaterThanOrEqual(Math.round(1080 * 0.4));
+    expect(tight.width).toBeLessThanOrEqual(Math.ceil(1080 * 0.66));
+  });
+
+  it("reads a PNG's size and tells transparent photos from opaque ones", () => {
+    const png = "data:image/png;base64," + Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 3, 0x20, 0, 0, 4, 0x2c, 8, 6, 0, 0, 0]).toString("base64");
+    expect(pngSize(png)).toEqual({ width: 800, height: 1068 });
+    expect(pngSize(jpeg)).toBeNull();
+    expect(hasTransparency(new Uint8ClampedArray([1, 2, 3, 255, 1, 2, 3, 255]), 1)).toBe(false);
+    expect(hasTransparency(new Uint8ClampedArray([1, 2, 3, 255, 1, 2, 3, 0]), 1)).toBe(true);
   });
 
   it("follows the salon's colours and the photo crop", () => {
