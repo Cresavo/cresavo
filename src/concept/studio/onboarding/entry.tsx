@@ -3,22 +3,25 @@
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { t } from "../../i18n";
-import { switchSalon, useWorkspaceSlug } from "../../store";
+import { switchSalon, useActiveWorkspace, useWorkspaceSlug } from "../../store";
 import { showToast } from "../../ui/toast";
 import { Button, ButtonLink } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { PageHeader } from "../page-header";
 import { useStudio } from "../use-studio";
 import { DemoTour, firstVisit } from "./tour";
+import { AccountNotice } from "./account-notice";
 import { TrialNotice } from "./trial-notice";
 
 export function SalonEntry({ today = false, standalone = false }: { today?: boolean; standalone?: boolean }) {
   const { state } = useStudio();
   const router = useRouter();
   const savedSalon = useWorkspaceSlug("own");
+  const workspace = useActiveWorkspace();
   const [tour, setTour] = useState(() => today && !state.industry && firstVisit());
   const explore = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => { setTour(false); explore.current?.focus(); }, []);
+  if (workspace === "account") return <AccountNotice />;
   if (state.industry) return <TrialNotice />;
   return <div className="mb-5">
     <Card className="space-y-3 p-4">

@@ -16,6 +16,7 @@ import { t } from "../i18n";
 import { unreadCount } from "../selectors";
 import { isPreset } from "../modules/registry";
 import { dispatch, markTrialUsed, useDemo, useTrialRemoved } from "../store";
+import { openSignedInSalon } from "../account/sync";
 import type { DemoState } from "../data/types";
 import { StaffAvatar } from "../ui/avatar";
 import { DemoBadge } from "../ui/badge";
@@ -56,6 +57,8 @@ export function StudioShell({ children }: { children: ReactNode }) {
   const removed = useTrialRemoved();
   const own = !!state?.industry;
   const preview = state && role === "staff" ? staffViewer(state) : null;
+  // A signed-in owner works in their salon on the server; everyone else keeps the browser salons.
+  useEffect(() => { void openSignedInSalon(); }, []);
   // The chrome follows the studio's saved theme, also when arriving by an in-app link from a booking page.
   useEffect(() => pinThemeColor(studioChrome(parseTheme(document.documentElement.dataset.theme))), []);
   useStartPreset(!!state);

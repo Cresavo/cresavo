@@ -8,6 +8,7 @@ import { assertWritable } from "./public-readonly";
 // credential version, so a password reset or disable ends every session.
 
 export const OWNER_COOKIE = "cresavo_owner";
+export { OWNER_HINT_COOKIE } from "@/concept/account/hint";
 export const OWNER_SESSION_MS = 30 * 24 * 3600_000;
 const COOKIE_PATTERN = /^[a-f0-9]{64}\.\d{13}\.[a-f0-9]{64}$/;
 

@@ -245,3 +245,24 @@ it("links a local campaign to its salon's booking page on this origin", () => {
   expect(draftLink(salon, offer, origin)).toBe(`${origin}/boka/studio-vide?campaign=${campaignCode(offer.name, today)}`);
   expect(draftLink(state, offer, origin)).toBe(trackingLink(offer.name, today));
 });
+
+it("carries the owner's text size and photo focus into the poster", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const draft = newDraft(defaultPrefill(state, "2026-11-21"));
+  expect(resolvePoster(state, draft)).not.toHaveProperty("textSize");
+  expect(resolvePoster(state, { ...draft, posterEdits: { textSize: "large", focus: "top" } })).toMatchObject({ textSize: "large", focus: "top" });
+});
+
+it("starts a new poster from the owner's latest choices", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, latestPoster, newDraft } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const prefill = defaultPrefill(state, "2026-11-21");
+  expect(newDraft(prefill)).toMatchObject({ style: "calm", posterEdits: {} });
+  const mine = { style: "dusk" as const, image: "/demo/salon.webp", headline: "Höst", detail: "Fotvård", textSize: "large" as const, focus: "top" as const };
+  const withMine = { ...state, campaigns: [{ ...state.campaigns[0], id: "mine", poster: mine }, ...state.campaigns] };
+  expect(latestPoster(withMine)).toBe(mine);
+  expect(newDraft(prefill, latestPoster(withMine))).toMatchObject({ style: "dusk", posterEdits: { textSize: "large", focus: "top" } });
+});

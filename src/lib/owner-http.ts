@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { failure } from "./http";
 import { ownerAccountsEnabled } from "./owner-accounts";
-import { OWNER_COOKIE, OWNER_SESSION_MS } from "./owner-session";
+import { OWNER_COOKIE, OWNER_HINT_COOKIE, OWNER_SESSION_MS } from "./owner-session";
 import { isPublicReadonly, readonlyForbidden } from "./public-readonly";
 import { isSameOriginWrite } from "./same-origin";
 
@@ -35,12 +35,17 @@ export async function readJson(request: NextRequest): Promise<unknown> {
 
 const cookieOptions = { httpOnly: true, sameSite: "strict" as const, secure: process.env.NODE_ENV === "production", path: "/" };
 
+// The hint holds no secret: it only tells the studio to ask the server for an account salon.
+const hintOptions = { ...cookieOptions, httpOnly: false };
+
 export function withSession(response: NextResponse, value: string) {
   response.cookies.set(OWNER_COOKIE, value, { ...cookieOptions, maxAge: OWNER_SESSION_MS / 1000 });
+  response.cookies.set(OWNER_HINT_COOKIE, "1", { ...hintOptions, maxAge: OWNER_SESSION_MS / 1000 });
   return response;
 }
 
 export function withoutSession(response: NextResponse) {
   response.cookies.set(OWNER_COOKIE, "", { ...cookieOptions, maxAge: 0 });
+  response.cookies.set(OWNER_HINT_COOKIE, "", { ...hintOptions, maxAge: 0 });
   return response;
 }

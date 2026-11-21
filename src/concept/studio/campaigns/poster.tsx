@@ -1,5 +1,5 @@
 import { useId, type Ref } from "react";
-import type { CampaignPoster, PosterFormat } from "../../data/types";
+import type { CampaignPoster, PosterFocus, PosterFormat, PosterTextSize } from "../../data/types";
 import { fitFontSize, POSTER_FORMATS, wrapText } from "../../campaigns/poster-layout";
 
 // Template posters built from the salon's own photos and colours: no AI image.
@@ -38,6 +38,8 @@ interface Item {
 }
 
 const LINE_HEIGHT = 1.18;
+const TEXT_SCALE: Record<PosterTextSize, number> = { small: 0.82, normal: 1, large: 1.18 };
+const CROP: Record<PosterFocus, string> = { top: "xMidYMin slice", center: "xMidYMid slice", bottom: "xMidYMax slice" };
 
 /** Where each block starts when the blocks are stacked downwards from `y`. */
 function stackTops(items: Item[], y: number): number[] {
@@ -81,11 +83,15 @@ export function Poster({ poster, format, kicker, until, footer, label, ref }: Po
   // Instagram covers the top and bottom of a story with its own buttons.
   const top = format === "story" ? 250 : 0;
   const bottom = H - (format === "story" ? 340 : 0);
-  const headlineSize = fitFontSize(poster.headline, inner, Math.round(W * 0.15));
+  const scale = TEXT_SCALE[poster.textSize ?? "normal"];
+  const crop = CROP[poster.focus ?? "center"];
+  // The headline grows or shrinks with the owner's choice but never past the poster's width.
+  const baseHeadline = fitFontSize(poster.headline, inner, Math.round(W * 0.15));
+  const headlineSize = Math.min(fitFontSize(poster.headline, inner, Math.round(W * 0.15 * scale)), Math.round(baseHeadline * scale));
   const text = (light: boolean, align: "start" | "middle", accent: string): Item[] => [
     { lines: wrapText(kicker.toUpperCase(), 30, 2), size: 32, weight: 600, fill: accent, spacing: 3 },
     { lines: [poster.headline], size: headlineSize, weight: 800, fill: light ? "#FFFFFF" : INK, gap: 18 },
-    { lines: wrapText(poster.detail, align === "middle" ? 26 : 30, 3), size: 50, weight: 600, fill: light ? "#FFFFFF" : INK, gap: 8 },
+    { lines: wrapText(poster.detail, Math.floor((align === "middle" ? 26 : 30) / scale), 3), size: Math.round(50 * scale), weight: 600, fill: light ? "#FFFFFF" : INK, gap: 8 },
     { lines: [until], size: 36, fill: light ? "#E6DFD3" : "#4A524D", gap: 18 },
   ];
   const footerLines = footer.flatMap(line => wrapText(line, 52, 2));
@@ -131,7 +137,7 @@ export function Poster({ poster, format, kicker, until, footer, label, ref }: Po
       {poster.style === "calm" && (
         <>
           <rect width={W} height={H} fill={CREAM} />
-          <image href={image} x={0} y={0} width={W} height={photoH} preserveAspectRatio="xMidYMid slice" />
+          <image href={image} x={0} y={0} width={W} height={photoH} preserveAspectRatio={crop} />
           <Stack x={margin} y={bodyY(calmItems)} items={calmItems} />
           <line x1={margin} x2={W - margin} y1={footerY - 24} y2={footerY - 24} stroke="#D9CFC0" strokeWidth={2} />
           <Stack x={margin} y={footerY} items={foot("#6E716A")} />
@@ -143,14 +149,14 @@ export function Poster({ poster, format, kicker, until, footer, label, ref }: Po
           <rect width={W} height={H} fill={GREEN} />
           <circle cx={W * 0.86} cy={top + H * 0.1} r={W * 0.3} fill="#E3EEE8" opacity={0.12} />
           <Stack x={margin} y={top + margin} items={text(true, "start", "#CFE3D9")} />
-          <image href={image} x={0} y={top + (bottom - top) * 0.52} width={W} height={(bottom - top) * 0.3} preserveAspectRatio="xMidYMid slice" />
+          <image href={image} x={0} y={top + (bottom - top) * 0.52} width={W} height={(bottom - top) * 0.3} preserveAspectRatio={crop} />
           <Stack x={margin} y={footerY} items={foot("#CFE3D9")} />
         </>
       )}
 
       {poster.style === "photo" && (
         <>
-          <image href={image} x={0} y={0} width={W} height={H} preserveAspectRatio="xMidYMid slice" />
+          <image href={image} x={0} y={0} width={W} height={H} preserveAspectRatio={crop} />
           <rect width={W} height={H} fill={`url(#${id}-shade)`} />
           <Stack x={margin} y={bodyY(photoItems)} items={photoItems} />
           <Stack x={margin} y={footerY} items={foot("#E6DFD3")} />
@@ -161,7 +167,7 @@ export function Poster({ poster, format, kicker, until, footer, label, ref }: Po
         <>
           <rect width={W} height={H} fill={SAND} />
           <path d={archPath(18)} fill="none" stroke={GREEN} strokeWidth={3} />
-          <image href={image} x={W * 0.2} y={archTop} width={W * 0.6} height={archBottom - archTop} clipPath={`url(#${id}-arch)`} preserveAspectRatio="xMidYMid slice" />
+          <image href={image} x={W * 0.2} y={archTop} width={W * 0.6} height={archBottom - archTop} clipPath={`url(#${id}-arch)`} preserveAspectRatio={crop} />
           <Stack x={W / 2} y={bodyY(archItems)} anchor="middle" items={archItems} />
           <Stack x={W / 2} y={footerY} anchor="middle" items={foot("#6E716A")} />
         </>
@@ -170,7 +176,7 @@ export function Poster({ poster, format, kicker, until, footer, label, ref }: Po
       {poster.style === "dusk" && (
         <>
           <rect width={W} height={H} fill={NIGHT} />
-          <image href={image} x={W * 0.25} y={top + W * 0.05} width={W * 0.5} height={W * 0.5} clipPath={`url(#${id}-circle)`} preserveAspectRatio="xMidYMid slice" />
+          <image href={image} x={W * 0.25} y={top + W * 0.05} width={W * 0.5} height={W * 0.5} clipPath={`url(#${id}-circle)`} preserveAspectRatio={crop} />
           <circle cx={W / 2} cy={top + W * 0.3} r={W * 0.25 + 14} fill="none" stroke={TERRACOTTA} strokeWidth={3} />
           <Stack x={W / 2} y={top + W * 0.3 + W * 0.25 + H * 0.04} anchor="middle" items={text(true, "middle", TERRACOTTA)} />
           <Stack x={W / 2} y={footerY} anchor="middle" items={foot("#B9BDB6")} />

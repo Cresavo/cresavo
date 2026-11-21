@@ -27,7 +27,8 @@ import { sameContent } from "./store/studio-store";
 
 const STORAGE_KEY = "salong-eko-demo";
 interface BookingReceipt { day: string; seq: number }
-export type Workspace = "demo" | "own";
+/** The sample business, the browser trial salon, and a signed-in owner's salon kept on the server (`account`). */
+export type Workspace = "demo" | "own" | "account";
 interface WorkspaceSnapshot {
   state?: DemoState | null;
   raw?: string | null;
@@ -40,7 +41,7 @@ interface WorkspaceSnapshot {
   version?: BookingReceipt;
   lastWrite?: BookingReceipt;
 }
-const snapshots: Record<Workspace, WorkspaceSnapshot> = { demo: {}, own: {} };
+const snapshots: Record<Workspace, WorkspaceSnapshot> = { demo: {}, own: {}, account: {} };
 const SELECTION_KEY = "salong-eko-workspace";
 let primary: Workspace | undefined;
 let active: Workspace = "demo";
@@ -157,7 +158,7 @@ export function epochOf(workspace: Workspace, state: DemoState): string {
  */
 export function targetOf(state: DemoState | null | undefined): { workspace: Workspace; epoch: string } | null {
   if (!state || !lifetimes.has(state)) return null;
-  const workspace: Workspace = state.industry ? "own" : "demo";
+  const workspace: Workspace = !state.industry ? "demo" : lifetimes.get(state)?.startsWith(ACCOUNT_EPOCH) ? "account" : "own";
   return { workspace, epoch: epochOf(workspace, state) };
 }
 
@@ -248,7 +249,7 @@ function purge(state: DemoState): DemoState {
 function load(document: unknown, workspace: Workspace): DemoState | null {
   try {
     let saved = document ? migrateState(document) : null;
-    if (saved && Boolean(saved.industry) === (workspace === "own")) {
+    if (saved && Boolean(saved.industry) === (workspace !== "demo")) {
       const validHolds = saved.checkoutHolds.filter(hold => hold.expiresAt > Date.now());
       if (validHolds.length !== saved.checkoutHolds.length) saved = { ...saved, checkoutHolds: validHolds };
       if (saved.industry) return purge({ ...saved, generatedFor: today() });
@@ -270,6 +271,8 @@ function load(document: unknown, workspace: Workspace): DemoState | null {
 }
 
 function refresh(workspace: Workspace) {
+  // The account salon lives on the server; only `openAccountSalon` and its sync replace it.
+  if (workspace === "account") return false;
   const snapshot = snapshots[workspace];
   let raw = snapshot.raw ?? null;
   try { raw = window.localStorage.getItem(storageKey(workspace)); }
@@ -351,6 +354,14 @@ function onStorage(event: StorageEvent) {
 
 function setState(next: DemoState, recheckStorage = false, afterWrite?: () => void): boolean {
   const snapshot = snapshots[active];
+  if (active === "account") {
+    // Shown at once; the server applies the same action and its answer replaces this state (see account/sync.ts).
+    snapshot.state = next;
+    keep(next, snapshot.epoch);
+    afterWrite?.();
+    notify();
+    return true;
+  }
   try {
     // Serialize first, then check for another tab's save right before writing: a save made meanwhile is never overwritten.
     const raw = savedText(next, snapshot.epoch);
@@ -493,7 +504,9 @@ export function dispatchWithLog(
     const recheck = !!canApply || action.type.startsWith("online/") || action.type === "salon/policy" ||
       action.type === "booking/fee" || action.type === "booking/cancel" || action.type === "trash/restore";
     let published: OutboxEntry[] = [];
-    if (!setState(next, recheck, () => { published = batch.publish(); })) continue;
+    // The server sends what an account salon's change sends; this tab only shows it.
+    if (!setState(next, recheck, () => { published = workspace === "account" ? [] : batch.publish(); })) continue;
+    if (workspace === "account") accountChanged?.(action);
     options.committed?.(published);
     if (workspace === "own") markTrialUsed(now);
     const logId = next.log[0]?.id;
@@ -516,7 +529,8 @@ async function withBookingReceipt<T>(write: (required?: BookingReceipt) => T, re
   initialize();
   const workspace = active;
   const snapshot = snapshots[workspace];
-  if (typeof window === "undefined" || !navigator.locks) return write();
+  // The server serializes an account salon's changes.
+  if (typeof window === "undefined" || !navigator.locks || workspace === "account") return write();
   return navigator.locks.request(storageKey(workspace), async () => {
     const receipts = await bookingReceipts();
     if (workspace !== active) return false;
@@ -631,4 +645,46 @@ export function usePublicDemo(): DemoState | null {
   const state = useDemo();
   const language = getActiveLocale();
   return useMemo(() => state && withLifetimeOf(salonCopy(publicView(state), language), state), [state, language]);
+}
+
+const ACCOUNT_EPOCH = "account:";
+let accountChanged: ((action: DemoAction) => void) | undefined;
+
+/**
+ * Shows a signed-in owner's salon from the server and selects it. `onChange`
+ * receives every action applied to it here, to send to the server.
+ */
+export function openAccountSalon(state: DemoState, onChange: (action: DemoAction) => void) {
+  initialize();
+  accountChanged = onChange;
+  const next = migrateState(state);
+  if (!next) return false;
+  snapshots.account = { state: next, epoch: `${ACCOUNT_EPOCH}${newEpoch()}` };
+  keep(next, snapshots.account.epoch);
+  active = "account";
+  notify();
+  return true;
+}
+
+/** Replaces the open account salon with the server's copy, keeping its lifetime. */
+export function replaceAccountSalon(state: DemoState) {
+  const snapshot = snapshots.account;
+  const next = migrateState(state);
+  if (!snapshot.state || !next) return;
+  snapshot.state = next;
+  keep(next, snapshot.epoch);
+  if (active === "account") notify();
+}
+
+/** Leaves the account salon (after signing out) for the sample business. */
+export function closeAccountSalon() {
+  snapshots.account = {};
+  accountChanged = undefined;
+  salonRemoved("account");
+  if (active === "account") active = "demo";
+  notify();
+}
+
+export function useActiveWorkspace(): Workspace {
+  return useSyncExternalStore(subscribe, () => { initialize(); return active; }, () => "demo");
 }
