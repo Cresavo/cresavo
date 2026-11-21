@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
-import { defaultPrefill, draftLink, latestPoster, newDraft, resolvePoster, type Draft } from "../../campaigns/draft";
+import { defaultPrefill, draftLink, latestPoster, newDraft, posterToSave, type Draft } from "../../campaigns/draft";
 import { prefillFromQuery } from "../../campaigns/prefill";
 import { addDays } from "../../data/dates";
 import type { DateKey } from "../../data/types";
@@ -48,7 +48,7 @@ export function CampaignStudio() {
         holidayId: draft.holidayId,
         publishOn,
         copy: draft.copy,
-        poster: resolvePoster(state, draft),
+        poster: posterToSave(state, draft),
         link: draftLink(state, draft),
       },
     });

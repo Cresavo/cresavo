@@ -266,3 +266,14 @@ it("starts a new poster from the owner's latest choices", async () => {
   expect(latestPoster(withMine)).toBe(mine);
   expect(newDraft(prefill, latestPoster(withMine))).toMatchObject({ style: "dusk", posterEdits: { textSize: "large", focus: "top" } });
 });
+
+it("never saves a photo that only lives in this tab with the campaign", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, posterToSave, resolvePoster } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const draft = { ...newDraft(defaultPrefill(state, "2026-11-21")), posterEdits: { image: "blob:https://demo.example/123", headline: "Höst" } };
+  expect(resolvePoster(state, draft).image).toBe("blob:https://demo.example/123");
+  expect(posterToSave(state, draft)).toMatchObject({ image: resolvePoster(state, { ...draft, posterEdits: {} }).image, headline: "Höst" });
+  const demoPhoto = { ...draft, posterEdits: { image: "/demo/massage.webp" } };
+  expect(posterToSave(state, demoPhoto).image).toBe("/demo/massage.webp");
+});
