@@ -280,3 +280,22 @@ it("never saves a photo that only lives in this tab with the campaign", async ()
   const demoPhoto = { ...draft, posterEdits: { image: "/demo/massage.webp" } };
   expect(posterToSave(state, demoPhoto).image).toBe("/demo/massage.webp");
 });
+
+it("fills the review and free-times posters from published reviews and the calendar", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const { toKey } = await import("@/concept/data/dates");
+  const today = toKey(new Date());
+  const state = createDemoState(today);
+  const draft = newDraft(defaultPrefill(state, today));
+  const review = resolvePoster(state, { ...draft, style: "review" });
+  expect(review.quote).toBeTruthy();
+  expect(state.reviews.some((r) => r.text === review.quote && r.approved !== false)).toBe(true);
+  const slots = resolvePoster(state, { ...draft, style: "slots" });
+  expect(slots.cta).toBe("Book now →");
+  if (slots.items?.length) {
+    expect(slots.items.length).toBeLessThanOrEqual(4);
+    expect(slots.headline).toMatch(/times? left!/);
+    expect(slots.sticker).toHaveLength(2);
+  }
+});

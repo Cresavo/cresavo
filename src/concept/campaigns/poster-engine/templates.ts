@@ -5,7 +5,7 @@ import { box, image, svgImage, text, type PosterNode } from "./element";
 // (headline, price, photo, sticker, price list, signature) that the owner fills
 // and adjusts within limits, so every poster stays presentable.
 
-export const ENGINE_TEMPLATES = ["price", "pricelist"] as const;
+export const ENGINE_TEMPLATES = ["price", "pricelist", "season", "review", "slots"] as const;
 export type EngineTemplate = (typeof ENGINE_TEMPLATES)[number];
 
 export const ENGINE_FORMATS = { post: { width: 1080, height: 1350 }, story: { width: 1080, height: 1920 }, window: { width: 1050, height: 1485 } } as const;
@@ -25,6 +25,10 @@ export const posterDataSchema = z.object({
   sticker: z.tuple([line(14), line(10)]).optional(),
   items: z.array(z.object({ name: line(40), price: line(16) }).strict()).max(8).default([]),
   badges: z.array(line(20)).max(4).default([]),
+  /** A button-like line ("Book now →"), and a customer's words with who said them. */
+  cta: line(40).default(""),
+  quote: line(220).default(""),
+  author: line(40).default(""),
   photo,
   focus: z.enum(["top", "center", "bottom"]).default("center"),
   textSize: z.enum(["small", "normal", "large"]).default("normal"),
@@ -117,9 +121,79 @@ function priceListTemplate(data: PosterData, width: number, height: number): Pos
     signature(data, width, onColour(ink)));
 }
 
+const mixColour = (a: string, b: string, amount: number) => {
+  const channel = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16);
+  return `#${[0, 1, 2].map((i) => Math.round(channel(a, i) + (channel(b, i) - channel(a, i)) * amount).toString(16).padStart(2, "0")).join("")}`;
+};
+
+const button = (label: string, background: string, colour: string): PosterNode =>
+  text({ background, color: colour, fontWeight: 800, fontSize: 40, padding: "20px 36px", borderRadius: 999 }, label);
+
+/** A season or holiday greeting on the accent colour, the photo in an arch with a bright edge. */
+function seasonTemplate(data: PosterData, width: number, height: number): PosterNode {
+  const { accent } = data.colors;
+  const scale = SCALE[data.textSize];
+  const onAccent = onColour(accent);
+  const deep = mixColour(accent, "#000000", 0.45);
+  const photoWidth = Math.round(width * 0.52);
+  const photoTop = Math.round(height * 0.36);
+  const dots = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${[[0.11, 0.1, 6], [0.28, 0.06, 4], [0.83, 0.15, 8], [0.9, 0.38, 5], [0.06, 0.45, 7], [0.72, 0.07, 3], [0.48, 0.13, 5], [0.19, 0.31, 3]]
+    .map(([x, y, radius]) => `<circle cx="${x * width}" cy="${y * height}" r="${radius}" fill="#ffffff" opacity="0.5"/>`).join("")}</svg>`;
+  return box({ width, height, position: "relative", fontFamily: "Inter", backgroundImage: `radial-gradient(circle at 70% 25%, ${accent}, ${deep})` },
+    svgImage(dots, { position: "absolute", left: 0, top: 0, width, height }),
+    // The photo stops above the signature, which keeps the whole width.
+    image(data.photo, { position: "absolute", right: 0, top: photoTop, width: photoWidth, height: height - photoTop - 260, objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: `${photoWidth / 2}px 0 0 ${photoWidth / 8}px`, boxShadow: `-24px 0 0 ${HIGHLIGHT}` }),
+    // A short greeting is set large; a campaign name gets two smaller lines so it never reaches the text below.
+    text({ position: "absolute", left: 64, top: 100, width: width - 128, fontFamily: "Caladea", fontSize: Math.round((data.headline.length > 14 ? 96 : 150) * scale), lineHeight: 0.95, color: onAccent, lineClamp: 2 }, data.headline),
+    text({ position: "absolute", left: 68, top: photoTop + 20, width: width - photoWidth - 110, fontSize: Math.round(42 * scale), fontWeight: 600, lineHeight: 1.25, color: onAccent, lineClamp: 5 }, data.detail),
+    ...(data.cta ? [box({ position: "absolute", left: 64, top: photoTop + 360 }, button(data.cta, WHITE, deep))] : []),
+    signature(data, width, onAccent));
+}
+
+/** A customer's own words, large, with the stars and their name. */
+function reviewTemplate(data: PosterData, width: number, height: number): PosterNode {
+  const { accent, ink } = data.colors;
+  const scale = SCALE[data.textSize];
+  const onInk = onColour(ink);
+  const rating = data.signature.rating ?? 5;
+  return box({ width, height, position: "relative", background: ink, fontFamily: "Inter" },
+    image(data.photo, { position: "absolute", left: 64, top: 90, width: 280, height: 280, borderRadius: 999, border: `10px solid ${accent}`, objectFit: "cover", objectPosition: CROP[data.focus] }),
+    text({ position: "absolute", left: 390, top: 40, fontFamily: "Caladea", fontSize: 400, lineHeight: 1, color: accent }, "“"),
+    // The quote and its stars flow as one column, so a short quote never leaves a gap.
+    box({ position: "absolute", left: 64, top: Math.round(height * 0.33), width: width - 128, flexDirection: "column", color: onInk },
+      text({ fontFamily: "Caladea", fontSize: Math.round(72 * scale), lineHeight: 1.15, lineClamp: 6 }, data.quote || data.headline),
+      box({ marginTop: 48 }, stars(Math.round(rating), 44)),
+      text({ fontSize: 34, marginTop: 12, opacity: 0.9 }, data.author)),
+    signature(data, width, onInk));
+}
+
+/** The free times left on one day, with the day on a sticker and a call to book. */
+function slotsTemplate(data: PosterData, width: number, height: number): PosterNode {
+  const { accent, ink, background } = data.colors;
+  const scale = SCALE[data.textSize];
+  const tall = height > width * 1.5;
+  const photoTop = Math.round(height * (tall ? 0.27 : 0.3));
+  const photoHeight = Math.round(height * (tall ? 0.4 : 0.32));
+  const onBackground = onColour(background) === WHITE ? WHITE : ink;
+  const listTop = photoTop + photoHeight + 50;
+  return box({ width, height, position: "relative", background, fontFamily: "Inter", color: onBackground },
+    text({ position: "absolute", left: 60, top: tall ? 180 : 80, width: width - 380, fontFamily: "Inter Display", fontWeight: 900, fontSize: Math.round(150 * scale), lineHeight: 0.92, letterSpacing: -5 }, data.headline),
+    ...(data.sticker ? [box({ position: "absolute", right: 70, top: tall ? 200 : 90, width: 240, height: 240, borderRadius: 999, background: accent, color: onColour(accent), transform: "rotate(10deg)", flexDirection: "column", alignItems: "center", justifyContent: "center", fontWeight: 800 },
+      text({ fontSize: 38 }, data.sticker[0]), text({ fontSize: 64 }, data.sticker[1]))] : []),
+    image(data.photo, { position: "absolute", left: 0, top: photoTop, width, height: photoHeight, objectFit: "cover", objectPosition: CROP[data.focus] }),
+    text({ position: "absolute", left: 60, top: listTop, width: width - 120, fontSize: Math.round(54 * scale), fontWeight: 800 }, data.items.map((item) => item.name).join("  ·  ")),
+    text({ position: "absolute", left: 60, top: listTop + Math.round(80 * scale), width: width - 120, fontSize: Math.round(40 * scale), fontWeight: 600, opacity: 0.85 }, data.detail),
+    ...(tall
+      ? [box({ position: "absolute", left: 60, bottom: 100, width: width - 120, justifyContent: "center", background: ink, color: onColour(ink), fontWeight: 800, fontSize: 48, padding: 30, borderRadius: 999 }, text({}, data.cta || data.signature.link))]
+      : [box({ position: "absolute", left: 0, bottom: 0, width, height: 250, background: ink }), signature(data, width, onColour(ink))]));
+}
+
 const LAYOUTS: Record<EngineTemplate, (data: PosterData, width: number, height: number) => PosterNode> = {
   price: priceTemplate,
   pricelist: priceListTemplate,
+  season: seasonTemplate,
+  review: reviewTemplate,
+  slots: slotsTemplate,
 };
 
 export function posterTree(template: EngineTemplate, data: PosterData, format: EngineFormat): PosterNode {
