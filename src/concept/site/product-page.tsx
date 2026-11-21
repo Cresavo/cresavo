@@ -282,7 +282,8 @@ function Dock({ demo, ctaRow }: { demo: string; ctaRow: RefObject<HTMLDivElement
 
 export function ProductPage({ links, waitlist, waitlistOpen, origin }: ProductSiteProps) {
   const { site, locale } = useSiteCopy();
-  const query = locale === "sv" ? "?lang=sv" : "";
+  // The demo opens in the language of the page the visitor came from, whatever an earlier visit saved.
+  const query = `?lang=${locale}`;
   const demo = `${links.demo}${query}`;
   const booking = `${links.demo.replace(/\/studio$/, BOOKING_PATH)}${query}`;
   const ctaRow = useRef<HTMLDivElement>(null);

@@ -8,17 +8,19 @@ test("while the waiting list takes no sign-ups, the page ends with the demo inst
   await expect(closing.locator("form")).toHaveCount(0);
   await expect(closing.getByRole("heading", { level: 2 })).toHaveText(site["closing.heading"]);
   await expect(closing).toContainText(site["closing.text"]);
-  await expect(closing.getByRole("link", { name: site["soon.demo"] })).toHaveAttribute("href", "/studio");
-  await expect(closing.getByRole("link", { name: site["how.client"] })).toHaveAttribute("href", "/boka/salong-eko");
+  await expect(closing.getByRole("link", { name: site["soon.demo"] })).toHaveAttribute("href", "/studio?lang=en");
+  await expect(closing.getByRole("link", { name: site["how.client"] })).toHaveAttribute("href", "/boka/salong-eko?lang=en");
 });
 
-test("the product homepage links directly to the studio", async ({ page }) => {
+test("the product homepage opens the studio in English, even after an earlier Swedish visit", async ({ page, context }) => {
+  await context.addCookies([{ name: "booking-locale", value: "sv", url: "http://127.0.0.1:3017" }]);
   await page.goto("/");
   const links = page.getByRole("link", { name: site["soon.demo"], exact: true });
   await expect(links).toHaveCount(4);
-  for (const link of await links.all()) await expect(link).toHaveAttribute("href", "/studio");
+  for (const link of await links.all()) await expect(link).toHaveAttribute("href", "/studio?lang=en");
   await links.first().click();
   await expect(page).toHaveURL(/\/studio$/);
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
 });
 
 test("the demo host opens the studio and the retired landing is gone", async ({ request }) => {
@@ -193,7 +195,7 @@ test("the film section separates the salon's view from the client's and the FAQ 
   await client.focus();
   await page.keyboard.press("Space");
   await expect(client).toHaveAttribute("aria-pressed", "true");
-  await expect(tour.getByRole("link", { name: site["landing.book.link"] })).toHaveAttribute("href", "/boka/salong-eko");
+  await expect(tour.getByRole("link", { name: site["landing.book.link"] })).toHaveAttribute("href", "/boka/salong-eko?lang=en");
   const question = page.locator("#questions summary", { hasText: site["faq.import"] });
   await question.focus();
   await page.keyboard.press("Enter");

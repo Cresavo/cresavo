@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { parseLocale } from "./lib/locale";
-import { LOCALE_COOKIE, setDemoVisitorCookie, setLocaleCookie } from "./lib/locale-cookie";
+import { setDemoVisitorCookie, setLocaleCookie } from "./lib/locale-cookie";
 import { isPublicReadonly, publicReadonlyResponse } from "./lib/public-readonly";
 import { sandboxConfig, sandboxCronHost, sandboxHost, sandboxRequested } from "./lib/agent-api/sandbox/config";
 import { contentSecurityPolicy, createNonce, cspExempt } from "./lib/csp";
@@ -11,7 +11,8 @@ import { galleryAvailable } from "./concept/server/gallery";
 import { conceptRoute } from "./concept/page/language";
 import { isProductHome, routeHost, UNKNOWN_PATH, type HostRoute } from "./concept/page/resolve";
 
-/** Consume the explicit demo link before rendering, so the first studio document uses the saved preference. */
+/** Consume the explicit demo link before rendering. The product site's demo buttons say which language the visitor
+ *  chose there, so that choice replaces a language saved on an earlier visit. */
 function demoLanguageEntry(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
   const studio = conceptRoute(pathname) === "studio";
@@ -23,7 +24,7 @@ function demoLanguageEntry(request: NextRequest) {
   const response = NextResponse.redirect(url);
   response.headers.set("Cache-Control", "private, no-store");
   if (language) {
-    if (studio && !parseLocale(request.cookies.get(LOCALE_COOKIE)?.value)) setLocaleCookie(response, language);
+    if (studio) setLocaleCookie(response, language);
     setDemoVisitorCookie(response, language);
   }
   return response;

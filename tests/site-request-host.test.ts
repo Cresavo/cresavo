@@ -108,7 +108,7 @@ it("permanently redirects the Swedish aliases to the configured HTTPS product or
   }
 });
 
-it("consumes a demo language hint without overwriting a saved studio language", () => {
+it("consumes the demo language from the product site, replacing a language saved earlier", () => {
   const visit = (query: string, cookie = "") => proxy(new NextRequest(`https://demo.cresavo.com/studio?${query}`, {
     headers: { host: "demo.cresavo.com", cookie },
   }));
@@ -116,6 +116,7 @@ it("consumes a demo language hint without overwriting a saved studio language", 
   expect(first.headers.get("location")).toBe("https://demo.cresavo.com/studio?tour=1");
   expect(first.headers.get("set-cookie")).toContain("booking-locale=sv");
   expect(first.headers.get("set-cookie")).toContain("demo-booking-language=sv");
-  expect(visit("lang=sv", "booking-locale=en").headers.get("set-cookie")).not.toContain("booking-locale=");
+  expect(visit("lang=sv", "booking-locale=en").headers.get("set-cookie")).toContain("booking-locale=sv");
+  expect(visit("lang=en", "booking-locale=sv").headers.get("set-cookie")).toContain("booking-locale=en");
   expect(visit("lang=other").headers.get("set-cookie")).toBeNull();
 });
