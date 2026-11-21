@@ -63,3 +63,23 @@ describe("poster engine templates", () => {
     expect(svg).not.toMatch(/<script|<foreignObject/);
   }, 20_000);
 });
+
+describe("season, review and free-times templates", () => {
+  const data = posterDataSchema.parse({ ...input, cta: "Boka nu →", quote: "Bästa timmen på hela månaden.", author: "Sofia L.", items: [{ name: "10:00", price: "" }, { name: "13:30", price: "" }] });
+
+  it("puts the greeting and call to book on the season poster", () => {
+    const tree = flat(posterTree("season", { ...data, headline: "God jul" }, "post"));
+    for (const part of ["God jul", "Boka nu →", "070-123 45 67"]) expect(tree).toContain(part);
+  });
+
+  it("shows the customer's words and name on the review poster", () => {
+    const tree = flat(posterTree("review", data, "story"));
+    for (const part of ["Bästa timmen på hela månaden.", "Sofia L.", "“"]) expect(tree).toContain(part);
+  });
+
+  it("lists the free times with the day, and a booking button on a story", () => {
+    const story = flat(posterTree("slots", { ...data, headline: "2 tider kvar!", sticker: ["Fre", "12 dec"] }, "story"));
+    for (const part of ["2 tider kvar!", "10:00  ·  13:30", "Fre", "Boka nu →"]) expect(story).toContain(part);
+    expect(flat(posterTree("slots", data, "post"))).toContain("070-123 45 67");
+  });
+});

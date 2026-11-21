@@ -1,7 +1,10 @@
 import { addDays } from "../data/dates";
 import type { CampaignPoster, Channel, DateKey, DemoState, PosterStyle } from "../data/types";
-import { t } from "../i18n";
-import { formatMoney } from "../i18n/format";
+import { t, tc } from "../i18n";
+import { dayChipLabel, formatDayMonth, formatDuration, formatMoney, formatTime } from "../i18n/format";
+import { openSlots } from "../booking/suggest";
+import { publicName, recentReviews } from "../booking/reviews";
+import { salonClock } from "../tools/clock";
 import { isEngineStyle } from "./poster-layout";
 import { serviceCopy } from "../i18n/salon-eko-copy";
 import { CHANNELS } from "./channels";
@@ -82,8 +85,41 @@ export function posterToSave(state: DemoState, draft: Draft): CampaignPoster {
 
 const MAX_LIST = 6;
 
+const SLOT_DAYS = 7;
+const MAX_SLOTS = 4;
+
+/** The first day within a week that still has free times for the treatment, with up to four of them spread over the day. */
+function freeTimes(state: DemoState, serviceId: string | undefined) {
+  if (!serviceId) return null;
+  const clock = salonClock();
+  for (let i = 0; i < SLOT_DAYS; i++) {
+    const date = addDays(clock.today, i);
+    const slots = openSlots(state, serviceId, date, clock);
+    if (!slots.length) continue;
+    const step = Math.max(1, Math.floor(slots.length / MAX_SLOTS));
+    const picked = slots.filter((_, index) => index % step === 0).slice(0, MAX_SLOTS);
+    return { date, today: clock.today, count: slots.length, times: picked.map((slot) => formatTime(slot.start)) };
+  }
+  return null;
+}
+
+/** What the season, review and free-times posters show, from the holiday, the published reviews and the calendar. */
+function storyFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "cta" | "quote" | "author" | "sticker" | "items"> {
+  if (draft.style === "review") {
+    const [review] = recentReviews(state.reviews, 1);
+    const customer = review && state.customers.find((c) => c.id === review.customerId);
+    return review ? { quote: review.text, author: customer ? publicName(customer.firstName, customer.lastName) : "" } : {};
+  }
+  if (draft.style === "slots") {
+    const free = freeTimes(state, draft.serviceIds[0]);
+    return free ? { sticker: [dayChipLabel(free.date, free.today), formatDayMonth(free.date)], items: free.times.map((name) => ({ name, price: "" })), cta: t("campaigns.engine.book") } : { cta: t("campaigns.engine.book") };
+  }
+  return { cta: t("campaigns.engine.book") };
+}
+
 /** Price, sticker and price list for the engine styles, from the treatments the campaign is about. */
-function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "price" | "sticker" | "items"> {
+function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "price" | "sticker" | "items" | "cta" | "quote" | "author"> {
+  if (draft.style === "season" || draft.style === "review" || draft.style === "slots") return storyFields(state, draft);
   const chosen = state.services.filter((s) => draft.serviceIds.includes(s.id) && !s.hidden);
   const listed = (chosen.length > 1 ? chosen : state.services.filter((s) => !s.hidden)).slice(0, MAX_LIST);
   const off = (price: number) => Math.round(price * (1 - draft.discountPercent / 100));
@@ -97,8 +133,20 @@ function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "pri
 
 function defaultHeadline(state: DemoState, draft: Draft): string {
   if (draft.style === "price") return state.services.find((s) => s.id === draft.serviceIds[0])?.name ?? draft.name;
+  if (draft.style === "season") return state.holidays.find((h) => h.id === draft.holidayId)?.name ?? draft.name;
+  if (draft.style === "slots") {
+    const free = freeTimes(state, draft.serviceIds[0]);
+    return free ? tc("campaigns.engine.slotsLeft", free.count) : draft.name;
+  }
   if (draft.style === "pricelist") return draft.name;
   return draft.discountPercent > 0 ? t("campaigns.posterOffer", { percent: draft.discountPercent }) : draft.name;
+}
+
+function defaultDetail(state: DemoState, draft: Draft): string {
+  const first = state.services.find((s) => s.id === draft.serviceIds[0]);
+  if (draft.style === "price" && first?.description) return first.description;
+  if (draft.style === "slots" && first) return `${first.name} · ${formatDuration(first.duration)}`;
+  return listServices(serviceNames(state, draft));
 }
 
 /** The poster as shown: the owner's edits on top of what follows from the offer. */
@@ -108,7 +156,7 @@ export function resolvePoster(state: DemoState, draft: Draft): CampaignPoster {
     style: draft.style,
     image: draft.posterEdits.image ?? (first?.category === "massage" ? "/demo/massage.webp" : "/demo/salon.webp"),
     headline: draft.posterEdits.headline ?? defaultHeadline(state, draft),
-    detail: draft.posterEdits.detail ?? (draft.style === "price" && first?.description ? first.description : listServices(serviceNames(state, draft))),
+    detail: draft.posterEdits.detail ?? defaultDetail(state, draft),
     ...(isEngineStyle(draft.style) && engineFields(state, draft)),
     ...(draft.posterEdits.textSize && { textSize: draft.posterEdits.textSize }),
     ...(draft.posterEdits.focus && { focus: draft.posterEdits.focus }),
