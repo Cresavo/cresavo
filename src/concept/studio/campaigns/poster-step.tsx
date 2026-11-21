@@ -1,12 +1,14 @@
 import { useRef, useState } from "react";
-import { Download, Share2 } from "lucide-react";
+import { Download, ImagePlus, Share2 } from "lucide-react";
 import { draftLink, resolvePoster, type Draft } from "../../campaigns/draft";
 import { downloadBlob, posterToPng, sharePoster } from "../../campaigns/export-png";
+import { isOwnPhoto, ownPhotoUrl } from "../../campaigns/own-photo";
 import { POSTER_FORMATS, POSTER_IMAGES, POSTER_STYLES } from "../../campaigns/poster-layout";
 import type { DemoState, PosterFocus, PosterFormat, PosterTextSize } from "../../data/types";
 import { t } from "../../i18n";
-import { Button } from "../../ui/button";
+import { Button, buttonClass } from "../../ui/button";
 import { cx } from "../../ui/cx";
+import { Notice } from "../../ui/notice";
 import { Field, Segmented, TextInput } from "../../ui/controls";
 import { showToast } from "../../ui/toast";
 import { PosterView } from "./poster-view";
@@ -36,6 +38,15 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
       showToast(t("campaigns.poster.saved"));
     } catch {
       showToast(t("campaigns.poster.failed"));
+    }
+  };
+
+  const pickPhoto = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      edit({ image: await ownPhotoUrl(file) });
+    } catch {
+      showToast(t("campaigns.photo.failed"));
     }
   };
 
@@ -103,7 +114,13 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
                 style={{ backgroundImage: `url(${image})` }}
               />
             ))}
+            <label className={cx(buttonClass("secondary", "sm"), "h-16 w-24 cursor-pointer flex-col !gap-1 !text-minimum", poster.image && isOwnPhoto(poster.image) && "!ring-2 ring-action")}>
+              <ImagePlus size={18} aria-hidden />
+              {t("campaigns.photo.own")}
+              <TextInput type="file" accept="image/*" className="sr-only" onChange={(event) => { void pickPhoto(event.target.files?.[0]); event.target.value = ""; }} />
+            </label>
           </div>
+          {poster.image && isOwnPhoto(poster.image) && <Notice tone="info">{t("campaigns.photo.ownNotice")}</Notice>}
         </div>
         <span className="block text-sm font-medium" aria-hidden>{t("campaigns.poster.textSize")}</span>
         <Segmented<PosterTextSize>

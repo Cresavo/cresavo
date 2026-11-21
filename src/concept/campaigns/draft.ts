@@ -6,6 +6,7 @@ import { CHANNELS } from "./channels";
 import { listServices, offerText } from "./copy";
 import { bookingHome } from "../booking/links";
 import { campaignCode, trackingLink } from "./links";
+import { isOwnPhoto } from "./own-photo";
 import type { CampaignPrefill } from "./prefill";
 
 /** A campaign being made in the studio, before it is published. */
@@ -69,6 +70,12 @@ export function draftOffer(state: DemoState, draft: Draft): string {
 
 export function offerSignature(state: DemoState, draft: Draft): string {
   return `${state.localization.language}|${draftOffer(state, draft)}|${draftLink(state, draft)}`;
+}
+
+/** The poster a published campaign keeps: a photo that only lives in this tab is replaced by the template's own. */
+export function posterToSave(state: DemoState, draft: Draft): CampaignPoster {
+  const image = draft.posterEdits.image;
+  return resolvePoster(state, image && isOwnPhoto(image) ? { ...draft, posterEdits: { ...draft.posterEdits, image: undefined } } : draft);
 }
 
 /** The poster as shown: the owner's edits on top of what follows from the offer. */
