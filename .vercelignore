@@ -6,6 +6,7 @@
 !/package.json
 !/package-lock.json
 !/prisma.config.ts
+!/prisma.pairing.config.ts
 !/prisma
 !/src
 !/scripts
@@ -15,6 +16,7 @@
 !/tsconfig.json
 !/postcss.config.*
 !/tailwind.config.*
+!/tailwind.site.config.*
 !/LICENSE
 !/THIRD_PARTY_NOTICES.md
 !/THIRD_PARTY_NATIVE_NOTICES.txt
