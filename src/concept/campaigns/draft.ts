@@ -17,7 +17,7 @@ export interface Draft extends CampaignPrefill {
   copyFor: string;
   style: PosterStyle;
   /** Poster text and photo the owner changed; the rest follows the offer. */
-  posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail">>;
+  posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus">>;
 }
 
 export function newDraft(prefill: CampaignPrefill): Draft {
@@ -68,5 +68,7 @@ export function resolvePoster(state: DemoState, draft: Draft): CampaignPoster {
     image: draft.posterEdits.image ?? (first?.category === "massage" ? "/demo/massage.webp" : "/demo/salon.webp"),
     headline: draft.posterEdits.headline ?? (draft.discountPercent > 0 ? t("campaigns.posterOffer", { percent: draft.discountPercent }) : draft.name),
     detail: draft.posterEdits.detail ?? listServices(serviceNames(state, draft)),
+    ...(draft.posterEdits.textSize && { textSize: draft.posterEdits.textSize }),
+    ...(draft.posterEdits.focus && { focus: draft.posterEdits.focus }),
   };
 }

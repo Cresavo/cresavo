@@ -245,3 +245,12 @@ it("links a local campaign to its salon's booking page on this origin", () => {
   expect(draftLink(salon, offer, origin)).toBe(`${origin}/boka/studio-vide?campaign=${campaignCode(offer.name, today)}`);
   expect(draftLink(state, offer, origin)).toBe(trackingLink(offer.name, today));
 });
+
+it("carries the owner's text size and photo focus into the poster", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const draft = newDraft(defaultPrefill(state, "2026-11-21"));
+  expect(resolvePoster(state, draft)).not.toHaveProperty("textSize");
+  expect(resolvePoster(state, { ...draft, posterEdits: { textSize: "large", focus: "top" } })).toMatchObject({ textSize: "large", focus: "top" });
+});

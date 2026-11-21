@@ -324,7 +324,13 @@ export interface CampaignPoster {
   image: string;
   headline: string;
   detail: string;
+  /** The owner's adjustments; unset means the template's own choice. */
+  textSize?: PosterTextSize;
+  focus?: PosterFocus;
 }
+export type PosterTextSize = "small" | "normal" | "large";
+/** Which part of the photo stays in view when the template crops it. */
+export type PosterFocus = "top" | "center" | "bottom";
 
 /** Simulated results: the demo never talks to a real channel. */
 export interface CampaignStats {

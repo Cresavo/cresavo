@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
-import { Download } from "lucide-react";
+import { Download, Share2 } from "lucide-react";
 import { draftLink, resolvePoster, type Draft } from "../../campaigns/draft";
-import { downloadBlob, posterToPng } from "../../campaigns/export-png";
+import { downloadBlob, posterToPng, sharePoster } from "../../campaigns/export-png";
 import { POSTER_FORMATS, POSTER_IMAGES, POSTER_STYLES } from "../../campaigns/poster-layout";
-import type { DemoState, PosterFormat } from "../../data/types";
+import type { DemoState, PosterFocus, PosterFormat, PosterTextSize } from "../../data/types";
 import { t } from "../../i18n";
 import { Button } from "../../ui/button";
 import { cx } from "../../ui/cx";
@@ -12,6 +12,8 @@ import { showToast } from "../../ui/toast";
 import { PosterView } from "./poster-view";
 
 const FORMATS = Object.keys(POSTER_FORMATS) as PosterFormat[];
+const TEXT_SIZES: PosterTextSize[] = ["small", "normal", "large"];
+const FOCUSES: PosterFocus[] = ["top", "center", "bottom"];
 
 interface PosterStepProps {
   state: DemoState;
@@ -37,6 +39,19 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
     }
   };
 
+  const share = async () => {
+    if (!svg.current) return;
+    try {
+      const blob = await posterToPng(svg.current, format);
+      if (!(await sharePoster(blob, `poster-${format}.png`, `${poster.headline} ${poster.detail}`))) {
+        downloadBlob(blob, `poster-${format}.png`);
+        showToast(t("campaigns.poster.saved"));
+      }
+    } catch {
+      showToast(t("campaigns.poster.failed"));
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div className="space-y-4">
@@ -49,6 +64,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
         <div className={cx("mx-auto w-full overflow-hidden rounded-lg", format === "post" ? "max-w-sm" : "max-w-64")}>
           <PosterView ref={svg} source={source} salon={state.salon} format={format} />
         </div>
+        <Button width="responsive" icon={<Share2 size={18} />} onClick={share}>{t("campaigns.poster.share")}</Button>
         <Button variant="secondary" width="responsive" icon={<Download size={18} />} onClick={download}>
           {t("campaigns.poster.download", { size: `${POSTER_FORMATS[format].width * POSTER_FORMATS[format].exportScale} × ${POSTER_FORMATS[format].height * POSTER_FORMATS[format].exportScale}` })}
         </Button>
@@ -89,6 +105,20 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
             ))}
           </div>
         </div>
+        <span className="block text-sm font-medium" aria-hidden>{t("campaigns.poster.textSize")}</span>
+        <Segmented<PosterTextSize>
+          label={t("campaigns.poster.textSize")}
+          value={poster.textSize ?? "normal"}
+          onChange={(textSize) => edit({ textSize })}
+          options={TEXT_SIZES.map((value) => ({ value, label: t(`campaigns.textSize.${value}`) }))}
+        />
+        <span className="block text-sm font-medium" aria-hidden>{t("campaigns.poster.focus")}</span>
+        <Segmented<PosterFocus>
+          label={t("campaigns.poster.focus")}
+          value={poster.focus ?? "center"}
+          onChange={(focus) => edit({ focus })}
+          options={FOCUSES.map((value) => ({ value, label: t(`campaigns.focus.${value}`) }))}
+        />
         <Field width="short" label={t("campaigns.poster.headline")}>
           <TextInput value={poster.headline} maxLength={24} onChange={(event) => edit({ headline: event.target.value })} />
         </Field>
