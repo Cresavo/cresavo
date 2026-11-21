@@ -11,7 +11,19 @@ import { salonState } from "./fixtures";
 // numbers, send an offer, teach it a preference that the next booking uses,
 // see the morning brief on Today and switch on a suggested routine.
 
-const today = salonClock().today;
+/**
+ * The first day from now, Tuesday to Saturday, that the demo salon is open: "today" then has
+ * bookings (the salon is closed on Sundays) and Today shows the morning brief (Mondays show the weekly review).
+ */
+function openDay(): string {
+  let day = salonClock().today;
+  const { hours } = createDemoState(day).salon;
+  const weekday = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay();
+  while (weekday(day) === 1 || !hours[weekday(day)]) day = addDays(day, 1);
+  return day;
+}
+
+const today = openDay();
 const errors = new WeakMap<Page, string[]>();
 
 async function state(page: Page): Promise<DemoState> {
