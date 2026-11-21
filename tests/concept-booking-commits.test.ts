@@ -1,6 +1,6 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { addDays, toKey } from "@/concept/data/dates";
+import { addDays, toKey, weekday } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
 import { freeStarts, needOf } from "@/concept/data/slots";
 import type { DemoState, StaffId } from "@/concept/data/types";
@@ -136,17 +136,19 @@ it("books once from the booking page, even when Confirm is pressed twice", async
 });
 
 it("enforces the booking lead time when the booking is saved, not when Confirm is pressed", async () => {
+  // The demo salon is closed at weekends, so the test runs on the next weekday.
+  const day = [0, 1, 2, 3].map((i) => addDays(today, i)).find((d) => weekday(d) >= 1 && weekday(d) <= 5)!;
   vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date(`${today}T09:00:00`));
-  const { state, saved } = await open(createDemoState(today));
+  vi.setSystemTime(new Date(`${day}T09:00:00`));
+  const { state, saved } = await open(createDemoState(day));
   const service = state.services.filter((s) => !s.hidden)[1];
   const staffId = service.staffIds[0];
   // Free and outside the lead time when the customer presses Confirm…
-  const start = freeStarts(state, staffId, today, needOf(service)).find((minute) => minute >= 10 * 60 + 30 && minute < 16 * 60);
+  const start = freeStarts(state, staffId, day, needOf(service)).find((minute) => minute >= 10 * 60 + 30 && minute < 16 * 60);
   if (start === undefined) throw new Error("no free start today between 10:30 and 16:00");
-  const page = await details(state, { staffId, date: today, start }, service.id);
+  const page = await details(state, { staffId, date: day, start }, service.id);
   // …but the save happens 30 minutes before it (a slow tab, a queue behind another save).
-  const late = new Date(`${today}T${String(Math.floor((start - 30) / 60)).padStart(2, "0")}:${String((start - 30) % 60).padStart(2, "0")}:00`);
+  const late = new Date(`${day}T${String(Math.floor((start - 30) / 60)).padStart(2, "0")}:${String((start - 30) % 60).padStart(2, "0")}:00`);
   let pressed = false;
   reads.hook = () => { if (pressed) vi.setSystemTime(late); };
   pressed = true;
@@ -154,8 +156,8 @@ it("enforces the booking lead time when the booking is saved, not when Confirm i
   await vi.waitFor(() => expect(page.taken).toHaveLength(1));
   expect(page.taken[0]).toMatchObject({ reason: "booking.slotTaken" });
   expect(page.booked).toEqual([]);
-  expect(saved().bookings.filter((b) => b.date === today && b.start === start && b.staffId === staffId && b.status === "booked")).toEqual(
-    state.bookings.filter((b) => b.date === today && b.start === start && b.staffId === staffId && b.status === "booked"),
+  expect(saved().bookings.filter((b) => b.date === day && b.start === start && b.staffId === staffId && b.status === "booked")).toEqual(
+    state.bookings.filter((b) => b.date === day && b.start === start && b.staffId === staffId && b.status === "booked"),
   );
 });
 
