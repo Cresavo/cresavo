@@ -21,6 +21,41 @@ adapter, add login and tenant isolation, then put `studioBookingProvider`
 behind agent API v1 and MCP. Move the demo tenant and verify one green week
 before retiring the legacy admin UI, its routes and end-to-end tests.
 
+**Where booking rules live (confirmed 2026-11-21).** The studio reducer
+(`src/concept/actions.ts`) and availability code (`src/concept/data/slots.ts`)
+are the only place for booking rules. New rules, such as buffers, processing
+time or class capacity, are built there and nowhere else. The Prisma engine in
+`src/lib/domain.ts` is the legacy engine. It gets security and correctness
+fixes until it is retired, but no new booking rules.
+
+**Migration path.**
+
+1. Owner login and tenant isolation on `PostgresStudioStore` (roadmap stage 1).
+2. The studio and the public booking page read and write the store
+   (roadmap stage 2).
+3. `studioBookingProvider` implements the existing `BookingProvider` contract
+   (`src/lib/agent-api/provider/types.ts`) over `StudioStore`: services and
+   staff from the tenant document, availability from `slots.ts`, bookings
+   through `apply` with the caller's idempotency key. `/api/v1` and the owner
+   MCP choose the tenant from the caller's credential instead of
+   `DEMO_BUSINESS_ID`.
+4. The gateway keeps calling `/api/v1` at `SALON_ORIGIN`, so it needs no change
+   while the provider contract holds.
+
+**Gate before the legacy engine is removed.** All of these hold:
+
+- The store contract suite passes against Postgres, including the invariants
+  `STUDIO_STORE.md` lists as not yet covered: cancel by token, customer data
+  export and per-resource limits.
+- The gateway's provider conformance check and agent scenarios pass against
+  `studioBookingProvider`.
+- The legacy engine's security tests (rate limits, OAuth, keys, mandates,
+  proposals, agent audit) run against the new provider and pass.
+- The demo tenant has run on the new provider for one week without failures.
+
+Then the legacy admin UI, routes and their tests are removed, and its tables
+are dropped in a new migration. Historical migrations stay unchanged.
+
 ## 2. Isolate sandbox bookings by session
 
 **Context.** Owners need to try bookings from self-built sites using fictional data.
