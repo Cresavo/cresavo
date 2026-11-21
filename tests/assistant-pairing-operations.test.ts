@@ -81,16 +81,17 @@ it("uses the unpooled pairing URL only in the guarded Vercel migration step", as
   const { default: pairingConfig } = await import("../prisma.pairing.config");
   expect(pairingConfig.datasource?.url).toBe(direct);
 
-  const run = (flag: string, url: string, migrationExit = "0") => spawnSync("/bin/sh", ["-c", `
+  // The build command runs scripts/vercel-build.sh; an exported npx shim records each step instead of running it.
+  const run = (flag: string, url: string, migrationExit = "0") => spawnSync("/bin/bash", ["-c", `
     npx() {
       printf '%s\n' "$*"
       if [ "$2" = migrate ]; then return "$MIGRATION_EXIT"; fi
     }
-    next() { printf '%s\n' "$*"; }
+    export -f npx
     ${cronConfig.buildCommand}
-  `], { encoding: "utf8", env: { NODE_ENV: "production", ASSISTANT_PAIRING: flag, PAIRING_DATABASE_URL_UNPOOLED: url, MIGRATION_EXIT: migrationExit } });
+  `], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "production", ASSISTANT_PAIRING: flag, PAIRING_DATABASE_URL_UNPOOLED: url, MIGRATION_EXIT: migrationExit } });
   const migrate = "prisma migrate deploy --config prisma.pairing.config.ts\n";
-  const build = "prisma generate\nbuild\n";
+  const build = "prisma generate\nnext build\n";
   expect(run("0", direct)).toMatchObject({ status: 0, stdout: build });
   expect(run("1", "")).toMatchObject({ status: 0, stdout: build });
   expect(run("1", direct)).toMatchObject({ status: 0, stdout: migrate + build });

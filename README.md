@@ -86,7 +86,7 @@ tries a fast-forward update before starting the local demo.
   ```
 
   To deploy on Vercel, see [DEPLOY_DEMO](docs/DEPLOY_DEMO.md) and change the
-  product domain in `vercel.json` to one you control.
+  product domain in `scripts/vercel-build.sh` to one you control.
 - **Booking engine** (`/admin`, `/api/v1`, owner MCP): needs PostgreSQL. With
   Docker Compose:
 

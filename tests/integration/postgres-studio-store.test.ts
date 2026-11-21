@@ -6,7 +6,7 @@ import { afterAll, afterEach, describe, expect, it } from "vitest";
 import type { DemoAction } from "@/concept/actions";
 import { DEFAULT_POLICY } from "@/concept/booking/protection";
 import type { OutboxEntry } from "@/concept/connections/simulated/outbox";
-import { addDays, toKey } from "@/concept/data/dates";
+import { addDays, toKey, weekday } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
 import { freeStarts, needOf } from "@/concept/data/slots";
 import type { DemoState, Service, StaffId } from "@/concept/data/types";
@@ -76,8 +76,8 @@ runStudioStoreContract("PostgresStudioStore", async (seeds) => {
 
 const today = toKey(new Date());
 
-function depositState(): { state: DemoState; deposit: Service } {
-  const base = createDemoState(today);
+function depositState(date = today): { state: DemoState; deposit: Service } {
+  const base = createDemoState(date);
   const [deposit] = bookableServices(base);
   return { state: { ...base, cancellationPolicy: { ...DEFAULT_POLICY, deposits: { [deposit.id]: 20_000 } } }, deposit };
 }
@@ -349,17 +349,19 @@ describe("PostgresStudioStore review fixes", () => {
   });
 
   it("judges booking cutoffs and support grants by the store clock, not the caller's", async () => {
-    // 18:00 in the salon on the fixture's day, so the morning has already passed.
-    const evening = DateTime.fromISO(`${today}T18:00`, { zone: SALON_TIMEZONE }).toMillis();
-    const { state, deposit: service } = depositState();
+    // The demo salon is closed at weekends, so the test uses the next weekday.
+    const day = [0, 1, 2, 3].map((i) => addDays(today, i)).find((d) => weekday(d) >= 1 && weekday(d) <= 5)!;
+    // 18:00 in the salon on that day, so the morning has already passed.
+    const evening = DateTime.fromISO(`${day}T18:00`, { zone: SALON_TIMEZONE }).toMillis();
+    const { state, deposit: service } = depositState(day);
     // A start that is already past the cutoff at 18:00 (a one-hour lead).
     const morning = service.staffIds.flatMap((staffId) =>
-      freeStarts(state, staffId, today, needOf(service)).filter((start) => start <= 16 * 60).map((start) => ({ staffId, start })))[0];
+      freeStarts(state, staffId, day, needOf(service)).filter((start) => start <= 16 * 60).map((start) => ({ staffId, start })))[0];
     if (!morning) throw new Error("no free start before the cutoff");
     // The caller claims it is still midnight.
     const late: DemoAction = {
-      type: "online/hold", serviceId: service.id, staffId: morning.staffId, date: today, start: morning.start,
-      guest: { name: "Fictional Guest", phone: "0700009911", at: { date: today, time: 0 } },
+      type: "online/hold", serviceId: service.id, staffId: morning.staffId, date: day, start: morning.start,
+      guest: { name: "Fictional Guest", phone: "0700009911", at: { date: day, time: 0 } },
       notice: { title: "Demo request", body: "Demo appointment" },
     };
     const strict = tenantIds("cutoff");

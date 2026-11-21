@@ -254,11 +254,14 @@ test("finance charts mark the period before with an outline or dashes, not colou
 });
 
 test("Today names the staff member on every booking, not just a colour (#26)", async ({ page }) => {
-  const initial = createDemoState(today);
+  // A fixed weekday: the demo salon has no bookings at weekends.
+  const day = "2026-11-17";
+  await page.clock.install({ time: new Date(day + "T10:00:00+01:00") });
+  const initial = createDemoState(day);
   await page.goto("/studio");
   // Today shows the next few rows first; the whole day is one tap away.
   await page.getByRole("button", { name: /^Show all \(\d+\)$/ }).click();
-  for (const booking of initial.bookings.filter(b => b.date === today).slice(0, 6)) {
+  for (const booking of initial.bookings.filter(b => b.date === day).slice(0, 6)) {
     const customer = initial.customers.find(c => c.id === booking.customerId)!;
     const staff = initial.staff.find(s => s.id === booking.staffId)!;
     await expect(page.getByRole("button").filter({ hasText: fullName(customer) }).first()).toContainText(`${staff.firstName} · `);
