@@ -2,6 +2,7 @@ import type { GetServerSidePropsContext } from "next";
 import { getStarCount } from "./github-stars";
 import { productSiteOrigin } from "./origin";
 import { siteRequestHost } from "./request-host";
+import { waitlistIsOpen } from "./waitlist";
 import { isLocalHost, siteLinks } from "../page/resolve";
 
 export interface SiteProps {
@@ -9,6 +10,8 @@ export interface SiteProps {
   links: { apex: string; demo: string };
   /** The answer to a waiting-list form posted without JavaScript (`?waitlist=`). */
   waitlist: string | null;
+  /** Whether the waiting list stores sign-ups; while it doesn't, the page shows no form. */
+  waitlistOpen: boolean;
   origin: string | null;
   analyticsEnabled: boolean;
 }
@@ -28,6 +31,7 @@ export async function getSiteProps({ req, query }: GetServerSidePropsContext) {
     props: {
       links: siteLinks(linksHost),
       waitlist: typeof query.waitlist === "string" ? query.waitlist : null,
+      waitlistOpen: waitlistIsOpen(),
       origin,
       analyticsEnabled: origin !== null && process.env.VERCEL_ENV === "production",
     } satisfies SiteProps,

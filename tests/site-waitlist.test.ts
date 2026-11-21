@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { POST } from "@/app/api/waitlist/route";
-import { createRateLimiter, EMAIL_MAX, joinWaitlist, parseWaitlistInput, RATE_LIMIT, waitlistProvider } from "@/concept/site/waitlist";
+import { createRateLimiter, EMAIL_MAX, joinWaitlist, parseWaitlistInput, RATE_LIMIT, waitlistIsOpen, waitlistProvider } from "@/concept/site/waitlist";
 import { readCapped, UNVERIFIED_CLIENT, waitlistClientKey } from "@/concept/site/waitlist-server";
 import { addressProof } from "../scripts/client-address.mjs";
 import { publicReadonlyResponse } from "@/lib/public-readonly";
@@ -51,6 +51,11 @@ describe("waiting list provider", () => {
 
   it("a provider that is named but not built yet behaves like none", async () => {
     for (const provider of ["resend", "buttondown", "loops", "postgres"] as const) expect(await joinWaitlist({ locale: "en", email: "anna@example.com" }, provider)).toBe("not-open");
+  });
+
+  it("is open only when a built provider stores addresses, so the page shows no form until then", () => {
+    expect(waitlistIsOpen({})).toBe(false);
+    for (const provider of ["none", "resend", "buttondown", "loops", "postgres"]) expect(waitlistIsOpen({ WAITLIST_PROVIDER: provider }), provider).toBe(false);
   });
 });
 

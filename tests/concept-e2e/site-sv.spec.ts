@@ -20,7 +20,7 @@ test("the Swedish homepage declares its language and opens the demo in Swedish",
     await expect(page.locator(`link[rel="alternate"][hreflang="${lang}"]`)).toHaveAttribute("href", path);
   }
   const links = page.getByRole("link", { name: sv["soon.demo"], exact: true });
-  await expect(links).toHaveCount(3);
+  await expect(links).toHaveCount(4);
   for (const link of await links.all()) await expect(link).toHaveAttribute("href", "/studio?lang=sv");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
 
@@ -45,17 +45,14 @@ test("the Swedish homepage declares its language and opens the demo in Swedish",
 test.describe("the Swedish site without JavaScript", () => {
   test.use({ javaScriptEnabled: false });
 
-  test("serves Swedish HTML and returns a waitlist submission to the translated page", async ({ page }) => {
+  test("serves Swedish HTML with Swedish links to the demo and the client's booking page", async ({ page }) => {
     await page.goto("/sv");
     await expect(page.locator("html")).toHaveAttribute("lang", "sv");
-    const form = page.locator("#waitlist form");
-    await expect(form.locator('[name="from"]')).toHaveValue("/sv");
-    await expect(form.locator('[name="locale"]')).toHaveValue("sv");
-    await page.getByLabel(sv["waitlist.email"]).fill("nova.demo@example.com");
-    await page.getByRole("button", { name: sv["waitlist.submit"] }).click();
-    await expect(page).toHaveURL(/\/sv\?waitlist=not-open#waitlist$/);
-    await expect(page.getByRole("status")).toHaveText(sv["waitlist.outcome.not-open"]);
-    await page.getByRole("link", { name: "Integritet" }).click();
+    const closing = page.locator("#waitlist");
+    await expect(closing.locator("form")).toHaveCount(0);
+    await expect(closing).toContainText(sv["closing.text"]);
+    await expect(closing.getByRole("link", { name: sv["how.client"] })).toHaveAttribute("href", "/boka/salong-eko?lang=sv");
+    await page.getByRole("contentinfo").getByRole("link", { name: "Integritet" }).click();
     await expect(page).toHaveURL(/\/sv\/privacy$/);
     await expect(page.locator("html")).toHaveAttribute("lang", "sv");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Integritet");

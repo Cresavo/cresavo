@@ -60,6 +60,12 @@ const none: Adapter = async () => "not-open";
  */
 const ADAPTERS: Partial<Record<WaitlistProvider, Adapter>> = { none };
 
+/** Whether sign-ups are taken: only when the configured provider has a built adapter that stores addresses. */
+export function waitlistIsOpen(env: Record<string, string | undefined> = process.env): boolean {
+  const adapter = ADAPTERS[waitlistProvider(env)];
+  return adapter !== undefined && adapter !== none;
+}
+
 export function joinWaitlist(entry: WaitlistEntry, provider: WaitlistProvider = waitlistProvider()): Promise<Extract<WaitlistOutcome, "not-open" | "added">> {
   return (ADAPTERS[provider] ?? none)(entry);
 }

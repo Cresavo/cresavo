@@ -28,7 +28,7 @@ function routed(path: string, headers: Record<string, string> = internalHost) {
 }
 
 it("uses the configured links and allows the rewritten coming-soon page to be indexed", async () => {
-  await expect(siteProps(internalHost)).resolves.toEqual({ props: { links: publicLinks, waitlist: null, origin: "https://cresavo.com", analyticsEnabled: false } });
+  await expect(siteProps(internalHost)).resolves.toEqual({ props: { links: publicLinks, waitlist: null, waitlistOpen: false, origin: "https://cresavo.com", analyticsEnabled: false } });
   expect(routed("/coming-soon").get("X-Robots-Tag")).toBeNull();
   expect(routed("/").get("X-Robots-Tag")).toBe("noindex, nofollow");
   expect(routed("/landing").get("X-Robots-Tag")).toBe("noindex, nofollow");
@@ -69,6 +69,8 @@ it("prefers Vercel's forwarded host for links and host routing", async () => {
   expect(routed("/", apex).get("x-middleware-rewrite")).toBe("http://localhost:3100/coming-soon");
   expect(routed("/", apex).get("X-Robots-Tag")).toBeNull();
   expect(routed("/sv", apex).get("X-Robots-Tag")).toBeNull();
+  for (const path of ["/about", "/sv/about"]) expect(routed(path, apex).get("X-Robots-Tag"), path).toBeNull();
+  expect(routed("/privacy", apex).get("X-Robots-Tag")).toBe("noindex, nofollow");
   expect(routed("/sv", demo).get("X-Robots-Tag")).toBe("noindex, nofollow");
   expect(routed("/?from=home", demo).get("location")).toBe("http://demo.cresavo.com/studio?from=home");
   expect(routed("/", demo).get("X-Robots-Tag")).toBe("noindex, nofollow");
