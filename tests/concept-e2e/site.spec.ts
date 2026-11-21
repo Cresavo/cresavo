@@ -2,25 +2,25 @@ import { expect, test } from "@playwright/test";
 import { site } from "../../src/concept/site/en";
 import { sv } from "../../src/concept/site/sv";
 
-test("the waiting list answer is announced and takes focus when it replaces the form", async ({ page }) => {
+test("while the waiting list takes no sign-ups, the page ends with the demo instead of a form", async ({ page }) => {
   await page.goto("/");
-  const status = page.locator("#waitlist [role=status]");
-  await expect(status).toHaveCount(1);
-  await expect(status).toBeAttached();
-  await page.getByLabel(site["waitlist.email"]).fill("nova.demo@example.com");
-  await page.getByRole("button", { name: site["waitlist.submit"] }).click();
-  await expect(status).toHaveText(site["waitlist.outcome.not-open"]);
-  await expect(page.locator("#waitlist form")).toHaveCount(0);
-  await expect(status).toBeFocused();
+  const closing = page.locator("#waitlist");
+  await expect(closing.locator("form")).toHaveCount(0);
+  await expect(closing.getByRole("heading", { level: 2 })).toHaveText(site["closing.heading"]);
+  await expect(closing).toContainText(site["closing.text"]);
+  await expect(closing.getByRole("link", { name: site["soon.demo"] })).toHaveAttribute("href", "/studio?lang=en");
+  await expect(closing.getByRole("link", { name: site["how.client"] })).toHaveAttribute("href", "/boka/salong-eko?lang=en");
 });
 
-test("the product homepage links directly to the studio", async ({ page }) => {
+test("the product homepage opens the studio in English, even after an earlier Swedish visit", async ({ page, context }) => {
+  await context.addCookies([{ name: "booking-locale", value: "sv", url: "http://127.0.0.1:3017" }]);
   await page.goto("/");
   const links = page.getByRole("link", { name: site["soon.demo"], exact: true });
-  await expect(links).toHaveCount(3);
-  for (const link of await links.all()) await expect(link).toHaveAttribute("href", "/studio");
+  await expect(links).toHaveCount(4);
+  for (const link of await links.all()) await expect(link).toHaveAttribute("href", "/studio?lang=en");
   await links.first().click();
   await expect(page).toHaveURL(/\/studio$/);
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
 });
 
 test("the demo host opens the studio and the retired landing is gone", async ({ request }) => {
@@ -30,11 +30,13 @@ test("the demo host opens the studio and the retired landing is gone", async ({ 
   for (const path of ["/landing", "/en/landing"]) expect((await request.get(path, { maxRedirects: 0 })).status()).toBe(404);
 });
 
-test("the homepage leads with the promise and shows the studio in each language", async ({ page }) => {
+test("the homepage says who it is for, where it stands and shows the studio in each language", async ({ page }) => {
   for (const [path, copy, lang] of [["/", site, "en"], ["/sv", sv, "sv"]] as const) {
     await page.goto(path);
+    await expect(page.getByText(copy["hero.eyebrow"], { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy["hero.heading"]);
-    await expect(page.getByRole("heading", { level: 2, name: copy["why.heading"] })).toBeVisible();
+    await expect(page.getByText(copy["hero.note"])).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: copy["how.heading"] })).toBeVisible();
     const shots = page.locator(`img[src^="/site/landing/${lang}-"]`);
     await expect(shots).toHaveCount(4);
     for (const shot of await shots.all()) {
@@ -46,7 +48,7 @@ test("the homepage leads with the promise and shows the studio in each language"
 
 test("the about page tells the founder's story in both languages", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("link", { name: site["why.story"] }).click();
+  await page.getByRole("link", { name: site["founder.story"] }).click();
   await expect(page).toHaveURL(/\/about$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(site["about.heading"]);
   await expect(page.getByRole("heading", { level: 2 })).toHaveCount(5);
@@ -64,7 +66,7 @@ test("on a phone, the demo button docks once the hero scrolls away and steps asi
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   const dock = page.locator("[data-show]");
   await expect(dock).toHaveCount(0);
-  await page.locator("#friday").scrollIntoViewIfNeeded();
+  await page.locator("#why").scrollIntoViewIfNeeded();
   await expect(dock).toHaveCount(1);
   await expect(dock.getByRole("link", { name: site["soon.demo"] })).toBeVisible();
   await page.locator("#waitlist").scrollIntoViewIfNeeded();
@@ -73,7 +75,7 @@ test("on a phone, the demo button docks once the hero scrolls away and steps asi
 
 test("the sample booking can be completed and reset offline", async ({ page, context }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: site["mini.pickTreatment"] }).click();
+  await page.getByRole("button", { name: site["tour.client"] }).click();
   const sample = page.getByRole("region", { name: site["mini.label"] });
   await context.setOffline(true);
   await sample.getByRole("button", { name: /Basic foot care/ }).click();
@@ -185,16 +187,18 @@ test("the expanded film keeps the playhead and returns muted on a backdrop click
   await expect(page.getByRole("button", { name: /^Expand —/ })).toBeFocused();
 });
 
-test("the studio views are keyboard operable", async ({ page }) => {
+test("the film section separates the salon's view from the client's and the FAQ opens from the keyboard", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  const preview = page.getByRole("region", { name: site["studio.heading"] });
-  for (const view of ["calendar", "booking", "assistant", "today"] as const) {
-    const button = preview.getByRole("button", { name: site[`studio.${view}`], exact: true });
-    await button.focus();
-    await page.keyboard.press("Space");
-    await expect(button).toHaveAttribute("aria-pressed", "true");
-    await expect(preview.getByRole("img", { name: site[`studio.${view}.alt`] })).toBeVisible();
-  }
+  const tour = page.locator("#tour");
+  const client = tour.getByRole("button", { name: site["tour.client"] });
+  await client.focus();
+  await page.keyboard.press("Space");
+  await expect(client).toHaveAttribute("aria-pressed", "true");
+  await expect(tour.getByRole("link", { name: site["landing.book.link"] })).toHaveAttribute("href", "/boka/salong-eko?lang=en");
+  const question = page.locator("#questions summary", { hasText: site["faq.import"] });
+  await question.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByText(site["faq.import.answer"])).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(await page.evaluate(() => innerWidth));
 });

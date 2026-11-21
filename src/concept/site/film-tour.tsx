@@ -1,5 +1,4 @@
 import { useState } from "react";
-import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Button } from "../ui/button";
 import { Select } from "../ui/controls";
@@ -18,8 +17,8 @@ const films = [
   { key: "journal", label: "tour.journal", alt: "landing.card.alt" },
 ] as const;
 
-/** Short films of the studio, or a sample booking on the salon's page. */
-export function FilmTour() {
+/** The salon's view as short films of the studio, or the client's view as a sample booking. */
+export function FilmTour({ booking: bookingPage }: { booking: string }) {
   const { site, locale } = useSiteCopy();
   const [index, setIndex] = useState(0);
   const [booking, setBooking] = useState(false);
@@ -31,16 +30,17 @@ export function FilmTour() {
           <h2 className={l.title} id="tour-heading">{site["film.heading"]}</h2>
           <div className={f.modes}>
             <Button variant="secondary" size="sm" aria-pressed={!booking} onClick={() => setBooking(false)}>{site["tour.watch"]}</Button>
-            <Button variant="secondary" size="sm" aria-pressed={booking} onClick={() => setBooking(true)}>{site["mini.pickTreatment"]}</Button>
+            <Button variant="secondary" size="sm" aria-pressed={booking} onClick={() => setBooking(true)}>{site["tour.client"]}</Button>
           </div>
           {!booking && <Select className={f.select} aria-label={site["tour.choose"]} value={index} onChange={event => setIndex(Number(event.target.value))}>
             {films.map(({ key, label }, i) => <option value={i} key={key}>{site[label]}</option>)}
           </Select>}
+          {!booking && locale === "sv" && <p className={l.caption}>{site["film.note"]}</p>}
         </div>
         <div className={f.screening}>
           {booking ? <>
             <MiniBooking />
-            <Link prefetch={false} className={f.bookLink} href={locale === "sv" ? "/boka/salong-eko?lang=sv" : "/boka/salong-eko"}>{site["landing.book.link"]}<ArrowUpRight size={16} aria-hidden /></Link>
+            <a className={f.bookLink} href={bookingPage}>{site["landing.book.link"]}<ArrowUpRight size={16} aria-hidden /></a>
           </> : <TourClip key={film.key} name={film.key} title={site[film.label]} description={site[film.alt]} />}
         </div>
       </div>

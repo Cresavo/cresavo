@@ -1,21 +1,21 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { PROJECT_REPOSITORY } from "../brand";
+import { CONTACT_EMAIL, PROJECT_REPOSITORY } from "../brand";
 import { useSiteCopy } from "./copy";
 import { FilmTour } from "./film-tour";
 import { sitePath } from "./language";
 import type { ProductSiteProps } from "./links";
 import { SiteFooter, SiteTopbar } from "./site-chrome";
 import { SiteHead } from "./site-head";
-import { StudioPreview } from "./studio-preview";
 import { WaitlistForm } from "./waitlist-form";
 import l from "./landing.module.css";
-
-type Key = keyof ReturnType<typeof useSiteCopy>["site"];
 
 /** The ring screenshot is a dialog crop, so its height differs per language. */
 const RING = { en: { width: 760, height: 1039 }, sv: { width: 760, height: 965 } } as const;
 
 const list = (value: string) => value.split("|");
+
+/** Salong Eko's client booking page, on the same host as the studio. */
+const BOOKING_PATH = "/boka/salong-eko";
 
 /** A screenshot of the demo studio in the page's language. The compressed files are served as they are. */
 function Shot({ name, alt, width = 1400, height = 950, className = "", priority = false }: { name: string; alt: string; width?: number; height?: number; className?: string; priority?: boolean }) {
@@ -44,11 +44,12 @@ function Hero({ demo, ctaRow }: { demo: string; ctaRow: RefObject<HTMLDivElement
       <div className={l.wrap}>
         <SiteTopbar home />
         <div className={l.heroCopy}>
+          <p className={l.eyebrow}>{site["hero.eyebrow"]}</p>
           <h1>{site["hero.heading"]}</h1>
           <p className={l.lead}>{site["hero.lead"]}</p>
           <div className={l.ctaRow} ref={ctaRow}>
             <a className={`${l.btn} ${l.apricot}`} href={demo}>{site["soon.demo"]}</a>
-            <a className={`${l.btn} ${l.ghostCream}`} href="#why">{site["nav.why"]}</a>
+            <a className={`${l.btn} ${l.ghostCream}`} href="#how">{site["hero.how"]}</a>
           </div>
           <p className={l.heroNote}>{site["hero.note"]}</p>
         </div>
@@ -60,90 +61,63 @@ function Hero({ demo, ctaRow }: { demo: string; ctaRow: RefObject<HTMLDivElement
   );
 }
 
-const WORDS = [
-  { key: "easy" },
-  { key: "open", link: { label: "why.open.link", href: PROJECT_REPOSITORY } },
-  { key: "zero" },
-  { key: "future" },
-  { key: "listen", link: { label: "why.listen.link", href: `${PROJECT_REPOSITORY}/discussions` } },
-] as const;
-
-function WhySwitch({ demo }: { demo: string }) {
-  const { site, locale } = useSiteCopy();
-  return (
-    <section id="why" className={`${l.section} ${l.white} ${l.first}`} aria-labelledby="why-heading">
-      <div className={l.wrap}>
-        <h2 className={l.title} id="why-heading">{site["why.heading"]}</h2>
-        <div className={l.words}>
-          {WORDS.map((word) => (
-            <div className={l.word} key={word.key}>
-              <h3>{site[`why.${word.key}`]}</h3>
-              <div>
-                <p className={l.what}>{site[`why.${word.key}.what`]}</p>
-                <p className={l.more}>
-                  {site[`why.${word.key}.more`]}
-                  {"link" in word && <> <a href={word.link.href}>{site[word.link.label]}</a></>}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className={l.inlineCta}>
-          <a className={`${l.btn} ${l.plum}`} href={demo}>{site["soon.demo"]}</a>
-          <a className={l.textLink} href={sitePath(locale, "about")}>{site["why.story"]}</a>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 const MOMENTS = [
+  { key: "day", shot: "calendar" },
   { key: "ring", shot: "ring" },
-  { key: "empty", shot: "calendar", note: true },
-  { key: "yours", shot: "customer-card" },
+  { key: "card", shot: "customer-card" },
 ] as const;
 
-function Friday({ demo }: { demo: string }) {
+/** Three everyday moments, each beside the demo screen that does it. */
+function HowItWorks({ demo, booking }: { demo: string; booking: string }) {
   const { site, locale } = useSiteCopy();
   return (
-    <section id="friday" className={`${l.section} ${l.white}`} aria-labelledby="friday-heading">
+    <section id="how" className={`${l.section} ${l.white} ${l.first}`} aria-labelledby="how-heading">
       <div className={l.wrap}>
-        <h2 className={l.title} id="friday-heading">{site["friday.heading"]}</h2>
-        <p className={l.intro}>{site["friday.intro"]}</p>
+        <h2 className={l.title} id="how-heading">{site["how.heading"]}</h2>
+        <p className={l.intro}>{site["how.intro"]}</p>
         {MOMENTS.map((moment) => (
           <div className={l.job} key={moment.key}>
             <div>
-              <p className={l.when}>{site[`friday.${moment.key}.when`]}</p>
-              <h3>{site[`friday.${moment.key}`]}</h3>
-              <p className={l.what}>{site[`friday.${moment.key}.what`]}</p>
-              <p className={l.more}>{site[`friday.${moment.key}.more`]}</p>
-              {"note" in moment && <p className={l.caption}>{site["friday.empty.note"]}</p>}
+              <h3>{site[`how.${moment.key}`]}</h3>
+              <p className={l.more}>{site[`how.${moment.key}.text`]}</p>
             </div>
             {moment.shot === "ring"
-              ? <Shot name="ring" alt={site["friday.ring.alt"]} {...RING[locale]} className={l.ringShot} />
-              : <Shot name={moment.shot} alt={site[`friday.${moment.key}.alt`]} />}
+              ? <Shot name="ring" alt={site["how.ring.alt"]} {...RING[locale]} className={l.ringShot} />
+              : <Shot name={moment.shot} alt={site[`how.${moment.key}.alt`]} />}
           </div>
         ))}
+        <p className={l.caption}>{site["how.demoNote"]}</p>
         <div className={l.inlineCta}>
           <a className={`${l.btn} ${l.plum}`} href={demo}>{site["soon.demo"]}</a>
-          <span>{site["friday.cta"]}</span>
+          <a className={l.textLink} href={booking}>{site["how.client"]}</a>
         </div>
       </div>
     </section>
   );
 }
 
-function Columns({ id, heading, groups, tone, three = false }: { id: string; heading: Key; groups: readonly Key[]; tone: string; three?: boolean }) {
+const REASONS = [
+  { key: "commission" },
+  { key: "export" },
+  { key: "open", link: { label: "why.open.link", href: PROJECT_REPOSITORY } },
+  { key: "assistant" },
+] as const;
+
+function Reasons() {
   const { site } = useSiteCopy();
   return (
-    <section id={id} className={`${l.section} ${tone}`} aria-labelledby={`${id}-heading`}>
+    <section id="why" className={`${l.section} ${l.cream}`} aria-labelledby="why-heading">
       <div className={l.wrap}>
-        <h2 className={l.title} id={`${id}-heading`}>{site[heading]}</h2>
-        <div className={`${l.columns} ${three ? l.three : ""}`}>
-          {groups.map((group) => (
-            <div key={group}>
-              <h3>{site[group]}</h3>
-              <ul>{list(site[`${group}.items` as Key]).map((item) => <li key={item}>{item}</li>)}</ul>
+        <h2 className={l.title} id="why-heading">{site["why.heading"]}</h2>
+        <p className={l.intro}>{site["why.intro"]}</p>
+        <div className={l.reasons}>
+          {REASONS.map((reason) => (
+            <div className={l.reason} key={reason.key}>
+              <h3>{site[`why.${reason.key}`]}</h3>
+              <p>
+                {site[`why.${reason.key}.text`]}
+                {"link" in reason && <> <a href={reason.link.href}>{site[reason.link.label]}</a></>}
+              </p>
             </div>
           ))}
         </div>
@@ -152,29 +126,64 @@ function Columns({ id, heading, groups, tone, three = false }: { id: string; hea
   );
 }
 
-function ClientsAi() {
+function Founder() {
+  const { site, locale } = useSiteCopy();
+  return (
+    <section id="founder" className={`${l.section} ${l.onPlum}`} aria-labelledby="founder-heading">
+      <div className={`${l.wrap} ${l.founder}`}>
+        <h2 id="founder-heading">{site["founder.heading"]}</h2>
+        <figure>
+          <blockquote><p>{site["founder.quote"]}</p></blockquote>
+          <figcaption>{site["founder.signature"]}</figcaption>
+        </figure>
+        <div className={l.inlineCta}>
+          <a className={`${l.btn} ${l.ghostCream}`} href={sitePath(locale, "about")}>{site["founder.story"]}</a>
+          <a className={l.textLink} href={`mailto:${CONTACT_EMAIL}`}>{site["founder.mail"]}</a>
+          <a className={l.textLink} href={`${PROJECT_REPOSITORY}/discussions`}>{site["founder.talk"]}</a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const STATUS = ["status.demo", "status.simulated", "status.next", "status.before"] as const;
+
+/** Where each part stands, then the clients' AI as the clearly marked next step. */
+function Status() {
   const { site } = useSiteCopy();
   const steps = ["ask", "suggest", "yes"] as const;
   return (
-    <section id="next" className={`${l.section} ${l.onPlum}`} aria-labelledby="next-heading">
+    <section id="status" className={`${l.section} ${l.white}`} aria-labelledby="status-heading">
       <div className={l.wrap}>
-        <h2 className={l.title} id="next-heading">{site["future.heading"]}</h2>
-        <p className={l.intro}>{site["future.intro"]}</p>
-        <ol className={l.flow}>
-          {steps.map((step, i) => (
-            <li key={step}>
-              <span className={l.step} aria-hidden>{i + 1}</span>
-              <p><b>{site[`future.${step}`]}</b> {site[`future.${step}.text`]}</p>
-            </li>
+        <h2 className={l.title} id="status-heading">{site["status.heading"]}</h2>
+        <p className={l.intro}>{site["status.intro"]}</p>
+        <div className={l.columns}>
+          {STATUS.map((group) => (
+            <div key={group}>
+              <h3>{site[group]}</h3>
+              <ul>{list(site[`${group}.items`]).map((item) => <li key={item}>{item}</li>)}</ul>
+            </div>
           ))}
-        </ol>
-        <p className={l.caption}>{site["future.note"]}</p>
+        </div>
+        <div className={`${l.next} ${l.onPlum}`}>
+          <h3>{site["future.heading"]}</h3>
+          <p className={l.intro}>{site["future.intro"]}</p>
+          <ol className={l.flow}>
+            {steps.map((step, i) => (
+              <li key={step}>
+                <span className={l.step} aria-hidden>{i + 1}</span>
+                <p><b>{site[`future.${step}`]}</b> {site[`future.${step}.text`]}</p>
+              </li>
+            ))}
+          </ol>
+          <p className={l.caption}>{site["future.note"]}</p>
+        </div>
       </div>
     </section>
   );
 }
 
-function Pricing() {
+function Pricing({ demo }: { demo: string }) {
   const { site } = useSiteCopy();
   return (
     <section id="pricing" className={`${l.section} ${l.cream}`} aria-labelledby="pricing-heading">
@@ -182,18 +191,19 @@ function Pricing() {
         <h2 className={l.title} id="pricing-heading">{site["pricing.heading"]}</h2>
         <div className={l.plans}>
           <div className={`${l.plan} ${l.onPlum}`}>
-            <p className={l.planName}>{site["pricing.free.name"]}</p>
-            <h3>{site["pricing.free"]}</h3>
-            <ul>{list(site["pricing.free.items"]).map((item) => <li key={item}>{item}</li>)}</ul>
+            <p className={l.planName}>{site["pricing.hosted.name"]}</p>
+            <h3>{site["pricing.hosted"]}</h3>
+            <p className={l.planText}>{site["pricing.hosted.text"]}</p>
+            <ul>{list(site["pricing.hosted.items"]).map((item) => <li key={item}>{item}</li>)}</ul>
             <div className={l.spacer} />
-            <a className={`${l.btn} ${l.apricot}`} href={PROJECT_REPOSITORY}>{site["pricing.free.cta"]}</a>
+            <a className={`${l.btn} ${l.apricot}`} href={demo}>{site["soon.demo"]}</a>
           </div>
-          <div className={`${l.plan} ${l.pro}`}>
-            <p className={l.planName}>{site["pricing.pro.name"]}</p>
-            <h3>{site["pricing.pro"]}</h3>
-            <ul>{list(site["pricing.pro.items"]).map((item) => <li key={item}>{item}</li>)}</ul>
+          <div className={`${l.plan} ${l.self}`}>
+            <p className={l.planName}>{site["pricing.self.name"]}</p>
+            <h3>{site["pricing.self"]}</h3>
+            <p className={l.planText}>{site["pricing.self.text"]}</p>
             <div className={l.spacer} />
-            <a className={`${l.btn} ${l.ghost}`} href="#waitlist">{site["pricing.pro.cta"]}</a>
+            <a className={`${l.btn} ${l.ghost}`} href={PROJECT_REPOSITORY}>{site["pricing.self.cta"]}</a>
           </div>
         </div>
       </div>
@@ -201,21 +211,43 @@ function Pricing() {
   );
 }
 
+const QUESTIONS = ["ready", "import", "bookings", "help", "export", "shutdown", "market", "ai"] as const;
+
 function Questions() {
   const { site } = useSiteCopy();
-  const questions = ["ready", "move", "market", "ai", "shutdown"] as const;
   return (
     <section id="questions" className={`${l.section} ${l.white}`} aria-labelledby="questions-heading">
       <div className={l.wrap}>
         <h2 className={l.title} id="questions-heading">{site["faq.heading"]}</h2>
         <div className={l.faq}>
-          {questions.map((q) => (
+          {QUESTIONS.map((q) => (
             <details key={q}>
               <summary>{site[`faq.${q}`]}</summary>
               <p>{site[`faq.${q}.answer`]}</p>
             </details>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+/** The last step while the waiting list takes no sign-ups: the demo, the client's booking page and a way to talk. */
+function Closing({ demo, booking }: { demo: string; booking: string }) {
+  const { site } = useSiteCopy();
+  return (
+    <section id="waitlist" className={`${l.waitlist} ${l.onPlum}`} aria-labelledby="closing-heading">
+      <div className={l.wrap}>
+        <h2 id="closing-heading">{site["closing.heading"]}</h2>
+        <p className={l.wlLead}>{site["closing.text"]}</p>
+        <div className={l.ctaRow}>
+          <a className={`${l.btn} ${l.apricot}`} href={demo}>{site["soon.demo"]}</a>
+          <a className={`${l.btn} ${l.ghostCream}`} href={booking}>{site["how.client"]}</a>
+        </div>
+        <p className={l.wlAlt}>
+          <a href={`mailto:${CONTACT_EMAIL}`}>{site["closing.mail"]}</a>
+          <a href={`${PROJECT_REPOSITORY}/discussions`}>{site["closing.talk"]}</a>
+        </p>
       </div>
     </section>
   );
@@ -248,9 +280,12 @@ function Dock({ demo, ctaRow }: { demo: string; ctaRow: RefObject<HTMLDivElement
   );
 }
 
-export function ProductPage({ links, waitlist, origin }: ProductSiteProps) {
+export function ProductPage({ links, waitlist, waitlistOpen, origin }: ProductSiteProps) {
   const { site, locale } = useSiteCopy();
-  const demo = locale === "sv" ? `${links.demo}?lang=sv` : links.demo;
+  // The demo opens in the language of the page the visitor came from, whatever an earlier visit saved.
+  const query = `?lang=${locale}`;
+  const demo = `${links.demo}${query}`;
+  const booking = `${links.demo.replace(/\/studio$/, BOOKING_PATH)}${query}`;
   const ctaRow = useRef<HTMLDivElement>(null);
   return (
     <div className={`${l.page} ${l.withDock}`}>
@@ -258,16 +293,16 @@ export function ProductPage({ links, waitlist, origin }: ProductSiteProps) {
       <a className={l.skip} href="#main">{site["skip"]}</a>
       <Hero demo={demo} ctaRow={ctaRow} />
       <main id="main">
-        <WhySwitch demo={demo} />
-        <StudioPreview />
-        <Friday demo={demo} />
-        <FilmTour />
-        <Columns id="features" tone={l.white} heading="features.heading" groups={["features.booking", "features.clients", "features.money", "features.easy"]} />
-        <ClientsAi />
-        <Columns id="status" tone={l.white} three heading="status.heading" groups={["status.now", "status.next", "status.before"]} />
-        <Pricing />
+        <HowItWorks demo={demo} booking={booking} />
+        <FilmTour booking={booking} />
+        <Reasons />
+        <Founder />
+        <Status />
+        <Pricing demo={demo} />
         <Questions />
-        <WaitlistForm from={sitePath(locale)} initial={waitlist ?? undefined} demo={demo} />
+        {waitlistOpen
+          ? <WaitlistForm from={sitePath(locale)} initial={waitlist ?? undefined} demo={demo} />
+          : <Closing demo={demo} booking={booking} />}
       </main>
       <SiteFooter />
       <Dock demo={demo} ctaRow={ctaRow} />

@@ -16,8 +16,8 @@ export function SiteTopbar({ home }: { home: boolean }) {
         <Wordmark inverse className={l.wordmark} label="" />
       </a>
       <nav aria-label={site["soon.nav"]}>
-        <a className={l.wide} href={section("why")}>{site["nav.why"]}</a>
-        <a className={l.wide} href={section("pricing")}>{site["nav.pricing"]}</a>
+        <a className={l.wide} href={section("how")}>{site["nav.how"]}</a>
+        <a href={section("pricing")}>{site["nav.pricing"]}</a>
         <a className={l.wide} href={section("questions")}>{site["nav.faq"]}</a>
         <a href={sitePath(locale, "about")} aria-current={home ? undefined : "page"}>{site["nav.about"]}</a>
         <a href={home ? sitePath(otherLocale) : sitePath(otherLocale, "about")} lang={otherLocale} hrefLang={otherLocale}>{site["language.switch"]}</a>
