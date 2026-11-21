@@ -25,9 +25,13 @@ Conversation with Niclas may be Swedish.
   product domain, its demo subdomain and business addresses show.
 - This repo owns the booking engine: database, times, staff, customers, booking
   rules, calendar, `/admin` workspace and the owner MCP. Booking rules belong in
-  `src/lib/domain.ts` and nearby domain code; web, API and MCP must not keep
-  their own alternative rules. Do not touch `/admin`, `/api/v1`, MCP, the Prisma
-  schema or migrations without an explicit assignment.
+  the studio's reducer (`src/concept/actions.ts`) and availability code
+  (`src/concept/data/slots.ts`), reached through `StudioStore` (ADR 1 in
+  `docs/design/ARCHITECTURE_DECISIONS.md`). Web, API and MCP must not keep
+  their own alternative rules. The Prisma engine in `src/lib/domain.ts` is the
+  legacy engine: keep it working and secure until the ADR 1 migration gate is
+  passed, but add no new booking rules there. Do not touch `/admin`, `/api/v1`,
+  MCP, the Prisma schema or migrations without an explicit assignment.
 - The gateway repository, [`Cresavo/gateway`](https://github.com/Cresavo/gateway), owns the
   public REST/MCP entry for external agents.
   Build new gateway tools there, not here. Contract: `docs/GATEWAY_SPLIT.md`.

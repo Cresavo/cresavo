@@ -25,10 +25,12 @@ Start with the [demo and product tour](../README.md) or see the
   domain ownership can be verified on the server.
 - Owners can now set up a separate browser-local salon from Today or Settings, try their own booking page and switch back to the sample business. A first-run checklist and a short demo tour guide the first visit.
 - The studio and booking flow support Swedish and English, with a separate business language for confirmations and customer messages. Salong Eko’s sample data and the studio help follow the selected language. The built-in assistant understands common Swedish commands for bookings, prices, stock, campaigns and booking-page design.
-- The separate booking engine uses Prisma and PostgreSQL. The web workspace,
-  provider API and local owner MCP share booking rules, including idempotency
-  and protection against double-booking. The public agent gateway lives in
-  the separate [`Cresavo/gateway`](https://github.com/Cresavo/gateway) repository.
+- The legacy booking engine uses Prisma and PostgreSQL. The web workspace,
+  provider API and local owner MCP share its booking rules, including
+  idempotency and protection against double-booking. It is being replaced by
+  the studio's rules behind `StudioStore` and gets no new booking rules
+  ([ADR 1](design/ARCHITECTURE_DECISIONS.md)). The public agent gateway lives
+  in the separate [`Cresavo/gateway`](https://github.com/Cresavo/gateway) repository.
 - The concept demo includes the November QA fixes for booking and caller
   flows, same-origin tab synchronization, assistant lookups and host feedback.
   Booking undo checks availability, and the customer time picker shows salon
@@ -45,7 +47,9 @@ Start with the [demo and product tour](../README.md) or see the
 
 ## Before a real pilot
 
-The studio still needs to connect to the booking engine. Real customer use
+The studio still needs to store salons on the server through `StudioStore`,
+and the provider API and gateway need to move from the legacy engine to it
+(see the migration path in [ADR 1](design/ARCHITECTURE_DECISIONS.md)). Real customer use
 requires verified tenant isolation, production authentication and access
 controls, backups and restore, monitoring, and a security and privacy review.
 The launch waiting list needs a storage provider and a current privacy policy
