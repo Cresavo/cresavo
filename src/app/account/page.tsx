@@ -21,7 +21,7 @@ export default async function AccountPage() {
       </dl>
       <p className="text-body text-text-secondary">{t("account.home.next")}</p>
       <div className="flex flex-wrap gap-2">
-        <ButtonLink href="/studio" variant="secondary">{t("account.home.demo")}</ButtonLink>
+        <ButtonLink href="/studio">{t("account.home.open")}</ButtonLink>
         <SignOutButton language={language} />
       </div>
     </div>
