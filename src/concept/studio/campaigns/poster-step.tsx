@@ -73,7 +73,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
           options={FORMATS.map((value) => ({ value, label: t(`campaigns.format.${value}`) }))}
         />
         <div className={cx("mx-auto w-full overflow-hidden rounded-lg", format === "post" ? "max-w-sm" : "max-w-64")}>
-          <PosterView ref={svg} source={source} salon={state.salon} format={format} />
+          <PosterView ref={svg} source={source} salon={state.salon} theme={state.page.theme} format={format} />
         </div>
         <Button width="responsive" icon={<Share2 size={18} />} onClick={share}>{t("campaigns.poster.share")}</Button>
         <Button variant="secondary" width="responsive" icon={<Download size={18} />} onClick={download}>
@@ -94,7 +94,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
                 className={cx("w-20 shrink-0 flex-col !gap-1 !p-1 !text-minimum", draft.style === style ? "!ring-2 ring-action" : "ring-input-border")}
               >
                 <span className="pointer-events-none block overflow-hidden rounded-sm">
-                  <PosterView source={{ ...source, poster: { ...poster, style } }} salon={state.salon} format="post" />
+                  <PosterView source={{ ...source, poster: { ...poster, style } }} salon={state.salon} theme={state.page.theme} format="post" />
                 </span>
                 {t(`campaigns.style.${style}`)}
               </Button>

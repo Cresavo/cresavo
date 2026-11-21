@@ -26,3 +26,23 @@ describe("poster adjustments", () => {
     expect(render({ ...base, focus: "bottom" })).toContain('preserveAspectRatio="xMidYMax slice"');
   });
 });
+
+describe("poster brand", () => {
+  const branded = (style: CampaignPoster["style"]) => renderToStaticMarkup(createElement(Poster, {
+    poster: { ...base, style }, format: "post", kicker: "Höst", until: "Till 30 nov", footer: ["Studio"], label: "Poster",
+    brand: { colors: { background: "#faf1ef", text: "#3d2f30", accent: "#a14a5b" }, heading: "Georgia, serif" },
+  }));
+
+  it("uses the salon's colours and heading font instead of the template's", () => {
+    const calm = branded("calm");
+    expect(calm).toContain('fill="#faf1ef"');
+    expect(calm).toContain('fill="#a14a5b"');
+    expect(calm).toContain('font-family="Georgia, serif"');
+    expect(calm).not.toContain("#2F5D50");
+    expect(branded("bold")).toContain('fill="#a14a5b"');
+  });
+
+  it("keeps the template colours without a brand", () => {
+    expect(render({ ...base, style: "calm" })).toContain("#2F5D50");
+  });
+});

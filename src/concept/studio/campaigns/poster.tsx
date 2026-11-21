@@ -1,16 +1,17 @@
 import { useId, type Ref } from "react";
 import type { CampaignPoster, PosterFocus, PosterFormat, PosterTextSize } from "../../data/types";
 import { fitFontSize, POSTER_FORMATS, wrapText } from "../../campaigns/poster-layout";
+import { mix, onColour, type Palette } from "../../page/colour";
 
 // Template posters built from the salon's own photos and colours: no AI image.
 // Layouts are written in poster pixels (see POSTER_FORMATS) so the exported PNG
 // is exactly what is shown.
 
 const FONT = "Inter, -apple-system, 'Segoe UI', sans-serif";
-const GREEN = "#2F5D50";
-const CREAM = "#F7F1E8";
-const SAND = "#EFE6D8";
-const INK = "#1F2A26";
+const TEMPLATE_GREEN = "#2F5D50";
+const TEMPLATE_CREAM = "#F7F1E8";
+const TEMPLATE_SAND = "#EFE6D8";
+const TEMPLATE_INK = "#1F2A26";
 const NIGHT = "#1D2724";
 const TERRACOTTA = "#E2A07C";
 
@@ -24,6 +25,8 @@ interface PosterProps {
   /** Salon name, address and booking link. */
   footer: string[];
   label: string;
+  /** The salon's own colours and heading font from its booking page; none keeps the template's. */
+  brand?: { colors: Palette | null; heading?: string };
   ref?: Ref<SVGSVGElement>;
 }
 
@@ -35,6 +38,7 @@ interface Item {
   spacing?: number;
   /** Space above this block. */
   gap?: number;
+  family?: string;
 }
 
 const LINE_HEIGHT = 1.18;
@@ -63,7 +67,7 @@ function Stack({ items, x, y, anchor = "start" }: { items: Item[]; x: number; y:
   return (
     <>
       {items.map((item, index) => (
-        <text key={index} x={x} y={tops[index]} textAnchor={anchor} fontSize={item.size} fontWeight={item.weight ?? 400} fill={item.fill} letterSpacing={item.spacing}>
+        <text key={index} x={x} y={tops[index]} textAnchor={anchor} fontFamily={item.family} fontSize={item.size} fontWeight={item.weight ?? 400} fill={item.fill} letterSpacing={item.spacing}>
           {item.lines.map((line, i) => (
             <tspan key={i} x={x} dy={i === 0 ? item.size : item.size * LINE_HEIGHT}>
               {line}
@@ -75,7 +79,15 @@ function Stack({ items, x, y, anchor = "start" }: { items: Item[]; x: number; y:
   );
 }
 
-export function Poster({ poster, format, kicker, until, footer, label, ref }: PosterProps) {
+export function Poster({ poster, format, kicker, until, footer, label, brand, ref }: PosterProps) {
+  // With the salon's colours, every template draws from them instead of its own.
+  const colors = brand?.colors;
+  const GREEN = colors?.accent ?? TEMPLATE_GREEN;
+  const CREAM = colors?.background ?? TEMPLATE_CREAM;
+  const SAND = colors ? mix(colors.background, colors.accent, 0.08) : TEMPLATE_SAND;
+  const INK = colors?.text ?? TEMPLATE_INK;
+  const onGreen = colors ? onColour(colors.accent) : "#ffffff";
+  const softOnGreen = colors ? mix(colors.accent, onGreen, 0.75) : "#CFE3D9";
   const { width: W, height: H } = POSTER_FORMATS[format];
   const id = useId();
   const margin = Math.round(W * 0.08);
@@ -90,7 +102,7 @@ export function Poster({ poster, format, kicker, until, footer, label, ref }: Po
   const headlineSize = Math.min(fitFontSize(poster.headline, inner, Math.round(W * 0.15 * scale)), Math.round(baseHeadline * scale));
   const text = (light: boolean, align: "start" | "middle", accent: string): Item[] => [
     { lines: wrapText(kicker.toUpperCase(), 30, 2), size: 32, weight: 600, fill: accent, spacing: 3 },
-    { lines: [poster.headline], size: headlineSize, weight: 800, fill: light ? "#FFFFFF" : INK, gap: 18 },
+    { lines: [poster.headline], size: headlineSize, weight: 800, fill: light ? "#FFFFFF" : INK, gap: 18, family: brand?.heading },
     { lines: wrapText(poster.detail, Math.floor((align === "middle" ? 26 : 30) / scale), 3), size: Math.round(50 * scale), weight: 600, fill: light ? "#FFFFFF" : INK, gap: 8 },
     { lines: [until], size: 36, fill: light ? "#E6DFD3" : "#4A524D", gap: 18 },
   ];
@@ -148,9 +160,9 @@ export function Poster({ poster, format, kicker, until, footer, label, ref }: Po
         <>
           <rect width={W} height={H} fill={GREEN} />
           <circle cx={W * 0.86} cy={top + H * 0.1} r={W * 0.3} fill="#E3EEE8" opacity={0.12} />
-          <Stack x={margin} y={top + margin} items={text(true, "start", "#CFE3D9")} />
+          <Stack x={margin} y={top + margin} items={text(onGreen === "#ffffff", "start", softOnGreen)} />
           <image href={image} x={0} y={top + (bottom - top) * 0.52} width={W} height={(bottom - top) * 0.3} preserveAspectRatio={crop} />
-          <Stack x={margin} y={footerY} items={foot("#CFE3D9")} />
+          <Stack x={margin} y={footerY} items={foot(softOnGreen)} />
         </>
       )}
 
