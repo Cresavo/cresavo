@@ -1,5 +1,6 @@
 "use client";
 
+import { reviewSummary } from "../../booking/reviews";
 import { useRef, useState } from "react";
 import { Check, Copy, Download, Megaphone } from "lucide-react";
 import { CHANNELS } from "../../campaigns/channels";
@@ -125,7 +126,7 @@ export function CampaignDetail({ id }: { id: string }) {
             <Section title={t("campaigns.poster.title")}>
               <div className="space-y-3">
                 <div className="mx-auto w-full max-w-xs overflow-hidden rounded-lg">
-                  <PosterView ref={postSvg} source={campaign} salon={state.salon} theme={state.page.theme} format="post" />
+                  <PosterView ref={postSvg} source={campaign} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} format="post" />
                 </div>
                 <div className="flex flex-wrap justify-center gap-2">
                   {(["post", "story", "window"] as const).map((format) => (
@@ -135,8 +136,8 @@ export function CampaignDetail({ id }: { id: string }) {
                   ))}
                 </div>
                 <div className="hidden">
-                  <PosterView ref={storySvg} source={campaign} salon={state.salon} theme={state.page.theme} format="story" />
-                  <PosterView ref={windowSvg} source={campaign} salon={state.salon} theme={state.page.theme} format="window" />
+                  <PosterView ref={storySvg} source={campaign} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} format="story" />
+                  <PosterView ref={windowSvg} source={campaign} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} format="window" />
                 </div>
               </div>
             </Section>

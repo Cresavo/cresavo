@@ -315,7 +315,8 @@ export interface Holiday {
 
 export type CampaignStatus = "active" | "planned" | "ended" | "draft";
 export type Channel = "instagram" | "facebook" | "tiktok" | "newsletter" | "sms";
-export type PosterStyle = "calm" | "bold" | "photo" | "arch" | "dusk";
+/** The first five are drawn in the browser; `price` and `pricelist` are rendered by the server poster engine. */
+export type PosterStyle = "calm" | "bold" | "photo" | "arch" | "dusk" | "price" | "pricelist";
 export type PosterFormat = "post" | "story" | "window";
 
 export interface CampaignPoster {
@@ -327,6 +328,10 @@ export interface CampaignPoster {
   /** The owner's adjustments; unset means the template's own choice. */
   textSize?: PosterTextSize;
   focus?: PosterFocus;
+  /** Engine styles: the price shown large, a small sticker and the treatments with prices, from the price list. */
+  price?: string;
+  sticker?: [string, string];
+  items?: { name: string; price: string }[];
 }
 export type PosterTextSize = "small" | "normal" | "large";
 /** Which part of the photo stays in view when the template crops it. */

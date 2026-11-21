@@ -1,6 +1,8 @@
 import { addDays } from "../data/dates";
 import type { CampaignPoster, Channel, DateKey, DemoState, PosterStyle } from "../data/types";
 import { t } from "../i18n";
+import { formatMoney } from "../i18n/format";
+import { isEngineStyle } from "./poster-layout";
 import { serviceCopy } from "../i18n/salon-eko-copy";
 import { CHANNELS } from "./channels";
 import { listServices, offerText } from "./copy";
@@ -30,7 +32,7 @@ export function newDraft(prefill: CampaignPrefill, last?: CampaignPoster): Draft
     ...(last?.textSize && { textSize: last.textSize }),
     ...(last?.focus && { focus: last.focus }),
   };
-  return { ...prefill, channels: [...CHANNELS], copy: {}, copyFor: "", style: last?.style ?? "calm", posterEdits };
+  return { ...prefill, channels: [...CHANNELS], copy: {}, copyFor: "", style: last?.style ?? "price", posterEdits };
 }
 
 /** The poster of the most recently made campaign (new campaigns come first). */
@@ -78,14 +80,36 @@ export function posterToSave(state: DemoState, draft: Draft): CampaignPoster {
   return resolvePoster(state, image && isOwnPhoto(image) ? { ...draft, posterEdits: { ...draft.posterEdits, image: undefined } } : draft);
 }
 
+const MAX_LIST = 6;
+
+/** Price, sticker and price list for the engine styles, from the treatments the campaign is about. */
+function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "price" | "sticker" | "items"> {
+  const chosen = state.services.filter((s) => draft.serviceIds.includes(s.id) && !s.hidden);
+  const listed = (chosen.length > 1 ? chosen : state.services.filter((s) => !s.hidden)).slice(0, MAX_LIST);
+  const off = (price: number) => Math.round(price * (1 - draft.discountPercent / 100));
+  const first = chosen[0];
+  return {
+    ...(first && { price: formatMoney(off(first.price)) }),
+    ...(draft.discountPercent > 0 && { sticker: [t("campaigns.engine.offer"), `–${draft.discountPercent}%`] as [string, string] }),
+    items: listed.map((s) => ({ name: s.name, price: formatMoney(chosen.includes(s) ? off(s.price) : s.price) })),
+  };
+}
+
+function defaultHeadline(state: DemoState, draft: Draft): string {
+  if (draft.style === "price") return state.services.find((s) => s.id === draft.serviceIds[0])?.name ?? draft.name;
+  if (draft.style === "pricelist") return draft.name;
+  return draft.discountPercent > 0 ? t("campaigns.posterOffer", { percent: draft.discountPercent }) : draft.name;
+}
+
 /** The poster as shown: the owner's edits on top of what follows from the offer. */
 export function resolvePoster(state: DemoState, draft: Draft): CampaignPoster {
   const first = state.services.find((s) => s.id === draft.serviceIds[0]);
   return {
     style: draft.style,
     image: draft.posterEdits.image ?? (first?.category === "massage" ? "/demo/massage.webp" : "/demo/salon.webp"),
-    headline: draft.posterEdits.headline ?? (draft.discountPercent > 0 ? t("campaigns.posterOffer", { percent: draft.discountPercent }) : draft.name),
-    detail: draft.posterEdits.detail ?? listServices(serviceNames(state, draft)),
+    headline: draft.posterEdits.headline ?? defaultHeadline(state, draft),
+    detail: draft.posterEdits.detail ?? (draft.style === "price" && first?.description ? first.description : listServices(serviceNames(state, draft))),
+    ...(isEngineStyle(draft.style) && engineFields(state, draft)),
     ...(draft.posterEdits.textSize && { textSize: draft.posterEdits.textSize }),
     ...(draft.posterEdits.focus && { focus: draft.posterEdits.focus }),
   };

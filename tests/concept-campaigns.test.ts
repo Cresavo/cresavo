@@ -189,8 +189,11 @@ describe("campaign store actions", () => {
     expect(draftOffer(state, draft)).toBe("Test offer: 10% off Medical foot care until 29 Nov 2026.");
     const swedish = { ...state, localization: { ...state.localization, language: "sv" as const } };
     expect(draftOffer(swedish, draft)).toBe("Test offer: 10 % rabatt på Medicinsk fotvård till 29 november 2026.");
-    const poster = resolvePoster(state, draft);
-    expect(poster).toMatchObject({ style: "calm", image: "/demo/salon.webp", headline: "−10%", detail: state.services[0].name });
+    expect(resolvePoster(state, { ...draft, style: "calm" })).toMatchObject({ style: "calm", image: "/demo/salon.webp", headline: "−10%", detail: state.services[0].name });
+    // The engine's price poster: the treatment as headline, its description, the price after the discount and a sticker.
+    const first = state.services[0];
+    expect(resolvePoster(state, draft)).toMatchObject({ style: "price", headline: first.name, detail: first.description, sticker: ["Offer", "–10%"] });
+    expect(resolvePoster(state, draft).price).toContain(String(Math.round(first.price * 0.9)));
     expect(resolvePoster(state, { ...draft, serviceIds: ["deep-tissue"], posterEdits: { headline: "Gift" } })).toMatchObject({ image: "/demo/massage.webp", headline: "Gift" });
   });
 });
@@ -260,7 +263,7 @@ it("starts a new poster from the owner's latest choices", async () => {
   const { defaultPrefill, latestPoster, newDraft } = await import("@/concept/campaigns/draft");
   const state = createDemoState("2026-11-21");
   const prefill = defaultPrefill(state, "2026-11-21");
-  expect(newDraft(prefill)).toMatchObject({ style: "calm", posterEdits: {} });
+  expect(newDraft(prefill)).toMatchObject({ style: "price", posterEdits: {} });
   const mine = { style: "dusk" as const, image: "/demo/salon.webp", headline: "Höst", detail: "Fotvård", textSize: "large" as const, focus: "top" as const };
   const withMine = { ...state, campaigns: [{ ...state.campaigns[0], id: "mine", poster: mine }, ...state.campaigns] };
   expect(latestPoster(withMine)).toBe(mine);
