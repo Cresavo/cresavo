@@ -6,7 +6,7 @@ import { box, image, svgImage, text, type PosterNode } from "./element";
 // (headline, price, photo, sticker, price list, signature) that the owner fills
 // and adjusts within limits, so every poster stays presentable.
 
-export const ENGINE_TEMPLATES = ["price", "pricelist", "season", "review", "slots"] as const;
+export const ENGINE_TEMPLATES = ["price", "pricelist", "season", "review", "slots", "beforeafter"] as const;
 export type EngineTemplate = (typeof ENGINE_TEMPLATES)[number];
 
 export const ENGINE_FORMATS = { post: { width: 1080, height: 1350 }, story: { width: 1080, height: 1920 }, window: { width: 1050, height: 1485 } } as const;
@@ -31,6 +31,9 @@ export const posterDataSchema = z.object({
   quote: line(220).default(""),
   author: line(40).default(""),
   photo,
+  /** Before/after: the "before" photo, and the two words on the photos in the salon's language. */
+  before: photo.optional(),
+  pair: z.tuple([line(12), line(12)]).default(["Before", "After"]),
   focus: z.enum(["top", "center", "bottom"]).default("center"),
   textSize: z.enum(["small", "normal", "large"]).default("normal"),
   colors: z.object({ accent: colour, ink: colour, background: colour }).strict(),
@@ -224,12 +227,57 @@ function slotsTemplate(data: PosterData, width: number, height: number): PosterN
       : [box({ position: "absolute", left: 0, bottom: 0, width, height: 250, background: ink }), signature(data, width, onColour(ink))]));
 }
 
+/** A before and an after photo side by side (stacked in the story format), the treatment and a call to book. */
+function beforeAfterTemplate(data: PosterData, width: number, height: number): PosterNode {
+  const { accent, ink, background } = data.colors;
+  const scale = SCALE[data.textSize];
+  const tall = height > width * 1.5;
+  const footer = 250;
+  const gap = 24;
+  const onBackground = onColour(background) === WHITE ? WHITE : ink;
+  // A long headline gets two smaller lines, and the photos start below them.
+  const long = data.headline.length > 18;
+  const headlineSize = Math.round((long ? 76 : 104) * scale);
+  const headlineTop = tall ? 130 : 70;
+  const photoTop = headlineTop + Math.round(headlineSize * (long ? 2 : 1) * 1.02) + 40;
+  // Post: two photos side by side; story: one above the other. Both end above the text and the footer.
+  const detailSize = Math.round(38 * scale);
+  const detailHeight = Math.round(detailSize * 1.25 * 2);
+  const photosBottom = height - footer - 30 - detailHeight - (tall ? 150 : 30);
+  const slot = tall
+    ? { width: width - 128, height: Math.round((photosBottom - photoTop - gap) / 2) }
+    : { width: Math.round((width - 128 - gap) / 2), height: photosBottom - photoTop };
+  const at = (index: number) => (tall ? { left: 64, top: photoTop + index * (slot.height + gap) } : { left: 64 + index * (slot.width + gap), top: photoTop });
+  const tag = (label: string, index: number) => {
+    const { left, top } = at(index);
+    const fill = index ? accent : WHITE;
+    return text({ position: "absolute", left: left + 24, top: top + slot.height - 92, background: fill, color: index ? onColour(accent) : "#111111", fontWeight: 800, fontSize: 32, letterSpacing: 4, padding: "10px 24px", borderRadius: 999 }, label.toUpperCase());
+  };
+  const photoAt = (src: string, index: number) =>
+    image(src, { position: "absolute", ...at(index), width: slot.width, height: slot.height, objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: 32 });
+  const middle = tall
+    ? { left: Math.round(width / 2 - 48), top: photoTop + slot.height + gap / 2 - 48 }
+    : { left: Math.round(width / 2 - 48), top: photoTop + Math.round(slot.height / 2) - 48 };
+  return box({ width, height, position: "relative", background, fontFamily: "Inter", color: onBackground },
+    text({ position: "absolute", left: 64, top: headlineTop, width: width - 128, ...headingFont(data), display: "block", fontSize: headlineSize, lineHeight: 1, lineClamp: 2 }, data.headline),
+    photoAt(data.before ?? data.photo, 0),
+    photoAt(data.photo, 1),
+    tag(data.pair[0], 0),
+    tag(data.pair[1], 1),
+    box({ position: "absolute", ...middle, width: 96, height: 96, borderRadius: 999, background: HIGHLIGHT, color: "#111111", alignItems: "center", justifyContent: "center", fontSize: 52, fontWeight: 800, transform: tall ? "rotate(90deg)" : "none" }, text({}, "→")),
+    text({ position: "absolute", left: 64, top: photosBottom + 30, width: width - 128, fontSize: detailSize, fontWeight: 600, lineHeight: 1.25, lineClamp: 2 }, data.detail),
+    ...(tall && data.cta ? [box({ position: "absolute", left: 64, top: photosBottom + 30 + detailHeight + 30 }, button(data.cta, ink, onColour(ink)))] : []),
+    box({ position: "absolute", left: 0, bottom: 0, width, height: footer, background: ink }),
+    signature(data, width, onColour(ink)));
+}
+
 const LAYOUTS: Record<EngineTemplate, (data: PosterData, width: number, height: number) => PosterNode> = {
   price: priceTemplate,
   pricelist: priceListTemplate,
   season: seasonTemplate,
   review: reviewTemplate,
   slots: slotsTemplate,
+  beforeafter: beforeAfterTemplate,
 };
 
 export function posterTree(template: EngineTemplate, data: PosterData, format: EngineFormat): PosterNode {

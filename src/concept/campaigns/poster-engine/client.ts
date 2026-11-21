@@ -79,6 +79,8 @@ export async function engineRequest(poster: CampaignPoster, format: PosterFormat
       author: cut(poster.author ?? "", 40),
       badges: (poster.badges ?? []).slice(0, 4).map((badge) => cut(badge, 20)),
       photo: await jpegPhoto(poster.image),
+      ...(poster.style === "beforeafter" && poster.before && { before: await jpegPhoto(poster.before) }),
+      pair: [cut(translate(language, "campaigns.engine.before"), 12), cut(translate(language, "campaigns.engine.after"), 12)],
       focus: poster.focus ?? "center",
       textSize: poster.textSize ?? "normal",
       colors: context.theme?.colors

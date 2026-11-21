@@ -74,6 +74,17 @@ describe("poster engine templates", () => {
     expect(flat(posterTree("price", { ...data, badges: [] }, "post"))).not.toContain("Epassi");
   });
 
+  it("puts the before and after photos with their labels on the before/after poster", () => {
+    const before = jpeg.replace("data:image/jpeg", "data:image/png");
+    const paired = posterDataSchema.parse({ ...input, before, pair: ["Före", "Efter"], cta: "Boka nu →" });
+    for (const format of ["post", "story"] as const) {
+      const tree = flat(posterTree("beforeafter", paired, format));
+      for (const part of ["FÖRE", "EFTER", "Salongens fotvård", before.slice(0, 40), jpeg.slice(0, 40)]) expect(tree).toContain(part);
+    }
+    expect(flat(posterTree("beforeafter", paired, "story"))).toContain("Boka nu →");
+    expect(posterDataSchema.safeParse({ ...input, before: "https://elsewhere.example/a.jpg" }).success).toBe(false);
+  });
+
   it("follows the salon's colours and the photo crop", () => {
     expect(flat(posterTree("pricelist", data, "post"))).toContain("#c2557f");
     expect(flat(posterTree("price", { ...data, focus: "top" }, "story"))).toContain("50% 10%");

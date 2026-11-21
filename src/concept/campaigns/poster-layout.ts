@@ -8,9 +8,9 @@ export const POSTER_FORMATS: Record<PosterFormat, { width: number; height: numbe
   window: { width: 1050, height: 1485, exportScale: 2 },
 };
 
-export const POSTER_STYLES: PosterStyle[] = ["price", "pricelist", "season", "review", "slots", "calm", "bold", "photo", "arch", "dusk"];
+export const POSTER_STYLES: PosterStyle[] = ["price", "pricelist", "season", "review", "slots", "beforeafter", "calm", "bold", "photo", "arch", "dusk"];
 /** Styles rendered by the server poster engine (src/concept/campaigns/poster-engine). */
-export const ENGINE_STYLES = ["price", "pricelist", "season", "review", "slots"] as const satisfies readonly PosterStyle[];
+export const ENGINE_STYLES = ["price", "pricelist", "season", "review", "slots", "beforeafter"] as const satisfies readonly PosterStyle[];
 export const isEngineStyle = (style: PosterStyle): style is (typeof ENGINE_STYLES)[number] => (ENGINE_STYLES as readonly PosterStyle[]).includes(style);
 export const POSTER_IMAGES = ["/demo/salon.webp", "/demo/massage.webp"];
 

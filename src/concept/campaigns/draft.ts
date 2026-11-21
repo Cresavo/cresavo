@@ -5,7 +5,7 @@ import { dayChipLabel, formatDayMonth, formatDuration, formatMoney, formatTime }
 import { openSlots } from "../booking/suggest";
 import { publicName, recentReviews } from "../booking/reviews";
 import { salonClock } from "../tools/clock";
-import { isEngineStyle } from "./poster-layout";
+import { isEngineStyle, POSTER_IMAGES } from "./poster-layout";
 import { serviceCopy } from "../i18n/salon-eko-copy";
 import { CHANNELS } from "./channels";
 import { listServices, offerText } from "./copy";
@@ -23,7 +23,7 @@ export interface Draft extends CampaignPrefill {
   copyFor: string;
   style: PosterStyle;
   /** Poster text and photo the owner changed; the rest follows the offer. */
-  posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus" | "badges">>;
+  posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus" | "badges" | "before">>;
 }
 
 /**
@@ -80,8 +80,9 @@ export function offerSignature(state: DemoState, draft: Draft): string {
 
 /** The poster a published campaign keeps: a photo that only lives in this tab is replaced by the template's own. */
 export function posterToSave(state: DemoState, draft: Draft): CampaignPoster {
-  const image = draft.posterEdits.image;
-  return resolvePoster(state, image && isOwnPhoto(image) ? { ...draft, posterEdits: { ...draft.posterEdits, image: undefined } } : draft);
+  const { image, before } = draft.posterEdits;
+  const kept = { ...draft.posterEdits, ...(image && isOwnPhoto(image) && { image: undefined }), ...(before && isOwnPhoto(before) && { before: undefined }) };
+  return resolvePoster(state, { ...draft, posterEdits: kept });
 }
 
 const MAX_LIST = 6;
@@ -133,7 +134,7 @@ function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "pri
 }
 
 function defaultHeadline(state: DemoState, draft: Draft): string {
-  if (draft.style === "price") return state.services.find((s) => s.id === draft.serviceIds[0])?.name ?? draft.name;
+  if (draft.style === "price" || draft.style === "beforeafter") return state.services.find((s) => s.id === draft.serviceIds[0])?.name ?? draft.name;
   if (draft.style === "season") return state.holidays.find((h) => h.id === draft.holidayId)?.name ?? draft.name;
   if (draft.style === "slots") {
     const free = freeTimes(state, draft.serviceIds[0]);
@@ -145,7 +146,7 @@ function defaultHeadline(state: DemoState, draft: Draft): string {
 
 function defaultDetail(state: DemoState, draft: Draft): string {
   const first = state.services.find((s) => s.id === draft.serviceIds[0]);
-  if (draft.style === "price" && first?.description) return first.description;
+  if ((draft.style === "price" || draft.style === "beforeafter") && first?.description) return first.description;
   if (draft.style === "slots" && first) return `${first.name} · ${formatDuration(first.duration)}`;
   return listServices(serviceNames(state, draft));
 }
@@ -153,9 +154,12 @@ function defaultDetail(state: DemoState, draft: Draft): string {
 /** The poster as shown: the owner's edits on top of what follows from the offer. */
 export function resolvePoster(state: DemoState, draft: Draft): CampaignPoster {
   const first = state.services.find((s) => s.id === draft.serviceIds[0]);
+  const image = draft.posterEdits.image ?? (first?.category === "massage" ? "/demo/massage.webp" : "/demo/salon.webp");
   return {
     style: draft.style,
-    image: draft.posterEdits.image ?? (first?.category === "massage" ? "/demo/massage.webp" : "/demo/salon.webp"),
+    image,
+    // Until the owner adds her own, the before slot shows the other demo photo.
+    ...(draft.style === "beforeafter" && { before: draft.posterEdits.before ?? POSTER_IMAGES.find((other) => other !== image) ?? image }),
     headline: draft.posterEdits.headline ?? defaultHeadline(state, draft),
     detail: draft.posterEdits.detail ?? defaultDetail(state, draft),
     ...(isEngineStyle(draft.style) && engineFields(state, draft)),

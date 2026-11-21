@@ -45,15 +45,6 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
     }
   };
 
-  const pickPhoto = async (file: File | undefined) => {
-    if (!file) return;
-    try {
-      edit({ image: await ownPhotoUrl(file) });
-    } catch {
-      showToast(t("campaigns.photo.failed"));
-    }
-  };
-
   const share = async () => {
     if (!svg.current) return;
     try {
@@ -105,27 +96,15 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
             ))}
           </div>
         </div>
-        <div className="space-y-2">
-          <span className="block text-sm font-medium">{t("campaigns.poster.photo")}</span>
-          <div className="flex flex-wrap gap-2">
-            {POSTER_IMAGES.map((image) => (
-              <Button variant="secondary" size="sm"
-                key={image}
-                aria-pressed={poster.image === image}
-                aria-label={t(image.includes("massage") ? "campaigns.photo.massage" : "campaigns.photo.salon")}
-                onClick={() => edit({ image })}
-                className={cx("h-16 w-24 overflow-hidden bg-cover bg-center", poster.image === image ? "!ring-2 ring-action" : "ring-input-border")}
-                style={{ backgroundImage: `url(${image})` }}
-              />
-            ))}
-            <label className={cx(buttonClass("secondary", "sm"), "h-16 w-24 cursor-pointer flex-col !gap-1 !text-minimum", poster.image && isOwnPhoto(poster.image) && "!ring-2 ring-action")}>
-              <ImagePlus size={18} aria-hidden />
-              {t("campaigns.photo.own")}
-              <TextInput type="file" accept="image/*" className="sr-only" onChange={(event) => { void pickPhoto(event.target.files?.[0]); event.target.value = ""; }} />
-            </label>
-          </div>
-          {poster.image && isOwnPhoto(poster.image) && <Notice tone="info">{t("campaigns.photo.ownNotice")}</Notice>}
-        </div>
+        {draft.style === "beforeafter" ? (
+          <>
+            <PhotoPicker label={t("campaigns.photo.before")} value={poster.before} onPick={(before) => edit({ before })} />
+            <PhotoPicker label={t("campaigns.photo.after")} value={poster.image} onPick={(image) => edit({ image })} />
+          </>
+        ) : (
+          <PhotoPicker label={t("campaigns.poster.photo")} value={poster.image} onPick={(image) => edit({ image })} />
+        )}
+        {[poster.image, draft.style === "beforeafter" ? poster.before : undefined].some((image) => image && isOwnPhoto(image)) && <Notice tone="info">{t("campaigns.photo.ownNotice")}</Notice>}
         <span className="block text-sm font-medium" aria-hidden>{t("campaigns.poster.textSize")}</span>
         <Segmented<PosterTextSize>
           label={t("campaigns.poster.textSize")}
@@ -164,6 +143,40 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
         <Field label={t("campaigns.poster.detail")}>
           <TextInput value={poster.detail} maxLength={70} onChange={(event) => edit({ detail: event.target.value })} />
         </Field>
+      </div>
+    </div>
+  );
+}
+
+/** The demo photos and the owner's own photo, for one photo slot on the poster. */
+function PhotoPicker({ label, value, onPick }: { label: string; value: string | undefined; onPick: (image: string) => void }) {
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      onPick(await ownPhotoUrl(file));
+    } catch {
+      showToast(t("campaigns.photo.failed"));
+    }
+  };
+  return (
+    <div className="space-y-2">
+      <span className="block text-sm font-medium">{label}</span>
+      <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
+        {POSTER_IMAGES.map((image) => (
+          <Button variant="secondary" size="sm"
+            key={image}
+            aria-pressed={value === image}
+            aria-label={t(image.includes("massage") ? "campaigns.photo.massage" : "campaigns.photo.salon")}
+            onClick={() => onPick(image)}
+            className={cx("h-16 w-24 overflow-hidden bg-cover bg-center", value === image ? "!ring-2 ring-action" : "ring-input-border")}
+            style={{ backgroundImage: `url(${image})` }}
+          />
+        ))}
+        <label className={cx(buttonClass("secondary", "sm"), "h-16 w-24 cursor-pointer flex-col !gap-1 !text-minimum", value && isOwnPhoto(value) && "!ring-2 ring-action")}>
+          <ImagePlus size={18} aria-hidden />
+          {t("campaigns.photo.own")}
+          <TextInput type="file" accept="image/*" className="sr-only" onChange={(event) => { void pick(event.target.files?.[0]); event.target.value = ""; }} />
+        </label>
       </div>
     </div>
   );

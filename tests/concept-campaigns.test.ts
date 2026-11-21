@@ -281,6 +281,20 @@ it("never saves a photo that only lives in this tab with the campaign", async ()
   expect(posterToSave(state, demoPhoto).image).toBe("/demo/massage.webp");
 });
 
+it("gives the before/after poster two different photos and never saves the owner's own", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, posterToSave, resolvePoster } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const draft = { ...newDraft(defaultPrefill(state, "2026-11-21")), style: "beforeafter" as const };
+  const poster = resolvePoster(state, draft);
+  expect(poster.before).toBeTruthy();
+  expect(poster.before).not.toBe(poster.image);
+  expect(resolvePoster(state, { ...draft, style: "price" }).before).toBeUndefined();
+  const own = { ...draft, posterEdits: { before: "blob:https://demo.example/1", image: "blob:https://demo.example/2" } };
+  expect(resolvePoster(state, own)).toMatchObject({ before: "blob:https://demo.example/1", image: "blob:https://demo.example/2" });
+  expect(posterToSave(state, own)).toMatchObject({ before: poster.before, image: poster.image });
+});
+
 it("fills the review and free-times posters from published reviews and the calendar", async () => {
   const { createDemoState } = await import("@/concept/data/generate");
   const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
