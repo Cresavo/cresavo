@@ -37,3 +37,7 @@ const BOLD_GLYPH_WIDTH = 0.58;
 export function fitFontSize(text: string, width: number, max: number): number {
   return Math.min(max, Math.floor(width / (Math.max(1, text.length) * BOLD_GLYPH_WIDTH)));
 }
+
+/** Wellness-benefit services common in Sweden, offered as badges on Price and Price list posters. */
+export const WELLNESS_BADGES = ["Epassi", "Benify", "Wellnet", "Actiway", "Edenred"] as const;
+export const MAX_BADGES = 4;

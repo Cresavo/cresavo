@@ -23,7 +23,7 @@ export interface Draft extends CampaignPrefill {
   copyFor: string;
   style: PosterStyle;
   /** Poster text and photo the owner changed; the rest follows the offer. */
-  posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus">>;
+  posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus" | "badges">>;
 }
 
 /**
@@ -34,6 +34,7 @@ export function newDraft(prefill: CampaignPrefill, last?: CampaignPoster): Draft
   const posterEdits: Draft["posterEdits"] = {
     ...(last?.textSize && { textSize: last.textSize }),
     ...(last?.focus && { focus: last.focus }),
+    ...(last?.badges?.length && { badges: last.badges }),
   };
   return { ...prefill, channels: [...CHANNELS], copy: {}, copyFor: "", style: last?.style ?? "price", posterEdits };
 }
@@ -160,5 +161,6 @@ export function resolvePoster(state: DemoState, draft: Draft): CampaignPoster {
     ...(isEngineStyle(draft.style) && engineFields(state, draft)),
     ...(draft.posterEdits.textSize && { textSize: draft.posterEdits.textSize }),
     ...(draft.posterEdits.focus && { focus: draft.posterEdits.focus }),
+    ...(draft.posterEdits.badges?.length && { badges: draft.posterEdits.badges }),
   };
 }

@@ -264,10 +264,10 @@ it("starts a new poster from the owner's latest choices", async () => {
   const state = createDemoState("2026-11-21");
   const prefill = defaultPrefill(state, "2026-11-21");
   expect(newDraft(prefill)).toMatchObject({ style: "price", posterEdits: {} });
-  const mine = { style: "dusk" as const, image: "/demo/salon.webp", headline: "Höst", detail: "Fotvård", textSize: "large" as const, focus: "top" as const };
+  const mine = { style: "dusk" as const, image: "/demo/salon.webp", headline: "Höst", detail: "Fotvård", textSize: "large" as const, focus: "top" as const, badges: ["Epassi", "Benify"] };
   const withMine = { ...state, campaigns: [{ ...state.campaigns[0], id: "mine", poster: mine }, ...state.campaigns] };
   expect(latestPoster(withMine)).toBe(mine);
-  expect(newDraft(prefill, latestPoster(withMine))).toMatchObject({ style: "dusk", posterEdits: { textSize: "large", focus: "top" } });
+  expect(newDraft(prefill, latestPoster(withMine))).toMatchObject({ style: "dusk", posterEdits: { textSize: "large", focus: "top", badges: ["Epassi", "Benify"] } });
 });
 
 it("never saves a photo that only lives in this tab with the campaign", async () => {

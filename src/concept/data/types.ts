@@ -336,6 +336,8 @@ export interface CampaignPoster {
   cta?: string;
   quote?: string;
   author?: string;
+  /** Engine styles: the wellness-benefit services the salon accepts, e.g. "Epassi". */
+  badges?: string[];
 }
 export type PosterTextSize = "small" | "normal" | "large";
 /** Which part of the photo stays in view when the template crops it. */

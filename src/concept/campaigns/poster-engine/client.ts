@@ -52,6 +52,11 @@ export const shortLink = (link: string) => {
   const bare = link.trim().replace(/^https?:\/\//, "");
   return bare.length > LINK_CHARS ? `${bare.slice(0, LINK_CHARS - 1)}…` : bare;
 };
+/** The booking link as an https address for the QR code; undefined when it is not one. */
+export const qrLink = (link: string | undefined) => {
+  const url = link?.trim().replace(/^(?!https?:\/\/)/, "https://");
+  return url && /^https:\/\/[^\s<>"]+$/.test(url) && url.length <= 200 ? url : undefined;
+};
 const SERIF_FONTS = new Set<string>([FONT_PAIRS.classic.heading, FONT_PAIRS.elegant.heading]);
 
 /** The request body for one poster. */
@@ -72,6 +77,7 @@ export async function engineRequest(poster: CampaignPoster, format: PosterFormat
       cta: cut(poster.cta ?? "", 40),
       quote: cut(poster.quote ?? "", 220),
       author: cut(poster.author ?? "", 40),
+      badges: (poster.badges ?? []).slice(0, 4).map((badge) => cut(badge, 20)),
       photo: await jpegPhoto(poster.image),
       focus: poster.focus ?? "center",
       textSize: poster.textSize ?? "normal",
@@ -83,6 +89,7 @@ export async function engineRequest(poster: CampaignPoster, format: PosterFormat
         salon: cut(context.salon.name, 60),
         phone: cut(context.salon.phone, 30),
         link: shortLink(context.link ?? ""),
+        ...(qrLink(context.link) && { qr: qrLink(context.link) }),
         ...(rating && rating.count > 0 && { rating: Math.min(5, Math.max(1, rating.average)), reviews: cut(translate(language, "campaigns.engine.reviews", { count: rating.count }), 30) }),
       },
     },

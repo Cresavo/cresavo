@@ -1503,6 +1503,8 @@ const messages = {
   "campaigns.textSize.normal": "Normal",
   "campaigns.textSize.large": "Större",
   "campaigns.poster.focus": "Bilden visar",
+  "campaigns.poster.badges": "Friskvård ni tar emot",
+  "campaigns.poster.badgesHint": "Visas på affischerna Pris och Prislista. Högst fyra.",
   "campaigns.focus.top": "Överdel",
   "campaigns.focus.center": "Mitten",
   "campaigns.focus.bottom": "Nederdel",

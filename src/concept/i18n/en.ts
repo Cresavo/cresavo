@@ -1544,6 +1544,8 @@ const messages = {
   "campaigns.textSize.normal": "Normal",
   "campaigns.textSize.large": "Larger",
   "campaigns.poster.focus": "Photo shows",
+  "campaigns.poster.badges": "Wellness benefits you accept",
+  "campaigns.poster.badgesHint": "Shown on Price and Price list posters. Up to four.",
   "campaigns.focus.top": "Top",
   "campaigns.focus.center": "Middle",
   "campaigns.focus.bottom": "Bottom",

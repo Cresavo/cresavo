@@ -4,7 +4,7 @@ import { Download, ImagePlus, Share2 } from "lucide-react";
 import { draftLink, resolvePoster, type Draft } from "../../campaigns/draft";
 import { downloadBlob, posterToPng, sharePoster } from "../../campaigns/export-png";
 import { isOwnPhoto, ownPhotoUrl } from "../../campaigns/own-photo";
-import { POSTER_FORMATS, POSTER_IMAGES, POSTER_STYLES } from "../../campaigns/poster-layout";
+import { MAX_BADGES, POSTER_FORMATS, POSTER_IMAGES, POSTER_STYLES, WELLNESS_BADGES } from "../../campaigns/poster-layout";
 import type { DemoState, PosterFocus, PosterFormat, PosterTextSize } from "../../data/types";
 import { t } from "../../i18n";
 import { Button, buttonClass } from "../../ui/button";
@@ -31,6 +31,9 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
   const poster = resolvePoster(state, draft);
   const source = { name: draft.name, to: draft.to, link: draftLink(state, draft), poster };
   const edit = (patch: Draft["posterEdits"]) => onChange({ posterEdits: { ...draft.posterEdits, ...patch } });
+  const badges = poster.badges ?? [];
+  const toggleBadge = (badge: string) =>
+    edit({ badges: badges.includes(badge) ? badges.filter((b) => b !== badge) : WELLNESS_BADGES.filter((b) => b === badge || badges.includes(b)) });
 
   const download = async () => {
     if (!svg.current) return;
@@ -137,6 +140,24 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
           onChange={(focus) => edit({ focus })}
           options={FOCUSES.map((value) => ({ value, label: t(`campaigns.focus.${value}`) }))}
         />
+        {(draft.style === "price" || draft.style === "pricelist") && (
+          <fieldset className="space-y-2">
+            <legend className="block text-sm font-medium">{t("campaigns.poster.badges")}</legend>
+            <div className="flex flex-wrap gap-2">
+              {WELLNESS_BADGES.map((badge) => (
+                <Button variant="secondary" size="sm" key={badge}
+                  aria-pressed={badges.includes(badge)}
+                  disabled={!badges.includes(badge) && badges.length >= MAX_BADGES}
+                  onClick={() => toggleBadge(badge)}
+                  className={cx(badges.includes(badge) ? "!ring-2 ring-action" : "ring-input-border")}
+                >
+                  {badge}
+                </Button>
+              ))}
+            </div>
+            <p className="text-sm text-text-secondary">{t("campaigns.poster.badgesHint")}</p>
+          </fieldset>
+        )}
         <Field width="short" label={t("campaigns.poster.headline")}>
           <TextInput value={poster.headline} maxLength={24} onChange={(event) => edit({ headline: event.target.value })} />
         </Field>

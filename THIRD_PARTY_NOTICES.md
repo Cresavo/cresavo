@@ -48,6 +48,10 @@ AGPL-3.0-only licence. Its runtime dependencies are MIT or ISC
 `fflate`, `pako` and smaller parsers), and it bundles yoga-layout (MIT).
 [Source and licence](https://github.com/vercel/satori).
 
+**uqr 0.1.3** (unjs), MIT, no dependencies: encodes the booking link as the QR
+code in the poster signature. Its encoder is a port of Project Nayuki's QR Code
+generator (MIT). [Source and licence](https://github.com/unjs/uqr).
+
 ## Epic 06 icon subset
 
 `lucide-react` 1.72.0: ISC; Feather-derived icons retain the additional MIT
