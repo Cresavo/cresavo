@@ -1,0 +1,46 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { failure } from "./http";
+import { ownerAccountsEnabled } from "./owner-accounts";
+import { OWNER_COOKIE, OWNER_SESSION_MS } from "./owner-session";
+import { isPublicReadonly, readonlyForbidden } from "./public-readonly";
+import { isSameOriginWrite } from "./same-origin";
+
+// Shared plumbing for /api/owner/*. Error bodies carry a code only; the studio
+// turns codes into text through its dictionary.
+
+const noStore = { "Cache-Control": "no-store" };
+
+export const ownerError = (code: string, status: number) => NextResponse.json({ error: code }, { status, headers: noStore });
+export const ownerOk = (body: Record<string, unknown> = { ok: true }) => NextResponse.json(body, { headers: noStore });
+
+/** Runs a handler only when owner accounts are on, the deployment is writable and, for writes, the request is same-origin. */
+export async function ownerRoute(request: NextRequest, handler: () => Promise<NextResponse>, { write = true } = {}) {
+  if (isPublicReadonly()) return readonlyForbidden();
+  if (!ownerAccountsEnabled()) return ownerError("not_found", 404);
+  if (write && !isSameOriginWrite((name) => request.headers.get(name))) return ownerError("forbidden_origin", 403);
+  try {
+    return await handler();
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function readJson(request: NextRequest): Promise<unknown> {
+  try {
+    return await request.json();
+  } catch {
+    return null;
+  }
+}
+
+const cookieOptions = { httpOnly: true, sameSite: "strict" as const, secure: process.env.NODE_ENV === "production", path: "/" };
+
+export function withSession(response: NextResponse, value: string) {
+  response.cookies.set(OWNER_COOKIE, value, { ...cookieOptions, maxAge: OWNER_SESSION_MS / 1000 });
+  return response;
+}
+
+export function withoutSession(response: NextResponse) {
+  response.cookies.set(OWNER_COOKIE, "", { ...cookieOptions, maxAge: 0 });
+  return response;
+}

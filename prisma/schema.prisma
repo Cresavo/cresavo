@@ -590,3 +590,33 @@ model TenantEffect {
   @@index([status, tenantId, seq, n])
   @@map("tenant_effect")
 }
+
+// Owner accounts for real salons. Each account owns one tenant_state row.
+// Behind OWNER_ACCOUNTS_ENABLED (src/lib/owner-accounts.ts).
+model OwnerAccount {
+  id                String         @id @default(cuid())
+  /// Lower-case, trimmed.
+  email             String         @unique
+  passwordHash      String         @map("password_hash")
+  tenantId          String         @unique @map("tenant_id")
+  active            Boolean        @default(true)
+  /// Incremented on password reset or disable; older sessions stop working.
+  credentialVersion Int            @default(1) @map("credential_version")
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  sessions          OwnerSession[]
+  @@map("owner_account")
+}
+
+model OwnerSession {
+  /// SHA-256 of the session token; the token itself is only in the cookie.
+  id                String       @id
+  accountId         String       @map("account_id")
+  account           OwnerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  credentialVersion Int          @map("credential_version")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt         DateTime     @map("expires_at") @db.Timestamptz(3)
+  revokedAt         DateTime?    @map("revoked_at") @db.Timestamptz(3)
+  @@index([accountId])
+  @@index([expiresAt])
+  @@map("owner_session")
+}
