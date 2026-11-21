@@ -1,22 +1,21 @@
 import { sitePath } from "./language";
-import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button } from "../ui/button";
-import { Field, Input, Select } from "../ui/controls";
+import { Input } from "../ui/controls";
 import { useSiteCopy } from "./copy";
-import s from "./site.module.css";
+import l from "./landing.module.css";
 import { BUSINESS_KINDS, EMAIL_MAX, HONEYPOT_FIELD, WAITLIST_OUTCOMES, type WaitlistOutcome } from "./waitlist";
 
 const isOutcome = (value: unknown): value is WaitlistOutcome => WAITLIST_OUTCOMES.includes(value as WaitlistOutcome);
 
 /**
- * The launch waiting list: one email field, an optional kind of business and the consent line.
+ * The launch waiting list: an optional kind of business, one email field and the consent line.
  * It is a plain form post that also works without JavaScript (the server sends the visitor back
  * with `?waitlist=<outcome>`, passed in as `initial`); with JavaScript the answer appears in place.
  * The status line is always mounted, so screen readers announce the answer; when the answer replaces
  * the form (and the button that had focus), focus moves to it.
  */
-export function WaitlistForm({ from, initial, className }: { from: string; initial?: string; className?: string }) {
+export function WaitlistForm({ from, initial, demo }: { from: string; initial?: string; demo?: string }) {
   const { site, locale } = useSiteCopy();
   const [outcome, setOutcome] = useState<WaitlistOutcome | null>(isOutcome(initial) ? initial : null);
   const [busy, setBusy] = useState(false);
@@ -44,37 +43,47 @@ export function WaitlistForm({ from, initial, className }: { from: string; initi
     if (done && submitted.current) result.current?.focus();
   }, [done]);
   return (
-    <section id="waitlist" className={`${s.waitlist} ${className ?? ""}`} aria-labelledby="waitlist-heading">
-      <h2 id="waitlist-heading">{site["waitlist.heading"]}</h2>
-      <div>
-      {!done && (
-        <form method="post" action={`/api/waitlist?from=${encodeURIComponent(from)}`} onSubmit={submit} className={s.waitlistForm}>
-          <Input type="hidden" name="locale" value={locale} />
-          <Input type="hidden" name="from" value={from} />
-          <p className={s.honeypot} aria-hidden="true">
-            <label>
-              {site["waitlist.honeypot"]}
-              <Input type="text" name={HONEYPOT_FIELD} tabIndex={-1} autoComplete="off" />
-            </label>
-          </p>
-          <Field label={site["waitlist.email"]}>
-            <Input type="email" name="email" required maxLength={EMAIL_MAX} autoComplete="email" placeholder={site["waitlist.email.placeholder"]} aria-describedby="waitlist-consent" />
-          </Field>
-          <Field label={site["waitlist.business"]}>
-            <Select name="business" defaultValue="">
-              <option value="">{site["waitlist.business.none"]}</option>
-              {BUSINESS_KINDS.map((kind) => <option key={kind} value={kind}>{site[`waitlist.business.${kind}`]}</option>)}
-            </Select>
-          </Field>
-          <Button type="submit" variant="secondary" className="justify-self-start" disabled={busy}>{site["waitlist.submit"]}</Button>
-        </form>
-      )}
-      <p ref={result} role="status" tabIndex={-1} className={s.waitlistAnswer}>{outcome && site[`waitlist.outcome.${outcome}`]}</p>
-      {!done && (
-        <p id="waitlist-consent" className={s.note}>
-          {site["waitlist.consent"]} <Link href={sitePath(locale, "privacy")}>{site["waitlist.privacy"]}</Link>
-        </p>
-      )}
+    <section id="waitlist" className={`${l.waitlist} ${l.onPlum}`} aria-labelledby="waitlist-heading">
+      <div className={l.wrap}>
+        <h2 id="waitlist-heading">{site["waitlist.heading"]}</h2>
+        <p className={l.wlLead}>{site["waitlist.lead"]}</p>
+        <div className={l.wlCard}>
+          {!done && (
+            <form method="post" action={`/api/waitlist?from=${encodeURIComponent(from)}`} onSubmit={submit}>
+              <Input type="hidden" name="locale" value={locale} />
+              <Input type="hidden" name="from" value={from} />
+              <p className={l.honeypot} aria-hidden="true">
+                <label>
+                  {site["waitlist.honeypot"]}
+                  <Input type="text" name={HONEYPOT_FIELD} tabIndex={-1} autoComplete="off" />
+                </label>
+              </p>
+              <fieldset className={l.kinds}>
+                <legend>{site["waitlist.business"]}</legend>
+                <div className={l.chips}>
+                  {BUSINESS_KINDS.map((kind) => (
+                    <label key={kind}>
+                      <Input type="radio" name="business" value={kind} />
+                      <span>{site[`waitlist.business.${kind}`]}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <div className={l.emailRow}>
+                <label className={l.vh} htmlFor="waitlist-email">{site["waitlist.email"]}</label>
+                <Input id="waitlist-email" type="email" name="email" required maxLength={EMAIL_MAX} autoComplete="email" inputMode="email" placeholder={site["waitlist.email.placeholder"]} aria-describedby="waitlist-consent" />
+                <Button type="submit" variant="primary" disabled={busy}>{site["waitlist.submit"]}</Button>
+              </div>
+            </form>
+          )}
+          <p ref={result} role="status" tabIndex={-1} className={l.wlAnswer}>{outcome && site[`waitlist.outcome.${outcome}`]}</p>
+          {!done && (
+            <p id="waitlist-consent" className={l.wlFine}>
+              {site["waitlist.consent"]} <a href={sitePath(locale, "privacy")}>{site["waitlist.privacy"]}</a>
+            </p>
+          )}
+        </div>
+        {demo && <p className={l.wlAlt}><a href={demo}>{site["waitlist.demo"]}</a></p>}
       </div>
     </section>
   );

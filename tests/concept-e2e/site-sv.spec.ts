@@ -7,11 +7,11 @@ test("the Swedish homepage declares its language and opens the demo in Swedish",
   const width = testInfo.project.name === "mobile" ? 390 : 1440;
   await page.setViewportSize({ width, height: 900 });
   await page.goto("/");
-  await page.getByRole("link", { name: "På svenska" }).click();
+  await page.getByRole("link", { name: "På svenska" }).first().click();
   await expect(page).toHaveURL(/\/sv$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "sv");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Mer tid. På dina villkor.");
-  await expect(page.getByRole("link", { name: "In English" })).toHaveAttribute("href", "/");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(sv["hero.heading"]);
+  for (const link of await page.getByRole("link", { name: "In English" }).all()) await expect(link).toHaveAttribute("href", "/");
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "/sv");
   await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute("content", "sv_SE");
   await expect(page.locator('meta[property="og:title"]')).toHaveAttribute("content", sv["soon.title"]);

@@ -47,13 +47,13 @@ it("keeps same-deployment links on a preview deployment", async () => {
   await expect(siteProps({ host: "cresavo.com" })).resolves.toMatchObject({ props: { analyticsEnabled: false } });
 });
 
-it("publishes both canonical product homepages in the public sitemap", async () => {
+it("publishes the product homepages and about pages in the public sitemap", async () => {
   const request = (host: string) => new Request(`https://${host}`, { headers: { host } });
   const apex = request("cresavo.com");
   const demo = request("demo.cresavo.com");
 
   expect(await robots(apex).text()).toContain("Sitemap: https://cresavo.com/sitemap.xml");
-  expect((await sitemap(apex).text()).match(/<loc>(.*?)<\/loc>/g)).toEqual(["<loc>https://cresavo.com/</loc>", "<loc>https://cresavo.com/sv</loc>"]);
+  expect((await sitemap(apex).text()).match(/<loc>(.*?)<\/loc>/g)).toEqual(["<loc>https://cresavo.com/</loc>", "<loc>https://cresavo.com/sv</loc>", "<loc>https://cresavo.com/about</loc>", "<loc>https://cresavo.com/sv/about</loc>"]);
   expect(await robots(demo).text()).not.toContain("Sitemap:");
   expect(sitemap(demo).status).toBe(404);
 });

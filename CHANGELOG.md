@@ -20,6 +20,8 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- The product homepage is rebuilt around what makes Cresavo different: few clicks and less admin, open source, no commission and built for AI. It shows a Friday at Salong Eko with the studio's own screenshots in the page's language, what's in the demo now and what's still to come, plus a sticky demo button on phones. The film tour, channel map, open-design hub and comparison table are gone. The founder's story moved to a new about page (`/about`, `/sv/about`). Both languages say the same thing.
+
 - Cost guards: the proxy no longer runs for static files, the Inbox polls proposals every 60 s on the public demo (15 s elsewhere), AI provider calls are capped at 2,048 output tokens and 200 calls per day per process, and anonymous pairing traffic has a global ceiling of 3,000 requests per minute. [Cost safety](docs/DEPLOY_DEMO.md#cost-safety) lists the code limits and the dashboard settings to pair with them.
 - Pages send a per-request Content-Security-Policy nonce, so the browser runs only scripts the server issued. Inline and injected scripts without the nonce are blocked.
 - Write endpoints use one shared same-origin check that follows the public host behind trusted proxies, rejects requests browsers mark as cross-site or same-site, and requires https origins in production. Pages also send a Permissions-Policy and, outside the OAuth consent flow, Cross-Origin-Opener-Policy.
