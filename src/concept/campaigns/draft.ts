@@ -20,9 +20,20 @@ export interface Draft extends CampaignPrefill {
   posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus">>;
 }
 
-export function newDraft(prefill: CampaignPrefill): Draft {
-  return { ...prefill, channels: [...CHANNELS], copy: {}, copyFor: "", style: "calm", posterEdits: {} };
+/**
+ * A new campaign. With `last`, the poster starts from the owner's latest one: its style,
+ * text size and photo crop, so the choices they keep making need not be made again.
+ */
+export function newDraft(prefill: CampaignPrefill, last?: CampaignPoster): Draft {
+  const posterEdits: Draft["posterEdits"] = {
+    ...(last?.textSize && { textSize: last.textSize }),
+    ...(last?.focus && { focus: last.focus }),
+  };
+  return { ...prefill, channels: [...CHANNELS], copy: {}, copyFor: "", style: last?.style ?? "calm", posterEdits };
 }
+
+/** The poster of the most recently made campaign (new campaigns come first). */
+export const latestPoster = (state: Pick<DemoState, "campaigns">) => state.campaigns.find((campaign) => campaign.poster)?.poster;
 
 /** Used when the studio opens without a request: the first treatment, a modest offer for two weeks. */
 export function defaultPrefill(state: DemoState, today: DateKey): CampaignPrefill {
