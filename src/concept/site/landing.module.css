@@ -233,9 +233,10 @@
   .topbar nav .wide { display: none; }
   .wordmark { width: 112px; }
   .ctaRow .btn { flex: 1 1 100%; }
-  /* On a phone the whole desktop would shrink to unreadable text, so the hero shows the day's schedule at a legible size. */
-  .heroShot .shot { border-radius: var(--radius-md); aspect-ratio: 4 / 5; }
-  .heroShot img { width: 256%; max-width: none; margin-left: -62%; }
+  /* On a phone the whole desktop would shrink to unreadable text, so the hero shows only the middle column
+     (x 345-905, from y 140 of the 1400 px screenshot): the next client and the day's schedule, nothing cut mid-element. */
+  .heroShot .shot { border-radius: var(--radius-md); aspect-ratio: 560 / 720; }
+  .heroShot img { width: 250%; max-width: none; margin: -25% 0 0 -61.6%; }
   .emailRow { flex-direction: column; }
   .emailRow button { width: 100%; }
 }
