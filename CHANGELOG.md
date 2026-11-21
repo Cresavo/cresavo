@@ -10,6 +10,11 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **One message per poster.**
+  - Posters now start from the first sentence of a treatment's description; the full description belongs in the post's text.
+  - The QR code is on the printed window poster by default. Posts and stories show it only when the owner ticks "Show the QR code in posts and stories too", and new campaigns keep that choice.
+  - Every story keeps its text out of the top 270 px and bottom 390 px that Instagram covers with its own bars. Templates without their own story layout show the post as a card between the bars.
+  - The editor warns when a long word would make a headline too small to read in the feed.
 - A **Portrait** poster template: a photo of the owner or a colleague on a drawn background in the salon's colour (flower, leaves, waves, sun or plain), with a small line above a big headline, the wellness badges, a short text, a call to book, the link and a QR code. A cut-out photo (a transparent PNG, for example an iPhone "lift subject" cut-out) stands free at the bottom right; any other photo sits in an arch. Text is laid out by rule: a dark scrim behind it, nothing over a face, and nothing important in the parts of a story that Instagram covers. Söderberg & Partners joins the wellness badges.
 - A **Before/after** poster template: the owner's before and after photos side by side (one above the other in the story format) with "Before" and "After" on them, the treatment, a short text and, in the story format, a call to book. The poster step has a photo picker for each photo; both can be the owner's own photo.
 - Engine posters carry a QR code to the salon's booking page in the signature, beside its name, so a printed poster or a screenshot leads straight to booking. Owners can pick the wellness benefits they accept (Epassi, Benify, Wellnet, Actiway, Edenred; up to four) for the Price and Price list posters; a new campaign keeps the choice from the latest one. The QR code uses uqr (MIT).

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { qrLink, qrTarget, shortLink } from "@/concept/campaigns/poster-engine/client";
+import { qrFor, qrLink, qrTarget, shortLink } from "@/concept/campaigns/poster-engine/client";
 import { renderPosterSvg } from "@/concept/campaigns/poster-engine/render";
 import { cutoutPlacement, pngSize, posterDataSchema, posterTree } from "@/concept/campaigns/poster-engine/templates";
 import { backdropSvg, BACKDROPS } from "@/concept/campaigns/poster-engine/backdrops";
@@ -44,6 +44,10 @@ describe("poster engine input", () => {
     expect(qrTarget("salongeko.example/c/x", "salong-eko", "https://demo.cresavo.com")).toBe("https://demo.cresavo.com/boka/salong-eko");
     expect(qrTarget("https://eko.example/c/x", "salong-eko", "https://demo.cresavo.com")).toBe("https://eko.example/c/x");
     expect(qrTarget("salongeko.example/c/x", "salong-eko", "http://localhost:3000")).toBeUndefined();
+    // Posts and stories carry the code only when the owner asks; the printed window poster always does.
+    expect(qrFor("post", false, "https://eko.example/c/x", "salong-eko", undefined)).toBeUndefined();
+    expect(qrFor("story", true, "https://eko.example/c/x", "salong-eko", undefined)).toBe("https://eko.example/c/x");
+    expect(qrFor("window", false, "https://eko.example/c/x", "salong-eko", undefined)).toBe("https://eko.example/c/x");
   });
 
   it("shortens long booking links for the signature", () => {
@@ -105,6 +109,16 @@ describe("poster engine templates", () => {
     // In a story the link sits above the 390 px Instagram keeps for its own bar.
     expect(flat(posterTree("portrait", portrait, "story"))).toContain('"bottom":430');
     expect(posterDataSchema.safeParse({ ...input, backdrop: "anything" }).success).toBe(false);
+  });
+
+  it("keeps every story's text out of the bars Instagram lays over the top 270 px and bottom 390 px", () => {
+    // Templates without their own story layout show the post as a card exactly between the bars.
+    for (const template of ["price", "pricelist", "season", "review"] as const) {
+      expect(flat(posterTree(template, data, "story"))).toContain('"top":270,"width":1008,"height":1260');
+    }
+    // Templates with their own story layout move their signature or button above the bottom bar.
+    expect(flat(posterTree("slots", { ...data, cta: "Boka nu →" }, "story"))).toContain('"bottom":390');
+    expect(flat(posterTree("beforeafter", { ...data, before: jpeg }, "story"))).toContain('"bottom":390');
   });
 
   it("draws every backdrop as one valid SVG in the salon's colour", () => {

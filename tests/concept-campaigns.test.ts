@@ -3,7 +3,7 @@ import { reduce } from "@/concept/actions";
 import { monthGrid, postDay, shiftMonth } from "@/concept/campaigns/calendar";
 import { assembleCopy, CHANNEL_LIMIT, CHANNELS, isOverLimit } from "@/concept/campaigns/channels";
 import { listServices, offerText, rulesCopy } from "@/concept/campaigns/copy";
-import { defaultPrefill, draftLink, draftOffer, newDraft, resolvePoster } from "@/concept/campaigns/draft";
+import { defaultPrefill, draftLink, draftOffer, firstSentence, newDraft, resolvePoster } from "@/concept/campaigns/draft";
 import { campaignCode, trackingLink } from "@/concept/campaigns/links";
 import { fitFontSize, wrapText } from "@/concept/campaigns/poster-layout";
 import { parseCampaignRequest, prefillForHoliday, prefillFromQuery, studioHref } from "@/concept/campaigns/prefill";
@@ -190,9 +190,11 @@ describe("campaign store actions", () => {
     const swedish = { ...state, localization: { ...state.localization, language: "sv" as const } };
     expect(draftOffer(swedish, draft)).toBe("Test offer: 10 % rabatt på Medicinsk fotvård till 29 november 2026.");
     expect(resolvePoster(state, { ...draft, style: "calm" })).toMatchObject({ style: "calm", image: "/demo/salon.webp", headline: "−10%", detail: state.services[0].name });
-    // The engine's price poster: the treatment as headline, its description, the price after the discount and a sticker.
+    // The engine's price poster: the treatment as headline, the first words of its description (the rest is for
+    // the post's text), the price after the discount and a sticker.
     const first = state.services[0];
-    expect(resolvePoster(state, draft)).toMatchObject({ style: "price", headline: first.name, detail: first.description, sticker: ["Offer", "–10%"] });
+    expect(resolvePoster(state, draft)).toMatchObject({ style: "price", headline: first.name, detail: firstSentence(first.description), sticker: ["Offer", "–10%"] });
+    expect(firstSentence(first.description).length).toBeLessThanOrEqual(71);
     expect(resolvePoster(state, draft).price).toContain(String(Math.round(first.price * 0.9)));
     expect(resolvePoster(state, { ...draft, serviceIds: ["deep-tissue"], posterEdits: { headline: "Gift" } })).toMatchObject({ image: "/demo/massage.webp", headline: "Gift" });
   });
@@ -325,4 +327,25 @@ it("fills the review and free-times posters from published reviews and the calen
     expect(slots.headline).toMatch(/times? left!/);
     expect(slots.sticker).toHaveLength(2);
   }
+});
+
+it("keeps poster texts to one short message", async () => {
+  const { firstSentence } = await import("@/concept/campaigns/draft");
+  const { headlineTooLong } = await import("@/concept/campaigns/poster-layout");
+  expect(firstSentence("Fotbad och nagelvård. Vi avslutar med kräm.")).toBe("Fotbad och nagelvård.");
+  expect(firstSentence("Ett väldigt långt stycke utan punkt som fortsätter och fortsätter långt förbi gränsen för en affisch")).toMatch(/^Ett väldigt.*…$/);
+  expect(firstSentence("Ett väldigt långt stycke utan punkt som fortsätter och fortsätter långt förbi gränsen för en affisch").length).toBeLessThanOrEqual(71);
+  expect(headlineTooLong("Fotvård")).toBe(false);
+  expect(headlineTooLong("friskvårdsbidragen")).toBe(true);
+});
+
+it("shows the QR code in posts and stories only when the owner asks, and remembers the choice", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const draft = newDraft(defaultPrefill(state, "2026-11-21"));
+  expect(resolvePoster(state, draft).socialQr).toBeUndefined();
+  const withQr = resolvePoster(state, { ...draft, posterEdits: { socialQr: true } });
+  expect(withQr.socialQr).toBe(true);
+  expect(newDraft(defaultPrefill(state, "2026-11-21"), withQr).posterEdits.socialQr).toBe(true);
 });

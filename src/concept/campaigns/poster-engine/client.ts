@@ -102,13 +102,19 @@ export const qrLink = (link: string | undefined): string | undefined => {
 /** Where the QR code leads: the campaign link when it is a real address, otherwise the salon's booking page on this site. */
 export const qrTarget = (link: string | undefined, slug: string, origin: string | undefined) =>
   qrLink(link) ?? (origin ? qrLink(`${origin}${bookingHome(slug)}`) : undefined);
+/**
+ * A QR code is for paper: on the window poster always, in posts and stories only when the owner asks
+ * for it (whoever sees a post is usually holding the phone that would have to scan it).
+ */
+export const qrFor = (format: PosterFormat, social: boolean, link: string | undefined, slug: string, origin: string | undefined) =>
+  format === "window" || social ? qrTarget(link, slug, origin) : undefined;
 const SERIF_FONTS = new Set<string>([FONT_PAIRS.classic.heading, FONT_PAIRS.elegant.heading]);
 
 /** The request body for one poster. */
 export async function engineRequest(poster: CampaignPoster, format: PosterFormat, kicker: string, context: EngineContext) {
   const language = context.language ?? getActiveLocale();
   const photo = await posterPhoto(poster.image);
-  const qr = qrTarget(context.link, context.salon.slug, typeof window === "undefined" ? undefined : window.location.origin);
+  const qr = qrFor(format, !!poster.socialQr, context.link, context.salon.slug, typeof window === "undefined" ? undefined : window.location.origin);
   const { rating } = context;
   return {
     template: poster.style,

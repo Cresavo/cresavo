@@ -43,7 +43,10 @@ describe("request logger", () => {
     expect(lines).toHaveLength(1);
     const entry = JSON.parse(lines[0]);
     expect(entry).toMatchObject({ route: "/api/concept/ai/[task]", method: "POST", status: 200, task: "answer-help", requestId: response.headers.get("x-request-id") });
-    expect(lines[0]).not.toMatch(/Anna|070|phone/);
+    // The random request id and the timing can contain any digits, so only the other fields are checked for "070".
+    const fields = Object.entries(entry).filter(([key]) => key !== "requestId" && key !== "durationMs");
+    expect(JSON.stringify(fields)).not.toMatch(/Anna|070|phone/);
+    expect(lines[0]).not.toMatch(/Anna|phone/);
   });
 
   it("turns a thrown error into a 500 with only the error class in the log", async () => {

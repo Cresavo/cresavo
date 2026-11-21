@@ -23,7 +23,7 @@ export interface Draft extends CampaignPrefill {
   copyFor: string;
   style: PosterStyle;
   /** Poster text and photo the owner changed; the rest follows the offer. */
-  posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus" | "badges" | "before" | "lead" | "backdrop">>;
+  posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus" | "badges" | "before" | "lead" | "backdrop" | "socialQr">>;
 }
 
 /**
@@ -35,6 +35,7 @@ export function newDraft(prefill: CampaignPrefill, last?: CampaignPoster): Draft
     ...(last?.textSize && { textSize: last.textSize }),
     ...(last?.focus && { focus: last.focus }),
     ...(last?.badges?.length && { badges: last.badges }),
+    ...(last?.socialQr && { socialQr: true }),
   };
   return { ...prefill, channels: [...CHANNELS], copy: {}, copyFor: "", style: last?.style ?? "price", posterEdits };
 }
@@ -146,9 +147,21 @@ function defaultHeadline(state: DemoState, draft: Draft): string {
   return draft.discountPercent > 0 ? t("campaigns.posterOffer", { percent: draft.discountPercent }) : draft.name;
 }
 
+const SHORT_DETAIL = 70;
+/**
+ * The first sentence of a description, at most 70 characters (cut at a word), for the poster.
+ * One message per poster: the whole description belongs in the post's text, not on the image.
+ */
+export function firstSentence(text: string): string {
+  const sentence = text.trim().split(/(?<=[.!?])\s/)[0] ?? "";
+  if (sentence.length <= SHORT_DETAIL) return sentence;
+  const cut = sentence.slice(0, SHORT_DETAIL + 1);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), 1)).replace(/[,;:–-]$/, "").trim()}…`;
+}
+
 function defaultDetail(state: DemoState, draft: Draft): string {
   const first = state.services.find((s) => s.id === draft.serviceIds[0]);
-  if ((draft.style === "price" || draft.style === "beforeafter" || draft.style === "portrait") && first?.description) return first.description;
+  if ((draft.style === "price" || draft.style === "beforeafter" || draft.style === "portrait") && first?.description) return firstSentence(first.description);
   if (draft.style === "slots" && first) return `${first.name} · ${formatDuration(first.duration)}`;
   return listServices(serviceNames(state, draft));
 }
@@ -171,5 +184,6 @@ export function resolvePoster(state: DemoState, draft: Draft): CampaignPoster {
     ...(draft.posterEdits.textSize && { textSize: draft.posterEdits.textSize }),
     ...(draft.posterEdits.focus && { focus: draft.posterEdits.focus }),
     ...(draft.posterEdits.badges?.length && { badges: draft.posterEdits.badges }),
+    ...(draft.posterEdits.socialQr && { socialQr: true }),
   };
 }

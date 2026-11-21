@@ -5,13 +5,13 @@ import { draftLink, resolvePoster, type Draft } from "../../campaigns/draft";
 import { downloadBlob, posterToPng, sharePoster } from "../../campaigns/export-png";
 import { isOwnPhoto, ownPhotoUrl } from "../../campaigns/own-photo";
 import { BACKDROPS, type Backdrop } from "../../campaigns/poster-engine/backdrops";
-import { MAX_BADGES, POSTER_FORMATS, POSTER_IMAGES, POSTER_STYLES, WELLNESS_BADGES } from "../../campaigns/poster-layout";
+import { headlineTooLong, isEngineStyle, MAX_BADGES, POSTER_FORMATS, POSTER_IMAGES, POSTER_STYLES, WELLNESS_BADGES } from "../../campaigns/poster-layout";
 import type { DemoState, PosterFocus, PosterFormat, PosterTextSize } from "../../data/types";
 import { t } from "../../i18n";
 import { Button, buttonClass } from "../../ui/button";
 import { cx } from "../../ui/cx";
 import { Notice } from "../../ui/notice";
-import { Field, Segmented, TextInput } from "../../ui/controls";
+import { Checkbox, Field, Segmented, TextInput } from "../../ui/controls";
 import { showToast } from "../../ui/toast";
 import { PosterView } from "./poster-view";
 
@@ -151,6 +151,9 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
             <p className="text-sm text-text-secondary">{t("campaigns.poster.badgesHint")}</p>
           </fieldset>
         )}
+        {isEngineStyle(draft.style) && (
+          <Checkbox label={t("campaigns.poster.socialQr")} checked={!!poster.socialQr} onChange={(event) => edit({ socialQr: event.target.checked })} />
+        )}
         {draft.style === "portrait" && (
           <Field width="short" label={t("campaigns.poster.lead")}>
             <TextInput value={poster.lead ?? ""} maxLength={30} onChange={(event) => edit({ lead: event.target.value })} />
@@ -159,6 +162,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
         <Field width="short" label={t("campaigns.poster.headline")}>
           <TextInput value={poster.headline} maxLength={24} onChange={(event) => edit({ headline: event.target.value })} />
         </Field>
+        {isEngineStyle(draft.style) && headlineTooLong(poster.headline) && <Notice tone="info">{t("campaigns.poster.headlineLong")}</Notice>}
         <Field label={t("campaigns.poster.detail")}>
           <TextInput value={poster.detail} maxLength={70} onChange={(event) => edit({ detail: event.target.value })} />
         </Field>

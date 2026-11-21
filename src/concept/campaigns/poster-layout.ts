@@ -41,3 +41,8 @@ export function fitFontSize(text: string, width: number, max: number): number {
 /** Wellness-benefit services common in Sweden, offered as badges on Price and Price list posters. */
 export const WELLNESS_BADGES = ["Epassi", "Söderberg & Partners", "Benify", "Wellnet", "Actiway", "Edenred"] as const;
 export const MAX_BADGES = 4;
+
+/** Above this many letters in one word, a headline can only fit by getting too small to read in the feed. */
+export const LONG_WORD = 14;
+/** True when the headline has a word so long that the poster would have to shrink it below a readable size. */
+export const headlineTooLong = (headline: string) => headline.split(/\s+/).some((word) => word.length > LONG_WORD);

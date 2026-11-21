@@ -1527,6 +1527,8 @@ const messages = {
   "campaigns.photo.after": "Efter-bild",
   "campaigns.style.portrait": "Porträtt",
   "campaigns.engine.portraitLead": "Dags för",
+  "campaigns.poster.socialQr": "Visa QR-koden även i inlägg och story (finns alltid på fönsteraffischen)",
+  "campaigns.poster.headlineLong": "Ett långt ord gör rubriken liten och svår att läsa i flödet. Korta den eller dela upp den i två ord.",
   "campaigns.poster.lead": "Liten rad ovanför",
   "campaigns.poster.backdrop": "Bakgrund",
   "campaigns.backdrop.bloom": "Blomma",

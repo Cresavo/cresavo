@@ -344,6 +344,8 @@ export interface CampaignPoster {
   /** Portrait style: the smaller line above the headline, and the drawn background. */
   lead?: string;
   backdrop?: Backdrop;
+  /** Engine styles: also show the QR code in posts and stories. It is always on the printed window poster. */
+  socialQr?: boolean;
 }
 export type PosterTextSize = "small" | "normal" | "large";
 /** Which part of the photo stays in view when the template crops it. */
