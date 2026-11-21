@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { PROJECT_REPOSITORY } from "../brand";
+import { CONTACT_EMAIL, PROJECT_REPOSITORY } from "../brand";
 import { useSiteCopy } from "./copy";
 import { FilmTour } from "./film-tour";
 import { sitePath } from "./language";
@@ -138,6 +138,7 @@ function Founder() {
         </figure>
         <div className={l.inlineCta}>
           <a className={`${l.btn} ${l.ghostCream}`} href={sitePath(locale, "about")}>{site["founder.story"]}</a>
+          <a className={l.textLink} href={`mailto:${CONTACT_EMAIL}`}>{site["founder.mail"]}</a>
           <a className={l.textLink} href={`${PROJECT_REPOSITORY}/discussions`}>{site["founder.talk"]}</a>
         </div>
       </div>
@@ -243,7 +244,10 @@ function Closing({ demo, booking }: { demo: string; booking: string }) {
           <a className={`${l.btn} ${l.apricot}`} href={demo}>{site["soon.demo"]}</a>
           <a className={`${l.btn} ${l.ghostCream}`} href={booking}>{site["how.client"]}</a>
         </div>
-        <p className={l.wlAlt}><a href={`${PROJECT_REPOSITORY}/discussions`}>{site["closing.talk"]}</a></p>
+        <p className={l.wlAlt}>
+          <a href={`mailto:${CONTACT_EMAIL}`}>{site["closing.mail"]}</a>
+          <a href={`${PROJECT_REPOSITORY}/discussions`}>{site["closing.talk"]}</a>
+        </p>
       </div>
     </section>
   );

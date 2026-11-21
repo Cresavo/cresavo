@@ -1,4 +1,4 @@
-import { BRAND } from "../brand";
+import { BRAND, CONTACT_EMAIL } from "../brand";
 
 // English copy for the public product pages (home, about) and the privacy note. English is the source.
 // Every product claim here matches the demo as it is today; docs/STATUS.md is the reference.
@@ -48,6 +48,7 @@ export const site = {
   "founder.signature": "Niclas, founder",
   "founder.story": "Read the whole story",
   "founder.talk": "Write to me on GitHub",
+  "founder.mail": `Email ${CONTACT_EMAIL}`,
   "soon.tour.duration": "36 sec",
   "soon.tour.description": "A salon owner handles bookings and plans the day in the studio. Background music only.",
   "soon.tour.mute": "Mute tour music",
@@ -106,7 +107,7 @@ export const site = {
   "pricing.hosted.name": "Hosted for you",
   "pricing.hosted": "Price not set yet",
   "pricing.hosted.text": "For most salons. We will run the system, so there’s nothing to install.",
-  "pricing.hosted.items": "No commission on clients you found yourself|Price and what’s included are published before launch|Not open yet",
+  "pricing.hosted.items": "No commission on clients you found yourself|No lock-in period|Price and what’s included are published before launch|Not open yet",
   "pricing.self.name": "Run it yourself",
   "pricing.self": "Free",
   "pricing.self.text": "For the technically minded. The code is open source (AGPL-3.0). You handle the server, updates and backups yourself.",
@@ -119,7 +120,7 @@ export const site = {
   "faq.bookings": "What about upcoming bookings and visit history?",
   "faq.bookings.answer": "They can’t be imported today. How a switch will work for the first salons, including upcoming bookings, is not decided yet.",
   "faq.help": "Who helps me switch?",
-  "faq.help.answer": `${BRAND.name} is built by one person, and there is no support team yet. You can ask questions on GitHub Discussions. What help comes with a switch will be decided before the first salon.`,
+  "faq.help.answer": `${BRAND.name} is built by one person, and there is no support team yet. You can email ${CONTACT_EMAIL} or ask on GitHub Discussions. What help comes with a switch will be decided before the first salon.`,
   "faq.export": "Can I take my data with me?",
   "faq.export.answer": "In the demo, yes: under More, then Your data, you can download clients and bookings as spreadsheets and everything as a backup file. For real salons, export will be tested before launch.",
   "faq.shutdown": `What happens if ${BRAND.name} stops?`,
@@ -131,6 +132,7 @@ export const site = {
   "closing.heading": "Try it for yourself.",
   "closing.text": "The waiting list isn’t open yet, so we can’t take sign-ups. Try the demo salon in the meantime and tell us what your salon needs.",
   "closing.talk": "Suggest something on GitHub",
+  "closing.mail": `Email ${CONTACT_EMAIL}`,
   "waitlist.heading": "Your salon. Your system.",
   "waitlist.lead": `We’ll email you once ${BRAND.name} opens to the first salons.`,
   "waitlist.business": "I run a",
@@ -174,7 +176,7 @@ export const site = {
   "waitlist.outcome.limited": "Too many tries. Please wait a few minutes.",
   "privacy.title": `Privacy · ${BRAND.name}`,
   "privacy.heading": "Privacy",
-  "privacy.intro": `This is a short note for the time before ${BRAND.name} launches. ${BRAND.name} is an open-source project, and these pages are run by its maintainer, an individual in Sweden. The controller is Niclas Vestlund. You can reach them at info@cresavo.com. A full policy will replace this note before the waiting list or the product opens.`,
+  "privacy.intro": `This is a short note for the time before ${BRAND.name} launches. ${BRAND.name} is an open-source project, and these pages are run by its maintainer, an individual in Sweden. The controller is Niclas Vestlund. You can reach them at ${CONTACT_EMAIL}. A full policy will replace this note before the waiting list or the product opens.`,
   "privacy.waitlist.heading": "The waiting list",
   "privacy.waitlist.body": "The waiting list is not open yet. If you submit the form today, your email address, the form language and the optional kind of business are checked on the server and then discarded: the application does not store them or send them anywhere. To slow down abuse, the server counts tries per network address in memory for about ten minutes, without your email. Like any web host, our host (Vercel) may keep standard request logs. When the list opens, this page will first name the list provider, how long addresses are kept and how to withdraw; we will use your address only to tell you about the launch, and every email will have an unsubscribe link.",
   "privacy.demo.heading": "The demo",
@@ -183,6 +185,6 @@ export const site = {
   "privacy.cookies.body": "These pages set no tracking cookies and load no third-party scripts.",
   "privacy.analytics.body": "The product site uses Vercel Web Analytics to count visits and page views and see where visits come from. This measurement does not use tracking cookies. We exclude query strings and fragments from the page addresses we send. The interactive demo does not use this measurement.",
   "privacy.rights.heading": "Your rights",
-  "privacy.rights.body": "Under the GDPR you can ask for access to, correction or erasure of personal data about you, and you can complain to the Swedish Authority for Privacy Protection (IMY). The closed waiting list keeps no sign-ups. For privacy questions or requests, contact info@cresavo.com.",
+  "privacy.rights.body": `Under the GDPR you can ask for access to, correction or erasure of personal data about you, and you can complain to the Swedish Authority for Privacy Protection (IMY). The closed waiting list keeps no sign-ups. For privacy questions or requests, contact ${CONTACT_EMAIL}.`,
   "privacy.back": "Back",
 } as const;

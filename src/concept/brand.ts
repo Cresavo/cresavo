@@ -10,6 +10,9 @@ export const BRAND = {
 
 export const PROJECT_REPOSITORY = "https://github.com/Cresavo/cresavo";
 
+/** The founder's inbox for questions about the product and privacy. */
+export const CONTACT_EMAIL = "info@cresavo.com";
+
 /**
  * The assistant has no persona name: it is a tool, labelled in plain words
  * ("Assistant", Swedish "Assistent"), and the product brand stays the one name

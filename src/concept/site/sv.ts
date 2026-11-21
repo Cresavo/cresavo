@@ -1,4 +1,4 @@
-import { BRAND } from "../brand";
+import { BRAND, CONTACT_EMAIL } from "../brand";
 import type { site } from "./en";
 
 export const sv = {
@@ -47,6 +47,7 @@ export const sv = {
   "founder.signature": "Niclas, grundare",
   "founder.story": "Läs hela berättelsen",
   "founder.talk": "Skriv till mig på GitHub",
+  "founder.mail": `Mejla ${CONTACT_EMAIL}`,
   "soon.tour.duration": "36 sek",
   "soon.tour.description": "En salongsägare tar hand om bokningar och planerar dagen i studion. Filmen har bara bakgrundsmusik.",
   "soon.tour.mute": "Stäng av musiken",
@@ -105,7 +106,7 @@ export const sv = {
   "pricing.hosted.name": "Vi sköter driften",
   "pricing.hosted": "Pris inte satt än",
   "pricing.hosted.text": "För de flesta salonger. Vi kommer att driva systemet, så du behöver inte installera något.",
-  "pricing.hosted.items": "Ingen provision på kunder du själv hittat|Pris och vad som ingår publiceras före lanseringen|Inte öppet än",
+  "pricing.hosted.items": "Ingen provision på kunder du själv hittat|Ingen bindningstid|Pris och vad som ingår publiceras före lanseringen|Inte öppet än",
   "pricing.self.name": "Driv det själv",
   "pricing.self": "Gratis",
   "pricing.self.text": "För dig som är tekniskt kunnig. Koden är öppen källkod (AGPL-3.0). Du sköter själv server, uppdateringar och säkerhetskopior.",
@@ -118,7 +119,7 @@ export const sv = {
   "faq.bookings": "Vad händer med kommande bokningar och besökshistorik?",
   "faq.bookings.answer": "De går inte att importera i dag. Hur ett byte ska gå till för de första salongerna, även kommande bokningar, är inte bestämt än.",
   "faq.help": "Vem hjälper mig att byta?",
-  "faq.help.answer": `${BRAND.name} byggs av en person, och det finns ingen supportorganisation än. Du kan ställa frågor på GitHub Discussions. Vilken hjälp som ingår vid ett byte bestäms innan första salongen.`,
+  "faq.help.answer": `${BRAND.name} byggs av en person, och det finns ingen supportorganisation än. Du kan mejla ${CONTACT_EMAIL} eller fråga på GitHub Discussions. Vilken hjälp som ingår vid ett byte bestäms innan första salongen.`,
   "faq.export": "Kan jag ta med mig mina uppgifter?",
   "faq.export.answer": "I demon, ja: under Mer och sedan Dina uppgifter laddar du ner kunder och bokningar som kalkylblad och allt som en säkerhetskopia. För riktiga salonger ska exporten prövas före lanseringen.",
   "faq.shutdown": `Vad händer om ${BRAND.name} upphör?`,
@@ -130,6 +131,7 @@ export const sv = {
   "closing.heading": "Prova själv.",
   "closing.text": "Väntelistan har inte öppnat än, så vi kan inte ta emot anmälningar. Prova demosalongen så länge och berätta vad din salong behöver.",
   "closing.talk": "Skriv ett förslag på GitHub",
+  "closing.mail": `Mejla ${CONTACT_EMAIL}`,
   "waitlist.heading": "Din salong. Ditt system.",
   "waitlist.lead": `Vi mejlar dig en gång när ${BRAND.name} öppnar för de första salongerna.`,
   "waitlist.business": "Jag driver en",
@@ -173,7 +175,7 @@ export const sv = {
   "waitlist.outcome.limited": "För många försök. Vänta några minuter och försök igen.",
   "privacy.title": `Integritet · ${BRAND.name}`,
   "privacy.heading": "Integritet",
-  "privacy.intro": `Här berättar vi kort hur vi hanterar dina uppgifter inför lanseringen av ${BRAND.name}. Projektet har öppen källkod och sidorna drivs av projektets förvaltare, en privatperson i Sverige. Personuppgiftsansvarig är Niclas Vestlund. Du når den ansvariga på info@cresavo.com. Vi publicerar en fullständig integritetspolicy innan väntelistan eller tjänsten öppnar.`,
+  "privacy.intro": `Här berättar vi kort hur vi hanterar dina uppgifter inför lanseringen av ${BRAND.name}. Projektet har öppen källkod och sidorna drivs av projektets förvaltare, en privatperson i Sverige. Personuppgiftsansvarig är Niclas Vestlund. Du når den ansvariga på ${CONTACT_EMAIL}. Vi publicerar en fullständig integritetspolicy innan väntelistan eller tjänsten öppnar.`,
   "privacy.waitlist.heading": "Väntelistan",
   "privacy.waitlist.body": "Väntelistan har inte öppnat än. Om du skickar in formuläret i dag kontrollerar servern din e-postadress, formulärets språk och eventuell uppgift om typ av verksamhet. Därefter slängs uppgifterna. Appen sparar dem inte och skickar dem inte vidare. För att begränsa missbruk räknar servern försök per nätverksadress i minnet i ungefär tio minuter, utan din e-postadress. Vårt webbhotell Vercel kan spara vanliga loggar över anrop. Innan listan öppnar berättar vi här vem som hanterar den, hur länge adresser sparas och hur du avanmäler dig. Vi använder bara adressen för att berätta om lanseringen. Varje mejl får en avregistreringslänk.",
   "privacy.demo.heading": "Demon",
@@ -182,6 +184,6 @@ export const sv = {
   "privacy.cookies.body": "Sidorna använder inga spårningskakor och laddar inga skript från tredje part.",
   "privacy.analytics.body": "Produktsajten använder Vercel Web Analytics för att räkna besök och sidvisningar och se var besöken kommer ifrån. Mätningen använder inga spårningskakor. Vi tar bort frågeparametrar och fragment ur webbadresserna vi skickar. Den interaktiva demon använder inte den här mätningen.",
   "privacy.rights.heading": "Dina rättigheter",
-  "privacy.rights.body": "Enligt GDPR kan du begära att få tillgång till dina personuppgifter, få dem rättade eller få dem raderade. Du kan också lämna klagomål till Integritetsskyddsmyndigheten (IMY). Så länge väntelistan är stängd sparas inga anmälningar. Kontakta info@cresavo.com om du har frågor eller vill utöva dina rättigheter.",
+  "privacy.rights.body": `Enligt GDPR kan du begära att få tillgång till dina personuppgifter, få dem rättade eller få dem raderade. Du kan också lämna klagomål till Integritetsskyddsmyndigheten (IMY). Så länge väntelistan är stängd sparas inga anmälningar. Kontakta ${CONTACT_EMAIL} om du har frågor eller vill utöva dina rättigheter.`,
   "privacy.back": "Tillbaka",
 } satisfies Record<keyof typeof site, string>;
