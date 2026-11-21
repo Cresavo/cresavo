@@ -4,7 +4,7 @@ import { Download, ImagePlus, Share2 } from "lucide-react";
 import { draftLink, resolvePoster, type Draft } from "../../campaigns/draft";
 import { downloadBlob, posterToPng, sharePoster } from "../../campaigns/export-png";
 import { isOwnPhoto, ownPhotoUrl } from "../../campaigns/own-photo";
-import { POSTER_FORMATS, POSTER_IMAGES, POSTER_STYLES } from "../../campaigns/poster-layout";
+import { MAX_BADGES, POSTER_FORMATS, POSTER_IMAGES, POSTER_STYLES, WELLNESS_BADGES } from "../../campaigns/poster-layout";
 import type { DemoState, PosterFocus, PosterFormat, PosterTextSize } from "../../data/types";
 import { t } from "../../i18n";
 import { Button, buttonClass } from "../../ui/button";
@@ -21,7 +21,7 @@ const FOCUSES: PosterFocus[] = ["top", "center", "bottom"];
 interface PosterStepProps {
   state: DemoState;
   draft: Draft;
-  onChange: (patch: Partial<Draft>) => void;
+  onChange: (patch: Partial<Draft> | ((current: Draft) => Partial<Draft>)) => void;
 }
 
 /** Step 3: pick a style and photo, adjust the text, export a PNG in the size a channel wants. */
@@ -30,7 +30,10 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
   const svg = useRef<SVGSVGElement>(null);
   const poster = resolvePoster(state, draft);
   const source = { name: draft.name, to: draft.to, link: draftLink(state, draft), poster };
-  const edit = (patch: Draft["posterEdits"]) => onChange({ posterEdits: { ...draft.posterEdits, ...patch } });
+  const edit = (patch: Draft["posterEdits"]) => onChange((current) => ({ posterEdits: { ...current.posterEdits, ...patch } }));
+  const badges = poster.badges ?? [];
+  const toggleBadge = (badge: string) =>
+    edit({ badges: badges.includes(badge) ? badges.filter((b) => b !== badge) : WELLNESS_BADGES.filter((b) => b === badge || badges.includes(b)) });
 
   const download = async () => {
     if (!svg.current) return;
@@ -39,15 +42,6 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
       showToast(t("campaigns.poster.saved"));
     } catch {
       showToast(t("campaigns.poster.failed"));
-    }
-  };
-
-  const pickPhoto = async (file: File | undefined) => {
-    if (!file) return;
-    try {
-      edit({ image: await ownPhotoUrl(file) });
-    } catch {
-      showToast(t("campaigns.photo.failed"));
     }
   };
 
@@ -74,7 +68,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
           options={FORMATS.map((value) => ({ value, label: t(`campaigns.format.${value}`) }))}
         />
         <div className={cx("mx-auto w-full overflow-hidden rounded-lg", format === "post" ? "max-w-sm" : "max-w-64")}>
-          <PosterView ref={svg} source={source} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} format={format} />
+          <PosterView ref={svg} source={source} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format={format} />
         </div>
         <Button width="responsive" icon={<Share2 size={18} />} onClick={share}>{t("campaigns.poster.share")}</Button>
         <Button variant="secondary" width="responsive" icon={<Download size={18} />} onClick={download}>
@@ -95,34 +89,22 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
                 className={cx("w-20 shrink-0 flex-col !gap-1 !p-1 !text-minimum", draft.style === style ? "!ring-2 ring-action" : "ring-input-border")}
               >
                 <span className="pointer-events-none block overflow-hidden rounded-sm">
-                  <PosterView source={{ ...source, poster: { ...poster, style } }} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} format="post" />
+                  <PosterView source={{ ...source, poster: resolvePoster(state, { ...draft, style }) }} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format="post" />
                 </span>
                 {t(`campaigns.style.${style}`)}
               </Button>
             ))}
           </div>
         </div>
-        <div className="space-y-2">
-          <span className="block text-sm font-medium">{t("campaigns.poster.photo")}</span>
-          <div className="flex flex-wrap gap-2">
-            {POSTER_IMAGES.map((image) => (
-              <Button variant="secondary" size="sm"
-                key={image}
-                aria-pressed={poster.image === image}
-                aria-label={t(image.includes("massage") ? "campaigns.photo.massage" : "campaigns.photo.salon")}
-                onClick={() => edit({ image })}
-                className={cx("h-16 w-24 overflow-hidden bg-cover bg-center", poster.image === image ? "!ring-2 ring-action" : "ring-input-border")}
-                style={{ backgroundImage: `url(${image})` }}
-              />
-            ))}
-            <label className={cx(buttonClass("secondary", "sm"), "h-16 w-24 cursor-pointer flex-col !gap-1 !text-minimum", poster.image && isOwnPhoto(poster.image) && "!ring-2 ring-action")}>
-              <ImagePlus size={18} aria-hidden />
-              {t("campaigns.photo.own")}
-              <TextInput type="file" accept="image/*" className="sr-only" onChange={(event) => { void pickPhoto(event.target.files?.[0]); event.target.value = ""; }} />
-            </label>
-          </div>
-          {poster.image && isOwnPhoto(poster.image) && <Notice tone="info">{t("campaigns.photo.ownNotice")}</Notice>}
-        </div>
+        {draft.style === "beforeafter" ? (
+          <>
+            <PhotoPicker label={t("campaigns.photo.before")} value={poster.before} onPick={(before) => edit({ before })} />
+            <PhotoPicker label={t("campaigns.photo.after")} value={poster.image} onPick={(image) => edit({ image })} />
+          </>
+        ) : (
+          <PhotoPicker label={t("campaigns.poster.photo")} value={poster.image} onPick={(image) => edit({ image })} />
+        )}
+        {[poster.image, draft.style === "beforeafter" ? poster.before : undefined].some((image) => image && isOwnPhoto(image)) && <Notice tone="info">{t("campaigns.photo.ownNotice")}</Notice>}
         <span className="block text-sm font-medium" aria-hidden>{t("campaigns.poster.textSize")}</span>
         <Segmented<PosterTextSize>
           label={t("campaigns.poster.textSize")}
@@ -137,12 +119,64 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
           onChange={(focus) => edit({ focus })}
           options={FOCUSES.map((value) => ({ value, label: t(`campaigns.focus.${value}`) }))}
         />
+        {(draft.style === "price" || draft.style === "pricelist") && (
+          <fieldset className="space-y-2">
+            <legend className="block text-sm font-medium">{t("campaigns.poster.badges")}</legend>
+            <div className="flex flex-wrap gap-2">
+              {WELLNESS_BADGES.map((badge) => (
+                <Button variant="secondary" size="sm" key={badge}
+                  aria-pressed={badges.includes(badge)}
+                  disabled={!badges.includes(badge) && badges.length >= MAX_BADGES}
+                  onClick={() => toggleBadge(badge)}
+                  className={cx(badges.includes(badge) ? "!ring-2 ring-action" : "ring-input-border")}
+                >
+                  {badge}
+                </Button>
+              ))}
+            </div>
+            <p className="text-sm text-text-secondary">{t("campaigns.poster.badgesHint")}</p>
+          </fieldset>
+        )}
         <Field width="short" label={t("campaigns.poster.headline")}>
           <TextInput value={poster.headline} maxLength={24} onChange={(event) => edit({ headline: event.target.value })} />
         </Field>
         <Field label={t("campaigns.poster.detail")}>
           <TextInput value={poster.detail} maxLength={70} onChange={(event) => edit({ detail: event.target.value })} />
         </Field>
+      </div>
+    </div>
+  );
+}
+
+/** The demo photos and the owner's own photo, for one photo slot on the poster. */
+function PhotoPicker({ label, value, onPick }: { label: string; value: string | undefined; onPick: (image: string) => void }) {
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      onPick(await ownPhotoUrl(file));
+    } catch {
+      showToast(t("campaigns.photo.failed"));
+    }
+  };
+  return (
+    <div className="space-y-2">
+      <span className="block text-sm font-medium">{label}</span>
+      <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
+        {POSTER_IMAGES.map((image) => (
+          <Button variant="secondary" size="sm"
+            key={image}
+            aria-pressed={value === image}
+            aria-label={t(image.includes("massage") ? "campaigns.photo.massage" : "campaigns.photo.salon")}
+            onClick={() => onPick(image)}
+            className={cx("h-16 w-24 overflow-hidden bg-cover bg-center", value === image ? "!ring-2 ring-action" : "ring-input-border")}
+            style={{ backgroundImage: `url(${image})` }}
+          />
+        ))}
+        <label className={cx(buttonClass("secondary", "sm"), "h-16 w-24 cursor-pointer flex-col !gap-1 !text-minimum", value && isOwnPhoto(value) && "!ring-2 ring-action")}>
+          <ImagePlus size={18} aria-hidden />
+          {t("campaigns.photo.own")}
+          <TextInput type="file" accept="image/*" className="sr-only" onChange={(event) => { void pick(event.target.files?.[0]); event.target.value = ""; }} />
+        </label>
       </div>
     </div>
   );

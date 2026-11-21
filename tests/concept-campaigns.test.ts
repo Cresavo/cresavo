@@ -264,10 +264,10 @@ it("starts a new poster from the owner's latest choices", async () => {
   const state = createDemoState("2026-11-21");
   const prefill = defaultPrefill(state, "2026-11-21");
   expect(newDraft(prefill)).toMatchObject({ style: "price", posterEdits: {} });
-  const mine = { style: "dusk" as const, image: "/demo/salon.webp", headline: "Höst", detail: "Fotvård", textSize: "large" as const, focus: "top" as const };
+  const mine = { style: "dusk" as const, image: "/demo/salon.webp", headline: "Höst", detail: "Fotvård", textSize: "large" as const, focus: "top" as const, badges: ["Epassi", "Benify"] };
   const withMine = { ...state, campaigns: [{ ...state.campaigns[0], id: "mine", poster: mine }, ...state.campaigns] };
   expect(latestPoster(withMine)).toBe(mine);
-  expect(newDraft(prefill, latestPoster(withMine))).toMatchObject({ style: "dusk", posterEdits: { textSize: "large", focus: "top" } });
+  expect(newDraft(prefill, latestPoster(withMine))).toMatchObject({ style: "dusk", posterEdits: { textSize: "large", focus: "top", badges: ["Epassi", "Benify"] } });
 });
 
 it("never saves a photo that only lives in this tab with the campaign", async () => {
@@ -279,6 +279,21 @@ it("never saves a photo that only lives in this tab with the campaign", async ()
   expect(posterToSave(state, draft)).toMatchObject({ image: resolvePoster(state, { ...draft, posterEdits: {} }).image, headline: "Höst" });
   const demoPhoto = { ...draft, posterEdits: { image: "/demo/massage.webp" } };
   expect(posterToSave(state, demoPhoto).image).toBe("/demo/massage.webp");
+});
+
+it("gives the before/after poster two different photos and never saves the owner's own", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, posterToSave, resolvePoster } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const draft = { ...newDraft(defaultPrefill(state, "2026-11-21")), style: "beforeafter" as const };
+  const poster = resolvePoster(state, draft);
+  expect(poster.before).toBeTruthy();
+  expect(poster.before).not.toBe(poster.image);
+  expect(resolvePoster(state, { ...draft, style: "price" }).before).toBeUndefined();
+  expect(poster.cta).toBeTruthy();
+  const own = { ...draft, posterEdits: { before: "blob:https://demo.example/1", image: "blob:https://demo.example/2" } };
+  expect(resolvePoster(state, own)).toMatchObject({ before: "blob:https://demo.example/1", image: "blob:https://demo.example/2" });
+  expect(posterToSave(state, own)).toMatchObject({ before: poster.before, image: poster.image });
 });
 
 it("fills the review and free-times posters from published reviews and the calendar", async () => {

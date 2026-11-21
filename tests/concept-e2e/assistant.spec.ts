@@ -4,14 +4,15 @@ import { addDays, formatTime } from "../../src/concept/data/dates";
 import { createDemoState } from "../../src/concept/data/generate";
 import { freeStarts, needOf } from "../../src/concept/data/slots";
 import type { DemoState } from "../../src/concept/data/types";
-import { salonClock } from "../../src/concept/tools/clock";
 import { salonState } from "./fixtures";
 
 // The goal 16 journey, without any AI key: open the assistant, ask about the
 // numbers, send an offer, teach it a preference that the next booking uses,
 // see the morning brief on Today and switch on a suggested routine.
 
-const today = salonClock().today;
+// A fixed Tuesday, as in the other journeys: the fixture then always has bookings today, Today shows
+// the morning brief (not Monday's weekly review) and there are customers who have not been in since summer.
+const today = "2026-11-17";
 const errors = new WeakMap<Page, string[]>();
 
 async function state(page: Page): Promise<DemoState> {

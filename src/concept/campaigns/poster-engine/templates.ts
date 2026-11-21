@@ -1,3 +1,4 @@
+import { encode } from "uqr";
 import { z } from "zod";
 import { box, image, svgImage, text, type PosterNode } from "./element";
 
@@ -5,7 +6,7 @@ import { box, image, svgImage, text, type PosterNode } from "./element";
 // (headline, price, photo, sticker, price list, signature) that the owner fills
 // and adjusts within limits, so every poster stays presentable.
 
-export const ENGINE_TEMPLATES = ["price", "pricelist", "season", "review", "slots"] as const;
+export const ENGINE_TEMPLATES = ["price", "pricelist", "season", "review", "slots", "beforeafter"] as const;
 export type EngineTemplate = (typeof ENGINE_TEMPLATES)[number];
 
 export const ENGINE_FORMATS = { post: { width: 1080, height: 1350 }, story: { width: 1080, height: 1920 }, window: { width: 1050, height: 1485 } } as const;
@@ -15,6 +16,14 @@ const colour = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const line = (max: number) => z.string().trim().max(max);
 /** Photos arrive as JPEG or PNG data URLs (Satori cannot read WebP); about 2 MB each at most. */
 const photo = z.string().max(2_800_000).regex(/^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/);
+
+const hasHost = (value: string) => {
+  try {
+    return new URL(value).hostname.length > 0;
+  } catch {
+    return false;
+  }
+};
 
 export const posterDataSchema = z.object({
   /** Small label above the headline, such as "Friskvård". */
@@ -30,6 +39,9 @@ export const posterDataSchema = z.object({
   quote: line(220).default(""),
   author: line(40).default(""),
   photo,
+  /** Before/after: the "before" photo, and the two words on the photos in the salon's language. */
+  before: photo.optional(),
+  pair: z.tuple([line(12), line(12)]).default(["Before", "After"]),
   focus: z.enum(["top", "center", "bottom"]).default("center"),
   textSize: z.enum(["small", "normal", "large"]).default("normal"),
   colors: z.object({ accent: colour, ink: colour, background: colour }).strict(),
@@ -41,6 +53,8 @@ export const posterDataSchema = z.object({
     rating: z.number().min(1).max(5).optional(),
     /** Shown after the stars, e.g. "48 omdömen"; worded by the caller in the salon's language. */
     reviews: line(30).optional(),
+    /** The full booking address, drawn as a QR code beside the salon's name. */
+    qr: z.string().trim().max(200).regex(/^https:\/\/[^\s<>"]+$/).refine(hasHost).optional(),
   }).strict(),
 }).strict();
 
@@ -62,17 +76,52 @@ const stars = (count: number, size: number) =>
   svgImage(`<svg xmlns="http://www.w3.org/2000/svg" width="${count * size}" height="${size}" viewBox="0 0 ${count * 24} 24">${Array.from({ length: count }, (_, i) =>
     `<path transform="translate(${i * 24} 0)" fill="#f5b400" d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 20.9l1.6-7L2 9.2l7.1-.6z"/>`).join("")}</svg>`, { width: count * size, height: size });
 
-/** Phone, rating, booking link and the salon's name: the same strip on every poster, so posts are recognisable. */
+/** A QR code on a white tile, drawn as one SVG path (each run of dark modules in a row is one rectangle). */
+function qrCode(url: string, size: number): PosterNode {
+  const { data } = encode(url, { ecc: "M", border: 4 });
+  const modules = data.length;
+  let path = "";
+  data.forEach((row, y) => {
+    for (let x = 0; x < modules; x++) {
+      if (!row[x]) continue;
+      let end = x;
+      while (end + 1 < modules && row[end + 1]) end++;
+      path += `M${x} ${y}h${end - x + 1}v1h-${end - x + 1}z`;
+      x = end;
+    }
+  });
+  return svgImage(`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${modules} ${modules}" shape-rendering="crispEdges"><rect width="${modules}" height="${modules}" fill="#ffffff"/><path d="${path}" fill="#111111"/></svg>`,
+    { width: size, height: size, borderRadius: 16 });
+}
+
+const QR_SIZE = 168;
+
+/** Phone, rating, booking link, the salon's name and a QR code to the booking page: the same strip on every poster, so posts are recognisable. */
 function signature(data: PosterData, width: number, colourOn: string): PosterNode {
-  const { salon, phone, rating, reviews, link } = data.signature;
-  const details = box({ flexDirection: "column", fontSize: 30, color: colourOn, maxWidth: width - 128 - 340 },
+  const { salon, phone, rating, reviews, link, qr } = data.signature;
+  const side = qr ? 320 + QR_SIZE : 340;
+  const details = box({ flexDirection: "column", fontSize: 30, color: colourOn, maxWidth: width - 128 - side },
     text({ fontSize: 44, fontWeight: 800 }, phone),
     ...(rating ? [box({ alignItems: "center", marginTop: 4 }, stars(Math.round(rating), 30), text({ marginLeft: 12 }, `${rating.toFixed(1)}${reviews ? ` · ${reviews}` : ""}`))] : []),
-    text({ display: "block", opacity: 0.85, marginTop: 4, maxWidth: width - 128 - 340, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, link));
+    text({ display: "block", opacity: 0.85, marginTop: 4, maxWidth: width - 128 - side, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, link));
+  const name = text({ fontFamily: "Caladea", fontSize: qr ? 40 : 46, lineHeight: 1, color: colourOn, maxWidth: qr ? 280 : 320, textAlign: "right" }, salon);
   return box({ position: "absolute", left: 64, bottom: 56, width: width - 128, alignItems: "flex-end", justifyContent: "space-between" },
     details,
-    text({ fontFamily: "Caladea", fontSize: 46, lineHeight: 1, color: colourOn, maxWidth: 320, textAlign: "right" }, salon));
+    qr ? box({ alignItems: "flex-end" }, name, box({ marginLeft: 24 }, qrCode(qr, QR_SIZE))) : name);
 }
+
+/** The largest pill text size, at most 25 px, at which the badges fit on one row of `room` pixels. */
+const badgeSize = (badges: string[], room: number) => {
+  const letters = badges.reduce((sum, badge) => sum + badge.length, 0);
+  // Per pill: about 0.62 em per letter, 1.2 em of padding, a third of an em of margin and two 3 px borders.
+  for (let size = 25; size > 14; size--) if (letters * size * 0.62 + badges.length * (size * 1.2 + size / 3 + 6) <= room) return size;
+  return 14;
+};
+
+/** The wellness-benefit services the salon accepts (Epassi, Benify …), as small outlined pills. */
+const badgeRow = (badges: string[], colour: string, size: number, style: Record<string, string | number> = {}) =>
+  box({ flexWrap: "wrap", alignItems: "flex-start", ...style }, ...badges.map((badge) =>
+    text({ border: `3px solid ${colour}`, color: colour, borderRadius: 999, padding: `${Math.round(size / 4)}px ${Math.round(size * 0.6)}px`, marginRight: Math.round(size / 3), marginTop: 10, fontSize: size, fontWeight: 800 }, badge)));
 
 function headingFont(data: PosterData) {
   return data.serifHeadings ? { fontFamily: "Caladea", fontWeight: 400, letterSpacing: -1 } : { fontFamily: "Inter Display", fontWeight: 900, letterSpacing: -4 };
@@ -88,6 +137,11 @@ function priceTemplate(data: PosterData, width: number, height: number): PosterN
   // Heavy digits are about 0.6 em wide; the price may reach a little over the photo, never across it.
   const priceTop = waveTop + (data.sticker ? 250 : 130);
   const priceSize = Math.min(Math.round(220 * scale), Math.floor((width - photoWidth + 60) / (Math.max(3, data.price.length) * 0.6)));
+  const detailTop = priceTop + priceSize + 70;
+  const detailSize = Math.round(40 * scale);
+  // The badges sit just above the signature; the detail gets the lines that fit above them.
+  const badgesTop = height - 290;
+  const detailLines = data.badges.length ? Math.max(1, Math.min(4, Math.floor((badgesTop - 16 - detailTop) / (detailSize * 1.25)))) : 4;
   const wave = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height - waveTop}" viewBox="0 0 ${width} ${height - waveTop}" preserveAspectRatio="none"><path d="M0 60 C ${width * 0.24} -10, ${width * 0.48} 140, ${width} 40 V${height - waveTop} H0Z" fill="${accent}"/></svg>`;
   return box({ width, height, position: "relative", background, fontFamily: "Inter" },
     svgImage(wave, { position: "absolute", left: 0, top: waveTop, width, height: height - waveTop }),
@@ -96,7 +150,8 @@ function priceTemplate(data: PosterData, width: number, height: number): PosterN
     text({ position: "absolute", left: 56, top: priceTop, fontFamily: "Inter Display", fontWeight: 900, fontSize: priceSize, letterSpacing: -6, color: onAccent, textShadow: `12px 12px 0 ${onAccent === WHITE ? ink : WHITE}` }, data.price),
     ...(data.sticker ? [box({ position: "absolute", left: width - photoWidth - 150, top: waveTop + 20, width: 210, height: 210, borderRadius: 999, background: HIGHLIGHT, color: "#111111", transform: "rotate(-12deg)", flexDirection: "column", alignItems: "center", justifyContent: "center", fontWeight: 800 },
       text({ fontSize: 32 }, data.sticker[0]), text({ fontSize: 52 }, data.sticker[1]))] : []),
-    text({ position: "absolute", left: 64, top: priceTop + priceSize + 70, width: width - photoWidth - 40, fontSize: Math.round(40 * scale), fontWeight: 600, lineHeight: 1.25, color: onAccent, lineClamp: 4 }, data.detail),
+    text({ position: "absolute", left: 64, top: detailTop, width: width - photoWidth - 40, fontSize: detailSize, fontWeight: 600, lineHeight: 1.25, color: onAccent, lineClamp: detailLines }, data.detail),
+    ...(data.badges.length ? [badgeRow(data.badges, onAccent, badgeSize(data.badges, width - photoWidth - 40), { position: "absolute", left: 64, top: badgesTop, width: width - photoWidth - 40, height: 64, overflow: "hidden" })] : []),
     signature(data, width, onAccent));
 }
 
@@ -116,7 +171,7 @@ function priceListTemplate(data: PosterData, width: number, height: number): Pos
       ...(data.label ? [box({}, text({ background: accent, color: onColour(accent), fontWeight: 800, fontSize: 28, letterSpacing: 5, padding: "8px 20px", borderRadius: 12 }, data.label.toUpperCase()))] : []),
       text({ ...headingFont(data), fontSize: Math.round(88 * scale), lineHeight: 0.98, marginTop: 22, marginBottom: 18, color: ink }, data.headline),
       ...rows,
-      ...(data.badges.length ? [box({ marginTop: 24, flexWrap: "wrap" }, ...data.badges.map((badge) => text({ border: `3px solid ${ink}`, borderRadius: 999, padding: "6px 20px", marginRight: 12, fontSize: 26, fontWeight: 800 }, badge)))] : [])),
+      ...(data.badges.length ? [badgeRow(data.badges, ink, 26, { marginTop: 14 })] : [])),
     box({ position: "absolute", left: 0, bottom: 0, width, height: footer, background: ink }),
     signature(data, width, onColour(ink)));
 }
@@ -184,8 +239,56 @@ function slotsTemplate(data: PosterData, width: number, height: number): PosterN
     text({ position: "absolute", left: 60, top: listTop, width: width - 120, fontSize: Math.round(54 * scale), fontWeight: 800 }, data.items.map((item) => item.name).join("  ·  ")),
     text({ position: "absolute", left: 60, top: listTop + Math.round(80 * scale), width: width - 120, fontSize: Math.round(40 * scale), fontWeight: 600, opacity: 0.85 }, data.detail),
     ...(tall
-      ? [box({ position: "absolute", left: 60, bottom: 100, width: width - 120, justifyContent: "center", background: ink, color: onColour(ink), fontWeight: 800, fontSize: 48, padding: 30, borderRadius: 999 }, text({}, data.cta || data.signature.link))]
+      // The story ends with a booking button, and the QR code beside it so a screenshot still leads to booking.
+      ? [box({ position: "absolute", left: 60, bottom: 90, width: width - 120, alignItems: "center" },
+        box({ flexGrow: 1, justifyContent: "center", background: ink, color: onColour(ink), fontWeight: 800, fontSize: 48, padding: 30, borderRadius: 999 }, text({}, data.cta || data.signature.link)),
+        ...(data.signature.qr ? [box({ marginLeft: 28 }, qrCode(data.signature.qr, QR_SIZE))] : []))]
       : [box({ position: "absolute", left: 0, bottom: 0, width, height: 250, background: ink }), signature(data, width, onColour(ink))]));
+}
+
+/** A before and an after photo side by side (stacked in the story format), the treatment and a call to book. */
+function beforeAfterTemplate(data: PosterData, width: number, height: number): PosterNode {
+  const { accent, ink, background } = data.colors;
+  const scale = SCALE[data.textSize];
+  const tall = height > width * 1.5;
+  const footer = 250;
+  const gap = 24;
+  const onBackground = onColour(background) === WHITE ? WHITE : ink;
+  // A long headline gets two smaller lines, and the photos start below them.
+  // Heavy display letters average under 0.5 em wide; a headline that would not fit on one line gets two smaller lines.
+  const long = data.headline.length * 104 * scale * 0.5 > width - 128;
+  const headlineSize = Math.round((long ? 76 : 104) * scale);
+  const headlineTop = tall ? 130 : 70;
+  const photoTop = headlineTop + Math.round(headlineSize * (long ? 2 : 1) * 1.02) + 40;
+  // Post: two photos side by side; story: one above the other. Both end above the text and the footer.
+  const detailSize = Math.round(38 * scale);
+  const detailHeight = Math.round(detailSize * 1.25 * 2);
+  const photosBottom = height - footer - 30 - detailHeight - (tall ? 150 : 30);
+  const slot = tall
+    ? { width: width - 128, height: Math.round((photosBottom - photoTop - gap) / 2) }
+    : { width: Math.round((width - 128 - gap) / 2), height: photosBottom - photoTop };
+  const at = (index: number) => (tall ? { left: 64, top: photoTop + index * (slot.height + gap) } : { left: 64 + index * (slot.width + gap), top: photoTop });
+  const tag = (label: string, index: number) => {
+    const { left, top } = at(index);
+    const fill = index ? accent : WHITE;
+    return text({ position: "absolute", left: left + 24, top: top + slot.height - 92, background: fill, color: index ? onColour(accent) : "#111111", fontWeight: 800, fontSize: 32, letterSpacing: 4, padding: "10px 24px", borderRadius: 999 }, label.toUpperCase());
+  };
+  const photoAt = (src: string, index: number) =>
+    image(src, { position: "absolute", ...at(index), width: slot.width, height: slot.height, objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: 32 });
+  const middle = tall
+    ? { left: Math.round(width / 2 - 48), top: photoTop + slot.height + gap / 2 - 48 }
+    : { left: Math.round(width / 2 - 48), top: photoTop + Math.round(slot.height / 2) - 48 };
+  return box({ width, height, position: "relative", background, fontFamily: "Inter", color: onBackground },
+    text({ position: "absolute", left: 64, top: headlineTop, width: width - 128, ...headingFont(data), display: "block", fontSize: headlineSize, lineHeight: 1, lineClamp: 2 }, data.headline),
+    photoAt(data.before ?? data.photo, 0),
+    photoAt(data.photo, 1),
+    tag(data.pair[0], 0),
+    tag(data.pair[1], 1),
+    box({ position: "absolute", ...middle, width: 96, height: 96, borderRadius: 999, background: HIGHLIGHT, color: "#111111", alignItems: "center", justifyContent: "center", fontSize: 52, fontWeight: 800, transform: tall ? "rotate(90deg)" : "none" }, text({}, "→")),
+    text({ position: "absolute", left: 64, top: photosBottom + 30, width: width - 128, fontSize: detailSize, fontWeight: 600, lineHeight: 1.25, lineClamp: 2 }, data.detail),
+    ...(tall && data.cta ? [box({ position: "absolute", left: 64, top: photosBottom + 30 + detailHeight + 30 }, button(data.cta, ink, onColour(ink)))] : []),
+    box({ position: "absolute", left: 0, bottom: 0, width, height: footer, background: ink }),
+    signature(data, width, onColour(ink)));
 }
 
 const LAYOUTS: Record<EngineTemplate, (data: PosterData, width: number, height: number) => PosterNode> = {
@@ -194,6 +297,7 @@ const LAYOUTS: Record<EngineTemplate, (data: PosterData, width: number, height: 
   season: seasonTemplate,
   review: reviewTemplate,
   slots: slotsTemplate,
+  beforeafter: beforeAfterTemplate,
 };
 
 export function posterTree(template: EngineTemplate, data: PosterData, format: EngineFormat): PosterNode {

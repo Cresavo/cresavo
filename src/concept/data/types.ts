@@ -316,7 +316,7 @@ export interface Holiday {
 export type CampaignStatus = "active" | "planned" | "ended" | "draft";
 export type Channel = "instagram" | "facebook" | "tiktok" | "newsletter" | "sms";
 /** The first five are drawn in the browser; the rest are rendered by the server poster engine. */
-export type PosterStyle = "calm" | "bold" | "photo" | "arch" | "dusk" | "price" | "pricelist" | "season" | "review" | "slots";
+export type PosterStyle = "calm" | "bold" | "photo" | "arch" | "dusk" | "price" | "pricelist" | "season" | "review" | "slots" | "beforeafter";
 export type PosterFormat = "post" | "story" | "window";
 
 export interface CampaignPoster {
@@ -336,6 +336,10 @@ export interface CampaignPoster {
   cta?: string;
   quote?: string;
   author?: string;
+  /** Engine styles: the wellness-benefit services the salon accepts, e.g. "Epassi". */
+  badges?: string[];
+  /** Before/after style: the "before" photo; `image` is the "after" photo. */
+  before?: string;
 }
 export type PosterTextSize = "small" | "normal" | "large";
 /** Which part of the photo stays in view when the template crops it. */

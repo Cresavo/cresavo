@@ -32,7 +32,9 @@ export function CampaignStudio() {
   const [draft, setDraft] = useState<Draft>(() => newDraft((query && prefillFromQuery(query, state, today)) ?? defaultPrefill(state, today), latestPoster(state)));
   const [step, setStep] = useState<Step>("offer");
   const index = STEPS.indexOf(step);
-  const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
+  // A patch can depend on the latest draft, so changes that finish late (a photo still decoding) never undo newer ones.
+  const change = (patch: Partial<Draft> | ((current: Draft) => Partial<Draft>)) =>
+    setDraft((current) => ({ ...current, ...(typeof patch === "function" ? patch(current) : patch) }));
 
   const publish = (publishOn: DateKey) => {
     const logId = dispatchWithLog({

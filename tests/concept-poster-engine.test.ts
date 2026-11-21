@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { shortLink } from "@/concept/campaigns/poster-engine/client";
+import { qrLink, qrTarget, shortLink } from "@/concept/campaigns/poster-engine/client";
 import { renderPosterSvg } from "@/concept/campaigns/poster-engine/render";
 import { posterDataSchema, posterTree } from "@/concept/campaigns/poster-engine/templates";
 
@@ -30,6 +30,20 @@ describe("poster engine input", () => {
     expect(posterDataSchema.safeParse({ ...input, items: Array.from({ length: 9 }, () => ({ name: "a", price: "1" })) }).success).toBe(false);
   });
 
+  it("accepts only an https address for the QR code", () => {
+    expect(posterDataSchema.safeParse({ ...input, signature: { ...input.signature, qr: "https://salongeko.example/c/x" } }).success).toBe(true);
+    for (const qr of ["http://salongeko.example", "javascript:alert(1)", "https://a.example/\"><script>", `https://${"a".repeat(200)}.example`]) {
+      expect(posterDataSchema.safeParse({ ...input, signature: { ...input.signature, qr } }).success).toBe(false);
+    }
+    expect(posterDataSchema.safeParse({ ...input, signature: { ...input.signature, qr: "https://?campaign=x" } }).success).toBe(false);
+    expect(qrLink("https://eko.example/c/x")).toBe("https://eko.example/c/x");
+    for (const link of ["salongeko.example/c/x", "http://eko.example", "https://?campaign=x", undefined]) expect(qrLink(link)).toBeUndefined();
+    // A demo tracking link is not a real address, so the QR code leads to the salon's booking page on this site.
+    expect(qrTarget("salongeko.example/c/x", "salong-eko", "https://demo.cresavo.com")).toBe("https://demo.cresavo.com/boka/salong-eko");
+    expect(qrTarget("https://eko.example/c/x", "salong-eko", "https://demo.cresavo.com")).toBe("https://eko.example/c/x");
+    expect(qrTarget("salongeko.example/c/x", "salong-eko", "http://localhost:3000")).toBeUndefined();
+  });
+
   it("shortens long booking links for the signature", () => {
     expect(shortLink("https://salongeko.example/c/10-off-medical-7w4")).toBe("salongeko.example/c/10-off-medi…");
     expect(shortLink("https://eko.example")).toBe("eko.example");
@@ -48,6 +62,38 @@ describe("poster engine templates", () => {
   it("lists every treatment and badge on the price list", () => {
     const tree = flat(posterTree("pricelist", data, "post"));
     for (const part of ["FRISKVÅRD", "Fotvård", "895 kr", "Spamassage", "Epassi"]) expect(tree).toContain(part);
+  });
+
+  it("draws a QR code in the signature only when there is a booking address", () => {
+    const withQr = posterDataSchema.parse({ ...input, signature: { ...input.signature, qr: "https://salongeko.example/c/x" } });
+    const qrImages = (tree: string) => (tree.match(/data:image\/svg\+xml;base64,[^"]+/g) ?? [])
+      .map((uri) => Buffer.from(uri.split(",")[1], "base64").toString()).filter((svg) => svg.includes("crispEdges"));
+    expect(qrImages(flat(posterTree("price", withQr, "post")))).toHaveLength(1);
+    expect(qrImages(flat(posterTree("price", data, "post")))).toHaveLength(0);
+  });
+
+  it("keeps a QR code beside the booking button on the free-times story", () => {
+    const withQr = posterDataSchema.parse({ ...input, cta: "Boka nu →", signature: { ...input.signature, qr: "https://salongeko.example/c/x" } });
+    const tree = flat(posterTree("slots", withQr, "story"));
+    expect(tree).toContain("Boka nu →");
+    expect(tree).toContain("data:image/svg+xml;base64,");
+    expect(tree.match(/data:image\/svg\+xml;base64,[^"]+/g)!.some((uri) => Buffer.from(uri.split(",")[1], "base64").toString().includes("crispEdges"))).toBe(true);
+  });
+
+  it("shows the wellness badges on the price poster", () => {
+    expect(flat(posterTree("price", data, "post"))).toContain("Epassi");
+    expect(flat(posterTree("price", { ...data, badges: [] }, "post"))).not.toContain("Epassi");
+  });
+
+  it("puts the before and after photos with their labels on the before/after poster", () => {
+    const before = jpeg.replace("data:image/jpeg", "data:image/png");
+    const paired = posterDataSchema.parse({ ...input, before, pair: ["Före", "Efter"], cta: "Boka nu →" });
+    for (const format of ["post", "story"] as const) {
+      const tree = flat(posterTree("beforeafter", paired, format));
+      for (const part of ["FÖRE", "EFTER", "Salongens fotvård", before.slice(0, 40), jpeg.slice(0, 40)]) expect(tree).toContain(part);
+    }
+    expect(flat(posterTree("beforeafter", paired, "story"))).toContain("Boka nu →");
+    expect(posterDataSchema.safeParse({ ...input, before: "https://elsewhere.example/a.jpg" }).success).toBe(false);
   });
 
   it("follows the salon's colours and the photo crop", () => {
