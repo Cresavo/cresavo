@@ -2,6 +2,7 @@ import {
   sweepActivityPersonalData, sweepDemoActions, sweepExpiredIdempotency, sweepExpiredSandboxes, sweepJournalAccessRows, sweepOutboxBodies,
   sweepOwnerGuardBuckets, sweepRateLimits,
 } from "../src/concept/store/store-sweepers";
+import { sweepDeletedMedia } from "../src/lib/media/sweep";
 import { createDatabaseClient } from "./database.mjs";
 
 try {
@@ -16,7 +17,9 @@ try {
     const rateLimitRows = await sweepRateLimits({ prisma });
     const activityRows = await sweepActivityPersonalData({ prisma });
     const journalAccessRows = await sweepJournalAccessRows({ prisma });
-    console.log(JSON.stringify({ expiredIdempotencyKeys, demoActions, ownerGuardBuckets, sandbox, outboxBodies, rateLimitRows, activityRows, journalAccessRows }));
+    // Deleted photos and logos (src/lib/media/sweep.ts); with MEDIA_STORE=s3 the job needs the MEDIA_S3_* settings too.
+    const mediaPurged = await sweepDeletedMedia({ prisma });
+    console.log(JSON.stringify({ expiredIdempotencyKeys, demoActions, ownerGuardBuckets, sandbox, outboxBodies, rateLimitRows, activityRows, journalAccessRows, mediaPurged }));
   } finally {
     await prisma.$disconnect();
   }
