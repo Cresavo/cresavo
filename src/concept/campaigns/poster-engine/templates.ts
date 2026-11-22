@@ -390,7 +390,9 @@ function portraitTemplate(data: PosterData, width: number, height: number): Post
  */
 export function fitHeadline(headline: string, room: number, max: number, floor: number, maxLines: number) {
   const longest = Math.max(1, ...headline.split(/\s+/).map((word) => word.length));
-  const sizeFor = (lines: number) => Math.min(max, room / (Math.max(longest, Math.ceil(headline.length / lines)) * 0.52));
+  // Heavy display letters average about 0.6 em with their spacing (measured on "Medicinsk" at 200 px); the longest
+  // word must fit on its own line.
+  const sizeFor = (lines: number) => Math.min(max, room / (Math.max(longest, Math.ceil(headline.length / lines)) * 0.6));
   const lines = Array.from({ length: maxLines }, (_, i) => i + 1).find((count) => sizeFor(count) >= max * 0.6) ?? maxLines;
   return { size: Math.max(floor, Math.floor(sizeFor(lines))), lines };
 }
