@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Customer data rights and retention in the studio (GDPR pilot gate, English and Swedish).** A customer's page has a "Their data" card: download everything held about them as a JSON file or a spreadsheet (card, visits, journal with versions, messages, consents, reviews, sales, punch cards and activity, nothing about other customers), edit every personal field including the waiting-list consent (`customer/update`), and erase them for good with a typed confirmation that says what goes and what is kept for bookkeeping (account salons erase through `POST /api/owner/salon/erase`, which also redacts the audit log and outbox); an erased customer's trash entry has the same "Erase now". Retention periods live in `src/concept/privacy/retention.ts` (defaults to be confirmed by the salon or a lawyer): `npm run store:sweep` now also blanks message bodies in the outbox after 90 days, redacts personal fields of audit rows after 13 months and deletes rate-limit rows a day after they expire, the studio's history drops names and undo data after 13 months, and "Customers due for review" lists customers without a visit for 3 years (keep, delete or erase; nothing is deleted automatically). Under More, Your data, Privacy shows who read journals (who, when, whose journal, never the content), the owner's journal review period, and the retention rules. Drafts of a data processing agreement, the sub-processor list and a journal DPIA are in `docs/legal/` and need legal review.
+
 ## [0.7.0] - 2026-11-22
 
 ### Added

@@ -4,10 +4,11 @@ import { phoneMatches } from "@/concept/booking/lookup";
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Upload, UserSearch } from "lucide-react";
+import { ClipboardCheck, Upload, UserSearch } from "lucide-react";
 import { t, tc } from "@/concept/i18n";
 import { servedBy, staffViewer } from "@/concept/ops/access";
 import { useRole } from "@/concept/ops/role";
+import { customersDueForReview } from "@/concept/privacy/review";
 import { buildCustomerStats, fullName } from "@/concept/selectors";
 import { CustomerRow } from "@/concept/studio/customers/customer-row";
 import { FILTERS, filterCustomers, isFilter, type CustomerFilter } from "@/concept/studio/customers/customer-filters";
@@ -36,6 +37,7 @@ export default function CustomersPage() {
   const [limit, setLimit] = useState(PAGE_SIZE);
   const stats = useMemo(() => buildCustomerStats(state, today), [state, today]);
   const lists = useMemo(() => filterCustomers(state, stats, today), [state, stats, today]);
+  const reviewCount = useMemo(() => (viewer ? 0 : customersDueForReview(studio, today).length), [studio, today, viewer]);
   const late = new Set(lists.notSeen.map((c) => c.id));
   const due = new Set(lists.due.map((c) => c.id));
   const q = query.trim().toLowerCase();
@@ -56,7 +58,10 @@ export default function CustomersPage() {
     <>
       <PageHeader
         title={t("customers.title")}
-        actions={viewer ? undefined : <ButtonLink href="/studio/customers/import" help="import-customers" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>}
+        actions={viewer ? undefined : <>
+          {reviewCount > 0 && <ButtonLink href="/studio/customers/review" variant="secondary" icon={<ClipboardCheck size={18} />}>{t("customers.reviewLink", { count: reviewCount })}</ButtonLink>}
+          <ButtonLink href="/studio/customers/import" help="import-customers" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>
+        </>}
       />
       <div className="mb-4 space-y-3">
         <SearchInput className="md:max-w-form" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("customers.search")} aria-label={t("customers.search")} />

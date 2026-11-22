@@ -19,7 +19,7 @@ import { useStudio } from "../use-studio";
 import { undoBlockMessageKey, undoWithToast } from "./undo-toast";
 
 /** "Today 10:42", "Mon 16 Nov 10:42". */
-function entryTime(at: number, today: string): string {
+export function entryTime(at: number, today: string): string {
   const date = new Date(at);
   return `${relativeDay(toKey(date), today)} ${formatTime(date.getHours() * 60 + date.getMinutes())}`;
 }

@@ -375,6 +375,26 @@ Pure helpers (`jsonEqual`, `withTrustedTimes`, effect ids, `subjectIds`,
 - `openSandboxTenant(token)` returns a handle with `load` and `apply`. Its first successful apply creates and changes the day's deterministic salon-local fixture in one transaction. Rejected first applies leave no tenant. The database clock sets a fixed 24-hour expiry. Expired tenants are unavailable to loads, writes, history and outbox claims. If a token is reused after its expired rows are swept, the new sandbox gets a new tenant ID. `load()` and the committed action entry return that ID. Pair it with `expectedVersion` for edits through `store.apply`, and with the cursor for `history`. A token-only `apply` accepts an omitted version or version `0` for the initial write. The caller will own token validity when an API is added.
 - `npm run store:sweep` runs one pass using the supplied `DATABASE_URL` and prints JSON counts. It deletes expired sandboxes and all their rows, expired idempotency keys and demo audit rows older than seven days. The sweepers use at most 500 selected rows or tenants per batch by default and skip locks held by another transaction. Each sandbox batch locks the tenant rows and deletes their data atomically. The cron connection needs maintenance privileges on the four store tables, including `DELETE` on `tenant_action` and `tenant_effect`. The application audit grants stay append-only.
 
+### Retention of personal data
+
+The periods live in `src/concept/privacy/retention.ts`. They are defaults: the salon (controller) or a lawyer must confirm them before the pilot gate is signed off.
+
+| Data | Default | How it is enforced |
+| --- | --- | --- |
+| Inactive customers | 3 years after the last visit | Never automatic. "Customers due for review" lists them in the studio (`customersDueForReview`). The owner keeps, deletes (30 days in the trash) or erases. A kept customer returns after 12 months. |
+| Journal entries | The owner's setting (`state.privacy`) | Never automatic. Privacy lists customers with entries older than the chosen period. |
+| Activity log, personal data | 13 months | `sweepActivityPersonalData` replaces the personal fields of old `tenant_action` rows (`PERSONAL_FIELDS`) with `[redacted]`, sets `redacted_at` and clears the informational `idempotency_key`. The document's own history (`state.log`) is aged by `ageActivityLog` whenever the salon changes: older entries keep type, time and actor. |
+| Message bodies in the outbox | 90 days | `sweepOutboxBodies` blanks body, subject, address and delivery copy of non-pending messages whose action is older than 90 days. A `customer:<id>` reference stays. |
+| Rate-limit rows | 1 day | `sweepRateLimits` deletes `RateLimitBucket` rows that expired more than a day ago. |
+| Idempotency keys | 24 hours | `sweepExpiredIdempotency` (unchanged). |
+| Journal access log | 24 months | Pruned when a new read is logged. |
+
+`npm run store:sweep` runs all of them and prints their counts. The cron connection needs `UPDATE ("action", "idempotency_key", "redacted_at")` on `tenant_action`, `UPDATE ("payload")` on `tenant_effect` and `DELETE` on `"RateLimitBucket"` in addition to the grants above. The application role keeps append-only access to `tenant_action`. Nothing schedules the script yet: the operator runs it (daily is enough).
+
+### Journal read log
+
+`journal/view` records one read of a journal in `state.journalAccess` (who, when, which customer, no content). It is not an activity entry. The studio sends it when a journal is shown (the customer's journal tab, the history list, the last advice on a booking and on Today). The owner salon load (`GET /api/owner/salon`) logs one entry without a customer when the salon holds journal entries, because the document delivers every journal to the browser; it is logged at most every ten minutes. Missing: the journals still travel with the document, so a modified client can read without reporting. Logging every read on the server needs a route that returns one customer's journal.
+
 The lifecycle integration tests cover notification delivery and reconnect,
 privileged replacement, demo-only reset and retention, sandbox expiry and
 simulated delivery, and refusal of oversized writes.
@@ -507,7 +527,7 @@ Adopted 19 November 2026 through the owner's delegation. They replace the first 
   - A payment still pending at erasure keeps its payload until it is delivered, and nothing redacts it afterwards. Payment payloads hold no names today.
   - The effect `fingerprint` is a SHA-256 of the full request.
   - `purgeExpired` erases expired trash entries in the document. A future salon trash sweeper still needs to invoke `eraseSubject` for those customers to redact their retained table rows.
-  - The browser and memory stores refuse erasure, and the studio has no "erase now" control yet. Its trash and undo are unchanged.
+  - The browser and memory stores refuse erasure as a plain `apply`. The studio's "Erase permanently" runs `customer/erase` through the browser's own dispatch for the demo and own-browser salons, and through `POST /api/owner/salon/erase` (`eraseSubject`) for account salons.
   - `erasure: "function"` has not been run under a role without `UPDATE` on `tenant_action`, because the test database cannot create roles.
 - **Poller fairness.** A run claims in `(tenant_id, seq, n)` order up to `limit`, so with a large backlog one tenant's rows can delay another's until the next run. Live provider sinks are not wired, so `npm run effects:drain` delivers only demo and sandbox effects for now.
 - **Browser dirty checks.** UI comparisons such as the booking-rules draft

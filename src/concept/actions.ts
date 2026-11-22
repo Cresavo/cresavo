@@ -37,6 +37,9 @@ import { grantSupport, revokeSupport, type GrantHours } from "./support/access";
 import type { NewTicket } from "./support/tickets";
 import { deleteCustomer, restoreEntry, trashBooking } from "./trash/trash";
 import { eraseCustomer } from "./customers/erase";
+import { keepCustomer, updateBooking, updateCustomer, type BookingPatch, type CustomerPatch } from "./customers/rights";
+import { recordJournalView, type JournalViewAction } from "./privacy/journal-access";
+import { validJournalYears } from "./privacy/review";
 import { placeOrders, receiveGoods, type Delivery, type NewOrder } from "./stock/orders";
 import { paidWithCards, redeemGiftCard, returnRedemptions, sellGiftCard } from "./giftcards/cards";
 import { sellPackage, consumePackageVisit } from "./packages/packages";
@@ -113,6 +116,15 @@ export type DemoAction =
   | { type: "inbox/add"; item: Omit<InboxItem, "id"> }
   | { type: "review/reply"; id: string; reply: string }
   | { type: "customer/note"; id: string; note: string }
+  /** Correction of a customer's card (GDPR art. 16): any subset of its personal fields. */
+  | { type: "customer/update"; id: string; patch: CustomerPatch }
+  /** Correction of the personal text fields of a visit: the address typed on the booking page, a note, a cancellation reason. */
+  | { type: "booking/update"; id: string; patch: BookingPatch }
+  /** The owner reviewed a customer due under the retention rules and keeps them. */
+  | { type: "customer/keep"; id: string; on: DateKey }
+  /** One read of a journal, logged without its content. Without a customer: a load that delivered every journal. */
+  | ({ type: "journal/view" } & JournalViewAction)
+  | { type: "privacy/journal-retention"; years: number | null }
   | { type: "cost/add"; kind: CostKind; label: string; amount: number }
   | { type: "cost/remove"; id: string }
   | { type: "accounting/connect"; on: DateKey }
@@ -703,6 +715,17 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
     }
     case "card/dismiss":
       return state.dismissedCards.includes(action.id) ? state : { ...state, dismissedCards: [...state.dismissedCards, action.id] };
+    case "customer/update":
+      return updateCustomer(state, action.id, action.patch);
+    case "booking/update":
+      return updateBooking(state, action.id, action.patch);
+    case "customer/keep":
+      return keepCustomer(state, action.id, action.on);
+    case "journal/view":
+      return recordJournalView(state, action, now);
+    case "privacy/journal-retention":
+      if (!validJournalYears(action.years) || (state.privacy?.journalRetentionYears ?? null) === action.years) return state;
+      return { ...state, privacy: { ...state.privacy, journalRetentionYears: action.years } };
     case "customer/delete":
       return deleteCustomer(state, action.id);
     case "customer/erase":

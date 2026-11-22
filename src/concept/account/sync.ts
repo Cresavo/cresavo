@@ -114,6 +114,39 @@ function send(action: DemoAction, change: AccountChange) {
   });
 }
 
+/** What an erasure could not finish at once: payments still being processed keep their record, and a message that was being sent is not retried. */
+export interface ErasureReport {
+  pendingPayments: number;
+  inFlightMessages: number;
+}
+
+/**
+ * Erases one customer of the signed-in owner's salon for good. It waits for the changes already sent, and the
+ * server redacts the customer's data in the audit log, the message outbox and the stored replay results as well
+ * (`customer/erase` is not accepted as a plain change). Null when nothing could be confirmed: erasing again is safe.
+ */
+export function eraseAccountCustomer(customerId: string): Promise<ErasureReport | null> {
+  const run = queue.then(async (): Promise<ErasureReport | null> => {
+    try {
+      const response = await request(`${SALON}/erase`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ customerId }),
+      });
+      if (response.status === 401) {
+        closeAccountSalon();
+        showToast(t("account.sync.signedOut"));
+        return null;
+      }
+      if (!response.ok || !response.body?.state) return null;
+      replaceAccountSalon(response.body.state);
+      return { pendingPayments: Number(response.body.pendingPayments) || 0, inFlightMessages: Number(response.body.inFlightMessages) || 0 };
+    } catch {
+      return null;
+    }
+  });
+  queue = run.then(() => undefined);
+  return run;
+}
+
 /** Opens the signed-in owner's salon in the studio, if this browser has one. Returns true when it did. */
 export async function openSignedInSalon(): Promise<boolean> {
   if (!ownerHintPresent(document.cookie)) return false;

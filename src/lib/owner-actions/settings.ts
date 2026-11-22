@@ -48,6 +48,7 @@ export const settingsSchemas = {
     type: z.literal("reminder/settings"),
     settings: z.strictObject({ channel: z.enum(["sms", "email"]).optional(), smsPriceOre: z.number().int().min(0).max(MAX_SMS_PRICE_ORE).optional() }),
   }),
+  "privacy/journal-retention": z.strictObject({ type: z.literal("privacy/journal-retention"), years: z.number().int().min(1).max(30).nullable() }),
   "module/toggle": z.strictObject({ type: z.literal("module/toggle"), key: moduleKey }),
   "module/preset": z.strictObject({ type: z.literal("module/preset"), preset: z.enum(["essentials", "everything"]) }),
   "card/dismiss": z.strictObject({ type: z.literal("card/dismiss"), id }),

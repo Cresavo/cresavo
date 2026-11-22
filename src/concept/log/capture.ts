@@ -2,6 +2,7 @@ import { demoPaymentLedger } from "../connections/demo";
 import { reduce, type DemoAction } from "../actions";
 import type { DemoState } from "../data/types";
 import { describeAction, isLogged } from "./describe";
+import { ageActivityLog } from "../privacy/activity";
 import { diffStates } from "./patch";
 import type { LogEntry, LogMeta } from "./types";
 
@@ -46,5 +47,5 @@ export function prepareAction(state: DemoState, action: DemoAction, meta: LogMet
     after,
     patch: NOT_UNDOABLE.has(action.type) || batch.hasPayments() ? undefined : patch,
   };
-  return { ...next, seq: next.seq + 1, log: [entry, ...next.log].slice(0, LOG_LIMIT) };
+  return { ...next, seq: next.seq + 1, log: ageActivityLog([entry, ...next.log].slice(0, LOG_LIMIT), meta.at) };
 }

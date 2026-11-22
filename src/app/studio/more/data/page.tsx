@@ -1,13 +1,13 @@
 "use client";
 
-import { ChevronRight, Download, MessageCircle, Upload } from "lucide-react";
+import { ChevronRight, Download, MessageCircle, ShieldCheck, Upload } from "lucide-react";
 import { t } from "@/concept/i18n";
 import { bookingsCsv, customersCsv, download } from "@/concept/studio/more/export";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { DEVELOPERS_PAGE } from "@/concept/studio/nav";
 import { ConnectCard } from "@/concept/studio/pairing/connect-card";
 import { usePairing } from "@/concept/studio/pairing/session";
-import { useDemo } from "@/concept/store";
+import { dispatch, useDemo } from "@/concept/store";
 import { useStudio } from "@/concept/studio/use-studio";
 import { dispatchWithUndoToast } from "@/concept/studio/log/undo-toast";
 import { Button, ButtonLink } from "@/concept/ui/button";
@@ -35,7 +35,11 @@ export default function DataPage() {
   const pairing = usePairing();
   const saved = useDemo() ?? state;
   const exports = [
-    { label: t("data.export.all"), run: () => download(`${state.salon.slug}-${today}.json`, JSON.stringify(saved, null, 2), "application/json") },
+    { label: t("data.export.all"), run: () => {
+      download(`${state.salon.slug}-${today}.json`, JSON.stringify(saved, null, 2), "application/json");
+      // The file holds every journal: that is a read of all of them.
+      if (saved.journals.length) dispatch({ type: "journal/view", actor: "owner" });
+    } },
     { label: t("data.export.customers"), run: () => download(`${state.salon.slug}-customers-${today}.csv`, customersCsv(saved), "text/csv") },
     { label: t("data.export.bookings"), run: () => download(`${state.salon.slug}-bookings-${today}.csv`, bookingsCsv(saved), "text/csv") },
   ];
@@ -56,6 +60,9 @@ export default function DataPage() {
             <ButtonLink href="/studio/customers/import" variant="secondary" size="sm" className="self-start">{t("import.title")}</ButtonLink>
           </PlainCard>
         </div>
+        <PlainCard icon={<ShieldCheck size={22} />} title={t("data.card.privacy")} text={t("data.card.privacyText")}>
+          <ButtonLink href="/studio/more/privacy" variant="secondary" size="sm" className="self-start">{t("data.card.privacyOpen")}</ButtonLink>
+        </PlainCard>
         <PlainCard icon={<MessageCircle size={22} />} title={t("data.card.assistant")} text={t("data.card.assistantText")}>
           <div className="flex flex-wrap gap-2">
             {state.industry && (

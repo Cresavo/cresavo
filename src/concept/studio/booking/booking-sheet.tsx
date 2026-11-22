@@ -14,6 +14,7 @@ import { Badge } from "../../ui/badge";
 import { Button, ButtonLink } from "../../ui/button";
 import { Chip, Switch } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
+import { JournalRead } from "../customers/journal-read";
 import { RedeemSheet } from "../giftcards/redeem-sheet";
 import { commitWithUndoToast } from "../log/commit-toast";
 import type { CommitOptions } from "../../store/commit";
@@ -23,6 +24,7 @@ import { useStudio } from "../use-studio";
 import { salonCancellationOnly } from "../../booking/settlement";
 import { useSalonNow } from "../../use-now";
 import { formatMinor } from "../../booking/policy-summary";
+import { EditBookingContact } from "./edit-booking-contact";
 import { FeeDecisionPanel } from "./fee-decision";
 import { SlotPicker, slotOnDate, type Slot } from "./slot-picker";
 import { waitlistCount, waitlistNotice } from "./waitlist-notice";
@@ -226,6 +228,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
           <InfoRow label={t("booking.source")} value={t(`source.${booking.source}`)} />
           {paidByCard > 0 && <InfoRow label={t("giftcards.paidWith")} value={formatMoney(paidByCard)} />}
           {pkg && <InfoRow label={t("packages.on")} value={tc("packages.onLeft", visitsLeft(pkg))} />}
+          {booking.contactEmail && <InfoRow label={t("booking.contact.email")} value={<span className="break-all">{booking.contactEmail}</span>} />}
           {customer?.phone && (
             <InfoRow
               label={t("booking.phone")}
@@ -245,6 +248,9 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
             {pkg && <p className="text-sm text-text-secondary">{t("packages.giftCardInstead")}</p>}
           </div>
         )}
+        {(booking.contactEmail || (booking.status === "cancelled" && booking.cancelReason)) && (
+          <EditBookingContact booking={booking} save={(patch) => commit({ type: "booking/update", id: booking.id, patch }, t("booking.contact.saved"))} />
+        )}
         {customer?.note && (
           <div className="rounded-lg bg-warning-bg px-4 py-3 text-sm text-text">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-warning">{t("booking.note")}</p>
@@ -255,6 +261,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
           <div className="rounded-lg bg-surface-2 px-4 py-3 text-sm">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("booking.lastAdvice")}</p>
             {lastJournal.advice}
+            <JournalRead customerId={booking.customerId} />
           </div>
         )}
       </div>
