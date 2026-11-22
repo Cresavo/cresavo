@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { MAX_UPCOMING_ONLINE_PER_PHONE, reduce, type DemoAction } from "@/concept/actions";
+import { MAX_UPCOMING_ONLINE_PER_PHONE, reduce, type DemoAction, type OnlineGuest } from "@/concept/actions";
+import { bookingMessage } from "@/concept/booking/messages";
+import { acceptedTerms } from "@/concept/booking/public-terms";
+import { VISIT_FOR_MAX } from "@/concept/booking/visit-for";
 import { PUBLIC_WINDOW_DAYS } from "@/concept/booking/public-projection";
 import { eraseCustomer } from "@/concept/customers/erase";
 import { addDays } from "@/concept/data/dates";
@@ -15,7 +18,7 @@ const state = createDemoState(today);
 const guest = { name: "Lisa Berg", phone: "073-555 01 02", email: "lisa.berg@example.test", at: { date: today, time: 600 } };
 const notice = { title: "New online booking", body: "Fictional" };
 const need = { serviceId: "medical-foot-care", duration: 60 };
-const book = (date: string, start: number, over: Partial<typeof guest> = {}): DemoAction =>
+const book = (date: string, start: number, over: Partial<OnlineGuest> = {}): DemoAction =>
   ({ type: "online/book", guest: { ...guest, ...over }, notice, serviceId: "medical-foot-care", staffId: "anna", date, start });
 const startOn = (date: string, nth = 0) => freeStarts(state, "anna", date, need, { step: 30 })[nth];
 
@@ -38,6 +41,55 @@ describe("online/book contact e-mail", () => {
     const other = { ...booked.bookings[0], contactEmail: "lisa.berg@example.test" };
     const erased = eraseCustomer({ ...booked, bookings: [other, ...booked.bookings.slice(1)] }, customerId);
     expect(JSON.stringify(erased)).not.toContain("lisa.berg@example.test");
+  });
+});
+
+describe("online/book for someone else", () => {
+  const date = "2026-11-24";
+  const forElsa = () => reduce(state, book(date, startOn(date), { visitFor: "  Elsa   Berg " }));
+
+  it("keeps the guest's name on the booking and the booker as the customer to contact", () => {
+    const next = forElsa();
+    const booking = next.bookings.at(-1)!;
+    const customer = next.customers.find((c) => c.id === booking.customerId)!;
+    expect(booking.visitFor).toBe("Elsa Berg");
+    expect(`${customer.firstName} ${customer.lastName}`).toBe("Lisa Berg");
+    expect(customer.phone).toBe(guest.phone);
+    expect(next.customers.some((c) => c.firstName === "Elsa")).toBe(false);
+  });
+
+  it("sends the confirmation to the booker and names the guest in it", () => {
+    const next = forElsa();
+    const booking = next.bookings.at(-1)!;
+    const sent = next.inbox.filter((item) => item.bookingId === booking.id && item.delivery?.kind === "confirmation");
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent.every((item) => item.customerId === booking.customerId)).toBe(true);
+    expect(bookingMessage(next, booking, "confirmation").body).toContain("Elsa Berg");
+    expect(bookingMessage(next, booking, "reminder").body).toContain("Elsa Berg");
+  });
+
+  it("stores no guest for a booking for oneself, also when the booker repeats their own name", () => {
+    expect(reduce(state, book(date, startOn(date))).bookings.at(-1)).not.toHaveProperty("visitFor");
+    expect(reduce(state, book(date, startOn(date), { visitFor: "lisa berg" })).bookings.at(-1)).not.toHaveProperty("visitFor");
+  });
+
+  it("refuses a name that is too short or too long", () => {
+    expect(reduce(state, book(date, startOn(date), { visitFor: " E " }))).toBe(state);
+    expect(reduce(state, book(date, startOn(date), { visitFor: "E".repeat(VISIT_FOR_MAX + 1) }))).toBe(state);
+  });
+
+  it("is refused from a salon's public page, whose erasure does not cover the name yet", () => {
+    const service = state.services.find((s) => s.id === "medical-foot-care")!;
+    const fromPage = { slug: state.salon.slug, terms: acceptedTerms(state, service), publicRef: "ref-fictional" };
+    const own = { ...book(date, startOn(date)), public: fromPage } as DemoAction;
+    const other = { ...book(date, startOn(date), { visitFor: "Elsa Berg" }), public: fromPage } as DemoAction;
+    expect(reduce(state, own)).not.toBe(state);
+    expect(reduce(state, other)).toBe(state);
+  });
+
+  it("is erased with the customer who booked", () => {
+    const next = forElsa();
+    expect(JSON.stringify(eraseCustomer(next, next.bookings.at(-1)!.customerId))).not.toContain("Elsa Berg");
   });
 });
 

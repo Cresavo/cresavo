@@ -7,7 +7,7 @@ import { freeGaps } from "../../data/slots";
 import type { Booking, DateKey, StaffId } from "../../data/types";
 import { t } from "../../i18n";
 import { formatDuration, formatTime } from "../../i18n/format";
-import { findCustomer, findService, fullName } from "../../selectors";
+import { findCustomer, findService, fullName, visitorName } from "../../selectors";
 import { Badge, Tag } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { cx } from "../../ui/cx";
@@ -67,10 +67,11 @@ export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: S
               {current && <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-action" />}
               <ListRow onClick={() => onOpen({ kind: "booking", id: b.id })}
                 leading={<span className={cx(TIME, quiet && "text-text-secondary")}>{formatTime(b.start)}</span>}
-                title={<span className={cx(cancelled && "line-through", quiet && "text-text-secondary")}>{customer ? fullName(customer) : ""}</span>}
+                title={<span className={cx(cancelled && "line-through", quiet && "text-text-secondary")}>{visitorName(b, customer)}</span>}
                 meta={<span className="flex items-center gap-2">
                   <StaffDot staffId={b.staffId} />
                   <span>
+                    {b.visitFor && customer && `${t("booking.bookedByName", { name: fullName(customer) })} · `}
                     {person && `${person} · `}
                     {service && /\d+ min/.test(service.name) ? service.name : `${service?.name} · ${formatDuration(b.duration)}`}
                   </span>

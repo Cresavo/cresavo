@@ -30,6 +30,7 @@ export function BookingList({ bookings, onOpen }: { bookings: Booking[]; onOpen:
                 {findService(state, b.serviceId)?.name}
               </span>
             </span>}
+            meta={b.visitFor ? t("booking.for.visit", { name: b.visitFor }) : undefined}
             trailing={<>
               {b.status === "cancelled" || b.status === "noshow"
                 ? <Badge tone="danger">{t(`status.${b.status}`)}</Badge>

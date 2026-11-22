@@ -33,10 +33,12 @@ export function bookingMessage(state: DemoState, booking: Booking, kind: Booking
   const service = stored && serviceCopy(stored, language);
   const staff = state.staff.find(staff => staff.id === booking.staffId);
   const subject = customerText(state, `messages.subject.${kind}`, { salon: state.salon.name });
-  const details = customerText(state, state.salon.address ? `messages.body.${kind}` : `messages.noAddress.${kind}`, {
+  const visit = customerText(state, state.salon.address ? `messages.body.${kind}` : `messages.noAddress.${kind}`, {
     salon: state.salon.name, service: service?.name ?? "", date: formatDate(booking.date, language),
     time: formatTime(booking.start, language), staff: staff?.firstName ?? "", address: state.salon.address,
   });
+  // The message goes to the customer who booked; it says who the visit is for when that is someone else.
+  const details = booking.visitFor ? `${visit} ${customerText(state, "messages.forGuest", { name: booking.visitFor })}` : visit;
   const path = bookingPage(state.salon.slug, booking.id);
   const body = customerText(state, "messages.withManageLink", { details, link: path });
   return { subject, body, details, path };

@@ -7,7 +7,7 @@ import { paidWithCards, remainingForCards } from "../../giftcards/cards";
 import { t, tc, type MessageKey } from "../../i18n";
 import { formatDayLong, formatDuration, formatMoney, formatTime } from "../../i18n/format";
 import { packageFor, visitsLeft } from "../../packages/packages";
-import { findCustomer, findService, fullName } from "../../selectors";
+import { findCustomer, findService, fullName, visitorName } from "../../selectors";
 import { newActionRequestId } from "../../support/action-reference";
 import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Badge } from "../../ui/badge";
@@ -57,7 +57,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const customer = findCustomer(state, booking.customerId);
   const service = findService(state, booking.serviceId);
   const staff = state.staff.find((s) => s.id === booking.staffId)!;
-  const name = customer ? fullName(customer) : "";
+  const name = visitorName(booking, customer);
   const upcoming = booking.status === "booked" && (booking.date > today || (booking.date === today && booking.start + booking.duration > minutes));
   const finished = booking.status === "booked" && !upcoming;
   const when = `${formatDayLong(booking.date)} · ${formatTime(booking.start)}–${formatTime(booking.start + booking.duration)}`;
@@ -222,6 +222,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
         )}
         <dl className="divide-y divide-hairline rounded-lg ring-1 ring-hairline">
           <InfoRow label={t("booking.when")} value={when} />
+          {booking.visitFor && customer && <InfoRow label={t("booking.bookedBy")} value={fullName(customer)} />}
           <InfoRow label={t("booking.with")} value={`${staff.firstName} ${staff.lastName}`} />
           {booking.resourceId && <InfoRow label={t("booking.room")} value={state.resources.find((r) => r.id === booking.resourceId)?.name ?? ""} />}
           <InfoRow label={t("booking.price")} value={formatMoney(booking.price)} />
@@ -231,7 +232,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
           {booking.contactEmail && <InfoRow label={t("booking.contact.email")} value={<span className="break-all">{booking.contactEmail}</span>} />}
           {customer?.phone && (
             <InfoRow
-              label={t("booking.phone")}
+              label={t(booking.visitFor ? "booking.contactPhone" : "booking.phone")}
               value={
                 <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className="inline-flex min-h-target min-w-target items-center gap-2 text-action">
                   <Phone size={14} />

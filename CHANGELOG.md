@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Book for someone else.** The contact step of the booking page asks "Who is the visit for?" with "For me" chosen from the start, so a booking for yourself takes no extra tap. "For someone else" adds one field for the visitor's name; the booker stays the contact person and receives the confirmation and reminders, which now say who the visit is for. The booking keeps the visitor's name (`visitFor`) beside the customer who booked, and the Studio shows the visitor on calendar and Today rows and in the booking sheet, with "Booked by" and the contact's phone. Offered for salons kept in the browser (the demo and an own salon); salons kept on the server do not offer it yet, because their erasure of a customer does not cover the new name.
+
 ## [0.8.0] - 2026-11-22
 
 ### Added

@@ -40,6 +40,9 @@ export function useGuestContact(slug: string) {
   const [known] = useState(() => recallGuest(slug));
   const [guest, setGuest] = useState({ name: known?.name ?? "", phone: known?.phone ?? "" });
   const [choice, setChoice] = useState<boolean>();
+  // Who the visit is for is asked each time and never saved on the device.
+  const [who, setWho] = useState<"me" | "other">("me");
+  const [visitFor, setVisitFor] = useState("");
   const latestChoice = useRef<boolean | undefined>(undefined);
   const sameContact = !!known && known.name === guest.name.trim() && known.phone === guest.phone.trim();
   const remember = choice ?? sameContact;
@@ -53,5 +56,5 @@ export function useGuestContact(slug: string) {
     const allowed = latestChoice.current ?? (sameContact && recallGuest(slug)?.customerId === known?.customerId);
     rememberGuest(slug, allowed ? { name: guest.name.trim(), phone: guest.phone.trim(), customerId } : undefined);
   }
-  return { guest, setGuest, remember, chooseRemember, saveContact, explicitlyRemembers: () => latestChoice.current === true };
+  return { guest, setGuest, who, setWho, visitFor, setVisitFor, remember, chooseRemember, saveContact, explicitlyRemembers: () => latestChoice.current === true };
 }

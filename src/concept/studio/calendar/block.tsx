@@ -4,7 +4,7 @@ import { formatTime } from "../../i18n/format";
 import type { DragEvent } from "react";
 import { processingGap } from "../../data/slots";
 import type { Booking } from "../../data/types";
-import { findCustomer, findService, fullName } from "../../selectors";
+import { findCustomer, findService, visitorName } from "../../selectors";
 import { t } from "../../i18n";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
@@ -63,7 +63,7 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
         )}
       >
         <span className="min-w-0">
-          <span className="block truncate font-semibold">{customer ? (compact ? customer.firstName : fullName(customer)) : ""}</span>
+          <span className="block truncate font-semibold">{compact ? (booking.visitFor?.split(" ")[0] ?? customer?.firstName ?? "") : visitorName(booking, customer)}</span>
           <span className="block truncate text-text-secondary">
             {formatTime(booking.start)}
             {!compact && ` · ${service?.name}`}

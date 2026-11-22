@@ -41,6 +41,11 @@ export function fullName(c: Pick<Customer, "firstName" | "lastName">) {
   return `${c.firstName} ${c.lastName}`;
 }
 
+/** Who a visit is for: the named guest when the customer booked for someone else, otherwise the customer. */
+export function visitorName(booking: Pick<Booking, "visitFor">, customer?: Pick<Customer, "firstName" | "lastName"> | null): string {
+  return booking.visitFor ?? (customer ? fullName(customer) : "");
+}
+
 export function dayBookings(state: DemoState, date: DateKey, staffId?: StaffId, resourceId?: string): Booking[] {
   return state.bookings
     .filter((b) => b.date === date && isActive(b) && (!staffId || b.staffId === staffId) && (!resourceId || b.resourceId === resourceId))

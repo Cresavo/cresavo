@@ -17,7 +17,8 @@ import { Field, TextInput } from "../ui/controls";
 import { salonClock } from "../tools/clock";
 import { useCommit } from "../ui/use-commit";
 import type { Now } from "../use-now";
-import { GuestFields, RememberContact, isGuestValid } from "./guest-fields";
+import { GuestFields, RememberContact, VisitForChoice, isGuestValid } from "./guest-fields";
+import { isVisitForValid, visitForName } from "./visit-for";
 import { hoursUntil, LEAD_MINUTES } from "./policy";
 import { quote, type CheckoutHold } from "./protection";
 import { BookingSummary } from "./booking-summary";
@@ -41,7 +42,7 @@ interface DetailsStepProps {
 
 /** Last step: confirm the chosen time with name and phone number. */
 export function DetailsStep({ state, now, serviceId, slot, contact, suggested, timeControl, onTaken, onBooked, onHeld }: DetailsStepProps) {
-  const { guest, setGuest, remember, chooseRemember } = contact;
+  const { guest, setGuest, remember, chooseRemember, who, setWho, visitFor, setVisitFor } = contact;
   const service = state.services.find((s) => s.id === serviceId)!;
   const person = state.staff.find((s) => s.id === slot.staffId)!;
   const [run, pending] = useCommit();
@@ -54,6 +55,10 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
 
   // A deposit is not taken on the server yet, and no guest is known there until a phone number can be verified: the salon takes these by phone.
   const callForDeposit = (book && terms.depositMinor > 0) || failure?.key === "booking.depositByPhone";
+  // Booking for someone else is offered where the salon lives in this browser; a salon kept on the server cannot erase a guest's name yet.
+  const canBookForOther = !book && targetOf(state)?.workspace !== "account";
+  const forOther = canBookForOther && who === "other";
+  const ready = isGuestValid(guest) && (!forOther || isVisitForValid(visitFor));
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   const confirmOnServer = () => run(async () => {
@@ -70,20 +75,23 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
 
   const confirm = () => run(async () => {
     const target = targetOf(state);
-    if (!isGuestValid(guest)) return;
+    if (!ready) return;
     const name = guest.name.trim();
     const phone = guest.phone.trim();
+    const visitor = forOther ? visitForName(visitFor) : undefined;
     const day = formatDayLong(slot.date);
     const requestId = newActionRequestId();
     let reason: MessageKey = "booking.slotTaken";
     const clock = salonClock();
     const result = target && await commitAction(target, {
       type: terms.depositMinor ? "online/hold" : "online/book",
-      guest: { name, phone, at: { date: clock.today, time: clock.minutes } },
+      guest: { name, phone, ...(visitor ? { visitFor: visitor } : {}), at: { date: clock.today, time: clock.minutes } },
       serviceId, staffId: slot.staffId, date: slot.date, start: slot.start,
       notice: {
         title: t("booking.inboxTitle"),
-        body: t("booking.inboxBody", { service: service.name, staff: person.firstName, day, time: formatTime(slot.start) }),
+        body: visitor
+          ? t("booking.for.inboxBody", { service: service.name, guest: visitor, contact: name, staff: person.firstName, day, time: formatTime(slot.start) })
+          : t("booking.inboxBody", { service: service.name, staff: person.firstName, day, time: formatTime(slot.start) }),
       },
     }, {
       guard: current => {
@@ -131,6 +139,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
       ) : (
       <form className="booking-checkout" onSubmit={event => { event.preventDefault(); void (book ? confirmOnServer() : confirm()); }}>
         <div className="space-y-3">
+          {canBookForOther && <VisitForChoice who={who} onWho={setWho} name={visitFor} onName={setVisitFor} />}
           <GuestFields value={guest} onChange={setGuest} />
           {book ? (
             <>
@@ -146,11 +155,11 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
         </div>
         <BookingSummary slot={slot} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={moduleEnabled(state.modules, "packages")} demo={!book} />
         <div className="space-y-2">
-          <Button type="submit" size="lg" className="w-full" disabled={pending || !isGuestValid(guest) || (!!book && !validEmail)}>
+          <Button type="submit" size="lg" className="w-full" disabled={pending || !ready || (!!book && !validEmail)}>
             {t(terms.depositMinor ? "protection.continue" : "booking.confirm")}
           </Button>
           {failure && <p role="alert" className="text-meta text-danger">{t(failure.key, { minutes: failure.minutes ?? 0, phone: state.salon.phone })}</p>}
-          {!isGuestValid(guest) || (book && !validEmail) ? <p className="text-meta text-text-secondary">{t(book ? "booking.confirmDisabledEmail" : "booking.confirmDisabled")}</p> : null}
+          {!ready || (book && !validEmail) ? <p className="text-meta text-text-secondary">{t(book ? "booking.confirmDisabledEmail" : forOther ? "booking.for.confirmDisabled" : "booking.confirmDisabled")}</p> : null}
         </div>
         {book && <p className="text-meta text-text-secondary">{t("booking.processorNotice", { salon: state.salon.name })}</p>}
       </form>

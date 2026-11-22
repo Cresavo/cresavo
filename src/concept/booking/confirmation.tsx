@@ -76,6 +76,7 @@ export function Confirmation({ id, onBack }: { id: string; onBack?: () => void }
             {formatDayLong(booking.date)}, {formatTime(booking.start)}–{formatTime(booking.start + booking.duration)}
           </p>
         </div>
+        {booking.visitFor && <p className="text-body">{t("booking.for.visit", { name: booking.visitFor })}</p>}
         <div className="flex items-center gap-3 text-meta text-text-secondary">
           <StaffAvatar person={person} size="sm" />
           <span>{t("booking.withStaff", { name: `${person.firstName} ${person.lastName}` })} · {formatDuration(booking.duration)}</span>
