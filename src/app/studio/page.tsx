@@ -32,7 +32,7 @@ function greeting(minutes: number, name?: string) {
 /** One quiet line when there is no schedule to show; the header already says why. */
 function DayStatus({ text }: { text: string }) {
   return (
-    <Card surface="flat" className="flex min-h-14 items-center gap-3 py-3 text-text-secondary">
+    <Card surface="flat" className="flex items-center gap-3 text-text-secondary">
       <CalendarOff size={18} aria-hidden className="shrink-0" />
       <p>{text}</p>
     </Card>

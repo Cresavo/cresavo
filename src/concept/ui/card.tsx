@@ -6,8 +6,8 @@ const surfaces = {
   outlined: "rounded-lg bg-surface ring-1 ring-hairline",
   /** The one surface a screen is about: lifted off the canvas, no outline. */
   raised: "studio-raised rounded-lg bg-surface",
-  /** Content that sits on the canvas between two rules, without a box. */
-  flat: "border-y border-hairline",
+  /** Content that sits straight on the canvas: no box and no rules, set apart by space alone. */
+  flat: "",
 };
 
 export function Card({ className, surface = "outlined", ...rest }: HTMLAttributes<HTMLDivElement> & { surface?: keyof typeof surfaces }) {

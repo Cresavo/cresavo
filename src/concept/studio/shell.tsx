@@ -192,7 +192,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
         {groups.map((group) => {
           const expanded = open === group.id;
           return (
-            <div key={group.id} className="border-t border-hairline pt-2">
+            <div key={group.id} className="pt-3">
               <Button variant="tertiary" size="sm" align="between"
                 type="button"
                 aria-expanded={expanded}
@@ -214,7 +214,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
           );
         })}
       </nav>
-      <div className="mt-2 space-y-2 border-t border-hairline pt-3">
+      <div className="mt-4 space-y-2">
         <div className="flex items-center gap-3 px-1">
           <StaffAvatar person={person} size="md" />
           <span className="min-w-0 flex-1 text-sm leading-tight">
