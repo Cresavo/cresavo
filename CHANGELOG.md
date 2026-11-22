@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **A new product homepage, in English at `/` and Swedish at `/sv`.** "Own your bookings." opens with the wordmark drawn in dots, then walks from booking to chair beside live HTML replicas of the booking page, Today, a client card and the Someone is calling dialog, followed by three short reasons to own the system, an open-source card with the GitHub mark in dots, the client's own AI as the next step being tested, the founder's note, where each part stands, the two ways to run it, honest answers and a calm closing ask with the demo and an email to the founder. The page follows the system's light or dark scheme until the visitor flips the new toggle, works on phones without sideways scrolling, and shows everything at once with reduced motion. The film tour, sample booking and sticky phone button of the previous homepage are gone.
+
 ## [0.6.0] - 2026-11-22
 
 ### Added
