@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { reduce } from "@/concept/actions";
 import { runTask } from "@/concept/ai/run-task";
-import { buildImportRows, guessMapping, parseBirthday, parseCsv } from "@/concept/customers/csv";
+import { buildImportRows, guessMapping, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseBirthday, parseCsv, readImportFile, summarizeImport } from "@/concept/customers/csv";
 import { editJournalEntry } from "@/concept/customers/journal";
 import { bookingLink, dueBackList, intervalWeeks, nextVisitFor, suggestionSent, suggestSlot } from "@/concept/customers/return-visits";
 import { birthdayThisMonth, newThisYear, notSeenInThreeMonths, regulars, segmentCustomers, SEGMENTS } from "@/concept/customers/segments";
@@ -173,6 +173,41 @@ describe("CSV import", () => {
     expect(next.customers).toHaveLength(base.customers.length + 2);
     expect(new Set(next.customers.map((c) => c.id)).size).toBe(next.customers.length);
     expect(reduce(next, { type: "customers/import", customers })).toBe(next);
+  });
+  it("parses quotes, semicolons, tabs, a BOM, CRLF, blank lines and ragged rows", () => {
+    expect(parseCsv('﻿Name;Note\r\n"Lind; Maja";"said ""hi""\nthen left"\r\n\r\nOskar\r\n')).toEqual([["Name", "Note"], ["Lind; Maja", 'said "hi"\nthen left'], ["Oskar"]]);
+    expect(parseCsv("a\tb\n1\t2")).toEqual([["a", "b"], ["1", "2"]]);
+    expect(parseCsv('"a,b";c\n1;2')).toEqual([["a,b", "c"], ["1", "2"]]);
+    expect(parseCsv("")).toEqual([]);
+  });
+  it("maps Swedish and English headers, and never a national ID column", () => {
+    expect(guessMapping(["Förnamn", "Efternamn", "Telefonnummer", "E-post", "Födelsedag", "Anteckning", "Personnummer"])).toEqual({ firstName: 0, lastName: 1, phone: 2, email: 3, birthday: 4, note: 5 });
+    expect(guessMapping(["Kundnamn", "Mobil", "Email", "Comments"])).toEqual({ fullName: 0, phone: 1, email: 2, note: 3 });
+  });
+  it("flags invalid and overlong values and ragged rows without throwing", () => {
+    const mapping = { fullName: 0, phone: 1, email: 2 };
+    const rows = buildImportRows([["Maja Lind", "073-410 22 18", "not-an-email"], ["Oskar", "073-410 31 07"], ["X".repeat(121), "073-410 45 63", ""]], mapping, [], defaults);
+    expect(rows.map((r) => r.problem)).toEqual(["badEmail", undefined, "tooLong"]);
+    expect(rows[1].customer?.email).toBe("");
+  });
+  it("treats the same e-mail, in the file or already a customer, as a duplicate", () => {
+    const known = { phone: "070-111 11 11", email: "Known@mail.example" };
+    const rows = buildImportRows([["A", "073-410 22 18", "known@mail.example"], ["B", "073-410 31 07", "b@mail.example"], ["C", "073-410 45 63", "B@mail.example"]], { firstName: 0, phone: 1, email: 2 }, [known], defaults);
+    expect(rows.map((r) => r.problem)).toEqual(["duplicate", undefined, "duplicate"]);
+    expect(summarizeImport(rows)).toEqual({ ready: 1, duplicates: 2, errors: 0 });
+  });
+  it("imports without consent and drops repeated e-mails in the reducer", () => {
+    const [row] = buildImportRows([["Maja", "073-410 22 18", "maja@mail.example"]], { firstName: 0, phone: 1, email: 2 }, [], defaults);
+    expect(row.customer?.waitlist).toBe(false);
+    const sameEmail = { ...row.customer!, phone: "073-410 31 07" };
+    const next = reduce(base, { type: "customers/import", customers: [row.customer!, sameEmail] });
+    expect(next.customers).toHaveLength(base.customers.length + 1);
+  });
+  it("limits file size and row count", () => {
+    expect(readImportFile("name\n" + "a".repeat(MAX_IMPORT_BYTES))).toEqual({ problem: "tooBig" });
+    expect(readImportFile("name\n" + "a\n".repeat(MAX_IMPORT_ROWS + 1))).toEqual({ problem: "tooMany" });
+    expect(readImportFile("name\n" + "a\n".repeat(MAX_IMPORT_ROWS))).toHaveProperty("rows");
+    expect(readImportFile("name")).toEqual({ problem: "empty" });
   });
   it("accepts the example file's columns", async () => {
     const [header, ...body] = parseCsv(await readFile("public/demo/customers-example.csv", "utf8"));

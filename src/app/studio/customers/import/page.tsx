@@ -3,7 +3,7 @@
 import { useMemo, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Download, FileSpreadsheet, Upload } from "lucide-react";
-import { buildImportRows, guessMapping, IMPORT_FIELDS, parseCsv, type ImportProblem, type Mapping } from "@/concept/customers/csv";
+import { buildImportRows, guessMapping, IMPORT_FIELDS, readImportFile, summarizeImport, type FileProblem, type ImportProblem, type Mapping } from "@/concept/customers/csv";
 import { t, tc } from "@/concept/i18n";
 import type { MessageKey } from "@/concept/i18n";
 import { dispatchWithUndoToast } from "@/concept/studio/log/undo-toast";
@@ -17,11 +17,14 @@ import { Field, Input, Select } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
 
 const EXAMPLE = "/demo/customers-example.csv";
-const PREVIEW_ROWS = 12;
+const PREVIEW_ROWS = 10;
+const FILE_PROBLEM: Record<FileProblem, MessageKey> = { empty: "import.empty", tooBig: "import.tooBig", tooMany: "import.tooMany" };
 const PROBLEM_LABEL: Record<ImportProblem, MessageKey> = {
   duplicate: "import.status.duplicate",
   missingName: "import.status.missingName",
   missingPhone: "import.status.missingPhone",
+  badEmail: "import.status.badEmail",
+  tooLong: "import.status.tooLong",
 };
 
 export default function ImportCustomersPage() {
@@ -29,13 +32,13 @@ export default function ImportCustomersPage() {
   const router = useRouter();
   const [table, setTable] = useState<string[][] | null>(null);
   const [mapping, setMapping] = useState<Mapping>({});
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<MessageKey | null>(null);
 
   const load = (text: string) => {
-    const rows = parseCsv(text);
-    setError(rows.length < 2);
-    setTable(rows.length < 2 ? null : rows);
-    setMapping(rows.length < 2 ? {} : guessMapping(rows[0]));
+    const file = readImportFile(text);
+    setError("problem" in file ? FILE_PROBLEM[file.problem] : null);
+    setTable("rows" in file ? file.rows : null);
+    setMapping("rows" in file ? guessMapping(file.rows[0]) : {});
   };
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -46,7 +49,7 @@ export default function ImportCustomersPage() {
     try {
       load(await (await fetch(EXAMPLE)).text());
     } catch {
-      setError(true);
+      setError("import.readFailed");
     }
   };
 
@@ -56,6 +59,7 @@ export default function ImportCustomersPage() {
     [table, mapping, state.customers, state.staff, today],
   );
   const ready = rows.flatMap((row) => (row.customer ? [row.customer] : []));
+  const summary = summarizeImport(rows);
 
   const runImport = () => {
     dispatchWithUndoToast({ type: "customers/import", customers: ready }, tc("import.done", ready.length));
@@ -80,7 +84,8 @@ export default function ImportCustomersPage() {
               {t("import.downloadExample")}
             </a>
           </div>
-          {error && <p role="alert" className="text-sm text-danger">{t("import.empty")}</p>}
+          <p className="rounded-md bg-surface-2 px-4 py-3 text-sm text-text-secondary"><strong className="font-medium text-text">{t("import.legalTitle")}.</strong> {t("import.legal")}</p>
+          {error && <p role="alert" className="text-sm text-danger">{t(error)}</p>}
         </Card>
 
         {table && (
@@ -106,7 +111,7 @@ export default function ImportCustomersPage() {
 
             <Section
               title={t("import.preview")}
-              action={<span className="text-sm text-text-secondary">{t("import.summary", { ready: ready.length, skipped: rows.length - ready.length })}</span>}
+              action={<span className="text-sm text-text-secondary">{t("import.summary", { ...summary })}</span>}
             >
               {rows.length ? (
                 <Card className="divide-y divide-hairline overflow-hidden">

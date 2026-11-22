@@ -11,6 +11,7 @@ import { MAX_SMS_PRICE_ORE, type ReminderSettings } from "./booking/reminders";
 import { applyCustomerReview, type CustomerReviewAction } from "./booking/review-actions";
 import { applyAssistant, type AssistantAction } from "./assistant/actions";
 import { findCustomerByPhone, isContactPhone, isMobilePhone, normalizePhone } from "./booking/lookup";
+import { MAX_IMPORT_ROWS } from "./customers/csv";
 import { earliestBookingStart } from "./booking/policy";
 import { cleanSignOff } from "./campaigns/channels";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
@@ -361,11 +362,14 @@ function replyToInbox(state: DemoState, id: string, reply: string, slot?: SlotSu
 /** Adds imported customers, skipping any whose phone number is already known (or repeats within the list). */
 function importCustomers(state: DemoState, incoming: Omit<Customer, "id">[]): DemoState {
   const known = new Set(state.customers.map((c) => normalizePhone(c.phone)));
+  const knownEmails = new Set(state.customers.map((c) => c.email.toLowerCase()).filter(Boolean));
   const added: Customer[] = [];
-  for (const customer of incoming) {
+  for (const customer of incoming.slice(0, MAX_IMPORT_ROWS)) {
     const phone = normalizePhone(customer.phone);
-    if (phone.length < 7 || known.has(phone)) continue;
+    const email = customer.email.toLowerCase();
+    if (phone.length < 7 || known.has(phone) || (email && knownEmails.has(email))) continue;
     known.add(phone);
+    if (email) knownEmails.add(email);
     added.push({ ...customer, id: `k-${state.seq + added.length}` });
   }
   return added.length ? { ...state, seq: state.seq + added.length, customers: [...state.customers, ...added] } : state;

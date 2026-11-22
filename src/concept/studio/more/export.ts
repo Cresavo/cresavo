@@ -5,8 +5,13 @@ import { findService } from "../../selectors";
 // Plain exports of the demo data. Column names stay in English on purpose:
 // they are a data format, not UI text.
 
+/** Stops a spreadsheet from running free text as a formula: a leading = + - @ (or tab/CR) gets an apostrophe. Plain numbers and phone numbers stay as they are. */
+export function defuseFormula(text: string): string {
+  return /^[=+\-@\t\r]/.test(text) && !/^[+-]?[\d\s().-]+$/.test(text) ? `'${text}` : text;
+}
+
 function csvCell(value: string | number | undefined): string {
-  const text = value === undefined ? "" : String(value);
+  const text = value === undefined ? "" : typeof value === "number" ? String(value) : defuseFormula(value);
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
