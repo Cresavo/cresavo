@@ -1,4 +1,6 @@
 import type { CheckoutHold } from "../booking/protection";
+import { DateTime } from "luxon";
+import { SALON_TIMEZONE } from "../tools/clock";
 import { weekday } from "./dates";
 import type { Booking, DateKey, Interval, Resource, Salon, Service, Staff, StaffBlock, StaffException, StaffId, VisitTiming } from "./types";
 
@@ -169,8 +171,15 @@ function resourceFree(ctx: SlotContext, need: Need, date: DateKey, start: number
   return usableResources(ctx, need.serviceId).length === 0 || pickResource(ctx, need, date, start, ignoreId) !== undefined;
 }
 
+/** False for a wall-clock start that never happens: the hour skipped when the clocks go forward (02:30 on 2027-03-28 in Stockholm). Only that hour is looked up. */
+function startExists(date: DateKey, start: number): boolean {
+  if (start < 120 || start >= 180) return true;
+  const local = DateTime.fromISO(date, { zone: SALON_TIMEZONE }).set({ hour: Math.floor(start / 60), minute: start % 60 });
+  return local.hour * 60 + local.minute === start;
+}
+
 export function isFree(ctx: SlotContext, staffId: StaffId, date: DateKey, start: number, need: Need, ignoreId?: string): boolean {
-  if (!Number.isInteger(start) || !Number.isInteger(need.duration) || need.duration <= 0) return false;
+  if (!Number.isInteger(start) || !Number.isInteger(need.duration) || need.duration <= 0 || !startExists(date, start)) return false;
   const window = workWindow(ctx, staffId, date);
   if (!window) return false;
   const end = start + need.duration;

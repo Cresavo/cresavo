@@ -57,9 +57,9 @@ describe("POST /api/public/salons/[slug]/bookings/[id]", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     const { booking: view } = await response.json();
-    expect(Object.keys(view).sort()).toEqual(["date", "duration", "freeUntil", "salon", "staffFirstName", "start", "status", "treatment"]);
-    expect(view).toMatchObject({ date: "2026-11-24", start: 600, duration: 60, status: "booked", salon: { phone: "08-555 01 02" }, freeUntil: { date: "2026-11-23", time: 600 } });
-    expect(Object.keys(view.salon).sort()).toEqual(["address", "phone"]);
+    expect(Object.keys(view).sort()).toEqual(["closesAt", "date", "duration", "freeUntil", "salon", "serviceId", "staffFirstName", "staffId", "start", "status", "treatment"]);
+    expect(view).toMatchObject({ date: "2026-11-24", start: 600, duration: 60, status: "booked", salon: { phone: "08-555 01 02" }, freeUntil: { date: "2026-11-23", time: 600 }, closesAt: Date.parse("2026-11-23T10:00:00+01:00") });
+    expect(Object.keys(view.salon).sort()).toEqual(["address", "email", "phone"]);
     const text = JSON.stringify(view);
     for (const secret of ["Private note", "lisa@example.test", booking.customerId, booking.id, base.customers[0].lastName, base.customers[0].phone]) expect(text).not.toContain(secret);
   });
@@ -93,6 +93,17 @@ describe("POST /api/public/salons/[slug]/bookings/[id]", () => {
     expect((await post({ token: late })).status).toBe(200);
     vi.setSystemTime(new Date("2026-12-01T11:00:00+01:00"));
     expect((await post({ token: late })).status).toBe(404);
+  });
+
+  it("keeps a moved booking's link working until a week after the new visit, and not the old link past its own expiry", async () => {
+    const moved = { ...booking, date: "2026-12-10" };
+    query.mockResolvedValue([{ tenant_id: TENANT, doc: { ...doc, bookings: [moved] } }]);
+    vi.setSystemTime(new Date("2026-12-05T10:00:00+01:00")); // after the old visit's week, before the new visit
+    const fresh = await post({ token: mintBookingToken(scope, bookingTokenExpiry(moved)) });
+    expect([fresh.status, (await fresh.json()).booking.date]).toEqual([200, "2026-12-10"]);
+    expect((await post({ token: goodToken() })).status).toBe(404);
+    vi.setSystemTime(new Date("2026-12-18T10:00:00+01:00")); // a week after the new visit
+    expect((await post({ token: mintBookingToken(scope, bookingTokenExpiry(moved)) })).status).toBe(404);
   });
 
   it("refuses an oversized body", async () => {

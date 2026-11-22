@@ -26,3 +26,17 @@ export const publicBookingSchema = z.object({
     currency: z.string().max(8), priceMinor: z.number().int().min(0), depositMinor: z.number().int().min(0), duration: z.number().int().min(0).max(1440),
   }).strict(),
 }).strict();
+
+/** The change of a booking by the holder of its link: the link's token, and for a move the new time. Strict, and no free text. */
+export const MAX_MANAGE_BODY_BYTES = 2048;
+
+const token = z.string().min(1).max(300);
+
+/** The visit as the customer saw it; the change is refused if the booking is no longer that. */
+const expected = z.object({ staffId: z.string().min(1).max(64), date: dateSchema, start: z.number().int().min(0).max(1439) }).strict();
+
+export const cancelBookingSchema = z.object({ token, expected }).strict();
+
+export const moveBookingSchema = z.object({
+  token, expected, staffId: z.string().min(1).max(64), date: dateSchema, start: z.number().int().min(0).max(1439),
+}).strict();

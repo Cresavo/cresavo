@@ -42,8 +42,6 @@ export function POST(request: NextRequest, { params }: { params: Promise<{ slug:
     const address = found.state.salon.slug;
     // One answer for every refusal, the honeypot's (the schema's) and the form-time token's included.
     if (!issuedAtValid(body.data.issuedAt, tenantId, address)) return publicError("invalid", 422);
-    // The salon's allowance is charged once per new booking, below; a salon that has used it takes no new attempt.
-    await checkRateLimit("public-tenant", tenantId, false);
 
     const { name, phone, email, serviceId, date, start, terms } = body.data;
     const staffId = body.data.staffId as StaffId;
@@ -54,15 +52,9 @@ export function POST(request: NextRequest, { params }: { params: Promise<{ slug:
     };
     const { ownerStore } = await import("@/lib/owner-store");
     const result = await ownerStore().apply(tenantId, action, { actor: "customer", source: "customer-page" },
-      { idempotencyKey: scopedIdempotencyKey("booking-page", key.data) });
+      // The salon's allowance is taken by each new booking under the salon's lock, after a retry has been recognised: a committed retry gets its receipt, and no two can take the last one.
+      { idempotencyKey: scopedIdempotencyKey("booking-page", key.data), beforeCommit: async () => void await checkRateLimit("public-tenant", tenantId) });
     if (result.ok) {
-      if (!result.replayed) {
-        try {
-          await checkRateLimit("public-tenant", tenantId);
-        } catch {
-          // The booking is made; reaching the allowance with it only closes the next attempt.
-        }
-      }
       // On a replay the state is the original commit's, so the reference is the one first given out.
       const booking = result.state.bookings.filter((b) => b.publicRef && b.source === "online" && b.status === "booked" && b.serviceId === serviceId && b.staffId === staffId && b.date === date && b.start === start).at(-1);
       if (!booking) throw new Error("PUBLIC_BOOKING_MISSING");
