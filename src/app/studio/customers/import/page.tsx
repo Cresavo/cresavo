@@ -3,10 +3,12 @@
 import { useMemo, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Download, FileSpreadsheet, Upload } from "lucide-react";
-import { buildImportRows, guessMapping, IMPORT_FIELDS, parseCsv, type ImportProblem, type Mapping } from "@/concept/customers/csv";
+import { buildImportRows, decodeImportFile, guessMapping, importFitsServer, maxRowsForServer, IMPORT_FIELDS, MAX_IMPORT_BYTES, readImportFile, summarizeImport, type FileProblem, type ImportProblem, type Mapping } from "@/concept/customers/csv";
 import { t, tc } from "@/concept/i18n";
 import type { MessageKey } from "@/concept/i18n";
-import { dispatchWithUndoToast } from "@/concept/studio/log/undo-toast";
+import { runCustomerImport } from "@/concept/customers/run-import";
+import { useActiveWorkspace } from "@/concept/store";
+import { showCommittedToast } from "@/concept/studio/log/commit-toast";
 import { BackLink } from "@/concept/studio/back-link";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -15,38 +17,48 @@ import { Button, buttonClass } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
 import { Field, Input, Select } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
+import { showToast } from "@/concept/ui/toast";
 
 const EXAMPLE = "/demo/customers-example.csv";
-const PREVIEW_ROWS = 12;
+const PREVIEW_ROWS = 10;
+const FILE_PROBLEM: Record<FileProblem, MessageKey> = { empty: "import.empty", tooBig: "import.tooBig", tooMany: "import.tooMany", unclosedQuote: "import.unclosedQuote", badQuote: "import.badQuote" };
 const PROBLEM_LABEL: Record<ImportProblem, MessageKey> = {
   duplicate: "import.status.duplicate",
   missingName: "import.status.missingName",
   missingPhone: "import.status.missingPhone",
+  badEmail: "import.status.badEmail",
+  tooLong: "import.status.tooLong",
 };
 
 export default function ImportCustomersPage() {
-  const { state, today } = useStudio();
+  const { state, today, target } = useStudio();
   const router = useRouter();
   const [table, setTable] = useState<string[][] | null>(null);
   const [mapping, setMapping] = useState<Mapping>({});
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<{ key: MessageKey; line?: number } | null>(null);
+  const [importing, setImporting] = useState(false);
+  const workspace = useActiveWorkspace();
 
-  const load = (text: string) => {
-    const rows = parseCsv(text);
-    setError(rows.length < 2);
-    setTable(rows.length < 2 ? null : rows);
-    setMapping(rows.length < 2 ? {} : guessMapping(rows[0]));
+  const load = (bytes: ArrayBuffer) => {
+    const file = readImportFile(decodeImportFile(bytes), bytes.byteLength);
+    setError("problem" in file ? { key: FILE_PROBLEM[file.problem], line: file.line } : null);
+    setTable("rows" in file ? file.rows : null);
+    setMapping("rows" in file ? guessMapping(file.rows[0]) : {});
   };
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) load(await file.text());
     event.target.value = "";
+    if (!file) return;
+    if (file.size > MAX_IMPORT_BYTES) {
+      setTable(null);
+      setError({ key: "import.tooBig" });
+    } else load(await file.arrayBuffer());
   };
   const useExample = async () => {
     try {
-      load(await (await fetch(EXAMPLE)).text());
+      load(await (await fetch(EXAMPLE)).arrayBuffer());
     } catch {
-      setError(true);
+      setError({ key: "import.readFailed" });
     }
   };
 
@@ -56,9 +68,18 @@ export default function ImportCustomersPage() {
     [table, mapping, state.customers, state.staff, today],
   );
   const ready = rows.flatMap((row) => (row.customer ? [row.customer] : []));
+  const summary = summarizeImport(rows);
+  // A signed-in salon's import goes to the server as one action, which has a size limit.
+  const fits = workspace !== "account" || importFitsServer(ready);
 
-  const runImport = () => {
-    dispatchWithUndoToast({ type: "customers/import", customers: ready }, tc("import.done", ready.length));
+  // One action for the whole file, bound to the salon this page shows: a salon replaced meanwhile refuses it.
+  const runImport = async () => {
+    if (!target) return;
+    setImporting(true);
+    const outcome = await runCustomerImport(target, ready);
+    setImporting(false);
+    if (!outcome.ok) return showToast(t(outcome.reason === "notStored" ? "import.notStored" : "import.failed"));
+    showCommittedToast(target, outcome.result, tc("import.done", outcome.added));
     router.push("/studio/customers?filter=newThisYear");
   };
 
@@ -67,7 +88,7 @@ export default function ImportCustomersPage() {
       <PageHeader title={t("import.title")} subtitle={t("import.subtitle")} back={<BackLink href="/studio/customers" label={t("import.back")} />} />
       <div className="space-y-6">
         <Card className="space-y-4 p-5 md:max-w-form">
-          <p className="text-sm text-text-secondary">{t("import.hint")}</p>
+          <p className="text-sm text-text-secondary">{t("import.hint")} {t(workspace === "account" ? "import.privacyAccount" : "import.privacyLocal")}</p>
           <div className="flex flex-wrap gap-2">
             <label className={`${buttonClass(table ? "secondary" : "primary", "md", "w-full sm:w-fit")} cursor-pointer focus-within:ring-2 focus-within:ring-action`}>
               <Upload size={18} />
@@ -80,7 +101,8 @@ export default function ImportCustomersPage() {
               {t("import.downloadExample")}
             </a>
           </div>
-          {error && <p role="alert" className="text-sm text-danger">{t("import.empty")}</p>}
+          <p className="rounded-md bg-surface-2 px-4 py-3 text-sm text-text-secondary"><strong className="font-medium text-text">{t("import.legalTitle")}.</strong> {t("import.legal")}</p>
+          {error && <p role="alert" className="text-sm text-danger">{t(error.key, { line: error.line ?? 0 })}</p>}
         </Card>
 
         {table && (
@@ -106,7 +128,7 @@ export default function ImportCustomersPage() {
 
             <Section
               title={t("import.preview")}
-              action={<span className="text-sm text-text-secondary">{t("import.summary", { ready: ready.length, skipped: rows.length - ready.length })}</span>}
+              action={<span className="text-sm text-text-secondary">{t("import.summary", { ...summary })}</span>}
             >
               {rows.length ? (
                 <Card className="divide-y divide-hairline overflow-hidden">
@@ -124,9 +146,10 @@ export default function ImportCustomersPage() {
               ) : (
                 <EmptyState icon={<FileSpreadsheet size={22} />} title={t("import.empty")} />
               )}
+              {!fits && <p role="alert" className="text-sm text-danger">{t("import.tooLargeForServer", { rows: maxRowsForServer(ready) })}</p>}
               <div className="flex flex-wrap justify-end gap-2">
                 <Button variant="ghost" onClick={() => setTable(null)}>{t("import.another")}</Button>
-                <Button width="responsive" disabled={!ready.length} onClick={runImport}>{tc("import.button", ready.length)}</Button>
+                <Button width="responsive" disabled={!ready.length || !fits || importing} aria-busy={importing} onClick={runImport}>{importing ? t("import.saving") : tc("import.button", ready.length)}</Button>
               </div>
             </Section>
           </>

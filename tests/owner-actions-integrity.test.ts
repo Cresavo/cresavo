@@ -138,9 +138,9 @@ describe("owner action id allocation", () => {
 
   it("gives imported customers free ids", () => {
     const state = taken(`k-${base.seq}`);
-    const person: Omit<(typeof state.customers)[number], "id"> = { ...state.customers[0], phone: "070-555 01 02" };
+    const person: Omit<(typeof state.customers)[number], "id"> = { ...state.customers[0], phone: "070-555 01 02", email: "one@mail.example" };
     delete (person as { id?: string }).id;
-    const next = reduce(state, { type: "customers/import", customers: [person, { ...person, phone: "070-555 01 03" }] });
+    const next = reduce(state, { type: "customers/import", customers: [person, { ...person, phone: "070-555 01 03", email: "two@mail.example" }] });
     const ids = next.customers.map((c) => c.id);
     expect(next.customers).toHaveLength(state.customers.length + 2);
     expect(new Set(ids).size).toBe(ids.length);

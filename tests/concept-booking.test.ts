@@ -110,6 +110,11 @@ describe("change rule", () => {
 describe("customer lookup", () => {
   it("matches phone numbers across formats", () => {
     expect(normalizePhone("070-174 06 50")).toBe(normalizePhone("+46 70 174 06 50"));
+    expect(normalizePhone("0044 7700 900123")).toBe(normalizePhone("+44 7700 900123"));
+    expect(normalizePhone("0046 70 174 06 50")).toBe(normalizePhone("070-174 06 50"));
+    const customers = [{ ...state.customers[0], id: "a", phone: "+44 7700 900123" }, { ...state.customers[0], id: "b", phone: "0044 7700 900123" }];
+    expect(findCustomerByPhone({ customers }, "0044 7700 900123")?.id).toBe("b");
+    expect(findCustomerByPhone({ customers }, "+44 7700 900123")?.id).toBe("a");
     const customer = state.customers[0];
     expect(findCustomerByPhone(state, customer.phone.replace(/-/g, " "))?.id).toBe(customer.id);
     expect(findCustomerByPhone(state, "123")).toBeUndefined();

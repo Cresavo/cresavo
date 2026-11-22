@@ -163,6 +163,11 @@ export function targetOf(state: DemoState | null | undefined): { workspace: Work
   return { workspace, epoch: epochOf(workspace, state) };
 }
 
+/** True when the open salon's last change is shown but could not be written to browser storage (for example, it is full). */
+export function hasUnsavedChanges(): boolean {
+  return !!snapshots[active].unsaved;
+}
+
 /** The target of the salon this tab shows now, from the same snapshot as `currentState()`; it does not read storage again. */
 export function currentTarget(): { workspace: Workspace; epoch: string } | null {
   return targetOf(currentState());
@@ -465,6 +470,8 @@ export interface DispatchOptions {
   refuseNoOp?: boolean;
   /** Called after a successful save with the sends its destinations accepted (a repeated id is not a new send). */
   committed?: (sent: OutboxEntry[]) => void;
+  /** An account salon only: the id the server keeps this change under (its idempotency key). */
+  requestId?: string;
 }
 
 /**
@@ -507,7 +514,7 @@ export function dispatchWithLog(
     let published: OutboxEntry[] = [];
     // The server sends what an account salon's change sends; this tab only shows it.
     if (!setState(next, recheck, () => { published = workspace === "account" ? [] : batch.publish(); })) continue;
-    if (workspace === "account") accountChanged?.(action);
+    if (workspace === "account") accountChanged?.(action, { requestId: options.requestId, before: current, after: next, epoch: snapshots.account.epoch });
     options.committed?.(published);
     if (workspace === "own") markTrialUsed(now);
     const logId = next.log[0]?.id;
@@ -650,13 +657,20 @@ export function usePublicDemo(): DemoState | null {
 }
 
 const ACCOUNT_EPOCH = "account:";
-let accountChanged: ((action: DemoAction) => void) | undefined;
+/** What the account salon's sync gets with each change: the id to send it under, the salon before and after it, and the snapshot's lifetime. */
+export interface AccountChange {
+  requestId?: string;
+  before: DemoState;
+  after: DemoState;
+  epoch?: string;
+}
+let accountChanged: ((action: DemoAction, change: AccountChange) => void) | undefined;
 
 /**
  * Shows a signed-in owner's salon from the server and selects it. `onChange`
  * receives every action applied to it here, to send to the server.
  */
-export function openAccountSalon(state: DemoState, onChange: (action: DemoAction) => void) {
+export function openAccountSalon(state: DemoState, onChange: (action: DemoAction, change: AccountChange) => void) {
   initialize();
   accountChanged = onChange;
   const next = migrateState(state);
@@ -675,6 +689,19 @@ export function replaceAccountSalon(state: DemoState) {
   if (!snapshot.state || !next) return;
   snapshot.state = next;
   keep(next, snapshot.epoch);
+  if (active === "account") notify();
+}
+
+/**
+ * Takes a change that was not saved back off the screen, but only while the screen still shows exactly the
+ * state that change produced, in the same snapshot lifetime. Anything newer (another change, the server's
+ * copy, a reopened salon) is left alone.
+ */
+export function restoreAccountSalon(change: AccountChange) {
+  const snapshot = snapshots.account;
+  if (snapshot.state !== change.after || snapshot.epoch !== change.epoch) return;
+  snapshot.state = change.before;
+  keep(change.before, snapshot.epoch);
   if (active === "account") notify();
 }
 

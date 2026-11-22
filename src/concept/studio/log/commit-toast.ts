@@ -33,9 +33,13 @@ export async function undoCommitted(target: Target, id: string): Promise<boolean
  */
 export async function commitWithUndoToast(target: Target, action: DemoAction, message: string, options?: CommitOptions & { onUndo?: () => void }): Promise<CommitResult> {
   const result = await commitAction(target, action, options);
-  if (!result.ok) return result;
+  if (result.ok) showCommittedToast(target, result, message, options?.onUndo);
+  return result;
+}
+
+/** Shows `message` for a saved change, with Undo when it can be taken back. */
+export function showCommittedToast(target: Target, result: Extract<CommitResult, { ok: true }>, message: string, onUndo?: () => void) {
   const { logId } = result;
   const undoable = logId && result.state.log.find(entry => entry.id === logId)?.patch;
-  showToast(message, logId && undoable ? { label: t("common.undo"), run: () => { void undoCommitted(target, logId).then((done) => { if (done) options?.onUndo?.(); }); } } : undefined);
-  return result;
+  showToast(message, logId && undoable ? { label: t("common.undo"), run: () => { void undoCommitted(target, logId).then((done) => { if (done) onUndo?.(); }); } } : undefined);
 }

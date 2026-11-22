@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { reduce } from "@/concept/actions";
 import { runTask } from "@/concept/ai/run-task";
-import { buildImportRows, guessMapping, parseBirthday, parseCsv } from "@/concept/customers/csv";
+import { buildImportRows, cleanImportedCustomer, decodeImportFile, guessMapping, importFitsServer, maxRowsForServer, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseBirthday, parseCsv, readImportFile, summarizeImport } from "@/concept/customers/csv";
 import { editJournalEntry } from "@/concept/customers/journal";
 import { bookingLink, dueBackList, intervalWeeks, nextVisitFor, suggestionSent, suggestSlot } from "@/concept/customers/return-visits";
 import { birthdayThisMonth, newThisYear, notSeenInThreeMonths, regulars, segmentCustomers, SEGMENTS } from "@/concept/customers/segments";
@@ -174,6 +174,113 @@ describe("CSV import", () => {
     expect(new Set(next.customers.map((c) => c.id)).size).toBe(next.customers.length);
     expect(reduce(next, { type: "customers/import", customers })).toBe(next);
   });
+  it("parses quotes, semicolons, tabs, a BOM, CRLF, blank lines and ragged rows", () => {
+    expect(parseCsv('﻿Name;Note\r\n"Lind; Maja";"said ""hi""\nthen left"\r\n\r\nOskar\r\n')).toEqual([["Name", "Note"], ["Lind; Maja", 'said "hi"\nthen left'], ["Oskar"]]);
+    expect(parseCsv("a\tb\n1\t2")).toEqual([["a", "b"], ["1", "2"]]);
+    expect(parseCsv('"a,b";c\n1;2')).toEqual([["a,b", "c"], ["1", "2"]]);
+    expect(parseCsv("")).toEqual([]);
+  });
+  it("maps Swedish and English headers, and never a national ID column", () => {
+    expect(guessMapping(["Förnamn", "Efternamn", "Telefonnummer", "E-post", "Födelsedag", "Anteckning", "Personnummer"])).toEqual({ firstName: 0, lastName: 1, phone: 2, email: 3, birthday: 4, note: 5 });
+    expect(guessMapping(["Kundnamn", "Mobil", "Email", "Comments"])).toEqual({ fullName: 0, phone: 1, email: 2, note: 3 });
+  });
+  it("flags invalid and overlong values and ragged rows without throwing", () => {
+    const mapping = { fullName: 0, phone: 1, email: 2 };
+    const rows = buildImportRows([["Maja Lind", "073-410 22 18", "not-an-email"], ["Oskar", "073-410 31 07"], ["X".repeat(121), "073-410 45 63", ""]], mapping, [], defaults);
+    expect(rows.map((r) => r.problem)).toEqual(["badEmail", undefined, "tooLong"]);
+    expect(rows[1].customer?.email).toBe("");
+  });
+  it("treats the same e-mail, in the file or already a customer, as a duplicate", () => {
+    const known = { phone: "070-111 11 11", email: "Known@mail.example" };
+    const rows = buildImportRows([["A", "073-410 22 18", "known@mail.example"], ["B", "073-410 31 07", "b@mail.example"], ["C", "073-410 45 63", "B@mail.example"]], { firstName: 0, phone: 1, email: 2 }, [known], defaults);
+    expect(rows.map((r) => r.problem)).toEqual(["duplicate", undefined, "duplicate"]);
+    expect(summarizeImport(rows)).toEqual({ ready: 1, duplicates: 2, errors: 0 });
+  });
+  it("imports without consent and drops repeated e-mails in the reducer", () => {
+    const [row] = buildImportRows([["Maja", "073-410 22 18", "maja@mail.example"]], { firstName: 0, phone: 1, email: 2 }, [], defaults);
+    expect(row.customer?.waitlist).toBe(false);
+    const sameEmail = { ...row.customer!, phone: "073-410 31 07" };
+    const next = reduce(base, { type: "customers/import", customers: [row.customer!, sameEmail] });
+    expect(next.customers).toHaveLength(base.customers.length + 1);
+  });
+  it("checks the import against the server size limit and suggests a row count", () => {
+    const one = buildImportRows([["Maja", "073-410 22 18"]], { firstName: 0, phone: 1 }, [], defaults)[0].customer!;
+    const big = { ...one, note: "n".repeat(500) };
+    expect(importFitsServer(Array.from({ length: 100 }, () => big))).toBe(true);
+    const many = Array.from({ length: 6000 }, () => big);
+    expect(importFitsServer(many)).toBe(false);
+    expect(importFitsServer(many.slice(0, maxRowsForServer(many)))).toBe(true);
+  });
+  it("limits file size and row count", () => {
+    const rows = (n: number) => "name\n" + "a\n".repeat(n);
+    expect(readImportFile("name\na", MAX_IMPORT_BYTES + 1)).toEqual({ problem: "tooBig" });
+    expect(readImportFile(rows(MAX_IMPORT_ROWS + 1), 100)).toEqual({ problem: "tooMany" });
+    expect(readImportFile(rows(MAX_IMPORT_ROWS), 100)).toHaveProperty("rows");
+    expect(readImportFile("name", 4)).toEqual({ problem: "empty" });
+  });
+  it("rejects a quote that never closes and says where it opened", () => {
+    expect(readImportFile('name;note\nMaja;"fine"\nOskar;"open\nSigrid;x', 50)).toEqual({ problem: "unclosedQuote", line: 3 });
+  });
+  it("treats a bare CR as a record boundary and keeps CR inside quotes", () => {
+    expect(parseCsv("a;b\r1;2\r3;4")).toEqual([["a", "b"], ["1", "2"], ["3", "4"]]);
+    expect(parseCsv('a;b\n"x\ry";2')[1]).toEqual(["x\ry", "2"]);
+  });
+  it("removes our export's apostrophe only before = + - @", () => {
+    const rows = buildImportRows([["Maja", "073-410 22 18", "'+desk@mail.example", "'twas fine", "'=1+1"]], { firstName: 0, phone: 1, email: 2, lastName: 3, note: 4 }, [], defaults);
+    expect(rows[0].customer).toMatchObject({ email: "+desk@mail.example", lastName: "'twas fine", note: "=1+1" });
+  });
+  it("prefers the address column and never maps a consent column to e-mail", () => {
+    expect(guessMapping(["Namn", "Telefon", "E-postsamtycke", "E-post"])).toMatchObject({ email: 3 });
+    expect(guessMapping(["Namn", "Email consent", "Mail"])).toMatchObject({ email: 2 });
+    expect(guessMapping(["Namn", "SMS preferences"])).not.toHaveProperty("phone");
+  });
+  it("uses the shared e-mail rule and checks both names after splitting a full name", () => {
+    const rows = buildImportRows([["Maja", "073-410 22 18", "test@sample.example,"], ["X".repeat(61), "073-410 31 07", ""], ["Ann " + "Y".repeat(61), "073-410 45 63", ""]], { fullName: 0, phone: 1, email: 2 }, [], defaults);
+    expect(rows.map((r) => r.problem)).toEqual(["badEmail", "tooLong", "tooLong"]);
+  });
+  it("sees the same international number written with + or 00 as one customer", () => {
+    const rows = buildImportRows([["A", "+44 7700 900123"], ["B", "0044 7700 900123"], ["C", "070-174 06 51"], ["D", "+46 70 174 06 51"]], { firstName: 0, phone: 1 }, [], defaults);
+    expect(rows.map((r) => r.problem)).toEqual([undefined, "duplicate", undefined, "duplicate"]);
+  });
+  it("rebuilds every stored customer from allowed fields and skips invalid records in the reducer", () => {
+    const good = { firstName: " Maja ", lastName: "Lind", phone: "073-410 22 18", email: " MAJA@Mail.Example ", preferredStaff: "anna", since: today };
+    const hostile = [
+      { ...good, phone: "073-410 31 07", email: "other@mail.example", waitlist: true, isRegular: true, tags: ["VIP"], id: "k-1", category: "x", extra: 1 },
+      { ...good, phone: "073-410 45 63", email: "b@mail.example", note: "n".repeat(501) },
+      { ...good, phone: "073-410 58 92", email: undefined },
+      { ...good, phone: "073-410 66 25", email: "maja@mail.example" },
+      { ...good, phone: "073-410 71 40", email: "x@mail.example", preferredStaff: "nobody" },
+      null,
+    ] as unknown as Omit<Customer, "id">[];
+    const next = reduce(base, { type: "customers/import", customers: [good as never, ...hostile] });
+    const added = next.customers.slice(base.customers.length);
+    expect(added.map((c) => c.phone)).toEqual(["073-410 22 18", "073-410 31 07", "073-410 58 92"]);
+    expect(added[0]).toMatchObject({ firstName: "Maja", email: "maja@mail.example", waitlist: false });
+    expect(added[1]).toMatchObject({ waitlist: false, isRegular: false, tags: ["Imported"], category: "both" });
+    expect(added[1]).not.toHaveProperty("extra");
+    expect(added[1].id).not.toBe("k-1");
+    expect(cleanImportedCustomer({ ...good, since: "2026-02-31" }, ["anna"])).toBeNull();
+  });
+  it("rejects text after a closing quote, so two unclosed notes cannot merge records", () => {
+    const merged = 'name;phone;note\nMaja;073-410 22 18;"first note\nOskar;073-410 31 07;"second note\n';
+    expect(readImportFile(merged, 80)).toEqual({ problem: "badQuote", line: 3 });
+    expect(readImportFile('name;note\nMaja;"a" b\nOskar;x', 30)).toEqual({ problem: "badQuote", line: 2 });
+    expect(parseCsv('name;note\nMaja;5" nails\nOskar;"ok" ')).toEqual([["name", "note"], ["Maja", '5" nails'], ["Oskar", "ok"]]);
+  });
+  it("keeps opt-in, marketing and consent columns out of address and phone mapping", () => {
+    expect(guessMapping(["Namn", "Phone opt-in", "Phone"])).toMatchObject({ phone: 2 });
+    expect(guessMapping(["Namn", "Email opt-in", "Contact email"])).toMatchObject({ email: 2 });
+    expect(guessMapping(["Namn", "Marketing e-mail"])).not.toHaveProperty("email");
+    expect(guessMapping(["Namn", "Mobile phone consent", "Telefon"])).toMatchObject({ phone: 2 });
+  });
+  it("matches stored e-mails with spaces or capitals when looking for duplicates", () => {
+    const legacy = { phone: "070-111 11 11", email: " Legacy@Example.test " };
+    const rows = buildImportRows([["A", "073-410 22 18", "legacy@example.test"]], { firstName: 0, phone: 1, email: 2 }, [legacy], defaults);
+    expect(rows[0].problem).toBe("duplicate");
+    const state = { ...base, customers: [...base.customers, { ...base.customers[0], id: "legacy", phone: "070-111 11 11", email: " Legacy@Example.test " }] };
+    const next = reduce(state, { type: "customers/import", customers: [{ ...cleanImportedCustomer({ firstName: "A", phone: "073-410 22 18", email: "legacy@example.test", preferredStaff: "anna", since: today }, ["anna"])! }] });
+    expect(next).toBe(state);
+  });
   it("accepts the example file's columns", async () => {
     const [header, ...body] = parseCsv(await readFile("public/demo/customers-example.csv", "utf8"));
     const rows = buildImportRows(body, guessMapping(header), base.customers, defaults);
@@ -208,5 +315,14 @@ describe("journal versions", () => {
     expect(next.journals[0]).toMatchObject({ advice: "More cream", versions: [{ advice: "Cream" }] });
     expect(next.journals[1]).toBe(state.journals[1]);
     expect(reduce(state, { type: "journal/edit", id: "j1", content: entry, on: "2026-11-05" }).journals[0]).toBe(entry);
+  });
+});
+
+describe("decodeImportFile", () => {
+  it("reads UTF-8 with a BOM and falls back to Windows-1252 for older exports", () => {
+    const utf8 = new TextEncoder().encode("\uFEFFnamn\nÅsa Öberg").buffer as ArrayBuffer;
+    expect(decodeImportFile(utf8)).toContain("Åsa Öberg");
+    const latin = new Uint8Array([0x6e, 0x61, 0x6d, 0x6e, 0x0a, 0xc5, 0x73, 0x61, 0x20, 0xd6, 0x62, 0x65, 0x72, 0x67]).buffer;
+    expect(decodeImportFile(latin)).toBe("namn\nÅsa Öberg");
   });
 });
