@@ -21,6 +21,7 @@ import { getPack } from "./packs";
 import { newEpoch } from "./store/salon-tx";
 import { sameContent } from "./store/studio-store";
 import { useServerSalon } from "./server-salon";
+import { registerRecordSettledCheck } from "./account/settled";
 
 // Browser-side demo store: each workspace has its own shared snapshot.
 // Pages read it with `useDemo()`; on the server it is `null`, so the studio
@@ -468,6 +469,8 @@ export interface DispatchOptions {
    * case for a change with `send`.
    */
   refuseNoOp?: boolean;
+  /** The ids the action names are the server's own (an Undo of a saved change): the provisional-id check does not apply to them. */
+  confirmedIds?: boolean;
   /** Called after a successful save with the sends its destinations accepted (a repeated id is not a new send). */
   committed?: (sent: OutboxEntry[]) => void;
   /** An account salon only: the id the server keeps this change under (its idempotency key). */
@@ -496,6 +499,8 @@ export function dispatchWithLog(
     const current = getSnapshot();
     if (!current || active !== workspace || (canApply && !canApply(current))) return false;
     const action = typeof build === "function" ? build(current) : build;
+    // An account change that names a record a pending change made would reach the server under an id it may give to another record.
+    if (workspace === "account" && !options.confirmedIds && namesProvisionalRecord(action)) return false;
     const logMeta = { ...defaultMeta(action, now), ...meta, at: now };
     const batch = stageDemoSends(workspace);
     const next = withDemoChannels(batch, () => {
@@ -514,11 +519,20 @@ export function dispatchWithLog(
     let published: OutboxEntry[] = [];
     // The server sends what an account salon's change sends; this tab only shows it.
     if (!setState(next, recheck, () => { published = workspace === "account" ? [] : batch.publish(); })) continue;
-    if (workspace === "account") accountChanged?.(action, { requestId: options.requestId, before: current, after: next, epoch: snapshots.account.epoch });
+    const logId = next.log[0]?.id;
+    const localLogId = logId !== current.log[0]?.id ? logId ?? null : null;
+    if (workspace === "account") {
+      accountBase ??= current;
+      const requestId = options.requestId ?? crypto.randomUUID().replaceAll("-", "");
+      if (localLogId) {
+        if (accountLogRequests.size > 200) accountLogRequests.delete(accountLogRequests.keys().next().value!);
+        accountLogRequests.set(localLogId, requestId);
+      }
+      accountChanged?.(action, { requestId, before: current, after: next, epoch: snapshots.account.epoch });
+    }
     options.committed?.(published);
     if (workspace === "own") markTrialUsed(now);
-    const logId = next.log[0]?.id;
-    return logId !== current.log[0]?.id ? logId ?? null : null;
+    return localLogId;
   }
 }
 
@@ -665,6 +679,34 @@ export interface AccountChange {
   epoch?: string;
 }
 let accountChanged: ((action: DemoAction, change: AccountChange) => void) | undefined;
+/**
+ * The account salon as the server last confirmed it, kept only while changes wait for the server's answer.
+ * Ids of records made by those changes are allocated here from the local counter, so another writer may
+ * already hold the same ids on the server; ids that are in this state are the server's own.
+ */
+let accountBase: DemoState | undefined;
+
+/**
+ * False for a booking or log entry that a still-pending change of the open account salon made: its id is
+ * only provisional until the server answers, so Undo and move must not act on it yet.
+ */
+/** The request id an account change was sent under, by the log id the change was shown with here (provisional until the server answers). */
+const accountLogRequests = new Map<string, string>();
+export const accountRequestOfLog = (localLogId: string) => accountLogRequests.get(localLogId);
+
+/** True for an action on a booking or log entry that a pending change made: `booking/*` and `log/undo` ids. */
+function namesProvisionalRecord(action: DemoAction): boolean {
+  const id = (action as { id?: unknown }).id;
+  if (typeof id !== "string") return false;
+  if (action.type === "log/undo") return !accountRecordSettled("log", id);
+  return action.type.startsWith("booking/") && !accountRecordSettled("bookings", id);
+}
+
+export function accountRecordSettled(collection: "bookings" | "log", id: string): boolean {
+  return !accountBase || active !== "account" || accountBase[collection].some((record) => record.id === id);
+}
+
+registerRecordSettledCheck(accountRecordSettled);
 
 /**
  * Shows a signed-in owner's salon from the server and selects it. `onChange`
@@ -673,6 +715,7 @@ let accountChanged: ((action: DemoAction, change: AccountChange) => void) | unde
 export function openAccountSalon(state: DemoState, onChange: (action: DemoAction, change: AccountChange) => void) {
   initialize();
   accountChanged = onChange;
+  accountBase = undefined;
   const next = migrateState(state);
   if (!next) return false;
   snapshots.account = { state: next, epoch: `${ACCOUNT_EPOCH}${newEpoch()}` };
@@ -687,6 +730,7 @@ export function replaceAccountSalon(state: DemoState) {
   const snapshot = snapshots.account;
   const next = migrateState(state);
   if (!snapshot.state || !next) return;
+  accountBase = undefined;
   snapshot.state = next;
   keep(next, snapshot.epoch);
   if (active === "account") notify();
@@ -701,7 +745,18 @@ export function restoreAccountSalon(change: AccountChange) {
   const snapshot = snapshots.account;
   if (snapshot.state !== change.after || snapshot.epoch !== change.epoch) return;
   snapshot.state = change.before;
+  if (accountBase === change.before) accountBase = undefined;
   keep(change.before, snapshot.epoch);
+  if (active === "account") notify();
+}
+
+/** Shows the account salon as the server last confirmed it before the pending changes, when none of them could be saved or read back. */
+export function restoreAccountBase() {
+  const snapshot = snapshots.account;
+  if (!accountBase || !snapshot.state) return;
+  snapshot.state = accountBase;
+  keep(accountBase, snapshot.epoch);
+  accountBase = undefined;
   if (active === "account") notify();
 }
 
@@ -709,6 +764,7 @@ export function restoreAccountSalon(change: AccountChange) {
 export function closeAccountSalon() {
   snapshots.account = {};
   accountChanged = undefined;
+  accountBase = undefined;
   salonRemoved("account");
   if (active === "account") active = "demo";
   notify();

@@ -1,7 +1,8 @@
 import { sendDemoMessage } from "../connections/demo";
 import type { DateKey, DemoState } from "../data/types";
 import { alreadyRemembered, memoryRejection, type NewMemory } from "./memory";
-import type { Routine } from "./routines";
+import { salonClock } from "../tools/clock";
+import { latestSlot, type Routine } from "./routines";
 
 // Store actions for the assistant's memory, routines and the texts it drafts.
 // The memory filter runs here too, so nothing the filter rejects is ever
@@ -25,7 +26,7 @@ export type AssistantAction =
   | { type: "routine/ran"; id: string; at: string }
   | { type: "customers/message"; texts: OutgoingText[]; at: { date: DateKey; time: number } };
 
-export function applyAssistant(state: DemoState, action: AssistantAction): DemoState {
+export function applyAssistant(state: DemoState, action: AssistantAction, now: number): DemoState {
   switch (action.type) {
     case "memory/add": {
       const text = action.item.text.trim();
@@ -48,8 +49,12 @@ export function applyAssistant(state: DemoState, action: AssistantAction): DemoS
         // Switching on starts from now, so a run that was missed while off is not replayed.
         routines: state.routines.map((r) => (r.id === action.id ? { ...r, enabled: !r.enabled, lastRun: r.enabled ? r.lastRun : action.at } : r)),
       };
-    case "routine/ran":
-      return { ...state, routines: state.routines.map((r) => (r.id === action.id && action.at > r.lastRun ? { ...r, lastRun: action.at } : r)) };
+    case "routine/ran": {
+      // Only the routine's latest due slot by the store's clock counts: a stamp from a fast client clock would silence its later runs.
+      const routine = state.routines.find((r) => r.id === action.id);
+      if (!routine || action.at <= routine.lastRun || action.at !== latestSlot(routine, salonClock(new Date(now)))) return state;
+      return { ...state, routines: state.routines.map((r) => (r === routine ? { ...r, lastRun: action.at } : r)) };
+    }
     case "customers/message": {
       // Each text goes through the SMS port (simulated); one the port refuses is not shown as sent.
       const known = action.texts.filter((text) => state.customers.some((c) => c.id === text.customerId) &&

@@ -12,6 +12,6 @@ export function POST(request: NextRequest) {
     if (!result.ok) return ownerError(result.reason, { invalid: 400, email_taken: 409, slug_unavailable: 503 }[result.reason]);
     const session = await openOwnerSession(result.identity);
     if (!session) return ownerError("session_failed", 500);
-    return withSession(ownerOk(), session.value);
+    return withSession(ownerOk(), session);
   });
 }

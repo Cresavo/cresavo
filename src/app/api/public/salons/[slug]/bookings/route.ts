@@ -5,7 +5,7 @@ import { loadPublicTenant } from "@/lib/public-booking";
 import { MAX_BOOKING_BODY_BYTES, publicBookingSchema } from "@/lib/public-booking-request";
 import { publicError, publicOk, publicRoute } from "@/lib/public-http";
 import { issuedAtValid } from "@/lib/public-issued-at";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, reserveTenantQuota } from "@/lib/rate-limit";
 import { idempotencyKeySchema } from "@/lib/validation";
 import type { DemoAction } from "@/concept/actions";
 import { acceptedTerms } from "@/concept/booking/public-terms";
@@ -52,8 +52,8 @@ export function POST(request: NextRequest, { params }: { params: Promise<{ slug:
     };
     const { ownerStore } = await import("@/lib/owner-store");
     const result = await ownerStore().apply(tenantId, action, { actor: "customer", source: "customer-page" },
-      // The salon's allowance is taken by each new booking under the salon's lock, after a retry has been recognised: a committed retry gets its receipt, and no two can take the last one.
-      { idempotencyKey: scopedIdempotencyKey("booking-page", key.data), beforeCommit: async () => void await checkRateLimit("public-tenant", tenantId) });
+      // The salon's allowance is taken by each new booking inside the store's transaction, under the salon's lock and after a retry has been recognised: a committed retry gets its receipt, no two can take the last one, and a commit that fails keeps none. The account is checked under the same lock.
+      { idempotencyKey: scopedIdempotencyKey("booking-page", key.data), requireActiveAccount: true, beforeCommit: (transaction) => reserveTenantQuota(tenantId, transaction) });
     if (result.ok) {
       // On a replay the state is the original commit's, so the reference is the one first given out.
       const booking = result.state.bookings.filter((b) => b.publicRef && b.source === "online" && b.status === "booked" && b.serviceId === serviceId && b.staffId === staffId && b.date === date && b.start === start).at(-1);

@@ -5,6 +5,7 @@ import { createSalon, salonDraft, suggestedSlug } from "@/concept/onboarding/sal
 import { checkSlug, SLUG_MAX } from "@/concept/page/slug";
 import { salonClock } from "@/concept/tools/clock";
 import { db } from "./db";
+import { loginGuard } from "./owner-guard-store";
 import { hashPassword, newPasswordSchema, verifyPasswordHash } from "./password";
 import { findSalonTenant } from "./public-booking";
 import { assertWritable } from "./public-readonly";
@@ -81,12 +82,27 @@ export async function createOwnerAccount(input: unknown, now = new Date()): Prom
   return { ok: false, reason: "slug_unavailable" };
 }
 
-/** Unknown emails pay the same password cost as known ones, so timing does not reveal accounts. */
+/**
+ * Unknown emails pay the same password cost as known ones, so timing does not reveal accounts. A locked account
+ * is checked like any other (the password is verified and thrown away) and answers exactly like a wrong password.
+ * Failures are counted per typed address, known or not, so a lock never says whether the account exists.
+ */
 export async function verifyOwnerCredentials(input: unknown): Promise<OwnerIdentity | null> {
   assertWritable();
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) return null;
-  const account = await db.ownerAccount.findUnique({ where: { email: parsed.data.email } });
-  const valid = await verifyPasswordHash(account?.active ? account.passwordHash : undefined, parsed.data.password);
-  return account?.active && valid ? { id: account.id, credentialVersion: account.credentialVersion } : null;
+  const { email, password } = parsed.data;
+  const guard = loginGuard();
+  const locked = await guard.locked(email);
+  const account = await db.ownerAccount.findUnique({ where: { email } });
+  // A capacity error here propagates: no password was judged, so nothing is counted.
+  const valid = await verifyPasswordHash(account?.active ? account.passwordHash : undefined, password);
+  if (account?.active && valid) {
+    // A correct password never reaches the failure counter, whatever the lock did meanwhile. The lock is checked and
+    // the failures cleared in one step, so a lock set while the hash ran still refuses this request.
+    return !locked && await guard.succeeded(email) ? { id: account.id, credentialVersion: account.credentialVersion } : null;
+  }
+  // One counted failure per judged wrong password (a no-op while locked); the fifth locks, atomically.
+  await guard.failed(email);
+  return null;
 }

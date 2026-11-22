@@ -7,6 +7,20 @@ export function calendarScale(defaultScale: number, bookings: readonly Booking[]
   return bookings.reduce((scale, booking) => Math.max(scale, (minHeight + 2) / booking.duration), defaultScale);
 }
 
+/**
+ * The minutes a grid shows: the opening hours, widened to take in whole visits with their preparation and
+ * clean-up, so a buffer after the day's last visit is drawn inside the grid and not past its edge.
+ */
+export function calendarRange(open: number, close: number, bookings: readonly Pick<Booking, "start" | "duration" | "bufferBefore" | "bufferAfter">[]) {
+  return bookings.reduce(
+    (range, b) => ({
+      from: Math.min(range.from, b.start - (b.bufferBefore ?? 0)),
+      to: Math.max(range.to, b.start + b.duration + (b.bufferAfter ?? 0)),
+    }),
+    { from: open, to: close },
+  );
+}
+
 /** Hour labels down the left side of a calendar grid. */
 export function TimeAxis({ from, to, pxPerMin }: { from: number; to: number; pxPerMin: number }) {
   const hours: number[] = [];

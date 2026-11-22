@@ -49,7 +49,7 @@ const seen = { staffId: booking.staffId, date: booking.date, start: booking.star
 const cancelBody = (over: Record<string, unknown> = {}) => ({ token: goodToken(), expected: seen, ...over });
 const move = (over: Record<string, unknown> = {}) => ({ token: goodToken(), expected: seen, staffId: booking.staffId, date: "2026-11-25", start: 540, ...over });
 const asked = { at: { date: "1970-01-01", time: 0 }, instant: 0, public: { slug: SLUG }, expected: seen };
-const saved = (key: string) => ({ idempotencyKey: key, beforeCommit: expect.any(Function) });
+const saved = (key: string) => ({ idempotencyKey: key, requireActiveAccount: true, beforeCommit: expect.any(Function) });
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -152,6 +152,19 @@ describe("what the routes say before and beside the reducer", () => {
     query.mockImplementation(async () => [{ tenant_id: TENANT, doc: { ...doc(), giftCards: [card] } }]);
     const response = await post(CANCEL, cancelBody());
     expect([response.status, await response.json()]).toEqual([409, { error: "call_salon" }]);
+  });
+
+  it("answers 404 when a concurrent earlier move expired the link between the lookup and the refusal", async () => {
+    // The first read still shows the visit the link was made for; by the time the reducer refuses, the salon has moved it a month earlier.
+    apply.mockResolvedValue({ ok: false, reason: "rejected", version: 2 });
+    const earlier = { date: "2026-10-01", start: 600 };
+    query.mockReset().mockResolvedValueOnce([{ tenant_id: TENANT, doc: doc() }]).mockResolvedValue([{ tenant_id: TENANT, doc: doc(earlier) }]);
+    vi.setSystemTime(new Date("2026-11-16T10:00:00+01:00"));
+    const response = await post(CANCEL, cancelBody());
+    expect([response.status, await response.json()]).toEqual([404, { error: "not_found" }]);
+    query.mockReset().mockResolvedValueOnce([{ tenant_id: TENANT, doc: doc() }]).mockResolvedValue([{ tenant_id: TENANT, doc: doc(earlier) }]);
+    const moved = await post(MOVE, move());
+    expect([moved.status, await moved.json()]).toEqual([404, { error: "not_found" }]);
   });
 
   it("applies one expiry to every answer: a link a moved-earlier booking has outlived is a 404, not a 409", async () => {

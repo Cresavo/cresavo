@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { idempotencyKeySchema } from "@/lib/validation";
-import { ownerError, ownerOk, ownerRoute, readBoundedJson } from "@/lib/owner-http";
+import { ownerError, ownerOk, ownerRoute, readBoundedJson, withRenewedSession } from "@/lib/owner-http";
 import { ownerFromCookie, OWNER_COOKIE } from "@/lib/owner-session";
 import { actionTooLarge } from "@/lib/owner-actions/parse";
 import { MAX_IMPORT_ACTION_BYTES } from "@/lib/owner-actions/types";
@@ -15,7 +15,7 @@ const bodySchema = z.object({
 }).strict();
 
 /** The body is streamed under the largest action cap plus the envelope (version and idempotency key); the cap for the action's own type is enforced once it is parsed. */
-const MAX_BODY_BYTES = MAX_IMPORT_ACTION_BYTES + 1024;
+const MAX_BODY_BYTES = MAX_IMPORT_ACTION_BYTES + 1024; // `src/proxy.ts` refuses a larger declared length too, before Next.js buffers the body.
 
 const STATUS = { conflict: 409, rejected: 422, "idempotency-mismatch": 409, "not-found": 404 } as const;
 
@@ -33,6 +33,6 @@ export function POST(request: NextRequest) {
     const result = await ownerStore().apply(owner.tenantId, action, { actor: "owner", source: "button" },
       { expectedVersion: body.data.expectedVersion, idempotencyKey: body.data.idempotencyKey });
     if (!result.ok) return ownerError(result.detail === SLUG_TAKEN ? SLUG_TAKEN : result.reason, STATUS[result.reason]);
-    return ownerOk({ state: result.state, version: result.version, replayed: result.replayed });
+    return withRenewedSession(ownerOk({ state: result.state, version: result.version, replayed: result.replayed }), request);
   });
 }

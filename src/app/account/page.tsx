@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { SignOutButton } from "@/concept/account/account-form";
+import { SignOutButton, SignOutEverywhereButton } from "@/concept/account/account-form";
 import { translate } from "@/concept/i18n";
 import { ButtonLink } from "@/concept/ui/button";
 import { currentOwner, ownerSalonName } from "@/lib/owner-page";
@@ -23,6 +23,10 @@ export default async function AccountPage() {
       <div className="flex flex-wrap gap-2">
         <ButtonLink href="/studio">{t("account.home.open")}</ButtonLink>
         <SignOutButton language={language} />
+      </div>
+      <div className="space-y-2">
+        <p className="text-meta text-text-secondary">{t("account.logoutAll.hint")}</p>
+        <SignOutEverywhereButton language={language} />
       </div>
     </div>
   );
