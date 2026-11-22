@@ -5,6 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { POST } from "../../src/app/api/public/salons/[slug]/bookings/route";
 import { POST as VIEW } from "../../src/app/api/public/salons/[slug]/bookings/[id]/route";
 import { addressProof } from "../../scripts/client-address.mjs";
+import { acceptedTerms, type AcceptedTerms } from "../../src/concept/booking/public-terms";
 import { connectionError, fail, ok, type PortResult } from "../../src/concept/connections/core";
 import type { EmailMessage, EmailPort, EmailReceipt } from "../../src/concept/connections/ports/email";
 import { deliverDue, drainPendingEffects, EFFECT_LEASE_MS, EFFECT_MAX_ATTEMPTS, SIMULATED_SINKS } from "../../src/concept/store/effect-outbox";
@@ -36,6 +37,7 @@ let tenantId = "";
 let slug = "";
 let serviceId = "";
 let staffId = "";
+let terms!: AcceptedTerms;
 let calls = 0;
 
 beforeAll(async () => {
@@ -56,6 +58,7 @@ beforeAll(async () => {
   if (!added.ok) throw new Error("service not added");
   serviceId = added.state.services[0].id;
   staffId = state.staff[0].id;
+  terms = acceptedTerms(added.state, added.state.services[0]);
 });
 
 beforeEach(() => {
@@ -75,7 +78,7 @@ function book(start: number, key: string = randomUUID(), phone = `0735551${100 +
   const ip = `10.8.${Math.floor(++calls / 250)}.${calls % 250}`;
   const body = {
     serviceId, staffId, date: DATE, start, name: "Lisa Berg", phone, email: "lisa@example.test", language: "en", website: "",
-    issuedAt: issuedAtToken(slug, Date.now() - 10_000),
+    terms, issuedAt: issuedAtToken(tenantId, slug, Date.now() - 10_000),
   };
   return POST(new NextRequest(`http://localhost/api/public/salons/${slug}/bookings`, {
     method: "POST", body: JSON.stringify(body),
@@ -104,12 +107,12 @@ describe("the booking confirmation e-mail", () => {
   });
 
   it("gives the e-mail a link that opens the booking, and keeps the token out of the log", async () => {
-    const { bookingId } = await (await book(600)).json();
+    const { ref } = await (await book(600)).json();
     const token = /#t=(v1\.[^\s"]+)/.exec(mails[0].text)![1];
-    const view = await VIEW(new NextRequest(`http://localhost/api/public/salons/${slug}/bookings/${bookingId}`, {
+    const view = await VIEW(new NextRequest(`http://localhost/api/public/salons/${slug}/bookings/${ref}`, {
       method: "POST", body: JSON.stringify({ token }),
       headers: { "content-type": "application/json", host: "localhost", origin: "http://localhost", "x-booking-client-ip": "10.8.99.1", "x-booking-client-proof": addressProof("10.8.99.1", SECRET) },
-    }), { params: Promise.resolve({ slug, id: bookingId }) });
+    }), { params: Promise.resolve({ slug, id: ref }) });
     expect(view.status).toBe(200);
     expect((await view.json()).booking).toMatchObject({ date: DATE, start: 600, status: "booked" });
 

@@ -3,7 +3,7 @@ import { bookingTokenExpiry, mintBookingToken, verifyBookingToken } from "@/lib/
 
 // The link token of a confirmation e-mail. Fixed dates, synthetic secret.
 
-const scope = { tenantId: "tenant-fiktiv", bookingId: "b-12", customerId: "k-7", purpose: "manage" };
+const scope = { tenantId: "tenant-fiktiv", bookingId: "b-12", ref: "0b7e2c1a-4d5f-4a6b-9c8d-1e2f3a4b5c6d", customerId: "k-7", purpose: "manage" };
 const visit = { date: "2026-11-24", start: 600, duration: 60 };
 const exp = bookingTokenExpiry(visit);
 const NOW = new Date("2026-11-16T10:00:00+01:00").getTime();
@@ -19,7 +19,7 @@ describe("booking tokens", () => {
 
   it("have the form v1.<bookingId>.<exp>.<mac> and verify for their own scope", () => {
     const token = mintBookingToken(scope, exp);
-    expect(token).toMatch(/^v1\.b-12\.\d+\.[a-f0-9]{64}$/);
+    expect(token).toMatch(/^v1\.0b7e2c1a-4d5f-4a6b-9c8d-1e2f3a4b5c6d\.\d+\.[a-f0-9]{64}$/);
     expect(verifyBookingToken(token, scope, NOW)).toBe(true);
   });
 
@@ -32,7 +32,7 @@ describe("booking tokens", () => {
     const [v, id, e, mac] = token.split(".");
     expect(verifyBookingToken([v, id, e, `${mac.slice(0, -1)}${mac.endsWith("0") ? "1" : "0"}`].join("."), scope, NOW)).toBe(false);
     expect(verifyBookingToken([v, id, String(Number(e) + 1), mac].join("."), scope, NOW)).toBe(false);
-    expect(verifyBookingToken([v, "b-13", e, mac].join("."), { ...scope, bookingId: "b-13" }, NOW)).toBe(false);
+    expect(verifyBookingToken(token, { ...scope, ref: "other-ref" }, NOW)).toBe(false);
     expect(verifyBookingToken(token, { ...scope, bookingId: "b-13" }, NOW)).toBe(false);
     expect(verifyBookingToken("v2.b-12.1.abc", scope, NOW)).toBe(false);
     expect(verifyBookingToken("", scope, NOW)).toBe(false);

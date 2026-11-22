@@ -18,7 +18,7 @@ import { messageSink } from "@/lib/message-sink";
 const TENANT = "tenant-fiktiv";
 const base = createDemoState("2026-11-16");
 const booking: Booking = {
-  id: "b-1", customerId: base.customers[0].id, staffId: base.staff[0].id, serviceId: base.services[0].id, date: "2026-11-24", start: 600,
+  id: "b-1", publicRef: "0b7e2c1a-4d5f-4a6b-9c8d-1e2f3a4b5c6d", customerId: base.customers[0].id, staffId: base.staff[0].id, serviceId: base.services[0].id, date: "2026-11-24", start: 600,
   duration: 60, price: 500, status: "booked", source: "online", contactEmail: "lisa@example.test",
 };
 
@@ -61,7 +61,17 @@ describe("the message sink", () => {
   it("puts a token for this booking in the link, made at delivery", async () => {
     await messageSink(prisma, registry)(delivery());
     const token = /#t=(v1\.[^\s"]+)/.exec(sent[0].text)![1];
-    expect(verifyBookingToken(token, { tenantId: TENANT, bookingId: "b-1", customerId: booking.customerId, purpose: "manage" }, Date.parse("2026-11-20T10:00:00Z"))).toBe(true);
+    expect(verifyBookingToken(token, { tenantId: TENANT, bookingId: "b-1", ref: booking.publicRef!, customerId: booking.customerId, purpose: "manage" }, Date.parse("2026-11-20T10:00:00Z"))).toBe(true);
+  });
+
+  it("links by the public reference, never the internal id, and sends without a link when there is none", async () => {
+    await messageSink(prisma, registry)(delivery());
+    expect(sent[0].text).toContain(`/booking/${booking.publicRef}#t=v1.${booking.publicRef}.`);
+    expect(sent[0].text).not.toContain("/booking/b-1");
+    doc = withBooking({ publicRef: undefined });
+    await messageSink(prisma, registry)(delivery());
+    expect(sent).toHaveLength(2);
+    expect(sent[1].text).not.toContain("https://");
   });
 
   it.each([

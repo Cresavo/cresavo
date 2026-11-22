@@ -2,16 +2,20 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { visitTime } from "../concept/booking/policy";
 import type { Booking } from "../concept/data/types";
 
-// The link in a customer's confirmation e-mail: `v1.<bookingId>.<exp>.<mac>`.
-// It proves the holder got the e-mail, for one booking of one customer and one
-// purpose, until `exp` (epoch seconds). It is minted when the e-mail is sent
+// The link in a customer's confirmation e-mail: `v1.<ref>.<exp>.<mac>`, where
+// `ref` is the booking's public reference. The mac covers the internal booking
+// id, which never leaves the store. It proves the holder got the e-mail, for
+// one booking of one customer and one purpose, until `exp` (epoch seconds). It is minted when the e-mail is sent
 // and never stored, so it is in no log.
 
 const GRACE_DAYS = 7;
 
 export interface BookingTokenScope {
   tenantId: string;
+  /** The internal id, covered by the mac. */
   bookingId: string;
+  /** The public reference, carried in the token. */
+  ref: string;
   customerId: string;
   purpose: string;
 }
@@ -27,12 +31,12 @@ function mac(scope: BookingTokenScope, exp: number) {
 export const bookingTokenExpiry = (booking: Pick<Booking, "date" | "start" | "duration">) =>
   Math.floor(visitTime(booking).plus({ minutes: booking.duration, days: GRACE_DAYS }).toMillis() / 1000);
 
-export const mintBookingToken = (scope: BookingTokenScope, exp: number) => `v1.${scope.bookingId}.${exp}.${mac(scope, exp)}`;
+export const mintBookingToken = (scope: BookingTokenScope, exp: number) => `v1.${scope.ref}.${exp}.${mac(scope, exp)}`;
 
 /** True when the token was minted for exactly this scope and has not expired at `now` (epoch milliseconds). */
 export function verifyBookingToken(token: string, scope: BookingTokenScope, now = Date.now()): boolean {
   const match = /^v1\.(.+)\.(\d{1,12})\.([a-f0-9]{64})$/.exec(token);
-  if (!match || match[1] !== scope.bookingId) return false;
+  if (!match || match[1] !== scope.ref) return false;
   const exp = Number(match[2]);
   const expected = Buffer.from(mac(scope, exp));
   const given = Buffer.from(match[3]);

@@ -20,7 +20,7 @@ export interface ConfirmationEmail {
   html: string;
 }
 
-export function confirmationEmail(state: DemoState, booking: Booking, kind: BookingMessageKind, link: string, now = Date.now()): ConfirmationEmail {
+export function confirmationEmail(state: DemoState, booking: Booking, kind: BookingMessageKind, link: string | undefined, now = Date.now()): ConfirmationEmail {
   const language = state.localization.language;
   const say = (key: MessageKey, vars?: Record<string, string>) => customerText(state, key, vars);
   const view = publicBookingView(state, booking, now);
@@ -42,14 +42,14 @@ export function confirmationEmail(state: DemoState, booking: Booking, kind: Book
   const footer = say("bookingEmail.footer", { salon: state.salon.name, brand: BRAND.name });
   return {
     subject: say(`bookingEmail.subject.${kind}`, { treatment: view.treatment, date, time }).replace(/\s+/g, " "),
-    text: [heading, "", ...rows.map(([label, value]) => `${label}: ${value}`), "", ...notes, "", `${manage}: ${link}`, "", footer].join("\n"),
+    text: [heading, "", ...rows.map(([label, value]) => `${label}: ${value}`), "", ...notes, "", ...(link ? [`${manage}: ${link}`, ""] : []), footer].join("\n"),
     html: `<!doctype html><html lang="${language}"><head><meta charset="utf-8"><title>${escape(heading)}</title></head>`
       + `<body style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#1a1a1a;max-width:36rem;margin:0 auto;padding:16px">`
       + `<h1 style="font-size:22px">${escape(heading)}</h1>`
       + `<table role="presentation" style="border-collapse:collapse">${rows.map(([label, value]) =>
         `<tr><th scope="row" style="text-align:left;padding:2px 16px 2px 0;font-weight:bold">${escape(label)}</th><td>${escape(value)}</td></tr>`).join("")}</table>`
       + notes.map((note) => `<p>${escape(note)}</p>`).join("")
-      + `<p><a href="${escape(link)}" style="color:#0b57d0">${escape(manage)}</a></p>`
+      + (link ? `<p><a href="${escape(link)}" style="color:#0b57d0">${escape(manage)}</a></p>` : "")
       + `<p style="font-size:14px;color:#555555">${escape(footer)}</p></body></html>`,
   };
 }

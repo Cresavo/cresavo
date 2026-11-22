@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { verifyBookingToken } from "@/lib/booking-token";
-import { readBoundedJson } from "@/lib/owner-http";
+import { readBoundedJson } from "@/lib/bounded-json";
 import { loadPublicTenant } from "@/lib/public-booking";
 import { publicError, publicOk, publicRoute } from "@/lib/public-http";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -23,8 +23,8 @@ export function POST(request: NextRequest, { params }: { params: Promise<{ slug:
     const body = bodySchema.safeParse(json);
     const { slug, id } = await params;
     const found = body.success ? await loadPublicTenant(slug.toLowerCase()) : null;
-    const booking = found?.state.bookings.find((b) => b.id === id);
-    if (!body.success || !found || !booking || !verifyBookingToken(body.data.token, { tenantId: found.tenantId, bookingId: booking.id, customerId: booking.customerId, purpose: "manage" })) {
+    const booking = found?.state.bookings.find((b) => b.publicRef === id);
+    if (!body.success || !found || !booking || !verifyBookingToken(body.data.token, { tenantId: found.tenantId, bookingId: booking.id, ref: id, customerId: booking.customerId, purpose: "manage" })) {
       return publicError("not_found", 404);
     }
     return publicOk({ booking: publicBookingView(found.state, booking) });

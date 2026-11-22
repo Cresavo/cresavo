@@ -13,22 +13,23 @@ const NOW = new Date("2026-11-16T10:00:00+01:00");
 const SECRET = "synthetic-address-secret";
 const SLUG = "salong-fiktiv";
 const TENANT = "tenant-fiktiv";
+const REF = "0b7e2c1a-4d5f-4a6b-9c8d-1e2f3a4b5c6d";
 
 const query = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db", () => ({ db: { $queryRaw: query } }));
 
 const base = createDemoState("2026-11-16");
 const booking: Booking = {
-  id: "b-1", customerId: base.customers[0].id, staffId: base.staff[0].id, serviceId: base.services[0].id, date: "2026-11-24", start: 600, duration: 60,
+  id: "b-1", publicRef: REF, customerId: base.customers[0].id, staffId: base.staff[0].id, serviceId: base.services[0].id, date: "2026-11-24", start: 600, duration: 60,
   price: 500, status: "booked", source: "online", note: "Private note", contactEmail: "lisa@example.test",
   protection: { terms: { version: 1, freeHours: 24, latePercent: 0, noShowPercent: 0, currency: "SEK", priceMinor: 50000, depositMinor: 0 } },
 };
 const doc = { ...base, salon: { ...base.salon, slug: SLUG, phone: "08-555 01 02" }, bookings: [booking] };
-const scope = { tenantId: TENANT, bookingId: "b-1", customerId: booking.customerId, purpose: "manage" };
+const scope = { tenantId: TENANT, bookingId: "b-1", ref: REF, customerId: booking.customerId, purpose: "manage" };
 const goodToken = () => mintBookingToken(scope, bookingTokenExpiry(booking));
 
 let counter = 0;
-function post(body: unknown, { id = "b-1", slug = SLUG }: { id?: string; slug?: string } = {}) {
+function post(body: unknown, { id = REF, slug = SLUG }: { id?: string; slug?: string } = {}) {
   const ip = `10.2.${Math.floor(counter / 250)}.${counter++ % 250}`;
   return POST(new NextRequest(`http://localhost/api/public/salons/${slug}/bookings/${id}`, {
     method: "POST", body: typeof body === "string" ? body : JSON.stringify(body),
@@ -60,7 +61,7 @@ describe("POST /api/public/salons/[slug]/bookings/[id]", () => {
     expect(view).toMatchObject({ date: "2026-11-24", start: 600, duration: 60, status: "booked", salon: { phone: "08-555 01 02" }, freeUntil: { date: "2026-11-23", time: 600 } });
     expect(Object.keys(view.salon).sort()).toEqual(["address", "phone"]);
     const text = JSON.stringify(view);
-    for (const secret of ["Private note", "lisa@example.test", booking.customerId, base.customers[0].lastName, base.customers[0].phone]) expect(text).not.toContain(secret);
+    for (const secret of ["Private note", "lisa@example.test", booking.customerId, booking.id, base.customers[0].lastName, base.customers[0].phone]) expect(text).not.toContain(secret);
   });
 
   it("answers every bad token with the same 404", async () => {
@@ -71,7 +72,7 @@ describe("POST /api/public/salons/[slug]/bookings/[id]", () => {
       post({ token: mintBookingToken(scope, Math.floor(NOW.getTime() / 1000) - 10) }),
       post({ token: mintBookingToken({ ...scope, tenantId: "tenant-annan" }, bookingTokenExpiry(booking)) }),
       post({ token: mintBookingToken({ ...scope, purpose: "cancel" }, bookingTokenExpiry(booking)) }),
-      post({ token: good }, { id: "b-2" }),
+      post({ token: good }, { id: "another-ref" }),
       post({ token: "" }),
       post({ token: good, extra: 1 }),
       post("not json"),
@@ -99,10 +100,10 @@ describe("POST /api/public/salons/[slug]/bookings/[id]", () => {
 
   it("refuses a cross-origin request", async () => {
     const ip = "10.9.9.9";
-    const response = await POST(new NextRequest(`http://localhost/api/public/salons/${SLUG}/bookings/b-1`, {
+    const response = await POST(new NextRequest(`http://localhost/api/public/salons/${SLUG}/bookings/${REF}`, {
       method: "POST", body: JSON.stringify({ token: goodToken() }),
       headers: { "content-type": "application/json", host: "localhost", origin: "https://evil.example", "x-booking-client-ip": ip, "x-booking-client-proof": addressProof(ip, SECRET) },
-    }), { params: Promise.resolve({ slug: SLUG, id: "b-1" }) });
+    }), { params: Promise.resolve({ slug: SLUG, id: REF }) });
     expect(response.status).toBe(403);
   });
 });

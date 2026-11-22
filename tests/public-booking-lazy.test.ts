@@ -12,12 +12,12 @@ vi.mock("@/lib/owner-store", () => { throw new Error("the store was loaded"); })
 const SECRET = "synthetic-address-secret";
 const ip = "192.0.2.9";
 
-async function post(headers: Record<string, string> = {}) {
-  const { POST } = await import("@/app/api/public/salons/[slug]/bookings/route");
-  return POST(new NextRequest("http://localhost/api/public/salons/salong-fiktiv/bookings", {
+async function post(headers: Record<string, string> = {}, view = false) {
+  const { POST } = view ? await import("@/app/api/public/salons/[slug]/bookings/[id]/route") : await import("@/app/api/public/salons/[slug]/bookings/route");
+  return POST(new NextRequest(`http://localhost/api/public/salons/salong-fiktiv/bookings${view ? "/ref-1" : ""}`, {
     method: "POST", body: "{}",
     headers: { host: "localhost", origin: "http://localhost", "x-booking-client-ip": ip, "x-booking-client-proof": addressProof(ip, SECRET), ...headers },
-  }), { params: Promise.resolve({ slug: "salong-fiktiv" }) });
+  }), { params: Promise.resolve({ slug: "salong-fiktiv", id: "ref-1" }) });
 }
 
 const live = () => {
@@ -54,5 +54,14 @@ describe("POST /api/public/salons/[slug]/bookings before its guards have passed"
   it("refuses a foreign origin before it reads a body", async () => {
     live();
     expect((await post({ origin: "https://evil.example" })).status).toBe(403);
+  });
+
+  it("holds for the booking view too", async () => {
+    expect((await post({}, true)).status).toBe(404);
+    live();
+    vi.stubEnv("PUBLIC_READONLY", "1");
+    expect((await post({}, true)).status).toBe(403);
+    vi.stubEnv("PUBLIC_READONLY", "");
+    expect((await post({ origin: "https://evil.example" }, true)).status).toBe(403);
   });
 });
