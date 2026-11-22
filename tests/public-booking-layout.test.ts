@@ -45,7 +45,7 @@ const live = () => {
 beforeEach(() => {
   ctx.headers = { host: "localhost" };
   ctx.calls = [];
-  ctx.load = async () => salon;
+  ctx.load = async () => ({ state: salon, issuedAt: "fictional-token" });
 });
 afterEach(() => vi.unstubAllEnvs());
 

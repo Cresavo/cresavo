@@ -5,6 +5,8 @@ import { majorString } from "./connections/core";
 import { quote, unknownPolicyServices, validPolicy, type BookingProtection, type CancellationPolicy, type DemoMethod } from "./booking/protection";
 import { collect, decideFee, refundCancellation, type FeeDecision } from "./booking/settlement";
 import { parseLocale } from "@/lib/locale";
+import { t } from "./i18n";
+import { formatDayLong, formatTime } from "./i18n/format";
 import type { BusinessLocalization } from "./i18n/business";
 import { sendBookingMessage, type BookingMessageAction } from "./booking/messages";
 import { MAX_SMS_PRICE_ORE, type ReminderSettings } from "./booking/reminders";
@@ -14,6 +16,7 @@ import { findCustomerByPhone, isContactPhone, isMobilePhone, normalizePhone } fr
 import { cleanImportedCustomer, MAX_IMPORT_ROWS, normalizeEmail } from "./customers/csv";
 import { earliestBookingStart } from "./booking/policy";
 import { PUBLIC_WINDOW_DAYS } from "./booking/public-projection";
+import { acceptedTerms, type AcceptedTerms } from "./booking/public-terms";
 import { addDays } from "./data/dates";
 import { cleanSignOff } from "./campaigns/channels";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
@@ -84,7 +87,7 @@ export type DemoAction =
       | { newCustomer: GuestContact & { since: DateKey } }
       | { fictionalCustomer: { id: string; name: string; since: DateKey }; source: "assistant" }
     ))
-  | { type: "online/book"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId: StaffId; date: DateKey; start: number }
+  | { type: "online/book"; guest: OnlineGuest; notice?: OnlineNotice; serviceId: string; staffId: StaffId; date: DateKey; start: number; public?: PublicBooking }
   | { type: "online/waitlist"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId?: StaffId }
   | { type: "service/price"; id: string; price: number }
   | { type: "campaign/launch"; campaign: NewCampaign; today: DateKey }
@@ -137,6 +140,19 @@ interface GuestContact {
   email?: string;
 }
 
+/**
+ * What makes an `online/book` a booking from a salon's public page: the page
+ * the guest was on, the terms they accepted and the opaque reference of the
+ * receipt. The reducer refuses it unless both still hold, and treats every
+ * such guest as a new customer for deposits (a phone number proves nothing).
+ * Without `notice` the inbox text is written here, in the salon's language.
+ */
+export interface PublicBooking {
+  slug: string;
+  terms: AcceptedTerms;
+  publicRef: string;
+}
+
 export interface OnlineGuest extends GuestContact {
   at: { date: DateKey; time: number };
 }
@@ -169,7 +185,7 @@ function updateBy<T extends { id: string }>(list: T[], id: string, patch: (item:
 
 function createBooking(
   state: DemoState,
-  input: { id?: string; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource; contactEmail?: string },
+  input: { id?: string; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource; contactEmail?: string; publicRef?: string },
   protection?: BookingProtection,
   /** The timing the slot was checked with; a paid hold keeps the one it reserved. */
   timing?: VisitTiming,
@@ -195,6 +211,7 @@ function createBooking(
     status: "booked",
     resourceId: pickResource(state, need, input.date, input.start),
     ...(input.contactEmail ? { contactEmail: input.contactEmail } : {}),
+    ...(input.publicRef ? { publicRef: input.publicRef } : {}),
   };
   return { state: { ...state, seq: state.seq + 1, bookings: [...state.bookings, booking] }, booking };
 }
@@ -240,20 +257,28 @@ type OnlineRequest = Extract<DemoAction, { type: "online/book" | "online/hold" }
 /** Upcoming online bookings one phone number may hold at a salon, so one number cannot fill the book. */
 export const MAX_UPCOMING_ONLINE_PER_PHONE = 3;
 
-function atOnlineLimit(state: DemoState, phone: string, today: DateKey): boolean {
+/** Visits that have not ended yet by the trusted clock count; earlier ones today do not. */
+function atOnlineLimit(state: DemoState, phone: string, at: OnlineGuest["at"]): boolean {
   const wanted = normalizePhone(phone);
   const owners = new Set(state.customers.filter((c) => normalizePhone(c.phone) === wanted).map((c) => c.id));
-  return state.bookings.filter((b) => owners.has(b.customerId) && b.source === "online" && b.status === "booked" && b.date >= today).length >= MAX_UPCOMING_ONLINE_PER_PHONE;
+  const upcoming = (b: Booking) => b.date > at.date || (b.date === at.date && b.start + b.duration > at.time);
+  return state.bookings.filter((b) => owners.has(b.customerId) && b.source === "online" && b.status === "booked" && upcoming(b)).length >= MAX_UPCOMING_ONLINE_PER_PHONE;
 }
 
 function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoState {
   const { at } = action.guest;
   if (action.date < at.date || action.date > addDays(at.date, PUBLIC_WINDOW_DAYS) || action.start < earliestBookingStart(action.date, at.date, at.time)) return state;
-  if (action.type === "online/book" && atOnlineLimit(state, action.guest.phone, at.date)) return state;
+  if (action.type === "online/book" && atOnlineLimit(state, action.guest.phone, at)) return state;
   const service = bookableServices(state).find(s => s.id === action.serviceId);
   if (!service || !service.staffIds.includes(action.staffId) || !action.guest.name.trim() || !isMobilePhone(action.guest.phone) || !isFree(state, action.staffId, action.date, action.start, needOf(service))) return state;
-  const terms = quote(state.cancellationPolicy, service, state.localization.currency, !findCustomerByPhone(state, action.guest.phone));
-  if (action.type === "online/book") return terms.depositMinor ? state : confirmOnline(state, action, service, { terms });
+  const publicBooking = action.type === "online/book" ? action.public : undefined;
+  if (publicBooking && (publicBooking.slug !== state.salon.slug || !jsonEqual(publicBooking.terms, acceptedTerms(state, service)))) return state;
+  const terms = quote(state.cancellationPolicy, service, state.localization.currency, publicBooking ? true : !findCustomerByPhone(state, action.guest.phone));
+  if (action.type === "online/book") {
+    if (terms.depositMinor) return state;
+    const notice = action.notice ?? { title: t("booking.inboxTitle"), body: t("booking.inboxBody", { service: service.name, staff: state.staff.find((s) => s.id === action.staffId)?.firstName ?? "", day: formatDayLong(action.date), time: formatTime(action.start) }) };
+    return confirmOnline(state, { ...action, notice, publicRef: publicBooking?.publicRef }, service, { terms });
+  }
   if (!terms.depositMinor) return state;
   const { guest, notice, staffId, date, start } = action;
   const hold = {
@@ -276,9 +301,11 @@ function payHold(state: DemoState, action: Extract<DemoAction, { type: "online/p
   return confirmOnline(released, { ...hold, guest }, service, { terms: hold.terms, deposit: { id, method: action.method } }, timingOf(hold));
 }
 
-function confirmOnline(state: DemoState, action: Omit<OnlineRequest, "type">, service: DemoState["services"][number], protection: BookingProtection, timing?: VisitTiming): DemoState {
+type OnlineConfirmation = Pick<OnlineRequest, "guest" | "staffId" | "date" | "start"> & { notice: OnlineNotice; publicRef?: string };
+
+function confirmOnline(state: DemoState, action: OnlineConfirmation, service: DemoState["services"][number], protection: BookingProtection, timing?: VisitTiming): DemoState {
   const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, action.staffId, false);
-  const created = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online", contactEmail: action.guest.email?.trim() }, protection, timing);
+  const created = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online", contactEmail: action.guest.email?.trim(), publicRef: action.publicRef }, protection, timing);
   if (!created) return state;
   const bookingId = created.booking.id;
   const notified = reduce(created.state, {

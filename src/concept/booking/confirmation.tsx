@@ -9,7 +9,7 @@ import { useServerSalon } from "../server-salon";
 import { usePublicDemo } from "../store";
 import { ActionFailure } from "../ui/action-failure";
 import { StaffAvatar } from "../ui/avatar";
-import { ButtonLink } from "../ui/button";
+import { Button, ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
 import { useSalonNow } from "../use-now";
 import { PaymentSummary, policyText } from "./policy-summary";
@@ -23,7 +23,8 @@ import { RepeatBookingLink } from "./repeat-booking-link";
 import { findService } from "../selectors";
 
 /** What the customer sees after booking, and the page behind the link in their confirmation. */
-export function Confirmation({ id }: { id: string }) {
+/** `onBack`: shown in place on the salon's own page, where going back is closing the receipt rather than following a link. */
+export function Confirmation({ id, onBack }: { id: string; onBack?: () => void }) {
   const state = usePublicDemo();
   const now = useSalonNow();
   // On a salon's own page the visit is the salon's; changing it and previewing messages come with later steps, so the customer is asked to call.
@@ -90,7 +91,7 @@ export function Confirmation({ id }: { id: string }) {
       </Card>
 
       <div className="flex flex-wrap items-center gap-2">
-        <RepeatBookingLink state={state} booking={booking} variant={reviewIsPrimary ? "secondary" : "primary"} />
+        {!fromServer && <RepeatBookingLink state={state} booking={booking} variant={reviewIsPrimary ? "secondary" : "primary"} />}
         {active && !fromServer && <ButtonLink href={`${bookingPage(state.salon.slug, booking.id)}#manage`} variant="secondary">{t("booking.manageLink")}</ButtonLink>}
       </div>
       <div id="manage" className="scroll-mt-4 space-y-3">
@@ -106,9 +107,11 @@ export function Confirmation({ id }: { id: string }) {
         {!fromServer && <Link href={myBookingsFor(state.salon.slug, booking.customerId)} className="flex min-h-11 items-center font-medium text-action underline-offset-2 hover:underline">
           {t("booking.seeMyBookings")}
         </Link>}
-        <Link href={bookingHome(state.salon.slug)} className="flex min-h-11 items-center text-text-secondary underline-offset-2 hover:underline">
-          {t("booking.backToSalon")}
-        </Link>
+        {onBack ? <Button variant="secondary" onClick={onBack}>{t("booking.backToSalon")}</Button> : (
+          <Link href={bookingHome(state.salon.slug)} className="flex min-h-11 items-center text-text-secondary underline-offset-2 hover:underline">
+            {t("booking.backToSalon")}
+          </Link>
+        )}
       </div>
     </div>
   );

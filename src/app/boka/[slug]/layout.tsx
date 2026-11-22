@@ -7,7 +7,6 @@ import type { ReactNode } from "react";
 import { translate } from "@/concept/i18n";
 import { DEFAULT_BOOKING_LANGUAGE } from "@/concept/i18n/business";
 import { loadPublicSalon } from "@/lib/public-booking";
-import { issuedAtToken } from "@/lib/public-issued-at";
 import { publicPageRequest } from "@/lib/public-page";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { waitlistClientKey } from "@/concept/site/waitlist-server";
@@ -41,14 +40,13 @@ export default async function BookingLayout({ children, params }: { children: Re
   const boundary = (content: ReactNode) => <div className="studio-root booking-boundary">{content}</div>;
   if (!live) return boundary(shell);
   // Live: the server's salons only. A missing salon is a 404 and a store failure is an error page, never the browser's own copy.
-  const slug = (await params).slug.toLowerCase();
   let salon;
   try {
     await checkRateLimit("public-read", waitlistClientKey(new Headers(requestHeaders)));
-    salon = await loadPublicSalon(slug);
+    salon = await loadPublicSalon((await params).slug.toLowerCase());
   } catch {
     return boundary(<main className="booking-gutters mx-auto max-w-5xl py-12"><p role="alert">{translate(DEFAULT_BOOKING_LANGUAGE, "booking.unavailable")}</p></main>);
   }
   if (!salon) notFound();
-  return boundary(<ServerSalonProvider state={salon} issuedAt={issuedAtToken(slug)}>{shell}</ServerSalonProvider>);
+  return boundary(<ServerSalonProvider state={salon.state} issuedAt={salon.issuedAt}>{shell}</ServerSalonProvider>);
 }

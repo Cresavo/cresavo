@@ -1979,6 +1979,7 @@ const messages = {
   "booking.processorNotice": `{salon} uses your name, mobile number and e-mail to handle this booking and to send you its confirmation. ${BRAND.name} handles them on the salon's behalf.`,
   "booking.confirmDisabledEmail": "Enter your name, a valid mobile number and your e-mail to confirm.",
   "booking.depositByPhone": "This treatment needs a deposit. Please call the salon on {phone} to book it.",
+  "booking.tooManyAttempts": "Too many attempts. Please try again in {minutes} minutes or call the salon on {phone}.",
   "booking.failed": "The booking could not be completed. Please check your details and try again.",
   "booking.changeByPhone": "To change or cancel this booking, call the salon on {phone}.",
   "booking.unavailable": "This booking page is temporarily unavailable. Please try again soon.",

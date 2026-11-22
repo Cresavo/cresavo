@@ -48,14 +48,14 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
   const book = useServerBook();
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState("");
-  const [failure, setFailure] = useState<MessageKey>();
+  const [failure, setFailure] = useState<{ key: MessageKey; minutes?: number }>();
   // One key per attempt: sending the same form again replays it instead of booking twice.
   const attempt = useRef<{ key: string; form: string } | undefined>(undefined);
 
   const terms = quote(state.cancellationPolicy, service, state.localization.currency, !findCustomerByPhone(state, guest.phone));
 
-  // A deposit is not taken on the server yet. The policy decides it for new customers; for returning ones only the server knows.
-  const callForDeposit = (book && terms.depositMinor > 0 && !state.cancellationPolicy.newCustomersOnly) || failure === "booking.depositByPhone";
+  // A deposit is not taken on the server yet, and no guest is known there until a phone number can be verified: the salon takes these by phone.
+  const callForDeposit = (book && terms.depositMinor > 0) || failure?.key === "booking.depositByPhone";
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   const confirmOnServer = () => run(async () => {
@@ -69,8 +69,9 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
       attempt.current = undefined;
       return onBooked(result.booking);
     }
-    if (result.reason === "unavailable") return setFailure("booking.failed");
-    if (result.reason === "deposit_unsupported") return setFailure("booking.depositByPhone");
+    if (result.reason === "unavailable") return setFailure({ key: "booking.failed" });
+    if (result.reason === "rate_limited") return setFailure({ key: "booking.tooManyAttempts", minutes: result.minutes });
+    if (result.reason === "deposit_unsupported") return setFailure({ key: "booking.depositByPhone" });
     attempt.current = undefined;
     onTaken({ requestId: newActionRequestId(), reason: result.reason === "terms_changed" ? "booking.summary.changed" : "booking.slotTaken" });
   });
@@ -156,7 +157,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
           <Button type="submit" size="lg" className="w-full" disabled={pending || !isGuestValid(guest) || (!!book && !validEmail)}>
             {t(terms.depositMinor ? "protection.continue" : "booking.confirm")}
           </Button>
-          {failure && <p role="alert" className="text-meta text-danger">{t(failure)}</p>}
+          {failure && <p role="alert" className="text-meta text-danger">{t(failure.key, { minutes: failure.minutes ?? 0, phone: state.salon.phone })}</p>}
           {!isGuestValid(guest) || (book && !validEmail) ? <p className="text-meta text-text-secondary">{t(book ? "booking.confirmDisabledEmail" : "booking.confirmDisabled")}</p> : null}
         </div>
         {book && <p className="text-meta text-text-secondary">{t("booking.processorNotice", { salon: state.salon.name })}</p>}

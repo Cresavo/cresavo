@@ -1,5 +1,6 @@
 import { normalizePhone } from "../booking/lookup";
-import type { Customer, DemoState } from "../data/types";
+import { normalizeEmail } from "./csv";
+import type { Booking, Customer, DemoState } from "../data/types";
 import { t } from "../i18n";
 import type { LogEntry } from "../log/types";
 
@@ -130,7 +131,7 @@ const JOURNAL_FIELDS = [...JOURNAL_TEXT, ...JOURNAL_TEXT.map((field) => `version
  */
 export const DOCUMENT_FREE_TEXT: Partial<Record<keyof DemoState, readonly string[]>> = {
   customers: ["*.note"],
-  bookings: ["*.note", "*.cancelReason", "*.protection.decision.reason", "*.contactEmail"],
+  bookings: ["*.note", "*.cancelReason", "*.protection.decision.reason"],
   journals: JOURNAL_FIELDS.map((field) => `*.${field}`),
   reviews: ["*.text", "*.reply"],
   inbox: INBOX_TEXT.map((field) => `*.${field}`),
@@ -138,7 +139,7 @@ export const DOCUMENT_FREE_TEXT: Partial<Record<keyof DemoState, readonly string
   giftCards: ["*.recipient", "*.message"],
   tickets: ["*.question", "*.screen.*", "*.activity.*.summary"],
   trash: [
-    "*.customer.note", "*.bookings.*.note", "*.bookings.*.cancelReason", "*.bookings.*.contactEmail", "*.reviews.*.text", "*.reviews.*.reply",
+    "*.customer.note", "*.bookings.*.note", "*.bookings.*.cancelReason", "*.reviews.*.text", "*.reviews.*.reply",
     ...JOURNAL_FIELDS.map((field) => `*.journals.*.${field}`), ...INBOX_TEXT.map((field) => `*.inbox.*.${field}`),
   ],
 };
@@ -155,6 +156,12 @@ function scrubLogEntry(entry: LogEntry, id: string, identifiers: readonly string
   delete rest.before;
   delete rest.after;
   return rest;
+}
+
+/** The delivery address of a visit is a field, not free text: it is cleared only where it is exactly one of these addresses (normalized), never by a substring. */
+function withoutAddresses<T extends Pick<Booking, "contactEmail">>(bookings: T[], addresses: ReadonlySet<string>): T[] {
+  if (!bookings.some((b) => b.contactEmail !== undefined && addresses.has(normalizeEmail(b.contactEmail)))) return bookings;
+  return bookings.map((b) => (b.contactEmail !== undefined && addresses.has(normalizeEmail(b.contactEmail)) ? { ...b, contactEmail: undefined } : b));
 }
 
 /**
@@ -185,10 +192,14 @@ export function eraseCustomer(state: DemoState, id: string): DemoState {
     if (kept.length !== value.length) next[key] = kept;
   }
   const erased = next as unknown as DemoState;
+  // The customer's own visits are gone; their addresses (the account's and the ones typed on those visits) leave every other visit.
+  const addresses = new Set([customer.email, ...state.bookings.filter(theirs).map((b) => b.contactEmail), ...(bundle?.kind === "customer" ? bundle.bookings.map((b) => b.contactEmail) : [])].map(normalizeEmail).filter(Boolean));
+  erased.bookings = withoutAddresses(erased.bookings, addresses);
   erased.customers = state.customers.filter((c) => c.id !== id);
   erased.checkoutHolds = erased.checkoutHolds.filter((hold) => !digits || normalizePhone(hold.guest.phone) !== digits);
-  erased.trash = state.trash.filter((entry) =>
-    entry.kind === "customer" ? entry.customer.id !== id : !bookingIds.has(entry.bookingId));
+  erased.trash = state.trash
+    .filter((entry) => entry.kind === "customer" ? entry.customer.id !== id : !bookingIds.has(entry.bookingId))
+    .map((entry) => entry.kind === "customer" ? { ...entry, bookings: withoutAddresses(entry.bookings, addresses) } : entry);
   erased.log = state.log.map((entry) => scrubLogEntry(entry, id, identifiers, digits));
   const marker = erasedMarker();
   const scrub = (text: string) => scrubText(text, identifiers, marker);

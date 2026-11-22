@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import { quote } from "./booking/protection";
+import { acceptedTerms } from "./booking/public-terms";
 import { timingOf } from "./data/slots";
 import type { Booking, DemoState, StaffId } from "./data/types";
 import { getActiveLocale } from "./i18n";
@@ -26,7 +27,9 @@ export interface ServerBookingInput {
 export type ServerBookingResult =
   | { ok: true; booking: Booking }
   /** `unavailable`: nothing was booked or it is not known; sending the same key again is safe. */
-  | { ok: false; reason: "slot_unavailable" | "terms_changed" | "deposit_unsupported" | "unavailable" };
+  | { ok: false; reason: "slot_unavailable" | "terms_changed" | "deposit_unsupported" | "unavailable" }
+  /** Too many attempts from this address or for this salon; `minutes` until it is open again. */
+  | { ok: false; reason: "rate_limited"; minutes: number };
 
 interface ServerSalonValue {
   state: DemoState;
@@ -40,7 +43,7 @@ export const useServerSalon = () => useContext(ServerSalon)?.state ?? null;
 /** Books on the server's salon; null on the browser's own salon. */
 export const useServerBook = () => useContext(ServerSalon)?.book ?? null;
 
-const json = (response: Response) => response.json().catch(() => ({})) as Promise<{ error?: string; state?: DemoState; issuedAt?: string; duration?: number; bookingId?: string }>;
+const json = (response: Response) => response.json().catch(() => ({})) as Promise<{ error?: string; state?: DemoState; issuedAt?: string; duration?: number; ref?: string }>;
 
 export function ServerSalonProvider({ state, issuedAt, children }: { state: DemoState; issuedAt: string; children: ReactNode }) {
   const [salon, setSalon] = useState(state);
@@ -64,15 +67,20 @@ export function ServerSalonProvider({ state, issuedAt, children }: { state: Demo
     const send = () => fetch(`${address}/bookings`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-      body: JSON.stringify({ ...input, language: getActiveLocale(), issuedAt: token.current, price: service.price, duration: service.duration }),
+      body: JSON.stringify({ ...input, language: getActiveLocale(), issuedAt: token.current, terms: acceptedTerms(salon, service) }),
     });
     let response = await send().catch(() => null);
-    // The salon was busy for a moment: the same key makes the second try safe.
-    if (response?.status === 503) response = await send().catch(() => null);
+    // The salon was busy for a moment: after the wait it asks for, the same key makes the second try safe.
+    if (response?.status === 503) {
+      const asked = Number(response.headers.get("Retry-After"));
+      await new Promise((resolve) => setTimeout(resolve, Math.min(Math.max(Number.isFinite(asked) ? asked : 1, 0), 10) * 1000));
+      response = await send().catch(() => null);
+    }
+    if (response?.status === 429) return { ok: false, reason: "rate_limited", minutes: Math.max(1, Math.ceil(Number(response.headers.get("Retry-After") ?? 60) / 60)) };
     const body = response ? await json(response) : {};
-    if (response?.status === 201 && body.bookingId) {
+    if (response?.status === 201 && body.ref) {
       const booking: Booking = {
-        id: body.bookingId, customerId: "", staffId: input.staffId, serviceId: service.id, date: input.date, start: input.start,
+        id: body.ref, customerId: "", staffId: input.staffId, serviceId: service.id, date: input.date, start: input.start,
         duration: body.duration ?? service.duration, price: service.price, status: "booked", source: "online",
         protection: { terms: { ...quote(salon.cancellationPolicy, service, salon.localization.currency, true), depositMinor: 0 } }, ...timingOf(service),
       };
