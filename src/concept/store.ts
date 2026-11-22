@@ -162,6 +162,11 @@ export function targetOf(state: DemoState | null | undefined): { workspace: Work
   return { workspace, epoch: epochOf(workspace, state) };
 }
 
+/** True when the open salon's last change is shown but could not be written to browser storage (for example, it is full). */
+export function hasUnsavedChanges(): boolean {
+  return !!snapshots[active].unsaved;
+}
+
 /** The target of the salon this tab shows now, from the same snapshot as `currentState()`; it does not read storage again. */
 export function currentTarget(): { workspace: Workspace; epoch: string } | null {
   return targetOf(currentState());

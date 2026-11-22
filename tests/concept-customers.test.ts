@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { reduce } from "@/concept/actions";
 import { runTask } from "@/concept/ai/run-task";
-import { buildImportRows, chunkImport, cleanImportedCustomer, decodeImportFile, guessMapping, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseBirthday, parseCsv, readImportFile, summarizeImport } from "@/concept/customers/csv";
+import { buildImportRows, cleanImportedCustomer, decodeImportFile, guessMapping, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseBirthday, parseCsv, readImportFile, summarizeImport } from "@/concept/customers/csv";
 import { editJournalEntry } from "@/concept/customers/journal";
 import { bookingLink, dueBackList, intervalWeeks, nextVisitFor, suggestionSent, suggestSlot } from "@/concept/customers/return-visits";
 import { birthdayThisMonth, newThisYear, notSeenInThreeMonths, regulars, segmentCustomers, SEGMENTS } from "@/concept/customers/segments";
@@ -243,7 +243,7 @@ describe("CSV import", () => {
       { ...good, phone: "073-410 66 25", email: "maja@mail.example" },
       { ...good, phone: "073-410 71 40", email: "x@mail.example", preferredStaff: "nobody" },
       null,
-    ] as unknown as Parameters<typeof chunkImport>[0];
+    ] as unknown as Omit<Customer, "id">[];
     const next = reduce(base, { type: "customers/import", customers: [good as never, ...hostile] });
     const added = next.customers.slice(base.customers.length);
     expect(added.map((c) => c.phone)).toEqual(["073-410 22 18", "073-410 31 07", "073-410 58 92"]);
@@ -253,14 +253,25 @@ describe("CSV import", () => {
     expect(added[1].id).not.toBe("k-1");
     expect(cleanImportedCustomer({ ...good, since: "2026-02-31" }, ["anna"])).toBeNull();
   });
-  it("splits an import into pieces below the owner API limit", () => {
-    const customer = { ...buildImportRows([["Maja", "073-410 22 18"]], { firstName: 0, phone: 1 }, [], defaults)[0].customer!, note: "n".repeat(500) };
-    const many = Array.from({ length: 400 }, () => customer);
-    const chunks = chunkImport(many);
-    expect(chunks.length).toBeGreaterThan(1);
-    expect(chunks.flat()).toHaveLength(400);
-    for (const chunk of chunks) expect(new TextEncoder().encode(JSON.stringify({ type: "customers/import", customers: chunk })).length).toBeLessThanOrEqual(48 * 1024);
-    expect(chunkImport([])).toEqual([]);
+  it("rejects text after a closing quote, so two unclosed notes cannot merge records", () => {
+    const merged = 'name;phone;note\nMaja;073-410 22 18;"first note\nOskar;073-410 31 07;"second note\n';
+    expect(readImportFile(merged, 80)).toEqual({ problem: "badQuote", line: 3 });
+    expect(readImportFile('name;note\nMaja;"a" b\nOskar;x', 30)).toEqual({ problem: "badQuote", line: 2 });
+    expect(parseCsv('name;note\nMaja;5" nails\nOskar;"ok" ')).toEqual([["name", "note"], ["Maja", '5" nails'], ["Oskar", "ok"]]);
+  });
+  it("keeps opt-in, marketing and consent columns out of address and phone mapping", () => {
+    expect(guessMapping(["Namn", "Phone opt-in", "Phone"])).toMatchObject({ phone: 2 });
+    expect(guessMapping(["Namn", "Email opt-in", "Contact email"])).toMatchObject({ email: 2 });
+    expect(guessMapping(["Namn", "Marketing e-mail"])).not.toHaveProperty("email");
+    expect(guessMapping(["Namn", "Mobile phone consent", "Telefon"])).toMatchObject({ phone: 2 });
+  });
+  it("matches stored e-mails with spaces or capitals when looking for duplicates", () => {
+    const legacy = { phone: "070-111 11 11", email: " Legacy@Example.test " };
+    const rows = buildImportRows([["A", "073-410 22 18", "legacy@example.test"]], { firstName: 0, phone: 1, email: 2 }, [legacy], defaults);
+    expect(rows[0].problem).toBe("duplicate");
+    const state = { ...base, customers: [...base.customers, { ...base.customers[0], id: "legacy", phone: "070-111 11 11", email: " Legacy@Example.test " }] };
+    const next = reduce(state, { type: "customers/import", customers: [{ ...cleanImportedCustomer({ firstName: "A", phone: "073-410 22 18", email: "legacy@example.test", preferredStaff: "anna", since: today }, ["anna"])! }] });
+    expect(next).toBe(state);
   });
   it("accepts the example file's columns", async () => {
     const [header, ...body] = parseCsv(await readFile("public/demo/customers-example.csv", "utf8"));

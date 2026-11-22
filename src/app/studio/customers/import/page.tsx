@@ -3,12 +3,12 @@
 import { useMemo, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Download, FileSpreadsheet, Upload } from "lucide-react";
-import { buildImportRows, chunkImport, decodeImportFile, guessMapping, IMPORT_FIELDS, MAX_IMPORT_BYTES, readImportFile, summarizeImport, type FileProblem, type ImportProblem, type Mapping } from "@/concept/customers/csv";
+import { buildImportRows, decodeImportFile, guessMapping, IMPORT_FIELDS, MAX_IMPORT_BYTES, readImportFile, summarizeImport, type FileProblem, type ImportProblem, type Mapping } from "@/concept/customers/csv";
 import { t, tc } from "@/concept/i18n";
 import type { MessageKey } from "@/concept/i18n";
-import { syncOutcome } from "@/concept/account/sync";
-import { currentState, dispatchWithLog, useActiveWorkspace } from "@/concept/store";
-import { showUndoToast } from "@/concept/studio/log/undo-toast";
+import { hasUnsavedChanges, useActiveWorkspace } from "@/concept/store";
+import { commitAction } from "@/concept/store/commit";
+import { showCommittedToast } from "@/concept/studio/log/commit-toast";
 import { BackLink } from "@/concept/studio/back-link";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -21,7 +21,7 @@ import { showToast } from "@/concept/ui/toast";
 
 const EXAMPLE = "/demo/customers-example.csv";
 const PREVIEW_ROWS = 10;
-const FILE_PROBLEM: Record<FileProblem, MessageKey> = { empty: "import.empty", tooBig: "import.tooBig", tooMany: "import.tooMany", unclosedQuote: "import.unclosedQuote" };
+const FILE_PROBLEM: Record<FileProblem, MessageKey> = { empty: "import.empty", tooBig: "import.tooBig", tooMany: "import.tooMany", unclosedQuote: "import.unclosedQuote", badQuote: "import.badQuote" };
 const PROBLEM_LABEL: Record<ImportProblem, MessageKey> = {
   duplicate: "import.status.duplicate",
   missingName: "import.status.missingName",
@@ -31,7 +31,7 @@ const PROBLEM_LABEL: Record<ImportProblem, MessageKey> = {
 };
 
 export default function ImportCustomersPage() {
-  const { state, today } = useStudio();
+  const { state, today, target } = useStudio();
   const router = useRouter();
   const [table, setTable] = useState<string[][] | null>(null);
   const [mapping, setMapping] = useState<Mapping>({});
@@ -70,22 +70,19 @@ export default function ImportCustomersPage() {
   const ready = rows.flatMap((row) => (row.customer ? [row.customer] : []));
   const summary = summarizeImport(rows);
 
-  // Sent in pieces the owner API accepts. Success is shown only when the server took every piece.
+  // One action for the whole file, bound to the salon this page shows: a salon replaced meanwhile refuses it.
   const runImport = async () => {
+    if (!target) return;
     setImporting(true);
-    const before = currentState()?.customers.length ?? 0;
-    const logIds: ReturnType<typeof dispatchWithLog>[] = [];
-    let accepted = true;
-    for (const customers of chunkImport(ready)) {
-      logIds.push(dispatchWithLog({ type: "customers/import", customers }));
-      accepted = await syncOutcome();
-      if (!accepted) break;
-    }
-    const saved = (currentState()?.customers.length ?? 0) - before;
+    const result = await commitAction(target, { type: "customers/import", customers: ready }).catch(() => null);
     setImporting(false);
-    if (!accepted) return showToast(t("import.partial", { saved, total: ready.length }));
-    if (logIds.length === 1 && logIds[0]) showUndoToast(tc("import.done", saved), logIds[0]);
-    else showToast(tc("import.done", saved));
+    if (!result?.ok) return showToast(t("import.failed"));
+    if (hasUnsavedChanges()) {
+      // Browser storage refused the write: take the import back so the salon shown is the one that is saved.
+      if (result.logId) await commitAction(target, { type: "log/undo", id: result.logId });
+      return showToast(t("import.notStored"));
+    }
+    showCommittedToast(target, result, tc("import.done", result.state.customers.length - state.customers.length));
     router.push("/studio/customers?filter=newThisYear");
   };
 

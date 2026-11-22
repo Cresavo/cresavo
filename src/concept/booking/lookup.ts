@@ -58,9 +58,12 @@ export function customerDraft(query: string) {
   return { name: isName ? value : "", phone: isName ? "" : value };
 }
 
+/** The customer with this number. When several stored numbers share one canonical key, the one written the same way wins. */
 export function findCustomerByPhone(state: Pick<DemoState, "customers">, phone: string): Customer | undefined {
   const wanted = normalizePhone(phone);
-  return wanted.length >= 7 ? state.customers.find((c) => normalizePhone(c.phone) === wanted) : undefined;
+  if (wanted.length < 7) return undefined;
+  const matches = state.customers.filter((c) => normalizePhone(c.phone) === wanted);
+  return matches.find((c) => digitsOnly(c.phone) === digitsOnly(phone)) ?? matches[0];
 }
 
 export interface CustomerBookings {

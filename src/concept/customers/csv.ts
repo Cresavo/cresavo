@@ -17,7 +17,7 @@ export const IMPORT_FIELDS: { field: ImportField; label: MessageKey; header: Reg
   { field: "firstName", label: "import.field.firstName", header: /^(first ?name|given ?name|fname|f[oö]rnamn)$/ },
   { field: "lastName", label: "import.field.lastName", header: /^(last ?name|surname|family ?name|lname|efternamn)$/ },
   { field: "fullName", label: "import.field.fullName", header: /^(name|full ?name|customer|client|namn|kund|kundnamn|klient)$/ },
-  { field: "phone", label: "import.field.phone", header: /phone|mobile|cell|tel|mobil/ },
+  { field: "phone", label: "import.field.phone", header: /phone|mobile|cell|tel|mobil/, exact: /^(phone|phone number|mobile|mobile phone|mobile number|cell|cell phone|telefon|telefonnummer|mobil|mobilnummer|tel|tel nr)$/ },
   { field: "email", label: "import.field.email", header: /mail|^e ?post/, exact: /^(e ?mail|e ?post|e ?postadress|e ?mailadress|e ?mail address|email address)$/ },
   { field: "birthday", label: "import.field.birthday", header: /birth|dob|f[oö]delse/ },
   { field: "note", label: "import.field.note", header: /note|comment|remark|anteckning|kommentar|anm[äa]rkning/ },
@@ -45,15 +45,17 @@ function detectDelimiter(source: string): string {
 }
 
 /** Splits CSV text (RFC 4180) into rows. `unclosedAt` is the line where a quote that never closes opened. */
-function scanCsv(text: string): { rows: string[][]; unclosedAt?: number } {
+function scanCsv(text: string): { rows: string[][]; unclosedAt?: number; badLine?: number } {
   const source = text.replace(/^\uFEFF/, "");
   const delimiter = detectDelimiter(source);
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = "";
   let quoted = false;
+  let closed = false;
   let line = 1;
   let quoteLine = 1;
+  let badLine: number | undefined;
   const endCell = () => {
     row.push(cell.trim());
     cell = "";
@@ -71,23 +73,33 @@ function scanCsv(text: string): { rows: string[][]; unclosedAt?: number } {
       if (char === '"' && source[i + 1] === '"') {
         cell += '"';
         i++;
-      } else if (char === '"') quoted = false;
-      else cell += char;
-    } else if (char === '"') {
+      } else if (char === '"') {
+        quoted = false;
+        closed = true;
+      } else cell += char;
+    } else if (char === '"' && !cell.trim() && !closed) {
       quoted = true;
       quoteLine = line;
-    } else if (char === delimiter) endCell();
-    else if (breaks) endRow();
-    else if (char !== "\r" && char !== "\n") cell += char;
+    } else if (char === delimiter) {
+      endCell();
+      closed = false;
+    } else if (breaks) {
+      endRow();
+      closed = false;
+    } else if (char !== "\r" && char !== "\n") {
+      // Only spaces may follow a closing quote before the next separator.
+      if (closed && char.trim()) badLine ??= line;
+      cell += char;
+    }
   }
   endRow();
-  return { rows, unclosedAt: quoted ? quoteLine : undefined };
+  return { rows, unclosedAt: quoted ? quoteLine : undefined, badLine };
 }
 
 /** Splits CSV text (RFC 4180) into rows. Handles quoted cells with line breaks, doubled quotes, CR, LF or CRLF line ends, a BOM and comma, semicolon or tab separators. */
 export const parseCsv = (text: string): string[][] => scanCsv(text).rows;
 
-export type FileProblem = "tooBig" | "tooMany" | "empty" | "unclosedQuote";
+export type FileProblem = "tooBig" | "tooMany" | "empty" | "unclosedQuote" | "badQuote";
 
 /**
  * The text of an uploaded file. Exports from older Swedish systems and Excel are often Windows-1252 rather
@@ -104,14 +116,15 @@ export function decodeImportFile(bytes: ArrayBuffer): string {
 /** Parses an uploaded file's text, or says why it cannot be imported. `bytes` is the file's size. The header line is the first row. */
 export function readImportFile(text: string, bytes: number): { rows: string[][] } | { problem: FileProblem; line?: number } {
   if (bytes > MAX_IMPORT_BYTES) return { problem: "tooBig" };
-  const { rows, unclosedAt } = scanCsv(text);
+  const { rows, unclosedAt, badLine } = scanCsv(text);
+  if (badLine) return { problem: "badQuote", line: badLine };
   if (unclosedAt) return { problem: "unclosedQuote", line: unclosedAt };
   if (rows.length < 2) return { problem: "empty" };
   return rows.length - 1 > MAX_IMPORT_ROWS ? { problem: "tooMany" } : { rows };
 }
 
 // Columns about consent or preferences are never an address or a number.
-const CONSENT_HEADER = /samtycke|consent|preference|pref[eä]rens/;
+const CONSENT_HEADER = /samtycke|consent|preference|pref[eä]rens|opt ?in|opt ?out|marketing|marknadsf/;
 
 /** Guesses the mapping from header names. Each column is used for one field at most; exact address headers win over loose ones. */
 export function guessMapping(headers: string[]): Mapping {
@@ -149,6 +162,8 @@ export interface ImportRow {
 }
 
 /** Undoes the apostrophe our own export puts before text that starts with = + - @ (see `defuseFormula`). */
+export const normalizeEmail = (email: string | undefined) => (email ?? "").trim().toLowerCase();
+
 const unprotect = (text: string) => (/^'[=+\-@]/.test(text) ? text.slice(1) : text);
 
 /** One preview row per CSV row. Rows with a problem have no customer and are skipped on import. A phone number or e-mail already known (or earlier in the file) makes a duplicate. */
@@ -159,7 +174,7 @@ export function buildImportRows(
   defaults: Pick<Customer, "since" | "preferredStaff">,
 ): ImportRow[] {
   const seenPhones = new Set(existing.map((c) => normalizePhone(c.phone)));
-  const seenEmails = new Set(existing.map((c) => c.email.toLowerCase()).filter(Boolean));
+  const seenEmails = new Set(existing.map((c) => normalizeEmail(c.email)).filter(Boolean));
   return rows.map((row, index) => {
     const line = index + 2;
     const get = (field: ImportField) => (mapping[field] === undefined ? "" : unprotect((row[mapping[field]!] ?? "").trim()));
@@ -172,7 +187,7 @@ export function buildImportRows(
     const phone = get("phone");
     const digits = normalizePhone(phone);
     if (digits.length < 7) return { line, problem: "missingPhone" };
-    const email = get("email").toLowerCase();
+    const email = normalizeEmail(get("email"));
     if (email && !isEmail(email)) return { line, problem: "badEmail" };
     if (seenPhones.has(digits) || (email && seenEmails.has(email))) return { line, problem: "duplicate" };
     seenPhones.add(digits);
@@ -242,22 +257,4 @@ export function cleanImportedCustomer(raw: Partial<Record<keyof Omit<Customer, "
     tags: ["Imported"],
     waitlist: false,
   };
-}
-
-/** The import in pieces that each stay under the owner API's action limit (64 KB), as lists of customers. */
-export function chunkImport(customers: Omit<Customer, "id">[], maxBytes = 48 * 1024): Omit<Customer, "id">[][] {
-  const size = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).length;
-  const overhead = size({ type: "customers/import", customers: [] });
-  const chunks: Omit<Customer, "id">[][] = [];
-  let bytes = Infinity;
-  for (const customer of customers) {
-    const own = size(customer) + 1;
-    if (bytes + own > maxBytes) {
-      chunks.push([]);
-      bytes = overhead;
-    }
-    chunks[chunks.length - 1].push(customer);
-    bytes += own;
-  }
-  return chunks;
 }
