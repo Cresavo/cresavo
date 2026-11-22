@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronRight, Eye, History, LifeBuoy, Send } from "lucide-react";
+import { ChevronRight, Eye, History, LifeBuoy, Send, Sparkles } from "lucide-react";
 import { askHelp, type HelpReply } from "../../help/client";
 import { showMe } from "../../help/show-me";
 import { t } from "../../i18n";
@@ -17,14 +17,16 @@ import { Sheet } from "../../ui/sheet";
 import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
 import { TicketForm } from "./ticket-form";
+import { useHasUnseenUpdates } from "./whats-new-seen";
 
 const EXAMPLES = ["help.example.book", "help.example.undo", "help.example.restore", "help.example.order", "help.example.support"] as const;
 
 type View = { kind: "ask" } | { kind: "loading" } | { kind: "answer"; reply: HelpReply } | { kind: "failed" };
 
 /** Ask a question, get the answer from the help articles, be shown where to click, or create a ticket. */
-export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClose: () => void; onWhatsNew: () => void }) {
   const { state } = useStudio();
+  const unseen = useHasUnseenUpdates();
   const [question, setQuestion] = useState("");
   const [asked, setAsked] = useState("");
   const [view, setView] = useState<View>({ kind: "ask" });
@@ -94,6 +96,18 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
                 </Button>
               ))}
             </div>
+          </div>
+        )}
+
+        {view.kind === "ask" && (
+          <div data-help="whats-new" className="border-t border-hairline pt-2">
+            <ListRow
+              onClick={onWhatsNew}
+              title={t("whatsNew.title")}
+              meta={unseen ? t("whatsNew.dot") : t("whatsNew.row")}
+              leading={<Sparkles size={22} aria-hidden className="shrink-0 text-text-secondary" />}
+              trailing={<ChevronRight size={18} aria-hidden className="shrink-0 text-text-secondary" />}
+            />
           </div>
         )}
 

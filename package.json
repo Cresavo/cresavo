@@ -24,6 +24,7 @@
     "test:e2e:production": "node --env-file=.env scripts/run-production-e2e.mjs",
     "effects:drain": "node --env-file-if-exists=.env --import tsx scripts/drain-effects.mts",
     "store:sweep": "node --import tsx scripts/sweep-store.mts",
+    "store:erase": "node --import tsx scripts/replay-erasure.mts",
     "store:loadtest": "node --import tsx scripts/loadtest-store.mts",
     "agent-keys": "node --env-file-if-exists=.env --import tsx scripts/agent-keys.mts",
     "agent:proof": "node --import tsx scripts/agentprov/run.mts",
@@ -74,6 +75,7 @@
   "overrides": {
     "@prisma/config": {
       "effect": "3.22.5"
-    }
+    },
+    "fflate": "0.7.5"
   }
 }

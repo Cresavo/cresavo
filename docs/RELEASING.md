@@ -18,7 +18,9 @@ release is published as a GitHub pre-release.
    - sets `"version"` in `package.json` (and `package-lock.json`) to the new version;
    - renames `## [Unreleased]` in `CHANGELOG.md` to `## [0.5.0] - YYYY-MM-DD` and adds a new empty
      `## [Unreleased]` above it;
-   - adds `docs/releases/v0.5.0.md` with the release notes (see below).
+   - adds `docs/releases/v0.5.0.md` with the release notes (see below);
+   - adds its owner-facing items to the what's-new list (`src/concept/whats-new.ts`) in en and sv,
+     newest release first, so owners see them under Help → What's new.
 2. Check the notes locally: `node scripts/release-notes.mjs 0.5.0`.
 3. Merge the pull request. The [Release workflow](../.github/workflows/release.yml) sees the new
    version, creates the `v0.5.0` tag on that commit and publishes the GitHub release with the notes.
