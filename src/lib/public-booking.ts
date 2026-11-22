@@ -4,11 +4,13 @@ import { checkSlug } from "@/concept/page/slug";
 import { isPublicReadonly } from "./public-readonly";
 
 // Public booking on the studio store (ADR 1, stage 2). Off unless
-// PUBLIC_BOOKING_LIVE=1, so no customer-facing route exists until the pilot
+// PUBLIC_BOOKING_LIVE=1 and owner accounts are on (salons only exist then), so
+// no customer-facing route exists until the pilot
 // gate in docs/QUALITY_SECURITY.md is passed. The database is imported only
 // when a lookup runs, so the demo deployment needs none.
 
-export const publicBookingLive = () => process.env.PUBLIC_BOOKING_LIVE === "1";
+export const publicBookingLive = () =>
+  process.env.PUBLIC_BOOKING_LIVE === "1" && process.env.OWNER_ACCOUNTS_ENABLED === "1"; // not ownerAccountsEnabled(): that module loads the database
 
 /**
  * The tenant of the salon with this booking address, or null. Demo and sandbox

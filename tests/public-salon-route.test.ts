@@ -27,14 +27,22 @@ describe("GET /api/public/salons/[slug]", () => {
     expect(await response.json()).toEqual({ error: "not_found" });
   });
 
+  it("does not exist while owner accounts are off, even with public booking on", async () => {
+    vi.stubEnv("PUBLIC_BOOKING_LIVE", "1");
+    vi.stubEnv("OWNER_ACCOUNTS_ENABLED", "");
+    expect((await get()).status).toBe(404);
+  });
+
   it("is forbidden in read-only mode", async () => {
     vi.stubEnv("PUBLIC_BOOKING_LIVE", "1");
+    vi.stubEnv("OWNER_ACCOUNTS_ENABLED", "1");
     vi.stubEnv("PUBLIC_READONLY", "1");
     expect((await get()).status).toBe(403);
   });
 
   it("answers 404 with a code only, never cached, for an unknown or reserved address", async () => {
     vi.stubEnv("PUBLIC_BOOKING_LIVE", "1");
+    vi.stubEnv("OWNER_ACCOUNTS_ENABLED", "1");
     for (const slug of ["salong-fiktiv", "demo", "Not A Slug!"]) {
       const response = await get(slug);
       expect(response.status).toBe(404);
@@ -45,6 +53,7 @@ describe("GET /api/public/salons/[slug]", () => {
 
   it("limits how often one address may read", async () => {
     vi.stubEnv("PUBLIC_BOOKING_LIVE", "1");
+    vi.stubEnv("OWNER_ACCOUNTS_ENABLED", "1");
     const statuses = new Set<number>();
     let last: Response | undefined;
     for (let i = 0; i < 121; i++) statuses.add((last = await get()).status);

@@ -23,6 +23,7 @@ async function salon(name: string) {
 beforeAll(() => {
   vi.stubEnv("OWNER_ACCOUNTS_ENABLED", "1");
   vi.stubEnv("PUBLIC_BOOKING_LIVE", "1");
+    vi.stubEnv("OWNER_ACCOUNTS_ENABLED", "1");
   vi.stubEnv("BOOKING_ADDRESS_SECRET", SECRET);
   vi.stubEnv("STUDIO_STORE_HMAC_SECRET", randomBytes(32).toString("hex"));
 });
