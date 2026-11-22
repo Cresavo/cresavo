@@ -162,7 +162,7 @@ function priceTemplate(data: PosterData, width: number, height: number): PosterN
   return box({ width, height, position: "relative", background, fontFamily: "Inter" },
     svgImage(wave, { position: "absolute", left: 0, top: waveTop, width, height: height - waveTop }),
     image(photoOf(data), { position: "absolute", right: -40, top: Math.round(height * 0.09), width: photoWidth, height: Math.round(height * 0.91), objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: `${photoWidth / 2}px ${photoWidth / 2}px 0 0` }),
-    text({ position: "absolute", left: 64, top: 90, width: width - photoWidth - 40, ...headingFont(data), fontSize: Math.round(112 * scale), lineHeight: 0.95, color: onColour(background) === WHITE ? WHITE : ink }, data.headline),
+    text({ position: "absolute", left: 64, top: 90, width: width - photoWidth - 40, ...headingFont(data), fontSize: Math.round(112 * scale), lineHeight: 0.95, color: readable(ink, [background], 4.5) }, data.headline),
     text({ position: "absolute", left: 56, top: priceTop, fontFamily: "Inter Display", fontWeight: 900, fontSize: priceSize, letterSpacing: -6, color: onAccent, textShadow: `12px 12px 0 ${onAccent === WHITE ? ink : WHITE}` }, data.price),
     ...(data.sticker ? [box({ position: "absolute", left: width - photoWidth - 150, top: waveTop + 20, width: 210, height: 210, borderRadius: 999, background: HIGHLIGHT, color: "#111111", transform: "rotate(-12deg)", flexDirection: "column", alignItems: "center", justifyContent: "center", fontWeight: 800 },
       text({ fontSize: 32 }, data.sticker[0]), text({ fontSize: 52 }, data.sticker[1]))] : []),
@@ -413,9 +413,11 @@ const smallLine = (name: string, link: string, qr: string | undefined, width: nu
   const part = { fontSize: 32, fontWeight: 700, color: colourOn, whiteSpace: "nowrap" } as const;
   return box({ width, alignItems: "flex-end", justifyContent: "space-between", ...style },
     box({ flexGrow: 1, flexShrink: 1, minWidth: 0, maxWidth: width - (qr ? QR_SMALL + 32 : 0) },
-      ...(name ? [text({ ...part, flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }, name)] : []),
+      // The name gives way first (a much larger shrink factor) but keeps its first letters; a link longer than the
+      // rest of the line is cut too.
+      ...(name ? [text({ ...part, flexShrink: 1000, minWidth: Math.min(200, name.length * 18), overflow: "hidden", textOverflow: "ellipsis" }, name)] : []),
       ...(name && link ? [text({ ...part, flexShrink: 0, whiteSpace: "pre" }, "  ·  ")] : []),
-      ...(link ? [text({ ...part, flexShrink: 0 }, link)] : [])),
+      ...(link ? [text({ ...part, flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }, link)] : [])),
     ...(qr ? [qrCode(qr, QR_SMALL)] : []));
 };
 

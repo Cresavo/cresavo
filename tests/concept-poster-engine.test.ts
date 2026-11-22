@@ -255,6 +255,19 @@ describe("full photo and type-only templates under stress", () => {
     }
   }, 30_000);
 
+  it("keeps a long name and an 80-character link on the poster, with the QR code", async () => {
+    const link = `salongeko.example/${"a".repeat(62)}`;
+    const long = { ...qrData, headline: "Fotvård", signature: { ...qrData.signature, salon: "Medicinsk fotvård och friskvårdsbehandlingar i Sundköping", link } };
+    for (const template of ["fullphoto", "typography"] as const) {
+      expect(rightEdge(await renderPosterSvg(template, long, "post")), template).toBeLessThanOrEqual(1080);
+    }
+  }, 30_000);
+
+  it("never sets the price poster's headline in the background's colour", () => {
+    const grey = { ...base, headline: "Fotvård", colors: { accent: "#c2557f", ink: "#888888", background: "#888888" } };
+    expect(flat(posterTree("price", grey, "post"))).not.toMatch(/"color":"#888888"[^}]*\}[^]*?Fotvård/);
+  });
+
   it("lets the size go below the floor when the longest word would not fit, and not otherwise", () => {
     const fit = fitHeadline(longWord, room(1080), Math.round(150 * 1.15), Math.round(72 * 1.15), 2);
     expect(fit.size).toBeLessThan(Math.round(72 * 1.15));
@@ -287,13 +300,13 @@ describe("full photo and type-only templates under stress", () => {
     expect(contrast(find(dark, "Boka nu →")!.props.style!.color as string, "#2f5d50")).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("gives the type-only salon name its own budget: the name is ellipsized and the booking link stays whole", () => {
+  it("gives the type-only salon name its own budget: the name gives way long before the booking link", () => {
     const name = "Salong Eko Hudvård och Kroppsbehandlingar för alla";
     const tree = posterTree("typography", { ...base, headline: "Fotvård", signature: { ...base.signature, salon: name, link: "salongeko.cresavo.com/boka" } }, "post");
     const part = (value: string) => find(tree, value)!.props.style!;
-    expect(part(name)).toMatchObject({ overflow: "hidden", textOverflow: "ellipsis", flexShrink: 1 });
-    expect(part("salongeko.cresavo.com/boka")).toMatchObject({ flexShrink: 0, whiteSpace: "nowrap" });
-    expect(part("salongeko.cresavo.com/boka")).not.toHaveProperty("overflow");
+    expect(part(name)).toMatchObject({ overflow: "hidden", textOverflow: "ellipsis" });
+    expect(part(name).flexShrink).toBeGreaterThanOrEqual(100 * Number(part("salongeko.cresavo.com/boka").flexShrink));
+    expect(part("salongeko.cresavo.com/boka")).toMatchObject({ whiteSpace: "nowrap" });
   });
 
   it("draws the type-only poster without a photo, and refuses another template without one", async () => {
