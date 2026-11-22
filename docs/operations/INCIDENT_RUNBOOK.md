@@ -44,7 +44,7 @@ When unsure, take the higher level and lower it later.
 
 ## Switching features off
 
-The four flags are environment variables read at runtime. On a Vercel-style
+The four flags, and the e-mail pause below them, are environment variables read at runtime. On a Vercel-style
 host a changed variable applies to new deployments, so redeploy after changing
 it. Each is reversible. **None of them is a stop**: they narrow what the owner
 studio and the public pages do, and leave other writers running (see the
@@ -54,8 +54,9 @@ studio and the public pages do, and leave other writers running (see the
 | --- | --- | --- | --- | --- |
 | `PUBLIC_BOOKING_LIVE` | `0` or unset | `/api/public/*` answers 404 on a writable deployment (`src/lib/public-http.ts`), and the public booking pages are served from the demo's browser state instead of a salon's data (`src/lib/public-booking.ts`). | The owner studio and owner sign-in; the legacy `/api/bookings`, `/api/availability`, `/api/admin/*`, `/api/v1`, `/api/waitlist` and pairing routes; every cron job; delivery already queued. | Confirmation e-mails for bookings made through the public page are held, not dropped: the message sink returns `deferred` and they send when the flag is back (no attempt is used up). A customer who opens the page during the outage sees the demo, not an error; say so on the status page. |
 | `OWNER_ACCOUNTS_ENABLED` | `0` or unset | Every `/api/owner/*` route answers 404 (`src/lib/owner-http.ts`), so owners cannot sign in or change anything, and public booking stops too, because it needs both flags. | Same as above: legacy routes, admin, `/api/v1`, pairing, the cron jobs and the deliverers. Stored sessions are not deleted. | The strongest of the four, for a suspected cross-tenant read or a broken session check. Password-reset links stop working too. It does not stop the `/api/admin/*` or `/api/v1` writers. |
-| `CONCEPT_CONNECTIONS_LIVE` | empty or `0` | Every connection (e-mail, SMS, payments, ...) is simulated, including owner password-reset e-mails (`src/concept/connections/server/config.ts`). | Everything else. | Whether a message is "live" is fixed when the store stages it (`record.live`). **Messages staged while this is off are permanently simulated: they never send, even after the flag is back.** Find them with `SELECT tenant_id, seq, n FROM tenant_effect WHERE kind = 'message' AND payload->>'live' = 'false'` over the outage window and have the salons follow up by hand. Messages already staged as live wait: the sink raises `EMAIL_NOT_CONFIGURED`, the outbox retries with exponential backoff (2 s doubling, capped at 1 hour) and gives up after 10 attempts, roughly 17 minutes, after which the rows are `failed`. |
-| `CONCEPT_EMAIL_PROVIDER` | empty or `simulated` | Only the e-mail port: it resolves to the simulator; SMS and the other ports are unaffected. | Everything else. | The same two effects as the row above, for e-mail only: new messages are simulated for good, queued live ones fail after about 17 minutes. Use it when the e-mail provider is the problem; use `CONCEPT_CONNECTIONS_LIVE` when anything real must stop. |
+| `CONCEPT_CONNECTIONS_LIVE` | empty or `0` | Every connection (e-mail, SMS, payments, ...) is simulated, including owner password-reset e-mails (`src/concept/connections/server/config.ts`). | Everything else. | Whether a message is "live" is fixed when the store stages it (`record.live`). **Messages staged while this is off are permanently simulated: they never send, even after the flag is back.** Find them with `SELECT tenant_id, seq, n FROM tenant_effect WHERE kind = 'message' AND payload->>'live' = 'false'` over the outage window and have the salons follow up by hand. Messages already staged as live wait: the sink raises `EMAIL_NOT_CONFIGURED`, the outbox retries with exponential backoff (2 s doubling, capped at 1 hour) and gives up after 10 attempts, roughly 17 minutes, after which the rows are `failed` (reopen them with [`effects:reconcile retry`](#reconciling-the-e-mail-outbox)). **To hold e-mail for longer, use `CONCEPT_EMAIL_PAUSED=1` instead**, unless anything real must stop at once. |
+| `CONCEPT_EMAIL_PROVIDER` | empty or `simulated` | Only the e-mail port: it resolves to the simulator; SMS and the other ports are unaffected. | Everything else. | The same two effects as the row above, for e-mail only: new messages are simulated for good, queued live ones fail after about 17 minutes. For a provider outage or a wrong setting, prefer `CONCEPT_EMAIL_PAUSED=1`; use `CONCEPT_CONNECTIONS_LIVE` when anything real must stop. |
+| `CONCEPT_EMAIL_PAUSED` | `1` (empty or `0` delivers) | E-mail delivery only: no deliverer claims an e-mail row, neither the `effects:drain` poller nor the drain a web worker runs after each commit, so nothing is sent (`src/concept/store/effect-outbox.ts`). | Booking, and the staging of e-mails exactly as before: a message staged during the pause is still live or simulated as the other flags say. SMS, payments and the other effects are delivered as usual. | **The flag to use when e-mail must wait**: due rows stay `pending`, use no attempt and never become `failed`, however long the pause lasts. Unset it and the next drain sends them, oldest first, each under its own idempotency key. Set it on the web app **and** the `effects:drain` cron. A row claimed in the second before the switch waits too (`deferred`); one whose provider call had already started finishes that call. Owner password-reset e-mails do not go through the outbox and are not paused. |
 
 Other switches:
 
@@ -63,10 +64,11 @@ Other switches:
   makes the main database client refuse to start, so owner routes fail rather
   than turn read-only, and pairing (when enabled) still uses its own
   `PAIRING_DATABASE_URL`. Do not use it on the pilot deployment.
-- A stuck deliverer: stop the `npm run effects:drain` cron job. That is not
-  enough to stop delivery: web workers also deliver right after each commit.
-  Only the [hard stop](#hard-stop) or removing the e-mail credentials stops
-  every deliverer.
+- A stuck or misbehaving e-mail deliverer: set `CONCEPT_EMAIL_PAUSED=1` on the
+  web app and the cron job, which stops every deliverer claiming e-mail.
+  Stopping only the `npm run effects:drain` cron job is not enough: web
+  workers also deliver right after each commit. The [hard stop](#hard-stop)
+  stops every writer.
 - The cron job of `npm run store:sweep` can be paused at any time; it only
   deletes or redacts rows that retention says may go.
 
@@ -202,11 +204,12 @@ provider is unavailable, the message may or may not have left. What happens next
   sender domain, or `reconcile` when the provider says the key was reused with a
   different body.
 
-Failed rows are terminal; the deliverer never claims them again, and there is no
-tool yet to reopen one. A person reconciles them.
+Failed rows are terminal; the deliverer never claims them again. A person
+reconciles them with [`npm run effects:reconcile`](#reconciling-the-e-mail-outbox).
 
-**Find them** (as the schema owner or another role that may read `payload`; the
-support role cannot, by design):
+**Find them** with `npm run effects:reconcile -- list`, or in SQL (as the schema
+owner or another role that may read `payload`; the support role cannot, by
+design):
 
 ```sql
 SELECT tenant_id, seq, n, id, attempts,
@@ -225,15 +228,63 @@ The support role can still count them and see time and attempts:
 
 1. Open the e-mail provider's sent log for the window around the first attempt
    and look for a message to the customer's address (the address is in the
-   salon's booking, not in the outbox row). The row's `id` is the idempotency key
-   sent with the request.
-2. **Sent:** nothing to do except noting it in the incident record.
-3. **Not sent:** do not reuse the old row. Tell the salon, who sends the
-   confirmation or cancellation by hand or contacts the customer. For a
-   cancellation it is the more important message.
+   salon's booking, not in the outbox row; the list shows its domain). The
+   row's `id` is the idempotency key sent with the request.
+2. **Sent:** `effects:reconcile -- mark-sent <id> --tenant <tenant> --apply`
+   and note it in the incident record.
+3. **Not sent:** `effects:reconcile -- mark-failed <id> --tenant <tenant> --apply`.
+   Then either tell the salon, who sends the confirmation or cancellation by
+   hand or contacts the customer (for a cancellation it is the more important
+   message), or, if a second copy reaching the customer is acceptable, resend
+   it with `retry <id> --tenant <tenant> --force-maybe-duplicate --apply`.
 4. Count the rows and find the cause: provider outage, a deploy mid-send, or
    a limit such as the 23-hour window. If the cause is repeating, raise it as a
    SEV2.
+
+## Reconciling the e-mail outbox
+
+`npm run effects:reconcile` (`scripts/reconcile-effects.mts`) reopens or
+settles `failed` e-mail rows by hand. Run it with `DATABASE_URL` of a login
+that may read and update `tenant_effect` (the schema owner; the support role
+cannot). **It changes nothing without `--apply`**: a dry run prints what would
+happen. Every action names its tenant with `--tenant`, and an id of another
+tenant is refused.
+
+```sh
+npm run effects:reconcile -- list [--tenant <tenant>]
+npm run effects:reconcile -- retry <id...> --tenant <tenant> [--force-maybe-duplicate] [--apply]
+npm run effects:reconcile -- mark-sent <id...> --tenant <tenant> [--apply]
+npm run effects:reconcile -- mark-failed <id...> --tenant <tenant> [--apply]
+```
+
+- **`list`** shows every `failed` effect per tenant, with its id, kind
+  (`email/confirmation`, ...), `failed` or `uncertain`, age, attempts, the last
+  error code (`EMAIL_NOT_CONFIGURED` for a row that ran out of attempts while
+  the connection was off, or the failure's reason), whether a request may have
+  left (`dispatched`) and the recipient as `***@domain`. It never prints a
+  message body or an address.
+- **`retry`** puts a `failed` e-mail back to `pending` with its attempts reset;
+  the next drain sends it. It resends what the first attempt froze: the same
+  message, booking link, sender and reply-to, under the same idempotency key,
+  even if the salon has changed its name or address since. It is refused for a
+  row that may have left (`dispatched`, which every `uncertain` row is) unless
+  `--force-maybe-duplicate` is given; that drops the marker and accepts that
+  the customer may get the message twice. Use this after an outage that
+  outlasted the 10 attempts, once the cause is fixed.
+- **`mark-sent`** settles an `uncertain` row the provider's log shows as sent:
+  it becomes `delivered`.
+- **`mark-failed`** settles an `uncertain` row the provider's log shows as not
+  sent: it stays `failed` with reason `not_sent`, and keeps its marker, so a
+  later `retry` still needs the force flag.
+
+Each id is decided and changed in its own transaction under the row's lock. A
+row a deliverer still holds, an erased or cancelled row and anything that is
+not an e-mail are refused. Running the same command again changes nothing
+(`unchanged`). Each id prints one JSON line (`event: "effect_reconcile"`, actor
+from `--actor` or the shell user, action, tenant, effect id, dry run, outcome,
+reason): that line is the audit record, because the tenant's own audit log
+(`tenant_action`) holds the studio's changes only. Copy the lines into the
+incident record. The exit code is 1 when any id was refused.
 
 **Pending rows that should not send** (after a restore or when live e-mail has
 to be switched on again): list `status = 'pending'` rows and decide per row.

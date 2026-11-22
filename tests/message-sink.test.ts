@@ -546,6 +546,18 @@ describe("the rollout flags", () => {
   });
 });
 
+describe("a paused e-mail connection (CONCEPT_EMAIL_PAUSED=1)", () => {
+  it("defers a row claimed just before the pause: nothing is sent, frozen or marked", async () => {
+    vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
+    expect(await run()).toBe("deferred");
+    expect(sent).toHaveLength(0);
+    expect(stored).toEqual({});
+    vi.stubEnv("CONCEPT_EMAIL_PAUSED", "");
+    expect(await run()).toBeUndefined();
+    expect(sent).toHaveLength(1);
+  });
+});
+
 describe("the public demo and an unconfigured server", () => {
   const outbox = () => createOutbox();
 

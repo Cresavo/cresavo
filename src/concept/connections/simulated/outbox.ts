@@ -16,6 +16,10 @@ export interface DeliveryState {
   dispatched?: boolean;
   /** Why the effect failed, for whoever reconciles it by hand. */
   reason?: string;
+  /** The code of the last attempt's error (`EMAIL_NOT_CONFIGURED`, `EMAIL_RETRYABLE`, ...), never its text. Kept by the outbox. */
+  lastError?: string;
+  /** What an operator settled by hand with `npm run effects:reconcile` (`sent`, `not_sent`, `retried`). */
+  reconciled?: string;
   /** The message as first rendered, resent unchanged under the same key. */
   mail?: { subject: string; text: string; html: string };
   /** The booking link as first made: its address and the token's expiry in epoch seconds, never the token. Frozen with the message. */

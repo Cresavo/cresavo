@@ -17,7 +17,12 @@ import { detach, effectOf, type StoreEffect, type TenantId } from "./studio-stor
 //
 // One row is claimed per statement and acknowledged on its own, and no
 // connection is held while a sink runs. A failed send backs off exponentially;
-// after `maxAttempts` the row becomes `failed` for an operator to look at.
+// after `maxAttempts` the row becomes `failed` for an operator to look at
+// (`npm run effects:reconcile`, docs/operations/INCIDENT_RUNBOOK.md).
+//
+// `CONCEPT_EMAIL_PAUSED=1` holds e-mail: no deliverer, poller or in-apply
+// drain, claims an e-mail row while it is set, so due rows stay pending with
+// their attempts untouched and go out once it is unset. Staging is unchanged.
 
 export type TenantKind = "salon" | "demo" | "sandbox";
 
@@ -63,6 +68,12 @@ export const EFFECT_MAX_BACKOFF_MS = 3_600_000;
 export function effectBackoffMs(attempts: number): number {
   return Math.min(EFFECT_MAX_BACKOFF_MS, 1000 * 2 ** Math.max(1, attempts));
 }
+
+/** E-mail delivery is paused (`CONCEPT_EMAIL_PAUSED=1`): read on every claim, so a long drain notices too. */
+export const emailDeliveryPaused = () => process.env.CONCEPT_EMAIL_PAUSED === "1";
+
+/** A thrown error's message when it is a plain code (never personal data), kept on a message row for whoever reconciles it. */
+const ERROR_CODE = /^[A-Z][A-Z_]{0,63}$/;
 
 /** Simulated delivery: nothing leaves the process, the row is simply acknowledged. */
 const acknowledge: EffectSink = () => {};
@@ -110,6 +121,7 @@ async function claimNext(ctx: DeliveryContext): Promise<ClaimedRow | undefined> 
   const messageLeaseMs = Math.max(ctx.leaseMs, (ctx.sinkTimeoutMs ?? 0) + LEASE_MARGIN_MS);
   const kinds = ctx.sinks ? null : ["demo", "sandbox"];
   const tenants = ctx.tenants ? [...ctx.tenants] : null;
+  const paused = emailDeliveryPaused();
   const [row] = await ctx.db.$queryRaw<ClaimedRow[]>`
     WITH next AS (
       SELECT e.tenant_id, e.seq, e.n
@@ -120,6 +132,7 @@ async function claimNext(ctx: DeliveryContext): Promise<ClaimedRow | undefined> 
         AND (s.expires_at IS NULL OR s.expires_at > to_timestamp(${now}::float8 / 1000))
         AND (${tenants}::text[] IS NULL OR e.tenant_id = ANY(${tenants}::text[]))
         AND (${kinds}::text[] IS NULL OR s.kind::text = ANY(${kinds}::text[]))
+        AND NOT (${paused}::boolean AND e.kind = 'message' AND e.payload->>'port' = 'email')
         AND (e.kind <> 'payment' OR NOT EXISTS (
           SELECT 1 FROM tenant_effect p
           WHERE p.tenant_id = e.tenant_id AND p.kind = 'payment' AND p.status IN ('pending', 'failed')
@@ -170,14 +183,17 @@ type Failure = "retry" | "permanent" | "timeout" | "deferred";
  * stopped meanwhile is cancelled, never retried; a permanent failure, or the
  * last attempt, makes it `failed`. After a timeout the claim is kept until its
  * lease runs out, because the send may still be running. A deferred row waits
- * and keeps its attempt.
+ * and keeps its attempt. A message row keeps the error's code (`delivery.lastError`).
  */
-async function recordFailure(ctx: DeliveryContext, row: ClaimedRow, kind: Failure): Promise<DeliveryOutcome> {
+async function recordFailure(ctx: DeliveryContext, row: ClaimedRow, kind: Failure, code?: string): Promise<DeliveryOutcome> {
   const now = await ctx.clock();
   const permanent = kind === "permanent";
   const deferred = kind === "deferred";
+  const lastError = row.kind === "message" && code && ERROR_CODE.test(code) ? code : null;
   const [outcome] = await ctx.db.$queryRaw<Array<{ status: string }>>`
     UPDATE tenant_effect SET
+      payload = CASE WHEN ${lastError}::text IS NULL THEN payload
+        ELSE jsonb_set(payload, '{delivery}', coalesce(payload->'delivery', '{}'::jsonb) || jsonb_build_object('lastError', ${lastError}::text)) END,
       leased_until = CASE WHEN ${kind === "timeout"}::boolean THEN leased_until END,
       attempts = CASE WHEN ${deferred}::boolean THEN greatest(attempts - 1, 0) ELSE attempts END,
       status = CASE WHEN erased_at IS NOT NULL THEN 'cancelled' WHEN ${permanent}::boolean OR (NOT ${deferred}::boolean AND attempts >= ${ctx.maxAttempts}) THEN 'failed' ELSE status END,
@@ -199,8 +215,9 @@ async function deliver(ctx: DeliveryContext, row: ClaimedRow, timeoutMs: number 
     };
     result = await runSink(sink, delivery, timeoutMs);
   } catch (error) {
-    // Never log the payload or the error: both may hold personal data.
-    return recordFailure(ctx, row, error instanceof Error && error.message === TIMEOUT && row.kind === "message" ? "timeout" : "retry");
+    // Never log the payload or the error: both may hold personal data. Only a plain code is kept.
+    const code = error instanceof Error ? error.message : undefined;
+    return recordFailure(ctx, row, code === TIMEOUT && row.kind === "message" ? "timeout" : "retry", code);
   }
   if (result === "failed") return recordFailure(ctx, row, "permanent");
   if (result === "deferred") return recordFailure(ctx, row, "deferred");
