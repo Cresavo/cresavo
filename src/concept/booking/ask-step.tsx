@@ -8,6 +8,8 @@ import { SearchInput } from "../ui/controls";
 
 interface AskStepProps {
   onAsk: (text: string) => void;
+  /** One of the salon's own treatments, to show what a request can look like. */
+  example: string;
   /** Shown when the page has no price list to pick from. */
   onChoose?: () => void;
 }
@@ -16,7 +18,7 @@ interface AskStepProps {
  * The quiet way in: one line where a customer can say what they want in their own words.
  * The price list is the main way to book, so this is a field, not a block.
  */
-export function AskStep({ onAsk, onChoose }: AskStepProps) {
+export function AskStep({ onAsk, example, onChoose }: AskStepProps) {
   const [text, setText] = useState("");
   const hint = useId();
   return (
@@ -44,7 +46,7 @@ export function AskStep({ onAsk, onChoose }: AskStepProps) {
             </IconButton>
           )}
         />
-        <p id={hint} className="text-meta text-text-secondary">{t("booking.ask.hint")}</p>
+        <p id={hint} className="text-meta text-text-secondary">{t("booking.ask.hint", { service: example })}</p>
       </form>
       {onChoose && (
         <Button variant="tertiary" onClick={onChoose}>

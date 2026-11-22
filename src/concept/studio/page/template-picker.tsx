@@ -26,11 +26,10 @@ export function TemplatePicker({ page, onPick }: Props) {
               <button
                 type="button"
                 aria-pressed={current === id}
-                aria-label={t("pageEditor.templates.use", { name })}
                 onClick={() => onPick(id)}
                 className={cx("ui-press block h-full w-full overflow-hidden rounded-md bg-surface text-left ring-1 ring-inset", current === id ? "ring-2 ring-action" : "ring-hairline hover:bg-surface-2")}
               >
-                <span aria-hidden {...theme} className={cx(className, "flex min-h-20 items-end justify-between gap-2 p-3")}>
+                <span {...theme} className={cx(className, "flex min-h-20 items-end justify-between gap-2 p-3")}>
                   <span className="studio-template-name text-h2 font-semibold leading-none">{name}</span>
                   <span className="rounded-sm bg-action px-2 py-1 text-xs font-semibold text-on-action">{t("booking.book")}</span>
                 </span>

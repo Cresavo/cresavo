@@ -131,6 +131,9 @@ body:has(.studio-root) .demo-banner {
   --action-layout-height: max(16rem, calc(100dvh - var(--studio-bottom-nav) - var(--space-12) - env(safe-area-inset-bottom)));
 }
 
+/* The save row under the phone preview rests just above the bottom navigation. */
+.studio-page-preview-actions { position: sticky; bottom: calc(var(--studio-bottom-nav) + var(--space-2) + env(safe-area-inset-bottom)); }
+
 @media (min-width: 1024px) {
   .studio-content { padding-bottom: var(--space-12); }
   .studio-preview-frame { height: max(34rem, calc(100dvh - 14rem)); }

@@ -20,6 +20,10 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- Today has a New booking button next to Someone is calling, and a new salon's empty Today opens the booking form directly. On a phone the next-customer card starts short, with history and actions one tap away, and the day's figures come after the schedule.
+- The booking page editor keeps Save and Discard in reach while previewing on a phone.
+- Tapping lunch or hours outside a person's shift in the day calendar explains why instead of opening a booking that cannot be confirmed.
+- The booking page's price list has shortcuts to each category, and the free-text field shows an example built from the salon's own treatment.
 - Salong Eko wears the Eko design: the name on the photo and warmer headings. A saved demo that still had the old look is moved over; a page that was changed is left alone.
 - The staff preview starts in Advanced, with a return to the owner view available while previewing.
 - Finance opens with what is left this month and a comparison with last month. Send to my accountant explains the two download options and the dates they cover.
