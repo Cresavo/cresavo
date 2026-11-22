@@ -117,7 +117,7 @@ export function sendDemoMessage(message: DemoMessage): OutboxEntry | null {
   const { sms, email, outbox } = channels;
   const result = message.channel === "sms"
     ? sms.deliver({ to, body: message.body, reference: message.reference, idempotencyKey })
-    : email.deliver({ to: [to], from: "demo@salon.invalid", subject: message.subject ?? "", text: message.body, idempotencyKey });
+    : email.deliver({ to: [to], from: "demo@salon.invalid", subject: message.subject ?? "", text: message.body, reference: message.reference, idempotencyKey });
   if (!result.ok) return null;
   return outbox.list(message.channel).find((entry) => entry.id === result.providerId) ?? null;
 }

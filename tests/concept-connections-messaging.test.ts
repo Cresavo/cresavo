@@ -164,6 +164,15 @@ describe("Postmark email", () => {
     expect(JSON.parse(calls[0].body)).toMatchObject({ From: message.from, To: "a@example.com,b@example.com", Subject: "Hi", TextBody: "Body", Tag: "receipt", Metadata: { kind: "receipt" } });
   });
 
+  it("turns link and open tracking off for a message that asks, and leaves the provider's setting otherwise", async () => {
+    const off = scriptedFetch({ status: 200, body: { MessageID: "b7bc2f4a", ErrorCode: 0, Message: "OK" } });
+    await email(off.fetch).send({ ...message, tracking: false });
+    expect(JSON.parse(off.calls[0].body)).toMatchObject({ TrackLinks: "None", TrackOpens: false });
+    const plain = scriptedFetch({ status: 200, body: { MessageID: "b7bc2f4a", ErrorCode: 0, Message: "OK" } });
+    await email(plain.fetch).send(message);
+    expect(JSON.parse(plain.calls[0].body)).not.toHaveProperty("TrackLinks");
+  });
+
   it("maps ErrorCode inside a 422", async () => {
     expect(await email(scriptedFetch({ status: 422, body: { ErrorCode: 406, Message: "Inactive recipient" } }).fetch).send(message)).toMatchObject({ ok: false, error: { code: "rejected", providerCode: "406" } });
     expect(await email(scriptedFetch({ status: 422, body: { ErrorCode: 300, Message: "Invalid email" } }).fetch).send(message)).toMatchObject({ ok: false, error: { code: "invalid_input", providerCode: "300" } });

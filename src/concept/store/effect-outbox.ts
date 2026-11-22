@@ -31,13 +31,24 @@ export interface EffectDelivery {
   effect: StoreEffect;
 }
 
-/** Delivers one effect. Throwing leaves it pending for a retry; it may be called again for the same `id`. */
-export type EffectSink = (delivery: EffectDelivery) => void | Promise<void>;
+/**
+ * Delivers one effect. Throwing leaves it pending for a retry; it may be called again for the same `id`.
+ * Returning `"failed"` marks it failed at once, for a permanent error a retry cannot fix (a bad address).
+ * Returning `"deferred"` leaves it pending without using up an attempt (delivery is paused).
+ * `signal` aborts when the sink timeout is over: check it before anything that cannot be undone.
+ */
+export type EffectSink = (delivery: EffectDelivery, signal: AbortSignal) => void | "failed" | "deferred" | Promise<void | "failed" | "deferred">;
 
 export type EffectSinks = Record<StoreEffect["kind"], EffectSink>;
 
 /** How long a claimed effect is reserved for one deliverer before another may retry it. Sinks must give up well before it. */
 export const EFFECT_LEASE_MS = 60_000;
+/** Longest a sink may run before the send counts as failed and is retried. */
+export const EFFECT_SINK_TIMEOUT_MS = 10_000;
+/** Slack added to the sink timeout when it is longer than the lease, so no second deliverer can claim an effect a sink may still be sending. */
+const LEASE_MARGIN_MS = 5_000;
+/** Wait before a deferred effect is looked at again. */
+const DEFER_MS = 60_000;
 /** Attempts before an effect is marked `failed`. */
 export const EFFECT_MAX_ATTEMPTS = 10;
 /** Longest wait between two attempts. */
@@ -78,6 +89,10 @@ export interface DeliveryContext {
   simulatedSinks: EffectSinks;
   leaseMs: number;
   maxAttempts: number;
+  /** A sink that runs longer counts as failed (and is retried). Default: no limit. */
+  sinkTimeoutMs?: number;
+  /** Total time `deliverDue` may spend claiming effects; past it, the rest is left to the poller. Default: no limit. */
+  budgetMs?: number;
   /** Only these tenants' effects (the in-apply drain passes its own). */
   tenants?: readonly TenantId[];
 }
@@ -85,6 +100,9 @@ export interface DeliveryContext {
 /** Claims the next due effect by the shared rule, or returns undefined when there is none. */
 async function claimNext(ctx: DeliveryContext): Promise<ClaimedRow | undefined> {
   const now = await ctx.clock();
+  // A message's claim outlives the sink timeout, so a timed-out send is never raced by a second deliverer.
+  // Other kinds (a refund behind a checkout) keep the plain lease and backoff.
+  const messageLeaseMs = Math.max(ctx.leaseMs, (ctx.sinkTimeoutMs ?? 0) + LEASE_MARGIN_MS);
   const kinds = ctx.sinks ? null : ["demo", "sandbox"];
   const tenants = ctx.tenants ? [...ctx.tenants] : null;
   const [row] = await ctx.db.$queryRaw<ClaimedRow[]>`
@@ -106,8 +124,9 @@ async function claimNext(ctx: DeliveryContext): Promise<ClaimedRow | undefined> 
       FOR UPDATE OF e SKIP LOCKED
     )
     UPDATE tenant_effect e
-    SET attempts = e.attempts + 1, next_attempt_at = to_timestamp(${now + ctx.leaseMs}::float8 / 1000),
-        leased_until = to_timestamp(${now + ctx.leaseMs}::float8 / 1000)
+    SET attempts = e.attempts + 1,
+        next_attempt_at = to_timestamp((${now}::float8 + CASE WHEN e.kind = 'message' THEN ${messageLeaseMs}::float8 ELSE ${ctx.leaseMs}::float8 END) / 1000),
+        leased_until = to_timestamp((${now}::float8 + CASE WHEN e.kind = 'message' THEN ${messageLeaseMs}::float8 ELSE ${ctx.leaseMs}::float8 END) / 1000)
     FROM next
     WHERE e.tenant_id = next.tenant_id AND e.seq = next.seq AND e.n = next.n AND e.status = 'pending'
     RETURNING e.id, e.tenant_id, e.seq, e.n, e.kind, e.payload, e.attempts,
@@ -124,28 +143,62 @@ function sinkFor(ctx: DeliveryContext, row: ClaimedRow): EffectSink | undefined 
 
 export type DeliveryOutcome = "delivered" | "retry" | "failed";
 
+const TIMEOUT = "STUDIO_STORE_SINK_TIMEOUT";
+
+/** Runs the sink with a signal that aborts at the timeout, and rejects then; the sink itself is not stopped. */
+function runSink(sink: EffectSink, delivery: EffectDelivery, ms: number | undefined) {
+  const controller = new AbortController();
+  const work = Promise.resolve(sink(detach(delivery), controller.signal));
+  if (!ms) return work;
+  let timer: ReturnType<typeof setTimeout>;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => { controller.abort(); reject(new Error(TIMEOUT)); }, ms);
+  });
+  return Promise.race([work, late]).finally(() => clearTimeout(timer));
+}
+
+type Failure = "retry" | "permanent" | "timeout" | "deferred";
+
+/**
+ * Records a failed send for that row only. Only the deliverer that holds the
+ * latest claim (same `attempts`) decides what happens next. A row an erasure
+ * stopped meanwhile is cancelled, never retried; a permanent failure, or the
+ * last attempt, makes it `failed`. After a timeout the claim is kept until its
+ * lease runs out, because the send may still be running. A deferred row waits
+ * and keeps its attempt.
+ */
+async function recordFailure(ctx: DeliveryContext, row: ClaimedRow, kind: Failure): Promise<DeliveryOutcome> {
+  const now = await ctx.clock();
+  const permanent = kind === "permanent";
+  const deferred = kind === "deferred";
+  const [outcome] = await ctx.db.$queryRaw<Array<{ status: string }>>`
+    UPDATE tenant_effect SET
+      leased_until = CASE WHEN ${kind === "timeout"}::boolean THEN leased_until END,
+      attempts = CASE WHEN ${deferred}::boolean THEN greatest(attempts - 1, 0) ELSE attempts END,
+      status = CASE WHEN erased_at IS NOT NULL THEN 'cancelled' WHEN ${permanent}::boolean OR (NOT ${deferred}::boolean AND attempts >= ${ctx.maxAttempts}) THEN 'failed' ELSE status END,
+      next_attempt_at = CASE WHEN ${kind === "timeout"}::boolean THEN next_attempt_at
+        ELSE to_timestamp(${now + (deferred ? DEFER_MS : effectBackoffMs(row.attempts))}::float8 / 1000) END
+    WHERE id = ${row.id} AND status = 'pending' AND attempts = ${row.attempts}
+    RETURNING status`;
+  return outcome?.status === "failed" ? "failed" : "retry";
+}
+
 /** Sends one claimed row and records the outcome for that row only. */
-async function deliver(ctx: DeliveryContext, row: ClaimedRow): Promise<DeliveryOutcome> {
+async function deliver(ctx: DeliveryContext, row: ClaimedRow, timeoutMs: number | undefined): Promise<DeliveryOutcome> {
   const sink = sinkFor(ctx, row);
+  let result: void | "failed" | "deferred";
   try {
     if (!sink) throw new Error("STUDIO_STORE_NO_SINK");
     const delivery: EffectDelivery = {
       id: row.id, tenantId: row.tenant_id, tenantKind: row.tenant_kind!, seq: Number(row.seq), n: row.n, effect: effectOf(row.payload),
     };
-    await sink(detach(delivery));
-  } catch {
+    result = await runSink(sink, delivery, timeoutMs);
+  } catch (error) {
     // Never log the payload or the error: both may hold personal data.
-    // Only the deliverer that holds the latest claim (same `attempts`) decides
-    // what happens next. A row an erasure stopped meanwhile is cancelled, never retried.
-    const now = await ctx.clock();
-    const [outcome] = await ctx.db.$queryRaw<Array<{ status: string }>>`
-      UPDATE tenant_effect SET leased_until = NULL,
-        status = CASE WHEN erased_at IS NOT NULL THEN 'cancelled' WHEN attempts >= ${ctx.maxAttempts} THEN 'failed' ELSE status END,
-        next_attempt_at = to_timestamp(${now + effectBackoffMs(row.attempts)}::float8 / 1000)
-      WHERE id = ${row.id} AND status = 'pending' AND attempts = ${row.attempts}
-      RETURNING status`;
-    return outcome?.status === "failed" ? "failed" : "retry";
+    return recordFailure(ctx, row, error instanceof Error && error.message === TIMEOUT && row.kind === "message" ? "timeout" : "retry");
   }
+  if (result === "failed") return recordFailure(ctx, row, "permanent");
+  if (result === "deferred") return recordFailure(ctx, row, "deferred");
   // The send happened, so it is recorded as delivered whatever happened to the
   // row meanwhile (a lease that ran out, an erasure that tried to cancel it).
   const at = await ctx.clock();
@@ -173,10 +226,13 @@ export async function deliverDue(ctx: DeliveryContext, limit: number): Promise<D
     WHERE status = 'pending' AND erased_at IS NOT NULL
       AND (leased_until IS NULL OR leased_until <= to_timestamp(${now}::float8 / 1000))
       AND (${tenants}::text[] IS NULL OR tenant_id = ANY(${tenants}::text[]))`;
-  for (let claimed = 0; claimed < limit; claimed++) {
+  const started = performance.now();
+  for (let claimed = 0; claimed < limit && (ctx.budgetMs === undefined || performance.now() - started < ctx.budgetMs); claimed++) {
     const row = await claimNext(ctx);
     if (!row) break;
-    const outcome = await deliver(ctx, row);
+    // A send near the end of the budget gets only what is left of it, not a full timeout.
+    const left = ctx.budgetMs === undefined ? undefined : Math.max(1, ctx.budgetMs - (performance.now() - started));
+    const outcome = await deliver(ctx, row, left === undefined ? ctx.sinkTimeoutMs : Math.min(left, ctx.sinkTimeoutMs ?? left));
     if (outcome === "delivered") report.delivered++;
     else if (outcome === "retry") report.retried++;
     else report.failed++;
@@ -217,6 +273,7 @@ export async function drainPendingEffects(options: DrainPendingEffectsOptions): 
     simulatedSinks: options.simulatedSinks ?? SIMULATED_SINKS,
     leaseMs: positive(options.leaseMs, EFFECT_LEASE_MS),
     maxAttempts: positive(options.maxAttempts, EFFECT_MAX_ATTEMPTS),
+    sinkTimeoutMs: EFFECT_SINK_TIMEOUT_MS,
     tenants: options.tenants,
   }, limit);
 }
