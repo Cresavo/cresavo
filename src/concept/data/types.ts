@@ -91,6 +91,21 @@ export interface Service {
   resourceIds?: string[];
   /** Kept in the studio but not offered on the booking page or to customers' assistants. */
   hidden?: boolean;
+  /** Minutes of preparation before the customer arrives; the staff member is busy. Default 0. */
+  bufferBefore?: number;
+  /** Minutes of cleaning up after the customer leaves; the staff member is busy. Default 0. */
+  bufferAfter?: number;
+  /** A wait inside the treatment, such as colour developing: the customer stays but the staff member is free for short work. */
+  processing?: Processing;
+}
+
+/** The timing a visit keeps from its treatment when it is booked, so later edits to the treatment never move it. */
+export type VisitTiming = Pick<Service, "bufferBefore" | "bufferAfter" | "processing">;
+
+/** A gap that starts `after` minutes into a treatment and lasts `duration` minutes. */
+export interface Processing {
+  after: number;
+  duration: number;
 }
 
 export type ResourceKind = "room" | "chair" | "equipment";
@@ -147,7 +162,7 @@ export interface Customer {
 export type BookingStatus = "booked" | "completed" | "cancelled" | "noshow";
 export type BookingSource = "online" | "phone" | "walk-in" | "campaign" | "assistant";
 
-export interface Booking {
+export interface Booking extends VisitTiming {
   protection?: BookingProtection;
   id: string;
   customerId: string;

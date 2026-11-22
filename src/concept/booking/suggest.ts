@@ -1,5 +1,5 @@
 import { addDays } from "../data/dates";
-import { freeStarts, needOf } from "../data/slots";
+import { freeStarts, moveNeed, needOf } from "../data/slots";
 import type { DateKey, DemoState, StaffId } from "../data/types";
 import { earliestBookingStart } from "./policy";
 
@@ -50,7 +50,7 @@ export function openSlots(
   const after = earliestBookingStart(date, clock.today, clock.minutes);
   const byStart = new Map<number, OpenSlot>();
   for (const id of service.staffIds.filter((s) => !opts.staffId || s === opts.staffId)) {
-    for (const start of freeStarts(state, id, date, needOf(service), { after, step: STEP, ignoreId: opts.ignoreId })) {
+    for (const start of freeStarts(state, id, date, moveNeed(state, opts.ignoreId, needOf(service)), { after, step: STEP, ignoreId: opts.ignoreId })) {
       if (!byStart.has(start)) byStart.set(start, { staffId: id, date, start });
     }
   }

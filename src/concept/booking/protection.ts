@@ -46,7 +46,7 @@ export interface BookingProtection {
   };
 }
 
-export interface CheckoutHold extends Pick<Booking, "serviceId" | "staffId" | "date" | "start" | "resourceId" | "duration"> {
+export interface CheckoutHold extends Pick<Booking, "serviceId" | "staffId" | "date" | "start" | "resourceId" | "duration" | "bufferBefore" | "bufferAfter" | "processing"> {
   id: string;
   expiresAt: number;
   terms: BookingTerms;
