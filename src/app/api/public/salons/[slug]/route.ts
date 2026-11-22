@@ -8,7 +8,7 @@ import { waitlistClientKey } from "@/concept/site/waitlist-server";
 export function GET(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   return publicRoute(request, async () => {
     await checkRateLimit("public-read", waitlistClientKey(request.headers));
-    const state = await loadPublicSalon((await params).slug);
-    return state ? publicOk({ state }) : publicError("not_found", 404);
+    const salon = await loadPublicSalon((await params).slug);
+    return salon ? publicOk(salon) : publicError("not_found", 404);
   });
 }

@@ -179,6 +179,10 @@ export interface Booking extends VisitTiming {
   source: BookingSource;
   /** The room or chair the visit uses, picked when it is booked. */
   resourceId?: string;
+  /** The address typed on the public booking page; where this visit's confirmation goes. Erased with the customer. */
+  contactEmail?: string;
+  /** What the public booking page shows the guest as the visit's reference. Random, so it says nothing about the salon's other records. */
+  publicRef?: string;
   note?: string;
   cancelReason?: string;
   /** A fictional sample a new salon starts with; never counts as the salon's own first booking. */

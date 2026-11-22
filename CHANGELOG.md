@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Booking on a salon's own page (off by default).** With `PUBLIC_BOOKING_LIVE=1` and owner accounts on, the details step on `/boka/<slug>` now asks for name, mobile number and e-mail (all required) instead of saying booking opens soon, and `POST /api/public/salons/<slug>/bookings` books the time through the studio's own booking rules: one slot is booked once however many ask at once, a retry with the same `Idempotency-Key` returns the same booking, and the page reloads the free times when the time was just taken. Guests are held to 3 upcoming online bookings per phone number, 28 days ahead, 10 bookings per address per 15 minutes and 60 per salon per hour; a hidden field and a signed form-time token (3 seconds to 2 hours old) turn bots away with one generic answer, the body is capped at 4 KB, and an existing customer's name and e-mail are never overwritten from the public page. The typed e-mail is kept on the booking and erased with the customer. The page books only on the price, length and cancellation terms the guest was shown (checked under the salon's lock), a retry of a booking already made returns its original receipt even if the salon has since changed the treatment, and the receipt carries an opaque reference and appears on the page itself, on the product host and on a business's own address. A treatment that needs a deposit is not bookable here yet, for any guest whether or not the phone number is already a customer's: the page says to call the salon (English and Swedish). International numbers with a trunk zero (+44 (0)7700 …) are one number everywhere, and a form can no longer reach another salon that has taken over its address. The demo and the browser-state booking page are unchanged.
+
 ## [0.6.0] - 2026-11-22
 
 ### Added

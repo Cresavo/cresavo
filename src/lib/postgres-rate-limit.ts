@@ -5,7 +5,7 @@ import { DomainError } from "./errors";
 // Separate, one-connection pool: booking transactions may already own every
 // connection in the domain pool. A rejected booking must still consume a try.
 export const rateLimitDatabase = createDatabaseClient(undefined, 1);
-type Route = "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read";
+type Route = "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read" | "public-booking" | "public-tenant";
 export type Reservation = { key: string; generation: string; count: number };
 
 export async function reserveRateLimit(
@@ -19,7 +19,7 @@ export async function reserveRateLimit(
     .update(`rate-limit:v1:${route}:${identity}`)
     .digest("hex");
   const limit =
-    route === "login" || route === "signup" ? 5 : route === "bookings" ? 30 : route === "agent-api" ? 300 : route === "public-read" ? 120 : 60;
+    route === "login" || route === "signup" ? 5 : route === "bookings" ? 30 : route === "agent-api" ? 300 : route === "public-read" ? 120 : route === "public-booking" ? 10 : 60;
   return rateLimitDatabase.$transaction(async (tx) => {
     // Small bounded preview store. This lock has no domain/session dependencies;
     // it is released before credential verification or booking processing.
@@ -48,7 +48,7 @@ export async function reserveRateLimit(
     }
     const value = {
       generation: active?.generation ?? randomUUID(),
-      expiresAt: active?.expiresAt ?? new Date(now.getTime() + 15 * 60_000),
+      expiresAt: active?.expiresAt ?? new Date(now.getTime() + (route === "public-tenant" ? 60 : 15) * 60_000),
       count: (active?.count ?? 0) + 1,
     };
     await tx.rateLimitBucket.upsert({

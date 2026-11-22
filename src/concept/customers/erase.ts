@@ -1,5 +1,6 @@
 import { normalizePhone } from "../booking/lookup";
-import type { Customer, DemoState } from "../data/types";
+import { normalizeEmail } from "./csv";
+import type { Booking, Customer, DemoState } from "../data/types";
 import { t } from "../i18n";
 import type { LogEntry } from "../log/types";
 
@@ -157,6 +158,12 @@ function scrubLogEntry(entry: LogEntry, id: string, identifiers: readonly string
   return rest;
 }
 
+/** The delivery address of a visit is a field, not free text: it is cleared only where it is exactly one of these addresses (normalized), never by a substring. */
+function withoutAddresses<T extends Pick<Booking, "contactEmail">>(bookings: T[], addresses: ReadonlySet<string>): T[] {
+  if (!bookings.some((b) => b.contactEmail !== undefined && addresses.has(normalizeEmail(b.contactEmail)))) return bookings;
+  return bookings.map((b) => (b.contactEmail !== undefined && addresses.has(normalizeEmail(b.contactEmail)) ? { ...b, contactEmail: undefined } : b));
+}
+
 /**
  * Removes a customer for good: their record and every record of theirs in any
  * list (bookings, journals, sales, reviews, inbox, packages, checkout holds by
@@ -185,10 +192,14 @@ export function eraseCustomer(state: DemoState, id: string): DemoState {
     if (kept.length !== value.length) next[key] = kept;
   }
   const erased = next as unknown as DemoState;
+  // The customer's own visits are gone. Their account address leaves every other visit; an address typed on their visits may belong to someone else, so it stays there.
+  const addresses = new Set([normalizeEmail(customer.email)].filter(Boolean));
+  erased.bookings = withoutAddresses(erased.bookings, addresses);
   erased.customers = state.customers.filter((c) => c.id !== id);
   erased.checkoutHolds = erased.checkoutHolds.filter((hold) => !digits || normalizePhone(hold.guest.phone) !== digits);
-  erased.trash = state.trash.filter((entry) =>
-    entry.kind === "customer" ? entry.customer.id !== id : !bookingIds.has(entry.bookingId));
+  erased.trash = state.trash
+    .filter((entry) => entry.kind === "customer" ? entry.customer.id !== id : !bookingIds.has(entry.bookingId))
+    .map((entry) => entry.kind === "customer" ? { ...entry, bookings: withoutAddresses(entry.bookings, addresses) } : entry);
   erased.log = state.log.map((entry) => scrubLogEntry(entry, id, identifiers, digits));
   const marker = erasedMarker();
   const scrub = (text: string) => scrubText(text, identifiers, marker);

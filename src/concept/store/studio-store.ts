@@ -173,8 +173,15 @@ export const isErasure = (action: DemoAction) => action.type === "customer/erase
 /** Largest page `history` returns. */
 export const HISTORY_MAX_LIMIT = 500;
 
-/** Key-order independent JSON, so the same action always fingerprints the same. */
+/**
+ * Key-order independent JSON, so the same action always fingerprints the same.
+ * The receipt reference of a public booking is minted per request, so it is
+ * left out: a retry of the same intent is the same action.
+ */
 export function actionFingerprint(action: DemoAction): string {
+  if (action.type === "online/book" && action.public) {
+    return canonicalJson({ ...action, public: { ...action.public, publicRef: undefined } });
+  }
   return canonicalJson(action);
 }
 

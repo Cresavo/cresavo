@@ -48,5 +48,5 @@ export default async function BookingLayout({ children, params }: { children: Re
     return boundary(<main className="booking-gutters mx-auto max-w-5xl py-12"><p role="alert">{translate(DEFAULT_BOOKING_LANGUAGE, "booking.unavailable")}</p></main>);
   }
   if (!salon) notFound();
-  return boundary(<ServerSalonProvider state={salon}>{shell}</ServerSalonProvider>);
+  return boundary(<ServerSalonProvider state={salon.state} issuedAt={salon.issuedAt}>{shell}</ServerSalonProvider>);
 }
